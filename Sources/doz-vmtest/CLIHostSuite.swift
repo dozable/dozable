@@ -30,14 +30,33 @@ echo AGENT-DONE
 sleep 600
 """#
 
-/// A FAKE claude: `--continue` without a conversation (no `has-conversation` file in its folder) exits at once, as the
-/// real one does ("No conversation found to continue"); otherwise it says how it was started and waits.
-private let fakeClaude = """
+/// A FAKE claude with the real one's refusals (685 M1): `--session-id` beside `--continue`/`--resume` without
+/// `--fork-session` exits 1 with Claude's message; `--resume X` without `X.jsonl` exits 1 "No conversation found with session
+/// ID"; `--continue` without a conversation (no `has-conversation` file in its folder) exits 1. Otherwise it records which
+/// conversation it holds as Claude does (`<sessions>/<its pid>.json`, unless its folder has `no-pidfile`), writes a
+/// transcript for `--session-id X` (it talked), says how it was started and waits. `@PROJECTS@`/`@SESSIONS@`: the suite's
+/// scratch folders (never `$HOME`).
+private let fakeClaude = #"""
 #!/bin/sh
-case " $* " in *" --continue "*) [ -e has-conversation ] || { echo "No conversation found to continue"; exit 1; } ;; esac
+P='@PROJECTS@'; S='@SESSIONS@'
+sid=""; res=""; cont=""; fork=""; prev=""
+for a in "$@"; do
+  case "$prev" in --session-id) sid="$a" ;; --resume|-r) case "$a" in -*) ;; *) res="$a" ;; esac ;; esac
+  case "$a" in --continue|-c) cont=1 ;; --fork-session) fork=1 ;; --session-id=*) sid="${a#--session-id=}" ;; --resume=*) res="${a#--resume=}" ;; esac
+  prev="$a"
+done
+if [ -n "$sid" ] && { [ -n "$cont" ] || [ -n "$res" ]; } && [ -z "$fork" ]; then
+  echo "Error: --session-id can only be used with --continue or --resume if --fork-session is also specified."; exit 1
+fi
+folder="$P/$(pwd -P | sed 's/[^A-Za-z0-9]/-/g')"
+if [ -n "$res" ] && [ ! -f "$folder/$res.jsonl" ]; then echo "No conversation found with session ID: $res"; exit 1; fi
+if [ -n "$cont" ] && [ ! -e has-conversation ]; then echo "No conversation found to continue"; exit 1; fi
+id="${sid:-$res}"; [ -n "$id" ] || id="$(/usr/bin/uuidgen | tr 'A-Z' 'a-z')"
+if [ ! -e no-pidfile ]; then mkdir -p "$S"; printf '{"pid":%s,"sessionId":"%s","cwd":"%s"}\n' "$$" "$id" "$(pwd -P)" > "$S/$$.json"; fi
+if [ -n "$sid" ]; then mkdir -p "$folder"; [ -f "$folder/$sid.jsonl" ] || echo '{}' > "$folder/$sid.jsonl"; fi
 echo "fake-claude $*"
 exec sleep 600
-"""
+"""#
 
 /// A program that reads its terminal in raw mode and prints how many bytes each read brought (`R:N`) — a send's Enter
 /// must arrive as a read of its own. (Also used by the sandbox suite.)
@@ -60,11 +79,16 @@ func cliHostSuite(binary: String) async {
     // The sessions' PATH, instead of the person's login shell (never run by a test): a scratch bin (a FAKE claude) first.
     let fakeBin = root.appendingPathComponent("bin")
     try? FileManager.default.createDirectory(at: fakeBin, withIntermediateDirectories: true)
-    try? fakeClaude.write(to: fakeBin.appendingPathComponent("claude"), atomically: true, encoding: .utf8)
+    // Claude Code's folders, scratch: its projects (the restart's conversation check reads it) and, beside them, which
+    // process holds which conversation (685 M1: the seam's sibling).
+    let claudeHome = root.appendingPathComponent("claude-home").resolvingSymlinksInPath()
+    let projects = claudeHome.appendingPathComponent("projects")
+    let claudeSessions = claudeHome.appendingPathComponent("sessions")
+    try? FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
+    try? fakeClaude.replacingOccurrences(of: "@PROJECTS@", with: realPath(projects.path)).replacingOccurrences(of: "@SESSIONS@", with: realPath(claudeHome.path) + "/sessions")
+        .write(to: fakeBin.appendingPathComponent("claude"), atomically: true, encoding: .utf8)
     chmod(fakeBin.appendingPathComponent("claude").path, 0o755)
     t.env["DOZ_TEST_MAC_PATH"] = fakeBin.path + ":/usr/bin:/bin:/usr/sbin:/sbin"
-    // Claude Code's projects folder, scratch (the restart's conversation check reads it).
-    let projects = root.appendingPathComponent("claude-projects")
     t.env["DOZ_TEST_CLAUDE_PROJECTS"] = projects.path
     let work = root.appendingPathComponent("work").resolvingSymlinksInPath()
     try? FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
@@ -272,6 +296,8 @@ func cliHostSuite(binary: String) async {
     // appends --continue only when Claude Code has a conversation for the folder, else it starts fresh and says so.
     let cw = work.appendingPathComponent("cl")
     try? FileManager.default.createDirectory(at: cw, withIntermediateDirectories: true)
+    // These rows are the folder rule alone: this claude records no conversation of its own (no pid file).
+    FileManager.default.createFile(atPath: cw.appendingPathComponent("no-pidfile").path, contents: nil)
     r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "cl", "--workdir", cw.path, "--", "claude"], timeout: 60)
     if r.code == 0 { started.insert("cl") }
     check(r.code == 0 && screen("cl", until: "fake-claude").out.contains("fake-claude"), "the fake claude runs on this Mac")
@@ -290,6 +316,90 @@ func cliHostSuite(binary: String) async {
     check(r.code == 0 && re?.resumed == true && re?.command == "claude --continue", "with a conversation: claude --continue (\(re?.command ?? "?"))")
     usleep(1_500_000)
     check(row("cl")?.ended == false && screen("cl", until: "--continue").out.contains("fake-claude --continue"), "…and it runs")
+
+    // 685 M1 — the restart resumes the conversation Claude holds, never --continue beside --session-id.
+    func claudeRun(_ s: String, _ dir: URL, _ argv: [String]) -> CLIRun {
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let r = t.run(["run", "@mac", "-d", "--unfenced", "--session", s, "--workdir", dir.path, "--"] + argv, timeout: 60)
+        if r.code == 0 { started.insert(s) }
+        return r
+    }
+    let U = "0f8fad5b-d9cb-469f-a165-70867728950e"
+    // (a) the admin shape: claude --session-id U --remote-control admin.
+    r = claudeRun("ka", work.appendingPathComponent("ka"), ["claude", "--session-id", U, "--remote-control", "admin"])
+    // (the screen is 80 columns: the line wraps — joined again)
+    check(r.code == 0 && screen("ka", until: "fake-claude").out.replacingOccurrences(of: "\n", with: "").contains("fake-claude --session-id \(U) --remote-control admin"),
+          "a claude --session-id U --remote-control admin session runs")
+    r = t.run(["sessions", "restart", "@mac", "ka", "--yes", "--json"], timeout: 30)
+    re = try? HostWire.decoder.decode(SessionRestarted.self, from: r.outData)
+    check(r.code == 0 && re?.command == "claude --resume \(U) --remote-control admin" && re?.resumedID == U,
+          "restart: claude --resume U --remote-control admin — no --continue beside --session-id (\(re?.command ?? r.err))")
+    check(screen("ka", until: "--resume").out.replacingOccurrences(of: "\n", with: "").contains("fake-claude --resume \(U) --remote-control admin") && row("ka")?.ended == false,
+          "…and it runs (the fake refuses --session-id with --continue, as Claude does)")
+    r = t.run(["sessions", "restart", "@mac", "ka", "--yes", "--json"], timeout: 30)
+    re = try? HostWire.decoder.decode(SessionRestarted.self, from: r.outData)
+    check(r.code == 0 && re?.command == "claude --resume \(U) --remote-control admin", "a second restart: the same conversation again (\(re?.command ?? r.err))")
+    // (a2) an id that never talked (no transcript): opened again by its id — --resume would fail "No conversation found".
+    let U2 = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    let kbDir = work.appendingPathComponent("kb")
+    r = claudeRun("kb", kbDir, ["claude", "--session-id", U2])
+    check(r.code == 0 && screen("kb", until: "fake-claude").out.contains("fake-claude --session-id"), "a claude --session-id U2 session runs")
+    try? FileManager.default.removeItem(atPath: projects.path + "/" + MacPlace.claudeProjectFolderName(realPath(kbDir.path)) + "/\(U2).jsonl")
+    r = t.run(["sessions", "restart", "@mac", "kb", "--yes", "--json"], timeout: 30)
+    re = try? HostWire.decoder.decode(SessionRestarted.self, from: r.outData)
+    check(r.code == 0 && re?.command == "claude --session-id \(U2)" && row("kb")?.ended == false,
+          "no transcript for its id: claude --session-id U2 again, not --resume (\(re?.command ?? r.err))")
+    // (b) started without an id: the id it holds is learned, and a restart resumes IT, not the folder's newest.
+    let kcDir = work.appendingPathComponent("kc")
+    r = claudeRun("kc", kcDir, ["claude"])
+    check(r.code == 0 && screen("kc", until: "fake-claude").out.contains("fake-claude"), "a claude session started without an id")
+    let kcFolder = projects.path + "/" + MacPlace.claudeProjectFolderName(realPath(kcDir.path))
+    let held = row("kc")?.pid.flatMap { MacPlace.claudeHeldSessionID(sessions: claudeSessions.path, pid: $0) }
+    check(held != nil, "…it recorded its conversation (\(held ?? "none"))")
+    if let V = held {
+        // It talked (a transcript), and a newer conversation exists in the folder too.
+        try? FileManager.default.createDirectory(atPath: kcFolder, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: kcFolder + "/\(V).jsonl", contents: Data("{}\n".utf8))
+        usleep(50_000)
+        FileManager.default.createFile(atPath: kcFolder + "/newer-0000.jsonl", contents: Data("{}\n".utf8))
+        FileManager.default.createFile(atPath: kcDir.appendingPathComponent("has-conversation").path, contents: nil)
+        r = t.run(["sessions", "restart", "@mac", "kc", "--yes", "--json"], timeout: 30)
+        re = try? HostWire.decoder.decode(SessionRestarted.self, from: r.outData)
+        check(r.code == 0 && re?.command == "claude --resume \(V)" && re?.resumedID == V,
+              "restart: claude --resume V — its own conversation, not --continue (\(re?.command ?? r.err))")
+        let recs = (try? Data(contentsOf: root.appendingPathComponent("mac-sessions/sessions.json")))
+            .flatMap { try? HostWire.decoder.decode(MacSessionRecords.self, from: $0) }
+        check(recs?.sessions["kc"]?.claudeSessionID == V && recs?.sessions["kc"]?.argv == ["claude"],
+              "the record keeps the argv as opened and the learned id (\(recs?.sessions["kc"]?.claudeSessionID ?? "none"))")
+    }
+    // (c) a restart whose program dies at once: an error with ITS last lines, and its screen replaces an older one.
+    let bmDir = work.appendingPathComponent("bm")
+    try? FileManager.default.createDirectory(at: bmDir, withIntermediateDirectories: true)
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "bm", "--workdir", bmDir.path, "--", "/bin/sh", "-c",
+               "if [ -e boom ]; then echo BOOM-NEW; echo second-line; exit 3; fi; echo OLD-MARK; sleep 600"], timeout: 60)
+    if r.code == 0 { started.insert("bm") }
+    check(r.code == 0 && screen("bm", until: "OLD-MARK").out.contains("OLD-MARK"), "bm says OLD-MARK")
+    check(t.run(["host", "stop"], timeout: 60).code == 0, "host stop (bm's screen, OLD-MARK, is saved)")
+    FileManager.default.createFile(atPath: bmDir.appendingPathComponent("boom").path, contents: nil)
+    r = t.run(["sessions", "restart", "@mac", "bm", "--yes", "-d"], timeout: 30)
+    check(r.code != 0 && r.err.contains("exited at once (exit 3)") && r.err.contains("BOOM-NEW") && r.err.contains("second-line"),
+          "restart: it exited at once — nonzero (\(r.code)), the exit code and its own last lines (\(r.err.split(separator: "\n").first ?? ""))")
+    r = t.run(["sessions", "screen", "@mac", "bm"], timeout: 30)
+    check(r.code == 0 && r.out.contains("BOOM-NEW") && !r.out.contains("OLD-MARK") && r.err.contains("ended (exit 3)"),
+          "sessions screen @mac bm: the new run's last screen, not the old one (\(r.err.trimmingCharacters(in: .whitespacesAndNewlines)))")
+    // (d) a program that ended by itself keeps its last screen — live host, then host-less (read in-process).
+    check(run("ed", ["/bin/sh", "-c", "echo ED-LAST-LINE; sleep 1; exit 4"]).code == 0, "a session that ends by itself (exit 4)")
+    check(t.waitFor(10) { row("ed")?.ended == true }, "…it ended")
+    r = t.run(["sessions", "screen", "@mac", "ed", "--json"], timeout: 30)
+    let edLive = try? HostWire.decoder.decode(SessionLive.self, from: r.outData)
+    check(r.code == 0 && edLive?.live == false && edLive?.reason == "ended" && edLive?.exitCode == 4 && edLive?.text.contains("ED-LAST-LINE") == true,
+          "sessions screen --json: its last screen, reason ended, exit 4 (\(edLive?.reason ?? r.err))")
+    check(t.run(["host", "stop"], timeout: 60).code == 0 && t.waitFor(10) { !t.hostRunning }, "host stop (the last screen is kept as its saved screen)")
+    r = t.run(["sessions", "screen", "@mac", "ed"], timeout: 30)
+    check(r.code == 0 && r.out.contains("ED-LAST-LINE") && r.err.contains("ended (exit 4)") && !t.hostRunning,
+          "no host: sessions screen @mac ed still shows its last screen, and looking started no host")
+    r = t.run(["sessions", "@mac", "--screen", "ed"], timeout: 30)
+    check(r.code == 0 && r.out.contains("ED-LAST-LINE"), "sessions @mac --screen ed: the same")
 
     // A holder killed (as a restart of the Mac would): gone; restart starts it again.
     check(run("gn", ["/bin/sh", "-c", "echo gn-mark; sleep 600"]).code == 0, "a session gn")

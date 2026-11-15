@@ -1341,10 +1341,54 @@ static void on_signal(int sig) {
     errno = e;
 }
 
+#if defined(__APPLE__)
+/* `serve --final` (this Mac): when the program exits, its last screen is kept beside its exit record — NAME.final.vt (a
+ * SNAPSHOT that redraws it) and NAME.final (the DUMP text), each 0600, written BEFORE NAME.exit, so whoever sees the exit
+ * finds them: a restart whose program dies at once shows ITS output, not an older screen. Only on the Mac: the guest's
+ * holder never writes them. */
+static bool g_final = false;
+
+static void final_path(char *out, size_t n, const char *name, const char *ext) {
+    snprintf(out, n, "%s/%s.%s", sock_dir(), name, ext);
+}
+
+/* One file, 0600 from its first byte, whole or not at all (a temporary name, then a rename). */
+static void write_private(const char *path, const uint8_t *p, size_t n) {
+    char tmp[340];
+    if ((size_t)snprintf(tmp, sizeof tmp, "%s.tmp", path) >= sizeof tmp) return;
+    int fd = open(tmp, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0) return;
+    bool ok = write_all(fd, p, n);
+    fchmod(fd, 0600);
+    close(fd);
+    if (!ok || rename(tmp, path) != 0) unlink(tmp);
+}
+
+static void write_final(void) {
+    char p[320];
+    struct client c;
+    memset(&c, 0, sizeof c);
+    c.fd = -1;
+    send_snapshot(&c, "final");             /* one SNAPSHOT frame, into c.out: its payload is the VT */
+    final_path(p, sizeof p, S.name, "final.vt");
+    if (c.out.len >= 5) write_private(p, c.out.p + 5, c.out.len - 5);
+    buf_free(&c.out);
+    struct buf d = {0};
+    dump_screen(&d);                        /* one INFO frame: its payload is the text + the cursor line */
+    final_path(p, sizeof p, S.name, "final");
+    if (d.len >= 5) write_private(p, d.p + 5, d.len - 5);
+    buf_free(&d);
+    logf_("last screen kept (%s.final)", S.name);
+}
+#endif
+
 /* The program is gone: flush what it said, tell the viewers, clean up. */
 static void finish(int status) {
     int code = WIFEXITED(status) ? WEXITSTATUS(status) : 128 + (WIFSIGNALED(status) ? WTERMSIG(status) : 0);
     logf_("program exited, code %d", code);
+#if defined(__APPLE__)
+    if (g_final) write_final();
+#endif
     {
         char ep[300];
         exit_path(ep, sizeof ep, S.name);
@@ -1432,6 +1476,12 @@ static int serve(int argc, char **argv, const char *name, uint16_t cols, uint16_
         char ep[300];
         exit_path(ep, sizeof ep, name);
         unlink(ep);                     /* a new session under an old name starts un-ended */
+#if defined(__APPLE__)
+        final_path(ep, sizeof ep, name, "final");       /* …and with no last screen of the run before */
+        unlink(ep);
+        final_path(ep, sizeof ep, name, "final.vt");
+        unlink(ep);
+#endif
     }
 
     /* Daemonize: the parent returns only once the socket is listening, so a caller can attach
@@ -1836,6 +1886,7 @@ static int usage(void) {
             "usage: deckhold serve -s NAME [-x COLS -y ROWS] [--scrollback BYTES] [-f] -- CMD [ARGS...]\n"
 #if defined(__APPLE__)
             "       deckhold serve … --hold-fd N …  (this Mac) keep socket N for the holder's life; GETFD hands it out\n"
+            "       deckhold serve … --final …      (this Mac) keep the program's last screen: NAME.final, NAME.final.vt\n"
 #endif
             "       deckhold attach -s NAME\n"
             "       deckhold pipe -s NAME       relay stdio ⇄ the session socket verbatim (host transport)\n"
@@ -1892,6 +1943,7 @@ int main(int argc, char **argv) {
             fcntl(h, F_SETFD, FD_CLOEXEC);
             g_hold_fd = h;
         }
+        else if (!strcmp(argv[i], "--final")) g_final = true;
 #endif
         else return usage();
     }

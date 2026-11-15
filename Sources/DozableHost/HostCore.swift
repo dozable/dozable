@@ -101,6 +101,8 @@ public actor HostCore {
     var macDoors: [String: MacFenceDoorSet] = [:]
     /// When each fenced session last put text on the clipboard (this host's memory only — the time, never the text).
     var macLastCopy: [String: Date] = [:]
+    /// 685 M1: when each session on this Mac last had its Claude conversation id read (≤ once a minute on idle).
+    var macLearnedAt: [String: Date] = [:]
     /// The fence's refusals from the system log (`MacFenceDenials`) — one `log stream` while a fenced session lives.
     lazy var macDenials = MacFenceDenials(environment: mac.hostEnvironment)
     /// Names being created right now (so two `create`s cannot race).

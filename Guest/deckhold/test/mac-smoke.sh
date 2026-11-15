@@ -1,7 +1,7 @@
 #!/bin/bash
 # deckhold-mac on this Mac, end to end (make deckhold-mac-check): a session held in a scratch DECKHOLD_DIR — serve,
 # the socket owner-only, ls, a client over `pipe` (HELLO 0x0 + DATA) and the program's answer, dump, two viewers at
-# once, the child's exit recorded (ls shows ended=N), and SIGTERM to the holder hanging up the child. Each check prints
+# once, the child's exit recorded (ls shows ended=N) and its last screen kept (--final), and SIGTERM to the holder hanging up the child. Each check prints
 # PASS/FAIL; `mac-smoke: ALL PASS` last. Nothing outside the scratch folder is touched; every holder it starts is
 # stopped. (A poll across `pmset sleepnow` is checked by hand: see PROVENANCE.md.)
 #
@@ -25,7 +25,7 @@ trap cleanup EXIT
 
 file "$D" | grep -q "Mach-O 64-bit executable arm64"; check $? "a Mach-O arm64 executable ($(file -b "$D" | cut -c1-60))"
 
-"$D" serve -s sh1 -x 80 -y 24 -- /bin/sh >/dev/null 2>&1; check $? "serve -s sh1 -- /bin/sh returns once it listens"
+"$D" serve --final -s sh1 -x 80 -y 24 -- /bin/sh >/dev/null 2>&1; check $? "serve --final -s sh1 -- /bin/sh returns once it listens"
 [ -S "$DIR/sh1.sock" ]; check $? "its socket is in DECKHOLD_DIR"
 [ "$(stat -f %Lp "$DIR/sh1.sock")" = 600 ]; check $? "the socket is owner-only (0600: $(stat -f %Lp "$DIR/sh1.sock"))"
 [ "$(stat -f %Lp "$DIR")" = 700 ]; check $? "its folder is owner-only (0700: $(stat -f %Lp "$DIR"))"
@@ -49,6 +49,12 @@ echo "$OUT" | grep -q "exit=3"; check $? "the program exits: the viewer gets EXI
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ -S "$DIR/sh1.sock" ] || break; sleep 0.2; done
 [ ! -S "$DIR/sh1.sock" ]; check $? "the holder removed its socket"
 "$D" ls | grep -q "^sh1	ended=3"; check $? "ls: sh1 ended=3 ($("$D" ls | grep sh1))"
+# --final: the program's last screen is kept beside its exit (text + VT, owner-only).
+[ -f "$DIR/sh1.final" ] && grep -q "mac-42" "$DIR/sh1.final"; check $? "--final: sh1.final keeps its last screen (mac-42)"
+tail -1 "$DIR/sh1.final" | grep -q "^cursor=.* size=80x24"; check $? "…with the cursor line ($(tail -1 "$DIR/sh1.final"))"
+[ -s "$DIR/sh1.final.vt" ] && grep -q "mac-42" "$DIR/sh1.final.vt"; check $? "…and sh1.final.vt redraws it"
+[ "$(stat -f %Lp "$DIR/sh1.final")" = 600 ] && [ "$(stat -f %Lp "$DIR/sh1.final.vt")" = 600 ]; check $? "both are owner-only (0600)"
+[ ! -e "$DIR/sh1.final.tmp" ] && [ ! -e "$DIR/sh1.final.vt.tmp" ]; check $? "no temporary file left"
 OUT="$(python3 "$CLIENT" "$D" sh1 --until-exit --seconds 5)"
 echo "$OUT" | grep -q "exit=3"; check $? "pipe to an ended session answers its EXIT ($OUT)"
 OUT="$(python3 "$CLIENT" "$D" nosuch --seconds 3)"
@@ -72,6 +78,11 @@ C="$("$D" ls | sed -n 's/^sh3.*pid=\([0-9]*\).*/\1/p')"
 kill -KILL "$C" 2>/dev/null
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ -S "$DIR/sh3.sock" ] || break; sleep 0.2; done
 "$D" ls | grep -q "^sh3	ended="; check $? "a killed program: the holder records its end ($("$D" ls | grep sh3))"
+[ ! -e "$DIR/sh3.final" ]; check $? "without --final: no last screen kept"
+# A new session under an ended one's name starts with no last screen of the run before.
+"$D" serve --final -s sh1 -- /bin/sleep 600 >/dev/null 2>&1
+[ ! -e "$DIR/sh1.final" ] && [ ! -e "$DIR/sh1.final.vt" ]; check $? "serve under sh1's name again: the old sh1.final is gone"
+C1="$("$D" ls | sed -n 's/^sh1.*pid=\([0-9]*\).*/\1/p')"; [ -n "$C1" ] && kill -KILL "$C1" 2>/dev/null
 
 # A fenced session's proxy socket: --hold-fd keeps it for the holder's life, never in the program; GETFD hands it out.
 python3 "$HERE/mac-holdfd.py" "$D" sh4 "$DIR/holdfd.out"; check $? "--hold-fd and GETFD (the lines above)"

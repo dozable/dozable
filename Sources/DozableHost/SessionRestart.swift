@@ -139,6 +139,8 @@ public struct SessionRestarted: Codable, Equatable, Sendable {
     public var command: String
     /// Something the person should know (no conversation to continue; variables not kept; tmux).
     public var notice: String?
+    /// 685 M1 (a session on this Mac): the Claude conversation it resumes (`--resume ID`) or opens again by its id.
+    public var resumedID: String?
     public init(name: String, session: String, ended: String, resumed: Bool, command: String, notice: String? = nil) {
         self.name = name; self.session = session; self.ended = ended; self.resumed = resumed; self.command = command; self.notice = notice
     }

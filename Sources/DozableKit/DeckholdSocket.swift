@@ -15,6 +15,15 @@ public enum DeckholdSocket {
         path.hasSuffix(".sock") ? String(path.dropLast(5)) + ".exit" : path + ".exit"
     }
 
+    /// 685 M1: `NAME.sock` → `NAME.final` — the program's last screen as DUMP text (`…rows…\ncursor=… size=… screen=…`),
+    /// written by a holder on this Mac started with `serve --final`, before `NAME.exit`. Its VT snapshot: `finalVTFile`.
+    public static func finalFile(forSocket path: String) -> String {
+        (path.hasSuffix(".sock") ? String(path.dropLast(5)) : path) + ".final"
+    }
+
+    /// `NAME.sock` → `NAME.final.vt` (the SNAPSHOT bytes that redraw that last screen).
+    public static func finalVTFile(forSocket path: String) -> String { finalFile(forSocket: path) + ".vt" }
+
     /// The exit code an ended session left (`NAME.exit`), or nil.
     public static func recordedExit(socket path: String) -> Int32? {
         guard let s = try? String(contentsOfFile: exitFile(forSocket: path), encoding: .utf8) else { return nil }

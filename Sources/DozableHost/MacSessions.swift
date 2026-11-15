@@ -18,6 +18,11 @@ public struct MacSessionRecord: Codable, Equatable, Sendable {
     public var bypassed: Bool?
     /// It runs FENCED, with these grants (nil: unfenced — every record before fenced sessions keeps its mode).
     public var fence: MacFenceRecord?
+    /// 685 M1: the conversation its Claude Code holds, as last read from Claude's `sessions/<pid>.json` (a lower-case UUID)
+    /// — what a restart resumes when the program no longer runs (`MacPlace.restartArgv`).
+    public var claudeSessionID: String?
+    /// 685 M1: the terminal size it was opened (or last restarted) at.
+    public var size: TermSize?
 }
 
 /// `<store>/mac-sessions/sessions.json` (0600 in a 0700 folder) — fields only ever added. It outlives the holders (a
@@ -337,7 +342,8 @@ public actor MacSessions {
 
     public func open(session: String?, argv given: [String]?, workdir: String?, extra: [String: String]?,
                      size: TermSize, holder: URL, recordedArgv: [String]? = nil,
-                     fence: MacFence? = nil, gitBaseline: MacFenceGitBaseline? = nil, proxy: FenceProxyOpen? = nil) async throws -> Opened {
+                     fence: MacFence? = nil, gitBaseline: MacFenceGitBaseline? = nil, proxy: FenceProxyOpen? = nil,
+                     claudeSessionID: String? = nil) async throws -> Opened {
         guard !readOnly else { throw HostError(.unavailable, "opening a session on this Mac needs the host") }
         let home = hostEnvironment["HOME"].flatMap { $0.hasPrefix("/") ? $0 : nil } ?? NSHomeDirectory()
         let argv = given.flatMap { $0.isEmpty ? nil : $0 }
@@ -384,7 +390,8 @@ public actor MacSessions {
         let cols = size.cols > 0 ? size.cols : 80, rows = size.rows > 0 ? size.rows : 24
         // A fenced session's proxy socket: the holder's fd 3 for its whole life (never the program's).
         let hold = fence != nil ? proxy?.fd : nil
-        let args = [holder.path, "serve"] + (hold != nil ? ["--hold-fd", "3"] : []) + ["-s", name, "-x", String(cols), "-y", String(rows), "--"] + prefix + argv
+        // 685 M1: `--final` — the holder keeps the program's last screen (`NAME.final`, `.final.vt`) when it exits.
+        let args = [holder.path, "serve", "--final"] + (hold != nil ? ["--hold-fd", "3"] : []) + ["-s", name, "-x", String(cols), "-y", String(rows), "--"] + prefix + argv
         let code = try await Self.spawnAndWait(args, environment: env, workdir: fence?.workdir ?? dir, log: log, holdFD: hold)
         guard code == 0 else {
             let tail = ((try? String(contentsOfFile: log, encoding: .utf8)) ?? "").split(separator: "\n").suffix(3).joined(separator: " | ")
@@ -393,10 +400,12 @@ public actor MacSessions {
         var pid: Int?
         if case .info(let line) = await DeckholdSocket.query(path: socket(name)) { pid = SessionInfo.parseList(line).first?.pid }
         let bypassed = MacPlace.bypassesPermissions(argv)
-        // A restart records the argv it was OPENED with (what it appended to resume is not kept).
+        // A restart records the argv it was OPENED with (what it appended to resume is not kept) — and keeps the
+        // conversation id it learned (the program it resumed holds the same one until it says otherwise).
         record(name, MacSessionRecord(argv: recordedArgv ?? argv, workdir: fence?.workdir ?? dir, environmentKeys: (extra ?? [:]).keys.sorted().nilIfEmpty,
                                       openedAt: Date(), holderVersion: nil, holderSHA256: Self.sha256(holder), pid: pid,
-                                      bypassed: bypassed ? true : nil, fence: fenceRecord))
+                                      bypassed: bypassed ? true : nil, fence: fenceRecord, claudeSessionID: claudeSessionID,
+                                      size: TermSize(cols: cols, rows: rows)))
         return Opened(session: name, created: true, bypassed: bypassed, pid: pid, pathSource: loginPath?.source)
     }
 
@@ -519,9 +528,10 @@ public actor MacSessions {
         }
         record(s, nil)
         unlink(DeckholdSocket.exitFile(forSocket: socket(s)))
+        unlink(DeckholdSocket.finalFile(forSocket: socket(s)))
+        unlink(DeckholdSocket.finalVTFile(forSocket: socket(s)))
         unlink(folder.appendingPathComponent("\(s).log").path)
-        let keep = Set(SavedScreens.list(directory: screens).map(\.session)).subtracting([s])
-        SavedScreens.remove(directory: screens, keeping: keep)
+        removeSavedScreen(s)
     }
 
     // MARK: saved screens
@@ -531,8 +541,60 @@ public actor MacSessions {
 
     public nonisolated func savedScreen(_ s: String) -> SavedScreen? { SavedScreens.read(directory: screens, session: s) }
 
+    /// The reason a saved screen of an ENDED program carries (685 M1): its holder's last screen, kept.
+    public static let exitScreenReason = "exit"
+
+    /// 685 M1: the last screen session `s`'s holder left when its program exited (`NAME.final`, `NAME.final.vt` in the
+    /// socket folder — a holder started with `--final`). Read only — nothing is written. nil: none (still running, an
+    /// older holder, or already kept as its saved screen).
+    public nonisolated func finalScreen(_ s: String) -> SavedScreen? {
+        guard MacPlace.folderProblem(directory) == nil else { return nil }
+        func read(_ p: String, _ maximum: Int) -> (Data, Date)? {
+            var st = stat()
+            guard lstat(p, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG, st.st_uid == getuid(), st.st_size <= off_t(maximum),
+                  let d = FileManager.default.contents(atPath: p) else { return nil }
+            return (d, Date(timeIntervalSince1970: TimeInterval(st.st_mtimespec.tv_sec)))
+        }
+        let sock = socket(s)
+        guard let (dump, at) = read(DeckholdSocket.finalFile(forSocket: sock), 1 << 20) else { return nil }
+        let vt = read(DeckholdSocket.finalVTFile(forSocket: sock), 4 * SavedScreens.maximumVTBytes)?.0 ?? Data()
+        let d = SavedScreens.parseDump(String(decoding: dump, as: UTF8.self))
+        let (capped, truncated) = SavedScreens.cappedVT(vt)
+        let info = SavedScreenInfo(session: s, savedAt: at, reason: Self.exitScreenReason, cols: d.cols, rows: d.rows, screen: d.screen,
+                                   command: records().sessions[s]?.argv.joined(separator: " ") ?? "", vtBytes: capped.count, truncated: truncated)
+        return SavedScreen(info: info, vt: capped, text: d.text)
+    }
+
+    /// An ended session's last screen: its holder's `.final` while it is there, else the one kept from it (reason
+    /// `exit`) — never an older screen saved while it ran (that would show a run that is over as its end).
+    public nonisolated func endedScreen(_ s: String) -> SavedScreen? {
+        if let f = finalScreen(s) { return f }
+        if let saved = savedScreen(s), saved.info.reason == Self.exitScreenReason { return saved }
+        return nil
+    }
+
+    /// The holder's `.final` becomes the session's saved screen (reason `exit`, replacing any older one) and is removed.
+    /// Returns it (nil: there was none).
+    @discardableResult
+    public func keepFinalScreen(_ s: String) -> SavedScreen? {
+        guard !readOnly, let f = finalScreen(s) else { return nil }
+        ensureStoreFolder()
+        guard (try? SavedScreens.write(directory: screens, info: f.info, vt: f.vt, text: f.text)) != nil else { return f }
+        unlink(DeckholdSocket.finalFile(forSocket: socket(s)))
+        unlink(DeckholdSocket.finalVTFile(forSocket: socket(s)))
+        return f
+    }
+
+    /// Remove session `s`'s saved screen (a restart that came up: the screen of the run before is not its screen).
+    public func removeSavedScreen(_ s: String) {
+        guard !readOnly else { return }
+        let keep = Set(SavedScreens.list(directory: screens).map(\.session)).subtracting([s])
+        SavedScreens.remove(directory: screens, keeping: keep)
+    }
+
     /// Save each live session's screen (with `changedOnly`, only those that wrote since their last one) — a momentary
-    /// attach (HELLO 0×0, DUMP) that disturbs nothing. A session that ended has none (removed); a gone one keeps its last.
+    /// attach (HELLO 0×0, DUMP) that disturbs nothing. A session that ended keeps its LAST screen (685 M1: its holder's
+    /// `.final`, kept as reason `exit`); an older screen of it is removed; a gone one keeps its last.
     @discardableResult
     public func captureScreens(changedOnly: Bool, reason: String) async -> ScreenCaptureReport {
         var report = ScreenCaptureReport()
@@ -540,9 +602,11 @@ public actor MacSessions {
         let t0 = ContinuousClock.now
         let l = await DeckholdSocket.list(directory: directory)
         report.listed = l.sessions
-        let saved = Dictionary(SavedScreens.list(directory: screens).map { ($0.session, $0) }, uniquingKeysWith: { a, _ in a })
         let ended = Set(l.sessions.filter(\.isEnded).map(\.name))
-        report.removed = SavedScreens.remove(directory: screens, keeping: Set(saved.keys).subtracting(ended))
+        for s in ended { keepFinalScreen(s) }
+        let saved = Dictionary(SavedScreens.list(directory: screens).map { ($0.session, $0) }, uniquingKeysWith: { a, _ in a })
+        let endedStale = ended.filter { saved[$0]?.reason != Self.exitScreenReason }
+        report.removed = SavedScreens.remove(directory: screens, keeping: Set(saved.keys).subtracting(endedStale))
         ensureStoreFolder()
         for s in l.sessions.filter({ !$0.isEnded }).prefix(SavedScreens.maximumSessions) {
             if changedOnly, let i = saved[s.name], i.bytesOut == s.bytesOut { report.unchanged.append(s.name); continue }

@@ -28,7 +28,8 @@ import Foundation
 public struct SavedScreenInfo: Codable, Sendable, Equatable {
     public var session: String
     public var savedAt: Date
-    /// Why it was taken: `pause`, `sleep`, `hibernate` or `periodic`.
+    /// Why it was taken: `pause`, `sleep`, `hibernate` or `periodic` — or (685 M1, sessions on this Mac only) `exit`: the
+    /// last screen of a program that ended, kept from its holder's `NAME.final`.
     public var reason: String
     /// The sandbox's phase when it was taken (always `running`: only a running guest can answer).
     public var phase: String

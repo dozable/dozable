@@ -295,7 +295,9 @@ struct SessionsScreen: AsyncParsableCommand {
         if g.json { Out.json(s); return }
         if !s.live {
             let when = s.savedAt.map { " saved \(Out.ago($0))" } ?? ""
-            Out.stderr(s.reason == "gone"
+            Out.stderr(s.reason == "ended"
+                ? "\(session) on this Mac ended (exit \(s.exitCode.map(String.init) ?? "?")) — this is its last screen, not live (doz sessions restart @mac \(session) starts it again)\n"
+                : s.reason == "gone"
                 ? "\(session) on this Mac is gone — this is its screen\(when), not live (doz sessions restart @mac \(session) starts it again)\n"
                 : s.reason == "unresponsive"
                 ? "\(name) does not answer — this is the screen\(when), not live\n"

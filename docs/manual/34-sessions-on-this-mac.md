@@ -354,9 +354,19 @@ for as long as it is listed. Fenced, the fence still holds; unfenced, such an ag
   network waits for a host: its connections are served when one runs again.
 - **Logout and restart: gone.** Logging out or restarting the Mac ends every program, sessions on the Mac included.
   Afterwards `doz sessions @mac` lists them as **gone**; `doz sessions screen @mac NAME` shows the screen saved last,
-  and `doz sessions restart @mac NAME` starts the same program again in the same folder. Claude Code continues the
-  folder's newest conversation (`--continue`) unless you pass `--fresh`. The variables you gave with `-e` are not
-  kept (they might be secrets): give them again with a new `doz run`.
+  and `doz sessions restart @mac NAME` starts the same program again in the same folder. The variables you gave with
+  `-e` are not kept (they might be secrets): give them again with a new `doz run`.
+- **Claude Code comes back on its own conversation.** Dozable notes which conversation a Claude Code session holds
+  (from Claude's own record of it, nothing else of its folder) and a restart resumes exactly that one: a session
+  started as `claude --session-id ID --remote-control admin` restarts as `claude --resume ID --remote-control admin` —
+  the same conversation, and with it the same Remote Control session. A session that never talked is opened again with
+  its `--session-id`; with nothing known, Claude continues the folder's newest conversation (`--continue`), or starts
+  a new one when the folder has none. `--fresh` starts a new conversation.
+- **A restart that fails says why.** When the program dies at once (within two seconds), `doz sessions restart`
+  fails with "exited at once (exit N)" and the program's own last lines, and `doz sessions screen @mac NAME` shows
+  that run's screen — never an older one.
+- **A program that ended keeps its last screen.** `doz sessions screen @mac NAME` of an ended session shows what it
+  left on its screen, and says "ended (exit N)" — until you end (forget) or restart it.
 - **A restart keeps the session's mode.** A fenced session restarts fenced, with the same grants and its folder made
   again; one opened unfenced — every session opened before fenced became the default included — restarts unfenced.
 - `doz sessions end @mac NAME` ends a program (hang-up, then terminate, then kill; fenced, every process of its fence,

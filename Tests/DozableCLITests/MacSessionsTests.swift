@@ -149,6 +149,137 @@ final class MacPlaceTests: XCTestCase {
         XCTAssertEqual(MacPlace.resumeArguments(["sh"], fresh: false), [])
     }
 
+    // MARK: 685 M1 — the restart's argv
+
+    static let U = "0f8fad5b-d9cb-469f-a165-70867728950e"
+    static let V = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    /// The table: what a restart opens for each argv (`has`: the transcript exists; `conv`: the folder has a conversation).
+    func testRestartArgv_table() {
+        let U = Self.U, V = Self.V
+        struct Row { var argv: [String]; var fresh = false; var known: String? = nil; var has: Set<String> = []; var conv = false
+                     var want: [String]; var how: MacPlace.RestartResume; var line: UInt = #line }
+        let rows: [Row] = [
+            // --session-id, both forms, with and without a transcript; its place kept.
+            Row(argv: ["claude", "--session-id", U, "--remote-control", "admin"], has: [U], want: ["claude", "--resume", U, "--remote-control", "admin"], how: .resume(U)),
+            Row(argv: ["claude", "--session-id=\(U)", "--remote-control", "admin"], has: [U], want: ["claude", "--resume", U, "--remote-control", "admin"], how: .resume(U)),
+            Row(argv: ["claude", "--session-id", U], conv: true, want: ["claude", "--session-id", U], how: .sessionID(U)),
+            Row(argv: ["claude", "--model", "opus", "--session-id", U.uppercased()], has: [U], want: ["claude", "--model", "opus", "--resume", U], how: .resume(U)),
+            // --resume: a value, -r, --resume=, a bare picker (taken out), no transcript.
+            Row(argv: ["claude", "--resume", U], has: [U], want: ["claude", "--resume", U], how: .resume(U)),
+            Row(argv: ["claude", "-r", U, "--verbose"], has: [U], want: ["claude", "--resume", U, "--verbose"], how: .resume(U)),
+            Row(argv: ["claude", "--resume=\(U)"], has: [U], want: ["claude", "--resume", U], how: .resume(U)),
+            Row(argv: ["claude", "--resume"], conv: true, want: ["claude", "--continue"], how: .continued),
+            Row(argv: ["claude", "-r", "--verbose"], want: ["claude", "--verbose"], how: .none),
+            Row(argv: ["claude", "--resume", U], want: ["claude", "--session-id", U], how: .sessionID(U)),
+            // --fork-session goes (each restart would fork again), with --resume or --session-id.
+            Row(argv: ["claude", "--resume", U, "--fork-session"], has: [U], want: ["claude", "--resume", U], how: .resume(U)),
+            Row(argv: ["claude", "--fork-session", "--session-id", U], has: [U], want: ["claude", "--resume", U], how: .resume(U)),
+            // A value is never read as a flag: -n -c is a name; --name x; --remote-control keeps its value.
+            Row(argv: ["claude", "-n", "-c"], conv: true, want: ["claude", "-n", "-c", "--continue"], how: .continued),
+            Row(argv: ["claude", "--name", "x", "-c"], conv: true, want: ["claude", "--name", "x", "--continue"], how: .continued),
+            Row(argv: ["claude", "--remote-control", "admin", "--session-id", U], has: [U], want: ["claude", "--remote-control", "admin", "--resume", U], how: .resume(U)),
+            Row(argv: ["claude", "--remote-control", "--session-id", U], has: [U], want: ["claude", "--remote-control", "--resume", U], how: .resume(U)),
+            // Today's rule when nothing is known: --continue with a conversation, else nothing.
+            Row(argv: ["claude"], conv: true, want: ["claude", "--continue"], how: .continued),
+            Row(argv: ["claude"], want: ["claude"], how: .none),
+            Row(argv: ["claude", "--continue"], want: ["claude"], how: .none),
+            Row(argv: ["claude", "-c", "--verbose"], conv: true, want: ["claude", "--continue", "--verbose"], how: .continued),
+            // --fresh: everything taken out, nothing added (a --session-id too: Claude refuses an id in use).
+            Row(argv: ["claude", "--session-id", U, "--remote-control", "admin"], fresh: true, known: V, has: [U, V], conv: true,
+                want: ["claude", "--remote-control", "admin"], how: .none),
+            // A known id (what it holds, or the learned one) comes first.
+            Row(argv: ["claude", "--session-id", U], known: V, has: [U, V], want: ["claude", "--resume", V], how: .resume(V)),
+            Row(argv: ["claude"], known: V, has: [V], conv: true, want: ["claude", "--resume", V], how: .resume(V)),
+            // An id that is not a UUID is ignored (never passed on, never trusted).
+            Row(argv: ["claude", "--resume", "my-chat"], known: "nope", conv: true, want: ["claude", "--continue"], how: .continued),
+            Row(argv: ["claude", "--session-id", "x;rm -rf /"], want: ["claude"], how: .none),
+            // After `--` nothing is touched; what is put back goes before it.
+            Row(argv: ["claude", "--session-id", U, "--", "-c"], has: [U], want: ["claude", "--resume", U, "--", "-c"], how: .resume(U)),
+            Row(argv: ["claude", "--", "--continue"], conv: true, want: ["claude", "--continue", "--", "--continue"], how: .continued),
+            // Not Claude Code: as it is.
+            Row(argv: ["sh", "--session-id", U, "-c", "x"], known: V, has: [U, V], conv: true, want: ["sh", "--session-id", U, "-c", "x"], how: .none),
+            Row(argv: ["/opt/homebrew/bin/claude", "--session-id", U], has: [U], want: ["/opt/homebrew/bin/claude", "--resume", U], how: .resume(U)),
+        ]
+        for r in rows {
+            let got = MacPlace.restartArgv(r.argv, fresh: r.fresh, knownID: r.known, transcriptExists: { r.has.contains($0) }, hasConversation: r.conv)
+            XCTAssertEqual(got.argv, r.want, "\(r.argv)", line: r.line)
+            XCTAssertEqual(got.how, r.how, "\(r.argv)", line: r.line)
+        }
+    }
+
+    /// The invariant, over generated argvs: never --continue beside --session-id (Claude refuses it and exits at once —
+    /// the bug seen on a real Mac), never two conversation choices, never a bare --resume picker, never --fork-session.
+    func testRestartArgv_neverContinueBesideSessionID() {
+        let words = ["--session-id", Self.U, "--session-id=\(Self.V)", "--continue", "-c", "--resume", "-r", "--resume=\(Self.U)", "--fork-session",
+                     "-n", "--name", "x", "--remote-control", "admin", "--model", "opus", "--verbose", "-p", "hi", Self.V, "--"]
+        var rng = SystemRandomNumberGenerator()
+        for _ in 0..<4000 {
+            let argv = ["claude"] + (0..<Int.random(in: 0...7, using: &rng)).map { _ in words.randomElement(using: &rng)! }
+            let fresh = Bool.random(using: &rng), conv = Bool.random(using: &rng)
+            let known: String? = [nil, Self.U, Self.V, "junk"].randomElement(using: &rng)!
+            let has = Bool.random(using: &rng)
+            let got = MacPlace.restartArgv(argv, fresh: fresh, knownID: known, transcriptExists: { _ in has }, hasConversation: conv).argv
+            // Only the part before `--` is Claude's flags.
+            let flags = Array(got.prefix(upTo: got.firstIndex(of: "--") ?? got.count))
+            // Values of value-taking flags are not flags.
+            var real: [String] = []
+            var resumeAt: [Int] = []
+            var i = 1
+            while i < flags.count {
+                let a = flags[i]
+                real.append(a)
+                if a == "--resume" { resumeAt.append(i) }
+                if ["--session-id", "--name", "-n", "--model"].contains(a), i + 1 < flags.count { i += 2; continue }
+                if ["--resume", "-r", "--remote-control"].contains(a), i + 1 < flags.count, !flags[i + 1].hasPrefix("-") { i += 2; continue }
+                i += 1
+            }
+            let choices = real.filter { ["--session-id", "--continue", "-c", "--resume", "-r"].contains($0) || $0.hasPrefix("--session-id=") || $0.hasPrefix("--resume=") }
+            XCTAssertLessThanOrEqual(choices.count, 1, "\(argv) → \(got)")
+            XCTAssertFalse(real.contains("--fork-session"), "\(argv) → \(got)")
+            if real.contains("--session-id") { XCTAssertFalse(real.contains("--continue") || real.contains("-c"), "\(argv) → \(got)") }
+            for at in resumeAt {
+                XCTAssertTrue(at + 1 < flags.count && UUID(uuidString: flags[at + 1]) != nil, "a --resume always names its id: \(argv) → \(got)")
+            }
+            if fresh { XCTAssertTrue(choices.isEmpty, "fresh adds nothing: \(argv) → \(got)") }
+        }
+    }
+
+    /// Claude's `sessions/<pid>.json`: a UUID sessionId (lower-cased); malformed, missing, not a UUID, a link → none.
+    func testClaudeHeldSessionID_thePidFile() throws {
+        let dir = root.appendingPathComponent("claude/sessions").path
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        func put(_ pid: Int, _ s: String) { FileManager.default.createFile(atPath: dir + "/\(pid).json", contents: Data(s.utf8)) }
+        put(101, #"{"pid":101,"sessionId":"\#(Self.U)","cwd":"/x","startedAt":1}"#)
+        XCTAssertEqual(MacPlace.claudeHeldSessionID(sessions: dir, pid: 101), Self.U)
+        put(102, #"{"sessionId":"\#(Self.V.uppercased())"}"#)
+        XCTAssertEqual(MacPlace.claudeHeldSessionID(sessions: dir, pid: 102), Self.V, "upper-case: lower-cased")
+        put(103, "{not json")
+        XCTAssertNil(MacPlace.claudeHeldSessionID(sessions: dir, pid: 103), "malformed")
+        put(104, #"{"sessionId":"../../etc"}"#)
+        XCTAssertNil(MacPlace.claudeHeldSessionID(sessions: dir, pid: 104), "not a UUID")
+        put(105, #"{"sessionId":42}"#)
+        XCTAssertNil(MacPlace.claudeHeldSessionID(sessions: dir, pid: 105))
+        XCTAssertNil(MacPlace.claudeHeldSessionID(sessions: dir, pid: 106), "no file")
+        XCTAssertNil(MacPlace.claudeHeldSessionID(sessions: dir, pid: 0))
+        try FileManager.default.createSymbolicLink(atPath: dir + "/107.json", withDestinationPath: dir + "/101.json")
+        XCTAssertNil(MacPlace.claudeHeldSessionID(sessions: dir, pid: 107), "a link is refused")
+        // Where it is looked for: beside the projects folder; the seam only in a guarded run.
+        XCTAssertEqual(MacPlace.claudeSessions(["DOZ_TEST_GUARD": "1", "DOZ_TEST_CLAUDE_PROJECTS": "/s/home/projects", "HOME": "/h"]), "/s/home/sessions")
+        XCTAssertEqual(MacPlace.claudeSessions(["DOZ_TEST_REAL_MAC": "1", "DOZ_TEST_CLAUDE_PROJECTS": "/s/p", "HOME": "/h"]), "/h/.claude/sessions")
+        XCTAssertEqual(MacPlace.claudeSessions(["DOZ_TEST_REAL_MAC": "1", "CLAUDE_CONFIG_DIR": "/c", "HOME": "/h"]), "/c/sessions")
+        // The transcript check: <projects>/<folder>/<id>.jsonl, a regular file.
+        let projects = root.appendingPathComponent("claude/projects").path
+        let work = root.appendingPathComponent("w").path
+        try FileManager.default.createDirectory(atPath: work, withIntermediateDirectories: true)
+        let folder = projects + "/" + MacPlace.claudeProjectFolderName(realpath(work, nil).map { p in defer { free(p) }; return String(cString: p) } ?? work)
+        try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        XCTAssertFalse(MacPlace.claudeTranscriptExists(id: Self.U, workdir: work, projects: projects))
+        FileManager.default.createFile(atPath: folder + "/\(Self.U).jsonl", contents: Data("{}\n".utf8))
+        XCTAssertTrue(MacPlace.claudeTranscriptExists(id: Self.U, workdir: work, projects: projects))
+        XCTAssertFalse(MacPlace.claudeTranscriptExists(id: "../x", workdir: work, projects: projects))
+    }
+
     /// Every host operation that is not a session operation refuses @mac, with the one message.
     func testEveryOtherOperationIsRefused() async throws {
         let core = HostCore(store: DozableStore(root: root.appendingPathComponent("store")), readOnly: false, version: "test",

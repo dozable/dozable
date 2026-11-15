@@ -18,7 +18,8 @@ extension HostCore {
             return try JSONValue(encoding: try await macLive(r))
         case .sessionScreen:
             let s = try macSession(r, "doz sessions @mac --screen SESSION")
-            guard let saved = mac.savedScreen(s) else {
+            // 685 M1: an ended program's last screen (its holder's .final) before anything saved while it ran.
+            guard let saved = mac.finalScreen(s) ?? mac.savedScreen(s) else {
                 throw HostError(.notFound, "no saved screen of \(s) on this Mac — screens are saved every few minutes while it runs, and when the host stops")
             }
             return try JSONValue(encoding: SessionScreen(name: MacPlace.name, saved))
@@ -455,7 +456,8 @@ extension HostCore {
     /// program starts, then the holder with sandbox-exec in front of the program; then the watch, followed by a full
     /// check (so a change made before the watch began is dealt with too — the order adoption uses), off the start's path.
     func macOpenFenced(_ r: HostRequest, request: MacFenceRequest, holder: URL, name: String, argv: [String]?, workdir: String?,
-                       recordedArgv: [String]?, previous: MacFenceRecord?, size: TermSize, extra: [String: String]?) async throws -> (MacSessions.Opened, MacFence, [String]) {
+                       recordedArgv: [String]?, previous: MacFenceRecord?, size: TermSize, extra: [String: String]?,
+                       claudeSessionID: String? = nil) async throws -> (MacSessions.Opened, MacFence, [String]) {
         guard let wd = workdir else { throw HostError(.invalid, "a fenced session needs its folder (--workdir DIR; doz run sends the folder you are in)") }
         let t0 = ContinuousClock.now
         let settings = DozableSettings.load()
@@ -522,7 +524,8 @@ extension HostCore {
         do {
             o = try await mac.open(session: name, argv: launch, workdir: f.workdir, extra: extra, size: size, holder: holder,
                                    recordedArgv: recordedArgv ?? argv, fence: f, gitBaseline: baseline,
-                                   proxy: .init(fd: lfd, password: password, secretSHA256: secret, policy: policy, ca: ca != nil))
+                                   proxy: .init(fd: lfd, password: password, secretSHA256: secret, policy: policy, ca: ca != nil),
+                                   claudeSessionID: claudeSessionID)
         } catch {
             close(lfd)
             dropFenceProxy(name)
@@ -634,6 +637,7 @@ extension HostCore {
             metrics?.record(run: metricsRun, action: "mac session open", sandbox: MacPlace.name, image: "", startedAt: Date(), durationMs: 0,
                             detail: ["session": o.session, "bypassed": o.bypassed ? "yes" : "no", "fenced": "yes"])
             await watchStatus(MacPlace.name, session: o.session)
+            if o.created { macScheduleLearn(o.session) }
             var s = SessionOpened(name: MacPlace.name, session: o.session, created: o.created)
             s.bypassed = o.bypassed ? true : nil
             s.fenced = true
@@ -650,6 +654,7 @@ extension HostCore {
                             detail: ["session": o.session, "bypassed": o.bypassed ? "yes" : "no"])
         }
         await watchStatus(MacPlace.name, session: o.session)
+        if o.created { macScheduleLearn(o.session) }
         var s = SessionOpened(name: MacPlace.name, session: o.session, created: o.created)
         s.bypassed = o.bypassed ? true : nil
         return s
@@ -669,8 +674,22 @@ extension HostCore {
             out.status = statuses[MacPlace.name]?[s]
             return out
         }
-        // Its holder is gone (not ended): the screen saved last, said so.
         let state = await mac.state(s)
+        // 685 M1: its program ended — the last screen it left (read where it lies; a look writes nothing).
+        if case .ended(let code) = state {
+            guard let last = mac.endedScreen(s) else {
+                throw HostError(.notFound, "the session \(s) on this Mac has ended (exit \(code.map(String.init) ?? "?")) — no last screen "
+                                + "(it was started by an older doz) — doz sessions restart @mac \(s) starts it again")
+            }
+            var out = SessionLive(sandbox: MacPlace.name, session: s, live: false, text: last.text, cols: last.info.cols, rows: last.info.rows,
+                                  cursorX: nil, cursorY: nil, screen: last.info.screen)
+            out.savedAt = last.info.savedAt
+            out.reason = "ended"
+            out.exitCode = code
+            out.status = statuses[MacPlace.name]?[s]
+            return out
+        }
+        // Its holder is gone (not ended): the screen saved last, said so.
         if state == .stale || state == .noSession, let saved = mac.savedScreen(s) {
             var out = SessionLive(sandbox: MacPlace.name, session: s, live: false, text: saved.text, cols: saved.info.cols, rows: saved.info.rows,
                                   cursorX: nil, cursorY: nil, screen: saved.info.screen)
@@ -740,6 +759,8 @@ extension HostCore {
         if let f = fence, f.stoppedForGit != nil {
             MacFenceStop.resume(sentinel: f.sentinel, anti: f.antiSentinel, program: mac.records().sessions[s]?.pid.map { pid_t($0) }, also: f.stoppedPids ?? [])
         }
+        // 685 M1: the conversation it holds, recorded before it ends (a restart later resumes it).
+        await macLearnClaudeID(s)
         let how = try await mac.end(s)
         // Whatever of the fence outlived its program (a detached child) ends with it: nothing would watch it any more.
         // Its proxy ends too (its holder, gone, closed its copy of the socket; this host closes its own).
@@ -788,21 +809,42 @@ extension HostCore {
         defer { sessionGate.unlock(MacPlace.name) }
         var size = TermSize(cols: r.cols ?? 0, rows: r.rows ?? 0)
         if case .info(let line) = await mac.state(s), let was = SessionInfo.parseList(line).first?.size, r.cols == nil { size = was }
+        // 685 M1: the conversation its Claude Code holds NOW — read before its program ends (and recorded).
+        let held = await macLearnClaudeID(s)
         let how = try await mac.end(s)
         if how == .stuck { throw HostError(.failed, "session \(s) on this Mac did not end, even after SIGKILL") }
-        var resume = MacPlace.resumeArguments(rec.argv, fresh: r.fresh == true)
+        return try await macReopen(s, rec: mac.records().sessions[s] ?? rec, holder: holder, fresh: r.fresh == true, size: size,
+                                   knownID: held, ended: how.rawValue, request: r)
+    }
+
+    /// 685 M1: open session `s` again from its record — the restart's second half (the program has ended). Claude Code
+    /// resumes ITS conversation (`MacPlace.restartArgv`: the id it held, else the record's learned one, else its argv's;
+    /// never `--continue` beside `--session-id`). Then a 2 s window: a program that dies at once is an ERROR that says
+    /// "exited at once (exit N)" with its own last lines, and its last screen becomes the session's saved screen; one
+    /// that comes up loses the screen of the run before.
+    func macReopen(_ s: String, rec: MacSessionRecord, holder: URL, fresh: Bool, size: TermSize, knownID: String?, ended: String,
+                   request r: HostRequest) async throws -> SessionRestarted {
         var notes: [String] = []
         // 683: its conversations so far go back to the person's own first (a private agent folder keeps them too).
         if let t = await macCarryBack(s) { notes.append(t) }
-        // claude --continue with no conversation in the folder exits at once — and the session with it: start fresh.
-        // 683: a fenced session with its own (private) config folder continues from THAT folder's conversations.
-        let projects = rec.fence?.agentConfig == MacAgentConfig.privateMode ? (rec.fence!.sessionFolder + "/agent/projects") : MacPlace.claudeProjects(mac.hostEnvironment)
-        if !resume.isEmpty, !MacPlace.claudeHasConversation(workdir: rec.workdir, projects: projects) {
-            resume = []
+        // 683: a fenced session with its own (private) config folder resumes from THAT folder's conversations.
+        let folders = macClaudeFolders(rec)
+        let claude = MacPlace.isClaude(rec.argv)
+        let (argv, how) = MacPlace.restartArgv(rec.argv, fresh: fresh, knownID: knownID ?? rec.claudeSessionID,
+                                               transcriptExists: { MacPlace.claudeTranscriptExists(id: $0, workdir: rec.workdir, projects: folders.projects) },
+                                               hasConversation: claude && MacPlace.claudeHasConversation(workdir: rec.workdir, projects: folders.projects))
+        // claude --continue with no conversation in the folder exits at once — and the session with it: it starts fresh.
+        if claude, !fresh, how == .none {
             notes.append("no earlier conversation in \(DisplayPath.tilde(rec.workdir)) — claude starts a new one")
         }
         if let keys = rec.environmentKeys, !keys.isEmpty {
             notes.append("the variables it was opened with (\(keys.joined(separator: ", "))) are not kept — it runs without them")
+        }
+        // The id the new program holds from its start (a resumed or re-opened id); else it learns its own.
+        let carried: String?
+        switch how {
+        case .resume(let id), .sessionID(let id): carried = id
+        case .continued, .none: carried = nil
         }
         let openSize = TermSize(cols: size.cols > 0 ? size.cols : 80, rows: size.rows > 0 ? size.rows : 24)
         let o: MacSessions.Opened
@@ -810,18 +852,109 @@ extension HostCore {
             // The same grants, this build's template, a new tag; the session's folder re-seeded.
             dropFenceWatch(s)
             for p in MacFenceStop.members(sentinel: f.sentinel, anti: f.antiSentinel, program: nil).pids { kill(p, SIGKILL) }
-            o = try await macOpenFenced(r, request: f.request, holder: holder, name: s, argv: rec.argv + resume, workdir: rec.workdir,
-                                        recordedArgv: rec.argv, previous: f, size: openSize, extra: nil).0
+            o = try await macOpenFenced(r, request: f.request, holder: holder, name: s, argv: argv, workdir: rec.workdir,
+                                        recordedArgv: rec.argv, previous: f, size: openSize, extra: nil, claudeSessionID: carried).0
         } else {
-            o = try await mac.open(session: s, argv: Self.macPromptArgv(rec.argv + resume, workdir: rec.workdir), workdir: rec.workdir, extra: nil, size: openSize,
-                                   holder: holder, recordedArgv: rec.argv)
+            o = try await mac.open(session: s, argv: Self.macPromptArgv(argv, workdir: rec.workdir), workdir: rec.workdir, extra: nil, size: openSize,
+                                   holder: holder, recordedArgv: rec.argv, claudeSessionID: carried)
         }
         await watchStatus(MacPlace.name, session: s)
-        note(MacPlace.name, "session \(s) on this Mac restarted" + (resume.isEmpty ? "" : " — claude continues the folder's newest conversation"))
-        var out = SessionRestarted(name: MacPlace.name, session: s, ended: how.rawValue, resumed: !resume.isEmpty,
-                                   command: (rec.argv + resume).joined(separator: " "), notice: notes.isEmpty ? nil : notes.joined(separator: "; "))
+        if o.created {
+            if let code = await macExitedAtOnce(s) {
+                // Its OWN last screen, kept as the session's (replacing an older one) — `sessions screen` shows it.
+                let last = await mac.keepFinalScreen(s) ?? mac.endedScreen(s)
+                let lines = last.map { Self.lastLines($0.text) } ?? []
+                let exit = code.map { "exit \($0)" } ?? "exit code unknown"
+                note(MacPlace.name, "session \(s) on this Mac exited at once after its restart (\(exit))")
+                metrics?.record(run: metricsRun, action: "mac session restart failed", sandbox: MacPlace.name, image: "", startedAt: Date(), durationMs: 0,
+                                detail: ["session": s, "exit": code.map(String.init) ?? "?"])
+                throw HostError(.failed, "session \(s) on this Mac exited at once (\(exit)) — "
+                                + (lines.isEmpty ? (last == nil ? "no last screen was kept" : "it printed nothing")
+                                                 : "its last lines:\n" + lines.map { "  " + $0 }.joined(separator: "\n"))
+                                + "\n(doz sessions screen @mac \(s) shows its last screen; the command was: \(argv.joined(separator: " ")))")
+            }
+            // It came up: the screen of the run before is not its screen.
+            await mac.removeSavedScreen(s)
+            macScheduleLearn(s)
+        }
+        let what: String
+        switch how {
+        case .resume(let id): what = " — claude resumes its conversation \(id)"
+        case .sessionID(let id): what = " — claude opens its conversation \(id) again"
+        case .continued: what = " — claude continues the folder's newest conversation"
+        case .none: what = ""
+        }
+        note(MacPlace.name, "session \(s) on this Mac restarted" + what)
+        var out = SessionRestarted(name: MacPlace.name, session: s, ended: ended, resumed: how != .none,
+                                   command: argv.joined(separator: " "), notice: notes.isEmpty ? nil : notes.joined(separator: "; "))
+        out.resumedID = carried
         if !o.created { out.notice = (out.notice.map { $0 + "; " } ?? "") + "it was already running again" }
         return out
+    }
+
+    /// The last `n` non-empty rows of a screen's text.
+    static func lastLines(_ text: String, _ n: Int = 5) -> [String] {
+        Array(text.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.suffix(n))
+    }
+
+    /// 685 M1: a session just (re)opened, watched for `seconds` (QUERY every 100 ms): its exit code (`.some(nil)`: it
+    /// ended, the code unknown) when its program ended in that window, else nil.
+    func macExitedAtOnce(_ s: String, within seconds: Double = 2) async -> Int32?? {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            switch await mac.state(s) {
+            case .ended(let code): return .some(code)
+            case .noSession: return .some(nil)
+            case .info, .stale: break
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return nil
+    }
+
+    // MARK: 685 M1 — the conversation a Claude Code session holds
+
+    /// Where session `rec`'s Claude Code keeps its conversations and which process holds which: a PRIVATE fenced
+    /// session's own agent folder, else this Mac's (`CLAUDE_CONFIG_DIR`, else ~/.claude — guarded runs: the seams).
+    func macClaudeFolders(_ rec: MacSessionRecord) -> (projects: String, sessions: String) {
+        if let f = rec.fence, f.agentConfig == MacAgentConfig.privateMode {
+            return (f.sessionFolder + "/agent/projects", f.sessionFolder + "/agent/sessions")
+        }
+        return (MacPlace.claudeProjects(mac.hostEnvironment), MacPlace.claudeSessions(mac.hostEnvironment))
+    }
+
+    /// Read (and record) the conversation session `s`'s Claude Code holds now — from `<sessions>/<pid>.json`, nothing else
+    /// of Claude's folder. Called 10 s after an open, when it turns idle (at most once a minute) and just before a
+    /// restart or end. nil: not Claude Code, not running, or it says none.
+    @discardableResult
+    func macLearnClaudeID(_ s: String) async -> String? {
+        guard !readOnly, let rec = mac.records().sessions[s], MacPlace.isClaude(rec.argv),
+              case .info(let line) = await mac.state(s), let pid = SessionInfo.parseList(line).first?.pid,
+              let id = MacPlace.claudeHeldSessionID(sessions: macClaudeFolders(rec).sessions, pid: pid) else { return nil }
+        macLearnedAt[s] = Date()
+        if rec.claudeSessionID != id {
+            await mac.updateRecord(s) { $0.claudeSessionID = id }
+            HostLog.line("\(MacPlace.name): session \(s): its Claude conversation is \(id)")
+        }
+        return id
+    }
+
+    /// Learn a Claude Code session's conversation `seconds` after it opened (it writes its record once it starts).
+    func macScheduleLearn(_ s: String, after seconds: Double = 10) {
+        guard !readOnly, let rec = mac.records().sessions[s], MacPlace.isClaude(rec.argv) else { return }
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            await self?.macLearnClaudeID(s)
+        }
+    }
+
+    /// A session on this Mac turned idle after working: its conversation may have changed (`/clear`, `/resume`) — read
+    /// again, at most once a minute.
+    func macStatusChanged(_ s: String, from old: ProgramStatus.State?, to new: ProgramStatus.State?) {
+        guard old == .working, new == .idle, Date().timeIntervalSince(macLearnedAt[s] ?? .distantPast) >= 60 else { return }
+        macLearnedAt[s] = Date()
+        Task { await self.macLearnClaudeID(s) }
     }
 }
 

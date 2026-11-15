@@ -74,7 +74,7 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   the descriptor closed ONCE by the reader after the writer let go. A socket that is gone answers as `deckhold pipe`:
   EXIT from `NAME.exit`, else NOSESSION.
 - **Records** (`<store>/mac-sessions/sessions.json`, 0600): argv, workdir, environment NAMES, openedAt, holder sha256,
-  pid, `bypassed`. A host start ADOPTS (`MacSessions.adopt`): a live socket is watched (statuses, `session-status`
+  pid, `bypassed`, `fence`, `claudeSessionID` (the learned conversation), `size` — fields only ever added. A host start ADOPTS (`MacSessions.adopt`): a live socket is watched (statuses, `session-status`
   events under the place name `@mac`); a socket nothing answers is unlinked (only our own socket, in our folder); a
   record with no socket is ended (its `.exit`) or **gone** (rebooted, holder killed). Looking reads the folder
   in-process — no host.
@@ -82,12 +82,34 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   login shell once (a guarded run never runs it: `DOZ_TEST_MAC_PATH`, else path_helper's list); `-e` refuses only
   `CLAUDECODE` / `CLAUDE_CODE_*`. `DOZ_TTY` in a session is deckhold's own.
 - **End** is HUP → TERM → KILL of the program's group (the pid its holder names, still that group). **Restart** opens
-  again from the record; `claude` without `--fresh` gets `--continue` (the record keeps the argv as opened).
+  again from the record (it keeps the argv as opened) — `HostCore.macRestart`, then `macReopen`. For `claude`
+  (685 M1) the argv is rewritten by the pure `MacPlace.restartArgv` (`MacPlaceTests`' table and its generated-argv
+  invariant: **never `--continue` beside `--session-id`** — Claude refuses it and exits at once, the bug seen on a real
+  Mac): every conversation choice is taken out (`--session-id`, `--continue`/`-c`, `--resume [X]`/`-r`/`--resume=`, a bare
+  picker, `--fork-session`; a value is never read as a flag) and ONE is put back where the first was — the id Claude
+  holds NOW (`<claude config>/sessions/<pid>.json`, read before the program ends), else the record's learned
+  `claudeSessionID`, else the argv's `--session-id`/`--resume` id: `--resume ID` when `<projects>/<folder>/ID.jsonl`
+  exists, else `--session-id ID` (it never talked); no id → `--continue` when the folder has a conversation, else
+  nothing (said). `--fresh` adds nothing. A private fenced session reads its own `agent/sessions` and `agent/projects`.
+  **The learned id**: `macLearnClaudeID` reads ONLY `<sessions>/<pid>.json` (a regular file, no link, ≤ 64 KiB, a UUID
+  `sessionId`, lower-cased — `MacPlace.claudeHeldSessionID`) 10 s after an open, when the session turns idle after
+  working (≤ once a minute: `/clear`, `/resume` move it) and before a restart or end; guarded runs read the sibling of
+  `DOZ_TEST_CLAUDE_PROJECTS` (`MacPlace.claudeSessions`). **Exited at once**: after a reopen the host polls QUERY every
+  100 ms for 2 s; a program that ended in that window is an ERROR — "session S on this Mac exited at once (exit N) — its
+  last lines: …" (the last 5 non-empty rows) — and its last screen becomes the session's saved screen; one that comes
+  up has the screen of the run before removed. `make test-cli-host` (the fake claude carries Claude's real refusals).
 - **Bypass**: allowed only when the session's own argv asks (`MacPlace.bypassesPermissions`), recorded and marked; never
   added.
 - **Bridges** (unfenced): OSC 52 as for any session; the open-URL and workspace-file markers are dropped (`HostCore.bridge`) — a fenced session's are below.
 - **Saved screens** in `<store>/mac-sessions/screens` (`SavedScreens`' directory variants): the periodic capture and a
-  host stop; an ended session has none; a gone one keeps its last — what `screen` shows, said "gone".
+  host stop; a gone one keeps its last — what `screen` shows, said "gone". **An ended one keeps its LAST screen**
+  (685 M1): the holder runs with `serve --final` (deckhold.c, `__APPLE__` only — the guest's bytes are unchanged,
+  `make deckhold-verify`) and, after its last read of the program's output, writes `NAME.final.vt` (a SNAPSHOT) and
+  `NAME.final` (the DUMP text), 0600, in the socket folder, BEFORE `NAME.exit`; a new holder under the name removes
+  them. The capture turns them into the saved screen (reason `exit`, `MacSessions.keepFinalScreen`) and drops an older
+  screen of an ended session; `session-live`/`session-screen` of an ended session answer that last screen (`reason:
+  "ended"`, `exitCode`) — a host-less look reads `NAME.final` where it lies, writing nothing (`endedScreen`); `forget`
+  removes them. An older holder writes none: "no last screen (it was started by an older doz)".
 - **The dashboard**: the This Mac page and All sessions' section, its own routes and `serve.mac_sessions` — web.md,
   "This Mac".
 - **Host stop / uninstall / nuke**: stop says how many keep running (`HostStopResult.macSessions`); uninstall asks

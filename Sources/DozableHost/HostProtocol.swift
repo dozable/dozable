@@ -1232,6 +1232,8 @@ public struct SessionLive: Codable, Equatable, Sendable {
     public var reason: String?
     /// It was woken first (`--wake`).
     public var woke: Bool?
+    /// 685 M1: `reason` `ended` (a session on this Mac whose program exited): its exit code, when it is known.
+    public var exitCode: Int32?
 }
 
 /// `session-wait`'s answer: the state reached, or `timedOut` (the CLI exits 124).
