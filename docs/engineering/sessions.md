@@ -81,6 +81,12 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
 - **The environment is an allowlist** (`MacSessionsEnvironment.build`), never the host's passed on; `PATH` from the
   login shell once (a guarded run never runs it: `DOZ_TEST_MAC_PATH`, else path_helper's list); `-e` refuses only
   `CLAUDECODE` / `CLAUDE_CODE_*`. `DOZ_TTY` in a session is deckhold's own.
+- **`doz run`'s exit code** (687): the client returns the code of the ended notice (`ClientWire.Ending.exited`). A
+  program that ended BEFORE the attach (`sh -c 'exit 3'`) used to be refused by `attachMac` (not running → exit 2, the
+  code lost); now `attachMac` answers an `.ended(code)` session as a sandbox's pipe answers one — attached, its last
+  screen (`endedScreen`'s VT), then the ended notice with its code. A signal death is the holder's 128+N; a detach 0;
+  `-d` returns at start. A sandbox's `doz run` already had this (deckhold's pipe answers EXIT). `make test-cli-host`,
+  `make test-cli-fence` (the 687 rows).
 - **End** is HUP → TERM → KILL of the program's group (the pid its holder names, still that group). **Restart** opens
   again from the record (it keeps the argv as opened) — `HostCore.macRestart`, then `macReopen`. For `claude`
   (685 M1) the argv is rewritten by the pure `MacPlace.restartArgv` (`MacPlaceTests`' table and its generated-argv

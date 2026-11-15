@@ -254,6 +254,23 @@ func cliHostSuite(binary: String) async {
         c.type("\u{1D}\u{1D}")
         check(c.exited(within: 8) == 0, "…and detaches")
     } catch { check(false, "pty: \(error)") }
+    // 687: a foreground `doz run` returns its program's exit code — a program that exits at once (before the attach:
+    // it used to be refused, exit 2), one that exits later, a signal death (128+N); a detach is 0 (above) and so is -d.
+    for (s, cmd, want, what) in [("x0", "exit 0", Int32(0), "exits 0 at once"), ("x3", "exit 3", 3, "exits 3 at once"),
+                                 ("x3l", "echo x3l-said; sleep 1; exit 3", 3, "exits 3 a second later"),
+                                 ("xk", "sleep 1; kill -KILL $$", 137, "is killed (SIGKILL)")] {
+        do {
+            let c = try PTYClient(t, ["run", "@mac", "--unfenced", "--session", s, "--workdir", work.path, "--", "/bin/sh", "-c", cmd])
+            started.insert(s)
+            defer { c.close() }
+            let got = c.exited(within: 20)
+            check(got == want, "run @mac (attached), a program that \(what): doz run exits \(want) (\(got.map(String.init) ?? "still running"))")
+            if s == "x3l" { check(c.text.contains("x3l-said") && c.text.contains("has ended (exit 3)"), "…its output, then the end with its code") }
+        } catch { check(false, "pty: \(error)") }
+    }
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "xd", "--workdir", work.path, "--", "/bin/sh", "-c", "sleep 1; exit 3"], timeout: 60)
+    if r.code == 0 { started.insert("xd") }
+    check(r.code == 0, "run @mac -d: returns 0 once it started, whatever the program does later (\(r.code))")
     r = t.run(["attach", "@mac", "nope"], timeout: 30)
     check(r.code == 2 && r.err.contains("no session nope on this Mac"), "attach to a session that is not there: exit 2 (\(r.code))")
     let ls = t.run(["ls"]).out

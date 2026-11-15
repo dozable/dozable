@@ -65,7 +65,9 @@ doz run @mac --dry-run -- claude                   # what it would be able to do
 - `--workdir` is the project folder. Fenced, the default is **the folder you are in**, and your home itself, `/`, a
   folder that holds your home, or Dozable's own folders are refused (a fenced session must have a project folder).
   Unfenced, the default is your home.
-- `-d` starts it and returns; without `-d`, `doz run` attaches to it, as for a sandbox.
+- `-d` starts it and returns (exit 0 once it started); without `-d`, `doz run` attaches to it, as for a sandbox, and
+  **exits with the program's exit code** when the program ends — also when it ends at once, before the attach (it
+  shows the program's last screen first); 128 + N for a program killed by signal N; 0 when you detach.
 - There is no `--user`: a session on the Mac runs as you.
 - The program starts without a shell in front of it; say `-- zsh -lc '…'` for one.
 
