@@ -118,13 +118,138 @@ public enum MacPlace {
         argv.first.map { ($0 as NSString).lastPathComponent == "claude" } ?? false
     }
 
-    /// What a restart appends: `claude` continues the folder's newest conversation (`--continue`) unless `fresh`, or its
-    /// argv already names one.
+    /// What a restart appends when nothing more is known (no id, a conversation in the folder) — `restartArgv`'s answer
+    /// as the extra arguments (kept for its callers and tests): `claude` continues the folder's newest conversation
+    /// (`--continue`) unless `fresh`, or its argv already names one.
     public static func resumeArguments(_ argv: [String], fresh: Bool) -> [String] {
         guard !fresh, isClaude(argv) else { return [] }
         let names = ["--continue", "-c", "--resume", "-r"]
         if argv.dropFirst().contains(where: { a in names.contains(a) || a.hasPrefix("--resume=") }) { return [] }
         return ["--continue"]
+    }
+
+    /// How a restart resumes Claude Code (`restartArgv`'s second answer).
+    public enum RestartResume: Equatable, Sendable {
+        /// `--resume ID`: the conversation has a transcript.
+        case resume(String)
+        /// `--session-id ID` again: the id is known but it never talked (`--resume` would fail "No conversation found").
+        case sessionID(String)
+        /// `--continue`: no id known, the folder has a conversation.
+        case continued
+        /// Nothing added: `--fresh`, no id and no conversation in the folder, or not Claude Code.
+        case none
+    }
+
+    /// Claude Code's flags that take a value — the value is never read as a flag (`-n -c` is a name, not `--continue`).
+    static let claudeValueFlags: Set<String> = ["--session-id", "--name", "-n", "--model", "--append-system-prompt", "--system-prompt",
+                                                "--permission-mode", "--settings", "--agent"]
+    /// …and the ones whose value is optional (taken only when the next word is not a flag).
+    static let claudeOptionalValueFlags: Set<String> = ["--resume", "-r", "--remote-control"]
+
+    /// A Claude Code session id as Dozable uses one: an RFC 4122 UUID, lower-cased (nil: not one).
+    public static func claudeSessionID(_ s: String?) -> String? {
+        guard let s, s.count == 36, UUID(uuidString: s) != nil else { return nil }
+        return s.lowercased()
+    }
+
+    /// 685 M1 — the argv a restart of `argv` opens (pure; `MacPlaceTests`). Only for `claude`; any other program is
+    /// returned as it is. First every conversation choice in the argv is taken out — `--session-id X`/`=X`, `--continue`/`-c`,
+    /// `--resume X`/`-r X`/`--resume=X`, a bare `--resume`/`-r` (a picker: it would wait for a person), `--fork-session`
+    /// (each restart would fork again) — then ONE is put back, where the first one was (else at the end):
+    /// the id to resume is `knownID` (what Claude holds now, else the record's learned one), else the argv's
+    /// `--session-id X`, else its `--resume X`; with a transcript (`transcriptExists`) → `--resume ID`; without one →
+    /// `--session-id ID` (it never talked); no id → `--continue` when the folder `hasConversation`, else nothing.
+    /// `fresh` adds nothing (a `--session-id` is dropped too: Claude refuses an id in use).
+    /// INVARIANT (tested over generated argvs): the answer never carries `--continue` beside `--session-id`.
+    public static func restartArgv(_ argv: [String], fresh: Bool, knownID: String?, transcriptExists: (String) -> Bool,
+                                   hasConversation: Bool) -> (argv: [String], how: RestartResume) {
+        guard isClaude(argv) else { return (argv, .none) }
+        var kept: [String] = [argv[0]]
+        var insertAt: Int?
+        var argSessionID: String?, argResumeID: String?
+        var i = 1
+        func strip() { if insertAt == nil { insertAt = kept.count } }
+        while i < argv.count {
+            let a = argv[i]
+            if a == "--" { kept.append(contentsOf: argv[i...]); break }
+            let next: String? = i + 1 < argv.count ? argv[i + 1] : nil
+            switch a {
+            case "--session-id":
+                strip()
+                if let n = next { argSessionID = argSessionID ?? claudeSessionID(n); i += 2 } else { i += 1 }
+                continue
+            case "--continue", "-c", "--fork-session":
+                strip(); i += 1; continue
+            case "--resume", "-r":
+                strip()
+                if let n = next, !n.hasPrefix("-") { argResumeID = argResumeID ?? claudeSessionID(n); i += 2 } else { i += 1 }
+                continue
+            default:
+                break
+            }
+            if a.hasPrefix("--session-id=") {
+                strip(); argSessionID = argSessionID ?? claudeSessionID(String(a.dropFirst("--session-id=".count))); i += 1; continue
+            }
+            if a.hasPrefix("--resume=") {
+                strip(); argResumeID = argResumeID ?? claudeSessionID(String(a.dropFirst("--resume=".count))); i += 1; continue
+            }
+            kept.append(a)
+            if claudeValueFlags.contains(a), let n = next { kept.append(n); i += 2; continue }
+            if claudeOptionalValueFlags.contains(a), let n = next, !n.hasPrefix("-") { kept.append(n); i += 2; continue }
+            i += 1
+        }
+        if fresh { return (kept, .none) }
+        let id = claudeSessionID(knownID) ?? argSessionID ?? argResumeID
+        let add: [String]
+        let how: RestartResume
+        if let id {
+            if transcriptExists(id) { add = ["--resume", id]; how = .resume(id) } else { add = ["--session-id", id]; how = .sessionID(id) }
+        } else if hasConversation {
+            add = ["--continue"]; how = .continued
+        } else {
+            return (kept, .none)
+        }
+        let at = min(insertAt ?? kept.count, kept.count)
+        // A `--` ends the flags: what is put back goes before it.
+        let dash = kept.firstIndex(of: "--") ?? kept.count
+        kept.insert(contentsOf: add, at: min(at, dash))
+        return (kept, how)
+    }
+
+    /// Where this Mac's Claude Code records which process holds which conversation: `$CLAUDE_CONFIG_DIR/sessions`, else
+    /// `~/.claude/sessions` (`<pid>.json`, its `sessionId`) — the sibling of `claudeProjects`.
+    /// TEST SEAM (guarded runs only): beside `DOZ_TEST_CLAUDE_PROJECTS` (its folder's `sessions`).
+    public static func claudeSessions(_ env: [String: String]) -> String {
+        if TestSafety.guarded(env), let p = env["DOZ_TEST_CLAUDE_PROJECTS"], p.hasPrefix("/") {
+            return (p as NSString).deletingLastPathComponent + "/sessions"
+        }
+        return (claudeProjects(env) as NSString).deletingLastPathComponent + "/sessions"
+    }
+
+    /// The conversation a Claude Code process holds, from its `<sessions>/<pid>.json` (nil: none, not a regular file of
+    /// at most 64 KiB — a link is refused —, not JSON, or no UUID `sessionId`). Internal to Claude Code: read defensively.
+    public static func claudeHeldSessionID(sessions: String, pid: Int) -> String? {
+        // The folder resolved (`/tmp` is `/private/tmp`); the file itself is opened with no link anywhere in its path.
+        let dir = MacFencePaths.resolve(sessions) ?? sessions
+        guard pid > 0, let d = try? MacFenceHostFS.readRegular(dir + "/\(pid).json", maximum: 64 << 10) else { return nil }
+        return claudeHeldSessionID(json: d)
+    }
+
+    static func claudeHeldSessionID(json d: Data) -> String? {
+        guard let o = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return nil }
+        return claudeSessionID(o["sessionId"] as? String)
+    }
+
+    /// Conversation `id` has a transcript in `workdir`'s projects folder (as given, or resolved).
+    public static func claudeTranscriptExists(id: String, workdir: String, projects: String) -> Bool {
+        guard claudeSessionID(id) != nil else { return false }
+        var dirs = [workdir]
+        if let r = realpath(workdir, nil) { dirs.append(String(cString: r)); free(r) }
+        for d in Set(dirs) {
+            var st = stat()
+            if lstat(projects + "/" + claudeProjectFolderName(d) + "/" + id.lowercased() + ".jsonl", &st) == 0, (st.st_mode & S_IFMT) == S_IFREG { return true }
+        }
+        return false
     }
 
     /// Claude Code keeps a folder's conversations in `<projects>/<the folder, every character but A-Z a-z 0-9 a '-'>/*.jsonl`.

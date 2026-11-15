@@ -65,7 +65,9 @@ doz run @mac --dry-run -- claude                   # what it would be able to do
 - `--workdir` is the project folder. Fenced, the default is **the folder you are in**, and your home itself, `/`, a
   folder that holds your home, or Dozable's own folders are refused (a fenced session must have a project folder).
   Unfenced, the default is your home.
-- `-d` starts it and returns; without `-d`, `doz run` attaches to it, as for a sandbox.
+- `-d` starts it and returns (exit 0 once it started); without `-d`, `doz run` attaches to it, as for a sandbox, and
+  **exits with the program's exit code** when the program ends — also when it ends at once, before the attach (it
+  shows the program's last screen first); 128 + N for a program killed by signal N; 0 when you detach.
 - There is no `--user`: a session on the Mac runs as you.
 - The program starts without a shell in front of it; say `-- zsh -lc '…'` for one.
 
@@ -190,9 +192,22 @@ doz net log @mac --session agent --fence        # the fence's own refusals: file
 
 Changes apply to its next connection. Name lookups (DNS) are closed inside the fence — the proxy looks names up;
 `localhost` still works. A program that ignores the proxy settings gets no network at all, rather than a direct one.
-`--local-port N` is the one way to listen: the program may listen on and connect to `localhost:N` only, so your
+`--local-port N` is the way to listen: the program may listen on and connect to `localhost:N` only, so your
 browser and tests reach its dev server there. `doz net log … --fence` shows the fence's refusals so far; it does not
 follow new ones (`--follow` works for connections).
+
+**Listening on any port** (a test server on a free port, a tool that picks its own): the setting
+`mac.fence_loopback_listen` (`off` by default) lets a fenced session listen on any TCP port from its next start or
+restart — your browser and other programs on this Mac reach it, another fenced session does not (it has only its
+proxy), and UDP stays closed. Two limits come from macOS's sandbox and are said in the session's capabilities: it
+cannot keep such a server to this Mac's loopback — one that listens on every address is reachable from your network
+too (your firewall decides) — and the program still cannot connect to its own server from inside, because its only
+way out is Dozable's proxy. When a test must reach its own server, give that port with `--local-port N`. The same
+macOS limit holds for a `--local-port N` server that listens on every address.
+
+```bash
+doz config set mac.fence_loopback_listen on     # from the next session or restart
+```
 
 Under `locked`, macOS's certificate service is closed too, so tools that check certificates through it (Go programs,
 `gh`) cannot reach anything; under `standard` it is open (it fetches revocation lists on the program's behalf).
@@ -354,9 +369,19 @@ for as long as it is listed. Fenced, the fence still holds; unfenced, such an ag
   network waits for a host: its connections are served when one runs again.
 - **Logout and restart: gone.** Logging out or restarting the Mac ends every program, sessions on the Mac included.
   Afterwards `doz sessions @mac` lists them as **gone**; `doz sessions screen @mac NAME` shows the screen saved last,
-  and `doz sessions restart @mac NAME` starts the same program again in the same folder. Claude Code continues the
-  folder's newest conversation (`--continue`) unless you pass `--fresh`. The variables you gave with `-e` are not
-  kept (they might be secrets): give them again with a new `doz run`.
+  and `doz sessions restart @mac NAME` starts the same program again in the same folder. The variables you gave with
+  `-e` are not kept (they might be secrets): give them again with a new `doz run`.
+- **Claude Code comes back on its own conversation.** Dozable notes which conversation a Claude Code session holds
+  (from Claude's own record of it, nothing else of its folder) and a restart resumes exactly that one: a session
+  started as `claude --session-id ID --remote-control admin` restarts as `claude --resume ID --remote-control admin` —
+  the same conversation, and with it the same Remote Control session. A session that never talked is opened again with
+  its `--session-id`; with nothing known, Claude continues the folder's newest conversation (`--continue`), or starts
+  a new one when the folder has none. `--fresh` starts a new conversation.
+- **A restart that fails says why.** When the program dies at once (within two seconds), `doz sessions restart`
+  fails with "exited at once (exit N)" and the program's own last lines, and `doz sessions screen @mac NAME` shows
+  that run's screen — never an older one.
+- **A program that ended keeps its last screen.** `doz sessions screen @mac NAME` of an ended session shows what it
+  left on its screen, and says "ended (exit N)" — until you end (forget) or restart it.
 - **A restart keeps the session's mode.** A fenced session restarts fenced, with the same grants and its folder made
   again; one opened unfenced — every session opened before fenced became the default included — restarts unfenced.
 - `doz sessions end @mac NAME` ends a program (hang-up, then terminate, then kill; fenced, every process of its fence,

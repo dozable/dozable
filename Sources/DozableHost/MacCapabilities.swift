@@ -43,6 +43,8 @@ public struct MacCapabilityShape: Sendable, Equatable {
     public var profile = MacFence.profileKind
     public var github: String? = nil
     public var sshAgent = false
+    /// 687: it may listen on any port (`mac.fence_loopback_listen`).
+    public var loopbackListen = false
     public init(session: String, workdir: String, fenced: Bool) {
         self.session = session
         self.workdir = workdir
@@ -72,6 +74,7 @@ public struct MacCapabilityShape: Sendable, Equatable {
         profile = f.profile
         github = f.github
         sshAgent = f.sshAgent == true
+        loopbackListen = f.loopbackListen == true
     }
 
     /// The session a `doz run @mac` WOULD open — `--dry-run`, and the dashboard's New session wizard — from its fence
@@ -92,6 +95,7 @@ public struct MacCapabilityShape: Sendable, Equatable {
         s.profile = q.profile
         s.github = q.github
         s.sshAgent = q.sshAgent == true
+        s.loopbackListen = settings.string(SettingKey.macFenceLoopbackListen) == "on"
         if let program = argv.first, let r = AgentRecipes.macAgent(program: program), let m = r.launch.macConfig {
             s.agent = r.title
             s.agentConfig = MacAgentConfig.resolveMode(flag: q.agentConfig, recipe: r, settings: settings).0
@@ -154,6 +158,12 @@ extension MacFence {
             out.append(c("network", "Network", "through Dozable's proxy (\(preset))" + ports + wait,
                          "Reaches only what its permissions allow; every connection is logged; never this Mac's own addresses.",
                          live: true, link: "doz net log @mac --session \(s.session)"))
+        }
+        // 687: listening on any port (`mac.fence_loopback_listen` on) — said only when it may; never outbound.
+        if s.loopbackListen {
+            out.append(c("listen", "Listening", "any port",
+                         "May listen on this Mac's loopback (any port): your browser and other programs here reach it. macOS cannot keep it to the loopback — a server it opens on every address is reachable from your network too. It cannot connect to its own server from inside (--local-port N for that).",
+                         link: "doz config set mac.fence_loopback_listen off"))
         }
         if let a = s.agent {
             let home = s.personHome.map { DisplayPath.tilde($0) } ?? "its usual folder"

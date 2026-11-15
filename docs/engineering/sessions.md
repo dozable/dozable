@@ -74,20 +74,48 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   the descriptor closed ONCE by the reader after the writer let go. A socket that is gone answers as `deckhold pipe`:
   EXIT from `NAME.exit`, else NOSESSION.
 - **Records** (`<store>/mac-sessions/sessions.json`, 0600): argv, workdir, environment NAMES, openedAt, holder sha256,
-  pid, `bypassed`. A host start ADOPTS (`MacSessions.adopt`): a live socket is watched (statuses, `session-status`
+  pid, `bypassed`, `fence`, `claudeSessionID` (the learned conversation), `size` — fields only ever added. A host start ADOPTS (`MacSessions.adopt`): a live socket is watched (statuses, `session-status`
   events under the place name `@mac`); a socket nothing answers is unlinked (only our own socket, in our folder); a
   record with no socket is ended (its `.exit`) or **gone** (rebooted, holder killed). Looking reads the folder
   in-process — no host.
 - **The environment is an allowlist** (`MacSessionsEnvironment.build`), never the host's passed on; `PATH` from the
   login shell once (a guarded run never runs it: `DOZ_TEST_MAC_PATH`, else path_helper's list); `-e` refuses only
   `CLAUDECODE` / `CLAUDE_CODE_*`. `DOZ_TTY` in a session is deckhold's own.
+- **`doz run`'s exit code** (687): the client returns the code of the ended notice (`ClientWire.Ending.exited`). A
+  program that ended BEFORE the attach (`sh -c 'exit 3'`) used to be refused by `attachMac` (not running → exit 2, the
+  code lost); now `attachMac` answers an `.ended(code)` session as a sandbox's pipe answers one — attached, its last
+  screen (`endedScreen`'s VT), then the ended notice with its code. A signal death is the holder's 128+N; a detach 0;
+  `-d` returns at start. A sandbox's `doz run` already had this (deckhold's pipe answers EXIT). `make test-cli-host`,
+  `make test-cli-fence` (the 687 rows).
 - **End** is HUP → TERM → KILL of the program's group (the pid its holder names, still that group). **Restart** opens
-  again from the record; `claude` without `--fresh` gets `--continue` (the record keeps the argv as opened).
+  again from the record (it keeps the argv as opened) — `HostCore.macRestart`, then `macReopen`. For `claude`
+  (685 M1) the argv is rewritten by the pure `MacPlace.restartArgv` (`MacPlaceTests`' table and its generated-argv
+  invariant: **never `--continue` beside `--session-id`** — Claude refuses it and exits at once, the bug seen on a real
+  Mac): every conversation choice is taken out (`--session-id`, `--continue`/`-c`, `--resume [X]`/`-r`/`--resume=`, a bare
+  picker, `--fork-session`; a value is never read as a flag) and ONE is put back where the first was — the id Claude
+  holds NOW (`<claude config>/sessions/<pid>.json`, read before the program ends), else the record's learned
+  `claudeSessionID`, else the argv's `--session-id`/`--resume` id: `--resume ID` when `<projects>/<folder>/ID.jsonl`
+  exists, else `--session-id ID` (it never talked); no id → `--continue` when the folder has a conversation, else
+  nothing (said). `--fresh` adds nothing. A private fenced session reads its own `agent/sessions` and `agent/projects`.
+  **The learned id**: `macLearnClaudeID` reads ONLY `<sessions>/<pid>.json` (a regular file, no link, ≤ 64 KiB, a UUID
+  `sessionId`, lower-cased — `MacPlace.claudeHeldSessionID`) 10 s after an open, when the session turns idle after
+  working (≤ once a minute: `/clear`, `/resume` move it) and before a restart or end; guarded runs read the sibling of
+  `DOZ_TEST_CLAUDE_PROJECTS` (`MacPlace.claudeSessions`). **Exited at once**: after a reopen the host polls QUERY every
+  100 ms for 2 s; a program that ended in that window is an ERROR — "session S on this Mac exited at once (exit N) — its
+  last lines: …" (the last 5 non-empty rows) — and its last screen becomes the session's saved screen; one that comes
+  up has the screen of the run before removed. `make test-cli-host` (the fake claude carries Claude's real refusals).
 - **Bypass**: allowed only when the session's own argv asks (`MacPlace.bypassesPermissions`), recorded and marked; never
   added.
 - **Bridges** (unfenced): OSC 52 as for any session; the open-URL and workspace-file markers are dropped (`HostCore.bridge`) — a fenced session's are below.
 - **Saved screens** in `<store>/mac-sessions/screens` (`SavedScreens`' directory variants): the periodic capture and a
-  host stop; an ended session has none; a gone one keeps its last — what `screen` shows, said "gone".
+  host stop; a gone one keeps its last — what `screen` shows, said "gone". **An ended one keeps its LAST screen**
+  (685 M1): the holder runs with `serve --final` (deckhold.c, `__APPLE__` only — the guest's bytes are unchanged,
+  `make deckhold-verify`) and, after its last read of the program's output, writes `NAME.final.vt` (a SNAPSHOT) and
+  `NAME.final` (the DUMP text), 0600, in the socket folder, BEFORE `NAME.exit`; a new holder under the name removes
+  them. The capture turns them into the saved screen (reason `exit`, `MacSessions.keepFinalScreen`) and drops an older
+  screen of an ended session; `session-live`/`session-screen` of an ended session answer that last screen (`reason:
+  "ended"`, `exitCode`) — a host-less look reads `NAME.final` where it lies, writing nothing (`endedScreen`); `forget`
+  removes them. An older holder writes none: "no last screen (it was started by an older doz)".
 - **The dashboard**: the This Mac page and All sessions' section, its own routes and `serve.mac_sessions` — web.md,
   "This Mac".
 - **Host stop / uninstall / nuke**: stop says how many keep running (`HostStopResult.macSessions`); uninstall asks
@@ -115,7 +143,15 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   renamed or removed, an absent top `.git`, an in-tree `core.hooksPath` and git include targets are denied; then the
   fence root closed, this session's folder opened again, and the store, the socket folders and doz's settings closed
   last. The network: only `localhost:<the session's proxy port>` (and `--local-port` ports, the doors by literal); the
-  Keychain's services only with `--keychain`. sandbox-exec sits between the holder (unfenced) and the program; the
+  Keychain's services only with `--keychain`. **Listening on any port** (687, `mac.fence_loopback_listen`, OFF by
+  default; `MacFence.loopbackListen`, recorded, the capability `listen`): `(allow network-bind network-inbound (local
+  tcp "localhost:*"))` — never an outbound rule (an outbound `localhost:*` reaches every other program's loopback port;
+  Seatbelt has no "its own listeners" filter, so a program cannot reach its own listener unless the port is a
+  `--local-port`). Probed (the workspace's `probes/687-*/loopback-listen-probe.sh`, `inbound-peer-probe.sh`): Seatbelt
+  does NOT restrict a bind's address — `localhost:N` (and `*`) lets the program bind `0.0.0.0` and this Mac's LAN
+  address, and a LAN client then reaches it; neither a `(remote …)` filter on `network-inbound` nor `tcp4`/`ip` forms
+  change that. So `--local-port N` has always meant "N on every address", and the any-port setting is off until the
+  owner decides; the capability and the setting's text say the limit. `MacFenceNetworkTests`, `make test-cli-fence`. sandbox-exec sits between the holder (unfenced) and the program; the
   holder puts its pty in `TTY` (only in sandbox-exec's own arguments).
 - **The Mach lists are PROVISIONAL** (`MacFenceProfile.agentMachServices`, `xcodeMachServices`): set from probes with
   a scratch Claude Code and a scratch Xcode build; they are frozen only from a person's live runs
@@ -225,7 +261,15 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   runs outside). No profile allows a preference write. Every profile lets Apple's build tools use their item-replacement
   folders (`<user temp>TemporaryItems/NSIRD_<program>_*`, `MacFenceProfile.replacementPrograms`) and the Swift driver its
   `TemporaryDirectory.*` — macOS puts them in the user temp folder whatever TMPDIR says (without them `swift build` and
-  `xcodebuild build` fail); nothing else of the user temp folder. `Scripts/fence-freeze.sh --xcode --run '…'` is the
+  `xcodebuild build` fail); nothing else of the user temp folder. 687 (dozable issue 40: `swift build` passed,
+  `swift test` failed "unable to write manifest … XCBuildData/…/manifest.json", in `$DOZ_DERIVED` and in `.build`
+  alike): the program name is the one it was STARTED as — `swift test`/`swift run` are `swift-package` as `swift-test`/
+  `swift-run`, so their folder is `NSIRD_swift-test_…` (the fence's refusal named it: `file-write-create …/T/TemporaryItems/
+  NSIRD_swift-test_…`) — both added; then Swift Build's own `swbuild.tmp.<random>` (mkdtemp in the user temp folder,
+  the test bundle's Info.plist) is allowed like `TemporaryDirectory.*`. Still refused, harmlessly: `swift-frontend`'s
+  `<user temp>swift-generated-sources/` (macro expansions kept for diagnostics — a fixed, shared folder; not opened).
+  `make test-cli-fence` (tools: a fresh `swift package init --type library`, `swift build` then `swift test` with the
+  documented flags, and `swift test` with the default `.build`). `Scripts/fence-freeze.sh --xcode --run '…'` is the
   person's freeze run. A plain `xcodebuild build` (no signing) needs neither LaunchServices nor a preference write.
 - **Tools inside a fenced session** (macOS 27, probes and `make test-cli-fence`):
 

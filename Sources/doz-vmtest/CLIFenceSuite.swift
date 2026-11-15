@@ -325,6 +325,17 @@ func cliFenceSuite(binary: String) async {
     r = run("pty", ["/bin/sh", "-c", "printf %s \"$0\" > pty.txt; sleep 600", "@DOZ_PTY@"])
     check(r.code == 0 && t.waitFor(10) { get(work + "/pty.txt") == "@DOZ_PTY@" }, "1.13 @DOZ_PTY@ in the program's own argv is left as given (\(get(work + "/pty.txt")))")
 
+    // MARK: 687 — a foreground fenced `doz run` returns its program's exit code (at once, and later)
+    for (s, cmd) in [("fx3", "exit 3"), ("fx3l", "sleep 1; exit 3")] {
+        do {
+            let c = try PTYClient(t, ["run", "@mac", "--fenced", "--session", s, "--workdir", work, "--", "/bin/sh", "-c", cmd])
+            started.insert(s)
+            defer { c.close() }
+            let got = c.exited(within: 30)
+            check(got == 3, "run @mac --fenced (attached), \(cmd): doz run exits 3 (\(got.map(String.init) ?? "still running"))")
+        } catch { check(false, "pty: \(error)") }
+    }
+
     // MARK: git: the allowlist kept, a violation stops every process of the fence (1.5, 1.5a, 1.5b)
     try? FileManager.default.removeItem(atPath: work + "/res")
     let gitWork = root + "/gw"

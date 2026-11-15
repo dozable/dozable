@@ -81,6 +81,8 @@ public final class LoginWatcher: @unchecked Sendable {
     let identityReader: @Sendable () -> ClaudeIdentity?
     /// The identity file's modification date (nil: none) — `freshen()`'s cheap look.
     let identityStamp: @Sendable () -> Date?
+    /// 687: the credentials file read beside the Keychain item (nil: none — `ClaudeCredentialsFile.path`).
+    let credentialsFile: @Sendable () -> String?
 
     private let lock = NSLock()
     private var _stamp: Date?
@@ -88,6 +90,7 @@ public final class LoginWatcher: @unchecked Sendable {
     private var _pinned: ClaudeIdentity?
     private var _seen: ClaudeIdentity?
     private var token: ClaudeLoginToken?
+    private var _store: ClaudeLoginStore?
     private var _state: State = .unknown
     private var warnedUnreadable = false
     private var subscribers: [String: any CredentialTarget] = [:]
@@ -102,12 +105,14 @@ public final class LoginWatcher: @unchecked Sendable {
     public var onIdentity: @Sendable (ClaudeIdentity) -> Void = { _ in }
 
     public init(account: String, configDir: String?, keychain: KeychainAccess, pinned: ClaudeIdentity?,
-                identityReader: (@Sendable () -> ClaudeIdentity?)? = nil, identityStamp: (@Sendable () -> Date?)? = nil) {
+                identityReader: (@Sendable () -> ClaudeIdentity?)? = nil, identityStamp: (@Sendable () -> Date?)? = nil,
+                credentialsFile: (@Sendable () -> String?)? = nil) {
         self.account = account
         self.configDir = configDir
         self.service = ClaudeLogin.service(configDir: configDir)
         self.keychain = keychain
         self._pinned = pinned
+        self.credentialsFile = credentialsFile ?? { ClaudeCredentialsFile.path(configDir: configDir) }
         self.identityReader = identityReader ?? { ClaudeLogin.identity(configDir: configDir) }
         self.identityStamp = identityStamp ?? {
             let path = ClaudeLogin.configFile(configDir: configDir).path
@@ -118,6 +123,8 @@ public final class LoginWatcher: @unchecked Sendable {
     public var state: State { lock.lock(); defer { lock.unlock() }; return _state }
     public var reads: Int { lock.lock(); defer { lock.unlock() }; return _reads }
     public var expiresAt: Date? { lock.lock(); defer { lock.unlock() }; return token?.expiresAt }
+    /// 687: where the login in use was read from (the Keychain, or the credentials file).
+    public var store: ClaudeLoginStore? { lock.lock(); defer { lock.unlock() }; return token == nil ? nil : _store }
     public var subscriberNames: [String] { lock.lock(); defer { lock.unlock() }; return subscribers.keys.sorted() }
     public var seenIdentity: ClaudeIdentity? { lock.lock(); defer { lock.unlock() }; return _seen }
     public var keepalive: KeepaliveConfig? {
@@ -193,22 +200,29 @@ public final class LoginWatcher: @unchecked Sendable {
         readNow(now: now)
     }
 
-    /// Read the keychain item once and fan out whatever changed.
+    /// Read the login once — the keychain item, and (687) the credentials file beside it (`ClaudeMacLogin.choose`: the
+    /// file only when it holds an unexpired login, the later expiry when both do) — and fan out whatever changed.
     public func readNow(now: Date = Date()) {
         let r = keychain.read(service: service, account: Keychain.user)
+        let outcome = ClaudeMacLogin.choose(keychain: r, file: ClaudeCredentialsFile.read(credentialsFile()), now: now)
         let stamp = identityStamp()
-        let identity: ClaudeIdentity? = { if case .found = r { return identityReader() }; return nil }()
+        let identity: ClaudeIdentity? = { if case .token = outcome { return identityReader() }; return nil }()
         var events: [(String?, String)] = []
         var newIdentity: ClaudeIdentity?
         lock.lock()
         _reads += 1
         _stamp = stamp
         HostLog.line("\(account): read the keychain item \(service) for \(subscribers.count) sandbox(es)")
-        let before = _state, beforeToken = token?.accessToken
-        switch r {
-        case .found(let raw):
-            if let t = ClaudeLogin.parse(raw) {
+        let before = _state, beforeToken = token?.accessToken, beforeStore = _store
+        switch outcome {
+        case .token(let t, let store):
+            do {                                    // (a block: the same lines as before the file was a store)
                 warnedUnreadable = false
+                if store != beforeStore, store == .file || beforeStore == .file {
+                    events.append((nil, "\(account): this Mac's Claude login is read from \(store.label(configDir: configDir))"
+                                   + (store == .file ? " (the Keychain's is older or not there — a login made over ssh)" : "")))
+                }
+                _store = store
                 if let id = identity {
                     _seen = id
                     if _pinned == nil { _pinned = id; newIdentity = id }
@@ -223,11 +237,11 @@ public final class LoginWatcher: @unchecked Sendable {
                 }
                 token = t
                 _state = (t.expiresAt.map { $0 <= now } ?? false) ? .expired : .ok
-            } else {
-                if !warnedUnreadable { events.append((nil, "\(account): Claude Code's keychain item \(service) has a format doz doesn't know — keeping the last token")) }
-                warnedUnreadable = true
-                if token == nil { _state = .unreadable }
             }
+        case .unparsable:
+            if !warnedUnreadable { events.append((nil, "\(account): Claude Code's keychain item \(service) has a format doz doesn't know — keeping the last token")) }
+            warnedUnreadable = true
+            if token == nil { _state = .unreadable }
         case .absent:
             token = nil
             _state = .signedOut

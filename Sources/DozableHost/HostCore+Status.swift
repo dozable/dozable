@@ -89,6 +89,8 @@ extension HostCore {
         statuses[name, default: [:]][session] = s
         if statuses[name]?.isEmpty == true { statuses[name] = nil }
         statusTimes(name, session: session, from: old?.state, to: s?.state)
+        // 685 M1: a Claude Code session on this Mac that turned idle may hold another conversation now.
+        if MacPlace.isPlace(name), !readOnly { macStatusChanged(session, from: old?.state, to: s?.state) }
         // 678 B7: a session at work means no memory balloon (given back now; a wake's inflate waits for idle).
         // (each task sends the state as it is when it runs, so two changes in a row cannot land in the wrong order)
         if let sb = managed[name]?.sandbox {

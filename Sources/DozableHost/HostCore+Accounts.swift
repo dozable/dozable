@@ -296,7 +296,9 @@ extension HostCore {
                              identityStamp: {
                                  let path = ClaudeLogin.configFile(configDir: dir, home: home).path
                                  return (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
-                             })
+                             },
+                             // 687: the same account's other store, read-only (a guarded run: only its seam).
+                             credentialsFile: { ClaudeCredentialsFile.path(configDir: dir, home: home) })
         w.keepalive = keepaliveConfig(file.keepalive)
         w.onEvent = { [weak self] s, t in Task { await self?.note(s, t) } }
         let name = a.name
@@ -590,16 +592,19 @@ extension HostCore {
             var expires = a.expiresAt
             var identity = a.identity?.label
             var plan = a.plan
+            var loginStore: ClaudeLoginStore?
             switch a.kind {
             case .mac:
                 if let w = watchers[a.name], w.state != .unknown {
                     state = w.state.label
                     expires = w.expiresAt
+                    loginStore = w.store
                 } else {
-                    let st = ClaudeLoginStatus.check(configDir: a.configDir, keychain: services.keychain, probeBinary: false, home: services.home)
+                    let st = ClaudeLoginStatus.check(configDir: a.configDir, keychain: services.keychain, probeBinary: false, home: services.home, now: now)
                     state = st.state == .signedIn ? ((st.expiresAt.map { $0 <= now } ?? false) ? "expired" : "ok") : st.state.rawValue
                     expires = st.expiresAt
                     plan = st.subscriptionType
+                    loginStore = st.store
                     if identity == nil { identity = st.identity?.label }
                 }
             case .setupToken, .apiKey, .openaiKey, .key:
@@ -630,7 +635,9 @@ extension HostCore {
             }
             let isDefault = a.kind == .key ? file.providerDefaults?[a.provider ?? ""] == a.name
                 : a.kind.provider == "openai" ? effectiveOpenAIDefault(file) == a.name : file.defaultAccount == a.name
-            let src = sourceRowFields(a)
+            var src = sourceRowFields(a)
+            // 687: the Mac login's store — "the Keychain" or "~/.claude/.credentials.json" (doz account ls|show: key from).
+            if a.kind == .mac, let s = loginStore { src.label = "this Mac's Claude Code login, from \(s.label(configDir: a.configDir))" }
             let extraUsers = managed.values.filter { $0.config.extraKeys?.contains(a.name) == true }.map(\.name).sorted()
             rows.append(AccountRow(name: a.name, kind: a.kind.rawValue, plan: plan, identity: identity, expiresAt: expires,
                                    verification: a.verification, isDefault: isDefault,
@@ -932,8 +939,11 @@ extension HostCore {
         case .codexMac:
             secret = nil
         case .mac:
-            secret = services.keychain.read(service: ClaudeLogin.service(configDir: a.configDir), account: Keychain.user).value
-                .flatMap(ClaudeLogin.parse)?.accessToken
+            // 687: the Keychain item or the credentials file (the same account's two stores; the access token only).
+            if case .token(let t, _) = ClaudeMacLogin.read(configDir: a.configDir, keychain: services.keychain,
+                                                           filePath: ClaudeCredentialsFile.path(configDir: a.configDir, home: services.home)) {
+                secret = t.accessToken
+            } else { secret = nil }
         case .setupToken, .apiKey, .openaiKey, .key:
             if a.readsOnUse, let s = a.source {
                 // 617: read from its source now (that is the check), then the provider's key check.

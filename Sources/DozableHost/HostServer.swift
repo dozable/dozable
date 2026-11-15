@@ -728,7 +728,22 @@ public final class HostServer: @unchecked Sendable {
         }
         guard let session = named else { return }
         do { try MacPlace.validateSessionName(session) } catch { return refuse(HostError.from(error)) }
-        guard case .info = await core.mac.state(session) else { return refuse(await core.macNotRunning(session)) }
+        switch await core.mac.state(session) {
+        case .info:
+            break
+        case .ended(let code?):
+            // 687: its program ended before this viewer came (`doz run` of a program that exits at once — the code was
+            // lost: the attach was refused, exit 2). Answered as a sandbox's pipe answers an ended session: its last
+            // screen (the holder's `.final`, when kept), then the end with its code — which `doz run` returns.
+            conn.send(.success(.object(["state": .string("attached"), "session": .string(session), "sandbox": .string(place),
+                                        "defaultSession": .null, "image": .null, "opened": .bool(false)])))
+            if let last = core.mac.endedScreen(session), !last.vt.isEmpty { conn.write(last.vt) }
+            conn.write(ClientWire.endedNotice(.exited(code), text: "the \(session) session has ended (exit \(code))"))
+            conn.shutdownIO()
+            return
+        default:
+            return refuse(await core.macNotRunning(session))
+        }
         let c = core.mac.attach(session, size: state.size)
         // Adopted BEFORE the answer, as a sandbox's: the client sends what it typed ahead once it reads it.
         guard state.adopt(c, key: place + "|" + session) else { c.close(); return }

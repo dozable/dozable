@@ -36,7 +36,7 @@ under `[recipes.VENDOR.PRODUCT]`.
 
   | kind | what it is | where the secret lives | renewal |
   |---|---|---|---|
-  | `mac` (built in) | your Mac's own Claude Code login | Claude Code's own keychain item, read-only for Dozable | your Mac's Claude Code renews it |
+  | `mac` (built in) | your Mac's own Claude Code login | Claude Code's own keychain item — or its `~/.claude/.credentials.json` when that holds the newer login (a `claude` login over ssh renews only the file) — read-only for Dozable; `doz account show mac` says which | your Mac's Claude Code renews it |
   | setup token | a `claude setup-token` token (a Claude subscription, valid a year) | your login keychain, `doz-claude:NAME` | none — add a new one before it expires |
   | API key | an Anthropic API key | your login keychain, `doz-anthropic:NAME` | none |
 
