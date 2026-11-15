@@ -406,12 +406,15 @@ public struct WebMacPlan: Codable, Equatable, Sendable {
     public var history: String?
     /// Set when this request opened it in Terminal: a line for the page.
     public var opened: String?
+    /// The build and test commands that work inside this session (the Swift / Xcode cases; empty otherwise) — `MacBuildCommands`,
+    /// the same lines `doz run @mac --xcode --dry-run` prints.
+    public var buildCommands: [MacBuildCommand] = []
 
     /// The command a terminal app runs from the one-shot `.command` file (`exec '<this doz>' run @mac … --store '<store>'`).
     /// Never in the answer: the page has the person's command.
     public var terminalCommand: String { _terminal }
     private var _terminal: String = ""
-    enum CodingKeys: String, CodingKey { case command, capabilities, describe, fenced, openable, copyOnly, agentConfig, history, opened }
+    enum CodingKeys: String, CodingKey { case command, capabilities, describe, fenced, openable, copyOnly, agentConfig, history, opened, buildCommands }
 
     /// Build the plan on the Mac, from the enums alone. `home`: the person's home; `shell`: their login shell (`$SHELL`);
     /// `executable`, `store`: this doz and its store (the `.command` file names both); `defaultStore`: the store a plain
@@ -468,6 +471,7 @@ public struct WebMacPlan: Codable, Equatable, Sendable {
         var p = WebMacPlan(command: command, capabilities: caps.map(WebMacCapability.init), describe: MacFence.capabilitiesText(caps),
                            fenced: fenced, openable: why == nil, copyOnly: why, agentConfig: shape.agentConfig, history: shape.history, opened: nil)
         p._terminal = terminal
+        p.buildCommands = MacBuildCommands.commands(profile: shape.profile)
         return p
     }
 }

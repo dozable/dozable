@@ -239,6 +239,31 @@ or read), and host keys it learns stay in the session.
 The list of macOS services Claude Code and Xcode may use inside the fence is still being settled from real sessions;
 a later version may open or close a few. `doz net log @mac --session NAME --fence` shows what was refused.
 
+## Building Swift and Xcode projects in a fenced session
+
+Start the session with `--xcode` (the dashboard's Swift / Xcode case). Inside it these work, and the wizard shows the same
+lines, each with Copy (`doz run @mac --xcode --dry-run` prints them too):
+
+```bash
+swift build --disable-sandbox --cache-path "$XDG_CACHE_HOME/swiftpm" --scratch-path "$DOZ_DERIVED"
+swift test  --disable-sandbox --cache-path "$XDG_CACHE_HOME/swiftpm" --scratch-path "$DOZ_DERIVED"
+xcodebuild build -scheme MyApp -derivedDataPath "$DOZ_DERIVED" -scmProvider system
+xcodebuild test  -scheme MyApp -derivedDataPath "$DOZ_DERIVED" -scmProvider system -destination "platform=macOS"
+```
+
+`--disable-sandbox` is needed because SwiftPM's own sandbox cannot run inside another. The session's own caches hold
+SwiftPM's downloads, and `$DOZ_DERIVED` is its own build folder; `swift build` and `swift test` also work with the
+default `.build` (leave `--scratch-path` out). Claude Code in such a session is told the same flags.
+
+**When to go unfenced.** Signing and notarisation need your Keychain and Apple's own networking: use the Signing &
+notarisation case. Simulator UI tests: what the Simulator launches runs outside the fence, so turn on **Run in the
+Simulator** (`--simulator`) — a guard rail, not a boundary. Tools that need your Keychain: **Sign with my Apple
+identity** (`--keychain`). Unfenced means your files, Keychain and network, as if you typed it yourself.
+
+A test server that picks its own port (listening on port 0) needs the setting `mac.fence_loopback_listen` (off by
+default, see The network): the session may then listen on any port, and a server on all addresses is reachable from your
+network, not only from this Mac.
+
 ## Bridges
 
 A fenced program cannot open things on your Mac itself (that would reach outside the fence), so Dozable does it for it,

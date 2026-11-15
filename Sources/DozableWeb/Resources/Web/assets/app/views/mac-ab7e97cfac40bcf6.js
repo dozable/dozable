@@ -27,7 +27,7 @@ import { bytes } from '../core/format-b2e68384da8d2f36.js';
 import { dialog } from '../components/dialog-6d072078840e0e8c.js';
 import { panel, table } from '../components/blocks-6b2d43608253a84f.js';
 import { capChips, capabilitiesPanel, fenceMarks } from './mac-capabilities-ac7be4f851998813.js';
-import { openMacWizard } from './mac-wizard-2eec76a83b3fe2b1.js';
+import { openMacWizard } from './mac-wizard-bf2d56069938c7c7.js';
 import { networkPanel } from './sandbox-network-6c5644aa7e451dde.js';
 
 const mac = { built: false, active: false, tiles: new Map(), sessions: [], access: 'interactive', plan: false, refused: '', lastList: 0, timer: null,
