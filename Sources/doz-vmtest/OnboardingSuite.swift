@@ -109,6 +109,30 @@ func cliOnboardingSuite(binary: String) async {
     check(r.code == 0 && r.out.contains("Workspace rules: set workspace.ignore_mode = hide"), "--ignore-mode hide: chosen, so written (exit \(r.code))")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nignore_mode = \"hide\"\n") == true, "doz.toml says ignore_mode = hide")
     check(a.run(["config", "set", "workspace.ignore_mode", "lock"]).code == 0, "back to lock")
+    // 694: the login item question — off a terminal (and with --yes) nothing is asked or written; --start-at-login answers it.
+    do {
+        let agents = URL(fileURLWithPath: "/tmp/dzo-\(getpid())-la")
+        try? FileManager.default.removeItem(at: agents)
+        defer { try? FileManager.default.removeItem(at: agents) }
+        let li = CLIHarness(binary: binary, store: a.store)
+        li.env = a.env
+        li.env["DOZ_TEST_LAUNCH_AGENTS_DIR"] = agents.path
+        li.env.removeValue(forKey: "DOZ_DAEMON_ALWAYS_ON")               // always on (the default): the rule can hold
+        let plist = DaemonLoginItem.plistURL(DozableStore(root: a.store), folder: agents)
+        check(r.out.contains("Start at login: not set up — doz daemon login-item on") && !FileManager.default.fileExists(atPath: agents.path),
+              "onboard off a terminal: the login item is not asked and nothing is written to LaunchAgents")
+        var o = li.run(["onboard", "--no-base", "--yes"], timeout: 120)
+        check(o.code == 0 && !FileManager.default.fileExists(atPath: plist.path) && !((try? String(contentsOf: toml, encoding: .utf8)) ?? "").contains("\nlogin_item ="),
+              "onboard --yes: no login item and daemon.login_item not written")
+        o = li.run(["onboard", "--no-base", "--start-at-login", "on", "--yes"], timeout: 120)
+        check(o.code == 0 && o.out.contains("Start at login: on — added the login item") && FileManager.default.fileExists(atPath: plist.path)
+                && ((try? String(contentsOf: toml, encoding: .utf8)) ?? "").contains("\nlogin_item = \"on\"\n"),
+              "onboard --start-at-login on: daemon.login_item = on and the plist written (\(o.out.split(separator: "\n").first { $0.contains("Start at login") } ?? "no line"))")
+        o = li.run(["onboard", "--no-base", "--start-at-login", "off", "--yes"], timeout: 120)
+        check(o.code == 0 && !FileManager.default.fileExists(atPath: plist.path) && ((try? String(contentsOf: toml, encoding: .utf8)) ?? "").contains("\nlogin_item = \"off\"\n"),
+              "onboard --start-at-login off: removed, daemon.login_item = off")
+        check(li.run(["config", "unset", "daemon.login_item"]).code == 0, "back to ask")
+    }
     let tomlBefore = (try? String(contentsOf: toml, encoding: .utf8)) ?? ""
 
     print("cli: onboard takes a key the doz account add way (owner ruling; the memory keychain)")

@@ -26,6 +26,7 @@
 //      one daemon of this build by itself; one that predates it (0.50.3 and older) exits by itself, as it always did, and
 //      the next command starts this build. Then THIS build's always-on daemon, idle, gets a newer program by rename: it
 //      restarts in place — one daemon, a new pid, parent launchd, running the new file, always on — with no command typed.
+//      (694) Nothing is written to its scratch LaunchAgents folder: an upgrade never adds the login item (ask, the default).
 //
 // 592: the first DozableKit release is v0.10.0, and a store of a pre-rename release (v0.9.0 or older) is
 // NOT expected to wake under doz (owner ruling: no backward compatibility). Until a DozableKit tag exists the Makefile
@@ -385,6 +386,18 @@ private func alwaysOnAcrossAnUpdate(new: CLIHarness, oldBin: String, newBin: Str
     let inst = CLIHarness(binary: cur + "/doz", store: new.store)
     inst.env = new.env
     inst.env["DOZ_DAEMON_ALWAYS_ON"] = "on"           // this build's daemons: always on (the default; the Makefile turns it off)
+    // 694: a scratch LaunchAgents folder of this part's own — an upgrade must leave it EMPTY (consent: nothing is written
+    // unless the person says on; the default is ask).
+    let agents = root + "/agents"
+    try? fm.createDirectory(atPath: agents, withIntermediateDirectories: true)
+    let savedAgents = new.env["DOZ_TEST_LAUNCH_AGENTS_DIR"]
+    inst.env["DOZ_TEST_LAUNCH_AGENTS_DIR"] = agents
+    new.env["DOZ_TEST_LAUNCH_AGENTS_DIR"] = agents
+    defer {
+        let left = (try? fm.contentsOfDirectory(atPath: agents)) ?? []
+        check(left.isEmpty, "F: the scratch LaunchAgents folder stays empty across the upgrade and the restarts (\(left))")
+        new.env["DOZ_TEST_LAUNCH_AGENTS_DIR"] = savedAgents
+    }
     let oldCmd = inst.run(["host", "status"]).code == 0 ? "host" : "daemon"
     let pidName = oldCmd + ".pid"
     let s0 = inst.run([oldCmd, "start"], timeout: 60)
@@ -423,6 +436,8 @@ private func alwaysOnAcrossAnUpdate(new: CLIHarness, oldBin: String, newBin: Str
           String(format: "F: it restarted in place in %.1f s with no command typed — one daemon (pids %@), not %d", took, "\(all)", p1))
     check(st?.version == newVersion && st?.alwaysOn == true && st?.parentPid == 1 && st?.executableChange == nil,
           "F: the new daemon: this build, always on, parent launchd, its program unchanged since it started (\(st?.executableChange ?? "no change"))")
+    check(st?.loginItem?.setting == "ask" && st?.loginItem?.installed == false,
+          "F: the login item after the upgrade: ask, not installed (\(st?.loginItem?.setting ?? "nil"))")
 }
 
 private extension Process {

@@ -464,6 +464,7 @@ func cliSuite() async throws {
     await cliTerminalRestoreSuite(binary: h.binary)
     await cliHostStopSuite(binary: h.binary)
     await cliAlwaysOnSuite(binary: h.binary)          // 693
+    await cliDaemonSuite(binary: h.binary)            // 694
     await cliAgentSudoSuite(binary: h.binary)
     await cliPointsSuite(binary: h.binary)
     await cliTimeZoneSuite(binary: h.binary)

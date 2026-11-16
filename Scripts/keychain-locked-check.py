@@ -11,6 +11,9 @@ $TMPDIR, no VM. DOZ_TEST_KEYCHAIN_LOCKED=1 (a guarded seam) makes a process's se
   4. a host started without it carries nothing, and nothing is said;
   5. (always on) a locked daemon is NEVER always on, whatever daemon.always_on says: its status says alwaysOn false and an
      idle timeout of 5 minutes when the setting's is 0; with a 3 s timeout it exits by itself.
+  6. (the login item) a locked `daemon restart` against an unlocked daemon with no login item loaded is refused;
+  7. the login item's look (`daemon start --login-item`, a normal session) replaces a locked daemon that runs nothing;
+  8. doctor's login item row; nothing is written to the (scratch) LaunchAgents folder.
 Prints PASS/FAIL lines and `keychain-locked-check: ALL PASS` last; stops every host it started.
 """
 import json
@@ -99,6 +102,36 @@ try:
     check("keychainLocked" not in st or st.get("keychainLocked") is None, "…and its status carries nothing")
     r = run(["account", "ls"])
     check("doz daemon restart" not in r.stderr, "…and account ls says nothing")
+    # 6. (the login item) from a locked session, a restart never replaces a daemon that can read the keychain — the
+    #    Makefile's launchctl refuses everything, so no login item is loaded: refused, the same daemon.
+    pid = status().get("pid")
+    r = run(["daemon", "restart"], locked)
+    check(r.returncode != 0 and "not restarted" in r.stderr and status().get("pid") == pid,
+          "a locked daemon restart against an unlocked daemon, no login item: refused (exit %d), the same pid" % r.returncode)
+    # 7. the login item's look (doz daemon start --login-item, from the desktop session) replaces a locked daemon that
+    #    runs nothing — and only then.
+    run(["daemon", "stop"])
+    run(["daemon", "start"], locked)
+    st = status()
+    lpid = st.get("pid")
+    check(st.get("keychainLocked") == "ssh", "a locked daemon again (pid %s)" % lpid)
+    r = run(["daemon", "start", "--login-item", "--store", store])
+    st = status()
+    log = open(os.path.join(store, "login-item.log")).read() if os.path.exists(os.path.join(store, "login-item.log")) else ""
+    check(r.returncode == 0 and st.get("pid") not in (None, lpid) and st.get("keychainLocked") is None
+          and "cannot read the login keychain and runs nothing" in log,
+          "the login item's look replaced the locked idle daemon (pid %s -> %s, keychainLocked %s)" % (lpid, st.get("pid"), st.get("keychainLocked")))
+    # 8. doctor has its login item row (never set up here: nothing in the scratch LaunchAgents folder).
+    r = run(["doctor", "--json"])
+    try:
+        checks = {c["check"]: c for c in json.loads(r.stdout)}
+    except ValueError:
+        checks = {}
+    li = checks.get("login item", {})
+    check(li.get("status") == "ok" and "not set up" in li.get("detail", ""), "doctor: the login item row (%s)" % li.get("detail", "none"))
+    agents = os.environ.get("DOZ_TEST_LAUNCH_AGENTS_DIR", "")
+    check(not agents or not any(n.startswith("com.dozable.") for n in (os.listdir(agents) if os.path.isdir(agents) else [])),
+          "nothing written to the scratch LaunchAgents folder")
 finally:
     subprocess.run([doz, "daemon", "stop"], env=env, capture_output=True, timeout=300)
     shutil.rmtree(root, ignore_errors=True)
