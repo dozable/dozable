@@ -98,7 +98,7 @@ struct ChoiceOptions: ParsableArguments {
     var localPort: Int?
 
     // 691: ports of this Mac the sandbox reaches as host.dozable.internal:PORT.
-    @Option(name: .customLong("host-port"), help: "A port of this Mac the sandbox may reach, as host.dozable.internal:PORT (a service on this Mac — a hub, a dev server); PORT:tag also names the sandbox to it in an X-Dozable-Session header on plain-HTTP requests (identification, not authentication). Repeatable, at most 16; nothing else of this Mac opens. Later: doz net allow NAME host:PORT.")
+    @Option(name: .customLong("host-port"), help: "A port of this Mac the sandbox may reach, as host.dozable.internal:PORT (a service on this Mac — a message server, a dev server); PORT:tag also names the sandbox to it in an X-Dozable-Session header on plain-HTTP requests (identification, not authentication). Repeatable, at most 16; nothing else of this Mac opens. Later: doz net allow NAME host:PORT.")
     var hostPort: [String] = []
 
     /// 691: `--host-port` values and `--permissions host:PORT` words, as ports (checked for form; the daemon checks the rest).

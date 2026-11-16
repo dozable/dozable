@@ -586,7 +586,7 @@ struct Run: AsyncParsableCommand {
     var permissions: [String] = []
     @Option(name: .customLong("local-port"), help: "@mac, fenced: a port of this Mac's loopback it may listen on and connect to — its dev server, a sign-in callback (repeatable).")
     var localPorts: [Int] = []
-    @Option(name: .customLong("host-port"), help: "A port of this Mac the sandbox or fenced session may reach, as host.dozable.internal:PORT (a service on this Mac — a hub, a dev server; --local-port is the session's OWN listener instead); PORT:tag also names it to that service in an X-Dozable-Session header on plain-HTTP requests (identification, not authentication). Repeatable; a sandbox keeps it. Not with --unfenced (an unfenced session already reaches every port).")
+    @Option(name: .customLong("host-port"), help: "A port of this Mac the sandbox or fenced session may reach, as host.dozable.internal:PORT (a service on this Mac — a message server, a dev server; --local-port is the session's OWN listener instead); PORT:tag also names it to that service in an X-Dozable-Session header on plain-HTTP requests (identification, not authentication). Repeatable; a sandbox keeps it. Not with --unfenced (an unfenced session already reaches every port).")
     var hostPorts: [String] = []
     @Option(name: .customLong("agent-config"), help: "@mac, fenced: the agent's settings folder — private (its own; your instructions and skills read-only) or shared (your own: less isolated) (setting mac.agent_config).")
     var agentConfig: String?

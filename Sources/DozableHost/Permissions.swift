@@ -392,7 +392,7 @@ public enum PermissionPolicy {
                 // Owner, 2026-10-23: "i dont want to have to approve each URL" — one approval per domain: a host under
                 // it is suggested as `*.domain` (claude.ai's artifact frames are a new `<uuid>.frame.claudeusercontent.com`
                 // each time), the domain itself as itself.
-                // Any port but 80 and 443 is a narrower grant: that host, that port (a hub's agent port, a dev server).
+                // Any port but 80 and 443 is a narrower grant: that host, that port (a message server's agent port, a dev server).
                 let domain = siteDomain(host)
                 if let port = r.port, port != 80, port != 443 { grant = "site:\(host):\(port)"; what = "\(host):\(port)" }
                 else if domain == host { grant = "site:" + host; what = host } else { grant = "site:*." + domain; what = "*." + domain }

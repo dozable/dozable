@@ -85,7 +85,7 @@ port (`site:HOST:PORT`), not the whole host.
 ## This Mac's ports
 
 Your Mac's own addresses are never reachable from a sandbox or a fenced session — with one deliberate exception: a
-port of your Mac you open to it. It then reaches the service there (a hub, a dev server, a local API) by name, as
+port of your Mac you open to it. It then reaches the service there (a message server, a dev server, a local API) by name, as
 `host.dozable.internal:PORT`, and nothing else of your Mac:
 
 ```sh
