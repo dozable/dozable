@@ -802,6 +802,8 @@ doz net allow NAME web --yes                         # asks first without --yes
 doz net allow NAME host:8780                         # a port of this Mac, as host.dozable.internal:8780 (live)
 doz net permissions                                  # every permission and the hosts behind it
 doz create NAME --allow install:rust,site:api.example.com
+doz create NAME --host-port 8780 --secret SERVER_TOKEN,src=~/.config/token,to=host.dozable.internal:8780
+                                                     # a token for one service: a placeholder inside, swapped by the proxy
 ```
 
 When the agent is refused something a permission would allow, `doz net NAME` (and the sandbox page

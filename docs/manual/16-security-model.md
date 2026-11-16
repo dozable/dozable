@@ -93,6 +93,20 @@ and SSH are **off** until you choose them, and nothing is turned on silently —
 A check that fails never turns anything on or off by itself: **Skip** keeps your choice, marked *not
 confirmed*; turning it off is yours to do.
 
+**A secret for a service** (`--secret`, [A secret for a service](10-permissions-and-network.md#a-secret-for-a-service))
+works the same way: read from a file of yours alone by `doz`, sent once to the daemon, kept in a keychain item of its
+own — never in an argument, a record, the log, `--json`, or the session's environment and files (they hold only a
+placeholder). The proxy swaps it on requests to exactly the host and port you named; the placeholder sent anywhere else
+is refused and logged. Over plain HTTP that swap happens only to this Mac's ports and to Tailscale addresses (while your
+Mac is on Tailscale and `network.placeholders_plain_http` is on) — a plain-HTTP hop on your own Mac or your own private
+network, never the internet.
+
+**What the leak guard can and cannot see.** The proxy checks a placeholder wherever it reads the request: every plain-HTTP
+request, and the HTTPS hosts it decrypts (those it holds a credential for). Inside a tunnel it does not decrypt — an
+HTTPS connection to another host, a `CONNECT` to a port of your Mac — and on raw TCP to a host it allows, the placeholder
+passes unseen. What passes is only ever the placeholder, never the secret: it has no power anywhere but on the request
+the proxy swaps it on. Raw TCP to a secret's own destination is refused outright (the swap needs the proxy).
+
 ### 4. Root inside is not root outside
 
 The agent has passwordless `sudo` inside its sandbox by default. That's deliberate: root inside the VM
@@ -185,6 +199,8 @@ fully resolved path.
 - **Another agent driving `doz` on your Mac** has your permissions: brief it to leave permissions and
   deletion to you ([Letting another agent drive Dozable](14-letting-another-agent-drive.md)).
 - **Secrets you put on a sandbox's disk yourself** travel with its restore points and templates.
+- **A placeholder in a tunnel the proxy does not read** (above) is not refused — it reaches that host, as a meaningless
+  placeholder. A secret's own destination receives the real secret: give a secret only to a service you trust with it.
 
 ## Settings
 

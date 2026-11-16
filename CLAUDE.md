@@ -359,7 +359,11 @@ One row per area; each area's doc starts with the full table of its files.
   most 13 characters — in the log, events, `key ls` and `ls`.
 - **Placeholders persist as sha256 hashes** (`doz.json` `placeholderHashes`, D8) so a session
   survives a daemon restart; `shutdown`/`reset`/`rm` revoke them. A stdin key is still memory-only:
-  after a daemon restart a sandbox holding only one has no secret, and the proxy stops decrypting.
+  after a daemon restart a sandbox holding only one has no secret, and the proxy stops decrypting. A launch secret
+  (692 `--secret`; network.md) has its own keychain item, re-read by a new daemon, deleted when revoked (shutdown/reset/
+  rm/rename; a fenced record's removal); never a value in argv, a record, a log or the session. `LaunchSecretTests`.
+  **Plain HTTP never carries a placeholder** but a launch secret's (all `secret:`, setting on, exact host AND port, to
+  the route or Tailscale, every dialled address in 100.64/10). `PlainHTTPSecretRuleTests`, `EgressProxyPlainHTTPTests`.
 - **No silent fallback between accounts.** A missing, expired or signed-out credential is
   answered by the proxy itself (401, an Anthropic-shaped JSON error Claude Code shows) with what
   to do — never another account's or an API key's. The account `mac` MEANS whoever is signed in on
