@@ -203,7 +203,8 @@ if let start = promptSource.range(of: "public static let variables:"), let stop 
     }
 }
 if promptVariables.isEmpty { problem("could not read the agent prompt's variables from Sources/DozableHost/AgentPrompt.swift") }
-let notKeys: Set<String> = Set(["daemon.log", "daemon.sock"]).union(report.settings.map(\.section))   // `[images.lab]` is a section
+// 691: `host.dozable.internal` is the route's name, not a key of the older [host] section.
+let notKeys: Set<String> = Set(["daemon.log", "daemon.sock", "host.dozable.internal"]).union(report.settings.map(\.section))   // `[images.lab]` is a section
 let keyRX = try! NSRegularExpression(pattern: "(?<![A-Za-z0-9_./-])((ui|host|store|claude|defaults|agent|resources|sandbox|sessions|images|kernel)\\.[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_]*)?)(?![A-Za-z0-9_/-])")
 for (name, text) in pages {
     for frag in codeFragments(text) {

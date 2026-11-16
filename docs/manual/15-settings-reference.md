@@ -169,6 +169,12 @@ This table is generated from `doz config show` and checked against it on every b
 | `mac.clipboard` | `write` | write \| off | next session | `doz run @mac --clipboard` | A fenced session may put text on your clipboard, never read it; each copy announced (write, off). |
 | `mac.fence_loopback_listen` | `off` | off \| on | next session | — | Whether a fenced session on this Mac may listen on ANY port (a dev server, a test server on a free port), not only its --local-port ones (on, off). macOS's sandbox cannot keep such a server to this Mac's loopback: one that listens on every address is reachable from your network too (your firewall decides). The program still cannot connect to its own server from inside (its only way out is Dozable's proxy) — use --local-port N for that. From the next session (or restart). |
 
+### `[network]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `network.host_ports_live` | `true` | boolean | next command | — | Whether doz net allow NAME host:PORT may open a port of this Mac to a sandbox or a fenced session while it runs (true), or this Mac's ports are fixed when it starts — doz create/run --host-port PORT (false). Taking a port away (doz net deny NAME host:PORT) always works. |
+
 ### `[daemon]`
 
 | key | default | values | applies | overridden by | what it does |

@@ -71,7 +71,11 @@ A sandbox has no network of its own: everything it sends goes through Dozable's 
   11434 only"), and so does the agent's own description of its sandbox.
 - `doz doctor` checks that something answers on each such port.
 
-The port is chosen when the sandbox is made; for another port, make another sandbox.
+The port is chosen when the sandbox is made. It is one entry of the sandbox's list of this Mac's ports: other
+services on your Mac can be opened beside it (`--host-port PORT`, `doz net allow NAME host:PORT`), and
+`host.dozable.internal` is the same route as `mac.dozable.internal` — see
+[This Mac's ports](10-permissions-and-network.md#this-macs-ports). The model server's own port belongs to its model
+source: it stays open as long as the sandbox uses it.
 
 ## In the dashboard
 
