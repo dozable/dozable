@@ -38,7 +38,7 @@ doz onboard
 ```
 
 Homebrew installs the prebuilt `doz` in seconds — no compiler, no clone. `brew upgrade doz` (or
-`doz upgrade -y`) later brings a new release; doz says when one is out. Nothing is ever installed in `~/Library/LaunchAgents`.
+`doz upgrade -y`) later brings a new release; doz says when one is out. Nothing is installed in `~/Library/LaunchAgents` unless you ask: `doz daemon login-item on` adds one login item that starts the daemon when you log in.
 (From a source checkout, `make install-cli` builds and installs `~/.local/bin/doz` instead — for
 contributors; don't have both on your `PATH`.) `doz onboard` sets up this Mac, once, and asks as it goes —
 Enter takes the recommended answer:

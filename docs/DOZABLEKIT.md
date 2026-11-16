@@ -234,7 +234,7 @@ thin client of that socket.
   that exits, so its parent is launchd and it is in no caller's process tree (stopping a client, its
   group or its tree never stops the daemon), its own session (`setsid`), stdin `/dev/null`,
   output appended to `<store>/daemon.log`, none of the caller's other file descriptors. `doz doctor`
-  shows its parent. No launchd agent: nothing is installed in `~/Library/LaunchAgents`. It holds
+  shows its parent. launchd never runs the daemon: only with your consent (`doz daemon login-item on`) is ONE login item installed in `~/Library/LaunchAgents`, and it runs `doz daemon start --login-item`, which starts the daemon this same way and exits. It holds
   `<store>/daemon.lock` (flock) for its whole life, so there is never a second daemon for a store, and a
   new one waits for an exiting one to finish before it loads anything.
 - **Idle exit.** It exits once no sandbox has a VM (booting, running, paused or asleep) and no

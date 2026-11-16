@@ -35,6 +35,15 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 - **Settings and the prompt template are written ONLY when missing** (`Onboarding.write…IfMissing`) — an
   existing file is never touched, by the CLI or the UI's `POST /api/v1/onboarding/config` (634: strictly `{base?,
   access?, ignoreMode?}` — the base written into a kept file too, `Onboarding.writeBase`).
+- **The login item is asked, never assumed** (694, decision 2): the Settings step asks "Start Dozable when you log in?
+  [Y/n]" on a terminal while `daemon.login_item` is `ask` (the notice text says what is written and that macOS shows
+  "Background Items Added"); `--start-at-login on|off` answers it; `--yes` and no terminal ask nothing and write nothing
+  (a line says how to add it). An answer writes the setting and syncs the item (`DaemonLoginItem.sync`). An existing
+  install is never asked by the upgrade: the first interactive command after it says ONCE "doz: the daemon now stays
+  running. To also start it when you log in … doz daemon login-item on" (`LoginItemNotice`: a terminal, not `--json`/`-q`,
+  not a guarded run — `DOZ_TEST_LOGIN_ITEM_NOTICE=1` tests it; its marker `login-item-notice` sits beside the usage
+  notice's in the settings folder; onboarding's question and any `config set daemon.login_item` mark it shown). The
+  keep-alive follow-up question is a later release's.
 - **The setup wizard v2** (634; the owner's chosen mockup onboarding-v2; `views/onboarding.js`, `core/wizards.js`):
   `WIZ` = welcome, base, keys, access, rules, usage, signup, first; each step returns `{title, lead, body, foot}`, drawn as
   a centred `.w2-head` over a `.w2-col` of `WIZ_SIZE` (narrow 480 · medium 680 · wide 1080). Base image's "Download and
@@ -109,7 +118,10 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `doz init` through `script(1)` (the Asker needs a controlling terminal).
 - **`doz uninstall`** removes a store only if it looks like one, the settings dir only if named
   `doz`, and the installed doz only when THIS executable is `<prefix>/libexec/doz/doz` (the
-  `bin/doz` link only if it resolves to it). Never the keychain; a running `doz ui` refuses it.
+  `bin/doz` link only if it resolves to it). Never the keychain; a running `doz ui` refuses it. 694: this store's login
+  item first (listed; booted out, then the plist removed — before the daemon stops, so its next look cannot start one);
+  other stores' `com.dozable.daemon.*.plist` listed read-only. Nuke does the same. The Homebrew caveat says `doz uninstall`
+  first; a login item left behind fails harmlessly.
 - **`doz nuke` / `doz inventory`** (`NukeCommand.swift`, `Nuke.plan` — pure, `NukeTests`): back to a fresh install with
   doz kept — uninstall's store and settings rules, plus `~/Library/Caches/doz` and the keychain items Dozable
   made (`AccountStore.isDozItem`, `doz-github`; never another `doz-*` item, never Claude Code's). Each item with its

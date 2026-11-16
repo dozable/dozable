@@ -26,8 +26,8 @@ its subcommands still parse) — remove it in a later release, saying so.
 - **Detached / at login**: `doz ui --lan --detach` is ui's own double spawn (`DetachedLauncher.ui*Args`, `<store>/ui.log`;
   the flags passed on); afterwards the CLI prints the LAN addresses + an invite (a TTY only). `doz ui status` carries
   pid, since, version, detached, log, responsibleApp (the app macOS attributes it to — it survives the double spawn, as
-  604 found for the microphone; Bonjour's Local Network ask is on its behalf). No start-at-login (no launchd agent —
-  the daemon's rule; an opt-in `doz ui login` is the owner's call).
+  604 found for the microphone; Bonjour's Local Network ask is on its behalf). No start-at-login for the UI (launchd
+  never runs it; the daemon's own login item, `doz daemon login-item on`, starts only the daemon; an opt-in `doz ui login` is the owner's call).
 - **Loopback is served under every bind**: this Mac's own browser at `127.0.0.1:<port>` is the Mac principal
   (`isMacRequest`, above); [::1], localhost and `<mac>.local` from the Mac are devices like any other (rc.1 bug: on the
   Mac, `<mac>.local` resolved to ::1 and the silent drop read as "no response"). **Only a sandbox's connection is

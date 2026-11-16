@@ -140,7 +140,19 @@ The doz daemon reads your Claude login in the session it was started from. A dae
 another session with no login) cannot read the login keychain — `doz account ls`, `doz ls` and `doz doctor` say
 so, naming the daemon. Run `doz daemon restart` from your logged-in session (a terminal on the Mac itself). A
 command over ssh that has to start the daemon warns first; `doz image bake` over ssh stops the daemon it started
-once nothing runs.
+once nothing runs. With the login item (`doz daemon login-item on`) a command over ssh starts the daemon in your
+desktop session instead ("doz: started the daemon in your desktop session (login item)"), so it can read the login.
+
+**`doz daemon restart` over ssh says "not restarted"?**
+The running daemon was started from your desktop and can read your login Keychain; one started over ssh could not.
+Run it from Terminal on the Mac — or add the login item once (`doz daemon login-item on`, from the Mac), after which a
+restart over ssh starts the new daemon in your desktop session. `doz daemon stop` over ssh always works.
+
+**macOS said "Background Items Added: doz"?**
+That is the login item `doz daemon login-item on` (or "Start Dozable when you log in?" in `doz onboard`) added: one
+plist in `~/Library/LaunchAgents` that starts the doz daemon when you log in. `doz daemon login-item` shows it;
+`doz daemon login-item off` removes it. Switched off in System Settings › General › Login Items, it stays off —
+`doz doctor` says so.
 
 **Everything is slow — a wake takes a minute?**
 Run `doz doctor`. When `doz` was started at macOS background priority (by `taskpolicy -b`, or by a tool or agent that
