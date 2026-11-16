@@ -22,7 +22,7 @@ func cliOpenFilesSuite(binary: String) async {
     let opened = t.store.appendingPathComponent("opened.log")
     t.env["DOZ_TEST_OPEN_URL"] = opened.path
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         for u in [t.store, ws, outside, URL(fileURLWithPath: "/tmp/dzo-\(pid)-fp")] { try? FileManager.default.removeItem(at: u) }
     }
     func log() -> String { (try? String(contentsOf: opened, encoding: .utf8)) ?? "" }
@@ -74,7 +74,7 @@ func cliOpenFilesSuite(binary: String) async {
         check(c.wait(5) { $0.text.contains("doz: of opened report.html in ") }, "the notice: \"of opened report.html in <the default app>\"")
         check(c.wait(5) { $0.text.contains("doz: of opened sub/page.htm in ") }, "…and for the sub folder's page")
         check(!c.text.contains("\(esc)]6340"), "the marker never reached the outer terminal")
-        check(hostLog(t).contains("asked for /workspace/report.html: of opened report.html in "), "the host log says what was opened")
+        check(hostLog(t).contains("asked for /workspace/report.html: of opened report.html in "), "the daemon log says what was opened")
 
         // 2. --app: only an app in bridges.open_apps (the LISTED spelling reaches open -a).
         sleep(10)

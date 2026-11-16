@@ -129,7 +129,7 @@ export function haveList({ choices, keysOf, open, onAdd, addNodes }) {
 }
 
 // ── the model picker ─────────────────────────────────────────────────────────────────────────────────────────────
-const LISTS = new Map();                   // source → Promise<WebModelList> (the page's life; the host keeps the day's list)
+const LISTS = new Map();                   // source → Promise<WebModelList> (the page's life; the daemon keeps the day's list)
 const QUERY = new Map();                   // source → what was typed (kept across a repaint)
 const SHOWN = 80;
 

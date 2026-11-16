@@ -16,7 +16,7 @@ func cliQuickAddSuite(binary: String) async {
     let projects = "/tmp/dzo-\(pid)-np"
     let real = "/private" + projects
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         for p in [t.store.path, projects] { try? FileManager.default.removeItem(atPath: p) }
     }
     let fm = FileManager.default

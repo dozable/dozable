@@ -36,7 +36,7 @@ export DOZ_TEST_PROVIDER_UPSTREAM="127.0.0.1:$(cat "$F/port")" DOZ_TEST_PROVIDER
 
 doz() { "$DOZ" "$@"; }
 # A host started by someone else's environment would not log every request: start this store's host afresh.
-doz host stop >/dev/null 2>&1
+doz daemon stop >/dev/null 2>&1
 printf 'xai-FAKE-PROFILE-0123456789abcdef\n' | doz account add xai --provider xai --force >/dev/null 2>&1
 printf 'AIzaFAKEPROFILE-0123456789abcdef\n' | doz account add google --provider google --force >/dev/null 2>&1
 printf 'AQ.FAKEPROFILE-0123456789abcdefghij\n' | doz account add google-stitch --provider google-stitch --no-verify --force >/dev/null 2>&1
@@ -141,6 +141,6 @@ EOF2
   doz rm "$n" --yes >/dev/null 2>&1
   rm -rf "$W/projects/$n"
 done
-doz host stop >/dev/null 2>&1
+doz daemon stop >/dev/null 2>&1
 kill "$(cat "$F/pid")" 2>/dev/null
 exit $rc

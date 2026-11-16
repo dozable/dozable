@@ -21,7 +21,7 @@ import DozableKit
 //
 // Staleness, by design: a session that ends with nobody watching (its holder is older than the status protocol and
 // drops WATCH, or the watcher gave up) or one started from inside the guest is corrected at the next list the host
-// makes anyway — at once for the page's own sandbox, else within `host.screen_capture_minutes`. Never a new guest call.
+// makes anyway — at once for the page's own sandbox, else within `daemon.screen_capture_minutes`. Never a new guest call.
 
 /// One session as the overview carries it — nothing that moves by itself (an age, a byte count, a viewer count):
 /// the overview is compared poll to poll for `changed`.

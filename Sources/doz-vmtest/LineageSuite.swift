@@ -145,7 +145,7 @@ func lineageBake() async throws {
 // MARK: 4 — online discard
 
 func lineageDiscard() async throws {
-    print("vmtest[lineage]: 4 — online discard reaches the host file")
+    print("vmtest[lineage]: 4 — online discard reaches the daemon file")
     let sb = try await lineageFresh(lineageSpec("lineage-discard"))
     try await sb.start()
     let mounts = try await sb.exec(["sh", "-c", "grep -E ' / | /state ' /proc/mounts"]).output
@@ -157,8 +157,8 @@ func lineageDiscard() async throws {
     let a1 = try await settledAllocation(sb, root)
     _ = try await sb.exec(["sh", "-c", "rm -f /root/big.bin && sync && sleep 1 && sync"], privileged: true)
     let a2 = try await settledAllocation(sb, root)
-    check(a1 - a0 >= 280 << 20, "writing 300 MiB grew the host file by \(mb(a1 - a0))")
-    check(a2 - a0 < 32 << 20, "after deleting it, the host file holds \(mb(a2 - a0)) more than before (< 32 MiB; 586 without discard: the full 300)")
+    check(a1 - a0 >= 280 << 20, "writing 300 MiB grew the daemon file by \(mb(a1 - a0))")
+    check(a2 - a0 < 32 << 20, "after deleting it, the daemon file holds \(mb(a2 - a0)) more than before (< 32 MiB; 586 without discard: the full 300)")
     try await sb.shutDown()
     let g = try DiskAccounting.garbage(of: root)
     check(g < 32 << 20, "stopped: the root disk's garbage is \(mb(g)) (< 32 MiB) of \(mb(ImageBaker.sizes(root).allocated)) allocated")

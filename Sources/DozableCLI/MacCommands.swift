@@ -82,7 +82,7 @@ enum MacCLI {
             : s.ended ? "ended (exit \(s.exitCode.map(String.init) ?? "?"))" : "running"
         if let f = s.fence {
             t += " · " + f.state
-            if !s.ended, f.network == "waiting (no host)" { t += " · network waiting (no host)" }
+            if !s.ended, f.network == "waiting (no daemon)" { t += " · network waiting (no daemon)" }
         } else if !s.ended { t += " · no isolation" }
         if s.bypassed == true { t += " · " + (s.fence != nil ? "permissions bypassed — fenced" : MacPlace.bypassedMark) }
         return t

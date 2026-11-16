@@ -15,7 +15,7 @@ func cliImagesSuite(binary: String) async {
     var stub: Process?
     defer {
         stub?.terminate()
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: out-of-date images are said, never rebuilt by themselves (W28); own hostname (W29); /usr/games (W30)")
@@ -23,14 +23,14 @@ func cliImagesSuite(binary: String) async {
     check(t.run(["config", "set", "images.pi_version", AgentImages.piPinned.version]).code == 0, "images.pi_version = the pin")
 
     // 1. An older doz bakes pi (a host of its own: the seam is read when the host starts).
-    t.run(["host", "stop"])
+    t.run(["daemon", "stop"])
     var older = t.env
     older["DOZ_TEST_OLDER_RECIPE"] = "1"
     let saved = t.env
     t.env = older
     var r = t.run(["image", "bake", "pi"], timeout: 1500)
     check(r.code == 0, "an older doz's recipe bakes pi (exit \(r.code))")
-    t.run(["host", "stop"])
+    t.run(["daemon", "stop"])
     t.env = saved
 
     // 2. This doz names it — and never rebuilds it by itself.
@@ -75,7 +75,7 @@ func cliImagesSuite(binary: String) async {
     try? s.run()
     stub = s
     usleep(800_000)
-    t.run(["host", "stop"])
+    t.run(["daemon", "stop"])
     t.env["DOZ_TEST_NPM_REGISTRY"] = "http://127.0.0.1:\(port)"
     check(t.run(["config", "set", "images.pi_version", "latest"]).code == 0, "images.pi_version = latest")
     r = t.run(["create", "p9", "--image", "pi", "--account", "none", "--isolated", "--json"], timeout: 120)   // asks the registry

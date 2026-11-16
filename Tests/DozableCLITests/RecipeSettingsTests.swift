@@ -64,10 +64,10 @@ final class RecipeSettingsTests: XCTestCase {
         [host]
         idle_timeout_minutes = 9
         """
-        let s = DozableSettings(text: file, environment: ["DOZ_HOST_IDLE": "3"])
+        let s = DozableSettings(text: file, environment: ["DOZ_DAEMON_IDLE": "3"])
         // M (Mac): flag › env › Mac › default; a sandbox or project value is not one of its layers.
         XCTAssertEqual(s.resolve("ui.theme", flag: .string("light")).source, .flag)
-        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .env)
+        XCTAssertEqual(s.resolve("daemon.idle_timeout_minutes").source, .env)
         XCTAssertEqual(s.resolve("ui.theme", sandbox: .string("light"), project: .string("light")).source, .mac, "M has no sandbox or project layer")
         XCTAssertEqual(s.resolve("ui.density").source, .default)
         XCTAssertEqual(DozableSettings.definition("ui.theme")?.settingClass, .mac)

@@ -76,8 +76,8 @@ struct RecipeFullCheck {
         for d in ["xdg/doz/recipes/mine", "store", "projects", "codex"] {
             try? fm.createDirectory(at: root.appendingPathComponent(d), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         }
-        guard store.utf8.count + "/host.sock".utf8.count < 100 else {
-            report.failures.append("the scratch folder's path is too long for the host's socket — --scratch with a shorter one")
+        guard store.utf8.count + "/daemon.sock".utf8.count < 100 else {
+            report.failures.append("the scratch folder's path is too long for the daemon's socket — --scratch with a shorter one")
             return report
         }
         try? "[store]\npath = \"\(store)\"\n\n[defaults]\nprojects_dir = \"\(root.path)/projects\"\n"
@@ -106,8 +106,8 @@ struct RecipeFullCheck {
         RecipeExtras.rebuild(RecipeExtrasPaths(dir: xdg.appendingPathComponent("doz/recipes")), compile: RecipeSource.compile,
                              version: DozableCommand.version, promote: true, env: env)
         let run = Runner(executable: HostLauncher.executablePath, store: store, env: env)
-        defer { _ = run.doz(["host", "stop"], timeout: 300) }
-        _ = run.doz(["host", "stop"], timeout: 300)        // a host started under another environment
+        defer { _ = run.doz(["daemon", "stop"], timeout: 300) }
+        _ = run.doz(["daemon", "stop"], timeout: 300)        // a daemon started under another environment
 
         func step(_ name: String, _ body: () -> Bool) -> Bool {
             let t = Date()

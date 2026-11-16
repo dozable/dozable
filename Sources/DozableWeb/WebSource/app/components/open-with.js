@@ -10,7 +10,7 @@ import { api } from '../core/api.js';
 import { failureFor, toast } from './notices.js';
 
 const KEY = 'doz.openWith';
-let editors = null;          // [{id, name}] once the host answered
+let editors = null;          // [{id, name}] once the daemon answered
 let asking = null;
 const waiting = new Set();
 

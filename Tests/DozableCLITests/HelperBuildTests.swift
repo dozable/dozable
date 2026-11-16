@@ -130,7 +130,7 @@ final class HelperBuildTests: XCTestCase {
         old.flavour = nil
         let decoded = try HostWire.decoder.decode(HostStatus.self, from: try HostWire.encoder.encode(old))
         XCTAssertNil(decoded.flavour)
-        XCTAssertTrue(describe(helper).hasPrefix("host 0.37.41 (the helper build) running"), describe(helper))
+        XCTAssertTrue(describe(helper).hasPrefix("daemon 0.37.41 (the helper build) running"), describe(helper))
         XCTAssertFalse(describe(cli).contains("helper"))
     }
 

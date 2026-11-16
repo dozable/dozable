@@ -46,7 +46,7 @@ func cliDotfilesSuite(binary: String) async {
     gitEnv["GIT_CONFIG_NOSYSTEM"] = "1"
     gitEnv["HOME"] = w
     defer {
-        t.run(["host", "stop"], timeout: 300)
+        t.run(["daemon", "stop"], timeout: 300)
         try? fm.removeItem(at: t.store)
         try? fm.removeItem(atPath: w)
     }

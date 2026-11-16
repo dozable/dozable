@@ -26,7 +26,7 @@ export const state = {
   recipeQuery: '',         // 669: Recipes › Browse's search (#/browse)
   tr: null,                // 617: the Quick try modal's state (views/try.js)
   tryAgent: null,          // 617: the agent of #/try/AGENT
-  preps: [],               // 594: the host's image preparations (SSE `preparations`, GET /api/v1/preparations)
+  preps: [],               // 594: the daemon's image preparations (SSE `preparations`, GET /api/v1/preparations)
   wiz: null,               // 594: the onboarding wizard's state (#/onboarding)
   serve: null,             // 606: doz serve — this browser's facts {exposure, secure, secretsAllowed, mac, device}; null on doz ui
   signup: false,           // this build has the sign-up (an official build): the setup wizard's Stay in touch step

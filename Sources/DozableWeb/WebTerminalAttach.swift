@@ -56,7 +56,7 @@ final class HostTerminalAttachment: WebTerminalAttachment, @unchecked Sendable {
         req.rows = size.rows
         req.wake = false                       // the UI wakes only on a real keystroke (the 541 rule)
         try client.send(req)
-        guard let reply = try client.next() else { throw HostError(.unavailable, "the host closed the connection") }
+        guard let reply = try client.next() else { throw HostError(.unavailable, "the daemon closed the connection") }
         guard reply.ok == true else { throw reply.error ?? HostError(.failed, "attach failed") }
         let resolved = reply.result?["session"]?.stringValue ?? session ?? ""
         let start: WebAttachStart = reply.result?["state"]?.stringValue == "held"

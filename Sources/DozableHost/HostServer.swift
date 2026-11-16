@@ -27,6 +27,7 @@ public final class HostServer: @unchecked Sendable {
     private var idleSince: Date?
     private var listenFD: Int32 = -1
     private var lockFD: Int32 = -1
+    private var formerLockFD: Int32 = -1
     private var stopping = false
     private var signalSources: [DispatchSourceSignal] = []
     private var _recipeCatalogueWaiting = false
@@ -56,7 +57,7 @@ public final class HostServer: @unchecked Sendable {
         case socket(String)
         public var errorDescription: String? {
             switch self {
-            case .alreadyRunning(let pid): "a host is already running for this store" + (pid.map { " (pid \($0))" } ?? "")
+            case .alreadyRunning(let pid): "a daemon is already running for this store" + (pid.map { " (pid \($0))" } ?? "")
             case .socket(let s): s
             }
         }
@@ -88,19 +89,19 @@ public final class HostServer: @unchecked Sendable {
         // 606: the proxy never connects a sandbox to one of Dozable's own dashboards on this Mac.
         LocalDashboards.protect(DashboardPorts(store: store).current)
         HostLog.enabled = true
-        HostLog.line("doz host \(version) (pid \(getpid())) — store \(store.root.path), idle timeout \(idleTimeoutMinutes) min")
+        HostLog.line("doz daemon \(version) (pid \(getpid())) — store \(store.root.path), idle timeout \(idleTimeoutMinutes) min")
         HostLog.line(launched ? "detached: parent \(getppid())\(getppid() == 1 ? " (launchd)" : " — NOT launchd"), session \(getsid(0))"
                               : "in the foreground (parent \(getppid())): it lives in that terminal's process tree")
         if priorityRestored { HostLog.line("started at background priority (inherited from the client that started it) — moved to normal priority") }
         keychainLocked = HostSessionKind.lockedReason()
         if let why = keychainLocked {
-            HostLog.line("started from a session where the login keychain is locked (\(why)): this Mac's Claude login (and anything else in the keychain) cannot be read — doz host restart from a logged-in session")
+            HostLog.line("started from a session where the login keychain is locked (\(why)): this Mac's Claude login (and anything else in the keychain) cannot be read — doz daemon restart from a logged-in session")
         }
         // EXPERIMENTAL (604): which app macOS asks about the microphone for, for this host's audio sandboxes.
         HostLog.line("microphone (audio sandboxes, experimental): macOS asks on behalf of "
                      + (HostCore.microphoneApp.map { "\($0.description) — \($0.path)" } ?? "an app it could not name"))
         if ProcessInfo.processInfo.environment["DOZ_TEST_CREDENTIALS"] == "memory" {
-            HostLog.line("TEST: DOZ_TEST_CREDENTIALS=memory — accounts' secrets live in this host's memory, never the keychain; nothing is verified")
+            HostLog.line("TEST: DOZ_TEST_CREDENTIALS=memory — accounts' secrets live in this daemon's memory, never the keychain; nothing is verified")
         }
         // 599i: a test's fake OpenAI — said, so a test can check its host has it before anything reaches OpenAI.
         if let o = OpenAISeam.upstream() {
@@ -135,8 +136,8 @@ public final class HostServer: @unchecked Sendable {
         Task.detached { await server.idleLoop() }
         // 593 §9 (S2): the periodic screen capture (read once, at start — like the idle timeout).
         let captureMinutes = DozableSettings.load().int(SettingKey.screenCapture)
-        HostLog.line(captureMinutes > 0 ? "saving session screens every \(captureMinutes) min while a sandbox runs (host.screen_capture_minutes)"
-                                        : "periodic screen capture off (host.screen_capture_minutes = 0)")
+        HostLog.line(captureMinutes > 0 ? "saving session screens every \(captureMinutes) min while a sandbox runs (daemon.screen_capture_minutes)"
+                                        : "periodic screen capture off (daemon.screen_capture_minutes = 0)")
         if captureMinutes > 0 {
             Task.detached {
                 while true {
@@ -160,7 +161,7 @@ public final class HostServer: @unchecked Sendable {
                 let outcome = await RecipeCatalogueRefresh.refresh(version: version, executable: HostLauncher.executablePath)
                 switch outcome {
                 case .downloaded(let serial):
-                    HostLog.line("recipe catalogue \(serial) downloaded and verified — it applies at the next host start")
+                    HostLog.line("recipe catalogue \(serial) downloaded and verified — it applies at the next daemon start")
                     server.recipeCatalogueWaiting = true
                 case .refused(let why, let reportNow): if reportNow { HostLog.line(why) }
                 default: break
@@ -169,7 +170,7 @@ public final class HostServer: @unchecked Sendable {
                 for (name, o) in await CommunityRefresh.refreshAll(version: version) {
                     switch o {
                     case .downloaded(let serial):
-                        HostLog.line("community recipes \(name): catalogue \(serial) downloaded and verified — it applies at the next host start")
+                        HostLog.line("community recipes \(name): catalogue \(serial) downloaded and verified — it applies at the next daemon start")
                         server.recipeCatalogueWaiting = true
                     case .refused(let why, let reportNow): if reportNow { HostLog.line("community recipes \(name): \(why)") }
                     default: break
@@ -182,21 +183,48 @@ public final class HostServer: @unchecked Sendable {
         while true { try? await Task.sleep(for: .seconds(3600)) }
     }
 
-    /// The store's lock, for the life of the process. A host that is exiting still holds it: wait.
+    /// The store's lock, for the life of the process. A daemon that is exiting still holds it: wait.
+    /// TEMPORARY (the host→daemon migration; without it there is no former lock): then the lock an older build's daemon
+    /// takes too, AFTER this one and the same way — an older daemon still running (or starting) on this store is never a
+    /// second owner, and one that is exiting (its idle exit after an update, a hand-over of fenced sessions to this build)
+    /// is waited for. Both are held for this process's whole life.
     private func takeLock(waitSeconds: Double) throws {
-        let fd = open(store.lockFile.path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
-        guard fd >= 0 else { throw StartError.socket("cannot open \(store.lockFile.path): \(String(cString: strerror(errno)))") }
-        let deadline = Date().addingTimeInterval(waitSeconds)
-        while flock(fd, LOCK_EX | LOCK_NB) != 0 {
-            // A live host that is not exiting answers its socket: then this one is not needed.
-            if Date() > deadline || UnixSocket.connect(store.socket.path).map({ close($0); return true }) == true {
-                close(fd)
-                throw StartError.alreadyRunning(store.hostPID())
-            }
-            usleep(100_000)
-        }
-        lockFD = fd
+        let held = try Self.takeStoreLocks(store, waitSeconds: waitSeconds)
+        lockFD = held[0]
+        if held.count > 1 { formerLockFD = held[1] }
         try? "\(getpid())\n".write(to: store.pidFile, atomically: true, encoding: .utf8)
+    }
+
+    /// The lock(s) `takeLock` holds, in order (the daemon's, then — migration only — the former one); each a descriptor
+    /// whose flock is held until it is closed or unlocked.
+    static func takeStoreLocks(_ store: DozableStore, waitSeconds: Double) throws -> [Int32] {
+        let deadline = Date().addingTimeInterval(waitSeconds)
+        var held: [Int32] = []
+        for file in [store.lockFile] + (store.formerLockFile.map { [$0] } ?? []) {
+            let fd = open(file.path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
+            guard fd >= 0 else {
+                for h in held { close(h) }
+                throw StartError.socket("cannot open \(file.path): \(String(cString: strerror(errno)))")
+            }
+            while flock(fd, LOCK_EX | LOCK_NB) != 0 {
+                // A live daemon that is not exiting answers its socket (an older build's: its old one): then this one is not needed.
+                if Date() > deadline || HostClient.connectAny(store).map({ close($0); return true }) == true {
+                    close(fd)
+                    for h in held { close(h) }
+                    throw StartError.alreadyRunning(store.hostPID())
+                }
+                usleep(100_000)
+            }
+            held.append(fd)
+        }
+        // The older daemon is gone (its lock is ours): a pid it left would read as a daemon killed.
+        if held.count > 1, let f = store.formerPidFile { try? FileManager.default.removeItem(at: f) }
+        return held
+    }
+
+    private func releaseLocks() {
+        if lockFD >= 0 { flock(lockFD, LOCK_UN) }
+        if formerLockFD >= 0 { flock(formerLockFD, LOCK_UN) }
     }
 
     private func installSignalHandlers() {
@@ -240,7 +268,7 @@ public final class HostServer: @unchecked Sendable {
             }
             // A newer recipe catalogue waits: the same — the next command's host starts with it.
             if live.isEmpty, lock.withLock({ _recipeCatalogueWaiting && connections == 0 && !stopping }) {
-                HostLog.line("a newer recipe catalogue is downloaded and nothing is running — exiting so the next command's host uses it")
+                HostLog.line("a newer recipe catalogue is downloaded and nothing is running — exiting so the next command's daemon uses it")
                 await shutdown(prepare: false, reply: nil)
             }
             let exit: Bool = lock.withLock {
@@ -278,20 +306,20 @@ public final class HostServer: @unchecked Sendable {
         if fd >= 0 { Darwin.shutdown(fd, SHUT_RDWR); close(fd) }
         unlink(store.socket.path)
         HostLog.line("my program changed (\(change.rawValue)) and only fenced sessions on this Mac keep me (\(fenced.joined(separator: ", "))) — "
-                     + "handing them to a new host of the installed build")
+                     + "handing them to a new daemon of the installed build")
         do {
             let pid = try HostLauncher.spawn(store: store)
-            HostLog.line("the new host (pid \(pid)) waits for the store's lock")
+            HostLog.line("the new daemon (pid \(pid)) waits for the store's lock")
         } catch {
-            HostLog.line("could not start the new host (\(error)) — the next command starts one; the sessions' connections wait until then")
+            HostLog.line("could not start the new daemon (\(error)) — the next command starts one; the sessions' connections wait until then")
         }
         let t0 = Date()
         let cut = await core.drainMacProxies(timeout: 30)
         await core.captureMacScreens(reason: "hand-over")
-        HostLog.line(String(format: "proxies drained in %.1f s%@ — exiting; the new host takes over", Date().timeIntervalSince(t0),
+        HostLog.line(String(format: "proxies drained in %.1f s%@ — exiting; the new daemon takes over", Date().timeIntervalSince(t0),
                             cut > 0 ? " (\(cut) connection\(cut == 1 ? "" : "s") still open were cut)" : ""))
         try? FileManager.default.removeItem(at: store.pidFile)
-        if lockFD >= 0 { flock(lockFD, LOCK_UN) }
+        releaseLocks()
         exit(0)
     }
 
@@ -322,7 +350,7 @@ public final class HostServer: @unchecked Sendable {
         }
         // The sessions on this Mac are not the host's to stop: their screens are saved once more, and they keep running.
         let macLive = prepare ? await core.macSessionsAtExit() : 0
-        if macLive > 0 { HostLog.line("\(macLive) session(s) on this Mac keep running (their holders outlive the host)") }
+        if macLive > 0 { HostLog.line("\(macLive) session(s) on this Mac keep running (their holders outlive the daemon)") }
         if let reply {
             let d = ContinuousClock.now - t0
             var result = HostStopResult(sandboxes: rows, milliseconds: Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15,
@@ -332,8 +360,8 @@ public final class HostServer: @unchecked Sendable {
             reply.close()
         }
         try? FileManager.default.removeItem(at: store.pidFile)
-        HostLog.line("host exiting")
-        if lockFD >= 0 { flock(lockFD, LOCK_UN) }
+        HostLog.line("daemon exiting")
+        releaseLocks()
         exit(0)
     }
 
@@ -371,7 +399,7 @@ public final class HostServer: @unchecked Sendable {
         guard let line = reader.readLine(limit: 1 << 20) else { finished(conn); return }
         let req: HostRequest
         do { req = try HostWire.decoder.decode(HostRequest.self, from: line) } catch {
-            conn.send(.failure(HostError(.invalid, "a request this host cannot read (\(error.localizedDescription)) — is the CLI newer than the host? (doz host stop)")))
+            conn.send(.failure(HostError(.invalid, "a request this daemon cannot read (\(error.localizedDescription)) — is the CLI newer than the daemon? (doz daemon stop)")))
             finished(conn)
             return
         }
@@ -394,7 +422,7 @@ public final class HostServer: @unchecked Sendable {
             consoleFollow(conn, reader: reader, request: req)
         case .hostStop:
             // 594 W18: the web UI reads why the last host exited from this log (`HostExitReason`).
-            HostLog.line("host stop requested: hibernating every sandbox, then exiting")
+            HostLog.line("daemon stop requested: hibernating every sandbox, then exiting")
             Task.detached { [self] in await self.shutdown(prepare: true, reply: conn) }
         case .ping:
             Task.detached { [self] in
@@ -801,7 +829,7 @@ extension HostCore {
         if MacPlace.isPlace(name) {
             guard let s = session else { throw HostError(.invalid, "which session? doz net log @mac --session SESSION") }
             guard let p = macProxies[s] else {
-                throw HostError(.notFound, "this host does not serve a proxy for \(s) on this Mac (doz sessions @mac: only a running fenced session has one)")
+                throw HostError(.notFound, "this daemon does not serve a proxy for \(s) on this Mac (doz sessions @mac: only a running fenced session has one)")
             }
             return (p.proxy.log, MacPlace.name)
         }

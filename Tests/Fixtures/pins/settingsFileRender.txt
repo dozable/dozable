@@ -14,7 +14,7 @@
 #   - the web UI's checks: exact Host, Origin + CSRF on every change, the Content-Security-Policy
 #   - the browser terminal's safety: one-use 30 s tickets, the 1 MiB paste cap and the unsafe-paste confirmation
 #   - the guest binaries (DOZ_DECKHOLD / DOZ_DOZNET are developer overrides, environment only)
-#   - credentials: keys and tokens live in the Keychain or the host's memory, never in this file (ui.allow_secret_entry only decides whether the web UI may take one)
+#   - credentials: keys and tokens live in the Keychain or the daemon's memory, never in this file (ui.allow_secret_entry only decides whether the web UI may take one)
 #
 # A recipe's own settings (its agent's version, approvals, memory_mib, network) are written in a
 # [recipes.VENDOR.PRODUCT] block only once one of them is set: `doz config show --agent ID` lists
@@ -91,7 +91,7 @@
 
 # The web UI takes an Anthropic API key or a Claude setup token in a masked field — an account
 # (the setup wizard, Accounts & keys: stored exactly as doz account add stores it, the login
-# keychain) or a sandbox's own key (its page: exactly as doz key set does, held by the host) —
+# keychain) or a sandbox's own key (its page: exactly as doz key set does, held by the daemon) —
 # sent once, in a request body. false: the pages show the command instead. The UI can turn this
 # off, never on.
 # (boolean; applies at once (the UI re-reads it))
@@ -260,16 +260,16 @@
 # (off | on; applies to sessions opened from now on)
 # fence_loopback_listen = "off"
 
-[host]
+[daemon]
 
-# Minutes with nothing running before the host exits; 0 = never.
-# (integer 0–10080; env DOZ_HOST_IDLE; flag doz host start --idle-timeout; applies after doz host stop (the next host reads it))
+# Minutes with nothing running before the daemon exits; 0 = never.
+# (integer 0–10080; env DOZ_DAEMON_IDLE; flag doz daemon start --idle-timeout; applies after doz daemon stop (the next daemon reads it))
 # idle_timeout_minutes = 5
 
 # Every this many minutes, save the screen of each running sandbox's sessions that printed
 # something since (what a sleep or hibernation falls back on); 0 = only when it pauses, sleeps or
 # hibernates.
-# (integer 0–1440; env DOZ_SCREEN_CAPTURE; applies after doz host stop (the next host reads it))
+# (integer 0–1440; env DOZ_SCREEN_CAPTURE; applies after doz daemon stop (the next daemon reads it))
 # screen_capture_minutes = 5
 
 # How many boots of each sandbox to keep (its steps and kernel console — the web UI's Boot log,
@@ -277,54 +277,54 @@
 # (integer 1–50; env DOZ_BOOT_LOGS; applies when the next boot of a sandbox is kept)
 # boot_logs_kept = 5
 
-# Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the host runs the
+# Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the daemon runs the
 # Mac's claude once to renew it.
 # (boolean; the choice for a store that has not made one (doz account keepalive wins))
 # keepalive = false
 
 [store]
 
-# The store: images, kernels, sandboxes and the host's files.
+# The store: images, kernels, sandboxes and the daemon's files.
 # (path ("" = automatic); env DOZ_STORE; flag --store; applies to the next doz command (a running doz ui keeps its store))
 # path = "~/Library/Application Support/doz"
 
 [defaults]
 
 # CPUs of a new sandbox.
-# (integer 1–64; flag doz create --cpus; applies to sandboxes created from now on (the host reads it at create))
+# (integer 1–64; flag doz create --cpus; applies to sandboxes created from now on (the daemon reads it at create))
 # cpus = 2
 
 # Memory (MiB) of a new sandbox whose image has no agent (a base alone: python, go). A recipe's
 # sandboxes have their recipe's own (doz config show --agent ID), the lab its own (images.lab).
-# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the daemon reads it at create))
 # memory_mib = 2048
 
 # The network of a new sandbox whose image has no agent: agent, bake, locked, open (proxied
 # presets), nat or none.
-# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the daemon reads it at create))
 # network = "agent"
 
 # The vmnet subnet of a new --network nat sandbox.
-# (IPv4 subnet, a.b.c.d/nn ("" = a free one); env DOZ_SUBNET; flag doz create --subnet; applies to sandboxes created from now on (the host reads it at create))
+# (IPv4 subnet, a.b.c.d/nn ("" = a free one); env DOZ_SUBNET; flag doz create --subnet; applies to sandboxes created from now on (the daemon reads it at create))
 # nat_subnet = ""
 
 # The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz
 # onboard writes the one you chose.
-# (lab | claude-code | pi | codex, or an agent or tool's id (doz try lists them); flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
+# (lab | claude-code | pi | codex, or an agent or tool's id (doz try lists them); flag doz create --image; applies to sandboxes created from now on (the daemon reads it at create))
 # image = "lab"
 
 # The base image of this store: every tool you try (Quick try, doz try, the setup's first sandbox)
 # is added to it as a layer when no base is named, so a second tool downloads nothing more. doz
 # onboard sets it. New sandbox and doz_project.yaml keep a tool's own default base unless you
 # choose one.
-# (node | python | go | rust | java | ruby | dotnet | debian | ubuntu | alpine; flag doz try --base; applies to sandboxes created from now on (the host reads it at create))
+# (node | python | go | rust | java | ruby | dotnet | debian | ubuntu | alpine; flag doz try --base; applies to sandboxes created from now on (the daemon reads it at create))
 # base = "node"
 
 # The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz
 # new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create
 # is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings ›
 # Choose… sets it with the Mac's folder picker.
-# (path ("" = automatic); applies to sandboxes created from now on (the host reads it at create))
+# (path ("" = automatic); applies to sandboxes created from now on (the daemon reads it at create))
 # projects_dir = "~/doz-workspaces"
 
 # The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or
@@ -337,14 +337,14 @@
 # use GitHub, send error reports), locked (its AI model only), open (everything, the web
 # included), or standard with changes like +web,-error-reports. Stored by name: a Dozable update
 # that adds a host to a permission reaches every sandbox that has it.
-# (standard | locked | open, or permissions like +web,-error-reports (doz net permissions); flag doz create --allow / --network; applies to sandboxes created from now on (the host reads it at create))
+# (standard | locked | open, or permissions like +web,-error-reports (doz net permissions); flag doz create --allow / --network; applies to sandboxes created from now on (the daemon reads it at create))
 # permissions = "standard"
 
 # "Use GitHub as you" for new sandboxes: off, read (git and gh signed in as you on GitHub,
 # read-only) or push (also push and make changes) — the Access step's choice (doz access set
 # --github). A sandbox can differ: doz create --github, github: in doz_project.yaml, or its
 # permissions later (doz net allow|deny NAME github:as-you). Proxied sandboxes only.
-# (off | read | push; flag doz create --github off|read|push; applies to sandboxes created from now on (the host reads it at create))
+# (off | read | push; flag doz create --github off|read|push; applies to sandboxes created from now on (the daemon reads it at create))
 # github = "off"
 
 [agent]
@@ -371,8 +371,8 @@
 # Updates: notify (at most once a day, and when doz ui opens, look for a newer doz and say how to
 # upgrade — one line on a terminal, a banner on the dashboard), auto (also install it: brew
 # upgrade, or the signed download for a tarball install — only while no sandbox runs and no
-# session is attached, else it notifies; then: restart to apply, doz host restart), or off (never
-# look). Never a downgrade; a feed that does not verify is ignored.
+# session is attached, else it notifies; then: restart to apply, doz daemon restart), or off
+# (never look). Never a downgrade; a feed that does not verify is ignored.
 # (off | notify | auto; env DOZ_UPDATES; applies to the next doz command (a running doz ui keeps its store))
 # mode = "notify"
 
@@ -469,7 +469,7 @@
 # per repository and commit before it is applied — it is code that runs in the sandbox. "" (the
 # default): none. A sandbox's own choice (doz create --dotfiles, dotfiles in doz_project.yaml)
 # wins over this.
-# (a git repository's https:// URL, or a folder on this Mac that is one ("" = none); flag doz create --dotfiles URL|PATH|none; applies to sandboxes created from now on (the host reads it at create))
+# (a git repository's https:// URL, or a folder on this Mac that is one ("" = none); flag doz create --dotfiles URL|PATH|none; applies to sandboxes created from now on (the daemon reads it at create))
 # dotfiles = ""
 
 # Sound in new sandboxes: off, speakers (this Mac's speakers) or on (its speakers and microphone).
@@ -478,7 +478,7 @@
 # can move between speakers and on (doz config set --sandbox NAME sandbox.audio on), from its next
 # start. It records from the Mac's microphone only if macOS allowed it before the sandbox started
 # (else silence); sandbox.microphone_ask says when doz asks.
-# (off | speakers | on; flag doz create --sound off|speakers|on (--audio = on); applies to sandboxes created from now on (the host reads it at create))
+# (off | speakers | on; flag doz create --sound off|speakers|on (--audio = on); applies to sandboxes created from now on (the daemon reads it at create))
 # audio = "off"
 
 # When doz asks macOS about the microphone for a sandbox whose sound is on, while macOS has no
@@ -524,7 +524,7 @@
 
 # How a sandbox's workspace folder reaches it. on: through Dozable's live view of the folder, so a
 # program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from
-# hibernation or after a host restart. The view costs a little: the first scan of a big folder
+# hibernation or after a daemon restart. The view costs a little: the first scan of a big folder
 # after a start or a wake is slower (e.g. git status on a large repository, or find), later ones
 # are about as fast as without it. off: the folder is shared directly (a little faster) — but a
 # program working inside /workspace loses its folder at such a wake and must be restarted (Codex
@@ -548,19 +548,19 @@
 [images.lab]
 
 # Memory (MiB) of a new lab sandbox (a template follows the image it was saved from).
-# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the daemon reads it at create))
 # memory_mib = 1024
 
 # The network of a new lab sandbox: agent, bake, locked, open (proxied presets), nat or none.
-# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the daemon reads it at create))
 # network = "bake"
 
 [kernel]
 
 # An explicit Linux kernel for new sandboxes ("": the pinned kernel, fetched into the cache).
-# (path ("" = automatic); env DOZ_KERNEL; applies to sandboxes created from now on (the host reads it at create))
+# (path ("" = automatic); env DOZ_KERNEL; applies to sandboxes created from now on (the daemon reads it at create))
 # path = ""
 
 # Where the pinned kernel is cached ("": the store's own); share one between stores.
-# (path ("" = automatic); env DOZ_KERNEL_CACHE; applies to sandboxes created from now on (the host reads it at create))
+# (path ("" = automatic); env DOZ_KERNEL_CACHE; applies to sandboxes created from now on (the daemon reads it at create))
 # cache = ""

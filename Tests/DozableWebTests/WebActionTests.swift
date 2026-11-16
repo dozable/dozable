@@ -48,8 +48,8 @@ final class WebActionTests: XCTestCase {
         "resources-rm": #"{"action":"resources-rm","ids":["cache:downloads","kernel:6.12.1-1","point:web/rp-1"]}"#,
         "resources-clean": #"{"action":"resources-clean"}"#,
         "resources-kernel": #"{"action":"resources-kernel","kernel":"kernel:6.12.1-1"}"#,
-        "host-start": #"{"action":"host-start"}"#,
-        "host-restart": #"{"action":"host-restart"}"#,
+        "daemon-start": #"{"action":"daemon-start"}"#,
+        "daemon-restart": #"{"action":"daemon-restart"}"#,
         // 596 (B7): Apple's container tool — start its services, install it (the page said what each does).
         "builder-start": #"{"action":"builder-start"}"#,
         "builder-install": #"{"action":"builder-install"}"#,
@@ -237,12 +237,12 @@ final class WebActionTests: XCTestCase {
     /// 594 W20: "Restart host" — no fields; `host stop` + a start of this UI's build, refused by the
     /// data source when no host runs (647: any running host, not only an older one).
     func testRestartHostIsTheOnlyHostStopAndItIsGuarded() async throws {
-        let a = try decode(Self.samples["host-restart"]!)
+        let a = try decode(Self.samples["daemon-restart"]!)
         XCTAssertEqual(a, .hostRestart)
         XCTAssertEqual(a.hostOp, .hostStop)
         XCTAssertNil(a.sandbox)
-        XCTAssertEqual(a.label, "host-restart")
-        invalid(#"{"action":"host-restart","sandbox":"a"}"#)
+        XCTAssertEqual(a.label, "daemon-restart")
+        invalid(#"{"action":"daemon-restart","sandbox":"a"}"#)
         invalid(#"{"action":"host-stop"}"#)
         XCTAssertTrue(WebOperations.summary(.hostRestart, .null).contains("hibernated"))
         // 594 W22: the stop's rows in the outcome, and each sandbox's line on the operation.
@@ -250,7 +250,7 @@ final class WebActionTests: XCTestCase {
                     HostStopRow(name: "w2", phaseBefore: "running", phase: "off", outcome: "failed", milliseconds: 90, error: "boom")]
         let v = try JSONValue(encoding: WebHostRestart(stop: HostStopResult(sandboxes: rows, milliseconds: 500, version: "a"), host: nil))
         XCTAssertEqual(WebOperations.summary(.hostRestart, v),
-                       "the host restarted — hibernated w1; they wake when used (w2: could not hibernate — shut down)")
+                       "the daemon restarted — hibernated w1; they wake when used (w2: could not hibernate — shut down)")
         XCTAssertEqual(WebOperations.finishedLine(HostStopView.finished(rows[0])), "✓ hibernated w1 — 400 ms")
         XCTAssertEqual(WebOperations.finishedLine(HostStopView.finished(rows[1])),
                        "✗ hibernating w2 — boom — it was shut down instead (its disk is kept; start it again) (90 ms)")
@@ -261,23 +261,23 @@ final class WebActionTests: XCTestCase {
         try store.ensureDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let data = HostWebData(store: store, version: "0.12.0") { [] }
-        do { _ = try await data.restartHost { _ in }; XCTFail("no host") } catch {
-            XCTAssertTrue(HostError.from(error).message.contains("no host is running"))
+        do { _ = try await data.restartHost { _ in }; XCTFail("no daemon") } catch {
+            XCTAssertTrue(HostError.from(error).message.contains("no daemon is running"))
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.socket.path), "nothing started")
     }
 
     /// 594 W18: "Start host" — the host's `ping` (sent with autostart like every action), nothing more.
     func testStartHostIsAPingWithNoFields() throws {
-        let a = try decode(Self.samples["host-start"]!)
+        let a = try decode(Self.samples["daemon-start"]!)
         XCTAssertEqual(a, .hostStart)
         XCTAssertEqual(a.hostRequest.op, .ping)
         XCTAssertNil(a.sandbox)
         XCTAssertNil(a.confirmationTarget)
-        XCTAssertEqual(a.label, "host-start")
-        invalid(#"{"action":"host-start","sandbox":"a"}"#)
+        XCTAssertEqual(a.label, "daemon-start")
+        invalid(#"{"action":"daemon-start","sandbox":"a"}"#)
         invalid(#"{"action":"host-stop"}"#)
-        XCTAssertEqual(WebOperations.summary(.hostStart, .null), "the host is running")
+        XCTAssertEqual(WebOperations.summary(.hostStart, .null), "the daemon is running")
     }
 
     /// 594: onboard and prepare-cancel — built-in images only, each once; onboard never waits.
@@ -285,7 +285,7 @@ final class WebActionTests: XCTestCase {
         let o = try decode(Self.samples["onboard"]!)
         XCTAssertEqual(o.hostRequest.op, .onboard)
         XCTAssertEqual(o.hostRequest.images, ["claude-code", "lab"])
-        XCTAssertEqual(o.hostRequest.follow, false, "the preparation runs in the host; the action ends at once")
+        XCTAssertEqual(o.hostRequest.follow, false, "the preparation runs in the daemon; the action ends at once")
         XCTAssertEqual(o.hostRequest.requestedBy, "doz ui")
         XCTAssertEqual(try decode(#"{"action":"onboard"}"#).hostRequest.images, [], "no images: onboarding is recorded at once")
         XCTAssertNil(try decode(#"{"action":"prepare-cancel"}"#).hostRequest.images, "none named: every running one")
@@ -351,7 +351,7 @@ final class WebActionTests: XCTestCase {
                        "this Mac: end, restart, resume after a git stop, the bridges (683 M5) — never an open")
         // 594 W18: `ping` is reachable — as "Start host" (a status read that starts a host the way
         // every action does); `host stop` only as W20's guarded Restart host.
-        XCTAssertEqual(Self.samples.filter { (try? decode($0.value).hostOp) == .hostStop }.map(\.key), ["host-restart"])
+        XCTAssertEqual(Self.samples.filter { (try? decode($0.value).hostOp) == .hostStop }.map(\.key), ["daemon-restart"])
         for forbidden: HostOp in [.exec, .attach, .keySet, .accountAdd, .events] {
             XCTAssertFalse(ops.contains(forbidden), "\(forbidden) must never be reachable from the browser")
         }

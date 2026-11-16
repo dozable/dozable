@@ -14,7 +14,7 @@ struct ConfigCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "config",
         abstract: "Settings: doz.toml, every value and where it came from (flag, env, sandbox, project, mac, recipe or default).",
         discussion: """
-        Precedence: a command-line flag, then its environment variable (DOZ_STORE, DOZ_HOST_IDLE, \
+        Precedence: a command-line flag, then its environment variable (DOZ_STORE, DOZ_DAEMON_IDLE, \
         DOZ_SUBNET, DOZ_KERNEL, DOZ_KERNEL_CACHE), then a sandbox's own value, then its project's \
         (doz_project.yaml), then this Mac's (the file), then the default — a recipe's own for its agent's \
         settings, Dozable's for the rest. The file lists Dozable's own settings with their defaults commented \

@@ -15,7 +15,7 @@ func cliPermissionsSuite(binary: String) async {
     let t = onboardingHarness(binary, "q", seed: ["kernels", "content", "state.json", "initfs.ext4", "golden"])
     t.env["DOZ_TEST_NPM_REGISTRY"] = "offline"
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: agent permissions (597)")

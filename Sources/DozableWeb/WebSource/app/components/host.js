@@ -53,23 +53,23 @@ export function renderHostFoot() {
 /// Restart host (`doz host restart`): stop it (its sandboxes hibernate, and wake when used) and start this UI's build.
 /// 594 W20 offered it for an OLDER host (the banner); 647 (owner) on the status card for any running host.
 function restartHostButton(host, opts = {}) {
-  return btn(opts.label || 'Restart host', () => {
+  return btn(opts.label || 'Restart daemon', () => {
     // What runs NOW (the banner may be older than the last overview).
     host = (state.overview && state.overview.host) || host;
     const live = host.liveSandboxes || [];
     const same = !host.uiVersion || host.uiVersion === host.version;
-    dialog('Restart the host?',
-      'The host (doz ' + host.version + ') stops and ' + (same ? 'starts again' : 'doz ' + host.uiVersion + ' starts in its place') + '. ' +
+    dialog('Restart the daemon?',
+      'The daemon (doz ' + host.version + ') stops and ' + (same ? 'starts again' : 'doz ' + host.uiVersion + ' starts in its place') + '. ' +
       (live.length ? 'Its running sandboxes (' + live.join(', ') + ') hibernate first — sessions kept — and wake when you use them.'
                    : 'No sandbox is running.'),
-      [], 'Restart host', async () => { await actOrThrow({ action: 'host-restart' }); dropBanner('version'); }, { icon: 'rotate-ccw' });
-  }, { small: true, primary: !opts.quiet, quiet: !!opts.quiet, icon: 'rotate-ccw', title: 'Stop the host (its running sandboxes hibernate) and start doz ' + (host.uiVersion || host.version) });
+      [], 'Restart daemon', async () => { await actOrThrow({ action: 'daemon-restart' }); dropBanner('version'); }, { icon: 'rotate-ccw' });
+  }, { small: true, primary: !opts.quiet, quiet: !!opts.quiet, icon: 'rotate-ccw', title: 'Stop the daemon (its running sandboxes hibernate) and start doz ' + (host.uiVersion || host.version) });
 }
 function startHostButton(opts = {}) {
-  return btn(opts.label || 'Start host', async (ev) => {
+  return btn(opts.label || 'Start daemon', async (ev) => {
     ev.currentTarget.disabled = true;
-    await act({ action: 'host-start' });
-  }, { small: true, primary: !opts.quiet, quiet: !!opts.quiet, icon: 'play', title: 'Starts the store’s host the normal way (detached, as the CLI does)' });
+    await act({ action: 'daemon-start' });
+  }, { small: true, primary: !opts.quiet, quiet: !!opts.quiet, icon: 'play', title: 'Starts the store’s daemon the normal way (detached, as the CLI does)' });
 }
 
 // ── 647 (owner: "make the footer popup interactive"): the status card's actions ─────────────────────────────────────
@@ -84,7 +84,7 @@ function paintHostCard(host) {
     slot.replaceChildren(...(k === '' ? [] : host.running ? [restartHostButton(host, { quiet: true, label: 'Restart' })] : [startHostButton({ quiet: true, label: 'Start' })]));
   }
   const differ = host && host.running && host.uiVersion && host.version && host.uiVersion !== host.version;
-  const text = differ ? (host.versionNote && host.versionNote.text) || ('The host runs doz ' + host.version + '; this dashboard is doz ' + host.uiVersion + '.') : '';
+  const text = differ ? (host.versionNote && host.versionNote.text) || ('The daemon runs doz ' + host.version + '; this dashboard is doz ' + host.uiVersion + '.') : '';
   note.hidden = !differ;
   if (note.textContent !== text) note.textContent = text;
   note.classList.toggle('warn', !!differ);
@@ -134,20 +134,20 @@ export function hostChanged(c) {
   if (c.state === 'running') {
     dropBanner('host-stopped');
     if (c.previousVersion) {
-      banner('host-build', '', ['The host is now ', h('code', null, 'doz ' + c.version), ' (was ', h('code', null, c.previousVersion), ').']);
+      banner('host-build', '', ['The daemon is now ', h('code', null, 'doz ' + c.version), ' (was ', h('code', null, c.previousVersion), ').']);
     }
   } else if (c.state === 'stopped') {
     const why = c.reason ? ' (' + c.reason + ')' : '';
     banner('host-stopped', 'warn', n
-      ? ['The doz host stopped' + why + ' — your sandboxes were hibernated: ', ...sandboxLinks(c.sandboxes),
-         h('span', { class: 'muted' }, ' Waking one starts a host again, as the CLI does.')]
-      : ['The doz host stopped' + why + '. Nothing was running. ', h('span', { class: 'muted' }, 'Any action starts a host again, as the CLI does.')],
+      ? ['The doz daemon stopped' + why + ' — your sandboxes were hibernated: ', ...sandboxLinks(c.sandboxes),
+         h('span', { class: 'muted' }, ' Waking one starts the daemon again, as the CLI does.')]
+      : ['The doz daemon stopped' + why + '. Nothing was running. ', h('span', { class: 'muted' }, 'Any action starts the daemon again, as the CLI does.')],
       [startHostButton()]);
   } else {
     banner('host-died', 'bad', n
-      ? ['The doz host died — ' + plural(n, 'sandbox was', 'sandboxes were') + ' running; ' + (n === 1 ? 'it is' : 'they are') +
+      ? ['The doz daemon died — ' + plural(n, 'sandbox was', 'sandboxes were') + ' running; ' + (n === 1 ? 'it is' : 'they are') +
          ' shut down (restart ' + (n === 1 ? 'it' : 'them') + '): ', ...sandboxLinks(c.sandboxes)]
-      : ['The doz host died (killed or crashed). No sandbox was running.'],
+      : ['The doz daemon died (killed or crashed). No sandbox was running.'],
       state.overview && state.overview.host.running ? [] : [startHostButton()]);
   }
   // Every page's phases follow at once (the grid and the sandbox pages too).
@@ -157,11 +157,11 @@ export function hostChanged(c) {
 
 export function hostCard(host) {
   if (host.running) {
-    return card('Host', 'running', 'pid ' + host.pid + ' · ' + (host.version || '') + ' · since ' + when(host.startedAt) +
+    return card('Daemon', 'running', 'pid ' + host.pid + ' · ' + (host.version || '') + ' · since ' + when(host.startedAt) +
       (host.idleSeconds ? ' · idle ' + Math.round(host.idleSeconds) + ' s' : ''));
   }
   // 594 W18: every action starts a host on demand (as the CLI does); this starts one on its own.
-  const c = card('Host', 'not running', host.recoveryPending.length ? 'recovery pending: ' + host.recoveryPending.join(', ') : 'nothing is running — shown from the store');
+  const c = card('Daemon', 'not running', host.recoveryPending.length ? 'recovery pending: ' + host.recoveryPending.join(', ') : 'nothing is running — shown from the store');
   c.append(h('div', { class: 'n-act' }, startHostButton()));
   return c;
 }

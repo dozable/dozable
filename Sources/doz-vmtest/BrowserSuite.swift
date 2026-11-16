@@ -17,7 +17,7 @@ func cliBrowserSuite(binary: String) async {
     let opened = t.store.appendingPathComponent("opened.log")
     t.env["DOZ_TEST_OPEN_URL"] = opened.path
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: t.store)
     }
     func log() -> String { (try? String(contentsOf: opened, encoding: .utf8)) ?? "" }
@@ -62,7 +62,7 @@ func cliBrowserSuite(binary: String) async {
         check(c.wait(15) { $0.text.contains("SIGNIN-4") }, "the sign-in URL was handed over (SIGNIN-4)")
         check(c.wait(5) { $0.text.contains("doz: bb opened https://auth.example.test/oauth/authorize · sign-in callback localhost:\(port)") },
               "the notice says the callback is forwarded")
-        check(hostLog(t).contains("bb opened https://auth.example.test/oauth/authorize · sign-in callback localhost:\(port) forwarded (10 min)"), "…as the host log does")
+        check(hostLog(t).contains("bb opened https://auth.example.test/oauth/authorize · sign-in callback localhost:\(port) forwarded (10 min)"), "…as the daemon log does")
         check(c.wait(15) { _ in log().contains("callback \(port) HTTP/1.0 200 OK") && log().contains("signed in to the sandbox") },
               "the Mac's localhost:\(port) reached the guest's server, and its answer came back (\(log().suffix(200).debugDescription))")
         r = t.run(["exec", "bb", "--", "cat", "/tmp/got.txt"])
@@ -70,8 +70,8 @@ func cliBrowserSuite(binary: String) async {
         // The forward ends shortly after the callback was answered.
         sleep(UInt32(BrowserBridge.graceSeconds) + 2)
         check(BrowserBridge.get(port: port, path: "/") == "refused", "after the callback, the Mac's localhost:\(port) is closed again")
-        check(hostLog(t).contains("the sign-in callback forward localhost:\(port) ended (the sign-in's callback was answered)"), "…and the host log says why")
-        check(!hostLog(t).contains("st-123"), "the host log never has the sign-in's query")
+        check(hostLog(t).contains("the sign-in callback forward localhost:\(port) ended (the sign-in's callback was answered)"), "…and the daemon log says why")
+        check(!hostLog(t).contains("st-123"), "the daemon log never has the sign-in's query")
 
         // 3. Claude Code's /login-shaped URL, through $BROWSER, from a setsid'd opener (no controlling terminal: $DOZ_TTY).
         let port2 = base + 2
@@ -92,7 +92,7 @@ func cliBrowserSuite(binary: String) async {
         c.type("xdg-open file:///etc/passwd; printf '\\033]6340;doz-open;file:///etc/passwd\\a'; xdg-open http://localhost:3000/; echo REFUSED-$((4+4))\r")
         check(c.wait(15) { $0.text.contains("REFUSED-8") }, "three refusals asked for (REFUSED-8)")
         check(c.text.contains("only http and https URLs go to the Mac: file:///etc/passwd"), "the shim itself refuses file:")
-        check(c.wait(5) { $0.text.contains("only http and https URLs are opened (not file:)") }, "a hand-made marker for file: is refused by the host")
+        check(c.wait(5) { $0.text.contains("only http and https URLs are opened (not file:)") }, "a hand-made marker for file: is refused by the daemon")
         check(c.wait(5) { $0.text.contains("localhost is the sandbox's own machine") }, "http://localhost:3000 is refused (the sandbox's localhost is not the Mac's)")
         check(!log().contains("file:") && !log().contains("localhost:3000"), "none of them was opened")
 

@@ -15,7 +15,7 @@ func cliPortsSuite(binary: String) async {
     let opened = t.store.appendingPathComponent("opened.log")
     t.env["DOZ_TEST_OPEN_URL"] = opened.path
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: t.store)
     }
     func log() -> String { (try? String(contentsOf: opened, encoding: .utf8)) ?? "" }
@@ -48,7 +48,7 @@ func cliPortsSuite(binary: String) async {
     let got = answers(g1)
     check(got.hasPrefix("HTTP/1.0 200 OK") && got.contains("guest \(g1) says hello"), "the Mac's 127.0.0.1:\(g1) reaches the guest's server (\(got.prefix(80).debugDescription))")
     if let lan = macLANAddress() { check(!tcpConnects(lan, g1), "…and the Mac's \(lan):\(g1) does not (loopback only)") }
-    check(hostLog(t).contains("Test page: the sandbox's port \(g1) is at http://127.0.0.1:\(g1)/hello on this Mac"), "the host log says where it is")
+    check(hostLog(t).contains("Test page: the sandbox's port \(g1) is at http://127.0.0.1:\(g1)/hello on this Mac"), "the daemon log says where it is")
     r = t.run(["inspect", "pp", "--json"])
     check(r.out.contains("\"url\" : \"http:\\/\\/127.0.0.1:\(g1)\\/hello\"") || r.out.contains("\"url\" : \"http://127.0.0.1:\(g1)/hello\""), "inspect --json carries the forward (the dashboard's Open button)")
 
@@ -71,7 +71,7 @@ func cliPortsSuite(binary: String) async {
     check(r.code == 0 && moved?.state == "listening" && moved?.moved == true && moved?.macPort != g2, "port \(g2) is taken on the Mac: forwarded on another (\(moved?.macPort ?? 0)), and said moved")
     let m2 = moved?.macPort ?? 0
     check(answers(m2, "/").contains("guest \(g2) says hello"), "the moved port reaches the guest's \(g2)")
-    check(hostLog(t).contains("(\(g2) was in use)"), "the host log says the port moved")
+    check(hostLog(t).contains("(\(g2) was in use)"), "the daemon log says the port moved")
     close(squatter)
 
     // 4. Sleep closes every listener; wake brings them back (on the same Mac ports).
@@ -86,9 +86,9 @@ func cliPortsSuite(binary: String) async {
     check(t.run(["hibernate", "pp"], timeout: 120).code == 0, "hibernate pp")
     check(answers(g1) == "refused", "hibernated: closed")
     check(t.run(["wake", "pp"], timeout: 120).code == 0 && waitUntil(10) { answers(g1).contains("says hello") }, "wake: back")
-    check(t.run(["host", "stop"], timeout: 120).code == 0, "host stop (it hibernates pp)")
-    check(answers(g1) == "refused", "no host: closed")
-    check(t.run(["wake", "pp"], timeout: 120).code == 0 && waitUntil(10) { answers(g1).contains("says hello") }, "a new host, wake: back (the record kept the forwards)")
+    check(t.run(["daemon", "stop"], timeout: 120).code == 0, "daemon stop (it hibernates pp)")
+    check(answers(g1) == "refused", "no daemon: closed")
+    check(t.run(["wake", "pp"], timeout: 120).code == 0 && waitUntil(10) { answers(g1).contains("says hello") }, "a new daemon, wake: back (the record kept the forwards)")
 
     // 6. Shut down: closed; started: listening again (the guest's server is gone, so no answer — but the forward is there).
     check(t.run(["shutdown", "pp", "--yes"], timeout: 120).code == 0, "shutdown pp")

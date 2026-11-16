@@ -135,7 +135,7 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     var r = run("netb", "b.sh")
     check(r.code == 0, "a second fenced session (B)")
     let bPort = row("netb")?.fence?.proxyPort ?? 0
-    check(bPort > 0 && row("netb")?.fence?.network == "proxy", "B has a proxy port of its own (\(bPort)), served by the host")
+    check(bPort > 0 && row("netb")?.fence?.network == "proxy", "B has a proxy port of its own (\(bPort)), served by the daemon")
 
     // MARK: A — the probes (2.1–2.5, 2.7, 2.11, 2.11b, 2.17)
     let lp = 43_000 + Int(getpid() % 1000)
@@ -305,19 +305,19 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     r = t.run(["net", "allow", "@mac", "site:allowed.doz.test", "--session", "net"])
     check(r.code == 0 && r.out.contains("@mac net"), "2.13 doz net allow @mac … --session net (the checklist printed)")
     // The edit is kept across hosts: stop, look without a host, start again.
-    check(t.run(["host", "stop"], timeout: 60).code == 0, "host stop (fenced sessions keep running)")
+    check(t.run(["daemon", "stop"], timeout: 60).code == 0, "daemon stop (fenced sessions keep running)")
     let kept = t.json(["net", "policy", "@mac", "--session", "net"], NetworkPolicy.self)
-    check(kept?.rules.contains { $0.host == "allowed.doz.test" && $0.action == .allow } == true, "2.13 the live edit is in the record (read with no host)")
-    check(MacCLIState.state(row("net")).contains("network waiting (no host)"), "sessions @mac: network waiting (no host)")
+    check(kept?.rules.contains { $0.host == "allowed.doz.test" && $0.action == .allow } == true, "2.13 the live edit is in the record (read with no daemon)")
+    check(MacCLIState.state(row("net")).contains("network waiting (no daemon)"), "sessions @mac: network waiting (no daemon)")
     FileManager.default.createFile(atPath: net + "/go-nohost", contents: nil)
     usleep(2_000_000)
-    check(res("nohost") == nil, "2.12 a request made while no host runs waits (in the holder's backlog)")
+    check(res("nohost") == nil, "2.12 a request made while no daemon runs waits (in the holder's backlog)")
     r = t.run(["sessions", "send", "@mac", "netb", "--text", "x"], timeout: 30)          // starts a host, which adopts
     check(t.waitFor(40) { res("nohost") != nil } && code("nohost").hasPrefix("200"), "2.12 …and is served once a host returns (\(code("nohost")))")
     FileManager.default.createFile(atPath: net + "/go-allowed", contents: nil)
     check(t.waitFor(20) { res("edited2") != nil } && code("edited2").hasPrefix("200"), "2.13 the adopted proxy has the edited policy (\(code("edited2")))")
     // 2.11a: from outside, with B's host down, B's port cannot be taken.
-    check(t.run(["host", "stop"], timeout: 60).code == 0, "host stop")
+    check(t.run(["daemon", "stop"], timeout: 60).code == 0, "daemon stop")
     var taken = false
     for opt in [Int32(0), SO_REUSEADDR, SO_REUSEPORT] {
         let s = socket(AF_INET, SOCK_STREAM, 0)
@@ -331,7 +331,7 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
         if withUnsafePointer(to: &a, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(s, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }) == 0 { taken = true }
         close(s)
     }
-    check(!taken, "2.11a with no host, nobody outside can bind B's port (± SO_REUSEADDR / SO_REUSEPORT): its holder holds it")
+    check(!taken, "2.11a with no daemon, nobody outside can bind B's port (± SO_REUSEADDR / SO_REUSEPORT): its holder holds it")
 
     // MARK: 2.14 Locked: the model only, and no certificate trust on its behalf
     put(net + "/l.sh", "sleep 600\n")
@@ -344,13 +344,13 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     check(rep?.preset == "locked" && rep?.permissions.filter(\.on).map(\.id) == ["model"], "2.14 doz net show @mac: Locked — the model only")
 
     // MARK: 2.18 an account that cannot read the system log
-    check(t.run(["host", "stop"], timeout: 60).code == 0, "host stop")
+    check(t.run(["daemon", "stop"], timeout: 60).code == 0, "daemon stop")
     t.env["DOZ_TEST_FENCE_LOG"] = "unavailable"
     r = t.run(["sessions", "send", "@mac", "netb", "--text", "x"], timeout: 30)
     let un = t.json(["net", "log", "@mac", "--session", "net", "--fence"], FenceDenials.self)
     check(un?.denialLog == "unavailable" && row("net")?.fence?.denialLog == "unavailable", "2.18 an account that cannot read the log: denialLog unavailable, the session runs on")
     check(fenceRawHTTP(aPort, req + authed(pw) + "\r\n").hasPrefix("HTTP/1.1 200"), "…its network unaffected")
-    check(t.run(["host", "stop"], timeout: 60).code == 0, "host stop")
+    check(t.run(["daemon", "stop"], timeout: 60).code == 0, "daemon stop")
     t.env["DOZ_TEST_FENCE_LOG"] = nil
 
     // MARK: 2.19 the net commands' refusals
@@ -443,7 +443,7 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
 }
 
 /// 2.16: the host runs from a COPY of doz (beside it deckhold-mac); a fenced session streams a 20 s download and makes a
-/// request every 200 ms; the copy is replaced by rename; the old host hands over (drains while holding host.lock), the new
+/// request every 200 ms; the copy is replaced by rename; the old host hands over (drains while holding daemon.lock), the new
 /// one adopts — the download completes, every request is answered 200, never two hosts, no hand-over file.
 func fenceHandOver(_ t: CLIHarness, root: String, net: String, binary: String, store: String, sites: String, allowed: FenceUpstream,
                    started: inout Set<String>) async {
@@ -454,10 +454,10 @@ func fenceHandOver(_ t: CLIHarness, root: String, net: String, binary: String, s
         try FileManager.default.copyItem(atPath: binary, toPath: bin2 + "/doz")
         try FileManager.default.copyItem(atPath: holder.path, toPath: bin2 + "/deckhold-mac")
     } catch { check(false, "2.16 a copy of doz to replace: \(error)"); return }
-    _ = t.run(["host", "stop"], timeout: 60)
+    _ = t.run(["daemon", "stop"], timeout: 60)
     let t2 = CLIHarness(binary: bin2 + "/doz", store: URL(fileURLWithPath: store))
     t2.env = t.env
-    t2.env["DOZ_HOST_IDLE"] = "0.1"          // its idle loop looks every 1.5 s (a fenced session keeps it up regardless)
+    t2.env["DOZ_DAEMON_IDLE"] = "0.1"          // its idle loop looks every 1.5 s (a fenced session keeps it up regardless)
     let ho = net + "/ho"
     try? FileManager.default.removeItem(atPath: ho)
     FileManager.default.createFile(atPath: net + "/ho.sh", contents: Data("""
@@ -474,14 +474,14 @@ func fenceHandOver(_ t: CLIHarness, root: String, net: String, binary: String, s
     let r = t2.run(["run", "@mac", "-d", "--fenced", "--session", "ho", "--workdir", net, "--permissions", sites, "--", "/bin/sh", "ho.sh"], timeout: 90)
     if r.code == 0 { started.insert("ho") }
     check(r.code == 0, "2.16 a fenced session from the copy's host, streaming a 20 s download and asking every 200 ms")
-    guard let oldHost = t2.hostPID() else { check(false, "2.16 the copy's host runs"); return }
+    guard let oldHost = t2.hostPID() else { check(false, "2.16 the copy's daemon runs"); return }
     usleep(1_500_000)
     // The update: the copy replaced by rename (the running host keeps its own file).
     do {
         try FileManager.default.copyItem(atPath: binary, toPath: bin2 + "/.doz.new")
         _ = rename(bin2 + "/.doz.new", bin2 + "/doz")
     } catch { check(false, "2.16 replace the copy: \(error)") }
-    check(t.waitFor(90) { kill(oldHost, 0) != 0 }, "2.16 the old host hands over and exits (pid \(oldHost))")
+    check(t.waitFor(90) { kill(oldHost, 0) != 0 }, "2.16 the old daemon hands over and exits (pid \(oldHost))")
     check(t.waitFor(120) { FileManager.default.fileExists(atPath: ho + "/DONE") }, "2.16 the session's requests all finished")
     let codes = ((try? String(contentsOfFile: ho + "/codes", encoding: .utf8)) ?? "").split(separator: "\n")
     check(codes.count == 250 && codes.allSatisfy { $0 == "200" }, "2.16 every request answered 200 — the ones during the pause waited (\(codes.filter { $0 == "200" }.count)/\(codes.count))")
@@ -489,19 +489,19 @@ func fenceHandOver(_ t: CLIHarness, root: String, net: String, binary: String, s
     let rc = ((try? String(contentsOfFile: ho + "/stream.rc", encoding: .utf8)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     check(rc == "0" && stream.hasSuffix("line 39\n"), "2.16 the open 20 s download completed across the hand-over (rc \(rc), \(stream.split(separator: "\n").count) lines)")
     let newHost = t2.hostPID()
-    check(newHost != nil && newHost != oldHost, "2.16 a new host serves (pid \(newHost.map(String.init) ?? "none"))")
-    let log = (try? String(contentsOfFile: store + "/host.log", encoding: .utf8)) ?? ""
-    let handed = log.range(of: "handing them to a new host")
-    let drained = log.range(of: "the new host takes over", options: .backwards)
+    check(newHost != nil && newHost != oldHost, "2.16 a new daemon serves (pid \(newHost.map(String.init) ?? "none"))")
+    let log = (try? String(contentsOfFile: store + "/daemon.log", encoding: .utf8)) ?? ""
+    let handed = log.range(of: "handing them to a new daemon")
+    let drained = log.range(of: "the new daemon takes over", options: .backwards)
     let newStart = newHost.flatMap { log.range(of: "(pid \($0)) — store") }          // its own first line, once it has the lock
     check(handed != nil && drained != nil && newStart != nil && drained!.lowerBound < newStart!.lowerBound,
-          "2.16 never two hosts: the old one drained and exited before the new one began (host.log order)")
+          "2.16 never two hosts: the old one drained and exited before the new one began (daemon.log order)")
     let names = (try? FileManager.default.subpathsOfDirectory(atPath: store)) ?? []
     check(!names.contains { $0.contains("handover") }, "2.16 no hand-over file anywhere in the store")
     check(t2.json(["sessions", "@mac"], [SessionRow].self)?.first { $0.name == "ho" }?.fence?.network == "proxy", "2.16 the session is adopted, its proxy served")
     t2.run(["sessions", "end", "@mac", "ho", "--yes"], timeout: 60)
     started.remove("ho")
-    t2.run(["host", "stop"], timeout: 60)
+    t2.run(["daemon", "stop"], timeout: 60)
     _ = allowed
 }
 
@@ -519,7 +519,7 @@ enum MacCLIState {
         var t = s.ended ? "ended" : "running"
         if let f = s.fence {
             t += " · " + f.state
-            if !s.ended, f.network == "waiting (no host)" { t += " · network waiting (no host)" }
+            if !s.ended, f.network == "waiting (no daemon)" { t += " · network waiting (no daemon)" }
         }
         return t
     }

@@ -7,7 +7,7 @@ import DozableHost
 func cliSessionSendSuite(binary: String) async {
     let t = onboardingHarness(binary, "sn", seed: ["kernels", "content", "state.json", "initfs.ext4", "golden"])
     defer {
-        t.run(["host", "stop"], timeout: 300)
+        t.run(["daemon", "stop"], timeout: 300)
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: sessions send / sessions screen (678)")

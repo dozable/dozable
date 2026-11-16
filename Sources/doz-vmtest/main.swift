@@ -245,7 +245,7 @@ func lifecycleSuite() async throws {
         check(attachRefused, "attach is refused while on disk (a front end holds its viewer until the wake)")
 
         let hostFile = share.appendingPathComponent("host-\(cycle).txt")
-        try "from the host \(cycle)\n".write(to: hostFile, atomically: true, encoding: .utf8)
+        try "from the daemon \(cycle)\n".write(to: hostFile, atomically: true, encoding: .utf8)
         let t2 = Date()
         try await sb.wake()
         let wakeMs = Date().timeIntervalSince(t2) * 1000
@@ -257,9 +257,9 @@ func lifecycleSuite() async throws {
         let seen = try await sb.exec(["cat", "/work/host-\(cycle).txt"]).output
         _ = try await sb.exec(["sh", "-c", "echo from-the-guest-\(cycle) > /work/guest-\(cycle).txt"])
         let back = (try? String(contentsOf: share.appendingPathComponent("guest-\(cycle).txt"), encoding: .utf8)) ?? ""
-        check(seen.contains("from the host \(cycle)") && back.contains("from-the-guest-\(cycle)"),
+        check(seen.contains("from the daemon \(cycle)") && back.contains("from-the-guest-\(cycle)"),
               "the /work share works both ways after the wake")
-        if !(seen.contains("from the host \(cycle)") && back.contains("from-the-guest-\(cycle)")) {
+        if !(seen.contains("from the daemon \(cycle)") && back.contains("from-the-guest-\(cycle)")) {
             info("guest saw: \(seen.prefix(80)) · host saw: \(back.prefix(80))")
             let m = try await sb.exec(["sh", "-c", "grep -E 'virtiofs|/work' /proc/mounts; ls -la /work /run/doz-vfs 2>&1 | head -20"])
             info("mounts: \(m.output) \(m.errorOutput)")
@@ -535,7 +535,7 @@ func agentSuite(_ imageSpec: ImageSpec) async throws {
     let wsFile = "from-agent-\(UUID().uuidString.prefix(6)).txt"
     let w = try await sb.exec(["sh", "-c", "echo hello > /workspace/\(wsFile) && id -un"], user: imageSpec.user)
     check(w.exitCode == 0 && w.output.contains(imageSpec.user) && FileManager.default.fileExists(atPath: ws.appendingPathComponent(wsFile).path),
-          "the \(imageSpec.user) user writes /workspace and the host sees it")
+          "the \(imageSpec.user) user writes /workspace and the daemon sees it")
     let mp = try await sb.exec(["sh", "-c", "mountpoint '\(persist)' && stat -c %U '\(persist)'"])
     check(mp.exitCode == 0 && mp.output.contains(imageSpec.user), "\(persist) is bound from the state disk, owned by \(imageSpec.user)")
     let marker = "marker-\(UUID().uuidString.prefix(8))"
@@ -908,7 +908,7 @@ Task {
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliTerminalRestoreSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-hoststop":
-            // 594 W22: only `doz host stop`'s progress part of `cli` (a store of its own).
+            // 594 W22: only `doz daemon stop`'s progress part of `cli` (a store of its own).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliHostStopSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-images":

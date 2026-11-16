@@ -51,13 +51,13 @@ function uiCalm() {
 }
 function hostLastKnown() {
   const host = state.overview && state.overview.host;
-  if (!host) return 'The page never heard from the host.';
+  if (!host) return 'The page never heard from the daemon.';
   if (host.running) {
     const n = host.liveSandboxes.length;
-    return 'The host was running (doz ' + (host.version || '?') + (n ? ', ' + plural(n, 'sandbox', 'sandboxes') + ' live' : '') +
+    return 'The daemon was running (doz ' + (host.version || '?') + (n ? ', ' + plural(n, 'sandbox', 'sandboxes') + ' live' : '') +
       ') as far as this page knows — doz ui stopping does not stop it.';
   }
-  return 'The host was not running when this page last heard.';
+  return 'The daemon was not running when this page last heard.';
 }
 export async function uiRetryTick() {
   clearTimeout(state.uiRetry);

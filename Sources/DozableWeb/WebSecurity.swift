@@ -144,7 +144,7 @@ public enum WebRejection: String, Error, Equatable, Sendable {
         case .tooManyConnections: "too many connections"
         case .tooManyOperations: "too many operations are running — wait for one to finish"
         case .alreadyRunning: "that is already under way — see its progress in Operations"
-        case .unavailable: "the doz host did not answer"
+        case .unavailable: "the doz daemon did not answer"
         case .ticketMissing: "a terminal needs a ticket — open it from the page"
         case .ticketRejected: "this terminal ticket is not valid here — open the terminal again"
         case .ticketUsed: "this terminal ticket was already used — each works once; open the terminal again"

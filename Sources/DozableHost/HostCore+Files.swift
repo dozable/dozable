@@ -23,7 +23,7 @@ extension HostCore {
             throw HostError(.invalidPhase, "\(m.name) is \(PhaseName.label(phase)) — an isolated sandbox's files are on its own disk: "
                                            + "they are listed while it runs (listing never wakes or starts it)")
         }
-        guard !readOnly else { throw HostError(.unavailable, "listing an isolated sandbox's files needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "listing an isolated sandbox's files needs the daemon") }
         guard await !m.sandbox.status.busy else { throw HostError(.invalidPhase, "\(m.name) is busy — list again in a moment") }
         let user = m.config.spec.imageSpec?.user
         let res = try await m.sandbox.exec(["sh", "-c", GuestFolderListing.script(guest)], user: user, timeoutSeconds: 15)
@@ -80,7 +80,7 @@ extension HostCore {
             throw HostError(.invalidPhase, "\(m.name) is \(PhaseName.label(phase)) — an isolated sandbox's files are on its own disk: "
                                            + "they are changed while it runs (this never wakes or starts it)")
         }
-        guard !readOnly else { throw HostError(.unavailable, "changing an isolated sandbox's files needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "changing an isolated sandbox's files needs the daemon") }
         guard await !m.sandbox.status.busy else { throw HostError(.invalidPhase, "\(m.name) is busy — try again in a moment") }
         let user = m.config.spec.imageSpec?.user
         let res = try await m.sandbox.exec(["sh", "-c", GuestFileChange.script(action, item: item, to: to, recursive: recursive)],

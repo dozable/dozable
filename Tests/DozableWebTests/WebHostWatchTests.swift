@@ -35,7 +35,7 @@ final class WebHostWatchTests: XCTestCase {
         }
         let base: Int64 = 1_625_587_712
         XCTAssertEqual(try key(base), try key(base + 12_288), "the m4air15 diff: 12 KiB more is not a change")
-        XCTAssertEqual(try key(base, idle: 3), try key(base, idle: 40), "the host's idle clock is not a change")
+        XCTAssertEqual(try key(base, idle: 3), try key(base, idle: 40), "the daemon's idle clock is not a change")
         XCTAssertNotEqual(try key(base), try key(base + WebMonitor.diskStep), "a step of disk is")
         XCTAssertNotEqual(try key(base), try key(base, phase: "paused"), "a phase is")
     }
@@ -45,10 +45,10 @@ final class WebHostWatchTests: XCTestCase {
         XCTAssertEqual(w.saw(overview(host(true, pid: 10, version: "0.12.0-rc.3", live: ["a"]))), [], "the first look only sets the state")
         XCTAssertEqual(w.saw(overview(host(true, pid: 10, version: "0.12.0-rc.3", live: ["a"]))), [])
         // A clean stop: no stale pid, nothing to recover — `a` was hibernated.
-        let stop = w.probed(WebHostProbe(running: false, exitReason: "doz host stop"))
+        let stop = w.probed(WebHostProbe(running: false, exitReason: "doz daemon stop"))
         XCTAssertEqual(stop?.state, "stopped")
         XCTAssertEqual(stop?.sandboxes, ["a"])
-        XCTAssertEqual(stop?.reason, "doz host stop")
+        XCTAssertEqual(stop?.reason, "doz daemon stop")
         XCTAssertEqual(stop?.version, "0.12.0-rc.3")
         XCTAssertNil(w.probed(WebHostProbe(running: false)), "told once")
         XCTAssertEqual(w.saw(overview(host(false))), [])
@@ -56,7 +56,7 @@ final class WebHostWatchTests: XCTestCase {
         let up = w.saw(overview(host(true, pid: 11, version: "0.12.0-rc.4")))
         XCTAssertEqual(up.map(\.state), ["running"])
         XCTAssertEqual(up.first?.previousVersion, "0.12.0-rc.3")
-        XCTAssertEqual(up.first?.text, "host started (pid 11, doz 0.12.0-rc.4) — was doz 0.12.0-rc.3")
+        XCTAssertEqual(up.first?.text, "daemon started (pid 11, doz 0.12.0-rc.4) — was doz 0.12.0-rc.3")
         // The same build again: no "was".
         _ = w.probed(WebHostProbe(running: false))
         XCTAssertNil(w.saw(overview(host(true, pid: 12, version: "0.12.0-rc.4"))).first?.previousVersion)
@@ -70,7 +70,7 @@ final class WebHostWatchTests: XCTestCase {
         XCTAssertEqual(died?.state, "died")
         XCTAssertEqual(died?.sandboxes, ["a"])
         XCTAssertNil(died?.reason)
-        XCTAssertEqual(died?.text, "host died — 1 sandbox was running, now shut down: a")
+        XCTAssertEqual(died?.text, "daemon died — 1 sandbox was running, now shut down: a")
         // The overview then starts a host to recover (the CLI's rule): `a` shows "died with host".
         let next = w.saw(overview(host(true, pid: 20, version: "v"), died: ["a"]))
         XCTAssertEqual(next.map(\.state), ["running"], "the death is not told again")
@@ -83,7 +83,7 @@ final class WebHostWatchTests: XCTestCase {
         let c = w.probed(WebHostProbe(running: false, stalePID: true))
         XCTAssertEqual(c?.state, "died")
         XCTAssertEqual(c?.sandboxes, [])
-        XCTAssertEqual(c?.text, "host died — no sandbox was running")
+        XCTAssertEqual(c?.text, "daemon died — no sandbox was running")
     }
 
     func testANewHostBetweenTwoLooksIsStillTold() {
@@ -112,16 +112,16 @@ final class WebHostWatchTests: XCTestCase {
     func testTheExitReasonIsTheLastHostsOwnWord() {
         let t = "2026-09-30T10:00:00Z"
         func log(_ lines: [String]) -> String { lines.map { "\(t) \($0)" }.joined(separator: "\n") + "\n" }
-        XCTAssertEqual(HostExitReason.parse(log(["doz host 1 (pid 5) — store /s", "host stop requested: hibernating every sandbox, then exiting", "host exiting"])), "doz host stop")
-        XCTAssertEqual(HostExitReason.parse(log(["doz host 1 (pid 5) — store /s", "signal 15: hibernating every sandbox, then exiting", "host exiting"])), "SIGTERM")
-        XCTAssertEqual(HostExitReason.parse(log(["doz host 1 (pid 5) — store /s", "idle for 5 min with nothing running — exiting", "host exiting"])), "idle")
-        XCTAssertEqual(HostExitReason.parse(log(["doz host 1 (pid 5) — store /s", "my program changed (replaced) and nothing is running — exiting so …", "host exiting"])), "its program changed")
+        XCTAssertEqual(HostExitReason.parse(log(["doz daemon 1 (pid 5) — store /s", "daemon stop requested: hibernating every sandbox, then exiting", "daemon exiting"])), "doz daemon stop")
+        XCTAssertEqual(HostExitReason.parse(log(["doz daemon 1 (pid 5) — store /s", "signal 15: hibernating every sandbox, then exiting", "daemon exiting"])), "SIGTERM")
+        XCTAssertEqual(HostExitReason.parse(log(["doz daemon 1 (pid 5) — store /s", "idle for 5 min with nothing running — exiting", "daemon exiting"])), "idle")
+        XCTAssertEqual(HostExitReason.parse(log(["doz daemon 1 (pid 5) — store /s", "my program changed (replaced) and nothing is running — exiting so …", "daemon exiting"])), "its program changed")
         // An earlier host's clean exit, then a host that never said it exited (kill -9): no reason.
-        XCTAssertNil(HostExitReason.parse(log(["doz host 1 (pid 5) — store /s", "idle for 5 min with nothing running — exiting", "host exiting",
-                                              "doz host 1 (pid 6) — store /s", "listening on /s/host.sock"])))
+        XCTAssertNil(HostExitReason.parse(log(["doz daemon 1 (pid 5) — store /s", "idle for 5 min with nothing running — exiting", "daemon exiting",
+                                              "doz daemon 1 (pid 6) — store /s", "listening on /s/daemon.sock"])))
         // The reason is the last host's, not an earlier one's.
-        XCTAssertEqual(HostExitReason.parse(log(["doz host 1 (pid 5) — store /s", "idle for 5 min with nothing running — exiting", "host exiting",
-                                                 "doz host 1 (pid 6) — store /s", "signal 15: hibernating every sandbox, then exiting", "host exiting"])), "SIGTERM")
+        XCTAssertEqual(HostExitReason.parse(log(["doz daemon 1 (pid 5) — store /s", "idle for 5 min with nothing running — exiting", "daemon exiting",
+                                                 "doz daemon 1 (pid 6) — store /s", "signal 15: hibernating every sandbox, then exiting", "daemon exiting"])), "SIGTERM")
         XCTAssertNil(HostExitReason.parse(""))
     }
 
@@ -146,17 +146,17 @@ final class WebHostWatchTests: XCTestCase {
         // The owner's case: the UI is rc.5, the host still rc.3 → stop the HOST.
         let host = WebVersionNote.make(ui: "0.12.0-rc.5", host: "0.12.0-rc.3")
         XCTAssertEqual(host?.older, "host")
-        XCTAssertEqual(host?.text, "The host is still 0.12.0-rc.3 — doz host stop (sandboxes hibernate) and the next action runs 0.12.0-rc.5.")
+        XCTAssertEqual(host?.text, "The daemon is still 0.12.0-rc.3 — doz daemon stop (sandboxes hibernate) and the next action runs 0.12.0-rc.5.")
         // The UI older → restart doz ui.
         let ui = WebVersionNote.make(ui: "0.12.0-rc.5", host: "0.12.0")
         XCTAssertEqual(ui?.older, "ui")
-        XCTAssertEqual(ui?.text, "doz ui is 0.12.0-rc.5, the host is 0.12.0 — restart doz ui (Ctrl-C it, then doz ui) so the page and the host are the same build.")
+        XCTAssertEqual(ui?.text, "doz ui is 0.12.0-rc.5, the daemon is 0.12.0 — restart doz ui (Ctrl-C it, then doz ui) so the page and the daemon are the same build.")
         XCTAssertNil(WebVersionNote.make(ui: "0.12.0", host: "0.12.0"))
         XCTAssertNil(WebVersionNote.make(ui: "0.12.0", host: nil))
         XCTAssertNil(WebVersionNote.make(ui: "0.12.0+a", host: "0.12.0+b"), "the same release")
         let odd = WebVersionNote.make(ui: "0.12.0", host: "dev")
         XCTAssertNil(odd?.older)
-        XCTAssertEqual(odd?.text, "doz ui is 0.12.0, the host is dev — different builds.")
+        XCTAssertEqual(odd?.text, "doz ui is 0.12.0, the daemon is dev — different builds.")
     }
 
     // MARK: the real probe, on a scratch store

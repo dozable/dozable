@@ -378,7 +378,7 @@ func balloonPressureSuite() async throws {
     await sb.afterWakeSettled()
     let held = await sb.memoryReturnedMiB
     let st = await sb.balloonState
-    check(held > 100 && st.watching, "woken, the balloon holds \(held) MiB and the host watches the guest")
+    check(held > 100 && st.watching, "woken, the balloon holds \(held) MiB and the daemon watches the guest")
     func guestBalloonMiB() async -> UInt64? {
         let r = try? await sb.exec(["sh", "-c", "awk '/^Balloon:/{print int($2/1024)}' /proc/meminfo"], timeoutSeconds: 10)
         return r.flatMap { UInt64($0.output.trimmingCharacters(in: .whitespacesAndNewlines)) }
@@ -393,7 +393,7 @@ func balloonPressureSuite() async throws {
     check(r.exitCode == 0 && r.output.trimmingCharacters(in: .whitespacesAndNewlines) == "1400",
           String(format: "the guest filled 1400 MiB past its reserve (%.1f s): exit %d, %@", took, r.exitCode, r.output.trimmingCharacters(in: .whitespacesAndNewlines)))
     let after = await sb.balloonState
-    check(after.heldMiB == 0 && !after.watching, "the host deflated the balloon (held \(after.heldMiB) MiB, watch \(after.watching ? "on" : "off"))")
+    check(after.heldMiB == 0 && !after.watching, "the daemon deflated the balloon (held \(after.heldMiB) MiB, watch \(after.watching ? "on" : "off"))")
     var guestHeld = await guestBalloonMiB()
     for _ in 0..<20 where (guestHeld ?? 1) > 4 { try? await Task.sleep(for: .milliseconds(500)); guestHeld = await guestBalloonMiB() }
     check(guestHeld.map { $0 <= 4 } == true, "the guest took its pages back (its balloon: \(guestHeld.map { "\($0) MiB" } ?? "unread"))")

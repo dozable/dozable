@@ -48,37 +48,37 @@ def run(args, e=env):
 
 def status():
     try:
-        return json.loads(run(["host", "status", "--json"]).stdout)
+        return json.loads(run(["daemon", "status", "--json"]).stdout)
     except ValueError:
         return {}
 
 
 try:
-    r = run(["host", "start"], locked)
+    r = run(["daemon", "start"], locked)
     check(r.returncode == 0 and "login keychain is locked (ssh)" in r.stderr,
           "a host started where the keychain is locked: said before it starts (%s)" % r.stderr.strip()[:160])
     st = status()
     check(st.get("keychainLocked") == "ssh", "host status --json: keychainLocked ssh (%s)" % st.get("keychainLocked"))
     r = run(["account", "ls"])
     pid = str(st.get("pid", "?"))
-    check("the doz host (pid %s, started" % pid in r.stderr and "doz host restart from a logged-in session" in r.stderr,
+    check("the doz daemon (pid %s, started" % pid in r.stderr and "doz daemon restart from a logged-in session" in r.stderr,
           "account ls names the host as the reason, with the restart hint (%s)" % r.stderr.strip()[:200])
     r = run(["account", "ls", "--json"])
-    check("doz host" not in r.stdout, "--json's stdout stays the rows")
+    check("doz daemon" not in r.stdout, "--json's stdout stays the rows")
     r = run(["doctor", "--json"])
     try:
         checks = {c["check"]: c for c in json.loads(r.stdout)}
     except ValueError:
         checks = {}
     hl = checks.get("host login", {})
-    check(hl.get("status") == "warn" and "doz host restart" in hl.get("detail", ""), "doctor: host login warns (%s)" % hl.get("detail", "none"))
-    run(["host", "stop"])
-    r = run(["host", "start"])
+    check(hl.get("status") == "warn" and "doz daemon restart" in hl.get("detail", ""), "doctor: host login warns (%s)" % hl.get("detail", "none"))
+    run(["daemon", "stop"])
+    r = run(["daemon", "start"])
     check(r.returncode == 0 and "keychain" not in r.stderr, "a host started from a normal session: nothing said")
     st = status()
     check("keychainLocked" not in st or st.get("keychainLocked") is None, "…and its status carries nothing")
     r = run(["account", "ls"])
-    check("doz host restart" not in r.stderr, "…and account ls says nothing")
+    check("doz daemon restart" not in r.stderr, "…and account ls says nothing")
 finally:
     subprocess.run([doz, "host", "stop"], env=env, capture_output=True, timeout=300)
     shutil.rmtree(root, ignore_errors=True)

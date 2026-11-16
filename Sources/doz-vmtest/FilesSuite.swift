@@ -17,7 +17,7 @@ func cliFilesSuite(binary: String) async {
     let ws = URL(fileURLWithPath: "/tmp/dzo-\(pid)-flw")
     let projects = URL(fileURLWithPath: "/tmp/dzo-\(pid)-flp")
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         for u in [t.store, ws, projects] { try? FileManager.default.removeItem(at: u) }
     }
     let fm = FileManager.default
@@ -51,8 +51,8 @@ func cliFilesSuite(binary: String) async {
     // 1. Created, never started: listed on the Mac, no host.
     check(t.run(["create", "fl", "--image", "lab", "--workspace", ws.path, "--memory", "512M", "--network", "none"], timeout: 300).code == 0,
           "create fl --workspace (shared)")
-    t.run(["host", "stop"])
-    check(t.waitFor(30) { !t.hostRunning }, "no host runs")
+    t.run(["daemon", "stop"])
+    check(t.waitFor(30) { !t.hostRunning }, "no daemon runs")
     var l = list(["fl"])
     check(l?.source == "mac" && l?.watch == "mac" && l?.rules == true && l?.path == "/workspace", "doz files fl: the Mac's folder, rules applied (\(String(describing: l?.path)))")
     check(names(l) == ["logs", "private", "src", ".dozignore", ".dozreadonly", "out", "README.md", "secret.env"], "folders first, then by name (\(names(l)))")
@@ -60,7 +60,7 @@ func cliFilesSuite(binary: String) async {
     check(state(l, "private") == "locked", "lock: a locked folder is listed locked")
     check(state(l, "README.md") == "read-only" && state(l, ".dozignore") == "read-only", "read-only: .dozreadonly's and the rule files")
     check(l?.entries.first { $0.name == "out" }.map { $0.kind == "link" && $0.target == "/etc" } == true, "a link: its target, never followed")
-    check(!t.hostRunning, "looking started no host")
+    check(!t.hostRunning, "looking started no daemon")
     l = list(["fl", "logs"])
     check(names(l) == ["keep.txt", "other.log"] && state(l, "other.log") == "locked" && state(l, "keep.txt") == nil, "logs/: the ! line's file visible, the rest locked")
     var r = t.run(["files", "fl", "out"])
@@ -70,14 +70,14 @@ func cliFilesSuite(binary: String) async {
     r = t.run(["files", "fl", "private"])
     check(r.code != 0 && r.err.contains("locked by the workspace rules"), "a locked folder cannot be listed")
     check(t.run(["config", "set", "--sandbox", "fl", "workspace.ignore_mode", "hide"]).code == 0, "workspace.ignore_mode hide for fl")
-    t.run(["host", "stop"])                                   // a sandbox's own setting is written through the host
-    check(t.waitFor(30) { !t.hostRunning }, "no host runs again")
+    t.run(["daemon", "stop"])                                   // a sandbox's own setting is written through the host
+    check(t.waitFor(30) { !t.hostRunning }, "no daemon runs again")
     l = list(["fl"])
     check(!names(l).contains("secret.env") && !names(l).contains("private") && names(l).contains("logs"), "hide: the hidden names are absent (\(names(l)))")
     check(names(list(["fl", "logs"])) == ["keep.txt"], "hide: logs/ holds only what the ! line re-includes")
     r = t.run(["files", "fl", "private"])
     check(r.code != 0 && r.err.contains("no such folder"), "hide: a hidden folder is not there")
-    check(!t.hostRunning, "still no host")
+    check(!t.hostRunning, "still no daemon")
 
     // 2. Watched while off: a change on the Mac → one batch; a hidden one → none; no host.
     do {
@@ -93,7 +93,7 @@ func cliFilesSuite(binary: String) async {
         put("README.md", "# changed outside the watched folder\n")
         usleep(1_200_000)
         check(w.text.split(separator: "\n").count == lines, "nothing for a hidden file or an unwatched folder")
-        check(!t.hostRunning, "watching started no host")
+        check(!t.hostRunning, "watching started no daemon")
     } catch { check(false, "watch: \(error)") }
 
     // 2b. 644: the panel's changes while OFF — on the Mac, no host started, nothing woken; the rules (hide mode now) and

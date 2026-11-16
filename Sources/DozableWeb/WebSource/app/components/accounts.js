@@ -259,7 +259,7 @@ export function keyEntry(name, proxied) {
     b.disabled = true;
     try {
       await api('sandboxes/' + name + '/key', { method: 'POST', json: { secret: value } });
-      toast('anthropic key set for ' + name + ' (held by the host, in memory; never in the sandbox)');
+      toast('anthropic key set for ' + name + ' (held by the daemon, in memory; never in the sandbox)');
       refreshSandbox();
     } catch (e) {
       error.textContent = e.message || String(e);
@@ -269,7 +269,7 @@ export function keyEntry(name, proxied) {
   }, { primary: true, small: true, icon: 'key-round' });
   return h('div', { class: 'panel acct-form key-form', 'data-key-form': name },
     h('label', { class: 'field' }, h('span', null, 'Set an Anthropic API key for ' + name), secret,
-      h('small', null, 'Held by the host in memory (as doz key set from a prompt): it lasts while the host runs, replaces this sandbox’s account, and the guest only ever sees a placeholder. Not shown, not kept in this page.')),
+      h('small', null, 'Held by the daemon in memory (as doz key set from a prompt): it lasts while the daemon runs, replaces this sandbox’s account, and the guest only ever sees a placeholder. Not shown, not kept in this page.')),
     error, h('div', { class: 'wiz-buttons' }, set),
     h('div', { class: 'muted' }, 'From a keychain item instead: ', h('code', null, 'doz key set ' + name + ' --anthropic --keychain SERVICE'), ' in a terminal.'));
 }

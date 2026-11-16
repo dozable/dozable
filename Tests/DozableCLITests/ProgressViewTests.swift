@@ -142,7 +142,7 @@ final class ProgressViewTests: XCTestCase {
                        "the same step across versions (estimates)")
     }
 
-    // MARK: 594 W22 — `doz host stop`'s progress
+    // MARK: 594 W22 — `doz daemon stop`'s progress
 
     func testHostStopShowsEachSandboxThenTheSummary() {
         let a = HostStopRow(name: "hello-doz", phaseBefore: "running", phase: "hibernated", outcome: "hibernated", milliseconds: 412, snapshotBytes: 40_000_000)
@@ -165,8 +165,8 @@ final class ProgressViewTests: XCTestCase {
         XCTAssertFalse(anim.board.isLive, "every line ended — no spinner left")
         // The summary.
         let r = HostStopResult(sandboxes: [a, b], milliseconds: 1_200, version: "0.12.0")
-        XCTAssertEqual(HostStopView.summary(r), "host stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next command starts a new host")
-        XCTAssertEqual(HostStopView.summary(HostStopResult(sandboxes: [], milliseconds: 30, version: nil)), "host stopped (nothing was running)")
+        XCTAssertEqual(HostStopView.summary(r), "daemon stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next command starts a new daemon")
+        XCTAssertEqual(HostStopView.summary(HostStopResult(sandboxes: [], milliseconds: 30, version: nil)), "daemon stopped (nothing was running)")
     }
 
     func testAFailedHibernationSaysWhyAndWhatHappensToIt() {
@@ -181,14 +181,14 @@ final class ProgressViewTests: XCTestCase {
         XCTAssertFalse(anim.board.isLive)
         let ok = HostStopRow(name: "a", phaseBefore: "running", phase: "hibernated", outcome: "hibernated", milliseconds: 100)
         XCTAssertEqual(HostStopView.summary(HostStopResult(sandboxes: [ok, f], milliseconds: 500, version: nil)),
-                       "host stopped — 1 sandbox hibernated (a); 1 sandbox could not be hibernated and was shut down (lab2) in 500 ms; the next command starts a new host")
+                       "daemon stopped — 1 sandbox hibernated (a); 1 sandbox could not be hibernated and was shut down (lab2) in 500 ms; the next command starts a new daemon")
     }
 
     func testAStopTheHostDidNotFinishSaysWhatItSaw() {
         let a = HostStopRow(name: "a", phaseBefore: "running", phase: "hibernated", outcome: "hibernated", milliseconds: 100)
         let seen = [HostStopView.started("a"), HostStopView.started("b"), HostStopView.finished(a)]
-        XCTAssertEqual(HostStopView.seen(seen), "the host exited before it answered — done: a; unknown (it went away while handling them): b — doz ls says where they are")
-        XCTAssertEqual(HostStopView.seen([]), "the host exited before it answered")
+        XCTAssertEqual(HostStopView.seen(seen), "the daemon exited before it answered — done: a; unknown (it went away while handling them): b — doz ls says where they are")
+        XCTAssertEqual(HostStopView.seen([]), "the daemon exited before it answered")
     }
 
     func testTheStopsAnswerRoundTrips() throws {
@@ -196,6 +196,6 @@ final class ProgressViewTests: XCTestCase {
                                milliseconds: 9, version: "v")
         let d = try JSONEncoder().encode(r)
         XCTAssertEqual(try JSONDecoder().decode(HostStopResult.self, from: d), r)
-        XCTAssertNil(try? JSONValue.string("stopped").decode(HostStopResult.self), "an older host's answer is not a result")
+        XCTAssertNil(try? JSONValue.string("stopped").decode(HostStopResult.self), "an older daemon's answer is not a result")
     }
 }

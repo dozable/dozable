@@ -103,7 +103,7 @@ final class SessionStatusTests: XCTestCase {
                                          + "gone\tended=0\n")
         let rows = await core.withStatuses("box", live.map(SessionRow.init), live: live)
         let by = Dictionary(uniqueKeysWithValues: rows.map { ($0.name, $0) })
-        XCTAssertEqual(by["main"]?.status?.updatedAt, Date(timeIntervalSince1970: 5), "the same report keeps the host's time")
+        XCTAssertEqual(by["main"]?.status?.updatedAt, Date(timeIntervalSince1970: 5), "the same report keeps the daemon's time")
         XCTAssertNil(by["fresh"]?.status)
         XCTAssertEqual(by["gone"]?.status?.state, .done, "done survives the program")
     }

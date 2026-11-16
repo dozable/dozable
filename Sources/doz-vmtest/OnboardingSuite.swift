@@ -38,7 +38,7 @@ func onboardingHarness(_ binary: String, _ tag: String, seed items: [String]) ->
         p.waitUntilExit()
     }
     let h = CLIHarness(binary: binary, store: root)
-    h.env["DOZ_HOST_IDLE"] = "2"
+    h.env["DOZ_DAEMON_IDLE"] = "2"
     // Accounts' secrets live in the host's memory: never the login keychain, never a prompt.
     h.env["DOZ_TEST_CREDENTIALS"] = "memory"
     // The settings live beside the store (the harness put them under it already).
@@ -86,7 +86,7 @@ func cliOnboardingSuite(binary: String) async {
     let xdg = URL(fileURLWithPath: a.env["XDG_CONFIG_HOME"]!)
     let toml = xdg.appendingPathComponent("doz/doz.toml")
     defer {
-        a.run(["host", "stop"])
+        a.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: a.store)
     }
     print("cli: onboard — off a terminal it never asks; the settings only when missing")
@@ -126,13 +126,13 @@ func cliOnboardingSuite(binary: String) async {
     let or1 = (a.json(["account", "ls"], [AccountRow].self) ?? []).first { $0.name == "or1" }
     check(r.code == 0 && r.out.contains("or1 added (OpenRouter key") && or1?.kind == "key" && or1?.provider == "openrouter",
           "--key openrouter: or1 added as an OpenRouter key (exit \(r.code); \(or1?.kind ?? "no row")/\(or1?.provider ?? "-"))")
-    check(!r.out.contains(orKey) && !r.err.contains(orKey) && !hostLog(a).contains(orKey), "the OpenRouter key is in no output or host.log")
+    check(!r.out.contains(orKey) && !r.err.contains(orKey) && !hostLog(a).contains(orKey), "the OpenRouter key is in no output or daemon.log")
     a.run(["account", "rm", "or1", "--force"])
     check(t1?.isDefault == true && t1?.keychainService == "doz-anthropic:t1" && t1?.kind == "api-key" && t1?.fingerprint != nil,
           "t1: api-key, doz-anthropic:t1, a fingerprint, the store default")
     let stored = try? String(contentsOf: a.store.appendingPathComponent("accounts.json"), encoding: .utf8)
     check(stored?.contains(fakeKey) == false && !r.out.contains(fakeKey) && !r.err.contains(fakeKey) && !hostLog(a).contains(fakeKey),
-          "the key is in no output, accounts.json or host.log")
+          "the key is in no output, accounts.json or daemon.log")
     // The real login keychain: an attribute lookup (no -w: no prompt, no secret) finds no such item.
     let sec = Process()
     sec.executableURL = URL(fileURLWithPath: "/usr/bin/security")
@@ -141,7 +141,7 @@ func cliOnboardingSuite(binary: String) async {
     sec.standardError = FileHandle.nullDevice
     try? sec.run()
     sec.waitUntilExit()
-    check(sec.terminationStatus != 0, "the login keychain has no doz-anthropic:t1 (the host's memory keychain held it)")
+    check(sec.terminationStatus != 0, "the login keychain has no doz-anthropic:t1 (the daemon's memory keychain held it)")
     check(a.run(["account", "default", "none"]).code == 0, "account default none")
 
     print("cli: onboard stops on a hard check")
@@ -156,7 +156,7 @@ func cliOnboardingSuite(binary: String) async {
     print("cli: a bake on the base during onboarding waits for the base's preparation (634)")
     let onboard = try? AttachedClient(a, ["onboard", "--base", "node", "--yes"])
     let running = a.waitFor(120) { preparations(a).contains { $0.image == "base:node" && $0.running } }
-    check(running, "onboard --base node: the Node.js base is being prepared in the host")
+    check(running, "onboard --base node: the Node.js base is being prepared in the daemon")
     let ws = a.store.appendingPathComponent("ws-j1")
     try? FileManager.default.createDirectory(at: ws, withIntermediateDirectories: true)
     check(a.run(["create", "j1", "--image", "node", "--memory", "512M", "--workspace", ws.path]).code == 0, "create j1 --image node")
@@ -164,7 +164,7 @@ func cliOnboardingSuite(binary: String) async {
     check(r.code == 0, "start j1 while the base prepares (exit \(r.code))")
     check(onboard?.exited(within: 600) == 0, "onboard finished (exit \(onboard?.process.terminationStatus ?? -1))")
     let log = hostLog(a)
-    check(occurrences(log, "preparing base:node (asked by") == 1, "ONE preparation of the base in the host log (\(occurrences(log, "preparing base:node (asked by")))")
+    check(occurrences(log, "preparing base:node (asked by") == 1, "ONE preparation of the base in the daemon log (\(occurrences(log, "preparing base:node (asked by")))")
     // A finished flatten's line says what it wrote (its start line ends in "…").
     let flattens = log.split(separator: "\n").filter { $0.contains("base disk flattened") && $0.contains("written") }
     check(flattens.count == 1, "ONE flatten of the base — the tool's bake used it (\(flattens.count): \(flattens.map { String($0.suffix(90)) }))")
@@ -215,12 +215,12 @@ func cliOnboardingSuite(binary: String) async {
     check(r.code == 64 && r.err.contains("line 3: unknown key colour"), "an unknown key: refused with its line (exit \(r.code))")
     a.run(["rm", "my-proj", "--yes"])
     a.run(["rm", "j1", "--yes"])
-    a.run(["host", "stop"])
+    a.run(["daemon", "stop"])
 
     // ── C: the agents' environment prompt; SIGINT detaches, --cancel cancels ──────────────────
     let c = onboardingHarness(binary, "c", seed: ["kernels", "content", "state.json", "initfs.ext4", "images/bases", "images/pi"])
     defer {
-        c.run(["host", "stop"])
+        c.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: c.store)
     }
     print("cli: the environment prompt — pi (D15)")
@@ -305,8 +305,8 @@ func cliOnboardingSuite(binary: String) async {
     print("cli: latest Claude Code — resolved when the image was prepared, installed at that exact version")
     let recorded = AgentVersions.all(DozableStore(root: c.store))["claude-code"]?.latest?.version
     let npmNow = await registryLatest(AgentImages.claudeCodePackage)
-    print("  the host resolved \(recorded ?? "nothing"); the registry says \(npmNow ?? "?") now")
-    check(recorded != nil && (npmNow == nil || recorded == npmNow), "the host asked the registry: latest = \(recorded ?? "—") (<store>/agent-versions.json)")
+    print("  the daemon resolved \(recorded ?? "nothing"); the registry says \(npmNow ?? "?") now")
+    check(recorded != nil && (npmNow == nil || recorded == npmNow), "the daemon asked the registry: latest = \(recorded ?? "—") (<store>/agent-versions.json)")
     check((r.out + r.err).contains("@anthropic-ai/claude-code@\(recorded ?? "?") (latest, resolved now)"),
           "the preparation's step says it: npm install @anthropic-ai/claude-code@\(recorded ?? "?") (latest, resolved now)")
     let ccRow = c.json(["image", "ls"], [ImageRow].self)?.first { $0.name == "claude-code" }
@@ -394,16 +394,16 @@ func cliOnboardingSuite(binary: String) async {
 
     print("cli: Ctrl-C detaches onboarding; --cancel cancels (D3)")
     // 634: the base is what onboarding prepares — its flattened disk removed, so it is prepared again (a flatten).
-    c.run(["host", "stop"])
+    c.run(["daemon", "stop"])
     try? FileManager.default.removeItem(at: c.store.appendingPathComponent("images/bases"))
     let ob = try? AttachedClient(c, ["onboard", "--base", "node", "--yes"])
-    check(c.waitFor(180) { preparations(c).contains { $0.image == "base:node" && $0.running } }, "onboard --base node: preparing the base in the host")
+    check(c.waitFor(180) { preparations(c).contains { $0.image == "base:node" && $0.running } }, "onboard --base node: preparing the base in the daemon")
     // SIGINT once it waits for the base (the questions before it are not the waiting part).
     check(ob?.wait(120) { $0.text.contains("Waiting for the Node.js base") } == true, "onboard waits for the base, said")
     if let ob { kill(ob.process.processIdentifier, SIGINT) }
     let code = ob?.exited(within: 20)
     check(code == 130 && ob?.err.text.contains("detached") == true, "SIGINT: onboard detached (exit \(code.map(String.init) ?? "still running"))")
-    check(preparations(c).contains { $0.image == "base:node" && $0.running }, "the preparation goes on in the host")
+    check(preparations(c).contains { $0.image == "base:node" && $0.running }, "the preparation goes on in the daemon")
     r = c.run(["onboard", "--cancel"])
     check(r.code == 0 && r.out.contains("cancelling the preparation of the Node.js base"), "onboard --cancel")
     check(c.waitFor(300) { preparations(c).first { $0.image == "base:node" }.map { !$0.running } ?? false }, "it stopped")
@@ -411,7 +411,7 @@ func cliOnboardingSuite(binary: String) async {
     check(p?.state == "cancelled", "state: \(p?.state ?? "?")")
     check(OnboardingRecord.read(DozableStore(root: c.store)) == nil, "no onboarding recorded")
     check(c.run(["onboard", "--cancel"]).out.contains("nothing is being prepared"), "--cancel again: nothing to cancel")
-    c.run(["host", "stop"])
+    c.run(["daemon", "stop"])
 
     // ── U: uninstall an installed copy, on throwaway paths ────────────────────────────────────
     print("cli: uninstall (D13)")
@@ -432,7 +432,7 @@ func cliOnboardingSuite(binary: String) async {
     uh.env["XDG_CONFIG_HOME"] = u.appendingPathComponent("xdg").path
     uh.env["DOZ_TEST_CREDENTIALS"] = "memory"
     check(uh.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "an installed copy, onboarded on a throwaway store")
-    uh.run(["host", "stop"])
+    uh.run(["daemon", "stop"])
     let config = u.appendingPathComponent("xdg/doz")
     r = uh.run(["uninstall"])
     check(r.code == 5 && r.out.contains(ustore.path) && r.out.contains(config.path) && r.out.contains(libexec.path)
@@ -456,13 +456,13 @@ func cliFirstExecProgressChecks(binary: String) {
     print("cli: a first exec on a lab never prepared shows its progress as it happens")
     let h = onboardingHarness(binary, "p", seed: ["kernels"])
     defer {
-        h.run(["host", "stop"])
+        h.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: h.store)
         try? FileManager.default.removeItem(atPath: h.store.path + "-ws")
     }
     let ws = URL(fileURLWithPath: h.store.path + "-ws")             // never inside the store (refused)
     guard h.run(["create", "q1", "--image", "lab", "--workspace", ws.path]).code == 0 else { check(false, "create q1 (lab)"); return }
-    h.run(["host", "stop"])
+    h.run(["daemon", "stop"])
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/script")
     p.arguments = ["-q", "/dev/null", h.binary, "exec", "q1", "--", "true"]
@@ -490,7 +490,7 @@ func cliFirstExecProgressChecks(binary: String) {
     c.wait(5)
     func s(_ v: Double?) -> String { v.map { String(format: "%.1f s", $0) } ?? "never" }
     check(p.terminationStatus == 0, "doz exec q1 -- true on a pseudo-terminal exits 0 (\(p.terminationStatus))")
-    check((firstNote ?? 99) < 3, "the host's note that the lab is not prepared appears within about a second (\(s(firstNote)), the host's own start included)")
+    check((firstNote ?? 99) < 3, "the daemon's note that the lab is not prepared appears within about a second (\(s(firstNote)), the daemon's own start included)")
     check(initBar != nil && initBar! < (initDone ?? 0), "the guest init image's pull is drawn while it runs (bar \(s(initBar)), done \(s(initDone)))")
     check(alpineBar != nil && alpineBar! < (alpineDone ?? 0), "alpine's pull is drawn while it runs (bar \(s(alpineBar)), done \(s(alpineDone)))")
 }

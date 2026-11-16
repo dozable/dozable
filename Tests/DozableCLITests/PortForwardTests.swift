@@ -125,7 +125,7 @@ final class PortForwardTests: XCTestCase {
         let back = try HostWire.decoder.decode(HostRequest.self, from: try HostWire.encoder.encode(r))
         XCTAssertEqual(back.portAdd, r.portAdd)
         XCTAssertEqual(HostOp.ports.rawValue, "ports")
-        XCTAssertFalse(HostOp.ports.isReadOnly, "the listeners live in the host")
+        XCTAssertFalse(HostOp.ports.isReadOnly, "the listeners live in the daemon")
     }
 
     /// This Mac's first non-loopback IPv4 address (nil: none), to show a forward is not reachable on it.

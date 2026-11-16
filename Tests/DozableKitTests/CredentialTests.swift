@@ -204,7 +204,7 @@ final class CredentialTests: XCTestCase {
         XCTAssertEqual(try ca.leaf(for: "api.anthropic.com").certificatePEM, leaf.certificatePEM, "cached per host")
         // The leaf verifies against the CA as the only anchor (Security.framework, as a guest would).
         XCTAssertTrue(try Self.verifies(leaf: leaf.certificatePEM, ca: ca.certificatePEM, host: "api.anthropic.com"))
-        XCTAssertFalse(try Self.verifies(leaf: leaf.certificatePEM, ca: ca.certificatePEM, host: "example.com"), "SAN is exactly the host")
+        XCTAssertFalse(try Self.verifies(leaf: leaf.certificatePEM, ca: ca.certificatePEM, host: "example.com"), "SAN is exactly the daemon")
         let other = try SandboxCA.generate(sandbox: "t2")
         XCTAssertFalse(try Self.verifies(leaf: leaf.certificatePEM, ca: other.certificatePEM, host: "api.anthropic.com"), "per-sandbox trust")
         // 617: the leaf names its issuer's key — Python 3.13+'s default VERIFY_X509_STRICT refuses one without an

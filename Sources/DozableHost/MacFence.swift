@@ -231,7 +231,7 @@ public struct MacFenceRow: Codable, Equatable, Sendable {
         preset = r.policy.flatMap { $0.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
         localPorts = (r.localPorts ?? []).isEmpty ? nil : r.localPorts
         loopbackListen = r.loopbackListen == true ? true : nil
-        network = r.proxyPort == nil ? "none" : "waiting (no host)"
+        network = r.proxyPort == nil ? "none" : "waiting (no daemon)"
         agent = r.agent
         agentConfig = r.agentConfig
         history = r.history

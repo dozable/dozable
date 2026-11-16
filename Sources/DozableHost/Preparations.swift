@@ -595,7 +595,7 @@ extension HostCore {
             return "\(r.title) is installed at the release its recipe pins (\(r.install.pinned.version)) — not \(v)"
         }
         guard agentRegistry.lookup != nil || agentRegistry.manifest != nil else {
-            return mustCheck ? "\(r.title) \(v) cannot be checked here (no registry) — try again with the host running, online" : nil
+            return mustCheck ? "\(r.title) \(v) cannot be checked here (no registry) — try again with the daemon running, online" : nil
         }
         let f = await AgentVersions.refresh(r.id, store: s, settings: DozableSettings.load(), registry: agentRegistry, version: v)
         if AgentVersions.known(r.id, version: v, store: s) != nil { return nil }
@@ -658,7 +658,7 @@ extension HostCore {
             p.joined(by: who)
             return p
         }
-        guard !readOnly else { throw HostError(.unavailable, "preparing an image needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "preparing an image needs the daemon") }
         // 634: a tool's image on a base whose own preparation runs (the onboarding's download) WAITS for it first — the
         // base is pulled and flattened once, never raced by a second pull of the same layers.
         let baseRun: Preparation? = PreparationInfo.baseID(image) == nil

@@ -17,7 +17,7 @@ func cliFenceSuite(binary: String) async {
     for d in [store, home, work, bin, xdg] { try? FileManager.default.createDirectory(atPath: d, withIntermediateDirectories: true) }
     let t = CLIHarness(binary: binary, store: URL(fileURLWithPath: store))
     t.env["XDG_CONFIG_HOME"] = xdg
-    t.env["DOZ_HOST_IDLE"] = "30"
+    t.env["DOZ_DAEMON_IDLE"] = "30"
     t.env["DOZ_TEST_CREDENTIALS"] = "memory"
     t.env["CLAUDECODE"] = "1"
     t.env["CLAUDE_CODE_ENTRYPOINT"] = "cli-fence-test"
@@ -35,7 +35,7 @@ func cliFenceSuite(binary: String) async {
     var bystanders: [Process] = []
     defer {
         for s in started { t.run(["sessions", "end", "@mac", s, "--yes"], timeout: 30) }
-        t.run(["host", "stop"], timeout: 60)
+        t.run(["daemon", "stop"], timeout: 60)
         for b in bystanders where b.isRunning { b.terminate() }
         try? FileManager.default.removeItem(atPath: sockets)
         try? FileManager.default.removeItem(atPath: root)
@@ -193,7 +193,7 @@ func cliFenceSuite(binary: String) async {
     r s_sock ls "\(sockets)"
     r s_toml ls "\(xdg)/doz"
     DOZ_STORE="\(store)" "\(binary)" sessions @mac --json > dozls.txt 2>&1
-    r s_hostsock nc -U -z "\(store)/host.sock"
+    r s_hostsock nc -U -z "\(store)/daemon.sock"
     r s_dock nc -U -z "\(dockerSock)"
     r p_sudo sudo -n true
     r p_open open -a NoSuchAppDozFenceTest
@@ -274,7 +274,7 @@ func cliFenceSuite(binary: String) async {
     no("s_toml", "1.6 doz's settings folder")
     let dozls = get(work + "/dozls.txt")
     check(!dozls.contains("probes.sh") && !dozls.contains("\"probe\""), "1.7 doz from inside (DOZ_STORE given) lists nothing of the store's sessions")
-    no("s_hostsock", "1.7 the host's socket")
+    no("s_hostsock", "1.7 the daemon's socket")
     check(bound, "the Docker socket stand-in listens (outside)")
     no("s_dock", "1.9 a unix socket in the home (Docker's stand-in)")
     no("p_sudo", "1.8 sudo")
@@ -306,11 +306,11 @@ func cliFenceSuite(binary: String) async {
             || l.hasPrefix("__CF") || l.hasPrefix("DECKHOLD_DIR") || (l.hasPrefix("DOZ_") && !l.hasPrefix("DOZ_TTY=") && !l.hasPrefix("DOZ_FENCE="))
     }
     check(leaked.isEmpty && env.contains("DOZ_FENCE=agent") && env.contains("HOME=\(home)"),
-          "1.17 the environment: nothing of the host's (CLAUDE*, ANTHROPIC_*, GITHUB_TOKEN, SSH_AUTH_SOCK, XPC_*, __CF*, DECKHOLD_DIR, DOZ_*)\(leaked.isEmpty ? "" : ": " + leaked.joined(separator: ", "))")
+          "1.17 the environment: nothing of the daemon's (CLAUDE*, ANTHROPIC_*, GITHUB_TOKEN, SSH_AUTH_SOCK, XPC_*, __CF*, DECKHOLD_DIR, DOZ_*)\(leaked.isEmpty ? "" : ": " + leaked.joined(separator: ", "))")
     let sessionKnown = (row("probe")?.fence?.sessionFolder ?? "/nonexistent") + "/ssh/known_hosts"
     check(get(work + "/kh.txt") == "twin.example ssh-ed25519 AAAAKNOWN\n", "1.28 the session's known_hosts is seeded from the person's")
     check(get(sessionKnown).contains("AAAANEW") && get(home + "/.ssh/known_hosts") == "twin.example ssh-ed25519 AAAAKNOWN\n",
-          "1.28 a new host key lands in the session's copy, never the person's")
+          "1.28 a new daemon key lands in the session's copy, never the person's")
     no("r_kh", "1.28 the person's own known_hosts is not read")
     check(get(work + "/gsc.txt").contains("UserKnownHostsFile="), "1.28 git's ssh uses the session's own known_hosts")
 
@@ -396,11 +396,11 @@ func cliFenceSuite(binary: String) async {
     put(gitWork + "/wait.sh", "while [ ! -e go ]; do sleep 0.2; done; git config core.pager PAGERX; sleep 600\n")
     r = run("gdown", ["/bin/sh", "wait.sh"], workdir: gitWork)
     check(r.code == 0, "a session that changes its config later")
-    if let hp = t.hostPID() { kill(hp, SIGKILL); check(t.waitFor(10) { kill(hp, 0) != 0 }, "the host killed (SIGKILL)") }
+    if let hp = t.hostPID() { kill(hp, SIGKILL); check(t.waitFor(10) { kill(hp, 0) != 0 }, "the daemon killed (SIGKILL)") }
     FileManager.default.createFile(atPath: gitWork + "/go", contents: nil)
-    check(t.waitFor(10) { get(gitWork + "/.git/config").contains("PAGERX") }, "1.5d the change is made while no host runs")
+    check(t.waitFor(10) { get(gitWork + "/.git/config").contains("PAGERX") }, "1.5d the change is made while no daemon runs")
     r = t.run(["sessions", "send", "@mac", "gdown", "--text", "x"], timeout: 30)          // starts a host, which adopts
-    check(t.waitFor(15) { row("gdown")?.fence?.stoppedForGit != nil }, "1.5d the next host strips it and stops the session at adoption")
+    check(t.waitFor(15) { row("gdown")?.fence?.stoppedForGit != nil }, "1.5d the next daemon strips it and stops the session at adoption")
     check(!get(gitWork + "/.git/config").contains("PAGERX"), "1.5d …stripped")
     t.run(["sessions", "end", "@mac", "gdown", "--yes"], timeout: 60)
 
@@ -474,10 +474,10 @@ func cliFenceSuite(binary: String) async {
 
     // MARK: 1.22 a host stop and kill leave a fenced session running, fenced, watched again
     if let p = row("probe")?.pid {
-        check(t.run(["host", "stop"], timeout: 60).code == 0, "host stop")
+        check(t.run(["daemon", "stop"], timeout: 60).code == 0, "daemon stop")
         check(row("probe")?.pid == p && row("probe")?.ended == false, "1.22 the fenced session keeps running without a host")
         r = t.run(["sessions", "send", "@mac", "probe", "--text", "x"], timeout: 30)
-        check(r.code == 0, "1.22 a new host adopts it")
+        check(r.code == 0, "1.22 a new daemon adopts it")
         git(["config", "core.fsmonitor", "LATER"], in: work)               // the folder's config changed (by anyone)
         check(t.waitFor(10) { row("probe")?.fence?.stoppedForGit != nil }, "1.22 the watch is armed again after adoption")
         t.run(["sessions", "end", "@mac", "probe", "--yes"], timeout: 60)
@@ -538,7 +538,7 @@ func cliFenceSuite(binary: String) async {
     r = t.run(["sessions", "restart", "@mac", "before", "--yes", "-d"], timeout: 60)
     check(r.code == 0 && t.waitFor(10) { row("before")?.ended == false } && row("before")?.fenced == nil && row("before")?.fence == nil,
           "M6 restarted under the fenced default: still unfenced (\(r.code))")
-    check(t.run(["host", "stop"], timeout: 60).code == 0, "M6 host stop (the next host adopts it)")
+    check(t.run(["daemon", "stop"], timeout: 60).code == 0, "M6 daemon stop (the next daemon adopts it)")
     check(row("before")?.ended == false && row("before")?.fenced == nil, "M6 adopted: still unfenced")
     r = t.run(["sessions", "restart", "@mac", "before", "--yes", "-d"], timeout: 60)
     check(r.code == 0 && t.waitFor(10) { row("before")?.ended == false } && row("before")?.fenced == nil, "M6 restarted after the adoption: still unfenced")

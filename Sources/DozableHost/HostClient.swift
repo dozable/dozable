@@ -37,7 +37,7 @@ public enum HostLauncher {
             FileHandle.standardError.write(Data((HostSessionKind.startWarning(why) + "\n").utf8))
         }
         var fds: [Int32] = [0, 0]
-        guard pipe(&fds) == 0 else { throw HostError(.unavailable, "could not start the host: \(String(cString: strerror(errno)))") }
+        guard pipe(&fds) == 0 else { throw HostError(.unavailable, "could not start the daemon: \(String(cString: strerror(errno)))") }
         let (readFD, writeFD) = (fds[0], fds[1])
         var attr: posix_spawnattr_t?
         posix_spawnattr_init(&attr)
@@ -49,8 +49,9 @@ public enum HostLauncher {
         defer { posix_spawn_file_actions_destroy(&fa) }
         posix_spawn_file_actions_addopen(&fa, 0, "/dev/null", O_RDONLY, 0)
         posix_spawn_file_actions_adddup2(&fa, writeFD, 1)
+        store.adoptFormerLog()
         posix_spawn_file_actions_addopen(&fa, 2, store.logFile.path, O_WRONLY | O_CREAT | O_APPEND, 0o644)
-        let args = [executable, "host", "start", "--launch-detached", "--store", store.root.path] + extra
+        let args = [executable, "daemon", "start", "--launch-detached", "--store", store.root.path] + extra
         var cargs: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) } + [nil]
         defer { for p in cargs { free(p) } }
         var mid: pid_t = 0
@@ -58,7 +59,7 @@ public enum HostLauncher {
         close(writeFD)
         guard rc == 0 else {
             close(readFD)
-            throw HostError(.unavailable, "could not start the host (\(executable)): \(String(cString: strerror(rc)))")
+            throw HostError(.unavailable, "could not start the daemon (\(executable)): \(String(cString: strerror(rc)))")
         }
         // The intermediate answers at once (one line) and exits; it is reaped here, never left a zombie.
         var out = Data()
@@ -76,7 +77,7 @@ public enum HostLauncher {
         var status: Int32 = 0
         while waitpid(mid, &status, 0) < 0 && errno == EINTR {}
         guard let pid = Int32(String(decoding: out, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)), pid > 0 else {
-            throw HostError(.unavailable, "could not start the host (the launcher said nothing) — see \(store.logFile.path)")
+            throw HostError(.unavailable, "could not start the daemon (the launcher said nothing) — see \(store.logFile.path)")
         }
         return pid
     }
@@ -104,14 +105,15 @@ public enum HostLauncher {
         posix_spawn_file_actions_init(&fa)
         defer { posix_spawn_file_actions_destroy(&fa) }
         posix_spawn_file_actions_addopen(&fa, 0, "/dev/null", O_RDONLY, 0)
+        store.adoptFormerLog()
         posix_spawn_file_actions_addopen(&fa, 1, store.logFile.path, O_WRONLY | O_CREAT | O_APPEND, 0o644)
         posix_spawn_file_actions_adddup2(&fa, 1, 2)
-        let args = [executable, "host", "start", "--foreground", "--launched", "--store", store.root.path] + extra
+        let args = [executable, "daemon", "start", "--foreground", "--launched", "--store", store.root.path] + extra
         var cargs: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) } + [nil]
         defer { for p in cargs { free(p) } }
         var pid: pid_t = 0
         let rc = posix_spawn(&pid, executable, &fa, &attr, &cargs, environ)
-        guard rc == 0 else { throw HostError(.unavailable, "could not start the host (\(executable)): \(String(cString: strerror(rc)))") }
+        guard rc == 0 else { throw HostError(.unavailable, "could not start the daemon (\(executable)): \(String(cString: strerror(rc)))") }
         return pid
     }
 }
@@ -133,32 +135,39 @@ public final class HostClient {
     /// Connect to the store's host, starting one when `autostart` and none answers.
     public static func connect(store: DozableStore, autostart: Bool, waitSeconds: Double = 90) throws -> HostClient {
         guard store.socketPathFits else { throw HostError(.unavailable, UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription) }
-        if let fd = UnixSocket.connect(store.socket.path) { return HostClient(store: store, fd: fd) }
-        guard autostart else { throw HostError(.unavailable, "no host is running for \(store.root.path)") }
+        if let fd = connectAny(store) { return HostClient(store: store, fd: fd) }
+        guard autostart else { throw HostError(.unavailable, "no daemon is running for \(store.root.path)") }
         let pid = try HostLauncher.spawn(store: store)
         let deadline = Date().addingTimeInterval(waitSeconds)
         var reaped = false
         while Date() < deadline {
-            if let fd = UnixSocket.connect(store.socket.path) { return HostClient(store: store, fd: fd) }
+            if let fd = connectAny(store) { return HostClient(store: store, fd: fd) }
             // It is not our child (launchd's): gone is `kill(pid, 0)` failing — with no lock holder.
             if !reaped, kill(pid, 0) != 0, errno == ESRCH {
                 reaped = true
                 // It exited: another host may have won the race (then its socket appears) — or it failed.
                 if !store.hostIsRunning() {
-                    if let fd = UnixSocket.connect(store.socket.path) { return HostClient(store: store, fd: fd) }
-                    throw HostError(.unavailable, "the host exited at start — \(lastLogLines(store))")
+                    if let fd = connectAny(store) { return HostClient(store: store, fd: fd) }
+                    throw HostError(.unavailable, "the daemon exited at start — \(lastLogLines(store))")
                 }
             }
             usleep(30_000)
         }
-        throw HostError(.unavailable, "the host did not answer within \(Int(waitSeconds)) s — \(lastLogLines(store))")
+        throw HostError(.unavailable, "the daemon did not answer within \(Int(waitSeconds)) s — \(lastLogLines(store))")
     }
 
-    /// Wait for a host that is starting to answer its socket.
+    /// The daemon's socket — or (the temporary host→daemon migration only) an older build's daemon's, which keeps serving
+    /// this store until it exits by itself, as an older build always did after an update.
+    public static func connectAny(_ store: DozableStore) -> Int32? {
+        for u in store.daemonSockets { if let fd = UnixSocket.connect(u.path) { return fd } }
+        return nil
+    }
+
+    /// Wait for a daemon that is starting to answer its socket.
     public static func waitForHost(store: DozableStore, seconds: Double = 90) -> Bool {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
-            if let fd = UnixSocket.connect(store.socket.path) { close(fd); return true }
+            if let fd = connectAny(store) { close(fd); return true }
             usleep(30_000)
         }
         return false
@@ -172,14 +181,14 @@ public final class HostClient {
     public func send(_ r: HostRequest) throws {
         var d = try HostWire.encoder.encode(r)
         d.append(10)
-        guard UnixSocket.writeAll(fd, d) else { throw HostError(.unavailable, "the host closed the connection") }
+        guard UnixSocket.writeAll(fd, d) else { throw HostError(.unavailable, "the daemon closed the connection") }
     }
 
     /// The next line from the host; nil at end of stream.
     public func next() throws -> HostMessage? {
         guard let line = reader.readLine() else { return nil }
         do { return try HostWire.decoder.decode(HostMessage.self, from: line) } catch {
-            throw HostError(.failed, "an answer this CLI cannot read (\(error.localizedDescription)) — is the host older? (doz host stop)")
+            throw HostError(.failed, "an answer this CLI cannot read (\(error.localizedDescription)) — is the daemon older? (doz daemon stop)")
         }
     }
 
@@ -190,7 +199,7 @@ public final class HostClient {
             if let e = m.event { onEvent(e); continue }
             if m.ok != nil { return m }
         }
-        throw HostError(.unavailable, "the host closed the connection before answering")
+        throw HostError(.unavailable, "the daemon closed the connection before answering")
     }
 
     /// One request on a fresh connection. A connection the host dropped before answering at all

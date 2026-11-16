@@ -41,13 +41,13 @@ public struct WebVersionNote: Codable, Equatable, Sendable {
         guard let host, host != ui else { return nil }
         switch WebVersion.compare(host, ui) {
         case .orderedAscending?:
-            return WebVersionNote(older: "host", text: "The host is still \(host) — doz host stop (sandboxes hibernate) and the next action runs \(ui).")
+            return WebVersionNote(older: "host", text: "The daemon is still \(host) — doz daemon stop (sandboxes hibernate) and the next action runs \(ui).")
         case .orderedDescending?:
-            return WebVersionNote(older: "ui", text: "doz ui is \(ui), the host is \(host) — restart doz ui (Ctrl-C it, then doz ui) so the page and the host are the same build.")
+            return WebVersionNote(older: "ui", text: "doz ui is \(ui), the daemon is \(host) — restart doz ui (Ctrl-C it, then doz ui) so the page and the daemon are the same build.")
         case .orderedSame?:
             return nil   // the same release (build metadata differs)
         case nil:
-            return WebVersionNote(older: nil, text: "doz ui is \(ui), the host is \(host) — different builds.")
+            return WebVersionNote(older: nil, text: "doz ui is \(ui), the daemon is \(host) — different builds.")
         }
     }
 }
@@ -93,8 +93,8 @@ public struct WebHostProbe: Equatable, Sendable {
     }
 }
 
-/// 594 W18: why the last host exited, from the end of `host.log` — the line its exit path wrote
-/// before `host exiting` (`HostServer`). nil when the last host did not say (it was killed).
+/// 594 W18: why the last daemon exited, from the end of `daemon.log` — the line its exit path wrote
+/// before `daemon exiting` (`HostServer`). nil when the last daemon did not say (it was killed).
 enum HostExitReason {
     static func read(_ log: URL, tail: Int = 16_384) -> String? {
         guard let h = try? FileHandle(forReadingFrom: log) else { return nil }
@@ -107,12 +107,12 @@ enum HostExitReason {
 
     static func parse(_ text: String) -> String? {
         let lines = text.split(separator: "\n").map(String.init)
-        guard let exit = lines.lastIndex(where: { $0.hasSuffix(" host exiting") }) else { return nil }
-        // A host started after that exit (and did not say it exited): it was killed.
-        if lines[(exit + 1)...].contains(where: { $0.contains(" doz host ") && $0.contains("(pid ") }) { return nil }
-        let start = lines[..<exit].lastIndex(where: { $0.contains(" doz host ") && $0.contains("(pid ") }) ?? 0
+        guard let exit = lines.lastIndex(where: { $0.hasSuffix(" daemon exiting") }) else { return nil }
+        // A daemon started after that exit (and did not say it exited): it was killed.
+        if lines[(exit + 1)...].contains(where: { $0.contains(" doz daemon ") && $0.contains("(pid ") }) { return nil }
+        let start = lines[..<exit].lastIndex(where: { $0.contains(" doz daemon ") && $0.contains("(pid ") }) ?? 0
         for l in lines[start..<exit].reversed() {
-            if l.contains("host stop requested") { return "doz host stop" }
+            if l.contains("daemon stop requested") { return "doz daemon stop" }
             if l.contains(" signal ") && l.contains("hibernating every sandbox") {
                 return l.contains("signal 15:") ? "SIGTERM" : l.contains("signal 2:") ? "SIGINT" : "a signal"
             }
@@ -155,12 +155,12 @@ public struct WebHostChange: Codable, Equatable, Sendable {
         switch state {
         case "running":
             let was = previousVersion.map { " — was doz \($0)" } ?? ""
-            return "host started (pid \(pid.map(String.init) ?? "?"), doz \(version ?? "?"))\(was)"
+            return "daemon started (pid \(pid.map(String.init) ?? "?"), doz \(version ?? "?"))\(was)"
         case "stopped":
             let why = reason.map { " (\($0))" } ?? ""
-            return "host stopped\(why)" + (n == 0 ? "" : " — \(n) sandbox\(n == 1 ? "" : "es") hibernated\(list)")
+            return "daemon stopped\(why)" + (n == 0 ? "" : " — \(n) sandbox\(n == 1 ? "" : "es") hibernated\(list)")
         default:
-            return "host died" + (n == 0 ? " — no sandbox was running" : " — \(n) sandbox\(n == 1 ? " was" : "es were") running, now shut down\(list)")
+            return "daemon died" + (n == 0 ? " — no sandbox was running" : " — \(n) sandbox\(n == 1 ? " was" : "es were") running, now shut down\(list)")
         }
     }
 }

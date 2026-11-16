@@ -195,7 +195,7 @@ public final class ChatGPTSession: @unchecked Sendable {
                 _generation += 1
             }
             onNote?("the ChatGPT sign-in of account \(account) was renewed on this Mac"
-                    + (ok ? "" : " — but the keychain could not keep the new refresh token: it is held in memory until the host stops (then: doz account add \(account) --chatgpt --force)"))
+                    + (ok ? "" : " — but the keychain could not keep the new refresh token: it is held in memory until the daemon stops (then: doz account add \(account) --chatgpt --force)"))
             return nil
         case .signedOut(let why):
             lock.withLock { _state = .signedOut(why); access = nil; _generation += 1 }

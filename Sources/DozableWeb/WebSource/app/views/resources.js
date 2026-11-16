@@ -134,7 +134,7 @@ function resTotalBar(r) {
 }
 function resMemoryPanel(r) {
   const held = r.memory.reduce((a, m) => a + m.heldBytes, 0);
-  const kinds = { sandbox: 'sandbox', host: 'the host', ui: 'this UI' };
+  const kinds = { sandbox: 'sandbox', host: 'the daemon', ui: 'this UI' };
   const rows = r.memory.map((m) => h('tr', { 'data-mem': m.kind + ':' + m.name },
     h('td', null, m.kind === 'sandbox' ? h('a', { href: '#/sandbox/' + m.name }, m.name) : m.name, h('span', { class: 'muted' }, ' · ' + (kinds[m.kind] || m.kind))),
     h('td', null, m.phase ? phasePill(m.phase) : '—'),
@@ -142,7 +142,7 @@ function resMemoryPanel(r) {
     h('td', { class: 'num' }, m.allocationBytes ? bytes(m.allocationBytes) : '—'),
     h('td', { class: 'num' }, m.cpus ?? '—')));
   return resSection('memory', 'Memory and CPUs', bytes(held) + ' held · ' + r.allocatedCPUs + ' of ' + r.machineCPUs + ' CPUs given to sandboxes',
-    panel(table(['What', 'Phase', 'Held now', 'Allocation', 'CPUs'], rows, [2, 3, 4]), 'No sandbox has a VM, and no host is running.'));
+    panel(table(['What', 'Phase', 'Held now', 'Allocation', 'CPUs'], rows, [2, 3, 4]), 'No sandbox has a VM, and no daemon is running.'));
 }
 function resNetworkPanel(r) {
   const rows = r.network.map((n) => h('tr', { 'data-net': n.sandbox },
@@ -236,7 +236,7 @@ async function resDelete(ids, clean) {
     h('p', { class: 'res-plan-total' }, 'Frees ', h('strong', { 'data-plan-freed': '' }, bytes(plan.freedBytes)), ' in all (blocks shared between them counted once).'));
   const title = clean ? 'Clean up' : 'Delete ' + n + ' item' + (n === 1 ? '' : 's');
   const d = dialog(title, (clean ? 'Re-creatable and unused — never templates, sandboxes, restore points, settings or keys. Logs and metrics are kept — select them to clear. ' : '') +
-    'One operation: the host waits until nothing that uses the disks is under way.', [],
+    'One operation: the daemon waits until nothing that uses the disks is under way.', [],
     clean ? 'Clean up' : 'Delete', async () => {
       const op = await actOrThrow({ action: 'resources-rm', ids: plan.items.map((e) => e.id) });
       state.resSel.clear();

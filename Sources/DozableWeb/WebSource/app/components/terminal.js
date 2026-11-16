@@ -628,7 +628,7 @@ async function loadSavedScreen(t) {
   paintTabs();
 }
 // ── the Boot log (593 — owner: "where is the bootup terminal output stored so i can look at it after the
-// machine has booted"): the host keeps the last host.boot_logs_kept boots of each sandbox; this draws one
+// machine has booted"): the host keeps the last daemon.boot_logs_kept boots of each sandbox; this draws one
 // EXACTLY as the boot view did (the host renders it with the boot view's own renderer), read-only and
 // selectable in the terminal frame's saved mode. A picker switches boots; the latest opens first (a
 // failed one is marked ✕). Any phase — it reads files; nothing is woken.
@@ -648,7 +648,7 @@ export async function bootLogDialog(name) {
   const close = h('button', { type: 'button', class: 'btn quiet' }, withIcon('x', 'Close'));
   d.append(h('div', { class: 'bootlog-head' }, h('h2', null, 'Boot log — ' + name), picker, close),
     h('p', { class: 'sub' }, 'Each start and wake of ' + name + ': Dozable’s steps as the boot view showed them, then the kernel console. The last '
-      + setting('host.boot_logs_kept', 5) + ' are kept (Settings › host.boot_logs_kept); doz console ' + name + ' --list shows them too.'),
+      + setting('daemon.boot_logs_kept', 5) + ' are kept (Settings › daemon.boot_logs_kept); doz console ' + name + ' --list shows them too.'),
     why, area);
   let term = null;
   const show = (n) => {

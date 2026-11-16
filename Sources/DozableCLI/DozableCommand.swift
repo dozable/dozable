@@ -43,7 +43,7 @@ public struct DozableCommand: AsyncParsableCommand {
         and attaches; `doz up NAME` creates, starts or wakes, and attaches. Every command takes --json and --store (or $DOZ_STORE).
 
         Exit codes: 0 ok · 1 failed · 2 not found · 3 not possible in this phase · 4 already exists · \
-        5 not confirmed · 6 host unavailable · 7 not implemented yet · 64 usage. exec, run and attach \
+        5 not confirmed · 6 daemon unavailable · 7 not implemented yet · 64 usage. exec, run and attach \
         exit with the program's own code, and 125 when doz itself fails.
         """,
         version: version,
@@ -424,7 +424,7 @@ final class Progress: @unchecked Sendable {
 func call(_ r: HostRequest, _ g: GlobalOptions, autostart: Bool = true) throws -> JSONValue {
     let m = try rawCall(r, g, autostart: autostart)
     if m.ok == true { return m.result ?? .null }
-    throw fail(m.error ?? HostError(.failed, "the host gave no reason"), g)
+    throw fail(m.error ?? HostError(.failed, "the daemon gave no reason"), g)
 }
 
 /// W33 (owner, after an upgrade: `doz image ls` printed no STATUS — the host answering was still the
@@ -446,10 +446,10 @@ func noteHostBuild(_ g: GlobalOptions) {
 func hostBuildNote(host: String, this: String) -> String? {
     guard host != this else { return nil }
     if SemVer.compare(host, this) == .orderedDescending {
-        return "the doz host is \(host), newer than this doz (\(this)) — upgrade this doz (brew upgrade doz), or `doz host stop` "
+        return "the doz daemon is \(host), newer than this doz (\(this)) — upgrade this doz (brew upgrade doz), or `doz daemon stop` "
             + "switches to \(this); sandboxes hibernate and wake"
     }
-    return "the doz host is \(host) (this doz is \(this)) — `doz host stop` switches to \(this); sandboxes hibernate and wake"
+    return "the doz daemon is \(host) (this doz is \(this)) — `doz daemon stop` switches to \(this); sandboxes hibernate and wake"
 }
 
 /// The host's final message, whatever it says (a failure to REACH the host is thrown, printed).

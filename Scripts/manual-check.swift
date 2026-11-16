@@ -44,7 +44,7 @@ func doz(_ a: [String]) -> String {
     var env = ProcessInfo.processInfo.environment
     env["XDG_CONFIG_HOME"] = scratch.appendingPathComponent("xdg").path
     env["DOZ_STORE"] = scratch.appendingPathComponent("store").path
-    env.removeValue(forKey: "DOZ_PROGRESS"); env.removeValue(forKey: "DOZ_HOST_IDLE"); env.removeValue(forKey: "DOZ_SUBNET")
+    env.removeValue(forKey: "DOZ_PROGRESS"); env.removeValue(forKey: "DOZ_DAEMON_IDLE"); env.removeValue(forKey: "DOZ_SUBNET")
     env.removeValue(forKey: "DOZ_KERNEL"); env.removeValue(forKey: "DOZ_KERNEL_CACHE"); env.removeValue(forKey: "DOZ_SCREEN_CAPTURE")
     env.removeValue(forKey: "DOZ_BOOT_LOGS")
     p.environment = env
@@ -110,7 +110,7 @@ struct Setting: Decodable {
         case "next-command": "next command"
         case "next-create": "new sandboxes"
         case "next-session": "next session"
-        case "host-restart": "after `doz host stop`"
+        case "daemon-restart": "after `doz daemon stop`"
         case "new-store": "a store that hasn't chosen"
         case "next-boot": "next boot"
         case "next-start-or-wake": "next start or wake"
@@ -203,7 +203,7 @@ if let start = promptSource.range(of: "public static let variables:"), let stop 
     }
 }
 if promptVariables.isEmpty { problem("could not read the agent prompt's variables from Sources/DozableHost/AgentPrompt.swift") }
-let notKeys: Set<String> = Set(["host.log", "host.sock"]).union(report.settings.map(\.section))   // `[images.lab]` is a section
+let notKeys: Set<String> = Set(["daemon.log", "daemon.sock"]).union(report.settings.map(\.section))   // `[images.lab]` is a section
 let keyRX = try! NSRegularExpression(pattern: "(?<![A-Za-z0-9_./-])((ui|host|store|claude|defaults|agent|resources|sandbox|sessions|images|kernel)\\.[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_]*)?)(?![A-Za-z0-9_/-])")
 for (name, text) in pages {
     for frag in codeFragments(text) {

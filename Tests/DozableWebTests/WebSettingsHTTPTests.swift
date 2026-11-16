@@ -254,15 +254,15 @@ final class WebSettingsHTTPTests: XCTestCase {
     }
 
     func testAValueTheEnvironmentSetsIsReadOnly() async throws {
-        try await start(["XDG_CONFIG_HOME": xdg.path, "DOZ_HOST_IDLE": "9"])
+        try await start(["XDG_CONFIG_HOME": xdg.path, "DOZ_DAEMON_IDLE": "9"])
         let (cookie, csrf) = try signIn()
         let rep = try report(try request("/api/v1/settings", ["Cookie": cookie]))
-        let idle = try row(rep, "host.idle_timeout_minutes")
+        let idle = try row(rep, "daemon.idle_timeout_minutes")
         XCTAssertEqual(idle.source, .env)
         XCTAssertEqual(idle.value, .int(9))
         XCTAssertFalse(idle.editable)
-        XCTAssertTrue(idle.note?.contains("DOZ_HOST_IDLE") == true)
-        let r = try change(#"{"key":"host.idle_timeout_minutes","value":30}"#, cookie, csrf)
+        XCTAssertTrue(idle.note?.contains("DOZ_DAEMON_IDLE") == true)
+        let r = try change(#"{"key":"daemon.idle_timeout_minutes","value":30}"#, cookie, csrf)
         XCTAssertEqual(r.status, 409, r.text)
         XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
     }
@@ -667,7 +667,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         clean(r, "the stored-state summary")
         XCTAssertTrue(r.text.contains("doz-anthropic:work") && r.text.contains("abcdef123456"), "the summary: the item's name and a fingerprint")
         XCTAssertEqual(fake.addedAccounts.map(\.name), ["work"])
-        XCTAssertEqual(fake.addedAccounts.first?.secret, key, "the host got it")
+        XCTAssertEqual(fake.addedAccounts.first?.secret, key, "the daemon got it")
         XCTAssertFalse("\(fake.addedAccounts[0])".contains(key), "its description is redacted")
         XCTAssertFalse(String(reflecting: fake.addedAccounts[0]).contains(key))
         r = try post(#"{"name":"sub","kind":"setup-token","plan":"max","secret":"sk-ant-oat01-\#(String(repeating: "t", count: 40))"}"#, csrf: csrf)
@@ -720,12 +720,12 @@ final class WebSettingsHTTPTests: XCTestCase {
             XCTAssertEqual(r.status, 400, "\(why): \(r.text)")
             XCTAssertFalse(r.text.contains(key) || r.text.contains("FAKErrrr"), "\(why): the secret came back: \(r.text)")
         }
-        XCTAssertTrue(fake.addedAccounts.isEmpty, "nothing reached the host")
+        XCTAssertTrue(fake.addedAccounts.isEmpty, "nothing reached the daemon")
         let ok = try post(body("xai"))
         XCTAssertEqual(ok.status, 200, ok.text)
         XCTAssertFalse(ok.text.contains(key), "the answer never carries it")
         XCTAssertEqual(fake.addedAccounts.map(\.name), ["xai"])
-        XCTAssertEqual(fake.addedAccounts.first?.replace, true, "sent as the host's add with force")
+        XCTAssertEqual(fake.addedAccounts.first?.replace, true, "sent as the daemon's add with force")
         XCTAssertFalse("\(fake.addedAccounts[0])".contains(key), "its description is redacted")
         // Without replace, the same name is the host's to refuse (exists) — the page never sends that for a failing key.
         XCTAssertEqual(try WebAccountAdd.decode(Data(body("xai", replace: "false").utf8)).replace, false)
@@ -763,14 +763,14 @@ final class WebSettingsHTTPTests: XCTestCase {
             XCTAssertEqual(r.status, 400, "\(why): \(r.text)")
             XCTAssertFalse(r.text.contains(key) || r.text.contains("FAKEeeee"), "\(why): the secret came back: \(r.text)")
         }
-        XCTAssertTrue(fake.addedAccounts.isEmpty, "nothing reached the host")
+        XCTAssertTrue(fake.addedAccounts.isEmpty, "nothing reached the daemon")
         // Without edit, a key that works is still refused (the Needs-you Replace… path is unchanged).
         XCTAssertEqual(try post(body("good", edit: "false")).status, 400)
         let ok = try post(body("good"))
         XCTAssertEqual(ok.status, 200, ok.text)
         XCTAssertFalse(ok.text.contains(key), "the answer never carries it")
         XCTAssertEqual(fake.addedAccounts.map(\.name), ["good"])
-        XCTAssertEqual(fake.addedAccounts.first?.replace, true, "the host's add with force")
+        XCTAssertEqual(fake.addedAccounts.first?.replace, true, "the daemon's add with force")
         XCTAssertFalse("\(fake.addedAccounts[0])".contains(key), "its description is redacted")
     }
 }

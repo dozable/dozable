@@ -62,7 +62,7 @@ final class MacFenceToolsEnvironmentTests: XCTestCase {
         XCTAssertEqual(g.first?.0, "http.proxyAuthMethod")
         XCTAssertTrue(g.contains { $0 == ("credential.helper", "") }, "the system's osxkeychain helper dropped")
         XCTAssertEqual(g.last?.1, MacFenceEnvironment.noGitHubHelper)
-        XCTAssertNil(e["GH_TOKEN"], "the host's GH_TOKEN never passes")
+        XCTAssertNil(e["GH_TOKEN"], "the daemon's GH_TOKEN never passes")
         f.github = .read
         f.ghSocket = w.root + "/sock/s1.gh"
         f.placeholders["GH_TOKEN"] = "doz_cred_" + String(repeating: "a", count: 48)

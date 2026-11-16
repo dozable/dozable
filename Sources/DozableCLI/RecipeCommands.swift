@@ -15,8 +15,8 @@ struct RecipeCommand: AsyncParsableCommand {
         discussion: """
         A recipe is the YAML file that says how to install a tool, run it and what it may reach (the format: docs/recipes/RECIPE-FORMAT.md). \
         Yours live in the settings folder (recipes/mine/ID.yaml) and are labelled "yours" everywhere; a community catalogue's are labelled \
-        with its name. Neither may use the name of one of Dozable's own recipes. A change is used at once when no host runs, else from the \
-        next host start (doz host restart).
+        with its name. Neither may use the name of one of Dozable's own recipes. A change is used at once when no daemon runs, else from the \
+        next daemon start (doz daemon restart).
         """,
         subcommands: [RecipeList.self, RecipeNew.self, RecipeAdd.self, RecipeShow.self, RecipeCheck.self, RecipeTrust.self, RecipeRemove.self,
                       RecipeUninstall.self, RecipeSourceCommand.self],
@@ -105,7 +105,7 @@ func printRequirements(_ results: [CommunityRequirements.Result]) {
 @discardableResult
 func applyRecipeChange(_ p: RecipeExtrasPaths, _ g: GlobalOptions) -> String {
     if g.dozableStore.hostIsRunning() {
-        return "it applies at the next host start — doz host restart"
+        return "it applies at the next daemon start — doz daemon restart"
     }
     RecipeExtras.rebuild(p, compile: RecipeSource.compile, version: DozableCommand.version, promote: true)
     return "in use from now (a running doz ui shows it after doz ui restart)"
@@ -203,7 +203,7 @@ struct RecipeList: AsyncParsableCommand {
             table.append([r.id, from, r.installState ?? RecipeStateRow.available, status, checked])
         }
         Out.stdout(Out.table(table))
-        if RecipeExtras.pending(p) { Out.stdout("A change waits for the next host start — doz host restart.\n") }
+        if RecipeExtras.pending(p) { Out.stdout("A change waits for the next daemon start — doz daemon restart.\n") }
     }
 
     static func rows(_ p: RecipeExtrasPaths, all: Bool) -> [RecipeRow] {
@@ -227,10 +227,10 @@ struct RecipeList: AsyncParsableCommand {
             var row = RecipeRow(id: id, title: AgentRecipes.recipe(id).flatMap { $0.origin.isMine ? $0.title : nil }, origin: "mine", source: nil,
                                 state: "in use", why: nil, checked: nil, changedSinceCheck: nil, sha256: sha)
             if inSnap?.files.first(where: { $0.id == id })?.sha256 != sha, snapRefused == nil || u.map({ $0.chosen }) == nil {
-                row.state = "waits for the next host start"
+                row.state = "waits for the next daemon start"
             }
             if let r = o?.refused ?? snapRefused?.why { row.state = "refused"; row.why = r }
-            else if inSnap == nil && snapRefused == nil { row.state = "waits for the next host start" }
+            else if inSnap == nil && snapRefused == nil { row.state = "waits for the next daemon start" }
             (row.checked, row.changedSinceCheck) = check(id, sha)
             out.append(row)
         }
@@ -739,8 +739,8 @@ struct RecipeSourceAdd: AsyncParsableCommand {
             said += "; " + when
             if let trial = Self.trial(s, p) { said += "\n  but it would not be used: \(trial)" }
         case .refused(let why, _): said += " — its catalogue was refused: \(why)"
-        case .unchanged: said += " — nothing published there yet (404); the host looks again hourly"
-        case .offline: said += " — not reachable now; the host looks again hourly"
+        case .unchanged: said += " — nothing published there yet (404); the daemon looks again hourly"
+        case .offline: said += " — not reachable now; the daemon looks again hourly"
         case .disabled(let why): said += " — not fetched: \(why)"
         case .notDue: break
         }
@@ -800,7 +800,7 @@ struct RecipeSourceList: AsyncParsableCommand {
             var s = "\(r.name) — \(r.url)\n  key \(r.fingerprint), confirmed \(r.confirmed.prefix(10))\n  \(r.state)"
             if let n = r.serial { s += " · catalogue \(n)" }
             if !r.recipes.isEmpty { s += " · recipes: \(r.recipes.joined(separator: ", "))" }
-            if let w = r.waiting { s += "\n  catalogue \(w) is downloaded and applies at the next host start (doz host restart)" }
+            if let w = r.waiting { s += "\n  catalogue \(w) is downloaded and applies at the next daemon start (doz daemon restart)" }
             if let pr = r.problem { s += "\n  last problem: \(pr)" }
             Out.stdout(s + "\n")
         }

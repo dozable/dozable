@@ -263,7 +263,7 @@ public actor HostCore {
             guard var p = PersistedSandbox.read(from: layout.persistedState) else { continue }
             switch p.phase {
             case .asleep where p.isRestorable(layout: layout):
-                note(m.name, "was asleep when the previous host went away — restoring it (restore after a crash)")
+                note(m.name, "was asleep when the previous daemon went away — restoring it (restore after a crash)")
                 let row = beginAction(m, "restore after crash", phaseBefore: "asleep")
                 let t0 = ContinuousClock.now
                 do {
@@ -292,7 +292,7 @@ public actor HostCore {
                 SavedScreens.remove(layout)
                 try? TerminalLayout.write(nil, store, m.name)
                 SessionRecords.write(nil, store, m.name)        // 608
-                note(m.name, "was running when the previous host died — its programs are gone; the next start checks its disk (e2fsck)")
+                note(m.name, "was running when the previous daemon died — its programs are gone; the next start checks its disk (e2fsck)")
                 metrics?.record(run: metricsRun, action: "died with host", sandbox: m.name, image: m.config.image,
                                 phaseBefore: "running", phaseAfter: "off", startedAt: Date(), durationMs: nil, ok: false)
             case .off, .hibernated:
@@ -375,7 +375,7 @@ public actor HostCore {
     }
 
     /// The boot is over: keep it (its events, its console, how it went), then the newest
-    /// `host.boot_logs_kept`. The sandbox's event stream is drained a little first (its events reach the
+    /// `daemon.boot_logs_kept`. The sandbox's event stream is drained a little first (its events reach the
     /// actor asynchronously). Never fails the operation.
     func endBoot(_ m: Managed, error: Error?) async {
         // 667: the VM is built — doz-sound's conf follows the microphone it really got (a restore keeps the old one).
@@ -586,7 +586,7 @@ public actor HostCore {
     /// Every request but the streaming ones (`attach`, `events`, `net-log --follow` — see HostServer).
     public func handle(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void = { _ in }) async -> HostMessage {
         guard r.v <= HostProtocol.accepted else {
-            return .failure(HostError(.version, "this host speaks protocol \(HostProtocol.accepted), the request is \(r.v) — restart it (doz host stop)"))
+            return .failure(HostError(.version, "this daemon speaks protocol \(HostProtocol.accepted), the request is \(r.v) — restart it (doz daemon stop)"))
         }
         // 593: `terminal-layout-set` is answered in-process too: it writes one small file of the web UI's
         // state beside doz.json (never a VM, never a secret — like the UI's doz.toml), and a host is not
@@ -595,7 +595,7 @@ public actor HostCore {
                          || (r.op == .console && r.follow != true) || (r.op == .agentPrompt && r.prompt == nil && r.clearPrompt != true && r.agentSudo == nil && r.clearAgentSudo != true)
                          || r.op.isAnsweredWithoutHost || ([.resourcesRemove, .resourcesClean].contains(r.op) && r.dryRun == true)
                          || (r.op == .sandboxSettings && r.setting == nil) || (r.op == .access && r.check != true)) {
-            return .failure(HostError(.unavailable, "\(r.op.rawValue) needs the host"))
+            return .failure(HostError(.unavailable, "\(r.op.rawValue) needs the daemon"))
         }
         // 598: an upgrade removed this host's installation — refuse a boot plainly, before it fails oddly.
         if Self.bootOps.contains(r.op), let gone = programGone() {
@@ -639,8 +639,8 @@ public actor HostCore {
         guard !readOnly, let executable else { return nil }
         if executableChange() == .removed { return ExecutableIdentity.explain(.removed, path: executable.path) }
         if DeckholdBinary.locate() == nil || DoznetBinary.locate() == nil {
-            return "this host's resources (the guest binaries beside \(executable.path)) are gone — an upgrade removed its "
-                + "installation — `doz host stop`, then retry: the installed doz starts a new host (sandboxes asleep keep their snapshots)"
+            return "this daemon's resources (the guest binaries beside \(executable.path)) are gone — an upgrade removed its "
+                + "installation — `doz daemon stop`, then retry: the installed doz starts a new daemon (sandboxes asleep keep their snapshots)"
         }
         return nil
     }
@@ -1051,7 +1051,7 @@ public actor HostCore {
         // account becomes a key of that source: the one given, else its default.
         let modelSource = o.modelSource ?? (o.model != nil ? AgentCredentials.sources(spec.imageSpec?.name)?.first : nil)
         if let source = modelSource {
-            guard spec.network.policy != nil else { throw HostError(.invalid, "a model provider needs a proxied network: its key lives in the host's proxy") }
+            guard spec.network.policy != nil else { throw HostError(.invalid, "a model provider needs a proxied network: its key lives in the daemon's proxy") }
             let r = AgentCredentials.account(forSource: source, model: o.model, image: spec.imageSpec?.name, account: o.account, file: accountStore.load())
             if let p = r.problem { throw HostError(.invalid, p.text + " — " + p.fix) }
             if let n = r.name { o.account = n }
@@ -1081,7 +1081,7 @@ public actor HostCore {
                 cfg.account = a
             }
         } else if let a = o.account, a != "none", a != "default" {
-            throw HostError(.invalid, "--account needs a proxied network (agent, open, …): the credential lives in the host's proxy")
+            throw HostError(.invalid, "--account needs a proxied network (agent, open, …): the credential lives in the daemon's proxy")
         }
         // 594: its own layer of the environment prompt, and the project file it came from.
         if let text = o.agentPrompt {
@@ -1107,7 +1107,7 @@ public actor HostCore {
         cfg.recipeSettings = Self.recordedRecipeSettings(o, spec: spec, settings: .load())
         // 617 (D6): custom keys beside the account — each a custom key account, each of its hosts allowed on purpose.
         if let keys = o.keys, !keys.isEmpty {
-            guard let policy = spec.network.policy else { throw HostError(.invalid, "--key needs a proxied network: a custom key lives in the host's proxy") }
+            guard let policy = spec.network.policy else { throw HostError(.invalid, "--key needs a proxied network: a custom key lives in the daemon's proxy") }
             let file = accountStore.load()
             for k in keys {
                 guard let c = file.accounts.first(where: { $0.name == k })?.custom else {
@@ -1567,10 +1567,10 @@ public actor HostCore {
             result.append(await stopRow(r.name, r.m, before: r.before, o, ms))
         }
         let s = ContinuousClock.now
-        onEvent(HostEvent(kind: .started, sandbox: nil, text: "saving the host's state"))
+        onEvent(HostEvent(kind: .started, sandbox: nil, text: "saving the daemon's state"))
         for name in managed.keys { recordNetwork(name) }
         let d = ContinuousClock.now - s
-        onEvent(HostEvent(kind: .step, sandbox: nil, text: "saving the host's state",
+        onEvent(HostEvent(kind: .step, sandbox: nil, text: "saving the daemon's state",
                           milliseconds: Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15))
         return result
     }
@@ -1630,7 +1630,7 @@ public actor HostCore {
     static func wakeable(_ p: Phase) -> Bool { p == .paused || p == .asleep || p == .hibernated }
 
     /// 593 §9 (S2): the light periodic capture — every `minutes` (the setting
-    /// `host.screen_capture_minutes`; 0 = off), each RUNNING sandbox's sessions that wrote something
+    /// `daemon.screen_capture_minutes`; 0 = off), each RUNNING sandbox's sessions that wrote something
     /// since their last saved screen, so a crash still leaves a recent copy. One `deckhold ls` per
     /// sandbox, then a momentary attach per changed session; serialised with the lifecycle.
     public func captureScreensPeriodically() async {
@@ -2308,7 +2308,7 @@ public actor HostCore {
             }
         } else {
             if let a = o.account, a != "none", a != "default" {
-                throw HostError(.invalid, "--account needs a proxied network (agent, open, …): the credential lives in the host's proxy")
+                throw HostError(.invalid, "--account needs a proxied network (agent, open, …): the credential lives in the daemon's proxy")
             }
             cfg.account = nil
             cfg.credentialPolicy = nil
@@ -2428,7 +2428,7 @@ public actor HostCore {
         if let k = githubKeys.removeValue(forKey: old) { githubKeys[new] = k }    // 599d: a key given from stdin goes along
         let nm: Managed
         do { nm = try adopt(cfg) } catch {
-            throw HostError(.failed, "\(old) was renamed \(new), but could not be loaded: \(error.localizedDescription) — doz host stop, then any doz command loads it")
+            throw HostError(.failed, "\(old) was renamed \(new), but could not be loaded: \(error.localizedDescription) — doz daemon stop, then any doz command loads it")
         }
         metrics?.record(run: metricsRun, action: "rename", sandbox: new, image: cfg.image, phaseAfter: "off", startedAt: Date(),
                         durationMs: ms(since: t0), detail: ["from": old])

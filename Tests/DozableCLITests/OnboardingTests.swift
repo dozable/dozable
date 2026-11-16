@@ -377,12 +377,12 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(st.preparations[0].transfer?.completedBytes, 10)
         XCTAssertTrue(joiner.texts.contains("pulled the base image node"), "the joiner got the events so far: \(joiner.texts)")
         let running = await c.runningPreparations()
-        XCTAssertEqual(running, ["claude-code"], "it keeps the host up")
+        XCTAssertEqual(running, ["claude-code"], "it keeps the daemon up")
         gate.lock.withLock { gate.released = true }
         _ = await bake.value
         XCTAssertEqual(gate.runs, ["claude-code"], "one download, one bake")
         try await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(OnboardingRecord.read(DozableStore(root: root))?.images, ["claude-code"], "the host records the onboarding when it is ready")
+        XCTAssertEqual(OnboardingRecord.read(DozableStore(root: root))?.images, ["claude-code"], "the daemon records the onboarding when it is ready")
         let after = try await c.handle(HostRequest(.prepareStatus)).result!.decode(PrepareStatus.self)
         XCTAssertEqual(after.preparations.first?.state, "done")
         XCTAssertTrue(after.preparations.first?.lines.contains { $0.contains("Downloaded the Node.js base image") } == true)
@@ -443,7 +443,7 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(badResult.error?.code, .invalid)
         let ro = HostCore(store: DozableStore(root: root), readOnly: true, version: "t")
         let roOnboard = await ro.handle(r)
-        XCTAssertEqual(roOnboard.error?.code, .unavailable, "preparing needs the host")
+        XCTAssertEqual(roOnboard.error?.code, .unavailable, "preparing needs the daemon")
         let roStatus = await ro.handle(HostRequest(.prepareStatus))
         XCTAssertNotNil(roStatus.result, "looking does not")
     }

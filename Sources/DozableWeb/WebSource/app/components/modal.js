@@ -112,7 +112,7 @@ export function wizardCloseRequest() {
   if (!wizDirty()) { leave(); return; }
   dialog(state.modal === 'new' ? 'Discard this new sandbox?' : 'Stop setting up?',
     state.modal === 'new' ? 'Nothing is written yet: closing forgets the choices made so far.'
-      : 'Nothing is written yet: closing forgets the choices made so far (a base already downloading goes on in the host). Onboarding can be run again from the sidebar.',
+      : 'Nothing is written yet: closing forgets the choices made so far (a base already downloading goes on in the daemon). Onboarding can be run again from the sidebar.',
     [], 'Discard', async () => { leave(); }, { danger: true, icon: 'x' });
 }
 // Keyboard: Escape closes (asking first when needed) — never from inside a field, a list or a menu; Tab wraps.

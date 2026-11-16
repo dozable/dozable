@@ -170,9 +170,9 @@ func cliCodexSuite(binary: String) async {
     // CODEX_KEEP=1: one fixed store, kept with its prepared images for the next run (the first run makes it).
     let kept = URL(fileURLWithPath: "/tmp/dzo-codex-keep")
     let t: CLIHarness
-    if keep, FileManager.default.fileExists(atPath: kept.appendingPathComponent("host.log").path) {
+    if keep, FileManager.default.fileExists(atPath: kept.appendingPathComponent("daemon.log").path) {
         t = CLIHarness(binary: binary, store: kept)
-        t.env["DOZ_HOST_IDLE"] = "2"
+        t.env["DOZ_DAEMON_IDLE"] = "2"
         t.env["DOZ_TEST_CREDENTIALS"] = "memory"
     } else if keep {
         t = CLIHarness(binary: binary, store: kept)
@@ -181,7 +181,7 @@ func cliCodexSuite(binary: String) async {
         for item in ["kernels", "content", "state.json", "initfs.ext4", "golden"] where FileManager.default.fileExists(atPath: src + "/" + item) {
             _ = onMac(["/bin/cp", "-cR", src + "/" + item, kept.path + "/"])
         }
-        t.env["DOZ_HOST_IDLE"] = "2"
+        t.env["DOZ_DAEMON_IDLE"] = "2"
         t.env["DOZ_TEST_CREDENTIALS"] = "memory"
     } else {
         t = onboardingHarness(binary, "x", seed: ["kernels", "content", "state.json", "initfs.ext4", "golden"])
@@ -195,7 +195,7 @@ func cliCodexSuite(binary: String) async {
     let ws = w.path
     var server: Process?
     defer {
-        t.run(["host", "stop", "--store", t.store.path], timeout: 300)
+        t.run(["daemon", "stop", "--store", t.store.path], timeout: 300)
         server?.terminate()
         if !keep { try? fm.removeItem(at: t.store) }
         try? fm.removeItem(at: w)
@@ -251,21 +251,21 @@ func cliCodexSuite(binary: String) async {
     t.env["DOZ_TEST_OPEN_URL"] = ws + "/opened"
     // Never a host without the fake: a host left from an earlier run (or started before the seams were set)
     // would send the test's fake tokens to the real OpenAI. Stop any, then check the new one has the fake.
-    _ = d(["host", "stop"], timeout: 300)
+    _ = d(["daemon", "stop"], timeout: 300)
     if keep {
         // Sandboxes of an earlier run go; the prepared images stay.
         for n in ["cx", "ax"] { _ = d(["rm", n, "--yes"], timeout: 120) }
     }
     let seamLine = "go to 127.0.0.1:\(port), trusting only its CA"
     func startHostWithFake() -> Bool {
-        _ = d(["host", "start"], timeout: 60)
+        _ = d(["daemon", "start"], timeout: 60)
         var seamed = false
-        for _ in 0..<50 where !seamed { seamed = hostLog(t).components(separatedBy: "doz host ").last?.contains(seamLine) == true; if !seamed { usleep(100_000) } }
+        for _ in 0..<50 where !seamed { seamed = hostLog(t).components(separatedBy: "doz daemon ").last?.contains(seamLine) == true; if !seamed { usleep(100_000) } }
         return seamed
     }
     let seamed = startHostWithFake()
-    check(seamed, "the host runs with the fake OpenAI (its log says so) — nothing goes to the real OpenAI")
-    guard seamed else { info("aborted: the host has no fake OpenAI"); return }
+    check(seamed, "the daemon runs with the fake OpenAI (its log says so) — nothing goes to the real OpenAI")
+    guard seamed else { info("aborted: the daemon has no fake OpenAI"); return }
     check(d(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(d(["config", "set", "defaults.projects_dir", "/tmp/dzo-\(pid)-xp"]).code == 0, "defaults.projects_dir is a scratch path")
     check(d(["config", "set", "images.codex_version", AgentImages.codexPinned.version]).code == 0, "the pinned Codex (no registry)")
@@ -338,7 +338,7 @@ func cliCodexSuite(binary: String) async {
     let refreshes = requests().filter { $0["grant"] as? String == "refresh_token" }
     check(refreshes.contains { $0["refresh_token"] as? String == rtBefore }, "the HOST renewed the sign-in with the real refresh token (rotation)")
     check(!refreshes.isEmpty && !refreshes.contains { ($0["refresh_token"] as? String ?? "").hasPrefix("doz_cred_") }, "no guest renewal (placeholder) ever reached auth.openai.com")
-    check(hostLog(t).contains("the ChatGPT sign-in of account plan was renewed on this Mac"), "the host log says the sign-in was renewed")
+    check(hostLog(t).contains("the ChatGPT sign-in of account plan was renewed on this Mac"), "the daemon log says the sign-in was renewed")
     // Codex's own renewal from the guest: answered by the proxy with the same placeholder.
     r = d(["exec", "cx", "--", "sh", "-c", """
         ph=$(python3 -c 'print(__import__("json").load(open("/home/agent/.codex/auth.json"))["tokens"]["refresh_token"])')
@@ -414,7 +414,7 @@ func cliCodexSuite(binary: String) async {
     let macToken = ((try? JSONSerialization.jsonObject(with: Data(contentsOf: codexHome.appendingPathComponent("auth.json")))) as? [String: Any])
         .flatMap { $0["tokens"] as? [String: Any] }?["access_token"] as? String ?? "?"
     r = ask("Mac login, fresh?")
-    check(r.code == 0 && (r.out + r.err).contains("PONG-CHATGPT-"), "after the Mac's refresh, Codex is answered at once — no account change, no host restart (\((r.out + r.err).suffix(160).debugDescription))")
+    check(r.code == 0 && (r.out + r.err).contains("PONG-CHATGPT-"), "after the Mac's refresh, Codex is answered at once — no account change, no daemon restart (\((r.out + r.err).suffix(160).debugDescription))")
     check(requests().contains { $0["auth"] as? String == "Bearer " + macToken }, "chatgpt.com got the Mac's access token, swapped in by the proxy")
     check(!requests().contains { $0["refresh_token"] as? String == "rt_mac_expired" } && requests().filter({ $0["grant"] as? String == "refresh_token" }).count == rotated,
           "Dozable never refreshed the Mac's login (no refresh grant since)")
@@ -427,7 +427,7 @@ func cliCodexSuite(binary: String) async {
     let fakeCodexRuns = (try? String(contentsOfFile: ws + "/fake-codex.log", encoding: .utf8)) ?? ""
     check(fakeCodexRuns.split(separator: "\n").contains("doctor"), "the keep-alive ran the Mac's codex doctor (no model call): \(fakeCodexRuns.debugDescription)")
     check(r.code == 0 && (r.out + r.err).contains("PONG-CHATGPT-"), "…and Codex is answered with the renewed login (\((r.out + r.err).suffix(160).debugDescription))")
-    check(hostLog(t).contains("Codex keep-alive"), "the host log says so")
+    check(hostLog(t).contains("Codex keep-alive"), "the daemon log says so")
     check(d(["config", "set", "codex.keep_alive", "false"]).code == 0, "keep-alive off again")
     check(d(["account", "use", "cx", "okey"]).code == 0, "back on the key")
 
@@ -506,12 +506,12 @@ func cliCodexSuite(binary: String) async {
     check(r.out.trimmingCharacters(in: .whitespacesAndNewlines) == "1",
           "the conversation CONTINUED: Codex still has one recorded session (a new conversation would be a second) (\(r.out.trimmingCharacters(in: .whitespacesAndNewlines)))")
     // a host restart (it hibernates every sandbox; a NEW host restores them on wake)
-    _ = d(["host", "stop"], timeout: 300)
-    check(startHostWithFake(), "a new host, with the fake OpenAI")
-    check(d(["account", "add", "okey", "--openai-key", "--force"], stdin: key).code == 0, "the key again (this suite's keys live in the host's memory)")
-    check(d(["wake", "cw"], timeout: 300).code == 0, "wake cw in the new host")
-    a = tui("cw", "after the host restart")
-    check(a.answered && !a.invalidCwd, "cw: after a host restart the same Codex is answered — no invalid cwd (\(a.tail.debugDescription))")
+    _ = d(["daemon", "stop"], timeout: 300)
+    check(startHostWithFake(), "a new daemon, with the fake OpenAI")
+    check(d(["account", "add", "okey", "--openai-key", "--force"], stdin: key).code == 0, "the key again (this suite's keys live in the daemon's memory)")
+    check(d(["wake", "cw"], timeout: 300).code == 0, "wake cw in the new daemon")
+    a = tui("cw", "after the daemon restart")
+    check(a.answered && !a.invalidCwd, "cw: after a daemon restart the same Codex is answered — no invalid cwd (\(a.tail.debugDescription))")
     // End session
     r = d(["sessions", "end", "cw", "codex", "--yes"], timeout: 60)
     check(r.code == 0 && r.out.contains("ended session codex in cw"), "doz sessions end cw codex (\(r.out.trimmingCharacters(in: .whitespacesAndNewlines)))")

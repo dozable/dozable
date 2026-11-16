@@ -16,7 +16,7 @@ func cliTmuxSuite(binary: String) async {
     t.env["DOZ_TEST_OPEN_URL"] = opened.path
     t.env["DOZ_TEST_NPM_REGISTRY"] = "offline"
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: sessions inside tmux (599, 594.B3)")

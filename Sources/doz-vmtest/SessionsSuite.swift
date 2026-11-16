@@ -15,7 +15,7 @@ func cliSessionsSuite(binary: String) async {
     try? FileManager.default.removeItem(at: ws)
     try? FileManager.default.createDirectory(at: ws.appendingPathComponent("sub"), withIntermediateDirectories: true)
     defer {
-        t.run(["host", "stop"], timeout: 300)
+        t.run(["daemon", "stop"], timeout: 300)
         try? FileManager.default.removeItem(at: t.store)
         try? FileManager.default.removeItem(at: ws)
     }
@@ -40,7 +40,7 @@ func cliSessionsSuite(binary: String) async {
         if step == "hibernate" {
             check(t.run(["hibernate", "s1"], timeout: 180).code == 0, "hibernate s1")
         } else {
-            check(t.run(["host", "stop"], timeout: 300).code == 0, "doz host stop (s1 hibernates with it)")
+            check(t.run(["daemon", "stop"], timeout: 300).code == 0, "doz daemon stop (s1 hibernates with it)")
         }
         try? "m\n".write(to: ws.appendingPathComponent("sub/mac-\(i).txt"), atomically: true, encoding: .utf8)
         check(t.run(["wake", "s1"], timeout: 300).code == 0, "wake s1" + (step == "host-restart" ? " (a NEW host restores it)" : ""))
@@ -49,7 +49,7 @@ func cliSessionsSuite(binary: String) async {
         var now = ""
         repeat { usleep(500_000); now = ex("cat /tmp/cw.now") } while !(now.hasPrefix("/workspace/sub") && now.contains("mac-\(i).txt")) && Date().timeIntervalSince(t0) < 10
         check(now.hasPrefix("/workspace/sub") && now.contains("mac-\(i).txt"),
-              String(format: "after %@: the program still sees its folder, and the Mac's new file (%.1f s) (%@)", step == "host-restart" ? "a host restart" : "hibernate → wake",
+              String(format: "after %@: the program still sees its folder, and the Mac's new file (%.1f s) (%@)", step == "host-restart" ? "a daemon restart" : "hibernate → wake",
                      Date().timeIntervalSince(t0), now.replacingOccurrences(of: "\n", with: " ")))
     }
 
@@ -157,7 +157,7 @@ func cliSessionsSuite(binary: String) async {
 
     // ── the record, and the setting off ───────────────────────────────────────────────────────────
     let rec = t.store.appendingPathComponent("sandboxes/s1/sessions.json")
-    check(FileManager.default.fileExists(atPath: rec.path), "the host recorded the sessions (sessions.json)")
+    check(FileManager.default.fileExists(atPath: rec.path), "the daemon recorded the sessions (sessions.json)")
     check(t.run(["config", "set", "--sandbox", "s1", "workspace.view", "off"]).code == 0, "doz config set --sandbox s1 workspace.view off")
     check(t.row("s1")?.workspaceView == "live", "a running sandbox keeps its view until its next start")
     check(t.run(["shutdown", "s1", "--yes"], timeout: 120).code == 0, "shutdown s1")

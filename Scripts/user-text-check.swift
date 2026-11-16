@@ -9,6 +9,9 @@
 //   4. string literals in the dashboard's app.js and its modules (app/**, 607), comments excluded.
 // The pattern: a number 580–609 standing alone (optionally `.B<n>`), or W<1–2 digits>. Sizes, versions,
 // timeouts and HTTP codes do not fall in that range as words; `allowed` names the few that do.
+// Also (0.50): Dozable's background process is "the daemon" — `processWords` are the phrases that would call it "the
+// host" (`doz host`, "the host", "no host is running", "host stop", "Restart host"). "host" for a network host, a
+// host:port or this Mac stays allowed: those phrases are never in the list.
 //
 // Usage: swift Scripts/user-text-check.swift --doz .build/debug/doz
 import Foundation
@@ -21,10 +24,22 @@ let pattern = try! NSRegularExpression(pattern: "(?<![0-9A-Za-z.~×x-])((58|59|6
 /// Internal identifiers that are data, not prose (written into files, never shown as text).
 let allowed = ["587-base-clone-v1", "sleep 600"]
 
+let processWords = try! NSRegularExpression(pattern: "\\bdoz host\\b|\\b[Tt]he (doz )?host\\b(?!name| name|:|-| header| route| machine| path)|\\b[Nn]o host (is running|runs|running)\\b|\\bhost (start|stop|restart|status|upgrade-check)\\b|\\b(Start|Restart|Stop) host\\b|\\bhost\\.(idle_timeout_minutes|screen_capture_minutes|boot_logs_kept|keepalive|lock|log|sock|pid)\\b|DOZ_HOST_IDLE")
+
+/// Literals that are data, not prose: the daemon's files as an older build named them (a store keeps `host.lock`), and
+/// the metrics database's values (rows older builds wrote say so too).
+let processData: Set<String> = ["host.lock", "host.pid", "host.sock", "host.log", "doz host", "died with host"]
+
 var problems: [String] = []
 func scan(_ text: String, _ where_: String) {
     var t = text
     for a in allowed { t = t.replacingOccurrences(of: a, with: "") }
+    for m in processData.contains(t) ? [] : processWords.matches(in: t, range: NSRange(t.startIndex..., in: t)) {
+        guard let r = Range(m.range, in: t) else { continue }
+        let lo = t.index(r.lowerBound, offsetBy: -40, limitedBy: t.startIndex) ?? t.startIndex
+        let hi = t.index(r.upperBound, offsetBy: 40, limitedBy: t.endIndex) ?? t.endIndex
+        problems.append("\(where_): \"\(t[r])\" calls the background process the host (it is the daemon) in …\(t[lo..<hi].replacingOccurrences(of: "\n", with: " "))…")
+    }
     for m in pattern.matches(in: t, range: NSRange(t.startIndex..., in: t)) {
         guard let r = Range(m.range, in: t) else { continue }
         let lo = t.index(r.lowerBound, offsetBy: -40, limitedBy: t.startIndex) ?? t.startIndex
@@ -83,11 +98,13 @@ if let r = try? JSONDecoder().decode(Report.self, from: Data(doz(["config", "sho
 var files = 0
 let stringRX = try! NSRegularExpression(pattern: "\"((?:[^\"\\\\]|\\\\.)*)\"")
 /// Cheap pre-filter: only a line with a candidate is worth the full pattern.
-let candidateRX = try! NSRegularExpression(pattern: "(58|59|60)[0-9]|W[0-9]")
+let candidateRX = try! NSRegularExpression(pattern: "(58|59|60)[0-9]|W[0-9]|[Hh]ost")
 for dir in ["Sources/DozableCLI", "Sources/DozableHost", "Sources/DozableWeb", "Sources/DozableKit"] {
     guard let e = FileManager.default.enumerator(atPath: dir) else { continue }
     for case let f as String in e where f.hasSuffix(".swift") {
         let path = dir + "/" + f
+        // The temporary host→daemon migration names the old names by necessity.
+        if path.hasPrefix("Sources/DozableHost/Migration/") { continue }
         guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { continue }
         files += 1
         var inBlock = false
@@ -138,9 +155,9 @@ for path in jsFiles.sorted() {
 }
 
 if problems.isEmpty {
-    print("ok user-text-check: \(helps) help texts, every setting, \(files) Swift files and the dashboard's \(jsCount) scripts (app.js and its modules) carry no feature number or walkthrough ID")
+    print("ok user-text-check: \(helps) help texts, every setting, \(files) Swift files and the dashboard's \(jsCount) scripts (app.js and its modules) carry no feature number or walkthrough ID, and never call the daemon the host")
 } else {
     for p in problems { FileHandle.standardError.write(Data("x user-text-check: \(p)\n".utf8)) }
-    FileHandle.standardError.write(Data("Keep feature numbers in code comments; say what the thing is instead.\n".utf8))
+    FileHandle.standardError.write(Data("Keep feature numbers in code comments; say what the thing is instead. The background process is the daemon.\n".utf8))
     exit(1)
 }

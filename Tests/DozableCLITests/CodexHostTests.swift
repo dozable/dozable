@@ -198,7 +198,7 @@ final class CodexHostTests: XCTestCase {
         XCTAssertTrue(pol.permissions?.contains("model:openai") == true)
         XCTAssertEqual(pol.evaluate(host: "chatgpt.com", port: 443).action, .allow)
         XCTAssertEqual(pol.evaluate(host: "api.openai.com", port: 443).action, .allow)
-        XCTAssertEqual(pol.evaluate(host: "auth.openai.com", port: 443).action, .deny, "the renewal is answered by the proxy — the host itself is not allowed")
+        XCTAssertEqual(pol.evaluate(host: "auth.openai.com", port: 443).action, .deny, "the renewal is answered by the proxy — the daemon itself is not allowed")
         var revoke = HostRequest(.netPolicy, name: "cx")
         revoke.revoke = ["model:openai"]
         let refused = await c.handle(revoke)
@@ -392,7 +392,7 @@ final class CodexHostTests: XCTestCase {
         XCTAssertNil(keychain.get("doz-chatgpt:r"), "the spent refresh token is not left behind")
         XCTAssertTrue(s.notKept)
         s.load()
-        XCTAssertNotNil(s.read().secret, "still usable in this host")
+        XCTAssertNotNil(s.read().secret, "still usable in this daemon")
         // A long refresh token is chunked, and the rotation rewrites the parts.
         keychain.failWrites = []
         fake.answer = { _ in .renewed(fakeChatGPTTokens(access: "ACCESS-L", refresh: "RT-" + String(repeating: "L", count: 2500))) }
@@ -455,7 +455,7 @@ final class CodexHostTests: XCTestCase {
         XCTAssertTrue(s.contains(#"[ "$(id -u)" = 0 ] && mode=ask"#))
         XCTAssertTrue(s.contains("trust_level"), "the folder is trusted (no trust prompt)")
         XCTAssertFalse(s.contains("OPENAI_API_KEY"), "no image spec names a credential")
-        XCTAssertFalse(s.contains("auth.json"), "the credentials are the host's, at each session")
+        XCTAssertFalse(s.contains("auth.json"), "the credentials are the daemon's, at each session")
         // `login` / `--version` go straight through, without the agent's flags.
         XCTAssertTrue(s.contains("login|logout|mcp"))
     }

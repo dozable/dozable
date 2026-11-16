@@ -31,7 +31,7 @@ import { failureFor, pageFailure, toast } from '../components/notices.js';
 const refreshSandbox = upcall('refreshSandbox');
 
 const ROOT = '/workspace';
-const MAX_OPEN = 63;                 // the host's FileTreeState.maximumExpanded (+ /workspace = the watch's 64)
+const MAX_OPEN = 63;                 // the daemon's FileTreeState.maximumExpanded (+ /workspace = the watch's 64)
 const panels = new Map();
 const guest = (rel) => (rel ? ROOT + '/' + rel : ROOT);
 const relOf = (g) => (g === ROOT ? '' : g.startsWith(ROOT + '/') ? g.slice(ROOT.length + 1) : null);

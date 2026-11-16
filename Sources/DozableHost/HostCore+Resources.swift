@@ -120,7 +120,7 @@ extension HostCore {
         }
         let settings = DozableSettings.load()
         guard settings.resolve(SettingKey.kernelPath).source != .env else {
-            throw HostError(.invalid, "DOZ_KERNEL sets the kernel in this host's environment — change it there")
+            throw HostError(.invalid, "DOZ_KERNEL sets the kernel in this daemon's environment — change it there")
         }
         let cache = settings.string(SettingKey.kernelCache).map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
             ?? store.layout("_").kernels

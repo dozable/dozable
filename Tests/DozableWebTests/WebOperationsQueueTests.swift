@@ -53,7 +53,7 @@ final class WebOperationsQueueTests: XCTestCase {
         XCTAssertEqual(started[5].text, "queued — 2 ahead")
         await until("three sent") { [self] in fake.performed.count == 3 }
         try await Task.sleep(for: .milliseconds(100))
-        XCTAssertEqual(sent.sorted(), ["w0", "w1", "w2"], "nothing beyond the width reaches the host — the first three")
+        XCTAssertEqual(sent.sorted(), ["w0", "w1", "w2"], "nothing beyond the width reaches the daemon — the first three")
         fake.hold = false
         await until("all ended") { ops.recent.allSatisfy { $0.state == "done" } }
         // Every one once (the strict order is the width-1 tests': with three at once, three tasks race to the host).
@@ -171,7 +171,7 @@ final class WebOperationsQueueTests: XCTestCase {
         XCTAssertEqual(again.position, 2)
         fake.hold = false
         await until("all ended") { ops.recent.filter { $0.state == "running" }.isEmpty }
-        XCTAssertEqual(sent, ["a", "c", "b"], "the cancelled one never reached the host")
+        XCTAssertEqual(sent, ["a", "c", "b"], "the cancelled one never reached the daemon")
         XCTAssertEqual(ops.cancel([c.id]).notQueued, [c.id])
     }
 

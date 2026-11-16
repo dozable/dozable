@@ -150,7 +150,7 @@ enum FileTransfer {
         defer { progress.finish() }
         do {
             let m = try client.call(r) { progress.handle($0) }
-            guard m.ok == true else { throw fail(m.error ?? HostError(.failed, "the host gave no reason"), g) }
+            guard m.ok == true else { throw fail(m.error ?? HostError(.failed, "the daemon gave no reason"), g) }
             return (client, try (m.result ?? .null).decode(CopyReady.self))
         } catch let e as HostError { throw fail(e, g) }
     }
@@ -195,13 +195,13 @@ enum FileTransfer {
         while true {
             if !pending.isEmpty {
                 let frames: [(type: UInt8, payload: Data)]
-                do { frames = try parser.feed(pending) } catch { throw HostError(.failed, "the host sent something this doz cannot read") }
+                do { frames = try parser.feed(pending) } catch { throw HostError(.failed, "the daemon sent something this doz cannot read") }
                 pending = Data()
                 for f in frames where try !body(f.type, f.payload) { return }
             }
             let n = read(client.fd, &buf, buf.count)
             if n < 0 && errno == EINTR { continue }
-            if n <= 0 { throw HostError(.unavailable, "the host closed the connection during the copy") }
+            if n <= 0 { throw HostError(.unavailable, "the daemon closed the connection during the copy") }
             pending = Data(buf[0..<n])
         }
     }
@@ -350,7 +350,7 @@ enum FileTransfer {
         meter.finish()
         tar.waitUntilExit()
         let tarErr = String(decoding: errs.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        guard !cut else { throw fail(HostError(.unavailable, "the host closed the connection during the copy"), g) }
+        guard !cut else { throw fail(HostError(.unavailable, "the daemon closed the connection during the copy"), g) }
         guard tar.terminationStatus == 0 else {
             // Leave the guest's tar with a cut archive: it fails and says so; this says why.
             Darwin.shutdown(client.fd, SHUT_WR)

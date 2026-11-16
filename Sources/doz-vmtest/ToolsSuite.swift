@@ -136,7 +136,7 @@ func cliToolsSuite(binary: String) async {
     var servers: [Process] = []
     var agentPID: pid_t = 0
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         for s in servers { s.terminate() }
         if agentPID > 0 { kill(agentPID, SIGTERM) }
         try? fm.removeItem(at: t.store)
@@ -231,7 +231,7 @@ func cliToolsSuite(binary: String) async {
     check(r.code == 0 && !(r.out + r.err).contains("tools: gh"), "wake t1: the layer re-checked QUIETLY (no tools step lines)")
     r = t.run(["exec", "t1", "--", "sh", "-c", "[ -e \(ToolsLayer.guestGhPath) ] && echo HAS-GH || echo NO-GH"])
     check(r.out.contains("NO-GH"), "…and Dozable's gh is REMOVED (its setting is off)")
-    check(hostLog(t).contains("tools layer re-checked"), "the host log notes the quiet re-check")
+    check(hostLog(t).contains("tools layer re-checked"), "the daemon log notes the quiet re-check")
     check(t.run(["hibernate", "t1"], timeout: 120).code == 0, "hibernate t1 again")
     check(t.run(["net", "allow", "t1", "github:as-you", "--yes"]).code == 0, "GitHub as you ON while it sleeps")
     check(t.run(["wake", "t1"], timeout: 120).code == 0, "wake t1")
@@ -262,7 +262,7 @@ func cliToolsSuite(binary: String) async {
         check(r.code == 0 && (r.out + r.err).contains("tools: gh \(ToolsLayer.ghVersion) — for GitHub as you"), "start \(n): gh set up as a step (exit \(r.code))")
         check(!(r.out + r.err).contains("refused the gh download"), "…from the Mac's cache (no download)")
         r = t.run(["exec", n, "--", "sh", "-c", "gh auth status 2>&1; for c in ssh git curl; do command -v $c; done; grep -c '^github.com ' \(ToolsLayer.knownHostsPath)"], timeout: 60)
-        check(r.out.contains("fake-user") && r.out.contains("/ssh") && r.out.contains("/git") && r.out.contains("\n3"), "\(base): gh signed in, ssh, git, curl, the host keys (\(r.out.suffix(200).debugDescription))")
+        check(r.out.contains("fake-user") && r.out.contains("/ssh") && r.out.contains("/git") && r.out.contains("\n3"), "\(base): gh signed in, ssh, git, curl, the daemon keys (\(r.out.suffix(200).debugDescription))")
         t.run(["rm", n, "--yes"], timeout: 120)
     }
     // The recipes: the bake keys are pinned by ToolsLayerTests (unchanged since rc.1); here, no image is stale.

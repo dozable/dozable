@@ -26,7 +26,7 @@ STORE="$R/store"
 mkdir -p "$R/codex" "$R/xdg/doz" "$STORE" "$R/projects"
 printf '[store]\npath = "%s"\n\n[defaults]\nprojects_dir = "%s"\n' "$STORE" "$R/projects" > "$R/xdg/doz/doz.toml"
 cleanup() {
-    "$DOZ" host stop --store "$STORE" >/dev/null 2>&1 || true
+    "$DOZ" daemon stop --store "$STORE" >/dev/null 2>&1 || true
     if [[ -n "$server" ]]; then kill "$server" 2>/dev/null || true; wait "$server" 2>/dev/null || true; fi
     [[ -n "${KEEP:-}" ]] || rm -rf "$R"
 }
@@ -97,23 +97,23 @@ server=$!
 for _ in $(seq 50); do curl -s -o /dev/null "http://127.0.0.1:$PORT/" && break; sleep 0.1; done
 export DOZ_TEST_RECIPE_CATALOGUE="http://127.0.0.1:$PORT/v1/recipes.json"
 waitfor() { local i; for i in $(seq 1 100); do eval "$1" && return 0; sleep 0.2; done; return 1; }
-"$DOZ" host start --store "$STORE" >/dev/null
+"$DOZ" daemon start --store "$STORE" >/dev/null
 check "404: the host asked, and keeps the embedded set" waitfor "grep -q 'GET /v1/recipes.json HTTP/1.1\" 404' '$R/server.log'"
-"$DOZ" host stop --store "$STORE" >/dev/null
+"$DOZ" daemon stop --store "$STORE" >/dev/null
 check "  … no catalogue cached" bash -c "[ ! -e '$CACHE/next.json' ] && [ ! -e '$CACHE/current.json' ]"
 check "  … a command still uses the embedded set" grep -q '^embedded (doz ' <<<"$(recipes)"
 
 # ── published: the host's refresh downloads it; the next host start applies it ──
 cp -R "$R/site/v1/." "$R/www/v1/"
 rm -f "$CACHE/state.json"                       # the day since the 404 has "passed"
-"$DOZ" host start --store "$STORE" >/dev/null
+"$DOZ" daemon start --store "$STORE" >/dev/null
 check "the host's refresh fetched it → next.json (files sha256-checked)" waitfor "[ -f '$CACHE/next.json' ] && [ -f '$CACHE/files/1/agents/llm2.json' ]"
 line="$(recipes)"
 check "  … a command still uses what the running host uses (embedded)" grep -q '^embedded (doz .*catalogue 1 is downloaded and applies at the next host start' <<<"$line"
-"$DOZ" host stop --store "$STORE" >/dev/null
-"$DOZ" host start --store "$STORE" >/dev/null
+"$DOZ" daemon stop --store "$STORE" >/dev/null
+"$DOZ" daemon start --store "$STORE" >/dev/null
 check "the next host start applied it (next.json → current.json)" waitfor "[ -f '$CACHE/current.json' ] && [ ! -e '$CACHE/next.json' ]"
-check "  … the host log says so" grep -q "recipes: catalogue 1 from" "$STORE/host.log"
+check "  … the host log says so" grep -q "recipes: catalogue 1 from" "$STORE/daemon.log"
 check "a NEW process uses catalogue 1" grep -q '^catalogue 1 from' <<<"$(recipes)"
 "$DOZ" search llm2 --store "$STORE" >"$R/search.out" 2>&1 && rc=0 || rc=$?
 check "  … doz search finds the catalogue's NEW recipe (exit 0)" bash -c "[ $rc = 0 ] && grep -q 'LLM Two' '$R/search.out'"
@@ -129,7 +129,7 @@ check "doz search doz.sh/<vendor>/llm2 finds \"LLM Two\" (exit 0)" bash -c "[ $r
 "$DOZ" search example.com/x/y --store "$STORE" >"$R/otherhost.out" 2>&1 && rc=0 || rc=$?
 check "doz search example.com/x/y exits 2 (not a directory)" test "$rc" = 2
 check "  … and neither search made a request to the server" bash -c "[ \"\$(grep -c 'GET ' '$R/server.log' || true)\" = '$n1' ]"
-"$DOZ" host stop --store "$STORE" >/dev/null
+"$DOZ" daemon stop --store "$STORE" >/dev/null
 
 # ── a tampered file is never used ─────────────────────────────────────────────
 python3 - "$R/recipes/compiled/grok.json" <<'PY'
@@ -140,10 +140,10 @@ check "publish → serial 2" pubr
 cp -R "$R/site/v1/." "$R/www/v1/"
 printf ' ' >> "$R/www/v1/recipes/2/agents/grok.json"
 rm -f "$CACHE/state.json"
-"$DOZ" host start --store "$STORE" >/dev/null
-check "a tampered file: the host refuses catalogue 2 (said in its log)" waitfor "grep -q 'catalogue 2 was ignored: agents/grok.json does not match its sha256' '$STORE/host.log'"
+"$DOZ" daemon start --store "$STORE" >/dev/null
+check "a tampered file: the host refuses catalogue 2 (said in its log)" waitfor "grep -q 'catalogue 2 was ignored: agents/grok.json does not match its sha256' '$STORE/daemon.log'"
 check "  … nothing waits, nothing of it is kept" bash -c "[ ! -e '$CACHE/next.json' ] && [ ! -e '$CACHE/files/2' ]"
-"$DOZ" host stop --store "$STORE" >/dev/null
+"$DOZ" daemon stop --store "$STORE" >/dev/null
 line="$(recipes)"
 check "  … catalogue 1 stays in use, and doctor says the problem" grep -q '^catalogue 1 from.*does not match its sha256' <<<"$line"
 

@@ -103,7 +103,7 @@ final class FileCopyTests: XCTestCase {
         XCTAssertEqual(CopyPaths.parsePut(try sh(CopyPaths.putCheckScript(dest: ws.path + "/no/such/x", name: "a"))), .noParent(ws.path + "/no/such"))
         XCTAssertEqual(CopyPaths.parsePut(try sh(CopyPaths.putCheckScript(dest: ws.path + "/missing/", name: "a"))), .noParent(ws.path + "/missing/"))
         XCTAssertEqual(CopyPaths.parsePut(try sh(CopyPaths.putCheckScript(dest: "/", name: "a"))),
-                       .ok(writable: false, existing: nil, target: "/a"), "not writable: the host uses root, said")
+                       .ok(writable: false, existing: nil, target: "/a"), "not writable: the daemon uses root, said")
     }
 
     func testTheGuestTarsAndErrors() {

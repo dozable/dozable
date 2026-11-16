@@ -84,7 +84,7 @@ final class AudioTests: XCTestCase {
         XCTAssertTrue(DozSound.script.contains(DozSound.stamp) && DozSound.stamp.hasSuffix("v3"))
         XCTAssertTrue(DozSound.script.contains("timeout"), "a recording never hangs")
         XCTAssertTrue(DozSound.script.contains("microphone is silent: $MIC"), "667: it says why the microphone is silent")
-        XCTAssertFalse(DozSound.script.contains("Shut Down"), "667: no more Shut Down advice — the host never lets VZ wait on macOS")
+        XCTAssertFalse(DozSound.script.contains("Shut Down"), "667: no more Shut Down advice — the daemon never lets VZ wait on macOS")
     }
 
     /// 667: the conf the tools layer writes is sourced by doz-sound — its two lines read back as the values.
@@ -129,7 +129,7 @@ final class AudioTests: XCTestCase {
             let d = try XCTUnwrap(config(audio: true, microphone: mic).audioDevices.first as? VZVirtioSoundDeviceConfiguration)
             return try XCTUnwrap(d.streams.compactMap { $0 as? VZVirtioSoundDeviceInputStreamConfiguration }.first)
         }
-        XCTAssertNil(try input(false).source, "no microphone unless the host says macOS allows it: the guest records silence")
+        XCTAssertNil(try input(false).source, "no microphone unless the daemon says macOS allows it: the guest records silence")
         XCTAssertTrue(try input(true).source is VZHostAudioInputStreamSource)
     }
 
@@ -175,7 +175,7 @@ final class AudioTests: XCTestCase {
         XCTAssertTrue(s.contains("\"state: RUNNING\""))
         XCTAssertTrue(s.contains(DozSound.recordingMarker))
         XCTAssertTrue(s.contains("/dev/snd/pcmC[0-9]*D[0-9]*c"), "the fallback for a container that masks /proc/asound")
-        XCTAssertTrue(s.contains("cat > /dev/null") && s.contains("kill $!"), "ends when the host closes its input")
+        XCTAssertTrue(s.contains("cat > /dev/null") && s.contains("kill $!"), "ends when the daemon closes its input")
         XCTAssertFalse(s.contains("read -t") || s.contains("[[") || s.contains("inotify"), "POSIX sh and builtins (dash, busybox)")
         // Syntax, then: with its input closed it ends at once (here, on the Mac, there is no /proc: it records nothing).
         let syntax = Process()

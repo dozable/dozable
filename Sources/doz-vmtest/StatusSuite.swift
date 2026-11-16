@@ -9,7 +9,7 @@ import DozableHost
 // working → blocked (permission) → done → working → error, one step each time the test touches a file. Checked:
 // the host's status at each step (sessions, ls from memory, the events, doz ls / doz sessions text), with and
 // without a viewer, the bytes reaching an attached `doz attach` unchanged, a sleep and a hibernation with their
-// wakes (the watcher comes back, nothing stale), the program's exit (error survives it), host.log free of the
+// wakes (the watcher comes back, nothing stale), the program's exit (error survives it), daemon.log free of the
 // program's text, and a shutdown clearing it all.
 
 private let esc = "\u{1B}"
@@ -41,7 +41,7 @@ exit 3
 func cliStatusSuite(binary: String) async {
     let t = onboardingHarness(binary, "st", seed: ["kernels", "content", "state.json", "initfs.ext4", "golden"])
     defer {
-        t.run(["host", "stop"], timeout: 300)
+        t.run(["daemon", "stop"], timeout: 300)
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: what the agent is doing — OSC 7501 (612)")
@@ -67,7 +67,7 @@ func cliStatusSuite(binary: String) async {
     check(t.waitFor(20) { row()?.status?.state == .working }, "detached: the session is working (\(row()?.status?.label ?? "nothing"))")
     check(ex("deckhold dump -s agent").contains("ANSWERED"), "the program had its answer (deckhold answered the query, no viewer attached)")
     check(row()?.status?.message == "thinking hard" && row()?.status?.app == "fake-agent", "…with its app and message")
-    check(sandbox()?.agentStatus?.state == .working && sandbox()?.agentWorking == true, "ls (from the host's memory): working, agentWorking")
+    check(sandbox()?.agentStatus?.state == .working && sandbox()?.agentWorking == true, "ls (from the daemon's memory): working, agentWorking")
     let dump = ex("deckhold dump -s agent")
     check(!dump.contains("7501") && !dump.contains("state="), "nothing of the sequences is on the screen")
 
@@ -117,13 +117,13 @@ func cliStatusSuite(binary: String) async {
     usleep(1_500_000)
     check(t.sessions("st").first { $0.name == "plain" }.map { $0.status == nil } == true, "a program that reports nothing has no status")
 
-    // 7. The events: one per change, in order; host.log has the metadata only.
+    // 7. The events: one per change, in order; daemon.log has the metadata only.
     let seen = statusEvents().map { $0.sessionStatus?.state }
     let want: [ProgramStatus.State?] = [.working, .blocked, .done, .working, .error, .working, .blocked]
     check(seen.filter { $0 != nil } == want, "the events: one per change (\(seen.map { $0?.rawValue ?? "none" }.joined(separator: " → ")))")
     let log = hostLog(t)
-    check(log.contains("session agent: blocked: needs permission (fake-agent)"), "host.log has the status")
-    check(!log.contains("run the tests?") && !log.contains("thinking hard") && !log.contains("it broke"), "host.log never has the program's text")
+    check(log.contains("session agent: blocked: needs permission (fake-agent)"), "daemon.log has the status")
+    check(!log.contains("run the tests?") && !log.contains("thinking hard") && !log.contains("it broke"), "daemon.log never has the program's text")
 
     // 8. Shut down: the programs are gone, and so is what they said.
     check(t.run(["shutdown", "st", "--yes"], timeout: 300).code == 0, "shutdown st")

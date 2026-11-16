@@ -56,14 +56,14 @@ public enum HostSessionKind {
         f.dateFormat = "h:mm a"
         f.amSymbol = "am"
         f.pmSymbol = "pm"
-        return "the doz host (pid \(pid), started \(f.string(from: startedAt))) was started from a session where the login keychain is locked (\(reason)) — "
-            + "run doz host restart from a logged-in session"
+        return "the doz daemon (pid \(pid), started \(f.string(from: startedAt))) was started from a session where the login keychain is locked (\(reason)) — "
+            + "run doz daemon restart from a logged-in session"
     }
 
     /// What a command says before it STARTS a host from such a session.
     public static func startWarning(_ reason: String) -> String {
-        "doz: starting the doz host from a session where the login keychain is locked (\(reason)) — sandboxes it serves cannot "
+        "doz: starting the doz daemon from a session where the login keychain is locked (\(reason)) — sandboxes it serves cannot "
             + "use this Mac's Claude login (or anything else in the keychain). Start it from a logged-in session instead "
-            + "(doz host restart there fixes one started here)."
+            + "(doz daemon restart there fixes one started here)."
     }
 }

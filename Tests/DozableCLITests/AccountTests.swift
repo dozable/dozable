@@ -611,7 +611,7 @@ final class AccountTests: XCTestCase {
         let c2 = await core()
         let v2 = try await XCTUnwrapAsync(await c2.vault(of: "a"))
         guard case .swapped = v2.rewrite(head: Array("GET / HTTP/1.1\r\nHost: api.anthropic.com\r\nAuthorization: Bearer \(t)\r\n\r\n".utf8), host: "api.anthropic.com") else {
-            return XCTFail("a session from the previous host keeps working")
+            return XCTFail("a session from the previous daemon keeps working")
         }
     }
 

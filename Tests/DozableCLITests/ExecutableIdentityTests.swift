@@ -64,9 +64,9 @@ final class ExecutableIdentityTests: XCTestCase {
 
     func testTheMessagesSayWhatToDo() {
         let o = ExecutableIdentity.explain(.overwritten, path: "/x/doz")
-        XCTAssertTrue(o.hasPrefix("this host's program was updated underneath it"), o)
-        XCTAssertTrue(o.contains("`doz host stop`, then retry"), o)
-        XCTAssertTrue(ExecutableIdentity.explain(.replaced, path: "/x/doz").contains("`doz host stop` switches"))
+        XCTAssertTrue(o.hasPrefix("this daemon's program was updated underneath it"), o)
+        XCTAssertTrue(o.contains("`doz daemon stop`, then retry"), o)
+        XCTAssertTrue(ExecutableIdentity.explain(.replaced, path: "/x/doz").contains("`doz daemon stop` switches"))
     }
 
     func testTheHostExplainsAVMFailureOnlyWhenItsProgramWasOverwritten() async throws {
@@ -86,12 +86,12 @@ final class ExecutableIdentityTests: XCTestCase {
         let after = await core.executableChange()
         XCTAssertEqual(after, .overwritten)
         e = await core.explain(vz)
-        XCTAssertTrue(e.message.hasPrefix("this host's program was updated underneath it"), e.message)
+        XCTAssertTrue(e.message.hasPrefix("this daemon's program was updated underneath it"), e.message)
         XCTAssertTrue(e.message.contains("Internal Virtualization error"), "the framework's words are kept, after the explanation")
         let st = await core.status()
         XCTAssertEqual(st.executableChange, "overwritten")
         XCTAssertEqual(st.executable, p.path)
-        XCTAssertTrue(st.executableNote?.contains("doz host stop") == true)
+        XCTAssertTrue(st.executableNote?.contains("doz daemon stop") == true)
 
         // 593: an ordinary host error keeps its own words, even now — never "the Virtualization framework said".
         for plain: Error in [SandboxError.restorePointNotFound("no-such-point"), HostError(.notFound, "no restore point x in alpha"),
@@ -118,7 +118,7 @@ final class ExecutableIdentityTests: XCTestCase {
         XCTAssertFalse(HostCore.isVirtualizationError(Wrapper(message: "boot failed", cause: nil)))
         XCTAssertFalse(HostCore.isVirtualizationError(SandboxError.restorePointNotFound("x")))
         XCTAssertFalse(HostCore.isVirtualizationError(SandboxError.invalidPhase(operation: "wake", phase: .off)))
-        XCTAssertFalse(HostCore.isVirtualizationError(HostError(.failed, "Internal Virtualization error")), "a HostError is the host's own")
+        XCTAssertFalse(HostCore.isVirtualizationError(HostError(.failed, "Internal Virtualization error")), "a HostError is the daemon's own")
         XCTAssertFalse(HostCore.isVirtualizationError(NSError(domain: NSCocoaErrorDomain, code: 4)))
     }
 }

@@ -98,7 +98,7 @@ func latestLine(_ l: DirectoryIndex.Latest?, agent: String? = nil) -> String {
     if l == nil, let id = agent, let r = AgentRecipes.recipe(id), r.isPinnedOnly {
         return "pinned \(r.install.pinned.version) — Dozable installs exactly this release; a newer one comes with a Dozable update"
     }
-    guard let l else { return "latest: not checked yet (the host checks hourly while it runs)" }
+    guard let l else { return "latest: not checked yet (the daemon checks hourly while it runs)" }
     var s = "latest \(l.version)"
     if let r = l.released, let d = ISO8601DateFormatter().date(from: r + "T00:00:00Z") {
         s += " · released \(AgentCurrency.day(d)) (\(AgentCurrency.age(max(0, Int(Date().timeIntervalSince(d) / 86_400)))))"

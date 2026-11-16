@@ -147,7 +147,7 @@ extension DozableWebData {
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func bases() async throws -> WebBases { throw HostError(.notImplemented, "bases") }
     public func restartHost(onEvent: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
-        throw HostError(.notImplemented, "host restart")
+        throw HostError(.notImplemented, "daemon restart")
     }
     public func hostProbe() -> WebHostProbe? { nil }
     public func hostAnswers() -> Bool { true }
@@ -270,7 +270,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         let r = a.provider.map { HostRequest.keyAccountAdd(name: a.name, provider: $0, secret: a.secret, force: a.replace) }
             ?? HostRequest.accountAdd(name: a.name, kind: a.kind, plan: a.plan, secret: a.secret, force: a.replace)
         let m = try await blocking { try HostClient.request(r, store: store, autostart: true) }
-        guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
+        guard m.ok == true else { throw m.error ?? HostError(.failed, "the daemon gave no reason") }
         return try await accounts()
     }
 
@@ -278,7 +278,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         let store = self.store
         let r = HostRequest.keySet(name: k.sandbox, secret: k.secret, source: "browser")
         let m = try await blocking { try HostClient.request(r, store: store, autostart: true) }
-        guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
+        guard m.ok == true else { throw m.error ?? HostError(.failed, "the daemon gave no reason") }
         return try (m.result ?? .null).decode([CredentialRow].self).map(WebCredential.init)
     }
 
@@ -291,7 +291,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         r.accessChoices = check.choices?.dictionary
         let request = r
         let m = try await blocking { try HostClient.request(request, store: store, autostart: true) }
-        guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
+        guard m.ok == true else { throw m.error ?? HostError(.failed, "the daemon gave no reason") }
         return try (m.result ?? .null).decode(AccessReport.self)
     }
 
@@ -301,15 +301,15 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         r.dotfilesSource = source
         let request = r
         let m = try await blocking { try HostClient.request(request, store: store, autostart: true) }
-        guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
+        guard m.ok == true else { throw m.error ?? HostError(.failed, "the daemon gave no reason") }
         return try (m.result ?? .null).decode(DotfilesResolved.self)
     }
 
     public func tools(_ name: String) async throws -> ToolsLayerReport {
         let store = self.store
-        guard store.hostIsRunning() else { throw HostError(.unavailable, "the host is not running — a sandbox's tools are set up when it starts") }
+        guard store.hostIsRunning() else { throw HostError(.unavailable, "the daemon is not running — a sandbox's tools are set up when it starts") }
         let m = try await blocking { try HostClient.request(HostRequest(.tools, name: name), store: store, autostart: false) }
-        guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
+        guard m.ok == true else { throw m.error ?? HostError(.failed, "the daemon gave no reason") }
         return try (m.result ?? .null).decode(ToolsLayerReport.self)
     }
 
@@ -336,7 +336,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         if let s = k.secret { r.secret = s } else { r.clearSetting = true }
         let request = r
         let m = try await blocking { try HostClient.request(request, store: store, autostart: true) }
-        guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
+        guard m.ok == true else { throw m.error ?? HostError(.failed, "the daemon gave no reason") }
         return try await access(check: nil)          // the host answers it (it runs now): its keychain says
 
     }
@@ -366,18 +366,18 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
             let reply: HostMessage?
             do {
                 reply = try await blocking { try HostClient.request(r, store: store, autostart: false) }
-            } catch where !FileManager.default.fileExists(atPath: store.socket.path) || !store.hostIsRunning() {
+            } catch where !store.daemonSockets.contains(where: { FileManager.default.fileExists(atPath: $0.path) }) || !store.hostIsRunning() {
                 reply = nil
             }
             if let m = reply {
                 if m.ok == true { return (m.result ?? .null, true) }
-                throw m.error ?? HostError(.failed, "the host gave no reason")
+                throw m.error ?? HostError(.failed, "the daemon gave no reason")
             }
         } else if !store.needsRecovery().isEmpty {
             // A crashed host left a sandbox only a host can recover: start one (the CLI's rule).
             let m = try await blocking { try HostClient.request(r, store: store, autostart: true) }
             if m.ok == true { return (m.result ?? .null, true) }
-            throw m.error ?? HostError(.failed, "the host gave no reason")
+            throw m.error ?? HostError(.failed, "the daemon gave no reason")
         }
         let core = HostCore(store: store, readOnly: true, version: version)
         await core.load()
@@ -393,22 +393,22 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     public func restartHost(onEvent: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
         let store = self.store
         guard store.hostIsRunning(), await hostStatus() != nil else {
-            throw HostError(.invalid, "no host is running — Start host starts one")
+            throw HostError(.invalid, "no daemon is running — Start daemon starts one")
         }
         // 594 W22: each sandbox's hibernation reaches the operation as it happens (`onEvent`).
         let stopped = try await blocking { try HostClient.request(HostRequest(.hostStop), store: store, autostart: false, onEvent: onEvent) }
-        if stopped.ok != true { throw stopped.error ?? HostError(.failed, "the host did not stop") }
+        if stopped.ok != true { throw stopped.error ?? HostError(.failed, "the daemon did not stop") }
         let stop = try? (stopped.result ?? .null).decode(HostStopResult.self)
         // It exits once it has hibernated everything; a new host would wait for its lock anyway.
         for _ in 0..<600 where store.hostIsRunning() { try await Task.sleep(for: .milliseconds(100)) }
         let m = try await blocking { try HostClient.request(HostRequest(.ping), store: store, autostart: true) }
-        guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
+        guard m.ok == true else { throw m.error ?? HostError(.failed, "the daemon gave no reason") }
         let host = try? (m.result ?? .null).decode(HostStatus.self)
         return try JSONValue(encoding: WebHostRestart(stop: stop, host: host))
     }
 
     public func hostAnswers() -> Bool {
-        guard let fd = UnixSocket.connect(store.socket.path) else { return false }
+        guard let fd = HostClient.connectAny(store) else { return false }
         close(fd)
         return true
     }
@@ -513,7 +513,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         let net = WebNetwork(name: "@mac \(session)", proxied: true, mode: "fenced", policy: policy.map(WebPolicy.init),
                              log: recs.suffix(logLimit).map(WebConnection.init), logTotal: recs.count,
                              denied: recs.filter { $0.verdict == .denied }.count, logAvailable: live,
-                             note: live ? nil : "the connection log lives in the host, from its start — no host is running",
+                             note: live ? nil : "the connection log lives in the daemon, from its start — no daemon is running",
                              permissions: WebPermissions(perms))
         return WebMacNetwork(session: session, network: net, denialLog: fence?.denialLog ?? "off",
                              denials: (fence?.denials ?? []).suffix(256).map(WebFenceDenial.init),
@@ -562,7 +562,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         let macPort = info.info.localModelPort, macHost = macPort == nil ? nil : MacModelServer.hostName      // 660
         guard store.hostIsRunning() else {
             return WebNetwork(name: name, proxied: true, mode: info.info.network, policy: info.policy.map(WebPolicy.init), log: [], logTotal: 0,
-                              denied: 0, logAvailable: false, note: "the connection log lives in the host, from its start — no host is running",
+                              denied: 0, logAvailable: false, note: "the connection log lives in the daemon, from its start — no daemon is running",
                               permissions: perms, macPort: macPort, macHost: macHost)
         }
         let recs = try await query(HostRequest(.netLog, name: name)).0.decode([ConnectionRecord].self)
@@ -619,7 +619,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         let store = self.store
         let m = try await blocking { try HostClient.request(r, store: store, autostart: true, onEvent: onEvent) }
         if m.ok == true { return m.result ?? .null }
-        throw m.error ?? HostError(.failed, "the host gave no reason")
+        throw m.error ?? HostError(.failed, "the daemon gave no reason")
     }
 
     public func policyPreview(_ name: String, _ edit: WebPolicyEdit) async throws -> WebPolicyPreview {

@@ -95,7 +95,7 @@ struct ImageBake: AsyncParsableCommand {
         // 679 B6: a bake over ssh started a host that could not read the login keychain, and left it behind for every
         // sandbox after — so a host this bake had to start from such a session is stopped again once nothing runs.
         if !hadHost, let why = HostSessionKind.lockedReason(), Self.leaveNoHost(store) {
-            if !g.json { Out.stderr("[doz] stopped the doz host this bake started (the login keychain is locked here: \(why)) — the next command from a logged-in session starts one that can read it\n") }
+            if !g.json { Out.stderr("[doz] stopped the doz daemon this bake started (the login keychain is locked here: \(why)) — the next command from a logged-in session starts one that can read it\n") }
         }
     }
 
@@ -351,7 +351,7 @@ struct NetLog: AsyncParsableCommand {
             let d = try decode(try await query(r, g), FenceDenials.self, g)
             if g.json { Out.json(d); return }
             if d.denialLog == "unavailable" { Out.stderr("this account cannot read the system log, so the fence's refusals are not listed (nothing else is affected)\n") }
-            if d.denialLog == "off" { Out.stderr("no host runs: the fence's refusals are read by the host while it runs\n") }
+            if d.denialLog == "off" { Out.stderr("no daemon runs: the fence's refusals are read by the daemon while it runs\n") }
             if d.denials.isEmpty, d.denialLog == "on" { Out.stdout("no refusals seen (macOS folds repeats of one refusal)\n") }
             for x in d.denials { Out.stdout(Self.fenceLine(x) + "\n") }
             return
@@ -359,7 +359,7 @@ struct NetLog: AsyncParsableCommand {
         if !follow {
             let recs = try decode(try await query(r, g), [ConnectionRecord].self, g)
             if g.json { Out.json(recs) } else {
-                if recs.isEmpty { Out.stdout("no connections logged (the log lives in the host, from its start)\n") }
+                if recs.isEmpty { Out.stdout("no connections logged (the log lives in the daemon, from its start)\n") }
                 for c in recs { Out.stdout(Self.line(c) + "\n") }
             }
             return
@@ -380,19 +380,19 @@ struct NetLog: AsyncParsableCommand {
 
 struct KeyCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "key",
-        abstract: "Credentials held by the host's proxy — the sandbox only ever sees a placeholder.",
+        abstract: "Credentials held by the daemon's proxy — the sandbox only ever sees a placeholder.",
         subcommands: [KeySet.self, KeyRemove.self, KeyList.self, KeyPolicy.self])
 }
 
 struct KeySet: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "set",
         abstract: "Give a proxied sandbox a key: read from stdin (or a prompt) or the keychain — never an argument.",
-        discussion: "security add-generic-password -s doz-anthropic -a $USER -w  then  doz key set NAME --anthropic --keychain doz-anthropic. A key from stdin lasts while the host runs; one from the keychain is read again when a new host loads the sandbox.")
+        discussion: "security add-generic-password -s doz-anthropic -a $USER -w  then  doz key set NAME --anthropic --keychain doz-anthropic. A key from stdin lasts while the daemon runs; one from the keychain is read again when a new daemon loads the sandbox.")
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
     @Flag(name: .long, help: "Anthropic's API key (api.anthropic.com, x-api-key; ANTHROPIC_API_KEY in the guest is a placeholder).") var anthropic = false
     @Option(name: .long, help: "Read it from this keychain item (a generic password's service name).") var keychain: String?
-    @Flag(name: .long, help: "Use this Mac's own Claude Code login (a Claude subscription) instead of an API key: the host reads its access token from the keychain and keeps it current; the guest's CLAUDE_CODE_OAUTH_TOKEN is a placeholder.") var claudeLogin = false
+    @Flag(name: .long, help: "Use this Mac's own Claude Code login (a Claude subscription) instead of an API key: the daemon reads its access token from the keychain and keeps it current; the guest's CLAUDE_CODE_OAUTH_TOKEN is a placeholder.") var claudeLogin = false
     @Flag(name: .long, help: "A GitHub token for \"Use GitHub as you\" (instead of this Mac's gh login) — a fine-grained token limited to some repositories is best. The guest's GH_TOKEN and git's login are placeholders; used only while the permission is on.") var github = false
 
     func validate() throws {
@@ -422,7 +422,7 @@ struct KeySet: AsyncParsableCommand {
             r.binding = CredentialBinding.github.id
             let rows = try decode(try call(r, g), [CredentialRow].self, g)
             if g.json { Out.json(rows) } else {
-                Out.stdout("github token set for \(name) (from \(source); held by the host, never in the sandbox) — used while \"Use GitHub as you\" is on (doz net allow \(name) github:as-you)\n")
+                Out.stdout("github token set for \(name) (from \(source); held by the daemon, never in the sandbox) — used while \"Use GitHub as you\" is on (doz net allow \(name) github:as-you)\n")
             }
             return
         }
@@ -433,7 +433,7 @@ struct KeySet: AsyncParsableCommand {
             let rows = try decode(try call(r, g), [CredentialRow].self, g)
             if g.json { Out.json(rows) } else {
                 let exp = rows.first { $0.account != nil }?.expiresAt.map { " (access expires \($0.formatted(date: .omitted, time: .shortened)))" } ?? ""
-                Out.stdout("\(name) uses this Mac's Claude login — the account mac: held by the host, renewed while Claude Code runs on this Mac\(exp); never in the sandbox\n")
+                Out.stdout("\(name) uses this Mac's Claude login — the account mac: held by the daemon, renewed while Claude Code runs on this Mac\(exp); never in the sandbox\n")
             }
             return
         }
@@ -460,7 +460,7 @@ struct KeySet: AsyncParsableCommand {
         let trimmed = secret.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw fail(HostError(.invalid, "an empty key (pipe it in: doz key set \(name) --anthropic < file)"), g) }
         let rows = try decode(try call(HostRequest.keySet(name: name, secret: trimmed, source: source), g), [CredentialRow].self, g)
-        if g.json { Out.json(rows) } else { Out.stdout("anthropic key set for \(name) (from \(source); held by the host, never in the sandbox)\n") }
+        if g.json { Out.json(rows) } else { Out.stdout("anthropic key set for \(name) (from \(source); held by the daemon, never in the sandbox)\n") }
     }
 }
 
@@ -533,7 +533,7 @@ struct KeyPolicy: AsyncParsableCommand {
 
 struct MetricsCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "metrics",
-        abstract: "Lifecycle timings recorded by the host: per action count, median, p90, min, max, failures.")
+        abstract: "Lifecycle timings recorded by the daemon: per action count, median, p90, min, max, failures.")
     @OptionGroup var g: GlobalOptions
     @Flag(name: .long, help: "Every row, as CSV.") var csv = false
     @Option(name: .long, help: "Only this image (lab, claude-code, pi, custom:NAME).") var image: String?
@@ -554,7 +554,7 @@ struct MetricsCommand: AsyncParsableCommand {
         let rows = store.summary(f)
         if g.json { Out.json(rows); return }
         let c = store.counts()
-        Out.stdout("doz metrics — \(url.path)\n\(c.runs) host runs · \(c.events) rows · \(c.sessions) sessions · \(c.networkMinutes) network minutes"
+        Out.stdout("doz metrics — \(url.path)\n\(c.runs) daemon runs · \(c.events) rows · \(c.sessions) sessions · \(c.networkMinutes) network minutes"
                    + " · image: \(image ?? "all") · since: \(days.map { "\($0.formatted()) days" } ?? "all time")\n\n")
         var t = [["ACTION", "COUNT", "MEDIAN", "P90", "MIN", "MAX", "FAILED"]]
         for r in rows {
@@ -565,25 +565,25 @@ struct MetricsCommand: AsyncParsableCommand {
     }
 }
 
-// MARK: host
+// MARK: daemon (the code's "host": HostServer, HostCore)
 
 struct HostCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "host",
-        abstract: "The per-user host that owns every running sandbox (started for you; exits when idle).",
+    static let configuration = CommandConfiguration(commandName: "daemon",
+        abstract: "Dozable's background process: it owns every running sandbox and the sessions' proxies (started for you; exits when idle).",
         subcommands: [HostRun.self, HostStop.self, HostRestart.self, HostStatusCommand.self, HostUpgradeCheck.self],
         defaultSubcommand: HostRun.self)
 }
 
-/// The idle timeout: --idle-timeout, else $DOZ_HOST_IDLE, else the settings' `host.idle_timeout_minutes`, else 5.
+/// The idle timeout: --idle-timeout, else $DOZ_DAEMON_IDLE, else the settings' `daemon.idle_timeout_minutes`, else 5.
 func idleTimeout(_ option: Double?) -> Double {
     DozableSettings.load().idleTimeoutMinutes(flag: option)
 }
 
 struct HostRun: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "start", abstract: "Start the host (detached, unless --foreground).")
+    static let configuration = CommandConfiguration(commandName: "start", abstract: "Start the daemon (detached, unless --foreground).")
     @OptionGroup var g: GlobalOptions
     @Flag(name: .long, help: "Run in this process (logs on stdout) instead of detached.") var foreground = false
-    @Option(name: .long, help: "Minutes with nothing running before the host exits; 0 = never (default $DOZ_HOST_IDLE, else the settings' host.idle_timeout_minutes, else 5).") var idleTimeout: Double?
+    @Option(name: .long, help: "Minutes with nothing running before the daemon exits; 0 = never (default $DOZ_DAEMON_IDLE, else the settings' daemon.idle_timeout_minutes, else 5).") var idleTimeout: Double?
     /// 593: the launcher's intermediate — spawn the host in its own session, print its pid, exit (so the
     /// host's parent is launchd, never a client). Not for people.
     @Flag(name: .long, help: .hidden) var launchDetached = false
@@ -608,7 +608,7 @@ struct HostRun: AsyncParsableCommand {
                 throw fail(e, g)
             }
             guard HostClient.waitForHost(store: store) else {
-                throw fail(HostError(.unavailable, "the host did not start — see \(store.logFile.path)"), g)
+                throw fail(HostError(.unavailable, "the daemon did not start — see \(store.logFile.path)"), g)
             }
         }
         let st = try decode(try call(HostRequest(.ping), g, autostart: false), HostStatus.self, g)
@@ -618,7 +618,7 @@ struct HostRun: AsyncParsableCommand {
 
 func describe(_ st: HostStatus) -> String {
     let build = st.flavour == "helper" ? " (the helper build)" : ""
-    var s = "host \(st.version)\(build) running, pid \(st.pid), since \(st.startedAt.formatted(date: .omitted, time: .standard))\n"
+    var s = "daemon \(st.version)\(build) running, pid \(st.pid), since \(st.startedAt.formatted(date: .omitted, time: .standard))\n"
     s += "store \(st.store)\n"
     s += "running sandboxes: \(st.liveSandboxes.isEmpty ? "none" : st.liveSandboxes.joined(separator: ", "))"
     s += st.idleTimeoutMinutes > 0 ? String(format: " · exits after %@ min with nothing running", st.idleTimeoutMinutes.formatted()) : " · never exits by itself"
@@ -630,19 +630,19 @@ func describe(_ st: HostStatus) -> String {
 
 struct HostStop: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "stop",
-        abstract: "Hibernate every running sandbox and stop the host (the next command starts a new one; wake brings each back).")
+        abstract: "Hibernate every running sandbox and stop the daemon (the next command starts a new one; wake brings each back).")
     @OptionGroup var g: GlobalOptions
     func run() async throws {
         let store = g.dozableStore
         guard store.hostIsRunning() else {
-            if g.json { Out.json(["stopped": false]) } else { Out.stdout("no host is running\n") }
+            if g.json { Out.json(["stopped": false]) } else { Out.stdout("no daemon is running\n") }
             return
         }
         switch try stopHostShowingProgress(store, g) {
         case .done(let r):
             if g.json { Out.json(r) } else { Out.stdout(HostStopView.summary(r) + "\n") }
         case .older:
-            if g.json { Out.json(["stopped": true]) } else { Out.stdout("host stopped — every sandbox that was running is hibernated\n") }
+            if g.json { Out.json(["stopped": true]) } else { Out.stdout("daemon stopped — every sandbox that was running is hibernated\n") }
         case .exited(let seen):
             throw fail(HostError(.failed, HostStopView.seen(seen)), g)
         }
@@ -679,7 +679,7 @@ func stopHostShowingProgress(_ store: DozableStore, _ g: GlobalOptions) throws -
         return .exited(seen.all)
     }
     progress.finish()
-    guard m.ok == true else { throw fail(m.error ?? HostError(.failed, "the host gave no reason"), g) }
+    guard m.ok == true else { throw fail(m.error ?? HostError(.failed, "the daemon gave no reason"), g) }
     let deadline = Date().addingTimeInterval(30)
     while store.hostIsRunning() && Date() < deadline { usleep(50_000) }
     if let v = m.result, let r = try? v.decode(HostStopResult.self) { return .done(r) }
@@ -694,11 +694,11 @@ final class LockedEvents: @unchecked Sendable {
 }
 
 struct HostStatusCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "status", abstract: "Is a host running, and what does it hold? (Never starts one.)")
+    static let configuration = CommandConfiguration(commandName: "status", abstract: "Is the daemon running, and what does it hold? (Never starts one.)")
     @OptionGroup var g: GlobalOptions
     func run() async throws {
         guard g.dozableStore.hostIsRunning() else {
-            if g.json { Out.json(["running": false]) } else { Out.stdout("no host is running (nothing is running)\n") }
+            if g.json { Out.json(["running": false]) } else { Out.stdout("no daemon is running (nothing is running)\n") }
             return
         }
         let st = try decode(try call(HostRequest(.ping), g, autostart: false), HostStatus.self, g)
@@ -713,13 +713,13 @@ struct HostStatusCommand: AsyncParsableCommand {
 /// it reads the host's pid and that process's executable path from the kernel.
 struct HostUpgradeCheck: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "upgrade-check",
-        abstract: "After an upgrade: is a host of an older build still running? (Never starts or stops one; always exits 0.)")
+        abstract: "After an upgrade: is a daemon of an older build still running? (Never starts or stops one; always exits 0.)")
     @OptionGroup var g: GlobalOptions
 
     struct Answer: Encodable {
         var running: Bool
-        var hostVersion: String?
-        var hostExecutable: String?
+        var daemonVersion: String?
+        var daemonExecutable: String?
         var thisVersion: String
         var thisExecutable: String
         var sameBuild: Bool?
@@ -735,17 +735,17 @@ struct HostUpgradeCheck: AsyncParsableCommand {
         if a.running {
             if let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false), m.ok == true,
                let st = try? (m.result ?? .null).decode(HostStatus.self) {
-                a.hostVersion = st.version
-                a.hostExecutable = st.executable
+                a.daemonVersion = st.version
+                a.daemonExecutable = st.executable
             } else if let pid = store.hostPID() {
-                a.hostExecutable = Self.executablePath(of: pid)
+                a.daemonExecutable = Self.executablePath(of: pid)
             }
-            let exe = a.hostExecutable.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
-            let same = (exe == nil || exe == mine) && (a.hostVersion == nil || a.hostVersion == DozableCommand.version)
-            a.sameBuild = exe == nil && a.hostVersion == nil ? nil : same
+            let exe = a.daemonExecutable.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
+            let same = (exe == nil || exe == mine) && (a.daemonVersion == nil || a.daemonVersion == DozableCommand.version)
+            a.sameBuild = exe == nil && a.daemonVersion == nil ? nil : same
             if a.sameBuild == false {
-                a.note = "a doz host from \(a.hostVersion.map { "doz \($0)" } ?? "an older build") is running for \(store.root.path) — it keeps "
-                    + "working; `doz host stop` switches to doz \(DozableCommand.version) (running sandboxes hibernate, and wake on the new build)"
+                a.note = "a doz daemon from \(a.daemonVersion.map { "doz \($0)" } ?? "an older build") is running for \(store.root.path) — it keeps "
+                    + "working; `doz daemon stop` switches to doz \(DozableCommand.version) (running sandboxes hibernate, and wake on the new build)"
             }
         }
         // 594 W28: an upgrade can change what this doz's agent images contain; name the images an older
@@ -784,7 +784,7 @@ struct Console: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Show a sandbox's boot console (the kernel and init); --follow keeps printing it as it boots (Ctrl-C stops).",
         discussion: """
-            The last host.boot_logs_kept (5) boots of each sandbox are kept — each cold boot, wake and restore \
+            The last daemon.boot_logs_kept (5) boots of each sandbox are kept — each cold boot, wake and restore \
             after a crash: its steps (as the boot view showed them) and its kernel console. --list shows them; \
             --boot N picks one (1 = the latest); --steps puts its steps before its console.
             """)
@@ -854,7 +854,7 @@ struct Console: AsyncParsableCommand {
 }
 
 struct Events: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "Follow what the host does: phases, timed steps, notes (Ctrl-C stops).")
+    static let configuration = CommandConfiguration(abstract: "Follow what the daemon does: phases, timed steps, notes (Ctrl-C stops).")
     @OptionGroup var g: GlobalOptions
     @Argument(help: "Only this sandbox.") var name: String?
     func run() async throws {

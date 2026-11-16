@@ -22,7 +22,7 @@ struct ModelsCommand: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     @Option(name: .long, help: "A gateway: openrouter.") var gateway: String?
     @Option(name: .long, help: "A provider: anthropic, openai, xai, google; or opencode-zen (free models, no key).") var provider: String?
-    @Flag(name: .long, help: "Read a gateway's list now (starts the host when none runs).") var refresh = false
+    @Flag(name: .long, help: "Read a gateway's list now (starts the daemon when none runs).") var refresh = false
     @Argument(help: "Words to look for in a model's id, name or maker.") var search: [String] = []
 
     func run() async throws {

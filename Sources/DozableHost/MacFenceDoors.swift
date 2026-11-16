@@ -29,7 +29,7 @@ final class MacFenceDoor: @unchecked Sendable {
         var st = stat()
         if lstat(path, &st) == 0 {
             guard (st.st_mode & S_IFMT) == S_IFSOCK, st.st_uid == getuid() else {
-                throw HostError(.failed, "\(DisplayPath.tilde(path)) is there and is not this host's socket — not replaced")
+                throw HostError(.failed, "\(DisplayPath.tilde(path)) is there and is not this daemon's socket — not replaced")
             }
             unlink(path)
         }

@@ -18,7 +18,7 @@ func cliProjectWizardSuite(binary: String) async {
     let root = "/tmp/dzo-\(pid)-wp"
     let fm = FileManager.default
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         for p in [t.store.path, root] { try? fm.removeItem(atPath: p) }
     }
     try? fm.removeItem(atPath: root)

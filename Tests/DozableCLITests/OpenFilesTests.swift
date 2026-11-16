@@ -82,7 +82,7 @@ final class OpenFilesTests: XCTestCase {
         XCTAssertNil(WorkspaceFiles.lexicalRelative("/workspace/.."))
         XCTAssertNil(WorkspaceFiles.lexicalRelative("/workspacex/a.md"))
         XCTAssertNil(WorkspaceFiles.lexicalRelative("/etc/hosts"))
-        XCTAssertNil(WorkspaceFiles.lexicalRelative("report.html"), "relative: the shim makes it absolute, the host never guesses")
+        XCTAssertNil(WorkspaceFiles.lexicalRelative("report.html"), "relative: the shim makes it absolute, the daemon never guesses")
     }
 
     func testDocumentsInTheWorkspaceMapToTheMacFolder() throws {

@@ -3,12 +3,12 @@ import Foundation
 import DozableKit
 
 /// The CLI's store: ONE directory holds the library's store (images, kernels, sandboxes) and the
-/// host's files beside it.
+/// daemon's files beside it (the daemon is the process the code calls the host: `HostServer`, `HostCore`).
 ///
-///     <store>/host.sock        the host's socket (0600)
-///     <store>/host.lock        flock'd by the running host for its whole life — "is a host up?"
-///     <store>/host.pid         the running host's pid
-///     <store>/host.log         the host's stdout/stderr (appended)
+///     <store>/daemon.sock      the daemon's socket (0600)
+///     <store>/daemon.lock      flock'd by the running daemon for its whole life — "is a daemon up?"
+///     <store>/daemon.pid       the running daemon's pid
+///     <store>/daemon.log       the daemon's stdout/stderr (appended)
 ///     <store>/metrics.sqlite   lifecycle metrics (the SandboxLab schema)
 ///     <store>/sandboxes/<name>/doz.json   what `doz create` said (SandboxConfig)
 ///     <store>/sandboxes/<name>/terminal-layout.json   593: the web UI's panes (TerminalLayout)
@@ -31,10 +31,34 @@ public struct DozableStore: Sendable, Equatable {
             .appendingPathComponent("Library/Application Support/doz"))
     }
 
-    public var socket: URL { root.appendingPathComponent("host.sock") }
-    public var lockFile: URL { root.appendingPathComponent("host.lock") }
-    public var pidFile: URL { root.appendingPathComponent("host.pid") }
-    public var logFile: URL { root.appendingPathComponent("host.log") }
+    public var socket: URL { root.appendingPathComponent("daemon.sock") }
+    public var lockFile: URL { root.appendingPathComponent("daemon.lock") }
+    public var pidFile: URL { root.appendingPathComponent("daemon.pid") }
+    public var logFile: URL { root.appendingPathComponent("daemon.log") }
+
+    /// TEMPORARY — set only by the host→daemon migration (Sources/DozableHost/Migration/; nil without it, and then every
+    /// use below is inert): the names the daemon's files had before 0.50 (`host.lock`, `host.sock`, `host.pid`,
+    /// `host.log`). An older build's daemon holds the old lock and serves the old socket; a daemon of this build takes
+    /// BOTH locks (`HostServer.takeLock`), so the two are never owners of one store at once. Remove with the migration.
+    public struct FormerDaemonFiles: Sendable {
+        public var lock: String, socket: String, pid: String, log: String
+        public init(lock: String, socket: String, pid: String, log: String) { self.lock = lock; self.socket = socket; self.pid = pid; self.log = log }
+    }
+    nonisolated(unsafe) public static var formerDaemonFiles: FormerDaemonFiles?
+    public var formerLockFile: URL? { Self.formerDaemonFiles.map { root.appendingPathComponent($0.lock) } }
+    public var formerSocket: URL? { Self.formerDaemonFiles.map { root.appendingPathComponent($0.socket) } }
+    public var formerPidFile: URL? { Self.formerDaemonFiles.map { root.appendingPathComponent($0.pid) } }
+    public var formerLogFile: URL? { Self.formerDaemonFiles.map { root.appendingPathComponent($0.log) } }
+    /// The sockets a daemon may answer on: this build's, then (migration only) an older build's.
+    public var daemonSockets: [URL] { [socket] + (formerSocket.map { [$0] } ?? []) }
+
+    /// Migration only: the older build's log becomes this one's (renamed once, when the new name does not exist yet —
+    /// before a launcher opens it). An older daemon still writing its log keeps writing the same file under the new name.
+    public func adoptFormerLog() {
+        guard let old = formerLogFile, FileManager.default.fileExists(atPath: old.path),
+              !FileManager.default.fileExists(atPath: logFile.path) else { return }
+        _ = rename(old.path, logFile.path)
+    }
     public var metrics: URL { root.appendingPathComponent("metrics.sqlite") }
     public var sandboxesDirectory: URL { root.appendingPathComponent("sandboxes") }
 
@@ -58,9 +82,14 @@ public struct DozableStore: Sendable, Equatable {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     }
 
-    /// True while a host holds the store's lock. Probed by taking the lock and letting go at once.
+    /// True while a daemon holds the store's lock (migration: or an older build's daemon its old one). Probed by taking
+    /// the lock and letting go at once.
     public func hostIsRunning() -> Bool {
-        let fd = open(lockFile.path, O_RDONLY | O_CLOEXEC)
+        Self.lockHeld(lockFile) || (formerLockFile.map(Self.lockHeld) ?? false)
+    }
+
+    static func lockHeld(_ file: URL) -> Bool {
+        let fd = open(file.path, O_RDONLY | O_CLOEXEC)
         guard fd >= 0 else { return false }
         defer { close(fd) }
         if flock(fd, LOCK_EX | LOCK_NB) == 0 {
@@ -70,10 +99,12 @@ public struct DozableStore: Sendable, Equatable {
         return errno == EWOULDBLOCK
     }
 
-    /// The pid the running host wrote (nil when none is recorded).
+    /// The pid the running daemon wrote (nil when none is recorded; migration: an older build's daemon's).
     public func hostPID() -> Int32? {
-        guard let s = try? String(contentsOf: pidFile, encoding: .utf8) else { return nil }
-        return Int32(s.trimmingCharacters(in: .whitespacesAndNewlines))
+        for f in [pidFile] + (formerPidFile.map { [$0] } ?? []) {
+            if let s = try? String(contentsOf: f, encoding: .utf8), let p = Int32(s.trimmingCharacters(in: .whitespacesAndNewlines)) { return p }
+        }
+        return nil
     }
 
     /// Sandboxes whose last durable phase says a VM was live when its host went away (a crash):

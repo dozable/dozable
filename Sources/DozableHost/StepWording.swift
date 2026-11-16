@@ -99,7 +99,7 @@ public enum StepWording {
         if head.hasPrefix("re-mounted ") { return w("Reconnecting its shared folders", "Reconnected its shared folders") }
         if head.hasSuffix("to stop it gracefully") { return w("Waking it to stop it cleanly", "Woke it to stop it cleanly") }
         if head == "stopped the container" { return w("Stopping it", "Stopped it") }
-        if head == "saving the host's state" { return w("Saving the host's state", "Saved the host's state") }
+        if head == "saving the daemon's state" { return w("Saving the daemon's state", "Saved the daemon's state") }
         if let g = m(#"(.+) ready \((cached|pulled)\)"#) { return w("Getting \(g[0]) ready", "\(cap(g[0])) ready") }
         return w(head, head + (result.map { " → \($0)" } ?? ""))
     }

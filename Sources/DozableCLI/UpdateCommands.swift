@@ -16,8 +16,8 @@ struct UpdateCommand: AsyncParsableCommand {
         The feed is signed with Dozable's own key, and doz installs only what verifies — never an older build. \
         Channels: stable, beta (beta and stable releases), canary (every build first). A Homebrew install has one \
         formula per channel (doz, doz-beta, doz-canary): --channel switches formulas — Homebrew uninstalls one and \
-        installs the other; your store, sandboxes and settings stay. A running host keeps its build until \
-        doz host restart. Homebrew's own output is kept in brew.log in the settings folder and shown when brew fails; \
+        installs the other; your store, sandboxes and settings stay. A running daemon keeps its build until \
+        doz daemon restart. Homebrew's own output is kept in brew.log in the settings folder and shown when brew fails; \
         -v shows it as it runs. The setting updates.mode decides what doz does by itself: notify (default), auto or off. \
         Exit codes: 0 · 10 with --check when an update is available.
         """,
@@ -121,7 +121,7 @@ struct UpdateCommand: AsyncParsableCommand {
         }
         guard let brew = UpdateInstaller.brew() else { throw fail(HostError(.failed, "Homebrew's brew was not found"), g) }
         if let busy = UpdateInstaller.busyReason(store: g.dozableStore) {
-            Out.stderr("note: \(busy) — they keep running on doz \(before.current) until doz host restart\n")
+            Out.stderr("note: \(busy) — they keep running on doz \(before.current) until doz daemon restart\n")
         }
         Out.stderr("switching Homebrew formulas: \(formula) → \(c.formula) (\(Distribution.tap)/\(c.formula)); your store and settings stay…\n")
         let log = UpdateHook.brewLog(ctx, verbose: verbose)
@@ -148,12 +148,12 @@ struct UpdateCommand: AsyncParsableCommand {
               let brew = UpdateInstaller.brew() else { return }
         let doz = URL(fileURLWithPath: brew).deletingLastPathComponent().appendingPathComponent("doz").path
         guard FileManager.default.isExecutableFile(atPath: doz),
-              (try? confirm("Restart the doz host now? Running sandboxes hibernate and wake on \(version)", yes: false, g)) != nil
+              (try? confirm("Restart the doz daemon now? Running sandboxes hibernate and wake on \(version)", yes: false, g)) != nil
         else { return }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: doz)
-        p.arguments = ["host", "restart", "--store", store.root.path]
-        do { try p.run(); p.waitUntilExit() } catch { Out.stderr("doz: could not run \(doz) host restart: \(error.localizedDescription)\n") }
+        p.arguments = ["daemon", "restart", "--store", store.root.path]
+        do { try p.run(); p.waitUntilExit() } catch { Out.stderr("doz: could not run \(doz) daemon restart: \(error.localizedDescription)\n") }
     }
 }
 
@@ -238,7 +238,7 @@ enum UpdateHook {
         let tty = env["DOZ_TEST_UPDATE_TTY"] == "1" || (isatty(STDOUT_FILENO) == 1 && isatty(STDERR_FILENO) == 1)
         guard tty else { return false }
         let first = words(args).first ?? ""
-        return !["upgrade", "update", "host", "serve", "uninstall", "help", "config", "telemetry"].contains(first)
+        return !["upgrade", "update", "daemon", "serve", "uninstall", "help", "config", "telemetry"].contains(first)
     }
 
     /// After a command: the daily check, and what its mode says to do — one line (notify), or an install when
@@ -279,7 +279,7 @@ enum UpdateHook {
 
 struct HostRestart: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "restart",
-        abstract: "Stop the host (running sandboxes hibernate) and start it again — on this doz's build (after an update).")
+        abstract: "Stop the daemon (running sandboxes hibernate) and start it again — on this doz's build (after an update).")
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {
@@ -293,7 +293,7 @@ struct HostRestart: AsyncParsableCommand {
         }
         do { try HostLauncher.spawn(store: store, extra: []) } catch let e as HostError { throw fail(e, g) }
         guard HostClient.waitForHost(store: store) else {
-            throw fail(HostError(.unavailable, "the host did not start — see \(store.logFile.path)"), g)
+            throw fail(HostError(.unavailable, "the daemon did not start — see \(store.logFile.path)"), g)
         }
         let st = try decode(try call(HostRequest(.ping), g, autostart: false), HostStatus.self, g)
         if g.json { Out.json(st) } else { Out.stdout(describe(st) + "sandboxes that were running are hibernated: doz wake NAME (or use them) brings each back\n") }

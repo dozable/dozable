@@ -27,7 +27,7 @@ func templatesSuite() async throws {
     func cleanUp() {
         for n in names { h.run(["rm", n, "--yes"]) }
         h.run(["template", "rm", "tpl-pi", "--yes"])
-        h.run(["host", "stop"])
+        h.run(["daemon", "stop"])
     }
     cleanUp()
     let ws1 = storeRoot.appendingPathComponent("ws-one"), ws2 = storeRoot.appendingPathComponent("ws-two")
@@ -98,5 +98,5 @@ func templatesSuite() async throws {
     check(h.json(["ls"], [SandboxInfo].self)?.first { $0.name == "tpf" }?.workspace == nil, "ls --json: tpf's workspace is null")
 
     cleanUp()
-    check(!h.hostRunning, "cleanup: no host left running")
+    check(!h.hostRunning, "cleanup: no daemon left running")
 }
