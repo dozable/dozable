@@ -35,12 +35,20 @@ func renderAccounts(_ rows: [AccountRow]) -> String {
     return Out.table(t)
 }
 
+/// 695: the keep-alive under the table — one line ("keep-alive always · last renewed 09:02 (until 17:02) · next try 16:52"),
+/// one per Mac login when there are several.
+func keepaliveLines(_ rows: [AccountRow], now: Date = Date()) -> String {
+    let macs = rows.filter { $0.keepalive != nil }
+    if macs.count == 1, let k = macs[0].keepalive { return k.line(now: now) + "\n" }
+    return macs.map { "\($0.name): " + $0.keepalive!.line(now: now) + "\n" }.joined()
+}
+
 struct AccountList: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "ls", abstract: "The accounts (never a secret).")
     @OptionGroup var g: GlobalOptions
     func run() async throws {
         let rows = try decode(try await query(HostRequest(.accountList), g), [AccountRow].self, g)
-        if g.json { Out.json(rows) } else { Out.stdout(renderAccounts(rows)) }
+        if g.json { Out.json(rows) } else { Out.stdout(renderAccounts(rows) + keepaliveLines(rows)) }
         sayHostKeychainNote(g)                  // 679 B6: why the Mac login reads as unreadable
     }
 }
@@ -394,14 +402,51 @@ struct AccountUse: AsyncParsableCommand {
 
 struct AccountKeepalive: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "keepalive",
-        abstract: "on: near expiry, while a sandbox uses a Mac login and no Claude Code runs on the Mac, the daemon runs the Mac's claude once (off by default).")
+        abstract: "Keep this Mac's Claude login renewed: when it expires the daemon runs the Mac's own claude once. on: while a sandbox or fenced session uses the login; always: whether or not anything uses it; off (the default).",
+        discussion: """
+            The run is one tiny `claude -p` turn with no tools, no MCP servers and no hooks, in an empty folder of the store; \
+            Claude Code renews its own login as it starts — Dozable never touches the login's refresh token. It is never run \
+            while a Claude Code that is not fenced runs on this Mac (that program holds its own copy of the login, which a \
+            renewal would cancel: it renews when that Claude Code is next used), nor by a daemon started where the login \
+            keychain is locked (over ssh). doz account ls and doz doctor show the last try and the next.
+            """)
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "on or off.") var state: String
-    func validate() throws { guard ["on", "off"].contains(state) else { throw ValidationError("on or off") } }
+    @Argument(help: "off, on or always.") var state: String
+    func validate() throws { guard KeepaliveMode(rawValue: state) != nil else { throw ValidationError("off, on or always") } }
     func run() async throws {
-        var r = HostRequest(.accountKeepalive)
-        r.enabled = state == "on"
-        let f = try decode(try call(r, g), AccountsFile.self, g)
-        if g.json { Out.json(f) } else { Out.stdout("keep-alive \(f.keepalive ? "on" : "off")\n") }
+        let f = try setKeepaliveMode(KeepaliveMode(rawValue: state) ?? .off, g)
+        if g.json { Out.json(f); return }
+        let now = KeepaliveMode.of(f)
+        Out.stdout("keep-alive \(now.rawValue)\n")
+        if now.rawValue != state { Out.stderr("doz: the running daemon is older and set \(now.rawValue) — doz daemon restart, then run this again\n") }
+    }
+}
+
+/// 695: set the store's keep-alive through the daemon (it keeps the watchers). `enabled` goes too: an older daemon reads it.
+func setKeepaliveMode(_ mode: KeepaliveMode, _ g: GlobalOptions) throws -> AccountsFile {
+    var r = HostRequest(.accountKeepalive)
+    r.enabled = mode != .off
+    r.keepaliveMode = mode.rawValue
+    return try decode(try call(r, g), AccountsFile.self, g)
+}
+
+/// 695: the follow-up question after "start at login" (onboarding, `doz daemon login-item on`): asked only on a terminal,
+/// never with --json or in a test run; off a terminal the command is printed instead. Nothing is asked when the store's
+/// keep-alive is already always.
+enum KeepaliveOffer {
+    static let question = "  Also keep this Mac's Claude login renewed when no sandbox uses it (doz account keepalive always)?"
+    static let hint = "To also keep this Mac's Claude login renewed when no sandbox uses it: doz account keepalive always"
+
+    enum Decision: Equatable { case none, ask, hint }
+
+    static func decide(mode: KeepaliveMode, terminal: Bool, json: Bool, quiet: Bool = false,
+                       env: [String: String] = ProcessInfo.processInfo.environment) -> Decision {
+        if mode == .always || json || quiet { return .none }
+        return terminal && !TestSafety.guarded(env) ? .ask : .hint
+    }
+
+    /// The store's mode, read from the store (no daemon needed).
+    static func mode(_ g: GlobalOptions) -> KeepaliveMode {
+        KeepaliveMode.of(AccountStore(store: g.dozableStore, settings: .load()).load())
     }
 }

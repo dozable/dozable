@@ -439,6 +439,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var verify: Bool?
     public var force: Bool?
     public var enabled: Bool?
+    /// 695 `account-keepalive`: off, on or always (`enabled` is still sent: an older daemon reads on/off from it).
+    public var keepaliveMode: String?
     /// 590 `ls`: false leaves out each running sandbox's live-session count (`sessions: nil`). The
     /// count asks every session's holder in the guest (`deckhold ls` connects to each), so a poller
     /// — `doz ui`'s, every 3 s — must not pay it (it grew a guest log by 600 KB in 9 hours).
@@ -1458,4 +1460,7 @@ public struct HostStatus: Codable, Equatable, Sendable {
     /// held marker, read with or without a daemon.
     public var loginItem: LoginItemStatus? = nil
     public var held: Bool? = nil
+    /// 695: the Claude login keep-alive of this Mac's login (`mac`): its mode, last try, next try, and — for a daemon whose
+    /// login keychain is locked — why it never runs. nil: an older daemon.
+    public var keepalive: KeepaliveStatus? = nil
 }

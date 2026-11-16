@@ -3,6 +3,7 @@ import Darwin
 import Foundation
 import DozableKit
 import DozableHost
+import DozableTUI
 
 // 694 — the daemon's login item from the command line: `doz daemon login-item on|off|status`, the sync after a change of
 // the daemon's settings (`doz config set|unset`), and the one-time notice after an upgrade. The rules are
@@ -54,7 +55,26 @@ func setLoginItem(_ value: String, _ g: GlobalOptions) throws {
 struct LoginItemOn: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "on", abstract: "Add the login item: the daemon starts when you log in.")
     @OptionGroup var g: GlobalOptions
-    func run() async throws { try setLoginItem("on", g) }
+    func run() async throws {
+        try setLoginItem("on", g)
+        offerKeepaliveAlways(g)
+    }
+}
+
+/// 695: after `login-item on` — "Also keep this Mac's Claude login renewed when no sandbox uses it? [y/N]" on a terminal
+/// (never --json, never a test run); off a terminal the command is printed. Nothing when the keep-alive is already always.
+func offerKeepaliveAlways(_ g: GlobalOptions) {
+    let terminal = isatty(STDIN_FILENO) == 1 && isatty(STDOUT_FILENO) == 1
+    switch KeepaliveOffer.decide(mode: KeepaliveOffer.mode(g), terminal: terminal, json: g.json, quiet: g.quiet) {
+    case .none: return
+    case .hint: Out.stdout(KeepaliveOffer.hint + "\n")
+    case .ask:
+        let p = Prompter(yes: false, json: false)
+        guard p.interactive else { Out.stdout(KeepaliveOffer.hint + "\n"); return }
+        guard p.yesNo(KeepaliveOffer.question.trimmingCharacters(in: .whitespaces), default: false) else { return }
+        do { Out.stdout("keep-alive \(KeepaliveMode.of(try setKeepaliveMode(.always, g)).rawValue)\n") }
+        catch { Out.stderr("doz: the keep-alive was not changed — doz account keepalive always sets it\n") }
+    }
 }
 
 struct LoginItemOff: AsyncParsableCommand {

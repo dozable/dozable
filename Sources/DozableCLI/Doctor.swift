@@ -183,12 +183,14 @@ struct Doctor: AsyncParsableCommand {
         out.append(DoctorCheck(check: "vmnet", status: .ok,
                                detail: "needed only for --network nat (a free 192.168.100–199.0/24 subnet is picked); proxied sandboxes have no interface"))
         // The host.
+        var daemonStatus: HostStatus?                // 695: the running daemon's word (its keep-alive)
         if store.hostIsRunning() {
             var detail = "running, pid \(store.hostPID().map(String.init) ?? "?")"
             var status = DoctorCheck.Status.ok
             var hostPriority: DoctorCheck?
             if let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false),
                let st = try? m.result?.decode(HostStatus.self) {
+                daemonStatus = st
                 // 693: always on, or its idle timeout (an older daemon: its timeout).
                 detail += ", \(st.version), \(st.liveSandboxes.count) running, "
                     + (st.alwaysOn == true ? "always on" : st.idleTimeoutMinutes > 0 ? "idle timeout \(st.idleTimeoutMinutes.formatted()) min" : "never exits by itself")
@@ -242,6 +244,19 @@ struct Doctor: AsyncParsableCommand {
         // 694: the login item — present, loaded, switched off, out of date, or missing (read only; starts nothing).
         out.append(Self.loginItemCheck(DaemonLoginItem.status(store: store), daemonLocked: hostKeychain?.reason,
                                        held: LoginStart.heldAt(store) != nil && !store.hostIsRunning()))
+        // 695: the Claude login keep-alive — the mode, the last try and the next (the store's record; the daemon's word when
+        // one runs: a locked daemon never runs it). Read only, no token.
+        do {
+            let settings = DozableSettings.load()
+            let accounts = AccountStore(store: store, settings: settings).load()
+            let k = daemonStatus?.keepalive ?? KeepaliveStatus.fromStore(store, settings: settings)
+            var inUse = !(daemonStatus?.fencedSessions ?? []).isEmpty
+            if !inUse, KeepaliveMode.of(accounts) == .on, daemonStatus != nil, let m = try? HostClient.request(HostRequest(.accountList), store: store, autostart: false),
+               let rows = try? m.result?.decode([AccountRow].self) {
+                inUse = rows.contains { $0.kind == AccountKind.mac.rawValue && !$0.usedBy.isEmpty }
+            }
+            out.append(Self.keepaliveCheck(k, mode: KeepaliveMode.of(accounts), daemonRunning: daemonStatus != nil, inUse: inUse))
+        }
         let metricsOK = fm.fileExists(atPath: store.metrics.path)
         out.append(DoctorCheck(check: "metrics", status: .ok, detail: metricsOK ? store.metrics.path : "none yet"))
         // 611: under a test seam the Mac's own Claude login (keychain, ~/.claude, its binary) is never looked at.
@@ -356,7 +371,7 @@ struct Doctor: AsyncParsableCommand {
         let expiring = accounts.accounts.filter { a in a.kind != .mac && (a.expiresAt.map { $0.timeIntervalSince(now) < 30 * 86_400 } ?? false) }
         out.append(DoctorCheck(check: "accounts", status: expiring.isEmpty ? .ok : .warn,
                                detail: rows.joined(separator: " · ") + (accounts.defaultAccount == "none" ? " · default: none" : "")
-                               + (accounts.keepalive ? " · keep-alive on" : "")
+                               + (accounts.keepalive ? " · keep-alive \(KeepaliveMode.of(accounts).rawValue)" : "")
                                + (expiring.isEmpty ? "" : " — \(expiring.map(\.name).joined(separator: ", ")) expire\(expiring.count == 1 ? "s" : "") within 30 days: claude setup-token, then doz account add NAME --setup-token --force")))
         return out
     }
@@ -390,6 +405,25 @@ struct Doctor: AsyncParsableCommand {
             return row(.warn, "\(path) loaded, but the running daemon was started where the login keychain is locked (\(why)) — doz daemon restart starts one through the login item")
         }
         return row(.ok, "\(path) loaded — the daemon starts when you log in")
+    }
+
+    /// 695: the "Claude login keep-alive" row — ok, or a warning on a failed renewal, a daemon that can never run it (its
+    /// login keychain locked), or `on` with nothing using the login (it then never runs: always does).
+    static func keepaliveCheck(_ k: KeepaliveStatus, mode: KeepaliveMode, daemonRunning: Bool, inUse: Bool, now: Date = Date()) -> DoctorCheck {
+        let line = k.line(now: now)
+        func row(_ s: DoctorCheck.Status, _ d: String) -> DoctorCheck { DoctorCheck(check: "Claude login keep-alive", status: s, detail: d) }
+        switch mode {
+        case .off: return row(.ok, line)
+        case .on, .always:
+            if k.failed { return row(.warn, line + " — Claude Code on this Mac could not renew its login: run claude on the Mac (any prompt) to see why") }
+            if k.keychainLocked != nil { return row(.warn, line) }
+            if mode == .on, !inUse {
+                return row(.warn, line + " — on renews only while a sandbox or fenced session uses this Mac's login, and none does now"
+                           + (daemonRunning ? "" : " (no daemon runs)") + ": doz account keepalive always renews it with nothing using it")
+            }
+            if mode == .always, !daemonRunning { return row(.ok, line + " — the daemon runs it (none is running now; doz daemon login-item on starts it at login)") }
+            return row(.ok, line)
+        }
     }
 
     /// 679 B6: the running host cannot read the login keychain. A failure when doctor itself can (its own session reads

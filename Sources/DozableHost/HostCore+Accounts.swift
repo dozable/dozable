@@ -290,12 +290,65 @@ extension HostCore {
         guard let w = m.watcher else { return }
         w.unsubscribe(m.name)
         m.watcher = nil
-        if w.isEmpty { w.stop(); watchers[w.account] = nil }
+        if w.isEmpty && !w.standing { w.stop(); watchers[w.account] = nil }
     }
 
-    func keepaliveConfig(_ enabled: Bool) -> KeepaliveConfig {
-        KeepaliveConfig(enabled: enabled, runner: services.keepaliveRunner, isClaudeRunning: services.isClaudeRunning,
-                        binary: services.claudeBinary)
+    /// 695: the keep-alive of every Mac login watcher: the mode, the holders (this store's fenced sessions' members left
+    /// out, unfenced ones named by their session), the locked-keychain skip, the run's folder `<store>/keepalive/run`, and
+    /// each try reported — `<store>/keepalive.json`, one log line, the metrics action `keepalive`.
+    func keepaliveConfig(_ mode: KeepaliveMode) -> KeepaliveConfig {
+        let mac = self.mac, processes = services.claudeProcesses, store = self.store
+        var k = KeepaliveConfig(mode: mode, runner: services.keepaliveRunner,
+                                holders: { ClaudeHolders.find(candidates: processes(), records: mac.records().sessions) },
+                                binary: services.claudeBinary)
+        k.keychainLocked = { HostServer.keychainLocked }
+        k.timers = !readOnly
+        k.schedule = KeepaliveSchedule.current()
+        k.runDirectory = store.root.appendingPathComponent("keepalive/run")
+        k.report = { [weak self] rec in
+            try? rec.save(store)
+            HostLog.line("\(rec.account): keep-alive \(rec.outcome.rawValue)" + (rec.reason.map { ": \($0)" } ?? "")
+                         + (rec.expiresAfter.map { " — the login now expires \(CredentialVaultClock.hm($0))" } ?? ""))
+            Task { await self?.recordKeepaliveMetric(rec) }
+        }
+        return k
+    }
+
+    func recordKeepaliveMetric(_ r: KeepaliveRecord) {
+        var detail = ["account": r.account, "mode": r.mode, "outcome": r.outcome.rawValue]
+        if let e = r.exit { detail["exit"] = String(e) }
+        _ = metrics?.record(run: metricsRun, action: "keepalive", sandbox: nil, image: nil, startedAt: r.lastAttemptAt,
+                            durationMs: max(0, Date().timeIntervalSince(r.lastAttemptAt) * 1000), ok: r.outcome != .failed, detail: detail)
+    }
+
+    /// 695: `always` keeps a watcher on each Mac login with no subscriber needed (at the daemon's start and on a mode change);
+    /// otherwise a watcher lives only while something subscribes. Every watcher gets the store's mode.
+    public func ensureStandingWatchers() {
+        guard !readOnly else { return }
+        let file = accountStore.load()
+        let mode = KeepaliveMode.of(file)
+        for w in watchers.values { w.keepalive = keepaliveConfig(mode) }
+        if mode == .always {
+            for a in file.accounts where a.kind == .mac {
+                let w = watcher(for: a, file)
+                guard !w.standing else { continue }
+                w.standing = true
+                HostLog.line("\(a.name): keep-alive always — watching this Mac's Claude login with nothing using it")
+                Task.detached { w.tick() }
+            }
+        } else {
+            for (name, w) in watchers where w.standing {
+                w.standing = false
+                if w.isEmpty { w.stop(); watchers[name] = nil }
+            }
+        }
+    }
+
+    /// 695: what the keep-alive of the Mac login `account` is now (the mode, the record, the next try from the expiry).
+    func keepaliveStatus(_ account: String = "mac", file: AccountsFile? = nil, expiresAt: Date? = nil) -> KeepaliveStatus {
+        let f = file ?? accountStore.load()
+        return KeepaliveStatus(mode: KeepaliveMode.of(f), account: account, record: KeepaliveRecord.read(store),
+                               expiresAt: expiresAt ?? watchers[account]?.expiresAt, keychainLocked: readOnly ? nil : HostServer.keychainLocked)
     }
 
     /// The ONE watcher of a Mac login account.
@@ -310,7 +363,7 @@ extension HostCore {
                              },
                              // 687: the same account's other store, read-only (a guarded run: only its seam).
                              credentialsFile: { ClaudeCredentialsFile.path(configDir: dir, home: home) })
-        w.keepalive = keepaliveConfig(file.keepalive)
+        w.keepalive = keepaliveConfig(KeepaliveMode.of(file))
         w.onEvent = { [weak self] s, t in Task { await self?.note(s, t) } }
         let name = a.name
         w.onIdentity = { [weak self] id in Task { await self?.pinIdentity(name, id) } }
@@ -661,7 +714,8 @@ extension HostCore {
                                    keychainService: a.kind == .mac ? ClaudeLogin.service(configDir: a.configDir) : a.keychainService,
                                    fingerprint: a.fingerprint, provider: a.providerID,
                                    sourceLabel: src.label, sourceState: src.state, sourceProblem: src.problem, hosts: a.custom?.hosts,
-                                   verifiedAt: a.verifiedAt, adopted: a.adopted == true ? true : nil))
+                                   verifiedAt: a.verifiedAt, adopted: a.adopted == true ? true : nil,
+                                   keepalive: a.kind == .mac ? keepaliveStatus(a.name, file: file, expiresAt: expires) : nil))
         }
         if let r = codexMacRow(file, now: now) { rows.append(r) }
         return rows
@@ -1097,13 +1151,27 @@ extension HostCore {
         return await accountRows()
     }
 
+    /// `doz account keepalive off|on|always` (695: `keepaliveMode`; an older client's `enabled` true keeps always as it is —
+    /// the dashboard's switch means "on or more").
     func setKeepalive(_ r: HostRequest) throws -> AccountsFile {
-        guard let on = r.enabled else { throw HostError(.invalid, "on or off?") }
         var file = accountStore.load()
-        file.keepalive = on
+        let mode: KeepaliveMode
+        if let m = r.keepaliveMode {
+            guard let v = KeepaliveMode(rawValue: m) else { throw HostError(.invalid, "keep-alive: off, on or always (not \(m))") }
+            mode = v
+        } else if let on = r.enabled {
+            mode = on ? (KeepaliveMode.of(file) == .always ? .always : .on) : .off
+        } else {
+            throw HostError(.invalid, "off, on or always?")
+        }
+        file.keepaliveSetting = mode
         try accountStore.save(file)
-        for w in watchers.values { w.keepalive = keepaliveConfig(on) }
-        note(nil, "keep-alive \(on ? "on: near expiry, while a sandbox uses a Mac login and no Claude Code runs, the daemon runs the Mac's claude once" : "off")")
+        ensureStandingWatchers()
+        switch mode {
+        case .off: note(nil, "keep-alive off")
+        case .on: note(nil, "keep-alive on: when a Mac login expires, while a sandbox or fenced session uses a Mac login, the daemon runs the Mac's claude once — never while an unfenced Claude Code runs")
+        case .always: note(nil, "keep-alive always: when the Mac login expires the daemon runs the Mac's claude once, whether or not anything uses the login — never while an unfenced Claude Code runs")
+        }
         return file
     }
 }

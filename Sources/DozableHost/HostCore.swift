@@ -1014,6 +1014,7 @@ public actor HostCore {
         }
         s.alwaysOn = alwaysOn                                              // 693
         s.keepers = keepers
+        s.keepalive = keepaliveStatus()                                    // 695
         if let executable, let c = executableChange() {
             s.executableChange = c.rawValue
             s.executableNote = ExecutableIdentity.explain(c, path: changedPath(c) ?? executable.path)

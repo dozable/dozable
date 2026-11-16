@@ -901,7 +901,7 @@ public struct DozableSettings: Sendable {
                   "How many boots of each sandbox to keep (its steps and kernel console — the web UI's Boot log, doz console --boot N); the oldest goes.",
                   env: "DOZ_BOOT_LOGS", applies: .nextBoot),
             .init("daemon", "keepalive", .bool, .bool(false),
-                  "Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the daemon runs the Mac's claude once to renew it.",
+                  "When a Mac login expires, while a sandbox or fenced session uses it and no unfenced Claude Code runs, the daemon runs the Mac's claude once to renew it (doz account keepalive always: also with nothing using it).",
                   applies: .newStore),
             .init("store", "path", .path, .string("~/Library/Application Support/doz"),
                   "The store: images, kernels, sandboxes and the daemon's files.",

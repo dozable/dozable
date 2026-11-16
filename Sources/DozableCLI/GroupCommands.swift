@@ -643,6 +643,8 @@ struct DaemonAbsentStatus: Encodable {
     /// `daemon.always_on` as the settings say (a daemon started now would be, unless started where the keychain is locked).
     var alwaysOn: Bool
     var loginItem: LoginItemStatus
+    /// 695: the Claude login keep-alive, from the store (its record): with no daemon, nothing runs it.
+    var keepalive: KeepaliveStatus
 
     init(_ store: DozableStore) {
         let settings = DozableSettings.load()
@@ -650,12 +652,13 @@ struct DaemonAbsentStatus: Encodable {
         held = LoginStart.heldAt(store) != nil
         alwaysOn = settings.bool(SettingKey.alwaysOn)
         loginItem = DaemonLoginItem.status(store: store, settings: settings)
+        keepalive = KeepaliveStatus.fromStore(store, settings: settings)
     }
 
     var text: String {
         var s = "no daemon is running (nothing is running)"
         if held { s += " — held by doz daemon stop: it stays stopped until a doz command" + (loginItem.installed || loginItem.owner == "app" ? " or your next login" : "") }
-        return s + "\n" + loginItem.line + "\n"
+        return s + "\n" + loginItem.line + "\n" + "Claude login " + keepalive.line() + "\n"
     }
 }
 
@@ -674,6 +677,7 @@ func describe(_ st: HostStatus) -> String {
     s += "\n" + alwaysOnLine(alwaysOn: alwaysOn, idleTimeoutMinutes: st.idleTimeoutMinutes, keychainLocked: st.keychainLocked) + "\n"
     if let k = st.keepers, k > 0 { s += "kept sessions: \(k) (they keep the daemon running)\n" }
     if let li = st.loginItem { s += li.line + "\n" }                // 694
+    if let k = st.keepalive { s += "Claude login " + k.line() + "\n" }   // 695
     if let note = st.executableNote { s += (st.executableChange == "overwritten" ? "PROBLEM: " : "note: ") + note + "\n" }
     return s
 }

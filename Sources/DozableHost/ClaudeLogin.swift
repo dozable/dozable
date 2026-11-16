@@ -455,7 +455,8 @@ public enum ClaudeMacLogin {
     }
 
     /// THE rule (`ClaudeMacLoginTests`' table): an unexpired login wins; when both stores have one, the one that expires
-    /// LATER (a tie, or a login with no expiry, keeps the Keychain's); the file is used ONLY unexpired — otherwise the
+    /// LATER (a tie, or a login with no expiry, keeps the Keychain's); the file is used ONLY unexpired (695: or, expired, when
+    /// there is no Keychain item at all) — otherwise the
     /// Keychain's answer stands as it did before (its expired login, absent, locked, failed, unparsable). Same account:
     /// the identity rules are the watcher's, unchanged.
     public static func choose(keychain: KeychainRead, file: ClaudeCredentialsFile.Read, now: Date = Date()) -> Outcome {
@@ -476,6 +477,10 @@ public enum ClaudeMacLogin {
         case (false, false):
             if let kt { return .token(kt, .keychain) }
             if unparsable { return .unparsable }
+            // 695: no Keychain item at all (a login made only over ssh) and an EXPIRED login in the file: that login, expired
+            // — as an expired Keychain login is offered — so sandboxes are told it expired (not signed out) and the
+            // keep-alive can renew it (Claude Code renews only an expired token, and then rewrites the file).
+            if keychain == .absent, let ft { return .token(ft, .file) }
             switch keychain {
             case .locked: return .locked
             case .failed: return .failed
