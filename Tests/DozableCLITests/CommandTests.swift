@@ -94,7 +94,7 @@ final class CommandTests: XCTestCase {
         let h = try XCTUnwrap(parse(["daemon", "--foreground", "--idle-timeout", "0.5"]) as? HostRun)
         XCTAssertTrue(h.foreground)
         XCTAssertEqual(h.idleTimeout, 0.5)
-        XCTAssertEqual(idleTimeout(nil) > 0, true)
+        XCTAssertEqual(idleTimeout(nil) >= 0, true)          // 693: the default is 0 (never); the test env may set one
         XCTAssertEqual(idleTimeout(2), 2)
     }
 

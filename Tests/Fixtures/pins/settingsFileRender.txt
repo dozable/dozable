@@ -275,9 +275,18 @@
 
 [daemon]
 
-# Minutes with nothing running before the daemon exits; 0 = never.
+# Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once; a
+# new doz installed under it takes over by itself once nothing runs. off: it exits after
+# daemon.idle_timeout_minutes with nothing running (when that is 0, it still never does). A daemon
+# started where the login keychain is locked (over ssh) is never kept running: it exits after 5
+# minutes with nothing running.
+# (boolean; env DOZ_DAEMON_ALWAYS_ON; applies at once (the UI re-reads it))
+# always_on = true
+
+# Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0
+# = never.
 # (integer 0–10080; env DOZ_DAEMON_IDLE; flag doz daemon start --idle-timeout; applies after doz daemon stop (the next daemon reads it))
-# idle_timeout_minutes = 5
+# idle_timeout_minutes = 0
 
 # Every this many minutes, save the screen of each running sandbox's sessions that printed
 # something since (what a sleep or hibernation falls back on); 0 = only when it pauses, sleeps or

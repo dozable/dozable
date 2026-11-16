@@ -8,11 +8,14 @@ $TMPDIR, no VM. DOZ_TEST_KEYCHAIN_LOCKED=1 (a guarded seam) makes a process's se
   1. a host started with it says so before it starts (stderr), and `host status --json` carries keychainLocked: ssh;
   2. `doz account ls` (from a normal session) names that host as the reason, with the restart hint, on stderr;
   3. `doz doctor --json` has a `host login` warning saying the same;
-  4. a host started without it carries nothing, and nothing is said.
+  4. a host started without it carries nothing, and nothing is said;
+  5. (always on) a locked daemon is NEVER always on, whatever daemon.always_on says: its status says alwaysOn false and an
+     idle timeout of 5 minutes when the setting's is 0; with a 3 s timeout it exits by itself.
 Prints PASS/FAIL lines and `keychain-locked-check: ALL PASS` last; stops every host it started.
 """
 import json
 import os
+import time
 import shutil
 import subprocess
 import sys
@@ -70,9 +73,26 @@ try:
         checks = {c["check"]: c for c in json.loads(r.stdout)}
     except ValueError:
         checks = {}
-    hl = checks.get("host login", {})
-    check(hl.get("status") == "warn" and "doz daemon restart" in hl.get("detail", ""), "doctor: host login warns (%s)" % hl.get("detail", "none"))
+    hl = checks.get("daemon login", {})          # named "host login" before 0.50 (this row looked for that name since)
+    check(hl.get("status") == "warn" and "doz daemon restart" in hl.get("detail", ""), "doctor: daemon login warns (%s)" % hl.get("detail", "none"))
     run(["daemon", "stop"])
+    # 5. always on: never for a locked daemon.
+    lon = dict(locked, DOZ_DAEMON_ALWAYS_ON="on", DOZ_DAEMON_IDLE="0")
+    run(["daemon", "start"], lon)
+    st = status()
+    check(st.get("keychainLocked") == "ssh" and st.get("alwaysOn") is False and st.get("idleTimeoutMinutes") == 5,
+          "a locked daemon with daemon.always_on on and no idle timeout: alwaysOn false, exits after 5 min (%s, %s)"
+          % (st.get("alwaysOn"), st.get("idleTimeoutMinutes")))
+    r = run(["daemon", "status"])
+    check("not always on: it was started where the login keychain is locked" in r.stdout,
+          "daemon status says why it is not always on (%s)" % r.stdout.strip().split("\n")[-1][:160])
+    run(["daemon", "stop"])
+    run(["daemon", "start"], dict(lon, DOZ_DAEMON_IDLE="0.05"))
+    t0 = time.time()
+    while time.time() - t0 < 30 and os.path.exists(os.path.join(store, "daemon.pid")):
+        time.sleep(0.2)
+    check(not os.path.exists(os.path.join(store, "daemon.pid")),
+          "a locked daemon with daemon.always_on on and a 3 s timeout exited by itself after %.1f s" % (time.time() - t0))
     r = run(["daemon", "start"])
     check(r.returncode == 0 and "keychain" not in r.stderr, "a host started from a normal session: nothing said")
     st = status()
@@ -80,7 +100,7 @@ try:
     r = run(["account", "ls"])
     check("doz daemon restart" not in r.stderr, "…and account ls says nothing")
 finally:
-    subprocess.run([doz, "host", "stop"], env=env, capture_output=True, timeout=300)
+    subprocess.run([doz, "daemon", "stop"], env=env, capture_output=True, timeout=300)
     shutil.rmtree(root, ignore_errors=True)
 
 print("keychain-locked-check: ALL PASS" if failures == 0 else "keychain-locked-check: %d FAILED" % failures)
