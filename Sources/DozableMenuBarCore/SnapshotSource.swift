@@ -1,0 +1,88 @@
+import Foundation
+
+/// Gathers a `Snapshot` by running doz, and runs the menu's actions. Used by the menu (on a background queue, one
+/// command at a time) and by `--dump-menu` / `--run-action`.
+///
+/// Per refresh: the locator's `stat`s, then `doz daemon status --json`. `doz --version` and `doz app status --json` run
+/// only when the doz file (or the VERSION beside it) is a different file than last time — a refresh after an upgrade sees
+/// the new version at once, and the steady state costs one process.
+public final class SnapshotSource: @unchecked Sendable {
+    public let locator: DozLocator
+    public let runner: CommandRunning
+    public let appVersion: String?
+    private let lock = NSLock()
+    private var cache: (path: String, ids: [FileIdentity], version: String?, bundled: String?)?
+
+    public init(locator: DozLocator, runner: CommandRunning, appVersion: String?) {
+        self.locator = locator; self.runner = runner; self.appVersion = appVersion
+    }
+
+    /// The menu's state now. `busy` and `lastError` are the caller's to fill.
+    public func snapshot() -> Snapshot {
+        guard let doz = locator.locate() else { return Snapshot(doz: .missing, appVersion: appVersion) }
+        let ids = FileIdentity.ofDoz(doz)
+        let cached: (version: String?, bundled: String?)? = lock.withLock {
+            guard let c = cache, c.path == doz, c.ids == ids, !ids.isEmpty else { return nil }
+            return (c.version, c.bundled)
+        }
+        var version = cached?.version
+        var bundled = cached?.bundled
+        if cached == nil {
+            let r = runner.run(.version, doz: doz)
+            version = r.ok ? Self.parseVersion(r.stdout) : nil
+            let a = runner.run(.appStatus, doz: doz)
+            bundled = a.ok ? DozAppStatus.decode(a.stdout)?.bundled?.version : nil
+            lock.withLock { cache = (doz, ids, version, bundled) }
+        }
+        var s = Snapshot(doz: .found(path: doz, version: version), appVersion: appVersion, bundledAppVersion: bundled)
+        let r = runner.run(.status, doz: doz)
+        if r.timedOut { s.statusProblem = "doz did not answer within \(Int(DozCommand.status.timeout)) seconds" }
+        else if r.exit != 0 { s.statusProblem = "doz daemon status failed (\(Self.failure(r)))" }
+        else if let st = DozStatus.decode(r.stdout) { s.status = st }
+        else { s.statusProblem = "doz's answer could not be read" }
+        return s
+    }
+
+    /// Forget the cached version (the next snapshot asks doz again).
+    public func invalidate() { lock.withLock { cache = nil } }
+
+    /// Run `action`'s doz command. nil: done; else what to show (one line).
+    public func perform(_ action: MenuAction) -> String? {
+        guard let command = action.command else { return nil }
+        guard let doz = locator.locate() else { return "doz is not installed" }
+        let r = runner.run(command, doz: doz)
+        if r.ok { return nil }
+        let what: String
+        switch action {
+        case .start: what = "Start failed"
+        case .stop: what = "Stop failed"
+        case .restart: what = "Restart failed"
+        case .dashboard: what = "Could not open the dashboard"
+        case .updateApp: what = "Could not update the menu bar app"
+        case .installHelp, .quit: what = "Failed"
+        }
+        if r.timedOut { return "\(what): doz did not finish within \(Int(command.timeout)) seconds" }
+        // The dashboard's output is never read: only its exit status is known.
+        if command.output == .capture, let m = Self.errorMessage(r.stdout) { return "\(what): \(m)" }
+        return "\(what) (\(Self.failure(r)))"
+    }
+
+    static func failure(_ r: CommandResult) -> String {
+        if let e = r.launchError { return "could not run doz: \(e)" }
+        return "exit \(r.exit.map(String.init) ?? "?")"
+    }
+
+    /// doz's `--version`: one version line.
+    static func parseVersion(_ d: Data) -> String? {
+        let t = String(decoding: d.prefix(200), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        return DozVersion(t) != nil ? t : nil
+    }
+
+    /// doz's `--json` failure, `{"error": {"code", "message"}}`: its message, one line, at most 200 characters.
+    static func errorMessage(_ d: Data) -> String? {
+        struct E: Decodable { struct Inner: Decodable { var message: String? }; var error: Inner? }
+        guard let m = (try? JSONDecoder().decode(E.self, from: d))?.error?.message else { return nil }
+        let line = m.split(whereSeparator: \.isNewline).first.map(String.init) ?? m
+        return line.count > 200 ? String(line.prefix(199)) + "…" : line
+    }
+}

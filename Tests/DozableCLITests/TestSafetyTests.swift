@@ -123,5 +123,23 @@ final class TestSafetyTests: XCTestCase {
         let lc = try XCTUnwrap(env["DOZ_TEST_LAUNCHCTL"])
         XCTAssertNil(TestSafety.launchctlViolation(lc))
         XCTAssertFalse(Launchctl.current().run(["print", "gui/\(getuid())/com.dozable.app.daemon"]).ok, "the Makefile's launchctl refuses everything")
+        // The menu bar app: a scratch Applications folder — never /Applications or ~/Applications.
+        let apps = try XCTUnwrap(env["DOZ_TEST_APPLICATIONS_DIR"])
+        XCTAssertNil(TestSafety.applicationsViolation(URL(fileURLWithPath: apps)))
+    }
+
+    /// The menu bar app is never installed into, removed from or looked for in the real Applications folders by a test.
+    func testTheRealApplicationsFoldersAreRefused() {
+        XCTAssertNotNil(TestSafety.applicationsViolation(URL(fileURLWithPath: "/Applications"), home: home))
+        XCTAssertNotNil(TestSafety.applicationsViolation(URL(fileURLWithPath: "/Applications/"), home: home))
+        XCTAssertNotNil(TestSafety.applicationsViolation(URL(fileURLWithPath: "/Applications/Dozable.app"), home: home))
+        XCTAssertNotNil(TestSafety.applicationsViolation(URL(fileURLWithPath: "/tmp/../Applications"), home: home))
+        XCTAssertNotNil(TestSafety.applicationsViolation(home.appendingPathComponent("Applications"), home: home))
+        XCTAssertNotNil(TestSafety.applicationsViolation(home.appendingPathComponent("Applications/Dozable.app"), home: home))
+        XCTAssertNil(TestSafety.applicationsViolation(URL(fileURLWithPath: "/tmp/doz-test-applications"), home: home))
+        XCTAssertNil(TestSafety.applicationsViolation(URL(fileURLWithPath: "/ApplicationsX"), home: home))
+        XCTAssertNil(TestSafety.applicationsViolation(home.appendingPathComponent("ApplicationsX"), home: home))
+        XCTAssertNil(TestSafety.applicationsViolation(URL(fileURLWithPath: "/Users/other/Applications"), home: home),
+                     "another home's folder is not this person's")
     }
 }

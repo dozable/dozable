@@ -55,6 +55,9 @@ let package = Package(
         // 585: the `doz` command-line tool. `make cli` builds it and signs it with the
         // virtualization entitlement (an unsigned build can do everything but boot a VM).
         .executable(name: "doz", targets: ["doz"]),
+        // The menu bar app's executable (Dozable.app/Contents/MacOS/Dozable — `make app`, Scripts/assemble-app.sh). A
+        // client of the `doz` COMMAND only: it depends on no other target of this package and on no package at all.
+        .executable(name: "Dozable", targets: ["DozableMenuBar"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/containerization.git", exact: "0.47.0"),
@@ -278,6 +281,24 @@ let package = Package(
             // The bridge in main is compiled ONLY with the package (`#if DOZ_CLOUD`): `canImport` alone is not enough —
             // a module left in .build by an earlier official build would make it true in a build that does not link it.
             swiftSettings: (cloudIdentity == nil ? [] : [.define("DOZ_CLOUD")]) + helperDefines
+        ),
+        // The menu bar app (docs/engineering/menu-bar-app.md). Core: the status model, the menu table, the doz finder,
+        // the command runner, versions — Foundation, Security and os only, so `make test` stays headless. The app: AppKit
+        // + Core. NEITHER depends on DozableKit, DozableHost, DozableCLI or any package (Scripts/audit.sh holds it): the
+        // app talks to doz only by running `doz … --json`.
+        .target(
+            name: "DozableMenuBarCore",
+            path: "Sources/DozableMenuBarCore"
+        ),
+        .executableTarget(
+            name: "DozableMenuBar",
+            dependencies: ["DozableMenuBarCore"],
+            path: "Sources/DozableMenuBar"
+        ),
+        .testTarget(
+            name: "DozableMenuBarTests",
+            dependencies: ["DozableMenuBarCore"],
+            path: "Tests/DozableMenuBarTests"
         ),
         .testTarget(
             name: "DozableCLITests",
