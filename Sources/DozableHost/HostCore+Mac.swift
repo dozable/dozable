@@ -13,6 +13,10 @@ extension HostCore {
         case .sessions:
             return try JSONValue(encoding: await macRows())
         case .openSession:
+            // 691: this Mac's ports are a fenced session's (its fence request carries them) — never an unfenced one's.
+            if r.hostPorts?.isEmpty == false {
+                throw HostError(.invalid, "--host-port is for a fenced session (doz run @mac --fenced --host-port PORT) — an unfenced one already reaches every port of this Mac")
+            }
             return try JSONValue(encoding: try await macOpen(r))
         case .sessionLive:
             return try JSONValue(encoding: try await macLive(r))
@@ -352,7 +356,7 @@ extension HostCore {
         let ca = try? SandboxCA.loadOrCreate(in: URL(fileURLWithPath: mac.fenceState(s)), sandbox: "mac-\(s)")
         do {
             let p = try MacFenceProxy(session: s, fd: fd, port: UInt16(port), policy: f.policy ?? .permissions(["model"], preset: "locked"),
-                                      secretSHA256: secret, ca: ca, environment: mac.hostEnvironment)
+                                      secretSHA256: secret, ca: ca, environment: mac.hostEnvironment, hostPorts: f.hostPorts ?? [])
             bindFenceAccount(s, p, f)
             bindFenceGitHub(s, p, f)
             if macDoors[s] == nil { openFenceDoors(s, f) }
@@ -382,7 +386,9 @@ extension HostCore {
         let records = live?.proxy.log.records ?? []
         switch r.op {
         case .netPermissions:
-            var rep = PermissionPolicy.report(name: "@mac \(s)", policy: policy, base: AgentPermissions.macBase, log: records)
+            var rep = PermissionPolicy.report(name: "@mac \(s)", policy: policy, base: AgentPermissions.macBase, log: records,
+                                              hostPorts: live?.proxy.hostPorts ?? f.hostPorts ?? [],                // 691
+                                              hostPortsLive: DozableSettings.load().bool(SettingKey.hostPortsLive))
             rep.base = nil
             return try JSONValue(encoding: rep)
         case .netLog:
@@ -393,6 +399,19 @@ extension HostCore {
         default:
             if isPolicyQuery(r) { return try JSONValue(encoding: policy) }
             guard !readOnly else { throw HostError(.unavailable, "net-policy needs the daemon") }
+            // 691: `host:PORT` — this Mac's ports, edited beside the policy (the record and the live proxy).
+            let hostGrant = try PermissionPolicy.hostWords(r.grant ?? []).ports, hostRevoke = try PermissionPolicy.hostWords(r.revoke ?? []).ports
+            if !hostGrant.isEmpty || !hostRevoke.isEmpty {
+                let list = try PermissionPolicy.editedHostPorts(f.hostPorts ?? [], model: nil, grant: hostGrant, revoke: hostRevoke,
+                                                                live: DozableSettings.load().bool(SettingKey.hostPortsLive))
+                await mac.updateRecord(s) { $0.fence?.hostPorts = list.isEmpty ? nil : list }
+                live?.proxy.hostPorts = list
+                note(MacPlace.name, "session \(s) on this Mac: this Mac's ports \(HostRoute.listText(list)) — from its next connection")
+                let rest = (r.grant ?? []).contains { !HostRoute.isWord($0) } || (r.revoke ?? []).contains { !HostRoute.isWord($0) }
+                if !rest && r.preset == nil && (r.allow ?? []).isEmpty && (r.deny ?? []).isEmpty && (r.removeHosts ?? []).isEmpty {
+                    return try JSONValue(encoding: policy)
+                }
+            }
             let p = try Self.editedPolicy(policy, r, base: AgentPermissions.macBase, agent: nil)
             live?.proxy.policy = p
             await mac.updateRecord(s) { $0.fence?.policy = p }
@@ -458,6 +477,15 @@ extension HostCore {
     func macOpenFenced(_ r: HostRequest, request: MacFenceRequest, holder: URL, name: String, argv: [String]?, workdir: String?,
                        recordedArgv: [String]?, previous: MacFenceRecord?, size: TermSize, extra: [String: String]?,
                        claudeSessionID: String? = nil) async throws -> (MacSessions.Opened, MacFence, [String]) {
+        // 691: `--permissions host:PORT` words are this Mac's ports (`--host-port`), never the policy's.
+        var request = request
+        if let words = request.permissions {
+            let (ports, rest) = try PermissionPolicy.hostWords(PermissionPolicy.splitWords(words))
+            if !ports.isEmpty {
+                request.hostPorts = HostRoute.merged(request.hostPorts ?? [], add: ports)
+                request.permissions = rest.isEmpty ? nil : rest
+            }
+        }
         guard let wd = workdir else { throw HostError(.invalid, "a fenced session needs its folder (--workdir DIR; doz run sends the folder you are in)") }
         let t0 = ContinuousClock.now
         let settings = DozableSettings.load()
@@ -539,7 +567,8 @@ extension HostCore {
         let env = mac.hostEnvironment
         let made = Task.detached { () -> MacFenceProxy? in
             do {
-                let p = try MacFenceProxy(session: name, fd: lfd, port: port, policy: policy, secretSHA256: secret, ca: ca, environment: env)
+                let p = try MacFenceProxy(session: name, fd: lfd, port: port, policy: policy, secretSHA256: secret, ca: ca, environment: env,
+                                          hostPorts: f.hostPorts)
                 // 683: started by installProxy, once its login is bound (a request before that would pass unswapped).
                 return p
             } catch {

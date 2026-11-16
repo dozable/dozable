@@ -192,24 +192,72 @@ public final class EgressProxy: @unchecked Sendable {
     private var _leakGuardHosts: Set<String> = []
 
     /// 660: the ONE port of this Mac this sandbox was made with (the model server it uses), reached by the name
-    /// `MacModelServer.hostName` and routed to 127.0.0.1:PORT — nil: none (the name does not resolve). Not a policy rule:
-    /// no preset or edit widens it, and every other way to this Mac's loopback is refused (`Wire.connectTCP`).
+    /// `MacModelServer.hostName` and routed to 127.0.0.1:PORT — nil: none. 691: it is one entry (`.model`) of the route's
+    /// list (`hostPorts`); setting it adds or replaces that entry, nil removes it. Not a policy rule: no preset or edit
+    /// widens it, and every other way to this Mac's loopback is refused (`Wire.connectTCP`).
     public var macModelPort: UInt16? {
         get { lock.lock(); defer { lock.unlock() }; return _macModelPort }
         set { lock.lock(); _macModelPort = newValue; lock.unlock() }
     }
     private var _macModelPort: UInt16?
 
-    /// 660: the verdict for a connection to `MacModelServer.hostName` (nil: `host` is another name).
+    /// 691: the ports of this Mac this sandbox or session may reach, as `host.dozable.internal:PORT` (or the older
+    /// `mac.dozable.internal:PORT`) — given at launch (`--host-port`), added live (`doz net allow NAME host:PORT`), and the
+    /// model server's (`macModelPort`, origin `.model`, always listed). Setting it replaces the launch and live entries
+    /// (a `.model` entry given here is ignored: `macModelPort` owns it). Never a policy rule.
+    public var hostPorts: [HostPort] {
+        get {
+            lock.lock(); defer { lock.unlock() }
+            var out = _hostPorts
+            if let m = _macModelPort {
+                if let i = out.firstIndex(where: { $0.port == m }) { out[i].origin = .model } else { out.append(HostPort(port: m, origin: .model)) }
+            }
+            return out.sorted { $0.port < $1.port }
+        }
+        set {
+            var seen = Set<UInt16>()
+            let kept = newValue.filter { $0.origin != .model && seen.insert($0.port).inserted }
+            lock.lock(); _hostPorts = kept; lock.unlock()
+        }
+    }
+    private var _hostPorts: [HostPort] = []
+
+    /// 691: what a tagged port's plain-HTTP requests say in `X-Dozable-Session` — the sandbox's name, or
+    /// `@mac/<session>` (nil: nothing is added, even for a tagged port; an incoming copy is still removed).
+    public var sessionLabel: String? {
+        get { lock.withLock { _sessionLabel } }
+        set { lock.withLock { _sessionLabel = newValue } }
+    }
+    private var _sessionLabel: String?
+
+    /// 691: the route's entry for `port` (nil: not open).
+    func hostPort(_ port: UInt16) -> HostPort? { hostPorts.first { $0.port == port } }
+
+    /// 660 → 691: the verdict for a connection to the route's names — `host.dozable.internal` and its alias
+    /// `mac.dozable.internal` (nil: `host` is another name). Allowed iff the port is in the list AND is not one of
+    /// Dozable's own listeners now (`HostRoute.refusal` — judged at each connection: a dashboard may start later on a
+    /// granted port). The proxy then dials 127.0.0.1:PORT only.
     func macRoute(host: String, port: UInt16) -> NetworkPolicy.ConnectionVerdict? {
-        guard MacModelServer.isHost(host) else { return nil }
-        guard let p = macModelPort else {
-            return NetworkPolicy.ConnectionVerdict(kind: .deny, rule: "no port of this Mac is open to this sandbox", ruleIndex: nil)
+        guard HostRoute.isHost(host) else { return nil }
+        let whom = servesFencedSession ? "this session" : "this sandbox"
+        let list = hostPorts
+        guard !list.isEmpty else {
+            return NetworkPolicy.ConnectionVerdict(kind: .deny, rule: "no port of this Mac is open to \(whom)", ruleIndex: nil)
         }
-        guard p == port else {
-            return NetworkPolicy.ConnectionVerdict(kind: .deny, rule: "only port \(p) of this Mac is open to this sandbox (its model server)", ruleIndex: nil)
+        guard let entry = list.first(where: { $0.port == port }) else {
+            if list.count == 1, let only = list.first {
+                return NetworkPolicy.ConnectionVerdict(kind: .deny, rule: "only port \(only.port) of this Mac is open to \(whom)"
+                                                       + (only.origin == .model ? " (its model server)" : ""), ruleIndex: nil)
+            }
+            return NetworkPolicy.ConnectionVerdict(kind: .deny, rule: "only ports \(HostRoute.numbers(list.map(\.port))) of this Mac are open to \(whom)", ruleIndex: nil)
         }
-        return NetworkPolicy.ConnectionVerdict(kind: .allow, rule: "this Mac's port \(p) (the model server this sandbox was made with)", ruleIndex: nil)
+        if let why = HostRoute.refusal(port: Int(port)) {
+            return NetworkPolicy.ConnectionVerdict(kind: .deny, rule: why, ruleIndex: nil)
+        }
+        if entry.origin == .model {
+            return NetworkPolicy.ConnectionVerdict(kind: .allow, rule: "this Mac's port \(port) (the model server this sandbox was made with)", ruleIndex: nil)
+        }
+        return NetworkPolicy.ConnectionVerdict(kind: .allow, rule: "this Mac's port \(port)", ruleIndex: nil)
     }
 
     /// 599d test seam: where a GitHub host's upstream leg goes instead (nil: the real host). 599i: and the OpenAI hosts'.
@@ -347,20 +395,25 @@ public final class EgressProxy: @unchecked Sendable {
             return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 0, answers: qtype == 1 ? [0x7F00_0001] : []),
                             name: nil, allowed: true, rule: "", summary: "the loopback")
         }
-        // 660: this Mac, by its one name — answered here (a synthetic address the proxy recognises), only for a sandbox
-        // made with a port of this Mac; never the policy's (no preset widens it).
-        if MacModelServer.isHost(bare) {
-            guard let p = macModelPort else {
+        // 660 → 691: this Mac, by the route's names (`host.dozable.internal`, `mac.dozable.internal`) — answered here (a
+        // synthetic address the proxy recognises) while any port of this Mac is open to it; never the policy's (no preset
+        // widens it). No port: NXDOMAIN.
+        if HostRoute.isHost(bare) {
+            let open = hostPorts.map(\.port)
+            guard !open.isEmpty else {
                 return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 3, answers: []), name: bare,
-                                allowed: false, rule: "no port of this Mac is open to this sandbox", summary: "type \(qtype) → NXDOMAIN")
+                                allowed: false, rule: "no port of this Mac is open to \(servesFencedSession ? "this session" : "this sandbox")",
+                                summary: "type \(qtype) → NXDOMAIN")
             }
+            let rule = open.count == 1 ? "this Mac's port \(open[0])" : "this Mac's ports \(HostRoute.numbers(open))"
             guard qtype == 1 else {
                 return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 0, answers: []), name: bare,
-                                allowed: true, rule: "this Mac's port \(p)", summary: "type \(qtype) → no records (IPv4 only)")
+                                allowed: true, rule: rule, summary: "type \(qtype) → no records (IPv4 only)")
             }
-            lock.lock(); names[MacModelServer.syntheticAddress] = MacModelServer.hostName; lock.unlock()
+            // The name asked is remembered for the synthetic address (a redirected connection is logged by it).
+            lock.lock(); names[MacModelServer.syntheticAddress] = bare; lock.unlock()
             return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 0, answers: [MacModelServer.syntheticAddress]), name: bare,
-                            allowed: true, rule: "this Mac's port \(p)", summary: "A → this Mac (only port \(p))")
+                            allowed: true, rule: rule, summary: "A → this Mac (only " + (open.count == 1 ? "port " : "ports ") + HostRoute.numbers(open) + ")")
         }
         let pol = policy
         guard allowsName(name) else {
@@ -465,6 +518,11 @@ public final class EgressProxy: @unchecked Sendable {
         }
     }
 
+    /// 691: a header value Dozable writes — printable ASCII only, no CR/LF (a name can never inject a field).
+    static func isHeaderSafe(_ v: String) -> Bool {
+        !v.isEmpty && v.utf8.count <= 200 && v.utf8.allSatisfy { $0 >= 0x20 && $0 < 0x7F }
+    }
+
     static func splitHostPort(_ s: String, defaultPort: UInt16) -> (String, UInt16) {
         if s.hasPrefix("["), let close = s.firstIndex(of: "]") {
             let host = String(s[s.index(after: s.startIndex)..<close])
@@ -478,9 +536,10 @@ public final class EgressProxy: @unchecked Sendable {
     /// 606: what a sandbox is told when it tries to reach one of Dozable's own dashboards on this Mac.
     static let dashboardRefusal = "Dozable's own dashboard on this Mac is never reachable from a sandbox"
     /// 660: what a sandbox is told when it tries to reach this Mac's loopback any other way than its one named port.
-    static let loopbackRefusal = "this Mac's own loopback (127.0.0.1, localhost, ::1) is never reachable from a sandbox — a model server on this Mac is reached as \(MacModelServer.hostName):PORT, for the port the sandbox was made with"
-    /// 683: the same for a fenced session on this Mac (it has no named port; its own ports are `--local-port`).
-    static let fenceLoopbackRefusal = "this Mac's own loopback (127.0.0.1, localhost, ::1) is never reached through the proxy — a fenced session reaches its own ports directly (doz run @mac --local-port N)"
+    static let loopbackRefusal = "this Mac's own loopback (127.0.0.1, localhost, ::1) is never reachable from a sandbox — a port of this Mac opened to it (--host-port PORT, or its model server's) is reached as \(HostRoute.hostName):PORT (or \(MacModelServer.hostName):PORT)"
+    /// 683: the same for a fenced session on this Mac (its own ports are `--local-port`; 691: a service on this Mac is
+    /// reached by the route's name, for a port opened with `--host-port`).
+    static let fenceLoopbackRefusal = "this Mac's own loopback (127.0.0.1, localhost, ::1) is never reached through the proxy — a service on this Mac is reached as \(HostRoute.hostName):PORT for a port opened with --host-port PORT; a fenced session reaches its own ports directly (doz run @mac --local-port N)"
     var loopbackRefusalText: String { servesFencedSession ? Self.fenceLoopbackRefusal : Self.loopbackRefusal }
     /// 683: an address the strict guard refuses.
     static func addressRefusal(_ why: String) -> String { "\(why) is never reachable through the proxy, whatever the permissions" }
@@ -488,7 +547,7 @@ public final class EgressProxy: @unchecked Sendable {
     func addressRefusalText(_ why: String) -> String {
         let text = Self.addressRefusal(why)
         guard !servesFencedSession, why.contains("this Mac") else { return text }
-        return text + " — a model server on this Mac is reached as \(MacModelServer.hostName):PORT, for the port the sandbox was made with"
+        return text + " — a port of this Mac opened to it (--host-port PORT, or its model server's) is reached as \(HostRoute.hostName):PORT (or \(MacModelServer.hostName):PORT)"
     }
 
     /// 683: which resolved addresses are refused, whatever the policy. M2b: `.strict` for EVERY proxy — a sandbox's (its
@@ -636,11 +695,18 @@ public final class EgressProxy: @unchecked Sendable {
             return
         }
         // Rebuild the head: origin-form target, no proxy fields, Connection: close.
+        // 691: a port of this Mac opened with `:tag` — every `X-Dozable-Session` the program sent is removed (any case,
+        // every copy, a name padded with spaces included) and ONE is added naming the sandbox or session. Without the tag
+        // the route is transparent: the field passes untouched.
+        let tagged = mac?.kind == .allow && hostPort(port)?.tag == true
+        let sessionField = HostRoute.sessionHeader.lowercased()
         var out = Array("\(h.method) \(path) \(h.version)\r\n".utf8)
         for f in h.fields where !["connection", "proxy-connection", "proxy-authorization", "keep-alive"].contains(f.name) {
+            if tagged, f.name.trimmingCharacters(in: .whitespaces) == sessionField { continue }
             out += head[f.nameRange.lowerBound..<f.valueRange.upperBound]
             out += [13, 10]
         }
+        if tagged, let label = sessionLabel, Self.isHeaderSafe(label) { out += Array("\(HostRoute.sessionHeader): \(label)\r\n".utf8) }
         out += Array("Connection: close\r\n\r\n".utf8)
         let seam = fenceUpstreamForTests(host)
         let target = seam?.host ?? (mac != nil ? "127.0.0.1" : host)
@@ -715,8 +781,9 @@ public final class EgressProxy: @unchecked Sendable {
     // MARK: redirected TCP
 
     func handleTransparent(_ fd: Int32, ip: String, port: UInt16) {
-        // 660: the synthetic address is always this Mac's one name (whatever the name map forgot).
-        let name = IPv4CIDR.parseAddress(ip) == MacModelServer.syntheticAddress ? MacModelServer.hostName : name(for: ip)
+        // 660: the synthetic address is always the route to this Mac (whatever the name map forgot: the older name). 691:
+        // the name it was resolved by when that is remembered.
+        let name = IPv4CIDR.parseAddress(ip) == MacModelServer.syntheticAddress ? (name(for: ip) ?? MacModelServer.hostName) : name(for: ip)
         let host = name ?? ip
         if port == 443, name != nil {
             // A TLS client that ignored HTTPS_PROXY: same judgement (and injection) as CONNECT.

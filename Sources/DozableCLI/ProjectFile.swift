@@ -192,6 +192,23 @@ extension DozableProject {
                     throw bad(v, "local_port: a port of this Mac, \(MacModelServer.ports.lowerBound)–\(MacModelServer.ports.upperBound)")
                 }
                 p.localPort = n
+            case "host_ports":
+                // 691: ports of this Mac — a list of numbers or "PORT:tag" strings (a single value is a list of one).
+                let items: [Node]
+                switch v {
+                case .sequence(let seq): items = Array(seq)
+                default: items = [v]
+                }
+                var ports: [HostPort] = []
+                for item in items {
+                    let w = try scalarString(item, key)
+                    switch HostRoute.parsePort(w) {
+                    case .success(let p): ports = HostRoute.merged(ports, add: [p])
+                    case .failure: throw bad(item, "host_ports: ports of this Mac (1024–65535), each a number or \"PORT:tag\"")
+                    }
+                }
+                guard ports.count <= HostRoute.maximumPorts else { throw bad(v, "host_ports: at most \(HostRoute.maximumPorts) ports") }
+                p.hostPorts = ports.isEmpty ? nil : ports
             case "dotfiles":
                 // 657: a git repository's https:// URL, a folder on the Mac, or none (YAML's bare `no`/`off`: none).
                 let s = v.bool == false ? "none" : try scalarString(v, key)

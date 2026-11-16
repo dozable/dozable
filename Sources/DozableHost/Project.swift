@@ -61,6 +61,9 @@ public struct DozableProject: Equatable, Sendable {
     public var model: String?
     /// 660: `model_source: local` — the port of the model server on this Mac (the one port of it the sandbox reaches).
     public var localPort: Int?
+    /// 691: ports of this Mac it may reach as `host.dozable.internal:PORT` (`8780`, or `8780:tag` to name the sandbox to
+    /// that service) — when the sandbox is made.
+    public var hostPorts: [HostPort]?
     /// 657: this sandbox's dotfiles — a git repository's https:// URL, a folder on the Mac (absolute or ~/…), or `none`.
     /// nil: the setting `sandbox.dotfiles` decides. When the sandbox is made.
     public var dotfiles: String?
@@ -123,6 +126,7 @@ public struct DozableProject: Equatable, Sendable {
         ("model_source", "where the model comes from: a provider or gateway the agent is offered (anthropic, openai, xai, google, openrouter — doz models); default: its own — when the sandbox is made"),
         ("model", "a model id of that source (doz models --gateway openrouter); default: the source's own — when the sandbox is made"),
         ("local_port", "with model_source: local — the port of the model server on this Mac (Ollama 11434, LM Studio 1234): the one port of this Mac the sandbox reaches — when the sandbox is made"),
+        ("host_ports", "ports of this Mac the sandbox may reach as host.dozable.internal:PORT — a list of numbers, or \"8780:tag\" to name the sandbox to that service in an X-Dozable-Session header — when the sandbox is made (later: doz net allow NAME host:PORT)"),
         ("dotfiles", "your dotfiles: a git repository's https:// URL, a folder on your Mac (absolute or ~/…), or none (default: the setting sandbox.dotfiles) — applied at its first start; doz dotfiles NAME --update moves it on"),
     ] + settingKeys.map { k in
         k.setting == SettingKey.sandboxApprovals
@@ -300,6 +304,9 @@ public struct DozableProject: Equatable, Sendable {
         if let p = localPort {
             out += "local_port: \(p)            # the model server on this Mac: the one port of it the sandbox reaches — when made\n"
         }
+        if let h = hostPorts, !h.isEmpty {
+            out += "host_ports: [" + h.map { $0.tag ? "\"\($0.word)\"" : $0.word }.joined(separator: ", ") + "]   # ports of this Mac it reaches as host.dozable.internal:PORT — when made\n"
+        }
         if let m = model {
             out += "model: \(quoted(m))   # a model id of that source (doz models) — when made\n"
         } else if offered.count > 1 || modelSource != nil {
@@ -399,6 +406,7 @@ public struct DozableProject: Equatable, Sendable {
         o.modelSource = modelSource                  // 618
         o.model = model
         o.localPort = localPort                      // 660
+        o.hostPorts = hostPorts                      // 691
         o.dotfiles = dotfiles                        // 657
         o.project = file.path
         // 596 (B6): a Dockerfile relative to this folder (its folder is the build context).

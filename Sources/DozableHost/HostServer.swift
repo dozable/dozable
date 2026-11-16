@@ -88,6 +88,10 @@ public final class HostServer: @unchecked Sendable {
         try server.takeLock(waitSeconds: 60)
         // 606: the proxy never connects a sandbox to one of Dozable's own dashboards on this Mac.
         LocalDashboards.protect(DashboardPorts(store: store).current)
+        // 691: nor, through the route to this Mac's ports, to a sandbox's forwarded web port (fenced sessions' proxy ports
+        // register themselves while served; the dashboards are `LocalDashboards`').
+        let table = server.core.portTable
+        HostRoute.protect { table.macPorts }
         HostLog.enabled = true
         HostLog.line("doz daemon \(version) (pid \(getpid())) — store \(store.root.path), idle timeout \(idleTimeoutMinutes) min")
         HostLog.line(launched ? "detached: parent \(getppid())\(getppid() == 1 ? " (launchd)" : " — NOT launchd"), session \(getsid(0))"

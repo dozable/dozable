@@ -335,6 +335,10 @@ extension HostCore {
         sb.egress?.inspectEverythingForProfiling = ProviderSeam.profiling()
         // 660: the one port of this Mac it was made with (its model server) — nil for every other sandbox.
         sb.egress?.macModelPort = m.config.localModelPort.flatMap { MacModelServer.portProblem($0) == nil ? UInt16($0) : nil }
+        // 691: the other ports of this Mac it was given (launch and live, from its record), and the name a tagged port's
+        // requests carry.
+        sb.egress?.hostPorts = m.config.hostPorts ?? []
+        sb.egress?.sessionLabel = m.name
         // 599i: Codex uses OpenAI accounts only — its own path; the Anthropic bindings stay empty.
         if AgentCredentials.codexFlow(sb.spec.imageSpec?.name) {
             applyOpenAIAccount(m, resolvedAccount(m, file))

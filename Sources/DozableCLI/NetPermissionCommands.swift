@@ -17,6 +17,11 @@ func printPermissions(_ r: PermissionReport) {
         Out.stdout("\(indent)\(mark) \(head)\(p.locked ? " (always)" : "")  — \(p.summary)\(p.warning.map { " ⚠ " + $0 } ?? "")  [\(p.id)]\n")
     }
     if !r.sites.isEmpty { Out.stdout("  sites you allowed: \(r.sites.joined(separator: ", "))\n") }
+    // 691: this Mac's ports — beside the permissions, never one of them.
+    if let h = r.hostPorts, !h.isEmpty {
+        Out.stdout("This Mac's ports: \(HostRoute.listText(h)) — as \(HostRoute.hostName):PORT"
+                   + (r.hostPortsLive == false ? " (fixed when it starts: network.host_ports_live is off)" : "") + "\n")
+    }
     if !r.suggestions.isEmpty {
         Out.stdout("refused lately:\n")
         for s in r.suggestions {
@@ -73,10 +78,10 @@ func changePermissions(_ name: String, session: String? = nil, grant: [String], 
 
 struct NetAllow: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "allow",
-        abstract: "Switch permissions on (install:python, web, update, …; install = every ecosystem), allow a site (site:api.example.com, or one port: site:10.0.0.5:8780 — site:HOST:P1,P2 for several), or set a preset (standard, locked, open). Live.")
+        abstract: "Switch permissions on (install:python, web, update, …; install = every ecosystem), allow a site (site:api.example.com, or one port: site:10.0.0.5:8780 — site:HOST:P1,P2 for several), open a port of this Mac (host:8780 — reached as host.dozable.internal:8780; host:8780:tag names it to that service), or set a preset (standard, locked, open). Live.")
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
-    @Argument(help: "Permission ids (doz net permissions), site:HOST or site:HOST:PORT[,PORT], or standard / locked / open.") var what: [String]
+    @Argument(help: "Permission ids (doz net permissions), site:HOST or site:HOST:PORT[,PORT], host:PORT[:tag], or standard / locked / open.") var what: [String]
     @Flag(name: [.short, .long], help: "Do not ask (Browse the web warns first).") var yes = false
     @Option(name: .long, help: "@mac: the fenced session.") var session: String?
     func run() async throws {
@@ -101,10 +106,10 @@ struct NetAllow: AsyncParsableCommand {
 
 struct NetDeny: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "deny",
-        abstract: "Switch permissions off (web, update, install:node, …) or deny a site (site:HOST, or just a port of it: site:HOST:PORT). Live.")
+        abstract: "Switch permissions off (web, update, install:node, …), deny a site (site:HOST, or just a port of it: site:HOST:PORT), or close a port of this Mac (host:PORT). Live.")
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
-    @Argument(help: "Permission ids (doz net permissions) or site:HOST or site:HOST:PORT[,PORT].") var what: [String]
+    @Argument(help: "Permission ids (doz net permissions), site:HOST or site:HOST:PORT[,PORT], or host:PORT.") var what: [String]
     @Option(name: .long, help: "@mac: the fenced session.") var session: String?
     func run() async throws {
         let s = try netSession(name, session)
@@ -125,6 +130,7 @@ struct NetPermissionsList: AsyncParsableCommand {
         }
         Out.stdout(Out.table(t))
         Out.stdout("\nPresets: locked (model only), standard (model, update, system + the base's packages, github, error-reports), open (everything but your GitHub login — github:as-you and github:push are only ever switched on by name).\n"
-                   + "doz net allow NAME PERMISSION|site:HOST · doz net deny NAME … · doz create NAME --allow web,site:… · the setting defaults.permissions\n")
+                   + "Sites: site:HOST (every port), site:HOST:PORT or site:HOST:P1,P2 (just those ports). This Mac's ports: host:PORT (reached as \(HostRoute.hostName):PORT; host:PORT:tag names the sandbox or session to it) — never part of a preset, Open included.\n"
+                   + "doz net allow NAME PERMISSION|site:HOST[:PORT]|host:PORT · doz net deny NAME … · doz create NAME --allow web,site:…,host:… (or --host-port PORT) · the setting defaults.permissions\n")
     }
 }

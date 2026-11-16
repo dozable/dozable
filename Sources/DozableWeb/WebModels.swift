@@ -647,6 +647,10 @@ public struct WebPermissions: Codable, Equatable, Sendable {
     public var sites: [String]
     public var suggestions: [Suggestion]
     public var inferred: Bool
+    /// 691: the ports of this Mac it reaches as `host.dozable.internal:PORT` (nil: none) — shown, changed only with
+    /// `doz net allow|deny NAME host:PORT` (the dashboard has no control for them).
+    public var hostPorts: [HostPort]?
+    public var hostName: String?
 
     public init(_ r: PermissionReport) {
         preset = r.preset
@@ -655,6 +659,8 @@ public struct WebPermissions: Codable, Equatable, Sendable {
         sites = r.sites
         suggestions = r.suggestions.map { Suggestion(permission: $0.permission, what: $0.what, hosts: $0.hosts, count: $0.count, grant: $0.grant) }
         inferred = r.inferred
+        hostPorts = r.hostPorts
+        hostName = r.hostPorts == nil ? nil : HostRoute.hostName
     }
 }
 

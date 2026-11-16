@@ -582,10 +582,12 @@ struct Run: AsyncParsableCommand {
     @Option(name: .customLong("read"), help: "@mac, fenced: one more folder it may read (repeatable).") var readDirs: [String] = []
     @Option(name: .customLong("write"), help: "@mac, fenced: one more folder it may read and write (repeatable).") var writeDirs: [String] = []
     @Option(name: .customLong("permissions"), parsing: .unconditionalSingleValue,
-            help: "@mac, fenced: what it may reach through Dozable's proxy — standard/locked/open, PERMISSION, -PERMISSION, site:HOST (doz net permissions); comma-separated or repeated (setting mac.permissions).")
+            help: "@mac, fenced: what it may reach through Dozable's proxy — standard/locked/open, PERMISSION, -PERMISSION, site:HOST[:PORT] (a site, or just ports of it: site:HOST:P1,P2), host:PORT (a port of this Mac, as host.dozable.internal:PORT — the same as --host-port) (doz net permissions); comma-separated or repeated (setting mac.permissions).")
     var permissions: [String] = []
     @Option(name: .customLong("local-port"), help: "@mac, fenced: a port of this Mac's loopback it may listen on and connect to — its dev server, a sign-in callback (repeatable).")
     var localPorts: [Int] = []
+    @Option(name: .customLong("host-port"), help: "A port of this Mac the sandbox or fenced session may reach, as host.dozable.internal:PORT (a service on this Mac — a hub, a dev server; --local-port is the session's OWN listener instead); PORT:tag also names it to that service in an X-Dozable-Session header on plain-HTTP requests (identification, not authentication). Repeatable; a sandbox keeps it. Not with --unfenced (an unfenced session already reaches every port).")
+    var hostPorts: [String] = []
     @Option(name: .customLong("agent-config"), help: "@mac, fenced: the agent's settings folder — private (its own; your instructions and skills read-only) or shared (your own: less isolated) (setting mac.agent_config).")
     var agentConfig: String?
     @Option(name: .long, help: "@mac, fenced: keep its conversations (keep: copied back to yours and archived) or follow the agent's own rule (agent-default) (setting agent.history).")
@@ -607,14 +609,18 @@ struct Run: AsyncParsableCommand {
     @Argument(parsing: .postTerminator, help: "The program and its arguments, after --.") var command: [String] = []
 
     var fenceFlags: Bool {
-        keychain || !readDirs.isEmpty || !writeDirs.isEmpty || !permissions.isEmpty || !localPorts.isEmpty || agentConfig != nil || history != nil
+        keychain || !readDirs.isEmpty || !writeDirs.isEmpty || !permissions.isEmpty || !localPorts.isEmpty || !hostPorts.isEmpty || agentConfig != nil || history != nil
             || account != nil || openURL != nil || openFiles != nil || clipboard != nil || xcode || simulator || github != nil || sshAgent
     }
 
     func validate() throws {
         if command.isEmpty, !MacPlace.isPlace(name) { throw ValidationError("which program? doz run NAME -- CMD…") }
         if MacPlace.isPlace(name), user != nil { throw ValidationError("--user does not apply on this Mac: its sessions run as you") }
-        if !MacPlace.isPlace(name), fenced || unfenced || fenceFlags || dryRun {
+        if unfenced && !hostPorts.isEmpty {
+            throw ValidationError("--host-port is for a fenced session or a sandbox — an unfenced session already reaches every port of this Mac (it runs as you)")
+        }
+        _ = try CreateArguments.hostPorts(hostPorts, words: [])
+        if !MacPlace.isPlace(name), fenced || unfenced || (fenceFlags && !onlyHostPorts) || dryRun {
             throw ValidationError("--fenced, --unfenced, --keychain, --read, --write, --permissions, --local-port, --agent-config, --history, --account, --open-url, --open-files, --clipboard, --xcode, --simulator, --github, --ssh-agent and --dry-run are for doz run @mac (a sandbox is a VM of its own)")
         }
         if fenced && unfenced { throw ValidationError("--fenced and --unfenced contradict each other — pick one") }
@@ -629,13 +635,24 @@ struct Run: AsyncParsableCommand {
         if let a = account, a.isEmpty || a.count > 64 { throw ValidationError("--account: an account's name, mac or none") }
     }
 
+    /// 691: `--host-port` is the one fence flag a sandbox takes too.
+    var onlyHostPorts: Bool {
+        !hostPorts.isEmpty && !(keychain || !readDirs.isEmpty || !writeDirs.isEmpty || !permissions.isEmpty || !localPorts.isEmpty || agentConfig != nil
+            || history != nil || account != nil || openURL != nil || openFiles != nil || clipboard != nil || xcode || simulator || github != nil || sshAgent)
+    }
+
     /// The fence request this run sends (nil: unfenced).
     func fenceRequest(_ settings: DozableSettings, absolute: (String) -> String) -> MacFenceRequest {
+        // 691: `--host-port` and `--permissions host:PORT` — this Mac's ports, never permission words.
+        let words = PermissionPolicy.splitWords(permissions)
+        let ports = (try? CreateArguments.hostPorts(hostPorts, words: words)) ?? []
+        let rest = words.filter { !HostRoute.isWord($0) }
         var q = MacFenceRequest(keychain: (keychain || settings.string(SettingKey.macKeychain) == "on") ? true : nil,
                                 read: readDirs.isEmpty ? nil : readDirs.map(absolute),
                                 write: writeDirs.isEmpty ? nil : writeDirs.map(absolute),
-                                permissions: permissions.isEmpty ? [settings.string(SettingKey.macPermissions) ?? "standard"] : permissions,
+                                permissions: rest.isEmpty ? [settings.string(SettingKey.macPermissions) ?? "standard"] : rest,
                                 localPorts: localPorts.isEmpty ? nil : localPorts)
+        q.hostPorts = ports.isEmpty ? nil : ports
         q.agentConfig = agentConfig
         q.history = history
         q.account = account
@@ -693,6 +710,8 @@ struct Run: AsyncParsableCommand {
         r.workdir = onMac ? (workdir.map(absolute) ?? (fence ? FileManager.default.currentDirectoryPath : nil)) : workdir
         r.user = user
         r.environment = try parseEnv(env)
+        // 691: a sandbox's ports of this Mac — added to it (and kept) before the session opens.
+        if !onMac, !hostPorts.isEmpty { r.hostPorts = try CreateArguments.hostPorts(hostPorts, words: []) }
         if fence {
             r.v = HostProtocol.fencedVersion
             r.macFence = fenceRequest(settings, absolute: absolute)

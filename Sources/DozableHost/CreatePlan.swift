@@ -472,6 +472,11 @@ public enum CreatePlanner {
                     : "Model: \(model) through \(m.title) (\(hosts)) — its key only ever goes there"), at: 0)
             }
         }
+        // 691: this Mac's ports, said as what they are (never a permission).
+        let hostPorts = HostRoute.merged(o.hostPorts ?? [], add: ((try? PermissionPolicy.hostWords(o.allow ?? []))?.ports ?? []))
+        if !hostPorts.isEmpty {
+            reach.append(ReachLine("host", "This Mac's ports: \(HostRoute.listText(hostPorts)) — as \(HostRoute.hostName):PORT → 127.0.0.1:PORT; nothing else of this Mac"))
+        }
         // 634: the First sandbox's command is `doz new NAME --agent TOOL …` — the name always (doz new would name it otherwise).
         var argv = Self.argv(purpose: r.purpose, name: isFirst ? name : r.name, options: o, given: r.create, choice: choice, settings: f.settings)
         if r.purpose == "try" { argv += (r.tryFlags ?? []).filter { PlanRequest.tryFlagWords.contains($0) } }
@@ -548,6 +553,7 @@ public enum CreatePlanner {
         // 617 (models@1): the source (a gateway by its own flag) and the model.
         if let s = o.modelSource { a += [ModelSources.isGateway(s) ? "--gateway" : "--provider", s] }
         if let p = o.localPort { a += ["--local-port", String(p)] }       // 660
+        for h in o.hostPorts ?? [] { a += ["--host-port", h.word] }       // 691
         if let m = o.model { a += ["--model", m] }
         for k in o.keys ?? [] { a += ["--key", k] }
         if let s = o.agentSudo { a.append(s ? "--agent-sudo" : "--no-agent-sudo") }
@@ -609,7 +615,11 @@ public enum CreatePlanner {
         let (words, github) = splitGitHub(o.allow ?? [])
         p.github = github
         let sites = words.filter { $0.hasPrefix("site:") }
-        var perms = words.filter { !$0.hasPrefix("site:") }
+        // 691: `host:PORT` words are the file's host_ports, with --host-port's.
+        let hostWords = words.filter(HostRoute.isWord)
+        let hostPorts = HostRoute.merged(o.hostPorts ?? [], add: ((try? PermissionPolicy.hostWords(hostWords))?.ports ?? []))
+        p.hostPorts = hostPorts.isEmpty ? nil : hostPorts
+        var perms = words.filter { !$0.hasPrefix("site:") && !HostRoute.isWord($0) }
         if perms.first == "standard", perms.count > 1 { perms.removeFirst() }
         if !perms.isEmpty, SettingType.permissionWords(perms.joined(separator: ",")) != nil { p.permissions = perms }
         var notes: [String] = []
