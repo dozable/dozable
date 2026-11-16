@@ -14,7 +14,7 @@ task, for the CLI and the dashboard side by side; this guide is the terse comman
 | **Image** | What a sandbox starts from: a baked, read-only disk. Built in: `lab` (Alpine + bash and `fd`, 1 GiB RAM), `claude-code` and `pi` (Debian `node` + the agent and a developer baseline — git, curl, jq, `rg`, `fd`, python3, … — 2 GiB). Custom images are saved from a sandbox. |
 | **Session** | A terminal program living in the sandbox (a shell, `claude`, `pi`). It survives pause, sleep and hibernate. You *attach* to it and *detach* from it; it keeps running either way. |
 | **Workspace** | A folder of your Mac shared into the sandbox at `/workspace`. |
-| **Daemon** | One background `doz` process per user and store. It owns every running VM, the network proxy and the keys. It starts when needed and exits when idle, so you never manage it. |
+| **Daemon** | One background `doz` process per user and store. It owns every running VM, the network proxy and the keys. It starts when needed and keeps running, so you never manage it. |
 | **Store** | Where everything lives on disk: `~/Library/Application Support/doz` unless `--store` or `$DOZ_STORE` says otherwise. Each store has its own images, sandboxes and daemon. |
 
 ## Install
@@ -914,7 +914,7 @@ The daemon is started for you by the first command that needs it. It runs detach
 
 | | |
 |---|---|
-| **Idle exit** | It exits after 5 minutes with no running, paused or sleeping VM and no attached client (`$DOZ_DAEMON_IDLE` minutes, 0 = never). |
+| **Always on** | It keeps running with nothing open (`daemon.always_on`, `$DOZ_DAEMON_ALWAYS_ON`), and replaces itself with a newly installed doz once nothing runs. With it off, it exits after `daemon.idle_timeout_minutes` with no running, paused or sleeping VM and no attached client (`$DOZ_DAEMON_IDLE` minutes, default 0 = never). A daemon started over ssh always exits after 5 idle minutes. |
 | **Looking never starts it** | `ls`, `inspect`, `point ls`, `image ls`, `net policy` (shown) and `key ls` read the store directly when no daemon runs. |
 | `doz daemon status` | Is one running, and what does it hold? Never starts one. |
 | `doz daemon stop` | Hibernates everything that runs, then exits. The next command starts a new daemon; `wake`, `attach`, `up` and `exec` bring each sandbox back. It shows each sandbox as it hibernates (`✓ hibernated hello-doz (snapshot 69 MB) — 412 ms`; plain lines off a terminal or with `--progress plain`; a sandbox that cannot be hibernated says why and that it was shut down, its disk kept), then `host stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next command starts a new daemon` — or `host stopped (nothing was running)`. `--json` gives each sandbox's row. If the daemon dies part way, it says what it saw. `doz uninstall` and the web UI's **Restart daemon** show the same. |
@@ -1205,7 +1205,7 @@ the others say when they apply (the next sandbox created, the next session, or a
 | Section | Settings |
 |---|---|
 | `[ui]` | `terminal_title` (`{sandbox} · {session} · {time}` — see "The title and the Ctrl-] menu"; `""` leaves the title to the session), `boot_view_on_start` (false), `confirm_shutdown` (true), `split_default` (`shell` · `watch` · `attach` · `dialog`), `terminals` (true), `terminal_font_size` (13), `theme` (`auto` · `light` · `dark`), `density` (`comfortable` · `compact`), `details_open` (true), `grid_live_tiles` (no longer used), `grid_tile_size` (`small` · `medium` · `large`), `grid_refresh_ms` (500, 200–10000 — how often the session pictures are brought up to date), `batch_concurrency` (3, 1–8 — how many starts, wakes, resumes, sleeps, hibernations and shut-downs the dashboard runs at once; the others wait their turn, queued with a Cancel; one started on a single sandbox goes ahead of a batch; a pause or a resume from a pause never waits), `progress` (`animated` · `plain`; `$DOZ_PROGRESS`, `--progress auto\|plain`), `color` (`auto` · `always` · `never`; `$DOZ_COLOR`, `--color`, `--no-color` — the CLI's colour), `open_browser` (`auto` · `always` · `never`; `doz ui --open\|--no-open` — when `doz ui` opens a tab; applies to the next `doz ui`) |
-| `[daemon]` | `idle_timeout_minutes` (5; `$DOZ_DAEMON_IDLE`), `boot_logs_kept` (5, 1–50; `$DOZ_BOOT_LOGS` — boots kept per sandbox for `doz console --boot N` and the Boot log), `screen_capture_minutes` (5, 0–1440; `$DOZ_SCREEN_CAPTURE` — how often a running sandbox's changed session screens are saved; 0 = only at pause, sleep and hibernate), `keepalive` (false — for a store that has not chosen with `doz account keepalive`) |
+| `[daemon]` | `always_on` (true; `$DOZ_DAEMON_ALWAYS_ON`), `idle_timeout_minutes` (0 = never, only with `always_on` off; `$DOZ_DAEMON_IDLE`), `boot_logs_kept` (5, 1–50; `$DOZ_BOOT_LOGS` — boots kept per sandbox for `doz console --boot N` and the Boot log), `screen_capture_minutes` (5, 0–1440; `$DOZ_SCREEN_CAPTURE` — how often a running sandbox's changed session screens are saved; 0 = only at pause, sleep and hibernate), `keepalive` (false — for a store that has not chosen with `doz account keepalive`) |
 | `[store]` | `path` (`--store`, `$DOZ_STORE`) |
 | `[claude]` | `permissions` (`skip` · `ask`) — Claude Code's own prompts in a claude-code sandbox; `-e DOZ_CLAUDE_PERMISSIONS=…` on `run`/`exec` still wins |
 | `[defaults]` | `cpus` (2), `nat_subnet` (a free one; `$DOZ_SUBNET`) |
@@ -1281,7 +1281,8 @@ the others say when they apply (the next sandbox created, the next session, or a
 | environment | overrides the setting | |
 |---|---|---|
 | `DOZ_STORE` | `store.path` | the store directory |
-| `DOZ_DAEMON_IDLE` | `daemon.idle_timeout_minutes` | daemon idle timeout, minutes |
+| `DOZ_DAEMON_ALWAYS_ON` | `daemon.always_on` | keep the daemon running with nothing open (on/off) |
+| `DOZ_DAEMON_IDLE` | `daemon.idle_timeout_minutes` | daemon idle timeout, minutes (only with `daemon.always_on` off) |
 | `DOZ_KERNEL_CACHE` / `DOZ_KERNEL` | `kernel.cache` / `kernel.path` | a shared kernel cache / an explicit kernel |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | default subnet for `--network nat` |
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress (the CLI on a terminal, the web UI's boot view) |

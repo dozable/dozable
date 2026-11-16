@@ -263,8 +263,8 @@ One row per area; each area's doc starts with the full table of its files.
     start; `SecCodeCheckValidity` of itself). Overwritten (or its code invalid) → every error of a VM op
     becomes "this daemon's program was updated underneath it — `doz daemon stop`, then retry"
     (`HostCore.explain`, also on attach), `daemon status` carries `executableChange`/`executableNote`, and
-    `doctor` FAILS. Replaced by rename → a note; and a daemon whose program changed exits by itself once
-    nothing is live and no client is connected (`idleLoop`), so the next command runs the new build.
+    `doctor` FAILS. Replaced by rename → a note; and with nothing live and no client, a daemon whose program changed RESTARTS
+    IN PLACE when always on (693: from `StableExecutable`'s path; engine.md) and exits otherwise. `IdleDecisionTests`.
   - **Every snapshot records its VM** (`PersistedSandbox.vmLayout`, `VMLayout.of` in
     `PinnedIdentity.configureVZ`: platform + machine id, CPUs, memory, kernel sha256 + file, disks in
     order with read-only, NICs + MAC, balloon, vsock, serial/console, share tags, entropy, other devices;
@@ -279,8 +279,8 @@ One row per area; each area's doc starts with the full table of its files.
     `prev-cli`; until that first tag, v0.37.0, exists, a COPY of this build — 630, like 592: the releases before the
     Dozable rename keep nothing a 0.37 build reads, by owner ruling) sleeps a lab and a pi sandbox with a running session and markers; this build wakes them — same session pid, screen,
     file — and then its own recorded layout; then the incident (the running daemon's file overwritten
-    in place: the daemon says so, `daemon stop` keeps the snapshot, this build wakes it) and an idle daemon
-    replaced by rename exiting by itself.
+    in place: the daemon says so, `daemon stop` keeps the snapshot, this build wakes it), an idle daemon
+    replaced by rename exiting by itself, and (F) an always-on one restarting in place, no command typed.
 - **Settings are ONE closed schema**. A new user-facing knob is a new entry there — its type,
   default, description, env var, flag and when it applies — never a new ad-hoc env read, localStorage
   key or file. The file (`${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` — named for
@@ -420,7 +420,7 @@ make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake contai
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
 make test-cli-host   # sessions on this Mac (@mac), no VM: the real deckhold-mac, a scratch store and folder, harmless programs only
-make test-cli-keychainlocked # a daemon started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned at start, named by account ls and doctor (no VM)
+make test-cli-keychainlocked # a daemon started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned, named by account ls and doctor, never always on (no VM); make test-cli-alwayson: on by default, off at once, restarted in place after an install
 make test-cli-exectimeout # exec --timeout from doz's start, 124 from the daemon: the command killed, a start/wake that outlasts it goes on, a stopped client
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
 make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) into a DIRECTORY_DIR (CNAME, .nojekyll, index.json; the update site refused) → a local server standing in for doz.sh → the daemon's refresh → the next start uses it; doz.sh/… names resolve with no request; tampered refused

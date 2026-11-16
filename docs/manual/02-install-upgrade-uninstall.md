@@ -115,7 +115,25 @@ note: the doz daemon is 0.12.0-rc.9 (this doz is 0.12.0-rc.10) — `doz daemon s
 If you skip `doz daemon stop`, nothing breaks right away: your sandboxes keep running. But the old
 daemon can no longer boot anything once Homebrew has removed its files, so a start, a wake or a new
 sandbox is refused with a message that tells you to run `doz daemon stop`. Once nothing runs and
-nobody is attached, the old daemon exits by itself.
+nobody is attached, the old daemon replaces itself with one of the new version — no command needed (with
+`daemon.always_on` off it just exits, and the next command starts the new one). A daemon that only holds
+sessions on this Mac hands them over to a daemon of the new version the same way, the sessions running on.
+
+### The daemon now stays running
+
+From 0.50.4 the daemon no longer exits when nothing runs: `daemon.always_on` is on by default, and
+`daemon.idle_timeout_minutes` now defaults to `0` (never). A `doz.toml` that already sets an idle timeout keeps
+it, but it applies only with `daemon.always_on` off — `doz config show` says so. To have the daemon exit when idle
+again:
+
+```sh
+doz config set daemon.always_on off
+doz config set daemon.idle_timeout_minutes 5     # needed only if you never set one: its default is 0 (never)
+```
+
+A daemon started over ssh (where the login Keychain is locked) is never kept running: it still exits after 5
+minutes with nothing running, so the next command from the Mac itself starts one that can read your Claude login.
+`doz daemon status` says which it is.
 
 ### The background process is now called the daemon
 
@@ -226,7 +244,8 @@ Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same ti
 | key | default | what it does |
 |---|---|---|
 | `store.path` | `~/Library/Application Support/doz` | Where the store lives (`--store`, `$DOZ_STORE`). |
-| `daemon.idle_timeout_minutes` | `5` | Minutes with nothing running before the daemon exits (`0` = never). |
+| `daemon.always_on` | `true` | The daemon keeps running when nothing runs (`$DOZ_DAEMON_ALWAYS_ON`). |
+| `daemon.idle_timeout_minutes` | `0` | With `daemon.always_on` off: minutes with nothing running before the daemon exits (`0` = never). |
 | `updates.mode` | `notify` | `notify`, `auto` or `off` (`$DOZ_UPDATES`). |
 | `updates.channel` | `stable` | `stable`, `beta` or `canary` — a Homebrew install's formula decides while it is not set. |
 

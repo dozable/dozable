@@ -670,7 +670,7 @@ refused plainly ("this daemon's program … is gone — `doz daemon stop`, then 
 exits by itself once nothing runs.
 
 Started for you by the first command that needs it; runs detached (`<store>/daemon.log`,
-`<store>/daemon.sock`); exits after 5 minutes idle (`$DOZ_DAEMON_IDLE`, 0 = never). `ls`,
+`<store>/daemon.sock`); keeps running (`daemon.always_on`; off: exits after `$DOZ_DAEMON_IDLE` idle minutes, 0 = never). `ls`,
 `inspect`, `point ls`, `image ls`, `net policy` (shown) and `key ls` read the store directly when
 no daemon runs, so **looking never starts one**. If it crashes, the next command starts a new one:
 sleeping sandboxes are restored with their sessions, hibernated ones are untouched, and running
@@ -863,7 +863,8 @@ JSON documents only ever gain fields.
 | environment | overrides the setting | |
 |---|---|---|
 | `DOZ_STORE` | `store.path` | the store directory |
-| `DOZ_DAEMON_IDLE` | `daemon.idle_timeout_minutes` | daemon idle timeout, minutes |
+| `DOZ_DAEMON_ALWAYS_ON` | `daemon.always_on` | keep the daemon running with nothing open |
+| `DOZ_DAEMON_IDLE` | `daemon.idle_timeout_minutes` | daemon idle timeout, minutes (only with `daemon.always_on` off) |
 | `DOZ_KERNEL_CACHE` / `DOZ_KERNEL` | `kernel.cache` / `kernel.path` | a shared kernel cache / an explicit kernel |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | default subnet for `--network nat` |
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress |

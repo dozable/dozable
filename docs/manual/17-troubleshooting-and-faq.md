@@ -126,8 +126,9 @@ itself needs its AI model, of course.
 Not yet with a command. A snapshot (sleep, hibernate) is encrypted with a key specific to this Mac.
 
 **Why does `doz` say "the next command starts a new daemon"?**
-The daemon is a background process that runs your sandboxes and exits when idle. You never need to start
-it: any command that needs it does.
+The daemon is a background process that runs your sandboxes; it keeps running (`daemon.always_on`) and replaces
+itself after an update. You never need to start it: any command that needs it does — after `doz daemon stop`, or
+when it was started over ssh and exited after 5 idle minutes.
 
 **How do I start completely fresh?**
 `doz uninstall`, then `brew uninstall doz`, `brew trust --tap dozable/tap`, `brew install dozable/tap/doz` and

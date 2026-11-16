@@ -29,7 +29,8 @@ A bare file name is in `Sources/DozableKit/`.
 | `Sources/doz-vmtest/` | The VM integration suite (entitled executable); `NetworkSuite.swift` is `network`; `CLISuite.swift` is `cli` (`make test-cli`); `ClaudeSuite.swift` is `claude` (`make test-vm-claude`) |
 | `Sources/DozableHost/HostProtocol.swift` | the daemon protocol (JSON lines, `HostOp`, results) — fields only ever added |
 | `Sources/DozableHost/HostCore.swift` | the daemon's model — every sandbox as a `Sandbox`, every operation, crash recovery, metrics rows; also used read-only in-process |
-| `Sources/DozableHost/HostServer.swift` | `doz daemon` — the lock, the socket, the attach relay (held clients), streams, idle exit, quit = Hibernate |
+| `Sources/DozableHost/HostServer.swift` | `doz daemon` — the lock, the socket, the attach relay (held clients), streams, the idle loop (exit, restart in place, hand-over), quit = Hibernate |
+| `Sources/DozableHost/IdleDecision.swift`, `StableExecutable.swift`, `ExecutableIdentity.swift` | 693: what an idle daemon does at each look (pure); the path a new daemon is started from (a keg's `opt` link); which program file the daemon runs and how it changed |
 | `Sources/DozableHost/HostClient.swift`, `UnixSocket.swift` | the detached-child launcher, the client, socket plumbing, `ClientWire` (SandboxLab's attach wire) |
 | `Sources/DozableHost/DozableStore.swift`, `Metrics.swift` | the CLI store's files, `SandboxConfig` (`doz.json`), images → specs; the metrics DB (SandboxLab's schema) |
 | `Sources/DozableCLI/` | the commands (ArgumentParser), the attach client, `doctor`; `UICommand.swift` (`doz ui`, `ui link`) |
@@ -63,6 +64,44 @@ A bare file name is in `Sources/DozableKit/`.
   (`ProcessPriority`: the Darwin background state, the background QoS, `pti_priority`). `ProcessPriorityTests`,
   `make test-cli-startup`.
 
+- **The daemon is always on, and an update still reaches it** (693, owner: "yes always on (a new setting - default on).
+  change timeout default to 0 (never times out)"). `daemon.always_on` (default on, `$DOZ_DAEMON_ALWAYS_ON`, applies now —
+  the idle loop re-reads it at each look) keeps a daemon with nothing open; `daemon.idle_timeout_minutes` (default 0 =
+  never) is used only when it is off. `HostServer.idleLoop` gathers the inputs and `IdleDecision` (pure,
+  `IdleDecisionTests`) decides, in order: a stopping daemon does nothing; its program changed (`ExecutableIdentity`) or
+  a newer recipe catalogue waits, with NOTHING live and NO client connected → fenced (or kept) sessions on this Mac:
+  `handOver`; always on and started by the launcher: `restartInPlace` (a person's `--foreground` daemon exits); else
+  exit; idle past the effective timeout → exit. The loop never skips its look (it used to skip everything — the
+  program-change exit included — when the timeout was 0: an always-on daemon would have run an old build forever). It
+  looks every 5 s when it never idles out.
+  - **A daemon whose login keychain is locked is NEVER always on** (one started over ssh cannot read the Mac's Claude
+    login): it exits after at most 5 minutes with nothing live, whatever the settings say, and on a program change it
+    exits rather than restart where the keychain is locked. `make test-cli-keychainlocked` rows 5.
+  - **Restart in place keeps one owner.** It re-checks under the server's lock that no client connected (one that did
+    cancels it), closes and unlinks the socket first (so the new daemon never takes it for a live one), spawns the new
+    daemon through `HostLauncher.spawn` (detached, parent launchd — never this process's child) from the STABLE path,
+    removes the pid file and releases the locks as its last act; the new daemon waits for the lock as every daemon does.
+    A client arriving in between autostarts a daemon of its own, which gives up once the first answers (`takeLock`).
+  - **The stable path** (`StableExecutable.path`): a Homebrew keg `…/Cellar/<formula>/<ver>/libexec/doz/doz` → the
+    formula's `…/opt/<formula>/libexec/doz/doz` (doz, doz-beta, doz-canary; when it exists); a tarball or install-cli
+    `<prefix>/libexec/doz/doz` stays itself (that folder is swapped in place); anything else its resolved path.
+    `handOver` and `restartInPlace` start the new daemon from it (`brew cleanup` deletes the old keg), and a different
+    file there counts as the program `replaced` (`ExecutableIdentity.change(now:stableNow:)`) — `brew upgrade` without
+    a cleanup leaves the old keg in place, so by its own path alone the daemon saw no change. `StableExecutableTests`.
+    `homebrewKeg`, `formula` and `installation` live there too (`doz uninstall` uses them).
+  - **Status:** `HostStatus.alwaysOn` (effective — false for a locked daemon), `keepers` (sessions on this Mac kept
+    running, which keep the daemon up whatever `alwaysOn` says; 0 until kept sessions exist), and `idleTimeoutMinutes`
+    is the EFFECTIVE timeout (0 while always on). `doz daemon status` says it in one line; `doctor` says "always on".
+    `doz config show` / `config set` print one note when the two settings combine unexpectedly
+    (`DozableSettings.daemonIdleNote`: an older file's `idle_timeout_minutes = 5` under always-on; always-on off with a
+    timeout of 0).
+  - **Tests never leave a daemon behind:** the Makefile's guarded environment sets `DOZ_DAEMON_ALWAYS_ON=off` (forced) and
+    `DOZ_DAEMON_IDLE=5` (unless the run sets one) for every test target; a suite that tests always-on sets it on for its
+    own daemons. `make test-cli-alwayson` (in `make test-cli` too): the default keeps a daemon up past 5× its timeout;
+    `config set daemon.always_on off` makes the running one exit; a program renamed over it restarts it in place (one
+    daemon, a new pid, parent launchd, the new file, no command typed). `make test-vm-upgrade` part F: the previous
+    release's idle daemon and this build installed by rename (a release that predates the restart exits by itself), then
+    this build's always-on daemon replaced by rename → it restarts in place.
 - **A daemon stop shows its progress** (`HostStop.swift`): `host-stop` streams, per sandbox, a
   `started` "hibernating X" and a `step` "hibernated X (snapshot …)" / `failed` (why + "shut down
   instead") — `HostEvent.startedAs` ties an end to its differently-worded start — then the daemon's own

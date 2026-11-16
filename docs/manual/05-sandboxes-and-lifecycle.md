@@ -22,8 +22,8 @@ the background **daemon** that runs them all.
 - **Sessions.** The terminal programs running inside (a shell, `claude`, `pi`). They survive pause,
   sleep and hibernate. See [Terminals and sessions](07-terminals-and-sessions.md).
 - **The daemon.** One background `doz` process per store. It owns every running VM, the network proxy
-  and the credentials. The first command that needs it starts it, and it exits when idle, so you
-  normally never think about it.
+  and the credentials. The first command that needs it starts it, and it keeps running (`daemon.always_on`),
+  so you normally never think about it.
 
 ## The states
 
@@ -258,8 +258,12 @@ doz events               # follow what the daemon does, live (Ctrl-C stops)
 doz events my-app        # only this sandbox
 ```
 
-- **Idle exit.** The daemon exits after `daemon.idle_timeout_minutes` (5) with nothing running, paused
-  or asleep and nobody attached. The next command starts a new one.
+- **Always on.** The daemon keeps running with nothing open (`daemon.always_on`, on by default; `doz daemon
+  status` says so). When a new doz is installed, it replaces itself with the new version once nothing is running
+  and nobody is attached — no command needed.
+- **Idle exit**, with `doz config set daemon.always_on off`: the daemon exits after `daemon.idle_timeout_minutes`
+  with nothing running, paused or asleep and nobody attached (its default `0` means never — set it too). The next
+  command starts a new one. A daemon started over ssh always exits after 5 minutes idle.
 - **`doz daemon stop`** shows each sandbox as it hibernates, then a summary. Everything wakes on the
   next `wake`, `attach`, `up` or `exec`, sessions and all.
 - **If the daemon crashes**, the next command starts a new one. Sleeping sandboxes come back with their
@@ -286,7 +290,8 @@ newer doz fixes, without a restart.
 | `images.lab.memory_mib` · `recipes.anthropic.claude-code.memory_mib` · `recipes.earendil-works.pi.memory_mib` | `1024` · `2048` · `2048` | Memory of a new sandbox of each image (`--memory`); other images follow the one they're based on. |
 | `defaults.projects_dir` | `~/doz-workspaces` | Your projects folder: where Quick add, `doz new` and the dashboard's New sandbox make a new sandbox's own folder (`<projects_dir>/NAME`). **Settings** › **Choose…** picks it. |
 | `sandbox.timezone` | `mac` | `mac` (follow this Mac) or a zone like `Australia/Sydney`. Applies at each start or wake. |
-| `daemon.idle_timeout_minutes` | `5` | Minutes with nothing running before the daemon exits; `0` = never (`$DOZ_DAEMON_IDLE`). |
+| `daemon.always_on` | `true` | Keep the daemon running with nothing open (`$DOZ_DAEMON_ALWAYS_ON`). |
+| `daemon.idle_timeout_minutes` | `0` | With `daemon.always_on` off: minutes with nothing running before the daemon exits; `0` = never (`$DOZ_DAEMON_IDLE`). |
 | `daemon.screen_capture_minutes` | `5` | How often a running sandbox's changed screens are saved; `0` = only at pause, sleep and hibernate. |
 | `daemon.boot_logs_kept` | `5` | Boots kept per sandbox (1–50). |
 | `ui.boot_view_on_start` | `false` | After the dashboard's Start, stay on the Console tab rather than switch to the agent's tab. |
