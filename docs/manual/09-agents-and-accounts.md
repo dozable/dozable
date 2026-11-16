@@ -222,9 +222,29 @@ Claude Code renews it whenever it runs on your Mac near expiry.
 - **If it expired** (nothing ran Claude Code on the Mac overnight), Claude Code in the sandbox shows
   "this Mac's Claude login expired at 04:59 — open Claude Code on the Mac (any prompt), then retry",
   and recovers by itself once the Mac renews.
-- **Keep-alive** (off by default): `doz account keepalive on`. Near expiry, if a sandbox used the Mac
-  login recently and no Claude Code runs on the Mac, the daemon runs the Mac's `claude` once — one tiny
-  turn on your subscription.
+- **Keep-alive** (off by default) keeps the Mac login renewed. When the login expires, the daemon
+  runs the Mac's own `claude` once: one tiny turn on your subscription, with no tools, no MCP servers and
+  no hooks, in an empty folder. Claude Code renews an expired login as it starts (it leaves one that
+  has not expired yet as it is); Dozable never touches the login's refresh token. If a run leaves the
+  login as it was, it is tried again 1, 5 and 15 minutes after the expiry, then every 30 minutes, six
+  runs in all, and then said as failed.
+  - `doz account keepalive on`: only while a sandbox or a fenced session on this Mac used the login in
+    the last 15 minutes.
+  - `doz account keepalive always`: whether or not anything uses it. It suits a Mac left unattended,
+    where sessions start later and find the login renewed. The daemon stays running by default, so it
+    can renew with nothing open.
+  - `doz account keepalive off` turns it off.
+- **What stops a renewal** (each is said, and tried again at the next look):
+  - **A Claude Code that is not fenced runs on this Mac.** It holds its own copy of the login, and a
+    renewal by anyone else would cancel that copy. The reason names it: "Claude Code (pid 812, session
+    admin on this Mac)", or "not Dozable's". It renews when that Claude Code is next used. A fenced
+    session never stops it: it holds only a stand-in for the login.
+  - **The daemon was started over ssh.** The login keychain is locked there, so it never runs the
+    keep-alive. Run `doz daemon restart` from the Mac's desktop, or `doz daemon login-item on`.
+  - **Claude Code isn't installed** on this Mac.
+- **Seeing it:** `doz account ls` ends with a line such as "keep-alive always · last renewed 09:02
+  (until 17:02) · next try 16:52", or "· last try 09:02 FAILED (exit 1: …)". `doz doctor` has a
+  "Claude login keep-alive" row, and `doz daemon status` says the same. Each needs no daemon running.
 - **If you sign out on the Mac**, sandboxes stop getting a token at once. **If a different account
   signs in**, sandboxes on `mac` follow it at their next request — running sessions keep working,
   with no restart and no sign-in inside the sandbox — and each sandbox's activity says which account

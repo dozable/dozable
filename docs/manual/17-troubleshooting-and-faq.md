@@ -53,7 +53,9 @@ Add `-v` to any command to see every step it takes.
 | symptom | what to do |
 |---|---|
 | The agent says it has no key, or gets 401 | `doz account ls`, `doz key ls NAME`. A typed key is gone after the daemon stopped. |
-| "this Mac's Claude login expired" | Run `claude` on your Mac once, or `doz account keepalive on`. |
+| "this Mac's Claude login expired" | Run `claude` on your Mac once, or `doz account keepalive always`. |
+| `doz account ls`: "keep-alive … skipped: Claude Code (pid N, …) holds its own copy" | A Claude Code that is not fenced runs on this Mac; renewing would cancel its copy of the login. It renews when that Claude Code is next used. |
+| `doz account ls`: "keep-alive … FAILED (exit 1: …)" | Run `claude` on the Mac (any prompt) to see why it cannot renew: a sign-in may be needed. |
 | pi can't be created | pi needs an API key account: `doz account add NAME --api-key`. |
 | "the agent prompt does not render" | `doz inspect NAME --prompt` names the unknown `{{variable}}`; fix it or `doz config set agent.prompt false`. |
 | `sudo apt-get install` fails with a network error | `doz net NAME`: system packages need `install:system` (on in Standard). |

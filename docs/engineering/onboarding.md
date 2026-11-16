@@ -42,8 +42,11 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   install is never asked by the upgrade: the first interactive command after it says ONCE "doz: the daemon now stays
   running. To also start it when you log in … doz daemon login-item on" (`LoginItemNotice`: a terminal, not `--json`/`-q`,
   not a guarded run — `DOZ_TEST_LOGIN_ITEM_NOTICE=1` tests it; its marker `login-item-notice` sits beside the usage
-  notice's in the settings folder; onboarding's question and any `config set daemon.login_item` mark it shown). The
-  keep-alive follow-up question is a later release's.
+  notice's in the settings folder; onboarding's question and any `config set daemon.login_item` mark it shown). Right after
+  it (when it was asked), and after `doz daemon login-item on` on a terminal: "Also keep this Mac's Claude login renewed
+  when no sandbox uses it (doz account keepalive always)? [y/N]" — never `--json`, never a guarded run, not when the
+  keep-alive is already always (`KeepaliveOffer`); `login-item on` off a terminal prints the command instead
+  (github-and-access.md, "The login keep-alive").
 - **The setup wizard v2** (634; the owner's chosen mockup onboarding-v2; `views/onboarding.js`, `core/wizards.js`):
   `WIZ` = welcome, base, keys, access, rules, usage, signup, first; each step returns `{title, lead, body, foot}`, drawn as
   a centred `.w2-head` over a `.w2-col` of `WIZ_SIZE` (narrow 480 · medium 680 · wide 1080). Base image's "Download and

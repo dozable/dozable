@@ -165,7 +165,9 @@ fully resolved path.
   [Images and bases](08-images-and-bases.md#your-own-dockerfile).
 - **Image preparation** runs in a temporary VM with the `bake` permissions (package registries only),
   logged like any sandbox.
-- **Keep-alive**, when you turn it on, runs your Mac's own `claude` once near expiry.
+- **Keep-alive**, when you turn it on, runs your Mac's own `claude` once when its login expires. It runs with no tools, no MCP servers
+  and no hooks, in an empty folder, with a short list of environment variables. Nothing from a sandbox reaches it. It never
+  runs while a Claude Code that is not fenced runs on your Mac. What it records (`keepalive.json` in the store) holds no token.
 - **Sessions on this Mac** (`doz run @mac`) are not in a sandbox: the program runs on your Mac, as you. A new one is
   **fenced** by default — macOS's own sandbox holds it to its project folder, its own temp, caches and agent settings,
   and a proxy of its own with the permissions above; your Keychain, secrets and other folders are closed, and its

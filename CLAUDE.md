@@ -351,8 +351,8 @@ One row per area; each area's doc starts with the full table of its files.
   that would read the real file) and writes neither; the Mac's
   Claude Code is the one writer of that token family (a second holder forks it — a copied
   `.credentials.json` was rejected for this in an earlier project, and for its silent fall-through to API billing).
-  Renewal is the Mac's: the only thing doz may do is run the Mac's own `claude -p` (the
-  keep-alive, opt-in). Every secret doz writes to the keychain goes on `security -i`'s STDIN.
+  Renewal is the Mac's: the only thing doz may do is run the Mac's own `claude -p` (the keep-alive, opt-in, `on|always`;
+  never beside an UNFENCED Claude Code — github-and-access.md). Every secret doz writes to the keychain goes on `security -i`'s STDIN.
 - **Never inject our credential beside the guest's own** (588: the prototype added the Mac's bearer
   token next to a guest `x-api-key`). Every auth header a daemon's bindings use counts as "a
   credential is present"; a connection that carried the guest's own credential gets nothing
@@ -422,7 +422,7 @@ make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake contai
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
 make test-cli-host   # sessions on this Mac (@mac), no VM: the real deckhold-mac, a scratch store and folder, harmless programs only
-make test-cli-keychainlocked # a daemon started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned, named by account ls and doctor, never always on, a locked restart refused, replaced by the login item's look (no VM); make test-cli-alwayson: on by default, off at once, restarted in place after an install; make test-cli-daemon: the login item, no VM, a scratch LaunchAgents folder + a FAKE launchctl (never the real ones) — rows 1–12 in engine.md
+make test-cli-keychainlocked # a daemon started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned, named by account ls and doctor, never always on, a locked restart refused, replaced by the login item's look, never runs the keep-alive (no VM); make test-cli-alwayson: on by default, off at once, restarted in place after an install; make test-cli-daemon: the login item, no VM, a scratch LaunchAgents folder + a FAKE launchctl (never the real ones) — rows 1–12 in engine.md
 make test-cli-exectimeout # exec --timeout from doz's start, 124 from the daemon: the command killed, a start/wake that outlasts it goes on, a stopped client
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
 make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) into a DIRECTORY_DIR (CNAME, .nojekyll, index.json; the update site refused) → a local server standing in for doz.sh → the daemon's refresh → the next start uses it; doz.sh/… names resolve with no request; tampered refused
@@ -457,8 +457,8 @@ make pullbench       # 594 D12: the node base pulled with 3 vs 6 concurrent laye
 Every `make test*` target (and the probes' `guard-doz.sh`) runs with `DOZ_TEST_GUARD=1`, `DOZ_TEST_NO_MAC_LOGIN=1`, `DOZ_TEST_CREDENTIALS=memory`,
 a scratch `DOZ_TEST_CODEX_HOME` and a scratch `XDG_CONFIG_HOME` whose `doz.toml` sets `store.path` and `defaults.projects_dir` to scratch
 folders — forced, whatever the environment says (694: a scratch `DOZ_TEST_LAUNCH_AGENTS_DIR`, a refusing `DOZ_TEST_LAUNCHCTL`). `TestSafety`
-STOPS a guarded process (and any XCTest run) that would use the default store, read the Mac's real `~/.codex`, touch the keychain's
-`Claude Code-credentials*` items, the real `~/Library/LaunchAgents` or `/bin/launchctl`. The only way out is explicit: `DOZ_TEST_REAL_MAC=1`.
+STOPS a guarded process (and any XCTest run) that would use the default store, read the Mac's real `~/.codex`, touch the keychain's `Claude
+Code-credentials*` items, the real `~/Library/LaunchAgents` or `/bin/launchctl`, or run any keep-alive claude but the fake `DOZ_TEST_CLAUDE_BIN` (695). The only way out is explicit: `DOZ_TEST_REAL_MAC=1`.
 A new code path that reads something of the Mac's own must go through a seam the Makefile sets (`CredentialServices.forHost`, `macLoginKeychain`) — `TestSafetyTests` pins the decisions.
 
 **Paths are SHOWN with `~`** (617): `DisplayPath` (DozableHost: `tilde`, `tildeIn`, `homes`) and its twin `core/paths.js`
