@@ -60,17 +60,23 @@ func changePermissions(_ name: String, session: String? = nil, grant: [String], 
     r.grant = grant.isEmpty ? nil : grant
     r.revoke = revoke.isEmpty ? nil : revoke
     r.preset = preset
-    _ = try call(r, g)
+    // A port grant lifts the host's whole-host deny — said, so "allow this port" is never a silent surprise.
+    let portGrant = grant.contains { $0.hasPrefix("site:") && $0.dropFirst(5).contains(":") }
+    let before = portGrant ? (try? decode(try call(netRequest(.netPolicy, name, session), g), NetworkPolicy.self, g)) : nil
+    let after = try decode(try call(r, g), NetworkPolicy.self, g)
+    if let before, !g.json {
+        for l in PermissionPolicy.lifted(before: before, after: after, grant: grant) { Out.stderr("lifted: \(l)\n") }
+    }
     let rep = try decode(try call(netRequest(.netPermissions, name, session), g), PermissionReport.self, g)
     if g.json { Out.json(rep) } else { printPermissions(rep) }
 }
 
 struct NetAllow: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "allow",
-        abstract: "Switch permissions on (install:python, web, update, …; install = every ecosystem), allow a site (site:api.example.com), or set a preset (standard, locked, open). Live.")
+        abstract: "Switch permissions on (install:python, web, update, …; install = every ecosystem), allow a site (site:api.example.com, or one port: site:10.0.0.5:8780 — site:HOST:P1,P2 for several), or set a preset (standard, locked, open). Live.")
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
-    @Argument(help: "Permission ids (doz net permissions), site:HOST, or standard / locked / open.") var what: [String]
+    @Argument(help: "Permission ids (doz net permissions), site:HOST or site:HOST:PORT[,PORT], or standard / locked / open.") var what: [String]
     @Flag(name: [.short, .long], help: "Do not ask (Browse the web warns first).") var yes = false
     @Option(name: .long, help: "@mac: the fenced session.") var session: String?
     func run() async throws {
@@ -95,10 +101,10 @@ struct NetAllow: AsyncParsableCommand {
 
 struct NetDeny: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "deny",
-        abstract: "Switch permissions off (web, update, install:node, …) or deny a site (site:HOST). Live.")
+        abstract: "Switch permissions off (web, update, install:node, …) or deny a site (site:HOST, or just a port of it: site:HOST:PORT). Live.")
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
-    @Argument(help: "Permission ids (doz net permissions) or site:HOST.") var what: [String]
+    @Argument(help: "Permission ids (doz net permissions) or site:HOST or site:HOST:PORT[,PORT].") var what: [String]
     @Option(name: .long, help: "@mac: the fenced session.") var session: String?
     func run() async throws {
         let s = try netSession(name, session)

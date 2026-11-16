@@ -107,15 +107,12 @@ public enum PermissionPolicy {
         var names = Set(p.permissions ?? [])
         for g in grant {
             if g.hasPrefix("site:") {
-                let host = try site(g)
+                let (host, ports) = try site(g)
                 // 617: a host the sandbox's agent is known to call and Dozable keeps out — whatever is chosen.
                 if AgentPermissions.excludedHosts((p.permissions ?? []) + AgentPermissions.agentPermissions(agent)).contains(host) {
                     throw HostError(.invalid, "\(host) is kept out of a \(agent?.title ?? "this agent's") sandbox (Dozable never lets the agent reach it) — it cannot be allowed")
                 }
-                p.rules.removeAll { $0.host == host && $0.action == .deny && !$0.hasHTTPConditions }
-                if !p.rules.contains(where: { $0.host == host && $0.action == .allow && $0.ports == nil && !$0.hasHTTPConditions }) {
-                    p.rules.insert(EgressRule(host: host, note: "site you allowed"), at: 0)
-                }
+                grantSite(&p, host: host, ports: ports)
             } else if g == "install" {
                 for e in AgentPermissions.ecosystems { names.insert("install:" + e.id) }
             } else {
@@ -131,9 +128,8 @@ public enum PermissionPolicy {
         }
         for r in revoke {
             if r.hasPrefix("site:") {
-                let host = try site(r)
-                p.rules.removeAll { $0.host == host && !$0.hasHTTPConditions }
-                p.rules.insert(EgressRule(.deny, host: host, note: "site you denied"), at: 0)
+                let (host, ports) = try site(r)
+                revokeSite(&p, host: host, ports: ports, names: AgentPermissions.normalized(Array(names) + AgentPermissions.agentPermissions(agent)))
             } else if r == "install" {
                 for e in AgentPermissions.ecosystems { names.remove("install:" + e.id) }
             } else {
@@ -151,11 +147,156 @@ public enum PermissionPolicy {
         return p
     }
 
-    static func site(_ s: String) throws -> String {
-        let host = String(s.dropFirst(5)).lowercased()
+    /// The one `site:` parser: `site:HOST`, `site:HOST:PORT`, `site:HOST:P1,P2,…`. HOST is a name (`api.example.com`), a
+    /// wildcard (`*.example.com`) or an IPv4 address; ports are 1–65535, at most 16, each once, sorted. nil ports: every port.
+    public static func site(_ s: String) throws -> (host: String, ports: [UInt16]?) {
+        let form = "site: HOST or HOST:PORT — api.example.com, *.example.com:443, 100.64.0.5:8780"
+        let body = String(s.hasPrefix("site:") ? s.dropFirst(5) : Substring(s)).lowercased()
+        let parts = body.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
+        guard parts.count <= 2, !body.hasPrefix("[") else {
+            throw HostError(.invalid, "site: an IPv6 address is not supported in site rules yet (and a site takes one port list) — \(form)")
+        }
+        let host = parts[0]
         guard host.range(of: #"^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"#, options: .regularExpression) != nil,
-              host.count <= 253 else { throw HostError(.invalid, "site: a host name like api.example.com (or *.example.com)") }
-        return host
+              host.count <= 253 else { throw HostError(.invalid, "site: a host name like api.example.com (or *.example.com), or an IPv4 address — \(form)") }
+        guard parts.count == 2 else { return (host, nil) }
+        let words = parts[1].split(separator: ",", omittingEmptySubsequences: false).map(String.init)
+        guard !words.isEmpty, words.count <= 16 else { throw HostError(.invalid, "site: at most 16 ports — \(form)") }
+        var ports = Set<UInt16>()
+        for w in words {
+            guard !w.isEmpty, w.count <= 5, w.allSatisfy({ $0 >= "0" && $0 <= "9" }), let n = UInt16(w), n >= 1 else {
+                throw HostError(.invalid, "site: \"\(w)\" is not a port (1–65535) — \(form)")
+            }
+            ports.insert(n)
+        }
+        return (host, ports.sorted())
+    }
+
+    /// `--allow` / `--permissions` words: each item split at commas — except that a bare number after a `site:HOST:PORT`
+    /// word is that site's next port (`site:h:80,443` is one word, not a site and a permission called `443`).
+    public static func splitWords(_ items: [String]) -> [String] {
+        var out: [String] = []
+        for item in items {
+            for raw in item.split(separator: ",", omittingEmptySubsequences: true) {
+                let w = raw.trimmingCharacters(in: .whitespaces)
+                if w.isEmpty { continue }
+                if w.allSatisfy({ $0 >= "0" && $0 <= "9" }), let last = out.last, last.hasPrefix("site:"),
+                   last.dropFirst(5).contains(":") { out[out.count - 1] = last + "," + w; continue }
+                out.append(w)
+            }
+        }
+        return out
+    }
+
+    /// Whether `rule` is one of a person's site rules (unconditional) for `host`.
+    private static func ownSite(_ r: EgressRule, _ host: String) -> Bool { r.host == host && !r.hasHTTPConditions }
+
+    /// The ordering invariant of a person's site rules, for the hosts in `hosts` (nil: every host): for one host, a
+    /// whole-host deny first, then port denies, then allows (whole-host and port) — so a deny always wins and an allow
+    /// can never hide behind a later deny. Identical rules collapse; a port allow under a whole-host allow (or a port deny
+    /// under a whole-host deny) is folded into it. Rules keep the slots the host's rules held; rules with HTTP
+    /// conditions and other hosts' rules are never moved. Pure.
+    public static func normalizedSiteRules(_ rules: [EgressRule], hosts: Set<String>? = nil) -> [EgressRule] {
+        var out = rules
+        for host in hosts ?? Set(rules.filter { !$0.hasHTTPConditions }.map(\.host)) {
+            let idx = out.indices.filter { ownSite(out[$0], host) }
+            guard idx.count > 1 else { continue }
+            let group = idx.map { out[$0] }
+            let wholeAllow = group.contains { $0.action == .allow && $0.ports == nil }
+            let wholeDeny = group.contains { $0.action == .deny && $0.ports == nil }
+            var kept: [EgressRule] = []
+            for r in group {
+                if r.ports != nil, (r.action == .allow && wholeAllow) || (r.action == .deny && wholeDeny) { continue }
+                if kept.contains(where: { $0.action == r.action && $0.ports == r.ports }) { continue }
+                kept.append(r)
+            }
+            func rank(_ r: EgressRule) -> Int { r.action == .deny ? (r.ports == nil ? 0 : 1) : 2 }
+            kept = kept.enumerated().sorted { rank($0.element) != rank($1.element) ? rank($0.element) < rank($1.element) : $0.offset < $1.offset }.map(\.element)
+            for (n, i) in idx.enumerated() where n < kept.count { out[i] = kept[n] }
+            for i in idx.dropFirst(kept.count).reversed() { out.remove(at: i) }
+        }
+        return out
+    }
+
+    /// A rule's host as `evaluateConnection` takes it (a wildcard as a name under it).
+    private static func probe(_ host: String) -> String { host.hasPrefix("*.") ? "x" + host.dropFirst(1) : host }
+
+    /// `site:HOST[:PORTS]` allowed. A port grant: lifts the whole-host deny of that host (a person who allows a port means
+    /// it — `lifted(before:after:grant:)` says so), takes the granted ports out of the host's port denies, and adds the
+    /// ports to the host's allow (one rule, first) unless a whole-host allow already covers them. A whole-host grant:
+    /// lifts the host's whole-host deny (port denies stay — they are narrower), folds the host's port allows into it.
+    static func grantSite(_ p: inout NetworkPolicy, host: String, ports: [UInt16]?) {
+        p.rules.removeAll { ownSite($0, host) && $0.action == .deny && $0.ports == nil }
+        if let ports {
+            var rules: [EgressRule] = []
+            for r in p.rules {
+                if ownSite(r, host), r.action == .deny, let rp = r.ports {
+                    let rest = rp.filter { !ports.contains($0) }
+                    if rest.isEmpty { continue }
+                    var c = r; c.ports = rest; rules.append(c); continue
+                }
+                rules.append(r)
+            }
+            p.rules = rules
+            if !p.rules.contains(where: { ownSite($0, host) && $0.action == .allow && $0.ports == nil }) {
+                let have = p.rules.filter { ownSite($0, host) && $0.action == .allow }.compactMap(\.ports)
+                let merged = Set(have.flatMap { $0 } + ports).sorted()
+                if !(have.count == 1 && have[0] == merged) {
+                    p.rules.removeAll { ownSite($0, host) && $0.action == .allow }
+                    p.rules.insert(EgressRule(host: host, ports: merged, note: "site you allowed"), at: 0)
+                }
+            }
+        } else {
+            p.rules.removeAll { ownSite($0, host) && $0.action == .allow && $0.ports != nil }
+            if !p.rules.contains(where: { ownSite($0, host) && $0.action == .allow && $0.ports == nil }) {
+                p.rules.insert(EgressRule(host: host, note: "site you allowed"), at: 0)
+            }
+        }
+        p.rules = normalizedSiteRules(p.rules, hosts: [host])
+    }
+
+    /// `site:HOST[:PORTS]` denied. No ports: every rule of the host goes and a whole-host deny comes first (as ever). Ports:
+    /// they leave the host's port allows; and the ports something still lets through (a whole-host allow, a permission,
+    /// browsing the web) are denied by a `deny HOST:PORTS` first — just those ports. `names`: the permissions the policy
+    /// will have.
+    static func revokeSite(_ p: inout NetworkPolicy, host: String, ports: [UInt16]?, names: [String]) {
+        guard let ports else {
+            p.rules.removeAll { ownSite($0, host) }
+            p.rules.insert(EgressRule(.deny, host: host, note: "site you denied"), at: 0)
+            return
+        }
+        var rules: [EgressRule] = []
+        for r in p.rules {
+            if ownSite(r, host), r.action == .allow, let rp = r.ports {
+                let rest = rp.filter { !ports.contains($0) }
+                if rest.isEmpty { continue }
+                var c = r; c.ports = rest; rules.append(c); continue
+            }
+            rules.append(r)
+        }
+        p.rules = rules
+        var probeP = p
+        probeP.permissions = names
+        let open = ports.filter { probeP.evaluateConnection(host: probe(host), port: $0).kind != .deny }
+        if !open.isEmpty {
+            let have = p.rules.filter { ownSite($0, host) && $0.action == .deny }.compactMap(\.ports)
+            let merged = Set(have.flatMap { $0 } + open).sorted()
+            p.rules.removeAll { ownSite($0, host) && $0.action == .deny && $0.ports != nil }
+            p.rules.insert(EgressRule(.deny, host: host, ports: merged, note: "site you denied"), at: 0)
+        }
+        p.rules = normalizedSiteRules(p.rules, hosts: [host])
+    }
+
+    /// The whole-host denies a `site:HOST:PORTS` grant lifted (`before` → `after`), for the command's answer.
+    public static func lifted(before: NetworkPolicy, after: NetworkPolicy, grant: [String]) -> [String] {
+        var out: [String] = []
+        for g in grant where g.hasPrefix("site:") {
+            guard let (host, ports) = try? site(g), ports != nil else { continue }
+            let had = before.rules.contains { ownSite($0, host) && $0.action == .deny && $0.ports == nil }
+            let has = after.rules.contains { ownSite($0, host) && $0.action == .deny && $0.ports == nil }
+            if had, !has { out.append("deny \(host)") }
+        }
+        return out
     }
 
     /// The host a DNS service lookup is about: its leading `_service._proto.` labels dropped (apt asks for
@@ -210,7 +351,7 @@ public enum PermissionPolicy {
         var tmp = policy
         tmp.permissions = names
         tmp.rules = own
-        let sites = own.filter { $0.action == .allow && !$0.hasHTTPConditions }.map(\.host)
+        let sites = own.filter { $0.action == .allow && !$0.hasHTTPConditions }.map(\.siteSpec)
         // 617: what the agent is expected to be refused (its recipe's quiet list) is no refusal to report.
         let quiet = Set(AgentPermissions.quietHosts(names))
         let deniedRecs = log.filter { $0.verdict == .denied && !quiet.contains($0.host.lowercased()) }
@@ -230,8 +371,10 @@ public enum PermissionPolicy {
                 // Owner, 2026-10-23: "i dont want to have to approve each URL" — one approval per domain: a host under
                 // it is suggested as `*.domain` (claude.ai's artifact frames are a new `<uuid>.frame.claudeusercontent.com`
                 // each time), the domain itself as itself.
+                // Any port but 80 and 443 is a narrower grant: that host, that port (a hub's agent port, a dev server).
                 let domain = siteDomain(host)
-                if domain == host { grant = "site:" + host; what = host } else { grant = "site:*." + domain; what = "*." + domain }
+                if let port = r.port, port != 80, port != 443 { grant = "site:\(host):\(port)"; what = "\(host):\(port)" }
+                else if domain == host { grant = "site:" + host; what = host } else { grant = "site:*." + domain; what = "*." + domain }
                 perm = nil
             }
             if byGrant[grant] == nil { order.append(grant); byGrant[grant] = PermissionSuggestion(permission: perm, what: what, hosts: [], count: 0, grant: grant) }
@@ -253,7 +396,7 @@ public enum PermissionPolicy {
         let on = AgentPermissions.all.filter { names.contains($0.id) && !AgentPermissions.isAgentUpdate($0.id) && !AgentPermissions.isAgentVendor($0.id) && !AgentPermissions.isAgentSources($0.id) }.map(\.phrase)
         let off = AgentPermissions.all.filter { !names.contains($0.id) && !AgentPermissions.isAgentOwn($0.id) && !(ownModel && $0.id == "model") }
         var s = "You may " + list(on) + "."
-        let sites = own.filter { $0.action == .allow && !$0.hasHTTPConditions }.map(\.host)
+        let sites = own.filter { $0.action == .allow && !$0.hasHTTPConditions }.map(\.siteSpec)
         if !sites.isEmpty { s += " Sites the user allowed: " + sites.prefix(20).joined(separator: ", ") + "." }
         if !off.isEmpty {
             s += " You may not " + list(off.map(\.phrase)) + "."

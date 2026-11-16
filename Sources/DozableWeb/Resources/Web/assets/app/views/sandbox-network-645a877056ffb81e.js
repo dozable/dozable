@@ -73,7 +73,7 @@ function permissionsPanel(name, net, ro) {
   });
   const sites = p.sites.map((host) => h('span', { class: 'tag perm-site', 'data-site': host }, host, ' ',
     h('button', { type: 'button', class: 'btn sm quiet icon-only', title: 'Deny ' + host, 'aria-label': 'Deny ' + host, on: { click: () => send({ revoke: ['site:' + host] }) } }, icon('x'))));
-  const siteInput = h('input', { type: 'text', placeholder: 'api.example.com', 'aria-label': 'A site to allow', 'data-site-input': '', spellcheck: 'false' });
+  const siteInput = h('input', { type: 'text', placeholder: 'api.example.com or host:8780', title: 'A host, or host:port (host:80,443 for several ports)', 'aria-label': 'A site to allow, with an optional port', 'data-site-input': '', spellcheck: 'false' });
   return h('div', { class: 'panel perm-panel', 'data-perm-panel': name },
     h('div', { class: 'perm-head' }, h('strong', null, 'What the agent can do'),
       h('div', { class: 'segmented', role: 'group', 'aria-label': 'Preset' }, presetBtn('locked'), presetBtn('agent'), presetBtn('open')),

@@ -160,9 +160,17 @@ public struct NetworkPolicy: Sendable, Codable, Equatable {
     /// Whether a DNS question for `name` is answered: when a connection to it could be allowed on
     /// ANY port. (Docker gates DNS too: a denied name does not even resolve.)
     public func allowsName(_ name: String) -> Bool {
+        var denied = Set<UInt16>()       // ports an earlier unconditional port deny already refuses for this name
         for r in effectiveRules where r.matchesName(name) {
-            if r.action == .allow { return true }
-            if !r.hasHTTPConditions && r.ports == nil { return false }
+            if r.action == .allow {
+                // A port allow every one of whose ports is denied above it opens nothing.
+                if let ports = r.ports, !ports.contains(where: { !denied.contains($0) }) { continue }
+                return true
+            }
+            if !r.hasHTTPConditions {
+                guard let ports = r.ports else { return false }
+                denied.formUnion(ports)
+            }
         }
         return effectiveDefault == .allow
     }
@@ -232,6 +240,9 @@ public struct EgressRule: Sendable, Codable, Equatable, Identifiable {
         if let pathPrefixes { s += " " + pathPrefixes.map { EgressRule.isExactPath($0) ? String($0.dropLast()) : $0 + "*" }.joined(separator: " ") }
         return s
     }
+
+    /// The rule's destination as a person writes a site: `HOST`, or `HOST:PORT[,PORT]`.
+    public var siteSpec: String { host + (ports.map { ":" + $0.map(String.init).joined(separator: ",") } ?? "") }
 
     public func matches(host target: String, port: UInt16) -> Bool {
         if let ports, !ports.contains(port) { return false }

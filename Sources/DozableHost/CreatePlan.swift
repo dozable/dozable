@@ -665,7 +665,7 @@ public enum CreatePlanner {
                 }
             }
             if !names.contains(where: { $0.hasPrefix("install") }) { out.append(ReachLine("packages", "No package installs\(p.preset == "locked" ? " (Locked)" : "")")) }
-            for r in own where r.action == .allow && !r.hasHTTPConditions { out.append(ReachLine("web", "A site you allowed: \(r.host)")) }
+            for r in own where r.action == .allow && !r.hasHTTPConditions { out.append(ReachLine("web", "A site you allowed: \(r.siteSpec)")) }
             let excluded = AgentPermissions.excludedHosts(names)
             if !excluded.isEmpty { out.append(ReachLine("excluded", "Kept out whatever you choose: " + excluded.joined(separator: ", "))) }
             if !names.contains("web") { out.append(ReachLine("denied", "Every other host: refused and logged")) }

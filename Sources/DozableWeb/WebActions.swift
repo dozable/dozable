@@ -488,7 +488,7 @@ public enum WebAction: Equatable, Sendable {
                 o.permissions = p
             }
             let sites = try f.permissionWords("sites")
-            guard sites.allSatisfy({ $0.hasPrefix("site:") }) else { throw Invalid("sites: site:HOST each") }
+            guard sites.allSatisfy({ $0.hasPrefix("site:") }) else { throw Invalid("sites: site:HOST or site:HOST:PORT each") }
             if !sites.isEmpty { o.allow = sites }
             // 596 (B6): a Dockerfile base — an absolute path (the host checks the file); the image then
             // only carries the agent (claude-code, pi or lab = none).
@@ -809,9 +809,7 @@ public enum WebAction: Equatable, Sendable {
             for x in a {
                 guard let s = x as? String, s.count <= 260 else { throw Invalid("\(key): a permission id or site:HOST") }
                 if s.hasPrefix("site:") {
-                    guard s.dropFirst(5).range(of: #"^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"#, options: .regularExpression) != nil else {
-                        throw Invalid("\(key): site:HOST, a host name like api.example.com")
-                    }
+                    do { _ = try PermissionPolicy.site(s) } catch { throw Invalid("\(key): " + HostError.from(error).message) }
                 } else {
                     guard s == "install" || AgentPermissions.isValid(s) else { throw Invalid("\(key): a permission id (doz net permissions) or site:HOST") }
                 }

@@ -28,7 +28,7 @@ func cliFenceSuite(binary: String) async {
     // The fake upstreams of the network rows (M2), on this Mac's loopback — the host's guarded seam names them.
     let allowed = FenceUpstream(), streamer = FenceUpstream(stream: true)
     defer { allowed.stop(); streamer.stop() }
-    t.env["DOZ_TEST_FENCE_UPSTREAMS"] = "allowed.doz.test=127.0.0.1:\(allowed.port),denied.doz.test=127.0.0.1:\(allowed.port),stream.doz.test=127.0.0.1:\(streamer.port)"
+    t.env["DOZ_TEST_FENCE_UPSTREAMS"] = "allowed.doz.test=127.0.0.1:\(allowed.port),denied.doz.test=127.0.0.1:\(allowed.port),stream.doz.test=127.0.0.1:\(streamer.port),ports.doz.test=127.0.0.1:\(allowed.port)"
     let dozStore = DozableStore(root: URL(fileURLWithPath: store))
     let sockets = MacPlace.socketDirectory(store: dozStore)
     var started: Set<String> = []

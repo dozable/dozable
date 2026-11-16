@@ -275,7 +275,7 @@ doz try doz.sh/anthropic/claude-code        # Dozable's recipe directory, doz.sh
 | option | what it chooses |
 |---|---|
 | `--agent`, `--base`, `--dockerfile` | the agent and its base (`--image` is the shorthand for both); a tool's major or release: `--agent opencode@1`; its full name: `--agent anthropic/claude-code` |
-| `--permissions` | what the agent may do: `standard`, `locked`, `open`, `+web`, `-error-reports`, `site:HOST` (`--allow` is the same) |
+| `--permissions` | what the agent may do: `standard`, `locked`, `open`, `+web`, `-error-reports`, `site:HOST` or `site:HOST:PORT` (`--allow` is the same) |
 | `--network` | `agent`, `locked`, `open`, `bake`, `nat` or `none` |
 | `--account`, `--key` | the account, and custom keys beside it |
 | `--github`, `--ssh-agent` | GitHub as you, your SSH agent |

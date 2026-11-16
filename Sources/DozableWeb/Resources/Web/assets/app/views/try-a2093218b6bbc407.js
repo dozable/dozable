@@ -24,7 +24,7 @@ import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { renderModal, wizardCloseRequest } from '../components/modal-d6e9977376255ebe.js';
 import { pageFailure, toast } from '../components/notices-a8bcbd0d28fca151.js';
-import { startQuickMade } from './quick-make-77de8cb40d0dfd54.js';
+import { startQuickMade } from './quick-make-c7a798953d6814db.js';
 import { planCommand, reachList } from '../components/plan-view-9c5b2768ab9acf20.js';
 import { LOCAL, localNodes, modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source-954e37f5d213e7c4.js';
 import { prepCard } from '../components/prep-card-28926b6cfdbdf80e.js';

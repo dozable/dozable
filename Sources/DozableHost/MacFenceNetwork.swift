@@ -42,12 +42,10 @@ public enum MacFenceNetwork {
     /// PERMISSION, -PERMISSION, site:HOST) from this Mac's Standard. Unknown words are refused.
     public static func policy(words: [String]) throws -> NetworkPolicy {
         var names: [String] = []
-        var sites: [String] = []
-        for w in words.flatMap({ $0.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) } }) where !w.isEmpty {
+        var sites: [(host: String, ports: [UInt16]?)] = []
+        for w in PermissionPolicy.splitWords(words) {
             if w.hasPrefix("site:") {
-                let h = String(w.dropFirst(5)).lowercased()
-                guard !h.isEmpty, !h.contains("/"), !h.contains(" ") else { throw HostError(.invalid, "--permissions \(w): site:HOST") }
-                sites.append(h)
+                do { sites.append(try PermissionPolicy.site(w)) } catch { throw HostError(.invalid, "--permissions \(w): " + HostError.from(error).message) }
                 continue
             }
             let id = w.hasPrefix("-") || w.hasPrefix("+") ? String(w.dropFirst()) : w
@@ -58,7 +56,9 @@ public enum MacFenceNetwork {
         }
         let set = PermissionPolicy.names(from: names, base: AgentPermissions.macBase, start: AgentPermissions.macPreset("standard"))
         var p = NetworkPolicy.permissions(set, preset: AgentPermissions.presetName(set, base: AgentPermissions.macBase))
-        for h in sites { p.allow(host: h, note: "site you allowed") }
+        for s in sites {
+            if let ports = s.ports { PermissionPolicy.grantSite(&p, host: s.host, ports: ports) } else { p.allow(host: s.host, note: "site you allowed") }
+        }
         return p
     }
 
