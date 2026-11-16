@@ -2,7 +2,7 @@
 
 A **sandbox** is one Linux virtual machine with its own disks. This page covers making one, the
 states it can be in — running, paused, asleep, hibernated, shut down — and moving between them, and
-the background **host** that runs them all.
+the background **daemon** that runs them all.
 
 ## Concepts
 
@@ -21,7 +21,7 @@ the background **host** that runs them all.
   on your Mac is shared. `doz ls` shows `isolated`, and the agent is told.
 - **Sessions.** The terminal programs running inside (a shell, `claude`, `pi`). They survive pause,
   sleep and hibernate. See [Terminals and sessions](07-terminals-and-sessions.md).
-- **The host.** One background `doz` process per store. It owns every running VM, the network proxy
+- **The daemon.** One background `doz` process per store. It owns every running VM, the network proxy
   and the credentials. The first command that needs it starts it, and it exits when idle, so you
   normally never think about it.
 
@@ -58,7 +58,7 @@ asleep or hibernated sandbox and resumes a paused one, so it's the one command t
 |---|---|---|---|---|
 | `doz start NAME` | boots (or wakes it if asleep, resumes it if paused) | ~0.4 s (a first start may prepare the image) | used as needed | start fresh |
 | `doz pause NAME` · `doz resume NAME` | the CPU stops | ~1 ms | kept | frozen, then carry on |
-| `doz sleep NAME` · `doz wake NAME` | paused **and** saved to disk — survives a crash of the host | ~0.3 s | kept | carry on |
+| `doz sleep NAME` · `doz wake NAME` | paused **and** saved to disk — survives a crash of the daemon | ~0.3 s | kept | carry on |
 | `doz hibernate NAME` · `doz wake NAME` | saved to disk, then the VM stops | ~0.35 s / ~0.3 s | **given back** | carry on: same processes, same screens |
 | `doz shutdown NAME` | a cold stop; the disks are kept | | given back | end |
 | `doz down NAME` | the opposite of `up`: hibernate (`--sleep`: sleep; `--shutdown`: shut down) | as those | as those | as those |
@@ -213,13 +213,13 @@ doz sessions my-app     # its terminal sessions
 ```
 
 **RAM held** is what the VM costs your Mac right now: its allocation, less what it handed back after
-a wake. It shows `—` for a sandbox that is off or hibernated. Looking never starts a host: with none
+a wake. It shows `—` for a sandbox that is off or hibernated. Looking never starts a daemon: with none
 running, these commands read the store directly.
 
 ## Saved screens
 
 Before a sandbox pauses, sleeps or hibernates, Dozable saves the screen of each of its sessions — and
-every `host.screen_capture_minutes` (5) while it runs, for sessions that printed something since. So
+every `daemon.screen_capture_minutes` (5) while it runs, for sessions that printed something since. So
 you can see what a sleeping sandbox was doing without waking it:
 
 ```sh
@@ -249,23 +249,23 @@ In the dashboard: **⋯** › **Boot log** on the sandbox's page (it works in an
 
 ![A kept boot](images/boot-log.png)
 
-## The host
+## The daemon
 
 ```sh
-doz host status          # is one running, and what does it hold? (never starts one)
-doz host stop            # hibernate everything that runs, then stop the host
-doz events               # follow what the host does, live (Ctrl-C stops)
+doz daemon status          # is one running, and what does it hold? (never starts one)
+doz daemon stop            # hibernate everything that runs, then stop the daemon
+doz events               # follow what the daemon does, live (Ctrl-C stops)
 doz events my-app        # only this sandbox
 ```
 
-- **Idle exit.** The host exits after `host.idle_timeout_minutes` (5) with nothing running, paused
+- **Idle exit.** The daemon exits after `daemon.idle_timeout_minutes` (5) with nothing running, paused
   or asleep and nobody attached. The next command starts a new one.
-- **`doz host stop`** shows each sandbox as it hibernates, then a summary. Everything wakes on the
+- **`doz daemon stop`** shows each sandbox as it hibernates, then a summary. Everything wakes on the
   next `wake`, `attach`, `up` or `exec`, sessions and all.
-- **If the host crashes**, the next command starts a new one. Sleeping sandboxes come back with their
+- **If the daemon crashes**, the next command starts a new one. Sleeping sandboxes come back with their
   sessions; hibernated ones are untouched. Ones that were running are marked as having died with the
-  host (`doz ls`), and their disk is checked at the next start.
-- **Logs** are in `<store>/host.log`. `doz metrics` shows how long each kind of action takes.
+  daemon (`doz ls`), and their disk is checked at the next start.
+- **Logs** are in `<store>/daemon.log`. `doz metrics` shows how long each kind of action takes.
 
 ## Time zone
 
@@ -286,9 +286,9 @@ newer doz fixes, without a restart.
 | `images.lab.memory_mib` · `recipes.anthropic.claude-code.memory_mib` · `recipes.earendil-works.pi.memory_mib` | `1024` · `2048` · `2048` | Memory of a new sandbox of each image (`--memory`); other images follow the one they're based on. |
 | `defaults.projects_dir` | `~/doz-workspaces` | Your projects folder: where Quick add, `doz new` and the dashboard's New sandbox make a new sandbox's own folder (`<projects_dir>/NAME`). **Settings** › **Choose…** picks it. |
 | `sandbox.timezone` | `mac` | `mac` (follow this Mac) or a zone like `Australia/Sydney`. Applies at each start or wake. |
-| `host.idle_timeout_minutes` | `5` | Minutes with nothing running before the host exits; `0` = never (`$DOZ_HOST_IDLE`). |
-| `host.screen_capture_minutes` | `5` | How often a running sandbox's changed screens are saved; `0` = only at pause, sleep and hibernate. |
-| `host.boot_logs_kept` | `5` | Boots kept per sandbox (1–50). |
+| `daemon.idle_timeout_minutes` | `5` | Minutes with nothing running before the daemon exits; `0` = never (`$DOZ_DAEMON_IDLE`). |
+| `daemon.screen_capture_minutes` | `5` | How often a running sandbox's changed screens are saved; `0` = only at pause, sleep and hibernate. |
+| `daemon.boot_logs_kept` | `5` | Boots kept per sandbox (1–50). |
 | `ui.boot_view_on_start` | `false` | After the dashboard's Start, stay on the Console tab rather than switch to the agent's tab. |
 | `ui.confirm_shutdown` | `true` | The dashboard's Shut down asks first. |
 
@@ -305,6 +305,6 @@ newer doz fixes, without a restart.
 |---|---|
 | The first start is slow | It's preparing the image, once per store. `doz onboard` or `doz image bake NAME` does it ahead of time; `-v` shows the steps. |
 | A start or wake failed | `doz console NAME --list`, then `doz console NAME --steps`: the failing step is marked ✕, with why. |
-| A wake fails again and again | `doz host stop`, then wake again (a failed wake keeps its snapshot). Last resort: `doz shutdown NAME` then `doz start NAME` — programs end, the disks are kept. For Claude Code, `claude --continue` picks the conversation back up. |
-| A sandbox shows as died | The host crashed while it ran. `doz start NAME` checks its disk and boots it. |
+| A wake fails again and again | `doz daemon stop`, then wake again (a failed wake keeps its snapshot). Last resort: `doz shutdown NAME` then `doz start NAME` — programs end, the disks are kept. For Claude Code, `claude --continue` picks the conversation back up. |
+| A sandbox shows as died | The daemon crashed while it ran. `doz start NAME` checks its disk and boots it. |
 | "not possible in this phase" | The action doesn't fit the sandbox's state (e.g. `resume` on one that isn't paused). `doz ls` shows its state. |

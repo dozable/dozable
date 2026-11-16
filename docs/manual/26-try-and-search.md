@@ -164,7 +164,7 @@ Gemini CLI — supported · key: Google AI (Gemini API) (you have google) · try
 
 - **active**: a release in the last 3 months; **quiet**: none for 3 months; **stale**: none for 6 months;
   **deprecated**: its maker marked that release deprecated (that wins).
-- The Dozable host looks up each agent's latest release about once an hour while it runs (the same check that keeps
+- The Dozable daemon looks up each agent's latest release about once an hour while it runs (the same check that keeps
   images up to date). Looking — `doz search`, `doz try`, the Quick try — never asks the internet; before the first
   check it says *not checked yet*.
 - A tool Dozable installs from one pinned release download or a hash-locked set of Python packages (Fabric, AIChat,
@@ -304,4 +304,4 @@ The plan has three parts:
   yours)", "Copy to your Mac's clipboard: on", "Open files on your Mac: on").
 
 It also says whether the image is ready, which account and key it uses (where the key comes from, never the key),
-and anything in the way, with the fix. `--json` gives the same plan as data. Looking never starts the host.
+and anything in the way, with the fix. `--json` gives the same plan as data. Looking never starts the daemon.

@@ -71,7 +71,7 @@ The page measures when you open it, on **Refresh**, and when an operation ends.
 
 ## Memory, CPUs, traffic and kernels
 
-The same report shows the memory each running sandbox holds (and the host's and the dashboard's),
+The same report shows the memory each running sandbox holds (and the daemon's and the dashboard's),
 the CPUs given to sandboxes, each sandbox's network traffic through the proxy (today and in all), and
 the Linux kernels. **Use this kernel** (or `doz resources kernel kernel:VERSION`, or `pinned` for
 this version's own) picks the kernel **new** sandboxes boot; existing ones keep theirs.
@@ -88,7 +88,7 @@ with Apple's `container` command.
 | key | default | what it does |
 |---|---|---|
 | `resources.clean_unused_days` | `30` | Clean up removes a baked image no sandbox was made from in this many days (1–3650). It's baked again when next needed. |
-| `host.boot_logs_kept` | `5` | Boots kept per sandbox. |
+| `daemon.boot_logs_kept` | `5` | Boots kept per sandbox. |
 | `store.path` | `~/Library/Application Support/doz` | Where the store is. |
 
 ## Troubleshooting

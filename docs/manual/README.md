@@ -50,7 +50,7 @@ both.
 | [Troubleshooting and FAQ](17-troubleshooting-and-faq.md) | fix something, or find a quick answer |
 | [Sound](23-sound.md) | give a sandbox your Mac's speakers, and its microphone |
 | [Sessions on this Mac](34-sessions-on-this-mac.md) | run a program on the Mac itself (an agent on a project, Xcode, the Simulator) held like a sandbox's session — `doz run @mac`, fenced to its folder and a proxy by default, `--unfenced` for no isolation — and know what the fence is and is not |
-| [Bundling doz in an app](33-bundling-doz-in-an-app.md) | (app authors only) carry the helper build of `doz` inside your Mac app and drive it over `host.sock` |
+| [Bundling doz in an app](33-bundling-doz-in-an-app.md) | (app authors only) carry the helper build of `doz` inside your Mac app and drive it over `daemon.sock` |
 
 ## Conventions
 

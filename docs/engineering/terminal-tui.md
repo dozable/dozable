@@ -11,7 +11,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 ## The terminal — DozableTUI, colour on one switch
 
 637 (owner: "a library of reusable tui components that the colour effects are based on; colour should be able to be
-turned off with a flag and setting"). `Sources/DozableTUI` — Foundation + Darwin only (the audit holds it), so the host
+turned off with a flag and setting"). `Sources/DozableTUI` — Foundation + Darwin only (the audit holds it), so the daemon
 may use it too.
 
 - **Colour is decided ONCE per process**: `GlobalOptions.validate()` (ArgumentParser validates an option group as it

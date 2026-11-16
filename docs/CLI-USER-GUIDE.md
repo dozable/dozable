@@ -14,8 +14,8 @@ task, for the CLI and the dashboard side by side; this guide is the terse comman
 | **Image** | What a sandbox starts from: a baked, read-only disk. Built in: `lab` (Alpine + bash and `fd`, 1 GiB RAM), `claude-code` and `pi` (Debian `node` + the agent and a developer baseline — git, curl, jq, `rg`, `fd`, python3, … — 2 GiB). Custom images are saved from a sandbox. |
 | **Session** | A terminal program living in the sandbox (a shell, `claude`, `pi`). It survives pause, sleep and hibernate. You *attach* to it and *detach* from it; it keeps running either way. |
 | **Workspace** | A folder of your Mac shared into the sandbox at `/workspace`. |
-| **Host** | One background `doz` process per user and store. It owns every running VM, the network proxy and the keys. It starts when needed and exits when idle, so you never manage it. |
-| **Store** | Where everything lives on disk: `~/Library/Application Support/doz` unless `--store` or `$DOZ_STORE` says otherwise. Each store has its own images, sandboxes and host. |
+| **Daemon** | One background `doz` process per user and store. It owns every running VM, the network proxy and the keys. It starts when needed and exits when idle, so you never manage it. |
+| **Store** | Where everything lives on disk: `~/Library/Application Support/doz` unless `--store` or `$DOZ_STORE` says otherwise. Each store has its own images, sandboxes and daemon. |
 
 ## Install
 
@@ -26,7 +26,7 @@ brew install dozable/tap/doz
 doz onboard                       # once: set up this Mac
 ```
 
-Afterwards: `brew upgrade doz` (or `doz upgrade -y`) for a new release — doz tells you when one is out — safe with a host running (below) — and `brew uninstall doz` to remove it.
+Afterwards: `brew upgrade doz` (or `doz upgrade -y`) for a new release — doz tells you when one is out — safe with a daemon running (below) — and `brew uninstall doz` to remove it.
 
 A VM can only be booted by a binary signed with Apple's virtualization entitlement; the release is
 signed with it (ad hoc today — enough for Homebrew, which never quarantines a formula's download;
@@ -78,7 +78,7 @@ set up, and what to run next.
    (a key works instead), vmnet (only `--network nat` needs it).
 2. **Base image** — every base listed (Node.js first, recommended) or *None now*; typed: `Use Node.js (node:22-bookworm, ↓ 381 MiB)? [Y/n/other]`. The store's ONE base
    (`defaults.base`), every quick-made tool added to it as a layer. Its preparation (kernel, guest init, the base
-   image pulled, its disk flattened) starts **in the host** at once and the questions go on; a line between two
+   image pulled, its disk flattened) starts **in the daemon** at once and the questions go on; a line between two
    steps says how far it is.
 3. **Models & keys** — the sign-ins found on this Mac (Claude Code, Codex: read-only, never logged in for you), then
    *Add a key?* — every provider and gateway with the tools it serves — until *No more keys* (typed:
@@ -109,7 +109,7 @@ set up, and what to run next.
    [~/doz-workspaces/claude]:` — made the quick way (the store's base, Locked, a new empty folder unless you give
    one), its `doz new …` command shown. Onboarding waits for the base (the progress view; **Ctrl-C detaches** — it
    goes on, `--status` re-attaches, `--cancel` cancels), then starts it and attaches, as `doz try` does. The
-   store is marked onboarded (`<store>/onboarded.json`, with its base) by the host when the base is ready — even if
+   store is marked onboarded (`<store>/onboarded.json`, with its base) by the daemon when the base is ready — even if
    you detached.
 
 **One preparation per image.** A `doz start` (or `up`, `image bake`, the web UI) of an image being
@@ -132,7 +132,7 @@ is nothing to go on, and it says so: "first time: no estimate yet".
 exact version. Which one is the setting `images.claude_code_version` (and `images.pi_version`):
 `latest` — the default — or an exact version such as `2.1.227`.
 
-- **`latest` is resolved when the image is prepared**, never while a sandbox runs: the host asks
+- **`latest` is resolved when the image is prepared**, never while a sandbox runs: the daemon asks
   the npm registry for the package's latest version and its sha512 integrity, and the bake installs
   THAT version, integrity-checked. The preparation's step says so — `npm install
   @anthropic-ai/claude-code@2.1.285 (latest, resolved now)` — and the version is part of the image
@@ -156,8 +156,8 @@ exact version. Which one is the setting `images.claude_code_version` (and `image
   would wait for — its image, downloaded and baked once, with the same progress `doz onboard` shows (a
   preparation already running for that image is joined) — and leaves the sandbox off. With `--json`
   the answer carries `"imagePreparation": "prepared"` (it ran, or was joined, to the end) or `"ready"`
-  (nothing to prepare). Ctrl-C stops watching; the preparation goes on in the host.
-- **Offline:** the registry not answering is noted in `host.log` and the image already prepared is
+  (nothing to prepare). Ctrl-C stops watching; the preparation goes on in the daemon.
+- **Offline:** the registry not answering is noted in `daemon.log` and the image already prepared is
   used. `latest` with no network and **no image yet** fails, saying so — set an exact version
   (`doz config set images.claude_code_version 2.1.227`). An exact version this store knows (the
   built-in one, or one it prepared or resolved before) always works without asking.
@@ -236,11 +236,11 @@ error naming its line. No anchors or aliases, one document, 64 KiB at most.
 doz uninstall [--keep-store] [--keep-config] [--yes]
 ```
 
-It lists exactly what goes — the store (every sandbox, image, kernel and restore point, the host's
+It lists exactly what goes — the store (every sandbox, image, kernel and restore point, the daemon's
 log and metrics), the settings directory (`doz.toml`, `agent-prompt.md`), and the installed `doz`
 (`<prefix>/libexec/doz/` and the `<prefix>/bin/doz` link, when this `doz` is one `make install-cli`
 installed; a `doz` Homebrew installed is Homebrew's — it says so, and ends with `brew uninstall
-doz`) — and asks once; no terminal and no `--yes` refuses (exit 5). A running host is stopped
+doz`) — and asks once; no terminal and no `--yes` refuses (exit 5). A running daemon is stopped
 first; a running `doz ui` must be stopped by you. It never touches the keychain — it names any item
 `doz account add` made (`doz account rm NAME` removes one; do it before uninstalling) — nor Claude
 Code's own files or login. A store directory that does not look like a store is refused.
@@ -260,7 +260,7 @@ Code's own files or login. A store directory that does not look like a store is 
 |---|---|---|---|---|
 | `start NAME` (`cold-boot`) | boots; wakes it if asleep, resumes it if paused | ~0.4 s (the first ever start also bakes the image) | allocated as used | start fresh |
 | `pause NAME` (`suspend`) · `resume NAME` | stops the guest CPU | ~1 ms | kept | frozen, then continue |
-| `sleep NAME` · `wake NAME` | pause + snapshot to disk; survives the host crashing | ~0.3 s | kept | continue |
+| `sleep NAME` · `wake NAME` | pause + snapshot to disk; survives the daemon crashing | ~0.3 s | kept | continue |
 | `hibernate NAME` · `wake NAME` | snapshot, then the VM stops | ~0.35 s / ~0.3 s | **returned** | continue: same PIDs, same screens |
 | `shutdown NAME` | a cold stop; the disk is kept | | returned | end |
 | `reset NAME` | shut down and go back to a fresh copy of the image (restore points and the agent's state disk stay) | | | end |
@@ -373,12 +373,12 @@ preparation after 594 rebuilds the agent images once: they gained `sudo` and kee
 balloon handed back after a wake. It is shown as `—` when the sandbox is off or hibernated.
 
 **Saved screens.** Before a sandbox pauses, sleeps or hibernates, doz saves the screen of each of its
-sessions — and every `host.screen_capture_minutes` (5) while it runs, for the sessions that printed
+sessions — and every `daemon.screen_capture_minutes` (5) while it runs, for the sessions that printed
 something since, which is what a sleep or hibernation falls back on. Saving is a moment's look at the
 session (it is not resized, nothing is typed), limited to a few seconds, and a screen that cannot be
 saved keeps the previous one — it never holds up the sleep. Each screen is kept as text (the
 terminal's own bytes, and plain text) in the sandbox's directory (`screens/`, readable only by you).
-Saved screens exist only while you can wake the sandbox back: **shut down, reset, remove — or a host
+Saved screens exist only while you can wake the sandbox back: **shut down, reset, remove — or a daemon
 that died with the VM — delete them**, and a shut-down sandbox shows no session screens anywhere (its
 sessions ended with the VM; Start boots it fresh). A session whose program exited has none either.
 Duplicate, fork and templates never copy them.
@@ -404,7 +404,7 @@ doz keeps no rows of your terminal for itself. Instead:
 ## Session bridges
 
 A session's terminal — `doz attach`/`run`/`up`, or a terminal in `doz ui` — is also how a program in
-the sandbox reaches your Mac for the few things it needs one for. Each bridge goes through the host
+the sandbox reaches your Mac for the few things it needs one for. Each bridge goes through the daemon
 (the one place every terminal passes), is shown to you every time it is used, and can be turned off
 for one sandbox (`doz config set --sandbox NAME KEY VALUE`, a flag of `doz create`, a key in
 `doz_project.yaml`) or for all (`doz config set KEY VALUE`). A bridge acts only while a terminal is
@@ -489,7 +489,7 @@ doz-open --app Typora notes.md       # a named app — only one listed in bridge
 ### The tools layer
 
 `doz tools NAME` lists the tools Dozable manages in a sandbox because of its settings — `gh` (GitHub as you;
-pinned, downloaded once to the store's `tools/` with its sha256 checked, copied in over the host→guest
+pinned, downloaded once to the store's `tools/` with its sha256 checked, copied in over the daemon→guest
 path, removed when off), an ssh client + github.com's published host keys (SSH agent forwarding), tmux 3.8
 (`sessions.tmux`; Dozable's own static build, sha256-pinned and copied in to `/usr/local/lib/doz/bin/tmux`, linked
 `/usr/local/bin/tmux` when free — the same tmux on every base; kept when off), and always git, curl and ca-certificates (apt/apk through the proxy when missing) — each
@@ -561,7 +561,7 @@ running the real Claude Code it:
 `-e DOZ_CLAUDE_PERMISSIONS=ask` (on `run` or `exec`) keeps Claude Code's own prompts, and a
 `claude` run as root always keeps them.
 
-Keys never enter the sandbox. The host's proxy holds each credential and puts it into requests to
+Keys never enter the sandbox. The daemon's proxy holds each credential and puts it into requests to
 Anthropic on their way out. Inside the sandbox, `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` is
 a `doz_cred_…` placeholder. A credential is never a command-line argument, so it never lands in
 shell history or `ps`.
@@ -569,7 +569,7 @@ shell history or `ps`.
 ### The agent's environment prompt
 
 Asked "what is the host path of /workspace?", an agent used to have to read `/proc/self/mountinfo`
-to find out — it was told nothing about where it runs. Now, **at every session start**, the host
+to find out — it was told nothing about where it runs. Now, **at every session start**, the daemon
 renders from the sandbox's current facts (so it stays true after a duplicate, a policy edit or a
 new workspace) and writes into the guest:
 
@@ -687,14 +687,14 @@ The Mac's Claude Code is the one program that renews the login, so the two can n
 access token lives about 8 hours. Claude Code renews it when a `claude` process runs on the Mac
 within 5 minutes of expiry; `claude auth status` does not renew it.
 
-- The host re-reads the login every 2 minutes: one read per login, however many sandboxes use it.
+- The daemon re-reads the login every 2 minutes: one read per login, however many sandboxes use it.
   A renewed token reaches every sandbox, and their sessions keep working without a restart.
 - **The login expired** (say, nothing ran Claude Code on the Mac overnight). The proxy re-reads
   once. If the login is still expired, it answers with a message that Claude Code in the sandbox
   shows: "this Mac's Claude login expired at 04:59 — open Claude Code on the Mac (any prompt), then
   retry". The session recovers by itself when the Mac renews.
 - **Keep-alive (off by default):** `doz account keepalive on`. Within 10 minutes of expiry, if a
-  sandbox used the Mac login in the last 15 minutes and no Claude Code runs on the Mac, the host
+  sandbox used the Mac login in the last 15 minutes and no Claude Code runs on the Mac, the daemon
   runs the Mac's own `claude -p ok --model haiku` once. Claude Code's normal startup renews the login
   under its own lock, at the cost of one tiny turn on your subscription.
 - **The Mac signs out:** the sandboxes' token is cleared at once, and requests get "this Mac's Claude
@@ -745,18 +745,18 @@ doz key ls NAME                                    # keys, account, state, expir
 doz key rm NAME --anthropic
 ```
 
-- **A key from stdin or the prompt lasts while the host runs.** When the host stops (idle exit,
-  `host stop`, a reboot), set it again. Accounts and keychain keys are read again whenever a new
-  host loads the sandbox.
-- **Sessions survive a host restart with their credentials.** The sandbox's `doz.json` keeps
+- **A key from stdin or the prompt lasts while the daemon runs.** When the daemon stops (idle exit,
+  `daemon stop`, a reboot), set it again. Accounts and keychain keys are read again whenever a new
+  daemon loads the sandbox.
+- **Sessions survive a daemon restart with their credentials.** The sandbox's `doz.json` keeps
   a sha256 of each live placeholder, never the placeholder itself, so a session that hibernated
-  through `host stop` keeps working in the new host. `shutdown`, `reset` and `rm` revoke them.
+  through `daemon stop` keeps working in the new daemon. `shutdown`, `reset` and `rm` revoke them.
 - To store a key in the keychain yourself: `security add-generic-password -s doz-anthropic -a
   "$USER" -w` (it prompts for the key).
 
 ## Network
 
-A sandbox has **no network card**. Its only way out is a proxy in the host that checks every
+A sandbox has **no network card**. Its only way out is a proxy in the daemon that checks every
 connection against a policy and logs it.
 
 | `--network` | allows | default for |
@@ -904,37 +904,37 @@ not given is the source's (its network policy included). A `--workspace` that do
 made (like `create`'s); `--isolated` shares none. The state disk starts **fresh** unless `--copy-state`. Keys (`doz key set`) are not
 copied; the account follows `--account`, or the source's.
 
-## The host
+## The daemon
 
-The host is started for you by the first command that needs it. It runs detached, logs to
-`<store>/host.log` and listens on `<store>/host.sock`.
+The daemon is started for you by the first command that needs it. It runs detached, logs to
+`<store>/daemon.log` and listens on `<store>/daemon.sock`.
 
 | | |
 |---|---|
-| **Idle exit** | It exits after 5 minutes with no running, paused or sleeping VM and no attached client (`$DOZ_HOST_IDLE` minutes, 0 = never). |
-| **Looking never starts it** | `ls`, `inspect`, `point ls`, `image ls`, `net policy` (shown) and `key ls` read the store directly when no host runs. |
-| `doz host status` | Is one running, and what does it hold? Never starts one. |
-| `doz host stop` | Hibernates everything that runs, then exits. The next command starts a new host; `wake`, `attach`, `up` and `exec` bring each sandbox back. It shows each sandbox as it hibernates (`✓ hibernated hello-doz (snapshot 69 MB) — 412 ms`; plain lines off a terminal or with `--progress plain`; a sandbox that cannot be hibernated says why and that it was shut down, its disk kept), then `host stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next command starts a new host` — or `host stopped (nothing was running)`. `--json` gives each sandbox's row. If the host dies part way, it says what it saw. `doz uninstall` and the web UI's **Restart host** show the same. |
-| `doz host [--foreground] [--idle-timeout MIN]` | Run it by hand (in the foreground, it logs to the terminal). |
+| **Idle exit** | It exits after 5 minutes with no running, paused or sleeping VM and no attached client (`$DOZ_DAEMON_IDLE` minutes, 0 = never). |
+| **Looking never starts it** | `ls`, `inspect`, `point ls`, `image ls`, `net policy` (shown) and `key ls` read the store directly when no daemon runs. |
+| `doz daemon status` | Is one running, and what does it hold? Never starts one. |
+| `doz daemon stop` | Hibernates everything that runs, then exits. The next command starts a new daemon; `wake`, `attach`, `up` and `exec` bring each sandbox back. It shows each sandbox as it hibernates (`✓ hibernated hello-doz (snapshot 69 MB) — 412 ms`; plain lines off a terminal or with `--progress plain`; a sandbox that cannot be hibernated says why and that it was shut down, its disk kept), then `host stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next command starts a new daemon` — or `host stopped (nothing was running)`. `--json` gives each sandbox's row. If the daemon dies part way, it says what it saw. `doz uninstall` and the web UI's **Restart daemon** show the same. |
+| `doz daemon [--foreground] [--idle-timeout MIN]` | Run it by hand (in the foreground, it logs to the terminal). |
 | **If it crashes** | The next command starts a new one. Sleeping sandboxes are restored with their sessions. Hibernated ones are untouched. Ones that were running are reported as died (`ls`; `inspect` shows `diedWithHost`), and their disk is checked with `e2fsck` at the next start. |
-| **If its program changes** | A host knows the file it runs from. If an update wrote into that file while it ran, macOS stops trusting it and refuses its virtual machines: every start or wake then says "this host's program was updated underneath it — `doz host stop`, then retry", and `host status` and `doctor` say so too. An update that puts a new file in place (as `make install-cli` does) is harmless: the host keeps running its own copy, `host status` notes it, and once nothing runs and nobody is attached it exits by itself so the next command runs the new build. |
+| **If its program changes** | A daemon knows the file it runs from. If an update wrote into that file while it ran, macOS stops trusting it and refuses its virtual machines: every start or wake then says "this daemon's program was updated underneath it — `doz daemon stop`, then retry", and `daemon status` and `doctor` say so too. An update that puts a new file in place (as `make install-cli` does) is harmless: the daemon keeps running its own copy, `daemon status` notes it, and once nothing runs and nobody is attached it exits by itself so the next command runs the new build. |
 
 ### Updating doz
 
 ```bash
 brew upgrade doz       # (or make install-cli) — the new build goes in next to the running one
-doz host stop          # sandboxes that run hibernate; the host of the old build exits
+doz daemon stop          # sandboxes that run hibernate; the daemon of the old build exits
 doz wake NAME          # (or attach / up / the web UI) — each wakes on the new build, sessions and all
 ```
 
-Until then every command that a host of another build answers says so once, on stderr (never stdout,
-not with `-q`): `note: the doz host is X (this doz is Y) — doz host stop switches to Y; sandboxes
-hibernate and wake` (or, for a NEWER host, to upgrade this doz). `brew upgrade` says when a host of
-the previous build is still running (`doz host upgrade-check`,
+Until then every command that a daemon of another build answers says so once, on stderr (never stdout,
+not with `-q`): `note: the doz daemon is X (this doz is Y) — doz daemon stop switches to Y; sandboxes
+hibernate and wake` (or, for a NEWER daemon, to upgrade this doz). `brew upgrade` says when a daemon of
+the previous build is still running (`doz daemon upgrade-check`,
 which you can run yourself). Homebrew then removes the previous version (`brew cleanup`) — the
-program that host runs and its resources. The host keeps running, and so does every sandbox it
-runs, but it can no longer boot one: a start, a wake or a new sandbox is refused with "this host's
-program … is gone — an upgrade removed it — `doz host stop`, then retry", and `host status` and
+program that daemon runs and its resources. The daemon keeps running, and so does every sandbox it
+runs, but it can no longer boot one: a start, a wake or a new sandbox is refused with "this daemon's
+program … is gone — an upgrade removed it — `doz daemon stop`, then retry", and `daemon status` and
 `doctor` say so. Once nothing runs and nobody is attached, it exits by itself.
 
 A sandbox that was asleep when you updated wakes on the new build with its programs and sessions
@@ -946,9 +946,9 @@ with the doz that slept it, or Shut Down (below).
 
 ### If a wake fails
 
-1. `doz host stop`, then wake again. Nothing is lost by trying: a wake that fails keeps its
-   snapshot, and so does quitting the host after it.
-2. Read what it says. "Updated underneath it" is the host's own program (step 1 fixes it). "Put to
+1. `doz daemon stop`, then wake again. Nothing is lost by trying: a wake that fails keeps its
+   snapshot, and so does quitting the daemon after it.
+2. Read what it says. "Updated underneath it" is the daemon's own program (step 1 fixes it). "Put to
    sleep by doz X in a virtual machine this build cannot rebuild" means waking it needs doz X.
 3. Last resort: `doz shutdown NAME`, then `doz start NAME`. This discards the snapshot, so
    running programs and their sessions end, but the disk is kept — files, installed packages, and an
@@ -970,12 +970,12 @@ doz ui start --port 7443   # (doz ui start is doz ui) a fixed port, this run; th
 
 It shows every sandbox (phase, RAM held, disk, sessions, network, account), each sandbox's
 sessions, restore points, network policy and connection log, keys and their state, the images,
-the Claude accounts, the metrics, `doz doctor`, and the host's activity as it happens.
+the Claude accounts, the metrics, `doz doctor`, and the daemon's activity as it happens.
 
 **The setup wizard** (594; 634: v2). A store that was never onboarded opens on it — the steps of
 `doz onboard`, each title centred over a column of the step's own width: **Welcome** (the doctor's checks inline; a
 failing required one stops it, with Check again) **→ Base image** (one Node.js card, the layers, "Another base" folded;
-**Download and continue** starts the store's base in the host and moves on) **→ Models & keys** (the sign-ins found;
+**Download and continue** starts the store's base in the daemon and moves on) **→ Models & keys** (the sign-ins found;
 the keys by Providers / Gateways — OpenRouter — / No key, each pasted in a masked field under its row, or with
 `ui.allow_secret_entry` off the CLI command; what can be tried now) **→ GitHub & SSH → Workspace rules** (its Next
 writes the settings) **→ Usage statistics** and **Stay in touch** (official builds) **→ First sandbox** (the tools'
@@ -984,7 +984,7 @@ and start, or Finish without a sandbox). From Models & keys on, the base's progr
 buttons; **Details** opens a popover (the steps and their times, the output's tail, Operations, Cancel…); a failed
 download turns it red with Retry. The settings file and your prompt template are written only when missing. The
 wizard is always reachable again from **Onboarding** in the navigation (with a dot beside it until the store is
-onboarded) or **Doctor › Run onboarding again**, and **Operations** lists the host's preparations whoever started them
+onboarded) or **Doctor › Run onboarding again**, and **Operations** lists the daemon's preparations whoever started them
 (`doz onboard` in a terminal too); the badge counts them while they run.
 
 **The navigation.** **Sandboxes** opens the table of every sandbox; under it, each sandbox has its
@@ -1018,7 +1018,7 @@ In the dashboard, reset, remove, revert and every delete ask you to **tick a box
 disk, so it asks with a plain confirmation; "don't ask again" sets the setting
 `ui.confirm_shutdown = false` (the **Settings** page turns it back on). An
 operation's progress shows in the sandbox's row and in its control bar while it runs (the
-host's latest step and the seconds so far — a first start in a store downloads and bakes its image
+daemon's latest step and the seconds so far — a first start in a store downloads and bakes its image
 and can take two minutes), and the page updates when it ends. **Operations** in the navigation
 shows how many run (with a spinner) and a red dot when one failed since you last looked (a failure
 also shows a message).
@@ -1031,7 +1031,7 @@ a full-screen program the wheel becomes arrow keys only if the program asked for
 (alternate scroll, `?1007`).
 
 **A sandbox's panes are remembered** — which terminals it shows, split or not, which session each
-tab shows — by the host, beside the sandbox (not in the browser): after `doz ui` restarts, after a
+tab shows — by the daemon, beside the sandbox (not in the browser): after `doz ui` restarts, after a
 reload or in another browser the page shows the same panes, attached. While a sandbox is paused,
 asleep or hibernated its page shows every session as a pane with its **saved screen** (read-only; you can select and copy
 from it) under "Hibernated 2 h ago — its saved screen · press any key to wake": a key (or Wake)
@@ -1045,7 +1045,7 @@ opened from its pane, the empty area's "Open NAME", or Details › Sessions.
 view (a watch — nothing reaches the session, and it never resizes it), named sandbox · session. A
 sandbox that is paused, asleep or hibernated shows a tile per session with its saved screen (a
 shut-down one, or one with none, is one tile with its state) and a button (Wake, Resume or Start); it holds no connection, so the grid never
-keeps the host running for it — woken, its tiles go live in place. Click a tile to open that
+keeps the daemon running for it — woken, its tiles go live in place. Click a tile to open that
 session on its sandbox's page. Filter by sandbox and phase; pick a tile size (`ui.grid_tile_size`).
 Each live tile is a terminal engine and a connection, so only the tiles **on screen** are live, and
 at most `ui.grid_live_tiles` (8) at once — the others say "Not live" and how many are. The list of
@@ -1068,14 +1068,14 @@ sandbox's parts to **its page**, accounts to **Accounts & keys**. The rows add u
 (what `du` counts); a last row, **unattributed**, is what no row explains — it should be 0 and is
 red when it is not. The bar on top is Dozable's own total split into what it keeps, what **Clean up**
 would free and the blocks APFS clones share (which `du` counts again); the volume's free space is
-written beside it. Below: the memory each sandbox with a VM holds, the host's and this UI's, the
+written beside it. Below: the memory each sandbox with a VM holds, the daemon's and this UI's, the
 CPUs given to sandboxes, each sandbox's proxy traffic (today and in all) and the kernels — with
 **Use this kernel** for the one new sandboxes boot (existing ones keep theirs).
 
 Tick what should go (or **Select all re-creatable**), then **Delete selected…**: one plain
 confirmation lists each item, what it frees, what it costs later ("re-prepared when next needed
 (about 3 min, needs network)") and what is refused and why, and the deletion runs as one operation
-(Operations shows it) — the host waits until nothing that uses the disks is under way. **Clean up…**
+(Operations shows it) — the daemon waits until nothing that uses the disks is under way. **Clean up…**
 is the safe set: what is re-creatable AND unused (the download cache, base disks, kernels nothing
 needs, images no sandbox was created from in `resources.clean_unused_days` days, leftovers) — never
 templates, sandboxes, restore points, settings or keys; logs and metrics are kept (select them to
@@ -1097,15 +1097,15 @@ default). The setup wizard's account step and **Accounts & keys › Add a key** 
 API key of any provider, or a Claude setup token (with its plan), in a masked field (`type=password`, no autocomplete, no
 spellcheck). The page reads it once and empties the field at once; it goes out only in the body of one
 CSRF-checked `POST /api/v1/accounts` — never a URL, a log line, an event, an Operation or an error
-message — and the host stores it exactly as `doz account add` does (the login keychain, one tiny check
+message — and the daemon stores it exactly as `doz account add` does (the login keychain, one tiny check
 request). With `doz config set ui.allow_secret_entry false` the page shows the `doz account add` command
 instead, and the route refuses; the browser can turn the setting off but never on.
 
 A **sandbox's own key** (what `doz key set NAME --anthropic` does) is taken the same way, under the same
 setting: its page, **Keys & account**, has a masked field — one CSRF-checked
 `POST /api/v1/sandboxes/NAME/key` body, stored exactly as `doz key set` from a prompt stores it (held by
-the host in memory, source `browser`; the guest sees a placeholder; it replaces the sandbox's account and
-lasts while the host runs). Off: the page shows the `doz key set` commands. A key from a keychain item
+the daemon in memory, source `browser`; the guest sees a placeholder; it replaces the sandbox's account and
+lasts while the daemon runs). Off: the page shows the `doz key set` commands. A key from a keychain item
 (`--keychain SERVICE`) is still a terminal command.
 
 **Terminals in the browser** (on each sandbox's page). **Open** in the empty terminal area attaches
@@ -1142,7 +1142,7 @@ view — the session keeps running, as Ctrl-] does in `doz attach`.
   your clipboard (it can set it only through the clipboard bridge, with a notice each time — "Session
   bridges"). Cmd-C copies a selection (so does selecting with the mouse); Cmd-V pastes.
   Cmd shortcuts belong to the browser (Cmd-W closes the tab — the session runs on).
-- An open terminal keeps the host running, as `doz attach` does; the dashboard alone does not.
+- An open terminal keeps the daemon running, as `doz attach` does; the dashboard alone does not.
 - The terminal itself runs in an isolated frame of the page: whatever a sandbox prints can never
   reach your UI session, its cookie or the other terminals.
 
@@ -1157,9 +1157,9 @@ permission prompt.
 | **An installable app** | The page has a web app manifest: Chrome installs it (*Install Dozable*), Safari adds it to the Dock. While `doz ui` is not running the app (or a reload) shows "Dozable isn't running on this Mac" — a service worker that keeps only that page; it never stores an answer of the dashboard — and comes back by itself. An app belongs to one port: set `ui.port` (a fixed port, 127.0.0.1 only; `0` = the last one when free). |
 | **Stopping** | Ctrl-C in the terminal that runs it. Signing out ends that browser's session; `doz ui --new-link` ends every one. Stopping `doz ui` keeps them for the next `doz ui` on the same port (below). |
 | **One per store** | Each store has at most one UI. `--store` (or `$DOZ_STORE`) picks the store, as for every command. |
-| **The host** | The UI is a client of the host, like the CLI. Looking never starts a host: with none running, the UI reads the store (nothing is live). It follows the host's events only while a sandbox is live, so an open UI never keeps an idle host from exiting. |
-| **Watching the host** | The sidebar's footer shows two facts: the page's link to `doz ui`, and the host's state and build. When the host stops cleanly (`doz host stop`, idle, SIGTERM) a banner says your sandboxes were hibernated and offers **Start host**; when it is killed or crashes, a banner names the sandboxes that were running (they are shut down: start them again); when a host of another build takes over, a banner says so — and, once, which side is the older build: an older host ("The host is still 0.12.0-rc.3 — `doz host stop` … and the next action runs 0.12.0-rc.5", with a **Restart host** button that asks first, hibernates the running sandboxes, and starts the newer build; they wake when you use them), or an older `doz ui` (restart `doz ui`). Every page's phases follow at once. Any action starts a host when none runs, as the CLI does. |
-| **When `doz ui` stops** | A banner says so, and after a second and a half without it the page is paused under an overlay — nothing behind it can be clicked (navigating or starting a sandbox could not work anyway). For 15 seconds (a minute for `doz ui restart`) it calmly says it is reconnecting; then, or at once after Ctrl-C, what to run, when it was last connected and whether the host was running as far as it knew, with **Try now**; the banners stay on top and usable. The page retries every second. The next `doz ui` listens on the same port when it can and keeps its pages' sessions, so the page reconnects by itself, still signed in — its terminals reattach, an operation that was running ends with its outcome, a newer build offers **Reload** — and `doz ui` then opens no new tab (the page shows "doz ui restarted"). After `--new-link`, the page asks for a link inside itself. `doz ui restart` does all this on purpose (the same process re-executed, so an upgrade's new `doz` runs); onto a changed `ui.port` it opens the dashboard on the new port and the old page says where it went. |
+| **The daemon** | The UI is a client of the daemon, like the CLI. Looking never starts a daemon: with none running, the UI reads the store (nothing is live). It follows the daemon's events only while a sandbox is live, so an open UI never keeps an idle daemon from exiting. |
+| **Watching the daemon** | The sidebar's footer shows two facts: the page's link to `doz ui`, and the daemon's state and build. When the daemon stops cleanly (`doz daemon stop`, idle, SIGTERM) a banner says your sandboxes were hibernated and offers **Start daemon**; when it is killed or crashes, a banner names the sandboxes that were running (they are shut down: start them again); when a daemon of another build takes over, a banner says so — and, once, which side is the older build: an older daemon ("The daemon is still 0.12.0-rc.3 — `doz daemon stop` … and the next action runs 0.12.0-rc.5", with a **Restart daemon** button that asks first, hibernates the running sandboxes, and starts the newer build; they wake when you use them), or an older `doz ui` (restart `doz ui`). Every page's phases follow at once. Any action starts a daemon when none runs, as the CLI does. |
+| **When `doz ui` stops** | A banner says so, and after a second and a half without it the page is paused under an overlay — nothing behind it can be clicked (navigating or starting a sandbox could not work anyway). For 15 seconds (a minute for `doz ui restart`) it calmly says it is reconnecting; then, or at once after Ctrl-C, what to run, when it was last connected and whether the daemon was running as far as it knew, with **Try now**; the banners stay on top and usable. The page retries every second. The next `doz ui` listens on the same port when it can and keeps its pages' sessions, so the page reconnects by itself, still signed in — its terminals reattach, an operation that was running ends with its outcome, a newer build offers **Reload** — and `doz ui` then opens no new tab (the page shows "doz ui restarted"). After `--new-link`, the page asks for a link inside itself. `doz ui restart` does all this on purpose (the same process re-executed, so an upgrade's new `doz` runs); onto a changed `ui.port` it opens the dashboard on the new port and the old page says where it went. |
 | **One tab, not one per start** | Running `doz ui` while one runs reuses it: it opens a tab only when none of its pages is open, else it just says where it runs. `ui.open_browser` (`auto`, the default; `always`; `never`) sets when a tab opens; `--open` and `--no-open` override it for one run. |
 | **A new link for every page** | `doz ui --new-link` (or `doz ui link --rotate` on a running UI) signs every page out and makes a new link; each open page says so. Kept sessions live in `<store>/ui.sessions` (0600) as digests of their cookies, never the cookies: the file signs nobody in, and it has the store's own trust. |
 | **Terminals** | In the page: each terminal is opened with a one-use ticket over a WebSocket on the same loopback address, and only for a signed-in browser. Open in Terminal runs `doz attach NAME [SESSION] --store …` in a new Terminal tab (waking the sandbox if it sleeps). The page also shows that command to copy. |
@@ -1197,12 +1197,12 @@ doz config path
 The web UI's **Settings** page shows the same list — each setting's value, default, description
 and where the value came from — and changes a value in place. A `[ui]` setting applies at once;
 the others say when they apply (the next sandbox created, the next session, or after
-`doz host stop`).
+`doz daemon stop`).
 
 | Section | Settings |
 |---|---|
 | `[ui]` | `terminal_title` (`{sandbox} · {session} · {time}` — see "The title and the Ctrl-] menu"; `""` leaves the title to the session), `boot_view_on_start` (false), `confirm_shutdown` (true), `split_default` (`shell` · `watch` · `attach` · `dialog`), `terminals` (true), `terminal_font_size` (13), `theme` (`auto` · `light` · `dark`), `density` (`comfortable` · `compact`), `details_open` (true), `grid_live_tiles` (no longer used), `grid_tile_size` (`small` · `medium` · `large`), `grid_refresh_ms` (500, 200–10000 — how often the session pictures are brought up to date), `batch_concurrency` (3, 1–8 — how many starts, wakes, resumes, sleeps, hibernations and shut-downs the dashboard runs at once; the others wait their turn, queued with a Cancel; one started on a single sandbox goes ahead of a batch; a pause or a resume from a pause never waits), `progress` (`animated` · `plain`; `$DOZ_PROGRESS`, `--progress auto\|plain`), `color` (`auto` · `always` · `never`; `$DOZ_COLOR`, `--color`, `--no-color` — the CLI's colour), `open_browser` (`auto` · `always` · `never`; `doz ui --open\|--no-open` — when `doz ui` opens a tab; applies to the next `doz ui`) |
-| `[host]` | `idle_timeout_minutes` (5; `$DOZ_HOST_IDLE`), `boot_logs_kept` (5, 1–50; `$DOZ_BOOT_LOGS` — boots kept per sandbox for `doz console --boot N` and the Boot log), `screen_capture_minutes` (5, 0–1440; `$DOZ_SCREEN_CAPTURE` — how often a running sandbox's changed session screens are saved; 0 = only at pause, sleep and hibernate), `keepalive` (false — for a store that has not chosen with `doz account keepalive`) |
+| `[daemon]` | `idle_timeout_minutes` (5; `$DOZ_DAEMON_IDLE`), `boot_logs_kept` (5, 1–50; `$DOZ_BOOT_LOGS` — boots kept per sandbox for `doz console --boot N` and the Boot log), `screen_capture_minutes` (5, 0–1440; `$DOZ_SCREEN_CAPTURE` — how often a running sandbox's changed session screens are saved; 0 = only at pause, sleep and hibernate), `keepalive` (false — for a store that has not chosen with `doz account keepalive`) |
 | `[store]` | `path` (`--store`, `$DOZ_STORE`) |
 | `[claude]` | `permissions` (`skip` · `ask`) — Claude Code's own prompts in a claude-code sandbox; `-e DOZ_CLAUDE_PERMISSIONS=…` on `run`/`exec` still wins |
 | `[defaults]` | `cpus` (2), `nat_subnet` (a free one; `$DOZ_SUBNET`) |
@@ -1250,8 +1250,8 @@ the others say when they apply (the next sandbox created, the next session, or a
   console, when it started, how long it took and whether it failed (and why). A wake is done once
   the sandbox runs with its clock and folders back; what it does after that (its guest fixes, the
   memory it hands back) is in the same boot log, as "after the wake, in the background", and the
-  time shown is the wake's. A restore after a host restart lists its parts ("restore: …"). The last
-  `host.boot_logs_kept` (5) are kept per sandbox, in its directory (readable only by you); they stay
+  time shown is the wake's. A restore after a daemon restart lists its parts ("restore: …"). The last
+  `daemon.boot_logs_kept` (5) are kept per sandbox, in its directory (readable only by you); they stay
   across a reset and go with `doz rm`.
   - `doz console NAME --list` — the kept boots: when, what, how long, ✓ or ✗.
   - `doz console NAME --steps` — the latest boot's steps, then its console; `--boot N` picks an older
@@ -1270,7 +1270,7 @@ the others say when they apply (the next sandbox created, the next session, or a
 | 3 | not possible in this phase |
 | 4 | already exists |
 | 5 | not confirmed |
-| 6 | host unavailable |
+| 6 | daemon unavailable |
 | 7 | not implemented yet |
 | 64 | usage |
 | *program's own* | `exec`, `run`, `attach` (125 = doz itself failed) |
@@ -1278,14 +1278,14 @@ the others say when they apply (the next sandbox created, the next session, or a
 | environment | overrides the setting | |
 |---|---|---|
 | `DOZ_STORE` | `store.path` | the store directory |
-| `DOZ_HOST_IDLE` | `host.idle_timeout_minutes` | host idle timeout, minutes |
+| `DOZ_DAEMON_IDLE` | `daemon.idle_timeout_minutes` | daemon idle timeout, minutes |
 | `DOZ_KERNEL_CACHE` / `DOZ_KERNEL` | `kernel.cache` / `kernel.path` | a shared kernel cache / an explicit kernel |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | default subnet for `--network nat` |
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress (the CLI on a terminal, the web UI's boot view) |
 | `DOZ_COLOR` | `ui.color` | `auto`, `always` or `never` colour in the CLI |
 | `XDG_CONFIG_HOME` | — | where `doz/doz.toml` is (default `~/.config`) |
 
-The kernel, subnet and `[defaults]` / `[images.*]` settings are read (by the host) when a sandbox
+The kernel, subnet and `[defaults]` / `[images.*]` settings are read (by the daemon) when a sandbox
 is created, and become part of it.
 
 ## Troubleshooting
@@ -1293,21 +1293,21 @@ is created, and become part of it.
 | symptom | try |
 |---|---|
 | "cannot boot a VM" / entitlement | `doz doctor`. Reinstall (`brew reinstall doz`, or `make install-cli` — both are signed). |
-| "this host's program … is gone" | An upgrade removed the previous version under a running host: `doz host stop`, then retry. |
+| "this daemon's program … is gone" | An upgrade removed the previous version under a running daemon: `doz daemon stop`, then retry. |
 | First start is slow | It is preparing the image, once per store. `doz onboard` (or `doz image bake …`) does it ahead of time; `-v` shows the steps. |
 | A start or wake failed, or the boot scrolled past too fast | `doz console NAME --list`, then `doz console NAME --steps [--boot N]` (or **Boot log** in the web UI): each kept boot's steps (the failing one marked ✗, with why) and its kernel console. |
 | An agent's sessions do not start: "the agent prompt does not render" | A `{{variable}}` not on the list, in `agent-prompt.md` or the sandbox's own prompt. `doz inspect NAME --prompt` names it; or `doz config set agent.prompt false`. |
 | The agent does not know where it runs | `doz inspect NAME --prompt`. A claude-code sandbox from an image baked before 594 lacks the launcher part: `doz reset NAME`. |
 | Start over from nothing | `doz uninstall` (it lists what goes), `brew uninstall doz`, then `brew install doz`, `doz onboard`. |
-| An agent says it has no key / 401 | `doz key ls NAME`. A stdin key is gone after the host stopped, so set it again or use `--keychain`. |
+| An agent says it has no key / 401 | `doz key ls NAME`. A stdin key is gone after the daemon stopped, so set it again or use `--keychain`. |
 | A package install fails | `doz net NAME` says what was refused and the permission that allows it (`doz net allow NAME install:python`, or `site:HOST`); the raw log is `doz net log NAME --denied`. |
-| A sandbox shows as died | The host crashed while it ran. `doz start NAME` checks the disk and cold-boots it. |
+| A sandbox shows as died | The daemon crashed while it ran. `doz start NAME` checks the disk and cold-boots it. |
 | The UI says "sign in with a new link" | Its link was used or expired, or every page was signed out. Paste a link from `doz ui link --print-url` into the page, or `doz ui link`. |
 | A browser terminal says "Disconnected" | The tab was silent for a long time, or it could not reattach. Reconnect. (After a restart or a sign-in it reattaches by itself.) |
 | A browser terminal will not type Chinese/Japanese/Korean | Its engine's input-method support is incomplete; use Open in Terminal for now. |
 | Open in Terminal says no app opened it | Make a terminal app the handler for `.command` files (Finder › Get Info on any `.command` file › Open with › Change All…). |
 | `doz ui` says the resources are missing | `DozableKit_DozableWeb.bundle` must sit beside the executable. Reinstall (`brew reinstall doz`, or `make install-cli`). |
-| Anything else | `<store>/host.log` and `doz events`. |
+| Anything else | `<store>/daemon.log` and `doz events`. |
 
 ## Not yet
 

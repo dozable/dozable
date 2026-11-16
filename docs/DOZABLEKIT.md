@@ -168,7 +168,7 @@ override; a restore keeps the subnet its guest was addressed from. Proxied sandb
 **Network: proxied sandboxes.** `SandboxSpec(…, network: .proxied(.agent))` boots a VM with
 **no network interface** — only `lo`. The guest's only way out is `doznet` (a small static guest
 binary, `Guest/doznet/`) relaying over vsock to `sandbox.egress`, an `EgressProxy` running in
-the host process, where root in the guest cannot reach:
+the daemon process, where root in the guest cannot reach:
 
 ```swift
 var spec = SandboxSpec(name: "agent", storeRoot: root, imageSpec: AgentImages.claudeCode,
@@ -212,7 +212,7 @@ let jsonl = sandbox.egress!.log.exportJSONLines()
   *bound* host fail, and **a client that pins certificates fails loudly on a decrypted host** —
   which is why only bound hosts are decrypted. A proxied bake runs under the `bake` preset.
 
-**Requirements on the host:** the `com.apple.security.virtualization` entitlement, and network on
+**Requirements on the daemon:** the `com.apple.security.virtualization` entitlement, and network on
 the first start in a store. Nothing else to install: the library owns its **Linux kernel** —
 `KernelProvider` fetches one pinned artifact (the kata-containers 3.28.0 static release for arm64,
 the same kernel Apple's `container` CLI 1.2.2 recommends: `vmlinux-6.18.15-186`), checks the archive's
@@ -222,43 +222,43 @@ A byte-identical copy already on the Mac (the `container` CLI's) seeds the cache
 `SandboxSpec.kernelPath` boots any kernel you choose instead.
 
 
-## The doz host
+## The doz daemon
 
 A running VM lives in the process that started it, so one process per user and store owns them
-all: **`doz host`** (a lazy per-user host). It owns every running VM, each
+all: **`doz daemon`** (a lazy per-user daemon). It owns every running VM, each
 proxied sandbox's egress proxy (its policy, connection log and credential vault), the metrics
-writer, and the shared event-loop group, and serves `<store>/host.sock`. Every command is a
+writer, and the shared event-loop group, and serves `<store>/daemon.sock`. Every command is a
 thin client of that socket.
 
 - **Lazy.** The first command that needs it starts it **fully detached** — through an intermediate
   that exits, so its parent is launchd and it is in no caller's process tree (stopping a client, its
-  group or its tree never stops the host), its own session (`setsid`), stdin `/dev/null`,
-  output appended to `<store>/host.log`, none of the caller's other file descriptors. `doz doctor`
+  group or its tree never stops the daemon), its own session (`setsid`), stdin `/dev/null`,
+  output appended to `<store>/daemon.log`, none of the caller's other file descriptors. `doz doctor`
   shows its parent. No launchd agent: nothing is installed in `~/Library/LaunchAgents`. It holds
-  `<store>/host.lock` (flock) for its whole life, so there is never a second host for a store, and a
+  `<store>/daemon.lock` (flock) for its whole life, so there is never a second daemon for a store, and a
   new one waits for an exiting one to finish before it loads anything.
 - **Idle exit.** It exits once no sandbox has a VM (booting, running, paused or asleep) and no
-  client is connected, for `--idle-timeout` minutes (default 5; `$DOZ_HOST_IDLE`). Read-only
+  client is connected, for `--idle-timeout` minutes (default 5; `$DOZ_DAEMON_IDLE`). Read-only
   commands — `ls`, `inspect`, `point ls`, `image ls`, `net policy` (shown), `key ls` — answer from the
-  store in-process when no host runs, so **no daemon runs when no sandbox is running**, and looking
+  store in-process when no daemon runs, so **no daemon runs when no sandbox is running**, and looking
   never starts one.
-- **Quit = Hibernate.** `doz host stop`, SIGTERM and SIGINT hibernate every running, paused or
+- **Quit = Hibernate.** `doz daemon stop`, SIGTERM and SIGINT hibernate every running, paused or
   sleeping sandbox (the library's `prepareForExit`, with its settle delay) and then exit. The next
-  command starts a new host; `wake` (or `attach`, `up`, `exec`) brings each back, sessions and pids
+  command starts a new daemon; `wake` (or `attach`, `up`, `exec`) brings each back, sessions and pids
   intact.
-- **Crash.** After `kill -9` (or a crash) the next command starts a new host, which, for each
-  sandbox: **asleep** (its VM died with the host, the snapshot is on disk) → restored and put back to
+- **Crash.** After `kill -9` (or a crash) the next command starts a new daemon, which, for each
+  sandbox: **asleep** (its VM died with the daemon, the snapshot is on disk) → restored and put back to
   sleep, sessions intact; **hibernated** → nothing to do, `wake` adopts it in the new process;
   **running** → reported as died (`ls` shows it; `inspect` has `diedWithHost`), its disk — never
   unmounted, and the ext4 has no journal — marked for e2fsck at the next start. A read-only command
-  that finds such a record starts the host so it can recover.
+  that finds such a record starts the daemon so it can recover.
 - **The protocol** (`Sources/DozableHost/HostProtocol.swift`) is JSON lines: one request line
   (`{"v":1,"op":"hibernate","name":"myproj"}`), then zero or more `{"event":…}` progress lines and one
   final `{"ok":true,"result":…}` / `{"ok":false,"error":{"code","message"}}`. `attach` switches to raw
-  after its `ok` line (`{"state":"attached"|"held"}`): VT bytes from the host; keystrokes plus in-band
+  after its `ok` line (`{"state":"attached"|"held"}`): VT bytes from the daemon; keystrokes plus in-band
   `0xFF 'H'|'R' cols rows` frames from the client (the attach wire); the end of a session is
   a notice carrying `ESC ] 777;doz;ended;<code> BEL`. `events` and `net-log --follow` stream event
-  lines. Fields are only ever added; a host answers a newer `v` with `error.code = "version"`.
+  lines. Fields are only ever added; a daemon answers a newer `v` with `error.code = "version"`.
 
 ## The directory index (`dozable-directory/v1`)
 
@@ -273,7 +273,7 @@ source}, default_base, terms, try, homepage, auth, gateways [{gateway, level, re
 lifecycle {status (current | superseded | retired | discontinued), by, note, source, checked}, latest {version,
 released, freshness, deprecated}, icon {id, kind (product | vendor | generated), allowed (official | lettermark), mono,
 viewBox, d, stroke}}` — `lifecycle` is recorded in the data, `latest` is measured on the Mac that writes the index (the
-host's hourly registry check; absent before one), `icon` is the entry's mark from the icon registry (below): `d` to draw
+daemon's hourly registry check; absent before one), `icon` is the entry's mark from the icon registry (below): `d` to draw
 it at once, `mono` the registry file relative to the index (`icons/codex.svg`) for a website that publishes
 `Recipes/icons/` beside `index.json` (a landing page per agent); a base has none. `icon` went into v1 as an optional field
 before anything reads or fetches the index (phase 1 writes it, unsigned) — the one exception to "a new field is v2".
@@ -371,14 +371,14 @@ ONE registry of vendor and product marks, beside the recipes (owner: "b&w only i
 |---|---|---|
 | apple/containerization | **exact** 0.47.0 | the VM runtime; the sleep design leans on its internals' shape |
 | apple/swift-nio (NIOCore, NIOEmbedded, NIOPosix; NIOHTTP1) | from 2.103.0 | drives TLS synchronously on the proxy's connection threads (`EmbeddedChannel`); one shared `MultiThreadedEventLoopGroup` for every VM's vminitd clients; `doz ui`'s HTTP/1.1 server (`NIOHTTP1` is a module of the same package — no new dependency; imported only by `Sources/DozableWeb`, which the audit enforces) |
-| apple/swift-nio-ssl (NIOSSL) | from 2.37.5 | terminates and re-originates TLS for bound hosts with **in-memory** keys — Network.framework and Secure Transport need a `SecIdentity`, i.e. a keychain (prompts for an ad-hoc-signed app, and a leaf key per host on disk) |
+| apple/swift-nio-ssl (NIOSSL) | from 2.37.5 | terminates and re-originates TLS for bound hosts with **in-memory** keys — Network.framework and Secure Transport need a `SecIdentity`, i.e. a keychain (prompts for an ad-hoc-signed app, and a leaf key per daemon on disk) |
 | apple/swift-certificates (X509), apple/swift-asn1 | from 1.21.0 / 1.7.3 | issues the per-sandbox CA and its per-host leaves |
-| apple/swift-argument-parser (ArgumentParser) | from 1.5.0 (resolved 1.8.2) | the `doz` CLI's subcommands, aliases, options and `--help`. Imported ONLY by the CLI's command targets (`Sources/DozableCLI`, `Sources/doz`) — never by the library or the host; the audit enforces it. Hand-rolling a parser for ~40 subcommands with aliases and `--` passthrough would be more code to get wrong than this Apple package. |
+| apple/swift-argument-parser (ArgumentParser) | from 1.5.0 (resolved 1.8.2) | the `doz` CLI's subcommands, aliases, options and `--help`. Imported ONLY by the CLI's command targets (`Sources/DozableCLI`, `Sources/doz`) — never by the library or the daemon; the audit enforces it. Hand-rolling a parser for ~40 subcommands with aliases and `--` passthrough would be more code to get wrong than this Apple package. |
 
 | jpsim/Yams (Yams) | **exact** 6.2.2 | the project file `doz_project.yaml` is YAML, like dbt's `dbt_project.yml`. Yams (MIT, libyaml inside) is the standard Swift YAML library; pinned exactly and imported ONLY by `Sources/DozableCLI` (the audit enforces both). The project file's schema is closed and checked by hand on Yams's node tree; anchors/aliases and multiple documents are refused. |
 
 The five apple/* packages are ones containerization 0.47.0 already resolves, so declaring them
-changed nothing in `Package.resolved`; Yams is the one package that is not. The CLI's host also uses the system `SQLite3` module for its
+changed nothing in `Package.resolved`; Yams is the one package that is not. The CLI's daemon also uses the system `SQLite3` module for its
 metrics (no package). Upstream certificates are verified with the
 Mac's own trust store (Security.framework, `SecTrustEvaluateWithError`). `Scripts/audit.sh` holds
 the import and dependency allowlists.
@@ -402,12 +402,12 @@ targets: [
 
 **Resources in an app bundle:** copy `DozableKit_DozableKit.bundle` from the build directory into
 `Contents/Resources`. The library finds `deckhold` there (or beside the executable, or at `$DOZ_DECKHOLD`) and
-never uses SwiftPM's trapping `Bundle.module` accessor. A host that boots VMs needs the
+never uses SwiftPM's trapping `Bundle.module` accessor. A daemon that boots VMs needs the
 `com.apple.security.virtualization` entitlement on its own binary.
 
-## Storage / identity is configured by the host, not by this package
+## Storage / identity is configured by the daemon, not by this package
 
-This package owns no brand and no directory name: the host passes `storeRoot`. Nothing in
+This package owns no brand and no directory name: the daemon passes `storeRoot`. Nothing in
 `Sources/` may hardcode a consumer's bundle id, product name, or storage directory —
 `Scripts/audit.sh` fails the build if one appears.
 

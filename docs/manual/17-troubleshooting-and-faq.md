@@ -7,19 +7,19 @@ doz doctor
 ```
 
 `doz doctor` checks everything Dozable depends on — macOS and Apple silicon, the virtualization
-permission, the Linux kernel, the NAT helper, disk space, the host, your Claude login and your images
+permission, the Linux kernel, the NAT helper, disk space, the daemon, your Claude login and your images
 — and says what to do about anything that fails. The dashboard's **Doctor** page shows the same.
 
 Then, depending on what's wrong:
 
 | to see | run |
 |---|---|
-| What the host is doing, live | `doz events` (or `doz events NAME`), or the dashboard's **Activity** |
+| What the daemon is doing, live | `doz events` (or `doz events NAME`), or the dashboard's **Activity** |
 | How a start or wake went | `doz console NAME --list`, then `doz console NAME --steps` — or **⋯** › **Boot log** on the sandbox's page |
 | What the agent was refused | `doz net NAME` (the suggestions), `doz net log NAME --denied` |
 | Everything about a sandbox | `doz inspect NAME` |
 | What the agent is told | `doz inspect NAME --prompt` |
-| The host's log | `<store>/host.log` (the store is `~/Library/Application Support/doz` by default) |
+| The daemon's log | `<store>/daemon.log` (the store is `~/Library/Application Support/doz` by default) |
 | Where the disk went | `doz resources` |
 
 Add `-v` to any command to see every step it takes.
@@ -31,10 +31,11 @@ Add `-v` to any command to see every step it takes.
 | symptom | what to do |
 |---|---|
 | `doz: command not found` | `brew list doz`, then open a new terminal window. |
+| `Error: … unexpected arguments: 'host', …` | The old command name `host` is now `daemon` (`doz daemon start\|stop\|restart\|status\|upgrade-check`); the old command no longer exists. A 0.40 store and settings are carried over automatically, once. See [Upgrading](02-install-upgrade-uninstall.md). |
 | "cannot boot a VM", or about the entitlement | `doz doctor`; `brew reinstall doz`. A self-built copy must be signed (`make install-cli`). |
-| "this host's program … is gone — an upgrade removed it" | `doz host stop`, then retry. |
-| "this host's program was updated underneath it" | `doz host stop`, then retry. |
-| "note: the doz host is X (this doz is Y)" | A host of the previous version still runs and answered: `doz host stop` (sandboxes hibernate, and wake on the new version). |
+| "this daemon's program … is gone — an upgrade removed it" | `doz daemon stop`, then retry. |
+| "this daemon's program was updated underneath it" | `doz daemon stop`, then retry. |
+| "note: the doz daemon is X (this doz is Y)" | A daemon of the previous version still runs and answered: `doz daemon stop` (sandboxes hibernate, and wake on the new version). |
 
 ### Starting and waking
 
@@ -42,16 +43,16 @@ Add `-v` to any command to see every step it takes.
 |---|---|
 | The first start takes minutes | It's preparing the image, once. `doz onboard --status` shows it. |
 | A start fails | `doz console NAME --steps`: the failing step is marked ✕, with why. |
-| A wake fails | `doz host stop`, then wake again (a failed wake keeps its snapshot). If it says it was put to sleep by another version in a machine this one can't rebuild, wake it with that version, or shut it down. |
+| A wake fails | `doz daemon stop`, then wake again (a failed wake keeps its snapshot). If it says it was put to sleep by another version in a machine this one can't rebuild, wake it with that version, or shut it down. |
 | Last resort for a stuck sandbox | `doz shutdown NAME` then `doz start NAME`: programs end, the disks are kept. `claude --continue` resumes Claude Code's last conversation. |
-| A sandbox shows as died | The host crashed while it ran; `doz start NAME` checks its disk and boots it. |
+| A sandbox shows as died | The daemon crashed while it ran; `doz start NAME` checks its disk and boots it. |
 | "not possible in this phase" | `doz ls` shows its state; e.g. `resume` only works on a paused sandbox. |
 
 ### Agents and accounts
 
 | symptom | what to do |
 |---|---|
-| The agent says it has no key, or gets 401 | `doz account ls`, `doz key ls NAME`. A typed key is gone after the host stopped. |
+| The agent says it has no key, or gets 401 | `doz account ls`, `doz key ls NAME`. A typed key is gone after the daemon stopped. |
 | "this Mac's Claude login expired" | Run `claude` on your Mac once, or `doz account keepalive on`. |
 | pi can't be created | pi needs an API key account: `doz account add NAME --api-key`. |
 | "the agent prompt does not render" | `doz inspect NAME --prompt` names the unknown `{{variable}}`; fix it or `doz config set agent.prompt false`. |
@@ -124,8 +125,8 @@ itself needs its AI model, of course.
 **Can I move a sandbox to another Mac?**
 Not yet with a command. A snapshot (sleep, hibernate) is encrypted with a key specific to this Mac.
 
-**Why does `doz` say "the next command starts a new host"?**
-The host is a background process that runs your sandboxes and exits when idle. You never need to start
+**Why does `doz` say "the next command starts a new daemon"?**
+The daemon is a background process that runs your sandboxes and exits when idle. You never need to start
 it: any command that needs it does.
 
 **How do I start completely fresh?**
@@ -134,19 +135,19 @@ it: any command that needs it does.
 and keychain are untouched.
 
 **The account `mac` is "unreadable", though `claude` works on this Mac?**
-The doz host reads your Claude login in the session it was started from. A host started over ssh (or from
+The doz daemon reads your Claude login in the session it was started from. A daemon started over ssh (or from
 another session with no login) cannot read the login keychain — `doz account ls`, `doz ls` and `doz doctor` say
-so, naming the host. Run `doz host restart` from your logged-in session (a terminal on the Mac itself). A
-command over ssh that has to start the host warns first; `doz image bake` over ssh stops the host it started
+so, naming the daemon. Run `doz daemon restart` from your logged-in session (a terminal on the Mac itself). A
+command over ssh that has to start the daemon warns first; `doz image bake` over ssh stops the daemon it started
 once nothing runs.
 
 **Everything is slow — a wake takes a minute?**
 Run `doz doctor`. When `doz` was started at macOS background priority (by `taskpolicy -b`, or by a tool or agent that
 runs in the background), it and everything it starts run many times slower; doctor's `priority` line says so and how
-to move it out. A host started that way leaves the background priority by itself (`host priority` in doctor).
+to move it out. A daemon started that way leaves the background priority by itself (`daemon priority` in doctor).
 
 **Exit codes?**
 `0` ok · `1` failed · `2` not found · `3` not possible in this state · `4` already exists · `5` not
-confirmed · `6` host unavailable · `7` not implemented yet · `64` usage. `exec`, `run` and `attach`
+confirmed · `6` daemon unavailable · `7` not implemented yet · `64` usage. `exec`, `run` and `attach`
 exit with the program's own code (`125` when `doz` itself failed; `exec`'s `124` when its `--timeout`
 passed — `--json` adds `"timedOut": true`).

@@ -9,7 +9,7 @@ your Mac.
 ## Why every workspace goes through it
 
 A program working inside `/workspace` — an agent, a shell, a dev server — **keeps its folder when the
-sandbox wakes from hibernation** (and after a host restart, which hibernates). The plain share cannot do
+sandbox wakes from hibernation** (and after a daemon restart, which hibernates). The plain share cannot do
 that: a hibernation disconnects it, and the sandbox has to connect it again on wake, so a program that was
 inside it is left in a folder that no longer exists. Codex then fails every turn with
 `invalid cwd: No such file or directory`; a shell says `No such file or directory` for `ls .`. The view is

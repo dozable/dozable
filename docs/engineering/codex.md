@@ -6,7 +6,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 | Path | What |
 |---|---|
-| `Sources/DozableKit/OpenAIAccess.swift`; `Sources/DozableHost/ChatGPTAccounts.swift`, `ChatGPTSignIn.swift`; `Sources/doz-vmtest/CodexSuite.swift` | Codex — the proxy's OpenAI side (claims, the guest's auth.json, the renewal answer, `HTTPSOnce`, the sign-in's and refresh's requests); the host's sessions, `applyOpenAIAccount`, the guest auth.json; Dozable's own ChatGPT sign-in; `make test-cli-codex` |
+| `Sources/DozableKit/OpenAIAccess.swift`; `Sources/DozableHost/ChatGPTAccounts.swift`, `ChatGPTSignIn.swift`; `Sources/doz-vmtest/CodexSuite.swift` | Codex — the proxy's OpenAI side (claims, the guest's auth.json, the renewal answer, `HTTPSOnce`, the sign-in's and refresh's requests); the daemon's sessions, `applyOpenAIAccount`, the guest auth.json; Dozable's own ChatGPT sign-in; `make test-cli-codex` |
 
 ## Codex as a first-class agent
 
@@ -37,17 +37,17 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   PKCE S256, Codex's public client id, its scopes and parameters, a loopback listener on **127.0.0.1:1455, else 1457**,
   `redirect_uri=http://127.0.0.1:PORT/auth/callback`, the browser opened by `BrowserBridge.open` — then the code is
   exchanged (FORM post) over `HTTPSOnce` (the proxy's `TLSUpstream` leg). NO token exchange for an API key. The tokens go
-  to the host in `account-add` (`ChatGPTTokens.json`); the keychain keeps ONLY `ChatGPTRecord` (the refresh token, the
+  to the daemon in `account-add` (`ChatGPTTokens.json`); the keychain keeps ONLY `ChatGPTRecord` (the refresh token, the
   account id, the id_token claims Codex reads — `OpenAIAccess.keptClaims`) in `doz-chatgpt:NAME`, through `KeychainChunks`
   (parts `NAME#1…#8` + a `doz-chunks:n:<sha256>` header written last, only when it does not fit one item); the ACCESS
-  token lives in the host's memory only (a new host renews on first use). `accounts.json` gets plan/email/account
+  token lives in the daemon's memory only (a new daemon renews on first use). `accounts.json` gets plan/email/account
   id/fingerprint, never a token. **Dozable never reads or writes the Mac's `~/.codex`**
   (`testDozableNeverTouchesTheMacsCodexHome` scans DozableHost/CLI/Web).
-- **The refresh is the host's** (`ChatGPTSession`, ONE per account in `HostCore.chatgptSessions`): the vault's provider
+- **The refresh is the daemon's** (`ChatGPTSession`, ONE per account in `HostCore.chatgptSessions`): the vault's provider
   (`setProvider(.chatgpt, ttl: 60, version: generation)`) reads the access token; it renews when its JWT `exp` is
   within 5 minutes or after an upstream 401 (`vault.onStale` → `markStale`, which bumps the generation so the vault re-reads
   at once); one refresh at a time; the ROTATED refresh token is written to the keychain BEFORE the new access token is
-  used — a write that fails REMOVES the item (never a spent token left to try later): the sign-in then lives in that host's
+  used — a write that fails REMOVES the item (never a spent token left to try later): the sign-in then lives in that daemon's
   memory only, said in the log. A permanent refusal (401, `refresh_token_reused|expired|invalidated`, `invalid_grant`) = signed out → every read
   and renewal answer is a notice naming `doz account add NAME --chatgpt --force`. A network failure keeps an unexpired
   token working and retries after 30 s. **No silent fallback** — never another account's token or a key.
@@ -60,7 +60,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   auth.openai.com `.inspect` only while a renewal gate is set. Refusals on OpenAI hosts are OpenAI-shaped
   (`OpenAIAccess.refusal`). WebSockets (Codex dials `wss://chatgpt.com/…/responses` first) are swapped in the upgrade's
   head, then raw. Test seam: `DOZ_TEST_OPENAI_UPSTREAM` + `DOZ_TEST_OPENAI_CA` (`OpenAISeam`) — the proxy's OpenAI leg,
-  the sign-in's exchange, the host's refresh and the key check go to a fake, trusting ONLY its CA.
+  the sign-in's exchange, the daemon's refresh and the key check go to a fake, trusting ONLY its CA.
 - **The guest's `~/.codex/auth.json`** (`HostCore.codexAuthScript`, a root utility exec at every open-session of a Codex
   sandbox and before `doz exec … codex`): ChatGPT — `auth_mode: chatgpt`, `OPENAI_API_KEY: null`, ONE fresh placeholder
   (`vault.mintForFile`) for access and refresh token, the id_token with its real claims and the signature replaced by

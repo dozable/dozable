@@ -12,7 +12,7 @@ dashboard's setup wizard). Both are safe to run again.
   the others). It is downloaded and prepared **once**; each tool you try — Claude Code, pi, OpenCode … — is added
   to it as a layer, so a second tool downloads only itself. The store's base is the setting `defaults.base`. See
   [Images and bases](08-images-and-bases.md).
-- **Preparation runs in the host**, not in your terminal. Setup starts the base's download at the Base image step
+- **Preparation runs in the daemon**, not in your terminal. Setup starts the base's download at the Base image step
   and goes on asking; you can close the terminal or leave the wizard and it carries on. A tool prepared while the
   base is still being prepared waits for it instead of downloading it a second time.
 - **An account** is how a tool pays for its AI model: your Mac's Claude Code or Codex login, a long-lived token, or
@@ -49,7 +49,7 @@ it looks the same without colour; with its output in a pipe (`doz onboard | cat`
    Code missing or signed out (you can add a key instead), and the NAT network helper (only `--network nat`
    needs it). Setup waits here for **Enter**, so you can read them.
 3. **Base image** — every base, with its size and what it is for; Node.js (`node:22-bookworm`, ↓ 381 MiB) is
-   selected. **Enter** starts its download and preparation in the host at once, and the next questions follow
+   selected. **Enter** starts its download and preparation in the daemon at once, and the next questions follow
    straight away; **None now** prepares none (each tool's first start prepares its own).
 4. **Models & keys** — the sign-ins found on this Mac (Claude Code, Codex), then **Add a key?**: every provider and
    gateway, each with the tools it serves, asked again until **No more keys**. A key

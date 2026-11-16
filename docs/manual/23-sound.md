@@ -87,7 +87,7 @@ sandbox is always safe, whatever macOS's answer.
 
 ## Across pause, sleep and hibernation
 
-Sound keeps going across Pause, Sleep and Hibernate, and after the host restarted: a program that was playing or
+Sound keeps going across Pause, Sleep and Hibernate, and after the daemon restarted: a program that was playing or
 recording when the sandbox went to sleep carries on when it wakes, with nothing to restart.
 
 ## Known limitations

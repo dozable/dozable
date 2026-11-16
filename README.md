@@ -103,10 +103,10 @@ sign-up code is not open source (what may be sent, and every switch, is: `Source
 - [The security model](docs/manual/16-security-model.md) — what the VM, the proxy and the placeholders keep
   from a sandbox, and what they do not.
 - [DozableKit](docs/DOZABLEKIT.md) — the Swift engine underneath, for developers: the lifecycle, lineage,
-  memory, the proxied network, the host process, and how to depend on it.
+  memory, the proxied network, the daemon process, and how to depend on it.
 - [Bundling doz in an app](docs/manual/33-bundling-doz-in-an-app.md) — for app authors only: each release also has
   a **helper build** (`doz-VERSION-macos-arm64-helper.tar.gz`) made to live inside a Mac app and be driven over
-  `host.sock` — no dashboard, no self-update, the kernel inside. If you want Dozable on your Mac, you want Homebrew.
+  `daemon.sock` — no dashboard, no self-update, the kernel inside. If you want Dozable on your Mac, you want Homebrew.
 - [The dashboard style guide](docs/style-guide/index.html) — a living specimen of the dashboard's look, drawn by its
   real stylesheet, icons and marks (serve the repository root, e.g. `python3 -m http.server`, and open
   `/docs/style-guide/`).

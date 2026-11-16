@@ -15,7 +15,7 @@ For each setting, the first of these that says something wins:
 
 1. **a command-line flag** (for the settings that have one — `--store`, `--progress`, `--color`/`--no-color`,
    `doz create --cpus`, `doz create --approvals`, …);
-2. **its environment variable** (`DOZ_STORE`, `DOZ_PROGRESS`, `DOZ_COLOR`, `DOZ_HOST_IDLE`, `DOZ_SCREEN_CAPTURE`,
+2. **its environment variable** (`DOZ_STORE`, `DOZ_PROGRESS`, `DOZ_COLOR`, `DOZ_DAEMON_IDLE`, `DOZ_SCREEN_CAPTURE`,
    `DOZ_BOOT_LOGS`, `DOZ_SUBNET`, `DOZ_KERNEL`, `DOZ_KERNEL_CACHE`);
 3. **the sandbox's own value** (a setting one sandbox can have, below);
 4. **its project's** (`doz_project.yaml`: when the sandbox is made, and again at every `doz up`);
@@ -102,7 +102,7 @@ base with no agent (`python`, `go`) keeps the memory and network it had: `defaul
   is ignored, the default applies). A file that doesn't parse at all is ignored — with the line that's
   wrong — and never overwritten until you fix it.
 - **When a change applies** is part of each setting: at once, for the next command, the next sandbox
-  created, the next session, the next start or wake, or after `doz host stop`.
+  created, the next session, the next start or wake, or after `doz daemon stop`.
 
 ## Not settable, on purpose
 
@@ -131,7 +131,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `ui.density` | `comfortable` | comfortable \| compact | at once | — | The UI's spacing: comfortable, or compact — tighter rows, tabs, controls and page margins; the text stays the same size. |
 | `ui.notifications` | `cards` | cards \| pills \| bell | at once | — | Where the UI shows its notifications, in its top right corner: cards (a bell, and a column hanging below it, each with its full text and buttons and, for a success, a countdown that waits while the pointer is on any card), pills (one line each along the top, the newest at the right; click one for the rest), or bell (a count; the newest shows beside it for a few seconds; click for the list). Successes go by themselves; a failure stays until you close it. The Notifications page lists every one this tab showed. |
 | `ui.details_open` | `true` | boolean | at once | — | A sandbox's page shows its details panel (restore points, network, keys) beside the terminals; false: collapsed. |
-| `ui.allow_secret_entry` | `true` | boolean | at once | — | The web UI takes an Anthropic API key or a Claude setup token in a masked field — an account (the setup wizard, Accounts & keys: stored exactly as doz account add stores it, the login keychain) or a sandbox's own key (its page: exactly as doz key set does, held by the host) — sent once, in a request body. false: the pages show the command instead. The UI can turn this off, never on. |
+| `ui.allow_secret_entry` | `true` | boolean | at once | — | The web UI takes an Anthropic API key or a Claude setup token in a masked field — an account (the setup wizard, Accounts & keys: stored exactly as doz account add stores it, the login keychain) or a sandbox's own key (its page: exactly as doz key set does, held by the daemon) — sent once, in a request body. false: the pages show the command instead. The UI can turn this off, never on. |
 | `ui.open_browser` | `auto` | auto \| always \| never | next command | — | When doz ui opens a browser tab: auto (only when no page of this store's UI is open — an open page reconnects by itself instead), always (every start), never (it prints the address; doz ui link opens a page). --open and --no-open override it. |
 | `ui.port` | `0` | integer 0–65535 | ui-restart | `$DOZ_UI_PORT`, `--port N` | The ONE port the dashboard (doz ui) listens on — this Mac's browser at http://127.0.0.1:<port>, and with ui.lan your other browsers at http://<this Mac>.local:<port>. 0 = automatic: without ui.lan, the port this store's last doz ui had when it is free (else one the system picks, and doz ui says so); with ui.lan, serve.port (7443), which never moves. Or a fixed port 1024–65535 (doz ui refuses to start, naming the program, when another holds it). An installed dashboard app belongs to one port: keep it fixed for one. |
 | `ui.lan` | `false` | boolean | ui-restart | `$DOZ_UI_LAN`, `doz ui --lan \| --no-lan` | Also serve the dashboard to the other browsers of your network (every network interface of this Mac and Tailscale, never a sandbox's network) on the same port: each gets in once with an invite (doz ui share). false (the default): this Mac only. Where it listens and your reverse proxy: the serve.* settings. |
@@ -169,20 +169,20 @@ This table is generated from `doz config show` and checked against it on every b
 | `mac.clipboard` | `write` | write \| off | next session | `doz run @mac --clipboard` | A fenced session may put text on your clipboard, never read it; each copy announced (write, off). |
 | `mac.fence_loopback_listen` | `off` | off \| on | next session | — | Whether a fenced session on this Mac may listen on ANY port (a dev server, a test server on a free port), not only its --local-port ones (on, off). macOS's sandbox cannot keep such a server to this Mac's loopback: one that listens on every address is reachable from your network too (your firewall decides). The program still cannot connect to its own server from inside (its only way out is Dozable's proxy) — use --local-port N for that. From the next session (or restart). |
 
-### `[host]`
+### `[daemon]`
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `host.idle_timeout_minutes` | `5` | integer 0–10080 | after `doz host stop` | `$DOZ_HOST_IDLE`, `doz host start --idle-timeout` | Minutes with nothing running before the host exits; 0 = never. |
-| `host.screen_capture_minutes` | `5` | integer 0–1440 | after `doz host stop` | `$DOZ_SCREEN_CAPTURE` | Every this many minutes, save the screen of each running sandbox's sessions that printed something since (what a sleep or hibernation falls back on); 0 = only when it pauses, sleeps or hibernates. |
-| `host.boot_logs_kept` | `5` | integer 1–50 | next boot | `$DOZ_BOOT_LOGS` | How many boots of each sandbox to keep (its steps and kernel console — the web UI's Boot log, doz console --boot N); the oldest goes. |
-| `host.keepalive` | `false` | boolean | a store that hasn't chosen | — | Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the host runs the Mac's claude once to renew it. |
+| `daemon.idle_timeout_minutes` | `5` | integer 0–10080 | after `doz daemon stop` | `$DOZ_DAEMON_IDLE`, `doz daemon start --idle-timeout` | Minutes with nothing running before the daemon exits; 0 = never. |
+| `daemon.screen_capture_minutes` | `5` | integer 0–1440 | after `doz daemon stop` | `$DOZ_SCREEN_CAPTURE` | Every this many minutes, save the screen of each running sandbox's sessions that printed something since (what a sleep or hibernation falls back on); 0 = only when it pauses, sleeps or hibernates. |
+| `daemon.boot_logs_kept` | `5` | integer 1–50 | next boot | `$DOZ_BOOT_LOGS` | How many boots of each sandbox to keep (its steps and kernel console — the web UI's Boot log, doz console --boot N); the oldest goes. |
+| `daemon.keepalive` | `false` | boolean | a store that hasn't chosen | — | Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the daemon runs the Mac's claude once to renew it. |
 
 ### `[store]`
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `store.path` | `~/Library/Application Support/doz` | path ("" = automatic) | next command | `$DOZ_STORE`, `--store` | The store: images, kernels, sandboxes and the host's files. |
+| `store.path` | `~/Library/Application Support/doz` | path ("" = automatic) | next command | `$DOZ_STORE`, `--store` | The store: images, kernels, sandboxes and the daemon's files. |
 
 ### `[defaults]`
 
@@ -210,7 +210,7 @@ This table is generated from `doz config show` and checked against it on every b
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `updates.mode` | `notify` | off \| notify \| auto | next command | `$DOZ_UPDATES` | Updates: notify (at most once a day, and when doz ui opens, look for a newer doz and say how to upgrade — one line on a terminal, a banner on the dashboard), auto (also install it: brew upgrade, or the signed download for a tarball install — only while no sandbox runs and no session is attached, else it notifies; then: restart to apply, doz host restart), or off (never look). Never a downgrade; a feed that does not verify is ignored. |
+| `updates.mode` | `notify` | off \| notify \| auto | next command | `$DOZ_UPDATES` | Updates: notify (at most once a day, and when doz ui opens, look for a newer doz and say how to upgrade — one line on a terminal, a banner on the dashboard), auto (also install it: brew upgrade, or the signed download for a tarball install — only while no sandbox runs and no session is attached, else it notifies; then: restart to apply, doz daemon restart), or off (never look). Never a downgrade; a feed that does not verify is ignored. |
 | `updates.channel` | `stable` | stable \| beta \| canary | next command | — | Which releases you are offered: stable, beta (beta and stable) or canary (every build, first). A Homebrew install's own formula (doz, doz-beta, doz-canary) decides while this is not set; doz upgrade --channel switches both. |
 
 ### `[telemetry]`
@@ -256,7 +256,7 @@ This table is generated from `doz config show` and checked against it on every b
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
 | `workspace.ignore_mode` | `lock` | lock \| hide | next start or wake | `doz create --ignore-mode lock\|hide` | What a .dozignore at the root of a sandbox's workspace folder does to the paths it lists (Docker's .dockerignore syntax): lock (they stay listed, shown with no permissions, and every read, write, rename or delete of them is refused — so a program that bumps into one by name sees why) or hide (they are not there at all). A .dozreadonly beside it (same syntax) makes paths visible but read-only; doz_project.yaml, .git/hooks and the two rule files are read-only too. Without either file the folder is shared as it is. A convenience mask, not a security boundary: root in the sandbox can get around it. A sandbox's own choice (doz create --ignore-mode, ignore_mode in doz_project.yaml, doz config set --sandbox NAME) wins over this. |
-| `workspace.view` | `on` | on \| off | next-start | `doz create --workspace-view on\|off` | How a sandbox's workspace folder reaches it. on: through Dozable's live view of the folder, so a program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from hibernation or after a host restart. The view costs a little: the first scan of a big folder after a start or a wake is slower (e.g. git status on a large repository, or find), later ones are about as fast as without it. off: the folder is shared directly (a little faster) — but a program working inside /workspace loses its folder at such a wake and must be restarted (Codex says "invalid cwd"). A folder with a .dozignore or .dozreadonly always uses the view. Changes take effect at the sandbox's next start. A sandbox's own choice (doz create --workspace-view, workspace_view in doz_project.yaml, doz config set --sandbox NAME) wins over this. |
+| `workspace.view` | `on` | on \| off | next-start | `doz create --workspace-view on\|off` | How a sandbox's workspace folder reaches it. on: through Dozable's live view of the folder, so a program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from hibernation or after a daemon restart. The view costs a little: the first scan of a big folder after a start or a wake is slower (e.g. git status on a large repository, or find), later ones are about as fast as without it. off: the folder is shared directly (a little faster) — but a program working inside /workspace loses its folder at such a wake and must be restarted (Codex says "invalid cwd"). A folder with a .dozignore or .dozreadonly always uses the view. Changes take effect at the sandbox's next start. A sandbox's own choice (doz create --workspace-view, workspace_view in doz_project.yaml, doz config set --sandbox NAME) wins over this. |
 
 ### `[github]`
 
@@ -315,9 +315,9 @@ Every recipe's agent has these, each recipe with its own defaults (`doz config s
 | `DOZ_STORE` | `store.path` | the store folder |
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress |
 | `DOZ_COLOR` | `ui.color` | `auto`, `always` or `never` colour in the CLI |
-| `DOZ_HOST_IDLE` | `host.idle_timeout_minutes` | host idle timeout, minutes (fractions allowed) |
-| `DOZ_SCREEN_CAPTURE` | `host.screen_capture_minutes` | how often screens are saved |
-| `DOZ_BOOT_LOGS` | `host.boot_logs_kept` | boots kept per sandbox |
+| `DOZ_DAEMON_IDLE` | `daemon.idle_timeout_minutes` | daemon idle timeout, minutes (fractions allowed) |
+| `DOZ_SCREEN_CAPTURE` | `daemon.screen_capture_minutes` | how often screens are saved |
+| `DOZ_BOOT_LOGS` | `daemon.boot_logs_kept` | boots kept per sandbox |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | subnet of a new `nat` sandbox |
 | `DOZ_KERNEL` · `DOZ_KERNEL_CACHE` | `kernel.path` · `kernel.cache` | an explicit kernel · a shared kernel cache |
 | `XDG_CONFIG_HOME` | — | where `doz/doz.toml` is (default `~/.config`) |

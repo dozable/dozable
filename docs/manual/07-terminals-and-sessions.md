@@ -79,7 +79,7 @@ doz files my-app src --watch     # then a line each time that folder's listing c
 ```
 
 - **A shared workspace is read on your Mac**, whatever the sandbox is doing: nothing is started or woken,
-  and no Dozable host is started to answer. It shows what the sandbox sees: with
+  and no Dozable daemon is started to answer. It shows what the sandbox sees: with
   [workspace rules](20-workspace-rules.md) a hidden name is not there, a locked one is listed as
   `locked`, a read-only one is marked `read-only`. A link is shown with its target and never followed; a
   folder through a link (or `..`) that leads outside the shared folder is not listed.
@@ -107,7 +107,7 @@ doz files editors                       # the editors --app can use on this Mac
 - **Nothing is ever replaced**: a new file, a new folder or a move to a name that is there is refused.
   `/workspace` itself is never renamed, moved or deleted, and a folder never goes into itself.
 - **A shared workspace is changed on your Mac**, in any state of the sandbox — nothing is started or woken,
-  and no Dozable host is started for it. Only the shared folder is touched: a link is never followed (deleting
+  and no Dozable daemon is started for it. Only the shared folder is touched: a link is never followed (deleting
   a link deletes the link, never what it points to) and a path that leads outside the shared folder is
   refused. The [workspace rules](20-workspace-rules.md) apply as in the sandbox: a hidden item is not there,
   a locked or read-only one is not changed, a new name the rules would hide, lock or make read-only is
@@ -133,7 +133,7 @@ reload, another browser or a restarted `doz ui` shows the same ones open. The he
 folder in the selected folder; each row's ⋯ opens it on the Mac (a folder or a file also in each editor
 installed — **Open in Cursor**, …), shows it in the Finder, copies its path,
 renames, moves or deletes it (a box to tick first) — the same rules as the commands above, and nothing done
-here starts a host or wakes the sandbox. A row dragged onto a folder is moved there. Locked and read-only
+here starts a daemon or wakes the sandbox. A row dragged onto a folder is moved there. Locked and read-only
 items are marked and cannot be changed here. An isolated sandbox that is not running says so, and nothing in
 it is asked.
 
@@ -475,7 +475,7 @@ Limits:
 | `ui.split_default` | `shell` | What **Split** opens. |
 | `ui.grid_tile_size` | `medium` | The size of All sessions' tiles (every tile is live; `ui.grid_live_tiles` is no longer used). |
 | `ui.grid_refresh_ms` | `500` | How often the pictures are brought up to date, in milliseconds (200–10000; lower is livelier and costs more). |
-| `host.screen_capture_minutes` | `5` | How often running sessions' screens are saved. |
+| `daemon.screen_capture_minutes` | `5` | How often running sessions' screens are saved. |
 
 ## Troubleshooting
 

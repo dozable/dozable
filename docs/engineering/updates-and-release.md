@@ -7,7 +7,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | Path | What |
 |---|---|
 | `Scripts/helper-README.md`, `Scripts/helper-smoke.sh` (`make test-cli-helper`), `Sources/DozableCLI/HelperBuild.swift`, `Guest/kernel/` | 675: the helper build's README, its smoke, what it answers for the commands it leaves out, the pinned kernel's provenance and source offer |
-| `Scripts/release.sh` (`make release`), `Makefile.config.example`; `ReleaseStamp` in `Sources/DozableCLI/DozableCommand.swift`; `HostUpgradeCheck` in `GroupCommands.swift`; `HostCore.programGone`; `Tests/DozableCLITests/ReleaseTests.swift` | the Homebrew artefact (signed; Developer ID + notarised when configured), the version stamp, `doz host upgrade-check`, the refusal when an upgrade removed a running host's keg |
+| `Scripts/release.sh` (`make release`), `Makefile.config.example`; `ReleaseStamp` in `Sources/DozableCLI/DozableCommand.swift`; `HostUpgradeCheck` in `GroupCommands.swift`; `HostCore.programGone`; `Tests/DozableCLITests/ReleaseTests.swift` | the Homebrew artefact (signed; Developer ID + notarised when configured), the version stamp, `doz daemon upgrade-check`, the refusal when an upgrade removed a running daemon's keg |
 | `Sources/DozableHost/Usage.swift`; `Sources/DozableCLI/UsageCommands.swift`; `Sources/doz/DozableMain.swift` | anonymous usage statistics and the sign-up — the open half: the closed list, the switches, the local record, `doz telemetry`, `doz signup`, the hook; the bridge to the official builds' closed package (`#if DOZ_CLOUD`) |
 
 ## Public builds — `BuildFlavor`
@@ -15,7 +15,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 - **`make release` builds the PUBLIC flavor by default** (`PUBLIC=1` → `-DDOZ_PUBLIC_BUILD`; `PUBLIC=0` only for a private
   rc, which then needs `SOUND_KERNEL=<file>` or `NO_SOUND_KERNEL=1`). A public build has NO Dozable's own ChatGPT sign-in
   (it uses Codex's public client id — Codex's to use): `doz account add --chatgpt`, `onboard --openai-account chatgpt`,
-  the create preflight and the dashboard never offer it, the host refuses `account-add` of kind `chatgpt`, and a
+  the create preflight and the dashboard never offer it, the daemon refuses `account-add` of kind `chatgpt`, and a
   ChatGPT account an earlier build stored is KEPT but never used (`unsupported` in `account ls`; every request says
   why — `ChatGPTSession.unsupported`). Codex keeps `mac` (the Mac's own Codex login) and OpenAI API keys. And NO sound
   kernel: `--audio` is refused with `BuildFlavor.audioMissing`. `release.sh` proves the flavor on the packed binary.
@@ -24,7 +24,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 ## The helper build — `FLAVOUR=helper` (675)
 
-- **What**: the doz an app carries inside its bundle and drives over host.sock (SandboxLab; Deckosaurus next) —
+- **What**: the doz an app carries inside its bundle and drives over daemon.sock (SandboxLab; Deckosaurus next) —
   `make release FLAVOUR=helper` → `dist/doz-V-macos-arm64-helper.tar.gz` (+ `.sha256`, + `.dSYM.zip`), beside the CLI
   release of the same version. The user-facing page is `docs/manual/33-bundling-doz-in-an-app.md` (the layout contract,
   the rules for an app); the tarball's own `README.md` is `Scripts/helper-README.md`.
@@ -47,7 +47,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   says `"official": false`, and `UsageSwitches.decide` is off for `InstallMethod.helper` whatever the setting or flag
   (`doz telemetry show` says it is the helper build). The app that bundles it decides what it sends. No `doz signup` either.
 - **It says what it is**: `HostStatus.flavour` (`cli` | `helper`, `BuildFlavor.flavourName`) in every ping /
-  `host status`; nil from a host older than 0.37.41. Everything else about the host and the protocol is the CLI's.
+  `daemon status`; nil from a daemon older than 0.37.41. Everything else about the daemon and the protocol is the CLI's.
 - **Checked**: `release.sh` (the dashboard refused, `doz upgrade` refused, no DozableWeb bundle, README, no `bin/`) and
   `make test-cli-helper` (`Scripts/helper-smoke.sh`: the tarball copied whole into a fake `.app`, an EMPTY store, a lab VM
   booted from the kernel the helper carries — no download), which CI runs on the VM runner.
@@ -91,17 +91,17 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   template is not counted; network presets). `UsageSchema.problems` is the receiving side's validator ported, and
   `UsageRecorder.handOver` drops any message it does not accept. A new field is a schema change on BOTH sides and in
   the privacy policy — never just a new key here.
-- **Nothing private is collected for it**: the day's numbers come from what the host already records (`metrics.sqlite`
+- **Nothing private is collected for it**: the day's numbers come from what the daemon already records (`metrics.sqlite`
   action rows — phases with their times, creates, removals, preparations; the network table's minutes; the store's
   sandboxes, restore points, workspace rule files, permissions, the LAN option's devices; `onboarded.json`) and the commands'
   own counts, computed on the Mac (`UsageStoreFacts`, `UsageTimeline`, `UsageDailyBuilder` — pure, tested on a fixed
-  history). What the host did not record before, it now writes to the SAME local metrics, as times only: rows `attach`,
+  history). What the daemon did not record before, it now writes to the SAME local metrics, as times only: rows `attach`,
   `exec` (activity), `agent status` / `agent working` (612's status; working time from when `working` began), the create
   row's detail `account` (the KIND: mac, api-key, setup-token, none — never a name), and a failed preparation's
   `failedStep` (`PreparationStepID`: the metrics' fixed step keys, a recipe's bake step only as `bake-step`). The page sends
   `X-Doz-Display: standalone|browser` with its page-load renewal; only `standalone` is recorded (`app`), only while on.
 - **How the time block reads**: a running or asleep stretch is counted ONCE, on the day it ends, by its whole length (a
-  host crash ends one when the next host notices; a stretch still open is counted when it ends); `running_total` is the
+  daemon crash ends one when the next daemon notices; a stretch still open is counted when it ends); `running_total` is the
   running time within the day; `removed_age` is from the sandbox's create row; `idle_running_8h` counts sandboxes with a gap
   of 8 h or more between activity (attach, exec, a session opened or restarted, agent status, network use) inside a running
   stretch, ending that day — an attach held open for hours counts only at its start. `first_sandbox` and
@@ -115,7 +115,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   it runs (`UsageHook.before`) and after it records a failure's exit code and hands over what is due — `installed` /
   `upgraded` once per version, the `daily` of a closed day (≤ 7 days old) on the first command of a later day — then
   `flush(1 s)` only when something was handed over. Never for `telemetry`, help/`--version`, internal re-launches
-  (`--launched`, `--launch-detached`, `--restarted`) or `host upgrade-check`. The one-line notice: once, official and
+  (`--launched`, `--launch-detached`, `--restarted`) or `daemon upgrade-check`. The one-line notice: once, official and
   on, stderr on a terminal, never `--json`/`-q`.
 - **The setup's Usage statistics step** (`UsageStatsStep` — ONE model for both): `doz onboard` (after the preparation,
   just before Stay in touch; `UsageStatsPrompt` decides, pure) and the wizard's `WIZ.usage` (from `sessionInfo.usageStats`,
@@ -162,12 +162,12 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   install's formula decides while it is unset).
 - **After a command** (`DozableEntry` in `UpdateCommands.swift` is `doz`'s main: ArgumentParser's parse-and-run, then
   `UpdateHook.afterCommand`): only on a terminal (stdout AND stderr), never `--json`/`-q`, never for
-  update/host/serve/uninstall/config; one stderr line per version per day. `auto` installs only when
-  `UpdateInstaller.busyReason` is nil (no host, or one with no live sandbox and no other client) — else the line says
+  update/daemon/serve/uninstall/config; one stderr line per version per day. `auto` installs only when
+  `UpdateInstaller.busyReason` is nil (no daemon, or one with no live sandbox and no other client) — else the line says
   why not. Homebrew: `brew upgrade <formula>`; a tarball: download → size + sha256 of the SIGNED entry → unpack →
   `codesign --verify --strict` + team `KJ8QMLWB97` → its `--version` → ONE `renamex_np(RENAME_SWAP)` of `libexec/doz`,
-  the previous kept as `libexec/doz.previous` (a running host keeps its inode — the 591 rule). Then "Updated to X —
-  restart to apply: doz host restart" (`doz host restart` = stop with progress + start). The dashboard's banner reads
+  the previous kept as `libexec/doz.previous` (a running daemon keeps its inode — the 591 rule). Then "Updated to X —
+  restart to apply: doz daemon restart" (`doz daemon restart` = stop with progress + start). The dashboard's banner reads
   `UpdateChecker.remembered` (no network per page) via `WebSessionInfo.update`.
 - **`doz upgrade [--check] [--channel X]`**: `--check` exits 10 when one is available; `--channel` writes the setting
   and, for Homebrew, switches formulas (`brew uninstall` then `brew install <tap>/<formula>`, reinstalling the old one
@@ -219,12 +219,12 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 - **Resources are found beside the RESOLVED executable** (`DeckholdBinary.candidateBundleDirectories`,
   `WebAssets`, `HostLauncher.executablePath`): the Homebrew keg (`Cellar/doz/V/libexec/doz`, reached
   through `bin/doz` links) works with no path hard-coded — keep it that way.
-- **An upgrade removes the previous keg under a running host** (`brew upgrade` runs `brew cleanup`):
-  the host keeps its open program and its VMs, but a boot would fail on a missing guest binary. So
+- **An upgrade removes the previous keg under a running daemon** (`brew upgrade` runs `brew cleanup`):
+  the daemon keeps its open program and its VMs, but a boot would fail on a missing guest binary. So
   `HostCore.programGone()` (the executable removed, or deckhold/doznet not found) refuses every
-  `bootOps` op and a wake-by-use with "this host's program … is gone — `doz host stop`, then retry";
-  `host status`/`doctor` say so; the idle loop exits it once nothing is live. `doz host upgrade-check`
-  (the formula's post-install) says when a host of another build runs — via the socket, else the pid
+  `bootOps` op and a wake-by-use with "this daemon's program … is gone — `doz daemon stop`, then retry";
+  `daemon status`/`doctor` say so; the idle loop exits it once nothing is live. `doz daemon upgrade-check`
+  (the formula's post-install) says when a daemon of another build runs — via the socket, else the pid
   file + `proc_pidpath` (Homebrew's post-install sandbox) — never starts/stops one, always exits 0.
 - **`doz uninstall` never removes a Homebrew keg** (`Uninstall.homebrewKeg` — any channel's formula: doz,
   doz-beta, doz-canary): it removes the store and settings and names `brew uninstall <formula>`.
@@ -233,4 +233,4 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   is tapped, `UpdateInstaller.installedTap`, the old names in `Distribution.previousTaps`): one
   formula per channel, `Formula/doz.rb`, `doz-beta.rb`, `doz-canary.rb`, GENERATED by `make publish`/`promote`
   from `Scripts/homebrew/doz.rb.tmpl` (arm64, macOS 26+, conflicting with each other, `post_install_steps` →
-  `host upgrade-check`, a `test do` that runs `--version` and `doctor --json` in a scratch store).
+  `daemon upgrade-check`, a `test do` that runs `--version` and `doctor --json` in a scratch store).

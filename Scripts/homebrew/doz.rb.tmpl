@@ -25,10 +25,10 @@ class {{CLASS}} < Formula
     bin.install_symlink libexec/"doz/doz"
   end
 
-  # A host of the previous build keeps running (it runs its own copy) until `doz host restart`; say so.
-  # `doz host upgrade-check` never starts or stops one and always exits 0.
+  # A daemon of the previous build keeps running (it runs its own copy) until `doz daemon restart`; say so.
+  # `doz daemon upgrade-check` never starts or stops one and always exits 0.
   post_install_steps do
-    run "libexec/doz/doz", base: :prefix, args: ["host", "upgrade-check"], must_succeed: false, print_stdout: true
+    run "libexec/doz/doz", base: :prefix, args: ["daemon", "upgrade-check"], must_succeed: false, print_stdout: true
   end
 
   def caveats
@@ -39,15 +39,15 @@ class {{CLASS}} < Formula
       release for up to a day; doz also tells you when one is out: the setting updates.mode — notify,
       auto or off; doz upgrade --check looks now)
 
-      Upgrading while a doz host runs is safe: it keeps running the previous build until
-      `doz host restart` (sandboxes hibernate, and wake on the new build).
+      Upgrading while a doz daemon runs is safe: it keeps running the previous build until
+      `doz daemon restart` (sandboxes hibernate, and wake on the new build).
       `doz uninstall` removes the store and settings; `brew uninstall {{NAME}}` removes doz itself.
     EOS
   end
 
   test do
     assert_equal version.to_s, shell_output("#{bin}/doz --version").strip
-    # doctor reads, never starts a host or a VM: a scratch store and settings, nothing created.
+    # doctor reads, never starts a daemon or a VM: a scratch store and settings, nothing created.
     ENV["DOZ_STORE"] = (testpath/"store").to_s
     ENV["XDG_CONFIG_HOME"] = (testpath/"config").to_s
     ENV["DOZ_UPDATES"] = "off"
@@ -57,6 +57,6 @@ class {{CLASS}} < Formula
     status = checks.to_h { |c| [c["check"], c["status"]] }
     assert_equal "ok", status["entitlement"], "doz must carry com.apple.security.virtualization"
     assert_equal "ok", status["guest tools"], "the guest binaries must be found beside doz, in the keg"
-    refute_path_exists testpath/"store/host.lock"
+    refute_path_exists testpath/"store/daemon.lock"
   end
 end

@@ -11,7 +11,7 @@ end you will have:
 - booted, paused, slept and woken a sandbox;
 - used a restore point;
 - run Claude Code with a key the sandbox never sees, and seen what it is told about where it runs;
-- stopped the host and come back to the same conversation;
+- stopped the daemon and come back to the same conversation;
 - removed everything with `doz uninstall`, and set it up again in the browser.
 
 The reference for every command is the [user guide](CLI-USER-GUIDE.md).
@@ -60,7 +60,7 @@ Enter takes the recommended answer:
    progress as every start: a spinner on the step under way, a bar on a download, the last lines of
    output. This is the waiting a first start would otherwise make you do.
 
-The preparation runs **in the host**, not in your terminal: press **Ctrl-C** and onboarding
+The preparation runs **in the daemon**, not in your terminal: press **Ctrl-C** and onboarding
 detaches — it goes on. Try it:
 
 ```bash
@@ -123,7 +123,7 @@ doz ls                             # lab1  lab  running  …RAM held…  1 sessi
 doz sessions lab1                  # shell  (the top you left running)
 ```
 
-The first command also started the **host**: one background process per user that owns the
+The first command also started the **daemon**: one background process per user that owns the
 running VMs. It started itself and will exit by itself.
 
 The boot flew past? It is kept:
@@ -186,12 +186,12 @@ give it a key — pick one of the two ways; the key is **never** typed as an arg
 # (a) for this session: paste at the prompt (no echo), or pipe it from a file
 doz key set doz-try --anthropic
 
-# (b) kept in the login keychain, re-read whenever a new host loads the sandbox
+# (b) kept in the login keychain, re-read whenever a new daemon loads the sandbox
 security add-generic-password -s doz-anthropic -a "$USER" -w     # prompts for the key
 doz key set doz-try --anthropic --keychain doz-anthropic
 ```
 
-With (a), the host holds the key in memory only, so it is gone once the host stops (part 6). Then:
+With (a), the daemon holds the key in memory only, so it is gone once the daemon stops (part 6). Then:
 
 ```bash
 cd ~/doz-try && doz up
@@ -230,23 +230,23 @@ doz exec doz-try -- getent hosts example.com       # nothing: the agent policy a
 doz net log doz-try --denied
 ```
 
-The sandbox has no network card. Every connection goes through a proxy in the host, which applies
+The sandbox has no network card. Every connection goes through a proxy in the daemon, which applies
 the policy, logs the connection and swaps in the real key on the way to Anthropic.
 
 ## 6. Quit and come back (2 min)
 
 ```bash
 doz hibernate doz-try
-doz host stop                      # hibernates anything still running, then exits
-doz host status                    # no host
-doz ls                             # still answers (read from the store, no host started)
+doz daemon stop                      # hibernates anything still running, then exits
+doz daemon status                    # no daemon
+doz ls                             # still answers (read from the store, no daemon started)
 ```
 
-If you used key option (a), set the key again now. The host that held it is gone. (The Mac login
-and a keychain key are read again by the new host, and a session that was running keeps working.)
+If you used key option (a), set the key again now. The daemon that held it is gone. (The Mac login
+and a keychain key are read again by the new daemon, and a session that was running keeps working.)
 
 ```bash
-cd ~/doz-try && doz up             # a new host starts, wakes `doz-try`, reattaches
+cd ~/doz-try && doz up             # a new daemon starts, wakes `doz-try`, reattaches
 ```
 
 You are back in the **same Claude Code conversation**, on the same screen, with the same process.
@@ -262,7 +262,7 @@ doz rm doz-try                     # asks first; ~/doz-try on your Mac (and its 
 ```
 
 The prepared images stay, so the next sandbox starts in under a second (`doz image ls`,
-`doz image rm`). The host exits by itself 5 minutes after nothing is running.
+`doz image rm`). The daemon exits by itself 5 minutes after nothing is running.
 
 ## 8. The same in the browser: uninstall, then the setup wizard (10 min)
 
@@ -276,9 +276,9 @@ doz ui                             # opens the browser, signed in (one-use link)
 
 A store that was never onboarded opens on the **setup wizard**: Welcome → Checks (the doctor's, the
 required ones marked) → Claude account → Images (sizes and estimates; claude-code ticked) →
-Preparing (the host's progress; **Continue in the background** leaves it running — **Operations**
+Preparing (the daemon's progress; **Continue in the background** leaves it running — **Operations**
 shows it) → First sandbox (a name, an image and a workspace folder typed or pasted — a browser cannot
-pick a local folder for the host) → Done. The account
+pick a local folder for the daemon) → Done. The account
 step takes an API key or a setup token in a masked field (sent once, stored as `doz account add`
 stores it, and cleared from the page) — or, with `doz config set ui.allow_secret_entry false`, shows
 the CLI command instead. Afterwards the wizard is always under **Onboarding** in the navigation (a
