@@ -4,11 +4,45 @@ import DozableKit
 /// Runs the Mac's own `claude` once (the keep-alive, 588 D3). A fake in tests.
 public protocol KeepaliveRunning: Sendable {
     func run(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> Int32
+    /// 695: the same, with the program's last line on stderr (what a failed renewal says — never stored as it is: see
+    /// `KeepaliveRecord.clean`). A runner that does not capture says nothing.
+    func runCapturing(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> KeepaliveRun
+}
+
+extension KeepaliveRunning {
+    public func runCapturing(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> KeepaliveRun {
+        KeepaliveRun(code: run(binary: binary, arguments: arguments, environment: environment, directory: directory, timeout: timeout), lastErrorLine: nil)
+    }
+}
+
+/// 695: how one keep-alive run ended. `code` -1: it could not start; -2: killed at its timeout.
+public struct KeepaliveRun: Equatable, Sendable {
+    public var code: Int32
+    public var lastErrorLine: String?
+    public init(code: Int32, lastErrorLine: String?) { self.code = code; self.lastErrorLine = lastErrorLine }
+}
+
+/// 695: the pids of the keep-alive's own runs while they run — never counted as a Claude Code that holds the login.
+public enum KeepaliveRuns {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var pids: Set<pid_t> = []
+    static func insert(_ p: pid_t) { lock.withLock { _ = pids.insert(p) } }
+    static func remove(_ p: pid_t) { lock.withLock { _ = pids.remove(p) } }
+    public static func contains(_ p: pid_t) -> Bool { lock.withLock { pids.contains(p) } }
 }
 
 public struct ProcessKeepaliveRunner: KeepaliveRunning {
-    public init() {}
+    /// 695: this runner runs the Mac's CLAUDE (the login keep-alive) — a guarded run may run only its fake
+    /// (`TestSafety.keepaliveClaudeViolation` stops anything else). The Codex keep-alive's runner is not one.
+    public var claude = false
+    public init(claude: Bool = false) { self.claude = claude }
+
     public func run(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> Int32 {
+        runCapturing(binary: binary, arguments: arguments, environment: environment, directory: directory, timeout: timeout).code
+    }
+
+    public func runCapturing(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> KeepaliveRun {
+        if claude { TestSafety.enforce(TestSafety.keepaliveClaudeViolation(binary)) }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: binary)
         p.arguments = arguments
@@ -16,13 +50,47 @@ public struct ProcessKeepaliveRunner: KeepaliveRunning {
         p.currentDirectoryURL = directory
         p.standardInput = FileHandle.nullDevice
         p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        do { try p.run() } catch { return -1 }
+        let err = Pipe()
+        p.standardError = err
+        do { try p.run() } catch { return KeepaliveRun(code: -1, lastErrorLine: nil) }
+        let pid = p.processIdentifier
+        KeepaliveRuns.insert(pid)
+        defer { KeepaliveRuns.remove(pid) }
+        // Collected on its own thread (a full pipe would stall the program); only the last 16 KiB are kept. (A child of
+        // the program may keep the pipe open past its exit: the reader is then left behind, and what it has is read.)
+        let box = LockedData()
+        let done = DispatchSemaphore(value: 0)
+        let handle = err.fileHandleForReading
+        DispatchQueue.global().async {
+            while true {
+                let d = handle.availableData
+                if d.isEmpty { break }
+                box.append(d, keep: 16 << 10)
+            }
+            done.signal()
+        }
         let deadline = Date().addingTimeInterval(timeout)
         while p.isRunning && Date() < deadline { usleep(50_000) }
-        if p.isRunning { p.terminate(); return -2 }
-        return p.terminationStatus
+        var timedOut = false
+        if p.isRunning {
+            timedOut = true
+            p.terminate()
+            let grace = Date().addingTimeInterval(5)
+            while p.isRunning && Date() < grace { usleep(50_000) }
+            if p.isRunning { kill(pid, SIGKILL) }
+        }
+        _ = done.wait(timeout: .now() + 2)
+        let last = String(decoding: box.data, as: UTF8.self).split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }.last { !$0.isEmpty }
+        return KeepaliveRun(code: timedOut ? -2 : p.terminationStatus, lastErrorLine: last)
     }
+}
+
+final class LockedData: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _data = Data()
+    var data: Data { lock.withLock { _data } }
+    func append(_ d: Data, keep: Int) { lock.withLock { _data.append(d); if _data.count > keep { _data = Data(_data.suffix(keep)) } } }
 }
 
 /// How the keep-alive decides and acts (injected so tests use a fake runner and fake probes).
@@ -36,7 +104,7 @@ public struct KeepaliveConfig: Sendable {
     /// …and a sandbox used it within this long.
     public var recentUse: TimeInterval = 900
 
-    public init(enabled: Bool, runner: KeepaliveRunning = ProcessKeepaliveRunner(),
+    public init(enabled: Bool, runner: KeepaliveRunning = ProcessKeepaliveRunner(claude: true),
                 isClaudeRunning: @escaping @Sendable () -> Bool = { ClaudeLogin.isClaudeRunning() },
                 binary: @escaping @Sendable () -> String? = { ClaudeLogin.resolveBinary() }) {
         self.enabled = enabled

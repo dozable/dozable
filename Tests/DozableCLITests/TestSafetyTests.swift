@@ -71,6 +71,38 @@ final class TestSafetyTests: XCTestCase {
         XCTAssertTrue(TestSafety.testRun(["DOZ_TEST_REAL_MAC": "1"], inXCTest: false))
     }
 
+    /// 695: the login keep-alive may run only the fake claude in a test — never the Mac's own (it would renew THIS Mac's
+    /// login and cancel the copy of every running Claude Code). Anything else is a violation, the seam's own path is not.
+    func testTheKeepaliveRunsOnlyTheFakeClaude() throws {
+        let real = home.appendingPathComponent(".local/bin/claude").path
+        XCTAssertNotNil(TestSafety.keepaliveClaudeViolation(real, env: ["DOZ_TEST_GUARD": "1"]))
+        XCTAssertNotNil(TestSafety.keepaliveClaudeViolation("/opt/homebrew/bin/claude", env: ["DOZ_TEST_GUARD": "1"]))
+        XCTAssertNotNil(TestSafety.keepaliveClaudeViolation(real, env: ["DOZ_TEST_CLAUDE_BIN": "/tmp/fake-claude"]), "another program than the seam's")
+        XCTAssertNotNil(TestSafety.keepaliveClaudeViolation("/tmp/x/claude", env: ["DOZ_TEST_CLAUDE_BIN": "relative/claude"]), "a relative seam is no seam")
+        XCTAssertNil(TestSafety.keepaliveClaudeViolation("/tmp/fake-claude", env: ["DOZ_TEST_CLAUDE_BIN": "/tmp/fake-claude"]))
+        XCTAssertNil(TestSafety.keepaliveClaudeViolation("/tmp/./fake-claude", env: ["DOZ_TEST_CLAUDE_BIN": "/tmp/fake-claude"]))
+        // The seam is honoured only in a guarded run (this XCTest run is one), and only as an executable file.
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("doz-ts-\(UUID().uuidString.prefix(8))")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fake = dir.appendingPathComponent("claude-fake").path
+        FileManager.default.createFile(atPath: fake, contents: Data("#!/bin/sh\nexit 0\n".utf8), attributes: [.posixPermissions: 0o755])
+        XCTAssertEqual(ClaudeLogin.testBinary(["DOZ_TEST_GUARD": "1", "DOZ_TEST_CLAUDE_BIN": fake]), fake)
+        XCTAssertNil(ClaudeLogin.testBinary(["DOZ_TEST_GUARD": "1"]))
+        XCTAssertEqual(ClaudeLogin.resolveBinary(environment: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_CLAUDE_BIN": fake]), fake,
+                       "a guarded run resolves only its fake")
+        XCTAssertNil(ClaudeLogin.resolveBinary(environment: ["DOZ_TEST_GUARD": "1", "CLAUDE_BINARY": "/bin/sh"]),
+                     "a guarded run never finds the Mac's claude, however it is named")
+        // A guarded run without a fake counts no Claude Code at all (the Mac's own runs these tests' session).
+        XCTAssertEqual(ClaudeLogin.claudePids(env: ["DOZ_TEST_GUARD": "1"]), [])
+        // The memory seam's keep-alive: nothing to run without a fake; the fake through the guarded runner with one.
+        XCTAssertTrue(CredentialServices.forHost(environment: ["DOZ_TEST_CREDENTIALS": "memory", "DOZ_TEST_GUARD": "1"]).keepaliveRunner is NoKeepalive)
+        let s = CredentialServices.forHost(environment: ["DOZ_TEST_CREDENTIALS": "memory", "DOZ_TEST_GUARD": "1", "DOZ_TEST_CLAUDE_BIN": fake])
+        XCTAssertEqual(s.claudeBinary(), fake)
+        XCTAssertEqual((s.keepaliveRunner as? ProcessKeepaliveRunner)?.claude, true)
+        XCTAssertEqual((CredentialServices.system.keepaliveRunner as? ProcessKeepaliveRunner)?.claude, true, "the real runner is the guarded one")
+    }
+
     /// The guard is armed in this very run when `make test` runs it (DOZ_TEST_GUARD=1 is a forced default).
     func testTheMakefileArmsTheGuard() throws {
         let env = ProcessInfo.processInfo.environment

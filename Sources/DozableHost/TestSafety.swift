@@ -93,6 +93,16 @@ public enum TestSafety {
         return "a test would run the real launchctl (\(path)) — give it a fake one (DOZ_TEST_LAUNCHCTL)"
     }
 
+    /// 695: why running `binary` as the login keep-alive's Claude Code is refused in a guarded run (nil: allowed) — anything
+    /// but the test seam `DOZ_TEST_CLAUDE_BIN` (a fake). The real `claude -p` renews THIS Mac's login, and a renewal by one
+    /// holder cancels the copy every other running Claude Code holds (the session running the tests among them).
+    public static func keepaliveClaudeViolation(_ binary: String, env: [String: String] = ProcessInfo.processInfo.environment) -> String? {
+        func resolved(_ p: String) -> String { URL(fileURLWithPath: p).standardizedFileURL.resolvingSymlinksInPath().path }
+        if let seam = env["DOZ_TEST_CLAUDE_BIN"], seam.hasPrefix("/"), resolved(seam) == resolved(binary) { return nil }
+        return "a test would run \(binary) as the login keep-alive's claude — the real one renews this Mac's Claude login and "
+            + "cancels the copy every running Claude Code holds; give it a fake one (DOZ_TEST_CLAUDE_BIN)"
+    }
+
     /// Stop a guarded run that is about to do what `violation` describes.
     public static func enforce(_ violation: String?, env: [String: String] = ProcessInfo.processInfo.environment) {
         guard let violation, guarded(env) else { return }

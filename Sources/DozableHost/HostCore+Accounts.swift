@@ -12,6 +12,9 @@ public struct CredentialServices: Sendable {
     public var home: URL
     public var keepaliveRunner: KeepaliveRunning
     public var isClaudeRunning: @Sendable () -> Bool
+    /// 695: the Claude Code processes running on this Mac (`ClaudeLogin.claudePids`) — the keep-alive's holders are these
+    /// minus the fenced sessions' members and its own run. Given only `isClaudeRunning` (older tests): one unnamed holder.
+    public var claudeProcesses: @Sendable () -> [pid_t]
     /// How often a Mac login is re-read.
     public var watchInterval: Duration
     /// 599i rc.3: the Mac's Codex home (`mac` for Codex reads its auth.json's access token) — nil: none.
@@ -23,13 +26,14 @@ public struct CredentialServices: Sendable {
     public init(keychain: KeychainAccess, verifier: AccountVerifying, claudeBinary: @escaping @Sendable () -> String?, home: URL,
                 keepaliveRunner: KeepaliveRunning, isClaudeRunning: @escaping @Sendable () -> Bool, watchInterval: Duration,
                 codexHome: @escaping @Sendable () -> URL? = { nil }, codexBinary: @escaping @Sendable () -> String? = { nil },
-                codexRunner: KeepaliveRunning = ProcessKeepaliveRunner()) {
+                codexRunner: KeepaliveRunning = ProcessKeepaliveRunner(), claudeProcesses: (@Sendable () -> [pid_t])? = nil) {
         self.keychain = keychain
         self.verifier = verifier
         self.claudeBinary = claudeBinary
         self.home = home
         self.keepaliveRunner = keepaliveRunner
         self.isClaudeRunning = isClaudeRunning
+        self.claudeProcesses = claudeProcesses ?? { isClaudeRunning() ? [-1] : [] }
         self.watchInterval = watchInterval
         self.codexHome = codexHome
         self.codexBinary = codexBinary
@@ -38,24 +42,31 @@ public struct CredentialServices: Sendable {
 
     public static var system: CredentialServices {
         CredentialServices(keychain: SystemKeychain(), verifier: AnthropicVerifier(), claudeBinary: { ClaudeLogin.resolveBinary() },
-                           home: FileManager.default.homeDirectoryForCurrentUser, keepaliveRunner: ProcessKeepaliveRunner(),
+                           home: FileManager.default.homeDirectoryForCurrentUser, keepaliveRunner: ProcessKeepaliveRunner(claude: true),
                            isClaudeRunning: { ClaudeLogin.isClaudeRunning() }, watchInterval: .seconds(120),
-                           codexHome: { CodexMacLogin.resolveHome() }, codexBinary: { CodexMacLogin.resolveBinary() })
+                           codexHome: { CodexMacLogin.resolveHome() }, codexBinary: { CodexMacLogin.resolveBinary() },
+                           claudeProcesses: { ClaudeLogin.claudePids() })
     }
 
     /// 594, a TEST seam for real host processes (`make test-cli`, the browser probes):
     /// `DOZ_TEST_CREDENTIALS=memory` — a keychain that lives in the host's memory (never the login
     /// keychain: no item written, no prompt), a verifier that sends nothing ("unverified"), no `claude`,
     /// no keep-alive. Anything else: the real services.
+    /// 695: in a guarded run, a FAKE claude (`DOZ_TEST_CLAUDE_BIN`) is this Mac's claude for the keep-alive (and the only
+    /// process counted as a running Claude Code), and `DOZ_TEST_LOGIN_WATCH_SECONDS` how often a Mac login is re-read.
     public static func forHost(environment: [String: String] = ProcessInfo.processInfo.environment) -> CredentialServices {
         guard environment["DOZ_TEST_CREDENTIALS"] == "memory" else { return .system }
         // 599i rc.3: the Mac's Codex login only from a FAKE home (DOZ_TEST_CODEX_HOME), else none; the keep-alive
         // only runs a FAKE codex (DOZ_TEST_CODEX_BIN).
-        return CredentialServices(keychain: MemoryKeychain(), verifier: OfflineVerifier(), claudeBinary: { nil },
-                                  home: URL(fileURLWithPath: "/var/empty"), keepaliveRunner: NoKeepalive(),
-                                  isClaudeRunning: { false }, watchInterval: .seconds(3600),
+        let fake = ClaudeLogin.testBinary(environment)
+        let watch = TestSafety.guarded(environment) ? environment["DOZ_TEST_LOGIN_WATCH_SECONDS"].flatMap(Double.init).flatMap { $0 > 0 ? $0 : nil } : nil
+        return CredentialServices(keychain: MemoryKeychain(), verifier: OfflineVerifier(), claudeBinary: { fake },
+                                  home: URL(fileURLWithPath: "/var/empty"),
+                                  keepaliveRunner: fake == nil ? NoKeepalive() as KeepaliveRunning : ProcessKeepaliveRunner(claude: true),
+                                  isClaudeRunning: { false }, watchInterval: .seconds(watch ?? 3600),
                                   codexHome: { CodexMacLogin.resolveHome(environment: environment) },
-                                  codexBinary: { CodexMacLogin.resolveBinary(environment: environment) })
+                                  codexBinary: { CodexMacLogin.resolveBinary(environment: environment) },
+                                  claudeProcesses: { ClaudeLogin.claudePids(env: environment) })
     }
 }
 

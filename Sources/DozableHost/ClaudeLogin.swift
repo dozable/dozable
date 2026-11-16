@@ -283,8 +283,10 @@ public enum ClaudeLogin {
 
     /// Where `claude` is: the usual install places, then a login shell's PATH (the host process
     /// has a thin one). The same order as DeckKit's resolver.
+    /// 695: a guarded run finds only its fake (`testBinary`), never the Mac's own claude.
     public static func resolveBinary(home: URL = FileManager.default.homeDirectoryForCurrentUser,
                                      environment: [String: String] = ProcessInfo.processInfo.environment) -> String? {
+        if TestSafety.guarded(environment) { return testBinary(environment) }
         if let e = environment["CLAUDE_BINARY"], !e.isEmpty, FileManager.default.isExecutableFile(atPath: e) { return e }
         let candidates = ["\(home.path)/.local/bin/claude", "/usr/local/bin/claude", "/opt/homebrew/bin/claude", "\(home.path)/.claude/local/claude"]
         if let c = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) { return c }
@@ -300,9 +302,50 @@ public enum ClaudeLogin {
     }
 
     /// Is a Claude Code process running on this Mac (the only thing that renews its login)?
-    public static func isClaudeRunning() -> Bool {
-        guard let r = run("/usr/bin/pgrep", ["-f", "(^|/)claude( |$)|share/claude/versions/"], timeout: 5) else { return false }
-        return r.status == 0
+    public static func isClaudeRunning(env: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        !claudePids(env: env).isEmpty
+    }
+
+    /// 695 TEST SEAM (guarded runs only): `DOZ_TEST_CLAUDE_BIN` — a FAKE claude (absolute, executable) that the login
+    /// keep-alive runs instead of the Mac's own, and the only process a guarded run counts as a running Claude Code. A
+    /// guarded run without it has no claude at all; `TestSafety` stops one that would run anything else for a keep-alive.
+    public static func testBinary(_ env: [String: String] = ProcessInfo.processInfo.environment) -> String? {
+        guard TestSafety.guarded(env), let p = env["DOZ_TEST_CLAUDE_BIN"], p.hasPrefix("/"),
+              FileManager.default.isExecutableFile(atPath: p) else { return nil }
+        return p
+    }
+
+    /// 695: the processes of this user that are Claude Code — by command line (`claude …`, or Claude Code's versioned
+    /// binary), minus Dozable's own processes whose command line merely NAMES it (a session's `deckhold-mac` holder carries
+    /// its program's argv, `doz run @mac -- claude` its client). A guarded run counts only its fake (`DOZ_TEST_CLAUDE_BIN`,
+    /// by file name) — never the Mac's own Claude Code, which runs the tests' own session.
+    public static func claudePids(env: [String: String] = ProcessInfo.processInfo.environment) -> [pid_t] {
+        let pattern: String
+        if TestSafety.guarded(env) {
+            guard let fake = testBinary(env) else { return [] }
+            let special = Set(#".^$*+?()[]{}|\"#)
+            let name = (fake as NSString).lastPathComponent.map { special.contains($0) ? "\\\($0)" : String($0) }.joined()
+            pattern = "(^|/)" + name + "( |$)"
+        } else {
+            pattern = "(^|/)claude( |$)|share/claude/versions/"
+        }
+        guard let r = run("/usr/bin/pgrep", ["-f", pattern], timeout: 5), r.status == 0 else { return [] }
+        return r.out.split(whereSeparator: \.isNewline).compactMap { pid_t($0.trimmingCharacters(in: .whitespaces)) }
+            .filter { $0 > 1 && $0 != getpid() && !["deckhold-mac", "doz"].contains(executableName($0) ?? "") }
+    }
+
+    /// 695 (the plan's decision 11): the Claude Code processes that HOLD their own copy of this Mac's login — every
+    /// `claudePids` minus `excluded` (the members of fenced sessions: they hold a placeholder, never the login) and minus
+    /// the keep-alive's own run. A renewal by anyone else cancels such a copy, so the keep-alive never runs beside one.
+    public static func loginHolders(excluding excluded: (pid_t) -> Bool, env: [String: String] = ProcessInfo.processInfo.environment) -> [pid_t] {
+        claudePids(env: env).filter { !KeepaliveRuns.contains($0) && !excluded($0) }
+    }
+
+    /// The file name of the program `pid` runs (nil: gone, or not this user's to look at).
+    static func executableName(_ pid: pid_t) -> String? {
+        var buf = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+        guard proc_pidpath(pid, &buf, UInt32(buf.count)) > 0 else { return nil }
+        return (String(cString: buf) as NSString).lastPathComponent
     }
 
     static func run(_ path: String, _ args: [String], timeout: TimeInterval) -> (status: Int32, out: String)? {
