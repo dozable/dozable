@@ -16,8 +16,10 @@
 //      not in the seam's file, the app's output or its log (os_log, when `log show` can read it); `doz ui stop`.
 //   8. doz in a scratch prefix replaced BY RENAME (a new file and VERSION) → the next dump shows the new version, and a
 //      newer copy of the app beside it → "Update Menu Bar App (X → Y)".
-//   9. `doz app install --dest` (the copy beside that doz: verified, its quarantine mark removed, installed; again with a
-//      "running" copy and --open: quit, swapped by rename — a new file — and opened through the seam), a tampered copy
+//   9. `doz app install --dest` (the copy beside that doz: verified, its quarantine mark removed, installed; --open with
+//      no open seam STOPPED by test safety before anything happens; again with a "running" copy — a stand-in process
+//      OUTSIDE any bundle (DOZ_TEST_APP_STANDIN) — and --open: quit, swapped by rename — a new file — and one line in the
+//      open seam, nothing opened; a test never asks macOS to open an app, nor runs a program inside a scratch bundle), a tampered copy
 //      refused (the installed one unchanged), no destination in a test run refused, `doz app status --json`,
 //      `doz app uninstall --dest`, and `doz uninstall` listing and removing it.
 //
@@ -259,28 +261,41 @@ func cliAppSuite(binary: String, app: String) async {
     r = noDest.run(["app", "install"])
     check(r.code != 0 && r.err.contains("only into --dest DIR or DOZ_TEST_APPLICATIONS_DIR") && !fm.fileExists(atPath: "/Applications/Dozable.app.new"),
           "app 9: a test run with no destination is refused — never /Applications (exit \(r.code))")
-    // A "running" copy (a program at the installed app's executable path), then --open: quit, swapped, opened.
-    // (Built here: a copy of a system program such as /bin/sleep is not allowed to run from another place.)
+    // A test run never asks macOS to open an app: --open without the seam is STOPPED before anything is installed.
+    let noSeam = CLIHarness(binary: link, store: root)
+    noSeam.env = p.env
+    noSeam.env.removeValue(forKey: "DOZ_TEST_APP_OPEN_LOG")
+    let inodeUntouched = (try? fm.attributesOfItem(atPath: target.appendingPathComponent("Contents/MacOS/Dozable").path)[.systemFileNumber]) as? Int
+    r = noSeam.run(["app", "install", "--dest", dest.path, "--open", "--json"])
+    let inodeStill = (try? fm.attributesOfItem(atPath: target.appendingPathComponent("Contents/MacOS/Dozable").path)[.systemFileNumber]) as? Int
+    check(r.code != 0 && r.err.contains("TEST SAFETY") && r.err.contains("open an app") && inodeUntouched == inodeStill
+          && !fm.fileExists(atPath: base.appendingPathComponent("open.log").path),
+          "app 9: --open in a test run without the open seam → stopped by test safety, nothing installed or opened (exit \(r.code))")
+    // A "running" copy: a STAND-IN process outside any bundle (DOZ_TEST_APP_STANDIN — in a test run only it counts as a
+    // running copy; a program is never run from inside a scratch bundle, which Gatekeeper would judge), then --open:
+    // the stand-in quit, the new copy swapped in by rename, and "opened" through the seam (one line, nothing opened).
     let runningExe = target.appendingPathComponent("Contents/MacOS/Dozable").path
     let holdC = base.appendingPathComponent("hold.c").path
+    let standin = base.appendingPathComponent("standin-hold").path
     try? "#include <unistd.h>\nint main(void) { sleep(120); return 0; }\n".write(toFile: holdC, atomically: true, encoding: .utf8)
-    let cc = sh(["/usr/bin/cc", "-o", runningExe + ".tmp", holdC])
+    let cc = sh(["/usr/bin/cc", "-o", standin, holdC])
     if cc.0 != 0 { info("app 9: cc failed: \(cc.1.prefix(200))") }
-    _ = rename(runningExe + ".tmp", runningExe)
     let sleeper = Process()
-    sleeper.executableURL = URL(fileURLWithPath: runningExe)
-    sleeper.arguments = ["120"]
+    sleeper.executableURL = URL(fileURLWithPath: standin)
     try? sleeper.run()
     started.append(sleeper)
     usleep(300_000)
     let inodeBefore = (try? fm.attributesOfItem(atPath: runningExe)[.systemFileNumber]) as? Int
-    r = p.run(["app", "install", "--dest", dest.path, "--open", "--json"])
+    let withStandin = CLIHarness(binary: link, store: root)
+    withStandin.env = p.env
+    withStandin.env["DOZ_TEST_APP_STANDIN"] = standin
+    r = withStandin.run(["app", "install", "--dest", dest.path, "--open", "--json"])
     let quitOK = h.waitFor(6) { !sleeper.isRunning }
     let inodeAfter = (try? fm.attributesOfItem(atPath: runningExe)[.systemFileNumber]) as? Int
     let openLog = (try? String(contentsOfFile: base.appendingPathComponent("open.log").path, encoding: .utf8)) ?? ""
     check(r.code == 0 && quitOK && inodeBefore != inodeAfter && openLog == "open \(target.path)\n"
           && sh(["/usr/bin/codesign", "--verify", "--strict", target.path]).0 == 0,
-          "app 9: again with a running copy and --open → it was quit, the new copy swapped in by rename (a new file), opened through the seam "
+          "app 9: again with a running copy (the stand-in) and --open → it was quit, the new copy swapped in by rename (a new file), exactly one line in the open seam, nothing opened "
           + "(exit \(r.code), quit \(quitOK), inode \(inodeBefore ?? 0) → \(inodeAfter ?? 0), open log \(openLog.debugDescription), \(r.out.replacingOccurrences(of: "\n", with: " ").prefix(160)))")
     check(!fm.fileExists(atPath: dest.appendingPathComponent(".Dozable.app.new").path), "app 9: nothing left at the staged name")
     // Tampered: a file added to the copy beside doz after it was signed.

@@ -123,6 +123,17 @@ public enum TestSafety {
         return nil
     }
 
+    /// Why asking macOS to OPEN an app (`/usr/bin/open`, LaunchServices — `doz app install --open`) is refused in a guarded
+    /// run (nil: allowed): a test records what it would open in its seam `DOZ_TEST_APP_OPEN_LOG` (an absolute path) and
+    /// opens nothing. Opening a scratch bundle has LaunchServices register it and Gatekeeper judge it — a dialog on the
+    /// person's screen ("“Dozable” is damaged and can't be opened") when it is not a whole, signed copy.
+    public static func appOpenViolation(env: [String: String] = ProcessInfo.processInfo.environment,
+                                        inXCTest: Bool = NSClassFromString("XCTestCase") != nil) -> String? {
+        guard guarded(env, inXCTest: inXCTest) else { return nil }
+        if let log = env["DOZ_TEST_APP_OPEN_LOG"], log.hasPrefix("/") { return nil }
+        return "a test would ask macOS to open an app — give it the seam DOZ_TEST_APP_OPEN_LOG (nothing is opened then)"
+    }
+
     /// Stop a guarded run that is about to do what `violation` describes.
     public static func enforce(_ violation: String?, env: [String: String] = ProcessInfo.processInfo.environment) {
         guard let violation, guarded(env) else { return }

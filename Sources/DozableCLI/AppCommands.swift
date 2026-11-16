@@ -112,13 +112,25 @@ enum MenuBarAppInstall {
         return paths.contains { getxattr($0, "com.apple.quarantine", nil, 0, 0, XATTR_NOFOLLOW) >= 0 }
     }
 
-    /// The processes of this user running a program inside `app` (a running menu bar app).
-    static func runningCopies(_ app: URL) -> [pid_t] {
+    /// The processes of this user running a program inside `app` (a running menu bar app). In a guarded run, ONLY a
+    /// stand-in counts: a process running the file the seam `DOZ_TEST_APP_STANDIN` names (outside any bundle) — a test
+    /// never runs a program inside a scratch bundle (Gatekeeper judges it, and a stand-in there breaks the bundle's seal:
+    /// "“Dozable” is damaged" on the person's screen). Without the seam a guarded run finds none.
+    static func runningCopies(_ app: URL, env: [String: String] = ProcessInfo.processInfo.environment) -> [pid_t] {
         // realpath(3), not URL's resolvingSymlinksInPath (which strips /private: /tmp/x stays /tmp/x, while the kernel's
         // record of a program in it says /private/tmp/x).
-        guard let real = realpath(app.path, nil) else { return [] }
-        let inside = String(cString: real) + "/"
-        free(real)
+        let matches: (String) -> Bool
+        if TestSafety.guarded(env) {
+            guard let seam = env["DOZ_TEST_APP_STANDIN"], seam.hasPrefix("/"), let r = realpath(seam, nil) else { return [] }
+            let standin = String(cString: r)
+            free(r)
+            matches = { $0 == standin }
+        } else {
+            guard let real = realpath(app.path, nil) else { return [] }
+            let inside = String(cString: real) + "/"
+            free(real)
+            matches = { $0.hasPrefix(inside) }
+        }
         var n = proc_listallpids(nil, 0)
         guard n > 0 else { return [] }
         var pids = [pid_t](repeating: 0, count: Int(n) + 64)
@@ -129,7 +141,7 @@ enum MenuBarAppInstall {
             var buf = [CChar](repeating: 0, count: 4096)
             guard proc_pidpath(pid, &buf, UInt32(buf.count)) > 0 else { return false }
             let path = String(decoding: buf.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
-            return path.hasPrefix(inside)
+            return matches(path)
         }
     }
 
@@ -209,8 +221,9 @@ enum MenuBarAppInstall {
     }
 
     /// Open an app through LaunchServices (`open`, an argv — no shell). A guarded test run never opens anything: it writes
-    /// `open <path>` to `DOZ_TEST_APP_OPEN_LOG` instead (and opens nothing without it).
+    /// `open <path>` to `DOZ_TEST_APP_OPEN_LOG` instead, and without that seam it STOPS (`TestSafety.appOpenViolation`).
     static func openApp(_ app: URL, env: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        TestSafety.enforce(TestSafety.appOpenViolation(env: env), env: env)
         if TestSafety.guarded(env) {
             guard let log = env["DOZ_TEST_APP_OPEN_LOG"], log.hasPrefix("/") else { return false }
             let line = Data("open \(app.path)\n".utf8)
@@ -238,6 +251,8 @@ struct AppInstall: AsyncParsableCommand {
     @Flag(name: .long, help: "Quit a running copy and open the new one.") var open = false
 
     func run() async throws {
+        // A test run never asks macOS to open an app: stopped BEFORE anything is installed when it has no seam.
+        if open { TestSafety.enforce(TestSafety.appOpenViolation()) }
         guard let bundled = MenuBarAppInstall.bundled() else {
             throw fail(HostError(.notFound, "this doz carries no menu bar app (the release and Homebrew's doz do; a source build: make app, or make install-cli)"), g)
         }

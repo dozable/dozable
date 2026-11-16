@@ -142,4 +142,17 @@ final class TestSafetyTests: XCTestCase {
         XCTAssertNil(TestSafety.applicationsViolation(URL(fileURLWithPath: "/Users/other/Applications"), home: home),
                      "another home's folder is not this person's")
     }
+
+    /// A test run never asks macOS to open an app (LaunchServices would have Gatekeeper judge a scratch bundle — a
+    /// stand-in inside one showed "“Dozable” is damaged" on a person's screen): a guarded run records what it would open
+    /// in DOZ_TEST_APP_OPEN_LOG, and without that seam it STOPS. The same seam is the only way a test asks for a quit of a
+    /// "running copy": a stand-in process (DOZ_TEST_APP_STANDIN), never a program inside a bundle.
+    func testAGuardedRunNeverOpensAnApp() {
+        XCTAssertNotNil(TestSafety.appOpenViolation(env: ["DOZ_TEST_GUARD": "1"]))
+        XCTAssertNotNil(TestSafety.appOpenViolation(env: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_APP_OPEN_LOG": "relative.log"]))
+        XCTAssertNil(TestSafety.appOpenViolation(env: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_APP_OPEN_LOG": "/tmp/open.log"]))
+        XCTAssertNil(TestSafety.appOpenViolation(env: [:], inXCTest: false), "a person's run opens the app")
+        XCTAssertNotNil(TestSafety.appOpenViolation(env: [:]), "an XCTest run is guarded whatever its environment")
+        XCTAssertNil(TestSafety.appOpenViolation(env: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_REAL_MAC": "1"]), "lifted only deliberately")
+    }
 }
