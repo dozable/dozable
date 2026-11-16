@@ -149,11 +149,25 @@ public enum DaemonLoginItem {
 
     /// The menu bar app's job, when loaded and its program still exists (one whose program is gone counts as ABSENT —
     /// otherwise doz would never add its own item back after the app is deleted).
-    public static func appJob(_ launchctl: Launchctl) -> (loaded: Bool, program: String?) {
+    ///
+    /// The app registers its job through SMAppService with a `BundleProgram` (its own executable, named RELATIVE to its
+    /// bundle): launchd's `print` of such a job names no absolute program — `arguments` start with the bare `Dozable`, or
+    /// there is no program line at all (`path = (submitted by …)`, `program identifier = …`). For that shape the job counts
+    /// as there while its bundle does: a plist path inside a bundle when `print` names one, else an installed copy of the
+    /// app in its install places (/Applications, ~/Applications — in a test run the seam only). An absolute program is
+    /// checked as itself.
+    public static func appJob(_ launchctl: Launchctl, appPlaces: [URL]? = nil) -> (loaded: Bool, program: String?) {
         guard let out = launchctl.printJob(label: appLabel) else { return (false, nil) }
         let program = Launchctl.parseProgram(out)
-        if let program, !FileManager.default.fileExists(atPath: program) { return (false, program) }
-        return (true, program)
+        if let program, program.hasPrefix("/") {
+            return (FileManager.default.fileExists(atPath: program), program)
+        }
+        if let plist = Launchctl.parsePath(out), let r = plist.range(of: "/Contents/Library/LaunchAgents/") {
+            let exe = String(plist[..<r.lowerBound]) + "/Contents/MacOS/" + MenuBarAppPlaces.executableName
+            return (FileManager.default.isExecutableFile(atPath: exe), exe)
+        }
+        let installed = MenuBarAppPlaces.installedExecutables(appPlaces ?? MenuBarAppPlaces.lookPlaces())
+        return installed.first.map { (true, $0) } ?? (false, program)
     }
 
     /// The plist's ProgramArguments (nil: no plist, or one that does not parse).
@@ -167,7 +181,7 @@ public enum DaemonLoginItem {
     /// starts nothing. nil folder or launchctl: a guarded run without the seams (nothing of launchd or the folder is read).
     public static func status(store: DozableStore, settings: DozableSettings = .load(), keepers: Int = 0,
                               launchctl: Launchctl? = Launchctl.forLooking(), folder: URL? = LaunchAgentsFolder.forLooking(),
-                              program: String = StableExecutable.path()) -> LoginItemStatus {
+                              program: String = StableExecutable.path(), appPlaces: [URL]? = nil) -> LoginItemStatus {
         let setting = settings.string(SettingKey.loginItem) ?? "ask"
         let alwaysOn = settings.bool(SettingKey.alwaysOn)
         var st = LoginItemStatus(setting: setting, owner: "none", label: label(store), path: "", program: nil, installed: false,
@@ -187,7 +201,7 @@ public enum DaemonLoginItem {
             st.loaded = launchctl.printJob(label: st.label) != nil
             st.disabled = launchctl.disabled(label: st.label)
         }
-        let app = appJob(launchctl)
+        let app = appJob(launchctl, appPlaces: appPlaces)
         st.owner = app.loaded ? "app" : (st.installed ? "doz" : "none")
         let d = decide(setting: setting, alwaysOn: alwaysOn, keepers: keepers, appOwned: app.loaded, installed: st.installed,
                        stale: st.stale, loaded: st.loaded, mode: .command)
@@ -235,7 +249,7 @@ public enum DaemonLoginItem {
     /// at all (not even a look at launchd), so a daemon's start costs nothing on a Mac without the item.
     @discardableResult
     public static func sync(store: DozableStore, mode: Mode, settings: DozableSettings = .load(), keepers: Int = 0,
-                            launchctl: Launchctl? = nil, folder: URL? = nil, program: String? = nil,
+                            launchctl: Launchctl? = nil, folder: URL? = nil, program: String? = nil, appPlaces: [URL]? = nil,
                             environment env: [String: String] = ProcessInfo.processInfo.environment) -> SyncResult {
         let setting = settings.string(SettingKey.loginItem) ?? "ask"
         let alwaysOn = settings.bool(SettingKey.alwaysOn)
@@ -258,7 +272,7 @@ public enum DaemonLoginItem {
         let expected = programArguments(store: store, program: program)
         let stale = installed && installedArguments(url) != expected
         let loaded = installed && lc.printJob(label: lbl) != nil
-        let app = appJob(lc)
+        let app = appJob(lc, appPlaces: appPlaces ?? MenuBarAppPlaces.lookPlaces(env: env))
         let d = decide(setting: setting, alwaysOn: alwaysOn, keepers: keepers, appOwned: app.loaded, installed: installed,
                        stale: stale, loaded: loaded, mode: mode)
         var r = SyncResult(decision: d, label: lbl, path: url.path)
@@ -310,6 +324,36 @@ public enum DaemonLoginItem {
             let e = errno
             unlink(tmp.path)
             throw POSIXError(POSIXErrorCode(rawValue: e) ?? .EIO)
+        }
+    }
+}
+
+/// Where the menu bar app (Dozable.app) is installed: /Applications and ~/Applications — in a guarded run ONLY the seam
+/// `DOZ_TEST_APPLICATIONS_DIR` (or none). `doz app install|status|uninstall` look there, and so does the login item's
+/// check of the app's job (an SMAppService job names its program relative to the bundle).
+public enum MenuBarAppPlaces {
+    public static let bundleName = "Dozable.app"
+    public static let identifier = "com.dozable.app"
+    public static let executableName = "Dozable"
+
+    public static func lookPlaces(env: [String: String] = ProcessInfo.processInfo.environment, guarded: Bool? = nil,
+                                  home: URL = TestSafety.realHome) -> [URL] {
+        if guarded ?? TestSafety.guarded(env) {
+            return env["DOZ_TEST_APPLICATIONS_DIR"].flatMap { $0.hasPrefix("/") ? [URL(fileURLWithPath: $0)] : nil } ?? []
+        }
+        return [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")]
+    }
+
+    /// The executables of the installed copies in `places`: a `Dozable.app` whose Info.plist names this app's identifier
+    /// and whose `Contents/MacOS/Dozable` is an executable file.
+    public static func installedExecutables(_ places: [URL]) -> [String] {
+        places.compactMap { place in
+            let app = place.appendingPathComponent(bundleName)
+            guard let d = FileManager.default.contents(atPath: app.appendingPathComponent("Contents/Info.plist").path),
+                  let p = try? PropertyListSerialization.propertyList(from: d, format: nil) as? [String: Any],
+                  p["CFBundleIdentifier"] as? String == identifier else { return nil }
+            let exe = app.appendingPathComponent("Contents/MacOS/" + executableName).path
+            return FileManager.default.isExecutableFile(atPath: exe) ? exe : nil
         }
     }
 }

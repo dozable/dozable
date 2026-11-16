@@ -88,7 +88,7 @@ struct Uninstall: AsyncParsableCommand {
         let menuBarApps = MenuBarAppInstall.installedCopies(MenuBarAppInstall.lookPlaces())
         for app in menuBarApps {
             TestSafety.enforce(TestSafety.applicationsViolation(app))
-            items.append(Item(path: app.path, what: "the menu bar app (Dozable.app; it is quit first)"))
+            items.append(Item(path: app.path, what: "the menu bar app (Dozable.app; its Start at Login is removed and it is quit first)"))
         }
         // 694: this store's login item (bootout, then the plist) — never another store's, which are listed only.
         let agents = LaunchAgentsFolder.current()
@@ -157,8 +157,12 @@ struct Uninstall: AsyncParsableCommand {
             while store.hostIsRunning(), Date() < deadline { usleep(200_000) }
             if store.hostIsRunning() { throw fail(HostError(.failed, "the daemon did not stop within 2 minutes — nothing was removed"), g) }
         }
-        // A running menu bar app is quit before its bundle goes.
-        for app in menuBarApps { MenuBarAppInstall.quit(MenuBarAppInstall.runningCopies(app)) }
+        // A menu bar app takes back its own login item (`Dozable --unregister`), and a running one is quit, before its
+        // bundle goes.
+        for app in menuBarApps {
+            if MenuBarAppInstall.unregister(app).held, !g.json { Out.stdout("removed the menu bar app's Start at Login\n") }
+            MenuBarAppInstall.quit(MenuBarAppInstall.runningCopies(app))
+        }
         var failed = false
         for i in items.indices where items[i].path != loginItem.path {
             do {

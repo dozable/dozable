@@ -120,6 +120,19 @@ public struct Launchctl: Sendable {
         return nil
     }
 
+    /// The plist a loaded job came from, from `print`'s `path = …` line — only when it is an absolute path (an SMAppService
+    /// job says `path = (submitted by …)`, which is not).
+    public static func parsePath(_ output: String) -> String? {
+        for line in output.split(separator: "\n") {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.hasPrefix("path = ") {
+                let p = String(t.dropFirst("path = ".count))
+                return p.hasPrefix("/") ? p : nil
+            }
+        }
+        return nil
+    }
+
     /// The program a loaded job runs, from `print`'s output: its `program = …` line, else the first of its `arguments = {`.
     public static func parseProgram(_ output: String) -> String? {
         var inArguments = false
