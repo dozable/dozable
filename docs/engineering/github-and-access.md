@@ -18,8 +18,9 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   account not ok) and doctor (`daemon login` — a FAILURE when doctor itself reads the login) name the daemon and say
   `doz daemon restart` from a logged-in session; `doz image bake` stops a daemon it had to start there once nothing runs.
   The guarded seam `DOZ_TEST_KEYCHAIN_LOCKED=1`; a guarded run's own session never warns. `HostSessionKindTests`,
-  `make test-cli-keychainlocked`. A LaunchAgent daemon in the GUI domain is not done ("No launchd agent" — an owner
-  question).
+  `make test-cli-keychainlocked`. 694: with the login item (`doz daemon login-item on`) a client in such a session kickstarts the item instead, so the
+  daemon starts in the desktop session and reads the keychain; `daemon restart` from there never replaces a desktop daemon
+  (engine.md, "The login item").
 
 - **The Mac login has two stores, read-only** (687): Claude Code keeps a login in the Keychain item `Claude
   Code-credentials[-<8 hex>]` and, where it cannot write the Keychain (a `claude` login over ssh: the login keychain is

@@ -127,6 +127,7 @@ daemon/start
 daemon/stop
 daemon/restart
 daemon/status
+daemon/login-item
 daemon/upgrade-check
 ui
 ui/link

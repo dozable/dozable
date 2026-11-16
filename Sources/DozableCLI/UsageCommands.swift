@@ -77,7 +77,7 @@ struct UsageHook {
     /// Runs the statistics leave alone: help and version, `doz telemetry` itself (looking never sends), and doz's
     /// own internal re-launches (a detached daemon, doz serve or doz ui; Homebrew's post-install check).
     static func counts(_ args: [String]) -> Bool {
-        if args.contains(where: { ["--help", "-h", "--version", "--launched", "--launch-detached", "--restarted"].contains($0) }) { return false }
+        if args.contains(where: { ["--help", "-h", "--version", "--launched", "--launch-detached", "--restarted", "--login-item"].contains($0) }) { return false }
         let w = UpdateHook.words(args)
         guard let first = w.first, !["telemetry", "help"].contains(first) else { return false }
         return !(w.starts(with: ["daemon", "upgrade-check"]))

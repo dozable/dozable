@@ -253,4 +253,17 @@ final class ServeRulesTests: XCTestCase {
             XCTAssertTrue("\(e)".contains("decides who reaches the dashboard"), "\(e)")
         }
     }
+
+    /// 694: consent to a login item is given on the Mac — the web route (a LAN device under --lan) never sets it, any value,
+    /// nor resets it; the Settings page shows it read-only.
+    func testTheWebUIRefusesTheLoginItem() throws {
+        let store = WebSettingsStore(environment: [:])
+        for body in [#"{"key":"daemon.login_item","value":"on"}"#, #"{"key":"daemon.login_item","value":"off"}"#, #"{"key":"daemon.login_item","reset":true}"#] {
+            XCTAssertThrowsError(try store.apply(WebSettingChange.decode(Data(body.utf8))), body) { e in
+                XCTAssertTrue("\(e)".contains("set it on the Mac: doz daemon login-item on|off"), "\(e)")
+            }
+        }
+        let row = store.report().settings.first { $0.key == SettingKey.loginItem }
+        XCTAssertEqual(row?.editable, false, "read-only on the Settings page")
+    }
 }

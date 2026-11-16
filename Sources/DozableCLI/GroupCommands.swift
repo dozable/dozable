@@ -570,7 +570,7 @@ struct MetricsCommand: AsyncParsableCommand {
 struct HostCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "daemon",
         abstract: "Dozable's background process: it owns every running sandbox and the sessions' proxies (started for you; it keeps running — daemon.always_on).",
-        subcommands: [HostRun.self, HostStop.self, HostRestart.self, HostStatusCommand.self, HostUpgradeCheck.self],
+        subcommands: [HostRun.self, HostStop.self, HostRestart.self, HostStatusCommand.self, HostLoginItemCommand.self, HostUpgradeCheck.self],
         defaultSubcommand: HostRun.self)
 }
 
@@ -590,9 +590,13 @@ struct HostRun: AsyncParsableCommand {
     @Flag(name: .long, help: .hidden) var launchDetached = false
     /// 593: this host was started by the launcher (its status says so; `doctor` expects parent launchd).
     @Flag(name: .long, help: .hidden) var launched = false
+    /// 694: the login item's job (at login and every 15 minutes): start a daemon the usual way when one is due, write one
+    /// line to <store>/login-item.log, exit 0 (`LoginStart`). Not for people.
+    @Flag(name: .long, help: .hidden) var loginItem = false
 
     func run() async throws {
         let store = g.dozableStore
+        if loginItem { Foundation.exit(LoginStart.run(store: store)) }
         let timeout = DozableCLI.idleTimeout(idleTimeout)
         if launchDetached {
             let pid = try HostLauncher.spawnHostProcess(store: store, extra: idleTimeout.map { ["--idle-timeout", String($0)] } ?? [])
@@ -609,15 +613,49 @@ struct HostRun: AsyncParsableCommand {
             }
         }
         if !store.hostIsRunning() {
-            do { try HostLauncher.spawn(store: store, extra: idleTimeout.map { ["--idle-timeout", String($0)] } ?? []) } catch let e as HostError {
+            // 694: the hold goes; from ssh a loaded login item starts it in the desktop session (`DaemonStarter`).
+            do { _ = try DaemonStarter.start(store: store, extra: idleTimeout.map { ["--idle-timeout", String($0)] } ?? []) } catch let e as HostError {
                 throw fail(e, g)
             }
             guard HostClient.waitForHost(store: store) else {
                 throw fail(HostError(.unavailable, "the daemon did not start — see \(store.logFile.path)"), g)
             }
         }
-        let st = try decode(try call(HostRequest(.ping), g, autostart: false), HostStatus.self, g)
+        let st = withLoginItem(try decode(try call(HostRequest(.ping), g, autostart: false), HostStatus.self, g), store)
         if g.json { Out.json(st) } else { Out.stdout(describe(st)) }
+    }
+}
+
+/// 694: the login item and the held marker — read by the CLI (never the daemon), with or without a daemon.
+func withLoginItem(_ st: HostStatus, _ store: DozableStore) -> HostStatus {
+    var s = st
+    s.loginItem = DaemonLoginItem.status(store: store, keepers: st.keepers ?? 0)
+    s.held = LoginStart.heldAt(store) != nil
+    return s
+}
+
+/// 694: `doz daemon status --json` with NO daemon running — what a look without one can say (the menu bar app reads it):
+/// the store, the hold, whether it would be always on, and the login item.
+struct DaemonAbsentStatus: Encodable {
+    var running = false
+    var store: String
+    var held: Bool
+    /// `daemon.always_on` as the settings say (a daemon started now would be, unless started where the keychain is locked).
+    var alwaysOn: Bool
+    var loginItem: LoginItemStatus
+
+    init(_ store: DozableStore) {
+        let settings = DozableSettings.load()
+        self.store = store.root.path
+        held = LoginStart.heldAt(store) != nil
+        alwaysOn = settings.bool(SettingKey.alwaysOn)
+        loginItem = DaemonLoginItem.status(store: store, settings: settings)
+    }
+
+    var text: String {
+        var s = "no daemon is running (nothing is running)"
+        if held { s += " — held by doz daemon stop: it stays stopped until a doz command" + (loginItem.installed || loginItem.owner == "app" ? " or your next login" : "") }
+        return s + "\n" + loginItem.line + "\n"
     }
 }
 
@@ -635,6 +673,7 @@ func describe(_ st: HostStatus) -> String {
     if let i = st.idleSeconds { s += String(format: " (idle %.0f s)", i) }
     s += "\n" + alwaysOnLine(alwaysOn: alwaysOn, idleTimeoutMinutes: st.idleTimeoutMinutes, keychainLocked: st.keychainLocked) + "\n"
     if let k = st.keepers, k > 0 { s += "kept sessions: \(k) (they keep the daemon running)\n" }
+    if let li = st.loginItem { s += li.line + "\n" }                // 694
     if let note = st.executableNote { s += (st.executableChange == "overwritten" ? "PROBLEM: " : "note: ") + note + "\n" }
     return s
 }
@@ -659,14 +698,25 @@ struct HostStop: AsyncParsableCommand {
             if g.json { Out.json(["stopped": false]) } else { Out.stdout("no daemon is running\n") }
             return
         }
-        switch try stopHostShowingProgress(store, g) {
+        let outcome = try stopHostShowingProgress(store, g)
+        // 694 (decision 7): stopped while always on — held, so the login item's 15-minute look does not start it again.
+        let held = Self.holdIfAlwaysOn(store)
+        switch outcome {
         case .done(let r):
-            if g.json { Out.json(r) } else { Out.stdout(HostStopView.summary(r) + "\n") }
+            if g.json { Out.json(r) } else { Out.stdout(HostStopView.summary(r) + "\n" + (held.map { $0 + "\n" } ?? "")) }
         case .older:
-            if g.json { Out.json(["stopped": true]) } else { Out.stdout("daemon stopped — every sandbox that was running is hibernated\n") }
+            if g.json { Out.json(["stopped": true]) } else { Out.stdout("daemon stopped — every sandbox that was running is hibernated\n" + (held.map { $0 + "\n" } ?? "")) }
         case .exited(let seen):
             throw fail(HostError(.failed, HostStopView.seen(seen)), g)
         }
+    }
+
+    /// The hold, when `daemon.always_on` is on (the line that says so; nil: not held).
+    static func holdIfAlwaysOn(_ store: DozableStore) -> String? {
+        guard DozableSettings.load().bool(SettingKey.alwaysOn), !store.hostIsRunning() else { return nil }
+        LoginStart.hold(store)
+        let li = DaemonLoginItem.status(store: store)
+        return "it stays stopped until a doz command" + (li.installed || li.owner == "app" ? " or your next login" : " starts it")
     }
 }
 
@@ -718,11 +768,14 @@ struct HostStatusCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "status", abstract: "Is the daemon running, and what does it hold? (Never starts one.)")
     @OptionGroup var g: GlobalOptions
     func run() async throws {
-        guard g.dozableStore.hostIsRunning() else {
-            if g.json { Out.json(["running": false]) } else { Out.stdout("no daemon is running (nothing is running)\n") }
+        let store = g.dozableStore
+        guard store.hostIsRunning() else {
+            // 694: still the store, the hold, always on and the login item (read only: launchd's print, the plist).
+            let a = DaemonAbsentStatus(store)
+            if g.json { Out.json(a) } else { Out.stdout(a.text) }
             return
         }
-        let st = try decode(try call(HostRequest(.ping), g, autostart: false), HostStatus.self, g)
+        let st = withLoginItem(try decode(try call(HostRequest(.ping), g, autostart: false), HostStatus.self, g), store)
         if g.json { Out.json(st) } else { Out.stdout(describe(st)) }
     }
 }

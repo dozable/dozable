@@ -35,6 +35,11 @@ public struct DozableStore: Sendable, Equatable {
     public var lockFile: URL { root.appendingPathComponent("daemon.lock") }
     public var pidFile: URL { root.appendingPathComponent("daemon.pid") }
     public var logFile: URL { root.appendingPathComponent("daemon.log") }
+    /// 694: `doz daemon stop` while always on — the login item's 15-minute look starts nothing until the next boot or until
+    /// any command starts a daemon (`LoginStart`).
+    public var heldFile: URL { root.appendingPathComponent("daemon.held") }
+    /// 694: what `doz daemon start --login-item` did, one line per action (also its job's stdout and stderr).
+    public var loginItemLog: URL { root.appendingPathComponent("login-item.log") }
 
     /// TEMPORARY — set only by the host→daemon migration (Sources/DozableHost/Migration/; nil without it, and then every
     /// use below is inert): the names the daemon's files had before 0.50 (`host.lock`, `host.sock`, `host.pid`,

@@ -41,6 +41,8 @@ struct OnboardReport: Encodable {
     var usageStats: String? = nil
     /// 634: the First sandbox made (nil: none).
     var first: String? = nil
+    /// 694: daemon.login_item after the onboarding (ask, on or off).
+    var loginItem: String? = nil
 }
 
 /// The onboarding itself, shared by `doz onboard` and `doz init` (which onboards first when this
@@ -71,6 +73,8 @@ struct OnboardingFlow {
     var ignoreModeFlag: String? = nil
     /// `--usage-stats on|off`: the Usage statistics step's answer without asking.
     var usageStatsFlag: Bool? = nil
+    /// 694: `--start-at-login on|off`: the login item question's answer without asking.
+    var startAtLoginFlag: Bool? = nil
     /// 599i: Codex's OpenAI account — mac, chatgpt, openai-key or later (nil: offered in Models & keys on a terminal).
     var openaiFlag: String? = nil
 
@@ -356,6 +360,7 @@ struct OnboardingFlow {
         // 599c: where doz new and the UI's Quick add / New sandbox put each new sandbox's workspace folder.
         let projects = (Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent
         status(.info, "new sandboxes' workspace folders: \(DisplayPath.tilde(projects))/<name> (defaults.projects_dir — doz config set defaults.projects_dir DIR moves it)")
+        let loginItem = startAtLogin(settingsWritable: settings != .unavailable)
 
         // Usage statistics (official builds only; owner, 2026-10-11) and Stay in touch (optional; default No; --yes and
         // --json skip it) — 634: BEFORE the First sandbox, which ends in the tool's own screen.
@@ -433,7 +438,36 @@ struct OnboardingFlow {
                              keysAdded: added, openaiAccountAdded: openaiAdded,
                              settings: settings.rawValue, settingsPath: settingsPath, promptTemplate: template.rawValue,
                              promptTemplatePath: templatePath, access: accessReport.items, ignoreMode: ignoreMode, result: result,
-                             usageStats: usage, first: first)
+                             usageStats: usage, first: first, loginItem: loginItem)
+    }
+
+    /// 694 (decision 2): "Start Dozable when you log in?" — asked on a terminal while daemon.login_item is still ask (default
+    /// Yes), or answered by --start-at-login. Only an answer writes: yes sets on and adds the login item, no sets off; --yes
+    /// alone and no terminal add nothing and change nothing (the line says how). Returns on/off/ask after it.
+    private func startAtLogin(settingsWritable: Bool) -> String {
+        let current = DozableSettings.load().string(SettingKey.loginItem) ?? "ask"
+        var answer = startAtLoginFlag
+        if answer == nil, current == "ask", asker.interactive, talk {
+            say(Note("Start Dozable when you log in: one login item in ~/Library/LaunchAgents runs doz daemon start --login-item, which starts the daemon from your desktop session — sandboxes and kept sessions come back after the Mac restarts. macOS shows \"Background Items Added\". doz daemon login-item off removes it.").render())
+            answer = asker.yesNo("  Start Dozable when you log in?", default: true)
+        }
+        guard let on = answer else {
+            if current == "ask" { status(.info, "Start at login: not set up — doz daemon login-item on starts the daemon when you log in") }
+            else { status(.info, "Start at login: \(current) (daemon.login_item — doz daemon login-item on|off changes it)") }
+            return current
+        }
+        LoginItemNotice.markShown()
+        guard settingsWritable else { status(.warn, "Start at login: no settings file to record it in"); return current }
+        let value = on ? "on" : "off"
+        do {
+            let now = try DozableSettings.load().writing(SettingKey.loginItem, .string(value))
+            let r = DaemonLoginItem.sync(store: g.dozableStore, mode: .command, settings: now)
+            status(on ? .ok : .info, "Start at login: \(value) — " + r.line)
+        } catch {
+            status(.warn, "Start at login: could not save the choice (\(error)) — doz daemon login-item \(value) sets it")
+            return current
+        }
+        return value
     }
 
     /// The First sandbox: its name and folder (asked on a terminal), the plan's `doz new` command, then made, started and
@@ -715,6 +749,7 @@ struct Onboard: AsyncParsableCommand {
     @Option(name: .long, help: "The Workspace rules step without asking: lock or hide — what a .dozignore in a sandbox's folder does to the paths it lists, by default (the setting workspace.ignore_mode). Lock: listed but unreadable; hide: not there.") var ignoreMode: String?
     @Option(name: .long, help: "Codex's OpenAI account without asking: mac (this Mac's own Codex login, read-only), chatgpt (sign in with ChatGPT in your browser — Dozable's own sign-in), openai-key (pasted at a no-echo prompt) or later.") var openaiAccount: String?
     @Option(name: .long, help: "The Usage statistics step without asking (official builds): on or off — off sets telemetry.send_anonymous_usage_stats = false. Without it, --yes and no terminal leave the setting as it is.") var usageStats: String?
+    @Option(name: .long, help: "Start the daemon when you log in, without asking: on (one login item in ~/Library/LaunchAgents — daemon.login_item = on) or off. Without it, --yes and no terminal add nothing and leave the setting as it is.") var startAtLogin: String?
     @Flag(name: [.short, .long], help: "Accept every default; ask nothing: the Node.js base, no key, no sandbox. A credential that cannot be confirmed is skipped with a note (exit 0).") var yes = false
 
     func validate() throws {
@@ -723,6 +758,7 @@ struct Onboard: AsyncParsableCommand {
         if let v = sshAgent, !["on", "off"].contains(v) { throw ValidationError("--ssh-agent: on or off") }
         if let v = ignoreMode, !["lock", "hide"].contains(v) { throw ValidationError("--ignore-mode: lock or hide") }
         if let v = usageStats, !["on", "off"].contains(v) { throw ValidationError("--usage-stats: on or off") }
+        if let v = startAtLogin, !["on", "off"].contains(v) { throw ValidationError("--start-at-login: on or off") }
         if let v = openaiAccount, !["mac", "chatgpt", "openai-key", "later"].contains(v) { throw ValidationError("--openai-account: mac, chatgpt, openai-key or later") }
         if openaiAccount == "chatgpt", !BuildFlavor.current.chatgptSignIn { throw ValidationError("--openai-account chatgpt: " + BuildFlavor.chatgptSignInMissing) }
         if githubKeyStdin && secretStdin { throw ValidationError("--github-key-stdin and --secret-stdin both read stdin — add one later (doz access set --github-key / doz account add)") }
@@ -760,6 +796,7 @@ struct Onboard: AsyncParsableCommand {
         flow.ignoreModeFlag = ignoreMode
         flow.openaiFlag = openaiAccount
         flow.usageStatsFlag = usageStats.map { $0 == "on" }
+        flow.startAtLoginFlag = startAtLogin.map { $0 == "on" }
         let report = try await flow.run()
         if g.json { Out.json(report) }
     }

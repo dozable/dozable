@@ -658,9 +658,16 @@ sandboxes created from now on; existing ones keep theirs, and a wake keeps its s
 doz daemon [--foreground] [--idle-timeout MIN]   # run it by hand
 doz daemon stop                                    # hibernates everything running (a line each, then a summary), then exits
 doz daemon restart                                 # stop it (sandboxes hibernate) and start it again — on this doz's build, after an update
-doz daemon status                                  # is one running, and what does it hold? never starts one
+doz daemon status                                  # is one running, and what does it hold? never starts one (no daemon: the store, the hold, the login item)
+doz daemon login-item [status|on|off]              # start the daemon when you log in: ONE login item in ~/Library/LaunchAgents, only with on
 doz daemon upgrade-check                           # after an upgrade: is a daemon of an older build still running?
 ```
+
+**The login item.** Nothing is written to `~/Library/LaunchAgents` unless you say `on` (the setting
+`daemon.login_item`: ask — the default —, on, off). Then one plist for the store runs `doz daemon start
+--login-item` at login and every 15 minutes: it starts the daemon from your desktop session the usual way and exits
+(launchd never runs the daemon itself). `doz daemon stop` keeps it stopped until a doz command or the next login;
+`doz uninstall` and `doz nuke` remove it.
 
 **Upgrades.** `brew upgrade doz` (or `make install-cli`) puts the new build next to the running
 one; the daemon keeps running its own copy until `doz daemon stop`, and Homebrew's post-install runs

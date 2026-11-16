@@ -1450,4 +1450,12 @@ public struct HostStatus: Codable, Equatable, Sendable {
     /// 693: the sessions on this Mac kept running by this daemon, which keep it up whatever `alwaysOn` says (none yet:
     /// always 0). nil: a daemon older than 0.50.4.
     public var keepers: Int?
+    /// 694: the fenced sessions on this Mac this daemon serves, and the preparations under way — what a replacement would
+    /// cost (`LoginStart`: a locked daemon is replaced by the login item only when it runs nothing). nil: an older daemon.
+    public var fencedSessions: [String]? = nil
+    public var preparations: [String]? = nil
+    /// 694: filled by the CLI (`doz daemon status`), never the daemon — the login item (its plist, launchd's word) and the
+    /// held marker, read with or without a daemon.
+    public var loginItem: LoginItemStatus? = nil
+    public var held: Bool? = nil
 }

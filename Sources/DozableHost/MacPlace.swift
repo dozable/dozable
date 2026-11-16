@@ -59,8 +59,12 @@ public enum MacPlace {
     /// The store's socket folder: the user's temporary folder + `dh-<8 hex of the store path>` — two stores never share
     /// one, and a test's scratch store never meets a real host's.
     public static func socketDirectory(store: DozableStore, temp: String = userTempDirectory()) -> String {
-        let h = SHA256.hash(data: Data(store.root.standardizedFileURL.path.utf8)).prefix(4).map { String(format: "%02x", $0) }.joined()
-        return temp + "dh-" + h
+        temp + "dh-" + storeHash(store)
+    }
+
+    /// 8 hex of the store path's sha256 — the socket folder's name, and (694) the store's login item's label.
+    public static func storeHash(_ store: DozableStore) -> String {
+        SHA256.hash(data: Data(store.root.standardizedFileURL.path.utf8)).prefix(4).map { String(format: "%02x", $0) }.joined()
     }
 
     /// Where session `s`'s holder listens.

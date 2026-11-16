@@ -22,7 +22,8 @@ struct Nuke: AsyncParsableCommand {
     @Flag(name: [.short, .long], help: "Do not ask.") var yes = false
 
     struct Item: Encodable, Equatable {
-        enum Kind: String, Encodable { case folder, keychain }
+        /// 694: `loginItem` — this store's login item (booted out, then its plist removed).
+        enum Kind: String, Encodable { case folder, keychain, loginItem }
         var kind: Kind
         var location: String
         var what: String
@@ -39,11 +40,23 @@ struct Nuke: AsyncParsableCommand {
     }
 
     /// Everything a fresh install does not have — computed, never removed here (tests call it on scratch paths).
-    static func plan(store: DozableStore, configDir: URL?, cacheDir: URL?, keychain: any KeychainAccess) throws -> (items: [Item], kept: [String]) {
+    static func plan(store: DozableStore, configDir: URL?, cacheDir: URL?, keychain: any KeychainAccess,
+                     agents: URL? = nil) throws -> (items: [Item], kept: [String]) {
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser.standardizedFileURL.path
         var items: [Item] = []
         var kept: [String] = []
+        // 694: this store's login item first (it would start a daemon for a store about to go); others are only listed.
+        if let agents {
+            let mine = DaemonLoginItem.plistURL(store, folder: agents)
+            if fm.fileExists(atPath: mine.path) {
+                items.append(Item(kind: .loginItem, location: mine.path, what: "this store's login item (it starts the daemon when you log in)",
+                                  bytes: nil))
+            }
+            for other in DaemonLoginItem.otherItems(store, folder: agents) {
+                kept.append("\(DisplayPath.tilde(other.path)) — another store's login item (never touched here)")
+            }
+        }
         if fm.fileExists(atPath: store.root.path) {
             guard store.root.path != "/", store.root.path != home else { throw HostError(.invalid, "refusing to remove \(store.root.path)") }
             guard Uninstall.looksLikeStore(store.root) else {
@@ -116,7 +129,8 @@ struct Nuke: AsyncParsableCommand {
         let cacheDir: URL? = env["DOZ_TEST_CACHE_DIR"].map { URL(fileURLWithPath: $0) }
             ?? (guarded ? nil : TestSafety.realHome.appendingPathComponent("Library/Caches/\(DozableSettings.directoryName)"))
         do {
-            let p = try plan(store: store, configDir: DozableSettings.fileURL()?.deletingLastPathComponent(), cacheDir: cacheDir, keychain: keychain)
+            let p = try plan(store: store, configDir: DozableSettings.fileURL()?.deletingLastPathComponent(), cacheDir: cacheDir, keychain: keychain,
+                             agents: LaunchAgentsFolder.forLooking())
             return (store, keychain, p.items, p.kept)
         } catch let e as HostError { throw fail(e, g) }
     }
@@ -169,6 +183,8 @@ struct Nuke: AsyncParsableCommand {
         for i in items.indices {
             do {
                 switch items[i].kind {
+                case .loginItem:
+                    if !DaemonLoginItem.remove(store: store) { throw HostError(.failed, "could not remove it") }
                 case .folder: try FileManager.default.removeItem(atPath: items[i].location)
                 case .keychain: try keychain.delete(service: String(items[i].location.dropFirst("login keychain: ".count)), account: Keychain.user)
                 }

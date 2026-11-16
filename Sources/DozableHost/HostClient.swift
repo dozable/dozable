@@ -2,8 +2,9 @@ import Darwin
 import Foundation
 import DozableKit
 
-/// Starts the host FULLY DETACHED (585: no launchd agent — nothing is installed in
-/// ~/Library/LaunchAgents; 593: never in the caller's process tree — its parent is launchd, through
+/// Starts the host FULLY DETACHED (585; 694: launchd never runs the daemon — with the person's consent ONE per-store login
+/// item runs `doz daemon start --login-item`, which starts it through here and exits (`DaemonLoginItem`); 593: never in the
+/// caller's process tree — its parent is launchd, through
 /// an intermediate that exits): its own session (`setsid`, so a closed terminal or Ctrl-C never
 /// reaches it), stdin `/dev/null`, stdout+stderr appended to `<store>/host.log`, and no other file
 /// descriptor of the caller (a test harness's pipes must not be held open by the host).
@@ -137,13 +138,22 @@ public final class HostClient {
         guard store.socketPathFits else { throw HostError(.unavailable, UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription) }
         if let fd = connectAny(store) { return HostClient(store: store, fd: fd) }
         guard autostart else { throw HostError(.unavailable, "no daemon is running for \(store.root.path)") }
-        let pid = try HostLauncher.spawn(store: store)
+        // 694: the held marker goes; from a locked session (ssh) a loaded login item is kickstarted instead (the daemon then
+        // starts in the desktop session and can read the login keychain).
+        let pid: pid_t
+        switch try DaemonStarter.start(store: store) {
+        case .kickstarted:
+            if let fd = connectAny(store) { return HostClient(store: store, fd: fd) }
+            pid = store.hostPID() ?? 0
+        case .spawned(let p):
+            pid = p
+        }
         let deadline = Date().addingTimeInterval(waitSeconds)
         var reaped = false
         while Date() < deadline {
             if let fd = connectAny(store) { return HostClient(store: store, fd: fd) }
             // It is not our child (launchd's): gone is `kill(pid, 0)` failing — with no lock holder.
-            if !reaped, kill(pid, 0) != 0, errno == ESRCH {
+            if !reaped, pid > 0, kill(pid, 0) != 0, errno == ESRCH {
                 reaped = true
                 // It exited: another host may have won the race (then its socket appears) — or it failed.
                 if !store.hostIsRunning() {

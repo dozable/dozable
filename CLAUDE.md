@@ -244,13 +244,15 @@ One row per area; each area's doc starts with the full table of its files.
   whole life and loads nothing before it has it (a new daemon waits for an exiting one — otherwise it
   would read a record still saying `running` and report a live sandbox as died). The launcher is a
   detached child with ONLY stdin/stdout/stderr (`POSIX_SPAWN_CLOEXEC_DEFAULT`): a daemon that inherited
-  a caller's pipe kept a test harness waiting on EOF. No launchd agent. The daemon is the code's "host" (`HostServer`,
-  `HostCore`, `HostClient`, `HostLauncher`, `DozableHost`, the wire protocol's names keep it). TEMPORARY (0.50, until
-  the dated backlog item removes it): `Sources/DozableHost/Migration/HostToDaemon.swift` carries a 0.40 store across —
-  a daemon also takes the older build's `host.lock` (after `daemon.lock`, waiting the same way) and holds both, a client
-  reaches an older daemon on `host.sock`, `host.log` is adopted once, doz.toml's `host.*` are read and moved like a 0.37
-  name, and a 0.40 host's hand-over argv (`host start --launch-detached` / `--foreground --launched`) is taken as
-  `daemon start`; nothing else may name it (`HostToDaemonMigrationTests`), and `make test-vm-upgrade` D/E prove it.
+  a caller's pipe kept a test harness waiting on EOF. **launchd never runs the daemon** (694): only with consent
+  (`daemon.login_item on`) ONE login item per store runs `doz daemon start --login-item`, which spawns it and exits
+  (engine.md, "The login item"). The daemon is the code's "host" (`HostServer`, `HostCore`, `HostClient`, `HostLauncher`,
+  `DozableHost`, the wire protocol's names keep it). TEMPORARY (0.50, until the dated backlog item removes it):
+  `Sources/DozableHost/Migration/HostToDaemon.swift` carries a 0.40 store across — a daemon also takes the older build's
+  `host.lock` (after `daemon.lock`, waiting the same way) and holds both, a client reaches an older daemon on `host.sock`,
+  `host.log` is adopted once, doz.toml's `host.*` are read and moved like a 0.37 name, and a 0.40 host's hand-over argv
+  (`host start --launch-detached` / `--foreground --launched`) is taken as `daemon start`; nothing else may name it
+  (`HostToDaemonMigrationTests`), and `make test-vm-upgrade` D/E prove it.
 - **An update must never cost a sleeping sandbox its sessions** (an earlier incident: `make install-cli`
   overwrote the installed `doz` IN PLACE while a daemon ran from it; macOS invalidated the process's
   code and VZ refused every VM with "Internal Virtualization error"; quitting that daemon then ran the stop
@@ -331,7 +333,7 @@ One row per area; each area's doc starts with the full table of its files.
 - **Looking never starts the daemon.** Read-only commands answer from the store in-process
   (`HostCore(readOnly: true)`) unless a daemon runs — or a record says a VM was live when its daemon went
   away, which only a daemon can recover. A short request does not reset the idle clock; an open
-  attach or stream does.
+  attach or stream does. 694: `daemon status` and `doctor` read the login item read-only (plist, `launchctl print`).
 - **The attach relay adopts the session BEFORE it answers**, and the client sends what was typed
   ahead of its first connection once it reads that answer (keys typed right after `up` were lost
   otherwise — the first `test-cli` run). After that, keys for a held (sleeping) sandbox are dropped, never queued for a frozen guest.
@@ -420,7 +422,7 @@ make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake contai
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
 make test-cli-host   # sessions on this Mac (@mac), no VM: the real deckhold-mac, a scratch store and folder, harmless programs only
-make test-cli-keychainlocked # a daemon started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned, named by account ls and doctor, never always on (no VM); make test-cli-alwayson: on by default, off at once, restarted in place after an install
+make test-cli-keychainlocked # a daemon started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned, named by account ls and doctor, never always on, a locked restart refused, replaced by the login item's look (no VM); make test-cli-alwayson: on by default, off at once, restarted in place after an install; make test-cli-daemon: the login item, no VM, a scratch LaunchAgents folder + a FAKE launchctl (never the real ones) — rows 1–12 in engine.md
 make test-cli-exectimeout # exec --timeout from doz's start, 124 from the daemon: the command killed, a start/wake that outlasts it goes on, a stopped client
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
 make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) into a DIRECTORY_DIR (CNAME, .nojekyll, index.json; the update site refused) → a local server standing in for doz.sh → the daemon's refresh → the next start uses it; doz.sh/… names resolve with no request; tampered refused
@@ -452,14 +454,12 @@ make pullbench       # 594 D12: the node base pulled with 3 vs 6 concurrent laye
 
 ### Test safety is the default
 
-Every `make test*` target (and the probes' `guard-doz.sh`) runs with `DOZ_TEST_GUARD=1`,
-`DOZ_TEST_NO_MAC_LOGIN=1`, `DOZ_TEST_CREDENTIALS=memory`, a scratch `DOZ_TEST_CODEX_HOME` and a scratch
-`XDG_CONFIG_HOME` whose `doz.toml` sets `store.path` and `defaults.projects_dir` to scratch folders — forced,
-whatever the environment says. `TestSafety` (DozableHost) STOPS a guarded process (and any XCTest run) that
-would use the default store, read the Mac's real `~/.codex`, or touch the login keychain's `Claude Code-credentials*`
-items. The only way out is explicit: `DOZ_TEST_REAL_MAC=1`. A new code path that reads something of the
-Mac's own must go through a seam the Makefile sets (`CredentialServices.forHost`, `macLoginKeychain`) —
-`TestSafetyTests` pins the decisions.
+Every `make test*` target (and the probes' `guard-doz.sh`) runs with `DOZ_TEST_GUARD=1`, `DOZ_TEST_NO_MAC_LOGIN=1`, `DOZ_TEST_CREDENTIALS=memory`,
+a scratch `DOZ_TEST_CODEX_HOME` and a scratch `XDG_CONFIG_HOME` whose `doz.toml` sets `store.path` and `defaults.projects_dir` to scratch
+folders — forced, whatever the environment says (694: a scratch `DOZ_TEST_LAUNCH_AGENTS_DIR`, a refusing `DOZ_TEST_LAUNCHCTL`). `TestSafety`
+STOPS a guarded process (and any XCTest run) that would use the default store, read the Mac's real `~/.codex`, touch the keychain's
+`Claude Code-credentials*` items, the real `~/Library/LaunchAgents` or `/bin/launchctl`. The only way out is explicit: `DOZ_TEST_REAL_MAC=1`.
+A new code path that reads something of the Mac's own must go through a seam the Makefile sets (`CredentialServices.forHost`, `macLoginKeychain`) — `TestSafetyTests` pins the decisions.
 
 **Paths are SHOWN with `~`** (617): `DisplayPath` (DozableHost: `tilde`, `tildeIn`, `homes`) and its twin `core/paths.js`
 (`tildePath`, `tildeIn`, fed the session info's `homes`) are the ONE way a Mac path is shown — the sidebar's store, the

@@ -255,12 +255,15 @@ struct ConfigSet: AsyncParsableCommand {
         do { now = try DozableSettings.load().writing(key, v) } catch let e as SettingsError { throw fail(HostError(.failed, e.message), g) }
         let r = now.resolve(key, flag: configFlags(g)[key])
         sayMigration(now, g)
-        if g.json { Out.json(now.report(flags: configFlags(g)).settings.first { $0.key == key }!); return }
+        // 694: the login item follows daemon.login_item and daemon.always_on (only `on` ever adds one).
+        if key == SettingKey.loginItem { LoginItemNotice.markShown() }
+        if g.json { syncLoginItemAfterSettingChange(key, now, g); Out.json(now.report(flags: configFlags(g)).settings.first { $0.key == key }!); return }
         Out.stdout("\(key) = \(TOML.render(v)) in \(now.url?.path ?? "?") (this Mac) — \(d.applies.note)\n")
         if r.source == .env || r.source == .flag, !g.quiet {
             Out.stderr("note: \(r.source == .env ? "$\(d.environment ?? "")" : d.flag ?? "a flag") overrides it here: the effective value is \(r.value.plain)\n")
         }
         if [SettingKey.alwaysOn, SettingKey.idleTimeout].contains(key), !g.quiet, let n = now.daemonIdleNote { Out.stdout("note: \(n)\n") }
+        syncLoginItemAfterSettingChange(key, now, g)
     }
 }
 
@@ -292,9 +295,10 @@ struct ConfigUnset: AsyncParsableCommand {
         let now: DozableSettings
         do { now = try DozableSettings.load().writing(key, nil) } catch let e as SettingsError { throw fail(HostError(.failed, e.message), g) }
         sayMigration(now, g)
-        if g.json { Out.json(now.report(flags: configFlags(g)).settings.first { $0.key == key }!); return }
+        if g.json { syncLoginItemAfterSettingChange(key, now, g); Out.json(now.report(flags: configFlags(g)).settings.first { $0.key == key }!); return }
         Out.stdout("\(key) is \(d.agent != nil ? "the recipe's default" : "the default") (\(d.defaultValue.plain)) in \(now.url?.path ?? "?") (this Mac)\n")
         if [SettingKey.alwaysOn, SettingKey.idleTimeout].contains(key), !g.quiet, let n = now.daemonIdleNote { Out.stdout("note: \(n)\n") }
+        syncLoginItemAfterSettingChange(key, now, g)
     }
 }
 

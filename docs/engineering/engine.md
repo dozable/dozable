@@ -32,6 +32,7 @@ A bare file name is in `Sources/DozableKit/`.
 | `Sources/DozableHost/HostServer.swift` | `doz daemon` — the lock, the socket, the attach relay (held clients), streams, the idle loop (exit, restart in place, hand-over), quit = Hibernate |
 | `Sources/DozableHost/IdleDecision.swift`, `StableExecutable.swift`, `ExecutableIdentity.swift` | 693: what an idle daemon does at each look (pure); the path a new daemon is started from (a keg's `opt` link); which program file the daemon runs and how it changed |
 | `Sources/DozableHost/HostClient.swift`, `UnixSocket.swift` | the detached-child launcher, the client, socket plumbing, `ClientWire` (SandboxLab's attach wire) |
+| `Sources/DozableHost/DaemonLoginItem.swift`, `LoginStart.swift`, `Launchctl.swift`; `Sources/DozableCLI/LoginItemCommands.swift` | 694: the daemon's login item — the plist, the install rule and its sync, status; the job `daemon start --login-item`, the held marker, `DaemonStarter` (a locked client kickstarts the item); launchctl and the LaunchAgents folder behind their seams; `doz daemon login-item`, the once-notice |
 | `Sources/DozableHost/DozableStore.swift`, `Metrics.swift` | the CLI store's files, `SandboxConfig` (`doz.json`), images → specs; the metrics DB (SandboxLab's schema) |
 | `Sources/DozableCLI/` | the commands (ArgumentParser), the attach client, `doctor`; `UICommand.swift` (`doz ui`, `ui link`) |
 | `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`). 678 (`SettingsRest.swift`): a read checks Dozable's own keys at once against `coreIndexed` (no recipe read) and settles every other line — a recipe's key, a 0.37 name, an unknown key, a `defaults.image` naming a recipe agent — the first time one is asked for (`FileValues`' subscript of a core key, `resolve` of one, never do); `SettingsLazySchemaTests` pins that the result equals the eager read |
@@ -101,7 +102,55 @@ A bare file name is in `Sources/DozableKit/`.
     `config set daemon.always_on off` makes the running one exit; a program renamed over it restarts it in place (one
     daemon, a new pid, parent launchd, the new file, no command typed). `make test-vm-upgrade` part F: the previous
     release's idle daemon and this build installed by rename (a release that predates the restart exits by itself), then
-    this build's always-on daemon replaced by rename → it restarts in place.
+    this build's always-on daemon replaced by rename → it restarts in place; 694: its scratch LaunchAgents folder stays empty.
+
+- **The login item: launchd never runs the daemon, and nothing is written without consent** (694; the owner approved ONE
+  per-user login agent per store as the exception to "no launchd agent"). `daemon.login_item` (`ask` | `on` | `off`,
+  default `ask`, NO environment variable — consent is never an environment value) — only `on` ever writes a plist; the
+  default and an upgrade write nothing. `DaemonLoginItem` (pure `render` + `decide`, effectful `sync` / `status` /
+  `remove`):
+  - **The plist** `~/Library/LaunchAgents/com.dozable.daemon.<8 hex>.plist` (the store path's hash, as its socket folder —
+    `MacPlace.storeHash`; doz-dev's store never collides), 0644, written atomically, an XML comment naming the store and
+    how to remove it. `ProgramArguments = [<stable doz>, daemon, start, --login-item, --store, <store>]` (doz itself, never
+    `sh`), `RunAtLoad`, `StartInterval 900`, `LimitLoadToSessionType Aqua`, `AbandonProcessGroup`, `ProcessType Standard`,
+    `StandardOutPath`/`StandardErrorPath` = `<store>/login-item.log` (cut back above 256 KiB), `EnvironmentVariables
+    {XDG_CONFIG_HOME}` only when set and not the default. Never `KeepAlive`, `Sockets` or `MachServices`.
+    `DaemonLoginItemTests` round-trips it through `PropertyListSerialization`.
+  - **The rule**: present ⇔ `login_item == on` AND (`always_on` OR ≥ 1 kept session — `HostServer.keepers`, 0 until kept
+    sessions exist) AND no app-owned job (`com.dozable.app.daemon`, reserved for the menu bar app; loaded AND its program
+    still on disk — one whose program is gone counts as absent). `sync` is called by `doz daemon login-item on|off`,
+    `doz config set|unset` of the daemon's settings, the web settings route (`daemon.always_on` only: `daemon.login_item` is `ui: false` — consent is given on the Mac, never
+    from the dashboard, where under `doz ui --lan` another device could ask; the route refuses it and the Settings page
+    shows it read-only; `ServeRulesTests.testTheWebUIRefusesTheLoginItem`),
+    onboarding's answer, and each daemon's start — which ONLY rewrites a stale program path or removes (`Mode.daemonStart`;
+    with no plist it looks at nothing). Load: `launchctl bootstrap gui/<uid> <plist>` (best effort: from ssh the file is
+    still written and "it loads at your next login" said); unload: `bootout gui/<uid>/<label>`, then unlink.
+  - **The job** (`LoginStart`, `doz daemon start --login-item`, hidden): (a) `<store>/daemon.held` newer than
+    `kern.boottime` → nothing; (b) a daemon answers → nothing, unless it cannot read the login keychain and runs nothing
+    (no sandbox, preparation, fenced or kept session — `HostStatus.fencedSessions`/`preparations`) while this session can:
+    it is asked to stop, then (d); (c) always on off and nothing kept → nothing; (d) `HostLauncher.spawn` from the stable
+    path, wait ≤ 90 s for the socket. One line in `login-item.log` per action (the app's job has no StandardOutPath, so doz
+    writes its own); always exit 0; ≤ 300 ms when nothing is to do. `LoginStartTests`.
+  - **The hold** (decision 7): `doz daemon stop` while `daemon.always_on` is on writes `daemon.held`; the job starts nothing
+    until the next boot, or until any daemon starts (`HostServer.run` and `DaemonStarter.start` remove it). The answer
+    says "it stays stopped until a doz command or your next login".
+  - **The locked-Keychain guard** (decision 8, `DaemonStarter`): a client that would autostart a daemon from a session
+    where the login keychain is locked (ssh), while a login item is LOADED (`launchctl print` = 0: this store's, or the
+    app's), runs `launchctl kickstart gui/<uid>/<label>` instead, waits 15 s for the socket and says "doz: started the
+    daemon in your desktop session (login item)"; on failure today's start with today's warning. `doz daemon restart` from
+    such a session while the running daemon can read the keychain and no item is loaded is REFUSED (`HostRestart.
+    lockedRefusal`); `stop` is allowed.
+  - **Status, without a daemon too:** `doz daemon status --json` carries `loginItem` (`LoginItemStatus`: setting, owner
+    doz|app|none, label, path, program, installed, loaded, disabled — `print-disabled` —, stale, wanted, note) and `held`,
+    filled by the CLI (never the daemon's ping); with no daemon it is `{running: false, store, held, alwaysOn, loginItem}`.
+    `doctor`'s "login item" row: not set up, missing, not loaded, switched off, stale, a locked daemon. All read only.
+  - **The seams** (`Launchctl.swift`): `Launchctl` is `/bin/launchctl`, or `DOZ_TEST_LAUNCHCTL` in a test run;
+    `LaunchAgentsFolder` is the real folder, or `DOZ_TEST_LAUNCH_AGENTS_DIR`; `DOZ_TEST_BOOT_TIME` stands in for the boot.
+    `TestSafety` STOPS a guarded process that would run the real launchctl or touch the real folder; a LOOK with no seam
+    (`forLooking`) looks at nothing. The Makefile sets a scratch folder and `Scripts/launchctl-refuse.sh` for every test
+    target; `make test-cli-daemon` (`CLIDaemonSuite`, `Scripts/fake-launchctl.py`: records argv, keeps a state, runs a
+    kickstarted job without `DOZ_TEST_KEYCHAIN_LOCKED`) checks rows 1–12. Uninstall and nuke boot out and remove THIS
+    store's item (listed in what they remove) and list other stores' read-only.
 - **A daemon stop shows its progress** (`HostStop.swift`): `host-stop` streams, per sandbox, a
   `started` "hibernating X" and a `step` "hibernated X (snapshot …)" / `failed` (why + "shut down
   instead") — `HostEvent.startedAs` ties an end to its differently-worded start — then the daemon's own

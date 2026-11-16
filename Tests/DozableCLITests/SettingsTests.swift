@@ -331,7 +331,12 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(idle.defaultValue, .int(0), "the owner's decision: 0, never times out")
         XCTAssertTrue(idle.summary.contains("used only when daemon.always_on is off"), idle.summary)
         XCTAssertNil(DozableSettings.definition("daemon.idle_exit"), "no second idle knob")
-        XCTAssertNil(DozableSettings.definition("daemon.login_item"), "the login item is a later release")
+        // 694: the login item — ask by default, no environment variable (consent is never an environment value).
+        let li = try XCTUnwrap(DozableSettings.definition(SettingKey.loginItem))
+        XCTAssertEqual(li.defaultValue, .string("ask"))
+        XCTAssertNil(li.environment)
+        XCTAssertEqual(li.applies, .now)
+        XCTAssertFalse(li.editableInUI, "set on the Mac only — never from the dashboard (a LAN device must not add a LaunchAgent)")
         let s = DozableSettings.load(environment: env)
         XCTAssertTrue(s.bool(SettingKey.alwaysOn))
         XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 0)

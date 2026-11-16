@@ -434,6 +434,9 @@ public enum SettingKey {
     public static let color = "ui.color"
     /// 693: the daemon stays running with nothing open (default on; the idle timeout applies only when off).
     public static let alwaysOn = "daemon.always_on"
+    /// 694: the daemon's login item — ask (the default: none, offered once), on, off. No environment variable: consent is
+    /// never an environment value.
+    public static let loginItem = "daemon.login_item"
     public static let idleTimeout = "daemon.idle_timeout_minutes"
     public static let screenCapture = "daemon.screen_capture_minutes"
     public static let bootLogsKept = "daemon.boot_logs_kept"
@@ -880,8 +883,14 @@ public struct DozableSettings: Sendable {
             // (never times out)"). Read by the running daemon at each idle look (`IdleDecision`); a daemon started where the
             // login keychain is locked is never always on, whatever this says.
             .init("daemon", "always_on", .bool, .bool(true),
-                  "Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once; a new doz installed under it takes over by itself once nothing runs. off: it exits after daemon.idle_timeout_minutes with nothing running (when that is 0, it still never does). A daemon started where the login keychain is locked (over ssh) is never kept running: it exits after 5 minutes with nothing running.",
+                  "Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once; a new doz installed under it takes over by itself once nothing runs (with daemon.login_item on, it also starts when you log in). off: it exits after daemon.idle_timeout_minutes with nothing running (when that is 0, it still never does). A daemon started where the login keychain is locked (over ssh) is never kept running: it exits after 5 minutes with nothing running.",
                   env: "DOZ_DAEMON_ALWAYS_ON", applies: .now),
+            // 694: the login item (owner: a per-user login agent, only with consent). NO environment variable — consent is
+            // never an environment value; only `on` ever writes one (`DaemonLoginItem.sync`). Set on the Mac only (ui: false):
+            // under doz ui --lan a device on the network must never make this Mac write a LaunchAgent.
+            .init("daemon", "login_item", .choice(["ask", "on", "off"]), .string("ask"),
+                  "Start the doz daemon when you log in, from your desktop session: one login item in ~/Library/LaunchAgents, removed by off and by doz uninstall. ask: not installed; doz offers it once. Set on this Mac (doz daemon login-item on|off), never from the dashboard.",
+                  applies: .now, ui: false),
             .init("daemon", "idle_timeout_minutes", .int(0...10_080), .int(0),
                   "Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0 = never.",
                   env: "DOZ_DAEMON_IDLE", flag: "doz daemon start --idle-timeout", applies: .daemonRestart),

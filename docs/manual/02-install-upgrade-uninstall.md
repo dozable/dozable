@@ -135,6 +135,32 @@ A daemon started over ssh (where the login Keychain is locked) is never kept run
 minutes with nothing running, so the next command from the Mac itself starts one that can read your Claude login.
 `doz daemon status` says which it is.
 
+### Start the daemon when you log in
+
+An upgrade never adds anything to `~/Library/LaunchAgents`. The first command you type in Terminal after it says once:
+
+```text
+doz: the daemon now stays running. To also start it when you log in (sandboxes and kept sessions come back after the Mac restarts): doz daemon login-item on
+```
+
+`doz daemon login-item on` adds ONE login item for your store, `~/Library/LaunchAgents/com.dozable.daemon.<8 letters
+and digits>.plist` (macOS shows "Background Items Added"). At login, and every 15 minutes after, it runs
+a short doz command that starts the daemon from your desktop session — where it can read your login
+Keychain — and exits; launchd never runs the daemon itself. It runs the doz Homebrew keeps current
+(`…/opt/doz/libexec/doz/doz`), so an upgrade needs nothing more.
+
+```sh
+doz daemon login-item           # is it there, loaded, switched off?
+doz daemon login-item on        # add it (daemon.login_item = on)
+doz daemon login-item off       # remove it (daemon.login_item = off)
+```
+
+`doz daemon stop` keeps the daemon stopped until a doz command or your next login (the 15-minute look starts nothing
+meanwhile). `doz config set daemon.always_on off` removes the login item too: with nothing kept running there is
+nothing to start at login. A new install's `doz onboard` asks "Start Dozable when you log in?" (`--start-at-login on|off`
+answers it). Over ssh, a command that needs the daemon starts it in your desktop session through the login item, and
+`doz daemon restart` never replaces a daemon started from your desktop with one that could not read the Keychain.
+
 ### The background process is now called the daemon
 
 The background process that runs your sandboxes is called **the daemon**, and its commands are `doz daemon start|stop|restart|status|upgrade-check`. The old command name `host` no longer exists (there is no alias: doz answers it with `unexpected arguments: 'host', …`), and `DOZ_HOST_IDLE` is replaced by `DOZ_DAEMON_IDLE`. A 0.40 store and its settings are carried over automatically, once: the first daemon takes over the old lock and log, the `host.*` settings are read and written back as `daemon.*` the next time `doz.toml` is saved, and an older daemon that is still running keeps serving until it exits by itself when idle (or until `doz daemon stop` switches).
@@ -196,7 +222,12 @@ brew uninstall doz
 `doz uninstall` lists exactly what it will delete and asks once:
 
 - **the store**: every sandbox, image, kernel and restore point, and the daemon's log and metrics;
-- **the settings folder**: `doz.toml` and `agent-prompt.md`.
+- **the settings folder**: `doz.toml` and `agent-prompt.md`;
+- **the login item**, if you added one (`doz daemon login-item on`) — only this store's; another store's is listed
+  and left alone.
+
+Run `doz uninstall` BEFORE `brew uninstall doz` (Homebrew's note says so): a login item left behind only fails
+harmlessly at each login, but it is yours to remove (`doz daemon login-item off`, or delete the plist).
 
 Keep either with `--keep-store` or `--keep-config`; `--yes` skips the question (without a terminal
 and without `--yes` it refuses). A running daemon is stopped first; a running `doz ui` must be stopped
