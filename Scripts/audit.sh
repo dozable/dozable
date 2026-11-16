@@ -52,8 +52,9 @@ fail() {
 # (step 1b).
 # 667: + AVFoundation — macOS's microphone permission for sandboxes with sound (its status, and the question when
 # undecided); it never opens a device. Confined in step 1b to Sources/DozableHost/Microphone.swift.
-# The menu bar app: + AppKit (its executable target only) and its own core module — confined in step 1c.
-ALLOWED='Foundation|Darwin|os|CryptoKit|Security|AppKit|DozableMenuBarCore|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozableCloud|DozableTUI|AVFoundation'
+# The menu bar app: + AppKit and ServiceManagement (Start at Login — SMAppService; its executable target only) and its
+# own core module — confined in step 1c.
+ALLOWED='Foundation|Darwin|os|CryptoKit|Security|AppKit|ServiceManagement|DozableMenuBarCore|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozableCloud|DozableTUI|AVFoundation'
 BAD=$(grep -rhoE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*(public[[:space:]]+)?import[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*' \
         "$PACKAGE/Sources" \
       | sed -E 's/.*import[[:space:]]+//' \
@@ -132,7 +133,8 @@ $DC"
     || fail "Sources/doz/DozableMain.swift must reach DozableCloud only under #if DOZ_CLOUD (the import and the install)"
 
 # ── 1c. The menu bar app (docs/engineering/menu-bar-app.md): a client of the doz COMMAND, never of the engine ──────
-#        AppKit only under Sources/DozableMenuBar/; DozableMenuBarCore imports only Foundation, Security and os; no
+#        AppKit and ServiceManagement only under Sources/DozableMenuBar/ (ServiceManagement in LoginService.swift alone:
+#        SMAppService is reached in one file, which every test run replaces by the recording service); DozableMenuBarCore imports only Foundation, Security and os; no
 #        Sources/DozableMenuBar* file imports another module of this package (DozableKit, DozableHost, DozableCLI, …);
 #        no other target imports AppKit, SwiftUI or ServiceManagement; and the manifest gives neither target a dependency
 #        but the app's on its core (no package at all).
@@ -140,13 +142,17 @@ UI=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+(AppKit|Swift
       | grep -vE "/Sources/DozableMenuBar/" || true)
 [[ -z "$UI" ]] || fail "AppKit, SwiftUI or ServiceManagement is imported outside Sources/DozableMenuBar:
 $UI"
+SMS=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+ServiceManagement([[:space:]]|$)' "$PACKAGE/Sources" \
+      | grep -vE "/Sources/DozableMenuBar/LoginService\.swift$" || true)
+[[ -z "$SMS" ]] || fail "ServiceManagement is imported outside Sources/DozableMenuBar/LoginService.swift:
+$SMS"
 MBC=$(grep -rhoE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*(public[[:space:]]+)?import[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*' \
         "$PACKAGE/Sources/DozableMenuBarCore" | sed -E 's/.*import[[:space:]]+//' | sort -u | grep -vE '^(Foundation|Security|os)$' || true)
 [[ -z "$MBC" ]] || fail "Sources/DozableMenuBarCore imports more than Foundation, Security and os:
 $MBC"
 MBA=$(grep -rhoE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*(public[[:space:]]+)?import[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*' \
-        "$PACKAGE/Sources/DozableMenuBar" | sed -E 's/.*import[[:space:]]+//' | sort -u | grep -vE '^(Foundation|AppKit|os|Security|DozableMenuBarCore)$' || true)
-[[ -z "$MBA" ]] || fail "Sources/DozableMenuBar imports a module of the engine or a package (it may use AppKit, Foundation, os, Security and DozableMenuBarCore only):
+        "$PACKAGE/Sources/DozableMenuBar" | sed -E 's/.*import[[:space:]]+//' | sort -u | grep -vE '^(Foundation|AppKit|ServiceManagement|os|Security|DozableMenuBarCore)$' || true)
+[[ -z "$MBA" ]] || fail "Sources/DozableMenuBar imports a module of the engine or a package (it may use AppKit, ServiceManagement, Foundation, os, Security and DozableMenuBarCore only):
 $MBA"
 MBX=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+DozableMenuBarCore([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableMenuBar/" || true)
 [[ -z "$MBX" ]] || fail "DozableMenuBarCore is imported outside the menu bar app:
@@ -309,5 +315,5 @@ printf '          (TLS; ArgumentParser for the CLI targets only) and Yams (exact
 printf '          carries no host brand, deckhold + doznet + dozview + tmux match their provenance (no libfuse),\n'
 printf '          the web UI (NIOHTTP1, confined) ships exactly the assets its sources build,\n'
 printf '          doz ui binds the LAN only through its LAN side (ServeCommand.swift) (dnssd confined to its announcer),\n'
-printf '          the menu bar app imports AppKit and its own core only (no engine, no package),\n'
+printf '          the menu bar app imports AppKit, ServiceManagement (one file) and its own core only (no engine, no package),\n'
 printf '          and no file carries the pre-592 product name\n'

@@ -9,6 +9,9 @@ public enum MenuBarApp {
     public static let minimumDoz = "0.50.5"
     /// Where a person reads how to install doz (the manual's install page, as Markdown).
     public static let installHelpURL = "https://dozable.com/docs/install-upgrade-uninstall.md"
+    /// The oldest doz Start at Login works with: the first that sees the app's SMAppService job as the owner of the login
+    /// item (its program named relative to the bundle) and so removes its own — never two.
+    public static let minimumDozForLogin = "0.50.8"
 }
 
 /// Everything the menu is drawn from — gathered by running doz, then handed to `MenuModel` (pure).
@@ -20,7 +23,7 @@ public struct Snapshot: Equatable, Sendable {
     }
 
     public enum Busy: String, Equatable, Sendable, Encodable {
-        case starting, stopping, restarting, openingDashboard, updatingApp
+        case starting, stopping, restarting, openingDashboard, updatingApp, loginItem
     }
 
     public var doz: Doz
@@ -36,11 +39,13 @@ public struct Snapshot: Equatable, Sendable {
     public var bundledAppVersion: String?
     /// The last action's failure, shown until the next action.
     public var lastError: String?
+    /// Start at Login (nil: not known — no row is drawn).
+    public var login: LoginSnapshot?
 
     public init(doz: Doz, status: DozStatus? = nil, statusProblem: String? = nil, busy: Busy? = nil, appVersion: String? = nil,
-                bundledAppVersion: String? = nil, lastError: String? = nil) {
+                bundledAppVersion: String? = nil, lastError: String? = nil, login: LoginSnapshot? = nil) {
         self.doz = doz; self.status = status; self.statusProblem = statusProblem; self.busy = busy; self.appVersion = appVersion
-        self.bundledAppVersion = bundledAppVersion; self.lastError = lastError
+        self.bundledAppVersion = bundledAppVersion; self.lastError = lastError; self.login = login
     }
 
     public var dozPath: String? { if case .found(let p, _) = doz { return p }; return nil }
@@ -50,6 +55,9 @@ public struct Snapshot: Equatable, Sendable {
 /// What a menu item does when chosen. None of them runs anything but doz (and Quit runs nothing at all).
 public enum MenuAction: String, Equatable, Sendable, Encodable {
     case start, stop, restart, dashboard, updateApp, installHelp, quit
+    /// Start at Login: on (register the agent and the app, then tell doz), off, and — when macOS waits for the person —
+    /// open System Settings › Login Items. None runs a doz command by itself (`LoginItemFlow`).
+    case loginOn = "login-on", loginOff = "login-off", loginSettings = "login-settings"
 
     /// The doz command an action runs (nil: none — Quit quits this app only, never the daemon).
     public var command: DozCommand? {
@@ -59,7 +67,7 @@ public enum MenuAction: String, Equatable, Sendable, Encodable {
         case .restart: .restart
         case .dashboard: .dashboard
         case .updateApp: .updateApp
-        case .installHelp, .quit: nil
+        case .installHelp, .quit, .loginOn, .loginOff, .loginSettings: nil
         }
     }
 
@@ -70,7 +78,8 @@ public enum MenuAction: String, Equatable, Sendable, Encodable {
         case .restart: .restarting
         case .dashboard: .openingDashboard
         case .updateApp: .updatingApp
-        case .installHelp, .quit: nil
+        case .loginOn, .loginOff: .loginItem
+        case .installHelp, .quit, .loginSettings: nil
         }
     }
 }
@@ -90,11 +99,13 @@ public struct MenuItem: Equatable, Sendable, Encodable {
     public var enabled: Bool
     public var action: MenuAction?
     public var confirm: Confirmation?
+    /// Drawn with a check mark (Start at Login when on).
+    public var checked: Bool
 
     public static let separator = MenuItem(kind: .separator, title: "", enabled: false)
 
-    public init(kind: Kind, title: String, enabled: Bool, action: MenuAction? = nil, confirm: Confirmation? = nil) {
-        self.kind = kind; self.title = title; self.enabled = enabled; self.action = action; self.confirm = confirm
+    public init(kind: Kind, title: String, enabled: Bool, action: MenuAction? = nil, confirm: Confirmation? = nil, checked: Bool = false) {
+        self.kind = kind; self.title = title; self.enabled = enabled; self.action = action; self.confirm = confirm; self.checked = checked
     }
 
     static func line(_ s: String) -> MenuItem { MenuItem(kind: .line, title: s, enabled: false) }
@@ -135,6 +146,7 @@ public enum MenuModel {
         case .restarting?: return "Restarting the daemon…"
         case .openingDashboard?: return "Opening the dashboard…"
         case .updatingApp?: return "Updating the menu bar app…"
+        case .loginItem?: return "Changing Start at Login…"
         case nil: break
         }
         guard case .found = s.doz else { return "doz is not installed" }
@@ -166,10 +178,6 @@ public enum MenuModel {
             parts.append(n == 0 ? "No sandboxes running" : n == 1 ? "1 sandbox running" : "\(n) sandboxes running")
             items.append(.line(parts.joined(separator: " · ")))
         }
-        // The login item is doz's own in this version: when doz set one up, say so (nothing to click).
-        if let li = st?.loginItem, li.owner == "doz", li.installed == true {
-            items.append(.line("Starts at login (set by doz)"))
-        }
         if let e = s.lastError { items.append(.line(e)) }
 
         items.append(.separator)
@@ -184,6 +192,10 @@ public enum MenuModel {
                 button: "Stop Daemon")
             items.append(MenuItem(kind: .action, title: "Stop Daemon…", enabled: idle && running, action: .stop, confirm: confirm))
             items.append(MenuItem(kind: .action, title: "Restart Daemon", enabled: idle && running, action: .restart))
+            if let login = loginItem(for: s) {
+                items.append(.separator)
+                items.append(login)
+            }
             items.append(.separator)
             items.append(MenuItem(kind: .action, title: "Open Dashboard", enabled: idle, action: .dashboard))
             if let bundled = s.bundledAppVersion, let mine = s.appVersion, DozVersion.isOlder(mine, than: bundled) {
@@ -198,6 +210,37 @@ public enum MenuModel {
     }
 }
 
+extension MenuModel {
+    /// The Start at Login row (nil: no row — the login state is not known). In order:
+    ///   · doz too old for it → disabled, "needs doz X";
+    ///   · macOS waits for the person (switched off in System Settings) → "needs approval", opens that page;
+    ///   · the app's agent enabled → "Start at Login" ✓ (a click turns it off);
+    ///   · this copy is not in Applications → disabled, with where it must be (SMAppService keeps a stable path);
+    ///   · doz holds its own login item → ✓ "(set by doz — click to let this app hold it)" (a click hands it over);
+    ///   · else "Start at Login", unchecked.
+    public static func loginItem(for s: Snapshot) -> MenuItem? {
+        guard let login = s.login else { return nil }
+        let idle = s.busy == nil
+        let title = "Start at Login"
+        if let v = s.dozVersion, DozVersion.isOlder(v, than: MenuBarApp.minimumDozForLogin) {
+            return MenuItem(kind: .action, title: "\(title) — needs doz \(MenuBarApp.minimumDozForLogin)", enabled: false, action: nil)
+        }
+        if login.service.needsApproval {
+            return MenuItem(kind: .action, title: "\(title) — needs approval: Open System Settings…", enabled: idle, action: .loginSettings)
+        }
+        if login.service.agent == .enabled {
+            return MenuItem(kind: .action, title: title, enabled: idle, action: .loginOff, checked: true)
+        }
+        if !login.stablePlace {
+            return MenuItem(kind: .action, title: "\(title) — open the copy in Applications (doz app install)", enabled: false, action: nil)
+        }
+        if let li = s.status?.loginItem, li.owner == "doz", li.installed == true {
+            return MenuItem(kind: .action, title: "\(title) (set by doz — click to let this app hold it)", enabled: idle, action: .loginOn, checked: true)
+        }
+        return MenuItem(kind: .action, title: title, enabled: idle, action: .loginOn)
+    }
+}
+
 /// What `--dump-menu` prints: the model, and what it was made from (doz's path and version, the daemon's state).
 public struct MenuDump: Encodable, Sendable {
     public var doz: DozFound?
@@ -206,6 +249,14 @@ public struct MenuDump: Encodable, Sendable {
     public var appVersion: String?
     public var icon: String
     public var items: [MenuItem]
+    /// Start at Login as SMAppService reports it (nil: not looked at).
+    public var loginItem: LoginDump?
+
+    public struct LoginDump: Encodable, Sendable {
+        public var agent: LoginServiceStatus
+        public var mainApp: LoginServiceStatus
+        public var stablePlace: Bool
+    }
 
     public struct DozFound: Encodable, Sendable {
         public var path: String
@@ -219,6 +270,7 @@ public struct MenuDump: Encodable, Sendable {
         appVersion = s.appVersion
         icon = MenuModel.icon(for: s)
         items = MenuModel.items(for: s)
+        loginItem = s.login.map { LoginDump(agent: $0.service.agent, mainApp: $0.service.mainApp, stablePlace: $0.stablePlace) }
     }
 
     public func json() -> String {

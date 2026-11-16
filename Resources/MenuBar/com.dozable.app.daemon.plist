@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Dozable's Start at Login: the menu bar app's agent, registered through SMAppService only when the person clicks
+     Start at Login. launchd runs the app's own executable with its launch-daemon flag, which runs doz daemon start
+     with its login-item flag (doz starts the daemon and exits; launchd never runs the daemon itself). Sealed by the
+     app's signature: exactly these keys (Scripts/assemble-app.sh and the release check them). -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.dozable.app.daemon</string>
+	<key>BundleProgram</key>
+	<string>Contents/MacOS/Dozable</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>Dozable</string>
+		<string>--launch-daemon</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StartInterval</key>
+	<integer>900</integer>
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
+	<key>AbandonProcessGroup</key>
+	<true/>
+	<key>ProcessType</key>
+	<string>Standard</string>
+</dict>
+</plist>

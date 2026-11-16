@@ -35,6 +35,11 @@ public struct DozCommand: Equatable, Sendable {
     public static let dashboard = DozCommand(["ui", "--detach", "--open", "-q"], timeout: 30, output: .discard, label: "ui --detach")
     /// Install the copy of this app that came with doz over the running one, and open the new one.
     public static let updateApp = DozCommand(["app", "install", "--open", "--json"], timeout: 60, label: "app install")
+    /// Start at Login, told to doz once the app's job is loaded: doz then removes its own login item (never two).
+    public static let loginItemOn = DozCommand(["config", "set", "daemon.login_item", "on", "--json"], timeout: 30,
+                                               label: "config set daemon.login_item on")
+    public static let loginItemOff = DozCommand(["config", "set", "daemon.login_item", "off", "--json"], timeout: 30,
+                                                label: "config set daemon.login_item off")
 }
 
 /// What a command did.

@@ -6,14 +6,32 @@ import DozableMenuBarCore
 // arguments below are modes that never start NSApplication, never draw anything and exit:
 //
 //   --dump-menu            the menu it would show now, as JSON (what a person over ssh, or a test, can look at)
-//   --run-action ACTION    run one item's doz command (start|stop|restart|dashboard) and print the outcome — a TEST seam:
-//                          guarded runs only (DOZ_TEST_GUARD=1)
-//   --self-config          what this copy is (identifier, version, the doz it needs) — the release's check
+//   --run-action ACTION    run one item's doz command (start|stop|restart|dashboard) or Start at Login's click
+//                          (login-on|login-off) and print the outcome — a TEST seam: guarded runs only (DOZ_TEST_GUARD=1),
+//                          where Start at Login is the recording service (it never calls SMAppService or launchctl)
+//   --launch-daemon        what launchd runs for the app's agent (com.dozable.app.daemon): find doz — Dozable's team
+//                          signature required in a release build — and exec `doz daemon start --login-item`; no doz, or
+//                          one refused: a log line, exit 0
+//   --unregister           take back this copy's Start at Login (the agent and the app) — doz app uninstall and
+//                          doz uninstall run it before the bundle goes
+//   --login-status         Start at Login as macOS reports it, as JSON (a look: registers nothing)
+//   --self-config          what this copy is (identifier, version, the doz it needs, whether the login agent requires
+//                          Dozable's team) — the release's check
 //   --version, --help
 
 let env = ProcessInfo.processInfo.environment
 let arguments = Array(CommandLine.arguments.dropFirst())
 let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+/// A release build (`swift build -c release`: what the release ships) requires Dozable's team signature of the doz its
+/// login agent runs; a development build (`make app`) does not.
+let releaseBuild: Bool = {
+    #if DEBUG
+    return false
+    #else
+    return true
+    #endif
+}()
+let requireTeam = LaunchAgent.requiresTeam(releaseBuild: releaseBuild, env: env)
 
 func say(_ s: String) { FileHandle.standardOutput.write(Data((s + "\n").utf8)) }
 func complain(_ s: String) { FileHandle.standardError.write(Data(("Dozable: " + s + "\n").utf8)) }
@@ -22,12 +40,19 @@ let usage = """
     usage: Dozable                      the menu bar app (opened from Finder or with open -a Dozable)
            Dozable --dump-menu          print the menu it would show now, as JSON
            Dozable --self-config        print what this copy is, as JSON
+           Dozable --login-status       print Start at Login as macOS reports it, as JSON
+           Dozable --unregister         turn this copy's Start at Login off (doz app uninstall runs it)
            Dozable --version
     Install it with: doz app install
     """
 
+func loginContext() -> SnapshotSource.LoginContext {
+    SnapshotSource.LoginContext(service: loginService(env: env), look: LaunchdLook(env: env),
+                                stablePlace: LoginPlace.isStable(bundlePath: Bundle.main.bundlePath, env: env))
+}
+
 func source() -> SnapshotSource {
-    SnapshotSource(locator: .standard(env: env), runner: CommandRunner(), appVersion: appVersion)
+    SnapshotSource(locator: .standard(env: env), runner: CommandRunner(), appVersion: appVersion, login: loginContext())
 }
 
 func jsonLine(_ dict: [String: Any]) -> String {
@@ -54,16 +79,42 @@ case "--run-action"?:
         exit(64)
     }
     guard let i = arguments.firstIndex(of: "--run-action"), i + 1 < arguments.count,
-          let action = MenuAction(rawValue: arguments[i + 1]), [.start, .stop, .restart, .dashboard].contains(action) else {
-        complain("--run-action start|stop|restart|dashboard")
+          let action = MenuAction(rawValue: arguments[i + 1]),
+          [.start, .stop, .restart, .dashboard, .loginOn, .loginOff].contains(action) else {
+        complain("--run-action start|stop|restart|dashboard|login-on|login-off")
         exit(64)
+    }
+    if action == .loginOn || action == .loginOff {
+        let o = source().performLogin(action)
+        say(jsonLine(["action": action.rawValue, "ok": o.error == nil, "error": o.error ?? NSNull(), "steps": o.steps,
+                      "needsApproval": o.needsApproval]))
+        exit(o.error == nil ? 0 : 1)
     }
     let error = source().perform(action)
     say(jsonLine(["action": action.rawValue, "ok": error == nil, "error": error ?? NSNull()]))
     exit(error == nil ? 0 : 1)
+case "--launch-daemon"?:
+    // launchd's job: no NSApplication, nothing drawn. Never returns (exec, or exit 0).
+    LaunchAgent.run(locator: .forLaunchAgent(env: env, requireTeam: requireTeam))
+case "--unregister"?:
+    // doz app uninstall / doz uninstall: this copy takes back what it registered (only on a person's command).
+    let service = loginService(env: env)
+    let before = service.state()
+    let held = before.agent.registered || before.mainApp.registered
+    let r = service.unregister()
+    say(jsonLine(["ok": r.error == nil, "held": held, "steps": r.lines, "error": r.error ?? NSNull()]))
+    exit(0)
+case "--login-status"?:
+    let st = loginService(env: env).state()
+    say(jsonLine(["agent": st.agent.rawValue, "mainApp": st.mainApp.rawValue, "label": AgentPlist.label,
+                  "jobLoaded": LaunchdLook(env: env).loaded(), "bundle": Bundle.main.bundlePath,
+                  "stablePlace": LoginPlace.isStable(bundlePath: Bundle.main.bundlePath, env: env)]))
+    exit(0)
 case "--self-config"?:
     say(jsonLine(["bundleIdentifier": Bundle.main.bundleIdentifier ?? NSNull(), "version": appVersion ?? NSNull(),
-                  "minimumDoz": MenuBarApp.minimumDoz, "executable": Bundle.main.executablePath ?? NSNull()]))
+                  "minimumDoz": MenuBarApp.minimumDoz, "minimumDozForLogin": MenuBarApp.minimumDozForLogin,
+                  "requireTeam": requireTeam, "agentLabel": AgentPlist.label,
+                  "executable": Bundle.main.executablePath ?? NSNull()]))
     exit(0)
 case "--version"?:
     say(appVersion ?? "unknown (not inside Dozable.app)")

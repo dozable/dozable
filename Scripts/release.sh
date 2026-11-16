@@ -385,6 +385,19 @@ if [[ -z "$DRY_RUN" ]]; then
     if [[ "$FLAVOUR" == cli ]]; then
         AEXE="$APP/Contents/MacOS/Dozable"
         [[ "$(ls "$APP/Contents/MacOS")" == "Dozable" ]] || fail "the app's Contents/MacOS holds more than its executable ($(ls "$APP/Contents/MacOS" | tr '\n' ' '))"
+        # Start at Login: the agent plist SMAppService registers — present, alone, exactly the design's keys with doz's
+        # reserved label, and SEALED (the strict verify above covers Contents/Library; a changed byte fails it).
+        AGENT_PLIST="$APP/Contents/Library/LaunchAgents/com.dozable.app.daemon.plist"
+        [[ "$(ls "$APP/Contents/Library/LaunchAgents" 2>/dev/null)" == "com.dozable.app.daemon.plist" ]] \
+            || fail "the app's Contents/Library/LaunchAgents does not hold exactly com.dozable.app.daemon.plist ($(ls "$APP/Contents/Library/LaunchAgents" 2>&1 | tr '\n' ' '))"
+        agent_said="$(Scripts/check-agent-plist.py "$AGENT_PLIST")" || fail "$agent_said"
+        codesign --verify --strict "$APP" 2>/dev/null || fail "the menu bar app's signature does not cover its agent plist"
+        sealed="$(mktemp -d "${TMPDIR:-/tmp/}doz-release-seal.XXXXXX")"
+        ditto "$APP" "$sealed/Dozable.app"
+        /usr/libexec/PlistBuddy -c "Set :StartInterval 60" "$sealed/Dozable.app/Contents/Library/LaunchAgents/com.dozable.app.daemon.plist" >/dev/null
+        if codesign --verify --strict "$sealed/Dozable.app" 2>/dev/null; then rm -rf "$sealed"; fail "a changed agent plist still verifies — it is not sealed"; fi
+        rm -rf "$sealed"
+        say "  menu bar app: $agent_said; sealed (a changed copy does not verify)"
         [[ "$(file -b "$AEXE")" == "Mach-O 64-bit executable arm64"* ]] || fail "the app's executable is not an arm64 Mach-O ($(file -b "$AEXE"))"
         [[ -z "$(codesign -d --entitlements - --xml "$APP" 2>/dev/null | grep -o '<key>' || true)" ]] || fail "the menu bar app carries entitlements — it must carry none"
         ainfo="$(codesign -dv --verbose=4 "$APP" 2>&1)"
@@ -406,11 +419,11 @@ if [[ -z "$DRY_RUN" ]]; then
                   DOZ_TEST_LAUNCH_AGENTS_DIR="$chk/agents" DOZ_TEST_APPLICATIONS_DIR="$chk/apps" DOZ_TEST_LAUNCHCTL="$PACKAGE/Scripts/launchctl-refuse.sh" \
                   "$AEXE" --dump-menu 2>&1 </dev/null || true)"
         rm -rf "$chk"
-        python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["version"]==sys.argv[2] and d["bundleIdentifier"]==sys.argv[3], d' \
-            "$selfc" "$VERSION" "$APP_ID" 2>/dev/null || fail "the packed menu bar app's --self-config is not version $VERSION, $APP_ID ($selfc)"
+        python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["version"]==sys.argv[2] and d["bundleIdentifier"]==sys.argv[3] and d["requireTeam"] is True and d["agentLabel"]=="com.dozable.app.daemon", d' \
+            "$selfc" "$VERSION" "$APP_ID" 2>/dev/null || fail "the packed menu bar app's --self-config is not version $VERSION, $APP_ID, requireTeam true, agent com.dozable.app.daemon ($selfc)"
         python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["doz"]["version"]==sys.argv[2] and d["items"][0]["title"].startswith("Daemon stopped"), d' \
             "$dumped" "$VERSION" 2>/dev/null || fail "the packed menu bar app does not read the packed doz (--dump-menu: $(head -c 300 <<<"$dumped"))"
-        say "  menu bar app: Dozable.app $VERSION, signed ($MODE) as $APP_ID, no entitlements, runs headless and reads the packed doz"
+        say "  menu bar app: Dozable.app $VERSION, signed ($MODE) as $APP_ID, no entitlements, its login agent requires Dozable's team, runs headless and reads the packed doz"
     else
         [[ ! -e "$APP" ]] || fail "the helper carries the menu bar app — it must not"
         say "  menu bar app: not in the helper (as it must be)"
@@ -553,6 +566,8 @@ if [[ -z "$DRY_RUN" ]]; then
     if [[ "$FLAVOUR" == cli ]]; then
         # The menu bar app, as people download it: it verifies, it is this version, and (notarised) its ticket is stapled.
         codesign --verify --strict "$packed/libexec/doz/Dozable.app" || fail "the menu bar app unpacked from the tarball does not verify"
+        Scripts/check-agent-plist.py "$packed/libexec/doz/Dozable.app/Contents/Library/LaunchAgents/com.dozable.app.daemon.plist" >/dev/null \
+            || fail "the menu bar app in the tarball: $(Scripts/check-agent-plist.py "$packed/libexec/doz/Dozable.app/Contents/Library/LaunchAgents/com.dozable.app.daemon.plist")"
         [[ "$(plutil -extract CFBundleShortVersionString raw -o - "$packed/libexec/doz/Dozable.app/Contents/Info.plist")" == "$VERSION" ]] \
             || fail "the menu bar app in the tarball is not version $VERSION"
         if [[ -n "$SIGN_IDENTITY" && -n "$NOTARY_PROFILE" ]]; then

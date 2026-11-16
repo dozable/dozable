@@ -10,16 +10,34 @@ public final class SnapshotSource: @unchecked Sendable {
     public let locator: DozLocator
     public let runner: CommandRunning
     public let appVersion: String?
+    /// Start at Login: SMAppService (the recording one in a test run), launchd's look, and whether this copy may hold a
+    /// login item where it runs. nil: the menu has no login row and the login actions do nothing.
+    public let login: LoginContext?
     private let lock = NSLock()
     private var cache: (path: String, ids: [FileIdentity], version: String?, bundled: String?)?
 
-    public init(locator: DozLocator, runner: CommandRunning, appVersion: String?) {
-        self.locator = locator; self.runner = runner; self.appVersion = appVersion
+    public struct LoginContext: Sendable {
+        public var service: LoginItemService
+        public var look: LaunchdLook
+        public var stablePlace: Bool
+        public var loadedWait: TimeInterval
+        public init(service: LoginItemService, look: LaunchdLook, stablePlace: Bool, loadedWait: TimeInterval = LoginItemFlow.loadedWait) {
+            self.service = service; self.look = look; self.stablePlace = stablePlace; self.loadedWait = loadedWait
+        }
+    }
+
+    public init(locator: DozLocator, runner: CommandRunning, appVersion: String?, login: LoginContext? = nil) {
+        self.locator = locator; self.runner = runner; self.appVersion = appVersion; self.login = login
+    }
+
+    /// The login row's state (SMAppService's status is a local look — no process).
+    func loginSnapshot() -> LoginSnapshot? {
+        login.map { LoginSnapshot(service: $0.service.state(), stablePlace: $0.stablePlace) }
     }
 
     /// The menu's state now. `busy` and `lastError` are the caller's to fill.
     public func snapshot() -> Snapshot {
-        guard let doz = locator.locate() else { return Snapshot(doz: .missing, appVersion: appVersion) }
+        guard let doz = locator.locate() else { return Snapshot(doz: .missing, appVersion: appVersion, login: loginSnapshot()) }
         let ids = FileIdentity.ofDoz(doz)
         let cached: (version: String?, bundled: String?)? = lock.withLock {
             guard let c = cache, c.path == doz, c.ids == ids, !ids.isEmpty else { return nil }
@@ -34,7 +52,7 @@ public final class SnapshotSource: @unchecked Sendable {
             bundled = a.ok ? DozAppStatus.decode(a.stdout)?.bundled?.version : nil
             lock.withLock { cache = (doz, ids, version, bundled) }
         }
-        var s = Snapshot(doz: .found(path: doz, version: version), appVersion: appVersion, bundledAppVersion: bundled)
+        var s = Snapshot(doz: .found(path: doz, version: version), appVersion: appVersion, bundledAppVersion: bundled, login: loginSnapshot())
         let r = runner.run(.status, doz: doz)
         if r.timedOut { s.statusProblem = "doz did not answer within \(Int(DozCommand.status.timeout)) seconds" }
         else if r.exit != 0 { s.statusProblem = "doz daemon status failed (\(Self.failure(r)))" }
@@ -48,6 +66,10 @@ public final class SnapshotSource: @unchecked Sendable {
 
     /// Run `action`'s doz command. nil: done; else what to show (one line).
     public func perform(_ action: MenuAction) -> String? {
+        switch action {
+        case .loginOn, .loginOff, .loginSettings: return performLogin(action).error
+        default: break
+        }
         guard let command = action.command else { return nil }
         guard let doz = locator.locate() else { return "doz is not installed" }
         let r = runner.run(command, doz: doz)
@@ -59,12 +81,27 @@ public final class SnapshotSource: @unchecked Sendable {
         case .restart: what = "Restart failed"
         case .dashboard: what = "Could not open the dashboard"
         case .updateApp: what = "Could not update the menu bar app"
-        case .installHelp, .quit: what = "Failed"
+        case .installHelp, .quit, .loginOn, .loginOff, .loginSettings: what = "Failed"
         }
         if r.timedOut { return "\(what): doz did not finish within \(Int(command.timeout)) seconds" }
         // The dashboard's output is never read: only its exit status is known.
         if command.output == .capture, let m = Self.errorMessage(r.stdout) { return "\(what): \(m)" }
         return "\(what) (\(Self.failure(r)))"
+    }
+
+    /// Start at Login's clicks, step by step (`--run-action login-on|login-off` prints the steps).
+    public func performLogin(_ action: MenuAction) -> LoginOutcome {
+        guard let login else { return LoginOutcome(steps: [], error: "Start at Login is not available here", needsApproval: false) }
+        switch action {
+        case .loginOn:
+            return LoginItemFlow.turnOn(service: login.service, look: login.look, runner: runner, doz: locator.locate(), wait: login.loadedWait)
+        case .loginOff:
+            return LoginItemFlow.turnOff(service: login.service, runner: runner, doz: locator.locate())
+        case .loginSettings:
+            return LoginOutcome(steps: login.service.openSystemSettings(), error: nil, needsApproval: true)
+        default:
+            return LoginOutcome(steps: [], error: nil, needsApproval: false)
+        }
     }
 
     static func failure(_ r: CommandResult) -> String {
