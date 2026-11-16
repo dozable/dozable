@@ -83,6 +83,14 @@ public enum MacFenceNetwork {
         return out
     }
 
+    /// 692 TEST SEAM (guarded runs only): `DOZ_TEST_TAILSCALE_UP=1` — this Mac counts as on a Tailscale network, so a
+    /// launch secret's plain-HTTP swap to a Tailscale literal through `DOZ_TEST_FENCE_UPSTREAMS` can be tested. nil: the
+    /// Mac's own interfaces decide (always, outside a guarded run).
+    public static func tailscaleUpForTests(_ env: [String: String]) -> Bool? {
+        guard TestSafety.guarded(env), env["DOZ_TEST_TAILSCALE_UP"] == "1" else { return nil }
+        return true
+    }
+
     /// The system's trust store as PEM (`/etc/ssl/cert.pem` — what curl, Python and git read on macOS), for the session's
     /// CA bundle.
     static func systemBundle() -> String {
@@ -120,6 +128,7 @@ final class MacFenceProxy: @unchecked Sendable {
         proxy.hostPorts = hostPorts
         proxy.sessionLabel = "@mac/" + session
         proxy.fenceUpstreamsForTests = MacFenceNetwork.upstreamsForTests(environment)
+        proxy.tailscaleUpForTests = MacFenceNetwork.tailscaleUpForTests(environment)          // 692
         // 683 TEST SEAM (guarded runs only): the model's hosts go to a fake provider over TLS, trusting ONLY its CA
         // (`DOZ_TEST_PROVIDER_UPSTREAM` + `_CA` + `_HOSTS`, as a sandbox's) — the Claude login's swap, tested offline.
         if TestSafety.guarded(environment) {

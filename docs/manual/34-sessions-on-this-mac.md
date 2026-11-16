@@ -86,6 +86,7 @@ and other folders closed — doz run @mac --unfenced for none of this`; unfenced
 | `--permissions` | what it may reach: `standard`, `locked`, `open`, a permission, `-PERMISSION`, `site:HOST[:PORT[,PORT]]` | `mac.permissions` (`standard`) |
 | `--local-port N` | it may listen on, and connect to, `localhost:N` — a dev server, a sign-in callback | — |
 | `--host-port N[:tag]` | it may reach a service on this Mac — a message server, a local API — through its proxy, as `host.dozable.internal:N` (`:tag`: requests name the session) | `network.host_ports_live` (live changes) |
+| `--secret VAR,src=PATH,to=HOST:PORT[,header=NAME][,file=FILEVAR]` | a token for one service, held by Dozable: the session sees a placeholder in `VAR` (and a file named by `FILEVAR`), swapped on requests to exactly `HOST:PORT` (below) | `network.placeholders_plain_http` |
 | `--agent-config private\|shared` | the agent's settings folder (below) | `mac.agent_config` (`private`) |
 | `--history keep\|agent-default` | what happens to its conversations (below) | `agent.history` |
 | `--account NAME\|mac\|none` | the Claude login the proxy swaps in | `mac.account` (`mac`) |
@@ -223,6 +224,23 @@ doz run @mac -d --host-port 8780:tag -- claude  # its plain-HTTP requests carry 
 `127.0.0.1:8780` stays closed inside the fence; only the name is the way, and only for those ports. The header is
 identification, not authentication. `--unfenced` with `--host-port` is refused: an unfenced session already reaches
 every port. The full rules: [This Mac's ports](10-permissions-and-network.md#this-macs-ports).
+
+**A token for that service** — `--secret` — never enters the session. `doz` reads it from a file of yours alone; the
+session's variable (and, with `file=`, a file under its own folder, named by the second variable) hold a placeholder,
+and its proxy puts the real token in its place on requests to exactly that host and port — over plain HTTP too, to this
+Mac's ports (and Tailscale addresses) while `network.placeholders_plain_http` is on:
+
+```bash
+doz run @mac -d --host-port 8780 \
+    --secret SERVER_TOKEN,src=~/.config/token,to=host.dozable.internal:8780,file=SERVER_TOKEN_FILE -- claude
+# inside: curl -H "Authorization: Bearer $SERVER_TOKEN" http://host.dozable.internal:8780/
+```
+
+The launch says `secret SERVER_TOKEN → host.dozable.internal:8780 (fp …)`. The file must be outside everything the
+session may read (its folder, `--read`/`--write` folders, `mac.fence_read`); `-e SERVER_TOKEN=…` is refused; a restart
+keeps the secret (a new placeholder each time), and so does a new daemon (it reads the keychain item again); the
+secret and its keychain item go when the session's record is removed (`doz sessions end` of a session that has ended).
+`--unfenced --secret` is refused. The full rules: [A secret for a service](10-permissions-and-network.md#a-secret-for-a-service).
 
 Under `locked`, macOS's certificate service is closed too, so tools that check certificates through it (Go programs,
 `gh`) cannot reach anything; under `standard` it is open (it fetches revocation lists on the program's behalf).

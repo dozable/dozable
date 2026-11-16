@@ -320,6 +320,7 @@ extension HostCore {
         guard !readOnly, m.sandbox.egress != nil else { return }
         applyMainAccount(m)
         applyExtraKeys(m, accountStore.load())
+        applyLaunchSecrets(m)                       // 692
     }
 
     func applyMainAccount(_ m: Managed) {

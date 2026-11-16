@@ -174,6 +174,7 @@ This table is generated from `doz config show` and checked against it on every b
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
 | `network.host_ports_live` | `true` | boolean | next command | — | Whether doz net allow NAME host:PORT may open a port of this Mac to a sandbox or a fenced session while it runs (true), or this Mac's ports are fixed when it starts — doz create/run --host-port PORT (false). Taking a port away (doz net deny NAME host:PORT) always works. |
+| `network.placeholders_plain_http` | `true` | boolean | next session | — | Whether a secret given with --secret may travel over plain HTTP — only ever to this Mac's ports (host.dozable.internal) and Tailscale addresses (100.64.0.0/10), never elsewhere. |
 
 ### `[daemon]`
 

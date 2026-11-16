@@ -2280,6 +2280,10 @@ public actor Sandbox {
         if placeholders {
             // 599d: a binding read on use (GitHub) issues placeholders too; one token in every variable it names.
             for b in egress.vault.allBindings where egress.vault.issuesPlaceholder(b.id) {
+                // 692: a launch secret whose placeholder the daemon already put in the caller's variables (the same one is in
+                // its file) — no second one minted.
+                if b.isLaunchSecret, !b.placeholderVariables.isEmpty,
+                   b.placeholderVariables.allSatisfy({ callerEnv[$0]?.hasPrefix(CredentialVault.placeholderPrefix) == true }) { continue }
                 if !b.placeholderVariables.isEmpty, let t = egress.vault.mint(b.id) { for v in b.placeholderVariables { env[v] = t } }
                 env.merge(egress.vault.sessionExtras(b.id)) { a, _ in a }
             }

@@ -145,6 +145,9 @@ public struct MacFenceRecord: Codable, Equatable, Sendable {
     public var hostPorts: [HostPort]? = nil
     /// 687: it may listen on any port (`mac.fence_loopback_listen` at its open; nil: no).
     public var loopbackListen: Bool? = nil
+    /// 692: the secrets given at its open (`--secret`) — records only, never a value; kept across a restart and revoked
+    /// (their keychain items deleted) when this record goes. nil: none (every record before them).
+    public var secrets: [LaunchSecret]? = nil
     /// 683: its agent (the recipe declaring a config folder; nil: none), that folder's mode and where the mode came from,
     /// the conversation-history value and its source.
     public var agent: String? = nil
@@ -327,6 +330,13 @@ public struct MacFence: Sendable, Equatable {
     public var bridges = MacFenceBridges()
     public var placeholders: [String: String] = [:]
     public var account: String? = nil
+    /// 692: its launch secrets (records — their placeholders are in `placeholders`, by variable) and the files holding
+    /// those placeholders (FILEVAR → `<session>/etc/secrets/VAR`).
+    public var secrets: [LaunchSecret] = []
+    public var secretFiles: [String: String] = [:]
+
+    /// 692: where a launch secret's placeholder file is (`etc/secrets/VAR`, written by the host, read-only to the program).
+    public var secretsFolder: String { etc + "/" + LaunchSecrets.fenceFolder }
     /// 683 M4: `agent`, `xcode` (Xcode's build services) or `simulator` (also LaunchServices and the Simulator — a guard
     /// rail, not a boundary).
     public var profile = MacFence.profileKind
@@ -486,7 +496,8 @@ public struct MacFence: Sendable, Equatable {
         r.historySource = agent?.historySource
         r.account = account
         r.placeholderHashes = placeholders.isEmpty ? nil
-            : Dictionary(placeholders.map { (k, t) in (CredentialFingerprint.placeholderHash(t), Self.binding(ofVariable: k)) }) { a, _ in a }
+            : Dictionary(placeholders.map { (k, t) in (CredentialFingerprint.placeholderHash(t), Self.binding(ofVariable: k, secrets: secrets)) }) { a, _ in a }
+        r.secrets = secrets.isEmpty ? nil : secrets
         r.bridges = bridges
         r.github = github?.rawValue
         r.sshAgent = sshAgent ? true : nil
@@ -496,7 +507,9 @@ public struct MacFence: Sendable, Equatable {
 
     /// The binding a placeholder variable stands for (`GH_TOKEN` → github; `ANTHROPIC_API_KEY` → anthropic; the Claude
     /// login's otherwise).
-    static func binding(ofVariable k: String) -> String {
+    static func binding(ofVariable k: String, secrets: [LaunchSecret] = []) -> String {
+        // 692: a launch secret's variable is its own binding (`secret:VAR`) — never the Claude login's default.
+        if let s = secrets.first(where: { $0.variable == k }) { return s.bindingID }
         switch k {
         case "GH_TOKEN": return CredentialBinding.github.id
         case "ANTHROPIC_API_KEY": return CredentialBinding.anthropic.id

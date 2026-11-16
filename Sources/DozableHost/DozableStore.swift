@@ -198,6 +198,9 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// `doz net allow NAME host:PORT` — origin `launch` or `live`; never `model`, which is `localModelPort`). Absent: none
     /// (every sandbox before them).
     public var hostPorts: [HostPort]?
+    /// 692: the secrets given at launch (`--secret`) — their records, never a value (the value is in a keychain item of
+    /// its own, or the daemon's memory). Absent: none (every sandbox before them). Revoked at shutdown, reset and rm.
+    public var secrets: [LaunchSecret]?
     /// 617 (RP-1): the web ports forwarded beside the recipe's own (`doz ports add`), and the Mac port each guest port
     /// (recipe or added) had last — preferred again at the next start. Absent before 617.
     public var ports: [PortForwardEntry]?

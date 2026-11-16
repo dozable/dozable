@@ -116,6 +116,8 @@ public enum MacFenceEnvironment {
         // Claude Code keeps its own temp under /tmp/claude-<uid> (closed to a fence: it stops at start) unless told.
         if let a = f.agent, let v = agentTempVariables[a.recipe] { env[v] = f.tmp }
         for (k, v) in f.placeholders { env[k] = v }
+        // 692: a launch secret's file (FILEVAR → the 0600 file holding its placeholder).
+        for (k, v) in f.secretFiles { env[k] = v }
         env["PATH"] = ([f.bin] + (env["PATH"] ?? "").split(separator: ":").map(String.init).filter { $0 != f.bin }).joined(separator: ":")
         // By name, not path: the session folder is under "Application Support", and many callers split $BROWSER on spaces.
         env["BROWSER"] = "open"

@@ -407,11 +407,15 @@ struct Create: AsyncParsableCommand {
     var prepare = false
     @Flag(name: .long, help: "Make nothing: print the plan — the command, its doz_project.yaml, what it can reach (--json: the plan as data).")
     var dryRun = false
+    // 692: secrets for a service — held by Dozable, a placeholder in the sandbox.
+    @Option(name: .customLong("secret"), help: ArgumentHelp(secretHelp)) var secret: [String] = []
 
     func run() async throws {
         var r = HostRequest(.create, name: name)
         var o = try create.options()
         if dryRun { printPlan(try await requestPlan(PlanRequest(purpose: "create", name: name, create: o), g), g); return }
+        // 692: read before anything is asked of the daemon (a refusal makes nothing).
+        do { let s = try readLaunchSecrets(secret); r.secrets = s.isEmpty ? nil : s } catch { throw fail(HostError.from(error), g) }
         if prepare { o.prepare = true }
         await ModelNote.check(o, g)               // 618: a gateway's model id it does not list (a note)
         try preflightAgentAccount(&o, g)          // 594: pi needs an API-key account — before anything is made
@@ -428,6 +432,7 @@ struct Create: AsyncParsableCommand {
             Out.stdout("created \(info.name): \(info.image), \(info.cpus) CPUs, \(Out.mib(info.memoryMiB)), network \(info.network)"
                        + (info.workspace.map { ", /workspace = \($0)" } ?? ", isolated") + "\n")
         }
+        if !g.json, !g.quiet { for l in info.secretLines ?? [] { Out.stderr("[doz] \(l)\n") } }      // 692
         if !g.json, let p = info.imagePreparation {
             Out.stdout(p == "prepared" ? "prepared its image (\(info.image)) — its first start boots at once\n"
                                        : "its image (\(info.image)) is ready — nothing to prepare\n")

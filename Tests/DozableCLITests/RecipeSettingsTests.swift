@@ -100,8 +100,8 @@ final class RecipeSettingsTests: XCTestCase {
         // 674 agent.history; serve.mac_sessions (the sessions on this Mac for another computer); mac.fence, mac.keychain,
         // mac.fence_read (fenced sessions on this Mac); mac.permissions (a fenced session's proxy).
         // 683 M3: mac.agent_config, mac.account, mac.agent_prompt, mac.open_url, mac.open_files, mac.clipboard.
-        // 687: mac.fence_loopback_listen. 691: network.host_ports_live.
-        XCTAssertEqual(own, 79)
+        // 687: mac.fence_loopback_listen. 691: network.host_ports_live. 692: network.placeholders_plain_http.
+        XCTAssertEqual(own, 80)
         XCTAssertEqual(fresh.components(separatedBy: "\n# ").filter { $0.range(of: #"^[a-z_]+ = "#, options: .regularExpression) != nil }.count, own)
         // One value of a recipe: exactly its block, the others commented.
         let one = DozableSettings.render(values: ["recipes.anthropic.claude-code.version": .string("2.1.290")])

@@ -22,6 +22,10 @@ func printPermissions(_ r: PermissionReport) {
         Out.stdout("This Mac's ports: \(HostRoute.listText(h)) — as \(HostRoute.hostName):PORT"
                    + (r.hostPortsLive == false ? " (fixed when it starts: network.host_ports_live is off)" : "") + "\n")
     }
+    // 692: the secrets given at launch — where each goes and its fingerprint, never a value.
+    for s in r.secrets ?? [] {
+        Out.stdout("Secret \(s.variable) → \(s.to) in \(s.header) (fp \(s.fingerprint)…)" + (s.plainHTTP ? "" : " — never over plain HTTP (network.placeholders_plain_http was off)") + "\n")
+    }
     if !r.suggestions.isEmpty {
         Out.stdout("refused lately:\n")
         for s in r.suggestions {

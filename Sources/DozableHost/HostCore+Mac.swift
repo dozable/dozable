@@ -17,6 +17,10 @@ extension HostCore {
             if r.hostPorts?.isEmpty == false {
                 throw HostError(.invalid, "--host-port is for a fenced session (doz run @mac --fenced --host-port PORT) — an unfenced one already reaches every port of this Mac")
             }
+            // 692: a secret is held by a fenced session's proxy — an unfenced session has none.
+            if r.secrets?.isEmpty == false, r.macFence == nil {
+                throw HostError(.invalid, "--secret is for a fenced session or a sandbox — an unfenced session has no proxy to hold a secret")
+            }
             return try JSONValue(encoding: try await macOpen(r))
         case .sessionLive:
             return try JSONValue(encoding: try await macLive(r))
@@ -312,6 +316,7 @@ extension HostCore {
         unbindFenceAccount(s)
         bindFenceAccount(s, p, f)
         bindFenceGitHub(s, p, f)
+        bindFenceSecrets(s, p, f)                   // 692
         if macDoors[s] == nil { openFenceDoors(s, f) }
         macDoors[s]?.attach(p.proxy)
         p.start()
@@ -359,6 +364,7 @@ extension HostCore {
                                       secretSHA256: secret, ca: ca, environment: mac.hostEnvironment, hostPorts: f.hostPorts ?? [])
             bindFenceAccount(s, p, f)
             bindFenceGitHub(s, p, f)
+            bindFenceSecrets(s, p, f)               // 692: read again from the keychain by a new daemon
             if macDoors[s] == nil { openFenceDoors(s, f) }
             macDoors[s]?.attach(p.proxy)
             p.start()
@@ -390,6 +396,7 @@ extension HostCore {
                                               hostPorts: live?.proxy.hostPorts ?? f.hostPorts ?? [],                // 691
                                               hostPortsLive: DozableSettings.load().bool(SettingKey.hostPortsLive))
             rep.base = nil
+            rep.secrets = Self.secretRows(f.secrets, vault: live?.proxy.vault)                        // 692
             return try JSONValue(encoding: rep)
         case .netLog:
             if r.denials == true {
@@ -474,9 +481,12 @@ extension HostCore {
     /// Open a FENCED session (`r.macFence`): its fence and folder made, its git guard's baseline recorded BEFORE the
     /// program starts, then the holder with sandbox-exec in front of the program; then the watch, followed by a full
     /// check (so a change made before the watch began is dealt with too — the order adoption uses), off the start's path.
+    /// 692: `secrets` — a NEW open's `--secret` grants (none: it has none; a previous record's are revoked once its record
+    /// is replaced); nil — a restart, which keeps the record's secrets (their values from memory or the keychain) with a
+    /// fresh placeholder each.
     func macOpenFenced(_ r: HostRequest, request: MacFenceRequest, holder: URL, name: String, argv: [String]?, workdir: String?,
                        recordedArgv: [String]?, previous: MacFenceRecord?, size: TermSize, extra: [String: String]?,
-                       claudeSessionID: String? = nil) async throws -> (MacSessions.Opened, MacFence, [String]) {
+                       claudeSessionID: String? = nil, secrets given: [LaunchSecretGrant]? = nil) async throws -> (MacSessions.Opened, MacFence, [String], [String]) {
         // 691: `--permissions host:PORT` words are this Mac's ports (`--host-port`), never the policy's.
         var request = request
         if let words = request.permissions {
@@ -501,6 +511,9 @@ extension HostCore {
         for k in (extra ?? [:]).keys where ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"].contains(k) {
             throw HostError(.invalid, "-e \(k): a fenced session gets its Claude login through Dozable's proxy — doz run @mac --account NAME (doz account ls), never a key in its environment")
         }
+        // 692: a secret's variables are never the caller's to set (a restart keeps the record's secrets).
+        let keptSecrets = given == nil ? (previous?.secrets ?? []) : []
+        try Self.refuseSecretVariables((given ?? []).map(\.secret) + keptSecrets, extra)
         // 683: its agent's login (only a program whose embedded recipe declares a config folder: Claude Code).
         var login: (account: String?, placeholders: [String: String]) = (nil, [:])
         if let program = argv?.first, AgentRecipes.macAgent(program: program) != nil {
@@ -521,6 +534,28 @@ extension HostCore {
                                               placeholders: login.placeholders, account: login.account, settings: settings)
         var f = prep.fence
         f.presetName = AgentPermissions.presetName(policy.permissions ?? [], base: AgentPermissions.macBase)
+        // 692: its secrets — a new open's checked against this fence (the file outside everything it could read, the
+        // destination reachable by its permissions and ports) and kept; a restart's from its record. Each gets a fresh
+        // placeholder (in VAR; with file= also in `etc/secrets/VAR`, named by FILEVAR) before anything runs.
+        var secretLines: [String] = []
+        if let given, !given.isEmpty {
+            let checked = try checkedLaunchSecrets(given, readable: Self.fenceReadableRoots(f), readableWhat: "what the session can read",
+                                                   hostPorts: f.hostPorts.map(\.port),
+                                                   reach: { policy.evaluateConnection(host: $0, port: $1).kind != .deny }, allowFlag: "--permissions")
+            let kept = keepLaunchSecrets(owner: LaunchSecrets.macOwner(name), checked)
+            f.secrets = kept.records
+            secretLines = kept.lines
+        } else {
+            f.secrets = keptSecrets
+        }
+        for x in f.secrets { f.placeholders[x.variable] = Self.newPlaceholder() }
+        f.secretFiles = try Self.writeFenceSecretFiles(f)
+        // A new open drops what the record before it held (the record is replaced): its values leave memory, and the
+        // sweep below deletes their keychain items once the new record is written.
+        for old in previous?.secrets ?? [] where !f.secrets.contains(where: { $0.variable == old.variable }) {
+            dropFenceSecretMemory(name, [old])
+        }
+        for l in secretLines { note(MacPlace.name, "session \(name): " + l) }
         // 687: listening on any port, by the setting at this open (a restart follows it too).
         f.loopbackListen = settings.string(SettingKey.macFenceLoopbackListen) == "on"
         dropFenceWatch(name)
@@ -559,9 +594,11 @@ extension HostCore {
         } catch {
             close(lfd)
             dropFenceProxy(name)
+            sweepLaunchSecrets()                    // 692: a secret kept for a session that never opened
             throw error
         }
         let t3 = ContinuousClock.now
+        sweepLaunchSecrets()                        // 692: the record before this one (and an evicted one) may have had some
         // The holder holds its copy now; this host serves its own — made off the start's path (the proxy's TLS context
         // costs tens of ms): until it accepts, the program's connections wait in the socket's backlog.
         let env = mac.hostEnvironment
@@ -593,7 +630,7 @@ extension HostCore {
             guardian.start()
             _ = guardian.check()
         }
-        return (o, f, prep.notes)
+        return (o, f, prep.notes, secretLines)
     }
 
     func macRows() async -> [SessionRow] {
@@ -661,8 +698,9 @@ extension HostCore {
                 s.notice = rec?.fence == nil ? "\(name) already runs on this Mac UNFENCED — doz sessions end @mac \(name) first" : nil
                 return s
             }
-            let (o, f, notes) = try await macOpenFenced(r, request: req, holder: holder, name: name, argv: r.argv, workdir: r.workdir,
-                                                        recordedArgv: nil, previous: mac.records().sessions[name]?.fence, size: size, extra: r.environment)
+            let (o, f, notes, secretLines) = try await macOpenFenced(r, request: req, holder: holder, name: name, argv: r.argv, workdir: r.workdir,
+                                                                     recordedArgv: nil, previous: mac.records().sessions[name]?.fence, size: size,
+                                                                     extra: r.environment, secrets: r.secrets ?? [])
             note(MacPlace.name, "session \(o.session) opened on this Mac, fenced" + (f.keychain ? " (Keychain open)" : "")
                  + (o.bypassed ? " — its own argv bypasses permissions" : ""))
             metrics?.record(run: metricsRun, action: "mac session open", sandbox: MacPlace.name, image: "", startedAt: Date(), durationMs: 0,
@@ -674,6 +712,7 @@ extension HostCore {
             s.fenced = true
             s.fenceLine = f.line()
             s.fenceNotes = notes.isEmpty ? nil : notes
+            s.secretLines = secretLines.isEmpty ? nil : secretLines
             return s
         }
         let o = try await mac.open(session: r.session, argv: Self.macPromptArgv(r.argv, workdir: r.workdir), workdir: r.workdir, extra: r.environment,
@@ -812,6 +851,9 @@ extension HostCore {
             dropFenceWatch(s)
             macDenials.forget(session: s)
             await mac.forget(s)
+            // 692: its secrets go with its record — their values from memory, their keychain items deleted.
+            if let gone = fence?.secrets { dropFenceSecretMemory(s, gone) }
+            sweepLaunchSecrets()
         case .stuck:
             throw HostError(.failed, "session \(s) on this Mac did not end, even after SIGKILL — a program stuck in the kernel")
         default:

@@ -105,7 +105,8 @@ doz net deny my-app host:8780                 # closed again, live
   Mac**. `--permissions host:8780` (and `--allow`) is the same as `--host-port 8780`.
 - **Never Dozable's own ports** (the dashboard's, a fenced session's proxy, a sandbox's forwarded web port), port 0
   or a port below 1024 — refused when asked, and again at each connection (a dashboard may start later on that port).
-- **Plain HTTP** to it works as to any site; a credential placeholder is never sent there.
+- **Plain HTTP** to it works as to any site; a credential placeholder is never sent there — but for a secret you give
+  for that very port ([A secret for a service](#a-secret-for-a-service)).
 - `doz net NAME` shows them ("This Mac's ports: 8780 (named), 11434 (model server)"), as does the dashboard's
   Network tab (read-only there: change them with `doz net allow|deny`). A refused connection to the name suggests
   `host:PORT`. The model server's port belongs to its model source: `doz net deny NAME host:PORT` does not take it away.
@@ -117,6 +118,65 @@ route carry `X-Dozable-Session` naming its sender — the sandbox's name, or `@m
 copy the program sent itself is removed first. It is identification, not authentication: any program on your Mac can
 send the same header to the service directly. A request inside a tunnel (`CONNECT`, HTTPS) is not read by the proxy,
 so it carries nothing added. Without `:tag` the route passes the program's own fields untouched.
+
+## A secret for a service
+
+A service your agent talks to — a message server on your Mac, an API on your Tailscale network — may want a token.
+`--secret` gives it one without the token ever entering the sandbox or the fenced session: Dozable reads it from a file,
+keeps it, and the session sees only a placeholder that Dozable's proxy swaps for the real token on requests to exactly
+one host and port.
+
+```sh
+doz create my-app --host-port 8780 \
+    --secret SERVER_TOKEN,src=~/.config/token,to=host.dozable.internal:8780,file=SERVER_TOKEN_FILE
+doz run my-app --secret SERVER_TOKEN,src=~/.config/token,to=host.dozable.internal:8780 -- bash
+doz run @mac --host-port 8780 --secret SERVER_TOKEN,src=~/.config/token,to=host.dozable.internal:8780 -- claude
+```
+
+Inside, `$SERVER_TOKEN` holds a placeholder (`doz_cred_…`); with `file=SERVER_TOKEN_FILE`, `$SERVER_TOKEN_FILE` names a
+file holding the same placeholder. A request that carries it — `Authorization: Bearer $SERVER_TOKEN` — reaches the
+service with the real token in its place.
+
+`VAR,src=PATH,to=HOST:PORT[,header=NAME][,file=FILEVAR]`:
+
+- **`src=PATH`** — the token's only source: a file of yours alone (`chmod go-rwx FILE`; a link, or one other users may read, is
+  refused), one line of printable characters without spaces, at most 1800 bytes. Never `-e`, never the command line. A
+  file inside the sandbox's workspace or anything a fenced session may read is refused — the session could read the
+  token itself.
+- **`to=HOST:PORT`** — the one destination, port required: `host.dozable.internal:PORT` (a port of this Mac also given
+  with `--host-port`), a host name or an IPv4 address the permissions already allow (`--allow site:HOST:PORT`). A
+  secret never opens anything: an unreachable destination is refused at launch with the flag to add. Never
+  `mac.dozable.internal`, IPv6, your Mac's own addresses or a host Dozable already holds keys for.
+- **`header=NAME`** — by default the token goes as `Authorization: Bearer TOKEN`; any other header gets it as it is.
+- **`file=FILEVAR`** — also a file holding the placeholder (yours alone; in a sandbox `~/.doz-secrets/VAR`, in a fenced session
+  under its own folder).
+
+At most 4 per sandbox or session; VAR and FILEVAR are never one of Dozable's own variables (`ANTHROPIC_…`, `GH_TOKEN`,
+`…_PROXY`, `DOZ_…`), and `-e VAR=…` for them is refused. `--unfenced` with `--secret` is refused: an unfenced session
+has no proxy to hold it.
+
+**Only there.** The same placeholder sent to another port of the host, another host, or `mac.dozable.internal` is
+refused (403) and logged — never forwarded with the token. A request that carries its own `Authorization` instead
+passes untouched (and is noted with a fingerprint); the token is never added to it.
+
+**Plain HTTP.** Every other credential placeholder is refused over plain HTTP. A secret's placeholder may be swapped
+over plain HTTP only to this Mac's ports (`host.dozable.internal`) or a Tailscale address (`100.64.0.0/10`, a name
+whose every address is in that range, or the address itself — and only while your Mac is on Tailscale itself: the
+range is also used by mobile carriers), and only while the setting `network.placeholders_plain_http` is on (the
+default; read when the secret is bound — at launch, a restart, or a new daemon). Anywhere else, use https:
+
+```
+refused by the sandbox proxy: a secret's placeholder is never sent over plain HTTP to 10.0.0.5:8080 — only to this
+Mac's ports (host.dozable.internal) or a Tailscale address (100.64.0.0/10) while network.placeholders_plain_http is on; use https
+```
+
+**How long it lives.** The token is kept in a keychain item of its own (or, when the login keychain is locked, in the
+daemon's memory — the launch says "kept until the daemon stops"), so a daemon restart and a session's restart keep it.
+A sandbox's secrets end with its shutdown, reset or removal; a fenced session's when its record is removed (`doz
+sessions end` of an ended session). Give the secret again to start again; giving it again for the same VAR replaces
+the token (placeholders already handed out stay valid). `doz net NAME` shows each secret's destination, header and
+fingerprint (`--json`: `secrets`), never the token; the agent's own facts say which variable holds a placeholder for
+where.
 
 ## Change it — in the dashboard
 
@@ -173,6 +233,7 @@ Your own rules win over a permission's hosts. A host your rules can't allow does
 | `recipes.anthropic.claude-code.network` · `recipes.earendil-works.pi.network` · `images.lab.network` | `agent` · `agent` · `bake` | The network kind of a new sandbox of each image. |
 | `defaults.nat_subnet` | (a free one) | The subnet of a new `nat` sandbox (`$DOZ_SUBNET`). |
 | `network.host_ports_live` | `true` | Whether `doz net allow NAME host:PORT` may open a port of this Mac while a sandbox or session runs. |
+| `network.placeholders_plain_http` | `true` | Whether a secret given with `--secret` may travel over plain HTTP — only ever to this Mac's ports and Tailscale addresses. |
 
 ## Limits and security
 
