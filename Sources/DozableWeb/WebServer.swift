@@ -930,7 +930,13 @@ public final class DozableWebServer: @unchecked Sendable {
             return json(settings.recipes(store: DozableStore(root: URL(fileURLWithPath: data.storePath))))
         case .settingsChange:
             try Self.requireJSONBody(md)
-            return json(try settings.apply(try WebSettingChange.decode(body)))
+            let change = try WebSettingChange.decode(body)
+            let report = try settings.apply(change)
+            // 694: the daemon's login item follows daemon.login_item and daemon.always_on (only `on` ever adds one).
+            if [SettingKey.loginItem, SettingKey.alwaysOn].contains(change.key) {
+                DaemonLoginItem.sync(store: DozableStore(root: URL(fileURLWithPath: data.storePath)), mode: .command, settings: settings.current)
+            }
+            return json(report)
         case .sessionScreen(let name, let session):
             return json(try await data.sessionScreen(name, session: session))
         case .terminalLayout(let name):

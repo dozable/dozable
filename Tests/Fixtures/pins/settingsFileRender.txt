@@ -276,12 +276,18 @@
 [daemon]
 
 # Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once; a
-# new doz installed under it takes over by itself once nothing runs. off: it exits after
-# daemon.idle_timeout_minutes with nothing running (when that is 0, it still never does). A daemon
-# started where the login keychain is locked (over ssh) is never kept running: it exits after 5
-# minutes with nothing running.
+# new doz installed under it takes over by itself once nothing runs (with daemon.login_item on, it
+# also starts when you log in). off: it exits after daemon.idle_timeout_minutes with nothing
+# running (when that is 0, it still never does). A daemon started where the login keychain is
+# locked (over ssh) is never kept running: it exits after 5 minutes with nothing running.
 # (boolean; env DOZ_DAEMON_ALWAYS_ON; applies at once (the UI re-reads it))
 # always_on = true
+
+# Start the doz daemon when you log in, from your desktop session: one login item in
+# ~/Library/LaunchAgents, removed by off and by doz uninstall. ask: not installed; doz offers it
+# once.
+# (ask | on | off; applies at once (the UI re-reads it))
+# login_item = "ask"
 
 # Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0
 # = never.

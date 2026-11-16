@@ -239,6 +239,9 @@ struct Doctor: AsyncParsableCommand {
                                    detail: recover.isEmpty ? "not running (nothing is — the next command that needs it starts it)"
                                                            : "not running, and \(recover.joined(separator: ", ")) had a VM when the last daemon went away — the next command recovers it"))
         }
+        // 694: the login item — present, loaded, switched off, out of date, or missing (read only; starts nothing).
+        out.append(Self.loginItemCheck(DaemonLoginItem.status(store: store), daemonLocked: hostKeychain?.reason,
+                                       held: LoginStart.heldAt(store) != nil && !store.hostIsRunning()))
         let metricsOK = fm.fileExists(atPath: store.metrics.path)
         out.append(DoctorCheck(check: "metrics", status: .ok, detail: metricsOK ? store.metrics.path : "none yet"))
         // 611: under a test seam the Mac's own Claude login (keychain, ~/.claude, its binary) is never looked at.
@@ -356,6 +359,37 @@ struct Doctor: AsyncParsableCommand {
                                + (accounts.keepalive ? " · keep-alive on" : "")
                                + (expiring.isEmpty ? "" : " — \(expiring.map(\.name).joined(separator: ", ")) expire\(expiring.count == 1 ? "s" : "") within 30 days: claude setup-token, then doz account add NAME --setup-token --force")))
         return out
+    }
+
+    /// 694: the "login item" row. `daemonLocked`: why the running daemon cannot read the login keychain (nil: it can, or
+    /// none runs). `held`: `doz daemon stop` holds it (none runs).
+    static func loginItemCheck(_ li: LoginItemStatus, daemonLocked: String?, held: Bool) -> DoctorCheck {
+        func row(_ s: DoctorCheck.Status, _ d: String) -> DoctorCheck {
+            DoctorCheck(check: "login item", status: s, detail: d + (held ? " · held by doz daemon stop (until a doz command" + (li.installed ? " or your next login)" : ")") : ""))
+        }
+        if li.owner == "app" { return row(.ok, "the Dozable menu bar app starts the daemon at login") }
+        if li.path.isEmpty, let n = li.note { return row(.ok, n) }
+        if !li.installed {
+            switch li.setting {
+            case "on": return li.wanted ? row(.warn, "missing — daemon.login_item is on but there is none: doz daemon login-item on adds it")
+                                        : row(.ok, "none — \(li.note ?? "the rule does not hold")")
+            case "off": return row(.ok, "off — the daemon starts with the first doz command (doz daemon login-item on starts it when you log in)")
+            default: return row(.ok, "not set up — doz daemon login-item on starts the daemon when you log in")
+            }
+        }
+        let path = DisplayPath.tilde(li.path)
+        if li.disabled == true {
+            return row(.warn, "\(path) is switched off in System Settings › General › Login Items — switch it on there, or doz daemon login-item off")
+        }
+        if li.stale {
+            return row(.warn, "\(path) runs \(li.program.map { DisplayPath.tilde($0) } ?? "nothing"), not this doz — doz daemon login-item on rewrites it")
+        }
+        if !li.wanted { return row(.warn, "\(path) is there but \(li.note ?? "not wanted") — the next daemon start removes it (or doz daemon login-item off)") }
+        if !li.loaded { return row(.warn, "\(path) is not loaded — it loads at your next login") }
+        if let why = daemonLocked {
+            return row(.warn, "\(path) loaded, but the running daemon was started where the login keychain is locked (\(why)) — doz daemon restart starts one through the login item")
+        }
+        return row(.ok, "\(path) loaded — the daemon starts when you log in")
     }
 
     /// 679 B6: the running host cannot read the login keychain. A failure when doctor itself can (its own session reads

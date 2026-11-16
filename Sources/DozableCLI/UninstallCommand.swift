@@ -83,6 +83,15 @@ struct Uninstall: AsyncParsableCommand {
         } else {
             kept.append("this doz (\(HostLauncher.executablePath)) — not an installed one (make install-cli installs to <prefix>/libexec/doz)")
         }
+        // 694: this store's login item (bootout, then the plist) — never another store's, which are listed only.
+        let agents = LaunchAgentsFolder.current()
+        let loginItem = DaemonLoginItem.plistURL(store, folder: agents)
+        if fm.fileExists(atPath: loginItem.path) {
+            items.insert(Item(path: loginItem.path, what: "this store's login item (it starts the daemon when you log in)"), at: 0)
+        }
+        for other in DaemonLoginItem.otherItems(store, folder: agents) {
+            kept.append("\(DisplayPath.tilde(other.path)) — another store's login item (doz uninstall --store THAT-STORE removes it)")
+        }
         // Never the keychain: say what is left there.
         let accounts = AccountStore(store: store, settings: .load()).load().accounts.compactMap { a -> String? in
             guard let s = a.keychainService, a.adopted != true else { return nil }
@@ -122,6 +131,12 @@ struct Uninstall: AsyncParsableCommand {
                 Out.stdout("the sessions on this Mac keep running (\(list)) — end them yourself when you are done\n")
             }
         }
+        // 694: the login item before the daemon (its next look would start one for a store about to go).
+        if let i = items.firstIndex(where: { $0.path == loginItem.path }) {
+            items[i].removed = DaemonLoginItem.remove(store: store, folder: agents)
+            if items[i].removed == false { items[i].error = "could not remove it" }
+            if !g.json { Out.stdout(items[i].removed == true ? "removed \(loginItem.path)\n" : "doz: could not remove \(loginItem.path)\n") }
+        }
         // The host goes first (it owns every VM); it shuts them down as it stops.
         if !keepStore, store.hostIsRunning() {
             if !g.json { Out.stdout("stopping the daemon …\n") }
@@ -136,7 +151,7 @@ struct Uninstall: AsyncParsableCommand {
             if store.hostIsRunning() { throw fail(HostError(.failed, "the daemon did not stop within 2 minutes — nothing was removed"), g) }
         }
         var failed = false
-        for i in items.indices {
+        for i in items.indices where items[i].path != loginItem.path {
             do {
                 try fm.removeItem(atPath: items[i].path)
                 items[i].removed = true

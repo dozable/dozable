@@ -285,18 +285,32 @@ struct HostRestart: AsyncParsableCommand {
     func run() async throws {
         let store = g.dozableStore
         if store.hostIsRunning() {
+            // 694 (decision 8): from a session where the login keychain is locked (ssh), never replace a daemon that CAN read
+            // it (started from the desktop) — unless a loaded login item will start the new one there.
+            if let e = Self.lockedRefusal(store) { throw fail(e, g) }
             switch try stopHostShowingProgress(store, g) {
             case .done(let r): if !g.json { Out.stdout(HostStopView.summary(r) + "\n") }
             case .older: break
             case .exited(let seen): throw fail(HostError(.failed, HostStopView.seen(seen)), g)
             }
         }
-        do { try HostLauncher.spawn(store: store, extra: []) } catch let e as HostError { throw fail(e, g) }
+        do { _ = try DaemonStarter.start(store: store) } catch let e as HostError { throw fail(e, g) }
         guard HostClient.waitForHost(store: store) else {
             throw fail(HostError(.unavailable, "the daemon did not start — see \(store.logFile.path)"), g)
         }
-        let st = try decode(try call(HostRequest(.ping), g, autostart: false), HostStatus.self, g)
+        let st = withLoginItem(try decode(try call(HostRequest(.ping), g, autostart: false), HostStatus.self, g), store)
         if g.json { Out.json(st) } else { Out.stdout(describe(st) + "sandboxes that were running are hibernated: doz wake NAME (or use them) brings each back\n") }
+    }
+
+    /// 694: why a restart from this session is refused (nil: it may go on) — this session cannot read the login keychain,
+    /// the running daemon can, and no login item is loaded that would start the new one in the desktop session.
+    static func lockedRefusal(_ store: DozableStore) -> HostError? {
+        guard let why = HostSessionKind.lockedReason() else { return nil }
+        guard let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false), m.ok == true,
+              let st = try? m.result?.decode(HostStatus.self), st.keychainLocked == nil else { return nil }
+        guard DaemonStarter.loadedItem(store) == nil else { return nil }
+        return HostError(.invalid, "the running daemon was started from your desktop session and can read the login Keychain; one started here (\(why)) could not — not restarted. "
+                         + "Run it from Terminal on the Mac, or doz daemon login-item on (then a restart from here starts it there)")
     }
 }
 
@@ -343,6 +357,7 @@ public enum DozableEntry {
             }
             if var a = command as? AsyncParsableCommand { try await a.run() } else { try command.run() }
             await UpdateHook.afterCommand(args)
+            LoginItemNotice.afterCommand(args)          // 694: once, after the upgrade that made the daemon stay running
             usage.after(exitCode: 0)
             DozableCommand.exit()
         } catch {

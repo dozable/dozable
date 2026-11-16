@@ -94,6 +94,8 @@ public final class HostServer: @unchecked Sendable {
         guard store.socketPathFits else { throw StartError.socket(UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription) }
         let server = HostServer(store: store, idleTimeoutMinutes: idleTimeoutMinutes, version: version, restartExtra: restartExtra)
         try server.takeLock(waitSeconds: 60)
+        // 694: a daemon started lets go of `doz daemon stop`'s hold (the login item's look starts one again from now on).
+        LoginStart.release(store)
         // 606: the proxy never connects a sandbox to one of Dozable's own dashboards on this Mac.
         LocalDashboards.protect(DashboardPorts(store: store).current)
         // 691: nor, through the route to this Mac's ports, to a sandbox's forwarded web port (fenced sessions' proxy ports
@@ -135,6 +137,12 @@ public final class HostServer: @unchecked Sendable {
         await server.core.setExecutable(exe, stablePath: stable)
         HostLog.line("running from \(exe?.path ?? HostLauncher.executablePath)\(exe?.cdhash.map { " (cdhash \($0.prefix(12)))" } ?? "")"
                      + (stable != (exe?.path ?? HostLauncher.executablePath) ? " — installed as \(stable)" : ""))
+        // 694: the login item, when there is one: its program path rewritten when out of date, or removed when the rule no
+        // longer holds (the setting, always on, an app's job). A daemon's start never INSTALLS one (only `on` does).
+        Task.detached {
+            let r = DaemonLoginItem.sync(store: store, mode: .daemonStart, keepers: server.keepers, program: stable)
+            if r.decision.action != .none { HostLog.line("login item: " + r.line) }
+        }
         // The recipes this host (and every command while it runs) uses — chosen once, at this process's start.
         let recipes = RecipeCatalogueSelection.startChoice
         HostLog.line("recipes: \(RecipeCatalogue.source.describe(dozVersion: version))"
@@ -492,9 +500,12 @@ public final class HostServer: @unchecked Sendable {
             Task.detached { [self] in await self.shutdown(prepare: true, reply: conn) }
         case .ping:
             Task.detached { [self] in
-                let st = await core.status(connections: connectionCount, idleSeconds: idleSeconds,
+                var st = await core.status(connections: connectionCount, idleSeconds: idleSeconds,
                                            idleTimeoutMinutes: effectiveIdleTimeoutMinutes, startedAt: startedAt,
                                            alwaysOn: alwaysOn, keepers: keepers)
+                // 694: what replacing this daemon would cost (the login item's look at a locked daemon).
+                st.fencedSessions = await core.fencedMacSessions()
+                st.preparations = await core.runningPreparations()
                 conn.send((try? JSONValue(encoding: st)).map { HostMessage.success($0) } ?? .failure(HostError(.failed, "status")))
                 finished(conn)
             }
