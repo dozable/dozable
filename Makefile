@@ -186,6 +186,8 @@ prev-cli: cli ## Build + sign the previous DozableKit release's doz from its tag
 	  rm -rf "$(PREV_DIR)" && mkdir -p "$(PREV_DIR)" && git archive $(PREV_TAG) | tar -x -C "$(PREV_DIR)" && \
 	  (cd "$(PREV_DIR)" && swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS) --product doz) ; fi
 	codesign --force --sign - --entitlements Scripts/doz.entitlements $(PREV_BIN)
+	@# doz reads its version from a VERSION beside it (as `make cli` does for this build): the tag's own.
+	@if [ -n "$(PREV_TAG)" ]; then cp "$(PREV_DIR)/VERSION" "$(PREV_DIR)/.build/debug/VERSION"; fi
 
 test-vm-upgrade: cli vmtest-host prev-cli ## 591 upgrade: the previous DozableKit release (or a copy of this build) sleeps lab + pi sandboxes (sessions, markers), this build wakes them; the running host's program overwritten in place; an idle host replaced by an update
 	perl -e 'alarm shift; exec @ARGV' 3600 $(VMTEST_BIN) upgrade --old $(PREV_BIN) --doz $(CLI_BIN) --store "$(UPGRADE_STORE)" --entitlements Scripts/doz.entitlements

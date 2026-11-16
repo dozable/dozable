@@ -448,7 +448,7 @@ func cliSuite() async throws {
         _ = h.ls()
         check(!h.hostRunning, "ls with nothing running answers from the store — it starts no daemon")
         r = h.run(["daemon", "--idle-timeout", "0.05"])
-        check(r.code == 0 && h.hostRunning, "host --idle-timeout 0.05 (3 s)")
+        check(r.code == 0 && h.hostRunning, "daemon --idle-timeout 0.05 (3 s)")
         let ti = Date()
         check(h.waitFor(30) { !h.hostRunning }, String(format: "the idle daemon exited by itself after %.1f s", Date().timeIntervalSince(ti)))
         check(!FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).socket.path), "and removed its socket")

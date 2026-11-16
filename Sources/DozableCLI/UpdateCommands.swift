@@ -306,7 +306,8 @@ struct HostRestart: AsyncParsableCommand {
 /// whatever is due handed over after it.
 public enum DozableEntry {
     public static func main() async -> Never {
-        let args = Array(CommandLine.arguments.dropFirst())
+        // TEMPORARY: the host→daemon migration's one call (its file says how to delete it).
+        let args = HostToDaemon.begin(Array(CommandLine.arguments.dropFirst()))
         // 683 M4: inside a fenced session (ssh's ProxyCommand) — before anything of doz is read or made.
         if args.first == "fence-connect" { exit(FenceConnect.run(Array(args.dropFirst()), environment: ProcessInfo.processInfo.environment)) }
         // 678: `doz exec`'s deadline counts from the process's start — its watchdog is armed before anything else.
