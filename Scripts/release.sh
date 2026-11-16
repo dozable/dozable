@@ -13,6 +13,10 @@
 #   doz-<version>/libexec/doz/DozableKit_*.bundle   its resources (guest binaries, web assets)
 #   doz-<version>/libexec/doz/deckhold-mac   the PTY holder for sessions on this Mac (Guest/deckhold/build-mac.sh) — signed
 #                                            like doz, no entitlements; its provenance in licences/deckhold/. CLI only.
+#   doz-<version>/libexec/doz/Dozable.app    the menu bar app (Scripts/assemble-app.sh; docs/engineering/menu-bar-app.md) —
+#                                            stripped, signed like doz with identifier com.dozable.app and NO entitlements,
+#                                            notarised in the same zip, then STAPLED (a bundle can be). `doz app install`
+#                                            copies it to /Applications. CLI only: the helper never carries it.
 #   doz-<version>/libexec/doz/kernels/vmlinux-6.18.15-186        675: the pinned kernel (both flavours) — no download
 #   doz-<version>/libexec/doz/licences/kernel/   with it: its provenance and GPL-2.0 source offer (Guest/kernel/)
 #   doz-<version>/libexec/doz/kernels/vmlinux-6.18.15-186-sound2  PRIVATE builds only: the sound sandboxes' kernel
@@ -24,7 +28,14 @@
 #   dashboard bundle. Built with DOZ_HELPER_BUILD=1 (Package.swift) in its own scratch folder (.build-helper), so the
 #   two flavours never share build products. Same version, signing, notarisation and checks as the CLI release.
 # Both flavours are STRIPPED before signing (H1/H1b): the symbols go to dist/<name>.dSYM.zip, published beside the
-# tarball (its UUID is checked against the stripped binary's), so crash reports still symbolicate.
+# tarball (its UUID is checked against the stripped binary's), so crash reports still symbolicate. The CLI's zip also
+# carries Dozable.app.dSYM (the menu bar app's symbols, checked the same way).
+#
+# THE MENU BAR APP (CLI flavour only), in this order: built (`--product Dozable`, the same flags) → assembled and
+# stripped (its dSYM kept) → signed → checked BEFORE notarisation (codesign's identifier, team, hardened runtime and
+# timestamp; no entitlements; the Info.plist values; it runs headless: --self-config and --dump-menu against the packed
+# doz, in scratch folders) → notarised in the same zip as doz → stapled, `stapler validate`, `spctl` says "Notarized
+# Developer ID" → packed → checked again from the tarball. The helper's layout is checked to carry no app.
 #
 # The pinned kernel comes from KERNEL_FILE, else $DOZ_KERNEL_CACHE/<file> (the Makefile's KERNEL_CACHE), else
 # ~/Library/Caches/DozableKit/kernels/<file> — fetched there once by `make kernel` when missing (a byte-identical seed
@@ -215,6 +226,11 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
     # would inherit a feature with no isolation). Built fresh from deckhold.c + the pinned ghostty's Mac library;
     # needs the toolchain `make deckhold` puts in .tools/.
     [[ "$FLAVOUR" == cli ]] && run env FORCE=1 Guest/deckhold/build-mac.sh
+    # The menu bar app (CLI only) — the same environment and flags, so it shares the build above.
+    if [[ "$FLAVOUR" == cli ]]; then
+        run env DOZ_CLOUD_PACKAGE="$DOZ_CLOUD_PACKAGE" DOZ_CLOUD_REF="$DOZ_CLOUD_REF" DOZ_HELPER_BUILD="$HELPER_ENV" DOZ_HELPER_WEB= \
+            swift build ${SWIFT_BUILD_SYSTEM:-} -j "$JOBS" -c release --scratch-path "$BUILD_DIR" --product Dozable ${PUBLIC_FLAGS[@]+"${PUBLIC_FLAGS[@]}"}
+    fi
     # A git URL pins the private package in Package.resolved: that pin never belongs in the public repository.
     if [[ -z "$DRY_RUN" && -z "$resolved_before" && -n "$(git status --porcelain -- Package.resolved)" ]]; then
         git checkout -- Package.resolved
@@ -223,7 +239,10 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
 fi
 
 # 2. The install layout.
-run rm -rf "$STAGE" "$OUT/stage/$NAME.dSYM"
+APP="$STAGE/libexec/doz/Dozable.app"
+APP_DSYM="$OUT/stage/$NAME-app/Dozable.app.dSYM"
+APP_ID="com.dozable.app"
+run rm -rf "$STAGE" "$OUT/stage/$NAME.dSYM" "$OUT/stage/$NAME-app"
 run mkdir -p "$STAGE/libexec/doz"
 [[ "$FLAVOUR" == cli ]] && run mkdir -p "$STAGE/bin"
 # The CLI carries every resource bundle; the helper only the guest binaries' (no dashboard — and never a stale
@@ -243,6 +262,19 @@ if [[ -z "$DRY_RUN" ]]; then
     sym_uuid="$(dwarfdump --uuid "$OUT/stage/$NAME.dSYM" | awk '{print $2}')"
     [[ -n "$exe_uuid" && "$exe_uuid" == "$sym_uuid" ]] || fail "the dSYM ($sym_uuid) does not match the stripped doz ($exe_uuid)"
     say "  stripped: $(( $(stat -f %z "$BUILD_DIR/release/doz") / 1048576 )) MiB → $(( $(stat -f %z "$STAGE/libexec/doz/doz") / 1048576 )) MiB; symbols in $NAME.dSYM.zip (UUID $exe_uuid)"
+fi
+# The menu bar app (CLI only): assembled from the release executable, its symbols kept, stripped before it is signed.
+if [[ "$FLAVOUR" == cli ]]; then
+    run mkdir -p "$OUT/stage/$NAME-app"
+    run dsymutil "$BUILD_DIR/release/Dozable" -o "$APP_DSYM"
+    run Scripts/assemble-app.sh --exe "$BUILD_DIR/release/Dozable" --version "$VERSION" --out "$STAGE/libexec/doz"
+    run strip "$APP/Contents/MacOS/Dozable"
+    if [[ -z "$DRY_RUN" ]]; then
+        app_uuid="$(dwarfdump --uuid "$APP/Contents/MacOS/Dozable" | awk '{print $2}')"
+        app_sym="$(dwarfdump --uuid "$APP_DSYM" | awk '{print $2}')"
+        [[ -n "$app_uuid" && "$app_uuid" == "$app_sym" ]] || fail "the app's dSYM ($app_sym) does not match the stripped Dozable ($app_uuid)"
+        say "  menu bar app: assembled, stripped; symbols in $NAME.dSYM.zip (UUID $app_uuid)"
+    fi
 fi
 # 675: the pinned kernel (both flavours) and its GPL-2.0 source offer — the first start copies it into the store.
 run mkdir -p "$STAGE/libexec/doz/kernels"
@@ -304,10 +336,14 @@ fi
 run codesign "${SIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$STAGE/libexec/doz/doz"
 # deckhold-mac: the same identity, hardened runtime and timestamp — and NO entitlements (it needs none).
 [[ "$FLAVOUR" == cli ]] && run codesign "${SIGN_ARGS[@]}" "$STAGE/libexec/doz/deckhold-mac"
+# The menu bar app: the bundle (its one Mach-O is its executable — nothing nested), the same identity, runtime and
+# timestamp, its identifier, NO entitlements; never --deep.
+[[ "$FLAVOUR" == cli ]] && run codesign "${SIGN_ARGS[@]}" --identifier "$APP_ID" "$APP"
 
 # 4. Verify the signature and the entitlement.
 run codesign --verify --strict --verbose=2 "$STAGE/libexec/doz/doz"
 [[ "$FLAVOUR" == cli ]] && run codesign --verify --strict --verbose=2 "$STAGE/libexec/doz/deckhold-mac"
+[[ "$FLAVOUR" == cli ]] && run codesign --verify --strict --verbose=2 "$APP"
 if [[ -z "$DRY_RUN" ]]; then
     ents="$(codesign -d --entitlements - --xml "$STAGE/libexec/doz/doz" 2>/dev/null || true)"
     for e in com.apple.security.virtualization com.apple.security.device.audio-input; do
@@ -340,6 +376,44 @@ if [[ -z "$DRY_RUN" ]]; then
     else
         [[ ! -e "$DHM" ]] || fail "the helper carries deckhold-mac — it must not"
         say "  deckhold-mac: not in the helper (as it must be)"
+    fi
+    # The menu bar app — everything that can be checked BEFORE notarisation is checked here, so a mistake stops the
+    # release now rather than after it: the signature (identifier; team, hardened runtime and timestamp for a Developer
+    # ID), no entitlements, one arm64 executable, the Info.plist values, and that it runs headless — --self-config, and
+    # --dump-menu against THIS packed doz (a guarded run in scratch folders: it never shows a menu, never reads a store
+    # of this Mac). The helper carries none.
+    if [[ "$FLAVOUR" == cli ]]; then
+        AEXE="$APP/Contents/MacOS/Dozable"
+        [[ "$(ls "$APP/Contents/MacOS")" == "Dozable" ]] || fail "the app's Contents/MacOS holds more than its executable ($(ls "$APP/Contents/MacOS" | tr '\n' ' '))"
+        [[ "$(file -b "$AEXE")" == "Mach-O 64-bit executable arm64"* ]] || fail "the app's executable is not an arm64 Mach-O ($(file -b "$AEXE"))"
+        [[ -z "$(codesign -d --entitlements - --xml "$APP" 2>/dev/null | grep -o '<key>' || true)" ]] || fail "the menu bar app carries entitlements — it must carry none"
+        ainfo="$(codesign -dv --verbose=4 "$APP" 2>&1)"
+        grep -q "^Identifier=$APP_ID\$" <<<"$ainfo" || fail "the menu bar app is not signed as $APP_ID"
+        if [[ -n "$SIGN_IDENTITY" ]]; then
+            grep -q "^Authority=$SIGN_IDENTITY\$" <<<"$ainfo" || fail "the menu bar app is not signed by $SIGN_IDENTITY"
+            [[ -z "$TEAM_ID" ]] || grep -q "^TeamIdentifier=$TEAM_ID\$" <<<"$ainfo" || fail "the menu bar app's TeamIdentifier is not $TEAM_ID"
+            grep -qE '^CodeDirectory .*flags=0x[0-9a-f]*\(.*runtime.*\)' <<<"$ainfo" || fail "the menu bar app is not signed with the hardened runtime"
+            grep -q '^Timestamp=' <<<"$ainfo" || fail "the menu bar app's signature has no secure timestamp"
+        fi
+        for kv in "CFBundleIdentifier=$APP_ID" "CFBundleExecutable=Dozable" "CFBundleShortVersionString=$VERSION" "CFBundleVersion=$VERSION" \
+                  "LSUIElement=true" "LSMinimumSystemVersion=26.0"; do
+            got="$(plutil -extract "${kv%%=*}" raw -o - "$APP/Contents/Info.plist" 2>/dev/null || true)"
+            [[ "$got" == "${kv#*=}" ]] || fail "the menu bar app's Info.plist ${kv%%=*} is '$got', not '${kv#*=}'"
+        done
+        chk="$(mktemp -d "${TMPDIR:-/tmp/}doz-release-check.XXXXXX")"
+        selfc="$(env -u DOZ_TEST_REAL_MAC DOZ_TEST_GUARD=1 "$AEXE" --self-config 2>&1 </dev/null || true)"
+        dumped="$(env -u DOZ_TEST_REAL_MAC DOZ_TEST_GUARD=1 DOZ_MENUBAR_DOZ="$STAGE/libexec/doz/doz" XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" \
+                  DOZ_TEST_LAUNCH_AGENTS_DIR="$chk/agents" DOZ_TEST_APPLICATIONS_DIR="$chk/apps" DOZ_TEST_LAUNCHCTL="$PACKAGE/Scripts/launchctl-refuse.sh" \
+                  "$AEXE" --dump-menu 2>&1 </dev/null || true)"
+        rm -rf "$chk"
+        python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["version"]==sys.argv[2] and d["bundleIdentifier"]==sys.argv[3], d' \
+            "$selfc" "$VERSION" "$APP_ID" 2>/dev/null || fail "the packed menu bar app's --self-config is not version $VERSION, $APP_ID ($selfc)"
+        python3 -c 'import json,sys; d=json.loads(sys.argv[1]); assert d["doz"]["version"]==sys.argv[2] and d["items"][0]["title"].startswith("Daemon stopped"), d' \
+            "$dumped" "$VERSION" 2>/dev/null || fail "the packed menu bar app does not read the packed doz (--dump-menu: $(head -c 300 <<<"$dumped"))"
+        say "  menu bar app: Dozable.app $VERSION, signed ($MODE) as $APP_ID, no entitlements, runs headless and reads the packed doz"
+    else
+        [[ ! -e "$APP" ]] || fail "the helper carries the menu bar app — it must not"
+        say "  menu bar app: not in the helper (as it must be)"
     fi
     DOZ="$STAGE/libexec/doz/doz"
     [[ "$("$DOZ" --version)" == "$VERSION" ]] || fail "the packed doz says $("$DOZ" --version), not $VERSION"
@@ -407,6 +481,11 @@ if [[ -n "$SIGN_IDENTITY" && -n "$NOTARY_PROFILE" ]]; then
     if [[ -n "$DRY_RUN" ]]; then
         run xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait --output-format json
         run Scripts/notary-ticket.sh "$STAGE/libexec/doz/doz" 600
+        if [[ "$FLAVOUR" == cli ]]; then
+            run xcrun stapler staple "$APP"
+            run xcrun stapler validate "$APP"
+            run spctl -a -t exec -vv "$APP"
+        fi
     else
         say "  notarising (Apple's notary service; usually a few minutes)…"
         result="$(xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait --output-format json 2>"$OUT/notarytool.err" || true)"
@@ -428,6 +507,22 @@ if [[ -n "$SIGN_IDENTITY" && -n "$NOTARY_PROFILE" ]]; then
                 || fail "Apple's ticket service has no ticket for the notarised deckhold-mac (submission $sid) after 10 minutes"
         fi
         say "  notary ticket: published for each binary (what Gatekeeper checks on first run)"
+        # The menu bar app is a bundle: its ticket is STAPLED (Gatekeeper's first open then needs no network). The ticket
+        # can take a moment to be served after an Accepted answer — tried for up to 5 minutes.
+        if [[ "$FLAVOUR" == cli ]]; then
+            stapled=""
+            for _ in 1 2 3 4 5 6 7 8 9 10; do
+                if xcrun stapler staple "$APP" >"$OUT/stapler.log" 2>&1; then stapled=1; break; fi
+                sleep 30
+            done
+            [[ -n "$stapled" ]] || fail "could not staple the menu bar app's ticket (submission $sid): $(tail -3 "$OUT/stapler.log")"
+            rm -f "$OUT/stapler.log"
+            xcrun stapler validate "$APP" >/dev/null 2>&1 || fail "the menu bar app's stapled ticket does not validate"
+            codesign --verify --strict "$APP" || fail "the menu bar app's signature does not verify after stapling"
+            assess="$(spctl -a -t exec -vv "$APP" 2>&1 || true)"
+            grep -q "source=Notarized Developer ID" <<<"$assess" || fail "Gatekeeper does not accept the menu bar app as notarised: $assess"
+            say "  menu bar app: stapled, validated; Gatekeeper: Notarized Developer ID"
+        fi
     fi
     run rm -f "$ZIP"
     say "  ${DRY_RUN:+[dry-run] would be }notarised (a command-line tool cannot be stapled: Gatekeeper checks its ticket online on first run)"
@@ -442,6 +537,12 @@ run env COPYFILE_DISABLE=1 tar --no-mac-metadata -C "$OUT/stage" -czf "$TARBALL"
 # H1/H1b: the symbols, published beside the tarball (a zip of the dSYM bundle).
 run rm -f "$DSYM_ZIP"
 run ditto -c -k --keepParent "$OUT/stage/$NAME.dSYM" "$DSYM_ZIP"
+# The CLI's zip also carries the menu bar app's symbols, beside doz's (Dozable.app.dSYM at its top level).
+if [[ "$FLAVOUR" == cli ]]; then
+    case "$DSYM_ZIP" in /*) DSYM_ZIP_ABS="$DSYM_ZIP" ;; *) DSYM_ZIP_ABS="$PACKAGE/$DSYM_ZIP" ;; esac
+    if [[ -n "$DRY_RUN" ]]; then say "  [dry-run] (cd $OUT/stage/$NAME-app && zip -qry $DSYM_ZIP_ABS Dozable.app.dSYM)"
+    else (cd "$OUT/stage/$NAME-app" && zip -qry "$DSYM_ZIP_ABS" Dozable.app.dSYM); fi
+fi
 if [[ -z "$DRY_RUN" ]]; then
     # 611: what people install is the TARBALL — unpack it afresh and check what comes out of it.
     unpack="$(mktemp -d "${TMPDIR:-/tmp/}doz-release-unpack.XXXXXX")"
@@ -449,6 +550,17 @@ if [[ -z "$DRY_RUN" ]]; then
     packed="$unpack/$TOP"
     codesign --verify --strict "$packed/libexec/doz/doz" || fail "the doz unpacked from the tarball does not verify"
     [[ "$("$packed/libexec/doz/doz" --version)" == "$VERSION" ]] || fail "the doz unpacked from the tarball says $("$packed/libexec/doz/doz" --version), not $VERSION"
+    if [[ "$FLAVOUR" == cli ]]; then
+        # The menu bar app, as people download it: it verifies, it is this version, and (notarised) its ticket is stapled.
+        codesign --verify --strict "$packed/libexec/doz/Dozable.app" || fail "the menu bar app unpacked from the tarball does not verify"
+        [[ "$(plutil -extract CFBundleShortVersionString raw -o - "$packed/libexec/doz/Dozable.app/Contents/Info.plist")" == "$VERSION" ]] \
+            || fail "the menu bar app in the tarball is not version $VERSION"
+        if [[ -n "$SIGN_IDENTITY" && -n "$NOTARY_PROFILE" ]]; then
+            xcrun stapler validate "$packed/libexec/doz/Dozable.app" >/dev/null 2>&1 || fail "the menu bar app in the tarball carries no stapled ticket"
+        fi
+    else
+        [[ ! -e "$packed/libexec/doz/Dozable.app" ]] || fail "the helper tarball carries the menu bar app"
+    fi
     if [[ "$FLAVOUR" == cli ]]; then
         [[ -L "$packed/bin/doz" ]] || fail "bin/doz in the tarball is not a link"
         [[ "$("$packed/bin/doz" --version)" == "$VERSION" ]] || fail "bin/doz in the tarball does not run the packed doz"
@@ -467,7 +579,7 @@ if [[ -z "$DRY_RUN" ]]; then
     fi
     installed="$(du -sk "$packed" | cut -f1)"
     rm -rf "$unpack"
-    say "  from the tarball: codesign --verify --strict ok, doz --version $VERSION, the layout contract holds"
+    say "  from the tarball: codesign --verify --strict ok, doz --version $VERSION, the layout contract holds$([[ "$FLAVOUR" == cli ]] && echo ", the menu bar app verifies")"
     (cd "$OUT" && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
     say "release: $TARBALL"
     say "         sha256 $(cut -d' ' -f1 "$TARBALL.sha256")  ($(( $(stat -f %z "$TARBALL") / 1048576 )) MiB compressed, $(( installed / 1024 )) MiB installed)"

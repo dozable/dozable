@@ -33,6 +33,10 @@ tarball() {
     codesign --force --sign - --entitlements Scripts/doz.entitlements "$s/libexec/doz/doz" 2>/dev/null
     printf '%s\n' "$v" > "$s/libexec/doz/VERSION"
     printf 'public\n' > "$s/libexec/doz/RELEASE"
+    # The menu bar app rides inside libexec/doz (the CLI release): a copy at this version, so the swap is seen to carry it.
+    if [[ -d "$(dirname "$BUILT")/Dozable.app" ]]; then cp -cR "$(dirname "$BUILT")/Dozable.app" "$s/libexec/doz/"
+    else mkdir -p "$s/libexec/doz/Dozable.app/Contents/MacOS" && cp "$ROOT/Resources/MenuBar/Info.plist" "$s/libexec/doz/Dozable.app/Contents/Info.plist"; fi
+    plutil -replace CFBundleShortVersionString -string "$v" "$s/libexec/doz/Dozable.app/Contents/Info.plist"
     ln -s ../libexec/doz/doz "$s/bin/doz"
     COPYFILE_DISABLE=1 tar --no-mac-metadata -C "$R/stage" -czf "$R/dist/doz-$v-macos-arm64.tar.gz" "doz-$v"
     (cd "$R/dist" && shasum -a 256 "doz-$v-macos-arm64.tar.gz" > "doz-$v-macos-arm64.tar.gz.sha256")
@@ -151,6 +155,7 @@ check "auto: installed $C (the next command runs it)" grep -q "Updated to $C" <<
 check "  … libexec/doz is $C" [ "$("$DOZ" --version)" = "$C" ]
 check "  … the previous ($A) is kept as libexec/doz.previous" [ "$(cat "$R/prefix/libexec/doz.previous/VERSION")" = "$A" ]
 check "  … bin/doz is still the link" [ -L "$R/prefix/bin/doz" ]
+check "  … the menu bar app inside it was swapped with it ($C; the previous keeps $A's)" bash -c "[ \"\$(plutil -extract CFBundleShortVersionString raw -o - '$R/prefix/libexec/doz/Dozable.app/Contents/Info.plist')\" = $C ] && [ \"\$(plutil -extract CFBundleShortVersionString raw -o - '$R/prefix/libexec/doz.previous/Dozable.app/Contents/Info.plist')\" = $A ]"
 out="$("$DOZ" update --store "$R/store" 2>&1)" || true
 check "  … then: the newest" grep -q "is the newest on the canary channel" <<<"$out"
 
