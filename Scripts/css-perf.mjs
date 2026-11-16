@@ -25,6 +25,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { spawnChrome } from './chrome-launch.mjs';
 
 const DOZ = resolve(process.env.DOZ || '.build/debug/doz');
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -81,9 +82,10 @@ async function waitFor(expr, ms = 25000) { const end = Date.now() + ms; while (D
 async function startChrome() {
   rmSync(PROFILE, { recursive: true, force: true });
   mkdirSync(PROFILE, { recursive: true });
-  chrome = spawn(CHROME, ['--headless=new', `--user-data-dir=${PROFILE}`, '--no-first-run', '--no-default-browser-check', '--disable-component-update',
+  // Its own responsible process (Scripts/chrome-launch.mjs): no macOS privacy notice charged to the terminal.
+  chrome = spawnChrome(CHROME, ['--headless=new', `--user-data-dir=${PROFILE}`, '--no-first-run', '--no-default-browser-check', '--disable-component-update',
     '--disable-background-networking', '--disable-renderer-backgrounding', '--remote-debugging-port=0', '--hide-scrollbars', '--window-size=1440,900',
-    'about:blank'], { stdio: 'ignore' });
+    'about:blank'], { stdio: 'ignore' }, S + '/bin');
   const f = PROFILE + '/DevToolsActivePort';
   for (let i = 0; i < 150 && !existsSync(f); i++) await sleep(100);
   const port = readFileSync(f, 'utf8').split('\n')[0];

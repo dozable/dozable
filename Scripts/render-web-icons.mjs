@@ -12,13 +12,13 @@
 //
 // Usage: node Scripts/render-web-icons.mjs        (CHROME=… for another Chrome). Node ≥ 22, no packages.
 // Writes only inside the icons directory (and a scratch Chrome profile it removes).
-import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { spawnChrome } from './chrome-launch.mjs';
 
 const ICONS = join(dirname(fileURLToPath(import.meta.url)), '..', 'Sources/DozableWeb/WebSource/icons');
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -31,8 +31,9 @@ const OUTPUTS = [
 const sha = (b) => createHash('sha256').update(b).digest('hex');
 
 const profile = mkdtempSync(join(tmpdir(), 'doz-icons-'));
-const chrome = spawn(CHROME, ['--headless=new', `--user-data-dir=${profile}`, '--remote-debugging-port=0', '--no-first-run',
-  '--no-default-browser-check', '--force-device-scale-factor=1', 'about:blank'], { stdio: 'ignore' });
+// Started as its own responsible process (Scripts/chrome-launch.mjs: no macOS privacy notice charged to the terminal).
+const chrome = spawnChrome(CHROME, ['--headless=new', `--user-data-dir=${profile}`, '--remote-debugging-port=0', '--no-first-run',
+  '--no-default-browser-check', '--force-device-scale-factor=1', 'about:blank'], { stdio: 'ignore' }, join(profile, '.launcher'));
 let ws, nextId = 1;
 const pending = new Map();
 const send = (method, params = {}) => new Promise((resolve, reject) => {

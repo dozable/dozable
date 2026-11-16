@@ -306,6 +306,11 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   (`.bl-page`). `make css-perf` (`Scripts/css-perf.mjs`: a real headless Chrome, a scratch store and profile; standalone)
   walks a fixed path five times and compares the style recalculation and the selector statistics with
   `Tests/Fixtures/css-perf-baseline.json`; `make css-perf ARGS=--write-baseline` records a new one.
+  **Every headless Chrome a script starts is its own responsible process** (`Scripts/chrome-launch.mjs` →
+  `Scripts/own-responsibility.c`, used by css-perf and render-web-icons): started from a terminal's tree, Chrome's touches
+  of its own bundle and group container are charged to the app at the top (Terminal, an IDE, Claude Code) and macOS shows
+  "prevented from modifying apps" / "tried to access data from other apps" at every run — a scratch profile does not
+  prevent it. A new script that starts Chrome uses `spawnChrome`.
 - **The UI watches the host** (`WebHostWatch` — pure, unit-tested): before each overview the
   monitor PROBES without starting anything (`hostProbe`: the lock, a stale `host.pid` = killed, records
   left live, the last host's own exit line in `host.log` — `HostExitReason`), because the overview
