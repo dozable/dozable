@@ -45,6 +45,8 @@ public enum MacAgentPrompt {
                 l.append("- Of this Mac it may reach only " + f.hostPorts.map { "port \($0.port) as http://\(HostRoute.hostName):\($0.port)" }.joined(separator: ", ")
                          + " (through the proxy; 127.0.0.1 and localhost stay closed). More ports are the person's choice (doz net allow @mac --session \(f.session) host:PORT).")
             }
+            // 692: the secrets it was given — a placeholder each, swapped only on requests to their one destination.
+            for s in f.secrets { l.append("- \(s.facts); the secret itself never enters the session, and the placeholder is refused anywhere else.") }
         } else {
             l.append("- It has no network.")
         }

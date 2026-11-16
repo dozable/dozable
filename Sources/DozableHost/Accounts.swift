@@ -155,21 +155,43 @@ public struct CustomKey: Codable, Equatable, Sendable {
 
     public func validate() throws {
         guard !hosts.isEmpty, hosts.count <= 8 else { throw HostError(.invalid, "a custom key needs --host (1–8 exact hosts)") }
-        for h in hosts where h.range(of: #"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"#, options: .regularExpression) == nil {
+        for h in hosts where !Self.isExactHostName(h) {
             throw HostError(.invalid, "--host \(h): an exact host name like api.example.com")
         }
-        for h in hosts where KeyProviders.owning(host: h) != nil || GitHubAccess.credentialHosts.contains(h) || OpenAIAccess.isOpenAIHost(h) {
+        for h in hosts where Self.isHeldHost(h) {
             throw HostError(.invalid, "--host \(h) is a host Dozable already holds keys for — use that account kind instead")
         }
-        guard env.range(of: "^[A-Z][A-Z0-9_]{1,63}$", options: .regularExpression) != nil, !env.hasPrefix("DOZ_") else {
+        guard Self.isVariableName(env) else {
             throw HostError(.invalid, "--env-var: an upper-case variable name like EXAMPLE_API_KEY")
         }
         guard ["%s", "Bearer %s"].contains(format) else { throw HostError(.invalid, "--format: %s (the key as it is) or use --bearer") }
         if format == "Bearer %s", header != "authorization" { throw HostError(.invalid, "--bearer goes in the Authorization header") }
-        guard header.range(of: "^[a-z][a-z0-9-]{0,63}$", options: .regularExpression) != nil,
-              !["host", "cookie", "content-length", "transfer-encoding", "connection"].contains(header) else {
+        guard Self.isHeaderName(header) else {
             throw HostError(.invalid, "--header: a header name like x-api-key")
         }
+    }
+
+    // MARK: the rules, shared with a launch secret (692 `--secret`)
+
+    /// An exact host name: labels of a-z 0-9 -, at least two (`api.example.com`). Lower-case.
+    public static func isExactHostName(_ h: String) -> Bool {
+        h.range(of: #"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"#, options: .regularExpression) != nil
+    }
+
+    /// A host Dozable already holds keys for (a key provider's, GitHub's, OpenAI's) — never a custom key's or a secret's.
+    public static func isHeldHost(_ h: String) -> Bool {
+        KeyProviders.owning(host: h) != nil || GitHubAccess.credentialHosts.contains(h) || OpenAIAccess.isOpenAIHost(h)
+    }
+
+    /// An upper-case variable name (`EXAMPLE_API_KEY`), 2–64 characters, never `DOZ_…`.
+    public static func isVariableName(_ v: String) -> Bool {
+        v.range(of: "^[A-Z][A-Z0-9_]{1,63}$", options: .regularExpression) != nil && !v.hasPrefix("DOZ_")
+    }
+
+    /// A header name (`x-api-key`, lower-case), never one of the fields that frame or route a request.
+    public static func isHeaderName(_ h: String) -> Bool {
+        h.range(of: "^[a-z][a-z0-9-]{0,63}$", options: .regularExpression) != nil
+            && !["host", "cookie", "content-length", "transfer-encoding", "connection"].contains(h)
     }
 
     /// "a custom key for api.example.com".

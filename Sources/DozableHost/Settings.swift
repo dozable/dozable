@@ -520,6 +520,9 @@ public enum SettingKey {
     /// 691: `doz net allow NAME host:PORT` opens a port of this Mac to a running sandbox or session (on), or this Mac's
     /// ports are fixed when it starts (off — `deny` always works).
     public static let hostPortsLive = "network.host_ports_live"
+    /// 692: a secret given with `--secret` may be swapped over plain HTTP — only to this Mac's route and Tailscale
+    /// addresses (read when the secret is bound to a proxy).
+    public static let placeholdersPlainHTTP = "network.placeholders_plain_http"
     /// 683: a recipe's own config-folder choice for fenced sessions (`recipes.anthropic.claude-code.mac_config`) — nil for
     /// a recipe that declares none.
     public static func macConfig(_ agent: String) -> String? {
@@ -865,6 +868,9 @@ public struct DozableSettings: Sendable {
             .init("network", "host_ports_live", .bool, .bool(true),
                   "Whether doz net allow NAME host:PORT may open a port of this Mac to a sandbox or a fenced session while it runs (true), or this Mac's ports are fixed when it starts — doz create/run --host-port PORT (false). Taking a port away (doz net deny NAME host:PORT) always works.",
                   applies: .nextCommand, ui: false),
+            .init("network", "placeholders_plain_http", .bool, .bool(true),
+                  "Whether a secret given with --secret may travel over plain HTTP — only ever to this Mac's ports (host.dozable.internal) and Tailscale addresses (100.64.0.0/10), never elsewhere.",
+                  applies: .nextSession, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
                   applies: .uiRestart, ui: false),

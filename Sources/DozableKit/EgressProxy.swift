@@ -580,6 +580,17 @@ public final class EgressProxy: @unchecked Sendable {
         public var port: UInt16
         public init(host: String, port: UInt16) { self.host = host; self.port = port }
     }
+    /// 692 TEST SEAM: whether this Mac counts as on a Tailscale network (nil: its interfaces decide — the product). The host
+    /// sets it only from `DOZ_TEST_TAILSCALE_UP=1` in a guarded run.
+    public var tailscaleUpForTests: Bool? {
+        get { lock.withLock { _tailscaleUp } }
+        set { lock.withLock { _tailscaleUp = newValue } }
+    }
+    private var _tailscaleUp: Bool?
+
+    /// 692: this Mac has an interface address in 100.64.0.0/10 now (Tailscale is up here).
+    var macOnTailscale: Bool { tailscaleUpForTests ?? TailscaleRange.macIsOn(AddressGuard.interfaceAddresses()) }
+
     func fenceUpstreamForTests(_ host: String) -> UpstreamAddress? {
         let m = fenceUpstreamsForTests
         return m.isEmpty ? nil : m[host.lowercased()]
@@ -666,7 +677,8 @@ public final class EgressProxy: @unchecked Sendable {
     /// One absolute-form plain-HTTP request (the proxy port without CONNECT). Judged with its
     /// method and path; sent upstream with `Connection: close`; only that request's body is
     /// forwarded, so a pipelined second request cannot slip past the policy.
-    func plainHTTP(_ fd: Int32, head: [UInt8], parsed h: HTTPHead, leftover: [UInt8]) {
+    func plainHTTP(_ fd: Int32, head given: [UInt8], parsed parsedGiven: HTTPHead, leftover: [UInt8]) {
+        var head = given, h = parsedGiven
         let t0 = ContinuousClock.now
         guard let url = URL(string: h.target), let host = url.host?.lowercased(), url.scheme?.lowercased() == "http" else {
             _ = Wire.writeAll(fd, Array("HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n".utf8))
@@ -687,12 +699,52 @@ public final class EgressProxy: @unchecked Sendable {
             _ = Wire.writeAll(fd, Self.denial(host: "\(host):\(port) \(h.method) \(pathOnly)", rule: v.rule))
             return
         }
-        // A placeholder has no business on plain HTTP (secrets are only ever sent over TLS).
-        if !CredentialVault.placeholders(inHead: head).isEmpty {
-            rec.verdict = .denied; rec.open = false; rec.credential = "rejected: a credential placeholder over plain HTTP"
-            log.upsert(rec)
-            _ = Wire.writeAll(fd, Self.forbidden("a credential placeholder may not be sent to \(host) (plain HTTP)"))
-            return
+        // A placeholder has no business on plain HTTP (secrets are only ever sent over TLS) — 692: but for a launch secret's,
+        // to this Mac's route or a Tailscale address (`PlainHTTPSecretRule`), swapped by the vault for exactly its host and
+        // port. `tailscaleDial`: every address the dial resolves must then be in 100.64.0.0/10.
+        var tailscaleDial = false
+        let seamForSecret = fenceUpstreamForTests(host)
+        let tokens = CredentialVault.placeholders(inHead: head)
+        if !tokens.isEmpty {
+            func refuse(_ why: String, credential: String? = nil) {
+                rec.verdict = .denied; rec.open = false; rec.credential = credential ?? "rejected: \(why)"
+                log.upsert(rec)
+                _ = Wire.writeAll(fd, Self.forbidden(why))
+            }
+            let bindings = tokens.map { t in vault.binding(ofPlaceholder: t).flatMap { vault.binding($0) } }
+            let verdict = PlainHTTPSecretRule.judge(bindings: bindings, host: host, port: port, macOnTailscale: macOnTailscale,
+                                                    throughSeam: seamForSecret != nil)
+            switch verdict {
+            case .notSecrets:
+                refuse("a credential placeholder may not be sent to \(host) (plain HTTP)", credential: "rejected: a credential placeholder over plain HTTP")
+                return
+            case .refuse(let why):
+                refuse(why)
+                return
+            case .unknown, .swap:
+                // Plain HTTP never injects: only a placeholder the request carries is ever swapped.
+                switch vault.rewrite(head: head, host: host, port: port, inject: false) {
+                case .swapped(let out, let b) where verdict != .unknown:
+                    // Re-read after the swap, before the head is rebuilt (the tag, Connection: close).
+                    guard let again = HTTPHead(out) else { refuse("unreadable request"); return }
+                    head = out
+                    h = again
+                    rec.credential = "swapped \(b)"
+                    if case .swap(let ts) = verdict { tailscaleDial = ts }
+                case .reject(let why):
+                    refuse(why)
+                    return
+                case .refuse(let code, let why):
+                    rec.verdict = .denied; rec.open = false
+                    rec.credential = code == 401 ? "unavailable: \(why)" : "refused: \(why)"
+                    log.upsert(rec)
+                    _ = Wire.writeAll(fd, Self.refusal(host: host, code, why))
+                    return
+                default:
+                    refuse("a credential placeholder may not be sent to \(host) (plain HTTP)", credential: "rejected: a credential placeholder over plain HTTP")
+                    return
+                }
+            }
         }
         // Rebuild the head: origin-form target, no proxy fields, Connection: close.
         // 691: a port of this Mac opened with `:tag` — every `X-Dozable-Session` the program sent is removed (any case,
@@ -722,8 +774,20 @@ public final class EgressProxy: @unchecked Sendable {
             _ = Wire.writeAll(fd, Self.forbidden(loopbackRefusalText))
             return
         }
-        let (up, refused) = Wire.connectTCPGuarded(target, seam?.port ?? port, allowLoopback: mac != nil || seam != nil, guard: addressGuard)
+        // 692: a launch secret swapped for a Tailscale destination: EVERY address the dial resolves must be in 100.64.0.0/10
+        // (judged on the list it dials — a rebinding cannot slip through). The test seam's literal is judged by `judge`.
+        let tailscaleWhy = "\(host) resolves to an address outside \(TailscaleRange.cidr)"
+        let requireTailscale = tailscaleDial && seam == nil
+        let (up, refused) = Wire.connectTCPGuarded(target, seam?.port ?? port, allowLoopback: mac != nil || seam != nil, guard: addressGuard,
+                                                   require: requireTailscale ? { TailscaleRange.contains($0) } : nil, requireWhy: tailscaleWhy)
         rec.latencyMs = milliseconds(since: t0)
+        if up < 0, requireTailscale, refused == tailscaleWhy {
+            let why = PlainHTTPSecretRule.message(host: host, port: port) + " (\(tailscaleWhy))"
+            rec.verdict = .denied; rec.open = false; rec.detail = tailscaleWhy; rec.credential = "rejected: \(why)"
+            log.upsert(rec)
+            _ = Wire.writeAll(fd, Self.forbidden(why))
+            return
+        }
         if up < 0, let refused, addressGuard != nil {
             rec.verdict = .denied; rec.open = false; rec.detail = addressRefusalText(refused)
             log.upsert(rec)
@@ -791,7 +855,9 @@ public final class EgressProxy: @unchecked Sendable {
             return
         }
         let v = macRoute(host: host, port: port) ?? connectionVerdict(host: host, port: port)
-        let bound = vault.boundHosts.contains(host) && port != 22          // 599d: SSH is never inspected
+        // 599d: SSH is never inspected. 692: a binding with a port (a launch secret) only on that port; this Mac's route by
+        // either of its names.
+        let bound = vault.isBound(host: HostRoute.isHost(host) ? HostRoute.hostName : host, port: port) && port != 22
         if v.kind != .allow || bound {
             log.upsert(ConnectionRecord(kind: .tcp, host: host, port: port, verdict: .denied, rule: v.rule,
                                         detail: v.kind == .inspect || bound ? "this host needs the HTTP proxy (request inspection)" : (name == nil ? "address not resolved through the sandbox DNS" : nil)))
@@ -959,7 +1025,7 @@ public final class EgressProxy: @unchecked Sendable {
                         reject(Self.denial(host: "\(host) \(h.method) \(path)", rule: v.rule))
                         return
                     }
-                    let decision = vault.rewrite(head: raw, host: host, inject: !foreignOnConnection)
+                    let decision = vault.rewrite(head: raw, host: host, port: port, inject: !foreignOnConnection)
                     awaitingStatus = nil
                     switch decision {
                     case .reject(let why):
@@ -1382,13 +1448,24 @@ enum Wire {
     /// The same, and (683) with `guard`: every resolved address it refuses is skipped, and when nothing was left to
     /// dial, `refused` says why (the proxy answers 403 with it, not 502). `allowLoopback` (a guarded test seam's fake
     /// upstream) skips the guard too.
+    /// 692: `require` — EVERY address the name resolves to must satisfy it, or nothing is dialled and `refused` says why
+    /// (`requireWhy`). It is judged on the very list this call then dials (one resolution, no second look), so a name
+    /// that answers differently later cannot slip through; with it the name is resolved for IPv4 only (the one family
+    /// the predicate judges). The guard and the loopback rule still apply to each address as ever.
     static func connectTCPGuarded(_ host: String, _ port: UInt16, timeoutMS: Int32 = 10_000, allowLoopback: Bool = false,
-                                  guard level: AddressGuard?) -> (fd: Int32, refused: String?) {
-        var hints = addrinfo(ai_flags: 0, ai_family: AF_UNSPEC, ai_socktype: SOCK_STREAM, ai_protocol: IPPROTO_TCP,
+                                  guard level: AddressGuard?, require: (([UInt8]) -> Bool)? = nil,
+                                  requireWhy: String = "an address outside the range it must be in") -> (fd: Int32, refused: String?) {
+        var hints = addrinfo(ai_flags: 0, ai_family: require == nil ? AF_UNSPEC : AF_INET, ai_socktype: SOCK_STREAM, ai_protocol: IPPROTO_TCP,
                              ai_addrlen: 0, ai_canonname: nil, ai_addr: nil, ai_next: nil)
         var res: UnsafeMutablePointer<addrinfo>?
-        guard getaddrinfo(host, String(port), &hints, &res) == 0, let first = res else { return (-1, nil) }
+        guard getaddrinfo(host, String(port), &hints, &res) == 0, let first = res else { return (-1, require == nil ? nil : requireWhy) }
         defer { freeaddrinfo(first) }
+        if let require {
+            var all: [[UInt8]?] = []
+            var p: UnsafeMutablePointer<addrinfo>? = first
+            while let a = p { all.append(a.pointee.ai_addr.flatMap { AddressGuard.bytes(UnsafePointer($0)) }); p = a.pointee.ai_next }
+            if let why = requireRefusal(all, require: require, why: requireWhy) { return (-1, why) }
+        }
         var ai: UnsafeMutablePointer<addrinfo>? = first
         var refused: String?
         var tried = false
@@ -1432,6 +1509,16 @@ enum Wire {
             ai = a.pointee.ai_next
         }
         return (-1, tried ? nil : refused)
+    }
+
+    /// 692: the `require` rule over a resolution's addresses (nil: an address that could not be read) — pure, for tests.
+    /// Nil when every one satisfies it; an empty answer, an unreadable address or any one outside → `why`.
+    static func requireRefusal(_ addresses: [[UInt8]?], require: ([UInt8]) -> Bool, why: String) -> String? {
+        guard !addresses.isEmpty else { return why }
+        for a in addresses {
+            guard let a, require(a) else { return why }
+        }
+        return nil
     }
 }
 

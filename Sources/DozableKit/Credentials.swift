@@ -63,16 +63,31 @@ public struct CredentialBinding: Sendable, Codable, Equatable, Identifiable {
     /// 656: more headers (lower-case) the placeholder is swapped in IN PLACE — the field keeps its name and format
     /// (`x-api-key: KEY` stays `x-api-key`), where a placeholder in another header is otherwise moved into the binding's.
     public var alsoHeaders: [String]?
+    /// 692: the ONE port of its hosts the secret may go to (a launch secret, `--secret …,to=HOST:PORT`). Nil: any port —
+    /// every binding before it, unchanged. A binding with a port covers a request only when the request's port is known
+    /// and equal (`covers(host:port:)`).
+    public var port: UInt16?
+    /// 692: a launch secret's placeholder may be swapped over PLAIN HTTP (only ever to this Mac's route or a Tailscale
+    /// address — `EgressProxy.plainHTTP`), because `network.placeholders_plain_http` was on when it was bound. Nil/false:
+    /// never over plain HTTP (every other binding).
+    public var plainHTTP: Bool?
 
     public init(id: String, hosts: [String], header: CredentialHeader, environmentVariable: String? = nil,
-                alsoEnvironmentVariables: [String]? = nil, swapOnly: Bool? = nil) {
+                alsoEnvironmentVariables: [String]? = nil, swapOnly: Bool? = nil, port: UInt16? = nil, plainHTTP: Bool? = nil) {
         self.id = id
         self.hosts = hosts.map { $0.lowercased() }
         self.header = header
         self.environmentVariable = environmentVariable
         self.alsoEnvironmentVariables = alsoEnvironmentVariables
         self.swapOnly = swapOnly
+        self.port = port
+        self.plainHTTP = plainHTTP
     }
+
+    /// 692: the prefix of a launch secret's binding id (`secret:VAR`).
+    public static let launchSecretPrefix = "secret:"
+    /// 692: whether this is a launch secret's binding (`--secret`).
+    public var isLaunchSecret: Bool { id.hasPrefix(Self.launchSecretPrefix) }
 
     /// 599d: the user's GitHub login ("Use GitHub as you"): `GH_TOKEN`/`GITHUB_TOKEN` for `gh`, and git's
     /// credential helper (`git-credential-doz`) answers with the same placeholder as git's Basic password.
@@ -109,6 +124,20 @@ public struct CredentialBinding: Sendable, Codable, Equatable, Identifiable {
                                                   swapOnly: true)
 
     public func covers(_ host: String) -> Bool { hosts.contains(host.lowercased()) }
+
+    /// 692: `covers(host)` and, for a binding with a port, exactly that port (an unknown port never matches one). A binding
+    /// without a port: as `covers(host)` — any port.
+    public func covers(host: String, port: UInt16?) -> Bool {
+        guard covers(host) else { return false }
+        guard let mine = self.port else { return true }
+        return port == mine
+    }
+
+    /// 692: where the secret may go, as a refusal names it — `host:port` for a binding with a port, else its hosts.
+    public var destination: String {
+        if let port, hosts.count == 1 { return "\(hosts[0]):\(port)" }
+        return hosts.joined(separator: ",")
+    }
 
     /// 656: whether the secret may go to `path` (the request target without its query) — always without `paths`.
     public func allows(path: String?) -> Bool {
@@ -429,6 +458,20 @@ public final class CredentialVault: @unchecked Sendable {
             || issued.contains($0.id) }.flatMap(\.hosts))
     }
 
+    /// 692: whether a connection to `host:port` meets a binding that matters (as `boundHosts` counts them) — a binding with
+    /// a port only on that port. What the proxy refuses as raw TCP (the swap needs the HTTP proxy). For a binding without
+    /// a port this is `boundHosts.contains(host)`, as before.
+    public func isBound(host: String, port: UInt16) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        let issued = Set(placeholders.values).union(restoredHashes.values)
+        return bindings.values.contains { b in
+            (secrets[b.id] != nil || notices[b.id] != nil || providers[b.id] != nil || issued.contains(b.id)) && b.covers(host: host, port: port)
+        }
+    }
+
+    /// 692: a binding by id (nil: none).
+    public func binding(_ id: String) -> CredentialBinding? { lock.lock(); defer { lock.unlock() }; return bindings[id] }
+
     /// What a request carrying a placeholder of a binding that holds no secret (and has no notice of its own) is
     /// answered (401) — set by the owner, which knows the sandbox's name and how to attach an account. Nil: refused
     /// with a generic reason.
@@ -526,13 +569,15 @@ public final class CredentialVault: @unchecked Sendable {
     /// last-use times it records: returns the decision and the rewritten head (byte-for-byte
     /// identical except for the one header value it changes). `inject: false` — the connection
     /// has carried the guest's own credential — never adds our secret to a request without one.
-    public func rewrite(head: [UInt8], host: String, inject: Bool = true, now: Date = Date()) -> CredentialDecision {
+    /// 692: `port` — the request's port; a binding with a port (a launch secret) covers only that one, and a nil port
+    /// (every caller before it) never matches such a binding. Bindings without a port behave exactly as before.
+    public func rewrite(head: [UInt8], host: String, port: UInt16? = nil, inject: Bool = true, now: Date = Date()) -> CredentialDecision {
         refreshProviders(host: host.lowercased(), now: now)
         onBeforeUse?()
-        var d = decide(head: head, host: host, inject: inject, now: now, staleCheck: true)
+        var d = decide(head: head, host: host, port: port, inject: inject, now: now, staleCheck: true)
         if case .stale(let id) = d {
             onStale?(id)
-            d = decide(head: head, host: host, inject: inject, now: now, staleCheck: false)
+            d = decide(head: head, host: host, port: port, inject: inject, now: now, staleCheck: false)
         }
         let out = d.publicDecision
         if case .foreign(_, let f) = out, f.requests == 1, let cb = onForeign { cb(f) }
@@ -582,9 +627,10 @@ public final class CredentialVault: @unchecked Sendable {
         }
     }
 
-    private func decide(head: [UInt8], host: String, inject: Bool, now: Date, staleCheck: Bool) -> Internal {
+    private func decide(head: [UInt8], host: String, port: UInt16?, inject: Bool, now: Date, staleCheck: Bool) -> Internal {
         lock.lock(); defer { lock.unlock() }
         let h = host.lowercased()
+        let at = port.map { "\(h):\($0)" } ?? h
         let parsed = HTTPHead(head)
         // Every placeholder anywhere in the head is checked, not only in the bound header — 599d: and
         // inside an authorization field's Basic `user:password` (git's login), decoded.
@@ -595,7 +641,9 @@ public final class CredentialVault: @unchecked Sendable {
         let tokens = Self.placeholderTokens(in: text)
         for t in tokens {
             guard let bid = bindingFor(token: t) else { return .decided(.reject("an unknown or revoked credential placeholder")) }
-            guard let b = bindings[bid], b.covers(h) else {
+            guard let b = bindings[bid], b.covers(host: h, port: port) else {
+                // 692: a binding with a port names host:port, and so does the destination.
+                if let b = bindings[bid], b.port != nil { return .decided(.reject("a credential placeholder for \(b.destination), sent to \(at)")) }
                 return .decided(.reject("a credential placeholder for \(bindings[bid]?.hosts.joined(separator: ",") ?? bid), sent to \(h)"))
             }
             // 656: a path-confined key (OpenCode's) goes to its own paths of the host only.
@@ -611,8 +659,8 @@ public final class CredentialVault: @unchecked Sendable {
         // bound one for this host (injection). Two bindings can cover one host — an Anthropic API
         // key and a Claude subscription login — so "first for the host" alone would be arbitrary.
         let carried = tokens.lazy.compactMap { self.bindingFor(token: $0) }.compactMap { self.bindings[$0] }
-            .first { $0.covers(h) && self.secrets[$0.id] != nil }
-        let forHost = bindings.values.filter { $0.covers(h) }.sorted { $0.id < $1.id }
+            .first { $0.covers(host: h, port: port) && self.secrets[$0.id] != nil }
+        let forHost = bindings.values.filter { $0.covers(host: h, port: port) }.sorted { $0.id < $1.id }
         // 588: EVERY auth header any binding of this host uses (plus Authorization) counts as "a
         // credential is present" — a guest `x-api-key` must never get our bearer token beside it.
         var authHeaders = Set(forHost.map(\.header.headerName) + forHost.flatMap { $0.alsoHeaders ?? [] })

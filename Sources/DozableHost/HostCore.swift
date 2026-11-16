@@ -142,6 +142,9 @@ public actor HostCore {
     /// 599d: GitHub tokens given with `doz key set NAME --github` from stdin — in this host's MEMORY only
     /// (never written: a new host needs them given again, or a keychain item).
     var githubKeys: [String: String] = [:]
+    /// 692: launch secrets' values (`--secret`), by keychain service name — this daemon's MEMORY (a copy of the keychain
+    /// item, or the only copy when the keychain was locked). Never written, logged or answered.
+    var launchSecretMemory: [String: String] = [:]
     /// 594: the image preparation running per image (single-flight), and the recent finished ones.
     var preparations: [String: Preparation] = [:]
     var recentPreparations: [Preparation] = []
@@ -287,6 +290,7 @@ public actor HostCore {
                 try? p.write(to: layout.persistedState)
                 m.config.diedWithHostAt = Date()
                 try? m.config.write(store.configFile(m.name))
+                revokeSandboxSecrets(m)                         // 692: its programs are gone — so are its secrets
                 // 593 (owner, 2026-09-30): its sessions died too — a shut-down sandbox shows no session
                 // screens and has no panes: its saved screens and its terminal layout are deleted.
                 SavedScreens.remove(layout)
@@ -299,6 +303,9 @@ public actor HostCore {
                 break
             }
         }
+        // 692: the keychain items of launch secrets whose owner is gone (a sandbox or a session's record removed while no
+        // daemon ran, a revocation that could not delete its item).
+        sweepLaunchSecrets()
     }
 
     // MARK: events and metrics
@@ -905,10 +912,12 @@ public actor HostCore {
             guard let egress = m.sandbox.egress else {
                 throw HostError(.invalid, "\(m.name) is not proxied (network \(m.config.networkName)) — it has no permissions")
             }
-            return try JSONValue(encoding: PermissionPolicy.report(name: m.name, policy: Self.withoutSignInBlock(egress.policy),
-                                                                   base: PermissionPolicy.base(of: m.config), log: egress.log.records,
-                                                                   hostPorts: egress.hostPorts,                            // 691
-                                                                   hostPortsLive: DozableSettings.load().bool(SettingKey.hostPortsLive)))
+            var rep = PermissionPolicy.report(name: m.name, policy: Self.withoutSignInBlock(egress.policy),
+                                              base: PermissionPolicy.base(of: m.config), log: egress.log.records,
+                                              hostPorts: egress.hostPorts,                            // 691
+                                              hostPortsLive: DozableSettings.load().bool(SettingKey.hostPortsLive))
+            rep.secrets = Self.secretRows(m.config.secrets, vault: egress.vault)                     // 692
+            return try JSONValue(encoding: rep)
         case .netLog:
             let m = try get(r.name)
             guard let log = m.sandbox.egress?.log else { throw HostError(.invalid, "\(m.name) is not proxied (network \(m.config.networkName)) — it has no connection log") }
@@ -1071,6 +1080,18 @@ public actor HostCore {
             launchHostPorts = try PermissionPolicy.checkedLaunchPorts(givenHostPorts,
                                                                       model: modelSource.map(ModelSources.isLocal) == true ? o.localPort : nil)
         }
+        // 692: secrets given at launch — a proxied sandbox only; checked before anything is made (their form and values
+        // again, their files outside the workspace, their destinations reachable by what it is given).
+        var launchSecrets: [LaunchSecretGrant] = []
+        if let grants = r.secrets, !grants.isEmpty {
+            guard let policy = spec.network.policy else {
+                throw HostError(.invalid, "--secret needs a proxied network: the secret is held by Dozable's proxy, never in the sandbox")
+            }
+            let model = modelSource.map(ModelSources.isLocal) == true ? o.localPort.flatMap { UInt16(exactly: $0) } : nil
+            launchSecrets = try checkedLaunchSecrets(grants, readable: spec.shares.map(\.hostPath).map(Self.resolvedRoot), readableWhat: "its workspace",
+                                                     hostPorts: launchHostPorts.map(\.port) + (model.map { [$0] } ?? []),
+                                                     reach: { policy.evaluateConnection(host: $0, port: $1).kind != .deny }, allowFlag: "--allow")
+        }
         // 594: the agent's credential prerequisite, before anything is made (pi: an API-key account).
         if spec.network.policy != nil {
             let (def, kinds) = accountKinds()
@@ -1152,8 +1173,16 @@ public actor HostCore {
         if let p = prepared, p.created { cfg.createdFolder = p.path }
         // 657: the person's dotfiles — fetched on this Mac now, the commit recorded; applied at the first start.
         cfg.dotfiles = try await dotfilesPinForCreate(o, name: name, emit: emit)
+        // 692: the secrets kept (a keychain item each, or memory) — the record holds only what they are.
+        var secretLines: [String] = []
+        if !launchSecrets.isEmpty {
+            let kept = keepLaunchSecrets(owner: name, launchSecrets)
+            cfg.secrets = kept.records
+            secretLines = kept.lines
+        }
         try cfg.write(store.configFile(name))
         let m = try adopt(cfg)
+        for l in secretLines { emit(HostEvent(kind: .note, sandbox: name, text: l)) }
         var createDetail = ["network": cfg.networkName]
         if let kind = createdAccountKind(cfg.account) { createDetail["account"] = kind }     // the KIND only, never a name
         metrics?.record(run: metricsRun, action: "create", sandbox: name, image: image, phaseAfter: "off", startedAt: Date(), durationMs: 0,
@@ -1163,6 +1192,7 @@ public actor HostCore {
              + (prepared?.created == true ? ", workspace \(cfg.workspace ?? "") created" : cfg.workspace == nil ? ", isolated" : "") + ")")
         var i = await info(m, sessions: false)
         i.workspaceCreated = prepared?.created == true ? true : nil
+        i.secretLines = secretLines.isEmpty ? nil : secretLines          // 692
         // `doz create --prepare`: what this sandbox's first start would wait for — its image's
         // preparation (started, or joined when one runs) — now, with its progress; the sandbox stays off.
         if o.prepare == true {
@@ -1351,6 +1381,9 @@ public actor HostCore {
         default:
             throw HostError(.invalid, "not a lifecycle operation: \(op.rawValue)")
         }
+        // 692: a shutdown, reset or rm revokes its secrets (their placeholders and keychain items) — whatever the VM is doing,
+        // and before it (narrower: never a moment where a stopped sandbox's secret outlives it).
+        if [.shutdown, .reset, .rm].contains(op), !readOnly { revokeSandboxSecrets(m) }
         guard let action else { return await result(false) }
 
         // Forward this sandbox's progress to the caller while the operation runs.
@@ -1827,9 +1860,15 @@ public actor HostCore {
         defer { sessionGate.unlock(key) }
         // 691: `doz run NAME --host-port PORT[:tag]` — the ports join the sandbox's (kept in its record) before it starts.
         if let given = r.hostPorts, !given.isEmpty { try await addHostPorts(m, given) }
+        // 692: `doz run NAME --secret …` — the secrets join the sandbox's (kept in its record) before it starts; its own
+        // `-e` for a secret's variable is refused first.
+        try Self.refuseSecretVariables((m.config.secrets ?? []) + (r.secrets ?? []).map(\.secret), r.environment)
+        var secretLines: [String] = []
+        if let given = r.secrets, !given.isEmpty { secretLines = try addLaunchSecrets(m, given) }
         // 594 W27: an off sandbox is cold-started first when the caller asks (`doz run` does).
         let first = try await ensureRunning(m, wake: r.wake ?? true, start: r.start ?? false, emit: emit)
         var opened = try await openSessionLocked(r)
+        opened.secretLines = secretLines.isEmpty ? nil : secretLines
         if first.started { opened.started = true }
         if first.woke { opened.woke = true }
         opened.bootMilliseconds = first.milliseconds
@@ -1870,8 +1909,11 @@ public actor HostCore {
         return opened
     }
 
-    private func openSessionBody(_ r: HostRequest, extraArguments: [String]) async throws -> SessionOpened {
+    private func openSessionBody(_ given: HostRequest, extraArguments: [String]) async throws -> SessionOpened {
+        var r = given
         let m = try get(r.name)
+        // 692: a secret's variable is never the caller's to set.
+        try Self.refuseSecretVariables(m.config.secrets ?? [], r.environment)
         try await ensureRunning(m, wake: r.wake ?? true)
         // 599g: a rule file that appeared since the boot gets its view before the program starts (nothing
         // runs in the guest when nothing changed).
@@ -1946,6 +1988,9 @@ public actor HostCore {
         argv += extraArguments
         // 599i: Codex's credentials for this session — its auth.json with placeholders only (or none).
         await deliverCodexAuth(m)
+        // 692: its secrets' placeholders — VAR, and FILEVAR naming a 0600 file holding the same one.
+        let secretEnv = await deliverLaunchSecretFiles(m, user: r.user)
+        if !secretEnv.isEmpty { r.environment = (r.environment ?? [:]).merging(secretEnv) { _, mine in mine } }
         // 617 (§7): a key read on use (1Password, AWS, a command) is read now, beside the session's start, so the agent's
         // first call does not wait for it (a fresh cached read makes this nothing).
         if let vault = m.sandbox.egress?.vault {
@@ -1989,7 +2034,7 @@ public actor HostCore {
         // 608: the record a restart reopens from (names of the variables only — never their values).
         if !readOnly {
             SessionRecords.record(session, SessionRecord(argv: recordArgv, workdir: r.workdir, user: r.user,
-                                                         environmentKeys: r.environment.map { Array($0.keys) }), store, m.name)
+                                                         environmentKeys: given.environment.map { Array($0.keys) }), store, m.name)
         }
         let openMs = ms(since: t0)
         metrics?.record(run: metricsRun, action: "session open", sandbox: m.name, image: m.config.image, phaseBefore: "running",
@@ -2007,6 +2052,7 @@ public actor HostCore {
     private func exec(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void = { _ in }) async throws -> ExecOutput {
         let m = try get(r.name)
         guard let argv = r.argv, !argv.isEmpty else { throw HostError(.invalid, "exec needs a command (doz exec NAME -- CMD…)") }
+        try Self.refuseSecretVariables(m.config.secrets ?? [], r.environment)          // 692
         // 678: the deadline covers the whole exec — the wake or the start too. The client's (counted from its process's
         // start); an older client's seconds from now. At it the answer is 124; a wake or a start under way is never
         // cancelled (it finishes in the background — a cancelled wake would break the lifecycle gate), and the guest
@@ -2037,7 +2083,10 @@ public actor HostCore {
         }
         // 599i: `doz exec NAME -- codex exec …` works before any session has run (its auth.json, placeholders only).
         if m.config.imageChoice?.agent == .codex, (argv.first as NSString?)?.lastPathComponent == "codex" { await deliverCodexAuth(m) }
-        let ctx = Self.execContext(config: m.config, environment: recipeEnvironment(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name, own: m.config.settings?[SettingKey.sandboxApprovals]), m),
+        // 692: its secrets' placeholders, as a session gets them (the caller's own `-e` for them was refused above).
+        let secretEnv = await deliverLaunchSecretFiles(m, user: r.user)
+        let callerEnv = (r.environment ?? [:]).merging(secretEnv) { _, mine in mine }
+        let ctx = Self.execContext(config: m.config, environment: recipeEnvironment(Self.withClaudePermissions(callerEnv, imageSpec: m.config.spec.imageSpec?.name, own: m.config.settings?[SettingKey.sandboxApprovals]), m),
                                    workdir: r.workdir, user: r.user)
         let t0 = ContinuousClock.now
         let res: ExecResult
@@ -2207,6 +2256,7 @@ public actor HostCore {
             cfg.spec = spec
             cfg.createdAt = Date()
             cfg.credentialSources = [:]
+            cfg.secrets = nil                 // 692: a secret is its owner's alone — never copied
             cfg.diedWithHostAt = nil
             try cfg.write(store.configFile(newName))
             let nm = try adopt(cfg)
@@ -2326,6 +2376,7 @@ public actor HostCore {
         cfg.workspace = spec.shares.first { $0.guestPath == DozableImages.workspaceGuestPath }?.hostPath
         cfg.createdAt = Date()
         cfg.credentialSources = [:]
+        cfg.secrets = nil                 // 692: a secret is its owner's alone — never copied
         cfg.diedWithHostAt = nil
         cfg.placeholderHashes = nil
         cfg.createdFolder = nil         // 634: a duplicate never owns its source's folder; its custom keys (extraKeys) come along
@@ -2425,6 +2476,11 @@ public actor HostCore {
         // request for the old name finds none; one already under way holds its own `Sandbox`, and `whileOff` waits for it.
         guard managed[old] === m else { throw HostError(.notFound, "no sandbox \(old) (doz ls)") }
         try checkFree()
+        // 692: its secrets are kept under its name — a renamed sandbox is given them again (narrower than moving them).
+        if m.config.secrets?.isEmpty == false {
+            revokeSandboxSecrets(m)
+            cfg.secrets = nil
+        }
         managed[old] = nil
         creating.insert(new)
         defer { creating.remove(new) }

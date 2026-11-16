@@ -50,6 +50,8 @@ public struct PermissionReport: Codable, Equatable, Sendable {
     /// answer), and whether `doz net allow NAME host:PORT` may open one while it runs (`network.host_ports_live`).
     public var hostPorts: [HostPort]? = nil
     public var hostPortsLive: Bool? = nil
+    /// 692: the secrets it was given at launch (`--secret`) — where each goes, never a value (nil: none).
+    public var secrets: [LaunchSecretRow]? = nil
 }
 
 public enum PermissionPolicy {

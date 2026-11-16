@@ -206,7 +206,8 @@ public enum AgentPrompt {
                               browser: Bool = true, openFiles: Bool = true, openApps: [String] = [],
                               github: GitHubAccess.Mode? = nil, sshAgent: Bool = false, tools: ToolsReport? = nil,
                               workspaceRules: WorkspaceRuleMode? = nil, agent: String? = nil, dotfiles: DotfilesState? = nil,
-                              modelSource: String? = nil, localModelPort: Int? = nil, hostPorts: [HostPort] = []) -> [String: String] {
+                              modelSource: String? = nil, localModelPort: Int? = nil, hostPorts: [HostPort] = [],
+                              secrets: [LaunchSecret] = []) -> [String: String] {
         var v: [String: String] = [:]
         // 657: the user's dotfiles in this home — one line, only when it has some.
         v["dotfiles.facts"] = dotfiles.map(Self.dotfilesFacts) ?? ""
@@ -329,6 +330,10 @@ public enum AgentPrompt {
             } else if !others.isEmpty {
                 let all = HostRoute.merged(others, add: localModelPort.map { [HostPort(port: UInt16($0), origin: .model)] } ?? [])
                 v["network.permissions"]! += " " + PermissionPolicy.hostPortsFacts(all) + " More of its ports: the user's choice (`doz net allow \(name) host:PORT`)."
+            }
+            // 692: the secrets it was given — a placeholder each; the secret itself never enters the sandbox.
+            if !secrets.isEmpty {
+                v["network.permissions"]! += " " + secrets.map(\.facts).joined(separator: "; ") + " — the secret itself never enters the sandbox, and the placeholder is refused anywhere else."
             }
             let allowed = p.effectiveRules.filter { $0.action == .allow }.map(\.host)
             var unique: [String] = []
@@ -505,7 +510,8 @@ public enum AgentPrompt {
                           github: AgentPermissions.gitHubMode(policy?.permissions),
                           sshAgent: policy != nil && HostCore.sandboxValue(config, SettingKey.sshAgent, settings: settings) == .string("on"),
                           tools: tools, workspaceRules: workspaceRules, agent: agent, dotfiles: dotfiles,
-                          modelSource: modelSource, localModelPort: config.localModelPort, hostPorts: config.hostPorts ?? [])
+                          modelSource: modelSource, localModelPort: config.localModelPort, hostPorts: config.hostPorts ?? [],
+                          secrets: config.secrets ?? [])
         var r = AgentPromptReport(enabled: settings.bool(SettingKey.agentPrompt), agent: agent, text: nil, error: nil, layers: [],
                                   skill: nil, promptPath: guestPromptPath,
                                   // 617: a context-file agent's facts file (Gemini CLI's extension, Grok Build's rules).

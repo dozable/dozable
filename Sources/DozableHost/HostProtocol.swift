@@ -514,6 +514,9 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var macFence: MacFenceRequest?
     /// 691: `doz run NAME --host-port PORT[:tag]` for a sandbox — ports of this Mac added to it (kept in its record).
     public var hostPorts: [HostPort]?
+    /// 692: `doz create` / `doz run NAME` / `doz run @mac` (fenced) `--secret …` — each secret's record, its value (sent ONCE,
+    /// never logged or stored) and the real path of its file.
+    public var secrets: [LaunchSecretGrant]?
     /// 683 `session-bridges`: the switches to change (each nil: as it is).
     public var macBridges: MacFenceRequest?
 
@@ -754,6 +757,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var foreignCredentials: Int?
     /// 594: the workspace folder was made by this create (it did not exist).
     public var workspaceCreated: Bool?
+    /// 692: `create --secret`: one line per secret ("secret T → host:port (fp …)") — never a value.
+    public var secretLines: [String]? = nil
     /// 594: the agent the sandbox runs (claude-code, pi — its image spec's name; a template's too), and
     /// what is wrong with its account for that agent ("pi can't use the account mac — choose an
     /// API-key account"); nil: it fits.
@@ -842,6 +847,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case dotfiles                                     // 657
         case sound, microphone                            // 667
         case modelLine, localModelPort                    // 660
+        case secretLines                                  // 692
     }
 
     public init(from decoder: Decoder) throws {
@@ -893,6 +899,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         microphone = try c.decodeIfPresent(String.self, forKey: .microphone)
         modelLine = try c.decodeIfPresent(String.self, forKey: .modelLine)
         localModelPort = try c.decodeIfPresent(Int.self, forKey: .localModelPort)
+        secretLines = try c.decodeIfPresent([String].self, forKey: .secretLines)
     }
 
     /// `workspace` is written even when null (with `isolated: true`), so a reader never has to guess.
@@ -947,6 +954,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(dotfiles, forKey: .dotfiles)
         try c.encodeIfPresent(modelLine, forKey: .modelLine)
         try c.encodeIfPresent(localModelPort, forKey: .localModelPort)
+        try c.encodeIfPresent(secretLines, forKey: .secretLines)
     }
 
     public init(name: String, image: String, phase: String, busy: Bool, cpus: Int, memoryMiB: UInt64, ramHeldMiB: UInt64,
@@ -1274,6 +1282,8 @@ public struct SessionOpened: Codable, Equatable, Sendable {
     public var fenced: Bool? = nil
     public var fenceLine: String? = nil
     public var fenceNotes: [String]? = nil
+    /// 692: `--secret`: one line per secret given ("secret T → host:port (fp …)") — never a value.
+    public var secretLines: [String]? = nil
 }
 
 /// `image ls`.

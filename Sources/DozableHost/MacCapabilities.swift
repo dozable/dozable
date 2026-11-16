@@ -28,6 +28,8 @@ public struct MacCapabilityShape: Sendable, Equatable {
     public var localPorts: [Int] = []
     /// 691: the ports of this Mac it reaches as `host.dozable.internal:PORT`.
     public var hostPorts: [HostPort] = []
+    /// 692: the secrets given at its open (`--secret`) — records, never a value.
+    public var secrets: [LaunchSecret] = []
     /// The network: its preset (nil: custom), whether a host serves it now (`proxy`, `waiting (no host)`, nil), and its
     /// allowed and denied sites (live counts, when a host serves it).
     public var preset: String? = nil
@@ -63,6 +65,7 @@ public struct MacCapabilityShape: Sendable, Equatable {
         writable = f.writable
         localPorts = f.localPorts ?? []
         hostPorts = f.hostPorts ?? []
+        secrets = f.secrets ?? []
         hasNetwork = f.proxyPort != nil
         preset = f.policy.flatMap { $0.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
         network = f.proxyPort == nil ? nil : "waiting (no daemon)"
@@ -170,6 +173,12 @@ extension MacFence {
                          "Reaches only these ports of this Mac, through the proxy — as \(HostRoute.hostName):\(first)" + (s.hostPorts.count > 1 ? " and so on" : "")
                          + "; nothing else of this Mac." + (s.hostPorts.contains { $0.tag } ? " A named port's plain-HTTP requests say which session they come from (X-Dozable-Session — identification, not authentication)." : ""),
                          live: true, link: "doz net show @mac --session \(s.session)"))
+        }
+        // 692: its secrets — said only when it has some.
+        if s.hasNetwork, !s.secrets.isEmpty {
+            out.append(c("secrets", "Secrets", s.secrets.map { "\($0.variable) → \($0.destination)" }.joined(separator: ", "),
+                         s.secrets.map(\.facts).joined(separator: "; ") + ". The secret stays with Dozable on this Mac; the placeholder is refused anywhere else.",
+                         link: "doz net show @mac --session \(s.session)"))
         }
         // 687: listening on any port (`mac.fence_loopback_listen` on) — said only when it may; never outbound.
         if s.loopbackListen {
