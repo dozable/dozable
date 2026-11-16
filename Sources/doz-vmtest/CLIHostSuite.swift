@@ -442,6 +442,11 @@ func cliHostSuite(binary: String) async {
     check(t.run(["sessions", "@mac"]).out.contains("permissions bypassed"), "sessions @mac: marked")
     check(row("envs")?.bypassed == nil, "a session without one is not marked")
 
+    // Row K (695): the login keep-alive, with a FAKE claude only (DOZ_TEST_CLAUDE_BIN — TestSafety stops a guarded run that
+    // would run any other) and a scratch credentials file (DOZ_TEST_CLAUDE_CREDENTIALS_FILE). Never the real `claude -p`.
+    cliHostKeepaliveRows(t, root: root, run: { run($0, $1, extra: $2) }, row: row)
+    started.remove("kahold")                    // it ended it
+
     // nuke ends them (a fresh install has none) and removes the socket folder.
     let pids = rows().filter { !$0.ended }.compactMap(\.pid)
     r = t.run(["nuke", "--yes"], timeout: 120)
@@ -450,6 +455,186 @@ func cliHostSuite(binary: String) async {
     check(t.waitFor(10) { pids.allSatisfy { kill(pid_t($0), 0) != 0 } }, "every program it held is gone (\(pids.count))")
     check(!FileManager.default.fileExists(atPath: dir), "the socket folder is removed")
     started.removeAll()
+}
+
+/// 695: a FAKE claude for the login keep-alive. `hold`: it waits, as a running Claude Code would (its shell stays, so its
+/// command line names it); any other argv is a keep-alive run (1 s long): it records its argv, folder, folder's mode and
+/// entries and its environment's NAMES, then — as the real one — renews the scratch credentials file by 8 hours only when its
+/// token HAS EXPIRED (exit 0 either way). With the FAIL file it says a token-shaped error on stderr and exits 1; with
+/// FAIL.never it never renews. @LOG@, @CREDS@, @FAIL@: the suite's scratch files.
+let fakeKeepaliveClaude = #"""
+#!/bin/sh
+if [ "$1" = hold ]; then sleep 600; exit 0; fi
+{
+  echo "=== keepalive run"
+  echo "begin"
+  printf 'argv:'; for a in "$@"; do printf ' [%s]' "$a"; done; echo
+  echo "cwd: $(pwd -P)"
+  echo "mode: $(/usr/bin/stat -f %Lp .)"
+  echo "entries: $(ls -A | wc -l | tr -d ' ')"
+  echo "env: $(env | sed 's/=.*//' | sort | tr '\n' ' ')"
+} >> '@LOG@'
+sleep 1
+echo "end" >> '@LOG@'
+if [ -e '@FAIL@' ]; then echo "Error: OAuth token refresh failed: sk-ant-ort01-SHOULDNEVERBESTORED0123456789" >&2; exit 1; fi
+[ -e '@FAIL@.never' ] && exit 0
+# As Claude Code: a token that has not expired is left as it is.
+exp=$(grep -o '"expiresAt":[0-9]*' '@CREDS@' | cut -d: -f2)
+now=$(( $(date +%s) * 1000 ))
+[ -n "$exp" ] && [ "$exp" -gt "$now" ] && exit 0
+exp=$(( ($(date +%s) + 28800) * 1000 ))
+printf '{"claudeAiOauth":{"accessToken":"sk-ant-oat01-RENEWED-FAKE","refreshToken":"sk-ant-ort01-FAKE-NEVER-READ","expiresAt":%s,"scopes":["user:inference"],"subscriptionType":"max"}}' "$exp" > '@CREDS@.tmp' && mv '@CREDS@.tmp' '@CREDS@'
+exit 0
+"""#
+
+
+/// 695: a scratch Claude credentials file expiring `seconds` from now (a made-up access token; the refresh token is never read).
+func writeFakeCredentials(_ path: String, expiresIn seconds: Double) {
+    let ms = Int64((Date().timeIntervalSince1970 + seconds) * 1000)
+    let json = #"{"claudeAiOauth":{"accessToken":"sk-ant-oat01-FAKE-\#(ms)","refreshToken":"sk-ant-ort01-FAKE-NEVER-READ","expiresAt":\#(ms),"scopes":["user:inference"],"subscriptionType":"max"}}"#
+    try? json.write(toFile: path + ".tmp", atomically: false, encoding: .utf8)
+    rename(path + ".tmp", path)
+    chmod(path, 0o600)
+}
+
+/// 695: the fake's log — one entry per keep-alive run.
+struct FakeKeepaliveLog {
+    struct Run { var argv: [String]; var cwd: String; var mode: String; var entries: String; var env: [String] }
+    let path: String
+    /// Every run ended before the next began (begin/end alternate).
+    var sequential: Bool {
+        let marks = ((try? String(contentsOfFile: path, encoding: .utf8)) ?? "").split(separator: "\n").filter { $0 == "begin" || $0 == "end" }
+        return marks.enumerated().allSatisfy { $0.element == ($0.offset % 2 == 0 ? "begin" : "end") }
+    }
+    var runs: [Run] {
+        let text = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+        return text.components(separatedBy: "=== keepalive run\n").dropFirst().map { block in
+            var r = Run(argv: [], cwd: "", mode: "", entries: "", env: [])
+            for line in block.split(separator: "\n").map(String.init) {
+                if line.hasPrefix("argv:") {
+                    r.argv = line.dropFirst(5).components(separatedBy: " [").dropFirst().map { $0.hasSuffix("]") ? String($0.dropLast()) : $0 }
+                }
+                if line.hasPrefix("cwd: ") { r.cwd = String(line.dropFirst(5)) }
+                if line.hasPrefix("mode: ") { r.mode = String(line.dropFirst(6)) }
+                if line.hasPrefix("entries: ") { r.entries = String(line.dropFirst(9)) }
+                if line.hasPrefix("env: ") { r.env = line.dropFirst(5).split(separator: " ").map(String.init) }
+            }
+            return r
+        }
+    }
+}
+
+/// 695 row K: `doz account keepalive always` with no subscriber renews (one run, the minimal argv, a fresh empty 0700 folder,
+/// the env allowlist), `account ls --json` says renewed; a failed run is said by doctor without its token; an UNFENCED
+/// Claude Code running is a skip naming its session, and the run follows once it ends; looking needs no daemon.
+private func cliHostKeepaliveRows(_ t: CLIHarness, root: URL, run: (String, [String], [String]) -> CLIRun, row: (String) -> SessionRow?) {
+    let ka = root.appendingPathComponent("keepalive-test")
+    try? FileManager.default.createDirectory(at: ka, withIntermediateDirectories: true)
+    let bin = ka.appendingPathComponent("claude-ka-fake").path, log = ka.appendingPathComponent("runs.log").path
+    let creds = ka.appendingPathComponent("credentials.json").path, failFile = ka.appendingPathComponent("FAIL").path
+    try? fakeKeepaliveClaude.replacingOccurrences(of: "@LOG@", with: log).replacingOccurrences(of: "@CREDS@", with: creds)
+        .replacingOccurrences(of: "@FAIL@", with: failFile).write(toFile: bin, atomically: true, encoding: .utf8)
+    chmod(bin, 0o755)
+    let runs = FakeKeepaliveLog(path: log)
+    t.run(["daemon", "stop"], timeout: 60)
+    t.env["DOZ_TEST_CLAUDE_BIN"] = bin
+    t.env["DOZ_TEST_CLAUDE_CREDENTIALS_FILE"] = creds
+    t.env["DOZ_TEST_LOGIN_WATCH_SECONDS"] = "1"
+    t.env["DOZ_TEST_KEEPALIVE_SCHEDULE"] = "0,3,6"          // the retries in seconds (a person's: 1, 5, 15 min, then 30)
+    defer {
+        t.run(["account", "keepalive", "off"], timeout: 30)
+        t.run(["daemon", "stop"], timeout: 60)
+        for k in ["DOZ_TEST_CLAUDE_BIN", "DOZ_TEST_CLAUDE_CREDENTIALS_FILE", "DOZ_TEST_LOGIN_WATCH_SECONDS", "DOZ_TEST_KEEPALIVE_SCHEDULE"] { t.env[k] = nil }
+    }
+    func keepalive() -> KeepaliveStatus? { t.json(["account", "ls"], [AccountRow].self)?.first { $0.name == "mac" }?.keepalive }
+    func waitOutcome(_ o: String, _ more: (KeepaliveStatus) -> Bool = { _ in true }) -> KeepaliveStatus? {
+        var k: KeepaliveStatus?
+        _ = t.waitFor(25) { k = keepalive(); return k?.outcome == o && more(k!) }
+        return k
+    }
+    // (1) Claude Code renews only an expired token: nothing runs before the expiry.
+    writeFakeCredentials(creds, expiresIn: 8)
+    var r = t.run(["account", "keepalive", "always"], timeout: 60)
+    check(r.code == 0 && r.out.contains("keep-alive always"), "K: doz account keepalive always (\(r.code)\(r.code == 0 ? "" : ": " + r.err))")
+    usleep(3_000_000)
+    var k = keepalive()
+    check(runs.runs.isEmpty && k?.outcome == nil && k?.nextTryAt != nil,
+          "K: no run before the expiry — next try at the expiry (\(runs.runs.count) runs, next \(k?.nextTryAt.map { "\($0)" } ?? "none"))")
+    // (2) At the expiry: one run, renewed.
+    k = waitOutcome("renewed")
+    check(k?.mode == "always" && k?.outcome == "renewed" && (k?.renewedUntil ?? .distantPast) > Date().addingTimeInterval(7 * 3600),
+          "K: no sandbox, nothing subscribed — renewed near expiry (account ls --json: \(k?.outcome ?? "none"))")
+    let first = runs.runs
+    check(first.count == 1, "K: exactly one run for that expiry (\(first.count))")
+    if let f = first.first {
+        check(f.argv == ["-p", "ok", "--model", "haiku", "--max-turns", "1", "--no-session-persistence", "--tools", "", "--strict-mcp-config",
+                         "--settings", #"{"disableAllHooks":true}"#], "K: the fixed argv (\(f.argv))")
+        check(f.cwd == realPath(root.path) + "/keepalive/run" && f.mode == "700" && f.entries == "0",
+              "K: a fresh, empty 0700 folder in the store (\(f.cwd), \(f.mode), \(f.entries) entries)")
+        let shell: Set<String> = ["PWD", "SHLVL", "_", "OLDPWD"]
+        let allowed: Set<String> = ["PATH", "HOME", "USER", "LOGNAME", "LANG", "TMPDIR", "SHELL", "CLAUDE_CONFIG_DIR"]
+        let extra = Set(f.env).subtracting(shell).subtracting(allowed)
+        check(extra.isEmpty, "K: only the env allowlist reaches the run (no CLAUDECODE, CLAUDE_CODE_*, ANTHROPIC_*, DOZ_*: \(extra.sorted()))")
+    }
+    r = t.run(["account", "ls"], timeout: 30)
+    check(r.out.contains("keep-alive always · last renewed") && r.out.contains("next try"), "K: account ls says it (\(r.out.split(separator: "\n").last ?? ""))")
+    r = t.run(["daemon", "status"], timeout: 30)
+    check(r.out.contains("Claude login keep-alive always · last renewed"), "K: daemon status says it")
+    let recordPath = root.appendingPathComponent("keepalive.json").path
+    let recMode = ((try? FileManager.default.attributesOfItem(atPath: recordPath))?[.posixPermissions] as? NSNumber)?.intValue
+    check(recMode == 0o600, "K: keepalive.json is 0600 (\(recMode.map { String($0, radix: 8) } ?? "none"))")
+
+    // A failed run: its exit and Claude's last line, never a token — in the record, doctor and the daemon's log.
+    FileManager.default.createFile(atPath: failFile, contents: nil)
+    writeFakeCredentials(creds, expiresIn: 2)
+    k = waitOutcome("failed")
+    check(k?.exit == 1 && k?.reason?.contains("exit 1: Error: OAuth token refresh failed: …") == true, "K: a failed run is recorded (\(k?.reason ?? "none"))")
+    r = t.run(["doctor", "--json"], timeout: 60)
+    let drow = (try? JSONSerialization.jsonObject(with: r.outData) as? [[String: Any]])?.first { $0["check"] as? String == "Claude login keep-alive" }
+    check(drow?["status"] as? String == "warn" && (drow?["detail"] as? String)?.contains("FAILED (exit 1:") == true,
+          "K: doctor warns with the failure (\(drow?["detail"] as? String ?? "no row"))")
+    let everywhere = [r.out, (try? String(contentsOfFile: recordPath, encoding: .utf8)) ?? "",
+                      (try? String(contentsOf: root.appendingPathComponent("daemon.log"), encoding: .utf8)) ?? "",
+                      t.run(["account", "ls", "--json"], timeout: 30).out]
+    check(!everywhere.contains { $0.contains("SHOULDNEVERBESTORED") || $0.contains("FAKE-NEVER-READ") || $0.contains("sk-ant-oat01") },
+          "K: no token in doctor, keepalive.json, the daemon's log or account ls --json")
+    try? FileManager.default.removeItem(atPath: failFile)
+
+    // (3) A Claude Code that leaves the login as it is: `unchanged`, retried on the schedule (here 0, 3, 6 s after the expiry),
+    // then `failed` after the last; (4) the record's next try is the retry. Never two runs at once.
+    FileManager.default.createFile(atPath: failFile + ".never", contents: nil)
+    let neverFrom = runs.runs.count
+    let expiryMs = Int64((Date().timeIntervalSince1970 + 2) * 1000)
+    writeFakeCredentials(creds, expiresIn: 2)
+    k = waitOutcome("unchanged")
+    let wantNext = Date(timeIntervalSince1970: Double(expiryMs) / 1000 + 3)
+    check(k?.reason?.contains("Claude Code did not renew the login (the token had not expired yet)") == true
+          && k.flatMap { $0.nextTryAt }.map { abs($0.timeIntervalSince(wantNext)) < 1.5 } == true,
+          "K: unchanged — said, and the next try is the retry 3 s after the expiry (\(k?.nextTryAt.map { "\($0)" } ?? "none"))")
+    k = waitOutcome("failed")
+    check(k?.reason?.contains("gave up after 3 tries") == true && runs.runs.count == neverFrom + 3,
+          "K: after the last retry: failed (\(runs.runs.count - neverFrom) runs: \(k?.reason ?? "none"))")
+    check(runs.sequential, "K: never two runs at once")
+    try? FileManager.default.removeItem(atPath: failFile + ".never")
+
+    // An UNFENCED Claude Code running holds its own copy: skipped, naming it; the run follows once it ends.
+    let rr = run("kahold", [bin, "hold"], [])
+    check(rr.code == 0 && t.waitFor(10) { row("kahold")?.pid != nil }, "K: an unfenced (fake) Claude Code running in session kahold")
+    let holderPid = row("kahold")?.pid ?? -1
+    let before = runs.runs.count
+    writeFakeCredentials(creds, expiresIn: 2)
+    k = waitOutcome("skipped") { $0.reason?.contains("session kahold on this Mac") == true }
+    check(k?.reason?.contains("Claude Code (pid \(holderPid), session kahold on this Mac) holds its own copy of this Mac's login") == true,
+          "K: skipped, naming its pid and session (\(k?.reason ?? "none"))")
+    check(runs.runs.count == before, "K: …and nothing ran")
+    t.run(["sessions", "end", "@mac", "kahold", "--yes"], timeout: 30)
+    k = waitOutcome("renewed")
+    check(k?.outcome == "renewed" && runs.runs.count == before + 1, "K: once it ended, the next look renewed (a skip never used up the expiry)")
+
+    // Looking needs no daemon: the record, from the store.
+    t.run(["daemon", "stop"], timeout: 60)
+    r = t.run(["account", "ls"], timeout: 30)
+    check(r.out.contains("keep-alive always · last renewed") && !t.hostRunning, "K: account ls with no daemon reads the record (and starts none)")
 }
 
 /// `realpath(3)` (`/tmp` is `/private/tmp`).

@@ -353,18 +353,20 @@ final class AccountTests: XCTestCase {
         XCTAssertFalse(w.keepaliveIfDue(now: now.addingTimeInterval(-600)))
         // Claude Code runs on the Mac: it renews itself.
         running.mutate { $0 = true }
-        XCTAssertFalse(w.keepaliveIfDue(now: now))
+        XCTAssertFalse(w.keepaliveIfDue(now: now.addingTimeInterval(301)))
         XCTAssertEqual(runner.runs.count, 0)
         // A new expiry window, nobody running: once.
         keychain.put(svc, claudeItem("sk-ant-oat01-MAC2", expires: now.addingTimeInterval(240)))
         w.readNow(now: now)
         running.mutate { $0 = false }
-        XCTAssertTrue(w.keepaliveIfDue(now: now))
-        XCTAssertFalse(w.keepaliveIfDue(now: now), "once per expiry")
+        XCTAssertFalse(w.keepaliveIfDue(now: now), "695: not before the expiry")
+        XCTAssertTrue(w.keepaliveIfDue(now: now.addingTimeInterval(241)), "at the expiry")
+        XCTAssertFalse(w.keepaliveIfDue(now: now.addingTimeInterval(300)), "once per expiry")
         XCTAssertEqual(runner.runs.count, 1)
         let (bin, args, env) = runner.runs[0]
         XCTAssertEqual(bin, "/fake/claude")
-        XCTAssertEqual(args, ["-p", "ok", "--model", "haiku", "--max-turns", "1", "--no-session-persistence"])
+        XCTAssertEqual(args, ["-p", "ok", "--model", "haiku", "--max-turns", "1", "--no-session-persistence",
+                              "--tools", "", "--strict-mcp-config", "--settings", #"{"disableAllHooks":true}"#])
         XCTAssertNil(env["ANTHROPIC_API_KEY"])
         XCTAssertNil(env["CLAUDE_CODE_OAUTH_TOKEN"])
         XCTAssertEqual(w.state, .ok)

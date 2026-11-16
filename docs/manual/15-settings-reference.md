@@ -185,7 +185,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `daemon.idle_timeout_minutes` | `0` | integer 0–10080 | after `doz daemon stop` | `$DOZ_DAEMON_IDLE`, `doz daemon start --idle-timeout` | Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0 = never. |
 | `daemon.screen_capture_minutes` | `5` | integer 0–1440 | after `doz daemon stop` | `$DOZ_SCREEN_CAPTURE` | Every this many minutes, save the screen of each running sandbox's sessions that printed something since (what a sleep or hibernation falls back on); 0 = only when it pauses, sleeps or hibernates. |
 | `daemon.boot_logs_kept` | `5` | integer 1–50 | next boot | `$DOZ_BOOT_LOGS` | How many boots of each sandbox to keep (its steps and kernel console — the web UI's Boot log, doz console --boot N); the oldest goes. |
-| `daemon.keepalive` | `false` | boolean | a store that hasn't chosen | — | Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the daemon runs the Mac's claude once to renew it. |
+| `daemon.keepalive` | `false` | boolean | a store that hasn't chosen | — | When a Mac login expires, while a sandbox or fenced session uses it and no unfenced Claude Code runs, the daemon runs the Mac's claude once to renew it (doz account keepalive always: also with nothing using it). |
 
 ### `[store]`
 

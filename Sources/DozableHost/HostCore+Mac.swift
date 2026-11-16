@@ -163,7 +163,7 @@ extension HostCore {
         let n = "\(MacPlace.name) \(s)"
         for (k, w) in watchers where w.subscriberNames.contains(n) {
             w.unsubscribe(n)
-            if w.isEmpty { w.stop(); watchers[k] = nil }
+            if w.isEmpty && !w.standing { w.stop(); watchers[k] = nil }
         }
     }
 

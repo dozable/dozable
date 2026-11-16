@@ -693,10 +693,14 @@ within 5 minutes of expiry; `claude auth status` does not renew it.
   once. If the login is still expired, it answers with a message that Claude Code in the sandbox
   shows: "this Mac's Claude login expired at 04:59 — open Claude Code on the Mac (any prompt), then
   retry". The session recovers by itself when the Mac renews.
-- **Keep-alive (off by default):** `doz account keepalive on`. Within 10 minutes of expiry, if a
-  sandbox used the Mac login in the last 15 minutes and no Claude Code runs on the Mac, the daemon
-  runs the Mac's own `claude -p ok --model haiku` once. Claude Code's normal startup renews the login
-  under its own lock, at the cost of one tiny turn on your subscription.
+- **Keep-alive (off by default):** `doz account keepalive on|always|off`. When the login expires the
+  daemon runs the Mac's own `claude -p ok --model haiku` once, with no tools, no MCP servers and no
+  hooks, in an empty folder. Claude Code's normal startup renews the login under its own lock, at the
+  cost of one tiny turn on your subscription. `on`: only when a sandbox or fenced session used the
+  login in the last 15 minutes. `always`: whether or not anything uses it. It never runs while a Claude
+  Code that is not fenced runs on the Mac: that program holds its own copy of the login, and a renewal
+  would cancel it. It never runs from a daemon started over ssh. `doz account ls`, `doz daemon status`
+  and `doz doctor` show the last try and the next.
 - **The Mac signs out:** the sandboxes' token is cleared at once, and requests get "this Mac's Claude
   Code signed out".
 - **A different account signs in on the Mac:** sandboxes on `mac` are **held** and don't silently

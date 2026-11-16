@@ -313,7 +313,7 @@ doz account rename work team                     # its keychain item, the defaul
 doz account set-plan team pro                    # a setup token's plan, without pasting it again
 doz account add team --setup-token --force       # a new token under the same name (default, sandboxes, plan kept)
 doz account rm work [--force]                    # also deletes the keychain item doz made
-doz account keepalive on                          # off by default: runs `claude -p` near expiry
+doz account keepalive on|always|off               # off by default: runs the Mac's `claude -p` when the login expires (always: even with nothing using the login)
 doz try grok                                     # try an agent: a new empty folder, Locked + its model, attached; on exit sleep/delete/keep
 doz try --ui grok                                # the same in the dashboard's Quick try (#/try/grok; doz ui started in the background if needed)
 doz try grok --dry-run --json                    # the plan (also --dry-run on new, create, up)

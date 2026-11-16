@@ -7,6 +7,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | Path | What |
 |---|---|
 | `Sources/DozableHost/ClaudeLogin.swift`, `Accounts.swift`, `LoginWatcher.swift`, `HostCore+Accounts.swift` | the Mac's Claude Code login (read-only), the keychain through `/usr/bin/security`, accounts (`<store>/accounts.json`, never a secret), ONE watcher per Mac login, the keep-alive, key policy |
+| `Sources/DozableHost/Keepalive.swift` | the login keep-alive's modes (`KeepaliveMode`), who holds the login (`ClaudeHolders`), its record `<store>/keepalive.json` (`KeepaliveRecord`) and what is shown (`KeepaliveStatus`) |
 
 ## Rules that each cost a bug to learn here
 
@@ -36,6 +37,61 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   ~/.claude/.credentials.json") and `account verify`. Never written. Guarded runs: `ClaudeCredentialsFile.path` gives
   only `DOZ_TEST_CLAUDE_CREDENTIALS_FILE` (none without it, and none under `DOZ_TEST_NO_MAC_LOGIN`/`memory`); a read of
   a `.credentials.json` in the real home is a `TestSafety` stop.
+
+- **The login keep-alive changes only WHEN the Mac's own `claude -p` runs** (695). Renewal is the Mac's: the keep-alive
+  runs this Mac's Claude Code once and Claude Code renews its own login as it starts — Dozable never reads, holds, writes or
+  logs the refresh token, and writes no `Claude Code-credentials*` item. Modes (`doz account keepalive off|on|always`;
+  `AccountsFile.keepalive` stays true for on and always so an older doz reads it as on, `keepaliveMode` "always" refines it,
+  `KeepaliveMode.of`): **on** — at the expiry (see the timing below), while a subscriber used the login in
+  the last 15 min (a sandbox, and a fenced session: `MacFenceProxy` is a `CredentialTarget`, so it counts by construction —
+  `LoginWatcherTests` pins it); **always** — no use needed: the daemon keeps a STANDING watcher on each `mac`-kind account
+  (`HostCore.ensureStandingWatchers`, at its start and on a mode change; `LoginWatcher.standing` keeps it when its last
+  subscriber goes). With the always-on daemon a renewal can happen on a Mac where nothing runs.
+  - **What blocks a renewal (each a skip, recorded with its reason, retried at the next look — never using up the
+    expiry):** a daemon whose login keychain is locked (`HostServer.keychainLocked`: started over ssh — it never runs it);
+    Claude Code not installed; and an UNFENCED Claude Code running — it holds its own copy of the login, which a renewal by
+    anyone else cancels (the reported fact; the skip holds either way). `ClaudeLogin.claudePids` (command line `claude …` or
+    Claude Code's versioned binary, minus Dozable's own `deckhold-mac`/`doz` that only NAME it in their argv) →
+    `ClaudeHolders.find`: a member of a FENCED session (its sentinel, `MacFenceStop`'s test) holds only a placeholder and is
+    left out — named in the daemon's log; the keep-alive's own run (`KeepaliveRuns`) too; any other is a holder, named by
+    the unfenced session whose program it is or descends from ("Claude Code (pid N, session admin on this Mac)", or "not
+    Dozable's"). The kept-session restart after a renewal is not this rule's.
+  - **The run, the minimum:** a fixed argv (`KeepaliveConfig.arguments`: `-p ok --model haiku --max-turns 1
+    --no-session-persistence --tools "" --strict-mcp-config --settings '{"disableAllHooks":true}'` — the last three kept
+    because `claude --help` lists them; never `--bare`, which reads no OAuth login), the env allowlist
+    (`scrubbedEnvironment`: PATH, HOME, USER, LOGNAME, LANG, TMPDIR, SHELL, CLAUDE_CONFIG_DIR — never `ANTHROPIC_*`,
+    `CLAUDE_CODE_*`, `CLAUDECODE`), a fresh EMPTY `<store>/keepalive/run` (0700, made again for each run), 120 s then
+    TERM, KILL. Nothing from a sandbox reaches its argv, env or folder.
+  - **When: AT the expiry, not before** (`KeepaliveSchedule`). Claude Code renews only a token that has EXPIRED — seen on a
+    real Mac (Claude Code 2.1.325): this exact command run 7 min 46 s before the expiry exited 0 and left the login as it
+    was; after the expiry the login showed a new expiry 8 h on. So the first run for an expiry is due at the expiry (the
+    watcher sets a timer for it — a renewal follows within seconds, not at the next 2-minute poll — and a proxy that finds
+    the token expired asks for a look at once). A run that exits 0 and leaves the expiry as it was is `unchanged` ("Claude
+    Code did not renew the login (the token had not expired yet)") and NOT final: again 1, 5 and 15 min after the expiry,
+    then every 30 min, 6 runs at most. A run that FAILS (a non-zero exit, a timeout — a network down for a minute) is retried
+    the same way, in the same limit, recorded `failed` with its reason and the next retry; after the 6th the outcome stays
+    `failed` ("gave up after 6 tries") until the expiry changes or `doz account keepalive` is set again. Only a renewal
+    ends the tries early. One run in flight at a time; a skip never uses a run up. A sandbox asking while the token is expired gets the
+    proxy's 401 as before, unless the renewal came first. `ClaudeMacLogin.choose` offers the credentials FILE's login
+    expired when there is no Keychain item at all (a login made only over ssh) — otherwise an expired file-only login read
+    as signed out and could never be renewed. Seam: `DOZ_TEST_KEEPALIVE_SCHEDULE` (guarded).
+  - **The record** `<store>/keepalive.json` (0600; `KeepaliveRecord`): `account`, `mode`, `lastAttemptAt`, `outcome`
+    (`renewed|unchanged|skipped|failed`), `reason`, `exit`, `expiresBefore`, `expiresAfter`, `nextTryAt` (the new expiry,
+    or the next retry), and the last
+    renewal kept across later tries. The reason holds only the exit code and Claude's last stderr line, at most 200
+    characters, token-shaped runs replaced by `…` (`KeepaliveRecord.clean`). It is read without a daemon: `doz account ls`
+    ("keep-alive always · last renewed 09:02 (until 17:02) · next try 16:52"; `--json`: the Mac row's `keepalive`), `doz
+    daemon status` (`HostStatus.keepalive`; with no daemon from the store) and doctor's "Claude login keep-alive" row (a
+    warning on a failure, a locked daemon, or `on` with nothing using the login). One daemon log line per try; metrics
+    action `keepalive`.
+  - **Asked once, after "start at login":** onboarding and `doz daemon login-item on` ask "Also keep this Mac's Claude login
+    renewed when no sandbox uses it? [y/N]" — only on a terminal, never `--json` or in a guarded run (`KeepaliveOffer`);
+    off a terminal the command is printed.
+  - **Tests never run the real `claude -p`:** a guarded run's only claude is the fake `DOZ_TEST_CLAUDE_BIN` (resolved,
+    run and counted as a running Claude Code by file name), and `TestSafety.keepaliveClaudeViolation` stops the guarded
+    runner (`ProcessKeepaliveRunner(claude: true)`) that would run anything else; `DOZ_TEST_LOGIN_WATCH_SECONDS` sets the
+    watch interval. `LoginWatcherTests`, `KeepaliveStatusTests`, `TestSafetyTests`, `make test-cli-host` row K,
+    `make test-cli-fence` (a fenced fake Claude Code does not block it), `make test-cli-keychainlocked` row 9.
 
 - **Agent credentials (`AgentCredentials.swift`; the table is `AgentImages.credentials`):**
   Claude Code: `mac`, `setup-token`, `api-key` (660: and through models@1 a gateway's `key` — OpenRouter — or the

@@ -202,8 +202,11 @@ public struct AccountsFile: Codable, Equatable, Sendable {
     public var version = 1
     /// The account a sandbox that follows the default uses (`none`: no credential).
     public var defaultAccount: String = "mac"
-    /// D3: run the Mac's own `claude` near expiry while a sandbox uses the Mac login (off by default).
+    /// D3: run the Mac's own `claude` when the login expires while a sandbox uses the Mac login (off by default).
     public var keepalive: Bool = false
+    /// 695: `always` refines `keepalive` (which stays true for on and always, so an older doz reads it as on); nil: the
+    /// bool alone (`KeepaliveMode.of`). An older doz that rewrites the file drops it (always → on).
+    public var keepaliveMode: String?
     public var accounts: [AccountRecord] = []
     /// 599i: the OpenAI account Codex sandboxes that follow the default use (nil: none — never an
     /// Anthropic account). `doz account default NAME` with an OpenAI account sets it.
@@ -371,6 +374,8 @@ public struct AccountRow: Codable, Equatable, Sendable {
     public var verifiedAt: Date? = nil
     /// 641: its key is a keychain item the person named (`--keychain SERVICE`) — Dozable never moves, replaces or deletes it.
     public var adopted: Bool? = nil
+    /// 695: a Mac login's keep-alive — the store's mode, the last try, the next (nil: not a Mac login).
+    public var keepalive: KeepaliveStatus? = nil
 }
 
 // MARK: verification

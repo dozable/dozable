@@ -305,8 +305,9 @@
 # (integer 1–50; env DOZ_BOOT_LOGS; applies when the next boot of a sandbox is kept)
 # boot_logs_kept = 5
 
-# Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the daemon runs the
-# Mac's claude once to renew it.
+# When a Mac login expires, while a sandbox or fenced session uses it and no unfenced Claude Code
+# runs, the daemon runs the Mac's claude once to renew it (doz account keepalive always: also with
+# nothing using it).
 # (boolean; the choice for a store that has not made one (doz account keepalive wins))
 # keepalive = false
 

@@ -4,11 +4,45 @@ import DozableKit
 /// Runs the Mac's own `claude` once (the keep-alive, 588 D3). A fake in tests.
 public protocol KeepaliveRunning: Sendable {
     func run(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> Int32
+    /// 695: the same, with the program's last line on stderr (what a failed renewal says — never stored as it is: see
+    /// `KeepaliveRecord.clean`). A runner that does not capture says nothing.
+    func runCapturing(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> KeepaliveRun
+}
+
+extension KeepaliveRunning {
+    public func runCapturing(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> KeepaliveRun {
+        KeepaliveRun(code: run(binary: binary, arguments: arguments, environment: environment, directory: directory, timeout: timeout), lastErrorLine: nil)
+    }
+}
+
+/// 695: how one keep-alive run ended. `code` -1: it could not start; -2: killed at its timeout.
+public struct KeepaliveRun: Equatable, Sendable {
+    public var code: Int32
+    public var lastErrorLine: String?
+    public init(code: Int32, lastErrorLine: String?) { self.code = code; self.lastErrorLine = lastErrorLine }
+}
+
+/// 695: the pids of the keep-alive's own runs while they run — never counted as a Claude Code that holds the login.
+public enum KeepaliveRuns {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var pids: Set<pid_t> = []
+    static func insert(_ p: pid_t) { lock.withLock { _ = pids.insert(p) } }
+    static func remove(_ p: pid_t) { lock.withLock { _ = pids.remove(p) } }
+    public static func contains(_ p: pid_t) -> Bool { lock.withLock { pids.contains(p) } }
 }
 
 public struct ProcessKeepaliveRunner: KeepaliveRunning {
-    public init() {}
+    /// 695: this runner runs the Mac's CLAUDE (the login keep-alive) — a guarded run may run only its fake
+    /// (`TestSafety.keepaliveClaudeViolation` stops anything else). The Codex keep-alive's runner is not one.
+    public var claude = false
+    public init(claude: Bool = false) { self.claude = claude }
+
     public func run(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> Int32 {
+        runCapturing(binary: binary, arguments: arguments, environment: environment, directory: directory, timeout: timeout).code
+    }
+
+    public func runCapturing(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> KeepaliveRun {
+        if claude { TestSafety.enforce(TestSafety.keepaliveClaudeViolation(binary)) }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: binary)
         p.arguments = arguments
@@ -16,38 +50,105 @@ public struct ProcessKeepaliveRunner: KeepaliveRunning {
         p.currentDirectoryURL = directory
         p.standardInput = FileHandle.nullDevice
         p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        do { try p.run() } catch { return -1 }
+        let err = Pipe()
+        p.standardError = err
+        do { try p.run() } catch { return KeepaliveRun(code: -1, lastErrorLine: nil) }
+        let pid = p.processIdentifier
+        KeepaliveRuns.insert(pid)
+        defer { KeepaliveRuns.remove(pid) }
+        // Collected on its own thread (a full pipe would stall the program); only the last 16 KiB are kept. (A child of
+        // the program may keep the pipe open past its exit: the reader is then left behind, and what it has is read.)
+        let box = LockedData()
+        let done = DispatchSemaphore(value: 0)
+        let handle = err.fileHandleForReading
+        DispatchQueue.global().async {
+            while true {
+                let d = handle.availableData
+                if d.isEmpty { break }
+                box.append(d, keep: 16 << 10)
+            }
+            done.signal()
+        }
         let deadline = Date().addingTimeInterval(timeout)
         while p.isRunning && Date() < deadline { usleep(50_000) }
-        if p.isRunning { p.terminate(); return -2 }
-        return p.terminationStatus
+        var timedOut = false
+        if p.isRunning {
+            timedOut = true
+            p.terminate()
+            let grace = Date().addingTimeInterval(5)
+            while p.isRunning && Date() < grace { usleep(50_000) }
+            if p.isRunning { kill(pid, SIGKILL) }
+        }
+        _ = done.wait(timeout: .now() + 2)
+        let last = String(decoding: box.data, as: UTF8.self).split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }.last { !$0.isEmpty }
+        return KeepaliveRun(code: timedOut ? -2 : p.terminationStatus, lastErrorLine: last)
     }
+}
+
+final class LockedData: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _data = Data()
+    var data: Data { lock.withLock { _data } }
+    func append(_ d: Data, keep: Int) { lock.withLock { _data.append(d); if _data.count > keep { _data = Data(_data.suffix(keep)) } } }
 }
 
 /// How the keep-alive decides and acts (injected so tests use a fake runner and fake probes).
 public struct KeepaliveConfig: Sendable {
-    public var enabled: Bool
+    /// 695: off, on (a subscriber used the login lately) or always (no use needed).
+    public var mode: KeepaliveMode
+    public var enabled: Bool { mode != .off }
     public var runner: KeepaliveRunning
-    public var isClaudeRunning: @Sendable () -> Bool
+    /// 695: the Claude Code processes that hold their own copy of the login now (unfenced), and the fenced ones left out.
+    public var holders: @Sendable () -> ClaudeHolders
     public var binary: @Sendable () -> String?
-    /// Run when the access token expires within this long (or already has)…
-    public var window: TimeInterval = 600
-    /// …and a sandbox used it within this long.
+    /// 695: why this daemon cannot read the login keychain (nil: it can) — it then never runs the keep-alive.
+    public var keychainLocked: @Sendable () -> String? = { nil }
+    /// 695: the run's folder — made fresh and empty (0700) for each run (`<store>/keepalive/run`; nil: a fresh temporary one).
+    public var runDirectory: URL?
+    /// 695: each try's record (written to `<store>/keepalive.json`, the log, the metrics) — and whether it is news (a skip
+    /// repeated at every look is recorded once).
+    public var report: @Sendable (KeepaliveRecord) -> Void = { _ in }
+    /// (Mode on) a sandbox used it within this long.
     public var recentUse: TimeInterval = 900
+    /// 695: WHEN the runs for one expiry are due, in seconds after it (`KeepaliveSchedule`): the first AT the expiry — Claude
+    /// Code renews only a token that has expired (seen on a real Mac, Claude Code 2.1.325: a run 7 min 46 s before the expiry
+    /// exited 0 and left the login as it was) — and, while a run leaves it unchanged, again 1, 5 and 15 minutes after,
+    /// then every 30; a run that FAILS is retried the same way, in the same limit. After the last, `failed` until the expiry
+    /// changes or the mode is set again. Only a renewal ends the tries early.
+    public var schedule: [TimeInterval] = KeepaliveSchedule.offsets
+    /// 695: the watcher sets itself a timer for the next due time (the expiry, the next retry), so a renewal follows the
+    /// expiry within seconds instead of at the next poll. Off in unit tests (they pass `now:`).
+    public var timers = false
 
-    public init(enabled: Bool, runner: KeepaliveRunning = ProcessKeepaliveRunner(),
-                isClaudeRunning: @escaping @Sendable () -> Bool = { ClaudeLogin.isClaudeRunning() },
+    public init(mode: KeepaliveMode, runner: KeepaliveRunning = ProcessKeepaliveRunner(claude: true),
+                holders: @escaping @Sendable () -> ClaudeHolders = { ClaudeHolders(holders: ClaudeLogin.loginHolders(excluding: { _ in false }).map { ClaudeHolder(pid: $0, session: nil) }) },
                 binary: @escaping @Sendable () -> String? = { ClaudeLogin.resolveBinary() }) {
-        self.enabled = enabled
+        self.mode = mode
         self.runner = runner
-        self.isClaudeRunning = isClaudeRunning
+        self.holders = holders
         self.binary = binary
     }
 
-    /// The one command: the Mac's Claude Code, one tiny non-interactive turn. Its normal startup
-    /// renews the login under Claude Code's own lock — doz never touches the refresh token.
-    public static let arguments = ["-p", "ok", "--model", "haiku", "--max-turns", "1", "--no-session-persistence"]
+    /// An older shape (tests): on or off, and "is a Claude Code running" as one unnamed holder.
+    public init(enabled: Bool, runner: KeepaliveRunning = ProcessKeepaliveRunner(claude: true),
+                isClaudeRunning: @escaping @Sendable () -> Bool,
+                binary: @escaping @Sendable () -> String? = { ClaudeLogin.resolveBinary() }) {
+        self.init(mode: enabled ? .on : .off, runner: runner,
+                  holders: { ClaudeHolders(holders: isClaudeRunning() ? [ClaudeHolder(pid: -1, session: nil)] : []) }, binary: binary)
+    }
+
+    /// The one command: the Mac's Claude Code, one tiny non-interactive turn. Its normal startup renews the login under
+    /// Claude Code's own lock — doz never touches the refresh token. Nothing from a sandbox reaches the argv, env or cwd.
+    ///
+    /// 695 step 0 — the flags, read from `claude --help` of Claude Code 2.1.325 on the build Mac (help only; `claude -p`
+    /// was never run): `--tools <tools...>` ("Use \"\" to disable all tools"), `--strict-mcp-config` ("Only use MCP servers
+    /// from --mcp-config") and `--settings <file-or-json>` are listed, so all three are kept (`disableAllHooks` is a settings
+    /// key, not a flag). `--max-turns` is no longer listed in that help; it is accepted — verified by a run of exactly
+    /// `claude -p ok --model haiku --max-turns 1 --no-session-persistence` (exit 0) on a real Mac on 2026-11-17. Not used: `--bare` — it reads no OAuth login and no keychain, so it could not renew the login at all.
+    /// `--tools ""` comes after the prompt: its value list ends at the next flag.
+    public static let arguments = ["-p", "ok", "--model", "haiku", "--max-turns", "1", "--no-session-persistence",
+                                   "--tools", "", "--strict-mcp-config", "--settings", #"{"disableAllHooks":true}"#]
 }
 
 /// ONE watcher per Mac Claude login (keychain item), fanned out to every sandbox that uses it
@@ -95,7 +196,14 @@ public final class LoginWatcher: @unchecked Sendable {
     private var warnedUnreadable = false
     private var subscribers: [String: any CredentialTarget] = [:]
     private var _reads = 0
-    private var lastKeepaliveFor: Date?
+    /// 695: the runs made for one expiry — how many, the last one's time, and whether that expiry is done with.
+    private var runsFor: (expiry: Date, count: Int, last: Date, done: Bool)?
+    /// 695: the last skip reported (expiry + why) — a skip repeated at every look is recorded once.
+    private var lastSkip: String?
+    private var _standing = false
+    /// 695: the times a look was set for (`scheduleLook`) — each only once.
+    private var scheduled: Set<Date> = []
+    private let runLock = NSLock()
     private var _keepalive: KeepaliveConfig?
     private var task: Task<Void, Never>?
 
@@ -151,6 +259,12 @@ public final class LoginWatcher: @unchecked Sendable {
     }
 
     public var isEmpty: Bool { lock.lock(); defer { lock.unlock() }; return subscribers.isEmpty }
+
+    /// 695: kept by the daemon with no subscriber (`doz account keepalive always`) — never stopped for having none.
+    public var standing: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _standing }
+        set { lock.lock(); _standing = newValue; lock.unlock() }
+    }
 
     /// Poll every `interval` (ContinuousClock: it counts across Mac sleep, so a wake reads soon).
     public func start(interval: Duration = .seconds(120)) {
@@ -259,7 +373,10 @@ public final class LoginWatcher: @unchecked Sendable {
                 for name in subscribers.keys.sorted() { events.append((name, text)) }
             }
         }
+        let expiry = token?.expiresAt
         lock.unlock()
+        // 695: a look at the expiry (Claude Code renews only an expired token) — at once when it has expired already.
+        if let expiry { scheduleLook(at: expiry) }
         if let newIdentity { onIdentity(newIdentity) }
         for (s, t) in events { onEvent(s, t) }
     }
@@ -297,38 +414,138 @@ public final class LoginWatcher: @unchecked Sendable {
         }
     }
 
-    /// D3: the Mac's own `claude -p` once, when the access token is within `window` of expiry (or
-    /// past it), a subscriber used it within `recentUse`, no Claude Code runs on the Mac, and it
-    /// has not already run for this expiry. Off unless enabled.
+    /// D3 / 695: the Mac's own `claude -p`, when the access token has EXPIRED (`schedule`: at the expiry, then the retries) and — mode on —
+    /// a subscriber (a sandbox, a fenced session) used it within `recentUse`; mode always needs no use. Never when this
+    /// daemon cannot read the login keychain, when Claude Code is not installed, or while an UNFENCED Claude Code runs (it
+    /// holds its own copy of the login, which a renewal by anyone else would cancel) — each skip recorded with its reason
+    /// and retried at the next look. One run per expiry (a run that left the login unchanged is tried again, at most
+    /// `maxRuns` per expiry). Off unless enabled. True: it ran.
     @discardableResult
     public func keepaliveIfDue(now: Date = Date()) -> Bool {
         lock.lock()
         guard let k = _keepalive, k.enabled, let t = token, let exp = t.expiresAt,
-              _state == .ok || _state == .expired, exp.timeIntervalSince(now) <= k.window, lastKeepaliveFor != exp else {
+              _state == .ok || _state == .expired else {
             lock.unlock(); return false
         }
-        let used = subscribers.values.contains { sb in
-            sb.egress?.vault.lastUsed(CredentialBinding.claudeOAuth.id).map { now.timeIntervalSince($0) <= k.recentUse } ?? false
+        let done0 = runsFor.map { $0.expiry == exp ? $0.count : 0 } ?? 0
+        guard !(runsFor?.expiry == exp && runsFor?.done == true),
+              let due = KeepaliveSchedule.due(expiry: exp, runs: done0, schedule: k.schedule), now >= due else {
+            lock.unlock(); return false
         }
-        guard used else { lock.unlock(); return false }
-        lastKeepaliveFor = exp
+        if k.mode == .on {
+            let used = subscribers.values.contains { sb in
+                sb.egress?.vault.lastUsed(CredentialBinding.claudeOAuth.id).map { now.timeIntervalSince($0) <= k.recentUse } ?? false
+            }
+            guard used else { lock.unlock(); return false }
+        }
         lock.unlock()
-        guard !k.isClaudeRunning() else {
-            onEvent(nil, "\(account): keep-alive not needed — Claude Code is running on the Mac and renews its login itself")
+        func skip(_ key: String, _ reason: String) -> Bool {
+            let news = lock.withLock { () -> Bool in
+                let id = "\(exp.timeIntervalSince1970)|\(key)"
+                defer { lastSkip = id }
+                return lastSkip != id
+            }
+            guard news else { return false }
+            onEvent(nil, "\(account): \(reason)")
+            k.report(KeepaliveRecord(account: account, mode: k.mode.rawValue, lastAttemptAt: now, outcome: .skipped,
+                                     reason: reason.replacingOccurrences(of: "keep-alive skipped — ", with: ""), expiresBefore: exp,
+                                     nextTryAt: now.addingTimeInterval(120)))
             return false
+        }
+        if let why = k.keychainLocked() {
+            return skip("locked", "keep-alive skipped — this daemon was started where the login keychain is locked (\(why)): it never runs "
+                        + "this Mac's Claude Code. doz daemon restart from your desktop session (or doz daemon login-item on) starts one that can")
         }
         guard let bin = k.binary() else {
-            onEvent(nil, "\(account): keep-alive skipped — Claude Code isn't installed on this Mac")
-            return false
+            return skip("no-claude", "keep-alive skipped — Claude Code isn't installed on this Mac")
         }
-        onEvent(nil, "\(account): keep-alive — the login expires \(CredentialVaultClock.hm(exp)) and a sandbox is using it: running the Mac's Claude Code once")
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("doz-keepalive")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let code = k.runner.run(binary: bin, arguments: KeepaliveConfig.arguments, environment: Self.scrubbedEnvironment(configDir: configDir),
-                                directory: dir, timeout: 120)
+        let look = k.holders()
+        if let h = look.holders.first {
+            return skip("holder-\(h.pid)", "keep-alive skipped — \(h.label) holds its own copy of this Mac's login; renewing now would cancel "
+                        + "that copy. It renews when that Claude Code is next used.")
+        }
+        // One run at a time, and claimed for this expiry before it starts.
+        guard runLock.try() else { return false }
+        defer { runLock.unlock() }
+        let claimed: Int? = lock.withLock {
+            // Again under the lock: a look that raced this one may have run (and finished) meanwhile.
+            let before = runsFor.map { $0.expiry == exp ? $0.count : 0 } ?? 0
+            if runsFor?.expiry == exp && runsFor?.done == true { return nil }
+            guard let due = KeepaliveSchedule.due(expiry: exp, runs: before, schedule: k.schedule), now >= due else { return nil }
+            let n = before + 1
+            runsFor = (exp, n, now, false)
+            lastSkip = nil
+            return n
+        }
+        guard let attempt = claimed else { return false }
+        let fenced = look.fenced.map { "\($0.session ?? "?") pid \($0.pid)" }
+        HostLog.line("\(account): keep-alive run \(attempt) for the login expiring \(CredentialVaultClock.hm(exp))"
+                     + (fenced.isEmpty ? "" : " — fenced sessions' Claude Code left out (they hold a placeholder, not the login): " + fenced.joined(separator: ", ")))
+        onEvent(nil, "\(account): keep-alive — the login expires \(CredentialVaultClock.hm(exp))"
+                + (k.mode == .always ? "" : " and a sandbox or session is using it") + ": running the Mac's Claude Code once")
+        let dir = Self.freshRunDirectory(k.runDirectory)
+        let r = k.runner.runCapturing(binary: bin, arguments: KeepaliveConfig.arguments, environment: Self.scrubbedEnvironment(configDir: configDir),
+                                      directory: dir, timeout: 120)
         readNow(now: Date())
-        onEvent(nil, "\(account): keep-alive finished (exit \(code)); the login now \(state == .ok ? "is ok" + (expiresAt.map { " until \(CredentialVaultClock.hm($0))" } ?? "") : "is \(state.label)")")
+        let after = expiresAt
+        // A run that did not renew — unchanged, or failed (a non-zero exit, a timeout: a network down for a minute) — is retried
+        // on the schedule, counted in the same limit; after the last it stays failed until the login changes.
+        var outcome: KeepaliveRecord.Outcome = r.code != 0 ? .failed : ((after ?? .distantPast) > exp ? .renewed : .unchanged)
+        let retry = outcome == .renewed ? nil : KeepaliveSchedule.due(expiry: exp, runs: attempt, schedule: k.schedule)
+        if outcome == .unchanged && retry == nil { outcome = .failed }
+        let reason: String? = {
+            let gaveUp = retry == nil ? " — gave up after \(attempt) tries (until the login changes)" : " — tried again"
+            switch outcome {
+            case .failed where r.code == 0:
+                return "Claude Code did not renew the login (exit 0 each time)" + gaveUp + ": run claude on the Mac to see why"
+            case .failed:
+                let what = r.code == -2 ? "timed out after 120 s" : r.code == -1 ? "could not start \(bin)" : "exit \(r.code)"
+                return what + (r.lastErrorLine.map { ": " + KeepaliveRecord.clean($0) } ?? "") + gaveUp
+            case .unchanged: return "Claude Code did not renew the login (the token had not expired yet) — tried again"
+            default: return nil
+            }
+        }()
+        lock.withLock { runsFor = (exp, attempt, now, outcome == .renewed || retry == nil) }
+        let next: Date? = outcome == .renewed ? after : retry
+        k.report(KeepaliveRecord(account: account, mode: k.mode.rawValue, lastAttemptAt: now, outcome: outcome, reason: reason, exit: r.code,
+                                 expiresBefore: exp, expiresAfter: after, nextTryAt: next))
+        if let next { scheduleLook(at: next) }
+        onEvent(nil, "\(account): keep-alive finished (\(outcome == .failed ? reason ?? "failed" : "exit \(r.code)")); the login now "
+                + (state == .ok ? "is ok" + (after.map { " until \(CredentialVaultClock.hm($0))" } ?? "") : "is \(state.label)"))
         return true
+    }
+
+    /// 695: the mode was set again (`doz account keepalive`): the runs counted for the current expiry start over.
+    public func resetRuns() { lock.withLock { runsFor = nil; lastSkip = nil } }
+
+    /// 695: a look at `at` (+1 s), once per time — the expiry, or a retry — when the keep-alive keeps timers (the daemon).
+    func scheduleLook(at: Date) {
+        guard let k = keepalive, k.enabled, k.timers else { return }
+        let fresh: Bool = lock.withLock { scheduled.insert(at).inserted }
+        guard fresh else { return }
+        let delay = max(0, at.timeIntervalSinceNow) + 1
+        DispatchQueue.global().asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+            self.readNow(now: Date())
+            self.keepaliveIfDue(now: Date())
+        }
+    }
+
+    /// 695: the run's folder, made fresh and empty (0700) each time: `dir` removed and made again (nil: a new temporary one).
+    static func freshRunDirectory(_ dir: URL?) -> URL {
+        let fm = FileManager.default
+        if let dir {
+            try? fm.removeItem(at: dir)
+            try? fm.createDirectory(at: dir.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            chmod(dir.deletingLastPathComponent().path, 0o700)
+            if (try? fm.createDirectory(at: dir, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])) != nil {
+                chmod(dir.path, 0o700)
+                return dir
+            }
+        }
+        var template = Array((fm.temporaryDirectory.path + "/doz-keepalive-XXXXXX").utf8CString)
+        guard let made = mkdtemp(&template) else { return fm.temporaryDirectory }
+        return URL(fileURLWithPath: String(cString: made))
     }
 
     /// PATH, HOME, USER, LANG, TMPDIR — never ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN (they

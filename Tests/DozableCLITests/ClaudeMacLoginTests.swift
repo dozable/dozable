@@ -51,7 +51,7 @@ final class ClaudeMacLoginTests: XCTestCase {
             // No unexpired login in the file: the Keychain's answer as before.
             Row(k: kExpired, f: fExpired, want: "kc-expired@keychain"),
             Row(k: kExpired, f: .missing, want: "kc-expired@keychain"),
-            Row(k: .absent, f: fExpired, want: "absent"),
+            Row(k: .absent, f: fExpired, want: "file-expired@file"),     // 695: no item at all — the file's, expired
             Row(k: .absent, f: .missing, want: "absent"),
             Row(k: .absent, f: .malformed, want: "absent"),
             Row(k: .absent, f: .refused, want: "absent"),

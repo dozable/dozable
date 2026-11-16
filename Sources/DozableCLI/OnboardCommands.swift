@@ -451,6 +451,8 @@ struct OnboardingFlow {
             say(Note("Start Dozable when you log in: one login item in ~/Library/LaunchAgents runs doz daemon start --login-item, which starts the daemon from your desktop session — sandboxes and kept sessions come back after the Mac restarts. macOS shows \"Background Items Added\". doz daemon login-item off removes it.").render())
             answer = asker.yesNo("  Start Dozable when you log in?", default: true)
         }
+        let asked = answer == nil && current == "ask" && asker.interactive && talk
+        defer { keepaliveFollowUp(asked: asked) }
         guard let on = answer else {
             if current == "ask" { status(.info, "Start at login: not set up — doz daemon login-item on starts the daemon when you log in") }
             else { status(.info, "Start at login: \(current) (daemon.login_item — doz daemon login-item on|off changes it)") }
@@ -468,6 +470,23 @@ struct OnboardingFlow {
             return current
         }
         return value
+    }
+
+    /// 695 (decision 2): right after "Start Dozable when you log in?" — "Also keep this Mac's Claude login renewed when no
+    /// sandbox uses it (doz account keepalive always)? [y/N]": asked only when that question was asked (a terminal, never
+    /// --json or a test run) and the keep-alive is not always yet; a yes sets it through the daemon.
+    private func keepaliveFollowUp(asked: Bool) {
+        guard asked, KeepaliveOffer.decide(mode: KeepaliveOffer.mode(g), terminal: true, json: g.json) == .ask else { return }
+        guard asker.yesNo(KeepaliveOffer.question, default: false) else {
+            status(.info, "Claude login keep-alive: as it was — doz account keepalive always keeps it renewed when no sandbox uses it")
+            return
+        }
+        do {
+            let f = try setKeepaliveMode(.always, g)
+            status(.ok, "Claude login keep-alive: \(KeepaliveMode.of(f).rawValue) — when it expires the daemon runs this Mac's claude once (doz account keepalive off stops it)")
+        } catch {
+            status(.warn, "Claude login keep-alive: not changed — doz account keepalive always sets it")
+        }
     }
 
     /// The First sandbox: its name and folder (asked on a terminal), the plan's `doz new` command, then made, started and
