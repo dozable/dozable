@@ -9,12 +9,12 @@ import DozableWeb
 
 /// 594 (D13) — `doz uninstall`: a clean slate without a hand-typed `rm -rf`. It lists EXACTLY what it
 /// removes and asks once (plainly; `--yes` for scripts): the store (every sandbox, image, kernel and
-/// the host's files), the settings directory, and the installed `doz` (`make install-cli`'s
-/// `<prefix>/libexec/doz/` and the `<prefix>/bin/doz` link to it). It never touches the keychain
+/// the host's files), the settings directory, the installed `doz` (`make install-cli`'s
+/// `<prefix>/libexec/doz/` and the `<prefix>/bin/doz` link to it) and the installed menu bar app (Dozable.app). It never touches the keychain
 /// (items `doz account add` made are listed, with how to remove them) nor anything of Claude Code's.
 struct Uninstall: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Remove Dozable from this Mac: the store, the settings and the installed doz — listed first, asked once.",
+        abstract: "Remove Dozable from this Mac: the store, the settings, the installed doz and the menu bar app — listed first, asked once.",
         discussion: "Never the keychain and never Claude Code's own files. --keep-store and --keep-config leave those. A running doz ui for the store must be stopped first; a running daemon is stopped first (its sandboxes hibernate, then the store goes).")
 
     @OptionGroup var g: GlobalOptions
@@ -83,6 +83,13 @@ struct Uninstall: AsyncParsableCommand {
         } else {
             kept.append("this doz (\(HostLauncher.executablePath)) — not an installed one (make install-cli installs to <prefix>/libexec/doz)")
         }
+        // The menu bar app's installed copies (/Applications, ~/Applications; a guarded run: its scratch folder only) —
+        // quit, then removed with the rest. The copy that came with doz goes with doz's own folder.
+        let menuBarApps = MenuBarAppInstall.installedCopies(MenuBarAppInstall.lookPlaces())
+        for app in menuBarApps {
+            TestSafety.enforce(TestSafety.applicationsViolation(app))
+            items.append(Item(path: app.path, what: "the menu bar app (Dozable.app; it is quit first)"))
+        }
         // 694: this store's login item (bootout, then the plist) — never another store's, which are listed only.
         let agents = LaunchAgentsFolder.current()
         let loginItem = DaemonLoginItem.plistURL(store, folder: agents)
@@ -150,6 +157,8 @@ struct Uninstall: AsyncParsableCommand {
             while store.hostIsRunning(), Date() < deadline { usleep(200_000) }
             if store.hostIsRunning() { throw fail(HostError(.failed, "the daemon did not stop within 2 minutes — nothing was removed"), g) }
         }
+        // A running menu bar app is quit before its bundle goes.
+        for app in menuBarApps { MenuBarAppInstall.quit(MenuBarAppInstall.runningCopies(app)) }
         var failed = false
         for i in items.indices where items[i].path != loginItem.path {
             do {
