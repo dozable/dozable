@@ -171,7 +171,8 @@ doz app install          # puts Dozable.app in /Applications (or ~/Applications)
 doz app install --open   # … and opens it
 ```
 
-The app updates with doz: after `doz upgrade` its menu offers **Update Menu Bar App**. See
+The app updates with doz: after `doz upgrade` its menu offers **Update Menu Bar App**. Its **Start at Login** starts
+the daemon (and the menu) when you log in; it replaces doz's own login item, so there is only ever one. See
 [The menu bar app](35-the-menu-bar-app.md).
 
 ### The background process is now called the daemon
@@ -238,7 +239,8 @@ brew uninstall doz
 - **the settings folder**: `doz.toml` and `agent-prompt.md`;
 - **the login item**, if you added one (`doz daemon login-item on`) — only this store's; another store's is listed
   and left alone;
-- **the menu bar app**, if you installed it (`doz app install`) — it is quit first. `doz app uninstall` removes only it.
+- **the menu bar app**, if you installed it (`doz app install`) — its Start at Login is turned off and it is quit first.
+  `doz app uninstall` removes only it.
 
 Run `doz uninstall` BEFORE `brew uninstall doz` (Homebrew's note says so): a login item left behind only fails
 harmlessly at each login, but it is yours to remove (`doz daemon login-item off`, or delete the plist).
