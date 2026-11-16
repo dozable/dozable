@@ -402,7 +402,7 @@ if [[ -z "$DRY_RUN" ]]; then
         done
         chk="$(mktemp -d "${TMPDIR:-/tmp/}doz-release-check.XXXXXX")"
         selfc="$(env -u DOZ_TEST_REAL_MAC DOZ_TEST_GUARD=1 "$AEXE" --self-config 2>&1 </dev/null || true)"
-        dumped="$(env -u DOZ_TEST_REAL_MAC DOZ_TEST_GUARD=1 DOZ_MENUBAR_DOZ="$STAGE/libexec/doz/doz" XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" \
+        dumped="$(env -u DOZ_TEST_REAL_MAC DOZ_TEST_GUARD=1 DOZ_MENUBAR_DOZ="$(cd "$STAGE/libexec/doz" && pwd)/doz" XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" \
                   DOZ_TEST_LAUNCH_AGENTS_DIR="$chk/agents" DOZ_TEST_APPLICATIONS_DIR="$chk/apps" DOZ_TEST_LAUNCHCTL="$PACKAGE/Scripts/launchctl-refuse.sh" \
                   "$AEXE" --dump-menu 2>&1 </dev/null || true)"
         rm -rf "$chk"
