@@ -15,7 +15,7 @@ dashboard, and the permission macOS requires to run virtual machines. You instal
   (0.37 is the one exception: it starts with a new store — see [Upgrading to 0.37](#upgrading-to-037-a-fresh-start)).
 - **The settings** live in `~/.config/doz/doz.toml`, beside your agent prompt template
   (`agent-prompt.md`). Upgrading never touches them either.
-- **The host** is a background `doz` process that runs your sandboxes. A running host keeps using the
+- **The daemon** is a background `doz` process that runs your sandboxes. A running daemon keeps using the
   version of `doz` it started as, which is why upgrading has one extra step (below).
 
 ## Install
@@ -71,14 +71,14 @@ dashboard:
 
 ```sh
 doz upgrade -y            # or doz upgrade: it shows the version and the notes, and asks first
-doz host restart
+doz daemon restart
 ```
 
 `doz upgrade` refreshes Dozable's tap first, then runs `brew upgrade` for your channel's formula. It always asks the
 feed itself (past any cached copy), so a release is there the minute it is published. Its first name, `doz update`,
 still works. Homebrew's own output stays off the screen: no update of your other taps first, and what brew prints
 goes to `brew.log` in doz's settings folder (`~/.config/doz/brew.log`) — shown when brew fails, or as it
-runs with `doz upgrade --verbose`. When a host of the previous version is running, `doz upgrade` (without `-y`)
+runs with `doz upgrade --verbose`. When a daemon of the previous version is running, `doz upgrade` (without `-y`)
 then asks whether to restart it now. Homebrew refreshes
 its taps only now and then, so a plain `brew upgrade doz` can say there is nothing new for up to a day; with brew
 directly, run `brew update` first.
@@ -89,33 +89,37 @@ directly, run `brew update` first.
   in its user agent. Offline, it says nothing. Never with `--json` or `-q`, or when not on a terminal.
 - **The setting `updates.mode`**: `notify` (the default), `auto` — doz also installs the update itself (through
   Homebrew for a Homebrew install), but only while no sandbox is running and no session is attached, and then says
-  `Updated to 0.31.1 — restart to apply: doz host restart` — or `off` (never look). `doz upgrade --check` looks
+  `Updated to 0.31.1 — restart to apply: doz daemon restart` — or `off` (never look). `doz upgrade --check` looks
   now, whatever the mode.
 - Homebrew installs the new version beside the old one, then removes the old one.
-- **A running host keeps its old version.** After an upgrade, Homebrew runs `doz host upgrade-check`,
-  which says when a host of the previous version is still running. You can run it yourself at any time;
+- **A running daemon keeps its old version.** After an upgrade, Homebrew runs `doz daemon upgrade-check`,
+  which says when a daemon of the previous version is still running. You can run it yourself at any time;
   it never starts or stops anything.
-- **`doz host restart`** hibernates every running sandbox and starts a host of the new version (`doz host
-  stop` does the same and leaves the next command to start it). Each sandbox wakes on the new host when you
+- **`doz daemon restart`** hibernates every running sandbox and starts a daemon of the new version (`doz daemon
+  stop` does the same and leaves the next command to start it). Each sandbox wakes on the new daemon when you
   use it — with its programs and sessions where they were:
 
 ```sh
 doz wake my-app        # or doz up, doz attach, or just use the dashboard
 ```
 
-Until you do, every command that talks to the old host says so, once, on stderr (never in its output,
+Until you do, every command that talks to the old daemon says so, once, on stderr (never in its output,
 and not with `-q`):
 
 ```
-note: the doz host is 0.12.0-rc.9 (this doz is 0.12.0-rc.10) — `doz host stop` switches to 0.12.0-rc.10; sandboxes hibernate and wake
+note: the doz daemon is 0.12.0-rc.9 (this doz is 0.12.0-rc.10) — `doz daemon stop` switches to 0.12.0-rc.10; sandboxes hibernate and wake
 ```
 
-(If the host is the *newer* one — you ran an older `doz` — the note says to upgrade this `doz`.)
+(If the daemon is the *newer* one — you ran an older `doz` — the note says to upgrade this `doz`.)
 
-If you skip `doz host stop`, nothing breaks right away: your sandboxes keep running. But the old
-host can no longer boot anything once Homebrew has removed its files, so a start, a wake or a new
-sandbox is refused with a message that tells you to run `doz host stop`. Once nothing runs and
-nobody is attached, the old host exits by itself.
+If you skip `doz daemon stop`, nothing breaks right away: your sandboxes keep running. But the old
+daemon can no longer boot anything once Homebrew has removed its files, so a start, a wake or a new
+sandbox is refused with a message that tells you to run `doz daemon stop`. Once nothing runs and
+nobody is attached, the old daemon exits by itself.
+
+### The background process is now called the daemon
+
+The background process that runs your sandboxes is called **the daemon**, and its commands are `doz daemon start|stop|restart|status|upgrade-check`. The old command name `host` no longer exists (there is no alias: doz answers it with `unexpected arguments: 'host', …`), and `DOZ_HOST_IDLE` is replaced by `DOZ_DAEMON_IDLE`. A 0.40 store and its settings are carried over automatically, once: the first daemon takes over the old lock and log, the `host.*` settings are read and written back as `daemon.*` the next time `doz.toml` is saved, and an older daemon that is still running keeps serving until it exits by itself when idle (or until `doz daemon stop` switches).
 
 ### Upgrading to 0.37: a fresh start
 
@@ -126,7 +130,7 @@ links. There is no migration. Before you upgrade, with the version you have:
 ```sh
 doz get my-app /workspace/notes.md ~/Desktop/   # copy out anything a sandbox holds that you want to keep
 doz ui stop
-doz host stop
+doz daemon stop
 ```
 
 Then upgrade and run `doz onboard` again: it makes the new store, settings and images (every image is built
@@ -159,9 +163,9 @@ machine, the wake is refused rather than risk the snapshot, and says so.
 
 ## In the dashboard
 
-The dashboard watches the host. If a host of another version takes over, a banner says so; if the
-host is **older** than the dashboard, the banner offers **Restart host**: it asks first, hibernates
-the running sandboxes and starts the newer host (they wake when you use them). If `doz ui` itself is
+The dashboard watches the daemon. If a daemon of another version takes over, a banner says so; if the
+daemon is **older** than the dashboard, the banner offers **Restart daemon**: it asks first, hibernates
+the running sandboxes and starts the newer daemon (they wake when you use them). If `doz ui` itself is
 the older one, the banner asks you to restart `doz ui`. See [The dashboard](06-the-dashboard.md).
 
 ## Uninstall
@@ -173,11 +177,11 @@ brew uninstall doz
 
 `doz uninstall` lists exactly what it will delete and asks once:
 
-- **the store**: every sandbox, image, kernel and restore point, and the host's log and metrics;
+- **the store**: every sandbox, image, kernel and restore point, and the daemon's log and metrics;
 - **the settings folder**: `doz.toml` and `agent-prompt.md`.
 
 Keep either with `--keep-store` or `--keep-config`; `--yes` skips the question (without a terminal
-and without `--yes` it refuses). A running host is stopped first; a running `doz ui` must be stopped
+and without `--yes` it refuses). A running daemon is stopped first; a running `doz ui` must be stopped
 by you (Ctrl-C in its terminal). For a Homebrew install, the `doz` program itself is Homebrew's to
 remove: `doz uninstall` says so and ends with the `brew uninstall doz` command.
 
@@ -199,12 +203,12 @@ doz nuke             # remove it all (asks first)
 `doz nuke` puts this Mac back to a fresh install of Dozable and keeps `doz` installed. It lists each item with
 its place and size, then asks once:
 
-- **the store**: every sandbox, image, kernel, restore point and template, and the host's log and metrics;
+- **the store**: every sandbox, image, kernel, restore point and template, and the daemon's log and metrics;
 - **the settings folder**: `doz.toml`, `agent-prompt.md`, and the update and usage records;
 - **the download cache** (`~/Library/Caches/doz`);
 - **the keychain items Dozable made**: your accounts' keys and the default GitHub key.
 
-`--dry-run` lists and removes nothing; `--yes` skips the question. A running host is stopped first; a running
+`--dry-run` lists and removes nothing; `--yes` skips the question. A running daemon is stopped first; a running
 `doz ui` must be stopped by you (`doz ui stop`). Your next `doz` command starts
 from the beginning: `doz onboard` or `doz ui`.
 
@@ -222,7 +226,7 @@ Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same ti
 | key | default | what it does |
 |---|---|---|
 | `store.path` | `~/Library/Application Support/doz` | Where the store lives (`--store`, `$DOZ_STORE`). |
-| `host.idle_timeout_minutes` | `5` | Minutes with nothing running before the host exits (`0` = never). |
+| `daemon.idle_timeout_minutes` | `5` | Minutes with nothing running before the daemon exits (`0` = never). |
 | `updates.mode` | `notify` | `notify`, `auto` or `off` (`$DOZ_UPDATES`). |
 | `updates.channel` | `stable` | `stable`, `beta` or `canary` — a Homebrew install's formula decides while it is not set. |
 
@@ -233,7 +237,7 @@ Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same ti
 | `brew install` says another doz formula is installed | One channel at a time: `doz upgrade --channel …` switches (or `brew uninstall` the other first). |
 | "the update feed was ignored" / "do not verify" | Nothing is installed from it; doz keeps working. If it persists, check your network isn't rewriting `updates.dozable.com`. |
 | `doz: command not found` | `brew list doz`, then open a new terminal window. |
-| "this host's program … is gone — an upgrade removed it" | `doz host stop`, then run your command again. |
+| "this daemon's program … is gone — an upgrade removed it" | `doz daemon stop`, then run your command again. |
 | "cannot boot a VM" or a message about the entitlement | `doz doctor`. Reinstall: `brew reinstall doz`. |
 | Start over, keeping doz installed | `doz nuke`, then `doz onboard`. |
 | Start over from nothing | `doz uninstall`, `brew uninstall doz`, then `brew trust --tap dozable/tap`, `brew install dozable/tap/doz` and `doz onboard`. |

@@ -31,7 +31,7 @@ export async function viewMetrics() {
   }
   const csv = h('a', { class: 'btn sm', href: '/api/v1/metrics.csv?' + qs, download: 'doz-metrics.csv' }, withIcon('download', 'Download CSV'));
   const toolbar = h('div', { class: 'toolbar' }, imageSel, daysSel, h('label', null, steps, ' steps inside actions'), csv);
-  if (!m.available) return h('div', null, h('h1', null, 'Metrics'), toolbar, panel(null, 'No metrics yet — the host records every action it times.'));
+  if (!m.available) return h('div', null, h('h1', null, 'Metrics'), toolbar, panel(null, 'No metrics yet — the daemon records every action it times.'));
   const max = Math.max(1, ...m.summary.map((r) => r.p90Ms || r.medianMs || 0));
   const rows = m.summary.map((r) => {
     const bar = h('span');
@@ -43,9 +43,9 @@ export async function viewMetrics() {
       h('td', { class: 'bar' }, h('div', { class: 'hbar', title: 'median, relative to the slowest p90' }, bar)));
   });
   return h('div', null, h('h1', null, 'Metrics'),
-    h('p', { class: 'sub' }, 'Lifecycle timings the host recorded.'),
+    h('p', { class: 'sub' }, 'Lifecycle timings the daemon recorded.'),
     toolbar,
-    h('div', { class: 'stats' }, card('Host runs', String(m.runs)), card('Rows', String(m.rows)), card('Sessions', String(m.sessions)), card('Network minutes', String(m.networkMinutes))),
+    h('div', { class: 'stats' }, card('Daemon runs', String(m.runs)), card('Rows', String(m.rows)), card('Sessions', String(m.sessions)), card('Network minutes', String(m.networkMinutes))),
     h('h2', null, 'Per action'),
     panel(h('div', { class: 'bars' }, table(['Action', 'Count', 'Median', 'P90', 'Min', 'Max', 'Failed', ''], rows, [1, 2, 3, 4, 5, 6])), 'Nothing recorded for this filter.'));
 }

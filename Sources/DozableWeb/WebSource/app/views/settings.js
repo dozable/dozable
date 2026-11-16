@@ -20,7 +20,7 @@ import { bytes, plural } from '../core/format.js';
 import { actOrThrow } from '../core/operations.js';
 
 const SETTING_SECTIONS = {
-  ui: 'This UI', host: 'The host', store: 'The store', defaults: 'New sandboxes', agent: 'The agent', sandbox: 'Inside every sandbox',
+  ui: 'This UI', daemon: 'The daemon', store: 'The store', defaults: 'New sandboxes', agent: 'The agent', sandbox: 'Inside every sandbox',
   'images.lab': 'New lab sandboxes', kernel: 'The kernel',
   resources: 'Resources', sessions: 'Sessions', bridges: 'Bridges', workspace: 'Workspace rules', github: 'GitHub', images: 'Images', telemetry: 'Usage statistics',
   updates: 'Updates', serve: 'Other devices (LAN)',

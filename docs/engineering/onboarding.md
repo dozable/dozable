@@ -6,17 +6,17 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 | Path | What |
 |---|---|
-| `Sources/DozableHost/Preparations.swift`, `Onboarding.swift`, `AgentPrompt.swift`; `Sources/DozableCLI/OnboardCommands.swift`, `ProjectFile.swift`, `Prompting.swift`, `UninstallCommand.swift`; `Sources/doz-vmtest/OnboardingSuite.swift`, `PullBench.swift` | image preparation in the host (single-flight, joined, cancelled) + `onboarded.json`; onboarding's checks / account step / settings-only-when-missing; the agent's environment prompt + the `doz` skill; `doz onboard`/`init`/`uninstall`, `doz_project.yaml` (Yams), TTY questions; `make test-cli`'s onboarding part (`make test-cli-onboarding`); `make pullbench` (D12) |
+| `Sources/DozableHost/Preparations.swift`, `Onboarding.swift`, `AgentPrompt.swift`; `Sources/DozableCLI/OnboardCommands.swift`, `ProjectFile.swift`, `Prompting.swift`, `UninstallCommand.swift`; `Sources/doz-vmtest/OnboardingSuite.swift`, `PullBench.swift` | image preparation in the daemon (single-flight, joined, cancelled) + `onboarded.json`; onboarding's checks / account step / settings-only-when-missing; the agent's environment prompt + the `doz` skill; `doz onboard`/`init`/`uninstall`, `doz_project.yaml` (Yams), TTY questions; `make test-cli`'s onboarding part (`make test-cli-onboarding`); `make pullbench` (D12) |
 
 ## Onboarding, projects, the agent's environment prompt
 
-- **Image preparation is the HOST's** (`Preparations.swift`): kernel + guest init (`Sandbox.prepareAssets`)
+- **Image preparation is the DAEMON's** (`Preparations.swift`): kernel + guest init (`Sandbox.prepareAssets`)
   + base pull + bake (the lab: its prepared disk). ONE per image name at a time (`HostCore.preparations`);
   `onboard`, `prepare`, `image bake`, the UI and a cold `start` needing the image all JOIN the running one
   (`follow` subscribes; the bounded event buffer is replayed to a joiner). A client going away never
   cancels it; `prepare-cancel` does (checked between bake steps; the VM is stopped in a task of its own
-  so cancellation cannot skip the clean stop). A running preparation keeps the host up (`idleLoop`);
-  quitting the host cancels it. "Prepared" means THIS build's bake key (`HostCore.isPrepared`,
+  so cancellation cannot skip the clean stop). A running preparation keeps the daemon up (`idleLoop`);
+  quitting the daemon cancels it. "Prepared" means THIS build's bake key (`HostCore.isPrepared`,
   `ImageRow.current`) — a re-run prepares nothing. Tests substitute the work: `setPreparationRunner`.
   **Its progress as data** (`PreparationInfo`): `stepIndex`/`plannedSteps` (N of M — M from the last
   run's step count, else `HostCore.plannedSteps(image)`), `steps` (finished: step · failed with its last
@@ -26,7 +26,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `probes/594-*/progress.mjs` pins it. A bake step's output is the tail, so keep steps' output visible
   (the dev baseline's apt is not silenced).
 - **`<store>/onboarded.json`, never `state.json`** — that name at the store's root is Containerization's
-  image-store index. The HOST writes the record once every chosen image is ready, so a detached CLI
+  image-store index. The DAEMON writes the record once every chosen image is ready, so a detached CLI
   (Ctrl-C = detach, exit 130) or a closed wizard still completes the onboarding. 634: `doz onboard` prepares the
   store's ONE base (`HostRequest.base` → the preparation `base:<id>`, recorded as `OnboardingRecord.base`), started at
   its Base image step with `follow: false` while the questions go on, followed at the end; its First sandbox is the
@@ -64,16 +64,16 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   A sandbox's own key: `POST /api/v1/sandboxes/NAME/key`, strict `{secret}` (the binding — anthropic —
   and the sandbox are not the body's), `HostRequest.keySet` (source `browser`) — `doz key set`'s own
   request; `WebKeySet` redacted, errors scrubbed (`WebSecretText`); `key-set` stays OUT of the action set.
-- **Unattended tests never touch the login keychain**: a real host under `DOZ_TEST_CREDENTIALS=memory`
+- **Unattended tests never touch the login keychain**: a real daemon under `DOZ_TEST_CREDENTIALS=memory`
   keeps accounts' secrets in its memory and verifies nothing (`CredentialServices.forHost`, said in
-  host.log). `make test-cli`'s onboarding part and the wizard probe use it.
+  daemon.log). `make test-cli`'s onboarding part and the wizard probe use it.
 - **The environment prompt** (`AgentPrompt.swift`) is rendered from the sandbox's CURRENT facts at every
   `open-session` of a claude-code/pi sandbox and written by a root utility exec (contents base64 in the
   script): `/run/doz/agent-prompt.md` and ONLY the skill dir `~/.claude/skills/doz` (pi:
   `~/.pi/agent/skills/doz`) — never CLAUDE.md/AGENTS.md. Claude Code gets it through its launcher
   (`--append-system-prompt "$(cat …)"`, not for subcommands nor when the caller gives a system prompt —
   a bake-key change). 678 (#386): the baked launcher skipped the facts when the caller gave ANY
-  `--append-system-prompt` (Claude Code keeps only the last, so a person's flag lost them). The host now
+  `--append-system-prompt` (Claude Code keeps only the last, so a person's flag lost them). The daemon now
   refreshes the launcher at every agent session start (`AgentImages.launcherRefreshScript`, in the same root
   exec, before the program starts — so `doz run x -- claude --append-system-prompt …` is right on its first
   session): it COMBINES every `--append-system-prompt` / `=` / `-file` value with the facts into ONE flag, adds
@@ -98,7 +98,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `project-create {folder}` → `.create` with `DozableProject.createOptions` (exactly `doz up`'s). The review is
   `render()` READ BACK by the parser; a write replaces an existing file only when `replace` = SHA-256 of what
   is there (the page showed the diff and the person confirmed), else 409. Key `permissions`: the
-  `defaults.permissions` words, given to the host as `allow = ["standard"] + words` (a preset alone as is);
+  `defaults.permissions` words, given to the daemon as `allow = ["standard"] + words` (a preset alone as is);
   `permissions`/`github` with a network of bake/nat/none is refused. `agent_prompt` renders `|-` when it has
   no final newline (exact round-trip). The page: `#/new` (`viewNew`, `nw*` in `views/new-sandbox.js`; never re-rendered
   by a live refresh); only `explicit` keys are sent. Its Access step IS 599e's `renderAccessStep` (mode

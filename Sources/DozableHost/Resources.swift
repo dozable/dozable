@@ -229,7 +229,9 @@ public struct ResourceFacts: Sendable {
 public enum Resources {
     /// Store-root files that are Dozable's own records (never deleted here).
     static let storeRecords: Set<String> = ["accounts.json", "onboarded.json", "preparations.json", "agent-versions.json",
-                                            "host.lock", "host.pid", "host.sock", "ui.lock", "ui.sock",
+                                            "daemon.lock", "daemon.pid", "daemon.sock", "ui.lock", "ui.sock",
+                                            // The daemon's files before 0.50 (`host.*`): a store that ran an older build keeps `host.lock`.
+                                            "host.lock", "host.pid", "host.sock",
                                             // 605: doz ui's port, kept sessions, ended sessions' reasons, operations.
                                             "ui.port", "ui.sessions", "ui.revoked", "ui.operations.json",
                                             // 606: doz serve's lock and socket (its devices, audit log and port: serve/).
@@ -602,7 +604,7 @@ public enum Resources {
         }
         if byLeaf["store"] != nil {
             let l = leaf("store")
-            add(ResourceItem(id: "store", group: "store", name: "Dozable's own records", detail: "accounts (names only), onboarding, preparations, the host's lock and socket",
+            add(ResourceItem(id: "store", group: "store", name: "Dozable's own records", detail: "accounts (names only), onboarding, preparations, the daemon's lock and socket",
                              sizeBytes: l.size, freedBytes: l.freed, link: "accounts", refusal: "Dozable's own state — not deleted here"))
         }
         // Stray files: anything else in the store.
@@ -652,7 +654,7 @@ public enum Resources {
             ResourceMemory(kind: "sandbox", name: $0.name, phase: $0.phase.rawValue, heldBytes: Int64($0.ramHeldMiB) * 1_048_576,
                            allocationBytes: Int64($0.memoryMiB) * 1_048_576, cpus: $0.cpus)
         }
-        if let h = f.hostFootprintBytes { memory.append(ResourceMemory(kind: "host", name: "doz host", heldBytes: h)) }
+        if let h = f.hostFootprintBytes { memory.append(ResourceMemory(kind: "host", name: "doz daemon", heldBytes: h)) }
         let vals = try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey, .volumeTotalCapacityKey])
         return ResourceReport(store: root.path, measuredAt: f.now, milliseconds: ms(since: t0), totalBytes: total,
                               attributedBytes: attributed, unattributedBytes: unattributed,

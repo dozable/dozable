@@ -115,7 +115,7 @@ doz key set my-app --github < token.txt     # this sandbox's own token (or --key
 doz key rm my-app --github
 ```
 
-A sandbox's own token given on stdin is held in the host's memory — give it again after the host
+A sandbox's own token given on stdin is held in the daemon's memory — give it again after the daemon
 restarts, or keep it in the keychain. A sandbox's own token wins over the default one and over `gh`
 whatever the setting says (unless it's `off`).
 

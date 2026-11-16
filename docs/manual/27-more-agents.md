@@ -457,8 +457,8 @@ or a fix to one reaches you without a new release of doz:
   (never used in part), and `doz doctor` says why. A catalogue can add agents and update them; it never takes one away,
   so a sandbox you made keeps working.
 - **Claude Code, pi and Codex are always your doz's own** — a catalogue never changes them.
-- **When it applies.** While doz's host runs it looks for a newer catalogue at most once a day, quietly (offline is
-  fine). A new one applies when the host next starts — by itself once nothing is running, or `doz host restart`. A doz
+- **When it applies.** While doz's daemon runs it looks for a newer catalogue at most once a day, quietly (offline is
+  fine). A new one applies when the daemon next starts — by itself once nothing is running, or `doz daemon restart`. A doz
   older than a catalogue needs keeps its own recipes, and doz never uses a catalogue older than the recipes it carries.
 - **Where you see it.** `doz doctor`'s `recipes` line says what this doz uses: `embedded (doz 0.37.24)` — its own — or
   `catalogue 3 from 2026-10-26`, and whether a newer one is waiting.

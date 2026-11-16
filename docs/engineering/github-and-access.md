@@ -10,15 +10,15 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 ## Rules that each cost a bug to learn here
 
-- **The host reads the Mac's login in ITS session** (679 B6: `doz image bake claude-code` over ssh started a host in the
+- **The daemon reads the Mac's login in ITS session** (679 B6: `doz image bake claude-code` over ssh started a daemon in the
   ssh session, where the login keychain is locked; every sandbox after showed `mac (unreadable)` while doctor, in the
   logged-in session, said "ok claude login"). `HostSessionKind` (`SessionGetInfo`: no graphic access, remote, or
-  `SSH_CONNECTION` without one) is read by the host at its start (`HostStatus.keychainLocked`, host.log);
-  `HostLauncher.spawn` warns before it starts a host from such a session; `doz account ls|show`, `doz ls` (a mac
-  account not ok) and doctor (`host login` — a FAILURE when doctor itself reads the login) name the host and say
-  `doz host restart` from a logged-in session; `doz image bake` stops a host it had to start there once nothing runs.
+  `SSH_CONNECTION` without one) is read by the daemon at its start (`HostStatus.keychainLocked`, daemon.log);
+  `HostLauncher.spawn` warns before it starts a daemon from such a session; `doz account ls|show`, `doz ls` (a mac
+  account not ok) and doctor (`daemon login` — a FAILURE when doctor itself reads the login) name the daemon and say
+  `doz daemon restart` from a logged-in session; `doz image bake` stops a daemon it had to start there once nothing runs.
   The guarded seam `DOZ_TEST_KEYCHAIN_LOCKED=1`; a guarded run's own session never warns. `HostSessionKindTests`,
-  `make test-cli-keychainlocked`. A LaunchAgent host in the GUI domain is not done ("No launchd agent" — an owner
+  `make test-cli-keychainlocked`. A LaunchAgent daemon in the GUI domain is not done ("No launchd agent" — an owner
   question).
 
 - **The Mac login has two stores, read-only** (687): Claude Code keeps a login in the Keychain item `Claude
@@ -29,7 +29,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   answer stands (its expired login, absent, locked, unreadable). `ClaudeCredentialsFile.read`: `O_NOFOLLOW`, a regular
   file owned by the user, ≤ 64 KiB, parsed by `ClaudeLogin.parse` (the access token and its dates; the refresh token is
   dropped with the bytes). The same account (its identity is still `.claude.json`'s, pinned and followed as before — no
-  fallback between ACCOUNTS). Used by `LoginWatcher.readNow` (what every proxy swaps in; `store`, a host note when the
+  fallback between ACCOUNTS). Used by `LoginWatcher.readNow` (what every proxy swaps in; `store`, a daemon note when the
   store changes), `ClaudeLoginStatus.check` (doctor's "claude login … · from ~/.claude/.credentials.json", onboarding,
   Access), `doz account ls|show` ("key from: this Mac's Claude Code login, from the Keychain" / "…from
   ~/.claude/.credentials.json") and `account verify`. Never written. Guarded runs: `ClaudeCredentialsFile.path` gives
@@ -55,7 +55,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   target. The rules stay the sandboxes': access token only, never the refresh token or a `Claude Code-credentials*` item,
   never injected beside the program's own credential (a fenced session's vault is strict), a foreign one a fingerprint,
   no fallback between accounts. A fenced session's placeholder is minted at open (its hash in the record, honoured by a
-  later host — `restorePlaceholderHashes`).
+  later daemon — `restorePlaceholderHashes`).
 
 ## GitHub as the user
 
@@ -115,9 +115,9 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   self-contained component, `renderAccessStep(container, {mode: 'onboarding'|'sandbox'|'settings', state,
   claude, choices, onChange})` in `components/access-step.js` (599f's New Sandbox wizard reuses it). It writes NOTHING but the default
   GitHub key; the caller writes the choices (onboarding: `POST onboarding/config {access}`; sandbox: its create).
-- **The host's `access` op** (`Access.swift`): the report (choice, source, state confirmed|failed|off|unchecked,
+- **The daemon's `access` op** (`Access.swift`): the report (choice, source, state confirmed|failed|off|unchecked,
   detail, consequence) and, with `check`, a LIVE check of `items`, of `accessChoices` when given (the onboarding
-  confirms before it writes). Read-only (no `check`) is answered in-process; `check` needs the host. The record
+  confirms before it writes). Read-only (no `check`) is answered in-process; `check` needs the daemon. The record
   is `<store>/access.json` — states and reasons, NEVER a secret; an answer counts only for the choice (and
   source) it was given for. `access-github-key` sets/removes the default key (keychain `doz-github`), which
   `applyGitHub`'s provider reads after a sandbox's own key when `github.credentials = key`.
@@ -130,7 +130,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `github.credentials` / `sandbox.ssh_agent` only when CHOSEN (a flag or a TTY answer) — `--yes` alone changes
   nothing. `defaults.github` (off|read|push, default off) joins the permissions only where `defaults.permissions`
   applies (no `--network`, not the form's exact list); `WebBases.github` seeds New Sandbox's switches.
-- **Web**: `GET /api/v1/access` (never starts a host), `POST /api/v1/access/check` (CSRF, strict
+- **Web**: `GET /api/v1/access` (never starts a daemon), `POST /api/v1/access/check` (CSRF, strict
   `WebAccessCheck`), `POST /api/v1/access/github-key` (`WebAccessGitHubKey`, redacted, `allow_secret_entry`).
 - **Tests**: `AccessTests` (a scratch env passed to `access(_:environment:)` — never the process's XDG/agent),
   `AccessWebTests`, `make test-cli-access` (no VM: a fake GitHub API with its own CA, a fake gh, a throwaway

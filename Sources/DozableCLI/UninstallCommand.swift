@@ -15,7 +15,7 @@ import DozableWeb
 struct Uninstall: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Remove Dozable from this Mac: the store, the settings and the installed doz — listed first, asked once.",
-        discussion: "Never the keychain and never Claude Code's own files. --keep-store and --keep-config leave those. A running doz ui for the store must be stopped first; a running host is stopped first (its sandboxes hibernate, then the store goes).")
+        discussion: "Never the keychain and never Claude Code's own files. --keep-store and --keep-config leave those. A running doz ui for the store must be stopped first; a running daemon is stopped first (its sandboxes hibernate, then the store goes).")
 
     @OptionGroup var g: GlobalOptions
     @Flag(name: .long, help: "Leave the store (sandboxes, images) where it is.") var keepStore = false
@@ -69,7 +69,7 @@ struct Uninstall: AsyncParsableCommand {
     static func looksLikeStore(_ root: URL) -> Bool {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
         if names.isEmpty { return true }
-        let known: Set<String> = ["sandboxes", "images", "kernels", "golden", "content", "initfs.ext4", "host.log", "host.lock", "metrics.sqlite",
+        let known: Set<String> = ["sandboxes", "images", "kernels", "golden", "content", "initfs.ext4", "daemon.log", "daemon.lock", "host.log", "host.lock", "metrics.sqlite",
                                   "accounts.json", "onboarded.json", "ui.lock", "ui.port", "ui.sessions", "state.json", "containers"]
         return names.contains(where: known.contains)
     }
@@ -89,7 +89,7 @@ struct Uninstall: AsyncParsableCommand {
                 throw fail(HostError(.invalid, "\(store.root.path) does not look like a Dozable store — not removing it (check --store / $DOZ_STORE)"), g)
             }
             let n = store.sandboxNames().count
-            items.append(Item(path: store.root.path, what: "the store: \(n) sandbox\(n == 1 ? "" : "es"), every image, kernel and restore point, the host's log and metrics"))
+            items.append(Item(path: store.root.path, what: "the store: \(n) sandbox\(n == 1 ? "" : "es"), every image, kernel and restore point, the daemon's log and metrics"))
         }
         // The settings.
         let configDir = DozableSettings.fileURL()?.deletingLastPathComponent()
@@ -150,7 +150,7 @@ struct Uninstall: AsyncParsableCommand {
         }
         // The host goes first (it owns every VM); it shuts them down as it stops.
         if !keepStore, store.hostIsRunning() {
-            if !g.json { Out.stdout("stopping the host …\n") }
+            if !g.json { Out.stdout("stopping the daemon …\n") }
             // 594 W22: the same progress as `doz host stop` (each sandbox as it hibernates, then the summary).
             switch try? stopHostShowingProgress(store, g) {
             case .done(let r)?: if !g.json { Out.stdout(HostStopView.summary(r) + "\n") }
@@ -159,7 +159,7 @@ struct Uninstall: AsyncParsableCommand {
             }
             let deadline = Date().addingTimeInterval(120)
             while store.hostIsRunning(), Date() < deadline { usleep(200_000) }
-            if store.hostIsRunning() { throw fail(HostError(.failed, "the host did not stop within 2 minutes — nothing was removed"), g) }
+            if store.hostIsRunning() { throw fail(HostError(.failed, "the daemon did not stop within 2 minutes — nothing was removed"), g) }
         }
         var failed = false
         for i in items.indices {

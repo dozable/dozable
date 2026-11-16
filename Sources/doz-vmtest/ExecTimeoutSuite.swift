@@ -8,10 +8,10 @@ import Foundation
 func cliExecTimeoutSuite(binary: String) async {
     let t = onboardingHarness(binary, "x", seed: ["kernels", "content", "state.json", "initfs.ext4", "golden"])
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: t.store)
     }
-    print("cli: exec --timeout — counted from the start, enforced by the host, the command killed, a wake or start goes on")
+    print("cli: exec --timeout — counted from the start, enforced by the daemon, the command killed, a wake or start goes on")
     check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     var r = t.run(["create", "xt", "--image", "lab", "--isolated", "--memory", "512M", "--start", "--json"], timeout: 600)
     check(r.code == 0 && t.row("xt")?.phase == "running", "create --start: xt running")
@@ -40,7 +40,7 @@ func cliExecTimeoutSuite(binary: String) async {
     // A cold start that outlasts the deadline: 124 from the host, and the start goes on to its end. A lab boots in
     // under a second, so the host is restarted with its guarded seam holding each wake or start back 3 s.
     t.env["DOZ_TEST_EXEC_LIFECYCLE_DELAY_MS"] = "3000"
-    check(t.run(["host", "stop"], timeout: 120).code == 0, "host stop (the next one holds a wake or start back 3 s)")
+    check(t.run(["daemon", "stop"], timeout: 120).code == 0, "daemon stop (the next one holds a wake or start back 3 s)")
     check(t.run(["shutdown", "xt", "--yes"], timeout: 120).code == 0, "shutdown xt")
     t0 = Date()
     r = t.run(["exec", "xt", "--timeout", "1", "--json", "--", "true"], timeout: 60)

@@ -325,7 +325,7 @@ doz sessions wait @mac agent --until idle,done,blocked,error --timeout 90   # ha
 ```
 
 These are the same commands as for a sandbox's sessions ([Terminals and sessions](07-terminals-and-sessions.md)).
-Looking (`doz sessions @mac`, `screen`) never starts a host. `doz ls` ends with one line for this Mac: how many run,
+Looking (`doz sessions @mac`, `screen`) never starts a daemon. `doz ls` ends with one line for this Mac: how many run,
 fenced or not.
 
 ## What `@mac` is, and is not
@@ -346,7 +346,7 @@ fenced or not.
 `doz ui` has a **This Mac** page (in the sidebar, under All sessions — tagged with how many run with **no isolation**,
 when any do; `#/mac`), and All sessions ends with a This Mac section. Each session is a tile with its picture, what its
 agent is doing, its folder and its chips — **Fenced**, **Fenced (Xcode)**, **Guard rail (Simulator)**, **Keychain
-open**, **Shared config**, **GitHub: push**, or **No isolation** — and marks for news: network waiting for a host,
+open**, **Shared config**, **GitHub: push**, or **No isolation** — and marks for news: network waiting for a daemon,
 refusals seen, **Stopped: git config**. A session whose own command line bypasses its permissions says **permissions
 bypassed**.
 
@@ -389,9 +389,9 @@ for as long as it is listed. Fenced, the fence still holds; unfenced, such an ag
 
 - **Sleep and closing the lid: kept.** Each session is held by its own small process (`deckhold-mac`), which simply
   pauses with the Mac.
-- **The host: not needed to keep them.** The holders are not the host's children. `doz host stop` says how many
-  sessions on this Mac keep running; the next host finds them again (same program, same screen). A fenced session's
-  network waits for a host: its connections are served when one runs again.
+- **The daemon: not needed to keep them.** The holders are not the daemon's children. `doz daemon stop` says how many
+  sessions on this Mac keep running; the next daemon finds them again (same program, same screen). A fenced session's
+  network waits for a daemon: its connections are served when one runs again.
 - **Logout and restart: gone.** Logging out or restarting the Mac ends every program, sessions on the Mac included.
   Afterwards `doz sessions @mac` lists them as **gone**; `doz sessions screen @mac NAME` shows the screen saved last,
   and `doz sessions restart @mac NAME` starts the same program again in the same folder. The variables you gave with
@@ -421,11 +421,11 @@ for as long as it is listed. Fenced, the fence still holds; unfenced, such an ag
   `--unfenced`.
 - An older `doz` does not know `--unfenced`: check `doz run --help` before relying on it in a script.
 
-## The Keychain, and a host started over ssh
+## The Keychain, and a daemon started over ssh
 
-An unfenced program (or a fenced one with `--keychain`) uses your login Keychain only when the doz host runs inside your
-logged-in session. A host started from an ssh connection runs where the Keychain is locked: `doz doctor` says so, and
-the fix is `doz host restart` from a terminal on the Mac itself. macOS may also ask about a session's program on behalf
+An unfenced program (or a fenced one with `--keychain`) uses your login Keychain only when the doz daemon runs inside your
+logged-in session. A daemon started from an ssh connection runs where the Keychain is locked: `doz doctor` says so, and
+the fix is `doz daemon restart` from a terminal on the Mac itself. macOS may also ask about a session's program on behalf
 of `doz` ("doz wants to access your Documents folder") — the dialog names `doz` because it started the holder.
 
 ## Uninstalling

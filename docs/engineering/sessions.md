@@ -6,10 +6,10 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 | Path | What |
 |---|---|
-| `Sources/DozableKit/SavedScreens.swift`; `Sources/DozableHost/TerminalLayout.swift`; `Sources/DozableWeb/WebSessionMemory.swift` | 593 §9: the sessions' saved screens (`<sandbox>/screens/NAME.{vt,txt,json}`; the capture is `Sandbox.captureScreensLocked`, the `.captureScreens` step); the web UI's terminal layout kept by the host (`terminal-layout.json`); their web projections and the layout's strict decoder |
+| `Sources/DozableKit/SavedScreens.swift`; `Sources/DozableHost/TerminalLayout.swift`; `Sources/DozableWeb/WebSessionMemory.swift` | 593 §9: the sessions' saved screens (`<sandbox>/screens/NAME.{vt,txt,json}`; the capture is `Sandbox.captureScreensLocked`, the `.captureScreens` step); the web UI's terminal layout kept by the daemon (`terminal-layout.json`); their web projections and the layout's strict decoder |
 | `Sources/DozableHost/BootLogs.swift`, `BuildLogs.swift`; `Sources/DozableWeb/WebBootLogs.swift` | each sandbox's kept boots (`<sandbox>/boots/`), the recorder, the one renderer; 617: each image's last build log (`<store>/build-logs/`); the web's Boot log and build log projections |
-| `Guest/deckhold/deckhold.c` (`ps_*`), `Sources/DozableKit/ProgramStatus.swift`; `Sources/DozableHost/SessionStatus.swift`, `HostCore+Status.swift`; `Sources/DozableWeb/WebSource/app/components/agent-status.js`; `Sources/doz-vmtest/StatusSuite.swift` | 612: what the agent is doing (OSC 7501) — deckhold's consumer (answers the query, keeps the records, WATCH/STATUS), the parsed record, the host's model + watchers + events, the page's chips and notices; `make test-vm-status`, `make deckhold-status-check` |
-| `Guest/deckhold/deckhold.c` (`send_grid`), `Sources/DozableKit/ScreenGrid.swift`; `Sources/DozableHost/HostCore+Grids.swift`; `Sources/DozableWeb/WebGrids.swift`; `Sources/doz-vmtest/GridsSuite.swift` | 648: painted thumbnails — deckhold's GRID (the screen as cells, from libghostty-vt's render state), its decoder and the contract (`ScreenGrid`, inert text), the host op `session-grids`, `POST /api/v1/grids`; `make deckhold-grid-check`, `make test-cli-grids` |
+| `Guest/deckhold/deckhold.c` (`ps_*`), `Sources/DozableKit/ProgramStatus.swift`; `Sources/DozableHost/SessionStatus.swift`, `HostCore+Status.swift`; `Sources/DozableWeb/WebSource/app/components/agent-status.js`; `Sources/doz-vmtest/StatusSuite.swift` | 612: what the agent is doing (OSC 7501) — deckhold's consumer (answers the query, keeps the records, WATCH/STATUS), the parsed record, the daemon's model + watchers + events, the page's chips and notices; `make test-vm-status`, `make deckhold-status-check` |
+| `Guest/deckhold/deckhold.c` (`send_grid`), `Sources/DozableKit/ScreenGrid.swift`; `Sources/DozableHost/HostCore+Grids.swift`; `Sources/DozableWeb/WebGrids.swift`; `Sources/doz-vmtest/GridsSuite.swift` | 648: painted thumbnails — deckhold's GRID (the screen as cells, from libghostty-vt's render state), its decoder and the contract (`ScreenGrid`, inert text), the daemon op `session-grids`, `POST /api/v1/grids`; `make deckhold-grid-check`, `make test-cli-grids` |
 
 ## Typing into a session and its screen now (`doz sessions send` / `screen`)
 
@@ -24,26 +24,26 @@ in `SessionCommands.swift`; `SessionInputTests`, `SessionsSendCommandTests`, `ma
   (`pipe_mode` stops relaying at stdin's EOF) — the INFO frame proves every byte before it is in the buffer.
   NOSESSION → no such session (exit 2), EXIT → it ended (exit 2). It proves arrival, not that a TUI acted on it:
   `--then-screen[=MS]` reads the screen back in the same call.
-- **The text, each key and Enter are separate writes** (`SessionInput.pieces`, `HostRequest.inputPieces`; the host
+- **The text, each key and Enter are separate writes** (`SessionInput.pieces`, `HostRequest.inputPieces`; the daemon
   splits an older client's trailing CR off too), `SessionInput.settle` apart (60 ms + 4 ms a KiB, ≤ 0.5 s), one QUERY at
   the end. In one burst a TUI takes everything as a paste: Claude Code kept the CR of `--text <236 bytes> --enter` inside
   its input box and never submitted. `test-cli-host` and `test-cli-sessionsend` check it with a raw-mode program that
   prints the size of each read (the Enter must be a read of its own; a CR inside `--text` is the control).
 - **A send wakes, never cold-starts** (an off sandbox has no sessions: exit 3; `--no-wake` on a sleeping one: exit 3),
   waits for the wake's background steps (`afterWakeSettled`) and gives the memory balloon back first (input is work).
-- **`screen` is read-only**: answered in-process with no host (the saved screen), never wakes unless `--wake` (then it
-  needs the host). Running: `deckhold dump`, bounded like every listing read (`guestRead`: an unresponsive guest gets
+- **`screen` is read-only**: answered in-process with no daemon (the saved screen), never wakes unless `--wake` (then it
+  needs the daemon). Running: `deckhold dump`, bounded like every listing read (`guestRead`: an unresponsive guest gets
   its saved screen, `reason: unresponsive`). Plain output is the rows only — the dump's `cursor=… size=… screen=…`
-  line is parsed into `--json`'s `cursorX/cursorY`, `cols/rows`, `screen` (`primary`/`alt`), with the host's status.
+  line is parsed into `--json`'s `cursorX/cursorY`, `cols/rows`, `screen` (`primary`/`alt`), with the daemon's status.
 
 - **`doz sessions wait`** (`session-wait`, `HostCore+SessionWait.swift`) opens a WATCH connection of its own (the
   holder answers with the status now, then each change) and returns at the first state in `--until`; done/error that
-  outlive the program count (the host's kept status); the program ending first is exit 2; the timeout (at most a day,
+  outlive the program count (the daemon's kept status); the program ending first is exit 2; the timeout (at most a day,
   whatever is asked — a client that left must not leave a watcher) answers `timedOut`, exit 124. Never wakes.
 
 - **A session's `command` is the holder's line, cut at 255 bytes** (deckhold's fixed buffer — mid-argument for a long
   `--append-system-prompt`): it stays for the people and older readers, and `sessions --json` adds `argv`, WHOLE, from
-  the host's record (`SessionRecords`, `HostCore.withOpenedAt`; nil for a session this host's doz did not open).
+  the daemon's record (`SessionRecords`, `HostCore.withOpenedAt`; nil for a session this daemon's doz did not open).
 
 ## Sessions on this Mac (`@mac`)
 
@@ -54,11 +54,11 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
 
 - **A place, never a sandbox.** `HostCore.perform` routes `@mac` to `performMac` FIRST — no `Managed`, no `Sandbox`;
   a proxy and placeholders exist ONLY inside the fence (below), per session; `MacPlace.operations` are the session ops
-  (and `net` for a fenced session); everything else is `MacPlace.refusal` (host side) and `MacCLI.refusal` (the CLI's
+  (and `net` for a fenced session); everything else is `MacPlace.refusal` (daemon side) and `MacCLI.refusal` (the CLI's
   entry, for a command that names `@mac` before `--`).
 - **The mode** is decided once, by the CLI, for a NEW session: `--fenced`/`--unfenced` (a fenced-only flag means
   fenced) > `DOZ_MAC_FENCE` > `mac.fence` > `on` (`Run.fencedOnMac`; the default flipped from off in 683 M6). A fenced
-  open carries `macFence`; the host never reads the setting. The record keeps the mode (`MacSessionRecord.fence`, nil =
+  open carries `macFence`; the daemon never reads the setting. The record keeps the mode (`MacSessionRecord.fence`, nil =
   unfenced — every record written before the fence existed): restart, `resume`, adoption and a gone session's restart
   open from the record, never from the setting. `make test-cli-fence` ("M6" rows) checks the default, the precedence
   and an unfenced record restarted and adopted under the fenced default; `make test-cli-host` is the unfenced session
@@ -66,7 +66,7 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
 - **The holder is `deckhold-mac serve`** (`MacDeckhold.locate`), started by `posix_spawn` (SETSID, CLOEXEC_DEFAULT,
   signals default, stdin /dev/null, stdout+stderr `<store>/mac-sessions/NAME.log`, cwd `--workdir`) — never `sh -c`.
   `serve` daemonises (its child's parent becomes launchd) and returns once its socket listens: holders outlive the
-  host by design. No session keeps the host alive.
+  daemon by design. No session keeps the daemon alive.
 - **The socket folder** is `confstr(_CS_DARWIN_USER_TEMP_DIR)` + `dh-<8 hex of sha256(store path)>` (never `$TMPDIR`):
   made 0700 and `lstat`-checked on every use (a folder, not a link, ours, 0700 — else nothing is read or made). Names
   ≤ 32, every path < 104 bytes. `Workspace.refusal` refuses it (and anything holding it) as a workspace.
@@ -74,11 +74,11 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   the descriptor closed ONCE by the reader after the writer let go. A socket that is gone answers as `deckhold pipe`:
   EXIT from `NAME.exit`, else NOSESSION.
 - **Records** (`<store>/mac-sessions/sessions.json`, 0600): argv, workdir, environment NAMES, openedAt, holder sha256,
-  pid, `bypassed`, `fence`, `claudeSessionID` (the learned conversation), `size` — fields only ever added. A host start ADOPTS (`MacSessions.adopt`): a live socket is watched (statuses, `session-status`
+  pid, `bypassed`, `fence`, `claudeSessionID` (the learned conversation), `size` — fields only ever added. A daemon start ADOPTS (`MacSessions.adopt`): a live socket is watched (statuses, `session-status`
   events under the place name `@mac`); a socket nothing answers is unlinked (only our own socket, in our folder); a
   record with no socket is ended (its `.exit`) or **gone** (rebooted, holder killed). Looking reads the folder
-  in-process — no host.
-- **The environment is an allowlist** (`MacSessionsEnvironment.build`), never the host's passed on; `PATH` from the
+  in-process — no daemon.
+- **The environment is an allowlist** (`MacSessionsEnvironment.build`), never the daemon's passed on; `PATH` from the
   login shell once (a guarded run never runs it: `DOZ_TEST_MAC_PATH`, else path_helper's list); `-e` refuses only
   `CLAUDECODE` / `CLAUDE_CODE_*`. `DOZ_TTY` in a session is deckhold's own.
 - **`doz run`'s exit code** (687): the client returns the code of the ended notice (`ClientWire.Ending.exited`). A
@@ -100,7 +100,7 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   **The learned id**: `macLearnClaudeID` reads ONLY `<sessions>/<pid>.json` (a regular file, no link, ≤ 64 KiB, a UUID
   `sessionId`, lower-cased — `MacPlace.claudeHeldSessionID`) 10 s after an open, when the session turns idle after
   working (≤ once a minute: `/clear`, `/resume` move it) and before a restart or end; guarded runs read the sibling of
-  `DOZ_TEST_CLAUDE_PROJECTS` (`MacPlace.claudeSessions`). **Exited at once**: after a reopen the host polls QUERY every
+  `DOZ_TEST_CLAUDE_PROJECTS` (`MacPlace.claudeSessions`). **Exited at once**: after a reopen the daemon polls QUERY every
   100 ms for 2 s; a program that ended in that window is an ERROR — "session S on this Mac exited at once (exit N) — its
   last lines: …" (the last 5 non-empty rows) — and its last screen becomes the session's saved screen; one that comes
   up has the screen of the run before removed. `make test-cli-host` (the fake claude carries Claude's real refusals).
@@ -108,17 +108,17 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   added.
 - **Bridges** (unfenced): OSC 52 as for any session; the open-URL and workspace-file markers are dropped (`HostCore.bridge`) — a fenced session's are below.
 - **Saved screens** in `<store>/mac-sessions/screens` (`SavedScreens`' directory variants): the periodic capture and a
-  host stop; a gone one keeps its last — what `screen` shows, said "gone". **An ended one keeps its LAST screen**
+  daemon stop; a gone one keeps its last — what `screen` shows, said "gone". **An ended one keeps its LAST screen**
   (685 M1): the holder runs with `serve --final` (deckhold.c, `__APPLE__` only — the guest's bytes are unchanged,
   `make deckhold-verify`) and, after its last read of the program's output, writes `NAME.final.vt` (a SNAPSHOT) and
   `NAME.final` (the DUMP text), 0600, in the socket folder, BEFORE `NAME.exit`; a new holder under the name removes
   them. The capture turns them into the saved screen (reason `exit`, `MacSessions.keepFinalScreen`) and drops an older
   screen of an ended session; `session-live`/`session-screen` of an ended session answer that last screen (`reason:
-  "ended"`, `exitCode`) — a host-less look reads `NAME.final` where it lies, writing nothing (`endedScreen`); `forget`
+  "ended"`, `exitCode`) — a daemon-less look reads `NAME.final` where it lies, writing nothing (`endedScreen`); `forget`
   removes them. An older holder writes none: "no last screen (it was started by an older doz)".
 - **The dashboard**: the This Mac page and All sessions' section, its own routes and `serve.mac_sessions` — web.md,
   "This Mac".
-- **Host stop / uninstall / nuke**: stop says how many keep running (`HostStopResult.macSessions`); uninstall asks
+- **Daemon stop / uninstall / nuke**: stop says how many keep running (`HostStopResult.macSessions`); uninstall asks
   whether to end them; nuke ends them and removes the socket folder.
 
 ### Fenced sessions on this Mac (`doz run @mac --fenced`)
@@ -157,12 +157,12 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   a scratch Claude Code and a scratch Xcode build; they are frozen only from a person's live runs
   (`Scripts/fence-freeze.sh`, and `--xcode`/`--simulator --run '…'`) — the versions recorded beside them then. The
   manual says they may still change.
-- **The host never follows a link the fence planted** (`MacFenceHostFS`: `O_NOFOLLOW_ANY`, `dirfd` walks, one-link
+- **The daemon never follows a link the fence planted** (`MacFenceHostFS`: `O_NOFOLLOW_ANY`, `dirfd` walks, one-link
   regular files) — every clear, read, strip and quarantine of a fence-writable path. A file with no name left
   (`st_nlink == 0`: replaced by a rename between the open and the stat — git writes `config.lock` and renames it over
   `config`) is opened again, never refused as a hard link: that refusal stopped a fenced `swift build` mid-clone
   (`testAFileReplacedByARenameIsReadAgainNotRefused`).
-- **The git guard** (one per fenced session, the host's): the baseline at open (every repository's config entries and
+- **The git guard** (one per fenced session, the daemon's): the baseline at open (every repository's config entries and
   hooks), FSEvents over the folders, a full check after the watch starts. A config key a fenced program may not add or
   change (anything outside `MacFenceGit.allowed`), a `.git` file pointing outside a watched worktree/module, a bare
   repository's shape, a repository arriving with a hook (a tree renamed in — the profile only stops writes AT those
@@ -170,29 +170,29 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   stack on arm64 — finds them by the session's sentinel, detached ones included), the change taken out (git itself
   parses and strips a private copy), the text kept in `<store>/mac-sessions/quarantine/<session>/`, the session stopped
   until `doz sessions resume @mac S`. Two fenced sessions in one folder are both stopped (the guard cannot tell which
-  wrote). A fenced session keeps the host up (its guard is the host's); ending one kills every process of its fence.
+  wrote). A fenced session keeps the daemon up (its guard is the daemon's); ending one kills every process of its fence.
 - **Residuals, stated:** names and sizes of files are readable everywhere (`file-read-metadata`); another same-user
   process's ARGV is readable through `kern.procargs2` (Seatbelt does not govern it on macOS 27 — the kernel returns no
   other process's environment, fenced or not); between a git config write and the guard's stop (< 1 s) an unfenced git
   run in the folder could read the key once; macOS's certificate service (trustd) fetches revocation data on the
   program's behalf except under `locked`; with `--simulator` the Simulator and what it launches run outside.
-- **Protocol:** a fenced open carries `HostProtocol.fencedVersion`, so a host older than fenced sessions refuses it —
+- **Protocol:** a fenced open carries `HostProtocol.fencedVersion`, so a daemon older than fenced sessions refuses it —
   never opens it unfenced.
 - **The agent's config folder** (`MacAgentConfig.swift`; the recipe's `launch@1 mac_config` — recipes.md): only for a
   program an EMBEDDED recipe declares (`AgentRecipes.macAgent`: Claude Code). `private` (default; flag `--agent-config` >
   `recipes.V.P.mac_config` > `mac.agent_config` > the recipe's `default`): `CLAUDE_CONFIG_DIR=<session>/agent`, re-seeded
   at EVERY open through `MacFenceHostFS` — cleared but its transcripts (`projects/<folder>/*.jsonl`, regular files),
-  the person's instructions/skills/agents/commands/output styles as LINKS (host-owned: the profile write-, rename- and
+  the person's instructions/skills/agents/commands/output styles as LINKS (daemon-owned: the profile write-, rename- and
   unlink-denies each, and the folder itself), each target and every link inside it (depth ≤ 8, ≤ 4096 entries) resolved
   and refused when it is the home, a secret place, the store/sockets/doz settings/Keychain/fence root, or a writable
   root — else allowed READ-ONLY in the profile; `settings.json` written from the recipe's `clean_copy` keys only (+ the
-  history mapping under `keep`), 0444 and host-owned; `.claude.json` built (onboarding, the person's `theme`, the folder
+  history mapping under `keep`), 0444 and daemon-owned; `.claude.json` built (onboarding, the person's `theme`, the folder
   trusted, an API key's placeholder accepted); on the FIRST open the folder's own conversations cloned in. `shared`: the
   person's real `~/.claude` (refused when it is a link) and `~/.claude.json*` readable and writable — nothing seeded, no
   history key ever written there, `grants.sharedConfig` (a re-open into shared empties the caches), said at start, in
   `sessions @mac` ("shared config (less isolated)") and in the capabilities.
 - **Transcripts** (`MacTranscripts.swift`, `HostCore.macCarryBack`): a private folder's conversations go back into the
-  person's own `~/.claude/projects/<folder>/` at `end`, before `forget`, at restart, and when the host first sees the
+  person's own `~/.claude/projects/<folder>/` at `end`, before `forget`, at restart, and when the daemon first sees the
   program ended or gone (`fencedMacSessions`, adoption) — idempotent by `name:sha256` (`MacFenceRecord.carried`).
   Only `<uuid>.jsonl` (lower-case RFC 4122) of JSON-object lines whose every `cwd` is the folder, regular, one link, ≤ 64
   MiB (≤ 1 GiB a session) — anything else skipped and named in the end message; `memory/` and every other entry never
@@ -211,7 +211,7 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
 - **Facts** (`MacAgentPrompt.swift`, `mac.agent_prompt` = `fenced` | `always` | `off`): Claude Code's argv gets ONE
   `--append-system-prompt` combined with the person's own (the launcher's rule); the record keeps the person's argv.
 - **Bridges** (`HostCore.fencedBridge`): the session's `etc/bin/open` and `xdg-open` (first on PATH, `BROWSER`) send the
-  guest shim's markers; for a FENCED `@mac` session the host takes them: `BrowserBridge.check`, a sign-in callback only to a
+  guest shim's markers; for a FENCED `@mac` session the daemon takes them: `BrowserBridge.check`, a sign-in callback only to a
   `--local-port` (the browser reaches the program directly; any other port refused before opening), `WorkspaceFiles` with
   the workdir as the share; OSC 52 write-only, announced as "S (fenced) copied N chars: '<first 40, controls ·>'".
   `MacFenceRecord.bridges` from `--open-url/--open-files/--clipboard` or `mac.open_url/open_files/clipboard`; live with
@@ -237,12 +237,12 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   start. `-e GH_TOKEN/GITHUB_TOKEN` refused. **gh** cannot use the decrypting tunnel: Go on macOS verifies with the
   system's trust only (SSL_CERT_FILE ignored — probe), so gh gets its own DOOR: `GH_CONFIG_DIR=<session>/cache/config/gh`
   (written again at every open; gh rewrites it) whose `http_unix_socket` is `<socket folder>/NAME.gh`; gh then speaks
-  plain HTTP there, and the host serves it as the inside of a decrypted tunnel (`EgressProxy.serveUnwrapped`: GitHub's
+  plain HTTP there, and the daemon serves it as the inside of a decrypted tunnel (`EgressProxy.serveUnwrapped`: GitHub's
   four credential hosts only, the policy, the swap, the gate, the log).
 - **The SSH agent** (`--ssh-agent`; `MacFenceDoors.swift`): the door `<socket folder>/NAME.agent` (0600), each
-  connection relayed to the host's `SSH_AUTH_SOCK` (a guarded run: ONLY `DOZ_TEST_SSH_AUTH_SOCK`) through
+  connection relayed to the daemon's `SSH_AUTH_SOCK` (a guarded run: ONLY `DOZ_TEST_SSH_AUTH_SOCK`) through
   `SSHAgentRelay.relayFiltered` (list, sign, session-bind — never add, remove or lock); `SSH_AUTH_SOCK` in the session is
-  the door; the proxy allows `github.com:22` (`sshToGitHub`). Doors live while this host serves the session's proxy
+  the door; the proxy allows `github.com:22` (`sshToGitHub`). Doors live while this daemon serves the session's proxy
   (`MacFenceDoorSet`, `HostCore.macDoors`: opened before the program starts and at adoption, gh's door attached to the
   proxy when it is made — a connection before that waits ≤ 10 s; closed with the proxy); the profile allows a connect to each
   door by literal (`network-outbound`) while the socket folder stays closed to files — verified.
@@ -281,7 +281,7 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   | signed commits | ssh signing with `--ssh-agent` (`-c gpg.format=ssh -c user.signingKey=…`); gpg fails (its home is closed) | `gpg.*` and `user.signingkey` are not carried from your config |
   | worktrees, submodules | work | above; a submodule's `submodule.*.update` stops the session |
   | git LFS (GitHub) | works | GitHub serves LFS objects from `github-cloud.githubusercontent.com`, part of the `github` permission |
-  | Go | works on tunnels; `GOPATH` is the session's (its sumdb), so `go install` lands in its caches | the system's trust (trustd; closed under `locked`) — a host the proxy decrypts fails (Go ignores a session CA) |
+  | Go | works on tunnels; `GOPATH` is the session's (its sumdb), so `go install` lands in its caches | the system's trust (trustd; closed under `locked`) — a daemon the proxy decrypts fails (Go ignores a session CA) |
   | Node, npm, pnpm, bun | work | `NODE_USE_ENV_PROXY=1`, `NODE_EXTRA_CA_CERTS`; caches in the session |
   | curl, Python (pip, uv) | work | the proxy variables; `REQUESTS_CA_BUNDLE`/`SSL_CERT_FILE`/`CURL_CA_BUNDLE` |
   | Swift / SwiftPM | `swift build --disable-sandbox --cache-path "$XDG_CACHE_HOME/swiftpm"` | SwiftPM's own sandbox cannot nest; git dependencies work; binary targets need their host allowed |
@@ -295,8 +295,8 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
 ## Session memory and saved screens
 
 - **Saved screens exist ONLY for a sandbox one wakes back into** — paused, asleep, hibernated.
-  A SHUT-DOWN sandbox shows no session screens anywhere: shutdown, reset, rm and a host that died with
-  the VM (`recoverAfterStart`) DELETE them (`.removeSavedScreens`; the host also clears the terminal
+  A SHUT-DOWN sandbox shows no session screens anywhere: shutdown, reset, rm and a daemon that died with
+  the VM (`recoverAfterStart`) DELETE them (`.removeSavedScreens`; the daemon also clears the terminal
   layout on shutdown, reset and death), `sessions`/`session-screen`/`inspect` list nothing for it, and
   the page shows the plain off state (its panes close, none is persisted, no grid tile). There is no
   "ended" screen: a session whose program exited has none (the next capture removes it).
@@ -320,19 +320,19 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   `screens/`, written atomically, and never into a sandbox directory that is gone. A capture drops the
   screens of sessions the guest no longer runs. Duplicate, fork, restore points and templates copy
   disks BY NAME — never the screens (`SavedScreensTests`).
-- **The periodic capture** (`host.screen_capture_minutes`, 5; 0 = off; read at host start): each
+- **The periodic capture** (`daemon.screen_capture_minutes`, 5; 0 = off; read at daemon start): each
   running, not-busy sandbox — ONE `deckhold ls`, then an attach only for sessions whose `bytes=`
   moved since their saved screen. It is serialised with the lifecycle (the sandbox's gate).
 - **Looking never wakes**: `sessions` answers from the saved screens (`saved: true`, `savedAt`,
   `savedReason`) while the sandbox is paused, asleep or hibernated — in-process too; `session-screen` (read-only)
   gives one back. The CLI prints the TEXT; `--vt` writes the guest's bytes only when stdout is not a
   terminal.
-- **The layout is the host's** (`terminal-layout.json` beside `doz.json`, `TerminalLayout`: one or
-  two panes, ≤ 16 tabs, session names by the host's rule, mode interactive|watch). `terminal-layout`
-  is a read; `terminal-layout-set` goes through the host when one runs (serialised with `rm`) and is
-  otherwise answered IN-PROCESS (it is UI state, like doz.toml — writing it never starts a host); it
+- **The layout is the daemon's** (`terminal-layout.json` beside `doz.json`, `TerminalLayout`: one or
+  two panes, ≤ 16 tabs, session names by the daemon's rule, mode interactive|watch). `terminal-layout`
+  is a read; `terminal-layout-set` goes through the daemon when one runs (serialised with `rm`) and is
+  otherwise answered IN-PROCESS (it is UI state, like doz.toml — writing it never starts a daemon); it
   refuses to create a directory. Reset clears it. The web route decodes the body STRICTLY
-  (`WebTerminalLayout.decode`) and the host validates again.
+  (`WebTerminalLayout.decode`) and the daemon validates again.
 - **The page** restores the stored layout once per page load (`restorePanes`) — not while the sandbox
   is under way (it waits for the next settled refresh) — and writes its panes back (debounced) only
   after that, so arriving never overwrites the stored layout with an empty page. Restored tabs load
@@ -341,7 +341,7 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   frame's `saved` mode: read-only and selectable, sending NOTHING (no keys, reports, focus reports or
   paste); a key is only announced (`{t:'key'}`) and the page starts the ordinary wake/resume action.
   Once it runs, each saved pane (and grid tile) goes live IN PLACE (`{t:'live', mode}`, then the
-  attach's SNAPSHOT). A saved pane holds no socket, so it keeps no host alive (T3).
+  attach's SNAPSHOT). A saved pane holds no socket, so it keeps no daemon alive (T3).
 - **New is new (S4)**: New shell (shell-N, the next free name — saved names count as taken) and the
   Terminal… dialog (a new shell, or a new session running a command) never attach to a running
   session; a running one is reached through its pane or Home's Open (635). Split's watch/attach kinds stay: they name the left pane's session explicitly.
@@ -349,13 +349,13 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
 ## Boot logs
 
 - **Every boot is kept** — each Start (`cold boot`), wake (`wake`, also a wake on use) and restore after
-  a crash — by the HOST (`BootRecorder` from `beginBoot` to `endBoot` around the library call in
-  `HostCore`): the sandbox's own host events of that boot (exactly what the boot view draws; never a
+  a crash — by the DAEMON (`BootRecorder` from `beginBoot` to `endBoot` around the library call in
+  `HostCore`): the sandbox's own daemon events of that boot (exactly what the boot view draws; never a
   connection record or a console line), that boot's part of `bootlog.log` (from its size at the start
   of a wake; all of it for a cold boot, which starts the file afresh), and `BootLogInfo` (started, kind,
   duration, result, failure). `<sandbox>/boots/b-<epoch ms>/{boot.json,events.jsonl,console.log}`,
   0700/0600, written atomically (a temporary directory renamed), never into a removed sandbox; the
-  newest `host.boot_logs_kept` (5) are kept. Kept across reset, gone with `rm`, never copied by
+  newest `daemon.boot_logs_kept` (5) are kept. Kept across reset, gone with `rm`, never copied by
   duplicate/fork/templates. Recording never fails a boot. 651: a wake's boot log also holds its background steps
   (recorded until `.afterWakeDone`, written then; its time is the wake's), and a restore into a new process
   times its parts as `restore: …` steps (kernel, image store, kernel sha256, vmnet, container object, VZ
@@ -364,12 +364,12 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   `ProgressTerminal.format` — the boot view's finished lines (✓/✗ with times) — then the console made
   inert (every control character removed). The CLI (`doz console --steps`, plain off a terminal) and
   the web's Boot log (`GET …/boots`, `GET …/boots/N`, rendered on the server, drawn in the frame's saved
-  mode — read-only, no socket, any phase) use it. `boot-log` is a read-only host op (in-process when no
-  host runs; the host adds the boot under way as number 1).
+  mode — read-only, no socket, any phase) use it. `boot-log` is a read-only daemon op (in-process when no
+  daemon runs; the daemon adds the boot under way as number 1).
 
 ## Session bridges
 
-- **One place: the host's attach relay.** Every terminal (`doz attach`/`run`/`up`, every `doz ui` pane)
+- **One place: the daemon's attach relay.** Every terminal (`doz attach`/`run`/`up`, every `doz ui` pane)
   reads a session through `HostServer.pump`, so the bridges live there: `SessionBridgeScanner` takes
   OSC 52 and OSC 6340 (`doz-open`) out of DATA frames (never a SNAPSHOT — a replayed screen must not
   re-copy; `reset()` on each), `HostCore.bridge` decides (nonisolated — pbcopy and `open` never run on
@@ -382,10 +382,10 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   Mac's clipboard); logged once per session. Everything a scanner does not own passes through byte for
   byte (`SessionBridgeTests` cuts at every offset).
 - **The CLI's drawn line** (a notice; B4's menu) is DECSC → bottom row → reverse video → DECRC, removed
-  by a REPAINT (`ClientWire.repaint`, `0xFF 'S'`): the host sends deckhold HELLO 0×0 on the live
+  by a REPAINT (`ClientWire.repaint`, `0xFF 'S'`): the daemon sends deckhold HELLO 0×0 on the live
   connection (`SessionConnection.repaint`) — a fresh snapshot, no resize, no deckhold change.
 - **Per-sandbox settings** (`DozableSettings.perSandbox`): `SandboxConfig.settings[key]` wins over the
-  file (`HostCore.sandboxValue`); `sandbox-settings` reads (in-process when no host) and sets;
+  file (`HostCore.sandboxValue`); `sandbox-settings` reads (in-process when no daemon) and sets;
   `doz config … --sandbox`, `doz create` flags, `doz_project.yaml` keys (`DozableProject.settingKeys`,
   synced by `doz up`). `sandbox.agent_sudo` keeps its own field. The recipe words `approvals` and `history`
   (`DozableSettings.recipeWords`) stand for the sandbox's recipe's own key (`recipeWordKey`); `history` resolves with
@@ -399,13 +399,13 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   agent's TUI desynchronises its cursor-relative redraw (Claude Code draws blanks as cursor jumps — the
   shim's leftovers showed where spaces should be: "space doesn't work" in the web pane, which attaches at
   the session's size and so never makes the TUI redraw); the Dozable notice tells the person, stderr + the
-  exit status tell the caller. Every viewer reads the host's stream through ONE `ClientWire.ViewerStream`
+  exit status tell the caller. Every viewer reads the daemon's stream through ONE `ClientWire.ViewerStream`
   (notices out, the end found, a notice's start held — `XdgOpenSilenceTests` cuts at every offset). `BrowserBridge.check` = http/https only, never
   the Mac's loopback; `callback(in:)` reads ONLY `redirect_uri` (http, `localhost`/`127.0.0.1` exactly,
   explicit port ≥ 1024). `LoopbackForward` binds the Mac's 127.0.0.1 (+ [::1]) BEFORE the URL opens,
   relays each connection through `Sandbox.openGuestStream([deckhold, connect, -p, PORT])` (no NIC
   needed), ends 3 s after the first answered callback or at 10 min; one per sandbox. Notices and the
-  host log show `BrowserBridge.shown` (scheme, host, path) — never the query (a sign-in's state).
+  daemon log show `BrowserBridge.shown` (scheme, host, path) — never the query (a sign-in's state).
 - **A login shell resets PATH** (/etc/profile on Alpine and Debian): the shim's dir comes back through
   `/etc/profile.d/doz-browser-bridge.sh` (written with the shim). A test in `bash --norc -i` would not
   have caught it — `test-cli-browser` checks `bash -lc`.
@@ -436,7 +436,7 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   does reach deckhold with it on: measured). `make test-cli-tmux38` (Debian + Alpine, scratch store, seams).
 - **The title and the Ctrl-] menu (B4)**: no reserved rows. The attach client pushes the
   terminal's title (CSI 22;0 t) the first time it sets one, re-renders `TerminalTitle` each minute and
-  on every attach answer (a switch, a hold: the host's attach answer now carries `image`), and pops it
+  on every attach answer (a switch, a hold: the daemon's attach answer now carries `image`), and pops it
   (CSI 23;0 t) with W13's restore; `TitleFilter` keeps the session's OSC 0/1/2 out while it does. The
   menu: the FIRST detach-key press (any W16 encoding — `DetachKeyScanner` now returns what followed it
   in the read) opens it when stdin AND stdout are terminals; while it shows, `writeSession` drops the
@@ -445,9 +445,9 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   reattaches THAT session in the same client. `MenuKey.decode` reads keys in plain, kitty CSI-u (a
   release is not a press) and modifyOtherKeys form. The web pane's tab renders the same template
   (`terminalTitle(t)` in `components/terminal.js`).
-- **A host of another build is said**: `noteHostBuild` — once per command, on stderr before the
+- **A daemon of another build is said**: `noteHostBuild` — once per command, on stderr before the
   answer, never with `-q`, never on stdout; `rawCall` (every host request but ping/host-stop) and
-  `doz attach` call it. `hostBuildNote` uses the web UI's `WebVersion.compare` (a newer host: upgrade
+  `doz attach` call it. `hostBuildNote` uses the web UI's `WebVersion.compare` (a newer daemon: upgrade
   this doz). `image ls` STATUS is always a word (W32; a template is `up to date`).
 - **Workspace folders**: a FOLDER — /workspace itself (relative path "") or any
   child, the same mapping and Mac-side `realpath` — opens with `open -a Finder` (never as an app); a
@@ -461,7 +461,7 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   (`openShim`, stamp `doz:open-url-shim:vN` — bump it on ANY change, so a wake's `guestFixes` re-installs
   it) takes a file as well as a URL and sends `ESC]6340;doz-file;APP;/workspace/… BEL` (made absolute and
   resolved in the GUEST, only so the agent hears refusals at once — the notice goes to the person). The
-  HOST decides in `WorkspaceFiles` and trusts nothing the guest said: lexical normalisation under
+  DAEMON decides in `WorkspaceFiles` and trusts nothing the guest said: lexical normalisation under
   /workspace → the Mac folder from the sandbox's SPEC (`shares`, never a guest path) → `realpath` ON THE
   MAC, inside the shared folder's own realpath → a regular file (a folder, so any bundle, never) → the
   document allow-list / never-list (`GuestCommand.openFileDocumentTypes` / `openFileNeverTypes`, shared
@@ -503,9 +503,9 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   ('T') frames to a client that sent WATCH ('W'). Frame types are only ever appended (the header comment). 648: the
   WATCH answer announces GRID (`grid=1`), and the watcher is also the transport of `session-grids` (see "GRID only to
   a holder that ANNOUNCED it"). An
-  older holder (a session started before an update keeps its binary) drops a WATCH client: the host's watcher then
+  older holder (a session started before an update keeps its binary) drops a WATCH client: the daemon's watcher then
   ends with no STATUS frame (`SessionConnection.sawStatus`) and that session is not asked again until the next run.
-- **The host holds it in memory** (`HostCore+Status`): one watcher per session of a RUNNING sandbox
+- **The daemon holds it in memory** (`HostCore+Status`): one watcher per session of a RUNNING sandbox
   (`Sandbox.watchStatus` — `deckhold pipe` + WATCH: not a viewer, no size), opened on open-session, on an attach,
   and for every live session when the sandbox comes to run (ONE `deckhold ls` per transition — never on a poll);
   the library detaches it with the viewers on sleep/stop. `ls` reads memory only (`sessionStatuses`,
@@ -513,7 +513,7 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   signal an idle sleep must respect). working/blocked end with the program; done/error survive it until the
   session is opened again or the sandbox stops. Each change is ONE `session-status` HostEvent (deduplicated:
   `sameReport`), sent only to an `events` stream that set `HostRequest.sessionStatus` (an older client cannot
-  decode the kind). **The program's `msg`/`title` are untrusted guest text: never in host.log** (`logLine` is
+  decode the kind). **The program's `msg`/`title` are untrusted guest text: never in daemon.log** (`logLine` is
   metadata only), capped in `WebAgentStatus`, textContent only on the page.
 - **The page** (`components/agent-status.js`): chips on tabs, tiles and Home's card and rows (`data-agent-for`,
   painted in place after every overview), the sidebar's dot, and a page notice per transition to done / blocked /

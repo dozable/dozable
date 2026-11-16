@@ -209,7 +209,7 @@ struct OnboardingFlow {
             r.requestedBy = "doz onboard"
             let started = try decode(try call(r, g), PrepareResult.self, g)
             if started.preparations.isEmpty { status(.ok, "\(title(id)) — ready in this store") }
-            else { status(.busy, "\(title(id)) — downloading and preparing in the host now; the questions go on (doz onboard --status watches it)") }
+            else { status(.busy, "\(title(id)) — downloading and preparing in the daemon now; the questions go on (doz onboard --status watches it)") }
         } else {
             status(.info, "none now — each tool's first start prepares its own base")
         }
@@ -653,7 +653,7 @@ struct OnboardingFlow {
 /// A request whose progress is shown while it runs (593's view), from which Ctrl-C DETACHES — the
 /// host goes on — saying how to watch again.
 func followingCall(_ r: HostRequest, _ g: GlobalOptions,
-                   detached: String = "the preparation goes on in the host — doz onboard --status watches it, doz onboard --cancel stops it") throws -> JSONValue {
+                   detached: String = "the preparation goes on in the daemon — doz onboard --status watches it, doz onboard --cancel stops it") throws -> JSONValue {
     var gv = g
     gv.verbose = true                              // show it from the first second: this is the waiting part
     let progress = Progress(gv)
@@ -681,7 +681,7 @@ func followingCall(_ r: HostRequest, _ g: GlobalOptions,
     }
     progress.finish()
     if m.ok == true { return m.result ?? .null }
-    throw fail(m.error ?? HostError(.failed, "the host gave no reason"), g)
+    throw fail(m.error ?? HostError(.failed, "the daemon gave no reason"), g)
 }
 
 #if !DOZ_HELPER_BUILD
@@ -690,7 +690,7 @@ struct Onboard: AsyncParsableCommand {
         abstract: "Set up this Mac for Dozable (once): check it, prepare the base image every tool is added to, add keys, choose Access and workspace rules, write the settings, and make a first sandbox.",
         discussion: """
         Re-running is safe: it checks again, leaves existing settings alone and prepares only what is \
-        missing. The base image is downloaded and prepared by the host from the Base image step on, while \
+        missing. The base image is downloaded and prepared by the daemon from the Base image step on, while \
         the questions go on: Ctrl-C detaches (the preparation goes on), --status re-attaches, --cancel \
         stops it. On a terminal it asks — the arrow keys choose, Enter accepts (alone, the recommended \
         answer); with its output in a pipe it asks for typed answers; --yes, --json or no terminal ask \
@@ -814,7 +814,7 @@ struct Onboard: AsyncParsableCommand {
 
     func cancelPreparations() throws {
         guard g.dozableStore.hostIsRunning() else {
-            if g.json { Out.json([PreparationInfo]()) } else { Out.stdout("nothing is being prepared (no host is running)\n") }
+            if g.json { Out.json([PreparationInfo]()) } else { Out.stdout("nothing is being prepared (no daemon is running)\n") }
             return
         }
         let m = try rawCall(HostRequest(.prepareCancel), g, autostart: false)

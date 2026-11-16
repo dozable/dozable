@@ -20,7 +20,7 @@ final class HostCoreTests: XCTestCase {
         XCTAssertEqual(DozableStore.resolve(nil, environment: ["DOZ_STORE": "/z"]).root.path, "/z")
         XCTAssertTrue(DozableStore.resolve(nil, environment: [:]).root.path.hasSuffix("Library/Application Support/doz"))
         let s = DozableStore(root: root)
-        XCTAssertEqual(s.socket.lastPathComponent, "host.sock")
+        XCTAssertEqual(s.socket.lastPathComponent, "daemon.sock")
         XCTAssertTrue(s.socketPathFits)
         XCTAssertFalse(DozableStore(root: URL(fileURLWithPath: "/" + String(repeating: "d", count: 120))).socketPathFits)
         XCTAssertFalse(s.hostIsRunning(), "no lock holder")
@@ -289,7 +289,7 @@ final class HostCoreTests: XCTestCase {
 
     func testMetricsStoreIsSandboxLabsSchema() throws {
         let m = try MetricsStore(url: root.appendingPathComponent("metrics.sqlite"))
-        let run = m.beginRun(.current(kind: "doz host", version: "test"))
+        let run = m.beginRun(.current(kind: "doz daemon", version: "test"))
         let id = m.begin(run: run, action: "wake", sandbox: "x", image: "lab", phaseBefore: "hibernated")
         m.record(run: run, action: MetricsStepKey.key(for: "restored VM state from disk"), kind: .step, sandbox: "x", image: "lab",
                  startedAt: Date(), durationMs: 230, parent: id)

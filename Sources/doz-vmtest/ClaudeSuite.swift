@@ -78,9 +78,9 @@ func claudeSuite() async throws {
         h.run(["rm", name, "--yes"])
         h.run(["account", "rm", "ct", "--force"])
         h.run(["rm", "cly", "--yes"])
-        h.run(["host", "stop"])
+        h.run(["daemon", "stop"])
     }
-    if h.hostRunning { h.run(["host", "stop"]) }
+    if h.hostRunning { h.run(["daemon", "stop"]) }
     for n in [name, "cly"] where FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).configFile(n).path) { h.run(["rm", n, "--yes"]) }
 
     func probe(_ only: String? = nil, env: [String] = []) -> [String: ProbeLine] {
@@ -172,13 +172,13 @@ func claudeSuite() async throws {
         check(cc.out.contains("doz: \(name) is pinned to"), "Claude Code in the guest shows the refusal: \(cc.out.range(of: "doz: ").map { String(cc.out[$0.lowerBound...].prefix(80)) } ?? cc.out.suffix(120).description)")
         _ = h.run(["key", "policy", name, "allow"])
 
-        print("claude: a session's placeholder across a host restart (D8)")
+        print("claude: a session's placeholder across a daemon restart (D8)")
         r = h.run(["run", name, "-d", "--session", "loop", "--", "sh", "-c",
                    "while true; do node /tmp/doz-credprobe.js ours >> /tmp/loop.log; sleep 2; done"])
         check(r.code == 0, "a looping session sends its placeholder every 2 s")
         usleep(6_000_000)
-        r = h.run(["host", "stop"])
-        check(r.code == 0 && !h.hostRunning, "host stop (the sandbox hibernates with the session)")
+        r = h.run(["daemon", "stop"])
+        check(r.code == 0 && !h.hostRunning, "daemon stop (the sandbox hibernates with the session)")
         r = h.run(["wake", name])
         check(r.code == 0, "wake in a NEW host")
         usleep(9_000_000)
@@ -232,7 +232,7 @@ func claudeSuite() async throws {
         check(false, "aborted: \(error)")
     }
     cleanUp()
-    check(!h.hostRunning, "cleanup: no host left running")
+    check(!h.hostRunning, "cleanup: no daemon left running")
     check(SystemKeychain().read(service: "doz-anthropic:ct", account: nil) == .absent, "cleanup: the keychain item doz-anthropic:ct is gone")
 }
 

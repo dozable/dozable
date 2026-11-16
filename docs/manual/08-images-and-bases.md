@@ -65,7 +65,7 @@ Node.js store, and `doz try opencode` needs no `--base`. A tool that cannot run 
 tool on Alpine) keeps its recipe's own; `--base BASE` (or the Quick try's base choice) picks another for one
 sandbox.
 
-Onboarding prepares the base in the host as soon as you choose it: the base image pulled, then its disk
+Onboarding prepares the base in the daemon as soon as you choose it: the base image pulled, then its disk
 flattened — the same two steps a tool's first preparation would take. A tool prepared meanwhile **waits** for it
 ("waited for the Node.js base") instead of downloading the same layers a second time. `doz onboard --status`
 shows it (`base node ready`); Operations in the dashboard shows it as "prepare the Node.js base".

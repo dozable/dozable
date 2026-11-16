@@ -60,7 +60,7 @@ final class WebActionHTTPTests: XCTestCase {
         XCTAssertEqual(try get("/api/v1/actions", ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"], method: "POST").status, 400, "empty")
         XCTAssertEqual(try post("/api/v1/actions", body, headers: ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": csrf,
                                                                     "Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"]).status, 403)
-        XCTAssertTrue(fake.performed.isEmpty, "nothing reached the host")
+        XCTAssertTrue(fake.performed.isEmpty, "nothing reached the daemon")
     }
 
     /// Every action over HTTP: refused without CSRF, then accepted with it and sent to the host as
@@ -107,7 +107,7 @@ final class WebActionHTTPTests: XCTestCase {
         XCTAssertEqual(op["label"] as? String, "hibernate demo")
         let text = try s.read(until: "running → paused", seconds: 5)
         XCTAssertTrue(text.contains("event: op"))
-        XCTAssertTrue(text.contains("fake step one"), "the host's progress line reached the page")
+        XCTAssertTrue(text.contains("fake step one"), "the daemon's progress line reached the page")
         XCTAssertTrue(text.contains("\"state\":\"done\""))
         XCTAssertEqual(fake.performed.map(\.op), [.hibernate])
         XCTAssertEqual(fake.performed.first?.name, "demo")
@@ -176,7 +176,7 @@ final class WebActionHTTPTests: XCTestCase {
         fake.hold = false
         let deadline = Date().addingTimeInterval(5)
         while try get("/api/v1/operations", ["Cookie": cookie]).text.contains("\"state\":\"running\"") && Date() < deadline { usleep(20_000) }
-        XCTAssertEqual(fake.performed.compactMap(\.name).sorted(), ["w0", "w1", "w2"], "the cancelled one never reached the host")
+        XCTAssertEqual(fake.performed.compactMap(\.name).sorted(), ["w0", "w1", "w2"], "the cancelled one never reached the daemon")
     }
 
     /// 590 bug 2: a double-clicked action is one operation — the repeat is 409 while the first runs;

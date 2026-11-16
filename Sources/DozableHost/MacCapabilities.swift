@@ -62,7 +62,7 @@ public struct MacCapabilityShape: Sendable, Equatable {
         localPorts = f.localPorts ?? []
         hasNetwork = f.proxyPort != nil
         preset = f.policy.flatMap { $0.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
-        network = f.proxyPort == nil ? nil : "waiting (no host)"
+        network = f.proxyPort == nil ? nil : "waiting (no daemon)"
         if let id = f.agent, let recipe = AgentRecipes.macAgent(program: id), let m = recipe.launch.macConfig {
             agent = recipe.title
             personHome = home.map { $0 + "/" + m.homeName }
@@ -152,7 +152,7 @@ extension MacFence {
             out.append(c("network", "Network", "none beyond its model (locked)" + ports, "Reaches only its AI model; every connection is logged.",
                          live: true, link: "doz net log @mac --session \(s.session)"))
         } else {
-            let wait = s.network == "waiting (no host)" ? " — waiting for a host" : ""
+            let wait = s.network == "waiting (no daemon)" ? " — waiting for the daemon" : ""
             // The preset by the name a person reads (`agent` is Standard's stored name).
             let preset = s.preset == "agent" ? "standard" : s.preset ?? "custom"
             out.append(c("network", "Network", "through Dozable's proxy (\(preset))" + ports + wait,

@@ -110,7 +110,7 @@ extension HostCore {
                 if let own {
                     if own.hasPrefix("keychain:"), let s = Keychain.read(service: String(own.dropFirst(9))) { return (s, nil) }
                     if let memoryKey { return (memoryKey, nil) }
-                    return (nil, "Dozable: the GitHub token of \(name) is gone (it was held in memory by a host that stopped) — give it again: doz key set \(name) --github")
+                    return (nil, "Dozable: the GitHub token of \(name) is gone (it was held in memory by a daemon that stopped) — give it again: doz key set \(name) --github")
                 }
                 if source == "key" {
                     // 599e: the default key (the Access step's), when the sandbox has none of its own.

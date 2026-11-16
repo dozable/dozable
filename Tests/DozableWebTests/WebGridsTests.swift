@@ -82,7 +82,7 @@ final class WebGridsTests: XCTestCase {
         XCTAssertEqual(a.items.map(\.state), ["unavailable", "unavailable"])
         XCTAssertEqual(a.items.map(\.reason), Array(repeating: WebGrids.sentence(.noHost), count: 2))
         XCTAssertEqual(a.items.map(\.session), ["main", "two"])
-        XCTAssertFalse(store.hostIsRunning(), "never a host started")
+        XCTAssertFalse(store.hostIsRunning(), "never a daemon started")
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.socket.path))
     }
 
@@ -128,7 +128,7 @@ final class WebGridsTests: XCTestCase {
         let r = try post(#"{"items":[{"sandbox":"box","session":"main","gen":0}]}"#, csrf: csrf)
         XCTAssertEqual(r.status, 200, r.text)
         let a = try WebJSON.decoder.decode(WebGrids.self, from: r.body)
-        XCTAssertEqual(a.items.first?.state, "unavailable", "the fake has no host: unavailable, nothing started")
+        XCTAssertEqual(a.items.first?.state, "unavailable", "the fake has no daemon: unavailable, nothing started")
         XCTAssertEqual(try post(#"{"items":[]}"#, csrf: nil).status, 403, "CSRF-checked")
         XCTAssertEqual(try post(#"{"items":[{"sandbox":"box"}]}"#, csrf: csrf).status, 400, "strict")
     }

@@ -58,7 +58,7 @@ final class CLIHarness: @unchecked Sendable {
         self.store = store
         var e = ProcessInfo.processInfo.environment
         e["DOZ_STORE"] = store.path
-        e["DOZ_HOST_IDLE"] = "30"          // the suite stops the host itself; the idle test sets its own
+        e["DOZ_DAEMON_IDLE"] = "30"          // the suite stops the host itself; the idle test sets its own
         // 593 §9: the periodic screen capture every minute (the shortest) — it runs beside everything
         // the suite does, and `cliSessionMemoryChecks` waits for one.
         e["DOZ_SCREEN_CAPTURE"] = "1"
@@ -122,7 +122,7 @@ final class CLIHarness: @unchecked Sendable {
     func row(_ name: String) -> SandboxInfo? { ls().first { $0.name == name } }
     func sessions(_ name: String) -> [SessionRow] { json(["sessions", name], [SessionRow].self) ?? [] }
     func hostPID() -> Int32? {
-        guard let st = json(["host", "status"], HostStatus.self) else { return nil }
+        guard let st = json(["daemon", "status"], HostStatus.self) else { return nil }
         return st.pid
     }
     var hostRunning: Bool { DozableStore(root: store).hostIsRunning() }
@@ -208,15 +208,15 @@ func cliSuite() async throws {
         h.run(["rm", "clia", "--yes"])
         h.run(["rm", "clib", "--yes"])
         h.run(["rm", "clis", "--yes"])
-        h.run(["host", "stop"])
+        h.run(["daemon", "stop"])
     }
     // A previous run that died part-way.
-    if h.hostRunning { h.run(["host", "stop"]) }
+    if h.hostRunning { h.run(["daemon", "stop"]) }
     for n in ["clia", "clib", "clic", "clid", "clis", "clibt", "clires"] where FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).configFile(n).path) {
         h.run(["rm", n, "--yes"])
     }
     h.run(["template", "rm", "clitpl", "--yes"])
-    if h.hostRunning { h.run(["host", "stop"]) }
+    if h.hostRunning { h.run(["daemon", "stop"]) }
 
     do {
         // 588: this scratch store's proxied sandboxes follow no account — the suite never reads the Mac's login.
@@ -393,7 +393,7 @@ func cliSuite() async throws {
         let log = h.json(["net", "log", "clib"], [ConnectionRecord].self)
         check(log != nil, "net log --json (\(log?.count ?? 0) records, \(log?.filter { $0.verdict == .denied }.count ?? 0) denied)")
 
-        print("cli: kill -9 the host")
+        print("cli: kill -9 the daemon")
         a.close()
         r = h.run(["run", "clia", "-d", "--session", "tick2", "--", "bash", "/workspace/tick.sh"])
         let p1 = h.sessions("clia").first { $0.name == "tick2" }?.pid
@@ -401,12 +401,12 @@ func cliSuite() async throws {
         let p2 = h.sessions("clib").first { $0.name == "tb" }?.pid
         check(p1 != nil && p2 != nil, "sessions tick2 (pid \(p1.map(String.init) ?? "?")) in clia, tb (pid \(p2.map(String.init) ?? "?")) in clib")
         check(h.run(["hibernate", "clia"]).code == 0 && h.run(["sleep", "clib"]).code == 0, "clia hibernated, clib asleep (RAM kept, snapshot on disk)")
-        guard let hostPID = h.hostPID() else { throw SandboxError.timedOut("no host pid") }
+        guard let hostPID = h.hostPID() else { throw SandboxError.timedOut("no daemon pid") }
         kill(hostPID, SIGKILL)
-        check(h.waitFor(10) { !h.hostRunning }, "kill -9 \(hostPID): the host is gone")
+        check(h.waitFor(10) { !h.hostRunning }, "kill -9 \(hostPID): the daemon is gone")
         let t9 = Date()
         let after = h.ls()
-        check(h.hostRunning && h.hostPID() != hostPID, String(format: "the next call (ls) started a new host (pid %@, %.2f s)",
+        check(h.hostRunning && h.hostPID() != hostPID, String(format: "the next call (ls) started a new daemon (pid %@, %.2f s)",
                                                                h.hostPID().map(String.init) ?? "?", Date().timeIntervalSince(t9)))
         check(after.contains { $0.name == "clia" && $0.phase == "hibernated" }, "clia is still hibernated")
         // 593 (owner, 2026-09-30): clis was RUNNING when the host died — it is off: its programs are gone,
@@ -418,11 +418,11 @@ func cliSuite() async throws {
               "…no sessions listed, no terminal layout")
         check(h.run(["rm", "clis", "--yes"]).code == 0 && !FileManager.default.fileExists(atPath: clisLayout.sandboxDirectory.path), "rm clis")
         check(h.waitFor(60) { h.row("clib").map { $0.phase == "asleep" && !$0.busy } ?? false },
-              "clib, asleep when the host died, was restored and is asleep again")
+              "clib, asleep when the daemon died, was restored and is asleep again")
         print("cli: resources — refusals while snapshots need the guest init (595)")
         cliResourcesRefusals(h)
         r = h.run(["wake", "clia"])
-        check(r.code == 0 && h.sessions("clia").first { $0.name == "tick2" }?.pid == p1, "wake clia in the new host: tick2 has the same pid (\(p1.map(String.init) ?? "?"))")
+        check(r.code == 0 && h.sessions("clia").first { $0.name == "tick2" }?.pid == p1, "wake clia in the new daemon: tick2 has the same pid (\(p1.map(String.init) ?? "?"))")
         r = h.run(["wake", "clib"])
         check(r.code == 0 && h.sessions("clib").first { $0.name == "tb" }?.pid == p2, "wake clib: tb has the same pid (\(p2.map(String.init) ?? "?"))")
 
@@ -443,14 +443,14 @@ func cliSuite() async throws {
         check(r.code == 0, "shutdown clib")
         print("cli: resources — the account, delete and re-create, clean, logs and metrics, the kernel (595)")
         cliResourcesChecks(h)
-        h.run(["host", "stop"])
-        check(!h.hostRunning, "host stop: no host")
+        h.run(["daemon", "stop"])
+        check(!h.hostRunning, "daemon stop: no daemon")
         _ = h.ls()
-        check(!h.hostRunning, "ls with nothing running answers from the store — it starts no host")
-        r = h.run(["host", "--idle-timeout", "0.05"])
-        check(r.code == 0 && h.hostRunning, "host --idle-timeout 0.05 (3 s)")
+        check(!h.hostRunning, "ls with nothing running answers from the store — it starts no daemon")
+        r = h.run(["daemon", "--idle-timeout", "0.05"])
+        check(r.code == 0 && h.hostRunning, "daemon --idle-timeout 0.05 (3 s)")
         let ti = Date()
-        check(h.waitFor(30) { !h.hostRunning }, String(format: "the idle host exited by itself after %.1f s", Date().timeIntervalSince(ti)))
+        check(h.waitFor(30) { !h.hostRunning }, String(format: "the idle daemon exited by itself after %.1f s", Date().timeIntervalSince(ti)))
         check(!FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).socket.path), "and removed its socket")
         r = h.run(["rm", "clib", "--yes"])
         check(r.code == 0, "rm clib")
@@ -458,7 +458,7 @@ func cliSuite() async throws {
         check(false, "aborted: \(error)")
     }
     cleanUp()
-    check(!h.hostRunning, "cleanup: no host left running")
+    check(!h.hostRunning, "cleanup: no daemon left running")
     // 594: onboarding, projects, the environment prompt, uninstall — stores of their own.
     await cliOnboardingSuite(binary: h.binary)
     await cliTerminalRestoreSuite(binary: h.binary)
@@ -643,8 +643,8 @@ func descendants(of root: pid_t) -> [pid_t] {
 /// SIGKILL — the host lives on (parent launchd, another session), clia runs, its session answers.
 /// Leaves clia and clib running.
 func cliHostDetachChecks(_ h: CLIHarness) {
-    h.run(["host", "stop"])
-    check(!h.hostRunning, "host stopped (clia, clib hibernated)")
+    h.run(["daemon", "stop"])
+    check(!h.hostRunning, "daemon stopped (clia, clib hibernated)")
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
     // Its own process group (as a terminal's job, or a UI that a tool stops by group or tree).
@@ -659,16 +659,16 @@ func cliHostDetachChecks(_ h: CLIHarness) {
     let client = p.processIdentifier
     // (exec prints when its command ends: wait for the host and clia, the client still running.)
     check(h.waitFor(120) { h.hostRunning && h.row("clia")?.phase == "running" } && p.isRunning,
-          "a client in its own process group (doz exec clia, still running) auto-started the host and woke clia")
-    guard let host = h.hostPID() else { check(false, "the host's pid"); p.terminate(); return }
+          "a client in its own process group (doz exec clia, still running) auto-started the daemon and woke clia")
+    guard let host = h.hostPID() else { check(false, "the daemon's pid"); p.terminate(); return }
     let tree = descendants(of: client)
-    check(parentPID(host) == 1, "the auto-started host's parent is launchd (ppid \(parentPID(host).map(String.init) ?? "?"))")
-    check(!tree.contains(host), "the host is not among the client's descendants (\(tree.count) of them)")
+    check(parentPID(host) == 1, "the auto-started daemon's parent is launchd (ppid \(parentPID(host).map(String.init) ?? "?"))")
+    check(!tree.contains(host), "the daemon is not among the client's descendants (\(tree.count) of them)")
     check(getsid(host) != getsid(client) && getsid(host) != getsid(0) && getpgid(host) != client,
-          "the host has its own session (sid \(getsid(host)) — the client's \(getsid(client)), the suite's \(getsid(0))) and group")
-    if let st = h.json(["host", "status"], HostStatus.self) {
-        check(st.parentPid == 1 && st.launchedDetached == true && st.sessionID == getsid(host), "host status --json: parentPid 1, launchedDetached, its session")
-    } else { check(false, "host status --json") }
+          "the daemon has its own session (sid \(getsid(host)) — the client's \(getsid(client)), the suite's \(getsid(0))) and group")
+    if let st = h.json(["daemon", "status"], HostStatus.self) {
+        check(st.parentPid == 1 && st.launchedDetached == true && st.sessionID == getsid(host), "daemon status --json: parentPid 1, launchedDetached, its session")
+    } else { check(false, "daemon status --json") }
     // Stop the client the way tools stop a process tree: its group, and each descendant — TERM, then KILL.
     kill(-client, SIGTERM)
     for d in tree { kill(d, SIGTERM) }
@@ -679,13 +679,13 @@ func cliHostDetachChecks(_ h: CLIHarness) {
     while p.isRunning && Date() < deadline { usleep(50_000) }
     check(!p.isRunning, "the client and its tree are gone (TERM, then KILL, to the group and every descendant)")
     usleep(500_000)
-    check(kill(host, 0) == 0 && parentPID(host) == 1 && h.hostPID() == host, "the host is still alive, parent launchd (pid \(host))")
+    check(kill(host, 0) == 0 && parentPID(host) == 1 && h.hostPID() == host, "the daemon is still alive, parent launchd (pid \(host))")
     check(h.row("clia")?.phase == "running", "clia is still running")
     let r = h.run(["exec", "clia", "--", "echo", "still-here"])
     check(r.code == 0 && r.out == "still-here\n", "and it answers (exec)")
     check(h.sessions("clia").contains { !$0.ended && $0.pid != nil }, "its sessions answer (sessions --json)")
     let doctor = h.run(["doctor", "--json"])
-    check(doctor.out.contains("parent launchd (detached)"), "doctor reports the host's parent: launchd")
+    check(doctor.out.contains("parent launchd (detached)"), "doctor reports the daemon's parent: launchd")
     check(h.run(["wake", "clib"]).code == 0, "wake clib (for what follows)")
 }
 
@@ -809,7 +809,7 @@ func cliConfigChecks(_ h: CLIHarness) {
     let report = h.run(["config", "show", "--json"])
     let rep = try? JSONDecoder().decode(SettingsReport.self, from: report.outData)
     check(rep?.settings.first { $0.key == "ui.boot_view_on_start" }?.source == .mac, "config show --json: source mac (669: was file)")
-    check(rep?.settings.first { $0.key == "host.idle_timeout_minutes" }?.source == .env, "DOZ_HOST_IDLE (the harness's) shows as source env")
+    check(rep?.settings.first { $0.key == "daemon.idle_timeout_minutes" }?.source == .env, "DOZ_DAEMON_IDLE (the harness's) shows as source env")
     check(rep?.settings.first { $0.key == "store.path" }?.source == .env, "DOZ_STORE shows as source env")
     let flagged = h.run(["config", "get", "store.path", "--store", "/tmp/elsewhere", "--json"])
     check(flagged.out.contains("\"source\" : \"flag\""), "--store shows as source flag")
@@ -872,7 +872,7 @@ func cliResourcesRefusals(_ h: CLIHarness) {
     check(r.code != 0 && FileManager.default.fileExists(atPath: initfs.path), "resources rm initfs --yes: refused (exit \(r.code)), nothing deleted")
     let rep = h.json(["resources"], ResourceReport.self)
     check(rep?.memory.contains { $0.name == "clib" && $0.heldBytes > 0 } ?? false, "resources: clib (asleep) holds its memory")
-    check(rep?.memory.contains { $0.kind == "host" && $0.heldBytes > 0 } ?? false, "resources: the host's own memory is on the account")
+    check(rep?.memory.contains { $0.kind == "host" && $0.heldBytes > 0 } ?? false, "resources: the daemon's own memory is on the account")
     check(!(rep?.memory.contains { $0.name == "clia" } ?? true), "…and clia (hibernated) holds none")
 }
 
@@ -933,7 +933,7 @@ func cliResourcesChecks(_ h: CLIHarness) {
     let got = before - (after?.occupiedBytes ?? before)
     let said = done?.freedBytes ?? 0
     check(after?.unattributedBytes == 0 && abs(got - said) <= 4 << 20,
-          "the volume got back what it said: \(DozableImages.formatBytes(got)) of \(DozableImages.formatBytes(said)) (host.log and metrics grow meanwhile)")
+          "the volume got back what it said: \(DozableImages.formatBytes(got)) of \(DozableImages.formatBytes(said)) (daemon.log and metrics grow meanwhile)")
 
     // Re-created on next use: clib (a clone of the deleted lab disk) still starts — the guest init is
     // rebuilt (the download cache pulled again); a new lab sandbox re-prepares the lab.
@@ -956,14 +956,14 @@ func cliResourcesChecks(_ h: CLIHarness) {
     check(h.row("clib") != nil && fm.fileExists(atPath: DozableStore(root: store).layout("clib").rootfs.path), "clib and its disk are untouched")
 
     // Logs and metrics clear.
-    let log = store.appendingPathComponent("host.log")
+    let log = store.appendingPathComponent("daemon.log")
     let logBefore = (try? fm.attributesOfItem(atPath: log.path)[.size] as? Int) ?? 0
     let runsBefore = (h.json(["metrics"], [MetricsSummaryRow].self) ?? []).reduce(0) { $0 + $1.count }
     let lm = h.run(["resources", "rm", "logs", "metrics", "--yes"])
     let logAfter = (try? fm.attributesOfItem(atPath: log.path)[.size] as? Int) ?? 0
     let runsAfter = (h.json(["metrics"], [MetricsSummaryRow].self) ?? []).reduce(0) { $0 + $1.count }
     check(lm.code == 0 && logAfter < logBefore && runsAfter < runsBefore,
-          "resources rm logs metrics: host.log \(logBefore) → \(logAfter) bytes; metrics rows \(runsBefore) → \(runsAfter)")
+          "resources rm logs metrics: daemon.log \(logBefore) → \(logAfter) bytes; metrics rows \(runsBefore) → \(runsAfter)")
 
     // The kernel new sandboxes boot.
     check(h.run(["resources", "kernel", "kernel:0.0-nope"]).code == 2, "resources kernel kernel:0.0-nope: not found (exit 2)")

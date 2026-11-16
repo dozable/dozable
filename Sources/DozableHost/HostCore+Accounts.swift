@@ -1087,7 +1087,7 @@ extension HostCore {
         file.keepalive = on
         try accountStore.save(file)
         for w in watchers.values { w.keepalive = keepaliveConfig(on) }
-        note(nil, "keep-alive \(on ? "on: near expiry, while a sandbox uses a Mac login and no Claude Code runs, the host runs the Mac's claude once" : "off")")
+        note(nil, "keep-alive \(on ? "on: near expiry, while a sandbox uses a Mac login and no Claude Code runs, the daemon runs the Mac's claude once" : "off")")
         return file
     }
 }

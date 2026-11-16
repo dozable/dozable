@@ -1,6 +1,8 @@
-# The engine and the host
+# The engine and the daemon
 
 Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../CLAUDE.md).
+
+The daemon is the code's "host": `HostServer`, `HostCore`, `HostClient`, `HostLauncher` and the `DozableHost` target keep that name.
 
 ## Where its code lives
 
@@ -17,7 +19,7 @@ A bare file name is in `Sources/DozableKit/`.
 | `DeckholdProtocol.swift` | Frame codec, `deckhold ls` parser, `GuestCommand` (every guest argv; the share re-mount script) |
 | `StoreLayout.swift` | Storage layout under `storeRoot`; `PersistedSandbox` (what a new process needs to restore) |
 | `DeckholdBinary.swift` | Finds the resource without `Bundle.module` |
-| `EXT4Inspector.swift` | an ext4 image FILE read on the host — `has_journal`, clean state, the free-block bitmaps (== `dumpe2fs`'s list) |
+| `EXT4Inspector.swift` | an ext4 image FILE read on the daemon — `has_journal`, clean state, the free-block bitmaps (== `dumpe2fs`'s list) |
 | `DiskAccounting.swift` | per-disk unique / shared-with-parent / garbage / extents from APFS's extent map (`F_LOG2PHYS_EXT`), PRIVATESIZE cross-check; range helpers |
 | `Maintenance.swift` | `reclaim()`, `rederive()`, `maintenanceAdvice()` (586's thresholds), `checkDisks()` — stopped sandboxes only |
 | `RestorePoints.swift`, `FsckHelper.swift` | Restore points, custom images; e2fsck of a running-taken copy in a helper VM (on the file, over virtio-fs) |
@@ -25,9 +27,9 @@ A bare file name is in `Sources/DozableKit/`.
 | `Resources/deckhold` | The committed static aarch64-linux-musl guest binary — see `Guest/deckhold/PROVENANCE.md` |
 | `Guest/deckhold/` | deckhold's C source, `build.sh` (pinned Zig 0.16.0 + ghostty `b988efc`), `PROVENANCE.md` |
 | `Sources/doz-vmtest/` | The VM integration suite (entitled executable); `NetworkSuite.swift` is `network`; `CLISuite.swift` is `cli` (`make test-cli`); `ClaudeSuite.swift` is `claude` (`make test-vm-claude`) |
-| `Sources/DozableHost/HostProtocol.swift` | the host protocol (JSON lines, `HostOp`, results) — fields only ever added |
-| `Sources/DozableHost/HostCore.swift` | the host's model — every sandbox as a `Sandbox`, every operation, crash recovery, metrics rows; also used read-only in-process |
-| `Sources/DozableHost/HostServer.swift` | `doz host` — the lock, the socket, the attach relay (held clients), streams, idle exit, quit = Hibernate |
+| `Sources/DozableHost/HostProtocol.swift` | the daemon protocol (JSON lines, `HostOp`, results) — fields only ever added |
+| `Sources/DozableHost/HostCore.swift` | the daemon's model — every sandbox as a `Sandbox`, every operation, crash recovery, metrics rows; also used read-only in-process |
+| `Sources/DozableHost/HostServer.swift` | `doz daemon` — the lock, the socket, the attach relay (held clients), streams, idle exit, quit = Hibernate |
 | `Sources/DozableHost/HostClient.swift`, `UnixSocket.swift` | the detached-child launcher, the client, socket plumbing, `ClientWire` (SandboxLab's attach wire) |
 | `Sources/DozableHost/DozableStore.swift`, `Metrics.swift` | the CLI store's files, `SandboxConfig` (`doz.json`), images → specs; the metrics DB (SandboxLab's schema) |
 | `Sources/DozableCLI/` | the commands (ArgumentParser), the attach client, `doctor`; `UICommand.swift` (`doz ui`, `ui link`) |
@@ -36,43 +38,43 @@ A bare file name is in `Sources/DozableKit/`.
 
 ## Rules that each cost a bug to learn here
 
-- **Every `doz exec` deadline is counted from process start and enforced by the host** (678: a `--timeout 3` exec
+- **Every `doz exec` deadline is counted from process start and enforced by the daemon** (678: a `--timeout 3` exec
   once ran 40 s — the clock started after the client's start-up and the wake, and the guest program outlived it).
   `ExecDeadline` (DozableHost): `ProcessStart.date` is the kernel's `p_starttime`; `DozableEntry.main`'s FIRST line arms
   a watchdog THREAD (never GCD or Swift concurrency — a starved pool cannot hold it back) that `_exit(124)`s 2 s after
-  the deadline. The client sends `HostRequest.deadline` (and `timeoutSeconds`, the time left, for an older host);
+  the deadline. The client sends `HostRequest.deadline` (and `timeoutSeconds`, the time left, for an older daemon);
   `HostCore.exec` races the whole operation against it (`race(until:)`): at the deadline it answers
   `ExecOutput.timedOut(during: waking|starting|running)` — a wake or start under way is NEVER cancelled (it finishes in
   the background, its events gated off), the guest command is never started after the deadline, and a running one
   is killed then deleted (`Sandbox.exec`: a failed wait kills). Exit code 124 (`DozableExit.timedOut`); `--json`'s
   `timedOut` tells it from a program's own 124. `ExecDeadlineTests`, `make test-cli-exectimeout`.
-- **One stuck guest never holds the host's answers** (678 B7: a starved guest made every exec time out, and `doz ls`
+- **One stuck guest never holds the daemon's answers** (678 B7: a starved guest made every exec time out, and `doz ls`
   and `doz down` hung behind it). `HostCore.guestRead` bounds a listing's guest read (`ls`'s session count,
   `sessions`) by 3 s; a guest that missed it is `unresponsive` (`SandboxInfo.unresponsive`, `ls` shows it, one note)
   and not asked again for 30 s (a lifecycle request asks again at once), and its balloon is given back. The dashboard
   says it too (`WebSandboxRow.unresponsive`: All sandboxes' "not answering" line, the sandbox page's callout). A graceful
   stop (`.stopContainer`) waits at most 30 s, then stops the VM at the VZ level and says so — the container goes to
   the Graveyard (never deallocated unclosed). `GuestReadTests`, `BalloonPressureTests`.
-- **A host never keeps a background priority it inherited** (678: a 69 s hibernate from a host that a background
-  agent worker had autostarted — Darwin's background state passes to every child). `HostServer.run` of a LAUNCHED host
-  calls `ProcessPriority.liftInheritedBackground()` (`setpriority(PRIO_DARWIN_PROCESS, 0, 0)`; `host status`
-  `priorityRestored`), and both launcher spawns ask for `QOS_CLASS_USER_INITIATED`; a person's `--foreground` host
-  keeps what they chose. `doz doctor` warns (`priority`, `host priority`) when doz or its host is clamped
+- **A daemon never keeps a background priority it inherited** (678: a 69 s hibernate from a daemon that a background
+  agent worker had autostarted — Darwin's background state passes to every child). `HostServer.run` of a LAUNCHED daemon
+  calls `ProcessPriority.liftInheritedBackground()` (`setpriority(PRIO_DARWIN_PROCESS, 0, 0)`; `daemon status`
+  `priorityRestored`), and both launcher spawns ask for `QOS_CLASS_USER_INITIATED`; a person's `--foreground` daemon
+  keeps what they chose. `doz doctor` warns (`priority`, `daemon priority`) when doz or its daemon is clamped
   (`ProcessPriority`: the Darwin background state, the background QoS, `pti_priority`). `ProcessPriorityTests`,
   `make test-cli-startup`.
 
-- **A host stop shows its progress** (`HostStop.swift`): `host-stop` streams, per sandbox, a
+- **A daemon stop shows its progress** (`HostStop.swift`): `host-stop` streams, per sandbox, a
   `started` "hibernating X" and a `step` "hibernated X (snapshot …)" / `failed` (why + "shut down
-  instead") — `HostEvent.startedAs` ties an end to its differently-worded start — then the host's own
-  last step, and answers `HostStopResult` (rows; an older host answers the string "stopped", still
+  instead") — `HostEvent.startedAs` ties an end to its differently-worded start — then the daemon's own
+  last step, and answers `HostStopResult` (rows; an older daemon answers the string "stopped", still
   read). `Sandbox.prepareForExit` returns its `ExitOutcome`. Every stopping client uses
   `stopHostShowingProgress` (the CLI's progress view: animated on a tty, plain lines else) or, in the
-  UI, Restart host's operation (`WebOperation.lines`). A host that dies mid-stop: the client reports
+  UI, Restart daemon's operation (`WebOperation.lines`). A daemon that dies mid-stop: the client reports
   what it saw (`HostStopView.seen`), never hangs. `make test-cli-hoststop` (in `test-cli` too).
 - **The sandbox follows the Mac's time zone**: `GuestTimeZone` — the zone's TZif bytes from
   THIS Mac's `/usr/share/zoneinfo` (portable to glibc and musl; the Alpine lab has no tzdata) — written to
   `/etc/localtime` (+ `/etc/timezone`) by `prepareGuest` at every fresh boot and by `.resyncClock` at
-  every wake (best effort; no new planner step). The host sets it (`HostCore.guestTimeZone`: the setting
+  every wake (best effort; no new planner step). The daemon sets it (`HostCore.guestTimeZone`: the setting
   `sandbox.timezone` = `mac`, read NOW with `NSTimeZone.resetSystemTimeZone()`, or a zone) at adopt,
   every named request and every `ensureRunning`. The facts say it (`sandbox.timezone`).
   `DOZ_TEST_MAC_TIMEZONE` (a name, or a file holding one, read at each look) stubs the Mac's zone;

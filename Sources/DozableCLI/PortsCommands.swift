@@ -152,10 +152,10 @@ struct OpenCommand: AsyncParsableCommand {
                 }
                 return
             }
-            let e = m.error ?? HostError(.failed, "the host gave no reason")
+            let e = m.error ?? HostError(.failed, "the daemon gave no reason")
             // An older host cannot read the request: open the page as before.
             guard e.code == .invalid, e.message.contains("cannot read") else { throw fail(e, g) }
-            if !g.quiet { Out.stderr("the running host cannot sign in (an older build) — opening the page as it is\n") }
+            if !g.quiet { Out.stderr("the running daemon cannot sign in (an older build) — opening the page as it is\n") }
         }
         if g.json { Out.json(row); _ = BrowserBridge.open(url, callback: nil); return }
         guard BrowserBridge.open(url, callback: nil) else { throw HostError(.failed, "this Mac could not open \(s)") }

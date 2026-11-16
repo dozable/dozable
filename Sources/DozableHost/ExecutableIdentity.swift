@@ -82,15 +82,15 @@ public struct ExecutableIdentity: Codable, Equatable, Sendable {
     public static func explain(_ change: Change, path: String) -> String {
         switch change {
         case .overwritten:
-            "this host's program was updated underneath it (\(path) was rewritten while it ran, so macOS no longer trusts "
-                + "its code and refuses its virtual machines) — `doz host stop`, then retry: sandboxes that are asleep keep "
+            "this daemon's program was updated underneath it (\(path) was rewritten while it ran, so macOS no longer trusts "
+                + "its code and refuses its virtual machines) — `doz daemon stop`, then retry: sandboxes that are asleep keep "
                 + "their snapshots and wake on the new build"
         case .replaced:
-            "a newer doz is installed (\(path)); this host still runs the previous build — `doz host stop` switches "
+            "a newer doz is installed (\(path)); this daemon still runs the previous build — `doz daemon stop` switches "
                 + "(sandboxes hibernate and wake on the new one)"
         case .removed:
-            "this host's program (\(path)) is gone — an upgrade removed it (brew upgrade / brew cleanup) — `doz host stop`, "
-                + "then retry: the installed doz starts a new host (sandboxes asleep keep their snapshots and wake on it)"
+            "this daemon's program (\(path)) is gone — an upgrade removed it (brew upgrade / brew cleanup) — `doz daemon stop`, "
+                + "then retry: the installed doz starts a new daemon (sandboxes asleep keep their snapshots and wake on it)"
         }
     }
 }

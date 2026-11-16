@@ -72,7 +72,7 @@ final class AgentProfileTests: XCTestCase {
                 case "allow-path":
                     XCTAssertTrue(allowed, "\(what) must be allowed in a fresh try")
                     XCTAssertEqual(policy.evaluate(host: e.host, port: 443, method: "GET", path: "/doz-profile-unlisted").action, .deny,
-                                   "\(what): by its path only — the rest of the host stays refused")
+                                   "\(what): by its path only — the rest of the daemon stays refused")
                 case "off-by-setting":
                     XCTAssertFalse(allowed, "\(what): refused when the setting is not honoured")
                     let set = (r.launch.env.keys.map { $0 }) + (r.launch.sessionEnv ?? [:]).keys + (r.network.offWithout ?? []).flatMap(\.env.keys)

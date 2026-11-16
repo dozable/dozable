@@ -117,6 +117,6 @@ export function networkPanel(net, ro) {
     net.permissions ? h('details', { class: 'net-rules', 'data-net-rules': '' }, h('summary', null, 'Details: the rules and hosts'), policyParts) : policyParts,
     h('h2', null, 'Connection log'),
     h('div', { class: 'toolbar' }, h('label', null, toggle, ' denied only'),
-      net.logAvailable ? net.logTotal + ' connections since the host started · ' + net.denied + ' denied' + (net.logTotal > net.log.length ? ' · newest ' + net.log.length + ' shown' : '') : (net.note || '')),
+      net.logAvailable ? net.logTotal + ' connections since the daemon started · ' + net.denied + ' denied' + (net.logTotal > net.log.length ? ' · newest ' + net.log.length + ' shown' : '') : (net.note || '')),
     panel(table(['Time', 'Verdict', 'Kind', 'Target', 'Rule', 'Bytes', 'Credential'], log, [5]), net.logAvailable ? 'No connections.' : net.note));
 }

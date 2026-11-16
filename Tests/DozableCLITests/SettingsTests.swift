@@ -227,7 +227,7 @@ final class SettingsTests: XCTestCase {
         let keys = DozableSettings.schema.map(\.key)
         XCTAssertEqual(Set(keys).count, keys.count, "no duplicate key")
         for k in ["ui.boot_view_on_start", "ui.confirm_shutdown", "ui.split_default", "ui.terminals", "ui.terminal_font_size", "ui.theme",
-                  "host.idle_timeout_minutes", "host.keepalive", "store.path", "claude.permissions", "defaults.cpus", "defaults.nat_subnet",
+                  "daemon.idle_timeout_minutes", "daemon.keepalive", "store.path", "claude.permissions", "defaults.cpus", "defaults.nat_subnet",
                   "images.lab.memory_mib", "images.lab.network", "images.claude-code.memory_mib", "images.claude-code.network",
                   "images.pi.memory_mib", "images.pi.network", "kernel.path", "kernel.cache"] {
             XCTAssertNotNil(DozableSettings.definition(k), k)
@@ -320,27 +320,27 @@ final class SettingsTests: XCTestCase {
     // MARK: precedence
 
     func testPrecedenceFlagEnvFileDefaultEachWithItsSource() throws {
-        try write("[host]\nidle_timeout_minutes = 30\n[store]\npath = \"/from/file\"\n")
+        try write("[daemon]\nidle_timeout_minutes = 30\n[store]\npath = \"/from/file\"\n")
         var e = env
         var s = DozableSettings.load(environment: e)
-        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").value, .int(30))
-        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .mac)
+        XCTAssertEqual(s.resolve("daemon.idle_timeout_minutes").value, .int(30))
+        XCTAssertEqual(s.resolve("daemon.idle_timeout_minutes").source, .mac)
         XCTAssertEqual(s.resolve("ui.theme").source, .default)
         XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 30)
-        e["DOZ_HOST_IDLE"] = "7"
+        e["DOZ_DAEMON_IDLE"] = "7"
         s = DozableSettings.load(environment: e)
-        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").value, .int(7))
-        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .env)
-        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").fileValue, .int(30), "the file's value is still known")
+        XCTAssertEqual(s.resolve("daemon.idle_timeout_minutes").value, .int(7))
+        XCTAssertEqual(s.resolve("daemon.idle_timeout_minutes").source, .env)
+        XCTAssertEqual(s.resolve("daemon.idle_timeout_minutes").fileValue, .int(30), "the file's value is still known")
         XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 7)
         XCTAssertEqual(s.idleTimeoutMinutes(flag: 0.05), 0.05, "the flag wins")
-        e["DOZ_HOST_IDLE"] = "0.5"
+        e["DOZ_DAEMON_IDLE"] = "0.5"
         s = DozableSettings.load(environment: e)
         XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 0.5, "a fractional environment value works as it always did")
-        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .env)
-        e["DOZ_HOST_IDLE"] = "soon"
+        XCTAssertEqual(s.resolve("daemon.idle_timeout_minutes").source, .env)
+        e["DOZ_DAEMON_IDLE"] = "soon"
         s = DozableSettings.load(environment: e)
-        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .mac, "an environment value that does not parse is skipped")
+        XCTAssertEqual(s.resolve("daemon.idle_timeout_minutes").source, .mac, "an environment value that does not parse is skipped")
         let flagged = s.resolve("store.path", flag: .string("/from/flag"))
         XCTAssertEqual(flagged.source, .flag)
         XCTAssertEqual(flagged.value, .string("/from/flag"))
@@ -404,7 +404,7 @@ final class SettingsTests: XCTestCase {
 
     func testKeepaliveIsTheChoiceOfAStoreThatHasNotMadeOne() throws {
         let store = DozableStore(root: xdg.appendingPathComponent("store"))
-        let on = AccountStore(store: store, settings: DozableSettings(text: "[host]\nkeepalive = true\n"))
+        let on = AccountStore(store: store, settings: DozableSettings(text: "[daemon]\nkeepalive = true\n"))
         XCTAssertTrue(on.load().keepalive, "a new store: the setting")
         var f = on.load()
         f.keepalive = false
@@ -423,7 +423,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(try parse("defaults.nat_subnet", ""), .string(""))
         XCTAssertEqual(try parse("kernel.path", "~/k/vmlinux"), .string("~/k/vmlinux"))
         for (k, t) in [("ui.boot_view_on_start", "maybe"), ("ui.terminal_font_size", "8"), ("ui.terminal_font_size", "33"),
-                       ("ui.terminal_font_size", "1.5"), ("ui.split_default", "tab"), ("ui.theme", "Dark"), ("host.idle_timeout_minutes", "-1"),
+                       ("ui.terminal_font_size", "1.5"), ("ui.split_default", "tab"), ("ui.theme", "Dark"), ("daemon.idle_timeout_minutes", "-1"),
                        ("defaults.cpus", "0"), ("defaults.cpus", "65"), ("images.lab.memory_mib", "100"), ("images.pi.network", "wide-open"),
                        ("defaults.nat_subnet", "10.0.0.0"), ("defaults.nat_subnet", "300.0.0.0/24"), ("defaults.nat_subnet", "10.0.0.0/4"),
                        ("kernel.path", "relative/k"), ("store.path", "/a\nb"), ("claude.permissions", "yolo")] {

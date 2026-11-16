@@ -140,7 +140,7 @@ public final class LoopbackProxyListener: @unchecked Sendable {
             return true
         }
         guard still else {
-            _ = Wire.writeAll(c, Self.answer(503, "Service Unavailable", "this session's proxy is being handed to a new host — try again"))
+            _ = Wire.writeAll(c, Self.answer(503, "Service Unavailable", "this session's proxy is being handed to a new daemon — try again"))
             return
         }
         proxy.serveProxyRequest(c, head: head, parsed: h, pending: pending)

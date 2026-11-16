@@ -286,8 +286,8 @@ export function paintFootLine() {
   const hostDown = /\b(warn|bad)\b/.test(host.className);
   const mismatch = $('foot-mismatch') && !$('foot-mismatch').hidden;
   sum.textContent = !ui.classList.contains('on') ? 'doz ui ' + $('live-text').textContent
-    : hostDown ? 'host ' + $('host-text').textContent
-    : mismatch ? 'host is another build'
+    : hostDown ? 'daemon ' + $('host-text').textContent
+    : mismatch ? 'daemon is another build'
     : ($('version').textContent || 'doz ui live') + (state.update && state.update.kind === 'available' ? ' · update' : '');
   sum.classList.toggle('bad', ui.classList.contains('bad') || /\bbad\b/.test(host.className));
   sum.classList.toggle('warn', !sum.classList.contains('bad') && mismatch);

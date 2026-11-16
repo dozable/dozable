@@ -20,7 +20,7 @@ extension HostCore {
             let s = try macSession(r, "doz sessions @mac --screen SESSION")
             // 685 M1: an ended program's last screen (its holder's .final) before anything saved while it ran.
             guard let saved = mac.finalScreen(s) ?? mac.savedScreen(s) else {
-                throw HostError(.notFound, "no saved screen of \(s) on this Mac — screens are saved every few minutes while it runs, and when the host stops")
+                throw HostError(.notFound, "no saved screen of \(s) on this Mac — screens are saved every few minutes while it runs, and when the daemon stops")
             }
             return try JSONValue(encoding: SessionScreen(name: MacPlace.name, saved))
         case .sessionSend:
@@ -69,7 +69,7 @@ extension HostCore {
             w.pid = rec.pid.map { pid_t($0) }
             macFenceWatches[s] = w
             let found = w.guardian.adopt()          // the baseline, the watch, then a full check
-            if !found.isEmpty { note(MacPlace.name, "session \(s) on this Mac: its git config changed while no host ran — dealt with now") }
+            if !found.isEmpty { note(MacPlace.name, "session \(s) on this Mac: its git config changed while no daemon ran — dealt with now") }
         }
         // 683: a fenced one that ended (or is gone) while no host ran: its conversations carried back now (once).
         for (s, rec) in recs where rec.fence?.agentConfig == MacAgentConfig.privateMode && !live.contains(s) {
@@ -213,7 +213,7 @@ extension HostCore {
         let env = mac.hostEnvironment
         let agent = sshAgent ? sockets + "/" + s + ".agent" : nil
         if agent != nil, MacFenceDoor.agentSocket(env) == nil {
-            note(MacPlace.name, "session \(s) on this Mac asks for your SSH agent, but this host sees none (SSH_AUTH_SOCK) — start one and add a key (ssh-add)")
+            note(MacPlace.name, "session \(s) on this Mac asks for your SSH agent, but this daemon sees none (SSH_AUTH_SOCK) — start one and add a key (ssh-add)")
         }
         macDoors[s] = MacFenceDoorSet(session: s, agent: agent, upstream: { MacFenceDoor.agentSocket(env) }, gh: github ? sockets + "/" + s + ".gh" : nil)
     }
@@ -229,7 +229,7 @@ extension HostCore {
         guard let want = r.macBridges, want.openURL != nil || want.openFiles != nil || want.clipboard != nil else {
             return SessionBridges(session: s, bridges: b, changed: nil)
         }
-        guard !readOnly else { throw HostError(.unavailable, "session-bridges needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "session-bridges needs the daemon") }
         if let v = want.openURL { b.openURL = v }
         if let v = want.openFiles { b.openFiles = v }
         if let v = want.clipboard { b.clipboard = v }
@@ -392,7 +392,7 @@ extension HostCore {
             return try JSONValue(encoding: records.filter { r.deniedOnly != true || $0.verdict == .denied })
         default:
             if isPolicyQuery(r) { return try JSONValue(encoding: policy) }
-            guard !readOnly else { throw HostError(.unavailable, "net-policy needs the host") }
+            guard !readOnly else { throw HostError(.unavailable, "net-policy needs the daemon") }
             let p = try Self.editedPolicy(policy, r, base: AgentPermissions.macBase, agent: nil)
             live?.proxy.policy = p
             await mac.updateRecord(s) { $0.fence?.policy = p }
@@ -406,7 +406,7 @@ extension HostCore {
     /// `doz sessions resume @mac S`: a session stopped for a git config change continues — refused while a change outside
     /// the allowlist is there again.
     func macResume(_ r: HostRequest) async throws -> SessionResumed {
-        guard !readOnly else { throw HostError(.unavailable, "session-resume needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "session-resume needs the daemon") }
         let s = try macSession(r, "doz sessions resume @mac SESSION")
         guard let rec = mac.records().sessions[s], let f = rec.fence else {
             throw HostError(.notFound, "no fenced session \(s) on this Mac (doz sessions @mac)")
@@ -544,7 +544,7 @@ extension HostCore {
                 return p
             } catch {
                 close(lfd)
-                HostLog.line("\(MacPlace.name): fenced session \(name): its proxy did not start (\(error)) — its connections wait until the next host")
+                HostLog.line("\(MacPlace.name): fenced session \(name): its proxy did not start (\(error)) — its connections wait until the next daemon")
                 return nil
             }
         }
@@ -612,7 +612,7 @@ extension HostCore {
     }
 
     func macOpen(_ r: HostRequest) async throws -> SessionOpened {
-        guard !readOnly else { throw HostError(.unavailable, "open-session needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "open-session needs the daemon") }
         if r.user != nil { throw HostError(.invalid, "--user does not apply on this Mac: its sessions run as you") }
         let located = MacDeckhold.locate()
         guard let holder = located.url else {
@@ -703,7 +703,7 @@ extension HostCore {
         throw await macNotRunning(s)
     }
 
-    /// The periodic capture's part for this Mac (`host.screen_capture_minutes`).
+    /// The periodic capture's part for this Mac (`daemon.screen_capture_minutes`).
     func captureMacScreens(reason: String = "periodic") async {
         let r = await mac.captureScreens(changedOnly: true, reason: reason)
         if !r.captured.isEmpty || !r.failed.isEmpty {
@@ -715,7 +715,7 @@ extension HostCore {
     /// A host stop: the sessions on this Mac keep running (their screens saved once more) — how many.
     public func macSessionsAtExit() async -> Int {
         guard !readOnly else { return 0 }
-        await captureMacScreens(reason: "host stop")
+        await captureMacScreens(reason: "daemon stop")
         return (await mac.rows()).filter { !$0.ended }.count
     }
 
@@ -752,7 +752,7 @@ extension HostCore {
     }
 
     func macEnd(_ r: HostRequest) async throws -> SessionEnded {
-        guard !readOnly else { throw HostError(.unavailable, "session-end needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "session-end needs the daemon") }
         let s = try macSession(r, "doz sessions end @mac SESSION")
         await sessionGate.lock(MacPlace.name)
         defer { sessionGate.unlock(MacPlace.name) }
@@ -795,7 +795,7 @@ extension HostCore {
     }
 
     func macRestart(_ r: HostRequest) async throws -> SessionRestarted {
-        guard !readOnly else { throw HostError(.unavailable, "session-restart needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "session-restart needs the daemon") }
         let s = try macSession(r, "doz sessions restart @mac SESSION")
         guard let rec = mac.records().sessions[s] else {
             throw HostError(.notFound, "session \(s) on this Mac was not opened by doz, so its program is not known — doz sessions end @mac \(s), then doz run @mac --session \(s) -- CMD")

@@ -39,7 +39,7 @@ func cliTrySuite(binary: String) async {
     let tool = "opencode", typed = "opencode@1"
     defer {
         for s in t.ls() { t.run(["rm", s.name, "--yes"], timeout: 300) }
-        t.run(["host", "stop"], timeout: 300)
+        t.run(["daemon", "stop"], timeout: 300)
         if let p = try? String(contentsOfFile: ws + "/pid", encoding: .utf8), let n = Int32(p.trimmingCharacters(in: .whitespacesAndNewlines)) { kill(n, SIGTERM) }
         try? fm.removeItem(at: t.store)
         try? fm.removeItem(atPath: ws)
@@ -62,7 +62,7 @@ func cliTrySuite(binary: String) async {
     check(up.terminationStatus == 0 && !port.isEmpty, "the stand-in provider listens on 127.0.0.1:\(port) (TLS, its own CA)")
     t.env["DOZ_TEST_PROVIDER_UPSTREAM"] = "127.0.0.1:\(port)"
     t.env["DOZ_TEST_PROVIDER_CA"] = ws + "/ca.pem"
-    t.run(["host", "stop"], timeout: 300)
+    t.run(["daemon", "stop"], timeout: 300)
     // 634: OpenCode 1 (published; an xAI key by default — the same key path Grok Build, unpublished since 629, took).
     guard let r = AgentRecipes.recipe(tool), let versionKey = SettingKey.agentVersion(tool) else { check(false, "the \(tool) recipe"); return }
     check(t.run(["config", "set", versionKey, r.install.pinned.version]).code == 0, "\(versionKey) = its pin \(r.install.pinned.version)")

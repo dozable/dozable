@@ -707,7 +707,7 @@ public final class DozableWebServer: @unchecked Sendable {
         let ctx = UpdateContext.current(version: version, executable: HostLauncher.executablePath)
         let (available, installed) = UpdateChecker.remembered(ctx)
         if let v = installed {
-            return WebUpdateNotice(kind: "installed", version: v, command: "doz host restart", notes: nil,
+            return WebUpdateNotice(kind: "installed", version: v, command: "doz daemon restart", notes: nil,
                                    text: UpdateChecker.installedLine(v) + " (this dashboard: doz ui restart)")
         }
         guard let e = available else { return nil }

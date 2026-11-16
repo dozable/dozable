@@ -25,12 +25,12 @@ func cliAgentsSuite(binary: String) async {
     let seed = ["kernels", "content", "state.json", "initfs.ext4", "golden"]
     if keep {
         t = CLIHarness(binary: binary, store: kept)
-        if !FileManager.default.fileExists(atPath: kept.appendingPathComponent("host.log").path) {
+        if !FileManager.default.fileExists(atPath: kept.appendingPathComponent("daemon.log").path) {
             let src = NSTemporaryDirectory() + "doz-vmtest-store"
             try? FileManager.default.createDirectory(at: kept, withIntermediateDirectories: true)
             for item in seed where FileManager.default.fileExists(atPath: src + "/" + item) { _ = onMac(["/bin/cp", "-cR", src + "/" + item, kept.path + "/"]) }
         }
-        t.env["DOZ_HOST_IDLE"] = "2"
+        t.env["DOZ_DAEMON_IDLE"] = "2"
         t.env["DOZ_TEST_CREDENTIALS"] = "memory"
     } else {
         t = onboardingHarness(binary, "ag", seed: seed)
@@ -45,7 +45,7 @@ func cliAgentsSuite(binary: String) async {
     let ws = w.path
     var server: Process?
     defer {
-        t.run(["host", "stop", "--store", t.store.path], timeout: 300)
+        t.run(["daemon", "stop", "--store", t.store.path], timeout: 300)
         server?.terminate()
         if !keep { try? fm.removeItem(at: t.store) }
         try? fm.removeItem(at: w)
@@ -103,7 +103,7 @@ func cliAgentsSuite(binary: String) async {
         """.write(toFile: opScript, atomically: true, encoding: .utf8)
     chmod(opScript, 0o755)
     t.env["DOZ_TEST_OP"] = opScript
-    _ = d(["host", "stop"], timeout: 300)
+    _ = d(["daemon", "stop"], timeout: 300)
     if keep { for n in ["ag-grok", "ag-gemini", "ag-antigravity", "ag-op", "ag-custom", "try-grok", "try-gemini", "try-agy"] { _ = d(["rm", n, "--yes"], timeout: 120) } }
 
     // Keys: fake, checked against the fake (the provider's check request goes there too).
@@ -221,8 +221,8 @@ func cliAgentsSuite(binary: String) async {
         let scan = d(["exec", "ag-custom", "--user", "root", "--", "sh", "-c",
                       "grep -rlsF -e '\(customKey)' -e '\(xaiKey)' /proc/[0-9]*/environ /home /root /run /tmp /etc 2>/dev/null | head -3; echo scanned"])
         check(scan.out.trimmingCharacters(in: .whitespacesAndNewlines) == "scanned", "no key in the guest (\(scan.out.prefix(120)))")
-        let log = (try? String(contentsOf: t.store.appendingPathComponent("host.log"), encoding: .utf8)) ?? ""
-        check(!log.contains(customKey), "host.log holds no custom key")
+        let log = (try? String(contentsOf: t.store.appendingPathComponent("daemon.log"), encoding: .utf8)) ?? ""
+        check(!log.contains(customKey), "daemon.log holds no custom key")
         _ = d(["rm", "ag-custom", "--yes"], timeout: 300)
     }
 

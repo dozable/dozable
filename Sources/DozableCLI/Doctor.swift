@@ -15,7 +15,7 @@ struct DoctorCheck: Codable, Equatable {
 }
 
 struct Doctor: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "Check this Mac and the store: macOS, Apple silicon, the entitlement, the kernel, vmnet, disk, the host.")
+    static let configuration = CommandConfiguration(abstract: "Check this Mac and the store: macOS, Apple silicon, the entitlement, the kernel, vmnet, disk, the daemon.")
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {
@@ -165,7 +165,7 @@ struct Doctor: AsyncParsableCommand {
                                detail: String(recipeLine.dropFirst("recipes: ".count))))
         // 653: yours and the community catalogues' (a line of its own — the one above stays Dozable's).
         if let x = RecipeExtras.describe() {
-            let waits = RecipeExtrasPaths.at().map(RecipeExtras.pending) == true ? " · a change waits for the next host start (doz host restart)" : ""
+            let waits = RecipeExtrasPaths.at().map(RecipeExtras.pending) == true ? " · a change waits for the next daemon start (doz daemon restart)" : ""
             out.append(DoctorCheck(check: "recipes, not Dozable's", status: x.contains(" refused: ") ? .warn : .ok, detail: x + waits))
         }
         // 594 W28: an agent image an older doz made, or a newer agent release — said, never rebuilt by itself.
@@ -190,24 +190,24 @@ struct Doctor: AsyncParsableCommand {
             if let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false),
                let st = try? m.result?.decode(HostStatus.self) {
                 detail += ", \(st.version), \(st.liveSandboxes.count) running, idle timeout \(st.idleTimeoutMinutes.formatted()) min"
-                if st.version != DozableCommand.version { status = .warn; detail += " — this CLI is \(DozableCommand.version): doz host stop" }
+                if st.version != DozableCommand.version { status = .warn; detail += " — this CLI is \(DozableCommand.version): doz daemon stop" }
                 // 593: a host never lives in a client's process tree (stopping that tree killed one mid-save).
                 if let pp = st.parentPid {
                     if pp == 1 {
                         detail += ", parent launchd (detached)"
                     } else if st.launchedDetached == false {
-                        detail += ", parent \(pp) — run in the foreground on purpose (doz host start --foreground)"
+                        detail += ", parent \(pp) — run in the foreground on purpose (doz daemon start --foreground)"
                     } else {
                         if status == .ok { status = .warn }
-                        detail += ", parent \(pp), NOT launchd — it lives in another process's tree, and stopping that tree stops it: doz host stop, then let a command start it again"
+                        detail += ", parent \(pp), NOT launchd — it lives in another process's tree, and stopping that tree stops it: doz daemon stop, then let a command start it again"
                     }
                 }
                 if let app = st.microphoneApp { detail += ", microphone asked as \(app) (sandboxes with sound)" }
                 if let why = st.keychainLocked { hostKeychain = (why, st.pid, st.startedAt) }       // 679 B6
                 // 678: the host's own scheduling — a clamped host makes every wake crawl.
                 if let p = st.priority {
-                    hostPriority = DoctorCheck(check: "host priority", status: p.clamped ? .warn : .ok,
-                                               detail: p.warning("the host", pid: st.pid)
+                    hostPriority = DoctorCheck(check: "daemon priority", status: p.clamped ? .warn : .ok,
+                                               detail: p.warning("the daemon", pid: st.pid)
                                                    ?? "normal (QoS \(p.qos)\(p.pri.map { ", pri \($0)" } ?? ""))"
                                                    + (st.priorityRestored == true ? " — moved out of the background priority it inherited from the command that started it" : ""))
                 }
@@ -220,7 +220,7 @@ struct Doctor: AsyncParsableCommand {
                 status = .warn
                 detail += " but it does not answer its socket"
             }
-            out.append(DoctorCheck(check: "host", status: status, detail: detail))
+            out.append(DoctorCheck(check: "daemon", status: status, detail: detail))
             if let hostPriority { out.append(hostPriority) }
             // 608: a sandbox whose live view of its workspace could not start is shared directly — say so.
             var ls = HostRequest(.ls); ls.withSessions = false
@@ -233,9 +233,9 @@ struct Doctor: AsyncParsableCommand {
             }
         } else {
             let recover = store.needsRecovery()
-            out.append(DoctorCheck(check: "host", status: recover.isEmpty ? .ok : .warn,
+            out.append(DoctorCheck(check: "daemon", status: recover.isEmpty ? .ok : .warn,
                                    detail: recover.isEmpty ? "not running (nothing is — the next command that needs it starts it)"
-                                                           : "not running, and \(recover.joined(separator: ", ")) had a VM when the last host went away — the next command recovers it"))
+                                                           : "not running, and \(recover.joined(separator: ", ")) had a VM when the last daemon went away — the next command recovers it"))
         }
         let metricsOK = fm.fileExists(atPath: store.metrics.path)
         out.append(DoctorCheck(check: "metrics", status: .ok, detail: metricsOK ? store.metrics.path : "none yet"))
@@ -361,9 +361,9 @@ struct Doctor: AsyncParsableCommand {
     static func hostLoginCheck(doctorReads: Bool?, reason: String, pid: Int32, startedAt: Date) -> DoctorCheck {
         let advice = HostSessionKind.hostAdvice(pid: pid, startedAt: startedAt, reason: reason)
         if doctorReads == true {
-            return DoctorCheck(check: "host login", status: .fail, detail: "doctor can read your Claude login, the host cannot — " + advice)
+            return DoctorCheck(check: "daemon login", status: .fail, detail: "doctor can read your Claude login, the daemon cannot — " + advice)
         }
-        return DoctorCheck(check: "host login", status: .warn, detail: advice)
+        return DoctorCheck(check: "daemon login", status: .warn, detail: advice)
     }
 
     static func sysctl(_ name: String) -> String {

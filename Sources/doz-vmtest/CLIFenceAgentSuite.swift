@@ -56,7 +56,7 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
     check(up.terminationStatus == 0 && Int(port) != nil, "the fake provider runs (127.0.0.1:\(port), its own CA)")
     defer { if let pid = Int32(get(fake + "/pid").trimmingCharacters(in: .whitespacesAndNewlines)) { kill(pid, SIGTERM) } }
     // The host again, with the seams (a host reads them at its start).
-    t.run(["host", "stop"], timeout: 60)
+    t.run(["daemon", "stop"], timeout: 60)
     let opened = base + "/opened", board = base + "/pasteboard"
     t.env["DOZ_TEST_PROVIDER_UPSTREAM"] = "127.0.0.1:\(port)"
     t.env["DOZ_TEST_PROVIDER_CA"] = fake + "/ca.pem"
@@ -78,7 +78,7 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
 
     // MARK: account, private folder, the swap, the facts (3.1–3.8, 3.7)
     var r = t.run(["account", "add", "ct", "--setup-token", "--no-verify", "--force"], stdin: Data((token + "\n").utf8))
-    check(r.code == 0, "account add ct --setup-token < stdin (a FAKE token, the host's memory keychain)\(r.code == 0 ? "" : ": " + r.err)")
+    check(r.code == 0, "account add ct --setup-token < stdin (a FAKE token, the daemon's memory keychain)\(r.code == 0 ? "" : ": " + r.err)")
     let pw = folder("pw")
     put(pw + "/body.json", "{\"model\":\"claude-haiku-4-5\",\"max_tokens\":8,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}")
     let enc = MacPlace.claudeProjectFolderName(pw)
@@ -112,7 +112,7 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
     let ph = env.split(separator: "\n").first { $0.hasPrefix("CLAUDE_CODE_OAUTH_TOKEN=") }.map { String($0.dropFirst(24)) } ?? ""
     check(ph.hasPrefix("doz_cred_") && !env.contains(token), "3.1 the program has a placeholder (doz_cred_…), never the token")
     let swapped = out(pw, "swap").contains("DOZ_FAKE_OK")
-    if !swapped { print("  INFO  swap: " + out(pw, "swap").suffix(2500)); print("  INFO  fake: " + get(fake + "/requests.log").suffix(1500) + " // " + get(fake + "/fake.out").suffix(600)); print("  INFO  hostlog: " + hostLog(t).split(separator: "\n").filter { $0.lowercased().contains("anthropic") || $0.contains("upstream") || $0.contains("TLS") }.suffix(8).joined(separator: " / ")); print("  INFO  host.log: " + hostLog(t).split(separator: "\n").filter { $0.contains("@mac") }.suffix(12).joined(separator: " / ")) }
+    if !swapped { print("  INFO  swap: " + out(pw, "swap").suffix(2500)); print("  INFO  fake: " + get(fake + "/requests.log").suffix(1500) + " // " + get(fake + "/fake.out").suffix(600)); print("  INFO  hostlog: " + hostLog(t).split(separator: "\n").filter { $0.lowercased().contains("anthropic") || $0.contains("upstream") || $0.contains("TLS") }.suffix(8).joined(separator: " / ")); print("  INFO  daemon.log: " + hostLog(t).split(separator: "\n").filter { $0.contains("@mac") }.suffix(12).joined(separator: " / ")) }
     check(swapped, "3.1 its request reached the model with the real token swapped in (\(out(pw, "swap").prefix(160)))")
     check(!out(pw, "foreign").contains("DOZ_FAKE_OK") && out(pw, "foreign").contains("refused"), "3.2 its own credential is refused, nothing injected beside it (\(out(pw, "foreign").prefix(160)))")
     // The vault (a sandbox's too) swaps a placeholder the program sent even beside a credential of its own — its own choice;
@@ -254,7 +254,7 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
         check(seam.contains("open https://allowed.example/x?state=SECRET") && seam.contains("open https://allowed.example/b"),
               "3.12 open and $BROWSER reach the browser (o2=\(get(br + "/o2").trimmingCharacters(in: .whitespacesAndNewlines)) \(get(br + "/cenv.txt").split(separator: "\n").filter { $0.hasPrefix("BROWSER") }) the seam: \(seam.replacingOccurrences(of: "\n", with: " / ")))")
         check(c.text.contains("(fenced) opened https://allowed.example/x") && !c.text.contains("SECRET"), "3.12 announced — scheme, host, path; never the query")
-        check(!hostLog(t).contains("SECRET"), "3.12 the host's log never has the query")
+        check(!hostLog(t).contains("SECRET"), "3.12 the daemon's log never has the query")
         check(t.waitFor(15) { get(opened).contains("callback 8765") } && !get(opened).contains("callback 8765 refused") && get(br + "/cb.txt").contains("GET /cb"),
               "3.14 a sign-in calling back to an allowed --local-port opens; the browser reaches the program directly (\(get(opened).components(separatedBy: "\n").filter { $0.hasPrefix("callback") }))")
         check(!seam.contains("localhost%3A9999") && c.text.contains("calls back to localhost:9999"), "3.14 a callback to a port it may not listen on: refused BEFORE opening, the flag named (\(c.text.contains("9999")))")

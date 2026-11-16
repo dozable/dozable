@@ -235,7 +235,7 @@ final class PortSignInTests: XCTestCase {
         XCTAssertEqual(back.op, .portOpen)
         XCTAssertEqual(back.openPort, 49374)
         XCTAssertEqual(HostOp.portOpen.rawValue, "port-open")
-        XCTAssertFalse(HostOp.portOpen.isReadOnly, "the forwards live in the host")
+        XCTAssertFalse(HostOp.portOpen.isReadOnly, "the forwards live in the daemon")
         XCTAssertFalse(HostOp.portOpen.isAnsweredWithoutHost)
         let o = PortOpened(sandbox: "oc", port: 49374, title: "OpenCode web", url: "http://127.0.0.1:49374/", signedIn: true)
         let oj = String(decoding: try JSONEncoder().encode(o), as: UTF8.self)

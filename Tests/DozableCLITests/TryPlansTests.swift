@@ -46,7 +46,7 @@ final class TryPlansTests: XCTestCase {
             let alone = try XCTUnwrap(am.result).decode(CreatePlan.self)
             XCTAssertEqual(p, alone, r.create.image)
         }
-        XCTAssertTrue(HostOp.plans.isReadOnly, "answered in-process when no host runs, like plan")
+        XCTAssertTrue(HostOp.plans.isReadOnly, "answered in-process when no daemon runs, like plan")
         // Refused: too many, or a purpose plan refuses.
         q.planRequests = Array(repeating: rs[0], count: 129)
         let refused = await c.handle(q)

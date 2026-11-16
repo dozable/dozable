@@ -10,7 +10,7 @@ A bare file name is in `Sources/DozableKit/`.
 |---|---|
 | `ImageSpec.swift`, `ImageBaker.swift` | Image specs (base@digest + steps + verify + persist dirs + `journalMiB`), the two agent image specs, the baked-disk cache; base disks (`images/bases/`, flattened once per base key) and clone-tree bakes (`ImageManifest.parent`) |
 | `Sources/DozableHost/ImageTree.swift`; `Sources/DozableCLI/TemplateCommands.swift`; `Sources/doz-vmtest/TemplatesSuite.swift` | the lineage (`image-tree`, built from `DiskAccounting`; `doz image ls --tree`, Images › Lineage); templates (`template-create`) and `duplicate` (`Sandbox.duplicate`); `make test-vm-templates` |
-| `Sources/DozableHost/Resources.swift`, `HostCore+Resources.swift`; `Sources/DozableCLI/ResourcesCommands.swift`; `Sources/DozableWeb/WebResources.swift`; `Tests/DozableCLITests/ResourcesTests.swift` | the account of everything Dozable uses (the walk, one leaf per entry, the three numbers from `DiskAccounting.exclusive`), refusals, the plan and the deletion; the host ops `resources` / `resources-rm` / `resources-clean` / `resources-kernel`; `doz resources`; the web projection + preview route |
+| `Sources/DozableHost/Resources.swift`, `HostCore+Resources.swift`; `Sources/DozableCLI/ResourcesCommands.swift`; `Sources/DozableWeb/WebResources.swift`; `Tests/DozableCLITests/ResourcesTests.swift` | the account of everything Dozable uses (the walk, one leaf per entry, the three numbers from `DiskAccounting.exclusive`), refusals, the plan and the deletion; the daemon ops `resources` / `resources-rm` / `resources-clean` / `resources-kernel`; `doz resources`; the web projection + preview route |
 | `Sources/DozableKit/BaseCatalogue.swift`, `OCIImport.swift`; `Sources/DozableHost/BaseImages.swift`, `ContainerTool.swift`, `AppleContainerResources.swift`; `Sources/DozableCLI/BaseCommands.swift`; `Sources/DozableWeb/WebBases.swift`; `Sources/doz-vmtest/BasesSuite.swift` | base × agent images — the catalogue, `ImageChoice` names, `ImageComposer` (+ `recompose` for W28), native Claude Code, pi's Node, digests; the store's base digests and Dockerfiles; Apple's `container` (status/start/install/build) and its storage in Resources; `doz base`, `doz builder`; the bases route and the Dockerfile picker; `make test-cli-bases` |
 | `Sources/DozableKit/AgentPermissions.swift`; `Sources/DozableHost/Permissions.swift`; `Sources/DozableCLI/NetPermissionCommands.swift`; `Sources/doz-vmtest/PermissionsSuite.swift` | agent permissions — the catalogue and presets per base, `NetworkPolicy.permissions` (stored by name, `effectiveRules`); edits/report/suggestions/facts; `doz net NAME/allow/deny/permissions`, `--allow`; `make test-cli-permissions` |
 
@@ -39,10 +39,10 @@ A bare file name is in `Sources/DozableKit/`.
   is synchronous and uses only the store: `.create` → the newest image PREPARED for this build, else
   the newest `usable` one an older doz's recipe made (no waiting), `.prepare` → the version the
   setting names (cached latest, a known exact, else the pin — whether the registry was never asked or did not
-  answer: 618, a host that had failed to reach it refused while the CLI with no host planned the pin, so Try and `--dry-run` disagreed). `HostCore.freshen` is the only thing that asks the registry (hourly cache in
+  answer: 618, a daemon that had failed to reach it refused while the CLI with no daemon planned the pin, so Try and `--dry-run` disagreed). `HostCore.freshen` is the only thing that asks the registry (hourly cache in
   `<store>/agent-versions.json`, 5-min back-off after a failure). Only the
-  real host asks (`HostServer` passes `.fromEnvironment()`; `DOZ_TEST_NPM_REGISTRY=offline|URL` for
-  tests); in-process hosts and unit tests have `.disabled` and resolve to the pin. Claude Code's own
+  real daemon asks (`HostServer` passes `.fromEnvironment()`; `DOZ_TEST_NPM_REGISTRY=offline|URL` for
+  tests); in-process daemons and unit tests have `.disabled` and resolve to the pin. Claude Code's own
   updater is off in sessions (`DISABLE_AUTOUPDATER`, `DISABLE_UPDATES` — both honoured by 2.1.227).
 - **An image is NEVER rebuilt without the user**.
   W28's bug: "prepared for this build" compared a bake with ITS OWN recorded recipe, so an image rc.1
@@ -52,7 +52,7 @@ A bare file name is in `Sources/DozableKit/`.
   `ImageRow.olderRecipe` ("this doz's image adds: sudo, package lists" — `AgentImages.recipeChanges`),
   `available` (a newer release, no background preparation any more), `status`/`standing`; `image ls`
   STATUS, the Images page (badge, Rebuild with the consequences), `doctor` (warn), `SandboxInfo.olderImage`
-  (`doz ls`, the sandbox page), create/up/init (`--rebuild` → `CreateOptions.rebuild`: the host
+  (`doz ls`, the sandbox page), create/up/init (`--rebuild` → `CreateOptions.rebuild`: the daemon
   prepares first; `--use-current`; a TTY asks, default use-current; `--json`: `imageNotice`), the New
   Sandbox form's choice. `doz reset` moves a sandbox to the image a create takes now
   (`moveToCurrentImage`). The facts never claim sudo the guest lacks (checked at session start).
@@ -81,12 +81,12 @@ A bare file name is in `Sources/DozableKit/`.
   decoders); `plan` validates them against a FRESH inventory; `execute` removes only the entries its
   own walk classifies under the leaves (top-most first) or the fixed places (restore point dir, screens,
   boots, `content` + `state.json`, `initfs.ext4`); logs are truncated, metrics cleared through
-  `MetricsStore.clearHistory` (the running host's own run kept).
+  `MetricsStore.clearHistory` (the running daemon's own run kept).
 - **Serialised with the lifecycle**: `resources-rm`/`-clean` wait (≤ 2 min, a `note` event says why)
   until `diskOpsInFlight` is 0 (every op in `HostCore.diskOps` counts itself in `handle`; a wake by
   use counts in `ensureRunning`), no preparation runs and no sandbox is busy or booting — then read the
   facts, re-check synchronously, and plan + delete with NO suspension point (the actor runs nothing
-  else). A dry run is read-only (in-process with no host); a deletion needs the host.
+  else). A dry run is read-only (in-process with no daemon); a deletion needs the daemon.
 - **Clean up** = `cleanIDs`: cleanable (re-creatable AND unused — an image key no sandbox was created
   from in `resources.clean_unused_days`), deletable, not refused — and never templates, sandboxes,
   points, screens, boots, logs, metrics, the guest init, stray or outside rows, or an image parent. The
@@ -145,7 +145,7 @@ A bare file name is in `Sources/DozableKit/`.
   row (its data folder by part, the program, Dozable's own `doz/…` images), not in Dozable's total or the
   unattributed check, no checkbox on the page.
 - **Never rebuild a running test's `doz` in place**: a long VM run (the matrix) runs from a COPY of the
-  binary and its bundles — `make cli` under a running host is an earlier incident.
+  binary and its bundles — `make cli` under a running daemon is an earlier incident.
 
 ## Agent permissions
 

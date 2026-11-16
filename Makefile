@@ -78,7 +78,7 @@ build: ## Build every product (and the VM test host)
 
 # ── Test safety BY DEFAULT ───────────────────────────────────────────────────
 # Every test target runs with the seams that keep it off this Mac's real Dozable: no look at the Mac's Claude
-# login, accounts' secrets in the host's memory (never the login keychain), a scratch Codex home, and a
+# login, accounts' secrets in the daemon's memory (never the login keychain), a scratch Codex home, and a
 # scratch settings file (XDG_CONFIG_HOME) whose store.path and defaults.projects_dir point at scratch
 # folders — so a test that forgets --store cannot reach the default store, and a new sandbox's workspace is
 # never made under ~/Developer. DOZ_TEST_GUARD=1 arms the guard in the code (`TestSafety`): a test host that
@@ -186,6 +186,8 @@ prev-cli: cli ## Build + sign the previous DozableKit release's doz from its tag
 	  rm -rf "$(PREV_DIR)" && mkdir -p "$(PREV_DIR)" && git archive $(PREV_TAG) | tar -x -C "$(PREV_DIR)" && \
 	  (cd "$(PREV_DIR)" && swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS) --product doz) ; fi
 	codesign --force --sign - --entitlements Scripts/doz.entitlements $(PREV_BIN)
+	@# doz reads its version from a VERSION beside it (as `make cli` does for this build): the tag's own.
+	@if [ -n "$(PREV_TAG)" ]; then cp "$(PREV_DIR)/VERSION" "$(PREV_DIR)/.build/debug/VERSION"; fi
 
 test-vm-upgrade: cli vmtest-host prev-cli ## 591 upgrade: the previous DozableKit release (or a copy of this build) sleeps lab + pi sandboxes (sessions, markers), this build wakes them; the running host's program overwritten in place; an idle host replaced by an update
 	perl -e 'alarm shift; exec @ARGV' 3600 $(VMTEST_BIN) upgrade --old $(PREV_BIN) --doz $(CLI_BIN) --store "$(UPGRADE_STORE)" --entitlements Scripts/doz.entitlements
@@ -232,7 +234,7 @@ install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.lo
 	cp -R .build/release/DozableKit_DozableKit.bundle "$(PREFIX)/libexec/doz/"
 	cp -R .build/release/DozableKit_DozableWeb.bundle "$(PREFIX)/libexec/doz/"
 	cp VERSION "$(PREFIX)/libexec/doz/VERSION"   # 602: the stamp `doz --version` reads (see `cli`)
-	@# NEVER overwrite the executable in place: a running `doz host` executes that very file, and
+	@# NEVER overwrite the executable in place: a running `doz daemon` executes that very file, and
 	@# rewriting it invalidates the running process's code signature — the Virtualization framework
 	@# then refuses every VM it asks for ("Internal Virtualization error", 591). Copy + sign under a
 	@# temporary name and RENAME over the old one: a running host keeps its original file (inode).
@@ -247,8 +249,8 @@ install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.lo
 	else echo "note: deckhold-mac not installed (no pinned toolchain in .tools — make deckhold once)"; fi
 	ln -sf "$(PREFIX)/libexec/doz/doz" "$(PREFIX)/bin/doz"
 	@echo "installed $(PREFIX)/bin/doz — run: doz doctor"
-	@"$(PREFIX)/libexec/doz/doz" host status 2>/dev/null | grep -q '^host .* running' \
-	  && echo "note: a doz host is running the PREVIOUS build (it keeps working); \`doz host stop\` switches to this one — sandboxes hibernate and wake on it" || true
+	@"$(PREFIX)/libexec/doz/doz" daemon status 2>/dev/null | grep -q '^daemon .* running' \
+	  && echo "note: a doz daemon is running the PREVIOUS build (it keeps working); \`doz daemon stop\` switches to this one — sandboxes hibernate and wake on it" || true
 
 # ── The release (598) ────────────────────────────────────────────────────────
 # `make release VERSION=X.Y.Z` builds release, packs the install layout above as
@@ -308,7 +310,7 @@ DIRECTORY_DIR ?= $(or $(TMPDIR),/tmp/)doz-directory-site
 publish-recipes: cli ## The tree's recipe data as a signed recipe catalogue in DIRECTORY_DIR (the doz.sh site: catalogue, index.json, CNAME) (MIN_DOZ=, DRY_RUN=1; PUSH=1 pushes — the owner's word first). COMMUNITY=1 RECIPES_DIR=<your YAML> UPDATE_KEY_FILE=<your key> UPDATES_DIR=<your site>: a community catalogue, signed with its publisher's own key
 	@DIRECTORY_DIR="$(DIRECTORY_DIR)" UPDATES_DIR="$(UPDATES_DIR)" MIN_DOZ="$(MIN_DOZ)" DRY_RUN="$(DRY_RUN)" PUSH="$(PUSH)" COMMUNITY="$(COMMUNITY)" DOZ="$(CLI_BIN)" Scripts/publish-recipes.sh
 
-test-recipe-catalogue: cli ## The recipe catalogue end to end with a TEST key (no network): publish an edited tree → a local server → a real host's refresh (404, then a catalogue) → a new host start applies it → new processes use it; a tampered file never used; idempotent; nothing pushed
+test-recipe-catalogue: cli ## The recipe catalogue end to end with a TEST key (no network): publish an edited tree → a local server → a real daemon's refresh (404, then a catalogue) → a new host start applies it → new processes use it; a tampered file never used; idempotent; nothing pushed
 	@Scripts/test-recipe-catalogue.sh "$(CLI_BIN)"
 
 test-community-recipes: cli ## 653: your own recipes and community catalogues end to end, offline, a THROWAWAY key: doz recipe new fails the check then passes once filled in; the label in doz search and doz try's list; Dozable's id refused; a catalogue refused before its key is confirmed, used after; a clashing source refused whole; a tampered serial refused; removal keeps a sandbox's record; nothing pushed
@@ -317,10 +319,10 @@ test-community-recipes: cli ## 653: your own recipes and community catalogues en
 test-cli-startup: cli ## The cost of a start: ls/sessions/exec/attach build no recipe part (DOZ_TEST_STARTUP_TRACE); median doz ls --json <= STARTUP_MAX_MS (60), <= 1 s under taskpolicy -b; doctor's priority warning, a host started from the background leaves it (scratch store, no VM)
 	python3 Scripts/startup-check.py $(CLI_BIN)
 
-test-cli-keychainlocked: cli ## A host started where the login keychain is locked (the guarded DOZ_TEST_KEYCHAIN_LOCKED seam): said before it starts, named as the reason by account ls and doctor; a normal one says nothing (scratch store, no VM)
+test-cli-keychainlocked: cli ## A daemon started where the login keychain is locked (the guarded DOZ_TEST_KEYCHAIN_LOCKED seam): said before it starts, named as the reason by account ls and doctor; a normal one says nothing (scratch store, no VM)
 	python3 Scripts/keychain-locked-check.py $(CLI_BIN)
 
-test-cli-exectimeout: cli vmtest-host ## exec --timeout: counted from doz's start, 124 from the host at the deadline — a running command killed, a cold start and a wake that outlast it go on, a stopped client still ends 124 (a lab sandbox, scratch store)
+test-cli-exectimeout: cli vmtest-host ## exec --timeout: counted from doz's start, 124 from the daemon at the deadline — a running command killed, a cold start and a wake that outlast it go on, a stopped client still ends 124 (a lab sandbox, scratch store)
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-exectimeout --doz $(CLI_BIN)
 
 test-cli: cli vmtest-host ## 585 CLI suite: the signed doz from separate processes (up/exec/run/attach, lifecycle, points, two sandboxes, kill -9 host, idle exit); 594: onboarding, init/up, the agent prompt, uninstall (stores /tmp/dzo-PID-*)
@@ -332,7 +334,7 @@ test-cli-onboarding: cli vmtest-host ## 594: only test-cli's onboarding part (on
 test-cli-terminal: cli vmtest-host ## 594 W13: only test-cli's terminal part — on a pty, a detach / a session's end / SIGHUP put the outer terminal's modes and termios back
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-terminal --doz $(CLI_BIN)
 
-test-cli-hoststop: cli vmtest-host ## 594 W22: only test-cli's host-stop part — each sandbox's line (plain off a terminal, animated on a pty), --json, nothing running, a host killed mid-stop
+test-cli-hoststop: cli vmtest-host ## 594 W22: only test-cli's daemon-stop part (the target keeps its name) — doz host unknown, each sandbox's line (plain off a terminal, animated on a pty), --json, nothing running, a daemon killed mid-stop
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-hoststop --doz $(CLI_BIN)
 
 test-cli-agentsudo: cli vmtest-host ## 594 W23: only test-cli's agent-sudo part — sudo apt-get install in a fresh claude-code sandbox, --no-agent-sudo, the setting at the next boot, root reaches no more (prepares claude-code; network)
@@ -341,13 +343,13 @@ test-cli-agentsudo: cli vmtest-host ## 594 W23: only test-cli's agent-sudo part 
 test-cli-points: cli vmtest-host ## 594 W25–W27: restore point names never cut + lookup by name/id/prefix, check before asking (W26), exec/run start an off sandbox
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-points --doz $(CLI_BIN)
 
-test-vm-status: cli vmtest-host ## 612: what the agent is doing (OSC 7501) — a FAKE agent in a lab asks, deckhold answers, it reports working → blocked → done → working → error: the host's status per step (sessions, ls, events, doz ls/sessions), no viewer and a viewer (the bytes unchanged), sleep and hibernate with their wakes, the exit, host.log without the program's text, shutdown (scratch store)
+test-vm-status: cli vmtest-host ## 612: what the agent is doing (OSC 7501) — a FAKE agent in a lab asks, deckhold answers, it reports working → blocked → done → working → error: the daemon's status per step (sessions, ls, events, doz ls/sessions), no viewer and a viewer (the bytes unchanged), sleep and hibernate with their wakes, the exit, host.log without the program's text, shutdown (scratch store)
 	perl -e 'alarm shift; exec @ARGV' 1500 $(VMTEST_BIN) cli-status --doz $(CLI_BIN)
 
-test-cli-grids: cli vmtest-host ## 648: painted thumbnails — a session prints coloured text; session-grids (over the host's status watcher) returns its grid with those colours; the same gen answers unchanged, new output a new grid; asleep it answers not-running and stays asleep, its saved screen carries the grid; no host: no answer, none started (scratch store)
+test-cli-grids: cli vmtest-host ## 648: painted thumbnails — a session prints coloured text; session-grids (over the daemon's status watcher) returns its grid with those colours; the same gen answers unchanged, new output a new grid; asleep it answers not-running and stays asleep, its saved screen carries the grid; no host: no answer, none started (scratch store)
 	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-grids --doz $(CLI_BIN)
 
-test-cli-sessions: cli vmtest-host ## 608: a program in /workspace keeps its folder across hibernate and a host restart; doz sessions restart|end (SIGHUP ignored → TERM, tmux, a missing session, never a wake, a racing open, the record), workspace.view off and on; doz sessions send (acknowledged, into a hibernated sandbox 5 of 5, --then-screen) and screen (live, saved when asleep, --wake)
+test-cli-sessions: cli vmtest-host ## 608: a program in /workspace keeps its folder across hibernate and a daemon restart; doz sessions restart|end (SIGHUP ignored → TERM, tmux, a missing session, never a wake, a racing open, the record), workspace.view off and on; doz sessions send (acknowledged, into a hibernated sandbox 5 of 5, --then-screen) and screen (live, saved when asleep, --wake)
 	perl -e 'alarm shift; exec @ARGV' 1500 $(VMTEST_BIN) cli-sessions --doz $(CLI_BIN)
 	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-sessionsend --doz $(CLI_BIN)
 
@@ -376,7 +378,7 @@ test-cli-permissions: cli vmtest-host ## 597: agent permissions — doz net perm
 test-cli-clipboard: cli vmtest-host ## 599 (594.B1): OSC 52 → the Mac clipboard (a file, DOZ_TEST_PASTEBOARD) with a notice each time; a read never answered; 1 MiB + rate limits; sandbox.clipboard off (per sandbox, for all)
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-clipboard --doz $(CLI_BIN)
 
-test-cli-ports: cli vmtest-host ## 617 (RP-1): web ports in a real VM — doz ports add/ls/rm, doz open (the opener seam), the Mac's 127.0.0.1 only, a taken Mac port moved and kept, closed on sleep/hibernate/host stop/shutdown and back on wake/start
+test-cli-ports: cli vmtest-host ## 617 (RP-1): web ports in a real VM — doz ports add/ls/rm, doz open (the opener seam), the Mac's 127.0.0.1 only, a taken Mac port moved and kept, closed on sleep/hibernate/daemon stop/shutdown and back on wake/start
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-ports --doz $(CLI_BIN)
 
 test-cli-browser: cli vmtest-host ## 599 (594.B2): xdg-open/$BROWSER → the Mac's browser (a file, DOZ_TEST_OPEN_URL), a fake OAuth sign-in's localhost callback forwarded into the sandbox; refusals, rate, sandbox.browser_bridge off
@@ -454,7 +456,7 @@ test-cli-tmux38: cli vmtest-host ## Dozable's tmux 3.8 (the tools layer) on a De
 pullbench: vmtest-host ## 594 D12: pull the node base with 3 vs 6 concurrent layer downloads into fresh stores (network; ROUNDS=3)
 	$(VMTEST_BIN) pullbench --rounds $(or $(ROUNDS),3)
 
-test-vm-claude: cli vmtest-host ## 588 Claude credentials: the proxy's classifier (allow/strict), a placeholder across a host restart, revoke on shutdown, no token on disk — a FAKE key, nobody's login (DOZ_TEST_CLAUDE_LOGIN=1 adds this Mac's login, read-only)
+test-vm-claude: cli vmtest-host ## 588 Claude credentials: the proxy's classifier (allow/strict), a placeholder across a daemon restart, revoke on shutdown, no token on disk — a FAKE key, nobody's login (DOZ_TEST_CLAUDE_LOGIN=1 adds this Mac's login, read-only)
 	perl -e 'alarm shift; exec @ARGV' 1500 $(VMTEST_BIN) claude --doz $(CLI_BIN) --store "$(CLAUDETEST_STORE)"
 
 test-vm-templates: cli vmtest-host ## 593 templates and duplicates on pi: a template holds the root disk only (never the state disk); duplicate's new workspace and fresh (or --copy-state) state disk

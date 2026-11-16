@@ -64,7 +64,7 @@ final class ResourcesTests: XCTestCase {
         try write("kernels/\(pinned)", bytes: 44 << 10, seed: 10)
         try write("kernels/vmlinux-9.9-custom", bytes: 36 << 10, seed: 12)
         try write("containers/claude-code-bake/scratch.ext4", bytes: 48 << 10, seed: 11)
-        try write("host.log", bytes: 9000)
+        try write("daemon.log", bytes: 9000)
         try write("metrics.sqlite", bytes: 12000)
         try write("accounts.json", bytes: 100)
         try write("stray.txt", bytes: 3000)
@@ -129,8 +129,8 @@ final class ResourcesTests: XCTestCase {
         XCTAssertEqual(c("kernels/vmlinux-6.18.15-186"), "kernel:6.18.15-186")
         XCTAssertEqual(c("containers/pi-bake"), "leftover:pi-bake")
         XCTAssertEqual(c("metrics.sqlite-wal"), "metrics")
-        XCTAssertEqual(c("host.log"), "logs")
-        XCTAssertEqual(c("host.sock"), "store")
+        XCTAssertEqual(c("daemon.log"), "logs")
+        XCTAssertEqual(c("daemon.sock"), "store")
         // 606: doz serve's lock, socket and folder (devices, audit log, port); 605's doz ui files.
         for f in ["serve.lock", "serve.sock", "serve/devices.json", "serve/audit.jsonl", "serve/port", "ui.port", "ui.sessions", "ui.revoked", "ui.operations.json"] {
             XCTAssertEqual(c(f), "store", f)
@@ -267,7 +267,7 @@ final class ResourcesTests: XCTestCase {
         var real = dry
         real.dryRun = nil
         let refused = await ro.handle(real)
-        XCTAssertEqual(refused.error?.code, .unavailable, "a deletion needs the host")
+        XCTAssertEqual(refused.error?.code, .unavailable, "a deletion needs the daemon")
         var clean = HostRequest(.resourcesClean)
         clean.dryRun = true
         let cleanAnswer = await ro.handle(clean)
@@ -314,10 +314,10 @@ final class ResourcesTests: XCTestCase {
             XCTAssertFalse(fm.fileExists(atPath: root.appendingPathComponent(gone).path), gone)
         }
         for kept in ["golden/\(labKey).ext4", "sandboxes/a/rootfs.ext4", "images/bases/f97ac66c1d54/root.ext4", "images/custom/tpl/id1/root.ext4",
-                     "kernels/\(pinned)", "initfs.ext4", "accounts.json", "junk/deep/file", "host.log"] {
+                     "kernels/\(pinned)", "initfs.ext4", "accounts.json", "junk/deep/file", "daemon.log"] {
             XCTAssertTrue(fm.fileExists(atPath: root.appendingPathComponent(kept).path), kept)
         }
-        XCTAssertEqual(try fm.attributesOfItem(atPath: root.appendingPathComponent("host.log").path)[.size] as? Int, 0, "a log is cleared, not removed")
+        XCTAssertEqual(try fm.attributesOfItem(atPath: root.appendingPathComponent("daemon.log").path)[.size] as? Int, 0, "a log is cleared, not removed")
         let after = Resources.inventory(store: store, facts: facts())
         XCTAssertEqual(after.unattributedBytes, 0)
         XCTAssertEqual(after.totalBytes, try du(root))

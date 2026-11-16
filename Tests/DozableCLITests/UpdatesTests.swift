@@ -231,7 +231,7 @@ final class UpdatesTests: XCTestCase {
         XCTAssertEqual(UpdateChecker.noticeLine(entry("0.32.0", build: 9, channel: "stable"), ctx(method: .homebrew(formula: "doz"))),
                        "doz 0.32.0 is available — upgrade: doz upgrade -y (notes: https://updates.dozable.com/v1/notes/0.32.0.html)",
                        "doz upgrade -y, which refreshes Dozable's tap first — a bare brew upgrade can miss the release")
-        XCTAssertEqual(UpdateChecker.installedLine("0.32.0"), "Updated to 0.32.0 — restart to apply: doz host restart")
+        XCTAssertEqual(UpdateChecker.installedLine("0.32.0"), "Updated to 0.32.0 — restart to apply: doz daemon restart")
     }
 
     func testInstallMethods() throws {
@@ -274,7 +274,7 @@ final class UpdatesTests: XCTestCase {
         let tty = ["DOZ_TEST_UPDATE_TTY": "1"]
         XCTAssertTrue(UpdateHook.applies(["ls"], env: tty))
         XCTAssertTrue(UpdateHook.applies(["attach", "a", "--store", "/tmp/s"], env: tty))
-        for args in [["ls", "--json"], ["ls", "-q"], ["--version"], ["update"], ["host", "start"], ["serve"], ["uninstall"], ["ls", "--help"]] {
+        for args in [["ls", "--json"], ["ls", "-q"], ["--version"], ["update"], ["daemon", "start"], ["serve"], ["uninstall"], ["ls", "--help"]] {
             XCTAssertFalse(UpdateHook.applies(args, env: tty), "\(args)")
         }
         XCTAssertEqual(UpdateHook.words(["--store", "/tmp/s", "ui", "-v", "start"]), ["ui", "start"])
@@ -292,6 +292,6 @@ final class UpdatesTests: XCTestCase {
         XCTAssertNoThrow(try DozableCommand.parseAsRoot(["update", "--channel", "beta", "--yes"]))
         XCTAssertThrowsError(try DozableCommand.parseAsRoot(["update", "--channel", "nightly"]))
         XCTAssertThrowsError(try DozableCommand.parseAsRoot(["update", "--check", "--channel", "beta"]))
-        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["host", "restart"]))
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["daemon", "restart"]))
     }
 }

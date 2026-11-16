@@ -25,11 +25,11 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   ca-certificates) — apt/apk through the proxy, only when missing. github.com's keys — a managed block in
   `/etc/ssh/ssh_known_hosts`.
 - **When**: `Sandbox.start()` after the boot, and `applyGuestFixes` (wakes — after the wake is reported done); the FIRST apply in a sandbox (no
-  `/var/lib/doz/tools`) is loud (`tools: …` steps), later ones quiet (a note; the host tells viewers on a
+  `/var/lib/doz/tools`) is loud (`tools: …` steps), later ones quiet (a note; the daemon tells viewers on a
   change/failure). Never fatal. `toolInputs == nil` (the default) = no layer: preparation VMs and helpers
-  never run it — the host sets inputs for every managed sandbox (`applyToolInputs`, beside `applyGitHub`;
+  never run it — the daemon sets inputs for every managed sandbox (`applyToolInputs`, beside `applyGitHub`;
   a live change on a running sandbox applies at once). Recipes untouched (`ToolsLayerTests` pins bake keys).
-- **Surfaces**: `doz tools NAME [--apply]` (host ops `tools`, `tools-apply`), `GET /api/v1/sandboxes/{n}/tools`,
+- **Surfaces**: `doz tools NAME [--apply]` (daemon ops `tools`, `tools-apply`), `GET /api/v1/sandboxes/{n}/tools`,
   the web action `tools-apply`, the New Sandbox wizard's last step "Setting up tools" (`nwToolsNode`: start →
   ✓/✗ → Retry · Continue anyway → Open the sandbox), doctor's "tools layer" line, Resources' `cache:tools`.
   The facts' GitHub line says "(installed by Dozable)" / why gh is not there, and that the ssh client + host
@@ -52,7 +52,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   a guarded run never this Mac's git config) into `<store>/dotfiles/<16 hex>/repo.git` — `fetch --depth=1 SOURCE HEAD`
   (a folder through `file://`; a non-git folder refused with what to do), a pinned commit fetched by id or the whole
   history, `refs/doz/<commit>` keeps it. The files enter as `git archive <commit>^{tree}` (a tree: no pax header naming
-  the commit — busybox tar reads it) on an exec's STDIN (≤ 64 MiB) — `copyIn` would not work in a VM a new host adopted.
+  the commit — busybox tar reads it) on an exec's STDIN (≤ 64 MiB) — `copyIn` would not work in a VM a new daemon adopted.
 - **Applied per sandbox, as the image's user** (`Sandbox.applyDotfiles`, after the tools layer in `start()` and in
   `.applyGuestFixes`): one cheap check exec (`~/.local/share/doz/dotfiles.commit`); only when it differs from the pin
   (or `--update`: `applyDotfilesNow` on a running one, forced; on one that does not run, the pin's `resolvedAt` is newer
@@ -65,10 +65,10 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `<sandbox>/dotfiles-run.json` (`DotfilesRun`) → `SandboxInfo.dotfiles` (`DotfilesState`: applied | failed | pending).
   Never fatal. Images and bake keys are untouched (`RecipePinTests`).
 - **Agent settings run in the same place** (`Sandbox.applyAgentSettings`, `AgentSettings.swift`; the recipe's `launch@1 history`,
-  see recipes.md): the host hands the sandbox `AgentSettingsInputs` (script + fingerprint; a preparation VM or helper gets
+  see recipes.md): the daemon hands the sandbox `AgentSettingsInputs` (script + fingerprint; a preparation VM or helper gets
   none), a marker `~/.local/share/doz/history.applied` holds the fingerprint applied (written either way), and the record is
   `<sandbox>/agent-history-run.json`. Once per mapping and value (the setting `history`, resolved for that sandbox by the
-  host before each start or wake), never at a session open.
+  daemon before each start or wake), never at a session open.
 - **The link pass never overwrites, never touches Dozable's** (`DotfilesLayer.plan`, pure): top-level dot entries only;
   `.git`/`.github`/`.gitignore`… skipped, submodules skipped, odd names skipped; `protectedPaths` (`.claude*`, `.codex`,
   `.pi`, `.config/opencode`, `.agents`, `.local/state/doz`, `.local/share/doz`, the launchers `.local/bin/<claude, codex,
@@ -78,7 +78,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `NAME.doz-stock` and replaced (a departure from the brief's "never overwrite", owner to confirm: without it `.bashrc`
   never applies on a Debian base). Every name single-quoted. An install script is NOT policed — trust is the guard.
 - **Trust, like 653's community recipes**: `confirmDotfilesTrust` (in `preflightAgentAccount(&o)` and QuickMake) asks
-  the host to `dotfiles-resolve` (fetches; the head, its subject, the plan, a dirty folder), says what will run, and asks
+  the daemon to `dotfiles-resolve` (fetches; the head, its subject, the plan, a dirty folder), says what will run, and asks
   once per source + commit (`DotfilesTrust`, `<settings dir>/dotfiles-trusted.json`, 0600); no terminal: exit 5 naming
   `doz dotfiles trust SOURCE --commit C`. `--update` asks again for a new commit. The dashboard asks nothing: New
   Sandbox's review SHOWS the repository, its commit and what runs (`POST /api/v1/dotfiles/resolve`, a change: `{}` = the

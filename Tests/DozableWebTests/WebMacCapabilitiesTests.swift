@@ -114,7 +114,7 @@ final class WebMacCapabilitiesTests: XCTestCase {
             XCTAssertEqual(cap(m["fenced"]!, id).editable, "restart", "\(id): only at the next start — no control on the page")
         }
         // The record's "waiting for a host" is said only while no host serves it.
-        XCTAssertTrue(cap(Self.fenced { $0.network = "waiting (no host)" }, "network").state.hasSuffix("— waiting for a host"))
+        XCTAssertTrue(cap(Self.fenced { $0.network = "waiting (no daemon)" }, "network").state.hasSuffix("— waiting for the daemon"))
         XCTAssertFalse(cap(m["fenced"]!, "network").state.contains("waiting"))
     }
 

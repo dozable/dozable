@@ -102,7 +102,7 @@ denied* for an ordinary user (their write bits are not shown).
 - Removing **both** files takes effect at the next start: until then the folder is served with no rules.
 - A new `workspace.ignore_mode` applies at the next session start, wake or start.
 - Pausing, sleeping, hibernating and waking keep the rules — and so does a sandbox restored after the
-  host restarts.
+  daemon restarts.
 
 The agent is told: its facts say that files shown with no permissions are blocked by your `.dozignore`
 and must not be read or recreated, and which paths are read-only.

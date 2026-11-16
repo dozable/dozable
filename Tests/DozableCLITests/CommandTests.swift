@@ -40,7 +40,7 @@ final class CommandTests: XCTestCase {
             ["point", "revert", "b", "p"], ["point", "fork", "b", "p", "c"], ["point", "rm", "b", "p"],
             ["point", "save-image", "b", "--as", "img"], ["net", "policy", "b"], ["net", "log", "b"],
             ["key", "set", "b", "--anthropic"], ["key", "rm", "b", "--anthropic"], ["key", "ls", "b"], ["metrics"], ["doctor"],
-            ["host", "stop"], ["host", "status"], ["host", "--foreground"], ["events"],
+            ["daemon", "stop"], ["daemon", "status"], ["daemon", "--foreground"], ["events"],
         ]
         for l in lines {
             XCTAssertNoThrow(try parse(l + ["--json", "--store", "/tmp/s"]), l.joined(separator: " "))
@@ -91,7 +91,7 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(p.allow, ["a.com", "*.b.org"])
         XCTAssertEqual(p.deny, ["c.net"])
         XCTAssertEqual(p.preset, "agent")
-        let h = try XCTUnwrap(parse(["host", "--foreground", "--idle-timeout", "0.5"]) as? HostRun)
+        let h = try XCTUnwrap(parse(["daemon", "--foreground", "--idle-timeout", "0.5"]) as? HostRun)
         XCTAssertTrue(h.foreground)
         XCTAssertEqual(h.idleTimeout, 0.5)
         XCTAssertEqual(idleTimeout(nil) > 0, true)

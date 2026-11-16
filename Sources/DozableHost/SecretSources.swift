@@ -298,7 +298,7 @@ public enum SecretSources {
         switch source {
         case .onePassword:
             if e.contains("not signed in") || e.contains("not currently signed in") || e.contains("sign in") || e.contains("authorization") || e.contains("session expired") {
-                return told("op is not signed in", "run op signin\(opAccount(sourceEnv)) (or give the host OP_SERVICE_ACCOUNT_TOKEN), then \(refresh)")
+                return told("op is not signed in", "run op signin\(opAccount(sourceEnv)) (or give the daemon OP_SERVICE_ACCOUNT_TOKEN), then \(refresh)")
             }
             if e.contains("isn't an item") || e.contains("could not find") || e.contains("not found") || e.contains("no item") {
                 return told("1Password has no such item or field", "check the reference with op read REF in Terminal, then \(refresh)")

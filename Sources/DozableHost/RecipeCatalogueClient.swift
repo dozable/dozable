@@ -177,9 +177,9 @@ public enum RecipeCatalogueSelection {
         return Data(base64Encoded: Distribution.updatePublicKey).flatMap { $0.count == 32 ? $0 : nil }
     }
 
-    /// The host's own process: `doz host start --foreground` (what `HostLauncher` runs) — `host` is the default too.
+    /// The daemon's own process: `doz daemon start --foreground` (what `HostLauncher` runs) — `start` is the default too.
     public static func isHostStart(_ args: [String]) -> Bool {
-        args.first == "host" && args.contains("--foreground")
+        args.first == "daemon" && args.contains("--foreground")
     }
 
     /// A catalogue that is fine but not for THIS build (it needs a newer doz, or this doz's own recipes are newer) — passed
@@ -308,7 +308,7 @@ public enum RecipeCatalogueSelection {
     public static func describe(version: String, env: [String: String] = ProcessInfo.processInfo.environment) -> String {
         var s = "recipes: " + RecipeCatalogue.source.describe(dozVersion: version)
         if let cache = RecipeCatalogueCache.at(env) {
-            if let n = cache.next { s += " · catalogue \(n.serial) is downloaded and applies at the next host start (doz host restart)" }
+            if let n = cache.next { s += " · catalogue \(n.serial) is downloaded and applies at the next daemon start (doz daemon restart)" }
             let st = cache.state
             if let p = st.problem { s += " · last problem: \(p)" }
             if let c = st.lastCheck { s += " · last checked \(ISO8601DateFormatter().string(from: c))" }

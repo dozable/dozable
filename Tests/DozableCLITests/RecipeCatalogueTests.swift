@@ -281,12 +281,12 @@ final class RecipeCatalogueTests: XCTestCase {
         let c = try XCTUnwrap(RecipeCatalogueCache.at(env()))
 
         let cli = RecipeCatalogueSelection.choose(args: ["search", "grok"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
-        XCTAssertEqual(cli.source.serial, 1, "a command uses what the running host uses")
+        XCTAssertEqual(cli.source.serial, 1, "a command uses what the running daemon uses")
         XCTAssertNotEqual(AgentRecipes.recipe("grok")?.description, "two")
         XCTAssertNotNil(c.next, "a command never promotes")
 
         RecipeCatalogue.resetForTests()
-        let host = RecipeCatalogueSelection.choose(args: ["host", "start", "--foreground", "--launched"], version: Self.dozVersion,
+        let host = RecipeCatalogueSelection.choose(args: ["daemon", "start", "--foreground", "--launched"], version: Self.dozVersion,
                                                    executable: "/x/doz", env: env(), guarded: true)
         XCTAssertEqual(host.source.serial, 2)
         XCTAssertTrue(host.promoted)
@@ -306,7 +306,7 @@ final class RecipeCatalogueTests: XCTestCase {
         }
         let bad = try manifest(files, serial: 2)
         try cache(files, bad, as: "next.json")
-        let host = RecipeCatalogueSelection.choose(args: ["host", "--foreground"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
+        let host = RecipeCatalogueSelection.choose(args: ["daemon", "--foreground"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
         XCTAssertEqual(host.source.serial, 1, "the refused next leaves the current in use")
         XCTAssertTrue(host.reportNow)
         XCTAssertTrue(host.problem?.hasPrefix("the recipe catalogue 2 was ignored:") == true, host.problem ?? "")
@@ -318,7 +318,7 @@ final class RecipeCatalogueTests: XCTestCase {
         // The same one again: not tried, not said again.
         RecipeCatalogue.resetForTests()
         try cache(files, bad, as: "next.json")
-        let same = RecipeCatalogueSelection.choose(args: ["host", "--foreground"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
+        let same = RecipeCatalogueSelection.choose(args: ["daemon", "--foreground"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
         XCTAssertEqual(same.source.serial, 1)
         XCTAssertFalse(same.reportNow, "the same catalogue is not said twice")
         XCTAssertNil(same.problem)
@@ -327,7 +327,7 @@ final class RecipeCatalogueTests: XCTestCase {
         RecipeCatalogue.resetForTests()
         let ok = try Self.treeFiles()
         try cache(ok, try manifest(ok, serial: 1), as: "next.json")
-        let again = RecipeCatalogueSelection.choose(args: ["host", "--foreground"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
+        let again = RecipeCatalogueSelection.choose(args: ["daemon", "--foreground"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
         XCTAssertEqual(again.source.serial, 1)
         XCTAssertFalse(again.promoted)
         XCTAssertTrue(again.problem?.contains("is not newer than 1") == true, again.problem ?? "")
@@ -349,7 +349,7 @@ final class RecipeCatalogueTests: XCTestCase {
         XCTAssertEqual(RecipeCatalogue.source.serial, 3)
         // The host's start adopts at once.
         RecipeCatalogue.resetForTests()
-        _ = RecipeCatalogueSelection.choose(args: ["host", "--foreground"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
+        _ = RecipeCatalogueSelection.choose(args: ["daemon", "--foreground"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
         XCTAssertFalse(RecipeCatalogue.hasDeferredAdoption)
     }
 
@@ -477,7 +477,7 @@ final class RecipeCatalogueTests: XCTestCase {
         XCTAssertEqual(out, .notDue, "672: daily, not hourly")
         XCTAssertEqual(RecipeCatalogueRefresh.interval, 86_400)
         XCTAssertEqual(CommunityRefresh.interval, RecipeCatalogueRefresh.interval, "a community catalogue is looked for as often")
-        XCTAssertLessThan(RecipeCatalogueRefresh.tick, RecipeCatalogueRefresh.interval, "the host's loop wakes more often than a look is due")
+        XCTAssertLessThan(RecipeCatalogueRefresh.tick, RecipeCatalogueRefresh.interval, "the daemon's loop wakes more often than a look is due")
 
         s.status = 200
         let day = RecipeCatalogueRefresh.interval

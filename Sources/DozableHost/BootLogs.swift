@@ -14,7 +14,7 @@ import DozableKit
 //                                             the boot view drew (steps, failures, downloads, notes)
 //             console.log               0600  that boot's kernel/init console (from `bootlog.log`)
 //
-// The last `host.boot_logs_kept` (5) are kept. Deleted with the sandbox (`rm`); kept across a reset (a
+// The last `daemon.boot_logs_kept` (5) are kept. Deleted with the sandbox (`rm`); kept across a reset (a
 // reset's next boot is still a boot of that sandbox); never copied by duplicate, fork or a template.
 // Replayed by the ONE boot-view renderer (`ProgressBoard` + `ProgressTerminal`'s finished lines), for
 // `doz console --steps` and the web UI's Boot log.

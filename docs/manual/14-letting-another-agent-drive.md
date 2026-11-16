@@ -10,7 +10,7 @@ behind the proxy.
 - **Every command works without a terminal to type into**, and **`--json`** gives machine-readable
   output on stdout (errors as `{"error":{"code","message"}}`; fields are only ever added).
 - **Exit codes** say what happened: `0` ok · `1` failed · `2` not found · `3` not possible in this
-  state · `4` already exists · `5` not confirmed · `6` host unavailable · `7` not implemented yet ·
+  state · `4` already exists · `5` not confirmed · `6` daemon unavailable · `7` not implemented yet ·
   `64` usage. `exec`, `run` and `attach` exit with the program's own code (`125` when `doz` itself
   failed). `exec` exits `124` when its `--timeout` passed (default 120 s, counted from when `doz`
   started — a wake or a start included); the command is killed, a wake or a start goes on. A program's
@@ -109,5 +109,5 @@ You can watch it all in the dashboard (`doz ui`): the sandbox appears under **Sa
 |---|---|
 | The agent's `doz` command hangs | It used an interactive command (`attach`, `up` without `--detach`); use `exec`, `run --detach`, `sessions --screen`. |
 | Exit code 5 | A destructive command without `--yes` and without a terminal: intended. Decide yourself, or add `--yes`. |
-| Exit code 6 | The host couldn't be reached or started: `doz doctor --json`. |
+| Exit code 6 | The daemon couldn't be reached or started: `doz doctor --json`. |
 | The sandboxed agent is refused a site | Expected: it tells your Mac's agent, which tells you. `doz net NAME` shows the suggestion. |

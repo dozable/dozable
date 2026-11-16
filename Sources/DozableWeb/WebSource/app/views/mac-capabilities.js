@@ -37,7 +37,7 @@ export function fenceMarks(s, open) {
   const out = [];
   if (f.stoppedForGit) out.push(h('button', { type: 'button', class: 'cap-mark tone-bad', 'data-mark': 'stopped', title: 'Its git config changed in a way a fenced session may not — Review, then Resume',
                                               on: { click: (ev) => { ev.stopPropagation(); open('can'); } } }, icon('pause'), 'Stopped: git config'));
-  if (s.state === 'running' && f.network === 'waiting (no host)') out.push(h('span', { class: 'cap-mark tone-warn', 'data-mark': 'network', title: 'Its connections wait until a host serves its proxy again (doz host start)' }, icon('hourglass'), 'network waiting'));
+  if (s.state === 'running' && f.network === 'waiting (no daemon)') out.push(h('span', { class: 'cap-mark tone-warn', 'data-mark': 'network', title: 'Its connections wait until a host serves its proxy again (doz daemon start)' }, icon('hourglass'), 'network waiting'));
   if (f.denialsSeen > 0) out.push(h('button', { type: 'button', class: 'cap-mark tone-info', 'data-mark': 'refusals', title: 'What its fence refused — the Network tab',
                                                on: { click: (ev) => { ev.stopPropagation(); open('network'); } } }, icon('ban'), f.denialsSeen + ' refused'));
   return out;

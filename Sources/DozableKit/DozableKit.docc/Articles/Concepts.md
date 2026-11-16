@@ -55,7 +55,7 @@ the guest so it survives a sleep, a hibernation and a crash of the host app. You
 (``SessionConnection``) to a session and *detach* from it (``DetachReason``); it keeps running
 either way. See <doc:HowItWorks> for why this needs a guest-side holder at all.
 
-### The host
+### The daemon
 
 One background `doz` process per user and store. It owns every running VM, each proxied
 sandbox's egress proxy, and the metrics writer. It starts when needed and exits when idle: looking
@@ -63,10 +63,10 @@ sandbox's egress proxy, and the metrics writer. It starts when needed and exits 
 
 ### Network, keys and accounts
 
-A sandbox has **no network card** by default: its only way out is a host-side proxy
+A sandbox has **no network card** by default: its only way out is a daemon-side proxy
 (``EgressProxy``) that checks every connection against a ``NetworkPolicy`` (default deny, rules by
 hostname / wildcard / CIDR / port, and for HTTP by method and path) and logs it. A credential
-(``CredentialBinding``) is bound to hosts, held in a ``CredentialVault`` in the host process, and
+(``CredentialBinding``) is bound to hosts, held in a ``CredentialVault`` in the daemon process, and
 never written to disk; the guest sees a placeholder and the proxy swaps in the real value only on
 the way to a bound host. A credential the guest brings itself (a `/login`, a pasted key) is a
 ``ForeignCredential`` — allowed and flagged, or refused, by policy.

@@ -1,7 +1,7 @@
 # doz __VERSION__ — the helper build
 
 This is the **helper build** of `doz`: the build an app carries inside its own bundle and drives over
-`<store>/host.sock`. If you want Dozable on your Mac, you want the command-line release instead —
+`<store>/daemon.sock`. If you want Dozable on your Mac, you want the command-line release instead —
 `brew install dozable/tap/doz`, or `doz-__VERSION__-macos-arm64.tar.gz` from the same releases page.
 
 The whole story — what this build is, what it leaves out, how to verify it, and the rules an app must follow — is

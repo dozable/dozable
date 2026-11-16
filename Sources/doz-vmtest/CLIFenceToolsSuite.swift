@@ -149,7 +149,7 @@ func cliFenceToolsChecks(_ t: CLIHarness, root: String, home: String, store: Str
     }
 
     // The host again, with these seams (a host reads them at its start).
-    t.run(["host", "stop"], timeout: 60)
+    t.run(["daemon", "stop"], timeout: 60)
     let savedSSH = t.env["SSH_AUTH_SOCK"], savedUp = t.env["DOZ_TEST_FENCE_UPSTREAMS"]
     t.env["SSH_AUTH_SOCK"] = nil
     t.env["DOZ_TEST_GH"] = ws + "/gh"
@@ -158,7 +158,7 @@ func cliFenceToolsChecks(_ t: CLIHarness, root: String, home: String, store: Str
     t.env["DOZ_TEST_SSH_AUTH_SOCK"] = agentSock
     t.env["DOZ_TEST_FENCE_UPSTREAMS"] = (savedUp.map { $0 + "," } ?? "") + "ssh.doz.test=127.0.0.1:\(sshPort)"
     defer {
-        t.run(["host", "stop"], timeout: 60)
+        t.run(["daemon", "stop"], timeout: 60)
         for k in ["DOZ_TEST_GH", "DOZ_TEST_GITHUB_UPSTREAM", "DOZ_TEST_GITHUB_CA", "DOZ_TEST_SSH_AUTH_SOCK"] { t.env[k] = nil }
         t.env["SSH_AUTH_SOCK"] = savedSSH
         t.env["DOZ_TEST_FENCE_UPSTREAMS"] = savedUp
@@ -297,7 +297,7 @@ func cliFenceToolsChecks(_ t: CLIHarness, root: String, home: String, store: Str
         check(!outside(["/usr/bin/ssh-add", "-l"], env: ["SSH_AUTH_SOCK": agentSock]).out.contains("never-added"), "4.8 …nothing was added to the agent")
         check(res(ss, "clone") == 0 && fm.fileExists(atPath: ss + "/sc/S"), "4.7 git clone over ssh through doz fence-connect (\(out(ss, "clone").suffix(200)))")
         let folderSSH = (row("ss")?.fence?.sessionFolder ?? "/nonexistent") + "/ssh/known_hosts"
-        check(get(folderSSH).contains("ssh.doz.test") && get(folderSSH).contains(hostKeyLine), "4.7 the new host key is in the session's own known_hosts")
+        check(get(folderSSH).contains("ssh.doz.test") && get(folderSSH).contains(hostKeyLine), "4.7 the new daemon key is in the session's own known_hosts")
         check(get(home + "/.ssh/known_hosts") == personKnown, "4.7 …never in the person's")
         check(res(ss, "shim") == 0, "4.7 plain ssh (the session's shim) goes through the proxy too (\(out(ss, "shim").suffix(160)))")
         check(res(ss, "sshsign") == 0 && get(ss + "/res/sigobj").contains("BEGIN SSH SIGNATURE"), "4.6 an ssh-signed commit with the agent's key (\(out(ss, "sshsign").suffix(160)))")

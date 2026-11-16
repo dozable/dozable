@@ -71,7 +71,7 @@ func cliHostSuite(binary: String) async {
     let xdg = URL(fileURLWithPath: root.path + "-xdg")
     try? FileManager.default.removeItem(at: xdg)
     t.env["XDG_CONFIG_HOME"] = xdg.path
-    t.env["DOZ_HOST_IDLE"] = "30"
+    t.env["DOZ_DAEMON_IDLE"] = "30"
     t.env["DOZ_TEST_CREDENTIALS"] = "memory"
     // The markers a doz started from inside Claude Code carries — none may reach a session on the Mac.
     t.env["CLAUDECODE"] = "1"
@@ -97,7 +97,7 @@ func cliHostSuite(binary: String) async {
     var started: Set<String> = []
     defer {
         for s in started { t.run(["sessions", "end", "@mac", s, "--yes"], timeout: 30) }
-        t.run(["host", "stop"], timeout: 60)
+        t.run(["daemon", "stop"], timeout: 60)
         try? FileManager.default.removeItem(atPath: dir)
         try? FileManager.default.removeItem(at: root)
         try? FileManager.default.removeItem(at: xdg)
@@ -143,7 +143,7 @@ func cliHostSuite(binary: String) async {
     check(!env.contains("CLAUDECODE") && !env.contains("CLAUDE_CODE_"), "no CLAUDECODE / CLAUDE_CODE_* reached it, though doz ran with them")
     // DOZ_TTY is deckhold's own (the session's pty, for a helper with no controlling terminal) — not the host's.
     let leaked = env.split(separator: "\n").filter { ($0.hasPrefix("DOZ_") && !$0.hasPrefix("DOZ_TTY=")) || $0.hasPrefix("XPC_") || $0.hasPrefix("__CF") }
-    check(leaked.isEmpty, "nothing else of the host's environment (DOZ_*, XPC_*, __CF*)\(leaked.isEmpty ? "" : ": \(leaked.joined(separator: ", "))")")
+    check(leaked.isEmpty, "nothing else of the daemon's environment (DOZ_*, XPC_*, __CF*)\(leaked.isEmpty ? "" : ": \(leaked.joined(separator: ", "))")")
     check(env.contains("TERM=xterm-256color") && env.contains("PATH=\(fakeBin.path):/usr/bin:/bin:/usr/sbin:/sbin") && env.contains("HOME="),
           "TERM, the PATH, HOME are set")
     let pwd = file("pwd.txt").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -279,23 +279,23 @@ func cliHostSuite(binary: String) async {
     // A host stop leaves them running; the next host adopts them (same pid, same screen).
     let pidBefore = row("rd")?.pid
     check(pidBefore != nil, "rd has a pid (\(pidBefore.map(String.init) ?? "none"))")
-    r = t.run(["host", "stop"], timeout: 60)
-    check(r.code == 0 && r.out.contains("on this Mac keep running"), "host stop: it says the sessions on this Mac keep running")
-    check(t.waitFor(10) { !t.hostRunning }, "the host is gone")
-    check(row("rd")?.pid == pidBefore && row("rd")?.ended == false, "no host: sessions @mac still lists rd, same pid (looked at in-process)")
-    check(!t.hostRunning, "…and looking started no host")
+    r = t.run(["daemon", "stop"], timeout: 60)
+    check(r.code == 0 && r.out.contains("on this Mac keep running"), "daemon stop: it says the sessions on this Mac keep running")
+    check(t.waitFor(10) { !t.hostRunning }, "the daemon is gone")
+    check(row("rd")?.pid == pidBefore && row("rd")?.ended == false, "no daemon: sessions @mac still lists rd, same pid (looked at in-process)")
+    check(!t.hostRunning, "…and looking started no daemon")
     r = t.run(["sessions", "send", "@mac", "rd", "--text", "again", "--enter"], timeout: 30)
     check(r.code == 0, "a send starts a host, which adopts the session")
     check(screen("rd", until: "got:again").out.contains("got:hi"), "same screen (got:hi still there) and the new line")
-    check(row("rd")?.pid == pidBefore, "same pid after the new host")
-    check(t.waitFor(10) { row("agent")?.status?.state == .done }, "the new host watches the agent again: done")
+    check(row("rd")?.pid == pidBefore, "same pid after the new daemon")
+    check(t.waitFor(10) { row("agent")?.status?.state == .done }, "the new daemon watches the agent again: done")
 
     // kill -9 of the host: the sessions survive.
     if let hp = t.hostPID() {
         kill(hp, SIGKILL)
-        check(t.waitFor(10) { kill(hp, 0) != 0 }, "the host (pid \(hp)) killed with SIGKILL")
-    } else { check(false, "the host's pid") }
-    check(row("rd")?.pid == pidBefore && row("rd")?.ended == false, "after kill -9 of the host, rd still runs (same pid)")
+        check(t.waitFor(10) { kill(hp, 0) != 0 }, "the daemon (pid \(hp)) killed with SIGKILL")
+    } else { check(false, "the daemon's pid") }
+    check(row("rd")?.pid == pidBefore && row("rd")?.ended == false, "after kill -9 of the daemon, rd still runs (same pid)")
 
     // end, then restart from the record.
     r = t.run(["sessions", "end", "@mac", "rd", "--yes"], timeout: 30)
@@ -396,7 +396,7 @@ func cliHostSuite(binary: String) async {
                "if [ -e boom ]; then echo BOOM-NEW; echo second-line; exit 3; fi; echo OLD-MARK; sleep 600"], timeout: 60)
     if r.code == 0 { started.insert("bm") }
     check(r.code == 0 && screen("bm", until: "OLD-MARK").out.contains("OLD-MARK"), "bm says OLD-MARK")
-    check(t.run(["host", "stop"], timeout: 60).code == 0, "host stop (bm's screen, OLD-MARK, is saved)")
+    check(t.run(["daemon", "stop"], timeout: 60).code == 0, "daemon stop (bm's screen, OLD-MARK, is saved)")
     FileManager.default.createFile(atPath: bmDir.appendingPathComponent("boom").path, contents: nil)
     r = t.run(["sessions", "restart", "@mac", "bm", "--yes", "-d"], timeout: 30)
     check(r.code != 0 && r.err.contains("exited at once (exit 3)") && r.err.contains("BOOM-NEW") && r.err.contains("second-line"),
@@ -411,17 +411,17 @@ func cliHostSuite(binary: String) async {
     let edLive = try? HostWire.decoder.decode(SessionLive.self, from: r.outData)
     check(r.code == 0 && edLive?.live == false && edLive?.reason == "ended" && edLive?.exitCode == 4 && edLive?.text.contains("ED-LAST-LINE") == true,
           "sessions screen --json: its last screen, reason ended, exit 4 (\(edLive?.reason ?? r.err))")
-    check(t.run(["host", "stop"], timeout: 60).code == 0 && t.waitFor(10) { !t.hostRunning }, "host stop (the last screen is kept as its saved screen)")
+    check(t.run(["daemon", "stop"], timeout: 60).code == 0 && t.waitFor(10) { !t.hostRunning }, "daemon stop (the last screen is kept as its saved screen)")
     r = t.run(["sessions", "screen", "@mac", "ed"], timeout: 30)
     check(r.code == 0 && r.out.contains("ED-LAST-LINE") && r.err.contains("ended (exit 4)") && !t.hostRunning,
-          "no host: sessions screen @mac ed still shows its last screen, and looking started no host")
+          "no daemon: sessions screen @mac ed still shows its last screen, and looking started no daemon")
     r = t.run(["sessions", "@mac", "--screen", "ed"], timeout: 30)
     check(r.code == 0 && r.out.contains("ED-LAST-LINE"), "sessions @mac --screen ed: the same")
 
     // A holder killed (as a restart of the Mac would): gone; restart starts it again.
     check(run("gn", ["/bin/sh", "-c", "echo gn-mark; sleep 600"]).code == 0, "a session gn")
     check(screen("gn", until: "gn-mark").out.contains("gn-mark"), "gn says gn-mark")
-    check(t.run(["host", "stop"], timeout: 60).code == 0, "host stop (its screens are saved once more)")
+    check(t.run(["daemon", "stop"], timeout: 60).code == 0, "daemon stop (its screens are saved once more)")
     if let child = row("gn")?.pid, let holder = parentPID(child) {
         kill(pid_t(holder), SIGKILL)
         check(t.waitFor(10) { row("gn")?.gone == true }, "its holder killed: sessions @mac says gone")

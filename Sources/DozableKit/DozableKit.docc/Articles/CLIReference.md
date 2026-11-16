@@ -15,7 +15,7 @@ doz onboard                       # once: checks, the base (in the background), 
 
 A VM can only be booted by a binary signed with Apple's virtualization entitlement; the release
 carries it. An unsigned build runs every command but cannot boot anything, and `doz doctor` says
-so. `brew upgrade doz` installs a new release (safe with a host running — see *The host*);
+so. `brew upgrade doz` installs a new release (safe with a daemon running — see *The daemon*);
 `brew uninstall doz` removes it.
 
 **From source (contributors):** in a clone of this repository, `make install-cli` (release, signed, into
@@ -50,7 +50,7 @@ doz nuke [--dry-run] [--yes]   # back to a fresh install, doz stays installed: l
 - **`onboard`** sets up this Mac, once, in this order: the doctor's **checks** (a *required* one that fails —
   not Apple silicon, macOS too old, no virtualization, the entitlement, the store not on APFS, too little disk for
   the base — stops it; the rest only warn); the **base image** (`Use Node.js …? [Y/n/other]`, `--base`, `--no-base`):
-  the store's ONE base (`defaults.base`) every quick-made tool is added to, prepared **in the host** from that
+  the store's ONE base (`defaults.base`) every quick-made tool is added to, prepared **in the daemon** from that
   moment (the kernel, the guest init disk, the base image pulled, its disk flattened) while the questions go on —
   a tool's bake started meanwhile **waits** for it, one download; **models & keys**: the sign-ins found (Claude
   Code, Codex — read-only, never logged in for you) and a key of any published provider or gateway (anthropic,
@@ -105,7 +105,7 @@ See <doc:Concepts> for what each word means.
 |---|---|---|---|---|
 | `start NAME` (`cold-boot`) | boots; wakes it if asleep, resumes it if paused | ~0.4 s | allocated as used | start fresh |
 | `pause NAME` (`suspend`) · `resume NAME` | stops the guest CPU | ~1 ms | kept | frozen, then continue |
-| `sleep NAME` · `wake NAME` | pause + snapshot to disk; survives the host crashing | ~0.3 s | kept | continue |
+| `sleep NAME` · `wake NAME` | pause + snapshot to disk; survives the daemon crashing | ~0.3 s | kept | continue |
 | `hibernate NAME` · `wake NAME` | snapshot, then the VM stops | ~0.35 s / ~0.3 s | **returned** | continue: same PIDs, same screens |
 | `shutdown NAME` | a cold stop; the disk is kept | | returned | end |
 | `down NAME [--sleep \| --shutdown [-y]]` | the opposite of `up`: hibernate (the default), sleep, or shut down (asked as `shutdown` is) — the same requests and output as those verbs | as those | as those | as those |
@@ -194,13 +194,13 @@ doz builder start [--yes]      # container system start --enable-kernel-install 
 | `get NAME PATH [LOCAL] [--force]` | Copy a file or folder out of the sandbox (PATH relative = under `/workspace`; LOCAL default the current folder — into an existing folder it keeps its name, else it is the new name). Folders whole; modes kept; owned by you on the Mac. Unpacked in a temporary folder beside LOCAL, checked, then moved into place — never into Dozable's store; a link that points outside the folder stops it. An existing LOCAL needs `--force` (a file replaced, a folder merged). Woken/started as `exec` (`--no-wake`, `--no-start`). Isolated sandboxes too. `--json`. |
 | `put NAME LOCAL [PATH] [--force]` | Copy a file or folder from this Mac in (PATH default `/workspace`). Owned by the image's user — by root only where that user cannot write (said). The same rules as `get`. |
 | `cp SRC DST` | The Docker spelling of both: `cp NAME:PATH LOCAL` = `get`, `cp LOCAL NAME:PATH` = `put` (`NAME:` alone = `/workspace`). |
-| `files NAME [PATH] [--watch]` | A folder of `/workspace` (PATH relative = under `/workspace`; default `/workspace`): kind, size, modified, a link's target (never followed). A shared workspace is read on this Mac in any state — nothing started or woken, no host started — with its workspace rules as the sandbox sees them (hidden: absent; locked: listed `locked`; read-only marked); a link or `..` out of the shared folder is refused. An isolated sandbox is listed from inside while it runs (as the image's user), refused otherwise. `--watch`: a line each time the folder's listing changes (shared workspaces only, watched on the Mac; a quarter of a second of changes at a time). `--json`: the list, or one JSON line per change. (`files ls` is the same.) |
+| `files NAME [PATH] [--watch]` | A folder of `/workspace` (PATH relative = under `/workspace`; default `/workspace`): kind, size, modified, a link's target (never followed). A shared workspace is read on this Mac in any state — nothing started or woken, no daemon started — with its workspace rules as the sandbox sees them (hidden: absent; locked: listed `locked`; read-only marked); a link or `..` out of the shared folder is refused. An isolated sandbox is listed from inside while it runs (as the image's user), refused otherwise. `--watch`: a line each time the folder's listing changes (shared workspaces only, watched on the Mac; a quarter of a second of changes at a time). `--json`: the list, or one JSON line per change. (`files ls` is the same.) |
 | `files mkdir NAME PATH` · `files new NAME PATH` | A new empty folder (its parent must be there) / a new empty file in `/workspace`. Never replaces what is there. |
 | `files mv NAME PATH TO` · `files rename NAME PATH NEWNAME` | Move (TO includes the new name) or rename in its folder. Never replaces; a folder never goes into itself; `/workspace` itself is never moved. |
 | `files rm NAME PATH [-r] [--yes]` | Delete a file, a link (never what it points to) or a folder (`-r` when it holds anything). Asks unless `--yes`. |
 | `files open NAME [PATH] [--reveal \| --app APP]` | A shared workspace's document opened on this Mac (its default app), a folder in the Finder (PATH defaults to `/workspace`: the workspace itself), or `--reveal` it — the rules of the agent's own opening (`sandbox.open_files`, documents only). `--app APP` (646): in an editor instead — a known one installed on this Mac (`vscode`, `cursor`, `zed`, `windsurf`, `xcode`, `sublime`, `nova`, `bbedit`, `intellij`, `pycharm`, `webstorm`, `goland`, `textmate`; its id or name, any case), else a name in `bridges.open_apps`; a folder or any file that is not a program (never an executable, `#!`, Mach-O/ELF, an app or installer type). Isolated: refused (`doz get` copies one out). |
 | `files editors` | What `files open --app` takes here: the known editors installed (found by bundle id, read-only), then `bridges.open_apps`. `--json`: `[{id, name}]`. |
-| (the `files` changes) | A shared workspace is changed on this Mac in any state — nothing started or woken, no host started — only inside the shared folder (a link never followed, a path out refused), with its workspace rules as the sandbox has them (a hidden item is not there; a locked or read-only one, or a folder holding one, is not changed; a new name the rules would hide, lock or make read-only is refused). An isolated sandbox is changed from inside as the image's user while it runs, refused otherwise. `--json`: what changed, and which folders' listings did. |
+| (the `files` changes) | A shared workspace is changed on this Mac in any state — nothing started or woken, no daemon started — only inside the shared folder (a link never followed, a path out refused), with its workspace rules as the sandbox has them (a hidden item is not there; a locked or read-only one, or a folder holding one, is not changed; a new name the rules would hide, lock or make read-only is refused). An isolated sandbox is changed from inside as the image's user while it runs, refused otherwise. `--json`: what changed, and which folders' listings did. |
 | `sessions NAME` | The sandbox's terminal sessions. |
 | `sessions restart NAME SESSION [--fresh] [-d]` | End the session's program and start the same one again, in the same session and folder (every Claude Code session continues its own conversation, a Codex or pi sandbox's own session the folder's newest; `--fresh`: a new one), then attach. Running sandboxes only. |
 | `sessions send NAME SESSION [--text T\|-] [--keys KEY…] [--enter] [--paste] [--no-wake] [--then-screen[=MS]]` | Type into a session: the text, then the keys, then Enter (at most 64 KiB); returns once the session's holder has every byte. Wakes a sleeping sandbox (`--no-wake` refuses); `--then-screen` prints the screen MS ms (600) later. |
@@ -217,7 +217,7 @@ balloon returned after a wake — shown as `—` when the sandbox is off or hibe
 
 ### Session bridges
 
-The host reads every attached terminal's output (`attach`/`run`/`up`, `doz ui`) for the sequences a
+The daemon reads every attached terminal's output (`attach`/`run`/`up`, `doz ui`) for the sequences a
 bridge owns and takes them out; each use is shown as a notice (over the bottom row for 3 s, then a
 redraw; a toast in `doz ui`; a stderr line off a terminal). A bridge acts only while a terminal is
 attached.
@@ -258,7 +258,7 @@ run as root always keeps them.
 
 ### The agent's environment prompt
 
-At every session start the host tells the agent where it runs, from the sandbox's **current**
+At every session start the daemon tells the agent where it runs, from the sandbox's **current**
 facts: a short **facts block** — a Dozable VM (not a container) on the user's Mac, its name
 and size, `/workspace` shared from the Mac folder *X* or **isolated** (no folder is shared with the Mac), the network (deny by
 default through the Mac's proxy; a refused host needs the user's rule), credentials (injected; never
@@ -371,8 +371,8 @@ doz recipe source verify ./v1/recipes.json --key KEY                    # a publ
 doz recipe trust comtool                         # say yes to a community recipe's current version ahead (scripts)
 ```
 
-A change is used at once when no host runs for the store, else from the next host start (`doz host restart`) — a
-command always uses what the running host uses. Nothing is fetched from a community catalogue before you confirm its
+A change is used at once when no daemon runs for the store, else from the next daemon start (`doz daemon restart`) — a
+command always uses what the running daemon uses. Nothing is fetched from a community catalogue before you confirm its
 key's fingerprint; a catalogue (signed with its publisher's own key) is used whole or not at all, and one that offers
 a name already taken is refused. Before a sandbox of a community recipe is made, its plan says whose it is and what its
 bake installs and reaches, and the CLI asks once per version of it (`doz recipe trust` answers ahead); your own recipes
@@ -387,7 +387,7 @@ whenever you like:
 
 ```bash
 doz access                                       # each choice and its state, after a LIVE check (= doz access show)
-doz access --no-check                            # the last confirmation only (starts no host)
+doz access --no-check                            # the last confirmation only (starts no daemon)
 doz access set --github read                     # new sandboxes: git and gh signed in as you, read-only (push: also push)
 doz access set --github push --github-source gh  # the token from this Mac's gh login (gh auth token)
 doz access set --github read --github-key        # a token you give (no-echo prompt, or stdin): github.credentials = key
@@ -439,10 +439,10 @@ doz open NAME [PORT] [--print]               # open its first web port (or PORT)
 
 A forward makes a port a program listens on inside the sandbox reachable on this Mac's `127.0.0.1` (and `::1`), never
 the network, while the sandbox runs; it closes when the sandbox stops, sleeps or hibernates and comes back at the next
-start or wake (and after a host restart). The Mac port is the guest's when free and 1024 or above, otherwise another
+start or wake (and after a daemon restart). The Mac port is the guest's when free and 1024 or above, otherwise another
 (said, and kept). A recipe's `ports@1` declares the tool's own (AIChat's playground). Inbound only: the network policy
 and the proxy do not apply, and no credential crosses it. A port whose recipe declares `sign_in` (OpenCode web:
-`opencode pair`) is opened signed in: the host runs the command in the sandbox and opens the one-time link it printed
+`opencode pair`) is opened signed in: the daemon runs the command in the sandbox and opens the one-time link it printed
 at this Mac's port — the link is never printed, logged or kept; a failed sign-in opens the page as it is and says why.
 `--print` prints the plain URL (no sign-in).
 
@@ -507,13 +507,13 @@ doz key ls NAME                                    # keys, account, state, expir
 doz key rm NAME --anthropic
 ```
 
-A key from stdin or the prompt lasts only while the host runs — set it again after `host stop`.
-Sessions survive a host restart with their credentials (a sha256 of each live placeholder is kept,
+A key from stdin or the prompt lasts only while the daemon runs — set it again after `daemon stop`.
+Sessions survive a daemon restart with their credentials (a sha256 of each live placeholder is kept,
 never the placeholder itself); `shutdown`, `reset` and `rm` revoke them.
 
 ### Network
 
-A sandbox has **no network card**. Its only way out is a proxy in the host that checks every
+A sandbox has **no network card**. Its only way out is a proxy in the daemon that checks every
 connection against a policy and logs it.
 
 | `--network` | allows | default for |
@@ -632,13 +632,13 @@ row explains and should be 0. Each row has three numbers: its **size** (allocate
 it — an APFS clone in full each time), what deleting it **frees** (the blocks only it holds —
 a clone frees only what it does not share) and what **uses** it. Outside the store it shows the
 settings file, the keychain entries (names only), the CLI and the project folders — never deleted
-here. Then the memory each sandbox with a VM holds (after the balloon), the host's and the UI's, the
+here. Then the memory each sandbox with a VM holds (after the balloon), the daemon's and the UI's, the
 CPUs given to sandboxes, each sandbox's proxy traffic (today and in all) and the kernels (version,
 digest, size, current, and the snapshots that need each).
 
 `rm` and `clean` first show the plan — each item, what it frees, what it costs later
 ("re-prepared when next needed (about 3 min, needs network)") and what is refused and why — and ask
-once (`--yes` skips it; `--dry-run` deletes nothing). The deletion runs in the host as one operation,
+once (`--yes` skips it; `--dry-run` deletes nothing). The deletion runs in the daemon as one operation,
 waiting until nothing that uses the store's disks is under way. What is refused: a sandbox and its
 disks (remove it with `doz rm`), anything outside the store, Dozable's own records; the current kernel
 and the guest init while any sandbox is paused, asleep or hibernated (their snapshots need them —
@@ -652,27 +652,27 @@ restore points, logs, settings or keys. `resources kernel` changes `kernel.path`
 sandboxes created from now on; existing ones keep theirs, and a wake keeps its snapshot's kernel.
 `doz image rm` stays as it was.
 
-### The host
+### The daemon
 
 ```bash
-doz host [--foreground] [--idle-timeout MIN]   # run it by hand
-doz host stop                                    # hibernates everything running (a line each, then a summary), then exits
-doz host restart                                 # stop it (sandboxes hibernate) and start it again — on this doz's build, after an update
-doz host status                                  # is one running, and what does it hold? never starts one
-doz host upgrade-check                           # after an upgrade: is a host of an older build still running?
+doz daemon [--foreground] [--idle-timeout MIN]   # run it by hand
+doz daemon stop                                    # hibernates everything running (a line each, then a summary), then exits
+doz daemon restart                                 # stop it (sandboxes hibernate) and start it again — on this doz's build, after an update
+doz daemon status                                  # is one running, and what does it hold? never starts one
+doz daemon upgrade-check                           # after an upgrade: is a daemon of an older build still running?
 ```
 
 **Upgrades.** `brew upgrade doz` (or `make install-cli`) puts the new build next to the running
-one; the host keeps running its own copy until `doz host stop`, and Homebrew's post-install runs
-`doz host upgrade-check` to say so. When Homebrew then removes the previous version (`brew
-cleanup`), the running host and its sandboxes keep running, but a start, a wake or a new sandbox is
-refused plainly ("this host's program … is gone — `doz host stop`, then retry"), and the host
+one; the daemon keeps running its own copy until `doz daemon stop`, and Homebrew's post-install runs
+`doz daemon upgrade-check` to say so. When Homebrew then removes the previous version (`brew
+cleanup`), the running daemon and its sandboxes keep running, but a start, a wake or a new sandbox is
+refused plainly ("this daemon's program … is gone — `doz daemon stop`, then retry"), and the daemon
 exits by itself once nothing runs.
 
-Started for you by the first command that needs it; runs detached (`<store>/host.log`,
-`<store>/host.sock`); exits after 5 minutes idle (`$DOZ_HOST_IDLE`, 0 = never). `ls`,
+Started for you by the first command that needs it; runs detached (`<store>/daemon.log`,
+`<store>/daemon.sock`); exits after 5 minutes idle (`$DOZ_DAEMON_IDLE`, 0 = never). `ls`,
 `inspect`, `point ls`, `image ls`, `net policy` (shown) and `key ls` read the store directly when
-no host runs, so **looking never starts one**. If it crashes, the next command starts a new one:
+no daemon runs, so **looking never starts one**. If it crashes, the next command starts a new one:
 sleeping sandboxes are restored with their sessions, hibernated ones are untouched, and running
 ones are reported as died with their disk checked at the next start.
 
@@ -688,7 +688,7 @@ doz looks for a newer release at most once a day (and when `doz ui` starts) in a
 key, and installs only what verifies — never an older build. The setting `updates.mode` decides what happens:
 `notify` (the default — one line on your terminal and a banner on the dashboard, with the command to run), `auto`
 (it also installs the update, only while no sandbox runs and no session is attached; then: restart to apply,
-`doz host restart`) or `off`. `updates.channel` is stable, beta (beta and stable releases) or canary (every build
+`doz daemon restart`) or `off`. `updates.channel` is stable, beta (beta and stable releases) or canary (every build
 first); a Homebrew install has one formula per channel — `doz`, `doz-beta`, `doz-canary` — and `doz upgrade -y
 --channel` switches between them, keeping your store, sandboxes and settings. Never with `--json`, `-q`, or when
 not on a terminal.
@@ -706,11 +706,11 @@ One UI per store, one tab (594 W19): `doz ui` while one runs reuses it, opening 
 of its pages is open; a restarted `doz ui` takes the store's last port and keeps its pages' sessions
 (`<store>/ui.sessions`, 0600; the cookies' digests, never the cookies), so an open page reconnects by itself and no tab
 opens. `ui.open_browser` = `auto` (default) | `always` | `never`; `--open` / `--no-open` override it.
-`--new-link` (or `doz ui link --rotate`) signs every page out for a new link. The page watches the host
-(594 W18): its footer shows the link to `doz ui` and the host's state and build, and a banner says when
-the host stopped (hibernated; Start host), died (the sandboxes that were running are shut down) or
-came back as another build — and, when the host and `doz ui` differ, which is the older (594 W20: an
-older host gets Restart host, which hibernates its sandboxes and starts `doz ui`'s build; an older
+`--new-link` (or `doz ui link --rotate`) signs every page out for a new link. The page watches the daemon
+(594 W18): its footer shows the link to `doz ui` and the daemon's state and build, and a banner says when
+the daemon stopped (hibernated; Start daemon), died (the sandboxes that were running are shut down) or
+came back as another build — and, when the daemon and `doz ui` differ, which is the older (594 W20: an
+older daemon gets Restart daemon, which hibernates its sandboxes and starts `doz ui`'s build; an older
 `doz ui` is to be restarted). While `doz ui` itself is gone the page is paused under an overlay (594
 W21) and reconnects by itself; the banners stay in front of it.
 
@@ -720,22 +720,22 @@ navigation): a control bar, its terminals filling the page, and a details panel.
 is a grid of live, read-only views of every session; **Images** has a Lineage view, and both views show
 each image's own and shared size and %; **Resources** is `doz resources` as a page (its total in the
 navigation), with multi-select, one confirmation and **Clean up**; **Operations**
-lists what the UI asked the host to do. It listens on `127.0.0.1` only. Each link works once and is
+lists what the UI asked the daemon to do. It listens on `127.0.0.1` only. Each link works once and is
 exchanged for a strict session cookie; `Host` and `Origin` are checked exactly. An account's API key
 or setup token may be typed in a masked field (the wizard, Accounts & keys) while
 `ui.allow_secret_entry` is on (the default): one CSRF-checked POST body, stored as `doz account add`
 stores it, never echoed; off, the page shows the command. A sandbox's own key (`doz key set NAME
 --anthropic`) likewise, on its page (Keys & account; `POST /api/v1/sandboxes/NAME/key`, held by the
-host as `doz key set` holds it). **Open in Terminal** runs
-`doz attach` in your default terminal app. The UI is a client of the host, like any other
+daemon as `doz key set` holds it). **Open in Terminal** runs
+`doz attach` in your default terminal app. The UI is a client of the daemon, like any other
 command, so it can't do anything the CLI can't.
 
 A store that was never onboarded opens on the **setup wizard** — Welcome (the checks inline), Base image, Models &
 keys, GitHub & SSH, Workspace rules, Usage statistics and Stay in touch (official builds), First sandbox — the same
 steps as `doz onboard` (always reachable again from **Onboarding** in the navigation — marked with a dot until the
-store is onboarded — or **Doctor › Run onboarding again**). The base is prepared in the host from Base image on, its
+store is onboarded — or **Doctor › Run onboarding again**). The base is prepared in the daemon from Base image on, its
 progress a strip at the foot of every later step (Details: a popover; a failed download: Retry), and **Operations**
-lists the host's preparations whoever started them (the CLI
+lists the daemon's preparations whoever started them (the CLI
 too). A sandbox's page shows its environment prompt as the next session gets it, and whether
 `/workspace` is shared (or the **isolated** badge). New sandbox and Duplicate
 name the sandbox from its image (`claude-sandbox`, `-2` when taken) and offer **Shared
@@ -760,7 +760,7 @@ request: only a loopback connection to exactly `127.0.0.1:<port>` with no forwar
 (signed in by the link, everything allowed); every other browser is a device (`<store>/serve/`, 0700 — `devices.json`
 holds each browser's cookie digest, never the cookie). It listens on every network interface of the Mac and Tailscale
 (`serve.bind = lan`) — never on a sandbox's network, and a connection from a sandbox network is dropped before a byte
-is read; the host's egress proxy refuses the dashboard's port on the Mac's own addresses to proxied sandboxes. A
+is read; the daemon's egress proxy refuses the dashboard's port on the Mac's own addresses to proxied sandboxes. A
 browser gets in once with an invite (a 256-bit link token in the URL fragment, an 8-character code, the QR code of the
 link — whichever is used first, within five minutes) and stays in until it is revoked. Everything the Mac's browser
 does works, except typing a key or token over plain HTTP (403 `secret-over-http`) and what opens a window on the
@@ -791,7 +791,7 @@ doz config show|get|set|unset --sandbox NAME …   # one sandbox's own value of 
 doz config set|unset --project DIR KEY [VALUE]   # the project's doz_project.yaml (approvals, clipboard, …)
 ```
 
-One settings file, `doz.toml`, lists Dozable's own settings grouped in sections (`[ui]`, `[host]`,
+One settings file, `doz.toml`, lists Dozable's own settings grouped in sections (`[ui]`, `[daemon]`,
 `[store]`, `[defaults]`, `[agent]`, `[telemetry]`, `[resources]`, `[sandbox]`, `[images.lab]`,
 `[kernel]`), each with a description and `# key = default` commented out; only what you set is
 uncommented. A recipe's own settings (its agent's `version`, `approvals`, `memory_mib`, `network`, and
@@ -831,10 +831,10 @@ never sends.
 
 ```bash
 doz metrics [--csv] [--image X] [--days N] [--no-steps]   # count, median, p90, min, max, failures
-doz doctor                                                  # macOS, Apple silicon, entitlement, kernel, store, host, Claude login
+doz doctor                                                  # macOS, Apple silicon, entitlement, kernel, store, daemon, Claude login
 doz events [NAME]                                           # follow phases and timed steps live
 doz console NAME [--follow]                                 # the boot console (kernel + init); --follow keeps printing it
-doz console NAME --list | --steps [--boot N] [--json]       # the kept boots (host.boot_logs_kept, 5): steps + console of boot N (1 = latest)
+doz console NAME --list | --steps [--boot N] [--json]       # the kept boots (daemon.boot_logs_kept, 5): steps + console of boot N (1 = latest)
 ```
 
 ### Scripting
@@ -855,7 +855,7 @@ JSON documents only ever gain fields.
 | 3 | not possible in this phase |
 | 4 | already exists |
 | 5 | not confirmed |
-| 6 | host unavailable |
+| 6 | daemon unavailable |
 | 7 | not implemented yet |
 | 64 | usage |
 | *program's own* | `exec`, `run`, `attach` (125 = doz itself failed) |
@@ -863,7 +863,7 @@ JSON documents only ever gain fields.
 | environment | overrides the setting | |
 |---|---|---|
 | `DOZ_STORE` | `store.path` | the store directory |
-| `DOZ_HOST_IDLE` | `host.idle_timeout_minutes` | host idle timeout, minutes |
+| `DOZ_DAEMON_IDLE` | `daemon.idle_timeout_minutes` | daemon idle timeout, minutes |
 | `DOZ_KERNEL_CACHE` / `DOZ_KERNEL` | `kernel.cache` / `kernel.path` | a shared kernel cache / an explicit kernel |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | default subnet for `--network nat` |
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress |
@@ -876,15 +876,15 @@ JSON documents only ever gain fields.
 | symptom | try |
 |---|---|
 | "cannot boot a VM" / entitlement | `doz doctor`; reinstall (`brew reinstall doz`, or `make install-cli` — both are signed). |
-| "this host's program … is gone" | An upgrade removed the previous version under a running host: `doz host stop`, then retry. |
+| "this daemon's program … is gone" | An upgrade removed the previous version under a running daemon: `doz daemon stop`, then retry. |
 | First start is slow | It is preparing the image, once per store — `doz onboard` (or `doz image bake …`) does it ahead of time; `-v` shows the steps. |
 | A start or wake failed, or its boot flew past | `doz console NAME --list`, then `doz console NAME --steps [--boot N]` — each kept boot's steps (✗ with why) and its kernel console; **Boot log** in the web UI. |
 | An agent's sessions do not start: "the agent prompt does not render" | A `{{variable}}` that is not on the list in `agent-prompt.md` or the sandbox's own prompt — `doz inspect NAME --prompt` names it. |
 | Start over from nothing | `doz uninstall` (it lists what goes; a Homebrew `doz` is left to `brew uninstall doz`), then `brew install dozable/tap/doz` and `doz onboard`. |
-| An agent says it has no key / 401 | `doz key ls NAME` — a stdin key is gone after the host stopped; set it again or use `--keychain`. |
+| An agent says it has no key / 401 | `doz key ls NAME` — a stdin key is gone after the daemon stopped; set it again or use `--keychain`. |
 | A package install fails | `doz net NAME` names what was refused and the permission that allows it (`doz net allow NAME install:python`, or `site:HOST`); the raw log is `doz net log NAME --denied`. |
-| A sandbox shows as died | The host crashed while it ran — `doz start NAME` checks the disk and cold-boots it. |
-| Anything else | `<store>/host.log` and `doz events`. |
+| A sandbox shows as died | The daemon crashed while it ran — `doz start NAME` checks the disk and cold-boots it. |
+| Anything else | `<store>/daemon.log` and `doz events`. |
 
 ### Not yet
 

@@ -33,16 +33,16 @@ const SAMPLES = [
     { label: 'Agent blocked', run: () => agent('blocked', 'warn', 'needs permission', 'Run npm install?') },
     { label: 'Agent error', run: () => agent('error', 'bad', 'stopped with an error', 'Service unavailable (502)') },
   ] },
-  { group: 'The host', items: [
-    { label: 'Host stopped', run: () => hostChanged({ state: 'stopped', reason: 'idle for 15 min', sandboxes: [someSandbox()] }) },
-    { label: 'Host died', run: () => hostChanged({ state: 'died', sandboxes: [someSandbox()] }) },
-    { label: 'Host is another build', run: () => hostChanged({ state: 'running', version: '0.37.18', previousVersion: '0.37.17', sandboxes: [] }) },
-    { label: 'Version mismatch', run: () => banner('version', 'warn', ['This doz ui (0.37.18) is newer than the host (0.37.17) — restart the host to use the new build.'],
-      [btn('Restart host', () => toast('(Debug) Restart host would ask here — use the status card’s Restart'), { small: true, primary: true, icon: 'rotate-ccw' })]) },
+  { group: 'The daemon', items: [
+    { label: 'Daemon stopped', run: () => hostChanged({ state: 'stopped', reason: 'idle for 15 min', sandboxes: [someSandbox()] }) },
+    { label: 'Daemon died', run: () => hostChanged({ state: 'died', sandboxes: [someSandbox()] }) },
+    { label: 'Daemon is another build', run: () => hostChanged({ state: 'running', version: '0.37.18', previousVersion: '0.37.17', sandboxes: [] }) },
+    { label: 'Version mismatch', run: () => banner('version', 'warn', ['This doz ui (0.37.18) is newer than the daemon (0.37.17) — restart the daemon to use the new build.'],
+      [btn('Restart daemon', () => toast('(Debug) Restart daemon would ask here — use the status card’s Restart'), { small: true, primary: true, icon: 'rotate-ccw' })]) },
   ] },
   { group: 'The dashboard', items: [
     { label: 'Update available', run: () => showUpdate({ kind: 'available', version: '0.99.0', command: 'brew upgrade doz', text: 'doz 0.99.0 is available' }) },
-    { label: 'Update installed', run: () => showUpdate({ kind: 'installed', version: '0.99.0', command: 'doz host restart', text: 'doz 0.99.0 was installed — restart to apply: doz host restart (this dashboard: doz ui restart)' }) },
+    { label: 'Update installed', run: () => showUpdate({ kind: 'installed', version: '0.99.0', command: 'doz daemon restart', text: 'doz 0.99.0 was installed — restart to apply: doz daemon restart (this dashboard: doz ui restart)' }) },
     { label: 'Dashboard updated', run: () => banner('ui-updated', 'info', ['Dozable was updated to 0.99.0 — reload this page to use it.'],
       [btn('Reload', () => location.reload(), { small: true, primary: true, icon: 'refresh-cw' })]) },
     { label: 'Reconnecting', run: () => banner('ui-stopped', 'info', ['Reconnecting to Dozable…']) },
@@ -76,7 +76,7 @@ export async function viewDebug() {
   };
   return h('div', { class: 'debug-page' },
     h('div', { class: 'head' }, h('h1', null, 'Debug')),
-    h('p', { class: 'sub' }, 'Make each kind of notification the dashboard shows, with sample words, to see how it looks. Nothing here asks the host or changes a sandbox.'),
+    h('p', { class: 'sub' }, 'Make each kind of notification the dashboard shows, with sample words, to see how it looks. Nothing here asks the daemon or changes a sandbox.'),
     panel(h('div', { class: 'debug-groups' },
       h('div', { class: 'debug-group' }, h('h3', null, 'Show notifications as (ui.notifications)'), seg),
       ...SAMPLES.map((g) => h('div', { class: 'debug-group' }, h('h3', null, g.group),

@@ -16,7 +16,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `SandboxSpec.audio` nil = no sound: no device, the pinned kernel, and the spec and `ToolInputs` encode byte-identically
   (`AudioTests`). `PinnedIdentity.audio` adds the virtio-snd device; `VMLayout` records it, so a mismatched restore is
   refused. The VM boots `SoundKernel` (`vmlinux-6.18.15-186-sound2`, sha256 pinned in `Audio.swift`) from the kernel
-  CACHE — the host copies it there, verified, at create and before every boot (`MacAudio.installSoundKernel`); bakes
+  CACHE — the daemon copies it there, verified, at create and before every boot (`MacAudio.installSoundKernel`); bakes
   and image keys keep the pinned kernel. Never downloaded: `release.sh` ships it (`SOUND_KERNEL`, sha256-checked,
   `libexec/doz/kernels/`, its source offer in `licences/sound-kernel/`); dev: `DOZ_TEST_SOUND_KERNEL`. A public build
   has none (`BuildFlavor.audioMissing`).
@@ -35,7 +35,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   records it at a cold boot and every restore uses it (nil = an older build's VM: the real source); a new decision
   waits for the next cold boot. doz asks (`AVCaptureDevice.requestAccess`, the ONE AVFoundation file `Microphone.swift`
   — audit) when `sandbox.microphone_ask` says (`MicrophoneAsk`, owner 2026-10-27): `first_recording` (default) — the
-  host watches a RUNNING `on` sandbox whose VM has a silent microphone while macOS is undecided
+  daemon watches a RUNNING `on` sandbox whose VM has a silent microphone while macOS is undecided
   (`HostCore.watchForRecording`: one guest stream, `DozSound.recordingWatchScript`, reads
   `/proc/asound/card*/pcm*c/sub*/status` once a second — a sound sandbox's container has `/proc/asound` UNMASKED,
   `Sandbox.maskedPaths(sound:)` — and prints `doz-recording` when a capture substream RUNS; ended by `finishInput` before
@@ -45,10 +45,10 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   waits at most `microphoneQuestionWait`. **Tests never reach the real permission**: `MicrophoneAccess.current` is the
   seam in every guarded run and XCTest (`DOZ_TEST_MICROPHONE`, `DOZ_TEST_MICROPHONE_ANSWER` — the seam remembers its
   answer, as macOS does).
-- **macOS asks about the microphone for the host's RESPONSIBLE app** (the app that started doz — survives the detached
-  double spawn), named in host.log, `host status` `microphoneApp`, `doctor` and doz-sound's hint.
+- **macOS asks about the microphone for the daemon's RESPONSIBLE app** (the app that started doz — survives the detached
+  double spawn), named in daemon.log, `daemon status` `microphoneApp`, `doctor` and doz-sound's hint.
 - **604's "a stream open across a restore stalls" no longer happens** (667, three runs: playback and capture held
-  open across pause, sleep, hibernate and a new host process, default and 10 ms periods, kept real time —
+  open across pause, sleep, hibernate and a new daemon process, default and 10 ms periods, kept real time —
   workspace `probes/667-*/remeasure.sh`). Nothing re-syncs streams at a wake; the remedy built and dropped is in the
   667 plan, if it ever comes back.
 - **The tools layer** (sound only): alsa-utils, `/etc/asound.conf` (stamp v2: `default` = asym of the card's

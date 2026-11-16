@@ -25,7 +25,7 @@ public enum UpdateInstaller {
     public static func busyReason(store: DozableStore) -> String? {
         guard store.hostIsRunning() else { return nil }
         guard let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false), m.ok == true,
-              let st = try? (m.result ?? .null).decode(HostStatus.self) else { return "the doz host is busy" }
+              let st = try? (m.result ?? .null).decode(HostStatus.self) else { return "the doz daemon is busy" }
         if !st.liveSandboxes.isEmpty { return "\(st.liveSandboxes.joined(separator: ", ")) \(st.liveSandboxes.count == 1 ? "is" : "are") running" }
         if st.connections > 1 || st.idleSeconds == nil { return "a session is attached" }
         return nil

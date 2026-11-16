@@ -23,7 +23,7 @@ final class StatusWordsTests: XCTestCase {
     func testAHostOfAnotherBuildIsSaid() {
         XCTAssertNil(hostBuildNote(host: "0.12.0-rc.10", this: "0.12.0-rc.10"))
         XCTAssertEqual(hostBuildNote(host: "0.12.0-rc.8", this: "0.12.0-rc.10"),
-                       "the doz host is 0.12.0-rc.8 (this doz is 0.12.0-rc.10) — `doz host stop` switches to 0.12.0-rc.10; sandboxes hibernate and wake")
-        XCTAssertTrue(hostBuildNote(host: "0.13.0", this: "0.12.0")?.hasPrefix("the doz host is 0.13.0, newer than this doz (0.12.0) — upgrade this doz") == true)
+                       "the doz daemon is 0.12.0-rc.8 (this doz is 0.12.0-rc.10) — `doz daemon stop` switches to 0.12.0-rc.10; sandboxes hibernate and wake")
+        XCTAssertTrue(hostBuildNote(host: "0.13.0", this: "0.12.0")?.hasPrefix("the doz daemon is 0.13.0, newer than this doz (0.12.0) — upgrade this doz") == true)
     }
 }

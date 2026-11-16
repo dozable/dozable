@@ -11,8 +11,8 @@ final class LatestLineTests: XCTestCase {
         XCTAssertTrue(AgentRecipe.pinnedOnlyKinds.contains(tau.install.kind))
         XCTAssertEqual(latestLine(nil, agent: "tau"),
                        "pinned \(tau.install.pinned.version) — Dozable installs exactly this release; a newer one comes with a Dozable update")
-        XCTAssertEqual(latestLine(nil, agent: "grok"), "latest: not checked yet (the host checks hourly while it runs)", "a looked-up agent waits for its check")
-        XCTAssertEqual(latestLine(nil), "latest: not checked yet (the host checks hourly while it runs)")
+        XCTAssertEqual(latestLine(nil, agent: "grok"), "latest: not checked yet (the daemon checks hourly while it runs)", "a looked-up agent waits for its check")
+        XCTAssertEqual(latestLine(nil), "latest: not checked yet (the daemon checks hourly while it runs)")
         let checked = latestLine(DirectoryIndex.Latest(version: "9.9.9", released: nil, freshness: "active", deprecated: nil), agent: "tau")
         XCTAssertTrue(checked.hasPrefix("latest 9.9.9"), "a measured latest wins: " + checked)
     }

@@ -51,7 +51,7 @@ func cliBasesSuite(binary: String, parts: Set<String>) async {
 
 func basesCLIPart(_ binary: String) async {
     let h = basesHarness(binary, "c")
-    defer { h.run(["host", "stop"]); try? FileManager.default.removeItem(at: h.store) }
+    defer { h.run(["daemon", "stop"]); try? FileManager.default.removeItem(at: h.store) }
     print("cli: doz base ls, --agent/--base, the project file (596 B10)")
     var r = h.run(["base", "ls"])
     check(r.code == 0 && ["node — Node.js", "python — Python", "go — Go", "rust — Rust", "java — Java", "ruby — Ruby", ".NET", "debian — Debian", "ubuntu — Ubuntu", "alpine — Alpine"].allSatisfy(r.out.contains)
@@ -187,7 +187,7 @@ func fakeContainer(_ dir: URL, state: String) -> String {
 func basesDockerfilePart(_ binary: String) async {
     let h = basesHarness(binary, "d")
     let fake = h.store.appendingPathComponent("fake")
-    defer { h.run(["host", "stop"]); try? FileManager.default.removeItem(at: h.store) }
+    defer { h.run(["daemon", "stop"]); try? FileManager.default.removeItem(at: h.store) }
     print("cli: Dockerfile bases — Apple's container through a fake (596 B5–B9)")
     let scratch = h.store.appendingPathComponent("oci-scratch")
     try? FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
@@ -215,7 +215,7 @@ func basesDockerfilePart(_ binary: String) async {
     h.env["DOZ_TEST_CONTAINER"] = "/nonexistent/container"
     let log = fake.appendingPathComponent("install.log")
     h.env["DOZ_TEST_CONTAINER_INSTALL"] = log.path
-    h.run(["host", "stop"])
+    h.run(["daemon", "stop"])
     var st = h.json(["builder", "status"], ContainerToolStatus.self)
     check(st?.state == "missing" && (st?.installNote ?? "").contains("never uses sudo"), "builder status: missing, the install said plainly (\(st?.state ?? "?"))")
     var r = h.run(["create", "dx", "--dockerfile", df.path, "--agent", "none", "--start"])
@@ -227,7 +227,7 @@ func basesDockerfilePart(_ binary: String) async {
 
     // Installed, services stopped: said plainly; `doz builder start` (asked) starts them.
     h.env["DOZ_TEST_CONTAINER"] = fakeContainer(fake, state: "stopped")
-    h.run(["host", "stop"])
+    h.run(["daemon", "stop"])
     st = h.json(["builder", "status"], ContainerToolStatus.self)
     check(st?.state == "stopped" && (st?.note ?? "").contains("not running") && (st?.startNote ?? "").contains("launchd"), "builder status: stopped — what starting does is said")
     r = h.run(["builder", "start"])
@@ -313,7 +313,7 @@ func basesRealBuildPart(_ binary: String) async {
         return
     }
     let h = basesHarness(binary, "r")
-    defer { h.run(["host", "stop"]); try? FileManager.default.removeItem(at: h.store) }
+    defer { h.run(["daemon", "stop"]); try? FileManager.default.removeItem(at: h.store) }
     print("cli: the REAL container build (596 B7; owner-approved 2026-10-01)")
     var st = h.json(["builder", "status"], ContainerToolStatus.self)
     if st?.state == "stopped" {
@@ -376,7 +376,7 @@ func basesRealBuildPart(_ binary: String) async {
 
 func basesMatrixPart(_ binary: String) async {
     let h = basesHarness(binary, "m")
-    defer { h.run(["host", "stop"]); try? FileManager.default.removeItem(at: h.store) }
+    defer { h.run(["daemon", "stop"]); try? FileManager.default.removeItem(at: h.store) }
     print("cli: the base × agent matrix (596 acceptance 2) — Node, Python, Go, Debian, Alpine × Claude Code and none; pi on Python")
     let npmLatest = await registryLatest(AgentImages.claudeCodePackage)
     var pairs: [(String, AgentKind)] = []

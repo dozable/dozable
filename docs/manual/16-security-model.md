@@ -19,7 +19,7 @@ folder you chose to share at `/workspace`. An isolated sandbox shares nothing at
 ### 2. No network card: everything goes through the proxy
 
 A proxied sandbox (the default for every image) has no network interface. Its only way out is Dozable's
-proxy, in the host on your Mac, which checks every connection — DNS included — against the sandbox's
+proxy, in the daemon on your Mac, which checks every connection — DNS included — against the sandbox's
 [permissions](10-permissions-and-network.md), and logs it (host, verdict, bytes; never contents).
 
 - The agent can't change its own permissions, and root inside the VM can't get around them: there is
@@ -86,7 +86,7 @@ and SSH are **off** until you choose them, and nothing is turned on silently —
   never the token;
 - SSH: your agent is asked for its list of keys — nothing is signed;
 - the result is kept in `access.json` in the store: states and reasons only, never a secret. A pasted
-  GitHub token goes straight to the host and into your login keychain (`doz-github`) — the dashboard
+  GitHub token goes straight to the daemon and into your login keychain (`doz-github`) — the dashboard
   takes it only while `ui.allow_secret_entry` is on, in a masked field it empties at once, and never
   shows it again.
 
@@ -99,9 +99,9 @@ The agent has passwordless `sudo` inside its sandbox by default. That's delibera
 reaches no more than the agent does — the same proxy, no credentials, only the shared folder. It lets
 the agent install what it needs. Turn it off with `sandbox.agent_sudo` if you prefer.
 
-### 5. The host and the dashboard are yours alone
+### 5. The daemon and the dashboard are yours alone
 
-- The host listens on a socket in your store, readable only by you.
+- The daemon listens on a socket in your store, readable only by you.
 - The dashboard listens on your Mac's loopback only, signs a browser in with a one-use link, checks the
   exact host and origin and a CSRF token on every change, and runs each terminal in an isolated frame:
   whatever a sandbox prints can't reach the dashboard's session or other terminals.
@@ -124,7 +124,7 @@ the agent install what it needs. Turn it off with `sandbox.agent_sudo` if you pr
 A session's terminal lets a program in the sandbox do three things on your Mac, because agents need
 them. Each is announced every time it's used, rate-limited, works only while a terminal is attached,
 and can be turned off per sandbox or for all. All three travel the same way — a private escape
-sequence in the session's output, which Dozable's host takes out and decides on; the sandbox has no other
+sequence in the session's output, which Dozable's daemon takes out and decides on; the sandbox has no other
 channel to your Mac.
 
 | bridge | what the sandbox can do | what it can't | the risk | turn it off |

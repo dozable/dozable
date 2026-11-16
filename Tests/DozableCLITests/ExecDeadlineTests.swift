@@ -31,7 +31,7 @@ final class ExecDeadlineTests: XCTestCase {
     func testTheTimeLeft() {
         let now = Date()
         XCTAssertEqual(ExecDeadline.remaining(now.addingTimeInterval(2.2), now: now), 3, "rounded up")
-        XCTAssertEqual(ExecDeadline.remaining(now.addingTimeInterval(-5), now: now), 1, "at least 1 for an older host")
+        XCTAssertEqual(ExecDeadline.remaining(now.addingTimeInterval(-5), now: now), 1, "at least 1 for an older daemon")
         XCTAssertEqual(ExecDeadline.deadline(seconds: 3, start: now), now.addingTimeInterval(3))
         XCTAssertEqual(ExecDeadline.message(3), "doz: exec timed out after 3 s (counted from when doz started)")
     }

@@ -6,8 +6,8 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 | Path | What |
 |---|---|
-| `Sources/DozableKit/RecipeCatalogue.swift`; `Sources/DozableHost/RecipeCatalogueClient.swift`; `Scripts/publish-recipes.sh`, `recipe-catalogue.py`, `test-recipe-catalogue.sh` | 652: the recipe catalogue — the active recipe set (embedded, or a signed catalogue merged over it, chosen once at start), the manifest + its domain-separated message, the merge and checks; the cache in the settings dir, the choice, the host's daily refresh; the publisher and its end-to-end test |
-| `Sources/DozableKit/RecipeOrigin.swift`, `CommunityRequirements.swift`, `StandInProvider.swift`; `Sources/DozableHost/RecipeExtras.swift`; `Sources/DozableCLI/RecipeCommands.swift`, `RecipeFullCheck.swift`; `components/source-pill.js`; `Scripts/test-community-recipes.sh` | 653: recipes that are not Dozable's — their origin, the community requirements, the merge (`RecipeCatalogue.adoptExtras`); your own recipes, community sources, the snapshot a host start chooses, kept/checks/trusted; `doz recipe …` and the full check (a Swift stand-in provider); the dashboard's pills; the end-to-end test |
+| `Sources/DozableKit/RecipeCatalogue.swift`; `Sources/DozableHost/RecipeCatalogueClient.swift`; `Scripts/publish-recipes.sh`, `recipe-catalogue.py`, `test-recipe-catalogue.sh` | 652: the recipe catalogue — the active recipe set (embedded, or a signed catalogue merged over it, chosen once at start), the manifest + its domain-separated message, the merge and checks; the cache in the settings dir, the choice, the daemon's daily refresh; the publisher and its end-to-end test |
+| `Sources/DozableKit/RecipeOrigin.swift`, `CommunityRequirements.swift`, `StandInProvider.swift`; `Sources/DozableHost/RecipeExtras.swift`; `Sources/DozableCLI/RecipeCommands.swift`, `RecipeFullCheck.swift`; `components/source-pill.js`; `Scripts/test-community-recipes.sh` | 653: recipes that are not Dozable's — their origin, the community requirements, the merge (`RecipeCatalogue.adoptExtras`); your own recipes, community sources, the snapshot a daemon start chooses, kept/checks/trusted; `doz recipe …` and the full check (a Swift stand-in provider); the dashboard's pills; the end-to-end test |
 
 ## Agent recipes and key providers
 
@@ -55,7 +55,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
     part, today's `fatalError`s) unless `DozableEntry.main`'s FIRST statement (`RecipeCatalogueSelection.chooseAtStart`)
     adopted a catalogue, then `RecipeCatalogue.seal()` (an adopt after it is a precondition failure). DozableKit never
     reads the settings or the network for it — DozableHost decides. Only tests swap (`RecipeCatalogue.resetForTests`).
-    678: only the HOST's start adopts at once. Any other process decides WHICH catalogue at its start (manifest,
+    678: only the DAEMON's start adopts at once. Any other process decides WHICH catalogue at its start (manifest,
     signature, the files' sizes and sha256 — a tampered file is still refused there) and leaves the merge and the
     validators — and the extras' adoption — for its first read of a recipe (`adopt(…, deferred: true)`,
     `adoptExtras(…, deferred: true)`, run by `settleDeferred` from `active`/`generation`/`extras`, under a recursive
@@ -65,22 +65,22 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
     `sessions`, `exec`, `attach`) never read one — `make test-cli-startup` checks they build no recipe part.
   - **The choice**: a guarded test run only with its seam (`DOZ_TEST_RECIPE_CATALOGUE`), a development build
     (`InstallMethod.development`) only with the seam (a recipe edited in the tree must win), else `<settings dir>/recipes/
-    current.json` — and in the HOST's own start (`isHostStart`: `doz host … --foreground`, what the launcher runs) the
-    waiting `next.json`, promoted when it passes. So a command always uses what the running host uses; a new catalogue
-    applies from the next host start (an idle host with one waiting exits, like a changed program). Used only when: it
+    current.json` — and in the DAEMON's own start (`isHostStart`: `doz daemon … --foreground`, what the launcher runs) the
+    waiting `next.json`, promoted when it passes. So a command always uses what the running daemon uses; a new catalogue
+    applies from the next daemon start (an idle daemon with one waiting exits, like a changed program). Used only when: it
     verifies, `minimum_doz` ≤ this doz, `source_version` ≥ this doz (THE floor: never recipes older than the build's
     own), a next's serial above the current's, every file present with its sha256 and size — and the MERGED set passes
     every validator the embedded set passes (`RecipeCatalogue.validateActive`). Any failure: the WHOLE catalogue is
     ignored, recorded in `state.json` (`refused`, `refusedSerials`) and said once (stderr on a terminal, never
-    `--json`/`-q`; the host log; `doz doctor`'s `recipes` line always).
+    `--json`/`-q`; the daemon log; `doz doctor`'s `recipes` line always).
   - **The merge**: by id — recipes, providers, keyless sources, gateways, tags, kinds, categories, icon entries; the
     catalogue's entry wins, this build's others STAY (a catalogue never removes: every stored name keeps resolving;
     withdraw with `published: false`); a known entry whose id a recipe now has is dropped. Catalogue files are decoded
     strictly (`RecipeCatalogue.strict`) and their schemas must equal this build's.
   - **The built-in three are NEVER replaced**: a catalogue's copy of claude-code/pi/codex is ignored, a catalogue that
     adds any other `builtin` recipe is refused; the publisher leaves them out. `RecipePinTests` stays the proof.
-  - **The refresh** (`RecipeCatalogueRefresh`, the host's loop): at most DAILY (672, owner: "daily (not hourly)" —
-    `interval`, kept across host restarts by `state.lastAttempt`; the loop wakes every `tick`, an hour, to see whether a
+  - **The refresh** (`RecipeCatalogueRefresh`, the daemon's loop): at most DAILY (672, owner: "daily (not hourly)" —
+    `interval`, kept across daemon restarts by `state.lastAttempt`; the loop wakes every `tick`, an hour, to see whether a
     look is due; a failure waits the day too),
     conditional GET; 404 = none published (keep, silent — the client must work before the first publish); offline
     silent; a newer one's files fetched one by one, sha256-checked, renamed into `files/<serial>/`, then `next.json`
@@ -101,8 +101,8 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
     waits until the live catalogue says the serial. The first live publish waits for the owner.
   - **Tests**: `RecipeCatalogueTests` (format, signature both ways, minimum doz, floor, serial, merge, built-ins,
     refused whole, statistics, the choice, the refresh); `make test-recipe-catalogue` (`Scripts/test-recipe-catalogue.sh`:
-    publish an edited tree with a throwaway key → a local server → a real host's refresh, 404 then the catalogue → the
-    next host start applies it → new processes use it; a tampered file never used; idempotent; nothing pushed).
+    publish an edited tree with a throwaway key → a local server → a real daemon's refresh, 404 then the catalogue → the
+    next daemon start applies it → new processes use it; a tampered file never used; idempotent; nothing pushed).
 - **Recipes that are not Dozable's** (653, owner: "allow the end-user to create their own with the option to verify as
   meeting the minimum requirements for a community recipe"; RECIPE-FORMAT.md "Your own recipes and community catalogues"):
   - **Origins**: `AgentRecipe.origin` (Dozable's, `mine`, `community(NAME)`) is OUTSIDE the coding keys — a recipe's JSON and
@@ -116,14 +116,14 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
     source offering it is refused — never put under an existing sandbox). Only recipes are added. A non-Dozable recipe is
     `isPinnedOnly` (its pin, never a looked-up latest — every former `pinnedOnlyKinds.contains` site uses it), drawn with a
     lettermark, never counted (`UsageSchema.agent(image:)`).
-  - **One snapshot per host start** (`<settings>/recipes/in-use/`): a host's start (and a `doz recipe` command when no host
+  - **One snapshot per daemon start** (`<settings>/recipes/in-use/`): a daemon's start (and a `doz recipe` command when no daemon
     runs for its store) rebuilds it — your YAML compiled (the CLI hands in `RecipeSource.compile`; Yams stays in the CLI), the
     confirmed community caches promoted (652's cache layout per source, `community/<name>/`), the kept ones — and every process
-    adopts it. So a command uses what the running host uses; a change applies from the next host start.
+    adopts it. So a command uses what the running daemon uses; a change applies from the next daemon start.
   - **Community sources**: `sources.json` (URL, Ed25519 key, `SHA256:` fingerprint, when confirmed). Nothing is fetched before
     the fingerprint is confirmed (a terminal question, or `--fingerprint`); Dozable's own key is refused as a source key; https
     only (http from 127.0.0.1 in a guarded run). A community catalogue is 652's format with `product: doz-community-recipes`
-    and `agents/` only, signed with its publisher's key; the host refreshes each daily beside Dozable's (`CommunityRefresh.interval` = Dozable's).
+    and `agents/` only, signed with its publisher's key; the daemon refreshes each daily beside Dozable's (`CommunityRefresh.interval` = Dozable's).
   - **Trust**: the CLI asks once per recipe version (`trusted.json`, by id + sha256) before a COMMUNITY recipe's sandbox is made
     (`confirmRecipeTrust`: QuickMake before its image is prepared, `preflightAgentAccount`); no terminal → exit 5 naming
     `doz recipe trust ID`. Your own are said, never asked. The dashboard shows "Whose recipe" first in the try setup.
@@ -153,7 +153,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   **Never baked**: no `ImageSpec`/`recipeLauncherScript` reads it, so no bake key moves and no image is "older recipe"
   (`RecipePinTests`, `test_nodeImagesAreByteIdentical`, `test_builtinRecipesDescribeTheirImages` are the proof — keep them
   unchanged). Set ONCE per sandbox, in the guest set-up, exactly like the dotfiles (never at a session open — that raced an
-  agent rewriting its own file and re-added a key the person had deleted): the host hands the `Sandbox` an
+  agent rewriting its own file and re-added a key the person had deleted): the daemon hands the `Sandbox` an
   `AgentSettingsInputs` (`AgentHistory.inputs(for:)` — the python3 script + a sha256 fingerprint of the mapping and the value;
   `HostCore.applyAgentSettingsInput`, beside `applyDotfilesInput`), and `Sandbox.applyAgentSettings` runs after the dotfiles in
   `start()` and in `LifecycleStep.applyGuestFixes`. One cheap check exec as the image's user reads the marker
@@ -182,7 +182,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `approvals`: `history:` in doz_project.yaml, `doz config set --sandbox NAME history …`, also taken by the recipe's full key
   or `agent.history`). Effective value: `DozableSettings.history(agent:own:from:)` — the most specific value that is not
   `follow`: sandbox/project, the recipe's on this Mac, `agent.history`, with the source and the key that decided it.
-  `applies: next-start-or-wake` (the guest set-up), never next-session. The host resolves it per sandbox in
+  `applies: next-start-or-wake` (the guest set-up), never next-session. The daemon resolves it per sandbox in
   `applyAgentSettingsInput` — at load, before every request about the sandbox (`perform`), in `ensureRunning` (a wake by
   use) and after a `sandbox-settings` change — and the value is in the fingerprint, so a changed setting applies once.
   `SettingRow.history` (`[HistoryMapping]`) carries what each value does in each agent: `agent.history`'s row every
@@ -240,7 +240,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   never a key — `RecipeEachRunTests`; the helper then runs before the passthrough). Both only in such a recipe's launcher. pi (built-in) declares
   models@1 too — native only, at session time: `AgentCredentials.sources` includes it, a non-Anthropic key goes the
   recipe agents' way in `applyMainAccount` (an Anthropic one keeps pi's own path, `doz key set` included), its other
-  sources' hosts are the hidden `sources:pi` permission (added at create, like Codex's `model:openai`), and the host puts
+  sources' hosts are the hidden `sources:pi` permission (added at create, like Codex's `model:openai`), and the daemon puts
   its `--model` on the default session (`builtinModelArguments`: off Anthropic, or a model chosen there). Its image and
   launcher are unchanged (`RecipePinTests`). Codex records why a gateway is not offered (its gateways entries'
   `limits`). 660 (618.B4): Claude Code declares models@1 — `anthropic` native (its own three accounts, its own model unless
@@ -262,13 +262,13 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   credential at its host or any refusal in the Locked try. `make recipe-check` runs a models@1 recipe
   once per offered source (`RECIPE_SELECTIONS`), `ModelSourcesTests`, `probes/617-*/recipes/models/browser-try-models.mjs`.
 - **Model lists** (618, owner: "… its also missing the step to choose a model"; `ModelLists.swift`, `HostCore+Models.swift`):
-  a gateway's PUBLIC list (OpenRouter `/api/v1/models`, Vercel AI Gateway `/v1/models` — no key) is read by the HOST on
+  a gateway's PUBLIC list (OpenRouter `/api/v1/models`, Vercel AI Gateway `/v1/models` — no key) is read by the DAEMON on
   the Mac, never a sandbox — the read-only op `models` (`modelsSource`, `modelsRefresh`) reads it when a day old (not
   within 10 min of a failure; one read per gateway at a time; offline silent, the last list kept) into
   `<store>/model-lists.json` (Resources: Dozable's own records). Strictly decoded (`ModelLists.parse`: text models only, a
   bad entry dropped, ids `isModelID`, text inert and capped, prices per million tokens), ≤ 3000 entries. A provider
   (Anthropic, OpenAI, xAI, Google) lists only with a key, so its list is the checked default (`kind: default`) — any id
-  may be typed. In-process (no host) answers the cache only; the real host's fetcher is `ModelListFetcher.fromEnvironment`
+  may be typed. In-process (no daemon) answers the cache only; the real daemon's fetcher is `ModelListFetcher.fromEnvironment`
   (`DOZ_TEST_MODEL_LIST=offline|FILE|DIR`; a guarded run without it reads nothing). `doz models [--gateway|--provider]
   [SEARCH] [--refresh]`; `--model` with a gateway gets a did-you-mean NOTE (`ModelNote`, never a refusal — lists go
   stale) in `requestPlan`, `create` and `up`. The web route `GET /api/v1/models/{source}` → `WebModelList` (the default
@@ -311,7 +311,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   hosted vendor content only by path (validated; Codex's plugins clone by exact info/refs + git-upload-pack, so never a
   push). `exact_paths` allow one path exactly (`$` in `EgressRule`'s conditions — Grok's key-less `GET /`), and a
   provider's `swap_only` keeps such a call key-less. Self-update is off by the agent's own switch (`launch.session_env`,
-  set by the host at session open — pi's `PI_SKIP_VERSION_CHECK`), and `network.off_without` turns off what a permission
+  set by the daemon at session open — pi's `PI_SKIP_VERSION_CHECK`), and `network.off_without` turns off what a permission
   that is off would refuse (Claude Code's `DISABLE_ERROR_REPORTING`/`DISABLE_TELEMETRY` without "Send error reports"),
   said in the plan and the facts (`HostCore.withRecipeEnvironment`). `FirstRunTests`; the VM proof is
   `probes/617-*/stageD/firstrun-netlog.sh` (0 refusals for all five, and example.com from the guest still counted).
@@ -431,7 +431,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   verified); a recipe offered it must name every path in its model permission (`validateModels`). The key-less
   `opencode-zen` shares opencode.ai (allowed only beside a path-confined swap-only provider). The stand-in answers it
   (`FAKE_OPENCODE_KEY`); recipe-check's `opencode` selection adds the path leak check and a 0-refusal Locked try.
-- **Is it current?** (owner: "record the latest version and how old it is and is it current"). MEASURED: the host checks
+- **Is it current?** (owner: "record the latest version and how old it is and is it current"). MEASURED: the daemon checks
   every agent's latest release hourly while it runs (`HostCore.refreshAgentVersions` → `AgentVersions.refresh`, the same
   cache as a preparation's) and, once per new latest, when it came out and npm's deprecation (`NpmRegistry.releaseInfo`:
   npm's full document, or a manifest archive's Last-Modified) → agent-versions.json (`latestReleased`,
@@ -484,7 +484,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   in `HostCore.secretSourceState`; `refresh`, an edit and an upstream 401 — at most once per 10 s — bump it), prefetched
   when applied and at every session open. The runner (`SecretSources.run`): posix_spawn, argv only (never `sh`), own
   process group killed on timeout (op 20 s, others 10 s), stdin /dev/null, stdout ≤ 8 KiB, stderr ONLY to classify,
-  the environment = who/where + `OP_*`/`AWS_*` of the host + the standard PATH + the account's allow-listed variables
+  the environment = who/where + `OP_*`/`AWS_*` of the daemon + the standard PATH + the account's allow-listed variables
   (never a `DOZ_` one). A failure is the vault's notice (the proxy's provider-shaped 401: cause + fix), never another
   key. A command inside the store is refused. **Tests never run the real op/aws**: `DOZ_TEST_OP` / `DOZ_TEST_AWS` are
   the seams; a guarded run without them gets TestSafety's refusal (`DOZ_TEST_REAL_MAC=1` lifts it).
@@ -492,10 +492,10 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   attached by `SandboxConfig.extraKeys` (`--key`, `account use … --extra/--remove-extra`), applied after the main
   account (`applyExtraKeys`; `vault.onStale` handlers chain within one apply — `detachWatcher` resets them), refused
   at attach unless the policy allows every host, withheld with a notice when a policy change denies one (`netPolicy`
-  re-applies them). Never a host another binding owns. The dashboard shows source/state and Refresh (`account-refresh`,
+  re-applies them). Never a daemon another binding owns. The dashboard shows source/state and Refresh (`account-refresh`,
   one HostOp) — never adds or changes a source (D7).
 - **One set of choices, one plan** (D13): `ChoiceOptions` (LifecycleCommands; `CreateArguments` is its old name) is
-  what new, create, up and try take — `--permissions` canonical, `--allow` its alias. The host's read-only op `plan`
+  what new, create, up and try take — `--permissions` canonical, `--allow` its alias. The daemon's read-only op `plan`
   (`CreatePlan.swift`, `CreatePlanner.plan` — pure given `PlanFacts`) is the ONE place a sandbox's defaults are decided
   for new/try (name, workspace; 635: a try's and the First sandbox's network is a new sandbox's — `defaults.permissions`,
   Standard — no longer forced Locked; `make recipe-check` asks for `--network locked` itself, so its "a fresh try is
@@ -523,14 +523,14 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   agent's mark (`AgentIcons.resolve` → `ResolvedIcon`, drawn by `dom/icons.js mark()` from its path — never fetched,
   no markup parsed) and the pills' facts (`ready`, `openSource`, `headless`, `gateway`, `current`, `version`, `age`).
   `version` is what a try INSTALLS now (`WebTryCatalog.installs` = `AgentVersions.spec(.create)` — never the built-in
-  three's frozen fallback pin when the host resolved a latest), `age` only when that version is the latest looked up.
+  three's frozen fallback pin when the daemon resolved a latest), `age` only when that version is the latest looked up.
   `probes/617-*/stageE/browser-quick-try.mjs` (screenshots 10–16). `GET
   /api/v1/try` (each recipe agent's try plan + `TryCard` when its provider has no key; the coming ones with why) and
-  `POST /api/v1/plan` (strict; the host's read-only `plan` — never a second planner). **The modal draws at once**
+  `POST /api/v1/plan` (strict; the daemon's read-only `plan` — never a second planner). **The modal draws at once**
   (owner: "a blank modal with a considerable delay"; it waited ~25 s on `GET try`, one `plan` per agent, each re-reading
   every image's readiness): `viewTry` never awaits — the last list (kept for the page's life) or skeleton cards, then
   `GET /api/v1/try/list` (`WebTryCatalog.list`: the recipes alone, no plan, ms), then `GET try` (`plans`: a read-only
-  host op planning every agent on ONE reading of the store; an older host gets one `plan` each, six at a time) fills in
+  daemon op planning every agent on ONE reading of the store; an older daemon gets one `plan` each, six at a time) fills in
   readiness; one read at a time (`tr.reader`, aborted on close), a failure said in the list with Retry, never "nothing
   matches" while loading (`data-try-state` loading|list|full). `TryPlansTests`, `probes/617-*/stageE/browser-try-open-fast.mjs`
   (its control against 16e91ea shows the delay). It makes the try with the
@@ -559,7 +559,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   wording; a download fills its share by bytes (`transferFraction`); a step past its estimate creeps; monotonic per
   operation (`state.spBar`) — "Step N of M · step · elapsed", the finished steps (`WebOperation.progress`), the raw
   output under "Show details"; a cached image has no preparation, so no bar; a failure keeps the panel (error, log,
-  Start again / Dismiss); a running preparation is JOINED (the host's single flight), never started again; the header
+  Start again / Dismiss); a running preparation is JOINED (the daemon's single flight), never started again; the header
   pill says Preparing…, then Booting…; (2) **Console** — terminal mode `console` (ticket `{"mode":"console"}`,
   no session, no size): the bridge's `consoleLoop` streams `data.bootConsole` (what `doz console NAME --follow` shows)
   as inert text, read-only, never an attach; after Home and the build log in the strip, icon `cpu`, no number, never
@@ -579,11 +579,11 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   has no running line (`paintRowOps`: a failure and the result still show there; a Sandboxes row keeps its line). **The build log** (owner: "keep its log as a
   small tab to the LEFT of Console"): the library hands each bake step's WHOLE output (`StepOutputLines`, every line in
   order, inert, head 200 + tail 1800) as `SandboxEvent.stepOutput` — never a `HostEvent` (runPreparation passes it to
-  `HostCore.buildOutputSink`, a task-local the preparation sets, so no client, host.log or Activity ever sees it); the
+  `HostCore.buildOutputSink`, a task-local the preparation sets, so no client, daemon.log or Activity ever sees it); the
   preparation keeps it with its steps and, when it ends (done or failed), writes `<store>/build-logs/<image>.json`
-  (`BuildLogs`, 0600 in 0700, atomic, ≤ 8000 lines; Resources: Dozable's own records) — so it survives a ui and a host
+  (`BuildLogs`, 0600 in 0700, atomic, ≤ 8000 lines; Resources: Dozable's own records) — so it survives a ui and a daemon
   restart, and a sandbox whose start built nothing shows the log of the build that made its image (none kept → no
-  tab). Read by the host op `build-log` (by sandbox; in-process when no host runs) → `GET /api/v1/sandboxes/NAME/build-log`
+  tab). Read by the daemon op `build-log` (by sandbox; in-process when no daemon runs) → `GET /api/v1/sandboxes/NAME/build-log`
   (`WebBuildLog`: `BuildLogs.render` — the steps with their times, then each step's output, inert again). The page:
   `syncBuildLogTab` (each sandbox refresh and each preparations event) reads it once into `state.buildLogs` (forgotten,
   and its tab closed, while its image builds); 635 (owner): never opened by itself — Home › Logs › **Build log**
@@ -598,7 +598,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   steps with "cached"), each step under a display-only plain title (`BuildLogs.title(ofStep:)`/`title(ofCheck:)` —
   never part of a key), its command or script verbatim, every file its script writes (`files(inScript:)`: the
   `cat > PATH <<'TAG'` heredocs), its output; the checks (command, expects, got); the trim. The web tab draws it as
-  HTML (`components/build-log.js`, text only), `doz image log IMAGE [--json]` prints `plainText(document)` (host op
+  HTML (`components/build-log.js`, text only), `doz image log IMAGE [--json]` prints `plainText(document)` (daemon op
   `build-log` with `image`). Every string is scrubbed when the log is saved and again when shown (`BuildLogs.redact`:
   key/token/JWT/placeholder/URL-password/private-key shapes → "[redacted]"; a credential-named variable dropped) and
   made inert (`verbatim`: whole escape sequences and control characters removed, indentation kept). A log kept by an
@@ -608,14 +608,14 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 - **A try's folder and bridges** (owner, after the demo): a try gets a NEW EMPTY folder under `defaults.projects_dir`
   (`CreatePlanner.tryName` skips a name whose folder holds anything; a given one is a plan problem). 634 — **every
   sandbox's easy delete**: any create records `SandboxConfig.createdFolder` ONLY when Dozable made the folder (never one
-  that was there, never for a duplicate); `rm` removes it with the sandbox when empty (host), the CLI asks about one with
+  that was there, never for a duplicate); `rm` removes it with the sandbox when empty (daemon), the CLI asks about one with
   files (`cleanUpCreatedFolder`), the page's Remove… says so (`components/lifecycle.js`). `CreatedFolderTests`, TrySuite 6. The plan's reach says the folder and the bridges (`folder`/`bridge` lines).
   Copying works in every agent: sessions get `GROK_OSC52_SINK=1` while the clipboard bridge is on
   (`HostCore.withClipboardSink` — Grok Build otherwise picks no OSC 52 route in a VM), and `xclip`/`xsel`/`wl-copy`
   are the guest's `doz-copy` shim (`GuestCommand.copyShim`, beside the open shim, stamp — bump it on any change):
   OSC 52 out, reads refused, PRIMARY not sent. `CopyShimTests` runs the real shim.
 - **`doz get` / `doz put` / `doz cp`** (`FileCopy.swift`, `HostCore+Copy.swift`, `HostServer.copy`, `FileCommands.swift`):
-  the host op `copy` (never a `WebAction`) checks in the guest FIRST (`CopyPaths.getCheckScript`/`putCheckScript` —
+  the daemon op `copy` (never a `WebAction`) checks in the guest FIRST (`CopyPaths.getCheckScript`/`putCheckScript` —
   a missing path, a link escaping the folder, an existing destination without `--force`, who may write), answers
   `CopyReady`, then the connection carries `CopyFrame`s (type + length + payload, ≤ 1 MiB) and a tar stream over
   `Sandbox.openGuestStream` (now with `user:` and its stderr) — no new guest→host channel; it ends with `CopyDone`.

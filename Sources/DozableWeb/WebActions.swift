@@ -157,8 +157,8 @@ public enum WebAction: Equatable, Sendable {
         case .resourcesRemove(let ids): return ids.count == 1 ? "delete \(ids[0])" : "delete \(ids.count) resources"
         case .resourcesClean: return "clean up"
         case .resourcesKernel(let k): return "use \(k) for new sandboxes"
-        case .hostStart: return "host-start"
-        case .hostRestart: return "host-restart"
+        case .hostStart: return "daemon-start"
+        case .hostRestart: return "daemon-restart"
         case .builderStart: return "start Apple's container services"
         case .builderInstall: return "install Apple's container tool"
         case .toolsApply(let n): return "set up the tools of \(n)"
@@ -413,8 +413,8 @@ public enum WebAction: Equatable, Sendable {
             "resources-rm": ["ids"],
             "resources-clean": [],
             "resources-kernel": ["kernel"],
-            "host-start": [],
-            "host-restart": [],
+            "daemon-start": [],
+            "daemon-restart": [],
             "builder-start": [],
             "builder-install": [],
             "tools-apply": ["sandbox"],
@@ -586,9 +586,9 @@ public enum WebAction: Equatable, Sendable {
             let k = try f.required(f.string("kernel", max: 120), "kernel")
             guard k == "pinned" || (k.hasPrefix("kernel:") && Resources.isValidID(k)) else { throw Invalid("kernel: kernel:<version> or pinned") }
             a = .resourcesKernel(k)
-        case "host-start":
+        case "daemon-start":
             a = .hostStart
-        case "host-restart":
+        case "daemon-restart":
             a = .hostRestart
         case "builder-start":
             a = .builderStart

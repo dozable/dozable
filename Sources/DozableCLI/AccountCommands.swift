@@ -12,8 +12,8 @@ import DozableHost
 struct AccountCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "account",
         abstract: BuildFlavor.current.chatgptSignIn
-            ? "Accounts the host holds for sandboxes: the Mac's Claude login, setup tokens, API keys; for Codex, a ChatGPT sign-in or an OpenAI key."
-            : "Accounts the host holds for sandboxes: the Mac's Claude login, setup tokens, API keys; for Codex, the Mac's Codex login or an OpenAI key.",
+            ? "Accounts the daemon holds for sandboxes: the Mac's Claude login, setup tokens, API keys; for Codex, a ChatGPT sign-in or an OpenAI key."
+            : "Accounts the daemon holds for sandboxes: the Mac's Claude login, setup tokens, API keys; for Codex, the Mac's Codex login or an OpenAI key.",
         discussion: """
         mac (built in) is this Mac's own Claude Code login: nothing to add, renewed while Claude Code runs on the Mac. \
         A `claude setup-token` token lasts a year and needs no Mac: doz account add work --setup-token (paste it). \
@@ -319,7 +319,7 @@ func renderAccount(_ a: AccountRow) -> String {
     var lines: [(String, String)] = [("name", a.name), ("kind", a.kind == AccountKind.key.rawValue ? "key, \(a.provider ?? "?")" : a.kind)]
     if let h = a.hosts { lines.append(("hosts", h.joined(separator: ", "))) }
     lines.append(("key from", a.sourceLabel ?? (a.kind == AccountKind.mac.rawValue ? "the Mac's Claude Code login" : a.keychainService.map { "the keychain (\($0))" } ?? "—")))
-    lines.append(("state", a.sourceState.map { $0 == "unchecked" ? "not read since the host started" : $0 } ?? a.state))
+    lines.append(("state", a.sourceState.map { $0 == "unchecked" ? "not read since the daemon started" : $0 } ?? a.state))
     if let p = a.sourceProblem { lines.append(("problem", p)) }
     if let f = a.fingerprint { lines.append(("fingerprint", f)) }
     lines.append(("verified", verifiedLine(a)))
@@ -394,7 +394,7 @@ struct AccountUse: AsyncParsableCommand {
 
 struct AccountKeepalive: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "keepalive",
-        abstract: "on: near expiry, while a sandbox uses a Mac login and no Claude Code runs on the Mac, the host runs the Mac's claude once (off by default).")
+        abstract: "on: near expiry, while a sandbox uses a Mac login and no Claude Code runs on the Mac, the daemon runs the Mac's claude once (off by default).")
     @OptionGroup var g: GlobalOptions
     @Argument(help: "on or off.") var state: String
     func validate() throws { guard ["on", "off"].contains(state) else { throw ValidationError("on or off") } }

@@ -236,7 +236,7 @@ public actor MacSessions {
                              previous: MacFenceRecord?, trust: Bool = true, argv: [String]? = nil, bridges: MacFenceBridges = MacFenceBridges(),
                              placeholders: [String: String] = [:], account: String? = nil,
                              settings: DozableSettings = .load()) throws -> (fence: MacFence, seeded: MacFenceSessionFolder.Seeded, notes: [String]) {
-        guard !readOnly else { throw HostError(.unavailable, "opening a session on this Mac needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "opening a session on this Mac needs the daemon") }
         let places = try fencePlaces()
         if loginPath == nil { loginPath = MacSessionsEnvironment.loginPath(host: hostEnvironment) }
         let person = personGit(home: places.home)
@@ -344,7 +344,7 @@ public actor MacSessions {
                      size: TermSize, holder: URL, recordedArgv: [String]? = nil,
                      fence: MacFence? = nil, gitBaseline: MacFenceGitBaseline? = nil, proxy: FenceProxyOpen? = nil,
                      claudeSessionID: String? = nil) async throws -> Opened {
-        guard !readOnly else { throw HostError(.unavailable, "opening a session on this Mac needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "opening a session on this Mac needs the daemon") }
         let home = hostEnvironment["HOME"].flatMap { $0.hasPrefix("/") ? $0 : nil } ?? NSHomeDirectory()
         let argv = given.flatMap { $0.isEmpty ? nil : $0 }
             ?? [hostEnvironment["SHELL"].flatMap { $0.hasPrefix("/") ? $0 : nil } ?? "/bin/zsh", "-l"]
@@ -498,7 +498,7 @@ public actor MacSessions {
     /// End session `s`'s program the way a terminal hangup does, then harder — HUP, TERM, KILL to its process group (the
     /// pid its own holder says; the program leads its own group under the holder's pty). `Sandbox.SessionEnd`'s words.
     public func end(_ s: String, hupSeconds: Double = 3, termSeconds: Double = 3, killSeconds: Double = 3) async throws -> Sandbox.SessionEnd {
-        guard !readOnly else { throw HostError(.unavailable, "ending a session needs the host") }
+        guard !readOnly else { throw HostError(.unavailable, "ending a session needs the daemon") }
         guard case .info(let line) = await state(s), let pid = SessionInfo.parseList(line).first?.pid, pid > 1, pid != Int(getpid()) else {
             return .notRunning
         }

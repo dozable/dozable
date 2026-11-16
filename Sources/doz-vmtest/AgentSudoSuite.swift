@@ -13,7 +13,7 @@ func cliAgentSudoSuite(binary: String) async {
     let t = onboardingHarness(binary, "u", seed: ["kernels", "content", "state.json", "initfs.ext4", "golden"])
     t.env["DOZ_TEST_NPM_REGISTRY"] = "offline"
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: the agent's passwordless sudo (W23)")
@@ -64,9 +64,9 @@ func cliAgentSudoSuite(binary: String) async {
     r = t.run(["exec", "su", "--", "sudo", "-n", "python3", "-c", probe], timeout: 60)
     // 5800 is the proxy itself (the positive control: the probe does see a listener); nothing else.
     check(r.out.contains("open: [5800]"), "root: no vsock listener on the Mac but the proxy (\(r.out.trimmingCharacters(in: .whitespacesAndNewlines)))")
-    let hostSock = t.store.appendingPathComponent("host.sock").path
+    let hostSock = t.store.appendingPathComponent("daemon.sock").path
     r = t.run(["exec", "su", "--", "sudo", "-n", "sh", "-c", "test -e '\(hostSock)' && echo SEEN; grep -c virtiofs /proc/mounts || true"])
-    check(!r.out.contains("SEEN") && r.out.hasSuffix("0\n"), "root: the host's socket and the store are not in the VM; no Mac folder is mounted (isolated)")
+    check(!r.out.contains("SEEN") && r.out.hasSuffix("0\n"), "root: the daemon's socket and the store are not in the VM; no Mac folder is mounted (isolated)")
 
     // 3. --no-agent-sudo: no sudo, and the facts say so.
     r = t.run(["up", "sn", "--image", "claude-code", "--isolated", "--account", "none", "--memory", "1G", "--no-agent-sudo", "--detach"], timeout: 600)

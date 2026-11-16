@@ -444,7 +444,7 @@ public enum UpdateChecker {
 
     /// After `auto` installed `version`: what is left to do.
     public static func installedLine(_ version: String) -> String {
-        "Updated to \(version) — restart to apply: doz host restart"
+        "Updated to \(version) — restart to apply: doz daemon restart"
     }
 }
 

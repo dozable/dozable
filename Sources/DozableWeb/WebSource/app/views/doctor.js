@@ -14,6 +14,6 @@ export async function viewDoctor() {
     h('div', { class: 'head' }, h('h1', null, 'Doctor'),
       btn('Run onboarding again', () => { state.wiz = null; location.hash = '#/onboarding'; },
         { title: 'The setup wizard: checks, the Claude account, settings, images — it prepares only what is missing' })),
-    h('p', { class: 'sub' }, 'doz doctor: this Mac, the store, the host and the Claude login (re-checked at most every 30 s).'),
+    h('p', { class: 'sub' }, 'doz doctor: this Mac, the store, the daemon and the Claude login (re-checked at most every 30 s).'),
     panel(table(['', 'Check', 'Detail'], rows)));
 }

@@ -120,7 +120,7 @@ func cliGitHubSuite(binary: String) async {
     var server: Process?
     var agentPID: pid_t = 0
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         server?.terminate()
         if agentPID > 0 { kill(agentPID, SIGTERM) }
         try? fm.removeItem(at: t.store)
@@ -217,7 +217,7 @@ func cliGitHubSuite(binary: String) async {
     } catch { check(false, "pty: \(error)") }
     check(requests().contains("\"basic\": \"x-access-token:\(token)\""), "GitHub got git's Basic login with the REAL token, swapped in by the proxy")
     check(!requests().contains("doz_cred_"), "GitHub never saw a placeholder")
-    check(hostLog(t).contains("gh1 used your GitHub login (read-only)"), "…and the host log says so")
+    check(hostLog(t).contains("gh1 used your GitHub login (read-only)"), "…and the daemon log says so")
 
     // 2. gh-style API calls: reads work, changes are refused (read-only).
     func api(_ method: String, _ path: String, _ body: String? = nil, auth: String = "token $GH_TOKEN") -> String {

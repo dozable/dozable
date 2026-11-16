@@ -69,7 +69,7 @@ key
 account
 metrics
 doctor
-host
+daemon
 events
 console
 base
@@ -123,11 +123,11 @@ ignore/check
 ignore/show
 ports
 open
-host/start
-host/stop
-host/restart
-host/status
-host/upgrade-check
+daemon/start
+daemon/stop
+daemon/restart
+daemon/status
+daemon/upgrade-check
 ui
 ui/link
 ui/restart

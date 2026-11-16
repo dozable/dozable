@@ -161,7 +161,7 @@ final class ScreenGridTests: XCTestCase {
         XCTAssertTrue(DeckholdFrame.announcesGrid("grid=1\tstatus=state=working\tstatus_age=0"))
         XCTAssertFalse(DeckholdFrame.announcesGrid(""))
         XCTAssertFalse(DeckholdFrame.announcesGrid("status=state=working\tstatus_age=0"))
-        XCTAssertNil(ProgramStatus.parse(frame: "grid=1"), "an older host reads the announcement as no status")
+        XCTAssertNil(ProgramStatus.parse(frame: "grid=1"), "an older daemon reads the announcement as no status")
         XCTAssertEqual(ProgramStatus.parse(frame: "grid=1\tstatus=state=done\tstatus_age=3")?.state, .done, "…and the status beside it")
     }
 

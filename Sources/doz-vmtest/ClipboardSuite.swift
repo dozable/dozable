@@ -17,7 +17,7 @@ func cliClipboardSuite(binary: String) async {
     let board = t.store.appendingPathComponent("pasteboard")
     t.env["DOZ_TEST_PASTEBOARD"] = board.path
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: t.store)
     }
     func pasteboard() -> String? { (try? Data(contentsOf: board)).map { String(decoding: $0, as: UTF8.self) } }
@@ -100,7 +100,7 @@ func cliClipboardSuite(binary: String) async {
         check(a.wait(5) { $0.text.contains("cb copied 5 chars") } && b.wait(5) { $0.text.contains("cb copied 5 chars") }, "both viewers show the notice")
         usleep(500_000)
         let copies = occurrences(hostLog(t), "copied 5 chars to the Mac clipboard") - before
-        check(copies == 1, "…and the host copied once (\(copies))")
+        check(copies == 1, "…and the daemon copied once (\(copies))")
     } catch { check(false, "pty: \(error)") }
 
     // 6. Not a terminal: the notice is a line on stderr.

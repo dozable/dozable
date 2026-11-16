@@ -22,7 +22,7 @@ func cliGridsSuite(binary: String) async {
     let t = onboardingHarness(binary, "gr", seed: ["kernels", "content", "state.json", "initfs.ext4", "golden"])
     let store = DozableStore(root: t.store)
     defer {
-        t.run(["host", "stop"], timeout: 300)
+        t.run(["daemon", "stop"], timeout: 300)
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: painted thumbnails — session-grids and the saved grid (648)")
@@ -74,8 +74,8 @@ func cliGridsSuite(binary: String) async {
           "screens/paint.grid.json beside the others")
 
     // No host: the route's request (autostart: false) gets no answer, and no host is started by it.
-    check(t.run(["host", "stop"], timeout: 300).code == 0, "doz host stop")
-    check(grids(0) == nil, "no host: no answer (the route answers every item unavailable)")
+    check(t.run(["daemon", "stop"], timeout: 300).code == 0, "doz daemon stop")
+    check(grids(0) == nil, "no daemon: no answer (the route answers every item unavailable)")
     usleep(500_000)
-    check(!store.hostIsRunning(), "…and no host was started")
+    check(!store.hostIsRunning(), "…and no daemon was started")
 }

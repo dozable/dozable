@@ -250,7 +250,7 @@ final class WebHTTPIntegrationTests: XCTestCase {
         let t = try JSONDecoder().decode(WebImageTree.self, from: r.body)
         XCTAssertEqual(t.nodes.map { "\($0.depth) \($0.kind) \($0.name)" }, ["0 base OCI base", "1 image pi", "2 sandbox demo"])
         XCTAssertEqual(t.nodes[2].sharedWithParentBytes, 900 << 20)
-        XCTAssertFalse(r.text.contains("/s/"), "no host path reaches the browser")
+        XCTAssertFalse(r.text.contains("/s/"), "no daemon path reaches the browser")
         let post = try get("/api/v1/images/tree", ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"],
                            method: "POST", body: "{}")
         XCTAssertEqual(post.status, 404, "not a route")
@@ -301,7 +301,7 @@ final class WebHTTPIntegrationTests: XCTestCase {
         XCTAssertEqual(s.session, "shell")
         XCTAssertEqual(s.reason, "hibernate")
         XCTAssertEqual(Data(base64Encoded: s.vt), Data("\u{1B}c$ hi\r\n".utf8))
-        XCTAssertFalse(r.text.contains("fake-store"), "no host path reaches the browser")
+        XCTAssertFalse(r.text.contains("fake-store"), "no daemon path reaches the browser")
         XCTAssertEqual(try get("/api/v1/sandboxes/demo/sessions/other/screen", ["Cookie": cookie]).status, 404)
         for p in ["/api/v1/sandboxes/demo/sessions/..%2f/screen", "/api/v1/sandboxes/demo/sessions/.x/screen",
                   "/api/v1/sandboxes/demo/sessions/shell/screen/", "/api/v1/sandboxes/demo/sessions/shell"] {
@@ -447,8 +447,8 @@ final class WebHTTPIntegrationTests: XCTestCase {
         let back = try s.read(until: "\"previousVersion\":\"0.12.0-rc.3\"", seconds: 5)
         XCTAssertTrue(back.contains("\"state\":\"running\""))
         let recent = try get("/api/v1/events", ["Cookie": cookie]).text
-        XCTAssertTrue(recent.contains("host died — 1 sandbox was running, now shut down: demo"), recent)
-        XCTAssertTrue(recent.contains("host started (pid 42, doz 0.12.0-rc.4) — was doz 0.12.0-rc.3"), recent)
+        XCTAssertTrue(recent.contains("daemon died — 1 sandbox was running, now shut down: demo"), recent)
+        XCTAssertTrue(recent.contains("daemon started (pid 42, doz 0.12.0-rc.4) — was doz 0.12.0-rc.3"), recent)
     }
 
     func testAStreamThatFallsBehindGetsResyncAndCloses() async throws {
@@ -493,7 +493,7 @@ final class WebHTTPIntegrationTests: XCTestCase {
     }
 
     /// The REAL source on an empty scratch store: answers from the store in-process, and looking
-    /// never starts a host (no host.sock, no lock held afterwards).
+    /// never starts a host (no daemon.sock, no lock held afterwards).
     func testTheHostSourceReadsAStoreWithoutStartingAHost() async throws {
         let dir = URL(fileURLWithPath: "/tmp/doz-data-\(getpid())-\(UInt32.random(in: 0...UInt32.max))")
         let store = DozableStore(root: dir)

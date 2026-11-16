@@ -53,7 +53,7 @@ func cliTmux38Suite(binary: String) async {
     t.env["DOZ_TEST_OPEN_URL"] = opened.path
     t.env["DOZ_TEST_NPM_REGISTRY"] = "offline"
     defer {
-        t.run(["host", "stop"], timeout: 300)
+        t.run(["daemon", "stop"], timeout: 300)
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: Dozable's tmux \(ToolsLayer.tmuxVersion) on Debian and Alpine — the bridges, the theme, OSC 7501")

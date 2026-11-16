@@ -48,7 +48,7 @@ export async function viewOverview() {
         b.dataset.newSandbox = '';
         return b;
       })())),
-    h('p', { class: 'sub' }, o.source === 'host' ? 'Live from the host.' : 'No host is running: read from the store (nothing is live). An action starts the host.'),
+    h('p', { class: 'sub' }, o.source === 'host' ? 'Live from the daemon.' : 'No daemon is running: read from the store (nothing is live). An action starts the daemon.'),
     h('div', { class: 'stats' },
       hostCard(o.host),
       card('Sandboxes', String(o.totals.sandboxes), o.totals.live + ' with a VM'),
@@ -97,7 +97,7 @@ function mainRow(s) {
         ? h('div', { class: 'sub2 ov-ws', 'data-ov-ws': '', title: s.workspace }, icon('folder'), h('span', null, tildePath(s.workspace)))
         : h('div', { class: 'sub2 no-ws', 'data-isolated': '', title: ISOLATED_NOTE }, 'isolated — no shared folder'),
       h('div', { 'data-op-for': s.name })),
-    h('td', null, sandboxPill(s), s.diedWithHost ? h('div', { class: 'st-warn sub2' }, 'died with its host') : null,
+    h('td', null, sandboxPill(s), s.diedWithHost ? h('div', { class: 'st-warn sub2' }, 'died with its daemon') : null,
       // Its guest does not answer (starved): running, said — the host never waits on it.
       s.unresponsive ? h('div', { class: 'st-warn sub2', 'data-unresponsive': '', title: 'Its guest did not answer in time — it may be out of memory. Shut it down if it stays like this.' }, 'not answering') : null),
     // 642 (owner): without the rows of pictures, a Sessions column — its pictures as a grid in a 4:3 box (kept across refreshes).

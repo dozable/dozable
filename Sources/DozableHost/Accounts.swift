@@ -202,7 +202,7 @@ public struct AccountsFile: Codable, Equatable, Sendable {
 /// `<store>/accounts.json`.
 public struct AccountStore: Sendable {
     public let url: URL
-    /// 591: the keep-alive of a store that has no accounts.json yet (the settings' `host.keepalive`);
+    /// 591: the keep-alive of a store that has no accounts.json yet (the settings' `daemon.keepalive`);
     /// once a store saved its own choice (`doz account keepalive`), that wins.
     public let newStoreKeepalive: Bool
     /// 594: the default account of a store with no accounts.json yet (the settings' `defaults.account`).
@@ -213,7 +213,7 @@ public struct AccountStore: Sendable {
         self.newStoreDefault = newStoreDefault
     }
 
-    /// The store's accounts, with the settings' `host.keepalive` and `defaults.account` for a store
+    /// The store's accounts, with the settings' `daemon.keepalive` and `defaults.account` for a store
     /// that has not chosen.
     public init(store: DozableStore, settings: DozableSettings) {
         self.init(store: store, newStoreKeepalive: settings.bool(SettingKey.keepalive),

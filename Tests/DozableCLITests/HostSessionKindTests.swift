@@ -32,7 +32,7 @@ final class HostSessionKindTests: XCTestCase {
         c.year = 2026; c.month = 11; c.day = 12; c.hour = 14; c.minute = 1
         let at = Calendar.current.date(from: c)!
         let a = HostSessionKind.hostAdvice(pid: 6720, startedAt: at, reason: "ssh")
-        XCTAssertEqual(a, "the doz host (pid 6720, started 2:01 pm) was started from a session where the login keychain is locked (ssh) — run doz host restart from a logged-in session")
+        XCTAssertEqual(a, "the doz daemon (pid 6720, started 2:01 pm) was started from a session where the login keychain is locked (ssh) — run doz daemon restart from a logged-in session")
         XCTAssertTrue(HostSessionKind.startWarning("ssh").contains("cannot use this Mac's Claude login"))
     }
 
@@ -40,10 +40,10 @@ final class HostSessionKindTests: XCTestCase {
         let at = Date(timeIntervalSince1970: 1_800_000_000)
         let fail = Doctor.hostLoginCheck(doctorReads: true, reason: "ssh", pid: 7, startedAt: at)
         XCTAssertEqual(fail.status, .fail)
-        XCTAssertTrue(fail.detail.hasPrefix("doctor can read your Claude login, the host cannot — the doz host (pid 7"), fail.detail)
+        XCTAssertTrue(fail.detail.hasPrefix("doctor can read your Claude login, the daemon cannot — the doz daemon (pid 7"), fail.detail)
         let warn = Doctor.hostLoginCheck(doctorReads: nil, reason: "ssh", pid: 7, startedAt: at)
         XCTAssertEqual(warn.status, .warn)
-        XCTAssertTrue(warn.detail.contains("doz host restart"))
+        XCTAssertTrue(warn.detail.contains("doz daemon restart"))
     }
 
     func testTheStatusCarriesIt() throws {

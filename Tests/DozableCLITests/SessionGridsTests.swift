@@ -78,7 +78,7 @@ final class SessionGridsTests: XCTestCase {
         XCTAssertEqual(a.map(\.state), [.unavailable, .unavailable])
         XCTAssertEqual(a.map(\.reason), [.noHost, .noHost])
         XCTAssertEqual(a.map(\.session), ["main", "y"], "in the order asked")
-        XCTAssertTrue(HostOp.sessionGrids.isReadOnly, "read-only: answered in-process when no host runs — never a host started")
+        XCTAssertTrue(HostOp.sessionGrids.isReadOnly, "read-only: answered in-process when no daemon runs — never a daemon started")
     }
 
     func testAtMost64() async {

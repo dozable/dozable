@@ -60,7 +60,7 @@ export function renderOperations() {
   // (replaceChildren writes a null as the text "null" — h() skips it, replaceChildren does not.)
   box.replaceChildren(h('h1', null, 'Operations'),
     ...(state.preps.length ? [preparationsSection()] : []),
-    h('p', { class: 'sub' }, 'What this UI asked the host to do, newest first: live progress while it runs, then its result. A failure also raises a message.'),
+    h('p', { class: 'sub' }, 'What this UI asked the daemon to do, newest first: live progress while it runs, then its result. A failure also raises a message.'),
     h('div', { class: 'toolbar' }, filter, list.length + ' of ' + all.length,
       waiting.length ? btn('Cancel ' + waiting.length + ' queued', () => cancelOps(waiting), { small: true, quiet: true, icon: 'x', title: 'Withdraw every operation still waiting its turn' }) : null),
     panel(table(['', 'Action', 'Sandbox', 'Started', 'Took', 'Progress / result'], rows, [4]), 'Nothing yet — actions you take show here.'));
@@ -78,7 +78,7 @@ function preparationsSection() {
     h('td', null, prepRunning(p) && p.state !== 'cancelling'
       ? btn('Cancel preparation', () => act(p.base ? { action: 'prepare-cancel', base: p.base } : { action: 'prepare-cancel', images: [p.image] }), { small: true, danger: true }) : null)),
     h('tr', { class: 'prep-detail-row', 'data-prep-detail': p.image }, h('td', { colspan: '7' }, prepCard(p, { open: false })))]);
-  return h('div', { class: 'ops-preps' }, h('h2', null, 'Image preparations (in the host)'),
+  return h('div', { class: 'ops-preps' }, h('h2', null, 'Image preparations (in the daemon)'),
     h('p', { class: 'sub' }, 'The kernel, the base image and the bake of a built-in image — asked for by doz onboard, the onboarding wizard, doz image bake or a first start. One per image at a time; whoever asks next joins it.'),
     panel(table(['', 'Image', 'Asked by', 'Started', 'Took', 'Progress', ''], rows, [4])));
 }

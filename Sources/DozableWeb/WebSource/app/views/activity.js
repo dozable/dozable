@@ -25,8 +25,8 @@ function activityNode() {
     h('h2', { class: 'h-section' }, 'Messages'),
     h('p', { class: 'sub' }, 'Every message this page showed — the ones that go by themselves too — since this tab opened.'),
     panel(msgs.length ? h('ul', { class: 'feed', 'data-messages': '' }, msgs) : null, 'No messages yet.'),
-    h('h2', { class: 'h-section' }, 'The host'),
-    h('p', { class: 'sub' }, 'What the host does — phases, timed steps, notes — while a sandbox is live and this page is open.'),
+    h('h2', { class: 'h-section' }, 'The daemon'),
+    h('p', { class: 'sub' }, 'What the daemon does — phases, timed steps, notes — while a sandbox is live and this page is open.'),
     panel(items.length ? h('ul', { class: 'feed' }, items) : null, 'Nothing yet. Start or wake a sandbox and it shows here.'));
 }
 export function renderActivity() { $('view').replaceChildren(activityNode()); }

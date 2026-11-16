@@ -64,7 +64,7 @@ public enum HostStopView {
             e = HostEvent(kind: .failed, sandbox: r.name, text: startedText(r.name), milliseconds: r.milliseconds)
             e.error = (r.error ?? "failed") + " — it was shut down instead (its disk is kept; start it again)"
         case "kept":
-            e = HostEvent(kind: .step, sandbox: r.name, text: "kept \(r.name)'s snapshot (its wake had failed — the next host tries it again)", milliseconds: r.milliseconds)
+            e = HostEvent(kind: .step, sandbox: r.name, text: "kept \(r.name)'s snapshot (its wake had failed — the next daemon tries it again)", milliseconds: r.milliseconds)
         default:
             e = HostEvent(kind: .step, sandbox: r.name, text: "shut down \(r.name) (it was \(r.phaseBefore))", milliseconds: r.milliseconds)
         }
@@ -75,13 +75,13 @@ public enum HostStopView {
     /// The last line: "host stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next
     /// command starts a new host", or "host stopped (nothing was running)".
     public static func summary(_ r: HostStopResult) -> String {
-        let mac = r.macSessions.map { "\n\($0) session\($0 == 1 ? "" : "s") on this Mac keep\($0 == 1 ? "s" : "") running (no host needed — doz sessions @mac)" } ?? ""
+        let mac = r.macSessions.map { "\n\($0) session\($0 == 1 ? "" : "s") on this Mac keep\($0 == 1 ? "s" : "") running (no daemon needed — doz sessions @mac)" } ?? ""
         return sandboxSummary(r) + mac
     }
 
     static func sandboxSummary(_ r: HostStopResult) -> String {
         let rows = r.sandboxes
-        if rows.isEmpty { return "host stopped (nothing was running)" }
+        if rows.isEmpty { return "daemon stopped (nothing was running)" }
         func names(_ o: String) -> [String] { rows.filter { $0.outcome == o }.map(\.name) }
         func count(_ n: Int) -> String { n == 1 ? "1 sandbox" : "\(n) sandboxes" }
         var parts: [String] = []
@@ -93,8 +93,8 @@ public enum HostStopView {
         if !kept.isEmpty { parts.append("\(kept.joined(separator: ", ")): a failed wake's snapshot kept") }
         let down = names("shut-down")
         if !down.isEmpty { parts.append("shut down \(down.joined(separator: ", "))") }
-        return "host stopped — " + parts.joined(separator: "; ") + " in " + ProgressFormat.duration(r.milliseconds / 1000)
-            + "; the next command starts a new host"
+        return "daemon stopped — " + parts.joined(separator: "; ") + " in " + ProgressFormat.duration(r.milliseconds / 1000)
+            + "; the next command starts a new daemon"
     }
 
     /// A stop the caller only partly saw (the host went away before it answered): what the events said.
@@ -103,7 +103,7 @@ public enum HostStopView {
         let failed = events.filter { $0.kind == .failed && $0.startedAs != nil }.compactMap(\.sandbox)
         let started = Set(events.filter { $0.kind == .started }.compactMap(\.sandbox))
         let open = started.subtracting(done).subtracting(failed).sorted()
-        var s = "the host exited before it answered"
+        var s = "the daemon exited before it answered"
         if !done.isEmpty { s += " — done: \(done.joined(separator: ", "))" }
         if !failed.isEmpty { s += "; failed: \(failed.joined(separator: ", "))" }
         if !open.isEmpty { s += "; unknown (it went away while handling them): \(open.joined(separator: ", ")) — doz ls says where they are" }

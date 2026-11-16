@@ -217,13 +217,13 @@ Dozable reads only the **access token** of your Mac's Claude Code login — neve
 your Mac's Claude Code stays the one program that renews it. The access token lives about 8 hours;
 Claude Code renews it whenever it runs on your Mac near expiry.
 
-- The host re-reads the login every 2 minutes; a renewed token reaches every sandbox without a
+- The daemon re-reads the login every 2 minutes; a renewed token reaches every sandbox without a
   restart.
 - **If it expired** (nothing ran Claude Code on the Mac overnight), Claude Code in the sandbox shows
   "this Mac's Claude login expired at 04:59 — open Claude Code on the Mac (any prompt), then retry",
   and recovers by itself once the Mac renews.
 - **Keep-alive** (off by default): `doz account keepalive on`. Near expiry, if a sandbox used the Mac
-  login recently and no Claude Code runs on the Mac, the host runs the Mac's `claude` once — one tiny
+  login recently and no Claude Code runs on the Mac, the daemon runs the Mac's `claude` once — one tiny
   turn on your subscription.
 - **If you sign out on the Mac**, sandboxes stop getting a token at once. **If a different account
   signs in**, sandboxes on `mac` follow it at their next request — running sessions keep working,
@@ -258,14 +258,14 @@ doz key ls my-app                                   # never the value
 doz key rm my-app --anthropic
 ```
 
-A key typed or piped in lasts while the host runs; after the host stops, set it again (or use
-`--keychain`, which is read again by each new host).
+A key typed or piped in lasts while the daemon runs; after the daemon stops, set it again (or use
+`--keychain`, which is read again by each new daemon).
 
 ## Keys from 1Password, AWS or a command
 
 An API-key account (`--api-key`, `--openai-key`, `--provider xai|google|google-stitch|opencode|openrouter|vercel-ai-gateway`, `--custom`) can keep its key
 where you already keep it. Dozable stores only **where** it is — never the key, not even in the keychain —
-and the host reads it on your Mac when a sandbox needs it:
+and the daemon reads it on your Mac when a sandbox needs it:
 
 ```sh
 doz account add grok --provider xai --from op://Dev/xAI/credential               # 1Password (op)
@@ -279,7 +279,7 @@ doz account refresh grok                                                        
 ```
 
 - **When it is read:** once when you add it (with the provider's own key check — `--no-verify` skips
-  both), then on use: kept in the host's memory for `--ttl` (55 minutes by default; `2h`, `90m`), read
+  both), then on use: kept in the daemon's memory for `--ttl` (55 minutes by default; `2h`, `90m`), read
   again right away after `doz account refresh` or a change to the account, and once more when the
   provider answers 401 (a rotated key). A sandbox's session start reads it in the background, so the
   agent's first request does not wait for 1Password.
@@ -287,7 +287,7 @@ doz account refresh grok                                                        
   or redirections (put a pipeline in a script and give its path). The program is found once, at add
   time, as an absolute path; `doz` shows the exact command and asks before saving it (`--yes` off a
   terminal). Its output is the key: one line, at most 8 KiB.
-- **Where it runs:** on your Mac, as the host, with the standard `PATH`, your home, the tools' own
+- **Where it runs:** on your Mac, as the daemon, with the standard `PATH`, your home, the tools' own
   sign-in variables (`OP_SERVICE_ACCOUNT_TOKEN`, `AWS_*`) and the `--env` variables the account names —
   only `OP_ACCOUNT`, `AWS_PROFILE`, `AWS_REGION`, `AWS_CONFIG_FILE` and `AWS_SHARED_CREDENTIALS_FILE`
   (never a secret). Nothing is typed into it. 1Password gets 20 seconds (a Touch ID prompt), the others 10.
@@ -402,7 +402,7 @@ touched.
 | key | default | what it does |
 |---|---|---|
 | `defaults.account` | `mac` | The account of a store that hasn't chosen one. |
-| `host.keepalive` | `false` | Keep-alive for a store that hasn't chosen (`doz account keepalive`). |
+| `daemon.keepalive` | `false` | Keep-alive for a store that hasn't chosen (`doz account keepalive`). |
 | `recipes.anthropic.claude-code.approvals` | `skip` | Claude Code's own permission prompts in a sandbox: `skip` or `ask`. |
 | `recipes.anthropic.claude-code.version` · `recipes.earendil-works.pi.version` · `recipes.openai.codex.version` | `latest` | The agent version its image is baked with. |
 | `sandbox.agent_sudo` | `true` | The agent's passwordless sudo. Per sandbox too. |
@@ -414,11 +414,11 @@ touched.
 
 | symptom | what to do |
 |---|---|
-| The agent says it has no key, or gets 401 | `doz key ls NAME` and `doz account ls`. A typed key is gone after the host stopped: set it again, or use an account. |
+| The agent says it has no key, or gets 401 | `doz key ls NAME` and `doz account ls`. A typed key is gone after the daemon stopped: set it again, or use an account. |
 | "this Mac's Claude login expired" | Run `claude` on your Mac once (any prompt), or turn on keep-alive. |
 | pi can't be created: no account it can use | `doz account add NAME --api-key`, then `--account NAME`. |
 | "the agent prompt does not render" | `doz inspect NAME --prompt` names the unknown `{{variable}}` and the file. |
 | The agent doesn't know where it runs | `doz inspect NAME --prompt`. An image prepared by a much older Dozable may need `doz reset NAME` after a rebuild. |
-| "the key of account X comes from 1Password …, but op is not signed in" | `op signin` on the Mac (or give the host `OP_SERVICE_ACCOUNT_TOKEN`), then `doz account refresh X`. |
+| "the key of account X comes from 1Password …, but op is not signed in" | `op signin` on the Mac (or give the daemon `OP_SERVICE_ACCOUNT_TOKEN`), then `doz account refresh X`. |
 | A custom key is not used | `doz account show NAME` (its hosts); the sandbox must allow each one: `doz net allow SANDBOX site:HOST`. |
 | `/login` inside the sandbox never finishes | The key policy is `strict` (it blocks the sign-in pages). That's usually what you want; to allow it: `doz key policy NAME allow`. |

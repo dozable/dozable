@@ -85,7 +85,7 @@ func cliAccessSuite(binary: String) async {
     var server: Process?
     var agentPID: pid_t = 0
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         server?.terminate()
         if agentPID > 0 { kill(agentPID, SIGTERM) }
         try? fm.removeItem(at: t.store)
@@ -171,7 +171,7 @@ func cliAccessSuite(binary: String) async {
           "doz access --no-check: the record says GitHub and SSH confirmed, the Claude account (decided later) unchecked (\(state("github") ?? "?"), \(state("ssh") ?? "?"), \(state("claude") ?? "?"))")
 
     // ── 2. A failing GitHub is SKIPPED with a note; the onboarding goes on (exit 0) ───────────────
-    t.run(["host", "stop"])
+    t.run(["daemon", "stop"])
     fakeGH(prints: "ghp_REVOKEDbutWELLformed000000000000000")
     r = run(["onboard", "--no-base", "--github", "push", "--yes"], timeout: 180)
     check(r.code == 0, "onboard --yes --github push with a token GitHub refuses → exit 0 (never blocked)")
@@ -181,13 +181,13 @@ func cliAccessSuite(binary: String) async {
     check(setting("defaults.github") == "push", "the choice is KEPT (push), not confirmed")
     r = run(["access", "--no-check"])
     check(r.out.contains("✗ GitHub as you") && r.out.contains("not confirmed"), "doz access shows it not confirmed")
-    t.run(["host", "stop"])
+    t.run(["daemon", "stop"])
     fakeGH(prints: nil)
     r = run(["access"])
     check(r.code == 0 && r.out.contains("not logged in to github.com"), "gh logged out → the reason (run gh auth login on the Mac), exit 0")
 
     // ── 3. SSH with NO agent: skipped with the reason ────────────────────────────────────────────
-    t.run(["host", "stop"])
+    t.run(["daemon", "stop"])
     fakeGH(prints: classic)
     t.env["DOZ_TEST_SSH_AUTH_SOCK"] = ws + "/no-agent.sock"
     r = run(["onboard", "--no-base", "--github", "off", "--ssh-agent", "on", "--yes"], timeout: 180)
@@ -197,7 +197,7 @@ func cliAccessSuite(binary: String) async {
     check(r.out.contains("— GitHub as you") && setting("defaults.github") == "off", "GitHub turned off on purpose: shown off, nothing to confirm")
 
     // ── 4. doz access set: a fine-grained token as the default key ───────────────────────────────
-    t.run(["host", "stop"])
+    t.run(["daemon", "stop"])
     t.env["DOZ_TEST_SSH_AUTH_SOCK"] = agentSock
     r = run(["access", "set", "--github", "read", "--github-key"], stdin: fine + "\n")
     check(r.code == 0 && r.out.contains("signed in as fake-user") && r.out.contains("it can see 2 repositories") && r.out.contains("from your key"),

@@ -63,7 +63,7 @@ you checked: `--fingerprint SHA256:…`.
 
 A catalogue is used **whole or not at all**: if it is tampered with, signed with another key, or offers a name that is
 already taken (by Dozable, by yours, or by a catalogue added earlier), none of it is used, and `doz recipe source ls`
-says why. Dozable looks for a newer catalogue once a day while its host runs.
+says why. Dozable looks for a newer catalogue once a day while its daemon runs.
 
 Before a sandbox of a community recipe is made, Dozable says whose recipe it is, what its image build installs and
 reaches, and asks once for each version of it. `doz recipe trust NAME` says yes ahead, for scripts. On the dashboard,
@@ -71,8 +71,8 @@ Quick try's setup shows the same under **Whose recipe** before Start. Your own r
 
 ## When a change applies
 
-When no Dozable host is running, a change to your recipes or catalogues is used at once. While one runs, it applies at
-its next start — `doz host restart` — so every command keeps using what the running host uses. A running dashboard
+When no Dozable daemon is running, a change to your recipes or catalogues is used at once. While one runs, it applies at
+its next start — `doz daemon restart` — so every command keeps using what the running daemon uses. A running dashboard
 shows it after `doz ui restart`.
 
 ## Removing one

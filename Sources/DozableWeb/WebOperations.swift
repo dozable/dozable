@@ -110,7 +110,7 @@ final class WebOperations: @unchecked Sendable {
         trimLocked()
     }
 
-    static let interruptedText = "interrupted — doz ui restarted while it ran; the host carried on"
+    static let interruptedText = "interrupted — doz ui restarted while it ran; the daemon carried on"
     static let notStartedText = "doz ui restarted before its turn — it was not started"
     static let cancelledText = "cancelled before its turn — nothing was done"
 
@@ -163,7 +163,7 @@ final class WebOperations: @unchecked Sendable {
     /// What an interrupted operation became, judged from the sandbox now — nil while it is still under
     /// way (busy or booting), for at most 30 minutes.
     static func resolution(_ op: WebOperation, rows: [String: WebSandboxRow], now: Date) -> (String, String)? {
-        let unknown = ("interrupted", "doz ui restarted while it ran; the host carried it on — its outcome was not seen here")
+        let unknown = ("interrupted", "doz ui restarted while it ran; the daemon carried it on — its outcome was not seen here")
         guard let name = op.sandbox, targetPhase[op.action] != nil || op.action == "rm" || op.action == "create" else { return unknown }
         let row = rows[name]
         if let row, row.busy || row.phase == "booting" {
@@ -178,7 +178,7 @@ final class WebOperations: @unchecked Sendable {
             guard let row else { return ("interrupted", "doz ui restarted while it ran; \(name) is gone") }
             if row.phase == targetPhase[op.action] { return ("done", "\(name) is \(row.phaseLabel) — finished while doz ui restarted") }
             if row.phase == "failed" { return ("failed", "\(name) failed while doz ui restarted — its Boot log says why") }
-            return ("interrupted", "doz ui restarted while it ran; the host carried on — \(name) is now \(row.phaseLabel)")
+            return ("interrupted", "doz ui restarted while it ran; the daemon carried on — \(name) is now \(row.phaseLabel)")
         }
     }
 
@@ -191,10 +191,10 @@ final class WebOperations: @unchecked Sendable {
     /// terminal — waking" for a keystroke wake). 650: `priority` — a person's own request (false only for the page's
     /// bulk controls), which goes ahead of every batch one; `phase` — the sandbox's phase when the caller knows it (the
     /// terminal's keystroke wake), else the monitor's last.
-    func start(_ action: WebAction, firstLine: String = "requested — waiting for the host", priority: Bool = true,
+    func start(_ action: WebAction, firstLine: String = "requested — waiting for the daemon", priority: Bool = true,
                phase: String? = nil) throws -> WebOperation {
-        let verb = action.hostOp == .openSession ? "open-session" : action == .hostStart ? "host-start"
-            : action == .hostRestart ? "host-restart" : action.hostRequest.op.rawValue
+        let verb = action.hostOp == .openSession ? "open-session" : action == .hostStart ? "daemon-start"
+            : action == .hostRestart ? "daemon-restart" : action.hostRequest.op.rawValue
         let key = action.dedupeKey
         let width = Self.clampWidth(laneWidth())
         let (op, launches, told): (WebOperation, [Pending], [WebOperation]) = try lock.withLock {
@@ -394,7 +394,7 @@ final class WebOperations: @unchecked Sendable {
             if e.kind == .output { return }
             o.text = text
             // 594 W22: Restart host keeps each sandbox's line (they hibernate in parallel).
-            if o.action == "host-restart", let finished { o.lines = (o.lines ?? []) + [finished] }
+            if o.action == "daemon-restart", let finished { o.lines = (o.lines ?? []) + [finished] }
         }), o.state == "running" { hub.broadcast("op", o) }
     }
 
@@ -482,15 +482,15 @@ final class WebOperations: @unchecked Sendable {
             // 634: a base preparation is named for people ("the Node.js base"), never `base:node`.
             let said = { (i: PreparationInfo) in i.base.map { "the \(BaseCatalogue.base($0)?.title ?? $0) base" } ?? i.image }
             let preparing = r?.preparations.filter(\.running).map(said) ?? []
-            if !preparing.isEmpty { return "preparing \(preparing.joined(separator: ", ")) in the host — it goes on in the background; the onboarding is recorded when it is done" }
+            if !preparing.isEmpty { return "preparing \(preparing.joined(separator: ", ")) in the daemon — it goes on in the background; the onboarding is recorded when it is done" }
             let ready = (base.map { ["the \(BaseCatalogue.base($0)?.title ?? $0) base"] } ?? []) + images
             return ready.isEmpty ? "onboarded (no image prepared now)" : "onboarded — \(ready.joined(separator: ", ")) ready"
         case .hostStart:
             let s = try? v.decode(HostStatus.self)
-            return s.map { "the host is running (pid \($0.pid), doz \($0.version))" } ?? "the host is running"
+            return s.map { "the daemon is running (pid \($0.pid), doz \($0.version))" } ?? "the daemon is running"
         case .hostRestart:
             let r = try? v.decode(WebHostRestart.self)
-            let who = r?.host.map { "the host restarted as doz \($0.version) (pid \($0.pid))" } ?? "the host restarted"
+            let who = r?.host.map { "the daemon restarted as doz \($0.version) (pid \($0.pid))" } ?? "the daemon restarted"
             guard let stop = r?.stop else { return who + " — its sandboxes hibernated; they wake when used" }
             let hib = stop.sandboxes.filter { $0.outcome == "hibernated" }.map(\.name)
             let other = stop.sandboxes.filter { $0.outcome != "hibernated" }.map { "\($0.name): \($0.outcome == "failed" ? "could not hibernate — shut down" : $0.outcome)" }

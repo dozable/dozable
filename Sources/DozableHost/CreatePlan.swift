@@ -350,7 +350,7 @@ public enum CreatePlanner {
                 sourceProblem = true
             } else if let n = found.name { accountChoice = n }
         } else if modelSource != nil {
-            problems.append(PlanProblem(code: "invalid", text: "a model provider needs a proxied network: its key lives in the host's proxy", fix: nil))
+            problems.append(PlanProblem(code: "invalid", text: "a model provider needs a proxied network: its key lives in the daemon's proxy", fix: nil))
         }
 
         // The account and its key.

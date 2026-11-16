@@ -149,7 +149,7 @@ final class SecretSourcesTests: XCTestCase {
         // 617 (owner): the tool's own first line (its log prefix dropped), the plain reason, then what to do.
         XCTAssertEqual(op.notice, "the key of account grok-op comes from 1Password: op://Dev/xai/credential, but op says: "
                        + "You are not currently signed in. Please run op signin --help"
-                       + " (op is not signed in) — run op signin --account my (or give the host OP_SERVICE_ACCOUNT_TOKEN), then doz account refresh grok-op")
+                       + " (op is not signed in) — run op signin --account my (or give the daemon OP_SERVICE_ACCOUNT_TOKEN), then doz account refresh grok-op")
         FileManager.default.createFile(atPath: bin.appendingPathComponent("aws-denied").path, contents: Data())
         let aws = SecretSources.read(.awsSecretsManager(arn: "arn:aws:secretsmanager:eu-west-1:123456789012:secret:x", jsonKey: nil), account: "a", sourceEnv: [:], environment: env)
         XCTAssertTrue(aws.notice?.contains("AccessDenied") == true, aws.notice ?? "")
@@ -448,7 +448,7 @@ final class SecretSourcesTests: XCTestCase {
 
     func testCustomKeysAreValidated() async throws {
         let c = await core()
-        for (hosts, why) in [([String](), "no host"), (["api.x.ai"], "a provider's host"), (["api.github.com"], "GitHub's"), (["api.openai.com"], "OpenAI's"),
+        for (hosts, why) in [([String](), "no daemon"), (["api.x.ai"], "a provider's host"), (["api.github.com"], "GitHub's"), (["api.openai.com"], "OpenAI's"),
                              (["*.example.test"], "a wildcard"), (["localhost"], "not a dotted name")] {
             let m = await custom(c, "bad", hosts: hosts)
             XCTAssertNotNil(m.error, why)

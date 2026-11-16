@@ -151,7 +151,7 @@ extension SettingSource: Codable {
 
 /// 669 (659 §3): the four kinds of setting — where each may be set.
 public enum SettingClass: String, Codable, Sendable {
-    /// How this Mac, the host, the CLI and the dashboard behave: the Mac only (and env, flag).
+    /// How this Mac, the daemon, the CLI and the dashboard behave: the Mac only (and env, flag).
     case mac = "M"
     /// A new sandbox's default: read once when it is made (Mac, project), then recorded in it.
     case newSandbox = "N"
@@ -170,7 +170,7 @@ public enum SettingApplies: String, Codable, Sendable, CaseIterable {
     case nextCommand = "next-command"
     case nextCreate = "next-create"
     case nextSession = "next-session"
-    case hostRestart = "host-restart"
+    case daemonRestart = "daemon-restart"
     case newStore = "new-store"
     case nextBoot = "next-boot"
     /// 594 W10: at each sandbox's next start or wake.
@@ -186,9 +186,9 @@ public enum SettingApplies: String, Codable, Sendable, CaseIterable {
         switch self {
         case .now: "applies at once (the UI re-reads it)"
         case .nextCommand: "applies to the next doz command (a running doz ui keeps its store)"
-        case .nextCreate: "applies to sandboxes created from now on (the host reads it at create)"
+        case .nextCreate: "applies to sandboxes created from now on (the daemon reads it at create)"
         case .nextSession: "applies to sessions opened from now on"
-        case .hostRestart: "applies after doz host stop (the next host reads it)"
+        case .daemonRestart: "applies after doz daemon stop (the next daemon reads it)"
         case .newStore: "the choice for a store that has not made one (doz account keepalive wins)"
         case .nextBoot: "applies when the next boot of a sandbox is kept"
         case .nextStartOrWake: "applies at each sandbox's next start or wake"
@@ -432,10 +432,10 @@ public enum SettingKey {
     public static let progress = "ui.progress"
     /// 637: colour in the CLI — auto, always, never.
     public static let color = "ui.color"
-    public static let idleTimeout = "host.idle_timeout_minutes"
-    public static let screenCapture = "host.screen_capture_minutes"
-    public static let bootLogsKept = "host.boot_logs_kept"
-    public static let keepalive = "host.keepalive"
+    public static let idleTimeout = "daemon.idle_timeout_minutes"
+    public static let screenCapture = "daemon.screen_capture_minutes"
+    public static let bootLogsKept = "daemon.boot_logs_kept"
+    public static let keepalive = "daemon.keepalive"
     public static let storePath = "store.path"
     public static let cpus = "defaults.cpus"
     /// 669 (659 Q8): a new sandbox's memory and network when its image has no agent (a python or go base) — Dozable's
@@ -629,7 +629,7 @@ public struct DozableSettings: Sendable {
     /// 0.37 migration never seeds (`seeds`), and not `defaults.image` (a recipe agent's id is valid there).
     static func isCoreFinal(_ key: String) -> Bool {
         guard let d = coreDefinition(key) else { return false }
-        return d.aliases.isEmpty && !seedTargets.contains(key)
+        return d.aliases.isEmpty && !seedTargets.contains(key) && !formerNames.values.contains(key)
     }
     static let seedTargets = Set(seeds.values)
 
@@ -645,8 +645,16 @@ public struct DozableSettings: Sendable {
     public static func canonicalKey(_ key: String) -> String? {
         if coreIndexed.byKey[key] != nil { return key }
         let x = indexed
-        return x.byKey[key] != nil ? key : x.aliases[key]
+        return x.byKey[key] != nil ? key : x.aliases[key] ?? formerNames[key]
     }
+
+    /// TEMPORARY — set only by the host→daemon migration (Sources/DozableHost/Migration/; empty without it): Dozable's
+    /// own keys' names before 0.50 (`daemon.idle_timeout_minutes` → `daemon.idle_timeout_minutes`). They are read and moved
+    /// exactly as a 0.37 name is (an alias: read as the new key with a note, taken by `doz config`, moved by the first
+    /// write — `writingAll`). Remove with the migration.
+    nonisolated(unsafe) public static var formerNames: [String: String] = [:]
+    /// An old name of `key` (a 0.37 name, or a former name) → `key`.
+    static func aliasTarget(_ old: String, in x: Indexed) -> String? { x.aliases[old] ?? formerNames[old] }
 
     /// 669: the old names the migration ALSO seeds a Dozable key from — a base with no agent followed claude-code's
     /// memory and network before 669, and keeps what it had (659 Q8).
@@ -763,7 +771,7 @@ public struct DozableSettings: Sendable {
                   "A sandbox's page shows its details panel (restore points, network, keys) beside the terminals; false: collapsed.",
                   applies: .now),
             .init("ui", "allow_secret_entry", .bool, .bool(true),
-                  "The web UI takes an Anthropic API key or a Claude setup token in a masked field — an account (the setup wizard, Accounts & keys: stored exactly as doz account add stores it, the login keychain) or a sandbox's own key (its page: exactly as doz key set does, held by the host) — sent once, in a request body. false: the pages show the command instead. The UI can turn this off, never on.",
+                  "The web UI takes an Anthropic API key or a Claude setup token in a masked field — an account (the setup wizard, Accounts & keys: stored exactly as doz account add stores it, the login keychain) or a sandbox's own key (its page: exactly as doz key set does, held by the daemon) — sent once, in a request body. false: the pages show the command instead. The UI can turn this off, never on.",
                   applies: .now),
             .init("ui", "open_browser", .choice(["auto", "always", "never"]), .string("auto"),
                   "When doz ui opens a browser tab: auto (only when no page of this store's UI is open — an open page reconnects by itself instead), always (every start), never (it prints the address; doz ui link opens a page). --open and --no-open override it.",
@@ -854,20 +862,20 @@ public struct DozableSettings: Sendable {
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
                   applies: .uiRestart, ui: false),
-            .init("host", "idle_timeout_minutes", .int(0...10_080), .int(5),
-                  "Minutes with nothing running before the host exits; 0 = never.",
-                  env: "DOZ_HOST_IDLE", flag: "doz host start --idle-timeout", applies: .hostRestart),
-            .init("host", "screen_capture_minutes", .int(0...1440), .int(5),
+            .init("daemon", "idle_timeout_minutes", .int(0...10_080), .int(5),
+                  "Minutes with nothing running before the daemon exits; 0 = never.",
+                  env: "DOZ_DAEMON_IDLE", flag: "doz daemon start --idle-timeout", applies: .daemonRestart),
+            .init("daemon", "screen_capture_minutes", .int(0...1440), .int(5),
                   "Every this many minutes, save the screen of each running sandbox's sessions that printed something since (what a sleep or hibernation falls back on); 0 = only when it pauses, sleeps or hibernates.",
-                  env: "DOZ_SCREEN_CAPTURE", applies: .hostRestart),
-            .init("host", "boot_logs_kept", .int(1...50), .int(BootLogs.defaultKept),
+                  env: "DOZ_SCREEN_CAPTURE", applies: .daemonRestart),
+            .init("daemon", "boot_logs_kept", .int(1...50), .int(BootLogs.defaultKept),
                   "How many boots of each sandbox to keep (its steps and kernel console — the web UI's Boot log, doz console --boot N); the oldest goes.",
                   env: "DOZ_BOOT_LOGS", applies: .nextBoot),
-            .init("host", "keepalive", .bool, .bool(false),
-                  "Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the host runs the Mac's claude once to renew it.",
+            .init("daemon", "keepalive", .bool, .bool(false),
+                  "Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the daemon runs the Mac's claude once to renew it.",
                   applies: .newStore),
             .init("store", "path", .path, .string("~/Library/Application Support/doz"),
-                  "The store: images, kernels, sandboxes and the host's files.",
+                  "The store: images, kernels, sandboxes and the daemon's files.",
                   env: "DOZ_STORE", flag: "--store", applies: .nextCommand, ui: false),
             .init("defaults", "cpus", .int(1...64), .int(2),
                   "CPUs of a new sandbox.",
@@ -903,7 +911,7 @@ public struct DozableSettings: Sendable {
                   applies: .nextStartOrWake),
             // 611: updates — the feed is updates.dozable.com/v1/feed.json (signed; Distribution in Updates.swift).
             .init("updates", "mode", .choice(["off", "notify", "auto"]), .string("notify"),
-                  "Updates: notify (at most once a day, and when doz ui opens, look for a newer doz and say how to upgrade — one line on a terminal, a banner on the dashboard), auto (also install it: brew upgrade, or the signed download for a tarball install — only while no sandbox runs and no session is attached, else it notifies; then: restart to apply, doz host restart), or off (never look). Never a downgrade; a feed that does not verify is ignored.",
+                  "Updates: notify (at most once a day, and when doz ui opens, look for a newer doz and say how to upgrade — one line on a terminal, a banner on the dashboard), auto (also install it: brew upgrade, or the signed download for a tarball install — only while no sandbox runs and no session is attached, else it notifies; then: restart to apply, doz daemon restart), or off (never look). Never a downgrade; a feed that does not verify is ignored.",
                   env: "DOZ_UPDATES", applies: .nextCommand),
             .init("updates", "channel", .choice(["stable", "beta", "canary"]), .string("stable"),
                   "Which releases you are offered: stable, beta (beta and stable) or canary (every build, first). A Homebrew install's own formula (doz, doz-beta, doz-canary) decides while this is not set; doz upgrade --channel switches both.",
@@ -947,7 +955,7 @@ public struct DozableSettings: Sendable {
                   "What a .dozignore at the root of a sandbox's workspace folder does to the paths it lists (Docker's .dockerignore syntax): lock (they stay listed, shown with no permissions, and every read, write, rename or delete of them is refused — so a program that bumps into one by name sees why) or hide (they are not there at all). A .dozreadonly beside it (same syntax) makes paths visible but read-only; doz_project.yaml, .git/hooks and the two rule files are read-only too. Without either file the folder is shared as it is. A convenience mask, not a security boundary: root in the sandbox can get around it. A sandbox's own choice (doz create --ignore-mode, ignore_mode in doz_project.yaml, doz config set --sandbox NAME) wins over this.",
                   flag: "doz create --ignore-mode lock|hide", applies: .nextStartOrWake),
             .init("workspace", "view", .choice(["on", "off"]), .string("on"),
-                  "How a sandbox's workspace folder reaches it. on: through Dozable's live view of the folder, so a program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from hibernation or after a host restart. The view costs a little: the first scan of a big folder after a start or a wake is slower (e.g. git status on a large repository, or find), later ones are about as fast as without it. off: the folder is shared directly (a little faster) — but a program working inside /workspace loses its folder at such a wake and must be restarted (Codex says \"invalid cwd\"). A folder with a .dozignore or .dozreadonly always uses the view. Changes take effect at the sandbox's next start. A sandbox's own choice (doz create --workspace-view, workspace_view in doz_project.yaml, doz config set --sandbox NAME) wins over this.",
+                  "How a sandbox's workspace folder reaches it. on: through Dozable's live view of the folder, so a program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from hibernation or after a daemon restart. The view costs a little: the first scan of a big folder after a start or a wake is slower (e.g. git status on a large repository, or find), later ones are about as fast as without it. off: the folder is shared directly (a little faster) — but a program working inside /workspace loses its folder at such a wake and must be restarted (Codex says \"invalid cwd\"). A folder with a .dozignore or .dozreadonly always uses the view. Changes take effect at the sandbox's next start. A sandbox's own choice (doz create --workspace-view, workspace_view in doz_project.yaml, doz config set --sandbox NAME) wins over this.",
                   flag: "doz create --workspace-view on|off", applies: .nextStart),
             // 657 (owner: "the user's dotfiles … so that every shell experience in each VM is familiar").
             .init("sandbox", "dotfiles", .dotfiles, .string(""),
@@ -990,7 +998,7 @@ public struct DozableSettings: Sendable {
         if let d = coreDefinition(key) { return d }
         let x = indexed
         if let i = x.byKey[key] { return x.schema[i] }
-        return x.aliases[key].flatMap { x.byKey[$0] }.map { x.schema[$0] }
+        return aliasTarget(key, in: x).flatMap { x.byKey[$0] }.map { x.schema[$0] }
     }
 
     /// 669: one recipe's settings (its agent's id).
@@ -1094,7 +1102,7 @@ public struct DozableSettings: Sendable {
         "the web UI's checks: exact Host, Origin + CSRF on every change, the Content-Security-Policy",
         "the browser terminal's safety: one-use 30 s tickets, the 1 MiB paste cap and the unsafe-paste confirmation",
         "the guest binaries (DOZ_DECKHOLD / DOZ_DOZNET are developer overrides, environment only)",
-        "credentials: keys and tokens live in the Keychain or the host's memory, never in this file (ui.allow_secret_entry only decides whether the web UI may take one)",
+        "credentials: keys and tokens live in the Keychain or the daemon's memory, never in this file (ui.allow_secret_entry only decides whether the web UI may take one)",
     ]
 
     // MARK: the file
@@ -1226,7 +1234,7 @@ public struct DozableSettings: Sendable {
         var old: [TOMLEntry] = []
         for (n, e) in pending {
             guard let i = x.byKey[e.path] else {
-                if x.aliases[e.path] != nil { old.append(e) } else {
+                if aliasTarget(e.path, in: x) != nil { old.append(e) } else {
                     unknown.append(e)
                     first.append((n, "line \(e.line): unknown setting \(e.path) — ignored"))
                 }
@@ -1242,7 +1250,7 @@ public struct DozableSettings: Sendable {
         let own = Set(values.keys)
         for e in old {
             oldNames = true
-            guard let key = x.aliases[e.path], let d = Self.definition(key) else { continue }
+            guard let key = aliasTarget(e.path, in: x), let d = Self.definition(key) else { continue }
             let v: TOMLValue
             do { v = try d.validate(e.value) } catch let err as SettingsError {
                 later.append("line \(e.line): \(e.path) (now \(key)): \(err.message) — ignored, the default applies")
@@ -1280,7 +1288,7 @@ public struct DozableSettings: Sendable {
     /// variable, else the sandbox's own value, else its project's, else the file (this Mac's), else the default — the
     /// recipe's own (`recipe`) or Dozable's (`default`). A setting of the Mac's kind (class M) has no sandbox or project
     /// layer: those are ignored for it. An environment value that does not parse is skipped (as if unset). A fractional
-    /// environment value of an integer setting (`DOZ_HOST_IDLE=0.5`) is kept as its text — the host reads it so. A 0.37
+    /// environment value of an integer setting (`DOZ_DAEMON_IDLE=0.5`) is kept as its text — the daemon reads it so. A 0.37
     /// name of a key resolves that key.
     public func resolve(_ key: String, flag: TOMLValue? = nil, sandbox: TOMLValue? = nil, project: TOMLValue? = nil) -> ResolvedSetting {
         guard let d = Self.definition(key) else { preconditionFailure("unknown setting \(key)") }
@@ -1327,11 +1335,11 @@ public struct DozableSettings: Sendable {
         return nil
     }
 
-    /// The host's idle timeout in minutes: `--idle-timeout`, else `$DOZ_HOST_IDLE` (fractions
+    /// The daemon's idle timeout in minutes: `--idle-timeout`, else `$DOZ_DAEMON_IDLE` (fractions
     /// allowed, as always), else the file, else 5.
     public func idleTimeoutMinutes(flag: Double?) -> Double {
         if let flag { return flag }
-        if let raw = environment["DOZ_HOST_IDLE"], let x = Double(raw), x >= 0 { return x }
+        if let name = Self.definition(SettingKey.idleTimeout)?.environment, let raw = environment[name], let x = Double(raw), x >= 0 { return x }
         return Double(int(SettingKey.idleTimeout))
     }
 
@@ -1442,9 +1450,14 @@ public struct DozableSettings: Sendable {
         if hasOldNames, let text {
             let bak = url.deletingLastPathComponent().appendingPathComponent(Self.backupName)
             var st = stat()
-            if lstat(bak.path, &st) != 0 { try Self.writeAtomically(text, to: bak) }
+            let kept = lstat(bak.path, &st) != 0
+            if kept { try Self.writeAtomically(text, to: bak) }
             let n = Set(migrated.values).count
-            notice = "doz.toml moved \(n) setting\(n == 1 ? "" : "s") to \(n == 1 ? "its" : "their") new name\(n == 1 ? "" : "s") ([recipes.*]) — the old file is \(Self.backupName)"
+            // Where they went: [recipes.*] (the 0.37 names) and/or [daemon] (the host→daemon migration's).
+            let sections = Set(migrated.keys.compactMap { $0.split(separator: ".").first.map(String.init) }).sorted().map { "[\($0 == "recipes" ? "recipes.*" : $0)]" }
+            notice = "doz.toml moved \(n) setting\(n == 1 ? "" : "s") to \(n == 1 ? "its" : "their") new name\(n == 1 ? "" : "s")"
+                + (sections.isEmpty ? "" : " (\(sections.joined(separator: ", ")))")
+                + (kept ? " — the old file is \(Self.backupName)" : " — an earlier copy of the file is \(Self.backupName)")
         }
         try Self.writeAtomically(Self.render(values: values, unknown: unknown), to: url)
         var now = Self.load(environment: environment)

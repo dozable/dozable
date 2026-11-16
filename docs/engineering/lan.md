@@ -27,7 +27,7 @@ its subcommands still parse) — remove it in a later release, saying so.
   the flags passed on); afterwards the CLI prints the LAN addresses + an invite (a TTY only). `doz ui status` carries
   pid, since, version, detached, log, responsibleApp (the app macOS attributes it to — it survives the double spawn, as
   604 found for the microphone; Bonjour's Local Network ask is on its behalf). No start-at-login (no launchd agent —
-  the host's rule; an opt-in `doz ui login` is the owner's call).
+  the daemon's rule; an opt-in `doz ui login` is the owner's call).
 - **Loopback is served under every bind**: this Mac's own browser at `127.0.0.1:<port>` is the Mac principal
   (`isMacRequest`, above); [::1], localhost and `<mac>.local` from the Mac are devices like any other (rc.1 bug: on the
   Mac, `<mac>.local` resolved to ::1 and the silent drop read as "no response"). **Only a sandbox's connection is
@@ -43,8 +43,8 @@ its subcommands still parse) — remove it in a later release, saying so.
   a peer in a vmnet bridge's (`bridge100`+) networks, Dozable's automatic NAT range 192.168.100–199.0/24 where no LAN
   interface is, or `defaults.nat_subnet` is dropped before a byte is read, and so is a connection to a bridge's own
   address. A bridge's link-local prefix is NOT a sandbox network (fe80::/64 is every interface's). Proxied sandboxes
-  have no NIC — their traffic leaves from the host: `LocalDashboards` (DozableKit) makes `Wire.connectTCP` refuse the
-  Mac's own addresses on the dashboards' ports (`<store>/ui.port`, `<store>/serve/port`, `serve.port`; the host sets
+  have no NIC — their traffic leaves from the daemon: `LocalDashboards` (DozableKit) makes `Wire.connectTCP` refuse the
+  Mac's own addresses on the dashboards' ports (`<store>/ui.port`, `<store>/serve/port`, `serve.port`; the daemon sets
   it, 5 s cache) whatever the policy, `open` included. `probes/606-*/serve-sandbox.mjs` (NAT + proxied-open, with
   positive controls) is the test.
 - **Admission**: an invite = a 256-bit link token (`#cap=`, posted as Bearer — the doz ui model) + an 8-char Crockford

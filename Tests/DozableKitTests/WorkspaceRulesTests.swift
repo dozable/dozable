@@ -270,14 +270,14 @@ final class WorkspaceRulesTests: XCTestCase {
         XCTAssertLessThan(s.range(of: "ls -a /run/doz-vfs")!.lowerBound, rebindRaw.lowerBound, "the refreshing listing first")
         XCTAssertFalse(s[viewBranch.lowerBound..<s.range(of: "; else ")!.lowerBound].contains("mount --bind '/run/doz-vfs/abc123' '/workspace'"),
                        "a view's share is never bound back at /workspace")
-        XCTAssertTrue(s.contains("mode=hide\\nfold=1\\n"), "the conf follows the host's choice")
+        XCTAssertTrue(s.contains("mode=hide\\nfold=1\\n"), "the conf follows the daemon's choice")
         XCTAssertTrue(s.contains("mount --bind '/run/doz-vfs/abc123' '/workspace'"), "without a view: the plain re-bind")
         XCTAssertTrue(s.contains("dozview' start --raw '/run/doz/raw/abc123' --mount '/workspace'"), "a share that gained rules gets its view at the wake")
         // no views wanted: the old script, plus only the guest-side check
         let plain = GuestCommand.remountShares([(tag: "abc123", guestPath: "/workspace")])
         let elseBranch = plain[plain.range(of: "; else umount -l '/workspace'", options: .backwards)!.upperBound...]
-        XCTAssertFalse(elseBranch.contains("dozview' start"), "no turn-on unless the host wants a view")
-        XCTAssertTrue(plain.contains("if [ -f '/run/doz/view/abc123.conf' ]"), "a guest's existing view is kept whatever the host says")
+        XCTAssertFalse(elseBranch.contains("dozview' start"), "no turn-on unless the daemon wants a view")
+        XCTAssertTrue(plain.contains("if [ -f '/run/doz/view/abc123.conf' ]"), "a guest's existing view is kept whatever the daemon says")
     }
 
     func testTheStartScriptBindsPrivatelyFirstAndNeverStacksOnTheShare() {

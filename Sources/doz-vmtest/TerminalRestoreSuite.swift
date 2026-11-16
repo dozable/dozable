@@ -119,7 +119,7 @@ private func checkRestored(_ c: PTYClient, marker: String, lastLine: String?, _ 
 func cliTerminalRestoreSuite(binary: String) async {
     let t = onboardingHarness(binary, "t", seed: ["kernels", "content", "state.json", "initfs.ext4", "golden"])
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: a detach puts the outer terminal back (W13) — on a pseudo-terminal")

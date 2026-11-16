@@ -155,7 +155,7 @@ struct AccessShow: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "show",
         abstract: "Show each credential choice and confirm it works now (the default: doz access).")
     @OptionGroup var g: GlobalOptions
-    @Flag(name: .long, help: "Only show the last confirmation (looks in the store; checks nothing, starts no host).") var noCheck = false
+    @Flag(name: .long, help: "Only show the last confirmation (looks in the store; checks nothing, starts no daemon).") var noCheck = false
 
     func run() async throws {
         var r = HostRequest(.access)

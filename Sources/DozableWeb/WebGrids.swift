@@ -159,7 +159,7 @@ public struct WebGrids: Equatable, Sendable, Codable {
     }
 
     /// The host could not be asked (an older host that has no such request, or a failure).
-    public static let hostNotAsked = "the host could not be asked for this picture"
+    public static let hostNotAsked = "the daemon could not be asked for this picture"
 
     /// The page shows these as they are (≤ 120 characters, no internal word).
     public static func sentence(_ r: SessionGridAnswer.Reason?) -> String {

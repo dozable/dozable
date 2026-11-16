@@ -408,7 +408,7 @@ extension HostCore {
             let run = await m.sandbox.applyDotfilesNow()
             try? await Task.sleep(for: .milliseconds(50))
             relay.cancel()
-            changed += run.map { " — applied now: \($0.summary)" } ?? " — not applied (see the host log)"
+            changed += run.map { " — applied now: \($0.summary)" } ?? " — not applied (see the daemon log)"
         } else {
             changed += " — applied at its next start or wake"
         }

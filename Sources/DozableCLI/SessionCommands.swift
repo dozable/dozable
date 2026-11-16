@@ -18,7 +18,7 @@ struct List: AsyncParsableCommand {
         var t = [["NAME", "IMAGE", "PHASE", "RAM", "DISK", "SESSIONS", "AGENT", "NETWORK", "ACCOUNT", "WORKSPACE"]]
         for r in rows {
             var phase = Out.phaseLabel(r.phase) + (r.busy ? "…" : "")
-            if r.diedWithHost == true { phase += " (died with host)" }
+            if r.diedWithHost == true { phase += " (died with the daemon)" }
             if r.unresponsive == true { phase += " (unresponsive)" }       // 678 B7: its guest does not answer
             var net = r.network + ((r.deniedConnections ?? 0) > 0 ? " (\(r.deniedConnections!) denied)" : "")
             if let n = r.foreignCredentials, n > 0 { net += " · own key" + (n > 1 ? " ×\(n)" : "") }
@@ -391,7 +391,7 @@ struct SessionsList: AsyncParsableCommand {
         abstract: "The sandbox's terminal sessions (they survive pause, sleep and hibernate).",
         discussion: """
             While the sandbox is paused, asleep or hibernated, its sessions are listed from their saved screens \
-            (saved when it pauses, sleeps or hibernates, and every host.screen_capture_minutes while it runs) — \
+            (saved when it pauses, sleeps or hibernates, and every daemon.screen_capture_minutes while it runs) — \
             nothing is woken. A shut-down sandbox has no sessions (Start boots it fresh). --screen SESSION \
             prints that session's last saved screen as text; add --vt to write the terminal bytes instead (to \
             a file or a pipe — never to a terminal).
@@ -703,16 +703,16 @@ struct Run: AsyncParsableCommand {
         // A program the sandbox does not have is doz's failure, not the program's: 125, like exec.
         let m = try rawCall(r, g)
         guard m.ok == true else {
-            var e = m.error ?? HostError(.failed, "the host gave no reason")
+            var e = m.error ?? HostError(.failed, "the daemon gave no reason")
             if fence, e.code == .version {
-                e = HostError(.unavailable, "the host running now predates fenced sessions — doz host stop, then run this again (nothing was started)")
+                e = HostError(.unavailable, "the daemon running now predates fenced sessions — doz daemon stop, then run this again (nothing was started)")
             }
             throw fail(e, g, code: e.code == .notFound && r.argv != nil ? DozableExit.dozableFailed : nil)
         }
         let opened = try decode(m.result ?? .null, SessionOpened.self, g)
         if fence, opened.fenced != true {
             // Never run unfenced silently: a host that did not fence it says nothing of a fence.
-            throw fail(HostError(.failed, "the host did not open \(opened.session) fenced — doz sessions end @mac \(opened.session); doz host stop, then run this again"), g)
+            throw fail(HostError(.failed, "the daemon did not open \(opened.session) fenced — doz sessions end @mac \(opened.session); doz daemon stop, then run this again"), g)
         }
         if !g.json, let n = opened.notice { Out.stderr("[doz] \(n)\n") }
         if fence, !g.quiet, !g.json {

@@ -24,7 +24,7 @@ of; "DeckStack" and "Deckosaurus" are sibling projects some techniques were take
 | Product | Targets | Depends on |
 |---|---|---|
 | `DozableKit` | `DozableKit` (+ resources `deckhold`, `doznet`, `dozview`, `tmux`); test-only C target `DozMatch` (`Guest/dozview/match`) | `apple/containerization` **exact** `0.47.0`: `Containerization`, `ContainerizationArchive` (the kernel tarball), `ContainerizationExtras`, `ContainerizationOCI`, `ContainerizationOS`; since 580 `swift-nio` (`NIOCore`, `NIOEmbedded`; 583 `NIOPosix`), `swift-nio-ssl` (`NIOSSL`), `swift-certificates` (`X509`), `swift-asn1` — apple/* packages containerization already resolves (README "Dependencies") |
-| `doz` (executable, 585) | `doz` → `DozableCLI` (commands) → `DozableHost` (the host + its client); 637: `DozableCLI` → `DozableTUI` (terminal components, the colour switch — Foundation + Darwin only, audit) | `DozableKit`; `swift-argument-parser` (`ArgumentParser`) in `DozableCLI`/`doz` ONLY; the system `SQLite3` in `DozableHost` (metrics); `jpsim/Yams` **exact** `6.2.2` in `DozableCLI` ONLY (`doz_project.yaml` — the audit enforces the pin and the confinement); 667: the system's `AVFoundation` in `DozableHost/Microphone.swift` ONLY (the microphone's permission — never a capture; audit) |
+| `doz` (executable, 585) | `doz` → `DozableCLI` (commands) → `DozableHost` (the daemon + its client); 637: `DozableCLI` → `DozableTUI` (terminal components, the colour switch — Foundation + Darwin only, audit) | `DozableKit`; `swift-argument-parser` (`ArgumentParser`) in `DozableCLI`/`doz` ONLY; the system `SQLite3` in `DozableHost` (metrics); `jpsim/Yams` **exact** `6.2.2` in `DozableCLI` ONLY (`doz_project.yaml` — the audit enforces the pin and the confinement); 667: the system's `AVFoundation` in `DozableHost/Microphone.swift` ONLY (the microphone's permission — never a capture; audit) |
 | — (not a product) | `DozableWeb` — `doz ui`'s server and page (645: one server — this Mac's browser and, with the LAN option, the network's) | `DozableHost`; `swift-nio` `NIOCore`/`NIOPosix`/**`NIOHTTP1`**/**`NIOWebSocket`** (both ONLY here — the audit enforces it); the system's **`dnssd`** (Bonjour) in `WebBonjour.swift` ONLY (audit); resource `Resources/Web` (generated, committed). `DozableCLI`'s `UICommand.swift` alone imports `CoreServices` (LaunchServices opens the browser) |
 | — (not a product) | `doz-vmtest` — the entitled VM test host | `DozableKit`, `DozableHost` (the `cli` mode decodes `--json` with its types) |
 
@@ -40,7 +40,7 @@ One row per area; each area's doc starts with the full table of its files.
 
 | Area | Where | Detail |
 |---|---|---|
-| The engine and the host | `Sources/DozableKit/` (Sandbox, Phase, VirtualMachine, disks, restore points, kernel), `Guest/deckhold/`, `Sources/DozableHost/` (HostCore, HostServer, HostClient, Settings), `Sources/DozableCLI/`, `Sources/doz-vmtest/` | [engine.md](docs/engineering/engine.md) |
+| The engine and the daemon | `Sources/DozableKit/` (Sandbox, Phase, VirtualMachine, disks, restore points, kernel), `Guest/deckhold/`, `Sources/DozableHost/` (HostCore, HostServer, HostClient, Settings), `Sources/DozableCLI/`, `Sources/doz-vmtest/` | [engine.md](docs/engineering/engine.md) |
 | The network | `SubnetPool`, `NetworkPolicy`, `EgressProxy`, `Credentials`, `SandboxCA`, `Guest/doznet/`, `PortForwarding`, `MacModelServer` | [network.md](docs/engineering/network.md) |
 | Images, bases, agents, resources | `ImageSpec`, `ImageBaker`, `BaseCatalogue`, `AgentPermissions`, `Resources.swift`, `ImageTree` | [images-and-bases.md](docs/engineering/images-and-bases.md) |
 | Accounts, GitHub, Access | `ClaudeLogin`, `Accounts`, `LoginWatcher`, `HostCore+Accounts` | [github-and-access.md](docs/engineering/github-and-access.md) |
@@ -65,10 +65,10 @@ One row per area; each area's doc starts with the full table of its files.
   (`exec(["sh","-c",…])`) may use a shell — never a session.
 - **A session on this Mac (`@mac`) is never a sandbox and never bypasses permissions by default.** No code path
   treats `@mac` as a sandbox (no `Managed`, no `Sandbox` — `HostCore.perform` routes it first); a proxy and placeholders
-  exist ONLY inside the fence (`MacFence`), per session, served by the host on a socket its holder owns; nothing a
+  exist ONLY inside the fence (`MacFence`), per session, served by the daemon on a socket its holder owns; nothing a
   fenced program can write is later executed or loaded by anything unfenced except the project's own files (per-session
   temp, caches and agent config; git hooks and config guarded); the environment is an allowlist the fence adds to
-  (`MacSessionsEnvironment`, then `MacFenceEnvironment`: never `CLAUDECODE`/`CLAUDE_CODE_*` of the host's); the holder
+  (`MacSessionsEnvironment`, then `MacFenceEnvironment`: never `CLAUDECODE`/`CLAUDE_CODE_*` of the daemon's); the holder
   starts by `posix_spawn` (never `sh -c`) outside the fence; a bypass flag is only ever the session's own argv, marked
   wherever it shows. Fenced is the default for a NEW session (`mac.fence`, `--unfenced` opts out); a record keeps its
   mode across restart, resume and adoption (nil `fence` = unfenced — every record written before the fence). An
@@ -76,7 +76,7 @@ One row per area; each area's doc starts with the full table of its files.
   `MacFenceProfileTests`, `MacFencePathsTests`, `MacFenceEnvironmentTests`, `MacFenceHostFSTests`, `MacFenceGitTests`,
   `MacAgentConfigTests`, `MacFenceCapabilitiesTests`, `make test-cli-fence` (the fence end to end, the default and
   the mode kept on restart) and `make test-cli-host` (the unfenced session, unchanged, with `--unfenced`).
-- **Every `doz exec` deadline is counted from process start and enforced by the host** (`ExecDeadline`; engine.md).
+- **Every `doz exec` deadline is counted from process start and enforced by the daemon** (`ExecDeadline`; engine.md).
 - **Stop keeps the root disk**: Stop shuts the VM down and persists the phase as `off`; the next Start cold-boots
   the SAME disk and clones the prepared disk only when none exists. `resetToImage()` discards the
   root disk; `delete()` removes the sandbox's whole directory. No Stop leaves a snapshot, and a
@@ -87,12 +87,12 @@ One row per area; each area's doc starts with the full table of its files.
   created once and reused. Two processes that both take the default can get the same subnet and the
   same guest addresses — the NAT then silently drops one (the gateway still answers ping). Since 583
   the library never takes the default: with no `SandboxSpec.subnet` a NAT sandbox (and a NAT bake)
-  gets a free /24 from 192.168.100–199 (`SubnetPool`: none a host interface is on, none this process
+  gets a free /24 from 192.168.100–199 (`SubnetPool`: none a daemon interface is on, none this process
   holds, tried from a random start); an explicit subnet stays an override. The test hosts still pin
   192.168.201/202.0/24. `hardening subnets` is the test.
 - **Every sandbox VM uses the ONE shared event-loop group** (`SharedEventLoop.group`, 583). Left to
   itself `VZVirtualMachineInstance` makes an 8-thread group and shuts it down only in its own `stop()`,
-  which Hibernate never calls — each VM instance a host made kept 8 threads + 8 kqueues forever (582;
+  which Hibernate never calls — each VM instance a daemon made kept 8 threads + 8 kqueues forever (582;
   thread cap 6,144). `hardening leak` is the regression test (threads, fds, footprint flat).
 - **Quit lets a just-started program settle**. `prepareForExit(settle:)` waits out the rest of 3 s
   since the last `openSession` before it hibernates (580: Claude Code hibernated within ~1 s of its
@@ -106,7 +106,7 @@ One row per area; each area's doc starts with the full table of its files.
   measured) UNLESS the guest needs it (678 B7: an 8 GiB guest ballooned to a quarter wedged under npm installs —
   atomic allocations failed, its OOM killer never ran, so deflate-on-OOM never fired): the reserve is at least half
   plus what runs (`BalloonPressure.reserveMiB`); no inflate while a session reports `working` (it waits for idle);
-  while the balloon holds anything the HOST reads the guest's `/proc/meminfo` every 2 s and deflates at once, from its
+  while the balloon holds anything the DAEMON reads the guest's `/proc/meminfo` every 2 s and deflates at once, from its
   side (VZ's target needs no guest answer), when `MemAvailable` falls under the reserve, a read takes over 3 s, a
   session turns `working` or a session opens. An early deflate leaves the balloon UNCONFIRMED (`balloonDirty`) until
   a deflate sees the guest's `Balloon:` at 0 — a snapshot path throws rather than snapshot it. `hardening balloon-pressure`. `.restoreGuestMemory` runs before every pause-for-snapshot, and `saveSnapshot` deflates
@@ -129,7 +129,7 @@ One row per area; each area's doc starts with the full table of its files.
   root (READDIRPLUS) before binding: the "fresh" mount reuses the live superblock, and without the
   listing the bind picks up a stale dentry — the suite's SECOND wake lost `/work`.
 - **A wake is done when the guest runs** (651, owner: "move them off the critical path"): `wake()` /
-  `restoreAfterCrash()` return — the phase running, the host's answer sent — once the guest runs with its
+  `restoreAfterCrash()` return — the phase running, the daemon's answer sent — once the guest runs with its
   clock re-synced, its shares re-mounted (programs need them) and the snapshot deleted. The rest
   (`LifecyclePlanner.afterWake` / `afterAdoption`: `.applyGuestFixes` — the guest fixes, `refreshDeckhold`, the
   tools layer — then `.returnFreeMemory`) runs in `Sandbox.runAfterWake`, a task of the actor that OWNS the
@@ -139,8 +139,8 @@ One row per area; each area's doc starts with the full table of its files.
   again), a waiting pause only the balloon (`skippedWhenWaiting`). Best effort: a failure is a note, never a failed
   wake. `openSession` and the public `exec` wait for it (`afterWakeSettled()`) — open-session re-applies only the
   open-URL shim and (agent images) the sudo rule, not /etc/hosts, debconf, git, the SSH agent or this build's
-  deckhold — and the host's open-session waits anyway (`refreshWorkspaceViews` takes the gate); an attach does
-  not wait. The event stream ends it with `SandboxEvent.afterWakeDone` (never a client's event): the host's boot
+  deckhold — and the daemon's open-session waits anyway (`refreshWorkspaceViews` takes the gate); an attach does
+  not wait. The event stream ends it with `SandboxEvent.afterWakeDone` (never a client's event): the daemon's boot
   log keeps recording until then (`Managed.bootTail`, `BootRecorder.seal`) and is written after it — its time is
   the wake's to its end, the background steps one "after the wake, in the background" step. `LifecycleTests`.
 - **Connections are identified by object, never by a file descriptor number,** and a closed
@@ -184,13 +184,13 @@ One row per area; each area's doc starts with the full table of its files.
   rename after verifying the new one.
 - **Metadata dates have fractional seconds** (`ImageBaker.encoder`): restore points taken within one
   second must sort in the order they were taken.
-- **A proxied VM has NO NIC; the host proxy is the only way out**. The guest shim decides
+- **A proxied VM has NO NIC; the daemon proxy is the only way out**. The guest shim decides
   nothing. Every boot, crash restore and wake re-registers the proxy's vsock listener
   (`listenForEgress`) — the listener happened to survive a same-process wake in the probe, but a
   crash restore is a new VM.
 - **A real key given to `openSession`/`exec` is moved into the vault** and replaced by a
   placeholder; keep it that way — "keys never enter the sandbox" rests on it.
-- **This Mac's loopback is never a sandbox's** (660): a proxied sandbox's traffic leaves from the host process, so a
+- **This Mac's loopback is never a sandbox's** (660): a proxied sandbox's traffic leaves from the daemon process, so a
   connection the proxy makes to `127.0.0.1`/`localhost`/`::1` IS the Mac's — another sandbox's forwarded web port, a
   database, a local model server. `Wire.connectTCP` refuses a loopback or unspecified address whatever the policy (Open
   included; the tunnel and plain-HTTP paths answer 403 `loopbackRefusal` first), like 606's dashboard ports. The ONLY
@@ -219,7 +219,7 @@ One row per area; each area's doc starts with the full table of its files.
   (`prepareGuest`, from `Sandbox.agentSudo`), every wake (W34: `GuestCommand.guestFixes` — the live-safe
   part of `prepareGuest`: /etc/hosts, debconf Noninteractive, the open-URL shim, the time zone, the sudo
   rule — run as ONE root exec by `LifecycleStep.applyGuestFixes` after a wake from sleep, from
-  hibernation and a restore after a host restart — 651: after the wake is reported done, in its background
+  hibernation and a restore after a daemon restart — 651: after the wake is reported done, in its background
   steps, which a session open waits for; never on a resume from Pause; best effort, a failure
   is noted; NOT the deckhold socket reset or the bind mounts) and every agent session start (`deliverAgentPrompt`), so a
   toggle needs no rebake. The value: `SandboxConfig.agentSudo` (`--[no-]agent-sudo`, `agent_sudo` in
@@ -228,31 +228,37 @@ One row per area; each area's doc starts with the full table of its files.
   it (`sandbox.sudo`, `sudo.description`). **Security: root inside the VM must reach nothing the agent
   cannot** — the boundary is the VM (no NIC; the only way out is the proxy's vsock listener, where the
   policy is judged), the proxy/allow list and the absent credentials (the vault stays on the Mac).
-  Root must never reach: the host's socket or the store (never shared; `Workspace` refuses the store as
+  Root must never reach: the daemon's socket or the store (never shared; `Workspace` refuses the store as
   a workspace), another sandbox (separate VMs, no network between them), the Mac's keychain or login
-  (read only by the host), any other vsock listener on the Mac. `make test-cli-agentsudo` checks:
+  (read only by the daemon), any other vsock listener on the Mac. `make test-cli-agentsudo` checks:
   sudo apt-get install as the agent, `--no-agent-sudo`, the setting at the next boot, and as root: only
   `lo`, a denied host still denied, no vsock listener but the proxy (5800, the positive control), no
-  store or host socket in the guest. Keep any new host-side vsock listener, share or credential path
+  store or daemon socket in the guest. Keep any new daemon-side vsock listener, share or credential path
   out of the guest's reach, and extend that check when one is added.
-- **The `doz` host is the ONE owner of a store's VMs.** It holds `<store>/host.lock` for its
-  whole life and loads nothing before it has it (a new host waits for an exiting one — otherwise it
+- **The `doz` daemon is the ONE owner of a store's VMs.** It holds `<store>/daemon.lock` for its
+  whole life and loads nothing before it has it (a new daemon waits for an exiting one — otherwise it
   would read a record still saying `running` and report a live sandbox as died). The launcher is a
-  detached child with ONLY stdin/stdout/stderr (`POSIX_SPAWN_CLOEXEC_DEFAULT`): a host that inherited
-  a caller's pipe kept a test harness waiting on EOF. No launchd agent.
+  detached child with ONLY stdin/stdout/stderr (`POSIX_SPAWN_CLOEXEC_DEFAULT`): a daemon that inherited
+  a caller's pipe kept a test harness waiting on EOF. No launchd agent. The daemon is the code's "host" (`HostServer`,
+  `HostCore`, `HostClient`, `HostLauncher`, `DozableHost`, the wire protocol's names keep it). TEMPORARY (0.50, until
+  the dated backlog item removes it): `Sources/DozableHost/Migration/HostToDaemon.swift` carries a 0.40 store across —
+  a daemon also takes the older build's `host.lock` (after `daemon.lock`, waiting the same way) and holds both, a client
+  reaches an older daemon on `host.sock`, `host.log` is adopted once, doz.toml's `host.*` are read and moved like a 0.37
+  name, and a 0.40 host's hand-over argv (`host start --launch-detached` / `--foreground --launched`) is taken as
+  `daemon start`; nothing else may name it (`HostToDaemonMigrationTests`), and `make test-vm-upgrade` D/E prove it.
 - **An update must never cost a sleeping sandbox its sessions** (an earlier incident: `make install-cli`
-  overwrote the installed `doz` IN PLACE while a host ran from it; macOS invalidated the process's
-  code and VZ refused every VM with "Internal Virtualization error"; quitting that host then ran the stop
+  overwrote the installed `doz` IN PLACE while a daemon ran from it; macOS invalidated the process's
+  code and VZ refused every VM with "Internal Virtualization error"; quitting that daemon then ran the stop
   steps on two failed wakes and deleted their snapshots). The rules that came of it:
   - **Install by rename, never in place** (`install-cli`: copy + sign as `.doz.new`, `mv` over): a
-    running host keeps its own file (inode). e1af862.
+    running daemon keeps its own file (inode). e1af862.
   - **A quit keeps a failed wake's snapshot** (`prepareForExit`, `.failed` with a restorable state) —
     only Shut Down discards one. e1af862.
-  - **A host knows its own program** (`ExecutableIdentity`: path, inode, device, size, mtime, cdhash at
+  - **A daemon knows its own program** (`ExecutableIdentity`: path, inode, device, size, mtime, cdhash at
     start; `SecCodeCheckValidity` of itself). Overwritten (or its code invalid) → every error of a VM op
-    becomes "this host's program was updated underneath it — `doz host stop`, then retry"
-    (`HostCore.explain`, also on attach), `host status` carries `executableChange`/`executableNote`, and
-    `doctor` FAILS. Replaced by rename → a note; and a host whose program changed exits by itself once
+    becomes "this daemon's program was updated underneath it — `doz daemon stop`, then retry"
+    (`HostCore.explain`, also on attach), `daemon status` carries `executableChange`/`executableNote`, and
+    `doctor` FAILS. Replaced by rename → a note; and a daemon whose program changed exits by itself once
     nothing is live and no client is connected (`idleLoop`), so the next command runs the new build.
   - **Every snapshot records its VM** (`PersistedSandbox.vmLayout`, `VMLayout.of` in
     `PinnedIdentity.configureVZ`: platform + machine id, CPUs, memory, kernel sha256 + file, disks in
@@ -263,12 +269,12 @@ One row per area; each area's doc starts with the full table of its files.
     BEFORE VZ is asked: a difference throws `snapshotNeedsOtherBuild` (keep it asleep and wake it with
     the build that slept it, or Shut Down), and the snapshot is kept. A record without a layout (pre-591)
     is best effort, as before. `VMLayoutTests`.
-  - **`make test-vm-upgrade`** (a /ship gate for any release that touches the VM, the host or the
+  - **`make test-vm-upgrade`** (a /ship gate for any release that touches the VM, the daemon or the
     install): the previous release's `doz` (built once from the latest tag whose tree has `Sources/DozableKit`,
     `prev-cli`; until that first tag, v0.37.0, exists, a COPY of this build — 630, like 592: the releases before the
     Dozable rename keep nothing a 0.37 build reads, by owner ruling) sleeps a lab and a pi sandbox with a running session and markers; this build wakes them — same session pid, screen,
-    file — and then its own recorded layout; then the incident (the running host's file overwritten
-    in place: the host says so, `host stop` keeps the snapshot, this build wakes it) and an idle host
+    file — and then its own recorded layout; then the incident (the running daemon's file overwritten
+    in place: the daemon says so, `daemon stop` keeps the snapshot, this build wakes it) and an idle daemon
     replaced by rename exiting by itself.
 - **Settings are ONE closed schema**. A new user-facing knob is a new entry there — its type,
   default, description, env var, flag and when it applies — never a new ad-hoc env read, localStorage
@@ -294,22 +300,22 @@ One row per area; each area's doc starts with the full table of its files.
   (`settingControl`) has its specimen in the style guide's "Setting controls — every pattern" — a new setting type or a
   new control gets one there in the same commit; a preset-style setting is `settingMatrix` (`components/setting-matrix.js`,
   `defaults.permissions`'s Locked · Standard · Open matrix + its drop-down; Custom shows `permissionSwitches`).
-- **A host never lives in a client's process tree** (an earlier incident, 2026-09-29: a host auto-started by
+- **A daemon never lives in a client's process tree** (an earlier incident, 2026-09-29: a daemon auto-started by
   `doz ui` was the UI's CHILD — own session, but its descendant; a tool that stopped the UI's tree
-  SIGTERMed the host mid-hibernate and a sandbox lost its programs). `HostLauncher.spawn` is the ONE
-  way a host is started for a client (`HostClient.connect(autostart:)`, `doz host start`): a double
-  spawn — an intermediate `doz host start --launch-detached` (own session) spawns the host
+  SIGTERMed the daemon mid-hibernate and a sandbox lost its programs). `HostLauncher.spawn` is the ONE
+  way a daemon is started for a client (`HostClient.connect(autostart:)`, `doz daemon start`): a double
+  spawn — an intermediate `doz daemon start --launch-detached` (own session) spawns the daemon
   (`--foreground --launched`, own session and group, stdin /dev/null, stdout+stderr the log, no other
-  descriptor), prints its pid and exits, so the host's parent is launchd (1). The client still waits
-  for its socket. Only a person's `doz host start --foreground` runs in a caller's tree. `host status`
-  carries `parentPid`, `sessionID`, `launchedDetached`; `doctor` warns when a launched host's parent
+  descriptor), prints its pid and exits, so the daemon's parent is launchd (1). The client still waits
+  for its socket. Only a person's `doz daemon start --foreground` runs in a caller's tree. `daemon status`
+  carries `parentPid`, `sessionID`, `launchedDetached`; `doctor` warns when a launched daemon's parent
   isn't 1. `make test-cli` (`cliHostDetachChecks`) kills a client's group and every descendant (TERM,
-  then KILL) and checks the host, a running sandbox and its session survive.
+  then KILL) and checks the daemon, a running sandbox and its session survive.
 - **Names are never cut; a point is found by what a person types**: a restore point's name is
   stored as given, ≤ `RestorePoint.maximumNameLength` (64; longer is refused with the limit — names live
   only in meta.json, a point's directory is its id). `RestorePoint.resolve`: exact id, exact name
   (newest), else the ONE point whose id or name starts with it — several is an error listing them
-  (`HostCore.resolvePoint`, used by the host and the CLI).
+  (`HostCore.resolvePoint`, used by the daemon and the CLI).
 - **Check, then ask**: a confirming command resolves what it is about first — the sandbox
   (`requireSandbox`), the point (`resolvePointFirst`, then the question names name, id, when; the
   request carries the id), the image/template — so a `[y/N]` is never offered for what would fail.
@@ -317,9 +323,9 @@ One row per area; each area's doc starts with the full table of its files.
   `--no-start`; an older client never does) → `ensureRunning(start:)` runs `lifecycle(.start)` (boot
   view, boot log, metrics); `ExecOutput`/`SessionOpened` carry `started`/`woke`/`bootMilliseconds`.
   `doz create --start`. `make test-cli-points` covers W25–W27.
-- **Looking never starts the host.** Read-only commands answer from the store in-process
-  (`HostCore(readOnly: true)`) unless a host runs — or a record says a VM was live when its host went
-  away, which only a host can recover. A short request does not reset the idle clock; an open
+- **Looking never starts the daemon.** Read-only commands answer from the store in-process
+  (`HostCore(readOnly: true)`) unless a daemon runs — or a record says a VM was live when its daemon went
+  away, which only a daemon can recover. A short request does not reset the idle clock; an open
   attach or stream does.
 - **The attach relay adopts the session BEFORE it answers**, and the client sends what was typed
   ahead of its first connection once it reads that answer (keys typed right after `up` were lost
@@ -341,14 +347,14 @@ One row per area; each area's doc starts with the full table of its files.
   Renewal is the Mac's: the only thing doz may do is run the Mac's own `claude -p` (the
   keep-alive, opt-in). Every secret doz writes to the keychain goes on `security -i`'s STDIN.
 - **Never inject our credential beside the guest's own** (588: the prototype added the Mac's bearer
-  token next to a guest `x-api-key`). Every auth header a host's bindings use counts as "a
+  token next to a guest `x-api-key`). Every auth header a daemon's bindings use counts as "a
   credential is present"; a connection that carried the guest's own credential gets nothing
   injected afterwards. `testNeverInjectBesideTheGuestsOwnCredential` and `make test-vm-claude`.
 - **A foreign credential is a fingerprint, never a value** — 12 hex of sha256, kind, a prefix of at
   most 13 characters — in the log, events, `key ls` and `ls`.
 - **Placeholders persist as sha256 hashes** (`doz.json` `placeholderHashes`, D8) so a session
-  survives a host restart; `shutdown`/`reset`/`rm` revoke them. A stdin key is still memory-only:
-  after a host restart a sandbox holding only one has no secret, and the proxy stops decrypting.
+  survives a daemon restart; `shutdown`/`reset`/`rm` revoke them. A stdin key is still memory-only:
+  after a daemon restart a sandbox holding only one has no secret, and the proxy stops decrypting.
 - **No silent fallback between accounts.** A missing, expired or signed-out credential is
   answered by the proxy itself (401, an Anthropic-shaped JSON error Claude Code shows) with what
   to do — never another account's or an API key's. The account `mac` MEANS whoever is signed in on
@@ -360,7 +366,7 @@ One row per area; each area's doc starts with the full table of its files.
   `--help`, setting descriptions, messages or the dashboard's strings — they belong in comments.
   `make docs-drift-check` runs `Scripts/user-text-check.swift` (and `Scripts/manual-check.swift` on
   `docs/manual`). Shell comments inside guest scripts are exempt: they are part of an image's recipe.
-- **virtio-fs caches:** deleting a file on the HOST that the guest has cached is not visible at once
+- **virtio-fs caches:** deleting a file on the DAEMON that the guest has cached is not visible at once
   — tests use fresh file names (this cost an afternoon of chasing a non-bug).
 
 ## Engineering docs — read the one for the area you touch
@@ -368,7 +374,7 @@ One row per area; each area's doc starts with the full table of its files.
 Each holds one area's rules and its full code map. The rules above apply to every change; an area's own rules
 are in its doc, so read it before changing that area.
 
-- [docs/engineering/engine.md](docs/engineering/engine.md) — the `Sandbox` actor, the lifecycle planner, VZ, disks and restore points, the kernel, deckhold, the host and its client, the CLI, settings' code, the VM suite; a host stop's progress, the guest's time zone
+- [docs/engineering/engine.md](docs/engineering/engine.md) — the `Sandbox` actor, the lifecycle planner, VZ, disks and restore points, the kernel, deckhold, the daemon and its client, the CLI, settings' code, the VM suite; a daemon stop's progress, the guest's time zone
 - [docs/engineering/network.md](docs/engineering/network.md) — subnets, `NetworkPolicy`, the egress proxy and NIOSSL, the credential vault and the CA, doznet, web ports and sign-in from Open, a model server on this Mac
 - [docs/engineering/images-and-bases.md](docs/engineering/images-and-bases.md) — image specs and bakes, Claude Code's launcher, agent tools and versions, an image never rebuilt without the user, Resources, base × agent images, agent permissions
 - [docs/engineering/github-and-access.md](docs/engineering/github-and-access.md) — the Mac's Claude Code login and accounts, agent credentials per agent, GitHub as the user, the Access step
@@ -377,7 +383,7 @@ are in its doc, so read it before changing that area.
 - [docs/engineering/web.md](docs/engineering/web.md) — `doz ui`: the security rules, routes, actions and operations, the page's modules and style, the installable dashboard and restarts, the sandbox pages, browser terminals
 - [docs/engineering/lan.md](docs/engineering/lan.md) — `doz ui --lan`: admission, devices and invites, where it listens, sandboxes never reaching it
 - [docs/engineering/terminal-tui.md](docs/engineering/terminal-tui.md) — what the CLI draws: the colour switch, `Style`, components, `Prompter`, the input seam
-- [docs/engineering/onboarding.md](docs/engineering/onboarding.md) — image preparation in the host, `onboarded.json`, the setup wizard, the environment prompt, `doz_project.yaml`, `doz init`, uninstall
+- [docs/engineering/onboarding.md](docs/engineering/onboarding.md) — image preparation in the daemon, `onboarded.json`, the setup wizard, the environment prompt, `doz_project.yaml`, `doz init`, uninstall
 - [docs/engineering/sessions.md](docs/engineering/sessions.md) — saved screens and the kept layout, boot logs, the session bridges (OSC 52, the browser bridge, tmux, the Ctrl-] menu, workspace files), OSC 7501, painted thumbnails
 - [docs/engineering/updates-and-release.md](docs/engineering/updates-and-release.md) — `BuildFlavor`, anonymous usage statistics and the sign-up, the signed update feed and channels, `make release`, signing, Homebrew
 - [docs/engineering/workspace-rules.md](docs/engineering/workspace-rules.md) — `.dozignore` / `.dozreadonly`: `dozview`, Docker's semantics in C and Swift, modes, the wake
@@ -405,17 +411,17 @@ make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake contai
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
 make test-cli-host   # sessions on this Mac (@mac), no VM: the real deckhold-mac, a scratch store and folder, harmless programs only
-make test-cli-keychainlocked # a host started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned at start, named by account ls and doctor (no VM)
-make test-cli-exectimeout # exec --timeout from doz's start, 124 from the host: the command killed, a start/wake that outlasts it goes on, a stopped client
+make test-cli-keychainlocked # a daemon started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned at start, named by account ls and doctor (no VM)
+make test-cli-exectimeout # exec --timeout from doz's start, 124 from the daemon: the command killed, a start/wake that outlasts it goes on, a stopped client
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
-make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) into a DIRECTORY_DIR (CNAME, .nojekyll, index.json; the update site refused) → a local server standing in for doz.sh → the host's refresh → the next start uses it; doz.sh/… names resolve with no request; tampered refused
+make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) into a DIRECTORY_DIR (CNAME, .nojekyll, index.json; the update site refused) → a local server standing in for doz.sh → the daemon's refresh → the next start uses it; doz.sh/… names resolve with no request; tampered refused
 make test-community-recipes # 653: your own recipes and community catalogues end to end (throwaway keys, a local server): check fails then passes, labels, Dozable's id refused, confirm before fetch, a clash refused whole, tampered refused, removal keeps a sandbox
 make recipe-check RECIPES=all # 617: every recipe for real — build, verify, a fresh try, its check turn against a stand-in provider, keys, leak guard, OSC 7501 states (report: $RECIPE_STORE/report.json)
 make test-cli-codex # 599i: Codex through seams (a fake OpenAI over TLS, the browser seam): Dozable's own ChatGPT sign-in, the swap, the Mac's renewal, no token in the guest, an API key, Alpine (prepares codex + alpine-codex)
 make test-cli-github # 599d: GitHub as the user through seams (a fake GitHub, a fake gh, a throwaway ssh-agent): swap, read-only, push, no leak, identity, key source, off, SSH
 make test-cli-openfiles # 599b: workspace files opened on the Mac through the opener seam — every refusal, isolated, off, --app, URLs as before
 make test-cli-dotfiles # 657: your dotfiles in real VMs — local scratch repositories, the install script and the link pass, Dozable's own untouched, trust refused off a terminal, --update, never applied twice (prepares claude-code)
-make test-cli-files  # 643: doz files — listed/watched on the Mac (no host, rules, a link out refused, nothing woken); isolated listed inside while running
+make test-cli-files  # 643: doz files — listed/watched on the Mac (no daemon, rules, a link out refused, nothing woken); isolated listed inside while running
 make test-vm-cwd     # BUG cwd-after-wake: a program's cwd in /workspace across sleep, hibernate and a new-process restore (the raw share as the control); the passthrough view's cost
 make test-vm-ignore  # 599g: workspace rules (.dozignore lock/hide, .dozreadonly) across boot/pause/sleep/hibernate/new-process restore, reload, folding, kills (scratch store); then test-vm-agentwrite
 make test-vm-agentwrite # the agent (a non-root image user) writes shared workspaces through the view: Dozable-made, 755/644, 700/600, rules; git; rules still refused; sleep/hibernate (also run by test-vm-cwd)
@@ -427,11 +433,11 @@ make deckhold / deckhold-verify / deckhold-snapshot-check # the guest PTY holder
 make deckhold-mac / deckhold-mac-check # deckhold built for THIS Mac (sessions on the Mac; not committed, shipped beside doz in the CLI tarball only) / the status, grid, snapshot checks + mac-smoke.sh
 make deckhold-status-check # 612: deckhold's OSC 7501 consumer — the query answered, the records' rules and limits, invalid input, every cut offset + a fuzz
 make deckhold-grid-check # 648: deckhold's GRID — every row's text is the holder's screen, colours/flags/cursor, the gen, the limits, the announcement (+ a fuzz)
-make test-cli-grids  # 648: session-grids through a real host — a coloured session's grid, unchanged/moved gens, asleep stays asleep with a saved grid, no host starts nothing
+make test-cli-grids  # 648: session-grids through a real daemon — a coloured session's grid, unchanged/moved gens, asleep stays asleep with a saved grid, no daemon starts nothing
 make test FILTER=Suite # the matching unit tests only (swift test --filter)
-make test-cli-startup  # the cost of a start: ls/sessions/exec/attach build no recipe part (DOZ_TEST_STARTUP_TRACE=1); doz ls --json median <= 60 ms, <= 1 s under taskpolicy -b; doctor's priority warning; a host started from the background leaves it (scratch store, no VM)
-make test-vm-status  # 612: a FAKE agent's status through deckhold, the host and the CLI — no viewer and a viewer, sleep/hibernate + wake, the exit, shutdown (scratch store)
-make test-cli-hoststop # 594 W22: test-cli's host-stop part alone (per-sandbox progress plain/animated, --json, nothing running, a host killed mid-stop)
+make test-cli-startup  # the cost of a start: ls/sessions/exec/attach build no recipe part (DOZ_TEST_STARTUP_TRACE=1); doz ls --json median <= 60 ms, <= 1 s under taskpolicy -b; doctor's priority warning; a daemon started from the background leaves it (scratch store, no VM)
+make test-vm-status  # 612: a FAKE agent's status through deckhold, the daemon and the CLI — no viewer and a viewer, sleep/hibernate + wake, the exit, shutdown (scratch store)
+make test-cli-hoststop # 594 W22: test-cli's host-stop part alone (per-sandbox progress plain/animated, --json, nothing running, a daemon killed mid-stop)
 make pullbench       # 594 D12: the node base pulled with 3 vs 6 concurrent layer downloads, fresh stores (network)
 ```
 

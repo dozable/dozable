@@ -517,7 +517,7 @@ enum AttachClient {
                 reply = nil
             }
             guard let reply, reply.ok != nil else {
-                if first { sayLast("the host closed the connection"); endAttach(.lost(DozableExit.dozableFailed)); return takeEnd() ?? .lost(DozableExit.dozableFailed) }
+                if first { sayLast("the daemon closed the connection"); endAttach(.lost(DozableExit.dozableFailed)); return takeEnd() ?? .lost(DozableExit.dozableFailed) }
                 usleep(500_000)
                 continue
             }

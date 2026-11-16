@@ -12,7 +12,7 @@ final class ProcessPriorityTests: XCTestCase {
                        "doz runs at background priority (pri 4) — it and everything it starts run slowly; start it from a normal terminal, or move it out: taskpolicy -B -p 42")
         let q = ProcessPriority(background: false, qos: "background", pri: nil)
         XCTAssertTrue(q.clamped)
-        XCTAssertEqual(q.warning("the host", pid: 7)?.hasPrefix("the host runs at background QoS — "), true)
+        XCTAssertEqual(q.warning("the daemon", pid: 7)?.hasPrefix("the daemon runs at background QoS — "), true)
         XCTAssertFalse(ProcessPriority(background: false, qos: "utility", pri: 20).clamped, "utility is ordinary")
         XCTAssertNil(ProcessPriority(background: false, qos: "user-initiated", pri: 31).warning("doz", pid: 1))
     }

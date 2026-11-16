@@ -8,7 +8,7 @@ export const VERBS = {
   start: ['Start', 'Boot it (cold boot) — or wake / resume it'],
   pause: ['Pause', 'Suspend: guest CPU to 0 in ~1 ms, RAM kept'],
   resume: ['Resume', 'Run again after a pause'],
-  sleep: ['Sleep', 'Pause + snapshot to disk: RAM kept, survives a host crash'],
+  sleep: ['Sleep', 'Pause + snapshot to disk: RAM kept, survives a daemon crash'],
   hibernate: ['Hibernate', 'Snapshot and stop the VM — RAM returned; wake in ~0.3 s'],
   wake: ['Wake', 'Back from sleep or hibernation, sessions where they were'],
   shutdown: ['Shut down', 'Cold stop, keeping the disk (running programs end)'],

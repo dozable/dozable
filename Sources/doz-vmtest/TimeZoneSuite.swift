@@ -11,7 +11,7 @@ func cliTimeZoneSuite(binary: String) async {
     try? "Australia/Sydney\n".write(to: zoneFile, atomically: true, encoding: .utf8)
     t.env["DOZ_TEST_MAC_TIMEZONE"] = zoneFile.path
     defer {
-        t.run(["host", "stop"])
+        t.run(["daemon", "stop"])
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: the sandbox follows the Mac's time zone (W10)")

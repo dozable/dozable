@@ -7,7 +7,7 @@ import XCTest
 @testable import DozableHost
 
 /// 598 — the Homebrew release: the version stamp beside the executable, a Homebrew keg recognised
-/// (and never removed by `doz uninstall`), `doz host upgrade-check`, and a host refusing to boot once
+/// (and never removed by `doz uninstall`), `doz daemon upgrade-check`, and a host refusing to boot once
 /// an upgrade removed its program. No VM, no Homebrew, no network.
 final class ReleaseTests: XCTestCase {
     private var dir: URL!
@@ -85,7 +85,7 @@ final class ReleaseTests: XCTestCase {
 
     func testUpgradeCheckWithNoHostSaysSoAndExitsZero() throws {
         let store = dir.appendingPathComponent("store")
-        let cmd = try DozableCommand.parseAsRoot(["host", "upgrade-check", "--store", store.path, "--json"])
+        let cmd = try DozableCommand.parseAsRoot(["daemon", "upgrade-check", "--store", store.path, "--json"])
         XCTAssertTrue(cmd is HostUpgradeCheck)
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.path), "parsing makes nothing")
     }
@@ -108,7 +108,7 @@ final class ReleaseTests: XCTestCase {
             r.create = CreateOptions(image: "lab")
             let m = await core.handle(r)
             XCTAssertEqual(m.error?.code, .unavailable, "\(op)")
-            XCTAssertTrue(m.error?.message.contains("doz host stop") ?? false, "\(op): \(m.error?.message ?? "")")
+            XCTAssertTrue(m.error?.message.contains("doz daemon stop") ?? false, "\(op): \(m.error?.message ?? "")")
         }
         let ls = await core.handle(HostRequest(.ls))
         XCTAssertEqual(ls.ok, true, "reading still works")

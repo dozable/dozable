@@ -154,7 +154,7 @@ sandboxed agent is told so). The rules are a guard against accidents, not a secu
 | what happened | what to tell your agent |
 |---|---|
 | a `doz` command seems to hang | "Use `doz exec`, `doz run --detach` and `doz sessions --screen`, never an interactive `doz attach` or `doz up`." |
-| exit code 6 (host unavailable) | "Run `doz doctor --json` and tell me what it says." |
+| exit code 6 (daemon unavailable) | "Run `doz doctor --json` and tell me what it says." |
 | a site is refused | "Show me `doz net NAME --json` and the suggestion; I'll decide." |
 | the sandbox is in a state you didn't expect | "Show me `doz ls --json` and `doz inspect NAME --json`." |
 

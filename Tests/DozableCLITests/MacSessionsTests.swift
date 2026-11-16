@@ -310,7 +310,7 @@ final class MacSessionsEnvironmentTests: XCTestCase {
         XCTAssertEqual(Set(e.keys), ["HOME", "USER", "LOGNAME", "SHELL", "TMPDIR", "LANG", "LC_CTYPE", "SSH_AUTH_SOCK", "TERM", "COLORTERM", "PATH"])
         XCTAssertEqual(e["TERM"], "xterm-256color")
         XCTAssertEqual(e["COLORTERM"], "truecolor")
-        XCTAssertEqual(e["PATH"], "/usr/bin:/bin", "never the host's PATH")
+        XCTAssertEqual(e["PATH"], "/usr/bin:/bin", "never the daemon's PATH")
     }
 
     func testThePersonsVariables_butNeverTheMarkers() throws {

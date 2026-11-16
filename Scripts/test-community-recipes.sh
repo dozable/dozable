@@ -33,7 +33,7 @@ STORE="$R/store"
 mkdir -p "$R/codex" "$R/xdg/doz" "$STORE" "$R/projects" "$R/pub" "$R/pub2" "$R/www"
 printf '[store]\npath = "%s"\n\n[defaults]\nprojects_dir = "%s"\n' "$STORE" "$R/projects" > "$R/xdg/doz/doz.toml"
 cleanup() {
-    "$DOZ" host stop --store "$STORE" >/dev/null 2>&1 || true
+    "$DOZ" daemon stop --store "$STORE" >/dev/null 2>&1 || true
     if [[ -n "$server" ]]; then kill "$server" 2>/dev/null || true; wait "$server" 2>/dev/null || true; fi
     [[ -n "${KEEP:-}" ]] || rm -rf "$R"
 }
@@ -131,7 +131,7 @@ run recipe trust comtool
 check "doz recipe trust comtool says yes for this version" bash -c "[ $rc = 0 ] && grep -q '\"comtool\"' '$RECIPES/trusted.json'"
 run create c1 --agent comtool
 check "  … then the sandbox is made" bash -c "[ $rc = 0 ] && grep -q '^created c1: comtool' '$R/out'"
-d host stop >/dev/null 2>&1 || true
+d daemon stop >/dev/null 2>&1 || true
 
 # ── 3. a second source with the same id is refused whole ─────────────────────
 KEYOUT2="$(swift Scripts/update-key.swift community-key "$R/key2")"
@@ -155,9 +155,9 @@ check "example publishes serial 2" pubc "$R/pub" "$R/key" "$R/site"
 cp -R "$R/site/v1/." "$R/www/one/v1/"
 printf ' ' >> "$R/www/one/v1/recipes/2/agents/comtool.json"
 rm -f "$RECIPES/community/example/state.json"
-d host start >/dev/null
-check "the host's refresh refuses serial 2 (a file does not match its sha256), said in its log" waitfor "grep -q 'community recipes example: catalogue 2 was ignored: agents/comtool.json does not match its sha256' '$STORE/host.log'"
-d host stop >/dev/null 2>&1 || true
+d daemon start >/dev/null
+check "the host's refresh refuses serial 2 (a file does not match its sha256), said in its log" waitfor "grep -q 'community recipes example: catalogue 2 was ignored: agents/comtool.json does not match its sha256' '$STORE/daemon.log'"
+d daemon stop >/dev/null 2>&1 || true
 check "  … nothing waits; serial 1 stays in use" bash -c "[ ! -e '$RECIPES/community/example/next.json' ] && [ ! -e '$RECIPES/community/example/files/2' ] && grep -Eq '\"serial\": *1,' '$RECIPES/community/example/current.json'"
 
 # ── 5. removal never breaks a sandbox ────────────────────────────────────────
