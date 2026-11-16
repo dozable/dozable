@@ -161,6 +161,19 @@ nothing to start at login. A new install's `doz onboard` asks "Start Dozable whe
 answers it). Over ssh, a command that needs the daemon starts it in your desktop session through the login item, and
 `doz daemon restart` never replaces a daemon started from your desktop with one that could not read the Keychain.
 
+### The menu bar app
+
+doz comes with a small menu bar app, Dozable.app: the daemon's state at a glance, Start, Stop and Restart, and Open
+Dashboard. Nothing is added to your Mac until you ask for it:
+
+```sh
+doz app install          # puts Dozable.app in /Applications (or ~/Applications), then open it from Finder
+doz app install --open   # … and opens it
+```
+
+The app updates with doz: after `doz upgrade` its menu offers **Update Menu Bar App**. See
+[The menu bar app](35-the-menu-bar-app.md).
+
 ### The background process is now called the daemon
 
 The background process that runs your sandboxes is called **the daemon**, and its commands are `doz daemon start|stop|restart|status|upgrade-check`. The old command name `host` no longer exists (there is no alias: doz answers it with `unexpected arguments: 'host', …`), and `DOZ_HOST_IDLE` is replaced by `DOZ_DAEMON_IDLE`. A 0.40 store and its settings are carried over automatically, once: the first daemon takes over the old lock and log, the `host.*` settings are read and written back as `daemon.*` the next time `doz.toml` is saved, and an older daemon that is still running keeps serving until it exits by itself when idle (or until `doz daemon stop` switches).
@@ -224,7 +237,8 @@ brew uninstall doz
 - **the store**: every sandbox, image, kernel and restore point, and the daemon's log and metrics;
 - **the settings folder**: `doz.toml` and `agent-prompt.md`;
 - **the login item**, if you added one (`doz daemon login-item on`) — only this store's; another store's is listed
-  and left alone.
+  and left alone;
+- **the menu bar app**, if you installed it (`doz app install`) — it is quit first. `doz app uninstall` removes only it.
 
 Run `doz uninstall` BEFORE `brew uninstall doz` (Homebrew's note says so): a login item left behind only fails
 harmlessly at each login, but it is yours to remove (`doz daemon login-item off`, or delete the plist).
@@ -287,6 +301,7 @@ Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same ti
 | `brew install` says another doz formula is installed | One channel at a time: `doz upgrade --channel …` switches (or `brew uninstall` the other first). |
 | "the update feed was ignored" / "do not verify" | Nothing is installed from it; doz keeps working. If it persists, check your network isn't rewriting `updates.dozable.com`. |
 | `doz: command not found` | `brew list doz`, then open a new terminal window. |
+| The menu bar app says doz is not installed | It looks for doz at `/opt/homebrew/bin/doz`, `/usr/local/bin/doz` and `~/.local/bin/doz` — install doz there (Homebrew does). |
 | "this daemon's program … is gone — an upgrade removed it" | `doz daemon stop`, then run your command again. |
 | "cannot boot a VM" or a message about the entitlement | `doz doctor`. Reinstall: `brew reinstall doz`. |
 | Start over, keeping doz installed | `doz nuke`, then `doz onboard`. |
