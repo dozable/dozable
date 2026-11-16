@@ -915,6 +915,11 @@ Task {
             // 694: the daemon's login item — a scratch LaunchAgents folder and a fake launchctl (no VM).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliDaemonSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-app":
+            // The menu bar app with no screen: --dump-menu / --run-action against the real doz and fake ones; doz app (no VM).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            let app = args.firstIndex(of: "--app").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/Dozable.app"
+            await cliAppSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path, app: URL(fileURLWithPath: app).standardizedFileURL.path)
         case "cli-hoststop":
             // 594 W22: only `doz daemon stop`'s progress part of `cli` (a store of its own).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"

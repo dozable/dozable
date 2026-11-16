@@ -683,6 +683,20 @@ no daemon runs, so **looking never starts one**. If it crashes, the next command
 sleeping sandboxes are restored with their sessions, hibernated ones are untouched, and running
 ones are reported as died with their disk checked at the next start.
 
+### The menu bar app
+
+```bash
+doz app install [--dest DIR] [--open]   # put Dozable.app (it comes with doz) in /Applications — or ~/Applications, or DIR
+doz app status                          # the copy that came with doz, the installed ones, which run (changes nothing)
+doz app uninstall [--dest DIR] [--yes]  # quit and remove the installed app (the daemon keeps running)
+```
+
+Dozable.app shows the daemon's state in the menu bar, starts, stops and restarts it, and opens the
+dashboard — by running `doz` itself, so it follows every rule the commands follow. It comes with doz and
+updates with it: after `doz upgrade`, its menu offers "Update Menu Bar App", which is `doz app install --open`.
+The install is verified first (signature, identifier, version) and swapped in by rename. `doz uninstall`
+removes it too.
+
 ### Updates
 
 ```bash

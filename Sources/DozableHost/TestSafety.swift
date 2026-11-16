@@ -103,6 +103,26 @@ public enum TestSafety {
             + "cancels the copy every running Claude Code holds; give it a fake one (DOZ_TEST_CLAUDE_BIN)"
     }
 
+    /// The real folders a menu bar app is installed into: `/Applications` and the REAL home's `~/Applications`.
+    public static func realApplicationsFolders(home: URL = realHome) -> [URL] {
+        [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications").standardizedFileURL]
+    }
+
+    /// Why installing into, removing from or looking in `dir` for the menu bar app is refused in a guarded run (nil:
+    /// allowed) — `/Applications`, the real `~/Applications`, or anything inside either. A guarded run uses `--dest` or its
+    /// seam (`DOZ_TEST_APPLICATIONS_DIR`, a scratch folder the Makefile sets for every test target).
+    public static func applicationsViolation(_ dir: URL, home: URL = realHome) -> String? {
+        let d = dir.standardizedFileURL.resolvingSymlinksInPath().path
+        let plain = dir.standardizedFileURL.path
+        for real in realApplicationsFolders(home: home) {
+            let r = real.resolvingSymlinksInPath().path
+            if d == r || d.hasPrefix(r + "/") || plain == real.path || plain.hasPrefix(real.path + "/") {
+                return "a test reached \(real.path) (\(dir.path)) — give it a scratch folder (--dest, or DOZ_TEST_APPLICATIONS_DIR)"
+            }
+        }
+        return nil
+    }
+
     /// Stop a guarded run that is about to do what `violation` describes.
     public static func enforce(_ violation: String?, env: [String: String] = ProcessInfo.processInfo.environment) {
         guard let violation, guarded(env) else { return }

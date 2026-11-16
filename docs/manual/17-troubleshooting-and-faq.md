@@ -36,6 +36,11 @@ Add `-v` to any command to see every step it takes.
 | "this daemon's program … is gone — an upgrade removed it" | `doz daemon stop`, then retry. |
 | "this daemon's program was updated underneath it" | `doz daemon stop`, then retry. |
 | "note: the doz daemon is X (this doz is Y)" | A daemon of the previous version still runs and answered: `doz daemon stop` (sandboxes hibernate, and wake on the new version). |
+| The menu bar app says "doz is not installed" | It looks for doz at `/opt/homebrew/bin/doz`, `/usr/local/bin/doz` and `~/.local/bin/doz`. Install doz with Homebrew (or `make install-cli`, which puts it in `~/.local/bin`). See [The menu bar app](35-the-menu-bar-app.md). |
+| The menu bar app says doz is older than it needs | `doz upgrade -y`. Until then the menu still shows the daemon's state and offers Start, Stop, Restart and Open Dashboard. |
+| The menu bar app says "Daemon started from ssh — it cannot read your Keychain" | The daemon was started over ssh, so it cannot read your Claude login. Choose **Restart Daemon** in the menu (or `doz daemon restart` in Terminal on the Mac): the new one starts in your desktop session. |
+| The menu bar app says "Daemon runs an older build" | doz was upgraded while the daemon ran. **Restart Daemon** switches it (running sandboxes hibernate and wake on the new version). |
+| `doz app install` says the copy "does not verify" | The app beside doz was changed after it was signed. Reinstall doz (`brew reinstall doz`, or a fresh tarball), then `doz app install` again. |
 
 ### Starting and waking
 

@@ -129,6 +129,10 @@ daemon/restart
 daemon/status
 daemon/login-item
 daemon/upgrade-check
+app
+app/install
+app/status
+app/uninstall
 ui
 ui/link
 ui/restart

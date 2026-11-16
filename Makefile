@@ -68,7 +68,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test test-cli-alwayson test-cli-daemon test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test app test-cli-app test-cli-alwayson test-cli-daemon test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -107,6 +107,10 @@ $(TEST_TARGETS): export DOZ_DAEMON_IDLE := $(or $(DOZ_DAEMON_IDLE),5)
 # process that would reach either anyway. `make test-cli-daemon` sets its own (a recording fake, a folder of its own).
 $(TEST_TARGETS): export DOZ_TEST_LAUNCH_AGENTS_DIR := $(TEST_SCRATCH)-launchagents
 $(TEST_TARGETS): export DOZ_TEST_LAUNCHCTL := $(CURDIR)/Scripts/launchctl-refuse.sh
+# The menu bar app: no test run ever installs into, removes from or looks in /Applications or ~/Applications — a SCRATCH
+# folder for every test target (forced, outside the REAL_MAC block like the login item's). `TestSafety` stops a guarded
+# `doz app install|uninstall` that would reach a real one anyway.
+$(TEST_TARGETS): export DOZ_TEST_APPLICATIONS_DIR := $(TEST_SCRATCH)-applications
 
 # The scratch settings file every test target starts from (written once; a test that changes it keeps its own).
 test-safety:
@@ -238,7 +242,18 @@ cli: ## Build the doz CLI and sign it with the virtualization entitlement (.buil
 	    && mv -f "$(dir $(CLI_BIN)).deckhold-mac.new" "$(dir $(CLI_BIN))deckhold-mac"; \
 	else echo "note: deckhold-mac not built (no pinned toolchain in .tools — make deckhold once)"; fi
 
-install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.local): bin/doz → libexec/doz/
+# The menu bar app (docs/engineering/menu-bar-app.md): the `Dozable` product assembled into .build/debug/Dozable.app —
+# beside .build/debug/doz, where `doz app install` finds the copy it installs — and signed AD HOC, always (hardened
+# runtime, the identifier, no entitlements): never the Developer ID from Makefile.config, which only `make release` uses.
+# It is never opened here: `make test-cli-app` drives it through --dump-menu and --run-action only.
+APP_BUNDLE := .build/debug/Dozable.app
+app: ## Build the menu bar app, assemble .build/debug/Dozable.app, sign it ad hoc (never opened; doz app install --dest DIR installs it)
+	swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS) --product Dozable
+	Scripts/assemble-app.sh --exe .build/debug/Dozable --version "$$(cat VERSION)" --out .build/debug
+	codesign --force --sign - --options runtime --identifier com.dozable.app $(APP_BUNDLE)
+	codesign --verify --strict $(APP_BUNDLE)
+
+install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.local): bin/doz → libexec/doz/ (+ the menu bar app's copy, libexec/doz/Dozable.app)
 	swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS) -c release --product doz
 	codesign --force --sign - --entitlements Scripts/doz.entitlements .build/release/doz
 	mkdir -p "$(PREFIX)/bin" "$(PREFIX)/libexec/doz"
@@ -259,6 +274,16 @@ install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.lo
 	    && codesign --force --sign - "$(PREFIX)/libexec/doz/.deckhold-mac.new" \
 	    && mv -f "$(PREFIX)/libexec/doz/.deckhold-mac.new" "$(PREFIX)/libexec/doz/deckhold-mac"; \
 	else echo "note: deckhold-mac not installed (no pinned toolchain in .tools — make deckhold once)"; fi
+	@# The menu bar app's copy beside doz (what `doz app install` installs), by rename too: assembled and signed as
+	@# .Dozable.app.new, the old one moved aside, the new one renamed in, the old one removed.
+	swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS) -c release --product Dozable
+	rm -rf "$(PREFIX)/libexec/doz/.Dozable.app.new" "$(PREFIX)/libexec/doz/.Dozable.app.old"
+	mkdir -p "$(PREFIX)/libexec/doz/.Dozable.app.new"
+	Scripts/assemble-app.sh --exe .build/release/Dozable --version "$$(cat VERSION)" --out "$(PREFIX)/libexec/doz/.Dozable.app.new"
+	codesign --force --sign - --options runtime --identifier com.dozable.app "$(PREFIX)/libexec/doz/.Dozable.app.new/Dozable.app"
+	@if [ -e "$(PREFIX)/libexec/doz/Dozable.app" ]; then mv "$(PREFIX)/libexec/doz/Dozable.app" "$(PREFIX)/libexec/doz/.Dozable.app.old"; fi
+	mv "$(PREFIX)/libexec/doz/.Dozable.app.new/Dozable.app" "$(PREFIX)/libexec/doz/Dozable.app"
+	rm -rf "$(PREFIX)/libexec/doz/.Dozable.app.new" "$(PREFIX)/libexec/doz/.Dozable.app.old"
 	ln -sf "$(PREFIX)/libexec/doz/doz" "$(PREFIX)/bin/doz"
 	@echo "installed $(PREFIX)/bin/doz — run: doz doctor"
 	@"$(PREFIX)/libexec/doz/doz" daemon status 2>/dev/null | grep -q '^daemon .* running' \
@@ -351,6 +376,9 @@ test-cli-alwayson: cli vmtest-host ## The always-on daemon (also in test-cli), n
 
 test-cli-daemon: cli vmtest-host ## The daemon's login item (also in test-cli), no VM, a scratch LaunchAgents folder and a FAKE launchctl (Scripts/fake-launchctl.py — never the real ones): ask writes nothing; on → one plist (stable doz, no KeepAlive) + bootstrap; the job starts a daemon with parent 1 and exits; held by daemon stop; a locked daemon replaced; a locked client kickstarts; a locked restart refused; the stable path after a keg upgrade; always_on off removes it; nuke/uninstall remove only this label; the menu bar app's job wins
 	perl -e 'alarm shift; exec @ARGV' 600 $(VMTEST_BIN) cli-daemon --doz $(CLI_BIN)
+
+test-cli-app: cli app vmtest-host ## The menu bar app with no screen (no VM): --dump-menu with no doz, a fresh store (nothing registered); --run-action start → a daemon with parent 1 that outlives the app's process group; stop → held; a FAKE old doz → what still works; the dashboard through the browser seam (one open line, no link anywhere); doz replaced by rename → the next dump; doz app install|status|uninstall --dest a scratch folder (verified, quarantine gone, swapped by rename, a tampered copy refused) and doz uninstall removing it
+	perl -e 'alarm shift; exec @ARGV' 600 $(VMTEST_BIN) cli-app --doz $(CLI_BIN) --app $(APP_BUNDLE)
 
 test-cli-hoststop: cli vmtest-host ## 594 W22: only test-cli's daemon-stop part (the target keeps its name) — doz host unknown, each sandbox's line (plain off a terminal, animated on a pty), --json, nothing running, a daemon killed mid-stop
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-hoststop --doz $(CLI_BIN)

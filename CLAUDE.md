@@ -27,6 +27,7 @@ of; "DeckStack" and "Deckosaurus" are sibling projects some techniques were take
 | `doz` (executable, 585) | `doz` → `DozableCLI` (commands) → `DozableHost` (the daemon + its client); 637: `DozableCLI` → `DozableTUI` (terminal components, the colour switch — Foundation + Darwin only, audit) | `DozableKit`; `swift-argument-parser` (`ArgumentParser`) in `DozableCLI`/`doz` ONLY; the system `SQLite3` in `DozableHost` (metrics); `jpsim/Yams` **exact** `6.2.2` in `DozableCLI` ONLY (`doz_project.yaml` — the audit enforces the pin and the confinement); 667: the system's `AVFoundation` in `DozableHost/Microphone.swift` ONLY (the microphone's permission — never a capture; audit) |
 | — (not a product) | `DozableWeb` — `doz ui`'s server and page (645: one server — this Mac's browser and, with the LAN option, the network's) | `DozableHost`; `swift-nio` `NIOCore`/`NIOPosix`/**`NIOHTTP1`**/**`NIOWebSocket`** (both ONLY here — the audit enforces it); the system's **`dnssd`** (Bonjour) in `WebBonjour.swift` ONLY (audit); resource `Resources/Web` (generated, committed). `DozableCLI`'s `UICommand.swift` alone imports `CoreServices` (LaunchServices opens the browser) |
 | — (not a product) | `doz-vmtest` — the entitled VM test host | `DozableKit`, `DozableHost` (the `cli` mode decodes `--json` with its types) |
+| `Dozable` (executable: the menu bar app, `Dozable.app`) | `DozableMenuBar` (AppKit, there ONLY) → `DozableMenuBarCore` (Foundation, Security, os) | nothing of this package and no package — it runs the `doz` command (the audit holds it) |
 
 The Containerization pin is EXACT on purpose: the sleep design leans on its internals' shape —
 `LinuxContainer.withVirtualMachineInstance` handing out a `VZVirtualMachineInstance`, the
@@ -56,6 +57,7 @@ One row per area; each area's doc starts with the full table of its files.
 | Tools layer, tmux, dotfiles | `Guest/tmux/`, `Dotfiles.swift` | [tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) |
 | Files | `WorkspaceFileList`, `WorkspaceFileChange`, `FileWatch`, `EditorApps`, `WebFiles` | [files.md](docs/engineering/files.md) |
 | Sound | `Audio.swift`, `DozSound.swift`, `MacAudio`, `Microphone`, `Guest/sound-kernel/` | [sound.md](docs/engineering/sound.md) |
+| The menu bar app | `Sources/DozableMenuBarCore/`, `Sources/DozableMenuBar/`, `Resources/MenuBar/`, `Scripts/assemble-app.sh`, `AppCommands.swift` (`doz app`) | [menu-bar-app.md](docs/engineering/menu-bar-app.md) |
 
 ## Rules that each cost a bug to learn (keep them, and keep their tests)
 
@@ -318,6 +320,7 @@ One row per area; each area's doc starts with the full table of its files.
   carries `parentPid`, `sessionID`, `launchedDetached`; `doctor` warns when a launched daemon's parent
   isn't 1. `make test-cli` (`cliHostDetachChecks`) kills a client's group and every descendant (TERM,
   then KILL) and checks the daemon, a running sandbox and its session survive.
+- **The menu bar app is a client of the doz COMMAND** (`--json`, an absolute path, an argv — never a shell —, a cap and a timeout), never of the socket or the engine; it never sees a dashboard link (`doz ui`'s output goes to /dev/null, never `--print-url`); it registers nothing without a click; it installs by rename, verified first (`doz app install`); a test never shows its menu or touches /Applications (`TestSafety.applicationsViolation`). `MenuModelTests`, `CommandRunnerTests`, `AppInstallTests`, `make test-cli-app`.
 - **Names are never cut; a point is found by what a person types**: a restore point's name is
   stored as given, ≤ `RestorePoint.maximumNameLength` (64; longer is refused with the limit — names live
   only in meta.json, a point's directory is its id). `RestorePoint.resolve`: exact id, exact name
@@ -401,14 +404,14 @@ are in its doc, so read it before changing that area.
 - [docs/engineering/tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) — the tools layer (gh, tmux 3.8, …) and the person's dotfiles
 - [docs/engineering/files.md](docs/engineering/files.md) — the file watcher (`files-list`, `doz files`, the files routes) and the Files tab's changes, Open in an editor
 - [docs/engineering/sound.md](docs/engineering/sound.md) — `sandbox.audio`, the sound kernel (GPL-2.0, ours), the microphone's permission
+- [docs/engineering/menu-bar-app.md](docs/engineering/menu-bar-app.md) — Dozable.app: the doz command as its only interface, the menu's state table, refresh, `doz app install`, the seams
 
 ## Verifying changes
 
 ```bash
 make build     # swift build — Xcode 27 needs the --build-system native pin the Makefile probes for
 make test      # unit tests: no VM, no entitlement. Never --parallel. (web-assets-check first)
-make web-assets        # 590: regenerate Sources/DozableWeb/Resources/Web after editing WebSource/ (commit it)
-make css-lint          # 647: the stylesheet's rules (in make test); make css-perf: its cost in headless Chrome vs the baseline
+make web-assets        # 590: regenerate Sources/DozableWeb/Resources/Web after editing WebSource/ (commit it); make css-lint (647, in make test): the stylesheet's rules; make css-perf: its cost in headless Chrome
 make audit     # Scripts/audit.sh
 make test-vm   # the VM integration suite — see below
 make cli       # 585: build + sign .build/debug/doz
@@ -417,10 +420,9 @@ make test-vm-claude  # 588: Claude credentials through the proxy with a FAKE key
 make test-vm-upgrade # 591: the previous release sleeps sandboxes, this build wakes them; the in-place overwrite incident (scratch store $TMPDIR/doz-upgrade-store)
 make test-vm-templates # 593: templates and duplicates on pi — no state disk in a template; duplicate's workspace and fresh/copied state disk
 make test-cli-onboarding # 594: test-cli's onboarding part alone (onboard, a joining start, detach/cancel, init/up, the agent prompt, uninstall)
-make test-cli-timezone # 594 W10: the Mac's (stubbed) zone at boot and every wake, or sandbox.timezone
 make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake container, the real container build (SKIPs unless Apple's services run; BASES_START_BUILDER=1), the VM matrix (BASES_PARTS=…)
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
-make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
+make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox; make test-cli-timezone (W10): the Mac's (stubbed) zone at boot and every wake, or sandbox.timezone
 make test-cli-host   # sessions on this Mac (@mac), no VM: the real deckhold-mac, a scratch store and folder, harmless programs only
 make test-cli-keychainlocked # a daemon started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned, named by account ls and doctor, never always on, a locked restart refused, replaced by the login item's look, never runs the keep-alive (no VM); make test-cli-alwayson: on by default, off at once, restarted in place after an install; make test-cli-daemon: the login item, no VM, a scratch LaunchAgents folder + a FAKE launchctl (never the real ones) — rows 1–12 in engine.md
 make test-cli-exectimeout # exec --timeout from doz's start, 124 from the daemon: the command killed, a start/wake that outlasts it goes on, a stopped client
@@ -434,31 +436,28 @@ make test-cli-openfiles # 599b: workspace files opened on the Mac through the op
 make test-cli-dotfiles # 657: your dotfiles in real VMs — local scratch repositories, the install script and the link pass, Dozable's own untouched, trust refused off a terminal, --update, never applied twice (prepares claude-code)
 make test-cli-files  # 643: doz files — listed/watched on the Mac (no daemon, rules, a link out refused, nothing woken); isolated listed inside while running
 make test-vm-cwd     # BUG cwd-after-wake: a program's cwd in /workspace across sleep, hibernate and a new-process restore (the raw share as the control); the passthrough view's cost
-make test-vm-ignore  # 599g: workspace rules (.dozignore lock/hide, .dozreadonly) across boot/pause/sleep/hibernate/new-process restore, reload, folding, kills (scratch store); then test-vm-agentwrite
-make test-vm-agentwrite # the agent (a non-root image user) writes shared workspaces through the view: Dozable-made, 755/644, 700/600, rules; git; rules still refused; sleep/hibernate (also run by test-vm-cwd)
-make dozview / dozview-verify # 599g: rebuild the guest view daemon (pinned Zig) / check the committed bytes
-make tmux / tmux-verify # 658: rebuild the guest tmux 3.8 (pinned Zig, sha256-pinned tmux/libevent/ncurses) / check the committed bytes
+make test-vm-ignore  # 599g: workspace rules (.dozignore lock/hide, .dozreadonly) across boot/pause/sleep/hibernate/new-process restore, reload, folding, kills (scratch store); then test-vm-agentwrite (also alone, and run by test-vm-cwd): the agent (a non-root image user) writes shared workspaces through the view
+make dozview / dozview-verify / tmux / tmux-verify # 599g, 658: rebuild the guest view daemon / the guest tmux 3.8 (pinned Zig, sha256-pinned sources) / check the committed bytes
 make sound-kernel    # 667: build the sound kernel from source (twice, a throwaway ubuntu VM, network, ~7.5 min) and check it is SoundKernel.sha256 (SOUND_KERNEL_OUT)
 make test-cli-tmux38 # 658: Dozable's tmux 3.8 on Debian + Alpine (prepares both): the bridges through it, the theme reported, OSC 7501 measured, an older distro tmux session kept and ended
 make deckhold / deckhold-verify / deckhold-snapshot-check # the guest PTY holder: rebuild (pinned Zig + ghostty) / check the committed bytes / 610: its snapshot equals its screen, cell by cell
 make deckhold-mac / deckhold-mac-check # deckhold built for THIS Mac (sessions on the Mac; not committed, shipped beside doz in the CLI tarball only) / the status, grid, snapshot checks + mac-smoke.sh
-make deckhold-status-check # 612: deckhold's OSC 7501 consumer — the query answered, the records' rules and limits, invalid input, every cut offset + a fuzz
-make deckhold-grid-check # 648: deckhold's GRID — every row's text is the holder's screen, colours/flags/cursor, the gen, the limits, the announcement (+ a fuzz)
+make deckhold-status-check / deckhold-grid-check # 612: the OSC 7501 consumer (the query, the records' rules and limits, invalid input, every cut offset + a fuzz) / 648: the GRID (each row's text is the holder's screen, colours/flags/cursor, the gen, the limits, + a fuzz)
 make test-cli-grids  # 648: session-grids through a real daemon — a coloured session's grid, unchanged/moved gens, asleep stays asleep with a saved grid, no daemon starts nothing
 make test FILTER=Suite # the matching unit tests only (swift test --filter)
 make test-cli-startup  # the cost of a start: ls/sessions/exec/attach build no recipe part (DOZ_TEST_STARTUP_TRACE=1); doz ls --json median <= 60 ms, <= 1 s under taskpolicy -b; doctor's priority warning; a daemon started from the background leaves it (scratch store, no VM)
 make test-vm-status  # 612: a FAKE agent's status through deckhold, the daemon and the CLI — no viewer and a viewer, sleep/hibernate + wake, the exit, shutdown (scratch store)
-make test-cli-hoststop # 594 W22: test-cli's host-stop part alone (per-sandbox progress plain/animated, --json, nothing running, a daemon killed mid-stop)
-make pullbench       # 594 D12: the node base pulled with 3 vs 6 concurrent layer downloads, fresh stores (network)
+make test-cli-hoststop # 594 W22: test-cli's host-stop part alone (per-sandbox progress plain/animated, --json, nothing running, a daemon killed mid-stop); make pullbench (D12): 3 vs 6 concurrent layer downloads
+make app / test-cli-app # the menu bar app: .build/debug/Dozable.app, ad hoc, never opened / its non-GUI modes against the real doz and fakes, doz app install --dest a scratch folder (no VM, no screen)
 ```
 
 ### Test safety is the default
 
 Every `make test*` target (and the probes' `guard-doz.sh`) runs with `DOZ_TEST_GUARD=1`, `DOZ_TEST_NO_MAC_LOGIN=1`, `DOZ_TEST_CREDENTIALS=memory`,
 a scratch `DOZ_TEST_CODEX_HOME` and a scratch `XDG_CONFIG_HOME` whose `doz.toml` sets `store.path` and `defaults.projects_dir` to scratch
-folders — forced, whatever the environment says (694: a scratch `DOZ_TEST_LAUNCH_AGENTS_DIR`, a refusing `DOZ_TEST_LAUNCHCTL`). `TestSafety`
+folders — forced, whatever the environment says (694: a scratch `DOZ_TEST_LAUNCH_AGENTS_DIR`, a refusing `DOZ_TEST_LAUNCHCTL`; a scratch `DOZ_TEST_APPLICATIONS_DIR`). `TestSafety`
 STOPS a guarded process (and any XCTest run) that would use the default store, read the Mac's real `~/.codex`, touch the keychain's `Claude
-Code-credentials*` items, the real `~/Library/LaunchAgents` or `/bin/launchctl`, or run any keep-alive claude but the fake `DOZ_TEST_CLAUDE_BIN` (695). The only way out is explicit: `DOZ_TEST_REAL_MAC=1`.
+Code-credentials*` items, the real `~/Library/LaunchAgents` or `/bin/launchctl`, install the menu bar app into `/Applications` or `~/Applications`, or run any keep-alive claude but the fake `DOZ_TEST_CLAUDE_BIN` (695). The only way out is explicit: `DOZ_TEST_REAL_MAC=1`.
 A new code path that reads something of the Mac's own must go through a seam the Makefile sets (`CredentialServices.forHost`, `macLoginKeychain`) — `TestSafetyTests` pins the decisions.
 
 **Paths are SHOWN with `~`** (617): `DisplayPath` (DozableHost: `tilde`, `tildeIn`, `homes`) and its twin `core/paths.js`
