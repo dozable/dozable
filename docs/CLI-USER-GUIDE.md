@@ -799,6 +799,7 @@ doz net allow NAME install:python                    # live: the next connection
 doz net allow NAME site:api.example.com
 doz net deny NAME github
 doz net allow NAME web --yes                         # asks first without --yes
+doz net allow NAME host:8780                         # a port of this Mac, as host.dozable.internal:8780 (live)
 doz net permissions                                  # every permission and the hosts behind it
 doz create NAME --allow install:rust,site:api.example.com
 ```

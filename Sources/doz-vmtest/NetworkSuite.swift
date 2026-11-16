@@ -167,7 +167,21 @@ func networkSuite() async throws {
         } else {
             print("SKIP: this Mac has no IPv4 address but its loopback")
         }
+        // 691: the same listener as a --host-port of this sandbox (no model server): reached from the guest by the new name,
+        // through the proxy and as a client that ignores the proxy (DNS → the synthetic address → redirected TCP); another
+        // port of the name refused naming the open one.
         proxy.macModelPort = nil
+        proxy.hostPorts = [HostPort(port: macPort)]
+        m = mark(log)
+        let hostNamed = try await sh("curl -s -m 20 http://\(HostRoute.hostName):\(macPort)/")
+        let hostRaw = try await sh("curl -s -m 20 --noproxy '*' http://\(HostRoute.hostName):\(macPort)/")
+        let hostOther = try await sh("curl -s -m 20 http://\(HostRoute.hostName):\(macPort &+ 1)/")
+        rows = await since(log, m)
+        check(hostNamed.output == "hello" && hostRaw.output == "hello"
+              && rows.contains { $0.host == HostRoute.hostName && $0.port == macPort && $0.verdict == .allowed && $0.kind == .tcp },
+              "Open: --host-port \(macPort) reaches this Mac's service as \(HostRoute.hostName) (proxied: \(hostNamed.output.prefix(20)); redirected: \(hostRaw.output.prefix(20)))")
+        check(hostOther.output.contains("only port \(macPort) of this Mac"), "another port of the name refused, naming the open one (\(hostOther.output.prefix(80)))")
+        proxy.hostPorts = []
     } else {
         check(false, "a listener on this Mac for the address-guard rows")
     }

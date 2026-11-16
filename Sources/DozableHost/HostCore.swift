@@ -906,7 +906,9 @@ public actor HostCore {
                 throw HostError(.invalid, "\(m.name) is not proxied (network \(m.config.networkName)) — it has no permissions")
             }
             return try JSONValue(encoding: PermissionPolicy.report(name: m.name, policy: Self.withoutSignInBlock(egress.policy),
-                                                                   base: PermissionPolicy.base(of: m.config), log: egress.log.records))
+                                                                   base: PermissionPolicy.base(of: m.config), log: egress.log.records,
+                                                                   hostPorts: egress.hostPorts,                            // 691
+                                                                   hostPortsLive: DozableSettings.load().bool(SettingKey.hostPortsLive)))
         case .netLog:
             let m = try get(r.name)
             guard let log = m.sandbox.egress?.log else { throw HostError(.invalid, "\(m.name) is not proxied (network \(m.config.networkName)) — it has no connection log") }
@@ -1058,6 +1060,17 @@ public actor HostCore {
         }
         // 660: a model server on this Mac — its port (the one port of this Mac the sandbox reaches) and its model.
         if let p = Self.localSourceProblem(source: modelSource, port: o.localPort, model: o.model) { throw HostError(.invalid, p.text + " — " + p.fix) }
+        // 691: ports of this Mac (`--host-port`, `host_ports:`, `--allow host:PORT`) — a proxied sandbox only; checked before
+        // anything is made.
+        let givenHostPorts = HostRoute.merged(o.hostPorts ?? [], add: try PermissionPolicy.hostWords(o.allow ?? []).ports)
+        var launchHostPorts: [HostPort] = []
+        if !givenHostPorts.isEmpty {
+            guard spec.network.policy != nil else {
+                throw HostError(.invalid, "--host-port needs a proxied network: a port of this Mac is reached through Dozable's proxy")
+            }
+            launchHostPorts = try PermissionPolicy.checkedLaunchPorts(givenHostPorts,
+                                                                      model: modelSource.map(ModelSources.isLocal) == true ? o.localPort : nil)
+        }
         // 594: the agent's credential prerequisite, before anything is made (pi: an API-key account).
         if spec.network.policy != nil {
             let (def, kinds) = accountKinds()
@@ -1125,6 +1138,7 @@ public actor HostCore {
         if let model = o.model, let source = modelSource { cfg.models = [source: model] }     // 617 (models@1)
         if let source = modelSource, ModelSources.isKeyless(source) { cfg.modelSource = source; cfg.account = nil }   // 618: no key, no account
         if let source = modelSource, ModelSources.isLocal(source) { cfg.localModelPort = o.localPort }                 // 660
+        if !launchHostPorts.isEmpty { cfg.hostPorts = launchHostPorts }                                              // 691
         // 618: what it was made as — the family's (or tool's) name and the exact release (`opencode@2.0.29`).
         if let r = spec.imageSpec.flatMap({ ImageChoice.parse($0.name)?.agent.recipe }), r.family != nil || o.agentRef != nil {
             cfg.agentRef = AgentRef.recorded(r, version: spec.imageSpec?.agent?.version)
@@ -1811,6 +1825,8 @@ public actor HostCore {
         }
         await sessionGate.lock(key)
         defer { sessionGate.unlock(key) }
+        // 691: `doz run NAME --host-port PORT[:tag]` — the ports join the sandbox's (kept in its record) before it starts.
+        if let given = r.hostPorts, !given.isEmpty { try await addHostPorts(m, given) }
         // 594 W27: an off sandbox is cold-started first when the caller asks (`doz run` does).
         let first = try await ensureRunning(m, wake: r.wake ?? true, start: r.start ?? false, emit: emit)
         var opened = try await openSessionLocked(r)
@@ -1818,6 +1834,31 @@ public actor HostCore {
         if first.woke { opened.woke = true }
         opened.bootMilliseconds = first.milliseconds
         return opened
+    }
+
+    /// 691: ports of this Mac added to a sandbox by `doz run NAME --host-port`: a sandbox that is off gets them at its
+    /// start (`launch`); one that is live gets them at once (`live`) — only while `network.host_ports_live` is on (asking
+    /// for what it already has is never refused). Kept in its record; the proxy follows at once.
+    func addHostPorts(_ m: Managed, _ given: [HostPort]) async throws {
+        guard !readOnly else { throw HostError(.unavailable, "--host-port needs the daemon") }
+        guard let egress = m.sandbox.egress else {
+            throw HostError(.invalid, "\(m.name) is not proxied (network \(m.config.networkName)) — a port of this Mac is reached through Dozable's proxy")
+        }
+        let model = m.config.localModelPort.flatMap { MacModelServer.portProblem($0) == nil ? UInt16($0) : nil }
+        let stored = m.config.hostPorts ?? []
+        let off = [.off, .failed].contains(await effectivePhase(m))          // no VM: its next start is a launch
+        var list: [HostPort]
+        if off {
+            list = try PermissionPolicy.checkedLaunchPorts(HostRoute.merged(stored, add: given), model: model.map(Int.init))
+        } else {
+            list = try PermissionPolicy.editedHostPorts(stored, model: model, grant: given, revoke: [],
+                                                        live: DozableSettings.load().bool(SettingKey.hostPortsLive))
+        }
+        guard list != stored else { return }
+        m.config.hostPorts = list.isEmpty ? nil : list
+        try m.config.write(store.configFile(m.name))
+        egress.hostPorts = list
+        note(m.name, "this Mac's ports: \(HostRoute.listText(egress.hostPorts))")
     }
 
     /// `extraArguments` (608): appended to the program's argv after everything the host adds (pi's prompt
@@ -2571,9 +2612,11 @@ public actor HostCore {
                 p = np
             }
         }
-        // 597 (P6): by permission, or site:HOST.
-        if !(r.grant ?? []).isEmpty || !(r.revoke ?? []).isEmpty {
-            p = try PermissionPolicy.edited(p, grant: r.grant ?? [], revoke: r.revoke ?? [], base: base, agent: agent)
+        // 597 (P6): by permission, or site:HOST. 691: `host:PORT` words are this Mac's ports, never the policy's — the
+        // caller edits those (`editedHostPorts`); they are left out here.
+        let grant = (r.grant ?? []).filter { !HostRoute.isWord($0) }, revoke = (r.revoke ?? []).filter { !HostRoute.isWord($0) }
+        if !grant.isEmpty || !revoke.isEmpty {
+            p = try PermissionPolicy.edited(p, grant: grant, revoke: revoke, base: base, agent: agent)
         }
         for h in r.removeHosts ?? [] {
             let host = h.lowercased()
@@ -2595,6 +2638,19 @@ public actor HostCore {
             throw HostError(.invalid, "\(m.name) is not proxied (network \(m.config.networkName)) — it has no policy")
         }
         if isPolicyQuery(r) { return egress.policy }
+        // 691: `host:PORT` — this Mac's ports, edited beside the policy (the stored list and the live proxy).
+        let hostGrant = try PermissionPolicy.hostWords(r.grant ?? []).ports, hostRevoke = try PermissionPolicy.hostWords(r.revoke ?? []).ports
+        if !hostGrant.isEmpty || !hostRevoke.isEmpty {
+            let model = m.config.localModelPort.flatMap { MacModelServer.portProblem($0) == nil ? UInt16($0) : nil }
+            let list = try PermissionPolicy.editedHostPorts(m.config.hostPorts ?? [], model: model, grant: hostGrant, revoke: hostRevoke,
+                                                            live: DozableSettings.load().bool(SettingKey.hostPortsLive))
+            m.config.hostPorts = list.isEmpty ? nil : list
+            try m.config.write(store.configFile(m.name))
+            egress.hostPorts = list
+            note(m.name, "this Mac's ports: \(HostRoute.listText(egress.hostPorts)) — from its next connection")
+            let rest = (r.grant ?? []).contains { !HostRoute.isWord($0) } || (r.revoke ?? []).contains { !HostRoute.isWord($0) }
+            if !rest && r.preset == nil && (r.allow ?? []).isEmpty && (r.deny ?? []).isEmpty && (r.removeHosts ?? []).isEmpty { return egress.policy }
+        }
         let p = try Self.editedPolicy(egress.policy, r, base: PermissionPolicy.base(of: m.config), agent: m.config.imageChoice?.agent)
         m.sandbox.setNetworkPolicy(Self.withSignInBlock(p, strict: egress.vault.foreignPolicy == .strict,
                                                         allowSignIn: signsInInside(m, accountStore.load())))

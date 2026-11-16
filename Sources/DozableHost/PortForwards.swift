@@ -172,6 +172,9 @@ final class PortForwardTable: @unchecked Sendable {
     private var failed: [String: [Int: String]] = [:]
 
     func forwards(of sandbox: String) -> [Int: StandingForward] { lock.withLock { live[sandbox] ?? [:] } }
+    /// 691: every Mac port a sandbox's web port is forwarded to now — never a port of this Mac's route (one sandbox never
+    /// reaches another through it).
+    var macPorts: Set<UInt16> { lock.withLock { Set(live.values.flatMap { $0.values.compactMap { UInt16(exactly: $0.macPort) } }) } }
     func failures(of sandbox: String) -> [Int: String] { lock.withLock { failed[sandbox] ?? [:] } }
 
     func set(_ f: StandingForward) {

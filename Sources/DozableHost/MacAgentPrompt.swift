@@ -40,6 +40,11 @@ public enum MacAgentPrompt {
             let words = f.presetName ?? "custom"
             l.append("- The network goes only through Dozable's proxy (HTTPS_PROXY is set), by its permissions (\(words)); a refused site answers 403 with the reason. DNS is closed (the proxy resolves names). This Mac's own addresses are never reachable"
                      + (f.localPorts.isEmpty ? "; it may not listen on any port." : "; it may listen on and connect to localhost:" + f.localPorts.map(String.init).joined(separator: ", ") + " only."))
+            // 691: services on this Mac it may reach, by name, through the proxy.
+            if !f.hostPorts.isEmpty {
+                l.append("- Of this Mac it may reach only " + f.hostPorts.map { "port \($0.port) as http://\(HostRoute.hostName):\($0.port)" }.joined(separator: ", ")
+                         + " (through the proxy; 127.0.0.1 and localhost stay closed). More ports are the person's choice (doz net allow @mac --session \(f.session) host:PORT).")
+            }
         } else {
             l.append("- It has no network.")
         }

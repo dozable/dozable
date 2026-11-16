@@ -194,6 +194,10 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// reached as `mac.dozable.internal:PORT` (`EgressProxy.macModelPort`). Absent: none (every port of this Mac's
     /// loopback refused, as for every sandbox).
     public var localModelPort: Int?
+    /// 691: the other ports of this Mac it may reach, as `host.dozable.internal:PORT` (`--host-port`, `host_ports:`,
+    /// `doz net allow NAME host:PORT` — origin `launch` or `live`; never `model`, which is `localModelPort`). Absent: none
+    /// (every sandbox before them).
+    public var hostPorts: [HostPort]?
     /// 617 (RP-1): the web ports forwarded beside the recipe's own (`doz ports add`), and the Mac port each guest port
     /// (recipe or added) had last — preferred again at the next start. Absent before 617.
     public var ports: [PortForwardEntry]?
@@ -348,7 +352,7 @@ public enum DozableImages {
                 }
             }
             var sites: [(host: String, ports: [UInt16]?)] = []
-            for w in o.allow ?? [] {
+            for w in o.allow ?? [] where !HostRoute.isWord(w) {          // 691: host:PORT is this Mac's ports (HostCore)
                 if w.hasPrefix("site:") { sites.append(try PermissionPolicy.site(w)) } else {
                     let id = (w.hasPrefix("+") || w.hasPrefix("-")) ? String(w.dropFirst()) : w
                     guard AgentPermissions.isValid(id) || w == "standard" || w == "locked" || w == "open" else {

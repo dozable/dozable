@@ -26,6 +26,8 @@ public struct MacCapabilityShape: Sendable, Equatable {
     public var readable: [String] = []
     public var writable: [String] = []
     public var localPorts: [Int] = []
+    /// 691: the ports of this Mac it reaches as `host.dozable.internal:PORT`.
+    public var hostPorts: [HostPort] = []
     /// The network: its preset (nil: custom), whether a host serves it now (`proxy`, `waiting (no host)`, nil), and its
     /// allowed and denied sites (live counts, when a host serves it).
     public var preset: String? = nil
@@ -60,6 +62,7 @@ public struct MacCapabilityShape: Sendable, Equatable {
         readable = f.readable
         writable = f.writable
         localPorts = f.localPorts ?? []
+        hostPorts = f.hostPorts ?? []
         hasNetwork = f.proxyPort != nil
         preset = f.policy.flatMap { $0.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
         network = f.proxyPort == nil ? nil : "waiting (no daemon)"
@@ -89,6 +92,7 @@ public struct MacCapabilityShape: Sendable, Equatable {
         s.readable = q.read ?? []
         s.writable = q.write ?? []
         s.localPorts = q.localPorts ?? []
+        s.hostPorts = q.hostPorts ?? []
         s.preset = (try? MacFenceNetwork.policy(words: q.permissions ?? ["standard"]))
             .flatMap { p in p.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
         s.bridges = MacFenceBridges.resolve(q, settings: settings)
@@ -158,6 +162,14 @@ extension MacFence {
             out.append(c("network", "Network", "through Dozable's proxy (\(preset))" + ports + wait,
                          "Reaches only what its permissions allow; every connection is logged; never this Mac's own addresses.",
                          live: true, link: "doz net log @mac --session \(s.session)"))
+        }
+        // 691: this Mac's ports through the proxy — said only when it has some.
+        if s.hasNetwork, !s.hostPorts.isEmpty {
+            let first = s.hostPorts[0].port
+            out.append(c("host-ports", "This Mac's ports", HostRoute.listText(s.hostPorts),
+                         "Reaches only these ports of this Mac, through the proxy — as \(HostRoute.hostName):\(first)" + (s.hostPorts.count > 1 ? " and so on" : "")
+                         + "; nothing else of this Mac." + (s.hostPorts.contains { $0.tag } ? " A named port's plain-HTTP requests say which session they come from (X-Dozable-Session — identification, not authentication)." : ""),
+                         live: true, link: "doz net show @mac --session \(s.session)"))
         }
         // 687: listening on any port (`mac.fence_loopback_listen` on) — said only when it may; never outbound.
         if s.loopbackListen {

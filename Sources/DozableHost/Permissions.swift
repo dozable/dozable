@@ -46,6 +46,10 @@ public struct PermissionReport: Codable, Equatable, Sendable {
     public var suggestions: [PermissionSuggestion]
     /// A pre-597 policy of rules, shown as the permissions it amounts to (stored as names at its first change).
     public var inferred: Bool
+    /// 691: the ports of this Mac it may reach as `host.dozable.internal:PORT` (nil: none — and every older daemon's
+    /// answer), and whether `doz net allow NAME host:PORT` may open one while it runs (`network.host_ports_live`).
+    public var hostPorts: [HostPort]? = nil
+    public var hostPortsLive: Bool? = nil
 }
 
 public enum PermissionPolicy {
@@ -157,6 +161,10 @@ public enum PermissionPolicy {
             throw HostError(.invalid, "site: an IPv6 address is not supported in site rules yet (and a site takes one port list) — \(form)")
         }
         let host = parts[0]
+        // 691: this Mac's route is never a site — a site rule could not open it anyway (the route is judged first).
+        if HostRoute.isHost(host) {
+            throw HostError(.invalid, "site: \(host) is this Mac's own route — open a port of it with host:PORT (host:8780), not a site")
+        }
         guard host.range(of: #"^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"#, options: .regularExpression) != nil,
               host.count <= 253 else { throw HostError(.invalid, "site: a host name like api.example.com (or *.example.com), or an IPv4 address — \(form)") }
         guard parts.count == 2 else { return (host, nil) }
@@ -333,7 +341,8 @@ public enum PermissionPolicy {
     }
 
     /// The checklist, the preset, the sites and the suggestions from `log` (denied connections).
-    public static func report(name: String, policy: NetworkPolicy, base: String?, log: [ConnectionRecord]) -> PermissionReport {
+    public static func report(name: String, policy: NetworkPolicy, base: String?, log: [ConnectionRecord],
+                              hostPorts: [HostPort]? = nil, hostPortsLive: Bool = true) -> PermissionReport {
         let inferredMode = policy.permissions == nil
         let (names, own) = inferred(policy)
         let standard = Set(AgentPermissions.preset("agent", base: base) ?? [])
@@ -361,6 +370,18 @@ public enum PermissionPolicy {
         for r in deniedRecs {
             let host = serviceHost(r.host.lowercased())          // 635: `_http._tcp.deb.debian.org` is deb.debian.org's
             if excluded.contains(host) { continue }              // 617: kept out on purpose — never suggested
+            // 691: this Mac's route — suggested as host:PORT while live changes are on (never as a site); nothing when off.
+            if HostRoute.isHost(host) {
+                guard hostPortsLive, let port = r.port, HostRoute.refusal(port: Int(port)) == nil else { continue }
+                let grant = "host:\(port)"
+                if byGrant[grant] == nil {
+                    order.append(grant)
+                    byGrant[grant] = PermissionSuggestion(permission: nil, what: "this Mac's port \(port)", hosts: [], count: 0, grant: grant)
+                }
+                if !byGrant[grant]!.hosts.contains(host) { byGrant[grant]!.hosts.append(host) }
+                byGrant[grant]!.count += 1
+                continue
+            }
             // Allowed since (a site or a permission granted after the refusal): nothing left to ask for.
             if policy.evaluateConnection(host: host, port: r.port ?? 443).kind != .deny { continue }
             let grant: String, what: String, perm: String?
@@ -371,7 +392,7 @@ public enum PermissionPolicy {
                 // Owner, 2026-10-23: "i dont want to have to approve each URL" — one approval per domain: a host under
                 // it is suggested as `*.domain` (claude.ai's artifact frames are a new `<uuid>.frame.claudeusercontent.com`
                 // each time), the domain itself as itself.
-                // Any port but 80 and 443 is a narrower grant: that host, that port (a hub's agent port, a dev server).
+                // Any port but 80 and 443 is a narrower grant: that host, that port (a message server's agent port, a dev server).
                 let domain = siteDomain(host)
                 if let port = r.port, port != 80, port != 443 { grant = "site:\(host):\(port)"; what = "\(host):\(port)" }
                 else if domain == host { grant = "site:" + host; what = host } else { grant = "site:*." + domain; what = "*." + domain }
@@ -381,9 +402,15 @@ public enum PermissionPolicy {
             if !byGrant[grant]!.hosts.contains(host) { byGrant[grant]!.hosts.append(host) }
             byGrant[grant]!.count += 1
         }
-        return PermissionReport(name: name, base: base, preset: inferredMode ? AgentPermissions.presetName(names, base: base) : policy.preset,
-                                permissions: rows, sites: sites, denied: Array(Set(deniedRecs.map(\.host))).sorted(),
-                                suggestions: order.prefix(12).compactMap { byGrant[$0] }, inferred: inferredMode)
+        var rep = PermissionReport(name: name, base: base, preset: inferredMode ? AgentPermissions.presetName(names, base: base) : policy.preset,
+                                   permissions: rows, sites: sites, denied: Array(Set(deniedRecs.map(\.host))).sorted(),
+                                   suggestions: order.prefix(12).compactMap { byGrant[$0] }, inferred: inferredMode)
+        // 691: an open port that was refused before it was opened is no longer a suggestion.
+        let open = Set((hostPorts ?? []).map { "host:\($0.port)" })
+        rep.suggestions.removeAll { open.contains($0.grant) }
+        rep.hostPorts = (hostPorts ?? []).isEmpty ? nil : hostPorts
+        rep.hostPortsLive = hostPortsLive
+        return rep
     }
 
     /// P7: the facts block's line — "You may talk to your AI model, update yourself, …; you may not
@@ -403,6 +430,72 @@ public enum PermissionPolicy {
             s += " A refused connection needs the user to switch its permission on — ask for it by its name, e.g. \"\(off[0].title)\" (`doz net allow \(sandbox) \(off[0].id)`), or a site (`doz net allow \(sandbox) site:HOST`); do not try to get around it."
         }
         return s
+    }
+
+    // MARK: 691 — this Mac's ports (`host:PORT`), beside the permissions and never one of them
+
+    /// `--allow` / `--permissions` / `doz net allow|deny` words split into `host:` words (the ports) and the rest.
+    public static func hostWords(_ words: [String]) throws -> (ports: [HostPort], rest: [String]) {
+        var ports: [HostPort] = []
+        var rest: [String] = []
+        for w in words {
+            guard HostRoute.isWord(w) else { rest.append(w); continue }
+            switch HostRoute.parseWord(w) {
+            case .success(let ps): ports = HostRoute.merged(ports, add: ps)
+            case .failure(let e): throw HostError(.invalid, e.description)
+            }
+        }
+        return (ports, rest)
+    }
+
+    /// Ports given at launch, checked: never one of Dozable's own, port 0 or a privileged one; at most
+    /// `HostRoute.maximumPorts` with the model server's (`model`). Origin `launch`, sorted, each once.
+    public static func checkedLaunchPorts(_ given: [HostPort], model: Int? = nil, flag: String = "--host-port") throws -> [HostPort] {
+        var out: [HostPort] = []
+        for var p in given {
+            if let why = HostRoute.refusal(port: Int(p.port)) { throw HostError(.invalid, "\(flag) \(p.port): \(why)") }
+            if p.origin != .live { p.origin = .launch }          // a restart keeps what was added live as live
+            out = HostRoute.merged(out, add: [p])
+        }
+        let total = Set(out.map(\.port) + (model.map { [UInt16(clamping: $0)] } ?? [])).count
+        guard total <= HostRoute.maximumPorts else { throw HostError(.invalid, "at most \(HostRoute.maximumPorts) ports of this Mac for one sandbox or session") }
+        return out
+    }
+
+    /// The stored list (launch and live — never the model server's) after `doz net allow|deny … host:PORT`. A grant needs
+    /// `live` (`network.host_ports_live`); a deny always works; the model server's port cannot be taken away by `host:` (it
+    /// belongs to the model source). Each granted port is checked like a launch one; added ports are `live`.
+    public static func editedHostPorts(_ stored: [HostPort], model: UInt16?, grant: [HostPort], revoke: [HostPort], live: Bool) throws -> [HostPort] {
+        if !grant.isEmpty, !live {
+            let have = Set(stored.map(\.port) + (model.map { [$0] } ?? []))
+            // Asking again for exactly what is open (same tag) changes nothing — not refused.
+            let changes = grant.contains { g in !have.contains(g.port) || (stored.first { $0.port == g.port }?.tag ?? false) != g.tag }
+            if changes {
+                throw HostError(.invalid, "this Mac's ports are fixed when a sandbox or session starts (network.host_ports_live is off) — start it with --host-port")
+            }
+        }
+        if let m = model, revoke.contains(where: { $0.port == m }) {
+            throw HostError(.invalid, "port \(m) is the model server this sandbox was made with — it belongs to its model source, not to host:PORT (doz net deny cannot take it away)")
+        }
+        var out = stored.filter { $0.origin != .model }
+        for g in grant {
+            if let why = HostRoute.refusal(port: Int(g.port)) { throw HostError(.invalid, "host:\(g.port): \(why)") }
+            let origin = out.first { $0.port == g.port }?.origin ?? .live
+            out = HostRoute.merged(out, add: [HostPort(port: g.port, tag: g.tag, origin: origin)])
+        }
+        out = HostRoute.merged(out, remove: revoke.map(\.port))
+        let total = Set(out.map(\.port) + (model.map { [$0] } ?? [])).count
+        guard total <= HostRoute.maximumPorts else { throw HostError(.invalid, "at most \(HostRoute.maximumPorts) ports of this Mac for one sandbox or session") }
+        return out
+    }
+
+    /// The facts block's line for this Mac's ports (empty when none).
+    public static func hostPortsFacts(_ ports: [HostPort], whom: String = "you") -> String {
+        guard !ports.isEmpty else { return "" }
+        let items = ports.sorted { $0.port < $1.port }.map { p in
+            "port \(p.port) as http://\(HostRoute.hostName):\(p.port)" + (p.origin == .model ? " (the model server you use)" : "")
+        }
+        return "Of the user's Mac \(whom) may reach only " + Self.list(items) + "; nothing else of the Mac — its localhost or any other address of it — is reachable."
     }
 
     static func list(_ items: [String]) -> String {

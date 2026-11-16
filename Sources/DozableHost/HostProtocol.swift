@@ -292,6 +292,9 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// 660: the port of a model server on this Mac (`--provider local --local-port N`) — the ONE port of this Mac the
     /// sandbox may reach (as `mac.dozable.internal:N`).
     public var localPort: Int?
+    /// 691: ports of this Mac it may reach as `host.dozable.internal:PORT` (`--host-port PORT[:tag]`, `host_ports:`).
+    /// `allow` may carry `host:PORT` words too; the daemon takes them here.
+    public var hostPorts: [HostPort]?
     /// 618: an exact release of the agent (`NAME@VERSION`) for this sandbox only, over its `images.<id>_version` setting —
     /// checked like a pin before anything is made (the registry has it, its integrity, its major: AgentRef).
     public var agentVersion: String?
@@ -509,6 +512,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// open-session on `@mac`: run it FENCED (a Seatbelt profile around the program) with these grants; nil: unfenced.
     /// Such a request carries `HostProtocol.fencedVersion`.
     public var macFence: MacFenceRequest?
+    /// 691: `doz run NAME --host-port PORT[:tag]` for a sandbox — ports of this Mac added to it (kept in its record).
+    public var hostPorts: [HostPort]?
     /// 683 `session-bridges`: the switches to change (each nil: as it is).
     public var macBridges: MacFenceRequest?
 

@@ -430,6 +430,100 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
           && kept690?.rules.contains { $0.host == "ports.doz.test" && $0.action == .allow && $0.ports == nil } == true, "690 the record keeps the port rules with no daemon")
     t.run(["sessions", "end", "@mac", "netport", "--yes"], timeout: 60); started.remove("netport")
 
+    // MARK: 691 this Mac's ports — `--host-port`, `host:PORT`, `host.dozable.internal` (two listeners of the suite's own on
+    // this Mac's loopback, ephemeral ports, stopped at the end of the rows)
+    let hp1 = FenceUpstream(), hp2 = FenceUpstream()
+    let hpA = hp1.port, hpB = hp2.port
+    put(net + "/hp.sh", helpers + """
+    w() { while [ ! -e "go-$1" ]; do sleep 0.2; done; }
+    c hpa -m 10 http://host.dozable.internal:\(hpA)/
+    c hpb -m 10 http://host.dozable.internal:\(hpB)/
+    c hpm -m 10 http://mac.dozable.internal:\(hpA)/
+    c hpat -m 10 -p http://host.dozable.internal:\(hpA)/
+    c hplo -m 10 --noproxy '' http://127.0.0.1:\(hpA)/
+    c hplot -m 10 --noproxy '' -p http://127.0.0.1:\(hpA)/
+    c hpown -m 10 --noproxy '' http://\(own ?? "127.0.0.1"):\(hpA)/
+    c hplh -m 10 --noproxy '' http://localhost:\(hpA)/
+    r hpdir curl -s -m 5 --noproxy '*' http://127.0.0.1:\(hpA)/
+    echo done > res/HP0
+    w hp1; c hpb1 -m 10 http://host.dozable.internal:\(hpB)/; echo done > res/HP1
+    w hp2; c hpb2 -m 10 http://host.dozable.internal:\(hpB)/; echo done > res/HP2
+    w hp3; c hpa3 -m 40 http://host.dozable.internal:\(hpA)/; echo done > res/HP3
+    w hp4; c hpa4 -m 10 http://host.dozable.internal:\(hpA)/; echo done > res/HP4
+    sleep 600
+    """)
+    r = run("hp", "hp.sh", extra: ["--host-port", String(hpA)])
+    check(r.code == 0 && r.err.contains("this Mac's ports \(hpA)"), "691 a fenced session with --host-port \(hpA): its line says the port (\(r.code))")
+    check(t.waitFor(60) { FileManager.default.fileExists(atPath: net + "/res/HP0") }, "691 the host-port probes ran")
+    check(code("hpa").hasPrefix("200") && body("hpa").contains("UPSTREAM-OK"), "691 host.dozable.internal:\(hpA) reaches the service on this Mac (\(code("hpa")))")
+    check(code("hpm").hasPrefix("200"), "691 …mac.dozable.internal:\(hpA) is the same route (\(code("hpm")))")
+    check(code("hpat").hasPrefix("200 200"), "691 …through a CONNECT tunnel too (\(code("hpat")))")
+    check(code("hpb").hasPrefix("403") && body("hpb").contains("only port \(hpA) of this Mac"), "691 another port of this Mac: 403 naming the open one (\(code("hpb")))")
+    for (n, what) in [("hplo", "127.0.0.1:PORT (plain HTTP)"), ("hplot", "127.0.0.1:PORT (CONNECT)"), ("hplh", "localhost:PORT"),
+                      ("hpown", "\(own ?? "(no LAN address — loopback again)"):PORT")] {
+        let c = code(n)
+        check(c.hasPrefix("403") || c.hasSuffix(" 403"), "691 the OPEN port by an address of this Mac is still refused: \(what) (\(c))")
+    }
+    check(res("hpdir").map { $0 != 0 } ?? false, "691 …and directly (not through the proxy): the fence refuses it")
+    var hrep = t.json(["net", "show", "@mac", "--session", "hp"], PermissionReport.self)
+    check(hrep?.hostPorts?.map(\.port) == [hpA] && hrep?.hostPortsLive == true, "691 doz net show @mac --json: hostPorts [\(hpA)]")
+    check(t.run(["net", "show", "@mac", "--session", "hp"]).out.contains("This Mac's ports: \(hpA)"), "691 doz net show @mac prints this Mac's ports")
+    check(row("hp")?.capabilities?.contains { $0.id == "host-ports" && $0.state == String(hpA) } == true, "691 its capabilities say the port")
+    // Live: allow, then deny.
+    r = t.run(["net", "allow", "@mac", "host:\(hpB)", "--session", "hp"])
+    check(r.code == 0 && r.out.contains("This Mac's ports: ") && r.out.contains(String(hpA)) && r.out.contains(String(hpB)), "691 doz net allow @mac --session hp host:\(hpB) (live) (\(r.code) \(r.err.prefix(160)))")
+    FileManager.default.createFile(atPath: net + "/go-hp1", contents: nil)
+    check(t.waitFor(30) { FileManager.default.fileExists(atPath: net + "/res/HP1") } && code("hpb1").hasPrefix("200"), "691 …its next request to \(hpB): 200 (\(code("hpb1")))")
+    r = t.run(["net", "deny", "@mac", "host:\(hpB)", "--session", "hp"])
+    check(r.code == 0, "691 doz net deny @mac --session hp host:\(hpB)")
+    FileManager.default.createFile(atPath: net + "/go-hp2", contents: nil)
+    check(t.waitFor(30) { FileManager.default.fileExists(atPath: net + "/res/HP2") } && code("hpb2").hasPrefix("403"), "691 …403 again (\(code("hpb2")))")
+    // Dozable's own port (this session's own proxy) is refused at grant.
+    if let own = row("hp")?.fence?.proxyPort {
+        r = t.run(["net", "allow", "@mac", "host:\(own)", "--session", "hp"])
+        check(r.code != 0 && r.err.contains("Dozable's own"), "691 a proxy's own port is refused at grant (\(r.err.prefix(160)))")
+    } else { check(false, "691 the session's proxy port") }
+    // The record keeps the ports across a daemon stop; the adopted proxy routes them.
+    check(t.run(["daemon", "stop"], timeout: 60).code == 0, "691 daemon stop")
+    hrep = t.json(["net", "show", "@mac", "--session", "hp"], PermissionReport.self)
+    check(hrep?.hostPorts?.map(\.port) == [hpA], "691 with no daemon the record keeps this Mac's ports (\(hrep?.hostPorts?.map(\.port) ?? []))")
+    _ = t.run(["sessions", "send", "@mac", "hp", "--text", "x"], timeout: 30)          // starts a daemon, which adopts
+    FileManager.default.createFile(atPath: net + "/go-hp3", contents: nil)
+    check(t.waitFor(60) { FileManager.default.fileExists(atPath: net + "/res/HP3") } && code("hpa3").hasPrefix("200"), "691 …and a new daemon's proxy routes it (\(code("hpa3")))")
+    // The setting off: an allow is refused (saying what to do), a deny still works.
+    check(t.run(["config", "set", "network.host_ports_live", "false"]).code == 0, "691 doz config set network.host_ports_live false")
+    r = t.run(["net", "allow", "@mac", "host:\(hpB)", "--session", "hp"])
+    check(r.code != 0 && r.err.contains("network.host_ports_live is off") && r.err.contains("--host-port"), "691 off: allow host:PORT refused (\(r.err.prefix(200)))")
+    r = t.run(["net", "deny", "@mac", "host:\(hpA)", "--session", "hp"])
+    check(r.code == 0, "691 off: deny host:PORT still works")
+    FileManager.default.createFile(atPath: net + "/go-hp4", contents: nil)
+    check(t.waitFor(30) { FileManager.default.fileExists(atPath: net + "/res/HP4") } && code("hpa4").hasPrefix("403"), "691 …the port is closed live (\(code("hpa4")))")
+    check(t.run(["config", "set", "network.host_ports_live", "true"]).code == 0, "691 doz config set network.host_ports_live true")
+    // The tag: the service sees X-Dozable-Session naming the session, never the program's copy; CONNECT untouched; an
+    // untagged port passes the program's own field.
+    put(net + "/hpt.sh", helpers + """
+    c hpt1 -m 10 -H 'X-Dozable-Session: spoof' -H 'x-dozable-session: spoof2' http://host.dozable.internal:\(hpA)/
+    c hpt2 -m 10 -H 'X-Dozable-Session: mine' http://host.dozable.internal:\(hpB)/
+    c hpt3 -m 10 -p -H 'X-Dozable-Session: inside' http://host.dozable.internal:\(hpA)/
+    echo done > res/HPT
+    sleep 600
+    """)
+    r = run("hptag", "hpt.sh", extra: ["--host-port", "\(hpA):tag", "--permissions", "standard,host:\(hpB)"])
+    check(r.code == 0 && t.waitFor(60) { FileManager.default.fileExists(atPath: net + "/res/HPT") }, "691 a fenced session with --host-port PORT:tag and --permissions host:PORT")
+    let tagged = body("hpt1")
+    check(code("hpt1").hasPrefix("200") && tagged.contains("X-Dozable-Session: @mac/hptag\r\n") && !tagged.contains("spoof")
+          && tagged.lowercased().components(separatedBy: "x-dozable-session").count == 2,
+          "691 :tag — the service sees X-Dozable-Session: @mac/hptag, and not the program's copies (\(code("hpt1")))")
+    check(code("hpt2").hasPrefix("200") && body("hpt2").contains("X-Dozable-Session: mine") && !body("hpt2").contains("@mac/hptag"),
+          "691 without :tag the route is transparent (the program's field passes, nothing added)")
+    check(code("hpt3").hasPrefix("200 200") && body("hpt3").contains("X-Dozable-Session: inside") && !body("hpt3").contains("@mac/hptag"),
+          "691 a CONNECT tunnel is never read: untouched")
+    // --unfenced with --host-port: refused (an unfenced session already reaches every port).
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--host-port", String(hpA), "--session", "hpun", "--workdir", net, "--", "/bin/sh", "-c", "true"])
+    check(r.code != 0 && r.err.contains("--host-port"), "691 --unfenced --host-port refused (\(r.err.prefix(160)))")
+    for s in ["hp", "hptag"] { t.run(["sessions", "end", "@mac", s, "--yes"], timeout: 60); started.remove(s) }
+    hp1.stop(); hp2.stop()
+
     // MARK: 687 listening on any port (mac.fence_loopback_listen, off by default — rows 2.11/2.17 above are that default)
     let lis = root + "/lis"
     try? FileManager.default.createDirectory(atPath: lis, withIntermediateDirectories: true)

@@ -517,6 +517,9 @@ public enum SettingKey {
     public static let macClipboard = "mac.clipboard"
     /// 687: a fenced session may listen on any port (`MacFence.loopbackListen`).
     public static let macFenceLoopbackListen = "mac.fence_loopback_listen"
+    /// 691: `doz net allow NAME host:PORT` opens a port of this Mac to a running sandbox or session (on), or this Mac's
+    /// ports are fixed when it starts (off — `deny` always works).
+    public static let hostPortsLive = "network.host_ports_live"
     /// 683: a recipe's own config-folder choice for fenced sessions (`recipes.anthropic.claude-code.mac_config`) — nil for
     /// a recipe that declares none.
     public static func macConfig(_ agent: String) -> String? {
@@ -859,6 +862,9 @@ public struct DozableSettings: Sendable {
             .init("mac", "fence_loopback_listen", .choice(["off", "on"]), .string("off"),
                   "Whether a fenced session on this Mac may listen on ANY port (a dev server, a test server on a free port), not only its --local-port ones (on, off). macOS's sandbox cannot keep such a server to this Mac's loopback: one that listens on every address is reachable from your network too (your firewall decides). The program still cannot connect to its own server from inside (its only way out is Dozable's proxy) — use --local-port N for that. From the next session (or restart).",
                   applies: .nextSession, ui: false),
+            .init("network", "host_ports_live", .bool, .bool(true),
+                  "Whether doz net allow NAME host:PORT may open a port of this Mac to a sandbox or a fenced session while it runs (true), or this Mac's ports are fixed when it starts — doz create/run --host-port PORT (false). Taking a port away (doz net deny NAME host:PORT) always works.",
+                  applies: .nextCommand, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
                   applies: .uiRestart, ui: false),

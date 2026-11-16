@@ -260,6 +260,14 @@
 # (off | on; applies to sessions opened from now on)
 # fence_loopback_listen = "off"
 
+[network]
+
+# Whether doz net allow NAME host:PORT may open a port of this Mac to a sandbox or a fenced
+# session while it runs (true), or this Mac's ports are fixed when it starts — doz create/run
+# --host-port PORT (false). Taking a port away (doz net deny NAME host:PORT) always works.
+# (boolean; applies to the next doz command (a running doz ui keeps its store))
+# host_ports_live = true
+
 [daemon]
 
 # Minutes with nothing running before the daemon exits; 0 = never.

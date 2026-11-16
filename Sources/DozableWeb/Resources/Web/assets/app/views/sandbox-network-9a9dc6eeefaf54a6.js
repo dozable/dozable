@@ -15,6 +15,16 @@ import { confirmGitHub, confirmWeb, permissionSwitches, PRESET_LABEL } from '../
 const refreshSandbox = upcall('refreshSandbox');
 
 state.permErr = new Map();
+/// 691: this Mac's ports it reaches as host.dozable.internal:PORT — a row, changed from a terminal (`doz net allow|deny
+/// NAME host:PORT`); never a permission, never a control here.
+function hostPortsRow(p, who) {
+  if (!p.hostPorts || !p.hostPorts.length) return null;
+  const items = p.hostPorts.map((x) => x.port + (x.tag ? ' (named)' : '') + (x.origin === 'model' ? ' (model server)' : ''));
+  return h('div', { class: 'perm-sites', 'data-host-ports': p.hostPorts.map((x) => x.port).join(',') },
+    h('span', null, 'This Mac’s ports: '), h('span', { class: 'mono' }, items.join(', ')),
+    h('span', { class: 'muted' }, ' — as ' + (p.hostName || 'host.dozable.internal') + ':PORT; change with doz net allow|deny ' + who + ' host:PORT'));
+}
+
 /// 683 (a fenced session on this Mac): the same checklist, READ-ONLY — its changes are `doz net … @mac --session S` in a
 /// terminal on the Mac (the commands beside it); the presets as the Settings page's matrix, the current column marked.
 function readOnlyPermissions(net, commands) {
@@ -36,6 +46,7 @@ function readOnlyPermissions(net, commands) {
       body: [h('div', null, 'Live, from the next connection:'), ...commands.map((c) => h('code', { class: 'cmd-line' }, c))] }),
     permissionSwitches(p.rows, on, () => {}, { disabled: true }),
     h('div', { class: 'perm-sites' }, h('span', null, 'Other sites: '), h('span', { class: 'mono' }, sites)),
+    hostPortsRow(p, '@mac --session ' + net.name.replace(/^@mac /, '')),
     h('details', { class: 'net-rules', 'data-net-presets': '' }, h('summary', null, 'What each preset lets it reach'),
       settingMatrix({ label: 'What each preset lets it reach', rows, columns, current: now, cell: (r, c) => sets[c.id].has(r.id) })));
 }
@@ -63,6 +74,12 @@ function permissionsPanel(name, net, ro) {
   // A refused host under a domain is offered as the whole domain (`site:*.example.com`, owner 2026-10-23: one approval,
   // not one per URL); its hosts are listed, the first three.
   const suggestions = p.suggestions.map((s) => {
+    // 691: a port of this Mac is opened from a terminal only — said, with the command, no button.
+    if (s.grant.startsWith('host:')) {
+      return callout('warn', { compact: true, cls: 'perm-suggest', icon: 'shield', attrs: { 'data-suggest': s.grant },
+        body: ['The agent tried to reach ', h('strong', null, s.what), h('div', { class: 'muted' }, s.count + ' time' + (s.count === 1 ? '' : 's')
+          + ' · to open it: '), h('code', { class: 'cmd-line' }, 'doz net allow ' + name + ' ' + s.grant)] });
+    }
     const domain = s.grant.startsWith('site:*.') ? s.grant.slice(7) : null;
     const hosts = s.hosts.slice(0, 3).join(', ') + (s.hosts.length > 3 ? ' and ' + (s.hosts.length - 3) + ' more' : '');
     return callout('warn', { compact: true, cls: 'perm-suggest', icon: 'shield', attrs: { 'data-suggest': s.grant },
@@ -84,7 +101,8 @@ function permissionsPanel(name, net, ro) {
     suggestions.length ? h('div', { class: 'perm-suggestions' }, suggestions) : null,
     permissionSwitches(p.rows, on, change),
     h('div', { class: 'perm-sites' }, h('span', null, 'Other sites: '), sites.length ? sites : h('span', { class: 'muted' }, 'none'), ' ', siteInput,
-      btn('Allow site', () => { const v = siteInput.value.trim().toLowerCase(); if (v) send({ grant: ['site:' + v] }); }, { small: true, icon: 'plus' })));
+      btn('Allow site', () => { const v = siteInput.value.trim().toLowerCase(); if (v) send({ grant: ['site:' + v] }); }, { small: true, icon: 'plus' })),
+    hostPortsRow(p, name));
 }
 
 /// `ro` (683, a fenced session on this Mac): `{commands}` — the permissions read-only, with the commands that change them.

@@ -82,7 +82,7 @@ struct ChoiceOptions: ParsableArguments {
 
     // `--permissions -error-reports`: the value may start with a dash. `--allow` is the same option (its earlier name).
     @Option(name: [.customLong("permissions"), .customLong("allow")], parsing: .unconditionalSingleValue,
-            help: "What the agent may do, on top of the default (defaults.permissions): permissions (doz net permissions), -PERMISSION to remove, site:HOST, or standard/locked/open. Comma-separated or repeated. --allow is the same.")
+            help: "What the agent may do, on top of the default (defaults.permissions): permissions (doz net permissions), -PERMISSION to remove, site:HOST[:PORT] (a site, or just ports of it: site:HOST:P1,P2), host:PORT (a port of this Mac, as host.dozable.internal:PORT — the same as --host-port), or standard/locked/open. Comma-separated or repeated. --allow is the same.")
     var allow: [String] = []
 
     @Flag(name: .long, help: "When the image is out of date: use it as it is (the default off a terminal; said as a warning).")
@@ -96,6 +96,29 @@ struct ChoiceOptions: ParsableArguments {
 
     @Option(name: .long, help: "With --provider local: the port of the model server on this Mac (Ollama 11434, LM Studio 1234, llama-server 8080, LiteLLM 4000) — the ONE port of this Mac the sandbox reaches, as mac.dozable.internal:PORT. Nothing else on this Mac's localhost is reachable from a sandbox.")
     var localPort: Int?
+
+    // 691: ports of this Mac the sandbox reaches as host.dozable.internal:PORT.
+    @Option(name: .customLong("host-port"), help: "A port of this Mac the sandbox may reach, as host.dozable.internal:PORT (a service on this Mac — a message server, a dev server); PORT:tag also names the sandbox to it in an X-Dozable-Session header on plain-HTTP requests (identification, not authentication). Repeatable, at most 16; nothing else of this Mac opens. Later: doz net allow NAME host:PORT.")
+    var hostPort: [String] = []
+
+    /// 691: `--host-port` values and `--permissions host:PORT` words, as ports (checked for form; the daemon checks the rest).
+    static func hostPorts(_ values: [String], words: [String]) throws -> [HostPort] {
+        var out: [HostPort] = []
+        for v in values {
+            switch HostRoute.parsePort(v) {
+            case .success(let p): out = HostRoute.merged(out, add: [p])
+            case .failure(let e): throw ValidationError("--host-port \(e.description)")
+            }
+        }
+        for w in words where HostRoute.isWord(w) {
+            switch HostRoute.parseWord(w) {
+            case .success(let ps): out = HostRoute.merged(out, add: ps)
+            case .failure(let e): throw ValidationError("--permissions \(e.description)")
+            }
+        }
+        guard out.count <= HostRoute.maximumPorts else { throw ValidationError("at most \(HostRoute.maximumPorts) --host-port ports") }
+        return out
+    }
 
     @Option(name: .long, help: "The model gateway a tool or recipe agent goes through — openrouter (one key, many models). Its account is then a key of that gateway.")
     var gateway: String?
@@ -242,6 +265,10 @@ struct ChoiceOptions: ParsableArguments {
         var words = PermissionPolicy.splitWords(allow)
         // 599d: --github read|push|off is the same as allowing (or not) its two permissions.
         words += try Self.githubWords(github, flag: "--github")
+        // 691: this Mac's ports — `--host-port` and `--permissions host:PORT` — never a permission word.
+        let hostPorts = try Self.hostPorts(hostPort, words: words)
+        words.removeAll(where: HostRoute.isWord)
+        if !hostPorts.isEmpty { o.hostPorts = hostPorts }
         if !words.isEmpty { o.allow = words }
         if !key.isEmpty { o.keys = key }          // 617 (D6)
         try applyModelSource(to: &o)              // 617 (models@1)
@@ -328,6 +355,7 @@ struct ChoiceOptions: ParsableArguments {
             || agent != nil || base != nil || dockerfile != nil || !allow.isEmpty
             || clipboard != nil || browserBridge != nil || openFiles != nil || tmux != nil || github != nil || sshAgent != nil
             || ignoreMode != nil || workspaceView != nil || dotfiles != nil || sound != nil || audio || approvals != nil
+            || !hostPort.isEmpty
     }
 }
 
@@ -747,8 +775,12 @@ struct Up: AsyncParsableCommand {
                 if let w = create.absoluteWorkspace { o.workspace = w }
                 if create.isolated { o.workspace = nil; o.isolated = true }
                 if let s = create.agentSudo { o.agentSudo = s }
-                let allowWords = PermissionPolicy.splitWords(create.allow)
+                var allowWords = PermissionPolicy.splitWords(create.allow)
                     + (try CreateArguments.githubWords(create.github, flag: "--github"))   // 599d
+                // 691: --host-port and --permissions host:PORT join the file's host_ports.
+                let flagPorts = try CreateArguments.hostPorts(create.hostPort, words: allowWords)
+                allowWords.removeAll(where: HostRoute.isWord)
+                if !flagPorts.isEmpty { o.hostPorts = HostRoute.merged(o.hostPorts ?? [], add: flagPorts) }
                 if !allowWords.isEmpty { o.allow = (o.allow ?? []) + allowWords }       // 597 (the file's github: first, the flags after)
                 if let s = try create.sandboxSettings() { o.settings = (o.settings ?? [:]).merging(s) { _, flag in flag } }
                 try create.applyPrompt(to: &o)

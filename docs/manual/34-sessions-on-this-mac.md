@@ -85,6 +85,7 @@ and other folders closed — doz run @mac --unfenced for none of this`; unfenced
 | `--read DIR`, `--write DIR` | one more folder, read-only or read-write (never your home, `~/.ssh`, `~/.config`, `~/Library` or the store) | `mac.fence_read` (read-only, relative to your home) |
 | `--permissions` | what it may reach: `standard`, `locked`, `open`, a permission, `-PERMISSION`, `site:HOST[:PORT[,PORT]]` | `mac.permissions` (`standard`) |
 | `--local-port N` | it may listen on, and connect to, `localhost:N` — a dev server, a sign-in callback | — |
+| `--host-port N[:tag]` | it may reach a service on this Mac — a message server, a local API — through its proxy, as `host.dozable.internal:N` (`:tag`: requests name the session) | `network.host_ports_live` (live changes) |
 | `--agent-config private\|shared` | the agent's settings folder (below) | `mac.agent_config` (`private`) |
 | `--history keep\|agent-default` | what happens to its conversations (below) | `agent.history` |
 | `--account NAME\|mac\|none` | the Claude login the proxy swaps in | `mac.account` (`mac`) |
@@ -208,6 +209,20 @@ macOS limit holds for a `--local-port N` server that listens on every address.
 ```bash
 doz config set mac.fence_loopback_listen on     # from the next session or restart
 ```
+
+**Reaching a service on this Mac** — a message server another session runs, a local API — is `--host-port N`, a different thing
+from `--local-port N`: `--local-port` is the session's OWN listener (it binds it; your browser reaches it), while
+`--host-port` lets it reach someone else's listener on this Mac, through its proxy, by name:
+
+```bash
+doz run @mac -d --host-port 8780 -- claude      # inside: curl http://host.dozable.internal:8780/
+doz net allow @mac --session claude host:8781   # one more, live (network.host_ports_live, on by default)
+doz run @mac -d --host-port 8780:tag -- claude  # its plain-HTTP requests carry X-Dozable-Session: @mac/claude
+```
+
+`127.0.0.1:8780` stays closed inside the fence; only the name is the way, and only for those ports. The header is
+identification, not authentication. `--unfenced` with `--host-port` is refused: an unfenced session already reaches
+every port. The full rules: [This Mac's ports](10-permissions-and-network.md#this-macs-ports).
 
 Under `locked`, macOS's certificate service is closed too, so tools that check certificates through it (Go programs,
 `gh`) cannot reach anything; under `standard` it is open (it fetches revocation lists on the program's behalf).

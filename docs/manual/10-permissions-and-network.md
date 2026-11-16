@@ -82,6 +82,42 @@ where the whole host is allowed. Allowing a port of a host you had denied whole 
 refused whatever a site rule says. A refused connection to a port other than 80 or 443 is offered as that host and
 port (`site:HOST:PORT`), not the whole host.
 
+## This Mac's ports
+
+Your Mac's own addresses are never reachable from a sandbox or a fenced session — with one deliberate exception: a
+port of your Mac you open to it. It then reaches the service there (a message server, a dev server, a local API) by name, as
+`host.dozable.internal:PORT`, and nothing else of your Mac:
+
+```sh
+doz create my-app --host-port 8780            # at creation (repeatable); doz_project.yaml: host_ports: [8780]
+doz run my-app --host-port 8780 -- bash       # a sandbox keeps it
+doz run @mac --host-port 8780 -- claude       # a fenced session on this Mac
+doz net allow my-app host:8780                # live, while it runs
+doz net deny my-app host:8780                 # closed again, live
+```
+
+- **Only that port, only by that name.** The proxy sends `host.dozable.internal:8780` to `127.0.0.1:8780` on your
+  Mac. Any other port of the name is refused with the ports that are open. `127.0.0.1:8780`, `localhost:8780` or your
+  Mac's Wi-Fi or Tailscale address with the same port stay refused — only the name is the way in.
+  `mac.dozable.internal` is the same route (its older name, from [Claude Code and other models](32-claude-code-other-models.md)),
+  and a model server's port is one entry of the same list.
+- **Never a permission.** `host:PORT` is not a site and not part of any preset — **Open opens the internet, not your
+  Mac**. `--permissions host:8780` (and `--allow`) is the same as `--host-port 8780`.
+- **Never Dozable's own ports** (the dashboard's, a fenced session's proxy, a sandbox's forwarded web port), port 0
+  or a port below 1024 — refused when asked, and again at each connection (a dashboard may start later on that port).
+- **Plain HTTP** to it works as to any site; a credential placeholder is never sent there.
+- `doz net NAME` shows them ("This Mac's ports: 8780 (named), 11434 (model server)"), as does the dashboard's
+  Network tab (read-only there: change them with `doz net allow|deny`). A refused connection to the name suggests
+  `host:PORT`. The model server's port belongs to its model source: `doz net deny NAME host:PORT` does not take it away.
+- **Live changes** follow the setting `network.host_ports_live` (on by default). Off, `doz net allow NAME host:PORT`
+  is refused — the ports are fixed when the sandbox or session starts (`--host-port`); `doz net deny` always works.
+
+**Which session is asking.** `--host-port 8780:tag` (or `host:8780:tag`) makes every plain-HTTP request through the
+route carry `X-Dozable-Session` naming its sender — the sandbox's name, or `@mac/SESSION` for a fenced session; any
+copy the program sent itself is removed first. It is identification, not authentication: any program on your Mac can
+send the same header to the service directly. A request inside a tunnel (`CONNECT`, HTTPS) is not read by the proxy,
+so it carries nothing added. Without `:tag` the route passes the program's own fields untouched.
+
 ## Change it — in the dashboard
 
 On a sandbox's page, the details' **Network** tab › **What the agent can do** shows the presets (**Locked** ·
@@ -136,6 +172,7 @@ Your own rules win over a permission's hosts. A host your rules can't allow does
 | `defaults.permissions` | `standard` | What a new sandbox's agent may do: `standard`, `locked`, `open`, or Standard with changes like `+web,-error-reports`. |
 | `recipes.anthropic.claude-code.network` · `recipes.earendil-works.pi.network` · `images.lab.network` | `agent` · `agent` · `bake` | The network kind of a new sandbox of each image. |
 | `defaults.nat_subnet` | (a free one) | The subnet of a new `nat` sandbox (`$DOZ_SUBNET`). |
+| `network.host_ports_live` | `true` | Whether `doz net allow NAME host:PORT` may open a port of this Mac while a sandbox or session runs. |
 
 ## Limits and security
 
@@ -147,8 +184,8 @@ Your own rules win over a permission's hosts. A host your rules can't allow does
   (programs fall back to TCP).
 - **Your Mac's own addresses are never reachable**, whatever the permissions — Open included: its localhost, its
   Wi-Fi or Ethernet address, a VPN's or Tailscale's, link-local addresses and the cloud metadata address
-  `169.254.169.254`. A model server on your Mac is reached by name ([Claude Code and other models](32-claude-code-other-models.md));
-  other machines on your network stay reachable when the permissions allow them.
+  `169.254.169.254`. A port of your Mac you open to it is reached by name ([This Mac's ports](#this-macs-ports)), a
+  model server's among them ([Claude Code and other models](32-claude-code-other-models.md)); other machines on your network stay reachable when the permissions allow them.
 - There are no general port forwards from your Mac into a sandbox. The one exception is a sign-in's
   callback, briefly — see [Signing in from a sandbox](11-signing-in-from-a-sandbox.md).
 - A sandbox made with an older version of Dozable keeps its rules; `doz net NAME` shows them as the
@@ -171,7 +208,9 @@ doz net log @mac --session agent --fence          # what the fence itself refuse
 ```
 
 Inside the fence name lookups are closed (the proxy looks names up), a program that ignores the proxy has no network,
-and listening is allowed only on the ports given with `--local-port N`. An unfenced session (`--unfenced`) has none of
+and listening is allowed only on the ports given with `--local-port N`. A service on this Mac is reached through the
+proxy as `host.dozable.internal:PORT` for a port given with `--host-port PORT` (or `doz net allow @mac --session S
+host:PORT`) — see [This Mac's ports](#this-macs-ports). An unfenced session (`--unfenced`) has none of
 this: it reaches the network as you do, unlogged.
 
 ## Troubleshooting

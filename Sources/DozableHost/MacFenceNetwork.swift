@@ -44,6 +44,7 @@ public enum MacFenceNetwork {
         var names: [String] = []
         var sites: [(host: String, ports: [UInt16]?)] = []
         for w in PermissionPolicy.splitWords(words) {
+            if HostRoute.isWord(w) { continue }          // 691: this Mac's ports — the fence's `hostPorts`, never the policy's
             if w.hasPrefix("site:") {
                 do { sites.append(try PermissionPolicy.site(w)) } catch { throw HostError(.invalid, "--permissions \(w): " + HostError.from(error).message) }
                 continue
@@ -109,12 +110,15 @@ final class MacFenceProxy: @unchecked Sendable {
     let listener: LoopbackProxyListener
 
     init(session: String, fd: Int32, port: UInt16, policy: NetworkPolicy, secretSHA256: String, ca: SandboxCA?,
-         environment: [String: String]) throws {
+         environment: [String: String], hostPorts: [HostPort] = []) throws {
         self.session = session
         self.port = port
         proxy = try EgressProxy(policy: policy, ca: ca)
         proxy.addressGuard = .strict            // every proxy's default since M2b; said here, where it matters most
         proxy.servesFencedSession = true
+        // 691: the ports of this Mac it reaches as host.dozable.internal:PORT, and what a tagged port's requests say.
+        proxy.hostPorts = hostPorts
+        proxy.sessionLabel = "@mac/" + session
         proxy.fenceUpstreamsForTests = MacFenceNetwork.upstreamsForTests(environment)
         // 683 TEST SEAM (guarded runs only): the model's hosts go to a fake provider over TLS, trusting ONLY its CA
         // (`DOZ_TEST_PROVIDER_UPSTREAM` + `_CA` + `_HOSTS`, as a sandbox's) — the Claude login's swap, tested offline.
@@ -126,10 +130,24 @@ final class MacFenceProxy: @unchecked Sendable {
         listener.onNote = { HostLog.line("@mac \(session): \($0)") }
     }
 
-    func start() { listener.start() }
+    /// 691: its own port is never a port of the route (to any sandbox or session) while this host serves it.
+    private let registration = NSLock()
+    private var registered = false
+
+    func start() {
+        registration.withLock { if !registered { HostRoute.registerOwn(port); registered = true } }
+        listener.start()
+    }
 
     /// The end of the session (or this host): stop, cut what is open.
-    func stop() { listener.drain(timeout: 0) }
+    func stop() {
+        listener.drain(timeout: 0)
+        unregister()
+    }
+
+    func unregister() { registration.withLock { if registered { HostRoute.unregisterOwn(port); registered = false } } }
+
+    deinit { unregister() }
 }
 
 /// 683: a fenced session's proxy is a credential target like a sandbox (`HostCore.bindAnthropicAccount`).

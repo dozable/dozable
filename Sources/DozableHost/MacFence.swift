@@ -16,6 +16,9 @@ public struct MacFenceRequest: Codable, Equatable, Sendable {
     public var permissions: [String]?
     /// Ports of this Mac's loopback it may listen on and connect to (`--local-port N`, each 1024–65535).
     public var localPorts: [Int]?
+    /// 691: services on this Mac it may reach through its proxy as `host.dozable.internal:PORT` (`--host-port PORT[:tag]`,
+    /// `--permissions host:PORT`) — a different thing from `localPorts` (its OWN listeners, opened in its profile).
+    public var hostPorts: [HostPort]? = nil
     /// 683: the agent's config folder (`private` | `shared`; nil: the settings), its conversation history (`keep` |
     /// `agent-default`; nil: the settings), its Claude login (an account's name, `mac`, `none`; nil: `mac.account`).
     public var agentConfig: String? = nil
@@ -81,6 +84,8 @@ public struct MacFenceGrants: Codable, Equatable, Sendable {
     public var writable: [String]
     /// Its own ports of this Mac's loopback (nil: none — every record before them).
     public var localPorts: [Int]? = nil
+    /// 691: the ports of this Mac it reaches through its proxy (nil: none — every record before them).
+    public var hostPorts: [Int]? = nil
     /// Certificate trust (trustd) is open to it — every preset but Locked (nil: an older record, which had it).
     public var trust: Bool? = nil
     /// 683: its agent uses the person's own config folder (`shared`).
@@ -102,6 +107,7 @@ public struct MacFenceGrants: Codable, Equatable, Sendable {
         if !Set(readable).subtracting(old.readable).subtracting(old.writable).isEmpty { return true }
         if !Set(writable).subtracting(old.writable).isEmpty { return true }
         if !Set(localPorts ?? []).subtracting(old.localPorts ?? []).isEmpty { return true }
+        if !Set(hostPorts ?? []).subtracting(old.hostPorts ?? []).isEmpty { return true }          // 691
         if trust ?? true, !(old.trust ?? true) { return true }
         if Self.githubRank(github) > Self.githubRank(old.github) { return true }
         if sshAgent == true && old.sshAgent != true { return true }
@@ -134,6 +140,9 @@ public struct MacFenceRecord: Codable, Equatable, Sendable {
     public var proxySecretSHA256: String? = nil
     public var policy: NetworkPolicy? = nil
     public var localPorts: [Int]? = nil
+    /// 691: the ports of this Mac its proxy routes as `host.dozable.internal:PORT` — given at open and changed live (`doz
+    /// net allow|deny @mac --session S host:PORT`, kept here). nil: none (every record before them).
+    public var hostPorts: [HostPort]? = nil
     /// 687: it may listen on any port (`mac.fence_loopback_listen` at its open; nil: no).
     public var loopbackListen: Bool? = nil
     /// 683: its agent (the recipe declaring a config folder; nil: none), that folder's mode and where the mode came from,
@@ -175,6 +184,7 @@ public struct MacFenceRecord: Codable, Equatable, Sendable {
         r.simulator = profile == "simulator" ? true : nil
         r.github = github
         r.sshAgent = sshAgent
+        r.hostPorts = (hostPorts ?? []).isEmpty ? nil : hostPorts          // 691: a restart keeps them (live ones too)
         return r
     }
 }
@@ -196,6 +206,8 @@ public struct MacFenceRow: Codable, Equatable, Sendable {
     public var permissions: [String]?
     public var preset: String?
     public var localPorts: [Int]?
+    /// 691: the ports of this Mac it reaches as `host.dozable.internal:PORT` (nil: none).
+    public var hostPorts: [HostPort]? = nil
     /// 687: it may listen on any port (nil: no).
     public var loopbackListen: Bool? = nil
     public var network: String?
@@ -230,6 +242,7 @@ public struct MacFenceRow: Codable, Equatable, Sendable {
         permissions = r.policy?.permissions
         preset = r.policy.flatMap { $0.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
         localPorts = (r.localPorts ?? []).isEmpty ? nil : r.localPorts
+        hostPorts = (r.hostPorts ?? []).isEmpty ? nil : r.hostPorts
         loopbackListen = r.loopbackListen == true ? true : nil
         network = r.proxyPort == nil ? "none" : "waiting (no daemon)"
         agent = r.agent
@@ -296,6 +309,9 @@ public struct MacFence: Sendable, Equatable {
     public var proxyPort: UInt16?
     /// Ports of this Mac's loopback it may listen on and connect to (`--local-port`).
     public var localPorts: [UInt16] = []
+    /// 691: services on this Mac its proxy routes as `host.dozable.internal:PORT` (`--host-port`) — nothing in its profile:
+    /// the program reaches them only through its proxy.
+    public var hostPorts: [HostPort] = []
     /// 687 (`mac.fence_loopback_listen`): it may listen on ANY port — bind and accept only; its outbound stays its proxy
     /// and its `--local-port`s. Seatbelt cannot keep a bind to the loopback ADDRESS (probes/687-*: `(local tcp
     /// "localhost:*")` lets a program bind 0.0.0.0 and this Mac's LAN address, and a LAN client then reaches it — the same
@@ -351,6 +367,7 @@ public struct MacFence: Sendable, Equatable {
     public var grants: MacFenceGrants {
         var g = MacFenceGrants(profile: profile, keychain: keychain, readable: readable.sorted(), writable: (writable + gitCommon).sorted())
         g.localPorts = localPorts.isEmpty ? nil : localPorts.map(Int.init).sorted()
+        g.hostPorts = hostPorts.isEmpty ? nil : hostPorts.map { Int($0.port) }.sorted()
         g.trust = trust
         if agent?.isPrivate == false { g.sharedConfig = true }
         g.github = github?.rawValue
@@ -394,6 +411,7 @@ public struct MacFence: Sendable, Equatable {
                                                                          profile: request.profile),
                              keychain: request.keychain == true, tag: newTag())
         fence.localPorts = try localPorts(request.localPorts)
+        fence.hostPorts = try PermissionPolicy.checkedLaunchPorts(request.hostPorts ?? [])          // 691
         fence.workdirGit = MacFenceHostFS.kind(wd + "/.git")
         fence.profile = request.profile
         switch request.github ?? "off" {
@@ -437,6 +455,7 @@ public struct MacFence: Sendable, Equatable {
         let words = ["agent": "standard"][presetName ?? ""] ?? presetName ?? "custom"
         let net = proxyPort == nil ? "no network" : "network through Dozable's proxy (\(words) permissions)"
             + (localPorts.isEmpty ? "" : "; its own ports \(localPorts.map(String.init).joined(separator: ", ")) on this Mac")
+            + (hostPorts.isEmpty ? "" : "; this Mac's ports \(HostRoute.listText(hostPorts)) as \(HostRoute.hostName):PORT")
             + (loopbackListen ? "; it may listen on any port" : "")
         var own = "its own temp and caches"
         if xcode { own += " and DerivedData" }
@@ -458,6 +477,7 @@ public struct MacFence: Sendable, Equatable {
                                gitBaseline: gitBaseline, stoppedForGit: nil, stoppedPids: nil)
         r.proxyPort = proxyPort.map(Int.init)
         r.localPorts = localPorts.isEmpty ? nil : localPorts.map(Int.init)
+        r.hostPorts = hostPorts.isEmpty ? nil : hostPorts
         r.loopbackListen = loopbackListen ? true : nil
         r.agent = agent?.recipe
         r.agentConfig = agent?.mode

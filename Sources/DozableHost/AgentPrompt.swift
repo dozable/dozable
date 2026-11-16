@@ -206,7 +206,7 @@ public enum AgentPrompt {
                               browser: Bool = true, openFiles: Bool = true, openApps: [String] = [],
                               github: GitHubAccess.Mode? = nil, sshAgent: Bool = false, tools: ToolsReport? = nil,
                               workspaceRules: WorkspaceRuleMode? = nil, agent: String? = nil, dotfiles: DotfilesState? = nil,
-                              modelSource: String? = nil, localModelPort: Int? = nil) -> [String: String] {
+                              modelSource: String? = nil, localModelPort: Int? = nil, hostPorts: [HostPort] = []) -> [String: String] {
         var v: [String: String] = [:]
         // 657: the user's dotfiles in this home — one line, only when it has some.
         v["dotfiles.facts"] = dotfiles.map(Self.dotfilesFacts) ?? ""
@@ -321,9 +321,14 @@ public enum AgentPrompt {
             if p.permissions != nil, let r = ImageChoice.parse(image)?.agent.recipe {
                 for o in r.network.offWithout ?? [] where !(p.permissions ?? []).contains(o.permission) { v["network.permissions"]! += " " + o.says + "." }
             }
-            // 660: the one port of the Mac it may reach (its model server) — and nothing else of the Mac's localhost.
-            if let port = localModelPort {
+            // 660: the one port of the Mac it may reach (its model server) — and nothing else of the Mac's localhost. The line
+            // is exactly as it was for a sandbox with no other port; 691: with `--host-port`s, one line names them all.
+            let others = hostPorts.filter { $0.origin != .model && Int($0.port) != localModelPort }
+            if let port = localModelPort, others.isEmpty {
                 v["network.permissions"]! += " Of the user's Mac you may reach only port \(port), as http://\(MacModelServer.hostName):\(port) (the model server you use); nothing else of the Mac — its localhost or any other address of it — is reachable."
+            } else if !others.isEmpty {
+                let all = HostRoute.merged(others, add: localModelPort.map { [HostPort(port: UInt16($0), origin: .model)] } ?? [])
+                v["network.permissions"]! += " " + PermissionPolicy.hostPortsFacts(all) + " More of its ports: the user's choice (`doz net allow \(name) host:PORT`)."
             }
             let allowed = p.effectiveRules.filter { $0.action == .allow }.map(\.host)
             var unique: [String] = []
@@ -500,7 +505,7 @@ public enum AgentPrompt {
                           github: AgentPermissions.gitHubMode(policy?.permissions),
                           sshAgent: policy != nil && HostCore.sandboxValue(config, SettingKey.sshAgent, settings: settings) == .string("on"),
                           tools: tools, workspaceRules: workspaceRules, agent: agent, dotfiles: dotfiles,
-                          modelSource: modelSource, localModelPort: config.localModelPort)
+                          modelSource: modelSource, localModelPort: config.localModelPort, hostPorts: config.hostPorts ?? [])
         var r = AgentPromptReport(enabled: settings.bool(SettingKey.agentPrompt), agent: agent, text: nil, error: nil, layers: [],
                                   skill: nil, promptPath: guestPromptPath,
                                   // 617: a context-file agent's facts file (Gemini CLI's extension, Grok Build's rules).
