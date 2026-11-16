@@ -331,7 +331,7 @@ test-community-recipes: cli ## 653: your own recipes and community catalogues en
 test-cli-startup: cli ## The cost of a start: ls/sessions/exec/attach build no recipe part (DOZ_TEST_STARTUP_TRACE); median doz ls --json <= STARTUP_MAX_MS (60), <= 1 s under taskpolicy -b; doctor's priority warning, a host started from the background leaves it (scratch store, no VM)
 	python3 Scripts/startup-check.py $(CLI_BIN)
 
-test-cli-keychainlocked: cli ## A daemon started where the login keychain is locked (the guarded DOZ_TEST_KEYCHAIN_LOCKED seam): said before it starts, named as the reason by account ls and doctor; a normal one says nothing (scratch store, no VM)
+test-cli-keychainlocked: cli ## A daemon started where the login keychain is locked (the guarded DOZ_TEST_KEYCHAIN_LOCKED seam): said before it starts, named as the reason by account ls and doctor; a normal one says nothing; it never runs the login keep-alive (a FAKE claude) (scratch store, no VM)
 	python3 Scripts/keychain-locked-check.py $(CLI_BIN)
 
 test-cli-exectimeout: cli vmtest-host ## exec --timeout: counted from doz's start, 124 from the daemon at the deadline — a running command killed, a cold start and a wake that outlast it go on, a stopped client still ends 124 (a lab sandbox, scratch store)

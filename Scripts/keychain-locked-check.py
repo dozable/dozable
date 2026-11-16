@@ -13,7 +13,9 @@ $TMPDIR, no VM. DOZ_TEST_KEYCHAIN_LOCKED=1 (a guarded seam) makes a process's se
      idle timeout of 5 minutes when the setting's is 0; with a 3 s timeout it exits by itself.
   6. (the login item) a locked `daemon restart` against an unlocked daemon with no login item loaded is refused;
   7. the login item's look (`daemon start --login-item`, a normal session) replaces a locked daemon that runs nothing;
-  8. doctor's login item row; nothing is written to the (scratch) LaunchAgents folder.
+  8. doctor's login item row; nothing is written to the (scratch) LaunchAgents folder;
+  9. (the login keep-alive) a locked daemon never runs it: `always`, a scratch login expiring in 3 s and a FAKE claude
+     (DOZ_TEST_CLAUDE_BIN — never the real one) — skipped, saying why, the fake never ran; status and doctor say it.
 Prints PASS/FAIL lines and `keychain-locked-check: ALL PASS` last; stops every host it started.
 """
 import json
@@ -132,6 +134,46 @@ try:
     agents = os.environ.get("DOZ_TEST_LAUNCH_AGENTS_DIR", "")
     check(not agents or not any(n.startswith("com.dozable.") for n in (os.listdir(agents) if os.path.isdir(agents) else [])),
           "nothing written to the scratch LaunchAgents folder")
+    # 9. the login keep-alive: a locked daemon never runs it.
+    run(["daemon", "stop"])
+    ka = os.path.join(root, "keepalive-test")
+    os.makedirs(ka)
+    fake, ran, creds = os.path.join(ka, "claude-ka-fake"), os.path.join(ka, "ran"), os.path.join(ka, "credentials.json")
+    with open(fake, "w") as f:
+        f.write("#!/bin/sh\necho ran >> '%s'\nexit 0\n" % ran)
+    os.chmod(fake, 0o755)
+    ms = int((time.time() + 3) * 1000)
+    with open(creds, "w") as f:
+        f.write('{"claudeAiOauth":{"accessToken":"sk-ant-oat01-FAKE","refreshToken":"sk-ant-ort01-FAKE-NEVER-READ","expiresAt":%d}}' % ms)
+    os.chmod(creds, 0o600)
+    kenv = dict(locked, DOZ_TEST_CLAUDE_BIN=fake, DOZ_TEST_CLAUDE_CREDENTIALS_FILE=creds, DOZ_TEST_LOGIN_WATCH_SECONDS="1")
+    run(["daemon", "start"], kenv)
+    r = run(["account", "keepalive", "always"], kenv)
+    check(r.returncode == 0, "keep-alive always on a locked daemon (%s)" % r.stderr.strip()[:120])
+    ka_status = {}
+    t0 = time.time()
+    while time.time() - t0 < 20:
+        try:
+            rows = json.loads(run(["account", "ls", "--json"], kenv).stdout)
+            ka_status = next((x.get("keepalive") or {} for x in rows if x.get("name") == "mac"), {})
+        except ValueError:
+            ka_status = {}
+        if ka_status.get("outcome") == "skipped":
+            break
+        time.sleep(0.5)
+    check(ka_status.get("outcome") == "skipped" and "login keychain is locked (ssh)" in (ka_status.get("reason") or "")
+          and not os.path.exists(ran),
+          "a locked daemon never runs the keep-alive: skipped, saying why; the fake claude never ran (%s)" % ka_status.get("reason"))
+    st = status()
+    check((st.get("keepalive") or {}).get("keychainLocked") == "ssh", "daemon status --json: keepalive.keychainLocked ssh")
+    r = run(["doctor", "--json"], kenv)
+    try:
+        checks = {c["check"]: c for c in json.loads(r.stdout)}
+    except ValueError:
+        checks = {}
+    kc = checks.get("Claude login keep-alive", {})
+    check(kc.get("status") == "warn" and "login keychain is locked" in kc.get("detail", ""), "doctor: the keep-alive row warns (%s)" % kc.get("detail", "none"))
+    run(["account", "keepalive", "off"], kenv)
 finally:
     subprocess.run([doz, "daemon", "stop"], env=env, capture_output=True, timeout=300)
     shutil.rmtree(root, ignore_errors=True)

@@ -562,6 +562,52 @@ func cliFenceSuite(binary: String) async {
 
     // M4: the tools — git/ssh through the proxy, GitHub as you, the SSH agent, worktrees, submodules, Swift, Xcode.
     await cliFenceToolsChecks(t, root: root, home: home, store: store, started: &started)
+
+    // 695: the login keep-alive beside a FENCED Claude Code (a fake one): it holds a placeholder, not the login — the run goes on.
+    cliFenceKeepaliveRows(t, root: root, work: work, row: row)
+    started.remove("kaf")                       // it ended it
+}
+
+/// 695: a fenced (fake) Claude Code running does NOT block the keep-alive: its process is a member of a fenced session (its
+/// sentinel), left out of the holders — the daemon's log names it — and the run renews. Only the fake claude is ever run
+/// (DOZ_TEST_CLAUDE_BIN), against a scratch credentials file.
+private func cliFenceKeepaliveRows(_ t: CLIHarness, root: String, work: String, row: (String) -> SessionRow?) {
+    let ka = root + "/keepalive-test"
+    try? FileManager.default.createDirectory(atPath: ka, withIntermediateDirectories: true)
+    let bin = ka + "/claude-ka-fake", inside = work + "/claude-ka-fake", log = ka + "/runs.log", creds = ka + "/credentials.json"
+    let script = fakeKeepaliveClaude.replacingOccurrences(of: "@LOG@", with: log).replacingOccurrences(of: "@CREDS@", with: creds)
+        .replacingOccurrences(of: "@FAIL@", with: ka + "/FAIL")
+    for p in [bin, inside] { try? script.write(toFile: p, atomically: true, encoding: .utf8); chmod(p, 0o755) }
+    t.run(["daemon", "stop"], timeout: 60)
+    t.env["DOZ_TEST_CLAUDE_BIN"] = bin
+    t.env["DOZ_TEST_CLAUDE_CREDENTIALS_FILE"] = creds
+    t.env["DOZ_TEST_LOGIN_WATCH_SECONDS"] = "1"
+    defer {
+        t.run(["sessions", "end", "@mac", "kaf", "--yes"], timeout: 60)
+        t.run(["account", "keepalive", "off"], timeout: 30)
+        t.run(["daemon", "stop"], timeout: 60)
+        t.env["DOZ_TEST_CLAUDE_BIN"] = nil
+        t.env["DOZ_TEST_CLAUDE_CREDENTIALS_FILE"] = nil
+        t.env["DOZ_TEST_LOGIN_WATCH_SECONDS"] = nil
+        try? FileManager.default.removeItem(atPath: inside)
+    }
+    var r = t.run(["run", "@mac", "-d", "--fenced", "--session", "kaf", "--workdir", work, "--", inside, "hold"], timeout: 90)
+    check(r.code == 0 && t.waitFor(10) { row("kaf")?.pid != nil && row("kaf")?.fenced == true },
+          "keep-alive: a fenced (fake) Claude Code running in session kaf (\(r.code)\(r.code == 0 ? "" : ": " + r.err.prefix(160)))")
+    let pid = row("kaf")?.pid ?? -1
+    writeFakeCredentials(creds, expiresIn: 3)
+    r = t.run(["account", "keepalive", "always"], timeout: 60)
+    check(r.code == 0, "keep-alive: doz account keepalive always")
+    var k: KeepaliveStatus?
+    _ = t.waitFor(25) {
+        k = t.json(["account", "ls"], [AccountRow].self)?.first { $0.name == "mac" }?.keepalive
+        return k?.outcome == "renewed" || k?.outcome == "skipped"
+    }
+    check(k?.outcome == "renewed", "keep-alive: the fenced Claude Code does not block the renewal (\(k?.outcome ?? "none")\(k?.reason.map { ": " + $0 } ?? ""))")
+    let daemonLog = (try? String(contentsOfFile: root + "/store/daemon.log", encoding: .utf8)) ?? ""
+    check(daemonLog.contains("fenced sessions' Claude Code left out") && daemonLog.contains("kaf pid \(pid)"),
+          "keep-alive: the daemon's log names it as fenced, left out (pid \(pid))")
+    check(FakeKeepaliveLog(path: log).runs.count == 1, "keep-alive: one run")
 }
 
 /// A fenced session's tag, read from its record in the store (the test runs outside every fence).
