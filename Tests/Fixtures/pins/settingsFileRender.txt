@@ -285,7 +285,7 @@
 
 # Start the doz daemon when you log in, from your desktop session: one login item in
 # ~/Library/LaunchAgents, removed by off and by doz uninstall. ask: not installed; doz offers it
-# once.
+# once. Set on this Mac (doz daemon login-item on|off), never from the dashboard.
 # (ask | on | off; applies at once (the UI re-reads it))
 # login_item = "ask"
 

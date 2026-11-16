@@ -886,10 +886,11 @@ public struct DozableSettings: Sendable {
                   "Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once; a new doz installed under it takes over by itself once nothing runs (with daemon.login_item on, it also starts when you log in). off: it exits after daemon.idle_timeout_minutes with nothing running (when that is 0, it still never does). A daemon started where the login keychain is locked (over ssh) is never kept running: it exits after 5 minutes with nothing running.",
                   env: "DOZ_DAEMON_ALWAYS_ON", applies: .now),
             // 694: the login item (owner: a per-user login agent, only with consent). NO environment variable — consent is
-            // never an environment value; only `on` ever writes one (`DaemonLoginItem.sync`).
+            // never an environment value; only `on` ever writes one (`DaemonLoginItem.sync`). Set on the Mac only (ui: false):
+            // under doz ui --lan a device on the network must never make this Mac write a LaunchAgent.
             .init("daemon", "login_item", .choice(["ask", "on", "off"]), .string("ask"),
-                  "Start the doz daemon when you log in, from your desktop session: one login item in ~/Library/LaunchAgents, removed by off and by doz uninstall. ask: not installed; doz offers it once.",
-                  applies: .now),
+                  "Start the doz daemon when you log in, from your desktop session: one login item in ~/Library/LaunchAgents, removed by off and by doz uninstall. ask: not installed; doz offers it once. Set on this Mac (doz daemon login-item on|off), never from the dashboard.",
+                  applies: .now, ui: false),
             .init("daemon", "idle_timeout_minutes", .int(0...10_080), .int(0),
                   "Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0 = never.",
                   env: "DOZ_DAEMON_IDLE", flag: "doz daemon start --idle-timeout", applies: .daemonRestart),

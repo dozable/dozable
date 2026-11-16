@@ -932,8 +932,9 @@ public final class DozableWebServer: @unchecked Sendable {
             try Self.requireJSONBody(md)
             let change = try WebSettingChange.decode(body)
             let report = try settings.apply(change)
-            // 694: the daemon's login item follows daemon.login_item and daemon.always_on (only `on` ever adds one).
-            if [SettingKey.loginItem, SettingKey.alwaysOn].contains(change.key) {
+            // 694: the daemon's login item follows daemon.always_on (daemon.login_item itself is set on the Mac only; with
+            // always_on back on, an item is added only where daemon.login_item is already on).
+            if change.key == SettingKey.alwaysOn {
                 DaemonLoginItem.sync(store: DozableStore(root: URL(fileURLWithPath: data.storePath)), mode: .command, settings: settings.current)
             }
             return json(report)

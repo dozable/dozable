@@ -21,7 +21,8 @@ import DozableKit
 ///
 /// The install rule (`decide`): present ⇔ `login_item == on` AND (`always_on` OR ≥ 1 kept session) AND no app-owned job
 /// (`com.dozable.app.daemon`, reserved for the menu bar app; one whose program no longer exists counts as absent). `sync`
-/// is called by `doz daemon login-item on|off`, `doz config set|unset` of the daemon's settings, the web settings route,
+/// is called by `doz daemon login-item on|off`, `doz config set|unset` of the daemon's settings, the web settings route (`daemon.always_on` only — the
+/// login item itself is set on the Mac, never from the dashboard),
 /// and each daemon start — which only rewrites a stale program path or removes; it never installs.
 ///
 /// Every path goes through the seams: `LaunchAgentsFolder` and `Launchctl` (TestSafety stops a guarded run at the real ones).

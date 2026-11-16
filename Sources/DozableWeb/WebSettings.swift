@@ -103,6 +103,8 @@ public final class WebSettingsStore: @unchecked Sendable {
         guard d.editableInUI else {
             // 606: who may reach the dashboard is decided on the Mac, never from a browser.
             if d.section == "serve" || d.key == SettingKey.uiLAN { throw HostError(.invalid, "\(d.key) decides who reaches the dashboard — set it on the Mac: doz config set \(d.key) VALUE") }
+            // 694: consent to a login item is given on the Mac, never from a browser (under --lan, another device's).
+            if d.key == SettingKey.loginItem { throw HostError(.invalid, "\(d.key) adds a login item to this Mac — set it on the Mac: doz daemon login-item on|off") }
             throw HostError(.invalid, "\(d.key) is a host path — set it with: doz config set \(d.key) PATH")
         }
         let r = s.resolve(d.key, flag: flags[d.key])

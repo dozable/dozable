@@ -336,7 +336,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(li.defaultValue, .string("ask"))
         XCTAssertNil(li.environment)
         XCTAssertEqual(li.applies, .now)
-        XCTAssertTrue(li.editableInUI)
+        XCTAssertFalse(li.editableInUI, "set on the Mac only — never from the dashboard (a LAN device must not add a LaunchAgent)")
         let s = DozableSettings.load(environment: env)
         XCTAssertTrue(s.bool(SettingKey.alwaysOn))
         XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 0)
