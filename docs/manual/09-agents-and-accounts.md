@@ -226,8 +226,9 @@ Claude Code renews it whenever it runs on your Mac near expiry.
   runs the Mac's own `claude` once: one tiny turn on your subscription, with no tools, no MCP servers and
   no hooks, in an empty folder. Claude Code renews an expired login as it starts (it leaves one that
   has not expired yet as it is); Dozable never touches the login's refresh token. If a run leaves the
-  login as it was, it is tried again 1, 5 and 15 minutes after the expiry, then every 30 minutes, six
-  runs in all, and then said as failed.
+  login as it was, or fails (say, the network was down), it is tried again 1, 5 and 15 minutes after
+  the expiry, then every 30 minutes, six runs in all, and then said as failed until the login changes
+  (or you set `doz account keepalive` again).
   - `doz account keepalive on`: only while a sandbox or a fenced session on this Mac used the login in
     the last 15 minutes.
   - `doz account keepalive always`: whether or not anything uses it. It suits a Mac left unattended,

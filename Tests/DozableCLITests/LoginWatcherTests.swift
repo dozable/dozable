@@ -14,6 +14,8 @@ final class RecordingRunner: KeepaliveRunning, @unchecked Sendable {
     private let lock = NSLock()
     private var _runs: [Seen] = []
     var result = KeepaliveRun(code: 0, lastErrorLine: nil)
+    /// Results for the first runs, in order (then `result`).
+    var script: [KeepaliveRun] = []
     var onRun: () -> Void = {}
     var runs: [Seen] { lock.withLock { _runs } }
     func run(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> Int32 {
@@ -22,9 +24,12 @@ final class RecordingRunner: KeepaliveRunning, @unchecked Sendable {
     func runCapturing(binary: String, arguments: [String], environment: [String: String], directory: URL, timeout: TimeInterval) -> KeepaliveRun {
         let entries = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? ["<missing>"]
         let mode = ((try? FileManager.default.attributesOfItem(atPath: directory.path))?[.posixPermissions] as? NSNumber)?.intValue ?? -1
-        lock.withLock { _runs.append(Seen(binary: binary, arguments: arguments, environment: environment, directory: directory, entries: entries, mode: mode)) }
-        onRun()
-        return result
+        let r: KeepaliveRun = lock.withLock {
+            _runs.append(Seen(binary: binary, arguments: arguments, environment: environment, directory: directory, entries: entries, mode: mode))
+            return script.isEmpty ? result : script.removeFirst()
+        }
+        if r.code == 0 { onRun() }
+        return r
     }
 }
 
@@ -169,7 +174,7 @@ final class LoginWatcherTests: XCTestCase {
 
     // MARK: outcomes
 
-    func testAFailedRunIsRecordedWithoutATokenAndNotRepeatedForThatExpiry() throws {
+    func testAFailedRunIsRecordedWithoutATokenAndRetriedOnTheSchedule() throws {
         keychain.put(svc, claudeItem("sk-ant-oat01-MAC", expires: now.addingTimeInterval(-1)))
         let runner = RecordingRunner()
         runner.result = KeepaliveRun(code: 1, lastErrorLine: "Error: OAuth refresh failed for sk-ant-ort01-AAAABBBBCCCCDDDDEEEEFFFF (Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc)")
@@ -182,8 +187,47 @@ final class LoginWatcherTests: XCTestCase {
         let reason = try XCTUnwrap(r.reason)
         XCTAssertTrue(reason.hasPrefix("exit 1: Error: OAuth refresh failed for …"), reason)
         XCTAssertFalse(reason.contains("sk-ant") || reason.contains("eyJ") || reason.contains("AAAABBBB"), reason)
-        XCTAssertFalse(w.keepaliveIfDue(now: now.addingTimeInterval(400)), "a failure is not retried for the same expiry")
-        XCTAssertEqual(runner.runs.count, 1)
+        XCTAssertTrue(reason.hasSuffix("— tried again"), reason)
+        XCTAssertEqual(r.nextTryAt.map { Int($0.timeIntervalSince(now).rounded()) }, 59, "the next retry, 1 min after the expiry")
+        XCTAssertFalse(w.keepaliveIfDue(now: now.addingTimeInterval(30)), "not before the next retry")
+        XCTAssertTrue(w.keepaliveIfDue(now: now.addingTimeInterval(60)), "a failure is retried (a network down for a minute)")
+        XCTAssertEqual(runner.runs.count, 2)
+    }
+
+    /// A Claude Code that fails twice (say, offline), then renews: renewed at the third run, and no run after.
+    func testTwoFailuresThenARenewal() throws {
+        keychain.put(svc, claudeItem("sk-ant-oat01-MAC", expires: now.addingTimeInterval(-1)))
+        let runner = RecordingRunner()
+        renewing(runner)                                     // onRun renews — only for a run that exits 0
+        runner.script = [KeepaliveRun(code: 1, lastErrorLine: "network down"), KeepaliveRun(code: -2, lastErrorLine: nil)]
+        let reports = Locked<[KeepaliveRecord]>([])
+        let w = watcher(.always, runner: runner, reports: reports)
+        for t in [0.0, 60, 300] { XCTAssertTrue(w.keepaliveIfDue(now: now.addingTimeInterval(t)), "at +\(Int(t)) s") }
+        XCTAssertEqual(reports.value.map(\.outcome), [.failed, .failed, .renewed])
+        XCTAssertTrue(reports.value[1].reason?.hasPrefix("timed out after 120 s") == true, reports.value[1].reason ?? "")
+        XCTAssertFalse(w.keepaliveIfDue(now: now.addingTimeInterval(900)), "renewed: no more runs")
+        XCTAssertEqual(runner.runs.count, 3)
+    }
+
+    /// One that always fails: 6 runs on the schedule, then it gives up until the login changes or the mode is set again.
+    func testAlwaysFailingGivesUpAfterSixRuns() throws {
+        keychain.put(svc, claudeItem("sk-ant-oat01-MAC", expires: now.addingTimeInterval(-1)))
+        let runner = RecordingRunner()
+        runner.result = KeepaliveRun(code: 1, lastErrorLine: "Error: no network")
+        let reports = Locked<[KeepaliveRecord]>([])
+        let w = watcher(.always, runner: runner, reports: reports)
+        for (t, ran) in [(0.0, true), (60, true), (300, true), (900, true), (2700, true), (4500, true), (6300, false), (99_000, false)] {
+            XCTAssertEqual(w.keepaliveIfDue(now: now.addingTimeInterval(t)), ran, "at +\(Int(t)) s")
+        }
+        XCTAssertEqual(runner.runs.count, 6)
+        let last = try XCTUnwrap(reports.value.last)
+        XCTAssertEqual(last.outcome, .failed)
+        XCTAssertNil(last.nextTryAt)
+        XCTAssertTrue(last.reason?.contains("gave up after 6 tries") == true, last.reason ?? "")
+        XCTAssertEqual(KeepaliveStatus(mode: .always, record: last, expiresAt: last.expiresBefore).waitsForChange, true)
+        // The mode set again: tried again.
+        w.resetRuns()
+        XCTAssertTrue(w.keepaliveIfDue(now: now.addingTimeInterval(99_100)))
     }
 
     /// A run that leaves the login unchanged is tried again 1, 5 and 15 minutes after the expiry, then every 30 — six runs at
@@ -205,7 +249,7 @@ final class LoginWatcherTests: XCTestCase {
         XCTAssertEqual(reports.value.map(\.outcome), [.unchanged, .unchanged, .unchanged, .unchanged, .unchanged, .failed])
         let last = try XCTUnwrap(reports.value.last)
         XCTAssertNil(last.nextTryAt)
-        XCTAssertTrue(last.reason?.hasPrefix("Claude Code did not renew the login after 6 tries") == true, last.reason ?? "")
+        XCTAssertTrue(last.reason?.contains("gave up after 6 tries") == true, last.reason ?? "")
         XCTAssertEqual(KeepaliveSchedule.due(expiry: now, runs: 6), nil)
     }
 

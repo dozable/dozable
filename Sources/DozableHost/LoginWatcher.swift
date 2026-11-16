@@ -114,7 +114,8 @@ public struct KeepaliveConfig: Sendable {
     /// 695: WHEN the runs for one expiry are due, in seconds after it (`KeepaliveSchedule`): the first AT the expiry — Claude
     /// Code renews only a token that has expired (seen on a real Mac, Claude Code 2.1.325: a run 7 min 46 s before the expiry
     /// exited 0 and left the login as it was) — and, while a run leaves it unchanged, again 1, 5 and 15 minutes after,
-    /// then every 30. After the last, `failed`. A renewal or a run that exits non-zero ends the tries for that expiry.
+    /// then every 30; a run that FAILS is retried the same way, in the same limit. After the last, `failed` until the expiry
+    /// changes or the mode is set again. Only a renewal ends the tries early.
     public var schedule: [TimeInterval] = KeepaliveSchedule.offsets
     /// 695: the watcher sets itself a timer for the next due time (the expiry, the next retry), so a renewal follows the
     /// expiry within seconds instead of at the next poll. Off in unit tests (they pass `now:`).
@@ -143,8 +144,8 @@ public struct KeepaliveConfig: Sendable {
     /// 695 step 0 — the flags, read from `claude --help` of Claude Code 2.1.325 on the build Mac (help only; `claude -p`
     /// was never run): `--tools <tools...>` ("Use \"\" to disable all tools"), `--strict-mcp-config` ("Only use MCP servers
     /// from --mcp-config") and `--settings <file-or-json>` are listed, so all three are kept (`disableAllHooks` is a settings
-    /// key, not a flag). `--max-turns` is NOT listed in that help (a hidden flag Claude Code has long accepted); it stays as
-    /// before. Not used: `--bare` — it reads no OAuth login and no keychain, so it could not renew the login at all.
+    /// key, not a flag). `--max-turns` is no longer listed in that help; it is accepted — verified by a run of exactly
+    /// `claude -p ok --model haiku --max-turns 1 --no-session-persistence` (exit 0) on a real Mac on 2026-11-17. Not used: `--bare` — it reads no OAuth login and no keychain, so it could not renew the login at all.
     /// `--tools ""` comes after the prompt: its value list ends at the next flag.
     public static let arguments = ["-p", "ok", "--model", "haiku", "--max-turns", "1", "--no-session-persistence",
                                    "--tools", "", "--strict-mcp-config", "--settings", #"{"disableAllHooks":true}"#]
@@ -487,21 +488,24 @@ public final class LoginWatcher: @unchecked Sendable {
                                       directory: dir, timeout: 120)
         readNow(now: Date())
         let after = expiresAt
+        // A run that did not renew — unchanged, or failed (a non-zero exit, a timeout: a network down for a minute) — is retried
+        // on the schedule, counted in the same limit; after the last it stays failed until the login changes.
         var outcome: KeepaliveRecord.Outcome = r.code != 0 ? .failed : ((after ?? .distantPast) > exp ? .renewed : .unchanged)
-        let retry = outcome == .unchanged ? KeepaliveSchedule.due(expiry: exp, runs: attempt, schedule: k.schedule) : nil
+        let retry = outcome == .renewed ? nil : KeepaliveSchedule.due(expiry: exp, runs: attempt, schedule: k.schedule)
         if outcome == .unchanged && retry == nil { outcome = .failed }
         let reason: String? = {
+            let gaveUp = retry == nil ? " — gave up after \(attempt) tries (until the login changes)" : " — tried again"
             switch outcome {
             case .failed where r.code == 0:
-                return "Claude Code did not renew the login after \(attempt) tries (exit 0 each time) — run claude on the Mac to see why"
+                return "Claude Code did not renew the login (exit 0 each time)" + gaveUp + ": run claude on the Mac to see why"
             case .failed:
                 let what = r.code == -2 ? "timed out after 120 s" : r.code == -1 ? "could not start \(bin)" : "exit \(r.code)"
-                return what + (r.lastErrorLine.map { ": " + KeepaliveRecord.clean($0) } ?? "")
+                return what + (r.lastErrorLine.map { ": " + KeepaliveRecord.clean($0) } ?? "") + gaveUp
             case .unchanged: return "Claude Code did not renew the login (the token had not expired yet) — tried again"
             default: return nil
             }
         }()
-        lock.withLock { runsFor = (exp, attempt, now, outcome != .unchanged) }
+        lock.withLock { runsFor = (exp, attempt, now, outcome == .renewed || retry == nil) }
         let next: Date? = outcome == .renewed ? after : retry
         k.report(KeepaliveRecord(account: account, mode: k.mode.rawValue, lastAttemptAt: now, outcome: outcome, reason: reason, exit: r.code,
                                  expiresBefore: exp, expiresAfter: after, nextTryAt: next))
@@ -510,6 +514,9 @@ public final class LoginWatcher: @unchecked Sendable {
                 + (state == .ok ? "is ok" + (after.map { " until \(CredentialVaultClock.hm($0))" } ?? "") : "is \(state.label)"))
         return true
     }
+
+    /// 695: the mode was set again (`doz account keepalive`): the runs counted for the current expiry start over.
+    public func resetRuns() { lock.withLock { runsFor = nil; lastSkip = nil } }
 
     /// 695: a look at `at` (+1 s), once per time — the expiry, or a retry — when the keep-alive keeps timers (the daemon).
     func scheduleLook(at: Date) {

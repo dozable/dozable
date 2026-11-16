@@ -68,8 +68,10 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
     watcher sets a timer for it — a renewal follows within seconds, not at the next 2-minute poll — and a proxy that finds
     the token expired asks for a look at once). A run that exits 0 and leaves the expiry as it was is `unchanged` ("Claude
     Code did not renew the login (the token had not expired yet)") and NOT final: again 1, 5 and 15 min after the expiry,
-    then every 30 min, 6 runs at most, then `failed`. A renewal, or a run that exits non-zero, ends the tries for that
-    expiry. One run in flight at a time; a skip never uses a run up. A sandbox asking while the token is expired gets the
+    then every 30 min, 6 runs at most. A run that FAILS (a non-zero exit, a timeout — a network down for a minute) is retried
+    the same way, in the same limit, recorded `failed` with its reason and the next retry; after the 6th the outcome stays
+    `failed` ("gave up after 6 tries") until the expiry changes or `doz account keepalive` is set again. Only a renewal
+    ends the tries early. One run in flight at a time; a skip never uses a run up. A sandbox asking while the token is expired gets the
     proxy's 401 as before, unless the renewal came first. `ClaudeMacLogin.choose` offers the credentials FILE's login
     expired when there is no Keychain item at all (a login made only over ssh) — otherwise an expired file-only login read
     as signed out and could never be renewed. Seam: `DOZ_TEST_KEEPALIVE_SCHEDULE` (guarded).

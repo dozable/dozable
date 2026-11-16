@@ -75,7 +75,7 @@ final class KeepaliveStatusTests: XCTestCase {
         let failed = KeepaliveStatus(mode: .always, record: rec, expiresAt: t.addingTimeInterval(300))
         XCTAssertTrue(failed.line(now: t).hasPrefix("keep-alive always · last try \(hm(t)) FAILED (exit 1: no network)"), failed.line(now: t))
         XCTAssertTrue(failed.failed)
-        XCTAssertTrue(failed.line(now: t).hasSuffix("no other try for this login: it renews when Claude Code is next used on this Mac"), failed.line(now: t))
+        XCTAssertTrue(failed.line(now: t).hasSuffix("no other try for this login: it renews when Claude Code is next used on this Mac (or doz account keepalive is set again)"), failed.line(now: t))
         let changed = KeepaliveStatus(mode: .always, record: rec, expiresAt: t.addingTimeInterval(9000))
         XCTAssertTrue(changed.line(now: t).hasSuffix("next try \(hm(t.addingTimeInterval(9000)))"), "the login changed since: tried at its expiry")
         let retry = KeepaliveRecord(account: "mac", mode: "always", lastAttemptAt: t, outcome: .unchanged, reason: "x", exit: 0,

@@ -1166,6 +1166,7 @@ extension HostCore {
         }
         file.keepaliveSetting = mode
         try accountStore.save(file)
+        for w in watchers.values { w.resetRuns() }          // a person's word: a login given up on is tried again
         ensureStandingWatchers()
         switch mode {
         case .off: note(nil, "keep-alive off")

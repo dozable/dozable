@@ -98,7 +98,8 @@ public struct ClaudeHolders: Equatable, Sendable {
 /// 695: when the keep-alive's runs for one expiry are due — in seconds after the expiry. Claude Code renews only a token that
 /// has expired (observed on a real Mac, Claude Code 2.1.325: a run 7 min 46 s before the expiry exited 0 and left the login as
 /// it was; after the expiry the login renewed for 8 hours), so the first run is AT the expiry; a run that leaves the login
-/// unchanged is tried again 1, 5 and 15 minutes after the expiry, then every 30 minutes, 6 runs at most.
+/// unchanged — or that failed (a non-zero exit, a timeout) — is tried again 1, 5 and 15 minutes after the expiry, then every
+/// 30 minutes, 6 runs at most.
 public enum KeepaliveSchedule {
     public static let offsets: [TimeInterval] = [0, 60, 300, 900, 2700, 4500]
 
@@ -200,7 +201,7 @@ public struct KeepaliveStatus: Codable, Equatable, Sendable {
     public var nextTryAt: Date?
     /// The running daemon can never run it: started where the login keychain is locked (`ssh`, …).
     public var keychainLocked: String?
-    /// The last try failed for the login as it is now: no other try until the login changes (a failure is not repeated).
+    /// The tries for the login as it is now are used up (6, all failed or unchanged): none until the login changes.
     public var waitsForChange: Bool? = nil
 
     public init(mode: KeepaliveMode, account: String = "mac", record: KeepaliveRecord?, expiresAt: Date?, keychainLocked: String? = nil) {
@@ -218,8 +219,8 @@ public struct KeepaliveStatus: Codable, Equatable, Sendable {
         guard mode != .off else { return }
         // The record is about the login as it is now (the same expiry): its own word on the next try.
         if let r = record, r.account == account, let tried = r.expiresBefore, abs((expiresAt ?? tried).timeIntervalSince(tried)) < 1 {
-            if r.outcome == .failed { waitsForChange = true; return }
-            if r.outcome == .unchanged { nextTryAt = r.nextTryAt; return }
+            if r.outcome == .failed, r.nextTryAt == nil { waitsForChange = true; return }
+            if r.outcome == .failed || r.outcome == .unchanged { nextTryAt = r.nextTryAt; return }
         }
         // Otherwise: at the login's expiry (Claude Code renews only an expired token).
         nextTryAt = expiresAt ?? record.flatMap { $0.account == account ? ($0.expiresAfter ?? $0.nextTryAt) : nil }
@@ -252,7 +253,7 @@ public struct KeepaliveStatus: Codable, Equatable, Sendable {
         if let why = keychainLocked {
             parts.append("never run by this daemon: it was started where the login keychain is locked (\(why))")
         } else if waitsForChange == true {
-            parts.append("no other try for this login: it renews when Claude Code is next used on this Mac")
+            parts.append("no other try for this login: it renews when Claude Code is next used on this Mac (or doz account keepalive is set again)")
         } else if let n = nextTryAt {
             parts.append(n <= now ? "next try now (the login has expired)" : "next try \(hm(n))" + (mode == KeepaliveMode.on.rawValue ? " if a sandbox or fenced session uses the login" : ""))
         }

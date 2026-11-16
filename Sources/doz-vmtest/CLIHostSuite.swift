@@ -612,7 +612,7 @@ private func cliHostKeepaliveRows(_ t: CLIHarness, root: URL, run: (String, [Str
           && k.flatMap { $0.nextTryAt }.map { abs($0.timeIntervalSince(wantNext)) < 1.5 } == true,
           "K: unchanged — said, and the next try is the retry 3 s after the expiry (\(k?.nextTryAt.map { "\($0)" } ?? "none"))")
     k = waitOutcome("failed")
-    check(k?.reason?.hasPrefix("Claude Code did not renew the login after 3 tries") == true && runs.runs.count == neverFrom + 3,
+    check(k?.reason?.contains("gave up after 3 tries") == true && runs.runs.count == neverFrom + 3,
           "K: after the last retry: failed (\(runs.runs.count - neverFrom) runs: \(k?.reason ?? "none"))")
     check(runs.sequential, "K: never two runs at once")
     try? FileManager.default.removeItem(atPath: failFile + ".never")
