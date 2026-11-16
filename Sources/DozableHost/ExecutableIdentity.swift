@@ -70,6 +70,16 @@ public struct ExecutableIdentity: Codable, Equatable, Sendable {
         return nil
     }
 
+    /// 693: the same, and also the program at this daemon's STABLE path (`StableExecutable`): a different file there (a
+    /// `brew upgrade` relinked `opt/doz` to a new keg and left this one's on disk) is `replaced` too — otherwise an
+    /// always-on daemon would run the old build forever. `stableNow` nil (no stable path apart from its own, or nothing
+    /// there) adds nothing.
+    public func change(now: ExecutableIdentity?, stableNow: ExecutableIdentity?, runningCodeValid: Bool = true) -> Change? {
+        if let c = change(now: now, runningCodeValid: runningCodeValid) { return c }
+        if let s = stableNow, s.path != path, s.inode != inode || s.device != device { return .replaced }
+        return nil
+    }
+
     /// Whether the kernel still considers THIS process's code valid (a file rewritten under a running
     /// process invalidates it; the Virtualization entitlement is then refused).
     public static func runningCodeIsValid() -> Bool {

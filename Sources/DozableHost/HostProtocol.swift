@@ -1415,7 +1415,8 @@ public struct HostStatus: Codable, Equatable, Sendable {
     public var pid: Int32
     public var startedAt: Date
     public var store: String
-    /// Minutes with nothing running before the host exits (0: never).
+    /// Minutes with nothing running before the host exits (0: never). 693: the EFFECTIVE value — 0 while it is always on,
+    /// at most 5 for a daemon whose login keychain is locked.
     public var idleTimeoutMinutes: Double
     /// Sandboxes with a VM in this host (booting, running, paused or asleep).
     public var liveSandboxes: [String]
@@ -1443,4 +1444,10 @@ public struct HostStatus: Codable, Equatable, Sendable {
     /// EXPERIMENTAL (604): the Mac app macOS asks about the microphone for, for this host's audio sandboxes
     /// (its responsible app).
     public var microphoneApp: String?
+    /// 693: whether this daemon stays running with nothing open (`daemon.always_on`, read at each idle look) — false for one
+    /// whose login keychain is locked, whatever the setting says. nil: a daemon older than 0.50.4.
+    public var alwaysOn: Bool?
+    /// 693: the sessions on this Mac kept running by this daemon, which keep it up whatever `alwaysOn` says (none yet:
+    /// always 0). nil: a daemon older than 0.50.4.
+    public var keepers: Int?
 }
