@@ -54,6 +54,48 @@ final class DozLocatorTests: XCTestCase {
         XCTAssertNil(DozLocator(candidates: [a, b], accept: { _ in false }).locate())
     }
 
+    /// The login agent's doz: in a release build only one signed by Dozable's team is run — an injected verifier that
+    /// refuses the first candidate makes the agent take the next; refusing all, it runs nothing (and says why).
+    func testTheLoginAgentRequiresTheTeamInAReleaseBuild() throws {
+        let a = try executable("a/doz"), b = try executable("b/doz")
+        let env = ["DOZ_TEST_GUARD": "1", "DOZ_MENUBAR_DOZ": a]
+        final class Asked: @unchecked Sendable { let lock = NSLock(); var paths: [String] = [] }
+        let asked = Asked()
+        let verify: @Sendable (String) -> Bool = { _ in false }
+        let release = DozLocator.forLaunchAgent(env: env, requireTeam: true, verify: verify)
+        XCTAssertNil(release.locate())
+        guard case .none(let why) = LaunchAgent.decide(release) else { return XCTFail("a refused doz is never run") }
+        XCTAssertTrue(why.contains("not signed by Dozable (team KJ8QMLWB97)"), why)
+        let dev = DozLocator.forLaunchAgent(env: env, requireTeam: false, verify: verify)
+        XCTAssertEqual(LaunchAgent.decide(dev), .run(a), "a development build runs any doz")
+        // The next candidate when the first is refused.
+        let two = DozLocator(candidates: [a, b], accept: { p in
+            asked.lock.withLock { asked.paths.append(p) }
+            return DozLocator.isExecutableFile(p) && p == b
+        })
+        XCTAssertEqual(LaunchAgent.decide(two), .run(b))
+        XCTAssertEqual(asked.lock.withLock { asked.paths }, [a, b])
+        // Nothing installed: nothing to run.
+        guard case .none(let none) = LaunchAgent.decide(DozLocator(candidates: [dir.appendingPathComponent("x/doz").path])) else { return XCTFail() }
+        XCTAssertTrue(none.hasPrefix("doz is not installed"), none)
+    }
+
+    func testTheTeamRequirementAndItsSwitch() {
+        XCTAssertEqual(DozSignature.requirement, "anchor apple generic and certificate leaf[subject.OU] = \"KJ8QMLWB97\"")
+        XCTAssertTrue(LaunchAgent.requiresTeam(releaseBuild: true, env: [:]))
+        XCTAssertFalse(LaunchAgent.requiresTeam(releaseBuild: false, env: [:]))
+        XCTAssertTrue(LaunchAgent.requiresTeam(releaseBuild: false, env: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_MENUBAR_REQUIRE_TEAM": "1"]))
+        XCTAssertFalse(LaunchAgent.requiresTeam(releaseBuild: false, env: ["DOZ_TEST_MENUBAR_REQUIRE_TEAM": "1"]), "a seam of test runs only")
+        XCTAssertEqual(LaunchAgent.arguments, ["daemon", "start", "--login-item"])
+    }
+
+    /// The real verifier: a script, an Apple program (not Dozable's team) and a missing file are all refused.
+    func testTheRealVerifierRefusesWhatDozableDidNotSign() throws {
+        XCTAssertFalse(DozSignature.isDozable(try executable("s/doz")))
+        XCTAssertFalse(DozSignature.isDozable("/bin/ls"))
+        XCTAssertFalse(DozSignature.isDozable(dir.appendingPathComponent("none").path))
+    }
+
     /// The cache key: a doz replaced by rename is another file; one rewritten in place changes size or time; a new VERSION
     /// beside it counts too.
     func testAReplacedDozIsAnotherFile() throws {

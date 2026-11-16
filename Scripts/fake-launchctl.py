@@ -9,7 +9,12 @@ It records every call (one line of argv in $FAKE_LAUNCHCTL_LOG) and keeps launch
   kickstart gui/UID/LABEL    runs the loaded plist's ProgramArguments NOW, detached (its own session, stdin /dev/null,
                              stdout+stderr appended to its StandardOutPath), the way launchd runs a job in the desktop
                              session: without DOZ_TEST_KEYCHAIN_LOCKED and SSH_CONNECTION (that session's keychain is open)
-  print gui/UID/LABEL        0 and a `program = …` / `arguments = {…}` block when loaded (or an app job in "apps"); else 113
+  print gui/UID/LABEL        0 and a `program = …` / `arguments = {…}` block when loaded (or an app job in "apps"); else 113.
+                             The menu bar app's SMAppService job (com.dozable.app.daemon) in the shape launchd prints for a
+                             BundleProgram — `path = (submitted by …)`, no absolute program, `arguments` starting with the
+                             bare `Dozable` — when "apps" names it "(bundle)", or when the app's recording login service
+                             says its agent is registered ($DOZ_TEST_LOGIN_ITEM_STATE: {"agent": "enabled"}) — what a real
+                             registration would have loaded
   print-disabled gui/UID     the "disabled services" block from "disabled"
 
 The suite edits the state file itself to stand in for the menu bar app's job or a switched-off item.
@@ -104,16 +109,28 @@ elif verb == "print" and len(args) == 2:
     label = label_of(args[1])
     program = None
     argv = []
+    smapp = state["apps"].get(label) == "(bundle)"
+    reg = os.environ.get("DOZ_TEST_LOGIN_ITEM_STATE")
+    if label == "com.dozable.app.daemon" and reg and label not in state["loaded"] and label not in state["apps"]:
+        try:
+            with open(reg) as f:
+                smapp = json.load(f).get("agent") == "enabled"
+        except (OSError, ValueError):
+            smapp = False
     if label in state["loaded"]:
         try:
             argv = read_plist(state["loaded"][label]).get("ProgramArguments") or []
         except OSError:
             argv = []
         program = argv[0] if argv else None
-    elif label in state["apps"]:
+    elif label in state["apps"] and not smapp:
         program = state["apps"][label]
         argv = [program, "daemon", "start", "--login-item"]
-    if program is None:
+    if smapp:
+        print("%s = {\n\tactive count = 0\n\tpath = (submitted by smd.552)\n\ttype = Submitted\n\tmanaged_by = com.apple.xpc.ServiceManagement\n"
+              "\tstate = not running\n\n\tprogram identifier = Contents/MacOS/Dozable (mode: 2)\n\tparent bundle identifier = com.dozable.app\n"
+              "\targuments = {\n\t\tDozable\n\t\t--launch-daemon\n\t}\n}" % args[1])
+    elif program is None:
         sys.stderr.write("Could not find service \"%s\" in domain for user gui\n" % label)
         code = 113
     else:

@@ -5,10 +5,15 @@
 //
 //   1. No doz (the seam pointing nowhere; and no seam at all — a test never finds this Mac's doz): "doz is not
 //      installed", the hollow icon, no daemon action. Then the real doz on a fresh store: "Daemon stopped", Start enabled,
-//      nothing started, nothing registered (no plist in the scratch LaunchAgents folder).
+//      nothing started, nothing registered (no plist in the scratch LaunchAgents folder, no "would register" from the
+//      app's recording login service, Start at Login unchecked).
 //   2. `--run-action start` (the app in a process group of its own) → a daemon whose parent is launchd, in neither the
 //      app's group nor its session; the app's group killed → the daemon is still up. The menu says it runs.
 //   3. `--run-action stop` → stopped and HELD (always on): the header says so.
+//   4. `--launch-daemon` (what launchd runs for the app's agent): with a FAKE doz → it execs it (the same process) with
+//      exactly `daemon start --login-item`; no doz → exit 0, nothing run; the team required (the test seam) and an ad hoc
+//      doz → exit 0, nothing run. With the real doz: held → nothing; after a "reboot" (DOZ_TEST_BOOT_TIME) → a daemon
+//      whose parent is launchd; a second run in < 300 ms, the same pid.
 //   5. A FAKE old doz (0.50.3, `{"running":false}`) → the too-old line, and Start, Stop, Restart and the dashboard still
 //      offered as the state allows; the fake's argv log shows doz run with an argv (no shell) and the refreshes marked as
 //      not the person's commands.
@@ -16,6 +21,12 @@
 //      not in the seam's file, the app's output or its log (os_log, when `log show` can read it); `doz ui stop`.
 //   8. doz in a scratch prefix replaced BY RENAME (a new file and VERSION) → the next dump shows the new version, and a
 //      newer copy of the app beside it → "Update Menu Bar App (X → Y)".
+//  10. Start at Login, guarded (the recording service — never SMAppService; a FAKE launchctl standing in for launchd,
+//      which shows the app's job once the recording service says it is registered): doz's own item first → the menu
+//      offers the hand-over; `--run-action login-on` → "would register" agent + mainApp, the job seen loaded, THEN
+//      `doz config set daemon.login_item on` (launchctl's log: the app's look before doz's bootout of its own) → doz's
+//      plist gone, owner app, the row checked; `login-off` → unregistered, the setting off; needs approval → stops there,
+//      doz not told; `doz app uninstall` runs the app's --unregister (held, "would unregister").
 //   9. `doz app install --dest` (the copy beside that doz: verified, its quarantine mark removed, installed; --open with
 //      no open seam STOPPED by test safety before anything happens; again with a "running" copy — a stand-in process
 //      OUTSIDE any bundle (DOZ_TEST_APP_STANDIN) — and --open: quit, swapped by rename — a new file — and one line in the
@@ -48,6 +59,12 @@ func cliAppSuite(binary: String, app: String) async {
     h.env["DOZ_TEST_APPLICATIONS_DIR"] = apps.path
     h.env["DOZ_TEST_GUARD"] = "1"
     h.env.removeValue(forKey: "DOZ_TEST_REAL_MAC")
+    // The app's recording login service (a test run never reaches SMAppService): what it would do, and its state.
+    let loginLog = base.appendingPathComponent("login.log").path
+    let loginState = base.appendingPathComponent("login-state.json").path
+    h.env["DOZ_TEST_LOGIN_ITEM_LOG"] = loginLog
+    h.env["DOZ_TEST_LOGIN_ITEM_STATE"] = loginState
+    func loginLines() -> [String] { ((try? String(contentsOfFile: loginLog, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init) }
     let version = h.run(["--version"]).out.trimmingCharacters(in: .whitespacesAndNewlines)
     let store = DozableStore(root: root)
 
@@ -105,8 +122,10 @@ func cliAppSuite(binary: String, app: String) async {
           "app 1: the real doz on a fresh store → \"Daemon stopped\", doz \(dozSeen ?? "?"), Start enabled (\(header(d)))")
     check(!h.hostRunning, "app 1: looking started no daemon")
     let plists = (try? fm.contentsOfDirectory(atPath: agents.path)) ?? []
-    check(plists.isEmpty && !titles(d).contains(where: { $0.lowercased().contains("login") }),
-          "app 1: nothing registered at first launch — no login item, no login line (\(plists))")
+    let loginRow = items(d).first { ($0["title"] as? String)?.hasPrefix("Start at Login") == true }
+    check(plists.isEmpty && loginLines().isEmpty && loginRow?["checked"] as? Bool == false
+          && (d["loginItem"] as? [String: Any])?["agent"] as? String == "notRegistered",
+          "app 1: nothing registered at first launch — no plist, no \"would register\", Start at Login unchecked (\(plists), \(loginRow?["title"] as? String ?? "no row"))")
     let gui = appRun([], doz: binary)
     check(gui.code == 70 && gui.err.contains("never shows the menu bar app"), "app 1: a test run is refused the menu itself (exit \(gui.code))")
 
@@ -151,6 +170,56 @@ func cliAppSuite(binary: String, app: String) async {
     d = dump(binary)
     check(header(d) == "Daemon stopped until a doz command starts it" && fm.fileExists(atPath: store.heldFile.path),
           "app 3: held (always on) — \(header(d))")
+
+    // 4. --launch-daemon: what launchd runs for the app's agent.
+    let launchDir = base.appendingPathComponent("launch")
+    try? fm.createDirectory(at: launchDir, withIntermediateDirectories: true)
+    let launchFake = launchDir.appendingPathComponent("doz").path
+    let launchLog = launchDir.appendingPathComponent("argv.log").path
+    try? "#!/bin/sh\necho \"$$|$*\" >> '\(launchLog)'\nexit 0\n".write(toFile: launchFake, atomically: true, encoding: .utf8)
+    chmod(launchFake, 0o755)
+    func launchLines() -> [String] { ((try? String(contentsOfFile: launchLog, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init) }
+    let lp = Process()
+    lp.executableURL = URL(fileURLWithPath: appExe)
+    lp.arguments = ["--launch-daemon"]
+    var lenv = h.env
+    lenv["DOZ_MENUBAR_DOZ"] = launchFake
+    lp.environment = lenv
+    lp.standardInput = FileHandle.nullDevice
+    lp.standardOutput = FileHandle.nullDevice
+    lp.standardError = FileHandle.nullDevice
+    if (try? lp.run()) != nil {
+        lp.waitUntilExit()
+        let ll = launchLines()
+        check(lp.terminationStatus == 0 && ll == ["\(lp.processIdentifier)|daemon start --login-item"],
+              "app 4: --launch-daemon with a fake doz → exec'd in the same process with exactly `daemon start --login-item` (\(ll), pid \(lp.processIdentifier))")
+    } else {
+        check(false, "app 4: could not run the app's --launch-daemon")
+    }
+    r = appRun(["--launch-daemon"], doz: base.appendingPathComponent("nowhere/doz").path, timeout: 20)
+    check(r.code == 0 && r.out.isEmpty && launchLines().count == 1, "app 4: no doz → exit 0, nothing run, nothing printed")
+    r = appRun(["--launch-daemon"], doz: launchFake, extra: ["DOZ_TEST_MENUBAR_REQUIRE_TEAM": "1"], timeout: 20)
+    check(r.code == 0 && launchLines().count == 1, "app 4: Dozable's team required and an ad hoc doz → refused: exit 0, nothing run")
+    let selfConfig = (try? JSONSerialization.jsonObject(with: appRun(["--self-config"], doz: nil).outData)) as? [String: Any]
+    check(selfConfig?["requireTeam"] as? Bool == false && selfConfig?["agentLabel"] as? String == "com.dozable.app.daemon",
+          "app 4: this development build (make app) does not require the team; a release build does (the release checks it)")
+    // The real doz: held by row 3's stop → nothing; after a login following a reboot → a daemon, parent launchd.
+    r = appRun(["--launch-daemon"], doz: binary, timeout: 60)
+    check(r.code == 0 && !h.hostRunning, "app 4: the real doz while held (doz daemon stop) → nothing started")
+    let reboot = ["DOZ_TEST_BOOT_TIME": String(Int(Date().timeIntervalSince1970) + 1)]
+    sleep(2)
+    r = appRun(["--launch-daemon"], doz: binary, extra: reboot, timeout: 120)
+    let up = h.waitFor(30) { h.hostRunning }
+    let st4 = h.json(["daemon", "status"], HostStatus.self)
+    check(r.code == 0 && up && st4?.parentPid == 1, "app 4: the real doz after a reboot → a daemon, parent launchd (\(st4?.parentPid.map(String.init) ?? "none"))")
+    let t0 = Date()
+    r = appRun(["--launch-daemon"], doz: binary, extra: reboot, timeout: 60)
+    let ms = Int(Date().timeIntervalSince(t0) * 1000)
+    let st4b = h.json(["daemon", "status"], HostStatus.self)
+    check(r.code == 0 && st4b?.pid == st4?.pid && ms < 300,
+          "app 4: a second run with a daemon up → \(ms) ms, the same pid \(st4b.map { String($0.pid) } ?? "?")")
+    h.run(["daemon", "stop"], timeout: 120)
+    _ = h.waitFor(30) { !h.hostRunning }
 
     // 5. a FAKE old doz.
     let fakeDir = base.appendingPathComponent("fake")
@@ -326,6 +395,81 @@ func cliAppSuite(binary: String, app: String) async {
     r = h.run(["uninstall", "--yes", "--keep-store", "--keep-config", "--json"], timeout: 120)
     check(r.code == 0 && r.out.contains(apTarget.path) && !fm.fileExists(atPath: apTarget.path),
           "app 9: doz uninstall lists the menu bar app and removes it")
+
+    // 10. Start at Login, guarded: the recording service, a fake launchctl standing in for launchd.
+    let fakeLaunchctl = URL(fileURLWithPath: "Scripts/fake-launchctl.py").standardizedFileURL.path
+    let lcState = base.appendingPathComponent("launchctl.json").path
+    let lcLog = base.appendingPathComponent("launchctl.log").path
+    try? "{}".write(toFile: lcState, atomically: true, encoding: .utf8)
+    h.env["DOZ_TEST_LAUNCHCTL"] = fakeLaunchctl
+    h.env["FAKE_LAUNCHCTL_STATE"] = lcState
+    h.env["FAKE_LAUNCHCTL_LOG"] = lcLog
+    func lcLines() -> [String] { ((try? String(contentsOfFile: lcLog, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init) }
+    let dozLabel = DaemonLoginItem.label(store)
+    r = h.run(["app", "install", "--json"])
+    let installedExe = apTarget.appendingPathComponent("Contents/MacOS/Dozable").path
+    check(r.code == 0 && fm.isExecutableFile(atPath: installedExe), "app 10: the app installed in the test run's Applications folder")
+    func installedRun(_ args: [String], extra: [String: String] = [:]) -> CLIRun {
+        let a = CLIHarness(binary: installedExe, store: root)
+        a.env = h.env
+        a.env["DOZ_MENUBAR_DOZ"] = binary
+        for (k, v) in extra { a.env[k] = v }
+        return a.run(args, timeout: 120)
+    }
+    func installedDump() -> [String: Any] { (try? JSONSerialization.jsonObject(with: installedRun(["--dump-menu"]).outData)) as? [String: Any] ?? [:] }
+    func loginRowOf(_ d: [String: Any]) -> [String: Any]? { items(d).first { ($0["title"] as? String)?.hasPrefix("Start at Login") == true } }
+    func ownPlists() -> [String] { ((try? fm.contentsOfDirectory(atPath: agents.path)) ?? []).filter { $0.hasPrefix("com.dozable.") } }
+    r = h.run(["daemon", "login-item", "on"])
+    check(r.code == 0 && ownPlists() == [dozLabel + ".plist"] && h.json(["daemon", "login-item", "status"], LoginItemStatus.self)?.owner == "doz",
+          "app 10: doz's own login item first (owner doz)")
+    var row = loginRowOf(installedDump())
+    check(row?["title"] as? String == "Start at Login (set by doz — click to let this app hold it)" && row?["checked"] as? Bool == true
+          && row?["action"] as? String == "login-on" && row?["enabled"] as? Bool == true,
+          "app 10: the menu offers the hand-over (\(row?["title"] as? String ?? "no row"))")
+    let lcBefore = lcLines().count
+    r = installedRun(["--run-action", "login-on"])
+    let on = (try? JSONSerialization.jsonObject(with: r.outData)) as? [String: Any]
+    let steps = on?["steps"] as? [String] ?? []
+    check(r.code == 0 && on?["ok"] as? Bool == true
+          && steps == ["would register agent com.dozable.app.daemon", "would register mainApp", "agent enabled, mainApp enabled", "job loaded",
+                       "doz config set daemon.login_item on → exit 0"],
+          "app 10: login-on → would register agent + mainApp, the job loaded, then doz told (\(steps))")
+    check(loginLines().suffix(2) == ["would register agent com.dozable.app.daemon", "would register mainApp"],
+          "app 10: the recording service says what it would have registered — and nothing else ran")
+    let lcNew = Array(lcLines().dropFirst(lcBefore))
+    let look = lcNew.firstIndex(of: "print gui/\(getuid())/com.dozable.app.daemon")
+    let bootout = lcNew.firstIndex(of: "bootout gui/\(getuid())/\(dozLabel)")
+    check(look != nil && bootout != nil && look! < bootout!,
+          "app 10: the app's job seen loaded BEFORE doz removed its own (launchctl: \(lcNew))")
+    let owned = h.json(["daemon", "login-item", "status"], LoginItemStatus.self)
+    check(ownPlists().isEmpty && owned?.owner == "app" && owned?.setting == "on",
+          "app 10: doz's plist gone, owner app, daemon.login_item on — never two login items (\(owned?.owner ?? "?"))")
+    row = loginRowOf(installedDump())
+    check(row?["title"] as? String == "Start at Login" && row?["checked"] as? Bool == true && row?["action"] as? String == "login-off",
+          "app 10: the row is checked; a click turns it off")
+    r = installedRun(["--run-action", "login-off"])
+    let off = (try? JSONSerialization.jsonObject(with: r.outData)) as? [String: Any]
+    let offSteps = off?["steps"] as? [String] ?? []
+    check(r.code == 0 && offSteps == ["would unregister agent com.dozable.app.daemon", "would unregister mainApp", "doz config set daemon.login_item off → exit 0"]
+          && h.json(["daemon", "login-item", "status"], LoginItemStatus.self)?.setting == "off" && ownPlists().isEmpty,
+          "app 10: login-off → would unregister both, then daemon.login_item off (\(offSteps))")
+    row = loginRowOf(installedDump())
+    check(row?["title"] as? String == "Start at Login" && row?["checked"] as? Bool == false && row?["action"] as? String == "login-on",
+          "app 10: the row is unchecked again")
+    r = installedRun(["--run-action", "login-on"], extra: ["DOZ_TEST_LOGIN_ITEM_RESULT": "requiresApproval"])
+    let pending = (try? JSONSerialization.jsonObject(with: r.outData)) as? [String: Any]
+    row = loginRowOf(installedDump())
+    check(pending?["needsApproval"] as? Bool == true && !((pending?["steps"] as? [String]) ?? []).contains { $0.hasPrefix("doz config") }
+          && h.json(["daemon", "login-item", "status"], LoginItemStatus.self)?.setting == "off"
+          && row?["title"] as? String == "Start at Login — needs approval: Open System Settings…" && row?["action"] as? String == "login-settings",
+          "app 10: macOS waiting for approval → doz not told; the row opens System Settings (\(row?["title"] as? String ?? "no row"))")
+    r = installedRun(["--run-action", "login-on"])
+    r = h.run(["app", "uninstall", "-y", "--json"], timeout: 60)
+    let removed = ((try? JSONSerialization.jsonObject(with: r.outData)) as? [[String: Any]])?.first
+    check(r.code == 0 && (removed?["loginItem"] as? [String: Any])?["held"] as? Bool == true && !fm.fileExists(atPath: apTarget.path)
+          && loginLines().suffix(2) == ["would unregister agent com.dozable.app.daemon", "would unregister mainApp"],
+          "app 10: doz app uninstall runs the app's --unregister first (it held one) and removes it")
+    check(loginLines().allSatisfy { $0.hasPrefix("would ") }, "app 10: the recording service only ever said what it would do")
 }
 
 /// The installed copy's version (its Info.plist), for the checks above.
