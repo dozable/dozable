@@ -189,7 +189,9 @@ struct Doctor: AsyncParsableCommand {
             var hostPriority: DoctorCheck?
             if let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false),
                let st = try? m.result?.decode(HostStatus.self) {
-                detail += ", \(st.version), \(st.liveSandboxes.count) running, idle timeout \(st.idleTimeoutMinutes.formatted()) min"
+                // 693: always on, or its idle timeout (an older daemon: its timeout).
+                detail += ", \(st.version), \(st.liveSandboxes.count) running, "
+                    + (st.alwaysOn == true ? "always on" : st.idleTimeoutMinutes > 0 ? "idle timeout \(st.idleTimeoutMinutes.formatted()) min" : "never exits by itself")
                 if st.version != DozableCommand.version { status = .warn; detail += " — this CLI is \(DozableCommand.version): doz daemon stop" }
                 // 593: a host never lives in a client's process tree (stopping that tree killed one mid-save).
                 if let pp = st.parentPid {

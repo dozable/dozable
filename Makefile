@@ -68,7 +68,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test test-cli-alwayson test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -95,6 +95,12 @@ $(TEST_TARGETS): export DOZ_TEST_CREDENTIALS := memory
 $(TEST_TARGETS): export DOZ_TEST_CODEX_HOME := $(TEST_SCRATCH)-codex-home
 $(TEST_TARGETS): export XDG_CONFIG_HOME := $(TEST_XDG)
 endif
+# 693: the daemon is always on by default (daemon.always_on) and its idle timeout's default is 0 (never). A test daemon
+# must never outlive its suite: every test target turns always-on OFF (forced) and keeps the idle exit the suites were
+# written against — 5 minutes, unless the run sets DOZ_DAEMON_IDLE (each suite's own harness sets its own as before). The
+# suites that test always-on set DOZ_DAEMON_ALWAYS_ON=on for their own daemons only.
+$(TEST_TARGETS): export DOZ_DAEMON_ALWAYS_ON := off
+$(TEST_TARGETS): export DOZ_DAEMON_IDLE := $(or $(DOZ_DAEMON_IDLE),5)
 
 # The scratch settings file every test target starts from (written once; a test that changes it keeps its own).
 test-safety:
@@ -333,6 +339,9 @@ test-cli-onboarding: cli vmtest-host ## 594: only test-cli's onboarding part (on
 
 test-cli-terminal: cli vmtest-host ## 594 W13: only test-cli's terminal part — on a pty, a detach / a session's end / SIGHUP put the outer terminal's modes and termios back
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-terminal --doz $(CLI_BIN)
+
+test-cli-alwayson: cli vmtest-host ## The always-on daemon (also in test-cli), no VM: default settings keep it running with nothing open; daemon.always_on off applies at once (it exits when idle); its program replaced by rename while nothing runs → it restarts in place, one daemon, no command typed (scratch store)
+	perl -e 'alarm shift; exec @ARGV' 300 $(VMTEST_BIN) cli-alwayson --doz $(CLI_BIN)
 
 test-cli-hoststop: cli vmtest-host ## 594 W22: only test-cli's daemon-stop part (the target keeps its name) — doz host unknown, each sandbox's line (plain off a terminal, animated on a pty), --json, nothing running, a daemon killed mid-stop
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-hoststop --doz $(CLI_BIN)

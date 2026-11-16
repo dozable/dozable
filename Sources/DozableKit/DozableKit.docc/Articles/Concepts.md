@@ -58,7 +58,7 @@ either way. See <doc:HowItWorks> for why this needs a guest-side holder at all.
 ### The daemon
 
 One background `doz` process per user and store. It owns every running VM, each proxied
-sandbox's egress proxy, and the metrics writer. It starts when needed and exits when idle: looking
+sandbox's egress proxy, and the metrics writer. It starts when needed and keeps running: looking
 (`ls`, `inspect`, …) never starts one.
 
 ### Network, keys and accounts

@@ -46,7 +46,7 @@ func doz(_ a: [String]) -> String {
     env["DOZ_STORE"] = scratch.appendingPathComponent("store").path
     env.removeValue(forKey: "DOZ_PROGRESS"); env.removeValue(forKey: "DOZ_DAEMON_IDLE"); env.removeValue(forKey: "DOZ_SUBNET")
     env.removeValue(forKey: "DOZ_KERNEL"); env.removeValue(forKey: "DOZ_KERNEL_CACHE"); env.removeValue(forKey: "DOZ_SCREEN_CAPTURE")
-    env.removeValue(forKey: "DOZ_BOOT_LOGS")
+    env.removeValue(forKey: "DOZ_BOOT_LOGS"); env.removeValue(forKey: "DOZ_DAEMON_ALWAYS_ON")
     p.environment = env
     let out = Pipe()
     p.standardOutput = out

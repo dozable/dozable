@@ -227,7 +227,7 @@ final class SettingsTests: XCTestCase {
         let keys = DozableSettings.schema.map(\.key)
         XCTAssertEqual(Set(keys).count, keys.count, "no duplicate key")
         for k in ["ui.boot_view_on_start", "ui.confirm_shutdown", "ui.split_default", "ui.terminals", "ui.terminal_font_size", "ui.theme",
-                  "daemon.idle_timeout_minutes", "daemon.keepalive", "store.path", "claude.permissions", "defaults.cpus", "defaults.nat_subnet",
+                  "daemon.always_on", "daemon.idle_timeout_minutes", "daemon.keepalive", "store.path", "claude.permissions", "defaults.cpus", "defaults.nat_subnet",
                   "images.lab.memory_mib", "images.lab.network", "images.claude-code.memory_mib", "images.claude-code.network",
                   "images.pi.memory_mib", "images.pi.network", "kernel.path", "kernel.cache"] {
             XCTAssertNotNil(DozableSettings.definition(k), k)
@@ -315,6 +315,47 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(s.warnings.first?.contains("line 3") == true, s.warnings.first ?? "")
         XCTAssertThrowsError(try s.writing("ui.theme", .string("dark")))
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "[ui]\nboot_view_on_start = false\ntheme = [\"x\"]\n")
+    }
+
+    // MARK: 693 — the always-on daemon
+
+    func testAlwaysOnIsOnByDefaultAndTheIdleTimeoutDefaultIsNever() throws {
+        let on = try XCTUnwrap(DozableSettings.definition(SettingKey.alwaysOn))
+        XCTAssertEqual(on.type, .bool)
+        XCTAssertEqual(on.defaultValue, .bool(true), "the owner's decision: always on")
+        XCTAssertEqual(on.environment, "DOZ_DAEMON_ALWAYS_ON")
+        XCTAssertNil(on.flag)
+        XCTAssertEqual(on.applies, .now, "the running daemon re-reads it at each look")
+        XCTAssertTrue(on.editableInUI)
+        let idle = try XCTUnwrap(DozableSettings.definition(SettingKey.idleTimeout))
+        XCTAssertEqual(idle.defaultValue, .int(0), "the owner's decision: 0, never times out")
+        XCTAssertTrue(idle.summary.contains("used only when daemon.always_on is off"), idle.summary)
+        XCTAssertNil(DozableSettings.definition("daemon.idle_exit"), "no second idle knob")
+        XCTAssertNil(DozableSettings.definition("daemon.login_item"), "the login item is a later release")
+        let s = DozableSettings.load(environment: env)
+        XCTAssertTrue(s.bool(SettingKey.alwaysOn))
+        XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 0)
+        XCTAssertNil(s.daemonIdleNote, "the defaults need no note")
+        var e = env
+        e["DOZ_DAEMON_ALWAYS_ON"] = "off"
+        XCTAssertFalse(DozableSettings.load(environment: e).bool(SettingKey.alwaysOn))
+        XCTAssertEqual(DozableSettings.load(environment: e).resolve(SettingKey.alwaysOn).source, .env)
+    }
+
+    /// A doz.toml written by an older doz that set the idle timeout: the value is kept and shown, but applies only when
+    /// always on is off — and both `doz config show` and `doz config set` say so in one plain sentence.
+    func testAnOlderFilesIdleTimeoutAppliesOnlyWhenAlwaysOnIsOff() throws {
+        try write("[daemon]\nidle_timeout_minutes = 5\n")
+        var s = DozableSettings.load(environment: env)
+        XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 5)
+        XCTAssertTrue(s.bool(SettingKey.alwaysOn))
+        XCTAssertTrue(s.daemonIdleNote?.contains("applies only when daemon.always_on is off") == true, s.daemonIdleNote ?? "no note")
+        s = try s.writing(SettingKey.alwaysOn, .bool(false))
+        XCTAssertNil(s.daemonIdleNote, "off with 5 minutes: it exits after 5, as before — nothing to explain")
+        s = try s.writing(SettingKey.idleTimeout, nil)
+        XCTAssertTrue(s.daemonIdleNote?.contains("still never exits by itself") == true, s.daemonIdleNote ?? "no note")
+        let text = try String(contentsOf: xdg.appendingPathComponent("doz/doz.toml"), encoding: .utf8)
+        XCTAssertTrue(text.contains("\nalways_on = false\n"), text)
     }
 
     // MARK: precedence

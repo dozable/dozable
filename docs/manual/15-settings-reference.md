@@ -180,7 +180,8 @@ This table is generated from `doz config show` and checked against it on every b
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `daemon.idle_timeout_minutes` | `5` | integer 0–10080 | after `doz daemon stop` | `$DOZ_DAEMON_IDLE`, `doz daemon start --idle-timeout` | Minutes with nothing running before the daemon exits; 0 = never. |
+| `daemon.always_on` | `true` | boolean | at once | `$DOZ_DAEMON_ALWAYS_ON` | Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once; a new doz installed under it takes over by itself once nothing runs. off: it exits after daemon.idle_timeout_minutes with nothing running (when that is 0, it still never does). A daemon started where the login keychain is locked (over ssh) is never kept running: it exits after 5 minutes with nothing running. |
+| `daemon.idle_timeout_minutes` | `0` | integer 0–10080 | after `doz daemon stop` | `$DOZ_DAEMON_IDLE`, `doz daemon start --idle-timeout` | Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0 = never. |
 | `daemon.screen_capture_minutes` | `5` | integer 0–1440 | after `doz daemon stop` | `$DOZ_SCREEN_CAPTURE` | Every this many minutes, save the screen of each running sandbox's sessions that printed something since (what a sleep or hibernation falls back on); 0 = only when it pauses, sleeps or hibernates. |
 | `daemon.boot_logs_kept` | `5` | integer 1–50 | next boot | `$DOZ_BOOT_LOGS` | How many boots of each sandbox to keep (its steps and kernel console — the web UI's Boot log, doz console --boot N); the oldest goes. |
 | `daemon.keepalive` | `false` | boolean | a store that hasn't chosen | — | Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the daemon runs the Mac's claude once to renew it. |
@@ -322,7 +323,8 @@ Every recipe's agent has these, each recipe with its own defaults (`doz config s
 | `DOZ_STORE` | `store.path` | the store folder |
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress |
 | `DOZ_COLOR` | `ui.color` | `auto`, `always` or `never` colour in the CLI |
-| `DOZ_DAEMON_IDLE` | `daemon.idle_timeout_minutes` | daemon idle timeout, minutes (fractions allowed) |
+| `DOZ_DAEMON_ALWAYS_ON` | `daemon.always_on` | keep the daemon running with nothing open (on/off) |
+| `DOZ_DAEMON_IDLE` | `daemon.idle_timeout_minutes` | daemon idle timeout, minutes (fractions allowed; only with `daemon.always_on` off) |
 | `DOZ_SCREEN_CAPTURE` | `daemon.screen_capture_minutes` | how often screens are saved |
 | `DOZ_BOOT_LOGS` | `daemon.boot_logs_kept` | boots kept per sandbox |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | subnet of a new `nat` sandbox |

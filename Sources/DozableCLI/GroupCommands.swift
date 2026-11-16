@@ -569,12 +569,13 @@ struct MetricsCommand: AsyncParsableCommand {
 
 struct HostCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "daemon",
-        abstract: "Dozable's background process: it owns every running sandbox and the sessions' proxies (started for you; exits when idle).",
+        abstract: "Dozable's background process: it owns every running sandbox and the sessions' proxies (started for you; it keeps running — daemon.always_on).",
         subcommands: [HostRun.self, HostStop.self, HostRestart.self, HostStatusCommand.self, HostUpgradeCheck.self],
         defaultSubcommand: HostRun.self)
 }
 
-/// The idle timeout: --idle-timeout, else $DOZ_DAEMON_IDLE, else the settings' `daemon.idle_timeout_minutes`, else 5.
+/// The idle timeout: --idle-timeout, else $DOZ_DAEMON_IDLE, else the settings' `daemon.idle_timeout_minutes`, else 0 (never).
+/// 693: used only when `daemon.always_on` is off.
 func idleTimeout(_ option: Double?) -> Double {
     DozableSettings.load().idleTimeoutMinutes(flag: option)
 }
@@ -583,7 +584,7 @@ struct HostRun: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "start", abstract: "Start the daemon (detached, unless --foreground).")
     @OptionGroup var g: GlobalOptions
     @Flag(name: .long, help: "Run in this process (logs on stdout) instead of detached.") var foreground = false
-    @Option(name: .long, help: "Minutes with nothing running before the daemon exits; 0 = never (default $DOZ_DAEMON_IDLE, else the settings' daemon.idle_timeout_minutes, else 5).") var idleTimeout: Double?
+    @Option(name: .long, help: "Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0 = never (default $DOZ_DAEMON_IDLE, else the settings' daemon.idle_timeout_minutes, else 0).") var idleTimeout: Double?
     /// 593: the launcher's intermediate — spawn the host in its own session, print its pid, exit (so the
     /// host's parent is launchd, never a client). Not for people.
     @Flag(name: .long, help: .hidden) var launchDetached = false
@@ -599,7 +600,11 @@ struct HostRun: AsyncParsableCommand {
             return
         }
         if foreground {
-            do { try await HostServer.run(store: store, idleTimeoutMinutes: timeout, version: DozableCommand.version, launched: launched) } catch {
+            // 693: a daemon started in this one's place (a hand-over, a restart in place) keeps a timeout given by flag.
+            do {
+                try await HostServer.run(store: store, idleTimeoutMinutes: timeout, version: DozableCommand.version, launched: launched,
+                                         restartExtra: idleTimeout.map { ["--idle-timeout", String($0)] } ?? [])
+            } catch {
                 throw fail(HostError(.unavailable, error.localizedDescription), g)
             }
         }
@@ -621,11 +626,27 @@ func describe(_ st: HostStatus) -> String {
     var s = "daemon \(st.version)\(build) running, pid \(st.pid), since \(st.startedAt.formatted(date: .omitted, time: .standard))\n"
     s += "store \(st.store)\n"
     s += "running sandboxes: \(st.liveSandboxes.isEmpty ? "none" : st.liveSandboxes.joined(separator: ", "))"
-    s += st.idleTimeoutMinutes > 0 ? String(format: " · exits after %@ min with nothing running", st.idleTimeoutMinutes.formatted()) : " · never exits by itself"
+    // 693: always on, or when it exits — its own line (an older daemon says only its timeout).
+    guard let alwaysOn = st.alwaysOn else {
+        s += st.idleTimeoutMinutes > 0 ? String(format: " · exits after %@ min with nothing running", st.idleTimeoutMinutes.formatted()) : " · never exits by itself"
+        if let i = st.idleSeconds { s += String(format: " (idle %.0f s)", i) }
+        return s + "\n" + (st.executableNote.map { (st.executableChange == "overwritten" ? "PROBLEM: " : "note: ") + $0 + "\n" } ?? "")
+    }
     if let i = st.idleSeconds { s += String(format: " (idle %.0f s)", i) }
-    s += "\n"
+    s += "\n" + alwaysOnLine(alwaysOn: alwaysOn, idleTimeoutMinutes: st.idleTimeoutMinutes, keychainLocked: st.keychainLocked) + "\n"
+    if let k = st.keepers, k > 0 { s += "kept sessions: \(k) (they keep the daemon running)\n" }
     if let note = st.executableNote { s += (st.executableChange == "overwritten" ? "PROBLEM: " : "note: ") + note + "\n" }
     return s
+}
+
+/// 693: the `daemon status` line that says whether the daemon keeps running with nothing open.
+func alwaysOnLine(alwaysOn: Bool, idleTimeoutMinutes: Double, keychainLocked: String?) -> String {
+    let exits = idleTimeoutMinutes > 0 ? "exits after \(idleTimeoutMinutes.formatted()) min with nothing running" : "never exits by itself"
+    if alwaysOn { return "always on: it keeps running with nothing open (doz config set daemon.always_on off to let it exit when idle)" }
+    if let why = keychainLocked {
+        return "not always on: it was started where the login keychain is locked (\(why)), so it \(exits) — doz daemon restart from a logged-in session"
+    }
+    return "always on is off (daemon.always_on): it \(exits)"
 }
 
 struct HostStop: AsyncParsableCommand {

@@ -10,8 +10,11 @@ import DozableKit
 ///   · started by the first CLI call that needs it (a detached child, `HostLauncher`), or by hand;
 ///   · holds `<store>/host.lock` (flock) for its whole life — there is never a second host for a store,
 ///     and a new one waits for the old one to finish exiting before it loads anything;
-///   · exits by itself once NO sandbox has a VM (booting, running, paused, asleep) and no client is
-///     connected for `idleTimeoutMinutes` (default 5; 0 = never) — so no daemon runs when nothing does;
+///   · 693: stays running with nothing open (`daemon.always_on`, default on); with it off, exits by itself once NO sandbox
+///     has a VM (booting, running, paused, asleep) and no client is connected for `idleTimeoutMinutes` (default 0 = never);
+///     a daemon whose login keychain is locked is never always on and exits after 5 minutes idle (`IdleDecision`);
+///   · when its program is replaced (an update) and nothing is live: an always-on daemon restarts in place from the
+///     stable path (`StableExecutable`), any other exits — and fenced sessions are handed over;
 ///   · `doz host stop`, SIGTERM or SIGINT: Hibernate everything (quit = Hibernate) and exit;
 ///   · after a crash (kill -9): the next CLI call starts a new host, which restores what was asleep
 ///     and reports what died (`HostCore.recoverAfterStart`). Hibernated sandboxes wake on demand.
@@ -19,6 +22,8 @@ public final class HostServer: @unchecked Sendable {
     public let store: DozableStore
     public let idleTimeoutMinutes: Double
     public let version: String
+    /// 693: the arguments a daemon started in its place gets (`--idle-timeout` when this one was given it).
+    let restartExtra: [String]
     let core: HostCore
     let startedAt = Date()
 
@@ -37,10 +42,11 @@ public final class HostServer: @unchecked Sendable {
         set { lock.withLock { _recipeCatalogueWaiting = newValue } }
     }
 
-    init(store: DozableStore, idleTimeoutMinutes: Double, version: String) {
+    init(store: DozableStore, idleTimeoutMinutes: Double, version: String, restartExtra: [String] = []) {
         self.store = store
         self.idleTimeoutMinutes = idleTimeoutMinutes
         self.version = version
+        self.restartExtra = restartExtra
         // 591: the settings' keep-alive for a store that has not chosen (read once, at start).
         let settings = DozableSettings.load()
         core = HostCore(store: store, readOnly: false, version: version, services: .forHost(),
@@ -71,8 +77,10 @@ public final class HostServer: @unchecked Sendable {
     nonisolated(unsafe) public static var keychainLocked: String?
 
     /// Run the host in this process until it exits (never returns). `launched`: started by
-    /// `HostLauncher` (its parent is launchd); false: a person ran `doz host start --foreground`.
-    public static func run(store: DozableStore, idleTimeoutMinutes: Double, version: String, launched: Bool = false) async throws -> Never {
+    /// `HostLauncher` (its parent is launchd); false: a person ran `doz host start --foreground`. `restartExtra`: the
+    /// arguments a daemon started in its place (a hand-over, a restart in place) gets — `--idle-timeout` when given.
+    public static func run(store: DozableStore, idleTimeoutMinutes: Double, version: String, launched: Bool = false,
+                           restartExtra: [String] = []) async throws -> Never {
         TestSafety.checkStore(store.root)          // 611
         launchedDetached = launched
         // 678 (the plan's default, owner to confirm): a host a client started inherits that client's background
@@ -84,7 +92,7 @@ public final class HostServer: @unchecked Sendable {
         signal(SIGHUP, SIG_IGN)
         try store.ensureDirectory()
         guard store.socketPathFits else { throw StartError.socket(UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription) }
-        let server = HostServer(store: store, idleTimeoutMinutes: idleTimeoutMinutes, version: version)
+        let server = HostServer(store: store, idleTimeoutMinutes: idleTimeoutMinutes, version: version, restartExtra: restartExtra)
         try server.takeLock(waitSeconds: 60)
         // 606: the proxy never connects a sandbox to one of Dozable's own dashboards on this Mac.
         LocalDashboards.protect(DashboardPorts(store: store).current)
@@ -101,6 +109,13 @@ public final class HostServer: @unchecked Sendable {
         if let why = keychainLocked {
             HostLog.line("started from a session where the login keychain is locked (\(why)): this Mac's Claude login (and anything else in the keychain) cannot be read — doz daemon restart from a logged-in session")
         }
+        // 693: always on (the setting, re-read at each idle look) — never for a daemon whose login keychain is locked.
+        let alwaysOnSetting = DozableSettings.load().bool(SettingKey.alwaysOn)
+        let timeout = IdleDecision.effectiveTimeout(alwaysOnSetting: alwaysOnSetting, keychainLocked: keychainLocked, timeoutMinutes: idleTimeoutMinutes)
+        HostLog.line(IdleDecision.alwaysOn(setting: alwaysOnSetting, keychainLocked: keychainLocked)
+                     ? "always on (daemon.always_on): it keeps running with nothing open"
+                     : (keychainLocked != nil ? "not kept running (the login keychain is locked here): " : "daemon.always_on is off: ")
+                        + (timeout.map { "it exits after \($0.formatted()) min with nothing running" } ?? "daemon.idle_timeout_minutes is 0 — it never exits by itself"))
         // EXPERIMENTAL (604): which app macOS asks about the microphone for, for this host's audio sandboxes.
         HostLog.line("microphone (audio sandboxes, experimental): macOS asks on behalf of "
                      + (HostCore.microphoneApp.map { "\($0.description) — \($0.path)" } ?? "an app it could not name"))
@@ -115,8 +130,11 @@ public final class HostServer: @unchecked Sendable {
         // tell a later "Internal Virtualization error" caused by an update underneath it.
         VMLayout.recorder = "doz \(version)"
         let exe = ExecutableIdentity.of(path: HostLauncher.executablePath)
-        await server.core.setExecutable(exe)
-        HostLog.line("running from \(exe?.path ?? HostLauncher.executablePath)\(exe?.cdhash.map { " (cdhash \($0.prefix(12)))" } ?? "")")
+        // 693: and the path a daemon started in its place runs (a Homebrew keg's formula `opt` link — the keg goes at cleanup).
+        let stable = StableExecutable.path(for: HostLauncher.executablePath)
+        await server.core.setExecutable(exe, stablePath: stable)
+        HostLog.line("running from \(exe?.path ?? HostLauncher.executablePath)\(exe?.cdhash.map { " (cdhash \($0.prefix(12)))" } ?? "")"
+                     + (stable != (exe?.path ?? HostLauncher.executablePath) ? " — installed as \(stable)" : ""))
         // The recipes this host (and every command while it runs) uses — chosen once, at this process's start.
         let recipes = RecipeCatalogueSelection.startChoice
         HostLog.line("recipes: \(RecipeCatalogue.source.describe(dozVersion: version))"
@@ -247,49 +265,92 @@ public final class HostServer: @unchecked Sendable {
 
     // MARK: idle
 
+    /// 693: the setting `daemon.always_on`, re-read at each look (it applies at once).
+    var alwaysOnSetting: Bool { DozableSettings.load().bool(SettingKey.alwaysOn) }
+    /// Whether this daemon is always on now (never when its login keychain is locked).
+    var alwaysOn: Bool { IdleDecision.alwaysOn(setting: alwaysOnSetting, keychainLocked: Self.keychainLocked) }
+    /// The idle timeout in effect now (minutes; 0 = never) — what `daemon status` reports.
+    var effectiveIdleTimeoutMinutes: Double {
+        IdleDecision.effectiveTimeout(alwaysOnSetting: alwaysOnSetting, keychainLocked: Self.keychainLocked, timeoutMinutes: idleTimeoutMinutes) ?? 0
+    }
+    /// 693: the kept sessions on this Mac (none yet: kept sessions come later). They keep the daemon up like fenced ones.
+    var keepers: Int { 0 }
+
+    /// 693 (decision 6): `IdleDecision` decides; this loop gathers its inputs and acts. It never skips its look — a daemon
+    /// that never idles out (always on, or a timeout of 0) must still pick up a new build (`restartInPlace`) or a newer
+    /// recipe catalogue.
     func idleLoop() async {
-        let timeout = idleTimeoutMinutes * 60
-        let interval = timeout <= 0 ? 30.0 : min(15, max(0.5, timeout / 4))
         while true {
-            try? await Task.sleep(for: .milliseconds(Int(interval * 1000)))
-            guard timeout > 0 else { continue }
+            let setting = alwaysOnSetting
+            let timeout = IdleDecision.effectiveTimeout(alwaysOnSetting: setting, keychainLocked: Self.keychainLocked, timeoutMinutes: idleTimeoutMinutes)
+            try? await Task.sleep(for: .milliseconds(Int(IdleDecision.interval(effectiveTimeout: timeout) * 1000)))
             // 594: an image being prepared keeps the host up like a live sandbox (nobody need be attached).
             let live = await core.liveSandboxes() + (await core.runningPreparations()).map { "prepare \($0)" }
-            let now = Date()
             // A fenced session on this Mac keeps the host up (its git guard and proxy are the host's); unfenced ones never do.
             let fenced = await core.fencedMacSessions()
-            // 591: its program changed under it — once nothing is live and nobody is connected, exit, so
-            // the next command starts a host of the build now installed. (Nothing is lost: no VM runs;
-            // sandboxes asleep keep their snapshots — a failed wake's too, e1af862.) When fenced sessions on this Mac are all
-            // that keeps it, it hands them over: a new host is started now and takes them once this one is gone.
-            if let change = await core.executableChange(), live.isEmpty, lock.withLock({ connections == 0 && !stopping }) {
-                if fenced.isEmpty {
-                    HostLog.line("my program changed (\(change.rawValue)) and nothing is running — exiting so the next command runs the installed build")
-                    await shutdown(prepare: false, reply: nil)
-                } else {
-                    await handOver(change, fenced: fenced)
-                }
-            }
-            // A newer recipe catalogue waits: the same — the next command's host starts with it.
-            if live.isEmpty, lock.withLock({ _recipeCatalogueWaiting && connections == 0 && !stopping }) {
-                HostLog.line("a newer recipe catalogue is downloaded and nothing is running — exiting so the next command's daemon uses it")
-                await shutdown(prepare: false, reply: nil)
-            }
-            let exit: Bool = lock.withLock {
-                guard !stopping else { return false }
-                if live.isEmpty && fenced.isEmpty && connections == 0 {
-                    if let s = idleSince { return now.timeIntervalSince(s) >= timeout }
-                    idleSince = now
+            // 591: its program changed under it. (Nothing is lost by a new daemon: no VM runs; sandboxes asleep keep their
+            // snapshots — a failed wake's too, e1af862.)
+            let change = await core.executableChange()
+            let now = Date()
+            let d: IdleDecision = lock.withLock {
+                var d = IdleDecision(alwaysOnSetting: setting, keychainLocked: Self.keychainLocked, timeoutMinutes: idleTimeoutMinutes,
+                                     live: live, fenced: fenced, keepers: keepers, connections: connections, stopping: stopping,
+                                     executableChange: change, recipeCatalogueWaiting: _recipeCatalogueWaiting, launched: Self.launchedDetached)
+                if d.isIdle && !stopping {
+                    if idleSince == nil { idleSince = now }
+                    d.idleSeconds = now.timeIntervalSince(idleSince!)
                 } else {
                     idleSince = nil
                 }
-                return false
+                return d
             }
-            if exit {
-                HostLog.line("idle for \(idleTimeoutMinutes.formatted()) min with nothing running — exiting")
+            switch d.action {
+            case .stay:
+                continue
+            case .exit(let why):
+                HostLog.line(why)
                 await shutdown(prepare: false, reply: nil)
+            case .restartInPlace(let why):
+                await restartInPlace(why)
+            case .handOver(let why):
+                await handOver(why, fenced: fenced)
             }
         }
+    }
+
+    /// 693 (decision 6): an always-on daemon whose program changed (or that has a newer recipe catalogue to load), with
+    /// nothing live and no client connected, starts a daemon of the installed build in its place — from the STABLE path,
+    /// detached as every daemon is (`HostLauncher.spawn`: parent launchd, never this process's child) — and exits. One owner
+    /// always: the decision is re-checked under the lock as this one stops taking clients (a client that came meanwhile
+    /// cancels it); its socket goes first, so the new daemon never mistakes it for a live one; the new daemon waits for the
+    /// store's lock, which this one holds until its last line. A new program that cannot be started: it exits anyway (as
+    /// a daemon that is not always on does) — nothing is live, and the next command starts the installed doz.
+    func restartInPlace(_ why: String) async {
+        let first: Bool = lock.withLock {
+            if stopping || connections > 0 { return false }
+            stopping = true
+            return true
+        }
+        guard first else { return }
+        let fd = lock.withLock { () -> Int32 in let f = listenFD; listenFD = -1; return f }
+        if fd >= 0 { Darwin.shutdown(fd, SHUT_RDWR); close(fd) }
+        unlink(store.socket.path)
+        HostLog.line(why)
+        let stable = await core.stableExecutable ?? HostLauncher.executablePath
+        if FileManager.default.isExecutableFile(atPath: stable) {
+            do {
+                let pid = try HostLauncher.spawn(store: store, executable: stable, extra: restartExtra)
+                HostLog.line("the new daemon (pid \(pid), \(stable)) waits for the store's lock")
+            } catch {
+                HostLog.line("could not start the new daemon (\(error)) — the next command starts one")
+            }
+        } else {
+            HostLog.line("there is no program at \(stable) to start — the next command starts the installed doz")
+        }
+        try? FileManager.default.removeItem(at: store.pidFile)
+        HostLog.line("daemon exiting (restarted in place)")
+        releaseLocks()
+        exit(0)
     }
 
     /// The hand-over of fenced sessions on this Mac to a host of the build now installed — one host per store, always:
@@ -298,10 +359,11 @@ public final class HostServer: @unchecked Sendable {
     /// the records, logs, policies and git guards — stops accepting on every session's proxy (new connections wait in
     /// the holders' backlogs), closes the idle ones and lets open tunnels finish for up to 30 s, cuts the rest, then
     /// releases the lock and exits. The new host takes the lock, adopts each session (`GETFD` from its holder) and serves.
-    /// No hand-over file: the lock is the hand-over.
-    func handOver(_ change: ExecutableIdentity.Change, fenced: [String]) async {
+    /// No hand-over file: the lock is the hand-over. 693: the new daemon is started from the STABLE path (a Homebrew keg's
+    /// `opt` link — `brew cleanup` may already have deleted this one's keg), and a newer recipe catalogue hands over too.
+    func handOver(_ why: String, fenced: [String]) async {
         let first: Bool = lock.withLock {
-            if stopping { return false }
+            if stopping || connections > 0 { return false }
             stopping = true
             return true
         }
@@ -309,11 +371,11 @@ public final class HostServer: @unchecked Sendable {
         let fd = lock.withLock { () -> Int32 in let f = listenFD; listenFD = -1; return f }
         if fd >= 0 { Darwin.shutdown(fd, SHUT_RDWR); close(fd) }
         unlink(store.socket.path)
-        HostLog.line("my program changed (\(change.rawValue)) and only fenced sessions on this Mac keep me (\(fenced.joined(separator: ", "))) — "
-                     + "handing them to a new daemon of the installed build")
+        HostLog.line("\(why) — handing them to a new daemon of the installed build")
+        let stable = await core.stableExecutable ?? HostLauncher.executablePath
         do {
-            let pid = try HostLauncher.spawn(store: store)
-            HostLog.line("the new daemon (pid \(pid)) waits for the store's lock")
+            let pid = try HostLauncher.spawn(store: store, executable: stable, extra: restartExtra)
+            HostLog.line("the new daemon (pid \(pid), \(stable)) waits for the store's lock")
         } catch {
             HostLog.line("could not start the new daemon (\(error)) — the next command starts one; the sessions' connections wait until then")
         }
@@ -431,7 +493,8 @@ public final class HostServer: @unchecked Sendable {
         case .ping:
             Task.detached { [self] in
                 let st = await core.status(connections: connectionCount, idleSeconds: idleSeconds,
-                                           idleTimeoutMinutes: idleTimeoutMinutes, startedAt: startedAt)
+                                           idleTimeoutMinutes: effectiveIdleTimeoutMinutes, startedAt: startedAt,
+                                           alwaysOn: alwaysOn, keepers: keepers)
                 conn.send((try? JSONValue(encoding: st)).map { HostMessage.success($0) } ?? .failure(HostError(.failed, "status")))
                 finished(conn)
             }

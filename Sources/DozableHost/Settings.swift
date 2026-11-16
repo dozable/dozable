@@ -432,6 +432,8 @@ public enum SettingKey {
     public static let progress = "ui.progress"
     /// 637: colour in the CLI — auto, always, never.
     public static let color = "ui.color"
+    /// 693: the daemon stays running with nothing open (default on; the idle timeout applies only when off).
+    public static let alwaysOn = "daemon.always_on"
     public static let idleTimeout = "daemon.idle_timeout_minutes"
     public static let screenCapture = "daemon.screen_capture_minutes"
     public static let bootLogsKept = "daemon.boot_logs_kept"
@@ -874,8 +876,14 @@ public struct DozableSettings: Sendable {
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
                   applies: .uiRestart, ui: false),
-            .init("daemon", "idle_timeout_minutes", .int(0...10_080), .int(5),
-                  "Minutes with nothing running before the daemon exits; 0 = never.",
+            // 693: the daemon stays running (owner: "yes always on (a new setting - default on). change timeout default to 0
+            // (never times out)"). Read by the running daemon at each idle look (`IdleDecision`); a daemon started where the
+            // login keychain is locked is never always on, whatever this says.
+            .init("daemon", "always_on", .bool, .bool(true),
+                  "Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once; a new doz installed under it takes over by itself once nothing runs. off: it exits after daemon.idle_timeout_minutes with nothing running (when that is 0, it still never does). A daemon started where the login keychain is locked (over ssh) is never kept running: it exits after 5 minutes with nothing running.",
+                  env: "DOZ_DAEMON_ALWAYS_ON", applies: .now),
+            .init("daemon", "idle_timeout_minutes", .int(0...10_080), .int(0),
+                  "Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0 = never.",
                   env: "DOZ_DAEMON_IDLE", flag: "doz daemon start --idle-timeout", applies: .daemonRestart),
             .init("daemon", "screen_capture_minutes", .int(0...1440), .int(5),
                   "Every this many minutes, save the screen of each running sandbox's sessions that printed something since (what a sleep or hibernation falls back on); 0 = only when it pauses, sleeps or hibernates.",
@@ -1348,11 +1356,28 @@ public struct DozableSettings: Sendable {
     }
 
     /// The daemon's idle timeout in minutes: `--idle-timeout`, else `$DOZ_DAEMON_IDLE` (fractions
-    /// allowed, as always), else the file, else 5.
+    /// allowed, as always), else the file, else 0 (693: never). Used only when `daemon.always_on` is off (`IdleDecision`).
     public func idleTimeoutMinutes(flag: Double?) -> Double {
         if let flag { return flag }
         if let name = Self.definition(SettingKey.idleTimeout)?.environment, let raw = environment[name], let x = Double(raw), x >= 0 { return x }
         return Double(int(SettingKey.idleTimeout))
+    }
+
+    /// 693: one plain sentence when `daemon.always_on` and `daemon.idle_timeout_minutes` together do not do what the timeout
+    /// alone suggests (a file written by an older doz keeps `idle_timeout_minutes = 5`, which now applies only when always
+    /// on is off); nil otherwise.
+    public var daemonIdleNote: String? {
+        let alwaysOn = bool(SettingKey.alwaysOn)
+        let minutes = idleTimeoutMinutes(flag: nil)
+        if alwaysOn, minutes > 0 {
+            return "daemon.idle_timeout_minutes (\(minutes.formatted())) applies only when daemon.always_on is off — the daemon keeps running "
+                + "with nothing open (doz config set daemon.always_on off to let it exit when idle)"
+        }
+        if !alwaysOn, minutes == 0 {
+            return "daemon.always_on is off but daemon.idle_timeout_minutes is 0, so the daemon still never exits by itself — "
+                + "doz config set daemon.idle_timeout_minutes 5 for an idle exit"
+        }
+        return nil
     }
 
     /// The keys a new sandbox's memory and network come from, by its imageSpec (a custom image follows the image it

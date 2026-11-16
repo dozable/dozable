@@ -21,6 +21,11 @@
 //      folder is replaced by rename (an install); the old host hands the session to the build now installed (it runs
 //      `doz host start --launch-detached`, which this build takes as `daemon start`) and exits — the new daemon takes
 //      both locks only after the old one let go (the logs' order), and the session runs on, the same holder.
+//   F. (693) ALWAYS ON, AN UPDATE WITH NO COMMAND TYPED: the previous release's daemon idles (nothing runs) from an
+//      "installed" folder; this build's folder is renamed over it. A previous release that restarts in place gives way to
+//      one daemon of this build by itself; one that predates it (0.50.3 and older) exits by itself, as it always did, and
+//      the next command starts this build. Then THIS build's always-on daemon, idle, gets a newer program by rename: it
+//      restarts in place — one daemon, a new pid, parent launchd, running the new file, always on — with no command typed.
 //
 // 592: the first DozableKit release is v0.10.0, and a store of a pre-rename release (v0.9.0 or older) is
 // NOT expected to wake under doz (owner ruling: no backward compatibility). Until a DozableKit tag exists the Makefile
@@ -51,7 +56,9 @@ func upgradeSuite() async throws {
     let new = CLIHarness(binary: newBin, store: storeRoot)
     // 689: the previous release (0.40.x) calls its daemon "the host" — `doz host …`, `<store>/host.lock`; a copy of this
     // build (no release tag yet) says daemon. Its environment variable too (DOZ_HOST_IDLE before 0.50).
-    let oldCmd = old.run(["host", "--help"]).code == 0 ? "host" : "daemon"
+    // 693: asked by `host status` (never starts one) — `doz host --help` exits 0 on 0.50 too (the top level's help), which
+    // took a 0.50 release for a 0.40 one: its `host stop` failed and every part after A ran against its daemon.
+    let oldCmd = old.run(["host", "status"]).code == 0 ? "host" : "daemon"
     let oldLock = oldCmd + ".lock", oldPidFile = oldCmd + ".pid"
     old.env["DOZ_HOST_IDLE"] = "30"
     let oldVersion = old.run(["--version"]).out.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -217,8 +224,10 @@ func upgradeSuite() async throws {
         try await handOverOldToNew(old: old, new: new, oldBin: oldBin, newBin: newBin, oldVersion: oldVersion, newVersion: newVersion,
                                    marker: marker, held: lockHeld, pidIn: pidIn)
     } else {
-        print("  SKIP  D, E: the previous build already says daemon (a copy of this build) — nothing to migrate")
+        print("  SKIP  D, E: the previous build already says daemon (0.50 or later, or a copy of this build) — nothing to migrate")
     }
+    try await alwaysOnAcrossAnUpdate(new: new, oldBin: oldBin, newBin: newBin, oldVersion: oldVersion, newVersion: newVersion,
+                                     entitlements: entitlements, held: lockHeld, pidIn: pidIn)
 
     cleanUp()
     try? FileManager.default.removeItem(at: binDir)
@@ -298,8 +307,9 @@ private func handOverOldToNew(old: CLIHarness, new: CLIHarness, oldBin: String, 
     let r = inst.run(["run", "@mac", "-d", "--fenced", "--session", "upho", "--workdir", work, "--",
                       "/bin/sh", "-c", "echo HO-\(marker) > ho.txt; exec sleep 600"], timeout: 90)
     check(r.code == 0, "E \(oldVersion): a fenced session on this Mac, the host's only live work" + (r.code == 0 ? "" : " — \(r.err.suffix(300))"))
-    guard r.code == 0, let oldPid = pidIn("host.pid") else { return }
+    // 693: ended on every way out — a session left running (an early return) kept every later part's daemon up.
     defer { new.run(["sessions", "end", "@mac", "upho", "--yes"], timeout: 60); new.run(["daemon", "stop"], timeout: 120) }
+    guard r.code == 0, let oldPid = pidIn("host.pid") else { return }
     let holderPid = inst.json(["sessions", "@mac"], [SessionRow].self)?.first { $0.name == "upho" }?.pid
     check(holderPid != nil && new.waitFor(10) { fm.fileExists(atPath: work + "/ho.txt") }, "E: it runs (pid \(holderPid.map(String.init) ?? "?"))")
     usleep(1_500_000)
@@ -326,4 +336,95 @@ private func handOverOldToNew(old: CLIHarness, new: CLIHarness, oldBin: String, 
     let newFirst = st.flatMap { s in all.first { $0.contains("doz daemon \(newVersion) (pid \(s.pid))") } }
     let (a, b) = (time(oldLast), time(newFirst))
     check(a != nil && b != nil && a! <= b!, "E: never two owners — the older host drained and let go (\(oldLast.map { String($0.prefix(30)) } ?? "no line")) before the daemon of this build began (\(newFirst.map { String($0.prefix(30)) } ?? "no line"))")
+}
+
+// ── F. (693) always on: an update replaces an idle daemon with one of the installed build, no command typed.
+private func alwaysOnAcrossAnUpdate(new: CLIHarness, oldBin: String, newBin: String, oldVersion: String, newVersion: String,
+                                    entitlements: String, held: (String) -> Bool, pidIn: (String) -> Int32?) async throws {
+    let fm = FileManager.default
+    let root = "/private/tmp/dzf-\(getpid())"          // never in the store or the home
+    try? fm.removeItem(atPath: root)
+    defer { try? fm.removeItem(atPath: root) }
+    let cur = root + "/cur"
+    func fill(_ dir: String, from bin: String) throws {
+        try fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        let src = URL(fileURLWithPath: bin).deletingLastPathComponent().path
+        try fm.copyItem(atPath: bin, toPath: dir + "/doz")
+        for b in (try fm.contentsOfDirectory(atPath: src)) where b.hasSuffix(".bundle") { try fm.copyItem(atPath: src + "/" + b, toPath: dir + "/" + b) }
+        if fm.fileExists(atPath: src + "/VERSION") { try fm.copyItem(atPath: src + "/VERSION", toPath: dir + "/VERSION") }
+    }
+    /// `dir` (a new build's folder) renamed over the installed one — an install, as Homebrew's relink or install-cli does.
+    var n = 0
+    func installOver(from bin: String) throws -> Bool {
+        n += 1
+        let next = root + "/next\(n)"
+        try fill(next, from: bin)
+        // A fresh signature: a new file, whatever bytes it has (a copy of the same build is still a new program).
+        _ = Process.launchedProcess(launchPath: "/usr/bin/codesign", arguments: ["--force", "--sign", "-", "--entitlements", entitlements, next + "/doz"]).waitUntilExitReturning()
+        return rename(cur, root + "/old\(n)") == 0 && rename(next, cur) == 0
+    }
+    /// The daemons of this store, from the process table.
+    func daemons() -> [Int32] {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/ps")
+        p.arguments = ["-axo", "pid=,command="]
+        let o = Pipe()
+        p.standardOutput = o
+        try? p.run()
+        let data = o.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        return String(decoding: data, as: UTF8.self).split(separator: "\n").compactMap { line in
+            let l = line.trimmingCharacters(in: .whitespaces)
+            guard l.contains("start --foreground"), l.contains("--store \(new.store.path)") else { return nil }
+            return Int32(l.split(separator: " ").first ?? "")
+        }
+    }
+    new.run(["daemon", "stop"], timeout: 120)
+    _ = new.waitFor(30) { !held("daemon.lock") && !held("host.lock") }
+    try fill(cur, from: oldBin)
+    let inst = CLIHarness(binary: cur + "/doz", store: new.store)
+    inst.env = new.env
+    inst.env["DOZ_DAEMON_ALWAYS_ON"] = "on"           // this build's daemons: always on (the default; the Makefile turns it off)
+    let oldCmd = inst.run(["host", "status"]).code == 0 ? "host" : "daemon"
+    let pidName = oldCmd + ".pid"
+    let s0 = inst.run([oldCmd, "start"], timeout: 60)
+    guard s0.code == 0, let p0 = pidIn(pidName) else { check(false, "F \(oldVersion): its daemon runs, idle"); return }
+    check(true, "F \(oldVersion): its daemon runs, idle (pid \(p0))")
+    defer { new.run(["daemon", "stop"], timeout: 120); _ = new.waitFor(30) { !held("daemon.lock") } }
+    usleep(1_500_000)
+    check(try installOver(from: newBin), "F: this build installed by rename over \(oldVersion)'s folder")
+    // No command typed: only the pid files, the locks and the process table are read until it has happened.
+    let t0 = Date()
+    let gone = new.waitFor(90) { kill(p0, 0) != 0 }
+    let byItself = new.waitFor(15) { pidIn("daemon.pid").map { $0 != p0 && kill($0, 0) == 0 } == true }
+    if gone && byItself {
+        let st = new.json(["daemon", "status"], HostStatus.self)
+        check(st?.version == newVersion && daemons().count == 1,
+              String(format: "F: \(oldVersion) gave way by itself to one daemon of this build in %.1f s (doz \(st?.version ?? "?"))", Date().timeIntervalSince(t0)))
+    } else {
+        check(gone, String(format: "F: \(oldVersion)'s idle daemon exited by itself after %.1f s (it predates the restart in place)", Date().timeIntervalSince(t0)))
+        check(daemons().isEmpty, "F: …and left no daemon: the next command starts this build")
+        check(inst.run(["daemon", "start"], timeout: 60).code == 0, "F: a command starts this build's daemon")
+    }
+    var st = new.json(["daemon", "status"], HostStatus.self)
+    check(st?.version == newVersion && st?.alwaysOn == true && daemons().count == 1,
+          "F: one daemon, this build (doz \(st?.version ?? "?")), always on (\(st?.alwaysOn.map(String.init) ?? "nil"))")
+    // This build's always-on daemon, idle, gets a newer program by rename: it restarts in place.
+    guard let p1 = st?.pid else { return }
+    usleep(1_500_000)
+    check(try installOver(from: newBin), "F: a newer build installed by rename under this build's always-on daemon")
+    let t1 = Date()
+    let restarted = new.waitFor(60) { kill(p1, 0) != 0 && pidIn("daemon.pid").map { $0 != p1 && kill($0, 0) == 0 } == true }
+    let took = Date().timeIntervalSince(t1)
+    usleep(1_000_000)
+    st = new.json(["daemon", "status"], HostStatus.self)
+    let all = daemons()
+    check(restarted && all.count == 1 && st?.pid == all.first,
+          String(format: "F: it restarted in place in %.1f s with no command typed — one daemon (pids %@), not %d", took, "\(all)", p1))
+    check(st?.version == newVersion && st?.alwaysOn == true && st?.parentPid == 1 && st?.executableChange == nil,
+          "F: the new daemon: this build, always on, parent launchd, its program unchanged since it started (\(st?.executableChange ?? "no change"))")
+}
+
+private extension Process {
+    func waitUntilExitReturning() -> Int32 { waitUntilExit(); return terminationStatus }
 }

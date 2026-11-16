@@ -622,15 +622,30 @@ public actor HostCore {
     // MARK: 591 — the host's own program
 
     private var executable: ExecutableIdentity?
+    /// 693: the path a new daemon is started from (`StableExecutable.path`) — the formula's `opt` link for a Homebrew keg.
+    private(set) var stableExecutable: String?
 
     /// The file this host runs from, as it was at start (the server sets it; an in-process read-only
-    /// core has none).
-    public func setExecutable(_ e: ExecutableIdentity?) { executable = e }
+    /// core has none), and (693) its stable path.
+    public func setExecutable(_ e: ExecutableIdentity?, stablePath: String? = nil) {
+        executable = e
+        stableExecutable = stablePath
+    }
 
-    /// How that file has changed since this host started (nil: it has not, or no identity is known).
+    /// How that file has changed since this host started (nil: it has not, or no identity is known). 693: a different
+    /// program at the stable path counts as `replaced`.
     public func executableChange() -> ExecutableIdentity.Change? {
         guard let executable else { return nil }
-        return executable.change(now: ExecutableIdentity.of(path: executable.path), runningCodeValid: ExecutableIdentity.runningCodeIsValid())
+        let stableNow = stableExecutable.flatMap { $0 == executable.path ? nil : ExecutableIdentity.of(path: $0) }
+        return executable.change(now: ExecutableIdentity.of(path: executable.path), stableNow: stableNow,
+                                 runningCodeValid: ExecutableIdentity.runningCodeIsValid())
+    }
+
+    /// The path the note about a change names: the stable path when it is the one that changed.
+    func changedPath(_ c: ExecutableIdentity.Change) -> String? {
+        guard let executable else { return nil }
+        if c == .replaced, let s = stableExecutable, executable.change(now: ExecutableIdentity.of(path: executable.path)) == nil { return s }
+        return executable.path
     }
 
     /// 598: operations that boot a VM (or prepare an image in one) — they need this host's resource
@@ -982,7 +997,7 @@ public actor HostCore {
     }
 
     public func status(connections: Int = 0, idleSeconds: Double? = nil, idleTimeoutMinutes: Double = 0,
-                       startedAt: Date = Date()) async -> HostStatus {
+                       startedAt: Date = Date(), alwaysOn: Bool? = nil, keepers: Int? = nil) async -> HostStatus {
         var s = HostStatus(version: version, protocolVersion: HostProtocol.version, pid: getpid(), startedAt: startedAt, store: store.root.path,
                            idleTimeoutMinutes: idleTimeoutMinutes, liveSandboxes: await liveSandboxes(), connections: connections,
                            idleSeconds: idleSeconds)
@@ -997,9 +1012,11 @@ public actor HostCore {
             s.keychainLocked = HostServer.keychainLocked                   // 679 B6
             s.microphoneApp = Self.microphoneApp?.description
         }
+        s.alwaysOn = alwaysOn                                              // 693
+        s.keepers = keepers
         if let executable, let c = executableChange() {
             s.executableChange = c.rawValue
-            s.executableNote = ExecutableIdentity.explain(c, path: executable.path)
+            s.executableNote = ExecutableIdentity.explain(c, path: changedPath(c) ?? executable.path)
         } else if let gone = programGone() {
             // 598: the program file is still there but its resources went (a keg half-removed).
             s.executableChange = ExecutableIdentity.Change.removed.rawValue

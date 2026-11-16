@@ -35,34 +35,8 @@ struct Uninstall: AsyncParsableCommand {
         var keychain: [String]
     }
 
-    /// The installation this executable belongs to, when it is one `make install-cli` made:
-    /// `<prefix>/libexec/doz/doz` (and `<prefix>/bin/doz` when it links there).
-    static func installation(executable: String = HostLauncher.executablePath) -> (libexec: URL, link: URL?)? {
-        let exe = URL(fileURLWithPath: executable).resolvingSymlinksInPath()
-        let libexec = exe.deletingLastPathComponent()
-        guard exe.lastPathComponent == "doz", libexec.lastPathComponent == "doz", libexec.deletingLastPathComponent().lastPathComponent == "libexec" else { return nil }
-        let prefix = libexec.deletingLastPathComponent().deletingLastPathComponent()
-        let link = prefix.appendingPathComponent("bin/doz")
-        // The link counts only when it leads to this very executable (paths compared resolved: /tmp is /private/tmp).
-        let target = (try? FileManager.default.destinationOfSymbolicLink(atPath: link.path)).map {
-            URL(fileURLWithPath: $0, relativeTo: link.deletingLastPathComponent()).resolvingSymlinksInPath().path
-        }
-        return (libexec, target == exe.path ? link : nil)
-    }
-
-    /// 598: this executable is a Homebrew keg's (`…/Cellar/doz/<version>/libexec/doz/doz`) — Homebrew
-    /// owns those files: `brew uninstall doz` removes them, never this command. Returns the keg.
-    /// The formula a keg belongs to (`…/Cellar/<formula>/<version>`): doz, doz-beta or doz-canary.
-    static func formula(_ keg: URL) -> String { keg.deletingLastPathComponent().lastPathComponent }
-
-    static func homebrewKeg(executable: String = HostLauncher.executablePath) -> URL? {
-        let exe = URL(fileURLWithPath: executable).resolvingSymlinksInPath()
-        let keg = exe.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()   // …/Cellar/doz/<version>
-        guard exe.pathComponents.suffix(3) == ["libexec", "doz", "doz"],
-              UpdateChannel.ofFormula(keg.deletingLastPathComponent().lastPathComponent) != nil,   // doz, doz-beta, doz-canary (611)
-              keg.deletingLastPathComponent().deletingLastPathComponent().lastPathComponent == "Cellar" else { return nil }
-        return keg
-    }
+    // 693: `installation`, `homebrewKeg` and `formula` live in DozableHost (`StableExecutable`) — the daemon's hand-over
+    // and its restart in place need them too.
 
     /// A store directory is removed only when it looks like one (or is empty): never a folder
     /// someone pointed --store at by mistake.
@@ -100,10 +74,10 @@ struct Uninstall: AsyncParsableCommand {
             items.append(Item(path: dir.path, what: "the settings: doz.toml, agent-prompt.md"))
         }
         // The installed doz — unless Homebrew installed it (then brew removes it, and says so below).
-        let keg = Self.homebrewKeg()
+        let keg = StableExecutable.homebrewKeg()
         if let keg {
-            kept.append("the doz Homebrew installed (\(keg.path)) — `brew uninstall \(Self.formula(keg))` removes it (and `brew untap \(Distribution.tap)` the tap)")
-        } else if let inst = Self.installation() {
+            kept.append("the doz Homebrew installed (\(keg.path)) — `brew uninstall \(StableExecutable.formula(keg))` removes it (and `brew untap \(Distribution.tap)` the tap)")
+        } else if let inst = StableExecutable.installation() {
             items.append(Item(path: inst.libexec.path, what: "the installed doz and its resources"))
             if let link = inst.link { items.append(Item(path: link.path, what: "the doz command (a link to it)")) }
         } else {
@@ -179,7 +153,7 @@ struct Uninstall: AsyncParsableCommand {
         if g.json { Out.json(Report(removed: items, kept: kept, keychain: accounts)) }
         else if !failed {
             if let keg {
-                Out.stdout("Dozable's store and settings are removed. Finish with: brew uninstall \(Self.formula(keg))   (then, if you like: brew untap \(Distribution.tap))\n")
+                Out.stdout("Dozable's store and settings are removed. Finish with: brew uninstall \(StableExecutable.formula(keg))   (then, if you like: brew untap \(Distribution.tap))\n")
             } else {
                 Out.stdout("Dozable is removed from this Mac. (To install again: brew install \(Distribution.tap)/doz — or make install-cli in a source checkout — then doz onboard.)\n")
             }

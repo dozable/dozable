@@ -173,6 +173,8 @@ struct ConfigShow: AsyncParsableCommand {
             }
         }
         for n in report.notes ?? [] where report.settings.contains(where: { n.contains(" is now \($0.key) ") }) { Out.stdout("note: \(n)\n") }
+        // 693: how the two daemon settings combine, when that is not what the idle timeout alone suggests.
+        if recipe == nil, let n = s.daemonIdleNote { Out.stdout("note: \(n)\n") }
         Out.stdout("\nfile: \(report.path ?? "none (neither XDG_CONFIG_HOME nor HOME is set)")\(report.exists ? "" : " (not created yet — doz config init)")\n")
     }
 
@@ -258,6 +260,7 @@ struct ConfigSet: AsyncParsableCommand {
         if r.source == .env || r.source == .flag, !g.quiet {
             Out.stderr("note: \(r.source == .env ? "$\(d.environment ?? "")" : d.flag ?? "a flag") overrides it here: the effective value is \(r.value.plain)\n")
         }
+        if [SettingKey.alwaysOn, SettingKey.idleTimeout].contains(key), !g.quiet, let n = now.daemonIdleNote { Out.stdout("note: \(n)\n") }
     }
 }
 
@@ -291,6 +294,7 @@ struct ConfigUnset: AsyncParsableCommand {
         sayMigration(now, g)
         if g.json { Out.json(now.report(flags: configFlags(g)).settings.first { $0.key == key }!); return }
         Out.stdout("\(key) is \(d.agent != nil ? "the recipe's default" : "the default") (\(d.defaultValue.plain)) in \(now.url?.path ?? "?") (this Mac)\n")
+        if [SettingKey.alwaysOn, SettingKey.idleTimeout].contains(key), !g.quiet, let n = now.daemonIdleNote { Out.stdout("note: \(n)\n") }
     }
 }
 

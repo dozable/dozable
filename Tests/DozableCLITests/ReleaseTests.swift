@@ -58,21 +58,21 @@ final class ReleaseTests: XCTestCase {
         let brewLink = prefixBin.appendingPathComponent("doz")
         try FileManager.default.createSymbolicLink(atPath: brewLink.path, withDestinationPath: "../Cellar/doz/0.12.0/bin/doz")
         for path in [exe.path, kegLink.path, brewLink.path] {
-            XCTAssertEqual(Uninstall.homebrewKeg(executable: path)?.resolvingSymlinksInPath().path,
+            XCTAssertEqual(StableExecutable.homebrewKeg(executable: path)?.resolvingSymlinksInPath().path,
                            cellar.resolvingSymlinksInPath().path, path)
         }
         // 611: every channel's formula is a keg too (doz-beta, doz-canary) — never removed by doz uninstall.
         let beta = dir.appendingPathComponent("opt/homebrew/Cellar/doz-beta/0.32.0-rc.1")
         let (betaExe, _) = try layout(beta, version: "0.32.0-rc.1")
-        XCTAssertEqual(Uninstall.homebrewKeg(executable: betaExe.path)?.resolvingSymlinksInPath().path, beta.resolvingSymlinksInPath().path)
-        XCTAssertEqual(Uninstall.formula(beta), "doz-beta")
+        XCTAssertEqual(StableExecutable.homebrewKeg(executable: betaExe.path)?.resolvingSymlinksInPath().path, beta.resolvingSymlinksInPath().path)
+        XCTAssertEqual(StableExecutable.formula(beta), "doz-beta")
         let other = dir.appendingPathComponent("opt/homebrew/Cellar/dozzz/1.0.0")
         let (otherExe, _) = try layout(other, version: "1.0.0")
-        XCTAssertNil(Uninstall.homebrewKeg(executable: otherExe.path), "not one of doz's formulas")
+        XCTAssertNil(StableExecutable.homebrewKeg(executable: otherExe.path), "not one of doz's formulas")
         let (local, _) = try layout(dir.appendingPathComponent("home/.local"), version: nil)
-        XCTAssertNil(Uninstall.homebrewKeg(executable: local.path), "make install-cli's layout is not a keg")
-        XCTAssertNotNil(Uninstall.installation(executable: local.path))
-        XCTAssertNil(Uninstall.homebrewKeg(executable: "/x/.build/debug/doz"))
+        XCTAssertNil(StableExecutable.homebrewKeg(executable: local.path), "make install-cli's layout is not a keg")
+        XCTAssertNotNil(StableExecutable.installation(executable: local.path))
+        XCTAssertNil(StableExecutable.homebrewKeg(executable: "/x/.build/debug/doz"))
     }
 
     func testUpgradeCheckReadsAProcessExecutableFromTheKernel() {
