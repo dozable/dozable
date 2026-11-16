@@ -68,7 +68,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test test-cli-alwayson test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test test-cli-alwayson test-cli-daemon test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -101,6 +101,12 @@ endif
 # suites that test always-on set DOZ_DAEMON_ALWAYS_ON=on for their own daemons only.
 $(TEST_TARGETS): export DOZ_DAEMON_ALWAYS_ON := off
 $(TEST_TARGETS): export DOZ_DAEMON_IDLE := $(or $(DOZ_DAEMON_IDLE),5)
+# 694: the daemon's login item. No test run ever touches the real ~/Library/LaunchAgents or runs the real launchctl:
+# every test target gets a SCRATCH agents folder and a launchctl that refuses everything (forced, like the rest — and
+# outside the REAL_MAC block: even a run against this Mac's login never writes a login item). `TestSafety` stops a guarded
+# process that would reach either anyway. `make test-cli-daemon` sets its own (a recording fake, a folder of its own).
+$(TEST_TARGETS): export DOZ_TEST_LAUNCH_AGENTS_DIR := $(TEST_SCRATCH)-launchagents
+$(TEST_TARGETS): export DOZ_TEST_LAUNCHCTL := $(CURDIR)/Scripts/launchctl-refuse.sh
 
 # The scratch settings file every test target starts from (written once; a test that changes it keeps its own).
 test-safety:
@@ -342,6 +348,9 @@ test-cli-terminal: cli vmtest-host ## 594 W13: only test-cli's terminal part —
 
 test-cli-alwayson: cli vmtest-host ## The always-on daemon (also in test-cli), no VM: default settings keep it running with nothing open; daemon.always_on off applies at once (it exits when idle); its program replaced by rename while nothing runs → it restarts in place, one daemon, no command typed (scratch store)
 	perl -e 'alarm shift; exec @ARGV' 300 $(VMTEST_BIN) cli-alwayson --doz $(CLI_BIN)
+
+test-cli-daemon: cli vmtest-host ## The daemon's login item (also in test-cli), no VM, a scratch LaunchAgents folder and a FAKE launchctl (Scripts/fake-launchctl.py — never the real ones): ask writes nothing; on → one plist (stable doz, no KeepAlive) + bootstrap; the job starts a daemon with parent 1 and exits; held by daemon stop; a locked daemon replaced; a locked client kickstarts; a locked restart refused; the stable path after a keg upgrade; always_on off removes it; nuke/uninstall remove only this label; the menu bar app's job wins
+	perl -e 'alarm shift; exec @ARGV' 600 $(VMTEST_BIN) cli-daemon --doz $(CLI_BIN)
 
 test-cli-hoststop: cli vmtest-host ## 594 W22: only test-cli's daemon-stop part (the target keeps its name) — doz host unknown, each sandbox's line (plain off a terminal, animated on a pty), --json, nothing running, a daemon killed mid-stop
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-hoststop --doz $(CLI_BIN)

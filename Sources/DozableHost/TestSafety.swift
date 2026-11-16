@@ -57,6 +57,42 @@ public enum TestSafety {
         return "a test reached Claude Code's credentials file (\(path)) — give it a scratch one (DOZ_TEST_CLAUDE_CREDENTIALS_FILE)"
     }
 
+    /// 694: a test run of any kind — guarded, or one that lifted the guard on purpose (`DOZ_TEST_REAL_MAC=1`). The login
+    /// item's seams (`DOZ_TEST_LAUNCH_AGENTS_DIR`, `DOZ_TEST_LAUNCHCTL`) are honoured in both: a run against this Mac's
+    /// own login still never writes a login item. A person's doz is neither, and ignores them.
+    public static func testRun(_ env: [String: String] = ProcessInfo.processInfo.environment,
+                               inXCTest: Bool = NSClassFromString("XCTestCase") != nil) -> Bool {
+        guarded(env, inXCTest: inXCTest) || env["DOZ_TEST_REAL_MAC"] == "1"
+    }
+
+    /// 694: the person's real per-user LaunchAgents folder (`~/Library/LaunchAgents` of the REAL home).
+    public static func realLaunchAgents(home: URL = realHome) -> URL {
+        home.appendingPathComponent("Library/LaunchAgents").standardizedFileURL
+    }
+
+    /// 694: why touching `dir` (reading, writing or removing a login item there) is refused in a guarded run (nil:
+    /// allowed) — the real `~/Library/LaunchAgents` or anything inside it. A guarded run uses its seam
+    /// (`DOZ_TEST_LAUNCH_AGENTS_DIR`, a scratch folder the Makefile sets for every test target).
+    public static func launchAgentsViolation(_ dir: URL, home: URL = realHome) -> String? {
+        let real = realLaunchAgents(home: home)
+        let r = real.resolvingSymlinksInPath().path
+        let d = dir.standardizedFileURL.resolvingSymlinksInPath().path
+        let plain = dir.standardizedFileURL.path
+        guard d == r || d.hasPrefix(r + "/") || plain == real.path || plain.hasPrefix(real.path + "/") else { return nil }
+        return "a test reached ~/Library/LaunchAgents (\(dir.path)) — give it a scratch folder (DOZ_TEST_LAUNCH_AGENTS_DIR)"
+    }
+
+    /// 694: the real launchctl.
+    public static let realLaunchctl = "/bin/launchctl"
+
+    /// 694: why running `path` as launchctl is refused in a guarded run (nil: allowed) — the real `/bin/launchctl`, for
+    /// any verb (a `print` too: a guarded run reads launchd's state only through its seam, `DOZ_TEST_LAUNCHCTL`).
+    public static func launchctlViolation(_ path: String) -> String? {
+        let p = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+        guard p == realLaunchctl || path == realLaunchctl || (path as NSString).lastPathComponent == "launchctl" && p.hasPrefix("/bin/") else { return nil }
+        return "a test would run the real launchctl (\(path)) — give it a fake one (DOZ_TEST_LAUNCHCTL)"
+    }
+
     /// Stop a guarded run that is about to do what `violation` describes.
     public static func enforce(_ violation: String?, env: [String: String] = ProcessInfo.processInfo.environment) {
         guard let violation, guarded(env) else { return }

@@ -50,6 +50,27 @@ final class TestSafetyTests: XCTestCase {
         XCTAssertTrue(macLoginKeychain([:]) is SystemKeychain)
     }
 
+    /// 694: the real ~/Library/LaunchAgents (and anything in it) and the real launchctl are refused; scratch ones are not.
+    func testTheRealLaunchAgentsAndLaunchctlAreRefused() {
+        XCTAssertNotNil(TestSafety.launchAgentsViolation(home.appendingPathComponent("Library/LaunchAgents"), home: home))
+        XCTAssertNotNil(TestSafety.launchAgentsViolation(home.appendingPathComponent("Library/LaunchAgents/com.dozable.daemon.0a1b2c3d.plist"), home: home))
+        XCTAssertNotNil(TestSafety.launchAgentsViolation(URL(fileURLWithPath: "/Users/someone/x/../Library/LaunchAgents"), home: home))
+        XCTAssertNil(TestSafety.launchAgentsViolation(URL(fileURLWithPath: "/tmp/doz-test-launchagents"), home: home))
+        XCTAssertNil(TestSafety.launchAgentsViolation(home.appendingPathComponent("Library/LaunchAgentsX"), home: home))
+        XCTAssertNotNil(TestSafety.launchctlViolation("/bin/launchctl"))
+        XCTAssertNotNil(TestSafety.launchctlViolation("/bin/../bin/launchctl"))
+        XCTAssertNil(TestSafety.launchctlViolation("/tmp/fake-launchctl.py"))
+    }
+
+    /// 694: the seams decide the folder and the program in a test run; outside one (a person's doz) they are ignored.
+    func testTheLoginItemSeams() {
+        let scratch = LaunchAgentsFolder.current(environment: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_LAUNCH_AGENTS_DIR": "/tmp/doz-la-seam"])
+        XCTAssertEqual(scratch.path, "/tmp/doz-la-seam")
+        XCTAssertEqual(Launchctl.current(environment: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_LAUNCHCTL": "/tmp/fake-lc"]).path, "/tmp/fake-lc")
+        XCTAssertFalse(TestSafety.testRun(["DOZ_TEST_LAUNCH_AGENTS_DIR": "/tmp/x"], inXCTest: false))
+        XCTAssertTrue(TestSafety.testRun(["DOZ_TEST_REAL_MAC": "1"], inXCTest: false))
+    }
+
     /// The guard is armed in this very run when `make test` runs it (DOZ_TEST_GUARD=1 is a forced default).
     func testTheMakefileArmsTheGuard() throws {
         let env = ProcessInfo.processInfo.environment
@@ -64,5 +85,11 @@ final class TestSafetyTests: XCTestCase {
         guard case .string(let sp)? = store, case .string(let pp)? = projects else { return XCTFail("the scratch doz.toml sets store.path and projects_dir") }
         XCTAssertNil(TestSafety.storeViolation(URL(fileURLWithPath: sp)))
         XCTAssertFalse(pp.contains("/Developer/"), "a test's new workspace is never under ~/Developer")
+        // 694: a scratch LaunchAgents folder and a refusing launchctl — never the real ones.
+        let agents = try XCTUnwrap(env["DOZ_TEST_LAUNCH_AGENTS_DIR"])
+        XCTAssertNil(TestSafety.launchAgentsViolation(URL(fileURLWithPath: agents)))
+        let lc = try XCTUnwrap(env["DOZ_TEST_LAUNCHCTL"])
+        XCTAssertNil(TestSafety.launchctlViolation(lc))
+        XCTAssertFalse(Launchctl.current().run(["print", "gui/\(getuid())/com.dozable.app.daemon"]).ok, "the Makefile's launchctl refuses everything")
     }
 }
