@@ -239,7 +239,7 @@ struct ChoiceOptions: ParsableArguments {
         if audio || (sound != nil && sound != SoundMode.off.rawValue), BuildFlavor.current.isPublic { throw ValidationError(BuildFlavor.audioMissing) }   // 611
         o.audio = audio ? true : nil
         // 597 (P6): --allow web,site:api.example.com,-error-reports
-        var words = allow.flatMap { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } }.filter { !$0.isEmpty }
+        var words = PermissionPolicy.splitWords(allow)
         // 599d: --github read|push|off is the same as allowing (or not) its two permissions.
         words += try Self.githubWords(github, flag: "--github")
         if !words.isEmpty { o.allow = words }
@@ -747,7 +747,7 @@ struct Up: AsyncParsableCommand {
                 if let w = create.absoluteWorkspace { o.workspace = w }
                 if create.isolated { o.workspace = nil; o.isolated = true }
                 if let s = create.agentSudo { o.agentSudo = s }
-                let allowWords = create.allow.flatMap { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } }.filter { !$0.isEmpty }
+                let allowWords = PermissionPolicy.splitWords(create.allow)
                     + (try CreateArguments.githubWords(create.github, flag: "--github"))   // 599d
                 if !allowWords.isEmpty { o.allow = (o.allow ?? []) + allowWords }       // 597 (the file's github: first, the flags after)
                 if let s = try create.sandboxSettings() { o.settings = (o.settings ?? [:]).merging(s) { _, flag in flag } }

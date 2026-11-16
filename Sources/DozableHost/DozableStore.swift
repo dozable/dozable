@@ -347,7 +347,7 @@ public enum DozableImages {
                 default: break
                 }
             }
-            var sites: [String] = []
+            var sites: [(host: String, ports: [UInt16]?)] = []
             for w in o.allow ?? [] {
                 if w.hasPrefix("site:") { sites.append(try PermissionPolicy.site(w)) } else {
                     let id = (w.hasPrefix("+") || w.hasPrefix("-")) ? String(w.dropFirst()) : w
@@ -360,7 +360,10 @@ public enum DozableImages {
             // 599i: the agent's own model permission (Codex: "Talk to OpenAI") — whatever was chosen.
             names = AgentPermissions.normalized(names + AgentPermissions.agentPermissions(imageSpec.flatMap { ImageChoice.parse($0.name) }?.agent))
             var q = NetworkPolicy.permissions(names, preset: sites.isEmpty ? AgentPermissions.presetName(names, base: baseID) : nil)
-            for s in sites { q.rules.append(EgressRule(host: s, note: "site you allowed")) }
+            for s in sites {
+                // Whole-host sites as ever (appended); a port site goes through the same grant as `doz net allow`.
+                if s.ports != nil { PermissionPolicy.grantSite(&q, host: s.host, ports: s.ports) } else { q.rules.append(EgressRule(host: s.host, note: "site you allowed")) }
+            }
             network = .proxied(q)
         } else if let base = catalogueBase, !base.registries.isEmpty, case .proxied(let p) = network {
             // 596 (B4): a policy of rules (bake, custom) — the base's language registries join it.

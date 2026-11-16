@@ -22,7 +22,7 @@ switches — and logs it. You decide what the agent may reach; the agent can't c
   | Push to GitHub | `github:push` | also push and change things on GitHub as you | off, in every preset |
   | Send error reports | `error-reports` | the agent reporting its own crashes to its maker | on |
   | Browse the web | `web` | any website | off — **the agent could send your code anywhere** |
-  | Sites you allow | `site:HOST` | one host (`api.example.com`, or `*.example.com`) | none |
+  | Sites you allow | `site:HOST`, `site:HOST:PORT`, `site:HOST:PORT,PORT` | one host — a name (`api.example.com`), a wildcard (`*.example.com`) or an IPv4 address — on every port, or only on the ports you name | none |
 
   `doz net permissions` lists every permission with the exact hosts behind it in your version of Dozable.
 - **Presets:** **Locked** (its AI model only), **Standard**, **Open** (everything, still logged). Your
@@ -62,16 +62,25 @@ to install Python packages (PyPI), 3 times" — with the command that allows it.
 
 ```sh
 doz net allow my-app install:python          # switch a permission on
-doz net allow my-app site:api.example.com    # one site
+doz net allow my-app site:api.example.com    # one site (every port)
+doz net allow my-app site:100.64.0.5:8780    # one site, one port (site:HOST:80,443 for several)
 doz net deny my-app github                   # switch one off
 doz net deny my-app site:tracker.example.com
+doz net deny my-app site:100.64.0.5:8765    # just that port, under a site you allowed whole
 doz net allow my-app locked                  # or standard, open: a preset
 doz net allow my-app web --yes               # asks first without --yes
 doz create my-app --allow install:rust,site:api.example.com,-error-reports
 ```
 
 `--allow` on `create` and `up` adds to the default: permission ids, `-PERMISSION` to remove one,
-`site:HOST`, or a preset name.
+`site:HOST` or `site:HOST:PORT[,PORT]`, or a preset name.
+
+A site with no port is every port of that host, as it always was; with ports it is only those. **A deny beats an
+allow for the same host** — a whole-host deny blocks every port, and a deny of one port blocks just that port even
+where the whole host is allowed. Allowing a port of a host you had denied whole lifts that deny (the command says
+"lifted: deny HOST"). An address of this Mac itself, its loopback and link-local addresses and cloud metadata stay
+refused whatever a site rule says. A refused connection to a port other than 80 or 443 is offered as that host and
+port (`site:HOST:PORT`), not the whole host.
 
 ## Change it — in the dashboard
 

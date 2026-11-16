@@ -132,6 +132,37 @@ final class SandboxAddressGuardTests: XCTestCase {
         if stray >= 0 { close(stray) }
     }
 
+    /// 690: a site rule that names this Mac's own address (or its loopback) and a port opens nothing — the guard runs
+    /// before the policy, for both the sandbox's proxy and a fenced session's.
+    func testASitePortRuleNeverOpensThisMacsOwnAddresses() throws {
+        guard let own = AddressGuard.interfaceAddresses().first(where: { $0.count == 4 && $0[0] != 127 && !($0[0] == 169 && $0[1] == 254) }) else {
+            throw XCTSkip("this Mac has no IPv4 address but its loopback")
+        }
+        let ip = own.map(String.init).joined(separator: ".")
+        let (l, port) = try Self.listenEverywhere()
+        defer { close(l) }
+        let policy = NetworkPolicy(rules: [EgressRule(host: "127.0.0.1", ports: [port]), EgressRule(host: ip, ports: [port]),
+                                           EgressRule(host: "127.0.0.1"), EgressRule(host: "localhost", ports: [port])])
+        for fenced in [false, true] {
+            let proxy = try EgressProxy(policy: policy, ca: nil)
+            proxy.servesFencedSession = fenced
+            for host in ["127.0.0.1", ip, "localhost"] {
+                for request in ["GET http://\(host):\(port)/ HTTP/1.1\r\nHost: \(host):\(port)\r\n\r\n",
+                                "CONNECT \(host):\(port) HTTP/1.1\r\nHost: \(host):\(port)\r\n\r\n"] {
+                    let fd = MacModelServerTests.open(proxy, "DOZ1 P\n" + request)
+                    let reply = MacModelServerTests.readAll(fd)
+                    close(fd)
+                    XCTAssertTrue(reply.hasPrefix("HTTP/1.1 403"), "fenced \(fenced), \(request.prefix(40)): \(reply.prefix(160))")
+                }
+            }
+        }
+        let flags = fcntl(l, F_GETFL)
+        _ = fcntl(l, F_SETFL, flags | O_NONBLOCK)
+        let stray = accept(l, nil, nil)
+        XCTAssertEqual(stray, -1, "no connection from the proxy arrived")
+        if stray >= 0 { close(stray) }
+    }
+
     func testAFencedSessionsProxyKeepsItsOwnWords() throws {
         let proxy = try EgressProxy(policy: .open, ca: nil)
         proxy.servesFencedSession = true

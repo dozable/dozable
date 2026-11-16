@@ -83,7 +83,7 @@ and other folders closed — doz run @mac --unfenced for none of this`; unfenced
 |---|---|---|
 | `--keychain` | your Keychain (signing; and so your saved logins) | `mac.keychain` (`off`) |
 | `--read DIR`, `--write DIR` | one more folder, read-only or read-write (never your home, `~/.ssh`, `~/.config`, `~/Library` or the store) | `mac.fence_read` (read-only, relative to your home) |
-| `--permissions` | what it may reach: `standard`, `locked`, `open`, a permission, `-PERMISSION`, `site:HOST` | `mac.permissions` (`standard`) |
+| `--permissions` | what it may reach: `standard`, `locked`, `open`, a permission, `-PERMISSION`, `site:HOST[:PORT[,PORT]]` | `mac.permissions` (`standard`) |
 | `--local-port N` | it may listen on, and connect to, `localhost:N` — a dev server, a sign-in callback | — |
 | `--agent-config private\|shared` | the agent's settings folder (below) | `mac.agent_config` (`private`) |
 | `--history keep\|agent-default` | what happens to its conversations (below) | `agent.history` |

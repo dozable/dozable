@@ -408,8 +408,8 @@ extension NetworkPolicy {
         return names.contains("web") ? .allow : .deny
     }
 
-    /// The user's own sites (allow rules they added, not a permission's).
+    /// The user's own sites (allow rules they added, not a permission's): `HOST`, or `HOST:PORT[,PORT]` for a port rule.
     public var sites: [String] {
-        rules.filter { $0.action == .allow && !$0.hasHTTPConditions && $0.ports == nil }.map(\.host)
+        rules.filter { $0.action == .allow && !$0.hasHTTPConditions }.map(\.siteSpec)
     }
 }

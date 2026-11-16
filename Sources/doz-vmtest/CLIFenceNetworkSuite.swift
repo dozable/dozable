@@ -364,6 +364,72 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     check(FileManager.default.fileExists(atPath: "/private/tmp") && !(try? FileManager.default.contentsOfDirectory(atPath: "/private/tmp"))!.contains { $0.hasPrefix("dzo-spoof") },
           "the spoof file was never written (refused)")
 
+    // MARK: 690 site port rules — `site:HOST:PORT` (ports.doz.test is the same fake upstream under a name of its own)
+    let p1 = 8081, p2 = 8082
+    put(net + "/pt.sh", helpers + """
+    w() { while [ ! -e "go-$1" ]; do sleep 0.2; done; }
+    c a1 -m 10 http://ports.doz.test:\(p1)/
+    c a2 -m 10 http://ports.doz.test:\(p2)/
+    c a1t -m 10 -p http://ports.doz.test:\(p1)/
+    c a2t -m 10 -p http://ports.doz.test:\(p2)/
+    c old -m 10 http://allowed.doz.test:8099/
+    c lo -m 10 --noproxy '' -p http://127.0.0.1:\(allowed.port)/
+    c lohttp -m 10 --noproxy '' http://127.0.0.1:\(allowed.port)/
+    c own -m 10 --noproxy '' -p http://\(own ?? "127.0.0.1"):\(allowed.port)/
+    c ownhttp -m 10 --noproxy '' http://\(own ?? "127.0.0.1"):\(allowed.port)/
+    echo done > res/PDONE
+    w 1
+    c b1 -m 10 http://ports.doz.test:\(p1)/
+    c b2 -m 10 http://ports.doz.test:\(p2)/
+    echo done > res/P1DONE
+    w 2
+    c c1 -m 10 http://ports.doz.test:\(p1)/
+    c c2 -m 10 http://ports.doz.test:\(p2)/
+    echo done > res/P2DONE
+    w 3
+    c d1 -m 10 http://ports.doz.test:\(p1)/
+    c d2 -m 10 http://ports.doz.test:\(p2)/
+    echo done > res/P3DONE
+    sleep 600
+    """)
+    let portWords = "standard,site:ports.doz.test:\(p1),site:allowed.doz.test,site:127.0.0.1:\(allowed.port),site:\(own ?? "127.0.0.1"):\(allowed.port)"
+    r = run("netport", "pt.sh", extra: ["--permissions", portWords])
+    check(r.code == 0, "690 a fenced session with --permissions site:HOST:PORT (and a site with every port, and this Mac's own addresses by port) (\(r.code))")
+    check(t.waitFor(60) { FileManager.default.fileExists(atPath: net + "/res/PDONE") }, "690 the port probes ran")
+    check(code("a1").hasPrefix("200") && body("a1").contains("UPSTREAM-OK"), "690 site:HOST:\(p1) opens port \(p1) (\(code("a1")))")
+    check(code("a2").hasPrefix("403") && body("a2").contains("blocked"), "690 …and refuses port \(p2) of the same host (\(code("a2")))")
+    check(code("a1t").hasPrefix("200 200") && (code("a2t").hasPrefix("403") || code("a2t").hasSuffix(" 403")), "690 …through a CONNECT tunnel too (\(code("a1t")) / \(code("a2t")))")
+    check(code("old").hasPrefix("200"), "690 an old site:HOST rule still opens every port (8099: \(code("old")))")
+    for (n, what) in [("lo", "site:127.0.0.1:PORT (CONNECT)"), ("lohttp", "site:127.0.0.1:PORT (plain HTTP)"),
+                      ("own", "site:\(own ?? "(none found)"):PORT (CONNECT)"), ("ownhttp", "site:\(own ?? "(none found)"):PORT (plain HTTP)")] {
+        let c = code(n)
+        check(c.hasPrefix("403") || c.hasSuffix(" 403"), "690 the strict address guard still refuses \(what) (\(c))")
+    }
+    var shown = t.run(["net", "show", "@mac", "--session", "netport"])
+    check(shown.code == 0 && shown.out.contains("ports.doz.test:\(p1)"), "690 doz net show @mac prints the port")
+    let rep690 = t.json(["net", "show", "@mac", "--session", "netport"], PermissionReport.self)
+    check(rep690?.sites.contains("ports.doz.test:\(p1)") == true && rep690?.sites.contains("allowed.doz.test") == true, "690 --json: sites are strings, host or host:port")
+    shown = t.run(["net", "deny", "@mac", "site:ports.doz.test:\(p1)", "--session", "netport"])
+    check(shown.code == 0, "690 doz net deny @mac --session … site:HOST:\(p1)")
+    FileManager.default.createFile(atPath: net + "/go-1", contents: nil)
+    check(t.waitFor(30) { FileManager.default.fileExists(atPath: net + "/res/P1DONE") } && code("b1").hasPrefix("403") && code("b2").hasPrefix("403"),
+          "690 …live: port \(p1) is refused now (\(code("b1"))), \(p2) was never open (\(code("b2")))")
+    shown = t.run(["net", "allow", "@mac", "site:ports.doz.test", "--session", "netport"])
+    check(shown.code == 0, "690 doz net allow @mac … site:HOST (every port)")
+    FileManager.default.createFile(atPath: net + "/go-2", contents: nil)
+    check(t.waitFor(30) { FileManager.default.fileExists(atPath: net + "/res/P2DONE") } && code("c1").hasPrefix("200") && code("c2").hasPrefix("200"),
+          "690 …the whole host is open (\(code("c1")) / \(code("c2")))")
+    shown = t.run(["net", "deny", "@mac", "site:ports.doz.test:\(p2)", "--session", "netport"])
+    check(shown.code == 0, "690 doz net deny @mac … site:HOST:\(p2) under the whole-host allow")
+    FileManager.default.createFile(atPath: net + "/go-3", contents: nil)
+    check(t.waitFor(30) { FileManager.default.fileExists(atPath: net + "/res/P3DONE") } && code("d1").hasPrefix("200") && code("d2").hasPrefix("403"),
+          "690 …just \(p2) is refused, \(p1) answers (\(code("d1")) / \(code("d2")))")
+    check(t.run(["daemon", "stop"], timeout: 60).code == 0, "690 daemon stop")
+    let kept690 = t.json(["net", "policy", "@mac", "--session", "netport"], NetworkPolicy.self)
+    check(kept690?.rules.contains { $0.host == "ports.doz.test" && $0.action == .deny && $0.ports == [UInt16(p2)] } == true
+          && kept690?.rules.contains { $0.host == "ports.doz.test" && $0.action == .allow && $0.ports == nil } == true, "690 the record keeps the port rules with no daemon")
+    t.run(["sessions", "end", "@mac", "netport", "--yes"], timeout: 60); started.remove("netport")
+
     // MARK: 687 listening on any port (mac.fence_loopback_listen, off by default — rows 2.11/2.17 above are that default)
     let lis = root + "/lis"
     try? FileManager.default.createDirectory(atPath: lis, withIntermediateDirectories: true)
