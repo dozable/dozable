@@ -510,6 +510,39 @@ static void fuzz_scanner(long iterations) {
     CHECK(scanned > 0, "scanner fuzz: some mutations still scan (%ld of %ld)", scanned, iterations);
 }
 
+/* The address when CHAT_URL is not set: on a Mac with no proxy, this Mac's loopback (a session run without a fence);
+ * with a proxy, or on Linux, host.dozable.internal. Only the choice is checked: nothing is connected to. */
+static void check_default_url(void) {
+    unsetenv("http_proxy");
+    unsetenv("HTTP_PROXY");
+#if defined(__APPLE__)
+    CHECK(strcmp(default_url(), "http://127.0.0.1:8790") == 0, "a Mac with no proxy: 127.0.0.1:8790 (%s)", default_url());
+#else
+    CHECK(strcmp(default_url(), DEFAULT_URL) == 0, "Linux: host.dozable.internal (%s)", default_url());
+#endif
+    setenv("HTTP_PROXY", "http://127.0.0.1:9", 1);
+    CHECK(strcmp(default_url(), DEFAULT_URL) == 0, "a proxy set: host.dozable.internal (%s)", default_url());
+    setenv("HTTP_PROXY", "", 1);
+    setenv("http_proxy", "http://127.0.0.1:9", 1);
+    CHECK(strcmp(default_url(), DEFAULT_URL) == 0, "http_proxy set: host.dozable.internal (%s)", default_url());
+    unsetenv("http_proxy");
+    unsetenv("HTTP_PROXY");
+}
+
+/* send's options go before or after the text; several words are positional (cmd_send joins them). */
+static void check_send_options(void) {
+    struct opts o;
+    char *a1[] = {"dozchat", "send", "room1", "--re", "abc123", "hello", NULL};
+    CHECK(parse_opts(6, a1, 2, " --re --to --dm ", &o) == EXIT_DONE && o.npos == 2 && o.re && strcmp(o.re, "abc123") == 0 &&
+              strcmp(o.pos[1], "hello") == 0, "send ROOM --re ID TEXT");
+    char *a2[] = {"dozchat", "send", "room1", "hello", "--re", "abc123", NULL};
+    CHECK(parse_opts(6, a2, 2, " --re --to --dm ", &o) == EXIT_DONE && o.npos == 2 && o.re && strcmp(o.re, "abc123") == 0 &&
+              strcmp(o.pos[1], "hello") == 0, "send ROOM TEXT --re ID");
+    char *a3[] = {"dozchat", "send", "room1", "hello", "there", "--re=abc123", "again", NULL};
+    CHECK(parse_opts(7, a3, 2, " --re --to --dm ", &o) == EXIT_DONE && o.npos == 4 && o.re && strcmp(o.re, "abc123") == 0,
+          "send ROOM WORDS… --re=ID WORDS…");
+}
+
 static int escape_mode(const char *file) {
     FILE *f = fopen(file, "r");
     if (!f) { fprintf(stderr, "cannot open %s\n", file); return 2; }
@@ -546,6 +579,8 @@ int main(int argc, char **argv) {
     check_urls();
     check_head();
     check_secrets();
+    check_default_url();
+    check_send_options();
     fuzz_escaper(iterations);
     fuzz_scanner(iterations);
     if (failures) {

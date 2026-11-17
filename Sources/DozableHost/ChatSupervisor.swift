@@ -43,6 +43,9 @@ public struct ChatServerState: Codable, Equatable, Sendable {
     public var warnings: [String]?
     /// The remote listener: where it listens besides loopback, for whom, and what is missing. nil: none set.
     public var remote: ChatRemoteState?
+    /// While any participant is delivered to by inbox: the Claude Code sessions folder the server reads (the person's
+    /// `~/.claude/sessions`). nil: none is — the server then reads nothing outside its data folder.
+    public var claudeSessions: String?
 
     public init() {}
 
@@ -122,6 +125,11 @@ public final class ChatSupervisor: @unchecked Sendable {
     let keychainLocked: @Sendable () -> String?
     /// This Mac's interfaces (a test hands its own): a remote address is listened on only while it is on an up `utun*`.
     let interfaces: @Sendable () -> [ChatInterface]
+    /// Where Claude Code's session records are read when a participant is delivered to by inbox (`ChatClaudeSessions`;
+    /// a test hands a scratch folder). Asked only while one is.
+    let claudeSessions: @Sendable () -> String
+    /// The environment the child's HOME, LANG and TMPDIR come from (the daemon's own; a test hands a scratch one).
+    let environment: [String: String]
 
     /// Seconds before an entry that could not be read is tried again (a minute; a test passes less).
     let unreadableRetrySeconds: Double
@@ -153,15 +161,19 @@ public final class ChatSupervisor: @unchecked Sendable {
     enum EntryRead { case set(ChatWebhookEntry), missing, unreadable(String, at: Double) }
 
     /// `webhooks`: the pipe's bytes (empty: no webhook bot) — held in memory only, never written to a file.
-    struct Files: Equatable { var config: [UInt8]; var tokens: Data; var webhooks = Data() }
+    /// `sessions`: the folder handed with --claude-sessions (nil: no participant is delivered to by inbox).
+    struct Files: Equatable { var config: [UInt8]; var tokens: Data; var webhooks = Data(); var sessions: String? = nil }
     struct Child { var pid: pid_t; var started: Double; var files: Files; var ready: Bool }
 
     public init(paths: ChatPaths, executable: String, release: String, processes: ChatProcesses = ChatSystemProcesses(),
                 environment: [String: String] = ProcessInfo.processInfo.environment,
                 keychain: KeychainAccess = MemoryKeychain(), keychainLocked: @escaping @Sendable () -> String? = { nil },
                 unreadableRetrySeconds: Double = 60, interfaces: @escaping @Sendable () -> [ChatInterface] = { ChatInterface.current() },
+                claudeSessions: (@Sendable () -> String)? = nil,
                 readSettings: @escaping @Sendable () -> ChatSettingsView = { ChatSettingsView.read() }) {
         self.keychain = keychain
+        self.environment = environment
+        self.claudeSessions = claudeSessions ?? { ChatClaudeSessions.folder(environment: environment) }
         self.interfaces = interfaces
         self.unreadableRetrySeconds = unreadableRetrySeconds
         self.keychainLocked = keychainLocked
@@ -221,24 +233,60 @@ public final class ChatSupervisor: @unchecked Sendable {
     /// `doz chat add`: a new participant — an agent that polls with its own token, or (`webhook`) a bot the server calls
     /// at its webhook entry (`entry`, by default its own name; set with `doz chat webhook set`). Answers its token — the
     /// one given (`--from-stdin`) or a new one — which is kept nowhere but as its hash.
-    public func add(_ name: String, token given: String?, kind: String = "agent", webhook: Bool = false, entry: String? = nil) async throws -> String {
+    public func add(_ name: String, token given: String?, kind: String = "agent", webhook: Bool = false, entry: String? = nil,
+                    inbox: Bool = false, session: String? = nil) async throws -> String {
         try await runThrowing {
             if let why = ChatNames.refusal(name) { throw HostError(.invalid, why) }
             guard ChatDirectory.kinds.contains(kind) else { throw HostError(.invalid, "\(kind) is not a kind: \(ChatDirectory.kinds.joined(separator: ", "))") }
             if entry != nil && !webhook { throw HostError(.invalid, "--webhook-entry goes with --webhook") }
+            if webhook && inbox { throw HostError(.invalid, "one of --webhook or --inbox") }
             if webhook, let why = ChatWebhookEntries.nameRefusal(entry ?? name) { throw HostError(.invalid, why) }
+            if inbox || session != nil, let why = ChatDirectory.deliveryRefusal(inbox ? "inbox" : "poll", kind: kind, session: session) {
+                throw HostError(.invalid, why)
+            }
             try self.paths.ensureFolder()
             var d = try ChatDirectory.load(self.paths)
             if d.has(name) { throw HostError(.exists, "\(name) is already in chat") }
             let token = try self.tokenToUse(given)
             var h = try ChatTokenHashes.load(self.paths)
-            d.participants.append(.init(name: name, kind: kind, added: Self.timestamp(), deliver: webhook ? "webhook" : nil,
-                                        webhook: webhook && entry != nil && entry != name ? entry : nil))
+            d.participants.append(.init(name: name, kind: kind, added: Self.timestamp(), deliver: webhook ? "webhook" : inbox ? "inbox" : nil,
+                                        webhook: webhook && entry != nil && entry != name ? entry : nil,
+                                        session: inbox && session != nil && session != name ? session : nil))
             h.sha256[name] = ChatSecrets.hash(token)
             try self.paths.write("tokens.json", h.bytes())
             try self.paths.write("directory.json", d.bytes())
             self.look(blocked: false, force: true)
             return token
+        }
+    }
+
+    /// `doz chat set NAME --deliver inbox|poll|webhook`: how an existing participant is reached, changed — its token, its
+    /// rooms and its history kept (the rooms are the server's, by name; the token's hash stays as it is). Inbox only for a
+    /// `claude-session` (`kind` may change it in the same call); webhook with an entry name (its own by default). The
+    /// server restarts to take it; what still waits for it (queued) is handed over the new way at that start.
+    public func set(_ name: String, deliver: String, kind: String? = nil, entry: String? = nil, session: String? = nil) async throws -> ChatDirectory.Participant {
+        try await runThrowing {
+            var d = try ChatDirectory.load(self.paths)
+            if d.human == name { throw HostError(.invalid, "\(name) is you: you are reached on your own page and socket") }
+            guard let i = d.participants.firstIndex(where: { $0.name == name }) else { throw HostError(.notFound, "no participant \(name) in chat") }
+            var p = d.participants[i]
+            if let kind {
+                guard ChatDirectory.kinds.contains(kind) else { throw HostError(.invalid, "\(kind) is not a kind: \(ChatDirectory.kinds.joined(separator: ", "))") }
+                p.kind = kind
+            }
+            if let why = ChatDirectory.deliveryRefusal(deliver, kind: p.kind, session: session) { throw HostError(.invalid, why) }
+            if entry != nil && deliver != "webhook" { throw HostError(.invalid, "--webhook-entry goes with --deliver webhook") }
+            if deliver == "webhook", let why = ChatWebhookEntries.nameRefusal(entry ?? name) { throw HostError(.invalid, why) }
+            switch deliver {
+            case "inbox": p.deliver = "inbox"; p.webhook = nil; p.session = session != nil && session != name ? session : nil
+            case "webhook": p.deliver = "webhook"; p.session = nil; p.webhook = entry != nil && entry != name ? entry : nil
+            default: p.deliver = nil; p.webhook = nil; p.session = nil
+            }
+            d.participants[i] = p
+            try self.paths.write("directory.json", d.bytes())
+            HostLog.line("chat: \(name) is now reached by \(p.delivery)")
+            self.look(blocked: false, force: true)
+            return p
         }
     }
 
@@ -479,9 +527,12 @@ public final class ChatSupervisor: @unchecked Sendable {
                 let w = (st.warnings ?? []) + r.warnings
                 st.warnings = w.isEmpty ? nil : w
             }
+            // Inbox delivery: the person's Claude Code sessions folder, handed to the server — only while one is wanted.
+            let sessions = d.hasInbox ? claudeSessions() : nil
+            st.claudeSessions = sessions
             files = Files(config: try ChatConfigFile.bytes(d, paths: paths, pagePort: settings.pagePort, linePort: settings.linePort,
                                                            remoteBind: remoteHere, remoteAgents: settings.remoteAgents),
-                          tokens: h.bytes(), webhooks: webhooks)
+                          tokens: h.bytes(), webhooks: webhooks, sessions: sessions)
             if FileManager.default.contents(atPath: paths.config).map(Array.init) != files.config { try paths.write("config.json", Data(files.config)) }
             if FileManager.default.contents(atPath: paths.tokens) != files.tokens { try paths.write("tokens.json", files.tokens) }
         } catch {
@@ -577,8 +628,11 @@ public final class ChatSupervisor: @unchecked Sendable {
                     "--owner-socket", paths.socket, "--supervised"]
         // The webhook entries come on descriptor 3, a pipe: argv names the descriptor only.
         if !files.webhooks.isEmpty { args += ["--webhooks-fd", "3"] }
+        // The sessions folder only while a participant is delivered to by inbox: otherwise the server reads nothing outside
+        // its data folder.
+        if let s = files.sessions { args += ["--claude-sessions", s] }
         var env = ["PATH": "/usr/bin:/bin"]
-        for k in ["HOME", "LANG", "TMPDIR"] { if let v = ProcessInfo.processInfo.environment[k] { env[k] = v } }
+        for k in ["HOME", "LANG", "TMPDIR"] { if let v = environment[k] { env[k] = v } }
         for (k, v) in testEnvironment { env[k] = v }
         do {
             let pid = try processes.spawn(executable: executable, arguments: args, environment: env, log: paths.serverLog,

@@ -528,7 +528,7 @@ public final class HostServer: @unchecked Sendable {
             netLogFollow(conn, reader: reader, request: req)
         case .console where req.follow == true:
             consoleFollow(conn, reader: reader, request: req)
-        case .chatSync, .chatAdd, .chatRemove, .chatToken, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport:
+        case .chatSync, .chatAdd, .chatSet, .chatRemove, .chatToken, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport:
             Task.detached { [self] in
                 let m = await chatRequest(req)
                 conn.send(m)
@@ -570,12 +570,20 @@ public final class HostServer: @unchecked Sendable {
             case .chatAdd, .chatToken:
                 guard let n = c.name else { throw HostError(.invalid, "which participant?") }
                 let token = req.op == .chatAdd
-                    ? try await chat.add(n, token: c.token, kind: c.kind ?? "agent", webhook: c.webhook ?? false, entry: c.entry)
+                    ? try await chat.add(n, token: c.token, kind: c.kind ?? "agent", webhook: c.webhook ?? false, entry: c.entry,
+                                         inbox: c.inbox ?? false, session: c.session)
                     : try await chat.replaceToken(n, token: c.token)
                 // The server restarted to take it: answered once it is ready again (or stopped), at most 15 s.
                 _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
                 // A token the person gave is not sent back: they have it.
                 return .success(try JSONValue(encoding: ChatAnswer(name: n, token: c.token == nil ? token : nil, chat: await chat.status())))
+            case .chatSet:
+                guard let n = c.name, let deliver = c.deliver else { throw HostError(.invalid, "which participant, and how is it reached?") }
+                let p = try await chat.set(n, deliver: deliver, kind: c.kind, entry: c.entry, session: c.session)
+                // The server restarted to take it: answered once it is ready again (or stopped), at most 15 s.
+                _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
+                return .success(try JSONValue(encoding: ChatSetAnswer(name: n, kind: p.kind, delivery: p.delivery, webhookEntry: p.webhookEntry,
+                                                                      session: p.inboxSession, chat: await chat.status())))
             case .chatRemove:
                 guard let n = c.name else { throw HostError(.invalid, "which participant?") }
                 try await chat.remove(n)

@@ -179,6 +179,7 @@ chat/off
 chat/status
 chat/add
 chat/remove
+chat/set
 chat/who
 chat/token
 chat/webhook

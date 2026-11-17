@@ -243,6 +243,9 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// `chat-add` / `chat-remove` / `chat-token`: a participant added, removed, or its token replaced — answered with
     /// `ChatAnswer`, whose token travels this once and is never logged.
     case chatSync = "chat-sync", chatAdd = "chat-add", chatRemove = "chat-remove", chatToken = "chat-token"
+    /// `chat-set`: how an existing participant is reached (`chat`: `name`, `deliver`, and `kind`, `entry`, `session`),
+    /// its token, rooms and history kept — answered with `ChatSetAnswer`.
+    case chatSet = "chat-set"
     /// A webhook bot's entry (`chat`: `entry`, and for set `url` + `authorization`) — set (into the login keychain),
     /// removed, or looked at (`[ChatWebhookInfo]`: never the path, query or header). Only on the daemon's socket; no web
     /// action maps to any `chat-*` op. Nothing of the request is logged.
@@ -1516,8 +1519,14 @@ public struct ChatRequest: Codable, Equatable, Sendable {
     public var kind: String?
     /// chat-add: delivered to by webhook (its entry: `entry`, else its own name).
     public var webhook: Bool?
-    /// chat-add with webhook, chat-webhook-*: the entry's name.
+    /// chat-add with webhook, chat-set with webhook, chat-webhook-*: the entry's name.
     public var entry: String?
+    /// chat-add: delivered to by inbox (a running Claude Code session on this Mac).
+    public var inbox: Bool?
+    /// chat-add / chat-set with inbox: the Claude Code session's name (nil: the participant's own).
+    public var session: String?
+    /// chat-set: `inbox`, `poll` or `webhook`.
+    public var deliver: String?
     /// chat-webhook-set: the address and the Authorization value (empty: no header). Never logged.
     public var url: String?
     public var authorization: String?
@@ -1527,10 +1536,25 @@ public struct ChatRequest: Codable, Equatable, Sendable {
     public var replace: Bool?
     public init(name: String? = nil, token: String? = nil, retry: Bool? = nil, wait: Bool? = nil, kind: String? = nil, webhook: Bool? = nil,
                 entry: String? = nil, url: String? = nil, authorization: String? = nil, path: String? = nil, addMissing: Bool? = nil,
-                replace: Bool? = nil) {
+                replace: Bool? = nil, inbox: Bool? = nil, session: String? = nil, deliver: String? = nil) {
+        self.inbox = inbox; self.session = session; self.deliver = deliver
         self.name = name; self.token = token; self.retry = retry; self.wait = wait
         self.kind = kind; self.webhook = webhook; self.entry = entry; self.url = url; self.authorization = authorization
         self.path = path; self.addMissing = addMissing; self.replace = replace
+    }
+}
+
+/// The answer to `chat-set`: the participant as it is now, and the server's state.
+public struct ChatSetAnswer: Codable, Equatable, Sendable {
+    public var name: String
+    public var kind: String
+    /// `inbox`, `poll` or `webhook`.
+    public var delivery: String
+    public var webhookEntry: String?
+    public var session: String?
+    public var chat: ChatServerState
+    public init(name: String, kind: String, delivery: String, webhookEntry: String?, session: String?, chat: ChatServerState) {
+        self.name = name; self.kind = kind; self.delivery = delivery; self.webhookEntry = webhookEntry; self.session = session; self.chat = chat
     }
 }
 

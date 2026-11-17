@@ -62,7 +62,10 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   entitlements, verified (arm64 Mach-O, no entitlements, identity/runtime/timestamp, `--version` runs), notarised in the
   SAME submission and its own ticket checked; its provenance in `licences/dozchat/`. Never in the helper (release.sh and
   `make test-cli-helper` fail if it is). `make cli` / `install-cli` put it beside `doz` by rename (no toolchain needed);
-  `MacDozchat.locate()` finds it beside the resolved executable.
+  `MacDozchat.locate()` finds it beside the resolved executable. It is also on the person's PATH as `dozchat` (a Claude
+  Code session run on the Mac without a fence answers in chat with it): the tarball's `bin/dozchat` →
+  `../libexec/doz/dozchat-mac` (release.sh checks the link), the formula's `bin.install_symlink … => "dozchat"` (its
+  `test do` runs `dozchat --help`), and `install-cli`'s `bin/dozchat` link.
 - **`deckhold-mac` — the CLI tarball ONLY** (680: the PTY holder for sessions held on the Mac itself). `release.sh` builds
   it fresh (`Guest/deckhold/build-mac.sh`, `FORCE=1`: `deckhold.c` + the pinned ghostty's macOS xcframework library, the
   Mac's clang — NOT committed, a Mach-O is signed per release), copies it to `libexec/doz/deckhold-mac`, strips it, signs

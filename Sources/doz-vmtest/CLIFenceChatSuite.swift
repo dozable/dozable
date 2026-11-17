@@ -87,7 +87,7 @@ func cliFenceChatChecks(_ t: CLIHarness, root: String, store: String, net: Strin
     check(r.code == 0, "a fenced session with --host-port and --secret for chat (\(r.code) \(r.err.suffix(200)))")
     check(done("CH0"), "the session's dozchat calls ran")
     check(res("ch-which").hasSuffix("/etc/bin/dozchat"), "dozchat is on its PATH: the session's shim (\(res("ch-which")))")
-    check(res("ch-ver") == "dozchat 1", "dozchat --version (\(res("ch-ver")))")
+    check(res("ch-ver") == "dozchat \(ToolsLayer.dozchatVersion)", "dozchat --version (\(res("ch-ver")))")
     let placeholder = res("ch-var")
     check(placeholder.hasPrefix("doz_cred_") && placeholder != token1 && res("ch-file") == placeholder,
           "the session holds only the placeholder (its variable and its file)")

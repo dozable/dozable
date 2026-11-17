@@ -86,17 +86,45 @@ public struct ChatDirectory: Codable, Equatable, Sendable {
         /// The protocol's kind: `agent` (the default), `claude-session` or `grok-bot` — the identity of its new messages.
         public var kind: String
         public var added: String
-        /// `webhook`: the server calls its webhook entry with each message for it. nil: it collects them itself, polling
-        /// with its own token (`GET /agent/receive`). An older doz ignores the field and treats it as one that polls.
+        /// `webhook`: the server calls its webhook entry with each message for it. `inbox` (a `claude-session` only): the
+        /// server writes each message into the inbox of the running Claude Code session of that name on this Mac (its
+        /// record in the sessions folder of the person who runs the daemon). nil: it collects them itself, polling with
+        /// its own token (`GET /agent/receive`). An older doz ignores the field and treats it as one that polls.
         public var deliver: String?
         /// Its webhook entry's name (nil: its own name). One entry may serve several bots.
         public var webhook: String?
-        public init(name: String, kind: String = "agent", added: String, deliver: String? = nil, webhook: String? = nil) {
-            self.name = name; self.kind = kind; self.added = added; self.deliver = deliver; self.webhook = webhook
+        /// With `inbox`: the Claude Code session's name, as its record says it (nil: its own name).
+        public var session: String?
+        public init(name: String, kind: String = "agent", added: String, deliver: String? = nil, webhook: String? = nil, session: String? = nil) {
+            self.name = name; self.kind = kind; self.added = added; self.deliver = deliver; self.webhook = webhook; self.session = session
         }
 
         /// The entry its calls use, when it is delivered to by webhook.
         public var webhookEntry: String? { deliver == "webhook" ? (webhook ?? name) : nil }
+        /// The Claude Code session it is delivered into, when it is delivered to by inbox.
+        public var inboxSession: String? { deliver == "inbox" ? (session ?? name) : nil }
+        /// How it is reached, in one word: `inbox`, `webhook` or `poll`.
+        public var delivery: String { deliver == "inbox" ? "inbox" : deliver == "webhook" ? "webhook" : "poll" }
+    }
+
+    /// The deliveries `doz chat set --deliver` takes.
+    public static let deliveries = ["inbox", "poll", "webhook"]
+
+    /// Whether any participant is delivered to by inbox (the server then reads the person's Claude Code session records).
+    public var hasInbox: Bool { participants.contains { $0.inboxSession != nil } }
+
+    /// Why this delivery cannot be given to a participant of this kind (nil: it can). Inbox is for a `claude-session` only;
+    /// a session's name follows the name rule.
+    public static func deliveryRefusal(_ deliver: String, kind: String, session: String?) -> String? {
+        guard deliveries.contains(deliver) else { return "\(deliver) is not a delivery: \(deliveries.joined(separator: ", "))" }
+        if deliver == "inbox" && kind != "claude-session" {
+            return "inbox delivery is for a Claude Code session: its kind must be claude-session (it is \(kind)) — add --kind claude-session"
+        }
+        if session != nil && deliver != "inbox" { return "--session goes with inbox delivery" }
+        if let s = session, !chatIsSessionName(s) {
+            return "\(s) is not a Claude Code session name chat can match: a lower-case letter, then lower-case letters, digits and -, at most 40"
+        }
+        return nil
     }
 
     /// The kinds a participant may have.
@@ -131,6 +159,24 @@ public struct ChatDirectory: Codable, Equatable, Sendable {
     static let encoder: JSONEncoder = { let e = JSONEncoder(); e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]; return e }()
 
     public func has(_ name: String) -> Bool { human == name || participants.contains { $0.name == name } }
+}
+
+/// Where the chat server reads Claude Code's session records when a participant is delivered to by inbox: the sessions
+/// folder of the person who runs the daemon, `<their home>/.claude/sessions` (the REAL home, from the user database —
+/// never `$HOME`, never guessed). Only an unfenced Claude Code session keeps its record there: a fenced session's
+/// Claude Code keeps its own under the session's folder, so it is never an inbox target (it polls with dozchat).
+///
+/// A test run of any kind reads its seam `DOZ_TEST_CLAUDE_SESSIONS` (an absolute scratch folder the Makefile sets for every
+/// test target), and `TestSafety` stops a guarded run that would still name the real folder.
+public enum ChatClaudeSessions {
+    public static let testSeam = "DOZ_TEST_CLAUDE_SESSIONS"
+
+    public static func folder(environment env: [String: String] = ProcessInfo.processInfo.environment) -> String {
+        if TestSafety.testRun(env), let seam = env[testSeam], seam.hasPrefix("/") { return seam }
+        let real = TestSafety.realHome.appendingPathComponent(".claude/sessions").path
+        TestSafety.enforce(TestSafety.claudeSessionsViolation(real), env: env)
+        return real
+    }
 }
 
 /// The participants' tokens, as SHA-256 only (`tokens.json` — the server reads it with `--token-hashes`).
@@ -214,9 +260,12 @@ public enum ChatConfigFile {
         // No deliver value: a participant that is not the human collects what is addressed to it by polling, with its own
         // token (the server's `ChatParticipant.route`; a `poll` value is a registered session's and takes no own token).
         // A webhook bot: the server calls its entry (the address and the header come on the daemon's pipe, never here).
+        // A Claude Code session delivered to by inbox: `inbox-socket` and the session's name (the server finds its record by
+        // that name in the sessions folder the supervisor hands it with --claude-sessions — never a guessed path).
         for p in d.participants {
             var fields = [JMember("name", .string(p.name)), JMember("kind", .string(p.kind))]
             if let e = p.webhookEntry { fields += [JMember("deliver", .string("webhook")), JMember("webhook", .string(e))] }
+            if let s = p.inboxSession { fields += [JMember("deliver", .string("inbox-socket")), JMember("session", .string(s))] }
             people.append(.object(fields))
         }
         var members = [
@@ -247,8 +296,10 @@ public enum ChatConfigFile {
                   return a.isLoopback || (ChatWebhookAddress.tailnet.contains(a) && access.isAgentAddress(e) && !access.isOwned(e))
               }),
               c.remoteBind.allSatisfy({ ChatAddress($0).map(ChatWebhookAddress.tailnet.contains) == true }),
-              c.agentAddresses.contains("127.0.0.0/8"), !c.participants.contains(where: { $0.deliver == "inbox-socket" }),
-              c.participants.allSatisfy({ $0.isHuman || $0.deliver.isEmpty || ($0.deliver == "webhook" && ChatWebhookEntries.nameRefusal($0.webhook) == nil) }) else {
+              c.agentAddresses.contains("127.0.0.0/8"),
+              // inbox-socket only for a Claude Code session, with a session name of the rule (never a path)
+              c.participants.allSatisfy({ $0.isHuman || $0.deliver.isEmpty || ($0.deliver == "webhook" && ChatWebhookEntries.nameRefusal($0.webhook) == nil)
+                  || ($0.deliver == "inbox-socket" && $0.kind == "claude-session" && chatIsSessionName($0.session)) }) else {
             throw HostError(.failed, "the generated chat config is not loopback-only with tokens required")
         }
         return out

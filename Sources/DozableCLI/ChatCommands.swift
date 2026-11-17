@@ -28,9 +28,14 @@ struct ChatCommand: AsyncParsableCommand {
             address and the Authorization value it carries, kept in your login keychain (doz chat webhook set NAME). \
             The entry is never in a file, a log or --json, and only you, on this Mac, can set it.
 
+            A Claude Code session on this Mac can be handed each message in its own inbox (doz chat add NAME --kind \
+            claude-session --inbox), busy or idle, with nothing for it to keep running; it answers with dozchat and its \
+            own token. The chat server then reads your ~/.claude/sessions to find it. This reaches Claude Code sessions \
+            run on this Mac without a fence; a fenced session polls with dozchat.
+
             Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already exists · 6 chat is off or not ready · 64 usage.
             """,
-        subcommands: [ChatOn.self, ChatOff.self, ChatStatusCommand.self, ChatAdd.self, ChatRemove.self, ChatWho.self, ChatTokenCommand.self,
+        subcommands: [ChatOn.self, ChatOff.self, ChatStatusCommand.self, ChatAdd.self, ChatSet.self, ChatRemove.self, ChatWho.self, ChatTokenCommand.self,
                       ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self])
 }
 
@@ -66,6 +71,8 @@ struct ChatStatusReport: Encodable {
     var remoteListener: [ChatRemoteAddressStatus]?
     /// While a changed port is not bound yet: the ports it moves to (pagePort and linePort are the ones it has now).
     var movingTo: ChatPortsMove?
+    /// While a participant is delivered to by inbox: the Claude Code sessions folder the server reads (nil: none is).
+    var claudeSessions: String?
 
     static func read(_ store: DozableStore) -> ChatStatusReport {
         let paths = ChatPaths(store: store)
@@ -99,6 +106,7 @@ struct ChatStatusReport: Encodable {
         r.problem = sup?.problem
         r.warnings = sup?.warnings
         r.remote = sup?.remote
+        r.claudeSessions = dir.hasInbox ? sup?.claudeSessions : nil
         r.ready = server.running && server.ready && (sup?.pid.map { Int($0) == server.pid } ?? true)
         if let p = server.ports, server.running, p.page > 0, p.line > 0, (p.page, p.line) != (view.pagePort, view.linePort) {
             // The running server still has its old ports (the new ones are not bound yet).
@@ -114,6 +122,11 @@ struct ChatStatusReport: Encodable {
         if r.ready { r.state = "running" }
         r.setRemoteListener(view)
         return r
+    }
+
+    /// The standing line while a participant is delivered to by inbox: what the server reads outside its data folder.
+    var inboxLine: String? {
+        claudeSessions.map { "delivers into Claude Code sessions on this Mac: reads \(DisplayPath.tilde($0))" }
     }
 
     /// The remote listener's line for every address of the setting (nil when none is set).
@@ -144,6 +157,7 @@ struct ChatStatusReport: Encodable {
             s += "  \(bind), page port \(pagePort), line port \(linePort) — moving to page port \(m.pagePort), line port \(m.linePort) (not listening there yet)\n"
         } else if enabled { s += "  \(bind), page port \(pagePort), line port \(linePort)\n" }
         if enabled { for a in remoteListener ?? [] { s += "  \(a.text)\n" } }
+        if enabled, let l = inboxLine { s += "  \(l)\n" }
         if let h = human {
             let n = participants.count
             s += "  you are \(h); \(n) participant\(n == 1 ? "" : "s")" + (rooms.map { ", \($0) room\($0 == 1 ? "" : "s")" } ?? "") + "\n"
@@ -190,7 +204,8 @@ func chatDoctorCheck(fromReport r: ChatStatusReport) -> DoctorCheck {
     case "running":
         let w = r.otherWarnings
         if !w.isEmpty { return DoctorCheck(check: "chat", status: .warn, detail: "running, but " + w.joined(separator: "; ")) }
-        return DoctorCheck(check: "chat", status: .ok, detail: "running and ready — 127.0.0.1, page port \(r.pagePort), line port \(r.linePort)")
+        return DoctorCheck(check: "chat", status: .ok, detail: "running and ready — 127.0.0.1, page port \(r.pagePort), line port \(r.linePort)"
+                           + (r.inboxLine.map { "; " + $0 } ?? ""))
     case "stopped": return DoctorCheck(check: "chat", status: .fail, detail: "stopped: " + (r.problem ?? "it exited") + " — then doz chat on")
     default: return DoctorCheck(check: "chat", status: .warn, detail: r.state + (r.problem.map { ": " + $0 } ?? ""))
     }
@@ -352,6 +367,10 @@ struct ChatParticipantChange: Encodable {
     var tokenFile: String?
     var tokenGiven: Bool?
     var webhookEntry: String?
+    /// `inbox`, `poll` or `webhook` (add and set).
+    var delivery: String?
+    /// With inbox: the Claude Code session's name.
+    var session: String?
     var chat: ChatServerState
 }
 
@@ -364,12 +383,12 @@ func tokenFromStdin(_ g: GlobalOptions) throws -> String {
 }
 
 func chatTokenCall(_ op: HostOp, name: String, toFile: String?, fromStdin: Bool, _ g: GlobalOptions,
-                   kind: String? = nil, webhook: Bool? = nil, entry: String? = nil) throws -> (ChatAnswer, TokenDestination?) {
+                   kind: String? = nil, webhook: Bool? = nil, entry: String? = nil, inbox: Bool? = nil, session: String? = nil) throws -> (ChatAnswer, TokenDestination?) {
     if let why = ChatNames.refusal(name) { throw fail(HostError(.invalid, why), g) }
     let given = fromStdin ? try tokenFromStdin(g) : nil
     let dest = given == nil ? try TokenDestination.open(toFile, g) : nil
     var r = HostRequest(op)
-    r.chat = ChatRequest(name: name, token: given, kind: kind, webhook: webhook, entry: entry)
+    r.chat = ChatRequest(name: name, token: given, kind: kind, webhook: webhook, entry: entry, inbox: inbox, session: session)
     do {
         let a = try decode(try call(r, g), ChatAnswer.self, g)
         return (a, dest)
@@ -379,9 +398,30 @@ func chatTokenCall(_ op: HostOp, name: String, toFile: String?, fromStdin: Bool,
     }
 }
 
+/// What a Claude Code session delivered to by inbox needs in its environment to answer with dozchat: the token's file,
+/// and the address only when the page port is not dozchat's default on this Mac (127.0.0.1:8790 with no proxy set).
+func chatInboxEnvironment(tokenFile: String?, pagePort: Int) -> String {
+    var s = "To answer, the session runs dozchat (on your PATH with doz), with this in its environment when it is started — never the token on a command line:\n"
+    s += "  CHAT_TOKEN_FILE=" + (tokenFile.map { DisplayPath.tilde($0) } ?? "<a file holding the token, readable by you alone>") + "\n"
+    if pagePort != ChatInboxDefaults.pagePort { s += "  CHAT_URL=http://127.0.0.1:\(pagePort)\n" }
+    return s
+}
+
+/// What `add` and `set` say of an inbox participant.
+func chatInboxSentence(_ name: String, session: String) -> String {
+    "the chat server writes each message for it into the inbox of the Claude Code session named \(session) on this Mac, busy or idle "
+        + "(a session run without a fence; the server reads your ~/.claude/sessions to find it). While no such session runs, a message to \(name) fails: no running Claude session with that name."
+}
+
+/// Names shared by `add` and `set`.
+enum ChatInboxDefaults {
+    /// dozchat's default page port on this Mac (no proxy set: http://127.0.0.1:8790).
+    static let pagePort = 8790
+}
+
 struct ChatAdd: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "add",
-        abstract: "Add a participant: an agent with its own token (shown once) that polls, or a bot the server calls at its webhook.",
+        abstract: "Add a participant: an agent with its own token (shown once) that polls, a bot the server calls at its webhook, or a Claude Code session the server writes into.",
         discussion: """
             The token is printed once on a terminal, or written to a new file with --to-file (only you can read it); doz keeps \
             only its hash. The agent sends it as Authorization: Bearer TOKEN on the page port's /agent/ calls. The chat \
@@ -389,35 +429,100 @@ struct ChatAdd: AsyncParsableCommand {
 
             With --webhook the server calls the bot with each message for it, at its webhook entry: set it next with \
             doz chat webhook set NAME (the bot still sends with its own token).
+
+            With --inbox (--kind claude-session) the server writes each message for it into the inbox of the running Claude \
+            Code session of that name (--session, by default NAME) on this Mac, busy or idle — nothing for the session to keep \
+            running. The server reads your ~/.claude/sessions to find it. Only Claude Code sessions run on this Mac without \
+            a fence keep their record there: a fenced session polls with dozchat instead. The session answers with \
+            dozchat send ROOM --re MSG_ID "…" and its own token, from CHAT_TOKEN_FILE.
             """)
     @Argument(help: "Its name: a lower-case letter, then lower-case letters, digits and -.") var name: String
-    @Option(name: .long, help: "Its kind: agent (the default), claude-session or grok-bot — how its messages are labelled.") var kind = "agent"
+    @Option(name: .long, help: "Its kind: agent (the default; claude-session with --inbox), claude-session or grok-bot — how its messages are labelled.") var kind: String?
     @Flag(name: .long, help: "The server calls it at its webhook entry with each message for it (instead of it polling).") var webhook = false
     @Option(name: .customLong("webhook-entry"), help: "The webhook entry it uses (with --webhook; default: its own name). One entry may serve several bots.") var webhookEntry: String?
+    @Flag(name: .long, help: "The server writes each message for it into a running Claude Code session's inbox on this Mac (a session run without a fence).") var inbox = false
+    @Option(name: .long, help: "With --inbox: the Claude Code session's name, as its record says it (default: NAME).") var session: String?
     @Option(name: .customLong("to-file"), help: "Write its token to this new file instead of the terminal.") var toFile: String?
     @Flag(name: .customLong("from-stdin"), help: "Use a token it already has, read from standard input (16 to 256 characters).") var fromStdin = false
     @OptionGroup var g: GlobalOptions
+
+    var theKind: String { kind ?? (inbox ? "claude-session" : "agent") }
+
     func validate() throws {
-        guard ChatDirectory.kinds.contains(kind) else { throw ValidationError("--kind is one of \(ChatDirectory.kinds.joined(separator: ", "))") }
+        guard ChatDirectory.kinds.contains(theKind) else { throw ValidationError("--kind is one of \(ChatDirectory.kinds.joined(separator: ", "))") }
         if webhookEntry != nil && !webhook { throw ValidationError("--webhook-entry goes with --webhook") }
+        if webhook && inbox { throw ValidationError("one of --webhook or --inbox") }
         if webhook, let why = ChatWebhookEntries.nameRefusal(webhookEntry ?? name) { throw ValidationError(why) }
+        if inbox || session != nil, let why = ChatDirectory.deliveryRefusal(inbox ? "inbox" : "poll", kind: theKind, session: session) { throw ValidationError(why) }
     }
     func run() async throws {
         let (a, dest) = try chatTokenCall(.chatAdd, name: name, toFile: toFile, fromStdin: fromStdin, g,
-                                          kind: kind, webhook: webhook ? true : nil, entry: webhookEntry)
+                                          kind: theKind, webhook: webhook ? true : nil, entry: webhookEntry, inbox: inbox ? true : nil, session: session)
+        let delivery = inbox ? "inbox" : webhook ? "webhook" : "poll"
         if g.json {
             if let t = a.token { dest?.deliver(t, name: name) }
-            Out.json(ChatParticipantChange(name: name, kind: kind, tokenFile: dest?.file, tokenGiven: fromStdin ? true : nil,
-                                           webhookEntry: webhook ? (webhookEntry ?? name) : nil, chat: a.chat))
+            Out.json(ChatParticipantChange(name: name, kind: theKind, tokenFile: dest?.file, tokenGiven: fromStdin ? true : nil,
+                                           webhookEntry: webhook ? (webhookEntry ?? name) : nil, delivery: delivery,
+                                           session: inbox ? (session ?? name) : nil, chat: a.chat))
             return
         }
         if webhook {
             let e = webhookEntry ?? name
-            Out.stdout("Added \(name) (\(kind)): the chat server calls its webhook entry \(e) with each message for it — set it with doz chat webhook set \(e).\n")
+            Out.stdout("Added \(name) (\(theKind)): the chat server calls its webhook entry \(e) with each message for it — set it with doz chat webhook set \(e).\n")
+        } else if inbox {
+            Out.stdout("Added \(name) (\(theKind)): " + chatInboxSentence(name, session: session ?? name) + "\n")
         } else {
-            Out.stdout("Added \(name) (\(kind), polls with its own token).\n")
+            Out.stdout("Added \(name) (\(theKind), polls with its own token).\n")
         }
         if let t = a.token { dest?.deliver(t, name: name) } else { Out.stdout("It uses the token you gave.\n") }
+        if inbox { Out.stdout(chatInboxEnvironment(tokenFile: dest?.file, pagePort: a.chat.pagePort)) }
+    }
+}
+
+struct ChatSet: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "set",
+        abstract: "Change how a participant is reached — inbox, poll or webhook — keeping its token, its rooms and its history.",
+        discussion: """
+            --deliver inbox: the server writes each message for it into the inbox of the running Claude Code session of that \
+            name (--session, by default NAME) on this Mac — its kind must be claude-session (--kind claude-session changes it \
+            here). Only a Claude Code session run on this Mac without a fence can be reached this way; a fenced session polls \
+            with dozchat. --deliver poll: it collects its messages with its token (GET /agent/receive, dozchat receive). \
+            --deliver webhook: the server calls its webhook entry (--webhook-entry, by default NAME; doz chat webhook set). \
+            The chat server restarts to take it (under a second); what still waits for it is handed over the new way.
+            """)
+    @Argument(help: "The participant.") var name: String
+    @Option(name: .long, help: "How it is reached: inbox, poll or webhook.") var deliver: String
+    @Option(name: .customLong("webhook-entry"), help: "With --deliver webhook: the entry it uses (default: its own name).") var webhookEntry: String?
+    @Option(name: .long, help: "Its kind too: agent, claude-session or grok-bot.") var kind: String?
+    @Option(name: .long, help: "With --deliver inbox: the Claude Code session's name, as its record says it (default: NAME).") var session: String?
+    @OptionGroup var g: GlobalOptions
+
+    func validate() throws {
+        guard ChatDirectory.deliveries.contains(deliver) else { throw ValidationError("--deliver is one of \(ChatDirectory.deliveries.joined(separator: ", "))") }
+        if let k = kind, !ChatDirectory.kinds.contains(k) { throw ValidationError("--kind is one of \(ChatDirectory.kinds.joined(separator: ", "))") }
+        if webhookEntry != nil && deliver != "webhook" { throw ValidationError("--webhook-entry goes with --deliver webhook") }
+        if session != nil && deliver != "inbox" { throw ValidationError("--session goes with --deliver inbox") }
+    }
+
+    func run() async throws {
+        if let why = ChatNames.refusal(name) { throw fail(HostError(.invalid, why), g) }
+        var r = HostRequest(.chatSet)
+        r.chat = ChatRequest(name: name, kind: kind, entry: webhookEntry, session: session, deliver: deliver)
+        let a = try decode(try call(r, g), ChatSetAnswer.self, g)
+        if g.json {
+            Out.json(ChatParticipantChange(name: a.name, kind: a.kind, webhookEntry: a.webhookEntry, delivery: a.delivery, session: a.session, chat: a.chat))
+            return
+        }
+        switch a.delivery {
+        case "inbox":
+            Out.stdout("\(name) (\(a.kind)): " + chatInboxSentence(name, session: a.session ?? name) + " Its token, rooms and history are kept.\n")
+            Out.stdout(chatInboxEnvironment(tokenFile: nil, pagePort: a.chat.pagePort))
+        case "webhook":
+            let e = a.webhookEntry ?? name
+            Out.stdout("\(name) (\(a.kind)): the chat server calls its webhook entry \(e) with each message for it (doz chat webhook set \(e)). Its token, rooms and history are kept.\n")
+        default:
+            Out.stdout("\(name) (\(a.kind)) polls with its own token. Its token, rooms and history are kept.\n")
+        }
     }
 }
 
@@ -663,7 +768,8 @@ struct ChatWho: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "who", abstract: "Who is in chat: name, kind, token, how it is reached, rooms, and presence as the server says it (here, away, quiet, …).")
     @OptionGroup var g: GlobalOptions
 
-    /// `delivery`: `polls`, or `webhook (set)`, `webhook (not set)`, `webhook (unreadable)` — never the entry's value.
+    /// `delivery`: `polls`, `inbox` (or `inbox (session S)` for another session name), or `webhook (set)`, `webhook (not
+    /// set)`, `webhook (unreadable)` — never the entry's value.
     /// `presence`: the server's own word (`/api/presence`: here, away, present, quiet, woken, working, idle, not running);
     /// `here`: true only for one with a page open or heard from lately — never for one not heard from.
     struct Row: Encodable { var name: String; var kind: String; var token: Bool; var delivery: String?; var webhookEntry: String?; var rooms: [String]; var here: Bool?; var presence: String? }
@@ -701,7 +807,8 @@ struct ChatWho: AsyncParsableCommand {
         }
         if let h = dir.human { rows.append(row(h, kind: "you", token: false, delivery: nil, entry: nil)) }
         for p in dir.participants {
-            let delivery = p.webhookEntry.map { "webhook (\(entryStates[$0] ?? "not set"))" } ?? "polls"
+            let delivery = p.webhookEntry.map { "webhook (\(entryStates[$0] ?? "not set"))" }
+                ?? p.inboxSession.map { $0 == p.name ? "inbox" : "inbox (session \($0))" } ?? "polls"
             rows.append(row(p.name, kind: p.kind, token: hashes.sha256[p.name] != nil, delivery: delivery, entry: p.webhookEntry))
         }
         if g.json { Out.json(rows); return }
