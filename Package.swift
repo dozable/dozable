@@ -256,6 +256,22 @@ let package = Package(
             exclude: ["WebSource"],
             resources: [.copy("Resources/Web")]
         ),
+        // The chat server (`doz chat serve`, docs/engineering/chat.md): rooms, the line port and the page port, the room
+        // store. It depends on none of the VM parts — only the system's modules (Foundation, Darwin, CryptoKit, SQLite3)
+        // and swift-nio's NIOCore, NIOPosix and NIOHTTP1 (the audit holds it). What it needs of Dozable is passed in.
+        .target(
+            name: "DozableChat",
+            dependencies: [.product(name: "NIOCore", package: "swift-nio"),
+                           .product(name: "NIOPosix", package: "swift-nio"),
+                           .product(name: "NIOHTTP1", package: "swift-nio")],
+            path: "Sources/DozableChat"
+        ),
+        .testTarget(
+            name: "DozableChatTests",
+            dependencies: ["DozableChat"],
+            path: "Tests/DozableChatTests",
+            resources: [.copy("Fixtures")]
+        ),
         // 637 — what the CLI draws on a terminal: the colour switch (`Terminal`), semantic styles, the components and the
         // questions (arrow keys on a terminal, typed answers elsewhere). Foundation and Darwin only (the audit holds it),
         // so the host can use it too. Not a product.
@@ -266,7 +282,7 @@ let package = Package(
         // 585 — the commands (swift-argument-parser), the attach client, the human/JSON output.
         .target(
             name: "DozableCLI",
-            dependencies: ["DozableHost", "DozableKit"] + (withWeb ? ["DozableWeb"] : []) + ["DozableTUI",
+            dependencies: ["DozableHost", "DozableKit"] + (withWeb ? ["DozableWeb"] : []) + ["DozableTUI", "DozableChat",
                            .product(name: "ArgumentParser", package: "swift-argument-parser"),
                            .product(name: "Yams", package: "Yams")],
             path: "Sources/DozableCLI",

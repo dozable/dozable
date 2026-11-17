@@ -52,9 +52,11 @@ fail() {
 # (step 1b).
 # 667: + AVFoundation — macOS's microphone permission for sandboxes with sound (its status, and the question when
 # undecided); it never opens a device. Confined in step 1b to Sources/DozableHost/Microphone.swift.
+# The chat server: + DozableChat (its own target), confined in step 1d: Foundation, Darwin, CryptoKit, the system SQLite3
+# and swift-nio's NIOCore, NIOPosix and NIOHTTP1 only — none of the VM parts.
 # The menu bar app: + AppKit and ServiceManagement (Start at Login — SMAppService; its executable target only) and its
 # own core module — confined in step 1c.
-ALLOWED='Foundation|Darwin|os|CryptoKit|Security|AppKit|ServiceManagement|DozableMenuBarCore|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozableCloud|DozableTUI|AVFoundation'
+ALLOWED='Foundation|Darwin|os|CryptoKit|Security|AppKit|ServiceManagement|DozableMenuBarCore|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozableCloud|DozableTUI|AVFoundation|DozableChat'
 BAD=$(grep -rhoE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*(public[[:space:]]+)?import[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*' \
         "$PACKAGE/Sources" \
       | sed -E 's/.*import[[:space:]]+//' \
@@ -68,7 +70,7 @@ fi
 
 # ── 1b. (585) Confinement: the LIBRARY imports none of the CLI's additions, and only the CLI's
 #        command targets import ArgumentParser (the host needs no argument parsing) ─────────────
-LEAK=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+(ArgumentParser|SQLite3|DozableHost|DozableCLI|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams)([[:space:]]|$)' \
+LEAK=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+(ArgumentParser|SQLite3|DozableHost|DozableCLI|DozableWeb|DozableChat|NIOHTTP1|NIOWebSocket|CoreServices|Yams)([[:space:]]|$)' \
         "$PACKAGE/Sources/DozableKit" || true)
 [[ -z "$LEAK" ]] || fail "the library imports a CLI-only module:
 $LEAK"
@@ -90,9 +92,13 @@ $YA"
 
 # 590: the HTTP codec only in the web target; LaunchServices only in the `doz ui` command; the
 #      host never imports the web layer (the UI is a CLIENT of the host, never inside it).
-H1=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+NIOHTTP1([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableWeb/" || true)
-[[ -z "$H1" ]] || fail "NIOHTTP1 is imported outside Sources/DozableWeb:
+H1=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+NIOHTTP1([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/(DozableWeb|DozableChat)/" || true)
+[[ -z "$H1" ]] || fail "NIOHTTP1 is imported outside Sources/DozableWeb and Sources/DozableChat:
 $H1"
+# The system SQLite: the daemon's metrics and the chat server's room store, nowhere else.
+SQ=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+SQLite3([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/(DozableHost|DozableChat)/" || true)
+[[ -z "$SQ" ]] || fail "SQLite3 is imported outside Sources/DozableHost and Sources/DozableChat:
+$SQ"
 WS=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+NIOWebSocket([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableWeb/" || true)
 [[ -z "$WS" ]] || fail "NIOWebSocket is imported outside Sources/DozableWeb:
 $WS"
@@ -171,6 +177,27 @@ bad = []
 if core or core_prod: bad.append("DozableMenuBarCore depends on %s" % (core or "a package product"))
 if app != ["DozableMenuBarCore"] or app_prod: bad.append("DozableMenuBar depends on %s" % app)
 for b in bad: print("  " + b, file=sys.stderr)
+sys.exit(1 if bad else 0)
+PY
+
+# ── 1d. The chat server (docs/engineering/chat.md) depends on none of the VM parts: its sources import Foundation, Darwin,
+#        CryptoKit, SQLite3, NIOCore, NIOPosix and NIOHTTP1 only (no DozableKit, DozableHost, DozableWeb, no Security — so no
+#        Keychain), and its target depends on no other target of this package.
+CH=$(grep -rhoE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*(public[[:space:]]+)?import[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*' \
+        "$PACKAGE/Sources/DozableChat" | sed -E 's/.*import[[:space:]]+//' | sort -u | grep -vE '^(Foundation|Darwin|CryptoKit|SQLite3|NIOCore|NIOPosix|NIOHTTP1)$' || true)
+[[ -z "$CH" ]] || fail "Sources/DozableChat imports more than Foundation, Darwin, CryptoKit, SQLite3, NIOCore, NIOPosix and NIOHTTP1:
+$CH"
+python3 - "$MANIFEST" <<'PY' || fail "Package.swift: the DozableChat target may depend on swift-nio's NIOCore, NIOPosix and NIOHTTP1 only"
+import re, sys
+text = open(sys.argv[1]).read()
+m = re.search(r'\.target\(\s*name:\s*"DozableChat"(.*?)\n\s*\)', text, re.S)
+if not m: print("  no target DozableChat", file=sys.stderr); sys.exit(1)
+d = re.search(r'dependencies:\s*\[(.*?)\]\s*,\s*\n', m.group(1), re.S)
+deps = d.group(1) if d else ""
+targets = re.findall(r'(?<!name: )"([A-Za-z]+)"(?!,\s*package)', re.sub(r'\.product\([^)]*\)', '', deps))
+products = re.findall(r'\.product\(name:\s*"([^"]+)",\s*package:\s*"([^"]+)"\)', deps)
+bad = [t for t in targets] + [f"{n} ({p})" for n, p in products if p != "swift-nio" or n not in ("NIOCore", "NIOPosix", "NIOHTTP1")]
+for b in bad: print("  DozableChat depends on " + b, file=sys.stderr)
 sys.exit(1 if bad else 0)
 PY
 
