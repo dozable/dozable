@@ -915,6 +915,7 @@ Task {
             // The chat server under the daemon: on/off, participants, rooms, the owner's socket, restarts, orphans (no VM).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliChatSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+            await cliChatImportRows(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-daemon":
             // 694: the daemon's login item — a scratch LaunchAgents folder and a fake launchctl (no VM).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"

@@ -45,6 +45,8 @@ manual or completions (`doz chat --help` is complete). A later step shows its ro
 | `Sources/DozableHost/ChatSupervisor.swift` | `ChatSupervisor`: the server as the daemon's child — the generated files, posix_spawn, readiness, restarts, stops; `ChatServerState` (`supervisor.json`, `daemon status`); `ChatProcesses`, the seam the tests fake |
 | `Sources/DozableHost/ChatOwnerClient.swift` | the person's HTTP client on the owner's socket (the `doz chat` commands; the dashboard later) |
 | `Sources/DozableCLI/ChatCommands.swift` | the `doz chat` group (hidden): on, off, status, add, remove, who, token, rooms, room, send, read |
+| `Sources/DozableChat/ChatImport.swift` | reading a copy made for import without trusting it, and staging it in this server's format (`ChatImport`); `ImportDB`, the read-only, immutable, `trusted_schema`-off connection |
+| `Sources/DozableHost/ChatImporter.swift`, `Sources/DozableCLI/ChatImportCommand.swift` | `doz chat import`: the names against the directory, the data folder put aside, `imported.json` (`ChatImporter`); the command and its dry run |
 | `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home, also calling a webhook), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars), `ChatWebhookTests` (against `TestWebhookListener`, a listener each test starts on 127.0.0.1: the call, the tries, every limit of the client, no secret anywhere, notices, the hold, redelivery once; reactions), `ChatSessionsAndFilesTests` (against `TestClaudeSession`, a record and key file in a scratch sessions folder and a socket the test listens on: the inbox text, failed, `/protocol`, `/react`'s fallback, notices, started, the announcement; names never paths, the limits before a byte is kept, the human's token, download headers, who may fetch, a delete's files; the msg_id start rule) |
 | `Tests/Conformance/RUNNER`, `Tests/Conformance/expected-green.txt`, `Scripts/chat-conformance.sh` | the conformance gate (below) |
 
@@ -207,6 +209,7 @@ manual or completions (`doz chat --help` is complete). A later step shows its ro
 | `server.log` | the server's standard error, appended; kept to one older copy at 2 MiB |
 | `supervisor.json` | the supervisor's state (`ChatServerState`) — `doz chat status` and `doz doctor` read it with no daemon |
 | `data/` | the server's data folder, in the protocol's format; rooms after the first are the server's own (`rooms.json`) |
+| `imported.json`, `data.before-import-<UTC>/` | the last `doz chat import`'s record (counts, room files' SHA-256 — nothing secret) and each earlier data folder it put aside (never deleted by doz) |
 
 A store whose `chat.sock` path would be longer than 103 bytes cannot have chat (`on` and `doctor` say so).
 
@@ -333,7 +336,7 @@ Turning the remote listener on opens both chat ports on this Mac's Tailscale add
   `make test-cli-chat` row 21 (the refusals, the missing address said, still exactly two loopback listeners — `lsof`).
 
 **The commands** (hidden). Only `chat serve` and `chat status … --data-dir` are the server's own (`isServerCommand`); the
-rest is `ChatCommand`. Writes go through the daemon (`chat-sync`, `chat-add`, `chat-remove`, `chat-token`); `rooms`,
+rest is `ChatCommand`. Writes go through the daemon (`chat-sync`, `chat-add`, `chat-remove`, `chat-token`, `chat-import`); `rooms`,
 `room`, `send`, `read` and `who` go to the owner's socket; looking never starts the daemon. Exit codes: 0, 1 failed, 2 no
 such participant or room, 4 already exists, 6 chat is off or not ready, 64 usage.
 
@@ -354,6 +357,61 @@ curl -s -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
 Tests: `ChatDirectoryTests`, `ChatRestartPolicyTests`, `ChatSupervisorTests` (a fake process table), `ChatIdleAndSettingsTests`,
 `ChatTokenHashesTests`, `ChatOwnerSocketTests`, `ChatProfileTests`, `ChatDaemonProfileServeTests` (a plain HTTP/1.1 client
 on the socket, TCP never the human, the parent watch), and `make test-cli-chat` (the whole of it end to end, no VM).
+
+## Importing a chat's history
+
+`doz chat import PATH [--dry-run] [--add-missing] [--replace] [--json]` brings another chat server's history — rooms,
+messages, delivery states, reactions, attachments, member lists, archived rooms, holds, avatars and session links — into
+this store's chat, so a conversation moved here resumes instead of starting empty. PATH is a copy made by that server's
+own copy script (one plain SQLite file per room in journal mode delete, the data folder's JSON files, `files/<id>/<name>`);
+`archived.json`, `holds.json`, `avatars.json` and `sessions.json` are optional.
+
+- **Nothing in the copy is trusted** (`ChatImport.read`). Every path is looked at with lstat: a link anywhere in what is
+  imported refuses the copy; a room file's name follows the room rule, an attachment folder's the id rule (16 or 32
+  lower-case hex), an attachment's name must be its own cleaned form, one regular file of 1 byte to 20 MiB per folder.
+  `secrets.json`, `secrets.lock`, `agents.json` or `tls/` refuse the copy whole — tokens, webhook entries, registered
+  sessions and keys never come across. A `server.lock` a running process holds, or a non-empty `-wal`, refuses it. The
+  JSON files are at most 4 MiB, parsed with `ChatJSON` (a key twice is refused) and written again by it, never copied;
+  `apps.json`, `appicons/` and anything unknown are ignored and listed, never opened.
+- **A room file** is checked before it is copied: its first bytes are SQLite's; it is opened `file:…?mode=ro&immutable=1`
+  with `trusted_schema` off; its schema is exactly the protocol's six tables (`messages` may lack trailing columns),
+  `sqlite_sequence` and the automatic indexes — a trigger, a view, a virtual table, another index, table or column, a
+  hidden or generated column refuses it; `PRAGMA integrity_check` must answer ok; every message's text columns are text,
+  its recipients and mentions lists of names, its attachments objects with a good id and a clean name, its kind `''` or
+  `change`. Then it is copied with `VACUUM INTO` the staging folder (re-hashed: a file that changed meanwhile refuses).
+- **Names are never rewritten.** The person is the sender of the history's human messages (more than one person
+  refuses): it becomes the store's human ("You are ada in chat — the name the history has."), or must be the store's
+  ("names are never rewritten; this store's chat is yours as …" otherwise). Every other name the history uses — members,
+  senders, recipients, states, reactions, avatars, session links; not the senders of change lines, which are shown as
+  they are — must follow the name rule and be a participant already: the import refuses and prints the `doz chat add`
+  commands (the kind from the identity its messages carry, `claude-session` also when it was delivered into a Claude
+  session, `--webhook` when the other server called it by webhook), or `--add-missing` adds them as tokenless
+  participants of that kind with no `deliver` (they keep their rooms, and cannot connect until `doz chat token NAME
+  --new`). A room file with no member list comes across with the person alone in it (listed).
+- **Waking nobody** (on the staged copy, `ChatRoomStore.quietForImport`): every (message, recipient) still waiting
+  (`pending`: queued, or released from the hold) and every unconfirmed hand-over, for anyone but the person, gets a
+  `cancelled` state, "imported: not handed over again"; hand-overs and notices are dropped; held messages stay held (the
+  person's next post releases them, as always). `protocol-version` is this build's, so the first start announces nothing,
+  calls no webhook and hands nothing over. `ChatImportTests` starts a real core on the staged folder: no webhook call to a
+  listener, an empty receive, no change line.
+- **Mechanics.** The daemon does it (`chat-import`, on the daemon's socket only), on the supervisor's queue, refused while
+  chat is on (the setting, a child, or any server holding the data folder: "doz chat off first"). The copy is staged in
+  `<store>/chat/.import-<random>` (0700, files 0600). The store's data folder is never merged, overwritten or deleted: one
+  that holds history (a message not from `chat`, or a file) refuses the import unless `--replace`; then — or when it holds
+  only the first start's own lines — it is renamed to `data.before-import-<UTC>`, and the staged folder renamed into its
+  place. `imported.json` in the chat folder records when, the counts, each room file's SHA-256 and the folder kept aside.
+  Importing the same copy again is refused (history), or with `--replace` gives the same result.
+- **`--dry-run`** runs in-process and writes and starts nothing: rooms with their counts, members, archive and hold, the
+  person, the names missing with the commands to add them, what would be cancelled, what is dropped and ignored, the
+  store's own history, and every problem — exit 0 when the import would go ahead, else the first problem's code (1 the
+  person, 2 missing names, 4 history, 6 chat on). A refused copy is exit 1. `--json` gives the same report; no report
+  holds a token or a secret.
+- **Before importing a real copy:** chat off; the participants the dry run names added first (or `--add-missing`); the
+  person the history names is you (a store that has another name for you is refused).
+- **Tests**: `ChatImportTests` (the reference-built `Fixtures/import1` — made by the workspace's probe
+  `make-import-fixture.py` with the reference server and finished by its own copy script — every row intact, nobody woken,
+  a 16-hex id, the older `room1.db`, and every hostile copy refused with the copy unchanged), `ChatImporterTests` (names,
+  the person, history kept aside, refused while on, a dry run writes nothing), `make test-cli-chat` rows 22–27.
 
 ## What is not there yet
 
