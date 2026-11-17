@@ -19,7 +19,6 @@ TestS1_2_RequireTokensLinePort
 TestS1_3_TokensOff
 TestS2_2_SenderIdentity
 TestS2_4_MessageShape
-TestS3_3_ArchivedAllowedCommands
 TestS3_4_ArchiveUnarchive
 TestS3_4_HoldBadValues
 TestS3_4_HoldHumanForms
@@ -50,6 +49,6 @@ TestS5_1_Paging
 TestS7_5_Unregister
 
 # NOT in the ratchet on purpose (each with its reason; move it up when the reason is gone):
-# TestS3_4_RoomErrors — the reference's /room refusal text ends with an example room name that is a private project's
-#   name, and the runner asserts it byte for byte. Dozable's public source says "such as build-notes" instead; the check
-#   passes again once the reference and the runner use a neutral example.
+# TestS3_4_RoomErrors and TestS3_3_ArchivedAllowedCommands — the reference's /room refusal text ends with an example room name that is a private project's
+#   name, and the runner asserts it byte for byte. Dozable's public source says "such as build-notes" instead; both checks
+#   pass again once the reference and the runner use a neutral example.
