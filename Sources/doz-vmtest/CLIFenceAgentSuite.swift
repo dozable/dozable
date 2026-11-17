@@ -217,15 +217,29 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
 
     // MARK: the bridges, through a real attach (3.12–3.15, 3.17)
     let br = folder("br")
+    // A port nothing listens on now (never a fixed number: something else on this Mac may hold it).
+    let cb: Int = {
+        let s = socket(AF_INET, SOCK_STREAM, 0)
+        defer { close(s) }
+        var a = sockaddr_in()
+        a.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        a.sin_family = sa_family_t(AF_INET)
+        a.sin_addr.s_addr = inet_addr("127.0.0.1")
+        a.sin_port = 0
+        _ = withUnsafePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(s, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }
+        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        _ = withUnsafeMutablePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(s, $0, &len) } }
+        return Int(UInt16(bigEndian: a.sin_port))
+    }()
     put(br + "/doc.md", "# doc")
     put(br + "/tool.sh", "#!/bin/sh\n", mode: 0o755)
     put(br + "/steps.sh", """
     while [ ! -e go1 ]; do sleep 0.2; done
     printf 'HTTP/1.0 200 OK\\r\\n\\r\\nCALLBACK-OK' > cbans.txt
-    ( nc -l 127.0.0.1 8765 < cbans.txt > cb.txt & ) ; sleep 0.5
+    ( nc -l 127.0.0.1 \(cb) < cbans.txt > cb.txt & ) ; sleep 0.5
     open 'https://allowed.example/x?state=SECRET'; echo $? > o1
     $BROWSER 'https://allowed.example/b'; echo $? > o2
-    open 'https://auth.example/authorize?redirect_uri=http%3A%2F%2Flocalhost%3A8765%2Fcb&state=S2'; echo $? > o3
+    open 'https://auth.example/authorize?redirect_uri=http%3A%2F%2Flocalhost%3A\(cb)%2Fcb&state=S2'; echo $? > o3
     open 'https://auth.example/authorize?redirect_uri=http%3A%2F%2Flocalhost%3A9999%2Fcb'; echo $? > o4
     printf '\\033]6340;doz-open;file:///etc/passwd\\007' > /dev/tty
     open 'http://127.0.0.1:5432/'; echo $? > o5
@@ -241,8 +255,8 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
     open 'https://allowed.example/after'; echo $? > o6
     echo step2 > S2
     """)
-    r = run("br", br, ["--local-port", "8765", "--account", "none"])
-    check(r.code == 0, "a fenced session with --local-port 8765 for the bridges")
+    r = run("br", br, ["--local-port", "\(cb)", "--account", "none"])
+    check(r.code == 0, "a fenced session with --local-port \(cb) for the bridges")
     do {
         let c = try PTYClient(t, ["attach", "@mac", "br"])
         defer { c.close() }
@@ -255,7 +269,7 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
               "3.12 open and $BROWSER reach the browser (o2=\(get(br + "/o2").trimmingCharacters(in: .whitespacesAndNewlines)) \(get(br + "/cenv.txt").split(separator: "\n").filter { $0.hasPrefix("BROWSER") }) the seam: \(seam.replacingOccurrences(of: "\n", with: " / ")))")
         check(c.text.contains("(fenced) opened https://allowed.example/x") && !c.text.contains("SECRET"), "3.12 announced — scheme, host, path; never the query")
         check(!hostLog(t).contains("SECRET"), "3.12 the daemon's log never has the query")
-        check(t.waitFor(15) { get(opened).contains("callback 8765") } && !get(opened).contains("callback 8765 refused") && get(br + "/cb.txt").contains("GET /cb"),
+        check(t.waitFor(15) { get(opened).contains("callback \(cb)") } && !get(opened).contains("callback \(cb) refused") && get(br + "/cb.txt").contains("GET /cb"),
               "3.14 a sign-in calling back to an allowed --local-port opens; the browser reaches the program directly (\(get(opened).components(separatedBy: "\n").filter { $0.hasPrefix("callback") }))")
         check(!seam.contains("localhost%3A9999") && c.text.contains("calls back to localhost:9999"), "3.14 a callback to a port it may not listen on: refused BEFORE opening, the flag named (\(c.text.contains("9999")))")
         check(!seam.contains("file:///etc/passwd") && !seam.contains("127.0.0.1:5432"), "3.13 file: and this Mac's loopback are never opened")
