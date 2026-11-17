@@ -169,12 +169,19 @@ manual or completions (`doz chat --help` is complete). A later step shows its ro
   message names.
 - **Who may fetch a file** (`mayFetch`) — stricter than the reference, which serves any id to any caller: a file a
   message names goes only to a member of that message's room who may read it (a direct message: its sender, those it is
-  for, anyone once revealed); a file no message names yet (an upload) goes to whoever has its id. The page's
-  `GET /files/<id>/<name>` is the human's (the access gate serves it to the owner's own machines only); the line port's
-  `file` line is the token's participant, else the name the line gives, else (an owned connection) the human. Anything
-  else is the plain 404 or "no such attachment", the same as an unknown id. A download carries
+  for, anyone once revealed); a file no message names yet (an upload) goes to whoever has its id. On the page's
+  `GET /files/<id>/<name>` the caller is the participant whose token comes as `Authorization: Bearer` (from one of the
+  owner's own callers `X-Chat-Token` too); with no token, the owner's socket or an owned caller is the human. An agent
+  address — loopback under the daemon, where a fenced session or a polling client calls from — is served this one path
+  besides `/agent/`: `GET` or `HEAD` of an exact `/files/<id>/<name>` (nothing a router would tidy) with a Bearer token
+  (`ChatPath.isFilePath`, `ChatPageHandler.isTokenFileFetch`); without one it is 403, and a token that is no one's, or
+  the human's, fetches nothing (404) — an agent address is never the human. The line port's `file` line is the token's
+  participant, else the name the line gives, else (an owned connection) the human. Anything else is the plain 404 or
+  "no such attachment", the same as an unknown id. A download carries `Accept-Ranges: bytes`,
   `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`, and anything but a PNG, JPEG, GIF or WebP is
-  `Content-Disposition: attachment` (HTML and SVG included).
+  `Content-Disposition: attachment` (HTML and SVG included). One byte range (`a-b`, `a-`, `-n`) is 206 with
+  `Content-Range` and the same headers; a start past the end is 416 (`Content-Range: bytes */size`); several ranges, or
+  one that cannot be read, get the whole file. `HEAD` gets GET's headers and length. `ChatFileFetchTests`.
 - **The start of a msg_id** (`/edit ^…`, `/react ^…`, `re_msg_id`, reveal) must be `^[0-9A-Fa-f-]+$` to find a message;
   anything else (empty, `%`, `_`) matches nothing and is returned as given.
 
@@ -284,7 +291,10 @@ CHECKS='TestS1_|TestS9_' make test-chat-conformance   # a subset (the runner's -
 
 The script finds the runner at `$DOZ_CHAT_CONFORMANCE`, else `~/.cache/doz/switchboard-conformance`. Without one it
 prints `conformance: not run (private runner)` and passes, which is what CI and contributors see. It refuses a runner
-whose SHA-256 differs from the pin and hands the runner the ratchet as its `-expect FILE`: it prints the `SUMMARY` and
+whose SHA-256 differs from the pin, and a ratchet that names a check twice or has fewer names than the pin's `minimum`
+(`ConformanceRatchetTests` holds the same in `make test`). It runs the runner with `-no-room-apps` (room apps are not
+here; their calls answer 501, and a change without the human's token is 401 first) and hands it the ratchet as its
+`-expect FILE`: it prints the `SUMMARY` and
 `EXPECT` lines, fails for every ratchet check that is not PASS (`EXPECT-MISSING`, with the runner's first message for
 it), and lists every PASS not yet in the ratchet (`EXPECT-EXTRA`). `CHECKS=` runs a subset as a look only: it prints
 that subset's failures and does not judge the ratchet. The checks of the kept-service

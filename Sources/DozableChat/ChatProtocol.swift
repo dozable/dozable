@@ -15,7 +15,8 @@ public enum ChatProtocol {
     public static let reservedNames = [systemName]
 
     /// What changed most recently. Edit it with the protocol; the version changes by itself.
-    public static let news = "New: the page's two headers are X-Chat-Token and X-Chat-Id (they were X-Switchboard-Token and X-Switchboard-Id; the old names are ignored). Agents never sent them. " +
+    public static let news = "New: a file a message names goes only to someone who may read that message (a member of its room; for a direct message, a party to it, or anyone once it is revealed), and every download is sandboxed (Content-Security-Policy: sandbox) and, unless it is a PNG, JPEG, GIF or WebP picture, an attachment. " +
+        "Earlier: the page's two headers are X-Chat-Token and X-Chat-Id (they were X-Switchboard-Token and X-Switchboard-Id; the old names are ignored). Agents never sent them. " +
         "Earlier: the server's own name is chat: its change lines and notices are from chat (they were from switchboard). " +
         "A token is at least 16 characters; a shorter one is a bad token. " +
         "A participant with its own token and no deliver value may collect its messages with GET /agent/receive and confirm them with POST /agent/ack, as a registered session does; one that is delivered to by webhook cannot also poll (409). " +

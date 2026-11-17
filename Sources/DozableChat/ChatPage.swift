@@ -105,7 +105,11 @@ public struct ChatPageHandler: Sendable {
     public func handle(_ r: ChatHTTPRequest) -> ChatHTTPResponse {
         var out = gate(r)
         out.headers.insert(("Strict-Transport-Security", "max-age=0"), at: 0)
-        if r.method == "HEAD" { out.body = [] }
+        if r.method == "HEAD" {
+            // The same headers as GET, the length of the body GET would send, and no body.
+            if !out.body.isEmpty && out.header("Content-Length") == nil { out.headers.append(("Content-Length", String(out.body.count))) }
+            out.body = []
+        }
         return out
     }
 
@@ -113,6 +117,8 @@ public struct ChatPageHandler: Sendable {
     private func gate(_ r: ChatHTTPRequest) -> ChatHTTPResponse {
         // The owner's socket admitted only this user's processes (`ChatOwnerSocket.admit`): it is the human's own door.
         if r.caller == .owner { return route(r) }
+        // An agent address may also fetch a file, with a participant's token: the download decides who that is.
+        if core.access.isAgentAddress(r.remoteIP), Self.isTokenFileFetch(r) { return route(r) }
         if let refusal = core.access.page(remote: r.remoteIP, agentPath: ChatPath.isAgentPath(rawPath: r.rawPath)) {
             return .error(403, refusal)
         }
@@ -234,7 +240,7 @@ public struct ChatPageHandler: Sendable {
         case "edit", "delete": return change(name, vars["room"] ?? "", vars["id"] ?? "", r)
         case "react": return react(vars["room"] ?? "", r)
         case "upload": return upload(r)
-        case "file": return download(vars["id"] ?? "")
+        case "file": return download(vars["id"] ?? "", r)
         case "app-change":
             // Who may call it is decided now (only the human); what it does comes in a later step.
             if let refusal = pageCaller(r, "changing a room's app") { return refusal }
@@ -353,15 +359,80 @@ public struct ChatPageHandler: Sendable {
         }
     }
 
-    /// A stored file, for the page (the human). Only to a caller that may read a message that names it; never sniffed;
-    /// sandboxed; shown inline only when it is a plain image, otherwise a download. Anything else is the router's 404.
-    private func download(_ id: String) -> ChatHTTPResponse {
-        guard let a = core.storedFile(id), core.mayFetch(id, by: core.human()), let bytes = core.fileBytes(a) else {
+    /// A file fetch an agent address is served: `GET`/`HEAD` of an exact `/files/<id>/<name>` (nothing a router would tidy)
+    /// with `Authorization: Bearer`. Whether the token is anyone's, and whether they may read the file, is the download's.
+    static func isTokenFileFetch(_ r: ChatHTTPRequest) -> Bool {
+        (r.method == "GET" || r.method == "HEAD") && ChatPath.isFilePath(rawPath: r.rawPath) && !bearerToken(r).isEmpty
+    }
+
+    /// The token of `Authorization: Bearer <token>`, trimmed; "" when there is none.
+    static func bearerToken(_ r: ChatHTTPRequest) -> String {
+        let auth = r.header("Authorization")
+        guard auth.hasPrefix("Bearer ") else { return "" }
+        return ChatServerCore.trimSpace(String(auth.dropFirst(7)))
+    }
+
+    /// Who fetches a file on the page port. A participant's token (`Authorization: Bearer`; from one of the owner's own
+    /// callers also `X-Chat-Token`) makes that participant the caller. Without one, the owner's socket or an owned caller
+    /// is the human. An agent address is never the human: it needs a token, and a token that is no one's — or the
+    /// human's — fetches nothing (nil: the plain 404, never "treat it as the human").
+    func fileCaller(_ r: ChatHTTPRequest) -> String? {
+        let agentOnly = r.caller == .tcp && core.access.isAgentAddress(r.remoteIP)
+        let bearer = Self.bearerToken(r)
+        if !bearer.isEmpty {
+            guard let who = core.whoHolds(bearer) else { return nil }
+            return agentOnly && core.isHuman(who) ? nil : who
+        }
+        if agentOnly { return nil }
+        let other = r.header(Self.tokenHeader)
+        if !other.isEmpty, let who = core.whoHas(other) { return who }
+        return core.human()
+    }
+
+    /// A stored file. Only to a caller that may read a message that names it; never sniffed; sandboxed; shown inline
+    /// only when it is a plain image, otherwise a download. One byte range (`a-b`, `a-`, `-n`) is answered 206; a start
+    /// past the end 416; several ranges, or one that cannot be read, the whole file (as the RFC allows). Anything else
+    /// is the router's 404.
+    private func download(_ id: String, _ r: ChatHTTPRequest) -> ChatHTTPResponse {
+        guard let who = fileCaller(r), !who.isEmpty, let a = core.storedFile(id), core.mayFetch(id, by: who), let bytes = core.fileBytes(a) else {
             return .error(404, "404 page not found")
         }
-        var headers = [("Content-Type", a.type), ("X-Content-Type-Options", "nosniff"), ("Content-Security-Policy", "sandbox")]
+        var headers = [("Accept-Ranges", "bytes"), ("Content-Type", a.type), ("X-Content-Type-Options", "nosniff"), ("Content-Security-Policy", "sandbox")]
         if !ChatFileRules.isInlineImage(a.type) { headers.append(("Content-Disposition", "attachment; filename=\(goQuote(a.name))")) }
-        return ChatHTTPResponse(status: 200, headers: headers, body: bytes)
+        switch Self.byteRange(r.header("Range"), size: bytes.count) {
+        case .whole:
+            return ChatHTTPResponse(status: 200, headers: headers, body: bytes)
+        case .part(let lo, let hi):
+            headers.append(("Content-Range", "bytes \(lo)-\(hi)/\(bytes.count)"))
+            return ChatHTTPResponse(status: 206, headers: headers, body: Array(bytes[lo...hi]))
+        case .unsatisfiable:
+            return ChatHTTPResponse(status: 416, headers: [("Content-Range", "bytes */\(bytes.count)"), ("Content-Type", "text/plain; charset=utf-8"),
+                                                           ("X-Content-Type-Options", "nosniff"), ("Content-Security-Policy", "sandbox")],
+                                    body: Array("invalid range: failed to overlap\n".utf8))
+        }
+    }
+
+    enum ByteRange: Equatable { case whole, part(Int, Int), unsatisfiable }
+
+    /// One `Range: bytes=…` header read against a file of `size` bytes.
+    static func byteRange(_ header: String, size: Int) -> ByteRange {
+        let h = header.trimmingCharacters(in: .whitespaces)
+        guard h.hasPrefix("bytes=") else { return .whole }
+        let spec = String(h.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+        guard !spec.contains(","), let dash = spec.firstIndex(of: "-") else { return .whole }
+        let first = spec[..<dash].trimmingCharacters(in: .whitespaces), last = spec[spec.index(after: dash)...].trimmingCharacters(in: .whitespaces)
+        func num(_ s: String) -> Int? { s.isEmpty || !s.allSatisfy(\.isASCII) || !s.allSatisfy(\.isNumber) ? nil : Int(s) }
+        if first.isEmpty {   // the last n bytes
+            guard let n = num(last) else { return .whole }
+            if n == 0 { return .unsatisfiable }
+            if size == 0 { return .unsatisfiable }
+            return .part(max(0, size - n), size - 1)
+        }
+        guard let lo = num(first) else { return .whole }
+        if lo >= size { return .unsatisfiable }
+        if last.isEmpty { return .part(lo, size - 1) }
+        guard let hi = num(last), hi >= lo else { return .whole }
+        return .part(lo, min(hi, size - 1))
     }
 
     /// Who makes a page call that changes something: the human. nil serves it; otherwise the 401 answer.

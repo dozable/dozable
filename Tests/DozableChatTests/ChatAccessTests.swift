@@ -114,9 +114,9 @@ final class ChatAccessTests: XCTestCase {
     }
 
     /// The served protocol text is the reference's, byte for byte, so both servers announce the same version
-    /// (the reference's 0.12.1). A change here is a protocol change agents are told about.
+    /// (the reference's 0.13.2). A change here is a protocol change agents are told about.
     func testTheProtocolVersionIsTheReferences() {
-        XCTAssertEqual(ChatProtocol.version, "c0abf7528c")
+        XCTAssertEqual(ChatProtocol.version, "da04ef349a")
     }
 
     func testThePageHandlerAppliesTheRulesAndTheHeader() throws {

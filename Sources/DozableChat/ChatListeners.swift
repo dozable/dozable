@@ -252,7 +252,9 @@ public final class ChatListeners: @unchecked Sendable {
                               to out: NIOAsyncChannelOutboundWriter<HTTPServerResponsePart>) async throws {
         var headers = HTTPHeaders()
         for (k, v) in res.headers { headers.add(name: k, value: v) }
-        if !(res.status == 204 || res.status == 304) { headers.replaceOrAdd(name: "Content-Length", value: String(res.body.count)) }
+        // A HEAD answer carries the length GET would send (set by the handler) and no body.
+        let headLength = req.method == .HEAD && res.body.isEmpty && res.header("Content-Length") != nil
+        if !(res.status == 204 || res.status == 304) && !headLength { headers.replaceOrAdd(name: "Content-Length", value: String(res.body.count)) }
         headers.replaceOrAdd(name: "Date", value: httpDate())
         if !keepAlive { headers.replaceOrAdd(name: "Connection", value: "close") } else if req.version.minor == 0 {
             headers.replaceOrAdd(name: "Connection", value: "keep-alive")

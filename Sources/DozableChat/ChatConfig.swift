@@ -317,6 +317,18 @@ public enum ChatPath {
         return decoded.hasPrefix("/agent/") && rawPath.hasPrefix("/agent/") && clean(decoded) == decoded && !decoded.contains("//")
     }
 
+    /// Whether a request is, exactly as it would be routed, `/files/<id>/<name>`: the id 16 or 32 lower-case hex digits, a
+    /// name, and nothing a router would clean or redirect.
+    public static func isFilePath(rawPath: String) -> Bool {
+        guard rawPath.hasPrefix("/files/"), let decoded = percentDecoded(rawPath), decoded.hasPrefix("/files/") else { return false }
+        guard clean(decoded) == decoded, !decoded.contains("//") else { return false }
+        let parts = decoded.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 4, parts[0].isEmpty, parts[1] == "files" else { return false }
+        let id = parts[2], name = parts[3]
+        guard id.count == 16 || id.count == 32, id.utf8.allSatisfy({ (0x30...0x39).contains($0) || (0x61...0x66).contains($0) }) else { return false }
+        return !name.isEmpty && name != "." && name != ".."
+    }
+
     /// The path with %XX decoded; nil when an escape is malformed.
     public static func percentDecoded(_ s: String) -> String? {
         guard s.contains("%") else { return s }
