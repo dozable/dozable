@@ -229,6 +229,31 @@ final class ChatDaemonProfileServeTests: XCTestCase {
         XCTAssertFalse(line.contains(#""state":"queued""#), line)
     }
 
+    /// An answer larger than a Unix socket's buffer (8 KiB) arrives WHOLE, every time: the connection is closed only
+    /// after the answer has reached the socket. (It was cut short about one time in six.)
+    func testALargeAnswerOnTheOwnersSocketIsNeverCutShort() throws {
+        _ = try launch()
+        XCTAssertTrue(waitReady(), "ready")
+        let filler = String(repeating: "x", count: 900)
+        for i in 0..<24 {
+            let body = #"{"content":"message \#(i) \#(filler)"}"#
+            let sent = unix("POST /api/rooms/general/messages HTTP/1.1\r\nHost: chat\r\nContent-Type: application/json\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)")
+            XCTAssertTrue(sent.hasPrefix("HTTP/1.1 200"), String(sent.prefix(120)))
+        }
+        var cut = 0
+        var size = 0
+        for _ in 0..<60 {
+            let answer = unix("GET /api/rooms/general/messages?limit=24 HTTP/1.0\r\nHost: chat\r\n\r\n")
+            guard let split = answer.range(of: "\r\n\r\n"),
+                  let line = answer[..<split.lowerBound].components(separatedBy: "\r\n").first(where: { $0.lowercased().hasPrefix("content-length:") }),
+                  let want = Int(line.split(separator: ":")[1].trimmingCharacters(in: .whitespaces)) else { cut += 1; continue }
+            size = want
+            if answer[split.upperBound...].utf8.count != want { cut += 1 }
+        }
+        XCTAssertGreaterThan(size, 16 * 1024, "the answer is larger than the socket's buffer")
+        XCTAssertEqual(cut, 0, "every one of 60 answers arrived whole")
+    }
+
     func testTheServerExitsWhenItsParentIsKilled() throws {
         let iso = ChatProfileTests.production(chat + "/data")
         try Data(iso.utf8).write(to: URL(fileURLWithPath: chat + "/config.json"))

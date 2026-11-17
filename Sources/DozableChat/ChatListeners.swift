@@ -331,15 +331,19 @@ public final class ChatListeners: @unchecked Sendable {
                         return
                     }
                     let keepAlive = h.isKeepAlive && !tooLarge
-                    try await Self.write(res, for: h, keepAlive: keepAlive, to: outbound)
+                    try await Self.write(res, for: h, keepAlive: keepAlive, on: a.channel.channel)
                     if !keepAlive { return }
                 }
             }
         }
     }
 
-    private static func write(_ res: ChatHTTPResponse, for req: HTTPRequestHead, keepAlive: Bool,
-                              to out: NIOAsyncChannelOutboundWriter<HTTPServerResponsePart>) async throws {
+    /// One whole answer, and it has REACHED THE SOCKET when this returns. It is written on the channel itself and the
+    /// last part's write is waited for: the connection is closed straight after an answer that is not kept alive, and
+    /// a close drops what is still waiting to be written — an answer larger than the socket's buffer (8 KiB on a Unix
+    /// socket) was cut short about one time in six when the parts went through the async writer, which only hands
+    /// them over.
+    private static func write(_ res: ChatHTTPResponse, for req: HTTPRequestHead, keepAlive: Bool, on channel: Channel) async throws {
         var headers = HTTPHeaders()
         for (k, v) in res.headers { headers.add(name: k, value: v) }
         // A HEAD answer carries the length GET would send (set by the handler) and no body.
@@ -349,9 +353,10 @@ public final class ChatListeners: @unchecked Sendable {
         if !keepAlive { headers.replaceOrAdd(name: "Connection", value: "close") } else if req.version.minor == 0 {
             headers.replaceOrAdd(name: "Connection", value: "keep-alive")
         }
-        try await out.write(.head(HTTPResponseHead(version: req.version, status: HTTPResponseStatus(statusCode: res.status), headers: headers)))
-        if !res.body.isEmpty { try await out.write(.body(.byteBuffer(ByteBuffer(bytes: res.body)))) }
-        try await out.write(.end(nil))
+        channel.write(HTTPServerResponsePart.head(HTTPResponseHead(version: req.version, status: HTTPResponseStatus(statusCode: res.status), headers: headers)),
+                      promise: nil)
+        if !res.body.isEmpty { channel.write(HTTPServerResponsePart.body(.byteBuffer(ByteBuffer(bytes: res.body))), promise: nil) }
+        try await channel.writeAndFlush(HTTPServerResponsePart.end(nil)).get()
     }
 
     /// The live stream: the head (no length: the body is chunked), the hello, then every event as it comes; a stream
