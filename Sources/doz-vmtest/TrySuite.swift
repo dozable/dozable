@@ -176,13 +176,13 @@ func cliTrySuite(binary: String) async {
     // 6. 634 — the easy delete is every sandbox's: a `doz new`-style sandbox whose folder Dozable made loses it with
     //    `doz rm` while empty; one whose folder was there keeps it.
     let made6 = projects + "/plain-six"
-    let c6 = t.run(["create", "plain-six", "--image", "lab", "--memory", "384M", "--workspace", made6])
+    let c6 = t.run(["create", "plain-six", "--image", "lab", "--memory", "384M", "--folder", made6])
     check(c6.code == 0 && t.row("plain-six")?.createdFolder.map(resolved) == resolved(made6), "6: create with a new folder records it (\(t.row("plain-six")?.createdFolder ?? "none"))")
     let rm6 = t.run(["rm", "plain-six", "--yes"], timeout: 300)
     check(rm6.code == 0 && !fm.fileExists(atPath: made6), "6: doz rm removed its empty folder too (\(rm6.out.trimmingCharacters(in: .whitespacesAndNewlines)))")
     let kept6 = projects + "/plain-seven"
     try? fm.createDirectory(atPath: kept6, withIntermediateDirectories: true)
-    let c7 = t.run(["create", "plain-seven", "--image", "lab", "--memory", "384M", "--workspace", kept6])
+    let c7 = t.run(["create", "plain-seven", "--image", "lab", "--memory", "384M", "--folder", kept6])
     check(c7.code == 0 && t.row("plain-seven")?.createdFolder == nil, "6: a folder that was there is not Dozable's")
     check(t.run(["rm", "plain-seven", "--yes"], timeout: 300).code == 0 && fm.fileExists(atPath: kept6), "6: doz rm keeps a folder that was there")
 }

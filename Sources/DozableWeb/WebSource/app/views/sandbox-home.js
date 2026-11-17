@@ -277,12 +277,12 @@ export function soundLine(name, i) {
 function paintFolder(home, i) {
   const facts = [];
   const fact = (k, val) => facts.push(h('dt', null, k), h('dd', null, val));
-  if (i.workspace) {
-    fact('On this Mac', h('code', null, tildePath(i.workspace)));
+  if (i.folder) {
+    fact('On this Mac', h('code', null, tildePath(i.folder)));
     fact('In the sandbox', [h('code', null, '/workspace'), ' — live, both ways']);
     fact('Files it opens', setting('sandbox.open_files', true) ? 'open on this Mac — an .html page in your browser, with a notice (sandbox.open_files: on)'
       : 'not opened on this Mac (sandbox.open_files: off)');
-    fact('Workspace rules', i.workspaceRules || 'none — the folder is shared as is');
+    fact('Folder rules', i.folderRules || 'none — the folder is shared as is');
   } else {
     fact('Folder', 'isolated — no folder of this Mac is shared');
   }

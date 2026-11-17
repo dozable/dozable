@@ -170,6 +170,10 @@ struct Doctor: AsyncParsableCommand {
         }
         // 594 W28: an agent image an older doz made, or a newer agent release — said, never rebuilt by itself.
         let settings = DozableSettings.load()
+        // 0.51: a doz.toml line under a name renamed for the folder is not read.
+        if !settings.renamedLines.isEmpty {
+            out.append(DoctorCheck(check: "settings", status: .warn, detail: settings.renamedLines.joined(separator: "; ")))
+        }
         for image in ["claude-code", "pi", "codex"] {
             let s = AgentVersions.standing(image, store: store, settings: settings)
             guard s.version != nil else { continue }
@@ -195,6 +199,10 @@ struct Doctor: AsyncParsableCommand {
                 detail += ", \(st.version), \(st.liveSandboxes.count) running, "
                     + (st.alwaysOn == true ? "always on" : st.idleTimeoutMinutes > 0 ? "idle timeout \(st.idleTimeoutMinutes.formatted()) min" : "never exits by itself")
                 if st.version != DozableCommand.version { status = .warn; detail += " — this CLI is \(DozableCommand.version): doz daemon stop" }
+                // 700: always-on off with the timeout 0 — it never switches off by idling.
+                if let alwaysOn = st.alwaysOn, let w = DozableSettings.daemonIdleWarning(alwaysOn: alwaysOn, idleTimeoutMinutes: st.idleTimeoutMinutes) {
+                    status = .warn; detail += " — " + w
+                }
                 // 593: a host never lives in a client's process tree (stopping that tree killed one mid-save).
                 if let pp = st.parentPid {
                     if pp == 1 {
@@ -226,12 +234,12 @@ struct Doctor: AsyncParsableCommand {
             }
             out.append(DoctorCheck(check: "daemon", status: status, detail: detail))
             if let hostPriority { out.append(hostPriority) }
-            // 608: a sandbox whose live view of its workspace could not start is shared directly — say so.
+            // 608: a sandbox whose live view of its folder could not start is shared directly — say so.
             var ls = HostRequest(.ls); ls.withSessions = false
             if let m = try? HostClient.request(ls, store: store, autostart: false), let rows = try? m.result?.decode([SandboxInfo].self) {
-                let fb = rows.filter { $0.workspaceView == "fallback" }.map(\.name)
+                let fb = rows.filter { $0.folderView == "fallback" }.map(\.name)
                 if !fb.isEmpty {
-                    out.append(DoctorCheck(check: "workspace view", status: .warn,
+                    out.append(DoctorCheck(check: "folder view", status: .warn,
                                            detail: "\(fb.joined(separator: ", ")): the live view of /workspace could not start, so the folder is shared directly — a program working there loses its folder at a wake from hibernation. The sandbox's boot log says why; a restart (doz shutdown + start) tries again"))
                 }
             }

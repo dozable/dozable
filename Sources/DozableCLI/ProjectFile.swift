@@ -70,6 +70,7 @@ extension DozableProject {
             guard case .scalar(let ks) = k else { throw bad(k, "a key is a plain name") }
             let key = ks.string
             guard keys.contains(where: { $0.key == key }) else {
+                if let new = RenamedNames.projectKeys[key] { throw bad(k, "unknown key \(key) — it was renamed \(new)") }
                 throw bad(k, "unknown key \(key) — the keys are \(keys.map(\.key).joined(separator: ", "))")
             }
             guard seen.insert(key).inserted else { throw bad(k, "\(key) is given twice") }

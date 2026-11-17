@@ -207,7 +207,7 @@ func cliDaemonSuite(binary: String) async {
     locked.run(["daemon", "start"], timeout: 60)
     setLoaded(saved)
     let lockedPid2 = status()?.pid
-    r = locked.run(["run", "@mac", "-d", "--fenced", "--session", "lk", "--workdir", base.appendingPathComponent("w").path, "--", "/bin/sleep", "300"], timeout: 90)
+    r = locked.run(["run", "@mac", "-d", "--fenced", "--session", "lk", "--folder", base.appendingPathComponent("w").path, "--", "/bin/sleep", "300"], timeout: 90)
     if r.code == 0 { fenced.append("lk") }
     st = status()
     if r.code == 0, st?.fencedSessions?.contains("lk") == true {

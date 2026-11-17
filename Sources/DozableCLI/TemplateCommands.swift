@@ -75,7 +75,7 @@ struct TemplateRemove: AsyncParsableCommand {
 
 struct Duplicate: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "duplicate",
-        abstract: "A new sandbox from an existing one's disk (or a restore point), with a new workspace, CPUs, memory, network or account.",
+        abstract: "A new sandbox from an existing one's disk (or a restore point), with a new folder, CPUs, memory, network or account.",
         discussion: """
         The root disk is an APFS clone. The state disk (the agent's logins and history) starts FRESH unless --copy-state. \
         Keys are not copied. A live sandbox pauses for the clone (milliseconds). The new sandbox is off: doz start NEW.
@@ -84,8 +84,8 @@ struct Duplicate: AsyncParsableCommand {
     @Argument(help: "The sandbox to duplicate.") var name: String
     @Argument(help: "The new sandbox's name.") var newName: String
     @Option(name: .customLong("from-point"), help: "A restore point (name or id) instead of the current disk.") var point: String?
-    @Option(name: .long, help: "A folder on this Mac shared at /workspace (made when it does not exist).") var workspace: String?
-    @Flag(name: .long, help: "Share no folder (drop the source's workspace): the new sandbox is isolated.") var isolated = false
+    @Option(name: .long, help: "A folder on this Mac shared at /workspace (made when it does not exist).") var folder: String?
+    @Flag(name: .long, help: "Share no folder (drop the source's folder): the new sandbox is isolated.") var isolated = false
     @Option(name: .long) var cpus: Int?
     @Option(name: .long, help: "e.g. 2G, 1536M.") var memory: String?
     @Option(name: .long, help: "agent, bake, locked, open (proxied), nat or none (default: the source's, its policy included).") var network: String?
@@ -93,12 +93,12 @@ struct Duplicate: AsyncParsableCommand {
     @Flag(name: .customLong("copy-state"), help: "Copy the agent's state disk too (its logins and history). Default: a fresh one.") var copyState = false
 
     func run() async throws {
-        if isolated && workspace != nil { throw fail(HostError(.invalid, "--isolated or --workspace, not both"), g) }
-        let ws = workspace.map { w -> String in
+        if isolated && folder != nil { throw fail(HostError(.invalid, "--isolated or --folder, not both"), g) }
+        let ws = folder.map { w -> String in
             let e = (w as NSString).expandingTildeInPath
             return e.hasPrefix("/") ? e : URL(fileURLWithPath: e, relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)).standardizedFileURL.path
         }
-        var o = DuplicateOptions(workspace: ws, cpus: cpus, network: network, account: account, copyState: copyState ? true : nil)
+        var o = DuplicateOptions(folder: ws, cpus: cpus, network: network, account: account, copyState: copyState ? true : nil)
         o.isolated = isolated ? true : nil
         if let m = memory {
             guard let mib = DozableImages.parseMemory(m) else { throw fail(HostError(.invalid, "--memory: say e.g. 2G or 1536M"), g) }
@@ -111,7 +111,7 @@ struct Duplicate: AsyncParsableCommand {
         let i = try decode(try call(r, g), SandboxInfo.self, g)
         if g.json { Out.json(i); return }
         Out.stdout("duplicated \(name)\(point.map { " (restore point \($0))" } ?? "") as \(i.name) — state disk \(copyState ? "copied" : "fresh")"
-                   + (i.workspace == nil ? " — isolated" : "") + " — doz start \(i.name)\n")
-        noteWorkspace(i, isolatedAsked: isolated, g)
+                   + (i.folder == nil ? " — isolated" : "") + " — doz start \(i.name)\n")
+        noteFolder(i, isolatedAsked: isolated, g)
     }
 }

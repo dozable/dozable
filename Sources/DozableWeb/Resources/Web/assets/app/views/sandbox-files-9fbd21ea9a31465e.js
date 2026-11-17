@@ -55,17 +55,17 @@ export function filesPanel(name, d) {
   const P = panelOf(name);
   const i = d.info;
   const was = P.info;
-  P.info = { workspace: i.workspace || null, phase: i.phase, busy: !!(i.busy || i.phase === 'booting') };
+  P.info = { folder: i.folder || null, phase: i.phase, busy: !!(i.busy || i.phase === 'booting') };
   const runs = (x) => x && x.phase === 'running' && !x.busy;
   // An isolated sandbox that came to run (or stopped): what was listed is not what is there now.
-  if (!P.info.workspace && was && runs(was) !== runs(P.info)) { P.lists.clear(); P.loaded = false; }
+  if (!P.info.folder && was && runs(was) !== runs(P.info)) { P.lists.clear(); P.loaded = false; }
   render(P);
   return P.el;
 }
 
-function shared(P) { return !!(P.info && P.info.workspace); }
+function shared(P) { return !!(P.info && P.info.folder); }
 function running(P) { return !!(P.info && P.info.phase === 'running' && !P.info.busy); }
-/// What a change needs: a shared workspace (any phase) or a running isolated sandbox.
+/// What a change needs: a shared folder (any phase) or a running isolated sandbox.
 function changeWhy(P) {
   if (shared(P)) return null;
   if (!P.info || P.info.phase !== 'running') return 'Its files are inside it — changed while it runs';
@@ -286,7 +286,7 @@ function render(P) {
   const dir = folderOfSelection(P);
   const canList = shared(P) || running(P);
   const dirState = dir && P.lists.get(parentOf(dir)) && (P.lists.get(parentOf(dir)).entries || []).find((x) => x.name === nameOf(dir));
-  const noNew = why || (dirState && dirState.state ? 'That folder is ' + dirState.state + ' by the workspace rules' : null);
+  const noNew = why || (dirState && dirState.state ? 'That folder is ' + dirState.state + ' by the folder rules' : null);
   const newFile = btn('New file…', () => newItem(P, 'file', dir), { small: true, quiet: true, iconOnly: true, icon: 'file-plus', title: noNew || 'New file in ' + guest(dir) });
   const newFolder = btn('New folder…', () => newItem(P, 'folder', dir), { small: true, quiet: true, iconOnly: true, icon: 'folder-plus', title: noNew || 'New folder in ' + guest(dir) });
   const refresh = btn('Refresh', () => { relistAll(P); }, { small: true, quiet: true, iconOnly: true, icon: 'refresh-cw', title: 'List the open folders again' });
@@ -306,7 +306,7 @@ function render(P) {
   const root = P.lists.get('');
   const rules = [...P.lists.values()].some((l) => l.rules);
   parts.push(h('p', { class: 'files-note', 'data-files-note': '' },
-    shared(P) ? ['Shared from ', h('code', null, tildePath(P.info.workspace)), ' — changes show as they happen.' + (rules ? ' Workspace rules apply: locked and read-only items are not changed here.' : '')]
+    shared(P) ? ['Shared from ', h('code', null, tildePath(P.info.folder)), ' — changes show as they happen.' + (rules ? ' Folder rules apply: locked and read-only items are not changed here.' : '')]
       : 'Inside the sandbox — Refresh shows changes made since.'));
   if (!root) { parts.push(h('div', { class: 'fmsg' }, P.loading ? 'Listing…' : '')); P.el.replaceChildren(...parts); return; }
   if (root.error) {
@@ -346,7 +346,7 @@ function rows(P, dir, depth, out) {
 /// Why this entry cannot be changed here (null: it can).
 function lockedWhy(P, rel, e) {
   if (rel === '') return '/workspace itself is never changed';
-  return changeWhy(P) || (e.state === 'locked' ? 'Locked by the workspace rules' : e.state === 'read-only' ? 'Read-only by the workspace rules'
+  return changeWhy(P) || (e.state === 'locked' ? 'Locked by the folder rules' : e.state === 'read-only' ? 'Read-only by the folder rules'
     : e.altered ? 'Its name has characters that cannot be shown — change it inside the sandbox' : null);
 }
 function row(P, rel, e, depth) {
@@ -399,8 +399,8 @@ function rowMenu(P, rel, e, why) {
   const mac = shared(P) && !isRemote();
   const items = [];
   if (isFolder) {
-    items.push({ label: 'New file here…', icon: 'file-plus', disabled: !!changeWhy(P) || e.state === 'read-only', why: changeWhy(P) || 'Read-only by the workspace rules', onSelect: () => newItem(P, 'file', rel) });
-    items.push({ label: 'New folder here…', icon: 'folder-plus', disabled: !!changeWhy(P) || e.state === 'read-only', why: changeWhy(P) || 'Read-only by the workspace rules', onSelect: () => newItem(P, 'folder', rel) });
+    items.push({ label: 'New file here…', icon: 'file-plus', disabled: !!changeWhy(P) || e.state === 'read-only', why: changeWhy(P) || 'Read-only by the folder rules', onSelect: () => newItem(P, 'file', rel) });
+    items.push({ label: 'New folder here…', icon: 'folder-plus', disabled: !!changeWhy(P) || e.state === 'read-only', why: changeWhy(P) || 'Read-only by the folder rules', onSelect: () => newItem(P, 'folder', rel) });
     items.push({ sep: true });
   }
   if (mac && e.state !== 'locked') {

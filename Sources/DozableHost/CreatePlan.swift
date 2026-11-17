@@ -111,7 +111,7 @@ public struct CreatePlan: Codable, Equatable, Sendable {
     public var name: String
     public var image: String
     /// The Mac folder at /workspace; nil: isolated.
-    public var workspace: String?
+    public var folder: String?
     /// `doz try grok --base alpine` — only what differs from the defaults.
     public var command: String
     public var argv: [String]
@@ -297,33 +297,33 @@ public enum CreatePlanner {
             }
         } else if isTry, let a = choice?.agent {
             // 634 (orchestrator's ruling B): the First sandbox is named after its tool, without the try- prefix.
-            name = tryName(agent: a, taken: f.taken, projects: r.create.workspace == nil && r.create.isolated != true ? projects : nil,
+            name = tryName(agent: a, taken: f.taken, projects: r.create.folder == nil && r.create.isolated != true ? projects : nil,
                            prefix: isFirst ? "" : "try-")
         } else {
             name = Workspace.suggestedName(image: image, taken: f.taken, projects: r.purpose == "new" ? projects : nil)
         }
 
-        // The workspace: `doz new` makes `<projects_dir>/<name>` unless isolated or given.
-        if r.purpose == "new" || isTry, o.workspace == nil, o.isolated != true {
-            o.workspace = (projects as NSString).appendingPathComponent(name)
+        // The folder: `doz new` makes `<projects_dir>/<name>` unless isolated or given.
+        if r.purpose == "new" || isTry, o.folder == nil, o.isolated != true {
+            o.folder = (projects as NSString).appendingPathComponent(name)
             if isTry {
-                let w = o.workspace!
+                let w = o.folder!
                 if !Workspace.isEmptyOrMissing(w) {
                     problems.append(PlanProblem(code: "name", text: "\(w) is there and not empty — \(isFirst ? "its" : "a try's") folder is always a new empty one unless you give one",
-                                                fix: isFirst ? "another name, or a project folder" : "--isolated, or --workspace DIR"))
+                                                fix: isFirst ? "another name, or a project folder" : "--isolated, or --folder DIR"))
                 }
             }
         }
         // A folder Dozable would refuse to make or share (inside the store, a system location, a file): said by the plan,
         // before a try asks for a key — never after.
-        if let w = o.workspace, let path = try? Workspace.normalize(w), let why = Workspace.refusal(path, store: f.store) {
-            problems.append(PlanProblem(code: "invalid", text: why, fix: isTry || r.purpose == "new" ? "--isolated, or --workspace DIR" : nil))
+        if let w = o.folder, let path = try? Workspace.normalize(w), let why = Workspace.refusal(path, store: f.store) {
+            problems.append(PlanProblem(code: "invalid", text: why, fix: isTry || r.purpose == "new" ? "--isolated, or --folder DIR" : nil))
         }
-        let isolated = o.workspace == nil
+        let isolated = o.folder == nil
 
         // The policy the proxy will judge with — the create's own function, without the folder (it may not exist yet).
         var specOptions = o
-        specOptions.workspace = nil
+        specOptions.folder = nil
         var policy: NetworkPolicy?
         var specVersion: String?        // 618: the release the create installs
         var networkMode: NetworkMode?
@@ -445,8 +445,8 @@ public enum CreatePlanner {
         let state = row?.baked != true ? "unprepared" : (row?.olderRecipe == nil && row?.current != false ? "prepared" : "older")
         let imageState = PlanImage(name: image, title: choice?.title, state: state)
 
-        let newFolder = (r.purpose == "new" || isTry) && r.create.workspace == nil && o.workspace.map(Workspace.isEmptyOrMissing) == true
-        var reach = Self.reach(networkMode, policy: policy, workspace: o.workspace, account: account, keys: o.keys ?? [], accounts: f.accounts,
+        let newFolder = (r.purpose == "new" || isTry) && r.create.folder == nil && o.folder.map(Workspace.isEmptyOrMissing) == true
+        var reach = Self.reach(networkMode, policy: policy, workspace: o.folder, account: account, keys: o.keys ?? [], accounts: f.accounts,
                                newFolder: newFolder, settings: f.settings,
                                bridgeSettings: o.settings, agent: choice?.agent)
         if let m = planModel {
@@ -481,7 +481,7 @@ public enum CreatePlanner {
         var argv = Self.argv(purpose: r.purpose, name: isFirst ? name : r.name, options: o, given: r.create, choice: choice, settings: f.settings)
         if r.purpose == "try" { argv += (r.tryFlags ?? []).filter { PlanRequest.tryFlagWords.contains($0) } }
         let (yaml, note) = Self.yaml(name: name, options: o, choice: choice, isolated: isolated)
-        var plan = CreatePlan(purpose: r.purpose, name: name, image: image, workspace: o.workspace, command: Self.shellLine(argv),
+        var plan = CreatePlan(purpose: r.purpose, name: name, image: image, folder: o.folder, command: Self.shellLine(argv),
                               argv: argv, yaml: yaml, yamlNote: note, reach: reach, imageState: imageState, account: account,
                               problems: problems, create: o)
         plan.model = planModel
@@ -540,7 +540,7 @@ public enum CreatePlanner {
         }
         if let d = o.dockerfile { a += ["--dockerfile", d] }
         // The folder: as given (`doz new`'s own `<projects_dir>/<name>` and a try's isolation are defaults).
-        if let w = given.workspace { a += ["--workspace", w] }
+        if let w = given.folder { a += ["--folder", w] }
         if given.isolated == true { a.append("--isolated") }
         if let c = o.cpus { a += ["--cpus", String(c)] }
         if let m = o.memoryMiB { a += ["--memory", m % 1024 == 0 ? "\(m / 1024)G" : "\(m)M"] }
@@ -569,7 +569,7 @@ public enum CreatePlanner {
     static let settingFlags: [(String, String)] = [
         (SettingKey.clipboard, "--clipboard"), (SettingKey.browserBridge, "--browser-bridge"), (SettingKey.openFiles, "--open-files"),
         (SettingKey.sshAgent, "--ssh-agent"), (SettingKey.tmux, "--tmux"), (SettingKey.ignoreMode, "--ignore-mode"),
-        (SettingKey.workspaceView, "--workspace-view"),
+        (SettingKey.workspaceView, "--folder-view"),
         (SettingKey.sandboxApprovals, "--approvals"),             // 669
     ]
 

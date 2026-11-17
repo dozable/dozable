@@ -480,6 +480,12 @@ public final class HostServer: @unchecked Sendable {
             finished(conn)
             return
         }
+        // The streaming operations below bypass `HostCore.handle`: the protocol's range is checked here too.
+        if let refused = HostProtocol.refusal(req) {
+            conn.send(.failure(refused))
+            finished(conn)
+            return
+        }
         switch req.op {
         case .attach:
             attach(conn, reader: reader, request: req)

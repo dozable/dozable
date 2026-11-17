@@ -395,6 +395,9 @@ public struct SettingRow: Codable, Equatable, Sendable {
     /// 674: `agent.history` and a recipe's `history` — what each value does in each agent (file, key, value; or nothing,
     /// or not known), with the vendor's source.
     public var history: [HistoryMapping]? = nil
+    /// 700: `daemon.always_on` and `daemon.idle_timeout_minutes` — the warning when the two together mean the daemon never
+    /// switches off by idling (the same sentence under both rows; nil otherwise and on every other row).
+    public var warning: String? = nil
 }
 
 public struct SettingsReport: Codable, Equatable, Sendable {
@@ -471,17 +474,18 @@ public enum SettingKey {
     public static let tmux = "sessions.tmux"
     /// 599b: the file bridge — a /workspace document opened on the Mac — `on` or `off`.
     public static let openFiles = "sandbox.open_files"
-    /// 599b: the apps a sandbox may name to open a workspace file in (`doz-open --app NAME`).
+    /// 599b: the apps a sandbox may name to open a file of its folder in (`doz-open --app NAME`).
     public static let openApps = "bridges.open_apps"
     /// 599d: where "Use GitHub as you" gets the user's token — `gh` (the Mac's gh login), `key` (only a
     /// token given with `doz key set NAME --github`), `off`.
     public static let githubCredentials = "github.credentials"
     /// 599d (G4): forward the Mac's SSH agent into the sandbox — `off` or `on` (per sandbox).
     public static let sshAgent = "sandbox.ssh_agent"
-    /// 599g: what a workspace's `.dozignore` does to the paths it selects — `lock` or `hide` (per sandbox).
-    public static let ignoreMode = "workspace.ignore_mode"
+    /// 599g: what a folder's `.dozignore` does to the paths it selects — `lock` or `hide` (per sandbox). 0.51: was
+    /// `workspace.ignore_mode` (no alias: an old line is a warning naming this key, never read — `RenamedNames`).
+    public static let ignoreMode = "folder.ignore_mode"
     /// 608: every share through the live view (on) or the plain share without rules (off).
-    public static let workspaceView = "workspace.view"
+    public static let workspaceView = "folder.view"
     /// 657: the person's dotfiles — a git repository (https) or a folder on this Mac; "" = none.
     public static let dotfiles = "sandbox.dotfiles"
     /// 667: sound — `off`, `speakers` (the Mac's speakers) or `on` (speakers and the Mac's microphone). Per sandbox.
@@ -533,7 +537,7 @@ public enum SettingKey {
     public static func macConfig(_ agent: String) -> String? {
         AgentRecipes.recipe(agent).flatMap { $0.launch.macConfig == nil ? nil : "\($0.settingsSection).\(RecipeSettings.macConfig)" }
     }
-    /// 594: where the UI's new sandboxes get their workspace by default (`<projects_dir>/<name>`).
+    /// 594: where the UI's new sandboxes get their folder by default (`<projects_dir>/<name>`).
     public static let projectsDir = "defaults.projects_dir"
     public static let kernelPath = "kernel.path"
     public static let kernelCache = "kernel.cache"
@@ -883,17 +887,18 @@ public struct DozableSettings: Sendable {
             // (never times out)"). Read by the running daemon at each idle look (`IdleDecision`); a daemon started where the
             // login keychain is locked is never always on, whatever this says.
             .init("daemon", "always_on", .bool, .bool(true),
-                  "Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once; a new doz installed under it takes over by itself once nothing runs (with daemon.login_item on, it also starts when you log in). off: it exits after daemon.idle_timeout_minutes with nothing running (when that is 0, it still never does). A daemon started where the login keychain is locked (over ssh) is never kept running: it exits after 5 minutes with nothing running.",
+                  "Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once (default on). While this is on, daemon.idle_timeout_minutes (the next setting) has no effect: the daemon does not switch itself off by idling. Off: the daemon exits once it has had nothing running for daemon.idle_timeout_minutes, and when that is 0 it never does. A new doz installed under it takes over by itself once nothing runs. A daemon started where the login keychain is locked (over ssh) is never kept running: it exits after 5 minutes with nothing running, whatever these two settings say.",
                   env: "DOZ_DAEMON_ALWAYS_ON", applies: .now),
+            // 700: right after always_on (the two decide together), default 5 again — it applies only with always_on off.
+            .init("daemon", "idle_timeout_minutes", .int(0...10_080), .int(5),
+                  "Minutes with nothing running before the daemon exits (default 5). It is read only when daemon.always_on (the previous setting) is off; while always-on is on, the daemon keeps running and this has no effect. 0 disables the timeout: with always-on off, the daemon then never switches off by idling.",
+                  env: "DOZ_DAEMON_IDLE", flag: "doz daemon start --idle-timeout", applies: .daemonRestart),
             // 694: the login item (owner: a per-user login agent, only with consent). NO environment variable — consent is
             // never an environment value; only `on` ever writes one (`DaemonLoginItem.sync`). Set on the Mac only (ui: false):
             // under doz ui --lan a device on the network must never make this Mac write a LaunchAgent.
             .init("daemon", "login_item", .choice(["ask", "on", "off"]), .string("ask"),
                   "Start the doz daemon when you log in, from your desktop session: one login item in ~/Library/LaunchAgents, removed by off and by doz uninstall. ask: not installed; doz offers it once. Set on this Mac (doz daemon login-item on|off), never from the dashboard.",
                   applies: .now, ui: false),
-            .init("daemon", "idle_timeout_minutes", .int(0...10_080), .int(0),
-                  "Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0 = never.",
-                  env: "DOZ_DAEMON_IDLE", flag: "doz daemon start --idle-timeout", applies: .daemonRestart),
             .init("daemon", "screen_capture_minutes", .int(0...1440), .int(5),
                   "Every this many minutes, save the screen of each running sandbox's sessions that printed something since (what a sleep or hibernation falls back on); 0 = only when it pauses, sleeps or hibernates.",
                   env: "DOZ_SCREEN_CAPTURE", applies: .daemonRestart),
@@ -926,7 +931,7 @@ public struct DozableSettings: Sendable {
                   "The base image of this store: every tool you try (Quick try, doz try, the setup's first sandbox) is added to it as a layer when no base is named, so a second tool downloads nothing more. doz onboard sets it. New sandbox and doz_project.yaml keep a tool's own default base unless you choose one.",
                   flag: "doz try --base", applies: .nextCreate),
             .init("defaults", "projects_dir", .path, .string(Workspace.projectsDirDefault),
-                  "The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings › Choose… sets it with the Mac's folder picker.",
+                  "The base folder of new sandboxes' folders: the web UI's New sandbox and Quick add, and doz new, share <projects_dir>/<sandbox name> (created when missing, like any folder given with --folder). doz create is isolated unless --folder; doz init uses the folder it runs in. In the web UI, Settings › Choose… sets it with the Mac's folder picker.",
                   applies: .nextCreate, ui: false),
             .init("defaults", "account", .choice(["mac", "none"]), .string("mac"),
                   "The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or none. doz account default decides for a store once it has.",
@@ -969,23 +974,23 @@ public struct DozableSettings: Sendable {
                   "The browser bridge: xdg-open (and $BROWSER, open, sensible-browser) in a sandbox opens an http or https URL in this Mac's default browser, with a notice every time (at most 3 in 10 s). A sign-in whose redirect is the sandbox's localhost (Claude Code's /login) gets that port forwarded from the Mac into the sandbox for up to 10 minutes, so the login completes. Never file: or other schemes, never the Mac's own localhost. off: nothing opens (said). A sandbox's own choice (doz config set --sandbox NAME, browser_bridge in doz_project.yaml) wins over this.",
                   flag: "doz create --browser-bridge on|off", applies: .now),
             .init("sandbox", "open_files", .choice(["on", "off"]), .string("on"),
-                  "Open workspace files on this Mac: xdg-open PATH (and open PATH, doz-open PATH) in a sandbox opens a document from its /workspace in the Mac's default app — an html page in your browser, markdown in your editor — or a folder (the workspace itself, open .) in the Finder, and doz-open --reveal PATH shows a file selected in its folder; a notice every time (at most 3 in 10 s). Only the shared folder's own files (a link or .. that leads out is refused), only documents (html, md, pdf, images, txt, csv, json, yaml, xml…) — never an app or package folder, a script, an installer or an executable. An isolated sandbox has no file to open. An app other than the default only when it is in bridges.open_apps. off: nothing opens (said). A sandbox's own choice (doz config set --sandbox NAME, open_files in doz_project.yaml) wins over this.",
+                  "Open the shared folder's files on this Mac: xdg-open PATH (and open PATH, doz-open PATH) in a sandbox opens a document from its /workspace in the Mac's default app — an html page in your browser, markdown in your editor — or a folder (the shared folder itself, open .) in the Finder, and doz-open --reveal PATH shows a file selected in its folder; a notice every time (at most 3 in 10 s). Only the shared folder's own files (a link or .. that leads out is refused), only documents (html, md, pdf, images, txt, csv, json, yaml, xml…) — never an app or package folder, a script, an installer or an executable. An isolated sandbox has no file to open. An app other than the default only when it is in bridges.open_apps. off: nothing opens (said). A sandbox's own choice (doz config set --sandbox NAME, open_files in doz_project.yaml) wins over this.",
                   flag: "doz create --open-files on|off", applies: .now),
             .init("sessions", "tmux", .bool, .bool(false),
                   "Run each new session inside tmux (within Dozable's own session holder, so saved screens, sleep and wake, browser terminals and Ctrl-] detach keep working): tmux's windows, panes and copy mode, its status bar and prefix key (Ctrl-b). tmux takes the mouse, and the kitty keyboard protocol and modifyOtherKeys do not fully pass through it; the session's exit code is tmux's. It is Dozable's own tmux 3.8, copied into the sandbox on every base (the image's tmux is left as it is), so tmux reports your terminal's light or dark theme to the programs in it; a session already running in the image's tmux keeps it until it ends. A sandbox's own choice (doz create --tmux, tmux: true in doz_project.yaml, doz config set --sandbox) wins over this.",
                   flag: "doz create --tmux / --no-tmux", applies: .nextSession),
             .init("bridges", "open_apps", .appList, .string(""),
-                  "The Mac apps a sandbox may name to open a workspace file in (doz-open --app NAME FILE, or open -a NAME FILE in the sandbox), comma-separated — e.g. \"Typora, Visual Studio Code\". Empty: a file opens only in its default app, and naming an app is refused. Never a path, only an app's name. For every sandbox.",
+                  "The Mac apps a sandbox may name to open a file of its folder in (doz-open --app NAME FILE, or open -a NAME FILE in the sandbox), comma-separated — e.g. \"Typora, Visual Studio Code\". Empty: a file opens only in its default app, and naming an app is refused. Never a path, only an app's name. For every sandbox.",
                   applies: .now),
             .init("sandbox", "ssh_agent", .choice(["off", "on"]), .string("off"),
                   "Forward this Mac's SSH agent into the sandbox (proxied sandboxes): ssh and git over SSH there can ask your agent to sign — your keys never enter the sandbox — and only github.com:22 is reachable over SSH. A notice on first use. While it is on, the agent can authenticate as you to github.com. A sandbox's own choice (doz create --ssh-agent on, ssh_agent in doz_project.yaml, doz config set --sandbox NAME) wins over this.",
                   flag: "doz create --ssh-agent on|off", applies: .now),
-            .init("workspace", "ignore_mode", .choice(["lock", "hide"]), .string("lock"),
-                  "What a .dozignore at the root of a sandbox's workspace folder does to the paths it lists (Docker's .dockerignore syntax): lock (they stay listed, shown with no permissions, and every read, write, rename or delete of them is refused — so a program that bumps into one by name sees why) or hide (they are not there at all). A .dozreadonly beside it (same syntax) makes paths visible but read-only; doz_project.yaml, .git/hooks and the two rule files are read-only too. Without either file the folder is shared as it is. A convenience mask, not a security boundary: root in the sandbox can get around it. A sandbox's own choice (doz create --ignore-mode, ignore_mode in doz_project.yaml, doz config set --sandbox NAME) wins over this.",
+            .init("folder", "ignore_mode", .choice(["lock", "hide"]), .string("lock"),
+                  "What a .dozignore at the root of a sandbox's folder does to the paths it lists (Docker's .dockerignore syntax): lock (they stay listed, shown with no permissions, and every read, write, rename or delete of them is refused — so a program that bumps into one by name sees why) or hide (they are not there at all). A .dozreadonly beside it (same syntax) makes paths visible but read-only; doz_project.yaml, .git/hooks and the two rule files are read-only too. Without either file the folder is shared as it is. A convenience mask, not a security boundary: root in the sandbox can get around it. A sandbox's own choice (doz create --ignore-mode, ignore_mode in doz_project.yaml, doz config set --sandbox NAME) wins over this.",
                   flag: "doz create --ignore-mode lock|hide", applies: .nextStartOrWake),
-            .init("workspace", "view", .choice(["on", "off"]), .string("on"),
-                  "How a sandbox's workspace folder reaches it. on: through Dozable's live view of the folder, so a program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from hibernation or after a daemon restart. The view costs a little: the first scan of a big folder after a start or a wake is slower (e.g. git status on a large repository, or find), later ones are about as fast as without it. off: the folder is shared directly (a little faster) — but a program working inside /workspace loses its folder at such a wake and must be restarted (Codex says \"invalid cwd\"). A folder with a .dozignore or .dozreadonly always uses the view. Changes take effect at the sandbox's next start. A sandbox's own choice (doz create --workspace-view, workspace_view in doz_project.yaml, doz config set --sandbox NAME) wins over this.",
-                  flag: "doz create --workspace-view on|off", applies: .nextStart),
+            .init("folder", "view", .choice(["on", "off"]), .string("on"),
+                  "How a sandbox's folder reaches it. on: through Dozable's live view of the folder, so a program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from hibernation or after a daemon restart. The view costs a little: the first scan of a big folder after a start or a wake is slower (e.g. git status on a large repository, or find), later ones are about as fast as without it. off: the folder is shared directly (a little faster) — but a program working inside /workspace loses its folder at such a wake and must be restarted (Codex says \"invalid cwd\"). A folder with a .dozignore or .dozreadonly always uses the view. Changes take effect at the sandbox's next start. A sandbox's own choice (doz create --folder-view, folder_view in doz_project.yaml, doz config set --sandbox NAME) wins over this.",
+                  flag: "doz create --folder-view on|off", applies: .nextStart),
             // 657 (owner: "the user's dotfiles … so that every shell experience in each VM is familiar").
             .init("sandbox", "dotfiles", .dotfiles, .string(""),
                   "Your dotfiles in every new sandbox: a git repository (https://github.com/you/dotfiles — fetched on this Mac with its own git login, so a private one works and no credential enters the sandbox) or a folder on this Mac that is a git repository. A sandbox gets the commit it was made at, recorded; doz dotfiles NAME --update moves it on. At its first start, as its user: the repository's install script runs (the first of install.sh, install, bootstrap.sh, bootstrap, script/bootstrap, setup.sh, setup, script/setup — at most 5 minutes, its output in the boot log), or, with none, every dotfile and dot-folder at the top of the repository is linked into the home — never over a file that is there (only over the image's stock copy, kept as NAME.doz-stock), never over Dozable's own (the agents' settings and launchers). doz asks once per repository and commit before it is applied — it is code that runs in the sandbox. \"\" (the default): none. A sandbox's own choice (doz create --dotfiles, dotfiles in doz_project.yaml) wins over this.",
@@ -1158,6 +1163,9 @@ public struct DozableSettings: Sendable {
     /// Keys the schema does not know, kept as they were when the file is rewritten.
     public var unknown: [TOMLEntry] { rest.settled.unknown }
     public var warnings: [String] { rest.settled.warnings }
+    /// 0.51: the file's lines under a name renamed for the folder (`workspace.ignore_mode`, `workspace.view`): never read;
+    /// each said by every command (`RenamedNames`), not only by `doz config`.
+    public let renamedLines: [String]
     /// 678: the values of Dozable's own keys, read and checked at once (no recipe needed) — final: no later line of the
     /// file changes one of them.
     let core: [String: TOMLValue]
@@ -1212,6 +1220,7 @@ public struct DozableSettings: Sendable {
         var warnings: [(index: Int, line: String)] = []
         var pending: [(index: Int, entry: TOMLEntry)] = []
         var fileError = readError
+        var renamed: [String] = []
         if let text {
             do {
                 let entries = try TOML.parse(text)
@@ -1220,6 +1229,7 @@ public struct DozableSettings: Sendable {
                 // refuses may name a recipe agent: it waits too, for the full definition (and its own words).
                 for (n, e) in entries.enumerated() {
                     guard let i = Self.coreIndexed.byKey[e.path] else {
+                        if let new = RenamedNames.settings[e.path] { renamed.append(RenamedNames.settingWarning(line: e.line, old: e.path, new: new)) }
                         pending.append((n, e))
                         continue
                     }
@@ -1246,6 +1256,7 @@ public struct DozableSettings: Sendable {
             rest = SettingsRest(pending: pending, core: values, coreWarnings: warnings)
         }
         self.fileError = fileError
+        renamedLines = fileError == nil ? renamed : []
         fileExists = text != nil || readError != nil
     }
 
@@ -1263,7 +1274,11 @@ public struct DozableSettings: Sendable {
         var old: [TOMLEntry] = []
         for (n, e) in pending {
             guard let i = x.byKey[e.path] else {
-                if aliasTarget(e.path, in: x) != nil { old.append(e) } else {
+                if aliasTarget(e.path, in: x) != nil { old.append(e) } else if let new = RenamedNames.settings[e.path] {
+                    // 0.51: renamed, NOT an alias — never read, never silently dropped: kept as it was, and said by name.
+                    unknown.append(e)
+                    first.append((n, RenamedNames.settingWarning(line: e.line, old: e.path, new: new)))
+                } else {
                     unknown.append(e)
                     first.append((n, "line \(e.line): unknown setting \(e.path) — ignored"))
                 }
@@ -1365,29 +1380,27 @@ public struct DozableSettings: Sendable {
     }
 
     /// The daemon's idle timeout in minutes: `--idle-timeout`, else `$DOZ_DAEMON_IDLE` (fractions
-    /// allowed, as always), else the file, else 0 (693: never). Used only when `daemon.always_on` is off (`IdleDecision`).
+    /// allowed, as always), else the file, else 5 (700; 0 = disabled). Used only when `daemon.always_on` is off (`IdleDecision`).
     public func idleTimeoutMinutes(flag: Double?) -> Double {
         if let flag { return flag }
         if let name = Self.definition(SettingKey.idleTimeout)?.environment, let raw = environment[name], let x = Double(raw), x >= 0 { return x }
         return Double(int(SettingKey.idleTimeout))
     }
 
-    /// 693: one plain sentence when `daemon.always_on` and `daemon.idle_timeout_minutes` together do not do what the timeout
-    /// alone suggests (a file written by an older doz keeps `idle_timeout_minutes = 5`, which now applies only when always
-    /// on is off); nil otherwise.
-    public var daemonIdleNote: String? {
-        let alwaysOn = bool(SettingKey.alwaysOn)
-        let minutes = idleTimeoutMinutes(flag: nil)
-        if alwaysOn, minutes > 0 {
-            return "daemon.idle_timeout_minutes (\(minutes.formatted())) applies only when daemon.always_on is off — the daemon keeps running "
-                + "with nothing open (doz config set daemon.always_on off to let it exit when idle)"
-        }
-        if !alwaysOn, minutes == 0 {
-            return "daemon.always_on is off but daemon.idle_timeout_minutes is 0, so the daemon still never exits by itself — "
-                + "doz config set daemon.idle_timeout_minutes 5 for an idle exit"
-        }
-        return nil
+    /// 700: the one warning the two daemon settings can earn — always-on off AND the timeout 0, so nothing ever switches the
+    /// daemon off by idling, and once stopped nothing brings it back but a doz command. nil otherwise (the defaults
+    /// included). Shown by `doz config show|set|unset`, the Settings page (under both rows), `doz daemon status`, doctor.
+    public var daemonIdleWarning: String? {
+        Self.daemonIdleWarning(alwaysOn: bool(SettingKey.alwaysOn), idleTimeoutMinutes: idleTimeoutMinutes(flag: nil))
     }
+
+    public static func daemonIdleWarning(alwaysOn: Bool, idleTimeoutMinutes minutes: Double) -> String? {
+        guard !alwaysOn, minutes == 0 else { return nil }
+        return daemonIdleWarningText
+    }
+
+    public static let daemonIdleWarningText = "Warning: daemon.always_on is off and daemon.idle_timeout_minutes is 0, so the daemon will not switch "
+        + "off by idling. Once it is stopped it does not come back until the next doz command runs."
 
     /// The keys a new sandbox's memory and network come from, by its imageSpec (a custom image follows the image it
     /// was saved from): the lab's own (`images.lab.*`) without one; 596: a base × agent image follows its AGENT —
@@ -1459,6 +1472,7 @@ public struct DozableSettings: Sendable {
                                  editable: d.editableInUI && r.source != .env && r.source != .flag && fileError == nil, note: note,
                                  kind: d.settingClass, recipe: d.agent.flatMap(AgentRecipes.recipe)?.qualifiedID, agent: d.agent,
                                  migratedFrom: r.migratedFrom, aliases: d.aliases.isEmpty ? nil : d.aliases)
+            if d.key == SettingKey.alwaysOn || d.key == SettingKey.idleTimeout { row.warning = daemonIdleWarning }      // 700
             // 674: what each value does in each agent (Settings › The agent: every coding agent; a recipe's page: its own).
             if d.key == SettingKey.agentHistory {
                 row.history = AgentHistory.mappings(settings: self).filter { !offered || AgentRecipes.isPublished($0.agent) || held.contains($0.agent) }
@@ -1478,7 +1492,10 @@ public struct DozableSettings: Sendable {
     /// 669: a key may be given by its 0.37 name (it is written under its new one).
     @discardableResult
     public func writing(_ key: String, _ value: TOMLValue?) throws -> DozableSettings {
-        guard let d = Self.definition(key) else { throw SettingsError("unknown setting \(key) — doz config show lists them") }
+        guard let d = Self.definition(key) else {
+            if let new = RenamedNames.settings[key] { throw SettingsError("unknown setting \(key) — it was renamed \(new)") }
+            throw SettingsError("unknown setting \(key) — doz config show lists them")
+        }
         var values = fileValues.all
         if let value { values[d.key] = try d.validate(value) } else { values[d.key] = nil }
         return try writingAll(values)

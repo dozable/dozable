@@ -80,7 +80,7 @@ func basesCLIPart(_ binary: String) async {
     try? "name: prj1\nagent: none\nbase: debian\n".write(to: proj.appendingPathComponent("doz_project.yaml"), atomically: true, encoding: .utf8)
     r = runIn(h, proj, ["up", "--detach"], timeout: 1500)
     let prj = h.row("prj1")
-    check(r.code == 0 && prj?.image == "debian" && [proj.resolvingSymlinksInPath().path, proj.path].contains(prj?.workspace ?? ""),
+    check(r.code == 0 && prj?.image == "debian" && [proj.resolvingSymlinksInPath().path, proj.path].contains(prj?.folder ?? ""),
           "doz_project.yaml agent: none, base: debian → up: the debian image, the folder at /workspace (\(prj?.image ?? "none"), exit \(r.code))")
     check(h.run(["exec", "prj1", "--", "sh", "-c", "grep -c bookworm /etc/os-release; ls /workspace"]).out.contains("doz_project.yaml"), "it runs Debian with the project at /workspace")
     try? "name: prj2\nimage: lab\nagent: pi\n".write(to: proj.appendingPathComponent("doz_project.yaml"), atomically: true, encoding: .utf8)
@@ -242,7 +242,7 @@ func basesDockerfilePart(_ binary: String) async {
     r = h.run(["create", "d1", "--dockerfile", df.path, "--agent", "none", "--json"], timeout: 60)
     if r.code != 0 { info("create d1: \(r.out.prefix(400))") }
     let d1 = try? HostWire.decoder.decode(SandboxInfo.self, from: r.outData)
-    check(r.code == 0 && d1?.image == base && d1?.workspace == app.resolvingSymlinksInPath().path && d1?.dockerfile == df.resolvingSymlinksInPath().path,
+    check(r.code == 0 && d1?.image == base && d1?.folder == app.resolvingSymlinksInPath().path && d1?.dockerfile == df.resolvingSymlinksInPath().path,
           "create --dockerfile: image \(d1?.image ?? "?") (its base id), the workspace is its folder (B6)")
     check(r.err.contains("OUTSIDE Dozable's network policy"), "the CLI says the build runs outside Dozable's network policy (B9)")
     let t0 = Date()

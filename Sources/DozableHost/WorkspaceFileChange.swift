@@ -144,7 +144,7 @@ public enum MacFileChange {
         let r = try MacFolderListing.resolve(workspace: workspace, rel: rel, rules: rules)
         let shown = FileListPaths.guestPath(rel)
         if writing, r.state == "read-only" {
-            throw HostError(.failed, "\(shown) is read-only by the workspace rules (.dozreadonly) — nothing in it can be changed")
+            throw HostError(.failed, "\(shown) is read-only by the folder rules (.dozreadonly) — nothing in it can be changed")
         }
         let fd = Darwin.open(r.real, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else { throw HostError(.failed, "\(shown) could not be opened on this Mac (\(String(cString: strerror(Darwin.errno))))") }
@@ -161,9 +161,9 @@ public enum MacFileChange {
     static func checkExisting(_ rules: WorkspaceRules?, _ inside: String, isDirectory: Bool, shown: String) throws {
         switch verdict(rules, inside, isDirectory: isDirectory) {
         case .visible: return
-        case .hidden: throw HostError(.notFound, "no such file or folder in the workspace: \(shown)")
-        case .locked: throw HostError(.failed, "\(shown) is locked by the workspace rules (.dozignore) — it cannot be changed")
-        case .readOnly: throw HostError(.failed, "\(shown) is read-only by the workspace rules — it cannot be changed")
+        case .hidden: throw HostError(.notFound, "no such file or folder in the shared folder: \(shown)")
+        case .locked: throw HostError(.failed, "\(shown) is locked by the folder rules (.dozignore) — it cannot be changed")
+        case .readOnly: throw HostError(.failed, "\(shown) is read-only by the folder rules — it cannot be changed")
         }
     }
 
@@ -171,9 +171,9 @@ public enum MacFileChange {
     static func checkNew(_ rules: WorkspaceRules?, _ inside: String, isDirectory: Bool, shown: String) throws {
         switch verdict(rules, inside, isDirectory: isDirectory) {
         case .visible: return
-        case .hidden: throw HostError(.failed, "the workspace rules hide that name (\(shown)) — choose another")
-        case .locked: throw HostError(.failed, "the workspace rules would lock \(shown) — choose another name")
-        case .readOnly: throw HostError(.failed, "the workspace rules would make \(shown) read-only — choose another name")
+        case .hidden: throw HostError(.failed, "the folder rules hide that name (\(shown)) — choose another")
+        case .locked: throw HostError(.failed, "the folder rules would lock \(shown) — choose another name")
+        case .readOnly: throw HostError(.failed, "the folder rules would make \(shown) read-only — choose another name")
         }
     }
 
@@ -195,7 +195,7 @@ public enum MacFileChange {
         let e = Darwin.errno
         switch e {
         case EEXIST: return HostError(.exists, "\(shown) is there already — nothing was replaced")
-        case ENOENT: return HostError(.notFound, "no such file or folder in the workspace: \(shown)")
+        case ENOENT: return HostError(.notFound, "no such file or folder in the shared folder: \(shown)")
         case ENOTEMPTY: return HostError(.failed, "\(shown) is not empty — delete it with everything in it (doz files rm -r)")
         case EACCES, EPERM: return HostError(.failed, "\(what) \(shown): permission denied on this Mac")
         case EINVAL: return HostError(.invalid, "\(what) \(shown): a folder cannot go into itself")
@@ -250,8 +250,8 @@ public enum MacFileChange {
                 if e.decide(p, isDirectory: { $0 == p ? isDir : true }).verdict != .visible {
                     let first = FileListPaths.inert(rel, limit: 80).text
                     throw HostError(.failed, base == inside
-                        ? "\(shown) holds \(first), which the workspace rules protect — not changed"
-                        : "moved there, \(first) in it would fall under the workspace rules — not moved")
+                        ? "\(shown) holds \(first), which the folder rules protect — not changed"
+                        : "moved there, \(first) in it would fall under the folder rules — not moved")
                 }
             }
         }
@@ -280,7 +280,7 @@ public enum MacFileChange {
     public static func move(workspace: String, item: FileItemPath, to: FileItemPath, rules: WorkspaceRules?) throws -> String {
         let from = try openParent(workspace: workspace, rel: item.parent, rules: rules, writing: true)
         defer { close(from.fd) }
-        guard let st = lstatAt(from.fd, item.name) else { throw HostError(.notFound, "no such file or folder in the workspace: \(item.guest)") }
+        guard let st = lstatAt(from.fd, item.name) else { throw HostError(.notFound, "no such file or folder in the shared folder: \(item.guest)") }
         let k = kind(st), isDir = k == "folder"
         let src = from.inside(item.name)
         try checkExisting(rules, src, isDirectory: isDir, shown: item.guest)
@@ -300,7 +300,7 @@ public enum MacFileChange {
     public static func remove(workspace: String, item: FileItemPath, recursive: Bool, rules: WorkspaceRules?) throws -> (kind: String, items: Int) {
         let p = try openParent(workspace: workspace, rel: item.parent, rules: rules, writing: true)
         defer { close(p.fd) }
-        guard let st = lstatAt(p.fd, item.name) else { throw HostError(.notFound, "no such file or folder in the workspace: \(item.guest)") }
+        guard let st = lstatAt(p.fd, item.name) else { throw HostError(.notFound, "no such file or folder in the shared folder: \(item.guest)") }
         let k = kind(st)
         let inside = p.inside(item.name)
         try checkExisting(rules, inside, isDirectory: k == "folder", shown: item.guest)
@@ -351,8 +351,8 @@ public enum MacFileChange {
             var st = stat()
             let isDir = lstat(r.macPath, &st) == 0 && st.st_mode & S_IFMT == S_IFDIR
             switch verdict(rules, inside, isDirectory: isDir) {
-            case .hidden: throw HostError(.notFound, "no such file or folder in the workspace: \(FileListPaths.shown(guestPath))")
-            case .locked: throw HostError(.failed, "\(FileListPaths.shown(guestPath)) is locked by the workspace rules — not opened")
+            case .hidden: throw HostError(.notFound, "no such file or folder in the shared folder: \(FileListPaths.shown(guestPath))")
+            case .locked: throw HostError(.failed, "\(FileListPaths.shown(guestPath)) is locked by the folder rules — not opened")
             case .readOnly, .visible: break
             }
         }

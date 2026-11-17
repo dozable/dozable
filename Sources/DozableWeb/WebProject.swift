@@ -72,8 +72,8 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
     public var openFiles: String?
     public var tmux: Bool?
     public var ignoreMode: String?
-    /// 608: `workspace_view` — kept through the dashboard (no control of its own in the wizard).
-    public var workspaceView: String?
+    /// 608: `folder_view` — kept through the dashboard (no control of its own in the wizard).
+    public var folderView: String?
     public var agentSudo: Bool?
     public var agentPrompt: String?
     public var agentPromptMode: String?
@@ -91,7 +91,7 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
     static let settingFields: [(field: String, setting: String)] = [
         ("sshAgent", SettingKey.sshAgent), ("clipboard", SettingKey.clipboard), ("browserBridge", SettingKey.browserBridge),
         ("openFiles", SettingKey.openFiles), ("tmux", SettingKey.tmux), ("ignoreMode", SettingKey.ignoreMode),
-        ("workspaceView", SettingKey.workspaceView), ("audio", SettingKey.audio),
+        ("folderView", SettingKey.workspaceView), ("audio", SettingKey.audio),
     ]
 
     public init(_ p: DozableProject) {
@@ -112,7 +112,7 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
         openFiles = p.settings[SettingKey.openFiles]?.plain
         if case .bool(let b)? = p.settings[SettingKey.tmux] { tmux = b }
         ignoreMode = p.settings[SettingKey.ignoreMode]?.plain
-        workspaceView = p.settings[SettingKey.workspaceView]?.plain
+        folderView = p.settings[SettingKey.workspaceView]?.plain
         audio = p.settings[SettingKey.audio]?.plain
         agentSudo = p.agentSudo
         agentPrompt = p.agentPrompt
@@ -147,7 +147,7 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
             p.memoryMiB = v
         }
         for (field, key) in [("sshAgent", sshAgent), ("clipboard", clipboard), ("browserBridge", browserBridge), ("openFiles", openFiles),
-                             ("ignoreMode", ignoreMode), ("workspaceView", workspaceView), ("audio", audio)] {
+                             ("ignoreMode", ignoreMode), ("folderView", folderView), ("audio", audio)] {
             guard let v = key, let s = Self.settingFields.first(where: { $0.field == field }), let d = DozableSettings.definition(s.setting) else { continue }
             do { p.settings[s.setting] = try d.parse(v) } catch let e as SettingsError { throw invalid("\(field): \(e.message)") }
         }
@@ -230,7 +230,7 @@ struct WebProjectRequest {
         if let form = d["form"] {
             guard let fd = form as? [String: Any] else { throw WebAction.Invalid("form: an object") }
             let known: Set<String> = ["name", "image", "agent", "base", "dockerfile", "account", "github", "sshAgent", "network", "permissions", "cpus",
-                                      "memory", "clipboard", "browserBridge", "openFiles", "tmux", "ignoreMode", "workspaceView", "agentSudo", "agentPrompt", "agentPromptMode", "sessions",
+                                      "memory", "clipboard", "browserBridge", "openFiles", "tmux", "ignoreMode", "folderView", "agentSudo", "agentPrompt", "agentPromptMode", "sessions",
                                       "modelSource", "model", "localPort", "dotfiles", "audio"]
             let unknown = Set(fd.keys).subtracting(known)
             guard unknown.isEmpty else { throw WebAction.Invalid("form: no \(unknown.sorted().joined(separator: ", "))") }

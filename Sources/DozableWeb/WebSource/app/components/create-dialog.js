@@ -1,4 +1,4 @@
-// components/create-dialog — The New sandbox form (a dialog): image, workspace, account, permissions.
+// components/create-dialog — The New sandbox form (a dialog): image, folder, account, permissions.
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { AGENT_NAMES } from '../core/agents.js';
@@ -128,7 +128,7 @@ function collapseToSummary(dlg, { images, picker, perms, acct, chooser, imgNote 
     const NET = { bake: 'Bake — package registries only', nat: 'nat — not filtered', none: 'No network', locked: 'Locked', open: 'Open', agent: 'Standard' };
     const network = preset ? preset.dataset.newPermPreset : NET[net] || 'Standard';
     let folder;
-    try { const w = chooser.get(); folder = w.isolated ? 'None — isolated' : tildePath(w.workspace); } catch (_) { folder = 'Not set yet — Change…'; }
+    try { const w = chooser.get(); folder = w.isolated ? 'None — isolated' : tildePath(w.folder); } catch (_) { folder = 'Not set yet — Change…'; }
     const img = images.find((x) => x.name === picker.image());
     const cpus = dlg.inputs.cpus.value || setting('defaults.cpus', 2);
     summary.replaceChildren(

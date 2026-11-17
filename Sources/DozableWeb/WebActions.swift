@@ -386,7 +386,7 @@ public enum WebAction: Equatable, Sendable {
     /// Fields each action may carry (besides `action`).
     static let fields: [String: Set<String>] = {
         var f: [String: Set<String>] = [
-            "create": ["sandbox", "image", "cpus", "memoryMiB", "workspace", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites",
+            "create": ["sandbox", "image", "cpus", "memoryMiB", "folder", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites",
                        "modelSource", "model", "localPort"],
             "open-session": ["sandbox", "session", "argv"],
             "point-take": ["sandbox", "point", "note"],
@@ -395,7 +395,7 @@ public enum WebAction: Equatable, Sendable {
             "point-rm": ["sandbox", "point", "confirm"],
             "point-save-image": ["sandbox", "point", "image", "note"],
             "template-create": ["sandbox", "point", "image", "note"],
-            "duplicate": ["sandbox", "newName", "point", "workspace", "isolated", "cpus", "memoryMiB", "network", "account", "copyState"],
+            "duplicate": ["sandbox", "newName", "point", "folder", "isolated", "cpus", "memoryMiB", "network", "account", "copyState"],
             "image-bake": ["image"],
             "image-rm": ["image", "confirm"],
             "net-policy": ["sandbox", "preset", "allow", "deny", "remove", "grant", "revoke"],
@@ -467,7 +467,7 @@ public enum WebAction: Equatable, Sendable {
         switch verb {
         case "create":
             var o = CreateOptions(image: try f.image("image"), cpus: try f.int("cpus", 1...64), memoryMiB: try f.int("memoryMiB", 256...262_144).map(UInt64.init),
-                                  workspace: try f.workspace("workspace"), network: try f.oneOf("network", ["agent", "bake", "locked", "open", "nat", "none"]),
+                                  folder: try f.workspace("folder"), network: try f.oneOf("network", ["agent", "bake", "locked", "open", "nat", "none"]),
                                   subnet: try f.subnet("subnet"), account: try f.accountRef("account", allowDefault: true))
             o.isolated = try f.flag("isolated")
             // 594 W28: the New Sandbox form's "Rebuild first" (an out-of-date image is otherwise used as it is).
@@ -496,7 +496,7 @@ public enum WebAction: Equatable, Sendable {
                 guard ["claude-code", "pi", "codex", "lab"].contains(o.image) else { throw Invalid("dockerfile: goes with image claude-code, pi, codex or lab (the agent)") }
                 o.dockerfile = df
             }
-            guard !(o.isolated == true && o.workspace != nil) else { throw Invalid("isolated: or a workspace, not both") }
+            guard !(o.isolated == true && o.folder != nil) else { throw Invalid("isolated: or a folder, not both") }
             a = .create(name: try f.sandbox("sandbox"), options: o)
         case "open-session":
             a = .openSession(name: try f.sandbox("sandbox"), session: try f.session("session"), argv: try f.argv("argv"))
@@ -520,12 +520,12 @@ public enum WebAction: Equatable, Sendable {
                 guard let b = v as? Bool, CFGetTypeID(v as CFTypeRef) == CFBooleanGetTypeID() else { throw Invalid("copyState: true or false") }
                 copy = b ? true : nil
             }
-            var o = DuplicateOptions(workspace: try f.workspace("workspace"), cpus: try f.int("cpus", 1...64),
+            var o = DuplicateOptions(folder: try f.workspace("folder"), cpus: try f.int("cpus", 1...64),
                                      memoryMiB: try f.int("memoryMiB", 256...262_144).map(UInt64.init),
                                      network: try f.oneOf("network", ["agent", "bake", "locked", "open", "nat", "none"]),
                                      account: try f.accountRef("account", allowDefault: true), copyState: copy)
             o.isolated = try f.flag("isolated")
-            guard !(o.isolated == true && o.workspace != nil) else { throw Invalid("isolated: or a workspace, not both") }
+            guard !(o.isolated == true && o.folder != nil) else { throw Invalid("isolated: or a folder, not both") }
             let name = try f.sandbox("sandbox"), new = try f.sandbox("newName")
             guard name != new else { throw Invalid("newName: a different name") }
             a = .duplicate(name: name, newName: new, point: try f.pointRef("point"), options: o)

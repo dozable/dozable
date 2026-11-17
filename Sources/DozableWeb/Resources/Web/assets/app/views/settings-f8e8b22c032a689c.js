@@ -22,7 +22,7 @@ import { actOrThrow } from '../core/operations-2144599aa5b9d46c.js';
 const SETTING_SECTIONS = {
   ui: 'This UI', daemon: 'The daemon', store: 'The store', defaults: 'New sandboxes', agent: 'The agent', sandbox: 'Inside every sandbox',
   'images.lab': 'New lab sandboxes', kernel: 'The kernel',
-  resources: 'Resources', sessions: 'Sessions', bridges: 'Bridges', workspace: 'Workspace rules', github: 'GitHub', images: 'Images', telemetry: 'Usage statistics',
+  resources: 'Resources', sessions: 'Sessions', bridges: 'Bridges', folder: 'Folder rules', github: 'GitHub', images: 'Images', telemetry: 'Usage statistics',
   updates: 'Updates', serve: 'Other devices (LAN)',
 };
 // An empty app list (or dotfiles) means none, not "automatic".
@@ -189,7 +189,10 @@ function settingRow(r, opts = {}) {
     h('div', { class: 'setting-control' }, control),
     checkbox ? h('label', { class: 'set-desc', for: inputId }, r.description) : h('div', { class: 'set-desc' }, r.description),
     h('div', { class: 'muted setting-meta' }, 'default ', h('code', null, shownValue(r.defaultValue, r.type)), ' · ', r.appliesNote,
-      r.note ? h('div', null, r.note) : null));
+      r.note ? h('div', null, r.note) : null),
+    // 700: daemon.always_on and daemon.idle_timeout_minutes — the same warning under both rows while the two together
+    // mean the daemon never switches off by idling (a change repaints every row, so it comes and goes with either).
+    r.warning ? callout('warn', { compact: true, cls: 'setting-warning', role: 'note', attrs: { 'data-setting-warning': r.key }, body: r.warning }) : null);
   if (state.settingErr.has(r.key)) paintSettingError(row, r.key);
   return row;
 }

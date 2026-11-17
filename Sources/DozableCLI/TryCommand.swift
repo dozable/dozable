@@ -28,7 +28,7 @@ struct TryCommand: AsyncParsableCommand {
         named try-AGENT. On the way out it asks: sleep it (the default — it then holds no memory), delete it or keep it \
         running; --rm and --keep answer before. --ui opens the same in the dashboard (doz ui), with the agent chosen. Deleting it removes its folder too when the folder is empty, and asks \
         when the agent left files there. --isolated shares no folder at all (doz get and doz put \
-        copy files out and in); --workspace DIR uses yours. Off a terminal it does not attach and asks nothing: it makes and starts \
+        copy files out and in); --folder DIR uses yours. Off a terminal it does not attach and asks nothing: it makes and starts \
         the sandbox, keeps it, and prints how to attach. Every choice option of doz new works here.
         """)
 

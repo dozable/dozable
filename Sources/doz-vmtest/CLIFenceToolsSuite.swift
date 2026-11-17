@@ -55,7 +55,7 @@ func cliFenceToolsChecks(_ t: CLIHarness, root: String, home: String, store: Str
     func rows() -> [SessionRow] { t.json(["sessions", "@mac"], [SessionRow].self) ?? [] }
     func row(_ s: String) -> SessionRow? { rows().first { $0.name == s } }
     func run(_ s: String, _ wd: String, _ extra: [String], _ script: String) -> CLIRun {
-        let r = t.run(["run", "@mac", "-d", "--fenced", "--session", s, "--workdir", wd] + extra + ["--", "/bin/sh", script], timeout: 90)
+        let r = t.run(["run", "@mac", "-d", "--fenced", "--session", s, "--folder", wd] + extra + ["--", "/bin/sh", script], timeout: 90)
         if r.code == 0 { started.insert(s) }
         return r
     }

@@ -357,6 +357,11 @@ public enum DozableEntry {
                 if args.contains("--json") { Out.json(["error": ["code": e.code.rawValue, "message": e.message]]) } else { Out.stderr("doz: \(e.message)\n") }
                 throw ExitCode(DozableExit.code(for: e))
             }
+            // 0.51: a doz.toml line under a name renamed for the folder is never read — every command says so (doz config
+            // says it with the file's other warnings), so a setting the person made is never silently lost.
+            if args.first != "config", !args.contains(where: { ["-q", "--quiet"].contains($0) }) {
+                for l in DozableSettings.load().renamedLines { Out.stderr("doz: \(DozableSettings.fileName): \(l)\n") }
+            }
             if var a = command as? AsyncParsableCommand { try await a.run() } else { try command.run() }
             await UpdateHook.afterCommand(args)
             LoginItemNotice.afterCommand(args)          // 694: once, after the upgrade that made the daemon stay running
@@ -364,6 +369,12 @@ public enum DozableEntry {
             DozableCommand.exit()
         } catch {
             usage.after(exitCode: DozableCommand.exitCode(for: error).rawValue)
+            // 0.51: an option renamed for the folder still fails as unknown; one hint says its new name (RenamedNames).
+            let message = DozableCommand.fullMessage(for: error)
+            if RenamedNames.optionHint(message) != nil {
+                Out.stderr(RenamedNames.withOptionHint(message) + "\n")
+                exit(DozableCommand.exitCode(for: error).rawValue)
+            }
             DozableCommand.exit(withError: error)
         }
     }

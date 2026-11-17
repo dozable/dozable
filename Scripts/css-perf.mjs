@@ -61,10 +61,10 @@ function stage() {
   writeFileSync(XDG + '/doz/doz.toml', `[store]\npath = "${STORE}"\n\n[defaults]\nprojects_dir = "${PROJECTS}"\n`);
   writeFileSync(S + '/no-gh', '#!/bin/sh\necho "not logged in" >&2\nexit 1\n', { mode: 0o755 });
   writeFileSync(S + '/gitconfig', '[user]\n\tname = css-perf\n\temail = css-perf@example.invalid\n');
-  doz(['create', SBX, '--image', 'claude-code', '--network', 'nat', '--workspace', PROJECTS + '/' + SBX]);
-  doz(['create', 'notes', '--image', 'pi', '--network', 'nat', '--workspace', PROJECTS + '/notes']);
+  doz(['create', SBX, '--image', 'claude-code', '--network', 'nat', '--folder', PROJECTS + '/' + SBX]);
+  doz(['create', 'notes', '--image', 'pi', '--network', 'nat', '--folder', PROJECTS + '/notes']);
   doz(['create', 'scratch', '--image', 'lab', '--isolated']);
-  doz(['create', 'docs-site', '--image', 'claude-code', '--workspace', PROJECTS + '/docs-site']);
+  doz(['create', 'docs-site', '--image', 'claude-code', '--folder', PROJECTS + '/docs-site']);
   doz(['account', 'add', 'work', '--api-key', '--no-verify', '--force'], 'sk-ant-api03-' + 'x'.repeat(80) + '\n');
 }
 

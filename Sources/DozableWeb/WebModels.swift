@@ -243,7 +243,7 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     public var sessions: Int?
     public var network: String
     public var deniedConnections: Int?
-    public var workspace: String?
+    public var folder: String?
     public var createdAt: Date?
     public var diedWithHost: Bool?
     public var account: String?
@@ -267,8 +267,8 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     public var rebuildAvailable: String?
     /// 599g: the workspace's rules in one line (".dozignore: 3 patterns (lock) · .dozreadonly: 1 pattern — in
     /// force"), and whether the guest serves them (`running`, `pending`, `stopped`). nil: no rule file.
-    public var workspaceRules: String?
-    public var workspaceRulesView: String?
+    public var folderRules: String?
+    public var folderRulesView: String?
     /// 612: each session's program status (from the host's memory — no guest call), the most urgent one (the
     /// sidebar's dot), and whether any is working. nil: no program reported anything.
     public var sessionStatuses: [WebAgentStatus]?
@@ -312,8 +312,8 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
         sessionStatuses = i.sessionStatuses.map { $0.map(WebAgentStatus.init) }
         agentStatus = i.agentStatus.map(WebAgentStatus.init)
         agentWorking = i.agentWorking
-        workspaceRules = i.workspaceRules?.line
-        workspaceRulesView = i.workspaceRules?.view
+        folderRules = i.folderRules?.line
+        folderRulesView = i.folderRules?.view
         accountApplies = ["agent", "open", "custom"].contains(i.network)
         // 596: the AGENT (python-claude-code runs claude-code) — the page's account choice follows it.
         agent = i.agent.map { a in ImageChoice.parse(a).map { $0.agent == .none ? a : $0.agent.rawValue } ?? a }
@@ -336,7 +336,7 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
         sessions = i.sessions
         network = i.network
         deniedConnections = i.deniedConnections
-        workspace = i.workspace
+        folder = i.folder
         createdAt = i.createdAt
         diedWithHost = i.diedWithHost
         account = i.account
@@ -1269,7 +1269,7 @@ public struct WebPlan: Codable, Equatable, Sendable {
 
     public var name: String
     public var image: Image
-    public var workspace: String?
+    public var folder: String?
     public var command: String
     public var argv: [String]
     public var yaml: String
@@ -1281,7 +1281,7 @@ public struct WebPlan: Codable, Equatable, Sendable {
     public struct Create: Codable, Equatable, Sendable {
         public var image: String
         public var network: String?
-        public var workspace: String?
+        public var folder: String?
         public var isolated: Bool?
         public var account: String?
         public var modelSource: String?
@@ -1310,7 +1310,7 @@ public struct WebPlan: Codable, Equatable, Sendable {
         }
         name = p.name
         image = Image(name: p.imageState.name, title: p.imageState.title, state: p.imageState.state)
-        workspace = p.workspace
+        folder = p.folder
         command = p.command
         argv = p.argv
         yaml = p.yaml
@@ -1318,7 +1318,7 @@ public struct WebPlan: Codable, Equatable, Sendable {
         reach = p.reach.map { Line(kind: $0.kind, text: $0.text) }
         account = p.account.map { Account(name: $0.name, kind: $0.kind, provider: $0.provider, sourceLabel: $0.sourceLabel) }
         problems = p.problems.map { Problem(code: $0.code, text: $0.text, fix: $0.fix) }
-        create = Create(image: p.create.image, network: p.create.network, workspace: p.create.workspace, isolated: p.create.isolated,
+        create = Create(image: p.create.image, network: p.create.network, folder: p.create.folder, isolated: p.create.isolated,
                         account: p.create.account, modelSource: p.create.modelSource, model: p.create.model, localPort: p.create.localPort)
         model = p.model.map { m in
             var x = Model(source: m.source, title: m.title, gateway: m.gateway, model: m.model,

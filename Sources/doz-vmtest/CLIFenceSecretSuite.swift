@@ -45,7 +45,7 @@ func cliFenceSecretChecks(_ t: CLIHarness, root: String, home: String, store: St
     }
     let perms = "standard,site:allowed.doz.test,site:100.64.0.9:8080,site:plain.doz.test:8080"
     func run(_ s: String, _ script: String, _ extra: [String]) -> CLIRun {
-        let r = t.run(["run", "@mac", "-d", "--fenced", "--session", s, "--workdir", net] + extra + ["--", "/bin/sh", script], timeout: 90)
+        let r = t.run(["run", "@mac", "-d", "--fenced", "--session", s, "--folder", net] + extra + ["--", "/bin/sh", script], timeout: 90)
         if r.code == 0 { started.insert(s) }
         return r
     }
@@ -162,7 +162,7 @@ func cliFenceSecretChecks(_ t: CLIHarness, root: String, home: String, store: St
         if r.code == 0 { t.run(["sessions", "end", "@mac", "secbad", "--yes"], timeout: 60) }
     }
     r = t.run(["run", "@mac", "-d", "--unfenced", "--secret", "SVC_TOKEN,src=\(src)/token,to=host.dozable.internal:\(p1)", "--session", "secun",
-               "--workdir", net, "--", "/bin/sh", "-c", "true"])
+               "--folder", net, "--", "/bin/sh", "-c", "true"])
     check(r.code != 0 && r.err.contains("an unfenced session has no proxy to hold a secret"), "692 S8 --unfenced --secret refused (\(r.err.prefix(160)))")
     check(!ledgerOwners().contains("mac.secbad"), "692 S8 a refused launch keeps no keychain item (\(ledgerOwners()))")
 }

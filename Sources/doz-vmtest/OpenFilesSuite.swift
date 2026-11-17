@@ -52,8 +52,8 @@ func cliOpenFilesSuite(binary: String) async {
     print("cli: open workspace files on the Mac (599b)")
     check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["config", "set", "defaults.projects_dir", "/tmp/dzo-\(pid)-fp"]).code == 0, "defaults.projects_dir is a scratch path")
-    var r = t.run(["up", "of", "--image", "lab", "--workspace", ws.path, "--memory", "512M", "--network", "none", "--detach"], timeout: 600)
-    check(r.code == 0, "up of --image lab --workspace \(ws.path) --detach (exit \(r.code))")
+    var r = t.run(["up", "of", "--image", "lab", "--folder", ws.path, "--memory", "512M", "--network", "none", "--detach"], timeout: 600)
+    check(r.code == 0, "up of --image lab --folder \(ws.path) --detach (exit \(r.code))")
     r = t.run(["exec", "of", "--", "sh", "-c", "ls -l /usr/local/lib/doz/bin/ | grep -c 'doz-open -> xdg-open'; grep -c 'open-url-shim:v7' /usr/local/lib/doz/bin/xdg-open"])
     check(r.out.split(separator: "\n").map(String.init) == ["1", "1"], "the v7 shim and its doz-open link are in the guest (\(r.out.debugDescription))")
 

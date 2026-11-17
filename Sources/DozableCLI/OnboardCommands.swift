@@ -168,7 +168,7 @@ struct OnboardingFlow {
         // 637 (owner: "1. Welcome (before the doctor)"): what Dozable is and what these steps set up, then a pause.
         header(1, "Welcome", lead: "Dozable runs each project in its own small Linux virtual machine on this Mac — your coding agents and tools work there, on your project's folder, without reaching the rest of your Mac.")
         if talk {
-            say(Note("These steps check this Mac, download one base image, and ask about your models and keys, GitHub and SSH, and workspace rules — then make your first sandbox if you want one. Nothing is changed until you choose it; every answer can be changed later.").render())
+            say(Note("These steps check this Mac, download one base image, and ask about your models and keys, GitHub and SSH, and folder rules — then make your first sandbox if you want one. Nothing is changed until you choose it; every answer can be changed later.").render())
             asker.pause("  ", "start")
         }
         // 637 (owner: "2. pause at doctor step to allow review and continue").
@@ -348,8 +348,8 @@ struct OnboardingFlow {
             let set: [String]
             do { set = try Onboarding.writeIgnoreMode(m) } catch { throw fail(HostError(.failed, "\(error)"), g) }
             status(set.isEmpty ? .info : .ok,
-                   set.isEmpty ? "Workspace rules: the settings already say so (workspace.ignore_mode = \(m))"
-                               : "Workspace rules: set " + set.joined(separator: ", ") + " — doz config set workspace.ignore_mode changes it")
+                   set.isEmpty ? "Folder rules: the settings already say so (folder.ignore_mode = \(m))"
+                               : "Folder rules: set " + set.joined(separator: ", ") + " — doz config set folder.ignore_mode changes it")
         }
         let (template, templatePath) = try settingsOutcome { try Onboarding.writePromptTemplateIfMissing() }
         switch template {
@@ -359,7 +359,7 @@ struct OnboardingFlow {
         }
         // 599c: where doz new and the UI's Quick add / New sandbox put each new sandbox's workspace folder.
         let projects = (Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent
-        status(.info, "new sandboxes' workspace folders: \(DisplayPath.tilde(projects))/<name> (defaults.projects_dir — doz config set defaults.projects_dir DIR moves it)")
+        status(.info, "new sandboxes' folders: \(DisplayPath.tilde(projects))/<name> (defaults.projects_dir — doz config set defaults.projects_dir DIR moves it)")
         let loginItem = startAtLogin(settingsWritable: settings != .unavailable)
 
         // Usage statistics (official builds only; owner, 2026-10-11) and Stay in touch (optional; default No; --yes and
@@ -418,7 +418,7 @@ struct OnboardingFlow {
                 ("Keys added", list(added + (openaiAdded.map { [$0] } ?? []))),
                 ("GitHub as you", access.github + (access.github == "off" ? "" : " (\(access.githubSource == "key" ? "a key" : "gh login"))")),
                 ("SSH agent", access.ssh),
-                ("Workspace rules", ignoreMode ?? DozableSettings.load().string(SettingKey.ignoreMode) ?? "lock"),
+                ("Folder rules", ignoreMode ?? DozableSettings.load().string(SettingKey.ignoreMode) ?? "lock"),
                 ("Settings", settingsPath.map { DisplayPath.tilde($0) } ?? "none"),
             ]).render())
             if firstTool == nil {
@@ -493,7 +493,7 @@ struct OnboardingFlow {
     /// attached exactly as `doz try` does (QuickMake). A plan problem is said and the onboarding still ends well.
     private func firstSandbox(_ recipe: AgentRecipe) async throws -> String? {
         func plan(name: String?, folder: String?) async throws -> CreatePlan {
-            var c = try ChoiceOptions.parse(["--agent", AgentRef.typed(recipe)] + (folder.map { ["--workspace", $0] } ?? []))
+            var c = try ChoiceOptions.parse(["--agent", AgentRef.typed(recipe)] + (folder.map { ["--folder", $0] } ?? []))
             c.agent = AgentRef.typed(recipe)
             return try await requestPlan(PlanRequest(purpose: "first", name: name, create: try c.planChoices()), g)
         }
@@ -501,7 +501,7 @@ struct OnboardingFlow {
         if asker.interactive && talk {
             say("\n" + Section("First sandbox: \(recipe.title)").render())
             let name = asker.text("  Name", default: planned.name) { WebNameRule.isSandboxName($0) ? nil : "1–40 of a-z 0-9 - (not starting with -)" }
-            let projects = planned.workspace.map { ($0 as NSString).deletingLastPathComponent } ?? (Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent
+            let projects = planned.folder.map { ($0 as NSString).deletingLastPathComponent } ?? (Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent
             let newFolder = DisplayPath.tilde((projects as NSString).appendingPathComponent(name))
             let typed = asker.text("  Folder (a new empty one, or a project folder of yours)", default: newFolder)
             let folder = typed == newFolder ? nil : typed
@@ -740,7 +740,7 @@ func followingCall(_ r: HostRequest, _ g: GlobalOptions,
 #if !DOZ_HELPER_BUILD
 struct Onboard: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Set up this Mac for Dozable (once): check it, prepare the base image every tool is added to, add keys, choose Access and workspace rules, write the settings, and make a first sandbox.",
+        abstract: "Set up this Mac for Dozable (once): check it, prepare the base image every tool is added to, add keys, choose Access and folder rules, write the settings, and make a first sandbox.",
         discussion: """
         Re-running is safe: it checks again, leaves existing settings alone and prepares only what is \
         missing. The base image is downloaded and prepared by the daemon from the Base image step on, while \
@@ -765,7 +765,7 @@ struct Onboard: AsyncParsableCommand {
     @Option(name: .long, help: "Where the GitHub token comes from: gh (this Mac's gh login) or key (--github-key-stdin).") var githubSource: String?
     @Flag(name: .long, help: "Read a GitHub token from stdin as the default key (implies --github-source key).") var githubKeyStdin = false
     @Option(name: .long, help: "The Access step's SSH choice without asking: on or off (forward this Mac's ssh-agent, github.com only).") var sshAgent: String?
-    @Option(name: .long, help: "The Workspace rules step without asking: lock or hide — what a .dozignore in a sandbox's folder does to the paths it lists, by default (the setting workspace.ignore_mode). Lock: listed but unreadable; hide: not there.") var ignoreMode: String?
+    @Option(name: .long, help: "The Folder rules step without asking: lock or hide — what a .dozignore in a sandbox's folder does to the paths it lists, by default (the setting folder.ignore_mode). Lock: listed but unreadable; hide: not there.") var ignoreMode: String?
     @Option(name: .long, help: "Codex's OpenAI account without asking: mac (this Mac's own Codex login, read-only), chatgpt (sign in with ChatGPT in your browser — Dozable's own sign-in), openai-key (pasted at a no-echo prompt) or later.") var openaiAccount: String?
     @Option(name: .long, help: "The Usage statistics step without asking (official builds): on or off — off sets telemetry.send_anonymous_usage_stats = false. Without it, --yes and no terminal leave the setting as it is.") var usageStats: String?
     @Option(name: .long, help: "Start the daemon when you log in, without asking: on (one login item in ~/Library/LaunchAgents — daemon.login_item = on) or off. Without it, --yes and no terminal add nothing and leave the setting as it is.") var startAtLogin: String?

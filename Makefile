@@ -402,7 +402,7 @@ test-vm-status: cli vmtest-host ## 612: what the agent is doing (OSC 7501) — a
 test-cli-grids: cli vmtest-host ## 648: painted thumbnails — a session prints coloured text; session-grids (over the daemon's status watcher) returns its grid with those colours; the same gen answers unchanged, new output a new grid; asleep it answers not-running and stays asleep, its saved screen carries the grid; no host: no answer, none started (scratch store)
 	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-grids --doz $(CLI_BIN)
 
-test-cli-sessions: cli vmtest-host ## 608: a program in /workspace keeps its folder across hibernate and a daemon restart; doz sessions restart|end (SIGHUP ignored → TERM, tmux, a missing session, never a wake, a racing open, the record), workspace.view off and on; doz sessions send (acknowledged, into a hibernated sandbox 5 of 5, --then-screen) and screen (live, saved when asleep, --wake)
+test-cli-sessions: cli vmtest-host ## 608: a program in /workspace keeps its folder across hibernate and a daemon restart; doz sessions restart|end (SIGHUP ignored → TERM, tmux, a missing session, never a wake, a racing open, the record), folder.view off and on; doz sessions send (acknowledged, into a hibernated sandbox 5 of 5, --then-screen) and screen (live, saved when asleep, --wake)
 	perl -e 'alarm shift; exec @ARGV' 1500 $(VMTEST_BIN) cli-sessions --doz $(CLI_BIN)
 	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-sessionsend --doz $(CLI_BIN)
 

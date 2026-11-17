@@ -230,8 +230,8 @@ func cliSuite() async throws {
         cliConfigChecks(h)
 
         print("cli: create + up (attached)")
-        let c = h.run(["create", "clia", "--image", "lab", "--memory", "512M", "--workspace", ws.path])
-        check(c.code == 0, "create clia --image lab --memory 512M --workspace … (exit \(c.code))")
+        let c = h.run(["create", "clia", "--image", "lab", "--memory", "512M", "--folder", ws.path])
+        check(c.code == 0, "create clia --image lab --memory 512M --folder … (exit \(c.code))")
         let t0 = Date()
         let up = try AttachedClient(h, ["up", "clia"])
         clients.append(up)
@@ -250,30 +250,30 @@ func cliSuite() async throws {
         check(e2.code == 0 && e2.out == "/workspace\nclia\n", "exec: runs in /workspace, the shared folder is there (\(e2.out.debugDescription))")
 
         // 594 (owner: "i dont want the user to have to create the path first"; "call it Isolated").
-        print("cli: a missing --workspace is made; isolated is said")
+        print("cli: a missing --folder is made; isolated is said")
         let made = URL(fileURLWithPath: "/private/tmp/dzcli-\(getpid())")
         defer { try? FileManager.default.removeItem(at: made) }
         let deep = made.appendingPathComponent("new/deep")
-        var w = h.run(["create", "clin", "--image", "lab", "--memory", "512M", "--workspace", deep.path])
+        var w = h.run(["create", "clin", "--image", "lab", "--memory", "512M", "--folder", deep.path])
         check(w.code == 0 && w.err.contains("[doz] created ") && w.err.contains("tmp/dzcli-\(getpid())/new/deep") && FileManager.default.fileExists(atPath: deep.path),
-              "create --workspace …/new/deep: the folder is made and said (\(w.err.prefix(120)))")
+              "create --folder …/new/deep: the folder is made and said (\(w.err.prefix(120)))")
         try? "seen\n".write(to: deep.appendingPathComponent("mark"), atomically: true, encoding: .utf8)
         check(h.run(["start", "clin"], timeout: 300).code == 0 && h.run(["exec", "clin", "--", "cat", "/workspace/mark"]).out == "seen\n",
               "the sandbox sees it at /workspace")
         h.run(["rm", "clin", "--yes"])
         w = h.run(["create", "clii", "--image", "lab", "--memory", "512M"])
         check(w.code == 0 && w.out.contains(", isolated") && w.err.contains("isolated: nothing on this Mac is shared; /workspace is private to the sandbox"),
-              "create without --workspace: isolated, and said")
-        check(h.run(["ls"]).out.contains("isolated"), "ls: WORKSPACE says isolated")
+              "create without --folder: isolated, and said")
+        check(h.run(["ls"]).out.contains("isolated"), "ls: FOLDER says isolated")
         let iso = h.json(["ls"], [SandboxInfo].self)?.first { $0.name == "clii" }
-        check(iso != nil && iso!.workspace == nil && iso!.isolated, "ls --json: workspace null, isolated true")
+        check(iso != nil && iso!.folder == nil && iso!.isolated, "ls --json: workspace null, isolated true")
         h.run(["rm", "clii", "--yes"])
         w = h.run(["create", "clij", "--image", "lab", "--memory", "512M", "--isolated"])
         check(w.code == 0 && !w.err.contains("isolated:"), "create --isolated: asked for, so no note")
         h.run(["rm", "clij", "--yes"])
-        w = h.run(["create", "clik", "--image", "lab", "--isolated", "--workspace", made.path])
-        check(w.code != 0 && h.row("clik") == nil, "--isolated and --workspace together are refused")
-        w = h.run(["create", "clik", "--image", "lab", "--workspace", h.store.appendingPathComponent("ws-in-store").path])
+        w = h.run(["create", "clik", "--image", "lab", "--isolated", "--folder", made.path])
+        check(w.code != 0 && h.row("clik") == nil, "--isolated and --folder together are refused")
+        w = h.run(["create", "clik", "--image", "lab", "--folder", h.store.appendingPathComponent("ws-in-store").path])
         check(w.code != 0 && w.err.contains("inside the store") && h.row("clik") == nil
               && !FileManager.default.fileExists(atPath: h.store.appendingPathComponent("ws-in-store").path),
               "a workspace inside the store is refused and not made")
@@ -355,7 +355,7 @@ func cliSuite() async throws {
         check(r.code == DozableCLIExit.exists, "a DIFFERENT program under the same name is still refused (exit \(r.code))")
 
         print("cli: two sandboxes at once")
-        r = h.run(["create", "clib", "--image", "lab", "--memory", "512M", "--workspace", ws.path])
+        r = h.run(["create", "clib", "--image", "lab", "--memory", "512M", "--folder", ws.path])
         check(r.code == 0, "create clib")
         r = h.run(["start", "clib"])
         let both = h.ls()
@@ -557,15 +557,15 @@ func cliLineageChecks(_ h: CLIHarness, ws: URL) {
     let ws2 = ws.deletingLastPathComponent().appendingPathComponent("workspace-dup")
     try? FileManager.default.createDirectory(at: ws2, withIntermediateDirectories: true)
     try? "w2\n".write(to: ws2.appendingPathComponent("w2marker"), atomically: true, encoding: .utf8)
-    r = h.run(["duplicate", "clia", "clid", "--workspace", ws2.path, "--memory", "384M", "--cpus", "1"])
-    check(r.code == 0 && h.row("clid")?.phase == "off", "duplicate clia clid --workspace … (clia running): clid is off")
+    r = h.run(["duplicate", "clia", "clid", "--folder", ws2.path, "--memory", "384M", "--cpus", "1"])
+    check(r.code == 0 && h.row("clid")?.phase == "off", "duplicate clia clid --folder … (clia running): clid is off")
     check(h.run(["start", "clid"]).code == 0, "start clid")
     check(h.run(["exec", "clid", "--", "cat", "/workspace/w2marker", "/root/tmark"]).out == "w2\ntmark\n",
           "clid: the new workspace at /workspace, clia's root disk")
     check(h.run(["exec", "clid", "--", "nproc"]).out == "1\n", "clid: 1 CPU")
     check(h.run(["rm", "clid", "--yes"]).code == 0, "rm clid")
     // 594: a missing workspace is made — but never inside the store (this one is).
-    r = h.run(["duplicate", "clia", "clie", "--workspace", ws.deletingLastPathComponent().appendingPathComponent("no-such-dir").path])
+    r = h.run(["duplicate", "clia", "clie", "--folder", ws.deletingLastPathComponent().appendingPathComponent("no-such-dir").path])
     check(r.code == 64 && r.err.contains("inside the store") && h.row("clie") == nil
           && !FileManager.default.fileExists(atPath: ws.deletingLastPathComponent().appendingPathComponent("no-such-dir").path),
           "a missing workspace inside the store is refused (and not made)")
@@ -893,8 +893,8 @@ func cliResourcesChecks(_ h: CLIHarness) {
     check(top == rep.totalBytes, "resources: the top-level rows add up to the total")
     check(rep.items.first { $0.id == "sandbox:clib" }.map { !$0.deletable && $0.link == "sandbox:clib" } ?? false,
           "resources: a sandbox is not deleted here — it links to its page")
-    check(rep.items.first { $0.id == "stray:workspace-cli" }?.refusal?.contains("workspace") ?? false,
-          "resources: a folder in the store that is a sandbox's workspace is refused")
+    check(rep.items.first { $0.id == "stray:workspace-cli" }?.refusal?.contains("folder") ?? false,
+          "resources: a folder in the store that is a sandbox's folder is refused")
     check(rep.items.contains { $0.id == "outside:settings" } && rep.items.contains { $0.id == "outside:keychain" },
           "resources: the settings file and the keychain entries (names) are shown outside the store")
     let text = h.run(["resources"])

@@ -398,9 +398,9 @@ public struct MacFence: Sendable, Equatable {
     public static func make(session: String, workdir given: String, request: MacFenceRequest, places: MacFencePlaces,
                             path: String, fenceRead: [String], hooksPathGlobal: String?, scratch: String) throws -> MacFence {
         if let p = MacFencePaths.pathProblem(places.home) { throw HostError(.invalid, "this Mac's home cannot be fenced: \(p)") }
-        guard let wd = MacFencePaths.resolve(given) else { throw HostError(.invalid, "--workdir \(given): not a folder on this Mac") }
+        guard let wd = MacFencePaths.resolve(given) else { throw HostError(.invalid, "--folder \(given): not a folder on this Mac") }
         if let why = MacFencePaths.workdirRefusal(wd, places) {
-            throw HostError(.invalid, "a fenced session cannot run in \(DisplayPath.tilde(wd)): \(why) — choose a project folder (--workdir DIR), or doz run @mac --unfenced")
+            throw HostError(.invalid, "a fenced session cannot run in \(DisplayPath.tilde(wd)): \(why) — choose a project folder (--folder DIR), or doz run @mac --unfenced")
         }
         func folders(_ list: [String]?, _ flag: String) throws -> [String] {
             var out: [String] = []

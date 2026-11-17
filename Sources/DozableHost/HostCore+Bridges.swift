@@ -282,7 +282,7 @@ extension HostCore {
                 }
             }
             if fresh {
-                let place = shown == "the workspace" ? "/workspace" : "/workspace/\(shown)"
+                let place = shown == "the shared folder" ? "/workspace" : "/workspace/\(shown)"
                 await note(sandbox, "the \(session) session asked for \(place): \(n.text)")
             }
             return n

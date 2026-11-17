@@ -18,10 +18,10 @@ import { inTabOrder, renderNavSandboxes, sessionGlyph } from '../components/nav-
 import { hoverPeek } from '../components/nav-peek-4f025473680c5915.js';
 import { paintRowOps } from '../components/notices-a8bcbd0d28fca151.js';
 import { sandboxPill } from '../components/pills-3617820ca05ec30b.js';
-import { quickAddButton } from '../components/quick-add-90974798b502ed3c.js';
+import { quickAddButton } from '../components/quick-add-a21e632e7e3432d7.js';
 import { thumbFrame } from '../components/session-thumb-0baef1f384d80e65.js';
-import { ISOLATED_NOTE } from '../components/workspace-chooser-79a99904ead6f28a.js';
-import { newSandboxWizard } from './new-sandbox-05897514f0925f90.js';
+import { ISOLATED_NOTE } from '../components/workspace-chooser-0ac402f5c46c650f.js';
+import { newSandboxWizard } from './new-sandbox-cc7f99c82e256d9f.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refresh = upcall('refresh');
 
@@ -89,12 +89,12 @@ function mainRow(s) {
   box.checked = SEL.has(s.name);
   return h('tr', { class: 'click', 'data-sandbox-row': s.name, on: { click: () => { location.hash = '#/sandbox/' + s.name; } } },
     h('td', { class: 'ov-sel', on: { click: (ev) => ev.stopPropagation() } }, box),
-    // Owner, 2026-10-23: the tool's mark beside the name, and where its workspace is (from ~).
+    // Owner, 2026-10-23: the tool's mark beside the name, and where its folder is (from ~).
     h('td', null, h('div', { class: 'ov-name' }, s.icon && s.icon.d ? mark(s.icon, 'ov-mark') : icon('box'),
       h('a', { class: 'name', href: '#/sandbox/' + s.name }, s.name)),
       h('div', { class: 'sub2' }, s.image),
-      s.workspace
-        ? h('div', { class: 'sub2 ov-ws', 'data-ov-ws': '', title: s.workspace }, icon('folder'), h('span', null, tildePath(s.workspace)))
+      s.folder
+        ? h('div', { class: 'sub2 ov-ws', 'data-ov-ws': '', title: s.folder }, icon('folder'), h('span', null, tildePath(s.folder)))
         : h('div', { class: 'sub2 no-ws', 'data-isolated': '', title: ISOLATED_NOTE }, 'isolated — no shared folder'),
       h('div', { 'data-op-for': s.name })),
     h('td', null, sandboxPill(s), s.diedWithHost ? h('div', { class: 'st-warn sub2' }, 'died with its daemon') : null,

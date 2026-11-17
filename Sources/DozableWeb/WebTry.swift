@@ -27,26 +27,26 @@ public struct WebPlanQuery: Equatable, Sendable {
     public var localPort: Int?
     /// 634: the First sandbox's project folder on this Mac (nil: a new empty folder of its own) — absolute or `~/…`; the
     /// planner says what it would do with it (a folder Dozable refuses is a plan problem, never made here).
-    public var workspace: String?
+    public var folder: String?
 
     public static func decode(_ body: Data) throws -> WebPlanQuery {
         guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any] else {
             throw WebAction.Invalid("the body must be a JSON object")
         }
-        guard Set(d.keys).isSubset(of: ["purpose", "name", "agent", "base", "isolated", "account", "source", "model", "localPort", "workspace"]) else {
-            throw WebAction.Invalid("only purpose, name, agent, base, isolated, account, source, model, localPort and workspace")
+        guard Set(d.keys).isSubset(of: ["purpose", "name", "agent", "base", "isolated", "account", "source", "model", "localPort", "folder"]) else {
+            throw WebAction.Invalid("only purpose, name, agent, base, isolated, account, source, model, localPort and folder")
         }
         var q = WebPlanQuery()
         if let v = d["purpose"], !(v is NSNull) {
             guard let s = v as? String, ["try", "new", "first"].contains(s) else { throw WebAction.Invalid("purpose: try, new or first") }
             q.purpose = s
         }
-        if let v = d["workspace"], !(v is NSNull) {
+        if let v = d["folder"], !(v is NSNull) {
             guard let s = v as? String, (1...1024).contains(s.count), s.hasPrefix("/") || s.hasPrefix("~/"),
                   !s.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7f }) else {
-                throw WebAction.Invalid("workspace: a folder on this Mac (absolute, or ~/…)")
+                throw WebAction.Invalid("folder: a folder on this Mac (absolute, or ~/…)")
             }
-            q.workspace = (try? Workspace.normalize(s)) ?? s          // ~/… as the create action takes it
+            q.folder = (try? Workspace.normalize(s)) ?? s          // ~/… as the create action takes it
         }
         if let v = d["name"], !(v is NSNull) {
             guard let s = v as? String, WebRoute.isSandboxName(s) else { throw WebAction.Invalid("name: a sandbox name") }
@@ -97,7 +97,7 @@ public struct WebPlanQuery: Equatable, Sendable {
             q.localPort = n
         }
         if q.purpose == "try" || q.purpose == "first", q.agent == nil || q.agent == "none" { throw WebAction.Invalid("agent: a try is of an agent") }
-        if q.workspace != nil, q.isolated { throw WebAction.Invalid("workspace or isolated, not both") }
+        if q.folder != nil, q.isolated { throw WebAction.Invalid("folder or isolated, not both") }
         return q
     }
 
@@ -115,7 +115,7 @@ public struct WebPlanQuery: Equatable, Sendable {
             }
         }
         if isolated { o.isolated = true }
-        if let workspace { o.workspace = workspace }
+        if let folder { o.folder = folder }
         if let account { o.account = account }
         o.modelSource = source
         o.model = model

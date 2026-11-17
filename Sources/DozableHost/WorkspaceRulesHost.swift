@@ -35,7 +35,7 @@ public struct WorkspaceRulesInfo: Codable, Equatable, Sendable {
 public struct WorkspaceRulesReport: Codable, Equatable, Sendable {
     public var sandbox: String
     /// The Mac folder shared at `guestPath` (nil: isolated — nothing to rule).
-    public var workspace: String?
+    public var folder: String?
     public var guestPath: String
     /// A rule file is in the folder.
     public var active: Bool
@@ -97,7 +97,7 @@ extension HostCore {
         let m = try get(r.name)
         let (mode, source) = Self.ruleMode(m.config)
         let guestPath = DozableImages.workspaceGuestPath
-        var rep = WorkspaceRulesReport(sandbox: m.name, workspace: m.config.workspace, guestPath: guestPath, active: false,
+        var rep = WorkspaceRulesReport(sandbox: m.name, folder: m.config.workspace, guestPath: guestPath, active: false,
                                        mode: mode.rawValue, modeSource: source, caseInsensitive: true, ignore: [], readOnly: [],
                                        problems: [], view: "stopped")
         guard let w = m.config.workspace else {
@@ -149,13 +149,13 @@ extension HostCore {
             let abs = URL(fileURLWithPath: (s as NSString).expandingTildeInPath).standardizedFileURL.resolvingSymlinksInPath().path
             let root = folder.standardizedFileURL.resolvingSymlinksInPath().path
             guard abs == root || abs.hasPrefix(root + "/") else {
-                throw HostError(.invalid, "\(p) is not inside the workspace folder \(folder.path)")
+                throw HostError(.invalid, "\(p) is not inside the sandbox's folder \(folder.path)")
             }
             s = String(abs.dropFirst(root.count))
         }
         while s.hasPrefix("/") { s.removeFirst() }
         while s.hasPrefix("./") { s.removeFirst(2) }
-        if s.split(separator: "/").contains("..") { throw HostError(.invalid, "\(p): a path inside the workspace, without ..") }
+        if s.split(separator: "/").contains("..") { throw HostError(.invalid, "\(p): a path inside the folder, without ..") }
         while s.hasSuffix("/") { s.removeLast() }
         return s
     }
@@ -248,7 +248,7 @@ public enum WorkspaceWarnings {
                 return isIgnore ? !(d.verdict == .locked || d.verdict == .hidden) : d.verdict != .readOnly
             }
             if let hit {
-                out.append("`\(r.pattern)` (\(file) line \(r.line ?? 0)) matches only at the top of the workspace — these rules are Docker's, anchored at the root (unlike .gitignore); write `**/\(r.pattern)` to match it at any depth (it also exists at \(hit))")
+                out.append("`\(r.pattern)` (\(file) line \(r.line ?? 0)) matches only at the top of the folder — these rules are Docker's, anchored at the root (unlike .gitignore); write `**/\(r.pattern)` to match it at any depth (it also exists at \(hit))")
             }
         }
         return out

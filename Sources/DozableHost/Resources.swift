@@ -615,7 +615,7 @@ public enum Resources {
                 .contains { $0 == path || $0.hasPrefix(path + "/") } }.map(\.name)
             add(ResourceItem(id: id, group: "stray", name: String(id.dropFirst(6)), detail: "not something Dozable made — found in the store",
                              sizeBytes: l.size, freedBytes: l.freed, usedBy: users, deletable: true,
-                             refusal: users.isEmpty ? nil : "the workspace (or a share) of \(users.joined(separator: ", "))",
+                             refusal: users.isEmpty ? nil : "the folder (or a share) of \(users.joined(separator: ", "))",
                              later: "gone for good", warning: "Dozable did not make it: check what it is first", path: rel(id)))
         }
 

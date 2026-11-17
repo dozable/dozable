@@ -6,7 +6,7 @@ import { btn } from './button-8109d54546d946d3.js';
 
 // ── workspace rules: the onboarding's and the New Sandbox wizard's step (599g) ──────────────────────
 // ONE component (owner: the same human description in both): what .dozignore and .dozreadonly do, the mode
-// (onboarding: the default workspace.ignore_mode; sandbox: this sandbox's ignore_mode) and, in the wizard, what
+// (onboarding: the default folder.ignore_mode; sandbox: this sandbox's ignore_mode) and, in the wizard, what
 // the chosen folder already has. Its words are the host's (`rulesGuide` — WorkspaceRulesGuide, the same
 // doz onboard and doz init print). It writes nothing: the caller keeps the choice (onPick).
 //   rulesStep({ mode: 'onboarding'|'sandbox', guide, value, onPick(value), folder: {rules: [...]}, onLookAgain })

@@ -53,7 +53,7 @@ function build() {
   mac.status = h('span', { class: 'grid-status', role: 'status' });
   mac.body = h('div', { class: 'tiles mac-tiles' });
   mac.pane = h('div', { class: 'mac-pane', hidden: true });
-  mac.newBtn = btn('New session on this Mac…', () => openMacWizard({ workdir: lastFolder() }), { small: true, primary: true, icon: 'plus' });
+  mac.newBtn = btn('New session on this Mac…', () => openMacWizard({ folder: lastFolder() }), { small: true, primary: true, icon: 'plus' });
   mac.newBtn.hidden = true;
   root.replaceChildren(
     h('div', { class: 'head' }, h('h1', null, 'This Mac'),
@@ -107,8 +107,8 @@ export function isTemporaryFolder(p) {
   return /^(\/private)?\/(tmp|var\/folders)(\/|$)/.test(String(p || ''));
 }
 function lastFolder() {
-  const s = mac.sessions.filter((x) => x.workdir).sort((a, b) => String(b.openedAt || '').localeCompare(String(a.openedAt || '')))[0];
-  return s && !isTemporaryFolder(s.workdir) ? s.workdir : '';
+  const s = mac.sessions.filter((x) => x.folder).sort((a, b) => String(b.openedAt || '').localeCompare(String(a.openedAt || '')))[0];
+  return s && !isTemporaryFolder(s.folder) ? s.folder : '';
 }
 
 function render() {
@@ -132,7 +132,7 @@ function render() {
     if (next !== t.el) mac.body.insertBefore(t.el, next);
     prev = t.el;
   }
-  if (!want.length) mac.body.replaceChildren(h('div', { class: 'empty' }, 'No sessions on this Mac. In a terminal on the Mac: doz run @mac -d --session NAME --workdir DIR -- COMMAND (fenced; --unfenced for none)'
+  if (!want.length) mac.body.replaceChildren(h('div', { class: 'empty' }, 'No sessions on this Mac. In a terminal on the Mac: doz run @mac -d --session NAME --folder DIR -- COMMAND (fenced; --unfenced for none)'
     + (mac.plan ? ' — or New session on this Mac… for the command.' : '')));
   else for (const n of [...mac.body.children]) if (!n.dataset.key) n.remove();
   const running = want.filter((s) => s.state === 'running');
@@ -174,8 +174,8 @@ function paintTile(t, s) {
   t.marks.replaceChildren(capChips(s, () => openPane(s.name, 'watch', 'can')), ...fenceMarks(s, (tab) => openPane(s.name, 'watch', tab)),
     ...(s.bypassed ? [bypassedChip()] : []));
   t.el.dataset.fenced = s.fenced ? 'true' : 'false';
-  t.folder.textContent = s.workdir ? tildePath(s.workdir) : '';
-  t.folder.title = s.workdir || '';
+  t.folder.textContent = s.folder ? tildePath(s.folder) : '';
+  t.folder.title = s.folder || '';
   const can = mac.access === 'interactive';
   t.acts.replaceChildren(
     btn('Watch', () => openPane(s.name, 'watch'), { small: true, quiet: true, icon: 'eye' }),
@@ -202,7 +202,7 @@ function end(s) {
     { action: 'mac-session-end', session: s.name });
 }
 function restart(s) {
-  confirmAction('Restart ' + s.name, 'Its program stops and starts again in ' + (s.workdir ? tildePath(s.workdir) : 'its folder') + '. Claude continues the folder’s newest conversation when there is one.',
+  confirmAction('Restart ' + s.name, 'Its program stops and starts again in ' + (s.folder ? tildePath(s.folder) : 'its folder') + '. Claude continues the folder’s newest conversation when there is one.',
     s.name, { action: 'mac-session-restart', session: s.name });
 }
 

@@ -29,7 +29,7 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
     func rows() -> [SessionRow] { t.json(["sessions", "@mac"], [SessionRow].self) ?? [] }
     func row(_ s: String) -> SessionRow? { rows().first { $0.name == s } }
     func run(_ s: String, _ wd: String, _ extra: [String] = [], argv: [String] = ["claude"]) -> CLIRun {
-        let r = t.run(["run", "@mac", "-d", "--fenced", "--session", s, "--workdir", wd] + extra + ["--"] + argv, timeout: 90)
+        let r = t.run(["run", "@mac", "-d", "--fenced", "--session", s, "--folder", wd] + extra + ["--"] + argv, timeout: 90)
         if r.code == 0 { started.insert(s) }
         return r
     }
@@ -143,7 +143,7 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
     check(cc?.capabilities?.first { $0.id == "claude-login" }?.state == "swapped in (account ct)", "capabilities: the login swapped in")
     r = t.run(["sessions", "@mac", "--capabilities", "cc"])
     check(r.code == 0 && r.out.contains("Agent config") && r.out.contains("private") && r.out.contains("(live)"), "sessions @mac --capabilities cc")
-    r = t.run(["run", "@mac", "--fenced", "--dry-run", "--session", "cc", "--workdir", pw, "--json", "--", "claude"])
+    r = t.run(["run", "@mac", "--fenced", "--dry-run", "--session", "cc", "--folder", pw, "--json", "--", "claude"])
     let dry = (try? HostWire.decoder.decode([MacCapability].self, from: Data(r.out.utf8))) ?? []
     check(r.code == 0 && dry.map(\.id) == (cc?.capabilities ?? []).map(\.id) && dry.first { $0.id == "agent-config" }?.state == "private",
           "--dry-run: the same capabilities, from the same source, nothing started")

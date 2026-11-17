@@ -6,10 +6,10 @@ import DozableHost
 // default location ~/Developer/dozer-sandbox-projects/[SANDBOX-NAME] and also pick a better default
 // name for the sandbox like "claude-sandbox""; "i dont want the user to have to create the path first".
 //
-//   · `POST /api/v1/workspace/check` {image?, name?, path?} — changes nothing: the new sandbox's
+//   · `POST /api/v1/folder/check` {image?, name?, path?} — changes nothing: the new sandbox's
 //     suggested name (from the image; -2, -3 when taken), its default folder (<defaults.projects_dir>/
 //     <name>), and for a typed path whether it exists, will be created, or is refused (and why).
-//   · `POST /api/v1/workspace/choose` {start?} — the MAC's folder picker (a fixed AppleScript run by
+//   · `POST /api/v1/folder/choose` {start?} — the MAC's folder picker (a fixed AppleScript run by
 //     /usr/bin/osascript: `choose folder`, New Folder allowed, brought to the front), opened where the
 //     field points (its nearest existing folder) or at the projects folder. One at a time — a second
 //     is refused (409). The request's path is an ARGUMENT of the fixed script, never code; the answer is
@@ -105,7 +105,7 @@ public final class WebFolderPicker: @unchecked Sendable {
     /// The dialog's prompts — fixed texts, chosen by the route (never the request's words).
     public static let workspacePrompt = "Choose the folder to share at /workspace"
     /// 599c: the Settings page's Choose… for `defaults.projects_dir`.
-    public static let projectsPrompt = "Choose the folder where new sandboxes get their workspace folders"
+    public static let projectsPrompt = "Choose the folder where new sandboxes get their folders"
 
     /// `run` shows the picker at `start` and returns the chosen folder (nil: cancelled). The default:
     /// the environment's test seam when set, else osascript.

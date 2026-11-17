@@ -56,11 +56,11 @@ public enum AgentPrompt {
         ("sandbox.base", "its base: a recommended one (Python — python:3.13-bookworm) or the user's Dockerfile"),
         ("sandbox.cpus", "its virtual CPUs"),
         ("sandbox.memory", "its memory, e.g. 2 GiB"),
-        ("workspace.shared", "yes or no"),
-        ("workspace.host_path", "the Mac folder shared at /workspace, or (none)"),
-        ("workspace.guest_path", "/workspace"),
-        ("workspace.description", "a sentence: where /workspace comes from, or that it is not shared"),
-        ("workspace.rules", "one short line: the user's .dozignore / .dozreadonly rules shaping /workspace (locked or hidden paths, read-only ones) — empty when none apply"),
+        ("folder.shared", "yes or no"),
+        ("folder.host_path", "the Mac folder shared at /workspace, or (none)"),
+        ("folder.guest_path", "/workspace"),
+        ("folder.description", "a sentence: where /workspace comes from, or that it is not shared"),
+        ("folder.rules", "one short line: the user's .dozignore / .dozreadonly rules shaping /workspace (locked or hidden paths, read-only ones) — empty when none apply"),
         ("network.mode", "agent, bake, locked, open, custom (proxied), nat or none"),
         ("network.allowed_hosts", "the hosts the policy allows (proxied), comma-separated"),
         ("network.description", "a sentence: how the sandbox reaches the network and what to do when refused"),
@@ -87,8 +87,8 @@ public enum AgentPrompt {
     public static let builtInTemplate = """
     # Where you are running: a Dozable sandbox
     - You are in `{{sandbox.name}}`, a Dozable sandbox: a Linux virtual machine (not a container) on the user's Mac ({{mac.hostname}}), run by Apple's Virtualization framework — image {{sandbox.image}} (base: {{sandbox.base}}), {{sandbox.cpus}} CPUs, {{sandbox.memory}}.
-    - {{workspace.description}}
-    - {{workspace.rules}}
+    - {{folder.description}}
+    - {{folder.rules}}
     - Network: {{network.description}}
     - Credentials: {{credentials.description}}
     - System: {{sudo.description}}
@@ -114,8 +114,8 @@ public enum AgentPrompt {
 
     ## Your files and the user's Mac
 
-    - {{workspace.description}}
-    - {{workspace.rules}}
+    - {{folder.description}}
+    - {{folder.rules}}
     - Everything else is on this VM's own disks, invisible from the Mac's Finder.
 
     ## What persists
@@ -220,11 +220,11 @@ public enum AgentPrompt {
         // 599g: only while a view serves the user's rules (it is the guest's state, not the Mac's files).
         switch workspaceRules {
         case .lock?:
-            v["workspace.rules"] = "Workspace rules: the user's .dozignore blocks some paths in /workspace — they are listed with no permissions (`----------`) and every read or write of them is refused; do not try to read, overwrite or recreate them. Paths in .dozreadonly (and doz_project.yaml, .git/hooks, .dozignore, .dozreadonly) are read-only. These are the user's choice, not errors to work around — ask the user if you need one (`doz ignore check` on their Mac says why)."
+            v["folder.rules"] = "Folder rules: the user's .dozignore blocks some paths in /workspace — they are listed with no permissions (`----------`) and every read or write of them is refused; do not try to read, overwrite or recreate them. Paths in .dozreadonly (and doz_project.yaml, .git/hooks, .dozignore, .dozreadonly) are read-only. These are the user's choice, not errors to work around — ask the user if you need one (`doz ignore check` on their Mac says why)."
         case .hide?:
-            v["workspace.rules"] = "Workspace rules: the user's .dozignore hides some paths in /workspace — they are not there for you; do not recreate them (creating such a name is refused). Paths in .dozreadonly (and doz_project.yaml, .git/hooks, .dozignore, .dozreadonly) are read-only. These are the user's choice, not errors to work around — ask the user if you need one."
+            v["folder.rules"] = "Folder rules: the user's .dozignore hides some paths in /workspace — they are not there for you; do not recreate them (creating such a name is refused). Paths in .dozreadonly (and doz_project.yaml, .git/hooks, .dozignore, .dozreadonly) are read-only. These are the user's choice, not errors to work around — ask the user if you need one."
         case nil:
-            v["workspace.rules"] = ""
+            v["folder.rules"] = ""
         }
         // 599d: the user's GitHub login and SSH agent — one short facts line (none when both are off), the
         // details in the skill. 599h: what the tools layer put in place, folded in (gh, the ssh client + host keys).
@@ -269,7 +269,7 @@ public enum AgentPrompt {
         v["files.description"] = workspace == nil
             ? "this sandbox is isolated (nothing on the Mac is shared), so no file or folder of yours can be opened on the Mac — show the user the file's content instead."
             : !openFiles
-            ? "opening workspace files and folders on the user's Mac is off for this sandbox; tell the user the path under their shared folder instead (they can turn it on: `doz config set --sandbox \(name) sandbox.open_files on`)."
+            ? "opening files and folders of the shared folder on the user's Mac is off for this sandbox; tell the user the path under their shared folder instead (they can turn it on: `doz config set --sandbox \(name) sandbox.open_files on`)."
             : "`xdg-open FILE` (also `open FILE`) on a document under /workspace opens it on the user's Mac in its default app (an html page in their browser, markdown in their editor); on a folder under /workspace (`open .` included) it opens that folder in the Finder; `doz-open --reveal PATH` shows a file selected in its folder. The user sees a notice every time. Documents only — \(types); never an app or package (reveal it instead), script, installer or executable file, and only inside /workspace (a link that leads out is refused). \(apps) At most 3 in 10 seconds; open something only when the user would want to see it."
         // 599b (owner: "add that to the prompt concisely"): ONE facts line for every open bridge, saying only
         // what is on; nothing at all when nothing is (the line is dropped).
@@ -307,10 +307,10 @@ public enum AgentPrompt {
         v["sandbox.image"] = image.hasPrefix("custom:") ? String(image.dropFirst(7)) + " (a template)" : image
         v["sandbox.cpus"] = String(cpus)
         v["sandbox.memory"] = memoryMiB % 1024 == 0 ? "\(memoryMiB / 1024) GiB" : "\(memoryMiB) MiB"
-        v["workspace.guest_path"] = DozableImages.workspaceGuestPath
-        v["workspace.shared"] = workspace == nil ? "no" : "yes"
-        v["workspace.host_path"] = workspace ?? "(none)"
-        v["workspace.description"] = workspace.map {
+        v["folder.guest_path"] = DozableImages.workspaceGuestPath
+        v["folder.shared"] = workspace == nil ? "no" : "yes"
+        v["folder.host_path"] = workspace ?? "(none)"
+        v["folder.description"] = workspace.map {
             "/workspace is the user's Mac folder \($0), shared live: what you write there is on the Mac at once, and the other way round."
         } ?? "This sandbox is isolated (no folder is shared with the Mac): /workspace is a directory on this VM's own disk, and files there exist only inside this VM."
         v["network.mode"] = DozableImages.networkName(network)
@@ -412,6 +412,10 @@ public enum AgentPrompt {
             }
             let name = after[..<close.lowerBound].trimmingCharacters(in: .whitespaces)
             guard let v = values[name] else {
+                // 0.51: `workspace.*` became `folder.*` — no alias; the error names the new variable (RenamedNames: remove in 0.53).
+                if name.hasPrefix("workspace."), values["folder." + name.dropFirst("workspace.".count)] != nil {
+                    throw AgentPromptError(message: "\(source): {{\(name)}} is not a variable — it was renamed {{folder.\(name.dropFirst("workspace.".count))}}")
+                }
                 throw AgentPromptError(message: "\(source): {{\(name)}} is not a variable — the variables are \(variables.map(\.name).joined(separator: ", "))")
             }
             out += v

@@ -20,9 +20,9 @@ import { failureFor } from '../components/notices-a8bcbd0d28fca151.js';
 import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../components/session-actions-5bc5939262726679.js';
 import { thumbFrame } from '../components/session-thumb-0baef1f384d80e65.js';
 import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal-0669011bf502f6fb.js';
-import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-0009da9b046138f5.js';
-import { openSavedTerminal } from './sandbox-layout-1882a99a78a54a21.js';
-import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-b0e18b4141530aed.js';
+import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-d40bcce0ca05505f.js';
+import { openSavedTerminal } from './sandbox-layout-7307f61ed13c2bc7.js';
+import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-d6fb5c9e7b2a7db5.js';
 
 /// Each sandbox's Home: its document and the parts that hold a picture (built once and painted in place), keyed by
 /// session.
@@ -277,12 +277,12 @@ export function soundLine(name, i) {
 function paintFolder(home, i) {
   const facts = [];
   const fact = (k, val) => facts.push(h('dt', null, k), h('dd', null, val));
-  if (i.workspace) {
-    fact('On this Mac', h('code', null, tildePath(i.workspace)));
+  if (i.folder) {
+    fact('On this Mac', h('code', null, tildePath(i.folder)));
     fact('In the sandbox', [h('code', null, '/workspace'), ' — live, both ways']);
     fact('Files it opens', setting('sandbox.open_files', true) ? 'open on this Mac — an .html page in your browser, with a notice (sandbox.open_files: on)'
       : 'not opened on this Mac (sandbox.open_files: off)');
-    fact('Workspace rules', i.workspaceRules || 'none — the folder is shared as is');
+    fact('Folder rules', i.folderRules || 'none — the folder is shared as is');
   } else {
     fact('Folder', 'isolated — no folder of this Mac is shared');
   }

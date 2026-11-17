@@ -18,7 +18,7 @@ struct ChoiceOptions: ParsableArguments {
     @Option(name: .long, help: "A recommended base (doz base ls): node, python, go, rust, java, ruby, dotnet, debian, ubuntu, alpine. Default node.")
     var base: String?
 
-    @Option(name: .long, help: "Your own Dockerfile as the base, built with Apple's container build (installed on demand; its RUN steps run OUTSIDE Dozable's network policy). The workspace defaults to its folder.")
+    @Option(name: .long, help: "Your own Dockerfile as the base, built with Apple's container build (installed on demand; its RUN steps run OUTSIDE Dozable's network policy). The folder shared at /workspace defaults to its folder.")
     var dockerfile: String?
 
     @Option(name: .long, help: "Virtual CPUs (default 2).")
@@ -28,9 +28,9 @@ struct ChoiceOptions: ParsableArguments {
     var memory: String?
 
     @Option(name: .long, help: "A folder of this Mac shared at /workspace (made when it does not exist).")
-    var workspace: String?
+    var folder: String?
 
-    @Flag(name: .long, help: "Share no folder: /workspace is private to the sandbox (the default without --workspace, said by a note; this says it on purpose).")
+    @Flag(name: .long, help: "Share no folder: /workspace is private to the sandbox (the default without --folder, said by a note; this says it on purpose).")
     var isolated = false
 
     @Option(name: .long, help: "agent, bake, locked, open (proxied: no network interface, every connection through the Mac's policy and log), nat or none. Default: agent for an agent image, bake for lab.")
@@ -69,10 +69,10 @@ struct ChoiceOptions: ParsableArguments {
     @Flag(inversion: .prefixedNo, help: "Run this sandbox's sessions inside tmux (its windows, panes, copy mode; Ctrl-b) — default: the setting sessions.tmux, off.")
     var tmux: Bool?
 
-    @Option(name: .long, help: "lock or hide: what a .dozignore in the workspace folder does to the paths it lists — lock (listed, every access refused) or hide (not there). Not a security boundary (default: the setting workspace.ignore_mode, lock).")
+    @Option(name: .long, help: "lock or hide: what a .dozignore in the sandbox's folder does to the paths it lists — lock (listed, every access refused) or hide (not there). Not a security boundary (default: the setting folder.ignore_mode, lock).")
     var ignoreMode: String?
-    @Option(name: .long, help: "on or off: /workspace through Dozable's live view of the folder, so programs working there keep their folder across a wake from hibernation or a daemon restart (on, the default: the setting workspace.view), or shared directly — a little faster, but such a wake cuts them off.")
-    var workspaceView: String?
+    @Option(name: .long, help: "on or off: /workspace through Dozable's live view of the folder, so programs working there keep their folder across a wake from hibernation or a daemon restart (on, the default: the setting folder.view), or shared directly — a little faster, but such a wake cuts them off.")
+    var folderView: String?
 
     @Option(name: .long, help: "Your dotfiles: a git repository (https://github.com/you/dotfiles — fetched on this Mac with its own git login), a folder on this Mac that is a git repository, or none. Applied at the first start, as the sandbox's user: its install script runs, or its dotfiles are linked into the home. doz asks once per repository and commit (default: the setting sandbox.dotfiles).")
     var dotfiles: String?
@@ -249,9 +249,9 @@ struct ChoiceOptions: ParsableArguments {
             mem = v
         }
         if let c = cpus, c < 1 { throw ValidationError("--cpus must be at least 1") }
-        if isolated && workspace != nil { throw ValidationError("--isolated or --workspace, not both") }
+        if isolated && folder != nil { throw ValidationError("--isolated or --folder, not both") }
         if rebuild && useCurrent { throw ValidationError("--rebuild or --use-current, not both") }
-        var o = CreateOptions(image: img, cpus: cpus, memoryMiB: mem, workspace: absoluteWorkspace, network: network, subnet: subnet, account: account)
+        var o = CreateOptions(image: img, cpus: cpus, memoryMiB: mem, folder: absoluteFolder, network: network, subnet: subnet, account: account)
         o.isolated = isolated ? true : nil
         if let ref {
             o.agentVersion = ref.exact
@@ -275,8 +275,8 @@ struct ChoiceOptions: ParsableArguments {
         if let df = absoluteDockerfile {
             guard FileManager.default.fileExists(atPath: df) else { throw ValidationError("--dockerfile: no file at \(df)") }
             o.dockerfile = df
-            // B6: the Dockerfile's folder is the build context — and the workspace, unless one is given.
-            if o.workspace == nil, !isolated { o.workspace = (df as NSString).deletingLastPathComponent }
+            // B6: the Dockerfile's folder is the build context — and the shared folder, unless one is given.
+            if o.folder == nil, !isolated { o.folder = (df as NSString).deletingLastPathComponent }
         }
         try applyPrompt(to: &o)
         o.settings = try sandboxSettings()
@@ -315,7 +315,7 @@ struct ChoiceOptions: ParsableArguments {
         try take(SettingKey.sshAgent, sshAgent, "--ssh-agent")
         if let tmux { s[SettingKey.tmux] = .bool(tmux) }
         try take(SettingKey.ignoreMode, ignoreMode, "--ignore-mode")
-        try take(SettingKey.workspaceView, workspaceView, "--workspace-view")
+        try take(SettingKey.workspaceView, folderView, "--folder-view")
         try take(SettingKey.audio, sound, "--sound")            // 667
         // 669: --approvals skip|ask (the host checks the agent has prompts to skip).
         if let a = approvals {
@@ -325,9 +325,9 @@ struct ChoiceOptions: ParsableArguments {
         return s.isEmpty ? nil : s
     }
 
-    /// 594: a relative --workspace is this command's working folder's (the host takes absolute paths only).
-    var absoluteWorkspace: String? {
-        guard let w = workspace else { return nil }
+    /// 594: a relative --folder is this command's working folder's (the host takes absolute paths only).
+    var absoluteFolder: String? {
+        guard let w = folder else { return nil }
         let expanded = (w as NSString).expandingTildeInPath
         if expanded.hasPrefix("/") { return expanded }
         return URL(fileURLWithPath: expanded, relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)).standardizedFileURL.path
@@ -351,10 +351,10 @@ struct ChoiceOptions: ParsableArguments {
     }
 
     var givenAny: Bool {
-        image != nil || cpus != nil || memory != nil || workspace != nil || network != nil || subnet != nil || account != nil || agentPrompt != nil || isolated || agentSudo != nil
+        image != nil || cpus != nil || memory != nil || folder != nil || network != nil || subnet != nil || account != nil || agentPrompt != nil || isolated || agentSudo != nil
             || agent != nil || base != nil || dockerfile != nil || !allow.isEmpty
             || clipboard != nil || browserBridge != nil || openFiles != nil || tmux != nil || github != nil || sshAgent != nil
-            || ignoreMode != nil || workspaceView != nil || dotfiles != nil || sound != nil || audio || approvals != nil
+            || ignoreMode != nil || folderView != nil || dotfiles != nil || sound != nil || audio || approvals != nil
             || !hostPort.isEmpty
     }
 }
@@ -384,15 +384,15 @@ func chooseImage(_ o: inout CreateOptions, rebuild: Bool, useCurrent: Bool, _ g:
     return notice
 }
 
-/// 594: a workspace made by this create is said; an isolated sandbox is said — unless asked for with
+/// 594: a folder made by this create is said; an isolated sandbox is said — unless asked for with
 /// --isolated (D17; owner: one word, "isolated").
-func noteWorkspace(_ info: SandboxInfo, isolatedAsked: Bool, _ g: GlobalOptions) {
+func noteFolder(_ info: SandboxInfo, isolatedAsked: Bool, _ g: GlobalOptions) {
     guard !g.json, !g.quiet else { return }
-    if info.workspaceCreated == true, let w = info.workspace {
+    if info.folderCreated == true, let w = info.folder {
         Out.stderr("[doz] created \(DisplayPath.tilde(w))\n")
     }
-    if info.workspace == nil, !isolatedAsked {
-        Out.stderr("[doz] \(Workspace.isolatedNote) — --workspace DIR shares a folder (--isolated says it on purpose)\n")
+    if info.folder == nil, !isolatedAsked {
+        Out.stderr("[doz] \(Workspace.isolatedNote) — --folder DIR shares one (--isolated says it on purpose)\n")
     }
 }
 
@@ -430,14 +430,14 @@ struct Create: AsyncParsableCommand {
         info.imageNotice = notice
         if !g.json {
             Out.stdout("created \(info.name): \(info.image), \(info.cpus) CPUs, \(Out.mib(info.memoryMiB)), network \(info.network)"
-                       + (info.workspace.map { ", /workspace = \($0)" } ?? ", isolated") + "\n")
+                       + (info.folder.map { ", /workspace = \($0)" } ?? ", isolated") + "\n")
         }
         if !g.json, !g.quiet { for l in info.secretLines ?? [] { Out.stderr("[doz] \(l)\n") } }      // 692
         if !g.json, let p = info.imagePreparation {
             Out.stdout(p == "prepared" ? "prepared its image (\(info.image)) — its first start boots at once\n"
                                        : "its image (\(info.image)) is ready — nothing to prepare\n")
         }
-        noteWorkspace(info, isolatedAsked: create.isolated, g)
+        noteFolder(info, isolatedAsked: create.isolated, g)
         await noteWorkspaceRules(name, g)                                       // 599g
         if start {
             let s = try decode(try call(HostRequest(.start, name: name), g), LifecycleResult.self, g)
@@ -456,7 +456,7 @@ struct New: AsyncParsableCommand {
         abstract: "The quickest way in: a new sandbox with every default — created, started and attached.",
         discussion: """
         The image is the setting defaults.image; the name is the image's (claude-sandbox, then claude-sandbox-2, …); its \
-        workspace is <defaults.projects_dir>/<name>, made now; the account and permissions are the defaults. It prints what \
+        folder is <defaults.projects_dir>/<name>, made now; the account and permissions are the defaults. It prints what \
         it chose. Each flag changes just that one thing — doz create and doz up take every other option.
         """)
 
@@ -483,7 +483,7 @@ struct New: AsyncParsableCommand {
         if let p = planned.problems.first(where: { $0.code != "key" && $0.code != "image" }) {
             throw fail(HostError(p.code == "name" && p.text.contains("exists") ? .exists : .invalid, p.text + (p.fix.map { " — \($0)" } ?? "")), g)
         }
-        let plan = QuickAddPlan(name: planned.name, image: planned.image, workspace: planned.workspace, projectsDir: "")
+        let plan = QuickAddPlan(name: planned.name, image: planned.image, folder: planned.folder, projectsDir: "")
         if !g.json { Out.stdout(plan.line() + "\n") }
         var o = planned.create
         do {
@@ -500,7 +500,7 @@ struct New: AsyncParsableCommand {
         var r = HostRequest(.create, name: plan.name)
         r.create = o
         let info = try decode(try call(r, g), SandboxInfo.self, g)
-        noteWorkspace(info, isolatedAsked: isolated, g)
+        noteFolder(info, isolatedAsked: isolated, g)
         let started = try decode(try call(HostRequest(.start, name: plan.name), g), LifecycleResult.self, g)
         var open = HostRequest(.openSession, name: plan.name)
         let size = terminalSize()
@@ -511,7 +511,7 @@ struct New: AsyncParsableCommand {
         if g.json {
             var out: [String: JSONValue] = ["name": .string(plan.name), "image": .string(plan.image), "phase": .string(started.phase),
                                             "session": .string(opened.session), "milliseconds": .number(started.milliseconds)]
-            out["workspace"] = info.workspace.map(JSONValue.string) ?? .null
+            out["folder"] = info.folder.map(JSONValue.string) ?? .null
             if let notice { out["imageNotice"] = .string(notice) }
             Out.json(out)
             return
@@ -776,9 +776,9 @@ struct Up: AsyncParsableCommand {
                 if let n = create.network { o.network = n }
                 if let a = create.account { o.account = a }
                 if let s = create.subnet { o.subnet = s }
-                if create.isolated && create.workspace != nil { throw ValidationError("--isolated or --workspace, not both") }
-                if let w = create.absoluteWorkspace { o.workspace = w }
-                if create.isolated { o.workspace = nil; o.isolated = true }
+                if create.isolated && create.folder != nil { throw ValidationError("--isolated or --folder, not both") }
+                if let w = create.absoluteFolder { o.folder = w }
+                if create.isolated { o.folder = nil; o.isolated = true }
                 if let s = create.agentSudo { o.agentSudo = s }
                 var allowWords = PermissionPolicy.splitWords(create.allow)
                     + (try CreateArguments.githubWords(create.github, flag: "--github"))   // 599d
@@ -818,11 +818,11 @@ struct Up: AsyncParsableCommand {
             if r.create?.dockerfile != nil { try await builderPreflight(g, required: true) }
             let info = try decode(try call(r, g), SandboxInfo.self, g)
             if !g.json && !g.quiet {
-                Out.stderr("[doz] created \(name)" + (projectFile.map { " from \($0.path)" } ?? "") + (info.workspace.map { " — /workspace = \($0)" } ?? "") + "\n")
+                Out.stderr("[doz] created \(name)" + (projectFile.map { " from \($0.path)" } ?? "") + (info.folder.map { " — /workspace = \($0)" } ?? "") + "\n")
                 // 618: a hand-written `agent: opencode` meant the recommended major — said once, when it is made.
                 if create.image == nil, (try? create.chosenImage()) ?? nil == nil, let n = DozableProject.familyNote(project?.agent) { Out.stderr("[doz] \(n)\n") }
             }
-            noteWorkspace(info, isolatedAsked: create.isolated, g)
+            noteFolder(info, isolatedAsked: create.isolated, g)
         } else {
             if dryRun {
                 if g.json { Out.json(["name": .string(name), "exists": .bool(true)] as [String: JSONValue]) }

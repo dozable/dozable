@@ -16,7 +16,7 @@ struct Init: AsyncParsableCommand {
         abstract: "Make a folder a Dozable project: write doz_project.yaml there (onboarding this Mac first if it never was). Then: doz up.",
         discussion: """
         The folder is shared at /workspace. On a terminal it walks the steps of the dashboard's New sandbox wizard — folder and \
-        name, agent and base, account, access (GitHub, SSH agent), workspace rules (.dozignore, .dozreadonly), permissions and \
+        name, agent and base, account, access (GitHub, SSH agent), folder rules (.dozignore, .dozreadonly), permissions and \
         network, resources, bridges, session — each \
         with its default (Enter keeps it), then shows the file before writing it. A folder that has a project file already starts \
         from it, and is replaced only after you have seen the difference. --yes, --json or no terminal ask nothing.
@@ -40,7 +40,7 @@ struct Init: AsyncParsableCommand {
     @Option(name: .long, help: "on or off: forward this Mac's SSH agent.") var sshAgent: String?
     @Option(name: .long, help: "write or off: a copy in the sandbox reaches the Mac clipboard.") var clipboard: String?
     @Option(name: .long, help: "on or off: xdg-open URLs open in the Mac's browser.") var browserBridge: String?
-    @Option(name: .long, help: "on or off: xdg-open FILE opens a workspace document on the Mac.") var openFiles: String?
+    @Option(name: .long, help: "on or off: xdg-open FILE opens a document of its folder on the Mac.") var openFiles: String?
     @Flag(inversion: .prefixedNo, help: "Run its sessions inside tmux.") var tmux: Bool?
     @Option(name: .long, help: "lock or hide: what a .dozignore in the folder does to the paths it lists — lock: listed but unreadable; hide: not there.") var ignoreMode: String?
     @Flag(inversion: .prefixedNo, help: "The agent's passwordless sudo.") var agentSudo: Bool?
@@ -123,7 +123,7 @@ struct Init: AsyncParsableCommand {
         let rows = (try? decode(try await query(HostRequest(.imageList), g), [ImageRow].self, g)) ?? []
         let standing = rows.first(where: { $0.name == p.image && $0.baked })?.standing
         if g.json {
-            var j: [String: JSONValue] = ["project": .string(file.path), "name": .string(p.name), "image": .string(p.image), "workspace": .string(folder.path),
+            var j: [String: JSONValue] = ["project": .string(file.path), "name": .string(p.name), "image": .string(p.image), "folder": .string(folder.path),
                                           "onboarded": .bool(onboarded != nil || OnboardingRecord.read(g.dozableStore) != nil)]
             if let s = standing { j["imageNotice"] = .string(s) }
             Out.json(j)
@@ -321,7 +321,7 @@ struct Init: AsyncParsableCommand {
         try setting(&p, SettingKey.browserBridge, "browser_bridge", flag: browserBridge, explicit: &explicit, asker: asker, settings: settings,
                     question: "Links opened in the sandbox open in the Mac's browser", options: ["on", "off"])
         try setting(&p, SettingKey.openFiles, "open_files", flag: openFiles, explicit: &explicit, asker: asker, settings: settings,
-                    question: "Workspace documents opened in the sandbox open on the Mac", options: ["on", "off"])
+                    question: "Documents of the folder opened in the sandbox open on the Mac", options: ["on", "off"])
 
         // 9. Session.
         step("session")

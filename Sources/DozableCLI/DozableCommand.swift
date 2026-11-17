@@ -459,7 +459,15 @@ func rawCall(_ r: HostRequest, _ g: GlobalOptions, autostart: Bool = true) throw
     let progress = Progress(g)
     defer { progress.finish() }
     do {
-        return try HostClient.request(r, store: g.dozableStore, autostart: autostart) { progress.handle($0) }
+        var m = try HostClient.request(r, store: g.dozableStore, autostart: autostart) { progress.handle($0) }
+        // A daemon of another protocol (before or after the folder rename) refuses the request: say which build runs and
+        // what to do. `ping` is answered whatever the protocol, so the daemon's own version can be named.
+        if m.ok != true, m.error?.code == .version {
+            let running = (try? HostClient.request(HostRequest(.ping), store: g.dozableStore, autostart: false))
+                .flatMap { try? ($0.result ?? .null).decode(HostStatus.self) }?.version
+            m.error = HostError(.version, HostProtocol.skewMessage(daemon: running, this: DozableCommand.version))
+        }
+        return m
     } catch let e as HostError {
         throw fail(e, g)
     } catch {

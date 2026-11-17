@@ -13,7 +13,7 @@ import { hidePeek, hoverPeek } from '../components/nav-peek-4f025473680c5915.js'
 import { agentChip } from '../components/agent-status-135487b5c635ad1e.js';
 import { pageFailure } from '../components/notices-a8bcbd0d28fca151.js';
 import { pictureSource } from '../components/session-thumb-0baef1f384d80e65.js';
-import { macSection } from './mac-47237940ea520168.js';
+import { macSection } from './mac-00ca57e99615c8f8.js';
 
 // ── All sessions: the grid (593) ────────────────────────────────────────────
 // A tile per session of every RUNNING sandbox, and the saved screens of every sleeping one. 648: each tile is PAINTED

@@ -40,8 +40,8 @@ func templatesSuite() async throws {
 
     check(h.run(["account", "default", "none"]).code == 0, "account default none (a scratch store never reads the Mac's login)")
     // (594: pi needs an API-key account; `--account none` is the explicit choice of none — nothing here calls a model.)
-    var r = h.run(["create", "tpa", "--image", "pi", "--memory", "1G", "--network", "locked", "--account", "none", "--workspace", ws1.path])
-    check(r.code == 0, "create tpa --image pi --workspace ws-one")
+    var r = h.run(["create", "tpa", "--image", "pi", "--memory", "1G", "--network", "locked", "--account", "none", "--folder", ws1.path])
+    check(r.code == 0, "create tpa --image pi --folder ws-one")
     r = h.run(["start", "tpa"], timeout: 1200)
     check(r.code == 0, "start tpa (a first start in the store bakes pi: minutes)")
     r = sh("tpa", "echo rootmark > /home/agent/rootmark && echo statemark > \(state)/statemark && sync && cat /workspace/which")
@@ -66,8 +66,8 @@ func templatesSuite() async throws {
     check(r.out == "none\ndir\n", "tpb's state disk is fresh: no state marker, the persist dir there (\(r.out.replacingOccurrences(of: "\n", with: " ")))")
 
     // Duplicate the running tpa with a new workspace: the state disk fresh…
-    r = h.run(["duplicate", "tpa", "tpc", "--workspace", ws2.path, "--cpus", "1"])
-    check(r.code == 0 && h.row("tpc")?.phase == "off", "duplicate tpa tpc --workspace ws-two (tpa running): tpc is off")
+    r = h.run(["duplicate", "tpa", "tpc", "--folder", ws2.path, "--cpus", "1"])
+    check(r.code == 0 && h.row("tpc")?.phase == "off", "duplicate tpa tpc --folder ws-two (tpa running): tpc is off")
     check(!FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).layout("tpc").stateDisk.path), "tpc has no state disk yet (made empty on its first boot)")
     check(h.run(["start", "tpc"], timeout: 600).code == 0, "start tpc")
     r = sh("tpc", "cat /workspace/which /home/agent/rootmark; cat \(state)/statemark 2>/dev/null || echo none")
@@ -80,22 +80,22 @@ func templatesSuite() async throws {
     // 594 (owner: "i dont want the user to have to create the path first"): a workspace that does not
     // exist is made — outside the store; inside it, it is refused and nothing is made.
     let inside = storeRoot.appendingPathComponent("ws-missing")
-    r = h.run(["duplicate", "tpa", "tpe", "--workspace", inside.path])
+    r = h.run(["duplicate", "tpa", "tpe", "--folder", inside.path])
     check(r.code == 64 && r.err.contains("inside the store") && !FileManager.default.fileExists(atPath: inside.path) && h.row("tpe") == nil,
           "a missing workspace inside the store is refused, and not made")
     let scratch = URL(fileURLWithPath: "/private/tmp/dztp-\(getpid())")
     defer { try? FileManager.default.removeItem(at: scratch) }
     let deep = scratch.appendingPathComponent("new/deep")
-    r = h.run(["duplicate", "tpa", "tpe", "--workspace", deep.path])
+    r = h.run(["duplicate", "tpa", "tpe", "--folder", deep.path])
     check(r.code == 0 && r.err.contains("[doz] created ") && r.err.contains("tmp/dztp-") && FileManager.default.fileExists(atPath: deep.path),
-          "duplicate --workspace …/new/deep: made (\(r.err.prefix(160)))")
+          "duplicate --folder …/new/deep: made (\(r.err.prefix(160)))")
     try? "made\n".write(to: deep.appendingPathComponent("which"), atomically: true, encoding: .utf8)
     check(h.run(["start", "tpe"], timeout: 600).code == 0 && sh("tpe", "cat /workspace/which").out == "made\n", "tpe sees it at /workspace")
     r = h.run(["duplicate", "tpa", "tpf", "--isolated"])
     check(r.code == 0 && r.out.contains("isolated") && h.run(["start", "tpf"], timeout: 600).code == 0
           && sh("tpf", "cat /workspace/which 2>/dev/null || echo private").out == "private\n",
           "duplicate --isolated: tpa's workspace is not shared with tpf")
-    check(h.json(["ls"], [SandboxInfo].self)?.first { $0.name == "tpf" }?.workspace == nil, "ls --json: tpf's workspace is null")
+    check(h.json(["ls"], [SandboxInfo].self)?.first { $0.name == "tpf" }?.folder == nil, "ls --json: tpf's workspace is null")
 
     cleanUp()
     check(!h.hostRunning, "cleanup: no daemon left running")

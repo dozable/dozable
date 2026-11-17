@@ -180,20 +180,20 @@ public enum WorkspaceFiles {
         guard let rel = lexicalRelative(guestPath, root: true) else { return .failure(Refusal("only files in /workspace are opened")) }
         guard let root = realPath(workspace) else { return .failure(Refusal("the shared folder is not there on this Mac")) }
         let asked = rel.isEmpty ? workspace : (workspace.hasSuffix("/") ? workspace : workspace + "/") + rel
-        guard let real = realPath(asked) else { return .failure(Refusal("no such file in the workspace")) }
+        guard let real = realPath(asked) else { return .failure(Refusal("no such file in the folder")) }
         guard real == root || (real.hasPrefix(root == "/" ? "/" : root + "/") && real.count > root.count + 1) else {
             return .failure(Refusal("it leads outside the shared folder (a link or ..)"))
         }
         let inside = real == root ? "" : String(real.dropFirst(root.count + 1))
         var st = stat()
-        guard lstat(real, &st) == 0 else { return .failure(Refusal("no such file in the workspace")) }
+        guard lstat(real, &st) == 0 else { return .failure(Refusal("no such file in the folder")) }
         switch st.st_mode & S_IFMT {
         case S_IFREG: break
         case S_IFDIR:
             let name = (real as NSString).lastPathComponent
             let ext = (name as NSString).pathExtension.lowercased()
             let package = (try? URL(fileURLWithPath: real, isDirectory: true).resourceValues(forKeys: [.isPackageKey]))?.isPackage == true
-            if inside.isEmpty { return .success((real, "the workspace", true)) }
+            if inside.isEmpty { return .success((real, "the shared folder", true)) }
             if package || neverTypes.contains(ext) {
                 // A package (an app, a bundle) is a program to the Mac: never opened, even in the Finder —
                 // but it may be shown selected in its folder.

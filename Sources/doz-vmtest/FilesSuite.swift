@@ -49,8 +49,8 @@ func cliFilesSuite(binary: String) async {
     check(t.run(["config", "set", "defaults.projects_dir", projects.path]).code == 0, "defaults.projects_dir is a scratch path")
 
     // 1. Created, never started: listed on the Mac, no host.
-    check(t.run(["create", "fl", "--image", "lab", "--workspace", ws.path, "--memory", "512M", "--network", "none"], timeout: 300).code == 0,
-          "create fl --workspace (shared)")
+    check(t.run(["create", "fl", "--image", "lab", "--folder", ws.path, "--memory", "512M", "--network", "none"], timeout: 300).code == 0,
+          "create fl --folder (shared)")
     t.run(["daemon", "stop"])
     check(t.waitFor(30) { !t.hostRunning }, "no daemon runs")
     var l = list(["fl"])
@@ -69,7 +69,7 @@ func cliFilesSuite(binary: String) async {
     check(r.code != 0 && r.err.contains("not a folder in /workspace"), "../etc is refused")
     r = t.run(["files", "fl", "private"])
     check(r.code != 0 && r.err.contains("locked by the workspace rules"), "a locked folder cannot be listed")
-    check(t.run(["config", "set", "--sandbox", "fl", "workspace.ignore_mode", "hide"]).code == 0, "workspace.ignore_mode hide for fl")
+    check(t.run(["config", "set", "--sandbox", "fl", "folder.ignore_mode", "hide"]).code == 0, "folder.ignore_mode hide for fl")
     t.run(["daemon", "stop"])                                   // a sandbox's own setting is written through the host
     check(t.waitFor(30) { !t.hostRunning }, "no daemon runs again")
     l = list(["fl"])

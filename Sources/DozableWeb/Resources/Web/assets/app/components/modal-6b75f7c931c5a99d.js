@@ -3,7 +3,7 @@ import { upcall } from '../core/hooks-a4b871a481b363cd.js';
 import { $, h, markChildren } from '../dom/h-f853cc7eb6672c45.js';
 import { MODAL_VIEWS } from '../core/router-1b73878f9a4c2fcc.js';
 import { state } from '../core/state-3e577485bce84bf8.js';
-import { WIZ } from '../core/wizards-b989b43058be9b08.js';
+import { WIZ } from '../core/wizards-58ec31b532e6415d.js';
 import { btn } from './button-8109d54546d946d3.js';
 import { callout } from './callout-f30e3ad8767a987a.js';
 import { dialog } from './dialog-cc08b737f1accd16.js';
