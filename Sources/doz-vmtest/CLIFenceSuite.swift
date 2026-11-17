@@ -114,6 +114,33 @@ func cliFenceSuite(binary: String) async {
     let bound = withUnsafePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(lfd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } } == 0
     listen(lfd, 4)
     defer { close(lfd) }
+    // The owner's chat socket (`<store>/chat/chat.sock`): a stand-in listener where the daemon's chat server puts it. Only
+    // processes of this user reach it, and a fenced session is one — the fence, not the uid, must keep it out.
+    let chatSock = store + "/chat/chat.sock"
+    try? FileManager.default.createDirectory(atPath: store + "/chat", withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+    let cfd = socket(AF_UNIX, SOCK_STREAM, 0)
+    var caddr = sockaddr_un()
+    caddr.sun_family = sa_family_t(AF_UNIX)
+    let cbytes = Array(chatSock.utf8.prefix(MemoryLayout.size(ofValue: caddr.sun_path) - 1)) + [0]
+    withUnsafeMutableBytes(of: &caddr.sun_path) { b in for (i, c) in cbytes.enumerated() { b[i] = c } }
+    let chatBound = withUnsafePointer(to: &caddr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(cfd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } } == 0
+    listen(cfd, 4)
+    chmod(chatSock, 0o600)
+    defer { close(cfd); unlink(chatSock) }
+    // A real connect (`nc -U -z` exits 1 on macOS even when the socket accepts, so it can prove nothing): uc.py exits 0
+    // only when connect() succeeds. The control runs it outside the fence.
+    put(work + "/uc.py", "import socket, sys\ns = socket.socket(socket.AF_UNIX)\ntry:\n    s.connect(sys.argv[1])\nexcept OSError:\n    sys.exit(1)\n")
+    func reachesUnix(_ path: String) -> Bool {
+        let c = Process()
+        c.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        c.arguments = ["-I", work + "/uc.py", path]
+        c.standardError = FileHandle.nullDevice
+        try? c.run()
+        c.waitUntilExit()
+        return c.terminationStatus == 0
+    }
+    check(chatBound && reachesUnix(chatSock), "1.7c the owner's chat socket stand-in listens and is reached from outside the fence (the control)")
+    check(!reachesUnix(store + "/chat/nothing.sock"), "…and the probe tells a socket that is not there (the control's control)")
     // An unfenced bystander (never stopped, never signalled).
     let by = Process()
     by.executableURL = URL(fileURLWithPath: "/bin/sleep")
@@ -193,8 +220,9 @@ func cliFenceSuite(binary: String) async {
     r s_sock ls "\(sockets)"
     r s_toml ls "\(xdg)/doz"
     DOZ_STORE="\(store)" "\(binary)" sessions @mac --json > dozls.txt 2>&1
-    r s_hostsock nc -U -z "\(store)/daemon.sock"
-    r s_dock nc -U -z "\(dockerSock)"
+    r s_chatsock /usr/bin/python3 -I uc.py "\(store)/chat/chat.sock"
+    r s_hostsock /usr/bin/python3 -I uc.py "\(store)/daemon.sock"
+    r s_dock /usr/bin/python3 -I uc.py "\(dockerSock)"
     r p_sudo sudo -n true
     r p_open open -a NoSuchAppDozFenceTest
     r p_osa osascript -e 'return 1'
@@ -275,7 +303,8 @@ func cliFenceSuite(binary: String) async {
     let dozls = get(work + "/dozls.txt")
     check(!dozls.contains("probes.sh") && !dozls.contains("\"probe\""), "1.7 doz from inside (DOZ_STORE given) lists nothing of the store's sessions")
     no("s_hostsock", "1.7 the daemon's socket")
-    check(bound, "the Docker socket stand-in listens (outside)")
+    no("s_chatsock", "1.7c the owner's chat socket (it would act as you in chat)")
+    check(bound && reachesUnix(dockerSock), "the Docker socket stand-in listens and is reached from outside (the control)")
     no("s_dock", "1.9 a unix socket in the home (Docker's stand-in)")
     no("p_sudo", "1.8 sudo")
     no("p_open", "1.8 open")
