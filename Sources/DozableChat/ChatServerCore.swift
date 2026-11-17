@@ -93,16 +93,25 @@ public final class ChatServerCore: @unchecked Sendable {
     let release: String
     let log: ChatLog
 
-    private let lock = NSLock()
-    private var participants: [ChatParticipant]
-    private var rooms: [String: [String]]
-    private var archived: [String: Bool] = [:]
-    private var holds: [String: Int] = [:]
-    private var agentRun: [String: Int] = [:]
-    private var agentTokens: [String: String] = [:]
-    private var stores: [String: ChatRoomStore] = [:]
-    private var startedFor: [String: String] = [:]
-    private var apps: [String: AppSettings] = [:]
+    let lock = NSLock()
+    var participants: [ChatParticipant]
+    var rooms: [String: [String]]
+    var archived: [String: Bool] = [:]
+    var holds: [String: Int] = [:]
+    var agentRun: [String: Int] = [:]
+    var agentTokens: [String: String] = [:]
+    var stores: [String: ChatRoomStore] = [:]
+    var startedFor: [String: String] = [:]
+    var apps: [String: AppSettings] = [:]
+    var live = ChatLiveState()
+    var pollWake: [String: ChatWake] = [:]
+    /// One hand-over to a polling participant at a time.
+    let collectLock = NSLock()
+    let bus = ChatEventBus()
+    /// When this server started: what was handed over earlier and not confirmed is handed over again.
+    let startTime = chatNow()
+    /// Where Claude Code keeps its session records (`<pid>.json`): read only, for presence and /protocol.
+    let sessionsDir: String
 
     /// The page this server serves at `/`: a shell (the human's page is Dozable's dashboard).
     public static let pageShell = """
@@ -118,8 +127,10 @@ public final class ChatServerCore: @unchecked Sendable {
     /// The hold's limit when the human turns it on without a number.
     public static let defaultHold = 8
 
-    public init(config: ChatConfig, secrets: ChatSecrets, release: String, log: ChatLog = .none) {
+    public init(config: ChatConfig, secrets: ChatSecrets, release: String, log: ChatLog = .none, sessionsDir: String? = nil) {
         self.config = config
+        self.sessionsDir = sessionsDir ?? ((ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) as NSString)
+            .appendingPathComponent(".claude/sessions")
         access = config.access
         self.secrets = secrets
         self.release = release
@@ -129,7 +140,7 @@ public final class ChatServerCore: @unchecked Sendable {
     }
 
     var dataDir: String { config.dataDir }
-    private func file(_ name: String) -> String { (dataDir as NSString).appendingPathComponent(name) }
+    func file(_ name: String) -> String { (dataDir as NSString).appendingPathComponent(name) }
 
     // MARK: - Start
 
@@ -143,6 +154,7 @@ public final class ChatServerCore: @unchecked Sendable {
             lock.withLock { archived = [:]; for e in m { if case .bool(let b) = e.value { archived[e.key] = b } } }
         }
         loadApps()
+        loadAvatars()
         if let v = readJSON("rooms.json"), case .object(let m) = v {
             lock.withLock {
                 for e in m where chatIsRoomName(e.key) {
@@ -158,7 +170,8 @@ public final class ChatServerCore: @unchecked Sendable {
         let ps: [ChatParticipant]
         if case .array(let a)? = v.field("participants") { ps = a.compactMap { try? ChatParticipant.read($0, strict: false) } } else { ps = [] }
         lock.withLock {
-            for var p in ps where !participants.contains(where: { $0.name == p.name }) && chatIsSessionName(p.name) {
+            for var p in ps where !participants.contains(where: { $0.name == p.name }) && chatIsSessionName(p.name)
+                && !ChatProtocol.reservedNames.contains(p.name) {
                 p.deliver = "poll"
                 participants.append(p)
             }
@@ -178,10 +191,10 @@ public final class ChatServerCore: @unchecked Sendable {
         let text = ChatProtocol.announcement
         for room in roomNames() where !isArchived(room) {
             guard let st = try? store(room) else { continue }
-            var ch = ChatStored.change(chatNewID(), from: "switchboard", content: text, at: chatNow())
-            _ = try? st.insert(&ch)
+            var ch = ChatStored.change(chatNewID(), from: ChatProtocol.systemName, content: text, at: chatNow())
+            if (try? st.insert(&ch)) == false { published(room, ch) }
         }
-        for p in people() where p.deliver == "poll" { protocolNotice(p.name, text) }
+        for p in people() where p.route == "poll" { protocolNotice(p.name, text) }
         return true
     }
 
@@ -195,16 +208,19 @@ public final class ChatServerCore: @unchecked Sendable {
         guard !room.isEmpty, let st = try? store(room) else { return }
         let id = "protocol-" + ChatProtocol.version
         let item = JValue.map(["msgV": .int(Int64(ChatProtocol.msgV)), "type": .string("protocol"), "event": .string("protocol-updated"),
-                               "msg_id": .string(id), "room": .string(room), "from": .string("switchboard"),
+                               "msg_id": .string(id), "room": .string(room), "from": .string(ChatProtocol.systemName),
                                "protocol_version": .string(ChatProtocol.version),
                                "message": .map(["role": .string("user"), "content": .string(text)]),
                                "note": .string("The message protocol was updated. No answer is needed. Use what is new if you want to.")])
         do { try st.addNotice(name: name, msgID: id, kind: "protocol", item: ChatJSON.encodeString(item), at: chatNow()) } catch {
             log("chat: protocol notice to \(name): \(error)")
+            return
         }
+        wakePoll(name)
     }
 
     public func close() {
+        closeStreams()
         let all = lock.withLock { Array(stores.values) }
         for s in all { s.close() }
     }
@@ -255,6 +271,18 @@ public final class ChatServerCore: @unchecked Sendable {
         let sessions = lock.withLock { agentTokens }
         for (name, have) in sessions where ChatSecrets.constantTimeEqual(have, want) { return name }
         return secrets.whoHas(token, among: people().filter { $0.deliver != "poll" }.map(\.name))
+    }
+
+    /// Whether name may call /agent/receive and /agent/ack: nil when it may (a registered session, or a participant that
+    /// is not the human and has no deliver value); otherwise the refusal. One delivered to by webhook is refused with
+    /// 409, so that no message is delivered twice; every other caller with 403.
+    public func mayPoll(_ name: String) -> ChatAPIError? {
+        let p = participant(name)
+        if p?.route == "poll" { return nil }
+        if p?.deliver == "webhook" {
+            return ChatAPIError(status: 409, description: "\(name) is delivered to by webhook and cannot also poll, so that no message is delivered twice")
+        }
+        return ChatAPIError(status: 403, description: "\(name) is not a registered session; it is delivered to another way")
     }
 
     // MARK: - Reading
@@ -316,7 +344,10 @@ public final class ChatServerCore: @unchecked Sendable {
         if !member(room, sender) { return .refused("\(sender) is not a member of room \(room)") }
         let words = Self.fields(m.content)
         if let w = words.first, ChatProtocol.isCommandWord(w), w != "/dm" {
-            return command(m, room: room, store: st, sender: sender, words: words)
+            let rc = command(m, room: room, store: st, sender: sender, words: words)
+            heard(sender, answered: false)   // every command is a sign of life, whatever its answer
+            publishPresence()
+            return rc
         }
         if isArchived(room) { return .refused(Self.archivedRefusal(room)) }
         if !m.reMsgID.isEmpty && m.reMsgID.utf8.count < 36 { m.reMsgID = st.fullID(m.reMsgID) }
@@ -346,7 +377,7 @@ public final class ChatServerCore: @unchecked Sendable {
             if n != sender && !to.contains(n) { to.append(n) }
         }
         if m.isPrivate && to.isEmpty { return .refused("a direct message must name who it is for") }
-        if !m.attachments.isEmpty { return .refused("attachments are not available on this server yet") }
+        if let refusal = checkAttachments(m.attachments) { return .refused(refusal) }
         // Anyone named with @ is mentioned, and so addressed; a mention in a direct message addresses nobody new.
         var mentions: [String] = []
         if !m.isPrivate {
@@ -359,8 +390,10 @@ public final class ChatServerCore: @unchecked Sendable {
         do {
             if try st.insert(&sm) { return ChatReceipt("duplicate") }
         } catch { return .refused("store: \(error)") }
-        if !m.reMsgID.isEmpty && st.received(m.reMsgID, by: sender) {
-            setState(st, ChatState(msgID: m.reMsgID, recipient: sender, state: "answered", at: sm.at, detail: "by " + sm.msgID))
+        heard(sender, answered: true)
+        published(room, sm)
+        if !m.reMsgID.isEmpty && st.received(m.reMsgID, by: sender) {   // only someone who was handed it can answer it
+            setState(room, st, ChatState(msgID: m.reMsgID, recipient: sender, state: "answered", at: sm.at, detail: "by " + sm.msgID))
         }
         let human = isHuman(sender)
         let (limit, held): (Int, Bool) = lock.withLock {
@@ -368,16 +401,42 @@ public final class ChatServerCore: @unchecked Sendable {
             agentRun[room] = human ? 0 : (agentRun[room] ?? 0) + 1
             return (limit, limit > 0 && (agentRun[room] ?? 0) > limit)
         }
-        if human { releaseHeld(room, st, why: "released: a human posted") }
+        // The human posted: what the hold kept back goes out first, in order.
+        var released = human ? releaseHeld(room, st, why: "released: a human posted") : [:]
         for r in recipients {
             if held && !isHuman(r) {
-                setState(st, ChatState(msgID: sm.msgID, recipient: r, state: "held", at: sm.at,
-                                       detail: "more than \(limit) agent messages in a row; waiting for the human to post"))
+                setState(room, st, ChatState(msgID: sm.msgID, recipient: r, state: "held", at: sm.at,
+                                             detail: "more than \(limit) agent messages in a row; waiting for the human to post"))
                 continue
             }
-            setState(st, ChatState(msgID: sm.msgID, recipient: r, state: "queued", at: sm.at))
+            setState(room, st, ChatState(msgID: sm.msgID, recipient: r, state: "queued", at: sm.at))
+            for id in released.removeValue(forKey: r) ?? [] { deliver(room, st, id, to: r) }
+            deliver(room, st, sm.msgID, to: r)
         }
+        for (r, ids) in released { for id in ids { deliver(room, st, id, to: r) } }
         return ChatReceipt("queued")
+    }
+
+    /// What a sender put on a message, checked as the protocol checks it — at most 10; bytes inline must be base64; an id
+    /// must name an uploaded file — and then refused: storing attachments comes in a later step.
+    func checkAttachments(_ list: [JValue]) -> String? {
+        if list.isEmpty { return nil }
+        if list.count > ChatProtocol.maxAttachments { return "at most \(ChatProtocol.maxAttachments) attachments on one message" }
+        for a in list {
+            let data = a.field("data_base64")?.stringValue ?? "", id = a.field("id")?.stringValue ?? "", name = a.field("name")?.stringValue ?? ""
+            if !data.isEmpty {
+                if Data(base64Encoded: data) == nil { return "attachment \(goQuote(name)): data_base64 is not base64" }
+            } else if !id.isEmpty {
+                let u = Array(id.utf8)
+                let wellFormed = (u.count == 16 || u.count == 32) && u.allSatisfy { (0x30...0x39).contains($0) || (0x61...0x66).contains($0) }
+                let dir = (dataDir as NSString).appendingPathComponent("files/" + id)
+                let entries = wellFormed ? ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []) : []
+                if entries.count != 1 { return "attachment \(id): no such attachment" }
+            } else {
+                return "an attachment needs data_base64 with a name, or the id of an uploaded file"
+            }
+        }
+        return "attachments are not available on this server yet"
     }
 
     /// The answer to a msg_id sent again.
@@ -397,14 +456,19 @@ public final class ChatServerCore: @unchecked Sendable {
 
     private func command(_ m: ChatLine, room: String, store st: ChatRoomStore, sender: String, words f: [String]) -> ChatReceipt {
         switch f[0] {
-        case "/edit", "/delete", "/react": return .refused(Self.notYet)
+        case "/edit", "/delete":   // not stored as a message; the gate for an archived room is their own
+            let content = m.content
+            return once(st, m.msgID, sender) { changeCommand(room, sender, content) }
+        case "/react": return .refused(Self.notYet)
         default: break
         }
         if isArchived(room) && !["/unarchive", "/leave", "/room", "/rooms"].contains(f[0]) { return .refused(Self.archivedRefusal(room)) }
         switch f[0] {
         case "/protocol":
-            if participant(sender)?.deliver == "inbox-socket" { return .refused(Self.notYet) }
-            return ChatReceipt("info", ChatProtocol.markdown)
+            guard let p = participant(sender), p.deliver == "inbox-socket" else { return ChatReceipt("info", ChatProtocol.markdown) }
+            // A Claude session sees no receipt, so the text goes to its inbox (delivery to an inbox comes later).
+            if sessionRecord(p.session) == nil { return .refused("no running Claude session with that name") }
+            return .refused(Self.notYet)
         case "/rooms":
             if f.count != 1 { return .refused("use /rooms on its own: it lists the rooms you are in") }
             return ChatReceipt("info", roomsOf(sender))
@@ -418,7 +482,7 @@ public final class ChatServerCore: @unchecked Sendable {
         let result: Result<String, ChatAPIError>
         if f[0] == "/hold" { result = setHold(room, sender, Array(f.dropFirst())) } else if Self.isMemberCommand(f[0]) {
             result = setMembers(room, sender, f)
-        } else { return .refused(Self.notYet) }   // /avatar, /session
+        } else { result = meta(sender, m.content) }   // /avatar, /session
         let text: String
         switch result {
         case .success(let t): text = t
@@ -426,26 +490,36 @@ public final class ChatServerCore: @unchecked Sendable {
         }
         var ch = ChatStored.change(m.msgID, from: sender, content: text, at: chatNow())
         do { if try st.insert(&ch) { return ChatReceipt("duplicate") } } catch { return .refused("store: \(error)") }
-        if f[0] == "/hold" { releaseHeld(room, st, why: "released: a human changed the hold") }
+        published(room, ch)
+        if f[0] == "/hold" {   // the count starts again, so what the hold kept back goes out
+            for (r, ids) in releaseHeld(room, st, why: "released: a human changed the hold") { for id in ids { deliver(room, st, id, to: r) } }
+        }
         return ChatReceipt("queued")
     }
 
     /// Lets go of what the hold kept back in a room: each held message moves on to queued (handed over in order by
     /// delivery), and one for a recipient no longer in the room is cancelled.
-    private func releaseHeld(_ room: String, _ st: ChatRoomStore, why: String) {
-        guard let held = try? st.held() else { return }
+    /// Lets go of what the hold kept back in a room: each held message moves on to queued and is returned per
+    /// recipient, oldest first, to be handed over; one for a recipient no longer in the room is cancelled.
+    func releaseHeld(_ room: String, _ st: ChatRoomStore, why: String) -> [String: [String]] {
+        guard let held = try? st.held() else { return [:] }
         let at = chatNow()
+        var out: [String: [String]] = [:]
         for (id, who) in held {
             if !member(room, who) {
-                setState(st, ChatState(msgID: id, recipient: who, state: "cancelled", at: at, detail: "it left the room before the hold was lifted"))
+                setState(room, st, ChatState(msgID: id, recipient: who, state: "cancelled", at: at, detail: "it left the room before the hold was lifted"))
                 continue
             }
-            setState(st, ChatState(msgID: id, recipient: who, state: "queued", at: at, detail: why))
+            setState(room, st, ChatState(msgID: id, recipient: who, state: "queued", at: at, detail: why))
+            out[who, default: []].append(id)
         }
+        return out
     }
 
-    func setState(_ st: ChatRoomStore, _ s: ChatState) {
-        do { try st.setState(s) } catch { log("chat: state \(s.msgID) \(s.recipient) \(s.state): \(error)") }
+    /// Records a delivery state and puts it on the stream.
+    func setState(_ room: String, _ st: ChatRoomStore, _ s: ChatState) {
+        do { try st.setState(s) } catch { log("chat: state \(s.msgID) \(s.recipient) \(s.state): \(error)"); return }
+        publish(ChatEvent(kind: "state", room: room, state: s))
     }
 
     /// A recipient began work on a message (the line's `thinking` with re_msg_id): recorded once per message.
@@ -455,7 +529,7 @@ public final class ChatServerCore: @unchecked Sendable {
             defer { startedFor[name] = msgID }
             return startedFor[name] == msgID
         }
-        if !done { setState(st, ChatState(msgID: msgID, recipient: name, state: "started", at: chatNow(), detail: detail)) }
+        if !done { setState(room, st, ChatState(msgID: msgID, recipient: name, state: "started", at: chatNow(), detail: detail)) }
     }
 
     func senderOf(_ name: String, verified: Bool) -> ChatSender {
@@ -537,7 +611,7 @@ public final class ChatServerCore: @unchecked Sendable {
         let shown = list.map(capitalFirst).joined(separator: ", ")
         if let st = try? store(name) {
             var first = ChatStored.change(chatNewID(), from: sender, content: "\(capitalFirst(sender)) created this room with \(shown)", at: chatNow())
-            _ = try? st.insert(&first)
+            if (try? st.insert(&first)) == false { published(name, first) }
         }
         return .success("\(capitalFirst(sender)) created room \(name) with \(shown)")
     }
@@ -596,6 +670,7 @@ public final class ChatServerCore: @unchecked Sendable {
         }
         guard hasRoom(room) else { throw ChatAPIError(status: 404, description: "no room \(goQuote(room)). Make it first with /room \(room)") }
         guard member(room, launcher) else { throw ChatAPIError(status: 422, description: "\(launcher) is not in room \(room), so cannot add a session to it") }
+        if ChatProtocol.reservedNames.contains(name) { throw ChatAPIError(status: 409, description: "the name \(name) is taken") }
         var again = false
         if let p = participant(name) {
             guard p.deliver == "poll", p.launcher == launcher else { throw ChatAPIError(status: 409, description: "the name \(name) is taken") }
@@ -620,7 +695,7 @@ public final class ChatServerCore: @unchecked Sendable {
             : "\(capitalFirst(launcher)) added the session \(capitalFirst(name)) to the room"
         if let st = try? store(room) {
             var ch = ChatStored.change(chatNewID(), from: launcher, content: text, at: chatNow())
-            _ = try? st.insert(&ch)
+            if (try? st.insert(&ch)) == false { published(room, ch) }
         }
         return token
     }
@@ -644,19 +719,19 @@ public final class ChatServerCore: @unchecked Sendable {
         for room in was {
             if let st = try? store(room) {
                 var ch = ChatStored.change(chatNewID(), from: by, content: "The session \(capitalFirst(name)) was taken out of the room by \(capitalFirst(by)) and removed", at: chatNow())
-                _ = try? st.insert(&ch)
+                if (try? st.insert(&ch)) == false { published(room, ch) }
             }
         }
     }
 
-    private func saveAgents() {
+    func saveAgents() {
         let (ps, tokens) = lock.withLock { (participants.filter { $0.deliver == "poll" }, agentTokens) }
         // The reference writes a nil list as null.
         save("agents.json", .object([JMember("participants", ps.isEmpty ? .null : .array(ps.map(\.json))),
                                      JMember("tokens", .map(tokens.mapValues { JValue.string($0) }))]))
     }
 
-    private func saveRooms(_ all: [String: [String]]) { save("rooms.json", .map(all.mapValues { JValue.strings($0) })) }
+    func saveRooms(_ all: [String: [String]]) { save("rooms.json", .map(all.mapValues { JValue.strings($0) })) }
 
     // MARK: - Room apps (the settings shown in the state; changing them comes later)
 
@@ -865,17 +940,17 @@ public final class ChatServerCore: @unchecked Sendable {
 
     // MARK: - Files of the data folder
 
-    private func readJSON(_ name: String) -> JValue? {
+    func readJSON(_ name: String) -> JValue? {
         guard let d = FileManager.default.contents(atPath: file(name)) else { return nil }
         return try? ChatJSON.parse(d)
     }
 
     /// Writes a JSON file of the data folder as the reference does: one-space indent, mode 0600 (here atomically).
-    private func save(_ name: String, _ v: JValue) {
+    func save(_ name: String, _ v: JValue) {
         do { try writeFile(name, ChatJSON.encodeIndented(v, indent: " ")) } catch { log("chat: \(name): \(error)") }
     }
 
-    private func writeFile(_ name: String, _ bytes: [UInt8]) throws {
+    func writeFile(_ name: String, _ bytes: [UInt8]) throws {
         try FileManager.default.createDirectory(atPath: dataDir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         try ChatFiles.writeAtomically(file(name), bytes)
     }

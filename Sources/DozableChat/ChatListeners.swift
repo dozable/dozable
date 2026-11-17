@@ -51,7 +51,10 @@ public final class ChatListeners: @unchecked Sendable {
                 .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
                 .bind(host: host, port: pagePort) { child in
                     child.eventLoop.makeCompletedFuture {
-                        try child.pipeline.syncOperations.configureHTTPServerPipeline(withErrorHandling: true)
+                        // No pipelining assistance: requests are answered in order by one task per connection anyway, and the
+                        // connection must keep reading while a stream or a long poll is open, so that a caller that goes
+                        // away is noticed (its close ends the stream or the wait).
+                        try child.pipeline.syncOperations.configureHTTPServerPipeline(withPipeliningAssistance: false, withErrorHandling: true)
                         return PageAccepted(channel: try NIOAsyncChannel(wrappingChannelSynchronously: child),
                                             ip: child.remoteAddress?.ipAddress ?? "")
                     }
@@ -160,9 +163,19 @@ public final class ChatListeners: @unchecked Sendable {
                     var headers: [String: String] = [:]
                     for (k, v) in h.headers where headers[k.lowercased()] == nil { headers[k.lowercased()] = v }
                     let req = ChatHTTPRequest(method: h.method.rawValue, target: h.uri, headers: headers, body: body, remoteIP: a.ip)
-                    let res: ChatHTTPResponse = tooLarge
+                    var res: ChatHTTPResponse = tooLarge
                         ? .jsonError(413, "the request is too large")
                         : await Self.offload { handler.handle(req) }
+                    if let poll = res.poll {   // a receive that waits; the caller going away ends the wait
+                        a.channel.channel.closeFuture.whenComplete { _ in poll.cancel() }
+                        res = await poll.finish()
+                    }
+                    if let sub = res.stream {
+                        a.channel.channel.closeFuture.whenComplete { _ in sub.cancel() }
+                        defer { self.core.unsubscribe(sub) }
+                        try await Self.stream(res, sub, for: h, to: outbound)
+                        return
+                    }
                     let keepAlive = h.isKeepAlive && !tooLarge
                     try await Self.write(res, for: h, keepAlive: keepAlive, to: outbound)
                     if !keepAlive { return }
@@ -182,6 +195,27 @@ public final class ChatListeners: @unchecked Sendable {
         }
         try await out.write(.head(HTTPResponseHead(version: req.version, status: HTTPResponseStatus(statusCode: res.status), headers: headers)))
         if !res.body.isEmpty { try await out.write(.body(.byteBuffer(ByteBuffer(bytes: res.body)))) }
+        try await out.write(.end(nil))
+    }
+
+    /// The live stream: the head (no length: the body is chunked), the hello, then every event as it comes; a stream
+    /// that fell behind ends with resync. The connection closes after it.
+    private static func stream(_ res: ChatHTTPResponse, _ sub: ChatSubscriber, for req: HTTPRequestHead,
+                               to out: NIOAsyncChannelOutboundWriter<HTTPServerResponsePart>) async throws {
+        var headers = HTTPHeaders()
+        for (k, v) in res.headers { headers.add(name: k, value: v) }
+        headers.replaceOrAdd(name: "Date", value: httpDate())
+        try await out.write(.head(HTTPResponseHead(version: req.version, status: .ok, headers: headers)))
+        try await out.write(.body(.byteBuffer(ByteBuffer(bytes: res.body))))
+        loop: while true {
+            switch await sub.next() {
+            case .event(let e): try await out.write(.body(.byteBuffer(ByteBuffer(bytes: e.frame))))
+            case .resync:
+                try await out.write(.body(.byteBuffer(ByteBuffer(bytes: Array("data: {\"kind\":\"resync\"}\n\n".utf8)))))
+                break loop
+            case .end: break loop
+            }
+        }
         try await out.write(.end(nil))
     }
 

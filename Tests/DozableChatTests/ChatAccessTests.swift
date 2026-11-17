@@ -108,7 +108,15 @@ final class ChatAccessTests: XCTestCase {
         var c = try ChatConfig.parse(Data(ChatConfigTests.contract(extra).utf8))
         c.dataDir = FileManager.default.temporaryDirectory.appendingPathComponent("chat-access-\(UUID().uuidString)").path
         addTeardownBlock { [dir = c.dataDir] in try? FileManager.default.removeItem(atPath: dir) }
-        return ChatServerCore(config: c, secrets: ChatSecrets(), release: "1.2.3")
+        // Never the person's own Claude folder: a scratch one that does not exist.
+        return ChatServerCore(config: c, secrets: ChatSecrets(), release: "1.2.3",
+                              sessionsDir: (c.dataDir as NSString).appendingPathComponent("no-sessions"))
+    }
+
+    /// The served protocol text is the reference's, byte for byte, so both servers announce the same version
+    /// (the reference's 0.12.1). A change here is a protocol change agents are told about.
+    func testTheProtocolVersionIsTheReferences() {
+        XCTAssertEqual(ChatProtocol.version, "c0abf7528c")
     }
 
     func testThePageHandlerAppliesTheRulesAndTheHeader() throws {

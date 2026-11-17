@@ -47,10 +47,16 @@ public struct ChatLineConnection: Sendable {
         switch (m.type, m.action) {
         case ("control", "heartbeat"), ("control", "thinking"):
             let who = sender.isEmpty ? m.from : sender
-            if m.action == "thinking", !m.reMsgID.isEmpty, core.participant(who) != nil {
-                let room = m.room.isEmpty ? core.config.defaultRoom : m.room
-                if let st = try? core.store(room) {
-                    core.started(who, room: room, msgID: st.fullID(m.reMsgID), detail: "it said it has started on this message")
+            if core.participant(who) != nil {
+                core.heard(who, answered: false)
+                if m.action == "thinking" {
+                    core.mark(who, \.thinking)
+                    if !m.reMsgID.isEmpty {   // "I have started on this message"
+                        let room = m.room.isEmpty ? core.config.defaultRoom : m.room
+                        if let st = try? core.store(room) {
+                            core.started(who, room: room, msgID: st.fullID(m.reMsgID), detail: "it said it has started on this message")
+                        }
+                    }
                 }
             }
             return reply(base + [JMember("action", .string("ok"))])

@@ -48,7 +48,58 @@ TestS4_5_DMRefusals
 TestS5_1_Paging
 TestS7_5_Unregister
 
-# NOT in the ratchet on purpose (each with its reason; move it up when the reason is gone):
-# TestS3_4_RoomErrors and TestS3_3_ArchivedAllowedCommands — the reference's /room refusal text ends with an example room name that is a private project's
-#   name, and the runner asserts it byte for byte. Dozable's public source says "such as build-notes" instead; both checks
-#   pass again once the reference and the runner use a neutral example.
+# Back in at the 0.11.0 pin: the reference's /room refusal now names a neutral example room.
+TestS3_4_RoomErrors
+TestS3_3_ArchivedAllowedCommands
+
+# New in the reference's 0.10.0, green at the 0.11.0 pin: agent addresses, short tokens, a line's trailing CR.
+TestS1_2_AgentAddressLinePort
+TestS1_2_AgentAddressNeedsAllow
+TestS1_2_AgentAddressForms
+TestS1_2_ShortTokens
+TestS4_1_LineStripsTrailingCR
+
+# Posting and reading (701): the live stream, receipts, unread, edit and delete, reveal's refusals, polling (receive,
+# ack, notices, kept across a restart), presence, /avatar and /session, reload. Green in two full runs in a row.
+TestS1_2_AgentAddressPagePort
+TestS3_2_NonMemberRefused
+TestS3_4_ChangeLineIsNotDelivered
+TestS3_4_DuplicateCommands
+TestS3_4_HoldCommandsDoNotCount
+TestS4_1_OrderOfChecks
+TestS4_1_PostReachesTheStream
+TestS4_5_RevealErrors
+TestS4_6_DeleteRules
+TestS4_6_EditDeleteCommands
+TestS4_6_EditRefusals
+TestS4_6_EditUnchanged
+TestS4_6_PageCallsNeedTheHuman
+TestS4_6_PrivateMessagesAreNotThere
+TestS5_2_Unread
+TestS5_3_StreamHello
+TestS5_3_StreamResync
+TestS6_1_CommandMarksHeard
+TestS6_1_HumanHereAway
+TestS6_1_PollSessionHeardBySend
+TestS6_1_PollSessionStates
+TestS6_1_PresenceShapeAndDefaults
+TestS6_1_WebhookBotStates
+TestS6_2_TypingHuman
+TestS6_2_TypingNeedsHumanToken
+TestS6_3_AvatarDefaults
+TestS6_3_AvatarGravatar
+TestS6_3_AvatarInvalidRefused
+TestS6_3_AvatarPersists
+TestS6_3_AvatarValidForms
+TestS6_4_SessionInvalidRefused
+TestS6_4_SessionLinkPersistsWithoutAvatars
+TestS6_4_SessionSetAndOff
+TestS7_5_NoticeItems
+TestS7_5_ParticipantPollsWithItsOwnToken
+TestS7_5_PersistAcrossRestart
+TestS7_5_PollNoDoubleDelivery
+TestS7_5_ReceiveAck
+TestS7_5_ReceiveWait
+TestS7_5_Register
+TestS9_3_Reload
+TestS11_1_VersionEverywhere

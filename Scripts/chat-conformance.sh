@@ -9,9 +9,11 @@
 #   - refuses a runner whose SHA-256 is not the pinned one;
 #   - runs it against the built doz: every check starts its own `doz chat serve --config {config} --bind {bind}` on
 #     127.0.0.1, on ports the runner picks, in scratch folders the runner makes and removes;
-#   - fails when a check in the ratchet is not PASS, and lists every PASS that is not in the ratchet yet.
+#   - hands it the ratchet with its -expect FILE: it fails when a check in the ratchet is not PASS (EXPECT-MISSING), and
+#     lists every PASS that is not in the ratchet yet (EXPECT-EXTRA).
 #
-# Environment: DOZ_BIN (default .build/debug/doz), CHECKS (a -test.run pattern; default every check),
+# Environment: DOZ_BIN (default .build/debug/doz), CHECKS (a -test.run pattern: a look at a subset, which prints its
+# failures and does not judge the ratchet; default every check, judged),
 # REPORT (where the report goes; default a scratch file it names).
 set -euo pipefail
 
@@ -40,7 +42,8 @@ scratch=$(mktemp -d "${TMPDIR:-/tmp}/doz-chat-conformance.XXXXXX")
 REPORT="${REPORT:-$scratch/report.txt}"
 LOG="$scratch/full.log"
 args=(-server-cmd "'$DOZ' chat serve --config {config} --bind {bind}" -report-log "$LOG")
-[[ -n "${CHECKS:-}" ]] && args+=(-test.run "$CHECKS")
+# A subset is a look, not the gate: the ratchet is judged on a full run only.
+if [[ -n "${CHECKS:-}" ]]; then args+=(-test.run "$CHECKS"); else args+=(-expect "$RATCHET"); fi
 
 echo "conformance: runner $version against $DOZ …"
 set +e
@@ -48,18 +51,21 @@ set +e
 rc=$?
 set -e
 grep -E '^SUMMARY ' "$REPORT" || echo "conformance: the runner printed no SUMMARY (exit $rc); see $REPORT"
+if [[ -n "${CHECKS:-}" ]]; then
+    grep -E '^(FAIL|SKIP) ' "$REPORT" | cut -c1-300 || true
+    echo "conformance: a subset (CHECKS=$CHECKS); the ratchet is judged on a full run (report: $REPORT)"
+    exit 0
+fi
+grep -E '^EXPECT ' "$REPORT" || true
 
-passed=$(sed -n 's/^PASS \([A-Za-z0-9_]*\) .*/\1/p' "$REPORT" | sort -u)
-expected=$(grep -vE '^[[:space:]]*(#|$)' "$RATCHET" | sort -u)
-missing=$(comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$passed") | sed '/^$/d')
-new=$(comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$passed") | sed '/^$/d')
-
+new=$(sed -n 's/^EXPECT-EXTRA \([A-Za-z0-9_]*\).*/\1/p' "$REPORT")
+missing=$(sed -n 's/^EXPECT-MISSING \([A-Za-z0-9_]*\).*/\1/p' "$REPORT")
 if [[ -n "$new" ]]; then
     echo "conformance: PASS but not in the ratchet yet (add them to Tests/Conformance/expected-green.txt):"
     printf '  %s\n' $new
 fi
-if [[ -n "$missing" ]]; then
-    echo "x conformance: in the ratchet but not PASS:" >&2
+if [[ -n "$missing" || $rc -ne 0 ]]; then
+    echo "x conformance: in the ratchet but not PASS (runner exit $rc):" >&2
     for c in $missing; do
         line=$(grep -E "^(FAIL|SKIP) $c " "$REPORT" || echo "$c: not run")
         printf '  %s\n' "$line" >&2
@@ -67,4 +73,4 @@ if [[ -n "$missing" ]]; then
     echo "  report: $REPORT; full output: $LOG" >&2
     exit 1
 fi
-echo "ok conformance: all $(printf '%s\n' "$expected" | grep -c .) checks of the ratchet PASS (report: $REPORT)"
+echo "ok conformance: all $(grep -cvE '^[[:space:]]*(#|$)' "$RATCHET") checks of the ratchet PASS (report: $REPORT)"

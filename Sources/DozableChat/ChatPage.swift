@@ -45,6 +45,14 @@ public struct ChatHTTPResponse: Sendable, Equatable {
     public var status: Int
     public var headers: [(String, String)]
     public var body: [UInt8]
+    /// The live stream: the head is written, then `body` (the hello), then each event as it comes, until it ends.
+    public var stream: ChatSubscriber?
+    /// A receive that waits: the listener finishes it (`ChatLongPoll.finish`) and writes that answer instead.
+    public var poll: ChatLongPoll?
+
+    public init(status: Int, headers: [(String, String)], body: [UInt8]) {
+        self.status = status; self.headers = headers; self.body = body
+    }
 
     public static func == (a: ChatHTTPResponse, b: ChatHTTPResponse) -> Bool {
         a.status == b.status && a.body == b.body && a.headers.map { $0.0 + ":" + $0.1 } == b.headers.map { $0.0 + ":" + $0.1 }
@@ -155,13 +163,13 @@ public struct ChatPageHandler: Sendable {
         r("POST", "/agent/send", "send"),
         r("POST", "/agent/ack", "ack"),
         r("GET", "/agent/receive", "receive"),
-        r("GET", "/api/unread", "later"),
-        r("GET", "/api/presence", "later"),
-        r("GET", "/api/stream", "later"),
+        r("GET", "/api/unread", "unread"),
+        r("GET", "/api/presence", "presence"),
+        r("GET", "/api/stream", "stream"),
         r("POST", "/api/rooms/{room}/reactions", "later"),
-        r("POST", "/api/rooms/{room}/messages/{id}/reveal", "later"),
-        r("POST", "/api/rooms/{room}/messages/{id}/edit", "later"),
-        r("POST", "/api/rooms/{room}/messages/{id}/delete", "later"),
+        r("POST", "/api/rooms/{room}/messages/{id}/reveal", "reveal"),
+        r("POST", "/api/rooms/{room}/messages/{id}/edit", "edit"),
+        r("POST", "/api/rooms/{room}/messages/{id}/delete", "delete"),
         r("POST", "/api/files", "later"),
         r("GET", "/files/{id}/{name}", "later"),
         r("GET", "/api/rooms/{room}/app", "later"),
@@ -182,10 +190,27 @@ public struct ChatPageHandler: Sendable {
         case "post": return post(vars["room"] ?? "", r)
         case "reload":
             if let refusal = pageCaller(r, "telling the pages to reload") { return refusal }
-            return .json(200, .map(["pages": .int(0)]))   // no page stream yet: no open page to tell
+            let n = core.viewers
+            core.publish(ChatEvent(kind: "reload"))
+            return .json(200, .map(["pages": .int(Int64(n))]))
         case "typing":
             if let refusal = pageCaller(r, "saying the human is typing") { return refusal }
+            core.mark(core.human(), \.typing)
             return ChatHTTPResponse(status: 204, headers: [], body: [])
+        case "presence": return .json(200, .array(core.presence()))
+        case "unread": return .json(200, core.unread(markers: { r.query($0) }))
+        case "stream":
+            var res = ChatHTTPResponse(status: 200, headers: [("Content-Type", "text/event-stream"), ("Cache-Control", "no-cache")],
+                                       body: Array("data: {\"kind\":\"hello\",\"version\":\(goQuote(ChatServerCore.pageVersion))}\n\n".utf8))
+            res.stream = core.subscribe()
+            return res
+        case "reveal":
+            let who = core.config.requireTokens ? (core.whoHas(r.header(Self.tokenHeader)) ?? "") : core.human()
+            switch core.reveal(room: vars["room"] ?? "", msgID: vars["id"] ?? "", who: who) {
+            case .success(let m): return .json(200, m.json)
+            case .failure(let e): return .jsonError(e.status, e.description)
+            }
+        case "edit", "delete": return change(name, vars["room"] ?? "", vars["id"] ?? "", r)
         case "register", "unregister", "send", "ack", "receive": return agent(name, r)
         default: return .jsonError(501, "this call is not available on this server yet")
         }
@@ -216,7 +241,7 @@ public struct ChatPageHandler: Sendable {
 
     /// The human posts from the page.
     private func post(_ room: String, _ r: ChatHTTPRequest) -> ChatHTTPResponse {
-        var who = core.whoHas(r.header("X-Switchboard-Token")) ?? ""
+        var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
         if !core.config.requireTokens { who = core.human() }   // the page is only served to the owner's own machines
         guard core.isHuman(who) else { return .jsonError(401, "posting needs the human's token") }
         guard let v = Self.decodeFirst(r.body, limit: ChatProtocol.maxLine) else { return .jsonError(400, "body must be JSON") }
@@ -249,12 +274,34 @@ public struct ChatPageHandler: Sendable {
                      .map(["msg_id": .string(line.msgID), "state": .string(rc.state), "detail": .string(rc.detail)]))
     }
 
+    /// The human edits or deletes a message, done once per X-Chat-Id.
+    private func change(_ verb: String, _ room: String, _ id: String, _ r: ChatHTTPRequest) -> ChatHTTPResponse {
+        var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
+        if !core.config.requireTokens { who = core.human() }
+        guard core.isHuman(who) else { return .jsonError(401, "changing a message needs the human's token") }
+        var text = ""
+        let v = Self.decodeFirst(r.body, limit: ChatProtocol.maxLine)
+        let parsed: String?? = v.map { v in v.isNull ? "" : (v.isObject ? (try? v.field("text")?.goString("text") ?? "") : nil) }
+        if case .some(.some(let t)) = parsed { text = t } else if verb == "edit" {
+            return .jsonError(400, "body must be JSON: {\"text\":\"…\"}")
+        }
+        guard let rc = core.pageOnce(id: r.header(Self.idHeader), room: room, who: who, {
+            verb == "edit" ? core.edit(room: room, sender: who, ref: id, text: text) : core.delete(room: room, who: who, ref: id)
+        }) else { return .jsonError(400, Self.idHeader + " must be a uuid") }
+        return .json(rc.state == "refused" ? 422 : 200, .map(["state": .string(rc.state), "detail": .string(rc.detail)]))
+    }
+
     /// Who makes a page call that changes something: the human. nil serves it; otherwise the 401 answer.
     private func pageCaller(_ r: ChatHTTPRequest, _ what: String) -> ChatHTTPResponse? {
-        var who = core.whoHas(r.header("X-Switchboard-Token")) ?? ""
+        var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
         if !core.config.requireTokens { who = core.human() }
         return core.isHuman(who) ? nil : .jsonError(401, "\(what) needs the human's token")
     }
+
+    /// The header that carries the human's token on a page call that changes something.
+    public static let tokenHeader = "X-Chat-Token"
+    /// The header that carries the page's own id for one edit, delete or reaction call: with it, the call is done once.
+    public static let idHeader = "X-Chat-Id"
 
     // MARK: /agent/
 
@@ -297,12 +344,31 @@ public struct ChatPageHandler: Sendable {
             line.msgV = ChatProtocol.msgV
             line.type = "user"
             line.verified = true
+            core.heard(caller, answered: false)
             let rc = core.post(line, sender: caller)
             return .json(rc.state == "refused" ? 422 : 200,
                          .map(["state": .string(rc.state), "detail": .string(rc.detail), "msg_id": .string(line.msgID)]))
-        default: // ack, receive
-            guard p?.deliver == "poll" else { return .jsonError(403, caller + " is not a registered session; it is delivered to another way") }
-            return .jsonError(501, "this call is not available on this server yet")
+        case "ack":
+            if let refusal = core.mayPoll(caller) { return .jsonError(refusal.status, refusal.description) }
+            let bad = ChatHTTPResponse.jsonError(400, "send {\"acks\":[{\"room\":\"…\",\"msg_id\":\"…\"}]}")
+            guard let v = Self.decodeFirst(r.body, limit: 1 << 20), v.isObject || v.isNull else { return bad }
+            var items: [(room: String, msgID: String, delivery: String)] = []
+            switch v.field("acks") ?? .null {
+            case .null: break
+            case .array(let a):
+                for e in a {
+                    if e.isNull { items.append(("", "", "")); continue }
+                    guard e.isObject, let room = try? e.field("room")?.goString("room") ?? "", let id = try? e.field("msg_id")?.goString("msg_id") ?? "",
+                          let d = try? e.field("delivery")?.goString("delivery") ?? "" else { return bad }
+                    items.append((room, id, d))
+                }
+            default: return bad
+            }
+            core.heard(caller, answered: false)
+            return .json(200, .map(["acked": .int(Int64(core.ack(caller, items)))]))
+        default: // receive
+            if let refusal = core.mayPoll(caller) { return .jsonError(refusal.status, refusal.description) }
+            return core.receive(caller, wait: r.query("wait"), ack: r.query("ack") == "1", redeliver: r.query("redeliver") == "1")
         }
     }
 

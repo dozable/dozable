@@ -22,13 +22,17 @@ commands, and show its rooms in the dashboard.
 | `ChatStore.swift` | `ChatRoomStore`: one room's SQLite file (`rooms/<room>.db`), the system SQLite, WAL, `busy_timeout` 5000, one connection on its own serial queue; the protocol's schema statement for statement, then its tolerant `ALTER TABLE`s |
 | `ChatTypes.swift` | participants, messages as stored and returned, delivery states, reactions, the sender; the name and id rules |
 | `ChatServerCore.swift` | `ChatServerCore`: the directory, rooms and members, posting (duplicates, membership, archive, direct messages, mentions outside code, answers, the hold), the room commands, registered sessions, the data folder's JSON files, the first-start announcement |
+| `ChatEvents.swift` | the live stream's events (`ChatEvent`, one `data:` line each), one open page's bounded queue (`ChatSubscriber`) and every page's (`ChatEventBus`) |
+| `ChatLive.swift` | after a message is recorded: the stream (the human's view of each event), delivery to an open page and to a participant that polls, presence, `/avatar` and `/session`, the read-only look at Claude Code's session records |
+| `ChatPolling.swift` | `GET /agent/receive` (a wait the listener finishes, `ChatLongPoll`) and `POST /agent/ack`: hand-overs, notices, redelivery |
+| `ChatEdits.swift` | `/edit`, `/delete` and the page's edit and delete, once per msg_id or `X-Chat-Id`; reveal; `/api/unread` |
 | `ChatProtocol.swift` | the protocol's own description (`GET /api/protocol`, `/protocol`) and its version: the first 10 hex of the SHA-256 of that description's encoding |
 | `ChatPage.swift` | `ChatPageHandler`: one HTTP request in, one answer out — the access gate, the router (an untidy path is redirected, a wrong method is 405), every route |
 | `ChatLinePort.swift` | `ChatLineConnection`: one line-port connection's state and what each line does (a reply, nothing, or a close) |
 | `ChatListeners.swift` | the two swift-nio listeners: JSON-lines framing (a line of 32 MiB or more closes the connection; 30 s without a line closes it) and HTTP/1.1 with keep-alive; work is handed off the event loop, in order per connection |
 | `ChatServer.swift` | one server's life: the data folder's lock (`server.lock`), `status.json`, the signals, the exit codes; `doz chat status` |
 | `Sources/DozableCLI/ChatCommandLine.swift` | `doz chat serve` and `doz chat status`, dispatched by `DozableEntry` before anything else of doz runs |
-| `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home) |
+| `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars) |
 | `Tests/Conformance/RUNNER`, `Tests/Conformance/expected-green.txt`, `Scripts/chat-conformance.sh` | the conformance gate (below) |
 
 ## The rules
@@ -73,14 +77,32 @@ commands, and show its rooms in the dashboard.
 - **The store keeps the protocol's format.** A room file the reference server wrote opens here, and one written here opens
   there: the same `CREATE TABLE IF NOT EXISTS` statements in the same order, then the same `ALTER TABLE`s, so the
   resulting schema is identical (`ChatStoreTests` compares it statement for statement with the fixture's).
+- **The server's own name is `chat`.** Its change lines and notices are from `chat`, and no participant may be called
+  that (a config that has one is a fault; registering it is 409). Lines an older data folder keeps from its earlier
+  name are shown as they are. A participant with no `deliver` value that is not the person collects its messages by
+  polling, as a registered session does (`ChatParticipant.route`); one delivered to by webhook is refused there (409).
 - **Neutral names.** Tests, docs and examples use `ada` (the person), `bot1`, `bot2`, `room1`. The wire strings the
-  conformance suite asserts (403 texts, `switchboard` as the name of the server's own change lines) stay as they are.
+  conformance suite asserts (403 texts, the protocol's own wording) stay as they are.
+
+- **The live stream** (`GET /api/stream`) is the human's view: `data:` lines only, the hello first; nothing of a room
+  the human is not in, a direct message between others as a stub, and no state of one. Each open page has a queue of 64
+  events; a page that falls that far behind is dropped, gets what was queued, then `resync`, and the stream ends. The
+  page listener keeps reading while a stream or a receive is open (no pipelining assistance), so a caller that closes
+  ends it at once — that is how the human's presence goes back to away.
+- **Delivery, as far as it goes today.** An open page is shown a message (`delivered`; a page that opens marks what
+  waited). A participant that polls is woken and collects it (`/agent/receive`, with `ack=1` and `/agent/ack` the
+  confirmation; unconfirmed after 60 s, after a restart or with `redeliver=1`, it is handed over again, marked
+  redelivered; never twice at once, whatever receives are open). Edit and delete notices for it are kept in the room's
+  file. A receive that waits does not hold a thread: the listener finishes it (`ChatLongPoll`).
+- **Claude Code's session records are read, never written** (`<HOME>/.claude/sessions/<pid>.json`: the name, the
+  status, whether the pid runs) — for presence and `/protocol`. Nothing is written to a session's inbox yet.
 
 ## What is not there yet
 
-Delivery (webhooks, a Claude Code session's inbox, the hand-over to registered sessions — a posted message stays
-`queued`), presence, the live event stream, edits, deletes, reactions, attachments, room apps and icons, `/avatar` and
-`/session`. A command for one of those is refused, saying it is not available yet; a route for one answers 501.
+Delivery by webhook and to a Claude Code session's inbox (a message for one of those stays `queued`; `/protocol` from
+a Claude session that runs is refused as not available yet), redelivery at start, reactions, attachments (a message
+with one is checked as the protocol checks it, then refused), room apps and icons. A command for one of those is
+refused, saying it is not available yet; a route for one answers 501.
 
 ## The conformance gate
 
@@ -99,8 +121,10 @@ CHECKS='TestS1_|TestS9_' make test-chat-conformance   # a subset (the runner's -
 
 The script finds the runner at `$DOZ_CHAT_CONFORMANCE`, else `~/.cache/doz/switchboard-conformance`. Without one it
 prints `conformance: not run (private runner)` and passes, which is what CI and contributors see. It refuses a runner
-whose SHA-256 differs from the pin, prints the runner's `SUMMARY` line, fails for every ratchet check that is not PASS
-(with the runner's first message for it), and lists every PASS not yet in the ratchet. The checks of the kept-service
+whose SHA-256 differs from the pin and hands the runner the ratchet as its `-expect FILE`: it prints the `SUMMARY` and
+`EXPECT` lines, fails for every ratchet check that is not PASS (`EXPECT-MISSING`, with the runner's first message for
+it), and lists every PASS not yet in the ratchet (`EXPECT-EXTRA`). `CHECKS=` runs a subset as a look only: it prints
+that subset's failures and does not judge the ratchet. The checks of the kept-service
 contract's own flags are always SKIP under this mode; the contract is judged by every check starting and stopping the
 server instead. A new runner version is a deliberate change: bump `RUNNER`, run it, and commit the ratchet with it.
 

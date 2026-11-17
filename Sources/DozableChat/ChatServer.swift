@@ -110,7 +110,8 @@ public enum ChatServer {
             fault(inUse || denied ? ChatExit.badSetting : ChatExit.restartMe,
                   "cannot listen on \(host) (line port \(config.linePort), page port \(config.httpPort)): " + (inUse ? "a port is in use" : text))
         }
-        Stop.add { listeners.close(); core.close(); StatusWriter.current?.remove() }
+        let presence = core.watchPresence()   // presence to open pages whenever it changes
+        Stop.add { presence.cancel(); listeners.close(); core.close(); StatusWriter.current?.remove() }
         log("chat: lines on \(host):\(listeners.linePort), page on http://\(host):\(listeners.pagePort), tokens required from every caller: \(config.requireTokens), data in \(dir)")
         if core.announceProtocol() { log("chat: the message protocol is now version \(ChatProtocol.version); told every room") }
 
