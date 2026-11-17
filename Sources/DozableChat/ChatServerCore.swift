@@ -515,7 +515,7 @@ public final class ChatServerCore: @unchecked Sendable {
     /// "/room <name> @member…": a long-lived room with its maker, every human and everyone named.
     private func createRoom(_ sender: String, _ args: [String]) -> Result<String, ChatAPIError> {
         // The protocol's own wording, example included: conformance asserts it byte for byte.
-        let help = "use /room <name> @member @member. A name is lower-case letters, digits, - and _, such as libra-remotion"
+        let help = "use /room <name> @member @member. A name is lower-case letters, digits, - and _, such as build-notes"
         func fail(_ s: String) -> Result<String, ChatAPIError> { .failure(ChatAPIError(status: 422, description: s)) }
         if participant(sender)?.deliver == "poll" { return fail("a launched session cannot make rooms. Ask your launcher or a human to make one") }
         guard let name = args.first else { return fail(help) }

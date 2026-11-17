@@ -27,7 +27,6 @@ TestS3_4_HoldOnlyHuman
 TestS3_4_InviteRemove
 TestS3_4_InviteRemoveErrors
 TestS3_4_Leave
-TestS3_4_RoomErrors
 TestS3_4_Rooms
 TestS3_4_UnknownSlashIsOrdinaryMessage
 TestS3_5_RoomOrderNamesPersist
@@ -49,3 +48,8 @@ TestS4_5_DMCommandForms
 TestS4_5_DMRefusals
 TestS5_1_Paging
 TestS7_5_Unregister
+
+# NOT in the ratchet on purpose (each with its reason; move it up when the reason is gone):
+# TestS3_4_RoomErrors — the reference's /room refusal text ends with an example room name that is a private project's
+#   name, and the runner asserts it byte for byte. Dozable's public source says "such as build-notes" instead; the check
+#   passes again once the reference and the runner use a neutral example.
