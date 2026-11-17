@@ -374,8 +374,17 @@ public final class ChatServerCore: @unchecked Sendable {
         // Sent before: nothing is done twice. A repeat by its sender is answered duplicate even after it left the room.
         let known = st.knownID(m.msgID)
         if known.known && (known.by == sender || member(room, sender)) { return Self.duplicateOf(known.state, known.detail) }
-        if !member(room, sender) { return .refused("\(sender) is not a member of room \(room)") }
         let words = Self.fields(m.content)
+        // /rooms and /protocol ask about the sender and the server, not about the room: a participant is answered
+        // whatever (existing) room the message names, also one it is not in, so that one that was handed a token and
+        // nothing else can find out where it is (protocol 3.4, the reference's 0.14.1).
+        if let w = words.first, w == "/rooms" || w == "/protocol", !member(room, sender), participant(sender) != nil {
+            let rc = command(m, room: room, store: st, sender: sender, words: words)
+            heard(sender, answered: false)
+            publishPresence()
+            return rc
+        }
+        if !member(room, sender) { return .refused("\(sender) is not a member of room \(room)") }
         if let w = words.first, ChatProtocol.isCommandWord(w), w != "/dm" {
             let rc = command(m, room: room, store: st, sender: sender, words: words)
             heard(sender, answered: false)   // every command is a sign of life, whatever its answer

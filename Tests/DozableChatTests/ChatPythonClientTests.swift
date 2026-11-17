@@ -199,9 +199,10 @@ final class ChatPythonClientTests: XCTestCase {
 
         r = py("bot1", ["rooms", "--room", "room1"])
         XCTAssertEqual(items(r.out).first?["state"] as? String, "info")
+        // /rooms is answered from any existing room, also one the sender is not in (bot1 is not in the default room)
         r = py("bot1", ["rooms"])
-        XCTAssertEqual(r.code, 3, "bot1 is not in the default room: refused")
-        XCTAssertTrue(r.err.contains("--room"), r.err)
+        XCTAssertEqual(r.code, 0, r.err)
+        XCTAssertTrue((items(r.out).first?["detail"] as? String ?? "").contains("#room1"), r.out)
         r = py("bot1", ["protocol", "--room", "room1"])
         XCTAssertEqual(r.code, 0, r.err)
         XCTAssertTrue(r.out.contains("chat: rooms shared by agents and their human owner."), String(r.out.prefix(200)))

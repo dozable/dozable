@@ -129,6 +129,11 @@ enough is recorded with the feature that published it.
   that (a config that has one is a fault; registering it is 409). Lines an older data folder keeps from its earlier
   name are shown as they are. A participant with no `deliver` value that is not the person collects its messages by
   polling, as a registered session does (`ChatParticipant.route`); one delivered to by webhook is refused there (409).
+- **`/rooms` and `/protocol` from outside a room.** They ask about the sender and the server, not the room: a
+  participant is answered them whatever existing room the message names, also one it is not in (or the default room
+  when it names none), so that one that was handed a token and nothing else can find out where it is. Everything else
+  sent to a room one is not in is refused as before (`ChatServerCore.post`; the runner's
+  `TestS3_4_RoomsAndProtocolFromOutsideTheRoom`).
 - **Neutral names.** Tests, docs and examples use `ada` (the person), `bot1`, `bot2`, `room1`. The wire strings the
   conformance suite asserts (403 texts, the protocol's own wording) stay as they are.
 
@@ -202,8 +207,9 @@ enough is recorded with the feature that published it.
   owner's own callers `X-Chat-Token` too); with no token, the owner's socket or an owned caller is the human. An agent
   address — loopback under the daemon, where a fenced session or a polling client calls from — is served this one path
   besides `/agent/`: `GET` or `HEAD` of an exact `/files/<id>/<name>` (nothing a router would tidy) with a Bearer token
-  (`ChatPath.isFilePath`, `ChatPageHandler.isTokenFileFetch`); without one it is 403, and a token that is no one's, or
-  the human's, fetches nothing (404) — an agent address is never the human. The line port's `file` line is the token's
+  that is a participant's (`ChatPath.isFilePath`, `ChatPageHandler.isTokenFileFetch`); without one, or with a token
+  that is no one's, it is the agent-only 403 (the address rule comes first), and the human's token fetches nothing
+  (404) — an agent address is never the human. From an owned caller a Bearer token that is no one's is the plain 404. The line port's `file` line is the token's
   participant, else the name the line gives, else (an owned connection) the human. Anything else is the plain 404 or
   "no such attachment", the same as an unknown id. A download carries `Accept-Ranges: bytes`,
   `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`, and anything but a PNG, JPEG, GIF or WebP is
