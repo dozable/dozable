@@ -170,7 +170,7 @@ final class SessionRegistryTests: XCTestCase {
     func testTheFieldsRoundTripAndAnOlderPayloadDecodes() throws {
         var info = SandboxInfo(name: "box", image: "lab", phase: "asleep", busy: false, cpus: 1, memoryMiB: 512, ramHeldMiB: 0,
                                memoryReturnedMiB: 0, diskBytes: 0, sessions: nil, network: "nat", deniedConnections: nil,
-                               workspace: nil, createdAt: nil, diedWithHost: nil)
+                               folder: nil, createdAt: nil, diedWithHost: nil)
         let plain = String(decoding: try HostWire.encoder.encode(info), as: UTF8.self)
         XCTAssertFalse(plain.contains("sessionList"), "nothing known: no field")
         info.sessionList = [SessionBrief(name: "claude", program: "claude", isDefault: true, openedAt: Date(timeIntervalSince1970: 3), saved: true)]
@@ -186,7 +186,7 @@ final class SessionRegistryTests: XCTestCase {
     func testAQuietPollIsNotAChange() throws {
         var info = SandboxInfo(name: "box", image: "lab", phase: "running", busy: false, cpus: 1, memoryMiB: 512, ramHeldMiB: 0,
                                memoryReturnedMiB: 0, diskBytes: 0, sessions: nil, network: "nat", deniedConnections: nil,
-                               workspace: nil, createdAt: nil, diedWithHost: nil)
+                               folder: nil, createdAt: nil, diedWithHost: nil)
         var r = SessionRegistry()
         r.opened("box", "claude", program: "claude", now: Date(timeIntervalSince1970: 9))
         r.reconcile("box", live: list(live("claude", "claude")), mark: r.epoch)

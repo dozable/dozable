@@ -38,7 +38,7 @@ final class ProtocolTests: XCTestCase {
     func testMessagesCarryTypedResults() throws {
         let info = SandboxInfo(name: "box", image: "lab", phase: "hibernated", busy: false, cpus: 2, memoryMiB: 1024, ramHeldMiB: 0,
                                memoryReturnedMiB: 0, diskBytes: 123_456_789, sessions: nil, network: "bake", deniedConnections: 3,
-                               workspace: "/tmp/ws", createdAt: Date(timeIntervalSince1970: 1_790_000_000.25), diedWithHost: nil)
+                               folder: "/tmp/ws", createdAt: Date(timeIntervalSince1970: 1_790_000_000.25), diedWithHost: nil)
         let m = HostMessage.success(try JSONValue(encoding: [info]))
         var line = try HostWire.encoder.encode(m)
         XCTAssertFalse(line.contains(10))
@@ -60,7 +60,7 @@ final class ProtocolTests: XCTestCase {
         XCTAssertEqual(HostError.from(SandboxError.invalidSpec("x")).code, .invalid)
         XCTAssertEqual(HostError.from(HostError(.notImplemented, "later")).code, .notImplemented)
         let wire = try? HostWire.encoder.encode(HostMessage.failure(HostError(.notFound, "no sandbox x")))
-        XCTAssertEqual(wire.map { String(decoding: $0, as: UTF8.self) }, #"{"error":{"code":"not-found","message":"no sandbox x"},"ok":false,"v":1}"#)
+        XCTAssertEqual(wire.map { String(decoding: $0, as: UTF8.self) }, #"{"error":{"code":"not-found","message":"no sandbox x"},"ok":false,"v":3}"#)
     }
 
     func testLibraryEventsBecomeHostEvents() throws {

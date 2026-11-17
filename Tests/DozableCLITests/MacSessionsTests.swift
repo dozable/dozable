@@ -405,7 +405,7 @@ final class MacSessionsRecordTests: XCTestCase {
         XCTAssertEqual(rows.map(\.name), ["ended", "gone", "live"])
         let byName = Dictionary(uniqueKeysWithValues: rows.map { ($0.name, $0) })
         XCTAssertEqual(byName["live"]?.ended, false)
-        XCTAssertEqual(byName["live"]?.workdir, "/tmp")
+        XCTAssertEqual(byName["live"]?.folder, "/tmp")
         XCTAssertEqual(byName["ended"]?.ended, true)
         XCTAssertEqual(byName["ended"]?.exitCode, 0)
         XCTAssertNil(byName["ended"]?.gone)

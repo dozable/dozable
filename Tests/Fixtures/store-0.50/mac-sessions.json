@@ -1,0 +1,14 @@
+{
+  "sessions" : {
+    "build" : {
+      "argv" : [
+        "/bin/sh"
+      ],
+      "holderVersion" : "0.50.9",
+      "openedAt" : "2026-11-18T11:06:40.000Z",
+      "pid" : 4242,
+      "workdir" : "/tmp/doz-fixture-folder"
+    }
+  },
+  "version" : 1
+}

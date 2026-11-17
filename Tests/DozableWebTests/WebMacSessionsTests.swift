@@ -9,7 +9,7 @@ import DozableHost
 final class WebMacSessionsTests: XCTestCase {
     func testTheProjection() throws {
         var live = SessionRow(SessionInfo(name: "agent", pid: 7, size: TermSize(cols: 120, rows: 40), clients: 1, command: "claude"))
-        live.workdir = "/Users/x/app"
+        live.folder = "/Users/x/app"
         live.openedAt = Date(timeIntervalSince1970: 1)
         var bypassed = SessionRow(SessionInfo(name: "yolo", pid: 8, command: "claude --dangerously-skip-permissions"))
         bypassed.bypassed = true
@@ -20,7 +20,7 @@ final class WebMacSessionsTests: XCTestCase {
         let p = [live, bypassed, gone, ended].map(WebMacSession.init)
         XCTAssertEqual(p.map(\.state), ["running", "running", "gone", "ended"])
         XCTAssertEqual(p.map(\.bypassed), [false, true, false, false])
-        XCTAssertEqual(p[0].workdir, "/Users/x/app")
+        XCTAssertEqual(p[0].folder, "/Users/x/app")
         XCTAssertEqual(p[3].exitCode, 3)
         let all = WebMacSessions(sessions: p, access: "watch")
         let json = String(decoding: try WebJSON.encoder.encode(all), as: UTF8.self)

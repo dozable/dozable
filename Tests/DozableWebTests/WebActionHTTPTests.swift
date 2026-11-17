@@ -68,7 +68,7 @@ final class WebActionHTTPTests: XCTestCase {
     func testEveryActionOverHTTP() throws {
         let workspace = FileManager.default.temporaryDirectory.path
         for (name, sample) in WebActionTests.samples.sorted(by: { $0.key < $1.key }) {
-            let body = sample.replacingOccurrences(of: "\"image\":\"lab\",", with: "\"image\":\"lab\",\"workspace\":\"\(workspace)\",")
+            let body = sample.replacingOccurrences(of: "\"image\":\"lab\",", with: "\"image\":\"lab\",\"folder\":\"\(workspace)\",")
             let before = fake.performed.count
             XCTAssertEqual(try post("/api/v1/actions", body, headers: ["Cookie": cookie, "Origin": origin, "Content-Type": "application/json"]).status, 403, "\(name) without CSRF")
             let r = try post("/api/v1/actions", body)

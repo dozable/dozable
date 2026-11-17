@@ -368,7 +368,7 @@ final class WebSecurityTests: XCTestCase {
     func testNoAPIModelHasASecretShapedField() throws {
         let now = Date()
         let info = SandboxInfo(name: "a", image: "lab", phase: "running", busy: false, cpus: 1, memoryMiB: 1024, ramHeldMiB: 1024,
-                               memoryReturnedMiB: 0, diskBytes: 1, sessions: 1, network: "agent", deniedConnections: 0, workspace: nil,
+                               memoryReturnedMiB: 0, diskBytes: 1, sessions: 1, network: "agent", deniedConnections: 0, folder: nil,
                                createdAt: now, diedWithHost: nil, account: "mac", credentialState: "ok", credentialPolicy: "allow",
                                foreignCredentials: 1)
         let row = CredentialRow(binding: "anthropic", hosts: ["api.anthropic.com"], set: true, source: "keychain:x", account: "mac",
@@ -403,7 +403,7 @@ final class WebSecurityTests: XCTestCase {
                                            seconds: 1, error: nil, step: "s", stepSeconds: 1,
                                            transfer: PreparationTransfer(label: "pulling", completedBytes: 1, totalBytes: 2, completedItems: 1,
                                                                          totalItems: 2, line: "l"), output: ["o"], lines: ["l"])),
-            WebOnboardingConfigResult(settings: "written", settingsPath: "/x", promptTemplate: "kept", promptTemplatePath: "/y", rulesSet: ["workspace.ignore_mode = lock"]),
+            WebOnboardingConfigResult(settings: "written", settingsPath: "/x", promptTemplate: "kept", promptTemplatePath: "/y", rulesSet: ["folder.ignore_mode = lock"]),
             // 599g
             WebRulesGuide(),
             WebRuleFile(WorkspaceRulesGuide.FolderFile(name: ".dozignore", patterns: 2, first: ["secrets.env"], skipped: 0)),
@@ -441,7 +441,7 @@ final class WebSecurityTests: XCTestCase {
     /// loopback forward.
     func testASandboxsWebPortsReachThePageAndOnlyItsLoopbackURL() throws {
         var info = SandboxInfo(name: "a", image: "aichat", phase: "running", busy: false, cpus: 1, memoryMiB: 1024, ramHeldMiB: 1024,
-                               memoryReturnedMiB: 0, diskBytes: 1, sessions: 1, network: "locked", deniedConnections: 0, workspace: nil,
+                               memoryReturnedMiB: 0, diskBytes: 1, sessions: 1, network: "locked", deniedConnections: 0, folder: nil,
                                createdAt: Date(), diedWithHost: nil, account: "xai", credentialState: "ok", credentialPolicy: "allow",
                                foreignCredentials: 0)
         info.ports = [PortForwardRow(port: 8000, title: "AIChat web", path: "/playground", protocol: "http", origin: "recipe", state: "listening",

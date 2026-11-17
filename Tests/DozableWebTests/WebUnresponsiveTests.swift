@@ -8,7 +8,7 @@ import DozableHost
 final class WebUnresponsiveTests: XCTestCase {
     func info(_ unresponsive: Bool?) -> SandboxInfo {
         var i = SandboxInfo(name: "box", image: "lab", phase: "running", busy: false, cpus: 2, memoryMiB: 1024, ramHeldMiB: 1024,
-                            memoryReturnedMiB: 0, diskBytes: 0, sessions: nil, network: "bake", deniedConnections: nil, workspace: nil,
+                            memoryReturnedMiB: 0, diskBytes: 0, sessions: nil, network: "bake", deniedConnections: nil, folder: nil,
                             createdAt: Date(timeIntervalSince1970: 0), diedWithHost: nil)
         i.unresponsive = unresponsive
         return i

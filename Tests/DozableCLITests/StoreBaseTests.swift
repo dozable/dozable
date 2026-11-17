@@ -69,7 +69,7 @@ final class StoreBaseTests: XCTestCase {
         }
         let cc = try first(["--agent", "claude-code"], facts())
         XCTAssertEqual(cc.name, "claude")
-        XCTAssertEqual(cc.workspace, "/tmp/634-storebase-projects/claude", "a new empty folder of its own")
+        XCTAssertEqual(cc.folder, "/tmp/634-storebase-projects/claude", "a new empty folder of its own")
         XCTAssertNil(cc.create.network)
         XCTAssertEqual(cc.command, "doz new claude --agent claude-code")
         XCTAssertTrue(cc.problems.allSatisfy { $0.code == "key" }, "\(cc.problems)")
@@ -83,10 +83,10 @@ final class StoreBaseTests: XCTestCase {
         f.taken = ["claude"]
         XCTAssertEqual(try first(["--agent", "claude-code"], f).name, "claude-2")
         // A name and a project folder given: kept, and said.
-        let named = try first(["--agent", "pi", "--workspace", "/tmp/634-storebase-mine"], facts(), name: "work")
+        let named = try first(["--agent", "pi", "--folder", "/tmp/634-storebase-mine"], facts(), name: "work")
         XCTAssertEqual(named.name, "work")
-        XCTAssertEqual(named.workspace, "/tmp/634-storebase-mine")
-        XCTAssertEqual(named.command, "doz new work --agent pi --workspace /tmp/634-storebase-mine")
+        XCTAssertEqual(named.folder, "/tmp/634-storebase-mine")
+        XCTAssertEqual(named.command, "doz new work --agent pi --folder /tmp/634-storebase-mine")
         // A try keeps its own name.
         XCTAssertEqual(try tryPlan(["--agent", "claude-code"], facts()).name, "try-claude")
     }

@@ -147,7 +147,7 @@ final class FilesTests: XCTestCase {
         XCTAssertEqual(entry(logs, "other.log")?.state, "locked")
         XCTAssertEqual(try MacFolderListing.list(workspace: ws.path, rel: "config", rules: lock).state, "read-only")
         XCTAssertThrowsError(try MacFolderListing.list(workspace: ws.path, rel: "private", rules: lock)) {
-            XCTAssertTrue(($0 as? HostError)?.message.contains("locked by the workspace rules") == true)
+            XCTAssertTrue(($0 as? HostError)?.message.contains("locked by the folder rules") == true)
         }
         // case-insensitive volume: a different case is still selected
         XCTAssertThrowsError(try MacFolderListing.list(workspace: ws.path, rel: "PRIVATE", rules: lock))
@@ -288,7 +288,7 @@ final class FilesTests: XCTestCase {
     private func storeWithSandbox(workspace: URL?, mode: String? = nil) throws -> DozableStore {
         let store = DozableStore(root: root.appendingPathComponent("store"))
         var o = CreateOptions(image: "lab")
-        o.workspace = workspace?.path
+        o.folder = workspace?.path
         let (s, n) = try DozableImages.spec(name: "x", options: o, store: store, environment: [:])
         var cfg = SandboxConfig(name: "x", image: n, spec: s, workspace: workspace?.path)
         if let mode { cfg.settings = [SettingKey.ignoreMode: .string(mode)] }

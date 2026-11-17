@@ -772,7 +772,8 @@ final class MacFenceRecordTests: XCTestCase {
     }
 
     func testTheFencedVersionIsRefusedByAnOlderHost() {
-        XCTAssertGreaterThan(HostProtocol.fencedVersion, HostProtocol.version)
+        // 0.51: every request is protocol 3 — a host older than fenced sessions (it answers v ≤ 1) refuses a fenced one.
+        XCTAssertGreaterThan(HostProtocol.fencedVersion, 1)
         XCTAssertGreaterThanOrEqual(HostProtocol.accepted, HostProtocol.fencedVersion)
     }
 }

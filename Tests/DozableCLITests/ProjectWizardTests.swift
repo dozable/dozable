@@ -121,7 +121,7 @@ final class ProjectWizardTests: XCTestCase {
         var o = p.createOptions(folder: dir, file: dir.appendingPathComponent(DozableProject.fileName))
         XCTAssertEqual(o.allow, ["standard", "+web", "-error-reports", "+github:as-you", "+github:push"])
         XCTAssertEqual(o.settings?[SettingKey.sshAgent], .string("on"))
-        XCTAssertEqual(o.workspace, dir.path)
+        XCTAssertEqual(o.folder, dir.path)
         p.permissions = ["locked"]
         p.github = nil
         o = p.createOptions(folder: dir, file: dir, settings: DozableSettings(text: ""))
@@ -182,7 +182,7 @@ final class ProjectWizardTests: XCTestCase {
         XCTAssertEqual(o.rules, [], "no rule file: the folder is shared as is")
         try "secrets.env\n".write(toFile: folder + "/.dozignore", atomically: true, encoding: .utf8)
         o = WebProject.open(WebProjectRequest(folder: folder), settings: settings, store: "/tmp/fake-store")
-        XCTAssertEqual(o.rules.map(\.name), [".dozignore"], "the Workspace rules step shows the folder's rule files")
+        XCTAssertEqual(o.rules.map(\.name), [".dozignore"], "the Folder rules step shows the folder's rule files")
         XCTAssertEqual(o.rules.first?.first, ["secrets.env"])
         try FileManager.default.removeItem(atPath: folder + "/.dozignore")
 
@@ -204,7 +204,7 @@ final class ProjectWizardTests: XCTestCase {
         // The action: the sandbox the file describes, with the options doz up gives it.
         guard case .create(let name, let opts) = try WebProject.createAction(folder: folder) else { return XCTFail("create") }
         XCTAssertEqual(name, "my-app")
-        XCTAssertEqual(opts.workspace, folder)
+        XCTAssertEqual(opts.folder, folder)
         XCTAssertEqual(opts.allow, ["standard", "+web", "+github:as-you", "+github:push"])
         XCTAssertEqual(opts.project, folder + "/doz_project.yaml")
     }

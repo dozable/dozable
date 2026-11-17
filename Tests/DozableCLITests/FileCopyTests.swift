@@ -170,8 +170,8 @@ final class FileCopyTests: XCTestCase {
 
     func testNeitherSideNamesASandboxSuggestsWhereItIs() {
         let ws = "/Users/me/doz-workspaces/try-grok"
-        let rows = [CopyHint.Row(name: "box", phase: "off", workspace: "/x/box"),
-                    CopyHint.Row(name: "try-grok", phase: "running", workspace: ws)]
+        let rows = [CopyHint.Row(name: "box", phase: "off", folder: "/x/box"),
+                    CopyHint.Row(name: "try-grok", phase: "running", folder: ws)]
         let shown: (String) -> String = { $0.replacingOccurrences(of: "/Users/me", with: "~") }
         // The owner's case: the file is in a sandbox's folder — it is already on the Mac.
         let found = CopyHint.neitherSide(source: "lemonade.html", destination: "~/Developer/fun/lemonade.html", sandboxes: rows,
@@ -184,7 +184,7 @@ final class FileCopyTests: XCTestCase {
         XCTAssertEqual(CopyHint.neitherSide(source: "x.txt", destination: "out", sandboxes: rows, existsOnMac: { $0 == "/tmp/x.txt" }, cwd: "/tmp", shown: shown),
                        "Into try-grok: doz cp x.txt try-grok:out")
         // Two running (or none): nothing to suggest; an absolute or escaping source is never looked up in a folder.
-        let two = rows.map { CopyHint.Row(name: $0.name, phase: "running", workspace: $0.workspace) }
+        let two = rows.map { CopyHint.Row(name: $0.name, phase: "running", folder: $0.folder) }
         XCTAssertNil(CopyHint.neitherSide(source: "x.txt", destination: ".", sandboxes: two, existsOnMac: { _ in false }, cwd: "/tmp", shown: shown))
         XCTAssertNil(CopyHint.neitherSide(source: "../x", destination: ".", sandboxes: [rows[0]], existsOnMac: { _ in true }, cwd: "/tmp", shown: shown))
     }

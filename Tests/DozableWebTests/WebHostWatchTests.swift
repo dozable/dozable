@@ -17,7 +17,7 @@ final class WebHostWatchTests: XCTestCase {
         let rows = ["a", "b"].map { name in
             WebSandboxRow(SandboxInfo(name: name, image: "lab", phase: "off", busy: false, cpus: 1, memoryMiB: 512, ramHeldMiB: 0,
                                       memoryReturnedMiB: 0, diskBytes: 0, sessions: nil, network: "nat", deniedConnections: nil,
-                                      workspace: nil, createdAt: nil, diedWithHost: died.contains(name) ? true : nil))
+                                      folder: nil, createdAt: nil, diedWithHost: died.contains(name) ? true : nil))
         }
         return WebOverview(host: h, sandboxes: rows, source: h.running ? "host" : "store")
     }
@@ -30,7 +30,7 @@ final class WebHostWatchTests: XCTestCase {
             h.idleSeconds = idle
             let row = WebSandboxRow(SandboxInfo(name: "a", image: "claude-code", phase: phase, busy: false, cpus: 1, memoryMiB: 2048,
                                                 ramHeldMiB: 2048, memoryReturnedMiB: 0, diskBytes: disk, sessions: nil, network: "agent",
-                                                deniedConnections: nil, workspace: nil, createdAt: nil, diedWithHost: nil))
+                                                deniedConnections: nil, folder: nil, createdAt: nil, diedWithHost: nil))
             return try WebJSON.encoder.encode(WebMonitor.changeKey(WebOverview(host: h, sandboxes: [row], source: "host")))
         }
         let base: Int64 = 1_625_587_712

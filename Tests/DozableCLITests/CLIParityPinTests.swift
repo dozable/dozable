@@ -30,10 +30,10 @@ final class CLIParityPinTests: XCTestCase {
     /// The choice flags `CreateArguments` gives create and up today, each with a value that parses.
     static let createArgumentsFlags: [[String]] = [
         ["--image", "lab"], ["--agent", "codex"], ["--base", "python"], ["--dockerfile", "/tmp/Dockerfile"], ["--cpus", "3"],
-        ["--memory", "4G"], ["--workspace", "/tmp/w"], ["--isolated"], ["--network", "locked"], ["--subnet", "10.1.2.0/24"],
+        ["--memory", "4G"], ["--folder", "/tmp/w"], ["--isolated"], ["--network", "locked"], ["--subnet", "10.1.2.0/24"],
         ["--account", "work"], ["--agent-prompt", "/tmp/p.md"], ["--agent-prompt-mode", "replace"], ["--agent-sudo"], ["--no-agent-sudo"],
         ["--clipboard", "off"], ["--browser-bridge", "off"], ["--open-files", "off"], ["--github", "read"], ["--ssh-agent", "on"],
-        ["--tmux"], ["--no-tmux"], ["--ignore-mode", "hide"], ["--workspace-view", "off"], ["--rebuild"], ["--allow", "web"],
+        ["--tmux"], ["--no-tmux"], ["--ignore-mode", "hide"], ["--folder-view", "off"], ["--rebuild"], ["--allow", "web"],
         ["--allow", "-error-reports"], ["--use-current"], ["--audio"],
     ]
 
@@ -79,9 +79,9 @@ final class CLIParityPinTests: XCTestCase {
         ["--image", "claude-code", "--allow", "standard,+web"],
         ["--image", "pi", "--github", "push"],
         ["--image", "pi", "--github", "off"],
-        ["--image", "codex", "--network", "locked", "--account", "none", "--cpus", "4", "--memory", "4G", "--workspace", "/tmp/617-pin-w"],
+        ["--image", "codex", "--network", "locked", "--account", "none", "--cpus", "4", "--memory", "4G", "--folder", "/tmp/617-pin-w"],
         ["--image", "claude-code", "--isolated", "--no-agent-sudo", "--tmux", "--clipboard", "off", "--browser-bridge", "off",
-         "--open-files", "off", "--ssh-agent", "on", "--ignore-mode", "hide", "--workspace-view", "off"],
+         "--open-files", "off", "--ssh-agent", "on", "--ignore-mode", "hide", "--folder-view", "off"],
         ["--image", "claude-code", "--rebuild"],
         ["--image", "claude-code", "--use-current"],
         ["--image", "go-codex", "--network", "nat", "--subnet", "10.9.0.0/24"],
@@ -91,7 +91,7 @@ final class CLIParityPinTests: XCTestCase {
         ["--image", "lab", "--agent", "pi"],
         ["--agent", "nosuch"],
         ["--base", "cobol"],
-        ["--isolated", "--workspace", "/tmp/w"],
+        ["--isolated", "--folder", "/tmp/w"],
         ["--image", "lab", "--memory", "lots"],
         ["--image", "lab", "--cpus", "0"],
         ["--image", "lab", "--github", "write"],
@@ -127,20 +127,20 @@ final class CLIParityPinTests: XCTestCase {
         try Data("FROM alpine\n".utf8).write(to: df)
         let d = try XCTUnwrap(try parse(["create", "b", "--dockerfile", df.path, "--agent", "codex"]) as? Create)
         let o = try d.create.options()
-        lines.append("create --dockerfile F --agent codex → image \(o.image) dockerfile=F:\(o.dockerfile == df.path) workspace=dir:\(o.workspace == root.path)")
+        lines.append("create --dockerfile F --agent codex → image \(o.image) dockerfile=F:\(o.dockerfile == df.path) workspace=dir:\(o.folder == root.path)")
         let di = try XCTUnwrap(try parse(["create", "b", "--dockerfile", df.path, "--isolated"]) as? Create)
         let oi = try di.create.options()
-        lines.append("create --dockerfile F --isolated → image \(oi.image) workspace=\(oi.workspace ?? "nil") isolated=\(oi.isolated.map(String.init) ?? "nil")")
+        lines.append("create --dockerfile F --isolated → image \(oi.image) workspace=\(oi.folder ?? "nil") isolated=\(oi.isolated.map(String.init) ?? "nil")")
         // --agent-prompt FILE → the text.
         let pf = root.appendingPathComponent("prompt.md")
         try Data("Be brief.\n".utf8).write(to: pf)
         let p = try XCTUnwrap(try parse(["create", "b", "--image", "pi", "--agent-prompt", pf.path, "--agent-prompt-mode", "replace"]) as? Create)
         let op = try p.create.options()
         lines.append("create --agent-prompt F --agent-prompt-mode replace → prompt=\(op.agentPrompt.map { $0.debugDescription } ?? "nil") mode=\(op.agentPromptMode ?? "nil")")
-        // A relative --workspace is the working folder's.
-        let r = try XCTUnwrap(try parse(["create", "b", "--image", "lab", "--workspace", "rel"]) as? Create)
+        // A relative --folder is the working folder's.
+        let r = try XCTUnwrap(try parse(["create", "b", "--image", "lab", "--folder", "rel"]) as? Create)
         let or = try r.create.options()
-        lines.append("create --workspace rel → absolute under cwd: \(or.workspace == FileManager.default.currentDirectoryPath + "/rel")")
+        lines.append("create --folder rel → absolute under cwd: \(or.folder == FileManager.default.currentDirectoryPath + "/rel")")
         Pins.check(#function, lines.joined(separator: "\n"))
     }
 

@@ -28,7 +28,7 @@ final class WebActionTests: XCTestCase {
         "point-rm": #"{"action":"point-rm","sandbox":"a","point":"p1","confirm":"a"}"#,
         "point-save-image": #"{"action":"point-save-image","sandbox":"a","image":"mine"}"#,
         "template-create": #"{"action":"template-create","sandbox":"a","image":"my-tpl","note":"node + tools"}"#,
-        "duplicate": #"{"action":"duplicate","sandbox":"a","newName":"a2","workspace":"/tmp","cpus":4,"memoryMiB":2048,"network":"locked","account":"none","copyState":true}"#,
+        "duplicate": #"{"action":"duplicate","sandbox":"a","newName":"a2","folder":"/tmp","cpus":4,"memoryMiB":2048,"network":"locked","account":"none","copyState":true}"#,
         "image-bake": #"{"action":"image-bake","image":"claude-code"}"#,
         "image-rm": #"{"action":"image-rm","image":"mine","confirm":"mine"}"#,
         "net-policy": #"{"action":"net-policy","sandbox":"a","allow":["example.com","*.example.org"],"deny":["evil.example"]}"#,
@@ -109,7 +109,7 @@ final class WebActionTests: XCTestCase {
         }
         invalid(#"{"action":"rename","sandbox":"web","newName":5}"#)
         invalid(#"{"action":"rename","sandbox":"web","newName":"site","confirm":"web"}"#)      // not a field of rename
-        invalid(#"{"action":"rename","sandbox":"web","newName":"site","workspace":"/tmp"}"#)
+        invalid(#"{"action":"rename","sandbox":"web","newName":"site","folder":"/tmp"}"#)
     }
 
     /// 644: the file actions' fields, strictly.
@@ -308,7 +308,7 @@ final class WebActionTests: XCTestCase {
         let d = try decode(Self.samples["duplicate"]!)
         XCTAssertEqual(d.hostRequest.newName, "a2")
         let tmp = "/private/tmp"                                        // 594: realpath (the link /tmp resolved)
-        XCTAssertEqual(d.hostRequest.duplicate, DuplicateOptions(workspace: tmp, cpus: 4, memoryMiB: 2048, network: "locked", account: "none", copyState: true))
+        XCTAssertEqual(d.hostRequest.duplicate, DuplicateOptions(folder: tmp, cpus: 4, memoryMiB: 2048, network: "locked", account: "none", copyState: true))
         XCTAssertEqual(try decode(#"{"action":"duplicate","sandbox":"a","newName":"b"}"#).hostRequest.duplicate, DuplicateOptions(),
                        "nothing given: the source's everything, a fresh state disk")
         XCTAssertNil(try decode(#"{"action":"duplicate","sandbox":"a","newName":"b","copyState":false}"#).hostRequest.duplicate?.copyState)
@@ -321,8 +321,8 @@ final class WebActionTests: XCTestCase {
         invalid(#"{"action":"duplicate","sandbox":"a"}"#)                                        // no new name
         invalid(#"{"action":"duplicate","sandbox":"a","newName":"a"}"#)                          // onto itself
         invalid(#"{"action":"duplicate","sandbox":"a","newName":"B"}"#)
-        invalid(#"{"action":"duplicate","sandbox":"a","newName":"b","workspace":"relative"}"#)
-        invalid(#"{"action":"duplicate","sandbox":"a","newName":"b","workspace":"/w","isolated":true}"#)
+        invalid(#"{"action":"duplicate","sandbox":"a","newName":"b","folder":"relative"}"#)
+        invalid(#"{"action":"duplicate","sandbox":"a","newName":"b","folder":"/w","isolated":true}"#)
         invalid(#"{"action":"duplicate","sandbox":"a","newName":"b","copyState":"yes"}"#)
         invalid(#"{"action":"duplicate","sandbox":"a","newName":"b","copyState":1}"#)
         invalid(#"{"action":"duplicate","sandbox":"a","newName":"b","cpus":0}"#)
@@ -431,9 +431,9 @@ final class WebActionTests: XCTestCase {
         invalid(#"{"action":"create","sandbox":"a","image":"lab","memoryMiB":64}"#)
         invalid(#"{"action":"create","sandbox":"a","image":"lab","network":"host"}"#)
         invalid(#"{"action":"create","sandbox":"a","image":"lab","subnet":"10.0.0.0"}"#)
-        invalid(#"{"action":"create","sandbox":"a","image":"lab","workspace":"relative/path"}"#)
-        invalid(#"{"action":"create","sandbox":"a","image":"lab","workspace":"/w\nx"}"#)                // one line
-        invalid(#"{"action":"create","sandbox":"a","image":"lab","workspace":"/w","isolated":true}"#)   // not both
+        invalid(#"{"action":"create","sandbox":"a","image":"lab","folder":"relative/path"}"#)
+        invalid(#"{"action":"create","sandbox":"a","image":"lab","folder":"/w\nx"}"#)                // one line
+        invalid(#"{"action":"create","sandbox":"a","image":"lab","folder":"/w","isolated":true}"#)   // not both
         invalid(#"{"action":"create","sandbox":"a","image":"lab","isolated":"yes"}"#)
         invalid(#"{"action":"open-session","sandbox":"a","session":".hidden"}"#)
         invalid(#"{"action":"open-session","sandbox":"a","argv":[]}"#)
@@ -489,16 +489,16 @@ final class WebActionTests: XCTestCase {
         let dir = "/private/tmp/ws-590-\(UUID().uuidString.prefix(8))"
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: dir) }
-        let a = try decode(#"{"action":"create","sandbox":"a","image":"lab","workspace":"\#(dir.replacingOccurrences(of: "/private/tmp", with: "/tmp"))"}"#)
-        XCTAssertEqual(a.hostRequest.create?.workspace, dir, "links resolved")
-        let missing = try decode(#"{"action":"create","sandbox":"a","image":"lab","workspace":"\#(dir)/new/deep"}"#)
-        XCTAssertEqual(missing.hostRequest.create?.workspace, dir + "/new/deep")
+        let a = try decode(#"{"action":"create","sandbox":"a","image":"lab","folder":"\#(dir.replacingOccurrences(of: "/private/tmp", with: "/tmp"))"}"#)
+        XCTAssertEqual(a.hostRequest.create?.folder, dir, "links resolved")
+        let missing = try decode(#"{"action":"create","sandbox":"a","image":"lab","folder":"\#(dir)/new/deep"}"#)
+        XCTAssertEqual(missing.hostRequest.create?.folder, dir + "/new/deep")
         XCTAssertFalse(FileManager.default.fileExists(atPath: dir + "/new"), "decoding makes nothing")
-        let home = try decode(#"{"action":"create","sandbox":"a","image":"lab","workspace":"~/proj-x"}"#)
-        XCTAssertEqual(home.hostRequest.create?.workspace, Workspace.home() + "/proj-x")
+        let home = try decode(#"{"action":"create","sandbox":"a","image":"lab","folder":"~/proj-x"}"#)
+        XCTAssertEqual(home.hostRequest.create?.folder, Workspace.home() + "/proj-x")
         let iso = try decode(#"{"action":"duplicate","sandbox":"a","newName":"b","isolated":true}"#)
         XCTAssertEqual(iso.hostRequest.duplicate?.isolated, true)
-        XCTAssertNil(iso.hostRequest.duplicate?.workspace)
+        XCTAssertNil(iso.hostRequest.duplicate?.folder)
     }
 
     // MARK: policy preview

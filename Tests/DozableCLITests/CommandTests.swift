@@ -64,9 +64,9 @@ final class CommandTests: XCTestCase {
     }
 
     func testUpTakesCreateOptionsAndAProgram() throws {
-        let u = try XCTUnwrap(parse(["up", "myproj", "--image", "claude-code", "--workspace", "/tmp", "--memory", "4G", "--", "claude", "--continue"]) as? Up)
+        let u = try XCTUnwrap(parse(["up", "myproj", "--image", "claude-code", "--folder", "/tmp", "--memory", "4G", "--", "claude", "--continue"]) as? Up)
         let o = try u.create.options(defaultImage: "lab")
-        XCTAssertEqual(o, CreateOptions(image: "claude-code", memoryMiB: 4096, workspace: "/tmp"))
+        XCTAssertEqual(o, CreateOptions(image: "claude-code", memoryMiB: 4096, folder: "/tmp"))
         XCTAssertEqual(u.command, ["claude", "--continue"])
         let bare = try XCTUnwrap(parse(["up", "x"]) as? Up)
         XCTAssertEqual(try bare.create.options(defaultImage: "lab").image, "lab")
@@ -127,14 +127,14 @@ final class CommandTests: XCTestCase {
     func testLsRowShape() throws {
         let i = SandboxInfo(name: "b", image: "lab", phase: "running", busy: false, cpus: 2, memoryMiB: 1024, ramHeldMiB: 700,
                             memoryReturnedMiB: 324, diskBytes: 1, sessions: 2, network: "bake", deniedConnections: 0,
-                            workspace: "/w", createdAt: Date(), diedWithHost: true)
+                            folder: "/w", createdAt: Date(), diedWithHost: true)
         XCTAssertEqual(try keys(i), ["name", "image", "phase", "busy", "cpus", "memoryMiB", "ramHeldMiB", "memoryReturnedMiB", "diskBytes",
-                                     "sessions", "network", "deniedConnections", "workspace", "isolated", "createdAt", "diedWithHost"])
+                                     "sessions", "network", "deniedConnections", "folder", "isolated", "createdAt", "diedWithHost"])
         // 594: an isolated sandbox says so — `workspace` null (never left out), `isolated` true.
         var iso = i
-        iso.workspace = nil
+        iso.folder = nil
         let o = try XCTUnwrap(try JSONSerialization.jsonObject(with: HostWire.encoder.encode(iso)) as? [String: Any])
-        XCTAssertTrue(o["workspace"] is NSNull)
+        XCTAssertTrue(o["folder"] is NSNull)
         XCTAssertEqual(o["isolated"] as? Bool, true)
         XCTAssertTrue(try HostWire.decoder.decode(SandboxInfo.self, from: HostWire.encoder.encode(iso)).isolated)
     }

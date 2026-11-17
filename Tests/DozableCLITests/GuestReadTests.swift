@@ -28,7 +28,7 @@ final class GuestReadTests: XCTestCase {
         let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "test", services: s)
         await c.load()
         var r = HostRequest(.create, name: "stuck")
-        r.create = CreateOptions(image: "lab", workspace: nil)
+        r.create = CreateOptions(image: "lab", folder: nil)
         let m = await c.handle(r)
         XCTAssertNil(m.error, m.error?.message ?? "")
         return c
@@ -62,7 +62,7 @@ final class GuestReadTests: XCTestCase {
     func testTheInfoFieldRoundTripsAndAnOlderRowDecodes() throws {
         var i = SandboxInfo(name: "x", image: "lab", phase: "running", busy: false, cpus: 1, memoryMiB: 512, ramHeldMiB: 512,
                             memoryReturnedMiB: 0, diskBytes: 0, sessions: nil, network: "none", deniedConnections: nil,
-                            workspace: nil, createdAt: nil, diedWithHost: nil)
+                            folder: nil, createdAt: nil, diedWithHost: nil)
         i.unresponsive = true
         let back = try HostWire.decoder.decode(SandboxInfo.self, from: HostWire.encoder.encode(i))
         XCTAssertEqual(back.unresponsive, true)

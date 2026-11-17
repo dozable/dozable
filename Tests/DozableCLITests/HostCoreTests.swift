@@ -58,7 +58,7 @@ final class HostCoreTests: XCTestCase {
 
     func testSpecsFromImages() throws {
         let store = DozableStore(root: root)
-        let (lab, labName) = try DozableImages.spec(name: "box", options: CreateOptions(image: "lab", workspace: root.path), store: store, environment: [:])
+        let (lab, labName) = try DozableImages.spec(name: "box", options: CreateOptions(image: "lab", folder: root.path), store: store, environment: [:])
         XCTAssertEqual(labName, "lab")
         XCTAssertEqual(lab.network, .proxied(.bake), "the lab defaults to proxied, registries only")
         XCTAssertEqual(lab.bakePackages, ["bash", "ncurses", "fd", "tmux"], "599: tmux (sessions.tmux)")
@@ -80,7 +80,7 @@ final class HostCoreTests: XCTestCase {
         XCTAssertThrowsError(try DozableImages.spec(name: "x", options: CreateOptions(image: "nope"), store: store, environment: [:]))
         XCTAssertThrowsError(try DozableImages.spec(name: "x", options: CreateOptions(image: "lab", network: "wide-open"), store: store, environment: [:]))
         XCTAssertThrowsError(try DozableImages.spec(name: "Bad_Name", options: CreateOptions(image: "lab"), store: store, environment: [:]))
-        XCTAssertThrowsError(try DozableImages.spec(name: "x", options: CreateOptions(image: "lab", workspace: "/does/not/exist"), store: store, environment: [:]))
+        XCTAssertThrowsError(try DozableImages.spec(name: "x", options: CreateOptions(image: "lab", folder: "/does/not/exist"), store: store, environment: [:]))
     }
 
     func testDefaultSessions() throws {

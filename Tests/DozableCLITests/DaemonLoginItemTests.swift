@@ -357,6 +357,6 @@ final class DaemonLoginItemTests: XCTestCase {
         XCTAssertNil(d.environment, "consent is never an environment value")
         XCTAssertEqual(d.defaultValue, .string("ask"))
         XCTAssertEqual(d.type, .choice(["ask", "on", "off"]))
-        XCTAssertTrue(DozableSettings.definition(SettingKey.alwaysOn)?.summary.contains("daemon.login_item") == true)
+        XCTAssertTrue(DozableSettings.definition(SettingKey.loginItem)?.summary.contains("when you log in") == true, "700: always_on's text names its neighbour the timeout; login_item says the log-in part")
     }
 }
