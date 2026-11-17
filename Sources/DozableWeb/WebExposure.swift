@@ -40,6 +40,8 @@ public enum WebExposure {
         case serveOnly = "serve-only"
         /// The sessions on this Mac (`@mac`): NOT isolated — another computer gets what `serve.mac_sessions` allows.
         case macSession = "mac-session"
+        /// Chat: the person's own conversations, posting as them — this Mac's own browser only.
+        case chat
     }
 
     /// `serve.mac_sessions`: what a remote browser may do with the sessions on this Mac.
@@ -102,6 +104,8 @@ public enum WebExposure {
              .macSessionNetwork, .macSessionQuarantine, .macSessionTranscripts,
              .macSessionTranscript:     // 683 M5: a conversation's text — for another computer only with `interactive` (decideMacExport)
             return .macSession
+        case .chat:
+            return .chat
         }
     }
 
@@ -113,7 +117,8 @@ public enum WebExposure {
         case (.macScreen, .remote): return .macScreen
         case (.serveOnly, .mac): return .notFound
         case (.macSession, .remote): return macSessions == .off ? .macSession : nil
-        case (.page, _), (.read, _), (.change, _), (.secretEntry, _), (.macScreen, .mac), (.devices, _), (.serveOnly, .remote), (.macSession, .mac):
+        case (.chat, .remote): return .chatRemote
+        case (.page, _), (.read, _), (.change, _), (.secretEntry, _), (.macScreen, .mac), (.devices, _), (.serveOnly, .remote), (.macSession, .mac), (.chat, .mac):
             return nil
         }
     }

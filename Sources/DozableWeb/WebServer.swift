@@ -29,6 +29,10 @@ public final class DozableWebServer: @unchecked Sendable {
     /// 643: the file-watch streams — a hub of their own (a ninth of one session replaces that session's oldest watch,
     /// never the page's live-update stream), ended with the others (sign-out, rotate, shutdown, restart).
     let filesHub: SSEHub
+    /// Chat's live streams (WebChat.swift) — a hub of their own: one upstream per browser stream, at most four, ended with
+    /// the others. Never the page's main stream: an open dashboard must not keep the person "here" in chat.
+    let chatHub: SSEHub
+    let chat: WebChatProxy
     let monitor: WebMonitor
     let operations: WebOperations
     let tickets: WebTerminalTicketStore
@@ -128,6 +132,8 @@ public final class DozableWebServer: @unchecked Sendable {
         auth = WebAuth(browser: sessions, devices: serveState?.devices)
         hub = SSEHub(maxClients: limits.maximumSSEClients, capacity: limits.maximumBufferedSSEEvents)
         filesHub = SSEHub(maxClients: limits.maximumSSEClients, capacity: limits.maximumBufferedSSEEvents)
+        chatHub = SSEHub(maxClients: 4, capacity: limits.maximumBufferedSSEEvents)
+        chat = WebChatProxy(storePath: data.storePath, enabled: { [settings] in settings.bool(SettingKey.chatEnabled) })
         tickets = WebTerminalTicketStore()
         terminals = WebTerminalHub()
         monitor = WebMonitor(data: data, hub: hub, terminals: terminals, pollInterval: pollInterval)
@@ -314,7 +320,7 @@ public final class DozableWebServer: @unchecked Sendable {
     public func rotate() async -> URL {
         await sessions.revokeAll()
         // 645: only the Mac's pages are signed out — a LAN device's cookie is another store's and stays valid.
-        for c in hub.all + filesHub.all where await !auth.isValid(c.cookie) { c.finish(.rotated) }
+        for c in hub.all + filesHub.all + chatHub.all where await !auth.isValid(c.cookie) { c.finish(.rotated) }
         // 605: the page keeps its terminals and reattaches them after it signs in again.
         if serveState == nil {
             await terminals.closeAll(reason: "session-ended")
@@ -416,14 +422,17 @@ public final class DozableWebServer: @unchecked Sendable {
         case .shutdown:
             hub.finishAll(.shutdown)
             filesHub.finishAll(.shutdown)
+            chatHub.finishAll(.shutdown)
             await terminals.closeAll()
         case .restarting:
             hub.finishAll(.restarting)
             filesHub.finishAll(.restarting)
+            chatHub.finishAll(.restarting)
             await terminals.closeAll(reason: "restarting")
         case .moving(let to):
             hub.finishAll(.moved(to.value))
             filesHub.finishAll(.moved(to.value))
+            chatHub.finishAll(.moved(to.value))
             await terminals.closeAll(reason: "restarting")
         }
         await monitor.stop()
@@ -442,6 +451,21 @@ public final class DozableWebServer: @unchecked Sendable {
         case stream(SSEClient)
         /// 643: a file-watch stream — its client (in `filesHub`) and the watch it relays.
         case fileStream(SSEClient, WebFileWatch)
+        /// Chat's relayed stream — its client (in `chatHub`) and the upstream's cancel handle.
+        case chatStream(SSEClient, ChatOwnerClient.StreamHandle)
+    }
+
+    /// The most a request's body may be, from its head: the chat post's 80 KiB, else the one standard limit.
+    static func bodyLimit(_ head: HTTPRequestHead, _ limits: WebLimits) -> Int {
+        guard let m = WebHTTPMethod(rawValue: head.method.rawValue), let r = WebRoute.parse(method: m, target: head.uri) else {
+            return limits.maximumRequestBodyBytes
+        }
+        return bodyLimit(r, limits)
+    }
+
+    static func bodyLimit(_ route: WebRoute, _ limits: WebLimits) -> Int {
+        if case .chat(.post) = route { return max(limits.maximumRequestBodyBytes, WebChatProxy.maximumPostBody) }
+        return limits.maximumRequestBodyBytes
     }
 
     /// A new connection: plain HTTP, or a terminal socket its first request upgraded to.
@@ -499,12 +523,13 @@ public final class DozableWebServer: @unchecked Sendable {
                 while let part = try await it.next() {
                     guard case .head(let head) = part else { continue }
                     var body = ByteBuffer()
-                    var tooLarge = head.headers["content-length"].contains { (Int($0) ?? Int.max) > limits.maximumRequestBodyBytes }
+                    let limit = Self.bodyLimit(head, limits)
+                    var tooLarge = head.headers["content-length"].contains { (Int($0) ?? Int.max) > limit }
                     if !tooLarge {
                         reading: while let p = try await it.next() {
                             switch p {
                             case .body(var b):
-                                if body.readableBytes + b.readableBytes > limits.maximumRequestBodyBytes { tooLarge = true; break reading }
+                                if body.readableBytes + b.readableBytes > limit { tooLarge = true; break reading }
                                 body.writeBuffer(&b)
                             case .end, .head:
                                 break reading
@@ -523,6 +548,13 @@ public final class DozableWebServer: @unchecked Sendable {
                     case .fileStream(let client, let watch):
                         defer { watch.cancel() }
                         try await fileStream(client, watch, conn: conn, outbound: outbound, head: head)
+                        return
+                    case .chatStream(let client, let handle):
+                        // The browser gone, signed out, or too slow: the upstream is shut at once (the server then marks
+                        // the person away).
+                        defer { handle.cancel() }
+                        try await sse(client, hub: chatHub, first: SSEFrame(comment: "chat"), conn: conn, outbound: outbound, head: head,
+                                      beat: min(limits.heartbeatInterval, 2))
                         return
                     case .response(let status, let headers, let data):
                         try await write(outbound, head, (status, headers, data), isHead: isHead, keepAlive: head.isKeepAlive)
@@ -784,7 +816,9 @@ public final class DozableWebServer: @unchecked Sendable {
         default:
             break
         }
-        let cookie = try WebSecurity.validateAuthenticated(md, view, limit: limits.maximumRequestBodyBytes)
+        // Chat: never for another computer — refused before anything else is looked at.
+        if case .chat = route, ctx.principal.isRemote { throw WebRejection.chatRemote }
+        let cookie = try WebSecurity.validateAuthenticated(md, view, limit: Self.bodyLimit(route, limits))
         // 645: against the store of THIS request's principal only — the Mac's sessions, or the LAN's devices.
         let remote = ctx.principal.isRemote
         let (session, dev) = md.method.isSafe ? try await auth.authenticate(cookie, remote: remote)
@@ -810,7 +844,7 @@ public final class DozableWebServer: @unchecked Sendable {
             if let st = serveState, let device {
                 st.audit.record(WebAuditEntry(kind: "sign-out", device: device.id, deviceName: device.name, address: ctx.client))
             }
-            for c in hub.all + filesHub.all where c.cookie == cookie { c.finish(.sessionEnded) }
+            for c in hub.all + filesHub.all + chatHub.all where c.cookie == cookie { c.finish(.sessionEnded) }
             terminals.closeAll(cookie: cookie)
             return .response(204, [("Set-Cookie", WebSecurity.clearCookie(name: view.cookieName, secure: ctx.secure))], Data())
         case .serveStatus:
@@ -1166,6 +1200,8 @@ public final class DozableWebServer: @unchecked Sendable {
             guard let client = hub.add(cookie: cookie) else { throw WebRejection.tooManyStreams }
             await monitor.streamOpened()
             return .stream(client)
+        case .chat(let c):
+            return try await chatReply(c, md, body: body, cookie: cookie)
         }
     }
 
@@ -1197,8 +1233,10 @@ public final class DozableWebServer: @unchecked Sendable {
         try await sse(client, hub: files, first: SSEFrame(event: "files-ready", id: files.nextSeq(), json: ready), conn: conn, outbound: outbound, head: head)
     }
 
+    /// `beat`: the heartbeat (the session's re-check and the ping), the standard one unless given — chat's relay beats
+    /// every 2 s, so a browser that went away (only a failed write tells) lets go of its upstream within seconds.
     private func sse(_ client: SSEClient, hub: SSEHub, first: SSEFrame, conn: Connection,
-                     outbound: NIOAsyncChannelOutboundWriter<HTTPServerResponsePart>, head: HTTPRequestHead) async throws {
+                     outbound: NIOAsyncChannelOutboundWriter<HTTPServerResponsePart>, head: HTTPRequestHead, beat: TimeInterval? = nil) async throws {
         defer { hub.remove(client) }
         var h = HTTPHeaders()
         for (k, v) in WebSecurity.responseHeaders { h.add(name: k, value: v) }
@@ -1207,7 +1245,7 @@ public final class DozableWebServer: @unchecked Sendable {
         try await outbound.write(.head(HTTPResponseHead(version: head.version, status: .ok, headers: h)))
         try await outbound.write(.body(.byteBuffer(ByteBuffer(bytes: first.bytes))))
         conn.channel.closeFuture.whenComplete { _ in client.finish(.clientGone) }
-        let auth = self.auth, cookie = client.cookie, beat = limits.heartbeatInterval, channel = conn.channel
+        let auth = self.auth, cookie = client.cookie, beat = beat ?? limits.heartbeatInterval, channel = conn.channel
         let heartbeat = Task {
             var overflowSince: Date?
             while !Task.isCancelled {
@@ -1237,6 +1275,7 @@ public final class DozableWebServer: @unchecked Sendable {
         case .restarting: "restarting"
         case .moved(let o): { movedTo = o; return "moved" }()
         case .revoked: "revoked"
+        case .chatGone: "chat-gone"
         case .clientGone, nil: nil
         }
         if let last {

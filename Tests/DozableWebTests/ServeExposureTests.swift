@@ -20,7 +20,7 @@ final class ServeExposureTests: XCTestCase {
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
-            .macSessionQuarantine("agent"), .macSessionPlan,
+            .macSessionQuarantine("agent"), .macSessionPlan, .chat(.status),
         ]
         for r in all { _ = covered(r) }
         return all
@@ -36,7 +36,7 @@ final class ServeExposureTests: XCTestCase {
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
-             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan:
+             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .chat:
             return true
         }
     }
@@ -51,6 +51,8 @@ final class ServeExposureTests: XCTestCase {
         // The sessions on this Mac: never another computer's by default (serve.mac_sessions = off).
         for mac in ["macSessions", "macSessionScreen", "macTerminalTicket", "macTerminalSocket",
                     "macSessionNetwork", "macSessionTranscripts", "macSessionTranscript", "macSessionQuarantine"] { t[mac] = (nil, .macSession, .macSession) }
+        // Chat: this Mac's own browser only, whatever any setting says (every chat route — WebChatRouteTests).
+        t["chat"] = (nil, .chatRemote, .chatRemote)
         return t
     }()
 

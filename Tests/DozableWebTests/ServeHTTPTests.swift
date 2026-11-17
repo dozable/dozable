@@ -71,6 +71,27 @@ final class ServeHTTPTests: XCTestCase {
         return (String(set.split(separator: ";")[0]), csrf)
     }
 
+    /// Chat is this Mac's own browser's only: every chat route answers another computer 403, admitted or not, whatever
+    /// serve.mac_sessions says — before the session is even looked at.
+    func testChatIsNeverServedToAnotherComputer() async throws {
+        try await start(macSessions: "interactive")
+        let (cookie, csrf) = try await admit()
+        XCTAssertEqual(try req("/api/v1/overview", ["Cookie": cookie]).status, 200, "the device is signed in")
+        let gets = ["/api/v1/chat/status", "/api/v1/chat/state", "/api/v1/chat/presence", "/api/v1/chat/unread", "/api/v1/chat/protocol",
+                    "/api/v1/chat/stream", "/api/v1/chat/rooms/general/messages", "/api/v1/chat/files/0123456789abcdef/a.png"]
+        for p in gets {
+            for h in [["Cookie": cookie], [:]] {
+                let r = try req(p, h)
+                XCTAssertEqual(r.status, 403, p)
+                XCTAssertTrue(r.text.contains("chat-remote"), r.text)
+            }
+        }
+        let r = try req("/api/v1/chat/rooms/general/messages", ["Cookie": cookie, "Origin": own, "X-Doz-CSRF": csrf, "Content-Type": "application/json"],
+                        method: "POST", body: #"{"content":"hi"}"#)
+        XCTAssertEqual(r.status, 403)
+        XCTAssertTrue(r.text.contains("chat-remote"), r.text)
+    }
+
     func testNotAdmittedThenALinkOnceThenTheDashboard() async throws {
         try await start()
         XCTAssertEqual(try req("/").status, 200, "the page loads (it signs in inside itself)")

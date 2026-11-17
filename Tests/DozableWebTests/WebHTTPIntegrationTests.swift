@@ -622,7 +622,7 @@ final class WebHTTPIntegrationTests: XCTestCase {
 final class FakeData: DozableWebData, @unchecked Sendable {
     private let lock = NSLock()
     private var generation = 0
-    let storePath = "/tmp/fake-store"
+    var storePath = "/tmp/fake-store"
 
     func bump() { lock.withLock { generation += 1 } }
 

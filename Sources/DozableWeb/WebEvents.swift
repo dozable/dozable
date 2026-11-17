@@ -32,6 +32,8 @@ enum SSEEnd: Sendable, Equatable {
     case moved(String)
     /// 606: this browser was removed from doz serve's devices.
     case revoked
+    /// Chat's relay: the chat server ended its stream (stopped, restarted, or turned off) — the page reconnects.
+    case chatGone
 }
 
 /// One live-update client with a BOUNDED queue. When the client cannot keep up the queue is not
