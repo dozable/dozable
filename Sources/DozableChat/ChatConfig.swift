@@ -297,6 +297,8 @@ public struct ChatAccess: Sendable {
     public static let notOwned = "only the owner's own tailnet machines may connect"
     /// The 403 text for a caller that is served only the /agent/ calls.
     public static let agentOnly = "this machine must use a token: only /agent/ calls are served to it"
+    /// The 403 text for such a caller whose `Authorization` carries a token no participant holds (`ChatPageHandler.agentRefusal`).
+    public static let unknownToken = "that token is no one's here: an agent machine must send its own participant's token"
 
     /// One of the addresses whose callers are never the human. An address that cannot be read is one: the safe answer.
     public func isAgentAddress(_ ip: String) -> Bool {

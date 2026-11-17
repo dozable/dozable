@@ -156,7 +156,10 @@ and the helper build have none. Neither path reaches anything the session could 
   Every answer of the page port carries `Strict-Transport-Security: max-age=0`. The `/agent/` path check is exact: what a
   router would tidy (`..`, `.`, `//`, another case) is refused, not followed.
 - **`agent_addresses`.** A list of addresses or CIDR ranges whose callers are never the person: on the page port they are
-  served the token-checked `/agent/` calls and nothing else (403 otherwise); they are never owned (the list beats
+  served the token-checked `/agent/` calls and nothing else (403 otherwise: "this machine must use a token: only /agent/
+  calls are served to it", or, when `Authorization` carries a token no participant holds, "that token is no one's here:
+  an agent machine must send its own participant's token" — `ChatPageHandler.agentRefusal`, the reference's words; the
+  same for a `require_tokens_from` machine and a remote listener's caller; `/agent/` answers such a token 401); they are never owned (the list beats
   `test_owned_addresses`), so the line port admits them only through `allow`, and always with a token. Absent or empty
   changes nothing. It is how a fenced session reaching the server through `host.dozable.internal` (which arrives from
   127.0.0.1) is kept from acting as the person.
@@ -250,9 +253,8 @@ and the helper build have none. Neither path reaches anything the session could 
   owner's own callers `X-Chat-Token` too); with no token, the owner's socket or an owned caller is the human. An agent
   address — loopback under the daemon, where a fenced session or a polling client calls from — is served this one path
   besides `/agent/`: `GET` or `HEAD` of an exact `/files/<id>/<name>` (nothing a router would tidy) with a Bearer token
-  that is a participant's (`ChatPath.isFilePath`, `ChatPageHandler.isTokenFileFetch`); without one, or with a token
-  that is no one's, it is the agent-only 403 (the address rule comes first), and the human's token fetches nothing
-  (404) — an agent address is never the human. From an owned caller a Bearer token that is no one's is the plain 404. The line port's `file` line is the token's
+  that is a participant's (`ChatPath.isFilePath`, `ChatPageHandler.isTokenFileFetch`); without one it is the agent-only
+  403 (the address rule comes first), and the human's token fetches nothing (404) — an agent address is never the human. From an owned caller a Bearer token that is no one's is the plain 404. The line port's `file` line is the token's
   participant, else the name the line gives, else (an owned connection) the human. Anything else is the plain 404 or
   "no such attachment", the same as an unknown id. A download carries `Accept-Ranges: bytes`,
   `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`, and anything but a PNG, JPEG, GIF or WebP is
