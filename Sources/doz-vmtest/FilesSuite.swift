@@ -68,7 +68,7 @@ func cliFilesSuite(binary: String) async {
     r = t.run(["files", "fl", "../etc"])
     check(r.code != 0 && r.err.contains("not a folder in /workspace"), "../etc is refused")
     r = t.run(["files", "fl", "private"])
-    check(r.code != 0 && r.err.contains("locked by the workspace rules"), "a locked folder cannot be listed")
+    check(r.code != 0 && r.err.contains("locked by the folder rules"), "a locked folder cannot be listed")
     check(t.run(["config", "set", "--sandbox", "fl", "folder.ignore_mode", "hide"]).code == 0, "folder.ignore_mode hide for fl")
     t.run(["daemon", "stop"])                                   // a sandbox's own setting is written through the host
     check(t.waitFor(30) { !t.hostRunning }, "no daemon runs again")
@@ -133,7 +133,7 @@ func cliFilesSuite(binary: String) async {
     let ed = t.run(["files", "editors"])
     check(ed.code == 0 && ed.out.contains("Cursor") && !ed.out.contains("Zed"), "files editors lists what the seam installed")
     let wsOpen = t.run(["files", "open", "fl", "--app", "cursor"])
-    check(wsOpen.code == 0 && wsOpen.out.contains("opened the workspace in Cursor"), "files open fl --app cursor (\(wsOpen.out)\(wsOpen.err))")
+    check(wsOpen.code == 0 && wsOpen.out.contains("opened the shared folder in Cursor"), "files open fl --app cursor (\(wsOpen.out)\(wsOpen.err))")
     ok(["open", "fl", "src/main.c", "--app", "Cursor"], "files open --app (a source file)")
     refused(["open", "fl", "--app", "zed"], "not installed", "an editor not installed is refused")
     refused(["open", "fl", "secret.env", "--app", "cursor"], "no such file", "a hidden file is not opened in an editor either")
