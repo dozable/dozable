@@ -6,8 +6,7 @@ The user manual is `docs/manual/`; the developer view of the engine is `docs/DOZ
 
 **Reading the history in this repository.** Dozable is developed in a private workspace and released from here. Code
 comments and a few notes below cite the feature that introduced something by its number (`591`, `599i`) and the
-design notes or probes it came from (`changes/591-*/…`, `probes/…`) — those live in that workspace, not here; the
-rule they explain is always stated where it is cited. "SandboxLab" is the earlier prototype app the engine grew out
+design notes or probes it came from (`changes/591-*/…`, `probes/…`) — those live in that workspace, not here; the rule they explain is always stated where it is cited. "SandboxLab" is the earlier prototype app the engine grew out
 of; "DeckStack" and "Deckosaurus" are sibling projects some techniques were taken from (never a dependency).
 
 ## This is an APP — the `doz` product
@@ -57,6 +56,7 @@ One row per area; each area's doc starts with the full table of its files.
 | Tools layer, tmux, dotfiles | `Guest/tmux/`, `Dotfiles.swift` | [tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) |
 | Files | `WorkspaceFileList`, `WorkspaceFileChange`, `FileWatch`, `EditorApps`, `WebFiles` | [files.md](docs/engineering/files.md) |
 | Sound | `Audio.swift`, `DozSound.swift`, `MacAudio`, `Microphone`, `Guest/sound-kernel/` | [sound.md](docs/engineering/sound.md) |
+| The chat server (hidden: `doz chat serve`) | `Sources/DozableChat/`, `Sources/DozableCLI/ChatCommandLine.swift`, `Tests/Conformance/` | [chat.md](docs/engineering/chat.md) |
 | The menu bar app | `Sources/DozableMenuBarCore/`, `Sources/DozableMenuBar/`, `Resources/MenuBar/` (+ the login agent's plist), `Scripts/assemble-app.sh`, `Scripts/check-agent-plist.py`, `AppCommands.swift` (`doz app`) | [menu-bar-app.md](docs/engineering/menu-bar-app.md) |
 
 ## Rules that each cost a bug to learn (keep them, and keep their tests)
@@ -405,6 +405,7 @@ are in its doc, so read it before changing that area.
 - [docs/engineering/tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) — the tools layer (gh, tmux 3.8, …) and the person's dotfiles
 - [docs/engineering/files.md](docs/engineering/files.md) — the file watcher (`files-list`, `doz files`, the files routes) and the Files tab's changes, Open in an editor
 - [docs/engineering/sound.md](docs/engineering/sound.md) — `sandbox.audio`, the sound kernel (GPL-2.0, ours), the microphone's permission
+- [docs/engineering/chat.md](docs/engineering/chat.md) — the chat server: no VM parts, isolation, the strict config, the access rules and `agent_addresses`, the protocol's bytes and store, the conformance gate
 - [docs/engineering/menu-bar-app.md](docs/engineering/menu-bar-app.md) — Dozable.app: the doz command as its only interface, the menu's state table, refresh, `doz app install`, the seams
 
 ## Verifying changes
@@ -496,5 +497,4 @@ stopping — then restores in the parent), `crash-restore`.
 - A VM test is green when it is green **twice in a row**.
 
 ## Contributing
-
 Issues and fixes are welcome directly; see `CONTRIBUTING.md`.
