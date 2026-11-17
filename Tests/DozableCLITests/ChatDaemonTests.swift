@@ -155,6 +155,9 @@ final class ChatRestartPolicyTests: XCTestCase {
 final class FakeChatProcesses: ChatProcesses, @unchecked Sendable {
     let lock = NSLock()
     var spawned: [[String]] = []
+    /// What each start was handed on descriptor 3 (nil: nothing).
+    var inputs: [Data?] = []
+    var environments: [[String: String]] = []
     var signals: [(pid_t, Int32)] = []
     var running: Set<pid_t> = []
     var exits: [pid_t: ChatChildExit] = [:]
@@ -163,8 +166,8 @@ final class FakeChatProcesses: ChatProcesses, @unchecked Sendable {
     var ready = true
     var nextPid: pid_t = 70_000
 
-    func spawn(executable: String, arguments: [String], environment: [String: String], log: String) throws -> pid_t {
-        lock.withLock { spawned.append(arguments); nextPid += 1; running.insert(nextPid); lockHolder = nextPid; return nextPid }
+    func spawn(executable: String, arguments: [String], environment: [String: String], log: String, input: Data?) throws -> pid_t {
+        lock.withLock { spawned.append(arguments); inputs.append(input); environments.append(environment); nextPid += 1; running.insert(nextPid); lockHolder = nextPid; return nextPid }
     }
     func reap(_ pid: pid_t) -> ChatChildExit? {
         lock.withLock {
@@ -344,8 +347,8 @@ final class ChatSupervisorTests: XCTestCase {
     }
 }
 
-func XCTAssertThrowsErrorAsync<T>(_ e: @autoclosure () async throws -> T, file: StaticString = #filePath, line: UInt = #line) async {
-    do { _ = try await e(); XCTFail("no error", file: file, line: line) } catch {}
+func XCTAssertThrowsErrorAsync<T>(_ e: @autoclosure () async throws -> T, _ message: String = "", file: StaticString = #filePath, line: UInt = #line) async {
+    do { _ = try await e(); XCTFail("no error" + (message.isEmpty ? "" : ": " + message), file: file, line: line) } catch {}
 }
 
 final class ChatIdleAndSettingsTests: XCTestCase {

@@ -30,6 +30,7 @@ manual or completions (`doz chat --help` is complete). A later step shows its ro
 | `ChatWebhooks.swift` | delivery by webhook: the `chan-message` body, the tries and their schedule, the states, edit and delete notices, the announcement, redelivery at start |
 | `ChatInbox.swift` | delivery into a Claude Code session on this Mac: its records read (`sessionStatusAt`, `claudeSession`), the text it is handed (`inboxText`), edit and delete notices, `/protocol` and the announcement (`note`), `started` when it goes busy (`noticeStarts`), the message last handed to it; `UnixLine`, the one client write to its socket |
 | `ChatAttachments.swift` | attachments: `ChatFileRules` (the id rule, the name cleaning, the media type from the extension else the bytes, the limits), `attach` (check every file, then store), `saveFile`, `storedFile`, who may fetch a file (`mayFetch`), the files a delete removes, the line port's `file` reply |
+| `ChatWebhookAddress.swift` | a webhook entry's address rule (`ChatWebhookAddress.refusal`: https anywhere but unspecified, multicast, broadcast and link-local; http only to this Mac or 100.64.0.0/10; no user, fragment, space or control character; the header one line) and the pipe the daemon hands the entries on (`ChatWebhookPipe`: `--webhooks-fd`, a FIFO read to its end in 5 s, at most 16 KiB, `{"version":1,"webhooks":{…}}`, a `tokens` member refused) |
 | `ChatWebhookClient.swift` | the webhook client (`ChatWebhookPoster`, `ChatURLSessionWebhook`): one POST, no proxy, no redirect followed, the answer's body never read, a deadline on the whole call, a failure reason with no address in it |
 | `ChatProtocol.swift` | the protocol's own description (`GET /api/protocol`, `/protocol`) and its version: the first 10 hex of the SHA-256 of that description's encoding |
 | `ChatPage.swift` | `ChatPageHandler`: one HTTP request in, one answer out — the access gate, the router (an untidy path is redirected, a wrong method is 405), every route |
@@ -39,6 +40,7 @@ manual or completions (`doz chat --help` is complete). A later step shows its ro
 | `ChatOwnerSocket.swift` | the owner's private socket: who may serve it (a 0700 folder of this user, the socket 0600) and who may connect (`admit`: this user only) |
 | `Sources/DozableCLI/ChatCommandLine.swift` | `doz chat serve` and `doz chat status --data-dir`, dispatched by `DozableEntry` before anything else of doz runs (`isServerCommand`) |
 | `Sources/DozableHost/ChatDirectory.swift` | under the daemon: the store's chat folder (`ChatPaths`), Dozable's records (`ChatDirectory`, `ChatTokenHashes`), names, tokens, the generated `config.json` (`ChatConfigFile`), `ChatRestartPolicy` |
+| `Sources/DozableHost/ChatWebhookEntries.swift` | a webhook bot's entry: its keychain item (`doz-chat-webhook-<store id>-<entry>`, JSON `{"authorization","set","url"}`, at most 1800 bytes), the fingerprint, what `webhook status` may show (`ChatWebhookInfo`), the pipe's bytes, the two-line input |
 | `Sources/DozableHost/ChatSupervisor.swift` | `ChatSupervisor`: the server as the daemon's child — the generated files, posix_spawn, readiness, restarts, stops; `ChatServerState` (`supervisor.json`, `daemon status`); `ChatProcesses`, the seam the tests fake |
 | `Sources/DozableHost/ChatOwnerClient.swift` | the person's HTTP client on the owner's socket (the `doz chat` commands; the dashboard later) |
 | `Sources/DozableCLI/ChatCommands.swift` | the `doz chat` group (hidden): on, off, status, add, remove, who, token, rooms, room, send, read |
@@ -118,8 +120,10 @@ manual or completions (`doz chat --help` is complete). A later step shows its ro
   60 s, after a restart or with `redeliver=1`, it is handed over again, marked redelivered; never twice at once, whatever
   receives are open). Edit and delete notices for it are kept in the room's file. A receive that waits does not hold a
   thread: the listener finishes it (`ChatLongPoll`). A bot whose `deliver` is `webhook` is called (below).
-- **Delivery by webhook.** The address and the Authorization value come from the bot's webhook entry in the secrets
-  file (its own entry, else the shared `default`; an `Authorization:` prefix is dropped), and nowhere else. Each message
+- **Delivery by webhook.** The address and the Authorization value come from the bot's webhook entry — in the secrets
+  file (its own entry, else the shared `default`; an `Authorization:` prefix is dropped), or, for a server the daemon
+  runs, ONLY from the daemon's pipe (`--webhooks-fd`, below; a `secrets.json` in its data folder stays unread) — and
+  nowhere else. Each message
   to each bot is one background task (`background`, counted), so posting and every other recipient go on while a webhook
   is slow or dead; what one recipient is handed together (held messages, then the new one) goes out in order. Tries: at
   once, 5 s later, 20 s after that (`webhookBackoff`), each with a 30 s deadline on the whole call (`webhookTimeout`); a
@@ -130,7 +134,9 @@ manual or completions (`doz chat --help` is complete). A later step shows its ro
   `-deleted` call; a new protocol version is one `protocol-updated` call, tried once. Reactions, commands and heartbeats
   call nothing.
 - **The webhook client** (`ChatURLSessionWebhook`) connects only to the entry's address: no proxy (the system's settings
-  are not read), no redirect followed (the 3xx is the answer, and a failure), no cookies, cache or stored credentials. It
+  are not read), no redirect followed (the 3xx is the answer, and a failure), no cookies, cache or stored credentials; an
+  https certificate is judged by the system's roots (no delegate overrides it: "tls: the webhook's certificate is not
+  trusted", "…has expired", "…is not yet valid" — `ChatWebhookTLSTests`). It
   never reads an answer's body: the call ends at the status line and headers. Its failure reasons name no address and no
   header, so neither reaches a log, a state's detail or the stream. `ChatWebhookTests` holds each of these against a
   listener the test starts.
@@ -191,7 +197,7 @@ manual or completions (`doz chat --help` is complete). A later step shows its ro
 
 | File | What |
 |---|---|
-| `directory.json` | Dozable's record — the human and the participants (name, kind, when added). Owned by the daemon, never edited by hand |
+| `directory.json` | Dozable's record — the human and the participants (name, kind — `agent`, `claude-session` or `grok-bot` —, when added, and for a webhook bot `deliver: "webhook"` and its entry's name when it is not its own). Still version 1: an older doz ignores the new fields and treats a webhook bot as one that polls. Owned by the daemon, never edited by hand |
 | `tokens.json` | `{"version":1,"sha256":{name: hex}}` — the participants' tokens as SHA-256 only; the server reads it with `--token-hashes` |
 | `config.json` | generated (`ChatConfigFile`) from the settings and `directory.json`, judged by `ChatConfig.parse` before it is written |
 | `chat.sock` | the owner's socket (`--owner-socket`) |
@@ -204,7 +210,9 @@ A store whose `chat.sock` path would be longer than 103 bytes cannot have chat (
 **The generated config** is one profile: `bind` and `allow` loopback only, `require_tokens` true, `agent_addresses`
 127.0.0.0/8 and ::1, `secrets_file_only`, no `test_owned_addresses`, the human `deliver: web`, each participant with no
 `deliver` value (so it polls with its own token — a `poll` value is a registered session's and is never checked against
-the token hashes), one room (`general`, the human). The generator asserts the profile; `ChatServer` refuses a
+the token hashes) — or, for a webhook bot, `deliver: "webhook"` and `webhook: ENTRY` (never an address) —, one room
+(`general`, the human). The generator asserts the profile (no `inbox-socket`, every `deliver` empty or `webhook`, no entry
+named `default`); `ChatServer` refuses a
 non-loopback bind anyway. With it, **no TCP caller is ever the human**: the page port answers 403 outside `/agent/…` (every
 loopback caller is an agent address), and the line port always asks for a token. The human comes in through the owner's
 socket only. No `inbox-socket` participant is generated in this step.
@@ -215,6 +223,30 @@ socket's folder is 0700 and the user's own; the socket is made 0600; each connec
 (LOCAL_PEERCRED; an unknown peer is refused). A fenced session runs as the same user: Seatbelt keeps it out (the fence
 closes the store and every Unix socket but its own doors — `make test-cli-fence` row 1.7c). Any other program the same
 person runs may use it (a terminal client reads its path from `doz chat status --json`'s `ownerSocket`).
+
+**Webhook bots and their entries.** `doz chat add NAME --webhook [--webhook-entry E]` adds a bot the server calls with
+each message for it, at its entry (E, by default its own name; one entry may serve several bots; `default` is refused, so
+no bot ever falls back to an entry nobody chose). The bot still SENDS with its own token. The entry — the address and the
+Authorization value, sent verbatim (empty: no header) — is `doz chat webhook set E`: two lines on standard input (never a
+terminal: nothing is echoed) or `--from-file F` (a regular 0600 file of this user, never a link). The daemon judges it
+again (`ChatWebhookAddress`), refuses it while the login keychain is locked here ("run it in the Mac's own session" — no
+memory-only fallback that would vanish at the next start), and keeps it in ONE login keychain item through the keychain
+seam (`CredentialServices.forHost().keychain`; `DOZ_TEST_CREDENTIALS=memory` in every test — `TestSafety` stops a guarded
+run that would touch a real `doz-chat-webhook-*` item). The supervisor reads each entry in use once (not at every look),
+again a minute after it could not be read, and after a set or remove; it hands the readable ones to the server on a pipe:
+posix_spawn makes the read end the child's descriptor 3 (`--webhooks-fd 3`, accepted only with `--supervised` and
+`--token-hashes`), the bytes are written whole and the write end closed before the child starts, and nothing else is
+inherited. A change of an entry restarts the server (under a second). An entry that is missing or cannot be read is
+withheld and said (`supervisor.json`'s `webhooks`: `set` / `not set` / `unreadable` — never a value — and `warnings`,
+shown by `chat status`, `chat who` and `doctor`); a message for that bot fails at once. `doz chat webhook status [E]`
+shows set or not, the scheme, host and port, a 12-hex fingerprint of sha256(address, header) and when it was set — never
+the path, query or header (a path can carry a secret); `webhook remove E` deletes the item and names the bots that now
+get nothing. These are `chat-webhook-set|remove|status`, answered only on the daemon's socket: no web action names a
+`chat-*` operation (`ChatWebhookAddressTests`), no setting or environment value holds an entry, nothing of the request is
+logged. Tests: `ChatWebhookAddressTests`, `ChatWebhookSupervisorTests` (descriptor 3 only, never argv, the environment or
+a file; read once; restart on a change; locked and unreadable entries), `ChatWebhookTLSTests`, `make test-cli-chat` rows
+15–20 (a planted `data/secrets.json` ignored, the refusals, delivery to the suite's listener, the leak sweep over every
+log, file, `--json` and sampled `ps` output, nothing open to others, exactly two listeners).
 
 **Tokens.** The daemon makes one (`dzc_` and 32 random bytes, base64url) or takes one given on standard input
 (`--from-stdin`, 16 to 256 characters); hashes it at once; writes only the hash. The value travels once, in the daemon's
@@ -236,6 +268,7 @@ change at once):
   KERN_PROCARGS2) and is stopped, or anyone else's and refused — two servers never share a data folder;
 - a stop is SIGTERM, 5 s, then SIGKILL, and happens before the daemon lets go of the store's lock in `shutdown`,
   `restartInPlace` and `handOver`;
+- the server sets its umask to 077 at start, so SQLite's `-wal` and `-shm` files are the user's alone too;
 - `--supervised` makes the server exit 0 the moment its parent is gone (a kqueue watch, and a look at the parent pid each
   second), so a daemon killed with SIGKILL leaves no server behind.
 
@@ -254,6 +287,9 @@ such participant or room, 4 already exists, 6 chat is off or not ready, 64 usage
 ```bash
 doz chat on --name ada          # Chat is on: 127.0.0.1, page port 8790, line port 8791. You are ada.
 doz chat add bot1               # its token, once (or --to-file F)
+doz chat add bot2 --kind grok-bot --webhook --to-file ~/bot2.token
+printf '%s\n%s\n' "$URL" "$AUTH" | doz chat webhook set bot2   # or --from-file F (mode 600)
+doz chat webhook status         # bot2: set — https://bot.example:443, fingerprint …, set … (for bot2)
 doz chat room room1 @bot1       # Made room1 with ada, bot1.
 doz chat send room1 "hello @bot1"
 doz chat read room1 --follow

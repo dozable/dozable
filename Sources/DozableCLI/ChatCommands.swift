@@ -24,11 +24,15 @@ struct ChatCommand: AsyncParsableCommand {
             GET /agent/receive and sends with POST /agent/send on the page port (Authorization: Bearer TOKEN). Nothing \
             on the network acts as you: the page port answers only /agent/ calls, and the line port always needs a token.
 
+            A bot the server calls with each message for it (doz chat add NAME --webhook) has a webhook entry: its \
+            address and the Authorization value it carries, kept in your login keychain (doz chat webhook set NAME). \
+            The entry is never in a file, a log or --json, and only you, on this Mac, can set it.
+
             Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already exists · 6 chat is off or not ready · 64 usage.
             """,
         shouldDisplay: false,
         subcommands: [ChatOn.self, ChatOff.self, ChatStatusCommand.self, ChatAdd.self, ChatRemove.self, ChatWho.self, ChatTokenCommand.self,
-                      ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self])
+                      ChatWebhookCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self])
 }
 
 // MARK: - status
@@ -55,6 +59,8 @@ struct ChatStatusReport: Encodable {
     var restarts: Int
     var lastExit: String?
     var problem: String?
+    /// Standing problems that do not stop the server (a webhook entry not set or unreadable, …).
+    var warnings: [String]?
 
     static func read(_ store: DozableStore) -> ChatStatusReport {
         let paths = ChatPaths(store: store)
@@ -80,6 +86,7 @@ struct ChatStatusReport: Encodable {
         }
         r.state = sup?.state ?? "starting"
         r.problem = sup?.problem
+        r.warnings = sup?.warnings
         r.ready = server.running && server.ready && (sup?.pid.map { Int($0) == server.pid } ?? true)
         if r.ready { r.state = "running" }
         return r
@@ -108,6 +115,7 @@ struct ChatStatusReport: Encodable {
         }
         if restarts > 0 { s += "  restarted \(restarts) time\(restarts == 1 ? "" : "s")" + (lastExit.map { " (last: \($0))" } ?? "") + "\n" }
         if let p = problem { s += "  problem: \(p)\n" }
+        for w in warnings ?? [] { s += "  warning: \(w)\n" }
         return s
     }
 }
@@ -129,7 +137,9 @@ func chatDoctorCheck(_ store: DozableStore) -> DoctorCheck {
     if !paths.socketFits { return DoctorCheck(check: "chat", status: r.enabled ? .fail : .ok, detail: (r.enabled ? "" : "off — ") + paths.socketTooLong) }
     switch r.state {
     case "off": return DoctorCheck(check: "chat", status: .ok, detail: "off (doz chat on)")
-    case "running": return DoctorCheck(check: "chat", status: .ok, detail: "running and ready — 127.0.0.1, page port \(r.pagePort), line port \(r.linePort)")
+    case "running":
+        if let w = r.warnings, !w.isEmpty { return DoctorCheck(check: "chat", status: .warn, detail: "running, but " + w.joined(separator: "; ")) }
+        return DoctorCheck(check: "chat", status: .ok, detail: "running and ready — 127.0.0.1, page port \(r.pagePort), line port \(r.linePort)")
     case "stopped": return DoctorCheck(check: "chat", status: .fail, detail: "stopped: " + (r.problem ?? "it exited") + " — then doz chat on")
     default: return DoctorCheck(check: "chat", status: .warn, detail: r.state + (r.problem.map { ": " + $0 } ?? ""))
     }
@@ -244,6 +254,7 @@ struct ChatParticipantChange: Encodable {
     var kind: String
     var tokenFile: String?
     var tokenGiven: Bool?
+    var webhookEntry: String?
     var chat: ChatServerState
 }
 
@@ -255,12 +266,13 @@ func tokenFromStdin(_ g: GlobalOptions) throws -> String {
     return t
 }
 
-func chatTokenCall(_ op: HostOp, name: String, toFile: String?, fromStdin: Bool, _ g: GlobalOptions) throws -> (ChatAnswer, TokenDestination?) {
+func chatTokenCall(_ op: HostOp, name: String, toFile: String?, fromStdin: Bool, _ g: GlobalOptions,
+                   kind: String? = nil, webhook: Bool? = nil, entry: String? = nil) throws -> (ChatAnswer, TokenDestination?) {
     if let why = ChatNames.refusal(name) { throw fail(HostError(.invalid, why), g) }
     let given = fromStdin ? try tokenFromStdin(g) : nil
     let dest = given == nil ? try TokenDestination.open(toFile, g) : nil
     var r = HostRequest(op)
-    r.chat = ChatRequest(name: name, token: given)
+    r.chat = ChatRequest(name: name, token: given, kind: kind, webhook: webhook, entry: entry)
     do {
         let a = try decode(try call(r, g), ChatAnswer.self, g)
         return (a, dest)
@@ -272,20 +284,42 @@ func chatTokenCall(_ op: HostOp, name: String, toFile: String?, fromStdin: Bool,
 
 struct ChatAdd: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "add",
-        abstract: "Add a participant: an agent that polls with its own token (shown once).",
-        discussion: "The token is printed once on a terminal, or written to a new file with --to-file (only you can read it); doz keeps only its hash. The agent sends it as Authorization: Bearer TOKEN on the page port's /agent/ calls. The chat server restarts to take it (under a second).")
+        abstract: "Add a participant: an agent with its own token (shown once) that polls, or a bot the server calls at its webhook.",
+        discussion: """
+            The token is printed once on a terminal, or written to a new file with --to-file (only you can read it); doz keeps \
+            only its hash. The agent sends it as Authorization: Bearer TOKEN on the page port's /agent/ calls. The chat \
+            server restarts to take it (under a second).
+
+            With --webhook the server calls the bot with each message for it, at its webhook entry: set it next with \
+            doz chat webhook set NAME (the bot still sends with its own token).
+            """)
     @Argument(help: "Its name: a lower-case letter, then lower-case letters, digits and -.") var name: String
+    @Option(name: .long, help: "Its kind: agent (the default), claude-session or grok-bot — how its messages are labelled.") var kind = "agent"
+    @Flag(name: .long, help: "The server calls it at its webhook entry with each message for it (instead of it polling).") var webhook = false
+    @Option(name: .customLong("webhook-entry"), help: "The webhook entry it uses (with --webhook; default: its own name). One entry may serve several bots.") var webhookEntry: String?
     @Option(name: .customLong("to-file"), help: "Write its token to this new file instead of the terminal.") var toFile: String?
     @Flag(name: .customLong("from-stdin"), help: "Use a token it already has, read from standard input (16 to 256 characters).") var fromStdin = false
     @OptionGroup var g: GlobalOptions
+    func validate() throws {
+        guard ChatDirectory.kinds.contains(kind) else { throw ValidationError("--kind is one of \(ChatDirectory.kinds.joined(separator: ", "))") }
+        if webhookEntry != nil && !webhook { throw ValidationError("--webhook-entry goes with --webhook") }
+        if webhook, let why = ChatWebhookEntries.nameRefusal(webhookEntry ?? name) { throw ValidationError(why) }
+    }
     func run() async throws {
-        let (a, dest) = try chatTokenCall(.chatAdd, name: name, toFile: toFile, fromStdin: fromStdin, g)
+        let (a, dest) = try chatTokenCall(.chatAdd, name: name, toFile: toFile, fromStdin: fromStdin, g,
+                                          kind: kind, webhook: webhook ? true : nil, entry: webhookEntry)
         if g.json {
             if let t = a.token { dest?.deliver(t, name: name) }
-            Out.json(ChatParticipantChange(name: name, kind: "agent", tokenFile: dest?.file, tokenGiven: fromStdin ? true : nil, chat: a.chat))
+            Out.json(ChatParticipantChange(name: name, kind: kind, tokenFile: dest?.file, tokenGiven: fromStdin ? true : nil,
+                                           webhookEntry: webhook ? (webhookEntry ?? name) : nil, chat: a.chat))
             return
         }
-        Out.stdout("Added \(name) (an agent that polls with its own token).\n")
+        if webhook {
+            let e = webhookEntry ?? name
+            Out.stdout("Added \(name) (\(kind)): the chat server calls its webhook entry \(e) with each message for it — set it with doz chat webhook set \(e).\n")
+        } else {
+            Out.stdout("Added \(name) (\(kind), polls with its own token).\n")
+        }
         if let t = a.token { dest?.deliver(t, name: name) } else { Out.stdout("It uses the token you gave.\n") }
     }
 }
@@ -532,7 +566,8 @@ struct ChatWho: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "who", abstract: "Who is in chat: name, kind, token, rooms, here or away.")
     @OptionGroup var g: GlobalOptions
 
-    struct Row: Encodable { var name: String; var kind: String; var token: Bool; var rooms: [String]; var here: Bool? }
+    /// `delivery`: `polls`, or `webhook (set)`, `webhook (not set)`, `webhook (unreadable)` — never the entry's value.
+    struct Row: Encodable { var name: String; var kind: String; var token: Bool; var delivery: String?; var webhookEntry: String?; var rooms: [String]; var here: Bool? }
 
     func run() async throws {
         let paths = ChatPaths(store: g.dozableStore)
@@ -555,17 +590,150 @@ struct ChatWho: AsyncParsableCommand {
         }
         func roomsOf(_ n: String) -> [String] { rooms.keys.sorted().filter { rooms[$0]!.contains(n) } }
         var rows: [Row] = []
-        if let h = dir.human { rows.append(Row(name: h, kind: "you", token: false, rooms: roomsOf(h), here: running ? here[h] ?? false : nil)) }
+        // Whether each webhook entry is set: as the daemon last saw it (supervisor.json says set / not set / unreadable only).
+        let entryStates = ChatServerState.load(paths)?.webhooks ?? [:]
+        if let h = dir.human { rows.append(Row(name: h, kind: "you", token: false, delivery: nil, rooms: roomsOf(h), here: running ? here[h] ?? false : nil)) }
         for p in dir.participants {
-            rows.append(Row(name: p.name, kind: p.kind, token: hashes.sha256[p.name] != nil, rooms: roomsOf(p.name), here: running ? here[p.name] ?? false : nil))
+            let delivery = p.webhookEntry.map { "webhook (\(entryStates[$0] ?? "not set"))" } ?? "polls"
+            rows.append(Row(name: p.name, kind: p.kind, token: hashes.sha256[p.name] != nil, delivery: delivery, webhookEntry: p.webhookEntry,
+                            rooms: roomsOf(p.name), here: running ? here[p.name] ?? false : nil))
         }
         if g.json { Out.json(rows); return }
         if rows.isEmpty { Out.stdout("nobody yet — doz chat on, then doz chat add NAME\n"); return }
-        var t = [["NAME", "KIND", "TOKEN", "ROOMS", "HERE"]]
+        var t = [["NAME", "KIND", "TOKEN", "DELIVERY", "ROOMS", "HERE"]]
         for r in rows {
-            t.append([r.name, r.kind, r.kind == "you" ? "—" : (r.token ? "yes" : "no"), r.rooms.isEmpty ? "—" : r.rooms.joined(separator: ","),
+            t.append([r.name, r.kind, r.kind == "you" ? "—" : (r.token ? "yes" : "no"), r.delivery ?? "—", r.rooms.isEmpty ? "—" : r.rooms.joined(separator: ","),
                       r.here.map { $0 ? "here" : "away" } ?? "—"])
         }
         Out.stdout(Out.table(t))
+    }
+}
+
+// MARK: - webhook entries
+
+struct ChatWebhookCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "webhook",
+        abstract: "A webhook bot's entry: the address the chat server calls and the Authorization value it sends.",
+        discussion: """
+            The entry is kept in your login keychain and handed to the chat server when it starts — never in a file, a log \
+            or --json. Only you, on this Mac, can set it (the daemon's socket); the dashboard and other devices cannot.
+
+            An address is https://… (its certificate checked), or http:// only to this Mac or a Tailscale address \
+            (100.64.0.0/10): plain http elsewhere would carry the Authorization value in the clear.
+            """,
+        subcommands: [ChatWebhookSet.self, ChatWebhookStatus.self, ChatWebhookRemove.self])
+}
+
+struct ChatWebhookSet: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "set",
+        abstract: "Set an entry from two lines on standard input (or --from-file): the address, then the Authorization value.",
+        discussion: """
+            The second line is sent verbatim as Authorization: VALUE (an empty line: no header). Standard input must be a \
+            pipe or a file, never the terminal, so nothing is echoed: printf '%s\\n%s\\n' "$URL" "$AUTH" | doz chat webhook set bot1, \
+            or --from-file F (a file only you can read, not a link). The chat server restarts to take it.
+            """)
+    @Argument(help: "The entry: a webhook bot's name (or the --webhook-entry it was added with).") var entry: String
+    @Option(name: .customLong("from-file"), help: "Read the two lines from this file (yours, readable by you alone, not a link) instead of standard input.") var fromFile: String?
+    @OptionGroup var g: GlobalOptions
+    func validate() throws { if let why = ChatWebhookEntries.nameRefusal(entry) { throw ValidationError(why) } }
+
+    func run() async throws {
+        let data: Data
+        if let f = fromFile {
+            data = try Self.readOwnFile(f, g)
+        } else {
+            guard isatty(STDIN_FILENO) != 1 else {
+                throw fail(HostError(.invalid, "standard input is the terminal: pipe the two lines in, or use --from-file F (nothing is echoed that way)"), g)
+            }
+            data = FileHandle.standardInput.readData(ofLength: 4097)
+        }
+        let input: (url: String, authorization: String)
+        do { input = try ChatWebhookEntries.parseInput(data) } catch let e as HostError { throw fail(e, g) }
+        if let why = ChatWebhookAddress.refusal(url: input.url, header: input.authorization) { throw fail(HostError(.invalid, why), g) }
+        var r = HostRequest(.chatWebhookSet)
+        r.chat = ChatRequest(entry: entry, url: input.url, authorization: input.authorization)
+        let infos = try decode(try call(r, g), [ChatWebhookInfo].self, g)
+        if g.json { Out.json(infos); return }
+        for i in infos { Out.stdout("Set the webhook entry \(i.entry): " + ChatWebhookStatus.describe(i) + ".\n") }
+    }
+
+    /// A regular file of this user that nobody else may read or write, never a link; at most 4 KiB.
+    static func readOwnFile(_ f: String, _ g: GlobalOptions) throws -> Data {
+        let path = URL(fileURLWithPath: (f as NSString).expandingTildeInPath).standardizedFileURL.path
+        let fd = Darwin.open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { throw fail(HostError(.invalid, "\(DisplayPath.tilde(path)): " + (errno == ELOOP ? "a link is refused" : String(cString: strerror(errno)))), g) }
+        defer { close(fd) }
+        var st = stat()
+        guard fstat(fd, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else { throw fail(HostError(.invalid, "\(DisplayPath.tilde(path)) is not a regular file"), g) }
+        guard st.st_uid == getuid() else { throw fail(HostError(.invalid, "\(DisplayPath.tilde(path)) belongs to another user"), g) }
+        guard st.st_mode & 0o077 == 0 else {
+            throw fail(HostError(.invalid, "\(DisplayPath.tilde(path)) can be read by others: make it yours alone first (chmod go= FILE)"), g)
+        }
+        var out = Data(), buf = [UInt8](repeating: 0, count: 4097)
+        while out.count <= 4096 {
+            let n = Darwin.read(fd, &buf, buf.count)
+            if n <= 0 { break }
+            out.append(contentsOf: buf[0..<n])
+        }
+        return out
+    }
+}
+
+struct ChatWebhookStatus: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "status",
+        abstract: "Each webhook entry in use: set or not, its scheme, host and port, a fingerprint, when it was set (never its path or header).")
+    @Argument(help: "One entry (default: every one in use).") var entry: String?
+    @OptionGroup var g: GlobalOptions
+    func validate() throws { if let e = entry, let why = ChatWebhookEntries.nameRefusal(e) { throw ValidationError(why) } }
+
+    static func describe(_ i: ChatWebhookInfo) -> String {
+        switch i.state {
+        case "set":
+            var s = "set — \(i.scheme ?? "?")://\(i.host.map { $0.contains(":") ? "[\($0)]" : $0 } ?? "?")"
+            if let p = i.port { s += ":\(p)" }
+            s += ", fingerprint \(i.fingerprint ?? "?")"
+            if let at = i.setAt { s += ", set \(at)" }
+            return s
+        case "unreadable": return "cannot be read" + (i.problem.map { ": \($0)" } ?? "")
+        default: return "not set"
+        }
+    }
+
+    func run() async throws {
+        let paths = ChatPaths(store: g.dozableStore)
+        let infos: [ChatWebhookInfo]
+        if g.dozableStore.hostIsRunning() {
+            var r = HostRequest(.chatWebhookStatus)
+            r.chat = ChatRequest(entry: entry)
+            infos = try decode(try call(r, g, autostart: false), [ChatWebhookInfo].self, g)
+        } else {
+            // No daemon (looking never starts one): what it last saw, without the host.
+            let used = ((try? ChatDirectory.load(paths)) ?? ChatDirectory()).webhookEntries
+            let states = ChatServerState.load(paths)?.webhooks ?? [:]
+            let names: [String] = self.entry.map { [$0] } ?? used.keys.sorted()
+            infos = names.map { ChatWebhookInfo(entry: $0, state: states[$0] ?? "not set", usedBy: used[$0] ?? []) }
+        }
+        if g.json { Out.json(infos); return }
+        if infos.isEmpty { Out.stdout("no webhook entries in use — doz chat add NAME --webhook\n"); return }
+        for i in infos {
+            Out.stdout("\(i.entry): " + Self.describe(i) + (i.usedBy.isEmpty ? " (no participant uses it)" : " (for \(i.usedBy.joined(separator: ", ")))") + "\n")
+        }
+    }
+}
+
+struct ChatWebhookRemove: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "remove",
+        abstract: "Delete an entry from the login keychain; the bots that use it are not called until it is set again.")
+    @Argument(help: "The entry.") var entry: String
+    @OptionGroup var g: GlobalOptions
+    func validate() throws { if let why = ChatWebhookEntries.nameRefusal(entry) { throw ValidationError(why) } }
+    func run() async throws {
+        var r = HostRequest(.chatWebhookRemove)
+        r.chat = ChatRequest(entry: entry)
+        let infos = try decode(try call(r, g), [ChatWebhookInfo].self, g)
+        if g.json { Out.json(infos); return }
+        for i in infos {
+            Out.stdout("Removed the webhook entry \(i.entry)." + (i.usedBy.isEmpty ? "" : " Messages for \(i.usedBy.joined(separator: ", ")) fail at once (no webhook entry) until doz chat webhook set \(i.entry).") + "\n")
+        }
     }
 }

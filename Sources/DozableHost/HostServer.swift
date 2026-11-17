@@ -58,7 +58,9 @@ public final class HostServer: @unchecked Sendable {
                         agentRegistry: .fromEnvironment(),
                         // 618: the gateways' public model lists (DOZ_TEST_MODEL_LIST: offline or a stand-in).
                         modelLists: .fromEnvironment())
-        chat = ChatSupervisor(paths: ChatPaths(store: store), executable: HostLauncher.executablePath, release: version)
+        // The webhook entries live in the daemon's keychain seam (the memory one under DOZ_TEST_CREDENTIALS=memory).
+        chat = ChatSupervisor(paths: ChatPaths(store: store), executable: HostLauncher.executablePath, release: version,
+                              keychain: core.services.keychain, keychainLocked: { HostServer.keychainLocked })
     }
 
     public enum StartError: Error, LocalizedError {
@@ -526,7 +528,7 @@ public final class HostServer: @unchecked Sendable {
             netLogFollow(conn, reader: reader, request: req)
         case .console where req.follow == true:
             consoleFollow(conn, reader: reader, request: req)
-        case .chatSync, .chatAdd, .chatRemove, .chatToken:
+        case .chatSync, .chatAdd, .chatRemove, .chatToken, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus:
             Task.detached { [self] in
                 let m = await chatRequest(req)
                 conn.send(m)
@@ -567,7 +569,9 @@ public final class HostServer: @unchecked Sendable {
                 return .success(try JSONValue(encoding: st))
             case .chatAdd, .chatToken:
                 guard let n = c.name else { throw HostError(.invalid, "which participant?") }
-                let token = req.op == .chatAdd ? try await chat.add(n, token: c.token) : try await chat.replaceToken(n, token: c.token)
+                let token = req.op == .chatAdd
+                    ? try await chat.add(n, token: c.token, kind: c.kind ?? "agent", webhook: c.webhook ?? false, entry: c.entry)
+                    : try await chat.replaceToken(n, token: c.token)
                 // The server restarted to take it: answered once it is ready again (or stopped), at most 15 s.
                 _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
                 // A token the person gave is not sent back: they have it.
@@ -577,6 +581,19 @@ public final class HostServer: @unchecked Sendable {
                 try await chat.remove(n)
                 _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
                 return .success(try JSONValue(encoding: ChatAnswer(name: n, token: nil, chat: await chat.status())))
+            case .chatWebhookSet:
+                guard let e = c.entry, let url = c.url else { throw HostError(.invalid, "which entry, and its address?") }
+                let info = try await chat.setWebhook(e, url: url, authorization: c.authorization ?? "")
+                // The server restarted to take it: answered once it is ready again (or stopped), at most 15 s.
+                _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
+                return .success(try JSONValue(encoding: [info]))
+            case .chatWebhookRemove:
+                guard let e = c.entry else { throw HostError(.invalid, "which entry?") }
+                let info = try await chat.removeWebhook(e)
+                _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
+                return .success(try JSONValue(encoding: [info]))
+            case .chatWebhookStatus:
+                return .success(try JSONValue(encoding: try await chat.webhookStatus(c.entry)))
             default:
                 throw HostError(.invalid, "not a chat request")
             }

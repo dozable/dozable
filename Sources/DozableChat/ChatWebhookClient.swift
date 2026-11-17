@@ -106,9 +106,11 @@ private final class OneCall: NSObject, URLSessionDataDelegate, @unchecked Sendab
         case .networkConnectionLost: return "EOF"
         case .notConnectedToInternet: return "network is unreachable"
         case .badServerResponse: return "malformed HTTP response"
-        case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateNotYetValid,
-             .serverCertificateHasUnknownRoot, .clientCertificateRejected, .clientCertificateRequired:
-            return "a TLS error (\(e.code.rawValue))"
+        case .serverCertificateUntrusted, .serverCertificateHasUnknownRoot: return "tls: the webhook's certificate is not trusted"
+        case .serverCertificateHasBadDate: return "tls: the webhook's certificate has expired"
+        case .serverCertificateNotYetValid: return "tls: the webhook's certificate is not yet valid"
+        case .secureConnectionFailed, .clientCertificateRejected, .clientCertificateRequired:
+            return "tls: the secure connection failed (\(e.code.rawValue))"
         case .cancelled: return "cancelled"
         default: return "network error \(e.code.rawValue)"
         }

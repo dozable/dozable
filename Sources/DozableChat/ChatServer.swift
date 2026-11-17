@@ -17,6 +17,9 @@ public struct ChatServeOptions: Sendable {
     public var tokenHashesFile: String?
     /// The owner's private socket (`--owner-socket`, `ChatOwnerSocket`).
     public var ownerSocket: String?
+    /// The pipe the daemon hands its webhook entries on (`--webhooks-fd`, `ChatWebhookPipe`): read once at start, then
+    /// closed. Only with `supervised` and `tokenHashesFile`.
+    public var webhooksFD: Int32?
     /// Run by a supervisor (`--supervised`): exit 0 as soon as the process that started this one is gone, so a server
     /// never outlives the daemon that runs it.
     public var supervised = false
@@ -67,6 +70,8 @@ public enum ChatServer {
         }
         _ = signals
         if o.supervised { ParentWatch.install(log: log) }
+        // Everything the server makes is its user's alone (SQLite's -wal and -shm files take the process's umask).
+        umask(0o077)
 
         let config: ChatConfig
         do { config = try ChatConfig.resolve(path: o.configPath, o.overrides) } catch { fault(ChatExit.badSetting, "\(error)") }
@@ -108,8 +113,19 @@ public enum ChatServer {
         } else if o.secretsFile != nil || FileManager.default.fileExists(atPath: secretsPath) {
             do { loaded = try ChatSecrets.load(path: secretsPath) } catch { fault(ChatExit.badSetting, "\(error)") }
         }
+        // The webhook entries: on the daemon's pipe and nowhere else (a secrets.json in the data folder stays unread).
+        var refusedWebhooks: [String: String] = [:]
+        if let fd = o.webhooksFD {
+            do {
+                let read = try ChatWebhookPipe.parse(try ChatWebhookPipe.read(fd: fd))
+                loaded.setWebhooks(read.webhooks)
+                refusedWebhooks = read.refused
+                for (name, why) in read.refused.sorted(by: { $0.key < $1.key }) { log("chat: the webhook entry \(name) is not used: \(why)") }
+            } catch { fault(ChatExit.badSetting, "\(error)") }
+        }
         let secrets = loaded
         let secretsIgnored = ignoredSecrets
+        let webhooksRefused = refusedWebhooks
         if let s = o.ownerSocket, let why = ChatOwnerSocket.refusal(path: s) { fault(ChatExit.badSetting, why) }
 
         let core = ChatServerCore(config: config, secrets: secrets, release: releaseNumber(o.release), log: log, sessionsDir: o.claudeSessions)
@@ -155,6 +171,9 @@ public enum ChatServer {
                 st.rooms = rooms
                 st.participants = people
                 st.problems = problems(config: config, secrets: secrets, core: core, ownerSocket: ownerSocket != nil)
+                for (name, why) in webhooksRefused.sorted(by: { $0.key < $1.key }) {
+                    st.problems.append(.init(code: "webhook-refused", what: "the webhook entry \(name) is not used: \(why)", blocking: false))
+                }
                 if secretsIgnored {
                     st.problems.append(.init(code: "secrets-file-ignored",
                                              what: "secrets.json in the data folder is not read: this server takes its tokens as hashes only", blocking: false))

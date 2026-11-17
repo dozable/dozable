@@ -139,6 +139,9 @@ public struct ChatSecrets: Sendable {
 
     public func hasToken(_ name: String) -> Bool { tokenHashes[name] != nil }
 
+    /// The webhook entries the daemon handed in on its pipe (`ChatWebhookPipe`): the only ones a server it runs has.
+    public mutating func setWebhooks(_ w: [String: ChatWebhook]) { webhooks = w }
+
     /// The webhook a participant's entry name points to: its own entry when it has an address, else the shared one
     /// ("default"); nil when neither has an address. The header is the Authorization value without an
     /// "Authorization:" prefix and trimmed, as the reference sends it.

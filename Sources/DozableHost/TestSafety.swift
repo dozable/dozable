@@ -42,6 +42,11 @@ public enum TestSafety {
 
     /// Why touching keychain item `service` is refused (nil: allowed). Claude Code's own login items.
     public static func keychainViolation(service: String) -> String? {
+        // A chat webhook entry (an address and a secret) is never put in, or read from, the real login keychain by a test:
+        // the tests' keychain is the memory seam.
+        if service.hasPrefix(ChatWebhookEntries.servicePrefix) {
+            return "a test reached the login keychain's chat webhook item (\(service)) — set DOZ_TEST_CREDENTIALS=memory"
+        }
         guard service.hasPrefix(ClaudeLogin.baseService) else { return nil }
         return "a test reached the login keychain's Claude Code item (\(service)) — set DOZ_TEST_CREDENTIALS=memory and DOZ_TEST_NO_MAC_LOGIN=1"
     }

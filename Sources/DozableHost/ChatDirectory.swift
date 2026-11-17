@@ -83,10 +83,30 @@ public struct ChatPaths: Sendable, Equatable {
 public struct ChatDirectory: Codable, Equatable, Sendable {
     public struct Participant: Codable, Equatable, Sendable {
         public var name: String
-        /// `agent`: a program that collects its messages with its own token (`GET /agent/receive`).
+        /// The protocol's kind: `agent` (the default), `claude-session` or `grok-bot` — the identity of its new messages.
         public var kind: String
         public var added: String
-        public init(name: String, kind: String = "agent", added: String) { self.name = name; self.kind = kind; self.added = added }
+        /// `webhook`: the server calls its webhook entry with each message for it. nil: it collects them itself, polling
+        /// with its own token (`GET /agent/receive`). An older doz ignores the field and treats it as one that polls.
+        public var deliver: String?
+        /// Its webhook entry's name (nil: its own name). One entry may serve several bots.
+        public var webhook: String?
+        public init(name: String, kind: String = "agent", added: String, deliver: String? = nil, webhook: String? = nil) {
+            self.name = name; self.kind = kind; self.added = added; self.deliver = deliver; self.webhook = webhook
+        }
+
+        /// The entry its calls use, when it is delivered to by webhook.
+        public var webhookEntry: String? { deliver == "webhook" ? (webhook ?? name) : nil }
+    }
+
+    /// The kinds a participant may have.
+    public static let kinds = ["agent", "claude-session", "grok-bot"]
+
+    /// The webhook entries in use, each with the participants that use it.
+    public var webhookEntries: [String: [String]] {
+        var out: [String: [String]] = [:]
+        for p in participants { if let e = p.webhookEntry { out[e, default: []].append(p.name) } }
+        return out
     }
 
     public var version = 1
@@ -190,7 +210,12 @@ public enum ChatConfigFile {
         var people: [JValue] = [.object([JMember("name", .string(human)), JMember("kind", .string("human")), JMember("deliver", .string("web"))])]
         // No deliver value: a participant that is not the human collects what is addressed to it by polling, with its own
         // token (the server's `ChatParticipant.route`; a `poll` value is a registered session's and takes no own token).
-        for p in d.participants { people.append(.object([JMember("name", .string(p.name)), JMember("kind", .string(p.kind))])) }
+        // A webhook bot: the server calls its entry (the address and the header come on the daemon's pipe, never here).
+        for p in d.participants {
+            var fields = [JMember("name", .string(p.name)), JMember("kind", .string(p.kind))]
+            if let e = p.webhookEntry { fields += [JMember("deliver", .string("webhook")), JMember("webhook", .string(e))] }
+            people.append(.object(fields))
+        }
         let v = JValue.object([
             JMember("line_port", .int(Int64(linePort))),
             JMember("http_port", .int(Int64(pagePort))),
@@ -209,7 +234,8 @@ public enum ChatConfigFile {
         let c: ChatConfig
         do { c = try ChatConfig.parse(Data(out)); try c.check() } catch { throw HostError(.failed, "the generated chat config is refused: \(error)") }
         guard c.bind == bind, c.requireTokens, c.testOwnedAddresses.isEmpty, c.allow.allSatisfy({ ChatAddress($0)?.isLoopback == true }),
-              c.agentAddresses.contains("127.0.0.0/8"), !c.participants.contains(where: { $0.deliver == "inbox-socket" }) else {
+              c.agentAddresses.contains("127.0.0.0/8"), !c.participants.contains(where: { $0.deliver == "inbox-socket" }),
+              c.participants.allSatisfy({ $0.isHuman || $0.deliver.isEmpty || ($0.deliver == "webhook" && ChatWebhookEntries.nameRefusal($0.webhook) == nil) }) else {
             throw HostError(.failed, "the generated chat config is not loopback-only with tokens required")
         }
         return out
