@@ -1604,13 +1604,21 @@ public struct DozableSettings: Sendable {
                 for e in extra { out += "\(e.key) = \(TOML.render(e.value))\n" }
             }
         }
+        // A line under a RENAMED name whose new name now has a value is finished with: the person moved it
+        // (doz config set NEW …), so it is left out and its warning stops. One whose new name has no value
+        // stays, still warned about by every command — its value is never dropped unseen.
+        let kept = unknown.filter { e in
+            let old = e.section.isEmpty ? e.key : "\(e.section).\(e.key)"
+            guard let new = RenamedNames.settings[old] else { return true }
+            return values[new] == nil
+        }
         var others: [String] = []
-        for e in unknown where !sections.contains(e.section) && !others.contains(e.section) { others.append(e.section) }
+        for e in kept where !sections.contains(e.section) && !others.contains(e.section) { others.append(e.section) }
         for section in others {
             // A top-level unknown key cannot follow a section header; it becomes [unknown].
             let header = section.isEmpty ? "unknown" : section
             out += "\n# not known to this version (kept as they were):\n[\(header)]\n"
-            for e in unknown where e.section == section { out += "\(e.key) = \(TOML.render(e.value))\n" }
+            for e in kept where e.section == section { out += "\(e.key) = \(TOML.render(e.value))\n" }
         }
         return out
     }
