@@ -149,3 +149,31 @@ TestS7_6_HeldSurvivesRestart
 TestS7_6_HumanShownWhenPageOpens
 TestS7_6_WebhookRedeliveredAfterRestart
 TestS7_7_FirstStartAnnouncement
+
+# Sessions and attachments (703): delivery into a Claude Code session's inbox (text, attachments, notices, /protocol,
+# the announcement, presence, started, /react's fallback), upload, fetch and the limits, attachments in webhook bodies
+# and receive items. Green in two full runs in a row.
+TestS3_4_Protocol
+TestS4_1_LineControls
+TestS4_5_Stub
+TestS4_7_ReactCommand
+TestS4_8_DeleteRemovesFiles
+TestS4_8_Fetch
+TestS4_8_FileControlLine
+TestS4_8_InlineBytes
+TestS4_8_MediaType
+TestS4_8_NameCleaning
+TestS4_8_PostWithUploadedIds
+TestS4_8_Refusals
+TestS4_8_Upload
+TestS4_8_UploadLimits
+TestS4_8_UploadNeedsTheHuman
+TestS6_1_InboxSocketStates
+TestS7_1_InboxSessionNotRunning
+TestS7_3_InboxSocketAttachments
+TestS7_3_InboxSocketText
+TestS7_3_ProtocolCommandToInbox
+TestS7_3_WebhookTextCutAndAttachments
+TestS7_4_InboxEditDeleteNotices
+TestS7_5_ReceiveItems
+TestS7_7_ReannounceOnVersionChange

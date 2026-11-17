@@ -223,6 +223,41 @@ final class ChatServeIsolationTests: XCTestCase {
         XCTAssertEqual(Set((try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []), ["config.json", "data", "home", "tmp"])
     }
 
+    /// Delivery into a Claude Code session, in the real binary: the ONLY things it may touch outside its data folder are
+    /// the session records it reads (here a scratch folder handed in with --claude-sessions; by default $HOME/.claude/
+    /// sessions) and the running session's own inbox socket it writes to (here one this test listens on). The records
+    /// are left exactly as they were, the empty home stays empty, and no token reaches the log.
+    func testDeliveryIntoASessionReadsOnlyItsRecordsAndWritesOnlyToItsSocket() throws {
+        try writeConfig()
+        var c = try String(contentsOf: configFile, encoding: .utf8)
+        c = c.replacingOccurrences(of: #"{"name": "bot1", "kind": "grok-bot", "deliver": "webhook", "webhook": "bot1"}"#,
+                                   with: #"{"name": "bot1", "kind": "grok-bot", "deliver": "webhook", "webhook": "bot1"}, {"name": "bot2", "kind": "claude-session", "deliver": "inbox-socket", "session": "bot2"}"#)
+        c = c.replacingOccurrences(of: #""room1": ["ada", "bot1"]"#, with: #""room1": ["ada", "bot1", "bot2"]"#)
+        try Data(c.utf8).write(to: configFile)
+        let sessions = root.appendingPathComponent("sessions").path
+        let s = try TestClaudeSession(name: "bot2", sessionsDir: sessions)
+        defer { s.stop() }
+        let records = tree(URL(fileURLWithPath: sessions))
+        let (p, err) = try serve(["--claude-sessions", sessions])
+        let ports = try waitReady(p)
+        let id = UUID().uuidString.lowercased()
+        let reply = lineExchange(port: ports.line, [#"{"type":"auth","token":"\#(tokens["bot1"]!)"}"#,
+                                                    #"{"msgV":1,"msg_id":"\#(id)","type":"user","room":"room1","message":{"role":"user","content":"hello @bot2"}}"#])
+        XCTAssertTrue(reply.first?.contains(#""state":"queued""#) ?? false, "\(reply)")
+        let texts = s.waitTexts(2)
+        XCTAssertTrue(texts.first?.hasPrefix("[switchboard] The message protocol was updated.") ?? false, "the first start's announcement: \(texts)")
+        XCTAssertTrue(texts.dropFirst().first?.hasPrefix("[room room1 · from bot1 (bot, xai:grok-bot:bot1, verified by token)") ?? false, "\(texts)")
+        XCTAssertTrue(s.lines.contains { $0["type"] as? String == "auth" && $0["token"] as? String == s.token })
+        kill(p.processIdentifier, SIGTERM)
+        XCTAssertEqual(waitExit(p), 0)
+        let log = stderrText(err)
+        for t in tokens.values + [s.token] { XCTAssertFalse(log.contains(t), "no token in the log") }
+        XCTAssertEqual(tree(URL(fileURLWithPath: sessions)), records, "the session records are read, never written")
+        XCTAssertEqual(tree(home), [], "nothing in the home folder")
+        XCTAssertEqual(tree(tmp), [], "nothing in TMPDIR")
+        XCTAssertEqual(Set((try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []), ["config.json", "data", "home", "tmp", "sessions"])
+    }
+
     func testStatusSaysRunningAndReady() throws {
         let (p, _) = try serve()
         _ = try waitReady(p)
