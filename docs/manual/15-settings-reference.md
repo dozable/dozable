@@ -176,6 +176,14 @@ This table is generated from `doz config show` and checked against it on every b
 | `network.host_ports_live` | `true` | boolean | next command | — | Whether doz net allow NAME host:PORT may open a port of this Mac to a sandbox or a fenced session while it runs (true), or this Mac's ports are fixed when it starts — doz create/run --host-port PORT (false). Taking a port away (doz net deny NAME host:PORT) always works. |
 | `network.placeholders_plain_http` | `true` | boolean | next session | — | Whether a secret given with --secret may travel over plain HTTP — only ever to this Mac's ports (host.dozable.internal) and Tailscale addresses (100.64.0.0/10), never elsewhere. |
 
+### `[chat]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `chat.enabled` | `false` | boolean | at once | — | Run the chat server: the doz daemon keeps it running on this Mac (127.0.0.1 only) while this is on. Turn it on and off with doz chat on\|off; it is an early feature, used from the terminal (doz chat --help). |
+| `chat.page_port` | `8790` | integer 1024–65535 | at once | — | The chat server's HTTP port on 127.0.0.1: agents call /agent/… on it with their own token. Nothing on it acts as you. When it changes, the daemon restarts the chat server within a few seconds. |
+| `chat.line_port` | `8791` | integer 1024–65535 | at once | — | The chat server's line port on 127.0.0.1 (one JSON message per line). Every caller needs a token. When it changes, the daemon restarts the chat server within a few seconds. |
+
 ### `[daemon]`
 
 | key | default | values | applies | overridden by | what it does |

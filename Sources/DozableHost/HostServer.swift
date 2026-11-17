@@ -25,6 +25,8 @@ public final class HostServer: @unchecked Sendable {
     /// 693: the arguments a daemon started in its place gets (`--idle-timeout` when this one was given it).
     let restartExtra: [String]
     let core: HostCore
+    /// The chat server this daemon runs while `chat.enabled` (`ChatSupervisor`).
+    let chat: ChatSupervisor
     let startedAt = Date()
 
     private let lock = NSLock()
@@ -56,6 +58,7 @@ public final class HostServer: @unchecked Sendable {
                         agentRegistry: .fromEnvironment(),
                         // 618: the gateways' public model lists (DOZ_TEST_MODEL_LIST: offline or a stand-in).
                         modelLists: .fromEnvironment())
+        chat = ChatSupervisor(paths: ChatPaths(store: store), executable: HostLauncher.executablePath, release: version)
     }
 
     public enum StartError: Error, LocalizedError {
@@ -140,7 +143,9 @@ public final class HostServer: @unchecked Sendable {
         // 694: the login item, when there is one: its program path rewritten when out of date, or removed when the rule no
         // longer holds (the setting, always on, an app's job). A daemon's start never INSTALLS one (only `on` does).
         Task.detached {
-            let r = DaemonLoginItem.sync(store: store, mode: .daemonStart, keepers: server.keepers, program: stable)
+            // Chat on counts as one keeper: it needs the daemon at login like a kept session.
+            let chatOn = ChatSettingsView.read().enabled
+            let r = DaemonLoginItem.sync(store: store, mode: .daemonStart, keepers: server.keepers + (chatOn ? 1 : 0), program: stable)
             if r.decision.action != .none { HostLog.line("login item: " + r.line) }
         }
         // The recipes this host (and every command while it runs) uses — chosen once, at this process's start.
@@ -167,6 +172,14 @@ public final class HostServer: @unchecked Sendable {
         // are then known to its look at the holders).
         Task.detached { await server.core.ensureStandingWatchers() }
         Task.detached { await server.idleLoop() }
+        // The chat server: looked at every second (the settings every 5 s; a `doz chat` command at once). Never one while
+        // the daemon stops or after its program was replaced — the restart in place brings one up from the new build.
+        Task.detached {
+            while true {
+                await server.chat.tick(blocked: await server.chatBlocked())
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
         // 593 §9 (S2): the periodic screen capture (read once, at start — like the idle timeout).
         let captureMinutes = DozableSettings.load().int(SettingKey.screenCapture)
         HostLog.line(captureMinutes > 0 ? "saving session screens every \(captureMinutes) min while a sandbox runs (daemon.screen_capture_minutes)"
@@ -287,6 +300,12 @@ public final class HostServer: @unchecked Sendable {
     /// 693: the kept sessions on this Mac (none yet: kept sessions come later). They keep the daemon up like fenced ones.
     var keepers: Int { 0 }
 
+    /// No chat server while this daemon stops, nor once its program was replaced.
+    func chatBlocked() async -> Bool {
+        if lock.withLock({ stopping }) { return true }
+        return await core.executableChange() != nil
+    }
+
     /// 693 (decision 6): `IdleDecision` decides; this loop gathers its inputs and acts. It never skips its look — a daemon
     /// that never idles out (always on, or a timeout of 0) must still pick up a new build (`restartInPlace`) or a newer
     /// recipe catalogue.
@@ -302,10 +321,11 @@ public final class HostServer: @unchecked Sendable {
             // 591: its program changed under it. (Nothing is lost by a new daemon: no VM runs; sandboxes asleep keep their
             // snapshots — a failed wake's too, e1af862.)
             let change = await core.executableChange()
+            let chatOn = chat.enabledSetting
             let now = Date()
             let d: IdleDecision = lock.withLock {
                 var d = IdleDecision(alwaysOnSetting: setting, keychainLocked: Self.keychainLocked, timeoutMinutes: idleTimeoutMinutes,
-                                     live: live, fenced: fenced, keepers: keepers, connections: connections, stopping: stopping,
+                                     live: live, fenced: fenced, keepers: keepers, chatOn: chatOn, connections: connections, stopping: stopping,
                                      executableChange: change, recipeCatalogueWaiting: _recipeCatalogueWaiting, launched: Self.launchedDetached)
                 if d.isIdle && !stopping {
                     if idleSince == nil { idleSince = now }
@@ -359,6 +379,7 @@ public final class HostServer: @unchecked Sendable {
             HostLog.line("there is no program at \(stable) to start — the next command starts the installed doz")
         }
         try? FileManager.default.removeItem(at: store.pidFile)
+        await chat.stopForExit()
         HostLog.line("daemon exiting (restarted in place)")
         releaseLocks()
         exit(0)
@@ -396,6 +417,7 @@ public final class HostServer: @unchecked Sendable {
         HostLog.line(String(format: "proxies drained in %.1f s%@ — exiting; the new daemon takes over", Date().timeIntervalSince(t0),
                             cut > 0 ? " (\(cut) connection\(cut == 1 ? "" : "s") still open were cut)" : ""))
         try? FileManager.default.removeItem(at: store.pidFile)
+        await chat.stopForExit()
         releaseLocks()
         exit(0)
     }
@@ -437,6 +459,7 @@ public final class HostServer: @unchecked Sendable {
             reply.close()
         }
         try? FileManager.default.removeItem(at: store.pidFile)
+        await chat.stopForExit()
         HostLog.line("daemon exiting")
         releaseLocks()
         exit(0)
@@ -503,6 +526,12 @@ public final class HostServer: @unchecked Sendable {
             netLogFollow(conn, reader: reader, request: req)
         case .console where req.follow == true:
             consoleFollow(conn, reader: reader, request: req)
+        case .chatSync, .chatAdd, .chatRemove, .chatToken:
+            Task.detached { [self] in
+                let m = await chatRequest(req)
+                conn.send(m)
+                finished(conn)
+            }
         case .hostStop:
             // 594 W18: the web UI reads why the last host exited from this log (`HostExitReason`).
             HostLog.line("daemon stop requested: hibernating every sandbox, then exiting")
@@ -515,6 +544,7 @@ public final class HostServer: @unchecked Sendable {
                 // 694: what replacing this daemon would cost (the login item's look at a locked daemon).
                 st.fencedSessions = await core.fencedMacSessions()
                 st.preparations = await core.runningPreparations()
+                st.chat = await chat.status()
                 conn.send((try? JSONValue(encoding: st)).map { HostMessage.success($0) } ?? .failure(HostError(.failed, "status")))
                 finished(conn)
             }
@@ -524,6 +554,34 @@ public final class HostServer: @unchecked Sendable {
                 conn.send(msg)
                 finished(conn)
             }
+        }
+    }
+
+    /// The `chat-*` requests: the supervisor's. Nothing of the request is logged (a `chat-token` may carry a token).
+    private func chatRequest(_ req: HostRequest) async -> HostMessage {
+        let c = req.chat ?? ChatRequest()
+        do {
+            switch req.op {
+            case .chatSync:
+                let st = try await chat.sync(human: c.name, retry: c.retry ?? false, waitReady: c.wait ?? false, blocked: await chatBlocked())
+                return .success(try JSONValue(encoding: st))
+            case .chatAdd, .chatToken:
+                guard let n = c.name else { throw HostError(.invalid, "which participant?") }
+                let token = req.op == .chatAdd ? try await chat.add(n, token: c.token) : try await chat.replaceToken(n, token: c.token)
+                // The server restarted to take it: answered once it is ready again (or stopped), at most 15 s.
+                _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
+                // A token the person gave is not sent back: they have it.
+                return .success(try JSONValue(encoding: ChatAnswer(name: n, token: c.token == nil ? token : nil, chat: await chat.status())))
+            case .chatRemove:
+                guard let n = c.name else { throw HostError(.invalid, "which participant?") }
+                try await chat.remove(n)
+                _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
+                return .success(try JSONValue(encoding: ChatAnswer(name: n, token: nil, chat: await chat.status())))
+            default:
+                throw HostError(.invalid, "not a chat request")
+            }
+        } catch {
+            return .failure(HostError.from(error))
         }
     }
 

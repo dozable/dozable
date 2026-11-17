@@ -6,7 +6,8 @@ import Foundation
 // shape the reference's file store reads — `{"version":1,"tokens":{name:token},"webhooks":{name:{"url","header"}}}`),
 // read once at start, mode 0600 and the user's own. A token is kept only as its SHA-256: it is hashed as the file is read
 // and the plain value is dropped. Nothing here is ever logged; an error names the file and the problem, never a value.
-// No Keychain, no other source.
+// No Keychain, no other source. A server the daemon runs reads hashes only (`--token-hashes`, `loadHashes`): no plain
+// token exists on disk for it at all.
 
 public struct ChatWebhook: Sendable, Equatable {
     public var url: String
@@ -46,6 +47,52 @@ public struct ChatSecrets: Sendable {
         defer { try? fh.close() }
         let data = (try? fh.read(upToCount: 4 << 20)) ?? Data()
         return try parse(data, path: path)
+    }
+
+    /// Reads a token-hashes file — `{"version":1,"sha256":{name: "<64 lower-case hex>"}}`, the only token source of a
+    /// server the daemon runs (`--token-hashes`): no plain token is ever written for it. The same file checks as the
+    /// secrets file (a regular file, mode 0600, the user's own); every value must be 64 lower-case hex digits.
+    public static func loadHashes(path: String) throws -> ChatSecrets {
+        var st = stat()
+        guard lstat(path, &st) == 0 else { throw ChatConfigError("token hashes: \(path) does not exist or cannot be read") }
+        guard (st.st_mode & S_IFMT) == S_IFREG else { throw ChatConfigError("token hashes: \(path) is not a regular file") }
+        if st.st_mode & 0o077 != 0 {
+            throw ChatConfigError(String(format: "token hashes: %@ can be read by other users (mode %04o); fix it with: chmod 600 %@",
+                                         path, Int(st.st_mode & 0o777), path))
+        }
+        guard st.st_uid == getuid() else {
+            throw ChatConfigError("token hashes: \(path) is owned by another user; it must belong to the user that runs the server")
+        }
+        guard let fh = FileHandle(forReadingAtPath: path) else { throw ChatConfigError("token hashes: cannot read \(path)") }
+        defer { try? fh.close() }
+        return try parseHashes((try? fh.read(upToCount: 4 << 20)) ?? Data(), path: path)
+    }
+
+    public static func parseHashes(_ data: Data, path: String = "the token hashes file") throws -> ChatSecrets {
+        let shape = ChatConfigError("token hashes: \(path) is not valid JSON of the expected shape")
+        guard let v = try? ChatJSON.parse(data), v.isObject else { throw shape }
+        guard let version = try? v.field("version")?.goInt("version") else { throw shape }
+        guard version == 1 else {
+            throw ChatConfigError("token hashes: \(path) is version \(version), which this server does not read (it reads version 1)")
+        }
+        var s = ChatSecrets()
+        switch v.field("sha256") ?? .null {
+        case .null: break
+        case .object(let m):
+            for e in m {
+                guard case .string(let h) = e.value else { throw shape }
+                guard isHashHex(h) else { throw ChatConfigError("token hashes: \(path): the hash for \(e.key) is not 64 lower-case hex digits") }
+                s.tokenHashes[e.key] = h
+            }
+        default: throw shape
+        }
+        return s
+    }
+
+    /// 64 lower-case hex digits: a SHA-256 as `hash` writes it.
+    public static func isHashHex(_ s: String) -> Bool {
+        let u = Array(s.utf8)
+        return u.count == 64 && u.allSatisfy { (0x30...0x39).contains($0) || (0x61...0x66).contains($0) }
     }
 
     public static func parse(_ data: Data, path: String = "the secrets file") throws -> ChatSecrets {

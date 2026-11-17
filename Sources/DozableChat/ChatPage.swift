@@ -5,6 +5,14 @@ import Foundation
 // The listener (ChatListeners.swift) only frames HTTP around it. Everything a client can see — the status, the
 // headers, the bytes of the body — is decided here, as the reference server answers.
 
+/// Who a request came from, by the way it arrived: a TCP connection (judged by its address, `ChatAccess`) or the
+/// owner's private socket (`ChatOwnerSocket`: a Unix socket in a 0700 folder, only the same user admitted) — the one
+/// way to act as the human when tokens are required. A TCP caller is never the owner.
+public enum ChatCaller: Sendable, Equatable {
+    case tcp
+    case owner
+}
+
 public struct ChatHTTPRequest: Sendable {
     public var method: String
     /// The request target as sent (`/agent/../x?y=1`), never tidied.
@@ -15,11 +23,19 @@ public struct ChatHTTPRequest: Sendable {
     public var remoteIP: String
     /// The body was longer than this request may send (`ChatPageHandler.bodyLimit`): what came past it was not kept.
     public var truncated = false
+    /// How it arrived (`ChatCaller`); TCP unless the owner's socket served it.
+    public var caller: ChatCaller = .tcp
 
-    public init(method: String, target: String, headers: [String: String] = [:], body: [UInt8] = [], remoteIP: String, truncated: Bool = false) {
+    public init(method: String, target: String, headers: [String: String] = [:], body: [UInt8] = [], remoteIP: String, truncated: Bool = false,
+                caller: ChatCaller = .tcp) {
         self.method = method; self.target = target; self.headers = headers; self.body = body; self.remoteIP = remoteIP
         self.truncated = truncated
+        self.caller = caller
     }
+
+    /// The human acts without a token: over the owner's socket, or (a config that requires no tokens) from an owned
+    /// address the access gate already let through.
+    func humanWithoutToken(requireTokens: Bool) -> Bool { caller == .owner || !requireTokens }
 
     public func header(_ name: String) -> String { headers[name.lowercased()] ?? "" }
 
@@ -95,6 +111,8 @@ public struct ChatPageHandler: Sendable {
 
     /// Who may call: only the owner's own machines; a machine that must use a token, or an agent address, only /agent/.
     private func gate(_ r: ChatHTTPRequest) -> ChatHTTPResponse {
+        // The owner's socket admitted only this user's processes (`ChatOwnerSocket.admit`): it is the human's own door.
+        if r.caller == .owner { return route(r) }
         if let refusal = core.access.page(remote: r.remoteIP, agentPath: ChatPath.isAgentPath(rawPath: r.rawPath)) {
             return .error(403, refusal)
         }
@@ -208,7 +226,7 @@ public struct ChatPageHandler: Sendable {
             res.stream = core.subscribe()
             return res
         case "reveal":
-            let who = core.config.requireTokens ? (core.whoHas(r.header(Self.tokenHeader)) ?? "") : core.human()
+            let who = r.humanWithoutToken(requireTokens: core.config.requireTokens) ? core.human() : (core.whoHas(r.header(Self.tokenHeader)) ?? "")
             switch core.reveal(room: vars["room"] ?? "", msgID: vars["id"] ?? "", who: who) {
             case .success(let m): return .json(200, m.json)
             case .failure(let e): return .jsonError(e.status, e.description)
@@ -252,7 +270,7 @@ public struct ChatPageHandler: Sendable {
     /// The human posts from the page.
     private func post(_ room: String, _ r: ChatHTTPRequest) -> ChatHTTPResponse {
         var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
-        if !core.config.requireTokens { who = core.human() }   // the page is only served to the owner's own machines
+        if r.humanWithoutToken(requireTokens: core.config.requireTokens) { who = core.human() }   // the page is only served to the owner's own machines
         guard core.isHuman(who) else { return .jsonError(401, "posting needs the human's token") }
         guard let v = Self.decodeFirst(r.body, limit: ChatProtocol.maxLine) else { return .jsonError(400, "body must be JSON") }
         var line = ChatLine()
@@ -278,7 +296,8 @@ public struct ChatPageHandler: Sendable {
         line.type = "user"
         line.hasBody = true
         line.room = room
-        line.verified = core.config.requireTokens
+        // Checked: by its token, or by the owner's socket (only this user's processes reach it).
+        line.verified = core.config.requireTokens || r.caller == .owner
         let rc = core.post(line, sender: who)
         return .json(rc.state == "refused" ? 422 : 200,
                      .map(["msg_id": .string(line.msgID), "state": .string(rc.state), "detail": .string(rc.detail)]))
@@ -287,7 +306,7 @@ public struct ChatPageHandler: Sendable {
     /// The human edits or deletes a message, done once per X-Chat-Id.
     private func change(_ verb: String, _ room: String, _ id: String, _ r: ChatHTTPRequest) -> ChatHTTPResponse {
         var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
-        if !core.config.requireTokens { who = core.human() }
+        if r.humanWithoutToken(requireTokens: core.config.requireTokens) { who = core.human() }
         guard core.isHuman(who) else { return .jsonError(401, "changing a message needs the human's token") }
         var text = ""
         let v = Self.decodeFirst(r.body, limit: ChatProtocol.maxLine)
@@ -304,7 +323,7 @@ public struct ChatPageHandler: Sendable {
     /// The human reacts from the page, done once per X-Chat-Id. The body is at most 4096 bytes.
     private func react(_ room: String, _ r: ChatHTTPRequest) -> ChatHTTPResponse {
         var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
-        if !core.config.requireTokens { who = core.human() }
+        if r.humanWithoutToken(requireTokens: core.config.requireTokens) { who = core.human() }
         guard core.isHuman(who) else { return .jsonError(401, "reacting needs the human's token") }
         let bad = ChatHTTPResponse.jsonError(400, "body must be JSON")
         guard r.body.count <= 4096, let v = Self.decodeFirst(r.body, limit: 4096), v.isObject || v.isNull,
@@ -348,7 +367,7 @@ public struct ChatPageHandler: Sendable {
     /// Who makes a page call that changes something: the human. nil serves it; otherwise the 401 answer.
     private func pageCaller(_ r: ChatHTTPRequest, _ what: String) -> ChatHTTPResponse? {
         var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
-        if !core.config.requireTokens { who = core.human() }
+        if r.humanWithoutToken(requireTokens: core.config.requireTokens) { who = core.human() }
         return core.isHuman(who) ? nil : .jsonError(401, "\(what) needs the human's token")
     }
 

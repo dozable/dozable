@@ -107,7 +107,8 @@ public enum LoginStart {
         try? store.ensureDirectory()
         let settings = DozableSettings.load(environment: env)
         let alwaysOn = settings.bool(SettingKey.alwaysOn)
-        let keepers = 0                     // kept sessions come later; then the store's kept records count here
+        // Kept sessions come later (then the store's kept records count here); chat on counts as one: it needs the daemon.
+        let keepers = settings.bool(SettingKey.chatEnabled) ? 1 : 0
         var daemon: Daemon?
         if HostClient.connectAny(store).map({ close($0); return true }) == true,
            let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false), m.ok == true,

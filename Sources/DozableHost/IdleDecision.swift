@@ -9,9 +9,10 @@ import Foundation
 ///     waits, while NOTHING is live (no VM, no preparation) and NO client is connected:
 ///       – fenced sessions on this Mac (or kept ones) keep it: HAND OVER — a new daemon of the installed build, started from
 ///         the stable path, takes them once this one lets go of the lock;
-///       – always on (and started by the launcher — a person's `--foreground` daemon exits): RESTART IN PLACE — a new daemon from the stable path, then exit; the new one waits for the lock;
+///       – always on, or chat on (and started by the launcher — a person's `--foreground` daemon exits): RESTART IN PLACE — a
+///         new daemon from the stable path, then exit; the new one waits for the lock (and starts its own chat server);
 ///       – otherwise: EXIT (the next command starts the installed build);
-///   · idle (nothing live, no fenced or kept session, no client): exit once idle for the effective timeout — never while
+///   · idle (nothing live, no fenced or kept session, chat off, no client): exit once idle for the effective timeout — never while
 ///     always on; a daemon whose login keychain is locked is NEVER always on, and exits after at most 5 minutes whatever
 ///     the settings say (a daemon started over ssh cannot read the login Keychain; a later command from the desktop
 ///     should get one that can).
@@ -40,6 +41,8 @@ public struct IdleDecision: Equatable, Sendable {
     public var fenced: [String]
     /// Kept sessions on this Mac (none yet).
     public var keepers: Int
+    /// `chat.enabled`: the daemon runs the chat server, so it keeps running like a session does.
+    public var chatOn: Bool
     public var connections: Int
     public var stopping: Bool
     public var executableChange: ExecutableIdentity.Change?
@@ -50,7 +53,7 @@ public struct IdleDecision: Equatable, Sendable {
     public var launched: Bool
 
     public init(alwaysOnSetting: Bool, keychainLocked: String? = nil, timeoutMinutes: Double, live: [String] = [], fenced: [String] = [],
-                keepers: Int = 0, connections: Int = 0, stopping: Bool = false, executableChange: ExecutableIdentity.Change? = nil,
+                keepers: Int = 0, chatOn: Bool = false, connections: Int = 0, stopping: Bool = false, executableChange: ExecutableIdentity.Change? = nil,
                 recipeCatalogueWaiting: Bool = false, idleSeconds: Double? = nil, launched: Bool = true) {
         self.alwaysOnSetting = alwaysOnSetting
         self.keychainLocked = keychainLocked
@@ -58,6 +61,7 @@ public struct IdleDecision: Equatable, Sendable {
         self.live = live
         self.fenced = fenced
         self.keepers = keepers
+        self.chatOn = chatOn
         self.connections = connections
         self.stopping = stopping
         self.executableChange = executableChange
@@ -81,8 +85,8 @@ public struct IdleDecision: Equatable, Sendable {
         Self.effectiveTimeout(alwaysOnSetting: alwaysOnSetting, keychainLocked: keychainLocked, timeoutMinutes: timeoutMinutes)
     }
 
-    /// Nothing live, no fenced or kept session, no client: the idle clock runs.
-    public var isIdle: Bool { live.isEmpty && fenced.isEmpty && keepers == 0 && connections == 0 }
+    /// Nothing live, no fenced or kept session, chat off, no client: the idle clock runs.
+    public var isIdle: Bool { live.isEmpty && fenced.isEmpty && keepers == 0 && !chatOn && connections == 0 }
 
     public var action: Action {
         guard !stopping else { return .stay }
@@ -93,7 +97,9 @@ public struct IdleDecision: Equatable, Sendable {
                 let held = fenced + (keepers > 0 ? ["\(keepers) kept"] : [])
                 return .handOver("\(why) and only sessions on this Mac keep me (\(held.joined(separator: ", ")))")
             }
-            if alwaysOn && launched { return .restartInPlace("\(why) and nothing is running — restarting in place, from the installed build") }
+            if (alwaysOn || chatOn) && launched {
+                return .restartInPlace("\(why) and nothing is running\(chatOn && !alwaysOn ? " but the chat server" : "") — restarting in place, from the installed build")
+            }
             return .exit("\(why) and nothing is running — exiting so the next command runs the installed build")
         }
         if isIdle, let t = effectiveTimeout, let idle = idleSeconds, idle >= t * 60 {

@@ -13,6 +13,12 @@ public struct ChatServeOptions: Sendable {
     public var configPath: String
     public var overrides = ChatConfig.Overrides()
     public var secretsFile: String?
+    /// Token hashes only (`--token-hashes`): when given, the data folder's secrets.json is never read.
+    public var tokenHashesFile: String?
+    /// The owner's private socket (`--owner-socket`, `ChatOwnerSocket`).
+    public var ownerSocket: String?
+    /// Run by a supervisor (`--supervised`): exit 0 as soon as the process that started this one is gone, so a server
+    /// never outlives the daemon that runs it.
     public var supervised = false
     /// Where Claude Code's session records are read (to find a session's inbox socket); nil is `$HOME/.claude/sessions`,
     /// as the reference.
@@ -60,6 +66,7 @@ public enum ChatServer {
             exit(ChatExit.stopped)
         }
         _ = signals
+        if o.supervised { ParentWatch.install(log: log) }
 
         let config: ChatConfig
         do { config = try ChatConfig.resolve(path: o.configPath, o.overrides) } catch { fault(ChatExit.badSetting, "\(error)") }
@@ -90,13 +97,20 @@ public enum ChatServer {
         first.startedAt = started
         do { try StatusWriter.start(dir: dir, first) } catch { fault(ChatExit.badSetting, "data folder \(dir) cannot be written: \(error)") }
 
-        // Secrets: the file handed in, else the data folder's secrets.json when there is one.
+        // Secrets: token hashes when handed in (the daemon's way: the data folder's secrets.json is then never read, and
+        // one found there is a problem shown), else the secrets file handed in, else the data folder's secrets.json.
         let secretsPath = o.secretsFile ?? (dir as NSString).appendingPathComponent("secrets.json")
         var loaded = ChatSecrets()
-        if o.secretsFile != nil || FileManager.default.fileExists(atPath: secretsPath) {
+        var ignoredSecrets = false
+        if let h = o.tokenHashesFile {
+            do { loaded = try ChatSecrets.loadHashes(path: h) } catch { fault(ChatExit.badSetting, "\(error)") }
+            ignoredSecrets = o.secretsFile == nil && FileManager.default.fileExists(atPath: secretsPath)
+        } else if o.secretsFile != nil || FileManager.default.fileExists(atPath: secretsPath) {
             do { loaded = try ChatSecrets.load(path: secretsPath) } catch { fault(ChatExit.badSetting, "\(error)") }
         }
         let secrets = loaded
+        let secretsIgnored = ignoredSecrets
+        if let s = o.ownerSocket, let why = ChatOwnerSocket.refusal(path: s) { fault(ChatExit.badSetting, why) }
 
         let core = ChatServerCore(config: config, secrets: secrets, release: releaseNumber(o.release), log: log, sessionsDir: o.claudeSessions)
         core.load()
@@ -115,7 +129,10 @@ public enum ChatServer {
 
         let listeners: ChatListeners
         do {
-            listeners = try await ChatListeners.bind(core: core, host: host, linePort: config.linePort, pagePort: config.httpPort, log: log)
+            listeners = try await ChatListeners.bind(core: core, host: host, linePort: config.linePort, pagePort: config.httpPort,
+                                                     ownerSocket: o.ownerSocket, log: log)
+        } catch let e as ChatConfigError {
+            fault(ChatExit.badSetting, e.description)
         } catch {
             let text = "\(error)"
             let inUse = text.contains("Address already in use") || text.contains("EADDRINUSE") || text.contains("errno: 48")
@@ -124,8 +141,10 @@ public enum ChatServer {
                   "cannot listen on \(host) (line port \(config.linePort), page port \(config.httpPort)): " + (inUse ? "a port is in use" : text))
         }
         let presence = core.watchPresence()   // presence to open pages whenever it changes
-        Stop.add { presence.cancel(); listeners.close(); core.close(); StatusWriter.current?.remove() }
-        log("chat: lines on \(host):\(listeners.linePort), page on http://\(host):\(listeners.pagePort), tokens required from every caller: \(config.requireTokens), data in \(dir)")
+        let ownerSocket = o.ownerSocket
+        Stop.add { presence.cancel(); listeners.close(); core.close(); StatusWriter.current?.remove(); if let s = ownerSocket { unlink(s) } }
+        log("chat: lines on \(host):\(listeners.linePort), page on http://\(host):\(listeners.pagePort), tokens required from every caller: \(config.requireTokens), data in \(dir)"
+            + (o.ownerSocket.map { ", the owner's socket at \($0)" } ?? ""))
 
         let snapshot: @Sendable () -> Void = {
             let (rooms, people) = core.counts()
@@ -135,7 +154,11 @@ public enum ChatServer {
                 st.pageURLs = ["http://" + joinHostPort(host, listeners.pagePort)]
                 st.rooms = rooms
                 st.participants = people
-                st.problems = problems(config: config, secrets: secrets, core: core)
+                st.problems = problems(config: config, secrets: secrets, core: core, ownerSocket: ownerSocket != nil)
+                if secretsIgnored {
+                    st.problems.append(.init(code: "secrets-file-ignored",
+                                             what: "secrets.json in the data folder is not read: this server takes its tokens as hashes only", blocking: false))
+                }
             }
         }
         snapshot()
@@ -145,9 +168,11 @@ public enum ChatServer {
     }
 
     /// What the running server finds wrong with itself (never a secret value).
-    static func problems(config: ChatConfig, secrets: ChatSecrets, core: ChatServerCore) -> [ChatStatus.Problem] {
+    /// With the owner's socket the human needs no token: that socket is its way in.
+    static func problems(config: ChatConfig, secrets: ChatSecrets, core: ChatServerCore, ownerSocket: Bool = false) -> [ChatStatus.Problem] {
         var out: [ChatStatus.Problem] = []
         for p in core.people() {
+            if ownerSocket && p.isHuman { continue }
             if config.requireTokens && !secrets.hasToken(p.name) && p.deliver != "poll" {
                 out.append(.init(code: "token-missing", what: "no token for " + p.name, blocking: false))
             }
@@ -413,6 +438,40 @@ enum SignalWatch {
             sources.append(s)
         }
         return sources.count
+    }
+}
+
+/// `--supervised`: the server exits 0 (a clean stop) the moment the process that started it is gone — a kqueue watch on
+/// the parent's exit, plus a look at the parent pid once a second (a parent that died before the watch was set is
+/// reparented to launchd at once). A daemon killed with SIGKILL therefore never leaves its chat server behind.
+enum ParentWatch {
+    nonisolated(unsafe) private static var source: DispatchSourceProcess?
+    nonisolated(unsafe) private static var timer: DispatchSourceTimer?
+
+    static func install(log: ChatLog) {
+        let parent = getppid()
+        let q = DispatchQueue(label: "chat.parent")
+        let once = NSLock()
+        nonisolated(unsafe) var fired = false
+        let gone: @Sendable () -> Void = {
+            let first = once.withLock { () -> Bool in defer { fired = true }; return !fired }
+            guard first else { return }
+            log("chat: the process that started this server (pid \(parent)) is gone: stopping")
+            Stop.begin()
+            Stop.run()
+            log("chat: stopped")
+            exit(ChatExit.stopped)
+        }
+        if parent <= 1 { gone(); return }
+        let s = DispatchSource.makeProcessSource(identifier: parent, eventMask: .exit, queue: q)
+        s.setEventHandler(handler: gone)
+        s.resume()
+        source = s
+        let t = DispatchSource.makeTimerSource(queue: q)
+        t.schedule(deadline: .now() + 1, repeating: 1)
+        t.setEventHandler { if getppid() != parent { gone() } }
+        t.resume()
+        timer = t
     }
 }
 

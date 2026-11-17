@@ -629,7 +629,8 @@ struct HostRun: AsyncParsableCommand {
 /// 694: the login item and the held marker — read by the CLI (never the daemon), with or without a daemon.
 func withLoginItem(_ st: HostStatus, _ store: DozableStore) -> HostStatus {
     var s = st
-    s.loginItem = DaemonLoginItem.status(store: store, keepers: st.keepers ?? 0)
+    // Chat on needs the daemon at login like a kept session.
+    s.loginItem = DaemonLoginItem.status(store: store, keepers: (st.keepers ?? 0) + (st.chat?.enabled == true ? 1 : 0))
     s.held = LoginStart.heldAt(store) != nil
     return s
 }
@@ -678,6 +679,7 @@ func describe(_ st: HostStatus) -> String {
     // 700: always-on off with the timeout 0 — nothing switches it off by idling.
     if let w = DozableSettings.daemonIdleWarning(alwaysOn: alwaysOn, idleTimeoutMinutes: st.idleTimeoutMinutes) { s += w + "\n" }
     if let k = st.keepers, k > 0 { s += "kept sessions: \(k) (they keep the daemon running)\n" }
+    if let c = chatDaemonLine(st.chat) { s += c + "\n" }
     if let li = st.loginItem { s += li.line + "\n" }                // 694
     if let k = st.keepalive { s += "Claude login " + k.line() + "\n" }   // 695
     if let note = st.executableNote { s += (st.executableChange == "overwritten" ? "PROBLEM: " : "note: ") + note + "\n" }
