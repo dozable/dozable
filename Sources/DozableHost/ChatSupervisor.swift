@@ -41,6 +41,8 @@ public struct ChatServerState: Codable, Equatable, Sendable {
     public var webhooks: [String: String]?
     /// Standing problems that do not stop the server (an entry that cannot be read, …), in a person's words.
     public var warnings: [String]?
+    /// The remote listener: where it listens besides loopback, for whom, and what is missing. nil: none set.
+    public var remote: ChatRemoteState?
 
     public init() {}
 
@@ -84,14 +86,25 @@ public struct ChatSettingsView: Equatable, Sendable {
     public var linePort: Int
     /// The dashboards' ports, which chat must never take (`ui.port`, `serve.port`).
     public var dashboards: [String: Int]
+    /// `chat.remote_listen` and `chat.remote_agents` (`ChatRemoteSettings`).
+    public var remoteListen: [String]
+    public var remoteAgents: [String]
 
-    public init(enabled: Bool, pagePort: Int = 8790, linePort: Int = 8791, dashboards: [String: Int] = [:]) {
+    public init(enabled: Bool, pagePort: Int = 8790, linePort: Int = 8791, dashboards: [String: Int] = [:], remoteListen: [String] = [],
+                remoteAgents: [String] = []) {
         self.enabled = enabled; self.pagePort = pagePort; self.linePort = linePort; self.dashboards = dashboards
+        self.remoteListen = remoteListen; self.remoteAgents = remoteAgents
     }
 
     public static func read(_ s: DozableSettings = .load()) -> ChatSettingsView {
-        ChatSettingsView(enabled: s.bool(SettingKey.chatEnabled), pagePort: s.int(SettingKey.chatPagePort), linePort: s.int(SettingKey.chatLinePort),
-                         dashboards: [SettingKey.uiPort: s.int(SettingKey.uiPort), SettingKey.servePort: s.int(SettingKey.servePort)])
+        // A value the schema refuses never reaches here (the default, "", applies): nothing listens on it.
+        func addresses(_ k: String) -> [String] {
+            let v = s.string(k) ?? ""
+            return ChatRemoteSettings.problem(v) == nil ? ChatRemoteSettings.list(v) : []
+        }
+        return ChatSettingsView(enabled: s.bool(SettingKey.chatEnabled), pagePort: s.int(SettingKey.chatPagePort), linePort: s.int(SettingKey.chatLinePort),
+                                dashboards: [SettingKey.uiPort: s.int(SettingKey.uiPort), SettingKey.servePort: s.int(SettingKey.servePort)],
+                                remoteListen: addresses(SettingKey.chatRemoteListen), remoteAgents: addresses(SettingKey.chatRemoteAgents))
     }
 }
 
@@ -107,6 +120,8 @@ public final class ChatSupervisor: @unchecked Sendable {
     let keychain: KeychainAccess
     /// Why the login keychain is locked here (nil: it is not) — a webhook entry is then never set.
     let keychainLocked: @Sendable () -> String?
+    /// This Mac's interfaces (a test hands its own): a remote address is listened on only while it is on an up `utun*`.
+    let interfaces: @Sendable () -> [ChatInterface]
 
     /// Seconds before an entry that could not be read is tried again (a minute; a test passes less).
     let unreadableRetrySeconds: Double
@@ -129,6 +144,8 @@ public final class ChatSupervisor: @unchecked Sendable {
     private var exiting = false
     private var settings: ChatSettingsView
     private var settingsAt: Double = 0
+    /// The addresses of `chat.remote_listen` on this Mac's Tailscale interface, as last looked (with the settings, every 5 s).
+    private var remoteHere: [String] = []
     private var lastWritten: Data?
     /// The webhook entries as last read from the keychain (or set or removed here): read once, not at every look.
     private var entries: [String: EntryRead] = [:]
@@ -142,9 +159,10 @@ public final class ChatSupervisor: @unchecked Sendable {
     public init(paths: ChatPaths, executable: String, release: String, processes: ChatProcesses = ChatSystemProcesses(),
                 environment: [String: String] = ProcessInfo.processInfo.environment,
                 keychain: KeychainAccess = MemoryKeychain(), keychainLocked: @escaping @Sendable () -> String? = { nil },
-                unreadableRetrySeconds: Double = 60,
+                unreadableRetrySeconds: Double = 60, interfaces: @escaping @Sendable () -> [ChatInterface] = { ChatInterface.current() },
                 readSettings: @escaping @Sendable () -> ChatSettingsView = { ChatSettingsView.read() }) {
         self.keychain = keychain
+        self.interfaces = interfaces
         self.unreadableRetrySeconds = unreadableRetrySeconds
         self.keychainLocked = keychainLocked
         self.paths = paths
@@ -403,6 +421,8 @@ public final class ChatSupervisor: @unchecked Sendable {
         if force || t - settingsAt >= 5 {
             settings = readSettings()
             settingsAt = t
+            let missing = settings.remoteListen.isEmpty ? [] : ChatInterface.missing(settings.remoteListen, among: interfaces())
+            remoteHere = settings.remoteListen.filter { !missing.contains($0) }
         }
         if let c = child, let end = processes.reap(c.pid) { exited(c, end) }
         let wanted = settings.enabled && !blocked && !exiting
@@ -430,8 +450,21 @@ public final class ChatSupervisor: @unchecked Sendable {
             }
             var h = try ChatTokenHashes.load(paths)
             h.sha256 = h.sha256.filter { k, _ in d.participants.contains { $0.name == k } }
-            files = Files(config: try ChatConfigFile.bytes(d, paths: paths, pagePort: settings.pagePort, linePort: settings.linePort),
-                          tokens: h.bytes(), webhooks: webhookInput(d, now: t))
+            let webhooks = webhookInput(d, now: t)
+            // The remote listener: only the addresses this Mac has now; a missing one is said, and the files change when
+            // it appears (the server restarts on it).
+            if settings.remoteListen.isEmpty && settings.remoteAgents.isEmpty {
+                st.remote = nil
+            } else {
+                let r = ChatRemoteState(listen: remoteHere, agents: settings.remoteAgents,
+                                        missing: settings.remoteListen.filter { !remoteHere.contains($0) })
+                st.remote = r
+                let w = (st.warnings ?? []) + r.warnings
+                st.warnings = w.isEmpty ? nil : w
+            }
+            files = Files(config: try ChatConfigFile.bytes(d, paths: paths, pagePort: settings.pagePort, linePort: settings.linePort,
+                                                           remoteBind: remoteHere, remoteAgents: settings.remoteAgents),
+                          tokens: h.bytes(), webhooks: webhooks)
             if FileManager.default.contents(atPath: paths.config).map(Array.init) != files.config { try paths.write("config.json", Data(files.config)) }
             if FileManager.default.contents(atPath: paths.tokens) != files.tokens { try paths.write("tokens.json", files.tokens) }
         } catch {
@@ -538,7 +571,8 @@ public final class ChatSupervisor: @unchecked Sendable {
             st.state = "starting"
             st.ready = false
             st.startedAt = Date()
-            HostLog.line("chat: the chat server started (pid \(pid)) — 127.0.0.1, page port \(settings.pagePort), line port \(settings.linePort)")
+            HostLog.line("chat: the chat server started (pid \(pid)) — 127.0.0.1, page port \(settings.pagePort), line port \(settings.linePort)"
+                         + (remoteHere.isEmpty ? "" : "; also on \(remoteHere.joined(separator: ", "))"))
         } catch {
             st.state = "stopped"
             st.problem = "the chat server could not be started: \(error)"

@@ -16,12 +16,18 @@ public struct ChatLineConnection: Sendable {
     let required: Bool
     public private(set) var sender = ""
 
-    /// A connection from ip, or nil when the address may not use the line port (closed at once).
-    public init?(core: ChatServerCore, remoteIP ip: String) {
-        guard let required = core.access.line(remote: ip) else { return nil }
+    /// A connection from ip, or nil when the address may not use the line port (closed at once). `remote`: accepted on a
+    /// remote listener — admitted only when its address is in `allow`, and a token is always required (never the human).
+    public init?(core: ChatServerCore, remoteIP ip: String, remote: Bool = false) {
+        if remote {
+            guard core.access.allow.contains(ip) else { return nil }
+            self.required = true
+        } else {
+            guard let required = core.access.line(remote: ip) else { return nil }
+            self.required = required
+        }
         self.core = core
         self.ip = ip
-        self.required = required
     }
 
     /// The seconds a connection may stay without a line.

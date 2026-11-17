@@ -40,6 +40,7 @@ manual or completions (`doz chat --help` is complete). A later step shows its ro
 | `ChatOwnerSocket.swift` | the owner's private socket: who may serve it (a 0700 folder of this user, the socket 0600) and who may connect (`admit`: this user only) |
 | `Sources/DozableCLI/ChatCommandLine.swift` | `doz chat serve` and `doz chat status --data-dir`, dispatched by `DozableEntry` before anything else of doz runs (`isServerCommand`) |
 | `Sources/DozableHost/ChatDirectory.swift` | under the daemon: the store's chat folder (`ChatPaths`), Dozable's records (`ChatDirectory`, `ChatTokenHashes`), names, tokens, the generated `config.json` (`ChatConfigFile`), `ChatRestartPolicy` |
+| `Sources/DozableHost/ChatRemote.swift` | agents on other machines: the two settings' rule (`ChatRemoteSettings`) and what the supervisor says of the remote listener (`ChatRemoteState`) |
 | `Sources/DozableHost/ChatWebhookEntries.swift` | a webhook bot's entry: its keychain item (`doz-chat-webhook-<store id>-<entry>`, JSON `{"authorization","set","url"}`, at most 1800 bytes), the fingerprint, what `webhook status` may show (`ChatWebhookInfo`), the pipe's bytes, the two-line input |
 | `Sources/DozableHost/ChatSupervisor.swift` | `ChatSupervisor`: the server as the daemon's child — the generated files, posix_spawn, readiness, restarts, stops; `ChatServerState` (`supervisor.json`, `daemon status`); `ChatProcesses`, the seam the tests fake |
 | `Sources/DozableHost/ChatOwnerClient.swift` | the person's HTTP client on the owner's socket (the `doz chat` commands; the dashboard later) |
@@ -81,7 +82,9 @@ manual or completions (`doz chat --help` is complete). A later step shows its ro
   problems; refreshed every 5 s; removed on a clean stop). SIGTERM, SIGHUP and SIGINT stop it with **0**. A fault a
   restart cannot fix — a bad flag or config, a port in use, a data folder it cannot make or write, a second server on
   the same folder (the first is left alone), a secrets file it may not read — is ONE line on standard error and exit
-  **78**. It listens on a loopback address only, for now (anything else is refused before the data folder is touched).
+  **78**. It listens on a loopback address (`--bind`; anything else is refused before the data folder is touched) and,
+  besides, only on this Mac's own Tailscale addresses the config lists (`remote_bind`, below) — one that is not on an up
+  `utun*` interface now exits **75** (not now: tried again with backoff), before any port is bound.
 - **Tokens are hashes.** A token is hashed as the secrets file is read and the value dropped; a presented token is hashed
   and compared in constant time; a token shorter than 16 characters is never one. No token is logged, put in
   `status.json`, or written anywhere. A registered session's token is made here, shown once in the answer, and kept as its
@@ -276,8 +279,48 @@ Ports must differ and never be a dashboard's (`ui.port`, `serve.port`): a clash 
 daemon running even with `daemon.always_on` off (`IdleDecision.chatOn`), and its program replaced by rename restarts it in
 place (a person's `--foreground` daemon still exits); the login item counts it as one keeper.
 
-**The settings** (`ui: false`, no environment variable — consent is never one): `chat.enabled` (false), `chat.page_port`
-(8790), `chat.line_port` (8791).
+**The settings** (`ui: false`, no environment variable — consent is never one; the dashboard's settings route refuses
+every `chat.*` key, `ServeRulesTests`): `chat.enabled` (false), `chat.page_port` (8790), `chat.line_port` (8791),
+`chat.remote_listen` and `chat.remote_agents` ("", below).
+
+## Agents on other machines
+
+Turning the remote listener on opens both chat ports on this Mac's Tailscale address to the machines named in
+`chat.remote_agents` — as agents with their own token only, never as you.
+
+- **The settings** (`ChatRemoteSettings`, type `tailnetAddresses`): `chat.remote_listen` — this Mac's own Tailscale
+  addresses to listen on too; `chat.remote_agents` — the other machines let in. Each value is exact IPv4 addresses in
+  100.64.0.0/10, comma-separated, at most 16: no range (100.64.0.0/10 would let in every tailnet device up to the token
+  check), no LAN, loopback, link-local, wildcard or IPv6 address. Applied at once; set only with `doz config set` on this
+  Mac.
+- **The generated config** gains Dozable's own key `remote_bind` (the conformance runner never uses it): the addresses of
+  `chat.remote_listen` the daemon sees on an UP `utun*` interface now (it looks with the settings, every 5 s; an address of
+  100.64.0.0/10 on a LAN or WAN interface — carrier-grade NAT — is not one). `allow` is 127.0.0.1, ::1 and the remote
+  agents; `agent_addresses` 127.0.0.0/8, ::1 and the remote agents. The generator asserts every non-loopback `allow` entry
+  is a Tailscale address AND an agent address; `ChatConfig.remoteBindRefusal` refuses in `remote_bind` anything outside
+  100.64.0.0/10 (so loopback, unspecified, multicast, link-local, a LAN address) and any use without `require_tokens`.
+  An address that is missing leaves chat on loopback with a standing problem ("not listening on 100.x.y.z: not an
+  address of this Mac now (is Tailscale up?)"); when it appears the files change and the server restarts on it.
+- **The server** binds both ports on 127.0.0.1 and on each `remote_bind` address (`ChatListeners`), nothing else. Every
+  connection accepted on a remote listener is `ChatCaller.remote`, whatever its address or the config says: on the page
+  port only an exact `/agent/` call or `GET`/`HEAD` of an exact `/files/<id>/<name>` with a participant's Bearer token
+  (403 `agentOnly` otherwise; a caller not in `allow` 403 `notOwned`; `X-Chat-Token` is not a way in; the human's token is
+  no one's there); on the line port a token always, and only for an address in `allow`. One remote address holds at
+  most 32 connections at once (the 33rd is closed). Already present: the 32 MiB line, 30 s idle, the body caps.
+- **What doz says**: `doz chat status` "Also listening on 100.x.y.z (page port 8790, line port 8791) for 100.a.b.c —
+  agents with a token only." (`--json`: `remote: {listen, agents, missing}`); `doz daemon status` "chat: also on
+  100.x.y.z"; `doz doctor` an ok row with that line, WARN for a missing address or a listener with no remote agents, and
+  the application firewall read only (`socketfilterfw --getglobalstate`, `--getblockall`, `--getappblocked <doz>`: WARN
+  when everything inbound is blocked or doz is).
+- **macOS**: accepting connections needs no Local Network permission; the application firewall lets a signed doz in when
+  "automatically allow signed software" is on (a daemon's child cannot show its prompt, so doctor reports instead).
+- **Tests**: `ChatRemoteAccessTests` — the listeners' internal seam marks a 127.0.0.1 listener remote and reports its
+  callers as 100.100.1.2 (neither config nor a flag reaches it; no test binds a tailnet or LAN address): every route of
+  `ChatPageHandler` 403 but `/agent/` and a file with a token, the bot's day-one use over the line port (text, an inline
+  attachment, the `file` line; closed without a token, with the human's, and for an address not in `allow`), the cap;
+  `remote_bind`'s refusals and the `utun` rule; `ChatRemoteDaemonTests` (the settings, the generated config, an injected
+  interface list); `ChatServeIsolationTests` (exit 75 for an address this Mac does not have, 78 for a bad one);
+  `make test-cli-chat` row 21 (the refusals, the missing address said, still exactly two loopback listeners — `lsof`).
 
 **The commands** (hidden). Only `chat serve` and `chat status … --data-dir` are the server's own (`isServerCommand`); the
 rest is `ChatCommand`. Writes go through the daemon (`chat-sync`, `chat-add`, `chat-remove`, `chat-token`); `rooms`,

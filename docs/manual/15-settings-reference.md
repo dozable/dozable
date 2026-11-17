@@ -183,6 +183,8 @@ This table is generated from `doz config show` and checked against it on every b
 | `chat.enabled` | `false` | boolean | at once | — | Run the chat server: the doz daemon keeps it running on this Mac (127.0.0.1 only) while this is on. Turn it on and off with doz chat on\|off; it is an early feature, used from the terminal (doz chat --help). |
 | `chat.page_port` | `8790` | integer 1024–65535 | at once | — | The chat server's HTTP port on 127.0.0.1: agents call /agent/… on it with their own token. Nothing on it acts as you. When it changes, the daemon restarts the chat server within a few seconds. |
 | `chat.line_port` | `8791` | integer 1024–65535 | at once | — | The chat server's line port on 127.0.0.1 (one JSON message per line). Every caller needs a token. When it changes, the daemon restarts the chat server within a few seconds. |
+| `chat.remote_listen` | `""` | Tailscale addresses like 100.100.1.2, comma-separated, each one exactly ("" = none) | at once | — | This Mac's own Tailscale addresses (100.64.0.0/10) on which the chat server also listens, both ports, for agents on other machines. Only agents, each with its own token; never you. Plain HTTP: Tailscale encrypts it; any other address is refused. |
+| `chat.remote_agents` | `""` | Tailscale addresses like 100.100.1.2, comma-separated, each one exactly ("" = none) | at once | — | The Tailscale addresses of the other machines that may connect to the chat server (each exactly; no range). Each is always an agent: it must send its token; it gets /agent/… and files with its token, never your page or /api. |
 
 ### `[daemon]`
 

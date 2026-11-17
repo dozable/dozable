@@ -28,6 +28,8 @@ public struct ChatServeOptions: Sendable {
     public var claudeSessions: String?
     /// The release this server reports (Dozable's version).
     public var release: String
+    /// This Mac's interfaces (a test may hand its own).
+    var interfaces: @Sendable () -> [ChatInterface] = { ChatInterface.current() }
 
     public init(configPath: String, release: String) {
         self.configPath = configPath
@@ -42,6 +44,42 @@ public enum ChatExit {
     public static let restartMe: Int32 = 1
     /// A fault a restart cannot fix (EX_CONFIG).
     public static let badSetting: Int32 = 78
+    /// Not now, maybe later (EX_TEMPFAIL): a `remote_bind` address is not on an up Tailscale interface of this Mac.
+    public static let tryLater: Int32 = 75
+}
+
+/// This Mac's interfaces, as `getifaddrs` reports them — to tell a Tailscale address from the same range elsewhere.
+public struct ChatInterface: Sendable, Equatable {
+    public var name: String
+    public var address: String
+    public var up: Bool
+    public init(name: String, address: String, up: Bool) { self.name = name; self.address = address; self.up = up }
+
+    /// Every IPv4 address of every interface.
+    public static func current() -> [ChatInterface] {
+        var ifs: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifs) == 0 else { return [] }
+        defer { freeifaddrs(ifs) }
+        var out: [ChatInterface] = []
+        var p = ifs
+        while let i = p {
+            if let a = i.pointee.ifa_addr, a.pointee.sa_family == sa_family_t(AF_INET) {
+                var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                var sin = a.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+                inet_ntop(AF_INET, &sin.sin_addr, &buf, socklen_t(buf.count))
+                out.append(ChatInterface(name: String(cString: i.pointee.ifa_name), address: String(cString: buf),
+                                         up: (i.pointee.ifa_flags & UInt32(IFF_UP)) != 0))
+            }
+            p = i.pointee.ifa_next
+        }
+        return out
+    }
+
+    /// The addresses of `wanted` that are NOT on an up `utun*` interface (Tailscale's). An address of 100.64.0.0/10 on a
+    /// LAN or WAN interface (carrier-grade NAT) is not one.
+    public static func missing(_ wanted: [String], among ifs: [ChatInterface]) -> [String] {
+        wanted.filter { w in !ifs.contains { $0.up && $0.name.hasPrefix("utun") && $0.address == w } }
+    }
 }
 
 public enum ChatServer {
@@ -79,6 +117,12 @@ public enum ChatServer {
         guard !host.isEmpty else { fault(ChatExit.badSetting, "no address to listen on: pass --bind ADDR or set bind in the config") }
         guard let addr = ChatAddress(host), addr.isLoopback else {
             fault(ChatExit.badSetting, "--bind \(host): this server listens on a loopback address only")
+        }
+        // Besides loopback, only this Mac's own Tailscale addresses (`remote_bind`, checked by the config), and only while
+        // each is on an up Tailscale interface: otherwise not now (75), the supervisor tries again later.
+        let missing = ChatInterface.missing(config.remoteBind, among: o.interfaces())
+        if !missing.isEmpty {
+            fault(ChatExit.tryLater, "not listening on \(missing.joined(separator: ", ")): not an address of this Mac's Tailscale interface now (is Tailscale up?)")
         }
 
         // The data folder: made if missing, locked, and the first status written (not ready).
@@ -145,7 +189,7 @@ public enum ChatServer {
 
         let listeners: ChatListeners
         do {
-            listeners = try await ChatListeners.bind(core: core, host: host, linePort: config.linePort, pagePort: config.httpPort,
+            listeners = try await ChatListeners.bind(core: core, host: host, remoteHosts: config.remoteBind, linePort: config.linePort, pagePort: config.httpPort,
                                                      ownerSocket: o.ownerSocket, log: log)
         } catch let e as ChatConfigError {
             fault(ChatExit.badSetting, e.description)
@@ -160,7 +204,8 @@ public enum ChatServer {
         let ownerSocket = o.ownerSocket
         Stop.add { presence.cancel(); listeners.close(); core.close(); StatusWriter.current?.remove(); if let s = ownerSocket { unlink(s) } }
         log("chat: lines on \(host):\(listeners.linePort), page on http://\(host):\(listeners.pagePort), tokens required from every caller: \(config.requireTokens), data in \(dir)"
-            + (o.ownerSocket.map { ", the owner's socket at \($0)" } ?? ""))
+            + (o.ownerSocket.map { ", the owner's socket at \($0)" } ?? "")
+            + (config.remoteBind.isEmpty ? "" : "; also on \(config.remoteBind.joined(separator: ", ")) for the agents in allow, each with its token"))
 
         let snapshot: @Sendable () -> Void = {
             let (rooms, people) = core.counts()

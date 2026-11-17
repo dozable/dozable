@@ -65,6 +65,9 @@ public enum SettingType: Sendable, Equatable {
     case dotfiles
     /// Paths relative to the home, comma-separated (`notes, src/shared`) — `MacFencePaths.fenceReadProblem`; `""` = none.
     case homePathList
+    /// Exact Tailscale IPv4 addresses (100.64.0.0/10), comma-separated, no range — the chat server's other machines;
+    /// `""` = none.
+    case tailnetAddresses
 
     /// The variables a title may use.
     public static let titleVariables = ["sandbox", "session", "image", "time", "phase"]
@@ -112,6 +115,7 @@ public enum SettingType: Sendable, Equatable {
         case .addressList: "addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated (\"\" = none)"
         case .dotfiles: "a git repository's https:// URL, or a folder on this Mac that is one (\"\" = none)"
         case .homePathList: "paths relative to your home, comma-separated, like \"notes, src/shared\" (\"\" = none)"
+        case .tailnetAddresses: "Tailscale addresses like 100.100.1.2, comma-separated, each one exactly (\"\" = none)"
         }
     }
 
@@ -297,6 +301,9 @@ public struct SettingDefinition: Sendable {
         case (.dotfiles, .string(let s)):
             if let why = DotfilesSource.problem(s) { throw SettingsError("\(key): \(why)") }
             return v
+        case (.tailnetAddresses, .string(let s)):
+            if let why = ChatRemoteSettings.problem(s) { throw SettingsError("\(key): \(why)") }
+            return v
         case (.homePathList, .string(let s)):
             if let why = MacFencePaths.fenceReadProblem(s) { throw SettingsError("\(key): \(why)") }
             return v
@@ -323,7 +330,7 @@ public struct SettingDefinition: Sendable {
         case .int:
             guard let i = Int(t) else { throw SettingsError("\(key) is a whole number") }
             return try validate(.int(i))
-        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles, .homePathList:
+        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles, .homePathList, .tailnetAddresses:
             return try validate(.string(t))
         case .titleTemplate:
             return try validate(.string(text))          // its spaces are its own
@@ -509,6 +516,8 @@ public enum SettingKey {
     public static let chatEnabled = "chat.enabled"
     public static let chatPagePort = "chat.page_port"
     public static let chatLinePort = "chat.line_port"
+    public static let chatRemoteListen = "chat.remote_listen"
+    public static let chatRemoteAgents = "chat.remote_agents"
     public static let serveBind = "serve.bind"
     public static let servePublicOrigins = "serve.public_origins"
     public static let serveTrustedProxies = "serve.trusted_proxies"
@@ -895,6 +904,13 @@ public struct DozableSettings: Sendable {
                   applies: .now, ui: false),
             .init("chat", "line_port", .int(1024...65_535), .int(8791),
                   "The chat server's line port on 127.0.0.1 (one JSON message per line). Every caller needs a token. When it changes, the daemon restarts the chat server within a few seconds.",
+                  applies: .now, ui: false),
+            // Agents on other machines, over Tailscale. Set on this Mac only, never from the dashboard or the environment.
+            .init("chat", "remote_listen", .tailnetAddresses, .string(""),
+                  "This Mac's own Tailscale addresses (100.64.0.0/10) on which the chat server also listens, both ports, for agents on other machines. Only agents, each with its own token; never you. Plain HTTP: Tailscale encrypts it; any other address is refused.",
+                  applies: .now, ui: false),
+            .init("chat", "remote_agents", .tailnetAddresses, .string(""),
+                  "The Tailscale addresses of the other machines that may connect to the chat server (each exactly; no range). Each is always an agent: it must send its token; it gets /agent/… and files with its token, never your page or /api.",
                   applies: .now, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
@@ -1466,6 +1482,7 @@ public struct DozableSettings: Sendable {
             case .addressList: kind = "addresses"
             case .dotfiles: kind = "dotfiles"
             case .homePathList: kind = "home-paths"
+            case .tailnetAddresses: kind = "addresses"
             }
             var note: String?
             switch r.source {

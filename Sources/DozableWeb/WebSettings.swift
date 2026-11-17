@@ -105,6 +105,8 @@ public final class WebSettingsStore: @unchecked Sendable {
             if d.section == "serve" || d.key == SettingKey.uiLAN { throw HostError(.invalid, "\(d.key) decides who reaches the dashboard — set it on the Mac: doz config set \(d.key) VALUE") }
             // 694: consent to a login item is given on the Mac, never from a browser (under --lan, another device's).
             if d.key == SettingKey.loginItem { throw HostError(.invalid, "\(d.key) adds a login item to this Mac — set it on the Mac: doz daemon login-item on|off") }
+            // The chat server — whether it runs, its ports, and who on other machines reaches it — is set on the Mac only.
+            if d.section == "chat" { throw HostError(.invalid, "\(d.key) decides who reaches the chat server — set it on the Mac: doz config set \(d.key) VALUE") }
             throw HostError(.invalid, "\(d.key) is a host path — set it with: doz config set \(d.key) PATH")
         }
         let r = s.resolve(d.key, flag: flags[d.key])

@@ -24,6 +24,8 @@
 //      folder can be read by others; a failure's reason names no host
 //  19. the child listens on exactly 127.0.0.1:page and 127.0.0.1:line (lsof)
 //  20. webhook remove: who says not set; a message fails at once again
+//  21. chat.remote_listen / chat.remote_agents: a LAN, wildcard, range or link-local value refused; an address this Mac
+//      does not have on Tailscale is said (status, --json, doctor WARN, the firewall row) and never listened on
 //
 // Every daemon and server it starts is stopped at the end; the store is removed.
 import Darwin
@@ -526,4 +528,34 @@ func cliChatWebhookRows(h: CLIHarness, root: URL, paths: ChatPaths, page: Int, l
     _ = h.run(["chat", "remove", "bot3"], timeout: 60)
     _ = h.run(["chat", "webhook", "remove", "bot3"], timeout: 60)
     try? fm.removeItem(atPath: paths.data + "/secrets.json")
+
+    // 21. agents on other machines: the settings take exact Tailscale addresses only; an address this Mac does not have
+    // is not listened on (said), and the server stays on exactly 127.0.0.1 — no tailnet or LAN address is ever bound here.
+    for bad in ["0.0.0.0", "192.168.1.5", "100.64.0.0/10", "169.254.1.1", "::"] {
+        r = h.run(["config", "set", "chat.remote_listen", bad])
+        check(r.code != 0, "21 chat.remote_listen \(bad) is refused (\(r.code))")
+    }
+    let here = "100.100.1.2", other = "100.100.1.3"
+    guard ChatInterface.missing([here], among: ChatInterface.current()) == [here] else {
+        info("this Mac has \(here) on a Tailscale interface: row 21's missing-address case is not tried")
+        return
+    }
+    check(h.run(["config", "set", "chat.remote_agents", other]).code == 0 && h.run(["config", "set", "chat.remote_listen", here]).code == 0,
+          "21 config set chat.remote_agents \(other), chat.remote_listen \(here)")
+    let said = h.waitFor(15) { h.run(["chat", "status"]).out.contains("warning: not listening on \(here): not an address of this Mac now (is Tailscale up?)") }
+    check(said, "21 status: not listening on \(here): not an address of this Mac now")
+    r = h.run(["chat", "status", "--json"])
+    check(r.out.contains("\"missing\"") && r.out.contains(here), "21 status --json: remote.missing names it")
+    if let s = server() {
+        let ls = sh(["/usr/sbin/lsof", "-nP", "-a", "-p", String(s), "-iTCP", "-sTCP:LISTEN", "-Fn"], nil).1
+        let names = Set(ls.split(separator: "\n").filter { $0.hasPrefix("n") }.map { String($0.dropFirst()) })
+        check(names == ["127.0.0.1:\(page)", "127.0.0.1:\(line)"], "21 …still exactly 127.0.0.1:\(page) and :\(line) (\(names.sorted()))")
+    } else { check(false, "21 a chat server runs") }
+    check(!h.run(["daemon", "status"]).out.contains("chat: also on"), "21 daemon status: not 'also on'")
+    r = h.run(["doctor"], timeout: 120)
+    check(r.out.split(separator: "\n").contains { $0.hasPrefix("warn") && $0.contains("chat remote") && $0.contains("not listening on \(here)") },
+          "21 doctor: chat remote WARN")
+    check(r.out.contains("chat firewall"), "21 doctor: the firewall row (read only)")
+    _ = h.run(["config", "set", "chat.remote_listen", ""]); _ = h.run(["config", "set", "chat.remote_agents", ""])
+    check(h.waitFor(15) { !h.run(["chat", "status"]).out.contains("not listening on") }, "21 cleared: no remote line")
 }

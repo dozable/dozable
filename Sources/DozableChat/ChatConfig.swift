@@ -31,6 +31,10 @@ public struct ChatConfig: Sendable, Equatable {
     /// /agent/ calls, and the line port always asks them for a token. It overrides being owned.
     public var agentAddresses: [String] = []
     public var bind = ""
+    /// This Mac's own Tailscale addresses the server ALSO listens on, both ports (Dozable's own key; the daemon writes it).
+    /// Every connection accepted there is an agent (`ChatCaller.remote`). Only IPv4 in 100.64.0.0/10, only with
+    /// `require_tokens`.
+    public var remoteBind: [String] = []
 
     public init() {}
 
@@ -39,6 +43,7 @@ public struct ChatConfig: Sendable, Equatable {
         "line_port", "http_port", "data_dir", "token_service", "default_room", "participants", "rooms", "allow",
         "require_tokens", "require_tokens_from", "peer_name", "agent_run_cap", "https_port", "https_domain",
         "tailscale_command", "secrets_file_only", "test_owned_addresses", "agent_addresses", "bind", "no_loopback_agent",
+        "remote_bind",
     ]
 
     /// Reads the config file.
@@ -90,6 +95,7 @@ public struct ChatConfig: Sendable, Equatable {
         if let a = try get("test_owned_addresses", { try $0.goStrings("test_owned_addresses") }) { c.testOwnedAddresses = a }
         if let a = try get("agent_addresses", { try $0.goStrings("agent_addresses") }) { c.agentAddresses = a }
         if let s = try get("bind", { try $0.goString("bind") }) { c.bind = s }
+        if let a = try get("remote_bind", { try $0.goStrings("remote_bind") }) { c.remoteBind = a }
         // The reference's keys for what this server does not do: accepted only when they ask for nothing.
         if let s = try get("peer_name", { try $0.goString("peer_name") }), !s.isEmpty {
             throw ChatConfigError("config peer_name: \"\(s)\" — this server is not a Claude Code peer; leave it empty")
@@ -165,10 +171,26 @@ public struct ChatConfig: Sendable, Equatable {
         for r in rooms.keys where !chatIsRoomName(r) {
             throw ChatConfigError("config rooms: \"\(r)\" is not a room name (lower-case letters, digits, - and _)")
         }
+        if let why = Self.remoteBindRefusal(remoteBind, requireTokens: requireTokens) { throw ChatConfigError(why) }
         if dataDir.isEmpty { throw ChatConfigError("config data_dir: no data folder (set data_dir, or pass --data-dir)") }
         if !secretsFileOnly {
             throw ChatConfigError("config secrets_file_only: must be true — this server reads tokens from its secrets file only")
         }
+    }
+
+    /// Why `remote_bind` cannot be used (nil: it can): each entry an IPv4 address in 100.64.0.0/10 (so never loopback,
+    /// unspecified, multicast, link-local or a LAN address), listed once, and only with `require_tokens`.
+    public static func remoteBindRefusal(_ list: [String], requireTokens: Bool) -> String? {
+        guard !list.isEmpty else { return nil }
+        guard requireTokens else { return "config remote_bind: needs require_tokens (every caller there is an agent with its own token)" }
+        var seen = Set<String>()
+        for e in list {
+            guard let a = ChatAddress(e), a.bytes.count == 4, e == ChatAddress.text(a), ChatWebhookAddress.tailnet.contains(a) else {
+                return "config remote_bind: \"\(e)\" is not a Tailscale address (100.64.0.0/10) — only this Mac's own Tailscale addresses are listened on besides loopback"
+            }
+            guard seen.insert(e).inserted else { return "config remote_bind: \(e) is listed twice" }
+        }
+        return nil
     }
 
     /// Who may call what, from this config.
@@ -205,6 +227,11 @@ public struct ChatAddress: Sendable, Hashable {
         guard text.contains(":"), inet_pton(AF_INET6, text, &v6) == 1 else { return false }
         let b = withUnsafeBytes(of: v6) { Array($0) }
         return b[0..<10].allSatisfy { $0 == 0 } && b[10] == 0xFF && b[11] == 0xFF
+    }
+
+    /// The dotted form of an IPv4 address (nil for IPv6).
+    public static func text(_ a: ChatAddress) -> String? {
+        a.bytes.count == 4 ? a.bytes.map(String.init).joined(separator: ".") : nil
     }
 
     public var isLoopback: Bool {

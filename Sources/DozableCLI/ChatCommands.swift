@@ -61,6 +61,8 @@ struct ChatStatusReport: Encodable {
     var problem: String?
     /// Standing problems that do not stop the server (a webhook entry not set or unreadable, …).
     var warnings: [String]?
+    /// Agents on other machines: where it also listens, for whom, and what is missing (nil: not set).
+    var remote: ChatRemoteState?
 
     static func read(_ store: DozableStore) -> ChatStatusReport {
         let paths = ChatPaths(store: store)
@@ -87,6 +89,7 @@ struct ChatStatusReport: Encodable {
         r.state = sup?.state ?? "starting"
         r.problem = sup?.problem
         r.warnings = sup?.warnings
+        r.remote = sup?.remote
         r.ready = server.running && server.ready && (sup?.pid.map { Int($0) == server.pid } ?? true)
         if r.ready { r.state = "running" }
         return r
@@ -108,6 +111,7 @@ struct ChatStatusReport: Encodable {
     var text: String {
         var s = headline + "\n"
         if enabled { s += "  \(bind), page port \(pagePort), line port \(linePort)\n" }
+        if enabled, let l = remote?.line(pagePort: pagePort, linePort: linePort) { s += "  \(l)\n" }
         if let h = human {
             let n = participants.count
             s += "  you are \(h); \(n) participant\(n == 1 ? "" : "s")" + (rooms.map { ", \($0) room\($0 == 1 ? "" : "s")" } ?? "") + "\n"
@@ -145,12 +149,53 @@ func chatDoctorCheck(_ store: DozableStore) -> DoctorCheck {
     }
 }
 
-/// `doz daemon status`'s chat line (nil while chat is off).
+/// `doz daemon status`'s chat line (nil while chat is off), and a second one while it also listens on another address.
 func chatDaemonLine(_ c: ChatServerState?) -> String? {
     guard let c, c.enabled else { return nil }
     let ports = "\(c.bind), page port \(c.pagePort), line port \(c.linePort)"
-    if c.ready, let pid = c.pid { return "chat: running (pid \(pid)) — \(ports)" }
-    return "chat: \(c.state) — \(ports)" + (c.problem.map { " — \($0)" } ?? "")
+    let also = (c.remote?.listen).flatMap { $0.isEmpty ? nil : "\nchat: also on \($0.joined(separator: ", "))" } ?? ""
+    if c.ready, let pid = c.pid { return "chat: running (pid \(pid)) — \(ports)" + also }
+    return "chat: \(c.state) — \(ports)" + (c.problem.map { " — \($0)" } ?? "") + also
+}
+
+/// `doz doctor`'s rows for agents on other machines (none while neither setting is set): what is open, what is missing,
+/// and the application firewall, read only (`socketfilterfw --getglobalstate`, `--getblockall`, `--getappblocked`).
+func chatRemoteDoctorChecks(_ store: DozableStore, firewall: (([String]) -> String?)? = nil) -> [DoctorCheck] {
+    let view = ChatSettingsView.read()
+    guard view.enabled, !(view.remoteListen.isEmpty && view.remoteAgents.isEmpty) else { return [] }
+    let r = ChatStatusReport.read(store)
+    var out: [DoctorCheck] = []
+    let state = r.remote ?? ChatRemoteState(listen: [], agents: view.remoteAgents, missing: view.remoteListen)
+    if let l = state.line(pagePort: r.pagePort, linePort: r.linePort) { out.append(DoctorCheck(check: "chat remote", status: .ok, detail: l)) }
+    for w in state.warnings { out.append(DoctorCheck(check: "chat remote", status: .warn, detail: w)) }
+    if view.remoteListen.isEmpty { out.append(DoctorCheck(check: "chat remote", status: .ok, detail: "chat.remote_agents is set; chat listens on 127.0.0.1 only (chat.remote_listen is empty)")) }
+    guard !view.remoteListen.isEmpty else { return out }
+    let run = firewall ?? { args in
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/libexec/ApplicationFirewall/socketfilterfw")
+        p.arguments = args
+        let o = Pipe()
+        p.standardOutput = o
+        p.standardError = FileHandle.nullDevice
+        do { try p.run() } catch { return nil }
+        let d = o.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        return String(decoding: d, as: UTF8.self)
+    }
+    let global = run(["--getglobalstate"]) ?? ""
+    let blockAll = run(["--getblockall"]) ?? ""
+    let me = CommandLine.arguments.first.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path } ?? ""
+    let app = me.isEmpty ? "" : (run(["--getappblocked", me]) ?? "")
+    if global.lowercased().contains("disabled") || global.isEmpty {
+        out.append(DoctorCheck(check: "chat firewall", status: .ok, detail: global.isEmpty ? "the application firewall could not be read" : "the application firewall is off"))
+    } else if blockAll.lowercased().contains("enabled") {
+        out.append(DoctorCheck(check: "chat firewall", status: .warn, detail: "the application firewall blocks every incoming connection: other machines cannot reach chat"))
+    } else if app.lowercased().contains("blocked") && !app.lowercased().contains("permitted") {
+        out.append(DoctorCheck(check: "chat firewall", status: .warn, detail: "the application firewall blocks doz: other machines cannot reach chat (System Settings → Network → Firewall)"))
+    } else {
+        out.append(DoctorCheck(check: "chat firewall", status: .ok, detail: "the application firewall is on and does not block doz"))
+    }
+    return out
 }
 
 // MARK: - on / off

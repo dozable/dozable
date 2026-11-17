@@ -18,14 +18,45 @@ public final class ChatListeners: @unchecked Sendable {
     private let core: ChatServerCore
     private let log: ChatLog
 
+    /// The listeners on this Mac's Tailscale addresses (`remote_bind`): both ports on each.
+    private let remote: [(line: NIOAsyncChannel<LineAccepted, Never>, page: NIOAsyncChannel<PageAccepted, Never>)]
+    /// Open connections per remote address (`maxPerRemoteAddress` at most).
+    private let remoteCount = RemoteCount()
+
     struct LineAccepted: Sendable {
         let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
         let ip: String
+        var remote = false
     }
 
     struct PageAccepted: Sendable {
         let channel: NIOAsyncChannel<HTTPServerRequestPart, HTTPServerResponsePart>
         let ip: String
+        var remote = false
+    }
+
+    /// A listener on another address than loopback: every connection it accepts is `ChatCaller.remote`. `peer` is the
+    /// TESTS' seam (internal, never reachable from a config or a flag): a 127.0.0.1 listener marked remote whose callers
+    /// are reported as coming from that address.
+    struct Remote: Sendable {
+        var host: String
+        var peer: String? = nil
+    }
+
+    /// The most connections one remote address may hold open at once.
+    static let maxPerRemoteAddress = 32
+
+    final class RemoteCount: @unchecked Sendable {
+        private let lock = NSLock()
+        private var open: [String: Int] = [:]
+        func take(_ ip: String) -> Bool {
+            lock.withLock {
+                guard open[ip, default: 0] < ChatListeners.maxPerRemoteAddress else { return false }
+                open[ip, default: 0] += 1
+                return true
+            }
+        }
+        func give(_ ip: String) { lock.withLock { open[ip, default: 1] -= 1; if open[ip] == 0 { open[ip] = nil } } }
     }
 
     /// The largest request body the page port reads; a larger one is refused with 413 and the connection closed.
@@ -33,36 +64,70 @@ public final class ChatListeners: @unchecked Sendable {
 
     /// Binds both ports (line first), then the owner's socket when one is given (`ownerSocket`, checked by
     /// `ChatOwnerSocket.refusal` first; made 0600). A failure is thrown as it came, for the caller to judge.
-    public static func bind(core: ChatServerCore, host: String, linePort: Int, pagePort: Int, ownerSocket: String? = nil, log: ChatLog,
-                            group: EventLoopGroup = MultiThreadedEventLoopGroup.singleton) async throws -> ChatListeners {
-        let line = try await ServerBootstrap(group: group)
+    public static func bind(core: ChatServerCore, host: String, remoteHosts: [String] = [], linePort: Int, pagePort: Int, ownerSocket: String? = nil,
+                            log: ChatLog, group: EventLoopGroup = MultiThreadedEventLoopGroup.singleton) async throws -> ChatListeners {
+        try await bind(core: core, host: host, remote: remoteHosts.map { Remote(host: $0) }, linePort: linePort, pagePort: pagePort,
+                       ownerSocket: ownerSocket, log: log, group: group)
+    }
+
+    static func bindLine(_ host: String, _ port: Int, remote: Remote?, group: EventLoopGroup) async throws -> NIOAsyncChannel<LineAccepted, Never> {
+        try await ServerBootstrap(group: group)
             .serverChannelOption(ChannelOptions.backlog, value: 256)
             .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-            .bind(host: host, port: linePort) { child in
+            .bind(host: host, port: port) { child in
                 child.eventLoop.makeCompletedFuture {
                     try child.pipeline.syncOperations.addHandler(ByteToMessageHandler(LineFrameDecoder(max: ChatProtocol.maxLine)))
                     try child.pipeline.syncOperations.addHandler(IdleStateHandler(readTimeout: .seconds(ChatLineConnection.idleSeconds)))
                     try child.pipeline.syncOperations.addHandler(CloseWhenIdle())
                     return LineAccepted(channel: try NIOAsyncChannel(wrappingChannelSynchronously: child),
-                                        ip: child.remoteAddress?.ipAddress ?? "")
+                                        ip: remote?.peer ?? child.remoteAddress?.ipAddress ?? "", remote: remote != nil)
                 }
             }
+    }
+
+    static func bindPage(_ host: String, _ port: Int, remote: Remote?, group: EventLoopGroup) async throws -> NIOAsyncChannel<PageAccepted, Never> {
+        try await ServerBootstrap(group: group)
+            .serverChannelOption(ChannelOptions.backlog, value: 256)
+            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+            .bind(host: host, port: port) { child in
+                child.eventLoop.makeCompletedFuture {
+                    // No pipelining assistance: requests are answered in order by one task per connection anyway, and the
+                    // connection must keep reading while a stream or a long poll is open, so that a caller that goes
+                    // away is noticed (its close ends the stream or the wait).
+                    try child.pipeline.syncOperations.configureHTTPServerPipeline(withPipeliningAssistance: false, withErrorHandling: true)
+                    return PageAccepted(channel: try NIOAsyncChannel(wrappingChannelSynchronously: child),
+                                        ip: remote?.peer ?? child.remoteAddress?.ipAddress ?? "", remote: remote != nil)
+                }
+            }
+    }
+
+    /// Binds both ports on `host` (line first), then both on each remote address (the same port numbers), then the
+    /// owner's socket. A failure closes what was bound and is thrown as it came.
+    static func bind(core: ChatServerCore, host: String, remote remotes: [Remote], linePort: Int, pagePort: Int, ownerSocket: String? = nil,
+                     log: ChatLog, group: EventLoopGroup = MultiThreadedEventLoopGroup.singleton) async throws -> ChatListeners {
+        let line = try await bindLine(host, linePort, remote: nil, group: group)
         let page: NIOAsyncChannel<PageAccepted, Never>
         do {
-            page = try await ServerBootstrap(group: group)
-                .serverChannelOption(ChannelOptions.backlog, value: 256)
-                .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-                .bind(host: host, port: pagePort) { child in
-                    child.eventLoop.makeCompletedFuture {
-                        // No pipelining assistance: requests are answered in order by one task per connection anyway, and the
-                        // connection must keep reading while a stream or a long poll is open, so that a caller that goes
-                        // away is noticed (its close ends the stream or the wait).
-                        try child.pipeline.syncOperations.configureHTTPServerPipeline(withPipeliningAssistance: false, withErrorHandling: true)
-                        return PageAccepted(channel: try NIOAsyncChannel(wrappingChannelSynchronously: child),
-                                            ip: child.remoteAddress?.ipAddress ?? "")
-                    }
-                }
+            page = try await bindPage(host, pagePort, remote: nil, group: group)
         } catch {
+            try? await line.channel.close()
+            throw error
+        }
+        var remote: [(line: NIOAsyncChannel<LineAccepted, Never>, page: NIOAsyncChannel<PageAccepted, Never>)] = []
+        do {
+            for r in remotes {
+                // The same ports as on loopback (a port of 0 was picked there; a test's seam picks its own).
+                let lp = r.peer != nil ? 0 : (line.channel.localAddress?.port ?? linePort)
+                let pp = r.peer != nil ? 0 : (page.channel.localAddress?.port ?? pagePort)
+                let l = try await bindLine(r.host, lp, remote: r, group: group)
+                do { remote.append((l, try await bindPage(r.host, pp, remote: r, group: group))) } catch {
+                    try? await l.channel.close()
+                    throw error
+                }
+            }
+        } catch {
+            for r in remote { try? await r.line.channel.close(); try? await r.page.channel.close() }
+            try? await page.channel.close()
             try? await line.channel.close()
             throw error
         }
@@ -82,19 +147,22 @@ public final class ChatListeners: @unchecked Sendable {
                 guard chmod(path, 0o600) == 0 else { throw ChatConfigError("--owner-socket \(path): cannot make it 0600") }
             } catch {
                 try? await owner?.channel.close()
+                for r in remote { try? await r.line.channel.close(); try? await r.page.channel.close() }
                 try? await page.channel.close()
                 try? await line.channel.close()
                 throw error
             }
         }
-        let l = ChatListeners(line: line, page: page, owner: owner, core: core, log: log)
+        let l = ChatListeners(line: line, page: page, remote: remote, owner: owner, core: core, log: log)
         return l
     }
 
     private init(line: NIOAsyncChannel<LineAccepted, Never>, page: NIOAsyncChannel<PageAccepted, Never>,
+                 remote: [(line: NIOAsyncChannel<LineAccepted, Never>, page: NIOAsyncChannel<PageAccepted, Never>)],
                  owner: NIOAsyncChannel<PageAccepted, Never>?, core: ChatServerCore, log: ChatLog) {
         self.line = line
         self.page = page
+        self.remote = remote
         self.owner = owner
         self.core = core
         self.log = log
@@ -102,29 +170,49 @@ public final class ChatListeners: @unchecked Sendable {
         pagePort = page.channel.localAddress?.port ?? 0
     }
 
+    /// The ports each remote listener has (the test's seam picks its own): (line, page).
+    var remotePorts: [(line: Int, page: Int)] { remote.map { ($0.line.channel.localAddress?.port ?? 0, $0.page.channel.localAddress?.port ?? 0) } }
+
     /// Serves until the listeners close.
     public func serve() async {
         await withDiscardingTaskGroup { group in
-            group.addTask { await self.serveLines() }
-            group.addTask { await self.servePages() }
+            group.addTask { await self.serveLines(self.line) }
+            group.addTask { await self.servePages(self.page) }
+            for r in self.remote {
+                group.addTask { await self.serveLines(r.line) }
+                group.addTask { await self.servePages(r.page) }
+            }
             if self.owner != nil { group.addTask { await self.serveOwner() } }
         }
     }
 
-    /// Closes both listeners: no new connection is accepted.
+    /// Closes every listener: no new connection is accepted.
     public func close() {
         line.channel.close(promise: nil)
         page.channel.close(promise: nil)
+        for r in remote { r.line.channel.close(promise: nil); r.page.channel.close(promise: nil) }
         owner?.channel.close(promise: nil)
+    }
+
+    /// A remote connection is counted against its address while it is open; one over the cap is closed at once.
+    private func counted(_ remote: Bool, _ ip: String, _ ch: Channel, _ body: () async -> Void) async {
+        guard remote else { await body(); return }
+        guard remoteCount.take(ip) else {
+            log("chat: refused \(ip): \(Self.maxPerRemoteAddress) connections from it are open already")
+            try? await ch.close()
+            return
+        }
+        defer { remoteCount.give(ip) }
+        await body()
     }
 
     // MARK: the line port
 
-    private func serveLines() async {
-        try? await line.executeThenClose { inbound in
+    private func serveLines(_ listener: NIOAsyncChannel<LineAccepted, Never>) async {
+        try? await listener.executeThenClose { inbound in
             try await withThrowingDiscardingTaskGroup { group in
                 for try await conn in inbound {
-                    group.addTask { await self.lineConnection(conn) }
+                    group.addTask { await self.counted(conn.remote, conn.ip, conn.channel.channel) { await self.lineConnection(conn) } }
                 }
             }
         }
@@ -132,7 +220,7 @@ public final class ChatListeners: @unchecked Sendable {
 
     private func lineConnection(_ a: LineAccepted) async {
         let core = self.core, log = self.log
-        guard var state = ChatLineConnection(core: core, remoteIP: a.ip) else {
+        guard var state = ChatLineConnection(core: core, remoteIP: a.ip, remote: a.remote) else {
             log("chat: refused \(a.ip): not an allowed address")
             try? await a.channel.channel.close()
             return
@@ -161,11 +249,13 @@ public final class ChatListeners: @unchecked Sendable {
 
     // MARK: the page port
 
-    private func servePages() async {
-        try? await page.executeThenClose { inbound in
+    private func servePages(_ listener: NIOAsyncChannel<PageAccepted, Never>) async {
+        try? await listener.executeThenClose { inbound in
             try await withThrowingDiscardingTaskGroup { group in
                 for try await conn in inbound {
-                    group.addTask { await self.pageConnection(conn) }
+                    group.addTask {
+                        await self.counted(conn.remote, conn.ip, conn.channel.channel) { await self.pageConnection(conn, caller: conn.remote ? .remote : .tcp) }
+                    }
                 }
             }
         }

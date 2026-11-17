@@ -7,10 +7,13 @@ import Foundation
 
 /// Who a request came from, by the way it arrived: a TCP connection (judged by its address, `ChatAccess`) or the
 /// owner's private socket (`ChatOwnerSocket`: a Unix socket in a 0700 folder, only the same user admitted) — the one
-/// way to act as the human when tokens are required. A TCP caller is never the owner.
+/// way to act as the human when tokens are required. A TCP caller is never the owner. A connection accepted on a remote
+/// listener (`remote_bind`: this Mac's Tailscale address) is `remote`, whatever its address or the config says: always an
+/// agent — `/agent/` and a file with a participant's token, nothing else, and never the human.
 public enum ChatCaller: Sendable, Equatable {
     case tcp
     case owner
+    case remote
 }
 
 public struct ChatHTTPRequest: Sendable {
@@ -35,7 +38,7 @@ public struct ChatHTTPRequest: Sendable {
 
     /// The human acts without a token: over the owner's socket, or (a config that requires no tokens) from an owned
     /// address the access gate already let through.
-    func humanWithoutToken(requireTokens: Bool) -> Bool { caller == .owner || !requireTokens }
+    func humanWithoutToken(requireTokens: Bool) -> Bool { caller == .owner || (caller == .tcp && !requireTokens) }
 
     public func header(_ name: String) -> String { headers[name.lowercased()] ?? "" }
 
@@ -117,6 +120,13 @@ public struct ChatPageHandler: Sendable {
     private func gate(_ r: ChatHTTPRequest) -> ChatHTTPResponse {
         // The owner's socket admitted only this user's processes (`ChatOwnerSocket.admit`): it is the human's own door.
         if r.caller == .owner { return route(r) }
+        // A remote listener's caller: one of the agents the config lets in (`allow`), and then only an exact /agent/ call
+        // or a file fetch with a participant's token — never the page, /api or the stream, never the human.
+        if r.caller == .remote {
+            guard core.access.allow.contains(r.remoteIP) else { return .error(403, ChatAccess.notOwned) }
+            guard ChatPath.isAgentPath(rawPath: r.rawPath) || Self.isTokenFileFetch(r) else { return .error(403, ChatAccess.agentOnly) }
+            return route(r)
+        }
         // An agent address may also fetch a file, with a participant's token: the download decides who that is.
         if core.access.isAgentAddress(r.remoteIP), Self.isTokenFileFetch(r) { return route(r) }
         if let refusal = core.access.page(remote: r.remoteIP, agentPath: ChatPath.isAgentPath(rawPath: r.rawPath)) {
@@ -377,7 +387,7 @@ public struct ChatPageHandler: Sendable {
     /// is the human. An agent address is never the human: it needs a token, and a token that is no one's — or the
     /// human's — fetches nothing (nil: the plain 404, never "treat it as the human").
     func fileCaller(_ r: ChatHTTPRequest) -> String? {
-        let agentOnly = r.caller == .tcp && core.access.isAgentAddress(r.remoteIP)
+        let agentOnly = r.caller == .remote || (r.caller == .tcp && core.access.isAgentAddress(r.remoteIP))
         let bearer = Self.bearerToken(r)
         if !bearer.isEmpty {
             guard let who = core.whoHolds(bearer) else { return nil }
@@ -455,6 +465,8 @@ public struct ChatPageHandler: Sendable {
         let auth = r.header("Authorization")
         let token = ChatServerCore.trimSpace(auth.hasPrefix("Bearer ") ? String(auth.dropFirst(7)) : auth)
         guard let caller = core.whoHolds(token) else { return .jsonError(401, Self.needBearer) }
+        // From another machine the human's token is no one's: the human never comes in that way.
+        if r.caller == .remote && core.isHuman(caller) { return .jsonError(401, Self.needBearer) }
         let p = core.participant(caller)
         switch name {
         case "register":

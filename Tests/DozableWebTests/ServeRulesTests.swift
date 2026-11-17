@@ -254,6 +254,18 @@ final class ServeRulesTests: XCTestCase {
         }
     }
 
+    /// Who reaches the chat server from other machines (and whether it runs) is set on the Mac — never from a browser or a
+    /// device on the network, any value, nor a reset.
+    func testTheWebUIRefusesEveryChatSetting() throws {
+        let store = WebSettingsStore(environment: [:])
+        for (k, v) in [("chat.remote_listen", #""100.100.1.2""#), ("chat.remote_agents", #""100.100.1.3""#), ("chat.enabled", "true"), ("chat.page_port", "9000")] {
+            XCTAssertThrowsError(try store.apply(WebSettingChange.decode(Data(#"{"key":"\#(k)","value":\#(v)}"#.utf8))), k) { e in
+                XCTAssertTrue("\(e)".contains("decides who reaches the chat server"), "\(e)")
+            }
+            XCTAssertThrowsError(try store.apply(WebSettingChange.decode(Data(#"{"key":"\#(k)","reset":true}"#.utf8))), k)
+        }
+    }
+
     /// 694: consent to a login item is given on the Mac — the web route (a LAN device under --lan) never sets it, any value,
     /// nor resets it; the Settings page shows it read-only.
     func testTheWebUIRefusesTheLoginItem() throws {
