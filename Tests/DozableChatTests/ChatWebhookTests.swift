@@ -296,6 +296,54 @@ final class ChatWebhookTests: XCTestCase {
         XCTAssertEqual(second.calls.count, 1)
     }
 
+    /// The entry is the truth at each try: a message still waiting for a bot whose entry was CHANGED (the daemon restarts
+    /// its server with the new one) goes to the new address with the new Authorization value — never the old ones. One
+    /// whose entry was REMOVED fails at once and goes nowhere.
+    func testAWaitingMessageFollowsAChangedEntryAndFailsWhenItIsRemoved() throws {
+        let old = try listener { _ in .status(500) }
+        let c1 = try core(bot1: old.url + "/old", header: "Bearer old-secret-0123456789", backoff: [0, 30])
+        let id = humanSays(c1, "waiting")
+        let until = Date().addingTimeInterval(5)
+        while old.calls.isEmpty && Date() < until { usleep(20_000) }
+        c1.close()
+        cores.removeAll()
+        // changed: the new address and value
+        let new = try listener()
+        let c2 = try core(bot1: new.url + "/new", header: "Bearer new-secret-0123456789", freshDir: false)
+        XCTAssertEqual(c2.redeliver(), 1)
+        _ = wait(c2, id, "bot1", "delivered")
+        XCTAssertEqual(new.calls.map(\.path), ["/new"])
+        XCTAssertEqual(new.calls.first?.headers["authorization"], "Bearer new-secret-0123456789")
+        XCTAssertEqual(old.calls.count, 1, "the old address is never called again")
+        c2.close()
+        cores.removeAll()
+        // removed: a message waiting for it fails at once, with the protocol's words, and nothing is called
+        let dead = try listener { _ in .status(500) }
+        let c3 = try core(bot1: dead.url, backoff: [0, 30], freshDir: false)
+        let id2 = humanSays(c3, "waiting again")
+        let until2 = Date().addingTimeInterval(5)
+        while dead.calls.isEmpty && Date() < until2 { usleep(20_000) }
+        c3.close()
+        cores.removeAll()
+        let c4 = try core(bot1: nil, freshDir: false)
+        _ = c4.redeliver()
+        let s = wait(c4, id2, "bot1", "failed")
+        XCTAssertEqual(s.last?.detail, "no webhook address for bot1 in the file store or the Keychain")
+        usleep(200_000)
+        XCTAssertEqual(dead.calls.count, 1)
+        XCTAssertEqual(new.calls.count, 1)
+    }
+
+    /// The webhook client says which doz it is — the release number only, nothing of the machine or the user.
+    func testTheUserAgentIsTheReleaseOnly() throws {
+        let l = try listener()
+        let core = try core(bot1: l.url)
+        _ = wait(core, humanSays(core, "hi @bot1"), "bot1", "delivered")
+        XCTAssertEqual(l.calls.first?.headers["user-agent"], "doz/1.2.3 chat")
+        XCTAssertEqual(ChatURLSessionWebhook(release: "0.51.5-rc.1").userAgent, "doz/0.51.5 chat")
+        XCTAssertEqual(ChatURLSessionWebhook().userAgent, "doz chat")
+    }
+
     func testAMessageQueuedLongerThanTheLimitIsNotHandedOverAtStart() throws {
         let c1 = try core(bot1: "http://127.0.0.1:\(chatTestClosedPort())", backoff: [0, 30])
         let id = humanSays(c1, "old")

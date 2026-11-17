@@ -470,6 +470,17 @@ func cliChatWebhookRows(h: CLIHarness, root: URL, paths: ChatPaths, page: Int, l
     let req = hook.requests.last
     check(delivered && req?.line.hasPrefix("POST /\(pathSentinel) ") == true && req?.auth == "Bearer \(secret)", "17 a message for bot2 reaches its webhook with its Authorization value")
     check(h.waitFor(5) { h.run(["chat", "read", "room3", "--json"]).out.contains("\"delivered\"") }, "17 …and is marked delivered")
+    // presence as the server says it: a bot that never sent anything is never "here"
+    r = h.run(["chat", "who"])
+    let bot2Row = r.out.split(separator: "\n").first { $0.hasPrefix("bot2") }.map(String.init) ?? ""
+    check(!bot2Row.hasSuffix(" here") && (bot2Row.hasSuffix(" woken") || bot2Row.hasSuffix(" quiet")), "17 who: bot2 is woken or quiet, never here (\(bot2Row))")
+    r = h.run(["chat", "who", "--json"])
+    check(r.out.contains("\"presence\""), "17 who --json carries the server's presence word")
+    // times as the rest of the group: local in the text, ISO in --json
+    r = h.run(["chat", "webhook", "status", "bot2"])
+    check(r.out.range(of: #"set \d{4}-\d\d-\d\d \d\d:\d\d \(for"#, options: .regularExpression) != nil && !r.out.contains("Z ("), "17 webhook status: the set time in local time (\(r.out.trimmingCharacters(in: .newlines)))")
+    check(h.run(["chat", "webhook", "status", "--json"]).out.range(of: #"\d\dZ""#, options: .regularExpression) != nil, "17 …and ISO in --json")
+    check(h.run(["chat", "webhook", "set", "--help"]).out.contains("Messages still waiting for this bot go to the new address."), "17 webhook set --help says where waiting messages go")
     // the sample while serving
     samples.lock.withLock { samples.text += psArgs() }
     let psSamples = samples.lock.withLock { samples.text }

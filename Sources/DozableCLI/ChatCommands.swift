@@ -608,18 +608,23 @@ struct ChatRead: AsyncParsableCommand {
 }
 
 struct ChatWho: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "who", abstract: "Who is in chat: name, kind, token, rooms, here or away.")
+    static let configuration = CommandConfiguration(commandName: "who", abstract: "Who is in chat: name, kind, token, how it is reached, rooms, and presence as the server says it (here, away, quiet, …).")
     @OptionGroup var g: GlobalOptions
 
     /// `delivery`: `polls`, or `webhook (set)`, `webhook (not set)`, `webhook (unreadable)` — never the entry's value.
-    struct Row: Encodable { var name: String; var kind: String; var token: Bool; var delivery: String?; var webhookEntry: String?; var rooms: [String]; var here: Bool? }
+    /// `presence`: the server's own word (`/api/presence`: here, away, present, quiet, woken, working, idle, not running);
+    /// `here`: true only for one with a page open or heard from lately — never for one not heard from.
+    struct Row: Encodable { var name: String; var kind: String; var token: Bool; var delivery: String?; var webhookEntry: String?; var rooms: [String]; var here: Bool?; var presence: String? }
+
+    /// Whether a presence word means the participant is here now (a page open, or heard from lately).
+    static func isHere(_ state: String) -> Bool { ["here", "present", "working", "idle"].contains(state) }
 
     func run() async throws {
         let paths = ChatPaths(store: g.dozableStore)
         let dir = (try? ChatDirectory.load(paths)) ?? ChatDirectory()
         let hashes = (try? ChatTokenHashes.load(paths)) ?? ChatTokenHashes()
         var rooms: [String: [String]] = [:]
-        var here: [String: Bool] = [:]
+        var presence: [String: String] = [:]
         var running = false
         if ChatSettingsView.read().enabled {
             let c = ChatOwnerClient(paths: paths)
@@ -628,7 +633,7 @@ struct ChatWho: AsyncParsableCommand {
                 rooms = ChatStateView(v).rooms
                 if let p = try? c.request("GET", "/api/presence"), p.status == 200, case .array(let ps)? = try? ChatJSON.parse(p.body) {
                     for x in ps {
-                        if let n = x.field("name")?.stringValue { here[n] = ["here", "present", "working", "idle", "woken"].contains(x.field("state")?.stringValue ?? "") }
+                        if let n = x.field("name")?.stringValue { presence[n] = x.field("state")?.stringValue ?? "" }
                     }
                 }
             }
@@ -637,18 +642,22 @@ struct ChatWho: AsyncParsableCommand {
         var rows: [Row] = []
         // Whether each webhook entry is set: as the daemon last saw it (supervisor.json says set / not set / unreadable only).
         let entryStates = ChatServerState.load(paths)?.webhooks ?? [:]
-        if let h = dir.human { rows.append(Row(name: h, kind: "you", token: false, delivery: nil, rooms: roomsOf(h), here: running ? here[h] ?? false : nil)) }
+        func row(_ n: String, kind: String, token: Bool, delivery: String?, entry: String?) -> Row {
+            let word = running ? (presence[n] ?? "") : ""
+            return Row(name: n, kind: kind, token: token, delivery: delivery, webhookEntry: entry, rooms: roomsOf(n),
+                       here: running ? Self.isHere(word) : nil, presence: running && !word.isEmpty ? word : nil)
+        }
+        if let h = dir.human { rows.append(row(h, kind: "you", token: false, delivery: nil, entry: nil)) }
         for p in dir.participants {
             let delivery = p.webhookEntry.map { "webhook (\(entryStates[$0] ?? "not set"))" } ?? "polls"
-            rows.append(Row(name: p.name, kind: p.kind, token: hashes.sha256[p.name] != nil, delivery: delivery, webhookEntry: p.webhookEntry,
-                            rooms: roomsOf(p.name), here: running ? here[p.name] ?? false : nil))
+            rows.append(row(p.name, kind: p.kind, token: hashes.sha256[p.name] != nil, delivery: delivery, entry: p.webhookEntry))
         }
         if g.json { Out.json(rows); return }
         if rows.isEmpty { Out.stdout("nobody yet — doz chat on, then doz chat add NAME\n"); return }
-        var t = [["NAME", "KIND", "TOKEN", "DELIVERY", "ROOMS", "HERE"]]
+        var t = [["NAME", "KIND", "TOKEN", "DELIVERY", "ROOMS", "PRESENCE"]]
         for r in rows {
             t.append([r.name, r.kind, r.kind == "you" ? "—" : (r.token ? "yes" : "no"), r.delivery ?? "—", r.rooms.isEmpty ? "—" : r.rooms.joined(separator: ","),
-                      r.here.map { $0 ? "here" : "away" } ?? "—"])
+                      r.presence ?? r.here.map { $0 ? "here" : "away" } ?? "—"])
         }
         Out.stdout(Out.table(t))
     }
@@ -675,7 +684,8 @@ struct ChatWebhookSet: AsyncParsableCommand {
         discussion: """
             The second line is sent verbatim as Authorization: VALUE (an empty line: no header). Standard input must be a \
             pipe or a file, never the terminal, so nothing is echoed: printf '%s\\n%s\\n' "$URL" "$AUTH" | doz chat webhook set bot1, \
-            or --from-file F (a file only you can read, not a link). The chat server restarts to take it.
+            or --from-file F (a file only you can read, not a link). The chat server restarts to take it. Messages still \
+            waiting for this bot go to the new address.
             """)
     @Argument(help: "The entry: a webhook bot's name (or the --webhook-entry it was added with).") var entry: String
     @Option(name: .customLong("from-file"), help: "Read the two lines from this file (yours, readable by you alone, not a link) instead of standard input.") var fromFile: String?
@@ -731,13 +741,21 @@ struct ChatWebhookStatus: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     func validate() throws { if let e = entry, let why = ChatWebhookEntries.nameRefusal(e) { throw ValidationError(why) } }
 
+    /// An ISO 8601 time as the rest of the group prints times: local, `yyyy-MM-dd HH:mm` (`--json` keeps ISO).
+    static func localTime(_ iso: String) -> String {
+        guard let d = ISO8601DateFormatter().date(from: iso) else { return iso }
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        return f.string(from: d)
+    }
+
     static func describe(_ i: ChatWebhookInfo) -> String {
         switch i.state {
         case "set":
             var s = "set — \(i.scheme ?? "?")://\(i.host.map { $0.contains(":") ? "[\($0)]" : $0 } ?? "?")"
             if let p = i.port { s += ":\(p)" }
             s += ", fingerprint \(i.fingerprint ?? "?")"
-            if let at = i.setAt { s += ", set \(at)" }
+            if let at = i.setAt { s += ", set \(localTime(at))" }
             return s
         case "unreadable": return "cannot be read" + (i.problem.map { ": \($0)" } ?? "")
         default: return "not set"

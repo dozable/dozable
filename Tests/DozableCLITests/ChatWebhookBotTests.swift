@@ -4,6 +4,7 @@ import DozableKit
 import Foundation
 import XCTest
 @testable import DozableHost
+@testable import DozableCLI
 
 /// Webhook bots under the daemon: the address rule, the pipe the entries travel on, the supervisor (entries from the
 /// keychain SEAM only — a `MemoryKeychain` or a test keychain here, never the login keychain — handed on descriptor 3, never
@@ -272,5 +273,13 @@ final class ChatWebhookTLSTests: XCTestCase {
         XCTAssertTrue(why.hasPrefix("tls:"), why)
         for s in ["127.0.0.1", String(server.port), "p-hidden", "s-hidden"] { XCTAssertFalse(why.contains(s), "\(why) names \(s)") }
         XCTAssertTrue(server.requests.isEmpty, "nothing was sent over it")
+    }
+}
+
+/// `doz chat who`'s presence column is the server's own word; "here" only for one with a page open or heard from lately.
+final class ChatWhoPresenceTests: XCTestCase {
+    func testOnlyAHeardFromParticipantIsHere() {
+        for w in ["here", "present", "working", "idle"] { XCTAssertTrue(ChatWho.isHere(w), w) }
+        for w in ["away", "quiet", "woken", "not running", ""] { XCTAssertFalse(ChatWho.isHere(w), w) }
     }
 }

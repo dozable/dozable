@@ -151,6 +151,7 @@ public final class ChatServerCore: @unchecked Sendable {
         self.secrets = secrets
         self.release = release
         self.log = log
+        webhookPoster = ChatURLSessionWebhook(release: release)
         participants = config.participants
         rooms = config.rooms
     }

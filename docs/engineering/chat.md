@@ -239,7 +239,11 @@ run that would touch a real `doz-chat-webhook-*` item). The supervisor reads eac
 again a minute after it could not be read, and after a set or remove; it hands the readable ones to the server on a pipe:
 posix_spawn makes the read end the child's descriptor 3 (`--webhooks-fd 3`, accepted only with `--supervised` and
 `--token-hashes`), the bytes are written whole and the write end closed before the child starts, and nothing else is
-inherited. A change of an entry restarts the server (under a second). An entry that is missing or cannot be read is
+inherited. A change of an entry restarts the server (under a second). The entry is the truth at each try: messages still
+waiting for the bot (queued, not yet accepted) go to the NEW address with the new value when the restarted server hands
+them over, never to the old one; after `webhook remove` they fail at once with the protocol's words ("no webhook address
+for bot1 in the file store or the Keychain") and go nowhere (`ChatWebhookTests`). The call's `User-Agent` is
+`doz/<release> chat` — the release number only. An entry that is missing or cannot be read is
 withheld and said (`supervisor.json`'s `webhooks`: `set` / `not set` / `unreadable` — never a value — and `warnings`,
 shown by `chat status`, `chat who` and `doctor`); a message for that bot fails at once. `doz chat webhook status [E]`
 shows set or not, the scheme, host and port, a 12-hex fingerprint of sha256(address, header) and when it was set — never
