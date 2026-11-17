@@ -126,6 +126,10 @@ public enum MacFenceSessionFolder {
         // door into the proxy (`http_unix_socket`: gh speaks plain HTTP there and the proxy swaps the placeholder — Go on
         // macOS trusts only the system's certificates, never a session's CA, so the decrypting tunnel cannot serve it).
         try MacFenceHostFS.writeAtomically(Data(sshShim(f).utf8), dir: f.bin, name: "ssh", mode: 0o555)
+        // The chat-room member: `dozchat` on its PATH, the one file its profile lets it read and run.
+        if let d = f.dozchatExecutable {
+            try MacFenceHostFS.writeAtomically(Data(dozchatShim(d).utf8), dir: f.bin, name: "dozchat", mode: 0o555)
+        }
         if let sock = f.ghSocket {
             for d in [f.cache + "/config", f.ghConfigDir] {
                 if let k = MacFenceHostFS.kind(d), k != S_IFDIR { try MacFenceHostFS.remove(d) }
@@ -144,6 +148,12 @@ public enum MacFenceSessionFolder {
         let opts = MacFenceEnvironment.sshOptions(doz: f.dozExecutable, knownHosts: f.ssh + "/known_hosts")
         return "#!/bin/sh\n# doz:fence-ssh-shim:v1 — written by Dozable for a fenced session on this Mac at every start.\n"
             + "exec /usr/bin/ssh" + opts.map { " -o " + MacFenceEnvironment.shellQuoted($0) }.joined() + " \"$@\"\n"
+    }
+
+    /// A fenced session's `dozchat` (first on its PATH): `dozchat-mac` beside doz, as it is.
+    public static func dozchatShim(_ path: String) -> String {
+        "#!/bin/sh\n# doz:fence-dozchat-shim:v1 — written by Dozable for a fenced session on this Mac at every start.\n"
+            + "exec " + MacFenceEnvironment.shellQuoted(path) + " \"$@\"\n"
     }
 
     /// 683 M4: gh's config in a session with GitHub as the person (`GH_CONFIG_DIR`, in its caches — gh rewrites it).

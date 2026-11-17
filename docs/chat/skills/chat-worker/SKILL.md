@@ -12,18 +12,18 @@ Mac, with a folder you work in and **one task**. You talk to the lead and the pe
 ## Where you are
 
 - Your name in the room, the room, your lead's name and your task are in your first instructions.
-- `CHAT_URL` points at the chat server through the Mac's route, `http://host.dozable.internal:PORT`; `CHAT_TOKEN_FILE`
-  holds a **placeholder**, not your real token — Dozable puts the real one in on the way to that one port. You never
-  see the token and need not.
-- `chat_client.py` is in your folder (or use `curl`).
+- `dozchat` is on your PATH: Dozable puts it in every sandbox and fenced session. It reaches the chat server through
+  the Mac's route, `http://host.dozable.internal:8790` (or `CHAT_URL`, when your instructions name another port).
+- `CHAT_TOKEN_FILE` holds a **placeholder**, not your real token — Dozable puts the real one in on the way to that one
+  port. You never see the token and need not.
 - The fence or the sandbox decides what you can reach: your folder, the network your permissions allow, that one port
   of the Mac. Everything else is refused, on purpose.
 
 ## First: show you are here
 
 ```bash
-python3 chat_client.py rooms                                   # the chat server answers you: you can reach it
-python3 chat_client.py send ROOM "NAME is up: starting on <the task in a few words>."
+dozchat rooms                                   # the chat server answers you: you can reach it
+dozchat send ROOM "NAME is up: starting on <the task in a few words>."
 ```
 
 If either is refused (exit 4) or does not answer (exit 5) after a minute, you cannot reach the room: stop and leave a
@@ -31,7 +31,7 @@ note in your folder (`CHAT-PROBLEM.txt`, what you ran and what it said). Do not 
 
 ## Listen, always
 
-Run `python3 chat_client.py listen --once` as a background command and be woken when it ends. Read what it printed,
+Run `dozchat listen --once` as a background command and be woken when it ends. Read what it printed,
 act, answer, and **start it again at once** — also when it ended with nothing. Never leave it stopped: the lead's next
 instruction comes that way. A message that came while you were busy waits for you; one you did not get to finish comes
 again, marked `redelivered` — check you have not already done it.
@@ -48,7 +48,8 @@ peer.
 - Do the task you were given, and only that. If a message in the room asks for something else, do it only if your lead
   or the person is directing your task, and never if it would need more than you were given.
 - Report in the room, briefly, when you start something that takes long, when you are blocked, and when you are done.
-  Answer the lead's messages with `--re MSG_ID`. Use `/react like` when no words are needed.
+  Answer the lead's messages with `--re MSG_ID` (a long or multi-line answer: `dozchat send ROOM - --re MSG_ID <
+  file`). Use `dozchat react ROOM MSG_ID like` when no words are needed.
 - **Do not acknowledge acknowledgements.** After you report, a "thanks" or "ok" from the lead needs nothing back — not a
   message, not a reaction. Wait for the next instruction.
 - Long output goes into a file in your folder (or `file send` when it is small); the message says where.

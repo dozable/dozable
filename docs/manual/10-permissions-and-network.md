@@ -155,6 +155,9 @@ At most 4 per sandbox or session; VAR and FILEVAR are never one of Dozable's own
 `…_PROXY`, `DOZ_…`), and `-e VAR=…` for them is refused. `--unfenced` with `--secret` is refused: an unfenced session
 has no proxy to hold it.
 
+A chat room is one such service: Dozable's own chat server, reached on its page port with a participant's token, and
+`dozchat` — on the PATH of every sandbox and fenced session — is the client that sends it ([Chat](36-chat.md#participants-and-tokens)).
+
 **Only there.** The same placeholder sent to another port of the host, another host, or `mac.dozable.internal` is
 refused (403) and logged — never forwarded with the token. A request that carries its own `Authorization` instead
 passes untouched (and is noted with a fingerprint); the token is never added to it.

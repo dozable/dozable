@@ -35,8 +35,9 @@ stderr. Exit codes:
 As a module: c = chat_client.Client.from_env(); c.send("room1", "hello"); c.listen(handler) (each item is
 acknowledged after handler(item) returns).
 
-Inside a Dozable sandbox or a fenced session on the Mac, the chat server is reached through the Mac's route and the
-token stays on the Mac: Dozable gives the session a placeholder and swaps the real token in on requests to that one
+Inside a Dozable sandbox or a fenced session on the Mac, `dozchat` is already on the PATH: the same commands, nothing to
+copy (`dozchat --help`). This file is for everywhere else — and works there too. The chat server is reached through the
+Mac's route and the token stays on the Mac: Dozable gives the session a placeholder and swaps the real token in on requests to that one
 port. On the Mac (the token file is yours alone, outside the session's folder):
 
     doz chat add bot1 --to-file ~/.config/chat/bot1.token
@@ -193,13 +194,15 @@ class Client:
             body["private"] = True
         if attachments:
             body["attachments"] = attachments
-        # A retry with the same msg_id is answered "duplicate" and sends nothing twice (protocol 4.1).
+        # No answer, or a 5xx: wait a moment and try again with the SAME msg_id — a repeat is answered "duplicate" and
+        # sends nothing twice (protocol 4.1, 7.5).
         for attempt in range(3):
             try:
                 return self._json("POST", "/agent/send", body)
             except ChatError as e:
                 if e.code != EXIT_AWAY or attempt == 2:
                     raise
+                say("%s; trying again in %d s with the same msg_id" % (e, 1 + attempt))
                 time.sleep(1 + attempt)
 
     def receive(self, wait=0, ack=True, redeliver=False):
@@ -306,8 +309,14 @@ class Client:
 
 
 def clean_name(name):
-    """The protocol's rule for a stored name (4.8): the last path part, A-Za-z0-9._ ()+- kept, others "_"."""
-    name = name.replace("\\", "/").split("/")[-1]
+    """The chat server's rule for a stored name (4.8): backslashes are separators, trailing slashes go, the last part;
+    A-Za-z0-9._ ()+- kept, any other character "_"; leading dots and spaces dropped; "file" when nothing is left; the
+    last 120 characters."""
+    name = name.replace("\\", "/")
+    while len(name) > 1 and name.endswith("/"):
+        name = name[:-1]
+    if name != "/":
+        name = name.split("/")[-1]
     keep = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._ ()+-"
     name = "".join(c if c in keep else "_" for c in name).lstrip(". ")[-120:]
     return name or "file"

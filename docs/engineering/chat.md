@@ -51,6 +51,7 @@ and another browser of the LAN option gets what `serve.chat` allows (below, "In 
 | `Sources/DozableHost/ChatImporter.swift`, `Sources/DozableCLI/ChatImportCommand.swift` | `doz chat import`: the names against the directory, the data folder put aside, `imported.json` (`ChatImporter`); the command and its dry run |
 | `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home, also calling a webhook), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars), `ChatWebhookTests` (against `TestWebhookListener`, a listener each test starts on 127.0.0.1: the call, the tries, every limit of the client, no secret anywhere, notices, the hold, redelivery once; reactions), `ChatSessionsAndFilesTests` (against `TestClaudeSession`, a record and key file in a scratch sessions folder and a socket the test listens on: the inbox text, failed, `/protocol`, `/react`'s fallback, notices, started, the announcement; names never paths, the limits before a byte is kept, the human's token, download headers, who may fetch, a delete's files; the msg_id start rule) |
 | `Tests/Conformance/RUNNER`, `Tests/Conformance/expected-green.txt`, `Scripts/chat-conformance.sh` | the conformance gate (below) |
+| `Guest/dozchat/` (`dozchat.c`, `build.sh`, `build-mac.sh`, `PROVENANCE.md`, `test/`), `Sources/DozableHost/MacDozchat.swift` | `dozchat`, the chat-room member every sandbox and fenced session carries (below, "dozchat"); `Tests/DozableChatTests/DozchatUnitTests.swift` (the C unit check under ASan + UBSan, the escaper against JSONSerialization, the name vectors shared with `ChatFileRules.cleanName`) and `ChatDozchatClientTests` (against the real `doz chat serve`, direct and through a stub proxy) |
 | `docs/chat/` | what is published for agents (below, "The protocol, published"): `protocol.md` and `webhook.md` copied unchanged (`Scripts/chat-protocol-sync.sh`), the Python client `client/chat_client.py`, the skills `skills/*/SKILL.md`, a README; tests `ChatPublicDocumentsTests` (the two copies' pinned SHA-256; Dozable's own files there never name the reference or use the word for a central server the chat server is never called, checked by the words' hashes — the two copies exempt by path) and `ChatPythonClientTests` (the client as `/usr/bin/python3 -I`, a scrubbed environment, against the real `doz chat serve`: send, receive, ack, a file both ways, a wrong token, a restart under `listen`; no python3 fails) |
 
 ## The protocol, published
@@ -63,9 +64,49 @@ Beside them, Dozable's own: `client/chat_client.py` — one file, Python 3's sta
 (`send`, `receive`, `ack`, `listen`, `file get|send`, `rooms`, `protocol`); the token from a file of the user's alone or
 the environment, never argv or output; no redirects; a timeout on every call; it runs inside a sandbox or a fenced
 session through `--host-port` and `--secret … file=CHAT_TOKEN_FILE` (its header) — and the skills an agent loads
-(`chat-room-member`, `chat-lead`, `chat-worker`), which name only the client, `curl` and, for the person, `doz chat …`.
+(`chat-room-member`, `chat-lead`, `chat-worker`), which name `dozchat` inside a Dozable workspace, the Python client and
+`curl` outside, and, for the person, `doz chat …`.
 The client was written from the document alone and only then run against this server; where the document did not say
 enough is recorded with the feature that published it.
+
+## dozchat — the member every workspace carries
+
+`dozchat` is a small client of this protocol, written in C (`Guest/dozchat/dozchat.c`, libc and POSIX only), so that an
+agent in a Dozable sandbox or fenced session is a room member with nothing to install. Its commands and exit codes are
+the Python client's (`rooms`, `send`, `receive`, `ack`, `listen`, `file get|send`, `protocol`), plus `send ROOM -` (the
+text on stdin, at most 1 MiB) and `react ROOM MSG_ID REACTION`. Its default `CHAT_URL` is
+`http://host.dozable.internal:8790`; https is refused ("plain http only; outside Dozable use chat_client.py"). It goes
+through the session's own proxy (`http_proxy`, then `HTTP_PROXY`; the request in absolute form, the proxy URL's password
+as `Proxy-Authorization: Basic`; `NO_PROXY` exact names or `*`) — inside a sandbox a direct connection to a port with a
+secret bound is refused, and a fence has no DNS. stdout carries one compact JSON line per item or answer (the server's
+own bytes, whitespace outside strings removed); words for a person go to stderr as `dozchat: …`.
+
+**Where it is.** In a sandbox: the tools layer copies the committed static ELF (`Resources/dozchat`, aarch64-linux-musl,
+built with the pinned Zig, PROVENANCE.md, `make dozchat-verify`) to `/usr/local/lib/doz/bin/dozchat` and links
+`/usr/local/bin/dozchat` when that name is free — always, with no setting (tools-and-dotfiles.md). In a fenced session:
+`dozchat-mac` beside doz (built per release by `Guest/dozchat/build-mac.sh`, never committed; signed and notarised with
+doz, CLI flavour only — updates-and-release.md), readable as that ONE file (a `literal` in the profile, like doz itself),
+run through the host-owned shim `<session>/etc/bin/dozchat` (`MacFenceSessionFolder.dozchatShim`). An unfenced session
+and the helper build have none. Neither path reaches anything the session could not already reach with curl.
+
+**Its rules** (each tested — `make dozchat-check`, `make test`):
+- No JSON parser. A request body is literal text plus `json_str` (a strict UTF-8 check: overlong forms, surrogates and
+  anything above U+10FFFF refused); an answer is printed as it came; a bounded scanner (depth 64) finds only the
+  `messages` array, the ids an acknowledgement gives back (printable ASCII, at most 256 bytes) and `error`/`detail`.
+- Every buffer has a hard maximum (an answer 32 MiB + 64 KiB, a head 64 KiB, a header line 8 KiB, a file 20 MiB, text on
+  stdin 1 MiB); every size computation is checked; no strcpy/sprintf/strcat/gets; every format string a literal;
+  `-Wall -Wextra -Wformat=2 -Wshadow -Wvla -Werror`.
+- The token comes from `CHAT_TOKEN_FILE` (O_NOFOLLOW, a regular file of this uid, mode & 077 == 0, at most 4 KiB) or
+  `CHAT_TOKEN`; it is never taken on the command line (`--token` and `--url` are refused by name), never printed, never
+  in an error, and zeroed before the program ends. Every word on stderr is scrubbed of it and of the proxy's password.
+- Plain HTTP/1.1, one connection per call, `Connection: close`: no TLS, no redirect followed (a 3xx is exit 1), any
+  `Transfer-Encoding` refused, exactly one Content-Length or none, a deadline on every call (connect 10 s, a call 30 s,
+  `receive` its wait + 15 s, a file 120 s).
+- `send` is tried three times on "no answer" or a 5xx with the SAME msg_id (a repeat is a duplicate) and says so;
+  `listen` retries for ever (1 → 30 s) and acknowledges an item only after its line was written and flushed.
+- `file get` checks a full URL is this server's (scheme, host, port), cleans the name by the server's rule
+  (`test/clean-name.tsv`, shared with `ChatFileRules.cleanName` and the Python client), reads the whole file into memory
+  first, then writes only `openat(the folder, the name, O_CREAT|O_EXCL|O_NOFOLLOW, 0600)`, and removes a partial file.
 
 ## The rules
 
@@ -183,8 +224,10 @@ enough is recorded with the feature that published it.
   with why ("no running Claude session with that name", the socket's refusal). The text is the reference's: a header
   (room, sender with how it was checked, the msg_id's start, what it answers, `mentions you`, to whom or `direct`), every
   line of the sender's text marked `  │ `, the attachments as paths in the data folder, how to take it, and that it is a
-  note from a peer, never the user typing. The line is from `switchboard` and the answer it suggests is
-  `switchboard send …` — the reference's wire text, kept (Dozable's own command for it comes later). An edit or delete
+  note from a peer, never the user typing. The line names its sender as the reference does (its wire text, kept); the answer it
+  suggests is Dozable's own, `dozchat send <room> --re <msg_id> "…"` (no `--as`: the token decides who sends), and an
+  unknown name in `/invite` or `/remove` ends with `doz chat add NAME` — the conformance runner is told both
+  (`-answer-cmd`, `-add-cmd` in `Scripts/chat-conformance.sh`). An edit or delete
   of a message the session was handed is a notice there; `/protocol` from the session goes to its inbox ("queued");
   a new protocol version is a note there at start; a message is `started` when the session's record turns busy after
   the hand-over (looked at once a second); `/react` with no message named takes the one last handed to it (kept in

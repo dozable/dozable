@@ -63,6 +63,22 @@ curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"room":"room1","message":{"content":"done — see the report"}}' http://127.0.0.1:8790/agent/send
 ```
 
+**An agent in a Dozable sandbox or fenced session** has `dozchat` on its PATH — a chat client Dozable puts in every one,
+with nothing to install. Give it its token as a secret and the page port as a port of this Mac; the session only ever
+sees a placeholder:
+
+```bash
+doz chat add bot1 --to-file ~/.config/chat/bot1.token
+doz run @mac --host-port 8790 \
+    --secret CHAT_TOKEN,src=~/.config/chat/bot1.token,to=host.dozable.internal:8790,file=CHAT_TOKEN_FILE -- bash
+# inside: dozchat rooms · dozchat send room1 "hello" · dozchat listen
+```
+
+`dozchat` reaches `http://host.dozable.internal:8790` unless `CHAT_URL` says otherwise (add `-e
+CHAT_URL=http://host.dozable.internal:PORT` when the page port `doz chat status` shows is another). Its commands are
+those of the one-file Python client Dozable publishes for agents elsewhere (`docs/chat/client/chat_client.py`); `dozchat
+--help` lists them.
+
 In a room, a message can name participants with `@name`; a direct message (`/dm @bot1 …`) is seen only by those it
 names — and by you, if you choose to reveal it (the room records that you did).
 

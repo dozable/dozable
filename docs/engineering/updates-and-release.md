@@ -56,6 +56,13 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 - **Stripped before signing** (`dsymutil` first, then `strip`; the dSYM's UUID must equal the stripped binary's): the
   symbols go to `dist/<name>.dSYM.zip`, published beside the tarball. An app must never strip or re-sign the helper.
+- **`dozchat-mac` — the CLI tarball ONLY**, exactly as `deckhold-mac` below: the chat-room member a fenced session runs
+  as `dozchat` (chat.md, "dozchat"). Built fresh by `Guest/dozchat/build-mac.sh` (`FORCE=1`, the Mac's `cc` alone — no
+  toolchain; NOT committed), copied to `libexec/doz/dozchat-mac`, `strip -x`, signed with the release's arguments and NO
+  entitlements, verified (arm64 Mach-O, no entitlements, identity/runtime/timestamp, `--version` runs), notarised in the
+  SAME submission and its own ticket checked; its provenance in `licences/dozchat/`. Never in the helper (release.sh and
+  `make test-cli-helper` fail if it is). `make cli` / `install-cli` put it beside `doz` by rename (no toolchain needed);
+  `MacDozchat.locate()` finds it beside the resolved executable.
 - **`deckhold-mac` — the CLI tarball ONLY** (680: the PTY holder for sessions held on the Mac itself). `release.sh` builds
   it fresh (`Guest/deckhold/build-mac.sh`, `FORCE=1`: `deckhold.c` + the pinned ghostty's macOS xcframework library, the
   Mac's clang — NOT committed, a Mach-O is signed per release), copies it to `libexec/doz/deckhold-mac`, strips it, signs
@@ -216,7 +223,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 - **`make release VERSION=X.Y.Z`** (`Scripts/release.sh`) is the ONE way the artefact is made:
   release build → `dist/stage/doz-X.Y.Z/{bin/doz → ../libexec/doz/doz, libexec/doz/{doz, VERSION, RELEASE,
-  DozableKit_*.bundle, deckhold-mac, Dozable.app, kernels/, licences/}}` → stripped (dSYM zip beside) → signed → `dist/doz-X.Y.Z-macos-arm64.tar.gz`
+  DozableKit_*.bundle, deckhold-mac, dozchat-mac, Dozable.app, kernels/, licences/}}` → stripped (dSYM zip beside) → signed → `dist/doz-X.Y.Z-macos-arm64.tar.gz`
   + `.sha256` (`FLAVOUR=helper`: the helper build, above). It checks the
   signature (`--verify --strict`), the virtualization entitlement, and that the packed `doz --version`
   says X.Y.Z. `Scripts/ship` (the workspace) runs it after tagging, then runs it again with `FLAVOUR=helper`, and

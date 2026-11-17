@@ -242,6 +242,11 @@ keeps the secret (a new placeholder each time), and so does a new daemon (it rea
 secret and its keychain item go when the session's record is removed (`doz sessions end` of a session that has ended).
 `--unfenced --secret` is refused. The full rules: [A secret for a service](10-permissions-and-network.md#a-secret-for-a-service).
 
+**A chat room.** Every fenced session has `dozchat` on its PATH — Dozable's chat client, a member of your chat rooms
+with nothing to install (it reaches only what the session can already reach: the one file is all the fence opens for
+it). With the page port and the participant's token given as above, `dozchat rooms`, `dozchat send room1 "…"` and
+`dozchat listen` work inside: [Chat](36-chat.md#participants-and-tokens). An unfenced session has no `dozchat`.
+
 Under `locked`, macOS's certificate service is closed too, so tools that check certificates through it (Go programs,
 `gh`) cannot reach anything; under `standard` it is open (it fetches revocation lists on the program's behalf).
 

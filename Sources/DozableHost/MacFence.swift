@@ -348,6 +348,9 @@ public struct MacFence: Sendable, Equatable {
     public var ghSocket: String? = nil
     /// 683 M4: doz itself, readable so `doz fence-connect` (git's and ssh's way through the proxy) runs inside.
     public var dozExecutable: String? = nil
+    /// dozchat for this Mac (`MacDozchat`): readable as this ONE file, run through the `etc/bin/dozchat` shim (nil: this build
+    /// carries none — no shim, no rule).
+    public var dozchatExecutable: String? = nil
     /// 683 M4: the folder is a git worktree — its repository's common git folder (resolved), writable but its hooks.
     public var gitCommon: [String] = []
 

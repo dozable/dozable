@@ -133,7 +133,9 @@ extension ChatServerCore {
         if m.reMsgID.utf8.count >= 8 { head += " · answers " + Self.short(m.reMsgID) }
         for n in m.mentions where n == p.name { head += " · mentions you" }
         if m.isPrivate { head += " · direct" } else if !m.to.isEmpty { head += " · to " + m.to.joined(separator: ", ") }
-        let how = "To answer in the room: switchboard send --as \(p.name) --room \(room) --re \(m.msgID) \"…\""
+        // Dozable's own client (dozchat: in every sandbox and fenced session); no --as — the token decides who sends. The
+        // conformance runner is told this shape with -answer-cmd (Scripts/chat-conformance.sh).
+        let how = "To answer in the room: dozchat send \(room) --re \(m.msgID) \"…\""
         var said = m.content.isEmpty ? "  │ (no text)" : Self.indent(m.content)
         if !m.attachments.isEmpty {
             said += "\n\nAttached, as files on this Mac you can read with your file tools:"

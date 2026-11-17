@@ -177,6 +177,61 @@ final class MacFenceToolsProfileTests: XCTestCase {
         XCTAssertTrue(p.split(separator: "\n").last?.contains("(subpath \"\(w.root)/sock\")") == true, "the socket folder stays closed to files, last")
     }
 
+    /// dozchat: the profile reads exactly its one file; the shim execs it; nothing else of its folder opens (sandbox-exec).
+    func testDozchatIsOneFileAndAShim() throws {
+        var f = try w.fence()
+        XCTAssertFalse(MacFenceProfile.render(f).contains("dozchat"), "no dozchat: no rule")
+        try MacFenceSessionFolder.prepare(f, previous: nil, person: .init())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: f.bin + "/dozchat"), "no dozchat: no shim")
+        let lib = w.root + "/libexec"
+        try FileManager.default.createDirectory(atPath: lib, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(atPath: "/usr/bin/true", toPath: lib + "/dozchat-mac")
+        w.write(lib + "/beside.txt", "not for the session")
+        f.dozchatExecutable = lib + "/dozchat-mac"
+        let p = MacFenceProfile.render(f)
+        XCTAssertTrue(p.contains("(allow file-read* (literal \"\(lib)/dozchat-mac\"))"), p)
+        XCTAssertFalse(p.contains("(subpath \"\(lib)\")"), "never its folder")
+        try MacFenceSessionFolder.prepare(f, previous: nil, person: .init())
+        let shim = try String(contentsOfFile: f.bin + "/dozchat", encoding: .utf8)
+        XCTAssertEqual(shim, MacFenceSessionFolder.dozchatShim(lib + "/dozchat-mac"))
+        XCTAssertTrue(shim.hasPrefix("#!/bin/sh\n") && shim.hasSuffix("exec '\(lib)/dozchat-mac' \"$@\"\n"), shim)
+        var st = stat()
+        XCTAssertEqual(lstat(f.bin + "/dozchat", &st), 0)
+        XCTAssertEqual(st.st_mode & 0o777, 0o555, "host-owned, read and run only")
+        let env = ["PATH": f.bin + ":/usr/bin:/bin"]
+        XCTAssertEqual(w.sandboxed(p, ["/bin/sh", "-c", "dozchat --version"], env: env).code, 0, "dozchat runs through its shim")
+        XCTAssertNotEqual(w.sandboxed(p, ["/bin/cat", lib + "/beside.txt"]).code, 0, "a file beside it stays closed")
+        XCTAssertNotEqual(w.sandboxed(p, ["/bin/ls", lib]).code, 0, "its folder is not listed")
+        XCTAssertNotEqual(w.sandboxed(p, ["/bin/sh", "-c", "echo x > '\(f.bin)/dozchat'"]).code, 0, "the shim cannot be rewritten")
+        XCTAssertNotEqual(w.sandboxed(p, ["/bin/sh", "-c", "echo x > '\(lib)/dozchat-mac'"]).code, 0, "nor the program")
+        // The rule adds reading exactly that file (running a program is not a path rule in the fence — `process-exec` is open,
+        // with its own deny list): with it the file reads, without it not.
+        XCTAssertEqual(w.sandboxed(p, ["/bin/cat", lib + "/dozchat-mac"]).code, 0, "the one file reads")
+        f.dozchatExecutable = nil
+        XCTAssertNotEqual(w.sandboxed(MacFenceProfile.render(f), ["/bin/cat", lib + "/dozchat-mac"]).code, 0, "without the rule it does not")
+    }
+
+    func testDozchatIsLocatedBesideDozOnly() throws {
+        let lib = w.root + "/keg/libexec"
+        try FileManager.default.createDirectory(atPath: lib, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(atPath: "/usr/bin/true", toPath: lib + "/doz")
+        XCTAssertNil(MacDozchat.locate(executable: lib + "/doz", environment: [:]).url, "none beside doz")
+        w.write(lib + "/dozchat-mac", "\u{7F}ELF guest binary")
+        chmod(lib + "/dozchat-mac", 0o755)
+        XCTAssertTrue(MacDozchat.locate(executable: lib + "/doz", environment: [:]).why?.contains("Linux") == true, "the guest's ELF is refused")
+        try FileManager.default.removeItem(atPath: lib + "/dozchat-mac")
+        try FileManager.default.copyItem(atPath: "/usr/bin/true", toPath: lib + "/dozchat-mac")
+        try FileManager.default.createDirectory(atPath: w.root + "/bin", withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(atPath: w.root + "/bin/doz", withDestinationPath: lib + "/doz")
+        XCTAssertEqual(MacDozchat.locate(executable: w.root + "/bin/doz", environment: [:]).url?.resolvingSymlinksInPath().path,
+                       URL(fileURLWithPath: lib + "/dozchat-mac").resolvingSymlinksInPath().path, "found beside the resolved doz")
+        XCTAssertEqual(MacDozchat.forFence(executable: w.root + "/bin/doz", environment: [:]), MacFencePaths.resolve(lib + "/dozchat-mac"))
+        XCTAssertNotNil(MacDozchat.locate(executable: "/nowhere/doz", environment: ["DOZ_DOZCHAT_MAC": lib + "/dozchat-mac"]).url,
+                        "the seam, in a guarded run")
+        XCTAssertNil(MacDozchat.locate(executable: "/nowhere/doz", environment: ["DOZ_DOZCHAT_MAC": lib + "/dozchat-mac", "DOZ_TEST_REAL_MAC": "1"]).url,
+                     "the seam is for guarded runs only")
+    }
+
     /// A submodule's hooks cannot be written; a connect to one door works while the folder stays closed (sandbox-exec).
     func testSubmoduleHooksAndADoorHold() throws {
         var f = try w.fence()

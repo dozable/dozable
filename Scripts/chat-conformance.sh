@@ -55,7 +55,10 @@ scratch=$(mktemp -d "${TMPDIR:-/tmp}/doz-chat-conformance.XXXXXX")
 REPORT="${REPORT:-$scratch/report.txt}"
 LOG="$scratch/full.log"
 # Room apps are left out of this server (their calls answer 501): the runner skips their steps.
-args=(-server-cmd "'$DOZ' chat serve --config {config} --bind {bind}" -no-room-apps -report-log "$LOG")
+# The commands the server names in its own words (the inbox's answer line, the /invite and /remove refusal) are
+# Dozable's, not the reference's: the runner is told them.
+args=(-server-cmd "'$DOZ' chat serve --config {config} --bind {bind}" -no-room-apps -report-log "$LOG"
+      -answer-cmd 'dozchat send <room> --re <msg_id> "…"' -add-cmd 'doz chat add NAME')
 # A subset is a look, not the gate: the ratchet is judged on a full run only.
 if [[ -n "${CHECKS:-}" ]]; then args+=(-test.run "$CHECKS"); else args+=(-expect "$RATCHET"); fi
 
