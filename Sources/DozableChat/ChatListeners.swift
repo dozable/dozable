@@ -1,0 +1,257 @@
+import Foundation
+import NIOCore
+import NIOHTTP1
+import NIOPosix
+
+// The two listeners, on swift-nio (the bootstrap pattern of the dashboard's server): the line port speaks JSON lines —
+// one JSON object per line, a line of 32 MiB or more closes the connection with no reply, as does 30 seconds without a
+// line — and the page port speaks HTTP/1.1. Each connection is a task; its requests and lines are handed to the
+// transport-free handlers (ChatPageHandler, ChatLineConnection) off the event loop, in order.
+
+public final class ChatListeners: @unchecked Sendable {
+    public let linePort: Int
+    public let pagePort: Int
+    private let line: NIOAsyncChannel<LineAccepted, Never>
+    private let page: NIOAsyncChannel<PageAccepted, Never>
+    private let core: ChatServerCore
+    private let log: ChatLog
+
+    struct LineAccepted: Sendable {
+        let channel: NIOAsyncChannel<ByteBuffer, ByteBuffer>
+        let ip: String
+    }
+
+    struct PageAccepted: Sendable {
+        let channel: NIOAsyncChannel<HTTPServerRequestPart, HTTPServerResponsePart>
+        let ip: String
+    }
+
+    /// The largest request body the page port reads; a larger one is refused with 413 and the connection closed.
+    public static let maxBody = ChatProtocol.maxLine + 1
+
+    /// Binds both ports (line first). A failure is thrown as it came, for the caller to judge.
+    public static func bind(core: ChatServerCore, host: String, linePort: Int, pagePort: Int, log: ChatLog,
+                            group: EventLoopGroup = MultiThreadedEventLoopGroup.singleton) async throws -> ChatListeners {
+        let line = try await ServerBootstrap(group: group)
+            .serverChannelOption(ChannelOptions.backlog, value: 256)
+            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+            .bind(host: host, port: linePort) { child in
+                child.eventLoop.makeCompletedFuture {
+                    try child.pipeline.syncOperations.addHandler(ByteToMessageHandler(LineFrameDecoder(max: ChatProtocol.maxLine)))
+                    try child.pipeline.syncOperations.addHandler(IdleStateHandler(readTimeout: .seconds(ChatLineConnection.idleSeconds)))
+                    try child.pipeline.syncOperations.addHandler(CloseWhenIdle())
+                    return LineAccepted(channel: try NIOAsyncChannel(wrappingChannelSynchronously: child),
+                                        ip: child.remoteAddress?.ipAddress ?? "")
+                }
+            }
+        let page: NIOAsyncChannel<PageAccepted, Never>
+        do {
+            page = try await ServerBootstrap(group: group)
+                .serverChannelOption(ChannelOptions.backlog, value: 256)
+                .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+                .bind(host: host, port: pagePort) { child in
+                    child.eventLoop.makeCompletedFuture {
+                        try child.pipeline.syncOperations.configureHTTPServerPipeline(withErrorHandling: true)
+                        return PageAccepted(channel: try NIOAsyncChannel(wrappingChannelSynchronously: child),
+                                            ip: child.remoteAddress?.ipAddress ?? "")
+                    }
+                }
+        } catch {
+            try? await line.channel.close()
+            throw error
+        }
+        let l = ChatListeners(line: line, page: page, core: core, log: log)
+        return l
+    }
+
+    private init(line: NIOAsyncChannel<LineAccepted, Never>, page: NIOAsyncChannel<PageAccepted, Never>, core: ChatServerCore, log: ChatLog) {
+        self.line = line
+        self.page = page
+        self.core = core
+        self.log = log
+        linePort = line.channel.localAddress?.port ?? 0
+        pagePort = page.channel.localAddress?.port ?? 0
+    }
+
+    /// Serves until the listeners close.
+    public func serve() async {
+        await withDiscardingTaskGroup { group in
+            group.addTask { await self.serveLines() }
+            group.addTask { await self.servePages() }
+        }
+    }
+
+    /// Closes both listeners: no new connection is accepted.
+    public func close() {
+        line.channel.close(promise: nil)
+        page.channel.close(promise: nil)
+    }
+
+    // MARK: the line port
+
+    private func serveLines() async {
+        try? await line.executeThenClose { inbound in
+            try await withThrowingDiscardingTaskGroup { group in
+                for try await conn in inbound {
+                    group.addTask { await self.lineConnection(conn) }
+                }
+            }
+        }
+    }
+
+    private func lineConnection(_ a: LineAccepted) async {
+        let core = self.core, log = self.log
+        guard var state = ChatLineConnection(core: core, remoteIP: a.ip) else {
+            log("chat: refused \(a.ip): not an allowed address")
+            try? await a.channel.channel.close()
+            return
+        }
+        try? await a.channel.executeThenClose { inbound, outbound in
+            for try await buf in inbound {
+                let raw = Array(buf.readableBytesView)
+                let current = state
+                let (outcome, next) = await Self.offload { () -> (ChatLineConnection.Outcome, ChatLineConnection) in
+                    var s = current
+                    let o = s.handle(raw)
+                    return (o, s)
+                }
+                state = next
+                switch outcome {
+                case .nothing: continue
+                case .close(let why):
+                    log("chat: dropped \(a.ip): \(why)")
+                    return
+                case .reply(let bytes):
+                    try await outbound.write(ByteBuffer(bytes: bytes))
+                }
+            }
+        }
+    }
+
+    // MARK: the page port
+
+    private func servePages() async {
+        try? await page.executeThenClose { inbound in
+            try await withThrowingDiscardingTaskGroup { group in
+                for try await conn in inbound {
+                    group.addTask { await self.pageConnection(conn) }
+                }
+            }
+        }
+    }
+
+    private func pageConnection(_ a: PageAccepted) async {
+        let handler = ChatPageHandler(core: core)
+        try? await a.channel.executeThenClose { inbound, outbound in
+            var head: HTTPRequestHead?
+            var body: [UInt8] = []
+            var tooLarge = false
+            for try await part in inbound {
+                switch part {
+                case .head(let h):
+                    head = h
+                    body = []
+                    tooLarge = false
+                case .body(let b):
+                    if body.count + b.readableBytes > Self.maxBody { tooLarge = true } else { body.append(contentsOf: b.readableBytesView) }
+                case .end:
+                    guard let h = head else { continue }
+                    head = nil
+                    var headers: [String: String] = [:]
+                    for (k, v) in h.headers where headers[k.lowercased()] == nil { headers[k.lowercased()] = v }
+                    let req = ChatHTTPRequest(method: h.method.rawValue, target: h.uri, headers: headers, body: body, remoteIP: a.ip)
+                    let res: ChatHTTPResponse = tooLarge
+                        ? .jsonError(413, "the request is too large")
+                        : await Self.offload { handler.handle(req) }
+                    let keepAlive = h.isKeepAlive && !tooLarge
+                    try await Self.write(res, for: h, keepAlive: keepAlive, to: outbound)
+                    if !keepAlive { return }
+                }
+            }
+        }
+    }
+
+    private static func write(_ res: ChatHTTPResponse, for req: HTTPRequestHead, keepAlive: Bool,
+                              to out: NIOAsyncChannelOutboundWriter<HTTPServerResponsePart>) async throws {
+        var headers = HTTPHeaders()
+        for (k, v) in res.headers { headers.add(name: k, value: v) }
+        if !(res.status == 204 || res.status == 304) { headers.replaceOrAdd(name: "Content-Length", value: String(res.body.count)) }
+        headers.replaceOrAdd(name: "Date", value: httpDate())
+        if !keepAlive { headers.replaceOrAdd(name: "Connection", value: "close") } else if req.version.minor == 0 {
+            headers.replaceOrAdd(name: "Connection", value: "keep-alive")
+        }
+        try await out.write(.head(HTTPResponseHead(version: req.version, status: HTTPResponseStatus(statusCode: res.status), headers: headers)))
+        if !res.body.isEmpty { try await out.write(.body(.byteBuffer(ByteBuffer(bytes: res.body)))) }
+        try await out.write(.end(nil))
+    }
+
+    private static func httpDate() -> String {
+        var t = time(nil)
+        var tmv = tm()
+        gmtime_r(&t, &tmv)
+        var buf = [Int8](repeating: 0, count: 64)
+        let n = strftime(&buf, buf.count, "%a, %d %b %Y %H:%M:%S GMT", &tmv)
+        return String(decoding: buf.prefix(n).map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+
+    /// Runs blocking work (the store, a 32 MiB line) on a worker thread, never on an event loop.
+    static func offload<T: Sendable>(_ f: @escaping @Sendable () -> T) async -> T {
+        await withCheckedContinuation { c in DispatchQueue.global(qos: .userInitiated).async { c.resume(returning: f()) } }
+    }
+}
+
+/// JSON lines: each line without its newline (and a carriage return before it, as Go's line scanner drops one). A
+/// line that would not fit in `max` bytes with its newline is an error, which closes the connection.
+struct LineFrameDecoder: ByteToMessageDecoder {
+    typealias InboundOut = ByteBuffer
+    let max: Int
+    private var scanned = 0
+
+    init(max: Int) { self.max = max }
+
+    struct TooLong: Error {}
+
+    mutating func decode(context: ChannelHandlerContext, buffer: inout ByteBuffer) throws -> DecodingState {
+        let view = buffer.readableBytesView
+        if let nl = view.dropFirst(scanned).firstIndex(of: 0x0A) {
+            let len = nl - view.startIndex
+            guard len + 1 <= max else { throw TooLong() }
+            var line = buffer.readSlice(length: len)!
+            buffer.moveReaderIndex(forwardBy: 1)
+            if line.readableBytes > 0, line.readableBytesView.last == 0x0D { line = line.getSlice(at: line.readerIndex, length: line.readableBytes - 1)! }
+            scanned = 0
+            context.fireChannelRead(wrapInboundOut(line))
+            return .continue
+        }
+        scanned = view.count
+        if view.count >= max { throw TooLong() }
+        return .needMoreData
+    }
+
+    mutating func decodeLast(context: ChannelHandlerContext, buffer: inout ByteBuffer, seenEOF: Bool) throws -> DecodingState {
+        while try decode(context: context, buffer: &buffer) == .continue {}
+        if seenEOF, buffer.readableBytes > 0 {   // the last line, without a newline
+            var line = buffer.readSlice(length: buffer.readableBytes)!
+            if line.readableBytesView.last == 0x0D { line = line.getSlice(at: line.readerIndex, length: line.readableBytes - 1)! }
+            scanned = 0
+            context.fireChannelRead(wrapInboundOut(line))
+        }
+        return .needMoreData
+    }
+}
+
+/// Closes a line connection that went `idleSeconds` without a line (the idle handler sits after the line decoder, so
+/// only whole lines count as reading).
+final class CloseWhenIdle: ChannelInboundHandler, Sendable {
+    typealias InboundIn = ByteBuffer
+    typealias InboundOut = ByteBuffer
+
+    func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+        if event is IdleStateHandler.IdleStateEvent { context.close(promise: nil); return }
+        context.fireUserInboundEventTriggered(event)
+    }
+
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
+        context.close(promise: nil)   // a line too long, or a reset: no reply, the connection ends
+    }
+}

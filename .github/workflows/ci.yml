@@ -108,6 +108,8 @@ jobs:
             echo "! $LOCK missing — building unserialised"
             make build && make test
           fi
+      - name: Chat conformance (only where the private runner is installed; elsewhere it says it was not run)
+        run: Scripts/chat-conformance.sh
 
   vm:
     name: VM integration suite (entitled test host)

@@ -324,6 +324,8 @@ public enum DozableEntry {
         let args = HostToDaemon.begin(Array(CommandLine.arguments.dropFirst()))
         // 683 M4: inside a fenced session (ssh's ProxyCommand) — before anything of doz is read or made.
         if args.first == "fence-connect" { exit(FenceConnect.run(Array(args.dropFirst()), environment: ProcessInfo.processInfo.environment)) }
+        // The chat server (hidden): before anything of doz is read or made — no settings, store, daemon or Keychain.
+        if args.first == "chat" { exit(await ChatCommandLine.run(Array(args.dropFirst()), release: DozableCommand.version)) }
         // 678: `doz exec`'s deadline counts from the process's start — its watchdog is armed before anything else.
         ExecDeadline.arm(args)
         // 678: a guarded test run can ask which lazy parts this process builds (`make test-cli-startup`).
