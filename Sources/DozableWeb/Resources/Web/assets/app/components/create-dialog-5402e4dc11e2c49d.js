@@ -1,4 +1,4 @@
-// components/create-dialog — The New sandbox form (a dialog): image, workspace, account, permissions.
+// components/create-dialog — The New sandbox form (a dialog): image, folder, account, permissions.
 import { h } from '../dom/h-f853cc7eb6672c45.js';
 import { icon } from '../dom/icons-9b284ea0ffb2ad04.js';
 import { AGENT_NAMES } from '../core/agents-b5713528d20be964.js';
@@ -9,9 +9,9 @@ import { setting } from '../core/settings-7b856044523a6fd7.js';
 import { accountChooser } from './accounts-3f4d2719047e6460.js';
 import { callout } from './callout-f30e3ad8767a987a.js';
 import { dialog } from './dialog-cc08b737f1accd16.js';
-import { imagePicker, pickerNameHint } from './image-picker-54289bbb09a54ddf.js';
+import { imagePicker, pickerNameHint } from './image-picker-94b1501a56aee282.js';
 import { confirmWeb, isAgentModel, permissionSwitches } from './permissions-8b35fed69f1f8de3.js';
-import { workspaceChooser } from './workspace-chooser-79a99904ead6f28a.js';
+import { workspaceChooser } from './workspace-chooser-0ac402f5c46c650f.js';
 
 export async function createDialog(quick = null) {
   let images = [], accounts = { accounts: [] }, bases = null;
@@ -128,7 +128,7 @@ function collapseToSummary(dlg, { images, picker, perms, acct, chooser, imgNote 
     const NET = { bake: 'Bake — package registries only', nat: 'nat — not filtered', none: 'No network', locked: 'Locked', open: 'Open', agent: 'Standard' };
     const network = preset ? preset.dataset.newPermPreset : NET[net] || 'Standard';
     let folder;
-    try { const w = chooser.get(); folder = w.isolated ? 'None — isolated' : tildePath(w.workspace); } catch (_) { folder = 'Not set yet — Change…'; }
+    try { const w = chooser.get(); folder = w.isolated ? 'None — isolated' : tildePath(w.folder); } catch (_) { folder = 'Not set yet — Change…'; }
     const img = images.find((x) => x.name === picker.image());
     const cpus = dlg.inputs.cpus.value || setting('defaults.cpus', 2);
     summary.replaceChildren(

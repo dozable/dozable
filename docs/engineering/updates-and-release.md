@@ -116,7 +116,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   the privacy policy — never just a new key here.
 - **Nothing private is collected for it**: the day's numbers come from what the daemon already records (`metrics.sqlite`
   action rows — phases with their times, creates, removals, preparations; the network table's minutes; the store's
-  sandboxes, restore points, workspace rule files, permissions, the LAN option's devices; `onboarded.json`) and the commands'
+  sandboxes, restore points, folder rule files, permissions, the LAN option's devices; `onboarded.json`) and the commands'
   own counts, computed on the Mac (`UsageStoreFacts`, `UsageTimeline`, `UsageDailyBuilder` — pure, tested on a fixed
   history). What the daemon did not record before, it now writes to the SAME local metrics, as times only: rows `attach`,
   `exec` (activity), `agent status` / `agent working` (612's status; working time from when `working` began), the create

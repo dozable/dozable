@@ -52,7 +52,7 @@ One row per area; each area's doc starts with the full table of its files.
 | Onboarding, projects | `Preparations`, `Onboarding`, `AgentPrompt`, `OnboardCommands`, `ProjectFile` | [onboarding.md](docs/engineering/onboarding.md) |
 | Sessions | `SavedScreens`, `BootLogs`, `SessionStatus`, `ScreenGrid`, the attach relay's bridges; sessions on this Mac (`MacSessions`, `MacPlace`, `DeckholdSocket`) | [sessions.md](docs/engineering/sessions.md) |
 | Builds, statistics, updates, release | `Usage.swift`, `Updates.swift`, `Scripts/release.sh` | [updates-and-release.md](docs/engineering/updates-and-release.md) |
-| Workspace rules | `Guest/dozview/`, `DockerIgnore`, `WorkspaceRules`, `WorkspaceView` | [workspace-rules.md](docs/engineering/workspace-rules.md) |
+| Folder rules (`.dozignore`, `.dozreadonly`) | `Guest/dozview/`, `DockerIgnore`, `WorkspaceRules`, `WorkspaceView` | [workspace-rules.md](docs/engineering/workspace-rules.md) |
 | Tools layer, tmux, dotfiles | `Guest/tmux/`, `Dotfiles.swift` | [tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) |
 | Files | `WorkspaceFileList`, `WorkspaceFileChange`, `FileWatch`, `EditorApps`, `WebFiles` | [files.md](docs/engineering/files.md) |
 | Sound | `Audio.swift`, `DozSound.swift`, `MacAudio`, `Microphone`, `Guest/sound-kernel/` | [sound.md](docs/engineering/sound.md) |
@@ -236,7 +236,7 @@ One row per area; each area's doc starts with the full table of its files.
   cannot** — the boundary is the VM (no NIC; the only way out is the proxy's vsock listener, where the
   policy is judged), the proxy/allow list and the absent credentials (the vault stays on the Mac).
   Root must never reach: the daemon's socket or the store (never shared; `Workspace` refuses the store as
-  a workspace), another sandbox (separate VMs, no network between them), the Mac's keychain or login
+  a sandbox's folder), another sandbox (separate VMs, no network between them), the Mac's keychain or login
   (read only by the daemon), any other vsock listener on the Mac. `make test-cli-agentsudo` checks:
   sudo apt-get install as the agent, `--no-agent-sudo`, the setting at the next boot, and as root: only
   `lo`, a denied host still denied, no vsock listener but the proxy (5800, the positive control), no
@@ -399,7 +399,7 @@ are in its doc, so read it before changing that area.
 - [docs/engineering/lan.md](docs/engineering/lan.md) — `doz ui --lan`: admission, devices and invites, where it listens, sandboxes never reaching it
 - [docs/engineering/terminal-tui.md](docs/engineering/terminal-tui.md) — what the CLI draws: the colour switch, `Style`, components, `Prompter`, the input seam
 - [docs/engineering/onboarding.md](docs/engineering/onboarding.md) — image preparation in the daemon, `onboarded.json`, the setup wizard, the environment prompt, `doz_project.yaml`, `doz init`, uninstall
-- [docs/engineering/sessions.md](docs/engineering/sessions.md) — saved screens and the kept layout, boot logs, the session bridges (OSC 52, the browser bridge, tmux, the Ctrl-] menu, workspace files), OSC 7501, painted thumbnails
+- [docs/engineering/sessions.md](docs/engineering/sessions.md) — saved screens and the kept layout, boot logs, the session bridges (OSC 52, the browser bridge, tmux, the Ctrl-] menu, the folder's files), OSC 7501, painted thumbnails
 - [docs/engineering/updates-and-release.md](docs/engineering/updates-and-release.md) — `BuildFlavor`, anonymous usage statistics and the sign-up, the signed update feed and channels, `make release`, signing, Homebrew
 - [docs/engineering/workspace-rules.md](docs/engineering/workspace-rules.md) — `.dozignore` / `.dozreadonly`: `dozview`, Docker's semantics in C and Swift, modes, the wake
 - [docs/engineering/tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) — the tools layer (gh, tmux 3.8, …) and the person's dotfiles
@@ -420,7 +420,7 @@ make cli       # 585: build + sign .build/debug/doz
 make test-cli  # 585: the signed doz from separate processes, scratch store $TMPDIR/doz-clitest-store
 make test-vm-claude  # 588: Claude credentials through the proxy with a FAKE key (DOZ_TEST_CLAUDE_LOGIN=1 adds this Mac's login, read-only)
 make test-vm-upgrade # 591: the previous release sleeps sandboxes, this build wakes them; the in-place overwrite incident (scratch store $TMPDIR/doz-upgrade-store)
-make test-vm-templates # 593: templates and duplicates on pi — no state disk in a template; duplicate's workspace and fresh/copied state disk
+make test-vm-templates # 593: templates and duplicates on pi — no state disk in a template; duplicate's folder and fresh/copied state disk
 make test-cli-onboarding # 594: test-cli's onboarding part alone (onboard, a joining start, detach/cancel, init/up, the agent prompt, uninstall)
 make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake container, the real container build (SKIPs unless Apple's services run; BASES_START_BUILDER=1), the VM matrix (BASES_PARTS=…)
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
@@ -434,11 +434,11 @@ make test-community-recipes # 653: your own recipes and community catalogues end
 make recipe-check RECIPES=all # 617: every recipe for real — build, verify, a fresh try, its check turn against a stand-in provider, keys, leak guard, OSC 7501 states (report: $RECIPE_STORE/report.json)
 make test-cli-codex # 599i: Codex through seams (a fake OpenAI over TLS, the browser seam): Dozable's own ChatGPT sign-in, the swap, the Mac's renewal, no token in the guest, an API key, Alpine (prepares codex + alpine-codex)
 make test-cli-github # 599d: GitHub as the user through seams (a fake GitHub, a fake gh, a throwaway ssh-agent): swap, read-only, push, no leak, identity, key source, off, SSH
-make test-cli-openfiles # 599b: workspace files opened on the Mac through the opener seam — every refusal, isolated, off, --app, URLs as before
+make test-cli-openfiles # 599b: the folder's files opened on the Mac through the opener seam — every refusal, isolated, off, --app, URLs as before
 make test-cli-dotfiles # 657: your dotfiles in real VMs — local scratch repositories, the install script and the link pass, Dozable's own untouched, trust refused off a terminal, --update, never applied twice (prepares claude-code)
 make test-cli-files  # 643: doz files — listed/watched on the Mac (no daemon, rules, a link out refused, nothing woken); isolated listed inside while running
 make test-vm-cwd     # BUG cwd-after-wake: a program's cwd in /workspace across sleep, hibernate and a new-process restore (the raw share as the control); the passthrough view's cost
-make test-vm-ignore  # 599g: workspace rules (.dozignore lock/hide, .dozreadonly) across boot/pause/sleep/hibernate/new-process restore, reload, folding, kills (scratch store); then test-vm-agentwrite (also alone, and run by test-vm-cwd): the agent (a non-root image user) writes shared workspaces through the view
+make test-vm-ignore  # 599g: folder rules (.dozignore lock/hide, .dozreadonly) across boot/pause/sleep/hibernate/new-process restore, reload, folding, kills (scratch store); then test-vm-agentwrite (also alone, and run by test-vm-cwd): the agent (a non-root image user) writes shared folders through the view
 make dozview / dozview-verify / tmux / tmux-verify # 599g, 658: rebuild the guest view daemon / the guest tmux 3.8 (pinned Zig, sha256-pinned sources) / check the committed bytes
 make sound-kernel    # 667: build the sound kernel from source (twice, a throwaway ubuntu VM, network, ~7.5 min) and check it is SoundKernel.sha256 (SOUND_KERNEL_OUT)
 make test-cli-tmux38 # 658: Dozable's tmux 3.8 on Debian + Alpine (prepares both): the bridges through it, the theme reported, OSC 7501 measured, an older distro tmux session kept and ended
@@ -464,7 +464,7 @@ A new code path that reads something of the Mac's own must go through a seam the
 
 **Paths are SHOWN with `~`** (617): `DisplayPath` (DozableHost: `tilde`, `tildeIn`, `homes`) and its twin `core/paths.js`
 (`tildePath`, `tildeIn`, fed the session info's `homes`) are the ONE way a Mac path is shown — the sidebar's store, the
-try banner, the Guide's facts, the details' workspace, a Dockerfile, the plan's lines, Doctor, and the CLI's human lines
+try banner, the Guide's facts, the details' folder, a Dockerfile, the plan's lines, Doctor, and the CLI's human lines
 that name a folder. Display only: stored values, requests and every JSON field stay absolute. Home is the REAL one
 (`TestSafety.realHome`); the seam `DOZ_TEST_HOME=/tmp/…` stands in for it on screen only, and only in a guarded run (the
 release post's screenshots: `probes/617-*/stageE/release-shots.mjs`). Nothing else reads it.

@@ -116,7 +116,7 @@ func cliHostSuite(binary: String) async {
         return r
     }
     func run(_ s: String, _ argv: [String], extra: [String] = []) -> CLIRun {
-        let r = t.run(["run", "@mac", "-d", "--unfenced", "--session", s, "--workdir", work.path] + extra + ["--"] + argv, timeout: 60)
+        let r = t.run(["run", "@mac", "-d", "--unfenced", "--session", s, "--folder", work.path] + extra + ["--"] + argv, timeout: 60)
         if r.code == 0 { started.insert(s) }
         return r
     }
@@ -138,7 +138,7 @@ func cliHostSuite(binary: String) async {
     // A session: the clean environment, the folder, the label.
     r = run("envs", ["/bin/sh", "-c", "env > env.txt; pwd > pwd.txt; sleep 600"], extra: ["-e", "MARK=yes"])
     check(r.code == 0 && r.err.contains("[doz] @mac is this Mac: no sandbox, no proxy"), "run @mac -d: started, the no-isolation line said (\(r.code))")
-    check(t.waitFor(10) { file("env.txt").contains("MARK=yes") }, "the program ran in --workdir with -e MARK=yes")
+    check(t.waitFor(10) { file("env.txt").contains("MARK=yes") }, "the program ran in --folder with -e MARK=yes")
     let env = file("env.txt")
     check(!env.contains("CLAUDECODE") && !env.contains("CLAUDE_CODE_"), "no CLAUDECODE / CLAUDE_CODE_* reached it, though doz ran with them")
     // DOZ_TTY is deckhold's own (the session's pty, for a helper with no controlling terminal) — not the host's.
@@ -147,7 +147,7 @@ func cliHostSuite(binary: String) async {
     check(env.contains("TERM=xterm-256color") && env.contains("PATH=\(fakeBin.path):/usr/bin:/bin:/usr/sbin:/sbin") && env.contains("HOME="),
           "TERM, the PATH, HOME are set")
     let pwd = file("pwd.txt").trimmingCharacters(in: .whitespacesAndNewlines)
-    check(realPath(pwd) == realPath(work.path), "its folder is --workdir (\(pwd))")
+    check(realPath(pwd) == realPath(work.path), "its folder is --folder (\(pwd))")
     r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "bad", "-e", "CLAUDECODE=1", "--", "/bin/sh", "-c", "true"])
     check(r.code == 64 && r.err.contains("CLAUDECODE"), "-e CLAUDECODE=… is refused, with the reason (\(r.code))")
     r = t.run(["run", "@mac", "-d", "--unfenced", "--session", String(repeating: "x", count: 33), "--", "/bin/sh"])
@@ -192,7 +192,7 @@ func cliHostSuite(binary: String) async {
     let text = t.run(["sessions", "@mac"]).out
     check(text.contains("this Mac — no isolation") && text.contains("agent") && text.contains("done"), "the text: the no-isolation header, the session and its status")
     let a = row("agent")
-    check(a?.workdir == work.path && a?.argv == ["/bin/sh", "agent.sh"] && a?.openedAt != nil, "--json: workdir, argv, openedAt")
+    check(a?.folder == work.path && a?.argv == ["/bin/sh", "agent.sh"] && a?.openedAt != nil, "--json: workdir, argv, openedAt")
 
     // send + screen.
     check(run("rd", ["/bin/sh", "-c", "while read x; do echo got:$x; done"]).code == 0, "a session that echoes every line")
@@ -247,7 +247,7 @@ func cliHostSuite(binary: String) async {
         check(a.exited(within: 8) == 0 && b.exited(within: 8) == 0, "both detach (Ctrl-] twice)")
     } catch { check(false, "pty: \(error)") }
     do {
-        let c = try PTYClient(t, ["run", "@mac", "--unfenced", "--session", "rr", "--workdir", work.path, "--", "/bin/sh", "-c", "echo hello-rr; sleep 600"])
+        let c = try PTYClient(t, ["run", "@mac", "--unfenced", "--session", "rr", "--folder", work.path, "--", "/bin/sh", "-c", "echo hello-rr; sleep 600"])
         started.insert("rr")
         defer { c.close() }
         check(c.wait(10) { $0.text.contains("hello-rr") }, "run @mac (no -d) attaches to its new session")
@@ -260,7 +260,7 @@ func cliHostSuite(binary: String) async {
                                  ("x3l", "echo x3l-said; sleep 1; exit 3", 3, "exits 3 a second later"),
                                  ("xk", "sleep 1; kill -KILL $$", 137, "is killed (SIGKILL)")] {
         do {
-            let c = try PTYClient(t, ["run", "@mac", "--unfenced", "--session", s, "--workdir", work.path, "--", "/bin/sh", "-c", cmd])
+            let c = try PTYClient(t, ["run", "@mac", "--unfenced", "--session", s, "--folder", work.path, "--", "/bin/sh", "-c", cmd])
             started.insert(s)
             defer { c.close() }
             let got = c.exited(within: 20)
@@ -268,7 +268,7 @@ func cliHostSuite(binary: String) async {
             if s == "x3l" { check(c.text.contains("x3l-said") && c.text.contains("has ended (exit 3)"), "…its output, then the end with its code") }
         } catch { check(false, "pty: \(error)") }
     }
-    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "xd", "--workdir", work.path, "--", "/bin/sh", "-c", "sleep 1; exit 3"], timeout: 60)
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "xd", "--folder", work.path, "--", "/bin/sh", "-c", "sleep 1; exit 3"], timeout: 60)
     if r.code == 0 { started.insert("xd") }
     check(r.code == 0, "run @mac -d: returns 0 once it started, whatever the program does later (\(r.code))")
     r = t.run(["attach", "@mac", "nope"], timeout: 30)
@@ -315,7 +315,7 @@ func cliHostSuite(binary: String) async {
     try? FileManager.default.createDirectory(at: cw, withIntermediateDirectories: true)
     // These rows are the folder rule alone: this claude records no conversation of its own (no pid file).
     FileManager.default.createFile(atPath: cw.appendingPathComponent("no-pidfile").path, contents: nil)
-    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "cl", "--workdir", cw.path, "--", "claude"], timeout: 60)
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "cl", "--folder", cw.path, "--", "claude"], timeout: 60)
     if r.code == 0 { started.insert("cl") }
     check(r.code == 0 && screen("cl", until: "fake-claude").out.contains("fake-claude"), "the fake claude runs on this Mac")
     r = t.run(["sessions", "restart", "@mac", "cl", "--yes", "--json"], timeout: 30)
@@ -337,7 +337,7 @@ func cliHostSuite(binary: String) async {
     // 685 M1 — the restart resumes the conversation Claude holds, never --continue beside --session-id.
     func claudeRun(_ s: String, _ dir: URL, _ argv: [String]) -> CLIRun {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let r = t.run(["run", "@mac", "-d", "--unfenced", "--session", s, "--workdir", dir.path, "--"] + argv, timeout: 60)
+        let r = t.run(["run", "@mac", "-d", "--unfenced", "--session", s, "--folder", dir.path, "--"] + argv, timeout: 60)
         if r.code == 0 { started.insert(s) }
         return r
     }
@@ -392,7 +392,7 @@ func cliHostSuite(binary: String) async {
     // (c) a restart whose program dies at once: an error with ITS last lines, and its screen replaces an older one.
     let bmDir = work.appendingPathComponent("bm")
     try? FileManager.default.createDirectory(at: bmDir, withIntermediateDirectories: true)
-    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "bm", "--workdir", bmDir.path, "--", "/bin/sh", "-c",
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "bm", "--folder", bmDir.path, "--", "/bin/sh", "-c",
                "if [ -e boom ]; then echo BOOM-NEW; echo second-line; exit 3; fi; echo OLD-MARK; sleep 600"], timeout: 60)
     if r.code == 0 { started.insert("bm") }
     check(r.code == 0 && screen("bm", until: "OLD-MARK").out.contains("OLD-MARK"), "bm says OLD-MARK")

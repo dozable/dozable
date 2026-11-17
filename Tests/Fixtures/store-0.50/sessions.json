@@ -1,0 +1,16 @@
+{
+  "sessions" : {
+    "claude" : {
+      "argv" : [
+        "claude"
+      ],
+      "environmentKeys" : [
+        "TERM"
+      ],
+      "openedAt" : "2026-11-18T11:06:40.000Z",
+      "user" : "user",
+      "workdir" : "/workspace/sub"
+    }
+  },
+  "version" : 1
+}

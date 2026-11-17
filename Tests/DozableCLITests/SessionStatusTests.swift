@@ -78,7 +78,7 @@ final class SessionStatusTests: XCTestCase {
         XCTAssertEqual(seen.map(\.session), ["main", "main", "other", "main"])
         var info = SandboxInfo(name: "box", image: "lab", phase: "running", busy: false, cpus: 1, memoryMiB: 512, ramHeldMiB: 0,
                                memoryReturnedMiB: 0, diskBytes: 0, sessions: nil, network: "nat", deniedConnections: nil,
-                               workspace: nil, createdAt: nil, diedWithHost: nil)
+                               folder: nil, createdAt: nil, diedWithHost: nil)
         await core.statusFields("box", into: &info)
         XCTAssertEqual(info.sessionStatuses?.map(\.session), ["other"])
         XCTAssertEqual(info.agentStatus?.state, .done)
@@ -111,7 +111,7 @@ final class SessionStatusTests: XCTestCase {
     func testTheFieldsRoundTripAndAreOnlyAdded() throws {
         var info = SandboxInfo(name: "box", image: "lab", phase: "running", busy: false, cpus: 1, memoryMiB: 512, ramHeldMiB: 0,
                                memoryReturnedMiB: 0, diskBytes: 0, sessions: nil, network: "nat", deniedConnections: nil,
-                               workspace: nil, createdAt: nil, diedWithHost: nil)
+                               folder: nil, createdAt: nil, diedWithHost: nil)
         let plain = try HostWire.encoder.encode(info)
         XCTAssertFalse(String(decoding: plain, as: UTF8.self).contains("agent"), "nothing reported: no field")
         info.sessionStatuses = [status("main", .blocked, kind: .auth, message: "Sign in")]

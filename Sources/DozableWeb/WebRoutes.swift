@@ -103,7 +103,7 @@ public enum WebRoute: Equatable, Sendable {
     case macSessionTranscripts(String)  // GET  /api/v1/mac/sessions/{session}/transcripts
     case macSessionTranscript(String, String, String) // GET /api/v1/mac/sessions/{session}/transcripts/{endedAt}/{uuid}.jsonl
     case macSessionQuarantine(String)   // GET  /api/v1/mac/sessions/{session}/quarantine
-    case macSessionPlan                 // POST /api/v1/mac/session-plan  ({case, program, workdir, session?, preset?, account?, github?, agentConfig?, simulator?, keychain?, ports?, open?})
+    case macSessionPlan                 // POST /api/v1/mac/session-plan  ({case, program, folder, session?, preset?, account?, github?, agentConfig?, simulator?, keychain?, ports?, open?})
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
     case onboarding                // GET  /api/v1/onboarding
@@ -119,8 +119,8 @@ public enum WebRoute: Equatable, Sendable {
     // 594 (owner: "an easier way to pick a workspace folder"): a new sandbox's defaults and what a
     // typed folder would do (changes nothing); and the MAC's own folder picker (one at a time; the
     // answer is a path string, nothing else).
-    case workspaceCheck            // POST /api/v1/workspace/check   ({image?, name?, path?})
-    case workspaceChoose           // POST /api/v1/workspace/choose  ({start?})
+    case workspaceCheck            // POST /api/v1/folder/check      ({image?, name?, path?})
+    case workspaceChoose           // POST /api/v1/folder/choose    ({start?})
     // 599c — Quick add: what one click would make (changes nothing; POST + CSRF like the check), and
     // the Settings page's Choose… for defaults.projects_dir: the Mac's folder picker, whose answer the
     // SERVER writes — the browser never names the path (the setting stays read-only to `settings`).
@@ -209,8 +209,8 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 1) where rest[0] == "settings": return .settingsChange
         case (.post, 2) where rest == ["onboarding", "config"]: return .onboardingConfig
         case (.post, 1) where rest[0] == "accounts": return .accountAdd
-        case (.post, 2) where rest == ["workspace", "check"]: return .workspaceCheck
-        case (.post, 2) where rest == ["workspace", "choose"]: return .workspaceChoose
+        case (.post, 2) where rest == ["folder", "check"]: return .workspaceCheck
+        case (.post, 2) where rest == ["folder", "choose"]: return .workspaceChoose
         case (.post, 1) where rest[0] == "quick-add": return .quickAdd
         case (.post, 1) where rest[0] == "plan": return .plan
         case (.post, 1) where rest[0] == "grids": return .grids

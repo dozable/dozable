@@ -457,7 +457,7 @@ func cliCodexSuite(binary: String) async {
     // The TUI is driven through `doz attach` on a pseudo-terminal (python3's pty on the Mac): the prompt as a
     // bracketed paste (typed keys arrive in bursts through the relays and Codex takes a burst for a paste, whose
     // Enter only adds a line), then Enter, and read until the fake model's answer — or Codex's "invalid cwd"
-    // (the 0.29.0 bug, which the control sandbox — workspace.view off — still shows).
+    // (the 0.29.0 bug, which the control sandbox — folder.view off — still shows).
     try? cwdTUIDriver.write(toFile: ws + "/tui.py", atomically: true, encoding: .utf8)
     func tui(_ name: String, _ prompt: String) -> (answered: Bool, invalidCwd: Bool, tail: String) {
         let p = Process()
@@ -479,8 +479,8 @@ func cliCodexSuite(binary: String) async {
         let dir = "/tmp/dzo-\(pid)-x\(name)"
         try? fm.removeItem(atPath: dir)
         try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        r = d(["create", name, "--agent", "codex", "--workspace", dir, "--account", "okey", "--workspace-view", view, "--start"], timeout: 900)
-        check(r.code == 0, "create \(name) --agent codex --workspace … --workspace-view \(view) --start")
+        r = d(["create", name, "--agent", "codex", "--folder", dir, "--account", "okey", "--folder-view", view, "--start"], timeout: 900)
+        check(r.code == 0, "create \(name) --agent codex --folder … --folder-view \(view) --start")
         check(d(["run", name, "--detach", "--session", "codex", "--", "codex"], timeout: 120).code == 0, "\(name): the Codex TUI in /workspace")
         usleep(5_000_000)
         let a = tui(name, "first turn")
@@ -491,7 +491,7 @@ func cliCodexSuite(binary: String) async {
     var a = tui("cw", "after the wake")
     check(a.answered && !a.invalidCwd, "cw (the live view): after hibernate → wake the same Codex is answered — no invalid cwd (\(a.tail.debugDescription))")
     a = tui("cr", "after the wake")
-    check(a.invalidCwd && !a.answered, "control cr (workspace.view off): Codex fails with \"invalid cwd\" after the wake — the 0.29.0 bug (\(a.tail.debugDescription))")
+    check(a.invalidCwd && !a.answered, "control cr (folder.view off): Codex fails with \"invalid cwd\" after the wake — the 0.29.0 bug (\(a.tail.debugDescription))")
     // Restart session — the remedy, and the conversation continues (`codex resume --last`)
     let before = (t.json(["sessions", "cr", "--store", t.store.path], [SessionRow].self) ?? []).first { $0.name == "codex" }?.pid
     r = d(["sessions", "restart", "cr", "codex", "-d", "--yes", "--json"], timeout: 120)

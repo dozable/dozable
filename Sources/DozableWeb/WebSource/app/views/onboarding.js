@@ -1,5 +1,5 @@
 // views/onboarding — Onboarding (594; 634: the setup v2, the owner's chosen mockup onboarding-v2): Welcome (the checks
-// inline) → Base image → Models & keys → GitHub & SSH → Workspace rules → Usage statistics and Stay in touch (an official
+// inline) → Base image → Models & keys → GitHub & SSH → Folder rules → Usage statistics and Stay in touch (an official
 // build only) → First sandbox. Each step's title is centred over a column of the step's own width (WIZ_SIZE); the
 // store's base downloads in the host from the Base image step on, its strip at the foot above the buttons (Details: a
 // popover). A poll or a preparations event repaints only the strip (and the First sandbox's image line) — never a step,
@@ -384,9 +384,9 @@ function stepAccess(d, w) {
   };
 }
 
-// ── 5 · Workspace rules — its Next writes the settings (the First sandbox's create needs them) ─────────────────────
+// ── 5 · Folder rules — its Next writes the settings (the First sandbox's create needs them) ─────────────────────
 function stepRules(d, w) {
-  if (!w.ignoreMode) w.ignoreMode = setting('workspace.ignore_mode', 'lock');
+  if (!w.ignoreMode) w.ignoreMode = setting('folder.ignore_mode', 'lock');
   return {
     title: d.rulesGuide.title,
     lead: '',
@@ -510,7 +510,7 @@ async function planFirst() {
   const r = readiness(a, w.data);
   const body = { purpose: 'first', agent: a.ref || (a.family ? a.family.name : a.id) };
   if (w.firstName) body.name = w.firstName;
-  if (w.folderMode === 'pick' && w.folder) body.workspace = w.folder;
+  if (w.folderMode === 'pick' && w.folder) body.folder = w.folder;
   // A key it can use when its default cannot serve it; else its key-less source (free models).
   if (r.account) body.account = r.account;
   else if (r.source) body.source = r.source;
@@ -575,7 +575,7 @@ function stepFirst(d, w) {
       planFirst();
     }, 300);
   });
-  const projects = p && p.workspace && w.folderMode !== 'pick' ? p.workspace : (setting('defaults.projects_dir', '~/doz-workspaces') + '/' + (w.firstName || (p ? p.name : 'NAME')));
+  const projects = p && p.folder && w.folderMode !== 'pick' ? p.folder : (setting('defaults.projects_dir', '~/doz-workspaces') + '/' + (w.firstName || (p ? p.name : 'NAME')));
   const radio = (mode, label, detail) => {
     const r = h('input', { type: 'radio', name: 'wiz-first-folder', value: mode });
     r.checked = (w.folderMode || 'new') === mode;
@@ -657,7 +657,7 @@ function folderPicker(w) {
   const choose = btn('Choose…', async () => {
     choose.disabled = true;
     try {
-      const r = await api('workspace/choose', { method: 'POST', json: w.folder ? { start: w.folder } : {} });
+      const r = await api('folder/choose', { method: 'POST', json: w.folder ? { start: w.folder } : {} });
       if (r && r.path) { w.folder = r.path; planFirst(); }
     } catch (e) { w.error = e.message || String(e); renderWizard(true); } finally { choose.disabled = false; }
   }, { small: true, icon: 'folder' });
@@ -676,10 +676,10 @@ function whatWritten(d, w) {
     h('ul', { class: 'plain wiz-summary d-part' },
       c ? fileLine('Settings', c.settings, c.settingsPath) : null,
       c ? fileLine('Your environment prompt template', c.promptTemplate, c.promptTemplatePath) : null,
-      h('li', { 'data-wiz-projects': '' }, 'Workspace folders of new sandboxes: ', h('code', null, tildePath(setting('defaults.projects_dir', '~/doz-workspaces')) + '/<name>')),
+      h('li', { 'data-wiz-projects': '' }, 'Folders of new sandboxes: ', h('code', null, tildePath(setting('defaults.projects_dir', '~/doz-workspaces')) + '/<name>')),
       h('li', null, 'Base: ' + baseOf(w.base).title),
       h('li', null, 'Keys: ' + (keys.join(', ') || 'none') + ' · sign-ins: ' + (signins.join(', ') || 'none') + (access ? ' · ' + access : '') +
-        (w.ignoreMode ? ' · Workspace rules: ' + w.ignoreMode : '')),
+        (w.ignoreMode ? ' · Folder rules: ' + w.ignoreMode : '')),
       !state.signup && state.signupPage ? h('li', { 'data-signup-link': '' }, 'Stay in touch (optional): sign up at ',
         h('a', { href: state.signupPage, target: '_blank', rel: 'noopener noreferrer' }, state.signupPage)) : null));
 }

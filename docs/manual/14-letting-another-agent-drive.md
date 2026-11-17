@@ -33,7 +33,7 @@ Use a sandbox for anything that installs packages, runs untrusted code, or shoul
 Mac. Always pass `--json` and read the result; never use `doz attach` or `doz up` without `--detach`
 (they are interactive).
 
-- Create one for this project: `doz create NAME --image claude-code --workspace "$PWD" --json`
+- Create one for this project: `doz create NAME --image claude-code --folder "$PWD" --json`
   (images: `claude-code`, `pi`, `lab`, or `--agent claude-code --base python|go|rust|…`; `doz base ls`).
   `/workspace` in the sandbox IS this folder, live.
   For throwaway work that must not touch this folder: `doz create NAME --isolated --json`.
@@ -62,7 +62,7 @@ For example, to Claude Code on your Mac:
 Your agent will then typically run:
 
 ```sh
-doz create react19 --image claude-code --workspace ~/code/my-app --json
+doz create react19 --image claude-code --folder ~/code/my-app --json
 doz point take react19 before-upgrade
 doz run react19 --detach -- claude -p "Upgrade to React 19 and make npm test pass"
 doz sessions react19 --screen claude          # every few minutes, to see how it's going
@@ -85,7 +85,7 @@ You can watch it all in the dashboard (`doz ui`): the sandbox appears under **Sa
 - **Prefer `--isolated`** for work that shouldn't touch your folder at all.
 - **Use restore points** before each risky step; they cost almost nothing.
 - **Watch the clipboard, browser and file notices.** A sandboxed agent can put text on your clipboard,
-  open a page in your browser or open a workspace document on your Mac, and each time you're told.
+  open a page in your browser or open a document of its folder on your Mac, and each time you're told.
   Turn any of them off for a sandbox with `doz config set --sandbox NAME sandbox.clipboard off`,
   `… sandbox.browser_bridge off` or `… sandbox.open_files off`.
 - **Scripts on a schedule** should use exact agent versions (`recipes.anthropic.claude-code.version`) so an image

@@ -42,10 +42,10 @@ command (Dozable never starts a session for you from the page — you run the co
 
 | case | what it is | the command |
 |---|---|---|
-| **Plain agent** | an agent on one folder: its own temp and caches, your Keychain closed, the network through the proxy | `doz run @mac -d --session agent --workdir ~/src/app -- claude` |
-| **Web / Node development** | the same, and the ports of your dev server — it may listen on them, and your browser and tests reach them | `doz run @mac -d --local-port 3000 --workdir ~/src/site -- claude` |
-| **Swift / Xcode development** | builds into the session's own DerivedData; optionally **Run in the Simulator** (`--simulator`) and **Sign with my Apple identity** (`--keychain`) | `doz run @mac -d --xcode --workdir ~/src/MyApp -- claude` |
-| **Signing & notarisation** | no fence: Apple's signing and notary tools need your Keychain and their own networking | `doz run @mac -d --unfenced --workdir ~/src/MyApp -- zsh -l` |
+| **Plain agent** | an agent on one folder: its own temp and caches, your Keychain closed, the network through the proxy | `doz run @mac -d --session agent --folder ~/src/app -- claude` |
+| **Web / Node development** | the same, and the ports of your dev server — it may listen on them, and your browser and tests reach them | `doz run @mac -d --local-port 3000 --folder ~/src/site -- claude` |
+| **Swift / Xcode development** | builds into the session's own DerivedData; optionally **Run in the Simulator** (`--simulator`) and **Sign with my Apple identity** (`--keychain`) | `doz run @mac -d --xcode --folder ~/src/MyApp -- claude` |
+| **Signing & notarisation** | no fence: Apple's signing and notary tools need your Keychain and their own networking | `doz run @mac -d --unfenced --folder ~/src/MyApp -- zsh -l` |
 | **Unfenced** | no isolation at all — your files, Keychain and network, as if you typed it yourself | `doz run @mac --unfenced --session shell` |
 
 More you can do with the command line (cards may come later): `--write DIR` for a second repository, `--ssh-agent` for
@@ -62,7 +62,7 @@ doz run @mac --dry-run -- claude                   # what it would be able to do
 ```
 
 - `--session` names it (at most 32 characters); without it, the program's name.
-- `--workdir` is the project folder. Fenced, the default is **the folder you are in**, and your home itself, `/`, a
+- `--folder` is the project folder. Fenced, the default is **the folder you are in**, and your home itself, `/`, a
   folder that holds your home, or Dozable's own folders are refused (a fenced session must have a project folder).
   Unfenced, the default is your home.
 - `-d` starts it and returns (exit 0 once it started); without `-d`, `doz run` attaches to it, as for a sandbox, and
@@ -350,7 +350,7 @@ Said plainly, so you can decide:
 
 ```bash
 doz sessions @mac                            # the sessions: state (fenced, no isolation …), what the agent is doing, folder, command
-doz sessions @mac --json                     # each with its workdir, argv, when it was opened, its fence and capabilities
+doz sessions @mac --json                     # each with its folder, argv, when it was opened, its fence and capabilities
 doz attach @mac build                        # Ctrl-] opens the menu (d detach · n next · p prev · s sessions)
 doz sessions screen @mac build               # its screen as text, now
 doz sessions send @mac agent --text 'run the tests' --enter

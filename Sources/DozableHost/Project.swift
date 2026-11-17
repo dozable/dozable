@@ -92,8 +92,8 @@ public struct DozableProject: Equatable, Sendable {
          "# tmux: false                # true: sessions run inside tmux (windows, panes, Ctrl-b). From the next session"),
         ("ignore_mode", SettingKey.ignoreMode,
          "# ignore_mode: lock          # what .dozignore does to the paths it lists: lock (listed, no access) or hide (not there). At the next start or wake"),
-        ("workspace_view", SettingKey.workspaceView,
-         "# workspace_view: on         # on: /workspace through the live view (programs keep their folder across a wake); off: shared directly. At the next start"),
+        ("folder_view", SettingKey.workspaceView,
+         "# folder_view: on            # on: /workspace through the live view (programs keep their folder across a wake); off: shared directly. At the next start"),
         ("audio", SettingKey.audio,
          "# audio: off                 # sound: speakers (the Mac's), or on (+ the Mac's microphone, once macOS allows it). When the sandbox is made"),
         // 669 (659 Q7): the agent's own approval prompts — its recipe's approvals setting, for this sandbox.
@@ -370,11 +370,11 @@ public struct DozableProject: Equatable, Sendable {
         return out
     }
 
-    /// The create options this project gives a new sandbox (the folder is its workspace).
+    /// The create options this project gives a new sandbox (the folder is shared at /workspace).
     /// `settings`: a file that sets `permissions` but not `github` keeps the Access step's GitHub default
     /// (`defaults.github`, 599e) — the permissions are given on Standard, which would otherwise drop it.
     public func createOptions(folder: URL, file: URL, settings given: DozableSettings? = nil) -> CreateOptions {
-        var o = CreateOptions(image: image, cpus: cpus, memoryMiB: memoryMiB, workspace: folder.path, network: network, account: account)
+        var o = CreateOptions(image: image, cpus: cpus, memoryMiB: memoryMiB, folder: folder.path, network: network, account: account)
         o.agentPrompt = agentPrompt
         o.agentPromptMode = agentPromptMode
         o.agentSudo = agentSudo
@@ -492,7 +492,7 @@ public enum ProjectWizard {
         ("image", "Agent and base"),
         ("account", "Account"),
         ("access", "Access"),
-        ("rules", "Workspace rules"),
+        ("rules", "Folder rules"),
         ("permissions", "Permissions and network"),
         ("resources", "Resources"),
         ("bridges", "Bridges"),

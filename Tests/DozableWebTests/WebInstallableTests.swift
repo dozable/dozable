@@ -289,7 +289,7 @@ final class WebInstallableTests: XCTestCase {
         func row(_ phase: String, busy: Bool = false) -> [String: WebSandboxRow] {
             ["w1": WebSandboxRow(SandboxInfo(name: "w1", image: "lab", phase: phase, busy: busy, cpus: 1, memoryMiB: 512, ramHeldMiB: 0,
                                              memoryReturnedMiB: 0, diskBytes: 0, sessions: nil, network: "nat", deniedConnections: nil,
-                                             workspace: nil, createdAt: nil, diedWithHost: nil))]
+                                             folder: nil, createdAt: nil, diedWithHost: nil))]
         }
         let now = t0.addingTimeInterval(40)
         XCTAssertNil(WebOperations.resolution(op("start"), rows: row("booting"), now: now), "still under way")

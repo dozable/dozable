@@ -8,11 +8,11 @@ import DozableHost
 
 struct IgnoreCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "ignore",
-        abstract: "Workspace rules: what a .dozignore / .dozreadonly in a sandbox's workspace folder does, and why.",
+        abstract: "Folder rules: what a .dozignore / .dozreadonly in a sandbox's folder does, and why.",
         discussion: """
-        A .dozignore at the root of a sandbox's workspace folder (Docker's .dockerignore syntax: one pattern a \
+        A .dozignore at the root of a sandbox's folder (Docker's .dockerignore syntax: one pattern a \
         line, anchored at the root, ** for any depth, !pattern re-includes, the last matching line wins) \
-        selects paths: with workspace.ignore_mode lock (the default) they stay listed with no permissions \
+        selects paths: with folder.ignore_mode lock (the default) they stay listed with no permissions \
         and every read, write, rename or delete is refused; with hide they are not there at all. A \
         .dozreadonly (same syntax) makes paths visible but read-only. doz_project.yaml, doz_project.yml, \
         .git/hooks and the two rule files are read-only too. Names are compared case-insensitively when \
@@ -27,7 +27,7 @@ struct IgnoreCheck: AsyncParsableCommand {
         abstract: "Which rule decides each path — locked, hidden, read-only or visible — and from which line of which file.")
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The sandbox.") var name: String
-    @Argument(help: "Paths: relative to the workspace, /workspace/…, or the Mac path inside the folder.") var paths: [String]
+    @Argument(help: "Paths: relative to the folder, /workspace/…, or the Mac path inside the folder.") var paths: [String]
 
     func run() async throws {
         var r = HostRequest(.workspaceRules, name: name)
@@ -35,7 +35,7 @@ struct IgnoreCheck: AsyncParsableCommand {
         let rep = try decode(try await query(r, g), WorkspaceRulesReport.self, g)
         if g.json { Out.json(rep); return }
         if !rep.active {
-            Out.stdout("\(rep.sandbox) has no .dozignore or .dozreadonly in \(rep.workspace ?? "its folder") — every path is visible and writable as on the Mac.\n")
+            Out.stdout("\(rep.sandbox) has no .dozignore or .dozreadonly in \(rep.folder ?? "its folder") — every path is visible and writable as on the Mac.\n")
             return
         }
         var rows: [[String]] = [["PATH", "IN THE SANDBOX", "WHY"]]
@@ -47,7 +47,7 @@ struct IgnoreCheck: AsyncParsableCommand {
 
 struct IgnoreShow: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "show",
-        abstract: "A sandbox's workspace rules: every pattern with its line, the mode, warnings, and whether the view runs in the sandbox.")
+        abstract: "A sandbox's folder rules: every pattern with its line, the mode, warnings, and whether the view runs in the sandbox.")
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The sandbox.") var name: String
 
@@ -56,7 +56,7 @@ struct IgnoreShow: AsyncParsableCommand {
         r.warnings = true
         let rep = try decode(try await query(r, g), WorkspaceRulesReport.self, g)
         if g.json { Out.json(rep); return }
-        guard let w = rep.workspace else {
+        guard let w = rep.folder else {
             Out.stdout("\(rep.sandbox) is isolated — no folder of this Mac is shared, so there is nothing to rule.\n")
             return
         }
@@ -64,10 +64,10 @@ struct IgnoreShow: AsyncParsableCommand {
             Out.stdout("\(rep.sandbox) shares \(w) at \(rep.guestPath) as it is — no .dozignore or .dozreadonly there.\n")
             return
         }
-        Out.stdout("Workspace rules of \(rep.sandbox) — \(w) at \(rep.guestPath)\n\n")
+        Out.stdout("Folder rules of \(rep.sandbox) — \(w) at \(rep.guestPath)\n\n")
         let user = rep.ignore
         Out.stdout(".dozignore — the paths it lists are \(rep.mode == "hide" ? "HIDDEN (not there)" : "LOCKED (listed, every access refused)")"
-                   + " · workspace.ignore_mode = \(rep.mode) (\(IgnoreText.source(rep.modeSource)))\n")
+                   + " · folder.ignore_mode = \(rep.mode) (\(IgnoreText.source(rep.modeSource)))\n")
         if user.isEmpty { Out.stdout("  (no .dozignore, or no pattern in it)\n") }
         for rule in user { Out.stdout(String(format: "  %4d  %@\n", rule.line ?? 0, rule.pattern)) }
         Out.stdout("\n.dozreadonly — visible, every change refused\n")
@@ -137,6 +137,6 @@ func noteWorkspaceRules(_ name: String, _ g: GlobalOptions) async {
     r.warnings = true
     guard let v = try? await query(r, g), let rep = try? v.decode(WorkspaceRulesReport.self), rep.active else { return }
     let user = rep.readOnly.filter { $0.file != nil }.count
-    Out.stderr("[doz] workspace rules: .dozignore \(rep.ignore.count) pattern\(rep.ignore.count == 1 ? "" : "s") (\(rep.mode)), .dozreadonly \(user) — doz ignore show \(name)\n")
+    Out.stderr("[doz] folder rules: .dozignore \(rep.ignore.count) pattern\(rep.ignore.count == 1 ? "" : "s") (\(rep.mode)), .dozreadonly \(user) — doz ignore show \(name)\n")
     for w in rep.warnings ?? [] { Out.stderr("[doz] warning: \(w)\n") }
 }

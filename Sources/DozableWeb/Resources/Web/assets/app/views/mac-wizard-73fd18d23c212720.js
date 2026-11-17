@@ -43,9 +43,9 @@ function seg(name, value, choices, onChange) {
   return box;
 }
 
-/// Open the wizard. `defaults`: `{workdir}` (a folder to start from).
+/// Open the wizard. `defaults`: `{folder}` (a folder to start from).
 export function openMacWizard(defaults = {}) {
-  const f = { kind: 'plain', program: 'claude', workdir: defaults.workdir || '', session: '', agentConfig: setting('mac.agent_config', 'private') === 'shared' ? 'shared' : 'private',
+  const f = { kind: 'plain', program: 'claude', folder: defaults.folder || '', session: '', agentConfig: setting('mac.agent_config', 'private') === 'shared' ? 'shared' : 'private',
               github: 'off', ports: '3000', simulator: false, keychain: false };
   const d = h('dialog', { class: 'dlg mac-wizard', 'aria-label': 'New session on this Mac' });
   const cards = h('fieldset', { class: 'wiz-choices mac-cases' }, h('legend', null, 'What is it for?'));
@@ -106,7 +106,7 @@ export function openMacWizard(defaults = {}) {
   } } }, withIcon('square-terminal', 'Open in Terminal'));
 
   function body(open) {
-    const b = { case: f.kind, program: f.program, workdir: f.workdir };
+    const b = { case: f.kind, program: f.program, folder: f.folder };
     if (f.session) b.session = f.session;
     const fenced = MAC_CASES.find((c) => c.id === f.kind).fenced;
     if (fenced) {
@@ -135,7 +135,7 @@ export function openMacWizard(defaults = {}) {
     const c = MAC_CASES.find((x) => x.id === f.kind);
     const rows = [
       field('Program', seg('program', f.program, [['claude', 'Claude Code', 'terminal'], ['shell', 'Login shell', 'square-terminal']], (v) => { f.program = v; paintOptions(); plan(); })),
-      field('Folder', text('workdir', '/Users/you/src/app'), c.fenced ? 'It reads and writes this folder only (never your home itself).' : 'Where it starts.'),
+      field('Folder', text('folder', '/Users/you/src/app'), c.fenced ? 'It reads and writes this folder only (never your home itself).' : 'Where it starts.'),
       field('Session name', text('session', f.program === 'claude' ? 'claude' : 'shell'), 'Optional — 1–32 of letters, digits . _ -'),
     ];
     if (c.fenced && f.program === 'claude') {
@@ -157,7 +157,7 @@ export function openMacWizard(defaults = {}) {
     timer = setTimeout(async () => {
       const n = ++seq;
       err.textContent = '';
-      if (!f.workdir.startsWith('/')) {
+      if (!f.folder.startsWith('/')) {
         last = null;
         commandBox.textContent = 'doz run @mac …';
         why.textContent = 'Name the folder (an absolute path, like /Users/you/src/app) to see the command.';
@@ -180,7 +180,7 @@ export function openMacWizard(defaults = {}) {
         facts.replaceChildren(
           h('span', { class: 'chip-kv', 'data-fact': 'config' }, h('span', { class: 'k' }, 'Agent settings'), p.agentConfig ? (p.agentConfig === 'shared' ? 'shared (less isolated)' : 'private') : 'none'),
           h('span', { class: 'chip-kv', 'data-fact': 'history' }, h('span', { class: 'k' }, 'History'), p.history || 'none'),
-          h('span', { class: 'chip-kv', 'data-fact': 'folder' }, h('span', { class: 'k' }, 'Folder'), tildePath(f.workdir)));
+          h('span', { class: 'chip-kv', 'data-fact': 'folder' }, h('span', { class: 'k' }, 'Folder'), tildePath(f.folder)));
         preview.replaceChildren(h('div', { class: 'cap-sub' }, h('strong', null, 'What it could do'), h('span', { class: 'muted' }, ' — what doz run @mac … --dry-run says')),
           capabilitiesPanel({ name: 'plan', fenced: p.fenced, capabilities: p.capabilities }, { compact: true }));
       } catch (e) {

@@ -114,7 +114,7 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     func row(_ s: String) -> SessionRow? { rows().first { $0.name == s } }
     let sites = "standard,site:allowed.doz.test,site:stream.doz.test"
     func run(_ s: String, _ script: String, extra: [String] = [], harness: CLIHarness? = nil) -> CLIRun {
-        let r = (harness ?? t).run(["run", "@mac", "-d", "--fenced", "--session", s, "--workdir", net] + extra + ["--", "/bin/sh", script], timeout: 90)
+        let r = (harness ?? t).run(["run", "@mac", "-d", "--fenced", "--session", s, "--folder", net] + extra + ["--", "/bin/sh", script], timeout: 90)
         if r.code == 0 { started.insert(s) }
         return r
     }
@@ -519,7 +519,7 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     check(code("hpt3").hasPrefix("200 200") && body("hpt3").contains("X-Dozable-Session: inside") && !body("hpt3").contains("@mac/hptag"),
           "691 a CONNECT tunnel is never read: untouched")
     // --unfenced with --host-port: refused (an unfenced session already reaches every port).
-    r = t.run(["run", "@mac", "-d", "--unfenced", "--host-port", String(hpA), "--session", "hpun", "--workdir", net, "--", "/bin/sh", "-c", "true"])
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--host-port", String(hpA), "--session", "hpun", "--folder", net, "--", "/bin/sh", "-c", "true"])
     check(r.code != 0 && r.err.contains("--host-port"), "691 --unfenced --host-port refused (\(r.err.prefix(160)))")
     for s in ["hp", "hptag"] { t.run(["sessions", "end", "@mac", s, "--yes"], timeout: 60); started.remove(s) }
     hp1.stop(); hp2.stop()
@@ -548,7 +548,7 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     sleep 600
     """)
     check(t.run(["config", "set", "mac.fence_loopback_listen", "on"]).code == 0, "doz config set mac.fence_loopback_listen on")
-    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "lis", "--workdir", lis, "--", "/bin/sh", "l.sh"], timeout: 90)
+    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "lis", "--folder", lis, "--", "/bin/sh", "l.sh"], timeout: 90)
     if r.code == 0 { started.insert("lis") }
     check(r.code == 0 && r.err.contains("it may listen on any port") && t.waitFor(60) { FileManager.default.fileExists(atPath: lis + "/res/DONE") },
           "a fenced session with the setting on: its line says it may listen on any port")
@@ -564,7 +564,7 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     check(row("lis")?.capabilities?.contains { $0.id == "listen" && $0.state == "any port" } == true && row("lis")?.fence?.loopbackListen == true,
           "its capabilities say it may listen on any port")
     put(lis + "/x.sh", helpers + "r cross nc -z -w 2 127.0.0.1 \(lisPort)\necho done > res/XDONE\nsleep 600\n")
-    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "lisx", "--workdir", lis, "--", "/bin/sh", "x.sh"], timeout: 90)
+    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "lisx", "--folder", lis, "--", "/bin/sh", "x.sh"], timeout: 90)
     if r.code == 0 { started.insert("lisx") }
     check(r.code == 0 && t.waitFor(60) { FileManager.default.fileExists(atPath: lis + "/res/XDONE") } && (lres("cross").map { $0 != 0 } ?? false),
           "another fenced session cannot connect to it")
@@ -633,7 +633,7 @@ func fenceHandOver(_ t: CLIHarness, root: String, net: String, binary: String, s
     wait; echo done > ho/DONE; sleep 600
 
     """.utf8))
-    let r = t2.run(["run", "@mac", "-d", "--fenced", "--session", "ho", "--workdir", net, "--permissions", sites, "--", "/bin/sh", "ho.sh"], timeout: 90)
+    let r = t2.run(["run", "@mac", "-d", "--fenced", "--session", "ho", "--folder", net, "--permissions", sites, "--", "/bin/sh", "ho.sh"], timeout: 90)
     if r.code == 0 { started.insert("ho") }
     check(r.code == 0, "2.16 a fenced session from the copy's host, streaming a 20 s download and asking every 200 ms")
     guard let oldHost = t2.hostPID() else { check(false, "2.16 the copy's daemon runs"); return }

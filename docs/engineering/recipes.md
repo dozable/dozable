@@ -497,7 +497,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 - **One set of choices, one plan** (D13): `ChoiceOptions` (LifecycleCommands; `CreateArguments` is its old name) is
   what new, create, up and try take — `--permissions` canonical, `--allow` its alias. The daemon's read-only op `plan`
   (`CreatePlan.swift`, `CreatePlanner.plan` — pure given `PlanFacts`) is the ONE place a sandbox's defaults are decided
-  for new/try (name, workspace; 635: a try's and the First sandbox's network is a new sandbox's — `defaults.permissions`,
+  for new/try (name, folder; 635: a try's and the First sandbox's network is a new sandbox's — `defaults.permissions`,
   Standard — no longer forced Locked; `make recipe-check` asks for `--network locked` itself, so its "a fresh try is
   refused nothing" stays the strictest check) and what `--dry-run` prints (command, project file, reach from
   `DozableImages.spec`'s policy). A new choice is a ChoiceOptions option + `CreatePlanner.argv` + `yaml` + a pin line.

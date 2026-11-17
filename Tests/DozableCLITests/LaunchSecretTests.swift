@@ -207,7 +207,7 @@ final class LaunchSecretSourceTests: XCTestCase {
         await c.load()
         func create(_ name: String, _ g: LaunchSecretGrant, workspace: String? = nil, hostPorts: [HostPort] = [HostPort(port: 8780)], allow: [String]? = nil) async -> String? {
             var r = HostRequest(.create, name: name)
-            var o = CreateOptions(image: "claude-code", workspace: workspace, account: "none")
+            var o = CreateOptions(image: "claude-code", folder: workspace, account: "none")
             if workspace == nil { o.isolated = true }
             o.hostPorts = hostPorts
             o.allow = allow
@@ -217,7 +217,7 @@ final class LaunchSecretSourceTests: XCTestCase {
         }
         let inside = try secretFile(ws)
         let e1 = await create("a", grant(source: inside), workspace: ws.path)
-        XCTAssertTrue(e1?.contains("is inside its workspace") == true, e1 ?? "nil")
+        XCTAssertTrue(e1?.contains("is inside its folder") == true, e1 ?? "nil")
         let e2 = await create("b", grant(value: "FAKE\r\nX: y"))
         XCTAssertTrue(e2?.contains("printable ASCII") == true, e2 ?? "nil")
         let e3 = await create("c", grant(port: 8781))

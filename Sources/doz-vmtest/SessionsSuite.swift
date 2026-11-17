@@ -21,8 +21,8 @@ func cliSessionsSuite(binary: String) async {
     }
     print("cli: sessions survive every wake; End / Restart session (608)")
     check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
-    check(t.run(["create", "s1", "--image", "lab", "--workspace", ws.path, "--memory", "512M", "--start"], timeout: 900).code == 0, "create s1 --workspace --start")
-    check(t.row("s1")?.workspaceView == "live", "s1's /workspace is the live view (ls --json workspaceView = \(t.row("s1")?.workspaceView ?? "nil"))")
+    check(t.run(["create", "s1", "--image", "lab", "--folder", ws.path, "--memory", "512M", "--start"], timeout: 900).code == 0, "create s1 --folder --start")
+    check(t.row("s1")?.folderView == "live", "s1's /workspace is the live view (ls --json folderView = \(t.row("s1")?.folderView ?? "nil"))")
     func ex(_ script: String) -> String { t.run(["exec", "s1", "--", "sh", "-c", script], timeout: 60).out.trimmingCharacters(in: .whitespacesAndNewlines) }
     /// 635: s1 as the dashboard's 3-s poll reads it — `ls` WITHOUT session counts (never a guest call).
     func overview() -> SandboxInfo? {
@@ -34,7 +34,7 @@ func cliSessionsSuite(binary: String) async {
     check(ex("grep ' /workspace ' /proc/mounts | cut -d' ' -f3") == "fuse.dozview", "the guest mounts /workspace as fuse.dozview")
 
     // ── a program in /workspace keeps its folder across hibernate → wake and a host restart ──────────────
-    check(t.run(["run", "s1", "-d", "--session", "cw", "--workdir", "/workspace/sub", "--", "sh", "-c",
+    check(t.run(["run", "s1", "-d", "--session", "cw", "--cwd", "/workspace/sub", "--", "sh", "-c",
                  "while :; do realpath . > /tmp/cw.now 2>&1; ls . >> /tmp/cw.now 2>&1; sleep 0.5; done"]).code == 0, "a looping program in /workspace/sub")
     for (i, step) in ["hibernate", "host-restart", "hibernate"].enumerated() {
         if step == "hibernate" {
@@ -158,15 +158,15 @@ func cliSessionsSuite(binary: String) async {
     // ── the record, and the setting off ───────────────────────────────────────────────────────────
     let rec = t.store.appendingPathComponent("sandboxes/s1/sessions.json")
     check(FileManager.default.fileExists(atPath: rec.path), "the daemon recorded the sessions (sessions.json)")
-    check(t.run(["config", "set", "--sandbox", "s1", "workspace.view", "off"]).code == 0, "doz config set --sandbox s1 workspace.view off")
-    check(t.row("s1")?.workspaceView == "live", "a running sandbox keeps its view until its next start")
+    check(t.run(["config", "set", "--sandbox", "s1", "folder.view", "off"]).code == 0, "doz config set --sandbox s1 folder.view off")
+    check(t.row("s1")?.folderView == "live", "a running sandbox keeps its view until its next start")
     check(t.run(["shutdown", "s1", "--yes"], timeout: 120).code == 0, "shutdown s1")
     check(!FileManager.default.fileExists(atPath: rec.path), "the shutdown cleared the record with the sessions")
     check(overview()?.sessionList == nil, "shut down: the overview lists no session (635)")
     check(t.run(["start", "s1"], timeout: 300).code == 0, "start s1")
-    check(t.row("s1")?.workspaceView == "direct" && ex("grep ' /workspace ' /proc/mounts | cut -d' ' -f3") == "virtiofs",
-          "workspace.view off → the share directly (\(t.row("s1")?.workspaceView ?? "nil"))")
-    check(t.run(["config", "set", "--sandbox", "s1", "workspace.view", "on"]).code == 0 && t.run(["shutdown", "s1", "--yes"], timeout: 120).code == 0
-          && t.run(["start", "s1"], timeout: 300).code == 0 && t.row("s1")?.workspaceView == "live", "on again → the live view at the next start")
+    check(t.row("s1")?.folderView == "direct" && ex("grep ' /workspace ' /proc/mounts | cut -d' ' -f3") == "virtiofs",
+          "folder.view off → the share directly (\(t.row("s1")?.folderView ?? "nil"))")
+    check(t.run(["config", "set", "--sandbox", "s1", "folder.view", "on"]).code == 0 && t.run(["shutdown", "s1", "--yes"], timeout: 120).code == 0
+          && t.run(["start", "s1"], timeout: 300).code == 0 && t.row("s1")?.folderView == "live", "on again → the live view at the next start")
     t.run(["rm", "s1", "--yes"], timeout: 120)
 }

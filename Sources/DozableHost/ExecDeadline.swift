@@ -29,7 +29,7 @@ public enum ExecDeadline {
 
     /// The global options that take a value (`doz --store DIR exec …`), and exec's own.
     static let globalValued: Set<String> = ["--store", "--progress", "--color"]
-    static let execValued: Set<String> = ["--workdir", "--user", "-e", "--env", "--timeout", "--store", "--progress", "--color"]
+    static let execValued: Set<String> = ["--cwd", "--user", "-e", "--env", "--timeout", "--store", "--progress", "--color"]
 
     /// The seconds of an `exec` command line (nil: not exec, or no deadline — `--timeout 0` or less). A cheap scan of
     /// argv (no parser): the first word that is not an option or an option's value is the command; its `--timeout N` /

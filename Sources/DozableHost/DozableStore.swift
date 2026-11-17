@@ -312,11 +312,11 @@ public enum DozableImages {
         let kernelPath = settings.string(SettingKey.kernelPath).map { ($0 as NSString).expandingTildeInPath }
         let kernelCache = settings.string(SettingKey.kernelCache).map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
         var shares: [Share] = []
-        if let ws = o.workspace {
+        if let ws = o.folder {
             let path = URL(fileURLWithPath: (ws as NSString).expandingTildeInPath).standardizedFileURL.path
             var isDir: ObjCBool = false
             guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
-                throw HostError(.invalid, "the workspace \(path) is not a directory")
+                throw HostError(.invalid, "the folder \(path) is not a directory")
             }
             shares.append(Share(hostPath: path, guestPath: workspaceGuestPath))
         }

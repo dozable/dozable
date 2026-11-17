@@ -9,7 +9,7 @@ import { state } from '../core/state-3e577485bce84bf8.js';
 import { startWithBootView } from '../components/lifecycle-5c32c24e326e0a15.js';
 import { renderNavSandboxes } from '../components/nav-a8f19054e986cce2.js';
 import { paintStartProgress } from '../components/start-progress-1fc3f6a2c0a577c6.js';
-import { drawPendingTry } from './sandbox-86d388734daf6f6f.js';
+import { drawPendingTry } from './sandbox-72ecd1e3793e17fb.js';
 
 /// plan: the host's plan; agent/title: the tool; account: the setup's account choice (kept for Back); back: 'onboarding'
 /// when the setup wizard made it (else Back reopens the Quick try's setup); before(): close what is open, in this frame.
@@ -17,7 +17,7 @@ import { drawPendingTry } from './sandbox-86d388734daf6f6f.js';
 export async function startQuickMade({ plan, agent, title, account = null, back = null, before = () => {} }) {
   const c = plan.create, name = plan.name;
   state.pendingTry = { name, agent, title, image: c.image, imageTitle: plan.image && plan.image.title,
-    workspace: c.workspace || null, account: plan.account && plan.account.name, network: c.network || 'agent',
+    folder: c.folder || null, account: plan.account && plan.account.name, network: c.network || 'agent',
     plan, account_: account, back, error: null, at: Date.now() };
   beginTransition(name, 'start', ['start']);
   renderNavSandboxes();
@@ -25,7 +25,7 @@ export async function startQuickMade({ plan, agent, title, account = null, back 
   location.hash = '#/sandbox/' + name;
   try {
     const op = await actOrThrow({ action: 'create', sandbox: name, image: c.image,
-      ...(c.network ? { network: c.network } : {}), ...(c.workspace ? { workspace: c.workspace } : { isolated: true }),
+      ...(c.network ? { network: c.network } : {}), ...(c.folder ? { folder: c.folder } : { isolated: true }),
       ...(c.account ? { account: c.account } : {}),
       ...(c.modelSource ? { modelSource: c.modelSource } : {}), ...(c.model ? { model: c.model } : {}),
       ...(c.localPort ? { localPort: c.localPort } : {}) });

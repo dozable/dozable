@@ -37,7 +37,7 @@ final class RenameTests: XCTestCase {
 
     func create(_ c: HostCore, _ name: String, workspace: String?) async throws {
         var r = HostRequest(.create, name: name)
-        r.create = CreateOptions(image: "lab", workspace: workspace)
+        r.create = CreateOptions(image: "lab", folder: workspace)
         let m = await c.handle(r)
         XCTAssertNil(m.error, m.error?.message ?? "")
     }
@@ -84,7 +84,7 @@ final class RenameTests: XCTestCase {
         let info = try XCTUnwrap(m.result).decode(SandboxInfo.self)
         XCTAssertEqual(info.name, "website")
         XCTAssertEqual(info.phase, "off")
-        XCTAssertEqual(info.workspace, before.workspace, "the same folder — never moved")
+        XCTAssertEqual(info.folder, before.workspace, "the same folder — never moved")
         XCTAssertEqual(info.createdFolder, before.createdFolder, "the record that Dozable made it goes along")
 
         // The old name is gone, from the host and the store.

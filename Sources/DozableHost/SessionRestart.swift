@@ -225,7 +225,7 @@ extension HostCore {
         var o = HostRequest(.openSession, name: m.name)
         o.session = session
         o.argv = record != nil ? argv : nil          // the default session without a record: as `doz up` opens it
-        o.workdir = record?.workdir
+        o.cwd = record?.workdir
         o.user = record?.user
         o.cols = r.cols ?? previous?.size.map { $0.cols }
         o.rows = r.rows ?? previous?.size.map { $0.rows }

@@ -75,7 +75,7 @@ A bare file name is in `Sources/DozableKit/`.
   snapshots need them) or running; any kernel a snapshot needs or a sandbox's spec names
   (`SandboxSpec.kernelPath`, from `kernel.path` at its create), and a current kernel that is not this
   build's pinned one (only the pinned one is fetched again); images being prepared, and the download cache/base disks while any
-  is; a stray folder that is a sandbox's workspace or share; anything outside the store; Dozable's own
+  is; a stray folder that is a sandbox's folder or share; anything outside the store; Dozable's own
   records. A parent with a refused part is refused whole.
 - **Paths come from ids, never from a request.** Ids are `Resources.isValidID` (and the web's strict
   decoders); `plan` validates them against a FRESH inventory; `execute` removes only the entries its

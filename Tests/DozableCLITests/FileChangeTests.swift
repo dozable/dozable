@@ -209,7 +209,7 @@ final class FileChangeTests: XCTestCase {
     private func storeWithSandbox(workspace: URL?) throws -> DozableStore {
         let store = DozableStore(root: root.appendingPathComponent("store"))
         var o = CreateOptions(image: "lab")
-        o.workspace = workspace?.path
+        o.folder = workspace?.path
         let (s, n) = try DozableImages.spec(name: "x", options: o, store: store, environment: [:])
         let cfg = SandboxConfig(name: "x", image: n, spec: s, workspace: workspace?.path)
         try fm.createDirectory(at: store.configFile("x").deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -353,8 +353,8 @@ final class FileChangeTests: XCTestCase {
             try MacFileChange.open(workspace: ws.path, guestPath: p, reveal: reveal, enabled: enabled, rules: rules, app: app,
                                    openApps: openApps, environment: env)
         }
-        // the workspace, a folder, a file the document list would refuse (an editor opens text)
-        XCTAssertEqual(try open("/workspace", "cursor"), "opened the workspace in Cursor")
+        // the shared folder, a folder, a file the document list would refuse (an editor opens text)
+        XCTAssertEqual(try open("/workspace", "cursor"), "opened the shared folder in Cursor")
         XCTAssertEqual(try open("/workspace/src", "Visual Studio Code"), "opened src/ in Visual Studio Code")
         XCTAssertEqual(try open("/workspace/src/main.swift", "VSCODE"), "opened src/main.swift in Visual Studio Code", "the id, any case")
         XCTAssertEqual(try open("/workspace/Makefile", "cursor"), "opened Makefile in Cursor", "no extension: fine for an editor")

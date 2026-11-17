@@ -50,10 +50,10 @@ func cliQuickAddSuite(binary: String) async {
     r = t.run(["new", "--isolated", "--name", "quiet-one", "--json"], timeout: 600)
     let j = (try? JSONSerialization.jsonObject(with: r.outData)) as? [String: Any] ?? [:]
     check(r.code == 0 && j["name"] as? String == "quiet-one" && j["image"] as? String == "lab" && j["phase"] as? String == "running"
-          && j["session"] as? String == "shell" && j["workspace"] is NSNull,
+          && j["session"] as? String == "shell" && j["folder"] is NSNull,
           "doz new --isolated --name quiet-one --json → {name, image, phase running, session, workspace null}: \(r.out.prefix(200))")
     check(!fm.fileExists(atPath: projects + "/quiet-one"), "isolated: no folder made")
-    check(t.row("quiet-one")?.workspace == nil, "quiet-one shares nothing")
+    check(t.row("quiet-one")?.folder == nil, "quiet-one shares nothing")
 
     // 4. A taken name: refused (exit 4), nothing changes.
     r = t.run(["new", "--name", "lab-sandbox", "-d"])

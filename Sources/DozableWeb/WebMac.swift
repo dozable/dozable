@@ -24,7 +24,7 @@ public struct WebMacSession: Codable, Equatable, Sendable {
     public var exitCode: Int32?
     public var command: String
     /// The folder it runs in (absolute; the page shows it with `~`).
-    public var workdir: String?
+    public var folder: String?
     public var openedAt: Date?
     /// Its own command line asked for its permissions to be bypassed (never Dozable): marked on its tile and pane.
     public var bypassed: Bool
@@ -46,7 +46,7 @@ public struct WebMacSession: Codable, Equatable, Sendable {
         clients = s.clients
         exitCode = s.exitCode
         command = String(s.command.prefix(1024))
-        workdir = s.workdir
+        folder = s.folder
         openedAt = s.openedAt
         bypassed = s.bypassed == true
         status = s.status.map(WebAgentStatus.init)
@@ -298,7 +298,7 @@ public struct WebMacPlanRequest: Equatable, Sendable {
 
     public var kind: Case
     public var program: Program
-    public var workdir: String
+    public var folder: String
     public var session: String?
     public var preset: String?
     public var account: String?
@@ -309,14 +309,14 @@ public struct WebMacPlanRequest: Equatable, Sendable {
     public var ports: [Int] = []
     public var open = false
 
-    public static let fields: Set<String> = ["case", "program", "workdir", "session", "preset", "account", "github", "agentConfig",
+    public static let fields: Set<String> = ["case", "program", "folder", "session", "preset", "account", "github", "agentConfig",
                                              "simulator", "keychain", "ports", "open"]
     public static let maximumPorts = 8
 
-    public init(kind: Case, program: Program, workdir: String) {
+    public init(kind: Case, program: Program, folder: String) {
         self.kind = kind
         self.program = program
-        self.workdir = workdir
+        self.folder = folder
     }
 
     public static func decode(_ body: Data) throws -> WebMacPlanRequest {
@@ -343,11 +343,11 @@ public struct WebMacPlanRequest: Equatable, Sendable {
         guard let p = try string("program", max: 16).flatMap(Program.init(rawValue:)) else { throw Invalid("program: claude or shell") }
         // Absolute, no `.`/`..` part, no empty part (`//`, a trailing `/`) — checked by its parts: `standardizedFileURL`
         // would also rewrite `/private/tmp` to `/tmp` and refuse a folder that is fine.
-        guard let wd = try string("workdir", max: 1024), wd.hasPrefix("/"), wd != "/",
+        guard let wd = try string("folder", max: 1024), wd.hasPrefix("/"), wd != "/",
               !wd.dropFirst().split(separator: "/", omittingEmptySubsequences: false).contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }) else {
-            throw Invalid("workdir: a folder on this Mac — an absolute path (no . or .. parts), at most 1024 bytes")
+            throw Invalid("folder: a folder on this Mac — an absolute path (no . or .. parts), at most 1024 bytes")
         }
-        var r = WebMacPlanRequest(kind: c, program: p, workdir: wd)
+        var r = WebMacPlanRequest(kind: c, program: p, folder: wd)
         if let s = try string("session", max: 64) {
             guard WebRoute.isMacSessionName(s) else { throw Invalid("session: 1–32 of letters, digits . _ - (not starting with .)") }
             r.session = s
@@ -430,7 +430,7 @@ public struct WebMacPlan: Codable, Equatable, Sendable {
         } else {
             flags.append("--unfenced")
         }
-        flags += ["--workdir", shellQuote(r.workdir)]
+        flags += ["--folder", shellQuote(r.folder)]
         if let s = r.session { flags += ["--session", s] }
         if fenced {
             if let p = r.preset, p != "standard" { flags += ["--permissions", p] }
@@ -459,7 +459,7 @@ public struct WebMacPlan: Codable, Equatable, Sendable {
             q = f
         }
         let shape = MacCapabilityShape.planned(session: r.session ?? (r.program == .claude ? "claude" : (shell as NSString).lastPathComponent),
-                                               workdir: r.workdir, argv: argv, fenced: fenced, request: q, settings: settings, home: home)
+                                               workdir: r.folder, argv: argv, fenced: fenced, request: q, settings: settings, home: home)
         let caps = MacFence.capabilities(shape)
         // Copy-only shapes: an unfenced case, Swift's toggles, the person's own agent config (or a Keychain the settings open).
         let why: String?

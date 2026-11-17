@@ -263,8 +263,8 @@ final class OpenFilesTests: XCTestCase {
             WorkspaceFiles.decide(guestPath: path, app: app, reveal: reveal, workspace: workspace ?? ws, enabled: true, allowedApps: ["Typora"])
         }
         let real = try XCTUnwrap(WorkspaceFiles.realPath(ws))
-        XCTAssertEqual(d("/workspace"), .open(macPath: real, shown: "the workspace", app: nil, how: .finder), "the workspace itself")
-        XCTAssertEqual(d("/workspace/sub/.."), .open(macPath: real, shown: "the workspace", app: nil, how: .finder))
+        XCTAssertEqual(d("/workspace"), .open(macPath: real, shown: "the shared folder", app: nil, how: .finder), "the workspace itself")
+        XCTAssertEqual(d("/workspace/sub/.."), .open(macPath: real, shown: "the shared folder", app: nil, how: .finder))
         XCTAssertEqual(d("/workspace/sub"), .open(macPath: real + "/sub", shown: "sub/", app: nil, how: .finder), "a child folder")
         guard case .refused(_, let up) = d("/workspace/.."), case .refused(_, let out) = d("/workspace/dirlink") else { return XCTFail("escapes") }
         XCTAssertTrue(up.contains("only files in /workspace"), up)

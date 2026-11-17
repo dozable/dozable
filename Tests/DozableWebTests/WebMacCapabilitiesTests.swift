@@ -15,7 +15,7 @@ final class WebMacCapabilitiesTests: XCTestCase {
     static func row(_ name: String, _ shape: MacCapabilityShape, profile: String = "agent", stopped: String? = nil,
                     bridges: (Bool, Bool, Bool) = (true, true, true)) throws -> SessionRow {
         var r = SessionRow(SessionInfo(name: name, pid: 9, command: "claude"))
-        r.workdir = shape.workdir
+        r.folder = shape.workdir
         r.capabilities = MacFence.capabilities(shape)
         guard shape.fenced else { return r }
         r.fenced = true
@@ -121,14 +121,14 @@ final class WebMacCapabilitiesTests: XCTestCase {
     /// `doz run @mac … --dry-run` and the wizard compute from ONE shape builder: the plan's rows are `MacFence.capabilities` of
     /// `MacCapabilityShape.planned` for the request the command sends.
     func testThePlanSaysWhatTheDryRunSays() throws {
-        var r = WebMacPlanRequest(kind: .web, program: .claude, workdir: "/Users/x/src/app")
+        var r = WebMacPlanRequest(kind: .web, program: .claude, folder: "/Users/x/src/app")
         r.ports = [3000]
         r.github = "read"
         let settings = DozableSettings(text: nil)
         let plan = Self.plan(r, settings: settings)
         var q = MacFenceRequest(permissions: ["standard"], localPorts: [3000])
         q.github = "read"
-        let shape = MacCapabilityShape.planned(session: "claude", workdir: r.workdir, argv: ["claude"], fenced: true, request: q, settings: settings, home: "/Users/x")
+        let shape = MacCapabilityShape.planned(session: "claude", workdir: r.folder, argv: ["claude"], fenced: true, request: q, settings: settings, home: "/Users/x")
         XCTAssertEqual(plan.capabilities, MacFence.capabilities(shape).map(WebMacCapability.init))
         XCTAssertEqual(plan.describe, MacFence.capabilitiesText(MacFence.capabilities(shape)))
         XCTAssertEqual(plan.agentConfig, "private")
@@ -177,7 +177,7 @@ final class WebMacCapabilitiesTests: XCTestCase {
                                              carriedTo: "/Users/x/.claude/projects/-Users-x-src-app")
         let t = WebMacTranscripts(listing)
         XCTAssertEqual(t.items.map(\.name), ["1b4e28ba-2fa1-11d2-883f-0016d3cca427.jsonl"], "only an archived <uuid>.jsonl")
-        var r = WebMacPlanRequest(kind: .plain, program: .claude, workdir: "/Users/x/src/app")
+        var r = WebMacPlanRequest(kind: .plain, program: .claude, folder: "/Users/x/src/app")
         r.account = "work"
         let values: [any Encodable] = [
             WebMacSessions(sessions: [WebMacSession(try Self.row("a", Self.fenced()))], access: "interactive", plan: true),
@@ -215,22 +215,22 @@ final class WebMacCapabilitiesTests: XCTestCase {
     func decode(_ s: String) throws -> WebMacPlanRequest { try WebMacPlanRequest.decode(Data(s.utf8)) }
 
     func testThePlanBodyIsStrict() throws {
-        let ok = try decode(#"{"case":"web","program":"claude","workdir":"/Users/x/src/app","ports":[3000,3000,8765],"github":"push","agentConfig":"private","session":"web-1"}"#)
+        let ok = try decode(#"{"case":"web","program":"claude","folder":"/Users/x/src/app","ports":[3000,3000,8765],"github":"push","agentConfig":"private","session":"web-1"}"#)
         XCTAssertEqual(ok.kind, .web)
         XCTAssertEqual(ok.ports, [3000, 8765])
         XCTAssertEqual(ok.github, "push")
         XCTAssertFalse(ok.open)
-        XCTAssertTrue(try decode(#"{"case":"xcode","program":"shell","workdir":"/a/b","simulator":true,"keychain":false,"open":true}"#).simulator)
-        XCTAssertEqual(try decode(#"{"case":"plain","program":"claude","workdir":"/private/tmp/work"}"#).workdir, "/private/tmp/work",
+        XCTAssertTrue(try decode(#"{"case":"xcode","program":"shell","folder":"/a/b","simulator":true,"keychain":false,"open":true}"#).simulator)
+        XCTAssertEqual(try decode(#"{"case":"plain","program":"claude","folder":"/private/tmp/work"}"#).folder, "/private/tmp/work",
                        "a /private folder is taken as given (found by the screenshot probe)")
-        let w = #""workdir":"/Users/x/app""#
+        let w = #""folder":"/Users/x/app""#
         for bad in [
             "[]", "{}", #"{"case":"plain","program":"claude"}"#,                                         // workdir required
             #"{"case":"sandbox","program":"claude",\#(w)}"#, #"{"case":"plain","program":"codex",\#(w)}"#,
-            #"{"case":"plain","program":"claude","workdir":"relative/dir"}"#, #"{"case":"plain","program":"claude","workdir":"/"}"#,
-            #"{"case":"plain","program":"claude","workdir":"/Users/x/../y"}"#, #"{"case":"plain","program":"claude","workdir":"/Users/./y"}"#, #"{"case":"plain","program":"claude","workdir":"/Users//x"}"#,
-            #"{"case":"plain","program":"claude","workdir":"/Users/x/"}"#, #"{"case":"plain","program":"claude","workdir":"/a\u0001b"}"#,
-            #"{"case":"plain","program":"claude","workdir":"/\#(String(repeating: "a", count: 1030))"}"#,
+            #"{"case":"plain","program":"claude","folder":"relative/dir"}"#, #"{"case":"plain","program":"claude","folder":"/"}"#,
+            #"{"case":"plain","program":"claude","folder":"/Users/x/../y"}"#, #"{"case":"plain","program":"claude","folder":"/Users/./y"}"#, #"{"case":"plain","program":"claude","folder":"/Users//x"}"#,
+            #"{"case":"plain","program":"claude","folder":"/Users/x/"}"#, #"{"case":"plain","program":"claude","folder":"/a\u0001b"}"#,
+            #"{"case":"plain","program":"claude","folder":"/\#(String(repeating: "a", count: 1030))"}"#,
             #"{"case":"plain","program":"claude",\#(w),"argv":["sh"]}"#,                               // never a program of the page's
             #"{"case":"plain","program":"claude",\#(w),"command":"rm -rf ~"}"#,
             #"{"case":"plain","program":"claude",\#(w),"session":"../x"}"#, #"{"case":"plain","program":"claude",\#(w),"session":"\#(String(repeating: "a", count: 33))"}"#,
@@ -251,9 +251,9 @@ final class WebMacCapabilitiesTests: XCTestCase {
     /// Each case's command: the flags it should carry, accepted by `/bin/sh -n`, and the `.command` file's form too.
     func testThePlansCommandsAndWhichMayOpenInTerminal() throws {
         func plan(_ json: String, store: String = "/tmp/doz-plan-store") throws -> WebMacPlan { Self.plan(try decode(json), store: store) }
-        let wd = #""workdir":"/Users/x/My App's folder""#
+        let wd = #""folder":"/Users/x/My App's folder""#
         let cases: [(String, [String], Bool)] = [
-            (#"{"case":"plain","program":"claude",\#(wd)}"#, ["doz run @mac --fenced --workdir", "-- claude"], true),
+            (#"{"case":"plain","program":"claude",\#(wd)}"#, ["doz run @mac --fenced --folder", "-- claude"], true),
             (#"{"case":"plain","program":"shell",\#(wd),"github":"read","session":"sh-1"}"#, ["--fenced", "--github read", "--session sh-1"], true),
             (#"{"case":"web","program":"claude",\#(wd),"ports":[3000,5173]}"#, ["--local-port 3000 --local-port 5173"], true),
             (#"{"case":"xcode","program":"claude",\#(wd)}"#, ["--fenced --xcode"], true),
@@ -287,7 +287,7 @@ final class WebMacCapabilitiesTests: XCTestCase {
     /// The build lines come from ONE function: the plan carries them for the Swift / Xcode cases and no other, and
     /// `--dry-run`'s text lists the same lines.
     func testThePlanCarriesTheBuildCommands() throws {
-        var x = WebMacPlanRequest(kind: .xcode, program: .claude, workdir: "/Users/x/src/app")
+        var x = WebMacPlanRequest(kind: .xcode, program: .claude, folder: "/Users/x/src/app")
         let plan = Self.plan(x)
         XCTAssertEqual(plan.buildCommands, MacBuildCommands.commands(profile: "xcode"))
         XCTAssertEqual(plan.buildCommands.map(\.label), ["Build a Swift package", "Test a Swift package", "Build with xcodebuild", "Test with xcodebuild"])
@@ -298,7 +298,7 @@ final class WebMacCapabilitiesTests: XCTestCase {
         XCTAssertEqual(Self.plan(x).buildCommands, plan.buildCommands)
         XCTAssertEqual(MacBuildCommands.withDefaultScratch(plan.buildCommands[1]), "swift test --disable-sandbox --cache-path \"$XDG_CACHE_HOME/swiftpm\"")
         for k in [WebMacPlanRequest.Case.plain, .signing, .unfenced] {
-            XCTAssertTrue(Self.plan(WebMacPlanRequest(kind: k, program: .claude, workdir: "/Users/x/src/app")).buildCommands.isEmpty, "\(k)")
+            XCTAssertTrue(Self.plan(WebMacPlanRequest(kind: k, program: .claude, folder: "/Users/x/src/app")).buildCommands.isEmpty, "\(k)")
         }
         XCTAssertTrue(MacBuildCommands.commands(profile: "agent").isEmpty)
         let text = MacBuildCommands.text(plan.buildCommands)
@@ -330,15 +330,15 @@ final class WebMacCapabilitiesTests: XCTestCase {
         let opened = Locked<[String]>([])
         let data = HostWebData(store: DozableStore(root: dir), version: "test", executable: "/opt/doz/bin/doz",
                                terminal: { c in opened.mutate { $0.append(c) } }, doctor: { [] })
-        var r = WebMacPlanRequest(kind: .xcode, program: .claude, workdir: "/Users/x/src/app")
+        var r = WebMacPlanRequest(kind: .xcode, program: .claude, folder: "/Users/x/src/app")
         r.simulator = true
         r.open = true
         do { _ = try await data.macSessionPlan(r); XCTFail("the Simulator's shape is copy-only") } catch {}
-        r = WebMacPlanRequest(kind: .unfenced, program: .claude, workdir: "/Users/x/src/app")
+        r = WebMacPlanRequest(kind: .unfenced, program: .claude, folder: "/Users/x/src/app")
         r.open = true
         do { _ = try await data.macSessionPlan(r); XCTFail("an unfenced one is copy-only") } catch {}
         XCTAssertEqual(opened.value, [], "nothing was opened for them")
-        r = WebMacPlanRequest(kind: .plain, program: .claude, workdir: "/Users/x/src/app")
+        r = WebMacPlanRequest(kind: .plain, program: .claude, folder: "/Users/x/src/app")
         let look = try await data.macSessionPlan(r)
         XCTAssertNil(look.opened)
         XCTAssertEqual(opened.value, [], "a plan without open writes nothing")
@@ -417,7 +417,7 @@ final class Locked<T>: @unchecked Sendable {
 
 extension ServeHTTPTests {
     func testTheWizardsPlanIsTheMacsOwnBrowsersAlone() async throws {
-        let body = #"{"case":"plain","program":"claude","workdir":"/Users/someone/src/app"}"#
+        let body = #"{"case":"plain","program":"claude","folder":"/Users/someone/src/app"}"#
         var last = ""
         for setting in ["off", "watch", "interactive"] {
             if server != nil { await server.close(); _ = try? await serveTask.value; server = nil }
@@ -442,18 +442,18 @@ extension ServeHTTPTests {
     func testOpenInTerminalIsRefusedForTheNearUnfencedShapes() async throws {
         try await start()
         let (c, x) = try macSignIn()
-        for bad in [#"{"case":"xcode","program":"claude","workdir":"/a/b","simulator":true,"open":true}"#,
-                    #"{"case":"xcode","program":"claude","workdir":"/a/b","keychain":true,"open":true}"#,
-                    #"{"case":"plain","program":"claude","workdir":"/a/b","agentConfig":"shared","open":true}"#,
-                    #"{"case":"signing","program":"claude","workdir":"/a/b","open":true}"#,
-                    #"{"case":"unfenced","program":"shell","workdir":"/a/b","open":true}"#] {
+        for bad in [#"{"case":"xcode","program":"claude","folder":"/a/b","simulator":true,"open":true}"#,
+                    #"{"case":"xcode","program":"claude","folder":"/a/b","keychain":true,"open":true}"#,
+                    #"{"case":"plain","program":"claude","folder":"/a/b","agentConfig":"shared","open":true}"#,
+                    #"{"case":"signing","program":"claude","folder":"/a/b","open":true}"#,
+                    #"{"case":"unfenced","program":"shell","folder":"/a/b","open":true}"#] {
             XCTAssertEqual(try macJSON(c, x, "/api/v1/mac/session-plan", bad, remote: false).status, 400, bad)
         }
         XCTAssertEqual(fake.planTerminal, [], "nothing was opened")
-        let ok = try macJSON(c, x, "/api/v1/mac/session-plan", #"{"case":"web","program":"claude","workdir":"/a/b","ports":[3000],"open":true}"#, remote: false)
+        let ok = try macJSON(c, x, "/api/v1/mac/session-plan", #"{"case":"web","program":"claude","folder":"/a/b","ports":[3000],"open":true}"#, remote: false)
         XCTAssertEqual(ok.status, 200, ok.text)
         XCTAssertEqual(fake.planTerminal.count, 1)
-        XCTAssertEqual(try macJSON(c, x, "/api/v1/mac/session-plan", #"{"case":"plain","program":"claude","workdir":"/a/b","argv":["sh"]}"#, remote: false).status, 400)
+        XCTAssertEqual(try macJSON(c, x, "/api/v1/mac/session-plan", #"{"case":"plain","program":"claude","folder":"/a/b","argv":["sh"]}"#, remote: false).status, 400)
     }
 
     func testTheFencedTabsAndTheExportFollowTheSetting() async throws {

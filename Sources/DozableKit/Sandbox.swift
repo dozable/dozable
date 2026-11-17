@@ -1139,7 +1139,7 @@ public actor Sandbox {
             let older = WorkspaceView.olderDaemons(out)
             if viewOwner != nil, !older.isEmpty {
                 let paths = tags.filter { older.contains($0.tag) }.map(\.guestPath).sorted().joined(separator: ", ")
-                note("workspace: \(paths) is served by a view an older doz started — \(viewOwner!) may not be able to write it until the sandbox is shut down and started again")
+                note("folder: \(paths) is served by a view an older doz started — \(viewOwner!) may not be able to write it until the sandbox is shut down and started again")
             }
         case .deleteSnapshot:
             if FileManager.default.fileExists(atPath: layout.snapshot.path) {
@@ -2139,15 +2139,15 @@ public actor Sandbox {
 
     private func copyViewBinary() async {
         guard let container else { return }
-        guard let bin = DozviewBinary.locate() else { note("workspace rules: the dozview guest binary is missing from the resource bundle"); return }
+        guard let bin = DozviewBinary.locate() else { note("folder rules: the dozview guest binary is missing from the resource bundle"); return }
         do { try await container.copyIn(from: bin, to: URL(fileURLWithPath: WorkspaceView.binaryGuestPath), mode: 0o755) }
-        catch { note("workspace rules: could not copy the view into the guest: \(error.localizedDescription)") }
+        catch { note("folder rules: could not copy the view into the guest: \(error.localizedDescription)") }
     }
 
     /// Copy the daemon in and turn the views on (a fresh boot, or a share that gained a rule file).
     private func startViews(_ views: [String: WorkspaceViewConfig], on c: LinuxContainer, quiet: Bool) async {
         guard let bin = DozviewBinary.locate() else {
-            note("workspace rules: the dozview guest binary is missing from the resource bundle — the shares are served without their rules")
+            note("folder rules: the dozview guest binary is missing from the resource bundle — the shares are served without their rules")
             return
         }
         let label = views.values.sorted { $0.guestPath < $1.guestPath }
@@ -2160,12 +2160,12 @@ public actor Sandbox {
         }
         do {
             let title = views.values.allSatisfy(\.isPassthrough)
-                ? "workspace: \(views.values.map(\.guestPath).sorted().joined(separator: ", ")) through the live view (programs there keep their folder across a wake)"
-                : "workspace rules: \(label) served through the view"
+                ? "folder: \(views.values.map(\.guestPath).sorted().joined(separator: ", ")) through the live view (programs there keep their folder across a wake)"
+                : "folder rules: \(label) served through the view"
             let out = quiet ? try await work() : try await timed(title, work)
             recordViewStatus(out, wanted: views, guestPaths: [:])
         } catch {
-            note("workspace rules: the view could not start: \(error.localizedDescription)")
+            note("folder rules: the view could not start: \(error.localizedDescription)")
         }
     }
 
@@ -2178,15 +2178,15 @@ public actor Sandbox {
                 let gp = wanted[st.tag]?.guestPath ?? active[st.tag]?.guestPath ?? guestPaths[st.tag] ?? "?"
                 active[st.tag] = wanted[st.tag] ?? active[st.tag] ?? WorkspaceViewConfig(tag: st.tag, guestPath: gp, mode: workspaceRuleMode, fold: true, owner: viewOwner)
                 fallbackBox.withLock { _ = $0.remove(gp) }
-                if st.state == .restarted { note("workspace rules: the view of \(gp) was not running — started it again") }
+                if st.state == .restarted { note("folder rules: the view of \(gp) was not running — started it again") }
             case .failed:
                 let gp = wanted[st.tag]?.guestPath ?? guestPaths[st.tag] ?? st.tag
                 active[st.tag] = nil
                 if wanted[st.tag]?.isPassthrough == true {
                     fallbackBox.withLock { _ = $0.insert(gp) }
-                    note("workspace: the view of \(gp) could not start — \(gp) is the share as it is (a program inside loses its directory at a hibernation)")
+                    note("folder: the view of \(gp) could not start — \(gp) is the share as it is (a program inside loses its directory at a hibernation)")
                 } else {
-                    note("workspace rules: the view of \(gp) could not start — \(gp) is EMPTY in the sandbox until it does (the next wake or start tries again)")
+                    note("folder rules: the view of \(gp) could not start — \(gp) is EMPTY in the sandbox until it does (the next wake or start tries again)")
                 }
             case .off:
                 active[st.tag] = nil
@@ -2206,7 +2206,7 @@ public actor Sandbox {
         // cwds are cut anyway) — never live under a running program, whose cwd it would cut.
         let new = wanted.filter { active[$0.key] == nil && !$0.value.isPassthrough }
         if !new.isEmpty {
-            note("workspace rules: a rule file appeared — serving \(new.values.map(\.guestPath).sorted().joined(separator: ", ")) through the view (a program already inside keeps what it has open until it changes directory)")
+            note("folder rules: a rule file appeared — serving \(new.values.map(\.guestPath).sorted().joined(separator: ", ")) through the view (a program already inside keeps what it has open until it changes directory)")
             await startViews(new, on: c, quiet: true)
         }
         for (tag, w) in wanted where active[tag] != nil && active[tag] != w {

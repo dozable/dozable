@@ -15,7 +15,7 @@ struct List: AsyncParsableCommand {
         let mac = await MacCLI.summaryLine(g.dozableStore)
         if rows.isEmpty { Out.stdout("no sandboxes — doz up NAME --image lab|claude-code|pi\n" + (mac.map { $0 + "\n" } ?? "")); return }
         defer { if let mac { Out.stdout(mac + "\n") } }
-        var t = [["NAME", "IMAGE", "PHASE", "RAM", "DISK", "SESSIONS", "AGENT", "NETWORK", "ACCOUNT", "WORKSPACE"]]
+        var t = [["NAME", "IMAGE", "PHASE", "RAM", "DISK", "SESSIONS", "AGENT", "NETWORK", "ACCOUNT", "FOLDER"]]
         for r in rows {
             var phase = Out.phaseLabel(r.phase) + (r.busy ? "…" : "")
             if r.diedWithHost == true { phase += " (died with the daemon)" }
@@ -25,8 +25,8 @@ struct List: AsyncParsableCommand {
             var account = r.account ?? "—"
             if let s = r.credentialState, s != "ok" { account += " (\(s))" }
             if r.credentialPolicy == "strict" { account += " · strict" }
-            // 594 (D17): no workspace is said, not left blank.
-            let ws = r.workspace.map { DisplayPath.tilde($0) } ?? "isolated"
+            // 594 (D17): no folder is said, not left blank.
+            let ws = r.folder.map { DisplayPath.tilde($0) } ?? "isolated"
             t.append([r.name, r.image, phase, Out.mib(r.ramHeldMiB), DozableImages.formatBytes(r.diskBytes),
                       r.sessions.map(String.init) ?? "—", r.agentStatus?.label ?? "—", net, account, ws])
         }
@@ -481,7 +481,7 @@ struct SessionsList: AsyncParsableCommand {
             for s in rows where s.fence?.stoppedForGit != nil {
                 Out.stderr("\(s.name) is STOPPED: a git config change a fenced session may not make (\(s.fence!.stoppedForGit!)) — doz sessions @mac --quarantine \(s.name); doz sessions resume @mac \(s.name)\n")
             }
-            Out.stdout(rows.isEmpty ? "no sessions on this Mac — doz run @mac -d --session NAME --workdir DIR -- CMD\n" : MacCLI.table(rows))
+            Out.stdout(rows.isEmpty ? "no sessions on this Mac — doz run @mac -d --session NAME --folder DIR -- CMD\n" : MacCLI.table(rows))
             return
         }
         if rows.isEmpty {
@@ -554,7 +554,7 @@ struct Run: AsyncParsableCommand {
         discussion: """
             doz run NAME -- top. The program starts without a shell in front of it; say `-- bash -lc '…'` for one. \
             doz run @mac -- CMD runs it on THIS Mac instead, held like a sandbox's session, and by default FENCED \
-            (no CMD: your login shell): it reads and writes only its folder (--workdir, default: the one you \
+            (no CMD: your login shell): it reads and writes only its folder (--folder, default: the one you \
             are in) and its own temp and caches, reads your tools but not your secrets or other folders, cannot use your \
             Keychain (--keychain opens it), and reaches the network only through Dozable's proxy, by its permissions \
             (--permissions, the setting mac.permissions; doz net allow|deny @mac --session SESSION changes them live) — never \
@@ -563,14 +563,15 @@ struct Run: AsyncParsableCommand {
             stays on the Mac; read-only refuses pushes), --ssh-agent your SSH agent for listing and signing only (git over \
             ssh goes through the proxy), --xcode Xcode's build services (DerivedData in the session: -derivedDataPath \
             "$DOZ_DERIVED"), --simulator the Simulator too (a guard rail, not a boundary: what it launches runs outside). \
-            doz run @mac --unfenced -- CMD runs it with no isolation at all: your files, Keychain and network (--workdir \
+            doz run @mac --unfenced -- CMD runs it with no isolation at all: your files, Keychain and network (--folder \
             default your home) — what signing and notarisation need. The setting mac.fence (on by default) decides for a \
             new session; a session keeps its mode when it is restarted.
             """)
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
     @Option(name: .long, help: "The session's name (default: the program's).") var session: String?
-    @Option(name: .long, help: "Working directory in the guest (@mac: on this Mac).") var workdir: String?
+    @Option(name: .long, help: "The directory in the sandbox to run in (default: the image's). Not for @mac: see --folder.") var cwd: String?
+    @Option(name: .long, help: "@mac: the folder on this Mac the session works in (fenced: default the one you are in; --unfenced: default your home).") var folder: String?
     @Option(name: .long, help: "Run as this guest user (agent images default to their user).") var user: String?
     @Option(name: [.short, .customLong("env")], help: "KEY=VALUE for the program (repeatable).") var env: [String] = []
     @Flag(name: [.short, .customLong("detach")], help: "Start it and return; attach later.") var detach = false
@@ -693,11 +694,14 @@ struct Run: AsyncParsableCommand {
     func run() async throws {
         let key = try parseDetachKey(detachKey)
         let onMac = MacPlace.isPlace(name)
+        // A sandbox's session runs in a directory of the guest (--cwd); a session on this Mac works in a folder (--folder).
+        if onMac, cwd != nil { throw fail(HostError(.invalid, "--cwd is a directory in a sandbox — on @mac say --folder DIR"), g, code: 64) }
+        if !onMac, folder != nil { throw fail(HostError(.invalid, "--folder is for @mac — in a sandbox say --cwd DIR (its folder is at /workspace)"), g, code: 64) }
         let settings = DozableSettings.load()
         let fence = onMac && fencedOnMac(settings)
         if dryRun {
             func abs(_ p: String) -> String { URL(fileURLWithPath: p).standardizedFileURL.path }
-            let wd = workdir.map(abs) ?? (fence ? FileManager.default.currentDirectoryPath : NSHomeDirectory())
+            let wd = folder.map(abs) ?? (fence ? FileManager.default.currentDirectoryPath : NSHomeDirectory())
             let shape = dryRunShape(settings, fence: fence, workdir: wd, absolute: abs)
             let caps = MacFence.capabilities(shape)
             if g.json { Out.json(caps); return }
@@ -713,7 +717,7 @@ struct Run: AsyncParsableCommand {
         // A folder on this Mac is absolute (the host runs elsewhere): relative to where doz runs. A fenced session's
         // folder is, by default, the one doz runs in.
         func absolute(_ p: String) -> String { URL(fileURLWithPath: p).standardizedFileURL.path }
-        r.workdir = onMac ? (workdir.map(absolute) ?? (fence ? FileManager.default.currentDirectoryPath : nil)) : workdir
+        if onMac { r.folder = folder.map(absolute) ?? (fence ? FileManager.default.currentDirectoryPath : nil) } else { r.cwd = cwd }
         r.user = user
         r.environment = try parseEnv(env)
         // 691: a sandbox's ports of this Mac — added to it (and kept) before the session opens.
@@ -732,10 +736,8 @@ struct Run: AsyncParsableCommand {
         // A program the sandbox does not have is doz's failure, not the program's: 125, like exec.
         let m = try rawCall(r, g)
         guard m.ok == true else {
-            var e = m.error ?? HostError(.failed, "the daemon gave no reason")
-            if fence, e.code == .version {
-                e = HostError(.unavailable, "the daemon running now predates fenced sessions — doz daemon stop, then run this again (nothing was started)")
-            }
+            // A daemon that predates fenced sessions predates protocol 3 too: `rawCall` already says to restart it.
+            let e = m.error ?? HostError(.failed, "the daemon gave no reason")
             throw fail(e, g, code: e.code == .notFound && r.argv != nil ? DozableExit.dozableFailed : nil)
         }
         let opened = try decode(m.result ?? .null, SessionOpened.self, g)
@@ -780,7 +782,7 @@ struct Exec: AsyncParsableCommand {
         discussion: "doz exec NAME -- CMD…. No terminal, no stdin; for an interactive program use run. A paused or sleeping sandbox is woken first, and one that is off is started (--no-wake, --no-start refuse instead).")
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
-    @Option(name: .long, help: "Working directory in the guest (default: the session's).") var workdir: String?
+    @Option(name: .long, help: "The directory in the sandbox to run in (default: the image's).") var cwd: String?
     @Option(name: .long, help: "Run as this guest user (agent images default to their user; `root` for root).") var user: String?
     @Option(name: [.short, .customLong("env")], help: "KEY=VALUE (repeatable).") var env: [String] = []
     @Option(name: .long, help: "Give up after this many seconds, counted from when doz started — a wake or a start included; exit code 124 (--json says timedOut). The command is killed; a wake or a start under way goes on. Default 120.") var timeout: Int64 = 120
@@ -805,7 +807,7 @@ struct Exec: AsyncParsableCommand {
     func run() async throws {
         var r = HostRequest(.exec, name: name)
         r.argv = command
-        r.workdir = workdir
+        r.cwd = cwd
         r.user = user
         r.environment = try parseEnv(env)
         // 678: the deadline counts from when this doz started (its watchdog, `ExecDeadline.arm`, ends it a little

@@ -32,7 +32,7 @@ final class WebDotfilesTests: XCTestCase {
 
     func testASandboxsDotfilesAreProjected() {
         var i = SandboxInfo(name: "s", image: "lab", phase: "off", busy: false, cpus: 1, memoryMiB: 512, ramHeldMiB: 0, memoryReturnedMiB: 0,
-                            diskBytes: 0, sessions: nil, network: "bake", deniedConnections: nil, workspace: nil, createdAt: nil, diedWithHost: nil)
+                            diskBytes: 0, sessions: nil, network: "bake", deniedConnections: nil, folder: nil, createdAt: nil, diedWithHost: nil)
         XCTAssertNil(WebSandboxRow(i).dotfiles)
         i.dotfiles = DotfilesState(source: "/Users/me/dots", display: "~/dots", commit: String(repeating: "ab", count: 20), resolvedAt: Date(),
                                    state: "applied", method: "links", script: nil, summary: "3 linked", at: Date())

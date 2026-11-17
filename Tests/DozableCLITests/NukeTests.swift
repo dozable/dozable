@@ -38,7 +38,7 @@ final class NukeTests: XCTestCase {
         XCTAssertEqual(Set(p.items.filter { $0.kind == .keychain }.map(\.location)),
                        ["login keychain: doz-anthropic:work", "login keychain: doz-chatgpt:me#1", "login keychain: doz-github"])
         XCTAssertTrue(p.kept.contains { $0.hasPrefix("doz itself") }, "doz stays installed")
-        XCTAssertTrue(p.kept.contains { $0.hasPrefix("your workspace folders") })
+        XCTAssertTrue(p.kept.contains { $0.hasPrefix("your sandbox folders") })
     }
 
     func testItNeverListsAFolderThatIsNotDozables() throws {

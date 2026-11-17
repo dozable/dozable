@@ -81,7 +81,7 @@ final class ImageTreeTests: XCTestCase {
         XCTAssertEqual(HostOp(rawValue: "template-create"), .templateCreate)
         var r = HostRequest(.duplicate, name: "a")
         r.newName = "b"
-        r.duplicate = DuplicateOptions(workspace: "/tmp", cpus: 4, copyState: true)
+        r.duplicate = DuplicateOptions(folder: "/tmp", cpus: 4, copyState: true)
         let back = try HostWire.decoder.decode(HostRequest.self, from: HostWire.encoder.encode(r))
         XCTAssertEqual(back, r)
     }

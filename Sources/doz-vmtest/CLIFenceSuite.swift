@@ -87,7 +87,7 @@ func cliFenceSuite(binary: String) async {
     func rows() -> [SessionRow] { t.json(["sessions", "@mac"], [SessionRow].self) ?? [] }
     func row(_ s: String) -> SessionRow? { rows().first { $0.name == s } }
     func run(_ s: String, _ argv: [String], extra: [String] = [], workdir: String? = nil) -> CLIRun {
-        let r = t.run(["run", "@mac", "-d", "--fenced", "--session", s, "--workdir", workdir ?? work] + extra + ["--"] + argv, timeout: 90)
+        let r = t.run(["run", "@mac", "-d", "--fenced", "--session", s, "--folder", workdir ?? work] + extra + ["--"] + argv, timeout: 90)
         if r.code == 0 { started.insert(s) }
         return r
     }
@@ -134,20 +134,20 @@ func cliFenceSuite(binary: String) async {
     }
 
     // MARK: refusals before anything runs (1.19, 2.1)
-    var r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--workdir", home, "--", "/bin/sh"])
+    var r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--folder", home, "--", "/bin/sh"])
     check(r.code == 64 && r.err.contains("your home"), "1.19 a fenced session in the home is refused (\(r.code))")
-    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--workdir", store, "--", "/bin/sh"])
+    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--folder", store, "--", "/bin/sh"])
     check(r.code == 64, "1.19 …in the store (\(r.code))")
     let linked = root + "/linked"
     try? FileManager.default.createDirectory(atPath: linked + "/.git", withIntermediateDirectories: true)
     symlink(home + "/.aws/credentials", linked + "/.git/config")
-    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--workdir", linked, "--", "/bin/sh"])
+    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--folder", linked, "--", "/bin/sh"])
     check(r.code == 64 && r.err.contains(".git/config"), "1.19 …in a folder whose .git/config is a link (\(r.code))")
     r = t.run(["run", "@mac", "-d", "--unfenced", "--keychain", "--session", "h", "--", "/bin/sh"])
     check(r.code == 64, "--keychain with --unfenced is refused (\(r.code))")
-    r = t.run(["run", "@mac", "-d", "--fenced", "--write", home + "/.ssh", "--session", "h", "--workdir", work, "--", "/bin/sh"])
+    r = t.run(["run", "@mac", "-d", "--fenced", "--write", home + "/.ssh", "--session", "h", "--folder", work, "--", "/bin/sh"])
     check(r.code == 64 && r.err.contains("--write"), "1.3b --write ~/.ssh is refused (\(r.code))")
-    r = t.run(["run", "@mac", "-d", "--fenced", "--read", home, "--session", "h", "--workdir", work, "--", "/bin/sh"])
+    r = t.run(["run", "@mac", "-d", "--fenced", "--read", home, "--session", "h", "--folder", work, "--", "/bin/sh"])
     check(r.code == 64, "1.3b --read ~ is refused (\(r.code))")
 
     // MARK: one session runs the probes (1.1–1.18)
@@ -328,7 +328,7 @@ func cliFenceSuite(binary: String) async {
     // MARK: 687 — a foreground fenced `doz run` returns its program's exit code (at once, and later)
     for (s, cmd) in [("fx3", "exit 3"), ("fx3l", "sleep 1; exit 3")] {
         do {
-            let c = try PTYClient(t, ["run", "@mac", "--fenced", "--session", s, "--workdir", work, "--", "/bin/sh", "-c", cmd])
+            let c = try PTYClient(t, ["run", "@mac", "--fenced", "--session", s, "--folder", work, "--", "/bin/sh", "-c", cmd])
             started.insert(s)
             defer { c.close() }
             let got = c.exited(within: 30)
@@ -420,7 +420,7 @@ func cliFenceSuite(binary: String) async {
     check(row("seed")?.fenced == true, "1.21 still fenced")
     check(FileManager.default.fileExists(atPath: folder + "/cache/npm/kept"), "1.27 the same grants keep the caches")
     t.run(["sessions", "end", "@mac", "seed", "--yes"], timeout: 60)
-    r = t.run(["run", "@mac", "-d", "--fenced", "--keychain", "--session", "seed", "--workdir", work, "--", "/bin/sh", "-c", "sleep 600"], timeout: 60)
+    r = t.run(["run", "@mac", "-d", "--fenced", "--keychain", "--session", "seed", "--folder", work, "--", "/bin/sh", "-c", "sleep 600"], timeout: 60)
     if r.code == 0 { started.insert("seed") }
     check(r.code == 0 && r.err.contains("Keychain OPEN"), "a re-open with --keychain says the Keychain is open")
     check(!FileManager.default.fileExists(atPath: folder + "/cache/npm/kept"), "1.27 …and the WIDER grants emptied its caches")
@@ -468,7 +468,7 @@ func cliFenceSuite(binary: String) async {
           "1.20 …its rules hold (writes yes; hooks, renaming .git, the home no)")
     let quoted = root + "/a\"b"
     try? FileManager.default.createDirectory(atPath: quoted, withIntermediateDirectories: true)
-    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "q", "--workdir", quoted, "--", "/bin/sh"], timeout: 30)
+    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "q", "--folder", quoted, "--", "/bin/sh"], timeout: 30)
     check(r.code == 64, "1.20 a folder name with a quote is refused (a profile cannot carry it) (\(r.code))")
     t.run(["sessions", "end", "@mac", "odd", "--yes"], timeout: 60)
 
@@ -492,7 +492,7 @@ func cliFenceSuite(binary: String) async {
         for f in [false, true] {
             let s = "pf\(f ? "f" : "u")\(i)"
             let a = Date()
-            let rr = t.run(["run", "@mac", "-d", f ? "--fenced" : "--unfenced", "--session", s, "--workdir", perf, "--", "/bin/sleep", "600"], timeout: 60)
+            let rr = t.run(["run", "@mac", "-d", f ? "--fenced" : "--unfenced", "--session", s, "--folder", perf, "--", "/bin/sleep", "600"], timeout: 60)
             let ms = Date().timeIntervalSince(a) * 1000
             if rr.code == 0 { started.insert(s); if f { fenced.append(ms) } else { plain.append(ms) } }
             t.run(["sessions", "end", "@mac", s, "--yes"], timeout: 60)
@@ -504,7 +504,7 @@ func cliFenceSuite(binary: String) async {
     check(fenced.count == 10 && added < 50, String(format: "1.25 a fenced start adds < 50 ms (median %.0f ms)", added))
 
     // The unfenced path is unchanged (1.23's run is make test-cli-host): the no-isolation line, no fence.
-    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "plain", "--workdir", work, "--", "/bin/sleep", "600"], timeout: 60)
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "plain", "--folder", work, "--", "/bin/sleep", "600"], timeout: 60)
     if r.code == 0 { started.insert("plain") }
     check(r.code == 0 && r.err.contains("no sandbox, no proxy") && row("plain")?.fenced == nil, "--unfenced: as before (no fence, the no-isolation line)")
     r = t.run(["run", "@mac", "-d", "--unfenced", "--local-port", "4000", "--session", "plain2", "--", "/bin/sleep", "1"])
@@ -518,7 +518,7 @@ func cliFenceSuite(binary: String) async {
         let saved = t.env
         for (k, v) in env { t.env[k] = v }
         defer { t.env = saved }
-        let d = t.run(["run", "@mac", "--dry-run"] + extra + ["--workdir", work, "--", "/bin/sh"])
+        let d = t.run(["run", "@mac", "--dry-run"] + extra + ["--folder", work, "--", "/bin/sh"])
         return d.code == 0 ? (d.out.contains("(fenced — nothing") ? "fenced" : d.out.contains("(no isolation — nothing") ? "unfenced" : "?") : "exit \(d.code)"
     }
     check(dry([]) == "fenced", "M6 no flag, no setting: fenced (\(dry([])))")
@@ -531,7 +531,7 @@ func cliFenceSuite(binary: String) async {
     check(dry(["--fenced"]) == "fenced" && dry(["--keychain"]) == "fenced", "M6 --fenced, or a fenced-only flag, beats the file's off")
     // A session opened unfenced (mac.fence off, as every session before the flip), then the default back on: its restart,
     // a host stop + adoption and a second restart keep it unfenced.
-    r = t.run(["run", "@mac", "-d", "--session", "before", "--workdir", work, "--", "/bin/sleep", "600"], timeout: 60)
+    r = t.run(["run", "@mac", "-d", "--session", "before", "--folder", work, "--", "/bin/sleep", "600"], timeout: 60)
     if r.code == 0 { started.insert("before") }
     check(r.code == 0 && r.err.contains("no sandbox, no proxy") && row("before")?.fenced == nil, "M6 mac.fence off: a session opened with no flag is unfenced")
     check(t.run(["config", "unset", "mac.fence"]).code == 0, "M6 doz config unset mac.fence (the default, on, again)")
@@ -545,7 +545,7 @@ func cliFenceSuite(binary: String) async {
     t.run(["sessions", "end", "@mac", "before", "--yes"], timeout: 60)
     started.remove("before")
     // And the other way: no flag now opens a FENCED session (a real one), and its restart keeps the fence.
-    r = t.run(["run", "@mac", "-d", "--session", "dflt", "--workdir", work, "--", "/bin/sleep", "600"], timeout: 90)
+    r = t.run(["run", "@mac", "-d", "--session", "dflt", "--folder", work, "--", "/bin/sleep", "600"], timeout: 90)
     if r.code == 0 { started.insert("dflt") }
     check(r.code == 0 && r.err.contains("[doz] fenced") && row("dflt")?.fenced == true, "M6 no flag: a fenced session (\(r.code)\(r.code == 0 ? "" : ": " + r.err.prefix(160)))")
     r = t.run(["sessions", "restart", "@mac", "dflt", "--yes", "-d"], timeout: 60)
@@ -591,7 +591,7 @@ private func cliFenceKeepaliveRows(_ t: CLIHarness, root: String, work: String, 
         t.env["DOZ_TEST_LOGIN_WATCH_SECONDS"] = nil
         try? FileManager.default.removeItem(atPath: inside)
     }
-    var r = t.run(["run", "@mac", "-d", "--fenced", "--session", "kaf", "--workdir", work, "--", inside, "hold"], timeout: 90)
+    var r = t.run(["run", "@mac", "-d", "--fenced", "--session", "kaf", "--folder", work, "--", inside, "hold"], timeout: 90)
     check(r.code == 0 && t.waitFor(10) { row("kaf")?.pid != nil && row("kaf")?.fenced == true },
           "keep-alive: a fenced (fake) Claude Code running in session kaf (\(r.code)\(r.code == 0 ? "" : ": " + r.err.prefix(160)))")
     let pid = row("kaf")?.pid ?? -1

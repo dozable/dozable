@@ -14,13 +14,13 @@ import { accountChooser, accountForm, sourceOf } from '../components/accounts-3f
 import { LOCAL, localNodes, modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source-954e37f5d213e7c4.js';
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
-import { createDialog } from '../components/create-dialog-bb4a1128cf2be113.js';
+import { createDialog } from '../components/create-dialog-5402e4dc11e2c49d.js';
 import { dialog } from '../components/dialog-cc08b737f1accd16.js';
-import { imagePicker } from '../components/image-picker-54289bbb09a54ddf.js';
-import { renderModal, wizHead, wizMount } from '../components/modal-d6e9977376255ebe.js';
+import { imagePicker } from '../components/image-picker-94b1501a56aee282.js';
+import { renderModal, wizHead, wizMount } from '../components/modal-6b75f7c931c5a99d.js';
 import { pageFailure, toast } from '../components/notices-a8bcbd0d28fca151.js';
 import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-8b35fed69f1f8de3.js';
-import { rulesStep } from '../components/rules-step-3f5b3888eba73fc0.js';
+import { rulesStep } from '../components/rules-step-555a16e56d4c1bd9.js';
 import { stepperNode } from '../components/stepper-7c3bf700447c8338.js';
 import { openDefaultTerminal } from '../components/terminal-0669011bf502f6fb.js';
 import { planBlock } from '../components/plan-view-9c5b2768ab9acf20.js';
@@ -28,7 +28,7 @@ import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── 599f: the New Sandbox wizard (owner: "a new wizard process for creating a purposeful sandbox that steps
 // the user through all the choices, capturing the config in a doz_project.yml in the project / working dir").
-// #/new: project folder → agent and base → account → access → workspace rules (599g) → permissions and network →
+// #/new: project folder → agent and base → account → access → folder rules (599g) → permissions and network →
 // resources → bridges → session → review. The steps are the host's list (`ProjectWizard.steps`, the same `doz init` walks);
 // every value is pre-filled from the settings, or from the folder's existing project file; only what the
 // person sets (or the file set) is written — the rest stays commented and follows the settings. The review
@@ -109,7 +109,7 @@ function nwAnswer(id) {
     case 'account': { const a = nwAgent(f); return a ? (f.account && f.account !== 'default' ? f.account : 'the store default') + (f.modelSource ? ' · ' + f.modelSource : '') + (f.model ? ' · ' + f.model : '') : 'none needed'; }
     case 'access': { const g = f.github || setting('defaults.github', 'off'), ssh = f.sshAgent || setting('sandbox.ssh_agent', 'off');
       return 'GitHub ' + ({ off: 'off', read: 'read-only', push: 'read and push' }[g] || g) + ' · SSH ' + ssh; }
-    case 'rules': return f.ignoreMode || setting('workspace.ignore_mode', 'lock');
+    case 'rules': return f.ignoreMode || setting('folder.ignore_mode', 'lock');
     case 'permissions': return nwNetwork(f) + (nwPermissionNet(nwNetwork(f)) ? ' · ' + (f.permissions || setting('defaults.permissions', 'standard')) : '');
     case 'resources': return (f.cpus || setting('defaults.cpus', 2)) + ' CPUs · ' + (f.memory || 'default memory');
     case 'bridges': { const sound = f.audio || setting('sandbox.audio', 'off');
@@ -278,7 +278,7 @@ function nwFolder() {
   path.addEventListener('input', () => { nw.path = path.value.trim(); nw.open = null; nw.form = null; });
   const choose = btn('Choose…', async () => {
     try {
-      const r = await api('workspace/choose', { method: 'POST', json: nw.path ? { start: nw.path } : {} });
+      const r = await api('folder/choose', { method: 'POST', json: nw.path ? { start: nw.path } : {} });
       if (r.cancelled) return;
       nw.path = r.path; nw.mode = 'existing'; nw.open = null; nw.form = null;
       nwRender();
@@ -486,7 +486,7 @@ function nwAccess() {
     },
   };
 }
-/// 599g (owner A2): the Workspace rules step — the onboarding's description, what the chosen folder already has
+/// 599g (owner A2): the Folder rules step — the onboarding's description, what the chosen folder already has
 /// (its .dozignore / .dozreadonly, from project/open; Look again reads them again), and THIS sandbox's mode
 /// (`ignore_mode` in its file — written only when it differs from the setting, or the file set it).
 function nwRules() {
@@ -501,9 +501,9 @@ function nwRules() {
   };
   return {
     el: h('div', { class: 'nw-fields' },
-      rulesStep({ mode: 'sandbox', guide: nw.open.rulesGuide, value: f.ignoreMode || setting('workspace.ignore_mode', 'lock'),
+      rulesStep({ mode: 'sandbox', guide: nw.open.rulesGuide, value: f.ignoreMode || setting('folder.ignore_mode', 'lock'),
                   folder: nw.open, onLookAgain: look,
-                  onPick: (v) => { if (v !== (f.ignoreMode || setting('workspace.ignore_mode', 'lock')) || nw.explicit.has('ignore_mode')) nwSet('ignore_mode', v); } })),
+                  onPick: (v) => { if (v !== (f.ignoreMode || setting('folder.ignore_mode', 'lock')) || nw.explicit.has('ignore_mode')) nwSet('ignore_mode', v); } })),
   };
 }
 function nwPermissions() {
@@ -598,7 +598,7 @@ function nwBridges() {
         f.clipboard || setting('sandbox.clipboard', 'write')),
       nwSelect('browser_bridge', 'Browser', [['on', 'on — links opened in the sandbox open in the Mac’s browser'], ['off', 'off']],
         f.browserBridge || setting('sandbox.browser_bridge', 'on')),
-      nwSelect('open_files', 'Workspace files', [['on', 'on — documents opened in the sandbox open on the Mac, with a notice'], ['off', 'off']],
+      nwSelect('open_files', 'Folder files', [['on', 'on — documents opened in the sandbox open on the Mac, with a notice'], ['off', 'off']],
         f.openFiles || setting('sandbox.open_files', 'on')),
       // 667: sound — a device and the sound kernel, so chosen here (only when this doz carries the kernel).
       state.sound ? nwSelect('audio', 'Sound', [['off', 'off'], ['speakers', 'speakers — programs play through the Mac’s speakers'],
@@ -668,7 +668,7 @@ function nwReview() {
         fact('Account', nwAnswer('account')),
         fact('Network', nwAnswer('permissions')),
         fact('Access', nwAnswer('access')),
-        fact('Workspace rules', nwAnswer('rules')),
+        fact('Folder rules', nwAnswer('rules')),
         fact('Bridges', nwAnswer('bridges') + ' · files ' + (f.openFiles || setting('sandbox.open_files', 'on'))),
         fact('Session', nwAnswer('session') + ' · sudo ' + ((f.agentSudo ?? setting('sandbox.agent_sudo', true)) ? 'yes' : 'no')),
         nwDotfilesFact()),

@@ -25,7 +25,7 @@ final class WebAgentStatusTests: XCTestCase {
     func testRowsCarryTheStatuses() {
         var info = SandboxInfo(name: "box", image: "lab", phase: "running", busy: false, cpus: 1, memoryMiB: 512, ramHeldMiB: 0,
                                memoryReturnedMiB: 0, diskBytes: 0, sessions: nil, network: "nat", deniedConnections: nil,
-                               workspace: nil, createdAt: nil, diedWithHost: nil)
+                               folder: nil, createdAt: nil, diedWithHost: nil)
         XCTAssertNil(WebSandboxRow(info).agentStatus)
         let st = SessionStatus(session: "main", state: .working, updatedAt: Date())
         info.sessionStatuses = [st]

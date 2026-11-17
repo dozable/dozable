@@ -23,38 +23,38 @@ final class SessionRestartTests: XCTestCase {
         return SandboxConfig(name: "x", image: n, spec: s, workspace: nil)
     }
 
-    // MARK: workspace.view
+    // MARK: folder.view
 
     func testWorkspaceViewIsOnByDefaultAndPerSandbox() throws {
         let d = try XCTUnwrap(DozableSettings.definition(SettingKey.workspaceView))
         XCTAssertEqual(d.type, .choice(["on", "off"]))
         XCTAssertEqual(d.defaultValue, .string("on"))
         XCTAssertEqual(d.applies, .nextStart)
-        XCTAssertEqual(d.flag, "doz create --workspace-view on|off")
+        XCTAssertEqual(d.flag, "doz create --folder-view on|off")
         XCTAssertTrue(DozableSettings.perSandbox.contains(SettingKey.workspaceView))
         XCTAssertTrue(d.summary.contains("git status"), "the cost is said in plain words")
         XCTAssertTrue(d.summary.contains("invalid cwd"), "and what off costs")
         var cfg = try config()
         XCTAssertTrue(HostCore.workspaceViewOn(cfg, settings: DozableSettings(text: "")))
-        XCTAssertFalse(HostCore.workspaceViewOn(cfg, settings: DozableSettings(text: "[workspace]\nview = \"off\"\n")))
+        XCTAssertFalse(HostCore.workspaceViewOn(cfg, settings: DozableSettings(text: "[folder]\nview = \"off\"\n")))
         cfg.settings = [SettingKey.workspaceView: .string("on")]
-        XCTAssertTrue(HostCore.workspaceViewOn(cfg, settings: DozableSettings(text: "[workspace]\nview = \"off\"\n")), "the sandbox's own choice wins")
+        XCTAssertTrue(HostCore.workspaceViewOn(cfg, settings: DozableSettings(text: "[folder]\nview = \"off\"\n")), "the sandbox's own choice wins")
         cfg.settings = [SettingKey.workspaceView: .string("off")]
         XCTAssertFalse(HostCore.workspaceViewOn(cfg, settings: DozableSettings(text: "")))
     }
 
     func testTheProjectFileAndTheCLICarryWorkspaceView() throws {
-        XCTAssertTrue(DozableProject.settingKeys.contains { $0.key == "workspace_view" && $0.setting == SettingKey.workspaceView })
-        let p = try DozableProject.parse("version: 1\nname: demo\nimage: lab\nworkspace_view: off\n")
+        XCTAssertTrue(DozableProject.settingKeys.contains { $0.key == "folder_view" && $0.setting == SettingKey.workspaceView })
+        let p = try DozableProject.parse("version: 1\nname: demo\nimage: lab\nfolder_view: off\n")
         XCTAssertEqual(p.settings[SettingKey.workspaceView], .string("off"))
-        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: demo\nimage: lab\nworkspace_view: sometimes\n"))
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: demo\nimage: lab\nfolder_view: sometimes\n"))
         XCTAssertEqual(try DozableProject.parse(p.render()).settings[SettingKey.workspaceView], .string("off"), "rendered and read back")
         let form = WebProjectForm(p)
-        XCTAssertEqual(form.workspaceView, "off")
+        XCTAssertEqual(form.folderView, "off")
         XCTAssertEqual(try form.project().settings[SettingKey.workspaceView], .string("off"), "the dashboard keeps it")
-        let c = try Create.parse(["x", "--image", "lab", "--workspace-view", "off"])
+        let c = try Create.parse(["x", "--image", "lab", "--folder-view", "off"])
         XCTAssertEqual(try c.create.sandboxSettings()?[SettingKey.workspaceView], .string("off"))
-        XCTAssertThrowsError(try Create.parse(["x", "--image", "lab", "--workspace-view", "maybe"]).create.sandboxSettings())
+        XCTAssertThrowsError(try Create.parse(["x", "--image", "lab", "--folder-view", "maybe"]).create.sandboxSettings())
     }
 
     func testWhatARunningSandboxSaysAboutItsWorkspace() {
@@ -71,10 +71,10 @@ final class SessionRestartTests: XCTestCase {
         XCTAssertEqual(s(true, true, [], [], true), "next-start", "running from before the view was on")
         XCTAssertEqual(s(true, true, [], [], false), "direct")
         var info = SandboxInfo(name: "x", image: "lab", phase: "running", busy: false, cpus: 1, memoryMiB: 1, ramHeldMiB: 0, memoryReturnedMiB: 0,
-                               diskBytes: 0, sessions: nil, network: "none", deniedConnections: 0, workspace: "/w", createdAt: Date(), diedWithHost: nil)
-        info.workspaceView = "live"
+                               diskBytes: 0, sessions: nil, network: "none", deniedConnections: 0, folder: "/w", createdAt: Date(), diedWithHost: nil)
+        info.folderView = "live"
         let back = try? HostWire.decoder.decode(SandboxInfo.self, from: HostWire.encoder.encode(info))
-        XCTAssertEqual(back?.workspaceView, "live", "the field travels (fields only ever added)")
+        XCTAssertEqual(back?.folderView, "live", "the field travels (fields only ever added)")
     }
 
     // MARK: ending a session

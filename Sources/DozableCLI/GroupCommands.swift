@@ -574,7 +574,7 @@ struct HostCommand: AsyncParsableCommand {
         defaultSubcommand: HostRun.self)
 }
 
-/// The idle timeout: --idle-timeout, else $DOZ_DAEMON_IDLE, else the settings' `daemon.idle_timeout_minutes`, else 0 (never).
+/// The idle timeout: --idle-timeout, else $DOZ_DAEMON_IDLE, else the settings' `daemon.idle_timeout_minutes`, else 5 (0: never).
 /// 693: used only when `daemon.always_on` is off.
 func idleTimeout(_ option: Double?) -> Double {
     DozableSettings.load().idleTimeoutMinutes(flag: option)
@@ -584,7 +584,7 @@ struct HostRun: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "start", abstract: "Start the daemon (detached, unless --foreground).")
     @OptionGroup var g: GlobalOptions
     @Flag(name: .long, help: "Run in this process (logs on stdout) instead of detached.") var foreground = false
-    @Option(name: .long, help: "Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0 = never (default $DOZ_DAEMON_IDLE, else the settings' daemon.idle_timeout_minutes, else 0).") var idleTimeout: Double?
+    @Option(name: .long, help: "Minutes with nothing running before the daemon exits, used only when daemon.always_on is off; 0 = never (default $DOZ_DAEMON_IDLE, else the settings' daemon.idle_timeout_minutes, else 5).") var idleTimeout: Double?
     /// 593: the launcher's intermediate — spawn the host in its own session, print its pid, exit (so the
     /// host's parent is launchd, never a client). Not for people.
     @Flag(name: .long, help: .hidden) var launchDetached = false
@@ -675,6 +675,8 @@ func describe(_ st: HostStatus) -> String {
     }
     if let i = st.idleSeconds { s += String(format: " (idle %.0f s)", i) }
     s += "\n" + alwaysOnLine(alwaysOn: alwaysOn, idleTimeoutMinutes: st.idleTimeoutMinutes, keychainLocked: st.keychainLocked) + "\n"
+    // 700: always-on off with the timeout 0 — nothing switches it off by idling.
+    if let w = DozableSettings.daemonIdleWarning(alwaysOn: alwaysOn, idleTimeoutMinutes: st.idleTimeoutMinutes) { s += w + "\n" }
     if let k = st.keepers, k > 0 { s += "kept sessions: \(k) (they keep the daemon running)\n" }
     if let li = st.loginItem { s += li.line + "\n" }                // 694
     if let k = st.keepalive { s += "Claude login " + k.line() + "\n" }   // 695

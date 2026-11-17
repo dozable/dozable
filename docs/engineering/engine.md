@@ -27,7 +27,7 @@ A bare file name is in `Sources/DozableKit/`.
 | `Resources/deckhold` | The committed static aarch64-linux-musl guest binary — see `Guest/deckhold/PROVENANCE.md` |
 | `Guest/deckhold/` | deckhold's C source, `build.sh` (pinned Zig 0.16.0 + ghostty `b988efc`), `PROVENANCE.md` |
 | `Sources/doz-vmtest/` | The VM integration suite (entitled executable); `NetworkSuite.swift` is `network`; `CLISuite.swift` is `cli` (`make test-cli`); `ClaudeSuite.swift` is `claude` (`make test-vm-claude`) |
-| `Sources/DozableHost/HostProtocol.swift` | the daemon protocol (JSON lines, `HostOp`, results) — fields only ever added |
+| `Sources/DozableHost/HostProtocol.swift` | the daemon protocol (JSON lines, `HostOp`, results) — fields only ever added, except at a version step: 3 (0.51) renamed `workspace`→`folder` and a request's `workdir`→`cwd`/`folder`, and each side refuses the other's protocol (`HostProtocol.refusal`; `ping` and `host-stop` excepted, so either doz can see and stop the other's daemon; the CLI says `HostProtocol.skewMessage`). On-disk records keep their old keys (`doz.json` `workspace`, `sessions.json` `workdir`). |
 | `Sources/DozableHost/HostCore.swift` | the daemon's model — every sandbox as a `Sandbox`, every operation, crash recovery, metrics rows; also used read-only in-process |
 | `Sources/DozableHost/HostServer.swift` | `doz daemon` — the lock, the socket, the attach relay (held clients), streams, the idle loop (exit, restart in place, hand-over), quit = Hibernate |
 | `Sources/DozableHost/IdleDecision.swift`, `StableExecutable.swift`, `ExecutableIdentity.swift` | 693: what an idle daemon does at each look (pure); the path a new daemon is started from (a keg's `opt` link); which program file the daemon runs and how it changed |
@@ -67,8 +67,8 @@ A bare file name is in `Sources/DozableKit/`.
 
 - **The daemon is always on, and an update still reaches it** (693, owner: "yes always on (a new setting - default on).
   change timeout default to 0 (never times out)"). `daemon.always_on` (default on, `$DOZ_DAEMON_ALWAYS_ON`, applies now —
-  the idle loop re-reads it at each look) keeps a daemon with nothing open; `daemon.idle_timeout_minutes` (default 0 =
-  never) is used only when it is off. `HostServer.idleLoop` gathers the inputs and `IdleDecision` (pure,
+  the idle loop re-reads it at each look) keeps a daemon with nothing open; `daemon.idle_timeout_minutes` (default 5 —
+  700; 0 disables it; listed right after `always_on`) is used only when it is off. `HostServer.idleLoop` gathers the inputs and `IdleDecision` (pure,
   `IdleDecisionTests`) decides, in order: a stopping daemon does nothing; its program changed (`ExecutableIdentity`) or
   a newer recipe catalogue waits, with NOTHING live and NO client connected → fenced (or kept) sessions on this Mac:
   `handOver`; always on and started by the launcher: `restartInPlace` (a person's `--foreground` daemon exits); else
@@ -93,9 +93,10 @@ A bare file name is in `Sources/DozableKit/`.
   - **Status:** `HostStatus.alwaysOn` (effective — false for a locked daemon), `keepers` (sessions on this Mac kept
     running, which keep the daemon up whatever `alwaysOn` says; 0 until kept sessions exist), and `idleTimeoutMinutes`
     is the EFFECTIVE timeout (0 while always on). `doz daemon status` says it in one line; `doctor` says "always on".
-    `doz config show` / `config set` print one note when the two settings combine unexpectedly
-    (`DozableSettings.daemonIdleNote`: an older file's `idle_timeout_minutes = 5` under always-on; always-on off with a
-    timeout of 0).
+    One warning, `DozableSettings.daemonIdleWarning` (nil unless always-on is off AND the timeout is 0: nothing then
+    switches the daemon off by idling), in the same words in `doz config show` / `config set|unset` (of either key or
+    `login_item`), under both rows of the Settings page (`SettingRow.warning`), in `doz daemon status` and as a doctor
+    `.warn`. The defaults earn none.
   - **Tests never leave a daemon behind:** the Makefile's guarded environment sets `DOZ_DAEMON_ALWAYS_ON=off` (forced) and
     `DOZ_DAEMON_IDLE=5` (unless the run sets one) for every test target; a suite that tests always-on sets it on for its
     own daemons. `make test-cli-alwayson` (in `make test-cli` too): the default keeps a daemon up past 5× its timeout;

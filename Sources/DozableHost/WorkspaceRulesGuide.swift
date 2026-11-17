@@ -26,7 +26,7 @@ public enum WorkspaceRulesGuide {
         public var recommended: Bool
     }
 
-    public static let title = "Workspace rules"
+    public static let title = "Folder rules"
 
     public static let intro = "A sandbox sees its project folder live, at /workspace. Two small files in that folder can keep "
         + "the agent away from some of it — without moving anything."
@@ -53,7 +53,7 @@ public enum WorkspaceRulesGuide {
     ]
 
     /// What the onboarding's choice is for, and what the wizard's is for.
-    public static let defaultScope = "The default for every sandbox; a sandbox can choose its own. Later: doz config set workspace.ignore_mode hide"
+    public static let defaultScope = "The default for every sandbox; a sandbox can choose its own. Later: doz config set folder.ignore_mode hide"
     public static let sandboxScope = "For this sandbox only (ignore_mode in its doz_project.yaml). It matters only once the folder has a .dozignore."
 
     /// A folder without a rule file.

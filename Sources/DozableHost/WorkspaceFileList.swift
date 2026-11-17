@@ -167,20 +167,20 @@ public enum MacFolderListing {
             throw HostError(.failed, "the shared folder is not there on this Mac (\(DisplayPath.tilde(workspace)))")
         }
         let asked = rel.isEmpty ? workspace : (workspace.hasSuffix("/") ? workspace : workspace + "/") + rel
-        guard let real = realPath(asked) else { throw HostError(.notFound, "no such folder in the workspace: \(shown)") }
+        guard let real = realPath(asked) else { throw HostError(.notFound, "no such folder in the shared folder: \(shown)") }
         guard real == root || real.hasPrefix(root == "/" ? "/" : root + "/") else {
             throw HostError(.invalid, "\(shown) leads outside the shared folder (a link or ..)")
         }
         let inside = real == root ? "" : String(real.dropFirst(root == "/" ? 1 : root.count + 1))
         var st = stat()
-        guard lstat(real, &st) == 0 else { throw HostError(.notFound, "no such folder in the workspace: \(shown)") }
+        guard lstat(real, &st) == 0 else { throw HostError(.notFound, "no such folder in the shared folder: \(shown)") }
         guard st.st_mode & S_IFMT == S_IFDIR else { throw HostError(.invalid, "\(shown) is not a folder") }
         var state: String?
         if let rules, !inside.isEmpty {
             var e = WorkspaceRules.Evaluator(rules)
             switch e.decide(inside, isDirectory: { _ in true }).verdict {
-            case .hidden: throw HostError(.notFound, "no such folder in the workspace: \(shown)")
-            case .locked: throw HostError(.failed, "\(shown) is locked by the workspace rules (.dozignore) — nothing in it can be read")
+            case .hidden: throw HostError(.notFound, "no such folder in the shared folder: \(shown)")
+            case .locked: throw HostError(.failed, "\(shown) is locked by the folder rules (.dozignore) — nothing in it can be read")
             case .readOnly: state = "read-only"
             case .visible: break
             }

@@ -52,8 +52,8 @@ func cliOpenFilesSuite(binary: String) async {
     print("cli: open workspace files on the Mac (599b)")
     check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["config", "set", "defaults.projects_dir", "/tmp/dzo-\(pid)-fp"]).code == 0, "defaults.projects_dir is a scratch path")
-    var r = t.run(["up", "of", "--image", "lab", "--workspace", ws.path, "--memory", "512M", "--network", "none", "--detach"], timeout: 600)
-    check(r.code == 0, "up of --image lab --workspace \(ws.path) --detach (exit \(r.code))")
+    var r = t.run(["up", "of", "--image", "lab", "--folder", ws.path, "--memory", "512M", "--network", "none", "--detach"], timeout: 600)
+    check(r.code == 0, "up of --image lab --folder \(ws.path) --detach (exit \(r.code))")
     r = t.run(["exec", "of", "--", "sh", "-c", "ls -l /usr/local/lib/doz/bin/ | grep -c 'doz-open -> xdg-open'; grep -c 'open-url-shim:v7' /usr/local/lib/doz/bin/xdg-open"])
     check(r.out.split(separator: "\n").map(String.init) == ["1", "1"], "the v7 shim and its doz-open link are in the guest (\(r.out.debugDescription))")
 
@@ -112,7 +112,7 @@ func cliOpenFilesSuite(binary: String) async {
         check(c.wait(5) { $0.text.contains("doz: of asked to open exec.txt — it is executable") }, "host: the executable bit")
         check(c.wait(5) { $0.text.contains("doz: of asked to open script.txt — it is a script") }, "host: a #! script named .txt")
         check(c.wait(5) { $0.text.contains("doz: of asked to open noext — it has no document type") }, "host: no extension")
-        check(c.wait(5) { $0.text.contains("doz: of asked to open missing.html — no such file in the workspace") }, "host: a missing file")
+        check(c.wait(5) { $0.text.contains("doz: of asked to open missing.html — no such file in the folder") }, "host: a missing file")
         check(c.wait(5) { $0.text.contains("\"../Evil\" is not an app name") }, "host: an app name that is a path")
         // The shim passes a Mach-O named .txt (not executable, no #!): the host's sniff refuses it.
         c.type("xdg-open macho.txt; echo F5-$((5+5))\r")
@@ -130,7 +130,7 @@ func cliOpenFilesSuite(binary: String) async {
         check(c.wait(10) { _ in log().contains("open-folder \(real)\n") }, "open . → the workspace in the Finder (\(log().suffix(160).debugDescription))")
         check(c.wait(5) { _ in log().contains("open-folder \(real)/docs\n") }, "open docs → a child folder in the Finder")
         check(c.wait(5) { _ in log().contains("reveal \(real)/notes.md\n") }, "doz-open --reveal notes.md → shown selected in its folder")
-        check(c.wait(5) { $0.text.contains("doz: of opened the workspace in the Finder") }, "the notice: \"of opened the workspace in the Finder\"")
+        check(c.wait(5) { $0.text.contains("doz: of opened the shared folder in the Finder") }, "the notice: \"of opened the shared folder in the Finder\"")
         check(c.wait(5) { $0.text.contains("doz: of opened docs/ in the Finder") }, "the notice: \"of opened docs/ in the Finder\"")
         check(c.wait(5) { $0.text.contains("doz: of showed notes.md in the Finder") }, "the notice: \"of showed notes.md in the Finder\"")
         // Refused: a package even for the Finder (shim and host, incl. one macOS knows by type), --app with a

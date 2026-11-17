@@ -7,7 +7,7 @@ import DozableKit
 //   · the image: `defaults.image` (or the one asked for);
 //   · the name: the image's (claude-sandbox, pi-sandbox, lab-sandbox; -2, -3, … when a sandbox has it or
 //     its folder under the projects folder is not empty) — `Workspace.suggestedName`;
-//   · the workspace: `<defaults.projects_dir>/<name>`, made when missing (isolated when asked);
+//   · the folder: `<defaults.projects_dir>/<name>`, made when missing (isolated when asked);
 //   · the store's default account and the default permissions (nothing is said: the create's defaults).
 //
 // Prerequisites still apply. What one click cannot decide — the agent needs an account the store does
@@ -20,7 +20,7 @@ public struct QuickAddPlan: Codable, Equatable, Sendable {
     public var name: String
     public var image: String
     /// `<projects_dir>/<name>`; nil: isolated.
-    public var workspace: String?
+    public var folder: String?
     /// `defaults.projects_dir`, expanded.
     public var projectsDir: String
     /// Why one click cannot make it (nil: it can): the New Sandbox form opens with this said.
@@ -30,22 +30,22 @@ public struct QuickAddPlan: Codable, Equatable, Sendable {
     /// 635: said once it is made, never asked: its image is out of date ("Claude Code 2.1.305 is available …").
     public var notice: String?
 
-    public init(name: String, image: String, workspace: String?, projectsDir: String) {
+    public init(name: String, image: String, folder: String?, projectsDir: String) {
         self.name = name
         self.image = image
-        self.workspace = workspace
+        self.folder = folder
         self.projectsDir = projectsDir
     }
 
     /// "claude-sandbox-2 · claude-code · ~/doz-workspaces/claude-sandbox-2".
     public func line(homes: [String] = DisplayPath.homes()) -> String {
-        let ws = workspace.map { DisplayPath.tilde($0, homes: homes) } ?? "isolated"
+        let ws = folder.map { DisplayPath.tilde($0, homes: homes) } ?? "isolated"
         return "\(name) · \(image) · \(ws)"
     }
 }
 
 public enum QuickAdd {
-    /// The name, image and workspace. `name` given: used as it is (refused when taken or not a name);
+    /// The name, image and folder. `name` given: used as it is (refused when taken or not a name);
     /// else the image's, free. Throws only for a given name.
     public static func plan(image: String?, name: String?, isolated: Bool, taken: Set<String>, settings: DozableSettings) throws -> QuickAddPlan {
         let img = image ?? settings.string(SettingKey.defaultImage) ?? "lab"
@@ -58,7 +58,7 @@ public enum QuickAdd {
         } else {
             chosen = Workspace.suggestedName(image: img, taken: taken, projects: projects)
         }
-        return QuickAddPlan(name: chosen, image: img, workspace: isolated ? nil : (projects as NSString).appendingPathComponent(chosen),
+        return QuickAddPlan(name: chosen, image: img, folder: isolated ? nil : (projects as NSString).appendingPathComponent(chosen),
                             projectsDir: projects)
     }
 

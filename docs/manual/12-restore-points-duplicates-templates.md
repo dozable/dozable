@@ -9,7 +9,7 @@ something changes):
 | **Duplicate** | a new sandbox from an existing one's disk | run the same setup on another project, or with more memory |
 | **Template** | a sandbox's system disk saved as an image | make many new sandboxes that start set up your way |
 
-None of them copies your workspace folder (it's on your Mac — use git) or memory (a restored or
+None of them copies your sandbox's folder (it's on your Mac — use git) or memory (a restored or
 forked sandbox cold-boots).
 
 ## Restore points
@@ -38,19 +38,19 @@ and delete ask you to tick a box first).
 ## Duplicates
 
 ```sh
-doz duplicate my-app my-app-2 --workspace ~/code/other-project --cpus 4 --memory 4G
+doz duplicate my-app my-app-2 --folder ~/code/other-project --cpus 4 --memory 4G
 doz duplicate my-app my-app-3 --from-point before-refactor --network locked
 doz duplicate my-app my-app-4 --copy-state        # the agent's logins and history too
 ```
 
 - The new sandbox is **off** until you start it. Anything you don't give is the source's, its
   permissions included.
-- A `--workspace` that doesn't exist is made; `--isolated` shares no folder.
+- A `--folder` that doesn't exist is made; `--isolated` shares no folder.
 - The agent's **state disk starts fresh** unless `--copy-state`.
 - Keys given with `doz key set` are not copied; the account follows `--account` or the source's.
 
 **In the dashboard:** **⋯** › **Duplicate…** on the sandbox's page (or from a restore point): new name, from
-the current disk or a point, workspace, CPUs, memory, network, account, and "Copy the agent's state
+the current disk or a point, folder, CPUs, memory, network, account, and "Copy the agent's state
 disk too".
 
 ## Templates
@@ -101,6 +101,6 @@ would free. The dashboard's **Images** › **Lineage** draws the same tree.
 | symptom | what to do |
 |---|---|
 | "more than one point matches" | Give more of the name or id; the message lists the matches. |
-| A reverted sandbox doesn't have my latest code | The workspace is on your Mac and isn't part of a point: use git for it. |
+| A reverted sandbox doesn't have my latest code | Its folder is on your Mac and isn't part of a point: use git for it. |
 | A duplicate's agent has none of the conversation history | Its state disk started fresh: duplicate again with `--copy-state`. |
 | Disk space after many points | Each point costs only what changed since; `doz resources` shows each one, and `doz point rm` frees it. |

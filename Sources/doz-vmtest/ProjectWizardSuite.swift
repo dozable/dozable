@@ -63,7 +63,7 @@ func cliProjectWizardSuite(binary: String) async {
     check(r.code == 0, "doz up -d in \(alpha) (exit \(r.code))")
     let row = t.row("alpha")
     check(row?.phase == "running" && row?.memoryMiB == 640, "alpha runs with 640 MiB (\(row?.phase ?? "—"), \(row?.memoryMiB ?? 0))")
-    check(row?.workspace == alpha || row?.workspace == "/private" + alpha, "its /workspace is the folder (\(row?.workspace ?? "—"))")
+    check(row?.folder == alpha || row?.folder == "/private" + alpha, "its /workspace is the folder (\(row?.folder ?? "—"))")
     let perms = t.json(["net", "show", "alpha"], PermissionReport.self)?.permissions ?? []
     let on = { (id: String) in perms.first { $0.id == id }?.on }
     check(on("error-reports") == false && on("model") == true && on("update") == true, "its permissions: Standard without error reports")
@@ -116,7 +116,7 @@ func cliProjectWizardSuite(binary: String) async {
         check(c.exited(within: 60) == 0, "doz init exits 0")
         let text = c.text
         for i in 1...10 { check(text.contains("Step \(i) of 10") || (i == 10 && text.contains("— Review")), "it said Step \(i) of 10") }
-        check(text.contains("Workspace rules") && text.contains("not a security boundary") && text.contains("This folder's rules: none — the folder is shared as is"),
+        check(text.contains("Folder rules") && text.contains("not a security boundary") && text.contains("This folder's rules: none — the folder is shared as is"),
               "the rules step: what they do, what they are not, and that this folder has none")
         check(text.contains("# doz_project.yaml — a Dozable project"), "it showed the file before writing it")
     } catch {

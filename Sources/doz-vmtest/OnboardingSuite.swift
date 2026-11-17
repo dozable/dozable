@@ -94,7 +94,7 @@ func cliOnboardingSuite(binary: String) async {
     check(r.code == 0 && r.out.contains("Done — this Mac is onboarded (no base prepared yet)"), "onboard --no-base, no terminal, no --yes: completes without asking (exit \(r.code))")
     // 634: the steps in the new order. 637: "Step N of M · Title", in the dashboard setup's words; no colour off a terminal.
     let order = ["Step 1 of", "· Welcome", "Step 2 of", "· This Mac", "Step 3 of", "· Base image", "Step 4 of", "· Models & keys",
-                 "Step 5 of", "· GitHub & SSH", "Step 6 of", "· Workspace rules", "Step 7 of", "· Settings", "Done — this Mac is onboarded"]
+                 "Step 5 of", "· GitHub & SSH", "Step 6 of", "· Folder rules", "Step 7 of", "· Settings", "Done — this Mac is onboarded"]
     check(!r.out.contains("\u{1B}["), "off a terminal: no escape sequences at all")
     let at = order.map { r.out.range(of: $0)?.lowerBound }
     check(at.allSatisfy { $0 != nil } && zip(at, at.dropFirst()).allSatisfy { $0! < $1! }, "the steps in order: \(order.joined(separator: " → "))")
@@ -103,12 +103,12 @@ func cliOnboardingSuite(binary: String) async {
     check(FileManager.default.fileExists(atPath: xdg.appendingPathComponent("doz/agent-prompt.md").path), "agent-prompt.md written beside it")
     check(OnboardingRecord.read(DozableStore(root: a.store)) != nil && OnboardingRecord.read(DozableStore(root: a.store))?.base == nil,
           "onboarded.json recorded, with no base")
-    check(r.out.contains("lock — unchanged"), "the Workspace rules step: said, nothing chosen off a terminal")
-    check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nignore_mode =") == false, "workspace.ignore_mode NOT written (only when chosen)")
+    check(r.out.contains("lock — unchanged"), "the Folder rules step: said, nothing chosen off a terminal")
+    check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nignore_mode =") == false, "folder.ignore_mode NOT written (only when chosen)")
     r = a.run(["onboard", "--no-base", "--ignore-mode", "hide", "--yes"], timeout: 120)
-    check(r.code == 0 && r.out.contains("Workspace rules: set workspace.ignore_mode = hide"), "--ignore-mode hide: chosen, so written (exit \(r.code))")
+    check(r.code == 0 && r.out.contains("Folder rules: set folder.ignore_mode = hide"), "--ignore-mode hide: chosen, so written (exit \(r.code))")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nignore_mode = \"hide\"\n") == true, "doz.toml says ignore_mode = hide")
-    check(a.run(["config", "set", "workspace.ignore_mode", "lock"]).code == 0, "back to lock")
+    check(a.run(["config", "set", "folder.ignore_mode", "lock"]).code == 0, "back to lock")
     // 694: the login item question — off a terminal (and with --yes) nothing is asked or written; --start-at-login answers it.
     do {
         let agents = URL(fileURLWithPath: "/tmp/dzo-\(getpid())-la")
@@ -183,7 +183,7 @@ func cliOnboardingSuite(binary: String) async {
     check(running, "onboard --base node: the Node.js base is being prepared in the daemon")
     let ws = a.store.appendingPathComponent("ws-j1")
     try? FileManager.default.createDirectory(at: ws, withIntermediateDirectories: true)
-    check(a.run(["create", "j1", "--image", "node", "--memory", "512M", "--workspace", ws.path]).code == 0, "create j1 --image node")
+    check(a.run(["create", "j1", "--image", "node", "--memory", "512M", "--folder", ws.path]).code == 0, "create j1 --image node")
     r = a.run(["start", "j1", "-v"], timeout: 900)
     check(r.code == 0, "start j1 while the base prepares (exit \(r.code))")
     check(onboard?.exited(within: 600) == 0, "onboard finished (exit \(onboard?.process.terminationStatus ?? -1))")
@@ -208,7 +208,7 @@ func cliOnboardingSuite(binary: String) async {
 
     print("cli: no workspace is said (D17)")
     r = a.run(["create", "nows", "--image", "lab", "--memory", "384M"])
-    check(r.code == 0 && r.err.contains("isolated: nothing on this Mac is shared; /workspace is private to the sandbox"), "create without --workspace says so (isolated)")
+    check(r.code == 0 && r.err.contains("isolated: nothing on this Mac is shared; /workspace is private to the sandbox"), "create without --folder says so (isolated)")
     r = a.run(["ls"])
     check(r.out.split(separator: "\n").contains { $0.hasPrefix("nows") && $0.hasSuffix("isolated") }, "ls shows it: isolated")
     a.run(["rm", "nows", "--yes"])
@@ -225,7 +225,7 @@ func cliOnboardingSuite(binary: String) async {
     r = runIn(a, proj, ["up", "--detach"], timeout: 300)
     check(r.code == 0, "up (no name) in the folder (exit \(r.code)): \(r.err.suffix(200))")
     let row = a.row("my-proj")
-    check(row?.workspace == proj.path, "my-proj's workspace is the folder (\(row?.workspace ?? "none"))")
+    check(row?.folder == proj.path, "my-proj's workspace is the folder (\(row?.folder ?? "none"))")
     check(a.run(["exec", "my-proj", "--", "ls", "/workspace"]).out.contains("doz_project.yaml"), "/workspace is the project folder")
     let sessions = a.sessions("my-proj").filter { !$0.ended }.map(\.name)
     check(sessions.contains("ticker") && sessions.contains("shell"), "its sessions started: \(sessions.joined(separator: ", "))")
@@ -255,11 +255,11 @@ func cliOnboardingSuite(binary: String) async {
     try? "Project rule: {{sandbox.name}} runs the tests with make test.".write(to: own, atomically: true, encoding: .utf8)
     // 594: pi needs an API-key account — the store's default here is none, so a plain up is refused
     // before anything is made; --account none is the explicit choice (the prompt is all this part checks).
-    r = c.run(["up", "pp", "--image", "pi", "--workspace", cws.path, "--detach"], timeout: 120)
+    r = c.run(["up", "pp", "--image", "pi", "--folder", cws.path, "--detach"], timeout: 120)
     check(r.code != 0 && r.err.contains("pi needs an Anthropic API key") && r.err.contains("doz account add NAME --api-key") && c.row("pp") == nil,
           "up pp --image pi with no API-key account: refused, nothing made, the next step said (\(r.err.split(separator: "\n").last ?? ""))")
-    r = c.run(["up", "pp", "--image", "pi", "--account", "none", "--workspace", cws.path, "--agent-prompt", own.path, "--detach"], timeout: 900)
-    check(r.code == 0, "up pp --image pi --account none --workspace … --agent-prompt FILE (exit \(r.code))")
+    r = c.run(["up", "pp", "--image", "pi", "--account", "none", "--folder", cws.path, "--agent-prompt", own.path, "--detach"], timeout: 900)
+    check(r.code == 0, "up pp --image pi --account none --folder … --agent-prompt FILE (exit \(r.code))")
     check(c.row("pp")?.credentialProblem?.hasPrefix("pi has no credential — pi needs an Anthropic API key") == true,
           "ls: pp says pi has no credential (\(c.row("pp")?.credentialProblem ?? "nil"))")
     let facts = c.run(["exec", "pp", "--", "cat", "/run/doz/agent-prompt.md"]).out
@@ -281,7 +281,7 @@ func cliOnboardingSuite(binary: String) async {
           "off: the next session start removed both")
     c.run(["config", "unset", "agent.prompt"])
     // Your own template replaces the built-in one, from the next session.
-    try? "<!-- mine -->\nCustom: {{sandbox.name}} sees {{workspace.host_path}}".write(to: cxdg.appendingPathComponent("doz/agent-prompt.md"), atomically: true, encoding: .utf8)
+    try? "<!-- mine -->\nCustom: {{sandbox.name}} sees {{folder.host_path}}".write(to: cxdg.appendingPathComponent("doz/agent-prompt.md"), atomically: true, encoding: .utf8)
     c.run(["run", "pp", "--detach", "--session", "later1", "--", "sleep", "300"])
     check(c.run(["exec", "pp", "--", "cat", "/run/doz/agent-prompt.md"]).out == "Custom: pp sees \(cws.path)\n\nProject rule: pp runs the tests with make test.\n",
           "agent-prompt.md (the user's template) replaces the built-in one at the next session; the sandbox's own still appended")
@@ -292,7 +292,7 @@ func cliOnboardingSuite(binary: String) async {
     c.run(["rm", "pp", "--yes"])
 
     print("cli: the environment prompt — claude-code, in Claude Code's argv (D15)")
-    r = c.run(["up", "cc", "--image", "claude-code", "--workspace", cws.path, "--detach", "-v"], timeout: 1500)
+    r = c.run(["up", "cc", "--image", "claude-code", "--folder", cws.path, "--detach", "-v"], timeout: 1500)
     check(r.code == 0, "up cc --image claude-code (prepares the image when this build has not: exit \(r.code))")
     // Every process's whole argv (the prompt spans lines); the pattern's space is escaped, so this
     // script's own argv does not match it.
@@ -485,7 +485,7 @@ func cliFirstExecProgressChecks(binary: String) {
         try? FileManager.default.removeItem(atPath: h.store.path + "-ws")
     }
     let ws = URL(fileURLWithPath: h.store.path + "-ws")             // never inside the store (refused)
-    guard h.run(["create", "q1", "--image", "lab", "--workspace", ws.path]).code == 0 else { check(false, "create q1 (lab)"); return }
+    guard h.run(["create", "q1", "--image", "lab", "--folder", ws.path]).code == 0 else { check(false, "create q1 (lab)"); return }
     h.run(["daemon", "stop"])
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/script")

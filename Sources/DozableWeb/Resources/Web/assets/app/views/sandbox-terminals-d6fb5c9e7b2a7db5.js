@@ -23,7 +23,7 @@ import { failureFor, pageFailure } from '../components/notices-a8bcbd0d28fca151.
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal-0669011bf502f6fb.js';
 import { editorItems, openOnMac } from '../components/open-with-428ffe68e714a86d.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
-import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-0009da9b046138f5.js';
+import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-d40bcce0ca05505f.js';
 import { endSession, sessionAgent, sessionMenuItems } from '../components/session-actions-5bc5939262726679.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const persistLayout = upcall('persistLayout'), paintHome = upcall('paintHome');
@@ -69,11 +69,11 @@ function drawTerminals() {
     termUI.newAgent = btn('New session', () => { const n = state.param; newAgentSession(n).catch((e) => failureFor(n, e.message || String(e))); },
       { small: true, quiet: true, icon: 'plus' });
     termUI.openTerm = btn('Open in Terminal', () => openInTerminal(state.param, null), { small: true, quiet: true, iconOnly: true, icon: ICON_OPEN_IN_TERMINAL });
-    // 646 (owner: "open the workspace in my editor"): beside Open in Terminal — the workspace in the Finder or an editor.
+    // 646 (owner: "open the workspace in my editor"): beside Open in Terminal — the shared folder in the Finder or an editor.
     // Never for a LAN device's browser (the routes are mac-screen).
     const openFolder = btn('Open folder', () => {}, { small: true, quiet: true, iconOnly: true, icon: 'folder-open' });
     openFolder.dataset.openFolder = '';
-    termUI.openFolderCtl = menuButton(openFolder, [], { label: 'Open the workspace on this Mac' });
+    termUI.openFolderCtl = menuButton(openFolder, [], { label: 'Open the folder on this Mac' });
     termUI.acts = h('div', { class: 'strip-acts', role: 'toolbar', 'aria-label': 'Terminals' }, termUI.newAgent, nsGroup, termUI.splitBtn,
       isRemote() ? null : termUI.openFolderCtl.el, isRemote() ? null : termUI.openTerm);
     // 635 (owner): the tabs menu, left of Home — every tab open here, Close all tabs, End all sessions.
@@ -178,16 +178,16 @@ export function paintStripActs() {
   ]);
 }
 /// 646: the Open folder menu — Show in the Finder, then Open in <editor> for each the host offers (the last used first).
-/// A shared workspace is on this Mac in any state of the sandbox; an isolated one has nothing here (disabled, with why).
+/// A shared folder is on this Mac in any state of the sandbox; an isolated one has nothing here (disabled, with why).
 function paintOpenFolder(name, i) {
   const b = termUI.openFolderCtl.button;
-  const why = !i ? 'Loading…' : !i.workspace ? 'Isolated — nothing on this Mac is shared' : null;
+  const why = !i ? 'Loading…' : !i.folder ? 'Isolated — nothing on this Mac is shared' : null;
   b.disabled = !!why;
-  b.title = why || 'Open the workspace — in the Finder or an editor';
+  b.title = why || 'Open the folder — in the Finder or an editor';
   if (why || termUI.openFolderCtl.isOpen()) return;
   const editors = editorItems(name, '/workspace', () => { if (state.param === name) paintStripActs(); });
   termUI.openFolderCtl.setItems([
-    { label: 'Show in the Finder', icon: 'folder-open', desc: tildePath(i.workspace), data: { openFinder: '' }, onSelect: () => openOnMac(name, '/workspace') },
+    { label: 'Show in the Finder', icon: 'folder-open', desc: tildePath(i.folder), data: { openFinder: '' }, onSelect: () => openOnMac(name, '/workspace') },
     { sep: true },
     ...(editors.length ? editors
       : [{ label: 'No editor found', icon: 'code-xml', disabled: true, why: 'None of the known editors is installed — or name one in bridges.open_apps' }]),

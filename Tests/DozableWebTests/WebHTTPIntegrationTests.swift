@@ -629,7 +629,7 @@ final class FakeData: DozableWebData, @unchecked Sendable {
     /// The sessions on this Mac the fake reports: one running, its argv bypassing permissions (its own choice).
     func macSessions() async throws -> [WebMacSession] {
         var r = SessionRow(SessionInfo(name: "build", pid: 42, size: TermSize(cols: 100, rows: 30), command: "claude --dangerously-skip-permissions"))
-        r.workdir = "/Users/someone/src/app"
+        r.folder = "/Users/someone/src/app"
         r.bypassed = true
         return [WebMacSession(r)]
     }
@@ -674,7 +674,7 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         let (g, p) = lock.withLock { (generation, _phase) }
         let info = SandboxInfo(name: "demo", image: "lab", phase: p ?? (g == 0 ? "running" : "paused"), busy: false, cpus: 2, memoryMiB: 1024,
                                ramHeldMiB: 900, memoryReturnedMiB: 124, diskBytes: 1 << 30, sessions: 1, network: "bake",
-                               deniedConnections: 0, workspace: nil, createdAt: Date(timeIntervalSince1970: 0), diedWithHost: nil)
+                               deniedConnections: 0, folder: nil, createdAt: Date(timeIntervalSince1970: 0), diedWithHost: nil)
         let host = lock.withLock { _host } ?? WebHost(running: false, version: nil, pid: nil, startedAt: nil, idleTimeoutMinutes: nil, idleSeconds: nil,
                                                       liveSandboxes: [], connections: nil, recoveryPending: [], store: storePath, uiVersion: "test")
         return WebOverview(host: host, sandboxes: [WebSandboxRow(info)], source: "store")

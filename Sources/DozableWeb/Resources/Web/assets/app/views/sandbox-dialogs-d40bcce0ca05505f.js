@@ -8,7 +8,7 @@ import { lines, splitArgs } from '../core/util-1195caf40612902f.js';
 import { accountChooser } from '../components/accounts-3f4d2719047e6460.js';
 import { dialog } from '../components/dialog-cc08b737f1accd16.js';
 import { failureFor, toast } from '../components/notices-a8bcbd0d28fca151.js';
-import { workspaceChooser } from '../components/workspace-chooser-79a99904ead6f28a.js';
+import { workspaceChooser } from '../components/workspace-chooser-0ac402f5c46c650f.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 /// 603: a sandbox's terminal in the user's own terminal app (doz attach), from the bar, the strip or a session row.

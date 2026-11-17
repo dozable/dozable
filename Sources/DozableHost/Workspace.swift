@@ -35,9 +35,9 @@ public enum Workspace {
     /// A relative path is refused (the CLI makes one absolute against its own working folder first).
     public static func normalize(_ raw: String) throws -> String {
         let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty else { throw HostError(.invalid, "the workspace is empty") }
+        guard !t.isEmpty else { throw HostError(.invalid, "the folder is empty") }
         let expanded = (t as NSString).expandingTildeInPath
-        guard expanded.hasPrefix("/") else { throw HostError(.invalid, "the workspace is an absolute path (or ~/…) — not \(t)") }
+        guard expanded.hasPrefix("/") else { throw HostError(.invalid, "the folder is an absolute path (or ~/…) — not \(t)") }
         let std = URL(fileURLWithPath: expanded).standardizedFileURL
         // Resolve links in the part that exists; keep the rest as typed.
         var existing = std, rest: [String] = []
@@ -76,8 +76,8 @@ public enum Workspace {
 
     public static func refusal(_ path: String, store: DozableStore?) -> String? {
         let home = home()
-        if path == "/" { return "the workspace cannot be / (the whole Mac)" }
-        if path == home { return "the workspace cannot be your home folder itself — pick a folder in it" }
+        if path == "/" { return "the folder cannot be / (the whole Mac)" }
+        if path == home { return "the folder cannot be your home folder itself — pick a folder in it" }
         // The folder of the sessions on this Mac (their holders' sockets) is never shared into a sandbox, nor anything holding it.
         if let store, let why = macSocketFolderRefusal(path, store: store) { return why }
         var isDir: ObjCBool = false
@@ -89,10 +89,10 @@ public enum Workspace {
         // Never MADE: inside the store, or under a system location.
         if let store {
             let root = (try? normalize(store.root.path)) ?? store.root.standardizedFileURL.path
-            if path == root || path.hasPrefix(root + "/") { return "\(path) is inside the store — Dozable does not make a workspace there" }
+            if path == root || path.hasPrefix(root + "/") { return "\(path) is inside the store — Dozable does not share a folder there" }
         }
         for p in systemPrefixes where path == p || path.hasPrefix(p + "/") {
-            return "\(path) is under \(p), a system location — Dozable does not make a workspace there"
+            return "\(path) is under \(p), a system location — Dozable does not share a folder there"
         }
         return nil
     }

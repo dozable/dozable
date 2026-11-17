@@ -12,7 +12,7 @@ import { tildePath } from '../core/paths.js';
 
 // ── 599c: Quick add (owner: "a "Quick Add" sandbox that picks defaults for workspace name etc and opens
 // it immediately") — one click, no form: the default image (defaults.image), a free name (claude-sandbox,
-// -2, …), its workspace <defaults.projects_dir>/<name> (made), the default account and permissions;
+// -2, …), its folder <defaults.projects_dir>/<name> (made), the default account and permissions;
 // created, started with the boot view, its page open. What one click cannot decide (the agent's
 // account) opens New sandbox with the requirement said; 635: an out-of-date image is used and said.
 function quickAddTitle() {
@@ -31,10 +31,10 @@ export async function quickAdd(button) {
   try {
     const p = await api('quick-add', { method: 'POST', json: {} });
     if (p.requirement) { createDialog({ why: p.requirement, kind: p.requirementKind, image: p.image }); return; }
-    const op = await actOrThrow({ action: 'create', sandbox: p.name, image: p.image, ...(p.workspace ? { workspace: p.workspace } : { isolated: true }) });
+    const op = await actOrThrow({ action: 'create', sandbox: p.name, image: p.image, ...(p.folder ? { folder: p.folder } : { isolated: true }) });
     const end = await waitOp(op.id);
     if (!end || end.state !== 'done') return;        // a failure is said by the operation's own toast
-    toast('Quick add: ' + p.name + ' · ' + p.image + ' · ' + (p.workspace ? tildePath(p.workspace) : 'isolated'));
+    toast('Quick add: ' + p.name + ' · ' + p.image + ' · ' + (p.folder ? tildePath(p.folder) : 'isolated'));
     // 635: an out-of-date image is used as it is — said, never asked (a newer patch release stopped Quick add).
     if (p.notice) pageFailure(p.name + ': ' + p.notice, { key: 'quick-add-image', tone: 'info', title: 'A newer image is available' });
     // 617: the start sequence (the build, then tab zero Console, then the agent's tab), on its page.

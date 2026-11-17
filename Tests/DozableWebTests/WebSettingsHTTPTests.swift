@@ -433,7 +433,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         defer { try? FileManager.default.removeItem(atPath: scratch) }
 
         // Both need CSRF and the exact Origin.
-        for path in ["/api/v1/workspace/check", "/api/v1/workspace/choose"] {
+        for path in ["/api/v1/folder/check", "/api/v1/folder/choose"] {
             XCTAssertEqual(try post(path, "{}").status, 403, "\(path): no CSRF")
             XCTAssertEqual(try post(path, "{}", csrf: csrf, origin: "http://evil.example").status, 403, "\(path): a foreign Origin")
             XCTAssertEqual(try post(path, #"{"nope":1}"#, csrf: csrf).status, 400, "\(path): an unknown field")
@@ -443,7 +443,7 @@ final class WebSettingsHTTPTests: XCTestCase {
 
         // Unset, the projects folder is ~/doz-workspaces.
         let unsetProjects = home + String(Workspace.unsetProjectsDir().dropFirst(1))
-        var r = try post("/api/v1/workspace/check", #"{"image":"claude-code","name":"my-box"}"#, csrf: csrf)
+        var r = try post("/api/v1/folder/check", #"{"image":"claude-code","name":"my-box"}"#, csrf: csrf)
         XCTAssertEqual(r.status, 200, r.text)
         var o = object(r)
         XCTAssertEqual(o["defaultPath"] as? String, unsetProjects + "/my-box", "the path follows the name")
@@ -453,47 +453,47 @@ final class WebSettingsHTTPTests: XCTestCase {
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         try "[defaults]\nprojects_dir = \"\(scratch)/projects\"\n".write(to: file, atomically: true, encoding: .utf8)
         // Defaults: the name from the image (demo is taken, not these), the folder under projects_dir.
-        o = object(try post("/api/v1/workspace/check", #"{"image":"claude-code"}"#, csrf: csrf))
+        o = object(try post("/api/v1/folder/check", #"{"image":"claude-code"}"#, csrf: csrf))
         XCTAssertEqual(o["suggestedName"] as? String, "claude-sandbox")
         XCTAssertEqual(o["defaultPath"] as? String, scratch + "/projects/claude-sandbox")
         XCTAssertNil(o["error"], "no red error on first view")
-        o = object(try post("/api/v1/workspace/check", #"{"image":"lab"}"#, csrf: csrf))
+        o = object(try post("/api/v1/folder/check", #"{"image":"lab"}"#, csrf: csrf))
         XCTAssertEqual(o["defaultPath"] as? String, scratch + "/projects/lab-sandbox")
         // A folder there with something in it is taken: the name moves on to -2.
         try FileManager.default.createDirectory(atPath: scratch + "/projects/pi-sandbox", withIntermediateDirectories: true)
         try Data("x".utf8).write(to: URL(fileURLWithPath: scratch + "/projects/pi-sandbox/README"))
-        o = object(try post("/api/v1/workspace/check", #"{"image":"pi"}"#, csrf: csrf))
+        o = object(try post("/api/v1/folder/check", #"{"image":"pi"}"#, csrf: csrf))
         XCTAssertEqual(o["suggestedName"] as? String, "pi-sandbox-2")
         XCTAssertEqual(o["defaultPath"] as? String, scratch + "/projects/pi-sandbox-2")
 
         // A typed path: will be created / exists / refused — and nothing is made.
-        o = object(try post("/api/v1/workspace/check", #"{"path":"\#(scratch)/new/deep"}"#, csrf: csrf))
+        o = object(try post("/api/v1/folder/check", #"{"path":"\#(scratch)/new/deep"}"#, csrf: csrf))
         XCTAssertEqual(o["willCreate"] as? Bool, true)
         XCTAssertEqual(o["exists"] as? Bool, false)
         XCTAssertFalse(FileManager.default.fileExists(atPath: scratch + "/new"), "a check makes nothing")
         try FileManager.default.createDirectory(atPath: scratch + "/have", withIntermediateDirectories: true)
-        o = object(try post("/api/v1/workspace/check", #"{"path":"\#(scratch)/have"}"#, csrf: csrf))
+        o = object(try post("/api/v1/folder/check", #"{"path":"\#(scratch)/have"}"#, csrf: csrf))
         XCTAssertEqual(o["exists"] as? Bool, true)
         XCTAssertNil(o["willCreate"])
         for (bad, says) in [("relative/dir", "absolute"), ("/", "whole Mac"), ("~", "home folder"), ("/usr/local/dozwc", "system location"),
                             ("/tmp/fake-store/ws", "inside the store")] {
-            o = object(try post("/api/v1/workspace/check", #"{"path":"\#(bad)"}"#, csrf: csrf))
+            o = object(try post("/api/v1/folder/check", #"{"path":"\#(bad)"}"#, csrf: csrf))
             XCTAssertTrue((o["error"] as? String)?.contains(says) == true, "\(bad): \(o)")
             XCTAssertNil(o["willCreate"], bad)
         }
-        XCTAssertEqual(try post("/api/v1/workspace/check", #"{"path":"a\nb"}"#, csrf: csrf).status, 400, "one line")
+        XCTAssertEqual(try post("/api/v1/folder/check", #"{"path":"a\nb"}"#, csrf: csrf).status, 400, "one line")
 
         // The picker, through the seam: a folder, then cancelled.
         server.folderPicker.setRunner { _ in scratch + "/have/" }
-        r = try post("/api/v1/workspace/choose", #"{"start":"\#(scratch)/new/deep"}"#, csrf: csrf)
+        r = try post("/api/v1/folder/choose", #"{"start":"\#(scratch)/new/deep"}"#, csrf: csrf)
         XCTAssertEqual(r.status, 200, r.text)
         XCTAssertEqual(object(r)["path"] as? String, scratch + "/have")
         XCTAssertEqual(object(r)["cancelled"] as? Bool, false)
         server.folderPicker.setRunner { _ in nil }
-        o = object(try post("/api/v1/workspace/choose", "{}", csrf: csrf))
+        o = object(try post("/api/v1/folder/choose", "{}", csrf: csrf))
         XCTAssertEqual(o["cancelled"] as? Bool, true)
         XCTAssertNil(o["path"])
-        XCTAssertEqual(try post("/api/v1/workspace/choose", #"{"start":"relative"}"#, csrf: csrf).status, 400)
+        XCTAssertEqual(try post("/api/v1/folder/choose", #"{"start":"relative"}"#, csrf: csrf).status, 400)
         // It opens at the nearest existing folder of the field (never a path that does not exist).
         XCTAssertEqual(WebFolderPicker.startFolder(scratch + "/new/deep", projectsDir: "/nowhere"), scratch)
         XCTAssertEqual(WebFolderPicker.startFolder(nil, projectsDir: scratch + "/have/x"), scratch + "/have")
@@ -510,14 +510,14 @@ final class WebSettingsHTTPTests: XCTestCase {
         let done = DispatchSemaphore(value: 0)
         let (port, hostHeader, originValue) = (server.origin.port, host, origin)
         DispatchQueue.global().async {
-            first.value = try? RawHTTP.request(port: port, method: "POST", path: "/api/v1/workspace/choose",
+            first.value = try? RawHTTP.request(port: port, method: "POST", path: "/api/v1/folder/choose",
                                                headers: ["Host": hostHeader, "Cookie": cookie, "Origin": originValue, "Content-Type": "application/json",
                                                          "X-Doz-CSRF": csrf], body: "{}")
             done.signal()
         }
         XCTAssertEqual(entered.wait(timeout: .now() + 5), .success)
         XCTAssertTrue(server.folderPicker.isOpen)
-        r = try post("/api/v1/workspace/choose", "{}", csrf: csrf)
+        r = try post("/api/v1/folder/choose", "{}", csrf: csrf)
         XCTAssertEqual(r.status, 409, r.text)
         XCTAssertTrue(r.text.contains("picker-open"), r.text)
         gate.signal()
@@ -568,11 +568,11 @@ final class WebSettingsHTTPTests: XCTestCase {
         var o = object(r)
         XCTAssertEqual(o["name"] as? String, "lab-sandbox")
         XCTAssertEqual(o["image"] as? String, "lab")
-        XCTAssertEqual(o["workspace"] as? String, scratch + "/projects/lab-sandbox")
+        XCTAssertEqual(o["folder"] as? String, scratch + "/projects/lab-sandbox")
         XCTAssertNil(o["requirement"])
         XCTAssertFalse(FileManager.default.fileExists(atPath: scratch + "/projects"), "a plan makes nothing")
         o = object(try post("/api/v1/quick-add", #"{"isolated":true}"#, csrf: csrf))
-        XCTAssertNil(o["workspace"])
+        XCTAssertNil(o["folder"])
         // pi, with no API-key account (the fake has none): the form, with the requirement.
         o = object(try post("/api/v1/quick-add", #"{"image":"pi"}"#, csrf: csrf))
         XCTAssertEqual(o["name"] as? String, "pi-sandbox")
@@ -590,7 +590,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(o["path"] as? String, scratch + "/chosen")
         XCTAssertEqual(o["cancelled"] as? Bool, false)
         XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("projects_dir = \"\(scratch)/chosen\""))
-        XCTAssertEqual(object(try post("/api/v1/quick-add", "{}", csrf: csrf))["workspace"] as? String, scratch + "/chosen/lab-sandbox")
+        XCTAssertEqual(object(try post("/api/v1/quick-add", "{}", csrf: csrf))["folder"] as? String, scratch + "/chosen/lab-sandbox")
         // Cancelled: nothing changes. Inside the store: refused.
         server.folderPicker.setRunner { _ in nil }
         o = object(try post("/api/v1/settings/projects-dir/choose", "{}", csrf: csrf))

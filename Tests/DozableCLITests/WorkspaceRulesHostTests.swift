@@ -25,7 +25,7 @@ final class WorkspaceRulesHostTests: XCTestCase {
     // MARK: the setting and the project key
 
     func testTheSettingIsOneClosedPerSandboxChoice() throws {
-        let d = try XCTUnwrap(DozableSettings.definition("workspace.ignore_mode"))
+        let d = try XCTUnwrap(DozableSettings.definition("folder.ignore_mode"))
         XCTAssertEqual(d.type, .choice(["lock", "hide"]))
         XCTAssertEqual(d.defaultValue, .string("lock"))
         XCTAssertEqual(d.flag, "doz create --ignore-mode lock|hide")
@@ -58,16 +58,16 @@ final class WorkspaceRulesHostTests: XCTestCase {
     func testTheFactsSayTheRulesOnlyWhileAViewServesThem() throws {
         func facts(_ m: WorkspaceRuleMode?) -> String {
             AgentPrompt.values(name: "n", image: "pi", cpus: 1, memoryMiB: 1024, workspace: "/w", network: .none, account: nil, version: "1",
-                               hostname: "h", workspaceRules: m)["workspace.rules"] ?? "?"
+                               hostname: "h", workspaceRules: m)["folder.rules"] ?? "?"
         }
         XCTAssertEqual(facts(nil), "")
         XCTAssertTrue(facts(.lock).contains("listed with no permissions"))
         XCTAssertTrue(facts(.lock).contains("do not try to read, overwrite or recreate them"))
         XCTAssertTrue(facts(.hide).contains("not there for you"))
-        XCTAssertTrue(AgentPrompt.variables.contains { $0.name == "workspace.rules" })
+        XCTAssertTrue(AgentPrompt.variables.contains { $0.name == "folder.rules" })
         let none = AgentPrompt.values(name: "n", image: "pi", cpus: 1, memoryMiB: 1024, workspace: "/w", network: .none, account: nil, version: "1", hostname: "h")
         let rendered = try AgentPrompt.render(AgentPrompt.builtInTemplate, none, source: "t")
-        XCTAssertFalse(rendered.contains("Workspace rules"), "no rules: no line (an empty bullet is dropped)")
+        XCTAssertFalse(rendered.contains("Folder rules"), "no rules: no line (an empty bullet is dropped)")
         XCTAssertFalse(rendered.split(separator: "\n").contains { $0.trimmingCharacters(in: .whitespaces) == "-" })
     }
 
@@ -103,7 +103,7 @@ final class WorkspaceRulesHostTests: XCTestCase {
     private func sandboxConfig(workspace: URL?) throws -> SandboxConfig {
         let store = DozableStore(root: root)
         var o = CreateOptions(image: "lab")
-        o.workspace = workspace?.path
+        o.folder = workspace?.path
         let (s, n) = try DozableImages.spec(name: "x", options: o, store: store, environment: [:])
         return SandboxConfig(name: "x", image: n, spec: s, workspace: workspace?.path)
     }
@@ -125,7 +125,7 @@ final class WorkspaceRulesHostTests: XCTestCase {
         XCTAssertEqual(none.view, "off")
         let m1 = await core.handle(HostRequest(.ls))
         var ls = try XCTUnwrap(m1.result).decode([SandboxInfo].self)
-        XCTAssertNil(ls.first?.workspaceRules)
+        XCTAssertNil(ls.first?.folderRules)
         // rules
         try write(".dozignore", "secret.env\nlogs\n!logs/keep.txt\n", in: dir)
         try write(".dozreadonly", "config\n", in: dir)
@@ -155,21 +155,21 @@ final class WorkspaceRulesHostTests: XCTestCase {
         // SandboxInfo and its web projection
         let m3 = await core.handle(HostRequest(.ls))
         ls = try XCTUnwrap(m3.result).decode([SandboxInfo].self)
-        let info = try XCTUnwrap(ls.first?.workspaceRules)
+        let info = try XCTUnwrap(ls.first?.folderRules)
         XCTAssertEqual(info.ignorePatterns, 3)
         XCTAssertEqual(info.readOnlyPatterns, 1)
         XCTAssertEqual(info.view, "stopped")
         XCTAssertEqual(info.line, ".dozignore: 3 patterns (lock) · .dozreadonly: 1 pattern — when it runs")
         let row = WebSandboxRow(ls[0])
-        XCTAssertEqual(row.workspaceRules, info.line)
-        XCTAssertEqual(row.workspaceRulesView, "stopped")
+        XCTAssertEqual(row.folderRules, info.line)
+        XCTAssertEqual(row.folderRulesView, "stopped")
         // an isolated sandbox has nothing to rule
         try sandboxConfig(workspace: nil).write(store.configFile("x"))
         let core2 = HostCore(store: store, readOnly: true, version: "test")
         await core2.load()
         let m4 = await core2.handle(HostRequest(.workspaceRules, name: "x"))
         none = try XCTUnwrap(m4.result).decode(WorkspaceRulesReport.self)
-        XCTAssertNil(none.workspace)
+        XCTAssertNil(none.folder)
         XCTAssertFalse(none.active)
         let m5 = await core2.handle(r)
         XCTAssertEqual(m5.error?.code, .invalid, "a path to check in an isolated sandbox is refused")
@@ -223,12 +223,12 @@ final class WorkspaceRulesHostTests: XCTestCase {
     func testTheOnboardingWritesTheDefaultModeOnlyWhenChosen() throws {
         let env = ["XDG_CONFIG_HOME": root.appendingPathComponent("xdg").path]
         let file = root.appendingPathComponent("xdg/doz/doz.toml")
-        XCTAssertEqual(try Onboarding.writeIgnoreMode("hide", environment: env), ["workspace.ignore_mode = hide"])
+        XCTAssertEqual(try Onboarding.writeIgnoreMode("hide", environment: env), ["folder.ignore_mode = hide"])
         XCTAssertEqual(DozableSettings.load(environment: env).string(SettingKey.ignoreMode), "hide")
         let text = try String(contentsOf: file, encoding: .utf8)
         XCTAssertEqual(try Onboarding.writeIgnoreMode("hide", environment: env), [], "the file already says so: untouched")
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), text)
-        XCTAssertEqual(try Onboarding.writeIgnoreMode("lock", environment: env), ["workspace.ignore_mode = lock"])
+        XCTAssertEqual(try Onboarding.writeIgnoreMode("lock", environment: env), ["folder.ignore_mode = lock"])
         XCTAssertThrowsError(try Onboarding.writeIgnoreMode("open", environment: env))
         // The dashboard's body: ignoreMode is optional, lock or hide, never anything else.
         XCTAssertEqual(try WebOnboardingConfig.decode(Data(#"{"base":"node","ignoreMode":"hide"}"#.utf8)).ignoreMode, "hide")

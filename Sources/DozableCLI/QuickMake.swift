@@ -48,7 +48,7 @@ struct QuickMake {
             let said = planned.reach.filter { $0.kind == "folder" || $0.kind == "bridge" }.map { $0.text.prefix(1).lowercased() + $0.text.dropFirst() }
             var parts = [planned.name, planned.imageState.title ?? planned.image] + said
             // Isolated: nothing of the Mac is shared — the way files come out (owner).
-            if planned.workspace == nil { parts.append("pull files with: doz get \(planned.name) /workspace/FILE") }
+            if planned.folder == nil { parts.append("pull files with: doz get \(planned.name) /workspace/FILE") }
             Out.stdout(parts.joined(separator: " · ") + "\n")
             // 618: a family's major — which one, and how to get the other.
             if let l = planned.version?.familyLine() { Out.stdout(l + "\n") }

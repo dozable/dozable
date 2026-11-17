@@ -1,0 +1,106 @@
+{
+  "account" : "default",
+  "createdAt" : "2026-11-17T03:02:57.874Z",
+  "credentialSources" : {
+
+  },
+  "image" : "lab",
+  "name" : "fixture",
+  "spec" : {
+    "bakePackages" : [
+      "bash",
+      "ncurses",
+      "fd",
+      "tmux"
+    ],
+    "cpus" : 2,
+    "dnsServers" : [
+      "1.1.1.1",
+      "8.8.8.8"
+    ],
+    "image" : "docker.io/library/alpine:3.20",
+    "initfsReference" : "ghcr.io/apple/containerization/vminit:0.47.0",
+    "journalMiB" : 16,
+    "memoryMiB" : 1024,
+    "name" : "fixture",
+    "networkMode" : {
+      "proxied" : {
+        "_0" : {
+          "defaultAction" : "deny",
+          "preset" : "bake",
+          "rules" : [
+            {
+              "action" : "allow",
+              "host" : "registry.npmjs.org",
+              "id" : "BBE4FA58-9632-41B8-9A71-03D38301275A",
+              "note" : "npm"
+            },
+            {
+              "action" : "allow",
+              "host" : "deb.debian.org",
+              "id" : "39F4A0F5-4468-4E79-84EA-2C6A56168B60",
+              "note" : "apt",
+              "ports" : [
+                80,
+                443
+              ]
+            },
+            {
+              "action" : "allow",
+              "host" : "security.debian.org",
+              "id" : "3316C77E-0D00-47F1-9D77-96041A723948",
+              "note" : "apt",
+              "ports" : [
+                80,
+                443
+              ]
+            },
+            {
+              "action" : "allow",
+              "host" : "*.ubuntu.com",
+              "id" : "262197D4-9EAB-46F4-8CE0-3E4EF5DE0A93",
+              "note" : "apt",
+              "ports" : [
+                80,
+                443
+              ]
+            },
+            {
+              "action" : "allow",
+              "host" : "dl-cdn.alpinelinux.org",
+              "id" : "76A9BE00-0B0B-4FFD-9A0A-922F7198515A",
+              "note" : "apk",
+              "ports" : [
+                80,
+                443
+              ]
+            },
+            {
+              "action" : "allow",
+              "host" : "pypi.org",
+              "id" : "6F8ECCF4-7349-45CB-930C-462F783106BD",
+              "note" : "pip"
+            },
+            {
+              "action" : "allow",
+              "host" : "files.pythonhosted.org",
+              "id" : "549812CD-C9CF-4158-8795-104C9371875B",
+              "note" : "pip"
+            }
+          ]
+        }
+      }
+    },
+    "networking" : false,
+    "rootfsMiB" : 1024,
+    "shares" : [
+      {
+        "guestPath" : "/workspace",
+        "hostPath" : "/tmp/doz-fixture-folder"
+      }
+    ],
+    "stateDiskMiB" : 2048,
+    "storeRoot" : "file:///tmp/doz-fixture-store"
+  },
+  "workspace" : "/tmp/doz-fixture-folder"
+}

@@ -15,7 +15,7 @@ import DozableWeb
 struct Nuke: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Put this Mac back to a fresh install of Dozable: every sandbox, image, setting and saved key goes; doz stays installed.",
-        discussion: "Lists each item, where it is and its size, then asks once. --dry-run lists and changes nothing; --yes does not ask. Never your workspace folders, the Mac's Claude Code or Codex login, or Apple's container data. A running doz ui or doz serve for the store must be stopped first; a running daemon is stopped first (its sandboxes shut down with the store).")
+        discussion: "Lists each item, where it is and its size, then asks once. --dry-run lists and changes nothing; --yes does not ask. Never your sandbox folders, the Mac's Claude Code or Codex login, or Apple's container data. A running doz ui or doz serve for the store must be stopped first; a running daemon is stopped first (its sandboxes shut down with the store).")
 
     @OptionGroup var g: GlobalOptions
     @Flag(name: .long, help: "List what would be removed, with sizes, and change nothing.") var dryRun = false
@@ -81,7 +81,7 @@ struct Nuke: AsyncParsableCommand {
             items.append(Item(kind: .keychain, location: "login keychain: \(i.service)", what: keychainWhat(i.service), bytes: nil))
         }
         kept.append("doz itself (\(HostLauncher.executablePath)) — `doz uninstall` removes it")
-        kept.append("your workspace folders (\(DozableSettings.load().string(SettingKey.projectsDir).map { DisplayPath.tilde($0) } ?? "the projects folder") and any sandbox's folder)")
+        kept.append("your sandbox folders (\(DozableSettings.load().string(SettingKey.projectsDir).map { DisplayPath.tilde($0) } ?? "the projects folder") and any sandbox's folder)")
         kept.append("the Mac's own Claude Code and Codex logins")
         kept.append("Apple's container data (Dockerfile bases' builds) — `doz resources` shows it")
         return (items, kept)

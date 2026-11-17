@@ -209,7 +209,7 @@ final class ServeHTTPTests: XCTestCase {
     func testMacScreenRoutesAreRefusedRemotely() async throws {
         try await start()
         let (cookie, csrf) = try await admit()
-        for path in ["/api/v1/workspace/choose", "/api/v1/settings/projects-dir/choose", "/api/v1/dockerfile/choose", "/api/v1/sandboxes/demo/terminal"] {
+        for path in ["/api/v1/folder/choose", "/api/v1/settings/projects-dir/choose", "/api/v1/dockerfile/choose", "/api/v1/sandboxes/demo/terminal"] {
             let r = try req(path, ["Cookie": cookie, "X-Doz-CSRF": csrf, "Origin": own, "Content-Type": "application/json"], method: "POST", body: "{}")
             XCTAssertEqual(r.status, 403, path)
             XCTAssertTrue(r.text.contains("mac-screen"), path)

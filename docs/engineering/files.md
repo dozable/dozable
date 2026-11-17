@@ -6,19 +6,19 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 | Path | What |
 |---|---|
-| `Sources/DozableHost/WorkspaceFileList.swift`, `HostCore+Files.swift`, `FileWatch.swift`; `Sources/DozableCLI/FileCommands.swift` (`FilesCommand`); `Sources/DozableWeb/WebFiles.swift`; `Sources/doz-vmtest/FilesSuite.swift` | 643: the file watcher — a folder's listing (the Mac for a shared workspace, the guest for an isolated one; the rules applied), the daemon op `files-list`, the FSEvents watch (coalescer, target, hub — CoreServices, audit), `doz files`, the files routes + their SSE stream; `FilesTests`, `WebFilesTests`, `make test-cli-files` |
+| `Sources/DozableHost/WorkspaceFileList.swift`, `HostCore+Files.swift`, `FileWatch.swift`; `Sources/DozableCLI/FileCommands.swift` (`FilesCommand`); `Sources/DozableWeb/WebFiles.swift`; `Sources/doz-vmtest/FilesSuite.swift` | 643: the file watcher — a folder's listing (the Mac for a shared folder, the guest for an isolated one; the rules applied), the daemon op `files-list`, the FSEvents watch (coalescer, target, hub — CoreServices, audit), `doz files`, the files routes + their SSE stream; `FilesTests`, `WebFilesTests`, `make test-cli-files` |
 | `Sources/DozableHost/WorkspaceFileChange.swift`; `HostCore+Files.swift`; `Sources/DozableCLI/FileCommands.swift` (`doz files` group); `Sources/DozableWeb/WebFiles.swift` (`WebFileTree`, `WebFileOpen`); `WebSource/app/views/sandbox-files.js` | 644: the file explorer panel — the changes on the Mac (confined, descriptor-relative, the rules) and in an isolated guest, the kept open folders (`FileTreeState`), `files-open`; the Files tab; `FileChangeTests` |
-| `Sources/DozableHost/EditorApps.swift` (+ `MacDefaultApp.appPath`); `FilesOpen --app`, `FilesEditors`; `WebEditor`, `GET /api/v1/editors`; `WebSource/app/components/open-with.js` | 646: Open Workspace — a shared workspace (or a folder or file in it) in an editor: the known editors found by bundle id, `bridges.open_apps`, the daemon op `editors`; the terminal strip's Open folder menu and the Files tab's Open in <editor>; `EditorAppsTests` |
+| `Sources/DozableHost/EditorApps.swift` (+ `MacDefaultApp.appPath`); `FilesOpen --app`, `FilesEditors`; `WebEditor`, `GET /api/v1/editors`; `WebSource/app/components/open-with.js` | 646: Open the folder — a shared folder (or a folder or file in it) in an editor: the known editors found by bundle id, `bridges.open_apps`, the daemon op `editors`; the terminal strip's Open folder menu and the Files tab's Open in <editor>; `EditorAppsTests` |
 
 ## The file watcher — `files-list`, `doz files`, the files routes
 
-- **Listing follows the bytes.** `files-list` (read-only daemon op: in-process when no daemon runs) reads a SHARED workspace ON
+- **Listing follows the bytes.** `files-list` (read-only daemon op: in-process when no daemon runs) reads a SHARED folder ON
   THE MAC in any phase — never a guest call — with the open-files bridge's path discipline (`WorkspaceFiles`): the asked
   path normalised lexically under /workspace (`..` above it refused), mapped onto the folder from the sandbox's RECORD,
   `realpath`, and it must stay inside the share's realpath; entries are `lstat`ed (a link's target is display only, never
   followed). An ISOLATED sandbox is listed by one utility exec as the image's user (`GuestFolderListing`: `stat -c`, names
   passed as `./NAME`) ONLY while it runs — asleep/off is `invalid-phase`, never a wake or a start.
-- **The workspace rules apply as the guest's view applies them** (a rule file present and `workspace.view` on): hidden
+- **The folder rules apply as the guest's view applies them** (a rule file present and `folder.view` on): hidden
   absent, locked listed `locked` with no size or time, read-only marked; a hidden folder is "no such folder", a locked one
   refused; decided on the RESOLVED path (`WorkspaceRules.Evaluator`, the same as `doz ignore check`).
 - **Names are untrusted text**: `FileListPaths.inert` (control and bidi-control characters → U+FFFD, ≤ 255 characters) on
@@ -45,7 +45,7 @@ inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swi
   empty file), `files-move` (a rename is a move in its folder; `fileTarget`), `files-rm` (`recursive` for a folder with
   contents; destructive: `confirm` = the guest path, the page's tick box). Nothing is EVER replaced; `/workspace` itself is
   never changed (`FileItemPath`: one name, never the root); a folder never goes into itself. Never a generic write route.
-- **A shared workspace is changed ON THE MAC, never through a guest, never starting a daemon**: these ops (with
+- **A shared folder is changed ON THE MAC, never through a guest, never starting a daemon**: these ops (with
   `files-open` and `files-tree-set`) are `HostOp.isAnsweredWithoutHost` — through the daemon when one runs, else
   in-process (`terminal-layout-set`'s rule), and `HostWebData.perform` sends them through `query`, never an autostart. The
   path discipline is the listing's: the PARENT resolved by `MacFolderListing.resolve` (lexical, from the record, realpath
@@ -53,7 +53,7 @@ inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swi
   parent opened `O_NOFOLLOW` (`mkdirat`, `openat(O_EXCL|O_NOFOLLOW)`, `renameatx_np(RENAME_EXCL)`, `unlinkat`; a recursive
   delete walks with `openat(O_NOFOLLOW)` — a link inside is removed, never followed; ≤ 100 000 entries). Keep it that way:
   never a path string re-resolved after the check.
-- **The rules, as the guest's view decides** (a rule file present and `workspace.view` on; on the RESOLVED inside path):
+- **The rules, as the guest's view decides** (a rule file present and `folder.view` on; on the RESOLVED inside path):
   a hidden item is "no such file", a locked or read-only one is refused, nothing is made in a read-only folder, a NEW name
   (mkdir, new, a move's destination) must come out visible, a folder moved or deleted must hold nothing the rules protect
   (at its old and its new place). The rule files are read-only by the rules, so they are never moved or deleted here.
@@ -87,7 +87,7 @@ inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swi
   what is open, selected and focused stays); a live refresh never re-lists — the first show, a watch batch (only the
   folders named; `resync` = every open one), Refresh, its own change (the folders it touched), an isolated sandbox coming
   to run. The watch (643's stream, ONE per page) is open only while the tab is the shown tab of the visible page with the
-  details open, for a shared workspace, naming /workspace and every open folder (re-opened, debounced, when that set
+  details open, for a shared folder, naming /workspace and every open folder (re-opened, debounced, when that set
   changes; retried after 5 s). An isolated sandbox that does not run is asked NOTHING (the page knows the phase). Rows:
   `.frow` `role=treeitem`, indent `--depth` set through CSSOM (the CSP refuses a style attribute); keys ↑↓→← Home End
   Enter F2 Delete; a drag onto a folder is a move; a name the daemon altered (`altered`) is not changed here. An open row

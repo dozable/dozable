@@ -49,7 +49,7 @@ final class KitchenTests: XCTestCase {
             ["--agent", "grok", "--base", "alpine"],
             ["--agent", "gemini", "--permissions", "standard,+web", "--account", "g1", "--cpus", "4", "--memory", "4G"],
             ["--agent", "codex", "--allow", "site:api.example.com", "--github", "read", "--key", "ex", "--isolated", "--tmux", "--clipboard", "off"],
-            ["--agent", "pi", "--network", "locked", "--no-agent-sudo", "--workspace", "/tmp/617-w"],
+            ["--agent", "pi", "--network", "locked", "--no-agent-sudo", "--folder", "/tmp/617-w"],
         ]
         for l in lines {
             let create = try XCTUnwrap(try parse(["create", "b"] + l) as? Create).create.planChoices()
@@ -123,7 +123,7 @@ final class KitchenTests: XCTestCase {
             let p = try plan(purpose, args, name: name, facts: f)
             out.append("== \(title): \(purpose) \(args.joined(separator: " "))")
             out.append("command: \(p.command)")
-            out.append("name: \(p.name) · image: \(p.imageState.name) (\(p.imageState.title ?? "-"), \(p.imageState.state)) · workspace: \(p.workspace ?? "isolated")")
+            out.append("name: \(p.name) · image: \(p.imageState.name) (\(p.imageState.title ?? "-"), \(p.imageState.state)) · folder: \(p.folder ?? "isolated")")
             if let a = p.account { out.append("account: \(a.name ?? "none") · \(a.kind ?? "-") · \(a.provider ?? "-") · \(a.sourceLabel ?? "-")") }
             for r in p.reach { out.append("reach \(r.kind): \(r.text)") }
             out.append("yaml: " + p.yaml.split(separator: "\n").filter { !$0.hasPrefix("#") }.joined(separator: " | "))
@@ -183,7 +183,7 @@ final class KitchenTests: XCTestCase {
         XCTAssertEqual(p.command, "doz try grok")
         XCTAssertNil(p.create.network, "635: a try takes a new sandbox's network (defaults.permissions, Standard)")
         XCTAssertNil(p.create.isolated, "a try has a new empty folder of its own (owner, after the demo)")
-        XCTAssertEqual(p.workspace.map { ($0 as NSString).lastPathComponent }, "try-grok")
+        XCTAssertEqual(p.folder.map { ($0 as NSString).lastPathComponent }, "try-grok")
         r.planRequest?.purpose = "nonsense"
         let bad = await c.handle(r)
         XCTAssertNotNil(bad.error)
@@ -216,7 +216,7 @@ final class KitchenTests: XCTestCase {
         XCTAssertEqual(try plan("try", ["--agent", "grok", "--network", "locked"], facts: f).create.network, "locked")
         // Owner, after the demo: a NEW EMPTY folder of its own under projects_dir, shared at /workspace (files the agent
         // makes are on the Mac; the open-files bridge works) — never one of yours.
-        XCTAssertEqual(p.workspace, projects.appendingPathComponent("try-grok").path)
+        XCTAssertEqual(p.folder, projects.appendingPathComponent("try-grok").path)
         XCTAssertNil(p.create.isolated)
         XCTAssertTrue(p.reach.contains { $0.kind == "folder" && $0.text.hasPrefix("A new empty folder ") && $0.text.contains("(not one of yours)") },
                       p.reach.map(\.text).joined(separator: " | "))
@@ -228,43 +228,43 @@ final class KitchenTests: XCTestCase {
         try "mine".write(to: projects.appendingPathComponent("try-grok/notes.txt"), atomically: true, encoding: .utf8)
         let p2 = try plan("try", ["--agent", "grok"], facts: f)
         XCTAssertEqual(p2.name, "try-grok-2")
-        XCTAssertEqual(p2.workspace, projects.appendingPathComponent("try-grok-2").path)
+        XCTAssertEqual(p2.folder, projects.appendingPathComponent("try-grok-2").path)
         // …and an empty one (a Finder .DS_Store counts as empty) is used.
         try FileManager.default.createDirectory(at: projects.appendingPathComponent("try-gemini"), withIntermediateDirectories: true)
         try Data().write(to: projects.appendingPathComponent("try-gemini/.DS_Store"))
         XCTAssertEqual(try plan("try", ["--agent", "gemini"], facts: f).name, "try-gemini")
         // A given name whose folder holds something: refused, with the ways out.
         let p3 = try plan("try", ["--agent", "grok"], name: "try-grok", facts: f)
-        XCTAssertTrue(p3.problems.contains { $0.text.contains("not empty") && $0.fix == "--isolated, or --workspace DIR" }, "\(p3.problems)")
-        // --isolated keeps no folder (and says so); --workspace DIR is the person's own choice.
+        XCTAssertTrue(p3.problems.contains { $0.text.contains("not empty") && $0.fix == "--isolated, or --folder DIR" }, "\(p3.problems)")
+        // --isolated keeps no folder (and says so); --folder DIR is the person's own choice.
         let iso = try plan("try", ["--agent", "grok", "--isolated"], facts: f)
-        XCTAssertNil(iso.workspace)
+        XCTAssertNil(iso.folder)
         XCTAssertEqual(iso.command, "doz try grok --isolated")
         XCTAssertTrue(iso.reach.contains { $0.text == "Open files on your Mac: off (no folder)" })
-        let mine = try plan("try", ["--agent", "grok", "--workspace", "/tmp/617-w"], facts: f)
+        let mine = try plan("try", ["--agent", "grok", "--folder", "/tmp/617-w"], facts: f)
         XCTAssertTrue(mine.reach.contains { $0.text.hasPrefix("Your folder /tmp/617-w") })
         // A projects folder inside the store: the plan says so before anything is asked (a try used to take the key
         // and only then fail at create).
         var inStore = f
         inStore.projectsDir = root.appendingPathComponent("projects").path
         let bad = try plan("try", ["--agent", "grok"], facts: inStore)
-        XCTAssertTrue(bad.problems.contains { $0.text.contains("inside the store") && $0.fix == "--isolated, or --workspace DIR" }, "\(bad.problems)")
+        XCTAssertTrue(bad.problems.contains { $0.text.contains("inside the store") && $0.fix == "--isolated, or --folder DIR" }, "\(bad.problems)")
         XCTAssertFalse(try plan("try", ["--agent", "grok", "--isolated"], facts: inStore).problems.contains { $0.text.contains("inside the store") })
         XCTAssertEqual(CreatePlanner.tryName(agent: AgentKind(rawValue: "grok")!, taken: []), "try-grok")
         XCTAssertEqual(CreatePlanner.tryName(agent: AgentKind(rawValue: "grok")!, taken: ["try-grok", "try-grok-2"]), "try-grok-3")
         XCTAssertEqual(CreatePlanner.tryName(agent: .claudeCode, taken: []), "try-claude")
         // Every choice still works: a base, a network, a folder.
-        let q = try plan("try", ["--agent", "gemini", "--base", "python", "--network", "agent", "--workspace", "/tmp/617-w"])
+        let q = try plan("try", ["--agent", "gemini", "--base", "python", "--network", "agent", "--folder", "/tmp/617-w"])
         XCTAssertEqual(q.create.image, "python-gemini")
         XCTAssertEqual(q.create.network, "agent")
-        XCTAssertEqual(q.workspace, "/tmp/617-w")
-        XCTAssertEqual(q.command, "doz try gemini --base python --workspace /tmp/617-w --network agent")
+        XCTAssertEqual(q.folder, "/tmp/617-w")
+        XCTAssertEqual(q.command, "doz try gemini --base python --folder /tmp/617-w --network agent")
     }
 
     /// SandboxInfo's own coding carries the Dozable-made folder (634) and the custom keys — the VM proof found it didn't.
     func testSandboxInfoCarriesItsCreatedFolderAndItsKeys() throws {
         var i = SandboxInfo(name: "try-grok", image: "grok", phase: "off", busy: false, cpus: 2, memoryMiB: 2048, ramHeldMiB: 0, memoryReturnedMiB: 0,
-                            diskBytes: 1, sessions: nil, network: "locked", deniedConnections: nil, workspace: nil, createdAt: nil, diedWithHost: nil,
+                            diskBytes: 1, sessions: nil, network: "locked", deniedConnections: nil, folder: nil, createdAt: nil, diedWithHost: nil,
                             account: nil, credentialState: nil, credentialPolicy: nil, foreignCredentials: nil)
         i.createdFolder = "/tmp/projects/try-grok"
         i.extraKeys = ["ex"]

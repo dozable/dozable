@@ -14,15 +14,33 @@ import DozableKit
 //   · `events` and `net-log --follow` — `event` lines until the client hangs up.
 //
 // `v` is the protocol version. A host answers a request whose `v` it does not speak with
-// `error.code = "version"`; fields are only ever added, never repurposed.
+// `error.code = "version"`; fields are only ever added, never repurposed — except at a version
+// step, when the host refuses what is older than `minimum` (3: the folder rename).
 
 public enum HostProtocol {
-    public static let version = 1
-    /// What an open-session asking for a FENCED session on this Mac carries: a host older than fenced sessions refuses
-    /// it ("restart it") instead of opening the session unfenced.
-    public static let fencedVersion = 2
+    /// 3 (0.51): what a sandbox or session works on is its FOLDER — `workspace` → `folder`, a request's `workdir` → `cwd`
+    /// (in a sandbox) or `folder` (on this Mac). An older daemon would silently drop the new names (a sandbox made
+    /// ISOLATED), so each side refuses the other's requests: the old daemon answers `v` 3 with "version", this one `v` < 3.
+    public static let version = 3
+    /// What an open-session asking for a FENCED session on this Mac carries (2 when fences came; any request now).
+    public static let fencedVersion = 3
     /// The newest request this host answers.
-    public static let accepted = 2
+    public static let accepted = 3
+    /// The oldest request this host answers (`ping` and `host-stop` excepted: they carry no field that changed, so a doz
+    /// of either side can always see and stop the other's daemon).
+    public static let minimum = 3
+
+    /// Why this host refuses `r` (nil: it answers it).
+    public static func refusal(_ r: HostRequest) -> HostError? {
+        if r.op == .ping || r.op == .hostStop { return nil }
+        guard r.v > accepted || r.v < minimum else { return nil }
+        return HostError(.version, "this daemon speaks protocol \(accepted), the request is \(r.v) — restart it (doz daemon stop)")
+    }
+
+    /// The CLI's words for a "version" refusal: which build runs, which one asks, and what to do.
+    public static func skewMessage(daemon: String?, this: String) -> String {
+        "the running daemon is \(daemon ?? "of another version"), this doz is \(this): doz daemon stop (the next command starts the new one)"
+    }
 }
 
 /// Every operation the host serves.
@@ -249,7 +267,7 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     public var cpus: Int?
     public var memoryMiB: UInt64?
     /// A host directory shared at /workspace.
-    public var workspace: String?
+    public var folder: String?
     /// `agent`, `bake`, `locked`, `open` (proxied, with that preset), `nat` or `none`.
     public var network: String?
     /// vmnet subnet for `--network nat` (default: a free one, picked by the library).
@@ -262,7 +280,7 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     public var agentPromptMode: String?
     /// 594 (D9): the project file this sandbox was made from (`doz up` in a folder with `doz_project.yaml`).
     public var project: String?
-    /// 594: asked for explicitly — no workspace ("isolated"); an error together with `workspace`.
+    /// 594: asked for explicitly — no workspace ("isolated"); an error together with `folder`.
     public var isolated: Bool?
     /// 594 W23: the agent's passwordless sudo for this sandbox (nil: follow `sandbox.agent_sudo`).
     public var agentSudo: Bool?
@@ -310,13 +328,13 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// sandbox records `from: project` for them (`SandboxConfig.settingsFrom`, `recipeSettings`). nil: none.
     public var fromProject: [String]?
 
-    public init(image: String, cpus: Int? = nil, memoryMiB: UInt64? = nil, workspace: String? = nil,
+    public init(image: String, cpus: Int? = nil, memoryMiB: UInt64? = nil, folder: String? = nil,
                 network: String? = nil, subnet: String? = nil, account: String? = nil) {
         self.account = account
         self.image = image
         self.cpus = cpus
         self.memoryMiB = memoryMiB
-        self.workspace = workspace
+        self.folder = folder
         self.network = network
         self.subnet = subnet
     }
@@ -327,7 +345,7 @@ public struct CreateOptions: Codable, Equatable, Sendable {
 /// 593 `duplicate`: what the new sandbox changes from its source. Everything nil keeps the source's.
 public struct DuplicateOptions: Codable, Equatable, Sendable {
     /// A host directory shared at /workspace (594: made when it does not exist).
-    public var workspace: String?
+    public var folder: String?
     /// 594: drop the source's workspace — the duplicate is isolated.
     public var isolated: Bool?
     public var cpus: Int?
@@ -339,9 +357,9 @@ public struct DuplicateOptions: Codable, Equatable, Sendable {
     /// Clone the source's state disk (the agent's logins and history) too. Default: a fresh one.
     public var copyState: Bool?
 
-    public init(workspace: String? = nil, cpus: Int? = nil, memoryMiB: UInt64? = nil, network: String? = nil,
+    public init(folder: String? = nil, cpus: Int? = nil, memoryMiB: UInt64? = nil, network: String? = nil,
                 account: String? = nil, copyState: Bool? = nil) {
-        self.workspace = workspace
+        self.folder = folder
         self.cpus = cpus
         self.memoryMiB = memoryMiB
         self.network = network
@@ -367,7 +385,10 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var start: Bool?
     public var environment: [String: String]?
     public var user: String?
-    public var workdir: String?
+    /// exec / open-session in a sandbox: the directory in the guest to run in (nil: the session's, else the image's).
+    public var cwd: String?
+    /// open-session on this Mac (`@mac`): the folder the session runs in (nil: the home folder; fenced: required).
+    public var folder: String?
     public var timeoutSeconds: Int64?
     /// 678: exec — the deadline itself (seconds since 1970), counted by the client from when its process started. The
     /// host answers at it whatever is under way (`timeoutSeconds` is still sent, the time left, for an older host).
@@ -744,7 +765,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var network: String
     /// Denied connections in the proxy's log since the host started (proxied only).
     public var deniedConnections: Int?
-    public var workspace: String?
+    public var folder: String?
     public var createdAt: Date?
     /// The sandbox was running when the previous host died: its disk gets e2fsck at the next start.
     public var diedWithHost: Bool?
@@ -758,7 +779,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var credentialPolicy: String?
     public var foreignCredentials: Int?
     /// 594: the workspace folder was made by this create (it did not exist).
-    public var workspaceCreated: Bool?
+    public var folderCreated: Bool?
     /// 692: `create --secret`: one line per secret ("secret T → host:port (fp …)") — never a value.
     public var secretLines: [String]? = nil
     /// 594: the agent the sandbox runs (claude-code, pi — its image spec's name; a template's too), and
@@ -777,12 +798,12 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     /// ("sudo", "package lists", …), for the notice. nil: this doz's image (or no agent image).
     public var olderImage: [String]? = nil
     /// 599g: the workspace's rules (nil: no .dozignore / .dozreadonly in its folder, or isolated).
-    public var workspaceRules: WorkspaceRulesInfo? = nil
+    public var folderRules: WorkspaceRulesInfo? = nil
     /// 608: how /workspace reaches a RUNNING sandbox — `live` (the live view, no rules), `rules` (the view
     /// with its rules), `direct` (shared directly: workspace.view off), `next-start` (shared directly until
     /// the next start: it started before the view was on), `fallback` (the view could not start — shared
     /// directly; doctor warns). nil: isolated, or not running.
-    public var workspaceView: String? = nil
+    public var folderView: String? = nil
     /// 594 W28: a create that used an out-of-date image says so (the CLI fills it for --json).
     public var imageNotice: String? = nil
     /// `create` with `prepare`: `prepared` (its image's preparation ran, or was joined, to the end) or
@@ -828,16 +849,16 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
             + "it keeps the agent's own state (~/.claude, ~/.pi) and /workspace, and drops everything else installed or changed on its system disk"
     }
 
-    /// 594: "isolated" — no folder of the Mac is shared (`workspace` is null).
-    public var isolated: Bool { workspace == nil }
+    /// 594: "isolated" — no folder of the Mac is shared (`folder` is null).
+    public var isolated: Bool { folder == nil }
 
     enum CodingKeys: String, CodingKey {
         case name, image, phase, busy, cpus, memoryMiB, ramHeldMiB, memoryReturnedMiB, diskBytes, sessions, network, deniedConnections
-        case workspace, createdAt, diedWithHost, unresponsive, account, credentialState, credentialPolicy, foreignCredentials, workspaceCreated, isolated
+        case folder, createdAt, diedWithHost, unresponsive, account, credentialState, credentialPolicy, foreignCredentials, folderCreated, isolated
         case agent, credentialProblem, base, imageTitle, dockerfile, rebuildAvailable
         case olderImage, olderImageLine, imageNotice      // 594 W28
-        case workspaceRules                               // 599g
-        case workspaceView                                // 608
+        case folderRules                               // 599g
+        case folderView                                // 608
         case imagePreparation                             // create --prepare
         case sessionStatuses, agentStatus, agentWorking   // 612
         case extraKeys                                    // 617
@@ -866,7 +887,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         sessions = try c.decodeIfPresent(Int.self, forKey: .sessions)
         network = try c.decode(String.self, forKey: .network)
         deniedConnections = try c.decodeIfPresent(Int.self, forKey: .deniedConnections)
-        workspace = try c.decodeIfPresent(String.self, forKey: .workspace)
+        folder = try c.decodeIfPresent(String.self, forKey: .folder)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
         diedWithHost = try c.decodeIfPresent(Bool.self, forKey: .diedWithHost)
         unresponsive = try c.decodeIfPresent(Bool.self, forKey: .unresponsive)
@@ -874,7 +895,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         credentialState = try c.decodeIfPresent(String.self, forKey: .credentialState)
         credentialPolicy = try c.decodeIfPresent(String.self, forKey: .credentialPolicy)
         foreignCredentials = try c.decodeIfPresent(Int.self, forKey: .foreignCredentials)
-        workspaceCreated = try c.decodeIfPresent(Bool.self, forKey: .workspaceCreated)
+        folderCreated = try c.decodeIfPresent(Bool.self, forKey: .folderCreated)
         agent = try c.decodeIfPresent(String.self, forKey: .agent)
         credentialProblem = try c.decodeIfPresent(String.self, forKey: .credentialProblem)
         base = try c.decodeIfPresent(String.self, forKey: .base)
@@ -883,8 +904,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         rebuildAvailable = try c.decodeIfPresent(String.self, forKey: .rebuildAvailable)
         olderImage = try c.decodeIfPresent([String].self, forKey: .olderImage)
         imageNotice = try c.decodeIfPresent(String.self, forKey: .imageNotice)
-        workspaceRules = try c.decodeIfPresent(WorkspaceRulesInfo.self, forKey: .workspaceRules)
-        workspaceView = try c.decodeIfPresent(String.self, forKey: .workspaceView)
+        folderRules = try c.decodeIfPresent(WorkspaceRulesInfo.self, forKey: .folderRules)
+        folderView = try c.decodeIfPresent(String.self, forKey: .folderView)
         imagePreparation = try c.decodeIfPresent(String.self, forKey: .imagePreparation)
         sessionStatuses = try c.decodeIfPresent([SessionStatus].self, forKey: .sessionStatuses)
         agentStatus = try c.decodeIfPresent(SessionStatus.self, forKey: .agentStatus)
@@ -904,7 +925,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         secretLines = try c.decodeIfPresent([String].self, forKey: .secretLines)
     }
 
-    /// `workspace` is written even when null (with `isolated: true`), so a reader never has to guess.
+    /// `folder` is written even when null (with `isolated: true`), so a reader never has to guess.
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(name, forKey: .name)
@@ -919,7 +940,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(sessions, forKey: .sessions)
         try c.encode(network, forKey: .network)
         try c.encodeIfPresent(deniedConnections, forKey: .deniedConnections)
-        try c.encode(workspace, forKey: .workspace)
+        try c.encode(folder, forKey: .folder)
         try c.encode(isolated, forKey: .isolated)
         try c.encodeIfPresent(createdAt, forKey: .createdAt)
         try c.encodeIfPresent(diedWithHost, forKey: .diedWithHost)
@@ -928,15 +949,15 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(credentialState, forKey: .credentialState)
         try c.encodeIfPresent(credentialPolicy, forKey: .credentialPolicy)
         try c.encodeIfPresent(foreignCredentials, forKey: .foreignCredentials)
-        try c.encodeIfPresent(workspaceCreated, forKey: .workspaceCreated)
+        try c.encodeIfPresent(folderCreated, forKey: .folderCreated)
         try c.encodeIfPresent(agent, forKey: .agent)
         try c.encodeIfPresent(credentialProblem, forKey: .credentialProblem)
         try c.encodeIfPresent(base, forKey: .base)
         try c.encodeIfPresent(imageTitle, forKey: .imageTitle)
         try c.encodeIfPresent(dockerfile, forKey: .dockerfile)
         try c.encodeIfPresent(rebuildAvailable, forKey: .rebuildAvailable)
-        try c.encodeIfPresent(workspaceRules, forKey: .workspaceRules)
-        try c.encodeIfPresent(workspaceView, forKey: .workspaceView)
+        try c.encodeIfPresent(folderRules, forKey: .folderRules)
+        try c.encodeIfPresent(folderView, forKey: .folderView)
         try c.encodeIfPresent(olderImage, forKey: .olderImage)
         try c.encodeIfPresent(olderImageLine, forKey: .olderImageLine)
         try c.encodeIfPresent(imageNotice, forKey: .imageNotice)
@@ -961,7 +982,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
 
     public init(name: String, image: String, phase: String, busy: Bool, cpus: Int, memoryMiB: UInt64, ramHeldMiB: UInt64,
                 memoryReturnedMiB: UInt64, diskBytes: Int64, sessions: Int?, network: String, deniedConnections: Int?,
-                workspace: String?, createdAt: Date?, diedWithHost: Bool?, account: String? = nil, credentialState: String? = nil,
+                folder: String?, createdAt: Date?, diedWithHost: Bool?, account: String? = nil, credentialState: String? = nil,
                 credentialPolicy: String? = nil, foreignCredentials: Int? = nil) {
         self.account = account
         self.credentialState = credentialState
@@ -979,7 +1000,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         self.sessions = sessions
         self.network = network
         self.deniedConnections = deniedConnections
-        self.workspace = workspace
+        self.folder = folder
         self.createdAt = createdAt
         self.diedWithHost = diedWithHost
     }
@@ -1036,7 +1057,7 @@ public struct SessionRow: Codable, Equatable, Sendable {
     /// 635: when the host opened it (`sessions.json`); nil when it did not (or before 0.30.0).
     public var openedAt: Date? = nil
     /// A session on this Mac (`@mac`): the folder it runs in (from its record).
-    public var workdir: String? = nil
+    public var folder: String? = nil
     /// The argv WHOLE as the host opened it (its record — a sandbox's `sessions.json`, `@mac`'s own), when it did:
     /// `command` is the holder's line, cut at 255 bytes. nil: not opened by this host's doz.
     public var argv: [String]? = nil

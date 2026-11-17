@@ -41,6 +41,7 @@ func settingsWarnings(_ s: DozableSettings, _ g: GlobalOptions) {
 
 func settingDefinition(_ key: String, _ g: GlobalOptions) throws -> SettingDefinition {
     guard let d = DozableSettings.definition(key) else {
+        if let new = RenamedNames.settings[key] { throw fail(HostError(.invalid, "unknown setting \(key) — it was renamed \(new)"), g) }
         throw fail(HostError(.invalid, "unknown setting \(key) — doz config show lists them (section.name, e.g. ui.boot_view_on_start)"), g)
     }
     // 669: a 0.37 name still works, and says the new one.
@@ -173,8 +174,8 @@ struct ConfigShow: AsyncParsableCommand {
             }
         }
         for n in report.notes ?? [] where report.settings.contains(where: { n.contains(" is now \($0.key) ") }) { Out.stdout("note: \(n)\n") }
-        // 693: how the two daemon settings combine, when that is not what the idle timeout alone suggests.
-        if recipe == nil, let n = s.daemonIdleNote { Out.stdout("note: \(n)\n") }
+        // 700: always-on off with the timeout 0 — nothing switches the daemon off by idling.
+        if recipe == nil, let w = s.daemonIdleWarning { Out.stdout("\n\(w)\n") }
         Out.stdout("\nfile: \(report.path ?? "none (neither XDG_CONFIG_HOME nor HOME is set)")\(report.exists ? "" : " (not created yet — doz config init)")\n")
     }
 
@@ -262,7 +263,7 @@ struct ConfigSet: AsyncParsableCommand {
         if r.source == .env || r.source == .flag, !g.quiet {
             Out.stderr("note: \(r.source == .env ? "$\(d.environment ?? "")" : d.flag ?? "a flag") overrides it here: the effective value is \(r.value.plain)\n")
         }
-        if [SettingKey.alwaysOn, SettingKey.idleTimeout].contains(key), !g.quiet, let n = now.daemonIdleNote { Out.stdout("note: \(n)\n") }
+        if [SettingKey.alwaysOn, SettingKey.idleTimeout, SettingKey.loginItem].contains(key), !g.quiet, let w = now.daemonIdleWarning { Out.stderr("\(w)\n") }
         syncLoginItemAfterSettingChange(key, now, g)
     }
 }
@@ -297,7 +298,7 @@ struct ConfigUnset: AsyncParsableCommand {
         sayMigration(now, g)
         if g.json { syncLoginItemAfterSettingChange(key, now, g); Out.json(now.report(flags: configFlags(g)).settings.first { $0.key == key }!); return }
         Out.stdout("\(key) is \(d.agent != nil ? "the recipe's default" : "the default") (\(d.defaultValue.plain)) in \(now.url?.path ?? "?") (this Mac)\n")
-        if [SettingKey.alwaysOn, SettingKey.idleTimeout].contains(key), !g.quiet, let n = now.daemonIdleNote { Out.stdout("note: \(n)\n") }
+        if [SettingKey.alwaysOn, SettingKey.idleTimeout, SettingKey.loginItem].contains(key), !g.quiet, let w = now.daemonIdleWarning { Out.stderr("\(w)\n") }
         syncLoginItemAfterSettingChange(key, now, g)
     }
 }

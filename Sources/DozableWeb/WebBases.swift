@@ -178,7 +178,7 @@ public final class WebDockerfilePicker: @unchecked Sendable {
         on run argv
           activate
           try
-            set f to choose file with prompt "Choose the Dockerfile — its folder is the build context (and the workspace, unless you change it)" default location (POSIX file (item 1 of argv))
+            set f to choose file with prompt "Choose the Dockerfile — its folder is the build context (and the shared folder, unless you change it)" default location (POSIX file (item 1 of argv))
             return POSIX path of f
           on error number -128
             return ""

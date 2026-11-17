@@ -11,11 +11,11 @@ final class MacFenceCapabilitiesTests: XCTestCase {
     func testTheDryRunUsesTheSharedShape() throws {
         let settings = DozableSettings(text: nil)
         let cases: [[String]] = [
-            ["@mac", "--fenced", "--workdir", "/Users/x/src/app", "--", "claude"],
-            ["@mac", "--fenced", "--local-port", "3000", "--github", "read", "--workdir", "/Users/x/src/app", "--", "claude"],
-            ["@mac", "--simulator", "--keychain", "--agent-config", "shared", "--workdir", "/Users/x/src/app", "--", "claude"],
-            ["@mac", "--fenced", "--permissions", "locked", "--ssh-agent", "--workdir", "/Users/x/src/app", "--", "claude"],
-            ["@mac", "--unfenced", "--workdir", "/Users/x", "--", "claude"],
+            ["@mac", "--fenced", "--folder", "/Users/x/src/app", "--", "claude"],
+            ["@mac", "--fenced", "--local-port", "3000", "--github", "read", "--folder", "/Users/x/src/app", "--", "claude"],
+            ["@mac", "--simulator", "--keychain", "--agent-config", "shared", "--folder", "/Users/x/src/app", "--", "claude"],
+            ["@mac", "--fenced", "--permissions", "locked", "--ssh-agent", "--folder", "/Users/x/src/app", "--", "claude"],
+            ["@mac", "--unfenced", "--folder", "/Users/x", "--", "claude"],
         ]
         for args in cases {
             let run = try Run.parse(args)

@@ -119,17 +119,27 @@ nobody is attached, the old daemon replaces itself with one of the new version �
 `daemon.always_on` off it just exits, and the next command starts the new one). A daemon that only holds
 sessions on this Mac hands them over to a daemon of the new version the same way, the sessions running on.
 
-### The daemon now stays running
+### The daemon stays running
 
-From 0.50.4 the daemon no longer exits when nothing runs: `daemon.always_on` is on by default, and
-`daemon.idle_timeout_minutes` now defaults to `0` (never). A `doz.toml` that already sets an idle timeout keeps
-it, but it applies only with `daemon.always_on` off — `doz config show` says so. To have the daemon exit when idle
-again:
+The daemon does not exit when nothing runs: `daemon.always_on` is on by default, and while it is on
+`daemon.idle_timeout_minutes` has no effect. The idle timeout's default is 5 minutes, and it applies only when
+`daemon.always_on` is off; `0` disables it. If you turned `daemon.always_on` off and never set a timeout, the daemon
+now exits after 5 idle minutes again. To have the daemon exit when idle:
 
 ```sh
-doz config set daemon.always_on off
-doz config set daemon.idle_timeout_minutes 5     # needed only if you never set one: its default is 0 (never)
+doz config set daemon.always_on off               # it then exits after daemon.idle_timeout_minutes (default 5)
 ```
+
+Always-on off together with a timeout of `0` means the daemon never switches off by idling, and once it is stopped it
+does not come back until the next doz command runs — `doz config show`, `doz daemon status` and `doz doctor` warn.
+
+### Upgrading to 0.51: stop the old daemon
+
+In 0.51 a doz and a daemon of an earlier version no longer talk to each other (what a sandbox works on is now called
+its folder everywhere, and the two would misread each other). A command of the new doz that reaches the old daemon
+says `the running daemon is 0.50.x, this doz is 0.51.0: doz daemon stop (the next command starts the new one)`.
+`doz daemon status` and `doz daemon stop` still work across the two. See the renamed flags and settings in the
+[manual's index](README.md#renamed-in-051).
 
 A daemon started over ssh (where the login Keychain is locked) is never kept running: it still exits after 5
 minutes with nothing running, so the next command from the Mac itself starts one that can read your Claude login.
@@ -277,7 +287,7 @@ its place and size, then asks once:
 `doz ui` must be stopped by you (`doz ui stop`). Your next `doz` command starts
 from the beginning: `doz onboard` or `doz ui`.
 
-It **never** touches your workspace folders, the Mac's own Claude Code and Codex logins, or Apple's `container`
+It **never** touches your sandboxes' folders, the Mac's own Claude Code and Codex logins, or Apple's `container`
 data. `doz inventory` prints the same list and changes nothing.
 
 ## Build from source (contributors)
@@ -292,7 +302,7 @@ Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same ti
 |---|---|---|
 | `store.path` | `~/Library/Application Support/doz` | Where the store lives (`--store`, `$DOZ_STORE`). |
 | `daemon.always_on` | `true` | The daemon keeps running when nothing runs (`$DOZ_DAEMON_ALWAYS_ON`). |
-| `daemon.idle_timeout_minutes` | `0` | With `daemon.always_on` off: minutes with nothing running before the daemon exits (`0` = never). |
+| `daemon.idle_timeout_minutes` | `5` | With `daemon.always_on` off: minutes with nothing running before the daemon exits (`0` disables it). |
 | `updates.mode` | `notify` | `notify`, `auto` or `off` (`$DOZ_UPDATES`). |
 | `updates.channel` | `stable` | `stable`, `beta` or `canary` — a Homebrew install's formula decides while it is not set. |
 

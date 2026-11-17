@@ -35,7 +35,7 @@ final class CreatedFolderTests: XCTestCase {
 
     func create(_ c: HostCore, _ name: String, workspace: String?) async -> HostMessage {
         var r = HostRequest(.create, name: name)
-        r.create = CreateOptions(image: "lab", workspace: workspace)
+        r.create = CreateOptions(image: "lab", folder: workspace)
         return await c.handle(r)
     }
 

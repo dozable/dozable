@@ -13,7 +13,7 @@ task, for the CLI and the dashboard side by side; this guide is the terse comman
 | **Sandbox** | One Linux VM with its own disk, named by you (`a-z 0-9 -`, 1–40 characters). |
 | **Image** | What a sandbox starts from: a baked, read-only disk. Built in: `lab` (Alpine + bash and `fd`, 1 GiB RAM), `claude-code` and `pi` (Debian `node` + the agent and a developer baseline — git, curl, jq, `rg`, `fd`, python3, … — 2 GiB). Custom images are saved from a sandbox. |
 | **Session** | A terminal program living in the sandbox (a shell, `claude`, `pi`). It survives pause, sleep and hibernate. You *attach* to it and *detach* from it; it keeps running either way. |
-| **Workspace** | A folder of your Mac shared into the sandbox at `/workspace`. |
+| **Folder** | The folder of your Mac a sandbox works on, shared live — it appears inside the sandbox at `/workspace`. |
 | **Daemon** | One background `doz` process per user and store. It owns every running VM, the network proxy and the keys. It starts when needed and keeps running, so you never manage it. |
 | **Store** | Where everything lives on disk: `~/Library/Application Support/doz` unless `--store` or `$DOZ_STORE` says otherwise. Each store has its own images, sandboxes and daemon. |
 
@@ -65,7 +65,7 @@ doz onboard --cancel                          # stop the base being prepared
 ```
 
 It does, in order — each step headed `Step N of M · Title`, in the dashboard setup's words (Welcome, Base image,
-Models & keys, GitHub & SSH, Workspace rules, Settings, …, First sandbox), its findings as `✓` / `!` / `✕` lines. On a
+Models & keys, GitHub & SSH, Folder rules, Settings, …, First sandbox), its findings as `✓` / `!` / `✕` lines. On a
 terminal each choice is a list: **↑/↓** (or j/k) move, **Enter** picks (a number picks at once), the recommended answer
 is marked and pre-selected; a name or a folder is typed with its default shown dim, and a bad one is refused under the
 field. With its output in a pipe (`doz onboard | cat`) it asks for typed answers instead (numbered options, `[Y/n]`).
@@ -100,7 +100,7 @@ set up, and what to run next.
    - The choices are the **defaults for new sandboxes** (written even into an existing `doz.toml`, but
      only when chosen — a flag or an answer; `--yes` alone changes nothing). The Claude account is confirmed too
      (this Mac's login signed in, or a key's check).
-5. **Workspace rules** — what `.dozignore` and `.dozreadonly` do, and lock or hide.
+5. **Folder rules** — what `.dozignore` and `.dozreadonly` do, and lock or hide.
 6. **Settings** — `doz.toml` (every setting at its default, with `defaults.image` and the base when it is not
    Node.js) and `agent-prompt.md` beside it (see "The agent's environment prompt"), each written **only when
    missing**. An existing file is left as it is (the base, Access and rules answers are set in it).
@@ -177,7 +177,7 @@ cd DIR && doz up             # no name: this folder's sandbox
 `init` makes a folder (made when missing) a project: it writes `doz_project.yaml`; it onboards this Mac
 first if it never was. **599f: on a terminal it walks the dashboard's New Sandbox wizard's ten steps**
 (`ProjectWizard.steps`, one list for both — "Step N of 10"): folder and name, agent and base, account,
-access (GitHub, SSH agent), workspace rules (599g: the folder's .dozignore/.dozreadonly and `ignore_mode`),
+access (GitHub, SSH agent), folder rules (599g: the folder's .dozignore/.dozreadonly and `ignore_mode`),
 permissions and network, resources (CPUs, memory — the disk is the image's),
 bridges, session (tmux, sudo), review (the file shown, then "Write?"). Each question's default is the
 setting's (Enter keeps it); a flag answers its question. Only what differs from the settings — or was set
@@ -276,7 +276,7 @@ off mid-startup (Claude Code's first network calls, for example) can otherwise f
 
 ```bash
 doz create NAME --image lab|claude-code|pi|<base>-<agent>|<custom> \
-    [--cpus 2] [--memory 2G] [--workspace ~/code/proj | --isolated] \
+    [--cpus 2] [--memory 2G] [--folder ~/code/proj | --isolated] \
     [--network agent|bake|locked|open|nat|none] [--subnet CIDR]
 doz create NAME --agent claude-code|pi|none --base python     # or --dockerfile ./Dockerfile
 
@@ -285,11 +285,11 @@ doz new [--image I] [--name N] [--isolated] [-d]
 ```
 
 - **`doz new` — the quickest way in (599c).** Every default: the image `defaults.image`, the image's
-  name (`claude-sandbox`; `-2`, `-3` when a sandbox has it or its folder is not empty), its workspace
+  name (`claude-sandbox`; `-2`, `-3` when a sandbox has it or its folder is not empty), its folder
   `<defaults.projects_dir>/<name>` (made), the default account and permissions. It prints what it
   chose (`claude-sandbox-2 · claude-code · ~/doz-workspaces/claude-sandbox-2`),
   starts it and attaches. `--image`, `--name`, `--isolated` and `-d` change just that one thing;
-  `--json` answers `{name, image, workspace, phase, session, milliseconds}` without attaching. The
+  `--json` answers `{name, image, folder, phase, session, milliseconds}` without attaching. The
   prerequisites are `doz create`'s: pi's API-key account (on a terminal: chosen or added; off one: the
   next step, nothing made — `doz new` uses the store's default account), an out-of-date image (asked).
   The web UI's **Quick add** (Sandboxes, and the **+** beside Sandboxes in the sidebar) is the same
@@ -310,7 +310,7 @@ doz new [--image I] [--name N] [--isolated] [-d]
   installed and running; `doz builder install` opens Apple's signed installer package in macOS
   Installer (you approve it; doz never uses sudo); `doz builder start` starts its services (they
   register with launchd and run in the background). The Dockerfile's folder is the build context and
-  the workspace unless you give one. **Its `RUN` steps run in Apple's builder, outside Dozable's
+  the shared folder unless you give one. **Its `RUN` steps run in Apple's builder, outside Dozable's
   network policy** — they reach the internet directly; the sandbox made from the image is under the
   policy as usual. An unchanged Dockerfile re-prepares in seconds and bakes nothing; a changed one is
   said ("Dockerfile changed — rebuild available"): `doz image bake df-…` rebuilds, `doz reset NAME`
@@ -324,17 +324,17 @@ doz new [--image I] [--name N] [--isolated] [-d]
 - `up` defaults to the settings' `defaults.image` when it creates a sandbox (`doz onboard` sets it;
   `lab` otherwise). `create` requires `--image`. With no NAME, in a project folder, `up` uses
   `doz_project.yaml`.
-- **`--workspace DIR`** shares a folder of this Mac at `/workspace`. When it does not exist, doz
+- **`--folder DIR`** shares a folder of this Mac at `/workspace`. When it does not exist, doz
   **makes it** (`mkdir -p`, your permissions) before the VM is configured and says
-  `[doz] created ~/…` (`"workspaceCreated": true` in `--json`); if the create then fails, a folder
+  `[doz] created ~/…` (`"folderCreated": true` in `--json`); if the create then fails, a folder
   doz made is removed again while it is still empty. A relative path is this folder's. Refused, and
   never made: an existing file, a folder inside the store, a system location (`/System`, `/usr`,
   `/bin`, `/sbin`, `/private/var`, `/Library`, …), `/` and your home folder itself.
-- **Without `--workspace` the sandbox is isolated**: `/workspace` is a directory on the VM's own
+- **Without `--folder` the sandbox is isolated**: `/workspace` is a directory on the VM's own
   disk and nothing on this Mac is shared. That is allowed and said — `create` notes
   `isolated: nothing on this Mac is shared; /workspace is private to the sandbox`, `ls` shows
-  `isolated` (`--json`: `"workspace": null, "isolated": true`), and the agent is told.
-  `--isolated` asks for it on purpose (no note; not together with `--workspace`). The web UI's New
+  `isolated` (`--json`: `"folder": null, "isolated": true`), and the agent is told.
+  `--isolated` asks for it on purpose (no note; not together with `--folder`). The web UI's New
   sandbox, Duplicate and the wizard default to a **Shared folder** instead —
   `<defaults.projects_dir>/<name>`, `~/doz-workspaces/<name>` unless you set
   `defaults.projects_dir` (`doz config set defaults.projects_dir PATH`, or Settings › **Choose…** in
@@ -363,7 +363,7 @@ preparation after 594 rebuilds the agent images once: they gained `sudo` and kee
 |---|---|
 | `doz attach NAME [SESSION]` | Your terminal becomes that session (without SESSION: the sandbox's own — `claude`, `pi` or `shell`). **Ctrl-]** opens a one-line menu over the bottom row — `d detach · n next · p prev · s sessions · Esc back` — and **a second Ctrl-]** (or `d`) detaches, however the program has set up your terminal's keyboard (plain, the kitty keyboard protocol, xterm's modifyOtherKeys); `--detach-key ctrl-x` or `none` choose another (see "The title and the Ctrl-] menu"). On the way out your terminal is put back as it was (mouse, paste and keyboard modes), and the line names the shortest command that comes back: `doz up` in the sandbox's project folder, `doz attach NAME` for its own session, else `doz attach NAME SESSION`. A paused or sleeping sandbox is woken first (`--no-wake` waits instead). If the sandbox hibernates while you are attached, the client waits and reattaches by itself when it wakes. |
 | `doz run NAME [--session S] [-d] -- CMD …` | Open a **new** session running CMD and attach. It exits with CMD's exit code. There is no shell in front, so write `bash -lc '…'` if you want one. A sandbox that is off is started first (`--no-start` refuses instead). |
-| `doz exec NAME [--user U] [--workdir D] [-e K=V] [--timeout S] -- CMD …` | One-shot, no terminal: stdout, stderr and the exit code pass straight through (default timeout 120 s). On agent images it runs as the agent's user in `/workspace`; `--user root` for root. A paused or sleeping sandbox is woken and one that is off is **started** first (its progress on stderr; `--no-wake`, `--no-start` refuse instead); `--json` says so: `"started"`, `"woke"`, `"bootMilliseconds"`. So `doz create NAME … && doz exec NAME -- CMD` just works (or `doz create --start`). |
+| `doz exec NAME [--user U] [--cwd D] [-e K=V] [--timeout S] -- CMD …` | One-shot, no terminal: stdout, stderr and the exit code pass straight through (default timeout 120 s). On agent images it runs as the agent's user in `/workspace`; `--user root` for root. A paused or sleeping sandbox is woken and one that is off is **started** first (its progress on stderr; `--no-wake`, `--no-start` refuse instead); `--json` says so: `"started"`, `"woke"`, `"bootMilliseconds"`. So `doz create NAME … && doz exec NAME -- CMD` just works (or `doz create --start`). |
 | `doz sessions restart NAME SESSION [--fresh] [-d] [--yes]` | End the session's program (hung up, then terminated, then killed if it must be) and start the same program again in the same session, folder and user; then attach (`-d`: not). Every Claude Code session continues its own conversation (`--resume` with the one its program held); the sandbox's own Codex or pi session continues the folder's newest (Codex `resume --last`, pi `--continue`); `--fresh` starts a new one. A running sandbox only — it never wakes one. Asks first on a terminal. |
 | `doz sessions end NAME SESSION [--yes]` | End the session's program, the same way. Anything attached sees it end. |
 | `doz sessions NAME [--screen SESSION [--vt]]` | The sandbox's sessions. While it is paused, asleep or hibernated they are listed from their **saved screens**, and nothing is woken. A shut-down sandbox has none ("no sessions — NAME is shut down"): Start boots it fresh, with new sessions. `--screen SESSION` prints that session's last saved screen as text; `--vt` writes its terminal bytes instead — to a file or a pipe (`> s.vt`, then `cat s.vt` in a terminal redraws it), never straight to a terminal. |
@@ -456,12 +456,12 @@ sign-in cannot come back.
 - The shim and the forward helper (`deckhold connect`) arrive with the sandbox's next start; a sandbox
   woken from before gets the shim at its next session.
 
-### Workspace files, opened on the Mac
+### The folder's files, opened on the Mac
 
 The same `xdg-open` (and `open`, and `doz-open`) takes a **file** too: a document under `/workspace`
 (relative names are the caller's folder's) opens on your Mac — the shared folder's own file — in its
 default app, and the notice says which: `SANDBOX opened report.html in Safari`. A **folder** under
-`/workspace` (`open .` — the workspace itself — or any child) opens in the **Finder** (`open -a Finder`,
+`/workspace` (`open .` — the shared folder itself — or any child) opens in the **Finder** (`open -a Finder`,
 never as an app): `SANDBOX opened src/ in the Finder`; `doz-open --reveal PATH` shows a file selected
 in its folder (`open -R`; nothing is opened): `SANDBOX showed app.zip in the Finder`. A package folder
 (`.app`, a bundle, anything macOS calls a package) is refused even for the Finder — `--reveal` can show
@@ -571,7 +571,7 @@ shell history or `ps`.
 Asked "what is the host path of /workspace?", an agent used to have to read `/proc/self/mountinfo`
 to find out — it was told nothing about where it runs. Now, **at every session start**, the daemon
 renders from the sandbox's current facts (so it stays true after a duplicate, a policy edit or a
-new workspace) and writes into the guest:
+new folder) and writes into the guest:
 
 - a short **facts block**, appended to the agent's system prompt: that it is in a Dozable sandbox (a
   Linux VM on the user's Mac, not a container) — name, image, CPUs, memory; `/workspace` shared from
@@ -582,7 +582,7 @@ new workspace) and writes into the guest:
   → `--append-system-prompt`); pi's session is `pi --append-system-prompt /run/doz/agent-prompt.md`.
 - the **`doz` skill** — `~/.claude/skills/doz/SKILL.md` (pi: `~/.pi/agent/skills/doz/SKILL.md`),
   rewritten every start: what persists (root disk, state disk, restore points), the network policy
-  and how the user changes it, credentials, sleep and hibernate, the workspace, and what the agent
+  and how the user changes it, credentials, sleep and hibernate, the folder, and what the agent
   cannot do from inside (take a restore point, change the policy, add a key — it asks the user).
 
 Dozable owns only those two; the agent's own memory files (`CLAUDE.md`, `AGENTS.md`,
@@ -598,8 +598,8 @@ doz config set agent.prompt false   # off: the next session start removes both
 until you write text outside one — that text then replaces the built-in template) < the sandbox's
 own (`--agent-prompt FILE`, or `agent_prompt` in `doz_project.yaml`), appended (default) or
 replacing (`agent_prompt_mode: replace`). Text may use `{{variables}}` from a closed list:
-`sandbox.name`, `sandbox.image`, `sandbox.cpus`, `sandbox.memory`, `workspace.shared`,
-`workspace.host_path`, `workspace.guest_path`, `workspace.description`, `network.mode`,
+`sandbox.name`, `sandbox.image`, `sandbox.cpus`, `sandbox.memory`, `folder.shared`,
+`folder.host_path`, `folder.guest_path`, `folder.description`, `network.mode`,
 `network.allowed_hosts`, `network.description`, `account.name`, `credentials.description`,
 `sandbox.sudo`, `sudo.description`, `sandbox.timezone`,
 `mac.hostname`, `doz.version`. An unknown variable is an **error**: the agent's sessions do not
@@ -901,13 +901,13 @@ doz template rm node-tools
 ### Duplicating a sandbox
 
 ```bash
-doz duplicate alpha alpha-2 --workspace ~/code/other-project --cpus 4 --memory 4G
+doz duplicate alpha alpha-2 --folder ~/code/other-project --cpus 4 --memory 4G
 doz duplicate alpha alpha-3 --from-point before-upgrade --network locked
 doz duplicate agent agent-2 --copy-state      # its logins and history too
 ```
 
 A new sandbox from an existing one's disk (an instant APFS clone), off until you start it. Anything
-not given is the source's (its network policy included). A `--workspace` that does not exist is
+not given is the source's (its network policy included). A `--folder` that does not exist is
 made (like `create`'s); `--isolated` shares none. The state disk starts **fresh** unless `--copy-state`. Keys (`doz key set`) are not
 copied; the account follows `--account`, or the source's.
 
@@ -918,7 +918,7 @@ The daemon is started for you by the first command that needs it. It runs detach
 
 | | |
 |---|---|
-| **Always on** | It keeps running with nothing open (`daemon.always_on`, `$DOZ_DAEMON_ALWAYS_ON`), and replaces itself with a newly installed doz once nothing runs. With it off, it exits after `daemon.idle_timeout_minutes` with no running, paused or sleeping VM and no attached client (`$DOZ_DAEMON_IDLE` minutes, default 0 = never). A daemon started over ssh always exits after 5 idle minutes. |
+| **Always on** | It keeps running with nothing open (`daemon.always_on`, `$DOZ_DAEMON_ALWAYS_ON`), and replaces itself with a newly installed doz once nothing runs. With it off, it exits after `daemon.idle_timeout_minutes` with no running, paused or sleeping VM and no attached client (`$DOZ_DAEMON_IDLE` minutes, default 5; 0 disables it — warned, as the daemon then never switches off by idling). While it is on, the timeout has no effect. A daemon started over ssh always exits after 5 idle minutes. |
 | **Looking never starts it** | `ls`, `inspect`, `point ls`, `image ls`, `net policy` (shown) and `key ls` read the store directly when no daemon runs. |
 | `doz daemon status` | Is one running, and what does it hold? Never starts one. |
 | `doz daemon stop` | Hibernates everything that runs, then exits. The next command starts a new daemon; `wake`, `attach`, `up` and `exec` bring each sandbox back. It shows each sandbox as it hibernates (`✓ hibernated hello-doz (snapshot 69 MB) — 412 ms`; plain lines off a terminal or with `--progress plain`; a sandbox that cannot be hibernated says why and that it was shut down, its disk kept), then `host stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next command starts a new daemon` — or `host stopped (nothing was running)`. `--json` gives each sandbox's row. If the daemon dies part way, it says what it saw. `doz uninstall` and the web UI's **Restart daemon** show the same. |
@@ -984,7 +984,7 @@ the Claude accounts, the metrics, `doz doctor`, and the daemon's activity as it 
 failing required one stops it, with Check again) **→ Base image** (one Node.js card, the layers, "Another base" folded;
 **Download and continue** starts the store's base in the daemon and moves on) **→ Models & keys** (the sign-ins found;
 the keys by Providers / Gateways — OpenRouter — / No key, each pasted in a masked field under its row, or with
-`ui.allow_secret_entry` off the CLI command; what can be tried now) **→ GitHub & SSH → Workspace rules** (its Next
+`ui.allow_secret_entry` off the CLI command; what can be tried now) **→ GitHub & SSH → Folder rules** (its Next
 writes the settings) **→ Usage statistics** and **Stay in touch** (official builds) **→ First sandbox** (the tools'
 cards, a name — the tool's — and a new empty folder or a project folder, the plan with its `doz new …` command; Create
 and start, or Finish without a sandbox). From Models & keys on, the base's progress is a strip at the foot above the
@@ -1011,7 +1011,7 @@ What you can do from it:
 
 | Page | Actions |
 |---|---|
-| **Sandboxes** | New sandbox (image or template, network, account, CPUs, memory, workspace folder). Per sandbox: start, pause, resume, sleep, hibernate, wake, shut down, reset, remove. |
+| **Sandboxes** | New sandbox (image or template, network, account, CPUs, memory, folder). Per sandbox: start, pause, resume, sleep, hibernate, wake, shut down, reset, remove. |
 | **A sandbox** | The lifecycle; browser terminals; Open in Terminal; run a command in a new detached session; take a restore point, and revert, fork, save as a template, duplicate or delete one; **Duplicate…** and **Save as template…** (below); edit the network policy, with a preview of exactly what changes; set the key policy and the account; remove a key. |
 | **All sessions** | A live, read-only view of every session of every running sandbox (below). |
 | **Images** | Bake a built-in image; remove an image or a template. **Version** says an agent image's version (and a newer one available, and being prepared). **Own / Shared**: each image's own blocks and the blocks it reuses from the disk it was made from, as a size and a % of its size, in a two-colour bar. **Lineage** shows the tree. |
@@ -1092,7 +1092,7 @@ Refresh and when an operation ends.
 **Save as template…** saves the sandbox's root disk (now — a running sandbox pauses for
 milliseconds — or a restore point's) as a template: everything installed or written on the root
 disk, **never the state disk** (the agent's logins and history). **Duplicate…** makes a new
-sandbox from its disk with a new name, workspace, CPUs, memory, network or account; the state disk
+sandbox from its disk with a new name, folder, CPUs, memory, network or account; the state disk
 starts fresh unless you tick "Copy the agent's state disk too". Both are `doz template create` and
 `doz duplicate`. The session buttons wait until the
 sandbox can take a session, and clicking an action again while it runs does nothing more (it is
@@ -1209,14 +1209,14 @@ the others say when they apply (the next sandbox created, the next session, or a
 | Section | Settings |
 |---|---|
 | `[ui]` | `terminal_title` (`{sandbox} · {session} · {time}` — see "The title and the Ctrl-] menu"; `""` leaves the title to the session), `boot_view_on_start` (false), `confirm_shutdown` (true), `split_default` (`shell` · `watch` · `attach` · `dialog`), `terminals` (true), `terminal_font_size` (13), `theme` (`auto` · `light` · `dark`), `density` (`comfortable` · `compact`), `details_open` (true), `grid_live_tiles` (no longer used), `grid_tile_size` (`small` · `medium` · `large`), `grid_refresh_ms` (500, 200–10000 — how often the session pictures are brought up to date), `batch_concurrency` (3, 1–8 — how many starts, wakes, resumes, sleeps, hibernations and shut-downs the dashboard runs at once; the others wait their turn, queued with a Cancel; one started on a single sandbox goes ahead of a batch; a pause or a resume from a pause never waits), `progress` (`animated` · `plain`; `$DOZ_PROGRESS`, `--progress auto\|plain`), `color` (`auto` · `always` · `never`; `$DOZ_COLOR`, `--color`, `--no-color` — the CLI's colour), `open_browser` (`auto` · `always` · `never`; `doz ui --open\|--no-open` — when `doz ui` opens a tab; applies to the next `doz ui`) |
-| `[daemon]` | `always_on` (true; `$DOZ_DAEMON_ALWAYS_ON`), `idle_timeout_minutes` (0 = never, only with `always_on` off; `$DOZ_DAEMON_IDLE`), `boot_logs_kept` (5, 1–50; `$DOZ_BOOT_LOGS` — boots kept per sandbox for `doz console --boot N` and the Boot log), `screen_capture_minutes` (5, 0–1440; `$DOZ_SCREEN_CAPTURE` — how often a running sandbox's changed session screens are saved; 0 = only at pause, sleep and hibernate), `keepalive` (false — for a store that has not chosen with `doz account keepalive`) |
+| `[daemon]` | `always_on` (true; `$DOZ_DAEMON_ALWAYS_ON`), `idle_timeout_minutes` (5, right after `always_on`; read only with `always_on` off; 0 disables it — warned; `$DOZ_DAEMON_IDLE`), `boot_logs_kept` (5, 1–50; `$DOZ_BOOT_LOGS` — boots kept per sandbox for `doz console --boot N` and the Boot log), `screen_capture_minutes` (5, 0–1440; `$DOZ_SCREEN_CAPTURE` — how often a running sandbox's changed session screens are saved; 0 = only at pause, sleep and hibernate), `keepalive` (false — for a store that has not chosen with `doz account keepalive`) |
 | `[store]` | `path` (`--store`, `$DOZ_STORE`) |
 | `[claude]` | `permissions` (`skip` · `ask`) — Claude Code's own prompts in a claude-code sandbox; `-e DOZ_CLAUDE_PERMISSIONS=…` on `run`/`exec` still wins |
 | `[defaults]` | `cpus` (2), `nat_subnet` (a free one; `$DOZ_SUBNET`) |
-| `[sandbox]` | `agent_sudo` (true — the agent's passwordless sudo inside claude-code and pi sandboxes; a sandbox's `--no-agent-sudo` / `agent_sudo` wins; from its next session and boot), `timezone` (`mac` — the Mac's zone, read again at every start and wake, so a sandbox that slept while you travelled wakes in your new zone — or a zone like `Australia/Sydney`; the agent's facts say it), `clipboard` (`write` · `off` — the clipboard bridge, see "Session bridges"; applies at once), `browser_bridge` (`on` · `off` — xdg-open to the Mac's browser and a sign-in's callback; applies at once), `open_files` (`on` · `off` — xdg-open FILE opens a /workspace document on the Mac; see "Workspace files, opened on the Mac"; applies at once), `ssh_agent` (`off` · `on` — forward the Mac's SSH agent, github.com:22 only; see "GitHub as you") |
+| `[sandbox]` | `agent_sudo` (true — the agent's passwordless sudo inside claude-code and pi sandboxes; a sandbox's `--no-agent-sudo` / `agent_sudo` wins; from its next session and boot), `timezone` (`mac` — the Mac's zone, read again at every start and wake, so a sandbox that slept while you travelled wakes in your new zone — or a zone like `Australia/Sydney`; the agent's facts say it), `clipboard` (`write` · `off` — the clipboard bridge, see "Session bridges"; applies at once), `browser_bridge` (`on` · `off` — xdg-open to the Mac's browser and a sign-in's callback; applies at once), `open_files` (`on` · `off` — xdg-open FILE opens a /workspace document on the Mac; see "The folder's files, opened on the Mac"; applies at once), `ssh_agent` (`off` · `on` — forward the Mac's SSH agent, github.com:22 only; see "GitHub as you") |
 | `[github]` | `credentials` (`gh` · `key` · `off` — where "Use GitHub as you" gets your login; see "GitHub as you"; applies at once) |
 | `[sessions]` | `tmux` (false — new sessions run inside tmux; see "tmux inside a session"; from the next session) |
-| `[bridges]` | `open_apps` (`""` — the Mac apps a sandbox may name to open a workspace file in, comma-separated; empty: default apps only; applies at once) |
+| `[bridges]` | `open_apps` (`""` — the Mac apps a sandbox may name to open a file of its folder in, comma-separated; empty: default apps only; applies at once) |
 | `[images]` | `claude_code_version`, `pi_version` (`latest`, or an exact version like `2.1.227` — see "Agent versions" below) |
 | `[images.lab]` · `[images.claude-code]` · `[images.pi]` | `memory_mib` (1024 · 2048 · 2048), `network` (`bake` · `agent` · `agent`) — a custom image follows the image it was saved from |
 | `[kernel]` | `path` (`$DOZ_KERNEL`), `cache` (`$DOZ_KERNEL_CACHE`) |

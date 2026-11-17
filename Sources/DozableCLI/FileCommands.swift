@@ -87,7 +87,7 @@ struct CpCommand: AsyncParsableCommand {
 /// 617 (owner, after `doz cp FILE ~/somewhere` with no NAME:): when neither side names a sandbox, look — read-only,
 /// never starting a host — for the source in each sandbox's folder on the Mac, else name the one running sandbox.
 enum CopyHint {
-    struct Row: Equatable { var name: String; var phase: String; var workspace: String? }
+    struct Row: Equatable { var name: String; var phase: String; var folder: String? }
 
     static func sandboxes(_ g: GlobalOptions) async -> [Row] {
         var r = HostRequest(.ls)
@@ -103,7 +103,7 @@ enum CopyHint {
             value = m.ok == true ? m.result : nil
         }
         guard let value, let rows = try? value.decode([SandboxInfo].self) else { return [] }
-        return rows.map { Row(name: $0.name, phase: $0.phase, workspace: $0.workspace) }
+        return rows.map { Row(name: $0.name, phase: $0.phase, folder: $0.folder) }
     }
 
     /// The line after the refusal (nil: nothing to suggest). Pure but for the two closures.
@@ -112,7 +112,7 @@ enum CopyHint {
         let rel = source.hasPrefix("./") ? String(source.dropFirst(2)) : source
         if !rel.isEmpty, !rel.hasPrefix("/"), !rel.hasPrefix("~"), !rel.split(separator: "/").contains("..") {
             for row in sandboxes {
-                guard let ws = row.workspace else { continue }
+                guard let ws = row.folder else { continue }
                 let onMac = (ws as NSString).appendingPathComponent(rel)
                 guard existsOnMac(onMac) else { continue }
                 let item = (rel as NSString).lastPathComponent
@@ -393,7 +393,7 @@ enum FileTransfer {
 // process when no host runs), and, with --watch, which folders change: watched HERE on the Mac (FSEvents — FileWatch.swift),
 // never through the host and never in the guest, so it keeps no host alive and wakes nothing.
 /// 644: `doz files` is a group — `ls` (the default: `doz files NAME [PATH] [--watch]` as before) and the file explorer
-/// panel's changes: `mkdir`, `new`, `mv`, `rename`, `rm`, `open`. A shared workspace is changed on this Mac (any state of
+/// panel's changes: `mkdir`, `new`, `mv`, `rename`, `rm`, `open`. A shared folder is changed on this Mac (any state of
 /// the sandbox; no host is started and nothing is woken); an isolated one inside it while it runs.
 struct FilesCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "files",
@@ -403,7 +403,7 @@ struct FilesCommand: AsyncParsableCommand {
         defaultSubcommand: FilesList.self)
 }
 
-/// One change: answered by the host when it runs, else in this process (a shared workspace needs no VM) — never a host
+/// One change: answered by the host when it runs, else in this process (a shared folder needs no VM) — never a host
 /// started for it. An isolated sandbox's change then says it is not running.
 func fileChange(_ r: HostRequest, _ g: GlobalOptions) async throws -> FileChangeResult {
     try decode(try await query(r, g), FileChangeResult.self, g)
@@ -412,7 +412,7 @@ func fileChange(_ r: HostRequest, _ g: GlobalOptions) async throws -> FileChange
 struct FilesMkdir: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "mkdir",
         abstract: "Make a new, empty folder in a sandbox's /workspace (its parent must be there).",
-        discussion: "doz files mkdir my-app src/new. PATH is relative to /workspace or /workspace/…. Never replaces what is there; the workspace rules apply.")
+        discussion: "doz files mkdir my-app src/new. PATH is relative to /workspace or /workspace/…. Never replaces what is there; the folder rules apply.")
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The sandbox.") var name: String
     @Argument(help: "The new folder.") var path: String
@@ -428,7 +428,7 @@ struct FilesMkdir: AsyncParsableCommand {
 struct FilesNew: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "new",
         abstract: "Make a new, empty file in a sandbox's /workspace.",
-        discussion: "doz files new my-app notes/todo.md. Never replaces a file that is there; the workspace rules apply.")
+        discussion: "doz files new my-app notes/todo.md. Never replaces a file that is there; the folder rules apply.")
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The sandbox.") var name: String
     @Argument(help: "The new file.") var path: String
@@ -512,9 +512,9 @@ struct FilesRemove: AsyncParsableCommand {
 
 struct FilesOpen: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "open",
-        abstract: "Open a sandbox's shared workspace (or a file or folder in it) on this Mac: the Finder, its default app, or --app an editor.",
+        abstract: "Open a sandbox's shared folder (or a file or folder in it) on this Mac: the Finder, its default app, or --app an editor.",
         discussion: """
-        doz files open my-app (the workspace in the Finder) · doz files open my-app --app cursor (the workspace in Cursor) · \
+        doz files open my-app (the folder in the Finder) · doz files open my-app --app cursor (the folder in Cursor) · \
         doz files open my-app src/main.swift --app "Visual Studio Code" · doz files open my-app docs/index.html · \
         doz files open my-app src --reveal. Without --app the rules of the agent's own opening apply (sandbox.open_files, \
         document types only, never a program). --app takes a known editor that is installed — \
@@ -567,8 +567,8 @@ struct FilesList: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "ls",
         abstract: "List a folder of a sandbox's /workspace; --watch then says which folders change (Ctrl-C stops).",
         discussion: """
-        doz files my-app · doz files my-app src · doz files my-app /workspace/src --watch. A shared workspace is read \
-        on this Mac, in any state of the sandbox — nothing is started or woken — and its workspace rules apply as in \
+        doz files my-app · doz files my-app src · doz files my-app /workspace/src --watch. A shared folder is read \
+        on this Mac, in any state of the sandbox — nothing is started or woken — and its folder rules apply as in \
         the sandbox: a hidden name is not there, a locked one is listed as locked, a read-only one is marked. A link \
         is shown with its target, never followed; one that leads outside the shared folder cannot be listed. An \
         isolated sandbox is listed from inside it while it runs (as the image's user); it is not watched — list it \
@@ -578,7 +578,7 @@ struct FilesList: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The sandbox.") var name: String
     @Argument(help: "The folder: relative to /workspace, or /workspace/… (default /workspace).") var path: String?
-    @Flag(name: [.short, .long], help: "Keep watching the folder and print a line when its listing changes (a shared workspace only).")
+    @Flag(name: [.short, .long], help: "Keep watching the folder and print a line when its listing changes (a shared folder only).")
     var watch = false
 
     func run() async throws {

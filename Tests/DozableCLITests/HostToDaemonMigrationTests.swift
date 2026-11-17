@@ -133,7 +133,7 @@ final class HostToDaemonMigrationTests: XCTestCase {
         // Without the migration an old key is just unknown (the default applies, with a warning).
         DozableSettings.formerNames = [:]
         let plain = DozableSettings(text: "[host]\nidle_timeout_minutes = 9\n")
-        XCTAssertEqual(plain.resolve(SettingKey.idleTimeout).value, .int(0))          // 693: the default is 0 (never)
+        XCTAssertEqual(plain.resolve(SettingKey.idleTimeout).value, .int(5))          // 700: the default is 5 (0 = disabled)
         XCTAssertTrue(plain.warnings.contains { $0.contains("unknown setting host.idle_timeout_minutes") }, "\(plain.warnings)")
     }
 

@@ -133,7 +133,7 @@ public actor MacSessions {
     }
 
     static func fill(_ row: inout SessionRow, _ rec: MacSessionRecord) {
-        row.workdir = rec.workdir
+        row.folder = rec.workdir
         row.argv = rec.argv
         row.openedAt = rec.openedAt
         row.bypassed = rec.bypassed == true ? true : nil
@@ -354,7 +354,7 @@ public actor MacSessions {
         let dir = workdir ?? home
         var isDir: ObjCBool = false
         guard dir.hasPrefix("/"), FileManager.default.fileExists(atPath: dir, isDirectory: &isDir), isDir.boolValue else {
-            throw HostError(.invalid, "--workdir \(dir): not a folder on this Mac (an absolute path to an existing folder)")
+            throw HostError(.invalid, "--folder \(dir): not a folder on this Mac (an absolute path to an existing folder)")
         }
         try MacPlace.ensureFolder(directory)
         // A session of that name runs already: it is not opened twice.

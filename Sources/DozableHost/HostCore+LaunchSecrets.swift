@@ -158,7 +158,7 @@ extension HostCore {
         }
         let policy = egress.policy
         let checked = try checkedLaunchSecrets(given, existing: m.config.secrets ?? [], readable: [m.config.workspace].compactMap { $0 }.map(Self.resolvedRoot),
-                                               readableWhat: "its workspace", hostPorts: egress.hostPorts.map(\.port),
+                                               readableWhat: "its folder", hostPorts: egress.hostPorts.map(\.port),
                                                reach: { policy.evaluateConnection(host: $0, port: $1).kind != .deny }, allowFlag: "--allow")
         let (records, lines) = keepLaunchSecrets(owner: m.name, checked)
         var list = (m.config.secrets ?? []).filter { e in !records.contains { $0.variable == e.variable } }

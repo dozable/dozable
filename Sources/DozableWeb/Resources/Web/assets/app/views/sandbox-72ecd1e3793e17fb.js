@@ -22,14 +22,14 @@ import { failureFor, pageFailure, paintRowOps, toast } from '../components/notic
 import { sandboxPill } from '../components/pills-3617820ca05ec30b.js';
 import { renameItem } from '../components/rename-dialog-85a0774b42050892.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-0669011bf502f6fb.js';
-import { ISOLATED_NOTE } from '../components/workspace-chooser-79a99904ead6f28a.js';
+import { ISOLATED_NOTE } from '../components/workspace-chooser-0ac402f5c46c650f.js';
 import { sourceTag } from '../components/setting-source-42701c4a247e8ecb.js';
-import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-0009da9b046138f5.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-1882a99a78a54a21.js';
+import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-d40bcce0ca05505f.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-7307f61ed13c2bc7.js';
 import { networkPanel } from './sandbox-network-9a9dc6eeefaf54a6.js';
-import { filesPanel, syncFiles } from './sandbox-files-bb0d30d126a399fa.js';
-import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-b0e18b4141530aed.js';
-import { paintHome, soundLine } from './sandbox-home-c08e855f8a12f137.js';
+import { filesPanel, syncFiles } from './sandbox-files-9fbd21ea9a31465e.js';
+import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-d6fb5c9e7b2a7db5.js';
+import { paintHome, soundLine } from './sandbox-home-fff6aff0430582d3.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
@@ -190,7 +190,7 @@ export function drawPendingTry(name) {
   if (!p || p.name !== name || (state.sbx && state.sbx.name === name && state.sbx.d)) return;
   const failed = !!p.error;
   const i = { name, phase: failed ? 'failed' : 'off', busy: !failed, image: p.image, imageTitle: p.imageTitle, ramHeldMiB: 0, memoryMiB: 2048,
-    network: p.network, accountApplies: !!p.account, account: p.account, workspace: p.workspace, createdFolder: p.workspace };
+    network: p.network, accountApplies: !!p.account, account: p.account, folder: p.folder, createdFolder: p.folder };
   const d = { info: i, sessions: [], restorePoints: [], credentials: [], attachCommand: 'doz attach ' + name, defaultSession: null, guide: null,
     cpus: 2, hasRootDisk: false, memoryMiB: 2048, shares: [], agentPrompt: null };
   try {
@@ -342,11 +342,11 @@ function sandboxParts(name, d, net, accounts) {
         // 667: sound — the speakers, and whether the microphone is the Mac's.
         i.sound ? chip('Sound', i.sound === 'on' ? (i.microphone === 'mac' ? 'speakers + mic' : 'speakers · mic silent') : 'speakers',
           { title: soundLine(name, i).replace(/^./, (c) => c.toUpperCase()), data: { 'data-sound-chip': i.sound } }) : null,
-        i.workspace ? null : h('span', { class: 'tag outline badge-isolated', 'data-isolated': '', title: ISOLATED_NOTE }, withIcon('shield', 'isolated')),
+        i.folder ? null : h('span', { class: 'tag outline badge-isolated', 'data-isolated': '', title: ISOLATED_NOTE }, withIcon('shield', 'isolated')),
         // 617 (RP-1): its web ports, forwarded to this Mac while it runs.
         ...(running ? (i.ports || []).filter((p) => p.state === 'listening' && p.url).map((p) => portButton(name, p)) : []),
-        // 599g: the workspace's .dozignore / .dozreadonly (the details say how many patterns and whether in force).
-        i.workspaceRules ? h('span', { class: 'tag outline', 'data-workspace-rules': i.workspaceRulesView || '', title: 'Workspace rules: ' + i.workspaceRules + ' — doz ignore show ' + name },
+        // 599g: the folder's .dozignore / .dozreadonly (the details say how many patterns and whether in force).
+        i.folderRules ? h('span', { class: 'tag outline', 'data-folder-rules': i.folderRulesView || '', title: 'Folder rules: ' + i.folderRules + ' — doz ignore show ' + name },
           withIcon('shield', 'rules')) : null)),
     h('div', { class: 'sbx-actions toolbar', role: 'toolbar', 'aria-label': name },
       lifecycleBar(i), more.el,
@@ -390,13 +390,13 @@ function sandboxParts(name, d, net, accounts) {
         stat('Disk', bytes(i.diskBytes), d.snapshotBytes ? 'snapshot ' + bytes(d.snapshotBytes) : (d.hasRootDisk ? 'root disk kept' : 'no root disk yet')),
         stat('CPUs', String(d.cpus))),
       h('div', null, h('div', { class: 'insp-lbl' }, 'Attach from a terminal'), h('div', { class: 'cmd' }, h('code', null, d.attachCommand), copy)),
-      h('div', null, h('div', { class: 'insp-lbl' }, 'Workspace'),
-        h('div', { class: i.workspace ? null : 'muted' }, i.workspace ? [h('code', null, tildePath(i.workspace)), ' → /workspace (live)'] : 'Isolated — ' + ISOLATED_NOTE),
-        i.workspaceRules ? h('p', { class: 'muted', 'data-workspace-rules-line': '' },
-          'Workspace rules: ' + i.workspaceRules + '. Which rule decides a path: doz ignore check ' + name + ' PATH. Not a security boundary.')
+      h('div', null, h('div', { class: 'insp-lbl' }, 'Folder'),
+        h('div', { class: i.folder ? null : 'muted' }, i.folder ? [h('code', null, tildePath(i.folder)), ' → /workspace (live)'] : 'Isolated — ' + ISOLATED_NOTE),
+        i.folderRules ? h('p', { class: 'muted', 'data-folder-rules-line': '' },
+          'Folder rules: ' + i.folderRules + '. Which rule decides a path: doz ignore check ' + name + ' PATH. Not a security boundary.')
           // 599g (owner A3): a shared folder with no rule file says so, rather than nothing (isolated: nothing to say).
-          : i.workspace ? h('p', { class: 'muted', 'data-workspace-rules-none': '' },
-            'Workspace rules: none — the folder is shared as is. A .dozignore or .dozreadonly in it keeps the agent away from some files.') : null),
+          : i.folder ? h('p', { class: 'muted', 'data-folder-rules-none': '' },
+            'Folder rules: none — the folder is shared as is. A .dozignore or .dozreadonly in it keeps the agent away from some files.') : null),
       // 667: its sound — the speakers, and the microphone as its last boot decided it.
       i.sound ? h('div', { 'data-sound': i.sound }, h('div', { class: 'insp-lbl' }, 'Sound'),
         h('div', null, i.sound === 'on' ? 'The Mac’s speakers and microphone' : 'The Mac’s speakers — no microphone'),
@@ -435,7 +435,7 @@ function sandboxParts(name, d, net, accounts) {
         fact('Memory', mib(d.memoryMiB)), fact('Root disk', mib(d.rootfsMiB)), fact('State disk', mib(d.stateDiskMiB)),
         fact('Journal', d.journalMiB ? mib(d.journalMiB) : 'none'), fact('Network', d.networkMode + (d.subnet ? ' · ' + d.subnet : '')),
         fact('Account', i.accountApplies ? (i.account || '—') : 'n/a'),
-        fact('Workspace', i.workspace ? tildePath(i.workspace) + ' → /workspace (live)' : 'isolated — ' + ISOLATED_NOTE),
+        fact('Folder', i.folder ? tildePath(i.folder) + ' → /workspace (live)' : 'isolated — ' + ISOLATED_NOTE),
         fact('Shares', d.shares.length ? d.shares.map((s) => s.hostPath + ' → ' + s.guestPath).join(', ') : 'none'),
         d.project ? fact('Project', d.project) : null,
         fact('Directory', d.directory)))),

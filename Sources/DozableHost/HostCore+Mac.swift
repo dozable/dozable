@@ -496,7 +496,7 @@ extension HostCore {
                 request.permissions = rest.isEmpty ? nil : rest
             }
         }
-        guard let wd = workdir else { throw HostError(.invalid, "a fenced session needs its folder (--workdir DIR; doz run sends the folder you are in)") }
+        guard let wd = workdir else { throw HostError(.invalid, "a fenced session needs its folder (--folder DIR; doz run sends the folder you are in)") }
         let t0 = ContinuousClock.now
         let settings = DozableSettings.load()
         let fenceRead = MacFencePaths.fenceReadEntries(settings.string(SettingKey.macFenceRead) ?? "")
@@ -698,7 +698,7 @@ extension HostCore {
                 s.notice = rec?.fence == nil ? "\(name) already runs on this Mac UNFENCED — doz sessions end @mac \(name) first" : nil
                 return s
             }
-            let (o, f, notes, secretLines) = try await macOpenFenced(r, request: req, holder: holder, name: name, argv: r.argv, workdir: r.workdir,
+            let (o, f, notes, secretLines) = try await macOpenFenced(r, request: req, holder: holder, name: name, argv: r.argv, workdir: r.folder,
                                                                      recordedArgv: nil, previous: mac.records().sessions[name]?.fence, size: size,
                                                                      extra: r.environment, secrets: r.secrets ?? [])
             note(MacPlace.name, "session \(o.session) opened on this Mac, fenced" + (f.keychain ? " (Keychain open)" : "")
@@ -715,7 +715,7 @@ extension HostCore {
             s.secretLines = secretLines.isEmpty ? nil : secretLines
             return s
         }
-        let o = try await mac.open(session: r.session, argv: Self.macPromptArgv(r.argv, workdir: r.workdir), workdir: r.workdir, extra: r.environment,
+        let o = try await mac.open(session: r.session, argv: Self.macPromptArgv(r.argv, workdir: r.folder), workdir: r.folder, extra: r.environment,
                                    size: size, holder: holder, recordedArgv: r.argv)
         if o.created {
             note(MacPlace.name, "session \(o.session) opened on this Mac (no isolation)" + (o.bypassed ? " — its own argv bypasses permissions" : "")

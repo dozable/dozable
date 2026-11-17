@@ -13,17 +13,17 @@
 #     run the tests, fetch a page), then /exit;
 #   - a BUILD (`--run 'COMMAND'`, e.g. with --xcode): the command runs non-interactively in the fenced session (in your
 #     folder), its exit code and the end of its output go into the report. For Xcode:
-#       Scripts/fence-freeze.sh --xcode --workdir ~/src/App --run \
+#       Scripts/fence-freeze.sh --xcode --folder ~/src/App --run \
 #         'xcodebuild -scheme App -destination "generic/platform=macOS" -derivedDataPath "$DOZ_DERIVED" -scmProvider system build'
 #     (add CODE_SIGNING_ALLOWED=NO, or --keychain to sign as you; --simulator for a run in the Simulator — a guard rail).
 #
 # It uses YOUR doz, store, login and a folder of yours: it is the person's run, never a test's. Nothing is changed in the
 # profile: the report says what to add, and the change is a reviewed commit, versions recorded beside the list.
 #
-# Usage: Scripts/fence-freeze.sh [--doz PATH] [--workdir DIR] [--session NAME] [--out FILE] [--xcode] [--simulator]
+# Usage: Scripts/fence-freeze.sh [--doz PATH] [--folder DIR] [--session NAME] [--out FILE] [--xcode] [--simulator]
 #                                [--keychain] [--run 'COMMAND'] [-- CLAUDE ARGS…]
 #   --doz        the doz to use (default: the one on PATH)
-#   --workdir    the folder the session works in (default: the current folder; never the home)
+#   --folder     the folder the session works in (default: the current folder; never the home)
 #   --session    its name (default: freeze-agent, or freeze-xcode / freeze-simulator)
 #   --out        the report (default: ./fence-freeze-<date>.txt, beside where you ran it)
 #   --xcode      the Xcode build profile; --simulator also the Simulator (implies --xcode); --keychain opens the Keychain
@@ -43,7 +43,7 @@ RUN=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --doz) DOZ=$2; shift 2 ;;
-    --workdir) WORKDIR=$(cd "$2" && pwd -P); shift 2 ;;
+    --folder) WORKDIR=$(cd "$2" && pwd -P); shift 2 ;;
     --session) SESSION=$2; shift 2 ;;
     --out) OUT=$2; shift 2 ;;
     --xcode) [ "$PROFILE" = simulator ] || PROFILE=xcode; shift ;;
@@ -77,11 +77,11 @@ kill -0 "$LOGPID" 2>/dev/null || { echo "fence-freeze: log stream did not start 
 
 if [ -n "$RUN" ]; then
   # The command's output and exit code go to the session's own temp folder (outside your project).
-  "$DOZ" run @mac -d --fenced ${PFLAGS[@]+"${PFLAGS[@]}"} --session "$SESSION" --workdir "$WORKDIR" -- /bin/sh -c \
+  "$DOZ" run @mac -d --fenced ${PFLAGS[@]+"${PFLAGS[@]}"} --session "$SESSION" --folder "$WORKDIR" -- /bin/sh -c \
     "( $RUN ) > \"\$TMPDIR/fence-freeze.out\" 2>&1; echo \$? > \"\$TMPDIR/fence-freeze.rc\"; sleep 3600" \
     || { echo "fence-freeze: the session did not start" >&2; exit 1; }
 else
-  "$DOZ" run @mac -d --fenced ${PFLAGS[@]+"${PFLAGS[@]}"} --session "$SESSION" --workdir "$WORKDIR" -- claude "$@" \
+  "$DOZ" run @mac -d --fenced ${PFLAGS[@]+"${PFLAGS[@]}"} --session "$SESSION" --folder "$WORKDIR" -- claude "$@" \
     || { echo "fence-freeze: the session did not start" >&2; exit 1; }
 fi
 STORE=${DOZ_STORE:-$("$DOZ" config get store.path 2>/dev/null | tail -1)}

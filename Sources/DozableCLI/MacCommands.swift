@@ -93,7 +93,7 @@ enum MacCLI {
         var t = [["SESSION", "PID", "STATE", "AGENT", "FOLDER", "COMMAND"]]
         for s in rows {
             t.append([s.name, s.pid.map(String.init) ?? "—", state(s), s.status?.label ?? "—",
-                      s.workdir.map { DisplayPath.tilde($0) } ?? "—", s.command])
+                      s.folder.map { DisplayPath.tilde($0) } ?? "—", s.command])
         }
         return Out.table(t)
     }

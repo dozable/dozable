@@ -27,7 +27,7 @@ final class QuickAddTests: XCTestCase {
         var p = try QuickAdd.plan(image: nil, name: nil, isolated: false, taken: [], settings: settings(image: "claude-code"))
         XCTAssertEqual(p.name, "claude-sandbox")
         XCTAssertEqual(p.image, "claude-code")
-        XCTAssertEqual(p.workspace, projects + "/claude-sandbox")
+        XCTAssertEqual(p.folder, projects + "/claude-sandbox")
         XCTAssertEqual(p.projectsDir, projects)
         XCTAssertNil(p.requirement)
         XCTAssertFalse(FileManager.default.fileExists(atPath: projects + "/claude-sandbox"), "a plan makes nothing")
@@ -39,7 +39,7 @@ final class QuickAddTests: XCTestCase {
         XCTAssertEqual(p.name, "pi-sandbox")
         p = try QuickAdd.plan(image: "python-claude-code", name: nil, isolated: false, taken: [], settings: settings())
         XCTAssertEqual(p.name, "python-claude-sandbox")
-        XCTAssertEqual(p.workspace, projects + "/python-claude-sandbox")
+        XCTAssertEqual(p.folder, projects + "/python-claude-sandbox")
     }
 
     func testCollisions_aSandboxOrAFolderWithSomethingInIt() throws {
@@ -54,16 +54,16 @@ final class QuickAddTests: XCTestCase {
         try Data("x".utf8).write(to: URL(fileURLWithPath: projects + "/claude-sandbox/README"))
         let p = try QuickAdd.plan(image: nil, name: nil, isolated: false, taken: [], settings: s)
         XCTAssertEqual(p.name, "claude-sandbox-2")
-        XCTAssertEqual(p.workspace, projects + "/claude-sandbox-2")
+        XCTAssertEqual(p.folder, projects + "/claude-sandbox-2")
     }
 
     func testAGivenNameAndIsolated() throws {
         let s = settings(image: "lab")
         var p = try QuickAdd.plan(image: nil, name: "my-box", isolated: false, taken: ["lab-sandbox"], settings: s)
         XCTAssertEqual(p.name, "my-box")
-        XCTAssertEqual(p.workspace, projects + "/my-box")
+        XCTAssertEqual(p.folder, projects + "/my-box")
         p = try QuickAdd.plan(image: nil, name: nil, isolated: true, taken: [], settings: s)
-        XCTAssertNil(p.workspace, "isolated: nothing shared")
+        XCTAssertNil(p.folder, "isolated: nothing shared")
         XCTAssertEqual(p.line(), "lab-sandbox · lab · isolated")
         XCTAssertThrowsError(try QuickAdd.plan(image: nil, name: "lab-sandbox", isolated: false, taken: ["lab-sandbox"], settings: s)) { e in
             XCTAssertEqual((e as? HostError)?.code, .exists)
@@ -75,7 +75,7 @@ final class QuickAddTests: XCTestCase {
     }
 
     func testTheLine() {
-        let p = QuickAddPlan(name: "claude-sandbox-2", image: "claude-code", workspace: "/Users/me/doz-workspaces/claude-sandbox-2",
+        let p = QuickAddPlan(name: "claude-sandbox-2", image: "claude-code", folder: "/Users/me/doz-workspaces/claude-sandbox-2",
                              projectsDir: "/Users/me/doz-workspaces")
         XCTAssertEqual(p.line(homes: ["/Users/me"]), "claude-sandbox-2 · claude-code · ~/doz-workspaces/claude-sandbox-2")
         XCTAssertEqual(p.line(homes: ["/Users/other"]), "claude-sandbox-2 · claude-code · /Users/me/doz-workspaces/claude-sandbox-2")

@@ -58,7 +58,7 @@ At each question the recommended answer is already selected: press **Enter** to 
    380 MB) in the background, once; every tool you try is added to it. The next questions come at once.
 3. **Models & keys.** The sign-ins Dozable found on this Mac (Claude Code, Codex), then a key if you want
    one — Anthropic, OpenAI, xAI, Google or an OpenRouter key (it is never echoed). **Enter** adds none.
-4. **Access**, **Workspace rules** and **Settings** — GitHub and your SSH agent (off unless you choose
+4. **Access**, **Folder rules** and **Settings** — GitHub and your SSH agent (off unless you choose
    them), what `.dozignore` does, and the settings file. See [Setting up this Mac](03-setting-up.md).
 5. **Usage statistics.** What an official build sends — counts and ranges about how Dozable is used,
    never names, paths, contents or anything inside a sandbox — and where to see it exactly
@@ -105,7 +105,7 @@ what to fix and improve: at most once a day, counts and ranges about how Dozable
 commands ran and how often they failed (by exit code), which agents, bases and network presets new
 sandboxes use, the size of your setup as ranges, typical start and wake times rounded to 50 ms, how long
 sandboxes ran and slept and how long agents worked (as ranges), which features you used (the dashboard,
-the installed app, the dashboard on your network (`doz ui --lan`), workspace rules, GitHub access, restore points, templates), which built-in
+the installed app, the dashboard on your network (`doz ui --lan`), folder rules, GitHub access, restore points, templates), which built-in
 image-preparation step failed, and your Mac's macOS version, chip family, memory and cores as ranges — with
 a random install id. **Never**
 a sandbox, image or project name, a file or folder name or path, anything inside a sandbox, anything

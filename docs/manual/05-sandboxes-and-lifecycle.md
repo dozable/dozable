@@ -15,7 +15,7 @@ the background **daemon** that runs them all.
   |---|---|---|
   | the **root disk** | the system and anything installed or written outside the next two | shutdown; gone with `reset` (back to the image) and `rm` |
   | the **state disk** (agent images) | the agent's own settings, logins and history (`~/.claude`, `~/.pi/agent`) | shutdown **and** reset; gone with `rm` |
-  | the **workspace** | your Mac folder shared at `/workspace` | everything — it's on your Mac |
+  | the **folder** | your Mac folder, shared live — it appears inside the sandbox at `/workspace` | everything — it's on your Mac |
 
 - **Isolated.** A sandbox with no shared folder: `/workspace` is a folder on its own disk, and nothing
   on your Mac is shared. `doz ls` shows `isolated`, and the agent is told.
@@ -73,7 +73,7 @@ sessions come back where they were with `doz up` (in its project folder), `doz a
 (`-y` skips the question).
 
 **The folder Dozable made goes with it.** When a sandbox's folder did not exist and Dozable made it (`doz new`, New
-sandbox and Quick add in the dashboard, `doz try`, a `--workspace` that was not there yet), `doz rm` — and the
+sandbox and Quick add in the dashboard, `doz try`, a `--folder` that was not there yet), `doz rm` — and the
 dashboard's **Remove…** — removes that folder too while it is empty. When it holds files, `doz rm` asks (the default
 keeps it and says where); off a terminal and in the dashboard it is kept. A folder that was there before is never
 touched, and neither is the folder of a duplicate.
@@ -113,7 +113,7 @@ One click in the dashboard, or one command, makes a sandbox with every default a
 - the image is the setting `defaults.image` (onboarding sets it to the image you chose);
 - the name is the image's — `claude-sandbox`, `pi-sandbox`, `lab-sandbox` — or the next free one
   (`claude-sandbox-2`, …) when a sandbox has that name, or its folder already has something in it;
-- its workspace is a folder of its own in your **projects folder**, the setting
+- its folder is a folder of its own in your **projects folder**, the setting
   `defaults.projects_dir` (`~/doz-workspaces` unless you change it):
   `~/doz-workspaces/claude-sandbox`, made for it;
 - the account and what the agent can do are the defaults.
@@ -140,7 +140,7 @@ running). Each option changes just that one thing:
 | `--name` | Your own name (refused if a sandbox has it). |
 | `--isolated` | Share no folder. |
 | `-d` · `--detach` | Create and start it, but don't attach. |
-| `--json` | Answer `{name, image, workspace, phase, session, milliseconds}` instead of attaching. |
+| `--json` | Answer `{name, image, folder, phase, session, milliseconds}` instead of attaching. |
 
 **When one click can't decide.** Some things need your choice first: pi needs an Anthropic API key,
 and an image an older doz prepared can be used as it is or rebuilt. Then **Quick add** opens the
@@ -158,16 +158,16 @@ New sandboxes from Quick add, **New sandbox** and `doz new` use it; existing one
 ```sh
 doz create my-box --image lab --isolated            # made, and off
 doz start my-box
-doz create my-app --image claude-code --workspace ~/code/my-app --start
-doz create my-pi --image pi --workspace ~/code/my-pi --prepare   # made and off, its image ready
+doz create my-app --image claude-code --folder ~/code/my-app --start
+doz create my-pi --image pi --folder ~/code/my-pi --prepare   # made and off, its image ready
 doz up my-app                                        # create if missing, start or wake, attach
 ```
 
 | option | what it does |
 |---|---|
 | `--image` | `lab`, `claude-code`, `pi`, a base × agent image, or a template. Or `--agent` with `--base` / `--dockerfile` ([Images and bases](08-images-and-bases.md)). |
-| `--workspace DIR` | Share this Mac folder at `/workspace`. Made if it doesn't exist; refused for your home folder itself, system locations and the store. |
-| `--isolated` | Share nothing (the default without `--workspace`; this says it on purpose). |
+| `--folder DIR` | Share this Mac folder at `/workspace`. Made if it doesn't exist; refused for your home folder itself, system locations and the store. |
+| `--isolated` | Share nothing (the default without `--folder`; this says it on purpose). |
 | `--cpus` · `--memory` | Virtual CPUs (default 2) · RAM (`2G`, `512M`; default 1 GiB for lab, 2 GiB for an agent image). |
 | `--network` · `--allow` | What the agent may reach ([What the agent can do](10-permissions-and-network.md)). |
 | `--account` | Which Claude account it uses ([Agents and accounts](09-agents-and-accounts.md)). |
@@ -262,7 +262,8 @@ doz events my-app        # only this sandbox
   status` says so). When a new doz is installed, it replaces itself with the new version once nothing is running
   and nobody is attached — no command needed.
 - **Idle exit**, with `doz config set daemon.always_on off`: the daemon exits after `daemon.idle_timeout_minutes`
-  with nothing running, paused or asleep and nobody attached (its default `0` means never — set it too). The next
+  with nothing running, paused or asleep and nobody attached (default 5; `0` disables it — and is warned, since the
+  daemon then never switches off by idling). While `daemon.always_on` is on, the timeout has no effect. The next
   command starts a new one. A daemon started over ssh always exits after 5 minutes idle.
 - **`doz daemon stop`** shows each sandbox as it hibernates, then a summary. Everything wakes on the
   next `wake`, `attach`, `up` or `exec`, sessions and all.
@@ -291,7 +292,7 @@ newer doz fixes, without a restart.
 | `defaults.projects_dir` | `~/doz-workspaces` | Your projects folder: where Quick add, `doz new` and the dashboard's New sandbox make a new sandbox's own folder (`<projects_dir>/NAME`). **Settings** › **Choose…** picks it. |
 | `sandbox.timezone` | `mac` | `mac` (follow this Mac) or a zone like `Australia/Sydney`. Applies at each start or wake. |
 | `daemon.always_on` | `true` | Keep the daemon running with nothing open (`$DOZ_DAEMON_ALWAYS_ON`). |
-| `daemon.idle_timeout_minutes` | `0` | With `daemon.always_on` off: minutes with nothing running before the daemon exits; `0` = never (`$DOZ_DAEMON_IDLE`). |
+| `daemon.idle_timeout_minutes` | `5` | With `daemon.always_on` off: minutes with nothing running before the daemon exits; `0` disables it (`$DOZ_DAEMON_IDLE`). |
 | `daemon.screen_capture_minutes` | `5` | How often a running sandbox's changed screens are saved; `0` = only at pause, sleep and hibernate. |
 | `daemon.boot_logs_kept` | `5` | Boots kept per sandbox (1–50). |
 | `ui.boot_view_on_start` | `false` | After the dashboard's Start, stay on the Console tab rather than switch to the agent's tab. |

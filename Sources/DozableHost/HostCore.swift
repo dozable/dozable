@@ -530,7 +530,7 @@ public actor HostCore {
                            memoryReturnedMiB: phase.holdsRAM ? returned : 0,
                            diskBytes: allocatedBytes(m.sandbox.layout.sandboxDirectory), sessions: sessionCount,
                            network: egress.map { $0.policy.preset ?? "custom" } ?? m.config.networkName,
-                           deniedConnections: egress?.log.deniedCount, workspace: m.config.workspace,
+                           deniedConnections: egress?.log.deniedCount, folder: m.config.workspace,
                            createdAt: m.config.createdAt, diedWithHost: m.config.diedWithHostAt == nil ? nil : true,
                            account: accountName(m), credentialState: readOnly ? nil : credentialState(m, binding: nil),
                            credentialPolicy: egress == nil ? nil : effectivePolicy(m, accountStore.load()).rawValue,
@@ -559,8 +559,8 @@ public actor HostCore {
         statusFields(m.name, into: &i)                                 // 612: from memory, never the guest
         sessionListFields(m, phase: phase, into: &i)                   // 635: from memory and its files, never the guest
         i.dotfiles = dotfilesState(m)                                   // 657: from its record and its last run's file
-        i.workspaceRules = workspaceRulesInfo(m, phase: phase)       // 599g: two stats when there are no rules
-        i.workspaceView = Self.workspaceViewState(running: phase == .running, workspace: m.config.workspace != nil,
+        i.folderRules = workspaceRulesInfo(m, phase: phase)       // 599g: two stats when there are no rules
+        i.folderView = Self.workspaceViewState(running: phase == .running, workspace: m.config.workspace != nil,
                                                   active: Array(m.sandbox.activeViews.values), fallbacks: m.sandbox.viewFallbacks,
                                                   viewOn: m.sandbox.passthroughViews)   // 608
         // 594 W28: an image an older doz's recipe made (its disk lacks what this doz's has). 596: any
@@ -592,9 +592,7 @@ public actor HostCore {
 
     /// Every request but the streaming ones (`attach`, `events`, `net-log --follow` — see HostServer).
     public func handle(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void = { _ in }) async -> HostMessage {
-        guard r.v <= HostProtocol.accepted else {
-            return .failure(HostError(.version, "this daemon speaks protocol \(HostProtocol.accepted), the request is \(r.v) — restart it (doz daemon stop)"))
-        }
+        if let refused = HostProtocol.refusal(r) { return .failure(refused) }
         // 593: `terminal-layout-set` is answered in-process too: it writes one small file of the web UI's
         // state beside doz.json (never a VM, never a secret — like the UI's doz.toml), and a host is not
         // started to write it. With a host running, the host writes it (serialised with `rm`).
@@ -1035,15 +1033,15 @@ public actor HostCore {
         guard !FileManager.default.fileExists(atPath: store.layout(name).sandboxDirectory.path) else {
             throw HostError(.exists, "\(store.layout(name).sandboxDirectory.path) already exists (not made by doz — remove it or pick another name)")
         }
-        if o.isolated == true, o.workspace != nil { throw HostError(.invalid, "isolated or a workspace — not both") }
+        if o.isolated == true, o.folder != nil { throw HostError(.invalid, "a folder or isolated — not both") }
         creating.insert(name)
         defer { creating.remove(name) }
         // 594: a workspace that does not exist is made now (mkdir -p), before the VM is configured —
         // and unmade (only what Dozable made, only while empty) if the create fails.
         var prepared: Workspace.Prepared?
-        if let ws = o.workspace {
+        if let ws = o.folder {
             prepared = try Workspace.prepare(ws, store: store)
-            o.workspace = prepared?.path
+            o.folder = prepared?.path
         }
         var made = false
         defer { if !made, let p = prepared { Workspace.undo(p) } }
@@ -1106,7 +1104,7 @@ public actor HostCore {
                 throw HostError(.invalid, "--secret needs a proxied network: the secret is held by Dozable's proxy, never in the sandbox")
             }
             let model = modelSource.map(ModelSources.isLocal) == true ? o.localPort.flatMap { UInt16(exactly: $0) } : nil
-            launchSecrets = try checkedLaunchSecrets(grants, readable: spec.shares.map(\.hostPath).map(Self.resolvedRoot), readableWhat: "its workspace",
+            launchSecrets = try checkedLaunchSecrets(grants, readable: spec.shares.map(\.hostPath).map(Self.resolvedRoot), readableWhat: "its folder",
                                                      hostPorts: launchHostPorts.map(\.port) + (model.map { [$0] } ?? []),
                                                      reach: { policy.evaluateConnection(host: $0, port: $1).kind != .deny }, allowFlag: "--allow")
         }
@@ -1207,9 +1205,9 @@ public actor HostCore {
                         detail: createDetail)
         made = true
         note(name, "created (\(image), \(spec.cpus) CPUs, \(spec.memoryMiB) MiB, network \(cfg.networkName)"
-             + (prepared?.created == true ? ", workspace \(cfg.workspace ?? "") created" : cfg.workspace == nil ? ", isolated" : "") + ")")
+             + (prepared?.created == true ? ", folder \(cfg.workspace ?? "") created" : cfg.workspace == nil ? ", isolated" : "") + ")")
         var i = await info(m, sessions: false)
-        i.workspaceCreated = prepared?.created == true ? true : nil
+        i.folderCreated = prepared?.created == true ? true : nil
         i.secretLines = secretLines.isEmpty ? nil : secretLines          // 692
         // `doz create --prepare`: what this sandbox's first start would wait for — its image's
         // preparation (started, or joined when one runs) — now, with its progress; the sandbox stays off.
@@ -1224,7 +1222,7 @@ public actor HostCore {
                     throw HostError(.failed, "\(name) was created, but preparing \(img) failed: \(HostError.from(error).message) — its first start tries again")
                 }
                 i = await info(managed[name] ?? m, sessions: false)
-                i.workspaceCreated = prepared?.created == true ? true : nil
+                i.folderCreated = prepared?.created == true ? true : nil
                 i.imagePreparation = "prepared"
             } else {
                 i.imagePreparation = "ready"          // the answer says it (the CLI's line, --json)
@@ -2021,7 +2019,7 @@ public actor HostCore {
         // A command the caller named (doz run NAME -- CMD, the dashboard's "run a command"): a program the
         // guest does not have is said plainly, before a session that could only end at once with 127.
         if let a = r.argv, let program = a.first, !program.isEmpty,
-           let look = await m.sandbox.sessionFinds(program, environment: r.environment ?? [:], workingDirectory: r.workdir ?? workdir, user: r.user),
+           let look = await m.sandbox.sessionFinds(program, environment: r.environment ?? [:], workingDirectory: r.cwd ?? workdir, user: r.user),
            !look.found {
             throw HostError(.notFound, Self.missingProgram(program, runsAs: look.runsAs, command: "doz run"))
         }
@@ -2035,7 +2033,7 @@ public actor HostCore {
             try await m.sandbox.openSession(session, argv: argv,
                                             environment: Self.withTrueColour(recipeEnvironment(Self.withClipboardSink(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name, own: m.config.settings?[SettingKey.sandboxApprovals]),
                                                                                 on: sink), m)),
-                                            workingDirectory: r.workdir ?? workdir,
+                                            workingDirectory: r.cwd ?? workdir,
                                             user: r.user, size: size)
         } catch {
             // deckhold refuses a second holder of a name ("Address in use"): someone else (a program
@@ -2051,7 +2049,7 @@ public actor HostCore {
         m.lastSessionOpen = ContinuousClock.now
         // 608: the record a restart reopens from (names of the variables only — never their values).
         if !readOnly {
-            SessionRecords.record(session, SessionRecord(argv: recordArgv, workdir: r.workdir, user: r.user,
+            SessionRecords.record(session, SessionRecord(argv: recordArgv, workdir: r.cwd, user: r.user,
                                                          environmentKeys: given.environment.map { Array($0.keys) }), store, m.name)
         }
         let openMs = ms(since: t0)
@@ -2105,7 +2103,7 @@ public actor HostCore {
         let secretEnv = await deliverLaunchSecretFiles(m, user: r.user)
         let callerEnv = (r.environment ?? [:]).merging(secretEnv) { _, mine in mine }
         let ctx = Self.execContext(config: m.config, environment: recipeEnvironment(Self.withClaudePermissions(callerEnv, imageSpec: m.config.spec.imageSpec?.name, own: m.config.settings?[SettingKey.sandboxApprovals]), m),
-                                   workdir: r.workdir, user: r.user)
+                                   workdir: r.cwd, user: r.user)
         let t0 = ContinuousClock.now
         let res: ExecResult
         do {
@@ -2365,12 +2363,12 @@ public actor HostCore {
             guard (256...262_144).contains(mem) else { throw HostError(.invalid, "--memory is 256 MiB – 256 GiB") }
             spec.memoryMiB = mem
         }
-        if o.isolated == true, o.workspace != nil { throw HostError(.invalid, "isolated or a new workspace — not both") }
+        if o.isolated == true, o.folder != nil { throw HostError(.invalid, "a new folder or isolated — not both") }
         // 594: a new workspace that does not exist is made (and unmade if the duplicate fails).
         var prepared: Workspace.Prepared?
         var made = false
         defer { if !made, let p = prepared { Workspace.undo(p) } }
-        if let ws = o.workspace {
+        if let ws = o.folder {
             prepared = try Workspace.prepare(ws, store: store)
             let path = prepared!.path
             spec.shares = spec.shares.filter { $0.guestPath != DozableImages.workspaceGuestPath } + [Share(hostPath: path, guestPath: DozableImages.workspaceGuestPath)]
@@ -2446,9 +2444,9 @@ public actor HostCore {
                         durationMs: ms(since: t0), detail: ["from": m.name, "point": r.point ?? "current disk", "state": o.copyState == true ? "copied" : "fresh"])
         made = true
         note(newName, "duplicated from \(m.name)\(r.point.map { " (restore point \($0))" } ?? "") — \(spec.cpus) CPUs, \(spec.memoryMiB) MiB, network \(cfg.networkName), state disk \(o.copyState == true ? "copied" : "fresh")"
-             + (prepared?.created == true ? ", workspace \(prepared!.path) created" : cfg.workspace == nil ? ", isolated" : ""))
+             + (prepared?.created == true ? ", folder \(prepared!.path) created" : cfg.workspace == nil ? ", isolated" : ""))
         var i = await info(nm, sessions: false)
-        i.workspaceCreated = prepared?.created == true ? true : nil
+        i.folderCreated = prepared?.created == true ? true : nil
         return i
     }
 
@@ -2547,7 +2545,7 @@ public actor HostCore {
         }
         metrics?.record(run: metricsRun, action: "rename", sandbox: new, image: cfg.image, phaseAfter: "off", startedAt: Date(),
                         durationMs: ms(since: t0), detail: ["from": old])
-        note(new, "renamed from \(old) — the same disks, restore points, workspace and settings")
+        note(new, "renamed from \(old) — the same disks, restore points, folder and settings")
         return await info(nm, sessions: false)
     }
 

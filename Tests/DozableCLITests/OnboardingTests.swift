@@ -50,7 +50,7 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(p.agentPrompt, "The tests run with make test.\n")
         XCTAssertEqual(p.agentPromptMode, "replace")
         let o = p.createOptions(folder: root, file: root.appendingPathComponent(DozableProject.fileName))
-        XCTAssertEqual(o.workspace, root.path, "the folder is the workspace")
+        XCTAssertEqual(o.folder, root.path, "the folder is the workspace")
         XCTAssertEqual(o.project, root.appendingPathComponent(DozableProject.fileName).path)
         XCTAssertEqual(o.agentPromptMode, "replace")
     }
@@ -112,7 +112,7 @@ final class OnboardingTests: XCTestCase {
     // MARK: D15/D16 — the environment prompt
 
     func config(workspace: String?, network: NetworkMode = .proxied(.agent), image: String = "claude-code") throws -> SandboxConfig {
-        var o = CreateOptions(image: image, workspace: workspace)
+        var o = CreateOptions(image: image, folder: workspace)
         o.network = DozableImages.networkName(network)
         let (spec, img) = try DozableImages.spec(name: "p1", options: o, store: DozableStore(root: root), environment: [:])
         return SandboxConfig(name: "p1", image: img, spec: spec, workspace: workspace)
@@ -175,7 +175,7 @@ final class OnboardingTests: XCTestCase {
         var r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozableSettings.load(environment: env())))
         XCTAssertEqual(r.layers, ["built-in"])
         // A template of the user's own replaces the built-in one.
-        try "<!-- mine -->\nYou are in {{sandbox.name}}; the Mac's folder is {{workspace.host_path}}.".write(to: tpl, atomically: true, encoding: .utf8)
+        try "<!-- mine -->\nYou are in {{sandbox.name}}; the Mac's folder is {{folder.host_path}}.".write(to: tpl, atomically: true, encoding: .utf8)
         r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozableSettings.load(environment: env())))
         XCTAssertEqual(r.text, "You are in p1; the Mac's folder is \(root.path).")
         XCTAssertEqual(r.layers, ["user template \(tpl.path)"])
