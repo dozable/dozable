@@ -8,10 +8,10 @@ object per line over TCP) and over HTTP on a **page port** (`/agent/…` with a 
 Its wire protocol and its storage are an existing chat protocol's, kept exactly, so that agents and data folders written
 for that protocol work here unchanged; an outside-in conformance suite judges it (below).
 
-It is being built in steps. Today the daemon runs it while the setting `chat.enabled` is on, the `doz chat` group
-turns it on and off and takes part in it from the terminal — still **hidden**: `doz chat` is not in `doz --help`, the
-manual or completions (`doz chat --help` is complete) — and the dashboard shows its rooms to the person, reading and
-posting (below, "In the dashboard"). A later step adds reacting, editing, uploads and the LAN, and unhides it.
+The daemon runs it while the setting `chat.enabled` is on; the `doz chat` group turns it on and off and takes part in it
+from the terminal (listed in `doz --help` and the completions; the manual's page is `docs/manual/36-chat.md`); the
+dashboard shows its rooms to the person and acts as them — posting, reacting, editing, deleting, revealing, uploading —
+and another browser of the LAN option gets what `serve.chat` allows (below, "In the dashboard").
 
 ## Where its code lives
 
@@ -46,7 +46,7 @@ posting (below, "In the dashboard"). A later step adds reacting, editing, upload
 | `Sources/DozableHost/ChatSupervisor.swift` | `ChatSupervisor`: the server as the daemon's child — the generated files, posix_spawn, readiness, restarts, stops; `ChatServerState` (`supervisor.json`, `daemon status`); `ChatProcesses`, the seam the tests fake |
 | `Sources/DozableHost/ChatOwnerClient.swift` | the person's HTTP client on the owner's socket (the `doz chat` commands and the dashboard): request headers, the answer's headers, a cap per call, a stream another thread can cancel (`StreamHandle`) |
 | `Sources/DozableWeb/WebChat.swift`, `WebSource/app/*/chat*.js` | the dashboard's Chat page: its closed routes on the owner's socket and the page (web.md, "Chat") |
-| `Sources/DozableCLI/ChatCommands.swift` | the `doz chat` group (hidden): on, off, status, add, remove, who, token, rooms, room, send, read |
+| `Sources/DozableCLI/ChatCommands.swift` | the `doz chat` group: on, off, status, add, remove, who, token, rooms, room, send, read |
 | `Sources/DozableChat/ChatImport.swift` | reading a copy made for import without trusting it, and staging it in this server's format (`ChatImport`); `ImportDB`, the read-only, immutable, `trusted_schema`-off connection |
 | `Sources/DozableHost/ChatImporter.swift`, `Sources/DozableCLI/ChatImportCommand.swift` | `doz chat import`: the names against the directory, the data folder put aside, `imported.json` (`ChatImporter`); the command and its dry run |
 | `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home, also calling a webhook), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars), `ChatWebhookTests` (against `TestWebhookListener`, a listener each test starts on 127.0.0.1: the call, the tries, every limit of the client, no secret anywhere, notices, the hold, redelivery once; reactions), `ChatSessionsAndFilesTests` (against `TestClaudeSession`, a record and key file in a scratch sessions folder and a socket the test listens on: the inbox text, failed, `/protocol`, `/react`'s fallback, notices, started, the announcement; names never paths, the limits before a byte is kept, the human's token, download headers, who may fetch, a delete's files; the msg_id start rule) |
@@ -362,18 +362,27 @@ on the socket, TCP never the human, the parent watch), and `make test-cli-chat` 
 
 ## In the dashboard
 
-The dashboard (`doz ui`) shows chat to the person in this Mac's own browser: the rooms, a room's messages (Markdown, a safe
-subset), live updates, a composer that posts, presence and unread. It is a CLIENT of the owner's socket, exactly like the
-`doz chat` commands — no daemon operation, no TCP port, no token: `DozableWeb` opens `<store>/chat/chat.sock` itself
-(`ChatOwnerClient`) as the person. Only a closed set of routes reaches it, each a fixed call built from checked values
-(web.md, "Chat"); a browser of another computer gets 403 on every one. The page never turns chat on (`chat.enabled` is not
+The dashboard (`doz ui`) shows chat to the person: the rooms, a room's messages (Markdown, a safe subset), live updates, a
+composer that posts and attaches, reactions, edits, deletes, Reveal, typing, the hold and the avatar, presence and unread.
+It is a CLIENT of the owner's socket, exactly like the `doz chat` commands — no daemon operation, no TCP port, no token:
+`DozableWeb` opens `<store>/chat/chat.sock` itself (`ChatOwnerClient`) as the person. Only a closed set of routes reaches
+it, each a fixed call built from checked values (web.md, "Chat"); a browser of another computer gets what `serve.chat`
+(off | read | write, off by default, set on this Mac only) allows. The page never turns chat on (`chat.enabled` is not
 settable from the dashboard): while it is off the page shows `doz chat on --name YOUR-NAME`.
 
 The person is "here" exactly while the Chat page's own stream is open (it closes 5 s after the page is left) — never just
 because the dashboard is open — and messages to the person are marked `delivered` then. The sidebar's badge counts what is
 unread elsewhere by asking `/api/unread` every minute (no stream). Tests: `WebChatRouteTests`, `WebChatHTTPTests` (a stand-in
 owner's socket), `WebChatRealServerTests` (the real `doz chat serve`), `ServeHTTPTests.testChatIsNeverServedToAnotherComputer`,
+`WebChatActRouteTests`, `WebChatActHTTPTests`, `WebChatServeTests` (serve.chat's three values and the audit lines),
+`WebChatActRealServerTests` (upload, post, react, edit, delete through the dashboard on the real server),
 `make chat-markdown-check`.
+
+**What doz says about ports** (`ChatStatusReport.make`): a port or a remote address is said to be listened on only when
+the RUNNING server's own status file says so. Just after `doz config set chat.line_port N` the settings name N while the old
+server still holds the old port (until the daemon's next look, up to 5 s): `doz chat status` and `doctor` then say
+`restarting` with the ports it has and "moving to … (not listening there yet)" (`--json`: `movingTo`), and `doz daemon
+status` says "starting on ADDRESS too" until the server runs ready with a new remote address. `ChatStatusMoveTests`.
 
 ## Importing a chat's history
 

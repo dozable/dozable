@@ -352,10 +352,24 @@ The Chat page (`#/chat`, `#/chat/ROOM`) — the chat server's rooms for the pers
   (`X-More` copied back — the only upstream header that ever is); POST `rooms/ROOM/messages` (CSRF and the unsafe-request
   checks; a strict body `{content ≤ 64 KiB, to? ≤ 32 names, re_msg_id?}` re-encoded; 80 KiB — `bodyLimit(for:)`, every other
   route keeps 16 KiB); GET `stream`; GET `files/ID/NAME` (the one path whose name may carry `%20`, parsed before the
-  route table's no-`%` rule). Rules: a room or a name `^[a-z0-9][a-z0-9_-]{0,63}$`, a file id 16 or 32 lower-case hex, a file
-  name `[A-Za-z0-9._ ()+-]` ≤ 120 bytes not starting with a dot or a space; a query only where a route takes one. Never
-  reachable: `/agent/*`, `/api/reload`, uploads, reactions, edits, typing, room apps — anything not listed. Nothing of the
-  browser's request (path, query, cookies, Origin, other headers) reaches the socket.
+  route table's no-`%` rule). Acting (every one a POST with the unsafe-request checks): `rooms/ROOM/reactions` (`{msg_id,
+  reaction}`, a reaction 1–32 bytes, no control character), `rooms/ROOM/messages/ID/edit` (`{text}` ≤ 64 KiB, 80 KiB),
+  `…/ID/delete`, `…/ID/reveal` and `typing` (no body or `{}`; upstream always `{}`), `files?name=NAME` (the upload, below);
+  the post also takes `attachments: [{id}]` (≤ 10; with one the text may be empty). **`X-Chat-Id`** is REQUIRED on a
+  reaction, an edit and a delete (`takesActionID`: the chat server does each once per id), passed upstream only as a
+  lower-case v4 UUID (else 400) — the ONLY header of the browser's that ever reaches the socket. Rules: a room or a name
+  `^[a-z0-9][a-z0-9_-]{0,63}$`, a message id lower-case hex and `-` ≤ 36, a file id 16 or 32 lower-case hex, a file name
+  `[A-Za-z0-9._ ()+-]` ≤ 120 bytes not starting with a dot or a space (in the upload's query: `%XX` decoded, a raw `+`
+  refused, re-encoded upstream byte by byte); a query only where a route takes one. Never reachable: `/agent/*`,
+  `/api/reload`, room apps — anything not listed. Nothing else of the browser's request (path, query, cookies, Origin,
+  other headers) reaches the socket.
+- **The upload** (`.upload`) is decided from the request's HEAD before a byte of its body is read
+  (`DozableWebServer.uploadPreflight`, called by `serve()` for that route only): exact Host and Origin (required), Fetch
+  Metadata, the session and its CSRF token, who may (`serve.chat`), `Content-Type: application/octet-stream` exactly (never
+  a form), and a declared size over the chat server's 20 MiB (`WebChatProxy.maximumUpload` = `ChatProtocol.maxFileSize`,
+  pinned by a test) — each refused at once and the connection closed. The read stops one byte past the limit
+  (`bodyLimit`: 20 MiB + 1; chunked included) → 413 `chat-file-too-large`. The answer is projected (`uploaded`: id, name,
+  type, size, url — never the server's `path`, a folder of this Mac).
 - **Answers**: JSON as `application/json`; the message, presence, unread and protocol bodies pass through (the protocol's
   view for the person; its human API has no token field) only when they ARE JSON of the expected kind; an upstream refusal is
   re-wrapped `{error:{code:"chat", message}}` (≤ 300 characters); no socket → 503 `chat-off` (naming `doz chat on`) or
@@ -369,13 +383,28 @@ The Chat page (`#/chat`, `#/chat/ROOM`) — the chat server's rooms for the pers
   line must be a JSON object with a string `kind`, ≤ 1 MiB, and becomes `event: chat`; an upstream `resync` ends the client
   with `resync`, an upstream end with `end {reason: chat-gone}`. The client's end — the browser gone (a 2 s heartbeat finds it),
   signed out, rotated, too slow — cancels the upstream (`StreamHandle`: `shutdown`), so the server marks the person away.
-- **Exposure**: `WebExposure` kind `chat` — a remote (LAN) browser gets 403 `chat-remote` on every route, before its session
-  is looked at; the sidebar's entry stays hidden there (its status is refused).
+- **Exposure**: `WebExposure` kind `chat`, decided for a remote (LAN) browser by **`serve.chat`** (`off | read | write`,
+  `ui: false` — set on this Mac only —, default OFF, read per request; `WebExposure.decideChat`): `off` → 403 `chat-remote` on
+  every route, before its session is looked at (the sidebar's entry stays hidden: its status is refused); `read` → the reads,
+  and 403 `chat-read-only` on every route that is not `isSafe` (post, upload, react, edit, delete, reveal, typing);
+  `write` → everything. `chat/status` carries `access: read | write` so the page disables its composer and offers no
+  control that changes anything. Through these routes a browser acts as the person — the verified human, whose words the
+  agents act on — which is why the default is off: a device's cookie lasts long, and a lost phone could instruct every
+  agent. Every remote write is ONE line in the serve audit log (`auditChange`, kind `change`, route `chat-<call>` from
+  `WebChatRoute.label` — never a body or a value); a refusal is a `refused` line.
 - **The page** (`views/chat.js`, the section `#chat`, built once): rooms (`chat-rooms.js`), the log (`chat-messages.js`:
-  bubbles, tombstones, direct-message stubs, change lines, older pages on scrolling up), the composer (`chat-composer.js`:
-  Enter sends, Shift/Option+Enter a new line, `@` members, `/` the server's commands, `/protocol` shown locally), presence
-  (`chat-people.js`), the stream with its back-off and refill (`chat-live.js`). Shared state is `state.chat`. The adapter
-  (`core/chat-api.js` `configure`, from `app.js`): `apiFetch` (the one fetch, `core/api.js`), the viewer, and
+  bubbles, tombstones, direct-message stubs with **Reveal**, change lines, older pages on scrolling up; a message's tools:
+  the detail, the reactions picker on someone else's, the pencil on your own, ⋮ › Delete… on any — `confirmCheck`), the
+  composer (`chat-composer.js`: Enter sends, Shift/Option+Enter a new line, `@` members, `/` the server's commands,
+  `/protocol` shown locally, `/react` and `/edit` acted on here, the Up arrow edits your latest, Escape stops; files by the
+  clip, a paste or a drop on `.chat-center`; typing told at most every 3 s), presence and the room menu (`chat-people.js`:
+  `/hold` and the avatar dialog — both the server's commands posted with a helper), the stream with its back-off and refill
+  (`chat-live.js`). Components: `chat-reactions` (chips are buttons; the picker is a `menuButton`; another emoji by a
+  dialog), `chat-edit`, `chat-composer-box` (drafts; uploads one by one, a file over 20 MB refused before it is sent,
+  pending chips), `chat-gallery` (the room's `img.chat-att`, arrows, a strip, Save, Escape), `chat-note` (the line under the
+  box: every failure of an action is said there). Shared state is `state.chat` (+ `editing`, `pending`, `uploading`). The
+  adapter (`core/chat-api.js` `configure`, from `app.js`): `apiFetch` (the one fetch, `core/api.js` — it carries `X-Chat-Id`
+  when a call says `once`, and a body of bytes for the upload), the viewer, `canWrite` (status's access), and
   `dashboardFileUrl` — the ONLY attachment address (`/files/ID/NAME` → `/api/v1/chat/files/ID/NAME`). The live stream is
   opened only in `core/chat-stream.js`. Browser memory only for the unread markers and drafts (`doz.chat.seen:<room>`,
   `doz.chat.draft:<room>`). The sidebar's entry (after This Mac) is shown from `chat/status` on `hello` and every minute,

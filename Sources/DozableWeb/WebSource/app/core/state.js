@@ -56,5 +56,8 @@ export const state = {
     unread: {},            // room → {n, m}: unread messages, and how many name the person
     previews: {},          // room → the last readable message
     live: 'off',           // the chat stream: off | connecting | live | reconnecting
+    editing: null,         // the person's own message being edited: {id, draft, pending} (the box's text and files kept)
+    pending: [],           // attachments uploaded for the next message: {id, name, type, size, url}
+    uploading: 0,          // uploads under way
   },
 };

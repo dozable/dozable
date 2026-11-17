@@ -1,12 +1,17 @@
 // views/chat-composer — the person writes: Enter sends, Shift+Enter (or Option+Enter) starts a new line; one popup above
 // the box offers the room's members after an @ and the chat server's commands after a / at the start. A command is the
-// server's (it acts on it); /protocol is shown here only and sends nothing.
+// server's (it acts on it); /protocol is shown here only and sends nothing, /react and /edit act here. Files come by the
+// clip, a paste or a drop. The Up arrow in an empty box edits your latest message; Escape stops an edit. While the
+// person types, the room is told (at most every few seconds).
 import { state } from '../core/state.js';
-import { chatError, getJSON, request, roomUrl, viewer } from '../core/chat-api.js';
+import { canWrite, chatError, getJSON, request, roomUrl, viewer } from '../core/chat-api.js';
 import { cap, time } from '../core/chat-format.js';
 import { renderMarkdown } from '../core/chat-markdown.js';
-import { grow, saveDraft, scheduleDraft } from '../components/chat-composer-box.js';
+import { grow, saveDraft, scheduleDraft, showPending, upload } from '../components/chat-composer-box.js';
+import { endEdit, latestOwn, saveEdit, startEdit } from '../components/chat-edit.js';
 import { toFoot } from '../components/chat-log.js';
+import { chatNote } from '../components/chat-note.js';
+import { react } from '../components/chat-reactions.js';
 import { watchTables } from '../components/chat-tables.js';
 import { avatar } from '../dom/chat-avatar.js';
 import { $, h } from '../dom/h.js';
@@ -20,18 +25,17 @@ const CMDS = [
   { cmd: '/remove ', help: 'Take a participant out of this room: /remove @name.' },
   { cmd: '/hold ', help: 'Limit agent-only chatter: /hold on, /hold 12, or /hold off.' },
   { cmd: '/protocol', help: 'Show the message protocol here. Nothing is sent.' },
+  { cmd: '/edit ', help: 'Edit your latest message (or its pencil, or the Up arrow in an empty box).' },
+  { cmd: '/delete', help: 'Delete your latest message. Any other: Delete in its menu.' },
+  { cmd: '/react ', help: 'React to the latest message: /react like, love, lol, thanks, or an emoji.' },
+  { cmd: '/avatar ', help: 'Change your avatar (the room menu ⋮ has a helper).' },
 ];
 let cmdAt = 0;
 const presenceOf = (n) => state.chat.presence.find((p) => p.name === n) || {};
 const roomMembers = () => (state.chat.srv && state.chat.srv.rooms[state.chat.room]) || [];
 
 /// What the line under the box says: a refusal or a state, else how the box works.
-const HINT = 'Enter sends · Shift+Enter starts a new line · @ names someone · / lists commands';
-function note(text, bad) {
-  const n = $('chat-note');
-  n.textContent = text || HINT;
-  n.classList.toggle('is-bad', !!bad);
-}
+const note = chatNote;
 
 function mentionAt() {
   const t = $('chat-text'), upto = t.value.slice(0, t.selectionStart), m = /(^|[\s(])@([A-Za-z0-9_-]*)$/.exec(upto);
@@ -74,6 +78,7 @@ function pick(c) {
     t.setSelectionRange(pos, pos);
     return;
   }
+  if (c.cmd === '/edit ') { const m = latestOwn(); if (m) { t.value = ''; startEdit(m); return; } }
   t.value = c.cmd;
   t.focus();
   if (c.cmd === '/protocol') $('chat-form').requestSubmit();
@@ -102,8 +107,20 @@ async function send(ev) {
   ev.preventDefault();
   const t = $('chat-text'), text = t.value.trim();
   $('chat-cmds').hidden = true;
-  if (!text || !state.chat.room) return;
+  if (!canWrite()) return;
+  if (state.chat.editing) { await saveEdit(); return; }
+  if (state.chat.uploading) { note('Wait for the attachments to finish uploading.', true); return; }
+  if ((!text && !state.chat.pending.length) || !state.chat.room) return;
   if (text === '/protocol') { t.value = ''; grow(); showProtocol(); return; }
+  if (/^\/react(\s|$)/.test(text)) {
+    const what = text.slice(6).trim();
+    const last = [...state.chat.byId.values()].filter((m) => !m.kind && !m.deleted && m.from !== viewer() && m._body).pop();
+    if (!what || !last) { note(what ? 'There is no message to react to.' : 'Say which reaction: /react like', true); return; }
+    t.value = ''; grow(); saveDraft();
+    react(last.msg_id, what);
+    return;
+  }
+  if (/^\/edit(\s|$)/.test(text) && text.slice(5).trim() === '') { const m = latestOwn(); if (m) { t.value = ''; startEdit(m); return; } }
   // Leading @names address the message to those members (as the chat server's own page does); an unknown one stops it.
   const to = [], members = roomMembers();
   if (!/^\/(dm|hold)(\s|$)/.test(text)) {
@@ -116,12 +133,17 @@ async function send(ev) {
   const btn = $('chat-send');
   btn.disabled = true;
   try {
-    const r = await request(roomUrl(state.chat.room, '/messages'), { method: 'POST', json: to.length ? { content: text, to } : { content: text } });
+    const body = { content: text };
+    if (to.length) body.to = to;
+    if (state.chat.pending.length) body.attachments = state.chat.pending.map((a) => ({ id: a.id }));
+    const r = await request(roomUrl(state.chat.room, '/messages'), { method: 'POST', json: body });
     if (!r.ok) throw await chatError(r);
     const j = await r.json();
     t.value = '';
     saveDraft();
     grow();
+    state.chat.pending = [];
+    showPending();
     toFoot();
     note(j.state && j.state !== 'queued' && j.state !== 'delivered' ? cap(j.state) + (j.detail ? ': ' + j.detail : '') : '');
   } catch (e) {
@@ -161,4 +183,40 @@ export function initComposer() {
   $('chat-form').addEventListener('submit', send);
   note('');
   window.addEventListener('pagehide', saveDraft);
+  // The room is told the person is typing — at most every 3 s, never while editing (nothing is stored).
+  let typed = 0;
+  t.addEventListener('input', () => {
+    if (!canWrite() || state.chat.editing || !t.value || Date.now() - typed < 3000) return;
+    typed = Date.now();
+    request('/typing', { method: 'POST' }).catch(() => {});
+  });
+  // Edits: the Up arrow in an empty box edits your latest message; Escape (or ✕) stops.
+  t.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !e.defaultPrevented && state.chat.editing) { e.preventDefault(); endEdit(); return; }
+    if (e.key !== 'ArrowUp' || e.shiftKey || e.altKey || e.metaKey || e.ctrlKey || e.isComposing || state.chat.editing || t.value !== '' || state.chat.pending.length) return;
+    if (!canWrite()) return;
+    const m = latestOwn();
+    if (m) { e.preventDefault(); startEdit(m); }
+  });
+  $('chat-editx').addEventListener('click', () => { endEdit(); t.focus(); });
+  // Attachments: the clip opens the chooser; a paste of files or a drop on the page attaches them.
+  $('chat-clip').addEventListener('click', () => $('chat-pick').click());
+  $('chat-pick').addEventListener('change', (e) => { upload([...e.target.files]); e.target.value = ''; });
+  t.addEventListener('paste', (e) => {
+    const fs = [...((e.clipboardData && e.clipboardData.files) || [])];
+    if (fs.length && canWrite()) { e.preventDefault(); upload(fs); }
+  });
+  const center = $('chat-form').closest('.chat-center');
+  let dragN = 0;
+  const hasFiles = (e) => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+  center.addEventListener('dragenter', (e) => { if (hasFiles(e) && canWrite()) { dragN++; center.classList.add('is-drop'); } });
+  center.addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; center.classList.remove('is-drop'); } });
+  center.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+  center.addEventListener('drop', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragN = 0;
+    center.classList.remove('is-drop');
+    if (canWrite() && e.dataTransfer.files.length) upload([...e.dataTransfer.files]);
+  });
 }

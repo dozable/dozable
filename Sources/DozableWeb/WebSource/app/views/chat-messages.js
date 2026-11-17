@@ -2,13 +2,16 @@
 // between others, the room's change lines; reading the log (the newest page, then on as the server says more is left)
 // and older pages as the reader scrolls up. Every message is untrusted text, drawn with h() and renderMarkdown.
 import { state } from '../core/state.js';
-import { request, roomUrl, viewer } from '../core/chat-api.js';
+import { canWrite, chatError, request, roomUrl, viewer } from '../core/chat-api.js';
 import { cap, time } from '../core/chat-format.js';
 import { renderMarkdown } from '../core/chat-markdown.js';
 import { setSeen } from '../core/chat-storage.js';
 import { drawAtts } from '../components/chat-attachments.js';
+import { askDelete, startEdit } from '../components/chat-edit.js';
 import { moments, place } from '../components/chat-log.js';
-import { reacts } from '../components/chat-reactions.js';
+import { chatNote } from '../components/chat-note.js';
+import { picker, reacts } from '../components/chat-reactions.js';
+import { moreMenu } from '../components/menus.js';
 import { chips } from '../components/chat-receipts.js';
 import { watchTables } from '../components/chat-tables.js';
 import { avatar } from '../dom/chat-avatar.js';
@@ -17,6 +20,17 @@ import { icon } from '../dom/icons.js';
 
 const presenceOf = (n) => state.chat.presence.find((p) => p.name === n) || {};
 const PAGE = 100;
+const archived = () => ((state.chat.srv && state.chat.srv.archived) || []).includes(state.chat.room);
+
+/// Read a direct message between others: the room records that the person did.
+async function reveal(m) {
+  try {
+    const r = await request(roomUrl(state.chat.room, '/messages/' + m.msg_id + '/reveal'), { method: 'POST', json: {} });
+    if (!r.ok) throw await chatError(r);
+    const j = await r.json();
+    if (j && j.msg_id === m.msg_id) add(j, true);
+  } catch (e) { chatNote('Not revealed: ' + (e.message || e), true); }
+}
 
 function toText(m) {
   if (!m._to) return;
@@ -69,9 +83,14 @@ export function add(m, again, older) {
     place(m._el, instead, older);
     return;
   }
-  if (m.kind === 'private') {   // a direct message between others: who and when, not what
+  if (m.kind === 'private') {   // a direct message between others: who and when, not what — Reveal reads it (and says so)
+    let rv = null;
+    if (canWrite()) {
+      rv = h('button', { type: 'button', class: 'chat-reveal', title: 'Read this direct message. The room records that you did.' }, icon('eye'), 'Reveal');
+      rv.addEventListener('click', () => reveal(m));
+    }
     m._el = h('div', { class: 'chat-status chat-dm-stub', 'data-at': at }, icon('users'),
-      ' ' + cap(m.from) + ' sent ' + (m.to || []).map(cap).join(', ') + ' a direct message · ' + time(at));
+      ' ' + cap(m.from) + ' sent ' + (m.to || []).map(cap).join(', ') + ' a direct message · ' + time(at) + ' ', rv);
     state.chat.byId.set(m.msg_id, m);
     place(m._el, instead, older);
     return;
@@ -90,7 +109,21 @@ export function add(m, again, older) {
   top.append(h('span', { class: 'chat-mid is-detail', title: m.msg_id }, m.msg_id.slice(0, 8)));
   const info = h('button', { type: 'button', class: 'chat-ibtn', title: 'Show or hide the detail: who it is for, its id, and what happened to it',
     'aria-label': 'Show or hide the detail of this message', 'aria-pressed': 'false' }, icon('info'));
-  top.append(h('span', { class: 'chat-tools' }, info));
+  // The tools: the detail; react (to someone else's), edit (your own); Delete (any — you are the room's human).
+  const tools = h('span', { class: 'chat-tools' }, info);
+  if (canWrite()) {
+    if (!me) tools.append(picker(m));
+    if (!archived()) {
+      if (me) {
+        const eb = h('button', { type: 'button', class: 'chat-ibtn', title: 'Edit this message', 'aria-label': 'Edit this message' }, icon('pencil'));
+        eb.addEventListener('click', (e) => { e.stopPropagation(); startEdit(state.chat.byId.get(m.msg_id)); });
+        tools.append(eb);
+      }
+      tools.append(moreMenu('More for this message', [{ label: 'Delete…', icon: 'trash-2', danger: true, desc: 'Erase its text for everyone',
+        onSelect: () => askDelete(m) }], { small: true }).el);
+    }
+  }
+  top.append(tools);
   const d = h('article', { class: 'chat-msg' + (me ? ' is-me' : '') + (m.private ? ' is-private' : '') }, top);
   info.addEventListener('click', (e) => { e.stopPropagation(); const on = d.classList.toggle('is-info'); info.setAttribute('aria-pressed', String(on)); });
   if (m.re_msg_id) {

@@ -10,12 +10,17 @@ class HttpError extends Error {
 }
 /// The Response itself, for a caller that reads its status and headers (chat — core/chat-api.js): the same request as
 /// api() (the CSRF header on every unsafe one, a 401 signs the page out), the one place this page calls fetch.
+/// `actionId`: chat's X-Chat-Id (a call done once per id). `bytes` + `type`: a body that is not JSON (an attachment).
 export async function apiFetch(path, opts = {}) {
   const init = { method: opts.method || 'GET', credentials: 'same-origin', cache: 'no-store', headers: {} };
   if (init.method !== 'GET') init.headers['X-Doz-CSRF'] = state.csrf || '';
+  if (opts.actionId) init.headers['X-Chat-Id'] = opts.actionId;
   if (opts.json !== undefined) {
     init.headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(opts.json);
+  } else if (opts.bytes !== undefined) {
+    init.headers['Content-Type'] = opts.type || 'application/octet-stream';
+    init.body = opts.bytes;
   }
   const r = await fetch('/api/v1/' + path, init);
   if (r.status === 401) {

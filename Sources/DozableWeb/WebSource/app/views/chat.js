@@ -8,12 +8,13 @@ import { getJSON } from '../core/chat-api.js';
 import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
 import { showDown, toFoot } from '../components/chat-log.js';
+import { CHAT_READ_ONLY, chatNote } from '../components/chat-note.js';
 import { loadUnread, showUnread } from '../components/chat-unread.js';
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { initComposer } from './chat-composer.js';
 import { loadOlder } from './chat-messages.js';
-import { loadPresence, standing } from './chat-people.js';
+import { loadPresence, roomMenu, standing } from './chat-people.js';
 import { drawRooms, mine, openRoom } from './chat-rooms.js';
 import { startLive, stopLive } from './chat-live.js';
 
@@ -28,9 +29,15 @@ function build() {
   const send = btn('Send', () => {}, { primary: true, icon: 'arrow-right' });
   send.id = 'chat-send';
   send.type = 'submit';
+  // Attach (the clip; a paste or a drop does the same): a file chooser that is never shown, opened by the clip.
+  const clip = h('button', { type: 'button', class: 'chat-ibtn chat-clip', id: 'chat-clip', title: 'Attach files (or paste or drop them) — at most 20 MB each',
+    'aria-label': 'Attach files' }, icon('paperclip'));
+  const pick = h('input', { type: 'file', id: 'chat-pick', multiple: true, hidden: true, tabindex: '-1', 'aria-hidden': 'true' });
+  const editx = h('button', { type: 'button', class: 'chat-ibtn', id: 'chat-editx', title: 'Stop editing (Esc)', 'aria-label': 'Stop editing' }, icon('x'));
   $('chat').replaceChildren(
     h('div', { class: 'chat-head' }, h('h1', { class: 'chat-title' }, icon('message-square'), 'Chat'),
-      h('span', { class: 'chat-room-name', id: 'chat-room-name' }), h('span', { class: 'chat-live is-off', id: 'chat-live', role: 'status' }, 'not connected')),
+      h('span', { class: 'chat-room-name', id: 'chat-room-name' }), h('span', { class: 'chat-live is-off', id: 'chat-live', role: 'status' }, 'not connected'),
+      h('span', { class: 'chat-room-tools', id: 'chat-room-tools' })),
     h('div', { class: 'chat-notice', id: 'chat-notice' }),
     h('div', { class: 'chat-cols', id: 'chat-cols', hidden: true },
       h('nav', { class: 'chat-pane chat-rooms-pane', 'aria-label': 'Rooms' }, h('h2', { class: 'chat-sh' }, 'Rooms'), h('div', { class: 'chat-rooms', id: 'chat-rooms' })),
@@ -39,7 +46,10 @@ function build() {
         h('div', { class: 'chat-downwrap' }, h('button', { type: 'button', class: 'chat-down', id: 'chat-down', hidden: true })),
         h('div', { class: 'chat-busy', id: 'chat-busy', 'aria-live': 'polite' }),
         h('form', { class: 'chat-form', id: 'chat-form' },
-          h('div', { class: 'chat-cmds', id: 'chat-cmds', role: 'listbox', 'aria-label': 'Suggestions', hidden: true }), text, send),
+          h('div', { class: 'chat-cmds', id: 'chat-cmds', role: 'listbox', 'aria-label': 'Suggestions', hidden: true }),
+          h('div', { class: 'chat-editbar', id: 'chat-editbar', hidden: true }, icon('pencil'), h('span', null, 'Editing your message — Enter saves, Esc stops'), editx),
+          h('div', { class: 'chat-pend', id: 'chat-pend', hidden: true, 'aria-live': 'polite' }),
+          h('div', { class: 'chat-inputs' }, clip, text, send), pick),
         h('p', { class: 'chat-note', id: 'chat-note', 'aria-live': 'polite' })),
       h('aside', { class: 'chat-pane chat-people-pane', 'aria-label': 'People in this room' },
         h('h2', { class: 'chat-sh' }, icon('users'), 'In this room', h('span', { class: 'chat-sh-n', id: 'chat-people-count' })),
@@ -66,7 +76,7 @@ function notice(st) {
     case 'starting': say('info', 'Chat is starting…', 'This page looks again every few seconds.'); break;
     case 'no-daemon': say('warn', "Dozable's daemon is not running", h('span', null, 'Chat runs under it. In a terminal: ', cmd('doz daemon start'))); break;
     case 'failing': say('bad', 'Chat is not running', st.problem || 'Its server stopped.', h('span', null, 'In a terminal: ', cmd('doz chat status'))); break;
-    case 'remote': say('info', 'Chat is shown only on this Mac', "Open the dashboard in this Mac's own browser to see chat."); break;
+    case 'remote': say('info', 'Chat is not shared with this browser', h('span', null, 'Chat is off for your other browsers. On the Mac: ', cmd('doz config set serve.chat read'), ' (or write).')); break;
     default: box.replaceChildren(); cols.hidden = false; return true;
   }
   return false;
@@ -79,6 +89,18 @@ async function readStatus() {
     if (!r.ok) return { state: 'failing', problem: 'the dashboard answered ' + r.status };
     return await r.json();
   } catch (_) { return { state: 'failing', problem: 'the dashboard did not answer' }; }
+}
+
+/// Whether this browser may write (chat/status's access): a reading browser's composer and every control that changes
+/// something are off, and the line under the box says why.
+function writable() {
+  const ro = state.chat.status && state.chat.status.access === 'read';
+  const form = $('chat-form');
+  form.classList.toggle('is-read-only', !!ro);
+  for (const id of ['chat-text', 'chat-send', 'chat-clip']) $(id).disabled = !!ro;
+  $('chat-text').placeholder = ro ? 'This browser may read chat only' : 'Message the room';
+  $('chat-room-tools').replaceChildren(ro ? '' : roomMenu());
+  if (ro) chatNote(CHAT_READ_ONLY);
 }
 
 /// Load what the chat server says and show `room` (else the default room, else the first the person is in).
@@ -117,6 +139,7 @@ export async function chatEnter(room) {
     loaded = false;
     return;
   }
+  writable();
   if (!loaded) { await load(wanted); return; }
   if (wanted && wanted !== state.chat.room && mine(wanted)) await openRoom(wanted);
   else showUnread();

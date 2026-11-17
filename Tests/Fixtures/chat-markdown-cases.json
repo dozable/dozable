@@ -1439,5 +1439,238 @@
    "bot2",
    "bot1"
   ]
+ },
+ {
+  "name": "message: reactions with hostile labels and names",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "a reaction's emoji and who reacted are text in a chip, never markup",
+  "message": {
+   "msg_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+   "seq": 5,
+   "at": 1700000000,
+   "from": "bot1",
+   "to": [],
+   "content": "hi",
+   "reactions": [
+    {
+     "who": "bot2",
+     "emoji": "<img src=x onerror=alert(1)>",
+     "reaction": "like",
+     "at": 1700000100
+    },
+    {
+     "who": "<script>alert(1)</script>",
+     "emoji": "👍",
+     "reaction": "like",
+     "at": 1700000200
+    },
+    {
+     "who": "ada",
+     "emoji": "\"><svg onload=alert(2)>",
+     "reaction": "x",
+     "at": 1700000300
+    }
+   ],
+   "states": [],
+   "attachments": []
+  }
+ },
+ {
+  "name": "message: edited mark",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "the edited mark and its time are text",
+  "message": {
+   "msg_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+   "seq": 5,
+   "at": 1700000000,
+   "from": "bot2",
+   "to": [],
+   "content": "**new** text",
+   "reactions": [],
+   "states": [],
+   "attachments": [],
+   "edited_at": 1700000500
+  }
+ },
+ {
+  "name": "message: attachments with hostile names",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "a file's name is an alt, a title and a chip's text; only this server's files become addresses; an SVG is a download, never a picture",
+  "message": {
+   "msg_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+   "seq": 5,
+   "at": 1700000000,
+   "from": "bot1",
+   "to": [],
+   "content": "files",
+   "reactions": [],
+   "states": [],
+   "attachments": [
+    {
+     "id": "0123456789abcdef0123456789abcdef",
+     "name": "chart (1).png",
+     "type": "image/png",
+     "size": 5120,
+     "url": "/files/0123456789abcdef0123456789abcdef/chart (1).png"
+    },
+    {
+     "id": "0123456789abcdef",
+     "name": "\"><img src=x onerror=alert(1)>.png",
+     "type": "image/png",
+     "size": 10,
+     "url": "/files/0123456789abcdef/\"><img src=x onerror=alert(1)>.png"
+    },
+    {
+     "id": "0123456789abcdef",
+     "name": "logo.svg",
+     "type": "image/svg+xml",
+     "size": 92,
+     "url": "/files/0123456789abcdef/logo.svg"
+    },
+    {
+     "id": "0123456789abcdef",
+     "name": "<b>report</b>.pdf",
+     "type": "application/pdf",
+     "size": 20,
+     "url": "javascript:alert(1)"
+    },
+    {
+     "id": "0123456789abcdef",
+     "name": "remote.png",
+     "type": "image/png",
+     "size": 20,
+     "url": "https://example.com/remote.png"
+    }
+   ]
+  }
+ },
+ {
+  "name": "message: a direct message stub with hostile names",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "a direct message between others shows who and when as text, with Reveal",
+  "message": {
+   "msg_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+   "seq": 5,
+   "at": 1700000000,
+   "from": "bot1",
+   "to": [
+    "<img src=x onerror=alert(1)>",
+    "bot2"
+   ],
+   "content": "",
+   "reactions": [],
+   "states": [],
+   "attachments": [],
+   "kind": "private"
+  }
+ },
+ {
+  "name": "message: a revealed direct message",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "the revealed message's lock line is text",
+  "message": {
+   "msg_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+   "seq": 5,
+   "at": 1700000000,
+   "from": "bot1",
+   "to": [
+    "bot2",
+    "\"><script>alert(1)</script>"
+   ],
+   "content": "the key rotates at **noon**",
+   "reactions": [],
+   "states": [],
+   "attachments": [],
+   "private": true,
+   "revealed": true
+  }
+ },
+ {
+  "name": "message: the reactions picker with hostile reactions",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "the picker's items are the server's reactions as text",
+  "srv": {
+   "rooms": {
+    "room1": [
+     "ada",
+     "bot2",
+     "bot1"
+    ]
+   },
+   "archived": [],
+   "reactions": [
+    {
+     "name": "like",
+     "emoji": "👍"
+    },
+    {
+     "name": "<svg onload=alert(1)>",
+     "emoji": "\"><script>alert(2)</script>"
+    }
+   ]
+  },
+  "message": {
+   "msg_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+   "seq": 5,
+   "at": 1700000000,
+   "from": "bot1",
+   "to": [],
+   "content": "react to me",
+   "reactions": [],
+   "states": [],
+   "attachments": []
+  }
+ },
+ {
+  "name": "message: the gallery's caption",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "the gallery's caption is the sender, the name and the count as text; its pictures are the log's own addresses",
+  "message": {
+   "msg_id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+   "seq": 5,
+   "at": 1700000000,
+   "from": "bot1",
+   "to": [],
+   "content": "see",
+   "reactions": [],
+   "states": [],
+   "attachments": [
+    {
+     "id": "0123456789abcdef0123456789abcdef",
+     "name": "photo (2).webp",
+     "type": "image/webp",
+     "size": 4096,
+     "url": "/files/0123456789abcdef0123456789abcdef/photo (2).webp"
+    }
+   ]
+  }
  }
 ]

@@ -1,11 +1,55 @@
 // views/chat-people — who is in the room shown: presence, the standing lines for those quiet now, and the lines when
-// someone's state changes. (Reading only: the person's own avatar is set from the dashboard later.)
+// someone's state changes; the room's menu (hold agent-only chatter, your avatar). Both are the chat server's commands
+// (/hold, /avatar), posted as you with a helper to choose — the server says what changed, in the room.
 import { state } from '../core/state.js';
-import { getJSON, viewer } from '../core/chat-api.js';
+import { canWrite, chatError, getJSON, request, roomUrl, viewer } from '../core/chat-api.js';
 import { cap, mins, time } from '../core/chat-format.js';
 import { status } from '../components/chat-log.js';
-import { avatar } from '../dom/chat-avatar.js';
+import { chatNote } from '../components/chat-note.js';
+import { dialog } from '../components/dialog.js';
+import { menuButton } from '../components/menus.js';
+import { AVATAR_COLOURS, AVATAR_EMOJI, AVATAR_SHAPES, avatar } from '../dom/chat-avatar.js';
 import { $, h } from '../dom/h.js';
+import { icon } from '../dom/icons.js';
+
+/// One of the chat server's commands, posted as the person in the room shown.
+async function command(text, what) {
+  try {
+    const r = await request(roomUrl(state.chat.room, '/messages'), { method: 'POST', json: { content: text } });
+    if (!r.ok) throw await chatError(r);
+    const j = await r.json();
+    if (j.state === 'refused') throw new Error(j.detail || 'refused');
+    chatNote(what);
+  } catch (e) { chatNote('Not done: ' + (e.message || e), true); }
+}
+
+/// Your avatar: a letter, a shape or an emoji, in a colour — sent as /avatar vendor:shape:colour. No picture from elsewhere.
+export function avatarDialog() {
+  const looks = [['initial', 'A letter'], ...AVATAR_SHAPES.map((s) => [s, 'A ' + s]), ...AVATAR_EMOJI.map((e) => ['emoji:' + e, 'Emoji: ' + e])];
+  dialog('Your avatar in chat', 'Shown beside your messages and in the room’s list. The room records the change.',
+    [{ name: 'look', label: 'Look', type: 'select', options: looks, value: 'initial' },
+     { name: 'colour', label: 'Colour (for a letter or a shape)', type: 'select', options: AVATAR_COLOURS, value: 'blue' }],
+    'Change', async (v) => {
+      const spec = String(v.look).startsWith('emoji:') ? 'emoji:' + String(v.look).slice(6) + ':default' : 'human:' + v.look + ':' + v.colour;
+      await command('/avatar ' + spec, 'Your avatar is changing to ' + spec + '.');
+    }, { icon: 'user-round' });
+}
+
+/// The room's menu (beside its name): hold agent-only chatter (/hold), and your avatar.
+export function roomMenu() {
+  const hold = (arg, label, desc) => ({ label, desc, icon: 'pause', onSelect: () => command('/hold ' + arg, 'Asked: /hold ' + arg + '.') });
+  const b = h('button', { type: 'button', class: 'btn quiet sm', title: 'This room: hold agent-only chatter, your avatar', 'aria-label': 'Room options' },
+    icon('ellipsis-vertical'));
+  return menuButton(b, [
+    { heading: 'Hold agent-only chatter' },
+    hold('3', 'After 3 agent messages', 'Then messages to agents wait until you post'),
+    hold('12', 'After 12 agent messages', 'Then messages to agents wait until you post'),
+    hold('on', 'On', 'The chat server’s own number'),
+    hold('off', 'Off', 'Agents talk to each other freely (the default)'),
+    { sep: true },
+    { label: 'Change your avatar…', icon: 'user-round', onSelect: avatarDialog },
+  ], { label: 'Room options', align: 'end' }).el;
+}
 
 const members = () => (state.chat.srv && state.chat.srv.rooms[state.chat.room]) || [];
 const DOT = new Set(['here', 'present', 'idle', 'working', 'woken', 'away', 'quiet', 'not-running', 'gone']);
@@ -50,6 +94,7 @@ export function people() {
       avatar(p.avatar, p.name),
       h('div', { class: 'chat-who-text' },
         h('b', { class: 'chat-who-name' }, cap(p.name) + (p.name === viewer() ? ' (you)' : '')),
+        p.name === viewer() && canWrite() ? changeAvatar() : null,
         h('span', { class: 'chat-who-meta' }, st + (p.kind && p.kind !== 'human' ? ' · ' + String(p.kind).replace('-', ' ') : '')),
         p.activity ? h('span', { class: 'chat-who-meta is-act' }, p.activity + '…') : null)));
   }
@@ -62,6 +107,12 @@ export function people() {
     busy.replaceChildren(...list.map((p) => h('span', { class: 'chat-lv' }, avatar(p.avatar, p.name, 'sm'), cap(p.name) + ' is ' + p.activity)));
   }
   standing();
+}
+
+function changeAvatar() {
+  const b = h('button', { type: 'button', class: 'chat-link' }, 'Change avatar');
+  b.addEventListener('click', avatarDialog);
+  return b;
 }
 
 export async function loadPresence() {

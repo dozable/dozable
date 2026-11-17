@@ -4,10 +4,10 @@ import DozableChat
 import DozableHost
 import Foundation
 
-// `doz chat …` — the chat server run by the daemon on this Mac (docs/engineering/chat.md, "Under the daemon"). HIDDEN in
-// this release: not in `doz --help`, the completions or the manual; `doz chat --help` lists it all. (`doz chat serve` and
-// `doz chat status --data-dir DIR` are the server's own, dispatched before anything else of doz runs:
-// `ChatCommandLine.isServerCommand`.)
+// `doz chat …` — the chat server run by the daemon on this Mac (docs/engineering/chat.md, "Under the daemon"). Listed in
+// `doz --help` and the completions since the dashboard's Chat page can act (the manual's page: docs/manual/36-chat.md).
+// (`doz chat serve` and `doz chat status --data-dir DIR` are the server's own, dispatched before anything else of doz runs
+// and never listed: `ChatCommandLine.isServerCommand`.)
 //
 // Who does the work: writes (on, off, add, remove, token) go through the daemon, the store's one owner; rooms, room, send,
 // read and who go straight to the owner's socket (`ChatOwnerClient`), where the server takes the caller as you — no token
@@ -17,7 +17,7 @@ import Foundation
 struct ChatCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "chat",
-        abstract: "An early chat server on this Mac: rooms shared by you and your agents (127.0.0.1 only).",
+        abstract: "Chat on this Mac: rooms shared by you and your agents, in the dashboard and here.",
         discussion: """
             The doz daemon runs the chat server while chat is on (the setting chat.enabled). You take part through your \
             own socket in the store — no token for you exists. An agent takes part with its own token: it polls \
@@ -30,7 +30,6 @@ struct ChatCommand: AsyncParsableCommand {
 
             Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already exists · 6 chat is off or not ready · 64 usage.
             """,
-        shouldDisplay: false,
         subcommands: [ChatOn.self, ChatOff.self, ChatStatusCommand.self, ChatAdd.self, ChatRemove.self, ChatWho.self, ChatTokenCommand.self,
                       ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self])
 }

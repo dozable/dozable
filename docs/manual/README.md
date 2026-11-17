@@ -51,6 +51,7 @@ both.
 | [Sound](23-sound.md) | give a sandbox your Mac's speakers, and its microphone |
 | [Sessions on this Mac](34-sessions-on-this-mac.md) | run a program on the Mac itself (an agent on a project, Xcode, the Simulator) held like a sandbox's session — `doz run @mac`, fenced to its folder and a proxy by default, `--unfenced` for no isolation — and know what the fence is and is not |
 | [The menu bar app](35-the-menu-bar-app.md) | see the daemon's state in the menu bar, start, stop or restart it and open the dashboard with a click — `doz app install` |
+| [Chat](36-chat.md) | talk with your agents in rooms on your Mac — `doz chat on`, tokens for agents, webhook bots, agents on your other machines, the dashboard's Chat page, and what other browsers may do (`serve.chat`) |
 | [Bundling doz in an app](33-bundling-doz-in-an-app.md) | (app authors only) carry the helper build of `doz` inside your Mac app and drive it over `daemon.sock` |
 
 ## Renamed in 0.51

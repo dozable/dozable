@@ -132,6 +132,12 @@ the agent install what it needs. Turn it off with `sandbox.agent_sudo` if you pr
   key or token over plain HTTP nor open a window on the Mac's screen; and a sandbox can never reach it — a sandbox
   network's connection is dropped before anything is read, and the proxy refuses the dashboard's port on your Mac's
   own addresses. What other browsers do is in `doz ui log`.
+- Chat ([its page](36-chat.md)) has no token for you: you take part only through your own socket in the store, which
+  only your own programs can open — the dashboard and the `doz chat` commands. Every agent needs its own token, and
+  nothing that reaches the chat server's ports (on this Mac, or on its Tailscale address for the machines you named)
+  is ever you. Another browser of the dashboard gets chat only as `serve.chat` (set on the Mac, `off` by default)
+  allows; with `write` it acts as you in chat, and what it sends is in `doz ui log`. An attachment is served so that it
+  can never run as the dashboard: only PNG, JPEG, GIF and WebP pictures are shown, everything else is a download.
 
 ## The bridges — deliberate ways in to your Mac
 

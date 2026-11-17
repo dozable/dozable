@@ -1,7 +1,8 @@
 // views/chat-rooms — the rooms the person is in (archived ones grouped below), and opening one.
 import { state } from '../core/state.js';
-import { getJSON, viewer } from '../core/chat-api.js';
+import { canWrite, getJSON, viewer } from '../core/chat-api.js';
 import { loadDraft, saveDraft } from '../components/chat-composer-box.js';
+import { endEdit } from '../components/chat-edit.js';
 import { showDown } from '../components/chat-log.js';
 import { showPreviews, showUnread } from '../components/chat-unread.js';
 import { $, h } from '../dom/h.js';
@@ -46,6 +47,7 @@ export async function refreshState() {
 /// Show room `r`: its draft, its log from the newest page, its people.
 export async function openRoom(r) {
   if (!state.chat.srv) return;
+  endEdit();
   saveDraft();
   state.chat.room = r;
   state.chat.byId = new Map();
@@ -60,8 +62,9 @@ export async function openRoom(r) {
   $('chat-log').replaceChildren();
   $('chat-room-name').textContent = r;
   const arch = (state.chat.srv.archived || []).includes(r);
-  $('chat-text').disabled = arch;
-  $('chat-text').placeholder = arch ? 'This room is archived: read-only.' : 'Message ' + r;
+  const ro = !canWrite();
+  for (const id of ['chat-text', 'chat-clip', 'chat-send']) $(id).disabled = arch || ro;
+  $('chat-text').placeholder = ro ? 'This browser may read chat only' : arch ? 'This room is archived: read-only.' : 'Message ' + r;
   loadDraft();
   showDown();
   drawRooms();

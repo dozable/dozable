@@ -173,3 +173,17 @@ resources/ls
 resources/rm
 resources/clean
 resources/kernel
+chat
+chat/on
+chat/off
+chat/status
+chat/add
+chat/remove
+chat/who
+chat/token
+chat/webhook
+chat/import
+chat/rooms
+chat/room
+chat/send
+chat/read
