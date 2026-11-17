@@ -124,11 +124,11 @@ public struct ChatPageHandler: Sendable {
         // or a file fetch with a participant's token — never the page, /api or the stream, never the human.
         if r.caller == .remote {
             guard core.access.allow.contains(r.remoteIP) else { return .error(403, ChatAccess.notOwned) }
-            guard ChatPath.isAgentPath(rawPath: r.rawPath) || Self.isTokenFileFetch(r) else { return .error(403, ChatAccess.agentOnly) }
+            guard ChatPath.isAgentPath(rawPath: r.rawPath) || isTokenFileFetch(r) else { return .error(403, ChatAccess.agentOnly) }
             return route(r)
         }
         // An agent address may also fetch a file, with a participant's token: the download decides who that is.
-        if core.access.isAgentAddress(r.remoteIP), Self.isTokenFileFetch(r) { return route(r) }
+        if core.access.isAgentAddress(r.remoteIP), isTokenFileFetch(r) { return route(r) }
         if let refusal = core.access.page(remote: r.remoteIP, agentPath: ChatPath.isAgentPath(rawPath: r.rawPath)) {
             return .error(403, refusal)
         }
@@ -370,9 +370,13 @@ public struct ChatPageHandler: Sendable {
     }
 
     /// A file fetch an agent address is served: `GET`/`HEAD` of an exact `/files/<id>/<name>` (nothing a router would tidy)
-    /// with `Authorization: Bearer`. Whether the token is anyone's, and whether they may read the file, is the download's.
-    static func isTokenFileFetch(_ r: ChatHTTPRequest) -> Bool {
-        (r.method == "GET" || r.method == "HEAD") && ChatPath.isFilePath(rawPath: r.rawPath) && !bearerToken(r).isEmpty
+    /// with `Authorization: Bearer` and a token that is a participant's. Anything else — no token, a token that is no
+    /// one's, the page's own header — is the agent-address refusal (403): the address rule comes first (protocol 1.2,
+    /// the reference's TestS4_8_FetchFromAgentAddress). Whether that participant may read the file is the download's.
+    func isTokenFileFetch(_ r: ChatHTTPRequest) -> Bool {
+        let token = Self.bearerToken(r)
+        return (r.method == "GET" || r.method == "HEAD") && ChatPath.isFilePath(rawPath: r.rawPath) && !token.isEmpty
+            && core.whoHolds(token) != nil
     }
 
     /// The token of `Authorization: Bearer <token>`, trimmed; "" when there is none.

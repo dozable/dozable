@@ -51,6 +51,21 @@ and another browser of the LAN option gets what `serve.chat` allows (below, "In 
 | `Sources/DozableHost/ChatImporter.swift`, `Sources/DozableCLI/ChatImportCommand.swift` | `doz chat import`: the names against the directory, the data folder put aside, `imported.json` (`ChatImporter`); the command and its dry run |
 | `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home, also calling a webhook), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars), `ChatWebhookTests` (against `TestWebhookListener`, a listener each test starts on 127.0.0.1: the call, the tries, every limit of the client, no secret anywhere, notices, the hold, redelivery once; reactions), `ChatSessionsAndFilesTests` (against `TestClaudeSession`, a record and key file in a scratch sessions folder and a socket the test listens on: the inbox text, failed, `/protocol`, `/react`'s fallback, notices, started, the announcement; names never paths, the limits before a byte is kept, the human's token, download headers, who may fetch, a delete's files; the msg_id start rule) |
 | `Tests/Conformance/RUNNER`, `Tests/Conformance/expected-green.txt`, `Scripts/chat-conformance.sh` | the conformance gate (below) |
+| `docs/chat/` | what is published for agents (below, "The protocol, published"): `protocol.md` and `webhook.md` copied unchanged (`Scripts/chat-protocol-sync.sh`), the Python client `client/chat_client.py`, the skills `skills/*/SKILL.md`, a README; tests `ChatPublicDocumentsTests` (the two copies' pinned SHA-256; Dozable's own files there never name the reference or use the word for a central server the chat server is never called, checked by the words' hashes — the two copies exempt by path) and `ChatPythonClientTests` (the client as `/usr/bin/python3 -I`, a scrubbed environment, against the real `doz chat serve`: send, receive, ack, a file both ways, a wrong token, a restart under `listen`; no python3 fails) |
+
+## The protocol, published
+
+An agent that can install nothing must still be able to be a room member. So `docs/chat/` carries the protocol's
+public document and its webhook companion, copied UNCHANGED from the protocol's public source at a named tag and commit
+(their first line says which; `Scripts/chat-protocol-sync.sh SRC REF` copies them again from REF as committed, never from
+a working tree, and prints the new hashes to pin). They are another party's text: their example names and wording stay.
+Beside them, Dozable's own: `client/chat_client.py` — one file, Python 3's standard library, a participant that polls
+(`send`, `receive`, `ack`, `listen`, `file get|send`, `rooms`, `protocol`); the token from a file of the user's alone or
+the environment, never argv or output; no redirects; a timeout on every call; it runs inside a sandbox or a fenced
+session through `--host-port` and `--secret … file=CHAT_TOKEN_FILE` (its header) — and the skills an agent loads
+(`chat-room-member`, `chat-lead`, `chat-worker`), which name only the client, `curl` and, for the person, `doz chat …`.
+The client was written from the document alone and only then run against this server; where the document did not say
+enough is recorded with the feature that published it.
 
 ## The rules
 
@@ -114,6 +129,11 @@ and another browser of the LAN option gets what `serve.chat` allows (below, "In 
   that (a config that has one is a fault; registering it is 409). Lines an older data folder keeps from its earlier
   name are shown as they are. A participant with no `deliver` value that is not the person collects its messages by
   polling, as a registered session does (`ChatParticipant.route`); one delivered to by webhook is refused there (409).
+- **`/rooms` and `/protocol` from outside a room.** They ask about the sender and the server, not the room: a
+  participant is answered them whatever existing room the message names, also one it is not in (or the default room
+  when it names none), so that one that was handed a token and nothing else can find out where it is. Everything else
+  sent to a room one is not in is refused as before (`ChatServerCore.post`; the runner's
+  `TestS3_4_RoomsAndProtocolFromOutsideTheRoom`).
 - **Neutral names.** Tests, docs and examples use `ada` (the person), `bot1`, `bot2`, `room1`. The wire strings the
   conformance suite asserts (403 texts, the protocol's own wording) stay as they are.
 
@@ -187,8 +207,9 @@ and another browser of the LAN option gets what `serve.chat` allows (below, "In 
   owner's own callers `X-Chat-Token` too); with no token, the owner's socket or an owned caller is the human. An agent
   address — loopback under the daemon, where a fenced session or a polling client calls from — is served this one path
   besides `/agent/`: `GET` or `HEAD` of an exact `/files/<id>/<name>` (nothing a router would tidy) with a Bearer token
-  (`ChatPath.isFilePath`, `ChatPageHandler.isTokenFileFetch`); without one it is 403, and a token that is no one's, or
-  the human's, fetches nothing (404) — an agent address is never the human. The line port's `file` line is the token's
+  that is a participant's (`ChatPath.isFilePath`, `ChatPageHandler.isTokenFileFetch`); without one, or with a token
+  that is no one's, it is the agent-only 403 (the address rule comes first), and the human's token fetches nothing
+  (404) — an agent address is never the human. From an owned caller a Bearer token that is no one's is the plain 404. The line port's `file` line is the token's
   participant, else the name the line gives, else (an owned connection) the human. Anything else is the plain 404 or
   "no such attachment", the same as an unknown id. A download carries `Accept-Ranges: bytes`,
   `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`, and anything but a PNG, JPEG, GIF or WebP is

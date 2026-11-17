@@ -2,7 +2,7 @@
 # It is a release asset of the reference server's private repository; a new version is a deliberate bump of this file,
 # re-run and committed with the ratchet. `minimum` is the ratchet's size at this pin: the script and
 # ConformanceRatchetTests refuse a ratchet with fewer names.
-version 0.13.2
+version 0.14.1
 platform darwin-arm64
-sha256 f85a1a4b45fa4dbb312c222d5d433d27990c1055499b26fc48a801d62a27f268
-minimum 169
+sha256 3f67f1e57a1b996573b2be29b8d6c9289f5ea51771243211593be7058d699b73
+minimum 171

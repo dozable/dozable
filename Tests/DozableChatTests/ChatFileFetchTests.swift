@@ -80,9 +80,12 @@ final class ChatFileFetchTests: XCTestCase {
         let none = get(h, "/files/\(id)/r3.txt")
         XCTAssertEqual(none.status, 403)
         XCTAssertEqual(none.text, ChatAccess.agentOnly + "\n")
-        // the human's token never makes an agent address the human; an unknown token is no one
+        // the human's token never makes an agent address the human (the plain 404); an unknown token is no one, and the
+        // address rule comes first: the agent-only 403 (protocol 1.2, the reference's 0.14 TestS4_8_FetchFromAgentAddress)
         XCTAssertEqual(get(h, "/files/\(id)/r3.txt", bearer: Self.humanToken).status, 404)
-        XCTAssertEqual(get(h, "/files/\(id)/r3.txt", bearer: "no-such-token-0123456789").status, 404)
+        let unknown = get(h, "/files/\(id)/r3.txt", bearer: "no-such-token-0123456789")
+        XCTAssertEqual(unknown.status, 403)
+        XCTAssertEqual(unknown.text, ChatAccess.agentOnly + "\n")
         // X-Chat-Token is not a way in for an agent address
         XCTAssertEqual(get(h, "/files/\(id)/r3.txt", headers: ["x-chat-token": Self.bot1Token]).status, 403)
         // a member's token fetches; one not in the room does not (the plain 404)
