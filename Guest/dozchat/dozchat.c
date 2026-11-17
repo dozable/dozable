@@ -1005,7 +1005,13 @@ static int http_call(const char *method, const char *path, const unsigned char *
     if (fd < 0) { buf_free(&req); return EXIT_AWAY; }
     int sent = send_all(fd, req.p, req.len, deadline);
     buf_free(&req); /* it held the token */
-    if (sent < 0) { close(fd); return EXIT_AWAY; }
+    /* A write that failed (a proxy that refused us may answer and close before reading the body): whatever answer
+     * already arrived is still read — briefly — before deciding. No answer: the write's failure stands (EXIT_AWAY). */
+    int cut = sent < 0;
+    char send_why[sizeof g_why];
+    memcpy(send_why, g_why, sizeof g_why);
+    double rdeadline = deadline;
+    if (cut && now_s() + 2 < rdeadline) rdeadline = now_s() + 2;
     struct buf in = buf_new(cap > SIZE_MAX - MAX_HEAD ? SIZE_MAX : cap + MAX_HEAD);
     struct head h;
     memset(&h, 0, sizeof h);
@@ -1014,15 +1020,30 @@ static int http_call(const char *method, const char *path, const unsigned char *
     for (;;) {
         if (have_head && h.length >= 0 && in.len - h.size >= (size_t)h.length) break;
         struct pollfd p = {fd, POLLIN, 0};
-        int pr = poll(&p, 1, left_ms(deadline));
+        int pr = poll(&p, 1, left_ms(rdeadline));
         if (pr < 0 && errno == EINTR) continue;
-        if (pr == 0) { set_why("timed out waiting for the answer"); rc = EXIT_AWAY; break; }
+        if (pr == 0) {
+            if (cut && have_head) break; /* the refusal's head is what counts */
+            if (cut) memcpy(g_why, send_why, sizeof g_why);
+            else set_why("timed out waiting for the answer");
+            rc = EXIT_AWAY;
+            break;
+        }
         ssize_t r = recv(fd, chunk, sizeof chunk, 0);
         if (r < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) continue;
-        if (r < 0) { set_why_errno("the connection broke", errno); rc = EXIT_AWAY; break; }
+        if (r < 0) {
+            if (have_head && (cut || h.status >= 400)) break; /* a reset after an answer's head: the answer stands */
+            if (cut) memcpy(g_why, send_why, sizeof g_why);
+            else set_why_errno("the connection broke", errno);
+            rc = EXIT_AWAY;
+            break;
+        }
         if (r == 0) {
-            if (!have_head) { set_why(in.len ? "the answer was cut off" : "the connection closed without an answer"); rc = EXIT_AWAY; }
-            else if (h.length >= 0) { set_why("the answer was cut off"); rc = EXIT_AWAY; }
+            if (!have_head) {
+                if (cut) memcpy(g_why, send_why, sizeof g_why);
+                else set_why(in.len ? "the answer was cut off" : "the connection closed without an answer");
+                rc = EXIT_AWAY;
+            } else if (h.length >= 0 && !cut && h.status < 400) { set_why("the answer was cut off"); rc = EXIT_AWAY; }
             break;
         }
         if (buf_add(&in, chunk, (size_t)r) < 0) {
@@ -1073,6 +1094,13 @@ static int answer_failure(const struct answer *a) {
     if (!why[0] && n) reason_text(b, n < 200 ? n : 200, why);
     if (!why[0]) memcpy(why, "no text", 8);
     int st = a->status;
+    /* The session's proxy said no before relaying anything: 407 always is the proxy's; a 401 through a proxy that is not
+     * the chat server's JSON is too. Exit 4, never retried; never the proxy's address or password. */
+    int json = n && scan_document(b, n, &s0, &s1) == 0 && b[s0] == '{';
+    if (st == 407 || (g_use_proxy && st == 401 && !json)) {
+        say("the proxy refused the credentials (HTTP %d)", st);
+        return EXIT_DENIED;
+    }
     if (st == 422) { say("refused: %s", why); return EXIT_REFUSED; }
     if (st == 401 || st == 403 || st == 409) { say("HTTP %d: %s", st, why); return EXIT_DENIED; }
     if (st >= 500) { say("HTTP %d from the chat server: %s", st, why); return EXIT_AWAY; }

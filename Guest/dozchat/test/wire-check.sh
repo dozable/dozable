@@ -42,6 +42,25 @@ out=$(env -i PATH=/usr/bin:/bin CHAT_URL="http://127.0.0.1:$SPORT" CHAT_TOKEN_FI
 [ $rc = 4 ] && ! grep -q wrong-token <<<"$out" && grep -q 'HTTP 401' <<<"$out"; check $? "a wrong token: exit 4, the token in no output (exit $rc)"
 grep -q "$TOKEN" "$W"/e* && bad=1 || bad=0; check $bad "the token in no stderr of the calls above"
 
+# A proxy that refuses the credentials (407, or 401) and closes before reading the body: exit 4 at once, one attempt,
+# "the proxy refused the credentials", the password in no output — a small message and one too big to be read first.
+head -c 900000 /dev/zero | tr '\0' 'x' > "$W/big.txt"
+for st in 407 401; do
+  rm -f "$W/rport"; python3 "$HERE/stub.py" refuse "$W/rport" "$st" "$W/refuse-$st.log" & pids+=($!)
+  waitfile "$W/rport"; RPORT=$(cat "$W/rport")
+  for size in small big; do
+    : > "$W/refuse-$st.log"
+    if [ $size = small ]; then
+      out=$(run HTTP_PROXY="http://doz:wrong-pass-0123456789@127.0.0.1:$RPORT" "$BIN" send room1 "hi" 2>&1); rc=$?
+    else
+      out=$(run HTTP_PROXY="http://doz:wrong-pass-0123456789@127.0.0.1:$RPORT" "$BIN" send room1 - < "$W/big.txt" 2>&1); rc=$?
+    fi
+    [ $rc = 4 ] && grep -q "the proxy refused the credentials (HTTP $st)" <<<"$out" && [ "$(grep -c connection "$W/refuse-$st.log")" = 1 ] \
+      && ! grep -q -e wrong-pass -e "$RPORT" -e "$TOKEN" <<<"$out"
+    check $? "a proxy that refuses the credentials ($st, a $size message): exit 4, one attempt, no password shown (exit $rc)"
+  done
+done
+
 # listen across a restart of the server (same port)
 run "$BIN" listen --wait 2 > "$W/listen.out" 2> "$W/listen.err" & lpid=$!; pids+=("$lpid")
 run "$BIN" send room1 "before the restart" >/dev/null 2>&1

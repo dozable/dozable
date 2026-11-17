@@ -388,6 +388,40 @@ final class ChatDozchatClientTests: XCTestCase {
     func testSendReceiveAcknowledgeThroughAProxyWithoutAPassword() throws { try useProxy(password: false); try sendReceiveAcknowledge() }
     func testAFileBothWaysThroughAProxyWithoutAPassword() throws { try useProxy(password: false); try aFileBothWays() }
 
+    /// A proxy that refuses the credentials (407; 401 likewise) and closes before reading the body: exit 4 at once — one
+    /// connection, no retry — "the proxy refused the credentials", and its password in no output. A small message, and one
+    /// too big for the proxy to have read before it closed.
+    func testAProxyThatRefusesTheCredentialsIsExit4AndOneAttempt() throws {
+        let big = String(repeating: "x", count: 900_000)
+        for status in [407, 401] {
+            for text in ["hi", big] {
+                let refusing = try RefusingProxy(status: status)
+                defer { refusing.stop() }
+                let (p, o, e) = process("bot1", text == "hi" ? ["send", "room1", "hi"] : ["send", "room1", "-"])
+                var env = p.environment ?? [:]
+                env["http_proxy"] = "http://doz:\(Self.proxyPassword)@127.0.0.1:\(refusing.port)"
+                env["NO_PROXY"] = "localhost"
+                p.environment = env
+                let i = Pipe()
+                p.standardInput = i
+                try p.run()
+                started.append(p)
+                let out = ChatPythonClientTests.Collector(o), err = ChatPythonClientTests.Collector(e)
+                if text != "hi" { DispatchQueue.global().async { i.fileHandleForWriting.write(Data(text.utf8)); try? i.fileHandleForWriting.close() } }
+                else { try? i.fileHandleForWriting.close() }
+                p.waitUntilExit()
+                out.finish(); err.finish()
+                allOutput += out.text + err.text
+                let what = "\(status), \(text.count) bytes"
+                XCTAssertEqual(p.terminationStatus, 4, "\(what): \(err.text)")
+                XCTAssertTrue(err.text.contains("dozchat: the proxy refused the credentials (HTTP \(status))"), "\(what): \(err.text)")
+                XCTAssertEqual(refusing.connections, 1, "\(what): one attempt, no retry")
+                XCTAssertFalse(err.text.contains(String(refusing.port)), "\(what): the proxy's address is not shown")
+            }
+        }
+        assertNoSecret()
+    }
+
     /// What the real server never sends: a redirect (never followed: one connection only), chunked encoding, a head with
     /// two lengths, the proxy's own 403 and 502, an answer cut short — and no secret in any of the words.
     func testAnswersTheServerNeverSends() throws {
@@ -421,6 +455,36 @@ final class ChatDozchatClientTests: XCTestCase {
         XCTAssertTrue(r.err.contains("with the same msg_id"), r.err)
         assertNoSecret()
     }
+}
+
+/// A proxy that refuses the credentials, as tinyproxy does with a wrong password: it reads the request's head only,
+/// answers `status` (407, or 401) and closes without reading the body. It counts connections.
+final class RefusingProxy: @unchecked Sendable {
+    let fd: Int32
+    let port: Int
+    private let lock = NSLock()
+    private var _connections = 0
+    var connections: Int { lock.withLock { _connections } }
+
+    init(status: Int) throws {
+        let l = try TestListen.listen()
+        fd = l.0
+        port = l.1
+        let reason = status == 407 ? "Proxy Authentication Required" : "Unauthorized"
+        Thread.detachNewThread { [self] in
+            while true {
+                let c = accept(fd, nil, nil)
+                if c < 0 { return }
+                if TestListen.readHead(c) != nil {
+                    lock.withLock { _connections += 1 }
+                    _ = TestListen.write(c, "HTTP/1.1 \(status) \(reason)\r\nProxy-Authenticate: Basic realm=\"stub\"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                }
+                close(c)
+            }
+        }
+    }
+
+    func stop() { shutdown(fd, SHUT_RDWR); close(fd) }
 }
 
 /// A plain-HTTP proxy for one test: it accepts absolute-form requests only, checks `Proxy-Authorization: Basic` against

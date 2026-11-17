@@ -11,8 +11,8 @@ every sandbox (`/usr/local/lib/doz/bin/dozchat`, linked `/usr/local/bin/dozchat`
 
 | | |
 |---|---|
-| sha256 (auto) | `a4a8e5c512124240a3241e75c9bd6f0d1ac2cdd3b65ae7534c2dd59141a85049` |
-| size (auto) | 118000 bytes |
+| sha256 (auto) | `b519388a366fc5defdb5c09cf75174c267909e3659fefacd9cfada63cc9f5e1c` |
+| size (auto) | 118560 bytes |
 | format | ELF 64-bit LSB executable, ARM aarch64, statically linked (musl), stripped |
 | source | [`dozchat.c`](dozchat.c) (this directory) |
 | Zig | 0.16.0 — the same pinned toolchain as the other guest helpers; [`build.sh`](build.sh) fetches it (same URL and sha256 as `../deckhold/build.sh`) when missing |
@@ -32,8 +32,8 @@ ziglang.org/download) and checks the bytes are these.
 
 | | |
 |---|---|
-| x86_64 sha256 | `05f3a1178a6ce8ee7d043b23f80856d718bf0f82a42466ec92999e9b7cb90267` |
-| x86_64 size | 128216 bytes |
+| x86_64 sha256 | `98c3e8a9b994f5bdf1cb2022f535bfc8050d49b3fdc97e4966ec910e6ebeedd1` |
+| x86_64 size | 128808 bytes |
 | format | ELF 64-bit LSB executable, x86-64, statically linked (musl), stripped |
 | reproducible | yes — two `FORCE=1` builds on the Mac (one after emptying Zig's local cache) gave identical bytes |
 

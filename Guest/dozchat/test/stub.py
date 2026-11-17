@@ -5,6 +5,8 @@ suites run dozchat against the real one. Every answer carries Content-Length and
 
     stub.py server PORTFILE LOGFILE [PORT]      the agent calls with one token (TOKEN below); 401 otherwise
     stub.py proxy PORTFILE UPSTREAM_PORT LOGFILE   absolute-form requests only, NO Proxy-Authorization expected
+    stub.py refuse PORTFILE STATUS LOGFILE         a proxy that refuses the credentials: it reads the request's head
+                                                   only, answers STATUS (407 or 401) and closes without reading the body
 """
 import http.server
 import json
@@ -134,8 +136,34 @@ class Proxy(http.server.BaseHTTPRequestHandler):
     do_POST = relay
 
 
+def refuse(portfile, status, logfile):
+    reason = {407: "Proxy Authentication Required", 401: "Unauthorized"}.get(status, "Refused")
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(("127.0.0.1", 0))
+    s.listen(8)
+    with open(portfile + ".tmp", "w") as f:
+        f.write(str(s.getsockname()[1]))
+    __import__("os").replace(portfile + ".tmp", portfile)
+    while True:
+        c, _ = s.accept()
+        head = b""
+        while b"\r\n\r\n" not in head and len(head) < 65536:
+            d = c.recv(1)
+            if not d:
+                break
+            head += d
+        log(logfile, "connection %s" % head.split(b"\r\n")[0].decode(errors="replace"))
+        c.sendall(("HTTP/1.1 %d %s\r\nProxy-Authenticate: Basic realm=\"stub\"\r\nContent-Type: text/html\r\n"
+                   "Content-Length: 0\r\nConnection: close\r\n\r\n" % (status, reason)).encode())
+        c.close()  # the body is never read: closing with it unread resets the connection
+
+
 def main():
     mode, portfile = sys.argv[1], sys.argv[2]
+    if mode == "refuse":
+        refuse(portfile, int(sys.argv[3]), sys.argv[4])
+        return
     if mode == "server":
         Server.logfile = sys.argv[3]
         port = int(sys.argv[4]) if len(sys.argv) > 4 else 0
