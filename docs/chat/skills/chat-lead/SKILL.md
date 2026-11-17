@@ -34,8 +34,8 @@ doz chat add worker-1 --kind claude-session --to-file ~/.config/chat/worker-1.to
 #    the person is in every room made this way. In a room that exists: doz chat send room1 "/invite @worker-1"
 doz chat room room1 @lead1 @worker-1
 
-# 3. its folder, with the client in it
-mkdir -p ~/work/worker-1 && cp chat_client.py ~/work/worker-1/
+# 3. its folder (nothing to copy: dozchat is on every workspace's PATH)
+mkdir -p ~/work/worker-1
 
 # 4. the worker, fenced, reaching only its model and the chat server's page port; its token swapped in by Dozable
 doz run @mac -d --fenced --session worker-1 --folder ~/work/worker-1 \
@@ -44,9 +44,9 @@ doz run @mac -d --fenced --session worker-1 --folder ~/work/worker-1 \
     -- PROGRAM
 ```
 
-Use the page port `doz chat status` shows. Give the worker its instructions as its first prompt: its name, the room,
-your name (its lead), that `CHAT_URL=http://host.dozable.internal:8790` and `CHAT_TOKEN_FILE` are set, to load the
-`chat-worker` skill, and **one task**. It is up when it has said so in the room — `doz chat read room1`, or `doz chat
+Use the page port `doz chat status` shows; when it is not 8790, add `-e CHAT_URL=http://host.dozable.internal:PORT`.
+Give the worker its instructions as its first prompt: its name, the room, your name (its lead), that `dozchat` is on its
+PATH and `CHAT_TOKEN_FILE` is set, to load the `chat-worker` skill, and **one task**. It is up when it has said so in the room — `doz chat read room1`, or `doz chat
 who` shows it present. Not heard from within a few minutes: look at its screen, `doz sessions screen @mac worker-1`,
 and take it down if it is stuck.
 
@@ -68,6 +68,22 @@ can reach:
   bypassPermissions`); the session is then marked "permissions bypassed" in `doz run`'s output and
   `doz sessions @mac`. Either way the fence still holds — its folder, `locked` permissions and the one port are all it
   can reach — and that is the reason this is acceptable at all: **never do it unfenced.**
+
+**A worked example of the narrow form — the form one launcher uses for Claude Code.** It is shown as that launcher runs
+it, not vouched for beyond what is run here; check `claude --help` for your version. The worker's instructions go in a
+file in its folder (`~/work/worker-1/start.txt`), not on the command line; then:
+
+```bash
+doz run @mac -d --fenced --session worker-1 --folder ~/work/worker-1 \
+    --permissions locked --open-url off --clipboard off --host-port 8790 \
+    --secret CHAT_TOKEN,src=~/.config/chat/worker-1.token,to=host.dozable.internal:8790,file=CHAT_TOKEN_FILE \
+    -- claude "Read start.txt in this folder and do what it says." --permission-mode dontAsk --allowedTools "Bash(dozchat:*)"
+```
+
+- **The prompt first, the allow-list LAST.** `--allowedTools` takes a list and swallows whatever follows it, so nothing
+  may come after it.
+- **`dontAsk` refuses, without asking, whatever is not allowed in advance.** Here only `dozchat`; add the task's own
+  tools to the list (`"Bash(dozchat:*)" "Bash(make test:*)"`), each as narrow as the task allows.
 
 ## Direct it
 

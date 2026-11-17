@@ -589,7 +589,7 @@ public final class ChatServerCore: @unchecked Sendable {
             for n in names {
                 if !known.contains(n) {
                     lock.unlock()
-                    return fail("the switchboard server does not know \(n). It knows: \(known.joined(separator: ", ")). A new participant is added on the server's Mac with: switchboard add NAME")
+                    return fail("the switchboard server does not know \(n). It knows: \(known.joined(separator: ", ")). A new participant is added on the server's Mac with: doz chat add NAME")
                 }
                 if f[0] == "/invite" && list.contains(n) { lock.unlock(); return fail("\(n) is already in this room") }
                 if f[0] == "/remove" && !list.contains(n) { lock.unlock(); return fail("\(n) is not in this room") }

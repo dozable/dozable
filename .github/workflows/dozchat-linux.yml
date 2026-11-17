@@ -1,0 +1,44 @@
+# dozchat on real x86_64 Linux — GitHub's hosted ubuntu-latest runner (x86_64; free for a public repository). It never
+# touches the self-hosted Macs, has no secrets and only reads the repository, so a fork's pull request may run it too.
+#   1. builds the static x86_64-linux-musl dozchat exactly as `make dozchat-linux-x86_64` does (Guest/dozchat/build.sh
+#      x86_64: Zig 0.16.0's x86_64-linux tarball, fetched by URL and checked by sha256) and checks its sha256 is the one
+#      Guest/dozchat/PROVENANCE.md records;
+#   2. compiles and runs the C unit check and its fuzz natively with clang under ASan + UBSan (test/run.sh);
+#   3. runs the static binary against test/stub.py (a stand-in for the chat server's agent calls, and a proxy with no
+#      password): send direct and through the proxy, receive --wait, ack, a 401, a server restart under listen
+#      (test/wire-check.sh). The Mac's suites run dozchat against the real chat server.
+name: dozchat on x86_64 Linux
+
+on:
+  pull_request:
+    paths: ["Guest/dozchat/**", ".github/workflows/dozchat-linux.yml"]
+  push:
+    branches: [main]
+    paths: ["Guest/dozchat/**", ".github/workflows/dozchat-linux.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  x86_64:
+    name: build, unit check, wire check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build the static x86_64 binary with the pinned Zig
+        run: FORCE=1 Guest/dozchat/build.sh x86_64
+      - name: Its bytes are the ones PROVENANCE records
+        run: |
+          file .build/dozchat-linux-x86_64/dozchat
+          sha=$(sha256sum .build/dozchat-linux-x86_64/dozchat | cut -d' ' -f1)
+          echo "sha256 $sha"
+          grep -qF "| x86_64 sha256 | \`$sha\` |" Guest/dozchat/PROVENANCE.md \
+            || { echo "::error::the x86_64 dozchat built here ($sha) is not the one Guest/dozchat/PROVENANCE.md records"; exit 1; }
+      - name: The unit check and fuzz, natively, under ASan + UBSan
+        run: CC=clang ITERATIONS=25000 Guest/dozchat/test/run.sh
+      - name: The static binary against the stub server and proxy
+        run: Guest/dozchat/test/wire-check.sh .build/dozchat-linux-x86_64/dozchat

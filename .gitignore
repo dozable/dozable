@@ -9,6 +9,7 @@ Guest/deckhold/out/
 Guest/doznet/out/
 Guest/dozview/out/
 Guest/tmux/out/
+Guest/dozchat/out/
 
 # The built docs site — reproducible from DozableKit.docc + source in under two minutes (`make docs`);
 # not committed.

@@ -150,7 +150,9 @@ fi
 # never in the feed or a formula: an app pins it and updates it itself.
 ASSETS="\"$TARBALL\" \"$TARBALL.sha256\""
 HELPER="$DIST/doz-${VERSION}-macos-arm64-helper.tar.gz"
-for f in "$DIST/doz-${VERSION}-macos-arm64.dSYM.zip" "$HELPER" "$HELPER.sha256" "$DIST/doz-${VERSION}-macos-arm64-helper.dSYM.zip"; do
+# + dozchat for x86_64 Linux (agents outside Dozable), with its .sha256.
+for f in "$DIST/doz-${VERSION}-macos-arm64.dSYM.zip" "$HELPER" "$HELPER.sha256" "$DIST/doz-${VERSION}-macos-arm64-helper.dSYM.zip" \
+         "$DIST/dozchat-linux-x86_64" "$DIST/dozchat-linux-x86_64.sha256"; do
     if [[ -f "$f" ]]; then ASSETS="$ASSETS \"$f\""; fi
 done
 RELEASE_NOTES="$NOTES"

@@ -19,6 +19,12 @@ import Foundation
 //                         session runs the same tmux on every base (the distros ship 3.3a–3.6a). KEPT when the setting
 //                         turns off: a running session's tmux server may be it, and only a client of its own version
 //                         can end it. The distro's tmux (the baseline bakes it) is never touched.
+//   dozchat               always — Dozable's chat-room member (Guest/dozchat/: one C file, a static musl binary built
+//                         reproducibly, committed as Resources/dozchat), COPIED in like tmux to
+//                         /usr/local/lib/doz/bin/dozchat when the guest's copy is not these bytes (its sha256 is kept
+//                         in /var/lib/doz/tools/dozchat.sha256), by rename, and linked /usr/local/bin/dozchat when that
+//                         name is free. No setting: it gives the sandbox no new reach (the chat server is reached
+//                         through the proxy and the route, as curl would). Never removed.
 //   git, curl, ca-certificates   always — from apt/apk when missing (every catalogue base bakes them; the
 //                         lab and an old image may not).
 //
@@ -123,6 +129,12 @@ public enum ToolsLayer {
     /// sha256 of `Resources/tmux` — the copy is refused when the bundled file is not these bytes (`TmuxBinary`).
     public static let tmuxSHA256 = "48b1ee2b533b1fce7bb01de64ab4bfabe6150d9c22e043daaf5deebc503b7ed9"
 
+    /// dozchat — Dozable's own build (`Guest/dozchat/build.sh`, `Guest/dozchat/PROVENANCE.md`), in the package's resources.
+    /// Its own version, not Dozable's (the bytes change only when its source does).
+    public static let dozchatVersion = "1"
+    /// sha256 of `Resources/dozchat` — the copy is refused when the bundled file is not these bytes (`DozchatBinary`).
+    public static let dozchatSHA256 = "b519388a366fc5defdb5c09cf75174c267909e3659fefacd9cfada63cc9f5e1c"
+
     /// GitHub's published SSH host keys (https://api.github.com/meta `ssh_keys`; docs: "GitHub's SSH key
     /// fingerprints") — public, pinned here so the guest never trusts a key on first use.
     public static let githubHostKeys = [
@@ -140,6 +152,9 @@ public enum ToolsLayer {
     /// Ahead of the distro's /usr/bin/tmux on every PATH (`doz exec`, a login shell) — so a person's `tmux ls` talks
     /// to the session's server with a client of the same version. Made only where nothing else is.
     public static let tmuxLink = "/usr/local/bin/tmux"
+    public static let guestDozchatPath = GuestCommand.openShimDirectory + "/dozchat"
+    /// On every PATH (`doz exec`, a login shell) — made only where nothing else is.
+    public static let dozchatLink = "/usr/local/bin/dozchat"
     /// The layer's state in the guest: its existence marks the first apply done; `gh.version` is the copy's.
     public static let guestStateDirectory = "/var/lib/doz/tools"
     public static let knownHostsPath = "/etc/ssh/ssh_known_hosts"
@@ -181,6 +196,9 @@ public enum ToolsLayer {
             items.append(ToolItem(id: "doz-sound", title: "doz-sound", reason: "for sound", kind: "file",
                                   source: "written by Dozable in \(DozSound.path)"))
         }
+        // Always: the chat-room member (no setting — owner, "ship dozchat always").
+        items.append(ToolItem(id: "dozchat", title: "dozchat", reason: "for chat rooms", kind: "binary", version: dozchatVersion,
+                              source: "built into Dozable (static, reproducible), copied in"))
         for (id, cmd) in [("git", "git"), ("curl", "curl"), ("ca-certificates", caBundle)] {
             items.append(ToolItem(id: id, title: id, reason: "always", kind: "package", source: "apt/apk through the proxy, when missing",
                                   package: id, command: cmd))
@@ -195,6 +213,7 @@ public enum ToolsLayer {
         if [ -d '\(guestStateDirectory)' ]; then echo first=0; else echo first=1; fi
         [ -x '\(guestGhPath)' ] && v=$(cat '\(guestStateDirectory)/gh.version' 2>/dev/null) && echo "gh=$v"
         [ -x '\(guestTmuxPath)' ] && v=$(cat '\(guestStateDirectory)/tmux.version' 2>/dev/null) && echo "tmux=$v"
+        [ -x '\(guestDozchatPath)' ] && v=$(cat '\(guestStateDirectory)/dozchat.sha256' 2>/dev/null) && echo "dozchat=$v"
         for c in git curl ssh tmux; do command -v "$c" >/dev/null 2>&1 && echo "have=$c"; done
         [ -s '\(caBundle)' ] && echo have=ca-certificates
         command -v aplay >/dev/null 2>&1 && echo have=alsa-utils
@@ -209,6 +228,8 @@ public enum ToolsLayer {
         public var gh: String?
         /// Dozable's tmux in the guest (its version), not the distro's (`have=tmux`).
         public var tmux: String?
+        /// The sha256 of the guest's dozchat, as recorded when it was copied in.
+        public var dozchat: String?
         public var have: Set<String> = []
         public var packageManager = "none"
 
@@ -218,6 +239,7 @@ public enum ToolsLayer {
                 if line == "first=0" { s.first = false }
                 else if line.hasPrefix("gh=") { s.gh = String(line.dropFirst(3)) }
                 else if line.hasPrefix("tmux=") { s.tmux = String(line.dropFirst(5)) }
+                else if line.hasPrefix("dozchat=") { s.dozchat = String(line.dropFirst(8)) }
                 else if line.hasPrefix("have=") { s.have.insert(String(line.dropFirst(5))) }
                 else if line.hasPrefix("pm=") { s.packageManager = String(line.dropFirst(3)) }
             }
@@ -231,10 +253,11 @@ public enum ToolsLayer {
     }
 
     /// Root shell: apply `plan` to a guest in `state` (gh already copied to `<guestGhPath>.tmp` when
-    /// `ghCopied`, tmux to `<guestTmuxPath>.tmp` when `tmuxCopied`). One `doz-tool ID STATE DETAIL` line per tool.
-    /// Never fails the caller.
+    /// `ghCopied`, tmux to `<guestTmuxPath>.tmp` when `tmuxCopied`, dozchat to `<guestDozchatPath>.tmp` when `dozchatCopied` —
+    /// `dozchatSHA`: the copy's sha256). One `doz-tool ID STATE DETAIL` line per tool. Never fails the caller.
     public static func applyScript(_ plan: ToolPlan, state: GuestState, ghCopied: Bool, ghProblem: String?, audioApp: String? = nil,
-                                   microphone: String? = nil, tmuxCopied: Bool = false, tmuxProblem: String? = nil) -> String {
+                                   microphone: String? = nil, tmuxCopied: Bool = false, tmuxProblem: String? = nil,
+                                   dozchatCopied: Bool = false, dozchatSHA: String = dozchatSHA256, dozchatProblem: String? = nil) -> String {
         var s = "log='\(guestLog)'; mkdir -p '\(guestStateDirectory)' 2>/dev/null; "
         func say(_ id: String, _ st: String, _ detail: String) -> String {
             "echo 'doz-tool \(id) \(st) \(detail.replacingOccurrences(of: "'", with: "’"))'; "
@@ -295,6 +318,21 @@ public enum ToolsLayer {
                 s += "mkdir -p /usr/local/bin; \(tlink)" + say("tmux", "ok", "tmux \(tmuxVersion)")
             } else {
                 s += say("tmux", "skipped", tmuxProblem ?? "not in this build of Dozable")
+            }
+        }
+        // dozchat: Dozable's copy (moved into place when copied — a rename, so a running dozchat keeps its file), or nothing
+        // to do, or a reason. Linked as /usr/local/bin/dozchat only when that name is free or already Dozable's.
+        if plan.items.contains(where: { $0.id == "dozchat" }) {
+            let clink = "if [ ! -e '\(dozchatLink)' ] && [ ! -L '\(dozchatLink)' ] || [ \"$(readlink '\(dozchatLink)')\" = '\(guestDozchatPath)' ]; then ln -sf '\(guestDozchatPath)' '\(dozchatLink)'; fi; "
+            let sha = dozchatSHA.allSatisfy { $0.isHexDigit } ? dozchatSHA : ""
+            if dozchatCopied {
+                s += "if mkdir -p '\(GuestCommand.openShimDirectory)' && mv -f '\(guestDozchatPath).tmp' '\(guestDozchatPath)' && chmod 0755 '\(guestDozchatPath)' && [ \"$('\(guestDozchatPath)' --version 2>/dev/null)\" = 'dozchat \(dozchatVersion)' ]; then "
+                    + "printf '%s' '\(sha)' > '\(guestStateDirectory)/dozchat.sha256'; mkdir -p /usr/local/bin; \(clink)\(say("dozchat", "installed", "dozchat, built into Dozable"))"
+                    + "else rm -f '\(guestDozchatPath)' '\(guestDozchatPath).tmp' '\(guestStateDirectory)/dozchat.sha256'; \(say("dozchat", "failed", "the copied dozchat does not run here"))fi; "
+            } else if let have = state.dozchat, have == sha, !sha.isEmpty {
+                s += "mkdir -p /usr/local/bin; \(clink)" + say("dozchat", "ok", "dozchat")
+            } else {
+                s += say("dozchat", "skipped", dozchatProblem ?? "not in this build of Dozable")
             }
         }
         // github.com's host keys: a managed block (replaced as a whole; removed when off).

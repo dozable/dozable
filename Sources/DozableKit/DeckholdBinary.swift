@@ -100,3 +100,43 @@ public enum TmuxBinary {
     private static let lock = NSLock()
     nonisolated(unsafe) private static var checked: (path: String, sum: String)?
 }
+
+/// Finds the committed guest `dozchat` (the chat-room member — `Guest/dozchat/`, copied in by the tools layer into EVERY
+/// sandbox, no setting) the same way, and accepts it only when its bytes are the pinned ones (`ToolsLayer.dozchatSHA256`).
+/// `$DOZ_DOZCHAT` overrides (a local rebuild, a test) and is taken as it is.
+public enum DozchatBinary {
+    public static let resourceName = "dozchat"
+    public static let environmentOverride = "DOZ_DOZCHAT"
+
+    public static func locate(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
+        DeckholdBinary.locate(resource: resourceName, override: environmentOverride, environment: environment)
+    }
+
+    /// The file to copy in and its sha256, or why there is none.
+    public static func verified(environment: [String: String] = ProcessInfo.processInfo.environment) -> Result<(url: URL, sha256: String), CheckFailure> {
+        guard let url = locate(environment: environment) else {
+            return .failure(CheckFailure("this build of Dozable has no dozchat of its own"))
+        }
+        let sum: String? = lock.withLock {
+            if let c = checked, c.path == url.path { return c.sum }
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            let s = ToolsCache.sha256(data)
+            checked = (url.path, s)
+            return s
+        }
+        if let o = environment[environmentOverride], !o.isEmpty, let sum { return .success((url, sum)) }
+        return check(url, sum: sum).map { ($0, sum ?? "") }
+    }
+
+    /// `url` when `sum` (its sha256) is the pin.
+    static func check(_ url: URL, sum: String?) -> Result<URL, CheckFailure> {
+        guard let sum else { return .failure(CheckFailure("could not read Dozable's dozchat (\(url.path))")) }
+        guard sum == ToolsLayer.dozchatSHA256 else {
+            return .failure(CheckFailure("Dozable's dozchat is not the pinned build (sha256 \(sum.prefix(16))…) — not used"))
+        }
+        return .success(url)
+    }
+
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var checked: (path: String, sum: String)?
+}

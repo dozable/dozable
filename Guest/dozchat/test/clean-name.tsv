@@ -1,0 +1,31 @@
+# The chat server's name rule (ChatFileRules.cleanName), shared by Guest/dozchat/test/unit-check.c (clean_name) and
+# Tests/DozableChatTests/DozchatUnitTests.swift (the server's own function): INPUT<TAB>EXPECTED, one per line, UTF-8.
+# An empty INPUT is the empty name. Lines starting with # are comments.
+report.txt	report.txt
+report one.bin	report one.bin
+a/b/c.txt	c.txt
+a\b\c.txt	c.txt
+dir/	dir
+dir//	dir
+dir\	dir
+/	_
+//	_
+\	_
+	file
+.	file
+..	file
+../../etc/passwd	passwd
+../	file
+.hidden	hidden
+ . .x	x
+...	file
+a:b*c?.txt	a_b_c_.txt
+résumé.pdf	r_sum_.pdf
+😀.png	_.png
+日本語	___
+(1) + [2].txt	(1) + _2_.txt
+x/..	file
+x/.	file
+name;rm -rf.sh	name_rm -rf.sh
+%2e%2e%2fx	_2e_2e_2fx
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789.txt	45678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789.txt

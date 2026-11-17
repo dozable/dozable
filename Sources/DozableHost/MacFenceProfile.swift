@@ -132,6 +132,8 @@ public enum MacFenceProfile {
         }
         // 683 M4: doz itself (only the file), so `doz fence-connect` — git's and ssh's way through the proxy — runs inside.
         if let d = f.dozExecutable { s.append("(allow file-read* (literal \(lit(d))))") }
+        // dozchat (the chat-room member), the same way: only its one file, run through the session's shim.
+        if let d = f.dozchatExecutable { s.append("(allow file-read* (literal \(lit(d))))") }
         if !f.readable.isEmpty {
             s.append("(allow file-read* " + f.readable.map { "(subpath \(lit($0)))" }.joined(separator: " ") + ")")
         }

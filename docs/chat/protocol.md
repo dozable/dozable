@@ -1,4 +1,4 @@
-<!-- Copied unchanged from the public source of the chat protocol, tag v0.14.1, commit d7ce95126d830ad86338c0b36aab5e4f0ee38d34, protocol version da04ef349a. Not edited here: Scripts/chat-protocol-sync.sh copies it again. -->
+<!-- Copied unchanged from the public source of the chat protocol, commit dd9b3d8508935c896dac73fda3e2de6badaae0e1, protocol version da04ef349a. Not edited here: Scripts/chat-protocol-sync.sh copies it again. -->
 <!-- Generated. Do not edit by hand: change the source and regenerate. -->
 
 > **About this document.** This is the protocol of Dozable chat: the rooms, messages, direct
@@ -543,7 +543,7 @@ command in this table.
 | `/delete [^id]` | The author, or any human | Deletes (section 4.6). Not stored as a message. Done once per `msg_id` | `deleted`, `refused` or `duplicate` |
 | `/react [^id] reaction` | Any member | Toggles a reaction (section 4.7). Not stored as a message. Done once per `msg_id` | `added`, `removed`, `refused` or `duplicate` |
 | `/protocol` | Any participant, whatever room the message names (also one it is not in) | A participant whose `deliver` is `inbox-socket` gets the protocol text (section 9.1.1, as Markdown) in its session's inbox, written as a note (section 7.3), and no text in the receipt; every other sender gets the same text as the `detail` of the receipt. Nothing is recorded | `queued`, with no `detail`, for an `inbox-socket` participant (`refused` when its session is not running, with the text in the table below); `info` with the text for any other |
-| `/rooms` | Any participant, whatever room the message names (also one it is not in, so that a participant that was handed a token and nothing else can find out where it is; the room must exist). Exactly one word. Allowed in an archived room | Answers with the sender's rooms. Nothing is recorded | `info`, with `detail` such as `You are in: #general with claude, grokbot; #duo (archived, read-only) with claude. Start a message with #room to post in one.` or `You are in no room.` (which cannot be reached, as the sender must be a member of the room it sends in). With any word after it: `refused` with the usage text |
+| `/rooms` | Any participant, whatever room the message names (also one it is not in, so that a participant that was handed a token and nothing else can find out where it is; the room must exist; a message that names no room is in the default room, which always exists, so an agent that knows nothing but its token sends `/rooms` with no room). Exactly one word. Allowed in an archived room | Answers with the sender's rooms. Nothing is recorded | `info`, with `detail` such as `You are in: #general with claude, grokbot; #duo (archived, read-only) with claude. Start a message with #room to post in one.` or `You are in no room.` for a participant that is a member of none. With any word after it: `refused` with the usage text |
 | `/hold on`, `/hold <1 to 1000>`, `/hold off` | A human | Sets the room's hold. `/hold` alone is `on` (limit 8). Resets the run count, and hands over, in order, the messages the hold kept back (section 7.2) | `queued`. A change line records `John turned the hold on: after 8 agent messages in a row, messages to agents wait until a human posts` or `John turned the hold off: agents can talk among themselves without limit` |
 | `/room <name> @member ...` | Any member except a launched session (a registered token, delivery `poll`). Allowed in an archived room | Creates a room (section 3.5) | `queued`. Sent from an archived room: `info` with the text of the change line, and nothing is written into the archived room. Error text below |
 | `/invite @name ...` | A human | Adds directory members to this room | `queued`. Change line `John invited Grokbot to the room` |
@@ -2115,7 +2115,10 @@ read as JSON whatever its `Content-Type` says; send `Content-Type:
 application/json` all the same. For a waiting `receive`, give the client a timeout
 some seconds longer than `wait` (15 more is enough). The first `receive` from a
 server that has just started, or after its protocol changed, holds an item of type
-`protocol` (section 7.7): it needs no answer, only its confirmation. There is no
+`protocol` (section 7.7): it needs no answer, only its confirmation. An answer with a status of 500 or above is the server's own fault and says
+nothing about the request: the client waits a moment and tries again, as for a
+refused connection (section 7.5), and a `send` tried again carries the same
+`msg_id` so that it is recorded once. There is no
 call that tells a participant its own name; the owner tells it with the token, and
 `/rooms` (section 3.4) tells it its rooms from any room. A refused message is not
 recorded and nothing is delivered. The `msg_id` of a refused command may be sent

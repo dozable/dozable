@@ -224,7 +224,9 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   `ProxyCommand="<doz>" fence-connect %h %p`, `UserKnownHostsFile=<session>/ssh/known_hosts` and
   `StrictHostKeyChecking=accept-new` (a new host key is kept in the session; a CHANGED one still fails). It CONNECTs
   through `$HTTPS_PROXY` (only `http://USER:PASSWORD@127.0.0.1:PORT`) and relays stdin/stdout; the proxy judges the name
-  (port 22 is never decrypted). The profile reads doz's own file only (`MacFence.dozExecutable`). git's command-line
+  (port 22 is never decrypted). The profile reads doz's own file only (`MacFence.dozExecutable`) — and dozchat's
+  (`MacFence.dozchatExecutable`, `MacDozchat`): the session's `etc/bin/dozchat` shim execs `dozchat-mac` beside doz, the
+  chat-room member (chat.md, "dozchat"); none in an unfenced session or the helper build. git's command-line
   config (`MacFenceEnvironment.gitConfig`): `credential.helper` emptied (the system's osxkeychain helper — closed with the
   Keychain, and under `--keychain` it would store the placeholder in the person's Keychain), then github.com's helper:
   the placeholder from `$GH_TOKEN` with `--github`, else one that says how to get a credential and answers `quit=1`.

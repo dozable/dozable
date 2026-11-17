@@ -40,6 +40,10 @@ DOZVIEW_RES := Sources/DozableKit/Resources/dozview
 TMUX_OUT := Guest/tmux/out/tmux
 TMUX_RES := Sources/DozableKit/Resources/tmux
 
+DOZCHAT_OUT := Guest/dozchat/out/dozchat
+DOZCHAT_RES := Sources/DozableKit/Resources/dozchat
+DOZCHAT_MAC := .build/dozchat-mac/dozchat-mac
+
 # ── The doz CLI (585) ──────────────────────────────────────────────────────
 # `make cli` builds the debug binary and signs it with the virtualization entitlement (an unsigned
 # doz runs every command but cannot boot a VM). `make install-cli PREFIX=~/.local` builds
@@ -68,7 +72,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test test-chat-conformance chat-markdown-check app test-cli-app test-cli-alwayson test-cli-chat test-cli-daemon test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test test-chat-conformance chat-markdown-check app test-cli-app test-cli-alwayson test-cli-chat test-cli-daemon test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check dozchat-mac dozchat-linux-x86_64 dozchat-check dozchat dozchat-verify css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -253,6 +257,9 @@ cli: ## Build the doz CLI and sign it with the virtualization entitlement (.buil
 	  Guest/deckhold/build-mac.sh >/dev/null && cp .build/deckhold-mac/deckhold-mac "$(dir $(CLI_BIN)).deckhold-mac.new" \
 	    && mv -f "$(dir $(CLI_BIN)).deckhold-mac.new" "$(dir $(CLI_BIN))deckhold-mac"; \
 	else echo "note: deckhold-mac not built (no pinned toolchain in .tools — make deckhold once)"; fi
+	@# dozchat-mac beside doz (a fenced session's `dozchat`), by rename. Needs only the Mac's cc.
+	@Guest/dozchat/build-mac.sh >/dev/null && cp $(DOZCHAT_MAC) "$(dir $(CLI_BIN)).dozchat-mac.new" \
+	  && mv -f "$(dir $(CLI_BIN)).dozchat-mac.new" "$(dir $(CLI_BIN))dozchat-mac"
 
 # The menu bar app (docs/engineering/menu-bar-app.md): the `Dozable` product assembled into .build/debug/Dozable.app —
 # beside .build/debug/doz, where `doz app install` finds the copy it installs — and signed AD HOC, always (hardened
@@ -286,6 +293,10 @@ install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.lo
 	    && codesign --force --sign - "$(PREFIX)/libexec/doz/.deckhold-mac.new" \
 	    && mv -f "$(PREFIX)/libexec/doz/.deckhold-mac.new" "$(PREFIX)/libexec/doz/deckhold-mac"; \
 	else echo "note: deckhold-mac not installed (no pinned toolchain in .tools — make deckhold once)"; fi
+	@# dozchat-mac the same way — by rename (a running session keeps its file), signed ad hoc, no entitlements.
+	Guest/dozchat/build-mac.sh >/dev/null && cp $(DOZCHAT_MAC) "$(PREFIX)/libexec/doz/.dozchat-mac.new" \
+	  && codesign --force --sign - "$(PREFIX)/libexec/doz/.dozchat-mac.new" \
+	  && mv -f "$(PREFIX)/libexec/doz/.dozchat-mac.new" "$(PREFIX)/libexec/doz/dozchat-mac"
 	@# The menu bar app's copy beside doz (what `doz app install` installs), by rename too: assembled and signed as
 	@# .Dozable.app.new, the old one moved aside, the new one renamed in, the old one removed.
 	swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS) -c release --product Dozable
@@ -549,6 +560,29 @@ deckhold-mac-check: deckhold-mac ## deckhold on the Mac: the status, grid and sn
 deckhold-verify: ## Rebuild deckhold from scratch and check the committed bytes match (slow: pinned Zig + ghostty)
 	FORCE=1 Guest/deckhold/build.sh
 	@cmp $(DECKHOLD_OUT) $(DECKHOLD_RES) && echo "ok deckhold: the committed binary is exactly what the pinned source builds"
+
+# dozchat — the chat-room member every sandbox and every fenced session gets (Guest/dozchat/, one C file). The guest
+# binary is committed (static aarch64-linux-musl, the pinned Zig — build.sh fetches it when missing); the Mac's is built
+# per release and never committed. dozchat-check: the unit check under ASan + UBSan with a seeded fuzz.
+dozchat: ## Rebuild the dozchat guest binary (static, pinned Zig), install it as the committed resource, refresh PROVENANCE.md
+	Guest/dozchat/build.sh
+	cp $(DOZCHAT_OUT) $(DOZCHAT_RES)
+	@Scripts/dozchat-provenance.sh
+
+dozchat-verify: ## Rebuild dozchat from scratch and check the committed bytes match
+	FORCE=1 Guest/dozchat/build.sh
+	@cmp $(DOZCHAT_OUT) $(DOZCHAT_RES) && echo "ok dozchat: the committed binary is exactly what the pinned source builds"
+
+dozchat-mac: ## Build dozchat for THIS Mac (a fenced session's dozchat): the Mac's cc → .build/dozchat-mac/dozchat-mac (not committed)
+	Guest/dozchat/build-mac.sh
+
+dozchat-linux-x86_64: ## dozchat for agents OUTSIDE Dozable on x86_64 Linux: static x86_64-linux-musl, the same source, flags and pinned Zig → .build/dozchat-linux-x86_64/dozchat (not committed, never in a sandbox; a release asset)
+	FORCE=1 Guest/dozchat/build.sh x86_64
+	@grep -qF "| x86_64 sha256 | \`$$(shasum -a 256 .build/dozchat-linux-x86_64/dozchat | cut -d' ' -f1)\` |" Guest/dozchat/PROVENANCE.md \
+	  && echo "ok dozchat-linux-x86_64: the bytes Guest/dozchat/PROVENANCE.md records"
+
+dozchat-check: ## dozchat's unit check under AddressSanitizer + UndefinedBehaviorSanitizer: fixed vectors, then a seeded fuzz (ITERATIONS, default 25000)
+	Guest/dozchat/test/run.sh
 
 doznet: ## Rebuild the doznet guest binary (580), install it as the committed resource, refresh PROVENANCE.md
 	Guest/doznet/build.sh

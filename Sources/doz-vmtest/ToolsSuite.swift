@@ -202,6 +202,13 @@ func cliToolsSuite(binary: String) async {
     check(!fm.fileExists(atPath: t.store.appendingPathComponent("tools/gh/\(ToolsLayer.ghVersion)/gh").path), "nothing of the tampered download is kept on the Mac")
     r = t.run(["exec", "t1", "--", "sh", "-c", "for c in git curl ssh; do command -v $c; done; [ -e \(ToolsLayer.guestGhPath) ] && echo HAS-GH || echo NO-GH"])
     check(r.out.contains("/git") && r.out.contains("/curl") && r.out.contains("/ssh") && r.out.contains("NO-GH"), "in the guest: git, curl and ssh installed; no gh (\(r.out.debugDescription))")
+    // dozchat: always there, no setting — Dozable's copy, linked on every PATH, its bytes recorded.
+    func dozchatThere(_ n: String) -> Bool {
+        let o = t.run(["exec", n, "--", "sh", "-c", "dozchat --version; readlink /usr/local/bin/dozchat; cat \(ToolsLayer.guestStateDirectory)/dozchat.sha256"]).out
+        return o.contains("dozchat \(ToolsLayer.dozchatVersion)\n\(ToolsLayer.guestDozchatPath)\n\(ToolsLayer.dozchatSHA256)")
+    }
+    check(startOut.contains("tools: dozchat — for chat rooms"), "the first start: dozchat a progress line")
+    check(dozchatThere("t1"), "dozchat in the lab: on PATH, linked from /usr/local/bin, the pinned bytes")
     r = t.run(["exec", "t1", "--", "sh", "-c", "grep -c '^github.com ' \(ToolsLayer.knownHostsPath); grep -c '^github.com ' \(ToolsLayer.knownHostsPath) | true"])
     check(r.out.hasPrefix("3"), "github.com's three published host keys in \(ToolsLayer.knownHostsPath)")
     r = t.run(["exec", "t1", "--", "cat", ToolsLayer.knownHostsPath])
@@ -229,6 +236,9 @@ func cliToolsSuite(binary: String) async {
     check(t.run(["net", "deny", "t1", "github:as-you"]).code == 0, "GitHub as you OFF while it sleeps")
     r = t.run(["wake", "t1", "--verbose"], timeout: 120)
     check(r.code == 0 && !(r.out + r.err).contains("tools: gh"), "wake t1: the layer re-checked QUIETLY (no tools step lines)")
+    check(dozchatThere("t1"), "dozchat still there after a hibernate and a wake")
+    // An older copy (other bytes recorded) is replaced at the next wake.
+    t.run(["exec", "t1", "--", "sh", "-c", "printf old > \(ToolsLayer.guestStateDirectory)/dozchat.sha256"])
     r = t.run(["exec", "t1", "--", "sh", "-c", "[ -e \(ToolsLayer.guestGhPath) ] && echo HAS-GH || echo NO-GH"])
     check(r.out.contains("NO-GH"), "…and Dozable's gh is REMOVED (its setting is off)")
     check(hostLog(t).contains("tools layer re-checked"), "the daemon log notes the quiet re-check")
@@ -237,6 +247,7 @@ func cliToolsSuite(binary: String) async {
     check(t.run(["wake", "t1"], timeout: 120).code == 0, "wake t1")
     r = t.run(["exec", "t1", "--", "sh", "-c", "gh --version | head -1"])
     check(r.out.contains(ToolsLayer.ghVersion), "gh is back after the wake (from the Mac's cache)")
+    check(dozchatThere("t1"), "an older dozchat is copied over at the next wake (its recorded bytes differed)")
     check(t.run(["config", "set", "--sandbox", "t1", "sandbox.ssh_agent", "off"]).code == 0, "SSH agent forwarding off (live)")
     var gone = false
     for _ in 0..<40 where !gone {
@@ -263,8 +274,58 @@ func cliToolsSuite(binary: String) async {
         check(!(r.out + r.err).contains("refused the gh download"), "…from the Mac's cache (no download)")
         r = t.run(["exec", n, "--", "sh", "-c", "gh auth status 2>&1; for c in ssh git curl; do command -v $c; done; grep -c '^github.com ' \(ToolsLayer.knownHostsPath)"], timeout: 60)
         check(r.out.contains("fake-user") && r.out.contains("/ssh") && r.out.contains("/git") && r.out.contains("\n3"), "\(base): gh signed in, ssh, git, curl, the daemon keys (\(r.out.suffix(200).debugDescription))")
+        check(dozchatThere(n), "\(base): dozchat on PATH, the pinned bytes")
         t.run(["rm", n, "--yes"], timeout: 120)
     }
+    // ── 4. dozchat in a proxied sandbox, against the daemon's own chat server on free ports: the token given as a
+    //       secret (the sandbox holds a placeholder), the page port as --host-port; the server sees bot1 verified ──
+    let dozchatMac = (t.binary as NSString).deletingLastPathComponent + "/dozchat-mac"
+    func freePort() -> Int {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        defer { close(fd) }
+        var sa = sockaddr_in()
+        sa.sin_family = sa_family_t(AF_INET); sa.sin_addr.s_addr = inet_addr("127.0.0.1")
+        _ = withUnsafePointer(to: &sa) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }
+        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        _ = withUnsafeMutablePointer(to: &sa) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &len) } }
+        return Int(UInt16(bigEndian: sa.sin_port))
+    }
+    let page = freePort(), line = freePort()
+    t.run(["config", "set", "chat.page_port", String(page)])
+    t.run(["config", "set", "chat.line_port", String(line)])
+    check(t.run(["chat", "on", "--name", "ada"], timeout: 60).code == 0, "chat on (page port \(page))")
+    let csrc = "/tmp/dzo-\(pid)-tcs", cdir = "/tmp/dzo-\(pid)-tcw"
+    for d in [csrc, cdir] { try? fm.createDirectory(atPath: d, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
+    check(t.run(["chat", "add", "bot1", "--to-file", csrc + "/bot1.token"], timeout: 60).code == 0
+          && t.run(["chat", "add", "bot2", "--to-file", csrc + "/bot2.token"], timeout: 60).code == 0
+          && t.run(["chat", "room", "room1", "@bot1", "@bot2"], timeout: 30).code == 0, "bot1 and bot2 in room1")
+    let bot1 = ((try? String(contentsOfFile: csrc + "/bot1.token", encoding: .utf8)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    func outside(_ args: [String]) -> String {
+        onMac([dozchatMac] + args, env: ["PATH": "/usr/bin:/bin", "CHAT_URL": "http://127.0.0.1:\(page)", "CHAT_TOKEN_FILE": csrc + "/bot2.token"]).out
+    }
+    _ = outside(["receive", "--ack"])
+    _ = outside(["send", "room1", "for bot1, from the Mac"])
+    r = t.run(["create", "t-chat", "--image", "lab", "--network", "agent", "--folder", cdir, "--memory", "1G", "--host-port", String(page),
+               "--secret", "CHAT_TOKEN,src=\(csrc)/bot1.token,to=\(HostRoute.hostName):\(page),file=CHAT_TOKEN_FILE"], timeout: 120)
+    check(r.code == 0, "create t-chat with --host-port and --secret for chat (exit \(r.code)) \(r.code == 0 ? "" : r.err.suffix(200).description)")
+    r = t.run(["run", "t-chat", "-e", "CHAT_URL=http://\(HostRoute.hostName):\(page)", "--", "sh", "-c",
+               "cd /workspace; command -v dozchat > which; cat \"$CHAT_TOKEN_FILE\" > held; "
+               + "dozchat rooms > rooms 2>&1; echo $? > rooms.rc; dozchat send room1 'hello from a sandbox' > send 2>&1; echo $? > send.rc; "
+               + "dozchat receive --wait 10 --ack > recv 2>&1; echo $? > recv.rc"], timeout: 900)
+    func cres(_ n: String) -> String { ((try? String(contentsOfFile: cdir + "/" + n, encoding: .utf8)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
+    check([ToolsLayer.guestDozchatPath, ToolsLayer.dozchatLink].contains(cres("which")), "in the sandbox: dozchat on PATH, Dozable's copy (\(cres("which")))")
+    check(cres("held").hasPrefix("doz_cred_") && cres("held") != bot1, "the sandbox holds only the placeholder")
+    check(cres("rooms.rc") == "0" && cres("rooms").contains("#room1"), "dozchat rooms from the sandbox (\(cres("rooms").prefix(160)))")
+    check(cres("send.rc") == "0" && cres("send").contains("queued"), "dozchat send from the sandbox (\(cres("send").prefix(160)))")
+    check(cres("recv.rc") == "0" && cres("recv").contains("for bot1, from the Mac"), "dozchat receive --ack in the sandbox (\(cres("recv").prefix(160)))")
+    let heard = outside(["receive", "--wait", "10", "--ack"])
+    check(heard.contains("hello from a sandbox") && heard.contains("\"verified\":true") && heard.contains("\"from\":\"bot1\""),
+          "the server saw the sandbox's message from bot1, verified (\(heard.prefix(160)))")
+    check(!["rooms", "send", "recv", "held"].map(cres).joined().contains(bot1), "no token in anything the sandbox wrote")
+    t.run(["rm", "t-chat", "--yes"], timeout: 120)
+    t.run(["chat", "off"], timeout: 30)
+    for d in [csrc, cdir] { try? fm.removeItem(atPath: d) }
+
     // The recipes: the bake keys are pinned by ToolsLayerTests (unchanged since rc.1); here, no image is stale.
     r = t.run(["image", "ls"])
     check(r.code == 0 && !r.out.contains("older recipe"), "no image says \"older recipe\" (the layer changes no recipe)")

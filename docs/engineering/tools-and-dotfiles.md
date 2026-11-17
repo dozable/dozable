@@ -7,6 +7,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | Path | What |
 |---|---|
 | `Guest/tmux/` (`build.sh`, `PROVENANCE.md`, `LICENCES/`), `Resources/tmux`, `Scripts/tmux-provenance.sh`; `Sources/doz-vmtest/Tmux38Suite.swift` | the guest tmux 3.8 (static, from sha256-pinned sources with the pinned Zig) the tools layer copies in for `sessions.tmux`; `make tmux` / `tmux-verify`; `make test-cli-tmux38` |
+| `Guest/dozchat/` (`dozchat.c`, `build.sh`, `PROVENANCE.md`), `Resources/dozchat`, `Scripts/dozchat-provenance.sh` | the chat-room member every sandbox carries (chat.md, "dozchat"): static aarch64-linux-musl with the pinned Zig (build.sh fetches it when missing), reproducible; `make dozchat` / `dozchat-verify` (CI: the `dozchat` job) / `dozchat-check` |
 | `Sources/DozableKit/Dotfiles.swift`; `Sources/DozableHost/Dotfiles+Host.swift`; `Sources/DozableCLI/DotfilesCommand.swift`; `Sources/DozableWeb/WebDotfiles.swift`; `Sources/doz-vmtest/DotfilesSuite.swift` | 657: the person's dotfiles — the source, the pin, the plan (the install script or the links, Dozable's protected paths), the guest scripts and a run's result; the Mac's git cache (`<store>/dotfiles`), the trust record, the ops `dotfiles` / `dotfiles-resolve` / `dotfiles-update`; `doz dotfiles` and the create's trust question; the dashboard's projection and `POST /api/v1/dotfiles/resolve`; `make test-cli-dotfiles` |
 
 ## The tools layer — tools follow settings, on every base, no rebuild
@@ -21,7 +22,11 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `/usr/local/lib/doz/bin/gh`, linked `/usr/local/bin/gh` only when free; REMOVED when off (only Dozable's copy
   and link). **tmux 3.8** (658) is a `binary` item too, but from the package's own resources (`TmuxBinary`, no
   download): copied to `/usr/local/lib/doz/bin/tmux` when `tmux.version` differs, `tmux -V` must say the pin, linked
-  `/usr/local/bin/tmux` when free; never removed (see tmux B3). Packages (openssh-client, git, curl,
+  `/usr/local/bin/tmux` when free; never removed (see tmux B3). **dozchat** is a `binary` item in EVERY plan (no
+  setting, no input): from the resources (`DozchatBinary`, sha256-pinned as `ToolsLayer.dozchatSHA256`), copied to
+  `/usr/local/lib/doz/bin/dozchat` when the guest's recorded `dozchat.sha256` differs (by rename: a running dozchat keeps
+  its file), `dozchat --version` must answer, linked `/usr/local/bin/dozchat` when free; never removed. A static binary,
+  so every base runs it; existing sandboxes get it at their next start or wake. Packages (openssh-client, git, curl,
   ca-certificates) — apt/apk through the proxy, only when missing. github.com's keys — a managed block in
   `/etc/ssh/ssh_known_hosts`.
 - **When**: `Sandbox.start()` after the boot, and `applyGuestFixes` (wakes — after the wake is reported done); the FIRST apply in a sandbox (no

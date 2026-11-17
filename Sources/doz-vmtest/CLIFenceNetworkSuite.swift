@@ -525,6 +525,7 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     hp1.stop(); hp2.stop()
 
     await cliFenceSecretChecks(t, root: root, home: home, store: store, net: net, helpers: helpers, started: &started)
+    await cliFenceChatChecks(t, root: root, store: store, net: net, helpers: helpers, started: &started)
 
     // MARK: 687 listening on any port (mac.fence_loopback_listen, off by default — rows 2.11/2.17 above are that default)
     let lis = root + "/lis"

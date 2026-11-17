@@ -13,6 +13,9 @@
 #   doz-<version>/libexec/doz/DozableKit_*.bundle   its resources (guest binaries, web assets)
 #   doz-<version>/libexec/doz/deckhold-mac   the PTY holder for sessions on this Mac (Guest/deckhold/build-mac.sh) — signed
 #                                            like doz, no entitlements; its provenance in licences/deckhold/. CLI only.
+#   doz-<version>/libexec/doz/dozchat-mac    the chat-room member a fenced session runs as `dozchat` (Guest/dozchat/
+#                                            build-mac.sh) — signed like doz, no entitlements, notarised in the same
+#                                            submission; its provenance in licences/dozchat/. CLI only.
 #   doz-<version>/libexec/doz/Dozable.app    the menu bar app (Scripts/assemble-app.sh; docs/engineering/menu-bar-app.md) —
 #                                            stripped, signed like doz with identifier com.dozable.app and NO entitlements,
 #                                            notarised in the same zip, then STAPLED (a bundle can be). `doz app install`
@@ -226,6 +229,10 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
     # would inherit a feature with no isolation). Built fresh from deckhold.c + the pinned ghostty's Mac library;
     # needs the toolchain `make deckhold` puts in .tools/.
     [[ "$FLAVOUR" == cli ]] && run env FORCE=1 Guest/deckhold/build-mac.sh
+    # dozchat-mac — the chat-room member of a fenced session (CLI only, like deckhold-mac): the Mac's cc, nothing else.
+    [[ "$FLAVOUR" == cli ]] && run env FORCE=1 Guest/dozchat/build-mac.sh
+    # dozchat-linux-x86_64 — for agents OUTSIDE Dozable on x86_64 Linux (a release asset beside the tarball, never in it).
+    [[ "$FLAVOUR" == cli ]] && run env FORCE=1 Guest/dozchat/build.sh x86_64
     # The menu bar app (CLI only) — the same environment and flags, so it shares the build above.
     if [[ "$FLAVOUR" == cli ]]; then
         run env DOZ_CLOUD_PACKAGE="$DOZ_CLOUD_PACKAGE" DOZ_CLOUD_REF="$DOZ_CLOUD_REF" DOZ_HELPER_BUILD="$HELPER_ENV" DOZ_HELPER_WEB= \
@@ -297,6 +304,9 @@ if [[ "$FLAVOUR" == cli ]]; then
     [[ -n "$DRY_RUN" || -x .build/deckhold-mac/deckhold-mac ]] || fail "missing .build/deckhold-mac/deckhold-mac — Guest/deckhold/build-mac.sh (make deckhold first, for the toolchain)"
     run cp .build/deckhold-mac/deckhold-mac "$STAGE/libexec/doz/deckhold-mac"
     run strip -x "$STAGE/libexec/doz/deckhold-mac"
+    [[ -n "$DRY_RUN" || -x .build/dozchat-mac/dozchat-mac ]] || fail "missing .build/dozchat-mac/dozchat-mac — Guest/dozchat/build-mac.sh"
+    run cp .build/dozchat-mac/dozchat-mac "$STAGE/libexec/doz/dozchat-mac"
+    run strip -x "$STAGE/libexec/doz/dozchat-mac"
 fi
 # 611: the licences a binary distribution must carry — LICENSE, NOTICE and every dependency's licence + NOTICE, from
 # the exact checkouts this build used (it fails when a resolved package has no licence file).
@@ -311,6 +321,8 @@ done
 if [[ "$FLAVOUR" == cli ]]; then
     run mkdir -p "$STAGE/libexec/doz/licences/deckhold"
     run cp Guest/deckhold/PROVENANCE.md "$STAGE/libexec/doz/licences/deckhold/"
+    run mkdir -p "$STAGE/libexec/doz/licences/dozchat"
+    run cp Guest/dozchat/PROVENANCE.md "$STAGE/libexec/doz/licences/dozchat/"
 fi
 # 667: a release that carries the sound kernel (GPL-2.0, built by Dozable) carries its source offer beside the other
 # notices: the provenance and written offer, the recipe, the config fragment, the complete config and kata's patch.
@@ -336,6 +348,8 @@ fi
 run codesign "${SIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$STAGE/libexec/doz/doz"
 # deckhold-mac: the same identity, hardened runtime and timestamp — and NO entitlements (it needs none).
 [[ "$FLAVOUR" == cli ]] && run codesign "${SIGN_ARGS[@]}" "$STAGE/libexec/doz/deckhold-mac"
+# dozchat-mac: the same, NO entitlements.
+[[ "$FLAVOUR" == cli ]] && run codesign "${SIGN_ARGS[@]}" "$STAGE/libexec/doz/dozchat-mac"
 # The menu bar app: the bundle (its one Mach-O is its executable — nothing nested), the same identity, runtime and
 # timestamp, its identifier, NO entitlements; never --deep.
 [[ "$FLAVOUR" == cli ]] && run codesign "${SIGN_ARGS[@]}" --identifier "$APP_ID" "$APP"
@@ -343,6 +357,7 @@ run codesign "${SIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$STAGE/libexec/do
 # 4. Verify the signature and the entitlement.
 run codesign --verify --strict --verbose=2 "$STAGE/libexec/doz/doz"
 [[ "$FLAVOUR" == cli ]] && run codesign --verify --strict --verbose=2 "$STAGE/libexec/doz/deckhold-mac"
+[[ "$FLAVOUR" == cli ]] && run codesign --verify --strict --verbose=2 "$STAGE/libexec/doz/dozchat-mac"
 [[ "$FLAVOUR" == cli ]] && run codesign --verify --strict --verbose=2 "$APP"
 if [[ -z "$DRY_RUN" ]]; then
     ents="$(codesign -d --entitlements - --xml "$STAGE/libexec/doz/doz" 2>/dev/null || true)"
@@ -376,6 +391,24 @@ if [[ -z "$DRY_RUN" ]]; then
     else
         [[ ! -e "$DHM" ]] || fail "the helper carries deckhold-mac — it must not"
         say "  deckhold-mac: not in the helper (as it must be)"
+    fi
+    # dozchat-mac: the same checks — an arm64 Mach-O, signed like doz with no entitlements, and it runs (--version).
+    DCM="$STAGE/libexec/doz/dozchat-mac"
+    if [[ "$FLAVOUR" == cli ]]; then
+        [[ "$(file -b "$DCM")" == "Mach-O 64-bit executable arm64"* ]] || fail "dozchat-mac is not an arm64 Mach-O ($(file -b "$DCM"))"
+        [[ -z "$(codesign -d --entitlements - --xml "$DCM" 2>/dev/null | grep -o '<key>' || true)" ]] || fail "dozchat-mac carries entitlements — it must carry none"
+        if [[ -n "$SIGN_IDENTITY" ]]; then
+            cinfo="$(codesign -dv --verbose=4 "$DCM" 2>&1)"
+            grep -q "^Authority=$SIGN_IDENTITY\$" <<<"$cinfo" || fail "dozchat-mac is not signed by $SIGN_IDENTITY"
+            grep -qE '^CodeDirectory .*flags=0x[0-9a-f]*\(.*runtime.*\)' <<<"$cinfo" || fail "dozchat-mac is not signed with the hardened runtime"
+            grep -q '^Timestamp=' <<<"$cinfo" || fail "dozchat-mac's signature has no secure timestamp"
+        fi
+        cver="$("$DCM" --version 2>&1 || true)"
+        [[ "$cver" == "dozchat "* ]] || fail "the packed dozchat-mac does not run ($cver)"
+        say "  dozchat-mac: arm64 Mach-O, signed ($MODE), no entitlements, runs ($cver)"
+    else
+        [[ ! -e "$DCM" ]] || fail "the helper carries dozchat-mac — it must not"
+        say "  dozchat-mac: not in the helper (as it must be)"
     fi
     # The menu bar app — everything that can be checked BEFORE notarisation is checked here, so a mistake stops the
     # release now rather than after it: the signature (identifier; team, hardened runtime and timestamp for a Developer
@@ -518,6 +551,8 @@ if [[ -n "$SIGN_IDENTITY" && -n "$NOTARY_PROFILE" ]]; then
         if [[ "$FLAVOUR" == cli ]]; then
             Scripts/notary-ticket.sh "$STAGE/libexec/doz/deckhold-mac" 600 >/dev/null \
                 || fail "Apple's ticket service has no ticket for the notarised deckhold-mac (submission $sid) after 10 minutes"
+            Scripts/notary-ticket.sh "$STAGE/libexec/doz/dozchat-mac" 600 >/dev/null \
+                || fail "Apple's ticket service has no ticket for the notarised dozchat-mac (submission $sid) after 10 minutes"
         fi
         say "  notary ticket: published for each binary (what Gatekeeper checks on first run)"
         # The menu bar app is a bundle: its ticket is STAPLED (Gatekeeper's first open then needs no network). The ticket
@@ -596,9 +631,21 @@ if [[ -z "$DRY_RUN" ]]; then
     rm -rf "$unpack"
     say "  from the tarball: codesign --verify --strict ok, doz --version $VERSION, the layout contract holds$([[ "$FLAVOUR" == cli ]] && echo ", the menu bar app verifies")"
     (cd "$OUT" && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
+    # The x86_64 Linux dozchat (CLI flavour): a static x86-64 ELF, the bytes PROVENANCE records, beside the tarball with
+    # its .sha256 — Scripts/publish.sh attaches both to the release.
+    if [[ "$FLAVOUR" == cli ]]; then
+        DLX=.build/dozchat-linux-x86_64/dozchat
+        [[ "$(file -b "$DLX")" == "ELF 64-bit LSB executable, x86-64"*"statically linked"* ]] || fail "dozchat-linux-x86_64 is not a static x86-64 ELF ($(file -b "$DLX"))"
+        dsha="$(shasum -a 256 "$DLX" | cut -d' ' -f1)"
+        grep -qF "| x86_64 sha256 | \`$dsha\` |" Guest/dozchat/PROVENANCE.md || fail "dozchat-linux-x86_64 ($dsha) is not what Guest/dozchat/PROVENANCE.md records"
+        cp "$DLX" "$OUT/dozchat-linux-x86_64"
+        (cd "$OUT" && shasum -a 256 dozchat-linux-x86_64 > dozchat-linux-x86_64.sha256)
+        say "         dozchat-linux-x86_64: sha256 $dsha ($(stat -f %z "$DLX") bytes; static x86-64)"
+    fi
     say "release: $TARBALL"
     say "         sha256 $(cut -d' ' -f1 "$TARBALL.sha256")  ($(( $(stat -f %z "$TARBALL") / 1048576 )) MiB compressed, $(( installed / 1024 )) MiB installed)"
     say "         symbols: $DSYM_ZIP ($(( $(stat -f %z "$DSYM_ZIP") / 1048576 )) MiB)"
 else
     say "  [dry-run] (cd $OUT && shasum -a 256 ${NAME}.tar.gz > ${NAME}.tar.gz.sha256)"
+    [[ "$FLAVOUR" == cli ]] && say "  [dry-run] cp .build/dozchat-linux-x86_64/dozchat $OUT/dozchat-linux-x86_64 (+ .sha256)"
 fi
