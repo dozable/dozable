@@ -48,7 +48,13 @@ TestS4_5_DMRefusals
 TestS5_1_Paging
 TestS7_5_Unregister
 
-# NOT in the ratchet on purpose (each with its reason; move it up when the reason is gone):
-# TestS3_4_RoomErrors and TestS3_3_ArchivedAllowedCommands — the reference's /room refusal text ends with an example room name that is a private project's
-#   name, and the runner asserts it byte for byte. Dozable's public source says "such as build-notes" instead; both checks
-#   pass again once the reference and the runner use a neutral example.
+# Back in at the 0.11.0 pin: the reference's /room refusal now names a neutral example room.
+TestS3_4_RoomErrors
+TestS3_3_ArchivedAllowedCommands
+
+# New in the reference's 0.10.0, green at the 0.11.0 pin: agent addresses, short tokens, a line's trailing CR.
+TestS1_2_AgentAddressLinePort
+TestS1_2_AgentAddressNeedsAllow
+TestS1_2_AgentAddressForms
+TestS1_2_ShortTokens
+TestS4_1_LineStripsTrailingCR

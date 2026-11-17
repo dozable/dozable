@@ -158,7 +158,8 @@ public final class ChatServerCore: @unchecked Sendable {
         let ps: [ChatParticipant]
         if case .array(let a)? = v.field("participants") { ps = a.compactMap { try? ChatParticipant.read($0, strict: false) } } else { ps = [] }
         lock.withLock {
-            for var p in ps where !participants.contains(where: { $0.name == p.name }) && chatIsSessionName(p.name) {
+            for var p in ps where !participants.contains(where: { $0.name == p.name }) && chatIsSessionName(p.name)
+                && !ChatProtocol.reservedNames.contains(p.name) {
                 p.deliver = "poll"
                 participants.append(p)
             }
@@ -178,10 +179,10 @@ public final class ChatServerCore: @unchecked Sendable {
         let text = ChatProtocol.announcement
         for room in roomNames() where !isArchived(room) {
             guard let st = try? store(room) else { continue }
-            var ch = ChatStored.change(chatNewID(), from: "switchboard", content: text, at: chatNow())
+            var ch = ChatStored.change(chatNewID(), from: ChatProtocol.systemName, content: text, at: chatNow())
             _ = try? st.insert(&ch)
         }
-        for p in people() where p.deliver == "poll" { protocolNotice(p.name, text) }
+        for p in people() where p.route == "poll" { protocolNotice(p.name, text) }
         return true
     }
 
@@ -195,7 +196,7 @@ public final class ChatServerCore: @unchecked Sendable {
         guard !room.isEmpty, let st = try? store(room) else { return }
         let id = "protocol-" + ChatProtocol.version
         let item = JValue.map(["msgV": .int(Int64(ChatProtocol.msgV)), "type": .string("protocol"), "event": .string("protocol-updated"),
-                               "msg_id": .string(id), "room": .string(room), "from": .string("switchboard"),
+                               "msg_id": .string(id), "room": .string(room), "from": .string(ChatProtocol.systemName),
                                "protocol_version": .string(ChatProtocol.version),
                                "message": .map(["role": .string("user"), "content": .string(text)]),
                                "note": .string("The message protocol was updated. No answer is needed. Use what is new if you want to.")])
@@ -255,6 +256,18 @@ public final class ChatServerCore: @unchecked Sendable {
         let sessions = lock.withLock { agentTokens }
         for (name, have) in sessions where ChatSecrets.constantTimeEqual(have, want) { return name }
         return secrets.whoHas(token, among: people().filter { $0.deliver != "poll" }.map(\.name))
+    }
+
+    /// Whether name may call /agent/receive and /agent/ack: nil when it may (a registered session, or a participant that
+    /// is not the human and has no deliver value); otherwise the refusal. One delivered to by webhook is refused with
+    /// 409, so that no message is delivered twice; every other caller with 403.
+    public func mayPoll(_ name: String) -> ChatAPIError? {
+        let p = participant(name)
+        if p?.route == "poll" { return nil }
+        if p?.deliver == "webhook" {
+            return ChatAPIError(status: 409, description: "\(name) is delivered to by webhook and cannot also poll, so that no message is delivered twice")
+        }
+        return ChatAPIError(status: 403, description: "\(name) is not a registered session; it is delivered to another way")
     }
 
     // MARK: - Reading
@@ -596,6 +609,7 @@ public final class ChatServerCore: @unchecked Sendable {
         }
         guard hasRoom(room) else { throw ChatAPIError(status: 404, description: "no room \(goQuote(room)). Make it first with /room \(room)") }
         guard member(room, launcher) else { throw ChatAPIError(status: 422, description: "\(launcher) is not in room \(room), so cannot add a session to it") }
+        if ChatProtocol.reservedNames.contains(name) { throw ChatAPIError(status: 409, description: "the name \(name) is taken") }
         var again = false
         if let p = participant(name) {
             guard p.deliver == "poll", p.launcher == launcher else { throw ChatAPIError(status: 409, description: "the name \(name) is taken") }

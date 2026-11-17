@@ -73,8 +73,12 @@ commands, and show its rooms in the dashboard.
 - **The store keeps the protocol's format.** A room file the reference server wrote opens here, and one written here opens
   there: the same `CREATE TABLE IF NOT EXISTS` statements in the same order, then the same `ALTER TABLE`s, so the
   resulting schema is identical (`ChatStoreTests` compares it statement for statement with the fixture's).
+- **The server's own name is `chat`.** Its change lines and notices are from `chat`, and no participant may be called
+  that (a config that has one is a fault; registering it is 409). Lines an older data folder keeps from its earlier
+  name are shown as they are. A participant with no `deliver` value that is not the person collects its messages by
+  polling, as a registered session does (`ChatParticipant.route`); one delivered to by webhook is refused there (409).
 - **Neutral names.** Tests, docs and examples use `ada` (the person), `bot1`, `bot2`, `room1`. The wire strings the
-  conformance suite asserts (403 texts, `switchboard` as the name of the server's own change lines) stay as they are.
+  conformance suite asserts (403 texts, the protocol's own wording) stay as they are.
 
 ## What is not there yet
 
@@ -99,8 +103,10 @@ CHECKS='TestS1_|TestS9_' make test-chat-conformance   # a subset (the runner's -
 
 The script finds the runner at `$DOZ_CHAT_CONFORMANCE`, else `~/.cache/doz/switchboard-conformance`. Without one it
 prints `conformance: not run (private runner)` and passes, which is what CI and contributors see. It refuses a runner
-whose SHA-256 differs from the pin, prints the runner's `SUMMARY` line, fails for every ratchet check that is not PASS
-(with the runner's first message for it), and lists every PASS not yet in the ratchet. The checks of the kept-service
+whose SHA-256 differs from the pin and hands the runner the ratchet as its `-expect FILE`: it prints the `SUMMARY` and
+`EXPECT` lines, fails for every ratchet check that is not PASS (`EXPECT-MISSING`, with the runner's first message for
+it), and lists every PASS not yet in the ratchet (`EXPECT-EXTRA`). `CHECKS=` runs a subset as a look only: it prints
+that subset's failures and does not judge the ratchet. The checks of the kept-service
 contract's own flags are always SKIP under this mode; the contract is judged by every check starting and stopping the
 server instead. A new runner version is a deliberate change: bump `RUNNER`, run it, and commit the ratchet with it.
 

@@ -48,6 +48,17 @@ final class ChatConfigTests: XCTestCase {
         XCTAssertTrue(c.agentAddresses.isEmpty)
     }
 
+    func testTheServersOwnNameIsReservedAndNoDeliverValueIsPolling() throws {
+        refused(#"{"participants": [{"name": "chat", "kind": "grok-bot"}], "data_dir": "/x", "secrets_file_only": true}"#,
+                containing: #"config participants: "chat" is a reserved name"#)
+        var c = try parse(#"{"participants": [{"name": "ada", "kind": "human"}, {"name": "bot1", "kind": "grok-bot"}, {"name": "switchboard", "kind": "grok-bot", "deliver": "webhook"}], "data_dir": "/x", "secrets_file_only": true}"#)
+        try c.check()
+        XCTAssertEqual(c.participants.map(\.route), ["", "poll", "webhook"], "no deliver value: the human has none, anyone else polls")
+        c.participants[1].deliver = "pigeon"
+        XCTAssertThrowsError(try c.check())
+        XCTAssertEqual(ChatProtocol.systemName, "chat")
+    }
+
     func testStrictRefusals() {
         refused(Self.contract(#", "mystery": 1"#), containing: "unknown key \"mystery\"")
         refused(#"{"line_port": "8765", "data_dir": "/x", "secrets_file_only": true}"#, containing: "config line_port")

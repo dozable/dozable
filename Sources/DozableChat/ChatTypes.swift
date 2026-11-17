@@ -22,6 +22,10 @@ public struct ChatParticipant: Sendable, Equatable {
 
     public var isHuman: Bool { kind == "human" }
 
+    /// How messages reach it: its deliver value, except that a participant that is not the human and has no deliver
+    /// value at all collects what is addressed to it with GET /agent/receive, as a registered session does.
+    public var route: String { deliver.isEmpty && !isHuman ? "poll" : deliver }
+
     /// The participant's fixed identity: its own, else one made from its kind.
     public var fixedIdentity: String {
         if !identity.isEmpty { return identity }

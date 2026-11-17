@@ -1,6 +1,6 @@
 # The chat server's conformance runner: the program Scripts/chat-conformance.sh accepts (docs/engineering/chat.md).
 # It is a release asset of the reference server's private repository; a new version is a deliberate bump of this file,
 # re-run and committed with the ratchet.
-version 0.9.0
+version 0.11.0
 platform darwin-arm64
-sha256 1e8a0350418fa2ff802181f2fdbd61263084e9e5024ef92bcf3ed090c6c9afbf
+sha256 545eb073e8329ae6e216bd7f488cd4cf7ad301200f668b00bfec3958c855f059

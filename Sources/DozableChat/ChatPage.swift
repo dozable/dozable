@@ -216,7 +216,7 @@ public struct ChatPageHandler: Sendable {
 
     /// The human posts from the page.
     private func post(_ room: String, _ r: ChatHTTPRequest) -> ChatHTTPResponse {
-        var who = core.whoHas(r.header("X-Switchboard-Token")) ?? ""
+        var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
         if !core.config.requireTokens { who = core.human() }   // the page is only served to the owner's own machines
         guard core.isHuman(who) else { return .jsonError(401, "posting needs the human's token") }
         guard let v = Self.decodeFirst(r.body, limit: ChatProtocol.maxLine) else { return .jsonError(400, "body must be JSON") }
@@ -251,10 +251,15 @@ public struct ChatPageHandler: Sendable {
 
     /// Who makes a page call that changes something: the human. nil serves it; otherwise the 401 answer.
     private func pageCaller(_ r: ChatHTTPRequest, _ what: String) -> ChatHTTPResponse? {
-        var who = core.whoHas(r.header("X-Switchboard-Token")) ?? ""
+        var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
         if !core.config.requireTokens { who = core.human() }
         return core.isHuman(who) ? nil : .jsonError(401, "\(what) needs the human's token")
     }
+
+    /// The header that carries the human's token on a page call that changes something.
+    public static let tokenHeader = "X-Chat-Token"
+    /// The header that carries the page's own id for one edit, delete or reaction call: with it, the call is done once.
+    public static let idHeader = "X-Chat-Id"
 
     // MARK: /agent/
 
@@ -301,7 +306,7 @@ public struct ChatPageHandler: Sendable {
             return .json(rc.state == "refused" ? 422 : 200,
                          .map(["state": .string(rc.state), "detail": .string(rc.detail), "msg_id": .string(line.msgID)]))
         default: // ack, receive
-            guard p?.deliver == "poll" else { return .jsonError(403, caller + " is not a registered session; it is delivered to another way") }
+            if let refusal = core.mayPoll(caller) { return .jsonError(refusal.status, refusal.description) }
             return .jsonError(501, "this call is not available on this server yet")
         }
     }

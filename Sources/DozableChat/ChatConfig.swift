@@ -142,6 +142,9 @@ public struct ChatConfig: Sendable, Equatable {
         for e in agentAddresses where ChatAddressPrefix(e) == nil {
             throw ChatConfigError("config agent_addresses: \"\(e)\" is not an IP address or CIDR range")
         }
+        for p in participants where ChatProtocol.reservedNames.contains(p.name) {
+            throw ChatConfigError("config participants: \(goQuote(p.name)) is a reserved name (the chat server writes its own lines under it); rename that participant")
+        }
         for e in testOwnedAddresses {
             guard let a = ChatAddress(e.trimmingCharacters(in: .whitespaces)), a.isLoopback else {
                 throw ChatConfigError("config test_owned_addresses: \"\(e)\" is not a loopback address (it is for tests on this Mac only)")
@@ -154,8 +157,9 @@ public struct ChatConfig: Sendable, Equatable {
         for p in participants {
             guard !p.name.isEmpty else { throw ChatConfigError("config participants: an entry has no name") }
             guard names.insert(p.name).inserted else { throw ChatConfigError("config participants: \(p.name) is listed twice") }
-            guard ["web", "inbox-socket", "webhook", "poll"].contains(p.deliver) else {
-                throw ChatConfigError("config participants: \(p.name) has the delivery \"\(p.deliver)\" (web, inbox-socket, webhook or poll)")
+            // No deliver value: a participant that is not the human collects its messages by polling (`route`).
+            guard ["", "web", "inbox-socket", "webhook", "poll"].contains(p.deliver) else {
+                throw ChatConfigError("config participants: \(p.name) has the delivery \"\(p.deliver)\" (web, inbox-socket, webhook, poll, or none)")
             }
         }
         for r in rooms.keys where !chatIsRoomName(r) {
