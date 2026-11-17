@@ -32,16 +32,30 @@ fi
 
 want=$(awk '$1 == "sha256" { print $2 }' "$PIN")
 version=$(awk '$1 == "version" { print $2 }' "$PIN")
+minimum=$(awk '$1 == "minimum" { print $2 }' "$PIN")
 have=$(shasum -a 256 "$RUNNER" | cut -d' ' -f1)
 if [[ "$have" != "$want" ]]; then
     echo "x chat-conformance: $RUNNER is not the pinned runner $version (sha256 $have, want $want)" >&2
     exit 1
 fi
 
+# The ratchet never shrinks below the size the pin names, and never names a check twice.
+count=$(grep -cvE '^[[:space:]]*(#|$)' "$RATCHET")
+dups=$(grep -vE '^[[:space:]]*(#|$)' "$RATCHET" | sort | uniq -d)
+if [[ -n "$dups" ]]; then
+    echo "x chat-conformance: the ratchet names a check twice: $dups" >&2
+    exit 1
+fi
+if [[ -n "$minimum" && "$count" -lt "$minimum" ]]; then
+    echo "x chat-conformance: the ratchet has $count checks; the pin's minimum is $minimum — a check that was green never leaves it" >&2
+    exit 1
+fi
+
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/doz-chat-conformance.XXXXXX")
 REPORT="${REPORT:-$scratch/report.txt}"
 LOG="$scratch/full.log"
-args=(-server-cmd "'$DOZ' chat serve --config {config} --bind {bind}" -report-log "$LOG")
+# Room apps are left out of this server (their calls answer 501): the runner skips their steps.
+args=(-server-cmd "'$DOZ' chat serve --config {config} --bind {bind}" -no-room-apps -report-log "$LOG")
 # A subset is a look, not the gate: the ratchet is judged on a full run only.
 if [[ -n "${CHECKS:-}" ]]; then args+=(-test.run "$CHECKS"); else args+=(-expect "$RATCHET"); fi
 

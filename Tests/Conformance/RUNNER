@@ -1,6 +1,8 @@
 # The chat server's conformance runner: the program Scripts/chat-conformance.sh accepts (docs/engineering/chat.md).
 # It is a release asset of the reference server's private repository; a new version is a deliberate bump of this file,
-# re-run and committed with the ratchet.
-version 0.12.0
+# re-run and committed with the ratchet. `minimum` is the ratchet's size at this pin: the script and
+# ConformanceRatchetTests refuse a ratchet with fewer names.
+version 0.13.2
 platform darwin-arm64
-sha256 654f9f38574d91ba42dd30ca3b3ef5d943b3ae77537ddd56f31ae702d895470c
+sha256 f85a1a4b45fa4dbb312c222d5d433d27990c1055499b26fc48a801d62a27f268
+minimum 169

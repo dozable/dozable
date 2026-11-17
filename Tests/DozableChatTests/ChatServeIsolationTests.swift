@@ -155,6 +155,30 @@ final class ChatServeIsolationTests: XCTestCase {
 
     // MARK: the tests
 
+    /// A remote address that is not on this Mac's Tailscale interface now: not now (75, tried again later), before any
+    /// port is bound. Without require_tokens, or not a Tailscale address at all: a fault (78). Nothing is ever bound on it.
+    func testARemoteAddressThisMacDoesNotHaveIsNotNowAndABadOneAFault() throws {
+        let documentation = "100.100.1.2"   // a documentation-style address no test Mac has on a Tailscale interface
+        guard ChatInterface.missing([documentation], among: ChatInterface.current()) == [documentation] else {
+            throw XCTSkip("this Mac has \(documentation) on a Tailscale interface")
+        }
+        try writeConfig(", \"remote_bind\": [\"\(documentation)\"], \"require_tokens\": true")
+        var (p, err) = try serve()
+        XCTAssertEqual(waitExit(p), ChatExit.tryLater)
+        XCTAssertTrue(stderrText(err).contains("not listening on \(documentation)"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: data.appendingPathComponent("status.json").path))
+        try writeConfig(", \"remote_bind\": [\"\(documentation)\"]")
+        (p, err) = try serve()
+        XCTAssertEqual(waitExit(p), ChatExit.badSetting, "never without require_tokens")
+        _ = stderrText(err)
+        for bad in ["0.0.0.0", "192.168.1.5", "169.254.1.1", "127.0.0.2"] {
+            try writeConfig(", \"remote_bind\": [\"\(bad)\"], \"require_tokens\": true")
+            (p, err) = try serve()
+            XCTAssertEqual(waitExit(p), ChatExit.badSetting, bad)
+            XCTAssertTrue(stderrText(err).contains("remote_bind"), bad)
+        }
+    }
+
     func testItRunsInAnEmptyHomeAndWritesNothingOutsideItsDataFolder() throws {
         let (p, err) = try serve()
         let ports = try waitReady(p)

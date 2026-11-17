@@ -83,10 +83,30 @@ public struct ChatPaths: Sendable, Equatable {
 public struct ChatDirectory: Codable, Equatable, Sendable {
     public struct Participant: Codable, Equatable, Sendable {
         public var name: String
-        /// `agent`: a program that collects its messages with its own token (`GET /agent/receive`).
+        /// The protocol's kind: `agent` (the default), `claude-session` or `grok-bot` — the identity of its new messages.
         public var kind: String
         public var added: String
-        public init(name: String, kind: String = "agent", added: String) { self.name = name; self.kind = kind; self.added = added }
+        /// `webhook`: the server calls its webhook entry with each message for it. nil: it collects them itself, polling
+        /// with its own token (`GET /agent/receive`). An older doz ignores the field and treats it as one that polls.
+        public var deliver: String?
+        /// Its webhook entry's name (nil: its own name). One entry may serve several bots.
+        public var webhook: String?
+        public init(name: String, kind: String = "agent", added: String, deliver: String? = nil, webhook: String? = nil) {
+            self.name = name; self.kind = kind; self.added = added; self.deliver = deliver; self.webhook = webhook
+        }
+
+        /// The entry its calls use, when it is delivered to by webhook.
+        public var webhookEntry: String? { deliver == "webhook" ? (webhook ?? name) : nil }
+    }
+
+    /// The kinds a participant may have.
+    public static let kinds = ["agent", "claude-session", "grok-bot"]
+
+    /// The webhook entries in use, each with the participants that use it.
+    public var webhookEntries: [String: [String]] {
+        var out: [String: [String]] = [:]
+        for p in participants { if let e = p.webhookEntry { out[e, default: []].append(p.name) } }
+        return out
     }
 
     public var version = 1
@@ -185,31 +205,50 @@ public enum ChatConfigFile {
     public static let bind = "127.0.0.1"
     public static let defaultRoom = "general"
 
-    public static func bytes(_ d: ChatDirectory, paths: ChatPaths, pagePort: Int, linePort: Int) throws -> [UInt8] {
+    /// `remoteBind`: this Mac's Tailscale addresses the server also listens on (the ones of `chat.remote_listen` it has
+    /// now); `remoteAgents`: the machines let in there — each in `allow` (the line port) and an agent address.
+    public static func bytes(_ d: ChatDirectory, paths: ChatPaths, pagePort: Int, linePort: Int, remoteBind: [String] = [],
+                             remoteAgents: [String] = []) throws -> [UInt8] {
         guard let human = d.human else { throw HostError(.failed, "chat has no human yet (doz chat on names you)") }
         var people: [JValue] = [.object([JMember("name", .string(human)), JMember("kind", .string("human")), JMember("deliver", .string("web"))])]
         // No deliver value: a participant that is not the human collects what is addressed to it by polling, with its own
         // token (the server's `ChatParticipant.route`; a `poll` value is a registered session's and takes no own token).
-        for p in d.participants { people.append(.object([JMember("name", .string(p.name)), JMember("kind", .string(p.kind))])) }
-        let v = JValue.object([
+        // A webhook bot: the server calls its entry (the address and the header come on the daemon's pipe, never here).
+        for p in d.participants {
+            var fields = [JMember("name", .string(p.name)), JMember("kind", .string(p.kind))]
+            if let e = p.webhookEntry { fields += [JMember("deliver", .string("webhook")), JMember("webhook", .string(e))] }
+            people.append(.object(fields))
+        }
+        var members = [
             JMember("line_port", .int(Int64(linePort))),
             JMember("http_port", .int(Int64(pagePort))),
             JMember("data_dir", .string(paths.data)),
             JMember("default_room", .string(defaultRoom)),
             JMember("participants", .array(people)),
             JMember("rooms", .object([JMember(defaultRoom, .strings([human]))])),
-            JMember("allow", .strings(["127.0.0.1", "::1"])),
+            JMember("allow", .strings(["127.0.0.1", "::1"] + remoteAgents)),
             JMember("require_tokens", .bool(true)),
-            JMember("agent_addresses", .strings(["127.0.0.0/8", "::1"])),
+            JMember("agent_addresses", .strings(["127.0.0.0/8", "::1"] + remoteAgents)),
             JMember("secrets_file_only", .bool(true)),
             JMember("bind", .string(bind)),
-        ])
+        ]
+        if !remoteBind.isEmpty { members.append(JMember("remote_bind", .strings(remoteBind))) }
+        let v = JValue.object(members)
         let out = ChatJSON.encodeIndented(v, indent: " ") + [0x0A]
         // The server's own loader judges it before it is written, and the profile is asserted, not assumed.
         let c: ChatConfig
         do { c = try ChatConfig.parse(Data(out)); try c.check() } catch { throw HostError(.failed, "the generated chat config is refused: \(error)") }
-        guard c.bind == bind, c.requireTokens, c.testOwnedAddresses.isEmpty, c.allow.allSatisfy({ ChatAddress($0)?.isLoopback == true }),
-              c.agentAddresses.contains("127.0.0.0/8"), !c.participants.contains(where: { $0.deliver == "inbox-socket" }) else {
+        // Every address `allow` lets in that is not loopback is a Tailscale address and an agent address; every address
+        // listened on besides loopback is a Tailscale address (and the config's own check refuses anything else).
+        let access = c.access
+        guard c.bind == bind, c.requireTokens, c.testOwnedAddresses.isEmpty,
+              c.allow.allSatisfy({ e in
+                  guard let a = ChatAddress(e) else { return false }
+                  return a.isLoopback || (ChatWebhookAddress.tailnet.contains(a) && access.isAgentAddress(e) && !access.isOwned(e))
+              }),
+              c.remoteBind.allSatisfy({ ChatAddress($0).map(ChatWebhookAddress.tailnet.contains) == true }),
+              c.agentAddresses.contains("127.0.0.0/8"), !c.participants.contains(where: { $0.deliver == "inbox-socket" }),
+              c.participants.allSatisfy({ $0.isHuman || $0.deliver.isEmpty || ($0.deliver == "webhook" && ChatWebhookEntries.nameRefusal($0.webhook) == nil) }) else {
             throw HostError(.failed, "the generated chat config is not loopback-only with tokens required")
         }
         return out

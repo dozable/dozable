@@ -14,6 +14,18 @@
 //   9. daemon stop leaves no server running       10. kill -9 the daemon: the server exits within 2 s
 //  11. always-on off, an idle timeout of 3 s: chat keeps the daemon up; off lets it exit
 //  12. the program replaced by rename: the daemon restarts in place and a new server runs (its child)
+//  15. add bot2 --webhook: who says webhook (not set); a message for it fails at once and reaches no one — a planted
+//      data/secrets.json naming a webhook for it is ignored
+//  16. webhook set (two lines on stdin): refused for a LAN http address, the shared name, an unknown entry, a file
+//      others can read; then set: the server restarts, status shows scheme, host and port, never the path or header
+//  17. a message for bot2 is delivered to the suite's listener with the Authorization value, as `delivered`
+//  18. the sweep: the path, the secret and (for an unreachable host) the host appear in no log, no file of the store,
+//      no --json but `webhook status`, no ps output sampled during the set and while serving; nothing in the chat
+//      folder can be read by others; a failure's reason names no host
+//  19. the child listens on exactly 127.0.0.1:page and 127.0.0.1:line (lsof)
+//  20. webhook remove: who says not set; a message fails at once again
+//  21. chat.remote_listen / chat.remote_agents: a LAN, wildcard, range or link-local value refused; an address this Mac
+//      does not have on Tailscale is said (status, --json, doctor WARN, the firewall row) and never listened on
 //
 // Every daemon and server it starts is stopped at the end; the store is removed.
 import Darwin
@@ -185,6 +197,9 @@ func cliChatSuite(binary: String) async {
     let lineAnswer = sh(["/bin/sh", "-c", "printf '%s\\n' '{\"type\":\"user\",\"room\":\"room1\",\"msg_id\":\"\(UUID().uuidString.lowercased())\",\"message\":{\"content\":\"x\"}}' | /usr/bin/nc -w 3 127.0.0.1 \(line)"]).1
     check(!lineAnswer.contains("\"queued\""), "5 the line port refuses a message without a token (\(lineAnswer.prefix(120)))")
 
+    // 15–21. a webhook bot (its entry in the daemon's keychain seam — the memory one here — handed over on a pipe)
+    await cliChatWebhookRows(h: h, root: root, paths: paths, page: page, line: line, sh: sh, server: server, supervisor: supervisor)
+
     // 6. a killed server comes back
     guard let s6 = server() else { check(false, "6 a chat server runs"); return }      // `add` restarted the first one
     kill(s6, SIGKILL)
@@ -296,4 +311,265 @@ func cliChatSuite(binary: String) async {
     if let d = h.hostPID() { daemons.insert(d) }
     check(moved && !alive(d12) && !alive(s12), "12 the daemon restarted in place with no command; a new chat server runs, its child")
     check(serversOfStore().count == 1, "12 one chat server (\(serversOfStore()))")
+}
+
+
+/// Every process's command line, as `ps -axww -o args=` prints it.
+func psArgs() -> String {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/bin/ps")
+    p.arguments = ["-axww", "-o", "args="]
+    let o = Pipe()
+    p.standardOutput = o
+    p.standardError = FileHandle.nullDevice
+    try? p.run()
+    let d = o.fileHandleForReading.readDataToEndOfFile()
+    p.waitUntilExit()
+    return String(decoding: d, as: UTF8.self)
+}
+
+/// A plain HTTP listener on 127.0.0.1 the suite starts: it records each request's first line and its Authorization header
+/// and answers 200.
+final class SuiteHook: @unchecked Sendable {
+    let port: Int
+    private let fd: Int32
+    private let lock = NSLock()
+    private var got: [(line: String, auth: String)] = []
+    private var stopped = false
+
+    init?() {
+        let s = socket(AF_INET, SOCK_STREAM, 0)
+        var on: Int32 = 1
+        setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, socklen_t(MemoryLayout<Int32>.size))
+        var a = sockaddr_in()
+        a.sin_family = sa_family_t(AF_INET); a.sin_addr.s_addr = inet_addr("127.0.0.1")
+        guard withUnsafePointer(to: &a, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(s, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }) == 0,
+              listen(s, 16) == 0 else { close(s); return nil }
+        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        _ = withUnsafeMutablePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(s, $0, &len) } }
+        fd = s
+        port = Int(UInt16(bigEndian: a.sin_port))
+        Thread.detachNewThread { [self] in self.serve() }
+    }
+
+    var requests: [(line: String, auth: String)] { lock.withLock { got } }
+
+    func stop() { lock.withLock { stopped = true }; shutdown(fd, SHUT_RDWR); close(fd) }
+
+    private func serve() {
+        while true {
+            let c = accept(fd, nil, nil)
+            if c < 0 { if lock.withLock({ stopped }) { return }; continue }
+            var data = [UInt8]()
+            var buf = [UInt8](repeating: 0, count: 65536)
+            var tv = timeval(tv_sec: 5, tv_usec: 0)
+            setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+            while true {
+                let n = read(c, &buf, buf.count)
+                if n <= 0 { break }
+                data += buf[0..<n]
+                let text = String(decoding: data, as: UTF8.self)
+                guard let end = text.range(of: "\r\n\r\n") else { continue }
+                let head = String(text[..<end.lowerBound])
+                let length = head.split(separator: "\r\n").first { $0.lowercased().hasPrefix("content-length:") }
+                    .flatMap { Int($0.split(separator: ":")[1].trimmingCharacters(in: .whitespaces)) } ?? 0
+                if text.utf8.count - text[..<end.upperBound].utf8.count >= length { break }
+            }
+            let head = String(decoding: data, as: UTF8.self).components(separatedBy: "\r\n\r\n").first ?? ""
+            let lines = head.components(separatedBy: "\r\n")
+            let auth = lines.first { $0.lowercased().hasPrefix("authorization:") }.map { String($0.dropFirst("authorization:".count)).trimmingCharacters(in: .whitespaces) } ?? ""
+            lock.withLock { got.append((lines.first ?? "", auth)) }
+            let answer = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+            _ = answer.withCString { write(c, $0, strlen($0)) }
+            close(c)
+        }
+    }
+}
+
+func cliChatWebhookRows(h: CLIHarness, root: URL, paths: ChatPaths, page: Int, line: Int, sh: (_ argv: [String], _ stdin: Data?) -> (Int32, String),
+                        server: () -> Int32?, supervisor: () -> ChatServerState?) async {
+    let fm = FileManager.default
+    guard h.env["DOZ_TEST_CREDENTIALS"] == "memory" || ProcessInfo.processInfo.environment["DOZ_TEST_CREDENTIALS"] == "memory" else {
+        check(false, "15 the webhook rows need the memory keychain seam (DOZ_TEST_CREDENTIALS=memory): not run")
+        return
+    }
+    guard let hook = SuiteHook() else { check(false, "15 a listener for the webhook"); return }
+    defer { hook.stop() }
+    let rand = { UUID().uuidString.prefix(8).lowercased() }
+    let pathSentinel = "p-\(rand())", secret = "s-\(rand())\(rand())", lostHost = "h-\(rand()).invalid"
+    let hookURL = "http://localhost:\(hook.port)/\(pathSentinel)"
+    var outputs: [String: String] = [:]          // every --json and status output, swept at the end
+    final class Samples: @unchecked Sendable { var text = ""; var running = true; let lock = NSLock() }
+    let samples = Samples()
+
+    // 15. add bot2 --webhook
+    let tf = root.appendingPathComponent("bot2.token").path
+    var r = h.run(["chat", "add", "bot2", "--kind", "grok-bot", "--webhook", "--to-file", tf, "--json"], timeout: 60)
+    outputs["add --json"] = r.out
+    check(r.code == 0 && r.out.contains("\"webhookEntry\" : \"bot2\"") || r.out.contains("\"webhookEntry\":\"bot2\""), "15 add bot2 --kind grok-bot --webhook (\(r.code))")
+    r = h.run(["chat", "who"])
+    check(r.out.split(separator: "\n").contains { $0.contains("bot2") && $0.contains("grok-bot") && $0.contains("webhook (not set)") }, "15 who: bot2 grok-bot webhook (not set)")
+    r = h.run(["chat", "status"])
+    check(r.out.contains("warning: no webhook entry bot2"), "15 status warns: no webhook entry bot2")
+    // A planted secrets.json in the data folder naming a webhook for bot2 (to the suite's listener) is never read.
+    let planted = #"{"version":1,"tokens":{},"webhooks":{"bot2":{"url":"http://127.0.0.1:\#(hook.port)/planted","header":"Bearer planted-0123456789"},"default":{"url":"http://127.0.0.1:\#(hook.port)/planted","header":""}}}"#
+    FileManager.default.createFile(atPath: paths.data + "/secrets.json", contents: Data(planted.utf8), attributes: [.posixPermissions: 0o600])
+    _ = h.run(["chat", "off"], timeout: 30); _ = h.run(["chat", "on"], timeout: 60)
+    _ = h.run(["chat", "room", "room3", "@bot2"])
+    r = h.run(["chat", "send", "room3", "first @bot2"])
+    let firstFailed = h.waitFor(5) { h.run(["chat", "read", "room3", "--json"]).out.contains("\"failed\"") }
+    check(firstFailed && hook.requests.isEmpty, "15 no entry: a message for bot2 fails at once, and the planted secrets.json is ignored (no call: \(hook.requests.count))")
+
+    // 16. webhook set — the refusals first
+    func set(_ entry: String, _ input: String, file: String? = nil) -> CLIRun {
+        var args = ["chat", "webhook", "set", entry]
+        if let file { args += ["--from-file", file] }
+        return h.run(args, stdin: file == nil ? Data(input.utf8) : nil, timeout: 60)
+    }
+    r = set("bot2", "http://192.168.1.5:9000/\(pathSentinel)\nBearer \(secret)\n")
+    check(r.code != 0 && r.err.contains("plain http") && !r.err.contains(pathSentinel), "16 a LAN http address is refused (\(r.code))")
+    r = set("default", "https://bot.example/x\n\n")
+    check(r.code != 0, "16 the shared name default is refused (\(r.code))")
+    r = set("nobody", "https://bot.example/x\n\n")
+    check(r.code == 2, "16 an entry no webhook bot uses: exit 2 (\(r.code))")
+    r = set("bot2", "https://bot.example/x\nBearer a\nthird line\n")
+    check(r.code != 0, "16 a third line is refused (\(r.code))")
+    let wide = root.appendingPathComponent("hook-wide").path
+    fm.createFile(atPath: wide, contents: Data("\(hookURL)\nBearer \(secret)\n".utf8), attributes: [.posixPermissions: 0o644])
+    r = set("bot2", "", file: wide)
+    check(r.code != 0 && r.err.contains("chmod go="), "16 --from-file that others can read is refused (\(r.code))")
+    try? fm.removeItem(atPath: wide)
+    // the set itself, with ps sampled while it runs
+    let before = server()
+    let sampler = Thread {
+        while samples.lock.withLock({ samples.running }) {
+            let o = psArgs()
+            samples.lock.withLock { samples.text += o }
+            usleep(50_000)
+        }
+    }
+    sampler.start()
+    r = set("bot2", "\(hookURL)\nBearer \(secret)\n")
+    samples.lock.withLock { samples.running = false }
+    usleep(100_000)
+    check(r.code == 0 && r.out.hasPrefix("Set the webhook entry bot2: set — http://localhost:\(hook.port), fingerprint "), "16 webhook set bot2 (\(r.out.trimmingCharacters(in: .newlines)))")
+    check(server() != nil && server() != before && supervisor()?.ready == true, "16 …the server restarted to take it")
+    r = h.run(["chat", "webhook", "status", "bot2"])
+    outputs["webhook status"] = r.out
+    check(r.out.hasPrefix("bot2: set — http://localhost:\(hook.port), fingerprint ") && r.out.contains("(for bot2)"), "16 webhook status: scheme, host, port (\(r.out.trimmingCharacters(in: .newlines)))")
+    r = h.run(["chat", "webhook", "status", "--json"])
+    outputs["webhook status --json"] = r.out
+    check(r.code == 0 && r.out.contains("\"host\"") && r.out.contains("localhost"), "16 webhook status --json has the host")
+    r = h.run(["chat", "who"])
+    check(r.out.split(separator: "\n").contains { $0.contains("bot2") && $0.contains("webhook (set)") }, "16 who: webhook (set)")
+
+    // 17. delivered with the Authorization value
+    let n0 = hook.requests.count
+    r = h.run(["chat", "send", "room3", "hello @bot2"])
+    let delivered = h.waitFor(10) { hook.requests.count > n0 }
+    let req = hook.requests.last
+    check(delivered && req?.line.hasPrefix("POST /\(pathSentinel) ") == true && req?.auth == "Bearer \(secret)", "17 a message for bot2 reaches its webhook with its Authorization value")
+    check(h.waitFor(5) { h.run(["chat", "read", "room3", "--json"]).out.contains("\"delivered\"") }, "17 …and is marked delivered")
+    // presence as the server says it: a bot that never sent anything is never "here"
+    r = h.run(["chat", "who"])
+    let bot2Row = r.out.split(separator: "\n").first { $0.hasPrefix("bot2") }.map(String.init) ?? ""
+    check(!bot2Row.hasSuffix(" here") && (bot2Row.hasSuffix(" woken") || bot2Row.hasSuffix(" quiet")), "17 who: bot2 is woken or quiet, never here (\(bot2Row))")
+    r = h.run(["chat", "who", "--json"])
+    check(r.out.contains("\"presence\""), "17 who --json carries the server's presence word")
+    // times as the rest of the group: local in the text, ISO in --json
+    r = h.run(["chat", "webhook", "status", "bot2"])
+    check(r.out.range(of: #"set \d{4}-\d\d-\d\d \d\d:\d\d \(for"#, options: .regularExpression) != nil && !r.out.contains("Z ("), "17 webhook status: the set time in local time (\(r.out.trimmingCharacters(in: .newlines)))")
+    check(h.run(["chat", "webhook", "status", "--json"]).out.range(of: #"\d\dZ""#, options: .regularExpression) != nil, "17 …and ISO in --json")
+    check(h.run(["chat", "webhook", "set", "--help"]).out.contains("Messages still waiting for this bot go to the new address."), "17 webhook set --help says where waiting messages go")
+    // the sample while serving
+    samples.lock.withLock { samples.text += psArgs() }
+    let psSamples = samples.lock.withLock { samples.text }
+
+    // a second bot whose host cannot be reached: the host is shown by `webhook status` and nowhere else
+    let tf3 = root.appendingPathComponent("bot3.token").path
+    r = h.run(["chat", "add", "bot3", "--kind", "grok-bot", "--webhook", "--to-file", tf3], timeout: 60)
+    let f3 = root.appendingPathComponent("hook3").path
+    fm.createFile(atPath: f3, contents: Data("https://\(lostHost)/\(pathSentinel)\nBearer \(secret)\n".utf8), attributes: [.posixPermissions: 0o600])
+    r = set("bot3", "", file: f3)
+    try? fm.removeItem(atPath: f3)
+    check(r.code == 0 && r.out.contains(lostHost), "18 webhook set bot3 --from-file (mode 600) (\(r.code))")
+    _ = h.run(["chat", "send", "room1", "/invite @bot3"])
+    r = h.run(["chat", "send", "room1", "x @bot3"])
+    let failed3 = h.waitFor(40) { h.run(["chat", "read", "room1", "--json"]).out.contains("could not reach the webhook") }
+    let readOut = h.run(["chat", "read", "room1", "--json"]).out
+    check(failed3 && !readOut.contains(lostHost), "18 bot3's unreachable host fails with a reason that names no host")
+
+    // 18. the sweep
+    for (n, args) in [("chat status --json", ["chat", "status", "--json"]), ("daemon status --json", ["daemon", "status", "--json"]),
+                      ("who --json", ["chat", "who", "--json"]), ("doctor --json", ["doctor", "--json"])] {
+        outputs[n] = h.run(args, timeout: 120).out
+    }
+    var leaks: [String] = []
+    for (n, text) in outputs {
+        if text.contains(pathSentinel) || text.contains(secret) { leaks.append(n + " (path or secret)") }
+        if !n.hasPrefix("webhook status") && text.contains(lostHost) { leaks.append(n + " (host)") }
+    }
+    if psSamples.contains(pathSentinel) || psSamples.contains(secret) || psSamples.contains(lostHost) { leaks.append("ps output") }
+    check(!psSamples.isEmpty, "18 ps was sampled during the set and while serving")
+    for f in (try? fm.subpathsOfDirectory(atPath: root.path)) ?? [] {
+        guard let d = fm.contents(atPath: root.path + "/" + f) else { continue }
+        let text = String(decoding: d, as: UTF8.self)
+        if text.contains(pathSentinel) || text.contains(secret) || text.contains(lostHost) { leaks.append(f) }
+    }
+    check(leaks.isEmpty, "18 the path, the secret and the host are in no log (server.log, daemon.log), no file of the store, no --json, no ps output\(leaks.isEmpty ? "" : ": " + leaks.joined(separator: ", "))")
+    let open = sh(["/usr/bin/find", paths.folder, "-perm", "+044"], nil).1.trimmingCharacters(in: .whitespacesAndNewlines)
+    check(open.isEmpty, "18 nothing in the chat folder can be read by others\(open.isEmpty ? "" : ": " + open)")
+
+    // 19. exactly the two listeners on 127.0.0.1
+    if let s = server() {
+        let ls = sh(["/usr/sbin/lsof", "-nP", "-a", "-p", String(s), "-iTCP", "-sTCP:LISTEN", "-Fn"], nil).1
+        let names = Set(ls.split(separator: "\n").filter { $0.hasPrefix("n") }.map { String($0.dropFirst()) })
+        check(names == ["127.0.0.1:\(page)", "127.0.0.1:\(line)"], "19 the chat server listens on exactly 127.0.0.1:\(page) and :\(line) (\(names.sorted()))")
+    } else { check(false, "19 a chat server runs") }
+
+    // 20. remove
+    r = h.run(["chat", "webhook", "remove", "bot2"], timeout: 60)
+    check(r.code == 0 && r.out.contains("Messages for bot2 fail at once"), "20 webhook remove bot2 (\(r.out.trimmingCharacters(in: .newlines)))")
+    r = h.run(["chat", "who"])
+    check(r.out.split(separator: "\n").contains { $0.contains("bot2") && $0.contains("webhook (not set)") }, "20 who: webhook (not set) again")
+    let n1 = hook.requests.count
+    _ = h.run(["chat", "send", "room3", "again @bot2"])
+    usleep(1_500_000)
+    check(hook.requests.count == n1, "20 …and a message for bot2 reaches no one")
+    _ = h.run(["chat", "remove", "bot3"], timeout: 60)
+    _ = h.run(["chat", "webhook", "remove", "bot3"], timeout: 60)
+    try? fm.removeItem(atPath: paths.data + "/secrets.json")
+
+    // 21. agents on other machines: the settings take exact Tailscale addresses only; an address this Mac does not have
+    // is not listened on (said), and the server stays on exactly 127.0.0.1 — no tailnet or LAN address is ever bound here.
+    for bad in ["0.0.0.0", "192.168.1.5", "100.64.0.0/10", "169.254.1.1", "::"] {
+        r = h.run(["config", "set", "chat.remote_listen", bad])
+        check(r.code != 0, "21 chat.remote_listen \(bad) is refused (\(r.code))")
+    }
+    let here = "100.100.1.2", other = "100.100.1.3"
+    guard ChatInterface.missing([here], among: ChatInterface.current()) == [here] else {
+        info("this Mac has \(here) on a Tailscale interface: row 21's missing-address case is not tried")
+        return
+    }
+    check(h.run(["config", "set", "chat.remote_agents", other]).code == 0 && h.run(["config", "set", "chat.remote_listen", here]).code == 0,
+          "21 config set chat.remote_agents \(other), chat.remote_listen \(here)")
+    // At once, before the daemon has looked: "starting", never "not an address of this Mac".
+    r = h.run(["chat", "status"])
+    check(r.out.contains("Remote listening on \(here): starting…") || r.out.contains("Not listening on \(here)"), "21 status always has a line for the remote listener (\(r.out.split(separator: "\n").filter { $0.contains(here) }))")
+    let said = h.waitFor(15) { h.run(["chat", "status"]).out.contains("Not listening on \(here): not an address of this Mac now (is Tailscale up?)") }
+    check(said, "21 status: Not listening on \(here): not an address of this Mac now")
+    r = h.run(["chat", "status", "--json"])
+    check(r.out.contains("\"missing\"") && r.out.contains(here), "21 status --json: remote.missing names it")
+    if let s = server() {
+        let ls = sh(["/usr/sbin/lsof", "-nP", "-a", "-p", String(s), "-iTCP", "-sTCP:LISTEN", "-Fn"], nil).1
+        let names = Set(ls.split(separator: "\n").filter { $0.hasPrefix("n") }.map { String($0.dropFirst()) })
+        check(names == ["127.0.0.1:\(page)", "127.0.0.1:\(line)"], "21 …still exactly 127.0.0.1:\(page) and :\(line) (\(names.sorted()))")
+    } else { check(false, "21 a chat server runs") }
+    check(!h.run(["daemon", "status"]).out.contains("chat: also on"), "21 daemon status: not 'also on'")
+    r = h.run(["doctor"], timeout: 120)
+    check(r.out.split(separator: "\n").contains { $0.hasPrefix("warn") && $0.contains("chat remote") && $0.contains("Not listening on \(here)") },
+          "21 doctor: chat remote WARN")
+    check(r.out.contains("chat firewall"), "21 doctor: the firewall row (read only)")
+    _ = h.run(["config", "set", "chat.remote_listen", ""]); _ = h.run(["config", "set", "chat.remote_agents", ""])
+    check(h.waitFor(15) { !h.run(["chat", "status"]).out.contains(here) }, "21 cleared: no remote line")
 }

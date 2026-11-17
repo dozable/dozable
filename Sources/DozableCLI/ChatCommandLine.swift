@@ -83,7 +83,7 @@ public enum ChatCommandLine {
         let f: Flags
         do {
             f = try parse(args, values: ["config", "bind", "data-dir", "secrets-file", "line-port", "page-port", "claude-sessions",
-                                          "token-hashes", "owner-socket"], bools: ["supervised"])
+                                          "token-hashes", "owner-socket", "webhooks-fd"], bools: ["supervised"])
         } catch { return bad("\(error) (doz chat serve -h lists the settings)") }
         guard let config = f.values["config"], !config.isEmpty else { return bad("--config FILE is required") }
         var o = ChatServeOptions(configPath: absolute(config), release: release)
@@ -95,6 +95,12 @@ public enum ChatCommandLine {
         // The daemon's own flags (never the conformance runner's): token hashes only, and the owner's private socket.
         o.tokenHashesFile = f.values["token-hashes"].map(absolute)
         o.ownerSocket = f.values["owner-socket"].map(absolute)
+        // The daemon's pipe of webhook entries: a descriptor number only, never a value; only from the daemon.
+        if let v = f.values["webhooks-fd"] {
+            guard o.supervised, o.tokenHashesFile != nil else { return bad("--webhooks-fd is the daemon's: only with --supervised and --token-hashes") }
+            guard let n = Int32(v), n >= 3 else { return bad("--webhooks-fd: \"\(v)\" is not a descriptor (3 or more)") }
+            o.webhooksFD = n
+        }
         for flag in ["line-port", "page-port"] {
             guard let v = f.values[flag] else { continue }
             guard let n = Int(v), (0...65535).contains(n) else { return bad("--\(flag): \"\(v)\" is not a port (0 to 65535)") }

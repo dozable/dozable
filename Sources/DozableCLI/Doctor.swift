@@ -254,6 +254,7 @@ struct Doctor: AsyncParsableCommand {
                                        held: LoginStart.heldAt(store) != nil && !store.hostIsRunning()))
         // The chat server the daemon runs (read only: the setting, the supervisor's record, the server's own status).
         out.append(chatDoctorCheck(store))
+        out += chatRemoteDoctorChecks(store)
         // 695: the Claude login keep-alive — the mode, the last try and the next (the store's record; the daemon's word when
         // one runs: a locked daemon never runs it). Read only, no token.
         do {

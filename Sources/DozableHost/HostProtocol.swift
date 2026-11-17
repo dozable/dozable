@@ -243,6 +243,13 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// `chat-add` / `chat-remove` / `chat-token`: a participant added, removed, or its token replaced — answered with
     /// `ChatAnswer`, whose token travels this once and is never logged.
     case chatSync = "chat-sync", chatAdd = "chat-add", chatRemove = "chat-remove", chatToken = "chat-token"
+    /// A webhook bot's entry (`chat`: `entry`, and for set `url` + `authorization`) — set (into the login keychain),
+    /// removed, or looked at (`[ChatWebhookInfo]`: never the path, query or header). Only on the daemon's socket; no web
+    /// action maps to any `chat-*` op. Nothing of the request is logged.
+    case chatWebhookSet = "chat-webhook-set", chatWebhookRemove = "chat-webhook-remove", chatWebhookStatus = "chat-webhook-status"
+    /// Another chat server's history brought in from a copy made for import (`chat`: `path`, `addMissing`, `replace`),
+    /// only while chat is off — answered with `ChatImportReport`. Only on the daemon's socket.
+    case chatImport = "chat-import"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
@@ -1505,8 +1512,25 @@ public struct ChatRequest: Codable, Equatable, Sendable {
     public var retry: Bool?
     /// chat-sync: answer once it is ready (or stopped), at most 15 s.
     public var wait: Bool?
-    public init(name: String? = nil, token: String? = nil, retry: Bool? = nil, wait: Bool? = nil) {
+    /// chat-add: its kind (`agent`, `claude-session`, `grok-bot`; nil: agent).
+    public var kind: String?
+    /// chat-add: delivered to by webhook (its entry: `entry`, else its own name).
+    public var webhook: Bool?
+    /// chat-add with webhook, chat-webhook-*: the entry's name.
+    public var entry: String?
+    /// chat-webhook-set: the address and the Authorization value (empty: no header). Never logged.
+    public var url: String?
+    public var authorization: String?
+    /// chat-import: the copy (an absolute path), and its two choices.
+    public var path: String?
+    public var addMissing: Bool?
+    public var replace: Bool?
+    public init(name: String? = nil, token: String? = nil, retry: Bool? = nil, wait: Bool? = nil, kind: String? = nil, webhook: Bool? = nil,
+                entry: String? = nil, url: String? = nil, authorization: String? = nil, path: String? = nil, addMissing: Bool? = nil,
+                replace: Bool? = nil) {
         self.name = name; self.token = token; self.retry = retry; self.wait = wait
+        self.kind = kind; self.webhook = webhook; self.entry = entry; self.url = url; self.authorization = authorization
+        self.path = path; self.addMissing = addMissing; self.replace = replace
     }
 }
 

@@ -177,3 +177,16 @@ TestS7_3_WebhookTextCutAndAttachments
 TestS7_4_InboxEditDeleteNotices
 TestS7_5_ReceiveItems
 TestS7_7_ReannounceOnVersionChange
+
+# The pin at 0.13.2, run with -no-room-apps: who may fetch a file (and with a participant's token), Range, the download's
+# headers, and the three checks whose room-app steps are now left out.
+TestS1_2_RequireTokensPageCalls
+TestS4_8_DownloadRange
+TestS4_8_DownloadSandbox
+TestS4_8_FetchDirectMessageFile
+TestS4_8_FetchMembersOnly
+TestS4_8_FetchUnnamedFile
+TestS4_8_FetchWithParticipantToken
+TestS4_8_MediaTypeTable
+TestS5_3_StreamEvents
+TestS10_RestartKeepsEverything

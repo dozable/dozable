@@ -23,7 +23,13 @@ public protocol ChatWebhookPoster: Sendable {
 }
 
 public struct ChatURLSessionWebhook: ChatWebhookPoster {
-    public init() {}
+    /// Sent as `User-Agent: doz/<release> chat` — the release number only, nothing of the machine or the user.
+    public let userAgent: String
+
+    public init(release: String = "") {
+        let r = release.prefix { $0.isNumber || $0 == "." }
+        userAgent = r.isEmpty ? "doz chat" : "doz/\(r) chat"
+    }
 
     public func post(url: String, authorization: String, body: [UInt8], timeout: Double) async -> ChatWebhookTry {
         guard let u = URL(string: url), let scheme = u.scheme?.lowercased(), u.host != nil else {
@@ -34,6 +40,7 @@ public struct ChatURLSessionWebhook: ChatWebhookPoster {
         req.httpMethod = "POST"
         req.httpBody = Data(body)
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         if !authorization.isEmpty { req.setValue(authorization, forHTTPHeaderField: "Authorization") }
         req.httpShouldHandleCookies = false
 
@@ -106,9 +113,11 @@ private final class OneCall: NSObject, URLSessionDataDelegate, @unchecked Sendab
         case .networkConnectionLost: return "EOF"
         case .notConnectedToInternet: return "network is unreachable"
         case .badServerResponse: return "malformed HTTP response"
-        case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateNotYetValid,
-             .serverCertificateHasUnknownRoot, .clientCertificateRejected, .clientCertificateRequired:
-            return "a TLS error (\(e.code.rawValue))"
+        case .serverCertificateUntrusted, .serverCertificateHasUnknownRoot: return "tls: the webhook's certificate is not trusted"
+        case .serverCertificateHasBadDate: return "tls: the webhook's certificate has expired"
+        case .serverCertificateNotYetValid: return "tls: the webhook's certificate is not yet valid"
+        case .secureConnectionFailed, .clientCertificateRejected, .clientCertificateRequired:
+            return "tls: the secure connection failed (\(e.code.rawValue))"
         case .cancelled: return "cancelled"
         default: return "network error \(e.code.rawValue)"
         }
