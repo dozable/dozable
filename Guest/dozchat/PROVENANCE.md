@@ -11,8 +11,8 @@ every sandbox (`/usr/local/lib/doz/bin/dozchat`, linked `/usr/local/bin/dozchat`
 
 | | |
 |---|---|
-| sha256 (auto) | `055c9e71e8e7d80cb4bf489a1ec0221391e93df44e6c7065953966e190758288` |
-| size (auto) | 117872 bytes |
+| sha256 (auto) | `a4a8e5c512124240a3241e75c9bd6f0d1ac2cdd3b65ae7534c2dd59141a85049` |
+| size (auto) | 118000 bytes |
 | format | ELF 64-bit LSB executable, ARM aarch64, statically linked (musl), stripped |
 | source | [`dozchat.c`](dozchat.c) (this directory) |
 | Zig | 0.16.0 — the same pinned toolchain as the other guest helpers; [`build.sh`](build.sh) fetches it (same URL and sha256 as `../deckhold/build.sh`) when missing |
@@ -20,6 +20,25 @@ every sandbox (`/usr/local/lib/doz/bin/dozchat`, linked `/usr/local/bin/dozchat`
 | reproducible | yes — two `FORCE=1` rebuilds (2026-11-18, one after emptying the Zig local cache) gave identical bytes. `-static-pie` is not used: `zig cc` 0.16.0 ignores it (an unused-argument error under `-Werror`) |
 
 Licences: dozchat itself (MIT, this package) and musl libc (MIT), statically linked by Zig.
+
+## dozchat-linux-x86_64 — for agents outside Dozable on x86_64 Linux (not committed, a release asset)
+
+The same source, flags and Zig version, for `x86_64-linux-musl`: `make dozchat-linux-x86_64` (`Guest/dozchat/build.sh
+x86_64`) → `.build/dozchat-linux-x86_64/dozchat`. Never in a sandbox (every sandbox is arm64) and never committed;
+`make release` attaches it to the GitHub release as `dozchat-linux-x86_64` with its `.sha256`. A Mac uses Zig's
+aarch64-macos build (the pin above); CI's Linux job (`.github/workflows/dozchat-linux.yml`) builds it with Zig's
+x86_64-linux build of 0.16.0 (sha256 `70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00`, from
+ziglang.org/download) and checks the bytes are these.
+
+| | |
+|---|---|
+| x86_64 sha256 | `05f3a1178a6ce8ee7d043b23f80856d718bf0f82a42466ec92999e9b7cb90267` |
+| x86_64 size | 128216 bytes |
+| format | ELF 64-bit LSB executable, x86-64, statically linked (musl), stripped |
+| reproducible | yes — two `FORCE=1` builds on the Mac (one after emptying Zig's local cache) gave identical bytes |
+
+Outside Dozable, through a local proxy with no password (Tailscale in userspace, say):
+`CHAT_URL=http://HOST:8790 http_proxy=http://localhost:PORT dozchat send ROOM TEXT` (the token from `CHAT_TOKEN_FILE`).
 
 ## dozchat-mac — a fenced session's `dozchat` (not committed)
 

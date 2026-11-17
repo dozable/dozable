@@ -231,6 +231,8 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
     [[ "$FLAVOUR" == cli ]] && run env FORCE=1 Guest/deckhold/build-mac.sh
     # dozchat-mac — the chat-room member of a fenced session (CLI only, like deckhold-mac): the Mac's cc, nothing else.
     [[ "$FLAVOUR" == cli ]] && run env FORCE=1 Guest/dozchat/build-mac.sh
+    # dozchat-linux-x86_64 — for agents OUTSIDE Dozable on x86_64 Linux (a release asset beside the tarball, never in it).
+    [[ "$FLAVOUR" == cli ]] && run env FORCE=1 Guest/dozchat/build.sh x86_64
     # The menu bar app (CLI only) — the same environment and flags, so it shares the build above.
     if [[ "$FLAVOUR" == cli ]]; then
         run env DOZ_CLOUD_PACKAGE="$DOZ_CLOUD_PACKAGE" DOZ_CLOUD_REF="$DOZ_CLOUD_REF" DOZ_HELPER_BUILD="$HELPER_ENV" DOZ_HELPER_WEB= \
@@ -629,9 +631,21 @@ if [[ -z "$DRY_RUN" ]]; then
     rm -rf "$unpack"
     say "  from the tarball: codesign --verify --strict ok, doz --version $VERSION, the layout contract holds$([[ "$FLAVOUR" == cli ]] && echo ", the menu bar app verifies")"
     (cd "$OUT" && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
+    # The x86_64 Linux dozchat (CLI flavour): a static x86-64 ELF, the bytes PROVENANCE records, beside the tarball with
+    # its .sha256 — Scripts/publish.sh attaches both to the release.
+    if [[ "$FLAVOUR" == cli ]]; then
+        DLX=.build/dozchat-linux-x86_64/dozchat
+        [[ "$(file -b "$DLX")" == "ELF 64-bit LSB executable, x86-64"*"statically linked"* ]] || fail "dozchat-linux-x86_64 is not a static x86-64 ELF ($(file -b "$DLX"))"
+        dsha="$(shasum -a 256 "$DLX" | cut -d' ' -f1)"
+        grep -qF "| x86_64 sha256 | \`$dsha\` |" Guest/dozchat/PROVENANCE.md || fail "dozchat-linux-x86_64 ($dsha) is not what Guest/dozchat/PROVENANCE.md records"
+        cp "$DLX" "$OUT/dozchat-linux-x86_64"
+        (cd "$OUT" && shasum -a 256 dozchat-linux-x86_64 > dozchat-linux-x86_64.sha256)
+        say "         dozchat-linux-x86_64: sha256 $dsha ($(stat -f %z "$DLX") bytes; static x86-64)"
+    fi
     say "release: $TARBALL"
     say "         sha256 $(cut -d' ' -f1 "$TARBALL.sha256")  ($(( $(stat -f %z "$TARBALL") / 1048576 )) MiB compressed, $(( installed / 1024 )) MiB installed)"
     say "         symbols: $DSYM_ZIP ($(( $(stat -f %z "$DSYM_ZIP") / 1048576 )) MiB)"
 else
     say "  [dry-run] (cd $OUT && shasum -a 256 ${NAME}.tar.gz > ${NAME}.tar.gz.sha256)"
+    [[ "$FLAVOUR" == cli ]] && say "  [dry-run] cp .build/dozchat-linux-x86_64/dozchat $OUT/dozchat-linux-x86_64 (+ .sha256)"
 fi

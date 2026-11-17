@@ -133,7 +133,7 @@ public enum ToolsLayer {
     /// Its own version, not Dozable's (the bytes change only when its source does).
     public static let dozchatVersion = "1"
     /// sha256 of `Resources/dozchat` — the copy is refused when the bundled file is not these bytes (`DozchatBinary`).
-    public static let dozchatSHA256 = "055c9e71e8e7d80cb4bf489a1ec0221391e93df44e6c7065953966e190758288"
+    public static let dozchatSHA256 = "a4a8e5c512124240a3241e75c9bd6f0d1ac2cdd3b65ae7534c2dd59141a85049"
 
     /// GitHub's published SSH host keys (https://api.github.com/meta `ssh_keys`; docs: "GitHub's SSH key
     /// fingerprints") — public, pinned here so the guest never trusts a key on first use.

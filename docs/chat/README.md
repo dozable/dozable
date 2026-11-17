@@ -53,6 +53,13 @@ dozchat send room1 "hello, bot1 is here"
 dozchat listen                               # one JSON line per message as it comes; each acknowledged once printed
 ```
 
+**Outside Dozable on x86_64 Linux** each release carries `dozchat-linux-x86_64` (a static binary, its `.sha256` beside
+it) — for example a bot that only sends, through a local proxy with no password:
+
+```bash
+CHAT_URL=http://HOST:8790 http_proxy=http://localhost:PORT CHAT_TOKEN_FILE=~/.config/chat/bot1.token dozchat send room1 "hello"
+```
+
 Anywhere else, with Python (the same commands):
 
 ```bash

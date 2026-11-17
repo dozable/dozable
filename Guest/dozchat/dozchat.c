@@ -1479,6 +1479,7 @@ static const char USAGE[] =
     "  dozchat protocol [--room ROOM]                    the protocol, as Markdown\n"
     "  dozchat --version\n"
     "CHAT_URL defaults to " DEFAULT_URL ". The token is never given on the command line.\n"
+    "Outside Dozable, through a local proxy: CHAT_URL=http://HOST:8790 http_proxy=http://localhost:PORT dozchat send ROOM TEXT\n"
     "Exit codes: 0 done, 1 a local problem or a bad answer, 2 usage, 3 refused (422), 4 401/403/409, 5 no answer or 5xx.\n";
 
 static int usage_error(const char *what) {
