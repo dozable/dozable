@@ -32,7 +32,7 @@ struct ChatCommand: AsyncParsableCommand {
             """,
         shouldDisplay: false,
         subcommands: [ChatOn.self, ChatOff.self, ChatStatusCommand.self, ChatAdd.self, ChatRemove.self, ChatWho.self, ChatTokenCommand.self,
-                      ChatWebhookCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self])
+                      ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self])
 }
 
 // MARK: - status

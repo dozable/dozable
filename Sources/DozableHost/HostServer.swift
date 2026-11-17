@@ -528,7 +528,7 @@ public final class HostServer: @unchecked Sendable {
             netLogFollow(conn, reader: reader, request: req)
         case .console where req.follow == true:
             consoleFollow(conn, reader: reader, request: req)
-        case .chatSync, .chatAdd, .chatRemove, .chatToken, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus:
+        case .chatSync, .chatAdd, .chatRemove, .chatToken, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport:
             Task.detached { [self] in
                 let m = await chatRequest(req)
                 conn.send(m)
@@ -594,6 +594,9 @@ public final class HostServer: @unchecked Sendable {
                 return .success(try JSONValue(encoding: [info]))
             case .chatWebhookStatus:
                 return .success(try JSONValue(encoding: try await chat.webhookStatus(c.entry)))
+            case .chatImport:
+                guard let p = c.path, p.hasPrefix("/") else { throw HostError(.invalid, "which copy (an absolute path)?") }
+                return .success(try JSONValue(encoding: try await chat.importCopy(p, addMissing: c.addMissing ?? false, replace: c.replace ?? false)))
             default:
                 throw HostError(.invalid, "not a chat request")
             }

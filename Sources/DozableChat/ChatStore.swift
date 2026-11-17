@@ -172,13 +172,13 @@ public final class ChatRoomStore: @unchecked Sendable {
 
     /// Each (message, recipient) held and not yet released, oldest message first.
     public func held() throws -> [(String, String)] {
-        try sync {
-            try self.query("""
-                SELECT s.msg_id, s.recipient FROM states s JOIN messages m ON m.msg_id=s.msg_id GROUP BY s.msg_id, s.recipient
-                \t\tHAVING SUM(CASE WHEN s.state='held' THEN 0 ELSE 1 END)=0 ORDER BY MIN(m.seq)
-                """, []) { (Self.text($0, 0), Self.text($0, 1)) }
-        }
+        try sync { try self.query(Self.heldSQL, []) { (Self.text($0, 0), Self.text($0, 1)) } }
     }
+
+    static let heldSQL = """
+        SELECT s.msg_id, s.recipient FROM states s JOIN messages m ON m.msg_id=s.msg_id GROUP BY s.msg_id, s.recipient
+        \t\tHAVING SUM(CASE WHEN s.state='held' THEN 0 ELSE 1 END)=0 ORDER BY MIN(m.seq)
+        """
 
     public func one(_ msgID: String) throws -> ChatStored {
         let seqs = try sync { try self.query("SELECT seq FROM messages WHERE msg_id=?", [.text(msgID)]) { sqlite3_column_int64($0, 0) } }
@@ -245,12 +245,39 @@ public final class ChatRoomStore: @unchecked Sendable {
     /// Each (message, recipient) that is queued and was never handed over, failed or cancelled: recorded and waiting,
     /// or held and then released. Oldest message first.
     public func pending() throws -> [(String, String)] {
+        try sync { try self.query(Self.pendingSQL, []) { (Self.text($0, 0), Self.text($0, 1)) } }
+    }
+
+    static let pendingSQL = """
+        SELECT s.msg_id, s.recipient FROM states s JOIN messages m ON m.msg_id=s.msg_id GROUP BY s.msg_id, s.recipient
+        \t\tHAVING SUM(CASE WHEN s.state IN ('queued','held') THEN 0 ELSE 1 END)=0 AND SUM(CASE WHEN s.state='queued' THEN 1 ELSE 0 END)>0
+        \t\tORDER BY MIN(m.seq)
+        """
+
+    /// An import's quiet (`ChatImport.stage`, on a staged copy only — never a live room): every (message, recipient) still
+    /// waiting to be handed over (`pendingSQL`) and every unconfirmed hand-over, for anyone but the human, gets a
+    /// `cancelled` state with `detail`; every hand-over and notice row goes. Held messages stay held. In one transaction.
+    /// Who was cancelled, how many each; how many notices went.
+    public func quietForImport(human: String, detail: String, at: Double) throws -> (cancelled: [String: Int], notices: Int) {
         try sync {
-            try self.query("""
-                SELECT s.msg_id, s.recipient FROM states s JOIN messages m ON m.msg_id=s.msg_id GROUP BY s.msg_id, s.recipient
-                \t\tHAVING SUM(CASE WHEN s.state IN ('queued','held') THEN 0 ELSE 1 END)=0 AND SUM(CASE WHEN s.state='queued' THEN 1 ELSE 0 END)>0
-                \t\tORDER BY MIN(m.seq)
-                """, []) { (Self.text($0, 0), Self.text($0, 1)) }
+            try self.exec("BEGIN IMMEDIATE")
+            do {
+                var pairs: [(String, String)] = try self.query(Self.pendingSQL, []) { (Self.text($0, 0), Self.text($0, 1)) }
+                pairs += try self.query("SELECT msg_id, recipient FROM handovers ORDER BY handed_at", []) { (Self.text($0, 0), Self.text($0, 1)) }
+                var seen = Set<String>(), out: [String: Int] = [:]
+                for (id, who) in pairs where who != human && seen.insert(id + "\u{0}" + who).inserted {
+                    try self.run("INSERT OR REPLACE INTO states(msg_id,recipient,state,at,detail) VALUES(?,?,'cancelled',?,?)",
+                                 [.text(id), .text(who), .real(at), .text(detail)])
+                    out[who, default: 0] += 1
+                }
+                try self.run("DELETE FROM handovers", [])
+                let notices = Int(try self.run("DELETE FROM notices", []))
+                try self.exec("COMMIT")
+                return (out, notices)
+            } catch {
+                try? self.exec("ROLLBACK")
+                throw error
+            }
         }
     }
 

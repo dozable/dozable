@@ -247,6 +247,9 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// removed, or looked at (`[ChatWebhookInfo]`: never the path, query or header). Only on the daemon's socket; no web
     /// action maps to any `chat-*` op. Nothing of the request is logged.
     case chatWebhookSet = "chat-webhook-set", chatWebhookRemove = "chat-webhook-remove", chatWebhookStatus = "chat-webhook-status"
+    /// Another chat server's history brought in from a copy made for import (`chat`: `path`, `addMissing`, `replace`),
+    /// only while chat is off — answered with `ChatImportReport`. Only on the daemon's socket.
+    case chatImport = "chat-import"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
@@ -1518,10 +1521,16 @@ public struct ChatRequest: Codable, Equatable, Sendable {
     /// chat-webhook-set: the address and the Authorization value (empty: no header). Never logged.
     public var url: String?
     public var authorization: String?
+    /// chat-import: the copy (an absolute path), and its two choices.
+    public var path: String?
+    public var addMissing: Bool?
+    public var replace: Bool?
     public init(name: String? = nil, token: String? = nil, retry: Bool? = nil, wait: Bool? = nil, kind: String? = nil, webhook: Bool? = nil,
-                entry: String? = nil, url: String? = nil, authorization: String? = nil) {
+                entry: String? = nil, url: String? = nil, authorization: String? = nil, path: String? = nil, addMissing: Bool? = nil,
+                replace: Bool? = nil) {
         self.name = name; self.token = token; self.retry = retry; self.wait = wait
         self.kind = kind; self.webhook = webhook; self.entry = entry; self.url = url; self.authorization = authorization
+        self.path = path; self.addMissing = addMissing; self.replace = replace
     }
 }
 

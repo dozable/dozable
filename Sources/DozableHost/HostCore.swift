@@ -838,7 +838,7 @@ public actor HostCore {
             return try JSONValue(encoding: await resolveDotfiles(r.dotfilesSource))
         case .dotfilesUpdate:
             return try JSONValue(encoding: await updateDotfiles(r, emit: emit))
-        case .chatSync, .chatAdd, .chatRemove, .chatToken, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus:
+        case .chatSync, .chatAdd, .chatRemove, .chatToken, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport:
             // The chat server is the daemon's child: `HostServer` answers these (its `ChatSupervisor`), never the core.
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
         case .tools, .toolsApply:

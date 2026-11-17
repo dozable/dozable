@@ -330,6 +330,23 @@ public final class ChatSupervisor: @unchecked Sendable {
         }
     }
 
+    /// `doz chat import PATH` (`chat-import`): another chat server's history brought in from a copy made for import
+    /// (`ChatImporter.run`) — only while chat is off (the setting read now, no child, no server holding the data folder),
+    /// and on this queue, so no `doz chat on`, add or look runs beside it.
+    public func importCopy(_ source: String, addMissing: Bool, replace: Bool) async throws -> ChatImportReport {
+        try await runThrowing {
+            self.settings = self.readSettings()
+            self.settingsAt = Self.now()
+            if self.settings.enabled || self.child != nil || self.processes.server(dataDir: self.paths.data).pid != nil {
+                throw HostError(.unavailable, "chat is on — doz chat off first (an import never runs beside the chat server)")
+            }
+            let r = try ChatImporter.run(paths: self.paths, source: source, addMissing: addMissing, replace: replace)
+            HostLog.line("chat: imported \(r.summary.rooms.count) room(s), \(r.summary.messages) message(s), \(r.summary.files) attachment(s) from a copy made for import"
+                         + (r.keptAs != nil ? "; the earlier data folder was kept aside" : ""))
+            return r
+        }
+    }
+
     static func info(_ entry: String, _ r: EntryRead, users: [String]) -> ChatWebhookInfo {
         var i = ChatWebhookInfo(entry: entry, state: "not set", usedBy: users)
         switch r {
