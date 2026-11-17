@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 /// Finds the `doz` the menu bar app runs — again at every refresh (a `stat` each), so a doz upgraded or replaced while the
 /// app runs is the one the next refresh uses.
@@ -73,5 +74,40 @@ public struct FileIdentity: Equatable, Sendable {
 public enum MenuBarSeams {
     public static func guarded(_ env: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
         env["DOZ_TEST_REAL_MAC"] != "1" && env["DOZ_TEST_GUARD"] == "1"
+    }
+
+    /// Any TEST run — guarded, or one that lifted the guard with `DOZ_TEST_REAL_MAC=1` (as doz's `TestSafety.testRun`). The
+    /// login item never reaches SMAppService or /bin/launchctl in either: what a test may do with this Mac's login is
+    /// read its Keychain, never register something that starts at it.
+    public static func testRun(_ env: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        env["DOZ_TEST_GUARD"] == "1" || env["DOZ_TEST_REAL_MAC"] == "1"
+    }
+}
+
+/// The signature the login agent requires of the doz it runs, in a release build: Dozable's Developer ID team.
+public enum DozSignature {
+    public static let teamID = "KJ8QMLWB97"
+    public static let requirement = "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\""
+
+    /// `path` (a link is followed to its file) is code signed by Dozable's team, and its signature is valid (strict).
+    @Sendable public static func isDozable(_ path: String) -> Bool {
+        let url = URL(fileURLWithPath: path).resolvingSymlinksInPath() as CFURL
+        var code: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(url, [], &code) == errSecSuccess, let code else { return false }
+        var req: SecRequirement?
+        guard SecRequirementCreateWithString(requirement as CFString, [], &req) == errSecSuccess, let req else { return false }
+        let flags = SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSStrictValidate | kSecCSCheckNestedCode)
+        return SecStaticCodeCheckValidity(code, flags, req) == errSecSuccess
+    }
+}
+
+extension DozLocator {
+    /// The doz the login agent (`--launch-daemon`) runs: the standard candidates, each an executable file and — when
+    /// `requireTeam` (a release build) — signed by Dozable's team (`verify`, `DozSignature.isDozable` by default).
+    public static func forLaunchAgent(env: [String: String] = ProcessInfo.processInfo.environment, requireTeam: Bool,
+                                      verify: @escaping @Sendable (String) -> Bool = DozSignature.isDozable) -> DozLocator {
+        DozLocator(candidates: standardCandidates(env: env), accept: { path in
+            isExecutableFile(path) && (!requireTeam || verify(path))
+        })
     }
 }

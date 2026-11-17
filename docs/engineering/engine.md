@@ -117,8 +117,11 @@ A bare file name is in `Sources/DozableKit/`.
     {XDG_CONFIG_HOME}` only when set and not the default. Never `KeepAlive`, `Sockets` or `MachServices`.
     `DaemonLoginItemTests` round-trips it through `PropertyListSerialization`.
   - **The rule**: present ⇔ `login_item == on` AND (`always_on` OR ≥ 1 kept session — `HostServer.keepers`, 0 until kept
-    sessions exist) AND no app-owned job (`com.dozable.app.daemon`, reserved for the menu bar app; loaded AND its program
-    still on disk — one whose program is gone counts as absent). `sync` is called by `doz daemon login-item on|off`,
+    sessions exist) AND no app-owned job (`com.dozable.app.daemon`, the menu bar app's SMAppService agent; loaded AND its program
+    still on disk — one whose program is gone counts as absent. Its program is the app's own executable named RELATIVE
+    to the bundle (`BundleProgram`), so `print` shows no absolute path: then it counts while a plist path in a bundle that
+    `print` names, or an installed `Dozable.app` in /Applications or ~/Applications (`MenuBarAppPlaces`; a test run: the
+    seam), is there — `DaemonLoginItem.appJob`, menu-bar-app.md "Start at Login"). `sync` is called by `doz daemon login-item on|off`,
     `doz config set|unset` of the daemon's settings, the web settings route (`daemon.always_on` only: `daemon.login_item` is `ui: false` — consent is given on the Mac, never
     from the dashboard, where under `doz ui --lan` another device could ask; the route refuses it and the Settings page
     shows it read-only; `ServeRulesTests.testTheWebUIRefusesTheLoginItem`),

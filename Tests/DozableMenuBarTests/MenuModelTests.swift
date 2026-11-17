@@ -128,18 +128,15 @@ final class MenuModelTests: XCTestCase {
         }
     }
 
-    func testTheLoginItemIsOneDisabledLineWhenDozHasIt() {
+    func testNoLoginRowWhenTheLoginStateIsNotKnown() {
         let withItem = Fixture.runningWith { o in
-            o["version"] = "0.50.7"
+            o["version"] = "0.50.8"
             var li = o["loginItem"] as! [String: Any]; li["owner"] = "doz"; li["installed"] = true; o["loginItem"] = li
         }
-        let items = MenuModel.items(for: snap(withItem))
-        let line = items.first { $0.title == "Starts at login (set by doz)" }
-        XCTAssertNotNil(line)
-        XCTAssertEqual(line?.enabled, false)
-        XCTAssertNil(line?.action)
-        XCTAssertFalse(titles(MenuModel.items(for: snap(Fixture.status(Fixture.running)))).contains { $0.contains("login") })
-        XCTAssertFalse(titles(items).contains { $0.contains("Start at Login") }, "no login switch in this version")
+        let items = MenuModel.items(for: snap(withItem, doz: "0.50.8"))
+        XCTAssertFalse(titles(items).contains { $0.contains("Start at Login") || $0.contains("login") },
+                       "the row needs the login state (SMAppService's); without it there is none")
+        XCTAssertNil(item(items, .loginOn))
     }
 
     func testUpdateMenuBarAppOnlyWhenTheBundledCopyIsNewer() {

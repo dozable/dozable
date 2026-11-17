@@ -27,7 +27,7 @@ of; "DeckStack" and "Deckosaurus" are sibling projects some techniques were take
 | `doz` (executable, 585) | `doz` → `DozableCLI` (commands) → `DozableHost` (the daemon + its client); 637: `DozableCLI` → `DozableTUI` (terminal components, the colour switch — Foundation + Darwin only, audit) | `DozableKit`; `swift-argument-parser` (`ArgumentParser`) in `DozableCLI`/`doz` ONLY; the system `SQLite3` in `DozableHost` (metrics); `jpsim/Yams` **exact** `6.2.2` in `DozableCLI` ONLY (`doz_project.yaml` — the audit enforces the pin and the confinement); 667: the system's `AVFoundation` in `DozableHost/Microphone.swift` ONLY (the microphone's permission — never a capture; audit) |
 | — (not a product) | `DozableWeb` — `doz ui`'s server and page (645: one server — this Mac's browser and, with the LAN option, the network's) | `DozableHost`; `swift-nio` `NIOCore`/`NIOPosix`/**`NIOHTTP1`**/**`NIOWebSocket`** (both ONLY here — the audit enforces it); the system's **`dnssd`** (Bonjour) in `WebBonjour.swift` ONLY (audit); resource `Resources/Web` (generated, committed). `DozableCLI`'s `UICommand.swift` alone imports `CoreServices` (LaunchServices opens the browser) |
 | — (not a product) | `doz-vmtest` — the entitled VM test host | `DozableKit`, `DozableHost` (the `cli` mode decodes `--json` with its types) |
-| `Dozable` (executable: the menu bar app, `Dozable.app`) | `DozableMenuBar` (AppKit, there ONLY) → `DozableMenuBarCore` (Foundation, Security, os) | nothing of this package and no package — it runs the `doz` command (the audit holds it) |
+| `Dozable` (executable: the menu bar app, `Dozable.app`) | `DozableMenuBar` (AppKit and ServiceManagement, there ONLY — ServiceManagement in `LoginService.swift` alone) → `DozableMenuBarCore` (Foundation, Security, os) | nothing of this package and no package — it runs the `doz` command (the audit holds it) |
 
 The Containerization pin is EXACT on purpose: the sleep design leans on its internals' shape —
 `LinuxContainer.withVirtualMachineInstance` handing out a `VZVirtualMachineInstance`, the
@@ -57,7 +57,7 @@ One row per area; each area's doc starts with the full table of its files.
 | Tools layer, tmux, dotfiles | `Guest/tmux/`, `Dotfiles.swift` | [tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) |
 | Files | `WorkspaceFileList`, `WorkspaceFileChange`, `FileWatch`, `EditorApps`, `WebFiles` | [files.md](docs/engineering/files.md) |
 | Sound | `Audio.swift`, `DozSound.swift`, `MacAudio`, `Microphone`, `Guest/sound-kernel/` | [sound.md](docs/engineering/sound.md) |
-| The menu bar app | `Sources/DozableMenuBarCore/`, `Sources/DozableMenuBar/`, `Resources/MenuBar/`, `Scripts/assemble-app.sh`, `AppCommands.swift` (`doz app`) | [menu-bar-app.md](docs/engineering/menu-bar-app.md) |
+| The menu bar app | `Sources/DozableMenuBarCore/`, `Sources/DozableMenuBar/`, `Resources/MenuBar/` (+ the login agent's plist), `Scripts/assemble-app.sh`, `Scripts/check-agent-plist.py`, `AppCommands.swift` (`doz app`) | [menu-bar-app.md](docs/engineering/menu-bar-app.md) |
 
 ## Rules that each cost a bug to learn (keep them, and keep their tests)
 
@@ -248,8 +248,9 @@ One row per area; each area's doc starts with the full table of its files.
   detached child with ONLY stdin/stdout/stderr (`POSIX_SPAWN_CLOEXEC_DEFAULT`): a daemon that inherited
   a caller's pipe kept a test harness waiting on EOF. **launchd never runs the daemon** (694): only with consent
   (`daemon.login_item on`) ONE login item per store runs `doz daemon start --login-item`, which spawns it and exits
-  (engine.md, "The login item"). The daemon is the code's "host" (`HostServer`, `HostCore`, `HostClient`, `HostLauncher`,
-  `DozableHost`, the wire protocol's names keep it). TEMPORARY (0.50, until the dated backlog item removes it):
+  (engine.md, "The login item"); the menu bar app's Start at Login is the other holder (its SMAppService agent execs the same
+  command; while its job is loaded and the app installed, doz removes its own — never two: `DaemonLoginItem.appJob`). The
+  daemon is the code's "host" (`HostServer`, `HostCore`, `HostClient`, `HostLauncher`, `DozableHost`, the wire protocol's names keep it). TEMPORARY (0.50, until the dated backlog item removes it):
   `Sources/DozableHost/Migration/HostToDaemon.swift` carries a 0.40 store across — a daemon also takes the older build's
   `host.lock` (after `daemon.lock`, waiting the same way) and holds both, a client reaches an older daemon on `host.sock`,
   `host.log` is adopted once, doz.toml's `host.*` are read and moved like a 0.37 name, and a 0.40 host's hand-over argv
@@ -320,7 +321,7 @@ One row per area; each area's doc starts with the full table of its files.
   carries `parentPid`, `sessionID`, `launchedDetached`; `doctor` warns when a launched daemon's parent
   isn't 1. `make test-cli` (`cliHostDetachChecks`) kills a client's group and every descendant (TERM,
   then KILL) and checks the daemon, a running sandbox and its session survive.
-- **The menu bar app is a client of the doz COMMAND** (`--json`, an absolute path, an argv — never a shell —, a cap and a timeout), never of the socket or the engine; it never sees a dashboard link (`doz ui`'s output goes to /dev/null, never `--print-url`); it registers nothing without a click; it installs by rename, verified first (`doz app install`); a test never shows its menu or touches /Applications (`TestSafety.applicationsViolation`). `MenuModelTests`, `CommandRunnerTests`, `AppInstallTests`, `make test-cli-app`.
+- **The menu bar app is a client of the doz COMMAND** (`--json`, an absolute path, an argv — never a shell —, a cap and a timeout), never of the socket or the engine; it never sees a dashboard link (`doz ui`'s output goes to /dev/null, never `--print-url`); it registers nothing without a click (Start at Login: the agent + the app through SMAppService, and only once launchd has the job loaded is doz told `daemon.login_item on`); its login agent runs only a doz signed by Dozable's team in a release build; it installs by rename, verified first (`doz app install`); a test never shows its menu, touches /Applications (`TestSafety.applicationsViolation`) or reaches SMAppService or /bin/launchctl (ANY test run — `MenuBarSeams.testRun` — gets the recording `LoginItemService`). `MenuModelTests`, `LoginItemStateTests`, `AgentPlistTests`, `DozLocatorTests`, `CommandRunnerTests`, `AppInstallTests`, `make test-cli-app`.
 - **Names are never cut; a point is found by what a person types**: a restore point's name is
   stored as given, ≤ `RestorePoint.maximumNameLength` (64; longer is refused with the limit — names live
   only in meta.json, a point's directory is its id). `RestorePoint.resolve`: exact id, exact name
@@ -448,7 +449,7 @@ make test FILTER=Suite # the matching unit tests only (swift test --filter)
 make test-cli-startup  # the cost of a start: ls/sessions/exec/attach build no recipe part (DOZ_TEST_STARTUP_TRACE=1); doz ls --json median <= 60 ms, <= 1 s under taskpolicy -b; doctor's priority warning; a daemon started from the background leaves it (scratch store, no VM)
 make test-vm-status  # 612: a FAKE agent's status through deckhold, the daemon and the CLI — no viewer and a viewer, sleep/hibernate + wake, the exit, shutdown (scratch store)
 make test-cli-hoststop # 594 W22: test-cli's host-stop part alone (per-sandbox progress plain/animated, --json, nothing running, a daemon killed mid-stop); make pullbench (D12): 3 vs 6 concurrent layer downloads
-make app / test-cli-app # the menu bar app: .build/debug/Dozable.app, ad hoc, never opened / its non-GUI modes against the real doz and fakes, doz app install --dest a scratch folder (no VM, no screen)
+make app / test-cli-app # the menu bar app: .build/debug/Dozable.app, ad hoc, never opened / its non-GUI modes against the real doz and fakes, doz app install --dest a scratch folder, --launch-daemon, Start at Login through the recording service and a fake launchctl (no VM, no screen, nothing registered)
 ```
 
 ### Test safety is the default
@@ -457,7 +458,7 @@ Every `make test*` target (and the probes' `guard-doz.sh`) runs with `DOZ_TEST_G
 a scratch `DOZ_TEST_CODEX_HOME` and a scratch `XDG_CONFIG_HOME` whose `doz.toml` sets `store.path` and `defaults.projects_dir` to scratch
 folders — forced, whatever the environment says (694: a scratch `DOZ_TEST_LAUNCH_AGENTS_DIR`, a refusing `DOZ_TEST_LAUNCHCTL`; a scratch `DOZ_TEST_APPLICATIONS_DIR`). `TestSafety`
 STOPS a guarded process (and any XCTest run) that would use the default store, read the Mac's real `~/.codex`, touch the keychain's `Claude
-Code-credentials*` items, the real `~/Library/LaunchAgents` or `/bin/launchctl`, install the menu bar app into `/Applications` or `~/Applications`, or run any keep-alive claude but the fake `DOZ_TEST_CLAUDE_BIN` (695). The only way out is explicit: `DOZ_TEST_REAL_MAC=1`.
+Code-credentials*` items, the real `~/Library/LaunchAgents` or `/bin/launchctl`, install the menu bar app into `/Applications` or `~/Applications`, ask macOS to open an app (`DOZ_TEST_APP_OPEN_LOG` records it; a "running copy" is a stand-in outside any bundle, `DOZ_TEST_APP_STANDIN`), or run any keep-alive claude but the fake `DOZ_TEST_CLAUDE_BIN` (695). The only way out is explicit: `DOZ_TEST_REAL_MAC=1`.
 A new code path that reads something of the Mac's own must go through a seam the Makefile sets (`CredentialServices.forHost`, `macLoginKeychain`) — `TestSafetyTests` pins the decisions.
 
 **Paths are SHOWN with `~`** (617): `DisplayPath` (DozableHost: `tilde`, `tildeIn`, `homes`) and its twin `core/paths.js`

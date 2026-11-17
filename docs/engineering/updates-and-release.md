@@ -70,13 +70,16 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 - **`Dozable.app`, the menu bar app — the CLI tarball ONLY**, at `libexec/doz/Dozable.app` ([menu-bar-app.md](menu-bar-app.md)).
   `release.sh`, in this order: builds `--product Dozable` (the same environment and flags as doz, so one build);
   `dsymutil` (the app's dSYM goes into the same `.dSYM.zip`, as `Dozable.app.dSYM`, its UUID checked), assembles the bundle
-  (`Scripts/assemble-app.sh` from `Resources/MenuBar/Info.plist` — every value checked with `plutil -extract`), strips the
+  (`Scripts/assemble-app.sh` from `Resources/MenuBar/Info.plist` — every value checked with `plutil -extract` — and the
+  login agent's plist into `Contents/Library/LaunchAgents/`, checked by `Scripts/check-agent-plist.py`), strips the
   executable; signs the BUNDLE with the release's arguments and `--identifier com.dozable.app`, NO entitlements, never
   `--deep` (its one Mach-O is its executable); then, BEFORE notarisation, checks everything a mistake could break —
   `codesign --verify --strict`, one arm64 executable, no entitlements, the identifier (and with a real identity: the
   authority, the team, the hardened runtime, the timestamp), the Info.plist values (identifier, executable, both versions =
-  VERSION, `LSUIElement`, `LSMinimumSystemVersion 26.0`), and that it runs headless: `--self-config` says the version and
-  identifier, `--dump-menu` (a guarded run, scratch folders) reads the PACKED doz — so a wrong app stops the release before
+  VERSION, `LSUIElement`, `LSMinimumSystemVersion 26.0`), the login agent's plist (alone in `Contents/Library/LaunchAgents`,
+  exactly its keys, its label doz's reserved one, SEALED — a copy with one value changed must fail `codesign --verify
+  --strict`), and that it runs headless: `--self-config` says the version, the identifier and `requireTeam: true` (a
+  release build's login agent runs only a doz signed by Dozable's team), `--dump-menu` (a guarded run, scratch folders) reads the PACKED doz — so a wrong app stops the release before
   the 10-minute notarisation. It is notarised in the SAME zip as doz; then `xcrun stapler staple` (retried up to 5 minutes
   while the ticket propagates), `stapler validate`, `codesign --verify` again and `spctl -a -t exec -vv` must say
   "Notarized Developer ID". From the unpacked tarball: it verifies, its version, its stapled ticket. The helper must NOT

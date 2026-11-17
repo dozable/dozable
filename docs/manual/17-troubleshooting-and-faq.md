@@ -161,6 +161,22 @@ plist in `~/Library/LaunchAgents` that starts the doz daemon when you log in. `d
 `doz daemon login-item off` removes it. Switched off in System Settings › General › Login Items, it stays off —
 `doz doctor` says so.
 
+**"Dozable" in Login Items?**
+That is the menu bar app's **Start at Login** (System Settings › General › Login Items & Extensions; macOS said "Login
+Item Added" when you clicked it). It starts the daemon when you log in, and the menu with it; doz's own login item is
+then removed, so there is only one. Turn it off from the menu (uncheck Start at Login) or with `doz app uninstall`.
+Switched off in System Settings, the menu says "Start at Login — needs approval: Open System Settings…" — click it to
+go there and switch Dozable back on. `doz daemon login-item` says who starts the daemon at login.
+
+**The menu says "Start at Login — needs doz 0.50.8" (or "doz … is older than this app needs")?**
+The menu bar app came with a newer doz than the one it finds (it uses `/opt/homebrew/bin/doz`, `/usr/local/bin/doz` or
+`~/.local/bin/doz`, in that order). Upgrade that doz (`doz upgrade -y`, or `brew upgrade`); the menu notices within a
+minute. Start, Stop, Restart and the dashboard work meanwhile.
+
+**The menu says "Start at Login — open the copy in Applications"?**
+That copy of the app runs from outside Applications (a download, or Homebrew's own folder). Run `doz app install --open`
+and use the copy in `/Applications`.
+
 **Everything is slow — a wake takes a minute?**
 Run `doz doctor`. When `doz` was started at macOS background priority (by `taskpolicy -b`, or by a tool or agent that
 runs in the background), it and everything it starts run many times slower; doctor's `priority` line says so and how

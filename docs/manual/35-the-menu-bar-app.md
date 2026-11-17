@@ -2,7 +2,8 @@
 
 Dozable's daemon is the background process that runs your sandboxes. The menu bar app, **Dozable.app**, puts it in
 your Mac's menu bar: whether it is running, which version, how many sandboxes are up — and Start, Stop, Restart and
-Open Dashboard, one click each. It has no chat and no settings of its own; everything else is `doz` and the dashboard.
+Open Dashboard, one click each, and **Start at Login**. It has no chat and no settings of its own; everything else is
+`doz` and the dashboard.
 
 It comes with doz (Homebrew and the release tarball carry it) and does nothing until you install it.
 
@@ -40,8 +41,6 @@ The first line is the daemon's state:
 | doz is not installed | The app found no doz (it looks at `/opt/homebrew/bin/doz`, `/usr/local/bin/doz` and `~/.local/bin/doz`). **How to Install doz…** opens this manual's install page. |
 | doz 0.50.3 is older than this app needs | Upgrade doz (`doz upgrade -y`). Meanwhile the menu still shows the state and offers Start, Stop, Restart and Open Dashboard. |
 
-"Starts at login (set by doz)" appears when you turned on doz's login item (`doz daemon login-item on`).
-
 The icon is filled while the daemon runs, outlined when it is stopped, a warning triangle when a Restart is due, and
 hollow when there is no doz.
 
@@ -53,6 +52,7 @@ hollow when there is no doz.
 - **Restart Daemon** — the same as `doz daemon restart`: stop (sandboxes hibernate), then start on the current version.
 - **Open Dashboard** — the same as `doz ui --detach --open`: the dashboard opens in your browser, signed in. The
   sign-in link goes straight from doz to your browser; the app never sees it.
+- **Start at Login** — see below.
 - **Quit Dozable Menu** — quits the app only. The daemon and your sandboxes keep running.
 
 The app runs `doz` for each of these, so it does exactly what the command does — including refusing what the command
@@ -61,6 +61,34 @@ refuses (it shows doz's reason in the menu). It never starts the daemon just by 
 
 The menu refreshes when you open it (and every two seconds while it is open), once a minute while it is closed, when
 your Mac wakes, and after every action.
+
+## Start at Login
+
+One switch for both: with **Start at Login** checked, the daemon starts when you log in (from your desktop session, so
+it can read your login Keychain) and the menu comes back too. Nothing is set up until you click it.
+
+The first time, macOS shows a notice ("Login Item Added") and lists **Dozable** under System Settings › General ›
+Login Items & Extensions. At login, and every 15 minutes after, the app runs the same short doz command doz's own login
+item runs: it starts the daemon if none runs (and you did not stop it), then exits. The daemon itself is never a login
+item.
+
+| the menu says | what it means |
+|---|---|
+| ✓ Start at Login | On. Click to turn it off (the daemon keeps running; it just will not start at your next login). |
+| Start at Login | Off. Click to turn it on. |
+| ✓ Start at Login (set by doz — click to let this app hold it) | doz's own login item starts the daemon (`doz daemon login-item on`). Click to let the app hold it instead: the app's item replaces doz's, and the menu comes back at login too. |
+| Start at Login — needs approval: Open System Settings… | Dozable is switched off under System Settings › Login Items (or macOS waits for your OK). Click to open that page and switch it on. |
+| Start at Login — open the copy in Applications (doz app install) | This copy runs from somewhere else (a download, Homebrew's folder). macOS keeps a login item only for an app that stays in one place: run `doz app install` and open the copy in Applications. |
+| Start at Login — needs doz 0.50.8 | Your doz is older than this needs. Upgrade doz (`doz upgrade -y`). |
+
+There is only ever one login item for the daemon: when the app holds it, doz removes its own, and `doz daemon login-item`
+says "the Dozable menu bar app starts the daemon at login". Turning Start at Login off, or removing the app
+(`doz app uninstall`), gives it back to you: `doz daemon login-item on` adds doz's own again. If you delete the app
+yourself without `doz app uninstall`, macOS may keep its login item listed (it does nothing without the app) — switch it
+off in System Settings; `doz daemon login-item on` works again either way.
+
+Start at Login uses the default store (the one `doz` uses with no `--store`) and the doz installed by Homebrew or in
+`~/.local`. A Dozable release runs only a doz signed by Dozable.
 
 ## Updates
 
@@ -78,8 +106,8 @@ doz app install --open
 doz app uninstall
 ```
 
-This quits the app and removes it from `/Applications` (and `~/Applications`). The daemon keeps running. `doz
-uninstall`, which removes all of Dozable, removes the app too.
+This turns Start at Login off when it was on, quits the app and removes it from `/Applications` (and
+`~/Applications`). The daemon keeps running. `doz uninstall`, which removes all of Dozable, removes the app too.
 
 ## Where to look
 
@@ -90,15 +118,16 @@ doz app status        # the copy that came with doz, where it is installed, whet
 The app writes one line per doz command it runs to the system log — the command and its result, nothing else. To read
 it: `log show --predicate 'subsystem == "com.dozable.app"' --last 1h`.
 
-From an ssh session you can see what the menu would show without the screen:
+From an ssh session you can see what the menu would show without the screen, and Start at Login as macOS reports it:
 
 ```sh
 /Applications/Dozable.app/Contents/MacOS/Dozable --dump-menu
+/Applications/Dozable.app/Contents/MacOS/Dozable --login-status
+launchctl print gui/$(id -u)/com.dozable.app.daemon | head -20
+doz daemon login-item           # who starts the daemon at login
 ```
 
 ## Not yet
 
-- It does not start at login by itself: open it from Finder, or add it under System Settings › General › Login Items.
-  (doz's own login item, `doz daemon login-item on`, starts the daemon at login — not the menu.)
 - It shows the default store only (the one `doz` uses when you give it no `--store`).
 - Its icon is a placeholder.

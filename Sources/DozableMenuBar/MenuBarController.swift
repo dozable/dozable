@@ -114,6 +114,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         for (item, m) in zip(menu.items, model) where m.kind != .separator {
             item.title = m.title
             item.isEnabled = m.enabled
+            item.state = m.checked ? .on : .off
             item.representedObject = m.action?.rawValue
             item.target = m.action == nil ? nil : self
             item.action = m.action == nil ? nil : #selector(choose(_:))
@@ -130,6 +131,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             NSApp.terminate(nil)
         case .installHelp:
             if let url = URL(string: MenuBarApp.installHelpURL) { NSWorkspace.shared.open(url) }
+        case .loginSettings:
+            // macOS waits for the person: System Settings › Login Items, where they switch Dozable on.
+            _ = source.performLogin(.loginSettings)
+            refresh()
         default:
             if let c = MenuModel.items(for: current).first(where: { $0.action == action })?.confirm, !ask(c) { return }
             run(action)

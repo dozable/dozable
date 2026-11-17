@@ -104,6 +104,8 @@ final class DaemonLoginItemTests: XCTestCase {
         let lock = NSLock()
         var loaded: [String: String] = [:]
         var apps: [String: String] = [:]
+        /// `print`'s whole answer for a label (an SMAppService job's shape).
+        var prints: [String: String] = [:]
         var disabled: Set<String> = []
         var calls: [[String]] = []
         var refuseBootstrap = false
@@ -124,6 +126,7 @@ final class DaemonLoginItemTests: XCTestCase {
                     case "print":
                         if let path = loaded[label] { return .init(code: 0, output: "x = {\n\tpath = \(path)\n}\n") }
                         if let prog = apps[label] { return .init(code: 0, output: "x = {\n\tprogram = \(prog)\n}\n") }
+                        if let raw = prints[label] { return .init(code: 0, output: raw) }
                         return .init(code: 113, output: "Could not find service")
                     case "print-disabled":
                         return .init(code: 0, output: "disabled services = {\n" + disabled.map { "\t\"\($0)\" => disabled\n" }.joined() + "}\n")
@@ -234,6 +237,99 @@ final class DaemonLoginItemTests: XCTestCase {
         try FileManager.default.removeItem(at: appProgram)
         r = DaemonLoginItem.sync(store: store, mode: .command, settings: s, launchctl: fake.launchctl, folder: agents, program: "/x/doz", environment: [:])
         XCTAssertEqual(r.decision.action, .install)
+    }
+
+    /// What `launchctl print` says of an SMAppService agent with a BundleProgram: no absolute program — `arguments` start
+    /// with the bare `Dozable`, or nothing names one (`path = (submitted by smd.N)`). Read on this Mac from other apps'
+    /// SMAppService jobs (`launchctl dumpstate`); the exact shape of Dozable's own is checked on the test Mac.
+    static let smappPrint = """
+    gui/501/com.dozable.app.daemon = {
+    	active count = 0
+    	path = (submitted by smd.552)
+    	type = Submitted
+    	managed_by = com.apple.xpc.ServiceManagement
+    	state = not running
+
+    	program identifier = Contents/MacOS/Dozable (mode: 2)
+    	parent bundle identifier = com.dozable.app
+    	arguments = {
+    		Dozable
+    		--launch-daemon
+    	}
+    }
+
+    """
+
+    func installApp(in place: URL, identifier: String = "com.dozable.app") throws -> URL {
+        let app = place.appendingPathComponent("Dozable.app")
+        try FileManager.default.createDirectory(at: app.appendingPathComponent("Contents/MacOS"), withIntermediateDirectories: true)
+        let info = try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": identifier], format: .xml, options: 0)
+        try info.write(to: app.appendingPathComponent("Contents/Info.plist"))
+        FileManager.default.createFile(atPath: app.appendingPathComponent("Contents/MacOS/Dozable").path, contents: Data(), attributes: [.posixPermissions: 0o755])
+        return app
+    }
+
+    /// The decision-13 refinement: the app's SMAppService job (its program relative to its bundle) counts while an
+    /// installed copy of the app is there — doz removes its own and says the app owns it — and as ABSENT once the app is
+    /// gone (deleted without unregistering), so `doz daemon login-item on` adds doz's own again.
+    func testAnSMAppServiceJobCountsWhileTheAppIsInstalled() throws {
+        let fake = FakeLaunchd()
+        fake.prints[DaemonLoginItem.appLabel] = Self.smappPrint
+        let apps = root.appendingPathComponent("Applications")
+        let s = try settings([SettingKey.loginItem: .string("on"), SettingKey.alwaysOn: .bool(true)])
+        let app = try installApp(in: apps)
+        XCTAssertEqual(DaemonLoginItem.appJob(fake.launchctl, appPlaces: [apps]).loaded, true)
+        try DaemonLoginItem.write(DaemonLoginItem.render(store: store, program: "/x/doz", xdgConfigHome: nil), to: DaemonLoginItem.plistURL(store, folder: agents))
+        var r = DaemonLoginItem.sync(store: store, mode: .command, settings: s, launchctl: fake.launchctl, folder: agents, program: "/x/doz",
+                                     appPlaces: [apps], environment: [:])
+        XCTAssertEqual(r.decision.action, .remove, "the app holds it: doz's own goes — never two")
+        let st = DaemonLoginItem.status(store: store, settings: s, launchctl: fake.launchctl, folder: agents, program: "/x/doz", appPlaces: [apps])
+        XCTAssertEqual(st.owner, "app")
+        XCTAssertTrue(st.note?.contains(app.appendingPathComponent("Contents/MacOS/Dozable").path) == true, st.note ?? "")
+        // Another app's bundle by that name is not Dozable's.
+        try FileManager.default.removeItem(at: app)
+        _ = try installApp(in: apps, identifier: "com.example.other")
+        XCTAssertEqual(DaemonLoginItem.appJob(fake.launchctl, appPlaces: [apps]).loaded, false)
+        // The app deleted: absent; doz adds its own again.
+        try FileManager.default.removeItem(at: apps)
+        XCTAssertEqual(DaemonLoginItem.appJob(fake.launchctl, appPlaces: [apps]).loaded, false)
+        r = DaemonLoginItem.sync(store: store, mode: .command, settings: s, launchctl: fake.launchctl, folder: agents, program: "/x/doz",
+                                 appPlaces: [apps], environment: [:])
+        XCTAssertEqual(r.decision.action, .install)
+        // No print at all for the label: no job.
+        fake.prints = [:]
+        XCTAssertEqual(DaemonLoginItem.appJob(fake.launchctl, appPlaces: [apps]).loaded, false)
+    }
+
+    /// When `print` names the plist inside a bundle, that bundle's executable decides.
+    func testAPlistPathInsideABundleDecides() throws {
+        let fake = FakeLaunchd()
+        let app = try installApp(in: root.appendingPathComponent("Elsewhere"))
+        let plistPath = app.appendingPathComponent("Contents/Library/LaunchAgents/com.dozable.app.daemon.plist").path
+        fake.prints[DaemonLoginItem.appLabel] = "x = {\n\tpath = \(plistPath)\n\targuments = {\n\t\tDozable\n\t}\n}\n"
+        XCTAssertEqual(Launchctl.parsePath(fake.prints[DaemonLoginItem.appLabel]!), plistPath)
+        XCTAssertNil(Launchctl.parsePath(Self.smappPrint), "(submitted by …) is not a path")
+        XCTAssertEqual(DaemonLoginItem.appJob(fake.launchctl, appPlaces: []).loaded, true)
+        try FileManager.default.removeItem(at: app)
+        XCTAssertEqual(DaemonLoginItem.appJob(fake.launchctl, appPlaces: []).loaded, false)
+    }
+
+    /// The menu bar app's agent plist (Resources/MenuBar, sealed into the bundle) carries doz's reserved label.
+    func testTheAppsAgentPlistCarriesDozsReservedLabel() throws {
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let d = try Data(contentsOf: repo.appendingPathComponent("Resources/MenuBar/com.dozable.app.daemon.plist"))
+        let p = try XCTUnwrap(try PropertyListSerialization.propertyList(from: d, format: nil) as? [String: Any])
+        XCTAssertEqual(p["Label"] as? String, DaemonLoginItem.appLabel)
+        XCTAssertEqual(p["ProgramArguments"] as? [String], ["Dozable", "--launch-daemon"])
+        XCTAssertNil(p["KeepAlive"])
+        XCTAssertEqual(p["StartInterval"] as? Int, DaemonLoginItem.startInterval, "the same 15-minute look as doz's own")
+    }
+
+    func testTheAppsInstallPlaces() {
+        let home = URL(fileURLWithPath: "/Users/someone")
+        XCTAssertEqual(MenuBarAppPlaces.lookPlaces(env: [:], guarded: false, home: home).map(\.path), ["/Applications", "/Users/someone/Applications"])
+        XCTAssertEqual(MenuBarAppPlaces.lookPlaces(env: [:], guarded: true, home: home), [])
+        XCTAssertEqual(MenuBarAppPlaces.lookPlaces(env: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_APPLICATIONS_DIR": "/tmp/a"], home: home).map(\.path), ["/tmp/a"])
     }
 
     func testRemoveTouchesOnlyThisStoresLabel() throws {

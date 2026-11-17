@@ -20,6 +20,8 @@
 //       unit table pins it.)
 //   11. `nuke --yes` and `uninstall --yes` remove only this store's label; another store's and an unrelated agent stay.
 //   12. The menu bar app's job loaded → doz removes its own and never writes one; the app's program gone → doz adds its own.
+//       The same with the job in the shape SMAppService gives it (a program relative to the bundle): owner app while an
+//       installed copy of the app is in its place (a scratch Applications folder), absent once it is deleted.
 //
 // Every daemon it starts is stopped at the end; the scratch folders are removed.
 import Darwin
@@ -257,6 +259,30 @@ func cliDaemonSuite(binary: String) async {
     try? fm.removeItem(at: appProgram)
     r = h.run(["daemon", "login-item", "on"])
     check(ourPlists() == [label + ".plist"] && item()?.owner == "doz", "login item 12: the app's program gone → its job counts as absent; doz adds its own")
+    // The shape launchd prints for the app's real job (SMAppService, a BundleProgram: no absolute program — `arguments`
+    // start with the bare `Dozable`): it counts while an installed copy of the app is in its place, and not once it is gone.
+    let appsDir = base.appendingPathComponent("Applications")
+    let installedApp = appsDir.appendingPathComponent("Dozable.app")
+    try? fm.createDirectory(at: installedApp.appendingPathComponent("Contents/MacOS"), withIntermediateDirectories: true)
+    if let info = try? PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": "com.dozable.app"], format: .xml, options: 0) {
+        try? info.write(to: installedApp.appendingPathComponent("Contents/Info.plist"))
+    }
+    fm.createFile(atPath: installedApp.appendingPathComponent("Contents/MacOS/Dozable").path, contents: Data("#!/bin/sh\nexit 0\n".utf8),
+                  attributes: [.posixPermissions: 0o755])
+    let appsBefore = h.env["DOZ_TEST_APPLICATIONS_DIR"]
+    h.env["DOZ_TEST_APPLICATIONS_DIR"] = appsDir.path
+    setApps([DaemonLoginItem.appLabel: "(bundle)"])
+    r = h.run(["daemon", "login-item", "on"])
+    var smappItem = item()
+    check(r.code == 0 && ourPlists().isEmpty && smappItem?.owner == "app"
+          && smappItem?.note?.contains(installedApp.appendingPathComponent("Contents/MacOS/Dozable").path) == true,
+          "login item 12: the app's SMAppService job (program relative to its bundle) with the app installed → doz removes its own, owner app (\(smappItem?.note ?? "no note"))")
+    try? fm.removeItem(at: installedApp)
+    r = h.run(["daemon", "login-item", "on"])
+    smappItem = item()
+    check(ourPlists() == [label + ".plist"] && smappItem?.owner == "doz",
+          "login item 12: …the app deleted without unregistering → its job counts as absent; doz adds its own again")
+    h.env["DOZ_TEST_APPLICATIONS_DIR"] = appsBefore
     setApps([:])
 
     // 9. A Homebrew-shaped layout: the plist runs the opt path; a new keg linked in → the daemon restarts from it.

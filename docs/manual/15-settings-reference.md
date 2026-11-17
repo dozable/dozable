@@ -317,6 +317,12 @@ Every recipe's agent has these, each recipe with its own defaults (`doz config s
 
 <!-- settings:end -->
 
+**`daemon.login_item` and the menu bar app.** When the menu bar app's **Start at Login** is on, the app holds the login
+item: it sets `daemon.login_item` to `on`, and doz removes its own plist from `~/Library/LaunchAgents` and adds none while
+the app's item is there — `doz daemon login-item` (and `doz daemon status --json`'s `loginItem.owner`, `app`) says the menu
+bar app starts the daemon at login. Turning Start at Login off sets it to `off`. With the app removed, its item counts as
+gone: `doz daemon login-item on` adds doz's own again. ([The menu bar app](35-the-menu-bar-app.md#start-at-login).)
+
 ## Environment variables
 
 | variable | overrides | |
