@@ -149,21 +149,26 @@ public final class ChatListeners: @unchecked Sendable {
             var head: HTTPRequestHead?
             var body: [UInt8] = []
             var tooLarge = false
+            var limit = Self.maxBody
             for try await part in inbound {
                 switch part {
                 case .head(let h):
                     head = h
                     body = []
                     tooLarge = false
+                    limit = ChatPageHandler.bodyLimit(method: h.method.rawValue, target: h.uri)
                 case .body(let b):
-                    if body.count + b.readableBytes > Self.maxBody { tooLarge = true } else { body.append(contentsOf: b.readableBytesView) }
+                    // Nothing past the request's limit is kept; the handler of a file upload answers it in its own words.
+                    if body.count + b.readableBytes > limit { tooLarge = true } else { body.append(contentsOf: b.readableBytesView) }
                 case .end:
                     guard let h = head else { continue }
                     head = nil
                     var headers: [String: String] = [:]
                     for (k, v) in h.headers where headers[k.lowercased()] == nil { headers[k.lowercased()] = v }
-                    let req = ChatHTTPRequest(method: h.method.rawValue, target: h.uri, headers: headers, body: body, remoteIP: a.ip)
-                    var res: ChatHTTPResponse = tooLarge
+                    let upload = limit != Self.maxBody
+                    let req = ChatHTTPRequest(method: h.method.rawValue, target: h.uri, headers: headers, body: body, remoteIP: a.ip,
+                                              truncated: tooLarge)
+                    var res: ChatHTTPResponse = tooLarge && !upload
                         ? .jsonError(413, "the request is too large")
                         : await Self.offload { handler.handle(req) }
                     if let poll = res.poll {   // a receive that waits; the caller going away ends the wait

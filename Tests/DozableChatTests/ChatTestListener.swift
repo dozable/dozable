@@ -150,6 +150,100 @@ final class TestWebhookListener: @unchecked Sendable {
     }
 }
 
+/// A fake running Claude Code session, entirely the test's own: a session record and a key file in a SCRATCH sessions
+/// folder the test hands the server (never the person's `~/.claude`), naming this test process's pid (so it runs) and an
+/// inbox socket this object listens on in a short scratch folder it makes under /tmp (never `/tmp/cc-socks`). Every line
+/// written to the socket is recorded. `stop()` closes the socket and removes the scratch socket folder.
+final class TestClaudeSession: @unchecked Sendable {
+    let name: String
+    let sessionsDir: String
+    let socketDir: String
+    var socket: String { socketDir + "/inbox.sock" }
+    let token: String
+    let record: String
+    private let fd: Int32
+    private let lock = NSLock()
+    private var got: [[String: Any]] = []
+    private var stopped = false
+
+    init(name: String, sessionsDir: String, status: String = "idle", token: String = "peer-token-0123456789abcdef") throws {
+        let home = NSHomeDirectory()
+        precondition(!sessionsDir.hasPrefix(home + "/.claude") && !sessionsDir.hasPrefix("/tmp/cc-socks"), "a test never uses a real sessions folder")
+        self.name = name; self.sessionsDir = sessionsDir; self.token = token
+        var template = Array("/tmp/dzc-XXXXXX".utf8CString)
+        guard let made = mkdtemp(&template) else { throw NSError(domain: "TestClaudeSession", code: Int(errno)) }
+        socketDir = String(cString: made)
+        record = (sessionsDir as NSString).appendingPathComponent("\(getpid()).json")
+        let s = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let p = Array((socketDir + "/inbox.sock").utf8)
+        withUnsafeMutableBytes(of: &addr.sun_path) { raw in for (i, b) in p.enumerated() { raw[i] = b } }
+        let ok = withUnsafePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(s, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
+        guard ok == 0, listen(s, 16) == 0 else { close(s); throw NSError(domain: "TestClaudeSession", code: Int(errno)) }
+        fd = s
+        try FileManager.default.createDirectory(atPath: sessionsDir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let key = #"{"peerToken":"\#(token)"}"#
+        try Data(key.utf8).write(to: URL(fileURLWithPath: (sessionsDir as NSString).appendingPathComponent("\(getpid()).0a1b2c3d.key")))
+        setStatus(status)
+        Thread.detachNewThread { [self] in acceptLoop() }
+    }
+
+    deinit { stop() }
+
+    /// Rewrites the record with a status, stamped now, as Claude Code writes it.
+    func setStatus(_ status: String) {
+        let ms = Int64(Date().timeIntervalSince1970 * 1000)
+        let rec = #"{"pid":\#(getpid()),"name":"\#(name)","messagingSocketPath":"\#(socket)","status":"\#(status)","statusUpdatedAt":\#(ms),"updatedAt":\#(ms),"kind":"interactive","peerProtocol":1}"#
+        try? Data(rec.utf8).write(to: URL(fileURLWithPath: record))
+    }
+
+    /// Every line written so far, in order (auth lines included).
+    var lines: [[String: Any]] { lock.withLock { got } }
+
+    /// The message lines' texts (auth lines skipped).
+    var texts: [String] {
+        lines.filter { $0["type"] as? String == "user" }.compactMap { (($0["message"] as? [String: Any])?["content"] as? String) }
+    }
+
+    /// Waits until at least n message lines came.
+    @discardableResult
+    func waitTexts(_ n: Int, seconds: Double = 10) -> [String] {
+        let deadline = Date().addingTimeInterval(seconds)
+        while texts.count < n && Date() < deadline { usleep(10_000) }
+        return texts
+    }
+
+    func stop() {
+        let first: Bool = lock.withLock { defer { stopped = true }; return !stopped }
+        guard first else { return }
+        shutdown(fd, SHUT_RDWR)
+        close(fd)
+        try? FileManager.default.removeItem(atPath: socketDir)
+    }
+
+    private func acceptLoop() {
+        while true {
+            let c = accept(fd, nil, nil)
+            if c < 0 { return }
+            Thread.detachNewThread { [self] in
+                defer { close(c) }
+                var buf = [UInt8](repeating: 0, count: 65536), pending = [UInt8]()
+                while true {
+                    let n = read(c, &buf, buf.count)
+                    if n <= 0 { break }
+                    pending += buf[0..<n]
+                    while let i = pending.firstIndex(of: 0x0A) {
+                        let line = Array(pending[..<i])
+                        pending.removeSubrange(...i)
+                        if let v = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any] { lock.withLock { got.append(v) } }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// A port nothing listens on: bound, then closed.
 func chatTestClosedPort() -> Int {
     let fd = socket(AF_INET, SOCK_STREAM, 0)

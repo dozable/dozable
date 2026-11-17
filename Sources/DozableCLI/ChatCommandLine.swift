@@ -6,13 +6,17 @@ import Foundation
 /// use). It is dispatched before anything else of doz runs, so a chat server reads no settings file, opens no store,
 /// starts no daemon and touches no Keychain: `doz chat serve` needs only its config, its flags and its secrets file.
 ///
-///   doz chat serve --config FILE --bind ADDR [--data-dir DIR] [--secrets-file FILE] [--line-port N] [--page-port N] [--supervised]
+///   doz chat serve --config FILE --bind ADDR [--data-dir DIR] [--secrets-file FILE] [--line-port N] [--page-port N]
+///                  [--claude-sessions DIR] [--supervised]
+///
+/// `--claude-sessions DIR` is where Claude Code's session records are read (default `$HOME/.claude/sessions`).
 ///   doz chat status [--json] --data-dir DIR
 ///
 /// A flag is written `--name value`, `--name=value`, `-name value` or `-name=value`. A bad flag or setting exits 78.
 public enum ChatCommandLine {
     static let usage = """
-        usage: doz chat serve --config FILE --bind ADDR [--data-dir DIR] [--secrets-file FILE] [--line-port N] [--page-port N] [--supervised]
+        usage: doz chat serve --config FILE --bind ADDR [--data-dir DIR] [--secrets-file FILE] [--line-port N] [--page-port N]
+                              [--claude-sessions DIR] [--supervised]
                doz chat status [--json] --data-dir DIR
 
         """
@@ -70,7 +74,7 @@ public enum ChatCommandLine {
         }
         let f: Flags
         do {
-            f = try parse(args, values: ["config", "bind", "data-dir", "secrets-file", "line-port", "page-port"], bools: ["supervised"])
+            f = try parse(args, values: ["config", "bind", "data-dir", "secrets-file", "line-port", "page-port", "claude-sessions"], bools: ["supervised"])
         } catch { return bad("\(error) (doz chat serve -h lists the settings)") }
         guard let config = f.values["config"], !config.isEmpty else { return bad("--config FILE is required") }
         var o = ChatServeOptions(configPath: absolute(config), release: release)
@@ -78,6 +82,7 @@ public enum ChatCommandLine {
         o.overrides.bind = f.values["bind"]
         o.overrides.dataDir = f.values["data-dir"].map(absolute)
         o.secretsFile = f.values["secrets-file"].map(absolute)
+        o.claudeSessions = f.values["claude-sessions"].map(absolute)
         for flag in ["line-port", "page-port"] {
             guard let v = f.values[flag] else { continue }
             guard let n = Int(v), (0...65535).contains(n) else { return bad("--\(flag): \"\(v)\" is not a port (0 to 65535)") }

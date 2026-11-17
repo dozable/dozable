@@ -5,7 +5,7 @@ import Foundation
 // What happens after a message is recorded: the live stream of the human's page, delivery to those this server can
 // reach now (an open page; a participant that polls is woken to collect it), presence, and the commands that change
 // the sender itself (/avatar, /session). Delivery by webhook is in ChatWebhooks.swift; to a Claude Code session's inbox
-// is a later step: a message for one stays `queued`.
+// in ChatInbox.swift.
 
 /// What the server keeps in memory about each participant, for presence: when it was last heard, handed a message,
 /// woken, said it was thinking, typed; how many receives it has open.
@@ -18,6 +18,8 @@ struct ChatLiveState {
     var polling: [String: Int] = [:]
     var avatars: [String: String] = [:]
     var links: [String: String] = [:]
+    /// The message last handed to each Claude session (kept in memory, as the reference keeps it).
+    var last: [String: ChatLastHanded] = [:]
 }
 
 extension ChatServerCore {
@@ -86,8 +88,8 @@ extension ChatServerCore {
     // MARK: - Delivery
 
     /// Hands one recipient a message, as far as this server can at once: an open page shows it; a participant that
-    /// polls is woken to collect it. A webhook is called by `deliverInOrder`, off the caller's thread. A Claude
-    /// session's inbox comes later: such a message stays queued.
+    /// polls is woken to collect it. A webhook and a Claude session's inbox are handed it by `deliverInOrder`, off the
+    /// caller's thread.
     func deliver(_ room: String, _ st: ChatRoomStore, _ msgID: String, to: String) {
         guard let cur = try? st.one(msgID) else { return }
         if cur.deleted {
@@ -105,7 +107,7 @@ extension ChatServerCore {
         case "poll":
             wakePoll(to)   // stays queued until it is collected
         case "inbox-socket", "webhook":
-            break   // the inbox is a later step; a webhook is called by deliverInOrder
+            break   // handed over in the background by deliverInOrder
         default:
             setState(room, st, ChatState(msgID: msgID, recipient: to, state: "failed", at: chatNow(), detail: "unknown delivery \(goQuote(p.deliver))"))
         }
@@ -189,7 +191,9 @@ extension ChatServerCore {
         nonisolated(unsafe) var last: [UInt8] = []
         t.schedule(deadline: .now() + 1, repeating: 1)
         t.setEventHandler { [weak self] in
-            guard let self, self.viewers > 0 else { return }
+            guard let self else { return }
+            self.noticeStarts()
+            guard self.viewers > 0 else { return }
             let p = self.presence()
             let key = ChatJSON.encode(.array(p.map { $0.removing("last_seen") }))
             if key != last {
@@ -202,25 +206,6 @@ extension ChatServerCore {
     }
 
     func publishPresence() { publish(ChatEvent(kind: "presence", presence: presence())) }
-
-    // MARK: - Claude Code sessions on this Mac (read only)
-
-    /// What a running Claude Code session with this name says about itself: whether it runs and its status. Read from
-    /// the session records in `sessionsDir`; never written.
-    func sessionStatus(_ name: String) -> (running: Bool, status: String) {
-        guard let r = sessionRecord(name) else { return (false, "") }
-        return (true, r.status)
-    }
-
-    func sessionRecord(_ name: String) -> (pid: Int32, status: String)? {
-        guard !name.isEmpty, let files = try? FileManager.default.contentsOfDirectory(atPath: sessionsDir) else { return nil }
-        for f in files.sorted() where f.hasSuffix(".json") {
-            guard let pid = Int32(f.dropLast(5)), let d = FileManager.default.contents(atPath: (sessionsDir as NSString).appendingPathComponent(f)),
-                  let v = try? ChatJSON.parse(d), v.isObject, v.field("name")?.stringValue == name else { continue }
-            if kill(pid, 0) == 0 { return (pid, v.field("status")?.stringValue ?? "") }
-        }
-        return nil
-    }
 
     // MARK: - /avatar and /session
 

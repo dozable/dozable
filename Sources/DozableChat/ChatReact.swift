@@ -61,8 +61,4 @@ extension ChatServerCore {
         if target.isEmpty { return .refused("say which message: /react <start of its msg_id> like") }
         return react(room: room, sender: sender, msgID: target, what: f[0])
     }
-
-    /// The message last handed to a participant's Claude Code session. Delivery to a session's inbox is a later step,
-    /// so there is none yet.
-    func lastHanded(_ name: String) -> String { "" }
 }
