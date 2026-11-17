@@ -1804,8 +1804,30 @@ public actor Sandbox {
                 tmuxProblem = f.reason
             }
         }
+        // dozchat: Dozable's own (in this package's resources, sha256-pinned), copied in only when the guest's copy is not
+        // these bytes — never over the network. Every sandbox, no setting.
+        var dozchatCopied = false
+        var dozchatProblem: String?
+        var dozchatSHA = ToolsLayer.dozchatSHA256
+        if plan.items.contains(where: { $0.id == "dozchat" }) {
+            switch DozchatBinary.verified() {
+            case .success(let found):
+                dozchatSHA = found.sha256
+                if state.dozchat != found.sha256 {
+                    do {
+                        try await container!.copyIn(from: found.url, to: URL(fileURLWithPath: ToolsLayer.guestDozchatPath + ".tmp"), mode: 0o755)
+                        dozchatCopied = true
+                    } catch {
+                        dozchatProblem = "could not copy dozchat into the guest: \(error.localizedDescription)"
+                    }
+                }
+            case .failure(let f):
+                dozchatProblem = f.reason
+            }
+        }
         let script = ToolsLayer.applyScript(plan, state: state, ghCopied: ghCopied, ghProblem: ghProblem, audioApp: inputs.audioApp,
-                                            microphone: inputs.microphone, tmuxCopied: tmuxCopied, tmuxProblem: tmuxProblem)
+                                            microphone: inputs.microphone, tmuxCopied: tmuxCopied, tmuxProblem: tmuxProblem,
+                                            dozchatCopied: dozchatCopied, dozchatSHA: dozchatSHA, dozchatProblem: dozchatProblem)
         let missing = ToolsLayer.missingPackages(plan, state)
         let installLabel = "tools: installing " + missing.map(\.title).joined(separator: ", ") + " with \(state.packageManager), through the proxy"
         if shout && !missing.isEmpty { broadcaster.yield(.stepStarted(installLabel)) }

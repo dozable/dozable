@@ -11,10 +11,10 @@ final class ToolsLayerTests: XCTestCase {
 
     func testThePlanFollowsTheSettings() throws {
         let none = ToolsLayer.plan(ToolInputs())
-        XCTAssertEqual(ids(none), ["git", "curl", "ca-certificates"], "always the basics")
+        XCTAssertEqual(ids(none), ["dozchat", "git", "curl", "ca-certificates"], "always dozchat and the basics")
         XCTAssertEqual(none.removals, ["gh", "github-known-hosts"], "Dozable's own tools go when their setting is off")
         let all = ToolsLayer.plan(ToolInputs(github: true, ssh: true, tmux: true))
-        XCTAssertEqual(ids(all), ["gh", "ssh", "github-known-hosts", "tmux", "git", "curl", "ca-certificates"])
+        XCTAssertEqual(ids(all), ["gh", "ssh", "github-known-hosts", "tmux", "dozchat", "git", "curl", "ca-certificates"])
         XCTAssertEqual(all.removals, [])
         let gh = all.items[0]
         XCTAssertEqual(gh.reason, "for GitHub as you")
@@ -28,7 +28,7 @@ final class ToolsLayerTests: XCTestCase {
         XCTAssertEqual(tmux.title, "tmux \(ToolsLayer.tmuxVersion)")
         XCTAssertNil(tmux.package)
         XCTAssertFalse(ToolsLayer.plan(ToolInputs()).removals.contains("tmux"), "kept when off: a running server may be it")
-        XCTAssertEqual(ids(ToolsLayer.plan(ToolInputs(ssh: true))), ["ssh", "github-known-hosts", "git", "curl", "ca-certificates"])
+        XCTAssertEqual(ids(ToolsLayer.plan(ToolInputs(ssh: true))), ["ssh", "github-known-hosts", "dozchat", "git", "curl", "ca-certificates"])
         XCTAssertEqual(ToolsLayer.plan(ToolInputs(ssh: true)).removals, ["gh"])
     }
 
@@ -111,6 +111,52 @@ final class ToolsLayerTests: XCTestCase {
         XCTAssertEqual(ToolsLayer.results("doz-tool tmux installed tmux 3.8, built into Dozable\n", plan: plan).first?.state, "installed")
     }
 
+    // MARK: dozchat — every sandbox, no setting
+
+    func testDozchatIsAlwaysCopiedInWhenItsBytesDifferAndLinkedOnlyWhenFree() throws {
+        let plan = ToolsLayer.plan(ToolInputs())
+        let item = try XCTUnwrap(plan.items.first { $0.id == "dozchat" })
+        XCTAssertEqual(item.kind, "binary")
+        XCTAssertNil(item.package, "never a package")
+        XCTAssertFalse(plan.removals.contains("dozchat"), "never removed")
+        var s = ToolsLayer.GuestState.parse("first=1\nhave=git\nhave=curl\nhave=ca-certificates\npm=apt\n")
+        XCTAssertNil(s.dozchat)
+        XCTAssertTrue(ToolsLayer.checkScript.contains("[ -x '\(ToolsLayer.guestDozchatPath)' ] && v=$(cat '\(ToolsLayer.guestStateDirectory)/dozchat.sha256'"))
+        XCTAssertEqual(ToolsLayer.GuestState.parse("dozchat=abc\n").dozchat, "abc")
+        var script = ToolsLayer.applyScript(plan, state: s, ghCopied: false, ghProblem: nil, dozchatCopied: true)
+        XCTAssertEqual(ToolsLayer.guestDozchatPath, "/usr/local/lib/doz/bin/dozchat")
+        XCTAssertTrue(script.contains("mv -f '\(ToolsLayer.guestDozchatPath).tmp' '\(ToolsLayer.guestDozchatPath)'"), "moved into place by rename")
+        XCTAssertTrue(script.contains("[ \"$('\(ToolsLayer.guestDozchatPath)' --version 2>/dev/null)\" = 'dozchat \(ToolsLayer.dozchatVersion)' ]"), "it must run")
+        XCTAssertTrue(script.contains("printf '%s' '\(ToolsLayer.dozchatSHA256)' > '\(ToolsLayer.guestStateDirectory)/dozchat.sha256'"))
+        XCTAssertTrue(script.contains("if [ ! -e '\(ToolsLayer.dozchatLink)' ] && [ ! -L '\(ToolsLayer.dozchatLink)' ] || [ \"$(readlink '\(ToolsLayer.dozchatLink)')\" = '\(ToolsLayer.guestDozchatPath)' ]; then ln -sf"),
+                      "linked only where nothing else is, or already Dozable's")
+        XCTAssertTrue(script.contains("doz-tool dozchat installed") && script.contains("doz-tool dozchat failed the copied dozchat does not run here"))
+        script = ToolsLayer.applyScript(plan, state: s, ghCopied: false, ghProblem: nil, dozchatProblem: "this build of Dozable has no dozchat of its own")
+        XCTAssertTrue(script.contains("doz-tool dozchat skipped this build of Dozable has no dozchat of its own"))
+        s.dozchat = ToolsLayer.dozchatSHA256
+        script = ToolsLayer.applyScript(plan, state: s, ghCopied: false, ghProblem: nil)
+        XCTAssertTrue(script.contains("doz-tool dozchat ok dozchat") && !script.contains("dozchat.tmp"), "the same bytes: nothing copied")
+        // A sha that is not hex never reaches the guest's shell.
+        XCTAssertFalse(ToolsLayer.applyScript(plan, state: s, ghCopied: false, ghProblem: nil, dozchatCopied: true, dozchatSHA: "x'; rm -rf /").contains("rm -rf"))
+    }
+
+    func testTheCommittedDozchatIsThePin() throws {
+        let pkg = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let bin = try Data(contentsOf: pkg.appendingPathComponent("Sources/DozableKit/Resources/dozchat"))
+        XCTAssertEqual(ToolsCache.sha256(bin), ToolsLayer.dozchatSHA256, "Resources/dozchat is the pinned build (make dozchat; update the pin)")
+        XCTAssertEqual(Array(bin.prefix(4)), [0x7F, 0x45, 0x4C, 0x46], "an ELF")
+        XCTAssertEqual(bin[18], 0xB7, "aarch64")
+        XCTAssertLessThan(bin.count, 150_000, "under 150 KB")
+        let prov = try String(contentsOf: pkg.appendingPathComponent("Guest/dozchat/PROVENANCE.md"), encoding: .utf8)
+        XCTAssertTrue(prov.contains("| sha256 (auto) | `\(ToolsLayer.dozchatSHA256)` |"))
+        let src = try String(contentsOf: pkg.appendingPathComponent("Guest/dozchat/dozchat.c"), encoding: .utf8)
+        XCTAssertTrue(src.contains("#define DOZCHAT_VERSION \"\(ToolsLayer.dozchatVersion)\""), "the source and the pin name the same version")
+        if case .success = DozchatBinary.check(URL(fileURLWithPath: "/x"), sum: String(repeating: "0", count: 64)) { XCTFail("another file was accepted") }
+        if DozchatBinary.locate(environment: [:]) != nil {
+            XCTAssertEqual(try? DozchatBinary.verified(environment: [:]).get().sha256, ToolsLayer.dozchatSHA256, "the bundled dozchat is the pin")
+        }
+    }
+
     /// The committed binary is the pinned one, recorded in its provenance; a file that is not refused.
     func testTheCommittedTmuxIsThePin() throws {
         let pkg = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -133,11 +179,11 @@ final class ToolsLayerTests: XCTestCase {
 
     func testTheResults() {
         let plan = ToolsLayer.plan(ToolInputs(github: true))
-        let out = "doz-tool gh installed gh \(ToolsLayer.ghVersion), from Dozable's cache on the Mac\ndoz-tool git ok already in the image\ndoz-tool curl failed apk could not install curl\nnoise\n"
+        let out = "doz-tool gh installed gh \(ToolsLayer.ghVersion), from Dozable's cache on the Mac\ndoz-tool git ok already in the image\ndoz-tool curl failed apk could not install curl\ndoz-tool dozchat ok dozchat\nnoise\n"
         let rs = ToolsLayer.results(out, plan: plan)
-        XCTAssertEqual(rs.map(\.id), ["gh", "git", "curl", "ca-certificates"])
-        XCTAssertEqual(rs.map(\.state), ["installed", "ok", "failed", "failed"])
-        XCTAssertEqual(rs[3].detail, "no answer from the guest")
+        XCTAssertEqual(rs.map(\.id), ["gh", "dozchat", "git", "curl", "ca-certificates"])
+        XCTAssertEqual(rs.map(\.state), ["installed", "ok", "ok", "failed", "failed"])
+        XCTAssertEqual(rs[4].detail, "no answer from the guest")
         let rep = ToolsReport(results: rs, first: true)
         XCTAssertTrue(rep.changed && rep.failed)
         XCTAssertTrue(rep.summary.contains("gh \(ToolsLayer.ghVersion) ✓") && rep.summary.contains("curl ✗ (apk could not install curl)"))

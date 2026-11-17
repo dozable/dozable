@@ -112,6 +112,9 @@ let package = Package(
                 // tmux 3.8 for sessions.tmux on every base — static, built from pinned sources (Guest/tmux/),
                 // copied in by the tools layer.
                 .copy("Resources/tmux"),
+                // dozchat — the chat-room member every sandbox carries (Guest/dozchat/: one C file, static
+                // aarch64-linux-musl, the pinned Zig, reproducible; PROVENANCE.md records sha256 and command).
+                .copy("Resources/dozchat"),
                 // 617: the agent recipes and the key providers, compiled in (`PackageResources.<basename>_json`,
                 // no Bundle.module). ONE line per file, and every basename unique across Recipes/ — the
                 // identifier is the basename (`AgentRecipeTests` checks the list against the folder). A recipe's

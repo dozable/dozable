@@ -121,14 +121,19 @@ final class ChatDozchatClientTests: XCTestCase {
     }
 
     /// Through the stub proxy from here on (its password in http_proxy, as a fenced session's).
-    func useProxy() throws {
-        proxy = try StubProxy(upstreamPort: page, password: Self.proxyPassword)
+    func useProxy(password: Bool = true) throws {
+        proxy = try StubProxy(upstreamPort: page, password: password ? Self.proxyPassword : nil)
     }
 
     func environment(_ who: String, file: String? = nil, url: String? = nil) -> [String: String] {
         var e = ["PATH": "/usr/bin:/bin", "HOME": home.path, "LANG": "en_US.UTF-8",
                  "CHAT_URL": url ?? "http://127.0.0.1:\(page)", "CHAT_TOKEN_FILE": file ?? tokenFile(who)]
-        if let proxy { e["http_proxy"] = "http://doz:\(Self.proxyPassword)@127.0.0.1:\(proxy.port)"; e["NO_PROXY"] = "localhost" }
+        if let proxy {
+            // A session's proxy has a password; a local proxy without one (Tailscale in userspace, say) is plain.
+            e[proxy.expect == nil ? "HTTP_PROXY" : "http_proxy"] = proxy.expect == nil ? "http://127.0.0.1:\(proxy.port)"
+                : "http://doz:\(Self.proxyPassword)@127.0.0.1:\(proxy.port)"
+            e["NO_PROXY"] = "localhost"
+        }
         return e
     }
 
@@ -378,6 +383,10 @@ final class ChatDozchatClientTests: XCTestCase {
     func testRefusalsThroughTheProxy() throws { try useProxy(); try refusals() }
     func testListenSurvivesARestartDirect() throws { try listenSurvivesARestart() }
     func testListenSurvivesARestartThroughTheProxy() throws { try useProxy(); try listenSurvivesARestart(); assertProxied() }
+    /// A local proxy with no password (HTTP_PROXY=http://127.0.0.1:PORT): the absolute form, NO Proxy-Authorization, the
+    /// answers relayed.
+    func testSendReceiveAcknowledgeThroughAProxyWithoutAPassword() throws { try useProxy(password: false); try sendReceiveAcknowledge() }
+    func testAFileBothWaysThroughAProxyWithoutAPassword() throws { try useProxy(password: false); try aFileBothWays() }
 
     /// What the real server never sends: a redirect (never followed: one connection only), chunked encoding, a head with
     /// two lengths, the proxy's own 403 and 502, an answer cut short — and no secret in any of the words.
@@ -427,11 +436,15 @@ final class StubProxy: @unchecked Sendable {
     var problems: [String] { lock.withLock { _problems } }
     var requests: Int { lock.withLock { _requests } }
 
-    init(upstreamPort: Int, password: String) throws {
+    /// The Proxy-Authorization value it requires; nil: it requires there be NONE.
+    let expect: String?
+
+    init(upstreamPort: Int, password: String?) throws {
         let l = try TestListen.listen()
         fd = l.0
         port = l.1
-        let expect = "Basic " + Data("doz:\(password)".utf8).base64EncodedString()
+        let expect = password.map { "Basic " + Data("doz:\($0)".utf8).base64EncodedString() }
+        self.expect = expect
         Thread.detachNewThread { [self] in
             while true {
                 let c = accept(fd, nil, nil)
@@ -449,7 +462,7 @@ final class StubProxy: @unchecked Sendable {
 
     private func note(_ s: String) { lock.withLock { _problems.append(s) } }
 
-    private func serve(_ c: Int32, upstreamPort: Int, expect: String) {
+    private func serve(_ c: Int32, upstreamPort: Int, expect: String?) {
         defer { close(c) }
         guard let (head, rest) = TestListen.readHead(c) else { return }
         lock.withLock { _requests += 1 }
@@ -463,7 +476,7 @@ final class StubProxy: @unchecked Sendable {
         }
         let auth = lines.first { $0.lowercased().hasPrefix("proxy-authorization:") }
         if auth.map({ $0.dropFirst("proxy-authorization:".count).trimmingCharacters(in: .whitespaces) }) != expect {
-            note("no or a wrong Proxy-Authorization")
+            note(expect == nil ? "a Proxy-Authorization sent to a proxy without a password" : "no or a wrong Proxy-Authorization")
             _ = TestListen.write(c, "HTTP/1.1 407 Proxy Authentication Required\r\nContent-Length: 0\r\n\r\n")
             return
         }

@@ -14,7 +14,7 @@
 #   4. No app-brand literal (a bundle id, a product or storage directory name) survives.
 #   5. The committed deckhold binary is the one Guest/deckhold/PROVENANCE.md records.
 #   6. The committed doznet binary is the one Guest/doznet/PROVENANCE.md records (6b: dozview's, and no libfuse;
-#      6c: tmux's, and its licence texts).
+#      6c: tmux's, and its licence texts; 6d: dozchat's — static, under 256 KB).
 #   7. (590) The web UI's committed assets are exactly what Sources/DozableWeb/WebSource builds, and
 #      its modules stay where they belong (NIOHTTP1 in DozableWeb; LaunchServices in `doz ui`).
 #   8. (592) The product's OLD name is gone: no file in the repo (sources, tests, scripts, docs, CI)
@@ -309,6 +309,18 @@ for l in tmux-COPYING libevent-LICENSE ncurses-COPYING; do
     [[ -s "$PACKAGE/Guest/tmux/LICENCES/$l" ]] || fail "Guest/tmux/LICENCES/$l is missing (the release's notices carry it)"
 done
 
+# ── 6d. The committed dozchat binary (the chat-room member, every sandbox) matches its provenance ───────────
+CBIN="$PACKAGE/Sources/DozableKit/Resources/dozchat"
+[[ -f "$CBIN" ]] || fail "missing the committed dozchat binary ($CBIN)"
+CSHA=$(shasum -a 256 "$CBIN" | awk '{print $1}')
+grep -qF "| sha256 (auto) | \`$CSHA\` |" "$PACKAGE/Guest/dozchat/PROVENANCE.md" \
+    || fail "Resources/dozchat ($CSHA) is not the binary Guest/dozchat/PROVENANCE.md records — run make dozchat"
+grep -qF "dozchatSHA256 = \"$CSHA\"" "$PACKAGE/Sources/DozableKit/ToolsLayer.swift" \
+    || fail "ToolsLayer.dozchatSHA256 is not Resources/dozchat's sha256 ($CSHA)"
+[[ "$(file -b "$CBIN")" == *"statically linked"* ]] || fail "Resources/dozchat is not a static binary ($(file -b "$CBIN"))"
+CSIZE=$(wc -c < "$CBIN" | tr -d ' ')
+(( CSIZE < 262144 )) || fail "Resources/dozchat is $CSIZE bytes (at most 256 KB)"
+
 # ── 7. (590) The web UI's committed assets match their sources ───────────────
 swift "$PACKAGE/Scripts/build-web-assets.swift" --check >/dev/null || fail "Sources/DozableWeb/Resources/Web is stale — run make web-assets and commit it"
 
@@ -339,7 +351,7 @@ $STRAYF"
 printf 'ok audit: DozableKit imports only its allowlist (Foundation/Security/Virtualization/Containerization/NIO/X509),\n'
 printf '          depends only on apple/containerization (exact) + the apple/* packages it already resolves\n'
 printf '          (TLS; ArgumentParser for the CLI targets only) and Yams (exact; the CLI'"'"'s project file and recipe sources only),\n'
-printf '          carries no host brand, deckhold + doznet + dozview + tmux match their provenance (no libfuse),\n'
+printf '          carries no host brand, deckhold + doznet + dozview + tmux + dozchat match their provenance (no libfuse),\n'
 printf '          the web UI (NIOHTTP1, confined) ships exactly the assets its sources build,\n'
 printf '          doz ui binds the LAN only through its LAN side (ServeCommand.swift) (dnssd confined to its announcer),\n'
 printf '          the menu bar app imports AppKit, ServiceManagement (one file) and its own core only (no engine, no package),\n'

@@ -564,6 +564,15 @@ deckhold-verify: ## Rebuild deckhold from scratch and check the committed bytes 
 # dozchat — the chat-room member every sandbox and every fenced session gets (Guest/dozchat/, one C file). The guest
 # binary is committed (static aarch64-linux-musl, the pinned Zig — build.sh fetches it when missing); the Mac's is built
 # per release and never committed. dozchat-check: the unit check under ASan + UBSan with a seeded fuzz.
+dozchat: ## Rebuild the dozchat guest binary (static, pinned Zig), install it as the committed resource, refresh PROVENANCE.md
+	Guest/dozchat/build.sh
+	cp $(DOZCHAT_OUT) $(DOZCHAT_RES)
+	@Scripts/dozchat-provenance.sh
+
+dozchat-verify: ## Rebuild dozchat from scratch and check the committed bytes match
+	FORCE=1 Guest/dozchat/build.sh
+	@cmp $(DOZCHAT_OUT) $(DOZCHAT_RES) && echo "ok dozchat: the committed binary is exactly what the pinned source builds"
+
 dozchat-mac: ## Build dozchat for THIS Mac (a fenced session's dozchat): the Mac's cc → .build/dozchat-mac/dozchat-mac (not committed)
 	Guest/dozchat/build-mac.sh
 
