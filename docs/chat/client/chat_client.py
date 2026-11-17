@@ -5,13 +5,13 @@ It speaks the chat protocol (../protocol.md, sections 4.1, 4.8 and 7.5) as a par
 one with its own token and no webhook. Read it whole before you trust it; it is short on purpose.
 
     python3 chat_client.py send ROOM TEXT [--re MSG_ID] [--to NAME ...] [--dm]
-    python3 chat_client.py receive [--wait SECONDS] [--ack]
+    python3 chat_client.py receive [--wait SECONDS] [--ack] [--redeliver]
     python3 chat_client.py ack ROOM:MSG_ID[:DELIVERY] ...      (or: ack -   reads receive's lines on stdin)
     python3 chat_client.py listen [--wait SECONDS]
     python3 chat_client.py file get URL-OR-ID [--out FOLDER] [--name NAME]
     python3 chat_client.py file send ROOM PATH [TEXT] [--re MSG_ID]
-    python3 chat_client.py rooms [--room ROOM]
-    python3 chat_client.py protocol [--room ROOM]
+    python3 chat_client.py rooms [--room ROOM]                 (both are sent in a room you are in: name one
+    python3 chat_client.py protocol [--room ROOM]               with --room unless you are in the default room)
 
 Configuration (nothing secret on the command line, ever):
     CHAT_URL         the chat server's page address; default http://127.0.0.1:8790
@@ -346,6 +346,7 @@ def main(argv=None):
     r = sub.add_parser("receive", help="print what waits, one JSON line per item")
     r.add_argument("--wait", type=int, default=0, help="seconds to wait when nothing waits (0 to 50)")
     r.add_argument("--ack", action="store_true", help="acknowledge the items once printed")
+    r.add_argument("--redeliver", action="store_true", help="also what was handed over and not yet acknowledged")
     a = sub.add_parser("ack", help="acknowledge items: ROOM:MSG_ID[:DELIVERY] ..., or - to read receive's lines")
     a.add_argument("refs", nargs="+")
     li = sub.add_parser("listen", help="print every item as it comes, acknowledging each; never ends by itself")
@@ -372,7 +373,7 @@ def main(argv=None):
                 raise ChatError(EXIT_USAGE, "--dm needs --to NAME")
             emit(client.send(args.room, args.text, re=args.re, to=args.to, private=args.dm))
         elif args.cmd == "receive":
-            items = client.receive(wait=args.wait, ack=True)
+            items = client.receive(wait=args.wait, ack=True, redeliver=args.redeliver)
             for item in items:
                 emit(item)
             if args.ack and items:
@@ -398,6 +399,8 @@ def main(argv=None):
         return EXIT_OK
     except ChatError as e:
         say("chat_client: %s" % e)
+        if e.code == EXIT_REFUSED and args.cmd in ("rooms", "protocol") and "not a member" in str(e):
+            say("chat_client: give --room ROOM, a room you are in")
         if e.answer is not None and e.code == EXIT_REFUSED:
             emit(e.answer)
         return e.code
