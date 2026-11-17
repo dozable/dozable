@@ -51,8 +51,9 @@ final class ServeExposureTests: XCTestCase {
         // The sessions on this Mac: never another computer's by default (serve.mac_sessions = off).
         for mac in ["macSessions", "macSessionScreen", "macTerminalTicket", "macTerminalSocket",
                     "macSessionNetwork", "macSessionTranscripts", "macSessionTranscript", "macSessionQuarantine"] { t[mac] = (nil, .macSession, .macSession) }
-        // Chat: this Mac's own browser only, whatever any setting says (every chat route — WebChatRouteTests).
-        t["chat"] = (nil, .chatRemote, .chatRemote)
+        // Chat: this Mac's own browser only unless serve.chat (default off) says otherwise (every chat route and every value of
+        // serve.chat — WebChatActRouteTests.testServeChatDecides). Its audit label names the call: chat-status, chat-post, ….
+        t["chat-status"] = (nil, .chatRemote, .chatRemote)
         return t
     }()
 

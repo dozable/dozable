@@ -6,7 +6,7 @@
       "mimeType" : "text/html; charset=utf-8",
       "publicPath" : "/",
       "resourcePath" : "index.html",
-      "sha256" : "4f3aec343345a414fccf20a663eb992a6b4e21e135c6a27aed848768eb98ee1f"
+      "sha256" : "8ad7d5438815eaf8f136cdccbdeab4de3a02adfb0d212b7dfdaf4e03b76c4318"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
@@ -1052,9 +1052,9 @@
       "cachePolicy" : "public, max-age=31536000, immutable",
       "class" : "vendor",
       "mimeType" : "image/svg+xml",
-      "publicPath" : "/assets/vendor-lucide-icons-91dca37f928b26a9.svg",
-      "resourcePath" : "assets/vendor-lucide-icons-91dca37f928b26a9.svg",
-      "sha256" : "91dca37f928b26a9a056ba9b16e66637817e38f5822fe09e21cc1db2bcc51cf2"
+      "publicPath" : "/assets/vendor-lucide-icons-d1d51af52ae97eba.svg",
+      "resourcePath" : "assets/vendor-lucide-icons-d1d51af52ae97eba.svg",
+      "sha256" : "d1d51af52ae97ebac0b8efcf8bfd730f9603d543c08062b9f49e64d5a846c162"
     },
     {
       "cachePolicy" : "no-store",

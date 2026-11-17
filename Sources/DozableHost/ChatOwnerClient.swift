@@ -55,11 +55,13 @@ public struct ChatOwnerClient: Sendable {
 
     /// One request, its whole answer. `headers`: extra request headers (the caller vouches for their names and values —
     /// no CR or LF). `maximum`: the most bytes of the answer read (more is a failure).
+    /// `contentType`: the body's type (JSON unless said — an attachment's upload is `application/octet-stream`).
     public func request(_ method: String, _ target: String, json body: Data? = nil, headers: [(String, String)] = [],
+                        contentType: String = "application/json",
                         timeout: Double = 20, maximum: Int = ChatOwnerClient.maximumAnswer) throws -> Answer {
         let fd = try connect(timeout: timeout)
         defer { close(fd) }
-        try send(fd, head(method, target, body: body, headers: headers))
+        try send(fd, head(method, target, body: body, headers: headers, contentType: contentType))
         var buf = Data()
         var chunk = [UInt8](repeating: 0, count: 65536)
         let cap = maximum + 16384                              // the head's room besides the body
@@ -119,10 +121,11 @@ public struct ChatOwnerClient: Sendable {
         }
     }
 
-    private func head(_ method: String, _ target: String, body: Data?, headers: [(String, String)] = []) -> Data {
+    private func head(_ method: String, _ target: String, body: Data?, headers: [(String, String)] = [],
+                      contentType: String = "application/json") -> Data {
         var h = "\(method) \(target) HTTP/1.0\r\nHost: chat\r\n"
         for (k, v) in headers where !(k + v).contains(where: { $0 == "\r" || $0 == "\n" }) { h += "\(k): \(v)\r\n" }
-        if let body { h += "Content-Type: application/json\r\nContent-Length: \(body.count)\r\n" }
+        if let body { h += "Content-Type: \(contentType)\r\nContent-Length: \(body.count)\r\n" }
         return Data((h + "\r\n").utf8) + (body ?? Data())
     }
 
