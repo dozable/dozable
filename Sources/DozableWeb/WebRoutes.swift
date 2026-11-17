@@ -168,6 +168,9 @@ public enum WebRoute: Equatable, Sendable {
     case serveRevoke(String)       // POST /api/v1/serve/devices/{id}/revoke  ({})
     case serveRename(String)       // POST /api/v1/serve/devices/{id}/name  ({name})
     case serveProbe                // GET  /api/v1/serve/probe  (X-Doz-Probe: <one-use token>)
+    // Chat (WebChat.swift): a CLOSED set under /api/v1/chat/ — each a fixed call on the owner's socket built from checked
+    // values; never a generic path. WebExposure kind `chat`: this Mac's own browser only.
+    case chat(WebChatRoute)
 
     public var isStatic: Bool {
         switch self { case .index, .asset, .terminalFrame, .offline, .serviceWorker: true; default: false }
@@ -184,6 +187,10 @@ public enum WebRoute: Equatable, Sendable {
             query = String(path[path.index(after: q)...])
             path = String(path[..<q])
         }
+        // Chat's attachments: the one path whose last part may carry `%20` (a name with a space) — decoded by its own rule.
+        if path.hasPrefix(WebChatRoute.prefix + "files/") {
+            return query == nil && !path.contains("//") && path.count <= 256 ? WebChatRoute.parseFile(method: method, path: path).map(WebRoute.chat) : nil
+        }
         guard path.hasPrefix("/"), !path.contains("%"), !path.contains("//"), path.count <= 256 else { return nil }
         if path == "/" { return method.isSafe ? .index : nil }
         if path == WebAssets.frameDocument { return method.isSafe ? .terminalFrame : nil }
@@ -199,6 +206,9 @@ public enum WebRoute: Equatable, Sendable {
         }
         guard parts.count >= 3, parts[0] == "api", parts[1] == "v1" else { return nil }
         let rest = Array(parts.dropFirst(2))
+        if rest.first == "chat" {
+            return rest.count >= 2 ? WebChatRoute.parse(method: method, parts: Array(rest.dropFirst()), query: query).map(WebRoute.chat) : nil
+        }
         switch (method, rest.count) {
         case (.post, 1) where rest[0] == "session": return .sessionBootstrap
         case (.get, 1) where rest[0] == "session": return .sessionInfo

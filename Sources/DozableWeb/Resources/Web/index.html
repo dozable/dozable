@@ -12,9 +12,9 @@
   <link rel="manifest" href="/assets/app-91e4c84d6f98436a.webmanifest">
   <title>Dozable</title>
   <meta name="doz-ghostty-wasm" content="/assets/vendor-ghostty-vt-d6f0326f1874ad2c.wasm">
-  <meta name="doz-icons" content="/assets/vendor-lucide-icons-8c4115a429f5ea8a.svg">
-  <link rel="stylesheet" href="/assets/app-28529710b1c620df.css">
-  <script type="module" src="/assets/app-feedf5545f79d37e.js"></script>
+  <meta name="doz-icons" content="/assets/vendor-lucide-icons-91dca37f928b26a9.svg">
+  <link rel="stylesheet" href="/assets/app-adf2df43af704e36.css">
+  <script type="module" src="/assets/app-f9b757e8fd31874a.js"></script>
 </head>
 <body>
   <header class="topbar" id="topbar">
@@ -37,6 +37,7 @@
         <div class="nav-group"><span class="ng-label">Sandboxes</span><button type="button" class="btn sm quiet icon-only nav-quick" id="nav-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button></div>
         <a href="#/sessions" data-view="sessions"><span class="lbl">All sessions</span></a>
         <a href="#/mac" data-view="mac" id="nav-mac"><span class="lbl">This Mac</span><span class="trail"><span class="nav-mac-tag" hidden></span></span></a>
+        <a href="#/chat" data-view="chat" id="nav-chat" hidden><span class="lbl">Chat</span><span class="trail"><span class="nav-badge" id="chat-badge" hidden></span></span></a>
         <div class="nav-all" id="nav-all-row">
           <a href="#/overview" data-view="overview" id="nav-all"><span class="lbl">All sandboxes</span><span class="trail" id="nav-count"></span></a>
           <button type="button" class="nav-tree-caret" id="nav-tree-caret" aria-controls="nav-sandboxes" aria-expanded="true" aria-label="Fold the sandboxes" title="Fold the sandboxes"></button>
@@ -87,6 +88,7 @@
       </section>
       <section id="grid" class="grid-view" hidden></section>
       <section id="mac" class="grid-view mac-view" hidden></section>
+      <section id="chat" class="chat-root" aria-label="Chat" hidden></section>
       <div class="wiz-modal" id="wiz-modal" hidden>
         <div class="wm-scrim" id="wm-scrim"></div>
         <div class="wm-box" id="wm-box" role="dialog" aria-modal="true" aria-labelledby="wm-title" tabindex="-1"></div>

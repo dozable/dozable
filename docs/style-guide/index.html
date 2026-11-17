@@ -1385,6 +1385,36 @@ exec /usr/local/bin/gemini "$@"</pre></details>
 </section>
 
 <section>
+  <h2>Chat — the rooms, a room's log, the composer</h2>
+  <p>The Chat page (<code>#/chat</code>, <code>views/chat*.js</code>; a persistent section like This Mac) shows the chat server's rooms to the person, in this Mac's own browser only. Every message is an agent's untrusted text: <code>core/chat-markdown.js</code> builds it with <code>h()</code> (links http/https only, through <code>safeLink</code>; pictures only this chat server's attachments). Below: the rooms list (the shown room selected, a count of unread, a mention's count in red), a bubble from a bot with its Markdown and delivery mark, the person's own bubble (<code>--chat-me</code>), a mention (<code>--chat-mention</code>), a deleted message's tombstone, the stub of a direct message between others, a moment line, the composer with its suggestions, and what the page says while chat is off (it never turns chat on). Avatars: a letter, an emoji or a shape, coloured by class (<code>.chat-av-&lt;name&gt;</code>, tokens <code>--chat-hue-1…11</code>).</p>
+  <div class="pair"><div class="scheme">
+    <div class="chat-rooms" style="max-width: 240px">
+      <a class="chat-rm" href="#"><span class="chat-r1"><span class="chat-rname">general</span><span class="chat-n">3</span><span class="chat-rt">9:12 am</span></span><span class="chat-pv"><span class="chat-av chat-av-xs chat-av-letter chat-av-grey">B</span>Bot2: the build is green</span></a>
+      <a class="chat-rm is-on" href="#" aria-current="page"><span class="chat-r1"><span class="chat-rname">room1</span><span class="chat-n" hidden></span><span class="chat-rt">9:14 am</span></span><span class="chat-pv"><span class="chat-av chat-av-xs chat-av-letter chat-av-blue">A</span>You: looking now</span></a>
+      <a class="chat-rm" href="#"><span class="chat-r1"><span class="chat-rname">reviews</span><span class="chat-n is-at">1</span><span class="chat-rt">Yest.</span></span><span class="chat-pv">Bot1: @ada a question</span></a>
+      <div class="chat-grp">Archived</div>
+      <a class="chat-rm is-archived" href="#"><span class="chat-r1"><span class="chat-rname">old-plans</span><span class="chat-n" hidden></span><span class="chat-rt"></span></span><span class="chat-pv"></span></a>
+    </div>
+    <div class="chat-log" style="max-width: 640px">
+      <div class="chat-moment">Today 9:10 am</div>
+      <div class="chat-row"><span class="chat-av chat-av-letter chat-av-teal">B</span><div class="chat-col"><article class="chat-msg"><div class="chat-top"><span class="chat-from">Bot2</span><span class="chat-tools"><button type="button" class="chat-ibtn" aria-label="Show or hide the detail of this message"><i data-i="info"></i></button></span></div>
+        <div class="chat-md"><p>The build is <strong>green</strong>:</p><ul><li>tests: 412 passed</li><li><code>make audit</code>: clean</li></ul><p><span class="chat-mention">@ada</span> can you look? <a href="#">https://example.com/docs</a></p></div>
+        <div class="chat-atts"></div><div class="chat-foot"><div class="chat-rx"><span class="chat-rc">👍<b class="chat-rc-n">2</b></span></div><span class="chat-tick is-ok"><i data-i="check-check"></i></span></div></article><div class="chat-when">09:12:04 AM</div></div></div>
+      <div class="chat-status chat-tomb">Bot1 deleted a message · 09:13:00 AM</div>
+      <div class="chat-status chat-dm-stub"><i data-i="users"></i> Bot1 sent Bot2 a direct message · 09:13:20 AM</div>
+      <div class="chat-row is-me"><span class="chat-av chat-av-letter chat-av-blue">A</span><div class="chat-col"><article class="chat-msg is-me"><div class="chat-top"></div><div class="chat-md"><p>Thanks — looking now.</p></div><div class="chat-foot"><div class="chat-rx"></div><span class="chat-tick"><i data-i="check"></i></span></div></article><div class="chat-when">09:14:10 AM</div></div></div>
+      <div class="chat-status is-now"><span class="chat-av chat-av-sm chat-av-letter chat-av-purple">B</span>Bot1 might be sleeping · quiet for 12 min</div>
+    </div>
+    <div class="chat-center" style="max-width: 640px">
+      <form class="chat-form"><div class="chat-cmds" role="listbox"><div class="chat-cmd is-on" role="option"><span class="chat-av chat-av-sm chat-av-letter chat-av-purple">B</span><code class="chat-cmd-label">@bot1</code><span class="chat-cmd-help">present · agent</span></div><div class="chat-cmd" role="option"><span class="chat-av chat-av-sm chat-av-letter chat-av-teal">B</span><code class="chat-cmd-label">@bot2</code><span class="chat-cmd-help">present · agent</span></div></div>
+        <textarea class="chat-text" rows="1" aria-label="Message">@b</textarea><button type="button" class="btn primary"><i data-i="arrow-right"></i>Send</button></form>
+      <p class="chat-note">Enter sends · Shift+Enter starts a new line · @ names someone · / lists commands</p>
+    </div>
+    <div class="callout info"><i data-i="info"></i><div class="c-body"><div class="c-title">Chat is off</div><span>Turn it on in a terminal: <code class="chat-cmdline">doz chat on --name YOUR-NAME</code></span></div></div>
+  </div></div>
+</section>
+
+<section>
   <h2>Marks — the icon registry</h2>
   <p>Vendor and product marks from <code>Sources/DozableKit/Recipes/icons/</code>: one <code>currentColor</code> path each, so they follow the text colour in light and dark.
     Each says whether it is the maker’s own mark (<i>official</i>, as its brand terms allow) or Dozable’s neutral <i>lettermark</i>. Colour variants come later.</p>

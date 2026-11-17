@@ -27,3 +27,16 @@ export function quietly(fn, fallback) { try { return fn(); } catch (_) { return 
 // ── the frame protocol, page side: only our frames (by window), only an opaque origin, only these
 // messages with typed, capped fields. Anything else is dropped and counted.
 export const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+
+/// 636: a link from a terminal — or a chat message — is untrusted text. Only http/https, no login in it, and never this
+/// Mac itself (a loopback or this page's own host): the browser bridge's rule. The URL as the browser parses it, or null.
+export function safeLink(s) {
+  let u;
+  try { u = new URL(s); } catch (_) { return null; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  if (u.username || u.password) return null;
+  const host = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (!host || host === 'localhost' || host.endsWith('.localhost') || host === '::1' || host === '0.0.0.0' || /^127\./.test(host)
+      || host === location.hostname.replace(/^\[|\]$/g, '').toLowerCase()) return null;
+  return u.href;
+}

@@ -897,7 +897,7 @@ public struct DozableSettings: Sendable {
             // The chat server (docs/engineering/chat.md, "Under the daemon"). Set on this Mac only (ui: false): a device on the
             // network must never switch chat on or move its ports. No environment variable: consent is never one.
             .init("chat", "enabled", .bool, .bool(false),
-                  "Run the chat server: the doz daemon keeps it running on this Mac (127.0.0.1 only) while this is on. Turn it on and off with doz chat on|off; it is an early feature, used from the terminal (doz chat --help).",
+                  "Run the chat server: the doz daemon keeps it running on this Mac (127.0.0.1 only) while this is on. Turn it on and off with doz chat on|off; while it is on, the dashboard (this Mac's own browser) shows Chat. An early feature (doz chat --help).",
                   applies: .now, ui: false),
             .init("chat", "page_port", .int(1024...65_535), .int(8790),
                   "The chat server's HTTP port on 127.0.0.1: agents call /agent/… on it with their own token. Nothing on it acts as you. When it changes, the daemon restarts the chat server within a few seconds.",

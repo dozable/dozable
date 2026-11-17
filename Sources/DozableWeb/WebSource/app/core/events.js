@@ -7,7 +7,7 @@ import { refresh, route } from './router.js';
 import { setLive, signedOut } from './session.js';
 import { state } from './state.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
-const hostChanged = upcall('hostChanged'), reattachTerminals = upcall('reattachTerminals'),
+const chatNavCheck = upcall('chatNavCheck'), hostChanged = upcall('hostChanged'), reattachTerminals = upcall('reattachTerminals'),
   refreshNav = upcall('refreshNav'), renderActivity = upcall('renderActivity'), renderOps = upcall('renderOps'),
   renderTryPrep = upcall('renderTryPrep'), renderWizard = upcall('renderWizard'), toast = upcall('toast'),
   paintStartProgress = upcall('paintStartProgress'), syncBuildLogTab = upcall('syncBuildLogTab');
@@ -35,6 +35,7 @@ export function connect() {
     refreshNav({ accounts: true });
     refresh(true);
     reattachTerminals();
+    chatNavCheck();                                    // the sidebar's Chat entry: shown while chat is on
   });
   // The Settings page is not about the store's live state: re-rendering it would drop a half-typed
   // value; nor is Operations (its own events keep it current), nor the onboarding wizard (its own).
