@@ -68,7 +68,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test app test-cli-app test-cli-alwayson test-cli-daemon test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test test-chat-conformance app test-cli-app test-cli-alwayson test-cli-daemon test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -87,7 +87,7 @@ build: ## Build every product (and the VM test host)
 # `make test-vm-claude DOZ_TEST_REAL_MAC=1` (e.g. to add this Mac's own Claude login, read-only).
 TEST_SCRATCH ?= $(or $(TMPDIR),/tmp/)doz-test
 TEST_XDG     ?= $(TEST_SCRATCH)-xdg
-TEST_TARGETS := test test-vm test-vm-% test-cli test-cli-% test-updates test-recipe-catalogue test-community-recipes kernel pullbench prev-cli recipes sound-kernel
+TEST_TARGETS := test test-vm test-vm-% test-cli test-cli-% test-chat-conformance test-updates test-recipe-catalogue test-community-recipes kernel pullbench prev-cli recipes sound-kernel
 ifneq ($(DOZ_TEST_REAL_MAC),1)
 $(TEST_TARGETS): export DOZ_TEST_GUARD := 1
 $(TEST_TARGETS): export DOZ_TEST_NO_MAC_LOGIN := 1
@@ -122,6 +122,13 @@ test-safety:
 
 test: test-safety web-assets-check css-lint ## Unit tests — no VM, no entitlement (never --parallel); first, the web assets' drift check and the CSS check (FILTER=Suite runs the matching tests only)
 	swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS) $(if $(FILTER),--filter '$(FILTER)',)
+
+# The chat server's outside-in gate (docs/engineering/chat.md): the reference's conformance runner — private, pinned by
+# Tests/Conformance/RUNNER — starts `doz chat serve` once per check on 127.0.0.1 in scratch folders it makes; every check in
+# Tests/Conformance/expected-green.txt must PASS. Without the runner it prints "conformance: not run (private runner)" and
+# passes (CI, contributors). CHECKS='TestS1_' runs a subset.
+test-chat-conformance: cli ## The chat server against the private conformance runner (skipped without it); the ratchet in Tests/Conformance
+	Scripts/chat-conformance.sh
 
 # 647: the dashboard's stylesheet. css-lint (no browser, in `make test`) keeps the rules of app.css — no :has(), no
 # universal right-most key, no capitals-only labels, no literal colour outside :root, no literal px spacing, no twin

@@ -1,0 +1,51 @@
+# The ratchet: every conformance check that must PASS against this build, by the name the runner prints.
+# A check that was green may never turn red. Scripts/chat-conformance.sh lists any PASS not yet here.
+
+# The serve foundation's gate: access, versions, the listing, the line port's framing.
+TestS1_1_PagePortForgetsHTTPSOnly
+TestS1_2_NotOwnedIsRefused
+TestS1_2_AllowedNotOwned
+TestS1_2_RequireTokensFrom
+TestS1_2_AgentCallsNeedBearer
+TestS9_1_Protocol
+TestS9_2_State
+TestS3_1_ListingInState
+TestS4_1_LineNotJSONCloses
+TestS4_1_LineSizeLimit
+TestS4_1_LineIdleClose
+
+# Green with the foundation as well (posting, the room commands, registration), in two full runs in a row.
+TestS1_2_RequireTokensLinePort
+TestS1_3_TokensOff
+TestS2_2_SenderIdentity
+TestS2_4_MessageShape
+TestS3_3_ArchivedAllowedCommands
+TestS3_4_ArchiveUnarchive
+TestS3_4_HoldBadValues
+TestS3_4_HoldHumanForms
+TestS3_4_HoldOnlyHuman
+TestS3_4_InviteRemove
+TestS3_4_InviteRemoveErrors
+TestS3_4_Leave
+TestS3_4_RoomErrors
+TestS3_4_Rooms
+TestS3_4_UnknownSlashIsOrdinaryMessage
+TestS3_5_RoomOrderNamesPersist
+TestS3_6_RegisterChangeLine
+TestS4_1_AgentAPI
+TestS4_1_DuplicateAndMembership
+TestS4_1_Duplicates
+TestS4_1_LinePort
+TestS4_1_LineReceipts
+TestS4_1_PageBodyAndToken
+TestS4_1_PagePostAnswers
+TestS4_1_PageRefusals
+TestS4_2_MentionPattern
+TestS4_2_MentionsInCode
+TestS4_2_MentionsMembersAndDirect
+TestS4_4_AmbiguousPrefix
+TestS4_4_Answers
+TestS4_5_DMCommandForms
+TestS4_5_DMRefusals
+TestS5_1_Paging
+TestS7_5_Unregister
