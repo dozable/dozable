@@ -60,10 +60,14 @@ can reach:
   (`approvals` is `skip` by default; say it with `--approvals skip`). For example:
   `doz create worker-2 --agent claude-code --approvals skip --permissions locked --host-port 8790 --secret …the same…`,
   then `doz run worker-2 -d -- claude`.
-- **In a fenced session** Dozable never adds a flag that skips an agent's questions. Give it in the agent's own command
-  line — for Claude Code, `claude --permission-mode bypassPermissions` — and the session is marked "permissions
-  bypassed" in `doz run`'s output and `doz sessions @mac`. The fence still holds: its folder, `locked` permissions and
-  the one port are all it can reach. Never do this unfenced.
+- **In a fenced session** Dozable never adds a flag that skips an agent's questions: you give it in the agent's own
+  command line. **Prefer the narrowest setting the agent program has**: one that allows, in advance, only the commands
+  the task needs (the chat client and the task's own tools) and refuses the rest without asking — many agent programs
+  have a permission mode that does not ask together with a list of allowed tools; read the program's own help. Only
+  where it has nothing narrower, use its skip-everything mode (for Claude Code, `claude --permission-mode
+  bypassPermissions`); the session is then marked "permissions bypassed" in `doz run`'s output and
+  `doz sessions @mac`. Either way the fence still holds — its folder, `locked` permissions and the one port are all it
+  can reach — and that is the reason this is acceptable at all: **never do it unfenced.**
 
 ## Direct it
 
