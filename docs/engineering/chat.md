@@ -26,13 +26,16 @@ commands, and show its rooms in the dashboard.
 | `ChatLive.swift` | after a message is recorded: the stream (the human's view of each event), delivery to an open page and to a participant that polls, presence, `/avatar` and `/session`, the read-only look at Claude Code's session records |
 | `ChatPolling.swift` | `GET /agent/receive` (a wait the listener finishes, `ChatLongPoll`) and `POST /agent/ack`: hand-overs, notices, redelivery |
 | `ChatEdits.swift` | `/edit`, `/delete` and the page's edit and delete, once per msg_id or `X-Chat-Id`; reveal; `/api/unread` |
+| `ChatReact.swift` | reactions: the reaction line (once per its own msg_id), `/react` (once per the message's), the page's call (once per `X-Chat-Id`); toggled, refused in the protocol's words and order, waking nobody |
+| `ChatWebhooks.swift` | delivery by webhook: the `chan-message` body, the tries and their schedule, the states, edit and delete notices, the announcement, redelivery at start |
+| `ChatWebhookClient.swift` | the webhook client (`ChatWebhookPoster`, `ChatURLSessionWebhook`): one POST, no proxy, no redirect followed, the answer's body never read, a deadline on the whole call, a failure reason with no address in it |
 | `ChatProtocol.swift` | the protocol's own description (`GET /api/protocol`, `/protocol`) and its version: the first 10 hex of the SHA-256 of that description's encoding |
 | `ChatPage.swift` | `ChatPageHandler`: one HTTP request in, one answer out — the access gate, the router (an untidy path is redirected, a wrong method is 405), every route |
 | `ChatLinePort.swift` | `ChatLineConnection`: one line-port connection's state and what each line does (a reply, nothing, or a close) |
 | `ChatListeners.swift` | the two swift-nio listeners: JSON-lines framing (a line of 32 MiB or more closes the connection; 30 s without a line closes it) and HTTP/1.1 with keep-alive; work is handed off the event loop, in order per connection |
 | `ChatServer.swift` | one server's life: the data folder's lock (`server.lock`), `status.json`, the signals, the exit codes; `doz chat status` |
 | `Sources/DozableCLI/ChatCommandLine.swift` | `doz chat serve` and `doz chat status`, dispatched by `DozableEntry` before anything else of doz runs |
-| `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars) |
+| `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home, also calling a webhook), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars), `ChatWebhookTests` (against `TestWebhookListener`, a listener each test starts on 127.0.0.1: the call, the tries, every limit of the client, no secret anywhere, notices, the hold, redelivery once; reactions) |
 | `Tests/Conformance/RUNNER`, `Tests/Conformance/expected-green.txt`, `Scripts/chat-conformance.sh` | the conformance gate (below) |
 
 ## The rules
@@ -89,20 +92,48 @@ commands, and show its rooms in the dashboard.
   events; a page that falls that far behind is dropped, gets what was queued, then `resync`, and the stream ends. The
   page listener keeps reading while a stream or a receive is open (no pipelining assistance), so a caller that closes
   ends it at once — that is how the human's presence goes back to away.
-- **Delivery, as far as it goes today.** An open page is shown a message (`delivered`; a page that opens marks what
-  waited). A participant that polls is woken and collects it (`/agent/receive`, with `ack=1` and `/agent/ack` the
-  confirmation; unconfirmed after 60 s, after a restart or with `redeliver=1`, it is handed over again, marked
-  redelivered; never twice at once, whatever receives are open). Edit and delete notices for it are kept in the room's
-  file. A receive that waits does not hold a thread: the listener finishes it (`ChatLongPoll`).
+- **Delivery.** An open page is shown a message (`delivered`; a page that opens marks what waited). A participant that
+  polls is woken and collects it (`/agent/receive`, with `ack=1` and `/agent/ack` the confirmation; unconfirmed after
+  60 s, after a restart or with `redeliver=1`, it is handed over again, marked redelivered; never twice at once, whatever
+  receives are open). Edit and delete notices for it are kept in the room's file. A receive that waits does not hold a
+  thread: the listener finishes it (`ChatLongPoll`). A bot whose `deliver` is `webhook` is called (below).
+- **Delivery by webhook.** The address and the Authorization value come from the bot's webhook entry in the secrets
+  file (its own entry, else the shared `default`; an `Authorization:` prefix is dropped), and nowhere else. Each message
+  to each bot is one background task (`background`, counted), so posting and every other recipient go on while a webhook
+  is slow or dead; what one recipient is handed together (held messages, then the new one) goes out in order. Tries: at
+  once, 5 s later, 20 s after that (`webhookBackoff`), each with a 30 s deadline on the whole call (`webhookTimeout`); a
+  2xx answer marks it `woken` and `delivered` ("its webhook accepted it (200) in N ms"), three failures `failed` with the
+  last reason ("webhook try 3: status 500", "… could not reach the webhook (connection refused)"); no entry fails at
+  once. The body is the protocol's `chan-message` (the `[switchboard] ` prefix of `message_text` is the reference's wire
+  text, kept). An edit or delete of a message a bot was handed (and that addresses it) is a `chan-message-edited` or
+  `-deleted` call; a new protocol version is one `protocol-updated` call, tried once. Reactions, commands and heartbeats
+  call nothing.
+- **The webhook client** (`ChatURLSessionWebhook`) connects only to the entry's address: no proxy (the system's settings
+  are not read), no redirect followed (the 3xx is the answer, and a failure), no cookies, cache or stored credentials. It
+  never reads an answer's body: the call ends at the status line and headers. Its failure reasons name no address and no
+  header, so neither reaches a log, a state's detail or the stream. `ChatWebhookTests` holds each of these against a
+  listener the test starts.
+- **At start, before the ports answer:** what was recorded for a webhook and never handed over (still only `queued`, or
+  released from the hold) is handed over again, in order per recipient, unless it was queued more than a day ago
+  (`redeliverAfter`); held messages stay held; then a new protocol version is announced, and the start waits up to 2 s
+  for the announcement's calls. A stop abandons a call waiting between tries and gives a call in flight up to 2.5 s
+  (`stopDeliveryMax`); an abandoned message stays `queued` and goes out at the next start. A message a webhook accepted
+  is `delivered` and is never handed over again; one cut off mid-call may be (at least once, as the protocol says: a bot
+  tells a repeat by its msg_id).
+- **Reactions** toggle (the same reaction again takes it off), are stored by name for the standard ones, are refused in
+  the protocol's order (no room, not a member, archived, not a reaction, no such message — also for a direct message the
+  reactor may not read —, deleted), mark the reactor heard, and are one `reaction` event on the stream (`removed` when
+  taken off); a delete erases them.
 - **Claude Code's session records are read, never written** (`<HOME>/.claude/sessions/<pid>.json`: the name, the
   status, whether the pid runs) — for presence and `/protocol`. Nothing is written to a session's inbox yet.
 
 ## What is not there yet
 
-Delivery by webhook and to a Claude Code session's inbox (a message for one of those stays `queued`; `/protocol` from
-a Claude session that runs is refused as not available yet), redelivery at start, reactions, attachments (a message
-with one is checked as the protocol checks it, then refused), room apps and icons. A command for one of those is
-refused, saying it is not available yet; a route for one answers 501.
+Delivery to a Claude Code session's inbox (a message for one stays `queued`; `/protocol` from a Claude session that
+runs is refused as not available yet, and `/react` with no message named has no "last handed" message to fall back
+on), attachments (a message with one is checked as the protocol checks it, then refused; an upload is answered 401 for
+anyone but the human, else 501), room apps and icons (changing one: 401 for anyone but the human, else 501). A command
+for one of those is refused, saying it is not available yet; a route for one answers 501.
 
 ## The conformance gate
 
