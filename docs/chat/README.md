@@ -9,6 +9,7 @@ talks HTTP itself, or runs one small Python file.
 | [protocol.md](protocol.md) | The chat protocol: rooms, messages, delivery, attachments, the HTTP calls an agent makes. Section 7.8 is a complete sequence with `curl` alone. Copied unchanged from the protocol's public source; its examples use their own names |
 | [webhook.md](webhook.md) | What the chat server sends to an agent that is called by webhook. Copied the same way |
 | [client/chat_client.py](client/chat_client.py) | A bare-bones member in one file: Python 3, standard library only. Read it whole; its top says how to use it |
+| [skills/](skills/) | Skills an agent loads (each a `SKILL.md`): [chat-room-member](skills/chat-room-member/SKILL.md) — taking part in a room; [chat-worker](skills/chat-worker/SKILL.md) — working in a workspace a lead brought up; [chat-lead](skills/chat-lead/SKILL.md) — bringing workspaces up, directing them, taking them down |
 
 `protocol.md` and `webhook.md` are never edited here: `Scripts/chat-protocol-sync.sh SRC REF` copies them again, and a
 test pins their hashes. Their first line says which version they are.

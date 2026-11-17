@@ -208,6 +208,14 @@ final class ChatPythonClientTests: XCTestCase {
         r = py("bot1", ["send", "nosuch", "x"])
         XCTAssertEqual(r.code, 3)
         XCTAssertTrue(r.err.contains(#"no room "nosuch""#), r.err)
+
+        // listen --once: waits, prints what came, acknowledges it and ends (an agent's background command)
+        py("bot1", ["send", "room1", "for the background listener"])
+        r = py("bot2", ["listen", "--once", "--wait", "5"], timeout: 30)
+        XCTAssertEqual(r.code, 0, r.err)
+        XCTAssertEqual(items(r.out).map(content), ["for the background listener"])
+        r = py("bot2", ["receive", "--redeliver"])
+        XCTAssertTrue(items(r.out).isEmpty, "listen acknowledged it (\(r.out))")
     }
 
     func testAFileSentAndFetchedHasTheSameBytes() throws {

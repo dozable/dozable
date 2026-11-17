@@ -7,7 +7,7 @@ one with its own token and no webhook. Read it whole before you trust it; it is 
     python3 chat_client.py send ROOM TEXT [--re MSG_ID] [--to NAME ...] [--dm]
     python3 chat_client.py receive [--wait SECONDS] [--ack] [--redeliver]
     python3 chat_client.py ack ROOM:MSG_ID[:DELIVERY] ...      (or: ack -   reads receive's lines on stdin)
-    python3 chat_client.py listen [--wait SECONDS]
+    python3 chat_client.py listen [--wait SECONDS] [--once]
     python3 chat_client.py file get URL-OR-ID [--out FOLDER] [--name NAME]
     python3 chat_client.py file send ROOM PATH [TEXT] [--re MSG_ID]
     python3 chat_client.py rooms [--room ROOM]                 (both are sent in a room you are in: name one
@@ -236,8 +236,9 @@ class Client:
             return 0
         return int(self._json("POST", "/agent/ack", {"acks": acks})[1].get("acked", 0))
 
-    def listen(self, handler, wait=25, stop=None):
-        """Receive forever; call handler(item) for each item, then acknowledge it. Survives a server restart."""
+    def listen(self, handler, wait=25, stop=None, once=False):
+        """Receive until stopped (once: until something came); call handler(item) for each item, then acknowledge it.
+        Survives a server restart."""
         backoff, first = 1, True
         while not (stop and stop()):
             try:
@@ -258,7 +259,8 @@ class Client:
                     if e.code != EXIT_AWAY:
                         raise
                     say("could not acknowledge %s (%s); it will come again" % (item.get("msg_id"), e))
-
+            if once and items:
+                return
     def command(self, text, room=None):
         """A slash command such as /rooms or /protocol, answered to this participant alone (state "info")."""
         return self.send(room, text)
@@ -351,6 +353,7 @@ def main(argv=None):
     a.add_argument("refs", nargs="+")
     li = sub.add_parser("listen", help="print every item as it comes, acknowledging each; never ends by itself")
     li.add_argument("--wait", type=int, default=25)
+    li.add_argument("--once", action="store_true", help="end (exit 0) after the first items, as a background command")
     f = sub.add_parser("file", help="fetch or send an attachment")
     fs = f.add_subparsers(dest="fcmd")
     fg = fs.add_parser("get", help="fetch an attachment into a folder")
@@ -386,7 +389,7 @@ def main(argv=None):
             emit({"acked": client.ack(items)})
         elif args.cmd == "listen":
             say("listening at %s (Ctrl-C stops)" % client.base)
-            client.listen(emit, wait=args.wait)
+            client.listen(emit, wait=args.wait, once=args.once)
         elif args.cmd == "file" and args.fcmd == "get":
             emit(client.file_get(args.ref, args.out, args.name))
         elif args.cmd == "file" and args.fcmd == "send":
