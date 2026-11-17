@@ -793,6 +793,29 @@ fetches each public origin with a one-use token to prove it reaches this dashboa
 (`serve.advertise`). Remote changes, terminals, admissions and refusals go to `<store>/serve/audit.jsonl`. The
 earlier name, doz serve, is a hidden alias of `doz ui --lan` for one release (its subcommands still work).
 
+### Chat
+
+```bash
+doz chat on [--name NAME]                       # chat on (chat.enabled): the daemon runs the chat server and keeps it running
+doz chat off                                    # it stops; rooms and messages are kept
+doz chat status [--json]                        # on, ready, its ports (as the running server has them), you, the participants
+doz chat add NAME [--kind KIND] [--webhook [--webhook-entry E]] [--to-file F | --from-stdin]   # a participant and its token (shown once)
+doz chat remove NAME                            # it leaves every room; its token is refused
+doz chat who [--json]                           # name, kind, token, how it is reached, rooms, presence
+doz chat token NAME --new | --from-stdin [--to-file F]   # replace a participant's token
+doz chat webhook set E [--from-file F]          # a webhook bot's entry: address, then Authorization value (login keychain)
+doz chat webhook status [E] | remove E
+doz chat import PATH [--dry-run] [--add-missing] [--replace]   # another chat's history (chat off first)
+doz chat rooms | room NAME @MEMBER… | send ROOM TEXT | read ROOM [--last N] [--follow]   # as you, on your own socket
+```
+
+You take part through your own socket in the store (no token for you exists); every agent has its own token and uses
+the page port (`chat.page_port`, `/agent/…`) or the line port (`chat.line_port`). `chat.remote_listen` and
+`chat.remote_agents` open both ports on this Mac's Tailscale address to the machines named — as agents with a token
+only. The dashboard's Chat page acts as you; another browser of `doz ui --lan` gets chat only as `serve.chat`
+(off | read | write, off by default) allows. Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already
+exists · 6 chat is off or not ready · 64 usage.
+
 ### Settings
 
 ```bash

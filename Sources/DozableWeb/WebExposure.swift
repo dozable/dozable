@@ -40,7 +40,7 @@ public enum WebExposure {
         case serveOnly = "serve-only"
         /// The sessions on this Mac (`@mac`): NOT isolated — another computer gets what `serve.mac_sessions` allows.
         case macSession = "mac-session"
-        /// Chat: the person's own conversations, posting as them — this Mac's own browser only.
+        /// Chat: the person's own conversations, posting as them — another computer only as `serve.chat` allows.
         case chat
     }
 
@@ -52,6 +52,17 @@ public enum WebExposure {
         case watch
         /// Everything the Mac's own browser does with them: type, end, restart.
         case interactive
+    }
+
+    /// `serve.chat`: what a remote browser may do with chat. Through the dashboard a browser acts as the person — the
+    /// verified human in chat, whose words the agents act on — so it is off unless set on this Mac.
+    public enum ChatServe: String, Sendable, CaseIterable {
+        /// Nothing: every chat route is refused and the page has no Chat (the default).
+        case off
+        /// Read the rooms; every route that changes something (post, upload, react, edit, delete, reveal, typing) is refused.
+        case read
+        /// Everything the Mac's own browser does in chat; each change is a line in the audit log.
+        case write
     }
 
     /// `decide` lets a remote principal reach the `mac-session` routes unless the setting is off; a ticket is decided again
@@ -111,15 +122,27 @@ public enum WebExposure {
 
     /// nil: allowed; else the refusal (its message says why and what to do instead). `macSessions`: the setting
     /// `serve.mac_sessions` (only a remote principal is affected; the Mac's own browser always has them).
-    public static func decide(_ route: WebRoute, _ who: Principal, macSessions: MacSessions = .off) -> WebRejection? {
+    public static func decide(_ route: WebRoute, _ who: Principal, macSessions: MacSessions = .off, chat: ChatServe = .off) -> WebRejection? {
+        if case .chat(let c) = route, who.isRemote { return decideChat(c, who, chat) }
         switch (kind(route), who) {
         case (.secretEntry, .remote(secure: false)): return .secretOverHTTP
         case (.macScreen, .remote): return .macScreen
         case (.serveOnly, .mac): return .notFound
         case (.macSession, .remote): return macSessions == .off ? .macSession : nil
-        case (.chat, .remote): return .chatRemote
+        case (.chat, .remote): return .chatRemote                      // decided above (decideChat)
         case (.page, _), (.read, _), (.change, _), (.secretEntry, _), (.macScreen, .mac), (.devices, _), (.serveOnly, .remote), (.macSession, .mac), (.chat, .mac):
             return nil
+        }
+    }
+
+    /// A chat route for `who` under `serve.chat`: the Mac's own browser always; another computer nothing while off, the
+    /// routes that change nothing with read, everything with write.
+    public static func decideChat(_ route: WebChatRoute, _ who: Principal, _ allowed: ChatServe) -> WebRejection? {
+        guard who.isRemote else { return nil }
+        switch allowed {
+        case .off: return .chatRemote
+        case .read: return route.isSafe ? nil : .chatReadOnly
+        case .write: return nil
         }
     }
 }

@@ -26,6 +26,9 @@ public struct WebRequestMetadata: Equatable, Sendable {
     public var probeToken: String?
     /// `X-Doz-Display` — `standalone` when the page runs as the installed dashboard app (the usage statistics' `app`).
     public var displayMode: String? = nil
+    /// `X-Chat-Id` — the chat page's own id for one reaction, edit or delete (exactly one header, else nil). The chat
+    /// routes pass it upstream only as a checked v4 UUID; nothing else reads it.
+    public var chatActionID: String? = nil
 
     public init(method: WebHTTPMethod, host: String?, origin: String? = nil, secFetchSite: String? = nil,
                 authorization: String? = nil, cookie: String? = nil, csrfToken: String? = nil,
@@ -111,14 +114,18 @@ public enum WebRejection: String, Error, Equatable, Sendable {
     case chatOff = "chat-off"
     /// Chat is on but its server is not answering yet (starting, restarting, or failing).
     case chatNotReady = "chat-not-ready"
+    /// Another computer with `serve.chat = read`: it reads chat but sends and changes nothing.
+    case chatReadOnly = "chat-read-only"
+    /// An attachment over the chat server's limit (refused before it is read whole).
+    case chatFileTooLarge = "chat-file-too-large"
 
     public var status: Int {
         switch self {
-        case .hostRejected, .originRejected, .crossSite, .csrfRejected, .terminalsOff, .secretEntryOff, .secretOverHTTP, .macScreen, .macSession, .notServedAddress, .chatRemote: 403
+        case .hostRejected, .originRejected, .crossSite, .csrfRejected, .terminalsOff, .secretEntryOff, .secretOverHTTP, .macScreen, .macSession, .notServedAddress, .chatRemote, .chatReadOnly: 403
         case .methodNotAllowed: 405
         case .alreadyRunning, .pickerOpen, .serveNotRunning: 409
         case .tooManyAttempts: 429
-        case .bodyTooLarge: 413
+        case .bodyTooLarge, .chatFileTooLarge: 413
         case .unsupportedMediaType: 415
         case .malformedAuthorization, .bootstrapRejected, .bootstrapUsed, .unauthenticated, .sessionExpired, .sessionRotated, .signedOut: 401
         case .notAdmitted, .deviceRevoked, .admissionRejected, .admissionUsed: 401
@@ -172,7 +179,9 @@ public enum WebRejection: String, Error, Equatable, Sendable {
         case .macSession: "the sessions on this Mac are not isolated, so another computer does not get them unless the Mac allows it (on the Mac: doz config set serve.mac_sessions watch, or interactive)"
         case .serveNotRunning: "the dashboard is not on your network (its LAN option is off) — in a terminal on this Mac: doz config set ui.lan true, then doz ui restart"
         case .signupUnavailable: "this build (from the open-source repository) does not include the sign-up — sign up at \(Usage.signupPage)"
-        case .chatRemote: "Chat is shown only in this Mac's own browser"
+        case .chatRemote: "Chat is not shared with your other browsers — on the Mac: doz config set serve.chat read (or write)"
+        case .chatReadOnly: "This browser may read chat but not write in it — on the Mac: doz config set serve.chat write"
+        case .chatFileTooLarge: "An attachment can be at most 20 MB"
         case .chatOff: "Chat is off. Turn it on in a terminal: doz chat on --name YOUR-NAME"
         case .chatNotReady: "Chat is on, but its server is not answering yet. In a terminal: doz chat status"
         case .notServedAddress: "the dashboard does not answer on this network address — open it at http://<this Mac>.local or one of the addresses doz ui prints (serve.bind decides where it listens)"
@@ -228,9 +237,12 @@ public enum WebSecurity {
         if let site = r.secFetchSite, site != "same-origin", site != "none" { throw WebRejection.crossSite }
     }
 
-    static func checkBody(_ r: WebRequestMetadata, limit: Int) throws {
+    /// `binary`: the one route that takes bytes (chat's upload) — exactly `application/octet-stream`, never a form either.
+    static func checkBody(_ r: WebRequestMetadata, limit: Int, binary: Bool = false) throws {
         guard r.bodyByteCount >= 0, r.bodyByteCount <= limit else { throw WebRejection.bodyTooLarge }
-        if r.bodyByteCount > 0 {
+        if r.bodyByteCount > 0, binary {
+            guard r.contentType?.lowercased() == "application/octet-stream" else { throw WebRejection.unsupportedMediaType }
+        } else if r.bodyByteCount > 0 {
             // Only JSON; a form post (the classic CSRF carrier) is not a type this server reads.
             guard let t = r.contentType?.lowercased(), t == "application/json" || t.hasPrefix("application/json;") else {
                 throw WebRejection.unsupportedMediaType
@@ -272,9 +284,9 @@ public enum WebSecurity {
         try validateAuthenticated(r, .loopback(r, origin), limit: limit)
     }
 
-    public static func validateAuthenticated(_ r: WebRequestMetadata, _ view: WebRequestView, limit: Int) throws -> String {
+    public static func validateAuthenticated(_ r: WebRequestMetadata, _ view: WebRequestView, limit: Int, binary: Bool = false) throws -> String {
         try checkListener(r, view, originRequired: !r.method.isSafe)
-        try checkBody(r, limit: limit)
+        try checkBody(r, limit: limit, binary: binary)
         if !r.method.isSafe, r.csrfToken == nil { throw WebRejection.csrfRejected }
         return try sessionCookie(r.cookie, name: view.cookieName, missing: view.missingCookie)
     }

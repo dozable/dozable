@@ -2,8 +2,8 @@ import Darwin
 import DozableChat
 import Foundation
 
-/// `doz chat …` — the chat server (hidden: not in `doz --help`, the manual or completions until it is a feature people
-/// use). It is dispatched before anything else of doz runs, so a chat server reads no settings file, opens no store,
+/// `doz chat serve` — the chat server itself (never listed: the daemon runs it; `doz chat …`'s other commands are in
+/// `doz --help`). It is dispatched before anything else of doz runs, so a chat server reads no settings file, opens no store,
 /// starts no daemon and touches no Keychain: `doz chat serve` needs only its config, its flags and its secrets file.
 ///
 ///   doz chat serve --config FILE --bind ADDR [--data-dir DIR] [--secrets-file FILE] [--line-port N] [--page-port N]

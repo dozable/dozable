@@ -4,10 +4,10 @@ import DozableChat
 import DozableHost
 import Foundation
 
-// `doz chat …` — the chat server run by the daemon on this Mac (docs/engineering/chat.md, "Under the daemon"). HIDDEN in
-// this release: not in `doz --help`, the completions or the manual; `doz chat --help` lists it all. (`doz chat serve` and
-// `doz chat status --data-dir DIR` are the server's own, dispatched before anything else of doz runs:
-// `ChatCommandLine.isServerCommand`.)
+// `doz chat …` — the chat server run by the daemon on this Mac (docs/engineering/chat.md, "Under the daemon"). Listed in
+// `doz --help` and the completions since the dashboard's Chat page can act (the manual's page: docs/manual/36-chat.md).
+// (`doz chat serve` and `doz chat status --data-dir DIR` are the server's own, dispatched before anything else of doz runs
+// and never listed: `ChatCommandLine.isServerCommand`.)
 //
 // Who does the work: writes (on, off, add, remove, token) go through the daemon, the store's one owner; rooms, room, send,
 // read and who go straight to the owner's socket (`ChatOwnerClient`), where the server takes the caller as you — no token
@@ -17,7 +17,7 @@ import Foundation
 struct ChatCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "chat",
-        abstract: "An early chat server on this Mac: rooms shared by you and your agents (127.0.0.1 only).",
+        abstract: "Chat on this Mac: rooms shared by you and your agents, in the dashboard and here.",
         discussion: """
             The doz daemon runs the chat server while chat is on (the setting chat.enabled). You take part through your \
             own socket in the store — no token for you exists. An agent takes part with its own token: it polls \
@@ -30,7 +30,6 @@ struct ChatCommand: AsyncParsableCommand {
 
             Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already exists · 6 chat is off or not ready · 64 usage.
             """,
-        shouldDisplay: false,
         subcommands: [ChatOn.self, ChatOff.self, ChatStatusCommand.self, ChatAdd.self, ChatRemove.self, ChatWho.self, ChatTokenCommand.self,
                       ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self])
 }
@@ -65,14 +64,22 @@ struct ChatStatusReport: Encodable {
     var remote: ChatRemoteState?
     /// Each address of chat.remote_listen: listening, starting or missing, in the words status and doctor both say.
     var remoteListener: [ChatRemoteAddressStatus]?
+    /// While a changed port is not bound yet: the ports it moves to (pagePort and linePort are the ones it has now).
+    var movingTo: ChatPortsMove?
 
     static func read(_ store: DozableStore) -> ChatStatusReport {
         let paths = ChatPaths(store: store)
-        let view = ChatSettingsView.read()
-        let sup = ChatServerState.load(paths)
-        let server = ChatServer.status(dataDir: paths.data, release: DozableCommand.version)
-        let dir = (try? ChatDirectory.load(paths)) ?? ChatDirectory()
-        let daemon = store.hostIsRunning()
+        return make(paths: paths, view: ChatSettingsView.read(), sup: ChatServerState.load(paths),
+                    server: ChatServer.status(dataDir: paths.data, release: DozableCommand.version),
+                    dir: (try? ChatDirectory.load(paths)) ?? ChatDirectory(), daemon: store.hostIsRunning())
+    }
+
+    /// The report from what was read. A port or address is said to be listened on ONLY when the running server's own
+    /// status file says so: just after `doz config set chat.line_port N` (or page_port, or remote_listen) the settings
+    /// already name the new value while the old server still holds the old one, until the daemon's next look restarts
+    /// it — then the server is "restarting", and its ports are the ones it has, with where it is moving.
+    static func make(paths: ChatPaths, view: ChatSettingsView, sup: ChatServerState?, server: ChatStatus, dir: ChatDirectory,
+                     daemon: Bool) -> ChatStatusReport {
         var r = ChatStatusReport(enabled: view.enabled, state: "off", ready: false, pid: nil, bind: ChatConfigFile.bind,
                                  pagePort: view.pagePort, linePort: view.linePort, human: dir.human, participants: dir.participants.map(\.name),
                                  rooms: server.running ? server.rooms : nil,
@@ -93,6 +100,17 @@ struct ChatStatusReport: Encodable {
         r.warnings = sup?.warnings
         r.remote = sup?.remote
         r.ready = server.running && server.ready && (sup?.pid.map { Int($0) == server.pid } ?? true)
+        if let p = server.ports, server.running, p.page > 0, p.line > 0, (p.page, p.line) != (view.pagePort, view.linePort) {
+            // The running server still has its old ports (the new ones are not bound yet).
+            r.pagePort = p.page
+            r.linePort = p.line
+            r.movingTo = ChatPortsMove(pagePort: view.pagePort, linePort: view.linePort)
+            r.ready = false
+            r.state = "restarting"
+        } else if r.ready, let s = sup, s.ready == false || (s.pagePort, s.linePort) != (view.pagePort, view.linePort) {
+            r.ready = false                                     // the daemon has not taken the new setting yet
+            r.state = s.state == "running" ? "restarting" : s.state
+        }
         if r.ready { r.state = "running" }
         r.setRemoteListener(view)
         return r
@@ -122,7 +140,9 @@ struct ChatStatusReport: Encodable {
 
     var text: String {
         var s = headline + "\n"
-        if enabled { s += "  \(bind), page port \(pagePort), line port \(linePort)\n" }
+        if enabled, let m = movingTo {
+            s += "  \(bind), page port \(pagePort), line port \(linePort) — moving to page port \(m.pagePort), line port \(m.linePort) (not listening there yet)\n"
+        } else if enabled { s += "  \(bind), page port \(pagePort), line port \(linePort)\n" }
         if enabled { for a in remoteListener ?? [] { s += "  \(a.text)\n" } }
         if let h = human {
             let n = participants.count
@@ -145,12 +165,26 @@ struct ChatStatusCommand: AsyncParsableCommand {
     }
 }
 
+/// Where a chat server is moving while its old ports are still the ones bound.
+struct ChatPortsMove: Encodable, Equatable {
+    var pagePort: Int
+    var linePort: Int
+}
+
 /// `doz doctor`'s chat row: ok when off or running and ready; warn while it restarts, fails or waits for a daemon; FAIL
 /// when it stopped on a fault a restart cannot fix.
 func chatDoctorCheck(_ store: DozableStore) -> DoctorCheck {
     let paths = ChatPaths(store: store)
     let r = ChatStatusReport.read(store)
     if !paths.socketFits { return DoctorCheck(check: "chat", status: r.enabled ? .fail : .ok, detail: (r.enabled ? "" : "off — ") + paths.socketTooLong) }
+    return chatDoctorCheck(fromReport: r)
+}
+
+/// The row from a report (a port is said only as the running server has it; a move in progress is a warning).
+func chatDoctorCheck(fromReport r: ChatStatusReport) -> DoctorCheck {
+    if let m = r.movingTo {
+        return DoctorCheck(check: "chat", status: .warn, detail: "restarting — page port \(r.pagePort), line port \(r.linePort) until it moves to page port \(m.pagePort), line port \(m.linePort)")
+    }
     switch r.state {
     case "off": return DoctorCheck(check: "chat", status: .ok, detail: "off (doz chat on)")
     case "running":
@@ -166,7 +200,10 @@ func chatDoctorCheck(_ store: DozableStore) -> DoctorCheck {
 func chatDaemonLine(_ c: ChatServerState?) -> String? {
     guard let c, c.enabled else { return nil }
     let ports = "\(c.bind), page port \(c.pagePort), line port \(c.linePort)"
-    let also = (c.remote?.listen).flatMap { $0.isEmpty ? nil : "\nchat: also on \($0.joined(separator: ", "))" } ?? ""
+    // Another address is said to be listened on only while the server runs ready with it; before, it is starting there.
+    let listen = c.remote?.listen ?? []
+    let also: String = listen.isEmpty ? "" : c.ready ? "\nchat: also on \(listen.joined(separator: ", "))"
+                                                    : "\nchat: starting on \(listen.joined(separator: ", ")) too"
     if c.ready, let pid = c.pid { return "chat: running (pid \(pid)) — \(ports)" + also }
     return "chat: \(c.state) — \(ports)" + (c.problem.map { " — \($0)" } ?? "") + also
 }

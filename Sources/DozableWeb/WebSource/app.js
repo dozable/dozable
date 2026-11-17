@@ -193,8 +193,9 @@ async function startApp() {
 // the dashboard's own /api/v1/chat/files/ID/NAME.
 configureChat({
   title: 'Chat',
-  request: (path, o = {}) => apiFetch('chat' + path, { method: o.method, json: o.json }),
+  request: (path, o = {}) => apiFetch('chat' + path, { method: o.method, json: o.json, bytes: o.bytes, type: o.type, actionId: o.actionId }),
   viewer: () => state.chat.human,
+  canWrite: () => !state.chat.status || state.chat.status.access !== 'read',
   fileUrl: dashboardFileUrl,
 });
 setInterval(chatNavCheck, 60000);

@@ -154,6 +154,11 @@ public final class WebSettingsStore: @unchecked Sendable {
         current.string(SettingKey.serveMacSessions).flatMap(WebExposure.MacSessions.init(rawValue:)) ?? .off
     }
 
+    /// `serve.chat` — what another computer may do with chat (read per request; off unless set on this Mac).
+    public var chatServe: WebExposure.ChatServe {
+        current.string(SettingKey.serveChat).flatMap(WebExposure.ChatServe.init(rawValue:)) ?? .off
+    }
+
     /// 594: `ui.allow_secret_entry` — off, the account route refuses and the page shows the CLI command.
     public var secretEntryAllowed: Bool { current.bool(SettingKey.allowSecretEntry) }
 

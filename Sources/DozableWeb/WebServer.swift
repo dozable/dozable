@@ -464,8 +464,48 @@ public final class DozableWebServer: @unchecked Sendable {
     }
 
     static func bodyLimit(_ route: WebRoute, _ limits: WebLimits) -> Int {
-        if case .chat(.post) = route { return max(limits.maximumRequestBodyBytes, WebChatProxy.maximumPostBody) }
-        return limits.maximumRequestBodyBytes
+        switch route {
+        case .chat(.post), .chat(.edit): return max(limits.maximumRequestBodyBytes, WebChatProxy.maximumPostBody)
+        // The chat server's file limit and one byte more (so one byte over is told from the limit itself) — never more.
+        case .chat(.upload): return WebChatProxy.maximumUpload + 1
+        default: return limits.maximumRequestBodyBytes
+        }
+    }
+
+    /// Whether a request's body is an attachment's bytes (chat's upload): checked from its head before it is read.
+    static func isUpload(_ head: HTTPRequestHead) -> Bool {
+        guard let m = WebHTTPMethod(rawValue: head.method.rawValue), case .chat(.upload)? = WebRoute.parse(method: m, target: head.uri) else { return false }
+        return true
+    }
+
+    /// Chat's upload, from the request's HEAD alone, BEFORE a byte of its body is read: the exact Host and Origin, the
+    /// session and its CSRF token, Fetch Metadata, who may (`serve.chat = write` for another computer), the type and the
+    /// declared size. nil: read the body (`respond` checks all of it again with the body).
+    func uploadPreflight(_ head: HTTPRequestHead, peer: SocketAddress?, local: SocketAddress?) async -> WebRejection? {
+        guard let method = WebHTTPMethod(rawValue: head.method.rawValue), let route = WebRoute.parse(method: method, target: head.uri),
+              case .chat(.upload) = route else { return nil }
+        let declared = head.headers["content-length"].count == 1 ? Int(head.headers["content-length"][0]) : nil
+        // Checked as a body of one byte (so its type is), its size after the session; an unknown size (chunked) is cut by
+        // the read itself, one byte past the limit.
+        let md = metadata(head, method: method, bodyBytes: 1)
+        let ctx = requestContext(head, md, peer: peer, local: local)
+        do {
+            try WebSecurity.checkListener(md, ctx.view, originRequired: true)
+            if head.headers["origin"].count > 1 { throw WebRejection.originRejected }
+            if ctx.principal.isRemote, settings.chatServe == .off { throw WebRejection.chatRemote }
+            let cookie = try WebSecurity.validateAuthenticated(md, ctx.view, limit: Self.bodyLimit(route, limits), binary: true)
+            _ = try await auth.authenticateMutation(cookie, csrf: md.csrfToken, remote: ctx.principal.isRemote)
+            if let r = WebExposure.decide(route, ctx.principal, macSessions: settings.macSessions, chat: settings.chatServe) { throw r }
+            if let n = declared, n > WebChatProxy.maximumUpload { throw WebRejection.chatFileTooLarge }
+            return nil
+        } catch let r as WebRejection {
+            if let s = serveState, ctx.principal.isRemote {
+                s.audit.record(WebAuditEntry(kind: "refused", address: ctx.client, route: Self.routeLabel(route), outcome: r.rawValue))
+            }
+            return r
+        } catch {
+            return .unauthenticated
+        }
     }
 
     /// A new connection: plain HTTP, or a terminal socket its first request upgraded to.
@@ -524,6 +564,12 @@ public final class DozableWebServer: @unchecked Sendable {
                     guard case .head(let head) = part else { continue }
                     var body = ByteBuffer()
                     let limit = Self.bodyLimit(head, limits)
+                    // An attachment: refused from its head when it may not be sent at all — its body is never read then.
+                    let upload = Self.isUpload(head)
+                    if upload, let r = await uploadPreflight(head, peer: peer, local: local) {
+                        try await write(outbound, head, error(r), isHead: false, keepAlive: false)
+                        return
+                    }
                     var tooLarge = head.headers["content-length"].contains { (Int($0) ?? Int.max) > limit }
                     if !tooLarge {
                         reading: while let p = try await it.next() {
@@ -538,7 +584,7 @@ public final class DozableWebServer: @unchecked Sendable {
                     }
                     let isHead = head.method == .HEAD
                     if tooLarge {
-                        try await write(outbound, head, error(.bodyTooLarge), isHead: isHead, keepAlive: false)
+                        try await write(outbound, head, error(upload ? .chatFileTooLarge : .bodyTooLarge), isHead: isHead, keepAlive: false)
                         return
                     }
                     switch await respond(head, body: Data(body.readableBytesView), connection: ObjectIdentifier(conn.channel), peer: peer, local: local) {
@@ -613,6 +659,7 @@ public final class DozableWebServer: @unchecked Sendable {
                                     contentType: Self.header(h, "content-type"), bodyByteCount: bodyBytes,
                                     probeToken: Self.header(h, "x-doz-probe"))
         md.displayMode = Self.header(h, "x-doz-display")
+        md.chatActionID = Self.header(h, "x-chat-id")
         return md
     }
 
@@ -691,6 +738,7 @@ public final class DozableWebServer: @unchecked Sendable {
 
     /// 606: a route as the audit log names it (no value from the request but the route's own words).
     static func routeLabel(_ r: WebRoute) -> String {
+        if case .chat(let c) = r { return "chat-" + c.label }     // which chat call, never what it carried
         let m = Mirror(reflecting: r)
         return m.children.first?.label ?? String(describing: r)
     }
@@ -712,6 +760,12 @@ public final class DozableWebServer: @unchecked Sendable {
         }
         s.audit.record(WebAuditEntry(kind: "change", device: device?.id, deviceName: device?.name, address: ctx.client,
                                      route: Self.routeLabel(route), action: action, sandbox: sandbox, outcome: outcome))
+    }
+
+    /// Chat's upload takes the file's bytes: `application/octet-stream`, never empty.
+    static func requireUploadBody(_ md: WebRequestMetadata) throws {
+        guard md.bodyByteCount > 0 else { throw WebAction.Invalid("the body is the file's bytes") }
+        guard md.contentType?.lowercased() == "application/octet-stream" else { throw WebRejection.unsupportedMediaType }
     }
 
     /// Actions, the preview and the terminal take a JSON object, always — never a form, never empty.
@@ -816,9 +870,9 @@ public final class DozableWebServer: @unchecked Sendable {
         default:
             break
         }
-        // Chat: never for another computer — refused before anything else is looked at.
-        if case .chat = route, ctx.principal.isRemote { throw WebRejection.chatRemote }
-        let cookie = try WebSecurity.validateAuthenticated(md, view, limit: Self.bodyLimit(route, limits))
+        // Chat: never for another computer unless serve.chat (on this Mac) says so — refused before anything else is looked at.
+        if case .chat = route, ctx.principal.isRemote, settings.chatServe == .off { throw WebRejection.chatRemote }
+        let cookie = try WebSecurity.validateAuthenticated(md, view, limit: Self.bodyLimit(route, limits), binary: { if case .chat(.upload) = route { true } else { false } }())
         // 645: against the store of THIS request's principal only — the Mac's sessions, or the LAN's devices.
         let remote = ctx.principal.isRemote
         let (session, dev) = md.method.isSafe ? try await auth.authenticate(cookie, remote: remote)
@@ -828,7 +882,7 @@ public final class DozableWebServer: @unchecked Sendable {
             await d.touch(cookie, address: ctx.client, userAgent: ctx.userAgent)
         }
         // 606: who may do what (WebExposure — the server is the wall; the page only hides).
-        if let r = WebExposure.decide(route, ctx.principal, macSessions: settings.macSessions) { throw r }
+        if let r = WebExposure.decide(route, ctx.principal, macSessions: settings.macSessions, chat: settings.chatServe) { throw r }
         switch route {
         case .index, .asset, .sessionBootstrap, .terminalFrame, .offline, .serviceWorker, .serveProbe:
             throw WebRejection.notFound
@@ -1201,7 +1255,7 @@ public final class DozableWebServer: @unchecked Sendable {
             await monitor.streamOpened()
             return .stream(client)
         case .chat(let c):
-            return try await chatReply(c, md, body: body, cookie: cookie)
+            return try await chatReply(c, md, body: body, cookie: cookie, writable: !ctx.principal.isRemote || settings.chatServe == .write)
         }
     }
 

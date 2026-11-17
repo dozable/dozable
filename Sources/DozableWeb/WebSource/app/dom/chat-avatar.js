@@ -17,6 +17,11 @@ const SHAPES = {
   blob: [['ellipse', { cx: 16, cy: 16.5, rx: 13.5, ry: 11.5, transform: 'rotate(-16 16 16)' }]],
 };
 
+/// What the avatar dialog offers (views/chat-people.js): only what this page draws.
+export const AVATAR_COLOURS = COLOURS;
+export const AVATAR_SHAPES = ['circle', 'hexagon', 'square', 'diamond', 'pill', 'blob'];
+export const AVATAR_EMOJI = Object.keys(EMOJI);
+
 /// The avatar of `name` (spec as presence gives it), `size`: 'sm' (17 px), 'xs' (14 px) or the default 30 px.
 export function avatar(spec, name, size) {
   const [vendor, shape, vari] = String(spec || '::').split(':');

@@ -326,7 +326,7 @@ let package = Package(
         // 590 — the web UI's security rules as unit tests, and a real listener driven over HTTP.
         .testTarget(
             name: "DozableWebTests",
-            dependencies: ["DozableWeb", "DozableHost", "DozableKit"],
+            dependencies: ["DozableWeb", "DozableHost", "DozableKit", "DozableChat"],
             path: "Tests/DozableWebTests"
         ),
         .testTarget(

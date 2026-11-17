@@ -190,6 +190,14 @@
 # (off | watch | interactive; applies at once (the UI re-reads it))
 # mac_sessions = "off"
 
+# With ui.lan, what your other browsers may do with chat: off (they do not see it), read (read the
+# rooms, with nothing they can send or change) or write (also post, react, edit, delete, reveal
+# direct messages and attach files). A browser that may write acts as you in chat, the verified
+# human: your agents take its words as yours. Each thing it sends is a line in the dashboard's
+# audit log (never what it said). This Mac's own browser always has chat.
+# (off | read | write; applies at once (the UI re-reads it))
+# chat = "off"
+
 # With ui.lan, announce the dashboard on your network with Bonjour ("Dozable on <this Mac>",
 # http://<this Mac>.local:<port>), so other Macs and phones can find it.
 # (boolean; applies when doz ui starts again (doz ui restart))

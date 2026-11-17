@@ -34,8 +34,8 @@ final class WebChatRouteTests: XCTestCase {
         let refused: [(WebHTTPMethod, String)] = [
             (.get, "/api/v1/chat"), (.get, "/api/v1/chat/"), (.get, "/api/v1/chat/agent/receive"), (.post, "/api/v1/chat/agent/send"),
             (.post, "/api/v1/chat/reload"), (.get, "/api/v1/chat/sw.js"), (.get, "/api/v1/chat/rooms/room1/app"),
-            (.post, "/api/v1/chat/files"), (.post, "/api/v1/chat/typing"), (.post, "/api/v1/chat/rooms/room1/reactions"),
-            (.post, "/api/v1/chat/rooms/room1/messages/0f8fad5b-d9cb-469f-a165-70867728950e/edit"),
+            (.post, "/api/v1/chat/files"), (.get, "/api/v1/chat/typing"), (.get, "/api/v1/chat/rooms/room1/reactions"),
+            (.post, "/api/v1/chat/rooms/room1/messages/0f8fad5b-d9cb-469f-a165-70867728950e/pin"),
             (.post, "/api/v1/chat/state"), (.delete, "/api/v1/chat/rooms/room1/messages"), (.post, "/api/v1/chat/stream"),
             (.get, "/api/v1/chat/state?x=1"), (.get, "/api/v1/chat/stream?after=1"), (.post, "/api/v1/chat/rooms/room1/messages?x=1"),
             (.get, "/api/v1/chat/rooms/Room1/messages"), (.get, "/api/v1/chat/rooms/-x/messages"), (.get, "/api/v1/chat/rooms/../messages"),
@@ -84,7 +84,7 @@ final class WebChatRouteTests: XCTestCase {
     func testThePostBodyIsStrictAndReEncoded() throws {
         let ok = try WebChatProjection.postBody(Data(#"{"content":"hi @bot1","to":["bot1"],"re_msg_id":"0f8fad5b"}"#.utf8))
         XCTAssertEqual(String(decoding: ok, as: UTF8.self), #"{"content":"hi @bot1","re_msg_id":"0f8fad5b","to":["bot1"]}"#)
-        for bad in [#"{}"#, #"{"content":""}"#, #"{"content":1}"#, #"{"content":"x","attachments":[]}"#, #"{"content":"x","private":true}"#,
+        for bad in [#"{}"#, #"{"content":""}"#, #"{"content":1}"#, #"{"content":"x","attachments":[{"id":"x"}]}"#, #"{"content":"x","private":true}"#,
                     #"{"content":"x","to":["Bot1"]}"#, #"{"content":"x","to":"bot1"}"#, #"{"content":"x","re_msg_id":"zz"}"#, #"[1]"#, "not json",
                     #"{"content":"x","msg_id":"0f8fad5b-d9cb-469f-a165-70867728950e"}"#] {
             XCTAssertThrowsError(try WebChatProjection.postBody(Data(bad.utf8)), bad)

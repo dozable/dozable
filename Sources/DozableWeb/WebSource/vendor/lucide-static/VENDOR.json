@@ -529,6 +529,30 @@
       "serve": "icon"
     },
     {
+      "file": "smile-plus.svg",
+      "fromTarball": "package/icons/smile-plus.svg",
+      "sha256": "ecc07a8091466e7a489285ceda3527fc646e7c7d291b572190f37442fcac75a9",
+      "serve": "icon"
+    },
+    {
+      "file": "paperclip.svg",
+      "fromTarball": "package/icons/paperclip.svg",
+      "sha256": "a08d18183e85b4731d6dd700546d0230a5bb5baae1053551ff79433c67f3f036",
+      "serve": "icon"
+    },
+    {
+      "file": "image.svg",
+      "fromTarball": "package/icons/image.svg",
+      "sha256": "4a1932baf63581db464a2aaf357e4b5f3868b9f6a40cd1cda17cb4d4beddffd9",
+      "serve": "icon"
+    },
+    {
+      "file": "chevron-left.svg",
+      "fromTarball": "package/icons/chevron-left.svg",
+      "sha256": "74ee9e7567062cabef8a842a0bf1aab6f21ded529356d29d2765be1ed0e33849",
+      "serve": "icon"
+    },
+    {
       "file": "LICENSE",
       "fromTarball": "package/LICENSE",
       "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",

@@ -1407,8 +1407,38 @@ exec /usr/local/bin/gemini "$@"</pre></details>
     </div>
     <div class="chat-center" style="max-width: 640px">
       <form class="chat-form"><div class="chat-cmds" role="listbox"><div class="chat-cmd is-on" role="option"><span class="chat-av chat-av-sm chat-av-letter chat-av-purple">B</span><code class="chat-cmd-label">@bot1</code><span class="chat-cmd-help">present · agent</span></div><div class="chat-cmd" role="option"><span class="chat-av chat-av-sm chat-av-letter chat-av-teal">B</span><code class="chat-cmd-label">@bot2</code><span class="chat-cmd-help">present · agent</span></div></div>
-        <textarea class="chat-text" rows="1" aria-label="Message">@b</textarea><button type="button" class="btn primary"><i data-i="arrow-right"></i>Send</button></form>
+        <div class="chat-inputs"><button type="button" class="chat-ibtn chat-clip" aria-label="Attach files"><i data-i="paperclip"></i></button><textarea class="chat-text" rows="1" aria-label="Message">@b</textarea><button type="button" class="btn primary"><i data-i="arrow-right"></i>Send</button></div></form>
       <p class="chat-note">Enter sends · Shift+Enter starts a new line · @ names someone · / lists commands</p>
+    </div>
+  </div></div>
+  <p>Acting on messages (the person's browser, or another one with <code>serve.chat = write</code>): a message's tools on hover or focus (the detail; the reactions picker <code>smile-plus</code> on someone else's — a <code>menuButton</code> of the chat server's reactions and Another emoji…; the pencil on your own; ⋮ › Delete… with a box to tick); reaction chips are buttons (yours tinted: click to take it off); a direct message's stub has <b>Reveal</b>; an edit in progress (the bar above the box, Save); attachments waiting as chips (a picture's thumbnail, ✕), a failure in the note line; the composer of a browser that may only read; the gallery (dark in both themes: <code>--chat-gal-*</code>).</p>
+  <div class="pair"><div class="scheme">
+    <div class="chat-log" style="max-width: 640px">
+      <div class="chat-row"><span class="chat-av chat-av-letter chat-av-teal">B</span><div class="chat-col"><article class="chat-msg is-info"><div class="chat-top"><span class="chat-from">Bot2</span><span class="chat-tools"><button type="button" class="chat-ibtn" aria-label="Show or hide the detail of this message" aria-pressed="true"><i data-i="info"></i></button><span class="menu-wrap chat-pick"><button type="button" class="chat-ibtn" aria-label="React to this message"><i data-i="smile-plus"></i></button></span><span class="menu-wrap"><button type="button" class="btn quiet icon-only sm" aria-label="More for this message"><i data-i="ellipsis-vertical"></i></button></span></span></div>
+        <div class="chat-md"><p>The nightly build finished.</p></div>
+        <div class="chat-foot"><div class="chat-rx"><button type="button" class="chat-rc is-mine" aria-pressed="true">👍<b class="chat-rc-n">2</b></button><button type="button" class="chat-rc" aria-pressed="false">🎉</button></div><span class="chat-tick is-ok"><i data-i="check-check"></i></span></div></article><div class="chat-when">09:12:04 AM <span class="chat-ed">edited</span></div></div></div>
+      <div class="chat-status chat-dm-stub"><i data-i="users"></i> Bot1 sent Bot2 a direct message · 09:13:20 AM <button type="button" class="chat-reveal"><i data-i="eye"></i>Reveal</button></div>
+      <div class="chat-row is-me"><span class="chat-av chat-av-letter chat-av-blue">A</span><div class="chat-col"><article class="chat-msg is-me"><div class="chat-top"><span class="chat-tools" style="opacity: 1"><button type="button" class="chat-ibtn" aria-label="Edit this message"><i data-i="pencil"></i></button></span></div><div class="chat-md"><p>The chart and the report.</p></div>
+        <div class="chat-atts"><span class="chat-fchip"><i data-i="file"></i>report.pdf <small class="chat-fchip-size">20 KB</small></span></div><div class="chat-foot"><div class="chat-rx"></div><span class="chat-tick"><i data-i="check"></i></span></div></article><div class="chat-when">09:14:10 AM</div></div></div>
+    </div>
+    <div class="chat-center" style="max-width: 640px">
+      <form class="chat-form is-editing"><div class="chat-editbar"><i data-i="pencil"></i><span>Editing your message — Enter saves, Esc stops</span><button type="button" class="chat-ibtn" aria-label="Stop editing"><i data-i="x"></i></button></div>
+        <div class="chat-inputs"><button type="button" class="chat-ibtn chat-clip" aria-label="Attach files"><i data-i="paperclip"></i></button><textarea class="chat-text" rows="1" aria-label="Message">Second draft of the plan</textarea><button type="button" class="btn primary"><i data-i="arrow-right"></i>Save</button></div></form>
+      <p class="chat-note">Saved.</p>
+    </div>
+    <div class="chat-center" style="max-width: 640px">
+      <form class="chat-form"><div class="chat-pend"><span class="chat-pchip"><i data-i="image"></i><span class="chat-pchip-name">chart.png</span><small class="chat-pchip-size">5 KB</small><button type="button" class="chat-pchip-x" aria-label="Remove chart.png"><i data-i="x"></i></button></span><span class="chat-pchip"><i data-i="file"></i><span class="chat-pchip-name">report.pdf</span><small class="chat-pchip-size">20 KB</small><button type="button" class="chat-pchip-x" aria-label="Remove report.pdf"><i data-i="x"></i></button></span><span class="chat-pchip is-busy"><i data-i="paperclip"></i>Uploading…</span></div>
+        <div class="chat-inputs"><button type="button" class="chat-ibtn chat-clip" aria-label="Attach files"><i data-i="paperclip"></i></button><textarea class="chat-text" rows="1" aria-label="Message">The chart and the report.</textarea><button type="button" class="btn primary"><i data-i="arrow-right"></i>Send</button></div></form>
+      <p class="chat-note is-bad">Not attached: big.bin is 25.0 MB — an attachment can be at most 20 MB.</p>
+    </div>
+    <div class="chat-center" style="max-width: 640px">
+      <form class="chat-form is-read-only"><div class="chat-inputs"><button type="button" class="chat-ibtn chat-clip" aria-label="Attach files" disabled><i data-i="paperclip"></i></button><textarea class="chat-text" rows="1" aria-label="Message" placeholder="This browser may read chat only" disabled></textarea><button type="button" class="btn primary" disabled><i data-i="arrow-right"></i>Send</button></div></form>
+      <p class="chat-note">This browser may read chat but not write in it (on the Mac: doz config set serve.chat write).</p>
+    </div>
+    <div class="chat-gal" style="position: relative; inset: auto; z-index: auto; height: 280px; max-width: 640px; border-radius: 12px">
+      <div class="chat-galbar"><div class="chat-galcap">Ada · chart.png · 1 of 2</div><a class="chat-galbtn" aria-label="Save this picture"><i data-i="download"></i></a><button type="button" class="chat-galbtn" aria-label="Close"><i data-i="x"></i></button></div>
+      <div style="width: 240px; height: 120px; border-radius: 8px; background: var(--chat-hue-1)"></div>
+      <div class="chat-galfoot"><button type="button" class="chat-galbtn" aria-label="Previous picture"><i data-i="chevron-left"></i></button><div class="chat-galstrip"><button type="button" class="chat-galthumb is-on"><span class="chat-galthumb-img" style="background: var(--chat-hue-1)"></span></button><button type="button" class="chat-galthumb"><span class="chat-galthumb-img" style="background: var(--chat-hue-2)"></span></button></div><button type="button" class="chat-galbtn" aria-label="Next picture"><i data-i="chevron-right"></i></button></div>
     </div>
     <div class="callout info"><i data-i="info"></i><div class="c-body"><div class="c-title">Chat is off</div><span>Turn it on in a terminal: <code class="chat-cmdline">doz chat on --name YOUR-NAME</code></span></div></div>
   </div></div>

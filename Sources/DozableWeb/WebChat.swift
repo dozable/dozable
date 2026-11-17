@@ -7,7 +7,9 @@ import Foundation
 // every route below is a case of a closed enum, each one builds a FIXED upstream method and path from values checked here
 // by the chat server's own rules, and nothing of the browser's request — its path, query, cookies, Origin or any other
 // header — reaches the socket. Only the listed fields of an answer, and the one header `X-More`, come back.
-// A browser of another computer (the LAN option) gets none of it (`WebExposure`, kind `chat`).
+// A browser of another computer (the LAN option) gets what `serve.chat` (set on this Mac only, default off) allows — off:
+// nothing; read: the reads; write: everything, each change a line in the audit log (`WebExposure.decideChat`). Through
+// these routes a browser acts as the person: the verified human in chat.
 
 /// One chat route, after `/api/v1/chat/`.
 public enum WebChatRoute: Equatable, Sendable {
@@ -29,8 +31,54 @@ public enum WebChatRoute: Equatable, Sendable {
     case stream
     /// GET files/ID/NAME — an attachment, served with the sandboxing headers.
     case file(id: String, name: String)
+    /// POST files?name=NAME — the person uploads one file (`application/octet-stream`, at most the chat server's 20 MiB);
+    /// the session and the unsafe-request checks are made from the request's head BEFORE its body is read.
+    case upload(name: String)
+    /// POST rooms/ROOM/reactions — `{msg_id, reaction}`, with `X-Chat-Id` (done once per id).
+    case react(room: String)
+    /// POST rooms/ROOM/messages/ID/edit — `{text}`, with `X-Chat-Id`.
+    case edit(room: String, id: String)
+    /// POST rooms/ROOM/messages/ID/delete — with `X-Chat-Id`.
+    case delete(room: String, id: String)
+    /// POST rooms/ROOM/messages/ID/reveal — read a direct message between others (the room records that you did).
+    case reveal(room: String, id: String)
+    /// POST typing — the person is typing (a moment's presence; nothing is stored).
+    case typing
 
-    public var isSafe: Bool { if case .post = self { false } else { true } }
+    /// Only the reads; every POST changes something (and is refused to a `serve.chat = read` browser).
+    public var isSafe: Bool {
+        switch self {
+        case .status, .state, .presence, .unread, .protocolDescription, .messages, .stream, .file: true
+        case .post, .upload, .react, .edit, .delete, .reveal, .typing: false
+        }
+    }
+
+    /// The calls the chat server does once per `X-Chat-Id`: the header is REQUIRED on them (a v4 UUID), and it is the only
+    /// header of the browser's that ever reaches the socket.
+    public var takesActionID: Bool {
+        switch self { case .react, .edit, .delete: true; default: false }
+    }
+
+    /// The route's name in the dashboard's audit log (no value of the request).
+    public var label: String {
+        switch self {
+        case .status: "status"
+        case .state: "state"
+        case .presence: "presence"
+        case .unread: "unread"
+        case .protocolDescription: "protocol"
+        case .messages: "messages"
+        case .post: "post"
+        case .stream: "stream"
+        case .file: "file"
+        case .upload: "upload"
+        case .react: "react"
+        case .edit: "edit"
+        case .delete: "delete"
+        case .reveal: "reveal"
+        case .typing: "typing"
+        }
+    }
 
     /// The prefix every chat route is under.
     public static let prefix = "/api/v1/chat/"
@@ -128,9 +176,55 @@ public enum WebChatRoute: Equatable, Sendable {
             return .messages(room: parts[1], after: after, before: before, limit: limit)
         case (.post, 3) where parts[0] == "rooms" && isRoom(parts[1]) && parts[2] == "messages":
             return q.isEmpty ? .post(room: parts[1]) : nil
+        case (.post, 3) where parts[0] == "rooms" && isRoom(parts[1]) && parts[2] == "reactions":
+            return q.isEmpty ? .react(room: parts[1]) : nil
+        case (.post, 5) where parts[0] == "rooms" && isRoom(parts[1]) && parts[2] == "messages" && isMessageID(parts[3]):
+            guard q.isEmpty else { return nil }
+            switch parts[4] {
+            case "edit": return .edit(room: parts[1], id: parts[3])
+            case "delete": return .delete(room: parts[1], id: parts[3])
+            case "reveal": return .reveal(room: parts[1], id: parts[3])
+            default: return nil
+            }
+        case (.post, 1) where parts[0] == "typing":
+            return q.isEmpty ? .typing : nil
+        case (.post, 1) where parts[0] == "files":
+            // Exactly `name=VALUE`: the browser's percent-encoding decoded here, the name then held to the server's rule.
+            guard q.hasPrefix("name="), !q.contains("&"), let name = decodeQueryName(String(q.dropFirst(5))) else { return nil }
+            return .upload(name: name)
         default:
             return nil
         }
+    }
+
+    /// A file name from a query value: `%XX` escapes decoded, raw characters only the name's own (and never `+`, which
+    /// some readers take for a space); the result must pass `isFileName`. nil: not a name.
+    static func decodeQueryName(_ raw: String) -> String? {
+        let b = Array(raw.utf8)
+        guard b.count <= 360 else { return nil }
+        var out: [UInt8] = []
+        var i = 0
+        func hex(_ c: UInt8) -> UInt8? {
+            switch c { case 48...57: c - 48; case 97...102: c - 87; case 65...70: c - 55; default: nil }
+        }
+        while i < b.count {
+            if b[i] == UInt8(ascii: "%") {
+                guard i + 2 < b.count, let hi = hex(b[i + 1]), let lo = hex(b[i + 2]) else { return nil }
+                out.append(hi << 4 | lo)
+                i += 3
+            } else {
+                guard isAlnum(b[i]) || "._()-".utf8.contains(b[i]) else { return nil }
+                out.append(b[i])
+                i += 1
+            }
+        }
+        guard let s = String(bytes: out, encoding: .utf8), isFileName(s) else { return nil }
+        return s
+    }
+
+    /// A checked name in a query: every byte but `A-Za-z0-9._-` as `%XX`.
+    static func encodeQueryName(_ name: String) -> String {
+        name.utf8.map { isAlnum($0) || "._-".utf8.contains($0) ? String(UnicodeScalar($0)) : String(format: "%%%02X", $0) }.joined()
     }
 
     /// The fixed upstream target, built from the checked values only.
@@ -147,6 +241,12 @@ public enum WebChatRoute: Equatable, Sendable {
             return "/api/rooms/\(room)/messages" + (q.isEmpty ? "" : "?" + q.joined(separator: "&"))
         case .post(let room): return "/api/rooms/\(room)/messages"
         case .file(let id, let name): return "/files/\(id)/" + name.replacingOccurrences(of: " ", with: "%20")
+        case .upload(let name): return "/api/files?name=" + Self.encodeQueryName(name)
+        case .react(let room): return "/api/rooms/\(room)/reactions"
+        case .edit(let room, let id): return "/api/rooms/\(room)/messages/\(id)/edit"
+        case .delete(let room, let id): return "/api/rooms/\(room)/messages/\(id)/delete"
+        case .reveal(let room, let id): return "/api/rooms/\(room)/messages/\(id)/reveal"
+        case .typing: return "/api/typing"
         }
     }
 }
@@ -231,15 +331,29 @@ enum WebChatProjection {
         return (s, DozableWebServer.errorBody("chat", text))
     }
 
-    /// The post's body, strictly: `content` (a string, at most 64 KiB), `to` (at most 32 names), `re_msg_id` (optional).
-    /// Unknown keys, wrong types and out-of-rule values are refused; the body sent upstream is made here.
+    /// The post's body, strictly: `content` (a string, at most 64 KiB), `to` (at most 32 names), `re_msg_id` (optional),
+    /// `attachments` (at most 10 `{id}` of uploaded files; with one, the text may be empty). Unknown keys, wrong types and
+    /// out-of-rule values are refused; the body sent upstream is made here.
     static func postBody(_ body: Data) throws -> Data {
         guard let o = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] else { throw WebAction.Invalid("the body must be a JSON object") }
-        guard Set(o.keys).isSubset(of: ["content", "to", "re_msg_id"]) else { throw WebAction.Invalid("the body is {content, to?, re_msg_id?}") }
-        guard let content = o["content"] as? String, !content.isEmpty, content.utf8.count <= maximumContent else {
-            throw WebAction.Invalid("content is the message's text, 1 byte to 64 KiB")
+        guard Set(o.keys).isSubset(of: ["content", "to", "re_msg_id", "attachments"]) else {
+            throw WebAction.Invalid("the body is {content, to?, re_msg_id?, attachments?}")
+        }
+        var files: [String] = []
+        if let a = o["attachments"] {
+            guard let list = a as? [Any], list.count <= maximumAttachments else { throw WebAction.Invalid("attachments is a list of at most 10 {id}") }
+            for e in list {
+                guard let d = e as? [String: Any], d.count == 1, let id = d["id"] as? String, WebChatRoute.isFileID(id) else {
+                    throw WebAction.Invalid("an attachment is {id} of an uploaded file")
+                }
+                files.append(id)
+            }
+        }
+        guard let content = o["content"] as? String, !content.isEmpty || !files.isEmpty, content.utf8.count <= maximumContent else {
+            throw WebAction.Invalid("content is the message's text, 1 byte to 64 KiB (it may be empty with an attachment)")
         }
         var out: [String: Any] = ["content": content]
+        if !files.isEmpty { out["attachments"] = files.map { ["id": $0] } }
         if let t = o["to"] {
             guard let names = t as? [String], names.count <= 32, names.allSatisfy(WebChatRoute.isName) else {
                 throw WebAction.Invalid("to is a list of at most 32 participant names")
@@ -254,6 +368,44 @@ enum WebChatProjection {
     }
 
     static let maximumContent = 64 * 1024
+    static let maximumAttachments = 10
+
+    /// A reaction's body, strictly: `{msg_id, reaction}` — a message id, and a reaction's name or an emoji (1 to 32 bytes,
+    /// no control character).
+    static func reactBody(_ body: Data) throws -> Data {
+        guard let o = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any], Set(o.keys) == ["msg_id", "reaction"],
+              let id = o["msg_id"] as? String, WebChatRoute.isMessageID(id),
+              let r = o["reaction"] as? String, (1...32).contains(r.utf8.count), !r.unicodeScalars.contains(where: { $0.properties.generalCategory == .control })
+        else { throw WebAction.Invalid("the body is {msg_id, reaction}: a message id and a reaction's name or an emoji") }
+        return try JSONSerialization.data(withJSONObject: ["msg_id": id, "reaction": r], options: [.sortedKeys, .withoutEscapingSlashes])
+    }
+
+    /// An edit's body, strictly: `{text}`, at most 64 KiB.
+    static func editBody(_ body: Data) throws -> Data {
+        guard let o = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any], Set(o.keys) == ["text"],
+              let t = o["text"] as? String, t.utf8.count <= maximumContent
+        else { throw WebAction.Invalid("the body is {text}: the message's new text, at most 64 KiB") }
+        return try JSONSerialization.data(withJSONObject: ["text": t], options: [.sortedKeys, .withoutEscapingSlashes])
+    }
+
+    /// The body of a call that takes none (delete, reveal, typing): nothing, or `{}`. Upstream it is always `{}`.
+    static func emptyBody(_ body: Data) throws -> Data {
+        if !body.isEmpty {
+            guard let o = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any], o.isEmpty else { throw WebAction.Invalid("this call takes no body") }
+        }
+        return Data("{}".utf8)
+    }
+
+    /// The upload's answer: id, name, type, size and url only — never the server's own `path` (a folder of this Mac).
+    static func uploaded(_ body: Data) -> Data? {
+        guard let o = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any],
+              let id = o["id"] as? String, WebChatRoute.isFileID(id), let name = o["name"] as? String, WebChatRoute.isFileName(name),
+              let url = o["url"] as? String, url == "/files/\(id)/\(name)" else { return nil }
+        var out: [String: Any] = ["id": id, "name": name, "url": url]
+        if let t = o["type"] as? String, t.count <= 100, t.allSatisfy({ $0.isASCII && !$0.isWhitespace && $0 != "\"" }) { out["type"] = t }
+        if let n = o["size"] as? Int, n >= 0 { out["size"] = n }
+        return try? JSONSerialization.data(withJSONObject: out, options: [.sortedKeys, .withoutEscapingSlashes])
+    }
 
     /// How an attachment is served: inline only for these pictures, else a download.
     static let inlineTypes: Set<String> = ["image/png", "image/jpeg", "image/gif", "image/webp"]
@@ -294,6 +446,13 @@ public struct WebChatStatus: Codable, Equatable, Sendable {
     public var state: String
     /// What is wrong, in the supervisor's words (failing only).
     public var problem: String?
+    /// What this browser may do: `write` (this Mac's own, or another computer with `serve.chat = write`) or `read` (the
+    /// composer and every control that changes something are off). nil before chat runs.
+    public var access: String?
+
+    public init(state: String, problem: String? = nil, access: String? = nil) {
+        self.state = state; self.problem = problem; self.access = access
+    }
 }
 
 /// The chat routes' work: blocking socket calls on their own queue (at most 8 at once, never the event loop or the
@@ -302,8 +461,10 @@ final class WebChatProxy: @unchecked Sendable {
     static let maximumStreamLine = 1 << 20
     /// An attachment: the server's 20 MiB, and a margin.
     static let maximumFile = 21 << 20
-    /// The post's body: 64 KiB of text in at most 80 KiB of JSON.
+    /// The post's body: 64 KiB of text in at most 80 KiB of JSON (an edit's too).
     static let maximumPostBody = 80 * 1024
+    /// The chat server's largest attachment (`ChatFileRules.maxSize`; a test pins the two together).
+    static let maximumUpload = 20 << 20
     static let maximumAtOnce = 8
 
     let paths: ChatPaths
@@ -338,13 +499,14 @@ final class WebChatProxy: @unchecked Sendable {
     func unavailable() -> WebRejection { enabled() ? .chatNotReady : .chatOff }
 
     /// One upstream call off the cooperative pool.
-    func call(_ method: String, _ target: String, body: Data? = nil, maximum: Int = ChatOwnerClient.maximumAnswer) async throws -> ChatOwnerClient.Answer {
+    func call(_ method: String, _ target: String, body: Data? = nil, headers: [(String, String)] = [], contentType: String = "application/json",
+              maximum: Int = ChatOwnerClient.maximumAnswer) async throws -> ChatOwnerClient.Answer {
         let c = client, slots = slots
         return try await withCheckedThrowingContinuation { cont in
             queue.async {
                 slots.wait()
                 defer { slots.signal() }
-                cont.resume(with: Result { try c.request(method, target, json: body, timeout: 20, maximum: maximum) })
+                cont.resume(with: Result { try c.request(method, target, json: body, headers: headers, contentType: contentType, timeout: 20, maximum: maximum) })
             }
         }
     }
@@ -373,9 +535,13 @@ final class WebChatProxy: @unchecked Sendable {
 
 extension DozableWebServer {
     /// One chat route (the Mac's own browser, signed in, its unsafe-request checks passed already).
-    func chatReply(_ route: WebChatRoute, _ md: WebRequestMetadata, body: Data, cookie: String) async throws -> Reply {
+    func chatReply(_ route: WebChatRoute, _ md: WebRequestMetadata, body: Data, cookie: String, writable: Bool = true) async throws -> Reply {
         let jsonType = ("Content-Type", "application/json; charset=utf-8")
-        if case .status = route { return json(chat.status()) }
+        if case .status = route {
+            var st = chat.status()
+            if st.state == "running" { st.access = writable ? "write" : "read" }
+            return json(st)
+        }
         if case .stream = route {
             guard chat.enabled() else { throw WebRejection.chatOff }
             guard FileManager.default.fileExists(atPath: chat.paths.socket) else { throw WebRejection.chatNotReady }
@@ -384,16 +550,41 @@ extension DozableWebServer {
             chat.relay(to: client, hub: chatHub, handle: handle)
             return .chatStream(client, handle)
         }
+        // The one header of the browser's that may go upstream: X-Chat-Id, on the calls done once per id, as a v4 UUID.
+        var upstreamHeaders: [(String, String)] = []
+        if route.takesActionID {
+            guard let id = md.chatActionID, WebChatRoute.isActionID(id) else { throw WebAction.Invalid("X-Chat-Id must be a version 4 UUID") }
+            upstreamHeaders = [("X-Chat-Id", id)]
+        }
         var upstreamBody: Data?
-        if case .post = route {
+        var contentType = "application/json"
+        switch route {
+        case .post:
             try Self.requireJSONBody(md)
             upstreamBody = try WebChatProjection.postBody(body)
+        case .react:
+            try Self.requireJSONBody(md)
+            upstreamBody = try WebChatProjection.reactBody(body)
+        case .edit:
+            try Self.requireJSONBody(md)
+            upstreamBody = try WebChatProjection.editBody(body)
+        case .delete, .reveal, .typing:
+            if !body.isEmpty { try Self.requireJSONBody(md) }
+            upstreamBody = try WebChatProjection.emptyBody(body)
+        case .upload:
+            try Self.requireUploadBody(md)
+            guard !body.isEmpty else { throw WebAction.Invalid("the body is the file's bytes") }
+            guard body.count <= WebChatProxy.maximumUpload else { throw WebRejection.chatFileTooLarge }
+            upstreamBody = body
+            contentType = "application/octet-stream"
+        case .status, .state, .presence, .unread, .protocolDescription, .messages, .stream, .file:
+            break
         }
         let isFile: Bool = if case .file = route { true } else { false }
         let answer: ChatOwnerClient.Answer
         do {
-            answer = try await chat.call(route.isSafe ? "GET" : "POST", route.upstreamTarget, body: upstreamBody,
-                                         maximum: isFile ? WebChatProxy.maximumFile : ChatOwnerClient.maximumAnswer)
+            answer = try await chat.call(route.isSafe ? "GET" : "POST", route.upstreamTarget, body: upstreamBody, headers: upstreamHeaders,
+                                         contentType: contentType, maximum: isFile ? WebChatProxy.maximumFile : ChatOwnerClient.maximumAnswer)
         } catch ChatOwnerClient.Failure.notListening {
             throw chat.unavailable()
         } catch {
@@ -420,8 +611,17 @@ extension DozableWebServer {
             guard let d = WebChatProjection.passThrough(answer.body, array: true) else { throw bad }
             // The one upstream header the browser gets: whether newer messages are left.
             return .response(200, [jsonType, ("X-More", answer.header("x-more") == "true" ? "true" : "false")], d)
-        case .post:
+        case .post, .react, .edit, .delete:
             guard let d = WebChatProjection.posted(answer.body) else { throw bad }
+            return .response(200, [jsonType], d)
+        case .reveal:
+            // The revealed message: the protocol's own view for the person, like a page of the log.
+            guard let d = WebChatProjection.passThrough(answer.body, array: false) else { throw bad }
+            return .response(200, [jsonType], d)
+        case .typing:
+            return .response(204, [], Data())
+        case .upload:
+            guard let d = WebChatProjection.uploaded(answer.body) else { throw bad }
             return .response(200, [jsonType], d)
         case .file(_, let name):
             return .response(200, WebChatProjection.fileHeaders(upstreamType: answer.header("content-type"), name: name), answer.body)

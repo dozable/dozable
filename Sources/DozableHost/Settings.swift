@@ -524,6 +524,8 @@ public enum SettingKey {
     public static let serveAdvertise = "serve.advertise"
     /// What a remote browser may do with the sessions on this Mac: off | watch | interactive.
     public static let serveMacSessions = "serve.mac_sessions"
+    /// What a remote browser may do with chat: off | read | write (set on this Mac only).
+    public static let serveChat = "serve.chat"
     /// A new session on this Mac runs fenced (on) or not (off); its Keychain; the person's extra home paths it may read.
     public static let macFence = "mac.fence"
     public static let macKeychain = "mac.keychain"
@@ -852,6 +854,11 @@ public struct DozableSettings: Sendable {
             // The sessions on this Mac (@mac) for a browser of the network — never by default: they run as the person.
             .init("serve", "mac_sessions", .choice(["off", "watch", "interactive"]), .string("off"),
                   "With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — they run as you, an unfenced one with your files, Keychain and network): off (they do not see them), watch (list them and watch their screens, read-only) or interactive (also type into them, end and restart them). This Mac's own browser always has them.",
+                  applies: .now, ui: false),
+            // Chat for a browser of the network — never by default: through the dashboard it acts as the person (the verified
+            // human in chat), and agents with tools act on the person's words. Set on this Mac only (ui: false).
+            .init("serve", "chat", .choice(["off", "read", "write"]), .string("off"),
+                  "With ui.lan, what your other browsers may do with chat: off (they do not see it), read (read the rooms, with nothing they can send or change) or write (also post, react, edit, delete, reveal direct messages and attach files). A browser that may write acts as you in chat, the verified human: your agents take its words as yours. Each thing it sends is a line in the dashboard's audit log (never what it said). This Mac's own browser always has chat.",
                   applies: .now, ui: false),
             // A fence around a session on this Mac: a Seatbelt profile per session — on by default (683 M6). Only NEW sessions
             // follow it: a session's record keeps the mode it was opened with across restart, resume and adoption.

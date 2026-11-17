@@ -69,6 +69,11 @@ change their network, settings, images and resources — with two exceptions:
 - **Nothing that opens a window on the Mac's screen**: the Mac's folder and file pickers, **Open in Terminal**, **Open folder** and the Files tab's Open items are
   not shown on another computer. Type the folder's path instead, and use the browser's own terminals.
 
+**Chat** is not shared with another browser unless you say so on the Mac: `serve.chat` is `off` (they do not see it),
+`read` (they read the rooms, with nothing they can send or change) or `write` (they also post, react, edit, delete,
+reveal and attach). A browser that may write acts as you in chat — the verified human whose words your agents act on —
+and each thing it sends is a line in `doz ui log` (never what it said). See [Chat](36-chat.md#chat-on-your-other-browsers-servechat).
+
 `ui.lan` and the `serve.*` settings — who can reach the dashboard — are changed only on the Mac, with `doz config set`.
 
 ## The browsers that are in
@@ -245,5 +250,6 @@ live updates, the installable app, keys over https, `doz doctor`); the nginx and
 | `serve.trusted_proxies` | — | your proxy's addresses or networks |
 | `serve.advertise` | true | announce with Bonjour |
 | `serve.mac_sessions` | `off` | what these browsers may do with the sessions on this Mac: `off`, `watch` or `interactive` ([Sessions on this Mac](34-sessions-on-this-mac.md#in-the-dashboard)) |
+| `serve.chat` | `off` | what these browsers may do with chat: `off`, `read` or `write` — writing acts as you ([Chat](36-chat.md#chat-on-your-other-browsers-servechat)) |
 
-All of them but `serve.mac_sessions` (at once) apply when `doz ui` starts again (`doz ui restart`). See the [Settings reference](15-settings-reference.md).
+All of them but `serve.mac_sessions` and `serve.chat` (at once) apply when `doz ui` starts again (`doz ui restart`). See the [Settings reference](15-settings-reference.md).
