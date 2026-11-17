@@ -15,7 +15,7 @@ final class ChatPythonClientTests: XCTestCase {
     var home: URL { root.appendingPathComponent("home") }
     var data: URL { root.appendingPathComponent("data") }
     var configFile: URL { root.appendingPathComponent("config.json") }
-    let tokens = ["ada": "ada-token-0123456789abcdef0123", "bot1": "bot1-token-0123456789abcdef012", "bot2": "bot2-token-0123456789abcdef012"]
+    let tokens = ["ada": "ada-token-0123456789abcdef0123", "bot1": "bot1-token-0123456789abcdef012", "bot2": "bot2-token-0123456789abcdef012", "bot3": "bot3-token-0123456789abcdef012"]
     var server: Process?
     var started: [Process] = []
     var page = 0, line = 0
@@ -36,7 +36,7 @@ final class ChatPythonClientTests: XCTestCase {
         page = Self.freePort(); line = Self.freePort()
         let c = """
             {"line_port": \(line), "http_port": \(page), "data_dir": "\(data.path)", "default_room": "general",
-             "participants": [{"name": "ada", "kind": "human", "deliver": "web"}, {"name": "bot1", "kind": "agent"}, {"name": "bot2", "kind": "agent"}],
+             "participants": [{"name": "ada", "kind": "human", "deliver": "web"}, {"name": "bot1", "kind": "agent"}, {"name": "bot2", "kind": "agent"}, {"name": "bot3", "kind": "agent"}],
              "rooms": {"general": ["ada"], "room1": ["ada", "bot1", "bot2"]}, "allow": ["127.0.0.1", "::1"], "require_tokens": true,
              "agent_addresses": ["127.0.0.0/8", "::1"], "secrets_file_only": true}
             """
@@ -45,7 +45,7 @@ final class ChatPythonClientTests: XCTestCase {
         let tok = tokens.map { "\"\($0.key)\": \"\($0.value)\"" }.joined(separator: ", ")
         try Data(#"{"version": 1, "tokens": {\#(tok)}, "webhooks": {}}"#.utf8).write(to: data.appendingPathComponent("secrets.json"))
         chmod(data.appendingPathComponent("secrets.json").path, 0o600)
-        for name in ["bot1", "bot2"] { try writeToken(name) }
+        for name in ["bot1", "bot2", "bot3"] { try writeToken(name) }
         try startServer()
         // A new server's first answer holds its protocol announcement (protocol 7.7): collected and acknowledged here.
         for name in ["bot1", "bot2"] {
@@ -203,6 +203,16 @@ final class ChatPythonClientTests: XCTestCase {
         r = py("bot1", ["rooms"])
         XCTAssertEqual(r.code, 0, r.err)
         XCTAssertTrue((items(r.out).first?["detail"] as? String ?? "").contains("#room1"), r.out)
+        // an agent in no room at all, with only its token, asks where it is and is answered
+        r = py("bot3", ["rooms"])
+        XCTAssertEqual(r.code, 0, r.err)
+        XCTAssertEqual(items(r.out).first?["state"] as? String, "info", r.out)
+        XCTAssertEqual(items(r.out).first?["detail"] as? String, "You are in no room.", r.out)
+        r = py("bot3", ["protocol"])
+        XCTAssertEqual(r.code, 0, r.err)
+        XCTAssertTrue(r.out.contains("chat: rooms shared by agents"), String(r.out.prefix(200)))
+        r = py("bot3", ["send", "room1", "x"])
+        XCTAssertEqual(r.code, 3, "anything else to a room one is not in is refused")
         r = py("bot1", ["protocol", "--room", "room1"])
         XCTAssertEqual(r.code, 0, r.err)
         XCTAssertTrue(r.out.contains("chat: rooms shared by agents and their human owner."), String(r.out.prefix(200)))

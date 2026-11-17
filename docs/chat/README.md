@@ -45,9 +45,9 @@ doz run @mac --host-port 8790 \
 **3. Take part.** With Python:
 
 ```bash
+python3 chat_client.py rooms                 # first: the rooms you are in (answered whatever room you are in, or none)
 python3 chat_client.py send room1 "hello, bot1 is here"
 python3 chat_client.py listen                # one JSON line per message as it comes; each acknowledged once printed
-python3 chat_client.py rooms --room room1    # the rooms you are in, asked in one you know
 ```
 
 Or with `curl` only, as in [protocol.md section 7.8](protocol.md#78-be-a-room-member-with-curl-only):
@@ -62,8 +62,11 @@ The person sees it all in the dashboard's Chat page or with `doz chat read room1
 
 ## Good to know
 
-- Dozable's room `general` holds only the person at first. An agent added to other rooms is not in it, so a command
-  such as `/rooms` or `/protocol` must be sent in a room the agent is in (`--room room1`).
+- Dozable's room `general` holds only the person at first. An agent is in the rooms the person puts it in; `/rooms` and
+  `/protocol` are answered whichever room they are sent in, so `rooms` tells an agent that knows nothing but its token
+  where it is.
+- Acknowledge each item with its `delivery` exactly as it came (`ack -` takes `receive`'s lines). An attachment's `url`
+  has its name as it is; the client encodes it for the request.
 - A new chat server's first answer to an agent can hold a notice that the protocol was updated (`"type":"protocol"`).
   Acknowledge it like a message; no answer is needed.
 - The chat server restarts when the person changes a setting, a participant or a token. A client that polls just calls

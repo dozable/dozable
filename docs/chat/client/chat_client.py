@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """chat_client.py: a bare-bones member of a chat room, in one file, Python 3 standard library only.
 
-It speaks the chat protocol (../protocol.md, sections 4.1, 4.8 and 7.5) as a participant that polls:
-one with its own token and no webhook. Read it whole before you trust it; it is short on purpose.
+It speaks the chat protocol (../protocol.md, sections 3.4, 4.1, 4.8 and 7.5) as a participant that polls: one with its
+own token and no webhook. Read it whole before you trust it; it is short on purpose.
 
+    python3 chat_client.py rooms [--room ROOM]        the rooms you are in: run it first (it works from any room)
     python3 chat_client.py send ROOM TEXT [--re MSG_ID] [--to NAME ...] [--dm]
     python3 chat_client.py receive [--wait SECONDS] [--ack] [--redeliver]
     python3 chat_client.py ack ROOM:MSG_ID[:DELIVERY] ...      (or: ack -   reads receive's lines on stdin)
     python3 chat_client.py listen [--wait SECONDS] [--once]
     python3 chat_client.py file get URL-OR-ID [--out FOLDER] [--name NAME]
     python3 chat_client.py file send ROOM PATH [TEXT] [--re MSG_ID]
-    python3 chat_client.py rooms [--room ROOM]                 (both are sent in a room you are in: name one
-    python3 chat_client.py protocol [--room ROOM]               with --room unless you are in the default room)
+    python3 chat_client.py protocol [--room ROOM]     the protocol, as Markdown
 
 Configuration (nothing secret on the command line, ever):
     CHAT_URL         the chat server's page address; default http://127.0.0.1:8790
@@ -23,9 +23,7 @@ never put in an error. Redirects are never followed. Every call has a timeout. h
 default certificate rules.
 
 Output: stdout carries data, one JSON object per line (protocol prints its Markdown text). Words for a person go to
-stderr.
-
-Exit codes:
+stderr. Exit codes:
     0  done
     1  a local problem: a file that cannot be read or written, a bad answer from the server
     2  usage or configuration: a bad argument, no token, a token file others can read
@@ -34,11 +32,8 @@ Exit codes:
        Do not retry without changing something
     5  the server could not be reached, timed out, or answered 5xx
 
-As a module:
-    import chat_client
-    c = chat_client.Client.from_env()
-    c.send("room1", "hello")
-    c.listen(lambda item: print(item["message"]["content"]))   # acknowledged after the handler returns
+As a module: c = chat_client.Client.from_env(); c.send("room1", "hello"); c.listen(handler) (each item is
+acknowledged after handler(item) returns).
 
 Inside a Dozable sandbox or a fenced session on the Mac, the chat server is reached through the Mac's route and the
 token stays on the Mac: Dozable gives the session a placeholder and swaps the real token in on requests to that one
@@ -48,13 +43,10 @@ port. On the Mac (the token file is yours alone, outside the session's folder):
     doz run @mac --host-port 8790 \\
         --secret CHAT_TOKEN,src=~/.config/chat/bot1.token,to=host.dozable.internal:8790,file=CHAT_TOKEN_FILE -- bash
     (a sandbox: doz run NAME --host-port 8790 --secret ...the same... -- bash)
+    inside, with this file in the session's folder: CHAT_URL=http://host.dozable.internal:8790 python3 chat_client.py listen
 
-and inside, with this file in the session's folder:
-
-    CHAT_URL=http://host.dozable.internal:8790 python3 chat_client.py listen
-
-CHAT_TOKEN_FILE (set by --secret's file=) then holds the placeholder; the proxy the session already uses (its
-http_proxy) carries the request. Use the page port `doz chat status` shows if it is not 8790.
+CHAT_TOKEN_FILE (set by --secret's file=) then holds the placeholder; the session's own proxy (http_proxy) carries the
+request. Use the page port `doz chat status` shows if it is not 8790.
 """
 
 import argparse
@@ -79,7 +71,6 @@ EXIT_OK, EXIT_LOCAL, EXIT_USAGE, EXIT_REFUSED, EXIT_DENIED, EXIT_AWAY = 0, 1, 2,
 
 class ChatError(Exception):
     """A failure with an exit code. Its text never holds the token."""
-
     def __init__(self, code, text, answer=None):
         Exception.__init__(self, text)
         self.code, self.answer = code, answer
@@ -125,8 +116,7 @@ def read_token(environ=None):
         if st.st_uid != os.getuid() or st.st_mode & 0o077:
             raise ChatError(EXIT_USAGE, "CHAT_TOKEN_FILE must be yours alone: chmod 600 it")
         with open(path, "rb") as f:
-            raw = f.read(4096)
-        token = raw.decode("utf-8", "replace").strip()
+            token = f.read(4096).decode("utf-8", "replace").strip()
     else:
         token = env.get("CHAT_TOKEN", "").strip()
     if not token:
@@ -154,11 +144,11 @@ class Client:
     def __repr__(self):
         return "Client(%s)" % self.base  # never the token
 
-    # One HTTP call. Returns (status, headers, body bytes). Raises ChatError for what is not an answer.
     def _call(self, method, path, body=None, timeout=CALL_TIMEOUT):
+        """One HTTP call: (status, headers, body bytes). Raises ChatError(5) when there is no answer."""
         headers = {"Authorization": "Bearer " + self._token, "Accept": "application/json"}
         data = None
-        if body is not None:
+        if body is not None:  # the server reads JSON whatever the header says; it is sent all the same (7.8)
             data = json.dumps(body).encode("utf-8")
             headers["Content-Type"] = "application/json"
         req = urllib.request.Request(self.base + path, data=data, headers=headers, method=method)
@@ -166,10 +156,8 @@ class Client:
             with self._open(req, timeout=timeout) as resp:
                 return resp.status, resp.headers, resp.read(MAX_BODY + 1)
         except urllib.error.HTTPError as e:
-            try:
-                raw = e.read(MAX_BODY + 1)
-            finally:
-                e.close()
+            raw = e.read(MAX_BODY + 1)
+            e.close()
             return e.code, e.headers, raw
         except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
             # Protocol 7.5: a server may restart at any time; a refused connection or a broken answer means "try
@@ -177,22 +165,23 @@ class Client:
             reason = getattr(e, "reason", None) or type(e).__name__
             raise ChatError(EXIT_AWAY, "the chat server at %s did not answer: %s" % (self.base, reason))
 
-    def _json(self, method, path, body=None, timeout=CALL_TIMEOUT, ok=(200,)):
+    def _json(self, method, path, body=None, timeout=CALL_TIMEOUT):
         status, _, raw = self._call(method, path, body, timeout)
         try:
             answer = json.loads(raw.decode("utf-8")) if raw else None
         except ValueError:
             answer = None
-        if status in ok and answer is not None:
-            return status, answer
-        if status in ok:
-            raise ChatError(EXIT_AWAY, "a broken answer from the chat server (HTTP %d, not JSON)" % status)
+        if status == 200 and answer is not None:
+            return answer
+        if status == 200:
+            raise ChatError(EXIT_AWAY, "a broken answer from the chat server (HTTP 200, not JSON)")
         raise_for(status, raw, answer)
 
     # --- the calls ---------------------------------------------------------------------------------------------
 
     def send(self, room, text, re=None, to=None, private=False, attachments=None, msg_id=None):
-        """POST /agent/send. Returns the server's answer, such as {"state":"queued","msg_id":...,"detail":""}."""
+        """POST /agent/send. Returns the server's answer, such as {"state":"queued","msg_id":...,"detail":""}.
+        No room: the server's default room. /rooms and /protocol are answered whatever room is named (3.4)."""
         body = {"msg_id": msg_id or str(uuid.uuid4()), "message": {"content": text}}
         if room:
             body["room"] = room
@@ -207,7 +196,7 @@ class Client:
         # A retry with the same msg_id is answered "duplicate" and sends nothing twice (protocol 4.1).
         for attempt in range(3):
             try:
-                return self._json("POST", "/agent/send", body, ok=(200,))[1]
+                return self._json("POST", "/agent/send", body)
             except ChatError as e:
                 if e.code != EXIT_AWAY or attempt == 2:
                     raise
@@ -221,24 +210,22 @@ class Client:
             q["ack"] = "1"
         if redeliver:
             q["redeliver"] = "1"
-        path = "/agent/receive?" + urllib.parse.urlencode(q)
-        answer = self._json("GET", path, timeout=wait + 15)[1]
+        answer = self._json("GET", "/agent/receive?" + urllib.parse.urlencode(q), timeout=wait + 15)
         items = answer.get("messages") if isinstance(answer, dict) else None
         if not isinstance(items, list):
             raise ChatError(EXIT_LOCAL, "unexpected answer: no messages list")
         return items
 
     def ack(self, items):
-        """POST /agent/ack for receive's items (each needs room, msg_id and delivery). Returns how many were acked."""
+        """POST /agent/ack for receive's items. Each gives back its room, msg_id and delivery exactly as it came (a
+        notice's "notice:<n>", a message's own id). Returns how many were acknowledged."""
         acks = [{"room": i.get("room", ""), "msg_id": i.get("msg_id", ""), "delivery": i.get("delivery", "")}
                 for i in items]
-        if not acks:
-            return 0
-        return int(self._json("POST", "/agent/ack", {"acks": acks})[1].get("acked", 0))
+        return int(self._json("POST", "/agent/ack", {"acks": acks}).get("acked", 0)) if acks else 0
 
     def listen(self, handler, wait=25, stop=None, once=False):
         """Receive until stopped (once: until something came); call handler(item) for each item, then acknowledge it.
-        Survives a server restart."""
+        Survives a server restart: a refused connection or a broken answer is tried again with back-off."""
         backoff, first = 1, True
         while not (stop and stop()):
             try:
@@ -261,23 +248,20 @@ class Client:
                     say("could not acknowledge %s (%s); it will come again" % (item.get("msg_id"), e))
             if once and items:
                 return
-    def command(self, text, room=None):
-        """A slash command such as /rooms or /protocol, answered to this participant alone (state "info")."""
-        return self.send(room, text)
 
     def file_get(self, ref, folder=".", name=None):
-        """GET /files/{id}/{name} with this token. ref is an attachment's url (/files/ID/NAME) or its id.
-        Writes into folder only, never outside it, and never over an existing file. Returns what it wrote."""
+        """GET /files/{id}/{name} with this token. ref is an attachment's url (/files/ID/NAME, the name written as it
+        is) or its id. Writes into folder only, never outside it, never over a file. Returns what it wrote."""
         parts = urllib.parse.urlsplit(ref)
         if parts.scheme or parts.netloc:
             if "%s://%s" % (parts.scheme, parts.netloc) != self.base:
                 raise ChatError(EXIT_USAGE, "that address is not this chat server's; the token goes nowhere else")
             ref = parts.path
-        segs = [s for s in ref.split("/") if s]
-        if len(segs) >= 2 and segs[0] == "files":
-            file_id, url_name = segs[1], urllib.parse.unquote(segs[2]) if len(segs) > 2 else ""
-        elif len(segs) == 1:
-            file_id, url_name = segs[0], ""
+        segs = ref.split("/")
+        if len(segs) >= 3 and segs[0] == "" and segs[1] == "files":
+            file_id, url_name = segs[2], "/".join(segs[3:])
+        elif "/" not in ref:
+            file_id, url_name = ref, ""
         else:
             raise ChatError(EXIT_USAGE, "give an attachment's url (/files/ID/NAME) or its id")
         if not file_id or any(c not in "0123456789abcdef" for c in file_id):
@@ -291,7 +275,8 @@ class Client:
             raise ChatError(EXIT_USAGE, "refused: that name would write outside the folder")
         if os.path.lexists(dest):
             raise ChatError(EXIT_LOCAL, "refused: %s exists" % dest)
-        path = "/files/%s/%s" % (file_id, urllib.parse.quote(safe))
+        # The url's name is written as it is (4.8); the client encodes what a URL needs, the server decodes it.
+        path = "/files/%s/%s" % (file_id, urllib.parse.quote(url_name or safe, safe=""))
         status, headers, raw = self._call("GET", path)
         if status == 404:
             raise ChatError(EXIT_REFUSED, "no such attachment, or not one you may read")
@@ -333,7 +318,7 @@ def parse_ack_ref(ref):
     msg_id, _, delivery = rest.partition(":")
     if not sep or not room or not msg_id:
         raise ChatError(EXIT_USAGE, "ack takes ROOM:MSG_ID[:DELIVERY] (DELIVERY is the item's delivery), or -")
-    return {"room": room, "msg_id": msg_id, "delivery": delivery or msg_id}
+    return {"room": room, "msg_id": msg_id, "delivery": delivery or msg_id}  # a message's delivery is its own id
 
 
 def main(argv=None):
@@ -364,7 +349,7 @@ def main(argv=None):
     fp.add_argument("--re")
     for name, what in (("rooms", "the rooms you are in"), ("protocol", "the protocol, as Markdown")):
         c = sub.add_parser(name, help=what)
-        c.add_argument("--room", help="a room you are in (default: the server's default room)")
+        c.add_argument("--room", help="a room to ask in, any that exists (default: the server's default room)")
     args = p.parse_args(argv)
     if not args.cmd or (args.cmd == "file" and not args.fcmd):
         p.print_help(sys.stderr)
@@ -390,20 +375,16 @@ def main(argv=None):
         elif args.cmd == "listen":
             say("listening at %s (Ctrl-C stops)" % client.base)
             client.listen(emit, wait=args.wait, once=args.once)
-        elif args.cmd == "file" and args.fcmd == "get":
-            emit(client.file_get(args.ref, args.out, args.name))
-        elif args.cmd == "file" and args.fcmd == "send":
-            emit(client.file_send(args.room, args.path, args.text, re=args.re))
+        elif args.cmd == "file":
+            emit(client.file_get(args.ref, args.out, args.name) if args.fcmd == "get"
+                 else client.file_send(args.room, args.path, args.text, re=args.re))
         elif args.cmd == "rooms":
-            emit(client.command("/rooms", args.room))
+            emit(client.send(args.room, "/rooms"))
         elif args.cmd == "protocol":
-            answer = client.command("/protocol", args.room)
-            sys.stdout.write(answer.get("detail", "") + "\n")
+            sys.stdout.write(client.send(args.room, "/protocol").get("detail", "") + "\n")
         return EXIT_OK
     except ChatError as e:
         say("chat_client: %s" % e)
-        if e.code == EXIT_REFUSED and args.cmd in ("rooms", "protocol") and "not a member" in str(e):
-            say("chat_client: give --room ROOM, a room you are in")
         if e.answer is not None and e.code == EXIT_REFUSED:
             emit(e.answer)
         return e.code
