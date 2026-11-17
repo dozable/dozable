@@ -28,6 +28,8 @@ commands, and show its rooms in the dashboard.
 | `ChatEdits.swift` | `/edit`, `/delete` and the page's edit and delete, once per msg_id or `X-Chat-Id`; reveal; `/api/unread` |
 | `ChatReact.swift` | reactions: the reaction line (once per its own msg_id), `/react` (once per the message's), the page's call (once per `X-Chat-Id`); toggled, refused in the protocol's words and order, waking nobody |
 | `ChatWebhooks.swift` | delivery by webhook: the `chan-message` body, the tries and their schedule, the states, edit and delete notices, the announcement, redelivery at start |
+| `ChatInbox.swift` | delivery into a Claude Code session on this Mac: its records read (`sessionStatusAt`, `claudeSession`), the text it is handed (`inboxText`), edit and delete notices, `/protocol` and the announcement (`note`), `started` when it goes busy (`noticeStarts`), the message last handed to it; `UnixLine`, the one client write to its socket |
+| `ChatAttachments.swift` | attachments: `ChatFileRules` (the id rule, the name cleaning, the media type from the extension else the bytes, the limits), `attach` (check every file, then store), `saveFile`, `storedFile`, who may fetch a file (`mayFetch`), the files a delete removes, the line port's `file` reply |
 | `ChatWebhookClient.swift` | the webhook client (`ChatWebhookPoster`, `ChatURLSessionWebhook`): one POST, no proxy, no redirect followed, the answer's body never read, a deadline on the whole call, a failure reason with no address in it |
 | `ChatProtocol.swift` | the protocol's own description (`GET /api/protocol`, `/protocol`) and its version: the first 10 hex of the SHA-256 of that description's encoding |
 | `ChatPage.swift` | `ChatPageHandler`: one HTTP request in, one answer out — the access gate, the router (an untidy path is redirected, a wrong method is 405), every route |
@@ -35,7 +37,7 @@ commands, and show its rooms in the dashboard.
 | `ChatListeners.swift` | the two swift-nio listeners: JSON-lines framing (a line of 32 MiB or more closes the connection; 30 s without a line closes it) and HTTP/1.1 with keep-alive; work is handed off the event loop, in order per connection |
 | `ChatServer.swift` | one server's life: the data folder's lock (`server.lock`), `status.json`, the signals, the exit codes; `doz chat status` |
 | `Sources/DozableCLI/ChatCommandLine.swift` | `doz chat serve` and `doz chat status`, dispatched by `DozableEntry` before anything else of doz runs |
-| `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home, also calling a webhook), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars), `ChatWebhookTests` (against `TestWebhookListener`, a listener each test starts on 127.0.0.1: the call, the tries, every limit of the client, no secret anywhere, notices, the hold, redelivery once; reactions) |
+| `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home, also calling a webhook), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars), `ChatWebhookTests` (against `TestWebhookListener`, a listener each test starts on 127.0.0.1: the call, the tries, every limit of the client, no secret anywhere, notices, the hold, redelivery once; reactions), `ChatSessionsAndFilesTests` (against `TestClaudeSession`, a record and key file in a scratch sessions folder and a socket the test listens on: the inbox text, failed, `/protocol`, `/react`'s fallback, notices, started, the announcement; names never paths, the limits before a byte is kept, the human's token, download headers, who may fetch, a delete's files; the msg_id start rule) |
 | `Tests/Conformance/RUNNER`, `Tests/Conformance/expected-green.txt`, `Scripts/chat-conformance.sh` | the conformance gate (below) |
 
 ## The rules
@@ -46,10 +48,24 @@ commands, and show its rooms in the dashboard.
   step 1d holds the imports and the manifest; NIOHTTP1 is allowed only here and in DozableWeb, SQLite3 only here and in
   DozableHost.
 - **Isolated.** `doz chat serve` reads no settings file, opens no store, starts no daemon, makes no sandbox, touches no
-  Keychain and writes nothing outside its data folder: everything it needs is its config file, its flags and its secrets
+  Keychain and writes no file outside its data folder: everything it needs is its config file, its flags and its secrets
   file. `DozableEntry` dispatches `doz chat` before the recipe catalogue, the usage hook or the update check run.
   `ChatServeIsolationTests` runs the real binary with an empty `HOME` and `TMPDIR` and a `DOZ_STORE` and
   `XDG_CONFIG_HOME` that must never appear, and lists every file afterwards.
+- **What it touches outside its data folder — exactly this, and only to deliver to a Claude Code session on this Mac
+  (a participant whose `deliver` is `inbox-socket`), as the reference does:**
+  - it READS Claude Code's session records: every `<pid>.json` in the sessions folder (a session's `name`, `status`,
+    `statusUpdatedAt`, `messagingSocketPath`; a record whose pid does not run is passed over) and, for the session it
+    delivers to, its `<pid>.*.key` (`peerToken`). The folder is a value handed to the server — `--claude-sessions DIR`,
+    by default `$HOME/.claude/sessions` as in the reference. Nothing there is ever written, made or removed.
+  - it CONNECTS, as a client, to the Unix socket the running session's record names, and WRITES one auth line (with
+    that token, when there is one) and one message line — 5 s to connect and to write; nothing is read back.
+  - It makes no socket of its own, writes no session record and is not a Claude Code peer (the reference's `peer_name`
+    is refused by the config, and `/tmp/cc-socks` is never used). Every test keeps both in scratch: `TestClaudeSession`
+    writes its record and key in a sessions folder the test made and listens on a socket in a folder it made under
+    `/tmp` (it refuses a real `~/.claude` or `/tmp/cc-socks`); the conformance runner fakes its session in the home it
+    makes for each check. `ChatServeIsolationTests` checks the real binary leaves the records untouched and the home
+    empty.
 - **Strict config.** An unknown key, a value of the wrong type, an address or range that is not one, a
   `test_owned_addresses` entry that is not loopback, a peer name or an HTTPS port (this server has neither), or
   `secrets_file_only` off is a fault. Ports given as 0 are picked by the system (`status.json` says which).
@@ -124,16 +140,46 @@ commands, and show its rooms in the dashboard.
   the protocol's order (no room, not a member, archived, not a reaction, no such message — also for a direct message the
   reactor may not read —, deleted), mark the reactor heard, and are one `reaction` event on the stream (`removed` when
   taken off); a delete erases them.
-- **Claude Code's session records are read, never written** (`<HOME>/.claude/sessions/<pid>.json`: the name, the
-  status, whether the pid runs) — for presence and `/protocol`. Nothing is written to a session's inbox yet.
+- **Delivery into a Claude Code session.** Each message is handed over in the background, in order per recipient: the
+  session found by its name (above), one line on its socket; `delivered` ("in the session's inbox in N ms"), or `failed`
+  with why ("no running Claude session with that name", the socket's refusal). The text is the reference's: a header
+  (room, sender with how it was checked, the msg_id's start, what it answers, `mentions you`, to whom or `direct`), every
+  line of the sender's text marked `  │ `, the attachments as paths in the data folder, how to take it, and that it is a
+  note from a peer, never the user typing. The line is from `switchboard` and the answer it suggests is
+  `switchboard send …` — the reference's wire text, kept (Dozable's own command for it comes later). An edit or delete
+  of a message the session was handed is a notice there; `/protocol` from the session goes to its inbox ("queued");
+  a new protocol version is a note there at start; a message is `started` when the session's record turns busy after
+  the hand-over (looked at once a second); `/react` with no message named takes the one last handed to it (kept in
+  memory, as the reference). What waited for a session when the server stopped is handed over at the next start.
+- **Attachments.** Kept in the data folder at `files/<id>/<name>` — the id 128 random bits in hex, the folder 0700, the
+  file 0600, written with `O_EXCL | O_NOFOLLOW` — in the reference's layout. A caller's name is never a path: its last
+  part only (a backslash is a separator too), every character but `A-Za-z0-9._ ()+-` made `_` (a NUL, a separator, any
+  other byte), leading dots and spaces dropped, `file` when nothing is left, at most 120 bytes. The limits — 10 files on a
+  message, 20 MiB a file, nothing empty — are checked for every file of a message before any is written; an upload's body
+  is kept up to one file and one byte (`ChatPageHandler.bodyLimit`) and more is 413 unread. Uploading
+  (`POST /api/files?name=`) needs the human (its token where tokens are required). The media type is the extension's,
+  else what the first 512 bytes look like. An id is looked up only when it is 16 or 32 lower-case hex digits, and a
+  folder holding anything but one regular file is no attachment. A webhook body and a receive item list a message's
+  files, never their bytes; a Claude session is told where they are on this Mac. A delete removes the files no other
+  message names.
+- **Who may fetch a file** (`mayFetch`) — stricter than the reference, which serves any id to any caller: a file a
+  message names goes only to a member of that message's room who may read it (a direct message: its sender, those it is
+  for, anyone once revealed); a file no message names yet (an upload) goes to whoever has its id. The page's
+  `GET /files/<id>/<name>` is the human's (the access gate serves it to the owner's own machines only); the line port's
+  `file` line is the token's participant, else the name the line gives, else (an owned connection) the human. Anything
+  else is the plain 404 or "no such attachment", the same as an unknown id. A download carries
+  `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`, and anything but a PNG, JPEG, GIF or WebP is
+  `Content-Disposition: attachment` (HTML and SVG included).
+- **The start of a msg_id** (`/edit ^…`, `/react ^…`, `re_msg_id`, reveal) must be `^[0-9A-Fa-f-]+$` to find a message;
+  anything else (empty, `%`, `_`) matches nothing and is returned as given.
 
 ## What is not there yet
 
-Delivery to a Claude Code session's inbox (a message for one stays `queued`; `/protocol` from a Claude session that
-runs is refused as not available yet, and `/react` with no message named has no "last handed" message to fall back
-on), attachments (a message with one is checked as the protocol checks it, then refused; an upload is answered 401 for
-anyone but the human, else 501), room apps and icons (changing one: 401 for anyone but the human, else 501). A command
-for one of those is refused, saying it is not available yet; a route for one answers 501.
+Room apps, their manifests, pages and icons (changing one: 401 for anyone but the human, else 501; their routes answer
+501), the service worker, and the reference's "local links": a Claude session attaching a file by naming its path on
+this Mac in a Markdown link. That one is left out on purpose: it would let whoever speaks as that session copy any file
+the server can read into a room, which is beyond what this server may touch outside its data folder (above); a link
+there stays text.
 
 ## The conformance gate
 
