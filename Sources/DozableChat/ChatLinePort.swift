@@ -61,8 +61,14 @@ public struct ChatLineConnection: Sendable {
             }
             return reply(base + [JMember("action", .string("ok"))])
         case ("control", "file"):
-            // No attachment is stored by this server yet, so every id is unknown.
-            return reply(base + [JMember("action", .string("file")), JMember("state", .string("refused")), JMember("detail", .string("no such attachment"))])
+            // Who asks: the token's participant; on an owned connection with none, the name the line gives, else the
+            // human. A file goes only to one who may read a message that names it (ChatServerCore.mayFetch); any other
+            // id — unknown, malformed, or not this caller's to read — gets the same refusal.
+            let who = !sender.isEmpty ? sender : (!m.from.isEmpty ? m.from : (required ? "" : core.human()))
+            guard let file = core.fileReply(m.id, for: who) else {
+                return reply(base + [JMember("action", .string("file")), JMember("state", .string("refused")), JMember("detail", .string("no such attachment"))])
+            }
+            return reply(base + [JMember("action", .string("file"))] + file)
         case ("control", "protocol"):
             return reply(base + [JMember("action", .string("protocol")), JMember("version", .string(ChatProtocol.version)),
                                  JMember("protocol", core.protocolJSON())])

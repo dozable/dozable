@@ -13,9 +13,12 @@ public struct ChatHTTPRequest: Sendable {
     public var headers: [String: String]
     public var body: [UInt8]
     public var remoteIP: String
+    /// The body was longer than this request may send (`ChatPageHandler.bodyLimit`): what came past it was not kept.
+    public var truncated = false
 
-    public init(method: String, target: String, headers: [String: String] = [:], body: [UInt8] = [], remoteIP: String) {
+    public init(method: String, target: String, headers: [String: String] = [:], body: [UInt8] = [], remoteIP: String, truncated: Bool = false) {
         self.method = method; self.target = target; self.headers = headers; self.body = body; self.remoteIP = remoteIP
+        self.truncated = truncated
     }
 
     public func header(_ name: String) -> String { headers[name.lowercased()] ?? "" }
@@ -171,7 +174,7 @@ public struct ChatPageHandler: Sendable {
         r("POST", "/api/rooms/{room}/messages/{id}/edit", "edit"),
         r("POST", "/api/rooms/{room}/messages/{id}/delete", "delete"),
         r("POST", "/api/files", "upload"),
-        r("GET", "/files/{id}/{name}", "later"),
+        r("GET", "/files/{id}/{name}", "file"),
         r("GET", "/api/rooms/{room}/app", "later"),
         r("POST", "/api/rooms/{room}/app", "app-change"),
         r("POST", "/api/rooms/{room}/app/icon", "app-change"),
@@ -212,9 +215,11 @@ public struct ChatPageHandler: Sendable {
             }
         case "edit", "delete": return change(name, vars["room"] ?? "", vars["id"] ?? "", r)
         case "react": return react(vars["room"] ?? "", r)
-        case "upload", "app-change":
-            // Who may call them is decided now (only the human); what they do comes in a later step.
-            if let refusal = pageCaller(r, name == "upload" ? "uploading a file" : "changing a room's app") { return refusal }
+        case "upload": return upload(r)
+        case "file": return download(vars["id"] ?? "")
+        case "app-change":
+            // Who may call it is decided now (only the human); what it does comes in a later step.
+            if let refusal = pageCaller(r, "changing a room's app") { return refusal }
             return .jsonError(501, "this call is not available on this server yet")
         case "register", "unregister", "send", "ack", "receive": return agent(name, r)
         default: return .jsonError(501, "this call is not available on this server yet")
@@ -309,6 +314,35 @@ public struct ChatPageHandler: Sendable {
             core.react(room: room, sender: who, msgID: id, what: what)
         }) else { return .jsonError(400, Self.idHeader + " must be a uuid") }
         return .json(rc.state == "refused" ? 422 : 200, .map(["state": .string(rc.state), "detail": .string(rc.detail)]))
+    }
+
+    /// The most a request's body may be: a file upload's is one file and one byte more (so one byte over is told from
+    /// more); every other request's is a line and one byte. What comes past it is not kept.
+    public static func bodyLimit(method: String, target: String) -> Int {
+        let path = String(target.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first ?? "")
+        return method == "POST" && path == "/api/files" ? ChatFileRules.maxSize + 1 : ChatProtocol.maxLine + 1
+    }
+
+    /// The human uploads one file (`?name=`, the bytes as the body); the answer is the attachment to name in a message.
+    /// Its size is checked before anything is written; the name is cleaned and never used as a path.
+    private func upload(_ r: ChatHTTPRequest) -> ChatHTTPResponse {
+        if let refusal = pageCaller(r, "uploading a file") { return refusal }
+        if r.truncated { return .jsonError(413, "a file can be at most \(ChatFileRules.maxSize >> 20) MB") }
+        switch core.saveFile(name: r.query("name"), r.body) {
+        case .success(let a): return .json(200, a.json(filesDir: core.filesDir))
+        case .failure(let e): return .jsonError(e.status == 500 ? 500 : 400, e.description)
+        }
+    }
+
+    /// A stored file, for the page (the human). Only to a caller that may read a message that names it; never sniffed;
+    /// sandboxed; shown inline only when it is a plain image, otherwise a download. Anything else is the router's 404.
+    private func download(_ id: String) -> ChatHTTPResponse {
+        guard let a = core.storedFile(id), core.mayFetch(id, by: core.human()), let bytes = core.fileBytes(a) else {
+            return .error(404, "404 page not found")
+        }
+        var headers = [("Content-Type", a.type), ("X-Content-Type-Options", "nosniff"), ("Content-Security-Policy", "sandbox")]
+        if !ChatFileRules.isInlineImage(a.type) { headers.append(("Content-Disposition", "attachment; filename=\(goQuote(a.name))")) }
+        return ChatHTTPResponse(status: 200, headers: headers, body: bytes)
     }
 
     /// Who makes a page call that changes something: the human. nil serves it; otherwise the 401 answer.

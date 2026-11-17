@@ -7,9 +7,8 @@ import Foundation
 //
 // Here: posting on every path, the room and membership commands, archive and the hold, registration, and the
 // announcement of a new protocol version. Delivery is in ChatLive.swift (a page, a participant that polls) and
-// ChatWebhooks.swift (a bot's webhook); reactions in ChatReact.swift; edits and deletes in ChatEdits.swift. A Claude
-// Code session's inbox and attachments come in later steps: a message for an inbox stays `queued`, and one with an
-// attachment is refused, saying it is not available yet.
+// ChatWebhooks.swift (a bot's webhook) and ChatInbox.swift (a Claude Code session on this Mac); reactions in
+// ChatReact.swift; edits and deletes in ChatEdits.swift; attachments in ChatAttachments.swift.
 
 public struct ChatLog: Sendable {
     let write: @Sendable (String) -> Void
@@ -111,7 +110,8 @@ public final class ChatServerCore: @unchecked Sendable {
     let bus = ChatEventBus()
     /// When this server started: what was handed over earlier and not confirmed is handed over again.
     let startTime = chatNow()
-    /// Where Claude Code keeps its session records (`<pid>.json`): read only, for presence and /protocol.
+    /// Where Claude Code keeps its session records (`<pid>.json`, `<pid>.<hash>.key`): read only — for presence, and to
+    /// find a running session's inbox socket. A value handed in; by default `$HOME/.claude/sessions`, as the reference.
     let sessionsDir: String
 
     /// What sends a webhook call (a test may hand in its own), the pause before each try (the reference's schedule:
@@ -214,7 +214,11 @@ public final class ChatServerCore: @unchecked Sendable {
             switch p.route {
             case "poll": protocolNotice(p.name, text)
             case "webhook": protocolWebhook(p)
-            default: break   // a Claude session's inbox is a later step
+            case "inbox-socket":
+                if let s = claudeSession(p.session) {
+                    note(s, "The message protocol was updated. No action is needed unless you want to use what is new.\n\n" + ChatProtocol.markdown)
+                }
+            default: break
             }
         }
         return true
@@ -405,7 +409,11 @@ public final class ChatServerCore: @unchecked Sendable {
             if n != sender && !to.contains(n) { to.append(n) }
         }
         if m.isPrivate && to.isEmpty { return .refused("a direct message must name who it is for") }
-        if let refusal = checkAttachments(m.attachments) { return .refused(refusal) }
+        let files: [JValue]
+        switch attach(m.attachments) {
+        case .success(let f): files = f
+        case .failure(let e): return .refused(e.description)
+        }
         // Anyone named with @ is mentioned, and so addressed; a mention in a direct message addresses nobody new.
         var mentions: [String] = []
         if !m.isPrivate {
@@ -415,6 +423,7 @@ public final class ChatServerCore: @unchecked Sendable {
         let recipients = m.isPrivate ? to : members(room).filter { $0 != sender }
         var sm = ChatStored(msgID: m.msgID, from: sender, to: to, reMsgID: m.reMsgID, content: m.content, at: chatNow(),
                             mentions: mentions, sender: senderOf(sender, verified: m.verified), isPrivate: m.isPrivate)
+        sm.attachments = files
         do {
             if try st.insert(&sm) { return ChatReceipt("duplicate") }
         } catch { return .refused("store: \(error)") }
@@ -444,28 +453,6 @@ public final class ChatServerCore: @unchecked Sendable {
         return ChatReceipt("queued")
     }
 
-    /// What a sender put on a message, checked as the protocol checks it — at most 10; bytes inline must be base64; an id
-    /// must name an uploaded file — and then refused: storing attachments comes in a later step.
-    func checkAttachments(_ list: [JValue]) -> String? {
-        if list.isEmpty { return nil }
-        if list.count > ChatProtocol.maxAttachments { return "at most \(ChatProtocol.maxAttachments) attachments on one message" }
-        for a in list {
-            let data = a.field("data_base64")?.stringValue ?? "", id = a.field("id")?.stringValue ?? "", name = a.field("name")?.stringValue ?? ""
-            if !data.isEmpty {
-                if Data(base64Encoded: data) == nil { return "attachment \(goQuote(name)): data_base64 is not base64" }
-            } else if !id.isEmpty {
-                let u = Array(id.utf8)
-                let wellFormed = (u.count == 16 || u.count == 32) && u.allSatisfy { (0x30...0x39).contains($0) || (0x61...0x66).contains($0) }
-                let dir = (dataDir as NSString).appendingPathComponent("files/" + id)
-                let entries = wellFormed ? ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []) : []
-                if entries.count != 1 { return "attachment \(id): no such attachment" }
-            } else {
-                return "an attachment needs data_base64 with a name, or the id of an uploaded file"
-            }
-        }
-        return "attachments are not available on this server yet"
-    }
-
     /// The answer to a msg_id sent again.
     static func duplicateOf(_ state: String, _ detail: String) -> ChatReceipt {
         if state.isEmpty { return ChatReceipt("duplicate") }
@@ -478,8 +465,6 @@ public final class ChatServerCore: @unchecked Sendable {
         "room \(room) is archived: it can be read but not posted to. A human can reopen it with /unarchive"
     }
 
-    /// The commands of a later milestone, refused in words that say so.
-    static let notYet = "this command is not available on this server yet"
 
     private func command(_ m: ChatLine, room: String, store st: ChatRoomStore, sender: String, words f: [String]) -> ChatReceipt {
         switch f[0] {
@@ -496,9 +481,10 @@ public final class ChatServerCore: @unchecked Sendable {
         switch f[0] {
         case "/protocol":
             guard let p = participant(sender), p.deliver == "inbox-socket" else { return ChatReceipt("info", ChatProtocol.markdown) }
-            // A Claude session sees no receipt, so the text goes to its inbox (delivery to an inbox comes later).
-            if sessionRecord(p.session) == nil { return .refused("no running Claude session with that name") }
-            return .refused(Self.notYet)
+            // A Claude session on this Mac sees no receipt for what it sends, so the text goes to its inbox.
+            guard let s = claudeSession(p.session) else { return .refused(Self.noSession) }
+            note(s, ChatProtocol.markdown)
+            return ChatReceipt("queued")
         case "/rooms":
             if f.count != 1 { return .refused("use /rooms on its own: it lists the rooms you are in") }
             return ChatReceipt("info", roomsOf(sender))

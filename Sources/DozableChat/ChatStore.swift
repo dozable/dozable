@@ -154,6 +154,8 @@ public final class ChatRoomStore: @unchecked Sendable {
 
     /// The whole id from its start, when exactly one message matches; else the prefix as given.
     public func fullID(_ prefix: String) -> String {
+        // An empty start, or one with % or _, would match messages it does not name: it matches nothing.
+        guard Self.isIDStart(prefix) else { return prefix }
         let ids = (try? sync {
             try self.query("SELECT msg_id FROM messages WHERE msg_id LIKE ? ORDER BY seq DESC LIMIT 2", [.text(prefix + "%")]) { Self.text($0, 0) }
         }) ?? []
@@ -281,9 +283,33 @@ public final class ChatRoomStore: @unchecked Sendable {
 
     /// Up to limit msg_ids that start with prefix, newest first.
     public func matching(_ prefix: String, limit: Int) -> [String] {
-        (try? sync {
+        guard Self.isIDStart(prefix) else { return [] }
+        return (try? sync {
             try self.query("SELECT msg_id FROM messages WHERE msg_id LIKE ? ORDER BY seq DESC LIMIT ?", [.text(prefix + "%"), .int(Int64(limit))]) { Self.text($0, 0) }
         }) ?? []
+    }
+
+    /// `^[0-9A-Fa-f-]+$`: what the start of a msg_id may be — the characters of a uuid, at least one.
+    public static func isIDStart(_ s: String) -> Bool {
+        !s.isEmpty && s.utf8.allSatisfy { (0x30...0x39).contains($0) || (0x41...0x46).contains($0) || (0x61...0x66).contains($0) || $0 == 0x2D }
+    }
+
+    /// The messages whose attachments name a file id: who may read each.
+    public func namesFile(_ id: String) -> [(from: String, to: [String], isPrivate: Bool, revealed: Bool)] {
+        (try? sync {
+            try self.query("SELECT sender, recipients, private, revealed FROM messages WHERE instr(attachments,?)>0", [.text(id)]) {
+                (Self.text($0, 0), Self.stringList(Self.text($0, 1)), sqlite3_column_int64($0, 2) != 0, sqlite3_column_int64($0, 3) != 0)
+            }
+        }) ?? []
+    }
+
+    /// Whether a message other than except still refers to a file id, in its attachments or its text.
+    public func usesFile(_ id: String, except: String) -> Bool {
+        let n = (try? sync {
+            try self.query("SELECT COUNT(*) FROM messages WHERE msg_id<>? AND (instr(attachments,?)>0 OR instr(content,?)>0)",
+                           [.text(except), .text(id), .text(id)]) { sqlite3_column_int64($0, 0) }
+        })?.first ?? 0
+        return n > 0
     }
 
     /// The newest ordinary message sender wrote that is not deleted, or "".

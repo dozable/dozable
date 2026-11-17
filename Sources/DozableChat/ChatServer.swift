@@ -6,13 +6,17 @@ import Foundation
 // exits 0 after SIGTERM, SIGHUP or SIGINT. A fault a restart cannot fix — a bad setting or config, a port in use, a data
 // folder it cannot write, a second server on the same folder, a secrets file it may not read — is one line on standard
 // error and exit 78, so a supervisor does not restart it. It reads no settings file, opens no store, starts no daemon
-// and touches no Keychain: everything it needs is in its config, its flags and its secrets file.
+// and touches no Keychain: everything it needs is in its config, its flags and its secrets file. Outside its data folder
+// it only reads Claude Code's session records and writes to a running session's own inbox socket (ChatInbox.swift).
 
 public struct ChatServeOptions: Sendable {
     public var configPath: String
     public var overrides = ChatConfig.Overrides()
     public var secretsFile: String?
     public var supervised = false
+    /// Where Claude Code's session records are read (to find a session's inbox socket); nil is `$HOME/.claude/sessions`,
+    /// as the reference.
+    public var claudeSessions: String?
     /// The release this server reports (Dozable's version).
     public var release: String
 
@@ -94,7 +98,7 @@ public enum ChatServer {
         }
         let secrets = loaded
 
-        let core = ChatServerCore(config: config, secrets: secrets, release: releaseNumber(o.release), log: log)
+        let core = ChatServerCore(config: config, secrets: secrets, release: releaseNumber(o.release), log: log, sessionsDir: o.claudeSessions)
         core.load()
         if !config.testOwnedAddresses.isEmpty {
             log("chat: FOR TESTS: test_owned_addresses is set, so only \(config.testOwnedAddresses.joined(separator: ", ")) count as the owner's own machines")

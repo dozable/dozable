@@ -124,6 +124,7 @@ extension ChatServerCore {
         for s in m.states where ["queued", "held", "failed"].contains(s.state) && !handedTo(st, m.msgID, s.recipient) {
             setState(room, st, ChatState(msgID: m.msgID, recipient: s.recipient, state: "cancelled", at: at, detail: "the message was deleted before it was handed over"))
         }
+        dropFiles(m)   // its files, unless another message still names them
         guard let after = try? st.one(m.msgID) else { return .refused("store: no such message") }
         published(room, after, kind: "deleted")
         tellHanded(room, st, before: m, after: after, kind: "deleted", by: who)
@@ -157,11 +158,12 @@ extension ChatServerCore {
     }
 
     /// Hands one recipient a notice of an edit or delete, the way it takes messages. A page needs none (the stream
-    /// tells it); a Claude session's inbox comes later.
+    /// tells it).
     func notify(_ room: String, _ m: ChatStored, to: String, kind: String, by: String) {
         guard let p = participant(to) else { return }
         switch p.route {
         case "webhook": notifyWebhook(room, m, p, kind: kind, by: by)
+        case "inbox-socket": notifyInbox(room, m, p, kind: kind, by: by)
         case "poll": if let st = try? store(room) { queueNotice(room, st, m, to: to, kind: kind, by: by) }
         default: break
         }

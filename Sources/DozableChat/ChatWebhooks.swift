@@ -34,13 +34,16 @@ extension ChatServerCore {
     /// the background for a webhook.
     func deliverInOrder(_ room: String, _ st: ChatRoomStore, _ ids: [String], to: String) {
         guard !ids.isEmpty else { return }
-        guard participant(to)?.route == "webhook" else {
+        let route = participant(to)?.route ?? ""
+        guard route == "webhook" || route == "inbox-socket" else {
             for id in ids { deliver(room, st, id, to: to) }
             return
         }
         background {
             for id in ids {
-                if await !self.deliverWebhook(room, st, id, to: to) { break }
+                if route == "inbox-socket" {
+                    self.deliverInbox(room, st, id, to: to)
+                } else if await !self.deliverWebhook(room, st, id, to: to) { break }
             }
         }
     }
@@ -207,7 +210,8 @@ extension ChatServerCore {
             var order: [String] = []
             var lists: [String: [String]] = [:]
             for (id, who) in pend {
-                guard let p = participant(who), p.route == "webhook" else { continue }
+                // a page reads what waited when it opens, and a participant that polls collects it
+                guard let p = participant(who), p.route == "webhook" || p.route == "inbox-socket" else { continue }
                 guard let m = try? st.one(id), now - Self.queuedAt(m, who) <= redeliverAfter else { continue }
                 if lists[who] == nil { order.append(who) }
                 lists[who, default: []].append(id)
