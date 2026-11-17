@@ -5,7 +5,8 @@ import { remeasure } from './measure.js';
 import { loadPreparations } from './operations.js';
 import { state } from './state.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
-const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'),
+const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), chatEnter = upcall('chatEnter'), chatLeave = upcall('chatLeave'),
+  chatRefresh = upcall('chatRefresh'),
   closeWizardModal = upcall('closeWizardModal'), gridEnter = upcall('gridEnter'), gridLeave = upcall('gridLeave'),
   gridRefresh = upcall('gridRefresh'), macEnter = upcall('macEnter'), macLeave = upcall('macLeave'), macRefresh = upcall('macRefresh'), openWizardModal = upcall('openWizardModal'), paintNav = upcall('paintNav'),
   paintRowOps = upcall('paintRowOps'), refreshSandbox = upcall('refreshSandbox'),
@@ -42,6 +43,14 @@ export function route() {
     routePage();
     return;
   }
+  // Chat: #/chat, and #/chat/ROOM (a room's name: the chat server's rule).
+  const cm = /^#\/chat(?:\/([a-z0-9][a-z0-9_-]{0,63}))?$/.exec(location.hash);
+  if (cm) {
+    if (state.modal) closeWizardModal();
+    state.view = 'chat'; state.param = cm[1] || null; state.session = null; state.bgHash = location.hash;
+    routePage();
+    return;
+  }
   // 635: `~home` (no session name can hold a ~) selects a sandbox page's Home tab — the sidebar's sandbox line (642).
   const m = /^#\/([a-z]+)(?:\/([a-z0-9-]{1,40})(?:\/(~home|[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}))?)?$/.exec(location.hash);
   if (m && m[1] === 'terminals') { location.replace('#/sessions'); return; }      // 591's name for the grid's place
@@ -71,14 +80,17 @@ function routePage() {
   // must not steal a terminal's focus or reparent its canvas). 593: that section is the sandbox
   // page's terminal area; the grid is a section of its own too.
   // This Mac is a section of its own too (its pane is a live terminal).
-  const onSbx = state.view === 'sandbox', onGrid = state.view === 'sessions', onMac = state.view === 'mac';
+  const onSbx = state.view === 'sandbox', onGrid = state.view === 'sessions', onMac = state.view === 'mac', onChat = state.view === 'chat';
   $('sbx').hidden = !onSbx;
   $('grid').hidden = !onGrid;
   $('mac').hidden = !onMac;
-  $('view').hidden = onSbx || onGrid || onMac;
+  $('chat').hidden = !onChat;
+  $('view').hidden = onSbx || onGrid || onMac || onChat;
+  $('main').classList.toggle('main-chat', onChat);
   $('main').classList.toggle('main-terms', onSbx);
   if (!onGrid) gridLeave();
   if (!onMac) macLeave();
+  if (!onChat) chatLeave();
   if (state.view !== 'operations') state.opsBox = null;
   if (state.view === 'operations') { acknowledgeOps(); loadPreparations(); }
   if (state.modal !== 'onboarding') wizardStopPolling();
@@ -86,6 +98,7 @@ function routePage() {
   if (onSbx) { showSandbox(); return; }
   if (onGrid) { gridEnter(); return; }
   if (onMac) { macEnter(state.session); return; }
+  if (onChat) { chatEnter(state.param); return; }
   refresh(true);
 }
 window.addEventListener('hashchange', () => {
@@ -106,6 +119,7 @@ export async function refresh(scrollTop) {
   if (state.view === 'sandbox') { refreshSandbox(); return; }
   if (state.view === 'sessions') { gridRefresh(false); return; }
   if (state.view === 'mac') { macRefresh(false); return; }
+  if (state.view === 'chat') { chatRefresh(); return; }
   if (refreshing) { again = true; return; }
   refreshing = true;
   try {

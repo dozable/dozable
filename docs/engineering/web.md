@@ -340,6 +340,52 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   a bounded queue per stream that ends in `resync` (never a silent drop), heartbeats that re-check
   the session.
 
+## Chat
+
+The Chat page (`#/chat`, `#/chat/ROOM`) — the chat server's rooms for the person (chat.md, "In the dashboard").
+
+- **Routes: a CLOSED set under `/api/v1/chat/`** (`WebRoute.chat(WebChatRoute)`, `WebChat.swift`), each a fixed call on the
+  owner's socket built from checked values — never a proxy. GET `status` (no upstream: `chat.enabled`, the daemon's lock and
+  `supervisor.json` → `off | no-daemon | starting | running | failing`); GET `state` (`/api/state` PROJECTED: rooms, archived,
+  participants {name, kind}, default_room, reactions, version — `token_service`, `need_token`, `https_url`, `apps`,
+  `release` dropped); GET `presence`, `unread?ROOM=SEQ…` (≤ 256), `protocol`, `rooms/ROOM/messages?after&before&limit`
+  (`X-More` copied back — the only upstream header that ever is); POST `rooms/ROOM/messages` (CSRF and the unsafe-request
+  checks; a strict body `{content ≤ 64 KiB, to? ≤ 32 names, re_msg_id?}` re-encoded; 80 KiB — `bodyLimit(for:)`, every other
+  route keeps 16 KiB); GET `stream`; GET `files/ID/NAME` (the one path whose name may carry `%20`, parsed before the
+  route table's no-`%` rule). Rules: a room or a name `^[a-z0-9][a-z0-9_-]{0,63}$`, a file id 16 or 32 lower-case hex, a file
+  name `[A-Za-z0-9._ ()+-]` ≤ 120 bytes not starting with a dot or a space; a query only where a route takes one. Never
+  reachable: `/agent/*`, `/api/reload`, uploads, reactions, edits, typing, room apps — anything not listed. Nothing of the
+  browser's request (path, query, cookies, Origin, other headers) reaches the socket.
+- **Answers**: JSON as `application/json`; the message, presence, unread and protocol bodies pass through (the protocol's
+  view for the person; its human API has no token field) only when they ARE JSON of the expected kind; an upstream refusal is
+  re-wrapped `{error:{code:"chat", message}}` (≤ 300 characters); no socket → 503 `chat-off` (naming `doz chat on`) or
+  `chat-not-ready` (naming `doz chat status`). Calls run on their own queue, at most 8 at once — never the event loop.
+- **Attachments** are served from this origin with headers decided here from the upstream type alone: PNG, JPEG, GIF, WebP
+  inline; anything else `application/octet-stream` + `Content-Disposition: attachment`; always `nosniff`,
+  `Content-Security-Policy: sandbox; default-src 'none'`, CORP same-origin, `Cache-Control: private, no-store`, no referrer.
+  HTML and SVG never render as the dashboard. At most 21 MiB.
+- **The stream** is its own (`chatHub`: 4 at most, the bounded queue) — never the page's main stream, so an open dashboard
+  never makes the person "here". One upstream per browser stream, followed by a thread (`WebChatProxy.relay`); each `data:`
+  line must be a JSON object with a string `kind`, ≤ 1 MiB, and becomes `event: chat`; an upstream `resync` ends the client
+  with `resync`, an upstream end with `end {reason: chat-gone}`. The client's end — the browser gone (a 2 s heartbeat finds it),
+  signed out, rotated, too slow — cancels the upstream (`StreamHandle`: `shutdown`), so the server marks the person away.
+- **Exposure**: `WebExposure` kind `chat` — a remote (LAN) browser gets 403 `chat-remote` on every route, before its session
+  is looked at; the sidebar's entry stays hidden there (its status is refused).
+- **The page** (`views/chat.js`, the section `#chat`, built once): rooms (`chat-rooms.js`), the log (`chat-messages.js`:
+  bubbles, tombstones, direct-message stubs, change lines, older pages on scrolling up), the composer (`chat-composer.js`:
+  Enter sends, Shift/Option+Enter a new line, `@` members, `/` the server's commands, `/protocol` shown locally), presence
+  (`chat-people.js`), the stream with its back-off and refill (`chat-live.js`). Shared state is `state.chat`. The adapter
+  (`core/chat-api.js` `configure`, from `app.js`): `apiFetch` (the one fetch, `core/api.js`), the viewer, and
+  `dashboardFileUrl` — the ONLY attachment address (`/files/ID/NAME` → `/api/v1/chat/files/ID/NAME`). The live stream is
+  opened only in `core/chat-stream.js`. Browser memory only for the unread markers and drafts (`doz.chat.seen:<room>`,
+  `doz.chat.draft:<room>`). The sidebar's entry (after This Mac) is shown from `chat/status` on `hello` and every minute,
+  with a badge from `unread`.
+- **Rendering safety** (`core/chat-markdown.js`): text nodes only (`h()`); a link only for http/https that `safeLink`
+  admits (`core/util.js`: no login, never a loopback or this host) — `target=_blank`, `rel="noopener noreferrer"`,
+  `referrerpolicy=no-referrer`; a picture only of this chat server's attachments; no `mailto:`. The corpus
+  (`Tests/Fixtures/chat-markdown-*.json`, 160 cases with script, onerror, `javascript:` and `data:`) is checked in headless
+  Chrome by `make chat-markdown-check` (`ARGS=--update` records; review every changed line) — not part of `make test`.
+
 ## The installable dashboard, graceful restarts
 
 - **An installable web app** (on this Mac at 127.0.0.1; with the LAN option over https through your proxy). `app.webmanifest` is hashed like the

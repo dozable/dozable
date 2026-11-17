@@ -24,6 +24,29 @@ final class WebModulesTests: XCTestCase {
         URL(string: spec, relativeTo: URL(string: "http://127.0.0.1:1" + path)!)!.path
     }
 
+    /// Who may call the server directly: `fetch` only in these modules (core/api.js is THE request; the others fetch static
+    /// files of this origin — the sprite, the engine, the offline check), and a live stream (`EventSource`) only in these
+    /// three. Chat's modules go through core/chat-api.js (→ apiFetch) and core/chat-stream.js only.
+    func testFetchAndEventSourceOnlyWhereTheyAreAllowed() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        var fetchers: Set<String> = [], streams: Set<String> = []
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+        for f in files {
+            let text = try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8)
+            if text.contains("fetch(") && text.range(of: #"(?<![A-Za-z])fetch\("#, options: .regularExpression) != nil { fetchers.insert(f) }
+            if text.contains("EventSource(") { streams.insert(f) }
+        }
+        XCTAssertEqual(fetchers, ["app/core/api.js", "app/core/reconnect.js", "app/components/terminal.js", "app/dom/icons.js"])
+        XCTAssertEqual(streams, ["app/core/events.js", "app/core/chat-stream.js", "app/views/sandbox-files.js"])
+        for f in files where f.contains("/chat") {
+            let text = try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8)
+            for never in ["innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "X-Doz-CSRF", "localStorage.setItem('sb", "/api/v1/chat/stream'", "eval("] where !(never == "/api/v1/chat/stream'" && f == "app/core/chat-stream.js") {
+                XCTAssertFalse(text.contains(never), "\(f): \(never)")
+            }
+        }
+    }
+
     func testEveryModuleIsServedHashedAndImportedOnlyFromItsOwnLayerOrBelow() throws {
         let a = try WebAssets.load()
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource/app")

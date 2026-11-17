@@ -1,0 +1,1443 @@
+[
+ {
+  "name": "empty",
+  "in": "",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "whitespace only",
+  "in": "   \n  \n",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "plain",
+  "in": "Hello world",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "two lines (br)",
+  "in": "line one\nline two",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "paragraphs",
+  "in": "first\n\nsecond\n\n\nthird",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "crlf",
+  "in": "a\r\nb\r\n\r\nc",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bold",
+  "in": "**bold**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bold in sentence",
+  "in": "a **bold** word and **another**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "italic star",
+  "in": "*it* and more",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "italic underscore",
+  "in": "_it_ and more",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "intraword underscore",
+  "in": "snake_case_name stays",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "intraword star",
+  "in": "2*3*4 stays",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bold italic nested",
+  "in": "***both***",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "italic inside bold",
+  "in": "**a *b* c**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bold inside italic",
+  "in": "*a **b** c*",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "unclosed bold",
+  "in": "**not closed",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "unclosed italic",
+  "in": "*not closed",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "unclosed code",
+  "in": "`not closed",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "lone markers",
+  "in": "* _ ` ** __ ~~",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "inline code",
+  "in": "use `code` here",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code with markup",
+  "in": "`<b>x</b> & **y**`",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "two codes",
+  "in": "`a` and `b`",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code adjacent mention",
+  "in": "`x`@ada",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention member",
+  "in": "hello @ada and @bot2",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention non member",
+  "in": "hello @nobody",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention case",
+  "in": "@ADA is here",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention at start",
+  "in": "@ada",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention after paren",
+  "in": "(@bot2)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention after bold",
+  "in": "**@ada**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention after quote char",
+  "in": "\"@ada\"",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention after gt",
+  "in": "a>@ada",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention after equals",
+  "in": "a=@ada",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention in code",
+  "in": "`@ada`",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention in code fence",
+  "in": "```\n@ada\n```",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention in link text",
+  "in": "[@ada](https://example.com)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention email",
+  "in": "mail me@ada.example",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention dashes",
+  "in": "@bot1-2 and @bot1",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention with members empty",
+  "in": "@ada",
+  "members": []
+ },
+ {
+  "name": "link",
+  "in": "[the docs](https://example.com/a)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link with parens in url",
+  "in": "[x](https://en.wikipedia.org/wiki/Foo_(bar))",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link with angle brackets in text",
+  "in": "[a <b> c](https://example.com)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link url with angle brackets",
+  "in": "[x](https://example.com/<b>)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link with emphasis text",
+  "in": "[**bold** text](https://example.com)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link url with asterisks",
+  "in": "[x](https://example.com/a*b*c)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link url with underscores",
+  "in": "[x](https://example.com/_foo_/bar)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "the old renderer let the italics pass reach into the link address: href became <em>foo</em>"
+ },
+ {
+  "name": "link url with ampersand",
+  "in": "[x](https://example.com/?a=1&b=2)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link javascript url",
+  "in": "[x](javascript:alert(1))",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link data url",
+  "in": "[x](data:text/html;base64,PHNjcmlwdD4=)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link ftp url",
+  "in": "[x](ftp://example.com/f)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link relative url",
+  "in": "[x](/etc/passwd)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link file",
+  "in": "[a file](/files/0123456789abcdef/report.pdf)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link file bad id",
+  "in": "[a file](/files/xyz/report.pdf)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "image file",
+  "in": "![alt text](/files/0123456789abcdef/pic.png)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "image external",
+  "in": "![alt](https://example.com/p.png)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "image alt with quote",
+  "in": "![a \"q\" b](/files/0123456789abcdef/p.png)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bare url",
+  "in": "see https://example.com/path now",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bare url trailing punctuation",
+  "in": "go to https://example.com/a.",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bare url in parens",
+  "in": "(https://example.com/a)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bare url with ampersand",
+  "in": "https://example.com/?a=1&b=2&c",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bare url with angle brackets",
+  "in": "https://example.com/<b>x</b>",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bare url with asterisks",
+  "in": "https://example.com/a*b*c",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bare url with underscores",
+  "in": "https://example.com/_foo_/bar",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "the same: the address of the link had <em> markup in it (the visible text is unchanged)"
+ },
+ {
+  "name": "bare http url",
+  "in": "http://example.com",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bare url javascript",
+  "in": "javascript:alert(1)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "nested link in link text",
+  "in": "[see https://a.example](https://b.example)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "two links",
+  "in": "[a](https://a.example) and [b](https://b.example)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "raw html tag",
+  "in": "<b>bold?</b> and <script>alert(1)</script>",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "raw html attribute",
+  "in": "<img src=x onerror=alert(1)>",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "entities",
+  "in": "&lt;b&gt; &amp; &quot;q&quot; &#60; &copy;",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "ampersand and angle",
+  "in": "a < b && c > d \"quoted\" 'single'",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "heading 1",
+  "in": "# Title",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "heading 2",
+  "in": "## Title two",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "heading 4",
+  "in": "#### Deep",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "heading 5 is text",
+  "in": "##### Five",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "heading no space",
+  "in": "#nospace",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "heading with markup",
+  "in": "## a **b** `c` [d](https://example.com)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bullet list",
+  "in": "- one\n- two\n- three",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "star list",
+  "in": "* one\n* two",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "plus list",
+  "in": "+ one\n+ two",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "ordered list",
+  "in": "1. one\n2. two\n10. ten",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "ordered paren",
+  "in": "1) one\n2) two",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "list with continuation",
+  "in": "- one\n  more of one\n- two",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "list with code",
+  "in": "- use `x` here\n- and **bold**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "list then paragraph",
+  "in": "- a\n- b\n\nafter",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "paragraph then list",
+  "in": "before\n- a\n- b",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "list with mention",
+  "in": "- @ada does it\n- @bot2 too",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "nested list indentation",
+  "in": "- a\n  - b\n- c",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "blockquote",
+  "in": "> quoted",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "blockquote multi",
+  "in": "> a\n> b\n> c",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "blockquote with markup",
+  "in": "> **b** and `c`",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code fence",
+  "in": "```\nline1\nline2\n```",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code fence with lang",
+  "in": "```js\nlet a = 1 < 2 && 3 > 2;\n```",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code fence unclosed",
+  "in": "```\nopen forever",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code fence empty",
+  "in": "```\n```",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code fence indented",
+  "in": "  ```\n  x\n  ```",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code fence html",
+  "in": "```\n<script>alert(1)</script>\n```",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code fence markdown inside",
+  "in": "```\n**not bold** [x](https://e.example)\n```",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code fence blank lines",
+  "in": "```\na\n\nb\n```",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "table",
+  "in": "| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "table no outer pipes",
+  "in": "a | b\n--|--\n1 | 2",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "table alignment",
+  "in": "| a | b | c |\n|:--|:-:|--:|\n| 1 | 2 | 3 |",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "table with markup",
+  "in": "| **h** | `c` |\n|---|---|\n| [l](https://e.example) | @ada |",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "table pipe in code",
+  "in": "| a | b |\n|---|---|\n| `x|y` | 2 |",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "table ragged",
+  "in": "| a | b |\n|---|---|\n| 1 |\n| 1 | 2 | 3 |",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "table then text",
+  "in": "| a |\n|---|\n| 1 |\n\nafter",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "text then table",
+  "in": "intro\n| a |\n|---|\n| 1 |",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "pipe without separator",
+  "in": "a | b\nc | d",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "hr like",
+  "in": "---",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "very long line",
+  "in": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "very long words with markers",
+  "in": "**aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa** _bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb_",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "many bold",
+  "in": "**a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** ",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "unicode and emoji",
+  "in": "héllo wörld 👍 **日本語** @ada",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "private use chars",
+  "in": "  **b** ",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "null char",
+  "in": "a\u0000b `c\u0000d`",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "control chars",
+  "in": "a\u0001b\u0002 **c**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "placeholder lookalike",
+  "in": "\u00000\u0000 `x`",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "the old renderer used NUL as its own marker, so a message could forge it and make a code span out of nothing; NUL is now dropped as the HTML parser always dropped it"
+ },
+ {
+  "name": "mixed document",
+  "in": "# Report\n\nSome **bold**, _it_, `code` and a [link](https://example.com).\n\n- item @ada\n- item two\n\n1. first\n2. second\n\n> quote\n\n```\ncode\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "escaped star",
+  "in": "\\*not italic\\*",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "star spaces",
+  "in": "* not italic *",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "adjacent bold and italic",
+  "in": "**a***b*",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "misnested emphasis",
+  "in": "*a **b* c**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "emphasis across link",
+  "in": "*a [b*](https://example.com) c",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bold across link",
+  "in": "**a [b](https://example.com) c**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link text with underscore",
+  "in": "[snake_case_x](https://example.com)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "url in code",
+  "in": "`https://example.com`",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "url in bold",
+  "in": "**https://example.com**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bold url bold",
+  "in": "**a** https://example.com **b**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code in link text",
+  "in": "[a `b` c](https://example.com)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code in image alt",
+  "in": "![a `b` c](/files/0123456789abcdef/p.png)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "the old renderer put <code> markup text into the alt attribute; the alt is now the text as typed"
+ },
+ {
+  "name": "code in link url",
+  "in": "[x](https://example.com/`y`)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ],
+  "why": "a code span inside a link address put markup into the href; it is no longer a link address (the bare address before the code span is linked)"
+ },
+ {
+  "name": "mention after code in bold",
+  "in": "**`x`@ada**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link text with bare url and bold",
+  "in": "[**b** https://a.example](https://b.example)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "image inside bold",
+  "in": "**![p](/files/0123456789abcdef/p.png)**",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "reopened emphasis",
+  "in": "*a **b* c** d",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "em closes across strong",
+  "in": "**a *b** c*",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "underscore mention",
+  "in": "_@ada_ and @ada_",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mention then punctuation",
+  "in": "@ada, @bot2. @bot1!",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "three asterisks run",
+  "in": "a *** b",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "code spans many",
+  "in": "`a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` `a` ",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "links many",
+  "in": "[a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) [a](https://e.example) ",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "bold many",
+  "in": "**a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** **a** ",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "link with trailing paren text",
+  "in": "(see [x](https://e.example)) ok",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "ordered list with markup",
+  "in": "1. **a**\n2. _b_ `c`",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "heading inside list text",
+  "in": "- # not a heading",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "table header only",
+  "in": "| a | b |\n|---|---|",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "tab indented",
+  "in": "\t- not a list\n\ttext",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "a picture with a 32-hex id",
+  "in": "![chart](/files/0123456789abcdef0123456789abcdef/chart.png)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "a file link is mapped to the dashboard",
+  "in": "[the log](/files/0123456789abcdef/build%20log.txt)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "a loopback link stays text",
+  "in": "[local](http://127.0.0.1:1/) and http://127.0.0.1:1/",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "a localhost link stays text",
+  "in": "see http://localhost:8790/agent/send",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "a link with a login stays text",
+  "in": "[x](https://user:pw@e.example/)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "mailto is not a link",
+  "in": "[mail](mailto:ada@e.example) mailto:ada@e.example",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "a script tag is text",
+  "in": "<script>alert(1)</script>",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "onerror is text",
+  "in": "<img src=x onerror=alert(1)>",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "javascript link is text",
+  "in": "[x](javascript:alert(1)) javascript:alert(1)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "data link is text",
+  "in": "[x](data:text/html,<script>alert(1)</script>)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "a data picture is text",
+  "in": "![x](data:image/png;base64,AAAA)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "a remote picture is text",
+  "in": "![x](https://e.example/a.png)",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "an svg onload is text",
+  "in": "<svg onload=alert(1)>",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ },
+ {
+  "name": "an iframe is text",
+  "in": "<iframe src=\"javascript:alert(1)\"></iframe>",
+  "members": [
+   "ada",
+   "bot2",
+   "bot1"
+  ]
+ }
+]

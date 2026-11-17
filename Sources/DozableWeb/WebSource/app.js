@@ -16,12 +16,14 @@
 //   · 605: the page outlives its server. doz ui restarting is a calm pause (terminals reattach, operations
 //     resolve, a newer build offers a reload); a sign-in again happens INSIDE the page, over what it shows.
 
+import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat.js';
+import { configure as configureChat, dashboardFileUrl } from './app/core/chat-api.js';
 import { paintStartProgress } from './app/components/start-progress.js';
 import { expose, provide } from './app/core/hooks.js';
 import { $ } from './app/dom/h.js';
 import { icon, setButton } from './app/dom/icons.js';
 import './app/core/agents.js';
-import { api } from './app/core/api.js';
+import { api, apiFetch } from './app/core/api.js';
 import { connect } from './app/core/events.js';
 import './app/core/format.js';
 import { scheduleResTotal } from './app/core/measure.js';
@@ -99,7 +101,7 @@ $('sign-out').addEventListener('click', async () => {
 
 // ── start ───────────────────────────────────────────────────────────────────
 // The static page's own controls get their icons here (index.html holds no SVG).
-const NAV_ICONS = { devices: 'user-round', overview: 'box', sessions: 'layout-grid', mac: 'square-terminal', images: 'layers', resources: 'cylinder', operations: 'list-checks', accounts: 'key-round',
+const NAV_ICONS = { chat: 'message-square', devices: 'user-round', overview: 'box', sessions: 'layout-grid', mac: 'square-terminal', images: 'layers', resources: 'cylinder', operations: 'list-checks', accounts: 'key-round',
                     metrics: 'chart-line', activity: 'activity', onboarding: 'rocket', doctor: 'stethoscope', settings: 'settings', recipes: 'monitor', browse: 'search', try: 'play', debug: 'bug', notifications: 'bell' };
 for (const a of document.querySelectorAll('#nav a[data-view]')) {
   if (NAV_ICONS[a.dataset.view]) a.prepend(icon(NAV_ICONS[a.dataset.view]));
@@ -186,8 +188,18 @@ async function startApp() {
 
 // The calls that go UP the layers (core/hooks.js): every upcall('name') a lower module makes is provided here, once,
 // before anything runs.
+// Chat (views/chat*.js): the dashboard's particulars, handed to core/chat-api once — the one request function (its CSRF
+// header, a 401's sign-out), who is looking, and the only addresses an attachment may have: this chat server's files, at
+// the dashboard's own /api/v1/chat/files/ID/NAME.
+configureChat({
+  title: 'Chat',
+  request: (path, o = {}) => apiFetch('chat' + path, { method: o.method, json: o.json }),
+  viewer: () => state.chat.human,
+  fileUrl: dashboardFileUrl,
+});
+setInterval(chatNavCheck, 60000);
 provide({
-  acknowledgeOps, backToTrySetup, banner, btn, callout, closeWizardModal, connect, dropBanner, failureFor, gridEnter, gridLeave,
+  acknowledgeOps, backToTrySetup, banner, btn, callout, chatEnter, chatLeave, chatNavCheck, chatRefresh, closeWizardModal, connect, dropBanner, failureFor, gridEnter, gridLeave,
   gridRefresh, hostChanged, lifecycle, macEnter, macLeave, macRefresh, modalInert, opFailed, openWizardModal, pageFailure,
   paintCover, paintHome, paintNav, paintNotes, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition, paintUpdates,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,

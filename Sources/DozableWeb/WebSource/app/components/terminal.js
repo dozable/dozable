@@ -10,7 +10,7 @@ import { sandboxBusy, sandboxImage, sandboxPhase } from '../core/sandboxes.js';
 import { bootViewOnStart, setting, terminalsAllowed } from '../core/settings.js';
 import { state } from '../core/state.js';
 import { INPUT_CHUNK, PASTE_CONFIRM_BYTES, PASTE_MAX_BYTES, sview, terminals, termUI } from '../core/terminals.js';
-import { isInt, quietly, utf8 } from '../core/util.js';
+import { isInt, quietly, safeLink, utf8 } from '../core/util.js';
 import { validGrid } from '../core/grid.js';
 import { placePath, screenPath } from '../core/places.js';
 import { bridgeNotice, failureFor } from './notices.js';
@@ -21,18 +21,6 @@ const lifecycle = upcall('lifecycle'), paintTabs = upcall('paintTabs'), renderTe
 const openWindow = window.open.bind(window);
 window.open = function refuseToOpen() { return null; };
 
-/// 636: a link from a terminal is the sandbox's text — untrusted. Only http/https, no login in it, and never this Mac
-/// itself (a loopback or this page's own host): the browser bridge's rule. The URL as the browser parses it, or null.
-function safeLink(s) {
-  let u;
-  try { u = new URL(s); } catch (_) { return null; }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-  if (u.username || u.password) return null;
-  const host = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
-  if (!host || host === 'localhost' || host.endsWith('.localhost') || host === '::1' || host === '0.0.0.0' || /^127\./.test(host)
-      || host === location.hostname.replace(/^\[|\]$/g, '').toLowerCase()) return null;
-  return u.href;
-}
 function openLink(t, s) {
   const href = safeLink(s);
   if (!href) { failureFor(t.sandbox, 'That link was not opened — only a web address (http or https) to another computer opens from a terminal'); return; }

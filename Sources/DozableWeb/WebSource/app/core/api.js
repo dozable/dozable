@@ -8,6 +8,23 @@ const signedOut = upcall('signedOut');
 class HttpError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
+/// The Response itself, for a caller that reads its status and headers (chat — core/chat-api.js): the same request as
+/// api() (the CSRF header on every unsafe one, a 401 signs the page out), the one place this page calls fetch.
+export async function apiFetch(path, opts = {}) {
+  const init = { method: opts.method || 'GET', credentials: 'same-origin', cache: 'no-store', headers: {} };
+  if (init.method !== 'GET') init.headers['X-Doz-CSRF'] = state.csrf || '';
+  if (opts.json !== undefined) {
+    init.headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(opts.json);
+  }
+  const r = await fetch('/api/v1/' + path, init);
+  if (r.status === 401) {
+    let e = {};
+    try { e = (await r.clone().json()).error || {}; } catch (_) { /* not JSON */ }
+    signedOut(e.message || 'HTTP 401', e.code || 'http-401');
+  }
+  return r;
+}
 export async function api(path, opts = {}) {
   const init = { method: opts.method || 'GET', credentials: 'same-origin', cache: 'no-store', headers: {} };
   if (init.method !== 'GET') init.headers['X-Doz-CSRF'] = state.csrf || '';

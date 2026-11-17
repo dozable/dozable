@@ -34,4 +34,27 @@ export const state = {
   usageStats: null,        // an official build: the setup wizard's Usage statistics step {on, fixed, key, summary, showCommand, privacyPage}
   chatgptSignIn: true,     // this build has Dozable's own ChatGPT sign-in (a public build: false — never offered)
   sound: false,            // 667: this doz carries the sound kernel — New sandbox offers Sound
+  // Chat (views/chat*.js): what the chat server last said and what this page shows of it.
+  chat: {
+    on: false,             // chat/status said anything but off (the sidebar's entry is shown)
+    status: null,          // the last chat/status answer {state, problem?}
+    active: false,         // the chat view is shown
+    srv: null,             // chat/state: rooms, archived, participants {name, kind}, default_room, reactions, version
+    human: null,           // the person's name in chat
+    room: null,            // the room shown
+    byId: new Map(),       // msg_id → the message shown (its DOM parts under _el, _body, …)
+    lastSeq: 0,            // the newest seq of the room read
+    firstSeq: 0,           // the oldest seq shown (older pages load above it)
+    older: true,           // older messages may be left
+    loadingOlder: false,
+    bulk: 0,               // > 0 while a batch is drawn: the moment lines wait for its end
+    atFoot: true,          // the log is scrolled to its newest message
+    missed: 0,             // messages that came while it was not
+    members: new Set(),    // the shown room's members (for @names)
+    presence: [],          // chat/presence
+    prev: new Map(),       // name → the presence state last seen
+    unread: {},            // room → {n, m}: unread messages, and how many name the person
+    previews: {},          // room → the last readable message
+    live: 'off',           // the chat stream: off | connecting | live | reconnecting
+  },
 };
