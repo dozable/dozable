@@ -5,10 +5,11 @@ import Foundation
 // and the files of the data folder. Transport-free: the page port and the line port call it, and it calls nothing of
 // theirs. Its state is guarded by one lock; each room's SQLite file has its own serial queue (ChatRoomStore).
 //
-// This milestone covers what the foundation needs: posting on every path, the room and membership commands, archive and
-// hold, registration, and the first-start announcement. Delivery to webhooks and sessions, presence, the live stream,
-// direct-message reveal, edits, deletes, reactions and attachments come in later milestones: a command for one of those
-// is refused, saying it is not available yet; a posted message stays `queued` for its recipients.
+// Here: posting on every path, the room and membership commands, archive and the hold, registration, and the
+// announcement of a new protocol version. Delivery is in ChatLive.swift (a page, a participant that polls) and
+// ChatWebhooks.swift (a bot's webhook); reactions in ChatReact.swift; edits and deletes in ChatEdits.swift. A Claude
+// Code session's inbox and attachments come in later steps: a message for an inbox stays `queued`, and one with an
+// attachment is refused, saying it is not available yet.
 
 public struct ChatLog: Sendable {
     let write: @Sendable (String) -> Void
@@ -113,6 +114,21 @@ public final class ChatServerCore: @unchecked Sendable {
     /// Where Claude Code keeps its session records (`<pid>.json`): read only, for presence and /protocol.
     let sessionsDir: String
 
+    /// What sends a webhook call (a test may hand in its own), the pause before each try (the reference's schedule:
+    /// at once, 5 s later, 20 s after that) and each try's deadline. Set before the server starts.
+    public var webhookPoster: any ChatWebhookPoster = ChatURLSessionWebhook()
+    public var webhookBackoff: [Double] = [0, 5, 20]
+    public var webhookTimeout: Double = 30
+    /// How old a message that waited may be and still be handed over at start.
+    public var redeliverAfter: Double = 24 * 3600
+    /// How long a stop waits for the webhook calls in flight before it closes the rooms' files.
+    public var stopDeliveryMax: Double = 2.5
+    /// Deliveries running in the background (webhook calls), and whether the server is stopping.
+    var deliveries = 0
+    var stopping = false
+    /// The announcement's webhook calls still out.
+    let announcing = DispatchGroup()
+
     /// The page this server serves at `/`: a shell (the human's page is Dozable's dashboard).
     public static let pageShell = """
         <!doctype html>
@@ -194,7 +210,13 @@ public final class ChatServerCore: @unchecked Sendable {
             var ch = ChatStored.change(chatNewID(), from: ChatProtocol.systemName, content: text, at: chatNow())
             if (try? st.insert(&ch)) == false { published(room, ch) }
         }
-        for p in people() where p.route == "poll" { protocolNotice(p.name, text) }
+        for p in people() {
+            switch p.route {
+            case "poll": protocolNotice(p.name, text)
+            case "webhook": protocolWebhook(p)
+            default: break   // a Claude session's inbox is a later step
+            }
+        }
         return true
     }
 
@@ -219,8 +241,14 @@ public final class ChatServerCore: @unchecked Sendable {
         wakePoll(name)
     }
 
+    /// Stops: the open streams end, the webhook calls in flight get up to `stopDeliveryMax` to finish (one that does
+    /// not is abandoned; its message still waits in the room's file and is handed over at the next start), then the
+    /// rooms' files close.
     public func close() {
         closeStreams()
+        lock.withLock { stopping = true }
+        let until = chatNow() + stopDeliveryMax
+        while lock.withLock({ deliveries }) > 0 && chatNow() < until { usleep(20_000) }
         let all = lock.withLock { Array(stores.values) }
         for s in all { s.close() }
     }
@@ -410,10 +438,9 @@ public final class ChatServerCore: @unchecked Sendable {
                 continue
             }
             setState(room, st, ChatState(msgID: sm.msgID, recipient: r, state: "queued", at: sm.at))
-            for id in released.removeValue(forKey: r) ?? [] { deliver(room, st, id, to: r) }
-            deliver(room, st, sm.msgID, to: r)
+            deliverInOrder(room, st, (released.removeValue(forKey: r) ?? []) + [sm.msgID], to: r)
         }
-        for (r, ids) in released { for id in ids { deliver(room, st, id, to: r) } }
+        for (r, ids) in released { deliverInOrder(room, st, ids, to: r) }
         return ChatReceipt("queued")
     }
 
@@ -459,7 +486,10 @@ public final class ChatServerCore: @unchecked Sendable {
         case "/edit", "/delete":   // not stored as a message; the gate for an archived room is their own
             let content = m.content
             return once(st, m.msgID, sender) { changeCommand(room, sender, content) }
-        case "/react": return .refused(Self.notYet)
+        case "/react":   // refused in an archived room by react, in the words used for reactions on every path
+            if f.count < 2 { return .refused("use /react like. " + ChatReactions.help) }
+            let (content, target) = (m.content, m.reMsgID)
+            return once(st, m.msgID, sender) { reactCommand(room, sender, target: target, content) }
         default: break
         }
         if isArchived(room) && !["/unarchive", "/leave", "/room", "/rooms"].contains(f[0]) { return .refused(Self.archivedRefusal(room)) }
@@ -492,13 +522,11 @@ public final class ChatServerCore: @unchecked Sendable {
         do { if try st.insert(&ch) { return ChatReceipt("duplicate") } } catch { return .refused("store: \(error)") }
         published(room, ch)
         if f[0] == "/hold" {   // the count starts again, so what the hold kept back goes out
-            for (r, ids) in releaseHeld(room, st, why: "released: a human changed the hold") { for id in ids { deliver(room, st, id, to: r) } }
+            for (r, ids) in releaseHeld(room, st, why: "released: a human changed the hold") { deliverInOrder(room, st, ids, to: r) }
         }
         return ChatReceipt("queued")
     }
 
-    /// Lets go of what the hold kept back in a room: each held message moves on to queued (handed over in order by
-    /// delivery), and one for a recipient no longer in the room is cancelled.
     /// Lets go of what the hold kept back in a room: each held message moves on to queued and is returned per
     /// recipient, oldest first, to be handed over; one for a recipient no longer in the room is cancelled.
     func releaseHeld(_ room: String, _ st: ChatRoomStore, why: String) -> [String: [String]] {

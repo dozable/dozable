@@ -114,6 +114,17 @@ public final class ChatRoomStore: @unchecked Sendable {
         }
     }
 
+    /// Puts a reaction on a message, or takes it off when it is there already. Whether it was put on.
+    public func toggleReaction(_ msgID: String, who: String, reaction: String, at: Double) throws -> Bool {
+        try sync {
+            if try self.run("DELETE FROM reactions WHERE msg_id=? AND who=? AND reaction=?", [.text(msgID), .text(who), .text(reaction)]) > 0 {
+                return false
+            }
+            try self.run("INSERT INTO reactions(msg_id,who,reaction,at) VALUES(?,?,?,?)", [.text(msgID), .text(who), .text(reaction), .real(at)])
+            return true
+        }
+    }
+
     public func addNotice(name: String, msgID: String, kind: String, item: String, at: Double) throws {
         _ = try sync {
             try self.run("INSERT OR REPLACE INTO notices(recipient,msg_id,kind,item,at,handed_at) VALUES(?,?,?,?,?,0)",

@@ -199,6 +199,30 @@ final class ChatServeIsolationTests: XCTestCase {
         XCTAssertFalse(tree(data).contains("status.json"), "a clean stop removes status.json")
     }
 
+    /// The webhook client in the real binary: the start's announcement calls bot1's webhook (a listener this test
+    /// started), and still nothing is written outside the data folder and no secret reaches the log.
+    func testAWebhookCallWritesNothingOutsideTheDataFolder() throws {
+        let hook = try TestWebhookListener()
+        defer { hook.stop() }
+        let header = "Bearer iso-hook-secret-0123456789"
+        let sec = #"{"version": 1, "tokens": {"ada": "\#(tokens["ada"]!)"}, "webhooks": {"bot1": {"url": "\#(hook.url)/hook/iso-url-secret", "header": "\#(header)"}}}"#
+        try Data(sec.utf8).write(to: data.appendingPathComponent("secrets.json"))
+        chmod(data.appendingPathComponent("secrets.json").path, 0o600)
+        let (p, err) = try serve()
+        _ = try waitReady(p)
+        let call = try XCTUnwrap(hook.calls.first, "the announcement is made before the server is ready")
+        XCTAssertEqual(call.path, "/hook/iso-url-secret")
+        XCTAssertEqual(call.headers["authorization"], header)
+        XCTAssertEqual(call.json?["event"] as? String, "protocol-updated")
+        kill(p.processIdentifier, SIGTERM)
+        XCTAssertEqual(waitExit(p), 0)
+        let log = stderrText(err)
+        for secret in ["iso-url-secret", "iso-hook-secret", tokens["ada"]!] { XCTAssertFalse(log.contains(secret), "\(secret) in the log") }
+        XCTAssertEqual(tree(home), [], "nothing in the home folder")
+        XCTAssertEqual(tree(tmp), [], "nothing in TMPDIR")
+        XCTAssertEqual(Set((try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []), ["config.json", "data", "home", "tmp"])
+    }
+
     func testStatusSaysRunningAndReady() throws {
         let (p, _) = try serve()
         _ = try waitReady(p)

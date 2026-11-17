@@ -111,15 +111,26 @@ public struct ChatReaction: Sendable, Equatable {
     public var reaction: String
     public var emoji: String
     public var at: Double
+    /// In a live event only: it was taken off.
+    public var removed = false
+
+    public init(msgID: String, who: String, reaction: String, emoji: String, at: Double, removed: Bool = false) {
+        self.msgID = msgID; self.who = who; self.reaction = reaction; self.emoji = emoji; self.at = at; self.removed = removed
+    }
 
     public var json: JValue {
-        .object([JMember("msg_id", .string(msgID)), JMember("who", .string(who)), JMember("reaction", .string(reaction)),
-                 JMember("emoji", .string(emoji)), JMember("at", .double(at))])
+        var o = JObject()
+        o.add("msg_id", .string(msgID)); o.add("who", .string(who)); o.add("reaction", .string(reaction))
+        o.add("emoji", .string(emoji)); o.add("at", .double(at)); o.omitEmpty("removed", removed)
+        return o.value
     }
 }
 
 /// The standard reactions, in the order a client shows them.
 public enum ChatReactions {
+    /// The answer to a reaction that is none of these and not an emoji of its own.
+    public static let help = "a reaction is one of like, love, lol, wow, sad, thanks, yes, no, eyes, party, or an emoji of your own"
+
     public static let standard: [(name: String, emoji: String)] = [
         ("like", "\u{1F44D}"), ("love", "\u{2764}\u{FE0F}"), ("lol", "\u{1F602}"), ("wow", "\u{1F62E}"), ("sad", "\u{1F622}"),
         ("thanks", "\u{1F64F}"), ("yes", "\u{2705}"), ("no", "\u{274C}"), ("eyes", "\u{1F440}"), ("party", "\u{1F389}"),

@@ -99,6 +99,15 @@ public enum ChatServer {
         if !config.testOwnedAddresses.isEmpty {
             log("chat: FOR TESTS: test_owned_addresses is set, so only \(config.testOwnedAddresses.joined(separator: ", ")) count as the owner's own machines")
         }
+        // What waited when the server last stopped is handed over again, and a new protocol version is announced,
+        // before the ports answer: a caller that finds the server ready finds the announcement's webhook calls made
+        // (the reference reaches the same order by serving its page only after both).
+        let again = core.redeliver()
+        if again > 0 { log("chat: handing over \(again) message(s) that were not delivered before the last stop") }
+        if core.announceProtocol() {
+            log("chat: the message protocol is now version \(ChatProtocol.version); told every room")
+            core.waitForAnnouncement(seconds: 2)
+        }
 
         let listeners: ChatListeners
         do {
@@ -113,7 +122,6 @@ public enum ChatServer {
         let presence = core.watchPresence()   // presence to open pages whenever it changes
         Stop.add { presence.cancel(); listeners.close(); core.close(); StatusWriter.current?.remove() }
         log("chat: lines on \(host):\(listeners.linePort), page on http://\(host):\(listeners.pagePort), tokens required from every caller: \(config.requireTokens), data in \(dir)")
-        if core.announceProtocol() { log("chat: the message protocol is now version \(ChatProtocol.version); told every room") }
 
         let snapshot: @Sendable () -> Void = {
             let (rooms, people) = core.counts()

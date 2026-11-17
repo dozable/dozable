@@ -92,6 +92,26 @@ public struct ChatSecrets: Sendable {
 
     public func hasToken(_ name: String) -> Bool { tokenHashes[name] != nil }
 
+    /// The webhook a participant's entry name points to: its own entry when it has an address, else the shared one
+    /// ("default"); nil when neither has an address. The header is the Authorization value without an
+    /// "Authorization:" prefix and trimmed, as the reference sends it.
+    public func webhook(for entry: String) -> ChatWebhook? {
+        func usable(_ k: String) -> ChatWebhook? {
+            guard let w = webhooks[k], !w.url.isEmpty else { return nil }
+            return ChatWebhook(url: w.url, header: Self.trimAuthorization(w.header))
+        }
+        if entry.isEmpty || entry == Self.sharedWebhook { return usable(Self.sharedWebhook) }
+        return usable(entry) ?? usable(Self.sharedWebhook)
+    }
+
+    /// The entry every bot without one of its own is sent to.
+    public static let sharedWebhook = "default"
+
+    static func trimAuthorization(_ s: String) -> String {
+        let t = s.lowercased().hasPrefix("authorization:") ? String(s.dropFirst("authorization:".count)) : s
+        return t.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     public static func constantTimeEqual(_ a: String, _ b: String) -> Bool {
         let x = Array(a.utf8), y = Array(b.utf8)
         guard x.count == y.count else { return false }
