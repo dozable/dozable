@@ -229,6 +229,186 @@ public final class ChatRoomStore: @unchecked Sendable {
         }
     }
 
+    /// Each (message, recipient) that is queued and was never handed over, failed or cancelled: recorded and waiting,
+    /// or held and then released. Oldest message first.
+    public func pending() throws -> [(String, String)] {
+        try sync {
+            try self.query("""
+                SELECT s.msg_id, s.recipient FROM states s JOIN messages m ON m.msg_id=s.msg_id GROUP BY s.msg_id, s.recipient
+                \t\tHAVING SUM(CASE WHEN s.state IN ('queued','held') THEN 0 ELSE 1 END)=0 AND SUM(CASE WHEN s.state='queued' THEN 1 ELSE 0 END)>0
+                \t\tORDER BY MIN(m.seq)
+                """, []) { (Self.text($0, 0), Self.text($0, 1)) }
+        }
+    }
+
+    /// Whether name has the message as far as an edit or delete notice goes: handed over, or beyond.
+    public func handed(_ msgID: String, to name: String) -> Bool {
+        count("SELECT COUNT(*) FROM states WHERE msg_id=? AND recipient=? AND state IN ('woken','delivered','started','answered')", msgID, name) > 0
+    }
+
+    /// Whether name has confirmed the message: delivered, or beyond.
+    public func acked(_ msgID: String, by name: String) -> Bool {
+        count("SELECT COUNT(*) FROM states WHERE msg_id=? AND recipient=? AND state IN ('delivered','started','answered')", msgID, name) > 0
+    }
+
+    private func count(_ sql: String, _ a: String, _ b: String) -> Int64 {
+        (try? sync { try self.query(sql, [.text(a), .text(b)]) { sqlite3_column_int64($0, 0) } })?.first ?? 0
+    }
+
+    /// What decides who may see a message: direct, revealed, its sender and those it is for. nil when not in this room.
+    public func visibility(_ msgID: String) -> (isPrivate: Bool, revealed: Bool, from: String, to: [String])? {
+        (try? sync {
+            try self.query("SELECT private, revealed, sender, recipients FROM messages WHERE msg_id=?", [.text(msgID)]) {
+                (sqlite3_column_int64($0, 0) != 0, sqlite3_column_int64($0, 1) != 0, Self.text($0, 2), Self.stringList(Self.text($0, 3)))
+            }
+        })?.first
+    }
+
+    public func setRevealed(_ msgID: String) throws {
+        _ = try sync { try self.run("UPDATE messages SET revealed=1 WHERE msg_id=?", [.text(msgID)]) }
+    }
+
+    /// Up to limit msg_ids that start with prefix, newest first.
+    public func matching(_ prefix: String, limit: Int) -> [String] {
+        (try? sync {
+            try self.query("SELECT msg_id FROM messages WHERE msg_id LIKE ? ORDER BY seq DESC LIMIT ?", [.text(prefix + "%"), .int(Int64(limit))]) { Self.text($0, 0) }
+        }) ?? []
+    }
+
+    /// The newest ordinary message sender wrote that is not deleted, or "".
+    public func latest(of sender: String) -> String {
+        (try? sync {
+            try self.query("SELECT msg_id FROM messages WHERE sender=? AND kind='' AND deleted_at=0 ORDER BY seq DESC LIMIT 1", [.text(sender)]) { Self.text($0, 0) }
+        })?.first ?? ""
+    }
+
+    /// Replaces a message's text, addressing and mentions and records when. The old text is not kept.
+    public func edit(_ msgID: String, content: String, to: [String], mentions: [String], at: Double) throws {
+        _ = try sync {
+            try self.run("UPDATE messages SET content=?, recipients=?, mentions=?, edited_at=? WHERE msg_id=? AND deleted_at=0",
+                         [.text(content), .text(ChatJSON.encodeString(.strings(to))), .text(ChatJSON.encodeString(.strings(mentions))), .real(at), .text(msgID)])
+        }
+    }
+
+    /// Erases a message's text, attachments, mentions and reactions and leaves a tombstone, in one transaction.
+    public func delete(_ msgID: String, by: String, at: Double) throws {
+        _ = try sync {
+            try self.exec("BEGIN")
+            do {
+                try self.run("UPDATE messages SET content='', attachments='[]', mentions='[]', deleted_at=?, deleted_by=? WHERE msg_id=? AND deleted_at=0",
+                             [.real(at), .text(by), .text(msgID)])
+                try self.run("DELETE FROM reactions WHERE msg_id=?", [.text(msgID)])
+                try self.exec("COMMIT")
+            } catch {
+                try? self.exec("ROLLBACK")
+                throw error
+            }
+        }
+    }
+
+    /// What a viewer has not seen after seq `after`: the newest seq in the log, how many ordinary messages came after it,
+    /// and how many of those name the viewer with @. Not counted: the viewer's own, changes, deleted messages, and direct
+    /// messages the viewer cannot read.
+    public func unread(after: Int64, viewer: String) throws -> (last: Int64, count: Int64, mentions: Int64) {
+        let q = "\"" + viewer + "\""
+        return try sync {
+            try self.query("""
+                SELECT COALESCE((SELECT MAX(seq) FROM messages),0),
+                \t\tCOUNT(*), COALESCE(SUM(CASE WHEN instr(mentions,?)>0 THEN 1 ELSE 0 END),0)
+                \t\tFROM messages WHERE seq>? AND kind='' AND sender<>?
+                \t\tAND deleted_at=0 AND (private=0 OR revealed=1 OR instr(recipients,?)>0)
+                """, [.text(q), .int(after), .text(viewer), .text(q)]) {
+                (sqlite3_column_int64($0, 0), sqlite3_column_int64($0, 1), sqlite3_column_int64($0, 2))
+            }
+        }.first ?? (0, 0, 0)
+    }
+
+    /// The newest ordinary message the viewer may read, its text cut to 140 characters and "…".
+    public func preview(viewer: String) -> (msgID: String, from: String, text: String, at: Double)? {
+        let q = "\"" + viewer + "\""
+        guard var p = (try? sync {
+            try self.query("""
+                SELECT msg_id, sender, content, at FROM messages WHERE kind='' AND deleted_at=0
+                \t\tAND (private=0 OR revealed=1 OR sender=? OR instr(recipients,?)>0) ORDER BY seq DESC LIMIT 1
+                """, [.text(viewer), .text(q)]) { (Self.text($0, 0), Self.text($0, 1), Self.text($0, 2), sqlite3_column_double($0, 3)) }
+        })?.first else { return nil }
+        if p.2.unicodeScalars.count > 140 { p.2 = String(String.UnicodeScalarView(p.2.unicodeScalars.prefix(140))) + "…" }
+        return (p.0, p.1, p.2, p.3)
+    }
+
+    // MARK: polling sessions' bookkeeping (never read by the page)
+
+    public struct Handover: Sendable { public var msgID: String; public var handedAt: Double; public var ver: Double }
+    public struct Notice: Sendable { public var id: Int64; public var item: String; public var handedAt: Double }
+
+    /// Records that a polling session was handed a message and has not confirmed it; ver is its edited_at then.
+    public func handover(_ msgID: String, to name: String, at: Double, ver: Double) throws {
+        _ = try sync {
+            try self.run("INSERT OR REPLACE INTO handovers(msg_id,recipient,handed_at,ver) VALUES(?,?,?,?)", [.text(msgID), .text(name), .real(at), .real(ver)])
+        }
+    }
+
+    /// What name was handed and has not confirmed, oldest first.
+    public func handovers(_ name: String) -> [Handover] {
+        (try? sync {
+            try self.query("SELECT msg_id,handed_at,ver FROM handovers WHERE recipient=? ORDER BY handed_at", [.text(name)]) {
+                Handover(msgID: Self.text($0, 0), handedAt: sqlite3_column_double($0, 1), ver: sqlite3_column_double($0, 2))
+            }
+        }) ?? []
+    }
+
+    /// Removes the record of an unconfirmed hand-over; its ver, or nil when there was none.
+    public func takeHandover(_ msgID: String, from name: String) -> Double? {
+        try? sync { () -> Double? in
+            guard let ver = try self.query("SELECT ver FROM handovers WHERE msg_id=? AND recipient=?", [.text(msgID), .text(name)], { sqlite3_column_double($0, 0) }).first else {
+                return nil
+            }
+            return try self.run("DELETE FROM handovers WHERE msg_id=? AND recipient=?", [.text(msgID), .text(name)]) > 0 ? ver : nil
+        } ?? nil
+    }
+
+    /// The notices for name not yet confirmed, oldest first.
+    public func notices(_ name: String) -> [Notice] {
+        (try? sync {
+            try self.query("SELECT id,item,handed_at FROM notices WHERE recipient=? ORDER BY id", [.text(name)]) {
+                Notice(id: sqlite3_column_int64($0, 0), item: Self.text($0, 1), handedAt: sqlite3_column_double($0, 2))
+            }
+        }) ?? []
+    }
+
+    public func handNotice(_ id: Int64, at: Double) {
+        _ = try? sync { try self.run("UPDATE notices SET handed_at=? WHERE id=?", [.real(at), .int(id)]) }
+    }
+
+    /// Removes a notice name confirmed; whether there was one.
+    @discardableResult
+    public func ackNotice(_ id: Int64, by name: String) -> Bool {
+        ((try? sync { try self.run("DELETE FROM notices WHERE id=? AND recipient=?", [.int(id), .text(name)]) }) ?? 0) > 0
+    }
+
+    // MARK: commands that are not stored as messages (/edit, /delete, /react)
+
+    /// Records that a command with this msg_id is being handled. When the msg_id was used already, by a command or a
+    /// message, it is not claimed, and the first command's answer is returned ("pending" while it still runs).
+    public func claimCommand(_ msgID: String, sender: String, at: Double) throws -> (claimed: Bool, state: String, detail: String) {
+        if !self.sender(of: msgID).isEmpty { return (false, "", "") }
+        return try sync {
+            let n = try self.run("INSERT INTO commands(msg_id,sender,state,detail,at) VALUES(?,?,'pending','',?) ON CONFLICT(msg_id) DO NOTHING",
+                                 [.text(msgID), .text(sender), .real(at)])
+            if n == 1 { return (true, "", "") }
+            let r = try self.query("SELECT state, detail FROM commands WHERE msg_id=?", [.text(msgID)]) { (Self.text($0, 0), Self.text($0, 1)) }.first
+            return (false, r?.0 ?? "", r?.1 ?? "")
+        }
+    }
+
+    /// Keeps the answer a claimed command gave; a refused one is forgotten, so it may be sent again.
+    public func finishCommand(_ msgID: String, state: String, detail: String) {
+        _ = try? sync {
+            if state == "refused" { return try self.run("DELETE FROM commands WHERE msg_id=?", [.text(msgID)]) }
+            return try self.run("UPDATE commands SET state=?, detail=? WHERE msg_id=?", [.text(state), .text(detail), .text(msgID)])
+        }
+    }
+
     /// The table names and the columns of `messages`, for checks of the format.
     public func columns(of table: String) throws -> [String] {
         try sync { try self.query("SELECT name FROM pragma_table_info(?)", [.text(table)]) { Self.text($0, 0) } }
