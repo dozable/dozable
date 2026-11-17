@@ -129,7 +129,8 @@ func cliChatSuite(binary: String) async {
     check(!h.hostRunning, "1 …and no daemon started")
     check(!fm.fileExists(atPath: chat), "1 …and no chat folder in the store")
     r = h.run(["--help"])
-    check(!r.out.contains("  chat "), "the chat group is hidden from doz --help")
+    check(r.out.contains("  chat "), "doz --help lists the chat group")
+    check(!h.run(["chat", "--help"]).out.contains("  serve "), "doz chat serve (the server itself) stays unlisted")
     r = h.run(["chat", "--help"])
     check(r.code == 0 && ["on", "off", "status", "add", "remove", "who", "token", "rooms", "room", "send", "read"].allSatisfy { r.out.contains("  \($0)") },
           "doz chat --help lists every command")
