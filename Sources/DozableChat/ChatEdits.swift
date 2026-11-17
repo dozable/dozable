@@ -2,7 +2,7 @@ import Foundation
 
 // A sender may edit and delete its own messages; the human may also delete anyone's. An edit replaces the text and keeps
 // nothing of the old one. A delete erases the text, attachments and reactions and leaves a tombstone, so the log keeps
-// its order and answers still point at it. /edit, /delete (and later /react) are not stored as messages: each is done
+// its order and answers still point at it. /edit, /delete and /react are not stored as messages: each is done
 // once per msg_id (the `commands` table), and the page's calls are done once per `X-Chat-Id`. The human may reveal a
 // direct message between others; that is recorded in the room.
 
@@ -157,10 +157,14 @@ extension ChatServerCore {
     }
 
     /// Hands one recipient a notice of an edit or delete, the way it takes messages. A page needs none (the stream
-    /// tells it); webhooks and Claude sessions come later.
+    /// tells it); a Claude session's inbox comes later.
     func notify(_ room: String, _ m: ChatStored, to: String, kind: String, by: String) {
-        guard let p = participant(to), p.route == "poll", let st = try? store(room) else { return }
-        queueNotice(room, st, m, to: to, kind: kind, by: by)
+        guard let p = participant(to) else { return }
+        switch p.route {
+        case "webhook": notifyWebhook(room, m, p, kind: kind, by: by)
+        case "poll": if let st = try? store(room) { queueNotice(room, st, m, to: to, kind: kind, by: by) }
+        default: break
+        }
     }
 
     /// Whether a recipient has the message for an edit or delete notice: a polling one once it confirmed it.

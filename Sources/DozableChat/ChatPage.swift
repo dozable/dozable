@@ -166,16 +166,16 @@ public struct ChatPageHandler: Sendable {
         r("GET", "/api/unread", "unread"),
         r("GET", "/api/presence", "presence"),
         r("GET", "/api/stream", "stream"),
-        r("POST", "/api/rooms/{room}/reactions", "later"),
+        r("POST", "/api/rooms/{room}/reactions", "react"),
         r("POST", "/api/rooms/{room}/messages/{id}/reveal", "reveal"),
         r("POST", "/api/rooms/{room}/messages/{id}/edit", "edit"),
         r("POST", "/api/rooms/{room}/messages/{id}/delete", "delete"),
-        r("POST", "/api/files", "later"),
+        r("POST", "/api/files", "upload"),
         r("GET", "/files/{id}/{name}", "later"),
         r("GET", "/api/rooms/{room}/app", "later"),
-        r("POST", "/api/rooms/{room}/app", "later"),
-        r("POST", "/api/rooms/{room}/app/icon", "later"),
-        r("POST", "/api/rooms/{room}/app/reset", "later"),
+        r("POST", "/api/rooms/{room}/app", "app-change"),
+        r("POST", "/api/rooms/{room}/app/icon", "app-change"),
+        r("POST", "/api/rooms/{room}/app/reset", "app-change"),
         r("GET", "/sw.js", "later"),
         r("GET", "/manifest.webmanifest", "later"),
     ]
@@ -211,6 +211,11 @@ public struct ChatPageHandler: Sendable {
             case .failure(let e): return .jsonError(e.status, e.description)
             }
         case "edit", "delete": return change(name, vars["room"] ?? "", vars["id"] ?? "", r)
+        case "react": return react(vars["room"] ?? "", r)
+        case "upload", "app-change":
+            // Who may call them is decided now (only the human); what they do comes in a later step.
+            if let refusal = pageCaller(r, name == "upload" ? "uploading a file" : "changing a room's app") { return refusal }
+            return .jsonError(501, "this call is not available on this server yet")
         case "register", "unregister", "send", "ack", "receive": return agent(name, r)
         default: return .jsonError(501, "this call is not available on this server yet")
         }
@@ -287,6 +292,21 @@ public struct ChatPageHandler: Sendable {
         }
         guard let rc = core.pageOnce(id: r.header(Self.idHeader), room: room, who: who, {
             verb == "edit" ? core.edit(room: room, sender: who, ref: id, text: text) : core.delete(room: room, who: who, ref: id)
+        }) else { return .jsonError(400, Self.idHeader + " must be a uuid") }
+        return .json(rc.state == "refused" ? 422 : 200, .map(["state": .string(rc.state), "detail": .string(rc.detail)]))
+    }
+
+    /// The human reacts from the page, done once per X-Chat-Id. The body is at most 4096 bytes.
+    private func react(_ room: String, _ r: ChatHTTPRequest) -> ChatHTTPResponse {
+        var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
+        if !core.config.requireTokens { who = core.human() }
+        guard core.isHuman(who) else { return .jsonError(401, "reacting needs the human's token") }
+        let bad = ChatHTTPResponse.jsonError(400, "body must be JSON")
+        guard r.body.count <= 4096, let v = Self.decodeFirst(r.body, limit: 4096), v.isObject || v.isNull,
+              let id = try? v.field("msg_id")?.goString("msg_id") ?? "",
+              let what = try? v.field("reaction")?.goString("reaction") ?? "" else { return bad }
+        guard let rc = core.pageOnce(id: r.header(Self.idHeader), room: room, who: who, {
+            core.react(room: room, sender: who, msgID: id, what: what)
         }) else { return .jsonError(400, Self.idHeader + " must be a uuid") }
         return .json(rc.state == "refused" ? 422 : 200, .map(["state": .string(rc.state), "detail": .string(rc.detail)]))
     }

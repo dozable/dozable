@@ -4,8 +4,8 @@ import Foundation
 
 // What happens after a message is recorded: the live stream of the human's page, delivery to those this server can
 // reach now (an open page; a participant that polls is woken to collect it), presence, and the commands that change
-// the sender itself (/avatar, /session). Delivery by webhook and to a Claude Code session's inbox are a later step: a
-// message for one of those stays `queued`.
+// the sender itself (/avatar, /session). Delivery by webhook is in ChatWebhooks.swift; to a Claude Code session's inbox
+// is a later step: a message for one stays `queued`.
 
 /// What the server keeps in memory about each participant, for presence: when it was last heard, handed a message,
 /// woken, said it was thinking, typed; how many receives it has open.
@@ -85,8 +85,9 @@ extension ChatServerCore {
 
     // MARK: - Delivery
 
-    /// Hands one recipient a message, as far as this server can now: an open page shows it; a participant that polls is
-    /// woken to collect it. Anything else stays queued (webhooks and Claude sessions come later).
+    /// Hands one recipient a message, as far as this server can at once: an open page shows it; a participant that
+    /// polls is woken to collect it. A webhook is called by `deliverInOrder`, off the caller's thread. A Claude
+    /// session's inbox comes later: such a message stays queued.
     func deliver(_ room: String, _ st: ChatRoomStore, _ msgID: String, to: String) {
         guard let cur = try? st.one(msgID) else { return }
         if cur.deleted {
@@ -103,8 +104,10 @@ extension ChatServerCore {
             setState(room, st, ChatState(msgID: msgID, recipient: to, state: "delivered", at: chatNow(), detail: "shown on an open page"))
         case "poll":
             wakePoll(to)   // stays queued until it is collected
+        case "inbox-socket", "webhook":
+            break   // the inbox is a later step; a webhook is called by deliverInOrder
         default:
-            break
+            setState(room, st, ChatState(msgID: msgID, recipient: to, state: "failed", at: chatNow(), detail: "unknown delivery \(goQuote(p.deliver))"))
         }
     }
 

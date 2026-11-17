@@ -69,7 +69,8 @@ public struct ChatLineConnection: Sendable {
         case ("control", "ping"):
             return reply(base + [JMember("action", .string("pong"))])
         case ("reaction", _):
-            return receipt(.refused("reactions are not available on this server yet"))
+            let who = sender.isEmpty ? m.from : sender
+            return receipt(core.reactOnce(room: m.room, sender: who, lineID: m.msgID, msgID: m.reMsgID, what: m.reaction))
         case ("user", _):
             var line = m
             let who = sender.isEmpty ? m.from : sender   // one of the owner's own machines is taken at its word
