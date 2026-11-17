@@ -217,6 +217,15 @@ final class FolderRenameTests: XCTestCase {
         // Never silently dropped: a write keeps the old lines (under "not known to this version").
         let rendered = DozableSettings.render(values: [:], unknown: s.unknown)
         XCTAssertTrue(rendered.contains("[workspace]\nignore_mode = \"hide\""), rendered)
+        // Once the person has set the NEW name, the old line is finished with: the next write leaves it out, so
+        // its warning stops. The other old line (no new value yet) stays.
+        let moved = DozableSettings.render(values: ["folder.ignore_mode": .string("hide")], unknown: s.unknown)
+        XCTAssertFalse(moved.contains("[workspace]\nignore_mode"), moved)
+        XCTAssertTrue(moved.contains("[workspace]\nview = \"off\""), moved)
+        XCTAssertEqual(DozableSettings(text: moved).renamedLines.count, 1, "only the line not yet moved is still said")
+        let both = DozableSettings.render(values: ["folder.ignore_mode": .string("hide"), "folder.view": .string("off")], unknown: s.unknown)
+        XCTAssertFalse(both.contains("[workspace]"), both)
+        XCTAssertEqual(DozableSettings(text: both).renamedLines, [])
         // The new key is read.
         XCTAssertEqual(DozableSettings(text: "[folder]\nignore_mode = \"hide\"\n").string(SettingKey.ignoreMode), "hide")
         XCTAssertEqual(DozableSettings(text: "[folder]\nignore_mode = \"hide\"\n").renamedLines, [])

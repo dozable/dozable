@@ -21,6 +21,14 @@ public enum ChatCommandLine {
 
         """
 
+    /// The server's own words, dispatched before anything of doz runs: `serve`, and `status` with `--data-dir` (the
+    /// conformance runner's contract). Everything else under `doz chat` is the command group (`ChatCommand`).
+    public static func isServerCommand(_ args: [String]) -> Bool {
+        guard let sub = args.first else { return false }
+        if sub == "serve" { return true }
+        return sub == "status" && args.dropFirst().contains { a in ["--data-dir", "-data-dir"].contains { a == $0 || a.hasPrefix($0 + "=") } }
+    }
+
     public static func run(_ args: [String], release: String) async -> Int32 {
         guard let sub = args.first else { FileHandle.standardError.write(Data(usage.utf8)); return 64 }
         switch sub {
@@ -74,7 +82,8 @@ public enum ChatCommandLine {
         }
         let f: Flags
         do {
-            f = try parse(args, values: ["config", "bind", "data-dir", "secrets-file", "line-port", "page-port", "claude-sessions"], bools: ["supervised"])
+            f = try parse(args, values: ["config", "bind", "data-dir", "secrets-file", "line-port", "page-port", "claude-sessions",
+                                          "token-hashes", "owner-socket"], bools: ["supervised"])
         } catch { return bad("\(error) (doz chat serve -h lists the settings)") }
         guard let config = f.values["config"], !config.isEmpty else { return bad("--config FILE is required") }
         var o = ChatServeOptions(configPath: absolute(config), release: release)
@@ -83,6 +92,9 @@ public enum ChatCommandLine {
         o.overrides.dataDir = f.values["data-dir"].map(absolute)
         o.secretsFile = f.values["secrets-file"].map(absolute)
         o.claudeSessions = f.values["claude-sessions"].map(absolute)
+        // The daemon's own flags (never the conformance runner's): token hashes only, and the owner's private socket.
+        o.tokenHashesFile = f.values["token-hashes"].map(absolute)
+        o.ownerSocket = f.values["owner-socket"].map(absolute)
         for flag in ["line-port", "page-port"] {
             guard let v = f.values[flag] else { continue }
             guard let n = Int(v), (0...65535).contains(n) else { return bad("--\(flag): \"\(v)\" is not a port (0 to 65535)") }

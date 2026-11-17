@@ -56,7 +56,7 @@ One row per area; each area's doc starts with the full table of its files.
 | Tools layer, tmux, dotfiles | `Guest/tmux/`, `Dotfiles.swift` | [tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) |
 | Files | `WorkspaceFileList`, `WorkspaceFileChange`, `FileWatch`, `EditorApps`, `WebFiles` | [files.md](docs/engineering/files.md) |
 | Sound | `Audio.swift`, `DozSound.swift`, `MacAudio`, `Microphone`, `Guest/sound-kernel/` | [sound.md](docs/engineering/sound.md) |
-| The chat server (hidden: `doz chat serve`) | `Sources/DozableChat/`, `Sources/DozableCLI/ChatCommandLine.swift`, `Tests/Conformance/` | [chat.md](docs/engineering/chat.md) |
+| The chat server (the `doz chat` group, hidden from help) | `Sources/DozableChat/`, `Sources/DozableHost/Chat*.swift` (under the daemon), `Sources/DozableCLI/Chat*.swift`, `Tests/Conformance/` | [chat.md](docs/engineering/chat.md) |
 | The menu bar app | `Sources/DozableMenuBarCore/`, `Sources/DozableMenuBar/`, `Resources/MenuBar/` (+ the login agent's plist), `Scripts/assemble-app.sh`, `Scripts/check-agent-plist.py`, `AppCommands.swift` (`doz app`) | [menu-bar-app.md](docs/engineering/menu-bar-app.md) |
 
 ## Rules that each cost a bug to learn (keep them, and keep their tests)

@@ -273,6 +273,25 @@
 # (boolean; applies to sessions opened from now on)
 # placeholders_plain_http = true
 
+[chat]
+
+# Run the chat server: the doz daemon keeps it running on this Mac (127.0.0.1 only) while this is
+# on. Turn it on and off with doz chat on|off; it is an early feature, used from the terminal (doz
+# chat --help).
+# (boolean; applies at once (the UI re-reads it))
+# enabled = false
+
+# The chat server's HTTP port on 127.0.0.1: agents call /agent/… on it with their own token.
+# Nothing on it acts as you. When it changes, the daemon restarts the chat server within a few
+# seconds.
+# (integer 1024–65535; applies at once (the UI re-reads it))
+# page_port = 8790
+
+# The chat server's line port on 127.0.0.1 (one JSON message per line). Every caller needs a
+# token. When it changes, the daemon restarts the chat server within a few seconds.
+# (integer 1024–65535; applies at once (the UI re-reads it))
+# line_port = 8791
+
 [daemon]
 
 # Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once

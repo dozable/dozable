@@ -8,9 +8,9 @@ object per line over TCP) and over HTTP on a **page port** (`/agent/…` with a 
 Its wire protocol and its storage are an existing chat protocol's, kept exactly, so that agents and data folders written
 for that protocol work here unchanged; an outside-in conformance suite judges it (below).
 
-It is being built in steps. Today the server is a **hidden** command: `doz chat` is not in `doz --help`, the manual or
-completions, and nothing starts it but the person (or a test). Later steps put it under the daemon, give it settings and
-commands, and show its rooms in the dashboard.
+It is being built in steps. Today the daemon runs it while the setting `chat.enabled` is on, and the `doz chat` group
+turns it on and off and takes part in it from the terminal — still **hidden**: `doz chat` is not in `doz --help`, the
+manual or completions (`doz chat --help` is complete). A later step shows its rooms in the dashboard and unhides it.
 
 ## Where its code lives
 
@@ -36,7 +36,12 @@ commands, and show its rooms in the dashboard.
 | `ChatLinePort.swift` | `ChatLineConnection`: one line-port connection's state and what each line does (a reply, nothing, or a close) |
 | `ChatListeners.swift` | the two swift-nio listeners: JSON-lines framing (a line of 32 MiB or more closes the connection; 30 s without a line closes it) and HTTP/1.1 with keep-alive; work is handed off the event loop, in order per connection |
 | `ChatServer.swift` | one server's life: the data folder's lock (`server.lock`), `status.json`, the signals, the exit codes; `doz chat status` |
-| `Sources/DozableCLI/ChatCommandLine.swift` | `doz chat serve` and `doz chat status`, dispatched by `DozableEntry` before anything else of doz runs |
+| `ChatOwnerSocket.swift` | the owner's private socket: who may serve it (a 0700 folder of this user, the socket 0600) and who may connect (`admit`: this user only) |
+| `Sources/DozableCLI/ChatCommandLine.swift` | `doz chat serve` and `doz chat status --data-dir`, dispatched by `DozableEntry` before anything else of doz runs (`isServerCommand`) |
+| `Sources/DozableHost/ChatDirectory.swift` | under the daemon: the store's chat folder (`ChatPaths`), Dozable's records (`ChatDirectory`, `ChatTokenHashes`), names, tokens, the generated `config.json` (`ChatConfigFile`), `ChatRestartPolicy` |
+| `Sources/DozableHost/ChatSupervisor.swift` | `ChatSupervisor`: the server as the daemon's child — the generated files, posix_spawn, readiness, restarts, stops; `ChatServerState` (`supervisor.json`, `daemon status`); `ChatProcesses`, the seam the tests fake |
+| `Sources/DozableHost/ChatOwnerClient.swift` | the person's HTTP client on the owner's socket (the `doz chat` commands; the dashboard later) |
+| `Sources/DozableCLI/ChatCommands.swift` | the `doz chat` group (hidden): on, off, status, add, remove, who, token, rooms, room, send, read |
 | `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home, also calling a webhook), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars), `ChatWebhookTests` (against `TestWebhookListener`, a listener each test starts on 127.0.0.1: the call, the tries, every limit of the client, no secret anywhere, notices, the hold, redelivery once; reactions), `ChatSessionsAndFilesTests` (against `TestClaudeSession`, a record and key file in a scratch sessions folder and a socket the test listens on: the inbox text, failed, `/protocol`, `/react`'s fallback, notices, started, the announcement; names never paths, the limits before a byte is kept, the human's token, download headers, who may fetch, a delete's files; the msg_id start rule) |
 | `Tests/Conformance/RUNNER`, `Tests/Conformance/expected-green.txt`, `Scripts/chat-conformance.sh` | the conformance gate (below) |
 
@@ -172,6 +177,87 @@ commands, and show its rooms in the dashboard.
   `Content-Disposition: attachment` (HTML and SVG included).
 - **The start of a msg_id** (`/edit ^…`, `/react ^…`, `re_msg_id`, reveal) must be `^[0-9A-Fa-f-]+$` to find a message;
   anything else (empty, `%`, `_`) matches nothing and is returned as given.
+
+## Under the daemon
+
+**The folder.** `<store>/chat/`, 0700, every file in it 0600 and written atomically:
+
+| File | What |
+|---|---|
+| `directory.json` | Dozable's record — the human and the participants (name, kind, when added). Owned by the daemon, never edited by hand |
+| `tokens.json` | `{"version":1,"sha256":{name: hex}}` — the participants' tokens as SHA-256 only; the server reads it with `--token-hashes` |
+| `config.json` | generated (`ChatConfigFile`) from the settings and `directory.json`, judged by `ChatConfig.parse` before it is written |
+| `chat.sock` | the owner's socket (`--owner-socket`) |
+| `server.log` | the server's standard error, appended; kept to one older copy at 2 MiB |
+| `supervisor.json` | the supervisor's state (`ChatServerState`) — `doz chat status` and `doz doctor` read it with no daemon |
+| `data/` | the server's data folder, in the protocol's format; rooms after the first are the server's own (`rooms.json`) |
+
+A store whose `chat.sock` path would be longer than 103 bytes cannot have chat (`on` and `doctor` say so).
+
+**The generated config** is one profile: `bind` and `allow` loopback only, `require_tokens` true, `agent_addresses`
+127.0.0.0/8 and ::1, `secrets_file_only`, no `test_owned_addresses`, the human `deliver: web`, each participant with no
+`deliver` value (so it polls with its own token — a `poll` value is a registered session's and is never checked against
+the token hashes), one room (`general`, the human). The generator asserts the profile; `ChatServer` refuses a
+non-loopback bind anyway. With it, **no TCP caller is ever the human**: the page port answers 403 outside `/agent/…` (every
+loopback caller is an agent address), and the line port always asks for a token. The human comes in through the owner's
+socket only. No `inbox-socket` participant is generated in this step.
+
+**The owner's socket** (`ChatOwnerSocket`, `ChatListeners`). The server serves the page's whole API (its stream too) on
+`<store>/chat/chat.sock` to `ChatCaller.owner`: the human, no token, posts marked checked. It refuses to start unless the
+socket's folder is 0700 and the user's own; the socket is made 0600; each connection's peer must run as this user
+(LOCAL_PEERCRED; an unknown peer is refused). A fenced session runs as the same user: Seatbelt keeps it out (the fence
+closes the store and every Unix socket but its own doors — `make test-cli-fence` row 1.7c). Any other program the same
+person runs may use it (a terminal client reads its path from `doz chat status --json`'s `ownerSocket`).
+
+**Tokens.** The daemon makes one (`dzc_` and 32 random bytes, base64url) or takes one given on standard input
+(`--from-stdin`, 16 to 256 characters); hashes it at once; writes only the hash. The value travels once, in the daemon's
+answer to the command that asked (nothing of a request is logged), and the CLI prints it once on a terminal, or writes
+it to a new 0600 file (`--to-file`, never over an existing one) — never into a pipe, a log, `--json` or argv.
+
+**The supervisor** (`ChatSupervisor`, owned by `HostServer`; one serial queue). Wanted: `chat.enabled` while the daemon is
+not stopping and its program has not been replaced. The daemon looks every second (the settings every 5 s; a `doz chat`
+change at once):
+- the files are brought up to date; a server started with other bytes (a participant, a token, a port) is restarted;
+- the child is the daemon's own program: `doz chat serve --config … --bind 127.0.0.1 --token-hashes … --owner-socket …
+  --supervised`, by posix_spawn (no shell), an environment allowlist (HOME, PATH, LANG, TMPDIR, and DOZ_TEST_* in a
+  guarded run), stdin /dev/null, stdout and stderr to `server.log`, no other descriptor, its own process group;
+- ready means its `status.json` says so for the pid holding `server.lock`, within 15 s;
+- `ChatRestartPolicy`: exit 78 is `stopped` with its last line (a port in use names the setting to change) and is tried
+  again only when the files change or on `doz chat on`; anything else backs off 1, 2, 4, 8, 16, 32, 60 s (reset after 10
+  minutes up), and 5 failures in 10 minutes is `failing` until `doz chat on`;
+- before spawning, a server already holding the data folder is ours from before (its argv names our config:
+  KERN_PROCARGS2) and is stopped, or anyone else's and refused — two servers never share a data folder;
+- a stop is SIGTERM, 5 s, then SIGKILL, and happens before the daemon lets go of the store's lock in `shutdown`,
+  `restartInPlace` and `handOver`;
+- `--supervised` makes the server exit 0 the moment its parent is gone (a kqueue watch, and a look at the parent pid each
+  second), so a daemon killed with SIGKILL leaves no server behind.
+
+Ports must differ and never be a dashboard's (`ui.port`, `serve.port`): a clash is a `stopped` problem. Chat on keeps the
+daemon running even with `daemon.always_on` off (`IdleDecision.chatOn`), and its program replaced by rename restarts it in
+place (a person's `--foreground` daemon still exits); the login item counts it as one keeper.
+
+**The settings** (`ui: false`, no environment variable — consent is never one): `chat.enabled` (false), `chat.page_port`
+(8790), `chat.line_port` (8791).
+
+**The commands** (hidden). Only `chat serve` and `chat status … --data-dir` are the server's own (`isServerCommand`); the
+rest is `ChatCommand`. Writes go through the daemon (`chat-sync`, `chat-add`, `chat-remove`, `chat-token`); `rooms`,
+`room`, `send`, `read` and `who` go to the owner's socket; looking never starts the daemon. Exit codes: 0, 1 failed, 2 no
+such participant or room, 4 already exists, 6 chat is off or not ready, 64 usage.
+
+```bash
+doz chat on --name ada          # Chat is on: 127.0.0.1, page port 8790, line port 8791. You are ada.
+doz chat add bot1               # its token, once (or --to-file F)
+doz chat room room1 @bot1       # Made room1 with ada, bot1.
+doz chat send room1 "hello @bot1"
+doz chat read room1 --follow
+curl -s -H "Authorization: Bearer $T" "http://127.0.0.1:8790/agent/receive?wait=10"
+curl -s -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
+     -d '{"room":"room1","message":{"content":"hi ada"}}' http://127.0.0.1:8790/agent/send
+```
+
+Tests: `ChatDirectoryTests`, `ChatRestartPolicyTests`, `ChatSupervisorTests` (a fake process table), `ChatIdleAndSettingsTests`,
+`ChatTokenHashesTests`, `ChatOwnerSocketTests`, `ChatProfileTests`, `ChatDaemonProfileServeTests` (a plain HTTP/1.1 client
+on the socket, TCP never the human, the parent watch), and `make test-cli-chat` (the whole of it end to end, no VM).
 
 ## What is not there yet
 

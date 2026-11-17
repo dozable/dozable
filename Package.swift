@@ -226,15 +226,17 @@ let package = Package(
         .executableTarget(
             name: "doz-vmtest",
             // DozableHost (585): the `cli` mode decodes the real binary's --json output with its types.
-            dependencies: ["DozableKit", "DozableHost", .product(name: "Containerization", package: "containerization")],
+            dependencies: ["DozableKit", "DozableHost", "DozableChat", .product(name: "Containerization", package: "containerization")],
             path: "Sources/doz-vmtest"
         ),
         // 585 — the per-user host behind the `doz` CLI: it owns every running VM, the egress
         // proxies, the metrics writer and the shared event-loop group, and serves `<store>/host.sock`
         // (JSON lines + a raw attach relay). Also the client side of that socket. Not a product.
+        // The chat server runs under the daemon: its supervisor and config generator are here (DozableChat itself imports
+        // nothing of Dozable — the audit holds that side).
         .target(
             name: "DozableHost",
-            dependencies: ["DozableKit"],
+            dependencies: ["DozableKit", "DozableChat"],
             path: "Sources/DozableHost",
             swiftSettings: helperDefines
         ),
@@ -318,7 +320,7 @@ let package = Package(
         ),
         .testTarget(
             name: "DozableCLITests",
-            dependencies: ["DozableCLI", "DozableHost", "DozableKit", "DozableTUI"],
+            dependencies: ["DozableCLI", "DozableHost", "DozableKit", "DozableTUI", "DozableChat"],
             path: "Tests/DozableCLITests"
         ),
         // 590 — the web UI's security rules as unit tests, and a real listener driven over HTTP.

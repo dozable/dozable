@@ -13,6 +13,8 @@ public final class ChatListeners: @unchecked Sendable {
     public let pagePort: Int
     private let line: NIOAsyncChannel<LineAccepted, Never>
     private let page: NIOAsyncChannel<PageAccepted, Never>
+    /// The owner's private socket (`ChatOwnerSocket`), when the server was given one.
+    private let owner: NIOAsyncChannel<PageAccepted, Never>?
     private let core: ChatServerCore
     private let log: ChatLog
 
@@ -29,8 +31,9 @@ public final class ChatListeners: @unchecked Sendable {
     /// The largest request body the page port reads; a larger one is refused with 413 and the connection closed.
     public static let maxBody = ChatProtocol.maxLine + 1
 
-    /// Binds both ports (line first). A failure is thrown as it came, for the caller to judge.
-    public static func bind(core: ChatServerCore, host: String, linePort: Int, pagePort: Int, log: ChatLog,
+    /// Binds both ports (line first), then the owner's socket when one is given (`ownerSocket`, checked by
+    /// `ChatOwnerSocket.refusal` first; made 0600). A failure is thrown as it came, for the caller to judge.
+    public static func bind(core: ChatServerCore, host: String, linePort: Int, pagePort: Int, ownerSocket: String? = nil, log: ChatLog,
                             group: EventLoopGroup = MultiThreadedEventLoopGroup.singleton) async throws -> ChatListeners {
         let line = try await ServerBootstrap(group: group)
             .serverChannelOption(ChannelOptions.backlog, value: 256)
@@ -63,13 +66,36 @@ public final class ChatListeners: @unchecked Sendable {
             try? await line.channel.close()
             throw error
         }
-        let l = ChatListeners(line: line, page: page, core: core, log: log)
+        var owner: NIOAsyncChannel<PageAccepted, Never>?
+        if let path = ownerSocket {
+            do {
+                if let why = ChatOwnerSocket.refusal(path: path) { throw ChatConfigError(why) }
+                owner = try await ServerBootstrap(group: group)
+                    .serverChannelOption(ChannelOptions.backlog, value: 64)
+                    .bind(unixDomainSocketPath: path, cleanupExistingSocketFile: true) { child in
+                        child.eventLoop.makeCompletedFuture {
+                            try child.pipeline.syncOperations.configureHTTPServerPipeline(withPipeliningAssistance: false, withErrorHandling: true)
+                            return PageAccepted(channel: try NIOAsyncChannel(wrappingChannelSynchronously: child), ip: "")
+                        }
+                    }
+                // In a 0700 folder already; the socket itself is the user's alone too.
+                guard chmod(path, 0o600) == 0 else { throw ChatConfigError("--owner-socket \(path): cannot make it 0600") }
+            } catch {
+                try? await owner?.channel.close()
+                try? await page.channel.close()
+                try? await line.channel.close()
+                throw error
+            }
+        }
+        let l = ChatListeners(line: line, page: page, owner: owner, core: core, log: log)
         return l
     }
 
-    private init(line: NIOAsyncChannel<LineAccepted, Never>, page: NIOAsyncChannel<PageAccepted, Never>, core: ChatServerCore, log: ChatLog) {
+    private init(line: NIOAsyncChannel<LineAccepted, Never>, page: NIOAsyncChannel<PageAccepted, Never>,
+                 owner: NIOAsyncChannel<PageAccepted, Never>?, core: ChatServerCore, log: ChatLog) {
         self.line = line
         self.page = page
+        self.owner = owner
         self.core = core
         self.log = log
         linePort = line.channel.localAddress?.port ?? 0
@@ -81,6 +107,7 @@ public final class ChatListeners: @unchecked Sendable {
         await withDiscardingTaskGroup { group in
             group.addTask { await self.serveLines() }
             group.addTask { await self.servePages() }
+            if self.owner != nil { group.addTask { await self.serveOwner() } }
         }
     }
 
@@ -88,6 +115,7 @@ public final class ChatListeners: @unchecked Sendable {
     public func close() {
         line.channel.close(promise: nil)
         page.channel.close(promise: nil)
+        owner?.channel.close(promise: nil)
     }
 
     // MARK: the line port
@@ -143,7 +171,38 @@ public final class ChatListeners: @unchecked Sendable {
         }
     }
 
-    private func pageConnection(_ a: PageAccepted) async {
+    // MARK: the owner's socket
+
+    private func serveOwner() async {
+        guard let owner else { return }
+        try? await owner.executeThenClose { inbound in
+            try await withThrowingDiscardingTaskGroup { group in
+                for try await conn in inbound {
+                    group.addTask {
+                        // Only a process of this same user is the owner; anyone else is closed with no answer.
+                        let uid = await Self.peerUID(conn.channel.channel)
+                        guard ChatOwnerSocket.admit(peerUID: uid) else {
+                            self.log("chat: refused a connection to the owner's socket: " + (uid.map { "it runs as user \($0)" } ?? "its user cannot be read"))
+                            try? await conn.channel.channel.close()
+                            return
+                        }
+                        await self.pageConnection(conn, caller: .owner)
+                    }
+                }
+            }
+        }
+    }
+
+    /// The user a connected Unix socket's peer runs as (LOCAL_PEERCRED), or nil when it cannot be read.
+    static func peerUID(_ ch: Channel) async -> uid_t? {
+        guard let p = ch as? SocketOptionProvider else { return nil }
+        do {
+            let c: xucred = try await p.unsafeGetSocketOption(level: SocketOptionLevel(SOL_LOCAL), name: SocketOptionName(LOCAL_PEERCRED)).get()
+            return c.cr_version == UInt32(XUCRED_VERSION) ? c.cr_uid : nil
+        } catch { return nil }
+    }
+
+    private func pageConnection(_ a: PageAccepted, caller: ChatCaller = .tcp) async {
         let handler = ChatPageHandler(core: core)
         try? await a.channel.executeThenClose { inbound, outbound in
             var head: HTTPRequestHead?
@@ -167,7 +226,7 @@ public final class ChatListeners: @unchecked Sendable {
                     for (k, v) in h.headers where headers[k.lowercased()] == nil { headers[k.lowercased()] = v }
                     let upload = limit != Self.maxBody
                     let req = ChatHTTPRequest(method: h.method.rawValue, target: h.uri, headers: headers, body: body, remoteIP: a.ip,
-                                              truncated: tooLarge)
+                                              truncated: tooLarge, caller: caller)
                     var res: ChatHTTPResponse = tooLarge && !upload
                         ? .jsonError(413, "the request is too large")
                         : await Self.offload { handler.handle(req) }

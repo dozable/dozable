@@ -238,6 +238,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 657: move a sandbox's dotfiles to `dotfilesCommit` (nil: its source's head) and apply them — now when it runs (as
     /// steps), else at its next start or wake.
     case dotfilesUpdate = "dotfiles-update"
+    /// The chat server under the daemon (`ChatSupervisor`; `chat`: a `ChatRequest`). `chat-sync`: the settings read now,
+    /// the human named once, a stopped server tried again (`retry`), answered with `ChatServerState` once ready (`wait`).
+    /// `chat-add` / `chat-remove` / `chat-token`: a participant added, removed, or its token replaced — answered with
+    /// `ChatAnswer`, whose token travels this once and is never logged.
+    case chatSync = "chat-sync", chatAdd = "chat-add", chatRemove = "chat-remove", chatToken = "chat-token"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
@@ -541,6 +546,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// never logged or stored) and the real path of its file.
     public var secrets: [LaunchSecretGrant]?
     /// 683 `session-bridges`: the switches to change (each nil: as it is).
+    /// The chat server's commands (`chat-*`). Its `token` (`--from-stdin`) is never logged.
+    public var chat: ChatRequest?
     public var macBridges: MacFenceRequest?
 
     public init(_ op: HostOp, name: String? = nil) {
@@ -1484,4 +1491,29 @@ public struct HostStatus: Codable, Equatable, Sendable {
     /// 695: the Claude login keep-alive of this Mac's login (`mac`): its mode, last try, next try, and — for a daemon whose
     /// login keychain is locked — why it never runs. nil: an older daemon.
     public var keepalive: KeepaliveStatus? = nil
+    /// The chat server this daemon runs (`ChatSupervisor`). nil: an older daemon.
+    public var chat: ChatServerState? = nil
+}
+
+/// What a `chat-*` request carries.
+public struct ChatRequest: Codable, Equatable, Sendable {
+    /// chat-sync: the human's name (only before there is one). chat-add/remove/token: the participant.
+    public var name: String?
+    /// chat-add / chat-token: a token the participant already has (`--from-stdin`); nil: the daemon makes one.
+    public var token: String?
+    /// chat-sync: try a stopped or failing server again (`doz chat on`).
+    public var retry: Bool?
+    /// chat-sync: answer once it is ready (or stopped), at most 15 s.
+    public var wait: Bool?
+    public init(name: String? = nil, token: String? = nil, retry: Bool? = nil, wait: Bool? = nil) {
+        self.name = name; self.token = token; self.retry = retry; self.wait = wait
+    }
+}
+
+/// The answer to `chat-add` / `chat-token`: the token, this once.
+public struct ChatAnswer: Codable, Equatable, Sendable {
+    public var name: String
+    public var token: String?
+    public var chat: ChatServerState
+    public init(name: String, token: String?, chat: ChatServerState) { self.name = name; self.token = token; self.chat = chat }
 }

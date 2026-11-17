@@ -504,6 +504,11 @@ public enum SettingKey {
     public static let uiLAN = "ui.lan"
     /// 606: `doz serve`, the dashboard for the other browsers of the LAN.
     public static let servePort = "serve.port"
+    /// The chat server, run by the daemon on this Mac (127.0.0.1 only) while on. No environment variable: consent is never
+    /// an environment value.
+    public static let chatEnabled = "chat.enabled"
+    public static let chatPagePort = "chat.page_port"
+    public static let chatLinePort = "chat.line_port"
     public static let serveBind = "serve.bind"
     public static let servePublicOrigins = "serve.public_origins"
     public static let serveTrustedProxies = "serve.trusted_proxies"
@@ -880,6 +885,17 @@ public struct DozableSettings: Sendable {
             .init("network", "placeholders_plain_http", .bool, .bool(true),
                   "Whether a secret given with --secret may travel over plain HTTP — only ever to this Mac's ports (host.dozable.internal) and Tailscale addresses (100.64.0.0/10), never elsewhere.",
                   applies: .nextSession, ui: false),
+            // The chat server (docs/engineering/chat.md, "Under the daemon"). Set on this Mac only (ui: false): a device on the
+            // network must never switch chat on or move its ports. No environment variable: consent is never one.
+            .init("chat", "enabled", .bool, .bool(false),
+                  "Run the chat server: the doz daemon keeps it running on this Mac (127.0.0.1 only) while this is on. Turn it on and off with doz chat on|off; it is an early feature, used from the terminal (doz chat --help).",
+                  applies: .now, ui: false),
+            .init("chat", "page_port", .int(1024...65_535), .int(8790),
+                  "The chat server's HTTP port on 127.0.0.1: agents call /agent/… on it with their own token. Nothing on it acts as you. When it changes, the daemon restarts the chat server within a few seconds.",
+                  applies: .now, ui: false),
+            .init("chat", "line_port", .int(1024...65_535), .int(8791),
+                  "The chat server's line port on 127.0.0.1 (one JSON message per line). Every caller needs a token. When it changes, the daemon restarts the chat server within a few seconds.",
+                  applies: .now, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
                   applies: .uiRestart, ui: false),
@@ -1588,13 +1604,21 @@ public struct DozableSettings: Sendable {
                 for e in extra { out += "\(e.key) = \(TOML.render(e.value))\n" }
             }
         }
+        // A line under a RENAMED name whose new name now has a value is finished with: the person moved it
+        // (doz config set NEW …), so it is left out and its warning stops. One whose new name has no value
+        // stays, still warned about by every command — its value is never dropped unseen.
+        let kept = unknown.filter { e in
+            let old = e.section.isEmpty ? e.key : "\(e.section).\(e.key)"
+            guard let new = RenamedNames.settings[old] else { return true }
+            return values[new] == nil
+        }
         var others: [String] = []
-        for e in unknown where !sections.contains(e.section) && !others.contains(e.section) { others.append(e.section) }
+        for e in kept where !sections.contains(e.section) && !others.contains(e.section) { others.append(e.section) }
         for section in others {
             // A top-level unknown key cannot follow a section header; it becomes [unknown].
             let header = section.isEmpty ? "unknown" : section
             out += "\n# not known to this version (kept as they were):\n[\(header)]\n"
-            for e in unknown where e.section == section { out += "\(e.key) = \(TOML.render(e.value))\n" }
+            for e in kept where e.section == section { out += "\(e.key) = \(TOML.render(e.value))\n" }
         }
         return out
     }
