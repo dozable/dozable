@@ -63,6 +63,8 @@ struct ChatStatusReport: Encodable {
     var warnings: [String]?
     /// Agents on other machines: where it also listens, for whom, and what is missing (nil: not set).
     var remote: ChatRemoteState?
+    /// Each address of chat.remote_listen: listening, starting or missing, in the words status and doctor both say.
+    var remoteListener: [ChatRemoteAddressStatus]?
 
     static func read(_ store: DozableStore) -> ChatStatusReport {
         let paths = ChatPaths(store: store)
@@ -92,8 +94,18 @@ struct ChatStatusReport: Encodable {
         r.remote = sup?.remote
         r.ready = server.running && server.ready && (sup?.pid.map { Int($0) == server.pid } ?? true)
         if r.ready { r.state = "running" }
+        r.setRemoteListener(view)
         return r
     }
+
+    /// The remote listener's line for every address of the setting (nil when none is set).
+    mutating func setRemoteListener(_ view: ChatSettingsView) {
+        guard !view.remoteListen.isEmpty else { remoteListener = nil; return }
+        remoteListener = ChatRemoteAddressStatus.of(wanted: view.remoteListen, seen: remote, serverReady: ready, pagePort: pagePort, linePort: linePort)
+    }
+
+    /// The supervisor's warnings, less the remote ones status says per address (a missing one is said there, once).
+    var otherWarnings: [String] { (warnings ?? []).filter { !$0.hasPrefix("not listening on ") } }
 
     var headline: String {
         switch state {
@@ -111,7 +123,7 @@ struct ChatStatusReport: Encodable {
     var text: String {
         var s = headline + "\n"
         if enabled { s += "  \(bind), page port \(pagePort), line port \(linePort)\n" }
-        if enabled, let l = remote?.line(pagePort: pagePort, linePort: linePort) { s += "  \(l)\n" }
+        if enabled { for a in remoteListener ?? [] { s += "  \(a.text)\n" } }
         if let h = human {
             let n = participants.count
             s += "  you are \(h); \(n) participant\(n == 1 ? "" : "s")" + (rooms.map { ", \($0) room\($0 == 1 ? "" : "s")" } ?? "") + "\n"
@@ -119,7 +131,7 @@ struct ChatStatusReport: Encodable {
         }
         if restarts > 0 { s += "  restarted \(restarts) time\(restarts == 1 ? "" : "s")" + (lastExit.map { " (last: \($0))" } ?? "") + "\n" }
         if let p = problem { s += "  problem: \(p)\n" }
-        for w in warnings ?? [] { s += "  warning: \(w)\n" }
+        for w in otherWarnings { s += "  warning: \(w)\n" }
         return s
     }
 }
@@ -142,7 +154,8 @@ func chatDoctorCheck(_ store: DozableStore) -> DoctorCheck {
     switch r.state {
     case "off": return DoctorCheck(check: "chat", status: .ok, detail: "off (doz chat on)")
     case "running":
-        if let w = r.warnings, !w.isEmpty { return DoctorCheck(check: "chat", status: .warn, detail: "running, but " + w.joined(separator: "; ")) }
+        let w = r.otherWarnings
+        if !w.isEmpty { return DoctorCheck(check: "chat", status: .warn, detail: "running, but " + w.joined(separator: "; ")) }
         return DoctorCheck(check: "chat", status: .ok, detail: "running and ready — 127.0.0.1, page port \(r.pagePort), line port \(r.linePort)")
     case "stopped": return DoctorCheck(check: "chat", status: .fail, detail: "stopped: " + (r.problem ?? "it exited") + " — then doz chat on")
     default: return DoctorCheck(check: "chat", status: .warn, detail: r.state + (r.problem.map { ": " + $0 } ?? ""))
@@ -165,9 +178,11 @@ func chatRemoteDoctorChecks(_ store: DozableStore, firewall: (([String]) -> Stri
     guard view.enabled, !(view.remoteListen.isEmpty && view.remoteAgents.isEmpty) else { return [] }
     let r = ChatStatusReport.read(store)
     var out: [DoctorCheck] = []
-    let state = r.remote ?? ChatRemoteState(listen: [], agents: view.remoteAgents, missing: view.remoteListen)
-    if let l = state.line(pagePort: r.pagePort, linePort: r.linePort) { out.append(DoctorCheck(check: "chat remote", status: .ok, detail: l)) }
-    for w in state.warnings { out.append(DoctorCheck(check: "chat remote", status: .warn, detail: w)) }
+    // Each address in the words chat status says; missing is said only when the daemon's own look did not find it.
+    for a in r.remoteListener ?? [] { out.append(DoctorCheck(check: "chat remote", status: a.state == "missing" ? .warn : .ok, detail: a.text)) }
+    if !view.remoteListen.isEmpty && view.remoteAgents.isEmpty {
+        out.append(DoctorCheck(check: "chat remote", status: .warn, detail: "chat.remote_listen is set but chat.remote_agents is empty: no other machine is let in"))
+    }
     if view.remoteListen.isEmpty { out.append(DoctorCheck(check: "chat remote", status: .ok, detail: "chat.remote_agents is set; chat listens on 127.0.0.1 only (chat.remote_listen is empty)")) }
     guard !view.remoteListen.isEmpty else { return out }
     let run = firewall ?? { args in

@@ -292,6 +292,18 @@
 # (integer 1024–65535; applies at once (the UI re-reads it))
 # line_port = 8791
 
+# This Mac's own Tailscale addresses (100.64.0.0/10) on which the chat server also listens, both
+# ports, for agents on other machines. Only agents, each with its own token; never you. Plain
+# HTTP: Tailscale encrypts it; any other address is refused.
+# (Tailscale addresses like 100.100.1.2, comma-separated, each one exactly ("" = none); applies at once (the UI re-reads it))
+# remote_listen = ""
+
+# The Tailscale addresses of the other machines that may connect to the chat server (each exactly;
+# no range). Each is always an agent: it must send its token; it gets /agent/… and files with its
+# token, never your page or /api.
+# (Tailscale addresses like 100.100.1.2, comma-separated, each one exactly ("" = none); applies at once (the UI re-reads it))
+# remote_agents = ""
+
 [daemon]
 
 # Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once

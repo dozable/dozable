@@ -553,8 +553,11 @@ func cliChatWebhookRows(h: CLIHarness, root: URL, paths: ChatPaths, page: Int, l
     }
     check(h.run(["config", "set", "chat.remote_agents", other]).code == 0 && h.run(["config", "set", "chat.remote_listen", here]).code == 0,
           "21 config set chat.remote_agents \(other), chat.remote_listen \(here)")
-    let said = h.waitFor(15) { h.run(["chat", "status"]).out.contains("warning: not listening on \(here): not an address of this Mac now (is Tailscale up?)") }
-    check(said, "21 status: not listening on \(here): not an address of this Mac now")
+    // At once, before the daemon has looked: "starting", never "not an address of this Mac".
+    r = h.run(["chat", "status"])
+    check(r.out.contains("Remote listening on \(here): starting…") || r.out.contains("Not listening on \(here)"), "21 status always has a line for the remote listener (\(r.out.split(separator: "\n").filter { $0.contains(here) }))")
+    let said = h.waitFor(15) { h.run(["chat", "status"]).out.contains("Not listening on \(here): not an address of this Mac now (is Tailscale up?)") }
+    check(said, "21 status: Not listening on \(here): not an address of this Mac now")
     r = h.run(["chat", "status", "--json"])
     check(r.out.contains("\"missing\"") && r.out.contains(here), "21 status --json: remote.missing names it")
     if let s = server() {
@@ -564,9 +567,9 @@ func cliChatWebhookRows(h: CLIHarness, root: URL, paths: ChatPaths, page: Int, l
     } else { check(false, "21 a chat server runs") }
     check(!h.run(["daemon", "status"]).out.contains("chat: also on"), "21 daemon status: not 'also on'")
     r = h.run(["doctor"], timeout: 120)
-    check(r.out.split(separator: "\n").contains { $0.hasPrefix("warn") && $0.contains("chat remote") && $0.contains("not listening on \(here)") },
+    check(r.out.split(separator: "\n").contains { $0.hasPrefix("warn") && $0.contains("chat remote") && $0.contains("Not listening on \(here)") },
           "21 doctor: chat remote WARN")
     check(r.out.contains("chat firewall"), "21 doctor: the firewall row (read only)")
     _ = h.run(["config", "set", "chat.remote_listen", ""]); _ = h.run(["config", "set", "chat.remote_agents", ""])
-    check(h.waitFor(15) { !h.run(["chat", "status"]).out.contains("not listening on") }, "21 cleared: no remote line")
+    check(h.waitFor(15) { !h.run(["chat", "status"]).out.contains(here) }, "21 cleared: no remote line")
 }

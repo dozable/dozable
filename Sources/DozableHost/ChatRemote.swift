@@ -58,3 +58,31 @@ public struct ChatRemoteState: Codable, Equatable, Sendable {
         return w
     }
 }
+
+/// One address of `chat.remote_listen`, as `doz chat status` and `doz doctor` say it — the same words in both, and true
+/// at every moment: `listening` (the server runs with it), `starting` (the daemon has not looked at the new setting yet,
+/// or the server is (re)starting with it), `missing` (the daemon's own look at this Mac's interfaces did not find it).
+public struct ChatRemoteAddressStatus: Codable, Equatable, Sendable {
+    public var address: String
+    /// listening · starting · missing
+    public var state: String
+    public var text: String
+
+    /// Every address of the setting (`wanted`), judged from what the daemon last wrote (`seen`, nil: nothing yet) and
+    /// whether its server is ready now.
+    public static func of(wanted: [String], seen: ChatRemoteState?, serverReady: Bool, pagePort: Int, linePort: Int) -> [ChatRemoteAddressStatus] {
+        wanted.map { a in
+            if let s = seen, s.missing.contains(a) {
+                return ChatRemoteAddressStatus(address: a, state: "missing",
+                                               text: "Not listening on \(a): not an address of this Mac now (is Tailscale up?)")
+            }
+            if let s = seen, s.listen.contains(a), serverReady {
+                let who = s.agents.isEmpty ? "nobody yet (chat.remote_agents is empty)" : s.agents.joined(separator: ", ")
+                return ChatRemoteAddressStatus(address: a, state: "listening",
+                                               text: "Also listening on \(a) (page port \(pagePort), line port \(linePort)) for \(who) — agents with a token only.")
+            }
+            // Not looked at yet by the daemon, or the server is (re)starting with it.
+            return ChatRemoteAddressStatus(address: a, state: "starting", text: "Remote listening on \(a): starting…")
+        }
+    }
+}

@@ -94,3 +94,26 @@ final class ChatRemoteDaemonTests: XCTestCase {
         await sup.stopForExit()
     }
 }
+
+/// While the daemon has not looked at a new chat.remote_listen yet, or its server is (re)starting with it, status and
+/// doctor say "starting" — never "not an address of this Mac"; "missing" only from the daemon's own look; one line per
+/// address whenever the setting is set.
+final class ChatRemoteAddressStatusTests: XCTestCase {
+    func testStartingListeningMissingAreSaidOnlyWhenTrue() {
+        func of(_ seen: ChatRemoteState?, ready: Bool) -> [String] {
+            ChatRemoteAddressStatus.of(wanted: ["100.100.1.1"], seen: seen, serverReady: ready, pagePort: 8790, linePort: 8791).map(\.state)
+        }
+        XCTAssertEqual(of(nil, ready: true), ["starting"], "the daemon has not looked at the setting yet")
+        XCTAssertEqual(of(ChatRemoteState(listen: [], agents: ["100.100.1.2"], missing: []), ready: true), ["starting"],
+                       "an older look (another setting) is not a reason to say missing")
+        XCTAssertEqual(of(ChatRemoteState(listen: ["100.100.1.1"], agents: ["100.100.1.2"], missing: []), ready: false), ["starting"],
+                       "the server restarts with it")
+        XCTAssertEqual(of(ChatRemoteState(listen: ["100.100.1.1"], agents: ["100.100.1.2"], missing: []), ready: true), ["listening"])
+        XCTAssertEqual(of(ChatRemoteState(listen: [], agents: ["100.100.1.2"], missing: ["100.100.1.1"]), ready: true), ["missing"])
+        let texts = ChatRemoteAddressStatus.of(wanted: ["100.100.1.1"], seen: nil, serverReady: false, pagePort: 8790, linePort: 8791).map(\.text)
+        XCTAssertEqual(texts, ["Remote listening on 100.100.1.1: starting…"])
+        XCTAssertEqual(ChatRemoteAddressStatus.of(wanted: ["100.100.1.1"], seen: ChatRemoteState(listen: ["100.100.1.1"], agents: ["100.100.1.2"], missing: []),
+                                                  serverReady: true, pagePort: 8790, linePort: 8791).first?.text,
+                       "Also listening on 100.100.1.1 (page port 8790, line port 8791) for 100.100.1.2 — agents with a token only.")
+    }
+}

@@ -311,9 +311,15 @@ Turning the remote listener on opens both chat ports on this Mac's Tailscale add
   (403 `agentOnly` otherwise; a caller not in `allow` 403 `notOwned`; `X-Chat-Token` is not a way in; the human's token is
   no one's there); on the line port a token always, and only for an address in `allow`. One remote address holds at
   most 32 connections at once (the 33rd is closed). Already present: the 32 MiB line, 30 s idle, the body caps.
-- **What doz says**: `doz chat status` "Also listening on 100.x.y.z (page port 8790, line port 8791) for 100.a.b.c —
-  agents with a token only." (`--json`: `remote: {listen, agents, missing}`); `doz daemon status` "chat: also on
-  100.x.y.z"; `doz doctor` an ok row with that line, WARN for a missing address or a listener with no remote agents, and
+- **What doz says** — one line per address of `chat.remote_listen` whenever it is set, the same words in `chat status`
+  and `doctor` (`ChatRemoteAddressStatus`), each true at that moment: "Also listening on 100.x.y.z (page port 8790, line
+  port 8791) for 100.a.b.c — agents with a token only." once the server runs with it; "Remote listening on 100.x.y.z:
+  starting…" while the daemon has not looked at the new setting yet or its server is (re)starting with it; "Not
+  listening on 100.x.y.z: not an address of this Mac now (is Tailscale up?)" ONLY when the daemon's own look at the
+  interfaces did not find it (`--json`: `remote: {listen, agents, missing}` as the daemon last wrote it, and
+  `remoteListener: [{address, state, text}]`); `doz daemon status` "chat: also on
+  100.x.y.z"; `doz doctor` the same line per address (WARN only for a missing one), WARN for a listener with no remote
+  agents, and
   the application firewall read only (`socketfilterfw --getglobalstate`, `--getblockall`, `--getappblocked <doz>`: WARN
   when everything inbound is blocked or doz is).
 - **macOS**: accepting connections needs no Local Network permission; the application firewall lets a signed doz in when
