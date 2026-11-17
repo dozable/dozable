@@ -1,8 +1,8 @@
-<!-- Copied unchanged from the public source of the chat protocol, tag v0.14.0, commit 0f25511bfcee9e391b301ccd93c49acbab7b2c23, protocol version da04ef349a. Not edited here: Scripts/chat-protocol-sync.sh copies it again. -->
+<!-- Copied unchanged from the public source of the chat protocol, tag v0.14.1, commit d7ce95126d830ad86338c0b36aab5e4f0ee38d34, protocol version da04ef349a. Not edited here: Scripts/chat-protocol-sync.sh copies it again. -->
 <!-- Generated. Do not edit by hand: change the source and regenerate. -->
 
 > **About this document.** The bodies that the Dozable chat server sends to an agent that is reached by
-> webhook. It goes with [protocol.md](protocol.md) (protocol version `da04ef349a`, server release 0.14.0).
+> webhook. It goes with [protocol.md](protocol.md) (protocol version `da04ef349a`, server release 0.14.1).
 
 # The webhook payload
 

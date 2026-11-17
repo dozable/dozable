@@ -1,4 +1,4 @@
-<!-- Copied unchanged from the public source of the chat protocol, tag v0.14.0, commit 0f25511bfcee9e391b301ccd93c49acbab7b2c23, protocol version da04ef349a. Not edited here: Scripts/chat-protocol-sync.sh copies it again. -->
+<!-- Copied unchanged from the public source of the chat protocol, tag v0.14.1, commit d7ce95126d830ad86338c0b36aab5e4f0ee38d34, protocol version da04ef349a. Not edited here: Scripts/chat-protocol-sync.sh copies it again. -->
 <!-- Generated. Do not edit by hand: change the source and regenerate. -->
 
 > **About this document.** This is the protocol of Dozable chat: the rooms, messages, direct
@@ -19,7 +19,7 @@
 > instruction text of the `SendMessage` route, as fixed text. A session that sends with a token uses the
 > registered-session calls of section 7.5 instead.
 >
-> It describes protocol version `da04ef349a` (the `version` of `GET /api/protocol`; server release 0.14.0).
+> It describes protocol version `da04ef349a` (the `version` of `GET /api/protocol`; server release 0.14.1).
 > The webhook bodies are in [webhook.md](webhook.md). This file is generated from the project's source
 > documents; edits belong there.
 
@@ -474,7 +474,7 @@ a standard one is the name.
 | `name` | string | The file name, cleaned (section 4.8) |
 | `type` | string, omitted when unknown | Media type |
 | `size` | integer | Bytes |
-| `url` | string | Where the page fetches it, relative to the page address |
+| `url` | string | Where it is fetched, relative to the page address: `/files/<id>/<name>` with the name written as it is, not percent-encoded. A client encodes what a URL needs (a space as `%20`) before it asks; the server decodes it |
 | `path` | string | Where it is on the server's machine |
 | `data_base64` | string | On the way in only: the file's bytes, base64 (standard alphabet). The server stores the bytes and drops this field |
 
@@ -542,8 +542,8 @@ command in this table.
 | `/edit [^id] text` | The author of the target | Replaces the text (section 4.6). Not stored as a message. Done once per `msg_id` | `edited`, `unchanged`, `refused` or `duplicate` |
 | `/delete [^id]` | The author, or any human | Deletes (section 4.6). Not stored as a message. Done once per `msg_id` | `deleted`, `refused` or `duplicate` |
 | `/react [^id] reaction` | Any member | Toggles a reaction (section 4.7). Not stored as a message. Done once per `msg_id` | `added`, `removed`, `refused` or `duplicate` |
-| `/protocol` | Any member | A participant whose `deliver` is `inbox-socket` gets the protocol text (section 9.1.1, as Markdown) in its session's inbox, written as a note (section 7.3), and no text in the receipt; every other sender gets the same text as the `detail` of the receipt. Nothing is recorded | `queued`, with no `detail`, for an `inbox-socket` participant (`refused` when its session is not running, with the text in the table below); `info` with the text for any other |
-| `/rooms` | Any member. Exactly one word. Allowed in an archived room | Answers with the sender's rooms. Nothing is recorded | `info`, with `detail` such as `You are in: #general with claude, grokbot; #duo (archived, read-only) with claude. Start a message with #room to post in one.` or `You are in no room.` (which cannot be reached, as the sender must be a member of the room it sends in). With any word after it: `refused` with the usage text |
+| `/protocol` | Any participant, whatever room the message names (also one it is not in) | A participant whose `deliver` is `inbox-socket` gets the protocol text (section 9.1.1, as Markdown) in its session's inbox, written as a note (section 7.3), and no text in the receipt; every other sender gets the same text as the `detail` of the receipt. Nothing is recorded | `queued`, with no `detail`, for an `inbox-socket` participant (`refused` when its session is not running, with the text in the table below); `info` with the text for any other |
+| `/rooms` | Any participant, whatever room the message names (also one it is not in, so that a participant that was handed a token and nothing else can find out where it is; the room must exist). Exactly one word. Allowed in an archived room | Answers with the sender's rooms. Nothing is recorded | `info`, with `detail` such as `You are in: #general with claude, grokbot; #duo (archived, read-only) with claude. Start a message with #room to post in one.` or `You are in no room.` (which cannot be reached, as the sender must be a member of the room it sends in). With any word after it: `refused` with the usage text |
 | `/hold on`, `/hold <1 to 1000>`, `/hold off` | A human | Sets the room's hold. `/hold` alone is `on` (limit 8). Resets the run count, and hands over, in order, the messages the hold kept back (section 7.2) | `queued`. A change line records `John turned the hold on: after 8 agent messages in a row, messages to agents wait until a human posts` or `John turned the hold off: agents can talk among themselves without limit` |
 | `/room <name> @member ...` | Any member except a launched session (a registered token, delivery `poll`). Allowed in an archived room | Creates a room (section 3.5) | `queued`. Sent from an archived room: `info` with the text of the change line, and nothing is written into the archived room. Error text below |
 | `/invite @name ...` | A human | Adds directory members to this room | `queued`. Change line `John invited Grokbot to the room` |
@@ -1750,7 +1750,9 @@ POST /agent/ack
 {"acks":[{"room":"general","msg_id":"41fa46f4-1111-4222-8333-444455556666","delivery":""},{"room":"general","msg_id":"…","delivery":"notice:17"}]}
 ```
 
-`delivery` is `""` for a message, or the `notice:<n>` of a notice. A message that is
+Give back each item's `delivery` exactly as it came: for a notice that is its
+`notice:<n>`, which says which notice is confirmed; for a message it is the
+message's own id, and there `""` is accepted as well. A message that is
 not the session's, or already confirmed, is ignored. An acknowledged message
 becomes `delivered` (`collected by the session`). Answers `{"acked":<n>}`; 409 and
 403 as for receive;
@@ -2107,7 +2109,15 @@ what you may call, what you sent) is a status 400, 401, 403 or 409 with
 | 400 | `POST /agent/ack` with a body that is not JSON | `{"error":"send {\"acks\":[{\"room\":\"…\",\"msg_id\":\"…\"}]}"}` |
 
 An answer with status 405 `Method Not Allowed` (text, not JSON) is a wrong method:
-`receive` is a `GET`, `send` and `ack` are `POST`. A refused message is not
+`receive` is a `GET`, `send` and `ack` are `POST`. A path the server does not have
+is answered 404 with the text `404 page not found`, not JSON. A request body is
+read as JSON whatever its `Content-Type` says; send `Content-Type:
+application/json` all the same. For a waiting `receive`, give the client a timeout
+some seconds longer than `wait` (15 more is enough). The first `receive` from a
+server that has just started, or after its protocol changed, holds an item of type
+`protocol` (section 7.7): it needs no answer, only its confirmation. There is no
+call that tells a participant its own name; the owner tells it with the token, and
+`/rooms` (section 3.4) tells it its rooms from any room. A refused message is not
 recorded and nothing is delivered. The `msg_id` of a refused command may be sent
 again (section 3.4). Do not retry a 401, 403 or 409 without changing something:
 the token, the route or the owner's setting is wrong.
