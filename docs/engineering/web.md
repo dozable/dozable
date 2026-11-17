@@ -480,7 +480,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   the root only; `RestorePointTests.test_aTemplateNeverHoldsTheStateDisk` and `make test-vm-templates`
   keep it. From a live sandbox, `template-create` and `duplicate` go through a TEMPORARY restore point
   (sync, pause, clone, resume), deleted afterwards. `duplicate`'s state disk starts fresh unless
-  `copyState`; `isolated` drops the source's workspace.
+  `copyState`; `isolated` drops the source's folder.
 - **Rename is in place, and only while shut down** (owner, 2026-10-23): daemon op `rename` (`name` → `newName`), `doz rename
   OLD NEW`, web action `rename`, the sidebar line's ⋯ and the page's ⋯ → `components/rename-dialog.js`. Everything a sandbox
   has is in `sandboxes/<name>/`, so `HostCore.rename` checks (off or failed, not busy, no cold start, no snapshot; the new
@@ -488,20 +488,20 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `renamex_np` with `RENAME_EXCL`), rewrites doz.json (name, spec) and sandbox.json (spec, the recorded disk paths), and
   adopts it again as a daemon start loads it. Kept under the old name on purpose: metrics rows, a template's `fromSandbox`,
   the proxy CA's subject; the Mac folder is never moved. `RenameTests`, `WebActionTests.testRename`.
-- **A workspace that does not exist is MADE** (`Workspace.swift`): `Workspace.prepare` (normalize —
+- **A folder (given with `--folder`, or the web's `folder` field) that does not exist is MADE** (`Workspace.swift`): `Workspace.prepare` (normalize —
   absolute or `~/`, links in the existing part resolved — then `refusal`, then `mkdir -p`) runs in
   `create` and `duplicate` BEFORE the VM is configured; `Workspace.undo` removes, innermost first, only
   folders it made and only while empty, when the create fails. Refused, never made: an existing file, a
   missing folder in the store or under a system location (`Workspace.systemPrefixes`), `/`, home.
-  No workspace = **isolated** (the one word: `ls`, `--json` `"isolated": true` with `"workspace": null`,
+  No folder = **isolated** (the one word: `ls`, `--json` `"isolated": true` with `"folder": null`,
   the UI badge, the agent's facts). The UI's defaults (`Workspace.suggestedName`/`defaultPath`,
   `defaults.projects_dir` — a path, so `doz config set` only) and the Mac's folder picker are
-  `WebWorkspace.swift`: `POST /api/v1/workspace/check` (makes nothing) and `/choose` (a FIXED
+  `WebWorkspace.swift`: `POST /api/v1/folder/check` (makes nothing) and `/choose` (a FIXED
   AppleScript run by `/usr/bin/osascript`, the start folder and one of the FIXED prompts its argv; one
   at a time → 409; tests use `DOZ_TEST_FOLDER_PICKER=/path|cancel` or `setRunner` — never a real dialog).
 - **Quick add / `doz new`** (`DozableHost/QuickAdd.swift`): ONE plan for both — `QuickAdd.plan`
   (the image `defaults.image` or given; the name `Workspace.suggestedName` past sandboxes and non-empty
-  folders, or a given one — taken → `.exists`; the workspace `<projects_dir>/<name>`, nil when isolated)
+  folders, or a given one — taken → `.exists`; the folder `<projects_dir>/<name>`, nil when isolated)
   and `QuickAdd.requirement` (what one click cannot decide: the agent's account via
   `AgentCredentials.createProblem` unless the image's network is nat/none; 635: an out-of-date image is NOT one — it
   is used as it is and said, `QuickAdd.notice`). New sandbox (`components/create-dialog.js`) is the Name, a summary of
@@ -562,7 +562,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   other row is "at the next start".
 - **The New session wizard** (`views/mac-wizard.js`): `POST /api/v1/mac/session-plan` — kind `mac-screen` (the Mac's own
   browser only, whatever `serve.mac_sessions` says), CSRF, strict body (`WebMacPlanRequest`: case plain | web | xcode |
-  signing | unfenced, program claude | shell, an absolute standardized workdir ≤ 1024 bytes, session, preset, account,
+  signing | unfenced, program claude | shell, an absolute standardized `folder` ≤ 1024 bytes, session, preset, account,
   github, agentConfig, simulator/keychain for xcode only, 1–8 ports for web only, open; a field of another case is refused,
   never dropped) → `WebMacPlan` (the command built on the Mac from the enums, shell-quoted, `--store` only when not the
   default; the capability rows and their text; the config mode and history). `open: true` writes the one-shot `.command`

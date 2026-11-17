@@ -368,7 +368,7 @@ The agent has **passwordless `sudo`** in its sandbox, so it can install what a t
 `sudo apt-get install -y PACKAGE` (Debian-based images keep the package lists, and never stop to
 ask configuration questions) or `sudo apk add PACKAGE` on Alpine. Root inside the VM reaches no more
 than the agent: there's no network card, every connection still goes through your permissions, no
-credential is inside, and nothing of your Mac but the workspace. `doz reset` or a restore point
+credential is inside, and nothing of your Mac but its folder. `doz reset` or a restore point
 undoes what it installed.
 
 Turn it off for every sandbox (`doz config set sandbox.agent_sudo false`) or one
@@ -383,8 +383,8 @@ At every session start, Dozable tells the agent where it is:
   your Mac, not a container) with its name, image, CPUs and memory; whether `/workspace` is your Mac
   folder (and which) or isolated; how its network works and what to do when refused; that its
   credentials are supplied by the proxy; whether it has sudo; its time zone; what the clipboard does;
-  one line on what it can show you on your Mac — a URL in your browser, a workspace document in its
-  app, a workspace folder in the Finder — saying only what is on (the `doz` skill has the details:
+  one line on what it can show you on your Mac — a URL in your browser, a document of its folder in its
+  app, a folder in the Finder — saying only what is on (the `doz` skill has the details:
   types, apps, refusals); and, only when you turned it on, one line saying `git` and `gh` are signed in
   as you on GitHub, read-only or with push ([GitHub as you](18-github.md));
 - the **`doz` skill** (`~/.claude/skills/doz/SKILL.md`, pi: `~/.pi/agent/skills/doz/SKILL.md`,
@@ -408,7 +408,7 @@ never doubled. `--system-prompt` is a full replacement of Claude Code's prompt: 
 own (`doz create --agent-prompt FILE`, or `agent_prompt` in `doz_project.yaml`), appended or
 replacing (`--agent-prompt-mode replace`). Your text may use `{{variables}}` from a fixed list —
 `sandbox.name`, `sandbox.image`, `sandbox.base`, `sandbox.cpus`, `sandbox.memory`,
-`workspace.shared`, `workspace.host_path`, `workspace.guest_path`, `workspace.description`, `workspace.rules`,
+`folder.shared`, `folder.host_path`, `folder.guest_path`, `folder.description`, `folder.rules`,
 `network.mode`, `network.allowed_hosts`, `network.description`, `network.permissions`,
 `account.name`, `agent.state`, `credentials.description`, `sandbox.sudo`, `sandbox.timezone`, `sudo.description`,
 `clipboard.description`, `browser.description`, `files.description`, `mac.open`, `github.facts`, `github.description`, `dotfiles.facts`, `mac.hostname`, `doz.version` (the template

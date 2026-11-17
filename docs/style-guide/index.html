@@ -284,7 +284,7 @@
       </fieldset>
       <div class="mac-wizard-side"><div class="mac-facts"><span class="chip-kv"><span class="k">Agent settings</span>private</span><span class="chip-kv"><span class="k">History</span>keep</span><span class="chip-kv"><span class="k">Folder</span>~/src/app</span></div></div>
     </div>
-    <div class="mac-command-box"><div class="cap-sub"><strong>The command</strong></div><code class="mac-command">doz run @mac --fenced --workdir /Users/you/src/app -- claude</code><div class="mac-why muted">Open in Terminal runs it in your default terminal app; Copy to run it yourself.</div></div>
+    <div class="mac-command-box"><div class="cap-sub"><strong>The command</strong></div><code class="mac-command">doz run @mac --fenced --folder /Users/you/src/app -- claude</code><div class="mac-why muted">Open in Terminal runs it in your default terminal app; Copy to run it yourself.</div></div>
     <div class="sg-row"><button class="btn" type="button"><i data-i="copy"></i>Copy</button><button class="btn primary" type="button"><i data-i="square-terminal"></i>Open in Terminal</button><button class="btn primary" type="button" disabled><i data-i="square-terminal"></i>Open in Terminal</button><span class="mac-why muted">Copy only — the Simulator and what it launches run outside the fence — run it yourself</span></div>
   </div></div>
 </section>
@@ -744,7 +744,7 @@ name: todo-app</pre></details>
     <div class="field acct-chooser"><span>Account</span>
       <select aria-label="Account"><option>the store default (mac)</option><option selected>No key or account</option><option>Add a key or account…</option></select>
       <div class="acct-extra"><div class="callout info compact" role="status"><i data-i="user-round"></i><div class="c-body"><small>Claude Code will ask you to sign in when it starts (/login) — the sign-in stays in this sandbox and is deleted with it.</small></div></div></div></div>
-    <!-- All sandboxes: a row's name cell — the tool's mark, the image, the workspace from ~ (or isolated). -->
+    <!-- All sandboxes: a row's name cell — the tool's mark, the image, the folder from ~ (or isolated). -->
     <table class="ov-table"><tbody><tr><td>
       <div class="ov-name"><span data-mark="claude-code" class="mark"></span><a class="name" href="#">try-claude</a></div>
       <div class="sub2">claude-code</div>
@@ -758,7 +758,7 @@ name: todo-app</pre></details>
     </form></dialog>
     <dialog class="dlg" open><form method="dialog">
       <div class="dlg-head"><h2 class="h-title">Reset demo</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
-      <div class="dlg-body"><p class="sub">Its root disk goes back to the image: everything installed or changed outside the workspace is lost.</p>
+      <div class="dlg-body"><p class="sub">Its root disk goes back to the image: everything installed or changed outside /workspace is lost.</p>
         <label class="field check confirm-check"><input type="checkbox" checked><span>Yes, reset demo</span></label></div>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary danger" type="button"><i data-i="rotate-ccw"></i>Reset</button></div>
     </form></dialog>
@@ -814,9 +814,9 @@ name: todo-app</pre></details>
   <p>The inspector's <b>Files</b> tab (<code>views/sandbox-files.js</code>): the tree of <code>/workspace</code> — one <code>.frow</code> per entry
     (<code>role="treeitem"</code>, indented by <code>--depth</code>, set through CSSOM), folders first; a caret opens a folder (its listing read then, and
     watched while it is open and the tab is shown); a link shows <code>→ target</code> and is never opened; <code>locked</code> / <code>read-only</code>
-    tags from the workspace rules; a file's size. The head's icon buttons make a file or a folder in the selected folder and list again. Each row's ⋯
+    tags from the folder rules; a file's size. The head's icon buttons make a file or a folder in the selected folder and list again. Each row's ⋯
     (shown on hover, focus and selection): Open on the Mac / Open in &lt;editor&gt; (646: a folder or a file, each editor the host offers — <code>code-xml</code>,
-    the last used first) / Show in the Finder (a shared workspace, never for a doz serve browser), Copy path,
+    the last used first) / Show in the Finder (a shared folder, never for a doz serve browser), Copy path,
     Rename…, Move…, Delete… — disabled with why for a locked or read-only item. A row dragged onto a folder (<code>.drop</code>) is moved there.
     An isolated sandbox that does not run shows a callout instead and is asked nothing.</p>
   <div class="pair"><div class="scheme">
@@ -824,7 +824,7 @@ name: todo-app</pre></details>
       <div class="itabs" role="tablist"><button type="button" role="tab" class="itab" aria-selected="false"><i data-i="info"></i><span class="itab-l">Overview</span></button><button type="button" role="tab" class="itab" aria-selected="true"><i data-i="folder-tree"></i><span class="itab-l">Files</span></button><button type="button" role="tab" class="itab" aria-selected="false"><i data-i="history"></i><span class="itab-l">Points</span></button></div>
       <section class="ipanel"><div class="files-panel">
         <div class="files-head"><h2>Files</h2><button class="btn sm quiet icon-only" type="button" aria-label="New file…"><i data-i="file-plus"></i></button><button class="btn sm quiet icon-only" type="button" aria-label="New folder…"><i data-i="folder-plus"></i></button><button class="btn sm quiet icon-only" type="button" aria-label="Refresh"><i data-i="refresh-cw"></i></button></div>
-        <p class="files-note">Shared from <code>~/Developer/box</code> — changes show as they happen. Workspace rules apply: locked and read-only items are not changed here.</p>
+        <p class="files-note">Shared from <code>~/Developer/box</code> — changes show as they happen. Folder rules apply: locked and read-only items are not changed here.</p>
         <div class="ftree" role="tree" aria-label="Files of box">
           <div class="frow folder root" role="treeitem" style="--depth:0"><span class="caret"></span><i data-i="folder-open"></i><span class="fname">/workspace</span></div>
           <div class="frow folder" role="treeitem" aria-expanded="true" style="--depth:1"><span class="caret"><i data-i="chevron-right"></i></span><i data-i="folder-open"></i><span class="fname">src</span></div>
@@ -875,7 +875,7 @@ name: todo-app</pre></details>
     </div>
   </div></div>
   <div class="pair"><div class="scheme">
-    <div class="menu" role="menu" aria-label="Open the workspace on this Mac">
+    <div class="menu" role="menu" aria-label="Open the folder on this Mac">
       <button class="menu-item" type="button" data-desc="~/Developer/box"><i data-i="folder-open"></i><span class="mi-label">Show in the Finder</span></button>
       <div class="menu-sep"></div>
       <button class="menu-item" type="button"><i data-i="code-xml"></i><span class="mi-label">Open in Cursor</span></button>

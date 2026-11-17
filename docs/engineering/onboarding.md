@@ -56,8 +56,8 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   preparation); Details is a popover (its own capture-phase Esc runs before the modal's). Models & keys: the sign-ins
   (`WebOnboarding.macSignedIn`/`codexMac`), the keys by Providers / Gateways / No key (`model-source.js` `haveList`,
   `WebOnboarding.keyChoices`, pasted through `POST /api/v1/accounts`), and what can be tried (`GET try`, read again after a
-  key). Workspace rules' Next writes the settings. First sandbox plans with the planner's `first` purpose (`POST plan
-  {purpose:'first', agent, name?, workspace?, account?|source?}` — `readiness()` picks a usable key, else a key-less
+  key). Folder rules' Next writes the settings. First sandbox plans with the planner's `first` purpose (`POST plan
+  {purpose:'first', agent, name?, folder?, account?|source?}` — `readiness()` picks a usable key, else a key-less
   source) and makes it through `views/quick-make.js` `startQuickMade` (the Quick try's own path; `back: 'onboarding'`
   returns to the wizard on a failed create); the switch saves `sandbox.open_files` only when changed. Workspace probe
   `probes/594-*/run-wizard-probe.sh` (allow · deny · basefail — `DOZ_TEST_BASE_FAIL`, guarded runs only).

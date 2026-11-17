@@ -85,7 +85,7 @@ Add `-v` to any command to see every step it takes.
 | Open in Terminal does nothing | Make a terminal app the handler for `.command` files (Finder › Get Info › Open with › Change All…). |
 | A copy didn't reach the clipboard | Look at the notice (off, too big, too many); `doz config show --sandbox NAME`. |
 | A sign-in page didn't open | Is a terminal attached? Is `sandbox.browser_bridge` on? See [Signing in from a sandbox](11-signing-in-from-a-sandbox.md#troubleshooting). |
-| A workspace file didn't open on the Mac | Read the notice (and the program's own message): outside `/workspace`, not a document type, executable, an app not in `bridges.open_apps`, an isolated sandbox, or `sandbox.open_files` off. See [Opening workspace files](07-terminals-and-sessions.md#opening-workspace-files-on-your-mac). |
+| A file of the sandbox's folder didn't open on the Mac | Read the notice (and the program's own message): outside `/workspace`, not a document type, executable, an app not in `bridges.open_apps`, an isolated sandbox, or `sandbox.open_files` off. See [Opening your folder's files](07-terminals-and-sessions.md#opening-your-folders-files-on-your-mac). |
 
 ### Images and disk space
 
@@ -99,9 +99,9 @@ Add `-v` to any command to see every step it takes.
 
 | symptom | what to do |
 |---|---|
-| Codex: `turn/start failed: invalid cwd: No such file or directory` after a wake; a shell's `ls .` says `No such file or directory` | The program's folder was cut off by a wake from hibernation — a sandbox still on the plain share (`workspace.view` off, or started before 0.30.0). Restart the session: `doz sessions restart NAME SESSION` (the conversation continues), or **⋯ › Restart session** on its tab. From its next start the sandbox uses [the workspace view](21-the-workspace-view.md) and this does not happen again. |
-| The agent gets "Permission denied" writing `/workspace`, or git says "detected dubious ownership" | The sandbox runs a workspace view from before Dozable 0.33.1, under which the sandbox's user could not write the shared folder. `doz shutdown NAME` and `doz start NAME` give it the current view (a wake keeps the old one). Another user than the sandbox's own cannot write through the view — see [Who can write](21-the-workspace-view.md#who-can-write). |
-| `doz doctor` warns "workspace view" | The live view of `/workspace` could not start, so the folder is shared directly. `doz console NAME --steps` shows why; `doz shutdown NAME` and `doz start NAME` try again. |
+| Codex: `turn/start failed: invalid cwd: No such file or directory` after a wake; a shell's `ls .` says `No such file or directory` | The program's folder was cut off by a wake from hibernation — a sandbox still on the plain share (`folder.view` off, or started before 0.30.0). Restart the session: `doz sessions restart NAME SESSION` (the conversation continues), or **⋯ › Restart session** on its tab. From its next start the sandbox uses [the folder view](21-the-workspace-view.md) and this does not happen again. |
+| The agent gets "Permission denied" writing `/workspace`, or git says "detected dubious ownership" | The sandbox runs a folder view from before Dozable 0.33.1, under which the sandbox's user could not write the shared folder. `doz shutdown NAME` and `doz start NAME` give it the current view (a wake keeps the old one). Another user than the sandbox's own cannot write through the view — see [Who can write](21-the-workspace-view.md#who-can-write). |
+| `doz doctor` warns "folder view" | The live view of `/workspace` could not start, so the folder is shared directly. `doz console NAME --steps` shows why; `doz shutdown NAME` and `doz start NAME` try again. |
 | A program is stuck | `doz sessions restart NAME SESSION`, or `doz sessions end NAME SESSION`. |
 
 ## FAQ
@@ -134,8 +134,20 @@ Not yet with a command. A snapshot (sleep, hibernate) is encrypted with a key sp
 
 **Why does `doz` say "the next command starts a new daemon"?**
 The daemon is a background process that runs your sandboxes; it keeps running (`daemon.always_on`) and replaces
-itself after an update. You never need to start it: any command that needs it does — after `doz daemon stop`, or
-when it was started over ssh and exited after 5 idle minutes.
+itself after an update. You never need to start it: any command that needs it does — after `doz daemon stop`, after
+it exited idle (with `daemon.always_on` off, after `daemon.idle_timeout_minutes`, 5 by default), or when it was started
+over ssh and exited after 5 idle minutes.
+
+**Why does `doz` say "the running daemon is …, this doz is …"?**
+The daemon running now is of a version that does not speak this doz's language (0.51 renamed what a sandbox works on
+to its *folder*, and the two would misread each other). Run `doz daemon stop`: your sandboxes hibernate, and the next
+command starts a daemon of this version, which wakes them.
+
+**`doz` says "Unknown option '--workspace'" (or `--workdir`).**
+Renamed in 0.51: `--workspace` is `--folder`, `--workspace-view` is `--folder-view`; `--workdir` is `--folder` on
+`doz run @mac` and `--cwd` in a sandbox (`doz run NAME`, `doz exec NAME`). The error says the new name. A settings line
+`[workspace] ignore_mode` or `view` is not read any more — say `[folder]` (every command warns until you do), and
+`workspace_view:` in `doz_project.yaml` is `folder_view:`.
 
 **How do I start completely fresh?**
 `doz uninstall`, then `brew uninstall doz`, `brew trust --tap dozable/tap`, `brew install dozable/tap/doz` and

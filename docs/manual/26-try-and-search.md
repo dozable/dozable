@@ -29,7 +29,7 @@ as a try afterwards; you keep it, sleep it or delete it like any other:
   `~/doz-workspaces` unless you set another) and shares it at `/workspace`, so what the agent makes is on
   your Mac. It is never one of your folders: a folder of that name that holds anything is skipped (the try is named
   `try-<agent>-2`). `--isolated` shares no folder at all (`doz get try-opencode /workspace/FILE` copies a file out —
-  see [Terminals and sessions](07-terminals-and-sessions.md)); `--workspace DIR` uses a folder you choose.
+  see [Terminals and sessions](07-terminals-and-sessions.md)); `--folder DIR` uses a folder you choose.
 - **Your Mac's clipboard and its apps**, as in any sandbox: what the agent copies reaches your Mac's clipboard (also
   from agents that copy with `xclip`, `xsel` or `wl-copy`), and it can open a file it made, or a link, on your Mac.
   The try's first line says so:
@@ -279,9 +279,9 @@ doz try doz.sh/anthropic/claude-code        # Dozable's recipe directory, doz.sh
 | `--network` | `agent`, `locked`, `open`, `bake`, `nat` or `none` |
 | `--account`, `--key` | the account, and custom keys beside it |
 | `--github`, `--ssh-agent` | GitHub as you, your SSH agent |
-| `--workspace`, `--isolated` | a folder of your Mac at `/workspace`, or none |
+| `--folder`, `--isolated` | a folder of your Mac at `/workspace`, or none |
 | `--cpus`, `--memory` | resources |
-| `--clipboard`, `--browser-bridge`, `--open-files`, `--tmux`, `--ignore-mode`, `--workspace-view`, `--agent-sudo` | the per-sandbox settings |
+| `--clipboard`, `--browser-bridge`, `--open-files`, `--tmux`, `--ignore-mode`, `--folder-view`, `--agent-sudo` | the per-sandbox settings |
 
 `doz new my-app` names the sandbox (`--name` still works). `doz init` takes `--agent`, `--base` and `--dockerfile`
 and writes them as the file's own keys.

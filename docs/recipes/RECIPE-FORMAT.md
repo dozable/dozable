@@ -514,7 +514,7 @@ recipe is offered (in a fresh try with that source's fake key) and puts that sou
   first the default. Such a provider may share a host with a key-less source (OpenCode Zen's free models carry no
   placeholder, so nothing is swapped into them). OpenCode 2's paths are its model requests under `/zen/v1/`,
   `/zen/go/v1/` and (from 2.0.32) `/inference/…`, per API shape, plus `GET /console/api/v2/config` — the one read of
-  the key's OpenCode Console settings it makes when it starts (workspace `probes/656-*/read-bundle.py`).
+  the key's OpenCode Console settings it makes when it starts (`probes/656-*/read-bundle.py` in the development workspace).
 
 ## Templating
 

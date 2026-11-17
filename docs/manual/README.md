@@ -39,8 +39,8 @@ both.
 | [GitHub as you](18-github.md) | let git and gh in a sandbox use your GitHub login — read-only or with push — without the token entering it |
 | [Managed tools](19-the-tools-layer.md) | know which tools Dozable manages in a sandbox for its settings (gh, the ssh client, tmux …) and check them |
 | [Your dotfiles](31-dotfiles.md) | have your shell setup (your dotfiles repository, or a folder on your Mac) in every sandbox — what runs, what is never touched, trust, `doz dotfiles` |
-| [Workspace rules](20-workspace-rules.md) | keep the agent out of some files in your shared folder (`.dozignore`), or let it read but not change them (`.dozreadonly`) |
-| [The workspace view](21-the-workspace-view.md) | `dozview`, the small program in the sandbox every workspace goes through: why (programs keep their folder across a wake), what it costs, `workspace.view`, the rules it enforces, its two processes, sleep and wake, how to look inside. |
+| [Folder rules](20-workspace-rules.md) | keep the agent out of some files in your shared folder (`.dozignore`), or let it read but not change them (`.dozreadonly`) |
+| [The folder view](21-the-workspace-view.md) | `dozview`, the small program in the sandbox every shared folder goes through: why (programs keep their folder across a wake), what it costs, `folder.view`, the rules it enforces, its two processes, sleep and wake, how to look inside. |
 | [Prompts for your agent](22-prompts-for-your-agent.md) | prompts to paste into Claude Code, Codex or Cursor on your Mac: install, set up, and three uses — a risky change, jailing an untrusted agent, a project with secrets |
 | [Restore points, duplicates and templates](12-restore-points-duplicates-templates.md) | undo, copy a sandbox, make your own starting image |
 | [Resources and disk space](13-resources-and-disk-space.md) | see where the disk went and free some |
@@ -52,6 +52,32 @@ both.
 | [Sessions on this Mac](34-sessions-on-this-mac.md) | run a program on the Mac itself (an agent on a project, Xcode, the Simulator) held like a sandbox's session — `doz run @mac`, fenced to its folder and a proxy by default, `--unfenced` for no isolation — and know what the fence is and is not |
 | [The menu bar app](35-the-menu-bar-app.md) | see the daemon's state in the menu bar, start, stop or restart it and open the dashboard with a click — `doz app install` |
 | [Bundling doz in an app](33-bundling-doz-in-an-app.md) | (app authors only) carry the helper build of `doz` inside your Mac app and drive it over `daemon.sock` |
+
+## Renamed in 0.51
+
+> What a sandbox (or a session on this Mac) works on is its **folder** — never "workspace" or "workdir". The folder
+> still appears inside the sandbox at `/workspace`; `doz get`, `put`, `cp` and `files` paths, `--isolated`,
+> `--ignore-mode`, `defaults.projects_dir` and every environment variable are unchanged. The old names are not
+> aliases: each fails, and says its new name.
+>
+> | before | from 0.51 |
+> |---|---|
+> | `--workspace DIR` (create, up, try, duplicate) | `--folder DIR` |
+> | `--workspace-view on\|off` | `--folder-view on\|off` |
+> | `--workdir DIR` on `doz run @mac` | `--folder DIR` |
+> | `--workdir DIR` on `doz run NAME`, `doz exec NAME` | `--cwd DIR` |
+> | the `doz ls` column `WORKSPACE` | `FOLDER` |
+> | `--json` keys `workspace`, `workspaceCreated`, `workspaceRules`, `workspaceRulesView`, `workspaceView` | `folder`, `folderCreated`, `folderRules`, `folderRulesView`, `folderView` |
+> | `doz sessions @mac --json`: `workdir` | `folder` |
+> | settings `[workspace] ignore_mode` and `view` | `[folder] ignore_mode` and `view` (an old line is not read, and every command warns) |
+> | `workspace_view:` in `doz_project.yaml` | `folder_view:` |
+> | agent prompt variables `{{workspace.shared}}`, `.host_path`, `.guest_path`, `.description`, `.rules` | `{{folder.…}}` |
+> | the dashboard's API: `workspace` and `workdir` fields, `/api/v1/workspace/check` and `/choose` | `folder`, `/api/v1/folder/check` and `/choose` |
+> | "Workspace rules" | "Folder rules" |
+>
+> A doz of 0.51 and a daemon of an earlier version refuse each other: `doz daemon stop`, and the next command starts
+> the new one. Also in 0.51: `daemon.idle_timeout_minutes` defaults to 5 again (it applies only when
+> `daemon.always_on` is off).
 
 ## Conventions
 

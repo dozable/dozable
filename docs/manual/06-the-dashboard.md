@@ -133,7 +133,7 @@ sidebar as a drawer, a key button while a key needs you, and **+** for Quick add
   **Don't say this again** (the setting `ui.explain_tab_close`). **Console** can be closed at any time,
   even during a boot; it stays closed until the next **Start** (Home › Logs › **Console** opens it again).
 - **The details**, beside them in tabs: **Overview** (RAM, disk, CPUs, the attach command, the
-  workspace and its rules, its sessions and last restore point), **Points** (restore
+  folder and its rules, its sessions and last restore point), **Points** (restore
   points), **Network** (**What the agent can do**, the rules, the connection log), **Keys** (keys and
   account) and **Config** (its configuration and the agent's environment prompt). The tab you chose is
   kept for each sandbox while the page is open; drag the details' left edge to widen them (320–560 px).
@@ -248,7 +248,7 @@ asks whether to **End** it or **Hide** its tab and keep it running. Each tab is 
 
 **Open in Terminal** opens the same session in your terminal app instead, via `doz attach`.
 
-**Open folder** (the folder icon beside it) opens the sandbox's shared workspace on your Mac — **Show in the
+**Open folder** (the folder icon beside it) opens the sandbox's shared folder on your Mac — **Show in the
 Finder**, or **Open in &lt;editor&gt;** for each editor installed (VS Code, Cursor, Zed, …; the one you used last
 first). An isolated sandbox has nothing on the Mac: the button says so. The same as `doz files open NAME --app
 EDITOR` ([Terminals and sessions](07-terminals-and-sessions.md)).

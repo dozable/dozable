@@ -68,7 +68,7 @@ while your Mac's agent watches, with a restore point to fall back to.
 What it will typically run:
 
 ```sh
-doz create upgrade --image claude-code --workspace "$PWD" --json
+doz create upgrade --image claude-code --folder "$PWD" --json
 doz point take upgrade before-upgrade
 doz run upgrade --detach -- claude -p "Upgrade the test framework to its latest major version and make the tests pass"
 doz sessions upgrade --screen claude
@@ -126,7 +126,7 @@ agent's good behaviour. See [Security model](16-security-model.md).
 ### C. Let an agent work on a project that holds secrets
 
 Your project folder has an `.env`, credentials or customer data the sandboxed agent should never read.
-[Workspace rules](20-workspace-rules.md) keep it out of them, without moving anything.
+[Folder rules](20-workspace-rules.md) keep it out of them, without moving anything.
 
 > Before we use a sandbox on this project, add a `.dozignore` at the project root that keeps the agent out
 > of `.env*`, `secrets/` and `*.pem`, and a `.dozreadonly` that lets it read but not change `deploy/`.
@@ -139,7 +139,7 @@ What it will typically run:
 ```sh
 printf '.env*\nsecrets/\n*.pem\n' > .dozignore
 printf 'deploy/\n' > .dozreadonly
-doz create feature --image claude-code --workspace "$PWD" --json
+doz create feature --image claude-code --folder "$PWD" --json
 doz ignore check feature .env secrets/api.key deploy/prod.yaml src/app.ts
 doz exec feature --json -- sh -c 'ls -la /workspace; cat /workspace/.env'
 doz run feature --detach -- claude -p "<your task>"
@@ -147,7 +147,7 @@ doz run feature --detach -- claude -p "<your task>"
 
 Locked files stay visible as `----------` so the agent knows they exist and leaves them alone (the
 sandboxed agent is told so). The rules are a guard against accidents, not a security boundary — see
-[The workspace view](21-the-workspace-view.md).
+[The folder view](21-the-workspace-view.md).
 
 ## When something goes wrong
 

@@ -16,7 +16,7 @@ doz ui                                         # opens the dashboard — a new i
 ```
 
 The dashboard's setup wizard checks this Mac, chooses how your agent signs in, and prepares an image; then
-**New sandbox** (or Quick add) makes one. Each sandbox's workspace is a folder on your Mac, shared at
+**New sandbox** (or Quick add) makes one. Each sandbox works on a folder of your Mac, which appears at
 `/workspace` inside it — by default `~/doz-workspaces/<sandbox name>`, made when missing.
 Keep them there unless you have a reason not to; Settings › Choose… (or `doz config set
 defaults.projects_dir PATH`) moves the default.
@@ -61,7 +61,7 @@ carries the virtualization entitlement macOS requires to boot a VM.
 Measured on an M3 (Alpine guest, 512 MiB–1 GiB). Plus: a network that is **proxied** by default (no network
 card in the VM; every connection is judged by a policy of permissions you can read and change — `doz net
 permissions`), credentials **swapped in by the proxy** (the sandbox only ever sees a placeholder), restore
-points and templates (APFS clones), workspace rules (`.dozignore`, `.dozreadonly`), browser sign-ins and
+points and templates (APFS clones), folder rules (`.dozignore`, `.dozreadonly`), browser sign-ins and
 `open`/clipboard bridges back to the Mac, GitHub as you (read-only by default), and a dashboard you can also
 serve to your other devices (`doz ui --lan`).
 

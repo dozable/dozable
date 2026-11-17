@@ -145,7 +145,7 @@ channel to your Mac.
 |---|---|---|---|---|
 | **Clipboard** | put text on your Mac's clipboard (up to 1 MiB, 10 copies per 10 s) | **read** your clipboard — ever | an agent could plant a command for you to paste | `sandbox.clipboard = off` |
 | **Browser** | open an http(s) page in your default browser (3 per 10 s); during a sign-in, receive the redirect on one loopback port for up to 10 minutes | open `file:` or other schemes, reach your Mac's own `localhost`, forward any other port | an agent could open a misleading page | `sandbox.browser_bridge = off` |
-| **Files** | open a document from its shared `/workspace` in its default app, or in an app you listed in `bridges.open_apps`; open the workspace or a folder in it in the Finder; show a file selected in its folder (`--reveal`) — 3 per 10 s | open anything outside the shared folder (paths are resolved on the Mac — `..` and links that lead out are refused), an app or package folder (not even in the Finder — only revealed), a folder as an app, an app, script, installer or link file, an executable, a program or `#!` script renamed as a document (the first bytes are checked), or an app you didn't list; anything at all in an isolated sandbox | an agent could open a misleading page or document (an html file runs its scripts in your browser, as a local page) | `sandbox.open_files = off` |
+| **Files** | open a document from its shared `/workspace` in its default app, or in an app you listed in `bridges.open_apps`; open the shared folder or a folder in it in the Finder; show a file selected in its folder (`--reveal`) — 3 per 10 s | open anything outside the shared folder (paths are resolved on the Mac — `..` and links that lead out are refused), an app or package folder (not even in the Finder — only revealed), a folder as an app, an app, script, installer or link file, an executable, a program or `#!` script renamed as a document (the first bytes are checked), or an app you didn't list; anything at all in an isolated sandbox | an agent could open a misleading page or document (an html file runs its scripts in your browser, as a local page) | `sandbox.open_files = off` |
 
 The agent is told about all three, including that you see a notice every time.
 
@@ -191,7 +191,7 @@ fully resolved path.
 
 ## What Dozable can't protect
 
-- **Your shared folder.** It's the agent's to change. Commit often. [Workspace rules](20-workspace-rules.md)
+- **Your shared folder.** It's the agent's to change. Commit often. [Folder rules](20-workspace-rules.md)
   (`.dozignore`, `.dozreadonly`) keep an agent from stumbling into files there, but they are a convenience,
   not a boundary: root in the sandbox can get around them. A secret that must not reach a sandbox does
   not belong in the folder it shares.

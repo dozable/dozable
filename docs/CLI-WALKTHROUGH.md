@@ -207,8 +207,8 @@ doz inspect doz-try --prompt
 Ask Claude: *"What is the host path of /workspace?"* — it answers `~/doz-try` (the full path) from
 the facts block, without looking around. Ask *"Where are you running — what is this machine?"* — a
 Dozable VM on your Mac, how its disks persist, that the network goes through your Mac's proxy.
-(A sandbox made without a workspace is **isolated**: its agent is told no folder is shared with the
-Mac, and `doz ls` says `isolated`. A `--workspace` folder that does not exist yet is made for you.)
+(A sandbox made without a folder is **isolated**: its agent is told no folder is shared with the
+Mac, and `doz ls` says `isolated`. A `--folder` folder that does not exist yet is made for you.)
 
 Claude Code opens straight at its prompt in `/workspace`, with no first-run setup screens: the
 image's launcher marks onboarding done, approves this session's key placeholder and trusts the
@@ -277,7 +277,7 @@ doz ui                             # opens the browser, signed in (one-use link)
 A store that was never onboarded opens on the **setup wizard**: Welcome → Checks (the doctor's, the
 required ones marked) → Claude account → Images (sizes and estimates; claude-code ticked) →
 Preparing (the daemon's progress; **Continue in the background** leaves it running — **Operations**
-shows it) → First sandbox (a name, an image and a workspace folder typed or pasted — a browser cannot
+shows it) → First sandbox (a name, an image and a folder typed or pasted — a browser cannot
 pick a local folder for the daemon) → Done. The account
 step takes an API key or a setup token in a masked field (sent once, stored as `doz account add`
 stores it, and cleared from the page) — or, with `doz config set ui.allow_secret_entry false`, shows

@@ -34,7 +34,7 @@ cannot be stapled: Gatekeeper checks a notarised `doz` online the first time it 
 doz onboard [--base ID | --no-base] [--key PROVIDER [--key-name NAME] [--plan PLAN] [--secret-stdin] [--force]]
             [--first AGENT|none] [--openai-account mac|chatgpt|openai-key|later] [--yes]
             [--github off|read|push] [--github-source gh|key] [--github-key-stdin] [--ssh-agent on|off]
-            [--ignore-mode lock|hide]   # the Workspace rules step: the default workspace.ignore_mode
+            [--ignore-mode lock|hide]   # the Folder rules step: the default folder.ignore_mode
             [--usage-stats on|off]      # the Usage statistics step (official builds): off writes the setting
 doz onboard --status        # the onboarding record and the base; follows a preparation that runs
 doz onboard --cancel        # cancel what is being prepared (the base)
@@ -61,7 +61,7 @@ doz nuke [--dry-run] [--yes]   # back to a fresh install, doz stays installed: l
   and push; the token from this Mac's gh login or a key you give — `--github`, `--github-source`,
   `--github-key-stdin`) and **SSH agent forwarding** (`--ssh-agent`), each confirmed, and one that cannot be is
   **skipped with its reason** — the choice kept, not confirmed — so the onboarding never blocks; written as the
-  defaults for new sandboxes only when chosen; **workspace rules**; the settings file and your prompt template
+  defaults for new sandboxes only when chosen; **folder rules**; the settings file and your prompt template
   (each written **only when missing**; the base, Access and rules answers set in it); in an official build **Usage
   statistics** (what is sent, `doz telemetry show`, the privacy policy, then *Send anonymous usage statistics?
   [Y/n]* — Enter keeps them on and writes nothing; no sets `telemetry.send_anonymous_usage_stats = false`;
@@ -124,20 +124,20 @@ those 3 s first (Claude Code's first network calls, for example, can otherwise f
 ```bash
 doz new [--image I] [--name N] [--isolated] [-d]     # 599c: every default — created, started, attached
 doz create NAME --image lab|claude-code|pi|<base>-<agent>|<template> \
-    [--cpus 2] [--memory 2G] [--workspace ~/code/proj | --isolated] \
+    [--cpus 2] [--memory 2G] [--folder ~/code/proj | --isolated] \
     [--network agent|bake|locked|open|nat|none] [--subnet CIDR]
 doz create NAME --agent claude-code|pi|codex|none --base node|python|go|rust|java|ruby|dotnet|debian|ubuntu|alpine
-doz create NAME --agent claude-code --dockerfile ./Dockerfile      # 596: your own base (workspace = its folder)
+doz create NAME --agent claude-code --dockerfile ./Dockerfile      # 596: your own base (shared folder = its folder)
 
 doz up NAME [same options] [--session S] [-d] [-- CMD …]
 ```
 
 - **599c: `doz new` — the quickest way in.** The image is `defaults.image`; the name is the image's
   (`claude-sandbox`, then `-2`, `-3`, … when a sandbox has it or its folder under the projects folder
-  is not empty); the workspace is `<defaults.projects_dir>/<name>`, made now; the default account and
+  is not empty); its folder is `<defaults.projects_dir>/<name>`, made now; the default account and
   permissions. It prints what it chose (`claude-sandbox-2 · claude-code · ~/doz-workspaces/claude-sandbox-2`),
   starts it and attaches. `--image`, `--name`, `--isolated` and `-d` change just that one thing;
-  `--json` answers `{name, image, workspace, phase, session, milliseconds}` without attaching. The
+  `--json` answers `{name, image, folder, phase, session, milliseconds}` without attaching. The
   prerequisites are `doz create`'s (pi's API-key account, an out-of-date image) — asked on a terminal.
   The web UI's **Quick add** is the same.
 - **596: two choices — the agent and the base.** `--agent` (Claude Code, pi, or none: a shell only)
@@ -154,8 +154,8 @@ doz up NAME [same options] [--session S] [-d] [-- CMD …]
   moved on — never rebuilt by itself.
 - **`--dockerfile PATH`**: your Dockerfile is the base, built with Apple's `container build`
   (installed on demand — `doz builder`), and Dozable still adds the baseline and the agent (you need
-  not install Claude Code in it). Its folder is the build context and, unless `--workspace` says
-  otherwise, the workspace. **The build runs in Apple's builder, OUTSIDE Dozable's network policy:**
+  not install Claude Code in it). Its folder is the build context and, unless `--folder` says
+  otherwise, the shared folder. **The build runs in Apple's builder, OUTSIDE Dozable's network policy:**
   its `RUN` steps reach the internet directly. Every preparation builds it again (Apple's cache
   makes an unchanged one take seconds) and re-bakes only when the built image's layers changed; a
   sandbox says "Dockerfile changed — rebuild available" and keeps its disk until `doz reset`.
@@ -177,30 +177,30 @@ doz builder start [--yes]      # container system start --enable-kernel-install 
   image and settings it was created with. `up` defaults to the settings' `defaults.image`
   (`doz onboard` sets it; `lab` otherwise); `create` requires `--image`. With no NAME, in a
   project folder, `up` uses `doz_project.yaml`.
-- **`--workspace DIR`** is made when it does not exist (`mkdir -p`; `[doz] created ~/…`) — never an
+- **`--folder DIR`** is made when it does not exist (`mkdir -p`; `[doz] created ~/…`) — never an
   existing file, a folder in the store, a system location, `/` or the home folder itself; a folder
   doz made is removed again, while empty, if the create fails.
-- **Without `--workspace`** the sandbox is **isolated**: `/workspace` is private to the VM — nothing
+- **Without `--folder`** the sandbox is **isolated**: `/workspace` is private to the VM — nothing
   on this Mac is shared. That is allowed, and said: `create` notes it, `ls` shows `isolated`
-  (`--json`: `"workspace": null, "isolated": true`); `--isolated` asks for it on purpose.
+  (`--json`: `"folder": null, "isolated": true`); `--isolated` asks for it on purpose.
 
 ### Working inside
 
 | command | what |
 |---|---|
 | `attach NAME [SESSION] [--no-wake]` | Your terminal becomes that session; with no SESSION, the image's own session — opened first when it is not running (said). Before the session's screen is drawn both of the terminal's screens are cleared (no flash of an earlier program's). **Ctrl-]** opens a one-line menu over the bottom row (`d detach · n next · p prev · s sessions · Esc back`; n/p/s move this terminal to another session of the sandbox; removed by a clean redraw from the session's snapshot); a second Ctrl-] (quickly, or at the menu) detaches — in every keyboard encoding (`--detach-key ctrl-x\|none`; a pipe on stdin detaches at once). The terminal's title is `ui.terminal_title` (`{sandbox} · {session} · {time}`; `{image}` `{phase}` too), refreshed each minute, the terminal's own pushed and popped (CSI 22/23 t); the session's own title is kept out meanwhile (`""`: leave it to the session). A paused or sleeping sandbox wakes first unless `--no-wake`. Hibernated while attached: the client waits and reattaches by itself on wake. |
-| `run NAME [--session S] [-d] -- CMD …` | A **new** session running `CMD`, attached; exits with `CMD`'s exit code. No shell in front — write `bash -lc '…'` for one. |
-| `exec NAME [--user U] [--workdir D] [-e K=V] [--timeout S] -- CMD …` | One-shot, no terminal: stdout, stderr and the exit code pass straight through (default timeout 120 s). Agent images run as the agent's user in `/workspace`; `--user root` for root. A sleeping sandbox is woken and an off one started first (594; `--no-wake`, `--no-start`; `--json` has `started`, `woke`, `bootMilliseconds`) — `run` starts one too. |
+| `run NAME [--session S] [--cwd D] [-d] -- CMD …` | A **new** session running `CMD`, attached; exits with `CMD`'s exit code. No shell in front — write `bash -lc '…'` for one. `--cwd`: the directory in the sandbox to run in (default: the image's). |
+| `exec NAME [--user U] [--cwd D] [-e K=V] [--timeout S] -- CMD …` | One-shot, no terminal: stdout, stderr and the exit code pass straight through (default timeout 120 s). Agent images run as the agent's user in `/workspace`; `--user root` for root. A sleeping sandbox is woken and an off one started first (594; `--no-wake`, `--no-start`; `--json` has `started`, `woke`, `bootMilliseconds`) — `run` starts one too. |
 | `get NAME PATH [LOCAL] [--force]` | Copy a file or folder out of the sandbox (PATH relative = under `/workspace`; LOCAL default the current folder — into an existing folder it keeps its name, else it is the new name). Folders whole; modes kept; owned by you on the Mac. Unpacked in a temporary folder beside LOCAL, checked, then moved into place — never into Dozable's store; a link that points outside the folder stops it. An existing LOCAL needs `--force` (a file replaced, a folder merged). Woken/started as `exec` (`--no-wake`, `--no-start`). Isolated sandboxes too. `--json`. |
 | `put NAME LOCAL [PATH] [--force]` | Copy a file or folder from this Mac in (PATH default `/workspace`). Owned by the image's user — by root only where that user cannot write (said). The same rules as `get`. |
 | `cp SRC DST` | The Docker spelling of both: `cp NAME:PATH LOCAL` = `get`, `cp LOCAL NAME:PATH` = `put` (`NAME:` alone = `/workspace`). |
-| `files NAME [PATH] [--watch]` | A folder of `/workspace` (PATH relative = under `/workspace`; default `/workspace`): kind, size, modified, a link's target (never followed). A shared workspace is read on this Mac in any state — nothing started or woken, no daemon started — with its workspace rules as the sandbox sees them (hidden: absent; locked: listed `locked`; read-only marked); a link or `..` out of the shared folder is refused. An isolated sandbox is listed from inside while it runs (as the image's user), refused otherwise. `--watch`: a line each time the folder's listing changes (shared workspaces only, watched on the Mac; a quarter of a second of changes at a time). `--json`: the list, or one JSON line per change. (`files ls` is the same.) |
+| `files NAME [PATH] [--watch]` | A folder of `/workspace` (PATH relative = under `/workspace`; default `/workspace`): kind, size, modified, a link's target (never followed). A shared folder is read on this Mac in any state — nothing started or woken, no daemon started — with its folder rules as the sandbox sees them (hidden: absent; locked: listed `locked`; read-only marked); a link or `..` out of the shared folder is refused. An isolated sandbox is listed from inside while it runs (as the image's user), refused otherwise. `--watch`: a line each time the folder's listing changes (shared folders only, watched on the Mac; a quarter of a second of changes at a time). `--json`: the list, or one JSON line per change. (`files ls` is the same.) |
 | `files mkdir NAME PATH` · `files new NAME PATH` | A new empty folder (its parent must be there) / a new empty file in `/workspace`. Never replaces what is there. |
 | `files mv NAME PATH TO` · `files rename NAME PATH NEWNAME` | Move (TO includes the new name) or rename in its folder. Never replaces; a folder never goes into itself; `/workspace` itself is never moved. |
 | `files rm NAME PATH [-r] [--yes]` | Delete a file, a link (never what it points to) or a folder (`-r` when it holds anything). Asks unless `--yes`. |
-| `files open NAME [PATH] [--reveal \| --app APP]` | A shared workspace's document opened on this Mac (its default app), a folder in the Finder (PATH defaults to `/workspace`: the workspace itself), or `--reveal` it — the rules of the agent's own opening (`sandbox.open_files`, documents only). `--app APP` (646): in an editor instead — a known one installed on this Mac (`vscode`, `cursor`, `zed`, `windsurf`, `xcode`, `sublime`, `nova`, `bbedit`, `intellij`, `pycharm`, `webstorm`, `goland`, `textmate`; its id or name, any case), else a name in `bridges.open_apps`; a folder or any file that is not a program (never an executable, `#!`, Mach-O/ELF, an app or installer type). Isolated: refused (`doz get` copies one out). |
+| `files open NAME [PATH] [--reveal \| --app APP]` | A shared folder's document opened on this Mac (its default app), a folder in the Finder (PATH defaults to `/workspace`: the shared folder itself), or `--reveal` it — the rules of the agent's own opening (`sandbox.open_files`, documents only). `--app APP` (646): in an editor instead — a known one installed on this Mac (`vscode`, `cursor`, `zed`, `windsurf`, `xcode`, `sublime`, `nova`, `bbedit`, `intellij`, `pycharm`, `webstorm`, `goland`, `textmate`; its id or name, any case), else a name in `bridges.open_apps`; a folder or any file that is not a program (never an executable, `#!`, Mach-O/ELF, an app or installer type). Isolated: refused (`doz get` copies one out). |
 | `files editors` | What `files open --app` takes here: the known editors installed (found by bundle id, read-only), then `bridges.open_apps`. `--json`: `[{id, name}]`. |
-| (the `files` changes) | A shared workspace is changed on this Mac in any state — nothing started or woken, no daemon started — only inside the shared folder (a link never followed, a path out refused), with its workspace rules as the sandbox has them (a hidden item is not there; a locked or read-only one, or a folder holding one, is not changed; a new name the rules would hide, lock or make read-only is refused). An isolated sandbox is changed from inside as the image's user while it runs, refused otherwise. `--json`: what changed, and which folders' listings did. |
+| (the `files` changes) | A shared folder is changed on this Mac in any state — nothing started or woken, no daemon started — only inside the shared folder (a link never followed, a path out refused), with its folder rules as the sandbox has them (a hidden item is not there; a locked or read-only one, or a folder holding one, is not changed; a new name the rules would hide, lock or make read-only is refused). An isolated sandbox is changed from inside as the image's user while it runs, refused otherwise. `--json`: what changed, and which folders' listings did. |
 | `sessions NAME` | The sandbox's terminal sessions. |
 | `sessions restart NAME SESSION [--fresh] [-d]` | End the session's program and start the same one again, in the same session and folder (every Claude Code session continues its own conversation, a Codex or pi sandbox's own session the folder's newest; `--fresh`: a new one), then attach. Running sandboxes only. |
 | `sessions send NAME SESSION [--text T\|-] [--keys KEY…] [--enter] [--paste] [--no-wake] [--then-screen[=MS]]` | Type into a session: the text, then the keys, then Enter (at most 64 KiB); returns once the session's holder has every byte. Wakes a sleeping sandbox (`--no-wake` refuses); `--then-screen` prints the screen MS ms (600) later. |
@@ -208,7 +208,7 @@ doz builder start [--yes]      # container system start --enable-kernel-install 
 | `sessions end NAME SESSION` | End the session's program (hung up, then terminated, then killed). |
 | `sessions wait NAME SESSION --until STATE[,STATE…] [--timeout S]` | Wait until the session's program reports one of the states (`idle`, `working`, `done`, `blocked`, `error` — its own status reports; a comma list or `--until` again, so `--until idle,done,blocked,error` is "has it stopped working?"); the state now counts. Exit 124 when `--timeout` passes first (`--json`: `timedOut`). Running sandboxes only — never woken. |
 | `run @mac …` · `attach @mac` · `sessions … @mac …` | Sessions on THIS Mac: held like a sandbox's; fenced by default (its folder, its own temp and caches, Dozable's proxy; your Keychain and secrets closed), `--unfenced` for no isolation at all (see the manual's "Sessions on this Mac"). Every other command refuses `@mac`, but `net … @mac --session S` for a fenced one. |
-| `run @mac [--fenced] [--keychain] [--read DIR]… [--write DIR]… [--permissions P] [--local-port N]… [--agent-config private\|shared] [--github read\|push] [--ssh-agent] [--xcode \| --simulator] [--dry-run] -- CMD` · `--unfenced` | A session on this Mac, fenced by default (the setting `mac.fence`, `on`): it reads and writes only its folder (default: the one you are in) and its own temp and caches, reads your tools but not your secrets or other folders, has no Keychain unless `--keychain`, and reaches the network only through Dozable's proxy by its permissions; `--read`/`--write` add a folder (never your home, `~/.ssh`, `~/.config`, `~/Library` or the store). `--unfenced` is no isolation, as before; a session keeps its mode when restarted. `--dry-run` says what it could do. |
+| `run @mac [--fenced] [--keychain] [--read DIR]… [--write DIR]… [--permissions P] [--local-port N]… [--agent-config private\|shared] [--github read\|push] [--ssh-agent] [--xcode \| --simulator] [--dry-run] -- CMD` · `--unfenced` | A session on this Mac, fenced by default (the setting `mac.fence`, `on`): it reads and writes only its folder (`--folder DIR`; default: the one you are in) and its own temp and caches, reads your tools but not your secrets or other folders, has no Keychain unless `--keychain`, and reaches the network only through Dozable's proxy by its permissions; `--read`/`--write` add a folder (never your home, `~/.ssh`, `~/.config`, `~/Library` or the store). `--unfenced` is no isolation, as before; a session keeps its mode when restarted. `--dry-run` says what it could do. |
 | `sessions resume @mac SESSION` · `sessions @mac --quarantine SESSION` | A fenced session that changed a git config in a way it may not (a hook path, an fsmonitor, a pager, an unknown key) is stopped at once and the change taken out: `--quarantine` shows what was taken out; `resume` continues it (refused while such a change is there again). |
 | `ls` · `inspect NAME` | Every sandbox: image, phase, RAM held, disk, sessions, network · everything as JSON. |
 
@@ -288,8 +288,8 @@ Three layers: the built-in template, then **your own** — `agent-prompt.md` bes
 (`doz onboard` writes it all commented out; text outside a comment replaces the built-in one) — then
 the sandbox's own (`--agent-prompt FILE`, or `agent_prompt` in `doz_project.yaml`), appended or
 replacing. Variables are `{{name}}` from a closed list (`sandbox.name`, `sandbox.image`,
-`sandbox.cpus`, `sandbox.memory`, `workspace.shared`, `workspace.host_path`, `workspace.guest_path`,
-`workspace.description`, `network.mode`, `network.allowed_hosts`, `network.description`,
+`sandbox.cpus`, `sandbox.memory`, `folder.shared`, `folder.host_path`, `folder.guest_path`,
+`folder.description`, `network.mode`, `network.allowed_hosts`, `network.description`,
 `account.name`, `credentials.description`, `mac.hostname`, `doz.version`); an unknown one is an
 error — the session does not start, and `inspect --prompt` says why — never silently blank. A
 claude-code image baked before 594 has no launcher support: `doz reset NAME` (or a new sandbox)
@@ -412,16 +412,16 @@ counts only for the choice it was given for. The default GitHub key is in the lo
 differ (`doz create --github off|read|push`, `--allow`/`--network`, `doz net allow|deny NAME
 github:as-you`, `doz config set --sandbox NAME sandbox.ssh_agent on`).
 
-### Workspace rules
+### Folder rules
 
 ```bash
 doz ignore check NAME PATH…  # what each path is in the sandbox (locked, hidden, read-only, visible) and which line decides
 doz ignore show NAME         # every rule with its line, the mode, warnings, whether the rules are in force now
 ```
 
-A `.dozignore` at the root of a sandbox's workspace folder (Docker's `.dockerignore` syntax and
+A `.dozignore` at the root of a sandbox's folder (Docker's `.dockerignore` syntax and
 `docker build`'s semantics: anchored at the root, `**` for any depth, `!` exceptions, the last match wins)
-selects paths the agent must not use — `workspace.ignore_mode` `lock` (the default: listed with no
+selects paths the agent must not use — `folder.ignore_mode` `lock` (the default: listed with no
 permissions, every access refused, root too) or `hide` (not there). A `.dozreadonly` (same syntax) makes
 paths read-only; `doz_project.yaml`, `.git/hooks` and the two rule files are read-only too. Names are
 compared without case or Unicode form on a case-insensitive Mac volume. Served by a filtering view
@@ -605,14 +605,14 @@ doz template ls
 doz template rm TEMPLATE [--yes]
 doz create other --image TEMPLATE
 
-doz duplicate NAME NEW [--from-point P] [--workspace DIR | --isolated] [--cpus N] [--memory M]
+doz duplicate NAME NEW [--from-point P] [--folder DIR | --isolated] [--cpus N] [--memory M]
                        [--network agent|bake|locked|open|nat|none] [--account A] [--copy-state]
 ```
 
 A **template** is a sandbox's ROOT disk saved as an image: everything installed or written there
 (`/root`, `/etc`, `/usr`, `/opt`, caches) — **never its state disk** (the agent's logins and
 history). **Duplicate** makes a new sandbox from an existing one's disk (an APFS clone) with a new
-name and any of a new workspace (made when it does not exist) or `--isolated`, CPUs, memory, network or
+name and any of a new folder (made when it does not exist) or `--isolated`, CPUs, memory, network or
 account; its state disk starts fresh unless `--copy-state`. Keys are not copied.
 
 ### Resources
@@ -643,7 +643,7 @@ waiting until nothing that uses the store's disks is under way. What is refused:
 disks (remove it with `doz rm`), anything outside the store, Dozable's own records; the current kernel
 and the guest init while any sandbox is paused, asleep or hibernated (their snapshots need them —
 allowed once all are off); an image while it is being prepared (and the download cache and base
-disks while any is); a stray folder that is a sandbox's workspace. Restore points, saved screens and
+disks while any is); a stray folder that is a sandbox's shared folder. Restore points, saved screens and
 boot logs are deletable; templates too, with a warning that they cannot be re-created; logs are
 cleared and metrics' history is cleared. **clean** deletes only what is re-creatable and unused — the
 download cache, base disks, kernels no snapshot needs and new boots do not use, images no sandbox was
@@ -677,7 +677,7 @@ refused plainly ("this daemon's program … is gone — `doz daemon stop`, then 
 exits by itself once nothing runs.
 
 Started for you by the first command that needs it; runs detached (`<store>/daemon.log`,
-`<store>/daemon.sock`); keeps running (`daemon.always_on`; off: exits after `$DOZ_DAEMON_IDLE` idle minutes, 0 = never). `ls`,
+`<store>/daemon.sock`); keeps running (`daemon.always_on`; off: exits after `daemon.idle_timeout_minutes` idle minutes, default 5, `$DOZ_DAEMON_IDLE`; 0 disables it and is warned). `ls`,
 `inspect`, `point ls`, `image ls`, `net policy` (shown) and `key ls` read the store directly when
 no daemon runs, so **looking never starts one**. If it crashes, the next command starts a new one:
 sleeping sandboxes are restored with their sessions, hibernated ones are untouched, and running
@@ -752,7 +752,7 @@ daemon as `doz key set` holds it). **Open in Terminal** runs
 command, so it can't do anything the CLI can't.
 
 A store that was never onboarded opens on the **setup wizard** — Welcome (the checks inline), Base image, Models &
-keys, GitHub & SSH, Workspace rules, Usage statistics and Stay in touch (official builds), First sandbox — the same
+keys, GitHub & SSH, Folder rules, Usage statistics and Stay in touch (official builds), First sandbox — the same
 steps as `doz onboard` (always reachable again from **Onboarding** in the navigation — marked with a dot until the
 store is onboarded — or **Doctor › Run onboarding again**). The base is prepared in the daemon from Base image on, its
 progress a strip at the foot of every later step (Details: a popover; a failed download: Retry), and **Operations**

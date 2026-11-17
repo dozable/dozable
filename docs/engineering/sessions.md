@@ -64,7 +64,7 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   and an unfenced record restarted and adopted under the fenced default; `make test-cli-host` is the unfenced session
   as before, every open with `--unfenced`.
 - **The holder is `deckhold-mac serve`** (`MacDeckhold.locate`), started by `posix_spawn` (SETSID, CLOEXEC_DEFAULT,
-  signals default, stdin /dev/null, stdout+stderr `<store>/mac-sessions/NAME.log`, cwd `--workdir`) — never `sh -c`.
+  signals default, stdin /dev/null, stdout+stderr `<store>/mac-sessions/NAME.log`, cwd `--folder`) — never `sh -c`.
   `serve` daemonises (its child's parent becomes launchd) and returns once its socket listens: holders outlive the
   daemon by design. No session keeps the daemon alive.
 - **The socket folder** is `confstr(_CS_DARWIN_USER_TEMP_DIR)` + `dh-<8 hex of sha256(store path)>` (never `$TMPDIR`):
@@ -73,7 +73,7 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
 - **The DeckholdSocket transport** speaks the frame protocol straight on the socket: one reader thread, a writer task,
   the descriptor closed ONCE by the reader after the writer let go. A socket that is gone answers as `deckhold pipe`:
   EXIT from `NAME.exit`, else NOSESSION.
-- **Records** (`<store>/mac-sessions/sessions.json`, 0600): argv, workdir, environment NAMES, openedAt, holder sha256,
+- **Records** (`<store>/mac-sessions/sessions.json`, 0600; on-disk keys kept — `workdir` is the session's folder, shown as `folder` in `doz sessions --json`): argv, workdir, environment NAMES, openedAt, holder sha256,
   pid, `bypassed`, `fence`, `claudeSessionID` (the learned conversation), `size` — fields only ever added. A daemon start ADOPTS (`MacSessions.adopt`): a live socket is watched (statuses, `session-status`
   events under the place name `@mac`); a socket nothing answers is unlinked (only our own socket, in our folder); a
   record with no socket is ended (its `.exit`) or **gone** (rebooted, holder killed). Looking reads the folder
@@ -106,7 +106,7 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   up has the screen of the run before removed. `make test-cli-host` (the fake claude carries Claude's real refusals).
 - **Bypass**: allowed only when the session's own argv asks (`MacPlace.bypassesPermissions`), recorded and marked; never
   added.
-- **Bridges** (unfenced): OSC 52 as for any session; the open-URL and workspace-file markers are dropped (`HostCore.bridge`) — a fenced session's are below.
+- **Bridges** (unfenced): OSC 52 as for any session; the open-URL and open-file markers are dropped (`HostCore.bridge`) — a fenced session's are below.
 - **Saved screens** in `<store>/mac-sessions/screens` (`SavedScreens`' directory variants): the periodic capture and a
   daemon stop; a gone one keeps its last — what `screen` shows, said "gone". **An ended one keeps its LAST screen**
   (685 M1): the holder runs with `serve --final` (deckhold.c, `__APPLE__` only — the guest's bytes are unchanged,
@@ -213,7 +213,7 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
 - **Bridges** (`HostCore.fencedBridge`): the session's `etc/bin/open` and `xdg-open` (first on PATH, `BROWSER`) send the
   guest shim's markers; for a FENCED `@mac` session the daemon takes them: `BrowserBridge.check`, a sign-in callback only to a
   `--local-port` (the browser reaches the program directly; any other port refused before opening), `WorkspaceFiles` with
-  the workdir as the share; OSC 52 write-only, announced as "S (fenced) copied N chars: '<first 40, controls ·>'".
+  the session's folder as the share; OSC 52 write-only, announced as "S (fenced) copied N chars: '<first 40, controls ·>'".
   `MacFenceRecord.bridges` from `--open-url/--open-files/--clipboard` or `mac.open_url/open_files/clipboard`; live with
   `doz sessions bridges @mac S` (`session-bridges`). Unfenced sessions: unchanged.
 - **Capabilities** (`MacCapabilities.swift`, `MacFence.capabilities`): ONE function from a `MacCapabilityShape` (a record,
@@ -449,7 +449,7 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   answer, never with `-q`, never on stdout; `rawCall` (every host request but ping/host-stop) and
   `doz attach` call it. `hostBuildNote` uses the web UI's `WebVersion.compare` (a newer daemon: upgrade
   this doz). `image ls` STATUS is always a word (W32; a template is `up to date`).
-- **Workspace folders**: a FOLDER — /workspace itself (relative path "") or any
+- **Folders of the share**: a FOLDER — /workspace itself (relative path "") or any
   child, the same mapping and Mac-side `realpath` — opens with `open -a Finder` (never as an app); a
   package folder (`URLResourceValues.isPackage`, or a never-list extension) is refused even then.
   `doz-open --reveal` (`doz-reveal;PATH`, `BridgeEvent.revealFile`) is `open -R` — nothing opens, so a
@@ -457,7 +457,7 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   lines `open-folder PATH` / `reveal PATH`. The facts block has ONE `{{mac.open}}` line for every open
   bridge (only what is on; empty → the bullet is dropped by `AgentPrompt.render`); the skill keeps
   `{{browser.description}}` and `{{files.description}}`.
-- **Workspace files ride the SAME shim and marker** — never a second guest→host channel. The shim
+- **Files of the share ride the SAME shim and marker** — never a second guest→host channel. The shim
   (`openShim`, stamp `doz:open-url-shim:vN` — bump it on ANY change, so a wake's `guestFixes` re-installs
   it) takes a file as well as a URL and sends `ESC]6340;doz-file;APP;/workspace/… BEL` (made absolute and
   resolved in the GUEST, only so the agent hears refusals at once — the notice goes to the person). The
@@ -474,7 +474,7 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   `make test-cli-openfiles`.
 - **Tests never touch the Mac**: `DOZ_TEST_PASTEBOARD=<file>` replaces pbcopy; `DOZ_TEST_OPEN_URL=<file>`
   replaces `/usr/bin/open` and plays the browser's last step (GET the callback on the Mac's port); a
-  workspace file is recorded there as `open-file APP|default MACPATH`. 646: `DOZ_TEST_EDITORS=<ids>` stands in for
+  file of the share is recorded there as `open-file APP|default MACPATH`. 646: `DOZ_TEST_EDITORS=<ids>` stands in for
   LaunchServices' answer of which known editors are installed (`EditorApps`).
   A fake OAuth server must READ before it answers (busybox `nc -e`), as a real one does.
 

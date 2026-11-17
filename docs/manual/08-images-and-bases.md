@@ -76,8 +76,8 @@ the same on every Mac.
 ## Choose an image — in the terminal
 
 ```sh
-doz create web --image claude-code --workspace ~/code/web              # Node · Claude Code
-doz create api --agent claude-code --base python --workspace ~/code/api
+doz create web --image claude-code --folder ~/code/web              # Node · Claude Code
+doz create api --agent claude-code --base python --folder ~/code/api
 doz create tools --agent none --base go --isolated                      # a Go shell, no agent
 doz create mine --agent pi --dockerfile ~/code/mine/Dockerfile          # your own base
 doz create tpl-copy --image my-template                                 # a template
@@ -114,7 +114,7 @@ baseline and the agent on top as usual.
 - **The build runs outside Dozable's network policy.** The Dockerfile's `RUN` steps run in Apple's
   builder and reach the internet directly, without Dozable's proxy or permissions. Only build
   Dockerfiles you trust. The sandbox made from the image is under your permissions as usual.
-- The Dockerfile's folder is the build context, and the sandbox's workspace unless you give one.
+- The Dockerfile's folder is the build context, and the sandbox's shared folder unless you give one.
 - An unchanged Dockerfile prepares again in seconds. When it changes, Dozable says "Dockerfile changed —
   rebuild available"; `doz image bake df-…` rebuilds (the image's name is shown in `doz image ls`),
   and `doz reset NAME` moves a sandbox onto it.

@@ -141,7 +141,7 @@ service with the real token in its place.
 
 - **`src=PATH`** — the token's only source: a file of yours alone (`chmod go-rwx FILE`; a link, or one other users may read, is
   refused), one line of printable characters without spaces, at most 1800 bytes. Never `-e`, never the command line. A
-  file inside the sandbox's workspace or anything a fenced session may read is refused — the session could read the
+  file inside the sandbox's folder or anything a fenced session may read is refused — the session could read the
   token itself.
 - **`to=HOST:PORT`** — the one destination, port required: `host.dozable.internal:PORT` (a port of this Mac also given
   with `--host-port`), a host name or an IPv4 address the permissions already allow (`--allow site:HOST:PORT`). A

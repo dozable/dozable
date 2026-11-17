@@ -78,9 +78,9 @@ doz files my-app src             # a folder in it (relative to /workspace, or /w
 doz files my-app src --watch     # then a line each time that folder's listing changes (Ctrl-C stops)
 ```
 
-- **A shared workspace is read on your Mac**, whatever the sandbox is doing: nothing is started or woken,
+- **A shared folder is read on your Mac**, whatever the sandbox is doing: nothing is started or woken,
   and no Dozable daemon is started to answer. It shows what the sandbox sees: with
-  [workspace rules](20-workspace-rules.md) a hidden name is not there, a locked one is listed as
+  [folder rules](20-workspace-rules.md) a hidden name is not there, a locked one is listed as
   `locked`, a read-only one is marked `read-only`. A link is shown with its target and never followed; a
   folder through a link (or `..`) that leads outside the shared folder is not listed.
 - **`--watch`** watches the folder on your Mac: a quarter of a second of changes is one line, whether the
@@ -99,29 +99,29 @@ doz files rename my-app notes/todo.md plan.md
 doz files mv my-app notes/plan.md docs/plan.md
 doz files rm my-app old.txt             # asks first (--yes does not); a folder with anything in it needs -r
 doz files open my-app docs/index.html   # on your Mac, in its default app; --reveal shows it in the Finder
-doz files open my-app                   # the workspace in the Finder
-doz files open my-app --app cursor      # the workspace in your editor (a folder or a file in it too)
+doz files open my-app                   # the folder in the Finder
+doz files open my-app --app cursor      # the folder in your editor (a folder or a file in it too)
 doz files editors                       # the editors --app can use on this Mac
 ```
 
 - **Nothing is ever replaced**: a new file, a new folder or a move to a name that is there is refused.
   `/workspace` itself is never renamed, moved or deleted, and a folder never goes into itself.
-- **A shared workspace is changed on your Mac**, in any state of the sandbox — nothing is started or woken,
+- **A shared folder is changed on your Mac**, in any state of the sandbox — nothing is started or woken,
   and no Dozable daemon is started for it. Only the shared folder is touched: a link is never followed (deleting
   a link deletes the link, never what it points to) and a path that leads outside the shared folder is
-  refused. The [workspace rules](20-workspace-rules.md) apply as in the sandbox: a hidden item is not there,
+  refused. The [folder rules](20-workspace-rules.md) apply as in the sandbox: a hidden item is not there,
   a locked or read-only one is not changed, a new name the rules would hide, lock or make read-only is
   refused, and a folder holding something the rules protect is not moved or deleted.
 - **An isolated sandbox** is changed from inside, as the image's user, while it runs; asleep or off it is
   refused (and stays as it is).
-- **`open`** follows the rules of the agent’s own opening ([Opening workspace files on your Mac](#opening-workspace-files-on-your-mac)):
+- **`open`** follows the rules of the agent’s own opening ([Opening your folder's files on your Mac](#opening-your-folders-files-on-your-mac)):
   `sandbox.open_files` on, documents only, never a program; a folder opens in the Finder. An isolated
   sandbox's files are inside it — `doz get` copies one out.
-- **`open --app EDITOR`** opens the workspace — or a folder or a file in it — in an editor: one Dozable knows
+- **`open --app EDITOR`** opens the shared folder — or a folder or a file in it — in an editor: one Dozable knows
   that is installed on this Mac (`vscode`, `cursor`, `zed`, `windsurf`, `xcode`, `sublime`, `nova`, `bbedit`,
   `intellij`, `pycharm`, `webstorm`, `goland`, `textmate` — its id or its name, `"Visual Studio Code"`), or an
   app you listed in `bridges.open_apps`. An editor opens text, so any file that is not a program opens; never an
-  executable, a script (`#!`), an app or an installer. The workspace rules, `sandbox.open_files` and isolation
+  executable, a script (`#!`), an app or an installer. The folder rules, `sandbox.open_files` and isolation
   apply as above. `doz files editors` lists what `--app` takes here.
 
 ### The Files tab
@@ -138,7 +138,7 @@ items are marked and cannot be changed here. An isolated sandbox that is not run
 it is asked.
 
 **Open folder** (the folder icon beside Open in Terminal, on the right of the terminal strip) opens the
-whole workspace on this Mac: **Show in the Finder**, or **Open in &lt;editor&gt;** for each editor installed.
+whole shared folder on this Mac: **Show in the Finder**, or **Open in &lt;editor&gt;** for each editor installed.
 The editor you used last comes first next time (this browser remembers it). An isolated sandbox has nothing
 on this Mac, so the button is disabled and says why; a browser on another device (`doz ui --lan`) does not
 show it.
@@ -379,21 +379,21 @@ doz create my-app --clipboard off …                     # from the start (or c
 doz config unset --sandbox my-app sandbox.clipboard     # follow the setting again
 ```
 
-## Opening workspace files on your Mac
+## Opening your folder's files on your Mac
 
 A sandbox has no desktop, but its files in `/workspace` are your Mac folder. So when a program (or
 the agent) runs `xdg-open report.html` — or `open notes.md`, or `doz-open notes.md` — inside a
-sandbox with a shared workspace, the file opens **on your Mac**, in its default app: an html page in
+sandbox with a shared folder, the file opens **on your Mac**, in its default app: an html page in
 your browser, markdown in your editor, a PDF in Preview. A relative name is the program's own folder's.
 
-A **folder** — the workspace itself or any folder in it — opens in the **Finder**, and
+A **folder** — the shared folder itself or any folder in it — opens in the **Finder**, and
 `doz-open --reveal` shows a file selected in its folder:
 
 ```sh
 xdg-open report.html                    # in the sandbox: opens ~/Developer/my-app/report.html on the Mac
 open docs/notes.md                      # the same
 doz-open --app Typora notes.md          # in a named app — only one you allowed (below)
-open .                                  # the workspace folder, in the Finder
+open .                                  # the shared folder, in the Finder
 open src                                # a folder in it, in the Finder
 doz-open --reveal dist/app.zip          # the Finder, with that file selected (nothing is opened)
 ```
@@ -405,7 +405,7 @@ Safari`, `my-app opened src/ in the Finder`, `my-app showed app.zip in the Finde
 
 What it never does:
 
-- **Nothing outside the workspace.** The path is mapped to your shared folder and resolved on the
+- **Nothing outside the shared folder.** The path is mapped to your shared folder and resolved on the
   Mac; a `..` or a link (made in the sandbox or on the Mac) that leads out of it is refused.
 - **Documents only:** html, md, pdf, images (png, jpg, gif, webp, svg, …), txt and log, csv and tsv,
   json, yaml, xml, toml. Never an app, script, installer or link file (`.command`, `.sh`, `.pkg`,

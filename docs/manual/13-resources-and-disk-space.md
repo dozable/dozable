@@ -49,7 +49,7 @@ doz resources rm point:web/3           # by id, as doz resources lists them
   later ("prepared again when next needed, about 3 min, needs network"), and anything refused and why.
 - **Nothing breaks a sandbox.** Refused, always: a sandbox's own disks (remove the sandbox instead);
   the kernel and boot disk while any sandbox is asleep or running (their snapshots need them); an
-  image being prepared; a folder that is a sandbox's workspace; anything outside the store.
+  image being prepared; a folder that is a sandbox's shared folder; anything outside the store.
 - The deletion waits until nothing that uses the disks is under way (a start, a wake, a preparation),
   and runs as one operation.
 
