@@ -463,3 +463,54 @@ final class Collected: @unchecked Sendable {
     var done: Bool { lock.withLock { finished } }
     var text: String { lock.withLock { String(decoding: data, as: UTF8.self) } }
 }
+
+/// 715: while the dashboard is published (the marker), the DAEMON — started at login by its login item — keeps the
+/// dashboard running: at its start and on a slow tick, when no `doz ui` holds this store's `ui.lock`, it starts one the
+/// way `doz ui --detach --no-open` does (the double spawn: its parent is launchd; no browser). Never after the person said
+/// stop: `doz ui stop` (or Ctrl-C of a dashboard in a terminal) writes `<store>/ui.stopped`; `doz ui` / `--detach`,
+/// `doz try --ui` and `doz ui publish` remove it.
+public enum PublishedDashboard {
+    public static func stoppedFile(_ store: DozableStore) -> URL { store.root.appendingPathComponent("ui.stopped") }
+    public static func markStopped(_ store: DozableStore) {
+        let fd = open(stoppedFile(store).path, O_WRONLY | O_CREAT | O_CLOEXEC, 0o600)
+        if fd >= 0 { close(fd) }
+    }
+    public static func clearStopped(_ store: DozableStore) { unlink(stoppedFile(store).path) }
+    public static func stoppedByPerson(_ store: DozableStore) -> Bool { FileManager.default.fileExists(atPath: stoppedFile(store).path) }
+
+    /// A `doz ui` holds this store's `ui.lock` (running, or starting).
+    public static func uiRunning(_ store: DozableStore) -> Bool {
+        let fd = open(store.root.appendingPathComponent("ui.lock").path, O_RDONLY | O_CLOEXEC)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }
+        if flock(fd, LOCK_SH | LOCK_NB) == 0 { flock(fd, LOCK_UN); return false }
+        return true
+    }
+
+    public enum Decision: Equatable, Sendable { case notPublished, stoppedByPerson, running, start }
+
+    /// What the daemon does now (pure but for the files it reads).
+    public static func decide(_ store: DozableStore) -> Decision {
+        guard TailscalePublish.readMarker(store) != nil else { return .notPublished }
+        if stoppedByPerson(store) { return .stoppedByPerson }
+        return uiRunning(store) ? .running : .start
+    }
+
+    /// The daemon's look (each tick): start the dashboard when `decide` says so. The line for the daemon's log, or nil.
+    public static func ensure(_ store: DozableStore, program: String) -> String? {
+        guard decide(store) == .start else { return nil }
+        do {
+            let pid = try DetachedLauncher.spawnViaIntermediate(
+                DetachedLauncher.uiIntermediateArgs(executable: program, store: store.root.path, extra: []), log: DetachedLauncher.uiLog(store.root))
+            return "the dashboard is published and was not running — started it in the background (pid \(pid), \(program) ui --detach)"
+        } catch {
+            return "the dashboard is published and was not running — could not start it: \(error)"
+        }
+    }
+
+    /// How often the daemon looks (60 s; a guarded test run may set `DOZ_TEST_UI_KEEP_INTERVAL` to 1–600 seconds).
+    public static func interval(_ env: [String: String] = ProcessInfo.processInfo.environment) -> Double {
+        if TestSafety.guarded(env), let s = env["DOZ_TEST_UI_KEEP_INTERVAL"].flatMap(Double.init), (1...600).contains(s) { return s }
+        return 60
+    }
+}

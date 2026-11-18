@@ -255,6 +255,29 @@ final class TailscalePublishTests: XCTestCase {
         XCTAssertEqual(st.st_mode & 0o777, 0o700)
     }
 
+    func testTheDaemonStartsAPublishedDashboardOnlyWhenNothingHoldsItAndNobodyStoppedIt() throws {
+        let store = DozableStore(root: root.appendingPathComponent("store3"))
+        try FileManager.default.createDirectory(at: store.root, withIntermediateDirectories: true)
+        XCTAssertEqual(PublishedDashboard.decide(store), .notPublished)
+        XCTAssertNil(PublishedDashboard.ensure(store, program: "/nonexistent/doz"), "not published: nothing started")
+        try TailscalePublish.writeMarker(store, .init(name: "n", origin: "https://n.t.ts.net", port: 7443, published: Date()))
+        XCTAssertEqual(PublishedDashboard.decide(store), .start)
+        // A doz ui holds ui.lock: running.
+        let fd = open(store.root.appendingPathComponent("ui.lock").path, O_RDWR | O_CREAT, 0o600)
+        XCTAssertEqual(flock(fd, LOCK_EX | LOCK_NB), 0)
+        XCTAssertEqual(PublishedDashboard.decide(store), .running)
+        close(fd)
+        XCTAssertEqual(PublishedDashboard.decide(store), .start)
+        PublishedDashboard.markStopped(store)
+        XCTAssertEqual(PublishedDashboard.decide(store), .stoppedByPerson)
+        XCTAssertNil(PublishedDashboard.ensure(store, program: "/nonexistent/doz"), "the person's stop: nothing started")
+        PublishedDashboard.clearStopped(store)
+        XCTAssertEqual(PublishedDashboard.decide(store), .start)
+        XCTAssertEqual(PublishedDashboard.interval([:]), 60)
+        XCTAssertEqual(PublishedDashboard.interval(["DOZ_TEST_GUARD": "1", "DOZ_TEST_UI_KEEP_INTERVAL": "2"]), 2)
+        XCTAssertEqual(PublishedDashboard.interval(["DOZ_TEST_REAL_MAC": "1", "DOZ_TEST_UI_KEEP_INTERVAL": "2"], ), 60)
+    }
+
     final class Box: @unchecked Sendable {
         var calls: [[String]] = []
         var loaded = false

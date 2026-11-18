@@ -152,7 +152,10 @@ Take it off again with `doz ui unpublish tailscale` — the dashboard is this Ma
 `--logout` to also sign the node out of your tailnet and remove its state; publishing again then asks you to sign in
 again, as a new device.
 
-The dashboard itself runs while `doz ui` does — start it in the background with `doz ui --detach`.
+While it is published, the doz daemon keeps the dashboard running: it starts it in the background when the daemon
+starts (at login, with `doz daemon login-item on`) and again if it stops unexpectedly. `doz ui stop` is your word: after
+it the daemon leaves the dashboard stopped until you start it again (`doz ui --detach`). `doz ui publish status` says
+which.
 
 ## HTTPS behind your own reverse proxy
 

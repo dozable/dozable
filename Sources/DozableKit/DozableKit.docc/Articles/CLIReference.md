@@ -815,7 +815,9 @@ dashboard (or starts it in the background). Tailscale serves 443 to the dashboar
 store where the dashboard answers every request with a redirect to the https address. Another device still gets in
 once with an invite: `doz ui share` on this Mac. `--adopt-state DIR` takes over a node you started by hand (its state
 folder is copied; stop its tailscaled first). `doz doctor` adds rows for the node, its sign-in, 443 pointing at the
-dashboard's port, port 80's redirect, and the address itself (`dashboard via https://…`).
+dashboard's port, port 80's redirect, and the address itself (`dashboard via https://…`). While published, the daemon keeps the
+dashboard running (at its start — so at login with its login item — and when it stops unexpectedly), never after
+`doz ui stop` until the dashboard is started again.
 
 ### Chat
 

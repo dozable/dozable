@@ -124,6 +124,7 @@ func showDashboardPage(_ page: String, _ g: GlobalOptions) async throws {
     let store = g.dozableStore
     guard store.socketPathFits else { throw fail(HostError(.unavailable, UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription), g) }
     let mode = WebSettingsStore(environment: ProcessInfo.processInfo.environment, flags: configFlags(g)).current.string(SettingKey.openBrowser) ?? "auto"
+    PublishedDashboard.clearStopped(store)
     var running = WebControl.requestStatus(store)
     if running == nil {
         let log = DetachedLauncher.uiLog(store.root)
@@ -286,6 +287,8 @@ struct UIStop: AsyncParsableCommand {
 
     func run() async throws {
         let store = g.dozableStore
+        // 715: the person's word — a published dashboard is not started again by the daemon until doz ui starts it.
+        PublishedDashboard.markStopped(store)
         guard let pid = WebControl.lockHolder(store) else {
             if !g.quiet { Out.stdout("no doz ui is running for \(store.root.path)\n") }
             return
@@ -315,6 +318,8 @@ struct UIRunner {
         let env = ProcessInfo.processInfo.environment
         let mode = delivery.openMode(WebSettingsStore(environment: env, flags: o.flags).current)
         let passthrough = o.passthrough
+        // 715: a person starting the dashboard lifts an earlier doz ui stop (the daemon keeps a published one running again).
+        if !o.launched && !o.launchDetached && !o.restarted { PublishedDashboard.clearStopped(store) }
         if o.launchDetached {
             // The intermediate: the detached doz ui in a session of its own; its pid on stdout; exit (its parent → launchd).
             let pid = try DetachedLauncher.spawnDetached(
@@ -485,8 +490,11 @@ struct UIRunner {
         let redirectPath = redirect?.path
         // One stop, from a signal or (645, the LAN option) serve.sock's `stop` (`doz serve stop`, an earlier client).
         let stopping = StopOnce()
+        let foreground = !o.launched
         let stop: @Sendable () -> Void = {
             guard stopping.first(), !fds.restarting else { return }
+            // 715: Ctrl-C of a dashboard in a terminal is the person's stop too (the daemon does not start it again).
+            if foreground { PublishedDashboard.markStopped(store) }
             Task {
                 if let redirectPath { unlink(redirectPath) }
                 lanSide?.recordStop()

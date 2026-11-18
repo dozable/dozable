@@ -50,6 +50,8 @@ struct PublishAnswer: Encodable {
     var serve: Serve?
     var settings: [String: String]
     var dashboard: String?
+    /// The daemon starts the dashboard while published (false: `doz ui stop` was the last word).
+    var keptByDaemon: Bool?
     var verdict: DoctorCheck?
 }
 
@@ -152,6 +154,7 @@ struct PublishTailscale: AsyncParsableCommand {
         }
 
         // The dashboard restarts (or starts in the background) with them — then port 80's redirect is there to point at.
+        PublishedDashboard.clearStopped(store)
         let ui = try await PublishDashboard.restartOrStart(store, g, say: say)
 
         // Serving: what this node served before is replaced (it is Dozable's own node).
@@ -303,6 +306,7 @@ struct PublishStatus: AsyncParsableCommand {
             serve: serve.map { .init(https: $0.https, http: $0.http) },
             settings: settings,
             dashboard: WebControl.requestStatus(store)?.origin,
+            keptByDaemon: marker != nil ? !PublishedDashboard.stoppedByPerson(store) : nil,
             verdict: verdict)
     }
 
@@ -324,6 +328,10 @@ struct PublishStatus: AsyncParsableCommand {
         }
         Out.stdout("  settings: " + a.settings.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value.isEmpty ? "(unset)" : $0.value)" }.joined(separator: " · ") + "\n")
         Out.stdout("  dashboard: \(a.dashboard.map { "running at \($0)" } ?? "not running — doz ui --detach")\n")
+        if a.published {
+            Out.stdout(a.keptByDaemon == true ? "  the dashboard starts with the daemon while published\n"
+                       : "  the daemon does not start the dashboard now: doz ui stop was the last word (doz ui --detach starts it again)\n")
+        }
         if let v = a.verdict { Out.stdout("  the address: \(v.status == .ok ? "" : "\(v.status.rawValue.uppercased()): ")\(v.detail)\n") }
     }
 }
@@ -407,6 +415,9 @@ enum PublishDoctor {
             out.append(DoctorCheck(check: "tailscale https", status: .fail,
                                    detail: "443 goes to \(other), but the dashboard's port is \(port) — doz ui publish tailscale points it at the dashboard again"))
         }
+        out.append(PublishedDashboard.stoppedByPerson(store)
+            ? DoctorCheck(check: "tailscale ui", status: .warn, detail: "doz ui stop was the last word: the daemon does not start the dashboard (doz ui --detach starts it, and it starts with the daemon again)")
+            : DoctorCheck(check: "tailscale ui", status: .ok, detail: "the dashboard starts with the daemon while published"))
         let redirect = TailscalePublish.httpTarget(paths)
         if serve?.http != redirect {
             out.append(DoctorCheck(check: "tailscale http", status: .fail,

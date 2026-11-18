@@ -91,7 +91,12 @@ its subcommands still parse) — remove it in a later release, saying so.
   Tailscale forwards on 80; a socket in the store needs no second port and is out of every sandbox's reach. Doctor's rows
   (`PublishDoctor`, only when published): node (agent loaded, answering), login, https (443 → the dashboard's port NOW —
   the live failure mode was a changed `ui.port`), http (the redirect answers 308 to the origin); the address itself is
-  `ServeDoctor`'s `dashboard via` row. Tests: `TailscalePublishTests`, `WebPublishRedirectTests`, `make
+  `ServeDoctor`'s `dashboard via` row. **Kept running by the daemon** (`PublishedDashboard`, DozableHost): while the marker exists the daemon (started at
+  login by its login item) looks at start and every 60 s (`DOZ_TEST_UI_KEEP_INTERVAL` in a guarded run); when no `doz ui`
+  holds `ui.lock` it starts one exactly as `doz ui --detach --no-open` (`DetachedLauncher.uiIntermediateArgs` with the
+  stable path — the double spawn, parent launchd, no browser) and says so in `daemon.log`. Never after the person's stop:
+  `doz ui stop` (and Ctrl-C of a dashboard in a terminal) writes `<store>/ui.stopped`; a person's `doz ui`/`--detach`,
+  `doz try --ui` and `doz ui publish` remove it. Doctor's `tailscale ui` row and `publish status` say which. Tests: `TailscalePublishTests`, `WebPublishRedirectTests`, `make
   test-cli-alwayson` part 5 (a fake tailscale in a scratch Homebrew prefix, `DOZ_TEST_BREW_PREFIX` — the only prefix a
   guarded run looks at or runs from).
 - **Doctor**: `ServeDoctor` fetches each public origin's `/api/v1/serve/probe` with a one-use token (serve.sock `probe`);

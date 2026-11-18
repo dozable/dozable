@@ -10,6 +10,8 @@
 //      settings written, the dashboard restarted on the same port with the LAN option, port 80's redirect answering 308;
 //   c. doctor's rows: node, login, https, http all ok; a node serving another port → the https row fails, naming the port;
 //   d. publish again: no link, the name re-applied (set), 443 pointed at the dashboard again; publish status --json;
+//   d2. the daemon keeps it running: the dashboard killed → a daemon start brings it back on the same port; after doz ui
+//      stop → it does not (said by publish status); doz ui --detach lifts that;
 //   e. unpublish --logout: serve reset, logout, the LaunchAgent booted out and removed, the state removed, the settings
 //      back to this Mac only (ui.port kept), the dashboard restarted without the LAN option;
 //   f. a sign-in never approved: the link shown, then "run the same command again"; unpublish cleans up.
@@ -142,6 +144,31 @@ func dashboardPublishChecks(_ h: CLIHarness, root: URL) {
     check(js["published"] as? Bool == true && js["address"] as? String == origin && node["signedIn"] as? Bool == true
           && (js["serve"] as? [String: Any])?["https"] as? String == "http://127.0.0.1:\(port)",
           "publish d: publish status --json — published, the address, signed in, serving the dashboard's port")
+
+    // d2. the daemon keeps a published dashboard running: killed (not stopped) → a daemon start brings it back on the same
+    //     port; after doz ui stop → a daemon start does not.
+    b.env["DOZ_TEST_UI_KEEP_INTERVAL"] = "2"
+    b.run(["daemon", "stop"], timeout: 120)
+    if let pid = WebControlPid.of(root) { kill(pid, SIGKILL) }
+    _ = h.waitFor(10) { WebControlPid.of(root) == nil }
+    r = b.run(["daemon", "start"], timeout: 60)
+    let back = h.waitFor(30) { (uiStatus()["origin"] as? String)?.hasSuffix(":\(port)") == true }
+    check(r.code == 0 && back && text(store.logFile).contains("the dashboard is published and was not running — started it"),
+          "publish d2: the dashboard killed → the daemon's start brought it back on 127.0.0.1:\(port), its log says so")
+    check(uiStatus()["lan"] != nil && TailscalePublish.askRedirect(paths.redirectSocket.path)?.status == 308,
+          "publish d2: back with the LAN option and port 80's redirect")
+    r = b.run(["ui", "stop"], timeout: 30)
+    check(r.code == 0 && fm.fileExists(atPath: PublishedDashboard.stoppedFile(store).path), "publish d2: doz ui stop records the person's stop")
+    b.run(["daemon", "stop"], timeout: 120)
+    r = b.run(["daemon", "start"], timeout: 60)
+    usleep(6_000_000)                                                    // three of the daemon's looks
+    check(r.code == 0 && WebControlPid.of(root) == nil, "publish d2: after doz ui stop the daemon does not start the dashboard")
+    let said = b.run(["ui", "publish", "status"]).out
+    check(said.contains("doz ui stop was the last word"), "publish d2: publish status says the daemon does not start it now")
+    r = b.run(["ui", "--detach", "--no-open"], timeout: 60)
+    check(r.code == 0 && !fm.fileExists(atPath: PublishedDashboard.stoppedFile(store).path)
+          && b.run(["ui", "publish", "status"]).out.contains("the dashboard starts with the daemon while published"),
+          "publish d2: doz ui --detach lifts it: the dashboard starts with the daemon again")
 
     // e. unpublish --logout.
     let before = text(tsLog).split(separator: "\n").count
