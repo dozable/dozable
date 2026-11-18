@@ -257,7 +257,8 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
     two dots + the version or what is wrong, `paintFootLine` in `core/session.js` — call it after painting `#live`/`#host-live`)
     whose card (`.foot-card`) holds the rows. 647 (owner, after stage 4): the card is interactive — the daemon's row has Restart
     / Start (`paintHostCard`, `components/host.js`, built only when what it says changes), `#foot-mismatch` says when the daemon
-    and the UI are different builds, the updates row (`paintUpdates`) shows `state.update` / `state.updateCheck` with Check
+    and the UI are different builds (714: or a newer doz is installed than the UI runs — `WebHost.installedVersion`), with
+    **Restart dashboard** when the UI is the older side and the page is this Mac's own (`!state.serve`), the updates row (`paintUpdates`) shows `state.update` / `state.updateCheck` with Check
     (`POST /api/v1/updates/check`, `WebUpdateCheck`: forced, the checker's own rules — a development build says it is never
     updated); it stays open while the pointer or focus is in it and is pinned by a click. No header row above
     the page (owner: "make the header in the navbar only"; `--header-h` is 0 wider than 760 px): the sidebar's head
@@ -321,7 +322,12 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   terminal's REattach waits for a daemon rather than start one. "Start daemon" is the `daemon-start` action
   = the CLI's `ping` with autostart (HostLauncher, detached); `daemon stop` stays out of the browser
   except Restart daemon (`daemon-restart`: stop with progress, then a start — `doz daemon restart`). The mismatch note (`WebVersionNote`, semver with pre-release
-  order — `WebVersion`) advises the OLDER side.
+  order — `WebVersion`) advises the OLDER side. 714: it also compares the doz INSTALLED now (`HostWebData.installed` →
+  `StableExecutable.installedVersion`: the VERSION beside the program the formula's `opt` link names; none in a process
+  stamped by `DOZ_TEST_VERSION`) — an older UI (than the daemon, or than the install, daemon running or not) is told to
+  restart the dashboard (Restart dashboard, or `doz ui restart` — never Ctrl-C: a dashboard in the background has none).
+  The update notice and Check judge the feed against the newer of this UI's version and the installed one
+  (`WebUpdateNotice.current`), so a dashboard left on an old keg never offers the build already installed.
 - **`doz ui` gone = the page paused** (594 W21; CALM first — see the 605 section): after 1.5 s of failed reconnects (never on a blip)
   everything but the notes (`#notes`, 647) is `inert` under `#ui-overlay` (alertdialog, focus inside, Try now — the
   one retry control); the notes stay in front (z-order) and live — the banner says what
@@ -420,7 +426,12 @@ The Chat page (`#/chat`, `#/chat/ROOM`) — the chat server's rooms for the pers
 - **An installable web app** (on this Mac at 127.0.0.1; with the LAN option over https through your proxy). `app.webmanifest` is hashed like the
   css/js (`/assets/app-<h>.webmanifest`, `application/manifest+json`) with a FIXED `id` (`/?app=dozable`) so a new hash is
   the same app; `index.html` links it, the SVG favicon, the 180 px `apple-touch-icon` and a `theme-color` per scheme.
-  The page CSP gained ONLY `manifest-src 'self'; worker-src 'self'`.
+  The page CSP gained ONLY `manifest-src 'self'; worker-src 'self'`. 714 (owner: one app per Mac): `doz ui` serves it named
+  for its Mac (`WebAssets.forMac`, `WebAppName`): `name` "Dozable – <LocalHostName>", `short_name` "Doz " + ≤ 8 characters
+  (the name, else its first hyphen word, else cut), re-hashed to a new `/assets/app-<h>.webmanifest` that `index.html` links,
+  and `<title>Dozable – <name></title>` (the page keeps it: `PAGE_TITLE` in `core/session.js`); `id`, `start_url`, `scope`,
+  icons, type, cache policy and CSP as built. The name is LocalHostName (`WebMacNames.current`, scutil, read-only) — short,
+  ASCII, the `.local` name; never `localizedName` (long, the owner's name). A guarded run reads only `DOZ_TEST_MAC_NAME`.
 - **Icons are admitted by provenance**: `WebSource/icons/` holds two SVG masters (`icon.svg` — served, the favicon and
   the manifest's — and `icon-maskable.svg`, full-bleed, the drawing inside the 80 % circle) and the PNGs rendered from
   them by `node Scripts/render-web-icons.mjs` (headless Chrome), recorded in `icons/PROVENANCE.json` (each file's sha256
@@ -442,8 +453,10 @@ The Chat page (`#/chat`, `#/chat/ROOM`) — the chat server's rooms for the pers
   `unauthenticated`. `doz ui --new-link` with no UI running ends the kept sessions as rotated
   (`WebSessionStore.revokeKept`, and `ui.sessions` still goes).
 - **`doz ui restart`** (`ui.sock` line `restart` → `restarting ORIGIN` | `refused WHY`): streams end `restarting`,
-  terminals close `restarting`, then the SAME process re-executes (`execvp` of its argv[0] — by name through the PATH,
-  so an upgrade's new `bin/doz` runs — with `start` and `--restarted`, never `--open`/`--print-url`/`--new-link`;
+  terminals close `restarting`, then the SAME process re-executes (`execvp` of `UIRunner.restartArguments` — 714: started by
+  a path, the doz INSTALLED NOW, `StableExecutable.path` (a Homebrew keg → the formula's `opt` link; an install-cli/tarball
+  path stays), so a restart after `brew upgrade` never re-runs the old keg; by name, through the PATH — with `start` and
+  `--restarted`, never `--open`/`--print-url`/`--new-link`;
   every fd but 0–2 CLOEXEC; signals back to default). While it restarts, the main flow must not return (it would exit
   before the exec: `ControlFDs.restarting`). The restarted one waits for its pages, never opens a tab — except after a
   MOVE: when `ui.port` changed, pages are told `end: moved {origin}` (an origin, never a link) and the new doz ui opens
@@ -452,6 +465,18 @@ The Chat page (`#/chat`, `#/chat/ROOM`) — the chat server's rooms for the pers
   `doz ui serve` is the hidden earlier name of `doz ui start` (a note on stderr). 645: the re-exec keeps `--lan` (its argv), maps
   the `doz serve` alias to `doz ui start --lan`, and the LAN side gives up `serve.sock`, `serve/port` and `serve.lock` first;
   `doz-dev` (the workspace) relies on `doz ui restart`, `doz ui link` and `doz daemon restart` — keep them.
+  714: every detached UI (`--detach`, `doz try --ui`) is spawned from `StableExecutable.path()` too. **Restart dashboard**
+  (`POST /api/v1/ui/restart`, `{}` only, CSRF-checked; WebExposure kind **`mac-only`** — 403 `mac-only` to every other
+  computer whatever `serve.*` says, audited as a refusal) runs the SAME `WebControl.Restarter` (`server.restarter`, set by
+  `WebControl.serve`): its check (the port), once (`ControlFDs.takeRestart` — the button, `ui restart` and the restart
+  below may meet), 300 ms after the answer; the page sets `state.reloadAfterRestart` and reloads on the next `hello`.
+  **A UI restarts itself** (like the daemon's 693 restart in place) when its program was REPLACED — renamed over, or the
+  `opt` link names another file (also once `brew cleanup` took the old keg; never a file overwritten in place, never into
+  nothing: `UIRunner.programReplaced`) — and it is idle (`DozableWebServer.isIdle`: no page, file-watch or chat stream, no
+  terminal, no operation), looked at every 60 s (`DOZ_TEST_UI_PROGRAM_CHECK` in a guarded run); it says so in its log.
+  Tests: `DashboardFollowsUpgradesTests`, `WebDashboardUpgradeTests`, `ServeHTTPTests` (Restart dashboard: the Mac's only),
+  `make test-cli-alwayson` part 4 (a Homebrew-shaped prefix: started by `opt`, a new keg → it restarts itself; `doz ui
+  restart` → the new keg, same pid).
 - **The page outlives its server** (`core/reconnect.js`, `core/events.js`, `core/session.js`): a CALM "Reconnecting to Dozable…" (neutral banner) for 15 s (60 s after
   `end: restarting`), today's alarming wording at once on `end: shutdown`, the port it expected after a minute.
   Terminals REATTACH by themselves after a restart, a stop, a dropped socket (code 1006) or a sign-in again

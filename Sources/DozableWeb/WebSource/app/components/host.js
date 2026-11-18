@@ -36,17 +36,18 @@ export function renderHostFoot() {
   paintFootLine();
   // One note, once per pair of builds: this UI and the host it talks to differ. 594 W20: the server
   // compares them and advises the OLDER side (a host older than this UI: stop it — Restart host).
-  const note = host && host.running && host.versionNote;
+  const note = host && host.versionNote;
   if (note && !state.uiDown) {
-    const pair = host.uiVersion + '|' + host.version;
+    const pair = host.uiVersion + '|' + (host.running ? host.version : '') + '|' + (host.installedVersion || '');
     let seen = state.versionNoted === pair;
     try { seen = seen || localStorage.getItem('doz.versionNoted') === pair; } catch (_) { /* no storage: once per page */ }
     if (!seen) {
       state.versionNoted = pair;
       try { localStorage.setItem('doz.versionNoted', pair); } catch (_) { /* */ }
-      banner('version', 'warn', [note.text], note.older === 'host' ? [restartHostButton(host)] : []);
+      banner('version', 'warn', [note.text], note.older === 'host' ? [restartHostButton(host)]
+        : note.older === 'ui' && canRestartDashboard() ? [restartDashboardButton()] : []);
     }
-  } else if (host && host.running && !host.versionNote) {
+  } else if (host && !host.versionNote) {
     dropBanner('version');
   }
 }
@@ -64,6 +65,25 @@ function restartHostButton(host, opts = {}) {
                    : 'No sandbox is running.'),
       [], 'Restart daemon', async () => { await actOrThrow({ action: 'daemon-restart' }); dropBanner('version'); }, { icon: 'rotate-ccw' });
   }, { small: true, primary: !opts.quiet, quiet: !!opts.quiet, icon: 'rotate-ccw', title: 'Stop the daemon (its running sandboxes hibernate) and start doz ' + (host.uiVersion || host.version) });
+}
+/// 714: Restart dashboard — this doz ui restarts as `doz ui restart` does (the doz installed now, the same port); the page
+/// waits for it and reloads. Offered only in this Mac's own browser: the server refuses another computer's (mac-only).
+function canRestartDashboard() { return !state.serve; }
+function restartDashboardButton(opts = {}) {
+  return btn(opts.label || 'Restart dashboard', async (ev) => {
+    const b = ev.currentTarget;
+    b.disabled = true;
+    try {
+      await api('ui/restart', { method: 'POST', json: {} });
+      state.reloadAfterRestart = true;            // the next hello is the new doz ui's: reload into its page
+      dropBanner('version');
+      toast('Restarting the dashboard — this page reloads by itself');
+    } catch (e) {
+      b.disabled = false;
+      pageFailure('Restart dashboard: ' + (e.message || String(e)), { key: 'ui-restart' });
+    }
+  }, { small: true, primary: !opts.quiet, quiet: !!opts.quiet, icon: 'rotate-ccw',
+       title: 'Restart doz ui as the doz installed now (doz ui restart) — open pages reconnect and terminals reattach' });
 }
 function startHostButton(opts = {}) {
   return btn(opts.label || 'Start daemon', async (ev) => {
@@ -83,11 +103,18 @@ function paintHostCard(host) {
     slot.dataset.k = k;
     slot.replaceChildren(...(k === '' ? [] : host.running ? [restartHostButton(host, { quiet: true, label: 'Restart' })] : [startHostButton({ quiet: true, label: 'Start' })]));
   }
-  const differ = host && host.running && host.uiVersion && host.version && host.uiVersion !== host.version;
-  const text = differ ? (host.versionNote && host.versionNote.text) || ('The daemon runs doz ' + host.version + '; this dashboard is doz ' + host.uiVersion + '.') : '';
+  const vn = host && !state.uiDown ? host.versionNote : null;
+  const differ = !!vn || !!(host && host.running && host.uiVersion && host.version && host.uiVersion !== host.version);
+  const text = differ ? (vn && vn.text) || ('The daemon runs doz ' + host.version + '; this dashboard is doz ' + host.uiVersion + '.') : '';
+  // 714: an older dashboard (than the daemon, or than the doz installed now) — Restart dashboard, in this Mac's browser.
+  const offer = !!(vn && vn.older === 'ui' && canRestartDashboard());
   note.hidden = !differ;
-  if (note.textContent !== text) note.textContent = text;
-  note.classList.toggle('warn', !!differ);
+  const nk = text + (offer ? '|restart' : '');
+  if (note.dataset.k !== nk) {
+    note.dataset.k = nk;
+    note.replaceChildren(h('span', null, text), ...(offer ? [' ', restartDashboardButton({ quiet: true })] : []));
+  }
+  note.classList.toggle('warn', differ);
 }
 /// The updates row: what the last check found (the session's `update`, or the answer of Check), and Check — the feed
 /// asked now (POST /api/v1/updates/check; a development build is never updated, and says so).

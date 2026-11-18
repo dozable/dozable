@@ -20,6 +20,7 @@ export const state = {
   renewTimer: null,
   deniedOnly: false,
   signedOut: false,
+  reloadAfterRestart: false, // 714: Restart dashboard was pressed — the next hello (the new doz ui's) reloads the page
   metricsFilter: { image: '', days: '', steps: false },
   settings: null,          // 591: {report, byKey} from GET /api/v1/settings
   recipe: null,            // 669: #/recipes[/V/P] — '' the Recipes page, 'V/P' one recipe's page; null otherwise

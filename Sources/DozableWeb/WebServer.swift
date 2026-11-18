@@ -57,6 +57,16 @@ public final class DozableWebServer: @unchecked Sendable {
     /// 606: doz serve's connections answered with a refusal instead of served (never a silent drop but a sandbox's).
     private var refusedConnections: [ObjectIdentifier: WebRejection] = [:]
     func connectionRefusal(_ id: ObjectIdentifier) -> WebRejection? { lock.withLock { refusedConnections[id] } }
+    private var _restarter: WebControl.Restarter?
+    /// 714: how this UI restarts itself (`doz ui restart`'s — set with its control socket, `WebControl.serve`): the page's
+    /// Restart dashboard does the same. nil: this server cannot (a test's), and the route says so.
+    public var restarter: WebControl.Restarter? {
+        get { lock.withLock { _restarter } }
+        set { lock.withLock { _restarter = newValue } }
+    }
+    private var restartTaken = false
+    /// 714: the first Restart dashboard asked of this process (a second click while it restarts does nothing more).
+    func takeRestart() -> Bool { lock.withLock { defer { restartTaken = true }; return !restartTaken } }
     private var _advertised: String?
     /// 606: doz serve's Bonjour name once registered (said by `GET /api/v1/serve`).
     public var advertised: String? {
@@ -296,6 +306,12 @@ public final class DozableWebServer: @unchecked Sendable {
 
     /// 594 W19: pages connected now (their event streams).
     public var openPages: Int { hub.count }
+
+    /// 714: nothing is open or under way — no page, file-watch or chat stream, no terminal, no operation running or
+    /// waiting. Only then may a dashboard whose program was replaced restart itself unasked.
+    public var isIdle: Bool {
+        hub.count == 0 && filesHub.count == 0 && chatHub.count == 0 && terminals.count == 0 && !operations.busy
+    }
 
     /// 594 W19: a live session was kept from the last UI (a page of it may be open, retrying).
     public func hasSessions() async -> Bool { await sessions.liveSessionCount > 0 }
@@ -790,7 +806,10 @@ public final class DozableWebServer: @unchecked Sendable {
 
     /// 611: the banner — what the last update check found (read from its state file; no network).
     var updateNotice: WebUpdateNotice? {
-        let ctx = UpdateContext.current(version: version, executable: HostLauncher.executablePath)
+        // 714: against the doz installed now, never only this process's own (older) version — a dashboard left running
+        // from an old keg offered the very build already installed. That restart is the status card's note instead.
+        let ctx = UpdateContext.current(version: WebUpdateNotice.current(own: version, installed: data.installedVersion()),
+                                        executable: HostLauncher.executablePath)
         let (available, installed) = UpdateChecker.remembered(ctx)
         if let v = installed {
             return WebUpdateNotice(kind: "installed", version: v, command: "doz daemon restart", notes: nil,
@@ -1101,10 +1120,25 @@ public final class DozableWebServer: @unchecked Sendable {
             // build, never a guarded test run without its feed; forced, so the feed is asked past the CDN's copy.
             try Self.requireJSONBody(md)
             try WebUpdateCheck.decodeRequest(body)
-            let ctx = UpdateContext.current(version: version, executable: HostLauncher.executablePath)
+            let current = WebUpdateNotice.current(own: version, installed: data.installedVersion())   // 714
+            let ctx = UpdateContext.current(version: current, executable: HostLauncher.executablePath)
             let r = await UpdateChecker.check(ctx, force: true)
-            return json(WebUpdateCheck(current: version, checkedAt: Date(), disabled: r.disabled, offline: r.offline,
+            return json(WebUpdateCheck(current: current, checkedAt: Date(), disabled: r.disabled, offline: r.offline,
                                        problem: r.problem, update: r.disabled == nil ? updateNotice : nil))
+        case .uiRestart:
+            // 714: CSRF-checked (an unsafe method, above), this Mac's browser only (WebExposure `mac-only`, above), the body
+            // {} only. The restart `doz ui restart` makes (its checks, the same port), once, after this answer is written.
+            try Self.requireJSONBody(md)
+            try WebUpdateCheck.decodeRequest(body)
+            guard let r = restarter else { throw HostError(.unavailable, "this doz ui cannot restart itself — on the Mac: doz ui restart") }
+            if let why = r.check() { throw HostError(.failed, why) }
+            if takeRestart() {
+                Task.detached {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    r.restart()
+                }
+            }
+            return json(["restarting": origin.value])
         case .preparations:
             return json(try await data.preparations())
         case .accountAdd:

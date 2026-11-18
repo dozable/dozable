@@ -8,6 +8,8 @@
 //   3. A daemon whose program is replaced by rename (an install) while nothing runs RESTARTS IN PLACE, with no command
 //      typed: one daemon, a new pid, parent launchd, running the new file (its identity unchanged since it started), the
 //      old one's log saying so.
+//   4. The dashboard follows an upgrade (`dashboardFollowsUpgradeChecks`): started by a Homebrew-shaped opt path, a new keg
+//      linked in → it restarts itself with no page open; `doz ui restart` runs the keg installed now.
 //
 // Every daemon it starts is stopped at the end; the store and the copies are removed.
 import Darwin
@@ -126,4 +128,7 @@ func cliAlwaysOnSuite(binary: String) async {
     let log = (try? String(contentsOf: store.logFile, encoding: .utf8)) ?? ""
     check(log.contains("restarting in place, from the installed build") && log.contains("daemon exiting (restarted in place)"),
           "always-on: the old daemon's log says it restarted in place")
+
+    // 4. the dashboard follows an upgrade (DashboardUpgradeChecks.swift).
+    dashboardFollowsUpgradeChecks(h, root: root, binary: binary)
 }

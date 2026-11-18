@@ -23,7 +23,7 @@ refused and allowing it with one click. It runs on your Mac only; nothing else c
 doz ui                    # serve it and open it in your browser (the same as doz ui start)
 doz ui --print-url        # print the link instead of opening a browser
 doz ui link               # another browser or tab on the dashboard that runs
-doz ui restart            # restart the running dashboard: open pages carry on by themselves
+doz ui restart            # restart the running dashboard as the doz installed now: open pages carry on by themselves
 doz ui --new-link         # sign every page out and make a new link
 doz ui --detach           # run it in the background (no terminal needed), open it, and return
 doz ui stop               # stop the running dashboard — a detached one, or one in another terminal
@@ -45,6 +45,11 @@ A fixed port that another program holds is never silently swapped: `doz ui` refu
 the program. After `doz ui restart` onto a new port, the dashboard opens there in a new tab and the old
 page says where it went (a browser rule keeps a page from following by itself).
 
+**After an upgrade.** `doz ui restart` (and **Restart dashboard** on the page) always starts the doz installed
+now — after `brew upgrade`, the new version, even when the dashboard was started from the one before. A dashboard
+in the background with no page open restarts into a new doz by itself within a minute of the upgrade; with a page
+open it waits for you: the status card says the dashboard is older and offers **Restart dashboard**.
+
 **When a tab opens:** only when none of the dashboard's pages is open (the setting `ui.open_browser`:
 `auto`). Set it to `always` or `never`, or use `--open` / `--no-open` for one run.
 
@@ -54,8 +59,10 @@ minutes.
 ## Install it as an app
 
 - **Chrome (or Edge):** on the dashboard, the address bar's install icon or **⋮ › Cast, save and share ›
-  Install page as app…** — *Install Dozable*. It opens in its own window, with the Dozable icon in the
-  Dock and in ⌘-Tab, and shares Chrome's sign-in.
+  Install page as app…** — *Install Dozable – m1max* (the app is named for its Mac: its local hostname, from
+  System Settings › General › Sharing). It opens in its own window, with the Dozable icon in the
+  Dock and in ⌘-Tab, and shares Chrome's sign-in. Each Mac's dashboard is its own app — install the one of each
+  Mac you use (from another computer, with [the LAN option](25-doz-serve.md)) and the windows are titled apart.
 - **Safari:** **File › Add to Dock**. A Safari web app keeps its own cookies, so it opens on the
   dashboard's sign-in: paste a link from `doz ui link --print-url` into its field.
 
@@ -170,8 +177,10 @@ has:
 - **daemon** — whether the daemon runs, and its version, with **Restart** (it asks first, hibernates what
   runs — sessions kept, they wake when you use them — and starts the daemon again, as
   `doz daemon restart` does) or **Start** while none runs.
-- A line when the daemon and the dashboard are **different versions**, saying which is older: an older
-  daemon is fixed by **Restart**; an older dashboard by `doz ui restart`.
+- A line when the daemon and the dashboard are **different versions**, or a newer doz is installed than the
+  dashboard runs, saying which is older: an older daemon is fixed by **Restart**; an older dashboard by
+  **Restart dashboard** (in this Mac's own browser — another computer's page does not offer it) or `doz ui restart`.
+  The page waits for the dashboard to come back and reloads itself.
 - **updates** — what the last check found (a newer doz and the command that installs it, or up to
   date, and when it was checked), with **Check** to look now. A doz built from source is never updated,
   and says so.
@@ -184,7 +193,7 @@ Notifications tell you what happened to the daemon:
   again).
 - **Another version of the daemon took over:** it says so. If the daemon is **older** than the dashboard,
   **Restart daemon** asks first, hibernates what runs and starts the newer daemon (sandboxes wake when you
-  use them). If the dashboard is the older one, restart `doz ui`.
+  use them). If the dashboard is the older one, **Restart dashboard** (or `doz ui restart`).
 
 ## Notifications
 

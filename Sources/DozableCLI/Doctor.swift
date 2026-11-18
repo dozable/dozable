@@ -35,6 +35,24 @@ struct Doctor: AsyncParsableCommand {
 
     /// `claude: false` (594: `doz onboard --key …`) leaves out the Claude Code checks — the ones
     /// that run `claude --version` and read the Mac login's keychain item.
+    /// 714: what the daemon row adds when the running daemon is another build than this doz (nil: the same). Advice for
+    /// the OLDER side: an older daemon is stopped (the next command starts this build); a NEWER daemon means this doz is
+    /// the old one — a copy still running from before an upgrade (the dashboard's, in the background) when the daemon's
+    /// release is installed, else one to upgrade. (It said "doz daemon stop" for both: wrong when the daemon was newer.)
+    static func daemonVersionAdvice(daemon: String, this: String, installed: String?, upgrade: String?) -> String? {
+        guard daemon != this else { return nil }
+        switch SemVer.compare(daemon, this) {
+        case .orderedAscending?: return " — this CLI is \(this): doz daemon stop"
+        case .orderedSame?: return nil
+        case .orderedDescending?:
+            if let installed, SemVer.compare(installed, this) == .orderedDescending {
+                return " — this doz is \(this), older than the daemon: doz \(installed) is installed, and this is an older copy still running (the dashboard: Restart dashboard, or doz ui restart)"
+            }
+            return " — this doz is \(this), older than the daemon: upgrade it\(upgrade.map { " (\($0))" } ?? "")"
+        case nil: return " — this CLI is \(this), a different build"
+        }
+    }
+
     static func checks(store: DozableStore, claude: Bool = true) -> [DoctorCheck] {
         var out: [DoctorCheck] = []
         var hostKeychain: (reason: String, pid: Int32, startedAt: Date)?
@@ -198,7 +216,11 @@ struct Doctor: AsyncParsableCommand {
                 // 693: always on, or its idle timeout (an older daemon: its timeout).
                 detail += ", \(st.version), \(st.liveSandboxes.count) running, "
                     + (st.alwaysOn == true ? "always on" : st.idleTimeoutMinutes > 0 ? "idle timeout \(st.idleTimeoutMinutes.formatted()) min" : "never exits by itself")
-                if st.version != DozableCommand.version { status = .warn; detail += " — this CLI is \(DozableCommand.version): doz daemon stop" }
+                if let advice = Doctor.daemonVersionAdvice(daemon: st.version, this: DozableCommand.version,
+                                                           installed: StableExecutable.installedVersion(),
+                                                           upgrade: InstallMethod.detect(executable: HostLauncher.executablePath).upgradeCommand) {
+                    status = .warn; detail += advice
+                }
                 // 700: always-on off with the timeout 0 — it never switches off by idling.
                 if let alwaysOn = st.alwaysOn, let w = DozableSettings.daemonIdleWarning(alwaysOn: alwaysOn, idleTimeoutMinutes: st.idleTimeoutMinutes) {
                     status = .warn; detail += " — " + w

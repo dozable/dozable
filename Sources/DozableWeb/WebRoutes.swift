@@ -162,6 +162,9 @@ public enum WebRoute: Equatable, Sendable {
     // 647 — the sidebar's status card: look for an update NOW (the feed asked, past the CDN's copy; the answer is what
     // the banner then shows). POST + CSRF: it asks the network and writes the checker's state.
     case updatesCheck              // POST /api/v1/updates/check  ({})
+    // 714 — the status panel's Restart dashboard: this doz ui restarts as `doz ui restart` does (same port; the page waits
+    // and reloads). POST + CSRF; this Mac's own browser only (WebExposure kind `mac-only`).
+    case uiRestart                 // POST /api/v1/ui/restart  ({})
     case serveStatus              // GET  /api/v1/serve
     case serveDevices              // GET  /api/v1/serve/devices
     case serveShare                // POST /api/v1/serve/share  ({})
@@ -237,6 +240,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 2) where rest == ["dotfiles", "resolve"]: return .dotfilesResolve
         case (.post, 1) where rest[0] == "signup": return .signup
         case (.post, 2) where rest == ["updates", "check"]: return .updatesCheck
+        case (.post, 2) where rest == ["ui", "restart"]: return .uiRestart
         case (.post, 2) where rest == ["serve", "share"]: return .serveShare
         case (.post, 4) where rest[0] == "serve" && rest[1] == "devices" && isDeviceID(rest[2]) && rest[3] == "revoke": return .serveRevoke(rest[2])
         case (.post, 4) where rest[0] == "serve" && rest[1] == "devices" && isDeviceID(rest[2]) && rest[3] == "name": return .serveRename(rest[2])

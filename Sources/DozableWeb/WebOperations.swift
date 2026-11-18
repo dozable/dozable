@@ -75,6 +75,9 @@ final class WebOperations: @unchecked Sendable {
 
     static let lifecycleLaneOps: Set<HostOp> = [.start, .wake, .resume, .sleep, .hibernate, .shutdown]
 
+    /// 714: an operation runs or waits now.
+    var busy: Bool { lock.withLock { !inFlight.isEmpty || queues.values.contains { !$0.isEmpty } || runningIn.values.contains { $0 > 0 } } }
+
     /// 650: the lane of an action, given the sandbox's phase as last seen (nil: not known — a resume then waits in
     /// the lane, the safe side: it may be a wake's heavy half).
     static func lane(_ a: WebAction, phase: String?) -> Lane {

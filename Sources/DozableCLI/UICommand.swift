@@ -126,7 +126,7 @@ func showDashboardPage(_ page: String, _ g: GlobalOptions) async throws {
         let pid: pid_t
         do {
             pid = try DetachedLauncher.spawnViaIntermediate(
-                DetachedLauncher.uiIntermediateArgs(executable: HostLauncher.executablePath, store: store.root.path, extra: []), log: log)
+                DetachedLauncher.uiIntermediateArgs(executable: StableExecutable.path(), store: store.root.path, extra: []), log: log)
         } catch let e as HostError { throw fail(e, g) }
         let end = Date().addingTimeInterval(20)
         while Date() < end {
@@ -314,7 +314,7 @@ struct UIRunner {
         if o.launchDetached {
             // The intermediate: the detached doz ui in a session of its own; its pid on stdout; exit (its parent → launchd).
             let pid = try DetachedLauncher.spawnDetached(
-                DetachedLauncher.uiProcessArgs(executable: HostLauncher.executablePath, store: store.root.path, extra: passthrough),
+                DetachedLauncher.uiProcessArgs(executable: StableExecutable.path(), store: store.root.path, extra: passthrough),
                 log: DetachedLauncher.uiLog(store.root))
             Out.stdout("\(pid)\n")
             return
@@ -327,7 +327,7 @@ struct UIRunner {
             let pid: pid_t
             do {
                 pid = try DetachedLauncher.spawnViaIntermediate(
-                    DetachedLauncher.uiIntermediateArgs(executable: HostLauncher.executablePath, store: store.root.path, extra: passthrough), log: log)
+                    DetachedLauncher.uiIntermediateArgs(executable: StableExecutable.path(), store: store.root.path, extra: passthrough), log: log)
             } catch let e as HostError { throw fail(e, g) }
             var up: (origin: String, pages: Int)?
             let end = Date().addingTimeInterval(20)
@@ -383,7 +383,8 @@ struct UIRunner {
             lockFD = fd
         } catch let e as HostError { throw fail(e, g) }
         let assets: WebAssets
-        do { assets = try WebAssets.load() } catch {
+        // 714: named for this Mac (the installed app's name, the page's title).
+        do { assets = try WebAssets.load().forMac(WebAppName.current(env)) } catch {
             throw fail(HostError(.failed, "the web UI's resources are missing or altered (\(error)) — \(WebAssets.bundleName) must sit beside the doz executable (make install-cli copies it)"), g)
         }
         let data = UIRunner.webData(store, env)
@@ -446,7 +447,8 @@ struct UIRunner {
             }
             return nil
         }, restart: {
-            fds.restarting = true
+            // One restart (714: the page's button, `doz ui restart` and the restart after an install may meet).
+            guard fds.takeRestart() else { return }
             Task {
                 if case .fixed(let next) = UIRunner.portChoice(WebSettingsStore(environment: env, flags: flags)), next != server.origin.port,
                    let to = try? WebOrigin(port: next) {
@@ -509,6 +511,24 @@ struct UIRunner {
         }
         if let lanSide, !g.json, !o.noInvite, !o.restarted, !o.launched { await lanSide.printInvite() }
         let serving = Task { try await server.run() }
+        // 714 (like the daemon's restart in place, 693): a dashboard whose program was REPLACED — an install renamed a new
+        // file over it, or `brew upgrade` relinked the formula's opt to a new keg — restarts itself as `doz ui restart`
+        // does, but only while nothing is open (no page, stream, terminal or operation): nobody is interrupted, and the next
+        // page loads the new build. With a page open the page offers Restart dashboard instead.
+        if let identity = ExecutableIdentity.of(path: HostLauncher.executablePath) {
+            let every = UIRunner.programCheckInterval(env)
+            Task.detached {
+                while true {
+                    try? await Task.sleep(for: .seconds(every))
+                    if fds.restarting || stopping.started { return }
+                    let stable = StableExecutable.path(for: identity.path)
+                    guard UIRunner.programReplaced(identity, stable: stable), server.isIdle, restarter.check() == nil else { continue }
+                    if !json { Out.stderr("doz ui: a new doz was installed at \(stable) and no page is open — restarting from it\n") }
+                    restarter.restart()
+                    return
+                }
+            }
+        }
         // 611: doz ui looks for an update when it starts (whatever the day's check said), then once a day while it runs;
         // the dashboard's banner reads what was found (UpdateChecker.remembered) — the page never asks the network.
         Task.detached {
@@ -562,6 +582,25 @@ struct UIRunner {
         withExtendedLifetime((sources, lanSide)) {}
     }
 
+    /// 714: how often a running dashboard looks at its program (60 s; a guarded test run may set
+    /// `DOZ_TEST_UI_PROGRAM_CHECK` to 1–600 seconds).
+    static func programCheckInterval(_ env: [String: String]) -> Double {
+        if TestSafety.guarded(env), let s = env["DOZ_TEST_UI_PROGRAM_CHECK"].flatMap(Double.init), (1...600).contains(s) { return s }
+        return 60
+    }
+
+    /// 714: this dashboard's program was replaced by a NEW FILE that is there now — renamed over its path, or the stable
+    /// path (`opt`) names another file (also once `brew cleanup` deleted the old keg). Never for a file overwritten in
+    /// place (it may be half written), nor when nothing is at the stable path.
+    static func programReplaced(_ identity: ExecutableIdentity, stable: String) -> Bool {
+        let stableNow = stable == identity.path ? nil : ExecutableIdentity.of(path: stable)
+        switch identity.change(now: ExecutableIdentity.of(path: identity.path), stableNow: stableNow) {
+        case .replaced?: return ExecutableIdentity.of(path: stable) != nil
+        case .removed?: return stableNow != nil
+        default: return false
+        }
+    }
+
     /// 645: the dashboard's port as these settings decide it (`ui.port`, `ui.lan`, `serve.port`).
     static func portChoice(_ settings: WebSettingsStore) -> WebDashboardPort {
         WebDashboardPort.resolve(uiPort: settings.int(SettingKey.uiPort), lan: settings.bool(SettingKey.uiLAN),
@@ -576,6 +615,10 @@ struct UIRunner {
         let data = HostWebData(store: store, version: DozableCommand.version, macLogin: {
             // 594: the onboarding wizard's account step — is Claude Code signed in on this Mac (read-only).
             probeClaude && ClaudeLoginStatus.check(configDir: nil, keychain: SystemKeychain(), probeBinary: false).state == .signedIn
+        }, installed: {
+            // 714: the doz installed now. Not in a process stamped as another build (DOZ_TEST_VERSION): it would compare a
+            // pretend version with a real file.
+            DozableCommand.testVersion(env["DOZ_TEST_VERSION"]) == nil ? StableExecutable.installedVersion() : nil
         }) {
             Doctor.checks(store: store, claude: probeClaude).map { WebDoctorCheck(check: $0.check, status: $0.status.rawValue, detail: $0.detail) }
         }
@@ -591,14 +634,35 @@ struct UIRunner {
         /// `doz ui restart` is under way: the server's end is not the command's.
         var restarting = false
         let lock: Int32
+        private let mutex = NSLock()
         init(lock: Int32) { self.lock = lock }
+        /// Marks the restart under way; false when one already is.
+        func takeRestart() -> Bool { mutex.withLock { defer { restarting = true }; return !restarting } }
     }
 
     /// 605: become `doz ui start` again — the same arguments (but never a tab, a printed link or a new
     /// link), through the PATH when started by name, so an upgrade's new `doz` is the one that runs.
     /// The same process (pid, terminal); every descriptor but stdin/stdout/stderr is closed by the exec.
     static func reexec() -> Never {
-        var args = CommandLine.arguments
+        let args = restartArguments(CommandLine.arguments, executable: HostLauncher.executablePath)
+        for sig in [SIGINT, SIGTERM, SIGHUP, SIGPIPE] { signal(sig, SIG_DFL) }
+        fflush(stdout)
+        fflush(stderr)
+        for fd in 3..<max(3, Int32(getdtablesize())) { _ = fcntl(fd, F_SETFD, FD_CLOEXEC) }
+        var cargs: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) } + [nil]
+        execvp(args[0], &cargs)
+        Out.stderr("doz ui could not restart itself (\(String(cString: strerror(errno)))) — start it again: doz ui\n")
+        Darwin.exit(1)
+    }
+
+    /// The argv `reexec` runs (pure, for the tests). 714: the program is the doz INSTALLED NOW — a doz ui started by a
+    /// path (a detached one always is) runs `StableExecutable.path(for: executable)` again: for a Homebrew keg the
+    /// formula's `opt` link, so a restart after `brew upgrade` runs the new keg, not the one this process came from (the
+    /// owner's dashboard stayed 0.51.8 through two upgrades); a `make install-cli` or tarball install keeps its own path
+    /// (its folder is swapped in place). Started by name (`doz`), it is looked up through the PATH as before.
+    static func restartArguments(_ argv: [String], executable: String) -> [String] {
+        var args = argv
+        if let p = args.first, p.contains("/") { args[0] = StableExecutable.path(for: executable) }
         args.removeAll { ["--open", "--print-url", "--new-link", "--restarted"].contains($0) }
         if let i = args.firstIndex(of: "ui") {
             if i + 1 < args.count, args[i + 1] == "start" || args[i + 1] == "serve" { args[i + 1] = "start" } else { args.insert("start", at: i + 1) }
@@ -609,14 +673,7 @@ struct UIRunner {
             if !args.contains("--lan") { args.append("--lan") }
         }
         args.append("--restarted")
-        for sig in [SIGINT, SIGTERM, SIGHUP, SIGPIPE] { signal(sig, SIG_DFL) }
-        fflush(stdout)
-        fflush(stderr)
-        for fd in 3..<max(3, Int32(getdtablesize())) { _ = fcntl(fd, F_SETFD, FD_CLOEXEC) }
-        var cargs: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) } + [nil]
-        execvp(args[0], &cargs)
-        Out.stderr("doz ui could not restart itself (\(String(cString: strerror(errno)))) — start it again: doz ui\n")
-        Darwin.exit(1)
+        return args
     }
 }
 

@@ -400,8 +400,8 @@ test-cli-onboarding: cli vmtest-host ## 594: only test-cli's onboarding part (on
 test-cli-terminal: cli vmtest-host ## 594 W13: only test-cli's terminal part — on a pty, a detach / a session's end / SIGHUP put the outer terminal's modes and termios back
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-terminal --doz $(CLI_BIN)
 
-test-cli-alwayson: cli vmtest-host ## The always-on daemon (also in test-cli), no VM: default settings keep it running with nothing open; daemon.always_on off applies at once (it exits when idle); its program replaced by rename while nothing runs → it restarts in place, one daemon, no command typed (scratch store)
-	perl -e 'alarm shift; exec @ARGV' 300 $(VMTEST_BIN) cli-alwayson --doz $(CLI_BIN)
+test-cli-alwayson: cli vmtest-host ## The always-on daemon (also in test-cli), no VM: default settings keep it running with nothing open; daemon.always_on off applies at once (it exits when idle); its program replaced by rename while nothing runs → it restarts in place, one daemon, no command typed; the dashboard follows a Homebrew-shaped upgrade (restarts itself with no page open; doz ui restart runs the keg installed now) (scratch store)
+	perl -e 'alarm shift; exec @ARGV' 480 $(VMTEST_BIN) cli-alwayson --doz $(CLI_BIN)
 
 test-cli-chat: cli vmtest-host ## The chat server run by the daemon, no VM: a scratch store and free ports — on/off/status, add (the token in no log, file, --json or ps), a room, a message each way through the owner's socket and an agent's token, TCP never you, a killed server restarted, a port in use, off keeps the data, tokens replaced and removed, no server left after daemon stop or kill -9, chat keeps an idle daemon up, and it follows a program replaced by rename; doz chat import of a copy made for import (refused with secrets or while on, nobody woken, history kept aside)
 	perl -e 'alarm shift; exec @ARGV' 600 $(VMTEST_BIN) cli-chat --doz $(CLI_BIN)

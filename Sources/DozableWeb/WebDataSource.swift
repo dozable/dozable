@@ -7,6 +7,8 @@ import DozableHost
 /// to a VM, a keychain or a file except through these calls (tests substitute a fake).
 public protocol DozableWebData: Sendable {
     var storePath: String { get }
+    /// 714: the release installed now at this dashboard's stable path (the update notice compares with it).
+    func installedVersion() -> String?
     func overview() async throws -> WebOverview
     func sandbox(_ name: String) async throws -> WebSandboxDetail
     func sessions(_ name: String) async throws -> [WebSessionRow]
@@ -124,6 +126,8 @@ public protocol DozableWebData: Sendable {
 }
 
 extension DozableWebData {
+    /// 714: the doz installed now (nil: not known — a test's data source).
+    public func installedVersion() -> String? { nil }
     public func tools(_ name: String) async throws -> ToolsLayerReport { throw HostError(.notImplemented, "tools") }
     public func dotfilesResolve(_ source: String?) async throws -> DotfilesResolved { throw HostError(.notImplemented, "dotfiles") }
     public func plan(_ r: PlanRequest) async throws -> WebPlan { throw HostError(.notImplemented, "plan") }
@@ -220,6 +224,8 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     /// The `doz` executable Terminal runs (this process's own, symlinks resolved).
     let executable: String
+    /// 714: the release installed now (`StableExecutable.installedVersion`) — nil when not known.
+    let installed: @Sendable () -> String?
     let terminalLauncher: @Sendable (String) throws -> Void
 
     /// 594: whether Claude Code is signed in on this Mac (the onboarding's account step) — read-only.
@@ -231,10 +237,12 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     public init(store: DozableStore, version: String, executable: String = HostLauncher.executablePath,
                 terminal: (@Sendable (String) throws -> Void)? = nil,
                 macLogin: @escaping @Sendable () -> Bool = { false },
+                installed: @escaping @Sendable () -> String? = { nil },
                 doctor: @escaping @Sendable () -> [WebDoctorCheck]) {
         self.store = store
         self.version = version
         self.executable = executable
+        self.installed = installed
         terminalLauncher = terminal ?? TerminalHandoff.launcher(store: store)
         self.macLogin = macLogin
         doctorChecks = doctor
@@ -347,6 +355,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     }
 
     public var storePath: String { store.root.path }
+    public func installedVersion() -> String? { installed() }
 
     /// A blocking host call, off the cooperative pool.
     private func blocking<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
@@ -464,7 +473,9 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
                            // A live record is only "pending recovery" when no host holds it.
                            // (Nor while a stopping host still holds the lock: it is hibernating them.)
                            recoveryPending: fromHost || store.hostIsRunning() ? [] : store.needsRecovery(), store: store.root.path, uiVersion: version)
-        if host.running { host.versionNote = WebVersionNote.make(ui: version, host: host.version) }
+        // 714: and the doz installed now — a dashboard left running from an older keg says so (and offers its restart).
+        host.installedVersion = installed()
+        host.versionNote = WebVersionNote.make(ui: version, host: host.running ? host.version : nil, installed: host.installedVersion)
         var o = WebOverview(host: host, sandboxes: rows, source: fromHost ? "host" : "store")
         o.onboarded = OnboardingRecord.read(store) != nil
         return o

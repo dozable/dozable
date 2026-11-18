@@ -233,8 +233,11 @@ machine, the wake is refused rather than risk the snapshot, and says so.
 
 The dashboard watches the daemon. If a daemon of another version takes over, a banner says so; if the
 daemon is **older** than the dashboard, the banner offers **Restart daemon**: it asks first, hibernates
-the running sandboxes and starts the newer daemon (they wake when you use them). If `doz ui` itself is
-the older one, the banner asks you to restart `doz ui`. See [The dashboard](06-the-dashboard.md).
+the running sandboxes and starts the newer daemon (they wake when you use them). If the dashboard itself is
+the older one — the daemon is newer, or you upgraded doz while it ran — the banner offers **Restart dashboard**
+(in this Mac's own browser; or `doz ui restart`), which starts the doz installed now, and the page reloads by
+itself. A dashboard in the background with no page open restarts into the new doz by itself. See
+[The dashboard](06-the-dashboard.md).
 
 ## Uninstall
 

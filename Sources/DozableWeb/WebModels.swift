@@ -25,27 +25,38 @@ public struct WebHost: Codable, Equatable, Sendable {
     public var uiVersion: String
     /// 594 W20: set when the host and this UI are different builds — advice for the OLDER side.
     public var versionNote: WebVersionNote? = nil
+    /// 714: the doz installed now (the release at this UI's stable path — after `brew upgrade`, the new keg's), when it is
+    /// known; newer than `uiVersion` = this dashboard still runs an older copy.
+    public var installedVersion: String? = nil
 }
 
 /// 594 W20: the host and `doz ui` are different builds. The advice is for the OLDER side (the owner saw
 /// "restart doz ui" when the UI was the newer one — restarting it changed nothing).
 ///   · `older == "host"`: stop the host (its sandboxes hibernate); the next action starts this UI's build
 ///     — the page offers Restart host;
-///   · `older == "ui"`: restart doz ui;
+///   · `older == "ui"`: restart the dashboard (714: the page offers Restart dashboard in this Mac's browser; a dashboard
+///     in the background has no Ctrl-C) — also when the daemon is this UI's build but a newer doz is INSTALLED;
 ///   · `older == nil`: not comparable (a build that is not semver): only that they differ.
 public struct WebVersionNote: Codable, Equatable, Sendable {
     public var older: String?
     public var text: String
 
-    public static func make(ui: String, host: String?) -> WebVersionNote? {
-        guard let host, host != ui else { return nil }
+    static let restartUI = "restart the dashboard (Restart dashboard, or doz ui restart)"
+
+    /// `host` nil: no daemon runs (only the installed doz is compared).
+    public static func make(ui: String, host: String?, installed: String? = nil) -> WebVersionNote? {
+        let newerInstalled = installed.flatMap { WebVersion.compare($0, ui) == .orderedDescending ? $0 : nil }
+        guard let host, host != ui else {
+            return newerInstalled.map { WebVersionNote(older: "ui", text: "doz \($0) is installed, and this dashboard is still \(ui) — \(restartUI).") }
+        }
         switch WebVersion.compare(host, ui) {
         case .orderedAscending?:
             return WebVersionNote(older: "host", text: "The daemon is still \(host) — doz daemon stop (sandboxes hibernate) and the next action runs \(ui).")
         case .orderedDescending?:
-            return WebVersionNote(older: "ui", text: "doz ui is \(ui), the daemon is \(host) — restart doz ui (Ctrl-C it, then doz ui) so the page and the daemon are the same build.")
+            return WebVersionNote(older: "ui", text: "This dashboard is \(ui), the daemon is \(host) — \(restartUI) so the page and the daemon are the same build.")
         case .orderedSame?:
-            return nil   // the same release (build metadata differs)
+            // The same release (build metadata differs) — unless a newer one is installed.
+            return newerInstalled.map { WebVersionNote(older: "ui", text: "doz \($0) is installed, and this dashboard is still \(ui) — \(restartUI).") }
         case nil:
             return WebVersionNote(older: nil, text: "doz ui is \(ui), the daemon is \(host) — different builds.")
         }
@@ -1676,6 +1687,14 @@ public struct WebUpdateNotice: Codable, Equatable, Sendable {
     public var command: String
     public var notes: String?
     public var text: String
+
+    /// 714: the version an update is judged against — the doz INSTALLED now when it is newer than this dashboard's own
+    /// (an upgrade this dashboard has not restarted into yet), else its own. So nothing older than or equal to what is
+    /// installed is ever offered, and a restart the installed build is waiting for is the dashboard's, not an update's.
+    public static func current(own: String, installed: String?) -> String {
+        guard let installed, WebVersion.compare(installed, own) == .orderedDescending else { return own }
+        return installed
+    }
 }
 
 /// 647: the sidebar's status card's Check for updates — a check the person asked for (`POST /api/v1/updates/check`):
