@@ -199,3 +199,11 @@ workspace/release
 workspace/edit
 workspace/log
 workspace/rename
+bot
+bot/new
+bot/ls
+bot/show
+bot/set
+bot/retire
+bot/adopt
+bot/token

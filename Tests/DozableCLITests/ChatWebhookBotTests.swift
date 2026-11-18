@@ -282,4 +282,15 @@ final class ChatWhoPresenceTests: XCTestCase {
         for w in ["here", "present", "working", "idle"] { XCTAssertTrue(ChatWho.isHere(w), w) }
         for w in ["away", "quiet", "woken", "not running", ""] { XCTAssertFalse(ChatWho.isHere(w), w) }
     }
+
+    /// An Agent / Bot is marked `bot: true`; anyone else carries no `bot` field.
+    func testABotIsMarkedAndNobodyElseCarriesTheField() throws {
+        func obj(_ r: ChatWho.Row) throws -> [String: Any] {
+            try XCTUnwrap(try JSONSerialization.jsonObject(with: try JSONEncoder().encode(r)) as? [String: Any])
+        }
+        let bot = ChatWho.Row(name: "mira", kind: "claude-session", token: true, delivery: "inbox", webhookEntry: nil, rooms: [], here: nil, presence: nil, bot: true)
+        let plain = ChatWho.Row(name: "bot1", kind: "agent", token: true, delivery: "polls", webhookEntry: nil, rooms: [], here: nil, presence: nil, bot: nil)
+        XCTAssertEqual(try obj(bot)["bot"] as? Bool, true)
+        XCTAssertNil(try obj(plain)["bot"])
+    }
 }

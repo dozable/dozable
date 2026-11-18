@@ -828,7 +828,7 @@ doz chat status [--json]                        # on, ready, its ports (as the r
 doz chat add NAME [--kind KIND] [--webhook [--webhook-entry E] | --inbox [--session S]] [--to-file F | --from-stdin]   # a participant and its token (shown once)
 doz chat set NAME --deliver inbox|poll|webhook [--webhook-entry E] [--kind KIND] [--session S]   # how it is reached; token, rooms, history kept
 doz chat remove NAME                            # it leaves every room; its token is refused
-doz chat who [--json]                           # name, kind, token, how it is reached, rooms, presence
+doz chat who [--json]                           # name, kind, token, how it is reached, rooms, presence; a bot's KIND ends "· bot" (--json: bot: true)
 doz chat token NAME --new | --from-stdin [--to-file F]   # replace a participant's token
 doz chat webhook set E [--from-file F]          # a webhook bot's entry: address, then Authorization value (login keychain)
 doz chat webhook status [E] | remove E
@@ -840,8 +840,36 @@ You take part through your own socket in the store (no token for you exists); ev
 the page port (`chat.page_port`, `/agent/…`) or the line port (`chat.line_port`). `chat.remote_listen` and
 `chat.remote_agents` open both ports on this Mac's Tailscale address to the machines named — as agents with a token
 only. The dashboard's Chat page acts as you; another browser of `doz ui --lan` gets chat only as `serve.chat`
-(off | read | write, off by default) allows. Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already
+(off | read | write, off by default) allows. An Agent / Bot is changed with `doz bot`, never `doz chat`: `chat remove`,
+`chat token` and `chat set` on a bot point to `doz bot retire`, `doz bot token --new` and `doz bot set --deliver`, and
+`chat add` refuses a bot's name or a retired one. Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already
 exists · 6 chat is off or not ready · 64 usage.
+
+### Agents / Bots
+
+An Agent / Bot is a lasting identity in chat: its agent program, its model and account, where it runs and how the chat
+server reaches it, with a token of its own.
+
+```bash
+doz bot new NAME --agent A [--model M] [--isolation vm|fenced|unfenced|elsewhere] [--deliver inbox|poll|webhook] [--webhook-entry E] [--session S] [--skills a,b] [--instructions-file F|-] [--account A] [--avatar V] [--to-file F]
+doz bot ls [--retired] [--json]                 # NAME  AGENT · MODEL  ISOLATION  REACHED  MANAGES
+doz bot show NAME [--json]                      # its record, where its token is, its rooms (while chat runs), its instructions' size
+doz bot set NAME [--model M] [--account A] [--avatar V] [--skills a,b] [--instructions-file F] [--isolation I] [--deliver D [--webhook-entry E | --session S]] [--to-file F]
+doz bot retire NAME [--yes]                     # it leaves chat, its token is refused, its name stays with its old messages
+doz bot adopt NAME --agent A [flags] [--yes]    # an existing participant becomes a bot: its token is replaced
+doz bot token NAME [--new [--to-file F]]        # where its token is; --new replaces it
+```
+
+`--isolation` is `fenced` unless given; `unfenced` only when named, and it shows as "acts as you" wherever it shows. A bot
+that runs on this Mac (vm, fenced, unfenced) has its token kept in your login keychain — one item per bot — and never
+shown: `--to-file` is for a bot elsewhere, whose token is shown once on a terminal or written to a new file only you can
+read, and never kept. No option takes a token; no `--json` carries one. Moving a bot to or from elsewhere replaces its
+token. `--deliver` is `poll` unless given (`inbox` for a Claude Code bot; `webhook` needs `doz chat webhook set NAME`
+next). With chat off, a new bot takes part once chat is on. A held bot's change is refused where the login keychain is
+locked. `retire` and `adopt` ask first; `--yes` is required with `--json` or with no terminal. A retired name is never
+taken again (`bot new`, `bot adopt`, `chat add`). `ls` and `show` answer from the store without starting the daemon. Exit
+codes: 0 ok · 2 not found · 4 already exists, or a retired name · 6 the daemon or the keychain unavailable · 64 usage
+(a missing `--yes` included).
 
 ### Workspaces
 

@@ -198,7 +198,8 @@ public enum BotName {
         HostError(.exists, "\(name) was a bot, retired \(day(at)) — the name stays with its old messages")
     }
 
-    static func day(_ d: Date) -> String {
+    /// A day as `2026-11-19`.
+    public static func day(_ d: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
