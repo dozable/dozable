@@ -6,7 +6,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 | Path | What |
 |---|---|
-| `Sources/DozableWeb/WebServe*.swift`, `WebExposure.swift`, `WebQR.swift`, `WebBonjour.swift`; `Sources/DozableCLI/ServeCommand.swift`; `Sources/DozableKit/LocalDashboards.swift` | `doz ui`'s LAN option (645; `doz serve` before) — the rules (`WebServe`: addresses, the accept gate, the request's own origin, `isMacRequest`, `WebDashboardPort`), devices + invites (`WebServeDevices`), the audit log, `serve.sock` (`WebServeControl`), the server's LAN side (`WebServeServer`, `WebServeState`, `WebAuth`), the capability table, our QR encoder, Bonjour; the CLI (`LANDashboard`, `doz ui share|devices|revoke|rename|log|status`, the hidden `doz serve` alias, doctor's public-origin check); the egress proxy's refusal of the dashboards' ports |
+| `Sources/DozableWeb/WebServe*.swift`, `WebExposure.swift`, `WebQR.swift`, `WebBonjour.swift`, `WebPublishRedirect.swift`; `Sources/DozableCLI/ServeCommand.swift`, `PublishCommands.swift`; `Sources/DozableHost/TailscalePublish.swift`; `Sources/DozableKit/LocalDashboards.swift` | `doz ui`'s LAN option (645; `doz serve` before) — the rules (`WebServe`: addresses, the accept gate, the request's own origin, `isMacRequest`, `WebDashboardPort`), devices + invites (`WebServeDevices`), the audit log, `serve.sock` (`WebServeControl`), the server's LAN side (`WebServeServer`, `WebServeState`, `WebAuth`), the capability table, our QR encoder, Bonjour; the CLI (`LANDashboard`, `doz ui share|devices|revoke|rename|log|status`, the hidden `doz serve` alias, doctor's public-origin check); `doz ui publish|unpublish tailscale` (Dozable's own Tailscale node, port 80's redirect); the egress proxy's refusal of the dashboards' ports |
 
 ## The LAN option (`doz ui --lan`) — the dashboard for the other browsers of the network
 
@@ -76,6 +76,29 @@ its subcommands still parse) — remove it in a later release, saying so.
   sandbox, outcome), terminal open/close, refusals, drops — collapsed per minute for the noisy kinds; never a body,
   cookie, token, code or header value. Rotated at 1 MiB × 3. `doz ui log`. Only REMOTE requests are audited (the
   Mac's own browser never was).
+- **Published on Tailscale** (715, `doz ui publish|unpublish tailscale`, `PublishCommands.swift`; the plan is
+  `TailscalePublish` in DozableHost, pure + seams): Dozable's OWN userspace `tailscaled` from Homebrew's formula
+  (`<prefix>/opt/tailscale/bin`, linked or not — never `/usr/local/bin/tailscale` or the Tailscale app's CLI), its
+  `--statedir`/`--socket` in `<store>/tailscale/` (every `tailscale` call names `--socket=`), kept by ONE per-store
+  LaunchAgent `com.dozable.tailscale.<storeHash>` (RunAtLoad + KeepAlive; through `LaunchAgentsFolder`/`Launchctl`, so
+  a guarded run never reaches the real ones). Signed in → `set --hostname` (re-apply); not → `up --hostname --timeout`,
+  its login link shown. Settings through the settings code (`publishSettings`/`unpublishSettings`; never `serve.chat`),
+  then the dashboard restarts (or starts detached). `serve reset` + `serve --bg --https=443 http://127.0.0.1:<ui.port>` +
+  `serve --bg --http=80 unix:<store>/tailscale/http.sock`. **Port 80's redirect** is `WebPublishRedirect` (DozableWeb),
+  run by `doz ui` while `<store>/tailscale/published.json` exists and the LAN option is on: every request on that unix
+  socket gets a 308 to the marker's https origin + its own path (`redirectLocation`: origin-form visible ASCII only, else
+  `/`). `tailscale serve` has no redirect, and the target never comes from a request header, so nothing depends on what
+  Tailscale forwards on 80; a socket in the store needs no second port and is out of every sandbox's reach. Doctor's rows
+  (`PublishDoctor`, only when published): node (agent loaded, answering), login, https (443 → the dashboard's port NOW —
+  the live failure mode was a changed `ui.port`), http (the redirect answers 308 to the origin); the address itself is
+  `ServeDoctor`'s `dashboard via` row. **Kept running by the daemon** (`PublishedDashboard`, DozableHost): while the marker exists the daemon (started at
+  login by its login item) looks at start and every 60 s (`DOZ_TEST_UI_KEEP_INTERVAL` in a guarded run); when no `doz ui`
+  holds `ui.lock` it starts one exactly as `doz ui --detach --no-open` (`DetachedLauncher.uiIntermediateArgs` with the
+  stable path — the double spawn, parent launchd, no browser) and says so in `daemon.log`. Never after the person's stop:
+  `doz ui stop` (and Ctrl-C of a dashboard in a terminal) writes `<store>/ui.stopped`; a person's `doz ui`/`--detach`,
+  `doz try --ui` and `doz ui publish` remove it. Doctor's `tailscale ui` row and `publish status` say which. Tests: `TailscalePublishTests`, `WebPublishRedirectTests`, `make
+  test-cli-alwayson` part 5 (a fake tailscale in a scratch Homebrew prefix, `DOZ_TEST_BREW_PREFIX` — the only prefix a
+  guarded run looks at or runs from).
 - **Doctor**: `ServeDoctor` fetches each public origin's `/api/v1/serve/probe` with a one-use token (serve.sock `probe`);
   `DOZ_TEST_SERVE_CA` (tests) trusts only a scratch CA. Bonjour failures are said, never fatal.
 - **Tests**: `ServeQRTests` (ISO vectors + CoreImage round trips), `ServeRulesTests` (incl. `isMacRequest`, the one

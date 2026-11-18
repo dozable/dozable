@@ -174,6 +174,15 @@ public final class HostServer: @unchecked Sendable {
         // are then known to its look at the holders).
         Task.detached { await server.core.ensureStandingWatchers() }
         Task.detached { await server.idleLoop() }
+        // 715: a published dashboard is kept running (it comes back at login with the daemon, and after a crash) — never
+        // after the person stopped it (`PublishedDashboard`).
+        Task.detached {
+            try? await Task.sleep(for: .seconds(1))
+            while true {
+                if let line = PublishedDashboard.ensure(store, program: stable) { HostLog.line(line) }
+                try? await Task.sleep(for: .seconds(PublishedDashboard.interval()))
+            }
+        }
         // The chat server: looked at every second (the settings every 5 s; a `doz chat` command at once). Never one while
         // the daemon stops or after its program was replaced — the restart in place brings one up from the new build.
         Task.detached {

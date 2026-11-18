@@ -144,6 +144,8 @@ ui/devices
 ui/revoke
 ui/rename
 ui/log
+ui/publish
+ui/unpublish
 serve/start
 serve/share
 serve/devices

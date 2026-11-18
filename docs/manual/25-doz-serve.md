@@ -115,6 +115,48 @@ When another program holds it, `doz ui` refuses and names that program.
 doz config set ui.port 8443
 ```
 
+## On your tailnet, at its own https address (Tailscale)
+
+If you use Tailscale, one command puts the dashboard on your tailnet at an address of its own, with a real
+certificate — so it can be installed as an app on your other devices and takes keys and tokens:
+
+```bash
+brew install tailscale          # once: Dozable runs its own Tailscale node from it
+doz ui publish tailscale        # the dashboard at https://dozable-<this Mac>.<your tailnet>.ts.net
+```
+
+The first time, it shows Tailscale's sign-in link: open it, approve the new device, and the command carries on by
+itself (not approved within five minutes? run the same command again to continue). It then says the address, and the
+next step: run `doz ui share` on this Mac to let a browser on another device in, once — the address is on your tailnet
+only, and every browser still needs an invite.
+
+What it does, in one step:
+
+- It runs **Dozable's own Tailscale node**, from Homebrew's `tailscale` (it does not need to be linked). The Mac's own
+  Tailscale — the app or the `tailscale` command — is left exactly as it is. The node keeps its state in the store and
+  is kept running by a LaunchAgent of yours, so it comes back after a restart.
+- It names the node `dozable-<this Mac's local hostname>` (`--name` chooses another).
+- Tailscale serves `https://<name>.<your tailnet>.ts.net` to the dashboard; plain `http://` there redirects to it.
+- It sets the dashboard up for it: a fixed `ui.port`, `ui.lan` on, `serve.bind` `loopback`, `serve.public_origins` the
+  address and `serve.trusted_proxies` `127.0.0.1,::1` — then restarts the dashboard. Chat on other devices stays as
+  `serve.chat` says.
+
+Run it again any time: it re-applies everything (after you changed `ui.port`, say). Check it:
+
+```bash
+doz ui publish status      # the node, its sign-in, what it serves, the settings, and whether the address reaches the dashboard
+doz doctor                 # the same, as rows
+```
+
+Take it off again with `doz ui unpublish tailscale` — the dashboard is this Mac's only again (`ui.port` is kept). Add
+`--logout` to also sign the node out of your tailnet and remove its state; publishing again then asks you to sign in
+again, as a new device.
+
+While it is published, the doz daemon keeps the dashboard running: it starts it in the background when the daemon
+starts (at login, with `doz daemon login-item on`) and again if it stops unexpectedly. `doz ui stop` is your word: after
+it the daemon leaves the dashboard stopped until you start it again (`doz ui --detach`). `doz ui publish status` says
+which.
+
 ## HTTPS behind your own reverse proxy
 
 If you already run a reverse proxy at home (Caddy, Traefik, nginx, Nginx Proxy Manager, a Cloudflare Tunnel …), put
