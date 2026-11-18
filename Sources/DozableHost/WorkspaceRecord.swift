@@ -167,11 +167,14 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     /// `you` or `doz`.
     public var startedBy: String
     public var startedAt: Date
+    /// The Agent / Bot it is (`bots.json`), when it is one; nil: an agent with no lasting identity. Additive: an older doz
+    /// keeps it as an unknown field.
+    public var bot: String?
     public var unknown = UnknownFields()
-    static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt"]
+    static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt", "bot"]
 
-    public init(name: String, role: String = "worker", place: AgentPlace, startedBy: String = "you", startedAt: Date) {
-        self.name = name; self.role = role; self.place = place; self.startedBy = startedBy; self.startedAt = startedAt
+    public init(name: String, role: String = "worker", place: AgentPlace, startedBy: String = "you", startedAt: Date, bot: String? = nil) {
+        self.name = name; self.role = role; self.place = place; self.startedBy = startedBy; self.startedAt = startedAt; self.bot = bot
     }
 
     public init(from decoder: Decoder) throws {
@@ -181,6 +184,7 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         place = try c.decode(AgentPlace.self, forKey: "place")
         startedBy = try c.decodeIfPresent(String.self, forKey: "startedBy") ?? "you"
         startedAt = try c.decode(Date.self, forKey: "startedAt")
+        bot = try c.decodeIfPresent(String.self, forKey: "bot")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -192,6 +196,7 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         try c.encode(place, forKey: "place")
         try c.encode(startedBy, forKey: "startedBy")
         try c.encode(startedAt, forKey: "startedAt")
+        try c.encodeIfPresent(bot, forKey: "bot")
     }
 }
 

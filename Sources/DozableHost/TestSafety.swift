@@ -47,6 +47,10 @@ public enum TestSafety {
         if service.hasPrefix(ChatWebhookEntries.servicePrefix) {
             return "a test reached the login keychain's chat webhook item (\(service)) — set DOZ_TEST_CREDENTIALS=memory"
         }
+        // Nor a bot's token: the tests' keychain is the memory seam.
+        if service.hasPrefix(BotTokens.servicePrefix) {
+            return "a test reached the login keychain's bot token item (\(service)) — set DOZ_TEST_CREDENTIALS=memory"
+        }
         guard service.hasPrefix(ClaudeLogin.baseService) else { return nil }
         return "a test reached the login keychain's Claude Code item (\(service)) — set DOZ_TEST_CREDENTIALS=memory and DOZ_TEST_NO_MAC_LOGIN=1"
     }

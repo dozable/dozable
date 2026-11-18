@@ -46,7 +46,8 @@ and another browser of the LAN option gets what `serve.chat` allows (below, "In 
 | `Sources/DozableHost/ChatSupervisor.swift` | `ChatSupervisor`: the server as the daemon's child — the generated files, posix_spawn, readiness, restarts, stops; `ChatServerState` (`supervisor.json`, `daemon status`); `ChatProcesses`, the seam the tests fake |
 | `Sources/DozableHost/ChatOwnerClient.swift` | the person's HTTP client on the owner's socket (the `doz chat` commands and the dashboard): request headers, the answer's headers, a cap per call, a stream another thread can cancel (`StreamHandle`) |
 | `Sources/DozableWeb/WebChat.swift`, `WebSource/app/*/chat*.js` | the dashboard's Chat page: its closed routes on the owner's socket and the page (web.md, "Chat") |
-| `Sources/DozableCLI/ChatCommands.swift` | the `doz chat` group: on, off, status, add, set, remove, who, token, rooms, room, send, read |
+| `Sources/DozableCLI/ChatCommands.swift` | the `doz chat` group: on, off, status, add, set, remove, who (a bot marked), token, rooms, room, send, read |
+| `Sources/DozableHost/HostCore+Bots.swift` (`BotGuards`, `BotChat`) | Agents / Bots as the chat server sees them: ordinary participants, changed through `doz bot` (workspaces.md, "Agents / Bots") |
 | `Sources/DozableChat/ChatImport.swift` | reading a copy made for import without trusting it, and staging it in this server's format (`ChatImport`); `ImportDB`, the read-only, immutable, `trusted_schema`-off connection |
 | `Sources/DozableHost/ChatImporter.swift`, `Sources/DozableCLI/ChatImportCommand.swift` | `doz chat import`: the names against the directory, the data folder put aside, `imported.json` (`ChatImporter`); the command and its dry run |
 | `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home, also calling a webhook), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars), `ChatWebhookTests` (against `TestWebhookListener`, a listener each test starts on 127.0.0.1: the call, the tries, every limit of the client, no secret anywhere, notices, the hold, redelivery once; reactions), `ChatSessionsAndFilesTests` (against `TestClaudeSession`, a record and key file in a scratch sessions folder and a socket the test listens on: the inbox text, failed, `/protocol`, `/react`'s fallback, notices, started, the announcement; names never paths, the limits before a byte is kept, the human's token, download headers, who may fetch, a delete's files; the msg_id start rule) |
@@ -284,6 +285,14 @@ Homebrew formula links `bin/dozchat` → `libexec/doz/dozchat-mac`, the CLI tarb
 | `imported.json`, `data.before-import-<UTC>/` | the last `doz chat import`'s record (counts, room files' SHA-256 — nothing secret) and each earlier data folder it put aside (never deleted by doz) |
 
 A store whose `chat.sock` path would be longer than 103 bytes cannot have chat (`on` and `doctor` say so).
+
+**An Agent / Bot is an ordinary participant.** The chat server knows nothing of bots: a bot is a name in
+`directory.json` with a hash in `tokens.json`, added, changed, given a new token and removed by the supervisor's own
+operations (`SupervisorBotChat`, the `BotChat` seam) — so those two files keep one writer. Dozable's record of bots is
+`<store>/bots/bots.json`; a held bot's token is in its own keychain item (workspaces.md, "Agents / Bots"). `doz chat`
+leaves a bot to `doz bot`: `HostServer.chatRequest` asks `BotGuards.chatRefusal` before anything — `chat add` of a bot's
+or a retired bot's name (its old messages keep it), `chat remove`, `token` and `set` of a bot, each answered with the `doz
+bot` command; every other name is unchanged. `doz chat who` marks a bot (`· bot`, `--json` `bot: true`).
 
 **The generated config** is one profile: `bind` and `allow` loopback only, `require_tokens` true, `agent_addresses`
 127.0.0.0/8 and ::1, `secrets_file_only`, no `test_owned_addresses`, the human `deliver: web`, each participant with no

@@ -344,15 +344,15 @@ struct TokenDestination {
         return TokenDestination(file: path, fd: fd)
     }
 
-    /// Puts the token where it goes and says so (it is never in --json).
-    func deliver(_ token: String, name: String) {
+    /// Puts the token where it goes and says so (it is never in --json). `again`: the command that makes another.
+    func deliver(_ token: String, name: String, again: String? = nil) {
         if let file {
             _ = token.withCString { write(fd, $0, strlen($0)) }
             _ = write(fd, "\n", 1)
             close(fd)
             Out.stdout("Its token is in \(DisplayPath.tilde(file)) (only you can read it).\n")
         } else {
-            Out.stdout("Its token: \(token)\nThis token is not kept; doz chat token \(name) --new makes another.\n")
+            Out.stdout("Its token: \(token)\nThis token is not kept; \(again ?? "doz chat token \(name) --new") makes another.\n")
         }
     }
 
@@ -747,7 +747,8 @@ struct ChatWho: AsyncParsableCommand {
     /// set)`, `webhook (unreadable)` — never the entry's value.
     /// `presence`: the server's own word (`/api/presence`: here, away, present, quiet, woken, working, idle, not running);
     /// `here`: true only for one with a page open or heard from lately — never for one not heard from.
-    struct Row: Encodable { var name: String; var kind: String; var token: Bool; var delivery: String?; var webhookEntry: String?; var rooms: [String]; var here: Bool?; var presence: String? }
+    /// `bot`: true for an Agent / Bot (`doz bot`); nil for anyone else.
+    struct Row: Encodable { var name: String; var kind: String; var token: Bool; var delivery: String?; var webhookEntry: String?; var rooms: [String]; var here: Bool?; var presence: String?; var bot: Bool? }
 
     /// Whether a presence word means the participant is here now (a page open, or heard from lately).
     static func isHere(_ state: String) -> Bool { ["here", "present", "working", "idle"].contains(state) }
@@ -775,10 +776,11 @@ struct ChatWho: AsyncParsableCommand {
         var rows: [Row] = []
         // Whether each webhook entry is set: as the daemon last saw it (supervisor.json says set / not set / unreadable only).
         let entryStates = ChatServerState.load(paths)?.webhooks ?? [:]
+        let bots = Set(BotStore(store: g.dozableStore).readOrEmpty().active.map(\.name))
         func row(_ n: String, kind: String, token: Bool, delivery: String?, entry: String?) -> Row {
             let word = running ? (presence[n] ?? "") : ""
             return Row(name: n, kind: kind, token: token, delivery: delivery, webhookEntry: entry, rooms: roomsOf(n),
-                       here: running ? Self.isHere(word) : nil, presence: running && !word.isEmpty ? word : nil)
+                       here: running ? Self.isHere(word) : nil, presence: running && !word.isEmpty ? word : nil, bot: bots.contains(n) ? true : nil)
         }
         if let h = dir.human { rows.append(row(h, kind: "you", token: false, delivery: nil, entry: nil)) }
         for p in dir.participants {
@@ -790,7 +792,7 @@ struct ChatWho: AsyncParsableCommand {
         if rows.isEmpty { Out.stdout("nobody yet — doz chat on, then doz chat add NAME\n"); return }
         var t = [["NAME", "KIND", "TOKEN", "DELIVERY", "ROOMS", "PRESENCE"]]
         for r in rows {
-            t.append([r.name, r.kind, r.kind == "you" ? "—" : (r.token ? "yes" : "no"), r.delivery ?? "—", r.rooms.isEmpty ? "—" : r.rooms.joined(separator: ","),
+            t.append([r.name, r.kind + (r.bot == true ? " · bot" : ""), r.kind == "you" ? "—" : (r.token ? "yes" : "no"), r.delivery ?? "—", r.rooms.isEmpty ? "—" : r.rooms.joined(separator: ","),
                       r.presence ?? r.here.map { $0 ? "here" : "away" } ?? "—"])
         }
         Out.stdout(Out.table(t))

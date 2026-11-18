@@ -66,7 +66,8 @@ doz workspace release demo my-sandbox         # loose again; it keeps running as
 ```
 
 A sandbox or session is in one workspace at most: adopting one that is already in another is refused, with the command
-that releases it. A sandbox you rename (`doz rename`) stays in its workspace under its new name; one you delete
+that releases it. An agent of a workspace may be an Agent / Bot — a lasting identity in chat (see
+[Agents / Bots](38-agents-and-bots.md)); a bot in a workspace is released from it before it can be retired. A sandbox you rename (`doz rename`) stays in its workspace under its new name; one you delete
 (`doz rm`) leaves it.
 
 ## Changing one
