@@ -28,7 +28,7 @@ public struct WorkspaceStore: Sendable {
     }
 
     /// `path` with every link resolved — the longest part that exists, then the rest as given.
-    static func resolved(_ path: String) -> String {
+    public static func resolved(_ path: String) -> String {
         var head = (path as NSString).standardizingPath, tail: [String] = []
         while head != "/" {
             if let r = realpath(head, nil) {

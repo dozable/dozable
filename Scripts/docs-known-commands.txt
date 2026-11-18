@@ -190,3 +190,12 @@ chat/rooms
 chat/room
 chat/send
 chat/read
+workspace
+workspace/new
+workspace/ls
+workspace/show
+workspace/adopt
+workspace/release
+workspace/edit
+workspace/log
+workspace/rename
