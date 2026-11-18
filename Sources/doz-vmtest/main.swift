@@ -920,6 +920,10 @@ Task {
             // Workspaces through the real doz, its daemon and chat server — no VM (CLIWorkspaceSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliWorkspaceSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-bots":
+            // Agents / Bots through the real doz, its daemon and chat server — no VM, the memory keychain (CLIBotsSuite.swift).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliBotsSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-daemon":
             // 694: the daemon's login item — a scratch LaunchAgents folder and a fake launchctl (no VM).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
