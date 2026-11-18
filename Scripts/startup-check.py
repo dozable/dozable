@@ -103,23 +103,23 @@ try:
         d = doctor([])
         check(d.get("priority", {}).get("status") == "ok", "doz doctor at normal priority: priority ok (%s)" % d.get("priority", {}).get("detail", "none"))
         # (exec nosuch above started a host: a fresh one, from a background client)
-        subprocess.run([doz, "host", "stop"], env=env, capture_output=True, timeout=300)
-        subprocess.run(["taskpolicy", "-b", doz, "host", "start"], env=env, capture_output=True, timeout=120)
-        p = subprocess.run([doz, "host", "status", "--json"], env=env, capture_output=True, text=True, timeout=60)
+        subprocess.run([doz, "daemon", "stop"], env=env, capture_output=True, timeout=300)
+        subprocess.run(["taskpolicy", "-b", doz, "daemon", "start"], env=env, capture_output=True, timeout=120)
+        p = subprocess.run([doz, "daemon", "status", "--json"], env=env, capture_output=True, text=True, timeout=60)
         try:
             st = json.loads(p.stdout)
         except ValueError:
             st = {}
         hp = st.get("priority") or {}
         check(hp.get("background") is False and st.get("priorityRestored") is True and (hp.get("pri") or 0) > 4,
-              "a host started by a taskpolicy -b client leaves the background: %s, priorityRestored %s" % (hp, st.get("priorityRestored")))
+              "a daemon started by a taskpolicy -b client leaves the background: %s, priorityRestored %s" % (hp, st.get("priorityRestored")))
         d = doctor(["taskpolicy", "-b"])
-        hc = d.get("host priority", {})
+        hc = d.get("daemon priority", {})
         check(hc.get("status") == "ok" and "moved out of the background priority" in hc.get("detail", ""),
-              "doctor's host priority: ok, moved out (%s)" % hc.get("detail", "none"))
-        subprocess.run([doz, "host", "stop"], env=env, capture_output=True, timeout=300)
+              "doctor's daemon priority: ok, moved out (%s)" % hc.get("detail", "none"))
+        subprocess.run([doz, "daemon", "stop"], env=env, capture_output=True, timeout=300)
 finally:
-    subprocess.run([doz, "host", "stop"], env=env, capture_output=True, timeout=300)
+    subprocess.run([doz, "daemon", "stop"], env=env, capture_output=True, timeout=300)
     shutil.rmtree(root, ignore_errors=True)
 
 print("startup-check: ALL PASS" if failures == 0 else "startup-check: %d FAILED" % failures)
