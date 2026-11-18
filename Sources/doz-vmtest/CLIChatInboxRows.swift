@@ -118,7 +118,8 @@ func cliChatInboxRows(h: CLIHarness, root: URL, paths: ChatPaths, page: Int, sh:
 
     // 29. no session
     func read(_ room: String) -> String { h.run(["chat", "read", room, "--json"]).out }
-    _ = h.run(["chat", "send", "room4", "first @bot4"])
+    r = h.run(["chat", "send", "room4", "first @bot4"])
+    check(r.out == "Sent to room4 — bot4: waiting.\n" || r.out == "Sent to room4 — bot4: failed.\n", "29 send names bot4 once, with its state now (\(r.out.trimmingCharacters(in: .newlines)))")
     let failed = h.waitFor(10) { read("room4").contains("no running Claude session with that name") }
     check(failed, "29 no session running: failed, no running Claude session with that name")
 

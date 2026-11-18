@@ -678,7 +678,11 @@ struct ChatSend: AsyncParsableCommand {
         var states: [(String, String)] = []
         let (ps, page) = try chatAsk(c, "GET", "/api/rooms/\(room)/messages?limit=50", g)
         if ps == 200, case .array(let ms) = page, let m = ms.first(where: { $0.field("msg_id")?.stringValue == id }), case .array(let sts)? = m.field("states") {
-            for x in sts { if let r = x.field("recipient")?.stringValue, let st = x.field("state")?.stringValue { states.append((r, st)) } }
+            // each recipient once, with the state it has now (its latest)
+            for x in sts {
+                guard let r = x.field("recipient")?.stringValue, let st = x.field("state")?.stringValue else { continue }
+                if let i = states.firstIndex(where: { $0.0 == r }) { states[i].1 = st } else { states.append((r, st)) }
+            }
         }
         if g.json { Out.json(["room": room, "msg_id": id, "state": state]); return }
         if state == "info" || state == "duplicate" {
