@@ -305,7 +305,11 @@ final class MacFenceEnvironmentTests: XCTestCase {
         MacFenceEnvironment.add(&env, fence: f)
         XCTAssertEqual(env["TMPDIR"], f.tmp + "/")
         XCTAssertNil(env["SSH_AUTH_SOCK"])
-        for k in env.keys {
+        // 713: Claude Code's temp folder for every fenced session (a script may start claude) — the session's own, and
+        // the only CLAUDE_* (never the daemon's own CLAUDECODE / CLAUDE_CODE_ENTRYPOINT).
+        XCTAssertEqual(env["CLAUDE_CODE_TMPDIR"], f.tmp)
+        XCTAssertNil(env["CLAUDE_CONFIG_DIR"], "not the agent: no config folder")
+        for k in env.keys where k != "CLAUDE_CODE_TMPDIR" {
             XCTAssertFalse(k.hasPrefix("CLAUDE") || k.hasPrefix("ANTHROPIC") || k == "GITHUB_TOKEN" || k.hasPrefix("XPC_") || k.hasPrefix("__CF"), k)
             if k.hasPrefix("DOZ_") { XCTAssertTrue(["DOZ_TTY", "DOZ_FENCE", "DOZ_DERIVED"].contains(k), k) }
         }

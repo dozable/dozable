@@ -154,6 +154,11 @@ func cliFenceSuite(binary: String) async {
         await cliFenceAgentChecks(t, root: root, home: home, store: store, started: &started)
         return
     }
+    // FENCE_PART=daemonstop: a daemon stop and start under running fenced sessions alone.
+    if ProcessInfo.processInfo.environment["FENCE_PART"] == "daemonstop" {
+        cliFenceDaemonStopRows(t, root: root, started: &started)
+        return
+    }
     // FENCE_PART=tools: the tools' rows alone (git/ssh, GitHub, the SSH agent, worktrees, submodules, Swift, Xcode).
     if ProcessInfo.processInfo.environment["FENCE_PART"] == "tools" {
         await cliFenceToolsChecks(t, root: root, home: home, store: store, started: &started)
@@ -330,8 +335,11 @@ func cliFenceSuite(binary: String) async {
         check(MacFenceStop.mayLookUp(pid_t(pid), "com.apple.coreservices.launchservicesd") == false, "1.8 LaunchServices is closed")
     } else { check(false, "the probe session's pid") }
     let env = get(work + "/env.txt")
+    // Claude Code's temp folder is the fence's own (every fenced session, the session's tmp) — never the daemon's.
+    let ownTemp = env.split(separator: "\n").first { $0.hasPrefix("CLAUDE_CODE_TMPDIR=") }.map(String.init)
+    check(ownTemp?.hasSuffix("/probe/tmp") == true, "1.17 CLAUDE_CODE_TMPDIR is the session's own temp folder (\(ownTemp ?? "none"))")
     let leaked = env.split(separator: "\n").filter { l in
-        l.hasPrefix("CLAUDE") || l.hasPrefix("ANTHROPIC") || l.hasPrefix("GITHUB_TOKEN") || l.hasPrefix("SSH_AUTH_SOCK") || l.hasPrefix("XPC_")
+        (l.hasPrefix("CLAUDE") && !l.hasPrefix("CLAUDE_CODE_TMPDIR=")) || l.hasPrefix("ANTHROPIC") || l.hasPrefix("GITHUB_TOKEN") || l.hasPrefix("SSH_AUTH_SOCK") || l.hasPrefix("XPC_")
             || l.hasPrefix("__CF") || l.hasPrefix("DECKHOLD_DIR") || (l.hasPrefix("DOZ_") && !l.hasPrefix("DOZ_TTY=") && !l.hasPrefix("DOZ_FENCE="))
     }
     check(leaked.isEmpty && env.contains("DOZ_FENCE=agent") && env.contains("HOME=\(home)"),
@@ -591,6 +599,9 @@ func cliFenceSuite(binary: String) async {
 
     // M4: the tools — git/ssh through the proxy, GitHub as you, the SSH agent, worktrees, submodules, Swift, Xcode.
     await cliFenceToolsChecks(t, root: root, home: home, store: store, started: &started)
+
+    // A daemon stop and start under running fenced sessions: same programs, never hung up, their network back.
+    cliFenceDaemonStopRows(t, root: root, started: &started)
 
     // 695: the login keep-alive beside a FENCED Claude Code (a fake one): it holds a placeholder, not the login — the run goes on.
     cliFenceKeepaliveRows(t, root: root, work: work, row: row)

@@ -117,18 +117,45 @@ public enum MacPlace {
         return false
     }
 
-    /// Claude Code's own argv (the program is `claude`).
+    /// 713: where the program starts in `argv` — 0, or past a leading `env NAME=VALUE …` (`env` by its last part, so
+    /// `/usr/bin/env` too): `env CHAT_URL=x claude …` runs `claude`, and is recognised as it. nil: `env` with an option (a
+    /// word starting with `-`: `-i`, `-u NAME`, `-S`, `--`) or with no program after its variables — no guessing what it
+    /// runs. Every place that asks "which program is this?" of a session on this Mac asks here (the agent's config folder
+    /// and login, the facts prompt, a restart's resume, the capabilities, the default session name).
+    public static func programIndex(_ argv: [String]) -> Int? {
+        guard let first = argv.first else { return nil }
+        guard (first as NSString).lastPathComponent == "env" else { return 0 }
+        var i = 1
+        // Every word with an `=` (and no `-` first) is one of env's variables — an empty name is env's error, not a program.
+        while i < argv.count, !argv[i].hasPrefix("-"), argv[i].contains("=") {
+            guard !argv[i].hasPrefix("=") else { return nil }
+            i += 1
+        }
+        guard i < argv.count, !argv[i].hasPrefix("-") else { return nil }
+        return i
+    }
+
+    /// The program `argv` runs (`programIndex`'s word), else nil.
+    public static func program(_ argv: [String]) -> String? { programIndex(argv).map { argv[$0] } }
+
+    /// Claude Code's own argv (the program is `claude`, also after a leading `env NAME=VALUE …`).
     public static func isClaude(_ argv: [String]) -> Bool {
-        argv.first.map { ($0 as NSString).lastPathComponent == "claude" } ?? false
+        program(argv).map { ($0 as NSString).lastPathComponent == "claude" } ?? false
+    }
+
+    /// `argv` with `change` applied to the program's own part (from `programIndex`), the `env NAME=VALUE …` in front kept.
+    static func onProgram(_ argv: [String], _ change: ([String]) -> [String]) -> [String] {
+        guard let i = programIndex(argv) else { return argv }
+        return Array(argv[..<i]) + change(Array(argv[i...]))
     }
 
     /// What a restart appends when nothing more is known (no id, a conversation in the folder) — `restartArgv`'s answer
     /// as the extra arguments (kept for its callers and tests): `claude` continues the folder's newest conversation
     /// (`--continue`) unless `fresh`, or its argv already names one.
     public static func resumeArguments(_ argv: [String], fresh: Bool) -> [String] {
-        guard !fresh, isClaude(argv) else { return [] }
+        guard !fresh, isClaude(argv), let p = programIndex(argv) else { return [] }
         let names = ["--continue", "-c", "--resume", "-r"]
-        if argv.dropFirst().contains(where: { a in names.contains(a) || a.hasPrefix("--resume=") }) { return [] }
+        if argv.dropFirst(p + 1).contains(where: { a in names.contains(a) || a.hasPrefix("--resume=") }) { return [] }
         return ["--continue"]
     }
 
@@ -167,7 +194,12 @@ public enum MacPlace {
     /// INVARIANT (tested over generated argvs): the answer never carries `--continue` beside `--session-id`.
     public static func restartArgv(_ argv: [String], fresh: Bool, knownID: String?, transcriptExists: (String) -> Bool,
                                    hasConversation: Bool) -> (argv: [String], how: RestartResume) {
-        guard isClaude(argv) else { return (argv, .none) }
+        guard isClaude(argv), let p = programIndex(argv) else { return (argv, .none) }
+        // 713: a leading `env NAME=VALUE …` is kept as it is; the rest is Claude Code's own argv.
+        if p > 0 {
+            let r = restartArgv(Array(argv[p...]), fresh: fresh, knownID: knownID, transcriptExists: transcriptExists, hasConversation: hasConversation)
+            return (Array(argv[..<p]) + r.argv, r.how)
+        }
         var kept: [String] = [argv[0]]
         var insertAt: Int?
         var argSessionID: String?, argResumeID: String?

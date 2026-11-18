@@ -179,7 +179,11 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
 - **Protocol:** a fenced open carries `HostProtocol.fencedVersion`, so a daemon older than fenced sessions refuses it —
   never opens it unfenced.
 - **The agent's config folder** (`MacAgentConfig.swift`; the recipe's `launch@1 mac_config` — recipes.md): only for a
-  program an EMBEDDED recipe declares (`AgentRecipes.macAgent`: Claude Code). `private` (default; flag `--agent-config` >
+  program an EMBEDDED recipe declares (`AgentRecipes.macAgent`: Claude Code) — the program is `MacPlace.program(argv)`:
+  argv[0], or past a leading `env NAME=VALUE …` (713; any `env` option → not recognised), and EVERY place that asks
+  which program a session runs asks there (the plan, the login, the facts prompt, a restart's resume, the capabilities,
+  the default name). Every fenced session gets `CLAUDE_CODE_TMPDIR` = its `tmp/` whatever its program (a script may
+  start claude; without it Claude Code exits at start on `/tmp/claude-<uid>`). `private` (default; flag `--agent-config` >
   `recipes.V.P.mac_config` > `mac.agent_config` > the recipe's `default`): `CLAUDE_CONFIG_DIR=<session>/agent`, re-seeded
   at EVERY open through `MacFenceHostFS` — cleared but its transcripts (`projects/<folder>/*.jsonl`, regular files),
   the person's instructions/skills/agents/commands/output styles as LINKS (daemon-owned: the profile write-, rename- and

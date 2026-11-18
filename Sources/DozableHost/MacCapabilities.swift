@@ -103,7 +103,7 @@ public struct MacCapabilityShape: Sendable, Equatable {
         s.github = q.github
         s.sshAgent = q.sshAgent == true
         s.loopbackListen = settings.string(SettingKey.macFenceLoopbackListen) == "on"
-        if let program = argv.first, let r = AgentRecipes.macAgent(program: program), let m = r.launch.macConfig {
+        if let program = MacPlace.program(argv), let r = AgentRecipes.macAgent(program: program), let m = r.launch.macConfig {
             s.agent = r.title
             s.agentConfig = MacAgentConfig.resolveMode(flag: q.agentConfig, recipe: r, settings: settings).0
             s.personHome = home + "/" + m.homeName

@@ -113,8 +113,10 @@ public enum MacFenceEnvironment {
         // 683: the agent's own config home (private); the Claude login's placeholder (the proxy swaps it — never a token);
         // the bridges' shims first on PATH, and the browser a program asks for is the `open` shim.
         if let a = f.agent, a.isPrivate { env[a.config.homeEnv] = a.agentDir }
-        // Claude Code keeps its own temp under /tmp/claude-<uid> (closed to a fence: it stops at start) unless told.
-        if let a = f.agent, let v = agentTempVariables[a.recipe] { env[v] = f.tmp }
+        // Claude Code keeps its own temp under /tmp/claude-<uid> (closed to a fence: it stops at start) unless told. 713:
+        // EVERY fenced session gets each agent's temp variable, whatever its program — a script or a wrapper that starts
+        // claude is not recognised as the agent, and its claude would stop the same way.
+        for v in agentTempVariables.values { env[v] = f.tmp }
         for (k, v) in f.placeholders { env[k] = v }
         // 692: a launch secret's file (FILEVAR → the 0600 file holding its placeholder).
         for (k, v) in f.secretFiles { env[k] = v }

@@ -422,7 +422,8 @@ public actor MacSessions {
 
     /// The session's default name: the program's own, made a name.
     static func defaultName(_ argv: [String]) throws -> String {
-        let base = (argv[0] as NSString).lastPathComponent
+        // 713: the program's own name, also after a leading `env NAME=VALUE …`.
+        let base = ((MacPlace.program(argv) ?? argv[0]) as NSString).lastPathComponent
         let cleaned = String(base.unicodeScalars.filter { $0.isASCII && (CharacterSet.alphanumerics.contains($0) || "._-".unicodeScalars.contains($0)) })
             .drop { $0 == "." || $0 == "-" }
         guard !cleaned.isEmpty, cleaned.count <= MacPlace.maximumSessionName else {

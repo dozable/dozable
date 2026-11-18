@@ -677,7 +677,7 @@ struct Run: AsyncParsableCommand {
     /// source as `doz sessions @mac --capabilities`). Opens nothing, asks no host.
     func dryRunShape(_ settings: DozableSettings, fence: Bool, workdir: String, absolute: (String) -> String) -> MacCapabilityShape {
         let argv = command.isEmpty ? [ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh", "-l"] : command
-        return MacCapabilityShape.planned(session: session ?? ((argv[0] as NSString).lastPathComponent), workdir: workdir, argv: argv,
+        return MacCapabilityShape.planned(session: session ?? (((MacPlace.program(argv) ?? argv[0]) as NSString).lastPathComponent), workdir: workdir, argv: argv,
                                           fenced: fence, request: fence ? fenceRequest(settings, absolute: absolute) : nil,
                                           settings: settings, home: MacSessions.plannedHome())
     }

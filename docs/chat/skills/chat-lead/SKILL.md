@@ -45,10 +45,27 @@ doz run @mac -d --fenced --session worker-1 --folder ~/work/worker-1 \
 ```
 
 Use the page port `doz chat status` shows; when it is not 8790, add `-e CHAT_URL=http://host.dozable.internal:PORT`.
+
+**The program is the first word after `--`** (`-- claude …`), and its variables are given with `doz run -e NAME=VALUE`
+(before the `--`). Never wrap it in `env NAME=VALUE claude …` or a script: `-e` is the way Dozable documents, and only
+when it sees the program itself does a fenced Claude Code get everything it needs (its own settings folder, its login,
+the facts about where it runs).
+
 Give the worker its instructions as its first prompt: its name, the room, your name (its lead), that `dozchat` is on its
-PATH and `CHAT_TOKEN_FILE` is set, to load the `chat-worker` skill, and **one task**. It is up when it has said so in the room — `doz chat read room1`, or `doz chat
-who` shows it present. Not heard from within a few minutes: look at its screen, `doz sessions screen @mac worker-1`,
-and take it down if it is stuck.
+PATH and `CHAT_TOKEN_FILE` is set, to load the `chat-worker` skill, and **one task**. It is up when it has said so in
+the room ("worker-1 is up: …").
+
+**Wait for that message with a clock of your own.** If you are woken only by messages, a worker that never comes up
+never wakes you. So when you start it, also start a timer as a background command — `sleep 180` — and when the timer
+ends, look:
+
+```bash
+doz sessions @mac                         # is worker-1 still running, or did its program end?
+doz sessions screen @mac worker-1         # what it shows: a question, an error, its last lines if it ended
+```
+
+When its "is up" came first, the timer needs nothing. When it did not: the screen says why (a question it is waiting
+on, a refusal, an error); fix that, or take it down and say so in the room.
 
 ### A worker that never stops to ask
 
@@ -82,8 +99,13 @@ doz run @mac -d --fenced --session worker-1 --folder ~/work/worker-1 \
 
 - **The prompt first, the allow-list LAST.** `--allowedTools` takes a list and swallows whatever follows it, so nothing
   may come after it.
-- **`dontAsk` refuses, without asking, whatever is not allowed in advance.** Here only `dozchat`; add the task's own
-  tools to the list (`"Bash(dozchat:*)" "Bash(make test:*)"`), each as narrow as the task allows.
+- **`dontAsk` refuses, without asking, whatever would otherwise ask.** The list is what may run beyond what Claude
+  Code runs without asking anyway: here `dozchat`; add the task's own tools (`"Bash(dozchat:*)" "Bash(make test:*)"`),
+  each as narrow as the task allows.
+- **The list is not a limit on reading.** Whatever Claude Code never asks about runs under `dontAsk` too, listed or
+  not: reading files in its folder, and its built-in set of read-only commands (`ls`, `cat`, `head`, `grep`, `find`,
+  `wc`, read-only `git`, …). To keep one of those from running, deny it (`--disallowedTools "Bash(find:*)"`). What
+  it can read at all is the fence's to decide — its folder, not the rest of the person's Mac.
 
 ## Direct it
 
