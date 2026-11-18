@@ -10,6 +10,8 @@
 //      old one's log saying so.
 //   4. The dashboard follows an upgrade (`dashboardFollowsUpgradeChecks`): started by a Homebrew-shaped opt path, a new keg
 //      linked in → it restarts itself with no page open; `doz ui restart` runs the keg installed now.
+//   5. The dashboard published on Tailscale (`dashboardPublishChecks`): a fake tailscale in a scratch Homebrew prefix, the
+//      fake launchctl and a scratch LaunchAgents folder — publish, doctor, again, publish status, unpublish --logout.
 //
 // Every daemon it starts is stopped at the end; the store and the copies are removed.
 import Darwin
@@ -131,4 +133,7 @@ func cliAlwaysOnSuite(binary: String) async {
 
     // 4. the dashboard follows an upgrade (DashboardUpgradeChecks.swift).
     dashboardFollowsUpgradeChecks(h, root: root, binary: binary)
+
+    // 5. the dashboard published on Tailscale, through a fake tailscale (DashboardPublishChecks.swift).
+    dashboardPublishChecks(h, root: root)
 }

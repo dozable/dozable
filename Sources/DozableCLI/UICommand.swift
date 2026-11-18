@@ -40,9 +40,13 @@ struct UICommand: AsyncParsableCommand {
         type a key or token, or open a window on this Mac's screen (a folder picker, Terminal). For HTTPS behind your own \
         reverse proxy: serve.public_origins and serve.trusted_proxies (doz doctor checks them). What the other browsers \
         did: doz ui log. `doz serve` is the earlier name of `doz ui --lan`.
+
+        doz ui publish tailscale puts the dashboard on your tailnet at its own https address, with Dozable's own \
+        Tailscale node (Homebrew's tailscale; the Mac's own Tailscale is left as it is); doz ui publish status shows it; \
+        doz ui unpublish tailscale takes it off.
         """,
         subcommands: [UIStart.self, UILink.self, UIRestart.self, UIStop.self, UIStatus.self, ServeShare.self, ServeDevices.self,
-                      ServeRevoke.self, ServeRename.self, ServeLog.self, UIServe.self],
+                      ServeRevoke.self, ServeRename.self, ServeLog.self, UIPublish.self, UIUnpublish.self, UIServe.self],
         defaultSubcommand: UIStart.self)
 }
 
@@ -469,11 +473,22 @@ struct UIRunner {
         fds.listen = listenFD
         setvbuf(stdout, nil, _IOLBF, 0)
         signal(SIGPIPE, SIG_IGN)
+        // 715: published on Tailscale (`doz ui publish tailscale`) — port 80's redirect to the https address, on the unix
+        // socket `tailscale serve --http=80` hands plain-http requests to. Only with the LAN option (the published setup).
+        var redirect: WebPublishRedirect?
+        if lanSide != nil, let marker = TailscalePublish.readMarker(store) {
+            let path = TailscalePublish.paths(store).redirectSocket.path
+            do { redirect = try await WebPublishRedirect.start(path: path, origin: marker.origin) } catch {
+                if !g.json { Out.stderr("doz ui: the redirect from http to \(marker.origin) could not listen (\(error)) — doz doctor says more\n") }
+            }
+        }
+        let redirectPath = redirect?.path
         // One stop, from a signal or (645, the LAN option) serve.sock's `stop` (`doz serve stop`, an earlier client).
         let stopping = StopOnce()
         let stop: @Sendable () -> Void = {
             guard stopping.first(), !fds.restarting else { return }
             Task {
+                if let redirectPath { unlink(redirectPath) }
                 lanSide?.recordStop()
                 await server.close()
                 lanSide?.cleanUp()
@@ -579,7 +594,7 @@ struct UIRunner {
         // 605: the listener closed for `doz ui restart` — the restart replaces this process (exec); never
         // return (that would exit before it does). Nor while a stop is under way (it exits by itself).
         while fds.restarting || stopping.started { try? await Task.sleep(for: .seconds(1)) }
-        withExtendedLifetime((sources, lanSide)) {}
+        withExtendedLifetime((sources, lanSide, redirect)) {}
     }
 
     /// 714: how often a running dashboard looks at its program (60 s; a guarded test run may set

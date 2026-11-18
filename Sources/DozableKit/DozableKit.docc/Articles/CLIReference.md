@@ -793,6 +793,30 @@ fetches each public origin with a one-use token to prove it reaches this dashboa
 (`serve.advertise`). Remote changes, terminals, admissions and refusals go to `<store>/serve/audit.jsonl`. The
 earlier name, doz serve, is a hidden alias of `doz ui --lan` for one release (its subcommands still work).
 
+### The dashboard on your tailnet (Tailscale)
+
+```bash
+doz ui publish tailscale [--name NAME] [--port N] [--wait SECONDS] [--adopt-state DIR] [--json] [--store DIR]   # the dashboard at https://<name>.<your tailnet>.ts.net
+doz ui publish status [--json] [--store DIR]           # the node (running, signed in, name, address), what it serves, the settings, the address's check
+doz ui unpublish tailscale [--logout] [--store DIR]    # off your tailnet; this Mac only again (--logout: also sign the node out and remove its state)
+```
+
+`doz ui publish tailscale` gives the dashboard its own address on your tailnet, `https://<name>.<your tailnet>.ts.net`,
+with Tailscale's certificate, in one step. It runs Dozable's OWN Tailscale node: a userspace `tailscaled` from Homebrew's
+`tailscale` formula (`brew install tailscale`; it need not be linked — the Mac's own `tailscale` command and the
+Tailscale app are never run or changed), its state and socket in the store (`<store>/tailscale/`), kept running by a
+LaunchAgent of yours (`~/Library/LaunchAgents/com.dozable.tailscale.<8 hex>.plist`, RunAtLoad and KeepAlive). Its name is
+`dozable-<this Mac's local hostname>` (`--name` changes it). The first time, it shows Tailscale's sign-in link and waits
+(`--wait`, 300 s) until you approve it; not approved in time, the node keeps running — run the same command again to
+continue. Run again on a signed-in node, it re-applies everything. In the same step it sets the dashboard up for it: a
+fixed `ui.port` (kept when set; else the running dashboard's, or a free one), `ui.lan true`, `serve.bind loopback`,
+`serve.public_origins` the address, `serve.trusted_proxies 127.0.0.1,::1` (never `serve.chat`), and restarts the
+dashboard (or starts it in the background). Tailscale serves 443 to the dashboard's port; port 80 goes to a socket in the
+store where the dashboard answers every request with a redirect to the https address. Another device still gets in
+once with an invite: `doz ui share` on this Mac. `--adopt-state DIR` takes over a node you started by hand (its state
+folder is copied; stop its tailscaled first). `doz doctor` adds rows for the node, its sign-in, 443 pointing at the
+dashboard's port, port 80's redirect, and the address itself (`dashboard via https://…`).
+
 ### Chat
 
 ```bash

@@ -305,6 +305,7 @@ struct Doctor: AsyncParsableCommand {
         out.append(codexLoginCheck(home: CodexMacLogin.resolveHome(), settings: .load()))
         #if !DOZ_NO_WEB
         out += ServeDoctor.checks(store: store, settings: .load())
+        out += PublishDoctor.checks(store: store)
         #endif
         return out
     }
