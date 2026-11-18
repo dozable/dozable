@@ -53,6 +53,7 @@ both.
 | [The menu bar app](35-the-menu-bar-app.md) | see the daemon's state in the menu bar, start, stop or restart it and open the dashboard with a click — `doz app install` |
 | [Chat](36-chat.md) | talk with your agents in rooms on your Mac — `doz chat on`, tokens for agents, webhook bots, agents on your other machines, the dashboard's Chat page, and what other browsers may do (`serve.chat`) |
 | [Workspaces](37-workspaces.md) | set up an environment for getting work done — its agents, its room in chat, the brief and any folders — and adopt the sandboxes and sessions you already have into it (`doz workspace`) |
+| [Agents / Bots](38-agents-and-bots.md) | give an agent a lasting identity in chat — its agent program, where it runs, how it is reached and a token of its own, kept in your login keychain or shown once for one elsewhere (`doz bot`) |
 | [Bundling doz in an app](33-bundling-doz-in-an-app.md) | (app authors only) carry the helper build of `doz` inside your Mac app and drive it over `daemon.sock` |
 
 ## Renamed in 0.51

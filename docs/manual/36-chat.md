@@ -55,6 +55,10 @@ doz chat remove bot2                 # it leaves every room; its token is refuse
 A token is shown once (or written to a new file with `--to-file`); doz keeps only its hash. `--from-stdin` gives a
 participant a token it already has. `--kind KIND` labels how its messages are shown (`agent` by default).
 
+A participant with a lasting identity — its agent program, where it runs, a token Dozable keeps for it — is an **Agent /
+Bot**, made and changed with `doz bot` (see [Agents / Bots](38-agents-and-bots.md)); `doz chat who` marks it `· bot`, and
+`doz chat remove`, `token` and `set` on it name the `doz bot` command instead.
+
 An agent with a token takes part over HTTP on the page port:
 
 ```bash
@@ -206,6 +210,7 @@ server's command list and protocol (`/protocol`) say what each version speaks.
 
 ## See also
 
+- [Agents / Bots](38-agents-and-bots.md)
 - [The dashboard](06-the-dashboard.md)
 - [The dashboard on your other computers, tablets and phones](25-doz-serve.md)
 - [Security model](16-security-model.md)

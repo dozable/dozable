@@ -23,6 +23,12 @@ dashboard shows nothing of workspaces yet; the CLI is the only way in. The manua
 | `Sources/DozableCLI/WorkspaceCommands.swift` | `doz workspace new | ls | show | adopt | release | edit | log | rename` |
 | `Tests/DozableCLITests/WorkspaceRecordTests.swift`, `WorkspaceStateTests.swift`, `WorkspaceAdoptTests.swift` | the unit tests (scratch roots, a fake chat) |
 | `Sources/doz-vmtest/CLIWorkspaceSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, no VM |
+| `Sources/DozableHost/BotRecord.swift` | Agents / Bots: `BotsFile` (`bots.json`, version 1), `BotRecord`, `BotIsolation`, `BotInstructions`, `BotTokenState`; `BotName` (the name rule), `BotKinds`, `BotFields` |
+| `Sources/DozableHost/BotStore.swift` | `BotStore`: `bots/bots.json` rewritten whole, `bots/<name>/instructions.md` and `notes.md`, 0600 in 0700 |
+| `Sources/DozableHost/BotTokens.swift` | a held bot's keychain item (`doz-bot-<store's 8 hex>-<name>`), the fingerprint, the sweep's orphans |
+| `Sources/DozableHost/HostCore+Bots.swift` | the `bot-*` operations; the `BotChat` seam (the daemon's `SupervisorBotChat` in HostServer.swift); `BotGuards`; `sweepBotTokens` |
+| `Sources/DozableCLI/BotCommands.swift` | `doz bot new | ls | show | set | retire | adopt | token` |
+| `Tests/DozableCLITests/BotRecordTests.swift`, `BotTokenTests.swift`, `BotAdoptTests.swift`, `BotGuardsTests.swift`; `Sources/doz-vmtest/CLIBotsSuite.swift` | the unit tests (scratch roots, a memory keychain, a fake chat hashing like the supervisor); `make test-cli-bots` |
 
 ## The record
 
@@ -110,6 +116,59 @@ sandbox or session is shown as (`FolderRenameTests`); `workspaceCreated`, `works
 `workdir` are still refused. `doz workspace ls --json` is `WorkspaceListing {workspaces, loose}`; `show` and every change
 answer `WorkspaceDetail`; `log` is the entries.
 
+## Agents / Bots — `doz bot`
+
+An Agent / Bot is a lasting identity: a participant in chat with its agent program, model, account, avatar, isolation
+(`vm`, `fenced` — the default —, `unfenced` — only when named, "acts as you" wherever it shows — or `elsewhere`), delivery
+(`poll` by default, `inbox` for a Claude Code bot, `webhook`), skills, instructions and a token of its own. Its kind in
+chat comes from its agent: Claude Code is a `claude-session`, every other agent an `agent`. Nothing starts a bot yet; a
+workspace's agent names the bot it is with `WorkspaceAgent.bot` (additive). The manual's page is
+`docs/manual/38-agents-and-bots.md`.
+
+**The record.** `<store>/bots/bots.json` `{version, bots: [{name, createdAt, origin: new|adopted, agent, model?,
+account?, avatar?, isolation: {default, ceiling?}, kind, deliver, webhookEntry?, session?, skills, instructions: {sha256,
+bytes, updatedAt}?, token: {keeper: dozable|elsewhere|none, fingerprint, at}, retiredAt?}]}`, and `bots/<name>/` with
+`instructions.md` (≤ 256 KiB, UTF-8) and an empty `notes.md`. Additive like the workspace record (unknown fields kept top
+level, per bot and in `isolation`; a higher version kept); 0600 files in 0700 folders, no link, rewritten whole and
+atomically under the `bots` gate. `directory.json` gains no field. `BotRecordTests`.
+
+**The token** (keep these, and their tests):
+
+- A **held** bot's (vm, fenced, unfenced) is made by the daemon (`ChatTokens.make`) and lives in ONE login-keychain item,
+  `doz-bot-<store's 8 hex>-<name>`, through `services.keychain` (the memory one under `DOZ_TEST_CREDENTIALS=memory`;
+  `TestSafety.keychainViolation` stops a test that would reach the real one); the supervisor writes only its hash. A
+  change checks everything first, refuses where the login keychain is locked (no memory fallback), writes the item, then
+  the participant, then `bots.json` — deleting the new item (or restoring the old value, for a rotation) when a later step
+  fails. Nothing reads the item back in this version but the sweep.
+- A bot **elsewhere**'s is never kept: it travels once, in `BotChange.oneTimeToken` over the daemon's socket; the CLI
+  writes it with `TokenDestination` (a terminal, or a new 0600 file with `--to-file`) and drops it before any `--json`.
+- **Never in argv, a record, a log or `--json`**: no option takes a token, `BotRequest` carries none, `daemon.log` says
+  "bot mira: made (fenced, poll), token fp …" (12 hex of its SHA-256), `bot show` reports the record's state and never
+  reads the keychain. Moving a bot to or from `elsewhere` replaces its token.
+- Bot tokens stay **out of `secrets.json`**: the launch secrets' sweep treats an owner that is not `mac.…` as a sandbox,
+  and an older doz would delete a bot's item. The daemon's start sweeps the bots' own prefix (`sweepBotTokens`: this
+  store's prefix only, never the read-only core, only when `bots/` exists) and deletes every item of no held, unretired bot.
+- `BotTokenTests`, `BotAdoptTests`, `make test-cli-bots` (the leak sweep: no `dzc_` under the store or the settings, in
+  `daemon.log`, `server.log`, any `--json`, or `ps`).
+
+**Retiring** is removal plus reservation: the participant and its hash go (`BotChat.remove` — its token is refused), the
+item is deleted, the record keeps `retiredAt` and `keeper: none`. Old messages keep `from` as a plain string, so the name
+stays reserved: `bot new`, `bot adopt`, `chat add` (and naming yourself with `chat on --name`) refuse it. A bot that is an
+agent of a workspace is refused ("mira is in demo — doz workspace release demo mira first"). There is no un-retire.
+
+**Adopting** an existing participant replaces its token (Dozable never had the old one — an agent still using it stops
+working at once); its kind, rooms and history are kept, `origin: adopted`. The CLI says so and asks (`--yes` with
+`--json` or with no terminal; nothing changes otherwise).
+
+| Op | Path | What |
+|---|---|---|
+| `bot-ls`, `bot-show` | `query()`: the read-only core when no daemon runs, else the daemon | `bots.json`, `directory.json`, the workspaces; looking never starts the daemon |
+| `bot-new`, `-set`, `-retire`, `-adopt`, `-token` | `call()`: the daemon, `KeyedGate` key `bots` | one writer; the participant through `BotChat` (the supervisor's own add / set / token / remove); a read-only core refuses "needs the daemon" |
+
+`doz bot token NAME` without `--new` is answered by `bot-show`; `bot-token` always rotates. **The guards**:
+`HostServer.chatRequest` asks `BotGuards.chatRefusal` first — `chat add` of a bot's or a retired name, `chat remove` /
+`token` / `set` of a bot (each naming the `doz bot` command); every other participant is unchanged (`BotGuardsTests`).
+
 ## Tests
 
 - `make test FILTER=WorkspaceRecordTests|WorkspaceStateTests|WorkspaceAdoptTests` — scratch roots, an in-process daemon
@@ -118,3 +177,5 @@ answer `WorkspaceDetail`; `log` is the entries.
   posted, the brief's text in no log); an existing room refused and `--room` linked; adopt a sandbox and `@mac/wsu`
   (`doz.json` unchanged, `workspace` in `--json`, state working), the refusals; release and the log; show and log with
   the daemon stopped; an unknown field kept, the modes; names, rename, the hooks; chat off; no folders.
+- `make test FILTER=BotRecordTests|BotTokenTests|BotAdoptTests|BotGuardsTests` and `make test-cli-bots` — Agents / Bots
+  (above).
