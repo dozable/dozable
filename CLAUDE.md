@@ -58,6 +58,7 @@ One row per area; each area's doc starts with the full table of its files.
 | Sound | `Audio.swift`, `DozSound.swift`, `MacAudio`, `Microphone`, `Guest/sound-kernel/` | [sound.md](docs/engineering/sound.md) |
 | The chat server (the `doz chat` group) | `Sources/DozableChat/`, `Sources/DozableHost/Chat*.swift` (under the daemon), `Sources/DozableCLI/Chat*.swift`, `Tests/Conformance/`; in the dashboard `Sources/DozableWeb/WebChat.swift`, `WebSource/app/*/chat*.js` | [chat.md](docs/engineering/chat.md), [web.md](docs/engineering/web.md) ("Chat") |
 | The menu bar app | `Sources/DozableMenuBarCore/`, `Sources/DozableMenuBar/`, `Resources/MenuBar/` (+ the login agent's plist), `Scripts/assemble-app.sh`, `Scripts/check-agent-plist.py`, `AppCommands.swift` (`doz app`) | [menu-bar-app.md](docs/engineering/menu-bar-app.md) |
+| Workspaces (`doz workspace`) | `WorkspaceRecord`, `WorkspaceStore`, `WorkspaceState`, `HostCore+Workspaces`, `ChatOwnerRooms`, `WorkspaceCommands` | [workspaces.md](docs/engineering/workspaces.md) |
 
 ## Rules that each cost a bug to learn (keep them, and keep their tests)
 
@@ -80,10 +81,9 @@ One row per area; each area's doc starts with the full table of its files.
   the mode kept on restart) and `make test-cli-host` (the unfenced session, unchanged, with `--unfenced`).
 - **Every `doz exec` deadline is counted from process start and enforced by the daemon** (`ExecDeadline`; engine.md).
 - **Stop keeps the root disk**: Stop shuts the VM down and persists the phase as `off`; the next Start cold-boots
-  the SAME disk and clones the prepared disk only when none exists. `resetToImage()` discards the
-  root disk; `delete()` removes the sandbox's whole directory. No Stop leaves a snapshot, and a
-  snapshot found beside a kept disk on a cold Start is deleted — never restored onto a disk that
-  has moved on.
+  the SAME disk and clones the prepared disk only when none exists. `resetToImage()` discards the root disk; `delete()`
+  removes the sandbox's whole directory. No Stop leaves a snapshot, and a snapshot found beside a kept disk on a cold
+  Start is deleted — never restored onto a disk that has moved on.
 - **One vmnet network per `Sandbox`, and never vmnet's default subnet beside another process.** Each
   Start used to create a new vmnet network (after a handful the guest had no route out); it is now
   created once and reused. Two processes that both take the default can get the same subnet and the
@@ -96,9 +96,8 @@ One row per area; each area's doc starts with the full table of its files.
   itself `VZVirtualMachineInstance` makes an 8-thread group and shuts it down only in its own `stop()`,
   which Hibernate never calls — each VM instance a daemon made kept 8 threads + 8 kqueues forever (582;
   thread cap 6,144). `hardening leak` is the regression test (threads, fds, footprint flat).
-- **Quit lets a just-started program settle**. `prepareForExit(settle:)` waits out the rest of 3 s
-  since the last `openSession` before it hibernates (580: Claude Code hibernated within ~1 s of its
-  launch exited after the wake in 2 of ~7 runs). `hardening settle` is the test.
+- **Quit lets a just-started program settle**. `prepareForExit(settle:)` waits out the rest of 3 s since the last
+  `openSession` before it hibernates (580: Claude Code hibernated within ~1 s of its launch exited after the wake in 2 of ~7 runs). `hardening settle` is the test.
 - **Stop decides from the phase it was CALLED in** (`perform()` reads `phase` before going busy).
 - **Every VM has a memory balloon; a snapshot is never taken with it inflated**. A device is a
   VM input: `PinnedIdentity.memoryBalloon` comes from `PersistedSandbox.memoryBalloon` on a restore
@@ -407,6 +406,7 @@ are in its doc, so read it before changing that area.
 - [docs/engineering/sound.md](docs/engineering/sound.md) — `sandbox.audio`, the sound kernel (GPL-2.0, ours), the microphone's permission
 - [docs/engineering/chat.md](docs/engineering/chat.md) — the chat server: no VM parts, isolation, the strict config, the access rules and `agent_addresses`, the protocol's bytes and store, the conformance gate
 - [docs/engineering/menu-bar-app.md](docs/engineering/menu-bar-app.md) — Dozable.app: the doz command as its only interface, the menu's state table, refresh, `doz app install`, the seams
+- [docs/engineering/workspaces.md](docs/engineering/workspaces.md) — workspaces: the record and its store, the derived state, adopting agents, the main room in chat
 
 ## Verifying changes
 

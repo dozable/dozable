@@ -4,6 +4,9 @@ A **sandbox** is one Linux virtual machine with its own disks. This page covers 
 states it can be in — running, paused, asleep, hibernated, shut down — and moving between them, and
 the background **daemon** that runs them all.
 
+A sandbox can also be adopted into a workspace, with other agents, a room and a brief — see
+[Workspaces](37-workspaces.md); adopting it changes nothing of the sandbox itself.
+
 ## Concepts
 
 - **Name.** 1–40 characters of `a-z 0-9 -`, unique in the store.
