@@ -50,6 +50,8 @@ struct PublishAnswer: Encodable {
     var serve: Serve?
     var settings: [String: String]
     var dashboard: String?
+    /// Where port 80 should go: the redirect's loopback target (nil: not published, or published before it had a port).
+    var redirect: String?
     /// The daemon starts the dashboard while published (false: `doz ui stop` was the last word).
     var keptByDaemon: Bool?
     var verdict: DoctorCheck?
@@ -79,7 +81,7 @@ struct PublishTailscale: AsyncParsableCommand {
         let store = g.dozableStore
         let paths = TailscalePublish.paths(store)
         guard let bin = TailscalePublish.locate(env: env) else { throw fail(HostError(.unavailable, PublishHelp.notInstalled), g) }
-        guard TailscalePublish.socketFits(paths.socket), TailscalePublish.socketFits(paths.redirectSocket) else {
+        guard TailscalePublish.socketFits(paths.socket) else {
             throw fail(HostError(.unavailable, "the store's path is too long for a socket (\(paths.socket.path)) — use a shorter store"), g)
         }
         let settings = DozableSettings.load()
@@ -98,6 +100,15 @@ struct PublishTailscale: AsyncParsableCommand {
         else if let p = WebControl.rememberedPort(store), !WebLoopbackAddress.inUse(p) { chosen = p }
         else if let p = TailscalePublish.freeLoopbackPort() { chosen = p }
         else { throw fail(HostError(.unavailable, "no free port on 127.0.0.1 for the dashboard — set one: doz config set ui.port N"), g) }
+        // Port 80's redirect: the port the marker records (a re-run keeps it — unless something other than the redirect
+        // answers there), else a free loopback one.
+        let previous = TailscalePublish.readMarker(store)
+        let takenByOther: (Int) -> Bool = { p in
+            WebLoopbackAddress.inUse(p) && TailscalePublish.askRedirect(port: p, timeout: 2)?.location?.hasPrefix(previous?.origin ?? "\u{0}") != true
+        }
+        guard let redirectPort = TailscalePublish.chooseRedirectPort(previous: previous, dashboardPort: chosen, takenByOther: takenByOther) else {
+            throw fail(HostError(.unavailable, "no free port on 127.0.0.1 for the redirect from http — free one and run this again"), g)
+        }
 
         // Adopt a node started by hand (its state, so it keeps its name and address).
         if let adoptState { try adopt(from: adoptState, into: paths) }
@@ -149,18 +160,23 @@ struct PublishTailscale: AsyncParsableCommand {
         do { try TailscalePublish.apply(TailscalePublish.publishSettings(port: chosen, origin: origin), to: settings) } catch let e as SettingsError {
             throw fail(HostError(.failed, e.message), g)
         }
-        do { try TailscalePublish.writeMarker(store, .init(name: node.hostName ?? nodeName, origin: origin, port: chosen, published: Date())) } catch {
+        unlink(paths.staleRedirectSocket.path)
+        do {
+            try TailscalePublish.writeMarker(store, .init(name: node.hostName ?? nodeName, origin: origin, port: chosen, published: Date(),
+                                                          redirectPort: redirectPort))
+        } catch {
             throw fail(HostError(.failed, "could not write \(paths.marker.path): \(error.localizedDescription)"), g)
         }
 
-        // The dashboard restarts (or starts in the background) with them — then port 80's redirect is there to point at.
+        // The dashboard restarts (or starts in the background) with them — then port 80's redirect listens on its loopback
+        // port before Tailscale is pointed at it.
         PublishedDashboard.clearStopped(store)
         let ui = try await PublishDashboard.restartOrStart(store, g, say: say)
 
         // Serving: what this node served before is replaced (it is Dozable's own node).
         _ = TailscalePublish.run(TailscalePublish.cli(bin, paths, TailscalePublish.serveResetArguments()), timeout: 20)
         let json = g.json
-        for args in [TailscalePublish.serveHTTPSArguments(port: chosen), TailscalePublish.serveHTTPArguments(paths)] {
+        for args in [TailscalePublish.serveHTTPSArguments(port: chosen), TailscalePublish.serveHTTPArguments(redirectPort: redirectPort)] {
             let shown = LinkOnce()
             let r = TailscalePublish.run(TailscalePublish.cli(bin, paths, args), timeout: 60, onLine: { line in
                 guard let link = TailscalePublish.link(in: line), shown.first(link) else { return }
@@ -293,6 +309,7 @@ struct PublishStatus: AsyncParsableCommand {
             settings[k] = rows.first { $0.key == k }?.value.plain ?? ""
         }
         let address = marker?.origin ?? st?.dnsName.map(TailscalePublish.origin)
+        let redirectTarget = marker?.redirectPort.map { TailscalePublish.httpTarget(redirectPort: $0) }
         var verdict: DoctorCheck?
         if marker != nil, let address, case .success(let lan)? = WebServeControl.request(store.root, "status", as: WebServeStatus.self),
            lan.publicOrigins.contains(address) {
@@ -306,6 +323,7 @@ struct PublishStatus: AsyncParsableCommand {
             serve: serve.map { .init(https: $0.https, http: $0.http) },
             settings: settings,
             dashboard: WebControl.requestStatus(store)?.origin,
+            redirect: redirectTarget,
             keptByDaemon: marker != nil ? !PublishedDashboard.stoppedByPerson(store) : nil,
             verdict: verdict)
     }
@@ -324,7 +342,10 @@ struct PublishStatus: AsyncParsableCommand {
             Out.stdout("  \(node.signedIn ? "signed in" : "not signed in (\(node.state ?? "?")) — doz ui publish tailscale shows the sign-in link")\(node.name.map { " as \($0)" } ?? "")\(node.dnsName.map { " (\($0))" } ?? "")\n")
         }
         if let s = a.serve {
-            Out.stdout("  serves: https → \(s.https ?? "nothing"); http → \(s.http.map { $0.hasPrefix("unix:") ? "the redirect to https" : $0 } ?? "nothing")\n")
+            Out.stdout("  serves: https → \(s.https ?? "nothing"); http → \(s.http.map { $0 == a.redirect ? "the redirect to https (\($0))" : $0 } ?? "nothing")\n")
+            if a.published && a.redirect == nil {
+                Out.stdout("  the redirect from http has no port yet (published by an older doz) — run doz ui publish tailscale again\n")
+            }
         }
         Out.stdout("  settings: " + a.settings.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value.isEmpty ? "(unset)" : $0.value)" }.joined(separator: " · ") + "\n")
         Out.stdout("  dashboard: \(a.dashboard.map { "running at \($0)" } ?? "not running — doz ui --detach")\n")
@@ -363,6 +384,7 @@ struct UnpublishTailscale: AsyncParsableCommand {
         }
         let wasPublished = TailscalePublish.readMarker(store) != nil
         unlink(paths.marker.path)
+        unlink(paths.staleRedirectSocket.path)
         do { try TailscalePublish.apply(TailscalePublish.unpublishSettings(), to: DozableSettings.load()) } catch let e as SettingsError {
             throw fail(HostError(.failed, "\(e.message) — the dashboard's settings were not put back"), g)
         }
@@ -418,18 +440,23 @@ enum PublishDoctor {
         out.append(PublishedDashboard.stoppedByPerson(store)
             ? DoctorCheck(check: "tailscale ui", status: .warn, detail: "doz ui stop was the last word: the daemon does not start the dashboard (doz ui --detach starts it, and it starts with the daemon again)")
             : DoctorCheck(check: "tailscale ui", status: .ok, detail: "the dashboard starts with the daemon while published"))
-        let redirect = TailscalePublish.httpTarget(paths)
+        guard let rport = marker?.redirectPort else {
+            out.append(DoctorCheck(check: "tailscale http", status: .fail,
+                                   detail: "the redirect from http has no port (published by an older doz, which Tailscale refused) — run doz ui publish tailscale again"))
+            return out
+        }
+        let redirect = TailscalePublish.httpTarget(redirectPort: rport)
         if serve?.http != redirect {
             out.append(DoctorCheck(check: "tailscale http", status: .fail,
-                                   detail: "port 80 \(serve?.http.map { "goes to \($0)" } ?? "serves nothing"), not to the redirect to https — doz ui publish tailscale"))
+                                   detail: "port 80 \(serve?.http.map { "goes to \($0)" } ?? "serves nothing"), not to the redirect to https (\(redirect)) — doz ui publish tailscale"))
         } else if WebControl.requestStatus(store) == nil {
             out.append(DoctorCheck(check: "tailscale http", status: .warn, detail: "the dashboard is not running, so neither is the redirect from http (doz ui --detach)"))
-        } else if let origin = marker?.origin, let a = TailscalePublish.askRedirect(paths.redirectSocket.path), a.status == 308,
+        } else if let origin = marker?.origin, let a = TailscalePublish.askRedirect(port: rport), a.status == 308,
                   a.location == origin + "/doctor" {
-            out.append(DoctorCheck(check: "tailscale http", status: .ok, detail: "http:// redirects to \(origin)"))
+            out.append(DoctorCheck(check: "tailscale http", status: .ok, detail: "http:// redirects to \(origin) (through \(redirect))"))
         } else {
             out.append(DoctorCheck(check: "tailscale http", status: .fail,
-                                   detail: "the redirect from http does not answer as it should — doz ui restart (a dashboard started before publishing has none)"))
+                                   detail: "the redirect from http does not answer on \(redirect) as it should — doz ui restart (a dashboard started before publishing has none; another program may hold the port: doz ui publish tailscale picks another)"))
         }
         return out
     }

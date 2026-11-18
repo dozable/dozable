@@ -478,16 +478,21 @@ struct UIRunner {
         fds.listen = listenFD
         setvbuf(stdout, nil, _IOLBF, 0)
         signal(SIGPIPE, SIG_IGN)
-        // 715: published on Tailscale (`doz ui publish tailscale`) — port 80's redirect to the https address, on the unix
-        // socket `tailscale serve --http=80` hands plain-http requests to. Only with the LAN option (the published setup).
+        // 715: published on Tailscale (`doz ui publish tailscale`) — port 80's redirect to the https address, on the
+        // loopback port `tailscale serve --http=80` hands plain-http requests to (716: the marker's redirectPort, TCP on
+        // 127.0.0.1 — never a unix socket). Only with the LAN option (the published setup). A marker without the port (an
+        // older publish) has none until the next publish; a port taken is said, and doctor shows it.
         var redirect: WebPublishRedirect?
         if lanSide != nil, let marker = TailscalePublish.readMarker(store) {
-            let path = TailscalePublish.paths(store).redirectSocket.path
-            do { redirect = try await WebPublishRedirect.start(path: path, origin: marker.origin) } catch {
-                if !g.json { Out.stderr("doz ui: the redirect from http to \(marker.origin) could not listen (\(error)) — doz doctor says more\n") }
+            if let rport = marker.redirectPort {
+                do { redirect = try await WebPublishRedirect.start(port: rport, origin: marker.origin) } catch {
+                    if !g.json { Out.stderr("doz ui: the redirect from http to \(marker.origin) could not listen on 127.0.0.1:\(rport) (\(error)) — doz doctor says more\n") }
+                }
+            } else if !g.json {
+                Out.stderr("doz ui: the redirect from http to \(marker.origin) has no port yet — run doz ui publish tailscale again\n")
             }
         }
-        let redirectPath = redirect?.path
+        let redirectNow = redirect
         // One stop, from a signal or (645, the LAN option) serve.sock's `stop` (`doz serve stop`, an earlier client).
         let stopping = StopOnce()
         let foreground = !o.launched
@@ -496,7 +501,7 @@ struct UIRunner {
             // 715: Ctrl-C of a dashboard in a terminal is the person's stop too (the daemon does not start it again).
             if foreground { PublishedDashboard.markStopped(store) }
             Task {
-                if let redirectPath { unlink(redirectPath) }
+                await redirectNow?.close()
                 lanSide?.recordStop()
                 await server.close()
                 lanSide?.cleanUp()

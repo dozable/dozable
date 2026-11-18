@@ -14,7 +14,10 @@ opt/tailscale/bin/tailscaled; it acts as the one its file is named. Every call i
     up --hostname=N --timeout=Ts         Running: takes the name. Else prints a login link; "approve": signed in at once;
                                          "never": waits T seconds and fails as tailscale does on its timeout
     set --hostname=N                     takes the name
-    serve --bg --yes --https=443 T / --http=80 T, serve reset, serve status --json (ipn.ServeConfig's shape)
+    serve --bg --yes --https=443 T / --http=80 T, serve reset, serve status --json (ipn.ServeConfig's shape); T is
+                                         http://127.0.0.1:PORT (or a port). A unix: target or a path handler is refused
+                                         with the real message (401 … must be root …) and exit 1, as for a tailscaled
+                                         that runs under a LaunchAgent
     logout                               NeedsLogin
 The suite edits the state file itself to stand in for a node that serves another port.
 """
@@ -122,6 +125,15 @@ elif verb == "serve" and rest[1:2] == ["reset"]:
     save()
 elif verb == "serve":
     target = rest[-1]
+    # As the real one (1.104.7) for a tailscaled run by a LaunchAgent: a unix: target or a path handler (a file or folder
+    # target, or --set-path) needs root or a sudo-capable operator — refused, the config unchanged.
+    if target.startswith("unix:") or target.startswith("/") or opt("set-path") is not None:
+        sys.stderr.write("sending serve config: 401 Unauthorized: must be root, or be an operator and able to run "
+                         "'sudo tailscale' to serve a path or Unix socket\n")
+        sys.exit(1)
+    if not (target.startswith("http://") or target.startswith("https://") or target.isdigit()):
+        sys.stderr.write("fake tailscale: a serve target this fake does not know: %s\n" % target)
+        sys.exit(2)
     if opt("https"):
         state["web"][opt("https")] = target
     elif opt("http"):

@@ -84,13 +84,23 @@ its subcommands still parse) — remove it in a later release, saying so.
   a guarded run never reaches the real ones). Signed in → `set --hostname` (re-apply); not → `up --hostname --timeout`,
   its login link shown. Settings through the settings code (`publishSettings`/`unpublishSettings`; never `serve.chat`),
   then the dashboard restarts (or starts detached). `serve reset` + `serve --bg --https=443 http://127.0.0.1:<ui.port>` +
-  `serve --bg --http=80 unix:<store>/tailscale/http.sock`. **Port 80's redirect** is `WebPublishRedirect` (DozableWeb),
-  run by `doz ui` while `<store>/tailscale/published.json` exists and the LAN option is on: every request on that unix
-  socket gets a 308 to the marker's https origin + its own path (`redirectLocation`: origin-form visible ASCII only, else
-  `/`). `tailscale serve` has no redirect, and the target never comes from a request header, so nothing depends on what
-  Tailscale forwards on 80; a socket in the store needs no second port and is out of every sandbox's reach. Doctor's rows
+  `serve --bg --http=80 http://127.0.0.1:<redirectPort>`. **Port 80's redirect** is `WebPublishRedirect` (DozableWeb),
+  run by `doz ui` while `<store>/tailscale/published.json` exists and the LAN option is on: it listens on 127.0.0.1 ONLY,
+  on the marker's `redirectPort` (TCP), and every request gets a 308 to the marker's https origin + its own path
+  (`redirectLocation`: origin-form visible ASCII only, else `/`). `tailscale serve` has no redirect, and the target never
+  comes from a request header, so nothing depends on what Tailscale forwards on 80. **Never a unix socket or a path
+  handler** (716): Tailscale serves a `unix:` target or a path only for root or an operator able to run `sudo tailscale`
+  ("401 Unauthorized: must be root, …"), and Dozable's node runs under a LaunchAgent, so 0.51.14's
+  `unix:<store>/tailscale/http.sock` was refused on every real Mac; a plain `http://127.0.0.1:<port>` target needs no
+  admin (443 always worked). The fake tailscale refuses both with the same message, so the suite catches it. `publish`
+  keeps the marker's `redirectPort` on a re-run (unless something other than the redirect answers there), else takes a
+  free loopback port (`chooseRedirectPort`, never the dashboard's), writes the marker, restarts the dashboard (which binds
+  it — refused, and said, when something already listens there), then sets serve; a 0.51.14 marker decodes with no port
+  (the next publish picks one); publish and unpublish remove a stale `http.sock`. Like every dashboard port, a sandbox's
+  proxy never reaches it (this Mac's loopback is never a sandbox's). Doctor's rows
   (`PublishDoctor`, only when published): node (agent loaded, answering), login, https (443 → the dashboard's port NOW —
-  the live failure mode was a changed `ui.port`), http (the redirect answers 308 to the origin); the address itself is
+  the live failure mode was a changed `ui.port`), http (80 → `http://127.0.0.1:<redirectPort>`, named when it is not, and
+  the redirect answers 308 to the origin over that port; a marker with no port says to publish again); the address itself is
   `ServeDoctor`'s `dashboard via` row. **Kept running by the daemon** (`PublishedDashboard`, DozableHost): while the marker exists the daemon (started at
   login by its login item) looks at start and every 60 s (`DOZ_TEST_UI_KEEP_INTERVAL` in a guarded run); when no `doz ui`
   holds `ui.lock` it starts one exactly as `doz ui --detach --no-open` (`DetachedLauncher.uiIntermediateArgs` with the

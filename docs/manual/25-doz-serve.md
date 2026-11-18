@@ -136,12 +136,16 @@ What it does, in one step:
   Tailscale — the app or the `tailscale` command — is left exactly as it is. The node keeps its state in the store and
   is kept running by a LaunchAgent of yours, so it comes back after a restart.
 - It names the node `dozable-<this Mac's local hostname>` (`--name` chooses another).
-- Tailscale serves `https://<name>.<your tailnet>.ts.net` to the dashboard; plain `http://` there redirects to it.
+- Tailscale serves `https://<name>.<your tailnet>.ts.net` to the dashboard; plain `http://` there redirects to it. The
+  redirect answers on a second port of this Mac's, on `127.0.0.1` only, picked the first time and kept; nothing needs
+  administrator rights.
 - It sets the dashboard up for it: a fixed `ui.port`, `ui.lan` on, `serve.bind` `loopback`, `serve.public_origins` the
   address and `serve.trusted_proxies` `127.0.0.1,::1` — then restarts the dashboard. Chat on other devices stays as
   `serve.chat` says.
 
-Run it again any time: it re-applies everything (after you changed `ui.port`, say). Check it:
+Run it again any time: it re-applies everything (after you changed `ui.port`, say, or when `doz doctor` says plain
+`http://` does not redirect — as it did for a dashboard published with version 0.51.14, where Tailscale refused the
+redirect). Check it:
 
 ```bash
 doz ui publish status      # the node, its sign-in, what it serves, the settings, and whether the address reaches the dashboard
