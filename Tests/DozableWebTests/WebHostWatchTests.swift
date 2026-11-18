@@ -147,10 +147,10 @@ final class WebHostWatchTests: XCTestCase {
         let host = WebVersionNote.make(ui: "0.12.0-rc.5", host: "0.12.0-rc.3")
         XCTAssertEqual(host?.older, "host")
         XCTAssertEqual(host?.text, "The daemon is still 0.12.0-rc.3 — doz daemon stop (sandboxes hibernate) and the next action runs 0.12.0-rc.5.")
-        // The UI older → restart doz ui.
+        // The UI older → restart the dashboard (714: the button or doz ui restart — a background dashboard has no Ctrl-C).
         let ui = WebVersionNote.make(ui: "0.12.0-rc.5", host: "0.12.0")
         XCTAssertEqual(ui?.older, "ui")
-        XCTAssertEqual(ui?.text, "doz ui is 0.12.0-rc.5, the daemon is 0.12.0 — restart doz ui (Ctrl-C it, then doz ui) so the page and the daemon are the same build.")
+        XCTAssertEqual(ui?.text, "This dashboard is 0.12.0-rc.5, the daemon is 0.12.0 — restart the dashboard (Restart dashboard, or doz ui restart) so the page and the daemon are the same build.")
         XCTAssertNil(WebVersionNote.make(ui: "0.12.0", host: "0.12.0"))
         XCTAssertNil(WebVersionNote.make(ui: "0.12.0", host: nil))
         XCTAssertNil(WebVersionNote.make(ui: "0.12.0+a", host: "0.12.0+b"), "the same release")

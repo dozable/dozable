@@ -34,6 +34,13 @@ public enum StableExecutable {
         return keg
     }
 
+    /// 714: the release installed NOW at this executable's stable path — the `VERSION` beside the program the formula's
+    /// `opt` link names (after a `brew upgrade`: the new keg's), or beside this program itself for any other install. nil
+    /// without a stamp (a `swift build`). A process still running an old keg compares its own version with this one.
+    public static func installedVersion(for executable: String = HostLauncher.executablePath) -> String? {
+        ReleaseStamp.read(executable: path(for: executable))
+    }
+
     /// The formula a keg belongs to (`…/Cellar/<formula>/<version>`): doz, doz-beta or doz-canary.
     public static func formula(_ keg: URL) -> String { keg.deletingLastPathComponent().lastPathComponent }
 

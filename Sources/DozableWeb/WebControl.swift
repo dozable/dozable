@@ -126,6 +126,7 @@ public enum WebControl {
     @discardableResult
     public static func serve(_ store: DozableStore, server: DozableWebServer, restarter: Restarter? = nil) throws -> Int32 {
         let lfd = try UnixSocket.listen(socket(store).path, backlog: 8)
+        server.restarter = restarter                      // 714: the page's Restart dashboard restarts the same way
         Thread.detachNewThread {
             while true {
                 let c = accept(lfd, nil, nil)

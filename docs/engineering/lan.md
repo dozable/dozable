@@ -65,6 +65,8 @@ its subcommands still parse) — remove it in a later release, saying so.
   this Mac (`@mac`, run as the person — fenced or not): refused unless `serve.mac_sessions` allows (`off` default: nothing; `watch`: list,
   screens, watch tickets, tiles; `interactive`: typing, End, Restart too — `decideMacTerminal`, `decideMacAction`; 403
   `mac-session`), audited like every refusal (web.md, "This Mac").
+  714: `macOnly` (`mac-only`, 403) — Restart dashboard (`POST /api/v1/ui/restart`): this Mac's own browser only, no setting
+  opens it (it would end every other browser's pages and terminals); the page hides it (`!state.serve`).
   `ui.lan` and the `serve.*` settings are `ui: false`. A new route needs a decision there.
 - **The page**: `state.serve` (from `sessionInfo.serve`), `core/session.js`'s serve sign-in (code or pasted link — the
   router's `#cap=` hand-off still works), `views/devices.js`, `components/share.js` + `components/qr.js` (the server

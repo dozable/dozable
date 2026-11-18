@@ -100,6 +100,8 @@ public enum WebRejection: String, Error, Equatable, Sendable {
     case secretOverHTTP = "secret-over-http"
     /// Something that opens a window on the Mac's own screen (a picker, Terminal) asked from another computer.
     case macScreen = "mac-screen"
+    /// 714: something only this Mac's own browser does (Restart dashboard) asked from another computer.
+    case macOnly = "mac-only"
     /// The sessions on this Mac (no isolation) asked from another computer, beyond what `serve.mac_sessions` allows.
     case macSession = "mac-session"
     /// `doz ui`'s Devices page needs a running doz serve for this.
@@ -121,7 +123,7 @@ public enum WebRejection: String, Error, Equatable, Sendable {
 
     public var status: Int {
         switch self {
-        case .hostRejected, .originRejected, .crossSite, .csrfRejected, .terminalsOff, .secretEntryOff, .secretOverHTTP, .macScreen, .macSession, .notServedAddress, .chatRemote, .chatReadOnly: 403
+        case .hostRejected, .originRejected, .crossSite, .csrfRejected, .terminalsOff, .secretEntryOff, .secretOverHTTP, .macScreen, .macOnly, .macSession, .notServedAddress, .chatRemote, .chatReadOnly: 403
         case .methodNotAllowed: 405
         case .alreadyRunning, .pickerOpen, .serveNotRunning: 409
         case .tooManyAttempts: 429
@@ -176,6 +178,7 @@ public enum WebRejection: String, Error, Equatable, Sendable {
         case .tooManyDevices: "the dashboard has as many browsers as it keeps — remove one in Devices (or doz ui revoke) first"
         case .secretOverHTTP: "a key or token is never typed here over plain HTTP — the network between this browser and the Mac could read it. Add it on the Mac (doz account add NAME --api-key|--setup-token, or this dashboard in the Mac’s own browser at 127.0.0.1), or reach this dashboard over HTTPS through your reverse proxy (serve.public_origins)"
         case .macScreen: "that opens a window on the Mac's own screen — from another computer, type the path instead (or use a browser terminal)"
+        case .macOnly: "only this Mac's own browser restarts the dashboard — on the Mac: doz ui restart"
         case .macSession: "the sessions on this Mac are not isolated, so another computer does not get them unless the Mac allows it (on the Mac: doz config set serve.mac_sessions watch, or interactive)"
         case .serveNotRunning: "the dashboard is not on your network (its LAN option is off) — in a terminal on this Mac: doz config set ui.lan true, then doz ui restart"
         case .signupUnavailable: "this build (from the open-source repository) does not include the sign-up — sign up at \(Usage.signupPage)"

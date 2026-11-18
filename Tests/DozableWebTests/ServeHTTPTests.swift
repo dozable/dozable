@@ -365,6 +365,52 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "secret-over-http" }, "the device's refusal is")
     }
 
+    /// 714: Restart dashboard — this Mac's own browser only, CSRF-checked, `{}` only; a device on the same port (admitted,
+    /// with its own CSRF token) is refused `mac-only` and nothing restarts. The restart runs once, after the answer.
+    func testRestartDashboardIsTheMacsBrowserOnly() async throws {
+        try await start()
+        let restarts = Counter()
+        server.restarter = WebControl.Restarter(check: { nil }, restart: { restarts.add() })
+        let (macCookie, macCSRF) = try macSignIn()
+        let (devCookie, devCSRF) = try await admit()
+        let dev = try req("/api/v1/ui/restart", ["Cookie": devCookie, "X-Doz-CSRF": devCSRF, "Origin": own, "Content-Type": "application/json"],
+                          method: "POST", body: "{}")
+        XCTAssertEqual(dev.status, 403, dev.text)
+        XCTAssertTrue(dev.text.contains("mac-only"), dev.text)
+        let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+        XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "mac-only" }, "the device's attempt is audited")
+        let noCSRF = try macReq("/api/v1/ui/restart", ["Cookie": macCookie, "Origin": mac, "Content-Type": "application/json"], method: "POST", body: "{}")
+        XCTAssertEqual(noCSRF.status, 403, "CSRF-checked like every change")
+        let bad = try macReq("/api/v1/ui/restart", ["Cookie": macCookie, "X-Doz-CSRF": macCSRF, "Origin": mac, "Content-Type": "application/json"],
+                             method: "POST", body: #"{"port":1}"#)
+        XCTAssertEqual(bad.status, 400, bad.text)
+        try await Task.sleep(for: .milliseconds(600))
+        XCTAssertEqual(restarts.value, 0, "nothing restarted for a refused request")
+        let ok = try macReq("/api/v1/ui/restart", ["Cookie": macCookie, "X-Doz-CSRF": macCSRF, "Origin": mac, "Content-Type": "application/json"],
+                            method: "POST", body: "{}")
+        XCTAssertEqual(ok.status, 200, ok.text)
+        XCTAssertTrue(ok.text.contains("\"restarting\":\"http://127.0.0.1:\(port)\""), ok.text)
+        _ = try macReq("/api/v1/ui/restart", ["Cookie": macCookie, "X-Doz-CSRF": macCSRF, "Origin": mac, "Content-Type": "application/json"],
+                       method: "POST", body: "{}")
+        try await Task.sleep(for: .milliseconds(800))
+        XCTAssertEqual(restarts.value, 1, "one restart, after the answer, however many clicks")
+    }
+
+    /// 714: a restart the UI refuses (its port check) is said, and nothing restarts; no restarter (a test's server) → 503.
+    func testRestartDashboardSaysWhyNot() async throws {
+        try await start()
+        let (macCookie, macCSRF) = try macSignIn()
+        let h = ["Cookie": macCookie, "X-Doz-CSRF": macCSRF, "Origin": mac, "Content-Type": "application/json"]
+        let none = try macReq("/api/v1/ui/restart", h, method: "POST", body: "{}")
+        XCTAssertEqual(none.status, 503, none.text)
+        let restarts = Counter()
+        server.restarter = WebControl.Restarter(check: { "the dashboard's port would be 9 — doz ui stays" }, restart: { restarts.add() })
+        let refused = try macReq("/api/v1/ui/restart", h, method: "POST", body: "{}")
+        XCTAssertTrue(refused.status >= 400 && refused.text.contains("doz ui stays"), refused.text)
+        try await Task.sleep(for: .milliseconds(600))
+        XCTAssertEqual(restarts.value, 0)
+    }
+
     /// A reverse proxy on this Mac connects from loopback: what it forwards is never the Mac's browser, even when it
     /// rewrites Host to 127.0.0.1.
     func testAForwardedRequestIsNeverTheMac() async throws {

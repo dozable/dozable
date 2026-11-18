@@ -45,6 +45,8 @@ function usageStatsOf(u) {
     || typeof u.showCommand !== 'string' || typeof u.privacyPage !== 'string' || !/^https:\/\//.test(u.privacyPage)) return null;
   return { on: u.on, fixed: typeof u.fixed === 'string' ? u.fixed : null, key: u.key, summary: u.summary, showCommand: u.showCommand, privacyPage: u.privacyPage };
 }
+/// 714: the title the server gave this document (named for its Mac), before the page changes it.
+const PAGE_TITLE = document.title;
 export function adopt(info) {
   state.csrf = info.csrf;
   state.expiresAt = new Date(info.expiresAt);
@@ -62,7 +64,9 @@ export function adopt(info) {
   sp.title = tildePath(info.store);
   $('version').textContent = 'doz ' + info.version;
   paintFootLine();
-  document.title = (mac ? 'Dozable on ' + mac : 'Dozable') + ' — ' + info.store.split('/').pop();
+  // 714: the server names the page for its Mac ("Dozable – m1max", the <title> it serves) — kept, so two Macs' installed
+  // dashboards are told apart; another computer's page says the Mac as before when the server named none.
+  document.title = (PAGE_TITLE !== 'Dozable' ? PAGE_TITLE : mac ? 'Dozable on ' + mac : 'Dozable') + ' — ' + info.store.split('/').pop();
   const k = document.querySelector('#live .foot-k');
   if (k) k.textContent = 'doz ui';                  // 645: one dashboard command, whoever asks
   $('sign-out').hidden = false;

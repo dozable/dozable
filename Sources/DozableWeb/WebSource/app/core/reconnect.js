@@ -192,6 +192,8 @@ export function uiBack() {
 }
 /// 605: `hello` names the build's page files; this document's differ → doz ui was updated underneath it.
 export function checkBuild(hello) {
+  // 714: Restart dashboard was pressed here — this hello is the new doz ui's: load its page.
+  if (state.reloadAfterRestart) { state.reloadAfterRestart = false; location.reload(); return; }
   if (!hello || !hello.script) return;
   const script = document.querySelector('script[src^="/assets/app-"]');
   const style = document.querySelector('link[rel="stylesheet"][href^="/assets/app-"]');

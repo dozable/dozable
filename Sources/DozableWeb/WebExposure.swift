@@ -42,6 +42,9 @@ public enum WebExposure {
         case macSession = "mac-session"
         /// Chat: the person's own conversations, posting as them — another computer only as `serve.chat` allows.
         case chat
+        /// 714: this Mac's own browser only, whatever the settings — restarting the dashboard itself (every other browser's
+        /// pages and terminals go with it).
+        case macOnly = "mac-only"
     }
 
     /// `serve.mac_sessions`: what a remote browser may do with the sessions on this Mac.
@@ -117,6 +120,8 @@ public enum WebExposure {
             return .macSession
         case .chat:
             return .chat
+        case .uiRestart:
+            return .macOnly
         }
     }
 
@@ -130,7 +135,8 @@ public enum WebExposure {
         case (.serveOnly, .mac): return .notFound
         case (.macSession, .remote): return macSessions == .off ? .macSession : nil
         case (.chat, .remote): return .chatRemote                      // decided above (decideChat)
-        case (.page, _), (.read, _), (.change, _), (.secretEntry, _), (.macScreen, .mac), (.devices, _), (.serveOnly, .remote), (.macSession, .mac), (.chat, .mac):
+        case (.macOnly, .remote): return .macOnly
+        case (.page, _), (.read, _), (.change, _), (.secretEntry, _), (.macScreen, .mac), (.devices, _), (.serveOnly, .remote), (.macSession, .mac), (.chat, .mac), (.macOnly, .mac):
             return nil
         }
     }
