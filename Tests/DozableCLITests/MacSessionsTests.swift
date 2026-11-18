@@ -208,6 +208,38 @@ final class MacPlaceTests: XCTestCase {
         }
     }
 
+    /// 713: the program after a leading `env NAME=VALUE …` — recognised as itself; any `env` option is not guessed at.
+    func testTheProgramIsFoundThroughALeadingEnv() throws {
+        XCTAssertEqual(MacPlace.programIndex(["claude", "-p", "hi"]), 0)
+        XCTAssertEqual(MacPlace.program(["env", "CHAT_URL=http://x", "claude", "--model", "opus"]), "claude")
+        XCTAssertEqual(MacPlace.program(["/usr/bin/env", "A=1", "B=", "C=x=y", "/Users/x/.local/bin/claude"]), "/Users/x/.local/bin/claude")
+        XCTAssertEqual(MacPlace.program(["env", "claude"]), "claude", "no variables: still env's program")
+        for refused in [["env"], ["env", "A=1"], ["env", "-i", "claude"], ["env", "A=1", "-u", "B", "claude"], ["env", "--", "claude"],
+                        ["env", "-S", "claude -p"], ["env", "A=1", "-"], ["env", "=x", "claude"]] {
+            XCTAssertNil(MacPlace.programIndex(refused), "\(refused)")
+            XCTAssertFalse(MacPlace.isClaude(refused), "\(refused)")
+        }
+        XCTAssertTrue(MacPlace.isClaude(["env", "CHAT_URL=x", "claude"]))
+        XCTAssertFalse(MacPlace.isClaude(["env", "CHAT_URL=x", "sh", "-c", "claude"]), "a shell that starts claude is not claude")
+        XCTAssertFalse(MacPlace.isClaude(["myenv", "claude"]), "only env itself")
+        // The default session name is the program's.
+        XCTAssertEqual(try MacSessions.defaultName(["env", "CHAT_URL=x", "/usr/local/bin/claude"]), "claude")
+        XCTAssertEqual(try MacSessions.defaultName(["env", "-i", "claude"]), "env")
+        // A restart resumes through it, the `env` part kept as it is.
+        let u = Self.U
+        var got = MacPlace.restartArgv(["env", "CHAT_URL=x", "claude", "--session-id", u, "--permission-mode", "dontAsk"], fresh: false, knownID: nil,
+                                       transcriptExists: { $0 == u }, hasConversation: true)
+        XCTAssertEqual(got.argv, ["env", "CHAT_URL=x", "claude", "--resume", u, "--permission-mode", "dontAsk"])
+        XCTAssertEqual(got.how, .resume(u))
+        got = MacPlace.restartArgv(["/usr/bin/env", "A=1", "claude"], fresh: false, knownID: nil, transcriptExists: { _ in false }, hasConversation: true)
+        XCTAssertEqual(got.argv, ["/usr/bin/env", "A=1", "claude", "--continue"])
+        got = MacPlace.restartArgv(["env", "-i", "claude"], fresh: false, knownID: u, transcriptExists: { _ in true }, hasConversation: true)
+        XCTAssertEqual(got.argv, ["env", "-i", "claude"], "an env with an option: not recognised, kept as it is")
+        XCTAssertEqual(got.how, .none)
+        XCTAssertEqual(MacPlace.resumeArguments(["env", "A=1", "claude"], fresh: false), ["--continue"])
+        XCTAssertEqual(MacPlace.resumeArguments(["env", "A=1", "claude", "-c"], fresh: false), [])
+    }
+
     /// The invariant, over generated argvs: never --continue beside --session-id (Claude refuses it and exits at once —
     /// the bug seen on a real Mac), never two conversation choices, never a bare --resume picker, never --fork-session.
     func testRestartArgv_neverContinueBesideSessionID() {

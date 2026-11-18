@@ -228,6 +228,30 @@ final class MacAgentConfigTests: XCTestCase {
         XCTAssertNotEqual(w.sandboxed(p, ["/bin/cat", w.home + "/.aws/credentials"]).code, 0)
     }
 
+    /// 713: `env CHAT_URL=x claude …` is the agent (its folder, its temp); an `env` with an option is not guessed at.
+    func testThePlanSeesTheAgentThroughALeadingEnv() throws {
+        let f = try w.fence()
+        func plan(_ argv: [String]) throws -> MacAgentSetup? {
+            try MacAgentConfig.plan(argv: argv, workdir: f.workdir, sessionFolder: f.sessionFolder, home: w.home, mode: nil, history: nil,
+                                    settings: DozableSettings(text: ""))
+        }
+        XCTAssertEqual(try plan(["env", "CHAT_URL=http://x", "claude", "--permission-mode", "dontAsk"])?.recipe, "claude-code")
+        XCTAssertEqual(try plan(["/usr/bin/env", "A=1", "/Users/x/.local/bin/claude"])?.recipe, "claude-code")
+        XCTAssertNil(try plan(["env", "-i", "claude"]))
+        XCTAssertNil(try plan(["env", "A=1", "sh", "-c", "claude"]))
+        var g = f
+        g.agent = try plan(["env", "CHAT_URL=http://x", "claude"])
+        var env: [String: String] = [:]
+        MacFenceEnvironment.add(&env, fence: g)
+        XCTAssertEqual(env["CLAUDE_CONFIG_DIR"], f.sessionFolder + "/agent")
+        XCTAssertEqual(env["CLAUDE_CODE_TMPDIR"], f.tmp)
+        // A program that is not the agent (a script that starts claude) still gets Claude Code's temp folder.
+        var e2: [String: String] = [:]
+        MacFenceEnvironment.add(&e2, fence: f)
+        XCTAssertNil(e2["CLAUDE_CONFIG_DIR"])
+        XCTAssertEqual(e2["CLAUDE_CODE_TMPDIR"], f.tmp)
+    }
+
     func testTheEnvironmentNamesTheFolder_thePlaceholder_andTheShims() throws {
         var f = try fence()
         f.placeholders = ["CLAUDE_CODE_OAUTH_TOKEN": "doz_cred_" + String(repeating: "a", count: 48)]
@@ -294,6 +318,11 @@ final class MacAgentConfigTests: XCTestCase {
         XCTAssertTrue(MacAgentPrompt.applies(argv: ["claude"], fenced: false, setting: "always"))
         XCTAssertFalse(MacAgentPrompt.applies(argv: ["claude"], fenced: true, setting: "off"))
         XCTAssertFalse(MacAgentPrompt.applies(argv: ["sh"], fenced: true, setting: "always"))
+        // 713: through a leading `env NAME=VALUE …` — the facts go to claude's own argv, env's part kept.
+        XCTAssertTrue(MacAgentPrompt.applies(argv: ["env", "CHAT_URL=x", "claude"], fenced: true, setting: "fenced"))
+        XCTAssertEqual(MacAgentPrompt.argv(["env", "CHAT_URL=x", "claude", "-p", "hi"], facts: facts),
+                       ["env", "CHAT_URL=x", "claude", "--append-system-prompt", facts, "-p", "hi"])
+        XCTAssertEqual(MacAgentPrompt.argv(["env", "A=1", "claude", "mcp", "list"], facts: facts), ["env", "A=1", "claude", "mcp", "list"])
     }
 
     func testTheFactsSayWhatTheFenceIs() throws {

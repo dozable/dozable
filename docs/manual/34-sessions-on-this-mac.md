@@ -133,7 +133,9 @@ remove it from your own terminal.
 
 ## Its agent's settings folder: private or shared
 
-For Claude Code (the agent whose recipe declares where it keeps its settings), there are two ways:
+For Claude Code (the agent whose recipe declares where it keeps its settings), there are two ways. Dozable knows the
+agent by the program you start — `-- claude …`, also `-- env NAME=VALUE claude …` — but give variables with
+`doz run -e NAME=VALUE` rather than through `env`, and start the agent itself rather than a script that starts it:
 
 - **Private** (the default): the session has its **own** Claude settings folder. Your `CLAUDE.md`, skills, agents,
   commands and output styles are there as **read-only** links (one that points somewhere closed is not followed); its

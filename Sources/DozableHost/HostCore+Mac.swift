@@ -516,7 +516,7 @@ extension HostCore {
         try Self.refuseSecretVariables((given ?? []).map(\.secret) + keptSecrets, extra)
         // 683: its agent's login (only a program whose embedded recipe declares a config folder: Claude Code).
         var login: (account: String?, placeholders: [String: String]) = (nil, [:])
-        if let program = argv?.first, AgentRecipes.macAgent(program: program) != nil {
+        if let program = argv.flatMap(MacPlace.program), AgentRecipes.macAgent(program: program) != nil {
             let a = try fenceAccount(request.account, settings: settings)
             login = (a.account, a.placeholders)
         } else if request.account != nil {

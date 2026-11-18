@@ -93,6 +93,8 @@ public enum MacAgentPrompt {
 
     /// `argv` with the facts added (the combine rule above).
     public static func argv(_ argv: [String], facts: String) -> [String] {
+        // 713: after a leading `env NAME=VALUE …`, Claude Code's own argv (the `env` part kept as it is).
+        if let p = MacPlace.programIndex(argv), p > 0 { return MacPlace.onProgram(argv) { Self.argv($0, facts: facts) } }
         guard argv.count >= 1 else { return argv }
         let rest = Array(argv.dropFirst())
         if let first = rest.first, subcommands.contains(first) { return argv }

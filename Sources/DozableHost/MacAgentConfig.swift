@@ -74,7 +74,8 @@ public enum MacAgentConfig {
     /// `mode`/`history`: the request's own (a flag), else the settings.
     public static func plan(argv: [String], workdir: String, sessionFolder: String, home: String, mode flag: String?, history own: String?,
                             settings: DozableSettings) throws -> MacAgentSetup? {
-        guard let program = argv.first, let r = AgentRecipes.macAgent(program: program), let m = r.launch.macConfig else { return nil }
+        // 713: the program also after a leading `env NAME=VALUE …` (`MacPlace.program`).
+        guard let program = MacPlace.program(argv), let r = AgentRecipes.macAgent(program: program), let m = r.launch.macConfig else { return nil }
         if let f = flag, !modes.contains(f) { throw HostError(.invalid, "--agent-config \(f): private or shared") }
         if let h = own, !AgentHistory.values.contains(h) { throw HostError(.invalid, "--history \(h): keep or agent-default") }
         let (mode, modeSource) = resolveMode(flag: flag, recipe: r, settings: settings)
