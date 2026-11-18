@@ -260,13 +260,19 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     case workspaceList = "workspace-ls", workspaceShow = "workspace-show", workspaceLog = "workspace-log"
     case workspaceNew = "workspace-new", workspaceAdopt = "workspace-adopt", workspaceRelease = "workspace-release"
     case workspaceEdit = "workspace-edit", workspaceRename = "workspace-rename"
+    /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
+    /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
+    /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),
+    /// answered with `BotChange` — whose `oneTimeToken` (a bot elsewhere's, this once) is never logged.
+    case botList = "bot-ls", botShow = "bot-show", botNew = "bot-new", botSet = "bot-set", botRetire = "bot-retire"
+    case botAdopt = "bot-adopt", botToken = "bot-token"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog: true
+             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .botList, .botShow: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -568,6 +574,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var macBridges: MacFenceRequest?
     /// The `workspace-*` operations' arguments.
     public var workspaceRequest: WorkspaceRequest?
+    /// The `bot-*` operations' arguments.
+    public var botRequest: BotRequest?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -1695,4 +1703,100 @@ public struct WorkspaceDetail: Codable, Equatable, Sendable {
         self.briefText = briefText; self.folders = folders; self.rooms = rooms; self.agents = agents; self.defaults = defaults
         self.flags = flags; self.origin = origin; self.notes = notes
     }
+}
+
+// MARK: Agents / Bots
+
+/// What a `bot-*` request carries. Never a token: no CLI option takes one, and a new one is made by the daemon.
+public struct BotRequest: Codable, Equatable, Sendable {
+    public var name: String?
+    /// new / adopt: the agent program (`claude-code`, `codex`, …).
+    public var agent: String?
+    public var model: String?
+    /// An account of the store, or `mac`.
+    public var account: String?
+    public var avatar: String?
+    /// `vm`, `fenced`, `unfenced` or `elsewhere` (new / adopt: fenced when not given).
+    public var isolation: String?
+    /// `inbox`, `poll` or `webhook` (new: poll when not given; adopt: as the participant is when not given).
+    public var deliver: String?
+    public var webhookEntry: String?
+    public var session: String?
+    public var skills: [String]?
+    /// The instructions' text (at most 256 KiB, UTF-8) — the CLI reads the file.
+    public var instructions: String?
+    /// ls: only the retired bots.
+    public var retired: Bool?
+
+    public init(name: String? = nil) { self.name = name }
+}
+
+/// `bot-ls`.
+public struct BotListing: Codable, Equatable, Sendable {
+    public var bots: [BotRow]
+    public init(bots: [BotRow]) { self.bots = bots }
+}
+
+public struct BotRow: Codable, Equatable, Sendable {
+    public var name: String
+    public var agent: String
+    public var model: String?
+    public var isolation: String
+    public var kind: String
+    /// How the chat server reaches it: `inbox`, `poll` or `webhook`.
+    public var deliver: String
+    /// Whether it is a participant in chat now.
+    public var inChat: Bool
+    /// The workspaces it manages (none yet: a later step makes managers).
+    public var manages: [String]
+    public var retiredAt: Date?
+    public init(name: String, agent: String, model: String?, isolation: String, kind: String, deliver: String, inChat: Bool, manages: [String],
+                retiredAt: Date?) {
+        self.name = name; self.agent = agent; self.model = model; self.isolation = isolation; self.kind = kind; self.deliver = deliver
+        self.inChat = inChat; self.manages = manages; self.retiredAt = retiredAt
+    }
+}
+
+/// `bot-show` and the answer to every change: the record as it is now — its token's state, never the token.
+public struct BotDetail: Codable, Equatable, Sendable {
+    public var name: String
+    public var createdAt: Date
+    public var origin: String
+    public var agent: String
+    public var model: String?
+    public var account: String?
+    public var avatar: String?
+    public var isolation: BotIsolation
+    public var kind: String
+    public var deliver: String
+    public var webhookEntry: String?
+    public var session: String?
+    public var skills: [String]
+    public var instructions: BotInstructions?
+    public var token: BotTokenState
+    public var retiredAt: Date?
+    /// Whether it is a participant in chat now.
+    public var inChat: Bool
+    /// The workspaces it is an agent of, and the ones it manages.
+    public var workspaces: [String]
+    public var manages: [String]
+    /// Its rooms, as the chat server says them (the CLI asks over your socket while chat runs; nil: not asked).
+    public var rooms: [String]?
+    /// What the person may want to know or do next.
+    public var notes: [String]?
+
+    public init(_ r: BotRecord, inChat: Bool, workspaces: [String], manages: [String], notes: [String]? = nil) {
+        name = r.name; createdAt = r.createdAt; origin = r.origin; agent = r.agent; model = r.model; account = r.account; avatar = r.avatar
+        isolation = r.isolation; kind = r.kind; deliver = r.deliver; webhookEntry = r.webhookEntry; session = r.session; skills = r.skills
+        instructions = r.instructions; token = r.token; retiredAt = r.retiredAt
+        self.inChat = inChat; self.workspaces = workspaces; self.manages = manages; self.notes = notes
+    }
+}
+
+/// The answer to `bot-new`, `-set`, `-retire`, `-adopt` and `-token`. `oneTimeToken`: a bot elsewhere's new token, this
+/// once, over the daemon's socket only — the CLI writes it to the terminal or a new file and drops it before any `--json`.
+public struct BotChange: Codable, Equatable, Sendable {
+    public var bot: BotDetail
+    public var oneTimeToken: String?
+    public init(bot: BotDetail, oneTimeToken: String? = nil) { self.bot = bot; self.oneTimeToken = oneTimeToken }
 }

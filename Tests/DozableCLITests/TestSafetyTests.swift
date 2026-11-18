@@ -35,6 +35,8 @@ final class TestSafetyTests: XCTestCase {
         XCTAssertNotNil(TestSafety.keychainViolation(service: ClaudeLogin.service(configDir: "/tmp/x")))
         XCTAssertNil(TestSafety.keychainViolation(service: "doz-anthropic:work"))
         XCTAssertNil(TestSafety.keychainViolation(service: "doz-test-limit-1"))
+        // A bot's token: never in the real keychain from a test.
+        XCTAssertNotNil(TestSafety.keychainViolation(service: BotTokens.service(store: URL(fileURLWithPath: "/tmp/s"), name: "mira")))
     }
 
     func testEnforceIsSilentWhenNotGuardedOrNothingIsWrong() {

@@ -167,6 +167,10 @@ public final class HostServer: @unchecked Sendable {
                 return st.ready ? .ready : .notReady(st.problem ?? st.state)
             } catch { return .notReady(HostError.from(error).message) }
         }, owner: ChatOwnerRooms(client: ChatOwnerClient(paths: server.chat.paths))))
+        // The bots change the chat server's participants through the supervisor (its one writer of directory.json and
+        // tokens.json); their tokens' keychain items of no bot are swept once (never in the read-only core).
+        await server.core.setBotChat(SupervisorBotChat(supervisor: server.chat, blocked: { [weak server] in await server?.chatBlocked() ?? true }))
+        Task.detached { await server.core.sweepBotTokens() }
         do {
             server.listenFD = try UnixSocket.listen(store.socket.path)
         } catch {
@@ -579,6 +583,8 @@ public final class HostServer: @unchecked Sendable {
     /// The `chat-*` requests: the supervisor's. Nothing of the request is logged (a `chat-token` may carry a token).
     private func chatRequest(_ req: HostRequest) async -> HostMessage {
         let c = req.chat ?? ChatRequest()
+        // A bot's name: changed through `doz bot`, never `doz chat` (a retired one is never taken again).
+        if let refused = BotGuards.chatRefusal(req.op, name: c.name, bots: BotStore(store: store).readOrEmpty()) { return .failure(refused) }
         do {
             switch req.op {
             case .chatSync:
@@ -1064,4 +1070,37 @@ final class DashboardPorts: @unchecked Sendable {
         cached = (Date(), p)
         return p
     }
+}
+
+/// The bots' way to the chat server's participants: the supervisor's own add / set / token / remove, each followed by the
+/// wait for the restarted server (ready again, or stopped — at most 15 s), as `doz chat` does.
+struct SupervisorBotChat: BotChat {
+    let supervisor: ChatSupervisor
+    let blocked: @Sendable () async -> Bool
+
+    func directory() throws -> ChatDirectory { try ChatDirectory.load(supervisor.paths) }
+    func enabled() -> Bool { ChatSettingsView.read().enabled }
+
+    func add(_ name: String, token: String, kind: String, deliver: String, entry: String?, session: String?) async throws {
+        _ = try await supervisor.add(name, token: token, kind: kind, webhook: deliver == "webhook", entry: deliver == "webhook" ? entry : nil,
+                                     inbox: deliver == "inbox", session: deliver == "inbox" ? session : nil)
+        await settle()
+    }
+
+    func set(_ name: String, deliver: String, entry: String?, session: String?) async throws {
+        _ = try await supervisor.set(name, deliver: deliver, entry: entry, session: session)
+        await settle()
+    }
+
+    func replaceToken(_ name: String, token: String) async throws {
+        _ = try await supervisor.replaceToken(name, token: token)
+        await settle()
+    }
+
+    func remove(_ name: String) async throws {
+        try await supervisor.remove(name)
+        await settle()
+    }
+
+    private func settle() async { _ = try? await supervisor.sync(human: nil, retry: false, waitReady: true, blocked: await blocked()) }
 }
