@@ -1,5 +1,16 @@
 import Foundation
 
+/// The copy of this app on disk at a bundle's path: its Info.plist read again (an install swaps the bundle by rename, so
+/// a running copy's own `Bundle.main` keeps the version it started with).
+public enum AppOnDisk {
+    public static func version(bundlePath: String) -> String? {
+        let plist = (bundlePath as NSString).appendingPathComponent("Contents/Info.plist")
+        guard let d = FileManager.default.contents(atPath: plist),
+              let p = try? PropertyListSerialization.propertyList(from: d, format: nil) as? [String: Any] else { return nil }
+        return p["CFBundleShortVersionString"] as? String
+    }
+}
+
 /// Gathers a `Snapshot` by running doz, and runs the menu's actions. Used by the menu (on a background queue, one
 /// command at a time) and by `--dump-menu` / `--run-action`.
 ///
@@ -13,6 +24,8 @@ public final class SnapshotSource: @unchecked Sendable {
     /// Start at Login: SMAppService (the recording one in a test run), launchd's look, and whether this copy may hold a
     /// login item where it runs. nil: the menu has no login row and the login actions do nothing.
     public let login: LoginContext?
+    /// The version of the copy on disk at this app's own place (`AppOnDisk.version`; nil: not looked at).
+    public let installedAppVersion: (@Sendable () -> String?)?
     private let lock = NSLock()
     private var cache: (path: String, ids: [FileIdentity], version: String?, bundled: String?)?
 
@@ -26,8 +39,10 @@ public final class SnapshotSource: @unchecked Sendable {
         }
     }
 
-    public init(locator: DozLocator, runner: CommandRunning, appVersion: String?, login: LoginContext? = nil) {
+    public init(locator: DozLocator, runner: CommandRunning, appVersion: String?, login: LoginContext? = nil,
+                installedAppVersion: (@Sendable () -> String?)? = nil) {
         self.locator = locator; self.runner = runner; self.appVersion = appVersion; self.login = login
+        self.installedAppVersion = installedAppVersion
     }
 
     /// The login row's state (SMAppService's status is a local look — no process).
@@ -37,7 +52,8 @@ public final class SnapshotSource: @unchecked Sendable {
 
     /// The menu's state now. `busy` and `lastError` are the caller's to fill.
     public func snapshot() -> Snapshot {
-        guard let doz = locator.locate() else { return Snapshot(doz: .missing, appVersion: appVersion, login: loginSnapshot()) }
+        let onDisk = installedAppVersion?()
+        guard let doz = locator.locate() else { return Snapshot(doz: .missing, appVersion: appVersion, login: loginSnapshot(), installedAppVersion: onDisk) }
         let ids = FileIdentity.ofDoz(doz)
         let cached: (version: String?, bundled: String?)? = lock.withLock {
             guard let c = cache, c.path == doz, c.ids == ids, !ids.isEmpty else { return nil }
@@ -52,7 +68,8 @@ public final class SnapshotSource: @unchecked Sendable {
             bundled = a.ok ? DozAppStatus.decode(a.stdout)?.bundled?.version : nil
             lock.withLock { cache = (doz, ids, version, bundled) }
         }
-        var s = Snapshot(doz: .found(path: doz, version: version), appVersion: appVersion, bundledAppVersion: bundled, login: loginSnapshot())
+        var s = Snapshot(doz: .found(path: doz, version: version), appVersion: appVersion, bundledAppVersion: bundled, login: loginSnapshot(),
+                         installedAppVersion: onDisk)
         let r = runner.run(.status, doz: doz)
         if r.timedOut { s.statusProblem = "doz did not answer within \(Int(DozCommand.status.timeout)) seconds" }
         else if r.exit != 0 { s.statusProblem = "doz daemon status failed (\(Self.failure(r)))" }
@@ -81,7 +98,7 @@ public final class SnapshotSource: @unchecked Sendable {
         case .restart: what = "Restart failed"
         case .dashboard: what = "Could not open the dashboard"
         case .updateApp: what = "Could not update the menu bar app"
-        case .installHelp, .quit, .loginOn, .loginOff, .loginSettings: what = "Failed"
+        case .installHelp, .quit, .loginOn, .loginOff, .loginSettings, .restartApp: what = "Failed"
         }
         if r.timedOut { return "\(what): doz did not finish within \(Int(command.timeout)) seconds" }
         // The dashboard's output is never read: only its exit status is known.

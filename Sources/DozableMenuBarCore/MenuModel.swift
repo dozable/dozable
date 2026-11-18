@@ -37,15 +37,19 @@ public struct Snapshot: Equatable, Sendable {
     public var appVersion: String?
     /// The copy of this app that came with doz (`doz app status --json`'s `bundled.version`).
     public var bundledAppVersion: String?
+    /// The copy on disk at this app's own place, read again at each refresh (nil: unreadable). Newer than `appVersion`:
+    /// an install swapped it in while this one runs — it must be restarted to update.
+    public var installedAppVersion: String?
     /// The last action's failure, shown until the next action.
     public var lastError: String?
     /// Start at Login (nil: not known — no row is drawn).
     public var login: LoginSnapshot?
 
     public init(doz: Doz, status: DozStatus? = nil, statusProblem: String? = nil, busy: Busy? = nil, appVersion: String? = nil,
-                bundledAppVersion: String? = nil, lastError: String? = nil, login: LoginSnapshot? = nil) {
+                bundledAppVersion: String? = nil, lastError: String? = nil, login: LoginSnapshot? = nil, installedAppVersion: String? = nil) {
         self.doz = doz; self.status = status; self.statusProblem = statusProblem; self.busy = busy; self.appVersion = appVersion
         self.bundledAppVersion = bundledAppVersion; self.lastError = lastError; self.login = login
+        self.installedAppVersion = installedAppVersion
     }
 
     public var dozPath: String? { if case .found(let p, _) = doz { return p }; return nil }
@@ -55,6 +59,8 @@ public struct Snapshot: Equatable, Sendable {
 /// What a menu item does when chosen. None of them runs anything but doz (and Quit runs nothing at all).
 public enum MenuAction: String, Equatable, Sendable, Encodable {
     case start, stop, restart, dashboard, updateApp, installHelp, quit
+    /// The copy on disk is newer than this running one: quit this one and open the copy on disk (no doz command).
+    case restartApp = "restart-app"
     /// Start at Login: on (register the agent and the app, then tell doz), off, and — when macOS waits for the person —
     /// open System Settings › Login Items. None runs a doz command by itself (`LoginItemFlow`).
     case loginOn = "login-on", loginOff = "login-off", loginSettings = "login-settings"
@@ -67,7 +73,7 @@ public enum MenuAction: String, Equatable, Sendable, Encodable {
         case .restart: .restart
         case .dashboard: .dashboard
         case .updateApp: .updateApp
-        case .installHelp, .quit, .loginOn, .loginOff, .loginSettings: nil
+        case .installHelp, .quit, .loginOn, .loginOff, .loginSettings, .restartApp: nil
         }
     }
 
@@ -79,7 +85,7 @@ public enum MenuAction: String, Equatable, Sendable, Encodable {
         case .dashboard: .openingDashboard
         case .updateApp: .updatingApp
         case .loginOn, .loginOff: .loginItem
-        case .installHelp, .quit, .loginSettings: nil
+        case .installHelp, .quit, .loginSettings, .restartApp: nil
         }
     }
 }
@@ -198,7 +204,10 @@ public enum MenuModel {
             }
             items.append(.separator)
             items.append(MenuItem(kind: .action, title: "Open Dashboard", enabled: idle, action: .dashboard))
-            if let bundled = s.bundledAppVersion, let mine = s.appVersion, DozVersion.isOlder(mine, than: bundled) {
+            if let mine = s.appVersion, let onDisk = s.installedAppVersion, DozVersion.isOlder(mine, than: onDisk) {
+                // An install already put a newer copy where this one runs: restarting is the update.
+                items.append(MenuItem(kind: .action, title: "Restart to Update (\(mine) → \(onDisk))", enabled: idle, action: .restartApp))
+            } else if let bundled = s.bundledAppVersion, let mine = s.appVersion, DozVersion.isOlder(mine, than: bundled) {
                 items.append(MenuItem(kind: .action, title: "Update Menu Bar App (\(mine) → \(bundled))", enabled: idle, action: .updateApp))
             }
         } else {

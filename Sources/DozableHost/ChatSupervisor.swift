@@ -840,8 +840,24 @@ public struct ChatSystemProcesses: ChatProcesses {
     }
 }
 
-/// A process's arguments (KERN_PROCARGS2) — only to tell our own chat server from another program on the data folder.
+/// A process's arguments (KERN_PROCARGS2) — to tell our own chat server from another program on the data folder, and
+/// (`startedAs`) a running menu bar app whose program file is gone from what it was started as.
 public enum ProcessArguments {
+    /// The path the process was executed from (KERN_PROCARGS2's first string) and its argv[0]; [] when unreadable.
+    public static func startedAs(_ pid: pid_t) -> [String] {
+        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
+        var size = 0
+        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > 4 else { return [] }
+        var buf = [UInt8](repeating: 0, count: size)
+        guard sysctl(&mib, 3, &buf, &size, nil, 0) == 0, size > 4 else { return [] }
+        var i = 4
+        let s0 = i
+        while i < size, buf[i] != 0 { i += 1 }
+        let exec = String(decoding: buf[s0..<i], as: UTF8.self)
+        let argv0 = of(pid)?.first ?? ""
+        return [exec, argv0].filter { !$0.isEmpty }
+    }
+
     public static func of(_ pid: pid_t) -> [String]? {
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
         var size = 0

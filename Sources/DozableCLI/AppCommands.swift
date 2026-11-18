@@ -160,33 +160,58 @@ enum MenuBarAppInstall {
     /// stand-in counts: a process running the file the seam `DOZ_TEST_APP_STANDIN` names (outside any bundle) — a test
     /// never runs a program inside a scratch bundle (Gatekeeper judges it, and a stand-in there breaks the bundle's seal:
     /// "“Dozable” is damaged" on the person's screen). Without the seam a guarded run finds none.
+    ///
+    /// A copy whose program file is gone — an earlier `doz app install` swapped the bundle under it and removed the old one
+    /// (`proc_pidpath` then fails) — is still found by its arguments (KERN_PROCARGS2: the path it was started from, and
+    /// argv[0]): under the bundle's path, or under the staged name the old copy passed through (`isCopy`). Only this
+    /// user's processes, ever.
     static func runningCopies(_ app: URL, env: [String: String] = ProcessInfo.processInfo.environment) -> [pid_t] {
         // realpath(3), not URL's resolvingSymlinksInPath (which strips /private: /tmp/x stays /tmp/x, while the kernel's
         // record of a program in it says /private/tmp/x).
-        let matches: (String) -> Bool
+        let matches: (_ path: String?, _ started: [String]) -> Bool
         if TestSafety.guarded(env) {
             guard let seam = env["DOZ_TEST_APP_STANDIN"], seam.hasPrefix("/"), let r = realpath(seam, nil) else { return [] }
             let standin = String(cString: r)
             free(r)
-            matches = { $0 == standin }
+            matches = { path, started in path.map { $0 == standin } ?? started.contains(standin) }
         } else {
             guard let real = realpath(app.path, nil) else { return [] }
             let inside = String(cString: real) + "/"
             free(real)
-            matches = { $0.hasPrefix(inside) }
+            let staged = (((inside as NSString).deletingLastPathComponent as NSString).appendingPathComponent(stagedName)) + "/"
+            matches = { path, started in isCopy(path: path, started: started, inside: inside, staged: staged) }
         }
         var n = proc_listallpids(nil, 0)
         guard n > 0 else { return [] }
         var pids = [pid_t](repeating: 0, count: Int(n) + 64)
         n = pids.withUnsafeMutableBufferPointer { proc_listallpids($0.baseAddress, Int32($0.count * MemoryLayout<pid_t>.size)) }
         guard n > 0 else { return [] }
+        let me = getuid()
         return pids.prefix(Int(n)).filter { pid in
-            guard pid > 1, pid != getpid() else { return false }
+            guard pid > 1, pid != getpid(), owner(of: pid) == me else { return false }
             var buf = [CChar](repeating: 0, count: 4096)
-            guard proc_pidpath(pid, &buf, UInt32(buf.count)) > 0 else { return false }
-            let path = String(decoding: buf.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
-            return matches(path)
+            if proc_pidpath(pid, &buf, UInt32(buf.count)) > 0 {
+                return matches(String(decoding: buf.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self), [])
+            }
+            // Its file is gone (or unreadable): how it was started.
+            return matches(nil, ProcessArguments.startedAs(pid))
         }
+    }
+
+    /// Whether a process is a copy of the app at `inside` (its path with a trailing `/`): by its program's path when that
+    /// can be read; otherwise by how it was started (`started`: the path it was executed from and argv[0]) — under the
+    /// bundle, or under the staged name (`staged`, with a trailing `/`) an install passes the old copy through. Pure.
+    static func isCopy(path: String?, started: [String], inside: String, staged: String) -> Bool {
+        if let path { return path.hasPrefix(inside) }
+        return started.contains { $0.hasPrefix(inside) || $0.hasPrefix(staged) }
+    }
+
+    /// The uid a process runs as (nil: not readable).
+    static func owner(of pid: pid_t) -> uid_t? {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return nil }
+        return info.pbi_uid
     }
 
     /// SIGTERM each, then wait up to `seconds` for them to go. The ones still running.
@@ -312,7 +337,9 @@ struct AppInstall: AsyncParsableCommand {
             let was = r.previousVersion.map { $0 == r.version ? " (it was already \($0): replaced)" : " (was \($0))" } ?? ""
             Out.stdout("installed \(DisplayPath.tilde(r.path)) — the menu bar app \(r.version)\(was)\n")
             if open { Out.stdout(r.opened ? "opened it\(r.quit > 0 ? " (the running copy was quit)" : "")\n" : "could not open it — open it from Finder\n") }
-            else if r.previousVersion != nil { Out.stdout("a running copy keeps its version until it is opened again (doz app install --open restarts it)\n") }
+            else if !MenuBarAppInstall.runningCopies(URL(fileURLWithPath: r.path)).isEmpty {
+                Out.stdout("the menu bar app that is running is still the old copy: restart it to use \(r.version) — choose Restart to Update in its menu, or doz app install --open (quits it and opens the new one)\n")
+            } else if r.previousVersion != nil { Out.stdout("a running copy keeps its version until it is opened again (doz app install --open restarts it)\n") }
             else { Out.stdout("open it: open \(DisplayPath.tilde(r.path))   (or from Finder; it lives in the menu bar)\n") }
         } catch let e as MenuBarAppInstall.Failure {
             throw fail(HostError(.failed, e.description), g)

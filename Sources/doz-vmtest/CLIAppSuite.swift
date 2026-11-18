@@ -367,6 +367,17 @@ func cliAppSuite(binary: String, app: String) async {
           "app 9: again with a running copy (the stand-in) and --open → it was quit, the new copy swapped in by rename (a new file), exactly one line in the open seam, nothing opened "
           + "(exit \(r.code), quit \(quitOK), inode \(inodeBefore ?? 0) → \(inodeAfter ?? 0), open log \(openLog.debugDescription), \(r.out.replacingOccurrences(of: "\n", with: " ").prefix(160)))")
     check(!fm.fileExists(atPath: dest.appendingPathComponent(".Dozable.app.new").path), "app 9: nothing left at the staged name")
+    // Without --open while a copy runs (the stand-in again): it says plainly that the running copy must be restarted, and how.
+    let sleeper2 = Process()
+    sleeper2.executableURL = URL(fileURLWithPath: standin)
+    try? sleeper2.run()
+    started.append(sleeper2)
+    usleep(300_000)
+    r = withStandin.run(["app", "install", "--dest", dest.path])
+    check(r.code == 0 && r.out.contains("the menu bar app that is running is still the old copy: restart it to use")
+          && r.out.contains("Restart to Update") && r.out.contains("doz app install --open") && sleeper2.isRunning,
+          "app 9: without --open while a copy runs → it says to restart it (Restart to Update, or --open), and quits nothing (\(r.out.replacingOccurrences(of: "\n", with: " ").prefix(200)))")
+    sleeper2.terminate()
     // Tampered: a file added to the copy beside doz after it was signed.
     try? fm.createDirectory(at: bundled.appendingPathComponent("Contents/Resources"), withIntermediateDirectories: true)
     try? Data("x".utf8).write(to: bundled.appendingPathComponent("Contents/Resources/added"))

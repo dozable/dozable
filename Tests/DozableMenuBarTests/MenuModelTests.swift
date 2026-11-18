@@ -149,6 +149,37 @@ final class MenuModelTests: XCTestCase {
         XCTAssertNil(item(MenuModel.items(for: snap(st, app: nil, bundled: "0.51.0")), .updateApp), "a build outside a bundle")
     }
 
+    /// The copy on disk is newer than this running one (an install swapped it in): "Restart to Update", which runs no doz
+    /// command (the app reopens itself); it wins over "Update Menu Bar App".
+    func testRestartToUpdateWhenTheCopyOnDiskIsNewer() {
+        let st = Fixture.runningWith { $0["version"] = "0.51.0" }
+        var s = snap(st, doz: "0.51.0", app: "0.50.7", bundled: "0.51.0")
+        s.installedAppVersion = "0.51.0"
+        let items = MenuModel.items(for: s)
+        XCTAssertEqual(item(items, .restartApp)?.title, "Restart to Update (0.50.7 → 0.51.0)")
+        XCTAssertEqual(item(items, .restartApp)?.enabled, true)
+        XCTAssertNil(item(items, .updateApp), "the install is done: restarting is the update")
+        XCTAssertNil(MenuAction.restartApp.command, "no doz command")
+        s.installedAppVersion = "0.50.7"
+        XCTAssertNil(item(MenuModel.items(for: s), .restartApp))
+        XCTAssertNotNil(item(MenuModel.items(for: s), .updateApp), "the same copy on disk: the update item as before")
+        s.installedAppVersion = nil
+        XCTAssertNil(item(MenuModel.items(for: s), .restartApp))
+        s.busy = .starting
+        s.installedAppVersion = "0.51.0"
+        XCTAssertEqual(item(MenuModel.items(for: s), .restartApp)?.enabled, false, "not while something runs")
+    }
+
+    func testTheCopyOnDiskIsReadFromItsInfoPlist() throws {
+        let app = FileManager.default.temporaryDirectory.appendingPathComponent("ondisk-\(UUID().uuidString)/Dozable.app")
+        try FileManager.default.createDirectory(at: app.appendingPathComponent("Contents"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: app.deletingLastPathComponent()) }
+        try PropertyListSerialization.data(fromPropertyList: ["CFBundleShortVersionString": "0.51.10"], format: .xml, options: 0)
+            .write(to: app.appendingPathComponent("Contents/Info.plist"))
+        XCTAssertEqual(AppOnDisk.version(bundlePath: app.path), "0.51.10")
+        XCTAssertNil(AppOnDisk.version(bundlePath: app.deletingLastPathComponent().appendingPathComponent("none.app").path))
+    }
+
     func testTheLastErrorIsShown() {
         let items = MenuModel.items(for: snap(Fixture.status(Fixture.noDaemon), error: "Start failed: the daemon did not start"))
         XCTAssertTrue(titles(items).contains("Start failed: the daemon did not start"))

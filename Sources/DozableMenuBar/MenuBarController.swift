@@ -131,6 +131,22 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             NSApp.terminate(nil)
         case .installHelp:
             if let url = URL(string: MenuBarApp.installHelpURL) { NSWorkspace.shared.open(url) }
+        case .restartApp:
+            // The copy on disk is newer: open it as a new instance, then quit this one (the daemon keeps running).
+            let c = NSWorkspace.OpenConfiguration()
+            c.createsNewApplicationInstance = true
+            NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: c) { _, error in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        if let error {
+                            self.lastError = "Could not restart the menu bar app: \(error.localizedDescription)"
+                            self.draw()
+                        } else {
+                            NSApp.terminate(nil)
+                        }
+                    }
+                }
+            }
         case .loginSettings:
             // macOS waits for the person: System Settings › Login Items, where they switch Dozable on.
             _ = source.performLogin(.loginSettings)
