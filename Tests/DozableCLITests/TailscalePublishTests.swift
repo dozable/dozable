@@ -52,7 +52,7 @@ final class TailscalePublishTests: XCTestCase {
         let p = TailscalePublish.paths(store)
         XCTAssertEqual(p.stateDir.path, "/tmp/doz-ts--store/tailscale/state")
         XCTAssertEqual(p.socket.path, "/tmp/doz-ts--store/tailscale/tailscaled.sock")
-        XCTAssertEqual(p.redirectSocket.path, "/tmp/doz-ts--store/tailscale/http.sock")
+        XCTAssertEqual(p.staleRedirectSocket.path, "/tmp/doz-ts--store/tailscale/http.sock", "0.51.14's, only ever removed")
         XCTAssertEqual(p.log.path, "/tmp/doz-ts--store/tailscale/tailscaled.log")
         XCTAssertEqual(p.marker.path, "/tmp/doz-ts--store/tailscale/published.json")
         XCTAssertTrue(TailscalePublish.socketFits(p.socket))
@@ -74,12 +74,14 @@ final class TailscalePublishTests: XCTestCase {
         XCTAssertEqual(TailscalePublish.upArguments(name: "dozable-m1max", timeout: 300), ["up", "--hostname=dozable-m1max", "--timeout=300s"])
         XCTAssertEqual(TailscalePublish.setArguments(name: "dozable-m1max"), ["set", "--hostname=dozable-m1max"])
         XCTAssertEqual(TailscalePublish.serveHTTPSArguments(port: 7443), ["serve", "--bg", "--yes", "--https=443", "http://127.0.0.1:7443"])
-        XCTAssertEqual(TailscalePublish.serveHTTPArguments(p), ["serve", "--bg", "--yes", "--http=80", "unix:/tmp/doz-ts--store/tailscale/http.sock"])
+        // Port 80: a loopback TCP target — never `unix:` (Tailscale serves a unix socket or a path only for an admin).
+        XCTAssertEqual(TailscalePublish.serveHTTPArguments(redirectPort: 51234), ["serve", "--bg", "--yes", "--http=80", "http://127.0.0.1:51234"])
+        XCTAssertFalse(TailscalePublish.serveHTTPArguments(redirectPort: 51234).contains { $0.hasPrefix("unix:") || $0.hasPrefix("/") })
         XCTAssertEqual(TailscalePublish.serveResetArguments(), ["serve", "reset"])
         XCTAssertEqual(TailscalePublish.serveStatusArguments(), ["serve", "status", "--json"])
         XCTAssertEqual(TailscalePublish.logoutArguments(), ["logout"])
         XCTAssertEqual(TailscalePublish.httpsTarget(port: 7443), "http://127.0.0.1:7443")
-        XCTAssertEqual(TailscalePublish.httpTarget(p), "unix:/tmp/doz-ts--store/tailscale/http.sock")
+        XCTAssertEqual(TailscalePublish.httpTarget(redirectPort: 51234), "http://127.0.0.1:51234")
     }
 
     func testThePlistKeepsTailscaledRunning() throws {
@@ -116,9 +118,13 @@ final class TailscalePublishTests: XCTestCase {
     }
 
     func testServeConfigFor443And80() throws {
-        let json = #"{"TCP":{"443":{"HTTPS":true},"80":{"HTTP":true}},"Web":{"dozable-m1max.junco-shaula.ts.net:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:7443"}}},"dozable-m1max.junco-shaula.ts.net:80":{"Handlers":{"/":{"Proxy":"unix:/x/http.sock"}}}}}"#
+        let json = #"{"TCP":{"443":{"HTTPS":true},"80":{"HTTP":true}},"Web":{"dozable-m1max.junco-shaula.ts.net:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:7443"}}},"dozable-m1max.junco-shaula.ts.net:80":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:51234"}}}}}"#
         let c = try XCTUnwrap(TailscalePublish.parseServe(Data(json.utf8)))
-        XCTAssertEqual(c, .init(https: "http://127.0.0.1:7443", http: "unix:/x/http.sock"))
+        XCTAssertEqual(c, .init(https: "http://127.0.0.1:7443", http: "http://127.0.0.1:51234"))
+        XCTAssertEqual(c.http, TailscalePublish.httpTarget(redirectPort: 51234))
+        // 0.51.14's unix target (never accepted by a real node, but a hand-made config) is not the redirect's.
+        let old = #"{"Web":{"n.t.ts.net:80":{"Handlers":{"/":{"Proxy":"unix:/x/http.sock"}}}}}"#
+        XCTAssertNotEqual(TailscalePublish.parseServe(Data(old.utf8))?.http, TailscalePublish.httpTarget(redirectPort: 51234))
         XCTAssertEqual(TailscalePublish.parseServe(Data("{}".utf8)), .init(https: nil, http: nil))
         XCTAssertNil(TailscalePublish.parseServe(Data("no".utf8)))
     }
@@ -250,9 +256,44 @@ final class TailscalePublishTests: XCTestCase {
                                         published: Date(timeIntervalSince1970: 1_800_000_000))
         try TailscalePublish.writeMarker(store, m)
         XCTAssertEqual(TailscalePublish.readMarker(store), m)
+        XCTAssertNil(TailscalePublish.readMarker(store)?.redirectPort)
         var st = stat()
         XCTAssertEqual(stat(TailscalePublish.paths(store).root.path, &st), 0)
         XCTAssertEqual(st.st_mode & 0o777, 0o700)
+        var withPort = m
+        withPort.redirectPort = 51234
+        try TailscalePublish.writeMarker(store, withPort)
+        XCTAssertEqual(TailscalePublish.readMarker(store)?.redirectPort, 51234)
+        XCTAssertTrue(try String(contentsOf: TailscalePublish.paths(store).marker, encoding: .utf8).contains("\"redirectPort\" : 51234"))
+    }
+
+    /// 716: a 0.51.14 marker (no redirect port) decodes — nil, and the next publish picks one.
+    func testAnOlderMarkerWithoutTheRedirectPortDecodes() throws {
+        let store = DozableStore(root: root.appendingPathComponent("store4"))
+        try TailscalePublish.ensureRoot(store)
+        let old = #"{"name":"dozable-m1max","origin":"https://dozable-m1max.junco-shaula.ts.net","port":7443,"published":"2026-11-17T10:00:00Z"}"#
+        try Data(old.utf8).write(to: TailscalePublish.paths(store).marker)
+        let m = try XCTUnwrap(TailscalePublish.readMarker(store))
+        XCTAssertEqual(m.origin, "https://dozable-m1max.junco-shaula.ts.net")
+        XCTAssertEqual(m.port, 7443)
+        XCTAssertNil(m.redirectPort)
+        XCTAssertEqual(TailscalePublish.chooseRedirectPort(previous: m, dashboardPort: 7443, free: { 50001 }), 50001)
+    }
+
+    func testTheRedirectPortIsKeptOnARerunElseAFreeOneThatIsNotTheDashboards() {
+        let m = TailscalePublish.Marker(name: "n", origin: "https://n.t.ts.net", port: 7443, published: Date(), redirectPort: 50002)
+        XCTAssertEqual(TailscalePublish.chooseRedirectPort(previous: m, dashboardPort: 7443, free: { 50009 }), 50002, "kept")
+        XCTAssertEqual(TailscalePublish.chooseRedirectPort(previous: m, dashboardPort: 7443, takenByOther: { $0 == 50002 }, free: { 50009 }), 50009,
+                       "another program holds it: a new one")
+        XCTAssertEqual(TailscalePublish.chooseRedirectPort(previous: m, dashboardPort: 50002, free: { 50009 }), 50009, "never the dashboard's")
+        XCTAssertEqual(TailscalePublish.chooseRedirectPort(previous: nil, dashboardPort: 7443, free: { 50003 }), 50003)
+        var picks = [7443, 50004]
+        XCTAssertEqual(TailscalePublish.chooseRedirectPort(previous: nil, dashboardPort: 7443, free: { picks.removeFirst() }), 50004,
+                       "the OS's pick is never the dashboard's port")
+        XCTAssertNil(TailscalePublish.chooseRedirectPort(previous: nil, dashboardPort: 7443, free: { nil }))
+        let p = TailscalePublish.freeLoopbackPort()
+        XCTAssertNotNil(p)
+        XCTAssertTrue((1024...65_535).contains(p ?? 0))
     }
 
     func testTheDaemonStartsAPublishedDashboardOnlyWhenNothingHoldsItAndNobodyStoppedIt() throws {

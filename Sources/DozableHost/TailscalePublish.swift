@@ -8,18 +8,22 @@ import Foundation
 ///     <store>/tailscale/state/            tailscaled's --statedir (the node's identity; `unpublish --logout` removes it)
 ///     <store>/tailscale/tailscaled.sock   its --socket (every `tailscale` command here names it)
 ///     <store>/tailscale/tailscaled.log    the LaunchAgent's stdout/stderr
-///     <store>/tailscale/http.sock         port 80's redirect, answered by the running `doz ui` (WebPublishRedirect)
-///     <store>/tailscale/published.json    the marker: published, under which name, at which address (doctor's rows)
+///     <store>/tailscale/published.json    the marker: published, under which name, at which address, port 80's redirect's
+///                                         loopback port (doctor's rows)
 ///
 /// kept running by ONE per-user LaunchAgent per store (`com.dozable.tailscale.<8 hex>`, RunAtLoad + KeepAlive) — written
 /// through the login item's seams (`LaunchAgentsFolder`, `Launchctl`: a guarded run never reaches the real ones).
 ///
 /// Serving: `serve --https=443` → `http://127.0.0.1:<ui.port>` (Tailscale's certificate; the dashboard believes its
-/// X-Forwarded-* because 127.0.0.1 is a trusted proxy), and `serve --http=80` → `unix:<store>/tailscale/http.sock`, where
-/// the dashboard answers EVERY request with a 308 to `https://<name>.<tailnet>.ts.net<same path>`. `tailscale serve` has
-/// no redirect of its own, and the redirect's target comes from the published address, never from a request header, so
-/// nothing depends on what Tailscale forwards on port 80. A unix socket in the store needs no second port (nothing to
-/// collide with, nothing a sandbox's proxy could be pointed at).
+/// X-Forwarded-* because 127.0.0.1 is a trusted proxy), and `serve --http=80` → `http://127.0.0.1:<the marker's
+/// redirectPort>`, where the running `doz ui` (WebPublishRedirect) answers EVERY request with a 308 to
+/// `https://<name>.<tailnet>.ts.net<same path>`. `tailscale serve` has no redirect of its own, and the redirect's target
+/// comes from the published address, never from a request header, so nothing depends on what Tailscale forwards on port 80.
+/// 716: a loopback TCP port, never a unix socket — Tailscale (1.104.7) serves a `unix:` target or a path handler only for
+/// root or an operator who may run `sudo tailscale` ("401 Unauthorized: must be root, …"), and Dozable's node runs under a
+/// LaunchAgent, so 0.51.14's `unix:<store>/tailscale/http.sock` was always refused. A plain `http://127.0.0.1:<port>`
+/// target needs no admin (443 always worked that way). Like the dashboard's own port, a sandbox's proxy never reaches
+/// this Mac's loopback.
 ///
 /// Everything here is pure or a seam (TailscalePublishTests); the command is `doz ui publish|unpublish` (DozableCLI).
 public enum TailscalePublish {
@@ -37,7 +41,9 @@ public enum TailscalePublish {
         public var stateDir: URL { root.appendingPathComponent("state") }
         public var socket: URL { root.appendingPathComponent("tailscaled.sock") }
         public var log: URL { root.appendingPathComponent("tailscaled.log") }
-        public var redirectSocket: URL { root.appendingPathComponent("http.sock") }
+        /// 0.51.14's port 80 redirect socket (never served — Tailscale refuses a `unix:` target without admin): publish and
+        /// unpublish remove one left behind.
+        public var staleRedirectSocket: URL { root.appendingPathComponent("http.sock") }
         public var marker: URL { root.appendingPathComponent("published.json") }
     }
 
@@ -137,7 +143,7 @@ public enum TailscalePublish {
     public static func setArguments(name: String) -> [String] { ["set", "--hostname=\(name)"] }
     public static func serveResetArguments() -> [String] { ["serve", "reset"] }
     public static func serveHTTPSArguments(port: Int) -> [String] { ["serve", "--bg", "--yes", "--https=443", "http://127.0.0.1:\(port)"] }
-    public static func serveHTTPArguments(_ p: Paths) -> [String] { ["serve", "--bg", "--yes", "--http=80", "unix:\(p.redirectSocket.path)"] }
+    public static func serveHTTPArguments(redirectPort: Int) -> [String] { ["serve", "--bg", "--yes", "--http=80", httpTarget(redirectPort: redirectPort)] }
     public static func serveStatusArguments() -> [String] { ["serve", "status", "--json"] }
     public static func logoutArguments() -> [String] { ["logout"] }
 
@@ -186,7 +192,7 @@ public enum TailscalePublish {
     public struct ServeConfig: Equatable, Sendable {
         /// Where `<name>:443 /` goes (`http://127.0.0.1:7443`).
         public var https: String?
-        /// Where `<name>:80 /` goes (`unix:/…/http.sock`).
+        /// Where `<name>:80 /` goes (`http://127.0.0.1:<redirect port>`).
         public var http: String?
         public init(https: String?, http: String?) { self.https = https; self.http = http }
     }
@@ -216,7 +222,8 @@ public enum TailscalePublish {
 
     /// The 443 target the dashboard's port means.
     public static func httpsTarget(port: Int) -> String { "http://127.0.0.1:\(port)" }
-    public static func httpTarget(_ p: Paths) -> String { "unix:" + p.redirectSocket.path }
+    /// The 80 target: port 80's redirect on its loopback port (the marker's `redirectPort`).
+    public static func httpTarget(redirectPort: Int) -> String { "http://127.0.0.1:\(redirectPort)" }
 
     // MARK: the settings (pure)
 
@@ -250,9 +257,24 @@ public enum TailscalePublish {
         public var origin: String
         public var port: Int
         public var published: Date
-        public init(name: String, origin: String, port: Int, published: Date) {
-            self.name = name; self.origin = origin; self.port = port; self.published = published
+        /// 716: port 80's redirect's loopback port (127.0.0.1). nil: a 0.51.14 marker (it had a unix socket) — the next
+        /// `doz ui publish tailscale` picks one.
+        public var redirectPort: Int?
+        public init(name: String, origin: String, port: Int, published: Date, redirectPort: Int? = nil) {
+            self.name = name; self.origin = origin; self.port = port; self.published = published; self.redirectPort = redirectPort
         }
+    }
+
+    /// The redirect's port for a publish: the one the marker records (a re-run keeps it — the running dashboard holds it)
+    /// unless another program holds it (`takenByOther`), else a free loopback port that is not the dashboard's. nil: none free.
+    public static func chooseRedirectPort(previous: Marker?, dashboardPort: Int, takenByOther: (Int) -> Bool = { _ in false },
+                                          free: () -> Int? = freeLoopbackPort) -> Int? {
+        if let p = previous?.redirectPort, (1024...65_535).contains(p), p != dashboardPort, !takenByOther(p) { return p }
+        for _ in 0..<8 {
+            guard let p = free() else { return nil }
+            if p != dashboardPort { return p }
+        }
+        return nil
     }
 
     public static func readMarker(_ store: DozableStore) -> Marker? {
@@ -394,10 +416,19 @@ public enum TailscalePublish {
         UnixSocket.connect(path).map { close($0); return true } ?? false
     }
 
-    /// Ask port 80's redirect (the unix socket) for `/` and return its status and Location (nil: no answer).
-    public static func askRedirect(_ path: String, timeout: Int = 3) -> (status: Int, location: String?)? {
-        guard let fd = UnixSocket.connect(path) else { return nil }
+    /// Ask port 80's redirect (127.0.0.1:`port`) for `/doctor` and return its status and Location (nil: no answer).
+    public static func askRedirect(port: Int, timeout: Int = 3) -> (status: Int, location: String?)? {
+        guard (1...65_535).contains(port) else { return nil }
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else { return nil }
         defer { close(fd) }
+        var a = sockaddr_in()
+        a.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        a.sin_family = sa_family_t(AF_INET)
+        a.sin_port = in_port_t(UInt16(port).bigEndian)
+        a.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let r = withUnsafePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }
+        guard r == 0 else { return nil }
         var tv = timeval(tv_sec: timeout, tv_usec: 0)
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
         let req = "GET /doctor HTTP/1.1\r\nHost: doctor\r\nConnection: close\r\n\r\n"

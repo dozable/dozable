@@ -6,9 +6,11 @@
 //
 //   a. without Homebrew's tailscale: refused, naming brew install tailscale; nothing written;
 //   b. publish: the LaunchAgent (KeepAlive, RunAtLoad, tailscaled's userspace argv under the store), the sign-in link shown
-//      and approved, the node named dozable-<mac>, serve 443 → the dashboard's port and 80 → the redirect's socket, the
-//      settings written, the dashboard restarted on the same port with the LAN option, port 80's redirect answering 308;
+//      and approved, the node named dozable-<mac>, serve 443 → the dashboard's port and 80 → the redirect's loopback port
+//      (recorded in the marker; never a unix socket — the fake refuses one as Tailscale does without admin), the settings
+//      written, the dashboard restarted on the same port with the LAN option, port 80's redirect answering 308 over TCP;
 //   c. doctor's rows: node, login, https, http all ok; a node serving another port → the https row fails, naming the port;
+//      a marker without the redirect's port (an older publish) → the http row says to publish again;
 //   d. publish again: no link, the name re-applied (set), 443 pointed at the dashboard again; publish status --json;
 //   d2. the daemon keeps it running: the dashboard killed → a daemon start brings it back on the same port; after doz ui
 //      stop → it does not (said by publish status); doz ui --detach lifts that;
@@ -108,18 +110,21 @@ func dashboardPublishChecks(_ h: CLIHarness, root: URL) {
           "publish b: every tailscale command names Dozable's node's socket")
     check(calls.contains { $0.contains(" up --hostname=dozable-test-mac ") },
           "publish b: the node signed in as dozable-test-mac (the Mac's local hostname, lower case)")
-    check(calls.contains { $0.hasSuffix("serve --bg --yes --https=443 http://127.0.0.1:\(port)") }
-          && calls.contains { $0.hasSuffix("serve --bg --yes --http=80 unix:\(paths.redirectSocket.path)") },
-          "publish b: serve 443 → 127.0.0.1:\(port) (the dashboard's port) and 80 → the redirect's socket")
+    let rport = TailscalePublish.readMarker(store)?.redirectPort ?? 0
+    check(rport > 0 && rport != port && calls.contains { $0.hasSuffix("serve --bg --yes --https=443 http://127.0.0.1:\(port)") }
+          && calls.contains { $0.hasSuffix("serve --bg --yes --http=80 http://127.0.0.1:\(rport)") }
+          && !calls.contains { $0.contains("unix:") },
+          "publish b: serve 443 → 127.0.0.1:\(port) (the dashboard's port) and 80 → 127.0.0.1:\(rport) (the redirect's port, in the marker); no unix: target")
+    check(!fm.fileExists(atPath: paths.staleRedirectSocket.path), "publish b: no redirect socket file in the store")
     check(get("ui.port") == "\(port)" && get("ui.lan") == "true" && get("serve.bind") == "loopback" && get("serve.public_origins") == origin
           && get("serve.trusted_proxies") == "127.0.0.1,::1" && get("serve.chat") == "off",
           "publish b: the settings — ui.port \(port), ui.lan, serve.bind loopback, public origin, trusted proxies; serve.chat untouched")
     let st = uiStatus()
     check((st["origin"] as? String)?.hasSuffix(":\(port)") == true && st["lan"] != nil,
           "publish b: the dashboard restarted on the same port with the LAN option (\(st["origin"] ?? "none"))")
-    let red = TailscalePublish.askRedirect(paths.redirectSocket.path)
+    let red = TailscalePublish.askRedirect(port: rport)
     check(red?.status == 308 && red?.location == origin + "/doctor",
-          "publish b: port 80's redirect answers 308 → \(origin)/doctor (\(red.map { "\($0.status) \($0.location ?? "")" } ?? "no answer"))")
+          "publish b: port 80's redirect answers 308 over 127.0.0.1:\(rport) → \(origin)/doctor (\(red.map { "\($0.status) \($0.location ?? "")" } ?? "no answer"))")
     check(!text(root.appendingPathComponent("browser.log")).contains("open"), "publish b: no browser tab opened")
 
     // c. doctor.
@@ -130,6 +135,29 @@ func dashboardPublishChecks(_ h: CLIHarness, root: URL) {
     d = doctorRows()
     check(d["tailscale https"]?.0 == "fail" && d["tailscale https"]?.1.contains("the dashboard's port is \(port)") == true,
           "publish c: a node serving another port → the https row fails, naming the dashboard's port (\(d["tailscale https"]?.1 ?? "no row"))")
+    // An older publish's marker (no redirect port): doctor says to publish again; the dashboard still starts.
+    if var m = TailscalePublish.readMarker(store) {
+        m.redirectPort = nil
+        try? TailscalePublish.writeMarker(store, m)
+    }
+    d = doctorRows()
+    check(d["tailscale http"]?.0 == "fail" && d["tailscale http"]?.1.contains("doz ui publish tailscale again") == true,
+          "publish c: a marker without the redirect's port → the http row fails, saying to publish again (\(d["tailscale http"]?.1 ?? "no row"))")
+    // The fake refuses what Tailscale refuses without admin: a unix: target, exit 1, the real message, the config unchanged.
+    let refused = Process()
+    refused.executableURL = bin.appendingPathComponent("tailscale")
+    refused.arguments = ["--socket=\(paths.socket.path)", "serve", "--bg", "--yes", "--http=80", "unix:\(paths.staleRedirectSocket.path)"]
+    refused.environment = b.env
+    let refusedErr = Pipe()
+    refused.standardError = refusedErr
+    refused.standardOutput = FileHandle.nullDevice
+    try? refused.run()
+    refused.waitUntilExit()
+    let refusedText = String(decoding: refusedErr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    let web80 = ((try? JSONSerialization.jsonObject(with: Data(contentsOf: tsState))) as? [String: Any])?["web"] as? [String: Any]
+    check(refused.terminationStatus == 1 && refusedText.contains("401 Unauthorized: must be root, or be an operator and able to run 'sudo tailscale' to serve a path or Unix socket")
+          && (web80?["80"] as? String)?.hasPrefix("unix:") == false,
+          "publish c: the fake tailscale refuses a unix: target as Tailscale does without admin (exit \(refused.terminationStatus)), the config unchanged")
 
     // d. again: idempotent, no sign-in.
     r = b.run(["ui", "publish", "tailscale"], timeout: 180)
@@ -138,7 +166,14 @@ func dashboardPublishChecks(_ h: CLIHarness, root: URL) {
           && !again.contains { $0.contains(" up ") },
           "publish d: run again on a signed-in node — no link, the name re-applied (set), no up")
     d = doctorRows()
-    check(d["tailscale https"]?.0 == "ok", "publish d: 443 points at the dashboard again")
+    let rport2 = TailscalePublish.readMarker(store)?.redirectPort ?? 0
+    check(d["tailscale https"]?.0 == "ok" && d["tailscale http"]?.0 == "ok" && rport2 > 0
+          && TailscalePublish.askRedirect(port: rport2)?.status == 308,
+          "publish d: 443 points at the dashboard again; the marker has a redirect port again (\(rport2)) and the http row is ok (\(d["tailscale http"]?.1 ?? "no row"))")
+    // Again with the port recorded: it is kept (idempotent).
+    r = b.run(["ui", "publish", "tailscale"], timeout: 180)
+    check(r.code == 0 && TailscalePublish.readMarker(store)?.redirectPort == rport2 && doctorRows()["tailscale http"]?.0 == "ok",
+          "publish d: run again — the redirect's port is kept (\(TailscalePublish.readMarker(store)?.redirectPort ?? 0)), the http row ok")
     let js = (try? JSONSerialization.jsonObject(with: Data(b.run(["ui", "publish", "status", "--json"]).out.utf8))) as? [String: Any] ?? [:]
     let node = js["node"] as? [String: Any] ?? [:]
     check(js["published"] as? Bool == true && js["address"] as? String == origin && node["signedIn"] as? Bool == true
@@ -155,7 +190,7 @@ func dashboardPublishChecks(_ h: CLIHarness, root: URL) {
     let back = h.waitFor(30) { (uiStatus()["origin"] as? String)?.hasSuffix(":\(port)") == true }
     check(r.code == 0 && back && text(store.logFile).contains("the dashboard is published and was not running — started it"),
           "publish d2: the dashboard killed → the daemon's start brought it back on 127.0.0.1:\(port), its log says so")
-    check(uiStatus()["lan"] != nil && TailscalePublish.askRedirect(paths.redirectSocket.path)?.status == 308,
+    check(uiStatus()["lan"] != nil && TailscalePublish.askRedirect(port: TailscalePublish.readMarker(store)?.redirectPort ?? 0)?.status == 308,
           "publish d2: back with the LAN option and port 80's redirect")
     r = b.run(["ui", "stop"], timeout: 30)
     check(r.code == 0 && fm.fileExists(atPath: PublishedDashboard.stoppedFile(store).path), "publish d2: doz ui stop records the person's stop")

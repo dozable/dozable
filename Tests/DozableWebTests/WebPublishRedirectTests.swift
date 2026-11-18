@@ -3,11 +3,25 @@ import Darwin
 @testable import DozableHost
 @testable import DozableWeb
 
-/// 715: port 80's redirect of a dashboard published on Tailscale — a unix socket answering every request with a 308 to
-/// the published https address and the request's own path; nothing else (no Host believed, any method, a bad target → `/`).
+/// 715/716: port 80's redirect of a dashboard published on Tailscale — a loopback TCP port (127.0.0.1 only; never a unix
+/// socket, which Tailscale serves only for an admin) answering every request with a 308 to the published https address
+/// and the request's own path; nothing else (no Host believed, any method, a bad target → `/`). Ports are the OS's pick.
 final class WebPublishRedirectTests: XCTestCase {
-    func ask(_ path: String, _ request: String) -> String {
-        guard let fd = UnixSocket.connect(path) else { return "" }
+    func connectLoopback(_ port: Int) -> Int32? {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else { return nil }
+        var a = sockaddr_in()
+        a.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        a.sin_family = sa_family_t(AF_INET)
+        a.sin_port = in_port_t(UInt16(port).bigEndian)
+        a.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let r = withUnsafePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }
+        if r != 0 { close(fd); return nil }
+        return fd
+    }
+
+    func ask(_ port: Int, _ request: String) -> String {
+        guard let fd = connectLoopback(port) else { return "" }
         defer { close(fd) }
         var tv = timeval(tv_sec: 3, tv_usec: 0)
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
@@ -18,37 +32,58 @@ final class WebPublishRedirectTests: XCTestCase {
         return String(decoding: data, as: UTF8.self)
     }
 
-    func testEveryRequestIsRedirectedToThePublishedAddress() async throws {
-        let dir = "/tmp/dzr-\(getpid())"
-        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(atPath: dir) }
-        let path = dir + "/http.sock"
+    func testEveryRequestIsRedirectedToThePublishedAddressOverALoopbackPort() async throws {
+        let port = try XCTUnwrap(TailscalePublish.freeLoopbackPort())
         let origin = "https://dozable-m1max.junco-shaula.ts.net"
-        // A file there that is not a socket is never removed: refused.
-        FileManager.default.createFile(atPath: path, contents: Data("not a socket".utf8))
-        do { _ = try await WebPublishRedirect.start(path: path, origin: origin); XCTFail("a regular file was replaced") } catch {}
-        XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), "not a socket")
-        unlink(path)
-        let r = try await WebPublishRedirect.start(path: path, origin: origin)
-        var st = stat()
-        XCTAssertEqual(stat(path, &st), 0)
-        XCTAssertEqual(st.st_mode & 0o777, 0o600)
+        XCTAssertNil(TailscalePublish.askRedirect(port: port), "nothing listens yet")
+        let r = try await WebPublishRedirect.start(port: port, origin: origin)
+        XCTAssertEqual(r.port, port)
 
-        let a = TailscalePublish.askRedirect(path)
+        let a = TailscalePublish.askRedirect(port: port)
         XCTAssertEqual(a?.status, 308)
         XCTAssertEqual(a?.location, origin + "/doctor")
 
-        let b = ask(path, "GET /devices?x=1 HTTP/1.1\r\nHost: evil.example\r\nConnection: close\r\n\r\n")
+        let b = ask(port, "GET /devices?x=1 HTTP/1.1\r\nHost: evil.example\r\nConnection: close\r\n\r\n")
         XCTAssertTrue(b.hasPrefix("HTTP/1.1 308"), b)
         XCTAssertTrue(b.contains("Location: \(origin)/devices?x=1\r\n"), b)
         XCTAssertFalse(b.contains("evil.example"), "the Host is never believed")
 
-        let c = ask(path, "POST http://evil.example/x HTTP/1.1\r\nHost: x\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc")
+        let c = ask(port, "POST http://evil.example/x HTTP/1.1\r\nHost: x\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc")
         XCTAssertTrue(c.hasPrefix("HTTP/1.1 308"), c)
         XCTAssertTrue(c.contains("Location: \(origin)/\r\n"), c)
 
+        // Loopback only: the listener is bound to 127.0.0.1, not to every address.
+        XCTAssertEqual(r.channel.localAddress?.ipAddress, "127.0.0.1")
+
+        // A second one on the same port is refused (never shadows what listens there).
+        do { _ = try await WebPublishRedirect.start(port: port, origin: origin); XCTFail("a taken port was bound again") } catch {
+            XCTAssertTrue("\(error)".contains("in use"), "\(error)")
+        }
+
         await r.close()
-        XCTAssertFalse(FileManager.default.fileExists(atPath: path))
-        XCTAssertNil(TailscalePublish.askRedirect(path))
+        XCTAssertNil(TailscalePublish.askRedirect(port: port))
+        // Bound again after a close (a restarted dashboard).
+        let again = try await WebPublishRedirect.start(port: port, origin: origin)
+        XCTAssertEqual(TailscalePublish.askRedirect(port: port)?.status, 308)
+        await again.close()
+    }
+
+    func testAPortAnotherProgramHoldsIsRefused() async throws {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        XCTAssertGreaterThanOrEqual(fd, 0)
+        defer { close(fd) }
+        var a = sockaddr_in()
+        a.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        a.sin_family = sa_family_t(AF_INET)
+        a.sin_port = 0
+        a.sin_addr.s_addr = inet_addr("127.0.0.1")
+        XCTAssertEqual(withUnsafePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }, 0)
+        XCTAssertEqual(listen(fd, 4), 0)
+        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        _ = withUnsafeMutablePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &len) } }
+        let port = Int(UInt16(bigEndian: a.sin_port))
+        do { _ = try await WebPublishRedirect.start(port: port, origin: "https://n.t.ts.net"); XCTFail("bound over another program's port") } catch {
+            XCTAssertTrue("\(error)".contains("127.0.0.1:\(port)"), "\(error)")
+        }
     }
 }
