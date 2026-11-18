@@ -253,13 +253,20 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// Another chat server's history brought in from a copy made for import (`chat`: `path`, `addMissing`, `replace`),
     /// only while chat is off — answered with `ChatImportReport`. Only on the daemon's socket.
     case chatImport = "chat-import"
+    /// Workspaces (`workspaceRequest`: a `WorkspaceRequest` — the workspace's name never travels in `name`, which is a
+    /// sandbox's). `workspace-ls` (`WorkspaceListing`), `-show` (`WorkspaceDetail`) and `-log` (`[WorkspaceLogEntry]`) only
+    /// read: answered in-process when no daemon runs. `-new`, `-adopt`, `-release`, `-edit` and `-rename` change the store
+    /// and (new, edit) the chat server: the daemon's, one at a time (`HostCore+Workspaces`), answered with `WorkspaceDetail`.
+    case workspaceList = "workspace-ls", workspaceShow = "workspace-show", workspaceLog = "workspace-log"
+    case workspaceNew = "workspace-new", workspaceAdopt = "workspace-adopt", workspaceRelease = "workspace-release"
+    case workspaceEdit = "workspace-edit", workspaceRename = "workspace-rename"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine: true
+             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -559,6 +566,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// The chat server's commands (`chat-*`). Its `token` (`--from-stdin`) is never logged.
     public var chat: ChatRequest?
     public var macBridges: MacFenceRequest?
+    /// The `workspace-*` operations' arguments.
+    public var workspaceRequest: WorkspaceRequest?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -857,6 +866,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var modelLine: String? = nil
     /// 660: the ONE port of this Mac it may reach (its model server); nil: none.
     public var localModelPort: Int? = nil
+    /// The workspace it was adopted into (`doz ls --json`); nil: loose.
+    public var workspace: String? = nil
 
     /// 594 W28: the notice for `olderImage` (`doz ls`, the sandbox's page, create).
     public var olderImageLine: String? {
@@ -888,6 +899,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case sound, microphone                            // 667
         case modelLine, localModelPort                    // 660
         case secretLines                                  // 692
+        case workspace
     }
 
     public init(from decoder: Decoder) throws {
@@ -940,6 +952,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         modelLine = try c.decodeIfPresent(String.self, forKey: .modelLine)
         localModelPort = try c.decodeIfPresent(Int.self, forKey: .localModelPort)
         secretLines = try c.decodeIfPresent([String].self, forKey: .secretLines)
+        workspace = try c.decodeIfPresent(String.self, forKey: .workspace)
     }
 
     /// `folder` is written even when null (with `isolated: true`), so a reader never has to guess.
@@ -995,6 +1008,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(modelLine, forKey: .modelLine)
         try c.encodeIfPresent(localModelPort, forKey: .localModelPort)
         try c.encodeIfPresent(secretLines, forKey: .secretLines)
+        try c.encodeIfPresent(workspace, forKey: .workspace)
     }
 
     public init(name: String, image: String, phase: String, busy: Bool, cpus: Int, memoryMiB: UInt64, ramHeldMiB: UInt64,
@@ -1088,6 +1102,8 @@ public struct SessionRow: Codable, Equatable, Sendable {
     public var fence: MacFenceRow? = nil
     /// 683: a session on this Mac — what it can do, one row per capability (`MacFence.capabilities`; fenced or not).
     public var capabilities: [MacCapability]? = nil
+    /// The workspace this session (on this Mac) or its sandbox was adopted into; nil: loose.
+    public var workspace: String? = nil
 
     public init(_ s: SessionInfo) {
         name = s.name
@@ -1564,4 +1580,119 @@ public struct ChatAnswer: Codable, Equatable, Sendable {
     public var token: String?
     public var chat: ChatServerState
     public init(name: String, token: String?, chat: ChatServerState) { self.name = name; self.token = token; self.chat = chat }
+}
+
+// MARK: workspaces
+
+/// What a `workspace-*` request carries. Folders and references are absolute paths (the CLI resolves them).
+public struct WorkspaceRequest: Codable, Equatable, Sendable {
+    /// The workspace.
+    public var name: String?
+    /// rename: its new name.
+    public var newName: String?
+    /// adopt / release: the agent — a sandbox's name or `@mac/SESSION` (release: also the agent's name).
+    public var agent: String?
+    /// adopt: the agent's name in the workspace (default: the sandbox's or the session's).
+    public var asName: String?
+    /// new / edit: the brief's text (at most 256 KiB).
+    public var brief: String?
+    /// new: the references (paths or http(s) addresses); edit: added and removed.
+    public var refs: [String]?
+    public var addRefs: [String]?
+    public var removeRefs: [String]?
+    /// new: the folders, the first the main one; edit: added, and removed by path.
+    public var folders: [WorkspaceFolder]?
+    public var addFolders: [WorkspaceFolder]?
+    public var removeFolders: [String]?
+    /// new: link this existing room as the main one instead of making one (nothing is posted there).
+    public var room: String?
+    /// new: no room, even with chat on.
+    public var noRoom: Bool?
+    /// edit: make the main room now (chat on and ready).
+    public var makeRoom: Bool?
+    /// new: made from a doz_project.yaml — its path, and its network preset.
+    public var project: String?
+    public var network: String?
+    /// new: agents adopted at once.
+    public var adopt: [String]?
+    /// ls: only the loose agents.
+    public var loose: Bool?
+    /// show: the brief's text too.
+    public var withBrief: Bool?
+    /// log: entries at or after.
+    public var since: Date?
+
+    public init(name: String? = nil) { self.name = name }
+}
+
+/// `workspace-ls`: each workspace, then every sandbox and session on this Mac in none.
+public struct WorkspaceListing: Codable, Equatable, Sendable {
+    public var workspaces: [WorkspaceRow]
+    public var loose: [LooseAgent]
+    public init(workspaces: [WorkspaceRow], loose: [LooseAgent]) { self.workspaces = workspaces; self.loose = loose }
+}
+
+public struct WorkspaceRow: Codable, Equatable, Sendable {
+    public var name: String
+    /// `WorkspaceState`'s words.
+    public var state: String
+    /// Who drives it: `you`.
+    public var driver: String
+    public var agents: Int
+    /// The main room in the chat server (nil: none).
+    public var room: String?
+    public init(name: String, state: String, driver: String, agents: Int, room: String?) {
+        self.name = name; self.state = state; self.driver = driver; self.agents = agents; self.room = room
+    }
+}
+
+/// A sandbox or a session on this Mac in no workspace.
+public struct LooseAgent: Codable, Equatable, Sendable {
+    /// As a person types it: the sandbox's name, or `@mac/SESSION`.
+    public var name: String
+    /// `sandbox` or `mac`.
+    public var kind: String
+    /// A sandbox's phase, or a session's state (`running`, `ended`, `gone`).
+    public var state: String
+    public init(name: String, kind: String, state: String) { self.name = name; self.kind = kind; self.state = state }
+}
+
+/// One agent of a workspace as it is now.
+public struct WorkspaceAgentRow: Codable, Equatable, Sendable {
+    public var name: String
+    public var role: String
+    /// As a person types it: `wsa`, `@mac/wsu`.
+    public var place: String
+    /// A sandbox's phase; a session's `running`, `ended`, or `gone` (its record was pruned or its sandbox deleted).
+    public var state: String
+    public var startedAt: Date
+    public init(name: String, role: String, place: String, state: String, startedAt: Date) {
+        self.name = name; self.role = role; self.place = place; self.state = state; self.startedAt = startedAt
+    }
+}
+
+/// `workspace-show` and the answer to every change: the record, its derived state and its agents as they are now.
+public struct WorkspaceDetail: Codable, Equatable, Sendable {
+    public var name: String
+    public var state: String
+    public var driver: String
+    public var createdAt: Date
+    public var brief: WorkspaceBrief
+    /// The brief's text (`show --brief`, and the answer to new).
+    public var briefText: String?
+    public var folders: [WorkspaceFolder]
+    public var rooms: [WorkspaceRoom]
+    public var agents: [WorkspaceAgentRow]
+    public var defaults: WorkspaceDefaults
+    public var flags: WorkspaceFlags
+    public var origin: WorkspaceOrigin
+    /// What the person may want to know or do next (a brief not posted, the command to post it, …).
+    public var notes: [String]?
+    public init(name: String, state: String, driver: String, createdAt: Date, brief: WorkspaceBrief, briefText: String? = nil,
+                folders: [WorkspaceFolder], rooms: [WorkspaceRoom], agents: [WorkspaceAgentRow], defaults: WorkspaceDefaults,
+                flags: WorkspaceFlags, origin: WorkspaceOrigin, notes: [String]? = nil) {
+        self.name = name; self.state = state; self.driver = driver; self.createdAt = createdAt; self.brief = brief
+        self.briefText = briefText; self.folders = folders; self.rooms = rooms; self.agents = agents; self.defaults = defaults
+        self.flags = flags; self.origin = origin; self.notes = notes
+    }
 }

@@ -12,8 +12,11 @@
 // Also (0.50): Dozable's background process is "the daemon" — `processWords` are the phrases that would call it "the
 // host" (`doz host`, "the host", "no host is running", "host stop", "Restart host"). "host" for a network host, a
 // host:port or this Mac stays allowed: those phrases are never in the list.
-// Also (0.51): what a sandbox or session works on is its FOLDER — `folderWords` find "workspace" or "workdir" as a word a
-// person reads. `/workspace` (the mount point inside a sandbox), `~/doz-workspaces` and identifiers are not words.
+// Also (0.51): what a sandbox or session works on is its FOLDER — `folderWords` find the old phrases that called it a
+// workspace ("shared workspace", "workspace folder", "no workspace", --workspace, workspace_view, [workspace],
+// workspace.view, workspace.ignore_mode) and "workdir" as a word a person reads. From 0.52 "workspace" alone names a
+// space for work to be done (`doz workspace`), so the word itself is allowed. `/workspace` (the mount point inside a sandbox),
+// `~/doz-workspaces` and identifiers are not words.
 //
 // Usage: swift Scripts/user-text-check.swift --doz .build/debug/doz
 import Foundation
@@ -32,9 +35,9 @@ let processWords = try! NSRegularExpression(pattern: "\\bdoz host\\b|\\b[Tt]he (
 /// the metrics database's values (rows older builds wrote say so too).
 let processData: Set<String> = ["host.lock", "host.pid", "host.sock", "host.log", "doz host", "died with host"]
 
-/// "workspace" / "workdir" as a word — not `/workspace`, `doz-workspaces`, `NSWorkspace` or an identifier.
-/// (`{workdir}` is a recipe's template token; `|workspace)` a pattern's alternative — data, not words.)
-let folderWords = try! NSRegularExpression(pattern: "(?<![/A-Za-z0-9_.|{])[Ww]orkspace(?![A-Za-z0-9_]|s\\b)|(?<![/A-Za-z0-9_.|{])[Ww]orkdir(?![A-Za-z0-9_])")
+/// The old phrases that called a sandbox's folder a workspace, and "workdir" as a word — not `/workspace`,
+/// `doz-workspaces`, `NSWorkspace` or an identifier. (`{workdir}` is a recipe's template token — data, not words.)
+let folderWords = try! NSRegularExpression(pattern: "\\b[Ss]hared workspace\\b|(?<![/A-Za-z0-9_.|{])[Ww]orkspace folder|--workspace(?![A-Za-z0-9_])|--workspace-view|\\bworkspace_view\\b|\\[workspace\\]|\\bworkspace\\.(view|ignore_mode)\\b|\\b[Nn]o workspace\\b|(?<![/A-Za-z0-9_.|{])[Ww]orkdir(?![A-Za-z0-9_])")
 /// A Swift interpolation `\(…)` (one level of parentheses inside) — code, not words.
 let interpolation = try! NSRegularExpression(pattern: "\\\\\\((?:[^()]|\\([^()]*\\))*\\)")
 /// Literals that are data, not prose: the daemon's operation name, a placeholder prefix the renamed-name hint matches.
@@ -175,7 +178,7 @@ for path in jsFiles.sorted() {
 }
 
 if problems.isEmpty {
-    print("ok user-text-check: \(helps) help texts, every setting, \(files) Swift files and the dashboard's \(jsCount) scripts (app.js and its modules) carry no feature number or walkthrough ID, never call the daemon the host, and say folder, not workspace")
+    print("ok user-text-check: \(helps) help texts, every setting, \(files) Swift files and the dashboard's \(jsCount) scripts (app.js and its modules) carry no feature number or walkthrough ID, never call the daemon the host, and say folder where the old words said workspace")
 } else {
     for p in problems { FileHandle.standardError.write(Data("x user-text-check: \(p)\n".utf8)) }
     FileHandle.standardError.write(Data("Keep feature numbers in code comments; say what the thing is instead. The background process is the daemon.\n".utf8))

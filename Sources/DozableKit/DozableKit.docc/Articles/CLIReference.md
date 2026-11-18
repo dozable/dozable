@@ -843,6 +843,30 @@ only. The dashboard's Chat page acts as you; another browser of `doz ui --lan` g
 (off | read | write, off by default) allows. Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already
 exists · 6 chat is off or not ready · 64 usage.
 
+### Workspaces
+
+A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is
+for, and any folders it works on (usually projects). Work starts only once it is fully set up.
+
+```bash
+doz workspace new NAME --prompt-file F|- [--ref PATH|URL]… [--folder DIR[:ro|:rw]]… [--room EXISTING | --no-room] [--from-project] [--adopt AGENT]…
+doz workspace ls [--loose] [--json]             # NAME  STATE  AGENTS  ROOM ("setting up · you"), then the loose agents
+doz workspace show W [--brief] [--json]         # its brief, folders, room and agents
+doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME]   # as a worker; only the workspace's record changes
+doz workspace release W AGENT                   # loose again
+doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--add-folder DIR[:ro]]… [--remove-folder DIR]… [--make-room]
+doz workspace log W [--since T]                 # what happened and who did it (T: ISO 8601, or 30m, 2h, 3d)
+doz workspace rename W NEW                      # its room keeps its own name
+```
+
+The first `--folder` is the main one; folders are optional (`--from-project` reads the project file in the main folder,
+so it needs one). With chat on, `new` makes a room named after the workspace (refused when one exists — `--room NAME`
+links it instead); nothing is posted in it until the work starts. `ls`, `show` and `log` answer from the store without
+starting the daemon. A sandbox or session is in one workspace at most; `doz rename` and `doz rm` of a sandbox carry its
+workspace's record along. `doz ls --json` and `doz sessions NAME|@mac --json` carry `workspace` on an adopted one. Exit
+codes: 0 ok · 2 not found · 3 archived · 4 already exists or already in a workspace · 6 the daemon or chat unavailable ·
+64 usage.
+
 ### Settings
 
 ```bash

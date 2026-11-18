@@ -52,10 +52,15 @@ both.
 | [Sessions on this Mac](34-sessions-on-this-mac.md) | run a program on the Mac itself (an agent on a project, Xcode, the Simulator) held like a sandbox's session — `doz run @mac`, fenced to its folder and a proxy by default, `--unfenced` for no isolation — and know what the fence is and is not |
 | [The menu bar app](35-the-menu-bar-app.md) | see the daemon's state in the menu bar, start, stop or restart it and open the dashboard with a click — `doz app install` |
 | [Chat](36-chat.md) | talk with your agents in rooms on your Mac — `doz chat on`, tokens for agents, webhook bots, agents on your other machines, the dashboard's Chat page, and what other browsers may do (`serve.chat`) |
+| [Workspaces](37-workspaces.md) | set up an environment for getting work done — its agents, its room in chat, the brief and any folders — and adopt the sandboxes and sessions you already have into it (`doz workspace`) |
 | [Bundling doz in an app](33-bundling-doz-in-an-app.md) | (app authors only) carry the helper build of `doz` inside your Mac app and drive it over `daemon.sock` |
 
 ## Renamed in 0.51
 
+> From 0.52, *workspace* names an environment set up for getting work done: its agents, its rooms, the brief that says
+> what the work is for, and any folders it works on (usually projects) — see [Workspaces](37-workspaces.md),
+> `doz workspace`. A sandbox's folder is still its folder.
+>
 > What a sandbox (or a session on this Mac) works on is its **folder** — never "workspace" or "workdir". The folder
 > still appears inside the sandbox at `/workspace`; `doz get`, `put`, `cp` and `files` paths, `--isolated`,
 > `--ignore-mode`, `defaults.projects_dir` and every environment variable are unchanged. The old names are not

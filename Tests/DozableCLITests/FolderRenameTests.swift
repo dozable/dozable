@@ -139,7 +139,9 @@ final class FolderRenameTests: XCTestCase {
     // MARK: no key of what is shown says workspace or workdir
 
     /// The recursive key scan: every `--json` / web shape a sandbox, a plan, a session or the rules come in carries no key
-    /// containing "workspace" or "workdir" — a guard against one missed. Exempt: `doz show`'s `spec` (the engine's own
+    /// containing "workspace" or "workdir" — a guard against one missed. 0.52: exactly the key `workspace` holding a string
+    /// (the workspace a sandbox or session was adopted into — the new unit) is allowed; `workspaceCreated`,
+    /// `workspaceRules`, `workspaceView` and any `workdir` are still refused. Exempt: `doz show`'s `spec` (the engine's own
     /// record of the VM, persisted in doz.json and part of the image keys: `spec.imageSpec.workdir` is the guest
     /// image's cwd, `/workspace`).
     func testNoShownKeySaysWorkspaceOrWorkdir() async throws {
@@ -150,12 +152,20 @@ final class FolderRenameTests: XCTestCase {
         r.create = CreateOptions(image: "lab", folder: projects.path)
         let made = await c.handle(r)
         XCTAssertNil(made.error, made.error?.message ?? "")
+        // Adopted into a workspace, so `ls` carries the one allowed key.
+        var nw = HostRequest(.workspaceNew)
+        nw.workspaceRequest = WorkspaceRequest(name: "demo")
+        nw.workspaceRequest?.brief = "b"
+        nw.workspaceRequest?.adopt = ["shown"]
+        let wsMade = await c.handle(nw)
+        XCTAssertNil(wsMade.error, wsMade.error?.message ?? "")
         var shapes: [(String, JSONValue)] = [("create", try XCTUnwrap(made.result))]
         let ls = await c.handle(HostRequest(.ls))
         shapes.append(("ls", try XCTUnwrap(ls.result)))
         let infos = try XCTUnwrap(ls.result).decode([SandboxInfo].self)
         let info = try XCTUnwrap(infos.first { $0.name == "shown" })
         XCTAssertEqual(info.folder, projects.path)
+        XCTAssertEqual(info.workspace, "demo")
         XCTAssertNotNil(info.folderRules, "a .dozignore: the rules are said")
         let inspect = await c.handle(HostRequest(.inspect, name: "shown"))
         shapes.append(("inspect", try XCTUnwrap(inspect.result)))
@@ -183,11 +193,34 @@ final class FolderRenameTests: XCTestCase {
         shapes.append(("settings", try JSONValue(encoding: DozableSettings(text: "").report())))
         for (what, v) in shapes {
             let bad = Self.keys(v, path: "").filter { k in
+                if k.hasSuffix(".workspace"), Self.isString(v, k) { return false }
                 let l = k.lowercased()
                 return (l.contains("workspace") || l.contains("workdir")) && !k.hasPrefix(".spec.") && !k.hasPrefix(".info.spec.") && !k.contains(".spec.imageSpec.")
             }
             XCTAssertEqual(bad, [], "\(what): keys that still say workspace or workdir")
         }
+    }
+
+    /// Whether every value at `path` (a `keys` path) is a string.
+    static func isString(_ v: JSONValue, _ path: String) -> Bool {
+        func at(_ v: JSONValue, _ parts: ArraySlice<String>) -> [JSONValue] {
+            guard let p = parts.first else { return [v] }
+            if p.hasSuffix("[]") {
+                let name = String(p.dropLast(2))
+                let inner = name.isEmpty ? [v] : (v[name].map { [$0] } ?? [])
+                return inner.flatMap { x -> [JSONValue] in if case .array(let a) = x { return a.flatMap { at($0, parts.dropFirst()) } }; return [] }
+            }
+            return v[p].map { at($0, parts.dropFirst()) } ?? []
+        }
+        let found = at(v, path.split(separator: ".", omittingEmptySubsequences: true).map(String.init)[...])
+        return !found.isEmpty && found.allSatisfy { $0.stringValue != nil }
+    }
+
+    func testTheKeyScanAllowsOnlyAWorkspaceString() {
+        let ok: JSONValue = .array([.object(["name": .string("a"), "workspace": .string("demo")])])
+        XCTAssertTrue(Self.keys(ok, path: "").filter { $0.hasSuffix(".workspace") }.allSatisfy { Self.isString(ok, $0) })
+        let bad: JSONValue = .array([.object(["workspace": .object(["x": .null])])])
+        XCTAssertFalse(Self.isString(bad, "[].workspace"))
     }
 
     static func keys(_ v: JSONValue, path: String) -> [String] {

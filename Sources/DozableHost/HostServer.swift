@@ -159,6 +159,14 @@ public final class HostServer: @unchecked Sendable {
         // 653: the recipes that are not Dozable's (yours, the community catalogues) — chosen at this start too.
         if let x = RecipeExtras.describe() { HostLog.line("recipes not Dozable's: \(x)") }
         await server.core.load()
+        // The workspaces make their rooms in the chat server this daemon runs, as you.
+        await server.core.setWorkspaceChat(OwnerWorkspaceChat(ready: { [weak server] in
+            guard let server, ChatSettingsView.read().enabled else { return .off }
+            do {
+                let st = try await server.chat.sync(human: nil, retry: false, waitReady: true, blocked: await server.chatBlocked())
+                return st.ready ? .ready : .notReady(st.problem ?? st.state)
+            } catch { return .notReady(HostError.from(error).message) }
+        }, owner: ChatOwnerRooms(client: ChatOwnerClient(paths: server.chat.paths))))
         do {
             server.listenFD = try UnixSocket.listen(store.socket.path)
         } catch {
