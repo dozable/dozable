@@ -248,6 +248,18 @@ public func chatIsSessionName(_ s: String) -> Bool {
     return u.allSatisfy { (0x61...0x7A).contains($0) || (0x30...0x39).contains($0) || $0 == 0x2D }
 }
 
+/// A Claude Code session's name, as its record says it: free text the person sets ("Release review", "ops on m1max"),
+/// compared exactly. 1–100 characters; no control characters or line breaks, no `/` (never a path), no space at either end.
+public func chatIsClaudeSessionName(_ s: String) -> Bool {
+    let u = s.unicodeScalars
+    guard (1...100).contains(u.count), let f = u.first, let l = u.last,
+          !f.properties.isWhitespace, !l.properties.isWhitespace else { return false }
+    return u.allSatisfy { c in
+        c != "/" && !CharacterSet.controlCharacters.contains(c) && !CharacterSet.newlines.contains(c)
+            && !(0x2028...0x2029).contains(c.value) && !(0x202A...0x202E).contains(c.value) && !(0x2066...0x2069).contains(c.value)
+    }
+}
+
 /// A room's title: its words, each with a capital (`test-cap` → `Test Cap`).
 public func chatRoomTitle(_ room: String) -> String {
     room.split(whereSeparator: { $0 == "-" || $0 == "_" || $0 == " " }).map { capitalFirst(String($0)) }.joined(separator: " ")

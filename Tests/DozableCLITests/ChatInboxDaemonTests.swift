@@ -57,7 +57,16 @@ final class ChatInboxDirectoryTests: XCTestCase {
         XCTAssertNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: nil))
         XCTAssertNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: "worker-2"))
         XCTAssertTrue(ChatDirectory.deliveryRefusal("inbox", kind: "agent", session: nil)?.contains("claude-session") == true)
-        XCTAssertNotNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: "Not A Name"))
+        // A Claude Code session's name is free text the person sets: capitals and spaces are fine, compared exactly.
+        XCTAssertNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: "OPS-PROJECTS on m1max"))
+        XCTAssertNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: "Revue de code — été"))
+        XCTAssertNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: String(repeating: "a", count: 100)))
+        for bad in ["", " lead", "lead ", "a\nb", "a\u{0}b", "a\u{1B}[31mb", "a\u{2028}b", "a\u{202E}b", "../x", "/tmp/sock",
+                    String(repeating: "a", count: 101)] {
+            XCTAssertNotNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: bad), bad.debugDescription)
+        }
+        XCTAssertFalse(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: "a\u{1B}b")!.contains("\u{1B}"),
+                       "the refusal never echoes a control character")
         XCTAssertNotNil(ChatDirectory.deliveryRefusal("poll", kind: "agent", session: "x"), "--session goes with inbox")
         XCTAssertNotNil(ChatDirectory.deliveryRefusal("socket", kind: "agent", session: nil))
         XCTAssertNil(ChatDirectory.deliveryRefusal("webhook", kind: "grok-bot", session: nil))
