@@ -121,8 +121,9 @@ public struct ChatDirectory: Codable, Equatable, Sendable {
             return "inbox delivery is for a Claude Code session: its kind must be claude-session (it is \(kind)) — add --kind claude-session"
         }
         if session != nil && deliver != "inbox" { return "--session goes with inbox delivery" }
-        if let s = session, !chatIsSessionName(s) {
-            return "\(s) is not a Claude Code session name chat can match: a lower-case letter, then lower-case letters, digits and -, at most 40"
+        if let s = session, !chatIsClaudeSessionName(s) {
+            return "\"\(s.unicodeScalars.map { CharacterSet.controlCharacters.contains($0) ? "?" : String($0) }.joined())\" is not a Claude Code session name chat can match: "
+                + "1–100 characters, as the session's name shows it — no line breaks or control characters, no /, no space at either end"
         }
         return nil
     }
@@ -299,7 +300,7 @@ public enum ChatConfigFile {
               c.agentAddresses.contains("127.0.0.0/8"),
               // inbox-socket only for a Claude Code session, with a session name of the rule (never a path)
               c.participants.allSatisfy({ $0.isHuman || $0.deliver.isEmpty || ($0.deliver == "webhook" && ChatWebhookEntries.nameRefusal($0.webhook) == nil)
-                  || ($0.deliver == "inbox-socket" && $0.kind == "claude-session" && chatIsSessionName($0.session)) }) else {
+                  || ($0.deliver == "inbox-socket" && $0.kind == "claude-session" && chatIsClaudeSessionName($0.session)) }) else {
             throw HostError(.failed, "the generated chat config is not loopback-only with tokens required")
         }
         return out
