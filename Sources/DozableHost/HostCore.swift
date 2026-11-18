@@ -109,6 +109,11 @@ public actor HostCore {
     private var creating: Set<String> = []
     /// 590: `open-session` is serialized per sandbox.
     let sessionGate = KeyedGate()
+    /// The workspaces' changes, one at a time (the key `workspaces`) — `HostCore+Workspaces`.
+    let workspaceGate = KeyedGate()
+    /// The chat server as the workspaces use it (the daemon sets it; nil: none — chat is treated as off).
+    var workspaceChat: (any WorkspaceChat)?
+    public func setWorkspaceChat(_ c: (any WorkspaceChat)?) { workspaceChat = c }
     /// 610: the cold starts under way (an open, an attach, an exec or a second start JOINS one — `ensureRunning`).
     nonisolated let coldStarts = ColdStarts()
     /// 599: the session bridges' limits and recent actions (`HostCore+Bridges`).
@@ -763,12 +768,20 @@ public actor HostCore {
             return try JSONValue(encoding: try await lifecycle(r.op, name: r.name, emit: emit))
         case .ls:
             var rows: [SandboxInfo] = []
-            for m in managed.values.sorted(by: { $0.name < $1.name }) { rows.append(await info(m, sessions: r.withSessions ?? true)) }
+            let member = workspaces.membership()
+            for m in managed.values.sorted(by: { $0.name < $1.name }) {
+                var row = await info(m, sessions: r.withSessions ?? true)
+                row.workspace = member["sandbox:" + m.name]
+                rows.append(row)
+            }
             return try JSONValue(encoding: rows)
         case .inspect:
             return try JSONValue(encoding: try await detail(try get(r.name)))
         case .sessions:
-            return try JSONValue(encoding: try await sessionRows(try get(r.name)))
+            let m = try get(r.name)
+            var rows = try await sessionRows(m)
+            if let w = workspaces.membership()["sandbox:" + m.name] { for i in rows.indices { rows[i].workspace = w } }
+            return try JSONValue(encoding: rows)
         case .sessionScreen:
             // 593 §9 (S5): from the sandbox's directory, in any phase — nothing in the guest is asked.
             let m = try get(r.name)
@@ -841,6 +854,8 @@ public actor HostCore {
         case .chatSync, .chatAdd, .chatSet, .chatRemove, .chatToken, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport:
             // The chat server is the daemon's child: `HostServer` answers these (its `ChatSupervisor`), never the core.
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
+        case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename:
+            return try await performWorkspace(r)
         case .tools, .toolsApply:
             let m = try get(r.name)
             let phase = await m.sandbox.status.phase
@@ -1264,7 +1279,11 @@ public actor HostCore {
     /// that finds the sandbox already where it leads does nothing (`changed: false`).
     private func lifecycle(_ op: HostOp, name: String?, emit: @escaping @Sendable (HostEvent) -> Void) async throws -> LifecycleResult {
         if let n = try? get(name).name { unresponsive[n] = nil }       // 678 B7: a new phase is asked again at once
-        guard op == .start else { return try await lifecycleBody(op, name: name, emit: emit) }
+        guard op == .start else {
+            let res = try await lifecycleBody(op, name: name, emit: emit)
+            if op == .rm, let n = name { await workspaceSandboxRemoved(n) }     // its workspace lets it go
+            return res
+        }
         // 610 (590.B3): a cold start is recorded from here — its image's preparation included — to its end, so
         // what needs the sandbox running meanwhile (an open-session, an attach, an exec) JOINS it instead of
         // finding it "off"; and a second start joins the first instead of booting it twice.
@@ -2549,6 +2568,7 @@ public actor HostCore {
         metrics?.record(run: metricsRun, action: "rename", sandbox: new, image: cfg.image, phaseAfter: "off", startedAt: Date(),
                         durationMs: ms(since: t0), detail: ["from": old])
         note(new, "renamed from \(old) — the same disks, restore points, folder and settings")
+        await workspaceSandboxRenamed(old, to: new)                     // its workspace follows it
         return await info(nm, sessions: false)
     }
 

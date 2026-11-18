@@ -22,7 +22,7 @@ final class WorkspaceRecordTests: XCTestCase {
         let at = Date(timeIntervalSince1970: 1_800_000_000.25)
         return WorkspaceRecord(name: name, createdAt: at, brief: WorkspaceBrief(refs: ["https://example.com/spec"], sha256: "ab", bytes: 2, updatedAt: at),
                                folders: [WorkspaceFolder(path: "/tmp/a", mode: "rw", main: true), WorkspaceFolder(path: "/tmp/b", mode: "ro")],
-                               rooms: [WorkspaceRoom(label: "main", chatRoom: name, main: true, briefMessageID: "m1")],
+                               rooms: [WorkspaceRoom(label: "main", chatRoom: name, main: true)],
                                agents: [WorkspaceAgent(name: "wsa", place: .sandbox("wsa"), startedAt: at),
                                         WorkspaceAgent(name: "wsu", place: .macSession("wsu"), startedAt: at)],
                                defaults: WorkspaceDefaults(network: "standard"), flags: WorkspaceFlags(firstAgentAt: at),
@@ -43,6 +43,18 @@ final class WorkspaceRecordTests: XCTestCase {
         XCTAssertEqual(r.agents[1].place.display, "@mac/wsu")
         XCTAssertEqual(r.agentIndex("@mac/wsu"), 1)
         XCTAssertNil(try ws.read("other"))
+    }
+
+    /// Folders are optional: a workspace with none keeps `folders: []` and has no main folder.
+    func testAWorkspaceWithNoFolders() throws {
+        var r = record("bare")
+        r.folders = []
+        try make(r)
+        let back = try XCTUnwrap(try ws.read("bare"))
+        XCTAssertEqual(back.folders, [])
+        XCTAssertNil(back.mainFolder)
+        let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: ws.folder("bare") + "/workspace.json"))) as? [String: Any])
+        XCTAssertEqual((obj["folders"] as? [Any])?.count, 0, "written as an empty list")
     }
 
     /// Fields a newer doz wrote survive this build's rewrite — top level and in folders, rooms and agents — and a higher

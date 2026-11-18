@@ -582,23 +582,6 @@ func chatAsk(_ c: ChatOwnerClient, _ method: String, _ target: String, body: JVa
     }
 }
 
-/// The server's state: rooms → members, and the participants.
-struct ChatStateView {
-    var rooms: [String: [String]] = [:]
-    var participants: [(name: String, kind: String)] = []
-    var defaultRoom = ChatConfigFile.defaultRoom
-
-    init(_ v: JValue) {
-        if case .object(let m)? = v.field("rooms") { for e in m { rooms[e.key] = (try? e.value.goStrings("rooms")) ?? [] } }
-        if case .array(let a)? = v.field("participants") {
-            participants = a.compactMap { p in p.field("name")?.stringValue.map { ($0, p.field("kind")?.stringValue ?? "") } }
-        }
-        if let d = v.field("default_room")?.stringValue, !d.isEmpty { defaultRoom = d }
-    }
-
-    var human: String? { participants.first { $0.kind == "human" }?.name }
-}
-
 func chatState(_ c: ChatOwnerClient, _ g: GlobalOptions) throws -> ChatStateView {
     let (status, v) = try chatAsk(c, "GET", "/api/state", g)
     guard status == 200 else { throw fail(HostError(.failed, "the chat server answered \(status)"), g) }
@@ -627,21 +610,9 @@ struct ChatRoom: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     func run() async throws {
         try requireRoomName(name, g)
-        let c = try chatOwner(g)
-        let s = try chatState(c, g)
-        if s.rooms[name] != nil { throw fail(HostError(.exists, "there is already a room \(name)"), g) }
         let names = members.map { $0.hasPrefix("@") ? String($0.dropFirst()) : $0 }
-        for n in names where !s.participants.contains(where: { $0.name == n }) {
-            throw fail(HostError(.notFound, "no participant \(n) in chat (doz chat add \(n))"), g)
-        }
-        guard let me = s.human else { throw fail(HostError(.failed, "chat has no human"), g) }
-        // The command is sent as a message in a room you are in: the first room, else any.
-        let at = s.rooms[s.defaultRoom]?.contains(me) == true ? s.defaultRoom : (s.rooms.keys.sorted().first { s.rooms[$0]!.contains(me) } ?? s.defaultRoom)
-        let content = (["/room", name] + names.map { "@" + $0 }).joined(separator: " ")
-        let (status, v) = try chatAsk(c, "POST", "/api/rooms/\(at)/messages", body: .map(["content": .string(content)]), g)
-        guard status == 200 else { throw fail(HostError(.failed, v.field("detail")?.stringValue ?? v.field("error")?.stringValue ?? "refused (\(status))"), g) }
-        let after = try chatState(c, g)
-        let got = after.rooms[name] ?? []
+        let got: [String]
+        do { got = try ChatOwnerRooms(client: try chatOwner(g)).makeRoom(name, members: names) } catch let e as HostError { throw fail(e, g) }
         if g.json { Out.json(["room": name, "members": got.joined(separator: ",")]); return }
         Out.stdout("Made \(name) with \(got.joined(separator: ", ")).\n")
     }

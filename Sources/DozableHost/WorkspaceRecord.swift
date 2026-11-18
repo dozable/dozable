@@ -99,18 +99,17 @@ public struct WorkspaceFolder: Codable, Equatable, Sendable {
     }
 }
 
-/// A room of the workspace in the chat server: its short label, the server's room, whether it is the main one and the
-/// brief's message there (when doz posted it).
+/// A room of the workspace in the chat server: its short label, the server's room and whether it is the main one. Nothing
+/// is posted there when it is made: the work starts later.
 public struct WorkspaceRoom: Codable, Equatable, Sendable {
     public var label: String
     public var chatRoom: String
     public var main: Bool
-    public var briefMessageID: String?
     public var unknown = UnknownFields()
-    static let known: Set<String> = ["label", "chatRoom", "main", "briefMessageID"]
+    static let known: Set<String> = ["label", "chatRoom", "main"]
 
-    public init(label: String, chatRoom: String, main: Bool, briefMessageID: String? = nil) {
-        self.label = label; self.chatRoom = chatRoom; self.main = main; self.briefMessageID = briefMessageID
+    public init(label: String, chatRoom: String, main: Bool) {
+        self.label = label; self.chatRoom = chatRoom; self.main = main
     }
 
     public init(from decoder: Decoder) throws {
@@ -118,7 +117,6 @@ public struct WorkspaceRoom: Codable, Equatable, Sendable {
         label = try c.decode(String.self, forKey: "label")
         chatRoom = try c.decode(String.self, forKey: "chatRoom")
         main = try c.decodeIfPresent(Bool.self, forKey: "main") ?? false
-        briefMessageID = try c.decodeIfPresent(String.self, forKey: "briefMessageID")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -128,7 +126,6 @@ public struct WorkspaceRoom: Codable, Equatable, Sendable {
         try c.encode(label, forKey: "label")
         try c.encode(chatRoom, forKey: "chatRoom")
         try c.encode(main, forKey: "main")
-        try c.encodeIfPresent(briefMessageID, forKey: "briefMessageID")
     }
 }
 
@@ -209,7 +206,7 @@ public struct WorkspaceDefaults: Codable, Equatable, Sendable {
 public struct WorkspaceFlags: Codable, Equatable, Sendable {
     public var finishedAt: Date?
     public var archivedAt: Date?
-    /// When it first had an agent: an empty workspace that once had agents is asleep, not a draft.
+    /// When it first had an agent: an empty workspace that once had agents is asleep, not setting up.
     public var firstAgentAt: Date?
     public init(finishedAt: Date? = nil, archivedAt: Date? = nil, firstAgentAt: Date? = nil) {
         self.finishedAt = finishedAt; self.archivedAt = archivedAt; self.firstAgentAt = firstAgentAt
@@ -300,7 +297,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var at: Date
     /// `you` or `doz`.
     public var by: String
-    /// created · room-made · room-linked · brief-posted · brief-not-posted · adopted · released · brief-edited ·
+    /// created · room-made · room-linked · adopted · released · brief-edited ·
     /// folders-edited · refs-edited · renamed · agent-renamed · agent-removed.
     public var action: String
     public var agent: String?
@@ -313,7 +310,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var bytes: Int?
     public var added: Int?
     public var removed: Int?
-    /// Why (brief-not-posted): the chat server's words, never the brief.
+    /// Why, in a person's words (never the brief).
     public var reason: String?
 
     public init(at: Date = Date(), by: String = "you", action: String, agent: String? = nil, place: String? = nil, room: String? = nil,
@@ -325,7 +322,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         self.reason = reason
     }
 
-    public static let actions: Set<String> = ["created", "room-made", "room-linked", "brief-posted", "brief-not-posted", "adopted",
+    public static let actions: Set<String> = ["created", "room-made", "room-linked", "adopted",
                                               "released", "brief-edited", "folders-edited", "refs-edited", "renamed", "agent-renamed",
                                               "agent-removed"]
 
@@ -335,8 +332,6 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "created": return "created"
         case "room-made": return "made the room \(room ?? "?")"
         case "room-linked": return "linked the room \(room ?? "?")"
-        case "brief-posted": return "posted the brief in \(room ?? "?")"
-        case "brief-not-posted": return "could not post the brief in \(room ?? "?")" + (reason.map { ": \($0)" } ?? "")
         case "adopted": return "adopted \(agent ?? "?")" + (place.map { " (\($0))" } ?? "")
         case "released": return "released \(agent ?? "?")"
         case "brief-edited": return "edited the brief (\(bytes ?? 0) bytes)"

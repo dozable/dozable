@@ -674,6 +674,8 @@ extension HostCore {
         if !readOnly {
             for r in rows where !r.ended { await watchStatus(MacPlace.name, session: r.name) }
         }
+        let member = workspaces.membership()
+        for i in rows.indices { rows[i].workspace = member["mac:" + rows[i].name] }
         return rows
     }
 

@@ -11,7 +11,7 @@ final class WorkspaceStateTests: XCTestCase {
     func testTheTable() {
         let had = WorkspaceFlags(firstAgentAt: t)
         let rows: [(S.Input, S, String)] = [
-            (S.Input(agents: []), .draft, "no agents, never had one"),
+            (S.Input(agents: []), .settingUp, "no agents, never had one"),
             (S.Input(agents: [], flags: had), .asleep, "empty, but once had agents"),
             (S.Input(agents: [.starting]), .starting, "a sandbox booting"),
             (S.Input(agents: [.running(sessions: ["blocked"])]), .waitingOnYou, "a session blocked"),
@@ -28,15 +28,17 @@ final class WorkspaceStateTests: XCTestCase {
         for (input, want, why) in rows { XCTAssertEqual(S.derive(input), want, why) }
     }
 
-    /// Precedence: archived > finished > draft > starting > waiting on you > working > idle > asleep.
+    /// Precedence: archived > finished > setting up > starting > waiting on you > working > idle > asleep.
     func testPrecedencePairs() {
         XCTAssertEqual(S.derive(S.Input(agents: [], flags: WorkspaceFlags(finishedAt: t, archivedAt: t))), .archived)
-        XCTAssertEqual(S.derive(S.Input(agents: [], flags: WorkspaceFlags(finishedAt: t))), .finished, "finished over draft")
+        XCTAssertEqual(S.derive(S.Input(agents: [], flags: WorkspaceFlags(finishedAt: t))), .finished, "finished over setting up")
         XCTAssertEqual(S.derive(S.Input(agents: [.starting, .failed])), .starting, "starting over waiting on you")
         XCTAssertEqual(S.derive(S.Input(agents: [.failed, .running(sessions: ["working"])])), .waitingOnYou, "waiting over working")
         XCTAssertEqual(S.derive(S.Input(agents: [.running(sessions: ["working"]), .running(sessions: ["idle"])])), .working, "working over idle")
         XCTAssertEqual(S.derive(S.Input(agents: [.running(sessions: []), .asleep])), .idle, "idle over asleep")
-        XCTAssertEqual(S.allCases.map(\.rawValue), ["archived", "finished", "draft", "starting", "waiting on you", "working", "idle", "asleep"])
+        XCTAssertEqual(S.allCases.map(\.rawValue), ["archived", "finished", "setting-up", "starting", "waiting-on-you", "working", "idle", "asleep"])
+        XCTAssertEqual(S.settingUp.words, "setting up")
+        XCTAssertEqual(S.waitingOnYou.words, "waiting on you")
     }
 
     /// The agents as the daemon sees them.

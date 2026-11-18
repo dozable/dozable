@@ -1,13 +1,19 @@
 import DozableKit
 import Foundation
 
-/// A workspace's lifecycle state — derived from what its agents are doing, except finished, archived and draft, which are
-/// recorded (`WorkspaceFlags`). ONE pure function (`derive`), table-tested (`WorkspaceStateTests`). Who drives it sits
-/// beside the state (always "you" in this version): `draft · you`.
+/// A workspace's lifecycle state — derived from what its agents are doing, except finished and archived, which are
+/// recorded (`WorkspaceFlags`), and setting up (no agent yet, never started). ONE pure function (`derive`), table-tested
+/// (`WorkspaceStateTests`). Who drives it sits beside the state (always "you" in this version): `setting up · you`.
+/// The JSON value is the raw value (`setting-up`); a person reads `words`.
 public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
-    case archived, finished, draft, starting
-    case waitingOnYou = "waiting on you"
+    case archived, finished
+    case settingUp = "setting-up"
+    case starting
+    case waitingOnYou = "waiting-on-you"
     case working, idle, asleep
+
+    /// As a person reads it: "setting up", "waiting on you".
+    public var words: String { rawValue.replacingOccurrences(of: "-", with: " ") }
 
     /// What one agent is doing, as the daemon sees it (never a guest call).
     public enum Agent: Equatable, Sendable {
@@ -31,12 +37,12 @@ public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
         }
     }
 
-    /// archived → finished → draft (no agents, never had one) → starting → waiting on you (a session blocked or in error,
+    /// archived → finished → setting up (no agents, never had one) → starting → waiting on you (a session blocked or in error,
     /// a sandbox failed, an open Ask for you) → working → idle → asleep. The first that holds wins.
     public static func derive(_ i: Input) -> WorkspaceState {
         if i.flags.archivedAt != nil { return .archived }
         if i.flags.finishedAt != nil { return .finished }
-        if i.agents.isEmpty && i.flags.firstAgentAt == nil { return .draft }
+        if i.agents.isEmpty && i.flags.firstAgentAt == nil { return .settingUp }
         if i.agents.contains(.starting) { return .starting }
         let sessions = i.agents.flatMap { if case .running(let s) = $0 { return s } else { return [] } }
         if i.openAsksForYou > 0 || i.agents.contains(.failed) || sessions.contains("blocked") || sessions.contains("error") {
