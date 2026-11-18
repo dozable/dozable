@@ -21,6 +21,7 @@ final class ChatAccessTests: XCTestCase {
     func testTheTwoTextsAreExact() {
         XCTAssertEqual(notOwned, "only the owner's own tailnet machines may connect")
         XCTAssertEqual(agentOnly, "this machine must use a token: only /agent/ calls are served to it")
+        XCTAssertEqual(ChatAccess.unknownToken, "that token is no one's here: an agent machine must send its own participant's token")
     }
 
     /// The page port: nil serves; otherwise the 403 text.

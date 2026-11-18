@@ -64,7 +64,10 @@ dependencies of both targets.
 | an action under way | Starting… / Stopping… / Restarting… / Opening the dashboard… / Updating the menu bar app… | — | Quit only |
 
 Between Restart and Open Dashboard (separators around it): the Start at Login row (below). Always: the last action's failure (doz's own `--json` message, one line) until the next action; "Update Menu Bar App (X → Y)"
-when the copy that came with doz is newer than the running app (it runs `doz app install --open`); "Quit Dozable Menu"
+when the copy that came with doz is newer than the running app (it runs `doz app install --open`); "Restart to Update (X →
+Y)" instead when the copy ON DISK at the app's own place is already newer than the running one (an install swapped it in
+under it — `AppOnDisk.version` reads its Info.plist again at each refresh): it runs no doz command, opens that copy as a
+new instance (`NSWorkspace.openApplication`, `createsNewApplicationInstance`) and quits this one; "Quit Dozable Menu"
 quits the app only — never the daemon. The icon is an SF Symbol drawn as a template (a placeholder until there is art):
 `cube.fill` running, `cube` stopped, `exclamationmark.triangle` when a Restart is due or the state cannot be read,
 `cube.transparent` with no doz. This version has no kept sessions.
@@ -152,7 +155,14 @@ shape changes).
   of the older build says so in the header until restarted (an always-on daemon restarts itself in place when idle).
   The copy of the app that came with the new doz is offered as "Update Menu Bar App".
 - **The app replaced by `doz app install`**: the running copy keeps its files (its inode) until it is opened again;
-  `--open` quits it (SIGTERM to the processes whose program is inside the bundle) and opens the new one.
+  `--open` quits it (SIGTERM to this user's processes whose program is inside the bundle) and opens the new one. A copy
+  whose program file is gone — an earlier install swapped the bundle and removed the old one, so `proc_pidpath` fails
+  (ENOENT; lsof names the staged `.Dozable.app.new`) — is found by how it was started (KERN_PROCARGS2's executable path or
+  argv[0], under the bundle or under the staged name: `MenuBarAppInstall.isCopy`, `ProcessArguments.startedAs`); before
+  this, it was not quit and `open` only activated the old app. Never another user's process (`owner(of:)`). Without
+  `--open` and with a copy running, install says the running copy must be restarted (Restart to Update, or `--open`).
+  `AppInstallTests` (the pure rule; a stand-in whose file was replaced by rename found and quit), `MenuModelTests`,
+  `make test-cli-app` row 9.
 
 ## `doz app install|status|uninstall`
 

@@ -6,7 +6,9 @@
  * (docs/chat/protocol.md) as a participant that polls, with the commands and exit codes of docs/chat/client/chat_client.py:
  *
  *     dozchat rooms [--room ROOM]
- *     dozchat send ROOM TEXT [--re MSG_ID] [--to NAME ...] [--dm]          TEXT "-" reads it from stdin (at most 1 MiB)
+ *     dozchat send ROOM TEXT... [--re MSG_ID] [--to NAME ...] [--dm]       TEXT "-" reads it from stdin (at most 1 MiB);
+ *                                                                          several words are joined with one space; the
+ *                                                                          options go before or after the text
  *     dozchat react ROOM MSG_ID REACTION
  *     dozchat receive [--wait SECONDS] [--ack] [--redeliver]
  *     dozchat ack ROOM:MSG_ID[:DELIVERY] ...                              or: ack -   (reads receive's lines)
@@ -16,7 +18,8 @@
  *     dozchat protocol [--room ROOM]
  *
  * Configuration, from the environment only (nothing secret on the command line, ever):
- *     CHAT_URL          http://HOST[:PORT] — no user, path or query; default http://host.dozable.internal:8790
+ *     CHAT_URL          http://HOST[:PORT] — no user, path or query; default http://host.dozable.internal:8790, and on a
+ *                       Mac with no proxy set (a session run without a fence) http://127.0.0.1:8790
  *     CHAT_TOKEN_FILE   a regular file of this user that no one else may read or write (not a link), at most 4 KiB
  *     CHAT_TOKEN        the token itself, used only when CHAT_TOKEN_FILE is not set
  *     http_proxy, then HTTP_PROXY: an http:// proxy (its password is sent as Proxy-Authorization: Basic); NO_PROXY /
@@ -69,8 +72,11 @@
 #include <sys/random.h>
 #endif
 
-#define DOZCHAT_VERSION "1"
+#define DOZCHAT_VERSION "2"
 #define DEFAULT_URL "http://host.dozable.internal:8790"
+/* On a Mac with no proxy set — a session run on the Mac without a fence, where the chat server is this Mac's own — the
+ * default is this Mac's loopback. A fenced session always has its proxy set (and no DNS), so it keeps DEFAULT_URL. */
+#define MAC_DIRECT_URL "http://127.0.0.1:8790"
 
 #define KIB ((size_t)1024)
 #define MIB (KIB * KIB)
@@ -1282,9 +1288,19 @@ static int read_proxy(void) {
     return EXIT_DONE;
 }
 
+/* The address when CHAT_URL is not set. */
+static const char *default_url(void) {
+#if defined(__APPLE__)
+    const char *p = getenv("http_proxy");
+    if (!p || !*p) p = getenv("HTTP_PROXY");
+    if (!p || !*p) return MAC_DIRECT_URL;
+#endif
+    return DEFAULT_URL;
+}
+
 static int configure(void) {
     const char *u = getenv("CHAT_URL");
-    if (!u || !*u) u = DEFAULT_URL;
+    if (!u || !*u) u = default_url();
     int r = chat_url_parse(u, &g_chat);
     if (r == URL_HTTPS) { say("CHAT_URL: plain http only; outside Dozable use chat_client.py"); return EXIT_USAGE; }
     if (r == URL_USERINFO) { say("CHAT_URL must not hold a user or password (it is not shown)"); return EXIT_USAGE; }
@@ -1497,7 +1513,7 @@ struct opts {
 static const char USAGE[] =
     "usage: dozchat COMMAND ...   (a member of a Dozable chat room; CHAT_URL, CHAT_TOKEN_FILE or CHAT_TOKEN configure it)\n"
     "  dozchat rooms [--room ROOM]                       the rooms you are in: run it first (it works from any room)\n"
-    "  dozchat send ROOM TEXT [--re MSG_ID] [--to NAME ...] [--dm]     TEXT - reads it from stdin\n"
+    "  dozchat send ROOM TEXT [--re MSG_ID] [--to NAME ...] [--dm]     TEXT - reads it from stdin; options before or after it\n"
     "  dozchat react ROOM MSG_ID REACTION                same as send ROOM \"/react REACTION\" --re MSG_ID\n"
     "  dozchat receive [--wait SECONDS] [--ack] [--redeliver]\n"
     "  dozchat ack ROOM:MSG_ID[:DELIVERY] ...            or: ack -   (reads receive's lines on stdin)\n"
@@ -1506,7 +1522,8 @@ static const char USAGE[] =
     "  dozchat file send ROOM PATH [TEXT] [--re MSG_ID]\n"
     "  dozchat protocol [--room ROOM]                    the protocol, as Markdown\n"
     "  dozchat --version\n"
-    "CHAT_URL defaults to " DEFAULT_URL ". The token is never given on the command line.\n"
+    "A send answers \"queued\" (it waits for each recipient); a reaction answers \"added\" (recorded at once, it wakes nobody).\n"
+    "CHAT_URL defaults to " DEFAULT_URL "; on a Mac with no proxy set, " MAC_DIRECT_URL ". The token is never given on the command line.\n"
     "Outside Dozable, through a local proxy: CHAT_URL=http://HOST:8790 http_proxy=http://localhost:PORT dozchat send ROOM TEXT\n"
     "Exit codes: 0 done, 1 a local problem or a bad answer, 2 usage, 3 refused (422), 4 401/403/409, 5 no answer or 5xx.\n";
 
@@ -1599,7 +1616,8 @@ static int read_stdin_all(struct buf *b) {
 }
 
 static int cmd_send(const struct opts *o) {
-    if (o->npos != 2) return usage_error("send takes ROOM TEXT");
+    if (o->npos < 2) return usage_error("send takes ROOM TEXT");
+    if (o->npos > 2 && strcmp(o->pos[1], "-") == 0) return usage_error("send ROOM - reads the text from stdin and takes no other words");
     if (o->dm && o->nto == 0) return usage_error("--dm needs --to NAME");
     int rc = configure();
     if (rc) return rc;
@@ -1617,9 +1635,19 @@ static int cmd_send(const struct opts *o) {
         if (r < 0) { buf_free(&in); say("cannot read stdin"); return EXIT_LOCAL; }
         a.text = in.p ? in.p : (const unsigned char *)"";
         a.text_len = in.len;
-    } else {
+    } else if (o->npos == 2) {
         a.text = (const unsigned char *)o->pos[1];
         a.text_len = strlen(o->pos[1]);
+    } else {
+        /* several words (the text not quoted): joined with one space, as a shell would have passed them quoted */
+        for (size_t i = 1; i < o->npos; i++)
+            if ((i > 1 && buf_addc(&in, ' ') < 0) || buf_adds(&in, o->pos[i]) < 0) {
+                buf_free(&in);
+                say("the text is longer than 1 MiB");
+                return EXIT_USAGE;
+            }
+        a.text = in.p;
+        a.text_len = in.len;
     }
     rc = do_send(&a, NULL);
     buf_free(&in);

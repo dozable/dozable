@@ -62,6 +62,18 @@ public enum TestSafety {
         return "a test reached Claude Code's credentials file (\(path)) — give it a scratch one (DOZ_TEST_CLAUDE_CREDENTIALS_FILE)"
     }
 
+    /// Why handing the chat server `path` as Claude Code's sessions folder is refused in a guarded run (nil: allowed) —
+    /// anything under the person's REAL `~/.claude`: a test never reads a real session's record or key, nor connects to
+    /// its socket. A guarded run uses its seam (`DOZ_TEST_CLAUDE_SESSIONS`, a scratch folder the Makefile sets).
+    public static func claudeSessionsViolation(_ path: String, home: URL = realHome) -> String? {
+        let real = home.appendingPathComponent(".claude").standardizedFileURL
+        let r = real.resolvingSymlinksInPath().path
+        let p = URL(fileURLWithPath: path).standardizedFileURL
+        let d = p.resolvingSymlinksInPath().path
+        guard d == r || d.hasPrefix(r + "/") || p.path == real.path || p.path.hasPrefix(real.path + "/") else { return nil }
+        return "a test would hand the chat server Claude Code's real sessions folder (\(path)) — give it a scratch one (DOZ_TEST_CLAUDE_SESSIONS)"
+    }
+
     /// 694: a test run of any kind — guarded, or one that lifted the guard on purpose (`DOZ_TEST_REAL_MAC=1`). The login
     /// item's seams (`DOZ_TEST_LAUNCH_AGENTS_DIR`, `DOZ_TEST_LAUNCHCTL`) are honoured in both: a run against this Mac's
     /// own login still never writes a login item. A person's doz is neither, and ignores them.

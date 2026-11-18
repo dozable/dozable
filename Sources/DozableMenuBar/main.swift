@@ -52,7 +52,9 @@ func loginContext() -> SnapshotSource.LoginContext {
 }
 
 func source() -> SnapshotSource {
-    SnapshotSource(locator: .standard(env: env), runner: CommandRunner(), appVersion: appVersion, login: loginContext())
+    let bundlePath = Bundle.main.bundlePath
+    return SnapshotSource(locator: .standard(env: env), runner: CommandRunner(), appVersion: appVersion, login: loginContext(),
+                          installedAppVersion: { AppOnDisk.version(bundlePath: bundlePath) })
 }
 
 func jsonLine(_ dict: [String: Any]) -> String {

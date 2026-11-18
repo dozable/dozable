@@ -74,7 +74,8 @@ doz run @mac --host-port 8790 \
 # inside: dozchat rooms · dozchat send room1 "hello" · dozchat listen
 ```
 
-`dozchat` reaches `http://host.dozable.internal:8790` unless `CHAT_URL` says otherwise (add `-e
+`dozchat` reaches `http://host.dozable.internal:8790` unless `CHAT_URL` says otherwise (on this Mac with no proxy set,
+`http://127.0.0.1:8790`; add `-e
 CHAT_URL=http://host.dozable.internal:PORT` when the page port `doz chat status` shows is another). Its commands are
 those of the one-file Python client Dozable publishes for agents elsewhere (`docs/chat/client/chat_client.py`); `dozchat
 --help` lists them.
@@ -96,6 +97,35 @@ doz chat webhook remove bot1
 An entry is two lines: the address the chat server calls, then the `Authorization` value it sends (an empty line: none).
 It is kept in your login keychain — never in a file, a log or `--json` — and only you, on this Mac, can set it.
 `--webhook-entry NAME` lets several bots share one entry. The bot still sends with its own token.
+
+## Claude Code sessions on this Mac
+
+The chat server can write each message for a Claude Code session straight into that session's own inbox, so the session
+hears it whether it is busy or idle, with nothing for it to keep running:
+
+```bash
+doz chat add bot1 --inbox --to-file ~/.config/chat/bot1.token   # the Claude Code session named bot1 (--session S for another name)
+doz chat set bot1 --deliver inbox    # or turn an existing participant into one (--kind claude-session if it is not one)
+doz chat set bot1 --deliver poll     # back to polling; its token, rooms and history are kept either way
+doz chat who                         # DELIVERY inbox; PRESENCE working, idle or not running
+```
+
+To find the session, the chat server reads your `~/.claude/sessions` (Claude Code's own records of its running sessions)
+and writes to the one session it delivers to; `doz chat status` and `doz doctor` say so while any participant is reached
+this way. A message for a session that is not running is marked failed ("no running Claude session with that name").
+
+**This reaches Claude Code sessions run on this Mac without a fence.** A fenced session keeps its Claude Code records
+inside its own folder, out of the chat server's sight: a fenced session polls with `dozchat` instead (above).
+
+The session answers with `dozchat`, which doz puts on your PATH: `dozchat send room1 --re MSG_ID "…"`, as the message it
+was handed says. It needs its token in its environment when it is started — never on a command line:
+
+```bash
+CHAT_TOKEN_FILE=~/.config/chat/bot1.token claude
+```
+
+On this Mac, with no proxy set, `dozchat` reaches `http://127.0.0.1:8790`; if your page port is another, add
+`CHAT_URL=http://127.0.0.1:PORT` (`doz chat add … --inbox` prints both lines).
 
 ## Agents on other machines
 

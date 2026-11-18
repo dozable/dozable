@@ -8,6 +8,8 @@
 # The tarball holds the install layout `make install-cli` makes, under one top directory:
 #
 #   doz-<version>/bin/doz                    → ../libexec/doz/doz   (a relative link)
+#   doz-<version>/bin/dozchat                → ../libexec/doz/dozchat-mac   (a relative link; CLI only: a Claude Code session
+#                                            run on this Mac without a fence answers in chat with it)
 #   doz-<version>/libexec/doz/doz            the executable, signed with Scripts/doz.entitlements
 #   doz-<version>/libexec/doz/VERSION        the version it was built for (DozableCommand.version reads it)
 #   doz-<version>/libexec/doz/DozableKit_*.bundle   its resources (guest binaries, web assets)
@@ -299,6 +301,7 @@ if [[ -n "$DRY_RUN" ]]; then say "  [dry-run] echo $VERSION > $STAGE/libexec/doz
 # swaps it) from a development build (`make install-cli`, which has VERSION but no marker, and is never updated).
 if [[ -n "$DRY_RUN" ]]; then say "  [dry-run] echo $FLAVOR > $STAGE/libexec/doz/RELEASE"; else printf '%s\n' "$FLAVOR" > "$STAGE/libexec/doz/RELEASE"; fi
 [[ "$FLAVOUR" == cli ]] && run ln -s ../libexec/doz/doz "$STAGE/bin/doz"
+[[ "$FLAVOUR" == cli ]] && run ln -s ../libexec/doz/dozchat-mac "$STAGE/bin/dozchat"
 # deckhold-mac beside doz (the CLI flavour only), stripped before it is signed; its provenance in licences/.
 if [[ "$FLAVOUR" == cli ]]; then
     [[ -n "$DRY_RUN" || -x .build/deckhold-mac/deckhold-mac ]] || fail "missing .build/deckhold-mac/deckhold-mac — Guest/deckhold/build-mac.sh (make deckhold first, for the toolchain)"
@@ -614,6 +617,7 @@ if [[ -z "$DRY_RUN" ]]; then
     if [[ "$FLAVOUR" == cli ]]; then
         [[ -L "$packed/bin/doz" ]] || fail "bin/doz in the tarball is not a link"
         [[ "$("$packed/bin/doz" --version)" == "$VERSION" ]] || fail "bin/doz in the tarball does not run the packed doz"
+        [[ -L "$packed/bin/dozchat" && "$(readlink "$packed/bin/dozchat")" == ../libexec/doz/dozchat-mac ]] || fail "bin/dozchat in the tarball is not the link to dozchat-mac"
     fi
     # 675 (H8): the layout contract — docs/manual/33-bundling-doz-in-an-app.md. Checked on what people download.
     for f in doz VERSION RELEASE DozableKit_DozableKit.bundle/deckhold "kernels/$KERNEL_NAME" licences/kernel/PROVENANCE.md licences/kernel/kernel.config; do

@@ -24,6 +24,8 @@
 //      folder can be read by others; a failure's reason names no host
 //  19. the child listens on exactly 127.0.0.1:page and 127.0.0.1:line (lsof)
 //  20. webhook remove: who says not set; a message fails at once again
+//  28–34. a Claude Code session delivered to by inbox (CLIChatInboxRows.swift): add --inbox, who, status, failed with no
+//      session, delivered into a scratch one, the dozchat answer, set --deliver both ways keeping rooms and token, the sweep
 //  21. chat.remote_listen / chat.remote_agents: a LAN, wildcard, range or link-local value refused; an address this Mac
 //      does not have on Tailscale is said (status, --json, doctor WARN, the firewall row) and never listened on
 //
@@ -197,6 +199,9 @@ func cliChatSuite(binary: String) async {
     check(curl(["-o", "/dev/null", "-w", "%{http_code}", "http://127.0.0.1:\(page)/api/state"]) == "403", "5 GET /api/state on the page port is 403")
     let lineAnswer = sh(["/bin/sh", "-c", "printf '%s\\n' '{\"type\":\"user\",\"room\":\"room1\",\"msg_id\":\"\(UUID().uuidString.lowercased())\",\"message\":{\"content\":\"x\"}}' | /usr/bin/nc -w 3 127.0.0.1 \(line)"]).1
     check(!lineAnswer.contains("\"queued\""), "5 the line port refuses a message without a token (\(lineAnswer.prefix(120)))")
+
+    // 28–34. a Claude Code session delivered to by inbox (a scratch one: the sessions folder is the suite's seam)
+    cliChatInboxRows(h: h, root: root, paths: paths, page: page, sh: sh)
 
     // 15–21. a webhook bot (its entry in the daemon's keychain seam — the memory one here — handed over on a pipe)
     await cliChatWebhookRows(h: h, root: root, paths: paths, page: page, line: line, sh: sh, server: server, supervisor: supervisor)

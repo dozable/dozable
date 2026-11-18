@@ -46,7 +46,7 @@ and another browser of the LAN option gets what `serve.chat` allows (below, "In 
 | `Sources/DozableHost/ChatSupervisor.swift` | `ChatSupervisor`: the server as the daemon's child — the generated files, posix_spawn, readiness, restarts, stops; `ChatServerState` (`supervisor.json`, `daemon status`); `ChatProcesses`, the seam the tests fake |
 | `Sources/DozableHost/ChatOwnerClient.swift` | the person's HTTP client on the owner's socket (the `doz chat` commands and the dashboard): request headers, the answer's headers, a cap per call, a stream another thread can cancel (`StreamHandle`) |
 | `Sources/DozableWeb/WebChat.swift`, `WebSource/app/*/chat*.js` | the dashboard's Chat page: its closed routes on the owner's socket and the page (web.md, "Chat") |
-| `Sources/DozableCLI/ChatCommands.swift` | the `doz chat` group: on, off, status, add, remove, who, token, rooms, room, send, read |
+| `Sources/DozableCLI/ChatCommands.swift` | the `doz chat` group: on, off, status, add, set, remove, who, token, rooms, room, send, read |
 | `Sources/DozableChat/ChatImport.swift` | reading a copy made for import without trusting it, and staging it in this server's format (`ChatImport`); `ImportDB`, the read-only, immutable, `trusted_schema`-off connection |
 | `Sources/DozableHost/ChatImporter.swift`, `Sources/DozableCLI/ChatImportCommand.swift` | `doz chat import`: the names against the directory, the data folder put aside, `imported.json` (`ChatImporter`); the command and its dry run |
 | `Tests/DozableChatTests/` | `ChatConfigTests` (the loader, the secrets file, JSON bytes), `ChatAccessTests` (the access table, `agent_addresses`, the path check), `ChatStoreTests` (a room file written by the protocol's reference server opens and reads back; a new file has the same schema), `ChatServeIsolationTests` (the real `doz` in an empty home, also calling a webhook), `ChatPostingAndReadingTests` (the stream and its resync, also over a real listener; polling; edit and delete once; unread; stubs; presence and avatars), `ChatWebhookTests` (against `TestWebhookListener`, a listener each test starts on 127.0.0.1: the call, the tries, every limit of the client, no secret anywhere, notices, the hold, redelivery once; reactions), `ChatSessionsAndFilesTests` (against `TestClaudeSession`, a record and key file in a scratch sessions folder and a socket the test listens on: the inbox text, failed, `/protocol`, `/react`'s fallback, notices, started, the announcement; names never paths, the limits before a byte is kept, the human's token, download headers, who may fetch, a delete's files; the msg_id start rule) |
@@ -75,7 +75,8 @@ enough is recorded with the feature that published it.
 agent in a Dozable sandbox or fenced session is a room member with nothing to install. Its commands and exit codes are
 the Python client's (`rooms`, `send`, `receive`, `ack`, `listen`, `file get|send`, `protocol`), plus `send ROOM -` (the
 text on stdin, at most 1 MiB) and `react ROOM MSG_ID REACTION`. Its default `CHAT_URL` is
-`http://host.dozable.internal:8790`; https is refused ("plain http only; outside Dozable use chat_client.py"). It goes
+`http://host.dozable.internal:8790` — and, built for the Mac with no proxy set (a session run on the Mac without a
+fence), `http://127.0.0.1:8790` (`default_url`; a fenced session always has its proxy, and no DNS); https is refused ("plain http only; outside Dozable use chat_client.py"). It goes
 through the session's own proxy (`http_proxy`, then `HTTP_PROXY`; the request in absolute form, the proxy URL's password
 as `Proxy-Authorization: Basic`; `NO_PROXY` exact names or `*`) — inside a sandbox a direct connection to a port with a
 secret bound is refused, and a fence has no DNS. stdout carries one compact JSON line per item or answer (the server's
@@ -86,8 +87,10 @@ built with the pinned Zig, PROVENANCE.md, `make dozchat-verify`) to `/usr/local/
 `/usr/local/bin/dozchat` when that name is free — always, with no setting (tools-and-dotfiles.md). In a fenced session:
 `dozchat-mac` beside doz (built per release by `Guest/dozchat/build-mac.sh`, never committed; signed and notarised with
 doz, CLI flavour only — updates-and-release.md), readable as that ONE file (a `literal` in the profile, like doz itself),
-run through the host-owned shim `<session>/etc/bin/dozchat` (`MacFenceSessionFolder.dozchatShim`). An unfenced session
-and the helper build have none. Neither path reaches anything the session could not already reach with curl.
+run through the host-owned shim `<session>/etc/bin/dozchat` (`MacFenceSessionFolder.dozchatShim`). On the person's PATH
+(for a Claude Code session run on the Mac without a fence, answering what the chat server wrote into its inbox): the
+Homebrew formula links `bin/dozchat` → `libexec/doz/dozchat-mac`, the CLI tarball carries `bin/dozchat` →
+`../libexec/doz/dozchat-mac`, and `make install-cli` makes the same link. The helper build has none. Neither path reaches anything the session could not already reach with curl.
 
 **Its rules** (each tested — `make dozchat-check`, `make test`):
 - No JSON parser. A request body is literal text plus `json_str` (a strict UTF-8 check: overlong forms, surrogates and
@@ -121,7 +124,8 @@ and the helper build have none. Neither path reaches anything the session could 
   `ChatServeIsolationTests` runs the real binary with an empty `HOME` and `TMPDIR` and a `DOZ_STORE` and
   `XDG_CONFIG_HOME` that must never appear, and lists every file afterwards.
 - **What it touches outside its data folder — exactly this, and only to deliver to a Claude Code session on this Mac
-  (a participant whose `deliver` is `inbox-socket`), as the reference does:**
+  (a participant whose `deliver` is `inbox-socket`), as the reference does** (under the daemon only while such a
+  participant exists — below, "Delivery into a Claude Code session under the daemon"):
   - it READS Claude Code's session records: every `<pid>.json` in the sessions folder (a session's `name`, `status`,
     `statusUpdatedAt`, `messagingSocketPath`; a record whose pid does not run is passed over) and, for the session it
     delivers to, its `<pid>.*.key` (`peerToken`). The folder is a value handed to the server — `--claude-sessions DIR`,
@@ -156,7 +160,10 @@ and the helper build have none. Neither path reaches anything the session could 
   Every answer of the page port carries `Strict-Transport-Security: max-age=0`. The `/agent/` path check is exact: what a
   router would tidy (`..`, `.`, `//`, another case) is refused, not followed.
 - **`agent_addresses`.** A list of addresses or CIDR ranges whose callers are never the person: on the page port they are
-  served the token-checked `/agent/` calls and nothing else (403 otherwise); they are never owned (the list beats
+  served the token-checked `/agent/` calls and nothing else (403 otherwise: "this machine must use a token: only /agent/
+  calls are served to it", or, when `Authorization` carries a token no participant holds, "that token is no one's here:
+  an agent machine must send its own participant's token" — `ChatPageHandler.agentRefusal`, the reference's words; the
+  same for a `require_tokens_from` machine and a remote listener's caller; `/agent/` answers such a token 401); they are never owned (the list beats
   `test_owned_addresses`), so the line port admits them only through `allow`, and always with a token. Absent or empty
   changes nothing. It is how a fenced session reaching the server through `host.dozable.internal` (which arrives from
   127.0.0.1) is kept from acting as the person.
@@ -250,9 +257,8 @@ and the helper build have none. Neither path reaches anything the session could 
   owner's own callers `X-Chat-Token` too); with no token, the owner's socket or an owned caller is the human. An agent
   address — loopback under the daemon, where a fenced session or a polling client calls from — is served this one path
   besides `/agent/`: `GET` or `HEAD` of an exact `/files/<id>/<name>` (nothing a router would tidy) with a Bearer token
-  that is a participant's (`ChatPath.isFilePath`, `ChatPageHandler.isTokenFileFetch`); without one, or with a token
-  that is no one's, it is the agent-only 403 (the address rule comes first), and the human's token fetches nothing
-  (404) — an agent address is never the human. From an owned caller a Bearer token that is no one's is the plain 404. The line port's `file` line is the token's
+  that is a participant's (`ChatPath.isFilePath`, `ChatPageHandler.isTokenFileFetch`); without one it is the agent-only
+  403 (the address rule comes first), and the human's token fetches nothing (404) — an agent address is never the human. From an owned caller a Bearer token that is no one's is the plain 404. The line port's `file` line is the token's
   participant, else the name the line gives, else (an owned connection) the human. Anything else is the plain 404 or
   "no such attachment", the same as an unknown id. A download carries `Accept-Ranges: bytes`,
   `X-Content-Type-Options: nosniff` and `Content-Security-Policy: sandbox`, and anything but a PNG, JPEG, GIF or WebP is
@@ -268,7 +274,7 @@ and the helper build have none. Neither path reaches anything the session could 
 
 | File | What |
 |---|---|
-| `directory.json` | Dozable's record — the human and the participants (name, kind — `agent`, `claude-session` or `grok-bot` —, when added, and for a webhook bot `deliver: "webhook"` and its entry's name when it is not its own). Still version 1: an older doz ignores the new fields and treats a webhook bot as one that polls. Owned by the daemon, never edited by hand |
+| `directory.json` | Dozable's record — the human and the participants (name, kind — `agent`, `claude-session` or `grok-bot` —, when added, and for a webhook bot `deliver: "webhook"` and its entry's name when it is not its own; for a Claude Code session delivered to by inbox `deliver: "inbox"` and its session's name when it is not its own). Still version 1: an older doz ignores the new fields and treats either as one that polls. Owned by the daemon, never edited by hand |
 | `tokens.json` | `{"version":1,"sha256":{name: hex}}` — the participants' tokens as SHA-256 only; the server reads it with `--token-hashes` |
 | `config.json` | generated (`ChatConfigFile`) from the settings and `directory.json`, judged by `ChatConfig.parse` before it is written |
 | `chat.sock` | the owner's socket (`--owner-socket`) |
@@ -283,11 +289,46 @@ A store whose `chat.sock` path would be longer than 103 bytes cannot have chat (
 127.0.0.0/8 and ::1, `secrets_file_only`, no `test_owned_addresses`, the human `deliver: web`, each participant with no
 `deliver` value (so it polls with its own token — a `poll` value is a registered session's and is never checked against
 the token hashes) — or, for a webhook bot, `deliver: "webhook"` and `webhook: ENTRY` (never an address) —, one room
-(`general`, the human). The generator asserts the profile (no `inbox-socket`, every `deliver` empty or `webhook`, no entry
-named `default`); `ChatServer` refuses a
+(`general`, the human); a Claude Code session delivered to by inbox `deliver: "inbox-socket"` and `session: NAME` (below).
+The generator asserts the profile (every `deliver` empty, `webhook` with an entry that is not `default`, or `inbox-socket`
+for a `claude-session` whose session is a name of the rule — never a path); `ChatServer` refuses a
 non-loopback bind anyway. With it, **no TCP caller is ever the human**: the page port answers 403 outside `/agent/…` (every
 loopback caller is an agent address), and the line port always asks for a token. The human comes in through the owner's
-socket only. No `inbox-socket` participant is generated in this step.
+socket only.
+
+**Delivery into a Claude Code session under the daemon.** `doz chat add NAME --inbox [--kind claude-session] [--session
+S]` (or `doz chat set NAME --deliver inbox`) records `deliver: "inbox"` (and `session` when it is not NAME) in
+`directory.json`; the generated config carries it as `inbox-socket` with `session`. While at least one such participant
+exists, the supervisor hands the server the sessions folder of the person who runs the daemon with `--claude-sessions`
+(`ChatClaudeSessions.folder`: `<the real home, from the user database>/.claude/sessions` — never `$HOME`, never guessed),
+and only then: with none, the server is started without it and reads nothing outside its data folder. The folder is part of
+the files a running server is compared with, so adding the first inbox participant (or removing the last) restarts it.
+`supervisor.json`'s `claudeSessions` names it; `doz chat status` and `doz doctor` say it as a standing line while it is
+handed ("delivers into Claude Code sessions on this Mac: reads ~/.claude/sessions"; `--json`: `claudeSessions`).
+- **Only an unfenced session is a target.** A fenced session's Claude Code keeps its config — and so its session records —
+  under the session's own folder (`CLAUDE_CONFIG_DIR` = `<session>/agent`, `MacAgentConfig`), not in the person's
+  `~/.claude/sessions`, and whether its messaging socket can exist and be reached from outside the fence is not known; the
+  server reads only the person's folder. A fenced session polls with dozchat; a message for an inbox participant whose
+  session is not running unfenced is `failed` "no running Claude session with that name", and presence says `not running`.
+- **Answering.** The participant keeps its own token (made, or `--from-stdin`, like any): it sends with the agent calls
+  (`dozchat send ROOM --re MSG_ID "…"`, as the text written into its inbox says; or the Python client). `add --inbox`
+  prints what the session needs in its environment when it is started: `CHAT_TOKEN_FILE=<the --to-file file>`, and
+  `CHAT_URL=http://127.0.0.1:<page port>` only when the page port is not 8790 (dozchat's default on a Mac with no proxy).
+  An inbox participant may not also poll (`/agent/receive` is 403: nothing is delivered twice).
+- **`doz chat set NAME --deliver inbox|poll|webhook [--webhook-entry E] [--kind K] [--session S]`** (`chat-set`, on the
+  daemon's socket only) changes how it is reached and nothing else: the token's hash, the rooms (the server's, by name)
+  and the history stay. Inbox is refused for a kind that is not `claude-session` (`--kind claude-session` in the same call
+  changes it); webhook takes its own name as the entry by default (`default` refused). The server restarts (under a
+  second); what still waits for it (queued) is handed over the new way at that start; what `failed` stays failed.
+- **Tests never reach a real session.** The folder is a seam: `ChatSupervisor(claudeSessions:)` in unit tests;
+  `DOZ_TEST_CLAUDE_SESSIONS` (an absolute scratch folder, set by the Makefile for every test target, read only in a test
+  run) for a daemon; `TestSafety.claudeSessionsViolation` stops a guarded run that would still hand the server anything
+  under the real `~/.claude`. Each "session" is a record and key the test writes in its scratch folder and a socket it
+  listens on under /tmp (`TestClaudeSession`, `ScratchClaudeSession`, the suite's `SuiteClaudeSession`).
+  `ChatInboxDirectoryTests`, `ChatInboxSupervisorTests`, `ChatInboxServeTests` (the real server under the real
+  supervisor: failed with no session, delivered into a scratch one, its token answering, set both ways keeping rooms and
+  token, nothing written outside the data folder — the records unchanged, HOME and TMPDIR empty — and no token or key in
+  any file), `make test-cli-chat` rows 28–34.
 
 **The owner's socket** (`ChatOwnerSocket`, `ChatListeners`). The server serves the page's whole API (its stream too) on
 `<store>/chat/chat.sock` to `ChatCaller.owner`: the human, no token, posts marked checked. It refuses to start unless the
@@ -402,7 +443,7 @@ Turning the remote listener on opens both chat ports on this Mac's Tailscale add
   `make test-cli-chat` row 21 (the refusals, the missing address said, still exactly two loopback listeners — `lsof`).
 
 **The commands** (hidden). Only `chat serve` and `chat status … --data-dir` are the server's own (`isServerCommand`); the
-rest is `ChatCommand`. Writes go through the daemon (`chat-sync`, `chat-add`, `chat-remove`, `chat-token`, `chat-import`); `rooms`,
+rest is `ChatCommand`. Writes go through the daemon (`chat-sync`, `chat-add`, `chat-set`, `chat-remove`, `chat-token`, `chat-import`); `rooms`,
 `room`, `send`, `read` and `who` go to the owner's socket; looking never starts the daemon. Exit codes: 0, 1 failed, 2 no
 such participant or room, 4 already exists, 6 chat is off or not ready, 64 usage.
 
@@ -412,6 +453,8 @@ doz chat add bot1               # its token, once (or --to-file F)
 doz chat add bot2 --kind grok-bot --webhook --to-file ~/bot2.token
 printf '%s\n%s\n' "$URL" "$AUTH" | doz chat webhook set bot2   # or --from-file F (mode 600)
 doz chat webhook status         # bot2: set — https://bot.example:443, fingerprint …, set … (for bot2)
+doz chat add bot3 --inbox --to-file ~/bot3.token   # a Claude Code session on this Mac (unfenced), named bot3
+doz chat set bot1 --deliver inbox --kind claude-session   # how it is reached; its token, rooms and history kept
 doz chat room room1 @bot1       # Made room1 with ada, bot1.
 doz chat send room1 "hello @bot1"
 doz chat read room1 --follow

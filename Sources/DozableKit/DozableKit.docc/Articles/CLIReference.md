@@ -799,7 +799,8 @@ earlier name, doz serve, is a hidden alias of `doz ui --lan` for one release (it
 doz chat on [--name NAME]                       # chat on (chat.enabled): the daemon runs the chat server and keeps it running
 doz chat off                                    # it stops; rooms and messages are kept
 doz chat status [--json]                        # on, ready, its ports (as the running server has them), you, the participants
-doz chat add NAME [--kind KIND] [--webhook [--webhook-entry E]] [--to-file F | --from-stdin]   # a participant and its token (shown once)
+doz chat add NAME [--kind KIND] [--webhook [--webhook-entry E] | --inbox [--session S]] [--to-file F | --from-stdin]   # a participant and its token (shown once)
+doz chat set NAME --deliver inbox|poll|webhook [--webhook-entry E] [--kind KIND] [--session S]   # how it is reached; token, rooms, history kept
 doz chat remove NAME                            # it leaves every room; its token is refused
 doz chat who [--json]                           # name, kind, token, how it is reached, rooms, presence
 doz chat token NAME --new | --from-stdin [--to-file F]   # replace a participant's token

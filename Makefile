@@ -115,6 +115,10 @@ $(TEST_TARGETS): export DOZ_TEST_LAUNCHCTL := $(CURDIR)/Scripts/launchctl-refuse
 # folder for every test target (forced, outside the REAL_MAC block like the login item's). `TestSafety` stops a guarded
 # `doz app install|uninstall` that would reach a real one anyway.
 $(TEST_TARGETS): export DOZ_TEST_APPLICATIONS_DIR := $(TEST_SCRATCH)-applications
+# Chat's delivery into Claude Code sessions: no test run ever hands the chat server the real ~/.claude/sessions (a real
+# session's record, key or socket) — a SCRATCH sessions folder for every test target (forced, outside the REAL_MAC block).
+# `TestSafety` stops a guarded daemon that would still name the real one.
+$(TEST_TARGETS): export DOZ_TEST_CLAUDE_SESSIONS := $(TEST_SCRATCH)-claude-sessions
 
 # The scratch settings file every test target starts from (written once; a test that changes it keeps its own).
 test-safety:
@@ -308,6 +312,8 @@ install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.lo
 	mv "$(PREFIX)/libexec/doz/.Dozable.app.new/Dozable.app" "$(PREFIX)/libexec/doz/Dozable.app"
 	rm -rf "$(PREFIX)/libexec/doz/.Dozable.app.new" "$(PREFIX)/libexec/doz/.Dozable.app.old"
 	ln -sf "$(PREFIX)/libexec/doz/doz" "$(PREFIX)/bin/doz"
+	@# dozchat on the PATH beside doz: a Claude Code session run on this Mac without a fence answers in chat with it.
+	ln -sf "$(PREFIX)/libexec/doz/dozchat-mac" "$(PREFIX)/bin/dozchat"
 	@echo "installed $(PREFIX)/bin/doz — run: doz doctor"
 	@"$(PREFIX)/libexec/doz/doz" daemon status 2>/dev/null | grep -q '^daemon .* running' \
 	  && echo "note: a doz daemon is running the PREVIOUS build (it keeps working); \`doz daemon stop\` switches to this one — sandboxes hibernate and wake on it" || true

@@ -128,4 +128,44 @@ final class AppInstallTests: XCTestCase {
         XCTAssertThrowsError(try MenuBarAppInstall.install(bundled: src2, dest: foreign, version: "0.51.0", requireTeam: false, open: false, opener: { _ in true }))
         XCTAssertEqual(MenuBarAppInstall.installedCopies([foreign]), [], "not Dozable's: not listed")
     }
+
+    /// A running copy whose program file is gone (an earlier install swapped the bundle and removed the old copy — the
+    /// running one then has no readable path) is still recognised by how it was started: under the bundle, or under the
+    /// staged name. Pure.
+    func testARunningCopyIsRecognisedByHowItWasStartedWhenItsFileIsGone() {
+        let inside = "/Applications/Dozable.app/", staged = "/Applications/.Dozable.app.new/"
+        XCTAssertTrue(MenuBarAppInstall.isCopy(path: "/Applications/Dozable.app/Contents/MacOS/Dozable", started: [], inside: inside, staged: staged))
+        XCTAssertFalse(MenuBarAppInstall.isCopy(path: "/Applications/Other.app/Contents/MacOS/Other", started: [inside + "Contents/MacOS/Dozable"],
+                                                inside: inside, staged: staged), "a readable path decides alone")
+        XCTAssertTrue(MenuBarAppInstall.isCopy(path: nil, started: ["/Applications/Dozable.app/Contents/MacOS/Dozable"], inside: inside, staged: staged))
+        XCTAssertTrue(MenuBarAppInstall.isCopy(path: nil, started: ["/Applications/.Dozable.app.new/Contents/MacOS/Dozable"], inside: inside, staged: staged))
+        XCTAssertFalse(MenuBarAppInstall.isCopy(path: nil, started: ["/Applications/Dozable.app.bak/Contents/MacOS/Dozable", "Dozable"], inside: inside, staged: staged))
+        XCTAssertFalse(MenuBarAppInstall.isCopy(path: nil, started: [], inside: inside, staged: staged))
+        XCTAssertEqual(MenuBarAppInstall.owner(of: getpid()), getuid())
+        XCTAssertFalse(ProcessArguments.startedAs(getpid()).isEmpty)
+    }
+
+    /// The incident's shape with the test seam (a stand-in outside any bundle — never a program inside one): the stand-in
+    /// runs, then its file is replaced by rename; it is still found (and only it), and quit.
+    func testAStandInWhoseFileWasReplacedIsStillFoundAndQuit() throws {
+        let src = dir.appendingPathComponent("hold.c")
+        try "#include <unistd.h>\nint main(void) { sleep(60); return 0; }\n".write(to: src, atomically: true, encoding: .utf8)
+        let standin = dir.appendingPathComponent("standin").path
+        XCTAssertEqual(MenuBarAppInstall.runTool("/usr/bin/cc", ["-o", standin, src.path]).status, 0)
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: standin)
+        try p.run()
+        defer { if p.isRunning { p.terminate() } }
+        usleep(300_000)
+        // replaced by rename, as an install swaps a bundle
+        XCTAssertEqual(MenuBarAppInstall.runTool("/bin/cp", [standin, standin + ".new"]).status, 0)
+        XCTAssertEqual(rename(standin + ".new", standin), 0)
+        let env = ["DOZ_TEST_GUARD": "1", "DOZ_TEST_APP_STANDIN": standin]
+        let found = MenuBarAppInstall.runningCopies(dir.appendingPathComponent("Dozable.app"), env: env)
+        XCTAssertEqual(found, [p.processIdentifier], "found by how it was started")
+        XCTAssertEqual(MenuBarAppInstall.quit(found), [])
+        XCTAssertFalse(p.isRunning)
+        XCTAssertEqual(MenuBarAppInstall.runningCopies(dir.appendingPathComponent("Dozable.app"), env: ["DOZ_TEST_GUARD": "1"]), [],
+                       "no seam: a guarded run finds none")
+    }
 }

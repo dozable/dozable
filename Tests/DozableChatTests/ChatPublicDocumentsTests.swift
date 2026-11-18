@@ -10,10 +10,10 @@ import XCTest
 /// are their owner's, so the word rule for Dozable's own text exempts exactly those two paths, nothing wider.
 final class ChatPublicDocumentsTests: XCTestCase {
     static let pinned = [
-        "protocol.md": "b7b4c7356244e9e50fc5445cd85ecd0ea7b6c51762484ad6407fdfa0c7138ccc",
-        "webhook.md": "cbde8e32ec7c89d015cbeceac51a739fb89da003b180e2b13eead68e2542d0c3",
+        "protocol.md": "0634135f991f56155714b87e6743b96e5f49b6b9dfc6e8ba72902fbaeb0576fb",
+        "webhook.md": "ea84feecc6a7a7d8e075a5291803577307bb1f72758ed57bcc53b8dcce3625f9",
     ]
-    static let commit = "dd9b3d8508935c896dac73fda3e2de6badaae0e1"
+    static let commit = "76cceaa7a892a38c3fac5139fa26ad5dd930d673"
 
     static var folder: URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()

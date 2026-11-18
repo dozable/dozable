@@ -93,8 +93,9 @@ Start at Login uses the default store (the one `doz` uses with no `--store`) and
 ## Updates
 
 The app updates with doz. After `doz upgrade` (or `brew upgrade`), the menu shows the new version and then offers
-**Update Menu Bar App (old → new)**: it installs the copy that came with the new doz and reopens the app. The same,
-from Terminal:
+**Update Menu Bar App (old → new)**: it installs the copy that came with the new doz and reopens the app. When a newer
+copy is already installed but the old one is still running (after `doz app install` without `--open`), the menu offers
+**Restart to Update (old → new)** instead: it quits the running copy and opens the new one. The same, from Terminal:
 
 ```sh
 doz app install --open

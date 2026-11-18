@@ -78,15 +78,18 @@ final class ChatRemoteAccessTests: XCTestCase {
                     XCTAssertEqual(r.status, label == "bot1's token" ? 200 : 404, "\(path) with \(label)")
                 } else {
                     XCTAssertEqual(r.status, 403, "\(route.method) \(path) with \(label): \(r.text)")
+                    // every token here is someone's (bot1's, the human's): the agent-only text, never "no one's"
                     XCTAssertEqual(r.text, ChatAccess.agentOnly + "\n")
                 }
             }
         }
         // An unknown Bearer on /files/ is the agent-address refusal: the address rule comes first (protocol 1.2, the
-        // reference's 0.14 TestS4_8_FetchFromAgentAddress) — never a file; HEAD with a token is served.
+        // reference's TestS4_8_FetchFromAgentAddress) — never a file, and the text says the token is no one's (0.14.2);
+        // HEAD with a token is served.
         let unknown = remote(h, "GET", "/files/\(id)/f.txt", headers: ["authorization": "Bearer no-such-token-0123456789"])
         XCTAssertEqual(unknown.status, 403)
-        XCTAssertEqual(unknown.text, ChatAccess.agentOnly + "\n")
+        XCTAssertEqual(unknown.text, ChatAccess.unknownToken + "\n")
+        XCTAssertEqual(remote(h, "GET", "/api/state", headers: ["authorization": "Bearer no-such-token-0123456789"]).text, ChatAccess.unknownToken + "\n")
         XCTAssertEqual(remote(h, "HEAD", "/files/\(id)/f.txt", headers: bearer).status, 200)
         // Anything a router would tidy is refused, not followed.
         for t in ["/agent/../api/state", "/agent//send", "/AGENT/send", "/files/\(id)/../\(id)/f.txt", "/%61gent/send", "/"] {

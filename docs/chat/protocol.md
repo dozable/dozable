@@ -1,4 +1,4 @@
-<!-- Copied unchanged from the public source of the chat protocol, commit dd9b3d8508935c896dac73fda3e2de6badaae0e1, protocol version da04ef349a. Not edited here: Scripts/chat-protocol-sync.sh copies it again. -->
+<!-- Copied unchanged from the public source of the chat protocol, tag v0.14.2, commit 76cceaa7a892a38c3fac5139fa26ad5dd930d673, protocol version da04ef349a. Not edited here: Scripts/chat-protocol-sync.sh copies it again. -->
 <!-- Generated. Do not edit by hand: change the source and regenerate. -->
 
 > **About this document.** This is the protocol of Dozable chat: the rooms, messages, direct
@@ -19,7 +19,7 @@
 > instruction text of the `SendMessage` route, as fixed text. A session that sends with a token uses the
 > registered-session calls of section 7.5 instead.
 >
-> It describes protocol version `da04ef349a` (the `version` of `GET /api/protocol`; server release 0.14.1).
+> It describes protocol version `da04ef349a` (the `version` of `GET /api/protocol`; server release 0.14.2).
 > The webhook bodies are in [webhook.md](webhook.md). This file is generated from the project's source
 > documents; edits belong there.
 
@@ -100,7 +100,11 @@ served to a `require_tokens_from` machine and to an agent address: `GET
 /files/<id>/<name>` that carries a participant's token (`Authorization: Bearer
 <token>`), so that a session that was told a file's `url` can fetch it from where
 it runs. Section 4.8 says which files that participant gets. Without a
-participant's token, the request gets the 403 above like any other path.
+participant's token, the request gets the 403 above like any other path. A request
+whose `Authorization` carries a token that no participant holds (an old, replaced
+token included) gets 403 with a text of its own instead, on any path but `/agent/`:
+`that token is no one's here: an agent machine must send its own participant's token`.
+(`/agent/` answers such a token 401, as section 7.5 says.)
 
 **Page port, `agent_addresses`.** A caller from an address or range listed under
 `agent_addresses` is an agent. It is never the human and never "owned": the list beats Tailscale's answer. On the page port it is served

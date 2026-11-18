@@ -124,15 +124,26 @@ public struct ChatPageHandler: Sendable {
         // or a file fetch with a participant's token — never the page, /api or the stream, never the human.
         if r.caller == .remote {
             guard core.access.allow.contains(r.remoteIP) else { return .error(403, ChatAccess.notOwned) }
-            guard ChatPath.isAgentPath(rawPath: r.rawPath) || isTokenFileFetch(r) else { return .error(403, ChatAccess.agentOnly) }
+            guard ChatPath.isAgentPath(rawPath: r.rawPath) || isTokenFileFetch(r) else { return .error(403, agentRefusal(r)) }
             return route(r)
         }
         // An agent address may also fetch a file, with a participant's token: the download decides who that is.
         if core.access.isAgentAddress(r.remoteIP), isTokenFileFetch(r) { return route(r) }
         if let refusal = core.access.page(remote: r.remoteIP, agentPath: ChatPath.isAgentPath(rawPath: r.rawPath)) {
-            return .error(403, refusal)
+            return .error(403, refusal == ChatAccess.agentOnly ? agentRefusal(r) : refusal)
         }
         return route(r)
+    }
+
+    /// The 403 text for a request a machine that must use a token may not make (the reference's): it names a token that is
+    /// no one's when the request carries one in `Authorization` (`Bearer ` taken off, trimmed; an old, replaced token
+    /// included), and otherwise says what such a machine is served — also for no `Authorization`, or the page's own
+    /// `X-Chat-Token` header.
+    func agentRefusal(_ r: ChatHTTPRequest) -> String {
+        let auth = r.header("Authorization")
+        let token = ChatServerCore.trimSpace(auth.hasPrefix("Bearer ") ? String(auth.dropFirst(7)) : auth)
+        if !auth.isEmpty && !token.isEmpty && core.whoHas(token) == nil && core.whoHolds(token) == nil { return ChatAccess.unknownToken }
+        return ChatAccess.agentOnly
     }
 
     /// The routes, matched as a router that redirects an untidy path and answers 405 for a known path's wrong method.

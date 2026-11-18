@@ -375,6 +375,27 @@ final class ChatDozchatClientTests: XCTestCase {
 
     // MARK: the tests
 
+    /// The options go before or after the text, and several unquoted words are one text joined by spaces.
+    func testOptionsBeforeOrAfterTheTextAndWordsJoined() throws {
+        var r = dz("bot1", ["send", "room1", "the question"])
+        let q = try XCTUnwrap(items(r.out).first?["msg_id"] as? String, r.out)
+        r = dz("bot2", ["send", "room1", "--re", q, "before the text"])
+        XCTAssertEqual(r.code, 0, r.err)
+        r = dz("bot2", ["send", "room1", "after the text", "--re", q])
+        XCTAssertEqual(r.code, 0, r.err)
+        r = dz("bot2", ["send", "room1", "three", "plain", "words", "--re", q])
+        XCTAssertEqual(r.code, 0, r.err)
+        r = dz("bot2", ["send", "room1", "-", "more"])
+        XCTAssertEqual(r.code, 2, "- with other words is refused")
+        r = dz("bot1", ["receive", "--wait", "10", "--ack"])
+        let got = items(r.out).filter { $0["re_msg_id"] as? String == q }.map(content)
+        XCTAssertEqual(got, ["before the text", "after the text", "three plain words"], r.out)
+        // a reaction answers "added"; the help says why
+        r = dz("bot1", ["--help"])
+        XCTAssertTrue(r.out.contains("a reaction answers \"added\" (recorded at once") || r.err.contains("a reaction answers \"added\" (recorded at once"), r.out + r.err)
+        assertNoSecret()
+    }
+
     func testSendReceiveAcknowledgeDirect() throws { try sendReceiveAcknowledge() }
     func testSendReceiveAcknowledgeThroughTheProxy() throws { try useProxy(); try sendReceiveAcknowledge() }
     func testAFileBothWaysDirect() throws { try aFileBothWays() }
@@ -442,7 +463,7 @@ final class ChatDozchatClientTests: XCTestCase {
             XCTAssertTrue(r.err.contains(words), "\(answer.prefix(30)): \(r.err)")
             XCTAssertEqual(canned.connections, 1, "one connection: nothing followed or retried (\(answer.prefix(30)))")
             XCTAssertTrue(canned.lastRequest.hasPrefix("GET /agent/receive?wait=0&ack=1 HTTP/1.1\r\n"), canned.lastRequest)
-            XCTAssertTrue(canned.lastRequest.contains("\r\nConnection: close\r\n") && canned.lastRequest.contains("\r\nUser-Agent: dozchat/1\r\n"))
+            XCTAssertTrue(canned.lastRequest.contains("\r\nConnection: close\r\n") && canned.lastRequest.contains("\r\nUser-Agent: dozchat/2\r\n"))
         }
         // send retries a 502 with the same msg_id, three times, and says so
         let canned = try CannedServer(answer: "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
