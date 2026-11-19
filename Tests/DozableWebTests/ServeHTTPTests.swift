@@ -493,6 +493,29 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(try req("/api/v1/workspaces/demo", ["Cookie": devCookie]).status, 200)
     }
 
+    /// A bot's screen is a read for every browser: another computer gets it (the instructions' text too — your prose), read
+    /// only, its key as keeper + fingerprint, and — while serve.mac_sessions is off — nothing naming this Mac's sessions.
+    func testABotIsReadRemotelyWithoutThisMacsSessions() async throws {
+        try await start()
+        let (macCookie, _) = try macSignIn()
+        let (devCookie, _) = try await admit()
+        let dev = try req("/api/v1/bots/mira", ["Cookie": devCookie])
+        XCTAssertEqual(dev.status, 200, dev.text)
+        XCTAssertTrue(dev.text.contains("\"instructions\":\"Be brief.\\n\""), dev.text)
+        XCTAssertTrue(dev.text.contains("\"fingerprint\":\"3f9a01b2c3c2\"") && dev.text.contains("\"keeper\":\"dozable\""), dev.text)
+        XCTAssertFalse(dev.text.contains("build"), "no session of this Mac: \(dev.text)")
+        XCTAssertFalse(dev.text.lowercased().contains("token") || dev.text.contains("cccccccc"), dev.text)
+        let mac = try macReq("/api/v1/bots/mira", ["Cookie": macCookie])
+        XCTAssertTrue(mac.text.contains("\"session\":\"build\""), "the Mac's own browser: \(mac.text)")
+        XCTAssertEqual(try req("/api/v1/bots/nobody", ["Cookie": devCookie]).status, 404)
+        let bad = try req("/api/v1/bots/Bad_Name", ["Cookie": devCookie])
+        XCTAssertEqual(bad.status, 400, bad.text)
+        XCTAssertFalse(bad.text.contains("Bad_Name"), "never echoed")
+        let retired = try req("/api/v1/bots?retired=1", ["Cookie": devCookie])
+        XCTAssertEqual(retired.status, 200, retired.text)
+        XCTAssertTrue(retired.text.contains("\"gone\"") && !retired.text.contains("\"mira\""), retired.text)
+    }
+
     /// A workspace's brief is what its agents act on: another computer reads it only with serve.chat read or write (refused,
     /// and audited, while off); its log hides the lines about this Mac's sessions while serve.mac_sessions is off.
     func testTheBriefFollowsServeChatAndTheLogHidesThisMacsSessions() async throws {

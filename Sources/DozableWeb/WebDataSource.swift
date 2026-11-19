@@ -131,6 +131,9 @@ public protocol DozableWebData: Sendable {
     func workspaceBrief(_ name: String) async throws -> WorkspaceDetail
     func workspaceLog(_ name: String, since: Date?) async throws -> [WorkspaceLogEntry]
     func bots() async throws -> BotListing
+    /// The retired bots (`bot-ls --retired`) and one bot with its instructions' text (`bot-show --instructions`).
+    func retiredBots() async throws -> BotListing
+    func bot(_ name: String) async throws -> BotDetail
     /// Your Macs (`macs-ls` — `WebMacReads.request(for: .macs)`); in-process when no daemon runs.
     func macs() async throws -> MacListing
 }
@@ -161,6 +164,8 @@ extension DozableWebData {
     public func workspaceBrief(_ name: String) async throws -> WorkspaceDetail { throw HostError(.notImplemented, "workspaces") }
     public func workspaceLog(_ name: String, since: Date?) async throws -> [WorkspaceLogEntry] { throw HostError(.notImplemented, "workspaces") }
     public func bots() async throws -> BotListing { throw HostError(.notImplemented, "bots") }
+    public func retiredBots() async throws -> BotListing { throw HostError(.notImplemented, "bots") }
+    public func bot(_ name: String) async throws -> BotDetail { throw HostError(.notImplemented, "bots") }
     public func macs() async throws -> MacListing { throw HostError(.notImplemented, "macs") }
     public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
     public func access(check: WebAccessCheck?) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
@@ -541,6 +546,14 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func bots() async throws -> BotListing {
         try await query(WebWorkspaceReads.request(for: .bots)!).0.decode(BotListing.self)
+    }
+
+    public func retiredBots() async throws -> BotListing {
+        try await query(WebWorkspaceReads.request(for: .botsRetired)!).0.decode(BotListing.self)
+    }
+
+    public func bot(_ name: String) async throws -> BotDetail {
+        try await query(WebWorkspaceReads.request(for: .bot(name))!).0.decode(BotDetail.self)
     }
 
     public func macs() async throws -> MacListing {

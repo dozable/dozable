@@ -115,6 +115,7 @@ public enum WebExposure {
              .grids,                    // 648: a read (POST only because it carries the pictures asked)
              .recipes,                  // 669: Settings › Recipes — states and settings, read from the store
              .workspaces, .workspace, .loose, .bots,  // reads; the rows on this Mac follow serve.mac_sessions (WebWorkspaceReads)
+             .botsRetired, .bot,        // Agents / Bots: read only everywhere; a bot's inbox session follows serve.mac_sessions (WebBotReads)
              .workspaceLog,             // the log's lines about this Mac's sessions follow serve.mac_sessions too
              .workspaceBrief,           // the brief's text: another computer only with serve.chat read or write (`decide`)
              .macs:                     // Your Macs — another computer sees the same list (a phone switching Macs is its main use)

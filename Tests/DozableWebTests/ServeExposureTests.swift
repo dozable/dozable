@@ -22,7 +22,7 @@ final class ServeExposureTests: XCTestCase {
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
             .macSessionQuarantine("agent"), .macSessionPlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
-            .workspaceLog("demo", nil), .loose, .bots, .macs,
+            .workspaceLog("demo", nil), .loose, .bots, .botsRetired, .bot("mira"), .macs,
         ]
         for r in all { _ = covered(r) }
         return all
@@ -39,7 +39,7 @@ final class ServeExposureTests: XCTestCase {
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
              .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .chat,
-             .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .macs:
+             .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .botsRetired, .bot, .macs:
             return true
         }
     }
@@ -94,7 +94,7 @@ final class ServeExposureTests: XCTestCase {
     /// placed on this Mac — no loose session, no agent on this Mac, no note naming one, not who is working — and is told how
     /// many were left out.
     func testTheWorkspaceReadsLeaveThisMacsRowsOut() {
-        for r: WebRoute in [.workspaces, .workspace("demo"), .loose, .bots] {
+        for r: WebRoute in [.workspaces, .workspace("demo"), .loose, .bots, .botsRetired, .bot("mira")] {
             XCTAssertEqual(WebExposure.kind(r), .read)
             XCTAssertNil(WebExposure.decide(r, .remote(secure: false), macSessions: .off), "a read: the rows are filtered, not the route")
         }

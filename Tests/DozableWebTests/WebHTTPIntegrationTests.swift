@@ -753,6 +753,21 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         BotListing(bots: [BotRow(name: "mira", agent: "claude-code", model: nil, isolation: "fenced", kind: "agent", deliver: "poll", inChat: true,
                                  manages: ["demo"], retiredAt: nil)])
     }
+    func retiredBots() async throws -> BotListing {
+        BotListing(bots: [BotRow(name: "gone", agent: "codex", model: nil, isolation: "fenced", kind: "agent", deliver: "poll", inChat: false,
+                                 manages: [], retiredAt: Date(timeIntervalSince1970: 0), tokenKeeper: "none")])
+    }
+    /// mira: an inbox bot whose session on this Mac is `build`, with a note naming it; its instructions' text.
+    func bot(_ name: String) async throws -> BotDetail {
+        guard name == "mira" else { throw HostError(.notFound, "\(name) is not a bot (doz bot ls)") }
+        let t = Date(timeIntervalSince1970: 0)
+        let rec = BotRecord(name: "mira", createdAt: t, agent: "claude-code", isolation: BotIsolation(default: "unfenced"), kind: "claude-session",
+                            deliver: "inbox", session: "build", instructions: BotInstructions(sha256: String(repeating: "c", count: 64), bytes: 10, updatedAt: t),
+                            token: BotTokenState(keeper: "dozable", fingerprint: "3f9a01b2c3c2", at: t))
+        var d = BotDetail(rec, inChat: true, workspaces: ["demo"], manages: ["demo"], notes: ["inbox reaches the session build on this Mac"])
+        d.instructionsText = "Be brief.\n"
+        return d
+    }
 
     /// Your Macs: one reachable, one never checked (`macs-ls`).
     private var _macsCalls = 0

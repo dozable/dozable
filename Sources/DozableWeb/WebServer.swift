@@ -1022,8 +1022,13 @@ public final class DozableWebServer: @unchecked Sendable {
             try WebWorkspaceReads.checkName(w)
             return json(WebWorkspaceLog(try await data.workspaceLog(w, since: since),
                                         macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
-        case .bots:
-            return json(WebBotListing(try await data.bots()))
+        case .bots, .botsRetired:
+            return json(WebBotListing(route == .botsRetired ? try await data.retiredBots() : try await data.bots()))
+        case .bot(let n):
+            // bot-show with its instructions' text: the name by the chat rule first (400, never echoed); unknown → 404. Another
+            // computer reads it too (the text is your prose, never a credential); a session on this Mac follows serve.mac_sessions.
+            try WebBotReads.checkName(n)
+            return json(WebBotReads.forBrowser(WebBotDetail(try await data.bot(n)), macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
         case .macs:
             // One read-only HostOp; every browser that may read sees the same list (names and origins only).
             return json(WebMacList(try await data.macs(), thisMac: WebMacReads.thisMacName))

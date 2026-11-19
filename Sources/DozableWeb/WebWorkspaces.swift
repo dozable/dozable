@@ -26,10 +26,8 @@ public enum WebWorkspaceReads {
             var w = WorkspaceRequest()
             w.loose = true
             return workspaceRequest(.workspaceList, w)
-        case .bots:
-            var r = HostRequest(.botList)
-            r.botRequest = BotRequest()
-            return r
+        case .bots, .botsRetired, .bot:
+            return WebBotReads.request(for: route)
         default:
             return nil
         }
