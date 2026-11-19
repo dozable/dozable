@@ -553,7 +553,7 @@ public final class HostServer: @unchecked Sendable {
             netLogFollow(conn, reader: reader, request: req)
         case .console where req.follow == true:
             consoleFollow(conn, reader: reader, request: req)
-        case .chatSync, .chatAdd, .chatSet, .chatRemove, .chatToken, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport:
+        case .chatSync, .chatAdd, .chatSet, .chatRemove, .chatToken, .chatMembers, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport:
             Task.detached { [self] in
                 let m = await chatRequest(req)
                 conn.send(m)
@@ -588,9 +588,19 @@ public final class HostServer: @unchecked Sendable {
     private func chatRequest(_ req: HostRequest) async -> HostMessage {
         let c = req.chat ?? ChatRequest()
         // A bot's name: changed through `doz bot`, never `doz chat` (a retired one is never taken again).
-        if let refused = BotGuards.chatRefusal(req.op, name: c.name, bots: BotStore(store: store).readOrEmpty()) { return .failure(refused) }
+        let bots = BotStore(store: store).readOrEmpty()
+        if let refused = BotGuards.chatRefusal(req.op, name: c.name, bots: bots) { return .failure(refused) }
+        // A batch: every name judged as its own add or remove would be, before anything is changed.
+        for a in c.add ?? [] { if let refused = BotGuards.chatRefusal(.chatAdd, name: a.name, bots: bots) { return .failure(refused) } }
+        for n in c.remove ?? [] { if let refused = BotGuards.chatRefusal(.chatRemove, name: n, bots: bots) { return .failure(refused) } }
         do {
             switch req.op {
+            case .chatMembers:
+                let made = try await chat.members(add: c.add ?? [], remove: c.remove ?? [])
+                // The running server took it (or restarted to): answered once it is ready again (or stopped), at most 15 s.
+                _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
+                return .success(try JSONValue(encoding: ChatMembersAnswer(added: made.map { .init(name: $0.name, token: $0.token) },
+                                                                          removed: c.remove ?? [], chat: await chat.status())))
             case .chatSync:
                 let st = try await chat.sync(human: c.name, retry: c.retry ?? false, waitReady: c.wait ?? false, blocked: await chatBlocked())
                 return .success(try JSONValue(encoding: st))

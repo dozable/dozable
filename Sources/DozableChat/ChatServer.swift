@@ -20,6 +20,9 @@ public struct ChatServeOptions: Sendable {
     /// The pipe the daemon hands its webhook entries on (`--webhooks-fd`, `ChatWebhookPipe`): read once at start, then
     /// closed. Only with `supervised` and `tokenHashesFile`.
     public var webhooksFD: Int32?
+    /// The daemon's control channel (`--control-fd`, ChatReload.swift): one end of a socketpair, for a participant change
+    /// without a restart. Only with `supervised` and `tokenHashesFile`; the conformance runner's server has none.
+    public var controlFD: Int32?
     /// Run by a supervisor (`--supervised`): exit 0 as soon as the process that started this one is gone, so a server
     /// never outlives the daemon that runs it.
     public var supervised = false
@@ -215,7 +218,7 @@ public enum ChatServer {
                 st.pageURLs = ["http://" + joinHostPort(host, listeners.pagePort)]
                 st.rooms = rooms
                 st.participants = people
-                st.problems = problems(config: config, secrets: secrets, core: core, ownerSocket: ownerSocket != nil)
+                st.problems = problems(config: config, secrets: core.secrets, core: core, ownerSocket: ownerSocket != nil)
                 for (name, why) in webhooksRefused.sorted(by: { $0.key < $1.key }) {
                     st.problems.append(.init(code: "webhook-refused", what: "the webhook entry \(name) is not used: \(why)", blocking: false))
                 }
@@ -227,6 +230,10 @@ public enum ChatServer {
         }
         snapshot()
         StatusWriter.current?.refreshEvery(5, snapshot)
+        // The daemon's control channel, once the server is ready: participant changes without a restart.
+        if let fd = o.controlFD, let hashes = o.tokenHashesFile {
+            ChatReload.serve(fd: fd, core: core, configPath: o.configPath, overrides: o.overrides, hashesPath: hashes, log: log)
+        }
         await listeners.serve()
         fault(ChatExit.restartMe, "the listeners stopped")
     }

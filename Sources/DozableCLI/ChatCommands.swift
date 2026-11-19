@@ -61,6 +61,8 @@ struct ChatStatusReport: Encodable {
     var dataFolder: String
     var daemonRunning: Bool
     var restarts: Int
+    /// Participant changes the running server took without a restart (nil: none since the daemon started).
+    var reloads: Int?
     var lastExit: String?
     var problem: String?
     /// Standing problems that do not stop the server (a webhook entry not set or unreadable, …).
@@ -93,6 +95,7 @@ struct ChatStatusReport: Encodable {
                                  ownerSocket: FileManager.default.fileExists(atPath: paths.directory) ? paths.socket : nil,
                                  dataFolder: paths.data, daemonRunning: daemon, restarts: sup?.restarts ?? 0, lastExit: sup?.lastExit, problem: nil)
         if server.running { r.pid = Int32(server.pid) }
+        r.reloads = sup?.reloads
         if !view.enabled {
             r.state = server.running ? "stopping" : "off"
             return r
@@ -163,6 +166,7 @@ struct ChatStatusReport: Encodable {
             s += "  you are \(h); \(n) participant\(n == 1 ? "" : "s")" + (rooms.map { ", \($0) room\($0 == 1 ? "" : "s")" } ?? "") + "\n"
             s += "  data folder: \(DisplayPath.tilde(dataFolder))\n"
         }
+        if let n = reloads, n > 0 { s += "  took \(n) participant change\(n == 1 ? "" : "s") without a restart\n" }
         if restarts > 0 { s += "  restarted \(restarts) time\(restarts == 1 ? "" : "s")" + (lastExit.map { " (last: \($0))" } ?? "") + "\n" }
         if let p = problem { s += "  problem: \(p)\n" }
         for w in otherWarnings { s += "  warning: \(w)\n" }
@@ -358,6 +362,14 @@ struct TokenDestination {
 
     /// Nothing was made: the empty file goes.
     func abandon() { if let file { close(fd); unlink(file) } }
+
+    /// Writes the token to the file, saying nothing (a batch says it once).
+    func keep(_ token: String) {
+        guard file != nil else { return }
+        _ = token.withCString { Darwin.write(fd, $0, strlen($0)) }
+        _ = Darwin.write(fd, "\n", 1)
+        close(fd)
+    }
 }
 
 /// What `add` / `token --json` print — never the token.
@@ -424,8 +436,12 @@ struct ChatAdd: AsyncParsableCommand {
         abstract: "Add a participant: an agent with its own token (shown once) that polls, a bot the server calls at its webhook, or a Claude Code session the server writes into.",
         discussion: """
             The token is printed once on a terminal, or written to a new file with --to-file (only you can read it); doz keeps \
-            only its hash. The agent sends it as Authorization: Bearer TOKEN on the page port's /agent/ calls. The chat \
-            server restarts to take it (under a second).
+            only its hash. The agent sends it as Authorization: Bearer TOKEN on the page port's /agent/ calls. The running \
+            chat server takes it without a restart.
+
+            Several names at once (doz chat add A B C --to-dir DIR) are added together or not at all; each token is written \
+            to its own new file DIR/NAME.token (only you can read it), never printed. A new participant is in no room until \
+            it is invited (/invite @NAME); a name that was removed and is added again is back in the rooms it was in.
 
             With --webhook the server calls the bot with each message for it, at its webhook entry: set it next with \
             doz chat webhook set NAME (the bot still sends with its own token).
@@ -436,7 +452,7 @@ struct ChatAdd: AsyncParsableCommand {
             a fence keep their record there: a fenced session polls with dozchat instead. The session answers with \
             dozchat send ROOM --re MSG_ID "…" and its own token, from CHAT_TOKEN_FILE.
             """)
-    @Argument(help: "Its name: a lower-case letter, then lower-case letters, digits and -.") var name: String
+    @Argument(help: "Its name: a lower-case letter, then lower-case letters, digits and -. Several names need --to-dir.") var names: [String]
     @Option(name: .long, help: "Its kind: agent (the default; claude-session with --inbox), claude-session or grok-bot — how its messages are labelled.") var kind: String?
     @Flag(name: .long, help: "The server calls it at its webhook entry with each message for it (instead of it polling).") var webhook = false
     @Option(name: .customLong("webhook-entry"), help: "The webhook entry it uses (with --webhook; default: its own name). One entry may serve several bots.") var webhookEntry: String?
@@ -444,11 +460,17 @@ struct ChatAdd: AsyncParsableCommand {
     @Option(name: .long, help: "With --inbox: the Claude Code session's name, as its record says it (default: NAME).") var session: String?
     @Option(name: .customLong("to-file"), help: "Write its token to this new file instead of the terminal.") var toFile: String?
     @Flag(name: .customLong("from-stdin"), help: "Use a token it already has, read from standard input (16 to 256 characters).") var fromStdin = false
+    @Option(name: .customLong("to-dir"), help: "Write each new token to its own new file in this folder, NAME.token (made 0700 when missing).") var toDir: String?
     @OptionGroup var g: GlobalOptions
 
     var theKind: String { kind ?? (inbox ? "claude-session" : "agent") }
+    var name: String { names.first ?? "" }
 
     func validate() throws {
+        guard !names.isEmpty else { throw ValidationError("which participant?") }
+        if names.count > 1 && toDir == nil { throw ValidationError("several names need --to-dir DIR (each token goes to its own file there, never to the terminal)") }
+        if toDir != nil && (toFile != nil || fromStdin) { throw ValidationError("--to-dir makes each token: not with --to-file or --from-stdin") }
+        if names.count > 1 && session != nil { throw ValidationError("--session names one session: add one participant at a time with it") }
         guard ChatDirectory.kinds.contains(theKind) else { throw ValidationError("--kind is one of \(ChatDirectory.kinds.joined(separator: ", "))") }
         if webhookEntry != nil && !webhook { throw ValidationError("--webhook-entry goes with --webhook") }
         if webhook && inbox { throw ValidationError("one of --webhook or --inbox") }
@@ -456,6 +478,7 @@ struct ChatAdd: AsyncParsableCommand {
         if inbox || session != nil, let why = ChatDirectory.deliveryRefusal(inbox ? "inbox" : "poll", kind: theKind, session: session) { throw ValidationError(why) }
     }
     func run() async throws {
+        if let dir = toDir { return try addSeveral(dir) }
         let (a, dest) = try chatTokenCall(.chatAdd, name: name, toFile: toFile, fromStdin: fromStdin, g,
                                           kind: theKind, webhook: webhook ? true : nil, entry: webhookEntry, inbox: inbox ? true : nil, session: session)
         let delivery = inbox ? "inbox" : webhook ? "webhook" : "poll"
@@ -477,6 +500,77 @@ struct ChatAdd: AsyncParsableCommand {
         if let t = a.token { dest?.deliver(t, name: name) } else { Out.stdout("It uses the token you gave.\n") }
         if inbox { Out.stdout(chatInboxEnvironment(tokenFile: dest?.file, pagePort: a.chat.pagePort)) }
     }
+}
+
+extension ChatAdd {
+    /// `--to-dir`: every name judged, every file made (none existing) before the daemon is asked; one `chat-members`; each
+    /// token written to its file. Nothing is printed of a token, ever.
+    func addSeveral(_ dir: String) throws {
+        for n in names { if let why = ChatNames.refusal(n) { throw fail(HostError(.invalid, why), g) } }
+        if Set(names).count != names.count { throw fail(HostError(.invalid, "a name is given twice"), g) }
+        let folder = try TokenFolder.open(dir, g)
+        var files: [String: TokenDestination] = [:]
+        do {
+            for n in names { files[n] = try folder.create(n + ".token", g) }
+        } catch {
+            for f in files.values { f.abandon() }
+            folder.close()
+            throw error
+        }
+        var r = HostRequest(.chatMembers)
+        var c = ChatRequest()
+        c.add = names.map { ChatMemberAdd(name: $0, kind: theKind, webhook: webhook ? true : nil, entry: webhookEntry, inbox: inbox ? true : nil) }
+        r.chat = c
+        let a: ChatMembersAnswer
+        do { a = try decode(try call(r, g), ChatMembersAnswer.self, g) } catch {
+            for f in files.values { f.abandon() }
+            folder.close()
+            throw error
+        }
+        for m in a.added { files[m.name]?.keep(m.token) }
+        folder.close()
+        let delivery = inbox ? "inbox" : webhook ? "webhook" : "poll"
+        if g.json {
+            Out.json(a.added.map { ChatParticipantChange(name: $0.name, kind: theKind, tokenFile: files[$0.name]?.file,
+                                                          webhookEntry: webhook ? (webhookEntry ?? $0.name) : nil, delivery: delivery, chat: a.chat) })
+            return
+        }
+        Out.stdout("Added \(a.added.map(\.name).joined(separator: ", ")) (\(theKind)). Each token is in its own file in \(DisplayPath.tilde(folder.path)) (only you can read them).\n")
+        if webhook { Out.stdout("Set each one's webhook entry with doz chat webhook set ENTRY.\n") }
+    }
+}
+
+/// A folder of new token files (`--to-dir`): made 0700 when missing, never a link; each file made in it with
+/// `O_CREAT|O_EXCL|O_NOFOLLOW`, 0600 — never written over.
+struct TokenFolder {
+    var path: String
+    var fd: Int32
+
+    static func open(_ dir: String, _ g: GlobalOptions) throws -> TokenFolder {
+        let path = URL(fileURLWithPath: (dir as NSString).expandingTildeInPath).standardizedFileURL.path
+        if mkdir(path, 0o700) != 0 && errno != EEXIST {
+            throw fail(HostError(.failed, "\(DisplayPath.tilde(path)): \(String(cString: strerror(errno)))"), g)
+        }
+        let fd = Darwin.open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { throw fail(HostError(.failed, "\(DisplayPath.tilde(path)): not a folder (a link is never followed)"), g) }
+        var st = stat()
+        guard fstat(fd, &st) == 0, st.st_uid == getuid(), st.st_mode & 0o077 == 0 else {
+            Darwin.close(fd)
+            throw fail(HostError(.invalid, "\(DisplayPath.tilde(path)): a folder for tokens must be yours alone (chmod 700)"), g)
+        }
+        return TokenFolder(path: path, fd: fd)
+    }
+
+    func create(_ name: String, _ g: GlobalOptions) throws -> TokenDestination {
+        let f = openat(fd, name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
+        let full = (path as NSString).appendingPathComponent(name)
+        guard f >= 0 else {
+            throw fail(HostError(errno == EEXIST ? .exists : .failed, "\(DisplayPath.tilde(full)): " + (errno == EEXIST ? "it exists already (a token file is never written over)" : String(cString: strerror(errno)))), g)
+        }
+        return TokenDestination(file: full, fd: f)
+    }
+
+    func close() { Darwin.close(fd) }
 }
 
 struct ChatSet: AsyncParsableCommand {
@@ -550,10 +644,29 @@ struct ChatTokenCommand: AsyncParsableCommand {
 }
 
 struct ChatRemove: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "remove", abstract: "Remove a participant and its token; it leaves every room.")
-    @Argument(help: "The participant.") var name: String
+    static let configuration = CommandConfiguration(commandName: "remove", abstract: "Remove a participant and its token; it leaves every room.",
+        discussion: """
+            Its token is refused at once, and a receive it has waiting ends. Several names are removed together or not at \
+            all, after one question (--yes answers it).
+            """)
+    @Argument(help: "The participant (several: all of them).") var names: [String]
+    @Flag(name: .long, help: "With several names: do not ask.") var yes = false
     @OptionGroup var g: GlobalOptions
+    func validate() throws { guard !names.isEmpty else { throw ValidationError("which participant?") } }
     func run() async throws {
+        if names.count > 1 {
+            for n in names { if let why = ChatNames.refusal(n) { throw fail(HostError(.invalid, why), g) } }
+            try confirm("Remove \(names.joined(separator: ", ")) from chat? Their tokens are refused at once", yes: yes, g)
+            var r = HostRequest(.chatMembers)
+            var c = ChatRequest()
+            c.remove = names
+            r.chat = c
+            let a = try decode(try call(r, g), ChatMembersAnswer.self, g)
+            if g.json { Out.json(a.removed.map { ChatParticipantChange(name: $0, kind: "agent", chat: a.chat) }); return }
+            Out.stdout("Removed \(a.removed.joined(separator: ", ")).\n")
+            return
+        }
+        let name = names[0]
         var r = HostRequest(.chatRemove)
         r.chat = ChatRequest(name: name)
         let a = try decode(try call(r, g), ChatAnswer.self, g)

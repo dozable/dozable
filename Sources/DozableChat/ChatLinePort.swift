@@ -15,6 +15,9 @@ public struct ChatLineConnection: Sendable {
     let ip: String
     let required: Bool
     public private(set) var sender = ""
+    /// The hash of the token the connection authenticated with: a reload that removes its participant or replaces the
+    /// token closes it at its next line, as a restart would have.
+    private var authHash = ""
 
     /// A connection from ip, or nil when the address may not use the line port (closed at once). `remote`: accepted on a
     /// remote listener — admitted only when its address is in `allow`, and a token is always required (never the human).
@@ -38,11 +41,13 @@ public struct ChatLineConnection: Sendable {
         guard let v = try? ChatJSON.parse(raw), let m = try? ChatLine.read(v) else { return .close("a line that is not JSON") }
         if m.type == "auth" {
             sender = core.whoHas(m.token) ?? ""
+            authHash = sender.isEmpty ? "" : ChatSecrets.hash(m.token)
             if sender.isEmpty && required { return .close("a bad auth line") }
             if required && core.isHuman(sender) { return .close("the human's token on the line port") }
             return .nothing
         }
         if required && sender.isEmpty { return .close("a line from a connection that did not authenticate") }
+        if !sender.isEmpty && !core.stillHolds(sender, hash: authHash) { return .close("its participant was removed or given a new token") }
         func reply(_ members: [JMember]) -> Outcome { .reply(ChatJSON.encode(.map(Dictionary(uniqueKeysWithValues: members.map { ($0.key, $0.value) }))) + [0x0A]) }
         let base = [JMember("msgV", .int(Int64(ChatProtocol.msgV))), JMember("type", .string("control")), JMember("orig_msg_id", .string(m.msgID))]
         func receipt(_ rc: ChatReceipt) -> Outcome {

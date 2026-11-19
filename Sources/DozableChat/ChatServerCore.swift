@@ -89,7 +89,10 @@ public struct ChatAPIError: Error, Sendable, CustomStringConvertible {
 public final class ChatServerCore: @unchecked Sendable {
     public let config: ChatConfig
     public let access: ChatAccess
-    let secrets: ChatSecrets
+    /// The token hashes and webhook entries. The hashes change only by a reload (`apply`, ChatReload.swift); read under
+    /// the lock.
+    var storedSecrets: ChatSecrets
+    var secrets: ChatSecrets { lock.withLock { storedSecrets } }
     let release: String
     let log: ChatLog
 
@@ -105,6 +108,8 @@ public final class ChatServerCore: @unchecked Sendable {
     var apps: [String: AppSettings] = [:]
     var live = ChatLiveState()
     var pollWake: [String: ChatWake] = [:]
+    /// Bumped for a participant removed (or given a new token) by a reload: a receive that waits ends then (ChatReload.swift).
+    var pollEpoch: [String: Int] = [:]
     /// One hand-over to a polling participant at a time.
     let collectLock = NSLock()
     let bus = ChatEventBus()
@@ -148,7 +153,7 @@ public final class ChatServerCore: @unchecked Sendable {
         self.sessionsDir = sessionsDir ?? ((ProcessInfo.processInfo.environment["HOME"] ?? NSHomeDirectory()) as NSString)
             .appendingPathComponent(".claude/sessions")
         access = config.access
-        self.secrets = secrets
+        self.storedSecrets = secrets
         self.release = release
         self.log = log
         webhookPoster = ChatURLSessionWebhook(release: release)
@@ -172,29 +177,47 @@ public final class ChatServerCore: @unchecked Sendable {
         }
         loadApps()
         loadAvatars()
-        if let v = readJSON("rooms.json"), case .object(let m) = v {
-            lock.withLock {
-                for e in m where chatIsRoomName(e.key) {
-                    let names = (try? e.value.goStrings("rooms")) ?? []
-                    rooms[e.key] = names.filter { n in participants.contains { $0.name == n } }
-                }
+        let file = readJSON("rooms.json")
+        lock.withLock { rooms = Self.memberships(file, base: rooms, participants: participants) }
+    }
+
+    /// The rooms and their members as a start makes them: the config's rooms, then each room `rooms.json` keeps, its
+    /// members filtered to the participants known now (a name removed and added again is back in the rooms the file still
+    /// lists it in). Pure — a reload computes it the same way (ChatReload.swift).
+    static func memberships(_ file: JValue?, base: [String: [String]], participants: [ChatParticipant]) -> [String: [String]] {
+        var out = base
+        if let v = file, case .object(let m) = v {
+            for e in m where chatIsRoomName(e.key) {
+                let names = (try? e.value.goStrings("rooms")) ?? []
+                out[e.key] = names.filter { n in participants.contains { $0.name == n } }
             }
         }
+        return out
     }
 
     private func loadAgents() {
-        guard let v = readJSON("agents.json"), v.isObject else { return }
+        let file = readJSON("agents.json")
+        lock.withLock {
+            let r = Self.registered(file, besides: participants)
+            participants += r.participants
+            agentTokens = r.tokens
+        }
+    }
+
+    /// The registered sessions `agents.json` keeps (each polls) and their tokens' hashes, as a start reads them. Pure.
+    static func registered(_ file: JValue?, besides: [ChatParticipant]) -> (participants: [ChatParticipant], tokens: [String: String]) {
+        guard let v = file, v.isObject else { return ([], [:]) }
         let ps: [ChatParticipant]
         if case .array(let a)? = v.field("participants") { ps = a.compactMap { try? ChatParticipant.read($0, strict: false) } } else { ps = [] }
-        lock.withLock {
-            for var p in ps where !participants.contains(where: { $0.name == p.name }) && chatIsSessionName(p.name)
-                && !ChatProtocol.reservedNames.contains(p.name) {
-                p.deliver = "poll"
-                participants.append(p)
-            }
-            agentTokens = [:]
-            if case .object(let t)? = v.field("tokens") { for e in t { if let h = e.value.stringValue { agentTokens[e.key] = h } } }
+        var out: [ChatParticipant] = []
+        for var p in ps where !(besides + out).contains(where: { $0.name == p.name }) && chatIsSessionName(p.name)
+            && !ChatProtocol.reservedNames.contains(p.name) {
+            p.deliver = "poll"
+            out.append(p)
         }
+        var tokens: [String: String] = [:]
+        if case .object(let t)? = v.field("tokens") { for e in t { if let h = e.value.stringValue { tokens[e.key] = h } } }
+        return (out, tokens)
     }
 
     /// At start: a change line in each room that is not archived, and a notice for each registered session, when the

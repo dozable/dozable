@@ -242,7 +242,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// the human named once, a stopped server tried again (`retry`), answered with `ChatServerState` once ready (`wait`).
     /// `chat-add` / `chat-remove` / `chat-token`: a participant added, removed, or its token replaced — answered with
     /// `ChatAnswer`, whose token travels this once and is never logged.
-    case chatSync = "chat-sync", chatAdd = "chat-add", chatRemove = "chat-remove", chatToken = "chat-token"
+    case chatSync = "chat-sync", chatAdd = "chat-add", chatRemove = "chat-remove", chatToken = "chat-token", chatMembers = "chat-members"
     /// `chat-set`: how an existing participant is reached (`chat`: `name`, `deliver`, and `kind`, `entry`, `session`),
     /// its token, rooms and history kept — answered with `ChatSetAnswer`.
     case chatSet = "chat-set"
@@ -1601,6 +1601,9 @@ public struct ChatRequest: Codable, Equatable, Sendable {
     public var path: String?
     public var addMissing: Bool?
     public var replace: Bool?
+    /// chat-members: the participants added (each gets a new token) and removed, all or nothing, in one change.
+    public var add: [ChatMemberAdd]?
+    public var remove: [String]?
     public init(name: String? = nil, token: String? = nil, retry: Bool? = nil, wait: Bool? = nil, kind: String? = nil, webhook: Bool? = nil,
                 entry: String? = nil, url: String? = nil, authorization: String? = nil, path: String? = nil, addMissing: Bool? = nil,
                 replace: Bool? = nil, inbox: Bool? = nil, session: String? = nil, deliver: String? = nil) {
@@ -1609,6 +1612,33 @@ public struct ChatRequest: Codable, Equatable, Sendable {
         self.kind = kind; self.webhook = webhook; self.entry = entry; self.url = url; self.authorization = authorization
         self.path = path; self.addMissing = addMissing; self.replace = replace
     }
+}
+
+/// One participant `chat-members` adds: what `chat-add` takes, but never a token (the daemon makes each one).
+public struct ChatMemberAdd: Codable, Equatable, Sendable {
+    public var name: String
+    public var kind: String?
+    public var webhook: Bool?
+    public var entry: String?
+    public var inbox: Bool?
+    public var session: String?
+    public init(name: String, kind: String? = nil, webhook: Bool? = nil, entry: String? = nil, inbox: Bool? = nil, session: String? = nil) {
+        self.name = name; self.kind = kind; self.webhook = webhook; self.entry = entry; self.inbox = inbox; self.session = session
+    }
+}
+
+/// The answer to `chat-members`: each new participant's token (to the command that asked, once — the CLI writes each to
+/// its file and never prints it), the names removed, and the server's state.
+public struct ChatMembersAnswer: Codable, Equatable, Sendable {
+    public struct Added: Codable, Equatable, Sendable {
+        public var name: String
+        public var token: String
+        public init(name: String, token: String) { self.name = name; self.token = token }
+    }
+    public var added: [Added]
+    public var removed: [String]
+    public var chat: ChatServerState
+    public init(added: [Added], removed: [String], chat: ChatServerState) { self.added = added; self.removed = removed; self.chat = chat }
 }
 
 /// The answer to `chat-set`: the participant as it is now, and the server's state.

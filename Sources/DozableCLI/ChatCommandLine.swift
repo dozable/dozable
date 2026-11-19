@@ -83,7 +83,7 @@ public enum ChatCommandLine {
         let f: Flags
         do {
             f = try parse(args, values: ["config", "bind", "data-dir", "secrets-file", "line-port", "page-port", "claude-sessions",
-                                          "token-hashes", "owner-socket", "webhooks-fd"], bools: ["supervised"])
+                                          "token-hashes", "owner-socket", "webhooks-fd", "control-fd"], bools: ["supervised"])
         } catch { return bad("\(error) (doz chat serve -h lists the settings)") }
         guard let config = f.values["config"], !config.isEmpty else { return bad("--config FILE is required") }
         var o = ChatServeOptions(configPath: absolute(config), release: release)
@@ -100,6 +100,12 @@ public enum ChatCommandLine {
             guard o.supervised, o.tokenHashesFile != nil else { return bad("--webhooks-fd is the daemon's: only with --supervised and --token-hashes") }
             guard let n = Int32(v), n >= 3 else { return bad("--webhooks-fd: \"\(v)\" is not a descriptor (3 or more)") }
             o.webhooksFD = n
+        }
+        // The daemon's control channel (participant changes without a restart): a descriptor number only; only from the daemon.
+        if let v = f.values["control-fd"] {
+            guard o.supervised, o.tokenHashesFile != nil else { return bad("--control-fd is the daemon's: only with --supervised and --token-hashes") }
+            guard let n = Int32(v), n >= 3, n != o.webhooksFD else { return bad("--control-fd: \"\(v)\" is not a descriptor (3 or more)") }
+            o.controlFD = n
         }
         for flag in ["line-port", "page-port"] {
             guard let v = f.values[flag] else { continue }

@@ -31,6 +31,10 @@ public struct ChatServerState: Codable, Equatable, Sendable {
     public var linePort = 8791
     /// Restarts after the server exited by itself (or was killed) — not the ones for a change of its files.
     public var restarts = 0
+    /// Participant changes the running server took without a restart (over its control channel), since the daemon started.
+    public var reloads: Int?
+    /// Participant changes that fell back to a restart (no channel, no answer in time, or refused), since the daemon started.
+    public var reloadFallbacks: Int?
     /// How the last server ended: `exit N` or `signal N`.
     public var lastExit: String?
     /// What is wrong, in a person's words (a stopped server's last line, the port to change).
@@ -80,6 +84,17 @@ public protocol ChatProcesses: Sendable {
     func arguments(of pid: pid_t) -> [String]?
     /// Whether a TCP port on 127.0.0.1 is taken by someone (to say which setting to change).
     func portInUse(_ port: Int) -> Bool
+    /// Whether `spawnSupervised` hands the child a control channel (descriptor 4). A fake without one: every change restarts.
+    var offersControl: Bool { get }
+    /// `spawn`, plus — when `offersControl` — one end of a socketpair as the child's descriptor 4; answers the other end.
+    func spawnSupervised(executable: String, arguments: [String], environment: [String: String], log: String, input: Data?) throws -> (pid: pid_t, control: Int32?)
+}
+
+extension ChatProcesses {
+    public var offersControl: Bool { false }
+    public func spawnSupervised(executable: String, arguments: [String], environment: [String: String], log: String, input: Data?) throws -> (pid: pid_t, control: Int32?) {
+        (try spawn(executable: executable, arguments: arguments, environment: environment, log: log, input: input), nil)
+    }
 }
 
 /// The settings the supervisor follows.
@@ -160,10 +175,12 @@ public final class ChatSupervisor: @unchecked Sendable {
 
     enum EntryRead { case set(ChatWebhookEntry), missing, unreadable(String, at: Double) }
 
-    /// `webhooks`: the pipe's bytes (empty: no webhook bot) — held in memory only, never written to a file.
-    /// `sessions`: the folder handed with --claude-sessions (nil: no participant is delivered to by inbox).
-    struct Files: Equatable { var config: [UInt8]; var tokens: Data; var webhooks = Data(); var sessions: String? = nil }
-    struct Child { var pid: pid_t; var started: Double; var files: Files; var ready: Bool }
+    typealias Files = ChatServerFiles
+    /// `control`: the supervisor's end of the child's control channel (nil: none — a fake's, or a server from before).
+    struct Child { var pid: pid_t; var started: Double; var files: Files; var ready: Bool; var control: Int32? = nil }
+
+    /// Seconds the running server has to answer a reload before it is restarted instead.
+    static let reloadSeconds: Double = 2
 
     public init(paths: ChatPaths, executable: String, release: String, processes: ChatProcesses = ChatSystemProcesses(),
                 environment: [String: String] = ProcessInfo.processInfo.environment,
@@ -302,6 +319,60 @@ public final class ChatSupervisor: @unchecked Sendable {
             try self.paths.write("tokens.json", h.bytes())
             try self.paths.write("directory.json", d.bytes())
             self.look(blocked: false, force: true)
+        }
+    }
+
+    /// `doz chat add A B C` / `doz chat remove A B C` (`chat-members`): several participants added and removed, all or
+    /// nothing — every name judged first (the name rule, the kind and delivery, a name twice, one already in chat, one
+    /// not there to remove, the human), then ONE write of the two files and one look (the running server takes it without
+    /// a restart when it can). Answers each new participant's token (made here; kept nowhere but as its hash).
+    public func members(add: [ChatMemberAdd], remove: [String]) async throws -> [(name: String, token: String)] {
+        try await runThrowing {
+            if add.isEmpty && remove.isEmpty { throw HostError(.invalid, "no participant to add or remove") }
+            var seen = Set<String>()
+            for n in add.map(\.name) + remove {
+                if let why = ChatNames.refusal(n) { throw HostError(.invalid, why) }
+                if !seen.insert(n).inserted { throw HostError(.invalid, "\(n) is named twice") }
+            }
+            for a in add {
+                let kind = a.kind ?? (a.inbox == true ? "claude-session" : "agent")
+                let webhook = a.webhook ?? false, inbox = a.inbox ?? false
+                guard ChatDirectory.kinds.contains(kind) else { throw HostError(.invalid, "\(kind) is not a kind: \(ChatDirectory.kinds.joined(separator: ", "))") }
+                if a.entry != nil && !webhook { throw HostError(.invalid, "--webhook-entry goes with --webhook") }
+                if webhook && inbox { throw HostError(.invalid, "one of --webhook or --inbox") }
+                if webhook, let why = ChatWebhookEntries.nameRefusal(a.entry ?? a.name) { throw HostError(.invalid, why) }
+                if inbox || a.session != nil, let why = ChatDirectory.deliveryRefusal(inbox ? "inbox" : "poll", kind: kind, session: a.session) {
+                    throw HostError(.invalid, why)
+                }
+            }
+            try self.paths.ensureFolder()
+            var d = try ChatDirectory.load(self.paths)
+            var h = try ChatTokenHashes.load(self.paths)
+            for n in remove {
+                if d.human == n { throw HostError(.invalid, "\(n) is you: you stay in chat (doz chat off turns it off)") }
+                guard d.participants.contains(where: { $0.name == n }) else { throw HostError(.notFound, "no participant \(n) in chat") }
+            }
+            for a in add where d.has(a.name) { throw HostError(.exists, "\(a.name) is already in chat") }
+            var out: [(name: String, token: String)] = []
+            for n in remove {
+                d.participants.removeAll { $0.name == n }
+                h.sha256[n] = nil
+            }
+            for a in add {
+                let kind = a.kind ?? (a.inbox == true ? "claude-session" : "agent")
+                let webhook = a.webhook ?? false, inbox = a.inbox ?? false
+                let token = ChatTokens.make()
+                d.participants.append(.init(name: a.name, kind: kind, added: Self.timestamp(), deliver: webhook ? "webhook" : inbox ? "inbox" : nil,
+                                            webhook: webhook && a.entry != nil && a.entry != a.name ? a.entry : nil,
+                                            session: inbox && a.session != nil && a.session != a.name ? a.session : nil))
+                h.sha256[a.name] = ChatSecrets.hash(token)
+                out.append((a.name, token))
+            }
+            try self.paths.write("tokens.json", h.bytes())
+            try self.paths.write("directory.json", d.bytes())
+            HostLog.line("chat: \(add.count) participant(s) added and \(remove.count) removed at once")
+            self.look(blocked: false, force: true)
+            return out
         }
     }
 
@@ -543,7 +614,21 @@ public final class ChatSupervisor: @unchecked Sendable {
             return
         }
         if let c = child {
-            if c.files != files {                           // a participant, a token or a port changed: restart now
+            if c.files != files {
+                // Participants added or removed, or a token replaced: the running server takes it over its control channel
+                // when it can (and answers within 2 s); anything else — a port, a delivery, a webhook entry — restarts now.
+                let decision = ChatReloadPolicy.decide(old: c.files, new: files)
+                if decision == .reload, c.ready, let fd = c.control {
+                    if reload(fd, files) {
+                        child?.files = files
+                        st.reloads = (st.reloads ?? 0) + 1
+                        return
+                    }
+                    st.reloadFallbacks = (st.reloadFallbacks ?? 0) + 1
+                } else if decision == .reload {
+                    st.reloadFallbacks = (st.reloadFallbacks ?? 0) + 1
+                    HostLog.line("chat: the chat server has no control channel (it was started before) — restarting it to take the change")
+                }
                 stopChild(counted: false)
             } else {
                 if !c.ready {
@@ -571,6 +656,45 @@ public final class ChatSupervisor: @unchecked Sendable {
         if let n = nextTry, t < n { st.state = "restarting"; return }
         nextTry = nil
         start(files)
+    }
+
+    /// Asks the running server to take the files it was just written (`ChatReload`): one request line, one answer within
+    /// `reloadSeconds`. True only when it answered `reloaded` with these files' sha; anything else is logged and the
+    /// caller restarts it.
+    private func reload(_ fd: Int32, _ files: Files) -> Bool {
+        let sha = files.reloadSHA
+        let req = Array(#"{"version":1,"reload":"\#(sha)"}"#.utf8) + [0x0A]
+        var at = 0
+        while at < req.count {
+            let w = req[at...].withUnsafeBytes { Darwin.write(fd, $0.baseAddress!, $0.count) }
+            if w < 0 && errno == EINTR { continue }
+            if w <= 0 { HostLog.line("chat: the chat server's control channel is closed — restarting it to take the change"); return false }
+            at += w
+        }
+        var buf: [UInt8] = []
+        let until = Self.now() + Self.reloadSeconds
+        while !buf.contains(0x0A) {
+            let left = until - Self.now()
+            if left <= 0 { HostLog.line("chat: the chat server did not answer a reload within \(Int(Self.reloadSeconds)) s — restarting it"); return false }
+            var p = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
+            let r = poll(&p, 1, Int32(max(1, left * 1000)))
+            if r < 0 && errno == EINTR { continue }
+            if r <= 0 { continue }
+            var chunk = [UInt8](repeating: 0, count: 1024)
+            let n = Darwin.read(fd, &chunk, chunk.count)
+            if n < 0 && errno == EINTR { continue }
+            if n <= 0 { HostLog.line("chat: the chat server's control channel is closed — restarting it to take the change"); return false }
+            buf += chunk[0..<n]
+            if buf.count > 8192 { return false }
+        }
+        let line = Array(buf[..<buf.firstIndex(of: 0x0A)!])
+        guard let v = try? ChatJSON.parse(line) else { return false }
+        if v.field("reloaded")?.stringValue == sha {
+            HostLog.line("chat: the chat server took a change of participants without a restart")
+            return true
+        }
+        HostLog.line("chat: the chat server refused a reload (\(v.field("refused")?.stringValue ?? "no reason") — restarting it")
+        return false
     }
 
     /// The webhook entries the server is handed (only the ones read from the keychain, judged by the rule), and what the
@@ -626,6 +750,8 @@ public final class ChatSupervisor: @unchecked Sendable {
         rotateLog()
         var args = ["chat", "serve", "--config", paths.config, "--bind", ChatConfigFile.bind, "--token-hashes", paths.tokens,
                     "--owner-socket", paths.socket, "--supervised"]
+        // The control channel: descriptor 4, one end of a socketpair (argv names the descriptor only).
+        if processes.offersControl { args += ["--control-fd", "4"] }
         // The webhook entries come on descriptor 3, a pipe: argv names the descriptor only.
         if !files.webhooks.isEmpty { args += ["--webhooks-fd", "3"] }
         // The sessions folder only while a participant is delivered to by inbox: otherwise the server reads nothing outside
@@ -635,9 +761,9 @@ public final class ChatSupervisor: @unchecked Sendable {
         for k in ["HOME", "LANG", "TMPDIR"] { if let v = environment[k] { env[k] = v } }
         for (k, v) in testEnvironment { env[k] = v }
         do {
-            let pid = try processes.spawn(executable: executable, arguments: args, environment: env, log: paths.serverLog,
-                                          input: files.webhooks.isEmpty ? nil : files.webhooks)
-            child = Child(pid: pid, started: Self.now(), files: files, ready: false)
+            let (pid, control) = try processes.spawnSupervised(executable: executable, arguments: args, environment: env, log: paths.serverLog,
+                                                               input: files.webhooks.isEmpty ? nil : files.webhooks)
+            child = Child(pid: pid, started: Self.now(), files: files, ready: false, control: control)
             st.pid = pid
             st.state = "starting"
             st.ready = false
@@ -653,6 +779,7 @@ public final class ChatSupervisor: @unchecked Sendable {
 
     /// The child exited by itself (or was killed by someone else).
     private func exited(_ c: Child, _ end: ChatChildExit) {
+        if let fd = c.control { close(fd) }
         child = nil
         st.pid = nil
         st.ready = false
@@ -698,6 +825,7 @@ public final class ChatSupervisor: @unchecked Sendable {
         child = nil
         st.pid = nil
         st.ready = false
+        if let fd = c.control { close(fd) }
         let end = stopProcess(c.pid, reapable: true)
         if let end { st.lastExit = end.text }
         HostLog.line("chat: the chat server (pid \(c.pid)) stopped")
@@ -751,7 +879,36 @@ public final class ChatSupervisor: @unchecked Sendable {
 public struct ChatSystemProcesses: ChatProcesses {
     public init() {}
 
+    public var offersControl: Bool { true }
+
     public func spawn(executable: String, arguments: [String], environment: [String: String], log: String, input: Data?) throws -> pid_t {
+        try spawn(executable: executable, arguments: arguments, environment: environment, log: log, input: input, control: -1)
+    }
+
+    /// The control channel: a socketpair; the child's end becomes its descriptor 4 and is closed here, the other end
+    /// (close-on-exec) is answered.
+    public func spawnSupervised(executable: String, arguments: [String], environment: [String: String], log: String, input: Data?) throws -> (pid: pid_t, control: Int32?) {
+        var sv: [Int32] = [-1, -1]
+        guard socketpair(AF_UNIX, SOCK_STREAM, 0, &sv) == 0 else { throw HostError(.failed, "cannot make a socketpair: \(String(cString: strerror(errno)))") }
+        for f in sv { _ = fcntl(f, F_SETFD, FD_CLOEXEC) }
+        var on: Int32 = 1
+        _ = setsockopt(sv[0], SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+        // Kept off 3 and 4, so neither dup2 below lands on a descriptor another one still needs.
+        let childEnd = fcntl(sv[1], F_DUPFD_CLOEXEC, 10)
+        close(sv[1])
+        guard childEnd >= 0 else { close(sv[0]); throw HostError(.failed, "cannot move a socket: \(String(cString: strerror(errno)))") }
+        defer { close(childEnd) }
+        do {
+            let pid = try spawn(executable: executable, arguments: arguments, environment: environment, log: log, input: input, control: childEnd)
+            return (pid, sv[0])
+        } catch {
+            close(sv[0])
+            throw error
+        }
+    }
+
+    /// `control`: the child's end of the control channel, made its descriptor 4 (-1: none).
+    func spawn(executable: String, arguments: [String], environment: [String: String], log: String, input: Data?, control: Int32) throws -> pid_t {
         let logFD = open(log, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0o600)
         guard logFD >= 0 else { throw HostError(.failed, "cannot open \(log): \(String(cString: strerror(errno)))") }
         defer { close(logFD) }
@@ -770,9 +927,10 @@ public struct ChatSystemProcesses: ChatProcesses {
                 close(p[0])
                 throw HostError(.failed, "cannot hand the chat server its webhook entries (the pipe took \(max(wrote, 0)) of \(input.count) bytes)")
             }
-            // Never dup2 a descriptor onto itself (its close-on-exec would stay): keep the read end off 3.
-            if p[0] == 3 {
-                let moved = fcntl(p[0], F_DUPFD_CLOEXEC, 4)
+            // Never dup2 a descriptor onto itself (its close-on-exec would stay), nor onto 4 before 4 is set: keep the
+            // read end off 3 and 4.
+            if p[0] == 3 || p[0] == 4 {
+                let moved = fcntl(p[0], F_DUPFD_CLOEXEC, 10)
                 close(p[0])
                 guard moved >= 0 else { throw HostError(.failed, "cannot move a pipe: \(String(cString: strerror(errno)))") }
                 readFD = moved
@@ -788,6 +946,7 @@ public struct ChatSystemProcesses: ChatProcesses {
         posix_spawn_file_actions_adddup2(&fa, logFD, 1)
         posix_spawn_file_actions_adddup2(&fa, logFD, 2)
         if readFD >= 0 { posix_spawn_file_actions_adddup2(&fa, readFD, 3) }
+        if control >= 0 { posix_spawn_file_actions_adddup2(&fa, control, 4) }
         var attr: posix_spawnattr_t?
         posix_spawnattr_init(&attr)
         defer { posix_spawnattr_destroy(&attr) }
