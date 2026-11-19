@@ -44,9 +44,12 @@ struct UICommand: AsyncParsableCommand {
         doz ui publish tailscale puts the dashboard on your tailnet at its own https address, with Dozable's own \
         Tailscale node (Homebrew's tailscale; the Mac's own Tailscale is left as it is); doz ui publish status shows it; \
         doz ui unpublish tailscale takes it off.
+
+        doz ui macs keeps the list of your other Macs' dashboards that the machine picker shows (doz ui macs add NAME \
+        ADDRESS): picking one opens its address in a new tab, where you sign in to that Mac.
         """,
         subcommands: [UIStart.self, UILink.self, UIRestart.self, UIStop.self, UIStatus.self, ServeShare.self, ServeDevices.self,
-                      ServeRevoke.self, ServeRename.self, ServeLog.self, UIPublish.self, UIUnpublish.self, UIServe.self],
+                      ServeRevoke.self, ServeRename.self, ServeLog.self, UIPublish.self, UIUnpublish.self, UIMacs.self, UIServe.self],
         defaultSubcommand: UIStart.self)
 }
 

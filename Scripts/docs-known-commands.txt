@@ -146,6 +146,7 @@ ui/rename
 ui/log
 ui/publish
 ui/unpublish
+ui/macs
 serve/start
 serve/share
 serve/devices
