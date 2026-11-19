@@ -1,5 +1,8 @@
 // views/chat — the Chat page (#/chat, #/chat/ROOM): a section of its own (#chat, like This Mac), built ONCE, so a live
-// refresh never tears down the composer or the reader's place. Chat is the chat server's (`doz chat`); the page never
+// refresh never tears down the composer or the reader's place. The room surface it builds (the head, the notice, the
+// rooms, the log with its composer, the people) is the ONE chat client: a workspace's page shows it too — `mountChat`
+// MOVES the same subtree into the workspace page's room and back, scoped to that workspace's rooms; never a second fetch
+// path, stream or composer. Chat is the chat server's (`doz chat`); the page never
 // turns it on — while it is off, the command to run is shown. Shown in this Mac's own browser only (the server refuses
 // another computer every chat route, and the sidebar's entry stays hidden there).
 import { state } from '../core/state.js';
@@ -18,7 +21,7 @@ import { loadPresence, roomMenu, standing } from './chat-people.js';
 import { drawRooms, mine, openRoom } from './chat-rooms.js';
 import { startLive, stopLive } from './chat-live.js';
 
-let built = false, loaded = false, statusT = 0, wanted = null, loading = false;
+let built = false, loaded = false, statusT = 0, wanted = null, loading = false, scopeKey = '';
 
 function build() {
   if (built) return;
@@ -34,7 +37,7 @@ function build() {
     'aria-label': 'Attach files' }, icon('paperclip'));
   const pick = h('input', { type: 'file', id: 'chat-pick', multiple: true, hidden: true, tabindex: '-1', 'aria-hidden': 'true' });
   const editx = h('button', { type: 'button', class: 'chat-ibtn', id: 'chat-editx', title: 'Stop editing (Esc)', 'aria-label': 'Stop editing' }, icon('x'));
-  $('chat').replaceChildren(
+  $('chat').replaceChildren(h('div', { class: 'chat-surface', id: 'chat-surface' },
     h('div', { class: 'chat-head' }, h('h1', { class: 'chat-title' }, icon('message-square'), 'Chat'),
       h('span', { class: 'chat-room-name', id: 'chat-room-name' }), h('span', { class: 'chat-live is-off', id: 'chat-live', role: 'status' }, 'not connected'),
       h('span', { class: 'chat-room-tools', id: 'chat-room-tools' })),
@@ -51,9 +54,9 @@ function build() {
           h('div', { class: 'chat-pend', id: 'chat-pend', hidden: true, 'aria-live': 'polite' }),
           h('div', { class: 'chat-inputs' }, clip, text, send), pick),
         h('p', { class: 'chat-note', id: 'chat-note', 'aria-live': 'polite' })),
-      h('aside', { class: 'chat-pane chat-people-pane', 'aria-label': 'People in this room' },
+      h('aside', { class: 'chat-pane chat-people-pane', id: 'chat-people-pane', 'aria-label': 'People in this room' },
         h('h2', { class: 'chat-sh' }, icon('users'), 'In this room', h('span', { class: 'chat-sh-n', id: 'chat-people-count' })),
-        h('div', { class: 'chat-people', id: 'chat-people' }))));
+        h('div', { class: 'chat-people', id: 'chat-people' })))));
   log.addEventListener('scroll', () => {
     const was = state.chat.atFoot;
     state.chat.atFoot = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
@@ -103,7 +106,14 @@ function writable() {
   if (ro) chatNote(CHAT_READ_ONLY);
 }
 
-/// Load what the chat server says and show `room` (else the default room, else the first the person is in).
+/// The rooms this view may show: on a workspace's page its rooms only (the main one first), else every room.
+function candidates() {
+  const sc = state.chat.scope;
+  return sc ? sc.rooms.map((r) => r.room).filter((r) => state.chat.srv.rooms[r] && mine(r)) : Object.keys(state.chat.srv.rooms).filter(mine);
+}
+
+/// Load what the chat server says and show `room` (else the default room, else the first the person is in; on a
+/// workspace's page, else its main room).
 async function load(room) {
   if (loading) return;
   loading = true;
@@ -112,7 +122,7 @@ async function load(room) {
     const human = (state.chat.srv.participants || []).find((p) => p.kind === 'human');
     state.chat.human = human ? human.name : null;
     drawRooms();
-    const rooms = Object.keys(state.chat.srv.rooms).filter(mine), d = state.chat.srv.default_room;
+    const rooms = candidates(), d = state.chat.scope ? null : state.chat.srv.default_room;
     const r = room && rooms.includes(room) ? room : (d && rooms.includes(d) ? d : rooms[0]);
     await loadPresence();
     if (r) await openRoom(r);
@@ -125,8 +135,32 @@ async function load(room) {
 }
 
 /// Arriving on #/chat[/ROOM].
-export async function chatEnter(room) {
+export async function chatEnter(room) { return mountChat(null, null, room); }
+
+/// The room surface into `host` — a workspace's page: {room, people} elements and its `scope` ({workspace, rooms, who,
+/// sysLines}) — or back into the Chat page (`host` null), then `room` shown there. The subtree is moved, never built again:
+/// the log, the composer and its draft, unread and the live stream are the Chat page's own. A change of scope always opens
+/// the room again (a stale room or focus never survives the move).
+export async function mountChat(host, scope, room) {
   build();
+  const surface = $('chat-surface'), people = $('chat-people-pane');
+  if (host) {
+    if (surface.parentNode !== host.room) host.room.append(surface);
+    if (host.people && people.parentNode !== host.people) host.people.append(people);
+  } else {
+    if (surface.parentNode !== $('chat')) $('chat').append(surface);
+    if (people.parentNode !== $('chat-cols')) $('chat-cols').append(people);
+  }
+  surface.classList.toggle('is-scoped', !!scope);
+  const key = scope ? scope.workspace + ':' + scope.rooms.map((r) => r.room).join(',') : '';
+  const moved = key !== scopeKey;
+  scopeKey = key;
+  state.chat.scope = scope || null;
+  if (moved && loaded) { drawRooms(); state.chat.room = null; }
+  return enter(room);
+}
+
+async function enter(room) {
   state.chat.active = true;
   wanted = room || null;
   clearTimeout(statusT);
@@ -134,14 +168,18 @@ export async function chatEnter(room) {
   state.chat.status = st;
   if (!state.chat.active) return;
   if (!notice(st)) {
-    if (st.state === 'starting') statusT = setTimeout(() => chatEnter(wanted), 3000);
+    if (st.state === 'starting') statusT = setTimeout(() => enter(wanted), 3000);
     stopLive(true);
     loaded = false;
     return;
   }
   writable();
   if (!loaded) { await load(wanted); return; }
-  if (wanted && wanted !== state.chat.room && mine(wanted)) await openRoom(wanted);
+  const rooms = candidates(), d = state.chat.srv.default_room;
+  const first = state.chat.scope || !(d && rooms.includes(d)) ? rooms[0] : d;
+  const r = wanted && rooms.includes(wanted) ? wanted : (state.chat.scope || !state.chat.room ? first : null);
+  if (r && r !== state.chat.room) await openRoom(r);
+  else if (!r && state.chat.scope) await openRoom(null);
   else showUnread();
   startLive();
 }
@@ -155,7 +193,7 @@ export function chatLeave() {
 }
 
 /// The router's refresh while on the page: look at the status again (nothing is torn down).
-export function chatRefresh() { if (state.chat.active) chatEnter(wanted); }
+export function chatRefresh() { if (state.chat.active) enter(wanted); }
 
 /// The sidebar's Chat entry: shown while chat is on (asked on hello and every minute); its badge, the unread elsewhere.
 export async function chatNavCheck() {

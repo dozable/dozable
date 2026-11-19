@@ -2817,6 +2817,94 @@ main.main-chat { padding: var(--work-py) var(--work-px); display: flex; flex-dir
 }
 }
 
+/* A workspace's page (views/workspace.js, #ws): the title row, the tabs, then the brief and the room beside the side
+   panel. The room is the Chat page's own surface (#chat-surface), moved here and scoped (.is-scoped): its rooms a strip of
+   `# label`s above the log, its people list moved into the panel. Narrower than 980 px the panel folds below the room and
+   the page scrolls. */
+@layer views {
+.chat-surface { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: var(--sp-3); }
+.ws-root:not([hidden]) { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: var(--sp-3); }
+.ws-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); min-width: 0; padding-right: var(--corner-w); }
+.ws-name { margin: 0; font-size: var(--fs-2xl); overflow-wrap: anywhere; }
+.ws-sp { flex: 1; }
+.ws-tabs { display: flex; gap: var(--sp-1); border-bottom: var(--bw) solid var(--sep); overflow-x: auto; }
+.ws-tab { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--tab-py) var(--sp-3); border: 0; border-bottom: 2px solid transparent;
+  background: none; color: var(--ink-2); font: inherit; white-space: nowrap; cursor: pointer; }
+.ws-tab.is-on { color: var(--ink); font-weight: var(--fw-medium); border-bottom-color: var(--indicator); }
+.ws-tab.is-coming { color: var(--ink-3); cursor: not-allowed; }
+.ws-coming { padding: 0 var(--sp-1); border-radius: var(--r-pill); background: var(--well); color: var(--ink-2); font-size: var(--fs-xs); font-weight: var(--fw-regular); }
+.ws-body { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: var(--gap); flex: 1; min-height: 0; }
+.ws-main { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; min-height: 0; }
+.ws-notice { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ws-room { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.ws-panel { min-height: 0; overflow-y: auto; }
+.ws-panel-in { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ws-box { padding: var(--sp-3); border-radius: var(--r-lg); background: var(--shell); }
+.ws-box-h { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-2); font-size: var(--fs-md); font-weight: var(--fw-strong); }
+.ws-box-h .icon { width: 14px; height: 14px; }
+.ws-box-n { margin-left: auto; font-size: var(--fs-xs); font-weight: var(--fw-regular); color: var(--ink-2); }
+.ws-box-acts { margin-top: var(--sp-2); }
+.ws-add-worker { margin-top: var(--sp-2); font-size: var(--fs-sm); }
+.ws-agents { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.ws-agent { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
+.ws-agent-body { display: flex; flex-direction: column; gap: var(--sp-0); min-width: 0; }
+.ws-agent-top { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.ws-agent-name { font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+.ws-agent-role, .ws-agent-task, .ws-agent-control { font-size: var(--fs-xs); color: var(--ink-2); }
+.ws-agent-task { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-agent-control { font-family: var(--mono); }
+.ws-agent-chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.ws-iso { padding: 0 var(--sp-2); border-radius: var(--r-pill); background: var(--well); color: var(--ink-2); font-size: var(--fs-xs); }
+.ws-iso-unfenced { color: var(--warn); }
+.ws-sub { margin: var(--sp-3) 0 var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--ink-2); }
+.ws-folders { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; font-size: var(--fs-sm); }
+.ws-path { font-family: var(--mono); font-size: var(--fs-mono); overflow-wrap: anywhere; }
+.ws-net, .ws-hidden { margin: 0; font-size: var(--fs-sm); }
+.ws-people .chat-people-pane { display: flex; padding: 0; background: none; overflow: visible; }
+.ws-brief { display: flex; flex-direction: column; gap: var(--sp-2); max-height: 40vh; overflow-y: auto; padding: var(--sp-3) var(--sp-4);
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.ws-brief.is-folded { padding: var(--sp-2) var(--sp-4); }
+.ws-brief-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.ws-brief-label { font-weight: var(--fw-strong); }
+.ws-brief-meta, .ws-brief-size { font-size: var(--fs-xs); color: var(--ink-2); }
+.ws-brief-line { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-brief-n { color: var(--ink-2); }
+.ws-brief-text { line-height: var(--lh-prose); }
+.ws-refs { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ws-ref { display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%; padding: var(--sp-0) var(--sp-2); border-radius: var(--r-pill);
+  background: var(--well); color: var(--ink); font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-ref .icon { width: 13px; height: 13px; flex: none; }
+.ws-brief-denied { margin: 0; color: var(--ink-2); }
+.ws-brief-hist { margin: 0; padding-left: var(--sp-5); font-size: var(--fs-sm); color: var(--ink-2); }
+.ws-brief-edit { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ws-brief-area { min-height: 8rem; padding: var(--sp-2) var(--sp-3); border: var(--bw) solid var(--control); border-radius: var(--r-md); background: var(--surface);
+  color: var(--ink); font-family: var(--mono); font-size: var(--fs-mono); line-height: var(--lh); resize: vertical; }
+.ws-brief-acts { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-sm); }
+.ws-brief-err { margin: 0; color: var(--bad); font-size: var(--fs-sm); }
+.ws-brief-over { font-size: var(--fs-sm); }
+.chat-surface.is-scoped .chat-title { display: none; }
+.chat-surface.is-scoped .chat-room-name { color: var(--ink); font-weight: var(--fw-strong); }
+.chat-surface.is-scoped .chat-cols:not([hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: var(--sp-2); }
+.chat-surface.is-scoped .chat-rooms-pane { padding: var(--sp-1); overflow-x: auto; overflow-y: hidden; }
+.chat-surface.is-scoped .chat-rooms-pane .chat-sh { display: none; }
+.chat-surface.is-scoped .chat-rooms { flex-direction: row; align-items: center; gap: var(--sp-1); }
+.chat-surface.is-scoped .chat-rm { flex: none; }
+.chat-surface.is-scoped .chat-pv, .chat-surface.is-scoped .chat-rt { display: none; }
+.chat-rm-add { flex: none; }
+.chat-meta { font-size: var(--fs-xs); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.chat-acts { font-size: var(--fs-xs); }
+.chat-sys { font-style: italic; }
+.chat-sys .icon { width: 12px; height: 12px; }
+.chat-row.is-flash { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-md); }
+@media (max-width: 980px) {
+  main.main-ws { height: auto; }
+  .ws-root:not([hidden]) { flex: none; }
+  .ws-body { display: flex; flex-direction: column; }
+  .ws-room { flex: none; height: 75vh; }
+  .ws-panel { overflow: visible; }
+}
+}
+
 /* This Mac (views/this-mac.js): one line per page — its name (a link), what it says now, an action (the daemon's). Loose
    agents and Agents / Bots are tables; a workspace a bot manages links to its room. */
 @layer views {

@@ -1,7 +1,8 @@
 // core/routes — The page's addresses: what a hash names (`parse`), and the old addresses that lead to today's (`canonical`,
 // `LEGACY`). Pure: no DOM, no state. The router replaces an old address with its canonical one first, then parses.
 //
-// Today's addresses: #/home · #/chat[/ROOM] · #/bots · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
+// Today's addresses: #/home · #/chat[/ROOM] · #/w/NAME[/room/LABEL] (a workspace's page, its main room or another of its
+// rooms by its short label) · #/bots · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
 // #/mac/here[/SESSION] (the sessions on this Mac), #/mac/sessions, #/mac/sandboxes, #/mac/loose, #/mac/macs (Your Macs), #/mac/templates[/browse |
 // /V/P], #/mac/images, accounts, resources, devices, doctor, settings, debug, #/mac/logs/<operations|activity|notifications|
 // metrics> · the modals #/new, #/onboarding, #/try[/AGENT].
@@ -19,6 +20,9 @@ export const MODAL_VIEWS = new Set(['new', 'onboarding', 'try']);
 export const HOME = '#/home';
 
 const RECIPE = '[a-z0-9-]{1,40}(?:/[a-z0-9-]{1,40}){1,2}';
+/// A workspace's name (the store's rule) and a room's short label (the chat server's room rule).
+const WORKSPACE = '[a-z0-9][a-z0-9-]{0,39}';
+const ROOM_LABEL = '[a-z0-9][a-z0-9_-]{0,63}';
 const MAC_SESSION = '[A-Za-z0-9_-][A-Za-z0-9._-]{0,31}';
 
 /// Every old address and where it leads now: [pattern, replacement] — the replacement a string (`$1` the first group) or
@@ -53,11 +57,12 @@ export function canonical(hash) {
   return HOME;
 }
 
-/// What a canonical address names: {view, param, session, recipe, modal} (null: not an address of the page).
-/// `view` is the page's view name (`state.view`); `recipe` is '' for the templates' list, 'V/P' for one, null otherwise.
+/// What a canonical address names: {view, param, session, recipe, room, modal} (null: not an address of the page).
+/// `view` is the page's view name (`state.view`); `recipe` is '' for the templates' list, 'V/P' for one, null otherwise;
+/// `room` a workspace room's short label (#/w/NAME/room/LABEL; null: its main room).
 export function parse(hash) {
   const r = (view, o = {}) => ({ view, param: o.param || null, session: o.session || null, recipe: o.recipe === undefined ? null : o.recipe,
-    modal: !!o.modal });
+    room: o.room || null, modal: !!o.modal });
   let m;
   if (hash === '#/home') return r('home');
   if (hash === '#/bots') return r('bots');
@@ -73,12 +78,16 @@ export function parse(hash) {
   if ((m = new RegExp('^#/mac/(' + MAC_SAME.join('|') + ')$').exec(hash))) return r(m[1]);
   if ((m = new RegExp('^#/mac/logs/(' + LOG_PAGES.join('|') + ')$').exec(hash))) return r(m[1]);
   if ((m = /^#\/chat(?:\/([a-z0-9][a-z0-9_-]{0,63}))?$/.exec(hash))) return r('chat', { param: m[1] });
+  if ((m = new RegExp('^#/w/(' + WORKSPACE + ')(?:/room/(' + ROOM_LABEL + '))?$').exec(hash))) return r('workspace', { param: m[1], room: m[2] });
   // 635: `~home` (no session name can hold a ~) selects a sandbox page's Home tab.
   if ((m = /^#\/sandbox\/([a-z0-9-]{1,40})(?:\/(~home|[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}))?$/.exec(hash))) return r('sandbox', { param: m[1], session: m[2] });
   if (hash === '#/new' || hash === '#/onboarding') return r(hash.slice(2), { modal: true });
   if ((m = /^#\/try(?:\/([a-z0-9-]{1,40}))?$/.exec(hash))) return r('try', { param: m[1], modal: true });
   return null;
 }
+
+/// A workspace's page: its main room (`label` null), or another of its rooms by its short label.
+export function workspaceHash(name, label) { return '#/w/' + name + (label ? '/room/' + label : ''); }
 
 /// The address of a view with no parameter (the sidebar's and a link's): `hashFor('images')` → '#/mac/images'.
 export function hashFor(view) {

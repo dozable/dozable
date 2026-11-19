@@ -1,11 +1,15 @@
 // views/chat-messages — a room's messages: the bubbles, the tombstone of a deleted one, the stub of a direct message
 // between others, the room's change lines; reading the log (the newest page, then on as the server says more is left)
-// and older pages as the reader scrolls up. Every message is untrusted text, drawn with h() and renderMarkdown.
+// and older pages as the reader scrolls up. Every message is untrusted text, drawn with h() and renderMarkdown. On a
+// workspace's page (state.chat.scope) each sender's name carries its place in the workspace (role · agent program ·
+// isolation · session), and the workspace's log lines sit among the messages by time (`drawSys`, core/ws-log.js) —
+// never posted, only drawn.
 import { state } from '../core/state.js';
 import { canWrite, chatError, request, roomUrl, viewer } from '../core/chat-api.js';
 import { cap, time } from '../core/chat-format.js';
 import { renderMarkdown } from '../core/chat-markdown.js';
 import { setSeen } from '../core/chat-storage.js';
+import { interleave, lineAt, lineKey, lineText } from '../core/ws-log.js';
 import { drawAtts } from '../components/chat-attachments.js';
 import { askDelete, startEdit } from '../components/chat-edit.js';
 import { moments, place } from '../components/chat-log.js';
@@ -96,8 +100,11 @@ export function add(m, again, older) {
     return;
   }
   const me = m.from === viewer();
+  const sc = state.chat.scope, meta = sc && sc.who ? sc.who(m.from) : null;
   const top = h('div', { class: 'chat-top' },
     h('span', { class: 'chat-from' + (me ? ' is-detail' : '') }, cap(m.from)),
+    meta && meta.text ? h('span', { class: 'chat-meta', title: meta.title || meta.text }, meta.text) : null,
+    meta && meta.actsAsYou ? h('span', { class: 'ws-chip acts-as-you chat-acts', title: 'Unfenced on this Mac: it acts as you' }, icon('triangle-alert'), 'acts as you') : null,
     m.sender ? h('span', { class: 'chat-kind is-detail', title: String(m.sender.id || '') + ' · ' + (m.sender.verified ? 'verified by token' : 'not verified') }, String(m.sender.kind || '')) : null);
   m._to = h('span', { class: 'chat-to is-detail' });
   toText(m);
@@ -177,9 +184,35 @@ export async function fill() {
     if (after === 0) state.chat.older = res.headers.get('X-More') === 'true';   // the newest page: X-More says older are left
     if (!(after > 0 && res.headers.get('X-More') === 'true' && state.chat.lastSeq > after)) break;
   }
+  drawSys();
   moments();
   if (state.chat.atFoot) { const l = $('chat-log'); l.scrollTop = l.scrollHeight; }
   setSeen(r, state.chat.lastSeq);
+}
+
+/// The workspace's log lines among the room's messages (a workspace's page only): drawn again from the lines known
+/// (state.chat.scope.sysLines) — only those in the span loaded, each before the first message of a later time.
+export function drawSys() {
+  const l = $('chat-log');
+  if (!l) return;
+  for (const e of [...l.querySelectorAll('.chat-sys')]) e.remove();
+  const sc = state.chat.scope;
+  if (!sc || !state.chat.room) return;
+  const shown = [...l.children].filter((c) => c.dataset.at !== undefined && !c.classList.contains('chat-moment')).map((el) => ({ at: +el.dataset.at, el }));
+  const merged = interleave(shown, sc.sysLines(state.chat.room), !state.chat.older);
+  const you = state.chat.human ? cap(state.chat.human) : 'You';
+  const line = (x) => h('div', { class: 'chat-status chat-sys', 'data-at': lineAt(x), 'data-sys': lineKey(x), 'data-action': x.action,
+    title: new Date(lineAt(x) * 1000).toLocaleString() + ' — from the workspace’s log (not posted in the room)' }, icon('history'), lineText(x, you) + ' · ' + time(lineAt(x)));
+  let waiting = [];
+  for (const x of merged) {
+    if (x.kind === 'line') { waiting.push(x.item); continue; }
+    for (const w of waiting) l.insertBefore(line(w), x.item.el);
+    waiting = [];
+  }
+  const foot = l.querySelector('.chat-status.is-now');
+  for (const w of waiting) { if (foot) l.insertBefore(line(w), foot); else l.append(line(w)); }
+  moments();
+  if (state.chat.atFoot) l.scrollTop = l.scrollHeight;
 }
 
 /// The page before the oldest shown, kept in place as it is drawn above.
@@ -201,6 +234,7 @@ export async function loadOlder() {
       }
     } finally { state.chat.bulk--; }
     state.chat.older = res.headers.get('X-More') === 'true';
+    if (state.chat.scope) { const at = state.chat.atFoot; state.chat.atFoot = false; drawSys(); state.chat.atFoot = at; }
     moments();
     l.scrollTop += l.scrollHeight - h0;
   } catch (_) { /* scrolling up again tries again */ } finally { state.chat.loadingOlder = false; }

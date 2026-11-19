@@ -2,6 +2,7 @@
 // changes a bot is the CLI's (`doz bot new|set|retire`).
 import { h } from '../dom/h.js';
 import { when } from '../core/format.js';
+import { workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { loadBots, loadWorkspaces } from '../core/workspaces.js';
 import { panel, table } from '../components/blocks.js';
@@ -14,7 +15,7 @@ const REACHED = { inbox: 'inbox', poll: 'poll (dozchat)', webhook: 'webhook' };
 export async function viewBots() {
   const [b] = await Promise.all([loadBots(0), loadWorkspaces(1000).catch(() => null)]);
   const roomOf = (w) => { const x = state.workspaces && state.workspaces.workspaces.find((y) => y.name === w); return x ? x.room : null; };
-  const wsLink = (w) => { const r = roomOf(w); return r ? h('a', { href: '#/chat/' + r, title: 'Its room ' + r }, w) : h('span', null, w); };
+  const wsLink = (w) => { const r = roomOf(w); return h('a', { href: workspaceHash(w), title: r ? 'Its page — its room ' + r : 'Its page' }, w); };
   const rows = b.bots.map((x) => {
     const roles = [];
     for (const w of x.manages) roles.push(h('span', { class: 'bot-role' }, 'manages ', wsLink(w), x.running === w ? ' (running)' : ''));

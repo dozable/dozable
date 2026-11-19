@@ -7,6 +7,7 @@ export const state = {
   view: 'home',
   param: null,
   session: null,           // 593: #/sandbox/NAME/SESSION
+  wsRoom: null,            // #/w/NAME/room/LABEL: the room's short label (null: the workspace's main room)
   sbx: null,               // 593: the shown sandbox's {name, d, net, accounts}
   opsSeenAt: Date.now(),   // 593: a failure that ended after this is unacknowledged (the Operations badge)
   opsFilter: '',
@@ -65,5 +66,6 @@ export const state = {
     editing: null,         // the person's own message being edited: {id, draft, pending} (the box's text and files kept)
     pending: [],           // attachments uploaded for the next message: {id, name, type, size, url}
     uploading: 0,          // uploads under way
+    scope: null,           // on a workspace's page: {workspace, rooms: [{label, room, main}], who(name), sysLines(room)} — views/chat.js mountChat
   },
 };
