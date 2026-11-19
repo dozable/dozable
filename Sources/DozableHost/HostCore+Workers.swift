@@ -94,6 +94,7 @@ extension HostCore {
     func performWorker(_ r: HostRequest) async throws -> JSONValue {
         let q = r.workerRequest ?? WorkerRequest()
         if r.op == .workerList { return try JSONValue(encoding: await workerListing(q)) }
+        if r.op == .workerPlan { return try JSONValue(encoding: await workerPlan(q)) }
         guard !readOnly else { throw HostError(.unavailable, "\(r.op.rawValue) needs the daemon") }
         switch r.op {
         case .workerAdd: return try JSONValue(encoding: try await workerAdd(q))
@@ -147,26 +148,38 @@ extension HostCore {
 
     // MARK: adding
 
-    func workerAdd(_ q: WorkerRequest) async throws -> WorkerAdded {
-        let n = try workspaceName(WorkspaceRequest(name: q.workspace))
+    /// The first checks of an add (and of its plan), in its order: the workspace's name, the task, the workspace.
+    func workerBasics(_ q: WorkerRequest) throws -> (workspace: String, task: String) {
+        let n: String
+        do { n = try workspaceName(WorkspaceRequest(name: q.workspace)) } catch { throw WorkerFieldRefusal.tag("workspace", error) }
         let task = (q.task ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !task.isEmpty else { throw HostError(.invalid, "what is it to do? --task \"…\"") }
+        guard !task.isEmpty else { throw WorkerFieldRefusal("task", HostError(.invalid, "what is it to do? --task \"…\"")) }
         guard task.utf8.count <= WorkerLaunch.maximumTaskBytes else {
-            throw HostError(.invalid, "the task is \(task.utf8.count) bytes — at most \(WorkerLaunch.maximumTaskBytes >> 10) KiB")
+            throw WorkerFieldRefusal("task", HostError(.invalid, "the task is \(task.utf8.count) bytes — at most \(WorkerLaunch.maximumTaskBytes >> 10) KiB"))
         }
-        _ = try workspaceRecord(n)
+        do { _ = try workspaceRecord(n) } catch { throw WorkerFieldRefusal.tag("workspace", error) }
+        return (n, task)
+    }
+
+    /// Chat as a worker needs it (nil: ready).
+    static func workerChatRefusal(_ r: WorkspaceChatReadiness) -> WorkerFieldRefusal? {
+        switch r {
+        case .off: return WorkerFieldRefusal("workspace", HostError(.unavailable, "a worker needs chat — doz chat on"))
+        case .notReady(let why): return WorkerFieldRefusal("workspace", HostError(.unavailable, "chat is on but its server is not ready (\(why)) — doz chat status"))
+        case .ready: return nil
+        }
+    }
+
+    func workerAdd(_ q: WorkerRequest) async throws -> WorkerAdded {
+        let (n, task) = try workerBasics(q)
         // Chat: a worker talks in the workspace's room.
         guard let chat = workspaceChat, let participants = botChat else { throw HostError(.unavailable, "a worker needs chat — doz chat on") }
-        switch await chat.readiness() {
-        case .off: throw HostError(.unavailable, "a worker needs chat — doz chat on")
-        case .notReady(let why): throw HostError(.unavailable, "chat is on but its server is not ready (\(why)) — doz chat status")
-        case .ready: break
-        }
+        if let no = Self.workerChatRefusal(await chat.readiness()) { throw no }
         // 1. Under the gate: every check, then the entry, marked pending (nothing written on a refusal).
         await workspaceGate.lock("workspaces")
         let prepared: WorkerPrepared
         do {
-            prepared = try await workerPrepare(n, q, task: task, participants: participants)
+            prepared = try await workerPrepare(n, q, task: task)
             var rec = prepared.record
             rec.agents.removeAll { $0.name == prepared.entry.name && $0.endedAt != nil }       // an ended one's name is free again
             rec.agents.append(prepared.entry)
@@ -218,6 +231,8 @@ extension HostCore {
         var cpus: Int?
         var memoryMiB: UInt64?
         var allowTools: [String]
+        /// A look with no daemon: the checks that need one, skipped ("checked again when you add").
+        var notes: [String] = []
     }
 
     /// What an add has made so far (undone in reverse when a later step fails).
@@ -229,71 +244,80 @@ extension HostCore {
         var fingerprint: String?
     }
 
-    /// The checks of an add, in the order a person fixes them (under the `workspaces` gate).
-    func workerPrepare(_ n: String, _ q: WorkerRequest, task: String, participants: BotChat) async throws -> WorkerPrepared {
-        let rec = try workspaceRecord(n)
+    /// The checks of an add, in the order a person fixes them (under the `workspaces` gate). Each refusal carries the
+    /// request's field it is about (`WorkerFieldRefusal`; `HostError.from` gives back the add's own error). `look`: the plan's
+    /// (`worker-plan`) — the same checks; with no daemon (the read-only core) those that ask the daemon about a running place
+    /// are skipped and said to be checked again at the add.
+    func workerPrepare(_ n: String, _ q: WorkerRequest, task: String, look: Bool = false) async throws -> WorkerPrepared {
+        func no(_ field: String, _ e: HostError) -> WorkerFieldRefusal { WorkerFieldRefusal(field, e) }
+        func tagged<T>(_ field: String, _ body: () throws -> T) throws -> T {
+            do { return try body() } catch { throw WorkerFieldRefusal.tag(field, error) }
+        }
+        let rec = try tagged("workspace") { try workspaceRecord(n) }
+        let skipLive = look && readOnly
+        var notes: [String] = []
         guard rec.flags.archivedAt == nil, rec.flags.finishedAt == nil else {
-            throw HostError(.invalidPhase, "\(n) is \(rec.flags.archivedAt != nil ? "archived" : "finished")")
+            throw no("workspace", HostError(.invalidPhase, "\(n) is \(rec.flags.archivedAt != nil ? "archived" : "finished")"))
         }
-        guard !startingWorkspaces.contains(n) else { throw HostError(.invalidPhase, "\(n) is starting — add the worker once its start is over") }
+        guard !startingWorkspaces.contains(n) else { throw no("workspace", HostError(.invalidPhase, "\(n) is starting — add the worker once its start is over")) }
         guard rec.flags.startedAt != nil || rec.flags.firstAgentAt != nil else {
-            throw HostError(.invalidPhase, "\(n) is still setting up — doz workspace start \(n) first (a workspace with no manager starts with you driving)")
+            throw no("workspace", HostError(.invalidPhase, "\(n) is still setting up — doz workspace start \(n) first (a workspace with no manager starts with you driving)"))
         }
-        guard let main = rec.mainRoom?.chatRoom else { throw HostError(.invalidPhase, "\(n) has no room — doz workspace edit \(n) --make-room") }
+        guard let main = rec.mainRoom?.chatRoom else { throw no("workspace", HostError(.invalidPhase, "\(n) has no room — doz workspace edit \(n) --make-room")) }
         var rooms = [main]
         for label in q.rooms ?? [] {
             guard let r = rec.rooms.first(where: { $0.label == label || $0.chatRoom == label }) else {
-                throw HostError(.notFound, "\(n) has no room \(label) (its rooms: \(rec.rooms.map(\.label).joined(separator: ", ")))")
+                throw no("rooms", HostError(.notFound, "\(n) has no room \(label) (its rooms: \(rec.rooms.map(\.label).joined(separator: ", ")))"))
             }
             if !rooms.contains(r.chatRoom) { rooms.append(r.chatRoom) }
         }
         // The bot it is, when it is one.
         var bot: BotRecord?
         if let b = q.fromBot {
-            if let why = ChatNames.refusal(b) { throw HostError(.invalid, why) }
-            guard let rec = try bots.read().bot(b) else { throw HostError(.notFound, "\(b) is not a bot (doz bot ls)") }
-            if let at = rec.retiredAt { throw BotName.retiredRefusal(b, at) }
+            if let why = ChatNames.refusal(b) { throw no("fromBot", HostError(.invalid, why)) }
+            guard let rec = try tagged("fromBot", { try bots.read().bot(b) }) else { throw no("fromBot", HostError(.notFound, "\(b) is not a bot (doz bot ls)")) }
+            if let at = rec.retiredAt { throw WorkerFieldRefusal.tag("fromBot", BotName.retiredRefusal(b, at)) }
             guard rec.isolation.default != "elsewhere" else {
-                throw HostError(.invalid, "a bot elsewhere runs on its own machine; Dozable never starts it — choose a bot that runs here")
+                throw no("fromBot", HostError(.invalid, "a bot elsewhere runs on its own machine; Dozable never starts it — choose a bot that runs here"))
             }
             bot = rec
         }
         // Its isolation and program; the flags that do not go together.
         let shared = q.sandbox != nil
         let iso: ManagerIsolation = shared ? .vm
-            : try WorkerIsolation.resolve(asked: q.isolation, workspaceDefault: rec.defaults.isolation, botDefault: bot?.isolation.default)
-        if iso == .unfenced, let no = unfencedManagerRefusal() { throw no }
+            : try tagged("isolation") { try WorkerIsolation.resolve(asked: q.isolation, workspaceDefault: rec.defaults.isolation, botDefault: bot?.isolation.default) }
+        if iso == .unfenced, let refused = unfencedManagerRefusal() { throw WorkerFieldRefusal.tag("isolation", refused) }
         let agent = bot?.agent ?? q.agent ?? "claude-code"
         guard let program = ManagerLaunch.program(agent: agent) else {
-            throw HostError(.invalid, "Dozable starts a worker running Claude Code or Codex — --agent claude-code or codex, not \(agent.prefix(40))")
+            throw no(bot != nil ? "fromBot" : "agent", HostError(.invalid, "Dozable starts a worker running Claude Code or Codex — --agent claude-code or codex, not \(agent.prefix(40))"))
         }
         let flags = WorkerLaunch.Flags(isolation: q.isolation, sandbox: q.sandbox, session: q.session, cpus: q.cpus, memory: q.memory, agent: q.agent,
                                        fromBot: q.fromBot, name: q.name, allowTools: q.allowTools ?? [])
-        if let why = WorkerLaunch.flagProblems(flags, isolation: iso, program: program) { throw HostError(.invalid, why) }
+        if let p = WorkerLaunch.flagProblem(flags, isolation: iso, program: program) { throw no(p.field, HostError(.invalid, p.text)) }
         var memoryMiB: UInt64?
         if let m = q.memory {
-            guard let v = DozableImages.parseMemory(m) else { throw HostError(.invalid, "--memory \(m.prefix(20)): a size like 2G or 2048M") }
+            guard let v = DozableImages.parseMemory(m) else { throw no("memory", HostError(.invalid, "--memory \(m.prefix(20)): a size like 2G or 2048M")) }
             memoryMiB = v
         }
-        if let c = q.cpus, !(1...64).contains(c) { throw HostError(.invalid, "--cpus is 1 to 64") }
-        if iso != .vm, buildFlavor.isHelper { throw HostError(.notImplemented, BuildFlavor.helperLeavesOut("sessions on this Mac")) }
+        if let c = q.cpus, !(1...64).contains(c) { throw no("cpus", HostError(.invalid, "--cpus is 1 to 64")) }
+        if iso != .vm, buildFlavor.isHelper { throw no("isolation", HostError(.notImplemented, BuildFlavor.helperLeavesOut("sessions on this Mac"))) }
         // A bot's own rules: one role in a workspace, one live workspace, reached by polling where it is fenced.
         if let b = bot {
-            if rec.manager?.bot == b.name { throw HostError(.exists, "\(b.name) is \(n)'s manager — a bot plays one role in a workspace") }
-            if rec.liveWorkerIndex(b.name) != nil { throw HostError(.exists, "\(b.name) already works in \(n) (doz worker ls \(n))") }
+            if rec.manager?.bot == b.name { throw no("fromBot", HostError(.exists, "\(b.name) is \(n)'s manager — a bot plays one role in a workspace")) }
+            if rec.liveWorkerIndex(b.name) != nil { throw no("fromBot", HostError(.exists, "\(b.name) already works in \(n) (doz worker ls \(n))")) }
             if let other = await liveWorkspace(of: b.name, except: n) {
-                throw HostError(.exists, WorkspaceSetupCheck.liveElsewhereRefusal(bot: b.name, other))
+                throw no("fromBot", HostError(.exists, WorkspaceSetupCheck.liveElsewhereRefusal(bot: b.name, other)))
             }
-            guard b.holdsToken else { throw HostError(.invalid, "\(b.name)'s token is not held by Dozable — doz bot token \(b.name) --new") }
+            guard b.holdsToken else { throw no("fromBot", HostError(.invalid, "\(b.name)'s token is not held by Dozable — doz bot token \(b.name) --new")) }
             if b.deliver == "inbox", iso != .unfenced {
-                throw HostError(.invalid, "\(b.name) is reached by inbox, which only an unfenced session gets; a fenced or VM worker polls — doz bot set \(b.name) --deliver poll")
+                throw no("fromBot", HostError(.invalid, "\(b.name) is reached by inbox, which only an unfenced session gets; a fenced or VM worker polls — doz bot set \(b.name) --deliver poll"))
             }
             if b.deliver == "webhook" {
-                throw HostError(.invalid, "\(b.name) is reached by webhook; a worker Dozable starts collects its own messages — doz bot set \(b.name) --deliver poll")
+                throw no("fromBot", HostError(.invalid, "\(b.name) is reached by webhook; a worker Dozable starts collects its own messages — doz bot set \(b.name) --deliver poll"))
             }
         }
         // Its name: the bot's, as given, or the first free botN.
-        let dir = try participants.directory()
+        let dir = try tagged("workspace") { try botDirectory() }
         let file = bots.readOrEmpty()
         var liveNames = Set<String>()
         for w in workspaces.records() { for a in w.agents where a.isLiveWorker { liveNames.insert(a.name) } }
@@ -302,57 +326,66 @@ extension HostCore {
         if let b = bot {
             name = b.name
         } else if let given = q.name {
-            if let why = ChatNames.refusal(given) { throw HostError(.invalid, why) }
+            if let why = ChatNames.refusal(given) { throw no("name", HostError(.invalid, why)) }
             if let e = BotName.refusal(given, human: dir.human, file: file) {
-                throw e.code == .exists && file.bot(given)?.retiredAt == nil ? HostError(.exists, "\(given) is a bot — doz worker add \(n) --from-bot \(given)") : e
+                throw no("name", e.code == .exists && file.bot(given)?.retiredAt == nil ? HostError(.exists, "\(given) is a bot — doz worker add \(n) --from-bot \(given)") : e)
             }
-            if dir.has(given) { throw HostError(.exists, "\(given) is already in chat — choose another name, or leave it out") }
-            if liveNames.contains(given) { throw HostError(.exists, "\(given) is already a worker — choose another name, or leave it out") }
-            if here.contains(given) { throw HostError(.exists, "\(n) already has an agent called \(given)") }
+            if dir.has(given) { throw no("name", HostError(.exists, "\(given) is already in chat — choose another name, or leave it out")) }
+            if liveNames.contains(given) { throw no("name", HostError(.exists, "\(given) is already a worker — choose another name, or leave it out")) }
+            if here.contains(given) { throw no("name", HostError(.exists, "\(n) already has an agent called \(given)")) }
             name = given
         } else {
             let taken = Set(dir.participants.map(\.name)).union(file.bots.map(\.name)).union(liveNames).union(here)
                 .union(dir.human.map { [$0] } ?? [])
             name = WorkerLaunch.nextAnonymousName(taken: taken)
         }
-        guard WorkspaceName.isValidAgent(name) else { throw HostError(.invalid, "\(name) is not an agent name") }
-        if bot != nil, here.contains(name) { throw HostError(.exists, "\(n) already has an agent called \(name)") }
+        guard WorkspaceName.isValidAgent(name) else { throw no(bot != nil ? "fromBot" : "name", HostError(.invalid, "\(name) is not an agent name")) }
+        if bot != nil, here.contains(name) { throw no("fromBot", HostError(.exists, "\(n) already has an agent called \(name)")) }
         // Its place.
         let pagePort = ChatSettingsView.read().pagePort
         var place: String
         var session: String?
+        let placeField = q.session != nil ? "session" : "name"
         if let x = q.sandbox {
             guard let owner = rec.agents.first(where: { $0.endedAt == nil && $0.place.sandbox == x }) else {
-                throw HostError(.notFound, "\(x) is not a sandbox of \(n) — a worker joins an adopted agent's or another worker's sandbox (doz worker ls \(n))")
+                throw no("sandbox", HostError(.notFound, "\(x) is not a sandbox of \(n) — a worker joins an adopted agent's or another worker's sandbox (doz worker ls \(n))"))
             }
-            if owner.isManager { throw HostError(.invalid, "\(x) is the manager's sandbox — a worker never shares it") }
-            guard let info = await workerLauncher.sandbox(x) else { throw HostError(.notFound, "no sandbox \(x) (doz ls)") }
-            guard info.running else { throw HostError(.invalidPhase, "\(x) is stopped — doz start \(x)") }
-            guard info.proxied else { throw HostError(.invalid, "\(x) is not proxied — a worker's token is held by Dozable's proxy") }
-            guard info.hostPorts.contains(UInt16(clamping: pagePort)) else {
-                throw HostError(.invalid, "\(x) does not reach the chat server's page port \(pagePort) — doz net allow \(x) host:\(pagePort)")
-            }
-            guard info.variables.count < LaunchSecrets.maximum else {
-                throw HostError(.invalid, "\(x) holds \(LaunchSecrets.maximum) secrets already, the most a sandbox has — end a worker there, or give this one a place of its own")
-            }
+            if owner.isManager { throw no("sandbox", HostError(.invalid, "\(x) is the manager's sandbox — a worker never shares it")) }
             let v = WorkerLaunch.tokenVariables(name: name, shared: true)
-            if info.variables.contains(v.variable) { throw HostError(.exists, "\(x) holds \(v.variable) already") }
+            if skipLive {
+                notes.append("whether \(x) runs, reaches the chat server and has room for \(v.variable) is checked again when you add")
+            } else {
+                guard let info = await workerLauncher.sandbox(x) else { throw no("sandbox", HostError(.notFound, "no sandbox \(x) (doz ls)")) }
+                guard info.running else { throw no("sandbox", HostError(.invalidPhase, "\(x) is stopped — doz start \(x)")) }
+                guard info.proxied else { throw no("sandbox", HostError(.invalid, "\(x) is not proxied — a worker's token is held by Dozable's proxy")) }
+                guard info.hostPorts.contains(UInt16(clamping: pagePort)) else {
+                    throw no("sandbox", HostError(.invalid, "\(x) does not reach the chat server's page port \(pagePort) — doz net allow \(x) host:\(pagePort)"))
+                }
+                guard info.variables.count < LaunchSecrets.maximum else {
+                    throw no("sandbox", HostError(.invalid, "\(x) holds \(LaunchSecrets.maximum) secrets already, the most a sandbox has — end a worker there, or give this one a place of its own"))
+                }
+                if info.variables.contains(v.variable) { throw no("sandbox", HostError(.exists, "\(x) holds \(v.variable) already")) }
+            }
             place = x
             session = name
         } else {
             place = iso == .vm ? WorkerLaunch.placeName(workspace: n, name: name) : (q.session ?? WorkerLaunch.placeName(workspace: n, name: name))
-            if iso != .vm { try MacPlace.validateSessionName(place) } else { session = name }
-            if iso == .vm, let why = Self.sandboxNameRefusal(place) { throw HostError(.invalid, why) }
-            let info = await workerLauncher.info(isolation: iso, place: place)
-            if info.exists {
-                let ours = rec.agents.contains { $0.isWorker && $0.endedAt != nil && ($0.place.session == place || $0.place.sandbox == place) }
-                if info.running || !ours || iso == .vm {
-                    throw HostError(.exists, iso == .vm ? "a sandbox called \(place) already exists — doz rm \(place) first"
-                                    : "a session called \(place) already exists on this Mac — doz sessions end @mac \(place) twice, or --session NAME")
+            if iso != .vm { try tagged(placeField) { try MacPlace.validateSessionName(place) } } else { session = name }
+            if iso == .vm, let why = Self.sandboxNameRefusal(place) { throw no("name", HostError(.invalid, why)) }
+            if skipLive {
+                notes.append("whether \(iso == .vm ? "a sandbox" : "a session on this Mac") called \(place) already exists is checked again when you add")
+            } else {
+                let info = await workerLauncher.info(isolation: iso, place: place)
+                if info.exists {
+                    let ours = rec.agents.contains { $0.isWorker && $0.endedAt != nil && ($0.place.session == place || $0.place.sandbox == place) }
+                    if info.running || !ours || iso == .vm {
+                        throw no(iso == .vm ? "name" : placeField, HostError(.exists, iso == .vm ? "a sandbox called \(place) already exists — doz rm \(place) first"
+                                        : "a session called \(place) already exists on this Mac — doz sessions end @mac \(place) twice, or --session NAME"))
+                    }
                 }
             }
             let member = workspaces.membership()
-            if iso != .vm, let w = member["mac:" + place], w != n { throw HostError(.exists, "@mac/\(place) is in \(w) already — --session NAME") }
+            if iso != .vm, let w = member["mac:" + place], w != n { throw no(placeField, HostError(.exists, "@mac/\(place) is in \(w) already — --session NAME")) }
         }
         let now = Date()
         var e = WorkspaceAgent(name: name, role: "worker",
@@ -365,7 +398,49 @@ extension HostCore {
         if let m = rec.manager, let mb = m.bot, await managerRunning(m) { director = mb }
         return WorkerPrepared(record: rec, entry: e, isolation: iso, bot: bot, agent: agent, place: place, session: session, shared: shared,
                               rooms: rooms, permissions: rec.defaults.network ?? "locked", director: director, cpus: q.cpus, memoryMiB: memoryMiB,
-                              allowTools: q.allowTools ?? [])
+                              allowTools: q.allowTools ?? [], notes: notes)
+    }
+
+    /// `worker-plan`: the add's checks and decisions with nothing written, no participant made, no keychain item read and
+    /// nothing started — the first refusal with its field, else what the add would do; and the command.
+    func workerPlan(_ q: WorkerRequest) async -> WorkerPlan {
+        var plan = WorkerPlan(workspace: q.workspace ?? "", command: WorkerAddCommand.text(q))
+        if let note = WorkerAddCommand.taskFileNote(q) { plan.notes.append(note) }
+        do {
+            let (n, task) = try workerBasics(q)
+            let (readiness, assumed) = await workspaceLookReadiness(look: true)
+            if let no = Self.workerChatRefusal(readiness) { throw no }
+            if assumed { plan.notes.append("no daemon runs: chat is judged from its setting, and checked again when you add") }
+            let p = try await workerPrepare(n, q, task: task, look: true)
+            plan.workspace = n
+            plan.name = p.entry.name
+            plan.agent = p.agent
+            let program = ManagerLaunch.program(agent: p.agent)
+            switch p.isolation {
+            case .unfenced: plan.account = nil
+            case .vm: plan.account = p.bot?.account ?? accountStore.load().defaultAccount(for: program == "codex" ? "codex" : "claude-code")
+            case .fenced: plan.account = p.bot?.account ?? DozableSettings.load().string(SettingKey.macAccount) ?? "mac"
+            }
+            plan.isolation = p.isolation.rawValue
+            plan.place = p.entry.place.display
+            plan.session = p.session ?? (p.isolation == .vm ? nil : p.place)
+            plan.sandbox = p.isolation == .vm ? p.place : nil
+            plan.folder = p.record.mainFolder?.path ?? Workspace.defaultPath(name: n) + "/" + p.entry.name
+            plan.network = p.isolation == .unfenced ? "not limited" : p.permissions
+            plan.shares = p.shared ? p.place : nil
+            plan.control = WorkerLaunch.control(isolation: p.isolation.rawValue, shares: plan.shares)
+            plan.rooms = p.rooms
+            plan.allowTools = p.isolation == .fenced && program == "claude" ? WorkerLaunch.defaultAllowedTools + p.allowTools : []
+            plan.actsAsYou = p.isolation == .unfenced
+            plan.director = p.director ?? "you"
+            plan.notes += p.notes
+            if p.shared { plan.notes.append("\(p.entry.name) shares \(p.place): workers there can read each other's placeholders") }
+        } catch {
+            let t = WorkerFieldRefusal.tag("workspace", error)
+            plan.problem = WorkerPlanProblem(field: t.field, text: t.error.message, code: t.error.code.rawValue)
+        }
+        plan.lines = WorkerPlanLines.lines(plan)
+        return plan
     }
 
     /// A sandbox name a worker's place must be (nil: fine).

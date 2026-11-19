@@ -278,6 +278,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// in-process when no daemon runs. `-add` (`WorkerAdded`) and `-end` (`WorkerEnded`) make and end a worker — its
     /// participant, token and place: the daemon's (`HostCore+Workers`).
     case workerAdd = "worker-add", workerList = "worker-ls", workerEnd = "worker-end"
+    /// What `worker-add` would decide with the same `WorkerRequest` — the add's own checks, nothing written, no participant
+    /// made, no keychain item read, nothing started (`WorkerPlan`: the decided fields, or the first refusal with its field,
+    /// and the command). Only reads: answered in-process when no daemon runs (`doz worker add … --dry-run`, the dashboard's
+    /// Add a worker page).
+    case workerPlan = "worker-plan"
     /// Your Macs (`MacBookmarks`): the other Macs' dashboards this store keeps a bookmark of — `MacListing`, read from
     /// `<store>/macs.json`. Read-only: answered in-process when no daemon runs. Adding, removing and checking are the CLI's
     /// own (`doz ui macs`, in-process): no operation writes the list.
@@ -288,7 +293,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .botList, .botShow, .workerList, .macsList: true
+             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .botList, .botShow, .workerList, .workerPlan, .macsList: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -643,6 +648,7 @@ public struct HostError: Codable, Equatable, Sendable, Error, LocalizedError {
     /// A library (or any) error as a host error.
     public static func from(_ error: Error) -> HostError {
         if let e = error as? HostError { return e }
+        if let e = error as? WorkerFieldRefusal { return e.error }
         if let e = error as? SandboxError {
             switch e {
             case .invalidPhase, .notRunning: return HostError(.invalidPhase, e.localizedDescription)

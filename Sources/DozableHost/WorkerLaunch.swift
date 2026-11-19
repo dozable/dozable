@@ -73,27 +73,34 @@ public enum WorkerLaunch {
 
     /// The flags that do not go together (nil: none), given the isolation they resolve to and the program it runs.
     public static func flagProblems(_ f: Flags, isolation: ManagerIsolation, program: String?) -> String? {
+        flagProblem(f, isolation: isolation, program: program)?.text
+    }
+
+    /// The same, with the request's field each is about (`sandbox`, `cpus`, `memory`, `session`, `agent`, `name`,
+    /// `allowTools`) — the plan shows it beside that field.
+    public static func flagProblem(_ f: Flags, isolation: ManagerIsolation, program: String?) -> (field: String, text: String)? {
+        let sizeField = f.cpus != nil ? "cpus" : "memory"
         if f.sandbox != nil {
-            if f.isolation != nil { return "--sandbox or --isolation, not both: a worker in a sandbox has the sandbox's isolation" }
-            if f.cpus != nil || f.memory != nil { return "--cpus and --memory are for a new sandbox, not --sandbox (it keeps its own)" }
-            if f.session != nil { return "--session names a session on this Mac; in --sandbox X the worker's session is its name" }
+            if f.isolation != nil { return ("sandbox", "--sandbox or --isolation, not both: a worker in a sandbox has the sandbox's isolation") }
+            if f.cpus != nil || f.memory != nil { return (sizeField, "--cpus and --memory are for a new sandbox, not --sandbox (it keeps its own)") }
+            if f.session != nil { return ("session", "--session names a session on this Mac; in --sandbox X the worker's session is its name") }
         }
         else if isolation != .vm, f.cpus != nil || f.memory != nil {
-            return "--cpus and --memory go with --isolation vm (a sandbox of its own)"
+            return (sizeField, "--cpus and --memory go with --isolation vm (a sandbox of its own)")
         } else if isolation == .vm, f.session != nil {
-            return "--session names a session on this Mac; a VM worker's sandbox is named for it"
+            return ("session", "--session names a session on this Mac; a VM worker's sandbox is named for it")
         }
         if let b = f.fromBot {
-            if f.agent != nil { return "--agent goes with an anonymous worker; \(b) runs its own agent" }
-            if let n = f.name, n != b { return "a worker from a bot takes the bot's name: leave NAME out, or give \(b)" }
+            if f.agent != nil { return ("agent", "--agent goes with an anonymous worker; \(b) runs its own agent") }
+            if let n = f.name, n != b { return ("name", "a worker from a bot takes the bot's name: leave NAME out, or give \(b)") }
         }
         if !f.allowTools.isEmpty {
             guard f.sandbox == nil, isolation == .fenced, program == "claude" else {
-                return "--allow-tool goes with a fenced Claude Code worker (on this Mac)"
+                return ("allowTools", "--allow-tool goes with a fenced Claude Code worker (on this Mac)")
             }
             for t in f.allowTools {
                 guard (1...200).contains(t.count), !t.hasPrefix("-"), !t.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7F }) else {
-                    return "--allow-tool \(t.prefix(40)): a tool rule like Edit or \"Bash(git status:*)\" (1–200 characters)"
+                    return ("allowTools", "--allow-tool \(t.prefix(40)): a tool rule like Edit or \"Bash(git status:*)\" (1–200 characters)")
                 }
             }
         }
