@@ -104,7 +104,7 @@ func printBot(_ d: BotDetail) {
     s += "  skills        \(d.skills.isEmpty ? "none" : d.skills.joined(separator: ", "))\n"
     s += "  instructions  \(d.instructions.map { "\($0.bytes) bytes" } ?? "none")\n"
     s += "  workspaces    \(d.workspaces.isEmpty ? "none" : d.workspaces.joined(separator: ", "))"
-        + (d.manages.isEmpty ? "" : " (manages \(d.manages.joined(separator: ", ")))") + "\n"
+        + (d.manages.isEmpty ? "" : " (manages \(d.manages.map { $0 == d.running ? $0 + ", running" : $0 }.joined(separator: "; ")))") + "\n"
     for n in d.notes ?? [] { s += "note: \(n)\n" }
     Out.stdout(s)
 }
@@ -196,7 +196,7 @@ struct BotList: AsyncParsableCommand {
         for r in l.bots {
             t.append([r.name, r.agent + (r.model.map { " · \($0)" } ?? ""), BotIsolation.words(r.isolation),
                       (r.deliver == "poll" ? "polls" : r.deliver) + (r.inChat || retired ? "" : " (not in chat)"),
-                      r.manages.isEmpty ? "—" : r.manages.joined(separator: ", ")] + (retired ? [r.retiredAt.map(BotName.day) ?? "?"] : []))
+                      r.manages.isEmpty ? "—" : r.manages.map { $0 == r.running ? $0 + " (running)" : $0 }.joined(separator: ", ")] + (retired ? [r.retiredAt.map(BotName.day) ?? "?"] : []))
         }
         Out.stdout(Out.table(t))
     }
