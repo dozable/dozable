@@ -8,6 +8,7 @@ import { icon } from '../dom/icons.js';
 import { tildePath } from '../core/paths.js';
 import { agentHash, agentsHash } from '../core/routes.js';
 import { cmdLine } from './cmd-line.js';
+import { isolationChip } from './iso-chip.js';
 
 const PROGRAMS = { 'claude-code': 'Claude Code', codex: 'Codex' };
 /// An agent program as a person reads it (`claude-code` → Claude Code).
@@ -50,7 +51,7 @@ function agentRow(w, a) {
     h('div', { class: 'ws-agent-body' },
       h('div', { class: 'ws-agent-top' }, name, h('span', { class: 'ws-agent-role' }, a.role + (a.activity ? ' · ' + a.activity : a.state === 'running' ? '' : ' · ' + a.state))),
       h('div', { class: 'ws-agent-chips' },
-        h('span', { class: 'ws-iso ws-iso-' + iso.replace(/ /g, '-') }, iso),
+        isolationChip(iso),
         a.actsAsYou ? h('span', { class: 'ws-chip acts-as-you', title: 'Unfenced on this Mac: it acts as you' }, icon('triangle-alert'), 'acts as you') : null),
       a.task ? h('div', { class: 'ws-agent-task', title: a.task }, a.task) : null,
       a.control ? h('div', { class: 'ws-agent-control' }, a.control) : null));

@@ -1751,6 +1751,35 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   </div></div>
 </section>
 
+<section id="sg-isolation-guide">
+  <h2>Where an agent runs — the isolation guide, and the chip that leads there</h2>
+  <p><code>#/guide/isolation[/vm|fenced|unfenced|elsewhere]</code> (<code>views/isolation-guide.js</code>; the words are <code>core/isolation.js</code>'s):
+    four cards in order of isolation (<code>.iso-cards</code>: four across, two below 1180 px, one below 760 px), each with a diagram drawn with boxes
+    (<code>.iso-fig</code>: solid for the micro VM, dashed for the fence, none unfenced, two machines elsewhere), what it is, For, Not for and today's
+    commands; the card the address names is highlighted (<code>.iso-card.is-current</code>). Every isolation chip (<code>components/iso-chip.js</code>)
+    is a link to its card (<code>a.ws-iso</code>, underlined on hover).</p>
+  <div class="pair"><div class="scheme">
+    <p><a class="ws-iso ws-iso-micro-VM" href="#">micro VM</a> <a class="ws-iso ws-iso-fenced" href="#">fenced</a> <a class="ws-iso ws-iso-unfenced" href="#">unfenced</a>
+      <a class="ws-iso ws-iso-elsewhere" href="#">elsewhere</a> <span class="ws-iso ws-iso-on-this-Mac">on this Mac</span></p>
+    <div class="iso-cards" style="grid-template-columns:repeat(2, minmax(0, 1fr))">
+      <article class="iso-card"><h2 class="iso-card-h"><a class="ws-iso ws-iso-micro-VM" href="#">micro VM</a><span class="iso-card-title">micro VM</span></h2>
+        <div class="iso-fig"><div class="iso-fig-mac"><span class="iso-fig-label">your Mac</span><div class="iso-fig-box iso-fig-vm"><span class="iso-fig-label">Linux VM</span><span>agent · /workspace</span><span>no network card</span></div></div></div>
+        <p class="iso-what">A separate small Linux machine. Your folder appears inside; everything else of your Mac does not exist for it.</p>
+        <p class="iso-for"><b>For: </b>Almost every worker.</p><p class="iso-not"><b>Not for: </b>Xcode, the Simulator, Mac-only tools.</p>
+        <div class="iso-cmds"><div class="iso-cmd"><span class="cmd-copy"><code>doz worker add W --task "…" --isolation vm</code></span><span class="muted">a worker in a micro VM of its own</span></div></div></article>
+      <article class="iso-card is-current"><h2 class="iso-card-h"><a class="ws-iso ws-iso-fenced" href="#">fenced</a><span class="iso-card-title">fenced on this Mac</span></h2>
+        <div class="iso-fig"><div class="iso-fig-mac"><span class="iso-fig-label">your Mac</span><div class="iso-fig-box iso-fig-fenced"><span class="iso-fig-label">macOS sandbox</span><span>agent · its folder</span><span>keychain closed</span></div></div></div>
+        <p class="iso-what">macOS’s own sandbox around one program.</p><p class="iso-for"><b>For: </b>Managers, and Mac and iOS builds.</p></article>
+      <article class="iso-card"><h2 class="iso-card-h"><a class="ws-iso ws-iso-unfenced" href="#">unfenced</a><span class="iso-card-title">unfenced on this Mac</span></h2>
+        <div class="iso-fig"><div class="iso-fig-mac"><span class="iso-fig-label">your Mac</span><div class="iso-fig-none"><span>agent, as you —</span><span>no boundary</span></div></div></div>
+        <p class="iso-what">No isolation: your files, Keychain and network, as if you typed it.</p></article>
+      <article class="iso-card iso-card-elsewhere"><h2 class="iso-card-h"><a class="ws-iso ws-iso-elsewhere" href="#">elsewhere</a><span class="iso-card-title">elsewhere</span></h2>
+        <div class="iso-fig iso-fig-elsewhere"><div class="iso-fig-mac">this Mac</div><div class="iso-fig-link">token</div><div class="iso-fig-other">another</div></div>
+        <p class="iso-honest"><i data-i="triangle-alert"></i>Not isolated by Dozable.</p></article>
+    </div>
+  </div></div>
+</section>
+
 <section>
   <h2>Marks — the icon registry</h2>
   <p>Vendor and product marks from <code>Sources/DozableKit/Recipes/icons/</code>: one <code>currentColor</code> path each, so they follow the text colour in light and dark.

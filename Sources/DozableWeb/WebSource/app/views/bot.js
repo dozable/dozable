@@ -22,6 +22,7 @@ import { moreMenu } from '../components/menus.js';
 import { toast } from '../components/notices.js';
 import { botChangeRefusal, botForm, elsewhereCommand, ISOLATION_WORDS, REACHED_WORDS, SECTIONS } from '../components/bot-form.js';
 import { chatRooms, includeInRoom } from '../components/bot-invite.js';
+import { isolationChip } from '../components/iso-chip.js';
 import { workspacePill } from '../components/ws-marks.js';
 import { programName } from '../components/ws-panel.js';
 import { newWorkspaceHash } from './new-workspace.js';
@@ -40,7 +41,9 @@ export function botAvatar(b, cls) {
 }
 /// The isolation chip ("acts as you" beside an unfenced one).
 export function isolationChips(iso) {
-  return [h('span', { class: 'ws-iso ws-iso-' + iso, 'data-iso': iso }, ISOLATION_WORDS[iso] ? (iso === 'unfenced' ? 'unfenced' : ISOLATION_WORDS[iso]) : iso),
+  const chip = isolationChip(ISOLATION_WORDS[iso] ? (iso === 'unfenced' ? 'unfenced' : ISOLATION_WORDS[iso]) : iso, iso);
+  chip.setAttribute('data-iso', iso);                                  // the bot's isolation as recorded
+  return [chip,
     iso === 'unfenced' ? h('span', { class: 'ws-chip acts-as-you', title: 'Unfenced on this Mac: it acts as you' }, icon('triangle-alert'), 'acts as you') : null];
 }
 

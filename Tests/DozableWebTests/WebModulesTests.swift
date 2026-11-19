@@ -1,6 +1,7 @@
 import Foundation
 import JavaScriptCore
 import XCTest
+import DozableHost
 @testable import DozableWeb
 
 /// 607 — the page script as native ES modules (`WebSource/app.js` + `WebSource/app/<layer>/*.js`): what ships
@@ -208,6 +209,58 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(wiz.contains("new AbortController()"), "the latest plan wins")
         XCTAssertTrue(wiz.contains("sessionStorage"), "its choices kept for the trip to the bot editor")
         XCTAssertFalse(wiz.lowercased().contains("'draft") || wiz.contains("as draft"), "the state is setting up")
+    }
+
+    /// The isolation guide: its modules served; both addresses parse (and nothing else under #/guide/); core/isolation.js is
+    /// pure, lists the four choices in order of isolation, and its control words are exactly `doz worker ls`'s
+    /// (WorkerLaunch.control); every view that draws an isolation chip draws it through components/iso-chip.js, which links
+    /// to the guide at that choice.
+    func testTheIsolationGuide() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let a = try WebAssets.load()
+        for m in ["views/isolation-guide", "core/isolation", "components/iso-chip"] {
+            XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
+        }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        ctx.evaluateScript(try read("app/core/routes.js").replacingOccurrences(of: "export ", with: ""))
+        let pure = try read("app/core/isolation.js")
+        XCTAssertTrue(Self.specifiers(pure).isEmpty, "core/isolation.js is pure: it imports nothing")
+        ctx.evaluateScript(pure.replacingOccurrences(of: "export ", with: ""))
+        XCTAssertNil(thrown, thrown ?? "")
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("[parse('#/guide/isolation').view, parse('#/guide/isolation').param]"), #"["guide",null]"#)
+        for id in ["vm", "fenced", "unfenced", "elsewhere"] {
+            XCTAssertEqual(js("parse('#/guide/isolation/\(id)').param"), "\"\(id)\"")
+            XCTAssertEqual(js("guideHash('\(id)')"), "\"#/guide/isolation/\(id)\"")
+            XCTAssertEqual(js("canonical('#/guide/isolation/\(id)')"), "\"#/guide/isolation/\(id)\"")
+        }
+        XCTAssertEqual(js("parse('#/guide/isolation/cloud')"), "null")
+        XCTAssertEqual(js("parse('#/guide')"), "null")
+        XCTAssertEqual(js("ISOLATIONS.map((x) => x.id)"), #"["vm","fenced","unfenced","elsewhere"]"#, "in order of isolation")
+        XCTAssertEqual(js("GUIDE_ISOLATIONS"), js("ISOLATIONS.map((x) => x.id)"))
+        for iso in ["vm", "fenced", "unfenced"] {
+            XCTAssertEqual(js("isolationById('\(iso)').control"), "\"\(WorkerLaunch.control(isolation: iso))\"", "\(iso): worker ls's words")
+        }
+        XCTAssertEqual(js("[isolationIdOf('micro VM'), isolationIdOf('fenced'), isolationIdOf('on this Mac')]"), #"["vm","fenced",null]"#)
+        XCTAssertEqual(js("isolationById('unfenced').rows.manager"), #""✕ always asks you""#)
+        XCTAssertEqual(js("CLOUD.later"), "true")
+        let guide = try read("app/views/isolation-guide.js")
+        XCTAssertTrue(pure.contains("not isolated by Dozable") && guide.contains("Not isolated by Dozable."), "elsewhere named honestly")
+        // Every chip builder: no module but the chip's own (and the guide's heading) builds a `ws-iso` chip by hand.
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 }
+        for f in files where !["app/components/iso-chip.js", "app/views/isolation-guide.js"].contains(f) {
+            XCTAssertFalse(try read(f).contains("'ws-iso ws-iso-"), "\(f) draws an isolation chip by hand — use isolationChip")
+        }
+        for f in ["app/components/agent-frame.js", "app/components/ws-panel.js", "app/views/bot.js"] {
+            XCTAssertTrue(try read(f).contains("isolationChip("), "\(f) draws its chips through isolationChip")
+        }
+        let chip = try read("app/components/iso-chip.js")
+        XCTAssertTrue(chip.contains("href: guideHash(id)"), "the chip links to the guide at its choice")
+        XCTAssertEqual(try read("app.js").components(separatedBy: "viewIsolationGuide").count - 1, 2, "imported and provided")
     }
 
     func testEveryModuleIsServedHashedAndImportedOnlyFromItsOwnLayerOrBelow() throws {

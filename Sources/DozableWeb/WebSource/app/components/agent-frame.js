@@ -11,6 +11,7 @@ import { agentHash, agentsHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { loadWorkspace, loadWorkspaces } from '../core/workspaces.js';
 import { cmdLine } from './cmd-line.js';
+import { isolationChip } from './iso-chip.js';
 import { takeOut } from './put-in-workspace.js';
 import { isolationWords, programName } from './ws-panel.js';
 
@@ -31,7 +32,7 @@ export function agentChips(a) {
   const iso = isolationWords(a), prog = programOf(a);
   return [
     prog ? h('span', { class: 'ws-chip', title: a.bot ? 'Agent / Bot ' + a.bot : null }, icon('bot'), prog) : null,
-    h('span', { class: 'ws-iso ws-iso-' + iso.replace(/ /g, '-'), 'data-iso': iso }, iso),
+    isolationChip(iso),
     a.actsAsYou || (a.kind === 'mac' && a.isolation === 'unfenced')
       ? h('span', { class: 'ws-chip acts-as-you', title: 'Unfenced on this Mac: it acts as you' }, icon('triangle-alert'), 'acts as you') : null,
   ].filter(Boolean);
