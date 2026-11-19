@@ -453,6 +453,8 @@ final class WorkspaceLifecycleHostTests: BotTestCase {
 
     func testAnUnfencedManagersWakeFromABrowserNeedsTheConfirmation() async throws {
         let c = await lcore()
+        // An unfenced manager's token file is written under the temporary folder (named by this scratch store): gone after.
+        defer { c.removeManagerTokenFolder("solo"); try? FileManager.default.removeItem(atPath: c.managerTokenRoot) }
         _ = try change(await ask(c, .botNew, "uma") { $0.agent = "claude-code"; $0.isolation = "unfenced"; $0.deliver = "poll" })
         let made = await ws(c, .workspaceNew, "solo") {
             $0.brief = "x\n"; $0.folders = [WorkspaceFolder(path: self.work.path)]; $0.manager = "uma"; $0.managerIsolation = "unfenced"

@@ -21,9 +21,14 @@ struct WorkspaceCommand: AsyncParsableCommand {
         A bot can manage it (--manager BOT): doz workspace start runs the set-up check, posts the brief as your first \
         message in its room, and starts the manager — fenced on this Mac by default, in a micro VM, or unfenced (acting as \
         you) only when you say so. doz workspace stop ends the manager and keeps its conversation.
+
+        Its lifecycle — sleep, wake, finish, reopen, archive, restore, delete — shows what it would do to each agent first \
+        (--dry-run stops there), then asks: a yes for finish, the name typed for archive and delete. Nothing on disk is \
+        removed without its flag.
         """,
-        subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceAdopt.self,
-                      WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRename.self])
+        subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceSleep.self,
+                      WorkspaceWake.self, WorkspaceFinish.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
+                      WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRename.self])
 }
 
 // MARK: helpers
