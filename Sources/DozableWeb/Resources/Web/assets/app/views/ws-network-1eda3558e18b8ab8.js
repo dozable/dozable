@@ -53,7 +53,7 @@ function permissionsTable(r) {
     const n = a.network;
     const refused = !n.proxied ? '—' : r.refusalsKnown ? String(n.refused.reduce((t, x) => t + x.count, 0)) : 'not known';
     return h('tr', { 'data-net-agent': a.name },
-      h('th', { scope: 'row', 'data-label': 'Agent' }, h('a', { href: canDoHash(r.workspace, a.name) }, a.name), h('span', { class: 'wsa-role' }, a.role)),
+      h('th', { scope: 'row', 'data-label': 'Agent' }, h('a', { href: canDoHash(r.workspace, a.name) }, a.name), ' ', h('span', { class: 'wsa-role' }, a.role)),
       h('td', { 'data-label': 'Network' }, n.proxied ? presetWord(n.preset) + (n.live ? '' : ' · next start')
         : a.kind === 'elsewhere' ? 'not run by Dozable' : h('span', { class: 'ws-chip acts-as-you' }, icon('triangle-alert'), 'not limited, not logged')),
       h('td', { 'data-label': 'Plus' }, n.sites.length ? n.sites.join(', ') : '—'),
@@ -79,7 +79,7 @@ function refusedList(r, again) {
     const btnOne = one.body
       ? h('button', { type: 'button', class: 'btn sm', 'data-allow-one': a.name + ' ' + x.grant, on: { click: () => allow([one.body], false, again) } }, 'Allow for ' + a.name)
       : h('button', { type: 'button', class: 'btn sm', disabled: true, title: one.why + (one.cmd ? ': ' + one.cmd : ''), 'data-allow-one': a.name + ' ' + x.grant }, 'Allow for ' + a.name);
-    const btnAll = h('button', { type: 'button', class: 'btn sm quiet', 'data-allow-all': x.grant, disabled: all.length < 2 ? true : null,
+    const btnAll = h('button', { type: 'button', class: 'btn sm quiet', 'data-allow-all': x.grant, 'data-allow-count': String(all.length), disabled: all.length < 2 ? true : null,
       title: all.length < 2 ? 'For all: no other agent here can be limited' : 'One change for each of ' + all.map((b) => b.name).join(', '),
       on: { click: () => allow(all.map((b) => allowFor(b, x.grant).body), true, again) } }, 'For all (' + all.length + ')');
     return h('li', { 'data-refusal': a.name + ' ' + x.host },

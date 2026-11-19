@@ -17,7 +17,7 @@
 //     resolve, a newer build offers a reload); a sign-in again happens INSIDE the page, over what it shows.
 
 import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat-a3385828d49a056d.js';
-import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-2a667468bf96faf0.js';
+import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-542332b42d57d93e.js';
 import { viewWsAgent } from './app/views/ws-agents-f51e506e03a3046c.js';
 import { viewIsolationGuide } from './app/views/isolation-guide-7a943512caa7f74c.js';
 import { viewAddWorker } from './app/views/add-worker-00c8ee39dae11b61.js';

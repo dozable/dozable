@@ -3271,6 +3271,8 @@ a.btn.is-disabled { color: var(--ink-3); cursor: not-allowed; }
 
 /* A workspace's wide views (views/ws-network.js, ws-folders.js, ws-activity.js, components/can-do.js): Network & secrets,
    Folders & points, Activity and an agent's Can do — read afresh on every visit; a table is a card per row below 760 px. */
+/* A tab other than the room hides the room's body (its display would otherwise win over [hidden]). */
+.ws-body[hidden] { display: none; }
 .ws-view-tab:not([hidden]) { display: flex; flex-direction: column; gap: var(--sp-3); }
 .wsn, .wsf, .wsc { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
 .wsn-sec { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
@@ -3311,7 +3313,7 @@ a.btn.is-disabled { color: var(--ink-3); cursor: not-allowed; }
 .wsf-points { display: flex; flex-direction: column; gap: var(--sp-3); }
 .wsf-honest { margin: 0; font-size: var(--fs-sm); }
 .wsc-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
-.wsc-list li { display: grid; grid-template-columns: 6rem 7rem minmax(0, 1fr); gap: var(--sp-2); align-items: baseline; padding: var(--sp-1) 0; border-bottom: var(--bw) solid var(--line); font-size: var(--fs-sm); }
+.wsc-list li { display: grid; grid-template-columns: 11rem 7rem minmax(0, 1fr); gap: var(--sp-2); align-items: baseline; padding: var(--sp-1) 0; border-bottom: var(--bw) solid var(--line); font-size: var(--fs-sm); }
 .wsc-time { color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .wsc-who { color: var(--ink-2); }
 .wsc-text { overflow-wrap: anywhere; min-width: 0; }

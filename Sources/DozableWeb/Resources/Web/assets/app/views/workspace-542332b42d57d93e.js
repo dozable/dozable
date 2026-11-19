@@ -31,9 +31,9 @@ import { chatRefresh, mountChat } from './chat-a3385828d49a056d.js';
 import { drawSys } from './chat-messages-1fd60b63554b6f33.js';
 import { openRoom, refreshState } from './chat-rooms-6f54f39831670473.js';
 import { agentsTab } from './ws-agents-f51e506e03a3046c.js';
-import { networkTab } from './ws-network-32b2fd427c496140.js';
+import { networkTab } from './ws-network-1eda3558e18b8ab8.js';
 import { foldersTab } from './ws-folders-c1fb4f9c304a14c6.js';
-import { activityTab } from './ws-activity-7e0961e8b2c41c5d.js';
+import { activityTab } from './ws-activity-c6106e2c05e8136e.js';
 
 /// The permissions tab's name — ONE constant (the owner's choice; every place that names the tab reads it).
 export const PERMISSIONS_TAB = 'Permissions';

@@ -903,6 +903,9 @@ doz workspace new NAME --prompt-file F|- [--ref PATH|URL]… [--new-folder] [--f
                   [--worker-isolation fenced|vm] [--network locked|standard|open] [--dry-run] [--start]
 doz workspace ls [--loose] [--json]             # NAME  STATE  AGENTS  ROOM ("idle · you · manager mira (fenced)"), then the loose agents
 doz workspace show W [--brief] [--json]         # its brief, folders, room and agents
+doz workspace show W --can-do [--agent A]       # what each agent can do: isolation and control, folders, network, secrets by name, its room — live or at the next start
+doz workspace show W --network [--agent A]      # what it can reach and hold: each agent's network, what it was refused lately, this Mac's ports, secrets held (by name), accounts
+doz workspace show W --folders                  # its folders, the files changed since the start (never a program run there), restore points
 doz workspace start W                           # the set-up check, the brief posted as your first message (once), the manager started
 doz workspace stop W                            # the manager ended; its record, conversation and room kept
 doz workspace sleep W [--dry-run] [--yes] [--if-plan SHA]     # every agent asleep: a sandbox hibernated, a session ended (its conversation kept)
@@ -917,8 +920,15 @@ doz workspace release W AGENT                   # loose again
 doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--add-folder DIR[:ro]]… [--remove-folder DIR]… [--make-room]
                   [--manager BOT [--manager-isolation fenced|vm|unfenced] | --no-manager] [--if-brief SHA256]
 doz workspace log W [--since T]                 # what happened and who did it (T: ISO 8601, or 30m, 2h, 3d)
+doz workspace log W --limit N [--before I]      # one page, the newest N (1–500); --before the page's first: the page before (--json: first, more)
 doz workspace rename W NEW                      # its room keeps its own name
 ```
+
+`show --can-do`, `--network` and `--folders` answer from the store when no daemon runs and start none (what each agent was
+refused lately is then "not known"); `--json` adds `reach` or `folders` to `show`'s answer. Nothing they print is a secret: a
+held secret is its name, where it goes and (one given with `--secret`) a fingerprint — a chat token's never. What changed in a
+folder is found by a bounded look at file times — never by running anything there, git included — and says which folder, never
+which agent; a deletion is not seen.
 
 The first `--folder` is the main one; folders are optional (`--from-project` reads the project file in the main folder,
 so it needs one). With chat on, `new` makes a room named after the workspace (refused when one exists — `--room NAME`

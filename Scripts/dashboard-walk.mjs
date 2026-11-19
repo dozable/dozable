@@ -453,7 +453,9 @@ async function walkWorkspacePage() {
   const tabs = await evaluate(`[...document.querySelectorAll('#ws [data-ws-tab]')].map((t) => ({ label: t.firstChild.textContent, off: t.getAttribute('aria-disabled') === 'true', coming: !!t.querySelector('.ws-coming') }))`);
   check(JSON.stringify(tabs.map((t) => t.label)) === JSON.stringify(['Room', 'Agents', 'Permissions', 'Network & secrets', 'Folders & points', 'Activity', 'Settings']),
     'the tabs in the mockups\' order (' + tabs.map((t) => t.label).join(' · ') + ')');
-  check(tabs.filter((t) => !t.off).map((t) => t.label).join() === 'Room,Agents' && tabs.slice(2).every((t) => t.coming), 'Room and Agents work; the others are marked coming');
+  check(tabs.filter((t) => !t.off).map((t) => t.label).join() === 'Room,Agents,Network & secrets,Folders & points,Activity'
+    && tabs.filter((t) => t.off).map((t) => t.label).join() === 'Permissions,Settings' && tabs.filter((t) => t.off).every((t) => t.coming),
+    'Room, Agents, Network & secrets, Folders & points and Activity work; Permissions and Settings are marked coming');
   check(await evaluate(`PERMISSIONS_TAB === 'Permissions' && document.querySelector('#ws [data-ws-tab="permissions"]').firstChild.textContent === PERMISSIONS_TAB`),
     'the permissions tab reads "Permissions", from its one constant');
   check(await waitFor(`[...document.querySelectorAll('#chat-log .chat-row')].some((r) => /Walk the workspace page/.test(r.textContent))`, 20000), 'the kick-off bubble is in the room');
@@ -1273,6 +1275,144 @@ async function walkLifecycle() {
 }
 let lifeSession = null;
 
+// ── a workspace's wide views: Network & secrets, Folders & points, Activity and an agent's Can do ────────────────────
+/// `wide`: a fenced session (widef) with a launch secret whose value is a SENTINEL and two more (widef2, widef3), each having been
+/// refused one site; an unfenced session (wideu); the never-booted sandbox gamma. All harmless programs, no VM.
+const wideSessions = [];
+const WIDE_SENTINEL = 'FAKE-WIDE-SENTINEL-' + process.pid + '-9c3a';
+async function walkWideViews() {
+  const errorsBefore = pageErrors.length;
+  const work = S + '/wide-work', src = S + '/wide-src', out = S + '/wide-outside';
+  for (const d of [work, src, out]) mkdirSync(d, { recursive: true, mode: 0o700 });
+  writeFileSync(src + '/token', WIDE_SENTINEL + '\n', { mode: 0o600 });
+  writeFileSync(work + '/before.txt', 'old\n');
+  spawnSync('touch', ['-t', '202001010000', work + '/before.txt']);
+  writeFileSync(out + '/outside-new.txt', 'x\n');
+  symlinkSync(out, work + '/out');
+  knownTokens.push(WIDE_SENTINEL);
+  const fenced = (s, extra) => spawnSync(DOZ, ['run', '@mac', '-d', '--fenced', '--session', s, '--folder', work, '--permissions', 'standard,site:api.wide.test', ...extra,
+    '--store', STORE, '--', '/bin/sh', '-c', 'curl -s -m 5 -o /dev/null https://wideblocked.test/ ; exec sleep 600'], { env: ENV, encoding: 'utf8', timeout: 120_000 });
+  let r = fenced('widef', ['--secret', 'WIDE_TOKEN,src=' + src + '/token,to=api.wide.test:443']);
+  if (r.status === 0) wideSessions.push('widef');
+  check(r.status === 0, 'wide: a fenced session with a launch secret (the sentinel) — ' + (r.stderr || '').trim().split('\n').pop());
+  for (const n of ['widef2', 'widef3']) { r = fenced(n, []); if (r.status === 0) wideSessions.push(n); }
+  r = spawnSync(DOZ, ['run', '@mac', '-d', '--unfenced', '--session', 'wideu', '--folder', work, '--store', STORE, '--', '/bin/sleep', '600'], { env: ENV, encoding: 'utf8', timeout: 120_000 });
+  if (r.status === 0) wideSessions.push('wideu');
+  doz(['workspace', 'new', 'wide', '--prompt-file', '-', '--folder', work, '--no-room', '--adopt', '@mac/widef', '--adopt', '@mac/widef2', '--adopt', '@mac/widef3', '--adopt', '@mac/wideu', '--adopt', 'gamma'],
+    'See what it reaches.\n');
+  await sleep(1100);
+  writeFileSync(work + '/after.txt', 'new\n');
+  // The two fenced sessions' refusals are in their proxies' logs once curl gave up.
+  let refused = false;
+  for (let i = 0; i < 40 && !refused; i++) {
+    const rr = dozJSON(['workspace', 'show', 'wide', '--network']);
+    refused = !!rr && rr.reach.agents.filter((a) => a.network.refused.some((x) => x.host === 'wideblocked.test')).length === 3;
+    if (!refused) await sleep(300);
+  }
+  check(refused, 'wide: widef, widef2 and widef3 were each refused wideblocked.test (the daemon\'s proxies)');
+
+  // 1. Network & secrets equals show --network --json.
+  const cli = (dozJSON(['workspace', 'show', 'wide', '--network']) || { reach: { agents: [] } }).reach;
+  await goHash('#/w/wide/network');
+  check(await waitFor(`state.view === 'workspace' && !!document.querySelector('[data-ws-network="wide"]')`, 15000), 'wide 1 #/w/wide/network draws Network & secrets');
+  const rows = await evaluate(`[...document.querySelectorAll('[data-wsn="permissions"] [data-net-agent]')].map((r) => r.dataset.netAgent)`);
+  check(JSON.stringify(rows) === JSON.stringify([...cli.agents.map((a) => a.name), '~new']), `wide 1 one row per agent of show --network --json, then new workers (${rows})`);
+  const held = await evaluate(`[...document.querySelectorAll('[data-held]')].map((r) => r.dataset.held)`);
+  const cliHeld = cli.agents.flatMap((a) => a.held.map((x) => x.name + ' ' + a.name));
+  check(JSON.stringify(held) === JSON.stringify(cliHeld) && held.includes('WIDE_TOKEN widef'), `wide 1 held for agents: by name, as the CLI's (${held})`);
+  check(/fingerprint/i.test(await evaluate(text('[data-wsn="held"]'))) && (await evaluate(text('[data-wsn="held"]'))).includes(cli.agents.find((a) => a.name === 'widef').held[0].fingerprint),
+    'wide 1 …with the fingerprint, never a value');
+  check(/Nothing here shows a secret/.test(await evaluate(text('.wsn-foot'))), 'wide 1 the footer says no value is shown');
+  check(await evaluate(`/not limited, not logged/.test(document.querySelector('[data-net-agent="wideu"]').textContent)`), 'wide 1 the unfenced agent: not limited, not logged');
+  // 2. Allow for one agent (a fenced session: mac-net-policy), then listed.
+  const defaultsBefore = JSON.stringify((dozJSON(['workspace', 'show', 'wide']) || {}).defaults);
+  check(await waitFor(`!!document.querySelector('[data-allow-one="widef site:wideblocked.test"]:not([disabled])')`, 8000), 'wide 2 Allow for widef is offered');
+  await evaluate(`document.querySelector('[data-allow-one="widef site:wideblocked.test"]').click()`);
+  let sites = [];
+  for (let i = 0; i < 40 && !sites.includes('wideblocked.test'); i++) { sites = (dozJSON(['net', 'show', '@mac', '--session', 'widef']) || {}).sites || []; if (!sites.includes('wideblocked.test')) await sleep(300); }
+  check(sites.includes('wideblocked.test'), `wide 2 Allow for widef: doz net show @mac --session widef lists the site (${sites})`);
+  check(await waitFor(`/wideblocked\.test/.test(document.querySelector('[data-net-agent="widef"]')?.textContent || '')`, 15000), 'wide 2 …and the page reads it again: listed in widef\'s row');
+  // 3. For all: one operation per agent that can be limited and lacks it (widef2, gamma if proxied); unfenced not.
+  await waitFor(`!!document.querySelector('[data-allow-all="site:wideblocked.test"]')`, 8000);
+  const forAll = await evaluate(`(() => { const b = [...document.querySelectorAll('[data-allow-all="site:wideblocked.test"]')].find((x) => !x.disabled); return b ? Number(b.dataset.allowCount) : 0; })()`);
+  const eligible = cli.agents.filter((a) => a.network.proxied && a.name !== 'widef').length;
+  check(forAll === eligible && forAll >= 1, `wide 3 For all offers one change per agent that can be limited (${forAll}; ${eligible} proxied besides widef)`);
+  const n0 = await evaluate(`(async () => (await (await fetch('/api/v1/operations', { credentials: 'same-origin' })).json()).filter((o) => /net-policy$/.test(o.action)).length)()`);
+  await evaluate(`[...document.querySelectorAll('[data-allow-all="site:wideblocked.test"]')].find((x) => !x.disabled).click()`);
+  let n1 = n0;
+  for (let i = 0; i < 60 && n1 < n0 + forAll; i++) { n1 = await evaluate(`(async () => (await (await fetch('/api/v1/operations', { credentials: 'same-origin' })).json()).filter((o) => /net-policy$/.test(o.action)).length)()`); if (n1 < n0 + forAll) await sleep(300); }
+  check(n1 - n0 === forAll, `wide 3 For all sent ${n1 - n0} operations, one per eligible agent`);
+  let sites2 = [];
+  for (let i = 0; i < 40 && !sites2.includes('wideblocked.test'); i++) { sites2 = (dozJSON(['net', 'show', '@mac', '--session', 'widef2']) || {}).sites || []; if (!sites2.includes('wideblocked.test')) await sleep(300); }
+  check(sites2.includes('wideblocked.test'), 'wide 3 …widef2 has it too');
+  check(JSON.stringify((dozJSON(['workspace', 'show', 'wide']) || {}).defaults) === defaultsBefore, 'wide 3 the new workers\' default unchanged (' + defaultsBefore + ')');
+  // 4. Can do: an unfenced agent's "acts as you"; the later rows disabled; a fenced one's rows are the CLI's.
+  await goHash('#/w/wide/agent/wideu/can-do');
+  check(await waitFor(`state.view === 'wsagent' && !!document.querySelector('[data-cando-table="wideu"]')`, 15000), 'wide 4 #/w/wide/agent/wideu/can-do draws its Can do');
+  check(await evaluate(`/acts as you/.test(document.querySelector('[data-cando="control"]').textContent) && !!document.querySelector('[data-cando="control"] .acts-as-you')`),
+    'wide 4 an unfenced agent: the warning chip "acts as you"');
+  check(await evaluate(`['permissions', 'ceiling'].every((id) => { const r = document.querySelector('[data-cando="' + id + '"]'); return r && r.getAttribute('aria-disabled') === 'true' && /later/.test(r.textContent); })`),
+    'wide 4 Permissions (allow · ask · never) and Ceiling drawn disabled, "later"');
+  const canCli = ((dozJSON(['workspace', 'show', 'wide', '--can-do', '--agent', 'widef']) || { reach: { agents: [{ capabilities: [] }] } }).reach.agents[0].capabilities).map((c) => c.id);
+  await goHash('#/w/wide/agent/widef/can-do');
+  await waitFor(`!!document.querySelector('[data-cando-table="widef"]')`, 15000);
+  const canPage = await evaluate(`[...document.querySelectorAll('[data-cando-table="widef"] [data-cando]')].map((r) => r.dataset.cando)`);
+  check(JSON.stringify(canPage) === JSON.stringify([...canCli, 'permissions', 'ceiling']), `wide 4 widef's rows are show --can-do --json's, then the two later ones (${canPage.length})`);
+  // 5. Folders & points: a changed file appears; Take only for a micro VM agent; the honest line.
+  const fcli = (dozJSON(['workspace', 'show', 'wide', '--folders']) || { folders: { folders: [] } }).folders;
+  await goHash('#/w/wide/folders');
+  check(await waitFor(`!!document.querySelector('[data-ws-folders="wide"]')`, 15000), 'wide 5 #/w/wide/folders draws Folders & points');
+  const changes = await evaluate(`[...document.querySelectorAll('[data-change]')].map((e) => e.dataset.change)`);
+  const cliChanges = fcli.folders.flatMap((f) => f.changes.map((c) => c.path));
+  check(changes.includes('after.txt') && !changes.includes('before.txt') && !changes.some((c) => c.startsWith('out')) && JSON.stringify(changes) === JSON.stringify(cliChanges),
+    `wide 5 changed since the start: after.txt, not before.txt nor through the link — show --folders --json's (${changes})`);
+  const nfolders = await evaluate(`document.querySelectorAll('[data-wsf-folder]').length`);
+  check(nfolders === fcli.folders.length && nfolders === 1, `wide 5 one folder: the sessions' /tmp/… is the workspace's /private/tmp/… (${nfolders})`);
+  const takes = await evaluate(`[...document.querySelectorAll('[data-take-point]')].map((b) => b.dataset.takePoint)`);
+  check(JSON.stringify(takes) === JSON.stringify(['gamma']), `wide 5 Take a restore point offered only for the micro VM agent (${takes})`);
+  check(/never which agent changed it/.test(await evaluate(text('[data-wsf-honest]'))), 'wide 5 the honest line: by folder, never which agent');
+  // 6. Activity: the log in pages (Load older), this dashboard's operations for its agents, filtered.
+  const logFile = STORE + '/workspaces/wide/log.jsonl';
+  let filler = '';
+  for (let i = 0; i < 230; i++) filler += JSON.stringify({ v: 1, at: new Date(Date.UTC(2026, 0, 1, 0, 0, i)).toISOString().replace(/\.\d{3}Z$/, 'Z'), by: 'you', action: 'refs-edited', added: 1 }) + '\n';
+  const kept = readFileSync(logFile, 'utf8');
+  writeFileSync(logFile, filler + kept, { mode: 0o600 });
+  await goHash('#/w/wide/activity');
+  check(await waitFor(`!!document.querySelector('[data-ws-activity="wide"] [data-wsc-older]')`, 15000), 'wide 6 Activity: a full page, with Load older');
+  const before6 = await evaluate(`document.querySelectorAll('[data-wsc-kind="log"]').length`);
+  await evaluate(`document.querySelector('[data-wsc-older]').click()`);
+  check(await waitFor(`document.querySelectorAll('[data-wsc-kind="log"]').length > ${before6}`, 10000), `wide 6 Load older appends the page before (${before6} → ${await evaluate(`document.querySelectorAll('[data-wsc-kind="log"]').length`)})`);
+  const small = await evaluate(`(async () => { const r = await fetch('/api/v1/workspace-activity', { method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-Doz-CSRF': state.csrf }, body: JSON.stringify({ workspace: 'wide', limit: 2 }) }); const a = await r.json();
+    const r2 = await fetch('/api/v1/workspace-activity', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Doz-CSRF': state.csrf },
+      body: JSON.stringify({ workspace: 'wide', limit: 2, before: a.first }) }); const b = await r2.json(); return { a: a.lines.length, more: a.more, b: b.lines.length, first: [a.first, b.first] }; })()`);
+  const cliPage = dozJSON(['workspace', 'log', 'wide', '--limit', '2']) || {};
+  check(small.a === 2 && small.more && small.b === 2 && small.first[0] === cliPage.first && small.first[1] < small.first[0],
+    `wide 6 the route with a small limit pages as doz workspace log --limit 2 does (${JSON.stringify(small)}, CLI first ${cliPage.first})`);
+  await evaluate(`document.querySelector('[data-wsc-filter="network"]').click()`);
+  const net = await evaluate(`[...document.querySelectorAll('[data-wsc-kind]')].map((e) => e.dataset.wscKind + ':' + e.dataset.action)`);
+  check(net.length >= 1 + forAll && net.every((x) => /^op:(mac-)?net-policy$/.test(x)), `wide 6 Network: the Allow operations for its agents only (${net.length})`);
+  await evaluate(`document.querySelector('[data-wsc-filter="all"]').click()`);
+  const foreign = await evaluate(`(async () => (await (await fetch('/api/v1/operations', { credentials: 'same-origin' })).json()).filter((o) => o.sandbox && !['gamma'].includes(o.sandbox)).map((o) => o.id))()`);
+  check(await evaluate(`![...document.querySelectorAll('[data-wsc-kind="op"]')].some((e) => ${JSON.stringify(foreign)}.includes(e.dataset.id))`), 'wide 6 …no operation of another workspace\'s agent');
+  // 7. Another computer: mac-net-policy 403 — ServeHTTPTests' (this dashboard has no LAN side).
+  check(true, 'wide 7 another computer\'s 403 for mac-net-policy is ServeHTTPTests.testMacNetPolicyIsThisMacsBrowserOnlyWhateverTheServeSettings\'');
+  // 8. At 390 px the tables are cards, no sideways scroll.
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  for (const [hash, sel] of [['#/w/wide/network', '[data-wsn="permissions"] tr[data-net-agent]'], ['#/w/wide/agent/widef/can-do', '[data-cando-table] tr[data-cando]']]) {
+    await goHash(hash);
+    await waitFor(`!!document.querySelector(${JSON.stringify(sel)})`, 15000);
+    await sleep(300);
+    const c = await evaluate(`({ flex: getComputedStyle(document.querySelector(${JSON.stringify(sel)})).display === 'flex', w: document.documentElement.scrollWidth })`);
+    await shot('wide-390-' + hash.split('/').pop());
+    check(c.flex && c.w <= 390, `wide 8 at 390 px ${hash}: each row a card, no sideways scroll (${c.w} px)`);
+  }
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  for (const t of ['network', 'folders', 'activity']) { await goHash('#/w/wide/' + t); await waitFor(`!!document.querySelector('[data-ws-${t}="wide"]')`, 15000); await shot('wide-' + t); }
+  check(pageErrors.length === errorsBefore, 'wide: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  await leakSweep('the wide views (the secret sentinel)');
+}
+
 let failed = false;
 try {
   console.log('dashboard-walk: a scratch store at ' + S);
@@ -1323,6 +1463,7 @@ try {
   await walkNewWorkspace();
   await walkAddWorker();
   await walkLifecycle();
+  await walkWideViews();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
@@ -1330,6 +1471,16 @@ try {
   check(!existsSync(STORE + '/daemon.pid'), 'the daemon is stopped');
   for (const h of ['#/mac/sandboxes', '#/home', '#/mac/loose', '#/bots', '#/bots/nova', '#/w/demo/agents', '#/w/demo2']) { await goHash(h); await waitFor(SHOWN, 8000); }
   check(await waitFor(`state.view === 'workspace' && /Walk it again/.test(${text('[data-ws-brief="demo2"]')})`, 10000), 'with the daemon stopped, #/w/demo2 still reads (from the store)');
+  // The wide views with the daemon stopped: each tab reads from the store, none starts it.
+  for (const [h, sel] of [['#/w/wide/network', '[data-ws-network="wide"]'], ['#/w/wide/folders', '[data-ws-folders="wide"]'], ['#/w/wide/activity', '[data-ws-activity="wide"]'],
+    ['#/w/wide/agent/widef/can-do', '[data-cando-table="widef"]']]) {
+    await goHash(h);
+    check(await waitFor(`!!document.querySelector(${JSON.stringify(sel)})`, 15000), `with the daemon stopped, ${h} reads`);
+  }
+  await goHash('#/w/wide/network');
+  check(await waitFor(`/not known: no daemon is running/.test(document.querySelector('[data-ws-network="wide"]')?.textContent || '')`, 15000),
+    'with the daemon stopped, Network & secrets says the refusals are not known');
+  check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, the wide views start none');
   // 14. The wizard with the daemon stopped: it opens and the plan answers (chat judged from its setting).
   await goHash('#/new-workspace');
   check(await waitFor(`state.modal === 'new-workspace' && !!state.wsn?.plan && !state.wsn.planError`, 15000), 'wizard 14 with the daemon stopped, the wizard opens and the plan answers');
@@ -1360,6 +1511,7 @@ try {
   try { chrome && chrome.kill('SIGKILL'); } catch (_) { /* gone */ }
   if (macSession) spawnSync(DOZ, ['sessions', 'end', '@mac', macSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
   if (lifeSession) spawnSync(DOZ, ['sessions', 'end', '@mac', lifeSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
+  for (const s of wideSessions) spawnSync(DOZ, ['sessions', 'end', '@mac', s, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
   for (const [w, n] of startedWorkers) spawnSync(DOZ, ['worker', 'end', w, n, '--store', STORE], { env: ENV, timeout: 60_000 });
   try { ui && process.kill(-ui.pid, 'SIGTERM'); } catch (_) { /* gone */ }
   if (uiB) spawnSync(DOZ, ['ui', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });

@@ -32,8 +32,8 @@ function draw() {
   const filters = h('span', { class: 'segmented wsc-filters', role: 'group', 'aria-label': 'Show' }, ...ACTIVITY_FILTERS.map((f) =>
     h('button', { type: 'button', class: 'seg' + (f.id === c.filter ? ' active' : ''), 'aria-pressed': f.id === c.filter ? 'true' : 'false', 'data-wsc-filter': f.id,
       on: { click: () => { c.filter = f.id; draw(); } } }, f.label)));
-  const list = items.length ? h('ol', { class: 'wsc-list', 'data-wsc-count': String(items.length) }, ...items.map((x) => h('li', { 'data-wsc-kind': x.kind, 'data-action': x.action },
-    h('span', { class: 'wsc-time', title: full(x.at) }, clock(x.at)),
+  const list = items.length ? h('ol', { class: 'wsc-list', 'data-wsc-count': String(items.length) }, ...items.map((x) => h('li', { 'data-wsc-kind': x.kind, 'data-action': x.action, 'data-id': x.id || null },
+    h('span', { class: 'wsc-time', title: full(x.at) }, new Date(x.at).toDateString() === new Date().toDateString() ? clock(x.at) : full(x.at)),
     h('span', { class: 'wsc-who' }, x.kind === 'op' ? h('span', { class: 'ws-chip' }, icon('activity'), 'operation') : x.by === 'you' ? 'you' : 'Dozable'),
     h('span', { class: 'wsc-text' }, x.text, x.kind === 'op' && x.state !== 'done' ? h('span', { class: 'pill' }, x.state) : null))))
     : h('p', { class: 'muted', 'data-wsc-count': '0' }, 'Nothing here.');

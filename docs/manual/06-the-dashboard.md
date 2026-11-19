@@ -147,8 +147,20 @@ everything**, **Finish…**, **Archive…** and **Delete…**, and what it still
 would do to each agent (on a phone, a card each), what is kept and what goes with sizes, how many change at once and
 **Show the command**; finish asks once, archive and delete want the workspace's name typed, and **Also free …: remove the
 sandboxes Dozable made for it** and **Also move its folders on this Mac to the Bin** are never ticked for you. While it
-works the state reads **sleeping…** or **waking…**. Only this Mac's own browser does these (see [Workspaces](37-workspaces.md#sleep-wake-finish-archive-and-delete)). Below are its tabs: **Room** and **Agents** work; **Permissions**, **Network & secrets**,
-**Folders & points**, **Activity** and **Settings** are marked **coming** and say what they will hold.
+works the state reads **sleeping…** or **waking…**. Only this Mac's own browser does these (see [Workspaces](37-workspaces.md#sleep-wake-finish-archive-and-delete)). Below are its tabs: **Room**, **Agents**, **Network & secrets**,
+**Folders & points** and **Activity** work; **Permissions** and **Settings** are marked **coming** and say what they will hold.
+
+**Network & secrets** answers "what can this workspace reach?": each agent's network and the sites beyond it, what it was
+refused lately — **Allow for** that agent, or **For all** that can be limited (an unfenced agent and one elsewhere cannot; the
+default for new workers does not change) —, this Mac's ports and the forwarded ones, the secrets held for its agents by name,
+where each goes and a fingerprint, and the accounts used. Nothing on it is a secret's value. Allowing a site for a session on
+this Mac is done only in this Mac's own browser. **Folders & points** lists each folder, the files changed in it since the
+work started (found without running anything there; it never says which agent changed a file) and each micro VM agent's
+restore points, with **Take a restore point**. **Activity** is the workspace's log, newest first (**Load older** for more),
+with the operations this dashboard started for its agents (the last 50); show **All**, **You**, **Agents**, **Lifecycle** or
+**Network**. Each tab is read afresh when you open it. An agent's **Can do** (the **Can do** button on its screen) is its
+capability table: each row live or at the next start, an unfenced agent's **acts as you**, and the rows that come later
+drawn greyed.
 
 **The work** — the brief — sits above the room: its text, its references (a link opens in a new tab), who wrote it and
 when, and how many times it was edited. It is open on the workspace's page and one line on another room's; **Fold** and

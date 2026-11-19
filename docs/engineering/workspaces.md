@@ -33,6 +33,11 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableHost/HostCore+WorkspaceLifecycle.swift` | the `WorkspaceAgentLifecycle` seam (`DaemonAgentLifecycle`: hibernate, wake, start, shut down, template, rm, a session's end, restart and forgetting), the facts (`agentFacts`, `workspaceLifecycleFacts`), `workspace-lifecycle-plan`, the seven verbs (`workspaceLifecycle`: the gate, `ifPlan`, the queue), `workerWake`, `retireWorker`, `removeOwnSandboxes`, `WorkspaceBin` |
 | `Sources/DozableCLI/WorkspaceLifecycleCommands.swift` | `doz workspace sleep | wake | finish | reopen | archive | restore | delete` (the plan's text, the questions, `--dry-run`, `--if-plan`) |
 | `Tests/DozableCLITests/WorkspaceLifecycleTests.swift`, `WorkspaceLifecycleHostTests.swift`; `Sources/doz-vmtest/CLIWorkspaceLifecycleRows.swift` | the builder over every kind of agent; the verbs in an in-process core with fakes (the order, `ifPlan`, a partial failure, archive and restore, delete, the Bin's seam, the dashboard's confirmations); `make test-cli-workspace` rows L1–L14 |
+| `Sources/DozableHost/WorkspaceReach.swift` | `workspace-reach`'s answer — `WorkspaceReach`, `AgentReach`, `AgentNetworkReach`, `ReachRefusal`, `HeldSecret` (`held`: never a value; a chat token's fingerprint never carried), `ReachFolder` — and `AgentCapabilities.rows` (pure: "what it can do" for any agent; an `@mac` agent's `MacFence.capabilities` unchanged, then its control and its room) |
+| `Sources/DozableHost/WorkspaceChangedFiles.swift` | the changed-files walk (never a program: files.md), `WorkspaceFolders` (`workspace-folders`' answer), `WorkspaceLogPage` |
+| `Sources/DozableHost/HostCore+WorkspaceViews.swift` | `workspace-reach`, `workspace-folders`, the log in pages (`workspaceLogAnswer`) |
+| `Sources/DozableCLI/WorkspaceViewCommands.swift` | `show --can-do | --network | --folders` as text, `--json` with `reach` or `folders` |
+| `Tests/DozableCLITests/WorkspaceViewsTests.swift`; `Sources/doz-vmtest/CLIWorkspaceViewRows.swift` | `WorkspaceReachTests`, `WorkspaceChangedFilesTests`, `WorkspaceLogPageTests`; `make test-cli-workspace` rows V1–V5 |
 | `Sources/DozableHost/HostCore+Workspaces.swift` | the `workspace-*` operations in the daemon (and the read-only core for ls/show/log); the `WorkspaceChat` seam and `OwnerWorkspaceChat`; the hooks of `doz rename` and `doz rm` |
 | `Sources/DozableHost/ChatOwnerRooms.swift` | making a room AS YOU over the owner's socket — the one implementation `doz chat room` and the workspaces use; `ChatStateView` |
 | `Sources/DozableHost/HostProtocol.swift` | `HostOp.workspace*`, `WorkspaceRequest`, `WorkspaceListing`/`WorkspaceRow`/`WorkspaceManagerRow`/`LooseAgent`, `WorkspaceDetail`/`WorkspaceAgentRow`, `WorkspaceStarted`, `WorkspaceStopped`; `HostOp.worker*`, `WorkerRequest`, `WorkerListing`/`WorkerRow`, `WorkerAdded`, `WorkerEnded`; `SandboxInfo.workspace`, `SessionRow.workspace` |
@@ -142,6 +147,7 @@ foldersMadeNow:)`). `WorkspacePlanTests.testThePlanAndNewAgree` holds the two to
 | `workspace-start`, `-stop` | `call()`: the daemon | the check under `workspaces`, the launch under `workspace:NAME` (each record change takes `workspaces` again); never read-only |
 | `workspace-lifecycle-plan` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon nor reads the keychain |
 | `workspace-sleep`, `-wake`, `-finish`, `-reopen`, `-archive`, `-restore`, `-delete` | `call()`: the daemon | the plan again and `ifPlan` under `workspaces`, the run under `workspace:NAME` (each record change takes `workspaces` again); never read-only |
+| `workspace-reach`, `workspace-folders` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon; refusals only a daemon's proxies hold ("not known" otherwise) |
 | `worker-ls`, `worker-plan` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon |
 | `worker-add`, `-end` | `call()`: the daemon | the check and the pending entry under `workspaces`, the participant under `bots`, then the launch; never read-only |
 
@@ -435,6 +441,43 @@ dashboard's `confirm` is checked by the daemon under `confirmRequired`); an unfe
 additively: `WorkspaceAgent.template`, `WorkspaceFlags.reopenedAt` and `.archive`; `WorkspaceFlags` keeps the fields it does not
 know. `WorkspaceState.derive` is unchanged (slept agents read asleep; finished outranks a session still running after a
 partial failure).
+
+## Workspace-wide views
+
+What a workspace can reach, hold and change, in one place — the CLI's `doz workspace show W --can-do | --network | --folders`,
+`doz workspace log W --limit N --before I`, and the dashboard's Network & secrets, Folders & points, Activity and each agent's
+Can do (web.md, "Workspace-wide views"). Two read-only HostOps beside `workspace-show`, both in-process with no daemon:
+
+- **`workspace-reach`** (`WorkspaceRequest.agent`: one agent only, additive) answers `WorkspaceReach {workspace, agents:
+  [AgentReach], defaults: {isolation, network}, refusalsKnown, notes}`; `AgentReach {name, role, isolation, place, kind, control,
+  actsAsYou, state, capabilities, network {proxied, live, preset, sites, hostPorts, forwarded: [{port, local}], refused: [{host,
+  port?, count, lastAt, grant}]}, held: [{name, to, header, fingerprint?, kind: given|chat-bot|chat-worker}], folders: [{path,
+  mode}], account, rooms}` — from the records of its place (a sandbox's `doz.json`, a session's record), the live proxies and
+  their logs (the daemon's only: in-process `refusalsKnown` is false and the notes say "not known: no daemon is running").
+  NEVER a value: the field is `held`, a given secret's fingerprint (12 hex) is all of it there is, a chat token's fingerprint is
+  never carried. `capabilities` is ONE pure function, `AgentCapabilities.rows`: an `@mac` agent's `MacFence.capabilities`
+  unchanged; a VM's isolation, folders, network (live where proxied), this Mac's ports, forwarded ports, secrets by name and
+  destination (next start), the Claude account by name, keys as state; elsewhere "not isolated by Dozable"; then the control row —
+  a fenced or VM manager "talks in the room only — it cannot drive Dozable", unfenced "acts as you — runs doz and anything else as
+  you", elsewhere "not run by Dozable — token only", a worker `WorkerLaunch.control`'s words — and the chat row ("its chat token is
+  held by Dozable"). The later rows (Permissions: allow · ask · never; the ceiling) are never data.
+- **`workspace-folders`** answers `WorkspaceFolders {workspace, since, folders: [{path, mode, main, workspace, exists, rules:
+  {ignore, readonly}, agents, changes: [{kind, path}], count, truncated, scanned}], points: [{agent, sandbox, rows}]}`: the
+  workspace's folders, then each agent's own working folder not among them; `since` = `flags.startedAt ?? firstAgentAt ??
+  createdAt`; the changes by the bounded walk (files.md — never a program in an agent's folder), attributed by folder (`agents`:
+  who works in it — never who changed a file); each VM agent's restore points (`Sandbox.restorePoints`).
+- **The log in pages**: `workspace-log` with `before` or `limit` (additive; 1–500, 200 by default) answers `WorkspaceLogPage
+  {entries (newest first), first, more}` — `WorkspaceStore.logPage` reads `log.jsonl` BACKWARDS in 64 KiB blocks (a page costs
+  its own lines), skips a torn line and a last line with no line break the same way every time; `first` is the oldest line's
+  byte offset (stable: the log is only appended to, an append after a torn line starts on its own line), `before: first` the
+  page before. Without them the answer is the entries, as before. An older daemon ignores them: the CLI says "needs the daemon
+  of this version", the dashboard takes its answer as the newest page.
+- **The CLI**: `show W --can-do` (each agent's rows, "live" or "at the next start", the two later rows), `--network` (the
+  permissions per agent and new workers, Refused lately with each `doz net allow` command, this Mac's ports, Held for agents,
+  Accounts used here, "Nothing here shows a secret…"), `--folders` (each folder, `A`/`M` paths, the honest line, the restore
+  points); `--agent A` with `--can-do`/`--network`; `--json` is `show`'s detail plus `reach` or `folders`. `log W --limit N
+  [--before I]` prints a page oldest first and the command for the page before; `--json` is the page (`first`, `more`).
+- `WorkspaceReachTests`, `WorkspaceChangedFilesTests`, `WorkspaceLogPageTests`; `make test-cli-workspace` rows V1–V5.
 
 ## `--json`
 

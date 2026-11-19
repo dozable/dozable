@@ -124,13 +124,14 @@ extension HostCore {
         var points: [WorkspaceFolders.Points] = []
         for a in live {
             if let s = a.place.sandbox, let m = managed[s] {
-                if let share = m.config.workspace { worksIn.append((a.name, share)) }
+                if let share = m.config.workspace { worksIn.append((a.name, WorkspaceStore.resolved(share))) }
                 if !points.contains(where: { $0.sandbox == s }) {
                     points.append(.init(agent: a.name, sandbox: s, rows: (try? m.sandbox.restorePoints()) ?? []))
                 }
             } else if a.place.mac == true, let s = a.place.session, let r = mac.records().sessions[s] {
-                worksIn.append((a.name, r.workdir))
-                for p in r.fence?.writable ?? [] { worksIn.append((a.name, p)) }
+                // Resolved as the workspace's folders are (a session may record /tmp/…, a link): one folder, one row.
+                worksIn.append((a.name, WorkspaceStore.resolved(r.workdir)))
+                for p in r.fence?.writable ?? [] { worksIn.append((a.name, WorkspaceStore.resolved(p))) }
             }
         }
         var list: [(path: String, mode: String, main: Bool, workspace: Bool)] = rec.folders.map { ($0.path, $0.mode, $0.main, true) }

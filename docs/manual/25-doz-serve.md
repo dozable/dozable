@@ -85,7 +85,10 @@ out — whatever `serve.chat` and `serve.mac_sessions` say, that is only the Mac
 **Start**, **Sleep**, **Wake** and the rest of a workspace's **⋯**, **Put in a workspace…**, **Add a worker**, **End…**) or a
 terminal on the Mac (`doz workspace new`, `start`, `sleep`, `wake`, `finish`, `archive`, `delete`, `adopt` and `release`,
 `doz worker add` and `end`); another browser sees the wizard's and Add a worker's addresses as a notice and those
-buttons disabled, with the command instead. The isolation guide is the same on every browser. See
+buttons disabled, with the command instead. A workspace's **Network & secrets**, **Folders &
+points**, **Activity** and an agent's **Can do** are shown too, with the same rule for this Mac's sessions; another browser
+sees how many secrets each agent holds, never their names, and cannot allow a site for a session on this Mac (that is
+`doz net allow @mac --session SESSION site:HOST` on the Mac). The isolation guide is the same on every browser. See
 [Sessions on this Mac](34-sessions-on-this-mac.md#in-the-dashboard).
 
 **Your Macs** (the machine picker — "Dozable · studio ▾") is the same list on another browser as on this Mac: a phone
