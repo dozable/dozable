@@ -21,6 +21,7 @@ import DozableHost
 //   9. bad names; rename keeps the room's name; doz rename and doz rm move and remove the agent
 //  10. chat off: no room, the note names --make-room
 //  11. no folders: made, shown and listed; --from-project without a folder refused
+//  12–22. a workspace's manager, started from its bot (CLIWorkspaceManagerRows.swift)
 func cliWorkspaceSuite(binary: String) async {
     print("cli: workspaces — no VM")
     let fm = FileManager.default
@@ -217,4 +218,7 @@ func cliWorkspaceSuite(binary: String) async {
     check(detail("bare")?.folders.isEmpty == true && listing()?.workspaces.contains { $0.name == "bare" } == true, "11 shown and listed")
     r = h.run(["workspace", "new", "proj", "--prompt-file", brief, "--from-project"])
     check(r.code == 64 && r.err.contains("--folder") && !ws.exists("proj"), "11 --from-project with no folder: refused (\(r.code))")
+
+    // 12–22. a workspace's manager (CLIWorkspaceManagerRows.swift)
+    cliWorkspaceManagerRows(h, root: root, store: store, started: &started)
 }
