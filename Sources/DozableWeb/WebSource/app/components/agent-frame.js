@@ -7,11 +7,13 @@
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { full, when } from '../core/format.js';
-import { agentHash, agentsHash, workspaceHash } from '../core/routes.js';
+import { addWorkerHash, agentHash, agentsHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { loadWorkspace, loadWorkspaces } from '../core/workspaces.js';
 import { cmdLine } from './cmd-line.js';
 import { isolationChip } from './iso-chip.js';
+import { moreMenu } from './menus.js';
+import { addCommand, endWorkerItem, workerRefusal } from './worker-end.js';
 import { takeOut } from './put-in-workspace.js';
 import { isolationWords, programName } from './ws-panel.js';
 
@@ -51,7 +53,17 @@ export function frameBar(f) {
     h('span', { class: 'agent-frame-chips' }, h('span', { class: 'ws-chip' }, a.role), ...agentChips(a)),
     h('span', { class: 'ws-sp' }),
     h('a', { class: 'btn sm quiet', href: workspaceHash(f.workspace), 'data-room-beside': f.workspace, title: 'The workspace’s room, with this agent among its people' },
-      icon('message-square'), 'Open the room beside'));
+      icon('message-square'), 'Open the room beside'),
+    moreMenu('More for ' + f.agent, frameItems(f), { small: true, data: { agentFrameMore: f.agent } }).el);
+}
+
+/// The frame's ⋯: Add a worker (its page), and End… for a live worker (the `worker-end` action) — this Mac's own browser only.
+function frameItems(f) {
+  const a = f.row, why = workerRefusal();
+  const items = [{ label: 'Add a worker…', icon: 'plus', desc: why ? why + ': ' + addCommand(f.workspace) : 'Another agent with one task, in ' + f.workspace,
+    disabled: !!why, why, data: { 'frame-add-worker': f.workspace }, onSelect: () => { location.hash = addWorkerHash(f.workspace); } }];
+  if (a.role === 'worker' && a.task && a.state !== 'ended') items.push(endWorkerItem(f.workspace, a, () => { location.hash = agentsHash(f.workspace); }));
+  return items;
 }
 
 /// "In this workspace" — the Overview's block on a framed page.

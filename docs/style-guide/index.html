@@ -1751,6 +1751,32 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   </div></div>
 </section>
 
+<section id="sg-add-worker">
+  <h2>Add a worker — the fields, the comparison table, the tick, a refusal beside its field</h2>
+  <p><code>#/w/NAME/agents/new</code> (<code>views/add-worker.js</code>, <code>.aw</code>): two columns (one below 980 px). The agent as pills
+    (<code>.aw-pill</code>; the later ones <code>.is-off</code> with "not yet as a worker"), radios with their words (<code>.aw-radio</code>), the
+    comparison table (<code>.aw-cmp</code>: its chosen column <code>.is-chosen</code>, cloud <code>.is-later</code>; each heading an isolation chip
+    to the guide), the tick an unfenced worker needs (<code>.aw-tick</code>), the plan's refusal beside its field (<code>.aw-problem</code>), and the
+    sticky foot with Show the command, Cancel and the one primary, Add and start (<code>.aw-foot</code>).</p>
+  <div class="pair"><div class="scheme">
+    <div class="aw">
+      <div class="aw-agents"><label class="aw-pill"><input type="radio" name="sg-aw" checked>Claude Code</label><label class="aw-pill"><input type="radio" name="sg-aw">Codex</label>
+        <span class="aw-pill is-off">OpenCode <span class="ws-coming">not yet as a worker</span></span></div>
+      <label class="aw-radio"><input type="radio" name="sg-aw-who" checked><span><b>A new worker, anonymous</b> — a name like bot1 (recommended)</span></label>
+      <p class="aw-problem">mira is a bot — doz worker add demo --from-bot mira</p>
+      <div class="aw-cmp-wrap"><table class="aw-cmp"><thead><tr><th></th>
+        <th><span class="aw-col-h"><input type="radio" name="sg-aw-col"><a class="ws-iso ws-iso-micro-VM" href="#">micro VM</a></span></th>
+        <th class="is-chosen"><span class="aw-col-h"><input type="radio" name="sg-aw-col" checked><a class="ws-iso ws-iso-fenced" href="#">fenced</a></span></th>
+        <th><span class="aw-col-h"><input type="radio" name="sg-aw-col"><a class="ws-iso ws-iso-unfenced" href="#">unfenced</a></span></th>
+        <th class="is-later"><span class="aw-col-h"><input type="radio" disabled><span class="ws-iso ws-iso-cloud">cloud</span><span class="ws-coming">later</span></span></th></tr></thead>
+        <tbody><tr><th>keys</th><td>placeholders</td><td class="is-chosen">placeholders</td><td>your real ones</td><td class="is-later">as micro VM</td></tr>
+        <tr><th>control it gets</th><td class="aw-mono">micro VM · proxy · placeholders</td><td class="is-chosen aw-mono">proxy · placeholders · guard</td><td class="aw-mono">no proxy · no placeholders · no guard · acts as you</td><td class="is-later">as micro VM</td></tr></tbody></table></div>
+      <label class="aw-tick"><input type="checkbox"><span>It acts as you: your files, Keychain and network</span></label>
+      <div class="aw-foot"><button type="button" class="btn sm quiet">Show the command</button><span class="ws-sp"></span><a class="btn" href="#">Cancel</a><button type="button" class="btn primary">Add and start</button></div>
+    </div>
+  </div></div>
+</section>
+
 <section id="sg-isolation-guide">
   <h2>Where an agent runs — the isolation guide, and the chip that leads there</h2>
   <p><code>#/guide/isolation[/vm|fenced|unfenced|elsewhere]</code> (<code>views/isolation-guide.js</code>; the words are <code>core/isolation.js</code>'s):

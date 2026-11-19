@@ -16,7 +16,7 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), ch
   viewDoctor = upcall('viewDoctor'), viewImages = upcall('viewImages'), viewMetrics = upcall('viewMetrics'),
   viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'), viewHome = upcall('viewHome'), viewThisMac = upcall('viewThisMac'), viewLoose = upcall('viewLoose'), viewBots = upcall('viewBots'), viewBot = upcall('viewBot'), viewMacs = upcall('viewMacs'),
   viewBrowse = upcall('viewBrowse'), viewRecipes = upcall('viewRecipes'), viewResources = upcall('viewResources'), viewSettings = upcall('viewSettings'), viewDevices = upcall('viewDevices'), viewDebug = upcall('viewDebug'),
-  viewNotifications = upcall('viewNotifications'), viewWsAgent = upcall('viewWsAgent'), viewIsolationGuide = upcall('viewIsolationGuide'),
+  viewNotifications = upcall('viewNotifications'), viewWsAgent = upcall('viewWsAgent'), viewIsolationGuide = upcall('viewIsolationGuide'), viewAddWorker = upcall('viewAddWorker'),
   wizardStopPolling = upcall('wizardStopPolling');
 
 // ── routing ─────────────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ export async function refresh(scrollTop) {
   try {
     const views = { home: viewHome, thismac: viewThisMac, loose: viewLoose, bots: viewBots, bot: viewBot, macs: viewMacs, overview: viewOverview, images: viewImages, resources: viewResources, operations: viewOperations, accounts: viewAccounts,
                     metrics: viewMetrics, activity: viewActivity, doctor: viewDoctor, settings: viewSettings, recipes: viewRecipes, browse: viewBrowse, devices: viewDevices, debug: viewDebug, notifications: viewNotifications,
-                    wsagent: viewWsAgent, guide: viewIsolationGuide };
+                    wsagent: viewWsAgent, guide: viewIsolationGuide, addworker: viewAddWorker };
     const fn = views[state.view] || viewHome;
     const node = await fn();
     if (node && !state.signedOut) {

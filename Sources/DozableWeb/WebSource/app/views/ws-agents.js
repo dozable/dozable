@@ -3,8 +3,9 @@
 // micro VM, fenced, unfenced, elsewhere side by side, told apart by their chips: the agent (its program and session),
 // where it is (this Mac / elsewhere, and its isolation), its state, its task, what it uses and what isolates it, who
 // started it and when, and Watch / Open with ⋯. Read from the workspace's detail (`workspace-show`) — no read of its own;
-// ended workers come from its log. The lifecycle stays the CLI's: "+ Add a worker", End and the start are commands to
-// copy; Take out and Move are the filing actions (this Mac's own browser only).
+// ended workers come from its log. "+ Add a worker" opens its page (#/w/NAME/agents/new) and End… is the `worker-end`
+// action; Take out and Move are the filing actions — all this Mac's own browser only (another computer: the commands).
+// The start stays a command to copy here.
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
@@ -22,6 +23,7 @@ import { putInWorkspace, takeOut, filingRefusal, releaseCommand } from '../compo
 import { restartSessionDialog } from '../components/session-actions.js';
 import { programName } from '../components/ws-panel.js';
 import { workspacePill } from '../components/ws-marks.js';
+import { addWorkerLink, endWorkerItem } from '../components/worker-end.js';
 import { openInTerminal } from './sandbox-dialogs.js';
 
 /// An agent's state as a phase the dots and pills know.
@@ -68,8 +70,7 @@ export function agentMenuItems(d, a, opts = {}) {
         a.session, { action: 'mac-session-restart', session: a.session }) });
   }
   if (liveWorker) {
-    items.push({ label: 'End: copy the command', icon: 'power', desc: 'doz worker end ' + d.name + ' ' + a.name + ' — in a terminal on this Mac',
-      onSelect: () => copy('doz worker end ' + d.name + ' ' + a.name) });
+    items.push(endWorkerItem(d.name, a, opts.onDone));
   }
   items.push({ sep: true });
   const cannot = liveWorker ? 'A worker is ended, not taken out: doz worker end ' + d.name + ' ' + a.name
@@ -118,10 +119,7 @@ export function agentsTab(o) {
   const order = (a) => (a.role === 'manager' ? 0 : a.task ? 2 : 1);
   const agents = d.agents.slice().sort((x, y) => order(x) - order(y) || x.name.localeCompare(y.name));
   const ended = (o.lines || []).filter((l) => l.action === 'worker-ended' && l.agent && !d.agents.some((a) => a.name === l.agent && a.state !== 'ended'));
-  const addCmd = h('div', { class: 'wsa-add', hidden: true }, cmdLine('doz worker add ' + d.name + ' --task "…"'),
-    h('p', { class: 'muted' }, d.startedAt ? 'In a terminal on this Mac.' : 'In a terminal on this Mac, once the work has started (doz workspace start ' + d.name + ').'));
-  const add = h('button', { type: 'button', class: 'btn sm', 'aria-expanded': 'false', 'data-add-worker': '',
-    on: { click: () => { addCmd.hidden = !addCmd.hidden; add.setAttribute('aria-expanded', String(!addCmd.hidden)); } } }, icon('plus'), 'Add a worker');
+  const add = addWorkerLink(d.name, [icon('plus'), 'Add a worker'], 'btn sm');
   const views = h('span', { class: 'segmented wsa-views', role: 'group', 'aria-label': 'List or grid' },
     h('button', { type: 'button', class: 'seg active', 'aria-pressed': 'true', 'data-wsa-view': 'list' }, icon('list'), 'List'),
     h('button', { type: 'button', class: 'seg', disabled: true, 'aria-disabled': 'true', 'data-wsa-view': 'grid', title: 'Grid — coming: every agent’s screen as a tile' },
@@ -135,13 +133,12 @@ export function agentsTab(o) {
     h('tbody', null, ...rows)));
   return h('div', { class: 'wsa', 'data-ws-agents': d.name },
     h('div', { class: 'wsa-tools' }, h('p', { class: 'muted wsa-count' }, d.agents.length + ' agent' + (d.agents.length === 1 ? '' : 's') + ' in ' + d.name), h('span', { class: 'ws-sp' }), views, add),
-    addCmd,
     d.agents.length ? null : callout('info', { compact: true, title: 'No agent yet',
       body: ['A loose sandbox or session joins with Put in a workspace… (This Mac › Loose agents); a worker with ', h('code', null, 'doz worker add'), '.'] }),
     table,
     d.hidden ? h('p', { class: 'muted wsa-hidden' }, d.hidden + ' on this Mac not shown to this browser (serve.mac_sessions).') : null,
     ended.length ? h('details', { class: 'wsa-ended' }, h('summary', null, 'Ended workers (' + ended.length + ')'),
-      h('ul', null, ...ended.map((l) => h('li', { 'data-ended': l.agent }, l.agent + ' — ' + l.text + ' · ', h('span', { title: full(new Date(l.at * 1000).toISOString()) }, when(new Date(l.at * 1000).toISOString())))))) : null);
+      h('ul', null, ...ended.map((l) => h('li', { 'data-ended': l.agent }, l.agent + ' — ' + l.text + ' · ', h('span', { title: full(l.at) }, when(l.at)))))) : null);
 }
 
 /// #/w/NAME/agent/AGENT when there is no page to frame: an agent elsewhere (a participant, token only — no terminal), a
