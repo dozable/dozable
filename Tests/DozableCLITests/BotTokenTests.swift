@@ -125,6 +125,11 @@ class BotTestCase: XCTestCase {
         return try XCTUnwrap(m.result, file: file, line: line).decode(BotChange.self)
     }
 
+    func shown(_ m: HostMessage, file: StaticString = #filePath, line: UInt = #line) throws -> BotDetail {
+        XCTAssertNil(m.error, m.error?.message ?? "", file: file, line: line)
+        return try XCTUnwrap(m.result, file: file, line: line).decode(BotDetail.self)
+    }
+
     func item(_ name: String) -> String? { keychain.read(service: BotTokens.service(store: store.root, name: name), account: nil).value }
     func fileBytes() -> Data? { try? Data(contentsOf: URL(fileURLWithPath: botStore.file)) }
     func fileText() -> String { fileBytes().map { String(decoding: $0, as: UTF8.self) } ?? "" }
@@ -351,6 +356,83 @@ final class BotTokenTests: BotTestCase {
         XCTAssertEqual((a11).error?.code, .invalid, "nothing to change")
         let a12 = await ask(c, .botSet, "mira") { $0.deliver = "inbox"; $0.session = "x y\n" }
         XCTAssertEqual((a12).error?.code, .invalid)
+    }
+
+    /// `heldOnly` (every change the dashboard asks): whatever would make a token to show once is refused before the
+    /// keychain or the chat server is touched — new elsewhere, a new token for a bot elsewhere, set to or from elsewhere —
+    /// with the terminal's command; the held flows are unchanged.
+    func testHeldOnlyRefusesEveryTokenToShowOnce() async throws {
+        let c = await core()
+        _ = try change(await ask(c, .botNew, "mira") { $0.agent = "claude-code" })
+        let far = try change(await ask(c, .botNew, "far") { $0.agent = "codex"; $0.isolation = "elsewhere" })
+        XCTAssertNotNil(far.oneTimeToken, "the CLI (no heldOnly) still gets its one-time token")
+        let before = (fileBytes(), chat.hashes, chat.dir, item("mira"), Set(keychain.items(servicePrefix: BotTokens.prefix(store: store.root)).map(\.service)))
+        chat.failing = ["add", "set", "replaceToken", "remove"]          // any chat call would fail differently
+        let cases: [(HostOp, String, (inout BotRequest) -> Void, String)] = [
+            (.botNew, "neo", { $0.agent = "codex"; $0.isolation = "elsewhere" },
+             "a bot elsewhere gets its token in a terminal on this Mac: doz bot new neo --agent codex --isolation elsewhere --to-file F"),
+            (.botToken, "far", { _ in }, "a bot elsewhere gets its token in a terminal on this Mac: doz bot token far --new --to-file F"),
+            (.botSet, "mira", { $0.isolation = "elsewhere" },
+             "a bot elsewhere gets its token in a terminal on this Mac: doz bot set mira --isolation elsewhere --to-file F"),
+            (.botSet, "far", { $0.isolation = "fenced" },
+             "far is elsewhere: moving it to this Mac makes it a new token — in a terminal on this Mac: doz bot set far --isolation fenced"),
+        ]
+        for (op, name, edit, words) in cases {
+            let m = await ask(c, op, name) { edit(&$0); $0.heldOnly = true }
+            XCTAssertEqual(m.error?.code, .invalid, "\(op.rawValue) \(name): \(m.error?.message ?? "no error")")
+            XCTAssertEqual(m.error?.message, words)
+            XCTAssertNil(m.result)
+        }
+        XCTAssertEqual(fileBytes(), before.0, "bots.json: identical bytes")
+        XCTAssertEqual(chat.hashes, before.1)
+        XCTAssertEqual(chat.dir, before.2)
+        XCTAssertEqual(item("mira"), before.3)
+        XCTAssertEqual(Set(keychain.items(servicePrefix: BotTokens.prefix(store: store.root)).map(\.service)), before.4, "no keychain item made or deleted")
+        // The held flows are unchanged under heldOnly: a held rotation, a change of an elsewhere bot's model.
+        chat.failing = []
+        let rot = try change(await ask(c, .botToken, "mira") { $0.heldOnly = true })
+        XCTAssertNil(rot.oneTimeToken)
+        XCTAssertNotEqual(item("mira"), before.3)
+        let mod = try change(await ask(c, .botSet, "far") { $0.model = "o4"; $0.heldOnly = true })
+        XCTAssertNil(mod.oneTimeToken)
+        XCTAssertEqual(mod.bot.model, "o4")
+        let neo = try change(await ask(c, .botNew, "neo") { $0.agent = "codex"; $0.isolation = "vm"; $0.heldOnly = true })
+        XCTAssertNil(neo.oneTimeToken)
+        XCTAssertNotNil(item("neo"))
+        XCTAssertNil(BotGuards.heldOnlyRefusal(.botList, BotRequest(name: "far"), bots: try botStore.read()), "looking is never refused")
+    }
+
+    /// `bot-show` with `withInstructions`: the text, as written (round trip); without it, never; a bot with none: nil.
+    func testShowWithTheInstructionsText() async throws {
+        let c = await core()
+        let text = "Be brief.\nAnswer in the room — once.\n"
+        _ = try change(await ask(c, .botNew, "mira") { $0.agent = "claude-code"; $0.instructions = text })
+        _ = try change(await ask(c, .botNew, "otto") { $0.agent = "codex" })
+        let plain = try await shown(ask(c, .botShow, "mira"))
+        XCTAssertNil(plain.instructionsText, "only when asked")
+        let d = try await shown(ask(c, .botShow, "mira") { $0.withInstructions = true })
+        XCTAssertEqual(d.instructionsText, text)
+        XCTAssertEqual(d.instructions?.bytes, text.utf8.count)
+        let none = try await shown(ask(c, .botShow, "otto") { $0.withInstructions = true })
+        XCTAssertNil(none.instructionsText)
+        // The read-only core answers it too (looking never starts the daemon); the limit is the store's 256 KiB.
+        let ro = await core(readOnly: true, withChat: false)
+        let r = try await shown(ask(ro, .botShow, "mira") { $0.withInstructions = true })
+        XCTAssertEqual(r.instructionsText, text)
+        let big = String(repeating: "x", count: BotStore.maximumInstructionsBytes)
+        _ = try change(await ask(c, .botSet, "otto") { $0.instructions = big })
+        let b = try await shown(ask(c, .botShow, "otto") { $0.withInstructions = true })
+        XCTAssertEqual(b.instructionsText?.utf8.count, BotStore.maximumInstructionsBytes)
+        // The listing's additive columns: avatar, account, who keeps the token — never a fingerprint.
+        _ = try change(await ask(c, .botSet, "mira") { $0.avatar = "🦊"; $0.account = "mac" })
+        var lr = HostRequest(.botList)
+        lr.botRequest = BotRequest()
+        let lm = await c.handle(lr)
+        let l = try XCTUnwrap(lm.result).decode(BotListing.self)
+        let row = try XCTUnwrap(l.bots.first { $0.name == "mira" })
+        XCTAssertEqual(row.avatar, "🦊")
+        XCTAssertEqual(row.account, "mac")
+        XCTAssertEqual(row.tokenKeeper, "dozable")
     }
 
     func testNewRefusals() async throws {

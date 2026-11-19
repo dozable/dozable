@@ -872,7 +872,7 @@ server reaches it, with a token of its own.
 ```bash
 doz bot new NAME --agent A [--model M] [--isolation vm|fenced|unfenced|elsewhere] [--deliver inbox|poll|webhook] [--webhook-entry E] [--session S] [--skills a,b] [--instructions-file F|-] [--account A] [--avatar V] [--to-file F]
 doz bot ls [--retired] [--json]                 # NAME  AGENT · MODEL  ISOLATION  REACHED  MANAGES
-doz bot show NAME [--json]                      # its record, where its token is, its rooms (while chat runs), its instructions' size
+doz bot show NAME [--instructions] [--json]     # its record, where its token is, its rooms (while chat runs), its instructions' size; --instructions: their text
 doz bot set NAME [--model M] [--account A] [--avatar V] [--skills a,b] [--instructions-file F] [--isolation I] [--deliver D [--webhook-entry E | --session S]] [--to-file F]
 doz bot retire NAME [--yes]                     # it leaves chat, its token is refused, its name stays with its old messages
 doz bot adopt NAME --agent A [flags] [--yes]    # an existing participant becomes a bot: its token is replaced
@@ -888,7 +888,9 @@ next). With chat off, a new bot takes part once chat is on. A held bot's change 
 locked. `retire` and `adopt` ask first; `--yes` is required with `--json` or with no terminal. A retired name is never
 taken again (`bot new`, `bot adopt`, `chat add`). `ls` and `show` answer from the store without starting the daemon. Exit
 codes: 0 ok · 2 not found · 4 already exists, or a retired name · 6 the daemon or the keychain unavailable · 64 usage
-(a missing `--yes` included).
+(a missing `--yes` included). When a bot running in a started workspace gets new instructions, a new model or a new account, the
+daemon says so as you in that workspace's main room ("mira's instructions changed; they apply from mira's next session") —
+its running session keeps what it started with.
 
 ### Workspaces
 

@@ -489,6 +489,13 @@ extension HostCore {
     /// Posts the edited brief in `room` as you (`ManagerKickoff.briefEdited`) and logs `brief-announced`; answers the notes
     /// to show when it could not.
     func workspaceAnnounceBrief(_ n: String, room: String, brief: String, refs: [String]) async -> [String] {
+        await workspaceAnnounce(n, room: room, content: ManagerKickoff.briefEdited(brief: brief, refs: refs),
+                                entry: WorkspaceLogEntry(action: "brief-announced", room: room))
+    }
+
+    /// Posts `content` in `room` as you and appends `entry` to the workspace's log; answers the notes to show when it could
+    /// not (nothing posted, nothing logged). The brief's announcement and a running bot's change (`botTellRunningSessions`).
+    func workspaceAnnounce(_ n: String, room: String, content: String, entry: WorkspaceLogEntry) async -> [String] {
         guard let chat = workspaceChat else { return ["not announced: chat is off"] }
         switch await chat.readiness() {
         case .off: return ["not announced: chat is off"]
@@ -496,11 +503,11 @@ extension HostCore {
         case .ready: break
         }
         do {
-            try chat.post(room: room, content: ManagerKickoff.briefEdited(brief: brief, refs: refs))
+            try chat.post(room: room, content: content)
         } catch {
             return ["not announced: \(HostError.from(error).message)"]
         }
-        try? workspaces.append(n, WorkspaceLogEntry(action: "brief-announced", room: room))
+        try? workspaces.append(n, entry)
         return []
     }
 

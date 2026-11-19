@@ -63,6 +63,27 @@ final class BotAdoptTests: BotTestCase {
         XCTAssertTrue(retired.error?.message.contains("gone was a bot, retired") == true)
     }
 
+    /// The dashboard's adoption (`heldOnly`): elsewhere is refused before anything is touched — no item, no chat call, every
+    /// byte as it was; a held adoption is unchanged.
+    func testHeldOnlyRefusesAnAdoptionElsewhereAndKeepsTheHeldOne() async throws {
+        let c = await core()
+        let old = "olda-own-token-0123456789"
+        chat.plant("olda", token: old)
+        let before = (fileBytes(), chat.hashes, chat.dir)
+        chat.failing = ["add", "set", "replaceToken", "remove"]          // any chat call would fail differently
+        let m = await ask(c, .botAdopt, "olda") { $0.agent = "codex"; $0.isolation = "elsewhere"; $0.heldOnly = true }
+        XCTAssertEqual(m.error?.code, .invalid, m.error?.message ?? "")
+        XCTAssertEqual(m.error?.message, "a bot elsewhere gets its token in a terminal on this Mac: doz bot adopt olda --agent codex --isolation elsewhere --to-file F")
+        XCTAssertEqual(fileBytes(), before.0)
+        XCTAssertEqual(chat.hashes, before.1)
+        XCTAssertEqual(chat.dir, before.2)
+        XCTAssertNil(item("olda"))
+        chat.failing = []
+        let ch = try change(await ask(c, .botAdopt, "olda") { $0.agent = "codex"; $0.heldOnly = true })
+        XCTAssertNil(ch.oneTimeToken)
+        XCTAssertEqual(chat.hashes["olda"], ChatSecrets.hash(try XCTUnwrap(item("olda"))))
+    }
+
     func testALockedKeychainRefusesAHeldAdoption() async throws {
         let c = await core()
         let old = "olda-own-token-0123456789"

@@ -1826,6 +1826,12 @@ public struct BotRequest: Codable, Equatable, Sendable {
     public var instructions: String?
     /// ls: only the retired bots.
     public var retired: Bool?
+    /// show: the instructions' text too (`BotDetail.instructionsText`; `doz bot show NAME --instructions`, the dashboard).
+    public var withInstructions: Bool?
+    /// Only what keeps the token held (the dashboard sets it on every change; the CLI never does): anything that would make a
+    /// token to show once — new or adopt elsewhere, a new token for a bot elsewhere, set to or from elsewhere — is refused
+    /// before the keychain or the chat server is touched. An older daemon ignores it (the dashboard drops a token anyway).
+    public var heldOnly: Bool?
 
     public init(name: String? = nil) { self.name = name }
 }
@@ -1852,10 +1858,16 @@ public struct BotRow: Codable, Equatable, Sendable {
     public var retiredAt: Date?
     /// The workspace it works in now, as a worker (nil: none).
     public var worksIn: String?
+    /// Additive: its avatar, its account, and who keeps its token (`dozable`, `elsewhere`, `none`) — never a fingerprint here.
+    public var avatar: String?
+    public var account: String?
+    public var tokenKeeper: String?
     public init(name: String, agent: String, model: String?, isolation: String, kind: String, deliver: String, inChat: Bool, manages: [String],
-                running: String? = nil, retiredAt: Date?, worksIn: String? = nil) {
+                running: String? = nil, retiredAt: Date?, worksIn: String? = nil, avatar: String? = nil, account: String? = nil,
+                tokenKeeper: String? = nil) {
         self.name = name; self.agent = agent; self.model = model; self.isolation = isolation; self.kind = kind; self.deliver = deliver
         self.inChat = inChat; self.manages = manages; self.running = running; self.retiredAt = retiredAt; self.worksIn = worksIn
+        self.avatar = avatar; self.account = account; self.tokenKeeper = tokenKeeper
     }
 }
 
@@ -1890,6 +1902,9 @@ public struct BotDetail: Codable, Equatable, Sendable {
     public var rooms: [String]?
     /// What the person may want to know or do next.
     public var notes: [String]?
+    /// The instructions' text (UTF-8, at most 256 KiB), only when asked (`BotRequest.withInstructions`). Your prose — never a
+    /// credential.
+    public var instructionsText: String?
 
     public init(_ r: BotRecord, inChat: Bool, workspaces: [String], manages: [String], notes: [String]? = nil) {
         name = r.name; createdAt = r.createdAt; origin = r.origin; agent = r.agent; model = r.model; account = r.account; avatar = r.avatar

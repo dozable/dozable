@@ -213,7 +213,18 @@ struct BotShow: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "show", abstract: "An Agent / Bot: its agent, isolation, delivery, where its token is, its rooms.")
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The bot.") var name: String
+    @Flag(name: .long, help: "Print its instructions' text (with --json: the instructionsText field).") var instructions = false
     func run() async throws {
+        if instructions {
+            if let why = ChatNames.refusal(name) { throw fail(HostError(.invalid, why), g) }
+            var b = BotRequest(name: name)
+            b.withInstructions = true
+            let d = try decode(try await query(botRequest(.botShow, b), g), BotDetail.self, g)
+            if g.json { Out.json(d); return }
+            guard let text = d.instructionsText else { Out.stdout("\(name) has no instructions.\n"); return }
+            Out.stdout(text.hasSuffix("\n") || text.isEmpty ? text : text + "\n")
+            return
+        }
         var d = try await botLook(name, g)
         if d.retiredAt == nil, d.inChat { d.rooms = botRooms(name, g) }
         if g.json { Out.json(d); return }
