@@ -52,6 +52,11 @@ export const state = {
   botForm: null,
   botsRetired: false,      // the roster shows the retired ones ("Show retired")
   botDraft: null,          // Duplicate: the bot a new one is filled from (its name empty)
+  botReturn: null,         // 'new-workspace': a new bot made from the New workspace wizard goes back there, chosen
+  // The New workspace wizard (views/new-workspace.js, #/new-workspace): its choices and the plan's last answer; the bot of
+  // ?bot=NAME, taken once.
+  wsn: null,
+  wsnBot: null,
   botLast: null,           // the last change's line on a bot's screen {name, text}
   // Chat (views/chat*.js): what the chat server last said and what this page shows of it.
   chat: {

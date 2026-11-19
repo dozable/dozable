@@ -40,7 +40,8 @@ public enum WebWorkspaceNew {
     static func decode(_ f: WebAction.Fields, forPlan: Bool) throws -> (WorkspaceRequest, fromProject: Bool) {
         var w = WorkspaceRequest()
         if forPlan {
-            w.name = try f.string("workspace", max: 64)
+            // An empty name while the person types: no name (the daemon's refusal says which is wanted).
+            w.name = (f.d["workspace"] as? String) == "" ? nil : try f.string("workspace", max: 64)
             if let v = f.d["brief"], !(v is NSNull) {
                 guard let s = v as? String, s.utf8.count <= WorkspaceStore.maximumBriefBytes,
                       !s.unicodeScalars.contains(where: { $0.properties.generalCategory == .control && !["\n", "\r", "\t"].contains($0) }) else {

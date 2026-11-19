@@ -10,7 +10,8 @@ import { dialog } from './dialog.js';
 import { paintNav } from './nav.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const viewNew = upcall('viewNew'), viewOnboarding = upcall('viewOnboarding'), viewTry = upcall('viewTry'),
-  wizardStopPolling = upcall('wizardStopPolling');
+  wizardStopPolling = upcall('wizardStopPolling'), viewNewWorkspace = upcall('viewNewWorkspace'),
+  newWorkspaceDirty = upcall('newWorkspaceDirty'), forgetNewWorkspace = upcall('forgetNewWorkspace');
 
 // ── 603: the wizards' modal ─────────────────────────────────────────────────
 // A real dialog (role=dialog, aria-modal, labelled by the wizard's title): the rest of the page is inert while it
@@ -65,8 +66,8 @@ export async function renderModal(first) {
   const v = state.modal;
   if (!v) return;
   let node;
-  try { node = v === 'new' ? await viewNew() : v === 'try' ? await viewTry() : await viewOnboarding(); } catch (e) {
-    node = h('div', { class: 'wizard' }, wizHead(v === 'new' ? 'New sandbox' : v === 'try' ? 'Quick try' : 'Set up Dozable', null, [], null),
+  try { node = v === 'new' ? await viewNew() : v === 'try' ? await viewTry() : v === 'new-workspace' ? await viewNewWorkspace() : await viewOnboarding(); } catch (e) {
+    node = h('div', { class: 'wizard' }, wizHead(v === 'new' ? 'New sandbox' : v === 'try' ? 'Quick try' : v === 'new-workspace' ? 'New workspace' : 'Set up Dozable', null, [], null),
       h('div', { class: 'wiz-card' }, markChildren(h('div', { class: 'w-body' }, callout('bad', { cls: 'notice', title: 'This could not be read', body: e.message || String(e) })), 'w-item')));
   }
   if (state.modal !== v || state.signedOut) return;
@@ -100,6 +101,7 @@ function wizDirty() {
   }
   // 634: from Base image on, until the settings are written (Workspace rules' Next) — the base goes on either way.
   if (state.modal === 'onboarding') { const w = state.wiz; return !!w && w.step >= WIZ.base && !w.config; }
+  if (state.modal === 'new-workspace') return newWorkspaceDirty();
   return false;
 }
 export function wizardCloseRequest() {
@@ -107,11 +109,13 @@ export function wizardCloseRequest() {
   const leave = () => {
     if (state.modal === 'try') stopTryRead();
     if (state.modal === 'new') state.nw = null; else if (state.modal === 'onboarding') state.wiz = null; else if (state.modal === 'try') state.tr = null;
+    else if (state.modal === 'new-workspace') forgetNewWorkspace();
     if (state.modalBack) history.back(); else location.replace(state.bgHash && !MODAL_VIEWS.has(state.bgHash.slice(2)) ? state.bgHash : HOME);
   };
   if (!wizDirty()) { leave(); return; }
-  dialog(state.modal === 'new' ? 'Discard this new sandbox?' : 'Stop setting up?',
-    state.modal === 'new' ? 'Nothing is written yet: closing forgets the choices made so far.'
+  const made = state.modal === 'new' || state.modal === 'new-workspace';
+  dialog(state.modal === 'new' ? 'Discard this new sandbox?' : state.modal === 'new-workspace' ? 'Discard this new workspace?' : 'Stop setting up?',
+    made ? 'Nothing is written yet: closing forgets the choices made so far.'
       : 'Nothing is written yet: closing forgets the choices made so far (a base already downloading goes on in the daemon). Onboarding can be run again from the sidebar.',
     [], 'Discard', async () => { leave(); }, { danger: true, icon: 'x' });
 }

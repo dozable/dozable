@@ -75,6 +75,7 @@ import { viewDoctor } from './app/views/doctor.js';
 import { viewImages } from './app/views/images.js';
 import { viewMetrics } from './app/views/metrics.js';
 import { newSandboxWizard, viewNew } from './app/views/new-sandbox.js';
+import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, viewNewWorkspace } from './app/views/new-workspace.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations.js';
 import { viewBots } from './app/views/bots.js';
@@ -99,6 +100,14 @@ import './app/views/shortcuts.js';
 
 // 599c: Quick add in the sidebar, beside This Mac.
 $('nav-quick-add').replaceChildren(icon('plus'));
+// The sidebar's Workspaces +: the New workspace wizard (this Mac's own browser only — another computer sees why).
+$('nav-ws-new').replaceChildren(icon('plus'));
+$('nav-ws-new').addEventListener('click', (ev) => {
+  ev.preventDefault();
+  const why = newWorkspaceRefusal();
+  if (why) { toast(why, true); return; }
+  location.hash = '#/new-workspace';
+});
 $('nav-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });
 // 617 (owner): TRY is a section of its own — its + opens the Quick try. 669 (owner): the section is RECIPES — the
 // recipes installed on this Mac, Browse (the whole catalogue), then Quick try; its + still opens the Quick try. Since the
@@ -178,6 +187,7 @@ async function startApp() {
   {
     if (!/^#\/[a-z]/.test(location.hash)) history.replaceState(null, '', location.pathname + '#/home');
     await loadSettings();
+    if (newWorkspaceRefusal()) { $('nav-ws-new').disabled = true; $('nav-ws-new').title = newWorkspaceRefusal(); }
     // 594 (D8): a store never onboarded opens on the setup wizard (once per page load).
     try {
       const o = await api('overview');
@@ -214,12 +224,12 @@ configureChat({
 });
 setInterval(chatNavCheck, 60000);
 provide({
-  acknowledgeOps, backToTrySetup, banner, btn, callout, chatEnter, chatLeave, chatNavCheck, chatRefresh, closeWizardModal, connect, dropBanner, failureFor, gridEnter, gridLeave,
+  acknowledgeOps, backToTrySetup, banner, btn, callout, chatEnter, chatLeave, chatNavCheck, chatRefresh, closeWizardModal, connect, dropBanner, failureFor, forgetNewWorkspace, gridEnter, gridLeave,
   gridRefresh, hostChanged, lifecycle, macEnter, macLeave, macRefresh, modalInert, opFailed, openWizardModal, pageFailure,
   paintCover, paintHome, paintNav, paintNotes, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition, paintUpdates,
   persistLayout, reattachTerminals, refresh, refreshMacPicker, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
   renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
-  viewBots, viewBot, viewHome, viewImages, viewLoose, viewMacs, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
+  viewBots, viewBot, viewHome, viewImages, viewLoose, viewMacs, viewMetrics, viewNew, viewNewWorkspace, newWorkspaceDirty, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
   viewThisMac, viewTry, viewWsAgent, wizardStopPolling, wsEnter, wsRefresh,
 });
 // The browser probes' names. The one script's top-level names were globals, and the workspace's browser probes
