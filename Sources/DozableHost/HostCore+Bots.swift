@@ -50,12 +50,17 @@ extension HostCore {
         case .botList:
             var l = try botListing(retired: b.retired == true)
             let running = await runningManagers()
-            for i in l.bots.indices { l.bots[i].running = running[l.bots[i].name] }
+            let works = liveWorkers()
+            for i in l.bots.indices {
+                l.bots[i].running = running[l.bots[i].name]
+                l.bots[i].worksIn = works[l.bots[i].name]
+            }
             return try JSONValue(encoding: l)
         case .botShow:
             let n = try botName(b)
             var d = try botDetail(try botRecord(n, in: try bots.read()))
             d.running = await runningManagers()[n]
+            d.worksIn = liveWorkers()[n]
             return try JSONValue(encoding: d)
         default:
             break
@@ -300,6 +305,9 @@ extension HostCore {
         var rec = try botRecord(name, in: file)
         if let at = rec.retiredAt { throw HostError(.exists, "\(name) was retired \(BotName.day(at)) already") }
         for w in workspaces.records() {
+            if let a = w.agents.first(where: { $0.bot == name && $0.isLiveWorker }) {
+                throw HostError(.exists, "\(name) works in \(w.name) — doz worker end \(w.name) \(a.name) first")
+            }
             if let a = w.agents.first(where: { $0.bot == name }) {
                 throw HostError(.exists, "\(name) is in \(w.name) — doz workspace release \(w.name) \(a.name) first")
             }

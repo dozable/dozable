@@ -128,8 +128,48 @@ unfenced one reads its token from a file only you can read, in your temporary fo
 
 A fenced or VM manager collects its messages itself, so its bot must be reached by polling (`doz bot set mira --deliver
 poll`); a manager is never reached by a webhook. A bot elsewhere runs on its own machine and is never started by
-Dozable. **For now a bot runs in one live workspace at a time**: starting a second workspace with the same bot is
-refused — stop the first one. A manager is not removed, replaced or released while it runs: stop it first.
+Dozable. **For now a bot runs in one live workspace at a time**, as a manager or a worker: starting a second workspace
+with the same bot is refused — stop the first one, or end it as a worker there. A manager is not removed, replaced or released while it runs: stop it first.
+
+## Workers
+
+A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is
+for, and any folders it works on (usually projects). Work starts only once it is fully set up. Once it has started, you
+(or its manager, through you) bring up **workers**: agents, each with one task, that join the workspace's room.
+
+```bash
+doz worker add demo --task "list the files"                 # an anonymous worker, bot1, fenced on this Mac
+doz worker add demo --from-bot otto --task "review the PR"  # one of your Agents / Bots as a worker
+doz worker add demo carl --isolation vm --cpus 2 --memory 2G --task "build it"   # in a micro VM of its own
+doz worker ls demo                                          # every agent: where it runs, what isolates it, its state, its task
+doz worker end demo bot1                                    # its session ends; an anonymous one leaves chat
+```
+
+A worker joins the workspace's room, is told its task in its START file, and says in the room that it is up — Dozable
+posts nothing there itself. While the workspace is still setting up, `worker add` refuses and says to start it first;
+nothing is made.
+
+- **Its name.** Leave it out and it is the first free `bot1`, `bot2`, …: an anonymous worker, with a throwaway place in
+  chat that goes when it ends. `--from-bot otto` makes it that Agent / Bot: its name, token, skills and instructions.
+- **Where it runs** — the narrowest place unless you say otherwise: **fenced** on this Mac (the default; its session is
+  `demo-bot1`), **vm** (a micro VM of its own, `demo-carl`, when you say so or the workspace's or the bot's default is
+  vm), **in a running sandbox of the workspace** (`--sandbox X`: it is its own participant there, but it **shares X** —
+  workers there can read each other's placeholders), or **unfenced** — acting as you — only when you name it
+  (`--isolation unfenced`).
+- **What it reaches.** It works in the workspace's main folder; its network is the workspace's default, else locked; it
+  reaches only the chat server's port of this Mac, opens no URL and copies to no clipboard. A fenced Claude Code worker
+  may use only the chat client without asking; `--allow-tool Edit` (repeatable) adds a tool.
+- **Its token** never appears on a command line, in a record, a log or `--json`. A fenced or VM worker holds only a
+  placeholder Dozable's proxy swaps; an unfenced one reads its token from a file only you can read, deleted when it ends.
+- **`worker ls`** shows every agent of the workspace — its manager, the agents you adopted and its workers — with its
+  place, its isolation, what isolates it (fenced: "proxy · placeholders · guard"; vm: "micro VM · proxy · placeholders";
+  unfenced: "no proxy · no placeholders · no guard · acts as you"), its network, its state and its task. It answers with
+  the daemon stopped. `--all` adds the ended workers.
+- **Ending one.** `doz worker end demo bot1` ends its session (or stops its own micro VM, keeping its disk). An anonymous
+  worker leaves every room and its token is refused from then on; its messages keep its name. A bot's token is kept and it
+  stays in the room. `--rm` deletes its session's record or its micro VM too. Its name is free again.
+
+`doz workspace stop` stops only the manager; workers go on until you end them.
 
 ## Changing one
 
@@ -146,5 +186,6 @@ doz workspace rename demo launch-video              # its room keeps its own nam
 Each workspace is a folder in the store, `workspaces/NAME/`: `workspace.json` (the record), `brief.md` (the brief) and
 `log.jsonl` (what happened). They are readable by you alone. The log never holds the brief's text or a folder's path.
 
-Exit codes are as everywhere: 2 not found · 3 not fully set up, or its manager is running · 4 already exists (or already
-in a workspace, or the bot runs in another live workspace) · 6 the daemon or chat is not available · 64 usage.
+Exit codes are as everywhere: 2 not found · 3 not fully set up (or still setting up, for a worker), or its manager is
+running · 4 already exists (or already in a workspace, a name taken, or the bot runs in another live workspace) · 6 the
+daemon or chat is not available · 64 usage.

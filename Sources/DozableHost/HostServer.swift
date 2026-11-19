@@ -173,6 +173,8 @@ public final class HostServer: @unchecked Sendable {
         Task.detached { await server.core.sweepBotTokens() }
         // An unfenced workspace manager's token folders whose session does not run (a daemon that died before a stop).
         Task.detached { await server.core.sweepManagerTokenFiles() }
+        // A worker left pending by a daemon that stopped mid-add: undone when its place does not run.
+        Task.detached { await server.core.sweepPendingWorkers() }
         do {
             server.listenFD = try UnixSocket.listen(store.socket.path)
         } catch {

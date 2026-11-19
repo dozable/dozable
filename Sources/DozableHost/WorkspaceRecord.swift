@@ -174,8 +174,17 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     public var isolation: String?
     /// When a manager was last stopped (`doz workspace stop`); nil while it runs or before its first start. Additive.
     public var stoppedAt: Date?
+    /// A worker's task (`doz worker add --task`): what it was brought up to do. Set only on a worker; additive.
+    public var task: String?
+    /// A worker with no lasting identity: its chat participant is a throwaway one, removed at `doz worker end`. Additive.
+    public var anonymous: Bool?
+    /// A worker being added: set before anything is made, cleared once it runs (a daemon's start sweeps one left behind).
+    public var pendingAt: Date?
+    /// When a worker was ended (`doz worker end`): it is no longer an agent of the workspace; its entry is kept. Additive.
+    public var endedAt: Date?
     public var unknown = UnknownFields()
-    static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt", "bot", "isolation", "stoppedAt"]
+    static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt", "bot", "isolation", "stoppedAt", "task", "anonymous",
+                                     "pendingAt", "endedAt"]
 
     public init(name: String, role: String = "worker", place: AgentPlace, startedBy: String = "you", startedAt: Date, bot: String? = nil,
                 isolation: String? = nil) {
@@ -185,8 +194,12 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
 
     /// The workspace's manager (one at most).
     public var isManager: Bool { role == "manager" }
-    /// An unfenced manager acts as you: said wherever it shows.
-    public var actsAsYou: Bool { isManager && isolation == "unfenced" }
+    /// A worker brought up by `doz worker add` (it has a task) — not an adopted agent.
+    public var isWorker: Bool { role == "worker" && task != nil }
+    /// A worker that has not been ended (pending or running).
+    public var isLiveWorker: Bool { isWorker && endedAt == nil }
+    /// An unfenced manager or worker acts as you: said wherever it shows.
+    public var actsAsYou: Bool { (isManager || isWorker) && isolation == "unfenced" }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: DynamicKey.self)
@@ -198,6 +211,10 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         bot = try c.decodeIfPresent(String.self, forKey: "bot")
         isolation = try c.decodeIfPresent(String.self, forKey: "isolation")
         stoppedAt = try c.decodeIfPresent(Date.self, forKey: "stoppedAt")
+        task = try c.decodeIfPresent(String.self, forKey: "task")
+        anonymous = try c.decodeIfPresent(Bool.self, forKey: "anonymous")
+        pendingAt = try c.decodeIfPresent(Date.self, forKey: "pendingAt")
+        endedAt = try c.decodeIfPresent(Date.self, forKey: "endedAt")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -212,6 +229,10 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         try c.encodeIfPresent(bot, forKey: "bot")
         try c.encodeIfPresent(isolation, forKey: "isolation")
         try c.encodeIfPresent(stoppedAt, forKey: "stoppedAt")
+        try c.encodeIfPresent(task, forKey: "task")
+        try c.encodeIfPresent(anonymous, forKey: "anonymous")
+        try c.encodeIfPresent(pendingAt, forKey: "pendingAt")
+        try c.encodeIfPresent(endedAt, forKey: "endedAt")
     }
 }
 
@@ -311,10 +332,15 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
     public var managerIndex: Int? { agents.firstIndex { $0.isManager } }
     public var manager: WorkspaceAgent? { managerIndex.map { agents[$0] } }
 
-    /// The agent a person names: by its name, else by its place as typed (`wsa`, `@mac/wsu`).
+    /// The agent a person names: by its name, else by its place as typed (`wsa`, `@mac/wsu`). An ended worker's entry
+    /// is found only when nothing else answers to the name.
     public func agentIndex(_ s: String) -> Int? {
-        agents.firstIndex { $0.name == s } ?? agents.firstIndex { $0.place.display == s }
+        agents.firstIndex { $0.name == s && $0.endedAt == nil } ?? agents.firstIndex { $0.name == s }
+            ?? agents.firstIndex { $0.place.display == s }
     }
+
+    /// The live worker called `name` (nil: none).
+    public func liveWorkerIndex(_ name: String) -> Int? { agents.firstIndex { $0.name == name && $0.isLiveWorker } }
 }
 
 /// One line of `log.jsonl`: what happened, when and by whom (`you` or `doz`). Never the brief's text, a token or a path
@@ -326,7 +352,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var by: String
     /// created · room-made · room-linked · adopted · released · brief-edited ·
     /// folders-edited · refs-edited · renamed · agent-renamed · agent-removed · manager-set · manager-removed ·
-    /// bot-invited · kicked-off · manager-started · manager-stopped.
+    /// bot-invited · kicked-off · manager-started · manager-stopped · worker-added · worker-ended · worker-add-undone.
     public var action: String
     public var agent: String?
     /// The agent's place key (`sandbox:NAME`, `mac:SESSION`).
@@ -342,7 +368,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var reason: String?
     /// A manager's isolation (`manager-set`, `manager-started`).
     public var isolation: String?
-    /// The fingerprint of the token a manager was started with (12 hex — never the token).
+    /// The fingerprint of the token a manager or worker was started with (12 hex — never the token).
     public var fingerprint: String?
 
     public init(at: Date = Date(), by: String = "you", action: String, agent: String? = nil, place: String? = nil, room: String? = nil,
@@ -357,7 +383,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public static let actions: Set<String> = ["created", "room-made", "room-linked", "adopted",
                                               "released", "brief-edited", "folders-edited", "refs-edited", "renamed", "agent-renamed",
                                               "agent-removed", "manager-set", "manager-removed", "bot-invited", "kicked-off",
-                                              "manager-started", "manager-stopped"]
+                                              "manager-started", "manager-stopped", "worker-added", "worker-ended", "worker-add-undone"]
 
     /// The line as a person reads it.
     public var sentence: String {
@@ -379,6 +405,10 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "kicked-off": return "posted the brief in \(room ?? "the room") (\(bytes ?? 0) bytes)"
         case "manager-started": return "started the manager \(agent ?? "?") (\(BotIsolation.words(isolation ?? "fenced"))" + (place.map { ", \($0)" } ?? "") + ")"
         case "manager-stopped": return "stopped the manager \(agent ?? "?")"
+        case "worker-added": return "added the worker \(agent ?? "?") (\(BotIsolation.words(isolation ?? "fenced"))" + (place.map { ", \($0)" } ?? "")
+            + "; its task \(bytes ?? 0) bytes)"
+        case "worker-ended": return "ended the worker \(agent ?? "?")"
+        case "worker-add-undone": return "undid adding the worker \(agent ?? "?") (\(reason ?? "its place did not run"))"
         default: return action
         }
     }

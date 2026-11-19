@@ -19,6 +19,14 @@ public enum TestSafety {
         return env["DOZ_TEST_GUARD"] == "1" || inXCTest
     }
 
+    /// A VM worker's stand-ins in a guarded run only (`make test-cli-workspace-vm`): `DOZ_TEST_WORKER_IMAGE` (an image
+    /// instead of the agent's — `lab`) and `DOZ_TEST_WORKER_ARGV` (a JSON array: a FAKE worker program, its first prompt
+    /// appended). Unguarded, both are nil whatever the environment says.
+    public static func workerSeams(_ env: [String: String] = ProcessInfo.processInfo.environment) -> (image: String?, argv: [String]?) {
+        guard guarded(env) else { return (nil, nil) }
+        return (env["DOZ_TEST_WORKER_IMAGE"], env["DOZ_TEST_WORKER_ARGV"].flatMap { try? JSONDecoder().decode([String].self, from: Data($0.utf8)) })
+    }
+
     /// The person's real home (never `$HOME`, which a test may point elsewhere — the danger is the REAL one).
     public static var realHome: URL {
         if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir { return URL(fileURLWithPath: String(cString: dir)) }

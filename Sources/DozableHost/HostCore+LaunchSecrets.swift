@@ -13,11 +13,15 @@ extension HostCore {
     /// secrets it keeps) — the source file outside everything the session could read (`readable`: resolved roots), and
     /// the destination reachable now (`hostPorts`: this Mac's ports it was given; `reach`: the policy's verdict for any
     /// other host). `allowFlag`: what to add for a site (`--allow` for a sandbox, `--permissions` for a fenced session).
+    /// `daemon`: the grants are the daemon's own (`daemonWorkerSecret`) — a grant's `daemonMade` is honoured (no source file
+    /// to check) only then; from a client it is cleared and the file is checked as any other.
     func checkedLaunchSecrets(_ grants: [LaunchSecretGrant], existing: [LaunchSecret] = [], readable: [String], readableWhat: String,
-                              hostPorts: [UInt16], reach: (String, UInt16) -> Bool, allowFlag: String) throws -> [LaunchSecretGrant] {
+                              hostPorts: [UInt16], reach: (String, UInt16) -> Bool, allowFlag: String,
+                              daemon: Bool = false) throws -> [LaunchSecretGrant] {
         guard !grants.isEmpty else { return [] }
         var out: [LaunchSecretGrant] = []
         for g in grants {
+            let made = daemon && g.daemonMade == true
             var s = g.secret
             let v = s.variable
             if let p = LaunchSecrets.variableProblem(v) { throw HostError(.invalid, "--secret: \(p)") }
@@ -36,12 +40,16 @@ extension HostCore {
             s.fingerprint = CredentialFingerprint.of(value)
             s.keychainService = nil
             s.bot = nil                         // a bot-held secret is the daemon's to make, never a client's
-            // The file: never one the session could read (its folder, its workspace, a root of its fence).
-            var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
-            let src = realpath(g.source, &resolved).map { String(cString: $0) } ?? g.source
-            guard src.hasPrefix("/") else { throw HostError(.invalid, "--secret \(v): src= must be an absolute path") }
-            for root in readable where LaunchSecrets.isWithin(src, root) {
-                throw HostError(.invalid, "--secret \(v): src=\(DisplayPath.tilde(src)) is inside \(readableWhat) (\(DisplayPath.tilde(root))) — the session could read the secret itself; keep the file outside it")
+            // The file: never one the session could read (its folder, its workspace, a root of its fence). A daemon-made
+            // grant has none.
+            var src = g.source
+            if !made {
+                var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
+                src = realpath(g.source, &resolved).map { String(cString: $0) } ?? g.source
+                guard src.hasPrefix("/") else { throw HostError(.invalid, "--secret \(v): src= must be an absolute path") }
+                for root in readable where LaunchSecrets.isWithin(src, root) {
+                    throw HostError(.invalid, "--secret \(v): src=\(DisplayPath.tilde(src)) is inside \(readableWhat) (\(DisplayPath.tilde(root))) — the session could read the secret itself; keep the file outside it")
+                }
             }
             // Reachable now — a secret never widens what the session reaches.
             if host == HostRoute.hostName {
@@ -51,7 +59,7 @@ extension HostCore {
             } else if !reach(host, port) {
                 throw HostError(.invalid, "--secret \(v): \(host):\(port) is not reachable from it — add \(allowFlag) site:\(host):\(port)")
             }
-            out.append(LaunchSecretGrant(secret: s, value: value, source: src))
+            out.append(LaunchSecretGrant(secret: s, value: value, source: src, daemonMade: made ? true : nil))
         }
         // Each variable once, across what it keeps (a secret given again for the same VAR replaces it).
         let kept = existing.filter { e in !out.contains { $0.secret.variable == e.variable } }
@@ -101,6 +109,26 @@ extension HostCore {
         }
         if !readOnly { ledger.save(store) }
         return (out, lines)
+    }
+
+    /// A worker's throwaway chat token as a DAEMON-MADE launch secret of `owner` (its place: `mac.SESSION` or a sandbox's
+    /// name) to `host.dozable.internal:<port>`: checked as every grant is but with no source file (the reach check holds —
+    /// the port is the one the worker is given), then kept the ordinary way (its own keychain item and a ledger line, so a
+    /// revocation and the sweep delete it). Until its place exists the sweep leaves it alone (`pendingLaunchSecrets`; the
+    /// caller calls `launchSecretSettled` once the place is made or the add is undone).
+    func daemonWorkerSecret(owner: String, token: String, variable: String, fileVariable: String, port: Int) throws -> LaunchSecret {
+        let (host, p) = try LaunchSecrets.destination("\(HostRoute.hostName):\(port)", variable: variable)
+        let s = LaunchSecret(variable: variable, fileVariable: fileVariable, host: host, port: p, fingerprint: CredentialFingerprint.of(token))
+        let checked = try checkedLaunchSecrets([LaunchSecretGrant(secret: s, value: token, source: "", daemonMade: true)], readable: [],
+                                               readableWhat: "", hostPorts: [p], reach: { _, _ in false }, allowFlag: "--host-port", daemon: true)
+        pendingLaunchSecrets.insert(LaunchSecrets.service(store: store.root, owner: owner, variable: variable))
+        guard let kept = keepLaunchSecrets(owner: owner, checked).records.first else { throw HostError(.failed, "the worker's token was not kept") }
+        return kept
+    }
+
+    /// A daemon-made secret's place is made (or its add undone): the sweep judges its item by its owner again.
+    func launchSecretSettled(owner: String, _ s: LaunchSecret) {
+        pendingLaunchSecrets.remove(LaunchSecrets.service(store: store.root, owner: owner, variable: s.variable))
     }
 
     /// The value of `s` (owned by `owner`): this daemon's memory, else its keychain item (read again by a new daemon), else
@@ -286,7 +314,7 @@ extension HostCore {
         guard !ledger.items.isEmpty else { return }
         let sessions = mac.records().sessions
         var removed: [String] = []
-        for (service, owner) in ledger.items {
+        for (service, owner) in ledger.items where !pendingLaunchSecrets.contains(service) {
             let live: Bool
             if owner.hasPrefix("mac.") {
                 live = sessions[String(owner.dropFirst(4))]?.fence?.secrets?.contains { $0.keychainService == service } == true

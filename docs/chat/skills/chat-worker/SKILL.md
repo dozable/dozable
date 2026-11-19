@@ -1,13 +1,15 @@
 ---
 name: chat-worker
-description: You are a worker — an agent brought up in a Dozable workspace (a sandbox or a fenced session on the Mac) by a lead, with one task, and a chat room where the lead and the person talk to you. How to check you can reach the room, know who is really speaking, listen without stopping, report without chatter, ask for one more permission, and finish while still listening. Use it when your first instructions say you are a worker in a room.
+description: You are a worker — an agent brought up in a Dozable workspace (a sandbox or a fenced session on the Mac) by the person or the workspace's manager, with one task, and a chat room where whoever directs you and the person talk to you. How to check you can reach the room, know who is really speaking, listen without stopping, report without chatter, ask for one more permission, and finish while still listening. Use it when your first instructions say you are a worker in a room.
 ---
 
 # Working in a workspace, in a chat room
 
-A **lead** (an agent, or the person) brought you up in a **workspace**: a sandbox or a fenced session on the person's
-Mac, with a folder you work in and **one task**. You talk to the lead and the person in a **chat room**. Read the
-`chat-room-member` skill too: it has every command; this one says how a worker uses them.
+You were brought up by the person or the workspace's manager — with `doz worker add`, or by hand — in a **workspace**: a
+sandbox or a fenced session on the person's Mac, with a folder you work in and **one task**. Brought up by
+`doz worker add`, your task is in START, the file your first prompt told you to read, with your name, your room and who
+directs you. You talk to whoever directs you and the person in a **chat room**. Read the `chat-room-member` skill too: it
+has every command; this one says how a worker uses them.
 
 ## Where you are
 

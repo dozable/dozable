@@ -312,6 +312,13 @@ manager may be an inbox bot: an inbox naming another session is pointed at the m
 logged). The manager is invited to the main room as you (`/invite @BOT` over the owner's socket, `ChatOwnerRooms.invite`)
 and the brief posted as you (`ChatOwnerRooms.post`); nothing in the server or the protocol changes.
 
+**A workspace's workers** (`doz worker add`; workspaces.md, "Workers") are participants too. An anonymous worker is a
+throwaway participant the daemon adds through `BotChat.add` (its kind from its agent, delivered to by polling — `dozchat
+receive`), invited to the main room (and the rooms named) as you, and removed at `doz worker end` with `BotChat.remove`:
+out of every room, its token refused, its old messages keeping its name. A worker from a bot is the bot's own participant:
+it is invited as you, polls when fenced or in a VM (an inbox or webhook bot is refused there), and stays a member of the
+room after its end. Dozable posts nothing in the room for a worker; nothing in the server or the protocol changes.
+
 **Delivery into a Claude Code session under the daemon.** `doz chat add NAME --inbox [--kind claude-session] [--session
 S]` (or `doz chat set NAME --deliver inbox`) records `deliver: "inbox"` (and `session` when it is not NAME) in
 `directory.json`; the generated config carries it as `inbox-socket` with `session`. While at least one such participant

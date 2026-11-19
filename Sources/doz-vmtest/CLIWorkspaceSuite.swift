@@ -22,6 +22,7 @@ import DozableHost
 //  10. chat off: no room, the note names --make-room
 //  11. no folders: made, shown and listed; --from-project without a folder refused
 //  12–22. a workspace's manager, started from its bot (CLIWorkspaceManagerRows.swift)
+//  23–33. its workers (CLIWorkspaceWorkerRows.swift)
 func cliWorkspaceSuite(binary: String) async {
     print("cli: workspaces — no VM")
     let fm = FileManager.default
@@ -221,4 +222,6 @@ func cliWorkspaceSuite(binary: String) async {
 
     // 12–22. a workspace's manager (CLIWorkspaceManagerRows.swift)
     cliWorkspaceManagerRows(h, root: root, store: store, started: &started)
+    // 23–33. its workers (CLIWorkspaceWorkerRows.swift)
+    cliWorkspaceWorkerRows(h, root: root, store: store, started: &started)
 }

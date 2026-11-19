@@ -92,16 +92,20 @@ extension HostCore {
         return out
     }
 
-    /// Each agent as it is now, and what the state derivation sees of it.
-    func workspaceAgents(_ rec: WorkspaceRecord, macs: [String: SessionRow]) async -> [(WorkspaceAgentRow, WorkspaceState.Agent)] {
-        var out: [(WorkspaceAgentRow, WorkspaceState.Agent)] = []
+    /// Each agent as it is now, and what the state derivation sees of it (nil: not an agent now — an ended worker). Ended
+    /// workers are left out unless `ended`.
+    func workspaceAgents(_ rec: WorkspaceRecord, macs: [String: SessionRow], ended: Bool = false) async -> [(WorkspaceAgentRow, WorkspaceState.Agent?)] {
+        var out: [(WorkspaceAgentRow, WorkspaceState.Agent?)] = []
         for a in rec.agents {
+            if a.endedAt != nil, !ended { continue }
             var state = "gone", seen = WorkspaceState.Agent.asleep
             if let s = a.place.sandbox {
                 if let m = managed[s] {
                     let phase = await effectivePhase(m).rawValue
                     state = phase
-                    seen = WorkspaceState.agent(phase: phase, statuses: statuses[s].map { Array($0.values) })
+                    // A worker in a sandbox it shares counts by its own session only.
+                    let mine = a.isWorker && a.place.session != nil ? statuses[s]?[a.place.session!].map { [$0] } : statuses[s].map { Array($0.values) }
+                    seen = WorkspaceState.agent(phase: phase, statuses: mine)
                 } else if a.isManager {
                     state = "not started"; seen = .notStarted
                 }
@@ -116,17 +120,31 @@ extension HostCore {
             } else {
                 state = "elsewhere"
             }
+            var counted: WorkspaceState.Agent? = seen
+            if a.isWorker {
+                counted = WorkspaceState.worker(pending: a.pendingAt != nil, ended: a.endedAt != nil, place: seen)
+                if a.endedAt != nil { state = "ended" } else if a.pendingAt != nil { state = "starting" }
+            }
             out.append((WorkspaceAgentRow(name: a.name, role: a.role, place: a.place.display, state: state, startedAt: a.startedAt, bot: a.bot,
-                                          isolation: a.isolation, actsAsYou: a.actsAsYou ? true : nil), seen))
+                                          isolation: a.isolation, actsAsYou: a.actsAsYou ? true : nil, task: a.task,
+                                          control: a.isWorker ? WorkerLaunch.control(isolation: a.isolation, shares: workerShares(rec, a)) : nil),
+                        counted))
         }
         return out
+    }
+
+    /// The sandbox a worker shares with another agent of the workspace not ended (nil: none — a place of its own).
+    func workerShares(_ rec: WorkspaceRecord, _ a: WorkspaceAgent) -> String? {
+        guard a.isWorker, let s = a.place.sandbox else { return nil }
+        let others = rec.agents.contains { o in o.endedAt == nil && o.place.sandbox == s && !(o.name == a.name && o.place == a.place) }
+        return others ? s : nil
     }
 
     func workspaceDetail(_ rec: WorkspaceRecord, withBrief: Bool, macs given: [String: SessionRow]? = nil, notes: [String] = []) async -> WorkspaceDetail {
         let macs: [String: SessionRow]
         if let given { macs = given } else { macs = rec.agents.contains { $0.place.mac == true } ? await workspaceMacRows() : [:] }
         let agents = await workspaceAgents(rec, macs: macs)
-        let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.map(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
+        let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.compactMap(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
         return WorkspaceDetail(name: rec.name, state: state.rawValue, driver: rec.driver, createdAt: rec.createdAt, brief: rec.brief,
                                briefText: withBrief ? workspaces.readBrief(rec.name) : nil, folders: rec.folders, rooms: rec.rooms,
                                agents: agents.map(\.0), defaults: rec.defaults, flags: rec.flags, origin: rec.origin,
@@ -142,12 +160,11 @@ extension HostCore {
         if !looseOnly {
             for rec in records {
                 let agents = await workspaceAgents(rec, macs: macs)
-                let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.map(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
-                let manager = rec.managerIndex.map { i in
-                    WorkspaceManagerRow(bot: rec.agents[i].bot ?? rec.agents[i].name, isolation: rec.agents[i].isolation ?? "fenced",
-                                        actsAsYou: rec.agents[i].actsAsYou, state: agents[i].0.state)
-                }
-                rows.append(WorkspaceRow(name: rec.name, state: state.rawValue, driver: rec.driver, agents: rec.agents.count, room: rec.mainRoom?.chatRoom,
+                let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.compactMap(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
+                let manager = rec.manager.flatMap { m in agents.first { $0.0.role == "manager" }.map { row in
+                    WorkspaceManagerRow(bot: m.bot ?? m.name, isolation: m.isolation ?? "fenced", actsAsYou: m.actsAsYou, state: row.0.state)
+                } }
+                rows.append(WorkspaceRow(name: rec.name, state: state.rawValue, driver: rec.driver, agents: agents.count, room: rec.mainRoom?.chatRoom,
                                          manager: manager))
             }
         }
@@ -351,6 +368,9 @@ extension HostCore {
         if rec.agents[i].isManager, await managerRunning(rec.agents[i]) {
             throw HostError(.invalidPhase, "\(rec.agents[i].name) manages \(n) and is running — stop it first: doz workspace stop \(n)")
         }
+        if rec.agents[i].isLiveWorker {
+            throw HostError(.invalidPhase, "\(rec.agents[i].name) is a worker of \(n) — doz worker end \(n) \(rec.agents[i].name)")
+        }
         let gone = rec.agents.remove(at: i)
         try workspaces.write(rec)
         try? workspaces.append(n, WorkspaceLogEntry(action: gone.isManager ? "manager-removed" : "released", agent: gone.name, place: gone.place.key))
@@ -484,8 +504,9 @@ extension HostCore {
         await workspaceGate.lock("workspaces")
         defer { workspaceGate.unlock("workspaces") }
         let ws = workspaces
+        // A worker's entry stays (`doz worker end` ends it; a sandbox deleted by `--rm` is its own).
         guard let n = ws.membership()["sandbox:" + name], var rec = try? ws.read(n),
-              let i = rec.agents.firstIndex(where: { $0.place.sandbox == name }) else { return }
+              let i = rec.agents.firstIndex(where: { $0.place.sandbox == name && !$0.isWorker }) else { return }
         let gone = rec.agents.remove(at: i)
         do {
             try ws.write(rec)

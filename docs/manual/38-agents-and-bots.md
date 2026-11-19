@@ -5,7 +5,8 @@ Codex, …), its model and account, where it runs, how the chat server reaches i
 session comes and goes; the bot is who did the work, and its messages keep its name.
 
 You make its identity, and Dozable keeps it ready. A bot is started as a workspace's **manager**:
-`doz workspace new demo … --manager mira`, then `doz workspace start demo` (see [Workspaces](37-workspaces.md)).
+`doz workspace new demo … --manager mira`, then `doz workspace start demo`; or as one of its **workers**:
+`doz worker add demo --from-bot otto --task "…"` (see [Workspaces](37-workspaces.md)).
 
 ## Making one
 
@@ -66,6 +67,17 @@ mira --deliver poll`). For now a bot runs in one live workspace at a time. `doz 
 where it runs now (`demo (running)`); `doz bot show` too. Giving a running manager's bot a new token stops it from
 talking until the workspace is started again.
 
+## Working in a workspace
+
+A bot can also be a **worker** in a started workspace: `doz worker add demo --from-bot otto --task "review the PR"`
+brings it up with its own name, token, skills and instructions, in the workspace's room — fenced by default, in a micro
+VM with `--isolation vm` (or when its default is vm), and unfenced (acting as you) only with `--isolation unfenced`. Its
+token reaches it the same way a manager's does, never shown. `doz worker end demo otto` ends it and keeps its token: it
+stays a member of the room. A fenced or VM worker's bot is reached by polling. A bot is never a worker of the workspace
+it manages, and **one live workspace at a time** counts both roles: while otto works in `wk`, starting a workspace it
+manages, or adding it as a worker elsewhere, is refused ("otto already works in wk, which is running…" — end it there
+first). `doz bot ls` says where each bot works now (`works in: wk`).
+
 ## Changing one
 
 ```bash
@@ -92,7 +104,7 @@ doz bot retire far
 ```
 
 It leaves chat and its token is refused. Its old messages keep its name, and the name is never used again — `doz bot new`,
-`doz bot adopt` and `doz chat add` refuse it. A bot that is an agent of a workspace is released from it first. `retire`
+`doz bot adopt` and `doz chat add` refuse it. A bot that is an agent of a workspace is released from it first (a worker is ended first, `doz worker end W NAME`). `retire`
 asks first; pass `--yes` when there is no terminal or with `--json`.
 
 ## Where it is kept

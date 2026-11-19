@@ -70,6 +70,14 @@ public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
         }
     }
 
+    /// A worker (`doz worker add`) as an agent: one being added is starting; an ended one is no agent at all (nil);
+    /// otherwise what its place says (`place`: its session's row, or its sandbox with ONLY its own session's status).
+    public static func worker(pending: Bool, ended: Bool, place: Agent) -> Agent? {
+        if ended { return nil }
+        if pending { return .starting }
+        return place
+    }
+
     /// A session on this Mac as an agent (nil row: its record is gone).
     public static func agent(macRow row: SessionRow?) -> Agent {
         guard let row, row.gone != true else { return .asleep }

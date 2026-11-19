@@ -119,6 +119,15 @@ public actor HostCore {
     /// How a workspace's manager is started and stopped (nil: the daemon's own, `DaemonManagerLauncher`; tests give a fake).
     var managerLauncherOverride: (any ManagerLauncher)?
     public func setManagerLauncher(_ l: (any ManagerLauncher)?) { managerLauncherOverride = l }
+    /// How a worker is started and ended (nil: the daemon's own, `DaemonWorkerLauncher`; tests give a fake).
+    var workerLauncherOverride: (any WorkerLauncher)?
+    public func setWorkerLauncher(_ l: (any WorkerLauncher)?) { workerLauncherOverride = l }
+    /// Launch secrets kept for a worker whose place is not made yet: the sweep leaves their items alone until it is.
+    var pendingLaunchSecrets: Set<String> = []
+    /// `SANDBOX/SESSION` → the launch secret whose placeholder that ONE session gets in `CHAT_TOKEN` / `CHAT_TOKEN_FILE` (a
+    /// worker sharing a sandbox). Set by the daemon just before it opens the session, read by `openSession` — never a
+    /// client's to set.
+    var sessionSecretAliases: [String: String] = [:]
     /// The bots' changes, one at a time (the key `bots`) — `HostCore+Bots`.
     let botGate = KeyedGate()
     /// The chat server's participants as the bots change them (the daemon sets it; nil: a bot cannot be changed).
@@ -869,6 +878,8 @@ public actor HostCore {
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)
+        case .workerAdd, .workerList, .workerEnd:
+            return try await performWorker(r)
         case .tools, .toolsApply:
             let m = try get(r.name)
             let phase = await m.sandbox.status.phase
@@ -2040,7 +2051,13 @@ public actor HostCore {
         // 599i: Codex's credentials for this session — its auth.json with placeholders only (or none).
         await deliverCodexAuth(m)
         // 692: its secrets' placeholders — VAR, and FILEVAR naming a 0600 file holding the same one.
-        let secretEnv = await deliverLaunchSecretFiles(m, user: r.user)
+        var secretEnv = await deliverLaunchSecretFiles(m, user: r.user)
+        // A worker sharing this sandbox: ITS token's placeholder in CHAT_TOKEN / CHAT_TOKEN_FILE, for this session only.
+        if let v = sessionSecretAliases.removeValue(forKey: m.name + "/" + session),
+           let s = m.config.secrets?.first(where: { $0.variable == v }), let t = secretEnv[v] {
+            secretEnv[ManagerLaunch.tokenVariable] = t
+            if let fv = s.fileVariable, let f = secretEnv[fv] { secretEnv[ManagerLaunch.tokenFileVariable] = f }
+        }
         if !secretEnv.isEmpty { r.environment = (r.environment ?? [:]).merging(secretEnv) { _, mine in mine } }
         // 617 (§7): a key read on use (1Password, AWS, a command) is read now, beside the session's start, so the agent's
         // first call does not wait for it (a fresh cached read makes this nothing).

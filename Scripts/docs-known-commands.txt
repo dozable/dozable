@@ -209,3 +209,7 @@ bot/set
 bot/retire
 bot/adopt
 bot/token
+worker
+worker/add
+worker/ls
+worker/end

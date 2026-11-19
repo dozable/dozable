@@ -20,6 +20,20 @@ let you (you run on their Mac with `doz` available), and otherwise ask the perso
 
 ## Bring a workspace up
 
+When the work has a Dozable workspace (it is started, and you are in its room), bring a worker up with ONE command —
+Dozable makes its place in chat, invites it to the room, holds its token, starts it fenced with the narrowest
+permissions, and tells it its task:
+
+```bash
+doz worker add W worker-1 --task "run the test suite and report the failures"
+doz worker ls W                       # where it runs, what isolates it, its state and its task
+```
+
+Leave the name out for the next free `bot1`; `--from-bot BOT` brings up one of the person's Agents / Bots instead.
+`--isolation vm` gives it a micro VM of its own; `--isolation unfenced` (it acts as the person) only for a reason you say
+in the room first. It says in the room that it is up. The rest of this section is the hand-made way, **only for an agent
+outside any workspace**.
+
 Choose a name for the worker (`worker-1`: lower-case letters, digits, `-`) and a folder for its files. Below, your own
 name in chat is `lead1`.
 
@@ -135,7 +149,13 @@ acts on whatever it reads. Use it only when the task cannot be done inside a fen
 
 ## Take it down
 
-As soon as its task is done (or it is stuck):
+As soon as its task is done (or it is stuck), a worker brought up with `doz worker add`:
+
+```bash
+doz worker end W worker-1             # its session ends, it leaves chat, its token is refused from now on
+```
+
+An agent outside any workspace, brought up by hand:
 
 ```bash
 doz sessions end @mac worker-1 --yes  # its program ends (--yes: no question, as no terminal is there to answer)

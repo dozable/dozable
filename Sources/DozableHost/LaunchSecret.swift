@@ -73,11 +73,16 @@ public struct LaunchSecretGrant: Codable, Equatable, Sendable {
     public var secret: LaunchSecret
     public var value: String
     public var source: String
+    /// A DAEMON-MADE grant (a worker's throwaway chat token): no file — the source-file check does not apply; the reach
+    /// check does. Only the daemon makes one (`HostCore.daemonWorkerSecret`); `checkedLaunchSecrets` clears it on anything a
+    /// client sends.
+    public var daemonMade: Bool?
 
-    public init(secret: LaunchSecret, value: String, source: String) {
+    public init(secret: LaunchSecret, value: String, source: String, daemonMade: Bool? = nil) {
         self.secret = secret
         self.value = value
         self.source = source
+        self.daemonMade = daemonMade
     }
 }
 
