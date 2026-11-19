@@ -72,7 +72,7 @@ extension HostCore {
                 var shape = MacCapabilityShape(session: s, record: r, home: mac.fenceHome())
                 if let p = macProxies[s] {
                     shape.network = "proxy"
-                    shape.preset = AgentPermissions.presetName(p.proxy.policy.permissions ?? [], base: AgentPermissions.macBase)
+                    shape.preset = PermissionPolicy.presetWord(p.proxy.policy, base: AgentPermissions.macBase)
                 }
                 i.mac = MacFence.capabilities(shape)
                 i.folders = [ReachFolder(path: r.workdir, mode: "rw")]

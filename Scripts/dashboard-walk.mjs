@@ -1332,6 +1332,16 @@ async function walkWideViews() {
   for (let i = 0; i < 40 && !sites.includes('wideblocked.test'); i++) { sites = (dozJSON(['net', 'show', '@mac', '--session', 'widef']) || {}).sites || []; if (!sites.includes('wideblocked.test')) await sleep(300); }
   check(sites.includes('wideblocked.test'), `wide 2 Allow for widef: doz net show @mac --session widef lists the site (${sites})`);
   check(await waitFor(`/wideblocked\.test/.test(document.querySelector('[data-net-agent="widef"]')?.textContent || '')`, 15000), 'wide 2 …and the page reads it again: listed in widef\'s row');
+  // …and its Can do says custom too: one source for the preset (the permissions report), the page's and the CLI's.
+  await goHash('#/w/wide/agent/widef/can-do');
+  await waitFor(`!!document.querySelector('[data-cando-table="widef"] [data-cando="network"]')`, 15000);
+  const canNet = await evaluate(text('[data-cando-table="widef"] [data-cando="network"]'));
+  const cliNet = (((dozJSON(['workspace', 'show', 'wide', '--can-do', '--agent', 'widef']) || {}).reach || { agents: [{ capabilities: [] }] }).agents[0].capabilities
+    .find((c) => c.id === 'network') || {}).state || '';
+  check(/\(custom\)/.test(canNet) && /\(custom\)/.test(cliNet), `wide 2 …widef's Can do network row says custom, as Network & secrets does (page: ${canNet.slice(0, 80)}; CLI: ${cliNet})`);
+  await goHash('#/w/wide/network');
+  await waitFor(`!!document.querySelector('[data-net-agent="widef"]')`, 15000);
+  check(/custom/.test(await evaluate(text('[data-net-agent="widef"]'))), 'wide 2 …and Network & secrets says custom for widef');
   // 3. For all: one operation per agent that can be limited and lacks it (widef2, gamma if proxied); unfenced not.
   await waitFor(`!!document.querySelector('[data-allow-all="site:wideblocked.test"]')`, 8000);
   const forAll = await evaluate(`(() => { const b = [...document.querySelectorAll('[data-allow-all="site:wideblocked.test"]')].find((x) => !x.disabled); return b ? Number(b.dataset.allowCount) : 0; })()`);
