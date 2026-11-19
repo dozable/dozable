@@ -919,6 +919,52 @@ a bot runs in one live workspace at a time: starting a second is refused ("mira 
 running…"). `doz workspace stop W` ends the manager and keeps its conversation; the next start resumes it. With no
 manager, `start` posts the brief and you drive. `doz bot ls` shows what each bot manages ("demo (running)").
 
+**Workers.** A worker is an agent brought up in a started workspace to do one task.
+
+```bash
+doz worker add W [NAME] --task "…" [--agent claude-code|codex] [--isolation fenced|vm|unfenced] [--sandbox X] [--session S]
+               [--cpus N --memory M] [--from-bot BOT] [--room LABEL]… [--allow-tool T]…
+doz worker ls W [--all] [--json]                # NAME  ROLE  BOT  PLACE  ISOLATION  CONTROL  NETWORK  STATE  TASK — every agent
+doz worker end W NAME [--rm]                    # its session (or its own sandbox) ends; an anonymous one leaves chat
+```
+
+`add` is refused while the workspace is setting up ("W is still setting up — doz workspace start W first"), finished,
+archived or starting, and without chat ("a worker needs chat — doz chat on"). It joins the main room (and each room named
+with `--room`, by its label) and is started with a first prompt telling it to read its START file: who it is and its task,
+its room, who directs it (the manager when one runs, else you), how to use `dozchat`, its skills (`chat-worker`,
+`chat-room-member`, a bot's own), a bot's instructions, what it can do where it runs, and the task in full; it says in the
+room that it is up. Dozable posts nothing there. With no NAME it is anonymous — the first free `botN`, a throwaway
+participant that polls — and `--from-bot BOT` makes it that bot (its name, token, skills and instructions; `--agent` and
+another NAME are refused). A NAME that is a bot's, a participant's or a live worker's is refused.
+
+It runs in the narrowest place unless you say otherwise: **fenced** on this Mac by default, as the session `W-NAME`
+(`--session S` names it); **vm** — a sandbox of its own, `W-NAME`, made with the workspace's main folder, `--cpus` and
+`--memory` — when you say so or the workspace's or the bot's default is vm; **in a sandbox of the workspace** that runs
+(`--sandbox X`: an adopted agent's or another worker's, never the manager's; its page port must already be open to it —
+`doz net allow X host:PORT` — and it holds at most four secrets), where it is a participant of its own but shares X:
+workers there can read each other's placeholders; **unfenced** only with `--isolation unfenced` — it then acts as you, and
+`ls` and `--json` say so. It works in the workspace's main folder (else `<projects_dir>/W/NAME`); its network is the
+workspace's default, else locked; it reaches only the chat server's page port of this Mac, opens no URL and copies to no
+clipboard. A fenced Claude Code worker may use only `dozchat` without asking; `--allow-tool T` adds a tool (fenced Claude
+Code only). Refused together: `--cpus`/`--memory` without vm, `--sandbox` with `--isolation`, `--cpus` or `--session`.
+
+Its token never appears in an argument, a record, a log or `--json`: an anonymous worker's is made by the daemon and held
+only as a launch secret of its place (a bot's stays in its own keychain item); a fenced or VM worker holds a placeholder
+(`CHAT_TOKEN`, and a file named by `CHAT_TOKEN_FILE`; in a shared sandbox its own pair, `CHAT_TOKEN_<NAME>`, given to its
+session as `CHAT_TOKEN`); an unfenced one reads a 0600 file in a 0700 folder under your temp folder. For now a bot runs in
+one live workspace at a time, as a manager or a worker: `add --from-bot` and `workspace start` refuse the other
+("otto already works in wk, which is running…"). `doz bot ls` says "works in: W".
+
+`end` ends its session — or stops its own sandbox, its disk kept — and, for an anonymous worker, removes it from chat: its
+token is refused from then on and its old messages keep its name. A bot's token is kept and it stays in the room. Its
+session's record (or its sandbox) is kept unless `--rm`, which also deletes the place of a worker already ended; in a
+shared sandbox only its session ends. Its name is free again. `ls` shows every agent — the manager, the adopted ones and
+the workers (`--all`: the ended ones too) — with what isolates it: fenced `proxy · placeholders · guard`, vm
+`micro VM · proxy · placeholders`, unfenced `no proxy · no placeholders · no guard · acts as you`, and `shares X` in a
+shared sandbox; it answers from the store without starting the daemon. `doz workspace stop W` stops only the manager.
+Exit codes: 0 ok · 2 not found · 3 setting up, finished, starting, a sandbox stopped, or ended already · 4 a name taken,
+or the bot live in another workspace · 6 the daemon or chat unavailable · 64 usage.
+
 ### Settings
 
 ```bash
