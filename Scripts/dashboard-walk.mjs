@@ -1062,15 +1062,18 @@ async function walkAddWorker() {
   await awPick('[data-aw-col="fenced"]');
   check(await evaluate(`document.querySelector('.aw-tick').hidden && !document.querySelector('[data-aw-add]').disabled`), 'add 2 back to fenced: no tick, Add enabled');
   // 3. A bot live elsewhere is greyed with the sentence; a taken name's refusal beside the name; nothing changes.
-  doz(['bot', 'new', 'wally', '--agent', 'claude-code']);
+  const wb = doz(['bot', 'new', 'wally', '--agent', 'claude-code']);
   const wr = doz(['worker', 'add', 'wiz1', '--from-bot', 'wally', '--task', 'wait in wiz1']);
+  const wally = (dozJSON(['bot', 'ls']) || { bots: [] }).bots.find((b) => b.name === 'wally');
   if (wr.status === 0) startedWorkers.push(['wiz1', 'wally']);
   await goHash('#/w/demo2/agents');
   await goHash('#/w/demo2/agents/new');
   await waitFor(`state.view === 'addworker' && ${AW_PLANNED}`, 15000);
   const before = JSON.stringify(workerLs('demo2'));
-  check(wr.status === 0 && await evaluate(`(() => { const o = document.querySelector('[data-aw-bot] option[value="wally"]'); return !!o && o.disabled && /wally already works in wiz1, which is running\. For now a bot runs in one live workspace at a time/.test(o.dataset.why || ''); })()`),
-    'add 3 a bot live in another workspace (wally works in wiz1) is greyed with the sentence');
+  const greyed = wr.status === 0 && await waitFor(`(() => { const o = document.querySelector('[data-aw-bot] option[value="wally"]'); return !!o && o.disabled && /wally already works in wiz1, which is running\. For now a bot runs in one live workspace at a time/.test(o.dataset.why || ''); })()`, 8000);
+  const seen = greyed ? '' : ` — bot new ${wb.status}, worker add ${wr.status} ${(wr.stderr || '').trim().split('\n').pop() || ''}, doz bot ls: worksIn ${wally?.worksIn ?? '?'}, `
+    + `the page: ${await evaluate(`(() => { const o = document.querySelector('[data-aw-bot] option[value="wally"]'); return o ? 'disabled ' + o.disabled + ', why ' + (o.dataset.why || '-') : 'no option (bots read: ' + (state.bots?.bots || []).map((b) => b.name + ':' + (b.worksIn || '-')).join(' ') + ')'; })()`)}`;
+  check(greyed, 'add 3 a bot live in another workspace (wally works in wiz1) is greyed with the sentence' + seen);
   await awType('[data-aw-task]', 'List the files of the walk.');
   await awType('[data-aw-name]', 'mira');
   const refusal = dozJSON(['worker', 'add', 'demo2', 'mira', '--task', 'x', '--dry-run']) || {};

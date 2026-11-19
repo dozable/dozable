@@ -102,13 +102,14 @@ export async function viewAddWorker() {
         body: ['Or in a terminal on the Mac:', cmdLine(addCommand(name))] }));
   }
   let d;
-  try { d = await loadWorkspace(name, 1000); } catch (e) {
+  // Read afresh on every visit: who is live where changes from the CLI too (a bot live elsewhere is greyed by it).
+  try { d = await loadWorkspace(name, 0); } catch (e) {
     state.aw = null;
     return h('div', { class: 'aw', 'data-add-worker-page': name }, crumb, head,
       callout(e.status === 404 ? 'warn' : 'bad', { title: e.status === 404 ? name + ' is not a workspace' : 'This workspace could not be read', body: e.message || String(e) }));
   }
   let bots = { bots: [] };
-  try { bots = await loadBots(5000); } catch (_) { /* anonymous only */ }
+  try { bots = await loadBots(0); } catch (_) { /* anonymous only */ }
   const aw = { workspace: name, detail: d, bots: bots.bots || [], plan: null, planError: '', busy: false, error: '', showCmd: false, asking: false,
     f: { workspace: name, task: '', name: '', who: 'anon', bot: '', agent: 'claude-code', place: 'own', column: 'fenced', picked: false, unfencedTicked: false,
          cpus: '', memory: '', rooms: [], tools: [] } };

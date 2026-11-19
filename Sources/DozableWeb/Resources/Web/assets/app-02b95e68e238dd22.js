@@ -20,7 +20,7 @@ import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/cha
 import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-d81a241356b15e2f.js';
 import { viewWsAgent } from './app/views/ws-agents-2ca7c08f1b9a269e.js';
 import { viewIsolationGuide } from './app/views/isolation-guide-53aa99936eacfa8a.js';
-import { viewAddWorker } from './app/views/add-worker-5f05558354cf101a.js';
+import { viewAddWorker } from './app/views/add-worker-29d9a82396c66894.js';
 import { interleave } from './app/core/ws-log-725b407c6811cd6c.js';
 import { configure as configureChat, dashboardFileUrl } from './app/core/chat-api-ec968582d97ebdcb.js';
 import { paintStartProgress } from './app/components/start-progress-d13ecc0a048639fc.js';
