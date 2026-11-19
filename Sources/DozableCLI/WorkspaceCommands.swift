@@ -243,11 +243,41 @@ struct WorkspaceShow: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The workspace.") var name: String
     @Flag(name: .long, help: "Print the brief's text too.") var brief = false
+    @Flag(name: .customLong("can-do"), help: "What each agent can do: its isolation and control, folders, network, secrets by name, its room — each live or at the next start.")
+    var canDo = false
+    @Flag(name: .long, help: "What it can reach and hold: each agent's network, what it was refused lately, this Mac's ports, the secrets held for it (by name) and the accounts used.")
+    var network = false
+    @Flag(name: .long, help: "Its folders, the files changed in each since the start (looked at without running anything there) and each micro VM agent's restore points.")
+    var folders = false
+    @Option(name: .long, help: "With --can-do or --network: one agent only.") var agent: String?
     func run() async throws {
+        if [canDo, network, folders].filter({ $0 }).count > 1 { throw fail(HostError(.invalid, "one of --can-do, --network and --folders"), g) }
+        if agent != nil, !canDo, !network { throw fail(HostError(.invalid, "--agent goes with --can-do or --network"), g) }
         var w = WorkspaceRequest(name: name)
         w.withBrief = brief ? true : nil
         let d = try decode(try await query(workspaceRequest(.workspaceShow, w), g), WorkspaceDetail.self, g)
-        if g.json { Out.json(d); return }
+        var reach: WorkspaceReach?, view: WorkspaceFolders?
+        if canDo || network {
+            var q = WorkspaceRequest(name: name)
+            q.agent = agent
+            reach = try await workspaceViewAnswer(.workspaceReach, q, WorkspaceReach.self, g)
+        }
+        if folders { view = try await workspaceViewAnswer(.workspaceFolders, WorkspaceRequest(name: name), WorkspaceFolders.self, g) }
+        if g.json {
+            if reach == nil && view == nil { Out.json(d) } else { Out.json(WorkspaceShowJSON(detail: d, reach: reach, folders: view)) }
+            return
+        }
+        if let reach {
+            Out.stdout("\(d.name) — \(stateWords(d.state)) · \(d.driver)\n\n")
+            if canDo { printCanDo(reach) } else { printNetwork(reach) }
+            for n in reach.notes ?? [] { Out.stdout("note: \(n)\n") }
+            return
+        }
+        if let view {
+            Out.stdout("\(d.name) — \(stateWords(d.state)) · \(d.driver)\n\n")
+            printFolders(view)
+            return
+        }
         printWorkspace(d)
         if let t = d.briefText { Out.stdout("\n" + t + (t.hasSuffix("\n") ? "" : "\n")) }
     }
@@ -360,19 +390,37 @@ struct WorkspaceLog: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The workspace.") var name: String
     @Option(name: .long, help: "Only since then: a time (2026-11-19T09:00:00Z) or an age (30m, 2h, 3d).") var since: String?
+    @Option(name: .long, help: "One page, newest first: at most N lines (1–500).") var limit: Int?
+    @Option(name: .long, help: "The page before this one: the `first` of the page you have (--json).") var before: Int?
     func run() async throws {
         var w = WorkspaceRequest(name: name)
         if let since {
             guard let d = WorkspaceStore.since(since) else { throw fail(HostError(.invalid, "--since \(since): a time (ISO 8601) or an age like 30m, 2h, 3d"), g) }
             w.since = d
         }
+        if limit != nil || before != nil {
+            if since != nil { throw fail(HostError(.invalid, "--since does not go with --limit or --before"), g) }
+            if let limit, !(1...WorkspaceLogPage.maximumLimit).contains(limit) { throw fail(HostError(.invalid, "--limit: 1–\(WorkspaceLogPage.maximumLimit) lines"), g) }
+            if let before, before < 0 { throw fail(HostError(.invalid, "--before: the first of an earlier page"), g) }
+            w.limit = limit
+            w.before = before
+            let page = try await workspaceViewAnswer(.workspaceLog, w, WorkspaceLogPage.self, g)
+            if g.json { Out.json(page); return }
+            Out.stdout(Self.lines(page.entries.reversed()) ?? "nothing logged before then\n")
+            if page.more, let first = page.first { Out.stdout("older: doz workspace log \(name) --limit \(limit ?? WorkspaceLogPage.defaultLimit) --before \(first)\n") }
+            return
+        }
         let entries = try decode(try await query(workspaceRequest(.workspaceLog, w), g), [WorkspaceLogEntry].self, g)
         if g.json { Out.json(entries); return }
+        Out.stdout(Self.lines(entries) ?? "nothing logged\(since == nil ? "" : " since then")\n")
+    }
+
+    static func lines(_ entries: [WorkspaceLogEntry]) -> String? {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm:ss"
         var s = ""
         for e in entries { s += "\(f.string(from: e.at))  \(e.by.padding(toLength: 3, withPad: " ", startingAt: 0))  \(e.sentence)\n" }
-        Out.stdout(s.isEmpty ? "nothing logged\(since == nil ? "" : " since then")\n" : s)
+        return s.isEmpty ? nil : s
     }
 }
 

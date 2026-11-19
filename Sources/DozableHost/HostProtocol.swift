@@ -280,6 +280,13 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     case workspaceSleep = "workspace-sleep", workspaceWake = "workspace-wake", workspaceFinish = "workspace-finish"
     case workspaceReopen = "workspace-reopen", workspaceArchive = "workspace-archive", workspaceRestore = "workspace-restore"
     case workspaceDelete = "workspace-delete"
+    /// What each agent of a workspace can reach and hold (`WorkspaceRequest.agent`: one only) — `WorkspaceReach`: its isolation
+    /// and control, folders, network (preset, sites, this Mac's ports, forwarded ports, refusals while a daemon runs), the
+    /// secrets it holds BY NAME and its capability rows. Never a value. Only reads: in-process when no daemon runs.
+    case workspaceReach = "workspace-reach"
+    /// A workspace's folders, what changed in each since its start (a bounded walk — never a program run in an agent's folder)
+    /// and each VM agent's restore points — `WorkspaceFolders`. Only reads: in-process when no daemon runs.
+    case workspaceFolders = "workspace-folders"
     /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
     /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
     /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),
@@ -305,7 +312,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .botList, .botShow, .workerList, .workerPlan, .macsList: true
+             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .botList, .botShow, .workerList, .workerPlan, .macsList: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -1634,7 +1641,8 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var name: String?
     /// rename: its new name.
     public var newName: String?
-    /// adopt / release: the agent — a sandbox's name or `@mac/SESSION` (release: also the agent's name).
+    /// adopt / release: the agent — a sandbox's name or `@mac/SESSION` (release: also the agent's name); reach: one agent of
+    /// the workspace by its name (additive).
     public var agent: String?
     /// adopt: the agent's name in the workspace (default: the sandbox's or the session's).
     public var asName: String?
@@ -1670,6 +1678,10 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var noManager: Bool?
     /// log: entries at or after.
     public var since: Date?
+    /// log: one page, newest first — at most `limit` entries (1–500; 200 when only `before` is given) ending before the line at
+    /// `before` (a page's `first`). Either one makes the answer a `WorkspaceLogPage`. Additive: an older daemon ignores them.
+    public var before: Int?
+    public var limit: Int?
     /// edit: the brief's sha256 as the editor last read it — a brief changed since is refused, nothing written (the
     /// dashboard's Save, `--if-brief SHA`). Additive: an older daemon ignores it.
     public var ifBrief: String?
