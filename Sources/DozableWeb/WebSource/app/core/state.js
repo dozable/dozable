@@ -35,6 +35,11 @@ export const state = {
   usageStats: null,        // an official build: the setup wizard's Usage statistics step {on, fixed, key, summary, showCommand, privacyPage}
   chatgptSignIn: true,     // this build has Dozable's own ChatGPT sign-in (a public build: false — never offered)
   sound: false,            // 667: this doz carries the sound kernel — New sandbox offers Sound
+  // Workspaces (core/workspaces.js): the last reads — the list {workspaces, loose, hidden}, each workspace unfolded in the
+  // sidebar (name → its detail), the Agents / Bots {bots}.
+  workspaces: null,
+  wsDetails: new Map(),
+  bots: null,
   // Chat (views/chat*.js): what the chat server last said and what this page shows of it.
   chat: {
     on: false,             // chat/status said anything but off (the sidebar's entry is shown)

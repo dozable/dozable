@@ -62,6 +62,10 @@ export function adopt(info) {
   const sp = $('store-path');
   sp.textContent = mac ? 'on ' + mac + ' · ' + tildePath(info.store) : tildePath(info.store);
   sp.title = tildePath(info.store);
+  // The brand row names the Mac: the name the server gave this page ("Dozable – m1max"), else the one doz serve said.
+  const named = /^Dozable [–-] (.+)$/.exec(PAGE_TITLE);
+  const bm = $('brand-mac');
+  if (bm) bm.textContent = named ? '· ' + named[1] : mac ? '· ' + mac : '';
   $('version').textContent = 'doz ' + info.version;
   paintFootLine();
   // 714: the server names the page for its Mac ("Dozable – m1max", the <title> it serves) — kept, so two Macs' installed

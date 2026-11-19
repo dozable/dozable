@@ -553,6 +553,30 @@
       "serve": "icon"
     },
     {
+      "file": "house.svg",
+      "fromTarball": "package/icons/house.svg",
+      "sha256": "67dc27a57a07b1cb9f2adff2a926c500248dad533896ebd05674a1268078f445",
+      "serve": "icon"
+    },
+    {
+      "file": "bot.svg",
+      "fromTarball": "package/icons/bot.svg",
+      "sha256": "a75e83a803ce23fbd31bd05c65f9448a34b7f0cf633eddf998eb6f108ccaa146",
+      "serve": "icon"
+    },
+    {
+      "file": "briefcase.svg",
+      "fromTarball": "package/icons/briefcase.svg",
+      "sha256": "ea72fb30a790512e51cfcfeba5d62b2992cddee5a107f28e3bad46b4d6319a95",
+      "serve": "icon"
+    },
+    {
+      "file": "laptop.svg",
+      "fromTarball": "package/icons/laptop.svg",
+      "sha256": "9d0cdbac2283afcbfd28fc58699cda2704684a8c260cfe5c2fc18a5e9935af1b",
+      "serve": "icon"
+    },
+    {
       "file": "LICENSE",
       "fromTarball": "package/LICENSE",
       "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",

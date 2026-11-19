@@ -73,7 +73,9 @@ import { viewMetrics } from './app/views/metrics.js';
 import { newSandboxWizard, viewNew } from './app/views/new-sandbox.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations.js';
+import { viewBots } from './app/views/bots.js';
 import { viewHome } from './app/views/home.js';
+import { viewLoose } from './app/views/loose.js';
 import { viewOverview } from './app/views/overview.js';
 import { viewResources } from './app/views/resources.js';
 import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try.js';
@@ -89,11 +91,12 @@ import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings.js';
 import { viewThisMac } from './app/views/this-mac.js';
 import './app/views/shortcuts.js';
 
-// 599c: Quick add in the sidebar, beside Sandboxes.
+// 599c: Quick add in the sidebar, beside This Mac.
 $('nav-quick-add').replaceChildren(icon('plus'));
 $('nav-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });
 // 617 (owner): TRY is a section of its own — its + opens the Quick try. 669 (owner): the section is RECIPES — the
-// recipes installed on this Mac, Browse (the whole catalogue), then Quick try; its + still opens the Quick try.
+// recipes installed on this Mac, Browse (the whole catalogue), then Quick try; its + still opens the Quick try. Since the
+// dashboard's new shell it is This Mac › Templates.
 $('nav-try-add').replaceChildren(icon('plus'));
 $('nav-try-add').addEventListener('click', (ev) => { ev.preventDefault(); location.hash = '#/try'; });
 $('sign-out').addEventListener('click', async () => {
@@ -103,7 +106,7 @@ $('sign-out').addEventListener('click', async () => {
 
 // ── start ───────────────────────────────────────────────────────────────────
 // The static page's own controls get their icons here (index.html holds no SVG).
-const NAV_ICONS = { chat: 'message-square', devices: 'user-round', overview: 'box', sessions: 'layout-grid', mac: 'square-terminal', images: 'layers', resources: 'cylinder', operations: 'list-checks', accounts: 'key-round',
+const NAV_ICONS = { home: 'house', needs: 'triangle-alert', bots: 'bot', thismac: 'laptop', loose: 'briefcase', chat: 'message-square', devices: 'user-round', overview: 'box', sessions: 'layout-grid', mac: 'square-terminal', images: 'layers', resources: 'cylinder', operations: 'list-checks', accounts: 'key-round',
                     metrics: 'chart-line', activity: 'activity', onboarding: 'rocket', doctor: 'stethoscope', settings: 'settings', recipes: 'monitor', browse: 'search', try: 'play', debug: 'bug', notifications: 'bell' };
 for (const a of document.querySelectorAll('#nav a[data-view]')) {
   if (NAV_ICONS[a.dataset.view]) a.prepend(icon(NAV_ICONS[a.dataset.view]));
@@ -207,7 +210,7 @@ provide({
   paintCover, paintHome, paintNav, paintNotes, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition, paintUpdates,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
   renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
-  viewHome, viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
+  viewBots, viewHome, viewImages, viewLoose, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
   viewThisMac, viewTry, wizardStopPolling,
 });
 // The browser probes' names. The one script's top-level names were globals, and the workspace's browser probes
