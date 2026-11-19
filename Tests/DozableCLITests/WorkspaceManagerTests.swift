@@ -24,8 +24,9 @@ final class WorkspaceManagerTests: BotTestCase {
         var members: [String: Set<String>] = [:]
         var posts: [(String, String)] = []
         var failPost = false
+        var off = false
         init(_ t: Trace) { trace = t }
-        func readiness() async -> WorkspaceChatReadiness { .ready }
+        func readiness() async -> WorkspaceChatReadiness { lock.withLock { off } ? .off : .ready }
         func rooms() throws -> Set<String> { lock.withLock { roomSet } }
         func makeRoom(_ name: String) throws { lock.withLock { _ = roomSet.insert(name) } }
         func post(room: String, content: String) throws {
@@ -346,6 +347,84 @@ final class WorkspaceManagerTests: BotTestCase {
         XCTAssertNil(s.manager)
         XCTAssertEqual(trace.all, ["post demo"])
         XCTAssertEqual(s.workspace.state, "asleep")
+    }
+
+    // MARK: the brief edited after the start
+
+    func edit(_ c: HostCore, _ text: String, ifBrief: String? = nil) async -> HostMessage {
+        await ws(c, .workspaceEdit, "demo") { $0.brief = text; $0.ifBrief = ifBrief }
+    }
+
+    func logActions(_ n: String = "demo") throws -> [String] { try WorkspaceStore(store: store).log(n).map(\.action) }
+
+    func testAnEditWhileSettingUpPostsNothing() async throws {
+        let c = await mgr()
+        _ = try await newWorkspace(c, manager: nil)
+        let m = await edit(c, "A new brief.\n")
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        XCTAssertTrue(wchat.posts.isEmpty, "setting up: the start posts the brief, an edit posts nothing")
+        XCTAssertFalse(try logActions().contains("brief-announced"))
+        XCTAssertEqual(try record("demo")?.brief.bytes, "A new brief.\n".utf8.count)
+    }
+
+    func testEachEditAfterTheStartIsAnnouncedOnceAsYou() async throws {
+        let c = await mgr()
+        _ = try await newWorkspace(c, manager: nil)
+        _ = try started(await ws(c, .workspaceStart, "demo"))
+        XCTAssertEqual(wchat.posts.count, 1, "the kick-off")
+        var m = await edit(c, "Make it 45 seconds.\n")
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        XCTAssertEqual(wchat.posts.count, 2)
+        XCTAssertEqual(wchat.posts.last?.0, "demo", "in the main room")
+        XCTAssertEqual(wchat.posts.last?.1, ManagerKickoff.briefEdited(brief: "Make it 45 seconds.\n", refs: []))
+        XCTAssertTrue(wchat.posts.last?.1.hasPrefix("I edited the work:\n\nMake it 45 seconds.") == true)
+        let entries = try WorkspaceStore(store: store).log("demo")
+        XCTAssertEqual(entries.suffix(2).map(\.action), ["brief-edited", "brief-announced"])
+        XCTAssertEqual(entries.last?.room, "demo")
+        XCTAssertEqual(entries.last?.by, "you")
+        // A second edit: one more post; an edit of the references only: none.
+        m = await edit(c, "Make it 30 seconds.\n")
+        XCTAssertNil(m.error)
+        XCTAssertEqual(wchat.posts.count, 3)
+        m = await ws(c, .workspaceEdit, "demo") { $0.addRefs = ["https://example.com/spec"] }
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        XCTAssertEqual(wchat.posts.count, 3, "only a new brief is announced")
+        XCTAssertEqual(try logActions().filter { $0 == "brief-announced" }.count, 2)
+    }
+
+    func testChatOffKeepsTheEditAndSaysItWasNotAnnounced() async throws {
+        let c = await mgr()
+        _ = try await newWorkspace(c, manager: nil)
+        _ = try started(await ws(c, .workspaceStart, "demo"))
+        wchat.lock.withLock { wchat.off = true }
+        let m = await edit(c, "Changed while chat is off.\n")
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        let d = try XCTUnwrap(m.result).decode(WorkspaceDetail.self)
+        XCTAssertEqual(d.notes, ["not announced: chat is off"])
+        XCTAssertEqual(wchat.posts.count, 1, "only the kick-off")
+        XCTAssertEqual(try record("demo")?.brief.bytes, "Changed while chat is off.\n".utf8.count, "the edit is kept")
+        XCTAssertFalse(try logActions().contains("brief-announced"))
+    }
+
+    func testIfBriefMismatchWritesNothing() async throws {
+        let c = await mgr()
+        _ = try await newWorkspace(c, manager: nil)
+        _ = try started(await ws(c, .workspaceStart, "demo"))
+        let before = recordBytes("demo")
+        let logBefore = try logActions()
+        let briefBefore = WorkspaceStore(store: store).readBrief("demo")
+        let m = await edit(c, "Someone else's change.\n", ifBrief: String(repeating: "0", count: 64))
+        XCTAssertEqual(m.error?.code, .invalidPhase)
+        XCTAssertTrue(m.error?.message.contains("changed since you opened it") == true, m.error?.message ?? "")
+        XCTAssertEqual(recordBytes("demo"), before, "nothing written")
+        XCTAssertEqual(try logActions(), logBefore)
+        XCTAssertEqual(WorkspaceStore(store: store).readBrief("demo"), briefBefore)
+        XCTAssertEqual(wchat.posts.count, 1, "nothing posted")
+        // The current sha256 is accepted.
+        let sha = try XCTUnwrap(try record("demo")?.brief.sha256)
+        let mine = await edit(c, "Mine.\n", ifBrief: sha)
+        XCTAssertNil(mine.error)
+        XCTAssertEqual(wchat.posts.count, 2)
     }
 
     func testTheReadOnlyCoreRefuses() async throws {

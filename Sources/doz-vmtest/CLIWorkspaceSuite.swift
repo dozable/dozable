@@ -23,6 +23,7 @@ import DozableHost
 //  11. no folders: made, shown and listed; --from-project without a folder refused
 //  12–22. a workspace's manager, started from its bot (CLIWorkspaceManagerRows.swift)
 //  23–33. its workers (CLIWorkspaceWorkerRows.swift)
+//  34–35. the brief edited after the start, announced once; doz chat read --with-log (CLIWorkspaceBriefRows.swift)
 func cliWorkspaceSuite(binary: String) async {
     print("cli: workspaces — no VM")
     let fm = FileManager.default
@@ -224,4 +225,6 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspaceManagerRows(h, root: root, store: store, started: &started)
     // 23–33. its workers (CLIWorkspaceWorkerRows.swift)
     cliWorkspaceWorkerRows(h, root: root, store: store, started: &started)
+    // 34–35. the brief edited after the start, and the log among the messages (CLIWorkspaceBriefRows.swift)
+    cliWorkspaceBriefRows(h, root: root, store: store)
 }

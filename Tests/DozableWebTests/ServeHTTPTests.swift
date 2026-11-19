@@ -29,13 +29,16 @@ final class ServeHTTPTests: XCTestCase {
 
     func start(_ config: WebServeConfig = WebServeConfig(port: 0, bind: .loopback, advertise: false),
                interfaces: [WebInterfaceAddress] = [WebInterfaceAddress(name: "lo0", address: WebIP("127.0.0.1")!, prefix: 8)],
-               macSessions: String? = nil) async throws {
-        // A settings file of the test's own (serve.mac_sessions) — none: every default.
+               macSessions: String? = nil, chat: String? = nil) async throws {
+        // A settings file of the test's own (serve.mac_sessions, serve.chat) — none: every default.
         var env: [String: String] = [:]
-        if let macSessions {
+        if macSessions != nil || chat != nil {
             let xdg = dir.appendingPathComponent("xdg")
             try FileManager.default.createDirectory(at: xdg.appendingPathComponent("doz"), withIntermediateDirectories: true)
-            try "[serve]\nmac_sessions = \"\(macSessions)\"\n".write(to: xdg.appendingPathComponent("doz/doz.toml"), atomically: true, encoding: .utf8)
+            var toml = "[serve]\n"
+            if let macSessions { toml += "mac_sessions = \"\(macSessions)\"\n" }
+            if let chat { toml += "chat = \"\(chat)\"\n" }
+            try toml.write(to: xdg.appendingPathComponent("doz/doz.toml"), atomically: true, encoding: .utf8)
             env["XDG_CONFIG_HOME"] = xdg.path
         }
         state = WebServeState(config: config, names: WebMacNames(localHostName: "testmac", hostName: nil),
@@ -488,6 +491,34 @@ final class ServeHTTPTests: XCTestCase {
         }
         XCTAssertEqual(try req("/api/v1/bots", ["Cookie": devCookie]).status, 200)
         XCTAssertEqual(try req("/api/v1/workspaces/demo", ["Cookie": devCookie]).status, 200)
+    }
+
+    /// A workspace's brief is what its agents act on: another computer reads it only with serve.chat read or write (refused,
+    /// and audited, while off); its log hides the lines about this Mac's sessions while serve.mac_sessions is off.
+    func testTheBriefFollowsServeChatAndTheLogHidesThisMacsSessions() async throws {
+        try await start()
+        let (macCookie, _) = try macSignIn()
+        let (devCookie, _) = try await admit()
+        let refused = try req("/api/v1/workspaces/demo/brief", ["Cookie": devCookie])
+        XCTAssertEqual(refused.status, 403, refused.text)
+        XCTAssertTrue(refused.text.contains("brief-remote") && refused.text.contains("serve.chat"), refused.text)
+        XCTAssertFalse(refused.text.contains("the brief's text"))
+        XCTAssertEqual(try macReq("/api/v1/workspaces/demo/brief", ["Cookie": macCookie]).status, 200, "the Mac's own browser")
+        let log = try req("/api/v1/workspaces/demo/log", ["Cookie": devCookie])
+        XCTAssertEqual(log.status, 200, log.text)
+        XCTAssertFalse(log.text.contains("build"), log.text)
+        XCTAssertTrue(log.text.contains("\"hidden\":1"), log.text)
+        XCTAssertTrue(try macReq("/api/v1/workspaces/demo/log", ["Cookie": macCookie]).text.contains("adopted build"))
+        let audit = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+        XCTAssertTrue(audit.contains { $0.kind == "refused" && $0.outcome == "brief-remote" })
+    }
+
+    func testTheBriefIsReadWithServeChatRead() async throws {
+        try await start(chat: "read")
+        let (devCookie, _) = try await admit()
+        let r = try req("/api/v1/workspaces/demo/brief", ["Cookie": devCookie])
+        XCTAssertEqual(r.status, 200, r.text)
+        XCTAssertTrue(r.text.contains("the brief's text"))
     }
 
     func testWatchLetsAnotherComputerLookButNeverType() async throws {

@@ -669,16 +669,22 @@ struct ChatRead: AsyncParsableCommand {
     @Argument(help: "The room.") var room: String
     @Option(name: .long, help: "How many of the latest messages (1 to 500).") var last = 20
     @Flag(name: .long, help: "Keep showing new messages until interrupted (Ctrl-C).") var follow = false
+    @Flag(name: .customLong("with-log"), help: "Show the log of the workspace this room belongs to among the messages, by time (what was done — the work started, its brief edited, workers added — never posted in the room). With --follow only the first page has them.")
+    var withLog = false
     @OptionGroup var g: GlobalOptions
 
-    func validate() throws { guard (1...500).contains(last) else { throw ValidationError("--last is 1 to 500") } }
+    func validate() throws {
+        guard (1...500).contains(last) else { throw ValidationError("--last is 1 to 500") }
+        if withLog && g.json { throw ValidationError("--with-log is for reading; --json gives the messages only (doz workspace log W --json gives the log)") }
+    }
 
     func run() async throws {
         try requireRoomName(room, g)
         let c = try chatOwner(g)
         let s = try chatState(c, g)
         guard s.rooms[room] != nil else { throw fail(HostError(.notFound, "no room \(room) (doz chat rooms)"), g) }
-        var seen = try page(c, after: 0)
+        let log = withLog ? try await workspaceLog() : []
+        var seen = try page(c, after: 0, log: log)
         guard follow else { return }
         // Follow: the stream, from where the page left off; a server that restarts (a participant added) is reconnected
         // to, and what came meanwhile is read first.
@@ -701,8 +707,27 @@ struct ChatRead: AsyncParsableCommand {
         }
     }
 
-    /// Prints a page (the latest `last`, or everything after `after`); answers the last seq shown.
-    func page(_ c: ChatOwnerClient, after: Int64) throws -> Int64 {
+    /// The log lines of the workspace that owns this room, for this room: an entry naming a room shows only there, the
+    /// rest in the main room (none: a room of no workspace). The same reads as `doz workspace ls`, `show` and `log` — looking
+    /// never starts the daemon.
+    func workspaceLog() async throws -> [WorkspaceLogEntry] {
+        let l = try decode(try await query(workspaceRequest(.workspaceList, WorkspaceRequest()), g), WorkspaceListing.self, g)
+        var owner: (name: String, main: Bool)?
+        if let row = l.workspaces.first(where: { $0.room == room }) { owner = (row.name, true) }
+        if owner == nil {
+            for row in l.workspaces {
+                let d = try decode(try await query(workspaceRequest(.workspaceShow, WorkspaceRequest(name: row.name)), g), WorkspaceDetail.self, g)
+                if let r = d.rooms.first(where: { $0.chatRoom == room }) { owner = (row.name, r.main); break }
+            }
+        }
+        guard let owner else { return [] }
+        let entries = try decode(try await query(workspaceRequest(.workspaceLog, WorkspaceRequest(name: owner.name)), g), [WorkspaceLogEntry].self, g)
+        return entries.filter { $0.room.map { $0 == room } ?? owner.main }
+    }
+
+    /// Prints a page (the latest `last`, or everything after `after`) — with `log`, its lines from the first message shown
+    /// on (all of them when the room holds no more), a line before a message of the same time; answers the last seq shown.
+    func page(_ c: ChatOwnerClient, after: Int64, log: [WorkspaceLogEntry] = []) throws -> Int64 {
         let target = after > 0 ? "/api/rooms/\(room)/messages?after=\(after)&limit=500" : "/api/rooms/\(room)/messages?limit=\(last)"
         let (status, v) = try chatAsk(c, "GET", target, g)
         guard status == 200, case .array(let ms) = v else {
@@ -710,20 +735,33 @@ struct ChatRead: AsyncParsableCommand {
         }
         var top = after
         if g.json && !follow { Out.stdout(String(decoding: ChatJSON.encodeIndented(v, indent: "  "), as: UTF8.self) + "\n") }
+        let from = ms.count < last ? -Double.infinity : (ms.first?.field("at")?.doubleValue ?? 0)
+        var lines = log.filter { $0.at.timeIntervalSince1970 >= from }[...]
         for m in ms {
+            let at = m.field("at")?.doubleValue ?? 0
+            while let e = lines.first, e.at.timeIntervalSince1970 <= at { showLog(e); lines = lines.dropFirst() }
             if !(g.json && !follow) { show(m) }
             top = max(top, Int64(((try? m.field("seq")?.goInt("seq")) ?? nil) ?? 0))
         }
+        for e in lines { showLog(e) }
         return top
+    }
+
+    func when(_ at: Double) -> String {
+        let f = DateFormatter()
+        f.dateFormat = Date().timeIntervalSince1970 - at > 86_400 ? "yyyy-MM-dd HH:mm" : "HH:mm"
+        return f.string(from: Date(timeIntervalSince1970: at))
+    }
+
+    /// A log line among the messages: `14:02 — you edited the work (120 bytes)` (never posted in the room).
+    func showLog(_ e: WorkspaceLogEntry) {
+        Out.stdout("\(when(e.at.timeIntervalSince1970)) — \(e.by) \(e.sentence)\n")
     }
 
     /// One message as a line: `14:02 ada: hello @bot1` (no ids; --json keeps them).
     func show(_ m: JValue) {
         if g.json { Out.stdout(String(decoding: ChatJSON.encode(m), as: UTF8.self) + "\n"); return }
-        let at = m.field("at")?.doubleValue ?? 0
-        let f = DateFormatter()
-        f.dateFormat = Date().timeIntervalSince1970 - at > 86_400 ? "yyyy-MM-dd HH:mm" : "HH:mm"
-        let when = f.string(from: Date(timeIntervalSince1970: at))
+        let stamp = when(m.field("at")?.doubleValue ?? 0)
         let from = m.field("from")?.stringValue ?? "?"
         let kind = m.field("kind")?.stringValue ?? ""
         var text = m.field("content")?.stringValue ?? ""
@@ -733,7 +771,7 @@ struct ChatRead: AsyncParsableCommand {
             text += " [" + files.compactMap { $0.field("name")?.stringValue }.joined(separator: ", ") + "]"
         }
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
-        let lead = kind == "change" ? "\(when) — " : "\(when) \(from): "
+        let lead = kind == "change" ? "\(stamp) — " : "\(stamp) \(from): "
         Out.stdout(lead + (lines.first.map(String.init) ?? "") + "\n")
         for l in lines.dropFirst() { Out.stdout(String(repeating: " ", count: lead.count) + l + "\n") }
     }

@@ -98,6 +98,8 @@ public enum WebExposure {
              .grids,                    // 648: a read (POST only because it carries the pictures asked)
              .recipes,                  // 669: Settings › Recipes — states and settings, read from the store
              .workspaces, .workspace, .loose, .bots,  // reads; the rows on this Mac follow serve.mac_sessions (WebWorkspaceReads)
+             .workspaceLog,             // the log's lines about this Mac's sessions follow serve.mac_sessions too
+             .workspaceBrief,           // the brief's text: another computer only with serve.chat read or write (`decide`)
              .macs:                     // Your Macs — another computer sees the same list (a phone switching Macs is its main use)
             return .read
         case .actions, .operationsCancel, .policyPreview, .terminalTicket,     // 650: a cancel is decided as the actions are
@@ -131,6 +133,8 @@ public enum WebExposure {
     /// `serve.mac_sessions` (only a remote principal is affected; the Mac's own browser always has them).
     public static func decide(_ route: WebRoute, _ who: Principal, macSessions: MacSessions = .off, chat: ChatServe = .off) -> WebRejection? {
         if case .chat(let c) = route, who.isRemote { return decideChat(c, who, chat) }
+        // A workspace's brief is what its agents act on, as chat is: another computer reads it only as serve.chat allows.
+        if case .workspaceBrief = route, who.isRemote, chat == .off { return .briefRemote }
         switch (kind(route), who) {
         case (.secretEntry, .remote(secure: false)): return .secretOverHTTP
         case (.macScreen, .remote): return .macScreen

@@ -352,7 +352,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var by: String
     /// created · room-made · room-linked · adopted · released · brief-edited ·
     /// folders-edited · refs-edited · renamed · agent-renamed · agent-removed · manager-set · manager-removed ·
-    /// bot-invited · kicked-off · manager-started · manager-stopped · worker-added · worker-ended · worker-add-undone.
+    /// bot-invited · kicked-off · manager-started · manager-stopped · worker-added · worker-ended · worker-add-undone ·
+    /// brief-announced (an edit after the start, posted as you in `room`).
     public var action: String
     public var agent: String?
     /// The agent's place key (`sandbox:NAME`, `mac:SESSION`).
@@ -383,7 +384,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public static let actions: Set<String> = ["created", "room-made", "room-linked", "adopted",
                                               "released", "brief-edited", "folders-edited", "refs-edited", "renamed", "agent-renamed",
                                               "agent-removed", "manager-set", "manager-removed", "bot-invited", "kicked-off",
-                                              "manager-started", "manager-stopped", "worker-added", "worker-ended", "worker-add-undone"]
+                                              "manager-started", "manager-stopped", "worker-added", "worker-ended", "worker-add-undone",
+                                              "brief-announced"]
 
     /// The line as a person reads it.
     public var sentence: String {
@@ -393,7 +395,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "room-linked": return "linked the room \(room ?? "?")"
         case "adopted": return "adopted \(agent ?? "?")" + (place.map { " (\($0))" } ?? "")
         case "released": return "released \(agent ?? "?")"
-        case "brief-edited": return "edited the brief (\(bytes ?? 0) bytes)"
+        case "brief-edited": return "edited the work (\(bytes ?? 0) bytes)"
+        case "brief-announced": return "announced the edit in \(room ?? "the room")"
         case "folders-edited": return "folders: \(added ?? 0) added, \(removed ?? 0) removed"
         case "refs-edited": return "references: \(added ?? 0) added, \(removed ?? 0) removed"
         case "renamed": return "renamed from \(from ?? "?") to \(to ?? "?")"
@@ -402,7 +405,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "manager-set": return "the manager is \(agent ?? "?") (\(BotIsolation.words(isolation ?? "fenced")))"
         case "manager-removed": return "no manager now (was \(agent ?? "?"))"
         case "bot-invited": return "invited \(agent ?? "?") to \(room ?? "the room")"
-        case "kicked-off": return "posted the brief in \(room ?? "the room") (\(bytes ?? 0) bytes)"
+        case "kicked-off": return "started the work: posted the brief in \(room ?? "the room") (\(bytes ?? 0) bytes)"
         case "manager-started": return "started the manager \(agent ?? "?") (\(BotIsolation.words(isolation ?? "fenced"))" + (place.map { ", \($0)" } ?? "") + ")"
         case "manager-stopped": return "stopped the manager \(agent ?? "?")"
         case "worker-added": return "added the worker \(agent ?? "?") (\(BotIsolation.words(isolation ?? "fenced"))" + (place.map { ", \($0)" } ?? "")

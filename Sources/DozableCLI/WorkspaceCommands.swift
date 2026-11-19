@@ -217,7 +217,8 @@ struct WorkspaceRelease: AsyncParsableCommand {
 }
 
 struct WorkspaceEdit: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "edit", abstract: "Change a workspace's brief, references, folders or manager, or make its room.")
+    static let configuration = CommandConfiguration(commandName: "edit", abstract: "Change a workspace's brief, references, folders or manager, or make its room.",
+        discussion: "Once the work has started, a new brief is announced in its room as your message (\"I edited the work:\" and the new text); while it is setting up nothing is posted.")
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The workspace.") var name: String
     @Option(name: .customLong("prompt-file"), help: "A new brief: a file, or - for standard input.") var promptFile: String?
@@ -230,8 +231,16 @@ struct WorkspaceEdit: AsyncParsableCommand {
     @Option(name: .customLong("manager-isolation"), help: "Where the manager runs: fenced (the default), vm, or unfenced (it acts as you — only when named).")
     var managerIsolation: String?
     @Flag(name: .customLong("no-manager"), help: "Remove its manager (not while it runs).") var noManager = false
+    @Option(name: .customLong("if-brief"), help: "Change it only if the brief is still this one: its sha256 (doz workspace show W --json). Otherwise nothing is written.")
+    var ifBrief: String?
     func run() async throws {
         var w = WorkspaceRequest(name: name)
+        if let ifBrief {
+            guard ifBrief.count == 64, ifBrief.allSatisfy({ $0.isHexDigit && !$0.isUppercase }) else {
+                throw fail(HostError(.invalid, "--if-brief: the brief's sha256, 64 lower-case hex digits"), g)
+            }
+            w.ifBrief = ifBrief
+        }
         w.manager = manager
         w.managerIsolation = managerIsolation
         w.noManager = noManager ? true : nil

@@ -12,6 +12,9 @@ final class WebWorkspacesTests: XCTestCase {
         let want: [(WebRoute, HostOp, String)] = [
             (.workspaces, .workspaceList, "doz workspace ls"),
             (.workspace("demo"), .workspaceShow, "doz workspace show demo"),
+            (.workspaceBrief("demo"), .workspaceShow, "doz workspace show demo --brief"),
+            (.workspaceLog("demo", nil), .workspaceLog, "doz workspace log demo"),
+            (.workspaceLog("demo", Date(timeIntervalSince1970: 1_800_000_000.5)), .workspaceLog, "doz workspace log demo --since …"),
             (.loose, .workspaceList, "doz workspace ls --loose"),
             (.bots, .botList, "doz bot ls"),
         ]
@@ -39,6 +42,99 @@ final class WebWorkspacesTests: XCTestCase {
         cliBots.botRequest = BotRequest()
         XCTAssertEqual(WebWorkspaceReads.request(for: .bots), cliBots)
         XCTAssertNil(WebWorkspaceReads.request(for: .overview))
+        // The brief and the log: exactly what `doz workspace show W --brief` and `doz workspace log W --since …` send.
+        var brief = WorkspaceRequest(name: "demo")
+        brief.withBrief = true
+        var cliBrief = HostRequest(.workspaceShow)
+        cliBrief.workspaceRequest = brief
+        XCTAssertEqual(WebWorkspaceReads.request(for: .workspaceBrief("demo")), cliBrief)
+        let t = Date(timeIntervalSince1970: 1_800_000_000)
+        var log = WorkspaceRequest(name: "demo")
+        log.since = t
+        var cliLog = HostRequest(.workspaceLog)
+        cliLog.workspaceRequest = log
+        XCTAssertEqual(WebWorkspaceReads.request(for: .workspaceLog("demo", t)), cliLog)
+    }
+
+    func testTheBriefAndLogRoutesParse() {
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/workspaces/demo/brief"), .workspaceBrief("demo"))
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/workspaces/demo/log"), .workspaceLog("demo", nil))
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/workspaces/demo/log?since=1800000000.25"),
+                       .workspaceLog("demo", Date(timeIntervalSince1970: 1_800_000_000.25)))
+        for bad in ["/api/v1/workspaces/demo/log?since=", "/api/v1/workspaces/demo/log?since=-1", "/api/v1/workspaces/demo/log?since=1e9",
+                    "/api/v1/workspaces/demo/log?since=1&x=2", "/api/v1/workspaces/demo/log?until=1", "/api/v1/workspaces/demo/log?since=1.2.3",
+                    "/api/v1/workspaces/demo/brief?x=1", "/api/v1/workspaces/demo/notes", "/api/v1/workspaces/demo/brief/x"] {
+            XCTAssertNil(WebRoute.parse(method: .get, target: bad), bad)
+        }
+        for p in ["/api/v1/workspaces/demo/brief", "/api/v1/workspaces/demo/log"] {
+            XCTAssertNil(WebRoute.parse(method: .post, target: p), "\(p): a read only")
+        }
+    }
+
+    func testTheBriefProjection() throws {
+        let t = Date(timeIntervalSince1970: 1_800_000_000)
+        let sha = String(repeating: "b", count: 64)
+        let b = WebWorkspaceBrief(WorkspaceDetail(
+            name: "demo", state: "idle", driver: "you", createdAt: t,
+            brief: WorkspaceBrief(refs: ["/Users/x/notes.md", "https://example.com"], sha256: sha, bytes: 9, updatedAt: t), briefText: "the brief",
+            folders: [WorkspaceFolder(path: "/Users/x/video", main: true)], rooms: [], agents: [], defaults: WorkspaceDefaults(),
+            flags: WorkspaceFlags(), origin: WorkspaceOrigin()))
+        XCTAssertEqual(b.text, "the brief")
+        XCTAssertEqual(b.refs, ["/Users/x/notes.md", "https://example.com"])
+        XCTAssertEqual(b.bytes, 9)
+        XCTAssertEqual(b.sha256, sha, "what an edit sends back as ifBrief")
+        let json = String(decoding: try WebJSON.encoder.encode(b), as: UTF8.self)
+        XCTAssertEqual(Set(((try JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any])?.keys ?? [:].keys),
+                       ["text", "refs", "bytes", "updatedAt", "sha256"], "field by field: no folder, agent or token")
+        for word in ["token", "secret", "password"] { XCTAssertFalse(json.lowercased().contains(word), word) }
+    }
+
+    func testTheLogProjection() throws {
+        let t = Date(timeIntervalSince1970: 1_800_000_000)
+        let entries = [
+            WorkspaceLogEntry(at: t, action: "created"),
+            WorkspaceLogEntry(at: t, action: "kicked-off", room: "demo", sha256: String(repeating: "c", count: 64), bytes: 40),
+            WorkspaceLogEntry(at: t, action: "manager-started", agent: "mira", place: "mac:demo", isolation: "fenced", fingerprint: "abcdef123456"),
+            WorkspaceLogEntry(at: t, action: "adopted", agent: "wsa", place: "sandbox:wsa"),
+            WorkspaceLogEntry(at: t, by: "doz", action: "worker-ended", agent: "bot1"),
+        ]
+        let l = WebWorkspaceLog(entries, macAllowed: true)
+        XCTAssertEqual(l.lines.map(\.text), entries.map(\.sentence), "the CLI's words")
+        XCTAssertEqual(l.lines[1].room, "demo")
+        XCTAssertEqual(l.lines[4].by, "doz")
+        XCTAssertFalse(l.more)
+        XCTAssertEqual(l.hidden, 0)
+        let json = String(decoding: try WebJSON.encoder.encode(l), as: UTF8.self)
+        for word in ["sha256", "fingerprint", "\"place\"", "\"bytes\"", "ccccccc", "abcdef123456", "token", "secret", "password"] {
+            XCTAssertFalse(json.contains(word), "\(word) in \(json)")
+        }
+        // Another computer while serve.mac_sessions is off: the lines about a session on this Mac are left out and counted.
+        let remote = WebWorkspaceLog(entries, macAllowed: false)
+        XCTAssertEqual(remote.lines.map(\.action), ["created", "kicked-off", "adopted", "worker-ended"])
+        XCTAssertEqual(remote.hidden, 1)
+        XCTAssertFalse(String(decoding: try WebJSON.encoder.encode(remote), as: UTF8.self).contains("mac:demo"))
+        // At most the newest 500.
+        let many = (0..<620).map { WorkspaceLogEntry(at: t.addingTimeInterval(Double($0)), action: "refs-edited", added: $0, removed: 0) }
+        let capped = WebWorkspaceLog(many, macAllowed: true)
+        XCTAssertEqual(capped.lines.count, WebWorkspaceLog.maximumLines)
+        XCTAssertTrue(capped.more)
+        XCTAssertEqual(capped.lines.first?.at, t.addingTimeInterval(120), "the newest kept")
+        XCTAssertEqual(capped.lines.last?.at, t.addingTimeInterval(619))
+    }
+
+    func testTheDetailCarriesNetworkStartAndControl() {
+        let t = Date(timeIntervalSince1970: 1_800_000_000)
+        var flags = WorkspaceFlags()
+        flags.startedAt = t
+        let d = WebWorkspaceDetail(WorkspaceDetail(
+            name: "demo", state: "working", driver: "you", createdAt: t, brief: WorkspaceBrief(sha256: "x", bytes: 1, updatedAt: t),
+            folders: [], rooms: [],
+            agents: [WorkspaceAgentRow(name: "bot1", role: "worker", place: "@mac/demo-bot1", state: "running", startedAt: t, isolation: "fenced",
+                                       task: "list", control: "proxy · placeholders · guard")],
+            defaults: WorkspaceDefaults(network: "standard"), flags: flags, origin: WorkspaceOrigin()))
+        XCTAssertEqual(d.startedAt, t)
+        XCTAssertEqual(d.network, "standard")
+        XCTAssertEqual(d.agents[0].control, "proxy · placeholders · guard")
     }
 
     func testTheRoutesParse() {

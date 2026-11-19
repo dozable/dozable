@@ -1852,6 +1852,9 @@ public struct WebWorkspaceDetail: Codable, Equatable, Sendable {
     public var notes: [String]
     public var finishedAt: Date?
     public var archivedAt: Date?
+    /// When the work started (nil: setting up), and the network preset its agents get by default (nil: locked).
+    public var startedAt: Date?
+    public var network: String?
     public var hidden: Int
 
     public init(_ d: WorkspaceDetail) {
@@ -1862,6 +1865,7 @@ public struct WebWorkspaceDetail: Codable, Equatable, Sendable {
         agents = d.agents.map(WebWorkspaceAgent.init)
         notes = d.notes ?? []
         finishedAt = d.flags.finishedAt; archivedAt = d.flags.archivedAt
+        startedAt = d.flags.startedAt; network = d.defaults.network
         hidden = 0
     }
 }
@@ -1894,10 +1898,12 @@ public struct WebWorkspaceAgent: Codable, Equatable, Sendable {
     public var isolation: String?
     public var actsAsYou: Bool
     public var task: String?
+    /// What isolates a worker, as a person reads it (`proxy · placeholders · guard`; nil: not a worker).
+    public var control: String?
 
     public init(_ a: WorkspaceAgentRow) {
         name = a.name; role = a.role; place = a.place; state = a.state; activity = a.activity; bot = a.bot; isolation = a.isolation
-        actsAsYou = a.actsAsYou == true; task = a.task
+        actsAsYou = a.actsAsYou == true; task = a.task; control = a.control
         if a.place.hasPrefix(MacPlace.name + "/") {
             kind = "mac"; session = String(a.place.dropFirst(MacPlace.name.count + 1))
         } else if a.state == "elsewhere" || !WebRoute.isSandboxName(a.place) {
@@ -1905,6 +1911,65 @@ public struct WebWorkspaceAgent: Codable, Equatable, Sendable {
         } else {
             kind = "sandbox"; sandbox = a.place
         }
+    }
+}
+
+/// `GET /api/v1/workspaces/{w}/brief`: the brief as `doz workspace show W --brief` gives it — its text, references, size,
+/// when it was last edited, and its sha256 (what an edit sends back as `ifBrief`, so a change since is refused).
+public struct WebWorkspaceBrief: Codable, Equatable, Sendable {
+    public var text: String
+    public var refs: [String]
+    public var bytes: Int
+    public var updatedAt: Date
+    public var sha256: String
+
+    public init(_ d: WorkspaceDetail) {
+        text = d.briefText ?? ""; refs = d.brief.refs; bytes = d.brief.bytes; updatedAt = d.brief.updatedAt; sha256 = d.brief.sha256
+    }
+}
+
+/// `GET /api/v1/workspaces/{w}/log`: the workspace's log as a person reads it — each line's words are the CLI's
+/// (`WorkspaceLogEntry.sentence`). Never a hash, a fingerprint, a place key or a size field; at most the newest 500
+/// (`more`: older ones were left out); `hidden`: lines about this Mac's sessions left out for this browser.
+public struct WebWorkspaceLog: Codable, Equatable, Sendable {
+    public var lines: [WebWorkspaceLogLine]
+    public var more: Bool
+    public var hidden: Int
+
+    public static let maximumLines = 500
+
+    public init(lines: [WebWorkspaceLogLine], more: Bool, hidden: Int) { self.lines = lines; self.more = more; self.hidden = hidden }
+
+    /// The projection: `macAllowed` false (another computer while `serve.mac_sessions` is off) leaves out every line about
+    /// a session on this Mac and counts it.
+    public init(_ entries: [WorkspaceLogEntry], macAllowed: Bool) {
+        var kept = entries
+        var hidden = 0
+        if !macAllowed {
+            kept = entries.filter { !Self.aboutThisMac($0) }
+            hidden = entries.count - kept.count
+        }
+        let more = kept.count > Self.maximumLines
+        self.init(lines: kept.suffix(Self.maximumLines).map(WebWorkspaceLogLine.init), more: more, hidden: hidden)
+    }
+
+    static func aboutThisMac(_ e: WorkspaceLogEntry) -> Bool {
+        e.place?.hasPrefix("mac:") == true || e.sentence.contains(MacPlace.name) || e.sentence.contains("mac:")
+    }
+}
+
+public struct WebWorkspaceLogLine: Codable, Equatable, Sendable {
+    public var at: Date
+    /// `you` or `doz` (the page shows "you" as the person's chat name).
+    public var by: String
+    public var action: String
+    /// The room it belongs to (nil: the main room's), and the agent it is about.
+    public var room: String?
+    public var agent: String?
+    public var text: String
+
+    public init(_ e: WorkspaceLogEntry) {
+        at = e.at; by = e.by; action = e.action; room = e.room; agent = e.agent; text = e.sentence
     }
 }
 

@@ -1010,6 +1010,14 @@ public final class DozableWebServer: @unchecked Sendable {
             try WebWorkspaceReads.checkName(w)
             let d = WebWorkspaceDetail(try await data.workspace(w))
             return json(WebWorkspaceReads.forBrowser(d, macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
+        case .workspaceBrief(let w):
+            // Refused to another computer while serve.chat is off (WebExposure.decide, above).
+            try WebWorkspaceReads.checkName(w)
+            return json(WebWorkspaceBrief(try await data.workspaceBrief(w)))
+        case .workspaceLog(let w, let since):
+            try WebWorkspaceReads.checkName(w)
+            return json(WebWorkspaceLog(try await data.workspaceLog(w, since: since),
+                                        macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
         case .bots:
             return json(WebBotListing(try await data.bots()))
         case .macs:

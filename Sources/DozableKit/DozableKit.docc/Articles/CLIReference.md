@@ -852,7 +852,7 @@ doz chat token NAME --new | --from-stdin [--to-file F]   # replace a participant
 doz chat webhook set E [--from-file F]          # a webhook bot's entry: address, then Authorization value (login keychain)
 doz chat webhook status [E] | remove E
 doz chat import PATH [--dry-run] [--add-missing] [--replace]   # another chat's history (chat off first)
-doz chat rooms | room NAME @MEMBER… | send ROOM TEXT | read ROOM [--last N] [--follow]   # as you, on your own socket
+doz chat rooms | room NAME @MEMBER… | send ROOM TEXT | read ROOM [--last N] [--follow] [--with-log]   # as you, on your own socket
 ```
 
 You take part through your own socket in the store (no token for you exists); every agent has its own token and uses
@@ -905,7 +905,7 @@ doz workspace stop W                            # the manager ended; its record,
 doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME]   # as a worker; only the workspace's record changes
 doz workspace release W AGENT                   # loose again
 doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--add-folder DIR[:ro]]… [--remove-folder DIR]… [--make-room]
-                  [--manager BOT [--manager-isolation fenced|vm|unfenced] | --no-manager]
+                  [--manager BOT [--manager-isolation fenced|vm|unfenced] | --no-manager] [--if-brief SHA256]
 doz workspace log W [--since T]                 # what happened and who did it (T: ISO 8601, or 30m, 2h, 3d)
 doz workspace rename W NEW                      # its room keeps its own name
 ```
@@ -918,8 +918,18 @@ workspace's record along. `doz ls --json` and `doz sessions NAME|@mac --json` ca
 `doz workspace ls --json` carries each workspace's `folders` and, from a running daemon, `working` (the agents whose
 program is working now); `show --json` carries each agent's `activity` (`working`, `idle`, `blocked` or `error`) while
 it runs — both from what the daemon already knows, absent when answered with no daemon; the text is unchanged. Exit
-codes: 0 ok · 2 not found · 3 archived, not fully set up, or its manager running · 4 already exists, already in a
-workspace, or the bot already runs in another live workspace · 6 the daemon or chat unavailable · 64 usage.
+codes: 0 ok · 2 not found · 3 archived, not fully set up, its manager running, or its brief changed since `--if-brief` ·
+4 already exists, already in a workspace, or the bot already runs in another live workspace · 6 the daemon or chat
+unavailable · 64 usage.
+
+**Editing the brief.** While the workspace is setting up, `edit --prompt-file` only replaces the brief (the start posts
+it). Once the work has started, each new brief is also announced in the main room as **your message** — "I edited the
+work:" and the new text with its references — and logged (`edited the work`, `announced the edit in ROOM`); with chat off
+the edit is kept and says "not announced: chat is off". `--if-brief SHA256` changes it only if the brief is still the one
+whose sha256 you read (`doz workspace show W --json`, `brief.sha256`); otherwise nothing is written ("changed since you
+opened it", exit 3). The log names each action in words (`doz workspace log W`); `doz chat read ROOM --with-log` shows the
+log of the workspace the room belongs to among its messages, by time — an entry naming a room only in that room, the rest
+in the main room; never posted (with `--follow`, the first page only; not with `--json`).
 
 **The manager.** `--manager BOT` records one Agent / Bot as the workspace's manager — nothing is posted or started.
 Its isolation is **fenced** on this Mac by default, **vm** (a micro VM named after the workspace) when you say so or the

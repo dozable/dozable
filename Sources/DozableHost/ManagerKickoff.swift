@@ -13,6 +13,12 @@ public enum ManagerKickoff {
         return s
     }
 
+    /// Your message when you edit the brief after the start: what changed is the whole new brief, so agents and you never
+    /// disagree about what the work is.
+    public static func briefEdited(brief: String, refs: [String]) -> String {
+        "I edited the work:\n\n" + briefPost(brief: brief, refs: refs)
+    }
+
     /// START: who it is and its room, how it talks (dozchat with `CHAT_TOKEN_FILE`), the skills by name, its instructions,
     /// what it can do in its isolation, what to do first, and the brief.
     public static func startText(bot: String, workspace: String, room: String, isolation: ManagerIsolation, skills: [String],

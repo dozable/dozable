@@ -127,6 +127,9 @@ public protocol DozableWebData: Sendable {
     /// Bots (`bot-ls`) — each the request `WebWorkspaceReads.request(for:)` builds; in-process when no daemon runs.
     func workspaces(loose: Bool) async throws -> WorkspaceListing
     func workspace(_ name: String) async throws -> WorkspaceDetail
+    /// A workspace with its brief's text (`workspace-show --brief`), and its log (`workspace-log`, `since`).
+    func workspaceBrief(_ name: String) async throws -> WorkspaceDetail
+    func workspaceLog(_ name: String, since: Date?) async throws -> [WorkspaceLogEntry]
     func bots() async throws -> BotListing
     /// Your Macs (`macs-ls` — `WebMacReads.request(for: .macs)`); in-process when no daemon runs.
     func macs() async throws -> MacListing
@@ -155,6 +158,8 @@ extension DozableWebData {
     public func macSessionPlan(_ r: WebMacPlanRequest) async throws -> WebMacPlan { throw HostError(.notImplemented, "session plan") }
     public func workspaces(loose: Bool) async throws -> WorkspaceListing { throw HostError(.notImplemented, "workspaces") }
     public func workspace(_ name: String) async throws -> WorkspaceDetail { throw HostError(.notImplemented, "workspaces") }
+    public func workspaceBrief(_ name: String) async throws -> WorkspaceDetail { throw HostError(.notImplemented, "workspaces") }
+    public func workspaceLog(_ name: String, since: Date?) async throws -> [WorkspaceLogEntry] { throw HostError(.notImplemented, "workspaces") }
     public func bots() async throws -> BotListing { throw HostError(.notImplemented, "bots") }
     public func macs() async throws -> MacListing { throw HostError(.notImplemented, "macs") }
     public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
@@ -524,6 +529,14 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func workspace(_ name: String) async throws -> WorkspaceDetail {
         try await query(WebWorkspaceReads.request(for: .workspace(name))!).0.decode(WorkspaceDetail.self)
+    }
+
+    public func workspaceBrief(_ name: String) async throws -> WorkspaceDetail {
+        try await query(WebWorkspaceReads.request(for: .workspaceBrief(name))!).0.decode(WorkspaceDetail.self)
+    }
+
+    public func workspaceLog(_ name: String, since: Date?) async throws -> [WorkspaceLogEntry] {
+        try await query(WebWorkspaceReads.request(for: .workspaceLog(name, since))!).0.decode([WorkspaceLogEntry].self)
     }
 
     public func bots() async throws -> BotListing {
