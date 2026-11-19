@@ -158,7 +158,7 @@ function stepWelcome(d, w) {
           h('small', { 'data-onboarded-base': '' }, b ? b.title + (d.base && d.base.id === b.id && d.base.prepared ? ', ready' : ', not prepared now') : 'none prepared'))),
         h('div', { class: 'ob-check ok' }, icon('circle-check'), h('span', null, h('b', null, 'Store'), ' ', h('small', null, $('store-path').textContent)))),
         h('p', { class: 'muted' }, 'Running it again checks this Mac again and lets you change the choices; nothing already prepared is made again, and your sandboxes are not touched.')],
-      foot: [btn('Go to Sandboxes', () => { state.wiz = null; location.hash = '#/overview'; }, { icon: 'box' }), gap(),
+      foot: [btn('Go to Sandboxes', () => { state.wiz = null; location.hash = '#/mac/sandboxes'; }, { icon: 'box' }), gap(),
         btn('Run onboarding again', () => { w.again = true; renderWizard(true); }, { primary: true, icon: 'rotate-ccw' })],
     };
   }
@@ -626,7 +626,7 @@ function stepFirst(d, w) {
 }
 
 function finishButton(w) {
-  return btn('Finish without a sandbox', () => { state.wiz = null; refreshNav(); location.hash = '#/overview'; }, { quiet: true, icon: 'check' });
+  return btn('Finish without a sandbox', () => { state.wiz = null; refreshNav(); location.hash = '#/home'; }, { quiet: true, icon: 'check' });
 }
 
 function modelWords(p) {

@@ -1772,3 +1772,165 @@ public struct WebServeDevices: Codable, Equatable, Sendable {
         self.running = running; self.devices = devices; self.activity = activity
     }
 }
+
+// MARK: workspaces and Agents / Bots — the dashboard's reads (WebWorkspaces.swift)
+
+/// `GET /api/v1/workspaces` and `GET /api/v1/loose`: the workspaces (none for `/loose`) and the loose agents. `hidden`: how
+/// many rows placed on this Mac were left out for this browser (another computer while `serve.mac_sessions` is off).
+public struct WebWorkspaceListing: Codable, Equatable, Sendable {
+    public var workspaces: [WebWorkspaceRow]
+    public var loose: [WebLooseAgent]
+    public var hidden: Int
+
+    public init(workspaces: [WebWorkspaceRow], loose: [WebLooseAgent], hidden: Int = 0) {
+        self.workspaces = workspaces; self.loose = loose; self.hidden = hidden
+    }
+
+    public init(_ l: WorkspaceListing) {
+        self.init(workspaces: l.workspaces.map(WebWorkspaceRow.init), loose: l.loose.map(WebLooseAgent.init))
+    }
+}
+
+public struct WebWorkspaceRow: Codable, Equatable, Sendable {
+    public var name: String
+    /// `WorkspaceState`'s raw value (`setting-up`), and as a person reads it (`setting up`).
+    public var state: String
+    public var words: String
+    public var driver: String
+    public var agents: Int
+    public var room: String?
+    public var manager: WebWorkspaceManager?
+    /// The agents working now, by name (nil: not known — no daemon, or left out for this browser).
+    public var working: [String]?
+    public var folders: [String]
+
+    public init(_ r: WorkspaceRow) {
+        name = r.name; state = r.state; words = WorkspaceState(rawValue: r.state)?.words ?? r.state; driver = r.driver; agents = r.agents
+        room = r.room; manager = r.manager.map(WebWorkspaceManager.init); working = r.working; folders = r.folders ?? []
+    }
+}
+
+/// A workspace's manager: `mira (fenced)`, or `otto (unfenced · acts as you)` — `actsAsYou` is said wherever it shows.
+public struct WebWorkspaceManager: Codable, Equatable, Sendable {
+    public var bot: String
+    public var isolation: String
+    public var actsAsYou: Bool
+    public var state: String
+    public var words: String
+
+    public init(_ m: WorkspaceManagerRow) {
+        bot = m.bot; isolation = m.isolation; actsAsYou = m.actsAsYou; state = m.state; words = m.words
+    }
+}
+
+/// A sandbox or a session on this Mac in no workspace.
+public struct WebLooseAgent: Codable, Equatable, Sendable {
+    /// As a person types it: the sandbox's name, or `@mac/SESSION`.
+    public var name: String
+    /// `sandbox` or `mac`.
+    public var kind: String
+    public var state: String
+
+    public init(_ a: LooseAgent) { name = a.name; kind = a.kind; state = a.state }
+    /// The session's name for one on this Mac (nil: a sandbox).
+    public var macSession: String? { kind == "mac" && name.hasPrefix(MacPlace.name + "/") ? String(name.dropFirst(MacPlace.name.count + 1)) : nil }
+}
+
+/// `GET /api/v1/workspaces/{w}`: the workspace as `doz workspace show` reads it — never the brief's text.
+public struct WebWorkspaceDetail: Codable, Equatable, Sendable {
+    public var name: String
+    public var state: String
+    public var words: String
+    public var driver: String
+    public var createdAt: Date
+    /// The brief's size and its references' count (never its text).
+    public var briefBytes: Int
+    public var refs: Int
+    public var folders: [WebWorkspaceFolder]
+    public var rooms: [WebWorkspaceRoom]
+    public var agents: [WebWorkspaceAgent]
+    public var notes: [String]
+    public var finishedAt: Date?
+    public var archivedAt: Date?
+    public var hidden: Int
+
+    public init(_ d: WorkspaceDetail) {
+        name = d.name; state = d.state; words = WorkspaceState(rawValue: d.state)?.words ?? d.state; driver = d.driver; createdAt = d.createdAt
+        briefBytes = d.brief.bytes; refs = d.brief.refs.count
+        folders = d.folders.map { WebWorkspaceFolder(path: $0.path, mode: $0.mode, main: $0.main) }
+        rooms = d.rooms.map { WebWorkspaceRoom(label: $0.label, room: $0.chatRoom, main: $0.main) }
+        agents = d.agents.map(WebWorkspaceAgent.init)
+        notes = d.notes ?? []
+        finishedAt = d.flags.finishedAt; archivedAt = d.flags.archivedAt
+        hidden = 0
+    }
+}
+
+public struct WebWorkspaceFolder: Codable, Equatable, Sendable {
+    public var path: String
+    public var mode: String
+    public var main: Bool
+}
+
+/// A room of the workspace: its short label (`review`) and the chat server's room (`launch-video-review`).
+public struct WebWorkspaceRoom: Codable, Equatable, Sendable {
+    public var label: String
+    public var room: String
+    public var main: Bool
+}
+
+public struct WebWorkspaceAgent: Codable, Equatable, Sendable {
+    public var name: String
+    public var role: String
+    /// As a person types it: `wsa`, `@mac/wsu`, or where it runs elsewhere.
+    public var place: String
+    /// Where it is: `sandbox`, `mac` or `elsewhere`, and the sandbox's or the session's name.
+    public var kind: String
+    public var sandbox: String?
+    public var session: String?
+    public var state: String
+    public var activity: String?
+    public var bot: String?
+    public var isolation: String?
+    public var actsAsYou: Bool
+    public var task: String?
+
+    public init(_ a: WorkspaceAgentRow) {
+        name = a.name; role = a.role; place = a.place; state = a.state; activity = a.activity; bot = a.bot; isolation = a.isolation
+        actsAsYou = a.actsAsYou == true; task = a.task
+        if a.place.hasPrefix(MacPlace.name + "/") {
+            kind = "mac"; session = String(a.place.dropFirst(MacPlace.name.count + 1))
+        } else if a.state == "elsewhere" || !WebRoute.isSandboxName(a.place) {
+            kind = "elsewhere"
+        } else {
+            kind = "sandbox"; sandbox = a.place
+        }
+    }
+}
+
+/// `GET /api/v1/bots`: the Agents / Bots, as `doz bot ls` lists them.
+public struct WebBotListing: Codable, Equatable, Sendable {
+    public var bots: [WebBotRow]
+    public init(_ l: BotListing) { bots = l.bots.map(WebBotRow.init) }
+}
+
+public struct WebBotRow: Codable, Equatable, Sendable {
+    public var name: String
+    /// The agent program (`claude-code`, `codex`, …) and its model.
+    public var agent: String
+    public var model: String?
+    public var isolation: String
+    public var kind: String
+    /// How the chat server reaches it: `inbox`, `poll` or `webhook`.
+    public var deliver: String
+    public var inChat: Bool
+    public var manages: [String]
+    public var running: String?
+    public var worksIn: String?
+    public var retiredAt: Date?
+
+    public init(_ b: BotRow) {
+        name = b.name; agent = b.agent; model = b.model; isolation = b.isolation; kind = b.kind; deliver = b.deliver; inChat = b.inChat
+        manages = b.manages; running = b.running; worksIn = b.worksIn; retiredAt = b.retiredAt
+    }
+}

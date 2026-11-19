@@ -225,6 +225,35 @@ final class WebHTTPIntegrationTests: XCTestCase {
         XCTAssertEqual(try get("/api/v1/overview", ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": "x"], method: "POST").status, 404)
     }
 
+    /// The workspace reads over a real listener: each answers with its projection, an unknown workspace is 404, a name off
+    /// the store's rule is 400 before any call, a change of method is not a route, and every one needs the session.
+    func testTheWorkspaceReads() async throws {
+        try await start()
+        let (cookie, csrf) = try signIn()
+        for p in ["/api/v1/workspaces", "/api/v1/workspaces/demo", "/api/v1/loose", "/api/v1/bots"] {
+            XCTAssertEqual(try get(p).status, 401, "\(p): the session is required")
+            let r = try get(p, ["Cookie": cookie])
+            XCTAssertEqual(r.status, 200, "\(p): \(r.text)")
+            XCTAssertEqual(r.header("content-type"), "application/json; charset=utf-8")
+            XCTAssertFalse(r.text.contains("the brief's text"), "never the brief")
+            XCTAssertEqual(try get(p, ["Cookie": cookie], method: "PUT").status, 405)
+            XCTAssertEqual(try get(p, ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"],
+                                   method: "POST", body: "{}").status, 404, "\(p): no POST — nothing here changes anything")
+        }
+        let l = try JSONSerialization.jsonObject(with: try get("/api/v1/workspaces", ["Cookie": cookie]).body) as? [String: Any]
+        XCTAssertEqual((l?["workspaces"] as? [[String: Any]])?.first?["words"] as? String, "setting up")
+        XCTAssertEqual((l?["loose"] as? [[String: Any]])?.map { $0["name"] as? String }, ["lab", "@mac/build"])
+        let missing = try get("/api/v1/workspaces/nope", ["Cookie": cookie])
+        XCTAssertEqual(missing.status, 404)
+        XCTAssertTrue(missing.text.contains("\"not-found\""), missing.text)
+        for bad in ["Demo", "-x", String(repeating: "a", count: 41), "a_b"] {
+            let r = try get("/api/v1/workspaces/\(bad)", ["Cookie": cookie])
+            XCTAssertEqual(r.status, 400, bad)
+            XCTAssertFalse(r.text.contains(bad), "the refusal never echoes the name")
+        }
+        XCTAssertEqual(fake.workspaceCalls, ["ls", "show demo", "ls --loose", "ls", "show nope"], "no call for a refused name")
+    }
+
     func testHostErrorsAreTypedAndEveryViewAnswers() async throws {
         try await start()
         let (cookie, _) = try signIn()
@@ -627,6 +656,28 @@ final class FakeData: DozableWebData, @unchecked Sendable {
     func bump() { lock.withLock { generation += 1 } }
 
     /// The sessions on this Mac the fake reports: one running, its argv bypassing permissions (its own choice).
+    /// One workspace setting up (`demo`, with the brief), a loose sandbox and a loose session on this Mac, one bot.
+    private var _workspaceCalls: [String] = []
+    var workspaceCalls: [String] { lock.withLock { _workspaceCalls } }
+    func workspaces(loose: Bool) async throws -> WorkspaceListing {
+        lock.withLock { _workspaceCalls.append(loose ? "ls --loose" : "ls") }
+        return WorkspaceListing(workspaces: loose ? [] : [WorkspaceRow(name: "demo", state: "setting-up", driver: "you", agents: 1, room: "demo")],
+                                loose: [LooseAgent(name: "lab", kind: "sandbox", state: "running"), LooseAgent(name: "@mac/build", kind: "mac", state: "running")])
+    }
+    func workspace(_ name: String) async throws -> WorkspaceDetail {
+        lock.withLock { _workspaceCalls.append("show \(name)") }
+        guard name == "demo" else { throw HostError(.notFound, "\(name) is not a workspace (doz workspace ls)") }
+        let t = Date(timeIntervalSince1970: 0)
+        return WorkspaceDetail(name: "demo", state: "setting-up", driver: "you", createdAt: t, brief: WorkspaceBrief(sha256: "x", bytes: 16, updatedAt: t),
+                               briefText: "the brief's text", folders: [], rooms: [WorkspaceRoom(label: "demo", chatRoom: "demo", main: true)],
+                               agents: [WorkspaceAgentRow(name: "wsa", role: "worker", place: "wsa", state: "off", startedAt: t)],
+                               defaults: WorkspaceDefaults(), flags: WorkspaceFlags(), origin: WorkspaceOrigin(), notes: ["doz workspace start demo"])
+    }
+    func bots() async throws -> BotListing {
+        BotListing(bots: [BotRow(name: "mira", agent: "claude-code", model: nil, isolation: "fenced", kind: "agent", deliver: "poll", inChat: true,
+                                 manages: ["demo"], retiredAt: nil)])
+    }
+
     func macSessions() async throws -> [WebMacSession] {
         var r = SessionRow(SessionInfo(name: "build", pid: 42, size: TermSize(cols: 100, rows: 30), command: "claude --dangerously-skip-permissions"))
         r.folder = "/Users/someone/src/app"

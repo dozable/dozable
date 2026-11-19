@@ -356,6 +356,11 @@ final class WebActionTests: XCTestCase {
             XCTAssertFalse(ops.contains(forbidden), "\(forbidden) must never be reachable from the browser")
         }
         XCTAssertEqual(WebAction.lifecycleOps["hibernate"], .hibernate)
+        // Workspaces, Agents / Bots and workers are read in the dashboard (WebWorkspaceReads) — none of their operations is
+        // an action yet.
+        for op in ops {
+            XCTAssertFalse(["workspace-", "bot-", "worker-"].contains { op.rawValue.hasPrefix($0) }, "\(op.rawValue) is not an action yet")
+        }
     }
 
     func testFieldsMapToTheRequest() throws {

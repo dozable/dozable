@@ -56,7 +56,7 @@ function build() {
   mac.newBtn = btn('New session on this Mac…', () => openMacWizard({ folder: lastFolder() }), { small: true, primary: true, icon: 'plus' });
   mac.newBtn.hidden = true;
   root.replaceChildren(
-    h('div', { class: 'head' }, h('h1', null, 'This Mac'),
+    h('div', { class: 'head' }, h('h1', null, 'On this Mac'),
       h('div', { class: 'actions' }, mac.newBtn, btn('Refresh', () => macRefresh(true), { small: true, icon: 'refresh-cw' }))),
     noIsolationCallout(false),
     h('div', { class: 'toolbar' }, mac.status),
@@ -232,7 +232,7 @@ function openPane(session, mode, tab) {
   host.append(t.els.wrap);
   showTab(mac.tab);
   paintCover(t);
-  history.replaceState(null, '', location.pathname + '#/mac/' + encodeURIComponent(session));
+  history.replaceState(null, '', location.pathname + '#/mac/here/' + encodeURIComponent(session));
   bootTerm(t, setting('ui.terminal_font_size', 13));
 }
 function current() { return mac.open ? mac.sessions.find((x) => x.name === mac.open.session) || null : null; }
@@ -378,11 +378,11 @@ export async function macSection() {
   const running = sessions.filter((s) => s.state === 'running').length;
   const open = sessions.filter((s) => s.state === 'running' && !s.fenced).length;
   return h('section', { class: 'mac-section', 'data-mac-section': '' },
-    h('h2', null, icon('monitor'), 'This Mac', open ? noIsolationChip() : null),
+    h('h2', null, icon('monitor'), 'On this Mac', open ? noIsolationChip() : null),
     h('p', { class: 'sub' }, running + ' of ' + sessions.length + ' session' + (sessions.length === 1 ? '' : 's') + ' running — '
       + (open ? open + ' with no isolation (they run as you, with nothing around them). ' : 'each held by its fence. '),
-      h('a', { href: '#/mac' }, 'Open This Mac')),
+      h('a', { href: '#/mac/here' }, 'Open the list')),
     h('ul', { class: 'mac-list' }, ...sessions.map((s) => h('li', null,
-      h('a', { href: '#/mac/' + encodeURIComponent(s.name) }, s.name), ' ', h('span', { class: 'mac-list-state' }, s.state + (s.fenced ? ' · fenced' : '')),
+      h('a', { href: '#/mac/here/' + encodeURIComponent(s.name) }, s.name), ' ', h('span', { class: 'mac-list-state' }, s.state + (s.fenced ? ' · fenced' : '')),
       ...(s.bypassed ? [' ', bypassedChip()] : [])))));
 }

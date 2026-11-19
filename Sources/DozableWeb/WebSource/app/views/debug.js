@@ -84,5 +84,5 @@ export async function viewDebug() {
       h('div', { class: 'debug-group' }, h('h3', null, 'All at once'),
         h('div', { class: 'debug-acts' }, btn('Six at once', burst, { small: true, icon: 'layers' }),
           btn('Dismiss all', () => clearNotes(), { small: true, quiet: true, icon: 'x' }),
-          btn('Open the history', () => { location.hash = '#/notifications'; }, { small: true, quiet: true, icon: 'history' }))))));
+          btn('Open the history', () => { location.hash = '#/mac/logs/notifications'; }, { small: true, quiet: true, icon: 'history' }))))));
 }

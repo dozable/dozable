@@ -1666,8 +1666,15 @@ public struct WorkspaceRow: Codable, Equatable, Sendable {
     public var room: String?
     /// Its manager (nil: none — you drive).
     public var manager: WorkspaceManagerRow?
-    public init(name: String, state: String, driver: String, agents: Int, room: String?, manager: WorkspaceManagerRow? = nil) {
+    /// The agents whose program is working now, by name — from what the daemon already holds (never a guest call); nil when
+    /// answered in-process (no daemon: nothing is known). Additive; `--json` only.
+    public var working: [String]?
+    /// Its folders' paths, the main one first (nil: none). Additive; `--json` only (the dashboard's Home shows them).
+    public var folders: [String]?
+    public init(name: String, state: String, driver: String, agents: Int, room: String?, manager: WorkspaceManagerRow? = nil,
+                working: [String]? = nil, folders: [String]? = nil) {
         self.name = name; self.state = state; self.driver = driver; self.agents = agents; self.room = room; self.manager = manager
+        self.working = working; self.folders = folders
     }
 }
 
@@ -1714,10 +1721,14 @@ public struct WorkspaceAgentRow: Codable, Equatable, Sendable {
     /// A worker's task (nil: not a worker), and what isolates it, as a person reads it (`WorkerLaunch.control`).
     public var task: String?
     public var control: String?
+    /// What its program is doing now — `working`, `idle`, `blocked` or `error` (`WorkspaceState.activity`) — from what the
+    /// daemon already holds, never a guest call; nil when not running, or answered in-process. Additive; `--json` only.
+    public var activity: String?
     public init(name: String, role: String, place: String, state: String, startedAt: Date, bot: String? = nil, isolation: String? = nil,
-                actsAsYou: Bool? = nil, task: String? = nil, control: String? = nil) {
+                actsAsYou: Bool? = nil, task: String? = nil, control: String? = nil, activity: String? = nil) {
         self.name = name; self.role = role; self.place = place; self.state = state; self.startedAt = startedAt
         self.bot = bot; self.isolation = isolation; self.actsAsYou = actsAsYou; self.task = task; self.control = control
+        self.activity = activity
     }
 }
 

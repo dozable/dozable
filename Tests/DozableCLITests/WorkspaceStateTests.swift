@@ -76,6 +76,21 @@ final class WorkspaceStateTests: XCTestCase {
         }
     }
 
+    /// What an agent's program is doing, as the dashboard says it (`activity`), and who is working (`working`).
+    func testActivity() {
+        let rows: [(S.Agent?, String?)] = [
+            (.running(sessions: ["working"]), "working"), (.running(sessions: ["idle", "done"]), "idle"), (.running(sessions: []), "idle"),
+            (.running(sessions: ["working", "blocked"]), "blocked"), (.running(sessions: ["error", "working"]), "error"),
+            (.failed, "error"), (.starting, nil), (.asleep, nil), (.notStarted, nil), (nil, nil),
+        ]
+        for (a, want) in rows { XCTAssertEqual(S.activity(a), want, "\(String(describing: a))") }
+        let t = Date(timeIntervalSince1970: 0)
+        let agents = [WorkspaceAgentRow(name: "a", role: "worker", place: "a", state: "running", startedAt: t, activity: "working"),
+                      WorkspaceAgentRow(name: "b", role: "worker", place: "b", state: "running", startedAt: t, activity: "idle"),
+                      WorkspaceAgentRow(name: "c", role: "manager", place: "@mac/c", state: "running", startedAt: t, activity: "working")]
+        XCTAssertEqual(S.working(agents), ["a", "c"])
+    }
+
     /// The agents as the daemon sees them.
     func testAgentsFromPhasesAndRows() {
         XCTAssertEqual(S.agent(phase: "booting", statuses: nil), .starting)

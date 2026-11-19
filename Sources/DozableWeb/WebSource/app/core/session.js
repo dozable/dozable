@@ -18,7 +18,7 @@ export async function bootstrap() {
   const m = /^#cap=([A-Za-z0-9_-]{16,256})(?:&to=(try(?:\/[a-z0-9][a-z0-9-]{0,39})?))?$/.exec(location.hash);
   if (m) {
     // The capability leaves the address bar and the history entry before anything else happens.
-    history.replaceState(null, '', location.pathname + (m[2] ? '#/' + m[2] : '#/overview'));
+    history.replaceState(null, '', location.pathname + (m[2] ? '#/' + m[2] : '#/home'));
     try {
       adopt(await api('session', { method: 'POST', bearer: m[1] }));
       return true;
@@ -62,6 +62,10 @@ export function adopt(info) {
   const sp = $('store-path');
   sp.textContent = mac ? 'on ' + mac + ' · ' + tildePath(info.store) : tildePath(info.store);
   sp.title = tildePath(info.store);
+  // The brand row names the Mac: the name the server gave this page ("Dozable – m1max"), else the one doz serve said.
+  const named = /^Dozable [–-] (.+)$/.exec(PAGE_TITLE);
+  const bm = $('brand-mac');
+  if (bm) bm.textContent = named ? '· ' + named[1] : mac ? '· ' + mac : '';
   $('version').textContent = 'doz ' + info.version;
   paintFootLine();
   // 714: the server names the page for its Mac ("Dozable – m1max", the <title> it serves) — kept, so two Macs' installed

@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import DozableHost
 @testable import DozableWeb
 
 /// 606 — the remote-capability table (`WebExposure`), pinned: every route, three askers (the Mac's doz ui, a remote
@@ -20,7 +21,7 @@ final class ServeExposureTests: XCTestCase {
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
-            .macSessionQuarantine("agent"), .macSessionPlan, .chat(.status),
+            .macSessionQuarantine("agent"), .macSessionPlan, .chat(.status), .workspaces, .workspace("demo"), .loose, .bots,
         ]
         for r in all { _ = covered(r) }
         return all
@@ -36,7 +37,8 @@ final class ServeExposureTests: XCTestCase {
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck, .uiRestart,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
-             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .chat:
+             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .chat,
+             .workspaces, .workspace, .loose, .bots:
             return true
         }
     }
@@ -83,6 +85,42 @@ final class ServeExposureTests: XCTestCase {
         XCTAssertTrue(WebGridsRequest.macAllowed(.mac, .off))
         XCTAssertEqual(WebRejection.macSession.status, 403)
         XCTAssertTrue(WebRejection.macSession.message.contains("serve.mac_sessions"))
+    }
+
+    /// The workspace reads are reads for every browser; another computer while `serve.mac_sessions` is off gets no row
+    /// placed on this Mac — no loose session, no agent on this Mac, no note naming one, not who is working — and is told how
+    /// many were left out.
+    func testTheWorkspaceReadsLeaveThisMacsRowsOut() {
+        for r: WebRoute in [.workspaces, .workspace("demo"), .loose, .bots] {
+            XCTAssertEqual(WebExposure.kind(r), .read)
+            XCTAssertNil(WebExposure.decide(r, .remote(secure: false), macSessions: .off), "a read: the rows are filtered, not the route")
+        }
+        var row = WorkspaceRow(name: "demo", state: "working", driver: "you", agents: 2, room: "demo", working: ["build", "wsa"])
+        row.folders = ["/Users/x/app"]
+        let listing = WebWorkspaceListing(WorkspaceListing(workspaces: [row], loose: [
+            LooseAgent(name: "lab", kind: "sandbox", state: "running"), LooseAgent(name: "@mac/secret-project", kind: "mac", state: "running"),
+        ]))
+        let remote = WebWorkspaceReads.forBrowser(listing, macAllowed: WebGridsRequest.macAllowed(.remote(secure: true), .off))
+        XCTAssertEqual(remote.loose.map(\.name), ["lab"])
+        XCTAssertEqual(remote.hidden, 1)
+        XCTAssertNil(remote.workspaces[0].working)
+        let json = String(decoding: try! WebJSON.encoder.encode(remote), as: UTF8.self)
+        XCTAssertFalse(json.contains("secret-project") || json.contains("build"), json)
+        XCTAssertEqual(WebWorkspaceReads.forBrowser(listing, macAllowed: WebGridsRequest.macAllowed(.remote(secure: true), .watch)), listing)
+        XCTAssertEqual(WebWorkspaceReads.forBrowser(listing, macAllowed: WebGridsRequest.macAllowed(.mac, .off)), listing, "the Mac's own browser")
+
+        let t = Date(timeIntervalSince1970: 0)
+        let detail = WebWorkspaceDetail(WorkspaceDetail(
+            name: "demo", state: "working", driver: "you", createdAt: t, brief: WorkspaceBrief(sha256: "x", bytes: 3, updatedAt: t), briefText: "the brief",
+            folders: [], rooms: [WorkspaceRoom(label: "demo", chatRoom: "demo", main: true)],
+            agents: [WorkspaceAgentRow(name: "wsa", role: "worker", place: "wsa", state: "running", startedAt: t),
+                     WorkspaceAgentRow(name: "secret-project", role: "worker", place: "@mac/secret-project", state: "running", startedAt: t)],
+            defaults: WorkspaceDefaults(), flags: WorkspaceFlags(), origin: WorkspaceOrigin(), notes: ["@mac/secret-project ended", "post the brief"]))
+        let d = WebWorkspaceReads.forBrowser(detail, macAllowed: false)
+        XCTAssertEqual(d.agents.map(\.name), ["wsa"])
+        XCTAssertEqual(d.hidden, 1)
+        XCTAssertEqual(d.notes, ["post the brief"])
+        XCTAssertEqual(WebWorkspaceReads.forBrowser(detail, macAllowed: true), detail)
     }
 
     /// The routes of the sessions on this Mac parse exactly, their names by the Mac's rule (≤ 32).

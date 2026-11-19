@@ -214,7 +214,7 @@
 
 <section>
   <h2>This Mac — the sessions with no isolation</h2>
-  <p>The sessions on this Mac (<code>doz run @mac</code>; views/mac.js, <code>#/mac</code>) run as the person — an unfenced one with their files, Keychain and network. Every view of an unfenced one says so: the <b>No isolation</b> chip on its tile and pane (the server's chip, below; <code>noIsolationChip</code> in the All sessions section), the callout at the top, the sidebar’s entry tag (only while one runs: “N no isolation”; a new session is fenced by default); a session whose own command line bypasses its permissions carries <b>permissions bypassed</b> (<code>bypassedChip</code>). The pane opens <b>Watching</b> (nothing typed reaches it); its two-state toggle (<code>.segmented.mac-mode-toggle</code>, <code>aria-pressed</code>) switches to <b>Controlling</b> — offered only to a browser that may type and while the session runs, else disabled with the reason in its title; the tile’s <b>Control</b> does the same. Below: the first pane Watching, the fenced one Controlling. All sessions ends with a This Mac section (<code>macSection</code>).</p>
+  <p>The sessions on this Mac (<code>doz run @mac</code>; views/mac.js, This Mac › On this Mac, <code>#/mac/here</code>) run as the person — an unfenced one with their files, Keychain and network. Every view of an unfenced one says so: the <b>No isolation</b> chip on its tile and pane (the server's chip, below; <code>noIsolationChip</code> in the All sessions section), the callout at the top, the sidebar’s entry tag (only while one runs: “N no isolation”; a new session is fenced by default); a session whose own command line bypasses its permissions carries <b>permissions bypassed</b> (<code>bypassedChip</code>). The pane opens <b>Watching</b> (nothing typed reaches it); its two-state toggle (<code>.segmented.mac-mode-toggle</code>, <code>aria-pressed</code>) switches to <b>Controlling</b> — offered only to a browser that may type and while the session runs, else disabled with the reason in its title; the tile’s <b>Control</b> does the same. Below: the first pane Watching, the fenced one Controlling. All sessions ends with an On this Mac section (<code>macSection</code>).</p>
   <div class="pair"><div class="scheme">
     <div class="sg-row">
       <span class="mac-chip"><i data-i="triangle-alert"></i>No isolation</span>
@@ -234,7 +234,7 @@
       <div class="mac-folder">~/src/my-app</div>
       <div class="mac-acts"><button class="btn sm quiet" type="button"><i data-i="eye"></i>Watch</button><button class="btn sm quiet" type="button"><i data-i="terminal"></i>Control</button><button class="btn sm quiet" type="button">Restart…</button><button class="btn sm quiet danger" type="button">End…</button></div>
     </div>
-    <section class="mac-section"><h2><i data-i="monitor"></i>This Mac<span class="mac-chip"><i data-i="triangle-alert"></i>No isolation</span></h2>
+    <section class="mac-section"><h2><i data-i="monitor"></i>On this Mac<span class="mac-chip"><i data-i="triangle-alert"></i>No isolation</span></h2>
       <ul class="mac-list"><li><a href="#">build</a> <span class="mac-list-state">running</span></li><li><a href="#">agent</a> <span class="mac-list-state">gone</span> <span class="mac-chip mac-bypassed">permissions bypassed</span></li></ul></section>
   </div></div>
 </section>
@@ -1141,6 +1141,85 @@ name: todo-app</pre></details>
       <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-asleep"></span><span class="nav-name">try-pi</span></a>
         <button type="button" class="nav-caret" aria-label="Fold"><i data-i="chevron-down"></i></button>
         <div class="nav-sessions"><div class="nav-sess-row"><a class="nav-sess saved" href="#"><span data-mark="pi" class="mark"></span><span class="ns-name">pi</span></a></div></div></div>
+    </div>
+  </div></div>
+</section>
+
+<section id="sg-workspaces">
+  <h2>Workspaces — the sidebar’s tree, a state, who drives, This Mac’s lines</h2>
+  <p>The sidebar (<code>index.html</code>, <code>components/nav.js</code>): Home, Needs you (hidden until its step), Chat (while chat is on), Agents / Bots, then
+    <b>Workspaces</b> (<code>components/ws-nav.js</code>) and <b>This Mac</b>, which holds every page from before (Templates’ and Logs’ pages one step in,
+    <code>.nav-sub</code>). A workspace’s line is a sandbox’s: its state as a dot (<code>workspaceDot</code>, <code>components/ws-marks.js</code> — a ring while setting up,
+    turning while starting), its name (its main room) and a caret that unfolds its rooms (<code># label</code>) and agents (a dot, the name, the role); Asleep and
+    Finished &amp; archived fold into a line each (<code>.nav-ws-group</code>). A state is a pill in the CLI’s words (<code>workspacePill</code>); who drives is a quiet chip
+    (<code>driverChip</code>); an unfenced manager is in the warning tone and says it acts as you (<code>managerChip</code>). This Mac’s page (<code>views/this-mac.js</code>) is one
+    line per page (<code>.tm-row</code>); a command to type is <code>cmdLine</code> (<code>.cmd-copy</code>). <b>Home</b> (<code>views/home.js</code>, <code>.hm-*</code>) is one table of the
+    workspaces, waiting on you first; a waiting row says why in its Who is working cell; a setting-up row offers the command that starts it; with none, the
+    definition and the ways in (S02).</p>
+  <div class="pair"><div class="scheme">
+    <div class="sg-row">
+      <span class="pill ws-waiting-on-you"><i data-i="triangle-alert"></i>waiting on you</span>
+      <span class="pill ws-working"><span class="dot ws-working"></span>working</span>
+      <span class="pill ws-starting"><span class="mini-spin"></span>starting</span>
+      <span class="pill ws-idle"><i data-i="pause"></i>idle</span>
+      <span class="pill ws-setting-up"><i data-i="wrench"></i>setting up</span>
+      <span class="pill ws-asleep"><i data-i="moon"></i>asleep</span>
+      <span class="pill ws-finished"><i data-i="check"></i>finished</span>
+      <span class="pill ws-archived"><i data-i="box"></i>archived</span>
+    </div>
+    <div class="sg-row">
+      <span class="ws-chip ws-driver">you</span>
+      <span class="ws-chip ws-manager">mira (fenced)</span>
+      <span class="ws-chip ws-manager acts-as-you"><i data-i="triangle-alert"></i>otto (unfenced · acts as you)</span>
+      <span class="cmd-copy"><code>doz workspace adopt WORKSPACE lab</code><button type="button" class="btn sm quiet icon-only" aria-label="Copy"><i data-i="copy"></i></button></span>
+    </div>
+    <div class="nav-ws-list" style="width:220px">
+      <div class="nav-sbx nav-ws"><a class="nav-child nav-ws-name" href="#"><span class="ph-dot ws-working"></span><span class="nav-name">launch-video</span></a>
+        <button type="button" class="nav-caret" aria-label="Fold"><i data-i="chevron-down"></i></button>
+        <div class="nav-sessions">
+          <div class="nav-sess-row"><a class="nav-sess nav-ws-room" href="#"><span class="nav-hash">#</span><span class="ns-name">launch-video</span></a></div>
+          <div class="nav-sess-row"><a class="nav-sess nav-ws-room" href="#"><span class="nav-hash">#</span><span class="ns-name">review</span></a></div>
+          <div class="nav-sess-row"><a class="nav-sess nav-ws-agent" href="#"><span class="ph-dot ph-running"></span><span class="ns-name">mira</span><span class="nav-ws-role">manager</span></a></div>
+          <div class="nav-sess-row"><a class="nav-sess nav-ws-agent" href="#"><span class="ph-dot ph-off"></span><span class="ns-name">bot1</span><span class="nav-ws-role">worker</span></a></div>
+        </div></div>
+      <div class="nav-sbx nav-ws"><a class="nav-child nav-ws-name" href="#"><span class="ph-dot ws-waiting-on-you"></span><span class="nav-name">myapp-tests</span></a>
+        <button type="button" class="nav-caret folded" aria-label="Show"><i data-i="chevron-down"></i></button></div>
+      <div class="nav-sbx nav-ws"><a class="nav-child nav-ws-name" href="#"><span class="ph-dot ws-setting-up mark-ring"></span><span class="nav-name">demo</span></a>
+        <button type="button" class="nav-caret folded" aria-label="Show"><i data-i="chevron-down"></i></button></div>
+      <div class="nav-ws-fold"><button type="button" class="nav-ws-group"><span class="nav-ws-gcaret folded"><i data-i="chevron-down"></i></span><span class="nav-name">Asleep (2)</span></button></div>
+      <div class="nav-ws-fold"><button type="button" class="nav-ws-group"><span class="nav-ws-gcaret folded"><i data-i="chevron-down"></i></span><span class="nav-name">Finished &amp; archived (5)</span></button></div>
+    </div>
+    <div class="panel"><table class="hm-table">
+      <thead><tr><th>State</th><th>Workspace</th><th>Driver</th><th>Manager</th><th>Who is working</th><th>Room</th><th>Last</th><th><span class="sr-only">Next</span></th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill ws-waiting-on-you"><i data-i="triangle-alert"></i>waiting on you</span></td>
+          <td><div class="hm-ws"><b>myapp-tests</b><div class="hm-folders"><span class="hm-folder">~/src/MyApp</span></div></div></td>
+          <td><span class="ws-chip ws-driver">you</span></td><td><span class="ws-chip ws-manager">mira (fenced)</span></td>
+          <td class="hm-who"><span class="hm-why"><i data-i="triangle-alert"></i>bot2 is blocked</span></td>
+          <td><a class="hm-room" href="#"># myapp-tests</a></td>
+          <td class="hm-last"><span class="hm-line"><b>mira: </b>SyncTests need SharedKit…<span class="hm-age"> · 8 min ago</span></span></td>
+          <td class="hm-next"><a class="btn sm" href="#"><i data-i="message-square"></i>Open room</a></td></tr>
+        <tr><td><span class="pill ws-working"><span class="dot ws-working"></span>working</span></td>
+          <td><div class="hm-ws"><b>mac-admin</b><div class="hm-folders"><span class="hm-folder muted">no folder</span></div></div></td>
+          <td><span class="ws-chip ws-driver">you</span></td><td><span class="ws-chip ws-manager acts-as-you"><i data-i="triangle-alert"></i>otto (unfenced · acts as you)</span></td>
+          <td class="hm-who">bot1</td><td><a class="hm-room" href="#"># mac-admin</a></td><td class="hm-last"></td>
+          <td class="hm-next"><a class="btn sm" href="#"><i data-i="message-square"></i>Open room</a></td></tr>
+        <tr><td><span class="pill ws-setting-up"><i data-i="wrench"></i>setting up</span></td>
+          <td><div class="hm-ws"><b>demo</b><div class="hm-folders"><span class="hm-folder">~/doz-workspaces/demo</span></div></div></td>
+          <td><span class="ws-chip ws-driver">you</span></td><td><span class="muted">—</span></td><td class="hm-who"><span class="muted">nobody</span></td>
+          <td><span class="muted">—</span></td><td class="hm-last"></td>
+          <td class="hm-next"><div class="hm-start"><span class="cmd-copy"><code>doz workspace start demo</code><button type="button" class="btn sm quiet icon-only" aria-label="Copy"><i data-i="copy"></i></button></span></div></td></tr>
+      </tbody></table></div>
+    <div class="hm-empty" style="max-width:560px">
+      <h2>No workspaces yet</h2>
+      <p class="hm-def">A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up.</p>
+      <div class="hm-acts"><button class="btn" type="button"><i data-i="play"></i>Just try an agent</button></div>
+      <p><b>Already have sandboxes? </b>3 sandboxes and 1 session on this Mac are not in any workspace. <a href="#">Put them in workspaces…</a></p>
+    </div>
+    <div class="panel tm-list" style="max-width:640px">
+      <div class="tm-row"><span class="tm-k"><i data-i="activity"></i><span>What runs</span></span><span class="tm-v"><a href="#">2 sandboxes running of 5</a> · <a href="#">3 sessions on this Mac (2 fenced, 1 unfenced)</a></span></div>
+      <div class="tm-row"><a class="tm-k" href="#"><i data-i="briefcase"></i><span>Loose agents (3)</span></a><span class="tm-v">not in any workspace: lab · notes · @mac/build</span></div>
+      <div class="tm-row"><span class="tm-k"><i data-i="power"></i><span>The daemon</span></span><span class="tm-v">running · doz 0.52.4</span><button class="btn sm quiet" type="button"><i data-i="rotate-ccw"></i>Restart daemon</button></div>
     </div>
   </div></div>
 </section>

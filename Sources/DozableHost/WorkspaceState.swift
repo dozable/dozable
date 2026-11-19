@@ -78,6 +78,21 @@ public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
         return place
     }
 
+    /// What one agent's program is doing, as the dashboard says it: `blocked` or `error` before `working`, then `idle`; a
+    /// failed sandbox is `error`; nil when it does not run (starting, asleep, not started, or no agent).
+    public static func activity(_ a: Agent?) -> String? {
+        switch a {
+        case .running(let s)?:
+            for w in ["blocked", "error", "working"] where s.contains(w) { return w }
+            return "idle"
+        case .failed?: return "error"
+        default: return nil
+        }
+    }
+
+    /// The agents working now, by name (`WorkspaceRow.working`): those whose activity is `working`.
+    public static func working(_ rows: [WorkspaceAgentRow]) -> [String] { rows.filter { $0.activity == "working" }.map(\.name) }
+
     /// A session on this Mac as an agent (nil row: its record is gone).
     public static func agent(macRow row: SessionRow?) -> Agent {
         guard let row, row.gone != true else { return .asleep }

@@ -178,7 +178,7 @@ function card(n) {
   return el;
 }
 function toggle(what) { open = open === what ? null : what; paintNotes(); }
-const historyLink = () => h('a', { href: '#/notifications', class: 'notes-history', 'data-notes-history': '', on: { click: () => { open = null; if (!state.notes.size) cardsShown = false; } } }, 'History');
+const historyLink = () => h('a', { href: '#/mac/logs/notifications', class: 'notes-history', 'data-notes-history': '', on: { click: () => { open = null; if (!state.notes.size) cardsShown = false; } } }, 'History');
 function list(notes, opts = {}) {
   return h('div', { class: 'notes-pop notes-list', role: 'region', 'aria-label': 'Notifications' },
     notes.length ? h('div', { class: 'notes-col' }, ...notes.map(card)) : h('p', { class: 'muted notes-none' }, 'No notifications.'),

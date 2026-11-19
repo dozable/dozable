@@ -4,7 +4,7 @@
 export const state = {
   csrf: null,
   expiresAt: null,
-  view: 'overview',
+  view: 'home',
   param: null,
   session: null,           // 593: #/sandbox/NAME/SESSION
   sbx: null,               // 593: the shown sandbox's {name, d, net, accounts}
@@ -23,8 +23,8 @@ export const state = {
   reloadAfterRestart: false, // 714: Restart dashboard was pressed — the next hello (the new doz ui's) reloads the page
   metricsFilter: { image: '', days: '', steps: false },
   settings: null,          // 591: {report, byKey} from GET /api/v1/settings
-  recipe: null,            // 669: #/recipes[/V/P] — '' the Recipes page, 'V/P' one recipe's page; null otherwise
-  recipeQuery: '',         // 669: Recipes › Browse's search (#/browse)
+  recipe: null,            // 669: #/mac/templates[/V/P] — '' the Templates page, 'V/P' one recipe's page; null otherwise
+  recipeQuery: '',         // 669: Templates › Browse's search (#/mac/templates/browse)
   tr: null,                // 617: the Quick try modal's state (views/try.js)
   tryAgent: null,          // 617: the agent of #/try/AGENT
   preps: [],               // 594: the daemon's image preparations (SSE `preparations`, GET /api/v1/preparations)
@@ -35,6 +35,11 @@ export const state = {
   usageStats: null,        // an official build: the setup wizard's Usage statistics step {on, fixed, key, summary, showCommand, privacyPage}
   chatgptSignIn: true,     // this build has Dozable's own ChatGPT sign-in (a public build: false — never offered)
   sound: false,            // 667: this doz carries the sound kernel — New sandbox offers Sound
+  // Workspaces (core/workspaces.js): the last reads — the list {workspaces, loose, hidden}, each workspace unfolded in the
+  // sidebar (name → its detail), the Agents / Bots {bots}.
+  workspaces: null,
+  wsDetails: new Map(),
+  bots: null,
   // Chat (views/chat*.js): what the chat server last said and what this page shows of it.
   chat: {
     on: false,             // chat/status said anything but off (the sidebar's entry is shown)

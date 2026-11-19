@@ -158,7 +158,7 @@ function popover({ base, p, phase, title, f }) {
   const tail = p && prepRunning(p) && p.output && p.output.length ? h('pre', { class: 'wp-tail' }, p.output.slice(-2).join('\n')) : null;
   const acts = [];
   if (p && prepRunning(p)) {
-    acts.push(btn('Operations', () => { closeBasePop(); location.hash = '#/operations'; }, { small: true, quiet: true, icon: 'activity' }), h('span', { class: 'wp-gap' }),
+    acts.push(btn('Operations', () => { closeBasePop(); location.hash = '#/mac/logs/operations'; }, { small: true, quiet: true, icon: 'activity' }), h('span', { class: 'wp-gap' }),
       btn(phase === 'download' ? 'Cancel download…' : 'Cancel…', () => dialog('Cancel the ' + title + '?',
         'Its download stops; what was downloaded is kept, so a later try resumes. The setup goes on — each tool’s first start prepares the base then.',
         [], 'Cancel it', async () => { await act({ action: 'prepare-cancel', base: base.id }); }, { danger: true, icon: 'circle-x' }), { small: true, quiet: true, danger: true, icon: 'circle-x' }));

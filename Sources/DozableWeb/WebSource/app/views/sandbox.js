@@ -168,7 +168,7 @@ export async function refreshSandbox() {
   } catch (e) {
     // 617: a try whose create is under way (or failed) has its page before its sandbox exists.
     if (e.status === 404 && state.pendingTry && state.pendingTry.name === name) { drawPendingTry(name); return; }
-    if (e.status === 404) { if (state.view === 'sandbox' && state.param === name) location.hash = '#/overview'; return; }
+    if (e.status === 404) { if (state.view === 'sandbox' && state.param === name) location.hash = '#/mac/sandboxes'; return; }
     if (!state.signedOut) failureFor(name, e.message || String(e));
   } finally {
     sbxRefreshing = false;

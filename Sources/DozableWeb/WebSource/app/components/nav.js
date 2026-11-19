@@ -1,4 +1,5 @@
-// components/nav — The sidebar: a child per sandbox (593), the rail, the Resources total.
+// components/nav — The sidebar: Home, Needs you, Chat, Agents / Bots, the Workspaces (ws-nav.js), This Mac with a child per
+// sandbox (593); the rail, the Resources total.
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
 import { icon, mark, phaseMark, QUEUED_GLYPH } from '../dom/icons.js';
@@ -11,6 +12,8 @@ import { agentChip, agentDot, paintAgentStatuses } from './agent-status.js';
 import { moreMenu } from './menus.js';
 import { canPeek, peekIcon, peekRegion } from './nav-peek.js';
 import { renameItem } from './rename-dialog.js';
+import { renderNavWorkspaces } from './ws-nav.js';
+import { loadBots, loadWorkspaces } from '../core/workspaces.js';
 import { sessionMenuItems } from './session-actions.js';
 import { isAux, pageTerminals } from '../core/terminals.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
@@ -34,7 +37,21 @@ export function refreshNav(opts) {
       if (a) state.accounts = a;
       renderNavSandboxes();
     } catch (_) { /* the last list */ }
+    refreshNavWorkspaces();
   }, 300);
+}
+/// The Workspaces tree and the counts beside Agents / Bots and Loose agents: read again (on hello, `changed`, an
+/// operation's end — never on a timer) and drawn.
+export async function refreshNavWorkspaces() {
+  await Promise.all([loadWorkspaces(0).catch(() => null), loadBots(0).catch(() => null)]);
+  paintWorkspaceCounts();
+  renderNavWorkspaces();
+}
+export function paintWorkspaceCounts() {
+  const b = $('nav-bots-count'), l = $('nav-loose-count');
+  const set = (el, t) => { if (el && el.textContent !== t) el.textContent = t; };
+  set(b, state.bots && state.bots.bots.length ? String(state.bots.bots.length) : '');
+  set(l, state.workspaces && state.workspaces.loose.length ? String(state.workspaces.loose.length) : '');
 }
 /// 641 (owner, D3): Accounts & keys' badge — how many problems break a sandbox's next session (the page's Needs you
 /// lines that name one). From the last accounts list and overview; nothing is fetched here.
@@ -232,6 +249,7 @@ export function paintNav() {
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
   renderNavSandboxes();
+  renderNavWorkspaces();
   navRail(false);
 }
 /// 603: below 980 px the sidebar is an icon rail; 647: the header's menu button shows the whole sidebar over the page

@@ -182,6 +182,12 @@ export function hostChanged(c) {
   liveRefresh();
 }
 
+/// This Mac's daemon line: what the status bar says, and Restart (running) or Start (stopped) as there.
+export function hostAction(host) {
+  if (!host) return null;
+  return host.running ? restartHostButton(host, { quiet: true }) : startHostButton({ quiet: true });
+}
+
 export function hostCard(host) {
   if (host.running) {
     return card('Daemon', 'running', 'pid ' + host.pid + ' · ' + (host.version || '') + ' · since ' + when(host.startedAt) +

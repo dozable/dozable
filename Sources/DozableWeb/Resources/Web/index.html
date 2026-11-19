@@ -12,9 +12,9 @@
   <link rel="manifest" href="/assets/app-91e4c84d6f98436a.webmanifest">
   <title>Dozable</title>
   <meta name="doz-ghostty-wasm" content="/assets/vendor-ghostty-vt-d6f0326f1874ad2c.wasm">
-  <meta name="doz-icons" content="/assets/vendor-lucide-icons-d1d51af52ae97eba.svg">
-  <link rel="stylesheet" href="/assets/app-e31abb6751d06539.css">
-  <script type="module" src="/assets/app-83cd6aafb3580428.js"></script>
+  <meta name="doz-icons" content="/assets/vendor-lucide-icons-8b3f7731ee250372.svg">
+  <link rel="stylesheet" href="/assets/app-84c2d3a70e46f8cb.css">
+  <script type="module" src="/assets/app-a0dd740b5d257bfa.js"></script>
 </head>
 <body>
   <header class="topbar" id="topbar">
@@ -22,7 +22,7 @@
     <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b>
     <span class="topbar-gap"></span>
     <span class="topbar-acts">
-      <a class="btn sm quiet icon-only topbar-keys" id="top-keys" href="#/accounts" hidden></a>
+      <a class="btn sm quiet icon-only topbar-keys" id="top-keys" href="#/mac/accounts" hidden></a>
       <button type="button" class="btn sm quiet icon-only topbar-add" id="top-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button>
     </span>
   </header>
@@ -31,38 +31,43 @@
       <div class="side-head">
         <button type="button" class="btn sm quiet icon-only nav-menu" id="nav-menu" aria-label="Collapse the sidebar" aria-expanded="true" aria-controls="nav"></button>
         <span class="brand-mark" aria-hidden="true">z</span>
-        <span class="side-brand"><b class="brand-name">Dozable</b><span class="brand-store" id="store-path">—</span></span>
+        <span class="side-brand"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac" id="brand-mac"></span></span><span class="brand-store" id="store-path">—</span></span>
       </div>
       <nav id="nav" aria-label="Pages">
-        <div class="nav-group"><span class="ng-label">Sandboxes</span><button type="button" class="btn sm quiet icon-only nav-quick" id="nav-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button></div>
-        <a href="#/sessions" data-view="sessions"><span class="lbl">All sessions</span></a>
-        <a href="#/mac" data-view="mac" id="nav-mac"><span class="lbl">This Mac</span><span class="trail"><span class="nav-mac-tag" hidden></span></span></a>
-        <a href="#/chat" data-view="chat" id="nav-chat" hidden><span class="lbl">Chat</span><span class="trail"><span class="nav-badge" id="chat-badge" hidden></span></span></a>
+        <a href="#/home" data-view="home" data-nav-part="home"><span class="lbl">Home</span></a>
+        <a href="#/home" data-view="needs" data-nav-part="needs" id="nav-needs" hidden><span class="lbl">Needs you</span><span class="trail"><span class="nav-badge" id="needs-badge" hidden></span></span></a>
+        <a href="#/chat" data-view="chat" data-nav-part="chat" id="nav-chat" hidden><span class="lbl">Chat</span><span class="trail"><span class="nav-badge" id="chat-badge" hidden></span></span></a>
+        <a href="#/bots" data-view="bots" data-nav-part="bots" id="nav-bots"><span class="lbl">Agents / Bots</span><span class="trail" id="nav-bots-count"></span></a>
+        <div class="nav-group" data-nav-part="workspaces"><span class="ng-label">Workspaces</span></div>
+        <div class="nav-ws-list" id="nav-workspaces" role="list" aria-label="Workspaces"></div>
+        <div class="nav-group" data-nav-part="thismac"><span class="ng-label">This Mac</span><button type="button" class="btn sm quiet icon-only nav-quick" id="nav-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button></div>
+        <a href="#/mac" data-view="thismac" data-nav-mac><span class="lbl">Overview</span></a>
+        <a href="#/mac/sessions" data-view="sessions" data-nav-mac><span class="lbl">Sessions</span></a>
         <div class="nav-all" id="nav-all-row">
-          <a href="#/overview" data-view="overview" id="nav-all"><span class="lbl">All sandboxes</span><span class="trail" id="nav-count"></span></a>
+          <a href="#/mac/sandboxes" data-view="overview" id="nav-all" data-nav-mac><span class="lbl">Sandboxes</span><span class="trail" id="nav-count"></span></a>
           <button type="button" class="nav-tree-caret" id="nav-tree-caret" aria-controls="nav-sandboxes" aria-expanded="true" aria-label="Fold the sandboxes" title="Fold the sandboxes"></button>
           <span class="nav-sbx-more" id="nav-sbx-more"></span>
         </div>
         <div class="nav-children" id="nav-sandboxes" role="list" aria-label="Sandboxes"></div>
-        <div class="nav-group"><span class="ng-label">Recipes</span><button type="button" class="btn sm quiet icon-only nav-quick" id="nav-try-add" data-nav-try-add title="Quick try: an agent in a fresh sandbox, safe defaults" aria-label="Quick try an agent"></button></div>
-        <a href="#/recipes" data-view="recipes"><span class="lbl">Installed</span></a>
-        <a href="#/browse" data-view="browse"><span class="lbl">Browse</span></a>
-        <a href="#/try" data-view="try" data-quick-try><span class="lbl">Quick try</span></a>
-        <div class="nav-group"><span class="ng-label">Store</span></div>
-        <a href="#/images" data-view="images"><span class="lbl">Images</span></a>
-        <a href="#/resources" data-view="resources" id="nav-resources"><span class="lbl">Resources</span><span class="trail"><span class="nav-size" id="res-total" hidden></span></span></a>
-        <div class="nav-group"><span class="ng-label">Activity</span></div>
-        <a href="#/operations" data-view="operations" id="nav-operations"><span class="lbl">Operations</span><span class="trail"><span class="nav-badge" id="ops-badge" hidden></span><span class="nav-alert" id="ops-alert" hidden role="img" aria-label="An operation failed" title="An operation failed"></span></span></a>
-        <a href="#/activity" data-view="activity"><span class="lbl">Activity</span></a>
-        <a href="#/notifications" data-view="notifications" id="nav-notifications"><span class="lbl">Notifications</span></a>
-        <a href="#/metrics" data-view="metrics"><span class="lbl">Metrics</span></a>
-        <div class="nav-group"><span class="ng-label">Setup</span></div>
-        <a href="#/accounts" data-view="accounts" id="nav-accounts"><span class="lbl">Accounts &amp; keys</span><span class="trail"><span class="nav-badge count bad" id="acc-badge" hidden></span></span></a>
-        <a href="#/settings" data-view="settings"><span class="lbl">Settings</span></a>
-        <a href="#/devices" data-view="devices"><span class="lbl">Devices</span></a>
-        <a href="#/doctor" data-view="doctor"><span class="lbl">Doctor</span></a>
-        <a href="#/onboarding" data-view="onboarding" id="nav-onboarding"><span class="lbl">Onboarding</span><span class="trail"><span class="nav-alert nav-todo" id="onb-dot" hidden role="img" aria-label="Setup is not finished" title="Setup is not finished"></span></span></a>
-        <a href="#/debug" data-view="debug" id="nav-debug"><span class="lbl">Debug</span></a>
+        <a href="#/mac/here" data-view="mac" id="nav-mac" data-nav-mac><span class="lbl">On this Mac</span><span class="trail"><span class="nav-mac-tag" hidden></span></span></a>
+        <a href="#/mac/loose" data-view="loose" id="nav-loose" data-nav-mac><span class="lbl">Loose agents</span><span class="trail" id="nav-loose-count"></span></a>
+        <div class="nav-group nav-subgroup"><span class="ng-label">Templates</span><button type="button" class="btn sm quiet icon-only nav-quick" id="nav-try-add" data-nav-try-add title="Quick try: an agent in a fresh sandbox, safe defaults" aria-label="Quick try an agent"></button></div>
+        <a class="nav-sub" href="#/mac/templates" data-view="recipes" data-nav-mac><span class="lbl">Installed</span></a>
+        <a class="nav-sub" href="#/mac/templates/browse" data-view="browse" data-nav-mac><span class="lbl">Browse</span></a>
+        <a class="nav-sub" href="#/try" data-view="try" data-quick-try data-nav-mac><span class="lbl">Quick try</span></a>
+        <a href="#/mac/images" data-view="images" data-nav-mac><span class="lbl">Images</span></a>
+        <a href="#/mac/accounts" data-view="accounts" id="nav-accounts" data-nav-mac><span class="lbl">Accounts &amp; keys</span><span class="trail"><span class="nav-badge count bad" id="acc-badge" hidden></span></span></a>
+        <a href="#/mac/resources" data-view="resources" id="nav-resources" data-nav-mac><span class="lbl">Resources</span><span class="trail"><span class="nav-size" id="res-total" hidden></span></span></a>
+        <a href="#/mac/devices" data-view="devices" data-nav-mac><span class="lbl">Devices</span></a>
+        <div class="nav-group nav-subgroup"><span class="ng-label">Logs</span></div>
+        <a class="nav-sub" href="#/mac/logs/operations" data-view="operations" id="nav-operations" data-nav-mac><span class="lbl">Operations</span><span class="trail"><span class="nav-badge" id="ops-badge" hidden></span><span class="nav-alert" id="ops-alert" hidden role="img" aria-label="An operation failed" title="An operation failed"></span></span></a>
+        <a class="nav-sub" href="#/mac/logs/activity" data-view="activity" data-nav-mac><span class="lbl">Activity</span></a>
+        <a class="nav-sub" href="#/mac/logs/notifications" data-view="notifications" id="nav-notifications" data-nav-mac><span class="lbl">Notifications</span></a>
+        <a class="nav-sub" href="#/mac/logs/metrics" data-view="metrics" data-nav-mac><span class="lbl">Metrics</span></a>
+        <a href="#/mac/doctor" data-view="doctor" data-nav-mac><span class="lbl">Doctor</span></a>
+        <a href="#/onboarding" data-view="onboarding" id="nav-onboarding" data-nav-mac><span class="lbl">Setup</span><span class="trail"><span class="nav-alert nav-todo" id="onb-dot" hidden role="img" aria-label="Setup is not finished" title="Setup is not finished"></span></span></a>
+        <a href="#/mac/settings" data-view="settings" data-nav-mac><span class="lbl">Settings</span></a>
+        <a href="#/mac/debug" data-view="debug" id="nav-debug" data-nav-mac><span class="lbl">Debug</span></a>
       </nav>
       <footer class="statusbar" id="statusbar" aria-label="Status bar">
         <button type="button" class="foot-status" id="foot-status" aria-label="Status" aria-expanded="false" aria-controls="foot-card"><span class="dot" id="live-dot" aria-hidden="true"></span><span class="dot" id="host-dot" aria-hidden="true"></span><span class="foot-sum" id="foot-sum">connecting…</span></button>

@@ -1071,6 +1071,21 @@ table.set-matrix { width: auto; }
 .ag-done    { --ag: var(--ok);   --ag-t: var(--ok-tint); }
 .ag-error   { --ag: var(--bad);  --ag-t: var(--bad-tint); }
 .ag-idle    { --ag: var(--ink-2); --ag-t: var(--surface-2); }
+/* A workspace's state (components/ws-marks.js): the pill and the sidebar's dot share these colour pairs — waiting on you
+   warns, working is busy, starting turns, idle and finished are calm, setting up and archived are rings. */
+.ws-waiting-on-you { --ph: var(--warn); --ph-t: var(--warn-tint); }
+.ws-working        { --ph: var(--info); --ph-t: var(--info-tint); }
+.ws-starting       { --ph: var(--ph-booting); --ph-t: var(--ph-booting-tint); }
+.ws-idle           { --ph: var(--ok); --ph-t: var(--ok-tint); }
+.ws-setting-up     { --ph: var(--ink-2); --ph-t: var(--surface-2); }
+.ws-asleep         { --ph: var(--ph-asleep); --ph-t: var(--ph-asleep-tint); }
+.ws-finished       { --ph: var(--ok); --ph-t: var(--surface-2); }
+.ws-archived       { --ph: var(--ph-off); --ph-t: var(--ph-off-tint); }
+/* Who drives, and the manager: a quiet chip; an unfenced manager (it acts as you) in the warning tone. */
+.ws-chip { display: inline-flex; align-items: center; gap: var(--sp-1); height: 20px; padding: 0 var(--sp-2); border-radius: var(--r-sm); background: var(--surface-2);
+  color: var(--ink); font-size: var(--fs-sm); white-space: nowrap; flex: none; vertical-align: middle; }
+.ws-chip .icon { width: 12px; height: 12px; }
+.ws-chip.acts-as-you { background: var(--warn-tint); color: var(--warn); font-weight: var(--fw-medium); }
 .ag-chip { display: inline-flex; align-items: center; gap: var(--sp-1); height: 18px; padding: 0 var(--sp-2) 0 var(--sp-1); border-radius: var(--r-pill);
   font: var(--fw-medium) var(--fs-xs)/1 var(--font); white-space: nowrap; flex: none; color: var(--ag, var(--ink-2)); background: var(--ag-t, var(--surface-2)); }
 .ag-chip[hidden] { display: none; }
@@ -1371,6 +1386,10 @@ body.rail.nav-open .side-brand { display: flex; }
   font-weight: 700; font-style: italic; font-size: var(--fs-md); flex: none; }
 .brand-name { font-weight: var(--fw-strong); flex: none; }
 .brand-store { min-width: 0; font-size: var(--fs-sm); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The brand row: "Dozable · <this Mac's name>" (the name the server gave the page; the machine picker comes here later). */
+.brand-line { display: flex; align-items: baseline; gap: var(--sp-1); min-width: 0; }
+.brand-mac { min-width: 0; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand-mac:empty { display: none; }
 .topbar-gap { flex: 1; }
 .topbar-acts { display: none; align-items: center; gap: var(--sp-1); flex: none; }
 .topbar-keys { color: var(--bad); }
@@ -1452,6 +1471,26 @@ a.nav-sess > .mark, .tile-head > .mark, .ov-th-name > .mark { width: 15px; heigh
 a.nav-sess .ns-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 a.nav-sess .ag-chip { margin-left: auto; height: 16px; }
 a.nav-sess.saved { font-style: italic; }
+/* The sidebar's Workspaces (components/ws-nav.js): a workspace's line is a sandbox's (its caret, its name), unfolded to
+   its rooms and agents on the session lines' level; Asleep and Finished & archived fold into a line each. This Mac's
+   Templates and Logs hold their pages one step in. */
+.nav-ws-list { display: flex; flex-direction: column; gap: 1px; margin: 0 0 var(--sp-0); }
+.nav-ws-none { display: flex; align-items: center; height: var(--nav-child-h); padding: 0 var(--sp-3); color: var(--ink-3); font-size: var(--fs-sm); }
+.nav-ws-wait { color: var(--ink-3); font-style: italic; }
+.nav-ws-role { margin-left: auto; font-size: var(--fs-xs); color: var(--ink-3); flex: none; }
+.nav-hash { color: var(--ink-3); flex: none; }
+.nav-ws-fold { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nav-ws-group { display: flex; align-items: center; gap: var(--sp-2); height: var(--nav-child-h); padding: 0 var(--sp-3) 0 var(--sp-2); border: 0; border-radius: var(--r-md);
+  background: none; color: var(--ink-2); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; min-width: 0; }
+.nav-ws-group:hover { background: var(--state-hover); color: var(--ink); }
+.nav-ws-gcaret { width: 20px; height: 20px; display: grid; place-items: center; flex: none; }
+.nav-ws-gcaret .icon { width: 11px; height: 11px; transition: transform var(--dur-1) var(--ease); }
+.nav-ws-gcaret.folded .icon { transform: rotate(-90deg); }
+.nav-ws-under { display: flex; flex-direction: column; gap: 1px; }
+#nav a[data-view].nav-sub { padding-left: var(--sp-6); }
+.nav-group.nav-subgroup { padding-top: var(--sp-2); }
+body.rail .nav-ws-list { display: none; }
+body.rail.nav-open .nav-ws-list { display: flex; }
 .nav-sess-row > .menu-wrap { position: absolute; right: 2px; top: 0; height: var(--nav-sess-h); display: flex; align-items: center; opacity: 0; }
 .nav-sess-row:hover > .menu-wrap, .nav-sess-row:focus-within > .menu-wrap, .nav-sess-row > .menu-wrap.is-open { opacity: 1; }
 .nav-sess-row > .menu-wrap > .btn.sm { width: 20px; height: 20px; min-height: 20px; padding: 0; }
@@ -1597,6 +1636,10 @@ body.rail.nav-open #nav-operations .trail .nav-badge:not([hidden]) { display: in
 .sbx-title { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .sbx-title h1 { margin: 0 var(--sp-0) 0 0; }
 .chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+.cmd-copy { display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%; padding: 0 0 0 var(--sp-2); border-radius: var(--r-sm); background: var(--well);
+  vertical-align: middle; }
+.cmd-copy code { font: var(--fs-mono)/1.4 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; background: none; padding: 0; }
+.cmd-copy .btn.sm { flex: none; }
 .chip-kv { display: inline-flex; gap: var(--sp-1); align-items: center; height: 22px; padding: 0 var(--sp-3); border-radius: var(--r-sm); background: var(--surface-2);
   font: var(--fs-sm)/1 var(--font); color: var(--ink); white-space: nowrap; border: 0; max-width: 100%; }
 .chip-kv .k { color: var(--ink-2); }
@@ -2743,5 +2786,46 @@ main.main-chat { padding: var(--work-py) var(--work-px); display: flex; flex-dir
   .chat-pv, .chat-grp { display: none; }
   .chat-col { max-width: 90%; }
   .chat-log { padding: var(--sp-2); }
+}
+}
+
+/* This Mac (views/this-mac.js): one line per page — its name (a link), what it says now, an action (the daemon's). Loose
+   agents and Agents / Bots are tables; a workspace a bot manages links to its room. */
+@layer views {
+.tm-list { display: flex; flex-direction: column; padding: 0; }
+.tm-row { display: grid; grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr) auto; align-items: center; gap: var(--sp-4);
+  min-height: var(--row-min); padding: var(--row-py) var(--cell-px); border-top: var(--bw) solid var(--line); }
+.tm-row:first-child { border-top: 0; }
+.tm-k { display: inline-flex; align-items: center; gap: var(--sp-3); font-weight: var(--fw-medium); color: var(--ink); text-decoration: none; min-width: 0; }
+a.tm-k:hover { text-decoration: underline; }
+.tm-k .icon { color: var(--ink-2); flex: none; }
+.tm-v { color: var(--ink-2); min-width: 0; overflow-wrap: anywhere; }
+/* Home (views/home.js): one table of the workspaces; a workspace's folders under its name; the room's last line on one
+   line; a setting-up row's gaps and the command that starts it. With none, the definition and the ways in. */
+.hm-ws { display: flex; flex-direction: column; gap: var(--sp-0); min-width: 0; }
+.hm-folders { display: flex; flex-direction: column; font-size: var(--fs-sm); color: var(--ink-2); }
+.hm-folder { overflow-wrap: anywhere; }
+.hm-who { color: var(--ink); }
+.hm-why { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--warn); font-weight: var(--fw-medium); }
+.hm-why .icon { width: 13px; height: 13px; flex: none; }
+.hm-room { white-space: nowrap; }
+.hm-last { max-width: 22rem; }
+.hm-line { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.hm-age { color: var(--ink-3); }
+.hm-next { text-align: right; }
+.hm-start { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--sp-1); text-align: left; }
+.hm-gaps { margin: 0; padding-left: var(--sp-5); font-size: var(--fs-sm); color: var(--ink-2); }
+.hm-done-toggle { width: 100%; }
+.hm-empty { display: flex; flex-direction: column; gap: var(--sp-4); max-width: 46rem; padding: var(--panel-p); border-radius: var(--r-lg); background: var(--surface);
+  border: var(--bw) solid var(--line); }
+.hm-empty h2 { margin: 0; font-size: var(--fs-xl); }
+.hm-empty p { margin: 0; line-height: var(--lh-prose); }
+.hm-def { font-size: var(--fs-lg); color: var(--ink); }
+.hm-acts { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.bot-role { white-space: nowrap; }
+.bot-unfenced { color: var(--warn); }
+@media (max-width: 760px) {
+  .tm-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .tm-v { grid-column: 1 / -1; }
 }
 }

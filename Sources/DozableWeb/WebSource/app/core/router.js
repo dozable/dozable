@@ -1,8 +1,9 @@
-// core/router — Routing: #/VIEW, #/sandbox/NAME[/SESSION]; the wizards are modals over the page; refresh() renders the view.
+// core/router — Routing (the addresses are core/routes.js's); the wizards are modals over the page; refresh() renders the view.
 import { upcall } from './hooks.js';
 import { $ } from '../dom/h.js';
 import { remeasure } from './measure.js';
 import { loadPreparations } from './operations.js';
+import { canonical, HOME, MODAL_VIEWS, parse } from './routes.js';
 import { state } from './state.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), chatEnter = upcall('chatEnter'), chatLeave = upcall('chatLeave'),
@@ -12,65 +13,37 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), ch
   paintRowOps = upcall('paintRowOps'), refreshSandbox = upcall('refreshSandbox'),
   showSandbox = upcall('showSandbox'), viewAccounts = upcall('viewAccounts'), viewActivity = upcall('viewActivity'),
   viewDoctor = upcall('viewDoctor'), viewImages = upcall('viewImages'), viewMetrics = upcall('viewMetrics'),
-  viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'),
+  viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'), viewHome = upcall('viewHome'), viewThisMac = upcall('viewThisMac'), viewLoose = upcall('viewLoose'), viewBots = upcall('viewBots'),
   viewBrowse = upcall('viewBrowse'), viewRecipes = upcall('viewRecipes'), viewResources = upcall('viewResources'), viewSettings = upcall('viewSettings'), viewDevices = upcall('viewDevices'), viewDebug = upcall('viewDebug'),
   viewNotifications = upcall('viewNotifications'),
   wizardStopPolling = upcall('wizardStopPolling');
 
 // ── routing ─────────────────────────────────────────────────────────────────
-// #/VIEW, #/sandbox/NAME and #/sandbox/NAME/SESSION (a session addressed: its tab opened or selected).
+// The addresses are core/routes.js's: an old one is REPLACED by its canonical address first (LEGACY), then parsed.
 // 603 (owner, on rc.1): #/new and #/onboarding are MODALS over the page under them — that page (state.view, its
 // hash state.bgHash) is never re-rendered or torn down by opening or closing one (the sandbox page's terminals
-// stay as they are). A deep link opens the modal over Sandboxes.
-export const MODAL_VIEWS = new Set(['new', 'onboarding', 'try']);
+// stay as they are). A deep link opens the modal over Home.
+export { MODAL_VIEWS };
 export function route() {
-  // 669: #/recipes — the Recipes page; #/recipes/VENDOR/PRODUCT (a recipe that is not Dozable's: SOURCE/VENDOR/PRODUCT)
-  // — that recipe's page. Its first address, #/settings/recipes[/…], still leads there.
-  if (/^#\/settings\/recipes(\/|$)/.test(location.hash)) { location.replace('#/recipes' + location.hash.slice('#/settings/recipes'.length)); return; }
-  const rm = /^#\/recipes(?:\/([a-z0-9-]{1,40}(?:\/[a-z0-9-]{1,40}){1,2}))?$/.exec(location.hash);
-  state.recipe = rm ? (rm[1] || '') : null;
-  if (rm) {
-    if (state.modal) closeWizardModal();
-    state.view = 'recipes'; state.param = null; state.session = null; state.bgHash = location.hash;
-    routePage();
-    return;
-  }
-  // This Mac: #/mac, and #/mac/SESSION (its pane opened, watching) — a session on this Mac is at most 32 characters.
-  const mm = /^#\/mac(?:\/([A-Za-z0-9_-][A-Za-z0-9._-]{0,31}))?$/.exec(location.hash);
-  if (mm) {
-    if (state.modal) closeWizardModal();
-    state.view = 'mac'; state.param = null; state.session = mm[1] || null; state.bgHash = location.hash;
-    routePage();
-    return;
-  }
-  // Chat: #/chat, and #/chat/ROOM (a room's name: the chat server's rule).
-  const cm = /^#\/chat(?:\/([a-z0-9][a-z0-9_-]{0,63}))?$/.exec(location.hash);
-  if (cm) {
-    if (state.modal) closeWizardModal();
-    state.view = 'chat'; state.param = cm[1] || null; state.session = null; state.bgHash = location.hash;
-    routePage();
-    return;
-  }
-  // 635: `~home` (no session name can hold a ~) selects a sandbox page's Home tab — the sidebar's sandbox line (642).
-  const m = /^#\/([a-z]+)(?:\/([a-z0-9-]{1,40})(?:\/(~home|[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}))?)?$/.exec(location.hash);
-  if (m && m[1] === 'terminals') { location.replace('#/sessions'); return; }      // 591's name for the grid's place
-  const v = m ? m[1] : 'overview';
+  const c = canonical(location.hash);
+  if (c !== location.hash) { location.replace(c); return; }      // its hashchange routes again
+  const p = parse(c);
+  state.recipe = p.recipe;
   // 617: #/try/AGENT — the Quick try modal with that agent chosen.
-  if (MODAL_VIEWS.has(v) && (!m[2] || v === 'try')) {
-    if (v === 'try') state.tryAgent = m[2] || null;
+  if (p.modal) {
+    if (p.view === 'try') state.tryAgent = p.param;
     const first = !state.bgHash;
-    if (first) { state.view = 'overview'; state.param = null; state.session = null; state.bgHash = '#/overview'; routePage(); }
-    openWizardModal(v, !first);
+    if (first) { state.view = 'home'; state.param = null; state.session = null; state.bgHash = HOME; routePage(); }
+    openWizardModal(p.view, !first);
     return;
   }
   if (state.modal) {
     closeWizardModal();
     if (location.hash === state.bgHash) return;                   // back to the page under it, as it was
   }
-  state.view = v;
-  state.param = m && m[2] ? m[2] : null;
-  state.session = m && m[3] ? m[3] : null;
-  if (state.view === 'sandbox' && !state.param) state.view = 'overview';
+  state.view = p.view;
+  state.param = p.param;
+  state.session = p.session;
   state.bgHash = location.hash;
   routePage();
 }
@@ -105,7 +78,7 @@ window.addEventListener('hashchange', () => {
   // 605: a link opened in this tab while it waits to sign in signs it in, in place.
   if (state.signedOut && /^#cap=[A-Za-z0-9_-]{16,256}$/.test(location.hash)) {
     const link = location.href;
-    history.replaceState(null, '', location.pathname + (state.bgHash || '#/overview'));
+    history.replaceState(null, '', location.pathname + (state.bgHash || HOME));
     const field = $('signin-link');
     if (field) { field.value = link; $('signin-form').requestSubmit(); }
     return;
@@ -123,9 +96,9 @@ export async function refresh(scrollTop) {
   if (refreshing) { again = true; return; }
   refreshing = true;
   try {
-    const views = { overview: viewOverview, images: viewImages, resources: viewResources, operations: viewOperations, accounts: viewAccounts,
+    const views = { home: viewHome, thismac: viewThisMac, loose: viewLoose, bots: viewBots, overview: viewOverview, images: viewImages, resources: viewResources, operations: viewOperations, accounts: viewAccounts,
                     metrics: viewMetrics, activity: viewActivity, doctor: viewDoctor, settings: viewSettings, recipes: viewRecipes, browse: viewBrowse, devices: viewDevices, debug: viewDebug, notifications: viewNotifications };
-    const fn = views[state.view] || viewOverview;
+    const fn = views[state.view] || viewHome;
     const node = await fn();
     if (node && !state.signedOut) {
       $('view').replaceChildren(node);
@@ -134,7 +107,7 @@ export async function refresh(scrollTop) {
     }
   } catch (e) {
     if (!state.signedOut) {
-      if (e.status === 404 && state.view === 'sandbox') { location.hash = '#/overview'; return; }
+      if (e.status === 404 && state.view === 'sandbox') { location.hash = '#/mac/sandboxes'; return; }
       $('view').replaceChildren(callout('bad', { cls: 'notice', title: 'This page could not be read', body: e.message || String(e) }));
     }
   } finally {

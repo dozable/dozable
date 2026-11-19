@@ -1,11 +1,11 @@
-// views/shortcuts — Page shortcuts (603, owner decision 10): g s, /, ?.
+// views/shortcuts — Page shortcuts (603, owner decision 10): g h, g s, /, ?.
 import { h } from '../dom/h.js';
 import { withIcon } from '../dom/icons.js';
 import { state } from '../core/state.js';
 
-// ── 603: page shortcuts (owner decision 10 — only the guide's): g then s → Sandboxes, / → the Settings filter,
+// ── 603: page shortcuts (owner decision 10 — only the guide's): g then h → Home, g then s → Sandboxes, / → the Settings filter,
 // ? → this list. Never while a terminal has the focus (its frame), nor in a field, a menu or a dialog.
-const SHORTCUTS = [['g s', 'Sandboxes'], ['/', 'The Settings filter'], ['?', 'These shortcuts'], ['Esc', 'Close a menu or a dialog']];
+const SHORTCUTS = [['g h', 'Home'], ['g s', 'Sandboxes (This Mac)'], ['/', 'The Settings filter'], ['?', 'These shortcuts'], ['Esc', 'Close a menu or a dialog']];
 let gPending = 0;
 function shortcutsDialog() {
   const d = h('dialog', { class: 'dlg', 'aria-labelledby': 'sc-title' });
@@ -25,11 +25,12 @@ document.addEventListener('keydown', (ev) => {
   if (a && (a.tagName === 'IFRAME' || a.closest('input, textarea, select, [contenteditable], dialog, .menu'))) return;
   if (document.querySelector('dialog[open]') || state.modal || document.body.classList.contains('ui-paused')) return;
   if (ev.key === 'g') { gPending = Date.now(); return; }
-  if (ev.key === 's' && Date.now() - gPending < 1200) { gPending = 0; ev.preventDefault(); location.hash = '#/overview'; return; }
+  if (ev.key === 'h' && Date.now() - gPending < 1200) { gPending = 0; ev.preventDefault(); location.hash = '#/home'; return; }
+  if (ev.key === 's' && Date.now() - gPending < 1200) { gPending = 0; ev.preventDefault(); location.hash = '#/mac/sandboxes'; return; }
   gPending = 0;
   if (ev.key === '/') {
     ev.preventDefault();
     const focusFilter = () => { const f = document.querySelector('[data-settings-filter]'); if (f) { f.focus(); f.select(); return true; } return false; };
-    if (!focusFilter()) { location.hash = '#/settings'; const t0 = Date.now(); const tick = () => { if (!focusFilter() && Date.now() - t0 < 4000) setTimeout(tick, 100); }; setTimeout(tick, 100); }
+    if (!focusFilter()) { location.hash = '#/mac/settings'; const t0 = Date.now(); const tick = () => { if (!focusFilter() && Date.now() - t0 < 4000) setTimeout(tick, 100); }; setTimeout(tick, 100); }
   } else if (ev.key === '?') { ev.preventDefault(); shortcutsDialog(); }
 });

@@ -74,6 +74,11 @@ change their network, settings, images and resources — with two exceptions:
 reveal and attach). A browser that may write acts as you in chat — the verified human whose words your agents act on —
 and each thing it sends is a line in `doz ui log` (never what it said). See [Chat](36-chat.md#chat-on-your-other-browsers-servechat).
 
+**Workspaces and Agents / Bots** are shown to another browser as to the Mac's own, except what is on this Mac's sessions:
+while `serve.mac_sessions` is `off` it does not see the loose sessions on this Mac, a workspace's agents on this Mac, or
+who is working — Home and **Loose agents** say how many were left out. See
+[Sessions on this Mac](34-sessions-on-this-mac.md#in-the-dashboard).
+
 `ui.lan` and the `serve.*` settings — who can reach the dashboard — are changed only on the Mac, with `doz config set`.
 
 ## The browsers that are in

@@ -1,7 +1,7 @@
 // css-perf.mjs — what the dashboard's stylesheet costs the browser, measured the same way each time (`make css-perf`).
 //
-// A real headless Chrome against `doz ui` on a SCRATCH store walks a fixed path — All sandboxes → a sandbox's page →
-// Accounts & keys → Settings → All sandboxes → the sandbox's page, each at 1100, 1440, 900 and 1440 px — RUNS times
+// A real headless Chrome against `doz ui` on a SCRATCH store walks a fixed path — Sandboxes → a sandbox's page →
+// Accounts & keys → Settings → Sandboxes → the sandbox's page (This Mac's addresses), each at 1100, 1440, 900 and 1440 px — RUNS times
 // (default 5), recording Chrome's style-recalculation time (UpdateLayoutTree) and its CSS selector statistics (the
 // Performance panel's "selector stats": time, match attempts and fast rejects per selector). The medians are compared
 // with Tests/Fixtures/css-perf-baseline.json. It fails when:
@@ -120,7 +120,7 @@ async function go(origin, hash) {
 }
 
 // ── one walk under a trace: the recalculations and the selector statistics ──────────────────────────────────────────
-const WALK = ['#/overview', '#/sandbox/' + SBX, '#/accounts', '#/settings', '#/overview', '#/sandbox/' + SBX];
+const WALK = ['#/mac/sandboxes', '#/sandbox/' + SBX, '#/mac/accounts', '#/mac/settings', '#/mac/sandboxes', '#/sandbox/' + SBX];
 async function measuredWalk(origin) {
   traceEvents.length = 0;
   await send('Tracing.start', { transferMode: 'ReportEvents',
@@ -224,7 +224,7 @@ try {
 } finally {
   try { chrome && chrome.kill('SIGKILL'); } catch (_) { /* gone */ }
   try { ui && process.kill(-ui.pid, 'SIGTERM'); } catch (_) { /* gone */ }
-  spawnSync(DOZ, ['host', 'stop', '--store', STORE], { env: ENV, timeout: 60_000 });
+  spawnSync(DOZ, ['daemon', 'stop', '--store', STORE], { env: ENV, timeout: 60_000 });
   await sleep(500);
   if (process.env.KEEP !== '1') rmSync(S, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
 }

@@ -54,7 +54,9 @@ doz bot show mira        # its record, where its token is, its rooms while chat 
 doz chat who             # a bot's KIND ends "· bot" (--json: "bot": true)
 ```
 
-Looking never starts the daemon.
+Looking never starts the daemon. In the dashboard, **Agents / Bots** in the sidebar lists them (its count beside it): each
+one's agent program, isolation, how it is reached, the workspaces it manages or works in (each opens its room), whether
+it is in chat and when it was retired. It is a list; making or changing a bot is the commands here.
 
 ## Managing a workspace
 

@@ -27,7 +27,7 @@ const SETTING_SECTIONS = {
 };
 // An empty app list (or dotfiles) means none, not "automatic".
 function shownValue(v, type) { return typeof v === 'string' ? (v === '' ? (type === 'apps' || type === 'dotfiles' ? '""  (none)' : '""  (automatic)') : v) : String(v); }
-/// 669 (owner: "move it to the left nav"): the Recipes page (#/recipes) and a recipe's own (#/recipes/V/P).
+/// 669 (owner: "move it to the left nav"): the Recipes page (#/mac/templates) and a recipe's own (#/mac/templates/V/P).
 export async function viewRecipes() {
   if (state.recipe) return viewRecipe(state.recipe);
   const [report, recipes] = await Promise.all([api('settings'), api('recipes').catch(() => null)]);
@@ -86,7 +86,7 @@ export async function viewSettings() {
       rep.exists ? '' : ' — not written yet: the first change writes it, with every setting listed at its default',
       '. A flag wins, then the environment, a sandbox’s own value, its project’s (', h('code', null, 'doz_project.yaml'),
       '), this Mac’s, then the default; ', h('code', null, 'doz config show'), ' prints the same. A recipe’s own settings are on its page: ',
-      h('a', { href: '#/recipes' }, 'Recipes'), '.'),
+      h('a', { href: '#/mac/templates' }, 'Templates'), '.'),
     sourceLegend(),
     rep.error ? callout('bad', { cls: 'notice', title: 'The settings file does not read', body: rep.error + ' — nothing in it applies, and the UI will not overwrite it. Fix it (or remove it) first.' }) : null,
     warnings.length ? callout('warn', { cls: 'notice', body: h('ul', { class: 'plain' }, warnings.map((w) => h('li', null, w))) }) : null,
@@ -198,9 +198,9 @@ function settingRow(r, opts = {}) {
 }
 // ── 669: Recipes (659 §0; owner: its own place in the sidebar, beside Quick try) ──
 // The recipes on this Mac, grouped by state: In use (a sandbox runs its agent), then Installed (a baked image of it, or
-// this Mac's values with none: "not installed"). The rest of the catalogue is Recipes › Browse (#/browse). A row
-// opens the recipe's page (#/recipes/V/P): its settings, its baked images, its sandboxes, Uninstall.
-function recipeHash(r) { return '#/recipes/' + r.qualified; }
+// this Mac's values with none: "not installed"). The rest of the catalogue is Recipes › Browse (#/mac/templates/browse). A row
+// opens the recipe's page (#/mac/templates/V/P): its settings, its baked images, its sandboxes, Uninstall.
+function recipeHash(r) { return '#/mac/templates/' + r.qualified; }
 function shown(v) { return typeof v === 'string' ? (v === '' ? '""' : v) : String(v); }
 function recipeRow(r, withState) {
   const set = r.settings.filter((s) => s.source === 'mac');
@@ -243,7 +243,7 @@ function recipesSection(data) {
     h('div', { class: 'panel recipes-panel' },
       group('In use', inUse, 'No sandbox runs a recipe’s agent.'),
       group('Installed', installed, 'No other recipe has a baked image on this Mac.'),
-      h('div', { class: 'recipe-empty muted' }, plural(available.length, 'more recipe', 'more recipes') + ' in the catalogue — ', h('a', { href: '#/browse' }, 'Browse'), '.')));
+      h('div', { class: 'recipe-empty muted' }, plural(available.length, 'more recipe', 'more recipes') + ' in the catalogue — ', h('a', { href: '#/mac/templates/browse' }, 'Browse'), '.')));
   return box;
 }
 /// 669 (owner: "move the recipe Browser … to its own page Recipes > Browse"): every recipe of the catalogue, searched by
@@ -277,7 +277,7 @@ async function viewRecipe(qualified) {
   adoptSettings(report);
   const r = data.recipes.find((x) => x.qualified === qualified);
   // An available recipe (reached from Browse) leads back to Browse; one on this Mac to Installed.
-  const back = !r || r.state === 'available' ? ['#/browse', 'Browse'] : ['#/recipes', 'Installed'];
+  const back = !r || r.state === 'available' ? ['#/mac/templates/browse', 'Browse'] : ['#/mac/templates', 'Installed'];
   const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'Where' }, h('span', null, 'Recipes'), icon('chevron-right'),
     h('a', { href: back[0] }, back[1]), icon('chevron-right'), h('span', null, r ? r.title : qualified));
   if (!r) return h('div', { class: 'settings-page' }, crumbs, callout('warn', { cls: 'notice', title: 'No such recipe', body: qualified + ' is not in this Mac’s catalogue.' }));
