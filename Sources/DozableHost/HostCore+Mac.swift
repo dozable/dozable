@@ -487,7 +487,7 @@ extension HostCore {
     func macOpenFenced(_ r: HostRequest, request: MacFenceRequest, holder: URL, name: String, argv: [String]?, workdir: String?,
                        recordedArgv: [String]?, previous: MacFenceRecord?, size: TermSize, extra: [String: String]?,
                        claudeSessionID: String? = nil, secrets given: [LaunchSecretGrant]? = nil, botSecrets: [LaunchSecret]? = nil,
-                       managerStart: Data? = nil) async throws -> (MacSessions.Opened, MacFence, [String], [String]) {
+                       managerStart: Data? = nil, startFolder: String = "manager") async throws -> (MacSessions.Opened, MacFence, [String], [String]) {
         // 691: `--permissions host:PORT` words are this Mac's ports (`--host-port`), never the policy's.
         var request = request
         if let words = request.permissions {
@@ -549,17 +549,17 @@ extension HostCore {
         } else {
             f.secrets = keptSecrets
         }
-        // A workspace's manager: its bot-held secret (made by the daemon, never a client's — `botLaunchSecret`) replaces one
-        // of the same variable; its value stays in the bot's own item.
+        // A workspace's manager or worker: its bot-held secret (made by the daemon, never a client's — `botLaunchSecret`), or a
+        // worker's daemon-made one (`daemonWorkerSecret`, already kept), replaces one of the same variable.
         if let bs = botSecrets, !bs.isEmpty {
             f.secrets = f.secrets.filter { x in !bs.contains { $0.variable == x.variable } } + bs
         }
         for x in f.secrets { f.placeholders[x.variable] = Self.newPlaceholder() }
         f.secretFiles = try Self.writeFenceSecretFiles(f)
-        // A workspace's manager: its START, host-owned under etc/ (the program reads it, never writes it).
+        // A workspace's manager (or worker): its START, host-owned under etc/ (the program reads it, never writes it).
         if let text = managerStart {
-            try MacFenceHostFS.ensureDirectory(f.etc + "/manager")
-            try MacFenceHostFS.writeAtomically(text, dir: f.etc + "/manager", name: "start.md", mode: 0o400)
+            try MacFenceHostFS.ensureDirectory(f.etc + "/" + startFolder)
+            try MacFenceHostFS.writeAtomically(text, dir: f.etc + "/" + startFolder, name: "start.md", mode: 0o400)
         }
         // A new open drops what the record before it held (the record is replaced): its values leave memory, and the
         // sweep below deletes their keychain items once the new record is written.
@@ -690,7 +690,7 @@ extension HostCore {
         return rows
     }
 
-    func macOpen(_ r: HostRequest, botSecrets: [LaunchSecret]? = nil, managerStart: Data? = nil) async throws -> SessionOpened {
+    func macOpen(_ r: HostRequest, botSecrets: [LaunchSecret]? = nil, managerStart: Data? = nil, startFolder: String = "manager") async throws -> SessionOpened {
         guard !readOnly else { throw HostError(.unavailable, "open-session needs the daemon") }
         if r.user != nil { throw HostError(.invalid, "--user does not apply on this Mac: its sessions run as you") }
         let located = MacDeckhold.locate()
@@ -714,7 +714,7 @@ extension HostCore {
             let (o, f, notes, secretLines) = try await macOpenFenced(r, request: req, holder: holder, name: name, argv: r.argv, workdir: r.folder,
                                                                      recordedArgv: nil, previous: mac.records().sessions[name]?.fence, size: size,
                                                                      extra: r.environment, secrets: r.secrets ?? [], botSecrets: botSecrets,
-                                                                     managerStart: managerStart)
+                                                                     managerStart: managerStart, startFolder: startFolder)
             note(MacPlace.name, "session \(o.session) opened on this Mac, fenced" + (f.keychain ? " (Keychain open)" : "")
                  + (o.bypassed ? " — its own argv bypasses permissions" : ""))
             metrics?.record(run: metricsRun, action: "mac session open", sandbox: MacPlace.name, image: "", startedAt: Date(), durationMs: 0,

@@ -418,21 +418,10 @@ extension HostCore {
                                         botSecrets: secrets, managerStart: fenced ? o.start : nil)
             return r.notice.map { [$0] } ?? []
         }
-        var r = HostRequest(.openSession, name: MacPlace.name)
-        r.session = o.place
-        r.argv = o.plan.argv
-        r.folder = o.workdir
-        r.environment = o.plan.environment
-        r.cols = 120
-        r.rows = 40
-        if fenced {
-            var req = MacFenceRequest(permissions: [o.permissions])
-            req.hostPorts = o.plan.hostPorts.map { HostPort(port: $0) }
-            req.account = o.account
-            r.macFence = req
-        }
-        let opened = try await macOpen(r, botSecrets: secrets, managerStart: fenced ? o.start : nil)
-        return (opened.fenceNotes ?? []) + (opened.notice.map { [$0] } ?? [])
+        return try await launchAgentOnMac(AgentMacLaunch(place: o.place, argv: o.plan.argv, workdir: o.workdir, environment: o.plan.environment,
+                                                         fenced: fenced, permissions: o.permissions, hostPorts: o.plan.hostPorts,
+                                                         account: o.account, secrets: secrets, start: fenced ? o.start : nil,
+                                                         startFolder: "manager", bridgesOff: false))
     }
 
     /// In a micro VM: the sandbox made the first time (`create` with the choices `doz create S --agent A --approvals skip
@@ -442,48 +431,13 @@ extension HostCore {
     func launchManagerInVM(_ o: ManagerLaunchOrder) async throws -> [String] {
         guard let secret = o.plan.secret else { throw HostError(.invalid, "a VM manager needs its token's launch secret") }
         let env = ProcessInfo.processInfo.environment
-        let seamImage = TestSafety.guarded(env) ? env["DOZ_TEST_MANAGER_IMAGE"] : nil
         let seamArgv = TestSafety.guarded(env) ? env["DOZ_TEST_MANAGER_ARGV"].flatMap { s in
             (try? JSONDecoder().decode([String].self, from: Data(s.utf8))) } : nil
-        if managed[o.place] == nil {
-            var c = CreateOptions(image: seamImage ?? (ManagerLaunch.program(agent: o.agent) == "codex" ? "codex" : "claude-code"))
-            c.folder = o.workdir
-            c.network = o.permissions
-            c.account = o.account
-            c.hostPorts = o.plan.hostPorts.map { HostPort(port: $0) }
-            if seamImage == nil {
-                c.settings = ["approvals": .string("skip")]
-                c.model = o.model
-            }
-            var r = HostRequest(.create, name: o.place)
-            r.create = c
-            let a = await handle(r)
-            if let e = a.error { throw HostError(e.code, e.message) }
-        }
-        guard let m = managed[o.place] else { throw HostError(.notFound, "no sandbox \(o.place)") }
-        m.config.secrets = (m.config.secrets ?? []).filter { $0.variable != secret.variable } + [secret]
-        try m.config.write(store.configFile(m.name))
-        if await effectivePhase(m) != .running {
-            let a = await handle(HostRequest(.start, name: o.place))
-            if let e = a.error { throw HostError(e.code, e.message) }
-        }
-        applyLaunchSecrets(m)
-        // START, as the image's user, in one exec.
-        let image = m.config.spec.imageSpec
-        let home = image?.home ?? "/root", user = image?.user ?? "root"
-        let dir = home + "/" + ManagerLaunch.vmStartFolder
-        let script = "set -e; umask 077; mkdir -p '\(dir)'; printf %s '\(o.start.base64EncodedString())' | base64 -d > '\(dir)/start.md'; "
-            + "chown -R '\(user)' '\(dir)'; chmod 0700 '\(dir)'; chmod 0600 '\(dir)/start.md'"
-        let x = try await m.sandbox.exec(["sh", "-c", script], timeoutSeconds: 30)
-        if x.exitCode != 0 { throw HostError(.failed, "could not put START in \(o.place) (exit \(x.exitCode))") }
-        var r = HostRequest(.openSession, name: o.place)
-        r.session = ManagerLaunch.vmSession
-        r.argv = seamArgv ?? (o.restart ? ManagerLaunch.vmResumeArgv(agent: o.agent) : nil) ?? o.plan.argv
-        r.environment = o.plan.environment
-        r.start = true
-        let a = await handle(r)
-        if let e = a.error { throw HostError(e.code, e.message) }
-        return []
+        return try await launchAgentInVM(AgentVMLaunch(
+            sandbox: o.place, session: ManagerLaunch.vmSession, create: true, workdir: o.workdir, permissions: o.permissions, account: o.account,
+            model: o.model, agent: o.agent, hostPorts: o.plan.hostPorts, secret: secret, start: o.start, startDir: ManagerLaunch.vmStartFolder,
+            argv: seamArgv ?? (o.restart ? ManagerLaunch.vmResumeArgv(agent: o.agent) : nil) ?? o.plan.argv, environment: o.plan.environment,
+            seamImage: TestSafety.guarded(env) ? env["DOZ_TEST_MANAGER_IMAGE"] : nil, cpus: nil, memoryMiB: nil, bridgesOff: false, alias: nil))
     }
 
     func stopManager(_ iso: ManagerIsolation, _ place: String) async throws {
@@ -499,15 +453,139 @@ extension HostCore {
     }
 }
 
-// MARK: an UNFENCED manager's token file — SEPARABLE (open with the owner)
+// MARK: the role-aware launch paths (a manager's and a worker's)
+
+/// One open of an agent's session on this Mac (fenced or unfenced) for a workspace: its argv and environment (never a
+/// token), its folder, its network permissions and the chat server's page port (fenced), the bot-held or daemon-made
+/// secrets, START under its `etc/<startFolder>/` (fenced), and — a worker's narrowest defaults — no URL opening and no
+/// clipboard (`bridgesOff`).
+struct AgentMacLaunch {
+    var place: String
+    var argv: [String]
+    var workdir: String
+    var environment: [String: String]
+    var fenced: Bool
+    var permissions: String
+    var hostPorts: [UInt16]
+    var account: String?
+    var secrets: [LaunchSecret]?
+    var start: Data?
+    var startFolder: String
+    var bridgesOff: Bool
+}
+
+/// One launch of an agent in a sandbox: made the first time (`create`), its secret joined to the sandbox's record, started,
+/// START copied by one exec under `~/<startDir>/start.md`, then its session. `create` false: a sandbox that must exist
+/// already (a worker joining another agent's). `alias`: that session's own token variable (a shared sandbox).
+struct AgentVMLaunch {
+    var sandbox: String
+    var session: String
+    var create: Bool
+    var workdir: String
+    var permissions: String
+    var account: String?
+    var model: String?
+    var agent: String
+    var hostPorts: [UInt16]
+    var secret: LaunchSecret
+    var start: Data
+    var startDir: String
+    var argv: [String]
+    var environment: [String: String]
+    var seamImage: String?
+    var cpus: Int?
+    var memoryMiB: UInt64?
+    var bridgesOff: Bool
+    var alias: String?
+}
+
+extension HostCore {
+    func launchAgentOnMac(_ l: AgentMacLaunch) async throws -> [String] {
+        var r = HostRequest(.openSession, name: MacPlace.name)
+        r.session = l.place
+        r.argv = l.argv
+        r.folder = l.workdir
+        r.environment = l.environment
+        r.cols = 120
+        r.rows = 40
+        if l.fenced {
+            var req = MacFenceRequest(permissions: [l.permissions])
+            req.hostPorts = l.hostPorts.map { HostPort(port: $0) }
+            req.account = l.account
+            if l.bridgesOff {
+                req.openURL = false
+                req.clipboard = false
+            }
+            r.macFence = req
+        }
+        let opened = try await macOpen(r, botSecrets: l.secrets, managerStart: l.start, startFolder: l.startFolder)
+        return (opened.fenceNotes ?? []) + (opened.notice.map { [$0] } ?? [])
+    }
+
+    func launchAgentInVM(_ l: AgentVMLaunch) async throws -> [String] {
+        if l.create, managed[l.sandbox] == nil {
+            var c = CreateOptions(image: l.seamImage ?? (ManagerLaunch.program(agent: l.agent) == "codex" ? "codex" : "claude-code"))
+            c.folder = l.workdir
+            c.network = l.permissions
+            c.account = l.account
+            c.hostPorts = l.hostPorts.map { HostPort(port: $0) }
+            c.cpus = l.cpus
+            c.memoryMiB = l.memoryMiB
+            if l.seamImage == nil {
+                c.settings = ["approvals": .string("skip")]
+                c.model = l.model
+            }
+            if l.bridgesOff {
+                c.settings = (c.settings ?? [:]).merging([SettingKey.clipboard: .string("off"), SettingKey.browserBridge: .string("off")]) { a, _ in a }
+            }
+            var r = HostRequest(.create, name: l.sandbox)
+            r.create = c
+            let a = await handle(r)
+            if let e = a.error { throw HostError(e.code, e.message) }
+        }
+        guard let m = managed[l.sandbox] else { throw HostError(.notFound, "no sandbox \(l.sandbox)") }
+        m.config.secrets = (m.config.secrets ?? []).filter { $0.variable != l.secret.variable } + [l.secret]
+        try m.config.write(store.configFile(m.name))
+        if await effectivePhase(m) != .running {
+            let a = await handle(HostRequest(.start, name: l.sandbox))
+            if let e = a.error { throw HostError(e.code, e.message) }
+        }
+        applyLaunchSecrets(m)
+        // START, as the image's user, in one exec.
+        let image = m.config.spec.imageSpec
+        let home = image?.home ?? "/root", user = image?.user ?? "root"
+        let dir = home + "/" + l.startDir
+        let base = home + "/" + ManagerLaunch.vmStartFolder
+        let owned = dir == base ? "'\(dir)'" : "'\(base)' '\(dir)'"
+        let script = "set -e; umask 077; mkdir -p '\(dir)'; printf %s '\(l.start.base64EncodedString())' | base64 -d > '\(dir)/start.md'; "
+            + (dir == base ? "chown -R '\(user)' '\(dir)'; " : "chown '\(user)' \(owned); chown -R '\(user)' '\(dir)'; ")
+            + "chmod 0700 \(owned); chmod 0600 '\(dir)/start.md'"
+        let x = try await m.sandbox.exec(["sh", "-c", script], timeoutSeconds: 30)
+        if x.exitCode != 0 { throw HostError(.failed, "could not put START in \(l.sandbox) (exit \(x.exitCode))") }
+        var r = HostRequest(.openSession, name: l.sandbox)
+        r.session = l.session
+        r.argv = l.argv
+        r.environment = l.environment
+        r.start = true
+        if let v = l.alias { sessionSecretAliases[l.sandbox + "/" + l.session] = v }
+        let a = await handle(r)
+        sessionSecretAliases[l.sandbox + "/" + l.session] = nil
+        if let e = a.error { throw HostError(e.code, e.message) }
+        return []
+    }
+}
+
+// MARK: an UNFENCED manager's (or worker's) token file — SEPARABLE (open with the owner)
 //
 // An unfenced session has no proxy, so its token cannot be a placeholder: it is the REAL token, in a 0600 file in a 0700
 // folder under the per-user temp folder (`<temp>/doz-<store's 8 hex>/manager-<session>/chat-token`), named by
-// CHAT_TOKEN_FILE, written just before the open (deleted when it fails), deleted at stop, swept at a daemon's start.
-// To turn unfenced managers off, make `unfencedManagerRefusal` return its error: `--manager-isolation unfenced` is then
-// refused, and nothing below runs. `WorkspaceManagerTests.testUnfenced…`, `make test-cli-workspace` row 19.
+// CHAT_TOKEN_FILE, written just before the open (deleted when it fails), deleted at stop (a worker's at `doz worker end`),
+// swept at a daemon's start. An unfenced worker's file is at the same path for its own session (`workerTokenFolder`).
+// To turn unfenced managers AND workers off, make `unfencedManagerRefusal` return its error: `--manager-isolation unfenced`
+// and `doz worker add --isolation unfenced` are then refused, and nothing below runs. `WorkspaceManagerTests.testUnfenced…`,
+// `WorkspaceWorkerTests`, `make test-cli-workspace` rows 19 and 27.
 extension HostCore {
-    /// nil: an unfenced manager may be named. Return a `HostError` here to refuse every one.
+    /// nil: an unfenced manager or worker may be named. Return a `HostError` here to refuse every one.
     func unfencedManagerRefusal() -> HostError? { nil }
 
     /// `<temp>/doz-<8 hex of the store's path>` — this store's, resolved.
@@ -517,6 +595,9 @@ extension HostCore {
     }
 
     nonisolated func managerTokenFolder(_ session: String) -> String { managerTokenRoot + "/manager-" + session }
+
+    /// An unfenced WORKER's token folder: the manager's path for its session (OPEN WITH THE OWNER — this one line is the change).
+    nonisolated func workerTokenFolder(_ session: String) -> String { managerTokenFolder(session) }
 
     nonisolated func managerTokenFolderExists(_ session: String) -> Bool { MacFenceHostFS.kind(managerTokenFolder(session)) != nil }
 
@@ -530,32 +611,41 @@ extension HostCore {
               BotTokens.fingerprint(v) == b.token.fingerprint else {
             throw HostError(.unavailable, "\(b.name)'s token cannot be read from the login keychain — unlock it, or doz bot token \(b.name) --new")
         }
-        let dir = managerTokenFolder(place)
+        let files = try writeAgentTokenFolder(managerTokenFolder(place), token: v, start: start, who: b.name)
+        var notes = ["unfenced: \(b.name) acts as you; its token is in a 0600 file named by $\(ManagerLaunch.tokenFileVariable), deleted at stop"]
+        notes += await pointBotInbox(w, bot: b, place: place)
+        return (files.tokenFile, files.startFile, BotTokens.fingerprint(v), notes)
+    }
+
+    /// The 0700 folder `dir` with the token (`chat-token`) and START (`start.md`), both 0600; removed whole when a write fails.
+    func writeAgentTokenFolder(_ dir: String, token v: String, start: Data, who: String) throws -> (tokenFile: String, startFile: String) {
         do {
             try MacFenceHostFS.ensureDirectory(managerTokenRoot, mode: 0o700)
             try MacFenceHostFS.ensureDirectory(dir, mode: 0o700)
             try MacFenceHostFS.writeAtomically(Data(v.utf8), dir: dir, name: "chat-token", mode: 0o600)
             try MacFenceHostFS.writeAtomically(start, dir: dir, name: "start.md", mode: 0o600)
         } catch {
-            removeManagerTokenFolder(place)
-            throw HostError(.failed, "cannot write \(b.name)'s token file: \(error)")
+            try? FileManager.default.removeItem(atPath: dir)
+            throw HostError(.failed, "cannot write \(who)'s token file: \(error)")
         }
-        var notes = ["unfenced: \(b.name) acts as you; its token is in a 0600 file named by $\(ManagerLaunch.tokenFileVariable), deleted at stop"]
-        if b.deliver == "inbox", b.session != place, let chat = botChat {
-            await botGate.lock("bots")
-            defer { botGate.unlock("bots") }
-            do {
-                try await chat.set(b.name, deliver: "inbox", entry: nil, session: place)
-                var file = try bots.read()
-                if let i = file.index(b.name) { file.bots[i].session = place; try bots.write(file) }
-                notes.append("\(b.name)'s inbox now names the session \(place)")
-                try? workspaces.append(w, WorkspaceLogEntry(by: "doz", action: "bot-invited", agent: b.name, place: "mac:" + place,
-                                                            reason: "its inbox now names this session"))
-            } catch {
-                notes.append("\(b.name)'s inbox still names \(b.session ?? "another session"): \(HostError.from(error).message)")
-            }
+        return (dir + "/chat-token", dir + "/start.md")
+    }
+
+    /// An inbox bot started unfenced in session `place`: its inbox pointed at that session when it names another (said).
+    func pointBotInbox(_ w: String, bot b: BotRecord, place: String) async -> [String] {
+        guard b.deliver == "inbox", b.session != place, let chat = botChat else { return [] }
+        await botGate.lock("bots")
+        defer { botGate.unlock("bots") }
+        do {
+            try await chat.set(b.name, deliver: "inbox", entry: nil, session: place)
+            var file = try bots.read()
+            if let i = file.index(b.name) { file.bots[i].session = place; try bots.write(file) }
+            try? workspaces.append(w, WorkspaceLogEntry(by: "doz", action: "bot-invited", agent: b.name, place: "mac:" + place,
+                                                        reason: "its inbox now names this session"))
+            return ["\(b.name)'s inbox now names the session \(place)"]
+        } catch {
+            return ["\(b.name)'s inbox still names \(b.session ?? "another session"): \(HostError.from(error).message)"]
         }
-        return (dir + "/chat-token", dir + "/start.md", BotTokens.fingerprint(v), notes)
     }
 
     /// The token file's folder, gone (at stop, or when the open failed).

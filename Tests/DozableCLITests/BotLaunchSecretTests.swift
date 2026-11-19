@@ -43,6 +43,52 @@ final class BotLaunchSecretTests: BotTestCase {
         XCTAssertNil(checked.first?.secret.keychainService)
     }
 
+    /// A worker's throwaway token as a daemon-made secret: no source file, the reach check kept, its own item and a ledger
+    /// line; swept once its owner's record goes; the flag from a client is cleared (and its file is checked).
+    func testADaemonMadeGrant() async throws {
+        let c = await core()
+        let token = ChatTokens.make()
+        let s = try await c.daemonWorkerSecret(owner: "mac.demo-bot1", token: token, variable: "CHAT_TOKEN", fileVariable: "CHAT_TOKEN_FILE", port: 41000)
+        XCTAssertNil(s.bot)
+        let service = LaunchSecrets.service(store: store.root, owner: "mac.demo-bot1", variable: "CHAT_TOKEN")
+        XCTAssertEqual(s.keychainService, service)
+        XCTAssertEqual(keychain.read(service: service, account: nil).value, token, "its own item")
+        XCTAssertEqual(LaunchSecretLedger.load(store).items[service], "mac.demo-bot1", "a ledger line")
+        XCTAssertFalse(String(decoding: try JSONEncoder().encode(s), as: UTF8.self).contains("dzc_"))
+        // Pending: the sweep leaves it; settled with no owner record: swept.
+        await c.sweepLaunchSecrets()
+        XCTAssertNotNil(keychain.read(service: service, account: nil).value, "the place is being made: kept")
+        await c.launchSecretSettled(owner: "mac.demo-bot1", s)
+        await c.sweepLaunchSecrets()
+        XCTAssertNil(keychain.read(service: service, account: nil).value, "no record holds it: swept")
+        XCTAssertNil(LaunchSecretLedger.load(store).items[service])
+        // The reach check holds: a port that is not the worker's.
+        let bad = LaunchSecret(variable: "CHAT_TOKEN", host: "host.dozable.internal", port: 41001, fingerprint: "x")
+        do {
+            _ = try await c.checkedLaunchSecrets([LaunchSecretGrant(secret: bad, value: token, source: "", daemonMade: true)], readable: [],
+                                                 readableWhat: "", hostPorts: [41000], reach: { _, _ in true }, allowFlag: "--host-port", daemon: true)
+            XCTFail("a port it is not given")
+        } catch {}
+        // From a client: the flag cleared, and the file is checked like any other.
+        let src = root.appendingPathComponent("w")
+        try FileManager.default.createDirectory(at: src, withIntermediateDirectories: true)
+        let file = src.appendingPathComponent("tok")
+        try "a-secret-value-456".write(to: file, atomically: true, encoding: .utf8)
+        chmod(file.path, 0o600)
+        let given = LaunchSecret(variable: "SERVER_TOKEN", host: "host.dozable.internal", port: 41000, fingerprint: "x")
+        let ok = try await c.checkedLaunchSecrets([LaunchSecretGrant(secret: given, value: "a-secret-value-456", source: file.path, daemonMade: true)],
+                                                  readable: [], readableWhat: "its folder", hostPorts: [41000], reach: { _, _ in true }, allowFlag: "--allow")
+        XCTAssertNil(ok.first?.daemonMade, "a client-sent flag is cleared")
+        do {
+            _ = try await c.checkedLaunchSecrets([LaunchSecretGrant(secret: given, value: "a-secret-value-456", source: file.path, daemonMade: true)],
+                                                 readable: [WorkspaceStore.resolved(src.path)], readableWhat: "its folder", hostPorts: [41000],
+                                                 reach: { _, _ in true }, allowFlag: "--allow")
+            XCTFail("a client's file inside what the session reads is refused, flag or not")
+        } catch {
+            XCTAssertTrue(HostError.from(error).message.contains("inside its folder"), HostError.from(error).message)
+        }
+    }
+
     func testARotatedTokenFailsTheFingerprint() async throws {
         let c = await core()
         _ = try change(await ask(c, .botNew, "mira") { $0.agent = "claude-code" })

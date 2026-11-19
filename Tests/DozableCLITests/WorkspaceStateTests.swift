@@ -55,6 +55,27 @@ final class WorkspaceStateTests: XCTestCase {
         XCTAssertEqual(S.waitingOnYou.words, "waiting on you")
     }
 
+    /// Workers: one being added is starting; a running one counts by its own session; an ended one is no agent; a stopped
+    /// sandbox or an ended session is asleep.
+    func testWorkers() {
+        let started = WorkspaceFlags(startedAt: t)
+        let working = S.Agent.running(sessions: ["working"])
+        XCTAssertEqual(S.worker(pending: true, ended: false, place: .asleep), .starting)
+        XCTAssertNil(S.worker(pending: false, ended: true, place: working), "an ended worker is not an agent")
+        XCTAssertEqual(S.worker(pending: false, ended: false, place: working), working)
+        let rows: [([S.Agent?], S, String)] = [
+            ([S.worker(pending: true, ended: false, place: .asleep)], .starting, "a worker being added"),
+            ([S.worker(pending: false, ended: false, place: working)], .working, "no manager, one working worker: working · you"),
+            ([S.worker(pending: false, ended: false, place: .running(sessions: ["blocked"]))], .waitingOnYou, "a worker blocked"),
+            ([S.worker(pending: false, ended: true, place: working)], .asleep, "every worker ended, no manager: asleep"),
+            ([.asleep, S.worker(pending: false, ended: false, place: .asleep)], .asleep, "a stopped manager, a worker's sandbox stopped"),
+            ([.asleep, S.worker(pending: false, ended: false, place: .running(sessions: ["idle"]))], .idle, "a stopped manager, a worker idle"),
+        ]
+        for (agents, want, why) in rows {
+            XCTAssertEqual(S.derive(S.Input(agents: agents.compactMap { $0 }, flags: started)), want, why)
+        }
+    }
+
     /// The agents as the daemon sees them.
     func testAgentsFromPhasesAndRows() {
         XCTAssertEqual(S.agent(phase: "booting", statuses: nil), .starting)

@@ -75,8 +75,34 @@ public enum ManagerLaunch {
     /// server's; `tokenFile`: an unfenced manager's token file; `fingerprint`: the bot's token's.
     public static func plan(isolation: ManagerIsolation, agent: String, model: String?, bot: String, startFile: String, pagePort: Int,
                             fingerprint: String, tokenFile: String? = nil) throws -> Plan {
-        guard let program = program(agent: agent) else { throw HostError(.invalid, "Dozable does not start a manager running \(agent) yet") }
-        let prompt = firstPrompt(start: startFile)
+        try AgentLaunch.plan(role: .manager, isolation: isolation, agent: agent, model: model, bot: bot, startFile: startFile, pagePort: pagePort,
+                             fingerprint: fingerprint, tokenFile: tokenFile, allowedTools: ["Bash(dozchat:*)"])
+    }
+
+    /// A VM manager started again after a stop: its program continues the conversation it had.
+    public static func vmResumeArgv(agent: String) -> [String]? {
+        guard let p = program(agent: agent) else { return nil }
+        return p == "claude" ? ["claude", "--continue"] : [p, "resume", "--last"]
+    }
+}
+
+/// One launch of an agent Dozable starts in a workspace — its manager or a worker: the same argv, environment, START and
+/// ports, by role. Pure (`ManagerLaunchTests`, `WorkerLaunchTests`); the manager's plan is `ManagerLaunch.plan`, a worker's
+/// `WorkerLaunch.plan`.
+public enum AgentLaunch {
+    public enum Role: String, Sendable { case manager, worker }
+
+    /// `variable` / `fileVariable`: the token's (a worker sharing a sandbox has its own, `WorkerLaunch.tokenVariables`);
+    /// `bot`: the bot whose token it is (nil: a worker's throwaway token, a daemon-made launch secret); `allowedTools`: a
+    /// Claude Code allow-list (last in argv — it takes every word after it; never on a VM, whose approvals are skipped).
+    public static func plan(role: Role, isolation: ManagerIsolation, agent: String, model: String?, bot: String?, startFile: String,
+                            pagePort: Int, fingerprint: String, tokenFile: String? = nil,
+                            variable: String = ManagerLaunch.tokenVariable, fileVariable: String = ManagerLaunch.tokenFileVariable,
+                            allowedTools: [String]) throws -> ManagerLaunch.Plan {
+        guard let program = ManagerLaunch.program(agent: agent) else {
+            throw HostError(.invalid, "Dozable does not start \(role == .manager ? "a manager" : "a worker") running \(agent) yet")
+        }
+        let prompt = ManagerLaunch.firstPrompt(start: startFile)
         let port = UInt16(clamping: pagePort)
         var argv = [program]
         if let model, isolation != .vm { argv += ["--model", model] }
@@ -84,7 +110,7 @@ public enum ManagerLaunch {
         if program == "claude", isolation != .vm {
             if isolation == .fenced { argv += ["--permission-mode", "dontAsk"] }
             // The allow-list takes every word after it: it goes last.
-            argv += ["--allowedTools", "Bash(dozchat:*)"]
+            argv += ["--allowedTools"] + allowedTools
         }
         var env: [String: String] = [:]
         var secret: LaunchSecret?
@@ -93,19 +119,13 @@ public enum ManagerLaunch {
         case .fenced, .vm:
             env["CHAT_URL"] = "http://\(HostRoute.hostName):\(pagePort)"
             ports = [port]
-            secret = LaunchSecret(variable: tokenVariable, fileVariable: tokenFileVariable, host: HostRoute.hostName, port: port,
+            secret = LaunchSecret(variable: variable, fileVariable: fileVariable, host: HostRoute.hostName, port: port,
                                   fingerprint: fingerprint, keychainService: nil, bot: bot)
         case .unfenced:
-            guard let tokenFile else { throw HostError(.invalid, "an unfenced manager needs its token file") }
-            env[tokenFileVariable] = tokenFile
-            if pagePort != defaultPagePort { env["CHAT_URL"] = "http://127.0.0.1:\(pagePort)" }
+            guard let tokenFile else { throw HostError(.invalid, "an unfenced \(role.rawValue) needs its token file") }
+            env[ManagerLaunch.tokenFileVariable] = tokenFile
+            if pagePort != ManagerLaunch.defaultPagePort { env["CHAT_URL"] = "http://127.0.0.1:\(pagePort)" }
         }
-        return Plan(argv: argv, environment: env, startFile: startFile, hostPorts: ports, secret: secret)
-    }
-
-    /// A VM manager started again after a stop: its program continues the conversation it had.
-    public static func vmResumeArgv(agent: String) -> [String]? {
-        guard let p = program(agent: agent) else { return nil }
-        return p == "claude" ? ["claude", "--continue"] : [p, "resume", "--last"]
+        return ManagerLaunch.Plan(argv: argv, environment: env, startFile: startFile, hostPorts: ports, secret: secret)
     }
 }
