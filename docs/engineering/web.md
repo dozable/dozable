@@ -458,8 +458,15 @@ The Chat page (`#/chat`, `#/chat/ROOM`) — the chat server's rooms for the pers
   (`doz workspace ls`), `GET /api/v1/workspaces/{w}` → `workspace-show` (`doz workspace show W`; the name by the store's rule
   — `WorkspaceName` — else 400 with a fixed message before any call; unknown → 404), `GET /api/v1/loose` → `workspace-ls`
   with `loose` (`doz workspace ls --loose`), `GET /api/v1/bots` → `bot-ls` (`doz bot ls`). Answered in-process when no daemon
-  runs: looking never starts one. GET only — no `WebAction` was added and the pinned action set is unchanged
-  (`WebActionTests` asserts no `workspace-*`, `bot-*` or `worker-*` HostOp is an action yet).
+  runs: looking never starts one.
+- **One action, `workspace-brief`** `{workspace, brief, ifBrief}` → exactly `workspace-edit` with only the name, the brief
+  and `ifBrief` (the sha256 the page read; a brief changed since → `invalid-phase` "changed since you opened it", nothing
+  written), strictly decoded — no reference, folder, manager or room; the brief is text (line breaks and tabs, no other
+  control character) within the actions' 16 KiB body (the page shows `doz workspace edit W --prompt-file F` beyond it).
+  After the start the daemon announces it in the main room as you. Another computer: `WebExposure.decideWorkspaceAction`
+  — only with `serve.chat = write` (off → 403 `brief-remote`, read → `chat-read-only`), one `change` audit line (the
+  action's word, never the brief). `WebActionTests` pins it: the only `workspace-*`/`bot-*`/`worker-*` HostOp that is an
+  action is `workspace-edit`, through `workspace-brief`; no lifecycle (start, stop, a worker, a bot) for any browser.
 - **Projections** (`WebModels`: `WebWorkspaceListing`, `WebWorkspaceRow`, `WebWorkspaceManager`, `WebLooseAgent`,
   `WebWorkspaceDetail` — the brief's size and its references' count, never its text or hash —, `WebWorkspaceAgent` with
   its `kind` sandbox | mac | elsewhere, `WebBotListing`/`WebBotRow`), field by field; no secret-shaped field

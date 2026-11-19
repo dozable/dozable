@@ -515,10 +515,46 @@ final class ServeHTTPTests: XCTestCase {
 
     func testTheBriefIsReadWithServeChatRead() async throws {
         try await start(chat: "read")
-        let (devCookie, _) = try await admit()
+        let (devCookie, devCSRF) = try await admit()
         let r = try req("/api/v1/workspaces/demo/brief", ["Cookie": devCookie])
         XCTAssertEqual(r.status, 200, r.text)
         XCTAssertTrue(r.text.contains("the brief's text"))
+        // …but read is not write: the brief is not edited from there.
+        let edit = try macJSON(devCookie, devCSRF, "/api/v1/actions", Self.briefEdit, remote: true)
+        XCTAssertEqual(edit.status, 403, edit.text)
+        XCTAssertTrue(edit.text.contains("chat-read-only"), edit.text)
+        XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon")
+    }
+
+    static let briefEdit = #"{"action":"workspace-brief","workspace":"demo","brief":"Shorter.","ifBrief":"\#(String(repeating: "d", count: 64))"}"#
+
+    /// Editing the brief from another computer: refused while serve.chat is off or read (and audited as a refusal), done
+    /// with write and audited as ONE change line (the action's word, never the brief).
+    func testTheBriefIsEditedFromAnotherComputerOnlyWithServeChatWrite() async throws {
+        try await start()
+        let (devCookie, devCSRF) = try await admit()
+        let off = try macJSON(devCookie, devCSRF, "/api/v1/actions", Self.briefEdit, remote: true)
+        XCTAssertEqual(off.status, 403, off.text)
+        XCTAssertTrue(off.text.contains("brief-remote"), off.text)
+        XCTAssertTrue(fake.performedOps.isEmpty)
+        let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+        XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "brief-remote" })
+    }
+
+    func testServeChatWriteEditsTheBriefAuditedAsOneLine() async throws {
+        try await start(chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        let ok = try macJSON(devCookie, devCSRF, "/api/v1/actions", Self.briefEdit, remote: true)
+        XCTAssertEqual(ok.status, 202, ok.text)
+        let deadline = Date().addingTimeInterval(5)
+        while fake.performedOps.isEmpty && Date() < deadline { usleep(10_000) }
+        XCTAssertEqual(fake.performedOps, [.workspaceEdit])
+        while try req("/api/v1/operations", ["Cookie": devCookie]).text.contains("\"state\":\"running\"") && Date() < deadline { usleep(10_000) }
+        let changes = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl")).filter { $0.kind == "change" }
+        XCTAssertEqual(changes.count, 1)
+        XCTAssertEqual(changes.first?.action, "workspace-brief")
+        let raw = (try? String(contentsOf: dir.appendingPathComponent("serve/audit.jsonl"), encoding: .utf8)) ?? ""
+        XCTAssertFalse(raw.contains("Shorter."), "never the brief")
     }
 
     func testWatchLetsAnotherComputerLookButNeverType() async throws {

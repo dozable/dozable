@@ -84,6 +84,18 @@ public enum WebExposure {
         who.isRemote && allowed != .interactive ? .macSession : nil
     }
 
+    /// A workspace's action (`workspace-brief`) for `who`: it speaks as you in the workspace's room (its announcement), so
+    /// another computer only with `serve.chat = write` — as a chat write, and audited the same way. The Mac's own browser
+    /// always. There is no workspace lifecycle action for any browser (start, stop, a worker, a bot): the CLI's.
+    public static func decideWorkspaceAction(_ who: Principal, _ chat: ChatServe) -> WebRejection? {
+        guard who.isRemote else { return nil }
+        switch chat {
+        case .off: return .briefRemote
+        case .read: return .chatReadOnly
+        case .write: return nil
+        }
+    }
+
     /// 683 M5: a conversation exported (its whole text) — another computer only with `serve.mac_sessions = interactive`
     /// (watching shows screens, never a session's history).
     public static func decideMacExport(_ who: Principal, _ allowed: MacSessions) -> WebRejection? { decideMacAction(who, allowed) }

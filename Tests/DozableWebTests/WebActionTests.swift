@@ -67,6 +67,7 @@ final class WebActionTests: XCTestCase {
         "files-new": #"{"action":"files-new","sandbox":"web","path":"notes.md"}"#,
         "files-move": #"{"action":"files-move","sandbox":"web","path":"/workspace/a.md","to":"/workspace/docs/a.md"}"#,
         "files-rm": #"{"action":"files-rm","sandbox":"web","path":"/workspace/old","recursive":true,"confirm":"/workspace/old"}"#,
+        "workspace-brief": #"{"action":"workspace-brief","workspace":"launch-video","brief":"Make it 45 seconds.\nKeep the logo.","ifBrief":"\#(String(repeating: "a", count: 64))"}"#,
         // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
         "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
         // 669: a sandbox's own value of a per-sandbox setting, or "Follow the Mac" (clear).
@@ -145,6 +146,8 @@ final class WebActionTests: XCTestCase {
         .rename,
         // 669: a sandbox's own value of a per-sandbox setting, or Follow the Mac (doz config set|unset --sandbox).
         .sandboxSettings,
+        // A workspace's brief from its page — exactly `doz workspace edit W --prompt-file F --if-brief SHA`.
+        .workspaceEdit,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,
@@ -356,14 +359,69 @@ final class WebActionTests: XCTestCase {
             XCTAssertFalse(ops.contains(forbidden), "\(forbidden) must never be reachable from the browser")
         }
         XCTAssertEqual(WebAction.lifecycleOps["hibernate"], .hibernate)
-        // Workspaces, Agents / Bots and workers are read in the dashboard (WebWorkspaceReads) — none of their operations is
-        // an action yet.
-        for op in ops {
-            XCTAssertFalse(["workspace-", "bot-", "worker-"].contains { op.rawValue.hasPrefix($0) }, "\(op.rawValue) is not an action yet")
+        // Workspaces, Agents / Bots and workers are read in the dashboard (WebWorkspaceReads). Exactly one of their operations is
+        // an action: `workspace-edit`, and only through `workspace-brief` (the brief, nothing else). No lifecycle — no
+        // workspace start or stop, no worker, no bot — for any browser.
+        XCTAssertEqual(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key), ["workspace-brief"])
+        XCTAssertEqual(Set(ops.filter { ["workspace-", "bot-", "worker-"].contains(where: $0.rawValue.hasPrefix) }), [.workspaceEdit])
+        for op: HostOp in [.workspaceStart, .workspaceStop, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceRename] {
+            XCTAssertFalse(ops.contains(op), "\(op.rawValue) is not an action")
         }
         // Your Macs are read (WebMacReads) and changed only from the CLI: no macs-* operation is an action.
         XCTAssertFalse(ops.contains { $0.rawValue.hasPrefix("macs-") }, "Your Macs are not changed from the browser")
         XCTAssertFalse(WebAction.actionNames.contains { $0.hasPrefix("mac-") && !$0.hasPrefix("mac-session-") }, "no action for Your Macs")
+    }
+
+    /// `workspace-brief` is exactly `workspace-edit` with the name, the brief and `ifBrief` — strictly decoded: nothing
+    /// else of an edit (references, folders, manager, room) is taken; the sha256 is required and well-formed.
+    func testTheWorkspaceBrief() throws {
+        let a = try decode(Self.samples["workspace-brief"]!)
+        let r = a.hostRequest
+        XCTAssertEqual(r.op, .workspaceEdit)
+        XCTAssertNil(r.name, "the workspace travels in its own request, as the CLI sends it")
+        var want = WorkspaceRequest(name: "launch-video")
+        want.brief = "Make it 45 seconds.\nKeep the logo."
+        want.ifBrief = String(repeating: "a", count: 64)
+        XCTAssertEqual(r.workspaceRequest, want, "exactly the CLI's doz workspace edit W --prompt-file F --if-brief SHA")
+        XCTAssertNil(a.sandbox)
+        XCTAssertTrue(a.isWorkspace)
+        XCTAssertFalse(a.isMacSession)
+        XCTAssertNil(a.confirmationTarget)
+        XCTAssertEqual(a.label, "edit the brief of launch-video")
+        XCTAssertNotEqual(a.dedupeKey, try decode(Self.samples["workspace-brief"]!.replacingOccurrences(of: "launch-video", with: "other")).dedupeKey,
+                          "two workspaces' edits are two operations")
+        let sha = String(repeating: "a", count: 64)
+        for extra in [#""addRefs":["https://x.example"]"#, #""refs":[]"#, #""folders":[]"#, #""manager":"mira""#, #""makeRoom":true"#,
+                      #""noManager":true"#, #""sandbox":"a""#, #""name":"launch-video""#] {
+            invalid(#"{"action":"workspace-brief","workspace":"w","brief":"x",\#(extra),"ifBrief":"\#(sha)"}"#)
+        }
+        invalid(#"{"action":"workspace-brief","workspace":"w","brief":"x"}"#)                                  // ifBrief required
+        invalid(#"{"action":"workspace-brief","workspace":"w","brief":"x","ifBrief":"ABC"}"#)
+        invalid(#"{"action":"workspace-brief","workspace":"w","brief":"x","ifBrief":"\#(sha.uppercased())"}"#)
+        invalid(#"{"action":"workspace-brief","workspace":"W_x","brief":"x","ifBrief":"\#(sha)"}"#)
+        invalid(#"{"action":"workspace-brief","brief":"x","ifBrief":"\#(sha)"}"#)
+        invalid(#"{"action":"workspace-brief","workspace":"w","brief":"  \n ","ifBrief":"\#(sha)"}"#)            // blank
+        invalid(#"{"action":"workspace-brief","workspace":"w","brief":"a\u0000b","ifBrief":"\#(sha)"}"#)         // a control character
+        invalid(#"{"action":"workspace-brief","workspace":"w","brief":7,"ifBrief":"\#(sha)"}"#)
+        XCTAssertEqual(try decode(#"{"action":"workspace-brief","workspace":"w","brief":"a\tb\r\nc","ifBrief":"\#(sha)"}"#).hostRequest.workspaceRequest?.brief,
+                       "a\tb\r\nc", "lines and tabs are text")
+        // Another computer: only with serve.chat = write; the Mac's own browser always.
+        XCTAssertNil(WebExposure.decideWorkspaceAction(.mac, .off))
+        XCTAssertEqual(WebExposure.decideWorkspaceAction(.remote(secure: true), .off), .briefRemote)
+        XCTAssertEqual(WebExposure.decideWorkspaceAction(.remote(secure: true), .read), .chatReadOnly)
+        XCTAssertNil(WebExposure.decideWorkspaceAction(.remote(secure: false), .write))
+        // Its line for the page.
+        var flags = WorkspaceFlags()
+        flags.startedAt = Date()
+        let t = Date(timeIntervalSince1970: 0)
+        let detail = { (f: WorkspaceFlags, notes: [String]?) in
+            try JSONValue(encoding: WorkspaceDetail(name: "launch-video", state: "idle", driver: "you", createdAt: t,
+                                                    brief: WorkspaceBrief(sha256: sha, bytes: 1, updatedAt: t), folders: [], rooms: [], agents: [],
+                                                    defaults: WorkspaceDefaults(), flags: f, origin: WorkspaceOrigin(), notes: notes))
+        }
+        XCTAssertEqual(WebOperations.summary(a, try detail(flags, nil)), "edited the brief of launch-video — announced in its room")
+        XCTAssertEqual(WebOperations.summary(a, try detail(WorkspaceFlags(), nil)), "edited the brief of launch-video")
+        XCTAssertEqual(WebOperations.summary(a, try detail(flags, ["not announced: chat is off"])), "edited the brief of launch-video — not announced: chat is off")
     }
 
     func testFieldsMapToTheRequest() throws {

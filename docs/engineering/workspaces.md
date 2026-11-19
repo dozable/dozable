@@ -332,7 +332,9 @@ only with `serve.chat` read or write, else 403 `brief-remote`), `GET /api/v1/wor
 (`workspace-log --since`: `{lines: [{at, by, action, room?, agent?, text}], more, hidden}` — the sentences; never a hash,
 fingerprint, place key or size field; the newest 500; another computer while `serve.mac_sessions` is off gets no line
 about a session on this Mac, counted in `hidden`), `GET /api/v1/loose` (`workspace-ls --loose`), `GET /api/v1/bots`
-(`bot-ls`). Nothing changes a workspace from the page yet: no `workspace-*`, `bot-*` or `worker-*` HostOp is an action.
+(`bot-ls`). ONE action changes a workspace from the page: `workspace-brief` = exactly `workspace-edit` with the name, the
+brief and `ifBrief` (another computer only with `serve.chat = write`); no other `workspace-*`, and no `bot-*` or `worker-*`
+HostOp, is an action — no lifecycle from any browser (CLAUDE.md's rule).
 The sidebar lists the workspaces and unfolds one into its rooms and agents; Home is the table of them (S03 without Needs
 you), or the definition with the loose count when there are none; This Mac › Loose agents lists what is in no workspace
 with the command that adopts it; Agents / Bots lists the bots.
