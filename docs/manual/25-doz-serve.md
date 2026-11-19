@@ -79,7 +79,27 @@ while `serve.mac_sessions` is `off` it does not see the loose sessions on this M
 who is working — Home and **Loose agents** say how many were left out. See
 [Sessions on this Mac](34-sessions-on-this-mac.md#in-the-dashboard).
 
+**Your Macs** (the machine picker — "Dozable · studio ▾") is the same list on another browser as on this Mac: a phone
+switching between your Macs is what it is for. It holds names and addresses only; picking a Mac opens that Mac's own
+dashboard, where the browser needs that Mac's own invite. Adding or removing a Mac is done on this Mac, with
+`doz ui macs`.
+
 `ui.lan` and the `serve.*` settings — who can reach the dashboard — are changed only on the Mac, with `doz config set`.
+
+## Adding this Mac to another Mac's list
+
+To open this Mac's dashboard from another Mac's machine picker, put this dashboard on the network first (`doz ui --lan`,
+or `doz ui publish tailscale`), then, **on the other Mac**:
+
+```bash
+doz ui macs add studio studio.example.ts.net      # its Tailscale name (published: https), or
+doz ui macs add studio studio.local:7443          # its LAN name or address and port
+```
+
+Give the address only — a sign-in link is refused and not kept. `doz ui macs add` checks once that this dashboard
+answers (`doz ui macs check` again later). Then pick **studio** in the other Mac's picker: a new tab opens this
+dashboard's sign-in page, and this Mac lets that browser in once with an invite, as any other (`doz ui share` here).
+See [Your other Macs](06-the-dashboard.md#your-other-macs-the-machine-picker).
 
 ## The browsers that are in
 
