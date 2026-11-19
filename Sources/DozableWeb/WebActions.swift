@@ -114,6 +114,19 @@ public enum WebAction: Equatable, Sendable {
     /// `doz workspace release W AGENT` — the agent's name in the workspace, or `@mac/SESSION`. A live worker or a running
     /// manager is refused by the daemon, as for the CLI.
     case workspaceRelease(workspace: String, agent: String)
+    /// Agents / Bots — this Mac's own browser only (`isBot`, `WebExposure.decideBotAction`), whatever the serve settings: each
+    /// makes, replaces or revokes a token and writes the login keychain. Each is exactly the CLI's HostOp, with `heldOnly` set
+    /// (`BotRequest.heldOnly`): nothing it asks may make a token to show once, so no token ever reaches a browser — a bot
+    /// elsewhere is made and re-keyed in a terminal. `doz bot new NAME --agent A [--isolation vm|fenced|unfenced] …`;
+    case botNew(BotRequest)
+    /// `doz bot set NAME …` (never to or from elsewhere);
+    case botSet(BotRequest)
+    /// `doz bot retire NAME --yes` (confirmed with the name);
+    case botRetire(name: String)
+    /// `doz bot adopt NAME --agent A [--isolation vm|fenced|unfenced] --yes` (confirmed: its token is replaced);
+    case botAdopt(BotRequest)
+    /// `doz bot token NAME --new` for a held bot (confirmed: the old one is refused at once).
+    case botToken(name: String)
 
     public static let lifecycleOps: [String: HostOp] = [
         "start": .start, "wake": .wake, "pause": .pause, "resume": .resume, "sleep": .sleep, "hibernate": .hibernate,
@@ -135,7 +148,8 @@ public enum WebAction: Equatable, Sendable {
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall,
              .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges,   // this Mac is no sandbox
-             .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease:          // nor is a workspace
+             .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease,          // nor is a workspace
+             .botNew, .botSet, .botRetire, .botAdopt, .botToken:                          // nor is a bot
             return nil
         }
     }
@@ -155,6 +169,11 @@ public enum WebAction: Equatable, Sendable {
         switch self { case .workspaceAdopt, .workspaceNew, .workspaceRelease: true; default: false }
     }
 
+    /// An Agent / Bot changed: this Mac's own browser only (`WebExposure.decideBotAction`).
+    public var isBot: Bool {
+        switch self { case .botNew, .botSet, .botRetire, .botAdopt, .botToken: true; default: false }
+    }
+
     /// Destructive actions carry `confirm`, which must equal this (the page fills it only from a
     /// name the person typed).
     public var confirmationTarget: String? {
@@ -166,6 +185,9 @@ public enum WebAction: Equatable, Sendable {
         case .accountRemove(let a): a
         case .filesRemove(_, let p, _): p
         case .macSessionEnd(let s), .macSessionRestart(let s, _): s
+        // A bot retired, adopted (its token replaced) or given a new token: the name, ticked in the page's dialog.
+        case .botRetire(let n), .botToken(let n): n
+        case .botAdopt(let b): b.name
         default: nil
         }
     }
@@ -179,6 +201,8 @@ public enum WebAction: Equatable, Sendable {
             let agent = r.workspaceRequest?.agent ?? r.workspaceRequest?.adopt?.joined(separator: ",") ?? ""
             return [r.op.rawValue, "workspace:" + w, agent].joined(separator: "|")
         }
+        // A bot's request leaves `name` empty: its own key, so two bots changed at once are two operations.
+        if let b = r.botRequest?.name { return [r.op.rawValue, "bot:" + b].joined(separator: "|") }
         return [r.op.rawValue, r.name ?? "", r.session ?? "", r.point ?? r.pointName ?? "", r.image ?? "", r.account ?? "", r.newName ?? "",
                 r.ids?.joined(separator: ",") ?? "", r.kernel ?? "", r.filePath ?? ""].joined(separator: "|")
     }
@@ -210,6 +234,11 @@ public enum WebAction: Equatable, Sendable {
         case .workspaceAdopt(let w, let a, _): return "put \(a) in \(w)"
         case .workspaceNew(let w, _, let a): return "make \(w) with \(a)"
         case .workspaceRelease(let w, let a): return "take \(a) out of \(w)"
+        case .botNew(let b): return "make Agent / Bot \(b.name ?? "?")"
+        case .botSet(let b): return "change \(b.name ?? "?")"
+        case .botRetire(let n): return "retire \(n)"
+        case .botAdopt(let b): return "make \(b.name ?? "?") an Agent / Bot"
+        case .botToken(let n): return "a new token for \(n)"
         default: break
         }
         let r = hostRequest
@@ -439,7 +468,22 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.workspaceRelease)
             r.workspaceRequest = e
             return r
+        case .botNew(let b): return Self.botRequest(.botNew, b)
+        case .botSet(let b): return Self.botRequest(.botSet, b)
+        case .botRetire(let n): return Self.botRequest(.botRetire, BotRequest(name: n))
+        case .botAdopt(let b): return Self.botRequest(.botAdopt, b)
+        case .botToken(let n): return Self.botRequest(.botToken, BotRequest(name: n))
         }
+    }
+
+    /// What `doz bot …` sends, with `heldOnly`: the daemon refuses, before anything is touched, whatever would make a token
+    /// to show once (the CLI never sets it).
+    static func botRequest(_ op: HostOp, _ b: BotRequest) -> HostRequest {
+        var b = b
+        b.heldOnly = true
+        var r = HostRequest(op)
+        r.botRequest = b
+        return r
     }
 
     // MARK: strict decoding
@@ -500,6 +544,11 @@ public enum WebAction: Equatable, Sendable {
             "workspace-adopt": ["workspace", "agent", "as"],
             "workspace-new": ["workspace", "brief", "adopt"],
             "workspace-release": ["workspace", "agent"],
+            "bot-new": ["name", "agent", "model", "account", "avatar", "isolation", "deliver", "webhookEntry", "session", "skills", "instructions"],
+            "bot-set": ["name", "model", "account", "avatar", "skills", "instructions", "isolation", "deliver", "webhookEntry", "session"],
+            "bot-retire": ["name", "confirm"],
+            "bot-adopt": ["name", "agent", "model", "isolation", "deliver", "confirm"],
+            "bot-token": ["name", "confirm"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -732,6 +781,32 @@ public enum WebAction: Equatable, Sendable {
                 throw Invalid("agent: its name in the workspace, or @mac/SESSION")
             }
             a = .workspaceRelease(workspace: try f.workspaceName("workspace"), agent: s)
+        case "bot-new":
+            let n = try f.botName("name")
+            var b = try f.botFields(n)
+            b.agent = try f.botAgent("agent")
+            // The isolation is chosen in the form, never assumed (unfenced only when picked: it acts as you).
+            b.isolation = try f.required(try f.botIsolation("isolation", n, verb: "new", agent: b.agent), "isolation")
+            a = .botNew(b)
+        case "bot-set":
+            let n = try f.botName("name")
+            var b = try f.botFields(n)
+            b.isolation = try f.botIsolation("isolation", n, verb: "set", agent: nil)
+            guard b.model != nil || b.account != nil || b.avatar != nil || b.skills != nil || b.instructions != nil || b.isolation != nil
+                    || b.deliver != nil else { throw Invalid("bot-set: nothing to change") }
+            a = .botSet(b)
+        case "bot-retire":
+            a = .botRetire(name: try f.botName("name"))
+        case "bot-adopt":
+            let n = try f.botName("name")
+            var b = BotRequest(name: n)
+            b.agent = try f.botAgent("agent")
+            b.model = try f.botModel("model")
+            b.isolation = try f.botIsolation("isolation", n, verb: "adopt", agent: b.agent)
+            b.deliver = try f.oneOf("deliver", ChatDirectory.deliveries)
+            a = .botAdopt(b)
+        case "bot-token":
+            a = .botToken(name: try f.botName("name"))
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }
             a = .lifecycle(op, name: try f.sandbox("sandbox"))
@@ -765,6 +840,90 @@ public enum WebAction: Equatable, Sendable {
         func matching(_ key: String, _ pattern: String, _ rule: String) throws -> String? {
             guard let s = try string(key) else { return nil }
             guard s.range(of: pattern, options: .regularExpression) != nil else { throw Invalid("\(key): \(rule)") }
+            return s
+        }
+
+        // MARK: Agents / Bots — the CLI's rules (BotName, AgentRef, the account, ModelSelection, BotFields)
+
+        /// A bot's name by the chat rule (`ChatNames`); never echoed.
+        func botName(_ key: String) throws -> String {
+            guard let n = try string(key, max: 40), ChatNames.refusal(n) == nil else {
+                throw Invalid("\(key): a lower-case letter, then lower-case letters, digits and -, at most 40")
+            }
+            return n
+        }
+
+        /// An agent program as `doz bot new --agent` takes it (`AgentRef.resolve`: claude-code, codex, …).
+        func botAgent(_ key: String) throws -> String {
+            guard let s = try string(key, max: 80), (try? AgentRef.resolve(s)) != nil else {
+                throw Invalid("\(key): an agent program (claude-code, codex, … — doz search)")
+            }
+            return s
+        }
+
+        func botModel(_ key: String) throws -> String? {
+            try string(key, max: 120).map { m in
+                guard ModelSelection.isModelID(m), (try? BotFields.checkModel(m)) != nil else {
+                    throw Invalid("\(key): a model id (letters, digits and . _ : / @ + -)")
+                }
+                return m
+            }
+        }
+
+        /// Where it runs: vm, fenced or unfenced. A bot elsewhere gets its token in a terminal only — refused here with its
+        /// command (the name is already checked; the value is never echoed).
+        func botIsolation(_ key: String, _ name: String, verb: String, agent: String?) throws -> String? {
+            guard let s = try string(key, max: 16) else { return nil }
+            if s == "elsewhere" {
+                let plain = agent.flatMap { $0.range(of: "^[a-z0-9][a-z0-9-]{0,39}$", options: .regularExpression) != nil ? $0 : nil }
+                let rest = verb == "set" ? "" : " --agent \(plain ?? "AGENT")"
+                throw Invalid("\(key): a bot elsewhere gets its token in a terminal on this Mac: doz bot \(verb) \(name)\(rest) --isolation elsewhere --to-file F")
+            }
+            guard ["vm", "fenced", "unfenced"].contains(s) else { throw Invalid("\(key): vm, fenced or unfenced") }
+            return s
+        }
+
+        /// The fields `new` and `set` share: model, account, avatar, delivery (and its entry or session), skills, instructions.
+        func botFields(_ name: String) throws -> BotRequest {
+            var b = BotRequest(name: name)
+            b.model = try botModel("model")
+            b.account = try string("account", max: 40).map { a in
+                guard (try? AccountStore.validateName(a)) != nil || a == "mac" else { throw Invalid("account: an account's name (doz account ls), or mac") }
+                return a
+            }
+            b.avatar = try string("avatar", max: 64).map { v in
+                guard (try? BotFields.checkAvatar(v)) != nil else { throw Invalid("avatar: 1–64 characters, no line breaks") }
+                return v
+            }
+            b.deliver = try oneOf("deliver", ChatDirectory.deliveries)
+            b.webhookEntry = try string("webhookEntry", max: 40).map { e in
+                guard ChatWebhookEntries.nameRefusal(e) == nil else { throw Invalid("webhookEntry: an entry's name, as doz chat webhook set takes it") }
+                return e
+            }
+            b.session = try string("session", max: MacPlace.maximumSessionName).map { s in
+                guard WebRoute.isMacSessionName(s) else { throw Invalid("session: a session's name on this Mac") }
+                return s
+            }
+            if let v = d["skills"], !(v is NSNull) {
+                guard let list = v as? [Any], let skills = list as? [String], (try? BotFields.checkSkills(skills)) != nil else {
+                    throw Invalid("skills: a list of skills' names (a-z, 0-9, - and _), at most \(BotFields.maximumSkills), none twice")
+                }
+                b.skills = skills
+            }
+            b.instructions = try botInstructions("instructions")
+            return b
+        }
+
+        /// The instructions: text (line breaks and tabs, no other control character), UTF-8 within the store's 256 KiB — the
+        /// actions' 16 KiB body is the real limit from a browser (beyond it: `doz bot set NAME --instructions-file F`). Empty
+        /// clears them.
+        func botInstructions(_ key: String) throws -> String? {
+            guard let v = d[key], !(v is NSNull) else { return nil }
+            guard let s = v as? String else { throw Invalid("\(key) must be a string") }
+            guard !s.unicodeScalars.contains(where: { $0.properties.generalCategory == .control && !["\n", "\r", "\t"].contains($0) }) else {
+                throw Invalid("\(key): no control characters but line breaks and tabs")
+            }
+            guard (try? BotFields.checkInstructions(Data(s.utf8))) != nil else { throw Invalid("\(key): at most 256 KiB of text") }
             return s
         }
 

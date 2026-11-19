@@ -158,6 +158,23 @@ final class ServeExposureTests: XCTestCase {
         XCTAssertEqual(adopt?.isWorkspace, false)
     }
 
+    /// Agents / Bots: the reads are reads (kind `read`, every browser); every change is this Mac's own browser only, whatever
+    /// serve.chat or serve.mac_sessions say — the `mac-only` code, the family's own words.
+    func testBotChangesAreThisMacsOnly() throws {
+        for r: WebRoute in [.bots, .botsRetired, .bot("mira")] { XCTAssertEqual(WebExposure.kind(r), .read) }
+        XCTAssertNil(WebExposure.decideBotAction(.mac))
+        for p: WebExposure.Principal in [.remote(secure: false), .remote(secure: true)] {
+            XCTAssertEqual(WebExposure.decideBotAction(p), .macOnlyBots, "\(p)")
+        }
+        XCTAssertEqual(WebRejection.macOnlyBots.code, WebRejection.macOnly.code)
+        XCTAssertEqual(WebRejection.macOnlyBots.status, 403)
+        XCTAssertEqual(WebRejection.macOnlyBots.message,
+                       "Agents / Bots are changed only in this Mac's own browser, or with doz bot … in a terminal on the Mac")
+        let token = try WebAction.decode(Data(#"{"action":"bot-token","name":"mira","confirm":"mira"}"#.utf8))
+        XCTAssertTrue(token.isBot)
+        XCTAssertFalse(token.isWorkspace || token.isFiling || token.isMacSession, "decided by its own family, never a serve setting")
+    }
+
     /// Your Macs: a read for every browser — another computer (a phone switching Macs) sees the same list, whatever
     /// `serve.*` says; it is names and origins only.
     func testYourMacsIsAReadForEveryBrowser() {

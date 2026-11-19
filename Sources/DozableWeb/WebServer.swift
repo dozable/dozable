@@ -976,6 +976,8 @@ public final class DozableWebServer: @unchecked Sendable {
             if request.action.isWorkspace, let r = WebExposure.decideWorkspaceAction(ctx.principal, settings.chatServe) { throw r }
             // Filing an agent into a workspace or out of one: this Mac's own browser only, whatever the serve settings.
             if request.action.isFiling, let r = WebExposure.decideFilingAction(ctx.principal) { throw r }
+            // An Agent / Bot changed: this Mac's own browser only, whatever the serve settings (a token made, replaced or revoked).
+            if request.action.isBot, let r = WebExposure.decideBotAction(ctx.principal) { throw r }
             return json(try operations.start(request.action, priority: !request.batch), status: 202)
         case .operationsCancel:
             // 650: withdraw operations still queued — nothing was sent to the host for them (so not an action).

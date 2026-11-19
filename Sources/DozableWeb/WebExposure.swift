@@ -101,6 +101,11 @@ public enum WebExposure {
     /// manager) may reach, and `workspace-new` makes a room as you. Another computer is shown the command instead.
     public static func decideFilingAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyFiling : nil }
 
+    /// An Agent / Bot changed (`bot-new`, `-set`, `-retire`, `-adopt`, `-token`) for `who`: this Mac's own browser only, whatever
+    /// `serve.chat` or `serve.mac_sessions` say — each makes, replaces or revokes a token and writes the login keychain.
+    /// Another computer is shown the command instead; its attempt is one audit line.
+    public static func decideBotAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyBots : nil }
+
     /// 683 M5: a conversation exported (its whole text) — another computer only with `serve.mac_sessions = interactive`
     /// (watching shows screens, never a session's history).
     public static func decideMacExport(_ who: Principal, _ allowed: MacSessions) -> WebRejection? { decideMacAction(who, allowed) }

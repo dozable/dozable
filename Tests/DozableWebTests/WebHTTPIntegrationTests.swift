@@ -988,6 +988,7 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         onEvent(HostEvent(kind: .step, sandbox: r.name, text: "fake step one", milliseconds: 5))
         while hold { try await Task.sleep(for: .milliseconds(20)) }
         if let e = lock.withLock({ failWith }) { throw e }
+        if r.op.rawValue.hasPrefix("bot-"), let a = lock.withLock({ _botAnswer }) { return a }
         if HostOp.lifecycle.contains(r.op) {
             let json = #"{"name":"\#(r.name ?? "")","operation":"\#(r.op.rawValue)","phaseBefore":"running","phase":"paused","changed":true,"milliseconds":2}"#
             return try JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))
@@ -1066,6 +1067,13 @@ final class FakeData: DozableWebData, @unchecked Sendable {
     }
     private var _attachError: HostError?
     var performedOps: [HostOp] { lock.withLock { performed.map(\.op) } }
+    /// What a bot change answers (nil: null) — a test plants an older daemon's one-time token here.
+    var botAnswer: JSONValue? {
+        get { lock.withLock { _botAnswer } }
+        set { lock.withLock { _botAnswer = newValue } }
+    }
+    private var _botAnswer: JSONValue?
+    var performedBotRequests: [BotRequest] { lock.withLock { performed.compactMap(\.botRequest) } }
 
     // 643 — the file watcher: demo's /workspace (a file whose name carries an escape) and a scripted watch; `iso` is isolated.
     private(set) var filePaths: [String?] = []
