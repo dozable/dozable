@@ -13,6 +13,16 @@ import DozableHost
 //   2. the guest holds only the placeholder (its variable and its file); no dzc_ in the store, its --json or ps
 //   3. stop: the sandbox is off and kept (its disk); the record kept, asleep
 //   4. start again: the same sandbox started, vera up again, and your message count stays 1
+//
+// Then a workspace's workers, with the guarded seams `DOZ_TEST_WORKER_IMAGE=lab` and `DOZ_TEST_WORKER_ARGV` (a FAKE worker
+// script, its first prompt appended):
+//
+//   5. worker add vw v1 --isolation vm --cpus 2 --memory 2G: its own sandbox vw-v1; the invite, then "v1 is up"; the guest
+//      holds only the placeholder (its variable and its file)
+//   6. worker add vw v2 --sandbox vw-v1: its own variables (CHAT_TOKEN_V2, CHAT_TOKEN_FILE_V2), aliased for its session —
+//      CHAT_TOKEN_FILE is its own file — and "v2 is up" as v2; worker ls says "shares vw-v1"
+//   7. worker end vw v2: v1 still talks (it posts what it is asked to)
+//   8. worker end vw v1: its sandbox stopped, its disk kept; worker end vw v1 --rm deletes it
 func cliWorkspaceVMSuite(binary: String) async {
     print("cli: a workspace's manager in a micro VM (one lab sandbox, a FAKE manager)")
     let fm = FileManager.default
@@ -25,9 +35,12 @@ func cliWorkspaceVMSuite(binary: String) async {
     h.env["DOZ_TEST_CREDENTIALS"] = "memory"
     h.env["DOZ_TEST_MANAGER_IMAGE"] = "lab"
     h.env["DOZ_TEST_MANAGER_ARGV"] = #"["/bin/sh", "/workspace/fake-manager.sh"]"#
+    h.env["DOZ_TEST_WORKER_IMAGE"] = "lab"
+    h.env["DOZ_TEST_WORKER_ARGV"] = #"["/bin/sh", "/workspace/fake-worker.sh"]"#
     let store = DozableStore(root: root)
     defer {
         h.run(["rm", "vmw", "--yes"], timeout: 180)
+        h.run(["rm", "vw-v1", "--yes"], timeout: 180)
         h.run(["chat", "off"], timeout: 30)
         h.run(["daemon", "stop"], timeout: 120)
         _ = h.waitFor(30) { !h.hostRunning }
@@ -75,6 +88,28 @@ func cliWorkspaceVMSuite(binary: String) async {
 
     """
     try? fake.write(to: work.appendingPathComponent("fake-manager.sh"), atomically: true, encoding: .utf8)
+    // The FAKE worker: its START from its first prompt; what it holds written to the shared folder (placeholders only);
+    // then it says it is up, and posts each say-NAME-* file it is given.
+    let fakeWorker = """
+    start="$1"; start="${start#Read }"; start="${start% and do what it says.}"
+    case "$start" in "~/"*) start="$HOME/${start#??}" ;; esac
+    first=$(head -n 1 "$start")
+    room=$(sed -n 's/^Your room in chat: //p' "$start")
+    me=$(printf '%s' "$first" | sed -n 's/^You are \\([^,]*\\),.*/\\1/p')
+    printf '%s' "$CHAT_TOKEN" > "/workspace/res-$me-var"; cat "$CHAT_TOKEN_FILE" > "/workspace/res-$me-file"
+    printf '%s' "$CHAT_TOKEN_FILE" > "/workspace/res-$me-path"
+    env | grep '^CHAT_TOKEN' | sort > "/workspace/res-$me-env"
+    dozchat send "$room" "$me is up: $first" > "/workspace/res-$me-send" 2>&1
+    while :; do
+      for f in /workspace/say-$me-*; do
+        [ -f "$f" ] || continue
+        dozchat send "$room" "$(cat "$f")" > /dev/null 2>&1; rm -f "$f"
+      done
+      sleep 2
+    done
+
+    """
+    try? fakeWorker.write(to: work.appendingPathComponent("fake-worker.sh"), atomically: true, encoding: .utf8)
     let brief = root.path + "-brief.md"
     try? "Make the VM demo.\n".write(toFile: brief, atomically: true, encoding: .utf8)
     defer { try? fm.removeItem(atPath: brief) }
@@ -118,4 +153,59 @@ func cliWorkspaceVMSuite(binary: String) async {
     check(h.waitFor(120) { ups("vmw") >= 2 }, "4 vera is up again")
     check(mine("vmw").count == 1, "4 your message count stays 1 (\(mine("vmw").count))")
     h.run(["workspace", "stop", "vmw"], timeout: 300)
+
+    // 5. a VM worker of its own
+    func says(_ room: String, _ who: String, _ prefix: String) -> Bool {
+        messages(room).contains { $0["from"] as? String == who && ($0["content"] as? String)?.hasPrefix(prefix) == true }
+    }
+    func envOf(_ me: String) -> [String: String] {
+        var out: [String: String] = [:]
+        for l in text(work.path + "/res-\(me)-env").split(separator: "\n") {
+            guard let eq = l.firstIndex(of: "=") else { continue }
+            out[String(l[..<eq])] = String(l[l.index(after: eq)...])
+        }
+        return out
+    }
+    r = h.run(["workspace", "new", "vw", "--prompt-file", brief, "--folder", work.path], timeout: 60)
+    r = h.run(["workspace", "start", "vw"], timeout: 120)
+    check(r.code == 0, "5 new and start vw (no manager) (\(r.code) \(r.err.prefix(160)))")
+    r = h.run(["worker", "add", "vw", "v1", "--isolation", "vm", "--cpus", "2", "--memory", "2G", "--task", "say hi"], timeout: 900)
+    check(r.code == 0 && r.out.contains("in the sandbox vw-v1"), "5 worker add vw v1 --isolation vm: its own sandbox (\(r.code): \(r.out.prefix(200)) \(r.err.suffix(400)))")
+    check(h.waitFor(120) { says("vw", "v1", "v1 is up: You are v1") }, "5 v1 says it is up (send: \(text(work.path + "/res-v1-send")))")
+    let ms5 = messages("vw")
+    let inv5 = ms5.firstIndex { ($0["content"] as? String)?.lowercased().contains("invited v1") == true }
+    let up5 = ms5.firstIndex { $0["from"] as? String == "v1" }
+    check(inv5 != nil && up5 != nil && inv5! < up5!, "5 …the invite, then v1 (\(inv5 ?? -1), \(up5 ?? -1))")
+    let v1var = text(work.path + "/res-v1-var"), v1file = text(work.path + "/res-v1-file")
+    check(v1var.hasPrefix("doz_cred_") && v1var == v1file, "5 the guest holds only the placeholder (its variable and its file)")
+    check(h.row("vw-v1")?.cpus == 2, "5 …2 CPUs (\(h.row("vw-v1")?.cpus ?? 0))")
+
+    // 6. a second worker in v1's sandbox, as its own participant
+    r = h.run(["worker", "add", "vw", "v2", "--sandbox", "vw-v1", "--task", "say hello too"], timeout: 300)
+    check(r.code == 0 && r.out.contains("shares vw-v1"), "6 worker add vw v2 --sandbox vw-v1 (\(r.code): \(r.out.prefix(300)) \(r.err.suffix(300)))")
+    check(h.waitFor(120) { says("vw", "v2", "v2 is up: You are v2") }, "6 v2 says it is up, as v2 (send: \(text(work.path + "/res-v2-send")))")
+    let e2 = envOf("v2")
+    check(e2["CHAT_TOKEN_V2"]?.hasPrefix("doz_cred_") == true && e2["CHAT_TOKEN"] == e2["CHAT_TOKEN_V2"]
+          && e2["CHAT_TOKEN_FILE"] == e2["CHAT_TOKEN_FILE_V2"] && text(work.path + "/res-v2-path").hasSuffix("/CHAT_TOKEN_V2"),
+          "6 its own variables, aliased for its session: CHAT_TOKEN_FILE is its own file (\(e2.keys.sorted()))")
+    check(text(work.path + "/res-v2-file") == e2["CHAT_TOKEN_V2"], "6 …its file holds its own placeholder")
+    check(h.run(["worker", "ls", "vw"]).out.contains("shares vw-v1: workers there can read each other's placeholders"), "6 worker ls: shares vw-v1")
+    jsons = ""
+    for a in [["worker", "ls", "vw"], ["workspace", "show", "vw"], ["ls"], ["net", "show", "vw-v1"]] { jsons += h.run(a + ["--json"]).out }
+    let leaks6 = holders("dzc_", under: root.path) + holders("dzc_", under: work.path)
+    check(!jsons.contains("dzc_") && leaks6.isEmpty, "6 no dzc_ in the store, the folder or any --json (\(leaks6.prefix(3)))")
+
+    // 7. v2 ended: v1 still talks
+    r = h.run(["worker", "end", "vw", "v2"], timeout: 120)
+    check(r.code == 0, "7 worker end vw v2 (\(r.code) \(r.err.prefix(200)))")
+    let word = "still-here-\(UUID().uuidString.prefix(6))"
+    try? word.write(toFile: work.path + "/say-v1-\(UUID().uuidString.prefix(6))", atomically: true, encoding: .utf8)
+    check(h.waitFor(60) { says("vw", "v1", word) }, "7 v1 still talks")
+    check(h.row("vw-v1")?.phase == "running", "7 …its sandbox runs on")
+
+    // 8. v1 ended: stopped, its disk kept; --rm deletes it
+    r = h.run(["worker", "end", "vw", "v1"], timeout: 300)
+    check(r.code == 0 && h.row("vw-v1")?.phase == "off", "8 worker end vw v1: its sandbox stopped, kept (\(r.code) \(h.row("vw-v1")?.phase ?? "gone"))")
+    r = h.run(["worker", "end", "vw", "v1", "--rm"], timeout: 300)
+    check(r.code == 0 && h.row("vw-v1") == nil, "8 worker end vw v1 --rm: deleted (\(r.code) \(r.err.prefix(200)))")
 }
