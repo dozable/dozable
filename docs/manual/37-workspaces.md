@@ -118,9 +118,9 @@ sessions on this Mac are not in any workspace yet. In the sidebar, **Workspaces*
 rooms and agents; **This Mac › Loose agents** lists the sandboxes and sessions in none, each with **Put in a
 workspace…**. From the dashboard you change two things of a workspace: its brief (**Edit** on its page — announced in the
 room once the work has started) and which agents it holds — putting a loose one in and taking one out (below); in this
-Mac's own browser you also make one (the wizard above) and start one that is setting up (**Start** in its setting-up
-banner, which lists what is still missing and is disabled until nothing is). Stopping and workers are the commands on
-this page. It reads them when it opens, when something changes and when an action
+Mac's own browser you also make one (the wizard above), start one that is setting up (**Start** in its setting-up
+banner, which lists what is still missing and is disabled until nothing is), and add and end its workers (below).
+Stopping is the command on this page. It reads them when it opens, when something changes and when an action
 ends — a workspace made from the command line shows there the next time the page reads them (open Home, or reload).
 
 ## Adopting and releasing agents
@@ -221,6 +221,7 @@ doz worker add demo --from-bot otto --task "review the PR"  # one of your Agents
 doz worker add demo carl --isolation vm --cpus 2 --memory 2G --task "build it"   # in a micro VM of its own
 doz worker ls demo                                          # every agent: where it runs, what isolates it, its state, its task
 doz worker end demo bot1                                    # its session ends; an anonymous one leaves chat
+doz worker add demo --task "list the files" --dry-run       # what it would be, or what would be refused — nothing added
 ```
 
 A worker joins the workspace's room, is told its task in its START file, and says in the room that it is up — Dozable
@@ -248,6 +249,30 @@ nothing is made.
   stays in the room. `--rm` deletes its session's record or its micro VM too. Its name is free again.
 
 `doz workspace stop` stops only the manager; workers go on until you end them.
+
+**A look first.** `doz worker add … --dry-run` runs the add's own checks and says what it would do — the worker's name, its
+program and account (by name: `mac` is this Mac's own login), where it runs and what isolates it, its folder, network and
+rooms — or the first thing it would refuse, in the add's own words, and prints the command that adds the same worker.
+Nothing is added and no daemon is started (with none running, whether its place is free is checked again when you add).
+A task over 1 KiB goes in a file: the command reads it with `--task="$(cat task.txt)"`.
+
+**In the dashboard.** On a workspace's **Agents** tab (or the side panel's **+ Worker**, or an agent's ⋯), **Add a worker**
+opens its page (`#/w/NAME/agents/new`): the agent program (Claude Code or Codex), its name (the next `botN` shown), the
+account it would use (shown, not chosen), its one task, the rooms (the main one always), who it is (anonymous, or one of
+your Agents / Bots that is not live in another workspace) and where — a place of its own, or a new session in a running
+sandbox of the workspace — and **where it runs**: a table of micro VM, fenced, unfenced and cloud (later) side by side —
+what each reaches of your files, network and keys, what controls it, what it costs, whether it has the Mac's tools,
+sleeps with its programs kept or asks for approvals. Fenced is chosen for you unless the workspace's or the bot's default
+is micro VM; **unfenced is never chosen for you**, and adding one needs the tick "It acts as you: your files, Keychain and
+network". Each field is checked as you type — the same check as `--dry-run` — and a refusal shows beside its field;
+**Show the command** is the command `--dry-run` prints. **Add and start** adds it; it then appears in the room and on the
+panel, and says it is up. **End…** in a worker's ⋯ ends it (ticked; its place is kept). Adding and ending are this Mac's
+own browser only — another computer sees the commands.
+
+**Where an agent runs.** Every isolation chip in the dashboard (micro VM, fenced, unfenced, elsewhere) opens **the
+isolation guide** (`#/guide/isolation`) at that choice: the four choices in order of isolation, what each is for and not
+for, and the commands of today. Whatever the choice, your keys never go inside a micro VM or a fenced session; an
+unfenced agent is the one exception, and the reason it always asks. An agent elsewhere is not isolated by Dozable.
 
 ## Changing one
 
