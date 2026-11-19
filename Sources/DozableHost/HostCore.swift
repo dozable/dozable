@@ -119,6 +119,9 @@ public actor HostCore {
     /// How a workspace's manager is started and stopped (nil: the daemon's own, `DaemonManagerLauncher`; tests give a fake).
     var managerLauncherOverride: (any ManagerLauncher)?
     public func setManagerLauncher(_ l: (any ManagerLauncher)?) { managerLauncherOverride = l }
+    /// How a worker is started and ended (nil: the daemon's own, `DaemonWorkerLauncher`; tests give a fake).
+    var workerLauncherOverride: (any WorkerLauncher)?
+    public func setWorkerLauncher(_ l: (any WorkerLauncher)?) { workerLauncherOverride = l }
     /// Launch secrets kept for a worker whose place is not made yet: the sweep leaves their items alone until it is.
     var pendingLaunchSecrets: Set<String> = []
     /// `SANDBOX/SESSION` → the launch secret whose placeholder that ONE session gets in `CHAT_TOKEN` / `CHAT_TOKEN_FILE` (a
@@ -875,6 +878,8 @@ public actor HostCore {
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)
+        case .workerAdd, .workerList, .workerEnd:
+            return try await performWorker(r)
         case .tools, .toolsApply:
             let m = try get(r.name)
             let phase = await m.sandbox.status.phase

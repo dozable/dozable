@@ -169,23 +169,37 @@ public enum WorkspaceSetupCheck {
 
     // MARK: one live workspace per bot
 
-    /// Another workspace's entry for a bot: whether it runs now.
+    /// Another workspace's entry for a bot: whether it runs now, and its role there (`manager` or `worker`).
     public struct Entry: Equatable, Sendable {
         public var workspace: String
         public var bot: String?
         public var running: Bool
-        public init(workspace: String, bot: String?, running: Bool) { self.workspace = workspace; self.bot = bot; self.running = running }
+        public var role: String
+        public init(workspace: String, bot: String?, running: Bool, role: String = "manager") {
+            self.workspace = workspace; self.bot = bot; self.running = running; self.role = role
+        }
     }
 
     /// The live workspace `bot` already runs in, other than `workspace` (nil: none). Live: another workspace's entry for that
-    /// bot is running, or its start is under way (`starting`). Being in another workspace's room, or an entry that does not
-    /// run, does not count.
+    /// bot is running (a worker not ended counts as running), or its start is under way (`starting`). Being in another
+    /// workspace's room, or an entry that does not run, does not count.
     public static func liveElsewhere(bot: String, workspace: String, entries: [Entry], starting: Set<String>) -> String? {
+        liveElsewhereEntry(bot: bot, workspace: workspace, entries: entries, starting: starting)?.workspace
+    }
+
+    /// The same, with the bot's role there.
+    public static func liveElsewhereEntry(bot: String, workspace: String, entries: [Entry], starting: Set<String>) -> Entry? {
         entries.filter { $0.workspace != workspace && $0.bot == bot && ($0.running || starting.contains($0.workspace)) }
-            .map(\.workspace).sorted().first
+            .sorted { $0.workspace < $1.workspace }.first
     }
 
     public static func liveElsewhereRefusal(bot: String, other: String) -> String {
         "\(bot) already manages \(other), which is running. For now a bot runs in one live workspace at a time — doz workspace stop \(other) first."
+    }
+
+    /// The refusal for `bot` live in `e` — as its manager, or as a worker.
+    public static func liveElsewhereRefusal(bot: String, _ e: Entry) -> String {
+        guard e.role == "worker" else { return liveElsewhereRefusal(bot: bot, other: e.workspace) }
+        return "\(bot) already works in \(e.workspace), which is running. For now a bot runs in one live workspace at a time — doz worker end \(e.workspace) \(bot) first."
     }
 }

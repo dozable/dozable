@@ -270,13 +270,17 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// answered with `BotChange` — whose `oneTimeToken` (a bot elsewhere's, this once) is never logged.
     case botList = "bot-ls", botShow = "bot-show", botNew = "bot-new", botSet = "bot-set", botRetire = "bot-retire"
     case botAdopt = "bot-adopt", botToken = "bot-token"
+    /// Workers (`workerRequest`: a `WorkerRequest` — never a token). `worker-ls` (`WorkerListing`) only reads: answered
+    /// in-process when no daemon runs. `-add` (`WorkerAdded`) and `-end` (`WorkerEnded`) make and end a worker — its
+    /// participant, token and place: the daemon's (`HostCore+Workers`).
+    case workerAdd = "worker-add", workerList = "worker-ls", workerEnd = "worker-end"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .botList, .botShow: true
+             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .botList, .botShow, .workerList: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -580,6 +584,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var workspaceRequest: WorkspaceRequest?
     /// The `bot-*` operations' arguments.
     public var botRequest: BotRequest?
+    /// The `worker-*` operations' arguments.
+    public var workerRequest: WorkerRequest?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -1700,14 +1706,18 @@ public struct WorkspaceAgentRow: Codable, Equatable, Sendable {
     /// A sandbox's phase; a session's `running`, `ended`, or `gone` (its record was pruned or its sandbox deleted).
     public var state: String
     public var startedAt: Date
-    /// The Agent / Bot it is (nil: none), its isolation (a manager's), and whether it acts as you (an unfenced manager).
+    /// The Agent / Bot it is (nil: none), its isolation (a manager's or a worker's), and whether it acts as you (an unfenced
+    /// manager or worker).
     public var bot: String?
     public var isolation: String?
     public var actsAsYou: Bool?
+    /// A worker's task (nil: not a worker), and what isolates it, as a person reads it (`WorkerLaunch.control`).
+    public var task: String?
+    public var control: String?
     public init(name: String, role: String, place: String, state: String, startedAt: Date, bot: String? = nil, isolation: String? = nil,
-                actsAsYou: Bool? = nil) {
+                actsAsYou: Bool? = nil, task: String? = nil, control: String? = nil) {
         self.name = name; self.role = role; self.place = place; self.state = state; self.startedAt = startedAt
-        self.bot = bot; self.isolation = isolation; self.actsAsYou = actsAsYou
+        self.bot = bot; self.isolation = isolation; self.actsAsYou = actsAsYou; self.task = task; self.control = control
     }
 }
 
@@ -1814,10 +1824,12 @@ public struct BotRow: Codable, Equatable, Sendable {
     public var manages: [String]
     public var running: String?
     public var retiredAt: Date?
+    /// The workspace it works in now, as a worker (nil: none).
+    public var worksIn: String?
     public init(name: String, agent: String, model: String?, isolation: String, kind: String, deliver: String, inChat: Bool, manages: [String],
-                running: String? = nil, retiredAt: Date?) {
+                running: String? = nil, retiredAt: Date?, worksIn: String? = nil) {
         self.name = name; self.agent = agent; self.model = model; self.isolation = isolation; self.kind = kind; self.deliver = deliver
-        self.inChat = inChat; self.manages = manages; self.running = running; self.retiredAt = retiredAt
+        self.inChat = inChat; self.manages = manages; self.running = running; self.retiredAt = retiredAt; self.worksIn = worksIn
     }
 }
 
@@ -1846,6 +1858,8 @@ public struct BotDetail: Codable, Equatable, Sendable {
     public var manages: [String]
     /// The workspace where its manager runs now (nil: none).
     public var running: String?
+    /// The workspace it works in now, as a worker (nil: none).
+    public var worksIn: String?
     /// Its rooms, as the chat server says them (the CLI asks over your socket while chat runs; nil: not asked).
     public var rooms: [String]?
     /// What the person may want to know or do next.
@@ -1865,4 +1879,98 @@ public struct BotChange: Codable, Equatable, Sendable {
     public var bot: BotDetail
     public var oneTimeToken: String?
     public init(bot: BotDetail, oneTimeToken: String? = nil) { self.bot = bot; self.oneTimeToken = oneTimeToken }
+}
+
+// MARK: workers
+
+/// What a `worker-*` request carries. Never a token: a worker's is made by the daemon (or is its bot's own).
+public struct WorkerRequest: Codable, Equatable, Sendable {
+    /// The workspace.
+    public var workspace: String?
+    /// add: its name (nil: the first free `botN`, or the bot's); end: the worker.
+    public var name: String?
+    /// add: the agent program (`claude-code` — the default — or `codex`); not with `fromBot`.
+    public var agent: String?
+    /// add: what it is to do (its START; the record keeps it).
+    public var task: String?
+    /// add: `fenced` (the default), `vm`, or `unfenced` (only when named).
+    public var isolation: String?
+    /// add: a running sandbox of this workspace to run in (an adopted agent's or another worker's — never the manager's).
+    public var sandbox: String?
+    /// add: its session's name on this Mac (default `W-NAME`).
+    public var session: String?
+    /// add: a new sandbox's size (vm only).
+    public var cpus: Int?
+    public var memory: String?
+    /// add: the bot it is (its identity, token and skills).
+    public var fromBot: String?
+    /// add: other rooms of the workspace it is invited to, by label (it is always in the main room).
+    public var rooms: [String]?
+    /// add: more tools a fenced Claude Code worker may use without asking.
+    public var allowTools: [String]?
+    /// end: delete its place too (its session's record, or its own sandbox).
+    public var rm: Bool?
+    /// ls: ended workers too.
+    public var all: Bool?
+
+    public init(workspace: String? = nil, name: String? = nil) { self.workspace = workspace; self.name = name }
+}
+
+/// One agent of a workspace as `doz worker ls` shows it.
+public struct WorkerRow: Codable, Equatable, Sendable {
+    public var name: String
+    /// `manager`, `adopted` or `worker`.
+    public var role: String
+    public var bot: String?
+    /// As a person types it: a sandbox's name, `@mac/SESSION`.
+    public var place: String
+    /// `fenced`, `vm`, `unfenced` (nil: an adopted agent's is its own).
+    public var isolation: String?
+    /// What isolates it: `proxy · placeholders · guard`, … (`WorkerLaunch.control`).
+    public var control: String
+    /// Its network permissions (a preset's name, or `—`).
+    public var network: String
+    /// `running`, `starting`, `ended`, a sandbox's phase, …
+    public var state: String
+    public var task: String?
+    public var actsAsYou: Bool?
+    /// The sandbox it shares with other agents of the workspace (they can read each other's placeholders).
+    public var shares: String?
+    public init(name: String, role: String, bot: String?, place: String, isolation: String?, control: String, network: String, state: String,
+                task: String?, actsAsYou: Bool?, shares: String?) {
+        self.name = name; self.role = role; self.bot = bot; self.place = place; self.isolation = isolation; self.control = control
+        self.network = network; self.state = state; self.task = task; self.actsAsYou = actsAsYou; self.shares = shares
+    }
+}
+
+/// `worker-ls`: every agent of the workspace (ended workers only when asked).
+public struct WorkerListing: Codable, Equatable, Sendable {
+    public var workspace: String
+    public var agents: [WorkerRow]
+    public init(workspace: String, agents: [WorkerRow]) { self.workspace = workspace; self.agents = agents }
+}
+
+/// `worker-add`: the worker as it runs now, and what to know.
+public struct WorkerAdded: Codable, Equatable, Sendable {
+    public var workspace: String
+    public var worker: WorkerRow
+    /// Its session (on this Mac, or in its sandbox) and its sandbox (nil: on this Mac).
+    public var session: String
+    public var sandbox: String?
+    public var notes: [String]?
+    public init(workspace: String, worker: WorkerRow, session: String, sandbox: String?, notes: [String]?) {
+        self.workspace = workspace; self.worker = worker; self.session = session; self.sandbox = sandbox; self.notes = notes
+    }
+}
+
+/// `worker-end`: what was ended and what was kept.
+public struct WorkerEnded: Codable, Equatable, Sendable {
+    public var workspace: String
+    public var name: String
+    /// Its place was deleted (`--rm`).
+    public var removed: Bool
+    public var notes: [String]?
+    public init(workspace: String, name: String, removed: Bool, notes: [String]?) {
+        self.workspace = workspace; self.name = name; self.removed = removed; self.notes = notes
+    }
 }

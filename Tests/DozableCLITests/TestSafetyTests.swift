@@ -157,4 +157,15 @@ final class TestSafetyTests: XCTestCase {
         XCTAssertNotNil(TestSafety.appOpenViolation(env: [:]), "an XCTest run is guarded whatever its environment")
         XCTAssertNil(TestSafety.appOpenViolation(env: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_REAL_MAC": "1"]), "lifted only deliberately")
     }
+
+    /// A VM worker's stand-ins are read only in a guarded run.
+    func testTheWorkerSeamsOnlyInAGuardedRun() {
+        let env = ["DOZ_TEST_GUARD": "1", "DOZ_TEST_WORKER_IMAGE": "lab", "DOZ_TEST_WORKER_ARGV": #"["/bin/sh", "/workspace/fake.sh"]"#]
+        let s = TestSafety.workerSeams(env)
+        XCTAssertEqual(s.image, "lab")
+        XCTAssertEqual(s.argv, ["/bin/sh", "/workspace/fake.sh"])
+        let lifted = TestSafety.workerSeams(env.merging(["DOZ_TEST_REAL_MAC": "1"]) { _, b in b })
+        XCTAssertNil(lifted.image)
+        XCTAssertNil(lifted.argv)
+    }
 }

@@ -121,7 +121,8 @@ extension HostCore {
             return .init(path: f.path, exists: FileManager.default.fileExists(atPath: f.path, isDirectory: &d) && d.boolValue)
         }
         let sessions = mac.records().sessions
-        let agents = rec.agents.filter { !$0.isManager }.map { a -> WorkspaceSetupCheck.Agent in
+        // The adopted agents (the manager has its own checks; a worker is added once the workspace has started).
+        let agents = rec.agents.filter { !$0.isManager && !$0.isWorker }.map { a -> WorkspaceSetupCheck.Agent in
             if let s = a.place.sandbox { return .init(name: a.name, place: s, kind: "sandbox", exists: managed[s] != nil) }
             if a.place.mac == true, let s = a.place.session {
                 return .init(name: a.name, place: a.place.display, kind: "session", exists: sessions[s] != nil)
@@ -155,15 +156,23 @@ extension HostCore {
                                          manager: manager)
     }
 
-    /// The other live workspace `bot` runs in (nil: none).
-    func liveWorkspace(of bot: String, except w: String) async -> String? {
+    /// The other live workspace `bot` runs in (nil: none): as a running manager, or as a worker not ended.
+    func liveWorkspace(of bot: String, except w: String) async -> WorkspaceSetupCheck.Entry? {
         var entries: [WorkspaceSetupCheck.Entry] = []
         for r in workspaces.records() where r.name != w {
-            for a in r.agents where a.isManager && a.bot == bot {
-                entries.append(.init(workspace: r.name, bot: a.bot, running: await managerRunning(a)))
+            for a in r.agents where a.bot == bot {
+                if a.isManager { entries.append(.init(workspace: r.name, bot: a.bot, running: await managerRunning(a))) }
+                if a.isLiveWorker { entries.append(.init(workspace: r.name, bot: a.bot, running: true, role: "worker")) }
             }
         }
-        return WorkspaceSetupCheck.liveElsewhere(bot: bot, workspace: w, entries: entries, starting: startingWorkspaces)
+        return WorkspaceSetupCheck.liveElsewhereEntry(bot: bot, workspace: w, entries: entries, starting: startingWorkspaces)
+    }
+
+    /// bot → the workspace where it works now, as a worker not ended.
+    func liveWorkers() -> [String: String] {
+        var out: [String: String] = [:]
+        for w in workspaces.records() { for a in w.agents where a.isLiveWorker { if let b = a.bot, out[b] == nil { out[b] = w.name } } }
+        return out
     }
 
     // MARK: start
@@ -184,7 +193,7 @@ extension HostCore {
                 throw HostError(.invalidPhase, "\(n) is not fully set up yet:\n" + gaps.map { "  - " + $0.line }.joined(separator: "\n"))
             }
             if let bot = rec.manager?.bot, let other = await liveWorkspace(of: bot, except: n) {
-                throw HostError(.exists, WorkspaceSetupCheck.liveElsewhereRefusal(bot: bot, other: other))
+                throw HostError(.exists, WorkspaceSetupCheck.liveElsewhereRefusal(bot: bot, other))
             }
             startingWorkspaces.insert(n)
         } catch {
@@ -331,14 +340,15 @@ extension HostCore {
     /// The bot's token as a BOT-HELD launch secret to `host.dozable.internal:<port>`: its value read now (and only while it
     /// is the token recorded) to check it is there; the record carries no item and no value. The reach check holds (the
     /// port is the one the manager is given); there is no source file to check.
-    func botLaunchSecret(_ bot: String, port: Int) throws -> LaunchSecret {
+    func botLaunchSecret(_ bot: String, port: Int, variable: String = ManagerLaunch.tokenVariable,
+                         fileVariable: String = ManagerLaunch.tokenFileVariable) throws -> LaunchSecret {
         guard let b = try bots.read().bot(bot), b.holdsToken else { throw HostError(.invalid, "\(bot)'s token is not held by Dozable — doz bot token \(bot) --new") }
         guard let v = services.keychain.read(service: botService(bot), account: Keychain.user).value,
               BotTokens.fingerprint(v) == b.token.fingerprint else {
             throw HostError(.unavailable, "\(bot)'s token cannot be read from the login keychain — unlock it, or doz bot token \(bot) --new")
         }
-        let (host, p) = try LaunchSecrets.destination("\(HostRoute.hostName):\(port)", variable: ManagerLaunch.tokenVariable)
-        return LaunchSecret(variable: ManagerLaunch.tokenVariable, fileVariable: ManagerLaunch.tokenFileVariable, host: host, port: p,
+        let (host, p) = try LaunchSecrets.destination("\(HostRoute.hostName):\(port)", variable: variable)
+        return LaunchSecret(variable: variable, fileVariable: fileVariable, host: host, port: p,
                             fingerprint: CredentialFingerprint.of(v), keychainService: nil, bot: bot)
     }
 
