@@ -133,6 +133,14 @@ Mac's real home, read-only), `Scripts/fence-freeze.sh` (a person's live run → 
 session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The manual's page is
 `docs/manual/34-sessions-on-this-mac.md` (the five cases, the file model, what the fence is not).
 
+**A workspace's manager is a fenced session too** (`doz workspace start`; workspaces.md, "The manager"):
+`macOpenFenced(botSecrets:managerStart:)` takes a **bot-held** launch secret — `CHAT_TOKEN` (placeholder) and
+`CHAT_TOKEN_FILE` (`etc/secrets/CHAT_TOKEN`), its value read by the proxy from the bot's own keychain item, never copied
+into an item of the session's and never deleted with it — and writes START at `etc/manager/start.md` (host-owned, the
+program reads it). Only the daemon makes one: a client's `--secret` never carries `bot` (`checkedLaunchSecrets` clears
+it). A start after a stop goes through `macReopen(extra:botSecrets:managerStart:)`, so the conversation recorded at the
+stop is resumed with a fresh secret, the same environment and START.
+
 - **The principle:** nothing a fenced program can write is later executed or loaded by anything unfenced, except the
   project's own files. Its temp, every tool cache it knows of, `XDG_CONFIG_HOME` and git's global config are its own
   (`~/Library/Application Support/Dozable/fence/<8 hex of the store>/<session>/`: `tmp/` emptied at every open, `cache/`

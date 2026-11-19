@@ -194,6 +194,8 @@ workspace
 workspace/new
 workspace/ls
 workspace/show
+workspace/start
+workspace/stop
 workspace/adopt
 workspace/release
 workspace/edit
