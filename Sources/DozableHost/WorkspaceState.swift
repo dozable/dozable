@@ -2,7 +2,7 @@ import DozableKit
 import Foundation
 
 /// A workspace's lifecycle state — derived from what its agents are doing, except finished and archived, which are
-/// recorded (`WorkspaceFlags`), and setting up (no agent yet, never started). ONE pure function (`derive`), table-tested
+/// recorded (`WorkspaceFlags`), and setting up (never started and never had a running agent). ONE pure function (`derive`), table-tested
 /// (`WorkspaceStateTests`). Who drives it sits beside the state (always "you" in this version): `setting up · you`.
 /// The JSON value is the raw value (`setting-up`); a person reads `words`.
 public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
@@ -25,6 +25,8 @@ public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
         case asleep
         /// A sandbox that failed, or a session whose program ended in error.
         case failed
+        /// A manager recorded but never started (no session or sandbox yet).
+        case notStarted
     }
 
     public struct Input: Equatable, Sendable {
@@ -32,17 +34,22 @@ public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
         public var flags: WorkspaceFlags
         /// Open Asks addressed to you (none until Asks exist).
         public var openAsksForYou: Int
-        public init(agents: [Agent], flags: WorkspaceFlags = WorkspaceFlags(), openAsksForYou: Int = 0) {
-            self.agents = agents; self.flags = flags; self.openAsksForYou = openAsksForYou
+        /// `doz workspace start` is under way for it.
+        public var starting: Bool
+        public init(agents: [Agent], flags: WorkspaceFlags = WorkspaceFlags(), openAsksForYou: Int = 0, starting: Bool = false) {
+            self.agents = agents; self.flags = flags; self.openAsksForYou = openAsksForYou; self.starting = starting
         }
     }
 
-    /// archived → finished → setting up (no agents, never had one) → starting → waiting on you (a session blocked or in error,
-    /// a sandbox failed, an open Ask for you) → working → idle → asleep. The first that holds wins.
+    /// archived → finished → starting (`doz workspace start` under way) → setting up (never started and never had a running agent: `startedAt` and `firstAgentAt` both
+    /// nil — a recorded manager is `notStarted`) → starting (a sandbox booting) → waiting on you (a
+    /// session blocked or in error, a sandbox failed, an open Ask for you) → working → idle → asleep (a manager stopped, its
+    /// sandbox stopped, or no agent at all once started). The first that holds wins. A `notStarted` agent counts as asleep.
     public static func derive(_ i: Input) -> WorkspaceState {
         if i.flags.archivedAt != nil { return .archived }
         if i.flags.finishedAt != nil { return .finished }
-        if i.agents.isEmpty && i.flags.firstAgentAt == nil { return .settingUp }
+        if i.starting { return .starting }
+        if i.flags.startedAt == nil && i.flags.firstAgentAt == nil { return .settingUp }
         if i.agents.contains(.starting) { return .starting }
         let sessions = i.agents.flatMap { if case .running(let s) = $0 { return s } else { return [] } }
         if i.openAsksForYou > 0 || i.agents.contains(.failed) || sessions.contains("blocked") || sessions.contains("error") {
