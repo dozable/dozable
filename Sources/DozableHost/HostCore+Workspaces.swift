@@ -78,9 +78,11 @@ extension HostCore {
             }
             return try JSONValue(encoding: d)
         case .workspaceLog:
-            let n = try workspaceName(w)
-            _ = try workspaceRecord(n)
-            return try JSONValue(encoding: try workspaces.log(n, since: w.since))
+            return try workspaceLogAnswer(w)
+        case .workspaceReach:
+            return try JSONValue(encoding: try await workspaceReach(w))
+        case .workspaceFolders:
+            return try JSONValue(encoding: try await workspaceFolders(w))
         case .workspacePlan:
             return try JSONValue(encoding: await workspacePlan(w))
         case .workspaceLifecyclePlan:

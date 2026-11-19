@@ -1777,6 +1777,32 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   </div></div>
 </section>
 
+<section id="sg-wide-views">
+  <h2>A workspace's wide views — Can do, Network &amp; secrets, Folders &amp; points, Activity</h2>
+  <p>An agent's Can do (<code>components/can-do.js</code>, <code>.cando-table</code>): one row per capability, its state now, what it opens and
+    whether it changes live or at the next start (<code>.cando-when</code>); an unfenced agent's control row is the warning chip
+    (<code>.is-warn</code>, <code>.ws-chip.acts-as-you</code>); the two later rows are drawn disabled with "later" (<code>.is-later</code>). Network
+    &amp; secrets (<code>views/ws-network.js</code>): the permissions per agent (<code>.wsn-table</code>, the new workers' row <code>.is-default</code>),
+    Refused lately with Allow for one agent or For all (<code>.wsn-refused</code>), held secrets by name and the footer that no value is shown.
+    Folders &amp; points (<code>views/ws-folders.js</code>): a folder's card with its changes (<code>.wsf-kind</code> A · M) and the honest line.
+    Activity (<code>views/ws-activity.js</code>): the log and this dashboard's operations in one list (<code>.wsc-list</code>). Below 760 px each
+    table row is a card.</p>
+  <div class="pair"><div class="scheme">
+    <table class="cando-table"><thead><tr><th scope="col">Capability</th><th scope="col">Now</th><th scope="col">What it opens</th><th scope="col">Changes</th></tr></thead><tbody>
+      <tr><th scope="row">Network</th><td><span class="cando-state">through Dozable's proxy (standard)</span></td><td class="cando-sentence">Reaches only what its permissions allow; every connection is logged.</td><td><span class="cando-when" data-when="live">live</span></td></tr>
+      <tr class="is-warn"><th scope="row">Control</th><td><span class="ws-chip acts-as-you"><i data-i="triangle-alert"></i>acts as you</span></td><td class="cando-sentence">Acts as you — runs doz and anything else as you.</td><td><span class="cando-when" data-when="restart">next start</span></td></tr>
+      <tr class="is-later" aria-disabled="true"><th scope="row">Permissions (allow · ask · never)</th><td><span class="ws-coming">later</span></td><td class="cando-sentence muted">What it may do here, by role, and who decides — later.</td><td>—</td></tr>
+    </tbody></table>
+    <ul class="wsn-refused"><li><span class="wsn-what"><b>bot3</b> → fonts.example-cdn.com:443<span class="muted"> ×6</span></span><span class="ws-sp"></span>
+      <button type="button" class="btn sm">Allow for bot3</button><button type="button" class="btn sm quiet">For all (3)</button></li></ul>
+    <p class="wsn-foot muted">Nothing here shows a secret: a name, where it goes and a fingerprint. The values stay in your keychain.</p>
+    <div class="panel wsf-folder"><div class="wsf-head"><span class="wsf-path"><i data-i="folder"></i>~/video/launch-video</span><span class="ws-chip">rw</span><span class="ws-chip">main</span></div>
+      <ul class="wsf-changes"><li><span class="wsf-kind" data-kind="A">A</span><code>src/scenes/Scene1.tsx</code></li><li><span class="wsf-kind" data-kind="M">M</span><code>src/LaunchVideo.tsx</code></li></ul></div>
+    <ol class="wsc-list"><li><span class="wsc-time">10:07:12</span><span class="wsc-who"><span class="ws-chip"><i data-i="activity"></i>operation</span></span><span class="wsc-text">sleep launch-video — launch-video is asleep</span></li>
+      <li><span class="wsc-time">10:05:40</span><span class="wsc-who">Dozable</span><span class="wsc-text">added the worker bot1 (fenced)</span></li></ol>
+  </div></div>
+</section>
+
 <section id="sg-lifecycle">
   <h2>A workspace's lifecycle — the primary button, the plan's dialog, the typed name, a transitional pill</h2>
   <p>The title row's one primary button by state (Start, Sleep, Wake, Reopen, Restore) and the ⋯ menu's Stop the manager · Sleep everything ·

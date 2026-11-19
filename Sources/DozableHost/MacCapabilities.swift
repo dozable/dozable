@@ -67,7 +67,7 @@ public struct MacCapabilityShape: Sendable, Equatable {
         hostPorts = f.hostPorts ?? []
         secrets = f.secrets ?? []
         hasNetwork = f.proxyPort != nil
-        preset = f.policy.flatMap { $0.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
+        preset = f.policy.flatMap { PermissionPolicy.presetWord($0, base: AgentPermissions.macBase) }
         network = f.proxyPort == nil ? nil : "waiting (no daemon)"
         if let id = f.agent, let recipe = AgentRecipes.macAgent(program: id), let m = recipe.launch.macConfig {
             agent = recipe.title
@@ -97,7 +97,7 @@ public struct MacCapabilityShape: Sendable, Equatable {
         s.localPorts = q.localPorts ?? []
         s.hostPorts = q.hostPorts ?? []
         s.preset = (try? MacFenceNetwork.policy(words: q.permissions ?? ["standard"]))
-            .flatMap { p in p.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
+            .flatMap { p in PermissionPolicy.presetWord(p, base: AgentPermissions.macBase) }
         s.bridges = MacFenceBridges.resolve(q, settings: settings)
         s.profile = q.profile
         s.github = q.github

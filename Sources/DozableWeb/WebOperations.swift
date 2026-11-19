@@ -616,6 +616,8 @@ final class WebOperations: @unchecked Sendable {
             return "ended \(n) in \(w)" + ((try? v.decode(WorkerEnded.self))?.notes.map { $0.isEmpty ? "" : " — " + $0.joined(separator: "; ") } ?? "")
         case .workspaceLifecycle(let verb, let w):
             return Self.lifecycleSummary(verb, w.name ?? "?", v)
+        case .macNetPolicy(let session, let grant):
+            return "allowed \(grant.map { String($0.dropFirst(5)) }.joined(separator: ", ")) for session \(session) on this Mac — from its next connection"
         case .macSessionBridges(let session, _, _, _):
             return (try? v.decode(SessionBridges.self))?.changed.map { "session \(session) on this Mac: \($0) — from the next one" }
                 ?? "session \(session) on this Mac: bridges unchanged"

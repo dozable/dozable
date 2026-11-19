@@ -342,6 +342,37 @@ final class WebHTTPIntegrationTests: XCTestCase {
 
     /// `POST /api/v1/workspace-lifecycle-plan`: CSRF, the workspace and the verb strictly (400 before any call; no field but
     /// the flags), exactly one read-only call (200), the answer field by field — never a token.
+    /// The three wide-view reads: POST with the workspace in the body, CSRF, strict bodies (400 before any call), 405, 401;
+    /// each exactly one call; this Mac's own browser sees held secrets by name.
+    func testTheWorkspaceViewRoutes() async throws {
+        try await start()
+        let (cookie, csrf) = try signIn()
+        let h = ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"]
+        for (path, good, bads) in [
+            ("/api/v1/workspace-reach", #"{"workspace":"demo","agent":"wsa"}"#,
+             [#"{}"#, #"{"workspace":"-bad"}"#, #"{"workspace":"demo","agent":"../x"}"#, #"{"workspace":"demo","extra":1}"#, "[]"]),
+            ("/api/v1/workspace-folders", #"{"workspace":"demo"}"#, [#"{"workspace":"demo","agent":"wsa"}"#, #"{"workspace":"Demo"}"#]),
+            ("/api/v1/workspace-activity", #"{"workspace":"demo","before":40,"limit":2}"#,
+             [#"{"workspace":"demo","limit":501}"#, #"{"workspace":"demo","limit":0}"#, #"{"workspace":"demo","before":-1}"#, #"{"workspace":"demo","since":1}"#]),
+        ] {
+            XCTAssertEqual(try get(path, ["Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"], method: "POST", body: good).status, 401, path)
+            XCTAssertEqual(try get(path, ["Cookie": cookie, "Origin": origin, "Content-Type": "application/json"], method: "POST", body: good).status, 403, "\(path): CSRF")
+            XCTAssertEqual(try get(path, ["Cookie": cookie], method: "PUT").status, 405, path)
+            let before = fake.workspaceCalls.count
+            for b in bads { XCTAssertEqual(try get(path, h, method: "POST", body: b).status, 400, "\(path) \(b)") }
+            XCTAssertEqual(fake.workspaceCalls.count, before, "no call for a refused request (\(path))")
+            let r = try get(path, h, method: "POST", body: good)
+            XCTAssertEqual(r.status, 200, r.text)
+            XCTAssertEqual(fake.workspaceCalls.count, before + 1, path)
+            XCTAssertFalse(r.text.contains("\"token\":") || r.text.contains("\"value\":") || r.text.contains("\"secrets\":"), r.text)
+        }
+        XCTAssertEqual(fake.workspaceCalls.suffix(3), ["reach demo wsa", "folders demo", "activity demo 40 2"])
+        let reach = try JSONDecoder().decode(WebWorkspaceReach.self, from: try get("/api/v1/workspace-reach", h, method: "POST", body: #"{"workspace":"demo"}"#).body)
+        XCTAssertEqual(reach.agents.first?.held.first?.name, "MUSIC_API_TOKEN", "this Mac's own browser: held secrets by name")
+        XCTAssertEqual(reach.agents.first?.heldCount, 1)
+        XCTAssertEqual(fake.performedOps, [], "reads: no operation")
+    }
+
     func testTheLifecyclePlanRoute() async throws {
         try await start()
         let (cookie, csrf) = try signIn()
@@ -795,6 +826,35 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         p.sha = "0123456789abcdef"
         p.confirm = WorkspaceVerb(rawValue: w.verb ?? "")?.confirm.rawValue ?? "none"
         return p
+    }
+
+    /// The wide views: one VM agent and one fenced agent on this Mac, each holding a secret by name; a folder each; a page of
+    /// the log with a line about a session on this Mac.
+    func workspaceReach(_ w: WorkspaceRequest) async throws -> WorkspaceReach {
+        lock.withLock { _workspaceCalls.append("reach \(w.name ?? "") \(w.agent ?? "-")") }
+        guard w.name == "demo" else { throw HostError(.notFound, "\(w.name ?? "") is not a workspace (doz workspace ls)") }
+        let held = HeldSecret(name: "MUSIC_API_TOKEN", to: "api.music.example:443", header: "authorization (Bearer)", fingerprint: "abcdef012345", kind: "given")
+        func agent(_ n: String, _ kind: String, _ place: String) -> AgentReach {
+            AgentReach(name: n, role: "worker", isolation: kind == "mac" ? "fenced" : "vm", place: place, kind: kind, control: "proxy · placeholders · guard",
+                       actsAsYou: false, state: "running", capabilities: [AgentCapabilities.control(role: "worker", isolation: "fenced")],
+                       network: AgentNetworkReach(proxied: true, live: true, preset: "agent", sites: [], hostPorts: [], forwarded: [],
+                                                  refused: [ReachRefusal(host: "fonts.example-cdn.com", port: 443, count: 6, lastAt: nil, grant: "site:fonts.example-cdn.com")]),
+                       held: [held], folders: [ReachFolder(path: "/tmp/w", mode: "rw")], account: "mac", rooms: ["demo"])
+        }
+        return WorkspaceReach(workspace: "demo", agents: [agent("wsa", "sandbox", "wsa"), agent("build", "mac", "@mac/build")],
+                              defaults: .init(isolation: "fenced", network: "locked"), refusalsKnown: true)
+    }
+    func workspaceFolders(_ w: WorkspaceRequest) async throws -> WorkspaceFolders {
+        lock.withLock { _workspaceCalls.append("folders \(w.name ?? "")") }
+        let f = WorkspaceFolders.Folder(path: "/tmp/w", mode: "rw", main: true, workspace: true, exists: true, rules: .init(ignore: 1, readonly: nil),
+                                        agents: ["wsa"], changes: [WorkspaceFileChange(kind: "A", path: "src/a.swift")], count: 1, truncated: false,
+                                        scanned: 3, hidden: nil)
+        return WorkspaceFolders(workspace: w.name ?? "", since: Date(timeIntervalSince1970: 0), folders: [f], points: [])
+    }
+    func workspaceActivity(_ w: WorkspaceRequest) async throws -> WorkspaceLogPage {
+        lock.withLock { _workspaceCalls.append("activity \(w.name ?? "") \(w.before.map(String.init) ?? "-") \(w.limit.map(String.init) ?? "-")") }
+        return WorkspaceLogPage(entries: [WorkspaceLogEntry(action: "adopted", agent: "build", place: "mac:build"), WorkspaceLogEntry(action: "created")],
+                                first: 12, more: true)
     }
 
     func workerPlan(_ q: WorkerRequest) async throws -> WorkerPlan {

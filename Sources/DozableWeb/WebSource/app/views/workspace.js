@@ -3,14 +3,15 @@
 // title row (its name, state, who drives, its manager, one primary button by state — Start, Sleep, Wake, Reopen, Restore —
 // and ⋯ with its lifecycle: Stop the manager, Sleep and Wake everything, Finish…, Archive…, Delete…, each a dialog drawn from
 // its plan — components/ws-lifecycle.js),
-// the tabs (Room and Agents work; the others say what they will hold), the brief ("The work", components/ws-brief.js), the room — THE chat surface of the Chat page, moved here
+// the tabs (Room, Agents, Network & secrets, Folders & points and Activity work — views/ws-network.js, ws-folders.js,
+// ws-activity.js, each read afresh on every visit; Permissions and Settings say what they will hold), the brief ("The work", components/ws-brief.js), the room — THE chat surface of the Chat page, moved here
 // (views/chat.js mountChat) and scoped to this workspace's rooms, its log's lines drawn among the messages — and the side
 // panel (components/ws-panel.js). Read on arrival, hello, `changed` and an operation's end — never on a timer.
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { actOrThrow, waitForOp } from '../core/operations.js';
-import { agentsHash, workspaceHash } from '../core/routes.js';
+import { activityHash, agentsHash, foldersHash, networkHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { loadBots, loadWorkspace, loadWorkspaces } from '../core/workspaces.js';
 import { briefEdits, forRoom, lineAt, mergeLines } from '../core/ws-log.js';
@@ -30,6 +31,9 @@ import { chatRefresh, mountChat } from './chat.js';
 import { drawSys } from './chat-messages.js';
 import { openRoom, refreshState } from './chat-rooms.js';
 import { agentsTab } from './ws-agents.js';
+import { networkTab } from './ws-network.js';
+import { foldersTab } from './ws-folders.js';
+import { activityTab } from './ws-activity.js';
 
 /// The permissions tab's name — ONE constant (the owner's choice; every place that names the tab reads it).
 export const PERMISSIONS_TAB = 'Permissions';
@@ -37,10 +41,10 @@ export const PERMISSIONS_TAB = 'Permissions';
 export const WS_TABS = [
   { id: 'room', label: 'Room', href: (w) => workspaceHash(w) },
   { id: 'agents', label: 'Agents', href: (w) => agentsHash(w) },
-  { id: 'permissions', label: PERMISSIONS_TAB, coming: 'What each agent may do here: allow, ask or never, by role, and who decides' },
-  { id: 'network', label: 'Network & secrets', coming: 'The sites its agents reach, the ports forwarded, the secrets they hold as placeholders' },
-  { id: 'folders', label: 'Folders & points', coming: 'Its folders, what changed in them, and restore points' },
-  { id: 'activity', label: 'Activity', coming: 'Everything that happened: its log, operations, what each agent did' },
+  { id: 'permissions', label: PERMISSIONS_TAB, coming: 'What each agent may do here: allow, ask or never, by role, and who decides — today: each agent’s Can do' },
+  { id: 'network', label: 'Network & secrets', href: (w) => networkHash(w) },
+  { id: 'folders', label: 'Folders & points', href: (w) => foldersHash(w) },
+  { id: 'activity', label: 'Activity', href: (w) => activityHash(w) },
   { id: 'settings', label: 'Settings', coming: 'Its defaults: isolation, network, the manager, finishing and archiving' },
 ];
 const FOLD_KEY = (w) => 'doz.ws.fold:' + w;
@@ -66,7 +70,8 @@ function build() {
         h('div', { class: 'ws-brief-slot', id: 'ws-brief' }),
         h('div', { class: 'ws-room', id: 'ws-room', role: 'region', 'aria-label': 'The room' })),
       h('aside', { class: 'ws-panel', id: 'ws-panel', 'aria-label': 'Who is here and in what' })),
-    h('div', { class: 'ws-agents-tab', id: 'ws-agents', hidden: true, role: 'tabpanel', 'aria-label': 'Agents' }));
+    h('div', { class: 'ws-agents-tab', id: 'ws-agents', hidden: true, role: 'tabpanel', 'aria-label': 'Agents' }),
+    h('div', { class: 'ws-view-tab', id: 'ws-view', hidden: true, role: 'tabpanel' }));
 }
 
 /// The tab row's state for `name` on `tab` (null: the room): each working tab is a link to its address.
@@ -79,9 +84,27 @@ function paintTabs(name, tab) {
     el.setAttribute('aria-selected', on ? 'true' : 'false');
     el.classList.toggle('is-on', on);
   }
-  const agents = tab === 'agents';
-  $('ws').querySelector('.ws-body').hidden = agents;
+  const agents = tab === 'agents', view = VIEW_TABS.includes(tab);
+  $('ws').querySelector('.ws-body').hidden = !!tab;
   $('ws-agents').hidden = !agents;
+  $('ws-view').hidden = !view;
+  if (view) $('ws-view').setAttribute('aria-label', WS_TABS.find((t) => t.id === tab).label);
+}
+
+/// The tabs drawn from a read of their own (each read afresh on every visit).
+const VIEW_TABS = ['network', 'folders', 'activity'];
+
+/// The places of the workspace's agents, as a person types them (the activity's operations are filtered by them).
+const placesOf = (d) => d.agents.map((a) => (a.kind === 'sandbox' ? a.sandbox : a.kind === 'mac' ? '@mac/' + a.session : null)).filter(Boolean);
+
+/// Draw a view tab: `fresh` on arrival (everything read again), else its own refresh (Activity: the newest page merged).
+function drawView(fresh) {
+  if (!cur || !VIEW_TABS.includes(cur.tab) || !cur.detail) return;
+  const host = $('ws-view'), name = cur.name;
+  if (fresh) host.replaceChildren(h('p', { class: 'muted' }, 'reading…'));
+  if (cur.tab === 'network') networkTab(name, host);
+  else if (cur.tab === 'folders') foldersTab(name, host, cur.detail);
+  else activityTab(name, host, placesOf(cur.detail), fresh);
 }
 
 function folded(name, label) {
@@ -168,6 +191,7 @@ export async function wsEnter(name, label, tab) {
   draw();
   // The sidebar's tree marks this page; a page opened here first reads the list once (never on a timer).
   if (state.workspaces) renderNavWorkspaces(); else loadWorkspaces(1000).then(() => renderNavWorkspaces()).catch(() => { /* the next hello */ });
+  if (VIEW_TABS.includes(tab)) { drawView(true); window.scrollTo(0, 0); return; }     // read afresh on every visit
   if (tab === 'agents') { window.scrollTo(0, 0); return; }       // the room is mounted when its tab is shown
   await mountChat({ room: $('ws-room'), people: peopleSlot }, scope(), wr ? wr.room : null);
   drawSys();
@@ -187,7 +211,10 @@ export async function wsRefresh() {
   cur.brief = b.brief; cur.denied = b.denied;
   if (log) { cur.lines = mergeLines(cur.lines, log.lines); cur.logHidden = log.hidden; }
   draw();
-  if (cur.tab === 'agents') return;
+  // Activity follows a change (its newest page); Network & secrets and Folders & points are read on each visit only — a
+  // walk of the folders is never run on an event.
+  if (cur.tab === 'activity') drawView(false);
+  if (cur.tab) return;
   chatRefresh();
   drawSys();
 }
@@ -227,7 +254,7 @@ async function lifecycleDone(end) {
   await wsRefresh();
   // An archive or a restore changed what its room is: the chat server's state read again, the room shown as it now is
   // (the archived notice, the composer off — or back on).
-  if (cur && cur.tab !== 'agents' && state.chat.room) { await refreshState(); await openRoom(state.chat.room); }
+  if (cur && !cur.tab && state.chat.room) { await refreshState(); await openRoom(state.chat.room); }
 }
 
 function draw() {

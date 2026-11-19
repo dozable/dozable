@@ -2,8 +2,9 @@
 // `LEGACY`). Pure: no DOM, no state. The router replaces an old address with its canonical one first, then parses.
 //
 // Today's addresses: #/home · #/chat[/ROOM] · #/w/NAME[/room/LABEL] (a workspace's page, its main room or another of its
-// rooms by its short label) · #/w/NAME/agents (its Agents tab) · #/w/NAME/agent/AGENT[/SESSION|~home] (an agent's screen:
-// its sandbox's or its session's page, framed by the workspace) · #/bots · #/bots/~new (a new Agent / Bot) · #/bots/NAME[/TAB]
+// rooms by its short label) · #/w/NAME/agents (its Agents tab) · #/w/NAME/network, /folders, /activity (its Network &
+// secrets, Folders & points and Activity tabs) · #/w/NAME/agent/AGENT[/SESSION|~home] (an agent's screen: its sandbox's or
+// its session's page, framed by the workspace) · #/w/NAME/agent/AGENT/can-do (what it can do) · #/bots · #/bots/~new (a new Agent / Bot) · #/bots/NAME[/TAB]
 // (one Agent / Bot: across its workspaces, or an edit tab — BOT_TABS) · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
 // #/mac/here[/SESSION] (the sessions on this Mac), #/mac/sessions, #/mac/sandboxes, #/mac/loose, #/mac/macs (Your Macs), #/mac/templates[/browse |
 // /V/P], #/mac/images, accounts, resources, devices, doctor, settings, debug, #/mac/logs/<operations|activity|notifications|
@@ -36,6 +37,8 @@ const SESSION = '[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}';
 const BOT = '[a-z][a-z0-9-]{0,39}';
 /// A bot screen's tabs after "Across workspaces" (its own address, #/bots/NAME): the edit tabs, then Roles & ceiling.
 export const BOT_TABS = ['identity', 'runs', 'reached', 'instructions', 'account', 'roles'];
+/// A workspace's tabs that have an address of their own (the room is #/w/NAME itself).
+export const WS_VIEW_TABS = ['agents', 'network', 'folders', 'activity'];
 /// The isolation guide's choices, in order of isolation (core/isolation.js has their words).
 export const GUIDE_ISOLATIONS = ['vm', 'fenced', 'unfenced', 'elsewhere'];
 
@@ -52,8 +55,6 @@ export const LEGACY = [
   [new RegExp('^#/(' + LOG_PAGES.join('|') + ')$'), (m) => '#/mac/logs/' + m[1]],
   [/^#\/mac\/logs\/?$/, () => '#/mac/logs/operations'],
   [/^#\/general$/, () => '#/chat'],
-  // An agent's "Can do" has no page yet: the address lands on the agent.
-  [new RegExp('^#/w/(' + WORKSPACE + ')/agent/(' + AGENT + ')/can-do$'), (m) => '#/w/' + m[1] + '/agent/' + m[2]],
   [/^#\/needs-you$/, () => HOME],
   [/^#\/?$/, () => HOME],
   [/^$/, () => HOME],
@@ -99,9 +100,10 @@ export function parse(hash) {
   if ((m = new RegExp('^#/mac/logs/(' + LOG_PAGES.join('|') + ')$').exec(hash))) return r(m[1]);
   if ((m = /^#\/chat(?:\/([a-z0-9][a-z0-9_-]{0,63}))?$/.exec(hash))) return r('chat', { param: m[1] });
   if ((m = new RegExp('^#/w/(' + WORKSPACE + ')(?:/room/(' + ROOM_LABEL + '))?$').exec(hash))) return r('workspace', { param: m[1], room: m[2] });
-  if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/agents$').exec(hash))) return r('workspace', { param: m[1], tab: 'agents' });
+  if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/(' + WS_VIEW_TABS.join('|') + ')$').exec(hash))) return r('workspace', { param: m[1], tab: m[2] });
   if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/agents/new$').exec(hash))) return r('addworker', { param: m[1] });
   if ((m = new RegExp('^#/guide/isolation(?:/(' + GUIDE_ISOLATIONS.join('|') + '))?$').exec(hash))) return r('guide', { param: m[1] });
+  if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/agent/(' + AGENT + ')/can-do$').exec(hash))) return r('wsagent', { param: m[1], agent: m[2], tab: 'can-do' });
   if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/agent/(' + AGENT + ')(?:/(~home|' + SESSION + '))?$').exec(hash)) && m[3] !== 'can-do') {
     return r('wsagent', { param: m[1], agent: m[2], session: m[3] });
   }
@@ -123,6 +125,12 @@ export function guideHash(id) { return '#/guide/isolation' + (id ? '/' + id : ''
 export function addWorkerHash(name) { return '#/w/' + name + '/agents/new'; }
 /// A workspace's Agents tab.
 export function agentsHash(name) { return '#/w/' + name + '/agents'; }
+/// A workspace's Network & secrets, Folders & points and Activity tabs.
+export function networkHash(name) { return '#/w/' + name + '/network'; }
+export function foldersHash(name) { return '#/w/' + name + '/folders'; }
+export function activityHash(name) { return '#/w/' + name + '/activity'; }
+/// What an agent of a workspace can do.
+export function canDoHash(workspace, agent) { return '#/w/' + workspace + '/agent/' + encodeURIComponent(agent) + '/can-do'; }
 /// An agent's screen in its workspace (`session`: a session of its sandbox, or `~home`).
 export function agentHash(workspace, agent, session) {
   return '#/w/' + workspace + '/agent/' + encodeURIComponent(agent) + (session ? '/' + session : '');

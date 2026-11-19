@@ -343,6 +343,13 @@ public enum PermissionPolicy {
     }
 
     /// The checklist, the preset, the sites and the suggestions from `log` (denied connections).
+    /// The preset a policy reads as — `locked` · `agent` (Standard) · `open`, or nil (custom: a site or rule beyond a preset).
+    /// The ONE source: the permissions report (`doz net show`, the Network tabs) and "what it can do" (`MacFence.capabilities`,
+    /// a workspace's Can do) both say this, so a site allowed makes both say custom.
+    public static func presetWord(_ policy: NetworkPolicy, base: String?) -> String? {
+        policy.permissions == nil ? AgentPermissions.presetName(inferred(policy).names, base: base) : policy.preset
+    }
+
     public static func report(name: String, policy: NetworkPolicy, base: String?, log: [ConnectionRecord],
                               hostPorts: [HostPort]? = nil, hostPortsLive: Bool = true) -> PermissionReport {
         let inferredMode = policy.permissions == nil
@@ -404,7 +411,7 @@ public enum PermissionPolicy {
             if !byGrant[grant]!.hosts.contains(host) { byGrant[grant]!.hosts.append(host) }
             byGrant[grant]!.count += 1
         }
-        var rep = PermissionReport(name: name, base: base, preset: inferredMode ? AgentPermissions.presetName(names, base: base) : policy.preset,
+        var rep = PermissionReport(name: name, base: base, preset: presetWord(policy, base: base),
                                    permissions: rows, sites: sites, denied: Array(Set(deniedRecs.map(\.host))).sorted(),
                                    suggestions: order.prefix(12).compactMap { byGrant[$0] }, inferred: inferredMode)
         // 691: an open port that was refused before it was opened is no longer a suggestion.

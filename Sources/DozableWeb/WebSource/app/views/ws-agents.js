@@ -10,7 +10,7 @@ import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { full, mib, when } from '../core/format.js';
-import { agentHash, agentsHash, workspaceHash } from '../core/routes.js';
+import { agentHash, agentsHash, canDoHash, workspaceHash } from '../core/routes.js';
 import { isRemote } from '../core/session.js';
 import { state } from '../core/state.js';
 import { callout } from '../components/callout.js';
@@ -19,6 +19,7 @@ import { confirmAction } from '../components/dialog.js';
 import { moreMenu } from '../components/menus.js';
 import { pageFailure, toast } from '../components/notices.js';
 import { agentChips } from '../components/agent-frame.js';
+import { canDoTable } from '../components/can-do.js';
 import { putInWorkspace, takeOut, filingRefusal, releaseCommand } from '../components/put-in-workspace.js';
 import { restartSessionDialog } from '../components/session-actions.js';
 import { programName } from '../components/ws-panel.js';
@@ -152,6 +153,7 @@ export async function viewWsAgent() {
     h('span', { class: 'agent-crumb-sep', 'aria-hidden': 'true' }, '›'), back, h('span', { class: 'agent-crumb-sep', 'aria-hidden': 'true' }, '›'),
     h('span', { class: 'agent-crumb-here', 'aria-current': 'page' }, f.agent));
   const head = (a) => h('div', { class: 'head' }, h('h1', null, f.agent), a ? h('span', { class: 'chips' }, h('span', { class: 'ws-chip' }, a.role), ...agentChips(a)) : null);
+  if (f.tab === 'can-do' && f.detail && f.row) return canDoPage(f, crumb, head);
   if (!f.detail) {
     return h('div', { class: 'wsa-card-page', 'data-agent-card': 'unreadable' }, crumb, head(null),
       callout(f.error && f.error.status === 404 ? 'warn' : 'bad', { title: f.error && f.error.status === 404 ? f.workspace + ' is not a workspace' : 'This workspace could not be read',
@@ -188,6 +190,27 @@ export async function viewWsAgent() {
       h('dt', null, 'Started by'), h('dd', null, (a.startedBy || 'you') + ' · ' + when(a.startedAt))));
 }
 const d0 = (f) => f.detail && f.detail.state === 'setting-up';
+
+/// #/w/NAME/agent/AGENT/can-do — what the agent can do, read afresh on every visit (`workspace-reach` for this agent: one
+/// read-only request, no daemon started).
+async function canDoPage(f, crumb, head) {
+  const a = f.row;
+  const tabs = h('div', { class: 'cando-tabs', role: 'tablist', 'aria-label': f.agent },
+    h('a', { role: 'tab', class: 'ws-tab', href: agentHash(f.workspace, a.name), 'aria-selected': 'false' }, a.kind === 'elsewhere' ? 'Its card' : 'Its screen'),
+    h('a', { role: 'tab', class: 'ws-tab is-on', href: canDoHash(f.workspace, a.name), 'aria-selected': 'true' }, 'Can do'));
+  let reach = null, error = null;
+  try { reach = await api('workspace-reach', { method: 'POST', json: { workspace: f.workspace, agent: a.name } }); } catch (e) { error = e; }
+  const r = reach && reach.agents.find((x) => x.name === a.name);
+  const body = error ? callout('bad', { title: 'What it can do could not be read', body: error.message || String(error) })
+    : !r ? callout('info', { title: 'Not shown to this browser', body: a.name + ' runs on this Mac, and this browser is not shown its sessions (serve.mac_sessions).' })
+    : canDoTable(r);
+  return h('div', { class: 'wsa-card-page cando-page', 'data-cando-page': a.name }, crumb, head(a), tabs,
+    h('p', { class: 'muted cando-key' }, 'Only what is true today. ', h('span', { class: 'cando-when', 'data-when': 'live' }, 'live'), ' changes now · ',
+      h('span', { class: 'cando-when', 'data-when': 'restart' }, 'next start'), ' after a restart.'),
+    body,
+    reach && reach.notes.length ? h('p', { class: 'muted' }, reach.notes.join(' · ')) : null,
+    h('div', { class: 'cando-cmds' }, cmdLine('doz workspace show ' + f.workspace + ' --can-do --agent ' + a.name)));
+}
 /// The log's last line about an agent.
 function lastLine(lines, a) {
   for (let i = lines.length - 1; i >= 0; i--) if (lines[i].agent === a.name) return lines[i].text;

@@ -507,8 +507,9 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   980 px where the panel folds under the room and the document scrolls): the title row (name, `workspacePill`,
   `driverChip`, the manager's `managerChip` — "acts as you" when unfenced —, the one primary button its state offers and ⋯
   with its lifecycle and the set-up gaps — "Lifecycle actions", below); the tab row `WS_TABS` — Room · Agents · `PERMISSIONS_TAB` ("Permissions", ONE constant) · Network & secrets ·
-  Folders & points · Activity · Settings — Room and Agents work (links to `#/w/NAME` and `#/w/NAME/agents`), the others
-  `aria-disabled` with a "coming" tag and a title saying what they will hold; the notices (setting up: the gaps and `doz workspace start W`; no room; a missing room; log
+  Folders & points · Activity · Settings — Room, Agents, Network & secrets, Folders & points and Activity work (links to `#/w/NAME`,
+  `#/w/NAME/agents`, `/network`, `/folders`, `/activity` — "Workspace-wide views", below), Permissions and Settings
+  `aria-disabled` with a "coming" tag and a title saying what they will hold (Permissions: "today: each agent's Can do"); the notices (setting up: the gaps and `doz workspace start W`; no room; a missing room; log
   lines hidden); the brief (`components/ws-brief.js`); the room; the side panel (`components/ws-panel.js`).
 - **The brief card**: `renderMarkdown` text; references (paths through `tildePath`, links through `safeLink`, a new tab,
   no referrer); "by you · TIME · edited N times" (the log's `brief-edited` lines); open on `#/w/W`, one line on a room's
@@ -577,8 +578,8 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   so every `state.view === 'sandbox' | 'mac'` check keeps working. Terminal tickets stay keyed by place
   (`WebTerminalHTTPTests` unchanged). An agent with no page (elsewhere, a manager not started, a place gone, no such
   agent) is `state.view = 'wsagent'`, a card (`viewWsAgent`: a participant with its token only; `doz workspace start W`; the
-  log's last line about it and Take out…). Any other address clears `state.frame`. `#/w/…/agent/A/can-do` is not an address
-  yet: `LEGACY` lands it on the agent.
+  log's last line about it and Take out…). Any other address clears `state.frame`. `#/w/…/agent/A/can-do` is the agent's Can
+  do (view `wsagent`, `state.frame.tab = 'can-do'` — "Workspace-wide views", below).
 - **`placeHash(kind, name, session, frame)`** (`core/routes.js`, pure): THE address of a place's page. Every writer of
   `#/sandbox/…` or `#/mac/here/…` into the location — the terminal's open (×2), the strip's session tabs, the arrival's
   `~home`, a rename's and an rm's end, the sidebar's peek, the grid, the overview, Quick add — goes through it with
@@ -593,6 +594,63 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   its own refresh (at most every 2 s). A place's OWN page (`#/sandbox/NAME`, `#/mac/here/SESSION`) is never redirected: an
   agent in a workspace carries the strip "In NAME as AGENT — open it there" and "Take out…" (`memberStrip`, found by
   `WorkspaceRow.places`); a loose one shows nothing there and offers "Put in a workspace…" in its ⋯.
+
+## Workspace-wide views
+
+- **Addresses** (`core/routes.js`): `#/w/NAME/network`, `/folders`, `/activity` → view `workspace` with `tab` (`WS_VIEW_TABS`);
+  `#/w/NAME/agent/AGENT/can-do` → `wsagent` with `tab: 'can-do'`; helpers `networkHash`, `foldersHash`, `activityHash`,
+  `canDoHash`. `views/workspace.js` draws the three tabs into `#ws-view` (the room hidden, not torn down) — EACH READ AFRESH ON
+  EVERY VISIT; Activity follows `changed` and an operation's end (its newest page, merged); Network and Folders are read only
+  on a visit (a walk of the folders is never run on an event).
+- **Three reads, payload-less POST routes** (`WebRoute.workspaceReach | workspaceFolders | workspaceActivity`, the workspace in
+  the body — a payload case crashes `ServeExposureTests`, backlog 730.B1; `.grids` is the precedent for a read that is a POST;
+  `WebWorkspaceViews.swift`): `POST /api/v1/workspace-reach {workspace, agent?}` → `workspace-reach` (`doz workspace show W
+  --can-do | --network`), `POST /api/v1/workspace-folders {workspace}` → `workspace-folders` (`--folders`), `POST
+  /api/v1/workspace-activity {workspace, before?, limit?}` → `workspace-log` with a page (`doz workspace log W --limit N --before
+  I`; limit 1–500, 200 by default). Each EXACTLY ONE read-only HostOp the CLI also sends, in-process with no daemon (looking
+  never starts one). CSRF as every POST; strict bodies (an unknown field, a bad name, a limit out of range → 400 before any
+  call, never echoed). Exposure `read`.
+- **Projections** (`WebWorkspaceReach`, `WebWorkspaceFolders`, `WebWorkspaceActivity`), field by field; no key shaped like a
+  secret, never a value or a token, a chat token's fingerprint never carried (`WebWorkspaceViewsTests`). **Another computer**:
+  an agent on this Mac only with `serve.mac_sessions` on (else left out, `hidden`); held secrets ONLY AS A COUNT per agent
+  (`heldCount`; `held` empty); a folder only this Mac's sessions work in keeps its path but not its changes (`hidden`); the
+  log's lines about this Mac's sessions as `/log` (counted); operations as `/operations` already. `serve.chat` does not gate
+  them.
+- **Can do** (`components/can-do.js`, `canDoTable`; the page in `views/ws-agents.js`): the agent's rows from
+  `AgentCapabilities.rows` (an `@mac` agent's are `MacFence.capabilities` unchanged), each live or at the next start; an unfenced
+  agent's control row is the warning chip "acts as you"; the two later rows — Permissions (allow · ask · never) and Ceiling —
+  drawn `aria-disabled`, "later", never data (`LATER_ROWS`). The frame's bar links to it; a framed session's "What it can do"
+  tab and chips lead there.
+- **Network & secrets** (`views/ws-network.js`): the workspace's permissions per agent and a "new workers" row; Refused lately
+  (the daemon's proxies only — with no daemon "not known") with **Allow for A** (a micro VM: `net-policy` `{sandbox, grant:
+  [GRANT]}` as on its Network tab; a fenced session: `mac-net-policy` `{session, grant: [site:…]}`, `site:` only, this Mac's own
+  browser only; a permission's grant, another computer, unfenced and elsewhere: disabled with the command) and **For all** (one
+  action per agent that can be limited and lacks it, `batch: true`; the new workers' default unchanged, said); This Mac's ports
+  and the forwarded ones; Held for agents (name, for, to, kind, a given one's fingerprint — another computer a count); Accounts
+  used here; the footer "Nothing here shows a secret…". "+ Add a secret" is disabled "later" with today's `--secret` to copy.
+- **`mac-net-policy`** (`WebAction.macNetPolicy`): exactly `net-policy` with `@mac` and the session — never a revoke, deny, preset
+  or `host:` word; this Mac's own browser only (`isMacNet`, `WebExposure.decideMacNetAction` → 403 `mac-only`,
+  `WebRejection.macOnlyNet`, one audit line, whatever the serve settings). In the pinned action set.
+- **Folders & points** (`views/ws-folders.js`): each folder (the workspace's, then each agent's own) with its rules' counts,
+  what changed since the start (A · M, by folder — the honest line: never which agent, deletions not seen, looked at without
+  running anything there; files.md, "What changed in a workspace's folders"), Open in ▾ for a folder a sandbox of the workspace
+  shares (`files/open`, this Mac's own browser; another folder: `open PATH` to copy); each micro VM agent's restore points with
+  Take a restore point (`point-take`); revert, duplicate and + Folder are commands to copy.
+- **Activity** (`views/ws-activity.js`, its pure part `core/ws-activity.js` — `mergeActivity`, `opIsFor`): the log in pages,
+  newest first, Load older (`before` = the oldest line's `first`), merged with the operations this dashboard started for its
+  agents (`/api/v1/operations`, the last 50 — filtered by the places of its agents and its name, said on the page), filtered
+  All · You · Agents · Lifecycle · Network.
+- **Tests**: `WebWorkspaceViewsTests`, `ServeExposureTests.testMacNetIsThisMacsOnly`, `WebHTTPIntegrationTests.testTheWorkspaceViewRoutes`,
+  `WebActionTests.testTheMacNetPolicyIsExactlyNetPolicyWithSitesOnly`, `ServeHTTPTests.testMacNetPolicyIsThisMacsBrowserOnlyWhateverTheServeSettings`,
+  `WebModulesTests.testTheWorkspaceWideViews`.
+- **The walk** (`make dashboard-walk`, after the lifecycle): `wide` — two fenced sessions (one with a launch secret whose value is
+  a sentinel), each refused one site by its proxy; an unfenced one; the sandbox gamma. 1 Network & secrets equals `show wide
+  --network --json` (rows, held by name with the fingerprint, the footer, the unfenced row); 2 Allow for widef → listed by `doz
+  net show @mac --session widef`; 3 For all sends one operation per eligible agent, the default unchanged; 4 Can do: "acts as
+  you" on the unfenced one, the later rows disabled, a fenced one's rows `--can-do --json`'s; 5 Folders: after.txt, not
+  before.txt nor through a link, as `--folders --json`; Take only for gamma; 6 Activity: Load older over a full page, the route
+  with a small limit as `log --limit 2`, Network's operations only; 7 another computer's 403 is `ServeHTTPTests`'; 8 at 390 px
+  cards; with the daemon stopped every tab reads and none starts; the leak sweep with the secret sentinel: zero.
 
 ## Filing agents
 

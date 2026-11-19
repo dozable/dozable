@@ -71,6 +71,35 @@ final class MacFenceCapabilitiesTests: XCTestCase {
         XCTAssertFalse(MacFence.capabilities(s).first { $0.id == "network" }!.state.contains("waiting"))
     }
 
+    /// One source for the preset: a site allowed for a fenced session makes the permissions report (the Network tab, `doz net
+    /// show`) and "what it can do" (`MacFence.capabilities`, a workspace's Can do) both say custom — never one "standard" and
+    /// the other "custom".
+    func testAllowingASiteMakesTheReportAndTheCapabilitiesBothSayCustom() throws {
+        let before = try MacFenceNetwork.policy(words: ["standard"])
+        var rec = MacSessionRecord(argv: ["/bin/sh"], workdir: "/w", openedAt: Date())
+        rec.fence = MacFenceRecord(profile: "agent", keychain: false, readable: [], writable: [], sessionFolder: "/f",
+                                   grants: MacFenceGrants(profile: "agent", keychain: false, readable: [], writable: []), tag: "t", templateVersion: 1,
+                                   profileSHA256: "x", gitBaseline: nil, stoppedForGit: nil, stoppedPids: nil)
+        rec.fence?.proxyPort = 40001
+        func both(_ p: NetworkPolicy) -> (report: String?, row: String?) {
+            rec.fence?.policy = p
+            let report = PermissionPolicy.report(name: "@mac s", policy: p, base: AgentPermissions.macBase, log: []).preset
+            let row = MacFence.capabilities(MacCapabilityShape(session: "s", record: rec, home: nil)).first { $0.id == "network" }?.state
+            return (report, row)
+        }
+        let b = both(before)
+        XCTAssertEqual(b.report, "agent")
+        XCTAssertTrue(b.row?.contains("(standard)") == true, b.row ?? "")
+        var allow = HostRequest(.netPolicy, name: "@mac")
+        allow.session = "s"
+        allow.grant = ["site:wideblocked.test"]
+        let after = try HostCore.editedPolicy(before, allow, base: AgentPermissions.macBase, agent: nil)
+        let a = both(after)
+        XCTAssertNil(a.report, "the report: custom")
+        XCTAssertTrue(a.row?.contains("(custom)") == true, "the capability row says custom too (\(a.row ?? "nil"))")
+        XCTAssertEqual(PermissionPolicy.presetWord(after, base: AgentPermissions.macBase), a.report)
+    }
+
     func testTheRowCarriesTheLastCopyTimeOnly() throws {
         let json = #"{"profile":"agent","keychain":false,"readable":[],"writable":[],"sessionFolder":"/s","templateVersion":1,"profileSHA256":"x","lastCopyAt":"2026-11-13T10:00:00Z"}"#
         let dec = JSONDecoder()

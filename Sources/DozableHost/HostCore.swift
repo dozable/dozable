@@ -886,7 +886,7 @@ public actor HostCore {
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
         case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename,
              .workspaceStart, .workspaceStop, .workspacePlan, .workspaceLifecyclePlan, .workspaceSleep, .workspaceWake, .workspaceFinish,
-             .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete:
+             .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete, .workspaceReach, .workspaceFolders:
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)

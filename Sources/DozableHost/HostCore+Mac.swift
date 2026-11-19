@@ -676,7 +676,7 @@ extension HostCore {
             var shape = MacCapabilityShape(session: rows[i].name, record: rec, home: home)
             if let p = macProxies[rows[i].name] {
                 shape.network = "proxy"
-                shape.preset = AgentPermissions.presetName(p.proxy.policy.permissions ?? [], base: AgentPermissions.macBase)
+                shape.preset = PermissionPolicy.presetWord(p.proxy.policy, base: AgentPermissions.macBase)
             } else if rows[i].ended {
                 shape.network = nil
             }

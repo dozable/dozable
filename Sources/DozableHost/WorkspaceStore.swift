@@ -99,6 +99,56 @@ public struct WorkspaceStore: Sendable {
         return out
     }
 
+    /// One page of the log, newest first: at most `limit` entries ending before the line at byte offset `before` (nil: the
+    /// end). Read BACKWARDS in 64 KiB blocks, so a page costs its own lines, never the whole log; a line that does not parse
+    /// (a torn one) is skipped, and so is a last line with no line break (a write under way) — the same way every time.
+    /// `first` is the oldest returned line's offset (stable: the log is only appended to, and an append after a torn line
+    /// starts on a line of its own), `more` whether anything lies before it.
+    public func logPage(_ name: String, before: Int? = nil, limit: Int = WorkspaceLogPage.defaultLimit) throws -> WorkspaceLogPage {
+        try WorkspaceName.validate(name)
+        let path = folder(name) + "/log.jsonl"
+        guard MacFenceHostFS.kind(path) != nil else { return WorkspaceLogPage(entries: [], first: nil, more: false) }
+        let fd = try MacFenceHostFS.open(path, O_RDONLY | O_NONBLOCK)
+        defer { close(fd) }
+        var st = stat()
+        guard fstat(fd, &st) == 0 else { throw HostError(.failed, "the log of \(name): \(String(cString: strerror(errno)))") }
+        try MacFenceHostFS.checkRegular(st, path: path, uid: getuid())
+        let want = max(1, min(limit, WorkspaceLogPage.maximumLimit))
+        let end = min(Int(st.st_size), max(0, before ?? Int(st.st_size)))
+        let block = 64 << 10
+        var out: [WorkspaceLogEntry] = []
+        var first: Int?
+        // The newline that ends the line being looked for (nil: none seen yet — bytes after the last newline are not a line).
+        var lineEnd: Int?
+        var pos = end
+        func take(_ start: Int, _ stop: Int) {
+            guard stop > start else { return }
+            var buf = [UInt8](repeating: 0, count: stop - start)
+            let n = buf.withUnsafeMutableBytes { pread(fd, $0.baseAddress!, stop - start, off_t(start)) }
+            guard n == stop - start, let e = try? HostWire.decoder.decode(WorkspaceLogEntry.self, from: Data(buf)) else { return }
+            out.append(e)
+            first = start
+        }
+        var chunk = [UInt8](repeating: 0, count: block)
+        scan: while pos > 0 {
+            let start = max(0, pos - block)
+            let n = chunk.withUnsafeMutableBytes { pread(fd, $0.baseAddress!, pos - start, off_t(start)) }
+            guard n == pos - start else { throw HostError(.failed, "the log of \(name): a short read") }
+            var i = n - 1
+            while i >= 0 {
+                if chunk[i] == 0x0A {
+                    let at = start + i
+                    if let e = lineEnd { take(at + 1, e); if out.count == want { break scan } }
+                    lineEnd = at
+                }
+                i -= 1
+            }
+            pos = start
+        }
+        if pos == 0, out.count < want, let e = lineEnd { take(0, e) }
+        return WorkspaceLogPage(entries: out, first: first, more: (first ?? 0) > 0)
+    }
+
     // MARK: writing
 
     /// `workspaces/` itself: 0700, no link, ours.

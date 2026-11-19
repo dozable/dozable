@@ -114,6 +114,12 @@ public enum WebRoute: Equatable, Sendable {
     // written (the read-only HostOp `workspace-lifecycle-plan`, CSRF; the Mac's own browser only — `mac-screen`). No payload:
     // the workspace is in the body, by its name rule before any call (400).
     case workspaceLifecyclePlan         // POST /api/v1/workspace-lifecycle-plan  ({workspace, verb, removeSandboxes?, keepTemplates?, binFolders?})
+    // A workspace's wide views — Can do, Network & secrets, Folders & points, Activity: three reads that carry their question
+    // (POST, CSRF), each exactly one read-only HostOp the CLI also sends (`workspace-reach`, `workspace-folders`, `workspace-log`
+    // with a page). No payload: the workspace is in the body, by its name rule before any call (400). Exposure `read`.
+    case workspaceReach                 // POST /api/v1/workspace-reach     ({workspace, agent?})
+    case workspaceFolders               // POST /api/v1/workspace-folders   ({workspace})
+    case workspaceActivity              // POST /api/v1/workspace-activity  ({workspace, before?, limit?})
     case macSessionPlan                 // POST /api/v1/mac/session-plan  ({case, program, folder, session?, preset?, account?, github?, agentConfig?, simulator?, keychain?, ports?, open?})
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
@@ -254,6 +260,9 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 1) where rest[0] == "workspace-plan": return .workspacePlan
         case (.post, 1) where rest[0] == "worker-plan": return .workerPlan
         case (.post, 1) where rest[0] == "workspace-lifecycle-plan": return .workspaceLifecyclePlan
+        case (.post, 1) where rest[0] == "workspace-reach": return .workspaceReach
+        case (.post, 1) where rest[0] == "workspace-folders": return .workspaceFolders
+        case (.post, 1) where rest[0] == "workspace-activity": return .workspaceActivity
         case (.post, 2) where rest == ["project", "open"]: return .projectOpen
         case (.post, 2) where rest == ["project", "preview"]: return .projectPreview
         case (.post, 2) where rest == ["project", "write"]: return .projectWrite

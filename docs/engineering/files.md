@@ -10,6 +10,21 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | `Sources/DozableHost/WorkspaceFileChange.swift`; `HostCore+Files.swift`; `Sources/DozableCLI/FileCommands.swift` (`doz files` group); `Sources/DozableWeb/WebFiles.swift` (`WebFileTree`, `WebFileOpen`); `WebSource/app/views/sandbox-files.js` | 644: the file explorer panel — the changes on the Mac (confined, descriptor-relative, the rules) and in an isolated guest, the kept open folders (`FileTreeState`), `files-open`; the Files tab; `FileChangeTests` |
 | `Sources/DozableHost/EditorApps.swift` (+ `MacDefaultApp.appPath`); `FilesOpen --app`, `FilesEditors`; `WebEditor`, `GET /api/v1/editors`; `WebSource/app/components/open-with.js` | 646: Open the folder — a shared folder (or a folder or file in it) in an editor: the known editors found by bundle id, `bridges.open_apps`, the daemon op `editors`; the terminal strip's Open folder menu and the Files tab's Open in <editor>; `EditorAppsTests` |
 
+## What changed in a workspace's folders — never a program
+
+`WorkspaceChangedFiles` (`Sources/DozableHost/WorkspaceChangedFiles.swift`; `workspace-folders`, workspaces.md). **Dozable never
+runs a program — git included — in a folder an agent writes in order to look at it** (CLAUDE.md): `git status` there would run
+that folder's `.git/config` (`core.fsmonitor`, a clean filter) as you. So the walk is by descriptor: the folder opened with no
+link in its path (`MacFenceHostFS.openDirectory`), each entry `fstatat(AT_SYMLINK_NOFOLLOW)`, a folder entered with
+`openat(O_NOFOLLOW)` and only on the folder's own volume; a link is neither listed nor followed; `.git` is skipped whatever it is;
+no `Process`. Caps: 20,000 entries and 3 s per folder, depth 64; the newest 200 listed and `truncated` said. A regular file is
+changed when its mtime is at or after the start — `A` when it was also born after it, else `M`; a deletion is not seen (said);
+names made inert (`FileListPaths.inert`). Attributed by folder only — the page says it never knows which agent changed a file.
+The rule files' counts (`.dozignore`, `.dozreadonly`: lines not empty or a comment) are read with no link in the path. The walk
+runs off the daemon's actor, only when asked (the tab opened, `show --folders`). `WorkspaceChangedFilesTests` (mtime and birth
+around the start, a link out, `.git`, the caps, a missing and an unreadable folder, and `testNoProgramIsRunInTheFolder`: a
+`.git/config` whose fsmonitor and clean filter would write a marker never runs, and the walk's source starts no process).
+
 ## The file watcher — `files-list`, `doz files`, the files routes
 
 - **Listing follows the bytes.** `files-list` (read-only daemon op: in-process when no daemon runs) reads a SHARED folder ON

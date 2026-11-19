@@ -63,6 +63,32 @@ doz workspace log demo --since 2h   # what happened, and who did it (a time like
 
 Looking never starts the daemon: these answer from the store when it is not running.
 
+### What it can reach, hold and change
+
+```bash
+doz workspace show demo --can-do            # each agent: what it can do — isolation and control, folders, network, secrets by name, its room
+doz workspace show demo --can-do --agent mira
+doz workspace show demo --network           # each agent's network and what it was refused lately; this Mac's ports; secrets held; accounts
+doz workspace show demo --folders           # its folders, what changed in them since the start, the restore points
+doz workspace log demo --limit 50           # the newest 50 lines; it prints the command for the page before
+```
+
+**Can do** says, for each agent, only what is true today, each row live (it changes now) or at the next start: where it runs
+and what holds it there, the folders it reads and writes, its network, the secrets it holds as placeholders (by name and
+where each goes), the Claude account by name, and what it can drive. A fenced or micro VM manager talks in the room only — it
+cannot drive Dozable; an unfenced one **acts as you**: it runs doz and anything else as you. Permissions (allow · ask · never)
+and a ceiling are later.
+
+**Network** gathers what the workspace can reach in one place. What an agent was refused lately is known while the daemon
+runs; `doz net allow` with the command shown allows it for that agent. Nothing it prints is a secret: a held secret is a name,
+where it goes and a fingerprint; the values stay in your keychain.
+
+**Folders** lists the files changed in each folder since the work started — `A` new, `M` changed — by their file times.
+Dozable never runs a program, git included, in a folder an agent writes in order to look at it (git would run that folder's
+own settings as you), so it says which folder changed, never which agent changed a file, and a deleted file is not seen. A big
+folder is looked at only up to its limits (the list says when it was cut short). Restore points are a micro VM agent's: one
+per disk.
+
 A workspace's state is one of: **setting up** (never started, and no running agent adopted yet), **starting** (being
 started, or a sandbox is booting),
 **waiting on you** (a program is blocked or stopped in an error, or a sandbox failed), **working**, **idle**, **asleep**

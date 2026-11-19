@@ -3268,4 +3268,61 @@ a.btn.is-disabled { color: var(--ink-3); cursor: not-allowed; }
   .wl-table td[data-label]::before { content: attr(data-label) ": "; color: var(--ink-3); font-size: var(--fs-xs); }
   .hm-next-acts { justify-content: flex-start; }
 }
+
+/* A workspace's wide views (views/ws-network.js, ws-folders.js, ws-activity.js, components/can-do.js): Network & secrets,
+   Folders & points, Activity and an agent's Can do — read afresh on every visit; a table is a card per row below 760 px. */
+/* A tab other than the room hides the room's body (its display would otherwise win over [hidden]). */
+.ws-body[hidden] { display: none; }
+.ws-view-tab:not([hidden]) { display: flex; flex-direction: column; gap: var(--sp-3); }
+.wsn, .wsf, .wsc { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.wsn-sec { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.wsn-sec h2 { margin: 0; font-size: var(--fs-md); }
+.wsn-sec p { margin: 0; font-size: var(--fs-sm); }
+.wsn-table, .cando-table { width: 100%; }
+.wsn-table th[scope="row"], .cando-table th[scope="row"] { font-weight: var(--fw-medium); text-align: left; vertical-align: top; }
+.wsn-table td, .cando-table td { vertical-align: top; overflow-wrap: anywhere; }
+.wsn-table tr.is-default th, .wsn-table tr.is-default td { color: var(--ink-2); font-style: italic; }
+.wsn-refused { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.wsn-refused li { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-2) 0; border-bottom: var(--bw) solid var(--line); }
+.wsn-what { overflow-wrap: anywhere; min-width: 0; }
+.wsn-ports, .wsn-accounts { margin: 0; padding-left: var(--sp-5); font-size: var(--fs-sm); }
+.wsn-add, .wsf-add { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.wsn-foot { padding-top: var(--sp-2); border-top: var(--bw) solid var(--line); }
+.cando-tabs { display: flex; gap: var(--sp-1); border-bottom: var(--bw) solid var(--sep); }
+.cando-key { margin: 0; font-size: var(--fs-sm); }
+.cando-when { display: inline-block; padding: 0 var(--sp-1); border-radius: var(--r-pill); background: var(--well); font-size: var(--fs-xs); color: var(--ink-2); white-space: nowrap; }
+.cando-when[data-when="live"] { color: var(--ok); }
+.cando-state { font-weight: var(--fw-medium); }
+.cando-sentence { color: var(--ink-2); }
+.cando-link { margin-top: var(--sp-1); }
+.cando-link .cmd-copy, .cando-cmds .cmd-copy { max-width: 100%; }
+.cando-table tr.is-warn th { color: var(--warn); }
+.cando-table tr.is-later th, .cando-table tr.is-later td { color: var(--ink-3); cursor: not-allowed; }
+.cando-cmds { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.wsf-folder, .wsf-point { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--panel-p); }
+.wsf-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); min-width: 0; }
+.wsf-path { display: inline-flex; align-items: center; gap: var(--sp-1); font-weight: var(--fw-medium); overflow-wrap: anywhere; min-width: 0; }
+.wsf-sub { font-size: var(--fs-sm); }
+.wsf-changes, .wsf-point-rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-sm); }
+.wsf-changes li { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.wsf-changes code { overflow-wrap: anywhere; background: none; padding: 0; }
+.wsf-kind { flex: none; width: 1.4em; text-align: center; border-radius: var(--r-sm); background: var(--well); font: var(--fs-mono)/1.4 var(--mono); }
+.wsf-kind[data-kind="A"] { color: var(--ok); }
+.wsf-kind[data-kind="M"] { color: var(--warn); }
+.wsf-cmds { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.wsf-points { display: flex; flex-direction: column; gap: var(--sp-3); }
+.wsf-honest { margin: 0; font-size: var(--fs-sm); }
+.wsc-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.wsc-list li { display: grid; grid-template-columns: 11rem 7rem minmax(0, 1fr); gap: var(--sp-2); align-items: baseline; padding: var(--sp-1) 0; border-bottom: var(--bw) solid var(--line); font-size: var(--fs-sm); }
+.wsc-time { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.wsc-who { color: var(--ink-2); }
+.wsc-text { overflow-wrap: anywhere; min-width: 0; }
+.wsc-text .pill { margin-left: var(--sp-1); }
+@media (max-width: 760px) {
+  .wsn-table thead, .cando-table thead { display: none; }
+  .wsn-table tr, .cando-table tr { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3) var(--cell-px); border-top: var(--bw) solid var(--line); }
+  .wsn-table th, .wsn-table td, .cando-table th, .cando-table td { display: block; padding: 0; border: 0; }
+  .wsn-table td[data-label]::before, .cando-table td[data-label]::before { content: attr(data-label); display: block; font-size: var(--fs-xs); color: var(--ink-3); }
+  .wsc-list li { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
 }

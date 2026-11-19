@@ -990,6 +990,9 @@ public final class DozableWebServer: @unchecked Sendable {
             // A workspace's lifecycle: this Mac's own browser only, whatever the serve settings (what it holds stopped, started
             // or removed; its rooms archived as you; a bot's token handed to a program again).
             if request.action.isLifecycle, let r = WebExposure.decideLifecycleAction(ctx.principal) { throw r }
+            // A fenced session's site allowed: this Mac's own browser only, whatever the serve settings (its network is what
+            // holds an agent working as you on this Mac to its folder).
+            if request.action.isMacNet, let r = WebExposure.decideMacNetAction(ctx.principal) { throw r }
             // An Agent / Bot changed: this Mac's own browser only, whatever the serve settings (a token made, replaced or revoked).
             if request.action.isBot, let r = WebExposure.decideBotAction(ctx.principal) { throw r }
             return json(try operations.start(request.action, priority: !request.batch), status: 202)
@@ -1089,6 +1092,27 @@ public final class DozableWebServer: @unchecked Sendable {
             // and the verb strictly, before any call; exactly one read-only HostOp — nothing written, no daemon started.
             try Self.requireJSONBody(md)
             return json(WebWorkspaceLifecyclePlan(try await data.workspaceLifecyclePlan(try WebWorkspaceLifecycle.decodePlan(body))))
+        case .workspaceReach:
+            // A read that carries its question: CSRF-checked (an unsafe method), the workspace and the agent by their rules
+            // strictly (400 before any call); exactly one read-only HostOp — no daemon started. Another computer: this Mac's
+            // sessions only with serve.mac_sessions on, held secrets a count only.
+            try Self.requireJSONBody(md)
+            let reach = WebWorkspaceReach(try await data.workspaceReach(try WebWorkspaceViews.decodeReach(body)))
+            return json(WebWorkspaceReach.forBrowser(reach, remote: ctx.principal.isRemote, macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
+        case .workspaceFolders:
+            // The same, `workspace-folders`: what changed in a folder only this Mac's sessions work in follows serve.mac_sessions.
+            try Self.requireJSONBody(md)
+            let w = try WebWorkspaceViews.decodeFolders(body)
+            let macAllowed = WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)
+            let f = WebWorkspaceFolders(try await data.workspaceFolders(w))
+            if macAllowed { return json(f) }
+            let d = try await data.workspace(w.name ?? "")
+            return json(WebWorkspaceFolders.forBrowser(f, macAllowed: false, macAgents: Set(d.agents.filter { $0.place.hasPrefix(MacPlace.name) }.map(\.name))))
+        case .workspaceActivity:
+            // The same, one page of `workspace-log`: the lines about this Mac's sessions follow serve.mac_sessions (counted).
+            try Self.requireJSONBody(md)
+            return json(WebWorkspaceActivity(try await data.workspaceActivity(try WebWorkspaceViews.decodeActivity(body)),
+                                             macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
         case .macSessionPlan:
             // 683 M5: CSRF-checked (an unsafe method, above), the Mac's own browser only (WebExposure: mac-screen), a strict
             // body; the command is built on the Mac from the enums. `open: true` only for an Open-in-Terminal shape.

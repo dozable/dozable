@@ -21,7 +21,7 @@ final class ServeExposureTests: XCTestCase {
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
-            .macSessionQuarantine("agent"), .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
+            .macSessionQuarantine("agent"), .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
             .workspaceLog("demo", nil), .loose, .bots, .botsRetired, .bot("mira"), .macs,
         ]
         for r in all { _ = covered(r) }
@@ -38,7 +38,7 @@ final class ServeExposureTests: XCTestCase {
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck, .uiRestart,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
-             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .chat,
+             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .chat,
              .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .botsRetired, .bot, .macs:
             return true
         }
@@ -193,6 +193,30 @@ final class ServeExposureTests: XCTestCase {
         let token = try WebAction.decode(Data(#"{"action":"bot-token","name":"mira","confirm":"mira"}"#.utf8))
         XCTAssertTrue(token.isBot)
         XCTAssertFalse(token.isWorkspace || token.isFiling || token.isMacSession, "decided by its own family, never a serve setting")
+    }
+
+    /// The wide views are reads (`read`, for every browser that may read): projections decide what another computer sees. A
+    /// fenced session's site allowed (`mac-net-policy`) is this Mac's own browser only, whatever serve.mac_sessions or serve.chat
+    /// say — the `mac-only` code, its own words.
+    func testMacNetIsThisMacsOnly() throws {
+        for r: WebRoute in [.workspaceReach, .workspaceFolders, .workspaceActivity] {
+            XCTAssertEqual(WebExposure.kind(r), .read, "\(r)")
+            XCTAssertNil(WebExposure.decide(r, .mac))
+            XCTAssertNil(WebExposure.decide(r, .remote(secure: true)))
+        }
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/workspace-reach"), .workspaceReach)
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/workspace-folders"), .workspaceFolders)
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/workspace-activity"), .workspaceActivity)
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/workspace-reach"), "a POST only")
+        XCTAssertNil(WebExposure.decideMacNetAction(.mac))
+        for p: WebExposure.Principal in [.remote(secure: false), .remote(secure: true)] {
+            XCTAssertEqual(WebExposure.decideMacNetAction(p), .macOnlyNet, "\(p)")
+        }
+        XCTAssertEqual(WebRejection.macOnlyNet.code, WebRejection.macOnly.code)
+        XCTAssertEqual(WebRejection.macOnlyNet.status, 403)
+        let a = try WebAction.decode(Data(#"{"action":"mac-net-policy","session":"agent","grant":["site:x.example"]}"#.utf8))
+        XCTAssertTrue(a.isMacNet)
+        XCTAssertFalse(a.isMacSession || a.isWorkspace || a.isFiling || a.isLifecycle, "decided by its own rule, never a serve setting")
     }
 
     /// A workspace's lifecycle: every verb is this Mac's own browser only, whatever serve.chat or serve.mac_sessions say — the

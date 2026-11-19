@@ -238,4 +238,6 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkerPlanRows(h, root: root, store: store)
     // L1–L14. the lifecycle (CLIWorkspaceLifecycleRows.swift)
     cliWorkspaceLifecycleRows(h, root: root, store: store, started: &started)
+    // V1–V5. the wide views (CLIWorkspaceViewRows.swift)
+    cliWorkspaceViewRows(h, root: root, store: store, started: &started)
 }
