@@ -16,7 +16,7 @@
 //   · 605: the page outlives its server. doz ui restarting is a calm pause (terminals reattach, operations
 //     resolve, a newer build offers a reload); a sign-in again happens INSIDE the page, over what it shows.
 
-import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat-d7bc8d2b871451f0.js';
+import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat-146eafcc877e2a21.js';
 import { configure as configureChat, dashboardFileUrl } from './app/core/chat-api-ec968582d97ebdcb.js';
 import { paintStartProgress } from './app/components/start-progress-bdbbcc2e4fe81225.js';
 import { expose, provide } from './app/core/hooks-a4b871a481b363cd.js';
@@ -74,7 +74,7 @@ import { newSandboxWizard, viewNew } from './app/views/new-sandbox-dfaf21b6b8214
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-683df74467e58993.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-fac893a25e900cfb.js';
 import { viewBots } from './app/views/bots-74d9df63176fe0ff.js';
-import { viewHome } from './app/views/home-f434d63958f15359.js';
+import { viewHome } from './app/views/home-e0d787b0f6ee099f.js';
 import { viewLoose } from './app/views/loose-c985a0bed311feb3.js';
 import { viewOverview } from './app/views/overview-f897d95722d81633.js';
 import { viewResources } from './app/views/resources-e2aafaa5f6cd1e38.js';

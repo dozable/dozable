@@ -2800,6 +2800,28 @@ main.main-chat { padding: var(--work-py) var(--work-px); display: flex; flex-dir
 a.tm-k:hover { text-decoration: underline; }
 .tm-k .icon { color: var(--ink-2); flex: none; }
 .tm-v { color: var(--ink-2); min-width: 0; overflow-wrap: anywhere; }
+/* Home (views/home.js): one table of the workspaces; a workspace's folders under its name; the room's last line on one
+   line; a setting-up row's gaps and the command that starts it. With none, the definition and the ways in. */
+.hm-ws { display: flex; flex-direction: column; gap: var(--sp-0); min-width: 0; }
+.hm-folders { display: flex; flex-direction: column; font-size: var(--fs-sm); color: var(--ink-2); }
+.hm-folder { overflow-wrap: anywhere; }
+.hm-who { color: var(--ink); }
+.hm-why { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--warn); font-weight: var(--fw-medium); }
+.hm-why .icon { width: 13px; height: 13px; flex: none; }
+.hm-room { white-space: nowrap; }
+.hm-last { max-width: 22rem; }
+.hm-line { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.hm-age { color: var(--ink-3); }
+.hm-next { text-align: right; }
+.hm-start { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--sp-1); text-align: left; }
+.hm-gaps { margin: 0; padding-left: var(--sp-5); font-size: var(--fs-sm); color: var(--ink-2); }
+.hm-done-toggle { width: 100%; }
+.hm-empty { display: flex; flex-direction: column; gap: var(--sp-4); max-width: 46rem; padding: var(--panel-p); border-radius: var(--r-lg); background: var(--surface);
+  border: var(--bw) solid var(--line); }
+.hm-empty h2 { margin: 0; font-size: var(--fs-xl); }
+.hm-empty p { margin: 0; line-height: var(--lh-prose); }
+.hm-def { font-size: var(--fs-lg); color: var(--ink); }
+.hm-acts { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
 .bot-role { white-space: nowrap; }
 .bot-unfenced { color: var(--warn); }
 @media (max-width: 760px) {

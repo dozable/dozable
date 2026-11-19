@@ -161,6 +161,7 @@ export function chatRefresh() { if (state.chat.active) chatEnter(wanted); }
 export async function chatNavCheck() {
   const st = await readStatus();
   state.chat.on = st.state !== 'off' && st.state !== 'remote';
+  if (!state.chat.active) state.chat.status = st;          // Home reads a room's last line only while it runs
   const a = $('nav-chat');
   if (a) a.hidden = !state.chat.on;
   if (!state.chat.on || state.chat.active) return;
