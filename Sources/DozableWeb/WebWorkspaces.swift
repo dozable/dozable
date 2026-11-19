@@ -62,14 +62,16 @@ public enum WebWorkspaceReads {
 
     /// A listing for a browser that may not see the sessions on this Mac (`macAllowed` false: another computer while
     /// `serve.mac_sessions` is off): the loose sessions on this Mac are left out and counted, and who is working is not said
-    /// (its names may be sessions' names).
+    /// (its names may be sessions' names), nor any place on this Mac.
     public static func forBrowser(_ l: WebWorkspaceListing, macAllowed: Bool) -> WebWorkspaceListing {
         guard !macAllowed else { return l }
         var out = l
         out.loose = l.loose.filter { $0.kind != "mac" }
         out.hidden = l.loose.count - out.loose.count
-        for i in out.workspaces.indices where out.workspaces[i].working != nil {
+        for i in out.workspaces.indices {
             out.workspaces[i].working = nil
+            // A session's name on this Mac is not this browser's to see.
+            out.workspaces[i].places = out.workspaces[i].places.filter { !$0.hasPrefix(MacPlace.name) }
         }
         return out
     }

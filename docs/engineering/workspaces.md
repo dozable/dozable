@@ -314,8 +314,12 @@ sandbox or session is shown as (`FolderRenameTests`); `workspaceCreated`, `works
 `workdir` are still refused. `doz workspace ls --json` is `WorkspaceListing {workspaces, loose}`; `show` and every change
 answer `WorkspaceDetail`; `log` is the entries.
 
-Additive, never persisted (an older doz ignores them; the text output prints neither): `WorkspaceRow.folders` (the
-paths, the main one first) and `WorkspaceRow.working` (the agents whose program is working now, by name);
+Additive, never persisted (an older doz ignores them; the text output prints none): `WorkspaceRow.folders` (the
+paths, the main one first), `WorkspaceRow.places` (the places of its agents that have not ended, each once, as a person
+types them — `HostCore.workspacePlaces`; so a sandbox's or a session's page in the dashboard knows its workspace; another
+computer that may not see this Mac's sessions gets none of `@mac/…`), `WorkspaceAgentRow.startedBy` (`you`, `doz`) and
+`.session` (a sandbox place's session — a worker sharing a sandbox; `place` names only the sandbox) and
+`WorkspaceRow.working` (the agents whose program is working now, by name);
 `WorkspaceAgentRow.activity` — `WorkspaceState.activity` of the `WorkspaceState.Agent` that `workspaceAgents` already
 computes (`blocked` or `error` before `working`, else `idle`; a failed sandbox `error`; nil when it does not run). Both
 come from what the daemon holds (its statuses), never a guest call; answered in-process (no daemon) `working` and

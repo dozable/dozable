@@ -129,7 +129,8 @@ extension HostCore {
                                           isolation: a.isolation, actsAsYou: a.actsAsYou ? true : nil, task: a.task,
                                           control: a.isWorker ? WorkerLaunch.control(isolation: a.isolation, shares: workerShares(rec, a)) : nil,
                                           // In-process nothing is known of a program (no statuses held): no activity.
-                                          activity: readOnly ? nil : WorkspaceState.activity(counted)),
+                                          activity: readOnly ? nil : WorkspaceState.activity(counted), startedBy: a.startedBy,
+                                          session: a.place.sandbox != nil ? a.place.session : nil),
                         counted))
         }
         return out
@@ -168,7 +169,7 @@ extension HostCore {
                 } }
                 rows.append(WorkspaceRow(name: rec.name, state: state.rawValue, driver: rec.driver, agents: agents.count, room: rec.mainRoom?.chatRoom,
                                          manager: manager, working: readOnly ? nil : WorkspaceState.working(agents.map(\.0)),
-                                         folders: rec.folders.isEmpty ? nil : rec.folders.map(\.path)))
+                                         folders: rec.folders.isEmpty ? nil : rec.folders.map(\.path), places: Self.workspacePlaces(rec)))
             }
         }
         var loose: [LooseAgent] = []
@@ -179,6 +180,13 @@ extension HostCore {
             loose.append(LooseAgent(name: MacPlace.name + "/" + r.name, kind: "mac", state: r.gone == true ? "gone" : r.ended ? "ended" : "running"))
         }
         return WorkspaceListing(workspaces: rows, loose: loose)
+    }
+
+    /// The places of a workspace's agents that have not ended, each once, in record order (nil: none) — elsewhere has none.
+    static func workspacePlaces(_ rec: WorkspaceRecord) -> [String]? {
+        var out: [String] = []
+        for a in rec.agents where a.endedAt == nil && a.place.key != nil && !out.contains(a.place.display) { out.append(a.place.display) }
+        return out.isEmpty ? nil : out
     }
 
     // MARK: checks

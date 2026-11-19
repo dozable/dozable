@@ -131,6 +131,10 @@ final class WorkspaceAdoptTests: XCTestCase {
         XCTAssertEqual(listing.workspaces.map(\.name), ["demo"])
         XCTAssertEqual(listing.workspaces.first?.agents, 2)
         XCTAssertEqual(listing.loose, [])
+        // Additive (--json only): who brought each in, and the places a sandbox's or session's page finds its workspace by.
+        XCTAssertEqual(d.agents.map(\.startedBy), ["you", "you"])
+        XCTAssertEqual(d.agents.map(\.session), [nil, nil], "a session on this Mac is its place; a sandbox's own agent names none")
+        XCTAssertEqual(listing.workspaces.first?.places, ["wsa", "@mac/wsu"])
 
         var w = WorkspaceRequest(name: "demo")
         w.agent = "wsa"
@@ -146,6 +150,32 @@ final class WorkspaceAdoptTests: XCTestCase {
         let actions = try ws.log("demo").map(\.action)
         XCTAssertEqual(actions, ["created", "adopted", "adopted", "released"])
         XCTAssertNil(try ws.read("demo")?.flags.firstAgentAt, "only a running agent marks it started")
+    }
+
+    /// A worker sharing a sandbox names its session there; an ended worker's place is no longer the workspace's; a place shared
+    /// by two agents is listed once; an agent elsewhere has none.
+    func testTheDashboardFieldsSessionStartedByAndPlaces() async throws {
+        let c = await core()
+        await sandbox(c, "wsa")
+        let m = await new(c, "demo", noRoom: true, adopt: ["wsa"])
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        var rec = try XCTUnwrap(try ws.read("demo"))
+        let t = Date()
+        var shared = WorkspaceAgent(name: "bot1", place: AgentPlace(sandbox: "wsa", session: "bot1"), startedBy: "doz", startedAt: t)
+        shared.task = "list the files"
+        var ended = WorkspaceAgent(name: "bot2", place: .macSession("demo-bot2"), startedAt: t)
+        ended.task = "gone now"
+        ended.endedAt = t
+        rec.agents += [shared, ended, WorkspaceAgent(name: "far", place: AgentPlace(elsewhere: "another Mac"), startedAt: t)]
+        try ws.write(rec)
+        let s = await ask(c, .workspaceShow, WorkspaceRequest(name: "demo"))
+        let d = try XCTUnwrap(s.result).decode(WorkspaceDetail.self)
+        XCTAssertEqual(d.agents.map(\.name), ["wsa", "bot1", "far"], "an ended worker is left out")
+        XCTAssertEqual(d.agents.map(\.session), [nil, "bot1", nil])
+        XCTAssertEqual(d.agents.map(\.startedBy), ["you", "doz", "you"])
+        let l = await ask(c, .workspaceList, WorkspaceRequest())
+        let row = try XCTUnwrap(try XCTUnwrap(l.result).decode(WorkspaceListing.self).workspaces.first)
+        XCTAssertEqual(row.places, ["wsa"], "once each; not the ended worker's session, nothing for elsewhere")
     }
 
     /// In one workspace only; missing targets; bare @mac; a name clash — each refused with nothing written.

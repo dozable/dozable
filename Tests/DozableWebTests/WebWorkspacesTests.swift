@@ -137,6 +137,38 @@ final class WebWorkspacesTests: XCTestCase {
         XCTAssertEqual(d.agents[0].control, "proxy · placeholders · guard")
     }
 
+    /// The Agents tab's fields: who brought an agent in and when, a shared sandbox's session, and each workspace's places —
+    /// which another computer that may not see this Mac's sessions never gets for `@mac/…`.
+    func testStartedBySessionAndPlaces() {
+        let t = Date(timeIntervalSince1970: 1_800_000_000)
+        let d = WebWorkspaceDetail(WorkspaceDetail(
+            name: "demo", state: "working", driver: "you", createdAt: t, brief: WorkspaceBrief(sha256: "x", bytes: 1, updatedAt: t),
+            folders: [], rooms: [],
+            agents: [WorkspaceAgentRow(name: "bot1", role: "worker", place: "wsa", state: "running", startedAt: t, task: "list",
+                                       startedBy: "doz", session: "bot1"),
+                     WorkspaceAgentRow(name: "wsu", role: "worker", place: "@mac/wsu", state: "running", startedAt: t, startedBy: "you"),
+                     WorkspaceAgentRow(name: "old", role: "worker", place: "wsb", state: "off", startedAt: t)],
+            defaults: WorkspaceDefaults(), flags: WorkspaceFlags(), origin: WorkspaceOrigin()))
+        XCTAssertEqual(d.agents.map(\.startedBy), ["doz", "you", nil], "nil from an older daemon")
+        XCTAssertEqual(d.agents.map(\.startedAt), [t, t, t])
+        XCTAssertEqual(d.agents.map(\.session), ["bot1", "wsu", nil])
+        XCTAssertEqual(d.agents.map(\.sandbox), ["wsa", nil, "wsb"])
+        let remote = WebWorkspaceReads.forBrowser(d, macAllowed: false)
+        XCTAssertEqual(remote.agents.map(\.name), ["bot1", "old"])
+        XCTAssertEqual(remote.hidden, 1)
+
+        let l = WebWorkspaceListing(WorkspaceListing(workspaces: [
+            WorkspaceRow(name: "demo", state: "working", driver: "you", agents: 3, room: nil, places: ["wsa", "@mac/wsu", "wsb"]),
+            WorkspaceRow(name: "empty", state: "setting-up", driver: "you", agents: 0, room: nil),
+        ], loose: []))
+        XCTAssertEqual(l.workspaces.map(\.places), [["wsa", "@mac/wsu", "wsb"], []])
+        XCTAssertEqual(WebWorkspaceReads.forBrowser(l, macAllowed: true).workspaces[0].places, ["wsa", "@mac/wsu", "wsb"])
+        let hid = WebWorkspaceReads.forBrowser(l, macAllowed: false)
+        XCTAssertEqual(hid.workspaces[0].places, ["wsa", "wsb"], "no session on this Mac is named to such a browser")
+        let json = String(decoding: (try? WebJSON.encoder.encode(hid)) ?? Data(), as: UTF8.self)
+        XCTAssertFalse(json.contains("wsu"), json)
+    }
+
     func testTheRoutesParse() {
         XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/workspaces"), .workspaces)
         XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/workspaces/launch-video"), .workspace("launch-video"))
