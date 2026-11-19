@@ -6,6 +6,7 @@ import { canWrite, chatError, getJSON, request, roomUrl, viewer } from '../core/
 import { cap, mins, time } from '../core/chat-format.js';
 import { status } from '../components/chat-log.js';
 import { chatNote } from '../components/chat-note.js';
+import { addBotToRoom } from '../components/bot-invite.js';
 import { dialog } from '../components/dialog.js';
 import { menuButton } from '../components/menus.js';
 import { AVATAR_COLOURS, AVATAR_EMOJI, AVATAR_SHAPES, avatar } from '../dom/chat-avatar.js';
@@ -47,6 +48,9 @@ export function roomMenu() {
     hold('on', 'On', 'The chat server’s own number'),
     hold('off', 'Off', 'Agents talk to each other freely (the default)'),
     { sep: true },
+    // Add an Agent / Bot as a voice: the chat server's /invite, posted as you — no token step.
+    { label: 'Add an Agent / Bot…', icon: 'users', desc: 'As a voice: it reads and speaks here, no grants', data: { 'room-add-bot': '' },
+      onSelect: () => addBotToRoom(state.chat.room) },
     { label: 'Change your avatar…', icon: 'user-round', onSelect: avatarDialog },
   ], { label: 'Room options', align: 'end' }).el;
 }

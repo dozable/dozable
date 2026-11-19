@@ -101,6 +101,11 @@ public enum WebExposure {
     /// manager) may reach, and `workspace-new` makes a room as you. Another computer is shown the command instead.
     public static func decideFilingAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyFiling : nil }
 
+    /// An Agent / Bot changed (`bot-new`, `-set`, `-retire`, `-adopt`, `-token`) for `who`: this Mac's own browser only, whatever
+    /// `serve.chat` or `serve.mac_sessions` say — each makes, replaces or revokes a token and writes the login keychain.
+    /// Another computer is shown the command instead; its attempt is one audit line.
+    public static func decideBotAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyBots : nil }
+
     /// 683 M5: a conversation exported (its whole text) — another computer only with `serve.mac_sessions = interactive`
     /// (watching shows screens, never a session's history).
     public static func decideMacExport(_ who: Principal, _ allowed: MacSessions) -> WebRejection? { decideMacAction(who, allowed) }
@@ -115,6 +120,7 @@ public enum WebExposure {
              .grids,                    // 648: a read (POST only because it carries the pictures asked)
              .recipes,                  // 669: Settings › Recipes — states and settings, read from the store
              .workspaces, .workspace, .loose, .bots,  // reads; the rows on this Mac follow serve.mac_sessions (WebWorkspaceReads)
+             .botsRetired, .bot,        // Agents / Bots: read only everywhere; a bot's inbox session follows serve.mac_sessions (WebBotReads)
              .workspaceLog,             // the log's lines about this Mac's sessions follow serve.mac_sessions too
              .workspaceBrief,           // the brief's text: another computer only with serve.chat read or write (`decide`)
              .macs:                     // Your Macs — another computer sees the same list (a phone switching Macs is its main use)

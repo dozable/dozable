@@ -211,3 +211,41 @@ final class WebOperationsQueueTests: XCTestCase {
         XCTAssertEqual(op(second, b.id).text, "doz ui restarted before its turn — it was not started", "never resolved from the overview: it never ran")
     }
 }
+
+/// A bot change through the operations: the line, the SSE events and the operations file hold its fingerprint only — a
+/// one-time token an older daemon sends anyway (it ignores heldOnly) leaves no trace, and the line says to make another in
+/// a terminal.
+final class WebOperationsTests: XCTestCase {
+    func testABotChangesOneTimeTokenLeavesNoTrace() async throws {
+        let fake = FakeData()
+        let hub = SSEHub(maxClients: 4, capacity: 4096)
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("doz-ops-\(UUID().uuidString.prefix(8))")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("operations.json")
+        let token = "dzc_" + String(repeating: "Q", count: 43)
+        let t = Date(timeIntervalSince1970: 0)
+        let rec = BotRecord(name: "far", createdAt: t, agent: "codex", isolation: BotIsolation(default: "elsewhere"), kind: "agent",
+                            token: BotTokenState(keeper: "elsewhere", fingerprint: "0123456789ab", at: t))
+        fake.botAnswer = try JSONValue(encoding: BotChange(bot: BotDetail(rec, inChat: true, workspaces: [], manages: []), oneTimeToken: token))
+        let ops = WebOperations(data: fake, hub: hub, monitor: WebMonitor(data: fake, hub: hub, pollInterval: .seconds(60)), file: file,
+                                laneWidth: { 3 })
+        let client = try XCTUnwrap(hub.add(cookie: "c"))
+        let o = try ops.start(.botToken(name: "far"), priority: true)
+        let deadline = Date().addingTimeInterval(5)
+        while ops.recent.first(where: { $0.id == o.id })?.state == "running", Date() < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        let done = try XCTUnwrap(ops.recent.first { $0.id == o.id })
+        XCTAssertEqual(done.state, "done")
+        XCTAssertTrue(done.text.contains("fp 0123456789ab") && done.text.contains("never shown here"), done.text)
+        XCTAssertEqual(fake.performedBotRequests.first?.heldOnly, true)
+        client.finish(.clientGone)
+        var frames = ""
+        for await f in client.frames { frames += String(decoding: f.bytes, as: UTF8.self) }
+        let saved = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
+        let recent = String(decoding: try WebJSON.encoder.encode(ops.recent), as: UTF8.self)
+        XCTAssertFalse(saved.isEmpty, "the operations file was written")
+        for (what, text) in [("the line", done.text), ("SSE", frames), ("the operations file", saved), ("GET operations", recent)] {
+            XCTAssertFalse(text.contains(token) || text.contains("dzc_") || text.contains("QQQQ"), "no token in \(what): \(text.prefix(300))")
+        }
+    }
+}

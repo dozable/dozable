@@ -2001,9 +2001,82 @@ public struct WebBotRow: Codable, Equatable, Sendable {
     public var running: String?
     public var worksIn: String?
     public var retiredAt: Date?
+    /// Its avatar and account (additive; nil from an older daemon).
+    public var avatar: String?
+    public var account: String?
+    /// Who keeps its token — `dozable`, `elsewhere` or `none` (nil from an older daemon). Never a fingerprint here, never the
+    /// token.
+    public var keeper: String?
 
     public init(_ b: BotRow) {
         name = b.name; agent = b.agent; model = b.model; isolation = b.isolation; kind = b.kind; deliver = b.deliver; inChat = b.inChat
         manages = b.manages; running = b.running; worksIn = b.worksIn; retiredAt = b.retiredAt
+        avatar = b.avatar; account = b.account; keeper = b.tokenKeeper.flatMap { BotTokenState.keepers.contains($0) ? $0 : nil }
+    }
+}
+
+/// `GET /api/v1/bots/{name}`: one Agent / Bot, as `doz bot show NAME --instructions` says it — field by field. Who (its name,
+/// avatar, when made, its origin and kind in chat), what (agent program, model, account, skills, the instructions' text and
+/// size), where (isolation, its ceiling read only, "acts as you", the workspaces it manages or works in, where it runs now),
+/// how (delivery and its webhook entry's name) and its key's state: who keeps it and a fingerprint of at most 12 hex — never
+/// the token, never a hash of the instructions.
+public struct WebBotDetail: Codable, Equatable, Sendable {
+    // who
+    public var name: String
+    public var avatar: String?
+    public var createdAt: Date
+    /// `new` or `adopted`.
+    public var origin: String
+    /// Its kind in chat (`claude-session`, `agent`, …) and whether it is a participant now.
+    public var kind: String
+    public var inChat: Bool
+    // what
+    public var agent: String
+    public var model: String?
+    public var account: String?
+    public var skills: [String]
+    /// The instructions' text (your prose, shown to every browser that may read) and size; nil: none.
+    public var instructions: String?
+    public var instructionsBytes: Int?
+    public var instructionsUpdatedAt: Date?
+    // where
+    public var isolation: String
+    /// The most it may be given (read only: nothing sets it yet).
+    public var ceiling: String?
+    public var actsAsYou: Bool
+    public var workspaces: [String]
+    public var manages: [String]
+    public var running: String?
+    public var worksIn: String?
+    // how
+    public var deliver: String
+    public var webhookEntry: String?
+    /// The Claude Code session an inbox reaches (a session on this Mac — `WebBotReads.forBrowser`).
+    public var session: String?
+    // its key
+    /// `dozable`, `elsewhere` or `none`.
+    public var keeper: String
+    /// 12 hex of its SHA-256 at most (nil: none, or not that shape).
+    public var fingerprint: String?
+    public var keptSince: Date
+    public var retiredAt: Date?
+    public var notes: [String]
+
+    public init(_ d: BotDetail) {
+        name = d.name; avatar = d.avatar; createdAt = d.createdAt; origin = d.origin; kind = d.kind; inChat = d.inChat
+        agent = d.agent; model = d.model; account = d.account; skills = d.skills
+        instructions = d.instructions == nil ? nil : d.instructionsText
+        instructionsBytes = d.instructions?.bytes; instructionsUpdatedAt = d.instructions?.updatedAt
+        isolation = d.isolation.default; ceiling = d.isolation.ceiling; actsAsYou = d.isolation.default == "unfenced"
+        workspaces = d.workspaces; manages = d.manages; running = d.running; worksIn = d.worksIn
+        deliver = d.deliver; webhookEntry = d.webhookEntry; session = d.session
+        keeper = BotTokenState.keepers.contains(d.token.keeper) ? d.token.keeper : "none"
+        fingerprint = d.token.fingerprint.flatMap(Self.fingerprint)
+        keptSince = d.token.at; retiredAt = d.retiredAt; notes = d.notes ?? []
+    }
+
+    /// A fingerprint as shown: 1–12 lower-case hex, else nothing.
+    static func fingerprint(_ s: String) -> String? {
+        (1...12).contains(s.count) && s.allSatisfy({ ("0"..."9").contains($0) || ("a"..."f").contains($0) }) ? s : nil
     }
 }

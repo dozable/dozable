@@ -1686,6 +1686,39 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   </div></div>
 </section>
 
+<section id="sg-bots">
+  <h2>Agents / Bots — the roster, a bot's screen, its form</h2>
+  <p>The roster (<code>#/bots</code>, <code>views/bots.js</code>): each bot's avatar and name (<code>.bot-avatar</code>, <code>.bot-who</code>), its program, how it runs
+    (<code>.ws-iso</code>; <b>acts as you</b> when unfenced), how it is reached, what it manages or works in, who keeps its key, its status, Open and ⋯. A bot's
+    screen (<code>#/bots/NAME</code>, <code>views/bot.js</code>): the header (<code>.bot-head</code>, <code>.bot-chips</code>), its key — who keeps it and a
+    fingerprint, never a token (<code>.bot-key</code>) — and the workspace page's tab row. The form (<code>components/bot-form.js</code>, <code>.bot-form</code>):
+    radio choices (<code>.bf-radio</code>); a choice that is the terminal's is drawn disabled with its command (<code>.bf-radio.is-disabled</code>).</p>
+  <div class="pair"><div class="scheme">
+    <div class="panel"><table>
+      <thead><tr><th>Agent / Bot</th><th>Agent program · model</th><th>Runs</th><th>Reached by</th><th>Managing / working in</th><th>Key</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="bot-who"><span class="bot-avatar">M</span><a href="#"><b>mira</b></a></td><td>Claude Code</td><td class="bot-runs"><span class="ws-iso ws-iso-fenced">fenced on this Mac</span></td>
+          <td>inbox</td><td><span class="bot-role">manages <a href="#">launch-video</a> (running)</span></td><td>held</td><td class="bot-status is-running">running in launch-video</td>
+          <td class="bot-acts"><a class="btn sm quiet" href="#">Open</a><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></td></tr>
+        <tr><td class="bot-who"><span class="bot-avatar">O</span><a href="#"><b>otto</b></a></td><td>Codex</td><td class="bot-runs"><span class="ws-iso ws-iso-unfenced">unfenced</span><span class="ws-chip acts-as-you"><i data-i="triangle-alert"></i>acts as you</span></td>
+          <td>poll (dozchat)</td><td><span class="muted">—</span></td><td>held</td><td class="bot-status">in chat</td>
+          <td class="bot-acts"><a class="btn sm quiet" href="#">Open</a><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></td></tr>
+      </tbody></table></div>
+    <div class="bot-page">
+      <div class="head bot-head"><span class="bot-avatar is-lg">M</span><h1>mira</h1>
+        <div class="bot-chips"><span class="ws-chip"><i data-i="bot"></i>Claude Code</span><span class="ws-iso ws-iso-fenced">fenced on this Mac</span><span class="ws-chip">inbox</span></div></div>
+      <p class="bot-key"><i data-i="key-round"></i><span>held by Dozable · fp 3f9a…c2</span><span class="muted"> — in your login keychain, never shown</span></p>
+      <nav class="ws-tabs bot-tabs"><a class="ws-tab bot-tab is-on" href="#">Across workspaces</a><a class="ws-tab bot-tab" href="#">Identity</a><a class="ws-tab bot-tab" href="#">How it runs</a><a class="ws-tab bot-tab" href="#">Reached by</a><a class="ws-tab bot-tab" href="#">Instructions</a><a class="ws-tab bot-tab" href="#">Account</a><a class="ws-tab bot-tab" href="#">Roles &amp; ceiling</a></nav>
+      <div class="bot-form"><div class="bf-group"><section class="bf-section"><div class="bf-radios">
+        <label class="bf-radio"><input type="radio" name="sg-bf" checked><span class="bf-radio-text"><b>fenced on this Mac</b><small>A session on this Mac behind the fence: proxy, placeholders, guard.</small></span></label>
+        <label class="bf-radio"><input type="radio" name="sg-bf"><span class="bf-radio-text"><b>unfenced on this Mac — acts as you</b><small>No proxy, no placeholders, no guard. Only when you pick it.</small></span></label>
+        <label class="bf-radio is-disabled"><input type="radio" name="sg-bf" disabled><span class="bf-radio-text"><b>elsewhere</b><small>Another machine runs it with its own token — given in a terminal on this Mac, never here:</small>
+          <span class="cmd-copy"><code>doz bot new far --agent codex --isolation elsewhere --to-file ~/far.token</code></span></span></label>
+      </div></section></div></div>
+    </div>
+  </div></div>
+</section>
+
 <section>
   <h2>Marks — the icon registry</h2>
   <p>Vendor and product marks from <code>Sources/DozableKit/Recipes/icons/</code>: one <code>currentColor</code> path each, so they follow the text colour in light and dark.

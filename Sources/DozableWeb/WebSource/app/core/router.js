@@ -14,7 +14,7 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), ch
   paintRowOps = upcall('paintRowOps'), refreshSandbox = upcall('refreshSandbox'),
   showSandbox = upcall('showSandbox'), viewAccounts = upcall('viewAccounts'), viewActivity = upcall('viewActivity'),
   viewDoctor = upcall('viewDoctor'), viewImages = upcall('viewImages'), viewMetrics = upcall('viewMetrics'),
-  viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'), viewHome = upcall('viewHome'), viewThisMac = upcall('viewThisMac'), viewLoose = upcall('viewLoose'), viewBots = upcall('viewBots'), viewMacs = upcall('viewMacs'),
+  viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'), viewHome = upcall('viewHome'), viewThisMac = upcall('viewThisMac'), viewLoose = upcall('viewLoose'), viewBots = upcall('viewBots'), viewBot = upcall('viewBot'), viewMacs = upcall('viewMacs'),
   viewBrowse = upcall('viewBrowse'), viewRecipes = upcall('viewRecipes'), viewResources = upcall('viewResources'), viewSettings = upcall('viewSettings'), viewDevices = upcall('viewDevices'), viewDebug = upcall('viewDebug'),
   viewNotifications = upcall('viewNotifications'), viewWsAgent = upcall('viewWsAgent'),
   wizardStopPolling = upcall('wizardStopPolling');
@@ -46,6 +46,7 @@ export function route() {
   if (p.view === 'wsagent') { enterAgent(p, c); return; }
   state.frame = null;                                             // leaving an agent's screen
   state.wsTab = p.tab;
+  state.botTab = p.view === 'bot' ? p.tab : null;            // a bot screen's tab (#/bots/NAME/TAB)
   state.view = p.view;
   state.param = p.param;
   state.session = p.session;
@@ -134,7 +135,7 @@ export async function refresh(scrollTop) {
   if (refreshing) { again = true; return; }
   refreshing = true;
   try {
-    const views = { home: viewHome, thismac: viewThisMac, loose: viewLoose, bots: viewBots, macs: viewMacs, overview: viewOverview, images: viewImages, resources: viewResources, operations: viewOperations, accounts: viewAccounts,
+    const views = { home: viewHome, thismac: viewThisMac, loose: viewLoose, bots: viewBots, bot: viewBot, macs: viewMacs, overview: viewOverview, images: viewImages, resources: viewResources, operations: viewOperations, accounts: viewAccounts,
                     metrics: viewMetrics, activity: viewActivity, doctor: viewDoctor, settings: viewSettings, recipes: viewRecipes, browse: viewBrowse, devices: viewDevices, debug: viewDebug, notifications: viewNotifications,
                     wsagent: viewWsAgent };
     const fn = views[state.view] || viewHome;

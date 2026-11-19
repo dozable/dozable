@@ -78,6 +78,7 @@ import { newSandboxWizard, viewNew } from './app/views/new-sandbox.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations.js';
 import { viewBots } from './app/views/bots.js';
+import { viewBot } from './app/views/bot.js';
 import { viewHome } from './app/views/home.js';
 import { viewLoose } from './app/views/loose.js';
 import { viewMacs } from './app/views/macs.js';
@@ -218,7 +219,7 @@ provide({
   paintCover, paintHome, paintNav, paintNotes, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition, paintUpdates,
   persistLayout, reattachTerminals, refresh, refreshMacPicker, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
   renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
-  viewBots, viewHome, viewImages, viewLoose, viewMacs, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
+  viewBots, viewBot, viewHome, viewImages, viewLoose, viewMacs, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
   viewThisMac, viewTry, viewWsAgent, wizardStopPolling, wsEnter, wsRefresh,
 });
 // The browser probes' names. The one script's top-level names were globals, and the workspace's browser probes

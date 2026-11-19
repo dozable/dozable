@@ -71,6 +71,12 @@ final class WebActionTests: XCTestCase {
         "workspace-adopt": #"{"action":"workspace-adopt","workspace":"launch-video","agent":"@mac/build","as":"builder"}"#,
         "workspace-new": #"{"action":"workspace-new","workspace":"gamma","brief":"The work in gamma.","adopt":["gamma"]}"#,
         "workspace-release": #"{"action":"workspace-release","workspace":"launch-video","agent":"builder"}"#,
+        // Agents / Bots — this Mac's own browser only, every one heldOnly (no token ever reaches a browser).
+        "bot-new": #"{"action":"bot-new","name":"mira","agent":"claude-code","isolation":"fenced","deliver":"inbox","skills":["chat-manager"],"instructions":"Be brief.\nAnswer in the room."}"#,
+        "bot-set": #"{"action":"bot-set","name":"mira","model":"sonnet","avatar":"🦊"}"#,
+        "bot-retire": #"{"action":"bot-retire","name":"tmp1","confirm":"tmp1"}"#,
+        "bot-adopt": #"{"action":"bot-adopt","name":"olda","agent":"codex","confirm":"olda"}"#,
+        "bot-token": #"{"action":"bot-token","name":"mira","confirm":"mira"}"#,
         // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
         "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
         // 669: a sandbox's own value of a per-sandbox setting, or "Follow the Mac" (clear).
@@ -153,6 +159,8 @@ final class WebActionTests: XCTestCase {
         .workspaceEdit,
         // Filing a loose agent from This Mac's own browser — exactly `doz workspace adopt | new --adopt | release`.
         .workspaceAdopt, .workspaceNew, .workspaceRelease,
+        // Agents / Bots from this Mac's own browser — exactly `doz bot new | set | retire | adopt | token --new`, each heldOnly.
+        .botNew, .botSet, .botRetire, .botAdopt, .botToken,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,
@@ -364,14 +372,27 @@ final class WebActionTests: XCTestCase {
             XCTAssertFalse(ops.contains(forbidden), "\(forbidden) must never be reachable from the browser")
         }
         XCTAssertEqual(WebAction.lifecycleOps["hibernate"], .hibernate)
-        // Workspaces, Agents / Bots and workers are read in the dashboard (WebWorkspaceReads). Four of their operations are
-        // actions: `workspace-edit` only through `workspace-brief` (the brief, nothing else), and filing — adopt, new with one
-        // agent, release (this Mac's own browser only). No lifecycle — no workspace start or stop, no worker, no bot — for
-        // any browser.
+        // Workspaces, Agents / Bots and workers are read in the dashboard (WebWorkspaceReads, WebBotReads). Four workspace
+        // operations are actions: `workspace-edit` only through `workspace-brief` (the brief, nothing else), and filing —
+        // adopt, new with one agent, release (this Mac's own browser only); and the five bot changes below. No lifecycle — no
+        // workspace start or stop, no worker — for any browser.
         XCTAssertEqual(Set(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key)),
                        ["workspace-brief", "workspace-adopt", "workspace-new", "workspace-release"])
-        XCTAssertEqual(Set(ops.filter { ["workspace-", "bot-", "worker-"].contains(where: $0.rawValue.hasPrefix) }),
+        XCTAssertEqual(Set(ops.filter { ["workspace-", "worker-"].contains(where: $0.rawValue.hasPrefix) }),
                        [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease])
+        // The bot- actions are exactly new, set, retire, adopt and token — never bot-ls or bot-show (those are reads); every
+        // one heldOnly, this Mac's own browser only.
+        XCTAssertEqual(Set(ops.filter { $0.rawValue.hasPrefix("bot-") }), [.botNew, .botSet, .botRetire, .botAdopt, .botToken])
+        XCTAssertFalse(ops.contains(.botList) || ops.contains(.botShow))
+        for (name, json) in Self.samples where name.hasPrefix("bot-") {
+            let a = try decode(json)
+            XCTAssertTrue(a.isBot, name)
+            XCTAssertEqual(a.hostRequest.botRequest?.heldOnly, true, "\(name): heldOnly")
+            XCTAssertNil(a.hostRequest.secret)
+            XCTAssertNil(a.sandbox)
+        }
+        XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isBot == true ? $0.key : nil }),
+                       ["bot-new", "bot-set", "bot-retire", "bot-adopt", "bot-token"])
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isFiling == true ? $0.key : nil }),
                        ["workspace-adopt", "workspace-new", "workspace-release"])
         for op: HostOp in [.workspaceStart, .workspaceStop, .workspaceRename] {
@@ -380,6 +401,101 @@ final class WebActionTests: XCTestCase {
         // Your Macs are read (WebMacReads) and changed only from the CLI: no macs-* operation is an action.
         XCTAssertFalse(ops.contains { $0.rawValue.hasPrefix("macs-") }, "Your Macs are not changed from the browser")
         XCTAssertFalse(WebAction.actionNames.contains { $0.hasPrefix("mac-") && !$0.hasPrefix("mac-session-") }, "no action for Your Macs")
+    }
+
+    /// The five bot actions: each exactly the CLI's HostOp with heldOnly, strictly decoded by the CLI's rules; elsewhere refused
+    /// with its command; retire, adopt and token confirmed with the name; two bots are two operations.
+    func testTheBotActions() throws {
+        let new = try decode(Self.samples["bot-new"]!)
+        var want = BotRequest(name: "mira")
+        want.agent = "claude-code"; want.isolation = "fenced"; want.deliver = "inbox"; want.skills = ["chat-manager"]
+        want.instructions = "Be brief.\nAnswer in the room."
+        XCTAssertEqual(new, .botNew(want))
+        want.heldOnly = true
+        XCTAssertEqual(new.hostRequest.botRequest, want, "exactly doz bot new's request, with heldOnly")
+        XCTAssertEqual(new.hostRequest.op, .botNew)
+        XCTAssertNil(new.hostRequest.name, "the bot travels in its own request")
+        XCTAssertEqual(new.label, "make Agent / Bot mira")
+        XCTAssertNil(new.confirmationTarget, "a new bot: no confirmation")
+        let set = try decode(Self.samples["bot-set"]!)
+        XCTAssertEqual(set.hostRequest.botRequest?.model, "sonnet")
+        XCTAssertEqual(set.hostRequest.botRequest?.avatar, "🦊")
+        XCTAssertNil(set.hostRequest.botRequest?.isolation)
+        XCTAssertEqual(try decode(Self.samples["bot-retire"]!), .botRetire(name: "tmp1"))
+        XCTAssertEqual(try decode(Self.samples["bot-token"]!).hostRequest.op, .botToken)
+        let adopt = try decode(Self.samples["bot-adopt"]!)
+        XCTAssertEqual(adopt.hostRequest.botRequest?.agent, "codex")
+        XCTAssertEqual(adopt.confirmationTarget, "olda")
+        // Unfenced only as an explicit choice; the isolation of a new bot is required (never assumed by the page).
+        XCTAssertEqual(try decode(#"{"action":"bot-new","name":"otto","agent":"codex","isolation":"unfenced"}"#).hostRequest.botRequest?.isolation, "unfenced")
+        invalid(#"{"action":"bot-new","name":"otto","agent":"codex"}"#)
+        // Elsewhere: refused at decode, with the terminal's command (the token is shown once, in a terminal only).
+        for (json, cmd) in [(#"{"action":"bot-new","name":"far","agent":"codex","isolation":"elsewhere"}"#,
+                             "doz bot new far --agent codex --isolation elsewhere --to-file F"),
+                            (#"{"action":"bot-set","name":"mira","isolation":"elsewhere"}"#, "doz bot set mira --isolation elsewhere --to-file F"),
+                            (#"{"action":"bot-adopt","name":"olda","agent":"codex","isolation":"elsewhere","confirm":"olda"}"#,
+                             "doz bot adopt olda --agent codex --isolation elsewhere --to-file F")] {
+            XCTAssertThrowsError(try decode(json)) { e in
+                XCTAssertTrue((e as? WebAction.Invalid)?.message.hasSuffix(cmd) == true, "\(e)")
+            }
+        }
+        // Confirmation: required, and the name exactly.
+        for verb in ["bot-retire", "bot-token"] {
+            invalid(#"{"action":"\#(verb)","name":"mira"}"#)
+            invalid(#"{"action":"\#(verb)","name":"mira","confirm":"otto"}"#)
+        }
+        invalid(#"{"action":"bot-adopt","name":"olda","agent":"codex"}"#)
+        // Unknown fields, a token, a bad name, an unknown agent, a bad model, skills, control characters, oversized text.
+        for extra in [#""token":"dzc_x""#, #""secret":"x""#, #""oneTimeToken":"x""#, #""toFile":"/tmp/f""#, #""ceiling":"vm""#, #""retired":true"#] {
+            invalid(#"{"action":"bot-new","name":"otto","agent":"codex","isolation":"fenced",\#(extra)}"#)
+            invalid(#"{"action":"bot-set","name":"otto","model":"m",\#(extra)}"#)
+        }
+        invalid(#"{"action":"bot-set","name":"otto"}"#)                                                     // nothing to change
+        for bad in ["Mira", "chat", "-x", "a_b", "~new", String(repeating: "a", count: 41)] {
+            invalid(#"{"action":"bot-new","name":"\#(bad)","agent":"codex","isolation":"fenced"}"#)
+            invalid(#"{"action":"bot-retire","name":"\#(bad)","confirm":"\#(bad)"}"#)
+        }
+        invalid(#"{"action":"bot-new","name":"otto","agent":"no-such-agent-x","isolation":"fenced"}"#)
+        invalid(#"{"action":"bot-new","name":"otto","agent":"codex","isolation":"cloud"}"#)
+        invalid(#"{"action":"bot-set","name":"otto","model":"two words"}"#)
+        invalid(#"{"action":"bot-set","name":"otto","skills":["Bad Skill"]}"#)
+        invalid(#"{"action":"bot-set","name":"otto","skills":"chat-manager"}"#)
+        invalid(#"{"action":"bot-set","name":"otto","avatar":"a\nb"}"#)
+        invalid(#"{"action":"bot-set","name":"otto","deliver":"email"}"#)
+        invalid(#"{"action":"bot-set","name":"otto","session":"../x"}"#)
+        invalid(#"{"action":"bot-set","name":"otto","account":"Bad Account"}"#)
+        invalid(#"{"action":"bot-set","name":"otto","instructions":"a\u0000b"}"#)
+        invalid(#"{"action":"bot-set","name":"otto","instructions":"\#(String(repeating: "x", count: (256 << 10) + 1))"}"#)
+        XCTAssertEqual(try decode(#"{"action":"bot-set","name":"otto","instructions":"a\tb\r\nc"}"#).hostRequest.botRequest?.instructions, "a\tb\r\nc")
+        XCTAssertEqual(try decode(#"{"action":"bot-set","name":"otto","account":"mac"}"#).hostRequest.botRequest?.account, "mac")
+        // Two bots at once are two operations; the same bot twice is one.
+        let k1 = try decode(#"{"action":"bot-token","name":"mira","confirm":"mira"}"#).dedupeKey
+        XCTAssertNotEqual(k1, try decode(#"{"action":"bot-token","name":"otto","confirm":"otto"}"#).dedupeKey)
+        XCTAssertEqual(k1, "bot-token|bot:mira")
+        XCTAssertNotEqual(try decode(Self.samples["bot-set"]!).dedupeKey, try decode(#"{"action":"bot-set","name":"otto","model":"m"}"#).dedupeKey)
+    }
+
+    /// A bot change's line never carries a token: only the fingerprint; a one-time token from an older daemon is dropped
+    /// unread, and the line says to make another in a terminal.
+    func testABotChangesLineNeverCarriesAToken() throws {
+        let t = Date(timeIntervalSince1970: 0)
+        let rec = BotRecord(name: "far", createdAt: t, agent: "codex", isolation: BotIsolation(default: "elsewhere"), kind: "agent",
+                            token: BotTokenState(keeper: "elsewhere", fingerprint: "0123456789ab", at: t))
+        let token = "dzc_" + String(repeating: "Z", count: 40)
+        let v = try JSONValue(encoding: BotChange(bot: BotDetail(rec, inChat: true, workspaces: [], manages: []), oneTimeToken: token))
+        let line = WebOperations.summary(.botToken(name: "far"), v)
+        XCTAssertFalse(line.contains(token) || line.contains("dzc_") || line.contains("ZZZZ"), line)
+        XCTAssertTrue(line.contains("fp 0123456789ab"), line)
+        XCTAssertTrue(line.contains("a new token was made but is never shown here; make another in a terminal"), line)
+        let held = BotRecord(name: "mira", createdAt: t, agent: "claude-code", isolation: BotIsolation(default: "fenced"), kind: "claude-session",
+                             token: BotTokenState(keeper: "dozable", fingerprint: "3f9a01b2c3c2", at: t))
+        var d = BotDetail(held, inChat: true, workspaces: ["demo"], manages: ["demo"],
+                          notes: ["mira runs in demo: its instructions apply from its next session; demo's room is told"])
+        d.running = "demo"
+        let made = WebOperations.summary(.botSet(BotRequest(name: "mira")), try JSONValue(encoding: BotChange(bot: d)))
+        XCTAssertEqual(made, "changed mira — mira runs in demo: its instructions apply from its next session; demo's room is told")
+        XCTAssertEqual(WebOperations.summary(.botNew(BotRequest(name: "mira")), try JSONValue(encoding: BotChange(bot: d))),
+                       "made the Agent / Bot mira — held by Dozable · fp 3f9a01b2c3c2")
     }
 
     /// `workspace-brief` is exactly `workspace-edit` with the name, the brief and `ifBrief` — strictly decoded: nothing

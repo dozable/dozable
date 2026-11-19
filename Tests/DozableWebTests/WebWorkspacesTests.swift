@@ -174,7 +174,7 @@ final class WebWorkspacesTests: XCTestCase {
         XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/workspaces/launch-video"), .workspace("launch-video"))
         XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/loose"), .loose)
         XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/bots"), .bots)
-        for bad in ["/api/v1/workspaces/", "/api/v1/workspaces/a/b", "/api/v1/workspaces/..", "/api/v1/workspaces/a%2fb", "/api/v1/bots/mira"] {
+        for bad in ["/api/v1/workspaces/", "/api/v1/workspaces/a/b", "/api/v1/workspaces/..", "/api/v1/workspaces/a%2fb", "/api/v1/bots/mira/x", "/api/v1/bots?retired=0", "/api/v1/bots/mira?x=1"] {
             XCTAssertNil(WebRoute.parse(method: .get, target: bad), bad)
         }
         for p in ["/api/v1/workspaces", "/api/v1/workspaces/demo", "/api/v1/loose", "/api/v1/bots"] {

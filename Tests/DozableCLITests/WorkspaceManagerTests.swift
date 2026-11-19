@@ -392,6 +392,41 @@ final class WorkspaceManagerTests: BotTestCase {
         XCTAssertEqual(try logActions().filter { $0 == "brief-announced" }.count, 2)
     }
 
+    /// A bot running in a started workspace: changing its instructions, model or account posts ONE line as you in that
+    /// workspace's main room and logs `bot-changed`; an avatar posts nothing; a bot that does not run posts nothing.
+    func testARunningBotsChangeIsToldInItsRoomOnce() async throws {
+        let c = await mgr()
+        try await newBot(c)
+        _ = try await newWorkspace(c)
+        _ = try started(await ws(c, .workspaceStart, "demo"))
+        let kickoff = wchat.posts.count
+        let m = await ask(c, .botSet, "mira") { $0.instructions = "Answer in one line.\n" }
+        let ch = try change(m)
+        XCTAssertEqual(wchat.posts.count, kickoff + 1, "one line")
+        XCTAssertEqual(wchat.posts.last?.0, "demo", "in the main room")
+        XCTAssertEqual(wchat.posts.last?.1, "mira's instructions changed; they apply from mira's next session")
+        XCTAssertTrue(ch.bot.notes?.contains("mira runs in demo: its instructions apply from its next session; demo's room is told") == true,
+                      "\(ch.bot.notes ?? [])")
+        var entries = try WorkspaceStore(store: store).log("demo")
+        XCTAssertEqual(entries.last?.action, "bot-changed")
+        XCTAssertEqual(entries.last?.agent, "mira")
+        XCTAssertEqual(entries.last?.reason, "instructions")
+        XCTAssertEqual(entries.last?.sentence, "told demo that mira's instructions apply from its next session")
+        // Model and account together: one line; an avatar alone: none; the same model again: none.
+        _ = try change(await ask(c, .botSet, "mira") { $0.model = "sonnet"; $0.account = "mac" })
+        XCTAssertEqual(wchat.posts.count, kickoff + 2)
+        XCTAssertEqual(wchat.posts.last?.1, "mira's model and account changed; they apply from mira's next session")
+        _ = try change(await ask(c, .botSet, "mira") { $0.avatar = "🦊" })
+        _ = try change(await ask(c, .botSet, "mira") { $0.model = "sonnet" })
+        XCTAssertEqual(wchat.posts.count, kickoff + 2, "an avatar, or nothing new, posts nothing")
+        // Stopped: nothing runs, nothing is told.
+        _ = await ws(c, .workspaceStop, "demo")
+        _ = try change(await ask(c, .botSet, "mira") { $0.instructions = "Two lines.\n" })
+        XCTAssertEqual(wchat.posts.count, kickoff + 2, "a bot that does not run: nothing posted")
+        entries = try WorkspaceStore(store: store).log("demo")
+        XCTAssertEqual(entries.filter { $0.action == "bot-changed" }.count, 2)
+    }
+
     func testChatOffKeepsTheEditAndSaysItWasNotAnnounced() async throws {
         let c = await mgr()
         _ = try await newWorkspace(c, manager: nil)

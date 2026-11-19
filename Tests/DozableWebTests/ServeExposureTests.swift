@@ -22,7 +22,7 @@ final class ServeExposureTests: XCTestCase {
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
             .macSessionQuarantine("agent"), .macSessionPlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
-            .workspaceLog("demo", nil), .loose, .bots, .macs,
+            .workspaceLog("demo", nil), .loose, .bots, .botsRetired, .bot("mira"), .macs,
         ]
         for r in all { _ = covered(r) }
         return all
@@ -39,7 +39,7 @@ final class ServeExposureTests: XCTestCase {
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
              .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .chat,
-             .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .macs:
+             .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .botsRetired, .bot, .macs:
             return true
         }
     }
@@ -94,7 +94,7 @@ final class ServeExposureTests: XCTestCase {
     /// placed on this Mac — no loose session, no agent on this Mac, no note naming one, not who is working — and is told how
     /// many were left out.
     func testTheWorkspaceReadsLeaveThisMacsRowsOut() {
-        for r: WebRoute in [.workspaces, .workspace("demo"), .loose, .bots] {
+        for r: WebRoute in [.workspaces, .workspace("demo"), .loose, .bots, .botsRetired, .bot("mira")] {
             XCTAssertEqual(WebExposure.kind(r), .read)
             XCTAssertNil(WebExposure.decide(r, .remote(secure: false), macSessions: .off), "a read: the rows are filtered, not the route")
         }
@@ -156,6 +156,23 @@ final class ServeExposureTests: XCTestCase {
         let adopt = try? WebAction.decode(Data(#"{"action":"workspace-adopt","workspace":"demo","agent":"lab"}"#.utf8))
         XCTAssertEqual(adopt?.isFiling, true)
         XCTAssertEqual(adopt?.isWorkspace, false)
+    }
+
+    /// Agents / Bots: the reads are reads (kind `read`, every browser); every change is this Mac's own browser only, whatever
+    /// serve.chat or serve.mac_sessions say — the `mac-only` code, the family's own words.
+    func testBotChangesAreThisMacsOnly() throws {
+        for r: WebRoute in [.bots, .botsRetired, .bot("mira")] { XCTAssertEqual(WebExposure.kind(r), .read) }
+        XCTAssertNil(WebExposure.decideBotAction(.mac))
+        for p: WebExposure.Principal in [.remote(secure: false), .remote(secure: true)] {
+            XCTAssertEqual(WebExposure.decideBotAction(p), .macOnlyBots, "\(p)")
+        }
+        XCTAssertEqual(WebRejection.macOnlyBots.code, WebRejection.macOnly.code)
+        XCTAssertEqual(WebRejection.macOnlyBots.status, 403)
+        XCTAssertEqual(WebRejection.macOnlyBots.message,
+                       "Agents / Bots are changed only in this Mac's own browser, or with doz bot … in a terminal on the Mac")
+        let token = try WebAction.decode(Data(#"{"action":"bot-token","name":"mira","confirm":"mira"}"#.utf8))
+        XCTAssertTrue(token.isBot)
+        XCTAssertFalse(token.isWorkspace || token.isFiling || token.isMacSession, "decided by its own family, never a serve setting")
     }
 
     /// Your Macs: a read for every browser — another computer (a phone switching Macs) sees the same list, whatever

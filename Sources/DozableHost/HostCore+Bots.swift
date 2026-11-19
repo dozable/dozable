@@ -36,6 +36,51 @@ public enum BotGuards {
         default: return nil
         }
     }
+
+    /// What a `heldOnly` change (the dashboard's) refuses: anything that would make a token to show once — a new or adopted
+    /// bot elsewhere, a new token for a bot elsewhere, a move to or from elsewhere. nil: allowed. Pure; the daemon asks it
+    /// before the keychain or the chat server is touched, so a refusal changes nothing.
+    public static func heldOnlyRefusal(_ op: HostOp, _ b: BotRequest, bots: BotsFile) -> HostError? {
+        guard let n = b.name, ChatNames.refusal(n) == nil else { return nil }     // the name's own refusal comes later
+        let lead = "a bot elsewhere gets its token in a terminal on this Mac"
+        let agent = b.agent.flatMap { a in
+            (1...60).contains(a.count) && a.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "-_./@".contains($0)) }) ? a : nil
+        } ?? "AGENT"
+        switch op {
+        case .botNew where b.isolation == "elsewhere":
+            return HostError(.invalid, "\(lead): doz bot new \(n) --agent \(agent) --isolation elsewhere --to-file F")
+        case .botAdopt where b.isolation == "elsewhere":
+            return HostError(.invalid, "\(lead): doz bot adopt \(n) --agent \(agent) --isolation elsewhere --to-file F")
+        case .botToken:
+            guard let r = bots.bot(n), r.retiredAt == nil, !r.isolation.held else { return nil }
+            return HostError(.invalid, "\(lead): doz bot token \(n) --new --to-file F")
+        case .botSet:
+            guard let r = bots.bot(n), r.retiredAt == nil, let to = b.isolation, BotIsolation.choices.contains(to),
+                  BotIsolation(default: to).held != r.isolation.held else { return nil }
+            if !r.isolation.held {
+                return HostError(.invalid, "\(n) is elsewhere: moving it to this Mac makes it a new token — in a terminal on this Mac: doz bot set \(n) --isolation \(to)")
+            }
+            return HostError(.invalid, "\(lead): doz bot set \(n) --isolation elsewhere --to-file F")
+        default:
+            return nil
+        }
+    }
+
+    /// What changed of a bot that its running sessions only take at their next start (instructions, model, account), in a
+    /// person's words; nil: nothing such (a name or an avatar shows at once).
+    public static func nextSessionChanges(_ before: BotRecord, _ after: BotDetail) -> String? {
+        var parts: [String] = []
+        if before.instructions?.sha256 != after.instructions?.sha256 { parts.append("instructions") }
+        if before.model != after.model { parts.append("model") }
+        if before.account != after.account { parts.append("account") }
+        guard !parts.isEmpty else { return nil }
+        return parts.count == 1 ? parts[0] : parts.dropLast().joined(separator: ", ") + " and " + parts.last!
+    }
+
+    /// The one line posted as you in a workspace's main room when a bot running there changed.
+    public static func changedLine(_ name: String, _ what: String) -> String {
+        "\(name)'s \(what) changed; \(what == "model" || what == "account" ? "it applies" : "they apply") from \(name)'s next session"
+    }
 }
 
 /// The Agents / Bots in the daemon (`bot-*`). Looking (ls, show) is answered in-process by a read-only core too; every change
@@ -61,6 +106,8 @@ extension HostCore {
             var d = try botDetail(try botRecord(n, in: try bots.read()))
             d.running = await runningManagers()[n]
             d.worksIn = liveWorkers()[n]
+            // The instructions' text only when asked: `doz bot show --instructions` and the dashboard's bot screen.
+            if b.withInstructions == true, d.instructions != nil { d.instructionsText = bots.readInstructions(n) }
             return try JSONValue(encoding: d)
         default:
             break
@@ -69,9 +116,15 @@ extension HostCore {
         guard let chat = botChat else { throw HostError(.unavailable, "\(r.op.rawValue) needs the daemon's chat server") }
         await botGate.lock("bots")
         defer { botGate.unlock("bots") }
+        // The dashboard's changes keep the token held: nothing it asks may make a token to show once (checked before the
+        // keychain or the chat server is touched).
+        if b.heldOnly == true, let e = try BotGuards.heldOnlyRefusal(r.op, b, bots: try bots.read()) { throw e }
         switch r.op {
         case .botNew: return try JSONValue(encoding: try await botNew(b, chat))
-        case .botSet: return try JSONValue(encoding: try await botSet(b, chat))
+        case .botSet:
+            let before = try bots.read().bot(try botName(b))
+            let change = try await botSet(b, chat)
+            return try JSONValue(encoding: await botTellRunningSessions(before, change))
         case .botRetire: return try JSONValue(encoding: try await botRetire(b, chat))
         case .botAdopt: return try JSONValue(encoding: try await botAdopt(b, chat))
         case .botToken: return try JSONValue(encoding: try await botToken(b, chat))
@@ -124,7 +177,8 @@ extension HostCore {
         let ws = botWorkspaces()
         let rows = file.bots.filter { $0.retired == retired }.sorted { $0.name < $1.name }.map { r in
             BotRow(name: r.name, agent: r.agent, model: r.model, isolation: r.isolation.default, kind: r.kind, deliver: r.deliver,
-                   inChat: dir.participants.contains { $0.name == r.name }, manages: ws.manages[r.name] ?? [], retiredAt: r.retiredAt)
+                   inChat: dir.participants.contains { $0.name == r.name }, manages: ws.manages[r.name] ?? [], retiredAt: r.retiredAt,
+                   avatar: r.avatar, account: r.account, tokenKeeper: r.token.keeper)
         }
         return BotListing(bots: rows)
     }
@@ -297,6 +351,34 @@ extension HostCore {
         if b.isolation == "unfenced" { notes.append("unfenced: \(name) acts as you") }
         if deliver == "webhook" { notes.append("set its webhook entry next: doz chat webhook set \(rec.webhookEntry ?? name)") }
         return BotChange(bot: try botDetail(rec, notes: notes), oneTimeToken: oneTime)
+    }
+
+    /// A bot running in a started workspace whose instructions, model or account changed: ONE line posted as you in each such
+    /// workspace's main room (`BotGuards.changedLine` — the change applies from its next session) and `bot-changed` logged
+    /// there, through the same `WorkspaceChat.post` the brief's announcement uses. A name or an avatar posts nothing. The
+    /// change is kept whatever the chat server says; the answer's notes say what was told, or why not.
+    func botTellRunningSessions(_ before: BotRecord?, _ change: BotChange) async -> BotChange {
+        guard let before, let what = BotGuards.nextSessionChanges(before, change.bot) else { return change }
+        let name = change.bot.name
+        var live: [String] = []
+        if let w = await runningManagers()[name] { live.append(w) }
+        if let w = liveWorkers()[name], !live.contains(w) { live.append(w) }
+        var out = change
+        var notes = change.bot.notes ?? []
+        for w in live {
+            guard let rec = try? workspaces.read(w), rec.flags.startedAt != nil || rec.flags.firstAgentAt != nil,
+                  let room = rec.mainRoom?.chatRoom else { continue }
+            let said = await workspaceAnnounce(w, room: room, content: BotGuards.changedLine(name, what),
+                                               entry: WorkspaceLogEntry(action: "bot-changed", agent: name, room: room, reason: what))
+            if let not = said.first {
+                notes.append("\(name) runs in \(w): its \(what) apply from its next session — \(not)")
+            } else {
+                note(nil, "bot \(name): its \(what) changed; told \(w)'s room")
+                notes.append("\(name) runs in \(w): its \(what) apply from its next session; \(w)'s room is told")
+            }
+        }
+        out.bot.notes = notes.isEmpty ? nil : notes
+        return out
     }
 
     func botRetire(_ b: BotRequest, _ chat: BotChat) async throws -> BotChange {

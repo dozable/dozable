@@ -976,6 +976,8 @@ public final class DozableWebServer: @unchecked Sendable {
             if request.action.isWorkspace, let r = WebExposure.decideWorkspaceAction(ctx.principal, settings.chatServe) { throw r }
             // Filing an agent into a workspace or out of one: this Mac's own browser only, whatever the serve settings.
             if request.action.isFiling, let r = WebExposure.decideFilingAction(ctx.principal) { throw r }
+            // An Agent / Bot changed: this Mac's own browser only, whatever the serve settings (a token made, replaced or revoked).
+            if request.action.isBot, let r = WebExposure.decideBotAction(ctx.principal) { throw r }
             return json(try operations.start(request.action, priority: !request.batch), status: 202)
         case .operationsCancel:
             // 650: withdraw operations still queued — nothing was sent to the host for them (so not an action).
@@ -1022,8 +1024,13 @@ public final class DozableWebServer: @unchecked Sendable {
             try WebWorkspaceReads.checkName(w)
             return json(WebWorkspaceLog(try await data.workspaceLog(w, since: since),
                                         macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
-        case .bots:
-            return json(WebBotListing(try await data.bots()))
+        case .bots, .botsRetired:
+            return json(WebBotListing(route == .botsRetired ? try await data.retiredBots() : try await data.bots()))
+        case .bot(let n):
+            // bot-show with its instructions' text: the name by the chat rule first (400, never echoed); unknown → 404. Another
+            // computer reads it too (the text is your prose, never a credential); a session on this Mac follows serve.mac_sessions.
+            try WebBotReads.checkName(n)
+            return json(WebBotReads.forBrowser(WebBotDetail(try await data.bot(n)), macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
         case .macs:
             // One read-only HostOp; every browser that may read sees the same list (names and origins only).
             return json(WebMacList(try await data.macs(), thisMac: WebMacReads.thisMacName))

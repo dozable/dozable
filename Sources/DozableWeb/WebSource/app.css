@@ -3014,3 +3014,51 @@ a.ws-tab { text-decoration: none; }
   .wsa-task { max-width: none; }
 }
 }
+
+/* Agents / Bots (views/bots.js, views/bot.js, components/bot-form.js): the roster, one bot's screen — its header, its key
+   (who keeps it and a fingerprint, never a token), its tabs (the workspace page's tab row), across its workspaces, its
+   rooms and what it said last — and the edit form; a choice that is the terminal's (elsewhere) is drawn disabled with
+   its command. Below 760 px the roster's rows wrap. */
+@layer views {
+.bots-page, .bot-page { display: flex; flex-direction: column; gap: var(--sp-4); }
+.bots-page .head-acts, .bot-head .head-acts { display: flex; align-items: center; gap: var(--sp-3); margin-left: auto; }
+a.btn.is-disabled { color: var(--ink-3); cursor: not-allowed; }
+.bot-show-retired { align-self: flex-start; }
+.bot-who { display: flex; align-items: center; gap: var(--sp-3); white-space: nowrap; }
+.bot-runs { white-space: nowrap; }
+.bot-status { color: var(--ink-2); }
+.bot-status.is-running { color: var(--ink); font-weight: var(--fw-medium); }
+.bot-acts { text-align: right; white-space: nowrap; }
+.bot-notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--sp-3); }
+.bot-avatar { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; border-radius: var(--r-pill);
+  background: var(--surface-2); color: var(--ink); font-size: var(--fs-sm); font-weight: var(--fw-medium); }
+.bot-avatar.is-lg { width: 36px; height: 36px; font-size: var(--fs-lg); }
+.bot-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); }
+.bot-head h1 { margin: 0; }
+.bot-chips { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.bot-key { display: flex; align-items: center; gap: var(--sp-2); margin: 0; color: var(--ink-2); }
+.bot-key .icon { width: 14px; height: 14px; }
+.bot-across, .bot-chat, .bot-roles, .bot-edit { display: flex; flex-direction: column; gap: var(--sp-3); }
+.bot-across h2, .bot-chat h2 { margin: 0; font-size: var(--fs-lg); }
+.bot-rooms { margin: 0; }
+.bot-said { margin: 0; padding-left: var(--sp-5); line-height: var(--lh-prose); }
+.bot-form { display: flex; flex-direction: column; gap: var(--sp-4); max-width: 46rem; }
+.bf-notes { display: flex; flex-direction: column; gap: var(--sp-2); }
+.bf-group { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--panel-p); border-radius: var(--r-lg); background: var(--surface);
+  border: var(--bw) solid var(--line); }
+.bf-title { margin: 0; font-size: var(--fs-lg); }
+.bf-section { display: flex; flex-direction: column; gap: var(--sp-3); }
+.bf-radios { display: flex; flex-direction: column; gap: var(--sp-2); }
+.bf-radio { display: flex; align-items: flex-start; gap: var(--sp-3); cursor: pointer; }
+.bf-radio.is-disabled { color: var(--ink-3); cursor: not-allowed; }
+.bf-radio-text { display: flex; flex-direction: column; gap: var(--sp-1); }
+.bf-radio-text small { color: var(--ink-2); }
+.bf-count { color: var(--ink-3); }
+.bf-count.is-over { color: var(--bad); }
+.bf-done { color: var(--ink-2); }
+.bot-save { display: flex; justify-content: flex-end; gap: var(--sp-3); max-width: 46rem; }
+@media (max-width: 760px) {
+  .bot-acts { text-align: left; }
+  .bot-who, .bot-runs { white-space: normal; }
+}
+}

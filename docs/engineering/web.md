@@ -12,8 +12,8 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | `WebSource/app.js` | the entry — imports every module, the shell's own wiring (quick add, sign out, nav icons, the rail), `startApp`, `provide({…})` (every call up the layers), `expose({…})` (the probes' names), then the bootstrap |
 | `WebSource/app/dom/` | `h.js` (`h`, `$` — text only), `icons.js` (`icon`, `iconFor`, `withIcon`, `setButton`, the glyph maps) |
 | `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `routes.js` (the addresses: `parse`, `canonical`, `LEGACY`, `MAC_RESERVED`, `placeHash` — pure), `router.js` (`route`, `routePage`, `refresh`), `workspaces.js` (the workspace, loose and bot reads, shared and never on a timer), `ws-log.js` (a workspace's log in a room: the pure `interleave`), `events.js` (SSE `connect`), `grid.js` + `vt-grid.js` (648: the GRID, its checks, a saved screen's VT read into one) |
-| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`; a link item), `mac-picker.js` (the machine picker), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `notes.js` (647: the notifications in the top-right corner — cards, pills, bell), `page-title.js` (647: the sticky title bar and table heads), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `ws-nav.js` (the sidebar's Workspaces), `ws-marks.js` (a workspace's state pill and dot, the driver and manager chips), `ws-brief.js` (a workspace's brief card), `ws-panel.js` (its side panel and each sender's meta line), `agent-frame.js` (an agent's screen: the frame, "In this workspace", a place's own page's strip), `put-in-workspace.js` ("Put in a workspace…", "Take out…"), `cmd-line.js` (a command with Copy), `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `screen-paint.js` + `grid-feed.js` + `session-thumb.js` (648: the painted pictures, the one feed, their sources), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
-| `WebSource/app/views/` | one per page: `home` (the workspaces), `workspace` (a workspace's page, `#/w/NAME`), `ws-agents` (its Agents tab, `#/w/NAME/agents`, and an agent's card), `this-mac` (This Mac's overview), `macs` (This Mac › Your Macs), `loose` (Loose agents), `bots` (Agents / Bots), `overview` (This Mac › Sandboxes), `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
+| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`; a link item), `mac-picker.js` (the machine picker), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `notes.js` (647: the notifications in the top-right corner — cards, pills, bell), `page-title.js` (647: the sticky title bar and table heads), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `ws-nav.js` (the sidebar's Workspaces), `ws-marks.js` (a workspace's state pill and dot, the driver and manager chips), `ws-brief.js` (a workspace's brief card), `ws-panel.js` (its side panel and each sender's meta line), `agent-frame.js` (an agent's screen: the frame, "In this workspace", a place's own page's strip), `put-in-workspace.js` ("Put in a workspace…", "Take out…"), `bot-form.js` (an Agent / Bot's edit tabs and a new one's form), `bot-invite.js` ("Add to a room…": `/invite` as you), `cmd-line.js` (a command with Copy), `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `screen-paint.js` + `grid-feed.js` + `session-thumb.js` (648: the painted pictures, the one feed, their sources), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
+| `WebSource/app/views/` | one per page: `home` (the workspaces), `workspace` (a workspace's page, `#/w/NAME`), `ws-agents` (its Agents tab, `#/w/NAME/agents`, and an agent's card), `bot` (one Agent / Bot, `#/bots/NAME[/TAB]`, and `#/bots/~new`), `this-mac` (This Mac's overview), `macs` (This Mac › Your Macs), `loose` (Loose agents), `bots` (Agents / Bots), `overview` (This Mac › Sandboxes), `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the daemon attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Sources/DozableWeb/WebMac.swift`; `WebSource/app/views/mac.js`, `mac-capabilities.js`, `mac-wizard.js`, `app/core/places.js` | This Mac (`@mac`, the sessions held on the Mac itself — fenced or not): the projection (its fence, its capability rows, the tile's chips), the ticket's strict body, the grids rule, the Network / Conversations / quarantine answers, the New session wizard's plan (carrying `buildCommands` for the Swift / Xcode case — `MacBuildCommands`, the one source the wizard's "Inside the session" block, `doz run @mac --xcode --dry-run` and the fence suite share); the page (`#/mac`) and All sessions' section; "What this session can do"; the wizard; the place → route helper (`placePath`, `screenPath`) every ticket, socket and saved screen goes through (the page is This Mac › On this Mac, `#/mac/here`) |
@@ -250,7 +250,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
     doctor, settings, debug, macs; `#/recipes[/…]`, `#/settings/recipes[/…]`, `#/browse` → `#/mac/templates…`; the Store and Setup
     pages → `#/mac/<same>`; the Activity pages → `#/mac/logs/<same>`; `#/general` → `#/chat`; `#/needs-you` → `#/home`). The
     router replaces an old address with its canonical one (`location.replace`) before it parses; `state.view` names did not
-    change (the new ones: `home`, `thismac`, `loose`, `bots`). Every `'#/…'` literal in `WebSource` is canonical; only
+    change (the new ones: `home`, `thismac`, `loose`, `bots`, `bot` — `#/bots/~new` and `#/bots/NAME[/TAB]`, `BOT_TABS`, the sidebar's Agents / Bots marked for both). Every `'#/…'` literal in `WebSource` is canonical; only
     `LEGACY` keeps old ones. A bare `#/mac` is This Mac's overview now; a session on this Mac named like a reserved word lost
     its old deep link. `make dashboard-walk` (`Scripts/dashboard-walk.mjs`, standalone like css-perf, on `spawnChrome`): a
     scratch store, settings and Chrome profile under `/tmp/doz-dashboard-walk`, `--headless=new`, `--remote-debugging-port=0`,
@@ -467,9 +467,9 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   control character) within the actions' 16 KiB body (the page shows `doz workspace edit W --prompt-file F` beyond it).
   After the start the daemon announces it in the main room as you. Another computer: `WebExposure.decideWorkspaceAction`
   — only with `serve.chat = write` (off → 403 `brief-remote`, read → `chat-read-only`), one `change` audit line (the
-  action's word, never the brief). `WebActionTests` pins it: the only `workspace-*`/`bot-*`/`worker-*` HostOp that is an
-  action is `workspace-edit`, through `workspace-brief`, plus the three filing HostOps; no lifecycle (start, stop, a worker, a bot) for any
-  browser.
+  action's word, never the brief). `WebActionTests` pins it: the only `workspace-*`/`worker-*` HostOp that is an action is
+  `workspace-edit`, through `workspace-brief`, plus the three filing HostOps; no lifecycle (start, stop, a worker) for any
+  browser. The `bot-*` actions are the five of "Agents / Bots in the dashboard", below.
 - **Projections** (`WebModels`: `WebWorkspaceListing`, `WebWorkspaceRow`, `WebWorkspaceManager`, `WebLooseAgent`,
   `WebWorkspaceDetail` — the brief's size and its references' count, never its text or hash —, `WebWorkspaceAgent` with
   its `kind` sandbox | mac | elsewhere, `WebBotListing`/`WebBotRow`), field by field; no secret-shaped field
@@ -623,6 +623,77 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   — `firstAgentAt`, no kick-off, nothing posted —: "NAME is started: AGENT was already running. The brief was not posted. doz
   workspace start is not needed."; one that does not run: "AGENT is in NAME, which is still setting up" (its gaps are on the
   page). The title pill and the setting-up banner follow at the next read.
+
+## Agents / Bots in the dashboard
+
+The rule (CLAUDE.md): **the dashboard never carries, shows or stores a bot token.** Every bot write is this Mac's own
+browser only and `heldOnly`.
+
+- **Reads** (`WebBots.swift`, `WebBotReads.request(for:)` — `WebWorkspaceReads.request(for:)` hands the bot routes there), each
+  EXACTLY ONE read-only HostOp the CLI sends, answered in-process with no daemon: `GET /api/v1/bots` → `bot-ls` (`doz bot ls`),
+  `GET /api/v1/bots?retired=1` → `bot-ls` with `retired` (`doz bot ls --retired`; any other query is not a route),
+  `GET /api/v1/bots/{name}` → `bot-show` with `withInstructions` (`doz bot show NAME --instructions`; the name by the chat rule
+  first, 400 never echoed; unknown 404). Projections (`WebModels`): `WebBotRow` gains `avatar`, `account` and `keeper`
+  (who keeps its token: `dozable | elsewhere | none` — never a fingerprint in the list); `WebBotDetail` field by field — who
+  (name, avatar, `createdAt`, origin, kind, `inChat`), what (agent, model, account, skills, the instructions' TEXT, size and
+  `updatedAt` — your prose, shown to every browser that may read, never their hash), where (isolation, the ceiling read
+  only, `actsAsYou`, workspaces, manages, `running`, `worksIn`), how (delivery, its webhook entry's name, an inbox's session),
+  and its key: `keeper`, `fingerprint` (1–12 lower-case hex, else dropped) and `keptSince` — never the token
+  (`WebBotsTests.testNoAnswerHasASecretShapedField`: no `token`, `secret`, `sha256` or `hash` in an answer). Kind `read`:
+  another computer reads both; while `serve.mac_sessions` is off `WebBotReads.forBrowser` drops the inbox session (a
+  session on this Mac) and every note naming one (`ServeHTTPTests.testABotIsReadRemotelyWithoutThisMacsSessions`).
+- **Five actions**, each EXACTLY the CLI's HostOp (the pinned set in `WebActionTests` gains exactly these; never `bot-ls` or
+  `bot-show`): `bot-new` `{name, agent, isolation, model?, account?, avatar?, deliver?, webhookEntry?, session?, skills?,
+  instructions?}` (`doz bot new`), `bot-set` `{name, + any of model, account, avatar, skills, instructions, isolation,
+  deliver, webhookEntry, session}` (`doz bot set`), `bot-retire` `{name, confirm}`, `bot-adopt` `{name, agent, model?,
+  isolation?, deliver?, confirm}` (`doz bot adopt --yes`), `bot-token` `{name, confirm}` (`doz bot token --new`). Strictly
+  decoded by the CLI's rules (`ChatNames`, `AgentRef.resolve`, the account name or `mac`, `ModelSelection.isModelID`,
+  `BotFields`), anything else 400 with a fixed message; `isolation: elsewhere` is refused AT DECODE with the terminal's
+  command; a new bot's isolation is required (the page never assumes unfenced); retire, adopt and token carry `confirm` =
+  the name (`confirmationTarget`, the page's tick); `dedupeKey` is `op|bot:NAME` (a bot request leaves `name` empty). The
+  instructions are text (line breaks and tabs) within the actions' 16 KiB body — the page refuses over 15 KiB and shows
+  `doz bot set NAME --instructions-file F`.
+- **`heldOnly`** (`BotRequest.heldOnly`, additive; every bot action sets it in `WebAction.botRequest`, the CLI never does):
+  the daemon refuses — under the `bots` gate, BEFORE the keychain or the chat server is touched — whatever would make a
+  token to show once: new or adopt elsewhere, `bot-token` for a bot elsewhere, `set` to or from elsewhere
+  (`BotGuards.heldOnlyRefusal`: "a bot elsewhere gets its token in a terminal on this Mac: doz bot token far --new --to-file
+  F"). A bot elsewhere is made and re-keyed only in a terminal; the page shows the command, never a token (an asynchronous
+  operation's result is kept and broadcast, a clipboard leaks to its history, and the other machine needs a file anyway).
+  `BotTokenTests.testHeldOnlyRefusesEveryTokenToShowOnce`, `BotAdoptTests`.
+- **This Mac's own browser only** (`WebAction.isBot`, `WebExposure.decideBotAction`): another computer gets 403 `mac-only`
+  (`WebRejection.macOnlyBots`, its own words) whatever `serve.chat` or `serve.mac_sessions` say — each action makes, replaces
+  or revokes a token and writes the login keychain; the refusal is one audit line, nothing reaches the daemon
+  (`ServeExposureTests.testBotChangesAreThisMacsOnly`, `ServeHTTPTests.testBotChangesAreThisMacsBrowserOnlyWhateverTheServeSettings`
+  — over http and over https through a proxy). The page draws every changing control disabled there ("Only from this Mac's
+  own browser") and its ⋯ shows Open and Include in a room… only.
+- **The summary rule** (`WebOperations.botSummary`): a bot change's line is written from `BotChangeSeen` — the bot's detail
+  (its keeper and fingerprint) and only WHETHER a `oneTimeToken` came; its value is never decoded, kept, written or sent. One
+  from an older daemon (which ignores `heldOnly`) is dropped unread and the line says "a new token was made but is never
+  shown here; make another in a terminal" (`WebOperationsTests.testABotChangesOneTimeTokenLeavesNoTrace`: the line, SSE,
+  `ui.operations.json`).
+- **The page**: `views/bots.js` (`#/bots`, the roster), `views/bot.js` (`#/bots/NAME` — Across workspaces, its rooms and what
+  it said last, read from chat only while `chat/status` runs and this browser may: `GET /api/v1/chat/state` and
+  `…/rooms/R/messages?limit=20` for ≤ 12 rooms; `#/bots/NAME/identity|runs|reached|instructions|account` the edit tabs, each
+  ONE `bot-set` of what changed on it; `roles` read only; `#/bots/~new` the same form, fenced and poll by default; a running
+  bot's tab says its instructions, model and account apply from its next session and its room is told), `components/bot-form.js`
+  (`state.botForm.dirty`: a live refresh leaves unsaved changes — and a refused save — as they are), `components/bot-invite.js`
+  ("Add to a room…": `/invite @NAME` posted as you through the chat post route, `serve.chat`'s to allow — no action, no token
+  step). The roster's and the screen's ⋯: Open, Edit, Duplicate (`#/bots/~new` filled, its name empty), New workspace with
+  this bot (the command), Include in a room…, Pause it everywhere (disabled: later), New token…, Retire….
+- **The walk** (`make dashboard-walk`, after the agents, chat on): `far` (elsewhere, `--to-file`), `tmp1` and the participant
+  `olda` (`doz chat add --to-file`) made with the CLI, their tokens read from their files (never printed). 1 the roster equals
+  `doz bot ls --json`, keeper and isolation per row; 2 `#/bots/~new` makes `nova` (fenced by default, unfenced not
+  preselected, elsewhere disabled with its command; inbox says it polls with dozchat) and its screen's fingerprint is `doz bot
+  show nova --json`'s; 3 an instructions edit changes the CLI's sha256 ("applies from its next session"); 4 a crafted
+  `bot-new` elsewhere is 400, a crafted `bot-token` for `far` is refused by the daemon (`heldOnly`), its fingerprint unchanged;
+  5 New token… with the tick changes nova's fingerprint, nothing shown; 6 adopting `olda` shows Q9's words, `chat who` marks
+  it a bot and its old token gets 401; 7 retiring `tmp1` (its screen "retired", Show retired lists only the retired) and
+  retiring `otto`, a manager, refused with `doz workspace release demo3 otto`, the dialog open; 8 Include in a room… puts
+  `otto` in `other` (`doz chat rooms`, `chat who`), no token step; after EVERY row the leak sweep — the known tokens and `dzc_`
+  in the page's DOM, every `/api/` answer (`Network.getResponseBody`), the console, page errors, local and session storage,
+  CacheStorage, IndexedDB, `ui.operations.json`, `ui.log` and `doz ui`'s output, `daemon.log`, `server.log` and every `ps`
+  command line — ZERO, with a positive control; no page error on any bot screen. The walk gives the daemon a scratch
+  `DOZ_TEST_CLAUDE_SESSIONS` (an inbox bot makes the chat server look at Claude Code's sessions).
 
 ## Your Macs (the machine picker)
 

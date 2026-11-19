@@ -181,6 +181,8 @@ public enum WebRoute: Equatable, Sendable {
     case workspaceLog(String, Date?)    // GET  /api/v1/workspaces/{w}/log[?since=EPOCH]  (workspace-log --since)
     case loose                          // GET  /api/v1/loose             (workspace-ls --loose)
     case bots                           // GET  /api/v1/bots              (bot-ls)
+    case botsRetired                    // GET  /api/v1/bots?retired=1    (bot-ls --retired)
+    case bot(String)                    // GET  /api/v1/bots/{name}       (bot-show --instructions; the name checked before any call — 400)
     // Your Macs (WebMacs.swift): a read only, exactly the read-only HostOp `doz ui macs ls` sends.
     case macs                           // GET  /api/v1/macs              (macs-ls)
 
@@ -296,10 +298,14 @@ public enum WebRoute: Equatable, Sendable {
             case "editors": return .editors
             case "workspaces": return .workspaces
             case "loose": return .loose
-            case "bots": return .bots
+            case "bots":
+                // The only query: `retired=1` (the roster's "Show retired"); anything else there is not a route.
+                switch query { case nil: return .bots; case "retired=1": return .botsRetired; default: return nil }
             case "macs": return .macs
             default: return nil
             }
+        case 2 where rest[0] == "bots":
+            return query == nil ? .bot(rest[1]) : nil
         case 2 where rest[0] == "workspaces":
             return .workspace(rest[1])
         case 3 where rest[0] == "workspaces" && rest[2] == "brief":

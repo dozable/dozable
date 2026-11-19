@@ -493,6 +493,29 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(try req("/api/v1/workspaces/demo", ["Cookie": devCookie]).status, 200)
     }
 
+    /// A bot's screen is a read for every browser: another computer gets it (the instructions' text too — your prose), read
+    /// only, its key as keeper + fingerprint, and — while serve.mac_sessions is off — nothing naming this Mac's sessions.
+    func testABotIsReadRemotelyWithoutThisMacsSessions() async throws {
+        try await start()
+        let (macCookie, _) = try macSignIn()
+        let (devCookie, _) = try await admit()
+        let dev = try req("/api/v1/bots/mira", ["Cookie": devCookie])
+        XCTAssertEqual(dev.status, 200, dev.text)
+        XCTAssertTrue(dev.text.contains("\"instructions\":\"Be brief.\\n\""), dev.text)
+        XCTAssertTrue(dev.text.contains("\"fingerprint\":\"3f9a01b2c3c2\"") && dev.text.contains("\"keeper\":\"dozable\""), dev.text)
+        XCTAssertFalse(dev.text.contains("build"), "no session of this Mac: \(dev.text)")
+        XCTAssertFalse(dev.text.lowercased().contains("token") || dev.text.contains("cccccccc"), dev.text)
+        let mac = try macReq("/api/v1/bots/mira", ["Cookie": macCookie])
+        XCTAssertTrue(mac.text.contains("\"session\":\"build\""), "the Mac's own browser: \(mac.text)")
+        XCTAssertEqual(try req("/api/v1/bots/nobody", ["Cookie": devCookie]).status, 404)
+        let bad = try req("/api/v1/bots/Bad_Name", ["Cookie": devCookie])
+        XCTAssertEqual(bad.status, 400, bad.text)
+        XCTAssertFalse(bad.text.contains("Bad_Name"), "never echoed")
+        let retired = try req("/api/v1/bots?retired=1", ["Cookie": devCookie])
+        XCTAssertEqual(retired.status, 200, retired.text)
+        XCTAssertTrue(retired.text.contains("\"gone\"") && !retired.text.contains("\"mira\""), retired.text)
+    }
+
     /// A workspace's brief is what its agents act on: another computer reads it only with serve.chat read or write (refused,
     /// and audited, while off); its log hides the lines about this Mac's sessions while serve.mac_sessions is off.
     func testTheBriefFollowsServeChatAndTheLogHidesThisMacsSessions() async throws {
@@ -572,6 +595,61 @@ final class ServeHTTPTests: XCTestCase {
             while fake.performedOps.count < want.count && Date() < deadline { usleep(10_000) }
             XCTAssertEqual(fake.performedOps, want)
         }
+    }
+
+    static let botActions = [
+        #"{"action":"bot-new","name":"mira","agent":"claude-code","isolation":"fenced"}"#,
+        #"{"action":"bot-set","name":"mira","model":"sonnet"}"#,
+        #"{"action":"bot-retire","name":"mira","confirm":"mira"}"#,
+        #"{"action":"bot-adopt","name":"olda","agent":"codex","confirm":"olda"}"#,
+        #"{"action":"bot-token","name":"mira","confirm":"mira"}"#,
+    ]
+
+    /// Every bot change is this Mac's own browser only, whatever serve.chat and serve.mac_sessions say — over http and over
+    /// https through a trusted proxy: 403 `mac-only` with the family's words, one audit line, nothing sent to the daemon.
+    /// This Mac's browser: 202, each exactly its HostOp, heldOnly.
+    func testBotChangesAreThisMacsBrowserOnlyWhateverTheServeSettings() async throws {
+        try await start(WebServeConfig(port: 0, bind: .loopback, publicOrigins: [WebPublicOrigin("https://doz.home.example")!],
+                                       trustedProxies: [WebCIDR("127.0.0.1")!], advertise: false), macSessions: "interactive", chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        for body in Self.botActions {
+            let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", body, remote: true)
+            XCTAssertEqual(r.status, 403, r.text)
+            XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+            XCTAssertTrue(r.text.contains("Agents / Bots are changed only in this Mac's own browser"), r.text)
+        }
+        // Over https, through the proxy: the same.
+        let viaProxy = ["Host": "doz.home.example", "X-Forwarded-Proto": "https", "X-Forwarded-For": "192.168.86.48"]
+        let inv = await server.share(by: "the Mac")
+        var h = viaProxy
+        h["Origin"] = "https://doz.home.example"
+        h["Authorization"] = "Bearer \(inv.testToken)"
+        let s = try req("/api/v1/session", h, method: "POST")
+        XCTAssertEqual(s.status, 200, s.text)
+        let cookie = String(try XCTUnwrap(s.header("set-cookie")).split(separator: ";")[0])
+        let csrf = try XCTUnwrap((try JSONSerialization.jsonObject(with: s.body) as? [String: Any])?["csrf"] as? String)
+        var post = viaProxy
+        post["Cookie"] = cookie; post["X-Doz-CSRF"] = csrf; post["Origin"] = "https://doz.home.example"; post["Content-Type"] = "application/json"
+        for body in Self.botActions {
+            let r = try req("/api/v1/actions", post, method: "POST", body: body)
+            XCTAssertEqual(r.status, 403, r.text)
+            XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+        }
+        XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon")
+        let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+        XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "mac-only" && $0.route == "actions" }, "audited")
+        let (macCookie, macCSRF) = try macSignIn()
+        var want: [HostOp] = []
+        for (body, op) in zip(Self.botActions, [HostOp.botNew, .botSet, .botRetire, .botAdopt, .botToken]) {
+            let r = try macJSON(macCookie, macCSRF, "/api/v1/actions", body, remote: false)
+            XCTAssertEqual(r.status, 202, r.text)
+            want.append(op)
+            let deadline = Date().addingTimeInterval(5)
+            while fake.performedOps.count < want.count && Date() < deadline { usleep(10_000) }
+            XCTAssertEqual(fake.performedOps, want)
+        }
+        XCTAssertTrue(fake.performedBotRequests.allSatisfy { $0.heldOnly == true }, "every one heldOnly")
+        XCTAssertEqual(fake.performedBotRequests.count, 5)
     }
 
     func testServeChatWriteEditsTheBriefAuditedAsOneLine() async throws {

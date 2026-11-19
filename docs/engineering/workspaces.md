@@ -73,7 +73,8 @@ Rules (keep them, and their tests):
   `bot-invited`, `kicked-off` (the post's sha256 and size — never its text), `manager-started` (isolation, place, the
   token's fingerprint — never the token), `manager-stopped`, `worker-added` (isolation, place, the task's sha256 and size,
   the token's fingerprint — never the task's text or the token), `worker-ended`, `worker-add-undone` (by `doz`),
-  `brief-announced` (the room an edit after the start was announced in). Each reads as a sentence
+  `brief-announced` (the room an edit after the start was announced in), `bot-changed` (a running bot's instructions, model
+  or account changed, told in `room`; `reason` says which). Each reads as a sentence
   (`WorkspaceLogEntry.sentence`: "started the work: posted the brief in demo (512 bytes)", "edited the work (120 bytes)")
   — the ONE set of words `doz workspace log`, `doz chat read --with-log` and the dashboard's system lines share
   (`WorkspaceLogSentenceTests`).
@@ -337,11 +338,13 @@ only with `serve.chat` read or write, else 403 `brief-remote`), `GET /api/v1/wor
 (`workspace-log --since`: `{lines: [{at, by, action, room?, agent?, text}], more, hidden}` — the sentences; never a hash,
 fingerprint, place key or size field; the newest 500; another computer while `serve.mac_sessions` is off gets no line
 about a session on this Mac, counted in `hidden`), `GET /api/v1/loose` (`workspace-ls --loose`), `GET /api/v1/bots`
-(`bot-ls`). Four actions change a workspace from the page: `workspace-brief` = exactly `workspace-edit` with the name, the
+(`bot-ls`; and `?retired=1`, and `GET /api/v1/bots/{name}` — `bot-show` with the instructions' text: web.md, "Agents / Bots
+in the dashboard"). Four actions change a workspace from the page: `workspace-brief` = exactly `workspace-edit` with the name, the
 brief and `ifBrief` (another computer only with `serve.chat = write`), and FILING — `workspace-adopt`, `workspace-new` with
 exactly one agent (no folder, reference, room or manager) and `workspace-release`, each exactly the CLI's HostOp, this
 Mac's own browser only (another computer: 403 `mac-only`, whatever its serve settings; web.md, "Filing agents"). No other
-`workspace-*`, and no `bot-*` or `worker-*` HostOp, is an action — no lifecycle from any browser (CLAUDE.md's rule).
+`workspace-*`, and no `worker-*` HostOp, is an action — no lifecycle from any browser (CLAUDE.md's rule). The five `bot-*`
+changes are actions of this Mac's own browser, each `heldOnly` (below).
 Filing a RUNNING agent into a workspace that is setting up marks it started (`firstAgentAt`; nothing posted, nothing
 started), and the page says so ("NAME is started: AGENT was already running. The brief was not posted."); the title pill and
 the setting-up banner follow. Releasing the last agent of a started workspace leaves `firstAgentAt` set — the rule governs
@@ -403,6 +406,24 @@ working at once); its kind, rooms and history are kept, `origin: adopted`. The C
 |---|---|---|
 | `bot-ls`, `bot-show` | `query()`: the read-only core when no daemon runs, else the daemon | `bots.json`, `directory.json`, the workspaces; looking never starts the daemon |
 | `bot-new`, `-set`, `-retire`, `-adopt`, `-token` | `call()`: the daemon, `KeyedGate` key `bots` | one writer; the participant through `BotChat` (the supervisor's own add / set / token / remove); a read-only core refuses "needs the daemon" |
+
+**The instructions' text**: `bot-show` with `BotRequest.withInstructions` (additive) answers `BotDetail.instructionsText` (the
+file `bots/<name>/instructions.md`, UTF-8, ≤ 256 KiB; only when asked, also in-process) — `doz bot show NAME --instructions`
+and the dashboard's bot screen. `BotRow` gains `avatar`, `account` and `tokenKeeper` (additive; never a fingerprint).
+
+**`heldOnly`** (`BotRequest.heldOnly`, additive; the dashboard sets it on every change, the CLI never does): under the `bots`
+gate and before the keychain or the chat server is touched, `BotGuards.heldOnlyRefusal` refuses whatever would make a token to
+show once — new or adopt `elsewhere`, `bot-token` of a bot elsewhere, `set` to or from `elsewhere` — naming the terminal's
+command ("a bot elsewhere gets its token in a terminal on this Mac: doz bot token far --new --to-file F"); every byte stays as
+it was (`BotTokenTests.testHeldOnlyRefusesEveryTokenToShowOnce`, `BotAdoptTests.testHeldOnlyRefusesAnAdoptionElsewhereAndKeepsTheHeldOne`).
+An older daemon ignores it; the dashboard then drops the one-time token unread (web.md).
+
+**A running bot is told** (`botTellRunningSessions`): when `bot-set` changes the instructions (their sha256), the model or the
+account of a bot that runs — the manager of a workspace now running, or a worker not ended — in a started workspace with a main
+room, the daemon posts ONE line as you there ("mira's instructions changed; they apply from mira's next session";
+`BotGuards.changedLine`) through `workspaceAnnounce` — the brief's announcement's path — logs `bot-changed` and says so in the
+answer's notes ("mira runs in demo: … demo's room is told", or "not announced: …"). A name or an avatar posts nothing; the change
+is kept whatever the chat server says (`WorkspaceManagerTests.testARunningBotsChangeIsToldInItsRoomOnce`).
 
 `doz bot token NAME` without `--new` is answered by `bot-show`; `bot-token` always rotates. **The guards**:
 `HostServer.chatRequest` asks `BotGuards.chatRefusal` first — `chat add` of a bot's or a retired name, `chat remove` /

@@ -353,7 +353,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     /// created · room-made · room-linked · adopted · released · brief-edited ·
     /// folders-edited · refs-edited · renamed · agent-renamed · agent-removed · manager-set · manager-removed ·
     /// bot-invited · kicked-off · manager-started · manager-stopped · worker-added · worker-ended · worker-add-undone ·
-    /// brief-announced (an edit after the start, posted as you in `room`).
+    /// brief-announced (an edit after the start, posted as you in `room`) · bot-changed (a running bot's instructions, model or
+    /// account changed — `reason` says which —, told as you in `room`).
     public var action: String
     public var agent: String?
     /// The agent's place key (`sandbox:NAME`, `mac:SESSION`).
@@ -385,7 +386,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
                                               "released", "brief-edited", "folders-edited", "refs-edited", "renamed", "agent-renamed",
                                               "agent-removed", "manager-set", "manager-removed", "bot-invited", "kicked-off",
                                               "manager-started", "manager-stopped", "worker-added", "worker-ended", "worker-add-undone",
-                                              "brief-announced"]
+                                              "brief-announced", "bot-changed"]
 
     /// The line as a person reads it.
     public var sentence: String {
@@ -397,6 +398,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "released": return "released \(agent ?? "?")"
         case "brief-edited": return "edited the work (\(bytes ?? 0) bytes)"
         case "brief-announced": return "announced the edit in \(room ?? "the room")"
+        case "bot-changed": return "told \(room ?? "the room") that \(agent ?? "?")'s \(reason ?? "settings") apply from its next session"
         case "folders-edited": return "folders: \(added ?? 0) added, \(removed ?? 0) removed"
         case "refs-edited": return "references: \(added ?? 0) added, \(removed ?? 0) removed"
         case "renamed": return "renamed from \(from ?? "?") to \(to ?? "?")"

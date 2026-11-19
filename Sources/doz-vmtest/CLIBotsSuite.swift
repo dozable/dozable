@@ -24,7 +24,8 @@ import DozableHost
 //  10. adopt: chat add olda --to-file F3; bot adopt olda with no terminal and no --yes exits 64, nothing changed; with --yes
 //      "token is replaced", the old token 401, chat who marks a bot
 //  11. the guards: chat remove / token / set on mira refused with the doz bot command; a plain participant still removable
-//  12. bot set mira --deliver poll --model M: chat who says polls; the hash unchanged; an unknown field kept; 0700/0600
+//  12. bot set mira --deliver poll --model M: chat who says polls; the hash unchanged; an unknown field kept; 0700/0600;
+//      bot set mira --instructions-file F, then bot show mira --instructions prints the text (--json: instructionsText)
 //  13. bot retire mira --yes: its hash gone from tokens.json; bot show --json says token.keeper none
 func cliBotsSuite(binary: String) async {
     print("cli: Agents / Bots — no VM")
@@ -265,6 +266,20 @@ func cliBotsSuite(binary: String) async {
     check((mira12?["later"] as? [String: Any])?["kept"] as? Bool == true && mira12?["model"] as? String == "sonnet", "12 an unknown field survives the set")
     check(mode(bots.root) == 0o700 && mode(bots.folder("mira")) == 0o700, "12 the folders are 0700")
     check([bots.file, bots.folder("mira") + "/notes.md"].allSatisfy { mode($0) == 0o600 }, "12 the files are 0600")
+    // …and its instructions: bot show --instructions prints the text as given; --json carries instructionsText; plain show
+    // never does.
+    let words = "Answer in the room.\nKeep it short.\n"
+    let instr = outside.appendingPathComponent("mira-instructions.md").path
+    try? Data(words.utf8).write(to: URL(fileURLWithPath: instr))
+    r = h.run(["bot", "set", "mira", "--instructions-file", instr], timeout: 60)
+    check(r.code == 0, "12 bot set mira --instructions-file F (\(r.code))")
+    r = h.run(["bot", "show", "mira", "--instructions"], timeout: 60)
+    check(r.code == 0 && r.out == words, "12 bot show mira --instructions prints the text (\(r.code) \(r.out.prefix(80)))")
+    r = json(["bot", "show", "mira", "--instructions"])
+    let withText = (try? JSONSerialization.jsonObject(with: r.outData)) as? [String: Any]
+    check(withText?["instructionsText"] as? String == words, "12 …with --json: instructionsText")
+    r = json(["bot", "show", "mira"])
+    check(!r.out.contains("instructionsText"), "12 plain bot show --json carries no instructionsText")
 
     // 13. retire mira
     r = h.run(["bot", "retire", "mira", "--yes"], timeout: 60)

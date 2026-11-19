@@ -753,6 +753,21 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         BotListing(bots: [BotRow(name: "mira", agent: "claude-code", model: nil, isolation: "fenced", kind: "agent", deliver: "poll", inChat: true,
                                  manages: ["demo"], retiredAt: nil)])
     }
+    func retiredBots() async throws -> BotListing {
+        BotListing(bots: [BotRow(name: "gone", agent: "codex", model: nil, isolation: "fenced", kind: "agent", deliver: "poll", inChat: false,
+                                 manages: [], retiredAt: Date(timeIntervalSince1970: 0), tokenKeeper: "none")])
+    }
+    /// mira: an inbox bot whose session on this Mac is `build`, with a note naming it; its instructions' text.
+    func bot(_ name: String) async throws -> BotDetail {
+        guard name == "mira" else { throw HostError(.notFound, "\(name) is not a bot (doz bot ls)") }
+        let t = Date(timeIntervalSince1970: 0)
+        let rec = BotRecord(name: "mira", createdAt: t, agent: "claude-code", isolation: BotIsolation(default: "unfenced"), kind: "claude-session",
+                            deliver: "inbox", session: "build", instructions: BotInstructions(sha256: String(repeating: "c", count: 64), bytes: 10, updatedAt: t),
+                            token: BotTokenState(keeper: "dozable", fingerprint: "3f9a01b2c3c2", at: t))
+        var d = BotDetail(rec, inChat: true, workspaces: ["demo"], manages: ["demo"], notes: ["inbox reaches the session build on this Mac"])
+        d.instructionsText = "Be brief.\n"
+        return d
+    }
 
     /// Your Macs: one reachable, one never checked (`macs-ls`).
     private var _macsCalls = 0
@@ -973,6 +988,7 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         onEvent(HostEvent(kind: .step, sandbox: r.name, text: "fake step one", milliseconds: 5))
         while hold { try await Task.sleep(for: .milliseconds(20)) }
         if let e = lock.withLock({ failWith }) { throw e }
+        if r.op.rawValue.hasPrefix("bot-"), let a = lock.withLock({ _botAnswer }) { return a }
         if HostOp.lifecycle.contains(r.op) {
             let json = #"{"name":"\#(r.name ?? "")","operation":"\#(r.op.rawValue)","phaseBefore":"running","phase":"paused","changed":true,"milliseconds":2}"#
             return try JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))
@@ -1051,6 +1067,13 @@ final class FakeData: DozableWebData, @unchecked Sendable {
     }
     private var _attachError: HostError?
     var performedOps: [HostOp] { lock.withLock { performed.map(\.op) } }
+    /// What a bot change answers (nil: null) — a test plants an older daemon's one-time token here.
+    var botAnswer: JSONValue? {
+        get { lock.withLock { _botAnswer } }
+        set { lock.withLock { _botAnswer = newValue } }
+    }
+    private var _botAnswer: JSONValue?
+    var performedBotRequests: [BotRequest] { lock.withLock { performed.compactMap(\.botRequest) } }
 
     // 643 — the file watcher: demo's /workspace (a file whose name carries an escape) and a scripted watch; `iso` is isolated.
     private(set) var filePaths: [String?] = []

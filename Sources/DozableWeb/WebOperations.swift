@@ -433,6 +433,50 @@ final class WebOperations: @unchecked Sendable {
     /// A filed agent's default name: the sandbox's, or the session's for `@mac/SESSION`.
     static func agentName(_ a: String) -> String { a.hasPrefix(MacPlace.name + "/") ? String(a.dropFirst(MacPlace.name.count + 1)) : a }
 
+    /// A bot change's answer as this file reads it: the bot (`BotDetail` — its key's keeper and fingerprint, never a token)
+    /// and only WHETHER a one-time token came (an older daemon that ignores `heldOnly`) — its value is never decoded, kept,
+    /// written or sent.
+    struct BotChangeSeen: Decodable {
+        var bot: BotDetail
+        var cameWithToken: Bool
+        enum Keys: String, CodingKey { case bot, oneTimeToken }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: Keys.self)
+            bot = try c.decode(BotDetail.self, forKey: .bot)
+            cameWithToken = c.contains(.oneTimeToken) && !((try? c.decodeNil(forKey: .oneTimeToken)) ?? true)
+        }
+    }
+
+    /// One line for a bot change: what changed and its key's fingerprint — never a token. A one-time token that arrives
+    /// anyway (an older daemon) is dropped unread, and the line says so.
+    static func botSummary(_ a: WebAction, _ v: JSONValue) -> String {
+        let seen = try? v.decode(BotChangeSeen.self)
+        let name = seen?.bot.name ?? {
+            switch a {
+            case .botNew(let b), .botSet(let b), .botAdopt(let b): return b.name ?? "the bot"
+            case .botRetire(let n), .botToken(let n): return n
+            default: return "the bot"
+            }
+        }()
+        let fp = seen?.bot.token.fingerprint.flatMap(WebBotDetail.fingerprint).map { " · fp \($0)" } ?? ""
+        let key = seen.map { $0.bot.token.keeper == "dozable" ? "held by Dozable\(fp)" : $0.bot.token.keeper == "elsewhere" ? "held elsewhere\(fp)" : "no key" } ?? ""
+        // What the daemon said a running bot's workspace was told (decision: they apply from its next session).
+        let running = seen?.bot.notes?.first { $0.hasPrefix("\(name) runs in ") }.map { " — " + $0 } ?? ""
+        var line: String
+        switch a {
+        case .botNew: line = "made the Agent / Bot \(name) — \(key)"
+        case .botSet: line = "changed \(name)" + running
+        case .botRetire: line = "retired \(name): it left chat and its token is refused; its old messages keep its name"
+        case .botAdopt: line = "\(name) is an Agent / Bot now; its token is replaced — \(key)"
+        case .botToken: line = "a new token for \(name) — \(key); the old one is refused from now on"
+        default: line = "changed \(name)"
+        }
+        if seen?.cameWithToken == true {
+            line += " — a new token was made but is never shown here; make another in a terminal: doz bot token \(name) --new --to-file F"
+        }
+        return line
+    }
+
     /// One line for the page, from the host's result (never the result itself).
     static func summary(_ a: WebAction, _ v: JSONValue) -> String {
         switch a {
@@ -546,6 +590,8 @@ final class WebOperations: @unchecked Sendable {
             return made + " — " + Self.filed(w, Self.agentName(agent), d)
         case .workspaceRelease(let w, let agent):
             return "\(Self.agentName(agent)) is loose again (it keeps running as it was) — taken out of \(w)"
+        case .botNew, .botSet, .botRetire, .botAdopt, .botToken:
+            return Self.botSummary(a, v)
         case .macSessionBridges(let session, _, _, _):
             return (try? v.decode(SessionBridges.self))?.changed.map { "session \(session) on this Mac: \($0) — from the next one" }
                 ?? "session \(session) on this Mac: bridges unchanged"
