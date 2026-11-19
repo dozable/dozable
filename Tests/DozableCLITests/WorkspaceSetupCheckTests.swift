@@ -23,6 +23,12 @@ final class WorkspaceSetupCheckTests: XCTestCase {
         XCTAssertEqual(C.gaps(ready { $0.manager = nil; $0.chat = .off; $0.mainRoom = nil }), [], "no manager, chat off: you drive")
     }
 
+    /// A look (the plan, `show`) never reads the keychain: not looked is no gap — a locked one shows only at the start.
+    func testAKeychainNotLookedAtIsNoGap() {
+        XCTAssertEqual(C.gaps(ready { $0.manager?.keychainReadable = nil }), [])
+        XCTAssertEqual(C.gaps(ready { $0.manager?.keychainReadable = false }).map(\.item), ["manager"])
+    }
+
     func testOneRowPerGap() {
         let rows: [((inout C.Input) -> Void, String)] = [
             ({ $0.briefBytes = 0 }, "the brief is empty — doz workspace edit demo --prompt-file F"),

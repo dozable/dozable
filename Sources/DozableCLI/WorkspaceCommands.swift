@@ -92,6 +92,9 @@ func printWorkspace(_ d: WorkspaceDetail) {
         s += (i == 0 ? "  agents   " : "           ") + "\(a.name) (\(what)\(place), \(a.state == "not started" ? "not started" : Out.phaseLabel(a.state)))\n"
     }
     if let o = d.origin.project { s += "  from     \(DisplayPath.tilde(o))\n" }
+    if let gaps = d.gaps, !gaps.isEmpty {
+        s += "  to start " + gaps.map { $0.line }.joined(separator: "\n           ") + "\n"
+    }
     for n in d.notes ?? [] { s += "note: \(n)\n" }
     Out.stdout(s)
 }
@@ -100,46 +103,106 @@ func printWorkspace(_ d: WorkspaceDetail) {
 
 struct WorkspaceNew: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "new", abstract: "Make a workspace: its brief, any folders, its room and agents to adopt.",
-        discussion: "The first --folder is the main one. With chat on, the room is named after the workspace (it must not exist yet — or link one with --room). Example: doz workspace new demo --prompt-file brief.md --folder ~/code/demo")
+        discussion: """
+        The first --folder is the main one (--new-folder makes ~/doz-workspaces/NAME and puts it first). With chat on, the \
+        room is named after the workspace (it must not exist yet — or link one with --room). --dry-run shows what would be \
+        made, every refusal and what the start would still need, and the commands — nothing is written and no daemon is \
+        started. --start starts it once it is made. Example: doz workspace new demo --prompt-file brief.md --folder ~/code/demo
+        """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "Its name: 1–40 characters of a-z, 0-9 and -.") var name: String
     @Option(name: .customLong("prompt-file"), help: "The brief: a file (at most 256 KiB), or - for standard input.") var promptFile: String
     @Option(name: .customLong("ref"), help: "A reference for the brief: a path or an http(s) address (repeatable).") var refs: [String] = []
     @Option(name: .customLong("folder"), help: "A folder it works on, DIR or DIR:ro (repeatable; the first is the main one).") var folders: [String] = []
+    @Flag(name: .customLong("new-folder"), help: "Make the empty folder ~/doz-workspaces/NAME (defaults.projects_dir) and use it as the main folder.")
+    var newFolder = false
     @Option(name: .long, help: "Link this existing room in the chat server as its room, instead of making one (nothing is posted).") var room: String?
     @Flag(name: .customLong("no-room"), help: "No room, even with chat on.") var noRoom = false
-    @Flag(name: .customLong("from-project"), help: "Take the network preset from the project file (doz_project.yaml) in the main folder.") var fromProject = false
+    @Flag(name: .customLong("from-project"), help: "Fill in its network preset from the project file (doz_project.yaml) in the main folder (never written).")
+    var fromProject = false
     @Option(name: .customLong("adopt"), help: "Adopt this sandbox or @mac/SESSION at once (repeatable).") var adopt: [String] = []
     @Option(name: .customLong("manager"), help: "The bot that manages it (doz bot ls); started by doz workspace start.") var manager: String?
     @Option(name: .customLong("manager-isolation"), help: "Where the manager runs: fenced (the default), vm, or unfenced (it acts as you — only when named).")
     var managerIsolation: String?
+    @Option(name: .customLong("worker-isolation"), help: "Where its new workers run by default: fenced (the default) or vm — never unfenced by default.")
+    var workerIsolation: String?
+    @Option(name: .long, help: "Its network preset: locked (the default), standard or open; the room is always added.") var network: String?
+    @Flag(name: .customLong("dry-run"), help: "Show what would be made, what is refused and what the start would still need, and the commands; make nothing.")
+    var dryRun = false
+    @Flag(name: .long, help: "Start it once it is made (doz workspace start NAME).") var start = false
 
-    func run() async throws {
+    func validate() throws {
+        if let i = workerIsolation, !(WorkspaceNetworks.workerIsolations + ["unfenced"]).contains(i) {
+            throw ValidationError("--worker-isolation is vm or fenced")
+        }
+        if let n = network, !WorkspaceNetworks.presets.contains(n) { throw ValidationError("--network is locked, standard or open") }
+    }
+
+    /// The request this command sends, with `brief` as its brief (`run` reads it from the file or standard input).
+    func request(brief: String, parse: WorkspaceProjectFill.Parser = { try DozableProject.parse($0, file: $1) }) throws -> WorkspaceRequest {
         var w = WorkspaceRequest(name: name)
         w.manager = manager
         w.managerIsolation = managerIsolation
-        w.brief = try workspaceBrief(promptFile, g)
+        w.workerIsolation = workerIsolation
+        w.network = network
+        w.brief = brief
         w.folders = try folders.map { try workspaceFolder($0, g) }
+        w.newFolder = newFolder ? true : nil
         w.refs = refs.map(workspaceRef)
         w.room = room
         w.noRoom = noRoom ? true : nil
         w.adopt = adopt.isEmpty ? nil : adopt
         if fromProject {
-            guard let main = w.folders?.first else {
-                throw fail(HostError(.invalid, "--from-project reads the project file in the main folder — give it with --folder DIR"), g)
-            }
-            let file: URL?
-            do { file = try DozableProject.find(in: URL(fileURLWithPath: main.path)) } catch { throw fail(HostError(.invalid, "\(error)"), g) }
-            guard let file else { throw fail(HostError(.notFound, "no \(DozableProject.fileName) in \(DisplayPath.tilde(main.path))"), g) }
-            let p: DozableProject
-            do { p = try DozableProject.load(file) } catch { throw fail(HostError(.invalid, "\(error)"), g) }
-            w.project = file.path
-            w.network = p.network
+            do { try WorkspaceProjectFill.apply(&w, parse: parse) } catch { throw fail(HostError.from(error), g) }
+        }
+        return w
+    }
+
+    func run() async throws {
+        let w = try request(brief: try workspaceBrief(promptFile, g))
+        if dryRun {
+            let plan = try decode(try await query(workspaceRequest(.workspacePlan, w), g), WorkspacePlan.self, g)
+            if g.json { Out.json(plan) } else { printPlan(plan) }
+            if let c = plan.refusalCode { throw ExitCode(DozableExit.code(for: HostError(HostError.Code(rawValue: c) ?? .failed, ""))) }
+            return
         }
         let d = try decode(try call(workspaceRequest(.workspaceNew, w), g), WorkspaceDetail.self, g)
-        if g.json { Out.json(d); return }
-        printWorkspace(d)
+        guard start else {
+            if g.json { Out.json(d); return }
+            printWorkspace(d)
+            return
+        }
+        // Sugar: two requests, as the dashboard's Create and start — a refused start leaves it made, setting up.
+        if !g.json { printWorkspace(d) }
+        let s = try decode(try call(workspaceRequest(.workspaceStart, WorkspaceRequest(name: name)), g), WorkspaceStarted.self, g)
+        if g.json { Out.json(s); return }
+        printStarted(s)
     }
+
+    func printPlan(_ p: WorkspacePlan) {
+        var s = p.lines.map { "  " + $0 + "\n" }.joined()
+        if !p.refusals.isEmpty { s += "\nIt cannot be made yet:\n" + p.refusals.map { "  - " + $0 + "\n" }.joined() }
+        if !p.gaps.isEmpty { s += "\nBefore it can start:\n" + p.gaps.map { "  - " + $0.line + "\n" }.joined() }
+        for n in p.notes { s += "note: \(n)\n" }
+        s += "\nThe commands:\n" + p.commands + (start ? p.startCommand + "\n" : "")
+        Out.stdout(s)
+    }
+}
+
+/// What a start did, as a person reads it.
+func printStarted(_ s: WorkspaceStarted) {
+    var t = ""
+    if s.kickedOff { t += "posted the brief in #\(s.workspace.rooms.first { $0.main }?.chatRoom ?? s.name) as your first message\n" }
+    if let m = s.manager {
+        let where_ = s.isolation == "vm" ? "in the sandbox \(s.session ?? "?")" : "on this Mac as @mac/\(s.session ?? "?")"
+        t += s.alreadyRunning == true ? "\(m) is running already (\(where_))\n"
+            : "started \(m) (\(s.isolation == "unfenced" ? "unfenced · acts as you" : s.isolation ?? "fenced")) \(where_)\n"
+    } else {
+        t += "no manager: you drive\n"
+    }
+    Out.stdout(t)
+    printWorkspace(s.workspace)
+    for n in s.notes ?? [] { Out.stdout("note: \(n)\n") }
 }
 
 struct WorkspaceList: AsyncParsableCommand {
@@ -269,18 +332,7 @@ struct WorkspaceStart: AsyncParsableCommand {
     func run() async throws {
         let s = try decode(try call(workspaceRequest(.workspaceStart, WorkspaceRequest(name: name)), g), WorkspaceStarted.self, g)
         if g.json { Out.json(s); return }
-        var t = ""
-        if s.kickedOff { t += "posted the brief in #\(s.workspace.rooms.first { $0.main }?.chatRoom ?? name) as your first message\n" }
-        if let m = s.manager {
-            let where_ = s.isolation == "vm" ? "in the sandbox \(s.session ?? "?")" : "on this Mac as @mac/\(s.session ?? "?")"
-            t += s.alreadyRunning == true ? "\(m) is running already (\(where_))\n"
-                : "started \(m) (\(s.isolation == "unfenced" ? "unfenced · acts as you" : s.isolation ?? "fenced")) \(where_)\n"
-        } else {
-            t += "no manager: you drive\n"
-        }
-        Out.stdout(t)
-        printWorkspace(s.workspace)
-        for n in s.notes ?? [] { Out.stdout("note: \(n)\n") }
+        printStarted(s)
     }
 }
 

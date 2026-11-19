@@ -898,8 +898,9 @@ A workspace is an environment set up for getting work done: its agents, its room
 for, and any folders it works on (usually projects). Work starts only once it is fully set up.
 
 ```bash
-doz workspace new NAME --prompt-file F|- [--ref PATH|URL]… [--folder DIR[:ro|:rw]]… [--room EXISTING | --no-room] [--from-project] [--adopt AGENT]…
-                  [--manager BOT [--manager-isolation fenced|vm|unfenced]]
+doz workspace new NAME --prompt-file F|- [--ref PATH|URL]… [--new-folder] [--folder DIR[:ro|:rw]]… [--room EXISTING | --no-room]
+                  [--from-project] [--adopt AGENT]… [--manager BOT [--manager-isolation fenced|vm|unfenced]]
+                  [--worker-isolation fenced|vm] [--network locked|standard|open] [--dry-run] [--start]
 doz workspace ls [--loose] [--json]             # NAME  STATE  AGENTS  ROOM ("idle · you · manager mira (fenced)"), then the loose agents
 doz workspace show W [--brief] [--json]         # its brief, folders, room and agents
 doz workspace start W                           # the set-up check, the brief posted as your first message (once), the manager started
@@ -925,6 +926,25 @@ already knows, absent when answered with no daemon; the text is unchanged. Exit
 codes: 0 ok · 2 not found · 3 archived, not fully set up, its manager running, or its brief changed since `--if-brief` ·
 4 already exists, already in a workspace, or the bot already runs in another live workspace · 6 the daemon or chat
 unavailable · 64 usage.
+
+**Making one: the dry run.** `--dry-run` shows what `new` would make — a few lines (its brief, folders, room, manager,
+new workers' isolation, network) — every refusal at once ("It cannot be made yet:"), what `doz workspace start` would
+still need once it is made ("Before it can start:", each with its fix: the brief, the room, a folder, the manager's bot),
+and the commands that make it: `doz workspace new … --prompt-file - <<'DOZ_BRIEF_…'` with the brief as a heredoc (the
+delimiter never appears in the text; with `--start` also `doz workspace start NAME`). Nothing is written, no room is
+made, the keychain is not read (a locked one shows only at the start) and no daemon is started: with none running, chat
+is judged from its setting and whether a room of that name exists is checked when it is made. It exits 0 when nothing is
+refused, else with `new`'s exit code; `--json` prints the plan (`refusals`, `refusalCode`, `gaps` — each `{item, why,
+fix}` —, `notes`, `lines`, `commands`, `startCommand`, `presets`). The dashboard's New workspace wizard asks the same
+question (`workspace-plan`). `--new-folder` makes the empty folder `<defaults.projects_dir>/NAME` (`~/doz-workspaces/NAME`)
+0700 and makes it the main folder — offered, never forced: with no folder the manager works there anyway.
+`--worker-isolation` is where new workers run by default (`fenced`, or `vm`; never unfenced by default — a worker is
+unfenced only when `doz worker add … --isolation unfenced` names it), recorded as `defaults.isolation`; `--network` is the
+workspace's network preset (`defaults.network`; locked unless given), and the room is always added. `--from-project` fills
+the preset in from the main folder's `doz_project.yaml` (never written back); a `--network` that differs is refused.
+`--start` is `new` and then `doz workspace start NAME` — two requests: a refused start leaves the workspace made and
+setting up, with its gaps. While a workspace is setting up, `show` (and `--json`'s `gaps`) lists what its start would
+still need, without reading the keychain.
 
 **Editing the brief.** While the workspace is setting up, `edit --prompt-file` only replaces the brief (the start posts
 it). Once the work has started, each new brief is also announced in the main room as **your message** — "I edited the

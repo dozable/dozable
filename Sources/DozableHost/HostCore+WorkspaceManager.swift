@@ -105,8 +105,14 @@ extension HostCore {
 
     // MARK: the set-up check's input
 
-    func workspaceSetupInput(_ rec: WorkspaceRecord) async -> WorkspaceSetupCheck.Input {
-        let readiness = await workspaceChat?.readiness() ?? .off
+    /// The set-up check's input for `rec`. The start reads everything, the keychain included. A LOOK (`look`: the plan,
+    /// `show`) never reads the keychain (`keychainReadable` nil — a locked one shows only at the start), takes chat from its
+    /// setting when no daemon runs (`workspaceLookReadiness`) and nothing starts the daemon. The plan's in-memory record also
+    /// gives the brief's size (`brief`), whether its room is made or linked when it is (`roomWillBeMade`) and the folders
+    /// made with it (`foldersMadeNow`).
+    func workspaceSetupInput(_ rec: WorkspaceRecord, look: Bool = false, brief: Int? = nil, roomWillBeMade: Bool = false,
+                             foldersMadeNow: Set<String> = []) async -> WorkspaceSetupCheck.Input {
+        let (readiness, assumed) = await workspaceLookReadiness(look: look)
         let chat: WorkspaceSetupCheck.Chat
         var roomExists = false
         switch readiness {
@@ -114,11 +120,16 @@ extension HostCore {
         case .notReady(let why): chat = .notReady(why)
         case .ready:
             chat = .ready
-            if let r = rec.mainRoom?.chatRoom { roomExists = (try? workspaceChat?.rooms().contains(r)) == true }
+            if roomWillBeMade || assumed {
+                roomExists = true
+            } else if let r = rec.mainRoom?.chatRoom {
+                roomExists = (try? workspaceChat?.rooms().contains(r)) == true
+            }
         }
         let folders = rec.folders.map { f -> WorkspaceSetupCheck.Folder in
             var d: ObjCBool = false
-            return .init(path: f.path, exists: FileManager.default.fileExists(atPath: f.path, isDirectory: &d) && d.boolValue)
+            return .init(path: f.path, exists: foldersMadeNow.contains(f.path)
+                         || (FileManager.default.fileExists(atPath: f.path, isDirectory: &d) && d.boolValue))
         }
         let sessions = mac.records().sessions
         // The adopted agents (the manager has its own checks; a worker is added once the workspace has started).
@@ -137,10 +148,10 @@ extension HostCore {
             var check = WorkspaceSetupCheck.Manager(bot: bot, known: b != nil, retired: b?.retired ?? false,
                                                     botIsolation: b?.isolation.default ?? "fenced", keeper: b?.token.keeper ?? "none",
                                                     deliver: b?.deliver ?? "poll", isolation: iso.rawValue, agent: b?.agent ?? "?",
-                                                    programOnPath: nil, keychainReadable: false, placeName: place)
+                                                    programOnPath: nil, keychainReadable: look ? nil : false, placeName: place)
             if let b {
                 if iso != .vm, let p = ManagerLaunch.program(agent: b.agent), !buildFlavor.isHelper { check.programOnPath = await mac.programOnPath(p) }
-                if let v = services.keychain.read(service: botService(bot), account: Keychain.user).value {
+                if !look, let v = services.keychain.read(service: botService(bot), account: Keychain.user).value {
                     check.keychainReadable = BotTokens.fingerprint(v) == b.token.fingerprint
                 }
             }
@@ -151,7 +162,7 @@ extension HostCore {
             check.placeTaken = info.exists && !ours
             manager = check
         }
-        return WorkspaceSetupCheck.Input(workspace: rec.name, briefBytes: workspaces.readBrief(rec.name)?.utf8.count ?? 0, chat: chat,
+        return WorkspaceSetupCheck.Input(workspace: rec.name, briefBytes: brief ?? workspaces.readBrief(rec.name)?.utf8.count ?? 0, chat: chat,
                                          mainRoom: rec.mainRoom?.chatRoom, mainRoomExists: roomExists, folders: folders, agents: agents,
                                          manager: manager)
     }
@@ -194,6 +205,11 @@ extension HostCore {
             }
             if let bot = rec.manager?.bot, let other = await liveWorkspace(of: bot, except: n) {
                 throw HostError(.exists, WorkspaceSetupCheck.liveElsewhereRefusal(bot: bot, other))
+            }
+            // The dashboard asks for the person's confirmation of an unfenced manager (it acts as them): without it, refused —
+            // nothing posted, nothing started. The CLI never asks for it (naming --manager-isolation unfenced is the consent).
+            if w.confirmRequired == true, let m = rec.manager, m.actsAsYou, w.unfencedConfirmed != true {
+                throw HostError(.invalidPhase, "\(m.name) acts as you — confirm it")
             }
             startingWorkspaces.insert(n)
         } catch {

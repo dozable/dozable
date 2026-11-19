@@ -25,6 +25,8 @@ import DozableHost
 //  23–33. its workers (CLIWorkspaceWorkerRows.swift)
 //  34–35. the brief edited after the start, announced once; doz chat read --with-log (CLIWorkspaceBriefRows.swift)
 //  36–37. a running session filed into a workspace that is setting up: started, nothing posted; released, still running
+//  38–44. the dry run (nothing written, no daemon), its refusals, the commands it prints, the new fields, --start
+//      (CLIWorkspacePlanRows.swift)
 func cliWorkspaceSuite(binary: String) async {
     print("cli: workspaces — no VM")
     let fm = FileManager.default
@@ -229,4 +231,6 @@ func cliWorkspaceSuite(binary: String) async {
     // 34–35. the brief edited after the start, and the log among the messages (CLIWorkspaceBriefRows.swift)
     // 36–37. filing a running agent, and releasing it (CLIWorkspaceBriefRows.swift)
     cliWorkspaceBriefRows(h, root: root, store: store, started: &started)
+    // 38–44. making one with a look first (CLIWorkspacePlanRows.swift)
+    cliWorkspacePlanRows(h, root: root, store: store, started: &started)
 }

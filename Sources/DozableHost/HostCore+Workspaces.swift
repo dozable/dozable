@@ -34,6 +34,20 @@ public struct OwnerWorkspaceChat: WorkspaceChat {
     @discardableResult public func invite(room: String, name: String) throws -> Bool { try owner.invite(room: room, name: name) }
 }
 
+/// What `workspace-new` would write (`HostCore.workspaceNewDraft`).
+struct WorkspaceNewDraft {
+    var record: WorkspaceRecord
+    var brief: Data
+    var log: [WorkspaceLogEntry]
+    var refusals: [HostError]
+    var notes: [String]
+    /// The main room made now (its name), or linked.
+    var makeRoom: String?
+    var roomLinked: Bool
+    /// `<projects_dir>/NAME`, made now (it is missing).
+    var makeFolder: String?
+}
+
 /// The workspaces in the daemon (`workspace-*`). Reading (ls, show, log) is answered in-process by a read-only core too;
 /// every change holds the `workspaces` gate, checks everything first and only then writes (`workspace.json` and the log —
 /// never a sandbox's `doz.json` nor `mac-sessions/sessions.json`). `docs/engineering/workspaces.md`.
@@ -47,11 +61,18 @@ extension HostCore {
             return try JSONValue(encoding: await workspaceListing(looseOnly: w.loose == true))
         case .workspaceShow:
             let rec = try workspaceRecord(try workspaceName(w))
-            return try JSONValue(encoding: await workspaceDetail(rec, withBrief: w.withBrief == true))
+            var d = await workspaceDetail(rec, withBrief: w.withBrief == true)
+            // While it is setting up: what the start would refuse now (a look — the keychain is not read).
+            if d.state == WorkspaceState.settingUp.rawValue {
+                d.gaps = WorkspaceSetupCheck.gaps(await workspaceSetupInput(rec, look: true))
+            }
+            return try JSONValue(encoding: d)
         case .workspaceLog:
             let n = try workspaceName(w)
             _ = try workspaceRecord(n)
             return try JSONValue(encoding: try workspaces.log(n, since: w.since))
+        case .workspacePlan:
+            return try JSONValue(encoding: await workspacePlan(w))
         default:
             break
         }
@@ -269,46 +290,85 @@ extension HostCore {
 
     // MARK: changing
 
-    func workspaceNew(_ w: WorkspaceRequest) async throws -> WorkspaceDetail {
-        let name = try workspaceName(w)
-        guard !workspaces.exists(name) else { throw HostError(.exists, "there is already a workspace \(name)") }
-        let brief = try workspaceCheckBrief(w.brief ?? "")
+    /// What `workspace-new` would make of `w`, with nothing written, no room made and the keychain not read: the record, the
+    /// brief, the log, EVERY refusal (in the order `new` checks them — `new` answers with the first) and the notes. `look`:
+    /// the plan's (with no daemon, chat is judged from its setting and a room's clash becomes a note); else `new`'s own.
+    func workspaceNewDraft(_ w: WorkspaceRequest, look: Bool) async -> WorkspaceNewDraft {
+        var refusals: [HostError] = []
+        func refuse(_ e: HostError) { refusals.append(e) }
+        func attempt(_ f: () throws -> Void) { do { try f() } catch { refuse(HostError.from(error)) } }
+        var name = w.name ?? ""
+        do { name = try workspaceName(w) } catch { refuse(HostError.from(error)) }
+        let named = WorkspaceName.isValid(name)
+        if named, workspaces.exists(name) { refuse(HostError(.exists, "there is already a workspace \(name)")) }
+        var brief = Data((w.brief ?? "").utf8)
+        attempt { brief = try workspaceCheckBrief(w.brief ?? "") }
+        // The folders: `<projects_dir>/NAME` first when it is made now, then each given one.
         var folders: [WorkspaceFolder] = []
+        var makeFolder: String?
+        if w.newFolder == true, named {
+            let p = WorkspaceStore.resolved(Workspace.defaultPath(name: name))
+            var dir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: p, isDirectory: &dir), !dir.boolValue {
+                refuse(HostError(.exists, "\(DisplayPath.tilde(p)) is a file, not a folder"))
+            } else {
+                if !FileManager.default.fileExists(atPath: p) { makeFolder = p }
+                folders.append(WorkspaceFolder(path: p, mode: "rw", main: true))
+            }
+        }
         for f in w.folders ?? [] {
-            try workspaceCheckFolder(f)
-            guard !folders.contains(where: { $0.path == f.path }) else { throw HostError(.invalid, "\(DisplayPath.tilde(f.path)) is given twice") }
+            if folders.contains(where: { $0.path == f.path }) {
+                refuse(HostError(.invalid, "\(DisplayPath.tilde(f.path)) is given twice"))
+                continue
+            }
+            do { try workspaceCheckFolder(f) } catch { refuse(HostError.from(error)); continue }
             folders.append(WorkspaceFolder(path: f.path, mode: f.mode, main: folders.isEmpty))
         }
         let refs = w.refs ?? []
-        for r in refs { try workspaceCheckRef(r) }
+        for r in refs { attempt { try workspaceCheckRef(r) } }
         if w.project != nil, folders.isEmpty {
-            throw HostError(.invalid, "--from-project reads the project file in the main folder — give it with --folder DIR")
+            refuse(HostError(.invalid, "--from-project reads the project file in the main folder — give it with --folder DIR"))
         }
         // The agents to adopt at once: each there, in no workspace, under a name of its own.
         let member = workspaces.membership()
         let now = Date()
         var agents: [WorkspaceAgent] = []
         for a in w.adopt ?? [] {
-            let (n, place) = try workspaceTarget(a)
-            try workspaceCheckFree(place, member: member)
-            guard !agents.contains(where: { $0.place == place }) else { throw HostError(.invalid, "\(a) is given twice") }
-            guard WorkspaceName.isValidAgent(n), !agents.contains(where: { $0.name == n }) else {
-                throw HostError(.exists, "two agents would be called \(n) — adopt one with doz workspace adopt \(name) \(a) --as NAME")
-            }
-            agents.append(WorkspaceAgent(name: n, place: place, startedAt: now))
+            do {
+                let (n, place) = try workspaceTarget(a)
+                try workspaceCheckFree(place, member: member)
+                guard !agents.contains(where: { $0.place == place }) else { throw HostError(.invalid, "\(a) is given twice") }
+                guard WorkspaceName.isValidAgent(n), !agents.contains(where: { $0.name == n }) else {
+                    throw HostError(.exists, "two agents would be called \(n) — adopt one with doz workspace adopt \(name) \(a) --as NAME")
+                }
+                agents.append(WorkspaceAgent(name: n, place: place, startedAt: now))
+            } catch { refuse(HostError.from(error)) }
         }
         var anyRunning = false
         for a in agents where await workspacePlaceRunning(a.place) { anyRunning = true }
         // Its manager: recorded, not started (nothing posted, nothing started).
-        if w.managerIsolation != nil, w.manager == nil { throw HostError(.invalid, "--manager-isolation goes with --manager BOT") }
+        if w.managerIsolation != nil, w.manager == nil { refuse(HostError(.invalid, "--manager-isolation goes with --manager BOT")) }
         if let bot = w.manager {
-            let m = try workspaceManagerEntry(bot: bot, asked: w.managerIsolation, workspace: name, at: now)
-            try workspaceCheckFree(m.place, member: member)
-            guard !agents.contains(where: { $0.name == m.name }) else { throw HostError(.exists, "two agents would be called \(m.name)") }
-            agents.append(m)
+            do {
+                let m = try workspaceManagerEntry(bot: bot, asked: w.managerIsolation, workspace: named ? name : "workspace", at: now)
+                try workspaceCheckFree(m.place, member: member)
+                guard !agents.contains(where: { $0.name == m.name }) else { throw HostError(.exists, "two agents would be called \(m.name)") }
+                agents.append(m)
+            } catch { refuse(HostError.from(error)) }
+        }
+        // New workers' default and the network preset.
+        if let i = w.workerIsolation {
+            if i == "unfenced" {
+                refuse(HostError(.invalid, "new workers are never unfenced by default — name one: doz worker add W --isolation unfenced"))
+            } else if !WorkspaceNetworks.workerIsolations.contains(i) {
+                refuse(HostError(.invalid, "--worker-isolation is vm or fenced, not \(i)"))
+            }
+        }
+        if let n = w.network, !(WorkspaceNetworks.presets + WorkspaceNetworks.projectWords).contains(n) {
+            refuse(HostError(.invalid, "--network is locked, standard or open, not \(n)"))
         }
         // The room: made, linked, or none — checked before anything is written.
-        if w.noRoom == true, w.room != nil { throw HostError(.invalid, "--room or --no-room, not both") }
+        if w.noRoom == true, w.room != nil { refuse(HostError(.invalid, "--room or --no-room, not both")) }
         var rooms: [WorkspaceRoom] = []
         var log = [WorkspaceLogEntry(at: now, action: "created")]
         var notes: [String] = []
@@ -317,36 +377,99 @@ extension HostCore {
             if m.actsAsYou { notes.append("unfenced: \(m.name) acts as you when it runs") }
             log.append(WorkspaceLogEntry(at: now, action: "manager-set", agent: m.name, place: m.place.key, isolation: m.isolation))
         }
-        let readiness = await workspaceChat?.readiness() ?? .off
+        let (readiness, assumed) = await workspaceLookReadiness(look: look)
+        var makeRoom: String?
+        var linked = false
         if w.noRoom == true {
             notes.append("no room — doz workspace edit \(name) --make-room makes one")
-        } else if let linked = w.room {
+        } else if let room = w.room {
             switch readiness {
-            case .off: throw HostError(.unavailable, "chat is off — doz chat on, or leave out --room")
-            case .notReady(let why): throw HostError(.unavailable, "chat is on but its server is not ready (\(why)) — doz chat status")
+            case .off: refuse(HostError(.unavailable, "chat is off — doz chat on, or leave out --room"))
+            case .notReady(let why): refuse(HostError(.unavailable, "chat is on but its server is not ready (\(why)) — doz chat status"))
             case .ready:
-                guard try workspaceChat?.rooms().contains(linked) == true else { throw HostError(.notFound, "no room \(linked) (doz chat rooms)") }
-                if let owner = workspaceRoomOwner(linked) { throw HostError(.exists, "the room \(linked) is already the room of \(owner)") }
+                if assumed {
+                    notes.append("whether the room \(room) exists is checked when it is made")
+                } else {
+                    do {
+                        guard try workspaceChat?.rooms().contains(room) == true else { throw HostError(.notFound, "no room \(room) (doz chat rooms)") }
+                    } catch { refuse(HostError.from(error)) }
+                }
+                if let owner = workspaceRoomOwner(room) { refuse(HostError(.exists, "the room \(room) is already the room of \(owner)")) }
             }
-            rooms.append(WorkspaceRoom(label: "main", chatRoom: linked, main: true))
-            log.append(WorkspaceLogEntry(at: now, action: "room-linked", room: linked))
-        } else if let chat = try await workspaceRoomCheck(name) {
-            if let owner = workspaceRoomOwner(name) { throw HostError(.exists, "the room \(name) is already the room of \(owner)") }
-            try chat.makeRoom(name)
-            rooms.append(WorkspaceRoom(label: "main", chatRoom: name, main: true))
-            log.append(WorkspaceLogEntry(at: now, action: "room-made", room: name))
+            rooms.append(WorkspaceRoom(label: "main", chatRoom: room, main: true))
+            log.append(WorkspaceLogEntry(at: now, action: "room-linked", room: room))
+            linked = true
         } else {
-            notes.append("no room: chat is off — doz workspace edit \(name) --make-room once it is on")
+            switch readiness {
+            case .off:
+                notes.append("no room: chat is off — doz workspace edit \(name) --make-room once it is on")
+            case .notReady(let why):
+                refuse(HostError(.unavailable, "chat is on but its server is not ready (\(why)) — doz chat status, or pass --no-room"))
+            case .ready:
+                if assumed {
+                    notes.append("whether a room \(name) exists already is checked when it is made")
+                } else if (try? workspaceChat?.rooms().contains(name)) == true {
+                    refuse(HostError(.exists, "there is already a room \(name) — pass --room \(name) to make it this workspace's room, or choose another name"))
+                }
+                if named, let owner = workspaceRoomOwner(name) { refuse(HostError(.exists, "the room \(name) is already the room of \(owner)")) }
+                rooms.append(WorkspaceRoom(label: "main", chatRoom: name, main: true))
+                log.append(WorkspaceLogEntry(at: now, action: "room-made", room: name))
+                makeRoom = name
+            }
         }
         let origin = w.project != nil ? WorkspaceOrigin(kind: "project", project: w.project)
             : agents.allSatisfy(\.isManager) ? WorkspaceOrigin(kind: "new") : WorkspaceOrigin(kind: "adopted")
         let rec = WorkspaceRecord(name: name, createdAt: now,
                                   brief: WorkspaceBrief(refs: refs, sha256: WorkspaceStore.sha256(brief), bytes: brief.count, updatedAt: now),
-                                  folders: folders, rooms: rooms, agents: agents, defaults: WorkspaceDefaults(network: w.network),
+                                  folders: folders, rooms: rooms, agents: agents,
+                                  defaults: WorkspaceDefaults(isolation: w.workerIsolation, network: w.network),
                                   flags: WorkspaceFlags(firstAgentAt: anyRunning ? now : nil), origin: origin)
-        try workspaces.create(rec, brief: brief, log: log)
-        note(nil, "workspace \(name) made (\(agents.count) agent\(agents.count == 1 ? "" : "s"), \(rooms.isEmpty ? "no room" : "room \(rooms[0].chatRoom)"))")
-        return await workspaceDetail(rec, withBrief: false, notes: notes)
+        return WorkspaceNewDraft(record: rec, brief: brief, log: log, refusals: refusals, notes: notes, makeRoom: makeRoom, roomLinked: linked,
+                                 makeFolder: makeFolder)
+    }
+
+    /// The chat server as a look sees it: the daemon asks it (a starting one is waited for); with no daemon its setting
+    /// decides — on is taken as "starts with Dozable" (`assumed`: nothing of it was asked). Nothing starts the daemon.
+    func workspaceLookReadiness(look: Bool) async -> (WorkspaceChatReadiness, assumed: Bool) {
+        if let chat = workspaceChat { return (await chat.readiness(), false) }
+        guard look, readOnly else { return (.off, false) }
+        return ((chatSettingOverride ?? ChatSettingsView.read().enabled) ? .ready : .off, true)
+    }
+
+    func workspaceNew(_ w: WorkspaceRequest) async throws -> WorkspaceDetail {
+        let d = await workspaceNewDraft(w, look: false)
+        if let first = d.refusals.first { throw first }
+        let name = d.record.name
+        // Then the folder made now, the room, the files — the folder taken back when a later step fails.
+        if let p = d.makeFolder {
+            do { try MacFenceHostFS.ensureDirectory(p, mode: 0o700) } catch {
+                throw HostError(.failed, "cannot make \(DisplayPath.tilde(p)): \(error)")
+            }
+        }
+        do {
+            if let room = d.makeRoom, let chat = workspaceChat { try chat.makeRoom(room) }
+            try workspaces.create(d.record, brief: d.brief, log: d.log)
+        } catch {
+            if let p = d.makeFolder { try? FileManager.default.removeItem(atPath: p) }
+            throw error
+        }
+        let rec = d.record
+        note(nil, "workspace \(name) made (\(rec.agents.count) agent\(rec.agents.count == 1 ? "" : "s"), \(rec.rooms.isEmpty ? "no room" : "room \(rec.rooms[0].chatRoom)"))")
+        return await workspaceDetail(rec, withBrief: false, notes: d.notes)
+    }
+
+    /// `workspace-plan`: the draft, its gaps and its commands — nothing written.
+    func workspacePlan(_ w: WorkspaceRequest) async -> WorkspacePlan {
+        let d = await workspaceNewDraft(w, look: true)
+        let gaps = WorkspaceSetupCheck.gaps(await workspaceSetupInput(d.record, look: true, brief: d.brief.count,
+                                                                      roomWillBeMade: d.makeRoom != nil || d.roomLinked,
+                                                                      foldersMadeNow: d.makeFolder.map { [$0] } ?? []))
+        let name = w.name ?? ""
+        return WorkspacePlan(name: name, refusals: d.refusals.map(\.message), refusalCode: d.refusals.first?.code.rawValue, gaps: gaps,
+                             notes: d.notes,
+                             lines: WorkspacePlanLines.lines(d.record, roomMade: d.makeRoom != nil, roomLinked: d.roomLinked,
+                                                             newFolder: d.makeFolder, workerIsolation: w.workerIsolation),
+                             commands: WorkspaceNewCommand.text(w), startCommand: WorkspaceNewCommand.startText(name.isEmpty ? "NAME" : name))
     }
 
     func workspaceAdopt(_ w: WorkspaceRequest) async throws -> WorkspaceDetail {
