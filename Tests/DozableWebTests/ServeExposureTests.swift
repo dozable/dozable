@@ -21,7 +21,7 @@ final class ServeExposureTests: XCTestCase {
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
-            .macSessionQuarantine("agent"), .macSessionPlan, .chat(.status), .workspaces, .workspace("demo"), .loose, .bots,
+            .macSessionQuarantine("agent"), .macSessionPlan, .chat(.status), .workspaces, .workspace("demo"), .loose, .bots, .macs,
         ]
         for r in all { _ = covered(r) }
         return all
@@ -38,7 +38,7 @@ final class ServeExposureTests: XCTestCase {
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
              .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .chat,
-             .workspaces, .workspace, .loose, .bots:
+             .workspaces, .workspace, .loose, .bots, .macs:
             return true
         }
     }
@@ -121,6 +121,17 @@ final class ServeExposureTests: XCTestCase {
         XCTAssertEqual(d.hidden, 1)
         XCTAssertEqual(d.notes, ["post the brief"])
         XCTAssertEqual(WebWorkspaceReads.forBrowser(detail, macAllowed: true), detail)
+    }
+
+    /// Your Macs: a read for every browser — another computer (a phone switching Macs) sees the same list, whatever
+    /// `serve.*` says; it is names and origins only.
+    func testYourMacsIsAReadForEveryBrowser() {
+        XCTAssertEqual(WebExposure.kind(.macs), .read)
+        for p: WebExposure.Principal in [.mac, .remote(secure: false), .remote(secure: true)] {
+            for m: WebExposure.MacSessions in [.off, .watch, .interactive] {
+                XCTAssertNil(WebExposure.decide(.macs, p, macSessions: m), "\(p) \(m)")
+            }
+        }
     }
 
     /// The routes of the sessions on this Mac parse exactly, their names by the Mac's rule (≤ 32).

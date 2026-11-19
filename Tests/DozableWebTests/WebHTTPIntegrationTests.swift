@@ -254,6 +254,29 @@ final class WebHTTPIntegrationTests: XCTestCase {
         XCTAssertEqual(fake.workspaceCalls, ["ls", "show demo", "ls --loose", "ls", "show nope"], "no call for a refused name")
     }
 
+    /// Your Macs over a real listener: the projection (this Mac first, then each Mac's name and origin), the session
+    /// required, PUT 405, no POST — and exactly one read per request.
+    func testYourMacs() async throws {
+        try await start()
+        let (cookie, csrf) = try signIn()
+        XCTAssertEqual(try get("/api/v1/macs").status, 401, "the session is required")
+        XCTAssertEqual(fake.macsCalls, 0, "no read without a session")
+        let r = try get("/api/v1/macs", ["Cookie": cookie])
+        XCTAssertEqual(r.status, 200, r.text)
+        XCTAssertEqual(r.header("content-type"), "application/json; charset=utf-8")
+        let l = try XCTUnwrap(try JSONSerialization.jsonObject(with: r.body) as? [String: Any])
+        XCTAssertNotNil(l["thisMac"] as? [String: Any])
+        let macs = try XCTUnwrap(l["macs"] as? [[String: Any]])
+        XCTAssertEqual(macs.map { $0["name"] as? String }, ["mini", "air"])
+        XCTAssertEqual(macs.map { $0["origin"] as? String }, ["https://mini.example.ts.net:7443", "http://air.local:7443"])
+        XCTAssertEqual(macs.first?["lastResult"] as? String, "reachable")
+        XCTAssertEqual(fake.macsCalls, 1)
+        XCTAssertEqual(try get("/api/v1/macs", ["Cookie": cookie], method: "PUT").status, 405)
+        XCTAssertEqual(try get("/api/v1/macs", ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"],
+                               method: "POST", body: "{}").status, 404, "no POST — the list is changed from the CLI only")
+        XCTAssertEqual(fake.macsCalls, 1, "a refused method reads nothing")
+    }
+
     func testHostErrorsAreTypedAndEveryViewAnswers() async throws {
         try await start()
         let (cookie, _) = try signIn()
@@ -676,6 +699,16 @@ final class FakeData: DozableWebData, @unchecked Sendable {
     func bots() async throws -> BotListing {
         BotListing(bots: [BotRow(name: "mira", agent: "claude-code", model: nil, isolation: "fenced", kind: "agent", deliver: "poll", inChat: true,
                                  manages: ["demo"], retiredAt: nil)])
+    }
+
+    /// Your Macs: one reachable, one never checked (`macs-ls`).
+    private var _macsCalls = 0
+    var macsCalls: Int { lock.withLock { _macsCalls } }
+    func macs() async throws -> MacListing {
+        lock.withLock { _macsCalls += 1 }
+        var mini = MacBookmark(name: "mini", origin: "https://mini.example.ts.net:7443", addedAt: Date(timeIntervalSince1970: 0))
+        mini.record(MacReachability.Result(.reachable, reportedName: "mini"), at: Date(timeIntervalSince1970: 60))
+        return MacListing(MacsFile(macs: [mini, MacBookmark(name: "air", origin: "http://air.local:7443", addedAt: Date(timeIntervalSince1970: 0))]))
     }
 
     func macSessions() async throws -> [WebMacSession] {

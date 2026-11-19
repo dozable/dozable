@@ -274,13 +274,17 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// in-process when no daemon runs. `-add` (`WorkerAdded`) and `-end` (`WorkerEnded`) make and end a worker — its
     /// participant, token and place: the daemon's (`HostCore+Workers`).
     case workerAdd = "worker-add", workerList = "worker-ls", workerEnd = "worker-end"
+    /// Your Macs (`MacBookmarks`): the other Macs' dashboards this store keeps a bookmark of — `MacListing`, read from
+    /// `<store>/macs.json`. Read-only: answered in-process when no daemon runs. Adding, removing and checking are the CLI's
+    /// own (`doz ui macs`, in-process): no operation writes the list.
+    case macsList = "macs-ls"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .botList, .botShow, .workerList: true
+             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .botList, .botShow, .workerList, .macsList: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }

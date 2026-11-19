@@ -9,6 +9,12 @@
 //   · every old address lands on its canonical one and its view, with something on the page, no page error and no
 //     "could not be read"; every link of This Mac opens its page;
 //   · Loose agents and Agents / Bots list exactly what `doz workspace ls --loose --json` and `doz bot ls --json` do;
+//   · Your Macs (the machine picker): a second scratch store runs a `doz ui` named `mini` on an OS-chosen port; `doz ui
+//     macs add` keeps it (checked) and `air` (a closed port, --no-check); the brand button reads "Dozable · walkmac", Enter
+//     opens the menu — this Mac, mini "seen", air "never checked" — whose links are exactly each origin and / in a new tab
+//     (noopener noreferrer); following mini opens a tab with no #, ? or cap whose /api/v1/session answers 401 (that Mac's
+//     own sign-in), and this page made no request to it; Escape gives the focus back; #/mac/macs lists what `doz ui macs ls
+//     --json` does; at 390 px the top bar's name opens the same list;
 //   · with the daemon stopped, opening Home and Sandboxes starts none (no daemon.pid).
 //
 // Self-contained: Node >= 22 (global WebSocket and fetch), no packages. Never the person's own Dozable or browser: the
@@ -21,6 +27,7 @@
 // Inputs (environment): DOZ (default .build/debug/doz — `make cli` first), CHROME (default Google Chrome's app), SCRATCH.
 // Run from the repository's root (make does).
 import { spawn, spawnSync } from 'node:child_process';
+import { createServer } from 'node:net';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -62,8 +69,8 @@ function stage() {
 }
 
 // ── Chrome over the DevTools protocol ────────────────────────────────────────────────────────────────────────────────
-let ws, nextId = 1, chrome, ui;
-const pending = new Map(), pageErrors = [];
+let ws, nextId = 1, chrome, ui, devPort, uiB = false;
+const pending = new Map(), pageErrors = [], requested = [];
 function send(method, params = {}) { const id = nextId++; ws.send(JSON.stringify({ id, method, params })); return new Promise((res, rej) => pending.set(id, { res, rej })); }
 async function evaluate(expr) {
   const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
@@ -82,6 +89,7 @@ async function startChrome() {
   const f = PROFILE + '/DevToolsActivePort';
   for (let i = 0; i < 150 && !existsSync(f); i++) await sleep(100);
   const port = readFileSync(f, 'utf8').split('\n')[0];
+  devPort = port;
   let page;
   for (let i = 0; i < 50 && !page; i++) { page = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find((t) => t.type === 'page'); if (!page) await sleep(200); }
   ws = new WebSocket(page.webSocketDebuggerUrl);
@@ -90,9 +98,11 @@ async function startChrome() {
     const m = JSON.parse(ev.data);
     if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); m.error ? p.rej(new Error(m.error.message)) : p.res(m.result); return; }
     if (m.method === 'Runtime.exceptionThrown') pageErrors.push((m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text).split('\n')[0]);
+    if (m.method === 'Network.requestWillBeSent') requested.push(m.params.request.url);
   });
   await send('Runtime.enable');
   await send('Page.enable');
+  await send('Network.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
 }
 async function startUI() {
@@ -196,6 +206,106 @@ async function walkLists() {
   check(JSON.stringify(shownBots) === JSON.stringify(bots) && bots.length > 0, `Agents / Bots lists what doz bot ls --json does (${bots.join(', ')})`);
 }
 
+// ── Your Macs: the machine picker against a second scratch dashboard (`mini`) ─────────────────────────────────────────
+const STORE_B = S + '/store-b', XDG_B = S + '/xdg-b';
+const ENV_B = { ...ENV, XDG_CONFIG_HOME: XDG_B, DOZ_STORE: STORE_B, DOZ_TEST_MAC_NAME: 'mini', DOZ_TEST_BROWSER_LOG: S + '/browser-b.log' };
+function freePort() {
+  return new Promise((res) => { const srv = createServer(); srv.listen(0, '127.0.0.1', () => { const p = srv.address().port; srv.close(() => res(p)); }); });
+}
+async function key(k, code, vk) {
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, ...(k === 'Enter' ? { text: '\r' } : {}) });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk });
+}
+const ENTER = ['Enter', 'Enter', 13], ESC = ['Escape', 'Escape', 27];
+const MENU = `document.querySelector('#mac-picker').closest('.brand-wrap').querySelector('.mac-menu')`;
+async function walkMacs() {
+  let p2 = await freePort();
+  for (let i = 0; i < 5 && LIVE_PORTS.includes(p2); i++) p2 = await freePort();
+  const closed = await freePort();
+  check(p2 > 1023 && !LIVE_PORTS.includes(p2) && !LIVE_PORTS.includes(closed), `the other dashboard's port is the OS's choice, not a live one`);
+  for (const d of [STORE_B, XDG_B + '/doz']) mkdirSync(d, { recursive: true });
+  writeFileSync(XDG_B + '/doz/doz.toml', `[store]\npath = "${STORE_B}"\n\n[defaults]\nprojects_dir = "${PROJECTS}"\n\n[chat]\nenabled = false\n\n[ui]\nport = ${p2}\n`);
+  const b = spawnSync(DOZ, ['ui', '--detach', '--no-open', '--store', STORE_B], { env: ENV_B, encoding: 'utf8', timeout: 60_000 });
+  uiB = true;
+  let up = false;
+  for (let i = 0; i < 100 && !up; i++) { try { up = (await fetch(`http://127.0.0.1:${p2}/`)).status === 200; } catch (_) { await sleep(150); } }
+  check(b.status === 0 && up, 'a second scratch doz ui (mini) answers on its port');
+  const origin2 = `http://127.0.0.1:${p2}`, origin3 = `http://127.0.0.1:${closed}`;
+  check(doz(['ui', 'macs', 'add', 'mini', origin2]).status === 0, 'doz ui macs add mini (checked)');
+  check(doz(['ui', 'macs', 'add', 'air', origin3, '--no-check']).status === 0, 'doz ui macs add air --no-check');
+  requested.length = 0;
+  await goHash('#/home');
+  await waitFor(`state.view === 'home'`);
+  const label = await evaluate(`document.querySelector('#mac-picker .brand-line').textContent.replace(/\\s+/g, ' ').trim()`);
+  check(/^Dozable ?· walkmac$/.test(label) && (await evaluate(`document.querySelector('#mac-picker').getAttribute('aria-expanded')`)) === 'false',
+    `the brand row is a button reading "Dozable · walkmac", aria-expanded false (${label})`);
+  await evaluate(`document.querySelector('#mac-picker').focus()`);
+  await key(...ENTER);
+  check(await waitFor(`!${MENU}.hidden && document.querySelector('#mac-picker').getAttribute('aria-expanded') === 'true'`), 'Enter opens the menu');
+  check(await waitFor(`!!${MENU}.querySelector('[data-mac-link="mini"]')`, 8000), 'the menu reads Your Macs when it opens');
+  const items = await evaluate(`[...${MENU}.querySelectorAll('[data-mac-here], [data-mac-link]')].map((e) => ({
+    here: e.hasAttribute('data-mac-here'), name: e.dataset.macLink || e.querySelector('.mi-label').textContent, tag: e.tagName, href: e.getAttribute('href'),
+    target: e.getAttribute('target'), rel: e.getAttribute('rel'), rp: e.getAttribute('referrerpolicy'), desc: e.dataset.desc || '', state: e.dataset.macState }))`);
+  check(items.length === 3 && items[0].here && items[0].tag === 'BUTTON' && items[0].name === 'walkmac' && /you are here/.test(items[0].desc),
+    'this Mac first, "you are here", not a link');
+  const mini = items.find((i) => i.name === 'mini'), air = items.find((i) => i.name === 'air');
+  check(mini && mini.tag === 'A' && mini.href === origin2 + '/' && mini.target === '_blank' && mini.rel === 'noopener noreferrer' && mini.rp === 'no-referrer',
+    `mini is a link to exactly ${origin2}/ in a new tab, noopener noreferrer`);
+  check(mini && mini.state === 'seen' && /^seen /.test(mini.desc), `mini: seen (${mini && mini.desc})`);
+  check(air && air.href === origin3 + '/' && air.target === '_blank' && air.desc === 'never checked', `air: never checked, its link ${origin3}/`);
+  check(await evaluate(`document.activeElement === ${MENU}.querySelector('[data-mac-link="mini"]')`), 'the focus is on the first Mac');
+  await key(...ENTER);
+  let tab = null;
+  for (let i = 0; i < 60 && !tab; i++) {
+    tab = (await (await fetch(`http://127.0.0.1:${devPort}/json/list`)).json()).find((t) => t.type === 'page' && t.url.startsWith(origin2));
+    if (!tab) await sleep(150);
+  }
+  check(!!tab && tab.url === origin2 + '/' && !/[#?]|cap/.test(tab.url), `following mini opens a new tab at exactly ${origin2}/ (${tab && tab.url})`);
+  if (tab) {
+    const w2 = new WebSocket(tab.webSocketDebuggerUrl);
+    await new Promise((r) => w2.addEventListener('open', r, { once: true }));
+    let nid = 1;
+    const ask2 = (expression) => new Promise((r) => {
+      const id = ++nid;
+      const on = (ev) => { const m = JSON.parse(ev.data); if (m.id === id) { w2.removeEventListener('message', on); r(m.result && m.result.result ? m.result.result.value : JSON.stringify(m)); } };
+      w2.addEventListener('message', on);
+      w2.send(JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }));
+    });
+    for (let i = 0; i < 100 && (await ask2(`location.origin + ' ' + document.readyState`)) !== origin2 + ' complete'; i++) await sleep(100);
+    const status = await ask2(`fetch('/api/v1/session').then((r) => r.status, (e) => 'failed: ' + e)`);
+    check(status === 401, `mini's tab is not signed in — that Mac's own sign-in applies (/api/v1/session ${status})`);
+    w2.close();
+    await fetch(`http://127.0.0.1:${devPort}/json/close/${tab.id}`);
+  }
+  check(!requested.some((u) => u.includes(':' + p2) || u.includes(':' + closed)), 'this page made no request to another Mac');
+  await evaluate(`document.querySelector('#mac-picker').focus()`);
+  await key(...ENTER);
+  await waitFor(`!${MENU}.hidden`);
+  await key(...ESC);
+  check(await waitFor(`${MENU}.hidden && document.activeElement === document.querySelector('#mac-picker')`), 'Escape closes it and gives the focus back');
+  const ls = (dozJSON(['ui', 'macs', 'ls']) || { macs: [] }).macs.map((m) => m.name + ' ' + m.origin).sort();
+  await goHash('#/mac/macs');
+  await waitFor(`state.view === 'macs' && !!document.querySelector('[data-macs-page]')`);
+  await waitFor(`document.querySelectorAll('[data-mac]').length === ${ls.length}`, 8000);
+  const page = (await evaluate(`[...document.querySelectorAll('[data-mac]')].map((r) => r.dataset.mac + ' ' + r.querySelector('.mac-host').textContent)`)).sort();
+  check(JSON.stringify(page) === JSON.stringify(ls) && ls.length === 2, `#/mac/macs lists what doz ui macs ls --json does (${ls.join(', ')})`);
+  check(await evaluate(`/doz ui macs add NAME ADDRESS/.test(document.querySelector('[data-macs-add]').textContent) && !/paste/i.test(document.querySelector('[data-macs-page]').textContent)`),
+    '#/mac/macs: the add command, and never "paste its link"');
+  // A phone: the top bar's name opens the same list.
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await goHash('#/home');
+  await waitFor(`document.querySelector('#top-mac-picker').offsetParent !== null`, 8000);
+  await evaluate(`document.querySelector('#top-mac-picker').click()`);
+  const TOP = `document.querySelector('#top-mac-picker').closest('.brand-wrap').querySelector('.mac-menu')`;
+  check(await waitFor(`!${TOP}.hidden && !!${TOP}.querySelector('[data-mac-link="mini"]')`, 8000), 'at 390 px the top bar’s name opens Your Macs');
+  const box = await evaluate(`(() => { const r = ${TOP}.getBoundingClientRect(); return { l: r.left, w: r.width, t: r.top, top: document.querySelector('#topbar').getBoundingClientRect().bottom }; })()`);
+  check(box.w >= 390 - 32 && box.t >= box.top, `…under the top bar at the window's width (${Math.round(box.w)} px)`);
+  await key(...ESC);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  spawnSync(DOZ, ['ui', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });
+  uiB = false;
+}
+
 let failed = false;
 try {
   console.log('dashboard-walk: a scratch store at ' + S);
@@ -239,6 +349,7 @@ try {
   await walkOldAddresses();
   await walkThisMac();
   await walkLists();
+  await walkMacs();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
@@ -260,6 +371,8 @@ try {
 } finally {
   try { chrome && chrome.kill('SIGKILL'); } catch (_) { /* gone */ }
   try { ui && process.kill(-ui.pid, 'SIGTERM'); } catch (_) { /* gone */ }
+  if (uiB) spawnSync(DOZ, ['ui', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });
+  spawnSync(DOZ, ['daemon', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });
   spawnSync(DOZ, ['daemon', 'stop', '--store', STORE], { env: ENV, timeout: 60_000 });
   await sleep(500);
   if (process.env.KEEP !== '1') rmSync(S, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });

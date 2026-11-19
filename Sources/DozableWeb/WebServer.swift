@@ -1012,6 +1012,9 @@ public final class DozableWebServer: @unchecked Sendable {
             return json(WebWorkspaceReads.forBrowser(d, macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
         case .bots:
             return json(WebBotListing(try await data.bots()))
+        case .macs:
+            // One read-only HostOp; every browser that may read sees the same list (names and origins only).
+            return json(WebMacList(try await data.macs(), thisMac: WebMacReads.thisMacName))
         case .macSessionScreen(let session):
             return json(try await data.sessionScreen(MacPlace.name, session: session))
         case .macSessionNetwork(let session):

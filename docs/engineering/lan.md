@@ -68,6 +68,10 @@ its subcommands still parse) — remove it in a later release, saying so.
   714: `macOnly` (`mac-only`, 403) — Restart dashboard (`POST /api/v1/ui/restart`): this Mac's own browser only, no setting
   opens it (it would end every other browser's pages and terminals); the page hides it (`!state.serve`).
   `ui.lan` and the `serve.*` settings are `ui: false`. A new route needs a decision there.
+- **Reaching another Mac's dashboard: a bookmark, never a cookie or link.** Your Macs (`doz ui macs`, the machine picker —
+  web.md "Your Macs") keeps names and origins only; picking one is a plain link to that origin in a new tab, where that
+  Mac's own admission applies (an invite there, `doz ui share`); no cookie, token, invite or link of this Mac's is passed,
+  and no call is made from one dashboard to another. A remote browser here sees the same list (`WebExposure` read).
 - **The page**: `state.serve` (from `sessionInfo.serve`), `core/session.js`'s serve sign-in (code or pasted link — the
   router's `#cap=` hand-off still works), `views/devices.js`, `components/share.js` + `components/qr.js` (the server
   sends the QR matrix as rows; SVG by createElementNS; `--qr-light/--qr-dark` tokens). An http page is not a secure

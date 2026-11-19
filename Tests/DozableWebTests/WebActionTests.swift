@@ -361,6 +361,9 @@ final class WebActionTests: XCTestCase {
         for op in ops {
             XCTAssertFalse(["workspace-", "bot-", "worker-"].contains { op.rawValue.hasPrefix($0) }, "\(op.rawValue) is not an action yet")
         }
+        // Your Macs are read (WebMacReads) and changed only from the CLI: no macs-* operation is an action.
+        XCTAssertFalse(ops.contains { $0.rawValue.hasPrefix("macs-") }, "Your Macs are not changed from the browser")
+        XCTAssertFalse(WebAction.actionNames.contains { $0.hasPrefix("mac-") && !$0.hasPrefix("mac-session-") }, "no action for Your Macs")
     }
 
     func testFieldsMapToTheRequest() throws {

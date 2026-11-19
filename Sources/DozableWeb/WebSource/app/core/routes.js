@@ -2,13 +2,13 @@
 // `LEGACY`). Pure: no DOM, no state. The router replaces an old address with its canonical one first, then parses.
 //
 // Today's addresses: #/home · #/chat[/ROOM] · #/bots · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
-// #/mac/here[/SESSION] (the sessions on this Mac), #/mac/sessions, #/mac/sandboxes, #/mac/loose, #/mac/templates[/browse |
+// #/mac/here[/SESSION] (the sessions on this Mac), #/mac/sessions, #/mac/sandboxes, #/mac/loose, #/mac/macs (Your Macs), #/mac/templates[/browse |
 // /V/P], #/mac/images, accounts, resources, devices, doctor, settings, debug, #/mac/logs/<operations|activity|notifications|
 // metrics> · the modals #/new, #/onboarding, #/try[/AGENT].
 
 /// The words after #/mac/ that name a page of This Mac (a session on this Mac named like one loses its old deep link).
 export const MAC_RESERVED = ['here', 'sessions', 'sandboxes', 'loose', 'templates', 'images', 'accounts', 'resources', 'devices', 'logs',
-  'doctor', 'settings', 'debug'];
+  'doctor', 'settings', 'debug', 'macs'];
 /// This Mac's pages whose view keeps its old name (#/mac/images → view `images`).
 const MAC_SAME = ['images', 'accounts', 'resources', 'devices', 'doctor', 'settings', 'debug'];
 /// This Mac › Logs.
@@ -66,6 +66,7 @@ export function parse(hash) {
   if (hash === '#/mac/sessions') return r('sessions');
   if (hash === '#/mac/sandboxes') return r('overview');
   if (hash === '#/mac/loose') return r('loose');
+  if (hash === '#/mac/macs') return r('macs');
   if (hash === '#/mac/templates') return r('recipes', { recipe: '' });
   if (hash === '#/mac/templates/browse') return r('browse');
   if ((m = new RegExp('^#/mac/templates/(' + RECIPE + ')$').exec(hash))) return r('recipes', { recipe: m[1] });
@@ -84,7 +85,7 @@ export function hashFor(view) {
   if (view === 'home' || view === 'bots') return '#/' + view;
   if (view === 'thismac') return '#/mac';
   if (view === 'mac') return '#/mac/here';
-  if (view === 'sessions' || view === 'loose') return '#/mac/' + view;
+  if (view === 'sessions' || view === 'loose' || view === 'macs') return '#/mac/' + view;
   if (view === 'overview') return '#/mac/sandboxes';
   if (view === 'recipes') return '#/mac/templates';
   if (view === 'browse') return '#/mac/templates/browse';

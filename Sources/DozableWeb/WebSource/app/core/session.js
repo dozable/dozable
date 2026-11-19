@@ -66,6 +66,8 @@ export function adopt(info) {
   const named = /^Dozable [–-] (.+)$/.exec(PAGE_TITLE);
   const bm = $('brand-mac');
   if (bm) bm.textContent = named ? '· ' + named[1] : mac ? '· ' + mac : '';
+  const tbm = $('top-brand-mac');                    // the phone's top bar: the same name (the machine picker there too)
+  if (tbm && bm) tbm.textContent = bm.textContent;
   $('version').textContent = 'doz ' + info.version;
   paintFootLine();
   // 714: the server names the page for its Mac ("Dozable – m1max", the <title> it serves) — kept, so two Macs' installed

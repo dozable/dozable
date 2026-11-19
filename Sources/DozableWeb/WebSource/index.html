@@ -19,7 +19,8 @@
 <body>
   <header class="topbar" id="topbar">
     <button type="button" class="btn sm quiet icon-only nav-menu" id="top-menu" aria-label="Show the menu" aria-expanded="false" aria-controls="nav"></button>
-    <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b>
+    <span class="brand-mark" aria-hidden="true">z</span>
+    <button type="button" class="brand-picker brand-top" id="top-mac-picker" aria-haspopup="menu" aria-expanded="false"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac" id="top-brand-mac"></span></span></button>
     <span class="topbar-gap"></span>
     <span class="topbar-acts">
       <a class="btn sm quiet icon-only topbar-keys" id="top-keys" href="#/mac/accounts" hidden></a>
@@ -31,7 +32,7 @@
       <div class="side-head">
         <button type="button" class="btn sm quiet icon-only nav-menu" id="nav-menu" aria-label="Collapse the sidebar" aria-expanded="true" aria-controls="nav"></button>
         <span class="brand-mark" aria-hidden="true">z</span>
-        <span class="side-brand"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac" id="brand-mac"></span></span><span class="brand-store" id="store-path">—</span></span>
+        <button type="button" class="side-brand brand-picker" id="mac-picker" aria-haspopup="menu" aria-expanded="false"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac" id="brand-mac"></span></span><span class="brand-store" id="store-path">—</span></button>
       </div>
       <nav id="nav" aria-label="Pages">
         <a href="#/home" data-view="home" data-nav-part="home"><span class="lbl">Home</span></a>

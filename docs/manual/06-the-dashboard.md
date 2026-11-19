@@ -74,7 +74,8 @@ run, instead of the browser's error page; it comes back by itself, on the view i
 
 ![The Sandboxes page](images/dashboard-sandboxes.png)
 
-The sidebar starts with the menu button, the Dozable mark, its name with this Mac's name, and the store it shows. The top
+The sidebar starts with the menu button, the Dozable mark, its name with this Mac's name, and the store it shows — that
+name is the machine picker (see [Your other Macs](#your-other-macs-the-machine-picker)). The top
 right corner of the window is where notifications appear (see [Notifications](#notifications)). Each
 page's title stays at the top as the page scrolls, and a table's column headings stay under it. The
 sidebar has four parts, top to bottom: **Home** (your workspaces — the page the dashboard opens on), **Chat** (while
@@ -95,13 +96,14 @@ menu button collapses the sidebar to a column of icons (hover one for its name) 
 this browser remembers. In a window narrower than about 980 px the sidebar is always the column of
 icons, and the menu button shows the whole sidebar over the page. On a phone (narrower than about
 760 px) the column goes too: a header row across the top holds the menu button, which opens the
-sidebar as a drawer, a key button while a key needs you, and **+** for Quick add.
+sidebar as a drawer, the machine picker, a key button while a key needs you, and **+** for Quick add.
 
 | page | what it's for |
 |---|---|
 | **Home** | Every workspace, one row each: its state in the words `doz workspace ls` uses (**waiting on you** first, then **working**, **starting**, **idle**, **setting up**, **asleep**; finished and archived fold into one line below), the workspace and its folders, who drives it (**you**), its manager (**mira (fenced)**; an unfenced one says **acts as you** in the warning colour), who is working (for a workspace waiting on you, why — an agent blocked, in error, or a sandbox that failed), its room, the room's last line (while the chat server runs) and one next action: **Open room**, or for a workspace still setting up what it lacks and the command that starts it, `doz workspace start NAME`, to copy. With no workspace yet, Home says what one is — "A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up." — offers **Just try an agent** (Quick try), counts the sandboxes and sessions on this Mac that are not in any workspace (**Put them in workspaces…** opens **Loose agents**) and points to **Agents / Bots** for an agent elsewhere. See [Workspaces](37-workspaces.md). |
 | **Agents / Bots** | Every Agent / Bot, as `doz bot ls` lists them: its agent program, how it is isolated, how the chat server reaches it, the workspaces it manages or works in (each opens its room), whether it is in chat, and when it was retired. A list: making or changing one is `doz bot …` (the page shows the command). See [Agents / Bots](38-agents-and-bots.md). |
 | **This Mac › Overview** | One line for each of This Mac's pages, saying what it holds now: what runs (sandboxes running, sessions on this Mac fenced and unfenced), the loose agents, a key that does not work, the disk Dozable uses (once Resources has measured it), a failed operation, the chat server's state, and the daemon with **Restart daemon** (or **Start daemon**). Nothing is measured or checked when you open it. |
+| **This Mac › Your Macs** | The other Macs the machine picker opens, as `doz ui macs ls` lists them: each one's name, address (**plain HTTP** when it is), when it was last seen, what the last check found, **Open**, and the command that removes it, `doz ui macs rm NAME`, to copy; then how to add one, `doz ui macs add NAME ADDRESS`. The list is changed in a terminal on this Mac only. |
 | **This Mac › Loose agents** | The sandboxes and sessions on this Mac that are not in any workspace, each with its kind (**micro VM** or **on this Mac**), its state, **Open**, and the command that adopts it, `doz workspace adopt WORKSPACE NAME`, to copy. Nothing moves by itself: adopting changes only the workspace's record. |
 | **This Mac › On this Mac** | The sessions on this Mac (`doz run @mac`), fenced or not. Its sidebar line says **N no isolation** while unfenced sessions run. See [Sessions on this Mac](34-sessions-on-this-mac.md). |
 | **This Mac › Sandboxes** | Every sandbox: state, RAM held, disk, network, account. Each row has the one likely next action (**Start**, **Resume**, **Wake** or **Pause**) and **⋯** for the state's other actions; click a row to open the sandbox. Under each running or sleeping sandbox, a row of its sessions' pictures (live, or the saved screen), each one opening its session; **Thumbnails under each sandbox** above the table turns these rows off (this browser remembers): the pictures are then small, in a **Sessions** column — a grid in a 4:3 box, smaller the more sessions there are. Rest on any picture for half a second to see it larger. Every picture of a running sandbox is live: it follows its session within about a second while it is on screen (pictures you have scrolled past are not asked for, and keep their last screen until you scroll back). A picture marked **last screen** is one the daemon could not give live (a session started before an update of Dozable, for instance): it shows the session's last saved screen instead. Tick sandboxes in the left margin and the controls above the table — **Start** (start, resume or wake), **Pause**, **Sleep**, **Hibernate**, **Shut down** (asks first) — act on those; with none ticked they act on every sandbox, and each says how many it applies to. They do not all run at once — every start or wake would be slower: at most `ui.batch_concurrency` (3) starts, wakes, resumes, sleeps, hibernations and shut-downs run at a time, and the others wait their turn, each row saying **queued — 2 ahead** (or **queued — next**) with a small **Cancel**, and the controls **N queued · Cancel all**. A cancelled one did nothing. One you start yourself on a single sandbox, or by typing in its terminal, goes ahead of them; a pause, and a resume from a pause, never wait. **Quick add** (every default, started and opened — also the **+** beside the **This Mac** heading in the sidebar; see [The quickest way](05-sandboxes-and-lifecycle.md#the-quickest-way-quick-add-and-doz-new)) and **New sandbox** (a wizard: every choice, step by step, written to the project folder's `doz_project.yaml` — see [Projects](04-projects.md#in-the-dashboard)). Under it in the sidebar, each sandbox has its own entry that opens **its page** at its Home; its dot is filled while the sandbox holds memory (running, paused, asleep), a crescent moon when it is hibernated, a ring when it is shut down, a square when it failed; a second dot at the right says what its agent is doing (see [What the agent is doing](07-terminals-and-sessions.md#what-the-agent-is-doing)). Under each sandbox, all its **sessions** (each with its agent's mark, or a terminal for a shell), in the order of the tabs on its page (then any without a tab: the agent's first), each with what it is doing; click one — or its screen icon — to open it; **⋮** (on hover) has **Restart session** and **End session**, and the screen icon beside it shows the session's live picture when you rest on it for half a second (then another session's line shows its picture at once). A sleeping sandbox lists the sessions it wakes back into. The caret beside a sandbox (or a click on the sandbox while its Home is shown) folds it to one line with its number of sessions (a session that needs you or failed still shows); this browser remembers the fold. **⋮** on the **Sandboxes** line (on hover) has **Expand all** and **Collapse all**. |
@@ -119,6 +121,21 @@ sidebar as a drawer, a key button while a key needs you, and **+** for Quick add
 | **This Mac › Setup** | The setup wizard, again (in a window over the page, as **New sandbox** is). |
 | **This Mac › Doctor** | `doz doctor`'s checks, with **Run onboarding again**. |
 | **This Mac › Settings** | Laid out like VS Code's settings: the search across the top, then every setting as a block — its name (with its key, `ui.theme`), its description, and the control under them (a checkbox before the description for an on/off one) — with where its value came from (a badge: recipe · default · Mac · project · sandbox · env · flag); change it in place. A value set on this Mac, by the environment or by a flag has a bar at its left; **Default** puts this Mac's back. A recipe's own settings are on its page under **Templates**. The search finds a setting by its key, its name, its section or a word of its description, across every section. When the page is wide enough, the sections are listed on the left (Access first), the one you are reading marked; a click jumps to it — narrower, the list is not shown. Folders on your Mac are never typed here: the projects folder has **Choose…**, your Mac's own folder picker; the others are set with `doz config set`. A new sandbox's permissions (`defaults.permissions`) are a table of what **Locked**, **Standard** and **Open** each allow, the current one marked, with the choice under it; **Custom** shows a switch for each permission. A sandbox's own values are on its page, **Config › Settings** (what it overrides, with **Follow the Mac**). |
+
+### Your other Macs (the machine picker)
+
+"**Dozable · studio ▾**" at the top of the sidebar — this Mac's name — is a button: it opens **Your Macs**. This Mac comes
+first (**you are here**), then each Mac you added with `doz ui macs add NAME ADDRESS` (its Tailscale name or LAN address —
+see [Adding this Mac to another's list](25-doz-serve.md#adding-this-mac-to-another-macs-list)), then **Add a Mac…** and
+**Manage…**, which open **This Mac › Your Macs**. Each Mac shows a dot, its name, its address, **plain HTTP** when it is
+not https, and what the last check found: a filled dot and **seen 3 min ago** when a check in the last ten minutes found
+it, else a hollow dot and **last seen 2 days ago** or **never checked**; one that could not be reached says why, and the
+command that checks it again (`doz ui macs check NAME`). Picking one opens that Mac's own dashboard in a new tab — the
+same as typing its address: you sign in to it there with `doz ui share` on that Mac. Nothing of this Mac's goes with
+it: no key, cookie or sign-in link is ever passed, kept or shown, and this page never contacts the other Mac (whether it
+answers is checked only by `doz ui macs add` and `doz ui macs check`). Each Mac stays its own: its own daemon,
+workspaces, agents and keys. On a phone, the name in the header row opens the same list. **Enter**, **Space** or
+**↓** on the name opens it, the arrow keys move through it, **Escape** closes it; **g** then **m** opens it from anywhere.
 
 ### Old addresses
 
@@ -195,8 +212,9 @@ every action's result either way.
 ### Keyboard
 
 Every control shows a ring when it has the keyboard's focus. Arrow keys move within tabs, segmented
-choices and menus; **Escape** closes a menu or a dialog. Four page shortcuts: **g** then **h** opens
-**Home**, **g** then **s** opens **This Mac › Sandboxes**, **/** the Settings filter, **?** the list of shortcuts. None of them works while a
+choices and menus; **Escape** closes a menu or a dialog. Five page shortcuts: **g** then **h** opens
+**Home**, **g** then **s** opens **This Mac › Sandboxes**, **g** then **m** opens Your Macs (the machine picker), **/** the
+Settings filter, **?** the list of shortcuts. None of them works while a
 terminal has the focus — there every key is the terminal's.
 
 ## The daemon, watched

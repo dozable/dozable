@@ -1030,6 +1030,20 @@ table.set-matrix { width: auto; }
 .menu-check { grid-column: 3; grid-row: 1; color: var(--accent); display: inline-flex; }
 .menu-sep { height: 1px; background: var(--line); margin: var(--sp-1) 0; }
 .menu-label { font: var(--fw-medium) var(--fs-xs)/1 var(--font); color: var(--ink-2); padding: var(--sp-2) var(--sp-3) var(--sp-0); }
+/* A link item (an <a role="menuitem">): the item's look; its end column holds `trail`. */
+.menu-link { text-decoration: none; }
+.menu-trail { grid-column: 3; grid-row: 1; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--ink-2); }
+/* The machine picker's menu (components/mac-picker.js): this Mac (not a link), then each of your Macs — a dot (filled:
+   seen at a check under 10 minutes ago), the name, the host in mono, "plain HTTP" when it is, what the last check found
+   and Open; then Add a Mac… and Manage…. */
+.mac-menu { min-width: 320px; }
+.menu-item[data-mac-here]:disabled { color: var(--ink); cursor: default; }
+.menu-item[data-mac-here] > .icon { color: var(--accent); }
+.mac-dot { display: inline-block; width: 8px; height: 8px; border-radius: var(--r-pill); border: 1.5px solid var(--ink-2); background: none; justify-self: center; flex: none; }
+.mac-dot.is-seen { background: var(--ok); border-color: var(--ok); }
+.mac-host { margin-left: var(--sp-2); font-size: var(--fs-sm); color: var(--ink-2); }
+.mac-tag { display: inline-block; margin-left: var(--sp-2); padding: 0 var(--sp-1); border-radius: var(--r-sm); background: var(--well); font-size: var(--fs-xs); color: var(--ink-2); }
+.mac-says { margin-left: var(--sp-1); color: var(--ink-2); }
 
 /* Segmented control — switches a view or picks one of a few values; the chosen one is RAISED. */
 .segmented { display: inline-flex; gap: var(--sp-0); padding: var(--sp-0); background: var(--surface-2); border-radius: var(--r-md); flex: none; }
@@ -1386,10 +1400,21 @@ body.rail.nav-open .side-brand { display: flex; }
   font-weight: 700; font-style: italic; font-size: var(--fs-md); flex: none; }
 .brand-name { font-weight: var(--fw-strong); flex: none; }
 .brand-store { min-width: 0; font-size: var(--fs-sm); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* The brand row: "Dozable · <this Mac's name>" (the name the server gave the page; the machine picker comes here later). */
+/* The brand row: "Dozable · <this Mac's name>" (the name the server gave the page) — the machine picker's button (below). */
 .brand-line { display: flex; align-items: baseline; gap: var(--sp-1); min-width: 0; }
 .brand-mac { min-width: 0; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brand-mac:empty { display: none; }
+/* The machine picker (components/mac-picker.js): the brand row is a button — "Dozable · studio ▾", the store below it in
+   the sidebar; ▾ turns to ▴ while Your Macs is open. The phone's top bar has the same button (.brand-top). */
+.brand-wrap { display: flex; min-width: 0; flex: 1; }
+.brand-picker { min-width: 0; margin: 0 calc(-1 * var(--sp-2)); padding: var(--sp-1) var(--sp-2); border: 0; border-radius: var(--r-md); background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.brand-picker:hover, .brand-wrap.is-open > .brand-picker { background: var(--state-hover); }
+.brand-caret { display: inline-flex; align-self: center; flex: none; color: var(--ink-2); transition: transform var(--dur-1) var(--ease); }
+.brand-picker[aria-expanded="true"] .brand-caret { transform: rotate(180deg); }
+.brand-top { display: flex; align-items: center; }
+/* This Mac › Your Macs (views/macs.js). */
+.macs-add { margin-top: var(--gap); }
 .topbar-gap { flex: 1; }
 .topbar-acts { display: none; align-items: center; gap: var(--sp-1); flex: none; }
 .topbar-keys { color: var(--bad); }
@@ -1626,6 +1651,9 @@ body.rail.nav-open #nav-operations .trail .nav-badge:not([hidden]) { display: in
   body.rail:not(.nav-open) .side { display: none; }
   body.rail.nav-open .side { width: min(280px, calc(100vw - 48px)); z-index: var(--z-modal); }
   body.nav-open::before { content: ""; position: fixed; inset: var(--header-h) 0 0 0; background: var(--scrim); z-index: var(--z-menu); }
+  /* The top bar's machine picker: Your Macs under the top bar, the window's width. */
+  .menu.mac-menu.from-top { left: var(--sp-2) !important; top: calc(var(--header-h) + var(--sp-1)) !important; width: calc(100vw - 2 * var(--sp-2)); max-width: none;
+    min-width: 0; max-height: calc(100vh - var(--header-h) - var(--sp-3)); }
 }
 
 /* ── 603 step 6: a sandbox's page — a title row (name, phase, labelled chips), ONE toolbar (the lifecycle group,

@@ -97,7 +97,8 @@ public enum WebExposure {
              .onboarding, .preparations, .resources, .bases, .access, .tryCatalog, .tryList, .models, .files, .filesWatch, .filesTree,
              .grids,                    // 648: a read (POST only because it carries the pictures asked)
              .recipes,                  // 669: Settings › Recipes — states and settings, read from the store
-             .workspaces, .workspace, .loose, .bots:  // reads; the rows on this Mac follow serve.mac_sessions (WebWorkspaceReads)
+             .workspaces, .workspace, .loose, .bots,  // reads; the rows on this Mac follow serve.mac_sessions (WebWorkspaceReads)
+             .macs:                     // Your Macs — another computer sees the same list (a phone switching Macs is its main use)
             return .read
         case .actions, .operationsCancel, .policyPreview, .terminalTicket,     // 650: a cancel is decided as the actions are
              .terminalSocket, .settingsChange, .terminalLayoutSet, .filesTreeSet, .onboardingConfig,

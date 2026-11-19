@@ -31,6 +31,26 @@ final class CommandTests: XCTestCase {
         XCTAssertThrowsError(try parse(["rename", "box", "website", "--yes"]), "no question, so no --yes")
     }
 
+    /// `doz ui macs`: ls (the default), add NAME ADDRESS [--no-check], rm NAME, check [NAME]; --json and --store on each.
+    func testTheMacsCommandsParse() throws {
+        XCTAssertTrue(try parse(["ui", "macs"]) is UIMacsList)
+        XCTAssertTrue(try parse(["ui", "macs", "ls", "--json", "--store", "/tmp/s"]) is UIMacsList)
+        let a = try XCTUnwrap(parse(["ui", "macs", "add", "mini", "mini.example.ts.net:7443", "--no-check", "--json"]) as? UIMacsAdd)
+        XCTAssertEqual(a.name, "mini")
+        XCTAssertEqual(a.address, "mini.example.ts.net:7443")
+        XCTAssertTrue(a.noCheck)
+        XCTAssertTrue(a.g.json)
+        XCTAssertFalse(try XCTUnwrap(parse(["ui", "macs", "add", "mini", "mini.local"]) as? UIMacsAdd).noCheck)
+        XCTAssertThrowsError(try parse(["ui", "macs", "add", "mini"]), "the address is required")
+        XCTAssertEqual(try XCTUnwrap(parse(["ui", "macs", "rm", "mini"]) as? UIMacsRemove).name, "mini")
+        XCTAssertThrowsError(try parse(["ui", "macs", "rm"]))
+        XCTAssertNil(try XCTUnwrap(parse(["ui", "macs", "check"]) as? UIMacsCheck).name)
+        XCTAssertEqual(try XCTUnwrap(parse(["ui", "macs", "check", "mini"]) as? UIMacsCheck).name, "mini")
+        XCTAssertEqual(macLabel("mini", "m1mini"), "mini (says: m1mini)")
+        XCTAssertEqual(macLabel("mini", "mini"), "mini")
+        XCTAssertEqual(macLabel("mini", nil), "mini")
+    }
+
     func testEveryCommandTakesJSONAndStore() throws {
         let lines: [[String]] = [
             ["create", "b", "--image", "lab"], ["up", "b"], ["start", "b"], ["pause", "b"], ["resume", "b"], ["sleep", "b"],

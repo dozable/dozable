@@ -819,6 +819,25 @@ dashboard's port, port 80's redirect, and the address itself (`dashboard via htt
 dashboard running (at its start — so at login with its login item — and when it stops unexpectedly), never after
 `doz ui stop` until the dashboard is started again.
 
+### Your Macs (the machine picker)
+
+```bash
+doz ui macs [ls] [--json] [--store DIR]                # your other Macs: name, address, when each was last seen, the last check
+doz ui macs add NAME ADDRESS [--no-check] [--json] [--store DIR]   # keep one by its dashboard's address; it is checked once
+doz ui macs rm NAME [--store DIR]                      # forget one (nothing on that Mac changes)
+doz ui macs check [NAME] [--json] [--store DIR]        # does each answer now? one request each, to its address
+```
+
+The dashboard's brand row, "Dozable · <this Mac> ▾", opens Your Macs: this Mac first, then each Mac you added. Picking
+one opens its address in a new tab — a plain link to its origin, where that Mac's own sign-in applies (`doz ui share`
+on that Mac): no key, cookie or link of this Mac's is ever passed, kept or shown, and neither the page nor the daemon
+calls the other Mac. The list is yours; nothing is discovered. `<store>/macs.json` (0600) holds names and origins only.
+ADDRESS is a Tailscale name or a LAN address, perhaps with a port (`mini.example.ts.net`, `mini.local:7443`,
+`http://192.168.1.20:7443`): without a port, 7443 over HTTP, or https for a `.ts.net` name. Refused before anything is
+written, and never repeated back: a sign-in link, a query, a path, a user name or password, and this Mac's own
+dashboard. Whether a Mac answers is checked only by `add` (unless `--no-check`) and `check`: `GET /` with no cookie,
+no redirect followed, three seconds at most; it answers when that is a Dozable dashboard. `ls` never starts the daemon.
+
 ### Chat
 
 ```bash

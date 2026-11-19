@@ -13,13 +13,14 @@
   <title>Dozable</title>
   <meta name="doz-ghostty-wasm" content="/assets/vendor-ghostty-vt-d6f0326f1874ad2c.wasm">
   <meta name="doz-icons" content="/assets/vendor-lucide-icons-8b3f7731ee250372.svg">
-  <link rel="stylesheet" href="/assets/app-84c2d3a70e46f8cb.css">
-  <script type="module" src="/assets/app-a0dd740b5d257bfa.js"></script>
+  <link rel="stylesheet" href="/assets/app-6d3fafc9d46884f2.css">
+  <script type="module" src="/assets/app-b6a4896855f8d4d9.js"></script>
 </head>
 <body>
   <header class="topbar" id="topbar">
     <button type="button" class="btn sm quiet icon-only nav-menu" id="top-menu" aria-label="Show the menu" aria-expanded="false" aria-controls="nav"></button>
-    <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b>
+    <span class="brand-mark" aria-hidden="true">z</span>
+    <button type="button" class="brand-picker brand-top" id="top-mac-picker" aria-haspopup="menu" aria-expanded="false"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac" id="top-brand-mac"></span></span></button>
     <span class="topbar-gap"></span>
     <span class="topbar-acts">
       <a class="btn sm quiet icon-only topbar-keys" id="top-keys" href="#/mac/accounts" hidden></a>
@@ -31,7 +32,7 @@
       <div class="side-head">
         <button type="button" class="btn sm quiet icon-only nav-menu" id="nav-menu" aria-label="Collapse the sidebar" aria-expanded="true" aria-controls="nav"></button>
         <span class="brand-mark" aria-hidden="true">z</span>
-        <span class="side-brand"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac" id="brand-mac"></span></span><span class="brand-store" id="store-path">—</span></span>
+        <button type="button" class="side-brand brand-picker" id="mac-picker" aria-haspopup="menu" aria-expanded="false"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac" id="brand-mac"></span></span><span class="brand-store" id="store-path">—</span></button>
       </div>
       <nav id="nav" aria-label="Pages">
         <a href="#/home" data-view="home" data-nav-part="home"><span class="lbl">Home</span></a>
