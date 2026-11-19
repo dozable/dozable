@@ -10,7 +10,10 @@ import DozableHost
 //      refused and writes and posts nothing
 //  35. doz chat read ROOM --with-log: the workspace's log lines among the messages, by time ("started the work",
 //      "edited the work" before its announcement)
-func cliWorkspaceBriefRows(_ h: CLIHarness, root: URL, store: DozableStore) {
+//  36. filing a RUNNING session on this Mac (a harmless sleep) into a workspace that is setting up marks it started — not
+//      setting up — with nothing posted in its room (the dashboard's "Put in a workspace…" sends exactly this adopt)
+//  37. releasing it: loose again, still running
+func cliWorkspaceBriefRows(_ h: CLIHarness, root: URL, store: DozableStore, started: inout Set<String>) {
     print("cli: a workspace's brief — the edit announced, the log among the messages")
     let ws = WorkspaceStore(store: store)
     func text(_ p: String) -> String { (try? String(contentsOfFile: p, encoding: .utf8)) ?? "" }
@@ -54,16 +57,35 @@ func cliWorkspaceBriefRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     // 35. the log among the messages
     r = h.run(["chat", "read", "ann", "--with-log"], timeout: 60)
     let lines = r.out.split(separator: "\n").map(String.init)
-    let started = lines.firstIndex { $0.contains(" — you started the work: posted the brief in ann") }
+    let startedLine = lines.firstIndex { $0.contains(" — you started the work: posted the brief in ann") }
     let edited = lines.firstIndex { $0.contains(" — you edited the work (") }
     let announcement = lines.firstIndex { $0.contains(" ada: I edited the work:") }
     let kickoff = lines.firstIndex { $0.contains(" ada: Write the release notes.") }
-    check(r.code == 0 && started != nil && edited != nil && announcement != nil && kickoff != nil,
+    check(r.code == 0 && startedLine != nil && edited != nil && announcement != nil && kickoff != nil,
           "35 chat read ann --with-log: the log's lines among the messages (\(r.code) \(r.out.prefix(400)))")
-    if let started, let edited, let announcement, let kickoff {
-        check(kickoff < started && started < edited && edited < announcement, "35 …by time (\(kickoff), \(started), \(edited), \(announcement))")
+    if let startedLine, let edited, let announcement, let kickoff {
+        check(kickoff < startedLine && startedLine < edited && edited < announcement, "35 …by time (\(kickoff), \(startedLine), \(edited), \(announcement))")
     }
     r = h.run(["chat", "read", "ann"], timeout: 60)
     check(!r.out.contains("edited the work ("), "35 without --with-log: messages only")
     check(h.run(["chat", "read", "ann", "--with-log", "--json"]).code == 64, "35 --with-log with --json: refused")
+
+    // 36. filing a running agent: started, nothing posted
+    let work = WorkspaceStore.resolved(root.appendingPathComponent("work").path)
+    r = h.run(["run", "@mac", "-d", "--unfenced", "--session", "wsf", "--folder", work, "--", "/bin/sleep", "600"], timeout: 60)
+    if r.code == 0 { started.insert("wsf") }
+    check(r.code == 0, "36 a harmless session on this Mac, wsf (\(r.code))")
+    h.run(["workspace", "new", "filed", "--prompt-file", first], timeout: 60)
+    let before36 = h.json(["workspace", "show", "filed"], WorkspaceDetail.self)
+    check(before36?.state == "setting-up", "36 filed is setting up (\(before36?.state ?? "?"))")
+    r = h.run(["workspace", "adopt", "filed", "@mac/wsf"], timeout: 60)
+    let d36 = h.json(["workspace", "show", "filed"], WorkspaceDetail.self)
+    check(r.code == 0 && d36?.state != "setting-up" && d36?.flags.firstAgentAt != nil && d36?.flags.startedAt == nil,
+          "36 adopt filed @mac/wsf (running): started, no kick-off (\(r.code), \(d36?.state ?? "?"))")
+    check(mine("filed").isEmpty, "36 …nothing posted in its room")
+
+    // 37. release: loose, still running
+    r = h.run(["workspace", "release", "filed", "wsf"], timeout: 60)
+    let loose = h.json(["workspace", "ls", "--loose"], WorkspaceListing.self)?.loose.first { $0.name == "@mac/wsf" }
+    check(r.code == 0 && loose?.state == "running", "37 release filed wsf: loose again, still running (\(r.code), \(loose?.state ?? "?"))")
 }

@@ -68,6 +68,9 @@ final class WebActionTests: XCTestCase {
         "files-move": #"{"action":"files-move","sandbox":"web","path":"/workspace/a.md","to":"/workspace/docs/a.md"}"#,
         "files-rm": #"{"action":"files-rm","sandbox":"web","path":"/workspace/old","recursive":true,"confirm":"/workspace/old"}"#,
         "workspace-brief": #"{"action":"workspace-brief","workspace":"launch-video","brief":"Make it 45 seconds.\nKeep the logo.","ifBrief":"\#(String(repeating: "a", count: 64))"}"#,
+        "workspace-adopt": #"{"action":"workspace-adopt","workspace":"launch-video","agent":"@mac/build","as":"builder"}"#,
+        "workspace-new": #"{"action":"workspace-new","workspace":"gamma","brief":"The work in gamma.","adopt":["gamma"]}"#,
+        "workspace-release": #"{"action":"workspace-release","workspace":"launch-video","agent":"builder"}"#,
         // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
         "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
         // 669: a sandbox's own value of a per-sandbox setting, or "Follow the Mac" (clear).
@@ -148,6 +151,8 @@ final class WebActionTests: XCTestCase {
         .sandboxSettings,
         // A workspace's brief from its page — exactly `doz workspace edit W --prompt-file F --if-brief SHA`.
         .workspaceEdit,
+        // Filing a loose agent from This Mac's own browser — exactly `doz workspace adopt | new --adopt | release`.
+        .workspaceAdopt, .workspaceNew, .workspaceRelease,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,
@@ -359,12 +364,17 @@ final class WebActionTests: XCTestCase {
             XCTAssertFalse(ops.contains(forbidden), "\(forbidden) must never be reachable from the browser")
         }
         XCTAssertEqual(WebAction.lifecycleOps["hibernate"], .hibernate)
-        // Workspaces, Agents / Bots and workers are read in the dashboard (WebWorkspaceReads). Exactly one of their operations is
-        // an action: `workspace-edit`, and only through `workspace-brief` (the brief, nothing else). No lifecycle — no
-        // workspace start or stop, no worker, no bot — for any browser.
-        XCTAssertEqual(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key), ["workspace-brief"])
-        XCTAssertEqual(Set(ops.filter { ["workspace-", "bot-", "worker-"].contains(where: $0.rawValue.hasPrefix) }), [.workspaceEdit])
-        for op: HostOp in [.workspaceStart, .workspaceStop, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceRename] {
+        // Workspaces, Agents / Bots and workers are read in the dashboard (WebWorkspaceReads). Four of their operations are
+        // actions: `workspace-edit` only through `workspace-brief` (the brief, nothing else), and filing — adopt, new with one
+        // agent, release (this Mac's own browser only). No lifecycle — no workspace start or stop, no worker, no bot — for
+        // any browser.
+        XCTAssertEqual(Set(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key)),
+                       ["workspace-brief", "workspace-adopt", "workspace-new", "workspace-release"])
+        XCTAssertEqual(Set(ops.filter { ["workspace-", "bot-", "worker-"].contains(where: $0.rawValue.hasPrefix) }),
+                       [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease])
+        XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isFiling == true ? $0.key : nil }),
+                       ["workspace-adopt", "workspace-new", "workspace-release"])
+        for op: HostOp in [.workspaceStart, .workspaceStop, .workspaceRename] {
             XCTAssertFalse(ops.contains(op), "\(op.rawValue) is not an action")
         }
         // Your Macs are read (WebMacReads) and changed only from the CLI: no macs-* operation is an action.
@@ -422,6 +432,108 @@ final class WebActionTests: XCTestCase {
         XCTAssertEqual(WebOperations.summary(a, try detail(flags, nil)), "edited the brief of launch-video — announced in its room")
         XCTAssertEqual(WebOperations.summary(a, try detail(WorkspaceFlags(), nil)), "edited the brief of launch-video")
         XCTAssertEqual(WebOperations.summary(a, try detail(flags, ["not announced: chat is off"])), "edited the brief of launch-video — not announced: chat is off")
+    }
+
+    /// Filing: each exactly the CLI's request, strictly decoded — `new` takes exactly one agent and nothing of a folder,
+    /// reference, room or manager; an agent is a sandbox's name or `@mac/SESSION` (never a bare `@mac`); `as` by the agent
+    /// rule; the dedupe key names the agent. Another computer gets none of them, whatever its serve settings.
+    func testFilingALooseAgent() throws {
+        let adopt = try decode(Self.samples["workspace-adopt"]!)
+        var want = WorkspaceRequest(name: "launch-video")
+        want.agent = "@mac/build"
+        want.asName = "builder"
+        XCTAssertEqual(adopt.hostRequest.op, .workspaceAdopt)
+        XCTAssertEqual(adopt.hostRequest.workspaceRequest, want, "exactly doz workspace adopt launch-video @mac/build --as builder")
+        XCTAssertNil(adopt.hostRequest.name, "the workspace travels in its own request")
+        XCTAssertEqual(adopt.label, "put @mac/build in launch-video")
+
+        let new = try decode(Self.samples["workspace-new"]!)
+        var wantNew = WorkspaceRequest(name: "gamma")
+        wantNew.brief = "The work in gamma."
+        wantNew.folders = []
+        wantNew.refs = []
+        wantNew.adopt = ["gamma"]
+        XCTAssertEqual(new.hostRequest.op, .workspaceNew)
+        XCTAssertEqual(new.hostRequest.workspaceRequest, wantNew, "exactly doz workspace new gamma --prompt-file F --adopt gamma")
+
+        let release = try decode(Self.samples["workspace-release"]!)
+        var wantRelease = WorkspaceRequest(name: "launch-video")
+        wantRelease.agent = "builder"
+        XCTAssertEqual(release.hostRequest.workspaceRequest, wantRelease)
+        XCTAssertEqual(try decode(#"{"action":"workspace-release","workspace":"w","agent":"@mac/build"}"#).hostRequest.workspaceRequest?.agent, "@mac/build")
+
+        for a in [adopt, new, release] {
+            XCTAssertTrue(a.isFiling)
+            XCTAssertFalse(a.isWorkspace, "not decided by serve.chat")
+            XCTAssertFalse(a.isMacSession)
+            XCTAssertNil(a.sandbox)
+            XCTAssertNil(a.confirmationTarget, "not destructive: the agent keeps running")
+        }
+        XCTAssertNil(try decode(#"{"action":"workspace-adopt","workspace":"w","agent":"lab"}"#).hostRequest.workspaceRequest?.asName)
+        // The dedupe key names the agent.
+        let a1 = try decode(#"{"action":"workspace-adopt","workspace":"w","agent":"lab"}"#)
+        let a2 = try decode(#"{"action":"workspace-adopt","workspace":"w","agent":"lab2"}"#)
+        XCTAssertNotEqual(a1.dedupeKey, a2.dedupeKey, "two agents put in one workspace are two operations")
+        XCTAssertEqual(a1.dedupeKey, try decode(#"{"action":"workspace-adopt","workspace":"w","agent":"lab","as":"x"}"#).dedupeKey)
+        XCTAssertNotEqual(try decode(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["a"]}"#).dedupeKey,
+                          try decode(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["b"]}"#).dedupeKey)
+        XCTAssertNotEqual(try decode(#"{"action":"workspace-release","workspace":"w","agent":"a"}"#).dedupeKey,
+                          try decode(#"{"action":"workspace-release","workspace":"w","agent":"b"}"#).dedupeKey)
+
+        // Strict: new takes exactly one agent and nothing of a folder, reference, room or manager.
+        invalid(#"{"action":"workspace-new","workspace":"w","brief":"b"}"#)
+        invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":[]}"#)
+        invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["a","b"]}"#)
+        invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":"a"}"#)
+        invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":[7]}"#)
+        for extra in [#""folders":[]"#, #""manager":"mira""#, #""room":"general""#, #""refs":[]"#, #""noRoom":true"#, #""managerIsolation":"vm""#,
+                      #""project":"/x""#, #""network":"open""#] {
+            invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["a"],\#(extra)}"#)
+        }
+        invalid(#"{"action":"workspace-new","workspace":"w","brief":" ","adopt":["a"]}"#)           // a blank brief
+        invalid(#"{"action":"workspace-new","workspace":"W","brief":"b","adopt":["a"]}"#)           // off the name rule
+        invalid(#"{"action":"workspace-new","workspace":"w","adopt":["a"]}"#)                       // the brief is required
+        // The agent: a sandbox's name or @mac/SESSION — never a bare @mac.
+        for bad in ["@mac", "@mac/", "@mac/a b", "Lab", "-x", "a/b", "@other/x", String(repeating: "a", count: 41)] {
+            invalid(#"{"action":"workspace-adopt","workspace":"w","agent":"\#(bad)"}"#)
+            invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["\#(bad)"]}"#)
+        }
+        invalid(#"{"action":"workspace-release","workspace":"w","agent":"@mac"}"#)
+        invalid(#"{"action":"workspace-release","workspace":"w","agent":"-x"}"#)
+        invalid(#"{"action":"workspace-adopt","workspace":"w"}"#)
+        // `as` by the agent rule.
+        for bad in ["-x", ".x", "a b", "a/b", String(repeating: "a", count: 65)] {
+            invalid(#"{"action":"workspace-adopt","workspace":"w","agent":"lab","as":"\#(bad)"}"#)
+        }
+        XCTAssertEqual(try decode(#"{"action":"workspace-adopt","workspace":"w","agent":"lab","as":"Bot_1.a"}"#).hostRequest.workspaceRequest?.asName, "Bot_1.a")
+        invalid(#"{"action":"workspace-adopt","workspace":"w","agent":"lab","name":"x"}"#)
+        invalid(#"{"action":"workspace-release","workspace":"w","agent":"a","rm":true}"#)
+
+        // This Mac's own browser only — whatever serve.chat or serve.mac_sessions say.
+        XCTAssertNil(WebExposure.decideFilingAction(.mac))
+        XCTAssertEqual(WebExposure.decideFilingAction(.remote(secure: true)), .macOnlyFiling)
+        XCTAssertEqual(WebExposure.decideFilingAction(.remote(secure: false)), .macOnlyFiling)
+        XCTAssertEqual(WebRejection.macOnlyFiling.code, "mac-only")
+        XCTAssertEqual(WebRejection.macOnlyFiling.status, 403)
+        XCTAssertTrue(WebRejection.macOnlyFiling.message.contains("this Mac's own browser"))
+        XCTAssertTrue(WebRejection.macOnlyFiling.message.contains("doz workspace adopt"))
+
+        // Its line for the page: a running agent marks the workspace started, nothing posted; else still setting up.
+        let t = Date(timeIntervalSince1970: 0)
+        let detail = { (state: String, f: WorkspaceFlags, agentState: String) in
+            try JSONValue(encoding: WorkspaceDetail(name: "launch-video", state: state, driver: "you", createdAt: t,
+                                                    brief: WorkspaceBrief(sha256: "x", bytes: 1, updatedAt: t), folders: [],
+                                                    rooms: [WorkspaceRoom(label: "main", chatRoom: "launch-video", main: true)],
+                                                    agents: [WorkspaceAgentRow(name: "builder", role: "worker", place: "@mac/build", state: agentState, startedAt: t)],
+                                                    defaults: WorkspaceDefaults(), flags: f, origin: WorkspaceOrigin()))
+        }
+        XCTAssertEqual(WebOperations.summary(adopt, try detail("working", WorkspaceFlags(firstAgentAt: t), "running")),
+                       "launch-video is started: builder was already running. The brief was not posted. doz workspace start is not needed.")
+        XCTAssertEqual(WebOperations.summary(adopt, try detail("setting-up", WorkspaceFlags(), "ended")),
+                       "builder is in launch-video, which is still setting up")
+        XCTAssertEqual(WebOperations.summary(release, try detail("idle", WorkspaceFlags(firstAgentAt: t), "running")),
+                       "builder is loose again (it keeps running as it was) — taken out of launch-video")
+        XCTAssertTrue(WebOperations.summary(new, try detail("setting-up", WorkspaceFlags(), "off")).hasPrefix("made gamma with its room #launch-video"))
     }
 
     func testFieldsMapToTheRequest() throws {

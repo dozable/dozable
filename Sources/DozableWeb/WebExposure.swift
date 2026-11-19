@@ -96,6 +96,11 @@ public enum WebExposure {
         }
     }
 
+    /// Filing an agent into a workspace or out of one (`workspace-adopt`, `-new`, `-release`) for `who`: this Mac's own browser
+    /// only, whatever `serve.chat` or `serve.mac_sessions` say — what a workspace holds decides what it (and later its
+    /// manager) may reach, and `workspace-new` makes a room as you. Another computer is shown the command instead.
+    public static func decideFilingAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyFiling : nil }
+
     /// 683 M5: a conversation exported (its whole text) — another computer only with `serve.mac_sessions = interactive`
     /// (watching shows screens, never a session's history).
     public static func decideMacExport(_ who: Principal, _ allowed: MacSessions) -> WebRejection? { decideMacAction(who, allowed) }

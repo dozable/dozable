@@ -140,6 +140,24 @@ final class ServeExposureTests: XCTestCase {
         XCTAssertTrue(WebRejection.briefRemote.message.contains("serve.chat"))
     }
 
+    /// Filing an agent into a workspace or out of one: this Mac's own browser only — no serve setting opens it to another
+    /// computer, which gets the `mac-only` code with filing's own words.
+    func testFilingIsThisMacsOnly() {
+        XCTAssertNil(WebExposure.decideFilingAction(.mac))
+        for p: WebExposure.Principal in [.remote(secure: false), .remote(secure: true)] {
+            XCTAssertEqual(WebExposure.decideFilingAction(p), .macOnlyFiling, "\(p)")
+        }
+        XCTAssertEqual(WebRejection.macOnlyFiling.code, WebRejection.macOnly.code)
+        XCTAssertEqual(WebRejection.macOnlyFiling.status, 403)
+        XCTAssertNotEqual(WebRejection.macOnlyFiling.message, WebRejection.macOnly.message, "each family says what it is")
+        XCTAssertTrue(WebRejection.macOnly.message.contains("doz ui restart"))
+        XCTAssertTrue(WebRejection.macOnlyFiling.message.contains("doz workspace adopt"))
+        // The brief stays decided by serve.chat; filing never is.
+        let adopt = try? WebAction.decode(Data(#"{"action":"workspace-adopt","workspace":"demo","agent":"lab"}"#.utf8))
+        XCTAssertEqual(adopt?.isFiling, true)
+        XCTAssertEqual(adopt?.isWorkspace, false)
+    }
+
     /// Your Macs: a read for every browser — another computer (a phone switching Macs) sees the same list, whatever
     /// `serve.*` says; it is names and origins only.
     func testYourMacsIsAReadForEveryBrowser() {

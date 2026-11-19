@@ -104,6 +104,16 @@ public enum WebAction: Equatable, Sendable {
     /// the daemon announces it in the main room as you. Another computer only with `serve.chat = write`
     /// (`WebExposure.decideWorkspaceAction`). The ONE workspace action: no start, stop, worker or bot from the browser.
     case workspaceBrief(workspace: String, brief: String, ifBrief: String)
+    /// Filing a loose agent — this Mac's own browser only (`isFiling`, `WebExposure.decideFilingAction`), whatever the serve
+    /// settings: what a workspace holds decides what it (and later its manager) may reach. Each is exactly the CLI's:
+    /// `doz workspace adopt W AGENT [--as NAME]` — the agent a sandbox's name or `@mac/SESSION`;
+    case workspaceAdopt(workspace: String, agent: String, asName: String?)
+    /// `doz workspace new W --prompt-file F --adopt AGENT` — exactly one agent, no folder, reference, room or manager (the
+    /// room is made as with the CLI when chat is on);
+    case workspaceNew(workspace: String, brief: String, adopt: String)
+    /// `doz workspace release W AGENT` — the agent's name in the workspace, or `@mac/SESSION`. A live worker or a running
+    /// manager is refused by the daemon, as for the CLI.
+    case workspaceRelease(workspace: String, agent: String)
 
     public static let lifecycleOps: [String: HostOp] = [
         "start": .start, "wake": .wake, "pause": .pause, "resume": .resume, "sleep": .sleep, "hibernate": .hibernate,
@@ -125,7 +135,7 @@ public enum WebAction: Equatable, Sendable {
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall,
              .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges,   // this Mac is no sandbox
-             .workspaceBrief:                                                             // nor is a workspace
+             .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease:          // nor is a workspace
             return nil
         }
     }
@@ -138,6 +148,11 @@ public enum WebAction: Equatable, Sendable {
     /// An action on a workspace (decided by `serve.chat` for another computer: it speaks as you in its room).
     public var isWorkspace: Bool {
         if case .workspaceBrief = self { true } else { false }
+    }
+
+    /// Filing an agent into a workspace or out of one: this Mac's own browser only (`WebExposure.decideFilingAction`).
+    public var isFiling: Bool {
+        switch self { case .workspaceAdopt, .workspaceNew, .workspaceRelease: true; default: false }
     }
 
     /// Destructive actions carry `confirm`, which must equal this (the page fills it only from a
@@ -159,7 +174,11 @@ public enum WebAction: Equatable, Sendable {
     /// (and session, point, image or account). A double-clicked "open session" is one operation.
     public var dedupeKey: String {
         let r = hostRequest
-        if let w = r.workspaceRequest?.name { return [r.op.rawValue, "workspace:" + w].joined(separator: "|") }
+        if let w = r.workspaceRequest?.name {
+            // Filing names its agent: two agents put in one workspace at once are two operations.
+            let agent = r.workspaceRequest?.agent ?? r.workspaceRequest?.adopt?.joined(separator: ",") ?? ""
+            return [r.op.rawValue, "workspace:" + w, agent].joined(separator: "|")
+        }
         return [r.op.rawValue, r.name ?? "", r.session ?? "", r.point ?? r.pointName ?? "", r.image ?? "", r.account ?? "", r.newName ?? "",
                 r.ids?.joined(separator: ",") ?? "", r.kernel ?? "", r.filePath ?? ""].joined(separator: "|")
     }
@@ -188,6 +207,9 @@ public enum WebAction: Equatable, Sendable {
         case .rename(let n, let new): return "rename \(n) to \(new)"
         case .sandboxSetting(let n, let k, let v): return v.map { "\(k) = \($0) for \(n)" } ?? "\(n) follows the Mac's \(k)"
         case .workspaceBrief(let w, _, _): return "edit the brief of \(w)"
+        case .workspaceAdopt(let w, let a, _): return "put \(a) in \(w)"
+        case .workspaceNew(let w, _, let a): return "make \(w) with \(a)"
+        case .workspaceRelease(let w, let a): return "take \(a) out of \(w)"
         default: break
         }
         let r = hostRequest
@@ -394,6 +416,29 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.workspaceEdit)
             r.workspaceRequest = e
             return r
+        case .workspaceAdopt(let w, let agent, let asName):
+            var e = WorkspaceRequest(name: w)
+            e.agent = agent
+            e.asName = asName
+            var r = HostRequest(.workspaceAdopt)
+            r.workspaceRequest = e
+            return r
+        case .workspaceNew(let w, let brief, let agent):
+            // What `doz workspace new W --prompt-file F --adopt AGENT` sends: no folder, no reference.
+            var e = WorkspaceRequest(name: w)
+            e.brief = brief
+            e.folders = []
+            e.refs = []
+            e.adopt = [agent]
+            var r = HostRequest(.workspaceNew)
+            r.workspaceRequest = e
+            return r
+        case .workspaceRelease(let w, let agent):
+            var e = WorkspaceRequest(name: w)
+            e.agent = agent
+            var r = HostRequest(.workspaceRelease)
+            r.workspaceRequest = e
+            return r
         }
     }
 
@@ -452,6 +497,9 @@ public enum WebAction: Equatable, Sendable {
             "rename": ["sandbox", "newName"],
             "sandbox-setting": ["sandbox", "key", "value", "clear"],
             "workspace-brief": ["workspace", "brief", "ifBrief"],
+            "workspace-adopt": ["workspace", "agent", "as"],
+            "workspace-new": ["workspace", "brief", "adopt"],
+            "workspace-release": ["workspace", "agent"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -667,6 +715,23 @@ public enum WebAction: Equatable, Sendable {
             }
             let sha = try f.required(f.matching("ifBrief", "^[0-9a-f]{64}$", "the brief's sha256 as read, 64 lower-case hex digits"), "ifBrief")
             a = .workspaceBrief(workspace: w, brief: try f.brief("brief"), ifBrief: sha)
+        case "workspace-adopt":
+            let asName = try f.string("as", max: 64)
+            if let n = asName, !WorkspaceName.isValidAgent(n) {
+                throw Invalid("as: an agent name, 1–64 of letters, digits . _ - (not starting with - or .)")
+            }
+            a = .workspaceAdopt(workspace: try f.workspaceName("workspace"), agent: try f.agentPlace("agent"), asName: asName)
+        case "workspace-new":
+            guard let list = d["adopt"] as? [Any], list.count == 1, let one = list[0] as? String else {
+                throw Invalid("adopt: a list of exactly one agent (a sandbox's name or @mac/SESSION)")
+            }
+            a = .workspaceNew(workspace: try f.workspaceName("workspace"), brief: try f.brief("brief"),
+                              adopt: try Fields(["agent": one]).agentPlace("agent"))
+        case "workspace-release":
+            guard let s = try f.string("agent", max: 64 + 5), WorkspaceName.isValidAgent(s) || Fields.isMacPlace(s) else {
+                throw Invalid("agent: its name in the workspace, or @mac/SESSION")
+            }
+            a = .workspaceRelease(workspace: try f.workspaceName("workspace"), agent: s)
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }
             a = .lifecycle(op, name: try f.sandbox("sandbox"))
@@ -701,6 +766,26 @@ public enum WebAction: Equatable, Sendable {
             guard let s = try string(key) else { return nil }
             guard s.range(of: pattern, options: .regularExpression) != nil else { throw Invalid("\(key): \(rule)") }
             return s
+        }
+
+        /// A workspace's name by the store's rule.
+        func workspaceName(_ key: String) throws -> String {
+            guard let w = try string(key, max: 40), WorkspaceName.isValid(w) else {
+                throw Invalid("\(key): 1–40 characters of a-z, 0-9 and -, not starting with -")
+            }
+            return w
+        }
+
+        /// An agent as a person types it to file it: a sandbox's name, or `@mac/SESSION` (never a bare `@mac`).
+        func agentPlace(_ key: String) throws -> String {
+            guard let s = try string(key, max: 64), WebRoute.isSandboxName(s) || Self.isMacPlace(s) else {
+                throw Invalid("\(key): a sandbox's name, or @mac/SESSION")
+            }
+            return s
+        }
+
+        static func isMacPlace(_ s: String) -> Bool {
+            s.hasPrefix(MacPlace.name + "/") && WebRoute.isMacSessionName(String(s.dropFirst(MacPlace.name.count + 1)))
         }
 
         func sandbox(_ key: String) throws -> String {

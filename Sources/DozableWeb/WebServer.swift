@@ -292,7 +292,7 @@ public final class DozableWebServer: @unchecked Sendable {
             }
             return grant
         } catch let r as WebRejection {
-            if remote { serveState?.audit.record(WebAuditEntry(kind: "refused", address: ctx.client, route: "terminal-socket", outcome: r.rawValue)) }
+            if remote { serveState?.audit.record(WebAuditEntry(kind: "refused", address: ctx.client, route: "terminal-socket", outcome: r.code)) }
             throw r
         }
     }
@@ -516,7 +516,7 @@ public final class DozableWebServer: @unchecked Sendable {
             return nil
         } catch let r as WebRejection {
             if let s = serveState, ctx.principal.isRemote {
-                s.audit.record(WebAuditEntry(kind: "refused", address: ctx.client, route: Self.routeLabel(route), outcome: r.rawValue))
+                s.audit.record(WebAuditEntry(kind: "refused", address: ctx.client, route: Self.routeLabel(route), outcome: r.code))
             }
             return r
         } catch {
@@ -652,7 +652,7 @@ public final class DozableWebServer: @unchecked Sendable {
     }
 
     func error(_ r: WebRejection) -> (Int, [(String, String)], Data) {
-        (r.status, [("Content-Type", "application/json; charset=utf-8")], Self.errorBody(r.rawValue, r.message))
+        (r.status, [("Content-Type", "application/json; charset=utf-8")], Self.errorBody(r.code, r.message))
     }
 
     static func errorBody(_ code: String, _ message: String) -> Data {
@@ -726,7 +726,7 @@ public final class DozableWebServer: @unchecked Sendable {
         } catch let r as WebRejection {
             if serveState != nil, ctx.principal.isRemote, r != .notAdmitted || !md.method.isSafe, route != .sessionBootstrap || r == .hostRejected || r == .originRejected {
                 serveState?.audit.record(WebAuditEntry(kind: "refused", device: device?.id, deviceName: device?.name, address: ctx.client,
-                                                       route: route.map(Self.routeLabel), outcome: r.rawValue))
+                                                       route: route.map(Self.routeLabel), outcome: r.code))
             }
             let e = error(r)
             return .response(e.0, e.1, e.2)
@@ -974,6 +974,8 @@ public final class DozableWebServer: @unchecked Sendable {
             if request.action.isMacSession, let r = WebExposure.decideMacAction(ctx.principal, settings.macSessions) { throw r }
             // A workspace's brief speaks as you in its room: another computer only with serve.chat = write.
             if request.action.isWorkspace, let r = WebExposure.decideWorkspaceAction(ctx.principal, settings.chatServe) { throw r }
+            // Filing an agent into a workspace or out of one: this Mac's own browser only, whatever the serve settings.
+            if request.action.isFiling, let r = WebExposure.decideFilingAction(ctx.principal) { throw r }
             return json(try operations.start(request.action, priority: !request.batch), status: 202)
         case .operationsCancel:
             // 650: withdraw operations still queued — nothing was sent to the host for them (so not an action).
