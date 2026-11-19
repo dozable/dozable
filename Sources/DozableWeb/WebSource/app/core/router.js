@@ -66,9 +66,11 @@ async function enterAgent(p, hash) {
   try { d = await loadWorkspace(p.param, 1000); } catch (e) { error = e; }
   if (gen !== agentGen || location.hash !== hash) return;
   const a = d ? d.agents.find((x) => x.name === p.agent) || null : null;
-  const page = a && a.state !== 'gone' && a.state !== 'not started' ? (a.kind === 'sandbox' && a.sandbox ? 'sandbox' : a.kind === 'mac' && a.session ? 'mac' : null) : null;
+  // Can do (#/w/NAME/agent/AGENT/can-do) is a page of its own — the agent's capability table, framed the same way.
+  const page = p.tab === 'can-do' ? null
+    : a && a.state !== 'gone' && a.state !== 'not started' ? (a.kind === 'sandbox' && a.sandbox ? 'sandbox' : a.kind === 'mac' && a.session ? 'mac' : null) : null;
   state.frame = { workspace: p.param, agent: p.agent, kind: page || 'card', place: page === 'sandbox' ? a.sandbox : page === 'mac' ? a.session : null,
-    row: a, detail: d, error };
+    row: a, detail: d, error, tab: p.tab };
   state.wsTab = null;
   state.wsRoom = null;
   if (page === 'sandbox') { state.view = 'sandbox'; state.param = a.sandbox; state.session = p.session || a.session || null; }

@@ -78,6 +78,60 @@ final class WebModulesTests: XCTestCase {
         for f in ["app/views/workspace.js", "app/views/home.js"] { XCTAssertTrue(try read(f).contains("ws-lifecycle.js"), "\(f) uses the dialogs") }
     }
 
+    /// The wide views: their addresses (three tabs, an agent's Can do), the pure merge of the log and this dashboard's
+    /// operations, the tabs enabled, the later rows drawn, and the one module that sends `mac-net-policy`.
+    func testTheWorkspaceWideViews() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let a = try WebAssets.load()
+        for m in ["components/can-do", "core/ws-activity", "views/ws-network", "views/ws-folders", "views/ws-activity"] {
+            XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
+        }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        let routes = try read("app/core/routes.js"), act = try read("app/core/ws-activity.js")
+        XCTAssertTrue(Self.specifiers(act).isEmpty, "core/ws-activity.js is pure: it imports nothing")
+        ctx.evaluateScript(routes.replacingOccurrences(of: "export ", with: ""))
+        ctx.evaluateScript(act.replacingOccurrences(of: "export ", with: ""))
+        XCTAssertNil(thrown, thrown ?? "")
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        for t in ["network", "folders", "activity"] {
+            XCTAssertEqual(js("[parse('#/w/demo/\(t)').view, parse('#/w/demo/\(t)').tab]"), "[\"workspace\",\"\(t)\"]")
+            XCTAssertEqual(js("canonical('#/w/demo/\(t)')"), "\"#/w/demo/\(t)\"")
+        }
+        XCTAssertEqual(js("[networkHash('d'), foldersHash('d'), activityHash('d'), canDoHash('d','mira')]"),
+                       ##"["#/w/d/network","#/w/d/folders","#/w/d/activity","#/w/d/agent/mira/can-do"]"##)
+        XCTAssertEqual(js("[parse('#/w/demo/agent/mira/can-do').view, parse('#/w/demo/agent/mira/can-do').agent]"), #"["wsagent","mira"]"#)
+        XCTAssertEqual(js("parse('#/w/demo/permissions')"), "null", "Permissions has no address yet")
+        // The merge: the log's lines and the ring's operations for this workspace's places, newest first, filtered.
+        let lines = "[{at:'2026-11-20T10:00:00Z',by:'you',action:'created',text:'created'},{at:'2026-11-20T10:05:00Z',by:'doz',action:'worker-added',agent:'bot1',text:'added the worker bot1'}]"
+        let ops = "[{id:'1',action:'net-policy',label:'net-policy wsa',sandbox:'wsa',state:'done',text:'ok',startedAt:'2026-11-20T10:03:00Z'}," +
+            "{id:'2',action:'sleep',label:'sleep other',sandbox:'other',state:'done',text:'',startedAt:'2026-11-20T10:04:00Z'}," +
+            "{id:'3',action:'mac-net-policy',label:'allow x.example for session wsu on this Mac',state:'done',text:'',startedAt:'2026-11-20T10:06:00Z'}," +
+            "{id:'4',action:'workspace-sleep',label:'sleep demo',state:'done',text:'',startedAt:'2026-11-20T10:07:00Z'}]"
+        let places = "['wsa','@mac/wsu']"
+        XCTAssertEqual(js("mergeActivity(\(lines), \(ops), 'demo', \(places), 'all').map(x => x.kind + ':' + (x.id || x.action))"),
+                       #"["op:4","op:3","log:worker-added","op:1","log:created"]"#, "another sandbox's operation is not this workspace's")
+        XCTAssertEqual(js("mergeActivity(\(lines), \(ops), 'demo', \(places), 'network').map(x => x.id)"), #"["3","1"]"#)
+        XCTAssertEqual(js("mergeActivity(\(lines), \(ops), 'demo', \(places), 'agents').map(x => x.action)"), #"["worker-added"]"#)
+        XCTAssertEqual(js("mergeActivity(\(lines), \(ops), 'demo', \(places), 'lifecycle').map(x => x.action)"), #"["workspace-sleep","created"]"#)
+        XCTAssertEqual(js("mergeActivity(\(lines), \(ops), 'demo', \(places), 'you').length"), "4")
+        // The tabs are enabled; Permissions still coming, saying where its answer is today; the later rows drawn.
+        let ws = try read("app/views/workspace.js")
+        for t in ["network", "folders", "activity"] { XCTAssertTrue(ws.contains("{ id: '\(t)', label:") && ws.contains("href: (w) => \(t)Hash(w)"), t) }
+        XCTAssertTrue(ws.contains("today: each agent’s Can do"))
+        let cando = try read("app/components/can-do.js")
+        XCTAssertTrue(cando.contains("Permissions (allow · ask · never)") && cando.contains("'Ceiling'") && cando.contains("'aria-disabled': 'true'"))
+        // mac-net-policy is sent by Network & secrets only; the reads are POSTs to their own routes.
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+        for f in files where f != "app/views/ws-network.js" { XCTAssertFalse(try read(f).contains("'mac-net-policy'"), "\(f) sends mac-net-policy") }
+        XCTAssertTrue(try read("app/views/ws-network.js").contains("api('workspace-reach', { method: 'POST'"))
+        XCTAssertTrue(try read("app/views/ws-folders.js").contains("api('workspace-folders', { method: 'POST'"))
+        XCTAssertTrue(try read("app/views/ws-activity.js").contains("api('workspace-activity', { method: 'POST'"))
+    }
+
     func testFetchAndEventSourceOnlyWhereTheyAreAllowed() throws {
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
         var fetchers: Set<String> = [], streams: Set<String> = []
@@ -170,8 +224,8 @@ final class WebModulesTests: XCTestCase {
             XCTAssertEqual(p?["agent"] as? String, hash.split(separator: "/")[4].description, hash)
             XCTAssertEqual(p?["session"] as? String, session, hash)
         }
-        XCTAssertEqual(js("parse('#/w/demo/agent/gamma/can-do')"), "null", "Can do: not an address yet")
-        XCTAssertEqual(js("canonical('#/w/demo/agent/gamma/can-do')"), "\"#/w/demo/agent/gamma\"", "…it lands on the agent")
+        XCTAssertEqual(js("parse('#/w/demo/agent/gamma/can-do').tab"), #""can-do""#, "Can do: an address of its own")
+        XCTAssertEqual(js("canonical('#/w/demo/agent/gamma/can-do')"), "\"#/w/demo/agent/gamma/can-do\"")
         for bad in ["#/w/demo/agent/", "#/w/demo/agent/-x", "#/w/demo/agent/.x", "#/w/Demo/agents", "#/w/demo/agent/a/b/c"] {
             XCTAssertEqual(js("parse('\(bad)')"), "null", bad)
         }

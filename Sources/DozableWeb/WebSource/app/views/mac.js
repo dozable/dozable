@@ -32,7 +32,7 @@ import { frameBar, frameOf, memberStrip } from '../components/agent-frame.js';
 import { moreMenu } from '../components/menus.js';
 import { filingRefusal, putInWorkspace } from '../components/put-in-workspace.js';
 import { networkPanel } from './sandbox-network.js';
-import { placeHash } from '../core/routes.js';
+import { canDoHash, placeHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 
 const mac = { built: false, active: false, tiles: new Map(), sessions: [], access: 'interactive', plan: false, refused: '', lastList: 0, timer: null,
@@ -252,7 +252,7 @@ function paintPaneHead() {
   const mode = mac.open.mode, session = s.name;
   mac.head.replaceChildren(
     h('span', { class: 'mac-pane-title' }, icon('monitor'), session),
-    capChips(s, () => showTab('can')), ...fenceMarks(s, (tab) => showTab(tab)), ...(s.bypassed ? [bypassedChip()] : []),
+    capChips(s, () => canTab(s)), ...fenceMarks(s, (tab) => showTab(tab)), ...(s.bypassed ? [bypassedChip()] : []),
     h('span', { class: 'mac-pane-acts' }, paneMore(s), btn('Close', closePane, { small: true, quiet: true, iconOnly: true, icon: 'x' })));
   mac.modeBox.replaceChildren(
     ...(mode === 'watch' ? [h('span', { class: 'mac-pane-mode' }, 'what you type does not reach it')] : []),
@@ -266,8 +266,13 @@ function paintPaneHead() {
       mac.access === 'interactive' ? btn('Resume', () => resume(s), { small: true, primary: true, icon: 'play' }) : null] })] : []));
   const tabs = [['screen', 'Screen', 'monitor'], ['can', 'What it can do', 'shield'], ...(s.fenced ? [['network', 'Network', 'activity'], ['conversations', 'Conversations', 'history']] : [])];
   if (!tabs.some(([id]) => id === mac.tab)) mac.tab = 'screen';
-  mac.tabs.replaceChildren(...tabs.map(([id, label, ic]) => h('button', { type: 'button', class: 'seg' + (id === mac.tab ? ' active' : ''), role: 'tab', 'data-mac-tab': id,
-    'aria-selected': id === mac.tab ? 'true' : 'false', on: { click: () => showTab(id) } }, icon(ic), label)));
+  // Framed by a workspace, "What it can do" is the agent's Can do there (the same rows, with its control and its room).
+  const framed = frameOf('mac', s.name);
+  if (framed && mac.tab === 'can') mac.tab = 'screen';
+  mac.tabs.replaceChildren(...tabs.map(([id, label, ic]) => framed && id === 'can'
+    ? h('a', { class: 'seg', role: 'tab', 'data-mac-tab': id, 'aria-selected': 'false', href: canDoHash(framed.workspace, framed.agent) }, icon(ic), 'Can do')
+    : h('button', { type: 'button', class: 'seg' + (id === mac.tab ? ' active' : ''), role: 'tab', 'data-mac-tab': id,
+      'aria-selected': id === mac.tab ? 'true' : 'false', on: { click: () => showTab(id) } }, icon(ic), label)));
   if (mac.tab === 'can') paintTab();
 }
 
@@ -295,6 +300,13 @@ function modeToggle(s, mode) {
   return h('span', { class: 'segmented mac-mode-toggle', role: 'group', 'aria-label': 'Watching or controlling' },
     seg('watch', 'Watching', 'eye', false, 'Read-only: nothing you type reaches it'),
     seg('interactive', 'Controlling', 'terminal', !!why && mode !== 'interactive', why || 'Attached: what you type reaches the program'));
+}
+
+/// "What it can do": framed by a workspace, its Can do there; else this pane's tab.
+function canTab(s) {
+  const f = frameOf('mac', s.name);
+  if (f) { location.hash = canDoHash(f.workspace, f.agent); return; }
+  showTab('can');
 }
 
 function showTab(tab) {
