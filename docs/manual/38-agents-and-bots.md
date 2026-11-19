@@ -128,9 +128,12 @@ retired ones instead.
   screen in each, its rooms and what it said last — and the tabs **Identity**, **How it runs**, **Reached by**,
   **Instructions** and **Account**, each with its own **Save**. **Roles & ceiling** comes with permissions.
 - Its **⋯**: **Edit**; **Duplicate** (the form filled from it, the name empty — e.g. the same bot with another model); **New
-  workspace with this bot** (the command, for now); **Include in a room…** (it joins as a voice — it reads and speaks there,
+  workspace with this bot** (the New workspace wizard with it chosen as the manager); **Include in a room…** (it joins as a voice — it reads and speaks there,
   with no token step; a room's own menu has **Add an Agent / Bot…** too); **New token…** (the old one is refused at once —
   tick to confirm); **Retire…** (tick to confirm; a bot in a workspace is released from it first).
+- **From the New workspace wizard**: **A new agent / bot…** on its "Who manages" step opens this same form; **Make the Agent /
+  Bot** brings you back to the wizard with every choice you made kept and the new bot chosen as the manager (**Back to the new
+  workspace** returns without making one).
 - **Make a chat participant a bot…** adopts one from the page, with the same warning as the command: its token is replaced.
 - **A bot elsewhere** is made, moved or given a new token only in a terminal on this Mac — its token is shown once there or
   written to a file, never in a browser. The page shows the command to copy, e.g. `doz bot new far --agent codex

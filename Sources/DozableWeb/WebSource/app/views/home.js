@@ -21,9 +21,9 @@ import { cmdLine } from '../components/cmd-line.js';
 import { paintWorkspaceCounts } from '../components/nav.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks.js';
 import { renderNavWorkspaces } from '../components/ws-nav.js';
+import { newWorkspaceHash, newWorkspaceRefusal } from './new-workspace.js';
+import { WORKSPACE_DEFINITION } from '../core/ws-new.js';
 
-/// The owner's definition, word for word (user text: a workspace is defined this way wherever it is defined).
-export const WORKSPACE_DEFINITION = 'A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up.';
 const LAST_ROWS = 12;
 let doneOpen = false;
 
@@ -31,7 +31,7 @@ export async function viewHome() {
   const l = await loadWorkspaces(0);
   paintWorkspaceCounts();
   renderNavWorkspaces();
-  const head = h('div', { class: 'head' }, h('h1', null, 'Home'));
+  const head = h('div', { class: 'head' }, h('h1', null, 'Home'), newWorkspaceButton());
   const needs = h('div', { id: 'home-needs', class: 'hm-needs', hidden: true });     // Needs you comes here in its step
   const hidden = l.hidden ? callout('info', { compact: true, body: plural(l.hidden, 'sandbox or session', 'sandboxes and sessions') + ' on this Mac not shown to this browser (serve.mac_sessions).' }) : null;
   if (!l.workspaces.length) return h('div', { class: 'hm-page', 'data-home': '' }, head, needs, empty(l), hidden);
@@ -85,7 +85,8 @@ function who(w, d) {
 function next(w, d) {
   if (isDone(w)) return null;
   if (w.state === 'setting-up') {
-    const gaps = d && d.notes.length ? h('ul', { class: 'hm-gaps' }, ...d.notes.map((n) => h('li', null, n))) : null;
+    const lines = d ? (d.gaps || []).map((g) => g.why).concat(d.notes) : [];
+    const gaps = lines.length ? h('ul', { class: 'hm-gaps' }, ...lines.map((n) => h('li', null, n))) : null;
     return h('div', { class: 'hm-start' }, gaps, cmdLine('doz workspace start ' + w.name));
   }
   return w.room ? h('a', { href: workspaceHash(w.name), class: 'btn sm' }, icon('message-square'), 'Open room') : null;
@@ -110,13 +111,22 @@ async function lastLines(list) {
   return out;
 }
 
+/// New workspace: the wizard (#/new-workspace) — disabled with why in another computer's browser.
+function newWorkspaceButton(primary) {
+  const why = newWorkspaceRefusal();
+  const b = btn('New workspace', () => { location.hash = newWorkspaceHash(); }, { primary: !!primary, icon: 'folder-plus', title: why || 'The work, who manages it, where it runs and when it starts' });
+  b.dataset.wsNew = 'home';
+  if (why) b.disabled = true;
+  return b;
+}
+
 /// No workspace yet (S02): what one is, Quick try, and what is already on this Mac in none.
 function empty(l) {
   const sbx = l.loose.filter((a) => a.kind === 'sandbox').length, macs = l.loose.length - sbx;
   return h('div', { class: 'hm-empty', 'data-home-empty': '' },
     h('h2', null, 'No workspaces yet'),
     h('p', { class: 'hm-def' }, WORKSPACE_DEFINITION),
-    h('div', { class: 'hm-acts' }, btn('Just try an agent', () => { location.hash = '#/try'; }, { icon: 'play', title: 'Quick try: an agent in a fresh sandbox, safe defaults' })),
+    h('div', { class: 'hm-acts' }, newWorkspaceButton(true), btn('Just try an agent', () => { location.hash = '#/try'; }, { icon: 'play', title: 'Quick try: an agent in a fresh sandbox, safe defaults' })),
     l.loose.length ? h('p', null, h('b', null, 'Already have sandboxes? '),
       plural(sbx, 'sandbox', 'sandboxes') + ' and ' + plural(macs, 'session', 'sessions') + ' on this Mac are not in any workspace. ',
       h('a', { href: '#/mac/loose' }, 'Put them in workspaces…')) : null,

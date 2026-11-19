@@ -58,14 +58,15 @@ public enum WorkspaceSetupCheck {
         public var agent: String
         /// The program is on this Mac's sessions' PATH (nil: not looked — a VM manager).
         public var programOnPath: Bool?
-        /// Its token can be read from the keychain item, and it is the one recorded (its fingerprint).
-        public var keychainReadable: Bool
+        /// Its token can be read from the keychain item, and it is the one recorded (its fingerprint). nil: not looked — a
+        /// look (the plan, `show`) never reads the keychain; the start does.
+        public var keychainReadable: Bool?
         /// The session's (or sandbox's) name, and whether something else of that name exists already.
         public var placeName: String
         public var placeTaken: Bool
         public init(bot: String, known: Bool = true, retired: Bool = false, botIsolation: String = "fenced", keeper: String = "dozable",
                     deliver: String = "poll", isolation: String = "fenced", agent: String = "claude-code", programOnPath: Bool? = true,
-                    keychainReadable: Bool = true, placeName: String, placeTaken: Bool = false) {
+                    keychainReadable: Bool? = true, placeName: String, placeTaken: Bool = false) {
             self.bot = bot; self.known = known; self.retired = retired; self.botIsolation = botIsolation; self.keeper = keeper
             self.deliver = deliver; self.isolation = isolation; self.agent = agent; self.programOnPath = programOnPath
             self.keychainReadable = keychainReadable; self.placeName = placeName; self.placeTaken = placeTaken
@@ -134,7 +135,7 @@ public enum WorkspaceSetupCheck {
         var out: [Gap] = []
         if m.keeper != "dozable" {
             out.append(Gap(item: "manager", why: "\(b)'s token is not held by Dozable", fix: "doz bot token \(b) --new"))
-        } else if !m.keychainReadable {
+        } else if m.keychainReadable == false {
             out.append(Gap(item: "manager", why: "\(b)'s token cannot be read from the login keychain (locked, or changed underneath)",
                            fix: "unlock it, or doz bot token \(b) --new"))
         }

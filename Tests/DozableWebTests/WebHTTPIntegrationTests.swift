@@ -729,6 +729,15 @@ final class FakeData: DozableWebData, @unchecked Sendable {
                                agents: [WorkspaceAgentRow(name: "wsa", role: "worker", place: "wsa", state: "off", startedAt: t)],
                                defaults: WorkspaceDefaults(), flags: WorkspaceFlags(), origin: WorkspaceOrigin(), notes: ["doz workspace start demo"])
     }
+    /// The New workspace wizard's plan: one gap (the brief) when it is empty, the request's name echoed back.
+    func workspacePlan(_ w: WorkspaceRequest) async throws -> WorkspacePlan {
+        lock.withLock { _workspaceCalls.append("plan \(w.name ?? "")") }
+        let empty = (w.brief ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return WorkspacePlan(name: w.name ?? "", refusals: empty ? ["the brief is empty"] : [], refusalCode: empty ? "invalid" : nil,
+                             gaps: empty ? [WorkspaceSetupCheck.Gap(item: "brief", why: "the brief is empty", fix: "doz workspace edit W --prompt-file F")] : [],
+                             notes: [], lines: ["workspace \(w.name ?? "")"], commands: WorkspaceNewCommand.text(w),
+                             startCommand: WorkspaceNewCommand.startText(w.name ?? "NAME"))
+    }
     func workspaceBrief(_ name: String) async throws -> WorkspaceDetail {
         lock.withLock { _workspaceCalls.append("show \(name) --brief") }
         return try await workspaceDetail(name)

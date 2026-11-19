@@ -152,6 +152,64 @@ final class WebModulesTests: XCTestCase {
         XCTAssertEqual(sent, ["workspace-adopt", "workspace-new", "workspace-release"])
     }
 
+    /// The New workspace wizard: its modules ship; `#/new-workspace[?bot=NAME]` is a modal address (routes.js in JavaScriptCore);
+    /// `core/ws-new.js` is pure and its `slugFrom`, `gapStep`, `briefText` and `requestFrom` do what the wizard relies on; the
+    /// two actions it sends are exactly `workspace-new` and `workspace-start`, and only the wizard and a workspace's page start
+    /// one.
+    func testTheNewWorkspaceWizard() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let a = try WebAssets.load()
+        for m in ["views/new-workspace", "components/ws-gaps", "core/ws-new"] {
+            XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
+        }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        ctx.evaluateScript(try read("app/core/routes.js").replacingOccurrences(of: "export ", with: ""))
+        let pure = try read("app/core/ws-new.js")
+        XCTAssertTrue(Self.specifiers(pure).isEmpty, "core/ws-new.js is pure: it imports nothing")
+        ctx.evaluateScript(pure.replacingOccurrences(of: "export ", with: ""))
+        XCTAssertNil(thrown, thrown ?? "")
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("parse('#/new-workspace').view"), "\"new-workspace\"")
+        XCTAssertEqual(js("parse('#/new-workspace').modal"), "true")
+        XCTAssertEqual(js("parse('#/new-workspace?bot=mira').param"), "\"mira\"")
+        XCTAssertEqual(js("parse('#/new-workspace?bot=Mira')"), "null", "a bot's name by the chat rule")
+        XCTAssertEqual(js("MODAL_VIEWS.has('new-workspace')"), "true")
+        XCTAssertEqual(js("parse('#/new').view"), "\"new\"", "#/new stays New sandbox")
+        XCTAssertEqual(js("slugFrom('A 60-second launch video for MyApp 2.0 in Remotion')"), "\"a-60-second-launch-video\"")
+        XCTAssertEqual(js("slugFrom('  Écrire la doc!  ')"), "\"ecrire-la-doc\"")
+        XCTAssertEqual(js("slugFrom('')"), "\"\"")
+        XCTAssertEqual(js("slugFrom('x'.repeat(60))"), "\"\"", "a first word over 40 makes no name")
+        XCTAssertEqual(js("slugFrom('aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeee').length <= 40"), "true")
+        XCTAssertEqual(js("[gapStep('brief'), gapStep('folder'), gapStep('manager'), gapStep('chat'), gapStep('room')]"), "[0,0,1,3,3]")
+        XCTAssertEqual(js("[briefText('a'), briefText('a\\n'), briefText('')]"), #"["a\n","a\n",""]"#)
+        let r = js("requestFrom({name:'w', brief:'b', refs:[], folders:[{path:'/x', mode:'ro'}], newFolder:true, fromProject:true, network:'open', manager:'mira', managerIsolation:'vm', workerIsolation:'fenced', noRoom:true})")
+        XCTAssertEqual(r, #"{"workspace":"w","brief":"b\n","folders":[{"path":"/x","mode":"ro"}],"newFolder":true,"fromProject":true,"noRoom":true,"manager":"mira","managerIsolation":"vm","workerIsolation":"fenced"}"#,
+                       "the project fills the network in: none sent with fromProject")
+        XCTAssertEqual(js("requestFrom({name:'w', brief:'b', managerIsolation:'unfenced', network:'locked'})"), #"{"workspace":"w","brief":"b\n","network":"locked"}"#,
+                       "an isolation only with a manager")
+        XCTAssertTrue(pure.contains("export const WORKSPACE_DEFINITION = 'A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up.';"))
+        // What the pages send: the wizard exactly new and start; a workspace's page start; no other module starts one.
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+        let action = try NSRegularExpression(pattern: #"action: '(workspace-[a-z]+)'"#)
+        func sent(_ f: String) throws -> Set<String> {
+            let t = try read(f)
+            return Set(action.matches(in: t, range: NSRange(t.startIndex..., in: t)).map { (t as NSString).substring(with: $0.range(at: 1)) })
+        }
+        XCTAssertEqual(try sent("app/views/new-workspace.js"), ["workspace-new", "workspace-start"])
+        for f in files where !["app/views/new-workspace.js", "app/views/workspace.js"].contains(f) {
+            XCTAssertFalse(try sent(f).contains("workspace-start"), "\(f) starts a workspace")
+        }
+        let wiz = try read("app/views/new-workspace.js")
+        XCTAssertTrue(wiz.contains("api('workspace-plan'"), "the plan route")
+        XCTAssertTrue(wiz.contains("new AbortController()"), "the latest plan wins")
+        XCTAssertTrue(wiz.contains("sessionStorage"), "its choices kept for the trip to the bot editor")
+        XCTAssertFalse(wiz.lowercased().contains("'draft") || wiz.contains("as draft"), "the state is setting up")
+    }
+
     func testEveryModuleIsServedHashedAndImportedOnlyFromItsOwnLayerOrBelow() throws {
         let a = try WebAssets.load()
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource/app")

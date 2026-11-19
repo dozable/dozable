@@ -264,6 +264,10 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// (`WorkspaceStarted`); and the manager stopped, its record and conversation kept (`WorkspaceStopped`). The daemon's,
     /// never read-only (`HostCore+WorkspaceManager`).
     case workspaceStart = "workspace-start", workspaceStop = "workspace-stop"
+    /// What `workspace-new` would do with the same `WorkspaceRequest`, with nothing written, no room made and no daemon
+    /// started (`WorkspacePlan`: everything new would refuse at once, the set-up check's gaps, the lines and the commands).
+    /// Only reads: answered in-process when no daemon runs (`doz workspace new … --dry-run`, the New workspace wizard).
+    case workspacePlan = "workspace-plan"
     /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
     /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
     /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),
@@ -284,7 +288,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .botList, .botShow, .workerList, .macsList: true
+             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .botList, .botShow, .workerList, .macsList: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -1651,6 +1655,15 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     /// edit: the brief's sha256 as the editor last read it — a brief changed since is refused, nothing written (the
     /// dashboard's Save, `--if-brief SHA`). Additive: an older daemon ignores it.
     public var ifBrief: String?
+    /// new: the default isolation of its new workers (`defaults.isolation`): `fenced` or `vm` — never unfenced by default.
+    /// Additive.
+    public var workerIsolation: String?
+    /// new: make `<projects_dir>/NAME` (0700, when it is missing) and use it as the main folder. Additive.
+    public var newFolder: Bool?
+    /// start: refuse an unfenced manager unless `unfencedConfirmed` — the person confirmed that it acts as them (the
+    /// dashboard sets both; the CLI sets neither). Additive: an older daemon ignores them.
+    public var confirmRequired: Bool?
+    public var unfencedConfirmed: Bool?
 
     public init(name: String? = nil) { self.name = name }
 }
@@ -1795,12 +1808,15 @@ public struct WorkspaceDetail: Codable, Equatable, Sendable {
     public var origin: WorkspaceOrigin
     /// What the person may want to know or do next (a brief not posted, the command to post it, …).
     public var notes: [String]?
+    /// `workspace-show` while it is setting up: what the set-up check would refuse now (never reading the keychain — a locked
+    /// one shows only at the start). Additive; nil otherwise.
+    public var gaps: [WorkspaceSetupCheck.Gap]?
     public init(name: String, state: String, driver: String, createdAt: Date, brief: WorkspaceBrief, briefText: String? = nil,
                 folders: [WorkspaceFolder], rooms: [WorkspaceRoom], agents: [WorkspaceAgentRow], defaults: WorkspaceDefaults,
-                flags: WorkspaceFlags, origin: WorkspaceOrigin, notes: [String]? = nil) {
+                flags: WorkspaceFlags, origin: WorkspaceOrigin, notes: [String]? = nil, gaps: [WorkspaceSetupCheck.Gap]? = nil) {
         self.name = name; self.state = state; self.driver = driver; self.createdAt = createdAt; self.brief = brief
         self.briefText = briefText; self.folders = folders; self.rooms = rooms; self.agents = agents; self.defaults = defaults
-        self.flags = flags; self.origin = origin; self.notes = notes
+        self.flags = flags; self.origin = origin; self.notes = notes; self.gaps = gaps
     }
 }
 

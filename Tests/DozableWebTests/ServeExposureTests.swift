@@ -21,7 +21,7 @@ final class ServeExposureTests: XCTestCase {
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
-            .macSessionQuarantine("agent"), .macSessionPlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
+            .macSessionQuarantine("agent"), .macSessionPlan, .workspacePlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
             .workspaceLog("demo", nil), .loose, .bots, .botsRetired, .bot("mira"), .macs,
         ]
         for r in all { _ = covered(r) }
@@ -38,7 +38,7 @@ final class ServeExposureTests: XCTestCase {
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck, .uiRestart,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
-             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .chat,
+             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .workspacePlan, .chat,
              .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .botsRetired, .bot, .macs:
             return true
         }
@@ -49,7 +49,7 @@ final class ServeExposureTests: XCTestCase {
         var t: [String: (WebRejection?, WebRejection?, WebRejection?)] = [:]
         for r in samples { t[ServeExposureTests.label(r)] = (nil, nil, nil) }
         for secret in ["accountAdd", "sandboxKey", "accessGithubKey"] { t[secret] = (nil, .secretOverHTTP, nil) }
-        for screen in ["terminal", "workspaceChoose", "projectsDirChoose", "dockerfileChoose", "filesOpen", "editors", "portOpen", "macSessionPlan"] { t[screen] = (nil, .macScreen, .macScreen) }
+        for screen in ["terminal", "workspaceChoose", "projectsDirChoose", "dockerfileChoose", "filesOpen", "editors", "portOpen", "macSessionPlan", "workspacePlan"] { t[screen] = (nil, .macScreen, .macScreen) }
         t["serveProbe"] = (.notFound, nil, nil)
         t["uiRestart"] = (nil, .macOnly, .macOnly)          // 714: Restart dashboard — this Mac's own browser only
         // The sessions on this Mac: never another computer's by default (serve.mac_sessions = off).
@@ -156,6 +156,26 @@ final class ServeExposureTests: XCTestCase {
         let adopt = try? WebAction.decode(Data(#"{"action":"workspace-adopt","workspace":"demo","agent":"lab"}"#.utf8))
         XCTAssertEqual(adopt?.isFiling, true)
         XCTAssertEqual(adopt?.isWorkspace, false)
+    }
+
+    /// The New workspace wizard: starting is this Mac's own browser only (the `mac-only` code, its own words); its plan
+    /// route is `mac-screen` — another computer never gets it, whatever the serve settings.
+    func testStartingAndPlanningAreThisMacsOnly() {
+        XCTAssertNil(WebExposure.decideStartAction(.mac))
+        for p: WebExposure.Principal in [.remote(secure: false), .remote(secure: true)] {
+            XCTAssertEqual(WebExposure.decideStartAction(p), .macOnlyStart, "\(p)")
+            for ms in WebExposure.MacSessions.allCases {
+                for c in WebExposure.ChatServe.allCases {
+                    XCTAssertEqual(WebExposure.decide(.workspacePlan, p, macSessions: ms, chat: c), .macScreen)
+                }
+            }
+        }
+        XCTAssertNil(WebExposure.decide(.workspacePlan, .mac))
+        XCTAssertEqual(WebExposure.kind(.workspacePlan), .macScreen)
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/workspace-plan"), .workspacePlan)
+        XCTAssertEqual(WebRejection.macOnlyStart.code, WebRejection.macOnly.code)
+        XCTAssertEqual(WebRejection.macOnlyStart.status, 403)
+        XCTAssertTrue(WebRejection.macOnlyStart.message.contains("doz workspace start"))
     }
 
     /// Agents / Bots: the reads are reads (kind `read`, every browser); every change is this Mac's own browser only, whatever

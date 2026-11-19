@@ -7,7 +7,8 @@
 // (one Agent / Bot: across its workspaces, or an edit tab — BOT_TABS) · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
 // #/mac/here[/SESSION] (the sessions on this Mac), #/mac/sessions, #/mac/sandboxes, #/mac/loose, #/mac/macs (Your Macs), #/mac/templates[/browse |
 // /V/P], #/mac/images, accounts, resources, devices, doctor, settings, debug, #/mac/logs/<operations|activity|notifications|
-// metrics> · the modals #/new, #/onboarding, #/try[/AGENT].
+// metrics> · the modals #/new (New sandbox), #/new-workspace[?bot=NAME] (New workspace, its manager chosen), #/onboarding,
+// #/try[/AGENT].
 
 /// The words after #/mac/ that name a page of This Mac (a session on this Mac named like one loses its old deep link).
 export const MAC_RESERVED = ['here', 'sessions', 'sandboxes', 'loose', 'templates', 'images', 'accounts', 'resources', 'devices', 'logs',
@@ -17,7 +18,7 @@ const MAC_SAME = ['images', 'accounts', 'resources', 'devices', 'doctor', 'setti
 /// This Mac › Logs.
 export const LOG_PAGES = ['operations', 'activity', 'notifications', 'metrics'];
 /// The modals over the page.
-export const MODAL_VIEWS = new Set(['new', 'onboarding', 'try']);
+export const MODAL_VIEWS = new Set(['new', 'new-workspace', 'onboarding', 'try']);
 /// The page an empty or unknown address opens.
 export const HOME = '#/home';
 
@@ -102,6 +103,7 @@ export function parse(hash) {
   // 635: `~home` (no session name can hold a ~) selects a sandbox page's Home tab.
   if ((m = /^#\/sandbox\/([a-z0-9-]{1,40})(?:\/(~home|[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}))?$/.exec(hash))) return r('sandbox', { param: m[1], session: m[2] });
   if (hash === '#/new' || hash === '#/onboarding') return r(hash.slice(2), { modal: true });
+  if ((m = new RegExp('^#/new-workspace(?:\\?bot=(' + BOT + '))?$').exec(hash))) return r('new-workspace', { param: m[1], modal: true });
   if ((m = /^#\/try(?:\/([a-z0-9-]{1,40}))?$/.exec(hash))) return r('try', { param: m[1], modal: true });
   return null;
 }

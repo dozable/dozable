@@ -16,6 +16,9 @@ import { callout } from '../components/callout.js';
 import { cmdLine } from '../components/cmd-line.js';
 import { menuButton } from '../components/menus.js';
 import { pageFailure, toast } from '../components/notices.js';
+import { dialog } from '../components/dialog.js';
+import { gapsList, startsOnce } from '../components/ws-gaps.js';
+import { newWorkspaceRefusal } from './new-workspace.js';
 import { briefCard } from '../components/ws-brief.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks.js';
 import { renderNavWorkspaces } from '../components/ws-nav.js';
@@ -229,8 +232,18 @@ function draw() {
   const notes = [];
   if (cur.missing) notes.push(callout('warn', { compact: true, attrs: { 'data-ws-missing': '' }, body: cur.missing + ' — this is its main room.' }));
   if (d.state === 'setting-up') {
+    // What its start would refuse now (`workspace-show`'s gaps — a look), live; Start is the wizard's same action, this
+    // Mac's own browser only, and disabled while anything is missing.
+    const gaps = d.gaps || [];
+    const why = newWorkspaceRefusal();
+    const start = h('button', { type: 'button', class: 'btn sm primary', 'data-ws-start': d.name, disabled: why || gaps.length || starting ? true : null,
+      title: why ? 'A workspace is started only in this Mac’s own browser, or with doz workspace start in a terminal on the Mac' : gaps.length ? startsOnce(gaps) : 'Post the brief as your first message and start the work',
+      on: { click: () => startWorkspace(d) } }, icon(starting ? 'hourglass' : 'play'), 'Start');
     notes.push(callout('info', { compact: true, cls: 'ws-setup', title: 'Setting up — the work starts once it is fully set up',
-      body: [d.notes.length ? h('ul', { class: 'hm-gaps' }, ...d.notes.map((n) => h('li', null, n))) : null, cmdLine('doz workspace start ' + d.name)].filter(Boolean) }));
+      attrs: { 'data-ws-setup': String(gaps.length) },
+      body: [gaps.length ? gapsList(gaps) : h('p', { class: 'muted' }, 'Nothing is missing: it can start.'),
+        d.notes.length ? h('ul', { class: 'hm-gaps' }, ...d.notes.map((n) => h('li', null, n))) : null,
+        h('div', { class: 'ws-start-row' }, start, cmdLine('doz workspace start ' + d.name))].filter(Boolean) }));
   }
   if (!d.rooms.length) notes.push(callout('info', { compact: true, title: 'No room yet', body: cmdLine('doz workspace edit ' + d.name + ' --make-room') }));
   if (cur.logHidden) notes.push(callout('info', { compact: true, body: cur.logHidden + ' of its log’s lines are about sessions on this Mac and are not shown to this browser.' }));
@@ -244,6 +257,31 @@ function draw() {
   $('ws-panel').replaceChildren(wsPanel({ detail: d, mainRoom: mainOf(d) ? mainOf(d).room : null, peopleSlot }));
   // The Agents tab (drawn while it is shown).
   if (cur.tab === 'agents') $('ws-agents').replaceChildren(agentsTab({ detail: d, lines: cur.lines, onChanged: () => wsRefresh() }));
+}
+
+/// Start: `workspace-start` — the brief posted as you, the manager started. An unfenced manager was confirmed when it was
+/// named (the wizard's "acts as you"); here it is confirmed again first.
+let starting = false;
+async function startWorkspace(d) {
+  const m = d.agents.find((a) => a.role === 'manager');
+  const go = async () => {
+    starting = true;
+    draw();
+    try {
+      const end = await waitForOp(await actOrThrow({ action: 'workspace-start', workspace: d.name, actsAsYou: !!(m && m.actsAsYou) }), 300);
+      if (!end) toast('No answer yet — Operations shows how it ends.', true);
+      else if (end.state === 'done') toast(end.text);
+      else pageFailure(end.text || d.name + ' did not start');
+    } catch (e) { pageFailure(e.message || String(e)); }
+    starting = false;
+    await wsRefresh();
+  };
+  if (m && m.actsAsYou) {
+    dialog(m.name + ' acts as you', m.name + ' runs unfenced: no proxy, no placeholders, no guard.', [], 'Start', async () => { go(); },
+      { danger: true, confirmCheck: 'Yes, ' + m.name + ' acts as me', icon: 'triangle-alert' });
+    return;
+  }
+  go();
 }
 
 async function copy(text) {

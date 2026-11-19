@@ -13,6 +13,10 @@ final class WebActionTests: XCTestCase {
         XCTAssertThrowsError(try decode(json), json, file: file, line: line) { XCTAssertTrue($0 is WebAction.Invalid, "\($0)", file: file, line: line) }
     }
 
+    func invalid(_ json: String, _ why: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertThrowsError(try decode(json), why, file: file, line: line) { XCTAssertTrue($0 is WebAction.Invalid, "\(why): \($0)", file: file, line: line) }
+    }
+
     /// A valid body for every action name.
     static let samples: [String: String] = [
         "create": #"{"action":"create","sandbox":"new1","image":"lab","cpus":2,"memoryMiB":1024,"network":"bake","account":"default"}"#,
@@ -71,6 +75,8 @@ final class WebActionTests: XCTestCase {
         "workspace-adopt": #"{"action":"workspace-adopt","workspace":"launch-video","agent":"@mac/build","as":"builder"}"#,
         "workspace-new": #"{"action":"workspace-new","workspace":"gamma","brief":"The work in gamma.","adopt":["gamma"]}"#,
         "workspace-release": #"{"action":"workspace-release","workspace":"launch-video","agent":"builder"}"#,
+        // The New workspace wizard's start — this Mac's own browser only; the daemon then requires the unfenced confirmation.
+        "workspace-start": #"{"action":"workspace-start","workspace":"launch-video","actsAsYou":true}"#,
         // Agents / Bots — this Mac's own browser only, every one heldOnly (no token ever reaches a browser).
         "bot-new": #"{"action":"bot-new","name":"mira","agent":"claude-code","isolation":"fenced","deliver":"inbox","skills":["chat-manager"],"instructions":"Be brief.\nAnswer in the room."}"#,
         "bot-set": #"{"action":"bot-set","name":"mira","model":"sonnet","avatar":"🦊"}"#,
@@ -159,6 +165,9 @@ final class WebActionTests: XCTestCase {
         .workspaceEdit,
         // Filing a loose agent from This Mac's own browser — exactly `doz workspace adopt | new --adopt | release`.
         .workspaceAdopt, .workspaceNew, .workspaceRelease,
+        // The New workspace wizard's Create and start, this Mac's own browser only — exactly `doz workspace start W` (+ the
+        // confirmation an unfenced manager needs).
+        .workspaceStart,
         // Agents / Bots from this Mac's own browser — exactly `doz bot new | set | retire | adopt | token --new`, each heldOnly.
         .botNew, .botSet, .botRetire, .botAdopt, .botToken,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
@@ -377,9 +386,9 @@ final class WebActionTests: XCTestCase {
         // adopt, new with one agent, release (this Mac's own browser only); and the five bot changes below. No lifecycle — no
         // workspace start or stop, no worker — for any browser.
         XCTAssertEqual(Set(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key)),
-                       ["workspace-brief", "workspace-adopt", "workspace-new", "workspace-release"])
+                       ["workspace-brief", "workspace-adopt", "workspace-new", "workspace-release", "workspace-start"])
         XCTAssertEqual(Set(ops.filter { ["workspace-", "worker-"].contains(where: $0.rawValue.hasPrefix) }),
-                       [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease])
+                       [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart])
         // The bot- actions are exactly new, set, retire, adopt and token — never bot-ls or bot-show (those are reads); every
         // one heldOnly, this Mac's own browser only.
         XCTAssertEqual(Set(ops.filter { $0.rawValue.hasPrefix("bot-") }), [.botNew, .botSet, .botRetire, .botAdopt, .botToken])
@@ -395,7 +404,9 @@ final class WebActionTests: XCTestCase {
                        ["bot-new", "bot-set", "bot-retire", "bot-adopt", "bot-token"])
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isFiling == true ? $0.key : nil }),
                        ["workspace-adopt", "workspace-new", "workspace-release"])
-        for op: HostOp in [.workspaceStart, .workspaceStop, .workspaceRename] {
+        XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isStarting == true ? $0.key : nil }), ["workspace-start"])
+        // The rest of the lifecycle stays the CLI's: no stop, rename, plan (a read) or worker for any browser.
+        for op: HostOp in [.workspaceStop, .workspaceRename, .workspacePlan, .workerAdd, .workerEnd, .workerList] {
             XCTAssertFalse(ops.contains(op), "\(op.rawValue) is not an action")
         }
         // Your Macs are read (WebMacReads) and changed only from the CLI: no macs-* operation is an action.
@@ -553,6 +564,73 @@ final class WebActionTests: XCTestCase {
     /// Filing: each exactly the CLI's request, strictly decoded — `new` takes exactly one agent and nothing of a folder,
     /// reference, room or manager; an agent is a sandbox's name or `@mac/SESSION` (never a bare `@mac`); `as` by the agent
     /// rule; the dedupe key names the agent. Another computer gets none of them, whatever its serve settings.
+    /// The New workspace wizard's two actions: `workspace-new` with every field the CLI takes (exactly its request), and
+    /// `workspace-start` (exactly `doz workspace start W`, plus the confirmation an unfenced manager needs). Strict.
+    func testTheNewWorkspaceWizardsActions() throws {
+        let body = #"{"action":"workspace-new","workspace":"launch-video","brief":"Make it.\n","refs":["https://example.com/a","/tmp"],"#
+            + #""folders":[{"path":"/tmp","mode":"rw"},{"path":"/usr/share","mode":"ro"}],"newFolder":true,"room":"general","#
+            + #""manager":"mira","managerIsolation":"unfenced","workerIsolation":"vm","network":"standard","adopt":["lab","@mac/build"]}"#
+        let a = try decode(body)
+        var want = WorkspaceRequest(name: "launch-video")
+        want.brief = "Make it.\n"
+        want.refs = ["https://example.com/a", "/private/tmp"]
+        want.folders = [WorkspaceFolder(path: "/private/tmp"), WorkspaceFolder(path: "/usr/share", mode: "ro")]
+        want.newFolder = true
+        want.room = "general"
+        want.manager = "mira"
+        want.managerIsolation = "unfenced"
+        want.workerIsolation = "vm"
+        want.network = "standard"
+        want.adopt = ["lab", "@mac/build"]
+        XCTAssertEqual(a.hostRequest.op, .workspaceNew)
+        XCTAssertEqual(a.hostRequest.workspaceRequest, want, "exactly what doz workspace new sends (paths resolved as the CLI resolves them)")
+        XCTAssertTrue(a.isFiling)
+        XCTAssertFalse(a.isStarting)
+        XCTAssertEqual(a.label, "make launch-video")
+        if case .workspaceNew(_, let fp) = a { XCTAssertFalse(fp) } else { XCTFail("not new") }
+        if case .workspaceNew(let w, let fp) = try decode(#"{"action":"workspace-new","workspace":"w","brief":"b","folders":[{"path":"/tmp","mode":"rw"}],"fromProject":true}"#) {
+            XCTAssertTrue(fp)
+            XCTAssertNil(w.project, "a browser never names a project path: the web layer fills it on the Mac")
+        } else { XCTFail("not new") }
+        // The strict field table.
+        let manyRefs = (0..<17).map { "\"/tmp/r\($0)\"" }.joined(separator: ",")
+        let manyFolders = Array(repeating: #"{"path":"/tmp","mode":"rw"}"#, count: 9).joined(separator: ",")
+        let base = #"{"action":"workspace-new","workspace":"w","brief":"b""#
+        for (extra, why) in [
+            (#""unknown":1"#, "an unknown field"), (#""project":"/x""#, "a project path"), (#""noManager":true"#, "noManager"),
+            (#""folders":[{"path":"/tmp","mode":"rx"}]"#, "a bad mode"), (#""folders":[{"path":"/tmp"}]"#, "no mode"),
+            (#""folders":[{"path":"tmp","mode":"rw"}]"#, "a relative folder"), (#""folders":[{"path":"/tmp","mode":"rw","main":true}]"#, "an extra key"),
+            (#""workerIsolation":"unfenced""#, "an unfenced worker by default"), (#""workerIsolation":"elsewhere""#, "a bad isolation"),
+            (#""managerIsolation":"vm""#, "an isolation without a manager"), (#""manager":"Mira""#, "a bad bot name"),
+            (#""network":"agent""#, "not a preset"), (#""room":"general","noRoom":true"#, "room and noRoom"), (#""room":"Bad Room""#, "a bad room"),
+            (#""refs":["# + manyRefs + "]", "17 references"),
+            (#""folders":["# + manyFolders + "]", "9 folders"),
+            (#""adopt":["a","b","c","d","e"]"#, "5 agents"), (#""refs":["ftp://x"]"#, "not http(s) or a path"),
+            (#""refs":["/\#(String(repeating: "a", count: 1025))"]"#, "a path over 1024 bytes"),
+        ] {
+            invalid(base + "," + extra + "}", why)
+        }
+        invalid(#"{"action":"workspace-new","workspace":"w","brief":""}"#, "the action's brief is required")
+
+        let start = try decode(Self.samples["workspace-start"]!)
+        var wantStart = WorkspaceRequest(name: "launch-video")
+        wantStart.confirmRequired = true
+        wantStart.unfencedConfirmed = true
+        XCTAssertEqual(start.hostRequest.op, .workspaceStart)
+        XCTAssertEqual(start.hostRequest.workspaceRequest, wantStart)
+        XCTAssertTrue(start.isStarting)
+        XCTAssertFalse(start.isFiling)
+        XCTAssertNil(start.sandbox)
+        XCTAssertEqual(start.label, "start launch-video")
+        let plain = try decode(#"{"action":"workspace-start","workspace":"w"}"#)
+        XCTAssertEqual(plain.hostRequest.workspaceRequest?.confirmRequired, true, "the daemon always requires the confirmation from a browser")
+        XCTAssertNil(plain.hostRequest.workspaceRequest?.unfencedConfirmed)
+        XCTAssertEqual(plain.dedupeKey, try decode(#"{"action":"workspace-start","workspace":"w","actsAsYou":true}"#).dedupeKey)
+        invalid(#"{"action":"workspace-start","workspace":"W"}"#, "off the name rule")
+        invalid(#"{"action":"workspace-start","workspace":"w","confirmRequired":false}"#, "a browser never turns the confirmation off")
+        invalid(#"{"action":"workspace-start"}"#, "the workspace is required")
+    }
+
     func testFilingALooseAgent() throws {
         let adopt = try decode(Self.samples["workspace-adopt"]!)
         var want = WorkspaceRequest(name: "launch-video")
@@ -569,6 +647,7 @@ final class WebActionTests: XCTestCase {
         wantNew.folders = []
         wantNew.refs = []
         wantNew.adopt = ["gamma"]
+        XCTAssertEqual(new.label, "make gamma with gamma")
         XCTAssertEqual(new.hostRequest.op, .workspaceNew)
         XCTAssertEqual(new.hostRequest.workspaceRequest, wantNew, "exactly doz workspace new gamma --prompt-file F --adopt gamma")
 
@@ -591,19 +670,16 @@ final class WebActionTests: XCTestCase {
         let a2 = try decode(#"{"action":"workspace-adopt","workspace":"w","agent":"lab2"}"#)
         XCTAssertNotEqual(a1.dedupeKey, a2.dedupeKey, "two agents put in one workspace are two operations")
         XCTAssertEqual(a1.dedupeKey, try decode(#"{"action":"workspace-adopt","workspace":"w","agent":"lab","as":"x"}"#).dedupeKey)
-        XCTAssertNotEqual(try decode(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["a"]}"#).dedupeKey,
-                          try decode(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["b"]}"#).dedupeKey)
+        // A workspace is made once: its name is new's key.
+        XCTAssertEqual(try decode(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["a"]}"#).dedupeKey,
+                       try decode(#"{"action":"workspace-new","workspace":"w","brief":"b"}"#).dedupeKey)
         XCTAssertNotEqual(try decode(#"{"action":"workspace-release","workspace":"w","agent":"a"}"#).dedupeKey,
                           try decode(#"{"action":"workspace-release","workspace":"w","agent":"b"}"#).dedupeKey)
 
-        // Strict: new takes exactly one agent and nothing of a folder, reference, room or manager.
-        invalid(#"{"action":"workspace-new","workspace":"w","brief":"b"}"#)
-        invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":[]}"#)
-        invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["a","b"]}"#)
+        // Strict (the wizard's fields: testTheNewWorkspaceWizardsActions): 0–4 agents, never a project path or noManager.
         invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":"a"}"#)
         invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":[7]}"#)
-        for extra in [#""folders":[]"#, #""manager":"mira""#, #""room":"general""#, #""refs":[]"#, #""noRoom":true"#, #""managerIsolation":"vm""#,
-                      #""project":"/x""#, #""network":"open""#] {
+        for extra in [#""project":"/x""#, #""noManager":true"#, #""managerIsolation":"vm""#] {
             invalid(#"{"action":"workspace-new","workspace":"w","brief":"b","adopt":["a"],\#(extra)}"#)
         }
         invalid(#"{"action":"workspace-new","workspace":"w","brief":" ","adopt":["a"]}"#)           // a blank brief

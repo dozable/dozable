@@ -8,8 +8,9 @@ A *project* is something else: a folder (usually a repository) with its sandbox 
 
 Nothing you already have moves by itself. Your sandboxes and your sessions on this Mac are **loose agents** until you
 adopt them into a workspace, and adopting one changes only the workspace's own record: the sandbox and the session stay
-exactly as they were. The dashboard shows them (below, [In the dashboard](#in-the-dashboard)); everything that changes one
-is the command line.
+exactly as they were. The dashboard shows them (below, [In the dashboard](#in-the-dashboard)), makes and starts a
+workspace in this Mac's own browser ([The New workspace wizard](#the-new-workspace-wizard)), and leaves the rest of what
+changes one to the command line.
 
 ## Making one
 
@@ -22,9 +23,20 @@ doz workspace new demo --prompt-file brief.md --folder ~/code/demo
 - `--folder DIR` adds a folder it works on (repeatable); the first is the main one. `DIR:ro` makes one read-only. Folders
   are optional: `doz workspace new notes --prompt-file brief.md` makes a workspace with none.
 - `--adopt NAME` (or `--adopt @mac/SESSION`) adopts a sandbox or a session at once (repeatable).
-- `--from-project` takes the network preset from the project file in the main folder (it needs a `--folder`).
+- `--new-folder` makes an empty folder `~/doz-workspaces/NAME` (in your projects folder, `defaults.projects_dir`) and
+  makes it the main folder. It is offered, never forced: with no folder the manager works there anyway.
+- `--from-project` fills in the network preset from the project file in the main folder (it needs a `--folder`); the
+  file is only read, never written. A `--network` that differs from it is refused.
 - `--manager BOT` makes one of your Agents / Bots its manager (see [The manager](#the-manager) below). Nothing is
   started yet.
+- `--worker-isolation fenced|vm` is where its new workers run unless `doz worker add` says otherwise (fenced by default;
+  never unfenced by default — a worker is unfenced only when you name it).
+- `--network locked|standard|open` is the network its agents get (locked by default); the room is always added.
+- `--dry-run` shows what would be made and makes nothing: a few lines, everything that would be refused, what the start
+  would still need once it is made (each with its fix), and the commands that make it — the brief as a heredoc you can
+  paste. It never starts the daemon; it exits 0 when nothing is refused, else as `new` would.
+- `--start` starts it as soon as it is made (`doz workspace start NAME`). If the start is refused, the workspace stays
+  made and setting up, and the refusal says what is missing.
 
 It prints the workspace. A new one is **setting up · you**: it has never started, and you drive it. The work starts
 once the workspace is fully set up, with `doz workspace start`.
@@ -63,6 +75,37 @@ up.
 workspace (`working`) and `doz workspace show --json` what each agent's program is doing (`activity`: `working`, `idle`,
 `blocked` or `error`); `ls --json` lists each workspace's `folders`.
 
+### The New workspace wizard
+
+**New workspace** on Home (or the **+** beside **Workspaces** in the sidebar, or **New workspace with this bot** on an
+Agent / Bot) opens a wizard over the page, `#/new-workspace`. It asks in four steps:
+
+1. **The work.** The prompt becomes the brief; references (paths or links, typed or chosen with **Choose…**) are added
+   to it. The name is suggested from the prompt's first words. Folders are optional — each read-write or read-only, the
+   first the main one — and **A new empty folder** makes `~/doz-workspaces/NAME`. When the main folder holds a
+   `doz_project.yaml`, its network preset is used to fill in choices (the file is never written). **Start from** offers
+   a few built-in starting points (Remotion video, Swift tests, Mac admin, Research, Blank); templates you make come
+   later.
+2. **Who manages.** One of your Agents / Bots, or **No manager — I manage** (you drive). **A new agent / bot…** opens the
+   Agent / Bot editor and brings you back with the new one chosen; the wizard keeps everything you chose. **Change here**
+   opens that bot's own page — a change there changes it everywhere.
+3. **Where it runs.** This Mac (the cloud comes later). The manager runs fenced by default, or in a micro VM; **unfenced**
+   only when you pick it and confirm that it acts as you — then **acts as you** shows on the choice, in the review and in
+   the plan. New workers run in a micro VM or fenced, never unfenced by default. The network preset: Locked, Standard or
+   Open, with the room always added.
+4. **Grants & when.** It says plainly what limits apply today (none yet: an unfenced manager acts as you; a fenced or VM
+   one can only talk in the room). The room it gets — made, an existing room of no workspace, or none — and when it
+   starts: **Right now** (Create and start) or **Later — keep it setting up** (Create, keep setting up). The plan lists
+   what will be made, what is still missing for the start (each linking to its step, its command under **Show the
+   command**), and **Copy as doz commands** gives the same workspace in a terminal.
+
+Every change asks Dozable what it would make, so what is missing is shown as you go — each step shows how many things it
+still has to set up — and nothing is written and no daemon is started until you create it. **Create and start** is
+disabled while anything is missing. If the start is refused after the workspace is made, its page opens anyway, still
+setting up, saying what is missing. A brief too long for the page (over 15 KiB) is made with the copied commands
+instead. Only this Mac's own browser makes or starts a workspace; another computer sees the command to run in a terminal
+on the Mac.
+
 ### In the dashboard
 
 **Home** (the page `doz ui` opens on) lists every workspace — its state (waiting on you first), its folders, who drives
@@ -74,8 +117,10 @@ page](06-the-dashboard.md#a-workspaces-page)). With none, Home says what a works
 sessions on this Mac are not in any workspace yet. In the sidebar, **Workspaces** lists them, each unfolding to its
 rooms and agents; **This Mac › Loose agents** lists the sandboxes and sessions in none, each with **Put in a
 workspace…**. From the dashboard you change two things of a workspace: its brief (**Edit** on its page — announced in the
-room once the work has started) and which agents it holds — putting a loose one in and taking one out (below). Starting
-and stopping, workers and bots are the commands on this page. It reads them when it opens, when something changes and when an action
+room once the work has started) and which agents it holds — putting a loose one in and taking one out (below); in this
+Mac's own browser you also make one (the wizard above) and start one that is setting up (**Start** in its setting-up
+banner, which lists what is still missing and is disabled until nothing is). Stopping and workers are the commands on
+this page. It reads them when it opens, when something changes and when an action
 ends — a workspace made from the command line shows there the next time the page reads them (open Home, or reload).
 
 ## Adopting and releasing agents

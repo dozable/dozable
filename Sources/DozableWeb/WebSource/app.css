@@ -3062,3 +3062,72 @@ a.btn.is-disabled { color: var(--ink-3); cursor: not-allowed; }
   .bot-who, .bot-runs { white-space: normal; }
 }
 }
+
+/* The set-up check's gaps (components/ws-gaps.js): the New workspace wizard's review and a workspace's setting-up banner
+   — each gap's why, the wizard's step that fixes it, its command under "Show the command"; and the step strip's count. */
+@layer components {
+.ws-gaps-panel { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--panel-p); border: var(--bw) solid var(--line); border-radius: var(--r-lg);
+  background: var(--surface); }
+.ws-gaps-panel.is-ready { border-color: var(--ok); }
+.ws-gaps-head { display: flex; align-items: center; gap: var(--sp-2); }
+.ws-gaps-head .icon { width: 16px; height: 16px; color: var(--warn); }
+.ws-gaps-panel.is-ready .ws-gaps-head .icon { color: var(--ok); }
+.ws-gaps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ws-gap { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); }
+.ws-gap-why { display: inline-flex; align-items: baseline; gap: var(--sp-2); }
+.ws-gap-why .icon { width: 13px; height: 13px; color: var(--warn); flex: none; align-self: center; }
+.ws-gap-step { font-size: var(--fs-sm); }
+.ws-gap-fix { flex-basis: 100%; font-size: var(--fs-sm); color: var(--ink-2); }
+.ws-gap-fix summary { cursor: pointer; }
+.stepper .s-count { padding: 0 var(--sp-2); border-radius: var(--r-pill); background: var(--warn-tint); color: var(--warn); font-size: var(--fs-xs);
+  font-weight: var(--fw-medium); white-space: nowrap; }
+.ws-start-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-top: var(--sp-2); }
+}
+
+/* The New workspace wizard (views/new-workspace.js, #/new-workspace): its fields, chips, folder rows, choice cards in
+   rows, the roster, the review's lines and commands. Below 760 px every row stacks. */
+@layer views {
+.wsn-cc { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.wsn-cc-title { display: inline-flex; align-items: center; gap: var(--sp-2); font-weight: var(--fw-strong); }
+.wsn-cc-desc { color: var(--ink-2); font-size: var(--fs-sm); }
+.wsn-bot-row { flex-direction: row; align-items: flex-start; gap: var(--sp-3); }
+.wsn-check { color: var(--ink-2); }
+.wsn-check.is-bad, .wsn-size.is-bad { color: var(--bad); }
+.wsn-add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.wsn-add input { flex: 1 1 16rem; min-width: 0; }
+.wsn-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.wsn-chip { display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%; padding: 0 var(--sp-1) 0 var(--sp-2); border-radius: var(--r-pill);
+  background: var(--well); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.wsn-chip .icon { width: 13px; height: 13px; flex: none; }
+.wsn-chip-x { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--r-pill); background: none;
+  color: var(--ink-2); cursor: pointer; }
+.wsn-chip-x:hover { background: var(--state-hover); color: var(--ink); }
+.wsn-folder { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: var(--bw) solid var(--line);
+  border-radius: var(--r-md); }
+.wsn-folder.is-new { border-style: dashed; }
+.wsn-folder .icon { width: 15px; height: 15px; color: var(--ink-2); flex: none; }
+.wsn-path { flex: 1 1 12rem; min-width: 0; font-family: var(--mono); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.wsn-inline-check { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.wsn-preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: var(--sp-3); }
+.wsn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--sp-3); }
+.wsn-row > legend { grid-column: 1 / -1; }
+.wsn-roster .wiz-choice.is-disabled .wsn-cc-desc { color: var(--ink-3); }
+.wsn-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.wsn-identity { display: flex; flex-direction: column; gap: var(--sp-2); }
+.wsn-id { border-collapse: collapse; width: 100%; }
+.wsn-id th, .wsn-id td { text-align: left; padding: var(--sp-1) var(--sp-3) var(--sp-1) 0; border-bottom: var(--bw) solid var(--line); font-size: var(--fs-sm); }
+.wsn-id th { color: var(--ink-2); font-weight: var(--fw-regular); white-space: nowrap; }
+.wsn-later-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); color: var(--ink-3); }
+.wsn-later { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.wsn-rooms select { max-width: 100%; }
+.wsn-lines { margin: 0; padding-left: var(--sp-5); line-height: var(--lh-prose); }
+.wsn-lines li.is-acts { color: var(--warn); }
+.wsn-lines .ws-chip { margin-left: var(--sp-2); }
+.wsn-commands { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.wsn-cmd-text { margin: 0; max-width: 100%; padding: var(--sp-3); border-radius: var(--r-md); background: var(--well); font-family: var(--mono); font-size: var(--fs-xs);
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .wsn-row, .wsn-preset-grid { grid-template-columns: minmax(0, 1fr); }
+  .wsn-add input { flex-basis: 100%; }
+}
+}

@@ -33,6 +33,7 @@ export function route() {
   // 617: #/try/AGENT — the Quick try modal with that agent chosen.
   if (p.modal) {
     if (p.view === 'try') state.tryAgent = p.param;
+    if (p.view === 'new-workspace') state.wsnBot = p.param;            // ?bot=NAME: that bot chosen as its manager
     const first = !state.bgHash;
     if (first) { state.view = 'home'; state.param = null; state.session = null; state.bgHash = HOME; routePage(); }
     openWizardModal(p.view, !first);

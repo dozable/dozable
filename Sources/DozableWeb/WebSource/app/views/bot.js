@@ -24,6 +24,7 @@ import { botChangeRefusal, botForm, elsewhereCommand, ISOLATION_WORDS, REACHED_W
 import { chatRooms, includeInRoom } from '../components/bot-invite.js';
 import { workspacePill } from '../components/ws-marks.js';
 import { programName } from '../components/ws-panel.js';
+import { newWorkspaceHash } from './new-workspace.js';
 
 /// The key, as a person reads it: who keeps it and its fingerprint shortened (3f9a…c2) — the whole one in `title`.
 export function keyWords(keeper, fp) {
@@ -85,10 +86,8 @@ export function adoptDialog(name) {
       after: () => { location.hash = botHash(name); },
     });
 }
-export function newWorkspaceDialog(name) {
-  dialog('A new workspace with ' + name, 'Until the dashboard makes workspaces, make it in a terminal on this Mac — ' + name + ' as its manager:',
-    [{ name: 'cmd', type: 'custom', el: cmdLine('doz workspace new NAME --prompt-file BRIEF.md --manager ' + name), get: () => null }], 'Close', async () => null, { icon: 'x' });
-}
+/// New workspace with this bot: the wizard with it chosen as the manager (#/new-workspace?bot=NAME).
+export function newWorkspaceDialog(name) { location.hash = newWorkspaceHash(name); }
 /// Duplicate: the new bot's form, filled from this one (its name empty).
 export async function duplicateBot(name) {
   try { state.botDraft = await loadBot(name, 0); } catch (_) { state.botDraft = null; }
@@ -103,7 +102,7 @@ export function botMenuItems(b) {
   if (!why && !retired) {
     items.push({ label: 'Edit', icon: 'pencil', onSelect: () => { location.hash = botHash(b.name, 'identity'); } });
     items.push({ label: 'Duplicate', icon: 'copy', desc: 'A new Agent / Bot like it (e.g. with another model)', onSelect: () => duplicateBot(b.name) });
-    items.push({ label: 'New workspace with this bot', icon: 'folder-plus', desc: 'As its manager — the command', onSelect: () => newWorkspaceDialog(b.name) });
+    items.push({ label: 'New workspace with this bot', icon: 'folder-plus', desc: 'As its manager', onSelect: () => newWorkspaceDialog(b.name) });
   }
   if (!retired) items.push({ label: 'Include in a room…', icon: 'users', desc: 'As a voice: no grants, no token step', onSelect: () => includeInRoom(b.name) });
   if (!why && !retired) {
@@ -245,6 +244,8 @@ async function newBot() {
         state.botLast = { name: f.values.name.trim(), text: end.text };
         toast(end.text);
         try { await loadBots(0); } catch (_) { /* the list is read again on the roster */ }
+        // Made from the New workspace wizard: back there, this bot chosen (its choices were kept).
+        if (state.botReturn === 'new-workspace') { state.botReturn = null; location.replace(newWorkspaceHash(f.values.name.trim())); return; }
         location.hash = botHash(f.values.name.trim());
       }
     } } }, icon('plus'), 'Make the Agent / Bot');
@@ -254,6 +255,9 @@ async function newBot() {
     remote ? callout('info', { compact: true, body: remote + ' — in a terminal on the Mac: ', actions: [cmdLine('doz bot new NAME --agent claude-code')] }) : null,
     callout('info', { compact: true, title: 'A bot on another machine?', body: ['It gets its token once, in a terminal on this Mac — never in a browser: ', cmdLine(elsewhereCommand())] }),
     f.el,
-    h('div', { class: 'bot-save' }, h('a', { href: '#/bots', class: 'btn quiet' }, 'Cancel'), make));
+    state.botReturn === 'new-workspace' ? callout('info', { compact: true, attrs: { 'data-bot-return': '' }, body: 'Made here, it is chosen as the new workspace’s manager and you go back to the New workspace wizard.' }) : null,
+    h('div', { class: 'bot-save' }, state.botReturn === 'new-workspace'
+      ? h('button', { type: 'button', class: 'btn quiet', on: { click: () => { state.botReturn = null; location.replace(newWorkspaceHash()); } } }, 'Back to the new workspace')
+      : h('a', { href: '#/bots', class: 'btn quiet' }, 'Cancel'), make));
 }
 
