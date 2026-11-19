@@ -911,7 +911,7 @@ extension HostCore {
     /// that comes up loses the screen of the run before.
     func macReopen(_ s: String, rec: MacSessionRecord, holder: URL, fresh: Bool, size: TermSize, knownID: String?, ended: String,
                    request r: HostRequest, extra: [String: String]? = nil, botSecrets: [LaunchSecret]? = nil,
-                   managerStart: Data? = nil) async throws -> SessionRestarted {
+                   managerStart: Data? = nil, startFolder: String = "manager") async throws -> SessionRestarted {
         var notes: [String] = []
         // 683: its conversations so far go back to the person's own first (a private agent folder keeps them too).
         if let t = await macCarryBack(s) { notes.append(t) }
@@ -942,7 +942,7 @@ extension HostCore {
             for p in MacFenceStop.members(sentinel: f.sentinel, anti: f.antiSentinel, program: nil).pids { kill(p, SIGKILL) }
             o = try await macOpenFenced(r, request: f.request, holder: holder, name: s, argv: argv, workdir: rec.workdir,
                                         recordedArgv: rec.argv, previous: f, size: openSize, extra: extra, claudeSessionID: carried,
-                                        botSecrets: botSecrets, managerStart: managerStart).0
+                                        botSecrets: botSecrets, managerStart: managerStart, startFolder: startFolder).0
         } else {
             o = try await mac.open(session: s, argv: Self.macPromptArgv(argv, workdir: rec.workdir), workdir: rec.workdir, extra: extra, size: openSize,
                                    holder: holder, recordedArgv: rec.argv, claudeSessionID: carried)

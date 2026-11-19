@@ -199,6 +199,9 @@ extension HostCore {
                 throw HostError(.invalidPhase, "\(n) is \(rec.flags.archivedAt != nil ? "archived" : "finished")")
             }
             guard !startingWorkspaces.contains(n) else { throw HostError(.invalidPhase, "\(n) is starting already") }
+            guard !lifecycleWorkspaces.contains(n) else {
+                throw HostError(.invalidPhase, "\(n) is busy: it is being put to sleep, woken, finished or archived — start it once that is over")
+            }
             let gaps = WorkspaceSetupCheck.gaps(await workspaceSetupInput(rec))
             if !gaps.isEmpty {
                 throw HostError(.invalidPhase, "\(n) is not fully set up yet:\n" + gaps.map { "  - " + $0.line }.joined(separator: "\n"))
@@ -375,6 +378,12 @@ extension HostCore {
         await workspaceGate.lock("workspace:" + n)
         defer { workspaceGate.unlock("workspace:" + n) }
         var rec = try workspaceRecord(n)
+        // The dashboard's Stop acts only on the plan the person saw (`ifPlan`); the CLI sends none.
+        if let want = w.ifPlan {
+            let plan = await lifecyclePlan(.stop, rec, WorkspaceLifecycle.Options(w))
+            if plan.sha != want { throw Self.changedSinceYouLooked(n, .stop) }
+            if let first = plan.refusals.first { throw HostError(HostError.Code(rawValue: plan.refusalCode ?? "") ?? .invalidPhase, first) }
+        }
         guard let m = rec.manager, let bot = m.bot else {
             return WorkspaceStopped(name: n, stopped: false, notes: ["\(n) has no manager: nothing to stop"],
                                     workspace: await workspaceDetail(rec, withBrief: false))

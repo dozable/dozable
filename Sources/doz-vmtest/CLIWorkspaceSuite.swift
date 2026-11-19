@@ -236,4 +236,6 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspacePlanRows(h, root: root, store: store, started: &started)
     // 45–47. adding a worker with a look first (CLIWorkerPlanRows.swift)
     cliWorkerPlanRows(h, root: root, store: store)
+    // L1–L14. the lifecycle (CLIWorkspaceLifecycleRows.swift)
+    cliWorkspaceLifecycleRows(h, root: root, store: store, started: &started)
 }

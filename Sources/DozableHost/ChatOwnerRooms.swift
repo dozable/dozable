@@ -6,6 +6,8 @@ public struct ChatStateView: Sendable {
     public var rooms: [String: [String]] = [:]
     public var participants: [(name: String, kind: String)] = []
     public var defaultRoom = ChatConfigFile.defaultRoom
+    /// The rooms archived now (read-only; their history stays).
+    public var archived: Set<String> = []
 
     public init(_ v: JValue) {
         if case .object(let m)? = v.field("rooms") { for e in m { rooms[e.key] = (try? e.value.goStrings("rooms")) ?? [] } }
@@ -13,6 +15,7 @@ public struct ChatStateView: Sendable {
             participants = a.compactMap { p in p.field("name")?.stringValue.map { ($0, p.field("kind")?.stringValue ?? "") } }
         }
         if let d = v.field("default_room")?.stringValue, !d.isEmpty { defaultRoom = d }
+        archived = Set((try? v.field("archived")?.goStrings("archived")) ?? [])
     }
 
     /// You.
@@ -81,6 +84,19 @@ public struct ChatOwnerRooms: Sendable {
         guard s.participants.contains(where: { $0.name == name }) else { throw HostError(.notFound, "no participant \(name) in chat") }
         let (status, v) = try ask("POST", "/api/rooms/\(room)/messages", body: .map(["content": .string("/invite @" + name)]))
         guard status == 200 else { throw HostError(.failed, "\(name) could not be invited to \(room): " + Self.reason(v, status)) }
+        return true
+    }
+
+    /// Archive `room` AS YOU (`/archive`, sent in that room — read-only from now on, its history kept), or open it again
+    /// (`/unarchive`). Nothing when it is so already. Answers whether it changed now.
+    @discardableResult
+    public func setArchived(room: String, _ on: Bool) throws -> Bool {
+        guard chatIsRoomName(room) else { throw HostError(.invalid, "\(room) is not a room name") }
+        let s = try state()
+        guard s.rooms[room] != nil else { throw HostError(.notFound, "no room \(room) in chat") }
+        if s.archived.contains(room) == on { return false }
+        let (status, v) = try ask("POST", "/api/rooms/\(room)/messages", body: .map(["content": .string(on ? "/archive" : "/unarchive")]))
+        guard status == 200 else { throw HostError(.failed, "the room \(room) could not be \(on ? "archived" : "opened again"): " + Self.reason(v, status)) }
         return true
     }
 

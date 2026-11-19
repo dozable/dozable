@@ -905,6 +905,13 @@ doz workspace ls [--loose] [--json]             # NAME  STATE  AGENTS  ROOM ("id
 doz workspace show W [--brief] [--json]         # its brief, folders, room and agents
 doz workspace start W                           # the set-up check, the brief posted as your first message (once), the manager started
 doz workspace stop W                            # the manager ended; its record, conversation and room kept
+doz workspace sleep W [--dry-run] [--yes] [--if-plan SHA]     # every agent asleep: a sandbox hibernated, a session ended (its conversation kept)
+doz workspace wake W [--dry-run] [--yes] [--if-plan SHA]      # back in the same sandboxes and conversations
+doz workspace finish W [--dry-run] [--yes] [--if-plan SHA]    # everything stops; rooms, tokens, disks and folders kept (asks [y/N])
+doz workspace reopen W [--dry-run] [--if-plan SHA]            # finished → asleep until you wake it
+doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
+doz workspace restore W [--dry-run] [--if-plan SHA]           # archived → finished, its rooms writable again
+doz workspace delete W [--remove-sandboxes [--no-keep-templates]] [--bin-folders] [--dry-run] [--yes] [--if-plan SHA]   # finished or archived only (the name typed)
 doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME]   # as a worker; only the workspace's record changes
 doz workspace release W AGENT                   # loose again
 doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--add-folder DIR[:ro]]… [--remove-folder DIR]… [--make-room]
@@ -1018,6 +1025,37 @@ shared sandbox only its session ends. Its name is free again. `ls` shows every a
 the workers (`--all`: the ended ones too) — with what isolates it: fenced `proxy · placeholders · guard`, vm
 `micro VM · proxy · placeholders`, unfenced `no proxy · no placeholders · no guard · acts as you`, and `shares X` in a
 shared sandbox; it answers from the store without starting the daemon. `doz workspace stop W` stops only the manager.
+
+**The lifecycle: check, then ask.** `sleep`, `wake`, `finish`, `reopen`, `archive`, `restore` and `delete` each look first
+— the same plan the dashboard draws, answered from the store when no daemon runs — and print what they would do to each
+agent (where it runs, what it is now, what it becomes, how it comes back), what is kept and what goes (with sizes: the
+memory given back, a sandbox's disk and restore points, a folder's path), how many change at once (`ui.batch_concurrency`;
+the rest wait their turn), what would be refused (every reason at once) and the commands that do the same one agent at a
+time today. `--dry-run` stops there: nothing written, no daemon started; `--json` prints the plan, whose `sha` the verb
+carries back (`--if-plan SHA` to act only on a plan you saw — one that changed is refused, exit 3). Then it asks: nothing
+for sleep, wake, reopen and restore; `[y/N]` for finish; the workspace's name typed on the terminal for archive and delete.
+`--yes` skips the question; with no terminal, or `--json`, and no `--yes`, nothing is done (exit 5).
+
+Sleep hibernates each sandbox (its memory given back, its programs and screens kept) and ends each session on this Mac,
+keeping its record and conversation (an unfenced agent's token file is deleted); an agent elsewhere runs on its own machine,
+untouched. Wake brings each back in place: the same sandbox (one shut down boots and its agent continues its conversation),
+the same conversation on this Mac (a program with none starts fresh; an anonymous unfenced worker gets a new token); the
+manager as `start` brings it, the brief never posted again. Finish stops everything and keeps the rooms writable and every
+token; no worker can be added until `reopen` (then `wake`). Archive does finish's steps, makes its rooms read-only as you
+(their history kept) and retires its anonymous workers (their tokens refused from then on); a bot keeps its token and its
+rooms. Restore opens the rooms the archive closed and leaves it finished; retired workers stay ended. Delete is refused
+unless it is finished or archived, and while anything of it runs ("finish it first — doz workspace finish W"); it removes
+the record, brief and log, forgets its sessions' records, releases adopted sandboxes and sessions loose and retires its
+anonymous workers; its rooms stay, archived with their history (the chat server cannot delete a room), and so do its bots,
+their tokens, templates and every folder.
+
+**Nothing on disk without its flag.** `--remove-sandboxes` (archive, delete) removes only the sandboxes Dozable made for this
+workspace — a manager's or a worker's own, never an adopted one or one a worker shares — keeping a template of each first
+(`NAME-tpl`) unless `--no-keep-templates`; `--bin-folders` (delete) moves its folders to the Bin, never deletes them, and
+refuses your home folder, the store, and a folder another workspace or sandbox uses, by name. Exit codes: 0 ok · 1 not every
+agent reached its target (what did is kept; run it again) · 2 not found · 3 not in this state (finished, archived, setting
+up, busy, still running) or changed since you looked · 5 not confirmed · 6 chat off (archive and restore make their rooms'
+change as you) or the daemon unavailable · 64 usage, or a folder the Bin refuses.
 Exit codes: 0 ok · 2 not found · 3 setting up, finished, starting, a sandbox stopped, or ended already · 4 a name taken,
 or the bot live in another workspace · 6 the daemon or chat unavailable · 64 usage.
 

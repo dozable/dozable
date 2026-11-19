@@ -59,6 +59,14 @@
 //     unchanged; 4 Show the command is --dry-run's; 5 Add and start: in the panel, chat who, its "is up" line; 6 End…, ticked;
 //     7 a chip opens the isolation guide at its card, four cards in order; 9 at 390 px the cards stack; 10 (below) with the
 //     daemon stopped the page opens and the plan answers. (8, another computer's 403, is ServeHTTPTests'.)
+//   · a workspace's lifecycle, chat still on: `life` (a brief, a scratch folder, an adopted unfenced session on this Mac
+//     running /bin/sleep), started. 1 Sleep is the primary button and its dialog's table is `doz workspace sleep life
+//     --dry-run --json`'s (the same rows and sha); at 390 px the table is cards; 2 Sleep → asleep, Home folds it into
+//     "Asleep (1)" with its Wake; 3 Wake (Home's button) → awake, the session running again; 4 Finish… a plain
+//     confirmation → finished, the composer still takes a post; 5 Reopen → asleep; 6 Archive… needs the name typed (a wrong
+//     name keeps the button off; a crafted action with another name is 400), then the room's archived notice; 7 Restore →
+//     finished; 8 Delete… with the Bin box unticked → gone from Home and the sidebar, its folder still on disk; 9 another
+//     computer's 403 is ServeHTTPTests'; 11 (below) with the daemon stopped the plan route answers. The leak sweep after.
 //   · with the daemon stopped, opening Home, Sandboxes, a workspace's page and its agents starts none (no daemon.pid).
 //
 // Self-contained: Node >= 22 (global WebSocket and fetch), no packages. Never the person's own Dozable or browser: the
@@ -103,7 +111,9 @@ const ENV = { ...process.env, XDG_CONFIG_HOME: XDG, DOZ_STORE: STORE, DO_NOT_TRA
   // It lives in the fence's scratch home (a fenced session reads its tools there, as the CLI suite's does).
   DOZ_TEST_MAC_PATH: '/private' + S + '/fence-home/.local/bin:/usr/bin:/bin',
   // A fenced worker's scratch home (a guarded run without one is refused) — never the person's own.
-  DOZ_TEST_FENCE_HOME: '/private' + S + '/fence-home' };
+  DOZ_TEST_FENCE_HOME: '/private' + S + '/fence-home',
+  // The Bin of a delete with --bin-folders: a scratch folder — a test never reaches the real one (none is ticked here anyway).
+  DOZ_TEST_TRASH_DIR: S + '/bin-of-the-walk' };
 delete ENV.SSH_AUTH_SOCK;
 function doz(args, input) {
   const r = spawnSync(DOZ, [...args, '--store', STORE], { env: ENV, encoding: 'utf8', input, timeout: 120_000 });
@@ -144,7 +154,8 @@ function clearMacSocketFolder() { const d = macSocketFolder(); if (d && d.includ
 function stage() {
   rmSync(S, { recursive: true, force: true });
   clearMacSocketFolder();
-  for (const d of [STORE, XDG + '/doz', PROJECTS, S + '/codex-home', S + '/launch-agents', S + '/applications', S + '/claude-sessions', S + '/fence-home']) mkdirSync(d, { recursive: true });
+  for (const d of [STORE, XDG + '/doz', PROJECTS, S + '/codex-home', S + '/launch-agents', S + '/applications', S + '/claude-sessions', S + '/fence-home',
+    S + '/bin-of-the-walk', S + '/life-work']) mkdirSync(d, { recursive: true });
   writeFileSync(XDG + '/doz/doz.toml', `[store]\npath = "${STORE}"\n\n[defaults]\nprojects_dir = "${PROJECTS}"\n\n[chat]\nenabled = false\n`);
   writeFileSync(S + '/no-gh', '#!/bin/sh\necho "not logged in" >&2\nexit 1\n', { mode: 0o755 });
   const fakebin = S + '/fence-home/.local/bin';
@@ -501,6 +512,9 @@ async function walkWorkspacePage() {
 
   // The sidebar and Home lead to the page.
   await goHash('#/home');
+  // demo2 started with nothing running is asleep: Home folds it into "Asleep (N)" — unfolded here.
+  await waitFor(`!!document.querySelector('[data-ws="demo2"]') || !!document.querySelector('[data-home-group="asleep"]')`, 10000);
+  await evaluate(`(() => { const g = document.querySelector('[data-home-group="asleep"]'); if (g && g.getAttribute('aria-expanded') !== 'true') g.click(); })()`);
   await waitFor(`!!document.querySelector('[data-ws="demo2"]')`, 10000);
   check(await evaluate(`[...document.querySelectorAll('[data-ws="demo2"] a')].every((a) => a.getAttribute('href') === '#/w/demo2') && document.querySelectorAll('[data-ws="demo2"] a').length >= 2`),
     'Home: demo2\'s links (its name, its room, Open room) lead to #/w/demo2');
@@ -1157,6 +1171,108 @@ async function walkAddWorker() {
   check(pageErrors.length === errorsBefore, 'add: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
 }
 
+/// A lifecycle dialog open and read: its plan shown (the table, or its refusals).
+const WL_READ = `!!document.querySelector('dialog.dlg[open][data-ws-lifecycle] .wl-plan')`;
+async function wlSubmit(ms = 60000) {
+  await waitFor(`!!${SUBMIT} && !${SUBMIT}.disabled`, 10000);
+  await evaluate(`${SUBMIT}.click()`);
+  return waitFor(`!document.querySelector('dialog.dlg[open]')`, ms);
+}
+const wsState = (n) => (dozJSON(['workspace', 'show', n]) || {}).state;
+async function walkLifecycle() {
+  const errorsBefore = pageErrors.length;
+  doz(['workspace', 'new', 'life', '--prompt-file', '-', '--folder', S + '/life-work'], 'Look after the launch.\n');
+  // (`--store` before `--`: what follows it is the program's own argv.)
+  const run = spawnSync(DOZ, ['run', '@mac', '-d', '--unfenced', '--session', 'lifesh', '--folder', S + '/life-work', '--store', STORE, '--', '/bin/sleep', '600'],
+    { env: ENV, encoding: 'utf8', timeout: 120_000 });
+  if (run.status === 0) lifeSession = 'lifesh';
+  doz(['workspace', 'adopt', 'life', '@mac/lifesh']);
+  doz(['workspace', 'start', 'life']);
+  // 1. Sleep is the primary button; its dialog is the dry run's plan.
+  await goHash('#/w/life');
+  const primary1 = await waitFor(`state.view === 'workspace' && !!document.querySelector('#ws-head [data-ws-primary="sleep"]')`, 15000);
+  check(primary1, 'life 1 Sleep is the primary button of a running workspace'
+    + (primary1 ? '' : ` — ${wsState('life')}; the title row: ${await evaluate(`[...document.querySelectorAll('#ws-head [data-ws-primary], #ws-head [data-ws-state]')].map((e) => e.outerHTML.slice(0, 120)).join(' | ')`)}`));
+  if (!primary1) return;
+  await evaluate(`document.querySelector('#ws-head [data-ws-primary="sleep"]').click()`);
+  await waitFor(WL_READ, 15000);
+  const dry = dozJSON(['workspace', 'sleep', 'life', '--dry-run']) || { rows: [] };
+  const shown = await evaluate(`({ sha: document.querySelector('[data-wl-plan]').dataset.wlSha,
+    rows: [...document.querySelectorAll('[data-wl-agent]')].map((r) => [r.dataset.wlAgent, r.children[2].textContent, r.children[3].textContent]) })`);
+  check(shown.sha === dry.sha && JSON.stringify(shown.rows) === JSON.stringify(dry.rows.map((r) => [r.name, r.after, r.back])),
+    `life 1 the dialog's table is doz workspace sleep life --dry-run --json's (sha ${shown.sha} / ${dry.sha}; ${JSON.stringify(shown.rows)})`);
+  // 10. At 390 px the table is cards.
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(300);
+  const cards = await evaluate(`(() => { const r = document.querySelector('[data-wl-agent]'); return { block: getComputedStyle(r).display === 'block', w: document.documentElement.scrollWidth }; })()`);
+  await shot('lifecycle-390');
+  check(cards.block && cards.w <= 390, `life 10 at 390 px the plan's table is cards, no sideways scroll (${cards.w} px)`);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await shot('lifecycle-sleep');
+  // 2. Sleep → asleep; Home folds it into Asleep (1) with its Wake.
+  check(await wlSubmit(), 'life 2 Sleep: the operation ended');
+  check(await waitFor(`!!document.querySelector('#ws-head [data-ws-state="asleep"]')`, 20000) && wsState('life') === 'asleep', `life 2 asleep (${wsState('life')})`);
+  await goHash('#/home');
+  check(await waitFor(`/Asleep \\(\\d+\\)/.test(document.querySelector('[data-home-group="asleep"]')?.textContent || '') && !document.querySelector('[data-ws="life"]')`, 15000),
+    'life 2 Home folds it into "Asleep (N)"');
+  await evaluate(`document.querySelector('[data-home-group="asleep"]').click()`);
+  check(await waitFor(`!!document.querySelector('[data-ws="life"] [data-home-next="wake"]')`, 10000), 'life 2 …unfolded, its row\'s next action is Wake');
+  // 3. Wake from Home.
+  await evaluate(`document.querySelector('[data-ws="life"] [data-home-next="wake"]').click()`);
+  await waitFor(WL_READ, 15000);
+  check(await wlSubmit(), 'life 3 Wake: the operation ended');
+  let awake = false;
+  for (let i = 0; i < 40 && !awake; i++) { const st = wsState('life'); awake = st && st !== 'asleep'; if (!awake) await sleep(300); }
+  const sh = (dozJSON(['sessions', '@mac']) || []).find((r) => r.name === 'lifesh');
+  check(awake && sh && !sh.ended, `life 3 awake (${wsState('life')}), lifesh running again`);
+  // 4. Finish…: a plain confirmation; finished; the composer still takes a post.
+  await goHash('#/w/life');
+  await waitFor(`state.view === 'workspace' && !!document.querySelector('button[aria-label="More for life"]')`, 10000);
+  await menuPick('More for life', 'Finish…');
+  await waitFor(WL_READ, 15000);
+  check(await evaluate(`!document.querySelector('[data-wl-typed]')`), 'life 4 Finish… is a plain confirmation (no name to type)');
+  check(await wlSubmit(), 'life 4 Finish: the operation ended');
+  check(await waitFor(`!!document.querySelector('#ws-head [data-ws-state="finished"]')`, 20000) && wsState('life') === 'finished', 'life 4 finished');
+  await waitFor(`!!document.querySelector('#chat-text')`, 10000);
+  check(await evaluate(`!document.querySelector('#chat-text').disabled && !/archived/.test(document.querySelector('#chat-text').placeholder)`) && doz(['chat', 'send', 'life', 'still writable']).status === 0,
+    'life 4 …the composer still takes a post');
+  // 5. Reopen (the primary button) → asleep.
+  await waitFor(`!!document.querySelector('#ws-head [data-ws-primary="reopen"]')`, 10000);
+  await evaluate(`document.querySelector('#ws-head [data-ws-primary="reopen"]').click()`);
+  await waitFor(WL_READ, 15000);
+  check(await wlSubmit() && await waitFor(`!!document.querySelector('#ws-head [data-ws-state="asleep"]')`, 20000), `life 5 Reopen → asleep (${wsState('life')})`);
+  // 6. Archive…: the name typed; a crafted action with another name is 400; the room's archived notice.
+  await menuPick('More for life', 'Archive…');
+  await waitFor(WL_READ + ` && !!document.querySelector('[data-wl-typed]')`, 15000);
+  await setField('[data-wl-typed]', 'lif');
+  check(await evaluate(`${SUBMIT}.disabled`), 'life 6 Archive…: a wrong name keeps the button off');
+  const sha = await evaluate(`document.querySelector('[data-wl-plan]').dataset.wlSha`);
+  const forged = await craft({ action: 'workspace-archive', workspace: 'life', ifPlan: sha, confirm: 'lif' });
+  check(forged.status === 400 && wsState('life') === 'asleep', `life 6 a crafted archive with another name: ${forged.status}, nothing done`);
+  await setField('[data-wl-typed]', 'life');
+  check(await evaluate(`!${SUBMIT}.disabled`), 'life 6 …the name typed: the button on');
+  check(await wlSubmit(120000), 'life 6 Archive: the operation ended');
+  check(await waitFor(`!!document.querySelector('#ws-head [data-ws-state="archived"]')`, 20000) && wsState('life') === 'archived', 'life 6 archived');
+  check(await waitFor(`/archived/.test(document.querySelector('#chat-text')?.placeholder || '')`, 15000), 'life 6 …the room shows the archived notice');
+  // 7. Restore → finished.
+  await evaluate(`document.querySelector('#ws-head [data-ws-primary="restore"]').click()`);
+  await waitFor(WL_READ, 15000);
+  check(await wlSubmit() && await waitFor(`!!document.querySelector('#ws-head [data-ws-state="finished"]')`, 20000), `life 7 Restore → finished (${wsState('life')})`);
+  // 8. Delete…: the Bin box unticked; gone from Home and the sidebar; the folder still there.
+  await menuPick('More for life', 'Delete…');
+  await waitFor(WL_READ + ` && !!document.querySelector('[data-wl-tick="binFolders"]')`, 15000);
+  check(await evaluate(`!document.querySelector('[data-wl-tick="binFolders"]').checked && !document.querySelector('[data-wl-tick="removeSandboxes"]').checked`),
+    'life 8 Delete…: "Also move its folders to the Bin" and "Also remove…" unticked');
+  await setField('[data-wl-typed]', 'life');
+  check(await wlSubmit(120000), 'life 8 Delete: the operation ended');
+  check(await waitFor(`location.hash === '#/home' && !document.querySelector('[data-ws="life"]') && !document.querySelector('[data-nav-ws="life"]')`, 20000), 'life 8 gone from Home and the sidebar');
+  check(!(dozJSON(['workspace', 'ls']) || { workspaces: [] }).workspaces.some((w) => w.name === 'life') && existsSync(S + '/life-work'), 'life 8 …its record gone, its folder still on disk');
+  check(true, 'life 9 another computer\'s 403 for the eight and the plan route is ServeHTTPTests.testTheLifecycleIsThisMacsBrowserOnlyWhateverTheServeSettings\'');
+  check(pageErrors.length === errorsBefore, 'life: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  await leakSweep('the lifecycle');
+}
+let lifeSession = null;
+
 let failed = false;
 try {
   console.log('dashboard-walk: a scratch store at ' + S);
@@ -1206,6 +1322,7 @@ try {
   await walkBots();
   await walkNewWorkspace();
   await walkAddWorker();
+  await walkLifecycle();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
@@ -1222,6 +1339,11 @@ try {
   check(await waitFor(`state.view === 'addworker' && !!state.aw?.plan && !state.aw.planError`, 15000), 'add 10 with the daemon stopped, Add a worker opens and the plan answers');
   await awType('[data-aw-task]', 'List the files with no daemon.');
   check(await evaluate(`!state.aw.plan.problem && (state.aw.plan.notes || []).some((n) => /checked again when you add/.test(n))`), 'add 10 …saying what is checked again when you add');
+  // 11. A lifecycle verb's plan with the daemon stopped: answered from the store.
+  const p11 = await evaluate(`(async () => { const r = await fetch('/api/v1/workspace-lifecycle-plan', { method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-Doz-CSRF': state.csrf }, body: JSON.stringify({ workspace: 'demo2', verb: 'sleep' }) });
+    return { status: r.status, body: await r.json() }; })()`);
+  check(p11.status === 200 && p11.body.verb === 'sleep' && p11.body.factsKnown === false, `life 11 with the daemon stopped, the plan route answers (${p11.status})`);
   await sleep(4000);
   check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents, Agents / Bots, a workspace\'s agents, its page and Add a worker starts none');
   check(await evaluate(`!!document.querySelector('[data-ws="demo"]')`) || (await goHash('#/home'), await waitFor(`!!document.querySelector('[data-ws="demo"]')`, 8000)),
@@ -1237,6 +1359,7 @@ try {
 } finally {
   try { chrome && chrome.kill('SIGKILL'); } catch (_) { /* gone */ }
   if (macSession) spawnSync(DOZ, ['sessions', 'end', '@mac', macSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
+  if (lifeSession) spawnSync(DOZ, ['sessions', 'end', '@mac', lifeSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
   for (const [w, n] of startedWorkers) spawnSync(DOZ, ['worker', 'end', w, n, '--store', STORE], { env: ENV, timeout: 60_000 });
   try { ui && process.kill(-ui.pid, 'SIGTERM'); } catch (_) { /* gone */ }
   if (uiB) spawnSync(DOZ, ['ui', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });

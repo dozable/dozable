@@ -11,8 +11,8 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | `Sources/DozableWeb/WebMacs.swift`; `WebSource/app/components/mac-picker.js`, `app/views/macs.js` | Your Macs — the machine picker in the brand row and This Mac › Your Macs: the one read (`WebMacReads`, `WebMacList`), the menu, the page ("Your Macs" below; the list itself is `MacBookmarks` in DozableHost, `doz ui macs`) |
 | `WebSource/app.js` | the entry — imports every module, the shell's own wiring (quick add, sign out, nav icons, the rail), `startApp`, `provide({…})` (every call up the layers), `expose({…})` (the probes' names), then the bootstrap |
 | `WebSource/app/dom/` | `h.js` (`h`, `$` — text only), `icons.js` (`icon`, `iconFor`, `withIcon`, `setButton`, the glyph maps) |
-| `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `routes.js` (the addresses: `parse`, `canonical`, `LEGACY`, `MAC_RESERVED`, `placeHash` — pure), `router.js` (`route`, `routePage`, `refresh`), `workspaces.js` (the workspace, loose and bot reads, shared and never on a timer), `ws-log.js` (a workspace's log in a room: the pure `interleave`), `events.js` (SSE `connect`), `grid.js` + `vt-grid.js` (648: the GRID, its checks, a saved screen's VT read into one) |
-| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`; a link item), `mac-picker.js` (the machine picker), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `notes.js` (647: the notifications in the top-right corner — cards, pills, bell), `page-title.js` (647: the sticky title bar and table heads), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `ws-nav.js` (the sidebar's Workspaces), `ws-marks.js` (a workspace's state pill and dot, the driver and manager chips), `ws-brief.js` (a workspace's brief card), `ws-panel.js` (its side panel and each sender's meta line), `agent-frame.js` (an agent's screen: the frame, "In this workspace", a place's own page's strip), `put-in-workspace.js` ("Put in a workspace…", "Take out…"), `bot-form.js` (an Agent / Bot's edit tabs and a new one's form), `bot-invite.js` ("Add to a room…": `/invite` as you), `cmd-line.js` (a command with Copy), `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `screen-paint.js` + `grid-feed.js` + `session-thumb.js` (648: the painted pictures, the one feed, their sources), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
+| `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `routes.js` (the addresses: `parse`, `canonical`, `LEGACY`, `MAC_RESERVED`, `placeHash` — pure), `router.js` (`route`, `routePage`, `refresh`), `workspaces.js` (the workspace, loose and bot reads, shared and never on a timer), `ws-log.js` (a workspace's log in a room: the pure `interleave`), `ws-lifecycle.js` (the lifecycle's pure parts), `events.js` (SSE `connect`), `grid.js` + `vt-grid.js` (648: the GRID, its checks, a saved screen's VT read into one) |
+| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`; a link item), `mac-picker.js` (the machine picker), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `notes.js` (647: the notifications in the top-right corner — cards, pills, bell), `page-title.js` (647: the sticky title bar and table heads), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `ws-nav.js` (the sidebar's Workspaces), `ws-marks.js` (a workspace's state pill and dot, the driver and manager chips), `ws-brief.js` (a workspace's brief card), `ws-panel.js` (its side panel and each sender's meta line), `ws-lifecycle.js` (its lifecycle's dialogs, the primary button, the ⋯ items), `agent-frame.js` (an agent's screen: the frame, "In this workspace", a place's own page's strip), `put-in-workspace.js` ("Put in a workspace…", "Take out…"), `bot-form.js` (an Agent / Bot's edit tabs and a new one's form), `bot-invite.js` ("Add to a room…": `/invite` as you), `cmd-line.js` (a command with Copy), `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `screen-paint.js` + `grid-feed.js` + `session-thumb.js` (648: the painted pictures, the one feed, their sources), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
 | `WebSource/app/views/` | one per page: `home` (the workspaces), `new-workspace` (the New workspace wizard, `#/new-workspace`; its pure parts in `core/ws-new.js`, the gaps in `components/ws-gaps.js`; the server side `Sources/DozableWeb/WebWorkspaceNew.swift`), `workspace` (a workspace's page, `#/w/NAME`), `ws-agents` (its Agents tab, `#/w/NAME/agents`, and an agent's card), `add-worker` (Add a worker, `#/w/NAME/agents/new`; its pure parts in `core/add-worker.js`, End… and the links in `components/worker-end.js`; the server side `Sources/DozableWeb/WebWorkers.swift`), `isolation-guide` (where an agent runs, `#/guide/isolation[/ID]`; its words `core/isolation.js`, the chip `components/iso-chip.js`), `bot` (one Agent / Bot, `#/bots/NAME[/TAB]`, and `#/bots/~new`), `this-mac` (This Mac's overview), `macs` (This Mac › Your Macs), `loose` (Loose agents), `bots` (Agents / Bots), `overview` (This Mac › Sandboxes), `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the daemon attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
@@ -469,7 +469,8 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   — only with `serve.chat = write` (off → 403 `brief-remote`, read → `chat-read-only`), one `change` audit line (the
   action's word, never the brief). `WebActionTests` pins it: the `workspace-*`/`worker-*` HostOps that are actions are
   `workspace-edit` (through `workspace-brief`), the three filing HostOps, `workspace-start` (the wizard's, "The New
-  workspace wizard" below) and `worker-add` / `worker-end` ("Adding a worker" below); no stop or rename for any browser. The `bot-*` actions are the five of "Agents / Bots
+  workspace wizard" below), `worker-add` / `worker-end` ("Adding a worker" below) and the eight lifecycle verbs ("Lifecycle
+  actions" below); no rename for any browser. The `bot-*` actions are the five of "Agents / Bots
   in the dashboard", below.
 - **Projections** (`WebModels`: `WebWorkspaceListing`, `WebWorkspaceRow`, `WebWorkspaceManager`, `WebLooseAgent`,
   `WebWorkspaceDetail` — the brief's size and its references' count, never its text or hash —, `WebWorkspaceAgent` with
@@ -504,8 +505,8 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   testTheWorkspacePageIsOneChatClient`; the walk asserts exactly one `#chat-text`.
 - **The page** (`views/workspace.js`, the section `#ws`, built once; the router's `main-chat` layout, `main-ws` below
   980 px where the panel folds under the room and the document scrolls): the title row (name, `workspacePill`,
-  `driverChip`, the manager's `managerChip` — "acts as you" when unfenced —, ⋯ with the commands to copy and the set-up
-  gaps); the tab row `WS_TABS` — Room · Agents · `PERMISSIONS_TAB` ("Permissions", ONE constant) · Network & secrets ·
+  `driverChip`, the manager's `managerChip` — "acts as you" when unfenced —, the one primary button its state offers and ⋯
+  with its lifecycle and the set-up gaps — "Lifecycle actions", below); the tab row `WS_TABS` — Room · Agents · `PERMISSIONS_TAB` ("Permissions", ONE constant) · Network & secrets ·
   Folders & points · Activity · Settings — Room and Agents work (links to `#/w/NAME` and `#/w/NAME/agents`), the others
   `aria-disabled` with a "coming" tag and a title saying what they will hold; the notices (setting up: the gaps and `doz workspace start W`; no room; a missing room; log
   lines hidden); the brief (`components/ws-brief.js`); the room; the side panel (`components/ws-panel.js`).
@@ -535,7 +536,7 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
 - **Another computer** (`doz ui --lan`): agent rows, log lines and notes about this Mac's sessions follow
   `serve.mac_sessions` (the panel and a notice say how many are hidden); the room follows `serve.chat` (its notice when
   off; the composer off with `read`); the brief's text only with `serve.chat` read or write (else "The brief is not shared
-  with this browser"); Edit only with `write` (`state.chat.status.access`); no lifecycle action — CLAUDE.md's rule.
+  with this browser"); Edit only with `write` (`state.chat.status.access`); every lifecycle button disabled with its command — CLAUDE.md's rule.
 - **The walk** (`make dashboard-walk`, after the shell's checks): chat ON with OS-chosen `chat.page_port` /
   `chat.line_port` (checked not live); `demo2` (a brief, a reference, a folder, the never-booted sandbox `beta`) started
   with no manager, an unrelated room `other`, and `demo3` with an unfenced manager recorded. Checks: `#/w/demo2` → view
@@ -742,6 +743,48 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   ended; 7 a chip opens the guide at its card, four cards in order; 8 another computer's 403 is `ServeHTTPTests`'; 9 at
   390 px the guide's cards stack and the page has no sideways scroll; 10 with the daemon stopped the page opens, the plan
   answers ("checked again when you add") and no daemon starts.
+
+## Lifecycle actions
+
+- **One plan, drawn** (`components/ws-lifecycle.js`; its pure parts `core/ws-lifecycle.js` — `primaryVerb`, `confirmKind`,
+  `planBody`, `actionBody`, `canConfirm`, `sizeWords`, run in JavaScriptCore by `WebModulesTests.testTheLifecycleDialogs`). The
+  title row's ONE primary button by state (setting up Start — the wizard's `workspace-start`; idle, working, waiting, starting
+  Sleep; asleep Wake; finished Reopen; archived Restore) and the ⋯ menu — Stop the manager · Sleep everything · Wake everything
+  · — · Finish… · Archive… · Delete… (the earlier "Copy:" items are gone) — each open a dialog drawn from the plan route: the
+  table (agent · now · after · back; below 760 px a card per agent), Kept and Goes with sizes, the queue note, the refusals
+  (the button off), the notes and Show the command (the plan's `command` and today's per-agent `commands`). Confirmation by
+  verb: archive and delete the name typed (the button off until it is exact); finish the button; the rest none. Archive's and
+  delete's "Also free N GB: remove the sandboxes Dozable made for it" and delete's "Also move its folders on this Mac to the
+  Bin" are never ticked for you; a tick asks the plan again. A wake of an unfenced manager needs the tick "Yes, NAME acts as
+  me". Home's next column is the same button (`data-home-next`); asleep workspaces fold into "Asleep (N)" above "Finished &
+  archived (N)", as in the sidebar. While a verb's operation runs the pill reads "sleeping…", "waking…" (`transitional`, from
+  the running operation's label); a side panel of a workspace asleep says "asleep · resumes on wake"; an archived room shows
+  the chat page's archived notice (its composer off).
+- **The plan route** `POST /api/v1/workspace-lifecycle-plan` (`WebRoute.workspaceLifecyclePlan`, no payload — the workspace in
+  the body): CSRF, `{workspace, verb, removeSandboxes?, keepTemplates?, binFolders?}` strictly (`WebWorkspaceLifecycle.decodePlan`:
+  the workspace by its rule and the verb, 400 before any call), then exactly ONE read-only HostOp, `workspace-lifecycle-plan`
+  — in-process with no daemon; nothing written, no daemon started. Kind **`mac-screen`**. The answer `WebWorkspaceLifecyclePlan`,
+  field by field (never a token). Read afresh each time a dialog opens.
+- **The eight actions** (`WebAction.workspaceLifecycle(verb, request)`): `workspace-stop`, `-sleep`, `-finish`, `-reopen`,
+  `-restore` `{workspace, ifPlan}`; `workspace-wake` `{workspace, ifPlan, actsAsYou?}`; `workspace-archive` `{workspace, ifPlan,
+  removeSandboxes?, keepTemplates?, confirm}`; `workspace-delete` `{workspace, ifPlan, removeSandboxes?, binFolders?, confirm}` —
+  each exactly the CLI's HostOp with `confirmRequired`; `ifPlan` required (16 lower-case hex); `confirm` must be the name
+  (`confirmationTarget`, 400 before anything) and the daemon checks it again; `actsAsYou` becomes `unfencedConfirmed`. Strict
+  bodies; dedupe per verb and workspace. This Mac's own browser only (`isLifecycle`, `WebExposure.decideLifecycleAction` → 403
+  `mac-only`, `WebRejection.macOnlyLifecycle`, whatever the serve settings). The line (`WebOperations.lifecycleSummary`) is
+  written from `WorkspaceChanged`.
+- **Another computer** gets every button and item disabled, titled "Only from this Mac's own browser", with the command.
+- **Tests**: `WebActionTests.testTheLifecycleActions` (+ the pinned set gains the eight), `ServeExposureTests.testTheLifecycleIsThisMacsOnly`,
+  `ServeHTTPTests.testTheLifecycleIsThisMacsBrowserOnlyWhateverTheServeSettings` (403 for the eight and the plan route whatever the
+  serve settings; 202 and 200 from this Mac; a forged `confirm` 400), `WebHTTPIntegrationTests.testTheLifecyclePlanRoute`,
+  `WebModulesTests.testTheLifecycleDialogs`.
+- **The walk** (`make dashboard-walk`, after Add a worker, chat on, a scratch Bin): `life` (a brief, a scratch folder, an adopted
+  unfenced session running /bin/sleep), started. 1 Sleep is the primary button and its dialog equals `doz workspace sleep life
+  --dry-run --json` (rows and sha); 10 at 390 px the table is cards; 2 Sleep → asleep, Home folds it into "Asleep (1)" with Wake;
+  3 Wake from Home → awake, the session running again; 4 Finish… plain → finished, the composer still posts; 5 Reopen; 6
+  Archive… the name typed (a wrong one keeps the button off; a crafted action with another name 400), the room's archived notice;
+  7 Restore → finished; 8 Delete…, the Bin box unticked → gone from Home and the sidebar, the folder on disk; 9 another computer's
+  403 is `ServeHTTPTests`'; 11 with the daemon stopped the plan route answers and none starts; the leak sweep after.
 
 ## The isolation guide
 

@@ -197,6 +197,13 @@ workspace/ls
 workspace/show
 workspace/start
 workspace/stop
+workspace/sleep
+workspace/wake
+workspace/finish
+workspace/reopen
+workspace/archive
+workspace/restore
+workspace/delete
 workspace/adopt
 workspace/release
 workspace/edit

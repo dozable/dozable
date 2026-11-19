@@ -54,6 +54,22 @@ public enum TestSafety {
         }
     }
 
+    /// Where a guarded run's "Bin" is (`DOZ_TEST_TRASH_DIR`), and why moving `folder` there is refused (nil: allowed). A test
+    /// never reaches the real Bin: with no seam set, a move is refused; and the seam only ever takes a scratch folder
+    /// (under the temporary folders) — never a person's own, whatever went wrong before it.
+    public static func trashDirectory(_ env: [String: String] = ProcessInfo.processInfo.environment) -> String? {
+        guard guarded(env) else { return nil }
+        return env["DOZ_TEST_TRASH_DIR"].flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    public static func trashViolation(folder: String, env: [String: String] = ProcessInfo.processInfo.environment) -> String? {
+        guard guarded(env) else { return nil }
+        guard trashDirectory(env) != nil else { return "a test would move \(folder) to the real Bin — set DOZ_TEST_TRASH_DIR to a scratch folder" }
+        let scratch = ["/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/"]
+        guard scratch.contains(where: { folder.hasPrefix($0) }) else { return "a test would move \(folder) to the Bin — only a scratch folder under the temporary folders" }
+        return nil
+    }
+
     // `codexHomeViolation` lives in CodexMacLogin.swift — the one file that may name the Mac's Codex home.
 
     /// Why touching keychain item `service` is refused (nil: allowed). Claude Code's own login items.

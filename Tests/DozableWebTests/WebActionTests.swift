@@ -85,6 +85,14 @@ final class WebActionTests: XCTestCase {
         "bot-token": #"{"action":"bot-token","name":"mira","confirm":"mira"}"#,
         "worker-add": #"{"action":"worker-add","workspace":"launch-video","task":"Make the 15-second cut.","isolation":"vm","cpus":4,"memory":"4G","rooms":["review"]}"#,
         "worker-end": #"{"action":"worker-end","workspace":"launch-video","name":"bot4","confirm":"bot4"}"#,
+        "workspace-stop": #"{"action":"workspace-stop","workspace":"launch-video","ifPlan":"0123456789abcdef"}"#,
+        "workspace-sleep": #"{"action":"workspace-sleep","workspace":"launch-video","ifPlan":"0123456789abcdef"}"#,
+        "workspace-wake": #"{"action":"workspace-wake","workspace":"launch-video","ifPlan":"0123456789abcdef","actsAsYou":true}"#,
+        "workspace-finish": #"{"action":"workspace-finish","workspace":"launch-video","ifPlan":"0123456789abcdef"}"#,
+        "workspace-reopen": #"{"action":"workspace-reopen","workspace":"launch-video","ifPlan":"0123456789abcdef"}"#,
+        "workspace-archive": #"{"action":"workspace-archive","workspace":"launch-video","ifPlan":"0123456789abcdef","removeSandboxes":true,"keepTemplates":false,"confirm":"launch-video"}"#,
+        "workspace-restore": #"{"action":"workspace-restore","workspace":"launch-video","ifPlan":"0123456789abcdef"}"#,
+        "workspace-delete": #"{"action":"workspace-delete","workspace":"launch-video","ifPlan":"0123456789abcdef","binFolders":true,"confirm":"launch-video"}"#,
         // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
         "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
         // 669: a sandbox's own value of a per-sandbox setting, or "Follow the Mac" (clear).
@@ -174,6 +182,9 @@ final class WebActionTests: XCTestCase {
         .botNew, .botSet, .botRetire, .botAdopt, .botToken,
         // A workspace's workers from this Mac's own browser — exactly `doz worker add | end`.
         .workerAdd, .workerEnd,
+        // A workspace's lifecycle from this Mac's own browser — exactly `doz workspace stop | sleep | wake | finish | reopen |
+        // archive | restore | delete`, each with the plan's sha the page showed.
+        .workspaceStop, .workspaceSleep, .workspaceWake, .workspaceFinish, .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,
@@ -387,12 +398,16 @@ final class WebActionTests: XCTestCase {
         XCTAssertEqual(WebAction.lifecycleOps["hibernate"], .hibernate)
         // Workspaces, Agents / Bots and workers are read in the dashboard (WebWorkspaceReads, WebBotReads). Four workspace
         // operations are actions: `workspace-edit` only through `workspace-brief` (the brief, nothing else), and filing —
-        // adopt, new with one agent, release (this Mac's own browser only); and the five bot changes below. No lifecycle — no
-        // workspace start or stop, no worker — for any browser.
+        // adopt, new with one agent, release (this Mac's own browser only); the start; the eight lifecycle verbs (this Mac's
+        // own browser only); and the five bot changes below.
         XCTAssertEqual(Set(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key)),
-                       ["workspace-brief", "workspace-adopt", "workspace-new", "workspace-release", "workspace-start"])
+                       ["workspace-brief", "workspace-adopt", "workspace-new", "workspace-release", "workspace-start", "workspace-stop", "workspace-sleep",
+                        "workspace-wake", "workspace-finish", "workspace-reopen", "workspace-archive", "workspace-restore", "workspace-delete"])
         XCTAssertEqual(Set(ops.filter { ["workspace-", "worker-"].contains(where: $0.rawValue.hasPrefix) }),
-                       [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart, .workerAdd, .workerEnd])
+                       [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart, .workerAdd, .workerEnd, .workspaceStop,
+                        .workspaceSleep, .workspaceWake, .workspaceFinish, .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete])
+        XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isLifecycle == true ? $0.key : nil }),
+                       Set(WorkspaceVerb.allCases.map { "workspace-" + $0.rawValue }))
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isWorker == true ? $0.key : nil }), ["worker-add", "worker-end"])
         // The bot- actions are exactly new, set, retire, adopt and token — never bot-ls or bot-show (those are reads); every
         // one heldOnly, this Mac's own browser only.
@@ -410,13 +425,52 @@ final class WebActionTests: XCTestCase {
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isFiling == true ? $0.key : nil }),
                        ["workspace-adopt", "workspace-new", "workspace-release"])
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isStarting == true ? $0.key : nil }), ["workspace-start"])
-        // The rest of the lifecycle stays the CLI's: no stop or rename for any browser; the plans and worker-ls are reads.
-        for op: HostOp in [.workspaceStop, .workspaceRename, .workspacePlan, .workerPlan, .workerList] {
+        // No rename for any browser; the plans and worker-ls are reads.
+        for op: HostOp in [.workspaceRename, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workerList] {
             XCTAssertFalse(ops.contains(op), "\(op.rawValue) is not an action")
         }
         // Your Macs are read (WebMacReads) and changed only from the CLI: no macs-* operation is an action.
         XCTAssertFalse(ops.contains { $0.rawValue.hasPrefix("macs-") }, "Your Macs are not changed from the browser")
         XCTAssertFalse(WebAction.actionNames.contains { $0.hasPrefix("mac-") && !$0.hasPrefix("mac-session-") }, "no action for Your Macs")
+    }
+
+    /// The eight lifecycle actions: each exactly the CLI's HostOp, its fields strict (`ifPlan` required, 16 hex), the flags
+    /// only where the CLI has them, archive and delete confirmed with the typed name (and the daemon checks it again —
+    /// `confirmRequired`), a wake's "acts as you" carried as `unfencedConfirmed`.
+    func testTheLifecycleActions() throws {
+        let archive = try decode(Self.samples["workspace-archive"]!)
+        guard case .workspaceLifecycle(.archive, let w) = archive else { return XCTFail("archive") }
+        XCTAssertEqual(w.name, "launch-video")
+        XCTAssertEqual(w.removeSandboxes, true)
+        XCTAssertEqual(w.keepTemplates, false)
+        XCTAssertEqual(w.confirm, "launch-video")
+        let r = archive.hostRequest
+        XCTAssertEqual(r.op, .workspaceArchive)
+        XCTAssertEqual(r.workspaceRequest?.confirmRequired, true, "the daemon checks the typed name")
+        XCTAssertEqual(r.workspaceRequest?.ifPlan, "0123456789abcdef")
+        XCTAssertEqual(archive.confirmationTarget, "launch-video")
+        XCTAssertNil(archive.sandbox)
+        let wake = try decode(Self.samples["workspace-wake"]!)
+        XCTAssertEqual(wake.hostRequest.workspaceRequest?.unfencedConfirmed, true)
+        XCTAssertEqual(wake.hostRequest.workspaceRequest?.confirmRequired, true)
+        XCTAssertNil(wake.confirmationTarget)
+        // The typed name: missing or wrong → 400 before anything; the plan's sha required.
+        for bad in [#"{"action":"workspace-delete","workspace":"launch-video","ifPlan":"0123456789abcdef"}"#,
+                    #"{"action":"workspace-delete","workspace":"launch-video","ifPlan":"0123456789abcdef","confirm":"launch"}"#,
+                    #"{"action":"workspace-sleep","workspace":"launch-video"}"#,
+                    #"{"action":"workspace-sleep","workspace":"launch-video","ifPlan":"XYZ"}"#,
+                    #"{"action":"workspace-sleep","workspace":"Launch","ifPlan":"0123456789abcdef"}"#,
+                    // Flags only where the CLI has them.
+                    #"{"action":"workspace-sleep","workspace":"launch-video","ifPlan":"0123456789abcdef","removeSandboxes":true}"#,
+                    #"{"action":"workspace-finish","workspace":"launch-video","ifPlan":"0123456789abcdef","binFolders":true}"#,
+                    #"{"action":"workspace-archive","workspace":"launch-video","ifPlan":"0123456789abcdef","binFolders":true,"confirm":"launch-video"}"#,
+                    #"{"action":"workspace-wake","workspace":"launch-video","ifPlan":"0123456789abcdef","confirm":"launch-video"}"#,
+                    #"{"action":"workspace-rename","workspace":"launch-video","ifPlan":"0123456789abcdef"}"#] {
+            XCTAssertThrowsError(try decode(bad), bad)
+        }
+        // Two verbs of one workspace at once are two operations; one verb twice is one.
+        XCTAssertNotEqual(try decode(Self.samples["workspace-sleep"]!).dedupeKey, try decode(Self.samples["workspace-wake"]!).dedupeKey)
+        XCTAssertEqual(try decode(Self.samples["workspace-sleep"]!).label, "sleep launch-video")
     }
 
     /// The five bot actions: each exactly the CLI's HostOp with heldOnly, strictly decoded by the CLI's rules; elsewhere refused

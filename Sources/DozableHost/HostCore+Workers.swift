@@ -30,6 +30,9 @@ public struct WorkerLaunchOrder: Equatable, Sendable {
     public var permissions: String
     public var cpus: Int?
     public var memoryMiB: UInt64?
+    /// A wake: its session or sandbox exists from an earlier run and is opened again in place — a session on this Mac
+    /// resumed from its record (its conversation, its kept secrets), a sandbox started with its agent continuing.
+    public var restart = false
 }
 
 /// What ending a worker needs.
@@ -260,6 +263,9 @@ extension HostCore {
             throw no("workspace", HostError(.invalidPhase, "\(n) is \(rec.flags.archivedAt != nil ? "archived" : "finished")"))
         }
         guard !startingWorkspaces.contains(n) else { throw no("workspace", HostError(.invalidPhase, "\(n) is starting — add the worker once its start is over")) }
+        guard !lifecycleWorkspaces.contains(n) else {
+            throw no("workspace", HostError(.invalidPhase, "\(n) is busy: it is being put to sleep, woken, finished or archived — add the worker once that is over"))
+        }
         guard rec.flags.startedAt != nil || rec.flags.firstAgentAt != nil else {
             throw no("workspace", HostError(.invalidPhase, "\(n) is still setting up — doz workspace start \(n) first (a workspace with no manager starts with you driving)"))
         }
@@ -646,6 +652,7 @@ extension HostCore {
         switch o.isolation {
         case .fenced, .unfenced:
             guard !buildFlavor.isHelper else { throw HostError(.notImplemented, BuildFlavor.helperLeavesOut("sessions on this Mac")) }
+            if o.restart, let rec = mac.records().sessions[o.place] { return try await relaunchWorkerOnMac(o, rec) }
             return try await launchAgentOnMac(AgentMacLaunch(place: o.place, argv: o.plan.argv, workdir: o.workdir, environment: o.plan.environment,
                                                              fenced: o.isolation == .fenced, permissions: o.permissions, hostPorts: o.plan.hostPorts,
                                                              account: o.account, secrets: o.plan.secret.map { [$0] },
@@ -658,10 +665,35 @@ extension HostCore {
             return try await launchAgentInVM(AgentVMLaunch(
                 sandbox: o.place, session: session, create: !o.shared, workdir: o.workdir, permissions: o.permissions, account: o.account,
                 model: o.model, agent: o.agent, hostPorts: o.plan.hostPorts, secret: secret, start: o.start,
-                startDir: WorkerLaunch.vmStartFolder + "/" + o.name, argv: seams.argv.map { $0 + [ManagerLaunch.firstPrompt(start: o.plan.startFile)] } ?? o.plan.argv,
+                startDir: WorkerLaunch.vmStartFolder + "/" + o.name,
+                argv: seams.argv.map { $0 + [ManagerLaunch.firstPrompt(start: o.plan.startFile)] }
+                    ?? (o.restart ? ManagerLaunch.vmResumeArgv(agent: o.agent) : nil) ?? o.plan.argv,
                 environment: o.plan.environment, seamImage: seams.image, cpus: o.cpus,
                 memoryMiB: o.memoryMiB, bridgesOff: true, alias: o.shared ? secret.variable : nil))
         }
+    }
+
+    /// A worker's session on this Mac opened again in place (a wake): its record's program, its conversation resumed, its
+    /// kept secrets (a bot's given again), START rewritten under `etc/worker/` (fenced).
+    func relaunchWorkerOnMac(_ o: WorkerLaunchOrder, _ rec: MacSessionRecord) async throws -> [String] {
+        let located = MacDeckhold.locate()
+        guard let holder = located.url else {
+            throw HostError(.unavailable, "sessions on this Mac need deckhold-mac beside doz — \(located.why ?? "it is not there")")
+        }
+        let fenced = o.isolation == .fenced
+        guard (rec.fence != nil) == fenced else {
+            throw HostError(.invalid, "the session \(o.place) on this Mac is \(fenced ? "unfenced" : "fenced") — doz worker end \(o.workspace) \(o.name), then add it again")
+        }
+        await sessionGate.lock(MacPlace.name)
+        defer { sessionGate.unlock(MacPlace.name) }
+        let held = await macLearnClaudeID(o.place)
+        let how = try await mac.end(o.place)
+        if how == .stuck { throw HostError(.failed, "session \(o.place) on this Mac did not end, even after SIGKILL") }
+        let r = try await macReopen(o.place, rec: mac.records().sessions[o.place] ?? rec, holder: holder, fresh: false,
+                                    size: TermSize(cols: 120, rows: 40), knownID: held, ended: how.rawValue,
+                                    request: HostRequest(.sessionRestart, name: MacPlace.name), extra: o.plan.environment,
+                                    botSecrets: o.plan.secret.map { [$0] }, managerStart: fenced ? o.start : nil, startFolder: "worker")
+        return r.notice.map { [$0] } ?? []
     }
 
     func endWorker(_ o: WorkerEndOrder) async throws -> [String] {

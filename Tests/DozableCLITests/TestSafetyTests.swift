@@ -39,6 +39,18 @@ final class TestSafetyTests: XCTestCase {
         XCTAssertNotNil(TestSafety.keychainViolation(service: BotTokens.service(store: URL(fileURLWithPath: "/tmp/s"), name: "mira")))
     }
 
+    /// The Bin: a guarded run never reaches the real one — no seam, no move; the seam takes only a scratch folder.
+    func testTheBinIsTheTestsOwnAndTakesOnlyAScratchFolder() {
+        let g = ["DOZ_TEST_GUARD": "1"]
+        XCTAssertNotNil(TestSafety.trashViolation(folder: "/tmp/x", env: g), "no DOZ_TEST_TRASH_DIR: refused")
+        let seam = g.merging(["DOZ_TEST_TRASH_DIR": "/tmp/bin"]) { a, _ in a }
+        XCTAssertEqual(TestSafety.trashDirectory(seam), "/tmp/bin")
+        XCTAssertNil(TestSafety.trashViolation(folder: "/private/tmp/work", env: seam))
+        XCTAssertNil(TestSafety.trashViolation(folder: "/private/var/folders/ab/T/work", env: seam))
+        XCTAssertNotNil(TestSafety.trashViolation(folder: "/Users/someone/Documents", env: seam), "never a person's folder")
+        XCTAssertNil(TestSafety.trashDirectory(["DOZ_TEST_TRASH_DIR": "/tmp/bin", "DOZ_TEST_REAL_MAC": "1"]), "unguarded: the real Bin")
+    }
+
     func testEnforceIsSilentWhenNotGuardedOrNothingIsWrong() {
         TestSafety.enforce(nil, env: ["DOZ_TEST_GUARD": "1"])
         TestSafety.enforce("anything", env: ["DOZ_TEST_REAL_MAC": "1"])

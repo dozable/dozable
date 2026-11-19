@@ -141,6 +141,14 @@ public enum WebAction: Equatable, Sendable {
     case workerAdd(WorkerRequest)
     /// `doz worker end W NAME` (confirmed with its name; never `--rm` from a browser).
     case workerEnd(workspace: String, name: String)
+    /// A workspace's lifecycle — this Mac's own browser only (`isLifecycle`, `WebExposure.decideLifecycleAction`), whatever the
+    /// serve settings: each stops, starts or removes what the workspace holds, posts as you (an archive's rooms) or hands a
+    /// bot's token to a program again. Each is exactly the CLI's HostOp — `workspace-stop`, `-sleep`, `-wake`, `-finish`,
+    /// `-reopen`, `-archive`, `-restore`, `-delete` — with the plan's sha the page showed (`ifPlan`: a workspace changed since
+    /// is refused, nothing done) and `confirmRequired`: the daemon checks an archive's or a delete's typed name (`confirm`)
+    /// and the "acts as you" confirmation of an unfenced manager's wake (`actsAsYou`). Archive: `removeSandboxes?`,
+    /// `keepTemplates?`; delete: `removeSandboxes?`, `binFolders?` — nothing on disk goes without them.
+    case workspaceLifecycle(WorkspaceVerb, WorkspaceRequest)
 
     public static let lifecycleOps: [String: HostOp] = [
         "start": .start, "wake": .wake, "pause": .pause, "resume": .resume, "sleep": .sleep, "hibernate": .hibernate,
@@ -164,7 +172,8 @@ public enum WebAction: Equatable, Sendable {
              .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges,   // this Mac is no sandbox
              .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart,   // nor is a workspace
              .botNew, .botSet, .botRetire, .botAdopt, .botToken,                          // nor is a bot
-             .workerAdd, .workerEnd:                                                      // nor a worker (its place is the daemon's)
+             .workerAdd, .workerEnd,                                                      // nor a worker (its place is the daemon's)
+             .workspaceLifecycle:
             return nil
         }
     }
@@ -194,6 +203,11 @@ public enum WebAction: Equatable, Sendable {
         switch self { case .botNew, .botSet, .botRetire, .botAdopt, .botToken: true; default: false }
     }
 
+    /// A workspace's lifecycle verb: this Mac's own browser only (`WebExposure.decideLifecycleAction`).
+    public var isLifecycle: Bool {
+        if case .workspaceLifecycle = self { true } else { false }
+    }
+
     /// A worker added or ended: this Mac's own browser only (`WebExposure.decideWorkerAction`).
     public var isWorker: Bool {
         switch self { case .workerAdd, .workerEnd: true; default: false }
@@ -216,6 +230,8 @@ public enum WebAction: Equatable, Sendable {
         // A worker ended: its name, ticked. An unfenced worker added: the word `unfenced` — it acts as you, ticked.
         case .workerEnd(_, let n): n
         case .workerAdd(let q) where q.isolation == "unfenced": WebWorkerAdd.unfencedConfirmation
+        // An archive or a delete: the workspace's name as the person typed it (the daemon checks it too).
+        case .workspaceLifecycle(let v, let w) where v.confirm == .typed: w.name
         default: nil
         }
     }
@@ -278,6 +294,7 @@ public enum WebAction: Equatable, Sendable {
         case .botToken(let n): return "a new token for \(n)"
         case .workerAdd(let q): return "add \(q.name ?? q.fromBot ?? "a worker") to \(q.workspace ?? "?")"
         case .workerEnd(let w, let n): return "end \(n) in \(w)"
+        case .workspaceLifecycle(let v, let w): return "\(v.rawValue) \(w.name ?? "?")"
         default: break
         }
         let r = hostRequest
@@ -525,6 +542,13 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.workerEnd)
             r.workerRequest = WorkerRequest(workspace: w, name: n)
             return r
+        case .workspaceLifecycle(let v, let w):
+            // What `doz workspace VERB W --if-plan SHA [flags]` sends, plus the confirmations the daemon then requires.
+            var e = w
+            e.confirmRequired = true
+            var r = HostRequest(v.hostOp)
+            r.workspaceRequest = e
+            return r
         }
     }
 
@@ -604,6 +628,14 @@ public enum WebAction: Equatable, Sendable {
             "bot-token": ["name", "confirm"],
             "worker-add": WebWorkerAdd.fields,
             "worker-end": ["workspace", "name", "confirm"],
+            "workspace-stop": ["workspace", "ifPlan"],
+            "workspace-sleep": ["workspace", "ifPlan"],
+            "workspace-wake": ["workspace", "ifPlan", "actsAsYou"],
+            "workspace-finish": ["workspace", "ifPlan"],
+            "workspace-reopen": ["workspace", "ifPlan"],
+            "workspace-archive": ["workspace", "ifPlan", "removeSandboxes", "keepTemplates", "confirm"],
+            "workspace-restore": ["workspace", "ifPlan"],
+            "workspace-delete": ["workspace", "ifPlan", "removeSandboxes", "binFolders", "confirm"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -865,6 +897,17 @@ public enum WebAction: Equatable, Sendable {
             a = .workerAdd(try WebWorkerAdd.decode(f, forPlan: false))
         case "worker-end":
             a = .workerEnd(workspace: try f.workspaceName("workspace"), name: try f.botName("name"))
+        case "workspace-stop", "workspace-sleep", "workspace-wake", "workspace-finish", "workspace-reopen", "workspace-archive",
+             "workspace-restore", "workspace-delete":
+            guard let v = WorkspaceVerb(rawValue: String(verb.dropFirst("workspace-".count))) else { throw Invalid("unknown action") }
+            var w = WorkspaceRequest(name: try f.workspaceName("workspace"))
+            w.ifPlan = try f.required(f.matching("ifPlan", "^[0-9a-f]{16}$", "the plan's sha as shown, 16 lower-case hex digits"), "ifPlan")
+            w.removeSandboxes = try f.bool("removeSandboxes") == true ? true : nil
+            w.keepTemplates = try f.bool("keepTemplates") == false ? false : nil
+            w.binFolders = try f.bool("binFolders") == true ? true : nil
+            w.unfencedConfirmed = try f.flag("actsAsYou") == true ? true : nil
+            w.confirm = try f.string("confirm", max: 40)
+            a = .workspaceLifecycle(v, w)
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }
             a = .lifecycle(op, name: try f.sandbox("sandbox"))

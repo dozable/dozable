@@ -1777,6 +1777,37 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   </div></div>
 </section>
 
+<section id="sg-lifecycle">
+  <h2>A workspace's lifecycle — the primary button, the plan's dialog, the typed name, a transitional pill</h2>
+  <p>The title row's one primary button by state (Start, Sleep, Wake, Reopen, Restore) and the ⋯ menu's Stop the manager · Sleep everything ·
+    Wake everything · — · Finish… · Archive… · Delete… (<code>components/ws-lifecycle.js</code>). Each opens a dialog drawn from its plan
+    (<code>.wl-plan</code>): the table (<code>.wl-table</code>, a changing row <code>.is-changing</code>; below 760 px each row a card), Kept and Goes
+    with sizes (<code>.wl-lists</code>, <code>.wl-size</code>), the queue (<code>.wl-queue</code>), Show the command (<code>.wl-cmd</code>), the ticks
+    (<code>.wl-tick</code>, never preselected) and, for archive and delete, the name typed (<code>.wl-typed</code>). While its operation runs the pill
+    says what it is doing (<code>.pill.is-transitional</code>). Home's next column carries the same button (<code>.hm-next-acts</code>).</p>
+  <div class="pair"><div class="scheme">
+    <div class="ws-head"><h1 class="ws-name">launch-video</h1><span class="pill ws-idle"><i data-i="pause"></i>idle</span>
+      <span class="pill ws-idle is-transitional"><span class="mini-spin" aria-hidden="true"></span>sleeping…</span><span class="ws-sp"></span>
+      <button type="button" class="btn sm primary"><i data-i="moon"></i>Sleep</button></div>
+    <div class="wl-body">
+      <p class="wl-state">launch-video is idle now.</p>
+      <div class="wl-plan">
+        <table class="wl-table"><thead><tr><th>Agent</th><th>Now</th><th>After</th><th>Back</th></tr></thead><tbody>
+          <tr class="wl-row is-changing"><td><b>mira</b><span class="wl-sub">manager · @mac/launch-video · fenced</span></td><td>running · idle</td><td>ended, its conversation kept</td><td>resumes its conversation</td></tr>
+          <tr class="wl-row is-changing"><td><b>bot3</b><span class="wl-sub">worker · video-render · micro VM</span></td><td>running · working</td><td>hibernated: its memory given back</td><td>the same sessions and screens</td></tr>
+          <tr class="wl-row"><td><b>far</b><span class="wl-sub">worker · laptop · elsewhere</span></td><td>elsewhere</td><td>untouched</td><td>runs on its own machine; Dozable cannot sleep it</td></tr>
+        </tbody></table>
+        <div class="wl-lists"><div class="wl-keeps"><h3>Kept</h3><ul><li class="wl-item"><span>every conversation, screen and disk</span></li></ul></div>
+          <div class="wl-goes"><h3>Goes</h3><ul><li class="wl-item"><span>memory given back</span><span class="wl-size">4.3 GB</span></li></ul></div></div>
+        <p class="wl-queue muted"><i data-i="hourglass"></i>at most 3 agents change at once (ui.batch_concurrency); the others wait their turn — queued, N ahead</p>
+        <details class="wl-cmd"><summary>Show the command</summary></details>
+      </div>
+      <div class="wl-extras"><label class="field check wl-tick"><input type="checkbox"><span>Also free 6.2 GB: remove the sandboxes Dozable made for it<small>A template of each is kept first; adopted sandboxes are never removed</small></span></label>
+        <label class="field wl-typed"><span>Type launch-video to archive it</span><input type="text" placeholder="launch-video"></label></div>
+    </div>
+  </div></div>
+</section>
+
 <section id="sg-isolation-guide">
   <h2>Where an agent runs — the isolation guide, and the chip that leads there</h2>
   <p><code>#/guide/isolation[/vm|fenced|unfenced|elsewhere]</code> (<code>views/isolation-guide.js</code>; the words are <code>core/isolation.js</code>'s):

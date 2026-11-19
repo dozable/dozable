@@ -5,7 +5,9 @@ states it can be in — running, paused, asleep, hibernated, shut down — and m
 the background **daemon** that runs them all.
 
 A sandbox can also be adopted into a workspace, with other agents, a room and a brief — see
-[Workspaces](37-workspaces.md); adopting it changes nothing of the sandbox itself.
+[Workspaces](37-workspaces.md); adopting it changes nothing of the sandbox itself. A workspace's `doz workspace sleep`
+hibernates its sandboxes (the same as `doz hibernate`, all at once) and `wake` wakes them; `finish` shuts them down, keeping
+their disks — a workspace never removes a sandbox unless you say so (`--remove-sandboxes`, and never one you adopted).
 
 ## Concepts
 

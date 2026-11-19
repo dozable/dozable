@@ -12,6 +12,15 @@ public protocol WorkspaceChat: Sendable {
     func post(room: String, content: String) throws
     /// Invite a participant to `room` as you; false: it was a member already.
     @discardableResult func invite(room: String, name: String) throws -> Bool
+    /// Archive `room` as you (read-only, its history kept) or open it again; false: it was so already.
+    @discardableResult func setArchived(room: String, _ on: Bool) throws -> Bool
+}
+
+extension WorkspaceChat {
+    /// A chat that cannot archive (a test's that does not need to).
+    @discardableResult public func setArchived(room: String, _ on: Bool) throws -> Bool {
+        throw HostError(.notImplemented, "this chat cannot archive a room")
+    }
 }
 
 public enum WorkspaceChatReadiness: Equatable, Sendable {
@@ -32,6 +41,7 @@ public struct OwnerWorkspaceChat: WorkspaceChat {
     }
     public func post(room: String, content: String) throws { try owner.post(room: room, content: content) }
     @discardableResult public func invite(room: String, name: String) throws -> Bool { try owner.invite(room: room, name: name) }
+    @discardableResult public func setArchived(room: String, _ on: Bool) throws -> Bool { try owner.setArchived(room: room, on) }
 }
 
 /// What `workspace-new` would write (`HostCore.workspaceNewDraft`).
@@ -73,6 +83,8 @@ extension HostCore {
             return try JSONValue(encoding: try workspaces.log(n, since: w.since))
         case .workspacePlan:
             return try JSONValue(encoding: await workspacePlan(w))
+        case .workspaceLifecyclePlan:
+            return try JSONValue(encoding: try await workspaceLifecyclePlan(w))
         default:
             break
         }
@@ -80,6 +92,7 @@ extension HostCore {
         // Start and stop take the gate themselves: the check under `workspaces`, the launch under `workspace:NAME`.
         if r.op == .workspaceStart { return try JSONValue(encoding: try await workspaceStart(w)) }
         if r.op == .workspaceStop { return try JSONValue(encoding: try await workspaceStop(w)) }
+        if let verb = WorkspaceVerb(op: r.op) { return try JSONValue(encoding: try await workspaceLifecycle(verb, w)) }
         await workspaceGate.lock("workspaces")
         defer { workspaceGate.unlock("workspaces") }
         switch r.op {
@@ -672,8 +685,9 @@ extension HostCore {
         await workspaceGate.lock("workspaces")
         defer { workspaceGate.unlock("workspaces") }
         let ws = workspaces
-        // A worker's entry stays (`doz worker end` ends it; a sandbox deleted by `--rm` is its own).
-        guard let n = ws.membership()["sandbox:" + name], var rec = try? ws.read(n),
+        // A worker's entry stays (`doz worker end` ends it; a sandbox deleted by `--rm` is its own); so does the agent of a
+        // sandbox the workspace's own lifecycle removes (an archive or a delete with --remove-sandboxes).
+        guard !lifecycleRemoving.contains(name), let n = ws.membership()["sandbox:" + name], var rec = try? ws.read(n),
               let i = rec.agents.firstIndex(where: { $0.place.sandbox == name && !$0.isWorker }) else { return }
         let gone = rec.agents.remove(at: i)
         do {

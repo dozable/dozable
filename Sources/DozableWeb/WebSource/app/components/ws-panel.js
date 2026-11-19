@@ -41,7 +41,7 @@ function phase(s) {
   return ['running', 'booting', 'paused', 'asleep', 'hibernated', 'off', 'failed', 'ended'].includes(s) ? s : 'off';
 }
 
-function agentRow(w, a) {
+function agentRow(w, a, asleep) {
   // Its screen in the workspace (#/w/NAME/agent/AGENT): its sandbox's or its session's page, framed.
   const href = agentHash(w, a.name);
   const name = h('a', { href, class: 'ws-agent-name', title: 'Open its screen — ' + (a.kind === 'sandbox' ? 'its sandbox' : a.kind === 'mac' ? 'its session on this Mac' : 'where it runs') }, a.name);
@@ -49,7 +49,8 @@ function agentRow(w, a) {
   return h('li', { class: 'ws-agent', 'data-ws-agent': a.name, 'data-iso': iso },
     h('span', { class: 'ph-dot ph-' + phase(a.state), role: 'img', 'aria-label': a.state + (a.activity ? ' · ' + a.activity : '') }),
     h('div', { class: 'ws-agent-body' },
-      h('div', { class: 'ws-agent-top' }, name, h('span', { class: 'ws-agent-role' }, a.role + (a.activity ? ' · ' + a.activity : a.state === 'running' ? '' : ' · ' + a.state))),
+      h('div', { class: 'ws-agent-top' }, name, h('span', { class: 'ws-agent-role' }, a.role + (a.activity ? ' · ' + a.activity : a.state === 'running' ? ''
+        : asleep && a.state !== 'elsewhere' && a.state !== 'gone' ? ' · asleep · resumes on wake' : ' · ' + a.state))),
       h('div', { class: 'ws-agent-chips' },
         isolationChip(iso),
         a.actsAsYou ? h('span', { class: 'ws-chip acts-as-you', title: 'Unfenced on this Mac: it acts as you' }, icon('triangle-alert'), 'acts as you') : null),
@@ -67,9 +68,9 @@ export function wsPanel(o) {
   const agents = h('section', { class: 'ws-box', 'aria-label': 'Agents' },
     h('h2', { class: 'ws-box-h' }, icon('bot'), h('a', { href: agentsHash(d.name), class: 'ws-box-link', title: 'The Agents tab' }, 'Agents'),
       h('span', { class: 'ws-box-n' }, String(d.agents.length))),
-    d.agents.length ? h('ul', { class: 'ws-agents' }, ...managers.map((a) => agentRow(d.name, a)), ...adopted.map((a) => agentRow(d.name, a))) : h('p', { class: 'muted' }, 'No agent yet.'),
+    d.agents.length ? h('ul', { class: 'ws-agents' }, ...managers.map((a) => agentRow(d.name, a, d.state === 'asleep')), ...adopted.map((a) => agentRow(d.name, a, d.state === 'asleep'))) : h('p', { class: 'muted' }, 'No agent yet.'),
     workers.length ? h('div', { class: 'ws-sub' }, 'Workers — in ' + (o.mainRoom ? '# ' + o.mainRoom : 'the main room')) : null,
-    workers.length ? h('ul', { class: 'ws-agents' }, ...workers.map((a) => agentRow(d.name, a))) : null,
+    workers.length ? h('ul', { class: 'ws-agents' }, ...workers.map((a) => agentRow(d.name, a, d.state === 'asleep'))) : null,
     d.hidden ? h('p', { class: 'muted ws-hidden' }, d.hidden + ' on this Mac not shown to this browser (serve.mac_sessions).') : null,
     h('div', { class: 'ws-box-acts' }, add));
   const folders = h('section', { class: 'ws-box', 'aria-label': 'Folders' },

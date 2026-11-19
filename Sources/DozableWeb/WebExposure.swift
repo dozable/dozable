@@ -116,6 +116,12 @@ public enum WebExposure {
     /// as you), an end revokes a token. Another computer is shown the command instead; its attempt is one audit line.
     public static func decideWorkerAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyWorkers : nil }
 
+    /// A workspace's lifecycle (`workspace-stop` … `workspace-delete`) for `who`: this Mac's own browser only, whatever
+    /// `serve.chat` or `serve.mac_sessions` say — each stops, starts or removes what the workspace holds, archives its rooms as
+    /// you, or hands a bot's token to a program again. Another computer is shown the command instead; its attempt is one
+    /// audit line. Its plan route is `mac-screen`.
+    public static func decideLifecycleAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyLifecycle : nil }
+
     /// 683 M5: a conversation exported (its whole text) — another computer only with `serve.mac_sessions = interactive`
     /// (watching shows screens, never a session's history).
     public static func decideMacExport(_ who: Principal, _ allowed: MacSessions) -> WebRejection? { decideMacAction(who, allowed) }
@@ -148,8 +154,10 @@ public enum WebExposure {
                                         // Open in Terminal opens a window here): another computer never gets the route
              .workspacePlan,            // the New workspace wizard's plan — it shows this Mac's folders and bots, and a
                                         // workspace is made only from this Mac: another computer never gets the route
-             .workerPlan:               // the Add a worker page's plan — it shows this Mac's bots, sessions and folders, and a
+             .workerPlan,               // the Add a worker page's plan — it shows this Mac's bots, sessions and folders, and a
                                         // worker is added only from this Mac: another computer never gets the route
+             .workspaceLifecyclePlan:   // a lifecycle verb's plan — this Mac's agents, sessions and folders; the verbs are this
+                                        // Mac's own browser's: another computer never gets the route
             return .macScreen
         case .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename:
             return .devices

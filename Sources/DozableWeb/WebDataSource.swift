@@ -129,6 +129,9 @@ public protocol DozableWebData: Sendable {
     /// The Add a worker page's plan (`worker-plan` — `WebWorkerAdd.planRequest`): nothing written; in-process when no daemon
     /// runs.
     func workerPlan(_ q: WorkerRequest) async throws -> WorkerPlan
+    /// A lifecycle verb's plan (`workspace-lifecycle-plan` — `WebWorkspaceLifecycle.planRequest`): nothing written; in-process
+    /// when no daemon runs.
+    func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan
     /// The workspaces and the loose agents (`workspace-ls`; `loose`: `--loose`), a workspace (`workspace-show`), the Agents /
     /// Bots (`bot-ls`) — each the request `WebWorkspaceReads.request(for:)` builds; in-process when no daemon runs.
     func workspaces(loose: Bool) async throws -> WorkspaceListing
@@ -167,6 +170,7 @@ extension DozableWebData {
     public func macSessionPlan(_ r: WebMacPlanRequest) async throws -> WebMacPlan { throw HostError(.notImplemented, "session plan") }
     public func workspacePlan(_ w: WorkspaceRequest) async throws -> WorkspacePlan { throw HostError(.notImplemented, "workspaces") }
     public func workerPlan(_ q: WorkerRequest) async throws -> WorkerPlan { throw HostError(.notImplemented, "workers") }
+    public func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan { throw HostError(.notImplemented, "workspaces") }
     public func workspaces(loose: Bool) async throws -> WorkspaceListing { throw HostError(.notImplemented, "workspaces") }
     public func workspace(_ name: String) async throws -> WorkspaceDetail { throw HostError(.notImplemented, "workspaces") }
     public func workspaceBrief(_ name: String) async throws -> WorkspaceDetail { throw HostError(.notImplemented, "workspaces") }
@@ -546,6 +550,10 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func workerPlan(_ q: WorkerRequest) async throws -> WorkerPlan {
         try await query(WebWorkerAdd.planRequest(q)).0.decode(WorkerPlan.self)
+    }
+
+    public func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan {
+        try await query(WebWorkspaceLifecycle.planRequest(w)).0.decode(WorkspaceLifecyclePlan.self)
     }
 
     public func workspace(_ name: String) async throws -> WorkspaceDetail {

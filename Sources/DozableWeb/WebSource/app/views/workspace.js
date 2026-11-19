@@ -1,6 +1,8 @@
 // views/workspace — A workspace's page (#/w/NAME: its main room; #/w/NAME/room/LABEL: another of its rooms;
 // #/w/NAME/agents: its Agents tab, views/ws-agents.js): the room comes first. A section of its own (#ws), built once: the
-// title row (its name, state, who drives, its manager, ⋯ with the commands that start or stop it — never an action here),
+// title row (its name, state, who drives, its manager, one primary button by state — Start, Sleep, Wake, Reopen, Restore —
+// and ⋯ with its lifecycle: Stop the manager, Sleep and Wake everything, Finish…, Archive…, Delete…, each a dialog drawn from
+// its plan — components/ws-lifecycle.js),
 // the tabs (Room and Agents work; the others say what they will hold), the brief ("The work", components/ws-brief.js), the room — THE chat surface of the Chat page, moved here
 // (views/chat.js mountChat) and scoped to this workspace's rooms, its log's lines drawn among the messages — and the side
 // panel (components/ws-panel.js). Read on arrival, hello, `changed` and an operation's end — never on a timer.
@@ -22,9 +24,11 @@ import { newWorkspaceRefusal } from './new-workspace.js';
 import { briefCard } from '../components/ws-brief.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks.js';
 import { renderNavWorkspaces } from '../components/ws-nav.js';
+import { lifecycleItems, primaryButton, transitional } from '../components/ws-lifecycle.js';
 import { agentMeta, wsPanel } from '../components/ws-panel.js';
 import { chatRefresh, mountChat } from './chat.js';
 import { drawSys } from './chat-messages.js';
+import { openRoom, refreshState } from './chat-rooms.js';
 import { agentsTab } from './ws-agents.js';
 
 /// The permissions tab's name — ONE constant (the owner's choice; every place that names the tab reads it).
@@ -211,23 +215,40 @@ function jump(edit) {
   setTimeout(() => next.classList.remove('is-flash'), 1600);
 }
 
+/// A lifecycle verb ended: the workspace read again (a deleted one leaves for Home), the sidebar and Home follow.
+async function lifecycleDone(end) {
+  const name = cur && cur.name;
+  await loadWorkspaces(0).catch(() => null);
+  renderNavWorkspaces();
+  if (end && /^workspace-delete$/.test(end.action || '') || (name && state.workspaces && !state.workspaces.workspaces.some((w) => w.name === name))) {
+    location.hash = '#/home';
+    return;
+  }
+  await wsRefresh();
+  // An archive or a restore changed what its room is: the chat server's state read again, the room shown as it now is
+  // (the archived notice, the composer off — or back on).
+  if (cur && cur.tab !== 'agents' && state.chat.room) { await refreshState(); await openRoom(state.chat.room); }
+}
+
 function draw() {
   const d = cur.detail, started = !!d.startedAt;
-  // The title row: name, state, who drives, its manager, ⋯ (the commands — start and stop are the CLI's here).
+  // The title row: name, state (or what a lifecycle operation is doing to it), who drives, its manager, the one primary
+  // button its state offers, ⋯ (the lifecycle — each a dialog drawn from its plan).
   const manager = d.agents.find((a) => a.role === 'manager');
-  const items = [];
-  if (d.state === 'setting-up') items.push({ label: 'Copy: doz workspace start ' + d.name, icon: 'copy', desc: 'Starts the work once it is fully set up',
-    onSelect: () => copy('doz workspace start ' + d.name) });
-  if (manager) items.push({ label: 'Copy: doz workspace stop ' + d.name, icon: 'copy', desc: 'Stops its manager; its conversation is kept',
-    onSelect: () => copy('doz workspace stop ' + d.name) });
+  const items = lifecycleItems(d, lifecycleDone);
   if (d.notes.length) { items.push({ sep: true }, { heading: 'Not set up yet' }); for (const n of d.notes) items.push({ label: n, disabled: true, why: 'doz workspace show ' + d.name }); }
   items.push({ sep: true }, { label: 'Copy: doz workspace show ' + d.name, icon: 'copy', onSelect: () => copy('doz workspace show ' + d.name) });
   const more = menuButton(h('button', { type: 'button', class: 'btn quiet icon-only', 'aria-label': 'More for ' + d.name, title: 'More for ' + d.name }, icon('ellipsis')),
     items, { label: 'More for ' + d.name, align: 'end' }).el;
   const managerRow = manager ? { bot: manager.bot || manager.name, isolation: manager.isolation || 'fenced', actsAsYou: manager.actsAsYou, state: manager.state,
     words: (manager.bot || manager.name) + ' (' + (manager.actsAsYou ? 'unfenced · acts as you' : manager.isolation || 'fenced') + ')' } : null;
-  $('ws-head').replaceChildren(...[h('h1', { class: 'ws-name' }, d.name), workspacePill(d.state, d.words), driverChip(d.driver),
-    managerRow ? managerChip(managerRow) : null, h('span', { class: 'ws-sp' }), more].filter(Boolean));
+  const primary = d.state === 'setting-up'
+    ? h('button', { type: 'button', class: 'btn sm primary', 'data-ws-primary': 'start', disabled: newWorkspaceRefusal() || (d.gaps || []).length || starting ? true : null,
+      title: newWorkspaceRefusal() ? 'A workspace is started only in this Mac’s own browser, or with doz workspace start in a terminal on the Mac'
+        : (d.gaps || []).length ? startsOnce(d.gaps) : 'Post the brief as your first message and start the work', on: { click: () => startWorkspace(d) } }, icon('play'), 'Start')
+    : primaryButton(d, lifecycleDone);
+  $('ws-head').replaceChildren(...[h('h1', { class: 'ws-name' }, d.name), workspacePill(d.state, d.words, transitional(d.name)), driverChip(d.driver),
+    managerRow ? managerChip(managerRow) : null, h('span', { class: 'ws-sp' }), primary, more].filter(Boolean));
   // The notices: setting up (what is missing, the command), a room address that names no room, no room at all.
   const notes = [];
   if (cur.missing) notes.push(callout('warn', { compact: true, attrs: { 'data-ws-missing': '' }, body: cur.missing + ' — this is its main room.' }));

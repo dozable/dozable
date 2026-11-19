@@ -614,6 +614,8 @@ final class WebOperations: @unchecked Sendable {
             return "added \(w.name) to \(r.workspace) (\(iso)) \(place) — it says in the room when it is up"
         case .workerEnd(let w, let n):
             return "ended \(n) in \(w)" + ((try? v.decode(WorkerEnded.self))?.notes.map { $0.isEmpty ? "" : " — " + $0.joined(separator: "; ") } ?? "")
+        case .workspaceLifecycle(let verb, let w):
+            return Self.lifecycleSummary(verb, w.name ?? "?", v)
         case .macSessionBridges(let session, _, _, _):
             return (try? v.decode(SessionBridges.self))?.changed.map { "session \(session) on this Mac: \($0) — from the next one" }
                 ?? "session \(session) on this Mac: bridges unchanged"
@@ -641,6 +643,32 @@ final class WebOperations: @unchecked Sendable {
             return s
         case .resourcesKernel:
             return (try? v.decode(ResourceKernelChoice.self)).map { "new sandboxes boot \($0.kernel) — existing ones keep theirs" } ?? "kernel chosen"
+        }
+    }
+
+    /// A lifecycle verb's line, written from its answer: what became of the workspace and of each agent that did not reach
+    /// its target (a partial failure is the operation's error, said where it was started).
+    static func lifecycleSummary(_ verb: WorkspaceVerb, _ n: String, _ v: JSONValue) -> String {
+        if verb == .stop {
+            guard let s = try? v.decode(WorkspaceStopped.self) else { return "stopped the manager of \(n)" }
+            return s.stopped ? "stopped \(s.manager ?? "the manager") of \(n) — its conversation is kept" : (s.notes?.first ?? "nothing to stop in \(n)")
+        }
+        let c = try? v.decode(WorkspaceChanged.self)
+        let count = c.map { $0.results.count } ?? 0
+        let agents = count == 0 ? "" : " (\(count) agent\(count == 1 ? "" : "s"))"
+        switch verb {
+        case .stop: return "stopped the manager of \(n)"
+        case .sleep: return "\(n) is asleep\(agents) — it stays asleep until you wake it"
+        case .wake: return "\(n) is awake\(agents)"
+        case .finish: return "\(n) is finished\(agents) — its room and tokens are kept"
+        case .reopen: return "\(n) is reopened — asleep until you wake it"
+        case .archive:
+            let t = c?.templates.map { " — templates kept: " + $0.values.sorted().joined(separator: ", ") } ?? ""
+            return "\(n) is archived — its rooms are read-only" + t
+        case .restore: return "\(n) is restored — finished; reopen it to work on it again"
+        case .delete:
+            let b = c?.binned.map { " — \($0.count) folder\($0.count == 1 ? "" : "s") moved to the Bin" } ?? " — its folders are untouched"
+            return "\(n) is deleted" + b
         }
     }
 
