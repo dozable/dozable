@@ -1,7 +1,7 @@
 // views/this-mac — This Mac (#/mac): everything shared by every workspace, one line per page — what runs, its sessions and
-// sandboxes, the loose agents, templates, images, accounts, resources, logs, Doctor, the chat server, devices, settings,
-// the daemon. Built only from what the page reads anyway (the overview, the sessions on this Mac, the accounts, the
-// operations, chat's status) plus the loose agents; nothing is measured or checked on arrival (Resources, Doctor).
+// sandboxes, the loose agents, templates, images, accounts, resources, logs, Doctor, the chat server, devices, your other
+// Macs, settings, the daemon. Built only from what the page reads anyway (the overview, the sessions on this Mac, the accounts, the
+// operations, chat's status) plus the loose agents and Your Macs (as last recorded — no Mac is called); nothing is measured or checked on arrival (Resources, Doctor).
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
@@ -25,6 +25,8 @@ export async function viewThisMac() {
   try { mac = (await api('mac/sessions')).sessions || []; } catch (_) { /* another computer that may not see them */ }
   let loose = null;
   try { loose = await loadLoose(0); } catch (_) { /* said below */ }
+  let macs = null;
+  try { macs = (await api('macs')).macs.filter((m) => m.origin !== location.origin); } catch (_) { /* said below */ }
   const live = mac ? mac.filter((s) => s.state === 'running') : [];
   const fenced = live.filter((s) => s.fenced).length, open = live.length - fenced;
   const broken = state.accounts && o ? brokenCount(state.accounts, sbx) : 0;
@@ -50,6 +52,9 @@ export async function viewThisMac() {
     row(chat && chat !== 'off' && chat !== 'remote' ? '#/chat' : null, 'message-square', 'The chat server',
       chat === null ? 'not read yet' : chat === 'remote' ? 'not shared with this browser' : chat === 'off' ? 'off — doz chat on turns it on' : chat),
     row('#/mac/devices', 'user-round', 'Devices', 'the dashboard on your other computers, tablets and phones'),
+    row('#/mac/macs', 'laptop', 'Your Macs' + (macs ? ' (' + macs.length + ')' : ''),
+      macs ? (macs.length ? 'the other Macs “Dozable · …” opens: ' + macs.slice(0, 4).map((m) => m.name).join(' · ') + (macs.length > 4 ? ' …' : '')
+        : 'none yet — doz ui macs add NAME ADDRESS') : 'could not be listed'),
     row('#/mac/settings', 'settings', 'Settings', 'every setting, searchable'),
     row(null, 'power', 'The daemon', host ? (host.running ? 'running · doz ' + (host.version || '?') : 'not running') : '—', hostAction(host)),
   ];

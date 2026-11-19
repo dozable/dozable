@@ -7,12 +7,15 @@ import { icon, iconFor } from '../dom/icons.js';
 // (or above) the button and kept on screen. Arrow keys, Home/End move; Escape (or Tab) closes and gives the
 // focus back; a click outside closes. Items:
 //   { label, icon, desc, danger, disabled, why, check, data: {k: v}, onSelect }  ·  { sep: true }  ·  { heading }
+//   · a LINK: { href, target, rel, label, icon | lead, extra, desc, trail, data } — a real <a role="menuitem"> (the machine
+//     picker: another Mac's dashboard in a new tab); choosing it closes the menu and the browser follows the link itself.
 // A disabled item stays visible and says why (its `why` is its description line).
 const menus = new Set();
 function menuItemsNodes(items, close) {
   return items.filter(Boolean).map((it) => {
     if (it.sep) return h('div', { class: 'menu-sep', role: 'separator' });
     if (it.heading) return h('div', { class: 'menu-label' }, it.heading);
+    if (it.href) return menuLink(it, close);
     const attrs = { type: 'button', role: 'menuitem', tabindex: '-1', class: 'menu-item' + (it.danger ? ' danger' : '') };
     for (const [k, v] of Object.entries(it.data || {})) attrs['data-' + k] = v;
     // The one-line description (or why it is disabled) is drawn by CSS from data-desc, so an item's text is
@@ -27,6 +30,20 @@ function menuItemsNodes(items, close) {
     return b;
   });
 }
+/// A link item: an <a> with the menu item's look — its lead (a node, else the icon), its label then `extra` (nodes), its
+/// description line from data-desc, `trail` at the end. A new tab never gets this page as its opener or its referrer.
+function menuLink(it, close) {
+  const attrs = { href: it.href, role: 'menuitem', tabindex: '-1', class: 'menu-item menu-link' };
+  if (it.target) { attrs.target = it.target; attrs.rel = it.rel || 'noopener noreferrer'; attrs.referrerpolicy = 'no-referrer'; }
+  else if (it.rel) attrs.rel = it.rel;
+  for (const [k, v] of Object.entries(it.data || {})) attrs['data-' + k] = v;
+  if (it.desc) { attrs['data-desc'] = it.desc; attrs['aria-description'] = it.desc; }
+  const a = h('a', attrs, it.lead || icon(it.icon || iconFor(it.label)),
+    h('span', { class: 'mi-label' }, it.label, ...(it.extra || [])),
+    it.trail ? h('span', { class: 'menu-trail' }, it.trail) : null);
+  a.addEventListener('click', (ev) => { ev.stopPropagation(); close(false); });
+  return a;
+}
 /**
  * @typedef {object} MenuItem
  * @property {string} [label]
@@ -40,6 +57,12 @@ function menuItemsNodes(items, close) {
  * @property {(ev: MouseEvent) => void} [onSelect]
  * @property {boolean} [sep]        a separator
  * @property {string} [heading]     a heading
+ * @property {string} [href]        a link item (an <a>): its address
+ * @property {string} [target]      a link item: `_blank` for a new tab (with rel noopener noreferrer, no referrer)
+ * @property {string} [rel]
+ * @property {Node} [lead]          a link item: a node in place of the icon
+ * @property {Array<Node|string>} [extra]   a link item: after the label
+ * @property {Node|string} [trail]  a link item: at the end of the row
  * @typedef {object} MenuOptions
  * @property {string} [label]       the menu's aria-label (else the trigger's)
  * @property {HTMLElement} [wrap]   the element the menu goes in (else a span around the trigger)

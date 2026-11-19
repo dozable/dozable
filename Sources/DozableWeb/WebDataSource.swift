@@ -128,6 +128,8 @@ public protocol DozableWebData: Sendable {
     func workspaces(loose: Bool) async throws -> WorkspaceListing
     func workspace(_ name: String) async throws -> WorkspaceDetail
     func bots() async throws -> BotListing
+    /// Your Macs (`macs-ls` — `WebMacReads.request(for: .macs)`); in-process when no daemon runs.
+    func macs() async throws -> MacListing
 }
 
 extension DozableWebData {
@@ -154,6 +156,7 @@ extension DozableWebData {
     public func workspaces(loose: Bool) async throws -> WorkspaceListing { throw HostError(.notImplemented, "workspaces") }
     public func workspace(_ name: String) async throws -> WorkspaceDetail { throw HostError(.notImplemented, "workspaces") }
     public func bots() async throws -> BotListing { throw HostError(.notImplemented, "bots") }
+    public func macs() async throws -> MacListing { throw HostError(.notImplemented, "macs") }
     public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
     public func access(check: WebAccessCheck?) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
@@ -525,6 +528,10 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func bots() async throws -> BotListing {
         try await query(WebWorkspaceReads.request(for: .bots)!).0.decode(BotListing.self)
+    }
+
+    public func macs() async throws -> MacListing {
+        try await query(WebMacReads.request(for: .macs)!).0.decode(MacListing.self)
     }
 
     // MARK: 683 M5 — a fenced session's network, conversations, quarantine; the wizard's plan

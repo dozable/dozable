@@ -179,6 +179,8 @@ public enum WebRoute: Equatable, Sendable {
     case workspace(String)              // GET  /api/v1/workspaces/{w}    (workspace-show; the name checked before any call — 400)
     case loose                          // GET  /api/v1/loose             (workspace-ls --loose)
     case bots                           // GET  /api/v1/bots              (bot-ls)
+    // Your Macs (WebMacs.swift): a read only, exactly the read-only HostOp `doz ui macs ls` sends.
+    case macs                           // GET  /api/v1/macs              (macs-ls)
 
     public var isStatic: Bool {
         switch self { case .index, .asset, .terminalFrame, .offline, .serviceWorker: true; default: false }
@@ -293,6 +295,7 @@ public enum WebRoute: Equatable, Sendable {
             case "workspaces": return .workspaces
             case "loose": return .loose
             case "bots": return .bots
+            case "macs": return .macs
             default: return nil
             }
         case 2 where rest[0] == "workspaces":

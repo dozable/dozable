@@ -517,6 +517,30 @@ name: todo-app</pre></details>
 </section>
 
 <section>
+  <h2>The machine picker — Your Macs</h2>
+  <p>The brand row is a button (<code>components/mac-picker.js</code>): “Dozable · <i>this Mac</i> ▾”, the store below it; ▾ turns to ▴ while the menu
+    is open. The menu: this Mac first (not a link — “you are here”), then each Mac from <code>doz ui macs add</code> as a real link
+    (<code>&lt;a role="menuitem" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"&gt;</code> to its origin and <code>/</code>,
+    nothing else): a dot — filled when a check under 10 minutes ago found it —, the name, the host in mono, “plain HTTP” when it is, what the last
+    check found, Open; then Add a Mac… and Manage… (<code>#/mac/macs</code>). Closed and open, a reachable and an unreachable line:</p>
+  <div class="pair"><div class="scheme">
+    <div class="side-head" style="margin:0"><span class="brand-mark" aria-hidden="true">z</span><span class="menu-wrap brand-wrap"><button type="button" class="side-brand brand-picker" aria-haspopup="menu" aria-expanded="false"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac">· studio</span><span class="brand-caret" aria-hidden="true"><i data-i="chevron-down"></i></span></span><span class="brand-store">~/doz-store</span></button></span></div>
+    <div class="side-head" style="margin:var(--sp-4) 0 var(--sp-1)"><span class="brand-mark" aria-hidden="true">z</span><span class="menu-wrap brand-wrap is-open"><button type="button" class="side-brand brand-picker" aria-haspopup="menu" aria-expanded="true"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac">· studio</span><span class="brand-caret" aria-hidden="true"><i data-i="chevron-down"></i></span></span><span class="brand-store">~/doz-store</span></button></span></div>
+    <div class="menu mac-menu" role="menu" aria-label="Your Macs">
+      <button class="menu-item" type="button" role="menuitem" disabled data-mac-here data-desc="this Mac · you are here"><i data-i="check"></i><span class="mi-label">studio</span></button>
+      <div class="menu-sep" role="separator"></div>
+      <div class="menu-label">Your Macs</div>
+      <a class="menu-item menu-link" role="menuitem" href="#" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-desc="seen 3 min ago"><span class="mac-dot is-seen" aria-hidden="true"></span><span class="mi-label">mini<code class="mac-host">mini.example.ts.net</code></span><span class="menu-trail"><span class="mac-open">Open <i data-i="external-link"></i></span></span></a>
+      <a class="menu-item menu-link" role="menuitem" href="#" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-desc="couldn’t be reached at the last check: nothing answered · last seen 2 d ago · doz ui macs check air"><span class="mac-dot" aria-hidden="true"></span><span class="mi-label">air<code class="mac-host">air.local</code><span class="mac-tag">plain HTTP</span></span><span class="menu-trail"><span class="mac-open">Open <i data-i="external-link"></i></span></span></a>
+      <a class="menu-item menu-link" role="menuitem" href="#" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" data-desc="never checked"><span class="mac-dot" aria-hidden="true"></span><span class="mi-label">office<code class="mac-host">192.168.1.20</code><span class="mac-tag">plain HTTP</span></span><span class="menu-trail"><span class="mac-open">Open <i data-i="external-link"></i></span></span></a>
+      <div class="menu-sep" role="separator"></div>
+      <a class="menu-item menu-link" role="menuitem" href="#"><i data-i="plus"></i><span class="mi-label">Add a Mac…</span></a>
+      <a class="menu-item menu-link" role="menuitem" href="#"><i data-i="settings"></i><span class="mi-label">Manage…</span></a>
+    </div>
+  </div></div>
+</section>
+
+<section>
   <h2>The wizard modal and its step strip</h2>
   <p><code>wizHead(title, sub, actions, steps)</code> + a <code>form.wiz-card</code> (<code>.w-body</code> scrolls, <code>.w-foot</code> stays). Steps: done (a check), current (the accent circle), later (its number); below 720 px the circles only, with “Step N of M”.</p>
   <div class="pair"><div class="scheme">
@@ -958,7 +982,7 @@ name: todo-app</pre></details>
     <div style="display:flex;background:var(--bg)">
       <div class="side" style="position:static;height:auto;width:220px;flex:none">
         <div class="side-head"><button type="button" class="btn sm quiet icon-only nav-menu" aria-label="Collapse the sidebar"><i data-i="list"></i></button>
-          <span class="brand-mark" aria-hidden="true">z</span><span class="side-brand"><b class="brand-name">Dozable</b><span class="brand-store">~/doz-store</span></span></div>
+          <span class="brand-mark" aria-hidden="true">z</span><span class="menu-wrap brand-wrap"><button type="button" class="side-brand brand-picker" aria-haspopup="menu" aria-expanded="false"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac">· studio</span><span class="brand-caret" aria-hidden="true"><i data-i="chevron-down"></i></span></span><span class="brand-store">~/doz-store</span></button></span></div>
       </div>
       <div style="position:relative;flex:1;min-width:0;padding:var(--page-py) var(--page-px) 0">
         <div class="head page-title is-stuck" style="position:static"><h1>Images</h1><div class="actions"><button type="button" class="btn sm"><i data-i="refresh-cw"></i>Refresh</button></div></div>
@@ -1020,7 +1044,7 @@ name: todo-app</pre></details>
   <div class="pair"><div class="scheme">
     <header class="topbar" style="position:static;display:flex;width:390px;max-width:100%">
       <button type="button" class="btn sm quiet icon-only nav-menu" style="display:inline-flex" aria-label="Show the menu"><i data-i="list"></i></button>
-      <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b>
+      <span class="brand-mark" aria-hidden="true">z</span><span class="menu-wrap brand-wrap"><button type="button" class="brand-picker brand-top" aria-haspopup="menu" aria-expanded="false"><span class="brand-line"><b class="brand-name">Dozable</b><span class="brand-mac">· studio</span><span class="brand-caret" aria-hidden="true"><i data-i="chevron-down"></i></span></span></button></span>
       <span class="topbar-gap"></span>
       <span class="topbar-acts" style="display:flex"><a class="btn sm quiet icon-only topbar-keys" href="#" aria-label="Accounts &amp; keys: a key needs you"><i data-i="key-round"></i></a>
         <button type="button" class="btn sm quiet icon-only" aria-label="Quick add a sandbox"><i data-i="plus"></i></button></span>

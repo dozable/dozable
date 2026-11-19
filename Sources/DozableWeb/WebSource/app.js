@@ -48,6 +48,7 @@ import { hostChanged, paintUpdates, renderHostFoot } from './app/components/host
 import './app/components/image-picker.js';
 import './app/components/keyboard.js';
 import { lifecycle } from './app/components/lifecycle.js';
+import { macPicker, refreshMacPicker } from './app/components/mac-picker.js';
 import './app/components/menus.js';
 import { closeWizardModal, modalInert, openWizardModal } from './app/components/modal.js';
 import { applyRail, navMenuClick, navRail, paintNav, paintResTotal, refreshNav, renderNavSandboxes } from './app/components/nav.js';
@@ -76,6 +77,7 @@ import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './a
 import { viewBots } from './app/views/bots.js';
 import { viewHome } from './app/views/home.js';
 import { viewLoose } from './app/views/loose.js';
+import { viewMacs } from './app/views/macs.js';
 import { viewOverview } from './app/views/overview.js';
 import { viewResources } from './app/views/resources.js';
 import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try.js';
@@ -142,6 +144,9 @@ $('top-keys').replaceChildren(icon('key-round'));
 $('top-quick-add').replaceChildren(icon('plus'));
 $('top-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });
 paintNotes();
+// The machine picker: "Dozable · <this Mac> ▾" in the sidebar's head and the phone's top bar opens Your Macs.
+macPicker($('mac-picker'));
+macPicker($('top-mac-picker'), { top: true });
 // 647: the foot's status card — on hover or keyboard focus (CSS), and pinned open by a click (a tap on a phone). It has
 // buttons now (Restart / Start the host, Check for updates), so it stays while the pointer or the focus is in it.
 function footCard(on) {
@@ -208,9 +213,9 @@ provide({
   acknowledgeOps, backToTrySetup, banner, btn, callout, chatEnter, chatLeave, chatNavCheck, chatRefresh, closeWizardModal, connect, dropBanner, failureFor, gridEnter, gridLeave,
   gridRefresh, hostChanged, lifecycle, macEnter, macLeave, macRefresh, modalInert, opFailed, openWizardModal, pageFailure,
   paintCover, paintHome, paintNav, paintNotes, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition, paintUpdates,
-  persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
+  persistLayout, reattachTerminals, refresh, refreshMacPicker, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
   renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
-  viewBots, viewHome, viewImages, viewLoose, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
+  viewBots, viewHome, viewImages, viewLoose, viewMacs, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
   viewThisMac, viewTry, wizardStopPolling,
 });
 // The browser probes' names. The one script's top-level names were globals, and the workspace's browser probes

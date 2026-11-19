@@ -7,7 +7,7 @@ import { refresh, route } from './router.js';
 import { setLive, signedOut } from './session.js';
 import { state } from './state.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
-const chatNavCheck = upcall('chatNavCheck'), hostChanged = upcall('hostChanged'), reattachTerminals = upcall('reattachTerminals'),
+const chatNavCheck = upcall('chatNavCheck'), hostChanged = upcall('hostChanged'), refreshMacPicker = upcall('refreshMacPicker'), reattachTerminals = upcall('reattachTerminals'),
   refreshNav = upcall('refreshNav'), renderActivity = upcall('renderActivity'), renderOps = upcall('renderOps'),
   renderTryPrep = upcall('renderTryPrep'), renderWizard = upcall('renderWizard'), toast = upcall('toast'),
   paintStartProgress = upcall('paintStartProgress'), syncBuildLogTab = upcall('syncBuildLogTab');
@@ -36,6 +36,7 @@ export function connect() {
     refresh(true);
     reattachTerminals();
     chatNavCheck();                                    // the sidebar's Chat entry: shown while chat is on
+    refreshMacPicker();                                // Your Macs, read again only while the picker is open
   });
   // The Settings page is not about the store's live state: re-rendering it would drop a half-typed
   // value; nor is Operations (its own events keep it current), nor the onboarding wizard (its own).
@@ -44,6 +45,7 @@ export function connect() {
     try { topics = JSON.parse(ev.data).topics || []; } catch (_) { /* an older doz ui: no topics */ }
     refreshNav({ accounts: topics.includes('accounts') });
     liveRefresh();
+    refreshMacPicker();
   });
   // 594 W19: a line from doz ui itself ("doz ui restarted — 0.12.0-rc.4").
   // 606: a browser was let in, removed or renamed — the Devices page re-reads.
