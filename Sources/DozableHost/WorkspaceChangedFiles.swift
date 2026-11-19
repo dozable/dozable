@@ -122,6 +122,11 @@ public struct WorkspaceFolders: Codable, Equatable, Sendable {
         public var scanned: Int
         /// Its changes were not looked at for this browser (a session on this Mac's folder, `serve.mac_sessions` off).
         public var hidden: Bool?
+        public init(path: String, mode: String, main: Bool, workspace: Bool, exists: Bool, rules: Rules, agents: [String],
+                    changes: [WorkspaceFileChange], count: Int, truncated: Bool, scanned: Int, hidden: Bool?) {
+            self.path = path; self.mode = mode; self.main = main; self.workspace = workspace; self.exists = exists; self.rules = rules
+            self.agents = agents; self.changes = changes; self.count = count; self.truncated = truncated; self.scanned = scanned; self.hidden = hidden
+        }
     }
     public struct Points: Codable, Equatable, Sendable {
         public var agent: String

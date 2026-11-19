@@ -132,6 +132,12 @@ public protocol DozableWebData: Sendable {
     /// A lifecycle verb's plan (`workspace-lifecycle-plan` — `WebWorkspaceLifecycle.planRequest`): nothing written; in-process
     /// when no daemon runs.
     func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan
+    /// A workspace's wide views: what each agent can reach and hold (`workspace-reach`), its folders' changes and restore
+    /// points (`workspace-folders`), one page of its log (`workspace-log` with `before`/`limit`) — each the CLI's request
+    /// (`WebWorkspaceViews.request`); in-process when no daemon runs.
+    func workspaceReach(_ w: WorkspaceRequest) async throws -> WorkspaceReach
+    func workspaceFolders(_ w: WorkspaceRequest) async throws -> WorkspaceFolders
+    func workspaceActivity(_ w: WorkspaceRequest) async throws -> WorkspaceLogPage
     /// The workspaces and the loose agents (`workspace-ls`; `loose`: `--loose`), a workspace (`workspace-show`), the Agents /
     /// Bots (`bot-ls`) — each the request `WebWorkspaceReads.request(for:)` builds; in-process when no daemon runs.
     func workspaces(loose: Bool) async throws -> WorkspaceListing
@@ -171,6 +177,9 @@ extension DozableWebData {
     public func workspacePlan(_ w: WorkspaceRequest) async throws -> WorkspacePlan { throw HostError(.notImplemented, "workspaces") }
     public func workerPlan(_ q: WorkerRequest) async throws -> WorkerPlan { throw HostError(.notImplemented, "workers") }
     public func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan { throw HostError(.notImplemented, "workspaces") }
+    public func workspaceReach(_ w: WorkspaceRequest) async throws -> WorkspaceReach { throw HostError(.notImplemented, "workspaces") }
+    public func workspaceFolders(_ w: WorkspaceRequest) async throws -> WorkspaceFolders { throw HostError(.notImplemented, "workspaces") }
+    public func workspaceActivity(_ w: WorkspaceRequest) async throws -> WorkspaceLogPage { throw HostError(.notImplemented, "workspaces") }
     public func workspaces(loose: Bool) async throws -> WorkspaceListing { throw HostError(.notImplemented, "workspaces") }
     public func workspace(_ name: String) async throws -> WorkspaceDetail { throw HostError(.notImplemented, "workspaces") }
     public func workspaceBrief(_ name: String) async throws -> WorkspaceDetail { throw HostError(.notImplemented, "workspaces") }
@@ -554,6 +563,22 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan {
         try await query(WebWorkspaceLifecycle.planRequest(w)).0.decode(WorkspaceLifecyclePlan.self)
+    }
+
+    public func workspaceReach(_ w: WorkspaceRequest) async throws -> WorkspaceReach {
+        try await query(WebWorkspaceViews.request(.workspaceReach, w)).0.decode(WorkspaceReach.self)
+    }
+
+    public func workspaceFolders(_ w: WorkspaceRequest) async throws -> WorkspaceFolders {
+        try await query(WebWorkspaceViews.request(.workspaceFolders, w)).0.decode(WorkspaceFolders.self)
+    }
+
+    public func workspaceActivity(_ w: WorkspaceRequest) async throws -> WorkspaceLogPage {
+        let v = try await query(WebWorkspaceViews.request(.workspaceLog, w)).0
+        if let page = try? v.decode(WorkspaceLogPage.self) { return page }
+        // An older daemon ignores the page and answers every entry: its newest page, with nothing before it offered.
+        let all = try v.decode([WorkspaceLogEntry].self)
+        return WorkspaceLogPage(entries: Array(all.suffix(w.limit ?? WorkspaceLogPage.defaultLimit).reversed()), first: nil, more: false)
     }
 
     public func workspace(_ name: String) async throws -> WorkspaceDetail {

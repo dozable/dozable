@@ -85,6 +85,11 @@ public enum WebAction: Equatable, Sendable {
     /// at the start: the bridges are host-side decisions taken per event.
     case macSessionResume(session: String)
     case macSessionBridges(session: String, openURL: Bool?, openFiles: Bool?, clipboard: Bool?)
+    /// A refused site allowed for a fenced session on this Mac — exactly `net-policy` with `@mac` and the session (`doz net
+    /// allow @mac --session S site:HOST[:PORT]`): `site:` grants only — never a revoke, a deny, a preset or a `host:` port.
+    /// This Mac's own browser only (`isMacNet`, `WebExposure.decideMacNetAction`): a fenced session's network is what holds an
+    /// agent working as you on this Mac to its folder, whatever `serve.mac_sessions` says.
+    case macNetPolicy(session: String, grant: [String])
     /// 644: the Files panel's changes to /workspace — one HostOp each (the CLI's `doz files mkdir|new|mv|rm`). Paths are
     /// guest paths (`/workspace/…`), checked by the item rule here and again by the host. A delete is destructive: it
     /// carries `confirm` = the path.
@@ -169,7 +174,7 @@ public enum WebAction: Equatable, Sendable {
             return n
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall,
-             .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges,   // this Mac is no sandbox
+             .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges, .macNetPolicy,   // this Mac is no sandbox
              .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart,   // nor is a workspace
              .botNew, .botSet, .botRetire, .botAdopt, .botToken,                          // nor is a bot
              .workerAdd, .workerEnd,                                                      // nor a worker (its place is the daemon's)
@@ -201,6 +206,11 @@ public enum WebAction: Equatable, Sendable {
     /// An Agent / Bot changed: this Mac's own browser only (`WebExposure.decideBotAction`).
     public var isBot: Bool {
         switch self { case .botNew, .botSet, .botRetire, .botAdopt, .botToken: true; default: false }
+    }
+
+    /// A fenced session's site allowed: this Mac's own browser only (`WebExposure.decideMacNetAction`).
+    public var isMacNet: Bool {
+        if case .macNetPolicy = self { true } else { false }
     }
 
     /// A workspace's lifecycle verb: this Mac's own browser only (`WebExposure.decideLifecycleAction`).
@@ -251,6 +261,8 @@ public enum WebAction: Equatable, Sendable {
         if let q = r.workerRequest {
             return [r.op.rawValue, "workspace:" + (q.workspace ?? ""), "worker:" + (q.name ?? q.fromBot ?? "")].joined(separator: "|")
         }
+        // A fenced session's site: the session and the site — two sites allowed at once are two operations.
+        if case .macNetPolicy(let s, let g) = self { return [r.op.rawValue, MacPlace.name, s, g.joined(separator: ",")].joined(separator: "|") }
         // A bot's request leaves `name` empty: its own key, so two bots changed at once are two operations.
         if let b = r.botRequest?.name { return [r.op.rawValue, "bot:" + b].joined(separator: "|") }
         return [r.op.rawValue, r.name ?? "", r.session ?? "", r.point ?? r.pointName ?? "", r.image ?? "", r.account ?? "", r.newName ?? "",
@@ -274,6 +286,7 @@ public enum WebAction: Equatable, Sendable {
         case .macSessionRestart(let s, _): return "restart session \(s) on this Mac"
         case .macSessionResume(let s): return "resume session \(s) on this Mac"
         case .macSessionBridges(let s, _, _, _): return "bridges of session \(s) on this Mac"
+        case .macNetPolicy(let s, let g): return "allow \(g.map { String($0.dropFirst(5)) }.joined(separator: ", ")) for session \(s) on this Mac"
         case .filesMkdir(let n, let p): return "files-mkdir \(n) \(p)"
         case .filesNew(let n, let p): return "files-new \(n) \(p)"
         case .filesMove(let n, let p, _): return "files-move \(n) \(p)"
@@ -458,6 +471,12 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.sessionResume, name: MacPlace.name)
             r.session = s
             return r
+        case .macNetPolicy(let s, let g):
+            // Exactly what `doz net allow @mac --session S site:HOST` sends.
+            var r = HostRequest(.netPolicy, name: MacPlace.name)
+            r.session = s
+            r.grant = g
+            return r
         case .macSessionBridges(let s, let url, let files, let clip):
             var r = HostRequest(.sessionBridges, name: MacPlace.name)
             r.session = s
@@ -610,6 +629,7 @@ public enum WebAction: Equatable, Sendable {
             "mac-session-restart": ["session", "fresh", "confirm"],
             "mac-session-resume": ["session"],
             "mac-session-bridges": ["session", "openURL", "openFiles", "clipboard"],
+            "mac-net-policy": ["session", "grant"],
             "files-mkdir": ["sandbox", "path"],
             "files-new": ["sandbox", "path"],
             "files-move": ["sandbox", "path", "to"],
@@ -822,6 +842,14 @@ public enum WebAction: Equatable, Sendable {
                 guard url != nil || files != nil || clip != nil else { throw Invalid("mac-session-bridges: nothing to change — openURL, openFiles or clipboard") }
                 a = .macSessionBridges(session: s, openURL: url, openFiles: files, clipboard: clip)
             }
+        case "mac-net-policy":
+            guard let s = try f.session("session"), WebRoute.isMacSessionName(s) else {
+                throw Invalid("session: a session on this Mac — 1–32 of letters, digits . _ - (not starting with .)")
+            }
+            let g = try f.permissionWords("grant")
+            guard !g.isEmpty, g.count <= 8 else { throw Invalid("grant: 1–8 sites, each site:HOST[:PORT]") }
+            guard g.allSatisfy({ $0.hasPrefix("site:") }) else { throw Invalid("grant: only site:HOST[:PORT] — a permission is changed in a terminal on this Mac") }
+            a = .macNetPolicy(session: s, grant: g)
         case "files-mkdir":
             a = .filesMkdir(name: try f.sandbox("sandbox"), path: try f.fileItem("path"))
         case "files-new":

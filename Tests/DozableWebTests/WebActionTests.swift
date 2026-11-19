@@ -66,6 +66,7 @@ final class WebActionTests: XCTestCase {
         // 683 M5: a fenced session's resume after a git stop, and its bridges switched live.
         "mac-session-resume": #"{"action":"mac-session-resume","session":"agent"}"#,
         "mac-session-bridges": #"{"action":"mac-session-bridges","session":"agent","openURL":false}"#,
+        "mac-net-policy": #"{"action":"mac-net-policy","session":"agent","grant":["site:fonts.example-cdn.com"]}"#,
         // 644: the Files panel's changes.
         "files-mkdir": #"{"action":"files-mkdir","sandbox":"web","path":"/workspace/src/new"}"#,
         "files-new": #"{"action":"files-new","sandbox":"web","path":"notes.md"}"#,
@@ -382,8 +383,8 @@ final class WebActionTests: XCTestCase {
             XCTAssertNil(a.hostRequest.secret, "no action ever carries a secret")
             ops.append(a.hostOp)
             // The sessions on this Mac have their own two actions: the same HostOp, on the place @mac.
-            places.append(a.hostOp.rawValue + (a.isMacSession ? " @mac" : ""))
-            XCTAssertEqual(a.isMacSession, a.hostRequest.name == "@mac", "\(name): @mac only through its own actions")
+            places.append(a.hostOp.rawValue + (a.isMacSession || a.isMacNet ? " @mac" : ""))
+            XCTAssertEqual(a.isMacSession || a.isMacNet, a.hostRequest.name == "@mac", "\(name): @mac only through its own actions")
         }
         XCTAssertEqual(places.count, Set(places).count, "one action per HostOp (and place)")
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isMacSession == true ? (try? decode($0.value))?.hostOp : nil }),
@@ -431,12 +432,45 @@ final class WebActionTests: XCTestCase {
         }
         // Your Macs are read (WebMacReads) and changed only from the CLI: no macs-* operation is an action.
         XCTAssertFalse(ops.contains { $0.rawValue.hasPrefix("macs-") }, "Your Macs are not changed from the browser")
-        XCTAssertFalse(WebAction.actionNames.contains { $0.hasPrefix("mac-") && !$0.hasPrefix("mac-session-") }, "no action for Your Macs")
+        XCTAssertFalse(WebAction.actionNames.contains { $0.hasPrefix("mac-") && !$0.hasPrefix("mac-session-") && $0 != "mac-net-policy" }, "no action for Your Macs")
     }
 
     /// The eight lifecycle actions: each exactly the CLI's HostOp, its fields strict (`ifPlan` required, 16 hex), the flags
     /// only where the CLI has them, archive and delete confirmed with the typed name (and the daemon checks it again —
     /// `confirmRequired`), a wake's "acts as you" carried as `unfencedConfirmed`.
+    /// `mac-net-policy` is exactly `net-policy` with `@mac` and the session — `doz net allow @mac --session S site:HOST` —
+    /// `site:` grants only (never a permission, a revoke, a deny, a preset or a `host:` port), this Mac's own browser only.
+    func testTheMacNetPolicyIsExactlyNetPolicyWithSitesOnly() throws {
+        let a = try decode(Self.samples["mac-net-policy"]!)
+        guard case .macNetPolicy(let s, let g) = a else { return XCTFail("mac-net-policy") }
+        XCTAssertEqual(s, "agent")
+        XCTAssertEqual(g, ["site:fonts.example-cdn.com"])
+        XCTAssertTrue(a.isMacNet)
+        XCTAssertFalse(a.isMacSession, "decided as this Mac's own, never by serve.mac_sessions")
+        var want = HostRequest(.netPolicy, name: "@mac")
+        want.session = "agent"
+        want.grant = ["site:fonts.example-cdn.com"]
+        XCTAssertEqual(a.hostRequest, want)
+        XCTAssertNil(a.sandbox)
+        XCTAssertNil(a.confirmationTarget)
+        XCTAssertEqual(try decode(#"{"action":"mac-net-policy","session":"agent","grant":["site:api.example.com:8443"]}"#).hostRequest.grant, ["site:api.example.com:8443"])
+        // Two sites at once are two operations; the same twice is one.
+        XCTAssertNotEqual(a.dedupeKey, try decode(#"{"action":"mac-net-policy","session":"agent","grant":["site:b.example"]}"#).dedupeKey)
+        for bad in [#"{"action":"mac-net-policy","session":"agent"}"#,
+                    #"{"action":"mac-net-policy","session":"agent","grant":[]}"#,
+                    #"{"action":"mac-net-policy","session":"agent","grant":["web"]}"#,
+                    #"{"action":"mac-net-policy","session":"agent","grant":["install:python"]}"#,
+                    #"{"action":"mac-net-policy","session":"agent","grant":["host:8780"]}"#,
+                    #"{"action":"mac-net-policy","session":"agent","grant":["site:x.example"],"revoke":["site:y.example"]}"#,
+                    #"{"action":"mac-net-policy","session":"agent","grant":["site:x.example"],"deny":["y.example"]}"#,
+                    #"{"action":"mac-net-policy","session":"agent","grant":["site:x.example"],"preset":"open"}"#,
+                    #"{"action":"mac-net-policy","sandbox":"a","grant":["site:x.example"]}"#,
+                    #"{"action":"mac-net-policy","session":"../x","grant":["site:x.example"]}"#,
+                    #"{"action":"mac-net-policy","session":"agent","grant":["site:a","site:b","site:c","site:d","site:e","site:f","site:g","site:h","site:i"]}"#] {
+            XCTAssertThrowsError(try decode(bad), bad)
+        }
+    }
+
     func testTheLifecycleActions() throws {
         let archive = try decode(Self.samples["workspace-archive"]!)
         guard case .workspaceLifecycle(.archive, let w) = archive else { return XCTFail("archive") }

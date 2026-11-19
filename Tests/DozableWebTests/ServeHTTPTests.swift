@@ -725,6 +725,43 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(fake.performedOps, want, "the plan is a read: no operation")
     }
 
+    /// A fenced session's site allowed from another computer: 403 `mac-only` whatever serve.mac_sessions and serve.chat say,
+    /// one audit line each, nothing sent to the daemon; this Mac's own browser: 202, exactly `net-policy` on `@mac` with the
+    /// session. The wide views read from another computer: held secrets a count only, this Mac's agents per serve.mac_sessions.
+    func testMacNetPolicyIsThisMacsBrowserOnlyWhateverTheServeSettings() async throws {
+        try await start(macSessions: "interactive", chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        let body = #"{"action":"mac-net-policy","session":"agent","grant":["site:fonts.example-cdn.com"]}"#
+        var refusals = 0
+        for (ms, chat) in [("interactive", "write"), ("off", "off"), ("watch", "read")] {
+            try "[serve]\nmac_sessions = \"\(ms)\"\nchat = \"\(chat)\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+            let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", body, remote: true)
+            XCTAssertEqual(r.status, 403, r.text)
+            XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+            XCTAssertTrue(r.text.contains("doz net allow @mac --session SESSION"), r.text)
+            refusals += 1
+            XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon (\(ms), \(chat))")
+            let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+            XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "mac-only" && $0.route == "actions" }, "audited (\(refusals))")
+            // The wide view, from another computer: no held secret's name; this Mac's agent only with serve.mac_sessions on.
+            let rr = try macJSON(devCookie, devCSRF, "/api/v1/workspace-reach", #"{"workspace":"demo"}"#, remote: true)
+            XCTAssertEqual(rr.status, 200, rr.text)
+            XCTAssertFalse(rr.text.contains("MUSIC_API_TOKEN"), rr.text)
+            let reach = try JSONDecoder().decode(WebWorkspaceReach.self, from: rr.body)
+            XCTAssertEqual(reach.agents.first?.heldCount, 1)
+            XCTAssertEqual(reach.agents.map(\.name), ms == "off" ? ["wsa"] : ["wsa", "build"])
+            XCTAssertEqual(reach.hidden, ms == "off" ? 1 : 0)
+            let act = try macJSON(devCookie, devCSRF, "/api/v1/workspace-activity", #"{"workspace":"demo"}"#, remote: true)
+            XCTAssertEqual(try WebServeAudit.decoder.decode(WebWorkspaceActivity.self, from: act.body).hidden, ms == "off" ? 1 : 0)
+        }
+        let (macCookie, macCSRF) = try macSignIn()
+        let r = try macJSON(macCookie, macCSRF, "/api/v1/actions", body, remote: false)
+        XCTAssertEqual(r.status, 202, r.text)
+        let deadline = Date().addingTimeInterval(5)
+        while fake.performedOps.isEmpty && Date() < deadline { usleep(10_000) }
+        XCTAssertEqual(fake.performedOps, [.netPolicy])
+    }
+
     static let botActions = [
         #"{"action":"bot-new","name":"mira","agent":"claude-code","isolation":"fenced"}"#,
         #"{"action":"bot-set","name":"mira","model":"sonnet"}"#,

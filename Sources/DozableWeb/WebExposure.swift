@@ -122,6 +122,11 @@ public enum WebExposure {
     /// audit line. Its plan route is `mac-screen`.
     public static func decideLifecycleAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyLifecycle : nil }
 
+    /// A refused site allowed for a fenced session on this Mac (`mac-net-policy`) for `who`: this Mac's own browser only,
+    /// whatever `serve.mac_sessions` or `serve.chat` say — a fenced session's network is what holds an agent that works as you
+    /// on this Mac to its folder. Another computer is shown the command instead; its attempt is one audit line.
+    public static func decideMacNetAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyNet : nil }
+
     /// 683 M5: a conversation exported (its whole text) — another computer only with `serve.mac_sessions = interactive`
     /// (watching shows screens, never a session's history).
     public static func decideMacExport(_ who: Principal, _ allowed: MacSessions) -> WebRejection? { decideMacAction(who, allowed) }
@@ -139,6 +144,8 @@ public enum WebExposure {
              .botsRetired, .bot,        // Agents / Bots: read only everywhere; a bot's inbox session follows serve.mac_sessions (WebBotReads)
              .workspaceLog,             // the log's lines about this Mac's sessions follow serve.mac_sessions too
              .workspaceBrief,           // the brief's text: another computer only with serve.chat read or write (`decide`)
+             .workspaceReach, .workspaceFolders, .workspaceActivity,  // the wide views: projections — this Mac's sessions follow
+                                        // serve.mac_sessions, held secrets a count only (WebWorkspaceReach.forBrowser)
              .macs:                     // Your Macs — another computer sees the same list (a phone switching Macs is its main use)
             return .read
         case .actions, .operationsCancel, .policyPreview, .terminalTicket,     // 650: a cancel is decided as the actions are
