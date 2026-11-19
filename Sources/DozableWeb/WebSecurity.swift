@@ -112,6 +112,8 @@ public enum WebRejection: String, Error, Equatable, Sendable {
     case signupUnavailable = "signup-unavailable"
     /// Chat asked from another computer: it is shown only in this Mac's own browser.
     case chatRemote = "chat-remote"
+    /// A workspace's brief asked from another computer while `serve.chat` is off (it is what the agents act on, like chat).
+    case briefRemote = "brief-remote"
     /// Chat is off (`chat.enabled`); the page never turns it on.
     case chatOff = "chat-off"
     /// Chat is on but its server is not answering yet (starting, restarting, or failing).
@@ -123,7 +125,7 @@ public enum WebRejection: String, Error, Equatable, Sendable {
 
     public var status: Int {
         switch self {
-        case .hostRejected, .originRejected, .crossSite, .csrfRejected, .terminalsOff, .secretEntryOff, .secretOverHTTP, .macScreen, .macOnly, .macSession, .notServedAddress, .chatRemote, .chatReadOnly: 403
+        case .hostRejected, .originRejected, .crossSite, .csrfRejected, .terminalsOff, .secretEntryOff, .secretOverHTTP, .macScreen, .macOnly, .macSession, .notServedAddress, .chatRemote, .chatReadOnly, .briefRemote: 403
         case .methodNotAllowed: 405
         case .alreadyRunning, .pickerOpen, .serveNotRunning: 409
         case .tooManyAttempts: 429
@@ -184,6 +186,7 @@ public enum WebRejection: String, Error, Equatable, Sendable {
         case .signupUnavailable: "this build (from the open-source repository) does not include the sign-up — sign up at \(Usage.signupPage)"
         case .chatRemote: "Chat is not shared with your other browsers — on the Mac: doz config set serve.chat read (or write)"
         case .chatReadOnly: "This browser may read chat but not write in it — on the Mac: doz config set serve.chat write"
+        case .briefRemote: "The brief is not shared with this browser — on the Mac: doz config set serve.chat read (or write)"
         case .chatFileTooLarge: "An attachment can be at most 20 MB"
         case .chatOff: "Chat is off. Turn it on in a terminal: doz chat on --name YOUR-NAME"
         case .chatNotReady: "Chat is on, but its server is not answering yet. In a terminal: doz chat status"

@@ -144,6 +144,9 @@ try {
 } finally {
   chrome.kill('SIGKILL');
   server.close();
-  rmSync(PROFILE, { recursive: true, force: true });
+  // Chrome's helpers may still be writing the profile a moment after the kill: wait for its end, then retry the removal.
+  await new Promise((r) => { if (chrome.exitCode !== null || chrome.signalCode) r(); else chrome.once('exit', r); setTimeout(r, 3000); });
+  await new Promise((r) => setTimeout(r, 500));
+  rmSync(PROFILE, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
 }
 process.exit(code);

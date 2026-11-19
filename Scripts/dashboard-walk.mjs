@@ -15,16 +15,27 @@
 //     (noopener noreferrer); following mini opens a tab with no #, ? or cap whose /api/v1/session answers 401 (that Mac's
 //     own sign-in), and this page made no request to it; Escape gives the focus back; #/mac/macs lists what `doz ui macs ls
 //     --json` does; at 390 px the top bar's name opens the same list;
-//   · with the daemon stopped, opening Home and Sandboxes starts none (no daemon.pid).
+//   · a workspace's page, with chat ON (its two ports the OS's choice, checked not live): `demo2` with a brief, a
+//     reference, a folder, the adopted never-booted sandbox `beta`, an unrelated room `other`, started (no manager: you
+//     drive — the brief is the kick-off). #/w/demo2 → view `workspace`, the brief open with its text; the tabs in the
+//     mockups' order, only Room enabled, "Permissions" from its constant; the kick-off bubble and a "started the work"
+//     line in time order; Edit → Save posts the announcement bubble, adds "edited the work", History shows one edit; the
+//     room strip lacks `other`, #/w/demo2/room/other opens the main room with the line saying so; #/chat still lists
+//     `other` and there is exactly one #chat-text; the side panel is `doz workspace show demo2 --json`; an unfenced manager
+//     (`demo3`) shows "acts as you"; the sidebar and Home lead to #/w/demo2; `interleave` against fixtures; at 390 px the
+//     panel folds below the room;
+//   · with the daemon stopped, opening Home, Sandboxes and a workspace's page starts none (no daemon.pid).
 //
 // Self-contained: Node >= 22 (global WebSocket and fetch), no packages. Never the person's own Dozable or browser: the
 // store, the settings (XDG_CONFIG_HOME), the Chrome profile and the projects folder are under SCRATCH (default
 // /tmp/doz-dashboard-walk); every seam css-perf sets keeps the run off this Mac's login, keychain and network; Chrome is
 // headless on a scratch profile, its debugging port the OS's choice (Scripts/chrome-launch.mjs); `doz ui` takes a port
 // the OS chooses, checked not to be one of the live ones; the sign-in link is read from its output and never printed;
-// chat stays off and no VM starts. All of it is removed at the end (KEEP=1 keeps it).
+// chat is off for the shell's checks and on (OS-chosen ports) for a workspace's page; no VM starts and no agent program
+// runs (the workspaces have no running manager). All of it is removed at the end (KEEP=1 keeps it).
 //
-// Inputs (environment): DOZ (default .build/debug/doz — `make cli` first), CHROME (default Google Chrome's app), SCRATCH.
+// Inputs (environment): DOZ (default .build/debug/doz — `make cli` first), CHROME (default Google Chrome's app), SCRATCH;
+// SHOTS=DIR (optional, under /tmp) keeps pictures of a workspace's page (light, dark, 390 px) for a person to look at.
 // Run from the repository's root (make does).
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
@@ -97,7 +108,7 @@ async function startChrome() {
   ws.addEventListener('message', (ev) => {
     const m = JSON.parse(ev.data);
     if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); m.error ? p.rej(new Error(m.error.message)) : p.res(m.result); return; }
-    if (m.method === 'Runtime.exceptionThrown') pageErrors.push((m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text).split('\n')[0]);
+    if (m.method === 'Runtime.exceptionThrown') pageErrors.push((m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text).split('\n').slice(0, 4).join(' ⏎ '));
     if (m.method === 'Network.requestWillBeSent') requested.push(m.params.request.url);
   });
   await send('Runtime.enable');
@@ -115,13 +126,20 @@ async function startUI() {
 }
 
 // ── the checks ───────────────────────────────────────────────────────────────────────────────────────────────────────
+const SHOTS = process.env.SHOTS && process.env.SHOTS.startsWith('/tmp/') ? process.env.SHOTS : null;
+async function shot(name) {
+  if (!SHOTS) return;
+  mkdirSync(SHOTS, { recursive: true });
+  const r = await send('Page.captureScreenshot', { format: 'png' });
+  writeFileSync(SHOTS + '/' + name + '.png', Buffer.from(r.data, 'base64'));
+}
 const failures = [];
 let passed = 0;
 function check(ok, what) { if (ok) { passed++; console.log('  ok   ' + what); } else { failures.push(what); console.log('  FAIL ' + what); } }
 const text = (sel) => `(document.querySelector(${JSON.stringify(sel)})?.textContent || '')`;
 /// The page shown: the view's own section has something in it, and no failure is said.
 const SHOWN = `(() => { const v = state.view;
-  const sec = v === 'sandbox' ? 'sbx' : v === 'sessions' ? 'grid' : v === 'mac' ? 'mac' : v === 'chat' ? 'chat' : 'view';
+  const sec = v === 'sandbox' ? 'sbx' : v === 'sessions' ? 'grid' : v === 'mac' ? 'mac' : v === 'chat' ? 'chat' : v === 'workspace' ? 'ws' : 'view';
   const el = document.getElementById(sec);
   return !!el && !el.hidden && el.childElementCount > 0 && !(el.textContent || '').includes('could not be read'); })()`;
 async function goHash(hash) {
@@ -306,6 +324,119 @@ async function walkMacs() {
   uiB = false;
 }
 
+// ── a workspace's page, chat on ──────────────────────────────────────────────────────────────────────────────────────
+const BRIEF = 'Walk the workspace page.\n\nKeep the **logo** reveal.\n';
+async function walkWorkspacePage() {
+  let p1 = await freePort(), p2 = await freePort();
+  for (let i = 0; i < 5 && (LIVE_PORTS.includes(p1) || LIVE_PORTS.includes(p2) || p1 === p2); i++) { p1 = await freePort(); p2 = await freePort(); }
+  check(p1 > 1023 && p2 > 1023 && p1 !== p2 && !LIVE_PORTS.includes(p1) && !LIVE_PORTS.includes(p2), 'chat\'s two ports are the OS\'s choice, not live ones');
+  doz(['config', 'set', 'chat.page_port', String(p1)]);
+  doz(['config', 'set', 'chat.line_port', String(p2)]);
+  check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (scratch store, OS-chosen ports)');
+  check(doz(['chat', 'room', 'other']).status === 0, 'an unrelated room, other');
+  const folder = PROJECTS + '/demo2-src';
+  mkdirSync(folder, { recursive: true });
+  check(doz(['workspace', 'new', 'demo2', '--prompt-file', '-', '--folder', folder, '--adopt', 'beta', '--ref', 'https://example.com/spec'], BRIEF).status === 0,
+    'workspace new demo2 (a brief, a reference, a folder, the never-booted sandbox beta)');
+  check(doz(['workspace', 'start', 'demo2']).status === 0, 'workspace start demo2 — no manager: you drive, the brief is the kick-off');
+  doz(['bot', 'new', 'otto', '--agent', 'claude-code', '--isolation', 'unfenced']);
+  doz(['workspace', 'new', 'demo3', '--prompt-file', '-', '--manager', 'otto', '--manager-isolation', 'unfenced'], 'An unfenced manager, recorded.\n');
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+
+  await goHash('#/w/demo2');
+  check(await waitFor(`state.view === 'workspace' && state.param === 'demo2' && ${SHOWN}`), '#/w/demo2 → the view workspace');
+  check(await waitFor(`/Walk the workspace page/.test(${text('[data-ws-brief="demo2"] .ws-brief-text')}) && !document.querySelector('[data-ws-brief="demo2"]').classList.contains('is-folded')`, 15000),
+    'the brief is open, with its text');
+  check(await evaluate(`!!document.querySelector('[data-ws-brief="demo2"] .ws-brief-text strong')`), '…its Markdown drawn (bold)');
+  check(await evaluate(`!!document.querySelector('[data-ws-brief="demo2"] a.ws-ref[href="https://example.com/spec"][rel="noopener noreferrer"]')`), '…its reference a safe link');
+  const tabs = await evaluate(`[...document.querySelectorAll('#ws [data-ws-tab]')].map((t) => ({ label: t.firstChild.textContent, off: t.getAttribute('aria-disabled') === 'true', coming: !!t.querySelector('.ws-coming') }))`);
+  check(JSON.stringify(tabs.map((t) => t.label)) === JSON.stringify(['Room', 'Agents', 'Permissions', 'Network & secrets', 'Folders & points', 'Activity', 'Settings']),
+    'the tabs in the mockups\' order (' + tabs.map((t) => t.label).join(' · ') + ')');
+  check(tabs.filter((t) => !t.off).map((t) => t.label).join() === 'Room' && tabs.slice(1).every((t) => t.coming), 'only Room works; the others are marked coming');
+  check(await evaluate(`PERMISSIONS_TAB === 'Permissions' && document.querySelector('#ws [data-ws-tab="permissions"]').firstChild.textContent === PERMISSIONS_TAB`),
+    'the permissions tab reads "Permissions", from its one constant');
+  check(await waitFor(`[...document.querySelectorAll('#chat-log .chat-row')].some((r) => /Walk the workspace page/.test(r.textContent))`, 20000), 'the kick-off bubble is in the room');
+  check(await waitFor(`/started the work/.test(${text('#chat-log .chat-sys[data-action="kicked-off"]')})`, 10000), 'a "started the work" line from the log');
+  const ordered = `(() => { const at = [...document.querySelectorAll('#chat-log [data-at]')].filter((e) => !e.classList.contains('chat-moment')).map((e) => +e.dataset.at);
+    return at.length > 1 && at.every((t, i) => i === 0 || t >= at[i - 1]); })()`;
+  check(await evaluate(ordered), 'the messages and the log\'s lines are in time order');
+  check(await evaluate(`document.querySelectorAll('#chat-text').length === 1 && !!document.querySelector('#ws #chat-text')`), 'one composer, in the workspace\'s room');
+  check(JSON.stringify(await evaluate(`[...document.querySelectorAll('#ws #chat-rooms [data-room]')].map((a) => a.dataset.room)`)) === '["demo2"]',
+    'the room strip shows its room only (not other)');
+  check(await evaluate(`!!document.querySelector('#ws .chat-rm-add[disabled]')`), '"+ room" is drawn, disabled');
+
+  // The meta line under a member's name, and the brief edited from here.
+  await evaluate(`[...document.querySelectorAll('[data-ws-brief="demo2"] button')].find((b) => /Edit/.test(b.textContent)).click()`);
+  check(await waitFor(`!!document.querySelector('.ws-brief-area')`), 'Edit opens the brief\'s editor');
+  await evaluate(`(() => { const a = document.querySelector('.ws-brief-area'); a.value = 'Walk it again, shorter.'; a.dispatchEvent(new Event('input')); })()`);
+  await evaluate(`[...document.querySelectorAll('.ws-brief-acts button')].find((b) => /Save/.test(b.textContent)).click()`);
+  check(await waitFor(`[...document.querySelectorAll('#chat-log .chat-row')].some((r) => /I edited the work:/.test(r.textContent) && /Walk it again, shorter/.test(r.textContent))`, 30000),
+    'Save posts the announcement in the room, as you');
+  check(await waitFor(`/edited the work/.test(${text('#chat-log .chat-sys[data-action="brief-edited"]')})`, 15000), '…and the log\'s "edited the work" line shows');
+  check(await waitFor(`/Walk it again, shorter/.test(${text('[data-ws-brief="demo2"] .ws-brief-text')})`, 10000), '…and the brief shows the new text');
+  await evaluate(`[...document.querySelectorAll('[data-ws-brief="demo2"] button')].find((b) => /History/.test(b.textContent)).click()`);
+  check(await waitFor(`document.querySelectorAll('.ws-brief-hist li').length === 1 && !!document.querySelector('.ws-brief-hist .chat-link')`), 'History shows one edit, linked to the room');
+  check(await evaluate(ordered), 'still in time order after the edit');
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+  await sleep(300);
+  await shot('workspace-light');
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+  await sleep(300);
+  await shot('workspace-dark');
+  await send('Emulation.setEmulatedMedia', { features: [] });
+
+  // Another room's address: one not this workspace's opens its main room, saying so.
+  await goHash('#/w/demo2/room/other');
+  check(await waitFor(`/no room other in demo2/.test(${text('[data-ws-missing]')}) && state.chat.room === 'demo2'`, 10000), '#/w/demo2/room/other opens the main room, with the line saying so');
+  await goHash('#/chat');
+  check(await waitFor(`state.view === 'chat' && !!document.querySelector('#chat #chat-rooms [data-room="other"]')`, 10000), '#/chat still lists other');
+  check(await evaluate(`document.querySelectorAll('#chat-text').length === 1 && !!document.querySelector('#chat #chat-text')`), '…with the one composer back on the Chat page');
+  await goHash('#/w/demo2');
+  await waitFor(`state.view === 'workspace' && state.chat.room === 'demo2'`, 10000);
+
+  // The side panel against the CLI.
+  const show = dozJSON(['workspace', 'show', 'demo2']);
+  await waitFor(`document.querySelectorAll('#ws-panel [data-ws-agent]').length === ${show.agents.length}`, 8000);
+  const agents = (await evaluate(`[...document.querySelectorAll('#ws-panel [data-ws-agent]')].map((e) => e.dataset.wsAgent)`)).sort();
+  const folders = await evaluate(`[...document.querySelectorAll('#ws-panel [data-ws-folder]')].map((e) => e.dataset.wsFolder)`);
+  const net = await evaluate(`document.querySelector('#ws-panel [data-ws-network]').dataset.wsNetwork`);
+  check(JSON.stringify(agents) === JSON.stringify(show.agents.map((a) => a.name).sort()) && JSON.stringify(folders) === JSON.stringify(show.folders.map((f) => f.path))
+    && net === (show.defaults.network || 'locked'), `the side panel is doz workspace show demo2 --json (${agents.join(', ')}; ${folders.length} folder; ${net})`);
+  check(await evaluate(`document.querySelector('#ws-panel [data-ws-agent="beta"]').dataset.iso === 'micro VM' && !!document.querySelector('#ws-panel [data-ws-agent="beta"] a[href="#/sandbox/beta/~home"]')`),
+    'beta: micro VM, linking to its sandbox');
+  check(await evaluate(`!!document.querySelector('#ws-panel #chat-people-pane')`), '"In this room" is the room\'s own people list, in the panel');
+  await goHash('#/w/demo3');
+  check(await waitFor(`state.param === 'demo3' && /acts as you/.test(${text('#ws-panel [data-ws-agent="otto"]')}) && !!document.querySelector('#ws-head .acts-as-you')`, 10000),
+    'an unfenced manager shows "acts as you" (the panel and the title row)');
+
+  // The sidebar and Home lead to the page.
+  await goHash('#/home');
+  await waitFor(`!!document.querySelector('[data-ws="demo2"]')`, 10000);
+  check(await evaluate(`[...document.querySelectorAll('[data-ws="demo2"] a')].every((a) => a.getAttribute('href') === '#/w/demo2') && document.querySelectorAll('[data-ws="demo2"] a').length >= 2`),
+    'Home: demo2\'s links (its name, its room, Open room) lead to #/w/demo2');
+  await evaluate(`(() => { const g = document.querySelector('[data-ws-group="~asleep"]'); if (g && g.getAttribute('aria-expanded') !== 'true') g.click(); })()`);
+  check(await waitFor(`document.querySelector('[data-ws-link="demo2"]')?.getAttribute('href') === '#/w/demo2'`, 8000), 'the sidebar: demo2 opens #/w/demo2');
+
+  // The merge itself, against fixtures (the page's own function).
+  const kinds = (args) => evaluate(`interleave(${args}).map((x) => x.kind).join()`);
+  const ms = `[{ at: 10 }, { at: 20 }]`, ls = `[{ at: '1970-01-01T00:00:05Z' }, { at: '1970-01-01T00:00:10Z' }, { at: '1970-01-01T00:00:25Z' }]`;
+  check(await kinds(`${ms}, ${ls}, false`) === 'line,msg,msg,line', 'interleave: only the span loaded, a line before a message of its time');
+  check(await kinds(`${ms}, ${ls}, true`) === 'line,line,msg,msg,line', 'interleave: everything when nothing older is left');
+  check(await kinds(`[], ${ls}, false`) === 'line,line,line', 'interleave: every line with no message');
+
+  // A phone: the panel folds below the room.
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await goHash('#/w/demo2');
+  await waitFor(`state.view === 'workspace' && state.param === 'demo2'`);
+  await sleep(500);
+  const fold = await evaluate(`(() => { const r = document.querySelector('#ws-room').getBoundingClientRect(), p = document.querySelector('#ws-panel').getBoundingClientRect();
+    return { room: r.bottom, panel: p.top, w: document.documentElement.scrollWidth }; })()`);
+  await shot('workspace-390');
+  check(fold.panel >= fold.room - 1 && fold.w <= 390, `at 390 px the panel is below the room, no sideways scroll (${Math.round(fold.room)} → ${Math.round(fold.panel)}, ${fold.w} px)`);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+}
+
 let failed = false;
 try {
   console.log('dashboard-walk: a scratch store at ' + S);
@@ -350,14 +481,16 @@ try {
   await walkThisMac();
   await walkLists();
   await walkMacs();
+  await walkWorkspacePage();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
   for (let i = 0; i < 100 && existsSync(STORE + '/daemon.pid'); i++) await sleep(100);
   check(!existsSync(STORE + '/daemon.pid'), 'the daemon is stopped');
-  for (const h of ['#/mac/sandboxes', '#/home', '#/mac/loose', '#/bots']) { await goHash(h); await waitFor(SHOWN, 8000); }
+  for (const h of ['#/mac/sandboxes', '#/home', '#/mac/loose', '#/bots', '#/w/demo2']) { await goHash(h); await waitFor(SHOWN, 8000); }
+  check(await waitFor(`state.view === 'workspace' && /Walk it again/.test(${text('[data-ws-brief="demo2"]')})`, 10000), 'with the daemon stopped, #/w/demo2 still reads (from the store)');
   await sleep(4000);
-  check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents and Agents / Bots starts none');
+  check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents, Agents / Bots and a workspace\'s page starts none');
   check(await evaluate(`!!document.querySelector('[data-ws="demo"]')`) || (await goHash('#/home'), await waitFor(`!!document.querySelector('[data-ws="demo"]')`, 8000)),
     'Home still lists demo with no daemon (answered from the store)');
 

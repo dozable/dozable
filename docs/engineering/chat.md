@@ -481,6 +481,7 @@ doz chat set bot1 --deliver inbox --kind claude-session   # how it is reached; i
 doz chat room room1 @bot1       # Made room1 with ada, bot1.
 doz chat send room1 "hello @bot1"
 doz chat read room1 --follow
+doz chat read room1 --with-log  # the owning workspace's log lines among the messages, by time (workspaces.md)
 curl -s -H "Authorization: Bearer $T" "http://127.0.0.1:8790/agent/receive?wait=10"
 curl -s -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
      -d '{"room":"room1","message":{"content":"hi ada"}}' http://127.0.0.1:8790/agent/send
@@ -494,7 +495,8 @@ on the socket, TCP never the human, the parent watch), and `make test-cli-chat` 
 
 The dashboard (`doz ui`) shows chat to the person: the rooms, a room's messages (Markdown, a safe subset), live updates, a
 composer that posts and attaches, reactions, edits, deletes, Reveal, typing, the hold and the avatar, presence and unread.
-It is a CLIENT of the owner's socket, exactly like the `doz chat` commands — no daemon operation, no TCP port, no token:
+A workspace's page shows the same room surface, moved there and scoped to that workspace's rooms (web.md, "A workspace's
+page"); it is still one client with one stream. It is a CLIENT of the owner's socket, exactly like the `doz chat` commands — no daemon operation, no TCP port, no token:
 `DozableWeb` opens `<store>/chat/chat.sock` itself (`ChatOwnerClient`) as the person. Only a closed set of routes reaches
 it, each a fixed call built from checked values (web.md, "Chat"); a browser of another computer gets what `serve.chat`
 (off | read | write, off by default, set on this Mac only) allows. The page never turns chat on (`chat.enabled` is not

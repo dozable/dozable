@@ -177,6 +177,8 @@ public enum WebRoute: Equatable, Sendable {
     // Workspaces and Agents / Bots (WebWorkspaces.swift): reads only, each exactly one read-only HostOp the CLI also sends.
     case workspaces                     // GET  /api/v1/workspaces        (workspace-ls)
     case workspace(String)              // GET  /api/v1/workspaces/{w}    (workspace-show; the name checked before any call — 400)
+    case workspaceBrief(String)         // GET  /api/v1/workspaces/{w}/brief  (workspace-show --brief; refused remotely while serve.chat is off)
+    case workspaceLog(String, Date?)    // GET  /api/v1/workspaces/{w}/log[?since=EPOCH]  (workspace-log --since)
     case loose                          // GET  /api/v1/loose             (workspace-ls --loose)
     case bots                           // GET  /api/v1/bots              (bot-ls)
     // Your Macs (WebMacs.swift): a read only, exactly the read-only HostOp `doz ui macs ls` sends.
@@ -300,6 +302,11 @@ public enum WebRoute: Equatable, Sendable {
             }
         case 2 where rest[0] == "workspaces":
             return .workspace(rest[1])
+        case 3 where rest[0] == "workspaces" && rest[2] == "brief":
+            return query == nil ? .workspaceBrief(rest[1]) : nil
+        case 3 where rest[0] == "workspaces" && rest[2] == "log":
+            guard let query else { return .workspaceLog(rest[1], nil) }
+            return WebWorkspaceReads.since(query).map { .workspaceLog(rest[1], $0) }
         case 2 where rest[0] == "models" && ModelSources.ids.contains(rest[1]):
             return .models(rest[1])
         case 2 where rest == ["try", "list"]:

@@ -7,7 +7,7 @@ import { canonical, HOME, MODAL_VIEWS, parse } from './routes.js';
 import { state } from './state.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), chatEnter = upcall('chatEnter'), chatLeave = upcall('chatLeave'),
-  chatRefresh = upcall('chatRefresh'),
+  chatRefresh = upcall('chatRefresh'), wsEnter = upcall('wsEnter'), wsRefresh = upcall('wsRefresh'),
   closeWizardModal = upcall('closeWizardModal'), gridEnter = upcall('gridEnter'), gridLeave = upcall('gridLeave'),
   gridRefresh = upcall('gridRefresh'), macEnter = upcall('macEnter'), macLeave = upcall('macLeave'), macRefresh = upcall('macRefresh'), openWizardModal = upcall('openWizardModal'), paintNav = upcall('paintNav'),
   paintRowOps = upcall('paintRowOps'), refreshSandbox = upcall('refreshSandbox'),
@@ -44,6 +44,7 @@ export function route() {
   state.view = p.view;
   state.param = p.param;
   state.session = p.session;
+  state.wsRoom = p.room;
   state.bgHash = location.hash;
   routePage();
 }
@@ -53,17 +54,22 @@ function routePage() {
   // must not steal a terminal's focus or reparent its canvas). 593: that section is the sandbox
   // page's terminal area; the grid is a section of its own too.
   // This Mac is a section of its own too (its pane is a live terminal).
-  const onSbx = state.view === 'sandbox', onGrid = state.view === 'sessions', onMac = state.view === 'mac', onChat = state.view === 'chat';
+  // A workspace's page is a section too (#ws): the room surface the Chat page shows is MOVED into it (views/chat.js
+  // mountChat — one chat client), so leaving one for the other never closes the stream.
+  const onSbx = state.view === 'sandbox', onGrid = state.view === 'sessions', onMac = state.view === 'mac', onChat = state.view === 'chat',
+    onWs = state.view === 'workspace';
   $('sbx').hidden = !onSbx;
   $('grid').hidden = !onGrid;
   $('mac').hidden = !onMac;
   $('chat').hidden = !onChat;
-  $('view').hidden = onSbx || onGrid || onMac || onChat;
-  $('main').classList.toggle('main-chat', onChat);
+  $('ws').hidden = !onWs;
+  $('view').hidden = onSbx || onGrid || onMac || onChat || onWs;
+  $('main').classList.toggle('main-chat', onChat || onWs);
+  $('main').classList.toggle('main-ws', onWs);
   $('main').classList.toggle('main-terms', onSbx);
   if (!onGrid) gridLeave();
   if (!onMac) macLeave();
-  if (!onChat) chatLeave();
+  if (!onChat && !onWs) chatLeave();
   if (state.view !== 'operations') state.opsBox = null;
   if (state.view === 'operations') { acknowledgeOps(); loadPreparations(); }
   if (state.modal !== 'onboarding') wizardStopPolling();
@@ -72,6 +78,7 @@ function routePage() {
   if (onGrid) { gridEnter(); return; }
   if (onMac) { macEnter(state.session); return; }
   if (onChat) { chatEnter(state.param); return; }
+  if (onWs) { wsEnter(state.param, state.wsRoom); return; }
   refresh(true);
 }
 window.addEventListener('hashchange', () => {
@@ -93,6 +100,7 @@ export async function refresh(scrollTop) {
   if (state.view === 'sessions') { gridRefresh(false); return; }
   if (state.view === 'mac') { macRefresh(false); return; }
   if (state.view === 'chat') { chatRefresh(); return; }
+  if (state.view === 'workspace') { wsRefresh(); return; }
   if (refreshing) { again = true; return; }
   refreshing = true;
   try {

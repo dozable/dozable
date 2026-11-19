@@ -520,6 +520,10 @@ final class WebOperations: @unchecked Sendable {
         case .macSessionResume(let session):
             let r = try? v.decode(SessionResumed.self)
             return "session \(session) on this Mac continues" + (r.map { " (\($0.processes) process\($0.processes == 1 ? "" : "es") resumed)" } ?? "")
+        case .workspaceBrief(let w, _, _):
+            let d = try? v.decode(WorkspaceDetail.self)
+            if let not = d?.notes?.first(where: { $0.hasPrefix("not announced") }) { return "edited the brief of \(w) — \(not)" }
+            return d?.flags.startedAt != nil ? "edited the brief of \(w) — announced in its room" : "edited the brief of \(w)"
         case .macSessionBridges(let session, _, _, _):
             return (try? v.decode(SessionBridges.self))?.changed.map { "session \(session) on this Mac: \($0) — from the next one" }
                 ?? "session \(session) on this Mac: bridges unchanged"

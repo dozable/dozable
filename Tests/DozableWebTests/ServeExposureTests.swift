@@ -21,7 +21,8 @@ final class ServeExposureTests: XCTestCase {
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
-            .macSessionQuarantine("agent"), .macSessionPlan, .chat(.status), .workspaces, .workspace("demo"), .loose, .bots, .macs,
+            .macSessionQuarantine("agent"), .macSessionPlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
+            .workspaceLog("demo", nil), .loose, .bots, .macs,
         ]
         for r in all { _ = covered(r) }
         return all
@@ -38,7 +39,7 @@ final class ServeExposureTests: XCTestCase {
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
              .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .chat,
-             .workspaces, .workspace, .loose, .bots, .macs:
+             .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .macs:
             return true
         }
     }
@@ -57,6 +58,8 @@ final class ServeExposureTests: XCTestCase {
         // Chat: this Mac's own browser only unless serve.chat (default off) says otherwise (every chat route and every value of
         // serve.chat — WebChatActRouteTests.testServeChatDecides). Its audit label names the call: chat-status, chat-post, ….
         t["chat-status"] = (nil, .chatRemote, .chatRemote)
+        // A workspace's brief follows serve.chat (off by default): what the agents act on.
+        t["workspaceBrief"] = (nil, .briefRemote, .briefRemote)
         return t
     }()
 
@@ -121,6 +124,20 @@ final class ServeExposureTests: XCTestCase {
         XCTAssertEqual(d.hidden, 1)
         XCTAssertEqual(d.notes, ["post the brief"])
         XCTAssertEqual(WebWorkspaceReads.forBrowser(detail, macAllowed: true), detail)
+    }
+
+    /// The brief: a read, refused to another computer only while serve.chat is off; the log: a read for every browser.
+    func testTheBriefFollowsServeChat() {
+        XCTAssertEqual(WebExposure.kind(.workspaceBrief("demo")), .read)
+        XCTAssertEqual(WebExposure.kind(.workspaceLog("demo", nil)), .read)
+        XCTAssertEqual(WebExposure.decide(.workspaceBrief("demo"), .remote(secure: true), chat: .off), .briefRemote)
+        XCTAssertNil(WebExposure.decide(.workspaceBrief("demo"), .remote(secure: true), chat: .read))
+        XCTAssertNil(WebExposure.decide(.workspaceBrief("demo"), .remote(secure: false), chat: .write))
+        XCTAssertNil(WebExposure.decide(.workspaceBrief("demo"), .mac, chat: .off), "the Mac's own browser")
+        XCTAssertNil(WebExposure.decide(.workspaceLog("demo", nil), .remote(secure: false), macSessions: .off, chat: .off),
+                     "the log's lines are filtered, not the route")
+        XCTAssertEqual(WebRejection.briefRemote.status, 403)
+        XCTAssertTrue(WebRejection.briefRemote.message.contains("serve.chat"))
     }
 
     /// Your Macs: a read for every browser — another computer (a phone switching Macs) sees the same list, whatever

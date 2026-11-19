@@ -8,7 +8,8 @@ for, and any folders it works on (usually projects). Work starts only once it is
 
 Nothing moves by itself: today's sandboxes and sessions on this Mac are **loose agents** until a person adopts them, and
 adopting writes only the workspace's own record — never a sandbox's `doz.json` nor `mac-sessions/sessions.json`. The
-dashboard shows nothing of workspaces yet; the CLI is the only way in. The manual's page is `docs/manual/37-workspaces.md`.
+dashboard shows them (below, "In the dashboard") and changes only a brief; everything else is the CLI's. The manual's page
+is `docs/manual/37-workspaces.md`.
 
 ## Where its code lives
 
@@ -71,7 +72,11 @@ Rules (keep them, and their tests):
   `folders-edited`, `refs-edited`, `renamed`, `agent-renamed`, `agent-removed`, `manager-set`, `manager-removed`,
   `bot-invited`, `kicked-off` (the post's sha256 and size — never its text), `manager-started` (isolation, place, the
   token's fingerprint — never the token), `manager-stopped`, `worker-added` (isolation, place, the task's sha256 and size,
-  the token's fingerprint — never the task's text or the token), `worker-ended`, `worker-add-undone` (by `doz`).
+  the token's fingerprint — never the task's text or the token), `worker-ended`, `worker-add-undone` (by `doz`),
+  `brief-announced` (the room an edit after the start was announced in). Each reads as a sentence
+  (`WorkspaceLogEntry.sentence`: "started the work: posted the brief in demo (512 bytes)", "edited the work (120 bytes)")
+  — the ONE set of words `doz workspace log`, `doz chat read --with-log` and the dashboard's system lines share
+  (`WorkspaceLogSentenceTests`).
 - **Folders are optional.** A workspace with none records `folders: []` and has no main folder; `--from-project` needs a
   main folder (it reads the project file there) and is refused without one.
 
@@ -201,6 +206,17 @@ running: said, exit 0. Nothing is posted in the room.
 
 `doz bot ls` and `bot show` carry `running` (the workspace where its manager runs now): "manages: demo (running)".
 
+**An edit of the brief after the start**: `workspaceEdit` writes the brief, the record and `brief-edited` as before;
+then, only when `flags.startedAt` is set and the main room is recorded, it posts ONE message as you
+(`ManagerKickoff.briefEdited`: "I edited the work:" and `briefPost`'s text) through the same `WorkspaceChat.post` the
+kick-off uses, and logs `brief-announced {room}`. While setting up nothing is posted (the start posts the brief). Chat off,
+not ready, or a post that fails: the edit is kept and the answer's note says "not announced: …" — never a failed edit.
+**`ifBrief`** (`WorkspaceRequest.ifBrief`, additive; the CLI's `--if-brief SHA`, the dashboard's Save): checked FIRST,
+against the record's `brief.sha256` — a mismatch is `invalid-phase` "the brief of W changed since you opened it",
+nothing written or posted. `WorkspaceManagerTests` (`testAnEditWhileSettingUpPostsNothing`,
+`testEachEditAfterTheStartIsAnnouncedOnceAsYou`, `testChatOffKeepsTheEditAndSaysItWasNotAnnounced`,
+`testIfBriefMismatchWritesNothing`), `make test-cli-workspace` rows 34–35.
+
 ## Workers
 
 `doz worker add W [NAME] --task "…"` brings up a worker in a STARTED workspace: an agent with one task, a participant of
@@ -309,13 +325,22 @@ for its INFO line — so the dashboard reads it on events only, never on a timer
 
 ## In the dashboard
 
-Four reads, each exactly one read-only HostOp the CLI also sends (`WebWorkspaceReads.request(for:)`; web.md,
+Six reads, each exactly one read-only HostOp the CLI also sends (`WebWorkspaceReads.request(for:)`; web.md,
 "Workspaces in the dashboard"): `GET /api/v1/workspaces` (`workspace-ls`), `GET /api/v1/workspaces/{w}`
-(`workspace-show`, never the brief's text), `GET /api/v1/loose` (`workspace-ls --loose`), `GET /api/v1/bots`
-(`bot-ls`). Nothing changes a workspace from the page yet: no `workspace-*`, `bot-*` or `worker-*` HostOp is an action.
-The sidebar lists the workspaces and unfolds one into its rooms and agents; Home is the table of them (S03 without Needs
-you), or the definition with the loose count when there are none; This Mac › Loose agents lists what is in no workspace
-with the command that adopts it; Agents / Bots lists the bots.
+(`workspace-show`, never the brief's text; additive `startedAt`, `network`, each agent's `control`),
+`GET /api/v1/workspaces/{w}/brief` (`workspace-show --brief`: `{text, refs, bytes, updatedAt, sha256}` — another computer
+only with `serve.chat` read or write, else 403 `brief-remote`), `GET /api/v1/workspaces/{w}/log[?since=EPOCH]`
+(`workspace-log --since`: `{lines: [{at, by, action, room?, agent?, text}], more, hidden}` — the sentences; never a hash,
+fingerprint, place key or size field; the newest 500; another computer while `serve.mac_sessions` is off gets no line
+about a session on this Mac, counted in `hidden`), `GET /api/v1/loose` (`workspace-ls --loose`), `GET /api/v1/bots`
+(`bot-ls`). ONE action changes a workspace from the page: `workspace-brief` = exactly `workspace-edit` with the name, the
+brief and `ifBrief` (another computer only with `serve.chat = write`); no other `workspace-*`, and no `bot-*` or `worker-*`
+HostOp, is an action — no lifecycle from any browser (CLAUDE.md's rule).
+The sidebar lists the workspaces and unfolds one into its rooms and agents; Home is the table of them, or the definition
+with the loose count when there are none; This Mac › Loose agents lists what is in no workspace with the command that
+adopts it; Agents / Bots lists the bots. A workspace's page (`#/w/NAME[/room/LABEL]`, web.md "A workspace's page") puts
+its room first: the brief above it, the log's sentences among its messages (the same words as `doz chat read
+--with-log`), the agents, folders and network beside it.
 
 ## Agents / Bots — `doz bot`
 

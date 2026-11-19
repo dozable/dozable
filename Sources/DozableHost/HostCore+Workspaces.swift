@@ -385,7 +385,10 @@ extension HostCore {
         var rec = try workspaceRecord(n)
         let now = Date()
         var log: [WorkspaceLogEntry] = []
-        // Everything is checked first.
+        // Everything is checked first — the brief as the editor read it first of all (a change since: nothing written).
+        if let want = w.ifBrief, want != rec.brief.sha256 {
+            throw HostError(.invalidPhase, "the brief of \(n) changed since you opened it — read it again (doz workspace show \(n) --brief)")
+        }
         var brief: Data?
         if let b = w.brief { brief = try workspaceCheckBrief(b) }
         var refsAdded = 0, refsRemoved = 0
@@ -466,7 +469,31 @@ extension HostCore {
         if foldersAdded + foldersRemoved > 0 { log.append(WorkspaceLogEntry(at: now, action: "folders-edited", added: foldersAdded, removed: foldersRemoved)) }
         try workspaces.write(rec)
         for e in log { try? workspaces.append(n, e) }
-        return await workspaceDetail(rec, withBrief: false)
+        // After the start, a new brief is announced as your message in the main room — once per edit; while setting up
+        // nothing is posted (the start posts the brief). The edit is kept whatever the chat server says.
+        var notes: [String] = []
+        if let brief, rec.flags.startedAt != nil, let room = rec.mainRoom?.chatRoom {
+            notes += await workspaceAnnounceBrief(n, room: room, brief: String(decoding: brief, as: UTF8.self), refs: rec.brief.refs)
+        }
+        return await workspaceDetail(rec, withBrief: false, notes: notes)
+    }
+
+    /// Posts the edited brief in `room` as you (`ManagerKickoff.briefEdited`) and logs `brief-announced`; answers the notes
+    /// to show when it could not.
+    func workspaceAnnounceBrief(_ n: String, room: String, brief: String, refs: [String]) async -> [String] {
+        guard let chat = workspaceChat else { return ["not announced: chat is off"] }
+        switch await chat.readiness() {
+        case .off: return ["not announced: chat is off"]
+        case .notReady(let why): return ["not announced: the chat server is not ready (\(why))"]
+        case .ready: break
+        }
+        do {
+            try chat.post(room: room, content: ManagerKickoff.briefEdited(brief: brief, refs: refs))
+        } catch {
+            return ["not announced: \(HostError.from(error).message)"]
+        }
+        try? workspaces.append(n, WorkspaceLogEntry(action: "brief-announced", room: room))
+        return []
     }
 
     func workspaceRename(_ w: WorkspaceRequest) async throws -> WorkspaceDetail {

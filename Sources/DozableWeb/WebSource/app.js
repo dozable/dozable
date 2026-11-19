@@ -17,6 +17,8 @@
 //     resolve, a newer build offers a reload); a sign-in again happens INSIDE the page, over what it shows.
 
 import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat.js';
+import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace.js';
+import { interleave } from './app/core/ws-log.js';
 import { configure as configureChat, dashboardFileUrl } from './app/core/chat-api.js';
 import { paintStartProgress } from './app/components/start-progress.js';
 import { expose, provide } from './app/core/hooks.js';
@@ -216,7 +218,7 @@ provide({
   persistLayout, reattachTerminals, refresh, refreshMacPicker, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
   renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
   viewBots, viewHome, viewImages, viewLoose, viewMacs, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
-  viewThisMac, viewTry, wizardStopPolling,
+  viewThisMac, viewTry, wizardStopPolling, wsEnter, wsRefresh,
 });
 // The browser probes' names. The one script's top-level names were globals, and the workspace's browser probes
 // (probes/*, over CDP Runtime.evaluate) read and call some of them; module names are not globals, so these stay
@@ -226,6 +228,8 @@ expose({
   act, api, closeTerminal, focusTerm, gridRefresh, gridSchedule, newSandboxWizard, newShellTerminal, openTerminal,
   pageTerminals, paintTabs, refresh, renderTerminals, resetSetting, saveSetting, sendInput, showUiOverlay, splitWith,
   state, sview, terminals, termUI, uiLost, uiRetryTick, WIZ, wizGo,
+  // A workspace's page: the tab's name and the pure merge of messages and log lines (the walk checks it against fixtures).
+  PERMISSIONS_TAB, interleave,
 });
 
 (async () => { if (await bootstrap()) startApp(); })();

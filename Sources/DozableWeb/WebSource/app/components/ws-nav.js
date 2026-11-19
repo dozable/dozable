@@ -1,9 +1,10 @@
 // components/ws-nav — The sidebar's Workspaces: one line per workspace (its state's mark, its name, a caret). The name
-// opens its main room (#/chat/ROOM); with no room the line only unfolds. Unfolded (GET /api/v1/workspaces/{w}): its rooms
-// (`# label`) and its agents — a sandbox's opens its page, a session on this Mac its pane, one elsewhere is a name only.
+// opens its page (#/w/NAME — the main room first). Unfolded (GET /api/v1/workspaces/{w}): its rooms (`# label`, each its
+// page's address: #/w/NAME, #/w/NAME/room/LABEL) and its agents — a sandbox's opens its page, a session on this Mac its pane, one elsewhere is a name only.
 // Asleep and Finished & archived fold into a line each. What is unfolded is kept in this browser (doz.nav.ws).
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
+import { workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { byState, forgetWorkspaces, isDone, loadWorkspace } from '../core/workspaces.js';
 import { workspaceDot } from './ws-marks.js';
@@ -31,7 +32,7 @@ export function renderNavWorkspaces(opts = {}) {
   const open = openSet();
   // Drawn again only when what it shows changed (a redraw is a style recalculation for the whole sidebar).
   const sig = JSON.stringify([all, [...open].sort(), [...state.wsDetails.entries()].filter(([n]) => open.has(n)),
-    !state.modal && state.view === 'chat' ? state.param : null]);
+    !state.modal && state.view === 'workspace' ? [state.param, state.wsRoom] : null]);
   if (sig === lastSig && box.childElementCount) { if (!opts.details) for (const w of all) if (open.has(w.name)) readDetail(w.name, 0); return; }
   lastSig = sig;
   const sorted = byState(all);
@@ -61,11 +62,10 @@ function readDetail(name, maxAgeMs) {
 
 function line(w, open) {
   const unfolded = open.has(w.name);
-  const here = !state.modal && state.view === 'chat' && !!w.room && state.param === w.room;
+  const here = !state.modal && state.view === 'workspace' && state.param === w.name;
   const toggle = () => { setOpen(w.name, !unfolded); renderNavWorkspaces(); if (!unfolded) readDetail(w.name, 1000); };
-  const link = h('a', { href: w.room ? '#/chat/' + w.room : '#/home', class: 'nav-child nav-ws-name' + (here ? ' active' : ''), 'data-ws-link': w.name,
-    title: w.name + ' — ' + w.words + (w.room ? '' : ' · no room yet'), 'aria-current': here ? 'page' : null,
-    on: { click: (ev) => { if (!w.room) { ev.preventDefault(); toggle(); } } } },
+  const link = h('a', { href: workspaceHash(w.name), class: 'nav-child nav-ws-name' + (here ? ' active' : ''), 'data-ws-link': w.name,
+    title: w.name + ' — ' + w.words + (w.room ? '' : ' · no room yet'), 'aria-current': here ? 'page' : null },
     workspaceDot(w.state, w.words), h('span', { class: 'nav-name' }, w.name));
   const caret = h('button', { type: 'button', class: 'nav-caret' + (unfolded ? '' : ' folded'), 'data-ws-fold': w.name,
     'aria-expanded': unfolded ? 'true' : 'false', 'aria-label': (unfolded ? 'Fold ' : 'Show ') + w.name + '’s rooms and agents',
@@ -77,9 +77,13 @@ function line(w, open) {
 function inside(w) {
   const d = state.wsDetails.get(w.name);
   if (!d) return h('div', { class: 'nav-sessions', role: 'list', 'aria-label': w.name }, h('span', { class: 'nav-sess nav-ws-wait', role: 'listitem' }, 'reading…'));
-  const rooms = d.rooms.map((r) => h('div', { class: 'nav-sess-row', role: 'listitem' },
-    h('a', { href: '#/chat/' + r.room, class: 'nav-sess nav-ws-room', 'data-ws-room': r.room, title: 'Its room ' + r.room + ' in chat' },
-      h('span', { class: 'nav-hash', 'aria-hidden': 'true' }, '#'), h('span', { class: 'ns-name' }, r.label))));
+  const rooms = d.rooms.slice().sort((a, b) => (a.main ? -1 : b.main ? 1 : a.label.localeCompare(b.label))).map((r) => {
+    const on = !state.modal && state.view === 'workspace' && state.param === w.name && (r.main ? !state.wsRoom : state.wsRoom === r.label);
+    return h('div', { class: 'nav-sess-row', role: 'listitem' },
+      h('a', { href: workspaceHash(w.name, r.main ? null : r.label), class: 'nav-sess nav-ws-room' + (on ? ' active' : ''), 'data-ws-room': r.room,
+        title: (r.main ? 'Its main room' : 'Its room') + ' ' + r.room, 'aria-current': on ? 'page' : null },
+        h('span', { class: 'nav-hash', 'aria-hidden': 'true' }, '#'), h('span', { class: 'ns-name' }, r.main ? r.room : r.label)));
+  });
   const agents = d.agents.map((a) => {
     const dot = h('span', { class: 'ph-dot ph-' + agentPhase(a.state), role: 'img', 'aria-label': a.state + (a.activity ? ' · ' + a.activity : '') });
     const parts = [dot, h('span', { class: 'ns-name' }, a.name), h('span', { class: 'nav-ws-role' }, a.role)];

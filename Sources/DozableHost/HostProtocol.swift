@@ -1648,6 +1648,9 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var noManager: Bool?
     /// log: entries at or after.
     public var since: Date?
+    /// edit: the brief's sha256 as the editor last read it — a brief changed since is refused, nothing written (the
+    /// dashboard's Save, `--if-brief SHA`). Additive: an older daemon ignores it.
+    public var ifBrief: String?
 
     public init(name: String? = nil) { self.name = name }
 }

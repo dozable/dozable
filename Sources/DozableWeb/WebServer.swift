@@ -972,6 +972,8 @@ public final class DozableWebServer: @unchecked Sendable {
             let request = try WebAction.decodeRequest(body)
             // The sessions on this Mac: another computer ends or restarts one only with serve.mac_sessions = interactive.
             if request.action.isMacSession, let r = WebExposure.decideMacAction(ctx.principal, settings.macSessions) { throw r }
+            // A workspace's brief speaks as you in its room: another computer only with serve.chat = write.
+            if request.action.isWorkspace, let r = WebExposure.decideWorkspaceAction(ctx.principal, settings.chatServe) { throw r }
             return json(try operations.start(request.action, priority: !request.batch), status: 202)
         case .operationsCancel:
             // 650: withdraw operations still queued — nothing was sent to the host for them (so not an action).
@@ -1010,6 +1012,14 @@ public final class DozableWebServer: @unchecked Sendable {
             try WebWorkspaceReads.checkName(w)
             let d = WebWorkspaceDetail(try await data.workspace(w))
             return json(WebWorkspaceReads.forBrowser(d, macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
+        case .workspaceBrief(let w):
+            // Refused to another computer while serve.chat is off (WebExposure.decide, above).
+            try WebWorkspaceReads.checkName(w)
+            return json(WebWorkspaceBrief(try await data.workspaceBrief(w)))
+        case .workspaceLog(let w, let since):
+            try WebWorkspaceReads.checkName(w)
+            return json(WebWorkspaceLog(try await data.workspaceLog(w, since: since),
+                                        macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
         case .bots:
             return json(WebBotListing(try await data.bots()))
         case .macs:

@@ -2,10 +2,10 @@ import DozableHost
 import DozableKit
 import Foundation
 
-/// The dashboard's workspace and Agents / Bots reads: four typed GET routes, each EXACTLY ONE read-only HostOp the CLI also
-/// sends (`doz workspace ls`, `doz workspace show W`, `doz workspace ls --loose`, `doz bot ls`) — answered in-process when no
-/// daemon runs (looking never starts one). `request(for:)` is the ONE map from a route to its request (`HostWebData` uses it;
-/// `WebWorkspacesTests` pins it). Nothing here changes anything: the actions come in later steps.
+/// The dashboard's workspace and Agents / Bots reads: six typed GET routes, each EXACTLY ONE read-only HostOp the CLI also
+/// sends (`doz workspace ls`, `doz workspace show W`, `doz workspace show W --brief`, `doz workspace log W --since …`,
+/// `doz workspace ls --loose`, `doz bot ls`) — answered in-process when no daemon runs (looking never starts one). `request(for:)` is the ONE map from a route to its request (`HostWebData` uses it;
+/// `WebWorkspacesTests` pins it). Nothing here changes anything.
 public enum WebWorkspaceReads {
     /// The request a read route sends (nil: not one of these routes).
     public static func request(for route: WebRoute) -> HostRequest? {
@@ -14,6 +14,14 @@ public enum WebWorkspaceReads {
             return workspaceRequest(.workspaceList, WorkspaceRequest())
         case .workspace(let w):
             return workspaceRequest(.workspaceShow, WorkspaceRequest(name: w))
+        case .workspaceBrief(let w):
+            var r = WorkspaceRequest(name: w)
+            r.withBrief = true
+            return workspaceRequest(.workspaceShow, r)
+        case .workspaceLog(let w, let since):
+            var r = WorkspaceRequest(name: w)
+            r.since = since
+            return workspaceRequest(.workspaceLog, r)
         case .loose:
             var w = WorkspaceRequest()
             w.loose = true
@@ -31,6 +39,16 @@ public enum WebWorkspaceReads {
         var r = HostRequest(op)
         r.workspaceRequest = w
         return r
+    }
+
+    /// The log route's query: exactly `since=EPOCH` (seconds, a fraction allowed — the page sends the last line's time back),
+    /// else not a route.
+    public static func since(_ query: String) -> Date? {
+        guard query.hasPrefix("since="), !query.contains("&") else { return nil }
+        let v = query.dropFirst(6)
+        guard (1...24).contains(v.count), v.allSatisfy({ $0.isASCII && ($0.isNumber || $0 == ".") }), v.filter({ $0 == "." }).count <= 1,
+              let t = Double(v), t.isFinite, t >= 0, t < 32_503_680_000 else { return nil }
+        return Date(timeIntervalSince1970: t)
     }
 
     /// A workspace's name in the address, checked before any call (the store's own rule); the refusal never echoes it.

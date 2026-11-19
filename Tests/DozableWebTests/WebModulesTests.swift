@@ -47,6 +47,47 @@ final class WebModulesTests: XCTestCase {
         }
     }
 
+    /// A workspace's page: its modules ship; the permissions tab's name is ONE constant; `core/ws-log.js` is pure (no
+    /// import) with its `interleave`; and there is ONE chat client — only views/chat.js makes the composer (`chat-text`), only
+    /// core/chat-stream.js opens chat's stream, and the workspace's modules neither fetch nor stream (they MOVE the Chat
+    /// page's surface with `mountChat`).
+    func testTheWorkspacePageIsOneChatClient() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let a = try WebAssets.load()
+        for m in ["views/workspace", "components/ws-brief", "components/ws-panel", "core/ws-log"] {
+            XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
+        }
+        let ws = try read("app/views/workspace.js")
+        XCTAssertTrue(ws.contains("export const PERMISSIONS_TAB = 'Permissions';"))
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+        var named: [String] = [], composers: [String] = []
+        for f in files {
+            let text = try read(f)
+            if text.contains("'Permissions'") { named.append(f) }
+            if text.contains("id: 'chat-text'") { composers.append(f) }
+        }
+        XCTAssertEqual(named, ["app/views/workspace.js"], "the tab's name is written once")
+        XCTAssertEqual(ws.components(separatedBy: "'Permissions'").count, 2, "…exactly once")
+        XCTAssertEqual(composers, ["app/views/chat.js"], "one composer")
+        let log = try read("app/core/ws-log.js")
+        XCTAssertTrue(Self.specifiers(log).isEmpty, "core/ws-log.js is pure: it imports nothing")
+        XCTAssertTrue(log.contains("export function interleave("))
+        for f in ["app/views/workspace.js", "app/components/ws-brief.js", "app/components/ws-panel.js", "app/core/ws-log.js"] {
+            let text = try read(f)
+            for never in ["fetch(", "EventSource(", "openChatStream", "chat/stream", "innerHTML", "chat-text"] {
+                XCTAssertFalse(text.contains(never), "\(f): \(never)")
+            }
+        }
+        XCTAssertTrue(ws.contains("mountChat("), "the page moves the Chat page's surface")
+        // Every tab in the mockups' order; only Room works.
+        let order = ["'Room'", "'Agents'", "PERMISSIONS_TAB", "'Network & secrets'", "'Folders & points'", "'Activity'", "'Settings'"]
+        let at = order.map { ws.range(of: "label: " + $0)?.lowerBound }
+        XCTAssertFalse(at.contains(nil), "every tab")
+        XCTAssertEqual(at.compactMap { $0 }, at.compactMap { $0 }.sorted(), "in the mockups' order")
+    }
+
     func testEveryModuleIsServedHashedAndImportedOnlyFromItsOwnLayerOrBelow() throws {
         let a = try WebAssets.load()
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource/app")

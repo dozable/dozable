@@ -98,6 +98,12 @@ public enum WebAction: Equatable, Sendable {
     /// 669 (659 item 13): one per-sandbox setting of a sandbox — its own value, or (nil) "Follow the Mac": it follows
     /// the layers below again (`doz config set|unset --sandbox NAME KEY`).
     case sandboxSetting(name: String, key: String, value: String?)
+    /// A workspace's brief replaced from its page — exactly `doz workspace edit W --prompt-file F --if-brief SHA` (the
+    /// HostOp `workspace-edit` with only the name, the brief and `ifBrief`: never its references, folders, manager or
+    /// room). `ifBrief` is the sha256 the page read: a brief changed since is refused, nothing written. After the start
+    /// the daemon announces it in the main room as you. Another computer only with `serve.chat = write`
+    /// (`WebExposure.decideWorkspaceAction`). The ONE workspace action: no start, stop, worker or bot from the browser.
+    case workspaceBrief(workspace: String, brief: String, ifBrief: String)
 
     public static let lifecycleOps: [String: HostOp] = [
         "start": .start, "wake": .wake, "pause": .pause, "resume": .resume, "sleep": .sleep, "hibernate": .hibernate,
@@ -118,7 +124,8 @@ public enum WebAction: Equatable, Sendable {
             return n
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall,
-             .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges:   // this Mac is no sandbox
+             .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges,   // this Mac is no sandbox
+             .workspaceBrief:                                                             // nor is a workspace
             return nil
         }
     }
@@ -126,6 +133,11 @@ public enum WebAction: Equatable, Sendable {
     /// An action on the sessions on this Mac (decided by `serve.mac_sessions` for another computer).
     public var isMacSession: Bool {
         switch self { case .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges: true; default: false }
+    }
+
+    /// An action on a workspace (decided by `serve.chat` for another computer: it speaks as you in its room).
+    public var isWorkspace: Bool {
+        if case .workspaceBrief = self { true } else { false }
     }
 
     /// Destructive actions carry `confirm`, which must equal this (the page fills it only from a
@@ -147,6 +159,7 @@ public enum WebAction: Equatable, Sendable {
     /// (and session, point, image or account). A double-clicked "open session" is one operation.
     public var dedupeKey: String {
         let r = hostRequest
+        if let w = r.workspaceRequest?.name { return [r.op.rawValue, "workspace:" + w].joined(separator: "|") }
         return [r.op.rawValue, r.name ?? "", r.session ?? "", r.point ?? r.pointName ?? "", r.image ?? "", r.account ?? "", r.newName ?? "",
                 r.ids?.joined(separator: ",") ?? "", r.kernel ?? "", r.filePath ?? ""].joined(separator: "|")
     }
@@ -174,6 +187,7 @@ public enum WebAction: Equatable, Sendable {
         case .filesRemove(let n, let p, _): return "files-rm \(n) \(p)"
         case .rename(let n, let new): return "rename \(n) to \(new)"
         case .sandboxSetting(let n, let k, let v): return v.map { "\(k) = \($0) for \(n)" } ?? "\(n) follows the Mac's \(k)"
+        case .workspaceBrief(let w, _, _): return "edit the brief of \(w)"
         default: break
         }
         let r = hostRequest
@@ -373,6 +387,13 @@ public enum WebAction: Equatable, Sendable {
             r.setting = k
             if let v { r.settingValue = .string(v) } else { r.clearSetting = true }
             return r
+        case .workspaceBrief(let w, let brief, let ifBrief):
+            var e = WorkspaceRequest(name: w)
+            e.brief = brief
+            e.ifBrief = ifBrief
+            var r = HostRequest(.workspaceEdit)
+            r.workspaceRequest = e
+            return r
         }
     }
 
@@ -430,6 +451,7 @@ public enum WebAction: Equatable, Sendable {
             "files-rm": ["sandbox", "path", "recursive", "confirm"],
             "rename": ["sandbox", "newName"],
             "sandbox-setting": ["sandbox", "key", "value", "clear"],
+            "workspace-brief": ["workspace", "brief", "ifBrief"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -639,6 +661,12 @@ public enum WebAction: Equatable, Sendable {
             let clear = try f.flag("clear") == true
             guard (value != nil) != clear else { throw Invalid("value, or clear: true — one of them") }
             a = .sandboxSetting(name: try f.sandbox("sandbox"), key: key, value: value)
+        case "workspace-brief":
+            guard let w = try f.string("workspace", max: 40), WorkspaceName.isValid(w) else {
+                throw Invalid("workspace: 1–40 characters of a-z, 0-9 and -, not starting with -")
+            }
+            let sha = try f.required(f.matching("ifBrief", "^[0-9a-f]{64}$", "the brief's sha256 as read, 64 lower-case hex digits"), "ifBrief")
+            a = .workspaceBrief(workspace: w, brief: try f.brief("brief"), ifBrief: sha)
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }
             a = .lifecycle(op, name: try f.sandbox("sandbox"))
@@ -825,6 +853,18 @@ public enum WebAction: Equatable, Sendable {
                 throw Invalid("\(key): a file or folder in /workspace (not /workspace itself)")
             }
             return item.guest
+        }
+
+        /// A workspace's brief: text (lines and tabs allowed, no other control character), not blank, at most what the store
+        /// keeps (the request body's 16 KiB is the real limit from a browser — the CLI takes up to 256 KiB).
+        func brief(_ key: String) throws -> String {
+            guard let v = d[key], let s = v as? String else { throw Invalid("\(key) is required: the brief's text") }
+            guard !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw Invalid("\(key): the brief is empty") }
+            guard s.utf8.count <= WorkspaceStore.maximumBriefBytes else { throw Invalid("\(key): at most 256 KiB") }
+            guard !s.unicodeScalars.contains(where: { $0.properties.generalCategory == .control && !["\n", "\r", "\t"].contains($0) }) else {
+                throw Invalid("\(key): no control characters but line breaks and tabs")
+            }
+            return s
         }
 
         /// A detached session's program: 1–64 arguments, no NUL, ≤ 4 KiB each, 16 KiB in all.

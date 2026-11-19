@@ -254,6 +254,39 @@ final class WebHTTPIntegrationTests: XCTestCase {
         XCTAssertEqual(fake.workspaceCalls, ["ls", "show demo", "ls --loose", "ls", "show nope"], "no call for a refused name")
     }
 
+    /// The brief and the log over a real listener: 200 with their projections (the brief's text and sha256; the log's words,
+    /// never a hash), 404 for an unknown workspace, 400 for a name off the rule before any call, PUT 405, no POST, the
+    /// session required.
+    func testTheBriefAndTheLog() async throws {
+        try await start()
+        let (cookie, csrf) = try signIn()
+        for p in ["/api/v1/workspaces/demo/brief", "/api/v1/workspaces/demo/log", "/api/v1/workspaces/demo/log?since=30"] {
+            XCTAssertEqual(try get(p).status, 401, "\(p): the session is required")
+            let r = try get(p, ["Cookie": cookie])
+            XCTAssertEqual(r.status, 200, "\(p): \(r.text)")
+            XCTAssertEqual(r.header("content-type"), "application/json; charset=utf-8")
+            XCTAssertEqual(try get(p, ["Cookie": cookie], method: "PUT").status, 405, p)
+            XCTAssertEqual(try get(p, ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"],
+                                   method: "POST", body: "{}").status, 404, "\(p): no POST")
+        }
+        let b = try XCTUnwrap(try JSONSerialization.jsonObject(with: try get("/api/v1/workspaces/demo/brief", ["Cookie": cookie]).body) as? [String: Any])
+        XCTAssertEqual(b["text"] as? String, "the brief's text")
+        XCTAssertEqual(b["sha256"] as? String, String(repeating: "d", count: 64))
+        let log = try get("/api/v1/workspaces/demo/log", ["Cookie": cookie])
+        XCTAssertTrue(log.text.contains("edited the work (16 bytes)"), log.text)
+        XCTAssertTrue(log.text.contains("adopted build"), "this Mac's own browser sees every line")
+        XCTAssertFalse(log.text.contains("eeeeeeee") || log.text.contains("sha256"), log.text)
+        XCTAssertEqual(try get("/api/v1/workspaces/nope/brief", ["Cookie": cookie]).status, 404)
+        XCTAssertEqual(try get("/api/v1/workspaces/nope/log", ["Cookie": cookie]).status, 404)
+        for bad in ["Demo", "-x", "a_b"] {
+            XCTAssertEqual(try get("/api/v1/workspaces/\(bad)/brief", ["Cookie": cookie]).status, 400, bad)
+            XCTAssertEqual(try get("/api/v1/workspaces/\(bad)/log", ["Cookie": cookie]).status, 400, bad)
+        }
+        XCTAssertEqual(try get("/api/v1/workspaces/demo/log?since=x", ["Cookie": cookie]).status, 404, "a query off the rule is not a route")
+        XCTAssertEqual(fake.workspaceCalls, ["show demo --brief", "log demo", "log demo --since 30", "show demo --brief", "log demo",
+                                             "show nope --brief", "log nope"], "one read per request; none for a refused name")
+    }
+
     /// Your Macs over a real listener: the projection (this Mac first, then each Mac's name and origin), the session
     /// required, PUT 405, no POST — and exactly one read per request.
     func testYourMacs() async throws {
@@ -695,6 +728,26 @@ final class FakeData: DozableWebData, @unchecked Sendable {
                                briefText: "the brief's text", folders: [], rooms: [WorkspaceRoom(label: "demo", chatRoom: "demo", main: true)],
                                agents: [WorkspaceAgentRow(name: "wsa", role: "worker", place: "wsa", state: "off", startedAt: t)],
                                defaults: WorkspaceDefaults(), flags: WorkspaceFlags(), origin: WorkspaceOrigin(), notes: ["doz workspace start demo"])
+    }
+    func workspaceBrief(_ name: String) async throws -> WorkspaceDetail {
+        lock.withLock { _workspaceCalls.append("show \(name) --brief") }
+        return try await workspaceDetail(name)
+    }
+    private func workspaceDetail(_ name: String) async throws -> WorkspaceDetail {
+        guard name == "demo" else { throw HostError(.notFound, "\(name) is not a workspace (doz workspace ls)") }
+        let t = Date(timeIntervalSince1970: 0)
+        return WorkspaceDetail(name: "demo", state: "setting-up", driver: "you", createdAt: t,
+                               brief: WorkspaceBrief(refs: ["https://example.com/spec"], sha256: String(repeating: "d", count: 64), bytes: 16, updatedAt: t),
+                               briefText: "the brief's text", folders: [], rooms: [WorkspaceRoom(label: "demo", chatRoom: "demo", main: true)],
+                               agents: [], defaults: WorkspaceDefaults(), flags: WorkspaceFlags(), origin: WorkspaceOrigin())
+    }
+    func workspaceLog(_ name: String, since: Date?) async throws -> [WorkspaceLogEntry] {
+        lock.withLock { _workspaceCalls.append("log \(name)" + (since.map { " --since \(Int($0.timeIntervalSince1970))" } ?? "")) }
+        guard name == "demo" else { throw HostError(.notFound, "\(name) is not a workspace (doz workspace ls)") }
+        let t = Date(timeIntervalSince1970: 60)
+        return [WorkspaceLogEntry(at: t, action: "created"),
+                WorkspaceLogEntry(at: t, action: "adopted", agent: "build", place: "mac:build"),
+                WorkspaceLogEntry(at: t, action: "brief-edited", sha256: String(repeating: "e", count: 64), bytes: 16)]
     }
     func bots() async throws -> BotListing {
         BotListing(bots: [BotRow(name: "mira", agent: "claude-code", model: nil, isolation: "fenced", kind: "agent", deliver: "poll", inChat: true,

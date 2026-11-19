@@ -93,6 +93,25 @@ final class WebActionHTTPTests: XCTestCase {
         XCTAssertTrue(fake.performed.isEmpty)
     }
 
+    /// `workspace-brief` over HTTP: one `workspace-edit` with the brief and `ifBrief`; a body over the actions' 16 KiB is
+    /// refused (413) before it is read whole, and nothing reaches the daemon.
+    func testTheWorkspaceBriefAndTheBodyLimit() throws {
+        let sha = String(repeating: "a", count: 64)
+        let r = try post("/api/v1/actions", #"{"action":"workspace-brief","workspace":"demo","brief":"Shorter, please.","ifBrief":"\#(sha)"}"#)
+        XCTAssertEqual(r.status, 202, r.text)
+        XCTAssertEqual(json(r)["label"] as? String, "edit the brief of demo")
+        let deadline = Date().addingTimeInterval(5)
+        while fake.performed.isEmpty && Date() < deadline { usleep(10_000) }
+        XCTAssertEqual(fake.performed.first?.op, .workspaceEdit)
+        XCTAssertEqual(fake.performed.first?.workspaceRequest?.brief, "Shorter, please.")
+        XCTAssertEqual(fake.performed.first?.workspaceRequest?.ifBrief, sha)
+        XCTAssertNil(fake.performed.first?.workspaceRequest?.addRefs)
+        let big = String(repeating: "x", count: 17 * 1024)
+        let over = try post("/api/v1/actions", #"{"action":"workspace-brief","workspace":"demo","brief":"\#(big)","ifBrief":"\#(sha)"}"#)
+        XCTAssertEqual(over.status, 413, "the actions' body limit: the page shows the command beyond it")
+        XCTAssertEqual(fake.performed.count, 1)
+    }
+
     // MARK: operations
 
     func testAnActionRunsAsAnOperationWithProgressOverSSE() throws {

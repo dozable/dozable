@@ -87,8 +87,8 @@ try too), **Images**, **Accounts & keys**, **Resources**, **Devices**, **Logs** 
 Quick add. The page, sandbox or session you are on is tinted, with a line at its left edge.
 
 A workspace's line in the sidebar shows its state as a dot (a ring while it is setting up), its name, and a caret. Its
-name opens its main room in **Chat** (a workspace with no room only unfolds); the caret unfolds it into its rooms (**#
-review**) and its agents — a sandbox's opens the sandbox's page, a session on this Mac opens it under **On this Mac**, an
+name opens the workspace's page (below, [A workspace's page](#a-workspaces-page)); the caret unfolds it into its rooms (**#
+review**, each opening that room on the workspace's page) and its agents — a sandbox's opens the sandbox's page, a session on this Mac opens it under **On this Mac**, an
 agent elsewhere is its name only. Asleep workspaces fold into one line, **Asleep (2)**, and finished and archived ones into
 **Finished & archived (5)**; this browser remembers what you unfolded. Click **Sandboxes** while its page is shown (or
 its caret) to fold the list of sandboxes under it, and again to show it; this browser remembers. The
@@ -100,8 +100,8 @@ sidebar as a drawer, the machine picker, a key button while a key needs you, and
 
 | page | what it's for |
 |---|---|
-| **Home** | Every workspace, one row each: its state in the words `doz workspace ls` uses (**waiting on you** first, then **working**, **starting**, **idle**, **setting up**, **asleep**; finished and archived fold into one line below), the workspace and its folders, who drives it (**you**), its manager (**mira (fenced)**; an unfenced one says **acts as you** in the warning colour), who is working (for a workspace waiting on you, why — an agent blocked, in error, or a sandbox that failed), its room, the room's last line (while the chat server runs) and one next action: **Open room**, or for a workspace still setting up what it lacks and the command that starts it, `doz workspace start NAME`, to copy. With no workspace yet, Home says what one is — "A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up." — offers **Just try an agent** (Quick try), counts the sandboxes and sessions on this Mac that are not in any workspace (**Put them in workspaces…** opens **Loose agents**) and points to **Agents / Bots** for an agent elsewhere. See [Workspaces](37-workspaces.md). |
-| **Agents / Bots** | Every Agent / Bot, as `doz bot ls` lists them: its agent program, how it is isolated, how the chat server reaches it, the workspaces it manages or works in (each opens its room), whether it is in chat, and when it was retired. A list: making or changing one is `doz bot …` (the page shows the command). See [Agents / Bots](38-agents-and-bots.md). |
+| **Home** | Every workspace, one row each: its state in the words `doz workspace ls` uses (**waiting on you** first, then **working**, **starting**, **idle**, **setting up**, **asleep**; finished and archived fold into one line below), the workspace and its folders, who drives it (**you**), its manager (**mira (fenced)**; an unfenced one says **acts as you** in the warning colour), who is working (for a workspace waiting on you, why — an agent blocked, in error, or a sandbox that failed), its room, the room's last line (while the chat server runs) and one next action: **Open room** (the workspace's page), or for a workspace still setting up what it lacks and the command that starts it, `doz workspace start NAME`, to copy. With no workspace yet, Home says what one is — "A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up." — offers **Just try an agent** (Quick try), counts the sandboxes and sessions on this Mac that are not in any workspace (**Put them in workspaces…** opens **Loose agents**) and points to **Agents / Bots** for an agent elsewhere. See [Workspaces](37-workspaces.md). |
+| **Agents / Bots** | Every Agent / Bot, as `doz bot ls` lists them: its agent program, how it is isolated, how the chat server reaches it, the workspaces it manages or works in (each opens its page), whether it is in chat, and when it was retired. A list: making or changing one is `doz bot …` (the page shows the command). See [Agents / Bots](38-agents-and-bots.md). |
 | **This Mac › Overview** | One line for each of This Mac's pages, saying what it holds now: what runs (sandboxes running, sessions on this Mac fenced and unfenced), the loose agents, a key that does not work, the disk Dozable uses (once Resources has measured it), a failed operation, the chat server's state, and the daemon with **Restart daemon** (or **Start daemon**). Nothing is measured or checked when you open it. |
 | **This Mac › Your Macs** | The other Macs the machine picker opens, as `doz ui macs ls` lists them: each one's name, address (**plain HTTP** when it is), when it was last seen, what the last check found, **Open**, and the command that removes it, `doz ui macs rm NAME`, to copy; then how to add one, `doz ui macs add NAME ADDRESS`. The list is changed in a terminal on this Mac only. |
 | **This Mac › Loose agents** | The sandboxes and sessions on this Mac that are not in any workspace, each with its kind (**micro VM** or **on this Mac**), its state, **Open**, and the command that adopts it, `doz workspace adopt WORKSPACE NAME`, to copy. Nothing moves by itself: adopting changes only the workspace's record. |
@@ -137,6 +137,34 @@ answers is checked only by `doz ui macs add` and `doz ui macs check`). Each Mac 
 workspaces, agents and keys. On a phone, the name in the header row opens the same list. **Enter**, **Space** or
 **↓** on the name opens it, the arrow keys move through it, **Escape** closes it; **g** then **m** opens it from anywhere.
 
+### A workspace's page
+
+A workspace's page (`#/w/NAME`; the sidebar's name, Home's row and **Open room** lead there) puts its room first. The
+title row has its name, its state, who drives it, its manager (an unfenced one says **acts as you**) and **⋯**, which
+holds the commands to copy — `doz workspace start NAME` while it is setting up, `doz workspace stop NAME` when it has a
+manager — and what it still lacks. Below are its tabs: **Room** works; **Agents**, **Permissions**, **Network & secrets**,
+**Folders & points**, **Activity** and **Settings** are marked **coming** and say what they will hold.
+
+**The work** — the brief — sits above the room: its text, its references (a link opens in a new tab), who wrote it and
+when, and how many times it was edited. It is open on the workspace's page and one line on another room's; **Fold** and
+**Open** change that, and this browser remembers it for each workspace. **Edit** changes the brief and nothing else; once
+the work has started, saving posts it in the room as your message ("I edited the work:" and the new text). If the brief
+changed since you opened it (from a terminal, or another browser), the save is refused and nothing is written. A brief
+over about 15 KB is saved with `doz workspace edit NAME --prompt-file FILE` instead (the page shows the command).
+**History** lists the edits — when and how long — each after the start linking to its message in the room.
+
+The room is the same as on the Chat page — its messages, the composer, reactions, edits, attachments — showing only this
+workspace's rooms (a strip of **# label**s; **+ room** is not there yet). Each agent's name carries its place in the
+workspace — its role, its agent program, how it is isolated, its session (`manager · Claude Code · fenced`) — and an
+unfenced one **acts as you**. What `doz workspace log` says (the work started, the brief edited, a worker added) shows
+among the messages in grey, by time; it is never posted in the room. An address naming a room that is not this
+workspace's opens its main room and says so.
+
+The side panel says who is here and in what: each agent with its state, its isolation (**micro VM**, **fenced**,
+**unfenced**, **elsewhere**), a worker's task — each opens its sandbox or its session on this Mac — then **In this room**,
+the workspace's folders and its network. **+ Worker** shows `doz worker add NAME --task "…"` to copy. In a narrow window
+the panel is below the room.
+
 ### Old addresses
 
 The dashboard's addresses moved with its pages; a bookmark or a link to an old one opens the page's new address (the
@@ -151,7 +179,8 @@ address bar shows the new one):
 | `#/images`, `#/resources`, `#/accounts`, `#/devices`, `#/doctor`, `#/settings`, `#/debug` | `#/mac/images` and so on |
 | `#/operations`, `#/activity`, `#/notifications`, `#/metrics` | `#/mac/logs/operations` and so on |
 
-`#/sandbox/NAME`, `#/chat`, `#/new`, `#/onboarding` and `#/try` are unchanged. `#/mac` alone is now This Mac's overview
+`#/sandbox/NAME`, `#/chat`, `#/new`, `#/onboarding` and `#/try` are unchanged. A workspace's page is `#/w/NAME` (its main
+room) and `#/w/NAME/room/LABEL` (another of its rooms, by its short label). `#/mac` alone is now This Mac's overview
 (its first line leads to On this Mac), and a session on this Mac named like one of This Mac's pages (`images`, `logs`, …)
 is reached from On this Mac rather than by its old address.
 
