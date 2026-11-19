@@ -46,7 +46,7 @@ One row per area; each area's doc starts with the full table of its files.
 | Accounts, GitHub, Access | `ClaudeLogin`, `Accounts`, `LoginWatcher`, `HostCore+Accounts` | [github-and-access.md](docs/engineering/github-and-access.md) |
 | Codex | `OpenAIAccess`, `ChatGPTAccounts`, `ChatGPTSignIn` | [codex.md](docs/engineering/codex.md) |
 | Agent recipes, key providers, the catalogue | `RecipeCatalogue`, `RecipeOrigin`, `RecipeCommands`, `Scripts/publish-recipes.sh` | [recipes.md](docs/engineering/recipes.md) |
-| `doz ui` — the web layer (Home, the sidebar, This Mac; the addresses in `core/routes.js`; the workspace reads in `WebWorkspaces`) | `Sources/DozableWeb/`, `WebSource/` → `Resources/Web/`, `Tests/DozableWebTests/` | [web.md](docs/engineering/web.md) |
+| `doz ui` — the web layer (Home, the sidebar, This Mac, a workspace's page; the addresses in `core/routes.js`; the workspace reads in `WebWorkspaces`) | `Sources/DozableWeb/`, `WebSource/` → `Resources/Web/`, `Tests/DozableWebTests/` | [web.md](docs/engineering/web.md) |
 | The LAN option | `Sources/DozableWeb/WebServe*.swift`, `WebExposure`, `WebBonjour` | [lan.md](docs/engineering/lan.md) |
 | The terminal | `Sources/DozableTUI/` | [terminal-tui.md](docs/engineering/terminal-tui.md) |
 | Onboarding, projects | `Preparations`, `Onboarding`, `AgentPrompt`, `OnboardCommands`, `ProjectFile` | [onboarding.md](docs/engineering/onboarding.md) |

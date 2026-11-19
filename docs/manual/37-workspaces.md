@@ -68,11 +68,14 @@ workspace (`working`) and `doz workspace show --json` what each agent's program 
 **Home** (the page `doz ui` opens on) lists every workspace — its state (waiting on you first), its folders, who drives
 it, its manager (an unfenced one says **acts as you**), who is working (for one waiting on you, why), its room and the
 room's last line while the chat server runs — with one next action: **Open room**, or for one still setting up what it
-lacks and `doz workspace start NAME` to copy. With none, Home says what a workspace is and how many sandboxes and
+lacks and `doz workspace start NAME` to copy. A workspace's name opens **its page** (`#/w/NAME`): the brief above its
+room, its log among the room's messages, and beside them its agents, folders and network ([A workspace's
+page](06-the-dashboard.md#a-workspaces-page)). With none, Home says what a workspace is and how many sandboxes and
 sessions on this Mac are not in any workspace yet. In the sidebar, **Workspaces** lists them, each unfolding to its
 rooms and agents; **This Mac › Loose agents** lists the sandboxes and sessions in none, each with the
-`doz workspace adopt WORKSPACE NAME` that adopts it. The dashboard only shows workspaces: making, adopting, starting
-and stopping are the commands on this page. It reads them when it opens, when something changes and when an action
+`doz workspace adopt WORKSPACE NAME` that adopts it. From the dashboard you change one thing of a workspace: its brief
+(**Edit** on its page — announced in the room once the work has started). Making, adopting, starting and stopping are the
+commands on this page. It reads them when it opens, when something changes and when an action
 ends — a workspace made from the command line shows there the next time the page reads them (open Home, or reload).
 
 ## Adopting and releasing agents

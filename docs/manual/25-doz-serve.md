@@ -75,8 +75,11 @@ reveal and attach). A browser that may write acts as you in chat — the verifie
 and each thing it sends is a line in `doz ui log` (never what it said). See [Chat](36-chat.md#chat-on-your-other-browsers-servechat).
 
 **Workspaces and Agents / Bots** are shown to another browser as to the Mac's own, except what is on this Mac's sessions:
-while `serve.mac_sessions` is `off` it does not see the loose sessions on this Mac, a workspace's agents on this Mac, or
-who is working — Home and **Loose agents** say how many were left out. See
+while `serve.mac_sessions` is `off` it does not see the loose sessions on this Mac, a workspace's agents on this Mac, the
+lines of its log about them, or who is working — Home, **Loose agents** and a workspace's page say how many were left
+out. A workspace's brief follows `serve.chat`, as its room does: `off`, the page says "the brief is not shared with this
+browser"; `read`, it is shown; `write`, it can also be edited (its announcement in the room speaks as you; each edit is a
+line in `doz ui log`, never the text). Another browser never starts or stops a workspace, a worker or a bot. See
 [Sessions on this Mac](34-sessions-on-this-mac.md#in-the-dashboard).
 
 **Your Macs** (the machine picker — "Dozable · studio ▾") is the same list on another browser as on this Mac: a phone

@@ -8,7 +8,8 @@ for, and any folders it works on (usually projects). Work starts only once it is
 
 Nothing moves by itself: today's sandboxes and sessions on this Mac are **loose agents** until a person adopts them, and
 adopting writes only the workspace's own record — never a sandbox's `doz.json` nor `mac-sessions/sessions.json`. The
-dashboard shows nothing of workspaces yet; the CLI is the only way in. The manual's page is `docs/manual/37-workspaces.md`.
+dashboard shows them (below, "In the dashboard") and changes only a brief; everything else is the CLI's. The manual's page
+is `docs/manual/37-workspaces.md`.
 
 ## Where its code lives
 
@@ -335,9 +336,11 @@ about a session on this Mac, counted in `hidden`), `GET /api/v1/loose` (`workspa
 (`bot-ls`). ONE action changes a workspace from the page: `workspace-brief` = exactly `workspace-edit` with the name, the
 brief and `ifBrief` (another computer only with `serve.chat = write`); no other `workspace-*`, and no `bot-*` or `worker-*`
 HostOp, is an action — no lifecycle from any browser (CLAUDE.md's rule).
-The sidebar lists the workspaces and unfolds one into its rooms and agents; Home is the table of them (S03 without Needs
-you), or the definition with the loose count when there are none; This Mac › Loose agents lists what is in no workspace
-with the command that adopts it; Agents / Bots lists the bots.
+The sidebar lists the workspaces and unfolds one into its rooms and agents; Home is the table of them, or the definition
+with the loose count when there are none; This Mac › Loose agents lists what is in no workspace with the command that
+adopts it; Agents / Bots lists the bots. A workspace's page (`#/w/NAME[/room/LABEL]`, web.md "A workspace's page") puts
+its room first: the brief above it, the log's sentences among its messages (the same words as `doz chat read
+--with-log`), the agents, folders and network beside it.
 
 ## Agents / Bots — `doz bot`
 
