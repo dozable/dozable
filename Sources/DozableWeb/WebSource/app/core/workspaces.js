@@ -32,6 +32,9 @@ export async function loadBots(maxAgeMs = 1000) {
   state.bots = await cached('bots', 'bots', maxAgeMs);
   return state.bots;
 }
+/// The retired bots (GET /bots?retired=1 — "Show retired") and one bot with its instructions' text (GET /bots/NAME).
+export async function loadRetiredBots(maxAgeMs = 1000) { return cached('bots:retired', 'bots?retired=1', maxAgeMs); }
+export async function loadBot(name, maxAgeMs = 1000) { return cached('bot:' + name, 'bots/' + encodeURIComponent(name), maxAgeMs); }
 /// A workspace gone from the list: forget its details.
 export function forgetWorkspaces(names) {
   for (const n of [...state.wsDetails.keys()]) if (!names.includes(n)) { state.wsDetails.delete(n); reads.delete('ws:' + n); }

@@ -3,7 +3,8 @@
 //
 // Today's addresses: #/home · #/chat[/ROOM] · #/w/NAME[/room/LABEL] (a workspace's page, its main room or another of its
 // rooms by its short label) · #/w/NAME/agents (its Agents tab) · #/w/NAME/agent/AGENT[/SESSION|~home] (an agent's screen:
-// its sandbox's or its session's page, framed by the workspace) · #/bots · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
+// its sandbox's or its session's page, framed by the workspace) · #/bots · #/bots/~new (a new Agent / Bot) · #/bots/NAME[/TAB]
+// (one Agent / Bot: across its workspaces, or an edit tab — BOT_TABS) · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
 // #/mac/here[/SESSION] (the sessions on this Mac), #/mac/sessions, #/mac/sandboxes, #/mac/loose, #/mac/macs (Your Macs), #/mac/templates[/browse |
 // /V/P], #/mac/images, accounts, resources, devices, doctor, settings, debug, #/mac/logs/<operations|activity|notifications|
 // metrics> · the modals #/new, #/onboarding, #/try[/AGENT].
@@ -28,6 +29,11 @@ const MAC_SESSION = '[A-Za-z0-9_-][A-Za-z0-9._-]{0,31}';
 /// An agent's name in a workspace (the store's rule: 1–64 of letters, digits . _ -, not starting with - or .).
 const AGENT = '[A-Za-z0-9_][A-Za-z0-9._-]{0,63}';
 const SESSION = '[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}';
+/// An Agent / Bot's name (the chat rule: a lower-case letter, then lower-case letters, digits and -, at most 40) — so `~new` never
+/// clashes with one.
+const BOT = '[a-z][a-z0-9-]{0,39}';
+/// A bot screen's tabs after "Across workspaces" (its own address, #/bots/NAME): the edit tabs, then Roles & ceiling.
+export const BOT_TABS = ['identity', 'runs', 'reached', 'instructions', 'account', 'roles'];
 
 /// Every old address and where it leads now: [pattern, replacement] — the replacement a string (`$1` the first group) or
 /// a function of the match. The only place an old address is written.
@@ -74,6 +80,8 @@ export function parse(hash) {
   let m;
   if (hash === '#/home') return r('home');
   if (hash === '#/bots') return r('bots');
+  if (hash === '#/bots/~new') return r('bot', { param: '~new' });
+  if ((m = new RegExp('^#/bots/(' + BOT + ')(?:/(' + BOT_TABS.join('|') + '))?$').exec(hash))) return r('bot', { param: m[1], tab: m[2] });
   if (hash === '#/mac') return r('thismac');
   if ((m = new RegExp('^#/mac/here(?:/(' + MAC_SESSION + '))?$').exec(hash))) return r('mac', { session: m[1] });
   if (hash === '#/mac/sessions') return r('sessions');
@@ -100,6 +108,8 @@ export function parse(hash) {
 
 /// A workspace's page: its main room (`label` null), or another of its rooms by its short label.
 export function workspaceHash(name, label) { return '#/w/' + name + (label ? '/room/' + label : ''); }
+/// An Agent / Bot's screen (`tab`: one of BOT_TABS; none: Across workspaces), or `~new` for a new one.
+export function botHash(name, tab) { return '#/bots/' + name + (tab ? '/' + tab : ''); }
 /// A workspace's Agents tab.
 export function agentsHash(name) { return '#/w/' + name + '/agents'; }
 /// An agent's screen in its workspace (`session`: a session of its sandbox, or `~home`).

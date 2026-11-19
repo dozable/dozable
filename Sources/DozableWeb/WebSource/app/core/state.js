@@ -46,6 +46,13 @@ export const state = {
   workspaces: null,
   wsDetails: new Map(),
   bots: null,
+  // A bot's screen (views/bot.js): its tab (#/bots/NAME/TAB; null: Across workspaces) and the form being edited — while it
+  // holds unsaved changes a live refresh leaves the page as it is (`botForm.dirty`).
+  botTab: null,
+  botForm: null,
+  botsRetired: false,      // the roster shows the retired ones ("Show retired")
+  botDraft: null,          // Duplicate: the bot a new one is filled from (its name empty)
+  botLast: null,           // the last change's line on a bot's screen {name, text}
   // Chat (views/chat*.js): what the chat server last said and what this page shows of it.
   chat: {
     on: false,             // chat/status said anything but off (the sidebar's entry is shown)
