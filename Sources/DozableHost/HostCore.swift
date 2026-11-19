@@ -121,6 +121,8 @@ public actor HostCore {
     var startingWorkspaces: Set<String> = []
     /// The workspaces a lifecycle verb (sleep, wake, finish, …) is changing now: a start or a worker's add is refused "busy".
     var lifecycleWorkspaces: Set<String> = []
+    /// Sandboxes a workspace's lifecycle is removing: `doz rm`'s hook leaves their agents' entries (the lifecycle records them).
+    var lifecycleRemoving: Set<String> = []
     /// How a workspace's agents are looked at, put to sleep, woken, shut down and removed by its lifecycle (nil: the daemon's
     /// own, `DaemonAgentLifecycle`; tests give a fake).
     var agentLifecycleOverride: (any WorkspaceAgentLifecycle)?
@@ -883,7 +885,8 @@ public actor HostCore {
             // The chat server is the daemon's child: `HostServer` answers these (its `ChatSupervisor`), never the core.
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
         case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename,
-             .workspaceStart, .workspaceStop, .workspacePlan, .workspaceLifecyclePlan:
+             .workspaceStart, .workspaceStop, .workspacePlan, .workspaceLifecyclePlan, .workspaceSleep, .workspaceWake, .workspaceFinish,
+             .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete:
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)

@@ -273,6 +273,13 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// it is confirmed, the commands and its `sha`. Only reads: answered in-process when no daemon runs, never the keychain
     /// (`doz workspace VERB W --dry-run`, the dashboard's dialogs).
     case workspaceLifecyclePlan = "workspace-lifecycle-plan"
+    /// The lifecycle verbs (`WorkspaceRequest`: the name, `ifPlan`, the flags; `WorkspaceChanged`): each builds its plan again
+    /// first and acts only on that one — a plan changed since the person looked (`ifPlan`) is refused, nothing done. One
+    /// gate per workspace for the whole verb; its agents change at most `ui.batch_concurrency` at once. The daemon's, never
+    /// read-only (`HostCore+WorkspaceLifecycle`).
+    case workspaceSleep = "workspace-sleep", workspaceWake = "workspace-wake", workspaceFinish = "workspace-finish"
+    case workspaceReopen = "workspace-reopen", workspaceArchive = "workspace-archive", workspaceRestore = "workspace-restore"
+    case workspaceDelete = "workspace-delete"
     /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
     /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
     /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),
@@ -1811,6 +1818,32 @@ public struct WorkspaceStopped: Codable, Equatable, Sendable {
     public var workspace: WorkspaceDetail
     public init(name: String, stopped: Bool, manager: String? = nil, notes: [String]? = nil, workspace: WorkspaceDetail) {
         self.name = name; self.stopped = stopped; self.manager = manager; self.notes = notes; self.workspace = workspace
+    }
+}
+
+/// One agent's part of a lifecycle verb: whether it reached its target, and what happened.
+public struct WorkspaceAgentResult: Codable, Equatable, Sendable {
+    public var name: String
+    public var ok: Bool
+    public var text: String
+    public init(name: String, ok: Bool, text: String) { self.name = name; self.ok = ok; self.text = text }
+}
+
+/// A lifecycle verb's answer: each agent's result, what to know, and the workspace as it is now (nil: deleted).
+public struct WorkspaceChanged: Codable, Equatable, Sendable {
+    public var name: String
+    public var verb: String
+    public var results: [WorkspaceAgentResult]
+    /// Archive and delete with `--remove-sandboxes --keep-templates`: sandbox → the template kept.
+    public var templates: [String: String]?
+    /// Delete with `--bin-folders`: the folders moved to the Bin.
+    public var binned: [String]?
+    public var notes: [String]?
+    public var workspace: WorkspaceDetail?
+    public init(name: String, verb: String, results: [WorkspaceAgentResult], templates: [String: String]? = nil, binned: [String]? = nil,
+                notes: [String]? = nil, workspace: WorkspaceDetail?) {
+        self.name = name; self.verb = verb; self.results = results; self.templates = templates; self.binned = binned; self.notes = notes
+        self.workspace = workspace
     }
 }
 

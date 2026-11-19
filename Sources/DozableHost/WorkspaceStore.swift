@@ -181,6 +181,17 @@ public struct WorkspaceStore: Sendable {
         }
     }
 
+    /// The workspace gone: its folder (record, brief, log) renamed aside, then removed — never a path outside `workspaces/`.
+    public func remove(_ name: String) throws {
+        try WorkspaceName.validate(name)
+        guard MacFenceHostFS.kind(folder(name)) != nil else { return }
+        let aside = root + "/.gone-\(name)-\(UInt32.random(in: 0...UInt32.max))"
+        guard Darwin.rename(folder(name), aside) == 0 else {
+            throw HostError(.failed, "could not delete the workspace \(name): \(String(cString: strerror(errno)))")
+        }
+        do { try MacFenceHostFS.remove(aside) } catch { throw HostError(.failed, "the workspace \(name) is gone, but \(aside) was left: \(error)") }
+    }
+
     static func encode(_ r: WorkspaceRecord) throws -> Data {
         var d = try HostWire.prettyEncoder.encode(r)
         d.append(0x0A)

@@ -13,6 +13,25 @@ import Foundation
 public enum WorkspaceVerb: String, Codable, CaseIterable, Sendable {
     case stop, sleep, wake, finish, reopen, archive, restore, delete
 
+    /// The HostOp that does it (stop is `workspace-stop`, unchanged: the manager only).
+    public var hostOp: HostOp {
+        switch self {
+        case .stop: .workspaceStop
+        case .sleep: .workspaceSleep
+        case .wake: .workspaceWake
+        case .finish: .workspaceFinish
+        case .reopen: .workspaceReopen
+        case .archive: .workspaceArchive
+        case .restore: .workspaceRestore
+        case .delete: .workspaceDelete
+        }
+    }
+
+    public init?(op: HostOp) {
+        guard let v = Self.allCases.first(where: { $0.hostOp == op }) else { return nil }
+        self = v
+    }
+
     /// How the person confirms it: archive and delete by typing the name, finish by a plain yes, the rest not at all.
     public var confirm: WorkspaceLifecycle.Confirm {
         switch self {
