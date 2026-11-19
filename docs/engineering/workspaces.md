@@ -298,6 +298,25 @@ sandbox or session is shown as (`FolderRenameTests`); `workspaceCreated`, `works
 `workdir` are still refused. `doz workspace ls --json` is `WorkspaceListing {workspaces, loose}`; `show` and every change
 answer `WorkspaceDetail`; `log` is the entries.
 
+Additive, never persisted (an older doz ignores them; the text output prints neither): `WorkspaceRow.folders` (the
+paths, the main one first) and `WorkspaceRow.working` (the agents whose program is working now, by name);
+`WorkspaceAgentRow.activity` — `WorkspaceState.activity` of the `WorkspaceState.Agent` that `workspaceAgents` already
+computes (`blocked` or `error` before `working`, else `idle`; a failed sandbox `error`; nil when it does not run). Both
+come from what the daemon holds (its statuses), never a guest call; answered in-process (no daemon) `working` and
+`activity` are absent. `workspace-ls` reads the sessions on this Mac through `macRows()`, which asks each holder's socket
+for its INFO line — so the dashboard reads it on events only, never on a timer (`WorkspaceStateTests.testActivity`,
+`WorkspaceWorkerTests.testTheDashboardFields`).
+
+## In the dashboard
+
+Four reads, each exactly one read-only HostOp the CLI also sends (`WebWorkspaceReads.request(for:)`; web.md,
+"Workspaces in the dashboard"): `GET /api/v1/workspaces` (`workspace-ls`), `GET /api/v1/workspaces/{w}`
+(`workspace-show`, never the brief's text), `GET /api/v1/loose` (`workspace-ls --loose`), `GET /api/v1/bots`
+(`bot-ls`). Nothing changes a workspace from the page yet: no `workspace-*`, `bot-*` or `worker-*` HostOp is an action.
+The sidebar lists the workspaces and unfolds one into its rooms and agents; Home is the table of them (S03 without Needs
+you), or the definition with the loose count when there are none; This Mac › Loose agents lists what is in no workspace
+with the command that adopts it; Agents / Bots lists the bots.
+
 ## Agents / Bots — `doz bot`
 
 An Agent / Bot is a lasting identity: a participant in chat with its agent program, model, account, avatar, isolation

@@ -127,7 +127,9 @@ extension HostCore {
             }
             out.append((WorkspaceAgentRow(name: a.name, role: a.role, place: a.place.display, state: state, startedAt: a.startedAt, bot: a.bot,
                                           isolation: a.isolation, actsAsYou: a.actsAsYou ? true : nil, task: a.task,
-                                          control: a.isWorker ? WorkerLaunch.control(isolation: a.isolation, shares: workerShares(rec, a)) : nil),
+                                          control: a.isWorker ? WorkerLaunch.control(isolation: a.isolation, shares: workerShares(rec, a)) : nil,
+                                          // In-process nothing is known of a program (no statuses held): no activity.
+                                          activity: readOnly ? nil : WorkspaceState.activity(counted)),
                         counted))
         }
         return out
@@ -165,7 +167,8 @@ extension HostCore {
                     WorkspaceManagerRow(bot: m.bot ?? m.name, isolation: m.isolation ?? "fenced", actsAsYou: m.actsAsYou, state: row.0.state)
                 } }
                 rows.append(WorkspaceRow(name: rec.name, state: state.rawValue, driver: rec.driver, agents: agents.count, room: rec.mainRoom?.chatRoom,
-                                         manager: manager))
+                                         manager: manager, working: readOnly ? nil : WorkspaceState.working(agents.map(\.0)),
+                                         folders: rec.folders.isEmpty ? nil : rec.folders.map(\.path)))
             }
         }
         var loose: [LooseAgent] = []

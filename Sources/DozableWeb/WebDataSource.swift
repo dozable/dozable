@@ -123,6 +123,11 @@ public protocol DozableWebData: Sendable {
     /// 683 M5: the New session wizard's plan, built on the Mac; with `open` (an Open-in-Terminal shape only — checked by
     /// the caller) the one-shot `.command` file is written in `<store>/ui-terminal/` and opened by the person's terminal app.
     func macSessionPlan(_ r: WebMacPlanRequest) async throws -> WebMacPlan
+    /// The workspaces and the loose agents (`workspace-ls`; `loose`: `--loose`), a workspace (`workspace-show`), the Agents /
+    /// Bots (`bot-ls`) — each the request `WebWorkspaceReads.request(for:)` builds; in-process when no daemon runs.
+    func workspaces(loose: Bool) async throws -> WorkspaceListing
+    func workspace(_ name: String) async throws -> WorkspaceDetail
+    func bots() async throws -> BotListing
 }
 
 extension DozableWebData {
@@ -146,6 +151,9 @@ extension DozableWebData {
     public func macTranscript(_ session: String, endedAt: String, name: String) async throws -> Data { throw HostError(.notImplemented, "transcripts") }
     public func macQuarantine(_ session: String) async throws -> WebMacQuarantine { throw HostError(.notImplemented, "quarantine") }
     public func macSessionPlan(_ r: WebMacPlanRequest) async throws -> WebMacPlan { throw HostError(.notImplemented, "session plan") }
+    public func workspaces(loose: Bool) async throws -> WorkspaceListing { throw HostError(.notImplemented, "workspaces") }
+    public func workspace(_ name: String) async throws -> WorkspaceDetail { throw HostError(.notImplemented, "workspaces") }
+    public func bots() async throws -> BotListing { throw HostError(.notImplemented, "bots") }
     public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
     public func access(check: WebAccessCheck?) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
@@ -503,6 +511,20 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func macSessions() async throws -> [WebMacSession] {
         try await query(HostRequest(.sessions, name: MacPlace.name)).0.decode([SessionRow].self).map(WebMacSession.init)
+    }
+
+    // MARK: workspaces and Agents / Bots — one read-only HostOp each (WebWorkspaceReads)
+
+    public func workspaces(loose: Bool) async throws -> WorkspaceListing {
+        try await query(WebWorkspaceReads.request(for: loose ? .loose : .workspaces)!).0.decode(WorkspaceListing.self)
+    }
+
+    public func workspace(_ name: String) async throws -> WorkspaceDetail {
+        try await query(WebWorkspaceReads.request(for: .workspace(name))!).0.decode(WorkspaceDetail.self)
+    }
+
+    public func bots() async throws -> BotListing {
+        try await query(WebWorkspaceReads.request(for: .bots)!).0.decode(BotListing.self)
     }
 
     // MARK: 683 M5 — a fenced session's network, conversations, quarantine; the wizard's plan

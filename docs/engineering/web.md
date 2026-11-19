@@ -421,6 +421,29 @@ The Chat page (`#/chat`, `#/chat/ROOM`) — the chat server's rooms for the pers
   (`Tests/Fixtures/chat-markdown-*.json`, 160 cases with script, onerror, `javascript:` and `data:`) is checked in headless
   Chrome by `make chat-markdown-check` (`ARGS=--update` records; review every changed line) — not part of `make test`.
 
+## Workspaces in the dashboard
+
+- **Four reads, typed routes** (`WebWorkspaces.swift`, `WebRoute.workspaces | workspace(w) | loose | bots`), each EXACTLY ONE
+  read-only HostOp the CLI also sends, built by the pure `WebWorkspaceReads.request(for:)` (`HostWebData` uses it;
+  `WebWorkspacesTests.testEveryReadRouteIsExactlyOneReadOnlyHostOp` pins it): `GET /api/v1/workspaces` → `workspace-ls`
+  (`doz workspace ls`), `GET /api/v1/workspaces/{w}` → `workspace-show` (`doz workspace show W`; the name by the store's rule
+  — `WorkspaceName` — else 400 with a fixed message before any call; unknown → 404), `GET /api/v1/loose` → `workspace-ls`
+  with `loose` (`doz workspace ls --loose`), `GET /api/v1/bots` → `bot-ls` (`doz bot ls`). Answered in-process when no daemon
+  runs: looking never starts one. GET only — no `WebAction` was added and the pinned action set is unchanged
+  (`WebActionTests` asserts no `workspace-*`, `bot-*` or `worker-*` HostOp is an action yet).
+- **Projections** (`WebModels`: `WebWorkspaceListing`, `WebWorkspaceRow`, `WebWorkspaceManager`, `WebLooseAgent`,
+  `WebWorkspaceDetail` — the brief's size and its references' count, never its text or hash —, `WebWorkspaceAgent` with
+  its `kind` sandbox | mac | elsewhere, `WebBotListing`/`WebBotRow`), field by field; no secret-shaped field
+  (`WebWorkspacesTests.testNoAnswerHasASecretShapedField`).
+- **Exposure**: kind `read`. For another computer the rows placed on this Mac follow `serve.mac_sessions`
+  (`WebGridsRequest.macAllowed`): while it is off, `WebWorkspaceReads.forBrowser` leaves out the loose sessions on this
+  Mac, a workspace's agents on this Mac and the notes that name one, says nothing of who is working (the names may be
+  sessions'), and answers how many it left out (`hidden`). `ServeExposureTests.testTheWorkspaceReadsLeaveThisMacsRowsOut`,
+  `ServeHTTPTests.testTheWorkspaceReadsHideThisMacsSessionsFromAnotherComputer`.
+- **Refresh**: on `hello`, `changed` and an operation's end — never on a timer (`workspace-ls` asks every holder of a
+  session on this Mac for its INFO line; workspaces.md). The chat's latest line per Home row is the existing
+  `GET /api/v1/chat/rooms/ROOM/messages?limit=1`, only while `chat/status` is running and readable, for at most 12 rows.
+
 ## The installable dashboard, graceful restarts
 
 - **An installable web app** (on this Mac at 127.0.0.1; with the LAN option over https through your proxy). `app.webmanifest` is hashed like the

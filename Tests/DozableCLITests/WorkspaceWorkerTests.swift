@@ -432,6 +432,30 @@ final class WorkspaceWorkerTests: BotTestCase {
         XCTAssertFalse(HostOp.workerAdd.isReadOnly)
     }
 
+    // MARK: the dashboard's additive fields
+
+    /// `working` and `activity` (the dashboard's Home): known only to a daemon core — from what it holds, never a guest call —
+    /// and absent in-process; `folders` in both. The text of `ls` is unchanged (the CLI prints neither).
+    func testTheDashboardFields() async throws {
+        let c = await wcore()
+        try await started(c)
+        _ = try added(await wk(c, .workerAdd, "demo"))
+        let m1 = await ws(c, .workspaceList, nil)
+        let live = try XCTUnwrap(m1.result).decode(WorkspaceListing.self)
+        let row = try XCTUnwrap(live.workspaces.first)
+        XCTAssertEqual(row.working, [], "a daemon knows: nobody working (the fake's session has no holder)")
+        XCTAssertEqual(row.folders, [work.path])
+        let m2 = await ws(c, .workspaceShow, "demo")
+        let shown = try XCTUnwrap(m2.result).decode(WorkspaceDetail.self)
+        XCTAssertNil(shown.agents.first { $0.name == "bot1" }?.activity, "not running: no activity")
+        let ro = await wcore(readOnly: true)
+        let m3 = await ws(ro, .workspaceList, nil)
+        let off = try XCTUnwrap(m3.result).decode(WorkspaceListing.self)
+        XCTAssertNil(off.workspaces.first?.working, "in-process: not known")
+        XCTAssertEqual(off.workspaces.first?.folders, [work.path])
+        XCTAssertEqual(WorkspaceState.activity(.running(sessions: ["working"])), "working")
+    }
+
     // MARK: one live workspace per bot
 
     func testOneLiveWorkspaceBothWays() async throws {

@@ -473,6 +473,23 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(try macJSON(devCookie, devCSRF, "/api/v1/grids", #"{"items":[{"sandbox":"demo","session":"shell","gen":0}]}"#, remote: true).status, 200)
     }
 
+    /// The workspace reads: another computer with serve.mac_sessions off gets no session name of this Mac (counted as
+    /// hidden); the Mac's own browser and a watching one get them.
+    func testTheWorkspaceReadsHideThisMacsSessionsFromAnotherComputer() async throws {
+        try await start()
+        let (macCookie, _) = try macSignIn()
+        let (devCookie, _) = try await admit()
+        for p in ["/api/v1/loose", "/api/v1/workspaces"] {
+            let dev = try req(p, ["Cookie": devCookie])
+            XCTAssertEqual(dev.status, 200, dev.text)
+            XCTAssertFalse(dev.text.contains("@mac/build"), dev.text)
+            XCTAssertTrue(dev.text.contains("\"hidden\":1"), dev.text)
+            XCTAssertTrue(try macReq(p, ["Cookie": macCookie]).text.contains("@mac/build"), "the Mac's own browser")
+        }
+        XCTAssertEqual(try req("/api/v1/bots", ["Cookie": devCookie]).status, 200)
+        XCTAssertEqual(try req("/api/v1/workspaces/demo", ["Cookie": devCookie]).status, 200)
+    }
+
     func testWatchLetsAnotherComputerLookButNeverType() async throws {
         try await start(macSessions: "watch")
         let (devCookie, devCSRF) = try await admit()

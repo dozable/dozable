@@ -174,6 +174,11 @@ public enum WebRoute: Equatable, Sendable {
     // Chat (WebChat.swift): a CLOSED set under /api/v1/chat/ — each a fixed call on the owner's socket built from checked
     // values; never a generic path. WebExposure kind `chat`: this Mac's own browser only.
     case chat(WebChatRoute)
+    // Workspaces and Agents / Bots (WebWorkspaces.swift): reads only, each exactly one read-only HostOp the CLI also sends.
+    case workspaces                     // GET  /api/v1/workspaces        (workspace-ls)
+    case workspace(String)              // GET  /api/v1/workspaces/{w}    (workspace-show; the name checked before any call — 400)
+    case loose                          // GET  /api/v1/loose             (workspace-ls --loose)
+    case bots                           // GET  /api/v1/bots              (bot-ls)
 
     public var isStatic: Bool {
         switch self { case .index, .asset, .terminalFrame, .offline, .serviceWorker: true; default: false }
@@ -285,8 +290,13 @@ public enum WebRoute: Equatable, Sendable {
             case "access": return .access
             case "serve": return .serveStatus
             case "editors": return .editors
+            case "workspaces": return .workspaces
+            case "loose": return .loose
+            case "bots": return .bots
             default: return nil
             }
+        case 2 where rest[0] == "workspaces":
+            return .workspace(rest[1])
         case 2 where rest[0] == "models" && ModelSources.ids.contains(rest[1]):
             return .models(rest[1])
         case 2 where rest == ["try", "list"]:

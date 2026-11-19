@@ -1002,6 +1002,16 @@ public final class DozableWebServer: @unchecked Sendable {
             // The sessions on this Mac (WebMac.swift) — looking never starts a host. A remote browser here may at least watch.
             let access = remote ? settings.macSessions.rawValue : WebExposure.MacSessions.interactive.rawValue
             return json(WebMacSessions(sessions: try await data.macSessions(), access: access, plan: !remote))
+        case .workspaces, .loose:
+            // One read-only HostOp each; another computer sees the rows on this Mac only as serve.mac_sessions allows.
+            let all = WebWorkspaceListing(try await data.workspaces(loose: route == .loose))
+            return json(WebWorkspaceReads.forBrowser(all, macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
+        case .workspace(let w):
+            try WebWorkspaceReads.checkName(w)
+            let d = WebWorkspaceDetail(try await data.workspace(w))
+            return json(WebWorkspaceReads.forBrowser(d, macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
+        case .bots:
+            return json(WebBotListing(try await data.bots()))
         case .macSessionScreen(let session):
             return json(try await data.sessionScreen(MacPlace.name, session: session))
         case .macSessionNetwork(let session):
