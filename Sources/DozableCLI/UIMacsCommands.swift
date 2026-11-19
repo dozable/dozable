@@ -1,3 +1,5 @@
+// The dashboard's — not in a build without it (the helper; DOZ_NO_WEB), like UICommand.swift, which registers UIMacs.
+#if !DOZ_NO_WEB
 import ArgumentParser
 import DozableHost
 import DozableWeb
@@ -177,3 +179,4 @@ func thisMacPorts(_ g: GlobalOptions) -> Set<Int> {
     if let p = WebControl.rememberedPort(store) { ports.insert(p) }
     return ports
 }
+#endif
