@@ -413,7 +413,7 @@ are in its doc, so read it before changing that area.
 ```bash
 make build     # swift build — Xcode 27 needs the --build-system native pin the Makefile probes for
 make test      # unit tests: no VM, no entitlement. Never --parallel. (web-assets-check first)
-make web-assets        # 590: regenerate Sources/DozableWeb/Resources/Web after editing WebSource/ (commit it); make css-lint (647, in make test): the stylesheet's rules; make css-perf: its cost in headless Chrome; make dashboard-walk: the shell (Home, the sidebar, every old address, This Mac), a workspace's page and agents, Agents / Bots and its leak sweep (no token in the DOM, network, console, storage, files or ps) in headless Chrome, scratch store and profile
+make web-assets        # 590: regenerate Sources/DozableWeb/Resources/Web after editing WebSource/ (commit it); make css-lint (647, in make test): the stylesheet's rules; make css-perf: its cost in headless Chrome; make dashboard-walk: the shell (Home, the sidebar, every old address, This Mac), a workspace's page and agents, Agents / Bots and its leak sweep (no token in the DOM, network, console, storage, files or ps), the New workspace wizard in headless Chrome, scratch store and profile
 make audit     # Scripts/audit.sh
 make test-vm   # the VM integration suite — see below
 make cli       # 585: build + sign .build/debug/doz

@@ -8,8 +8,9 @@ for, and any folders it works on (usually projects). Work starts only once it is
 
 Nothing moves by itself: today's sandboxes and sessions on this Mac are **loose agents** until a person adopts them, and
 adopting writes only the workspace's own record — never a sandbox's `doz.json` nor `mac-sessions/sessions.json`. The
-dashboard shows them (below, "In the dashboard") and changes only a brief; everything else is the CLI's. The manual's page
-is `docs/manual/37-workspaces.md`.
+dashboard shows them (below, "In the dashboard"), changes a brief, files loose agents, and — this Mac's own browser only —
+makes and starts a workspace (the New workspace wizard); everything else is the CLI's. The manual's page is
+`docs/manual/37-workspaces.md`.
 
 ## Where its code lives
 
@@ -18,6 +19,7 @@ is `docs/manual/37-workspaces.md`.
 | `Sources/DozableHost/WorkspaceRecord.swift` | `WorkspaceRecord` (`workspace.json`, version 1) and its parts — `WorkspaceBrief`, `WorkspaceFolder`, `WorkspaceRoom`, `WorkspaceAgent`, `AgentPlace`, `WorkspaceDefaults`, `WorkspaceFlags`, `WorkspaceOrigin`; `WorkspaceLogEntry` (one line of `log.jsonl`); `WorkspaceName` (the name rule); `UnknownFields` + `DynamicKey` (fields this build does not know, kept) |
 | `Sources/DozableHost/WorkspaceStore.swift` | `WorkspaceStore`: the folder per workspace, atomic 0600 files in 0700 folders with no link in the path, create-by-rename, the membership read from the records, the log appended and read (a torn line skipped), `--since` |
 | `Sources/DozableHost/WorkspaceState.swift` | `WorkspaceState` and `WorkspaceState.derive`, one pure function; how a sandbox and a session on this Mac look to it |
+| `Sources/DozableHost/WorkspacePlan.swift` | `workspace-plan`'s answer `WorkspacePlan`; `WorkspacePresets.builtIn` (the wizard's "Start from", ONE table); `WorkspaceNetworks`; `WorkspaceNewCommand` (the ONE command source: `argv`, `text` — the brief as a heredoc, its delimiter absent from the text — `startText`); `WorkspaceProjectFill` (doz_project.yaml used to fill in choices, the CLI's and the dashboard's, never written); the plan's lines |
 | `Sources/DozableHost/WorkspaceSetupCheck.swift` | the set-up check: pure `gaps(_:)` (each `Gap {item, why, fix}`), the one-live-workspace rule (`liveElsewhere`, its refusal) |
 | `Sources/DozableHost/ManagerLaunch.swift` | pure: `ManagerIsolation.resolve`, the session name, the program, `plan(...)` (argv, environment, START's path, ports, the bot-held secret) |
 | `Sources/DozableHost/ManagerKickoff.swift` | pure: START's text and the brief's post |
@@ -29,8 +31,9 @@ is `docs/manual/37-workspaces.md`.
 | `Sources/DozableHost/ChatOwnerRooms.swift` | making a room AS YOU over the owner's socket — the one implementation `doz chat room` and the workspaces use; `ChatStateView` |
 | `Sources/DozableHost/HostProtocol.swift` | `HostOp.workspace*`, `WorkspaceRequest`, `WorkspaceListing`/`WorkspaceRow`/`WorkspaceManagerRow`/`LooseAgent`, `WorkspaceDetail`/`WorkspaceAgentRow`, `WorkspaceStarted`, `WorkspaceStopped`; `HostOp.worker*`, `WorkerRequest`, `WorkerListing`/`WorkerRow`, `WorkerAdded`, `WorkerEnded`; `SandboxInfo.workspace`, `SessionRow.workspace` |
 | `Sources/DozableCLI/WorkspaceCommands.swift`, `WorkerCommands.swift` | `doz workspace new | ls | show | start | stop | adopt | release | edit | log | rename`; `doz worker add | ls | end` |
+| `Tests/DozableCLITests/WorkspacePlanTests.swift` | the plan and new agree over a table of requests, the plan writes nothing, gaps, a look never reads the keychain, chat from its setting with no daemon, presets, `newFolder`, the commands parsed back into the same request, the project's fill |
 | `Tests/DozableCLITests/WorkspaceRecordTests.swift`, `WorkspaceStateTests.swift`, `WorkspaceAdoptTests.swift`, `WorkspaceSetupCheckTests.swift`, `ManagerLaunchTests.swift`, `WorkspaceManagerTests.swift`, `BotLaunchSecretTests.swift`, `WorkerLaunchTests.swift`, `WorkerKickoffTests.swift`, `WorkspaceWorkerTests.swift` | the unit tests (scratch roots, a fake chat, fake launchers, a memory keychain) |
-| `Sources/doz-vmtest/CLIWorkspaceSuite.swift`, `CLIWorkspaceManagerRows.swift`, `CLIWorkspaceWorkerRows.swift`, `CLIWorkspaceVMSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, a FAKE claude, no VM; `make test-cli-workspace-vm`: scratch lab VMs |
+| `Sources/doz-vmtest/CLIWorkspaceSuite.swift`, `CLIWorkspaceManagerRows.swift`, `CLIWorkspaceWorkerRows.swift`, `CLIWorkspaceBriefRows.swift`, `CLIWorkspacePlanRows.swift`, `CLIWorkspaceVMSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, a FAKE claude, no VM; `make test-cli-workspace-vm`: scratch lab VMs |
 | `Sources/DozableHost/BotRecord.swift` | Agents / Bots: `BotsFile` (`bots.json`, version 1), `BotRecord`, `BotIsolation`, `BotInstructions`, `BotTokenState`; `BotName` (the name rule), `BotKinds`, `BotFields` |
 | `Sources/DozableHost/BotStore.swift` | `BotStore`: `bots/bots.json` rewritten whole, `bots/<name>/instructions.md` and `notes.md`, 0600 in 0700 |
 | `Sources/DozableHost/BotTokens.swift` | a held bot's keychain item (`doz-bot-<store's 8 hex>-<name>`), the fingerprint, the sweep's orphans |
@@ -79,13 +82,55 @@ Rules (keep them, and their tests):
   — the ONE set of words `doz workspace log`, `doz chat read --with-log` and the dashboard's system lines share
   (`WorkspaceLogSentenceTests`).
 - **Folders are optional.** A workspace with none records `folders: []` and has no main folder; `--from-project` needs a
-  main folder (it reads the project file there) and is refused without one.
+  main folder (it reads the project file there) and is refused without one. `newFolder` (`--new-folder`) makes exactly
+  `<projects_dir>/NAME`, 0700, when it is missing, and records it first as the main folder (taken back if the rest of
+  `new` fails); offered, never forced.
+- **New fields of `new`** (additive): `workerIsolation` (`--worker-isolation fenced|vm`) → `defaults.isolation`, which
+  `WorkerIsolation.resolve` reads (never unfenced by default: `unfenced` is refused, a worker is unfenced only when
+  `worker add --isolation unfenced` names it); `network` (`--network locked|standard|open`, or the project's preset) →
+  `defaults.network`.
+
+## Making one: the plan and the dry run
+
+`workspace-new` is ONE draft: `workspaceNewDraft(w, look:)` builds the record, the brief, the log, the notes and EVERY
+refusal in the order `new` checks them, writing nothing and making no room or folder. `new` takes it, throws the FIRST
+refusal exactly as before (its code and message), else makes the folder, the room and the files. The read-only HostOp
+**`workspace-plan`** (`isReadOnly`: in-process with no daemon) takes the same `WorkspaceRequest` and answers
+`WorkspacePlan {name, refusals (all), refusalCode, gaps, notes, lines, commands, startCommand, presets}` — the gaps from
+the same `WorkspaceSetupCheck.gaps` on the in-memory record (`workspaceSetupInput(rec, look: true, brief:, roomWillBeMade:,
+foldersMadeNow:)`). `WorkspacePlanTests.testThePlanAndNewAgree` holds the two together: `refusals` is empty exactly when
+`new` succeeds, the made record is the draft apart from its times.
+
+- **A look never reads the keychain**: `Manager.keychainReadable` is `Bool?`; nil (a look — the plan, `show`) is no gap,
+  so a locked keychain shows only at the start, which still reads it.
+- **With no daemon** chat is judged from its setting (`chat.enabled`: on is taken as "starts with Dozable" — the room
+  will be made) and whether a room of that name exists becomes a note ("checked when it is made"); nothing starts the
+  daemon. With one, the daemon asks the chat server as `new` does (`workspaceLookReadiness`).
+- **`show` carries `gaps`** while the workspace is setting up (the same builder, a look); the CLI prints them as "to start".
+- **The one command source**: `WorkspaceNewCommand.argv`/`text` — `doz workspace new NAME --prompt-file - … <<'DOZ_BRIEF_…'`
+  (the delimiter 8 hex of the brief's sha256, made longer while it occurs in the text; exact when the brief ends with a
+  line break, which the dashboard sees to), `--from-project` instead of `--network` when a project filled it in, and
+  `doz workspace start NAME`. The plan answer, `--dry-run` and the wizard's Copy all print it;
+  `WorkspacePlanTests.testTheCommandsParseBackIntoTheSameRequest` parses each argv with `WorkspaceNew.parse` back into the
+  same request (odd paths, quotes, a `:rw` written out where a path ends like a mode).
+- **The CLI**: `doz workspace new … --dry-run` sends `workspace-plan` (`query()`: in-process with no daemon) and prints the
+  lines, "It cannot be made yet:", "Before it can start:" and the commands; it exits 0 with no refusal, else with `new`'s
+  code for the first one; `--json` prints the plan. `--start` is new, then `workspace-start` — two requests, as the
+  dashboard's Create and start. `WorkspaceProjectFill.apply` (the CLI's Yams parser, or the dashboard's installed one)
+  fills `project` and `network` from the main folder's doz_project.yaml; a `--network` that differs is refused.
+- **`confirmRequired`** (additive on `workspace-start`, the dashboard's; the CLI never sets it): an unfenced manager is
+  refused — under the gate, after the set-up check, before anything is posted or started — unless `unfencedConfirmed`:
+  "otto acts as you — confirm it" (`WorkspaceManagerTests.testConfirmRequiredRefusesAnUnconfirmedUnfencedManager`).
+- `make test-cli-workspace` rows 38–44: the dry run with the daemon stopped writes nothing and starts none; a refused one
+  exits as `new`; the printed commands, run by `/bin/sh` in a fresh store, make the same workspace (`show --json` equal
+  apart from times); the new fields recorded; `--worker-isolation unfenced` refused; `--start` posts the kick-off once;
+  `--json`.
 
 ## Who answers what
 
 | Op | Path | Why |
 |---|---|---|
-| `workspace-ls`, `-show`, `-log` | `query()`: an in-process `HostCore(readOnly: true)` when no daemon runs, else the daemon | looking never starts the daemon; phases from the store, `@mac` rows from `macRows()` |
+| `workspace-ls`, `-show`, `-log`, `-plan` | `query()`: an in-process `HostCore(readOnly: true)` when no daemon runs, else the daemon | looking never starts the daemon; phases from the store, `@mac` rows from `macRows()` |
 | `workspace-new`, `-adopt`, `-release`, `-edit`, `-rename` | `call()`: the daemon | ONE writer — each holds the `KeyedGate` key `workspaces`; rooms need the chat server the daemon runs; a read-only core refuses "needs the daemon" |
 | `workspace-start`, `-stop` | `call()`: the daemon | the check under `workspaces`, the launch under `workspace:NAME` (each record change takes `workspaces` again); never read-only |
 | `worker-ls` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon |
@@ -339,12 +384,15 @@ only with `serve.chat` read or write, else 403 `brief-remote`), `GET /api/v1/wor
 fingerprint, place key or size field; the newest 500; another computer while `serve.mac_sessions` is off gets no line
 about a session on this Mac, counted in `hidden`), `GET /api/v1/loose` (`workspace-ls --loose`), `GET /api/v1/bots`
 (`bot-ls`; and `?retired=1`, and `GET /api/v1/bots/{name}` — `bot-show` with the instructions' text: web.md, "Agents / Bots
-in the dashboard"). Four actions change a workspace from the page: `workspace-brief` = exactly `workspace-edit` with the name, the
-brief and `ifBrief` (another computer only with `serve.chat = write`), and FILING — `workspace-adopt`, `workspace-new` with
-exactly one agent (no folder, reference, room or manager) and `workspace-release`, each exactly the CLI's HostOp, this
-Mac's own browser only (another computer: 403 `mac-only`, whatever its serve settings; web.md, "Filing agents"). No other
-`workspace-*`, and no `worker-*` HostOp, is an action — no lifecycle from any browser (CLAUDE.md's rule). The five `bot-*`
-changes are actions of this Mac's own browser, each `heldOnly` (below).
+in the dashboard"). The New workspace wizard's plan route `POST /api/v1/workspace-plan` is `workspace-plan` (this Mac's own
+browser only). The workspace actions: `workspace-brief` = exactly `workspace-edit` with the name, the
+brief and `ifBrief` (another computer only with `serve.chat = write`), and FILING — `workspace-adopt`, `workspace-new` ("Put in a
+workspace…" sends exactly one agent) and `workspace-release`, each exactly the CLI's HostOp, this
+Mac's own browser only (another computer: 403 `mac-only`, whatever its serve settings; web.md, "Filing agents"); the New
+workspace wizard's `workspace-new` carries every field the CLI takes (never a project path or `noManager`) and
+`workspace-start` (with `confirmRequired`) is this Mac's own browser's too (web.md, "The New workspace wizard"). No other
+`workspace-*`, and no `worker-*` HostOp, is an action (CLAUDE.md's rule). The five `bot-*` changes are actions of this
+Mac's own browser, each `heldOnly` (below).
 Filing a RUNNING agent into a workspace that is setting up marks it started (`firstAgentAt`; nothing posted, nothing
 started), and the page says so ("NAME is started: AGENT was already running. The brief was not posted."); the title pill and
 the setting-up banner follow. Releasing the last agent of a started workspace leaves `firstAgentAt` set — the rule governs

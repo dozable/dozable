@@ -153,7 +153,7 @@ css-perf: cli ## The stylesheet's cost in a real headless Chrome against the bas
 # store, settings and Chrome profile under /tmp/doz-dashboard-walk, an OS-chosen port, the sign-in link never printed, chat
 # off, no VM. Home, the sidebar's parts, every old address, This Mac's links, Loose agents and Agents / Bots against the CLI,
 # and that looking starts no daemon.
-dashboard-walk: cli ## The dashboard's shell, a workspace's page and Agents / Bots with the leak sweep (chat on, OS-chosen ports) in a real headless Chrome (scratch store and profile; nothing on screen; SHOTS=/tmp/DIR keeps pictures)
+dashboard-walk: cli ## The dashboard's shell, a workspace's page, Agents / Bots with the leak sweep and the New workspace wizard (chat on, OS-chosen ports) in a real headless Chrome (scratch store and profile; nothing on screen; SHOTS=/tmp/DIR keeps pictures)
 	node Scripts/dashboard-walk.mjs
 
 # Chat's Markdown renderer in a real headless Chrome (a scratch profile, Scripts/chrome-launch.mjs) over the corpus in

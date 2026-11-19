@@ -43,6 +43,15 @@
 //     sweep: the known tokens and dzc_ in the DOM, every /api/ answer, the console, page errors, both storages,
 //     CacheStorage, IndexedDB, ui.operations.json, ui.log and doz ui's output, daemon.log, server.log and ps — zero, with a
 //     positive control; no page error on any bot screen. (Another computer's 403 is ServeHTTPTests'.)
+//   · the New workspace wizard, chat still on, a FAKE claude first on DOZ_TEST_MAC_PATH (no manager is started): 1 Home's New
+//     workspace opens #/new-workspace over Home; 2 an empty prompt shows the brief's gap, counted on step 1, typing clears it,
+//     the name suggested; 3 a typed folder and a :ro one; 4 the main folder's doz_project.yaml (network: open) fills in Open,
+//     never written; 5 the stepper's count follows; 6 No manager, Right now, Create and start → show --json matches the
+//     review, the kick-off bubble and "started the work"; 7 the copied commands are doz workspace new … --dry-run's; 8 mira,
+//     Later → setting up, manager mira fenced, nothing posted, the banner's gaps live (a folder removed on disk adds one); 9
+//     unfenced asks for the confirmation and the review says "acts as you"; 10 "+ A new agent / bot…" and back, the choices
+//     intact; 11 ?bot=mira chooses her; 13 at 390 px the choices stack; 14 (below) with the daemon stopped it opens and the
+//     plan answers. (Another computer's 403 for both actions and the plan route is ServeHTTPTests'.)
 //   · with the daemon stopped, opening Home, Sandboxes, a workspace's page and its agents starts none (no daemon.pid).
 //
 // Self-contained: Node >= 22 (global WebSocket and fetch), no packages. Never the person's own Dozable or browser: the
@@ -59,7 +68,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:net';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { spawnChrome } from './chrome-launch.mjs';
@@ -81,7 +90,10 @@ const ENV = { ...process.env, XDG_CONFIG_HOME: XDG, DOZ_STORE: STORE, DO_NOT_TRA
   DOZ_TEST_HOME: '/tmp/doz-dashboard-walk-home', DOZ_TEST_MAC_NAME: 'walkmac', DOZ_TEST_LAUNCH_AGENTS_DIR: S + '/launch-agents',
   DOZ_TEST_LAUNCHCTL: '/usr/bin/false', DOZ_TEST_APPLICATIONS_DIR: S + '/applications', DOZ_PROGRESS: 'plain', NO_COLOR: '1',
   // An inbox bot (made from the page) has the chat server look at Claude Code's sessions: a scratch folder, never the real one.
-  DOZ_TEST_CLAUDE_SESSIONS: S + '/claude-sessions' };
+  DOZ_TEST_CLAUDE_SESSIONS: S + '/claude-sessions',
+  // The sessions' PATH: a FAKE claude first (never the real one), so a manager's set-up check finds its program the same way
+  // on every Mac. Nothing here starts a manager.
+  DOZ_TEST_MAC_PATH: S + '/fakebin:/usr/bin:/bin' };
 delete ENV.SSH_AUTH_SOCK;
 function doz(args, input) {
   const r = spawnSync(DOZ, [...args, '--store', STORE], { env: ENV, encoding: 'utf8', input, timeout: 120_000 });
@@ -89,6 +101,9 @@ function doz(args, input) {
   return r;
 }
 const dozJSON = (args) => JSON.parse(doz([...args, '--json']).stdout || 'null');
+const realpath = (p) => realpathSync(p);
+/// A path as the page shows it: the scratch home stands in for ~ (DOZ_TEST_HOME) — else as it is.
+const tildeOf = (p) => p;
 
 // ── the scratch store: three sandboxes (never started — no VM), chat off ─────────────────────────────────────────────
 const SANDBOXES = ['alpha', 'beta', 'gamma'];
@@ -106,6 +121,8 @@ function stage() {
   for (const d of [STORE, XDG + '/doz', PROJECTS, S + '/codex-home', S + '/launch-agents', S + '/applications', S + '/claude-sessions']) mkdirSync(d, { recursive: true });
   writeFileSync(XDG + '/doz/doz.toml', `[store]\npath = "${STORE}"\n\n[defaults]\nprojects_dir = "${PROJECTS}"\n\n[chat]\nenabled = false\n`);
   writeFileSync(S + '/no-gh', '#!/bin/sh\necho "not logged in" >&2\nexit 1\n', { mode: 0o755 });
+  mkdirSync(S + '/fakebin', { recursive: true });
+  writeFileSync(S + '/fakebin/claude', '#!/bin/sh\n# A FAKE claude: the walk never starts a manager.\nexit 0\n', { mode: 0o755 });
   writeFileSync(S + '/gitconfig', '[user]\n\tname = dashboard-walk\n\temail = dashboard-walk@example.invalid\n');
   for (const n of SANDBOXES) doz(['create', n, '--image', 'lab', '--isolated']);
 }
@@ -606,6 +623,171 @@ async function walkAgents() {
   await shot('agents-light');
 }
 
+// ── the New workspace wizard (chat on): #/new-workspace over Home, its four steps, the plan's gaps live, the two actions ──
+const WIZ_NEXT = `document.querySelector('[data-wsn-next]')`;
+/// The plan answered for what the wizard shows now (the latest request's name, and nothing still being asked).
+const PLANNED = `(!!state.wsn && !!state.wsn.plan && state.wsn.plan.name === state.wsn.name)`;
+async function wizNext(step) {
+  await evaluate(`${WIZ_NEXT}.click()`);
+  return waitFor(`!!state.wsn && state.wsn.step === ${step} && !!document.querySelector('[data-wsn-body]')`, 8000);
+}
+async function wizType(sel, value) { await setField(sel, value); await sleep(600); await waitFor(PLANNED, 10000); }
+async function wizClose() {
+  await evaluate(`document.querySelector('#wm-box [data-wm-close]').click()`);
+  if (await waitFor(`!!document.querySelector('dialog.dlg[open]')`, 2000)) await submitDialog();
+  return waitFor(`!state.modal`, 8000);
+}
+async function walkNewWorkspace() {
+  const errorsBefore = pageErrors.length;
+  const A = PROJECTS + '/wiz-a', B = PROJECTS + '/wiz-b', C = PROJECTS + '/wiz-c';
+  for (const d of [A, B, C]) mkdirSync(d, { recursive: true });
+  const yaml = 'name: wiz-a\nimage: claude-code\nnetwork: open\n';
+  writeFileSync(A + '/doz_project.yaml', yaml);
+  // 1. Home's New workspace opens the wizard over Home.
+  await goHash('#/home');
+  await waitFor(`state.view === 'home' && !!document.querySelector('[data-ws-new="home"]')`, 10000);
+  await evaluate(`document.querySelector('[data-ws-new="home"]').click()`);
+  check(await waitFor(`location.hash === '#/new-workspace' && state.modal === 'new-workspace' && state.view === 'home' && !!document.querySelector('[data-wsn="work"]')`, 10000),
+    'wizard 1 Home\'s New workspace opens #/new-workspace over Home');
+  check(await evaluate(`!!document.querySelector('#nav-ws-new:not([disabled])')`), 'wizard 1 …and the sidebar\'s Workspaces + is there');
+  // 2. An empty prompt: the brief's gap, counted on step 1; typing clears it.
+  check(await waitFor(`!!state.wsn?.plan && state.wsn.plan.gaps.some((g) => g.item === 'brief') && Number(document.querySelector('[data-wsn-step="work"] [data-step-count]')?.dataset.stepCount) >= 1`, 10000),
+    'wizard 2 an empty prompt: the brief\'s gap, counted on step 1 ("N to set up")');
+  await wizType('[data-wsn-brief]', 'Launch notes for the walk: short and plain.');
+  check(await waitFor(`${PLANNED} && !state.wsn.plan.gaps.some((g) => g.item === 'brief') && state.wsn.name === 'launch-notes-for-the-walk'`, 10000),
+    'wizard 2 typing clears it, and the name is suggested from the prompt (launch-notes-for-the-walk)');
+  // 5. The stepper's count follows the plan.
+  check(await evaluate(`document.querySelectorAll('[data-step-count]').length === 0`), 'wizard 5 the stepper\'s count follows the plan (none left)');
+  // 3 and 4. A folder typed (its doz_project.yaml fills in Open), and a read-only one.
+  await setField('[data-wsn-folder-input]', A);
+  await evaluate(`document.querySelector('.wsn-folders .wsn-add button').click()`);
+  await waitFor(`state.wsn.folders.length === 1`, 5000);
+  await setField('[data-wsn-folder-input]', B + ':ro');
+  await evaluate(`document.querySelector('.wsn-folders .wsn-add button').click()`);
+  await sleep(700);
+  check(await waitFor(`document.querySelectorAll('[data-wsn-folder]').length === 2 && document.querySelector('[data-wsn-folder-mode=${JSON.stringify(B)}]')?.value === 'ro'`, 8000),
+    'wizard 3 a typed folder and a :ro one: two rows, the second read-only');
+  check(await waitFor(`!!document.querySelector('[data-wsn-project]') && state.wsn.fromProject && ${PLANNED} && state.wsn.plan.lines.includes('network: open + the room')`, 12000),
+    'wizard 4 the main folder\'s doz_project.yaml (network: open) fills in Open — "used to fill in choices"');
+  check(/never written/.test(await evaluate(text('[data-wsn-project]'))) && readFileSync(A + '/doz_project.yaml', 'utf8') === yaml, 'wizard 4 …never written');
+  // 6. No manager, right now: Create and start.
+  await wizType('[data-wsn-name]', 'wiz1');
+  check(await wizNext(1) && await evaluate(`!!document.querySelector('[data-wsn-bot="mira"]') && document.querySelector('[data-wsn-bot=""]').checked`),
+    'wizard 6 step 2: the roster (mira) with "No manager — I manage" chosen');
+  check(await wizNext(2) && await evaluate(`document.querySelector('[data-wsn-net="open"]').checked && document.querySelector('[data-wsn-wiso="unfenced"]').disabled`),
+    'wizard 6 step 3: Open filled in; new workers never unfenced by default');
+  check(await wizNext(3) && await waitFor(`${PLANNED} && state.wsn.plan.gaps.length === 0 && !document.querySelector('[data-wsn-create="now"]').disabled`, 10000),
+    'wizard 6 step 4: no gap — Create and start enabled');
+  const honest = await evaluate(text('[data-wsn-honest]'));
+  check(honest === 'No manager: you drive.', 'wizard 6 the honest line: "No manager: you drive."');
+  const lines = await evaluate(`state.wsn.plan.lines`);
+  const copied = await evaluate(`document.querySelector('[data-wsn-commands]').textContent`);
+  await evaluate(`document.querySelector('[data-wsn-create="now"]').click()`);
+  check(await waitFor(`state.view === 'workspace' && state.param === 'wiz1' && !state.modal`, 60000), 'wizard 6 Create and start → #/w/wiz1');
+  const w1 = dozJSON(['workspace', 'show', 'wiz1']) || {};
+  const rA = realpath(A), rB = realpath(B);
+  check(w1.flags?.startedAt && JSON.stringify(w1.folders?.map((f) => [f.path, f.mode, f.main])) === JSON.stringify([[rA, 'rw', true], [rB, 'ro', false]])
+    && w1.defaults?.network === 'open' && w1.defaults?.isolation === 'fenced' && w1.origin?.project === rA + '/doz_project.yaml' && !w1.agents?.length
+    && lines.includes('folders: 2 (1 read-only), main ' + tildeOf(rA)), 'wizard 6 doz workspace show wiz1 --json matches the review (started, two folders, open, fenced workers, from the project)');
+  check(await waitFor(`[...document.querySelectorAll('#chat-log .chat-row')].some((r) => /Launch notes for the walk/.test(r.textContent))`, 20000)
+    && await waitFor(`/started the work/.test(${text('#chat-log .chat-sys[data-action="kicked-off"]')})`, 10000), 'wizard 6 #/w/wiz1: the kick-off bubble and "started the work"');
+  // 7. The copied commands are doz workspace new … --dry-run's for the same choices.
+  const dry = JSON.parse(doz(['workspace', 'new', 'wiz1', '--prompt-file', '-', '--folder', A, '--folder', B + ':ro', '--from-project', '--worker-isolation', 'fenced',
+    '--start', '--dry-run', '--json'], 'Launch notes for the walk: short and plain.\n').stdout || '{}');
+  check(dry.commands && copied === dry.commands + dry.startCommand + '\n', 'wizard 7 Copy as doz commands is exactly doz workspace new … --dry-run\'s commands (and the start)');
+
+  // 8. mira, keep setting up: setting up, manager mira (fenced), nothing posted; the banner's gaps live.
+  await goHash('#/new-workspace');
+  await waitFor(`state.modal === 'new-workspace' && !!document.querySelector('[data-wsn="work"]') && state.wsn.brief === ''`, 10000);
+  await wizType('[data-wsn-brief]', 'Keep it setting up.');
+  await setField('[data-wsn-folder-input]', C);
+  await evaluate(`document.querySelector('.wsn-folders .wsn-add button').click()`);
+  await wizType('[data-wsn-name]', 'wiz2');
+  await wizNext(1);
+  await evaluate(`document.querySelector('[data-wsn-bot="mira"]').click()`);
+  check(await waitFor(`state.wsn.manager === 'mira' && !!document.querySelector('[data-wsn-identity="mira"]')`, 5000), 'wizard 8 mira chosen: her identity shown (Change here)');
+  await wizNext(2);
+  check(await evaluate(`document.querySelector('[data-wsn-miso="fenced"]').checked`), 'wizard 8 the manager fenced by default');
+  await wizNext(3);
+  await evaluate(`document.querySelector('[data-wsn-when="later"]').click()`);
+  await waitFor(`state.wsn.when === 'later' && ${PLANNED}`, 8000);
+  check(/cannot start or stop agents/.test(await evaluate(text('[data-wsn-honest]'))), 'wizard 8 the honest line: a fenced manager can only talk in the room');
+  await waitFor(`!document.querySelector('[data-wsn-create="later"]').disabled`, 10000);
+  await evaluate(`document.querySelector('[data-wsn-create="later"]').click()`);
+  check(await waitFor(`state.view === 'workspace' && state.param === 'wiz2' && !state.modal`, 60000), 'wizard 8 Create, keep setting up → #/w/wiz2');
+  const w2 = dozJSON(['workspace', 'show', 'wiz2']) || {};
+  const m2 = (w2.agents || []).find((a) => a.role === 'manager');
+  const posts2 = (dozJSON(['chat', 'read', 'wiz2', '--last', '50']) || []).filter((m) => m.from === 'ada' && m.kind !== 'change');
+  check(w2.state === 'setting-up' && m2?.bot === 'mira' && m2?.isolation === 'fenced' && posts2.length === 0, 'wizard 8 setting up, manager mira (fenced), nothing posted');
+  check(await waitFor(`!!document.querySelector('[data-ws-setup]') && !!document.querySelector('[data-ws-start="wiz2"]')`, 10000), 'wizard 8 the setting-up banner with its Start');
+  const before = Number(await evaluate(`document.querySelector('[data-ws-setup]').dataset.wsSetup`));
+  rmSync(C, { recursive: true, force: true });
+  await goHash('#/home');
+  await goHash('#/w/wiz2');
+  check(await waitFor(`Number(document.querySelector('[data-ws-setup]')?.dataset.wsSetup) === ${before + 1} && !!document.querySelector('[data-ws-setup] [data-gap="folder"]')
+    && document.querySelector('[data-ws-start="wiz2"]').disabled`, 15000), `wizard 8 removing its folder on disk adds the folder gap (${before} → ${before + 1}); Start disabled`);
+  mkdirSync(C, { recursive: true });
+
+  // 9. Unfenced asks for the confirmation, and the review says "acts as you".
+  await goHash('#/new-workspace');
+  await waitFor(`state.modal === 'new-workspace' && !!state.wsn`, 10000);
+  await wizType('[data-wsn-brief]', 'An unfenced manager.');
+  await wizType('[data-wsn-name]', 'wiz3');
+  await wizNext(1);
+  await evaluate(`document.querySelector('[data-wsn-bot="mira"]').click()`);
+  await wizNext(2);
+  await evaluate(`document.querySelector('[data-wsn-miso="unfenced"]').click()`);
+  check(await waitFor(`!!document.querySelector('dialog.dlg[open][data-wsn-confirm]') && document.querySelector('dialog.dlg[open] button[type=submit]').disabled`, 5000),
+    'wizard 9 unfenced opens the confirmation ("acts as you"), its button waiting for the tick');
+  await evaluate(`document.querySelector('dialog.dlg[open] button.quiet').click()`);
+  check(await waitFor(`!document.querySelector('dialog.dlg[open]') && state.wsn.managerIsolation === 'fenced'`, 5000), 'wizard 9 …cancelled: back to fenced');
+  // (its close event redraws the step — wait for it; then the label, as a person clicks it)
+  await sleep(400);
+  await evaluate(`document.querySelector('[data-wsn-miso="unfenced"]').closest('label').click()`);
+  await tick();
+  await submitDialog();
+  check(await waitFor(`state.wsn.managerIsolation === 'unfenced' && state.wsn.unfencedConfirmed && !!document.querySelector('[data-wsn-manager-iso="unfenced"] .acts-as-you')`, 5000),
+    'wizard 9 …confirmed: unfenced, the row marked "acts as you"');
+  await wizNext(3);
+  check(await waitFor(`${PLANNED} && state.wsn.plan.lines.includes('manager: mira · unfenced · acts as you') && !!document.querySelector('[data-wsn-lines] .acts-as-you')
+    && /an unfenced manager acts as you/.test(${text('[data-wsn-honest]')})`, 10000), 'wizard 9 the review and the honest line say "acts as you"');
+  await wizClose();
+
+  // 10. "+ A new agent / bot…" and back, the wizard's choices intact.
+  await goHash('#/new-workspace');
+  await waitFor(`state.modal === 'new-workspace' && !!state.wsn && state.wsn.brief === ''`, 10000);
+  await wizType('[data-wsn-brief]', 'A return trip.');
+  await wizType('[data-wsn-name]', 'wiz4');
+  await wizNext(1);
+  await evaluate(`document.querySelector('[data-wsn-new-bot]').click()`);
+  check(await waitFor(`state.view === 'bot' && !state.modal && !!document.querySelector('[data-bot-form="~new"]') && !!document.querySelector('[data-bot-return]')`, 10000),
+    'wizard 10 "+ A new agent / bot…" opens the editor, saying it comes back');
+  await setField('[data-bot-form] input[data-bf="name"]', 'vera');
+  await evaluate(`document.querySelector('[data-bot-make]').click()`);
+  check(await waitFor(`state.modal === 'new-workspace' && !!state.wsn && state.wsn.brief === 'A return trip.' && state.wsn.name === 'wiz4' && state.wsn.step === 1
+    && state.wsn.manager === 'vera' && !!document.querySelector('[data-wsn-bot="vera"]')?.checked`, 30000), 'wizard 10 …made vera and came back: the choices intact, vera chosen');
+  await wizClose();
+  // 11. ?bot=mira chooses her.
+  await goHash('#/new-workspace?bot=mira');
+  check(await waitFor(`state.modal === 'new-workspace' && state.wsn?.manager === 'mira'`, 10000), 'wizard 11 #/new-workspace?bot=mira chooses her');
+  await wizClose();
+  // 13. A phone: the steps' choices stack.
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await goHash('#/new-workspace');
+  await waitFor(`state.modal === 'new-workspace' && !!state.wsn`, 10000);
+  await wizType('[data-wsn-brief]', 'On a phone.');
+  await wizNext(1); await wizNext(2);
+  await sleep(400);
+  await shot('new-workspace-390');
+  const stack = await evaluate(`(() => { const c = [...document.querySelectorAll('.wsn-row .wiz-choice')].slice(0, 2).map((e) => e.getBoundingClientRect());
+    const box = document.getElementById('wm-box'); return { below: c.length === 2 && c[1].top >= c[0].bottom - 1, w: box.scrollWidth - box.clientWidth }; })()`);
+  check(stack.below && stack.w <= 0, 'wizard 13 at 390 px the steps\' choices stack, no sideways scroll');
+  await wizClose();
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  // 12. Another computer: 403 for both actions and the plan route is ServeHTTPTests' (the walk's dashboard has no LAN side).
+  check(pageErrors.length === errorsBefore, 'wizard: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore).join(' | ') : ''));
+}
+
 // ── Agents / Bots (chat on): the roster, a new bot from the page, an edit, elsewhere only in a terminal, a new token,
 // adopting a participant, retiring, adding a bot to a room — and after every row the leak sweep ────────────────────────
 const knownTokens = [];
@@ -859,6 +1041,7 @@ try {
   await walkWorkspacePage();
   await walkAgents();
   await walkBots();
+  await walkNewWorkspace();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
@@ -866,6 +1049,10 @@ try {
   check(!existsSync(STORE + '/daemon.pid'), 'the daemon is stopped');
   for (const h of ['#/mac/sandboxes', '#/home', '#/mac/loose', '#/bots', '#/bots/nova', '#/w/demo/agents', '#/w/demo2']) { await goHash(h); await waitFor(SHOWN, 8000); }
   check(await waitFor(`state.view === 'workspace' && /Walk it again/.test(${text('[data-ws-brief="demo2"]')})`, 10000), 'with the daemon stopped, #/w/demo2 still reads (from the store)');
+  // 14. The wizard with the daemon stopped: it opens and the plan answers (chat judged from its setting).
+  await goHash('#/new-workspace');
+  check(await waitFor(`state.modal === 'new-workspace' && !!state.wsn?.plan && !state.wsn.planError`, 15000), 'wizard 14 with the daemon stopped, the wizard opens and the plan answers');
+  await wizClose();
   await sleep(4000);
   check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents, Agents / Bots, a workspace\'s agents and its page starts none');
   check(await evaluate(`!!document.querySelector('[data-ws="demo"]')`) || (await goHash('#/home'), await waitFor(`!!document.querySelector('[data-ws="demo"]')`, 8000)),
