@@ -845,15 +845,28 @@ doz chat on [--name NAME]                       # chat on (chat.enabled): the da
 doz chat off                                    # it stops; rooms and messages are kept
 doz chat status [--json]                        # on, ready, its ports (as the running server has them), you, the participants
 doz chat add NAME [--kind KIND] [--webhook [--webhook-entry E] | --inbox [--session S]] [--to-file F | --from-stdin]   # a participant and its token (shown once)
+doz chat add A B C --to-dir DIR [--kind KIND] [--webhook | --inbox]   # several at once, all or nothing; each token in DIR/NAME.token (0600)
 doz chat set NAME --deliver inbox|poll|webhook [--webhook-entry E] [--kind KIND] [--session S]   # how it is reached; token, rooms, history kept
-doz chat remove NAME                            # it leaves every room; its token is refused
+doz chat remove NAME                            # it leaves every room; its token is refused at once
+doz chat remove A B C [--yes]                   # several at once, all or nothing (asked once)
 doz chat who [--json]                           # name, kind, token, how it is reached, rooms, presence; a bot's KIND ends "· bot" (--json: bot: true)
 doz chat token NAME --new | --from-stdin [--to-file F]   # replace a participant's token
 doz chat webhook set E [--from-file F]          # a webhook bot's entry: address, then Authorization value (login keychain)
 doz chat webhook status [E] | remove E
 doz chat import PATH [--dry-run] [--add-missing] [--replace]   # another chat's history (chat off first)
 doz chat rooms | room NAME @MEMBER… | send ROOM TEXT | read ROOM [--last N] [--follow] [--with-log]   # as you, on your own socket
+doz chat read ROOM --since T [--until T] [--json]   # every message of a window, no cap, oldest first
+doz chat export ROOM --to DIR [--since T] [--until T] [--json]   # ROOM.jsonl, attachments/, manifest.json — swept for tokens
 ```
+
+Participants added or removed (one or a batch) and a replaced token are taken by the running chat server without a
+restart: its pid and restart count stay, and a removed participant's token is refused at once (its waiting receive ends
+with 401). A new participant is in no room until it is invited; a name removed and added again is back in the rooms it
+was in. A port, a delivery or a webhook entry still restarts it. `T` is ISO 8601 (or a day), Unix seconds, or a time ago
+(`30m`, `2h`, `7d`). `read --since` and `export` need the running chat server, which runs while the daemon does: with no
+daemon they are refused, and nothing starts one. An export folder is new or empty, outside the store, 0700 with 0600
+files; every file is swept before it is written — a live chat token is replaced by "[a chat token of NAME, removed by
+doz]" and named with its fix, never its value.
 
 You take part through your own socket in the store (no token for you exists); every agent has its own token and uses
 the page port (`chat.page_port`, `/agent/…`) or the line port (`chat.line_port`). `chat.remote_listen` and

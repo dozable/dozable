@@ -36,7 +36,7 @@ struct ChatCommand: AsyncParsableCommand {
             Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already exists · 6 chat is off or not ready · 64 usage.
             """,
         subcommands: [ChatOn.self, ChatOff.self, ChatStatusCommand.self, ChatAdd.self, ChatSet.self, ChatRemove.self, ChatWho.self, ChatTokenCommand.self,
-                      ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self])
+                      ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self, ChatExportCommand.self])
 }
 
 // MARK: - status
@@ -778,24 +778,55 @@ struct ChatSend: AsyncParsableCommand {
 }
 
 struct ChatRead: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "read", abstract: "Read a room as you see it; --follow keeps showing what comes.")
+    static let configuration = CommandConfiguration(commandName: "read", abstract: "Read a room as you see it; --follow keeps showing what comes.",
+        discussion: """
+            --last shows the latest messages (at most 500). --since (and --until) show every message of a time window, \
+            however many, oldest first; --json then gives them as one array. The chat server runs while the daemon does: \
+            with no daemon this is refused, and nothing starts one (doz chat status).
+            """)
     @Argument(help: "The room.") var room: String
-    @Option(name: .long, help: "How many of the latest messages (1 to 500).") var last = 20
+    @Option(name: .long, help: "How many of the latest messages (1 to 500; 20 when not given).") var last: Int?
+    @Option(name: .long, help: "Every message from this time on: \(ChatTime.help).") var since: String?
+    @Option(name: .long, help: "With --since (or alone): every message up to this time.") var until: String?
     @Flag(name: .long, help: "Keep showing new messages until interrupted (Ctrl-C).") var follow = false
     @Flag(name: .customLong("with-log"), help: "Show the log of the workspace this room belongs to among the messages, by time (what was done — the work started, its brief edited, workers added — never posted in the room). With --follow only the first page has them.")
     var withLog = false
     @OptionGroup var g: GlobalOptions
 
+    var lastCount: Int { last ?? 20 }
+    var windowed: Bool { since != nil || until != nil }
+
     func validate() throws {
-        guard (1...500).contains(last) else { throw ValidationError("--last is 1 to 500") }
+        guard (1...500).contains(lastCount) else { throw ValidationError("--last is 1 to 500") }
+        if windowed && last != nil { throw ValidationError("--last is the latest messages; --since/--until a time window: one or the other") }
+        if windowed && follow { throw ValidationError("--follow shows what comes; --since/--until a time window: one or the other") }
+        if let s = since, ChatTime.parse(s) == nil { throw ValidationError("--since \(s): not a time — \(ChatTime.help)") }
+        if let u = until, ChatTime.parse(u) == nil { throw ValidationError("--until \(u): not a time — \(ChatTime.help)") }
         if withLog && g.json { throw ValidationError("--with-log is for reading; --json gives the messages only (doz workspace log W --json gives the log)") }
     }
 
     func run() async throws {
         try requireRoomName(room, g)
+        if windowed { try chatNeedsDaemon(g) }
         let c = try chatOwner(g)
         let s = try chatState(c, g)
         guard s.rooms[room] != nil else { throw fail(HostError(.notFound, "no room \(room) (doz chat rooms)"), g) }
+        if windowed {
+            let ms: [JValue]
+            do {
+                ms = try ChatExport.messages(room: room, since: since.flatMap { ChatTime.parse($0) }, until: until.flatMap { ChatTime.parse($0) },
+                                             fetch: chatFetch(c))
+            } catch { throw fail(HostError.from(error), g) }
+            if g.json { Out.stdout(String(decoding: ChatJSON.encodeIndented(.array(ms), indent: "  "), as: UTF8.self) + "\n"); return }
+            let log = withLog ? try await workspaceLog() : []
+            var lines = log.filter { e in ms.first.map { e.at.timeIntervalSince1970 >= ($0.field("at")?.doubleValue ?? 0) } ?? true }[...]
+            for m in ms {
+                let at = m.field("at")?.doubleValue ?? 0
+                while let e = lines.first, e.at.timeIntervalSince1970 <= at { showLog(e); lines = lines.dropFirst() }
+                show(m)
+            }
+            return
+        }
         let log = withLog ? try await workspaceLog() : []
         var seen = try page(c, after: 0, log: log)
         guard follow else { return }
@@ -841,14 +872,14 @@ struct ChatRead: AsyncParsableCommand {
     /// Prints a page (the latest `last`, or everything after `after`) — with `log`, its lines from the first message shown
     /// on (all of them when the room holds no more), a line before a message of the same time; answers the last seq shown.
     func page(_ c: ChatOwnerClient, after: Int64, log: [WorkspaceLogEntry] = []) throws -> Int64 {
-        let target = after > 0 ? "/api/rooms/\(room)/messages?after=\(after)&limit=500" : "/api/rooms/\(room)/messages?limit=\(last)"
+        let target = after > 0 ? "/api/rooms/\(room)/messages?after=\(after)&limit=500" : "/api/rooms/\(room)/messages?limit=\(lastCount)"
         let (status, v) = try chatAsk(c, "GET", target, g)
         guard status == 200, case .array(let ms) = v else {
             throw fail(HostError(status == 403 ? .notFound : .failed, v.field("error")?.stringValue ?? "the chat server answered \(status)"), g)
         }
         var top = after
         if g.json && !follow { Out.stdout(String(decoding: ChatJSON.encodeIndented(v, indent: "  "), as: UTF8.self) + "\n") }
-        let from = ms.count < last ? -Double.infinity : (ms.first?.field("at")?.doubleValue ?? 0)
+        let from = ms.count < lastCount ? -Double.infinity : (ms.first?.field("at")?.doubleValue ?? 0)
         var lines = log.filter { $0.at.timeIntervalSince1970 >= from }[...]
         for m in ms {
             let at = m.field("at")?.doubleValue ?? 0
@@ -889,6 +920,81 @@ struct ChatRead: AsyncParsableCommand {
         for l in lines.dropFirst() { Out.stdout(String(repeating: " ", count: lead.count) + l + "\n") }
     }
 }
+
+/// A read of a whole room or a window needs the running chat server, which runs while the daemon does: with no daemon
+/// it is refused, and nothing starts one.
+func chatNeedsDaemon(_ g: GlobalOptions) throws {
+    guard g.dozableStore.hostIsRunning() else {
+        throw fail(HostError(.unavailable, "the chat server runs while the daemon does — doz chat status"), g)
+    }
+}
+
+/// One request on your socket for `ChatExport` (the status and the body; a server that does not answer is exit 6).
+func chatFetch(_ c: ChatOwnerClient) -> ChatExport.Fetch {
+    { target in
+        do {
+            let a = try c.request("GET", target, timeout: 60, maximum: 64 << 20)
+            return (a.status, a.body)
+        } catch ChatOwnerClient.Failure.notListening {
+            throw HostError(.unavailable, "chat is on but its server is not ready — doz chat status")
+        } catch ChatOwnerClient.Failure.failed(let why) {
+            throw HostError(.unavailable, why)
+        }
+    }
+}
+
+struct ChatExportCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "export",
+        abstract: "Write a room's messages (every one, or a time window), its attachments and a manifest to a new folder.",
+        discussion: """
+            The folder must be new or empty and outside doz's store; it is made 0700, every file 0600. It gets ROOM.jsonl \
+            (one message per line, oldest first, as the chat server's API gives them), attachments/ID/NAME (each fetched as \
+            you; one that is gone is listed in the manifest) and manifest.json (the room, the window, the count, the first and \
+            last message numbers, each file's sha256 and size, and the sweep). Every file is swept before it is written: a \
+            live chat token found in it is replaced by "[a chat token of NAME, removed by doz]" and named here with its fix \
+            (doz chat token NAME --new) — never its value. The chat server runs while the daemon does: with no daemon this \
+            is refused, and nothing starts one.
+            """)
+    @Argument(help: "The room.") var room: String
+    @Option(name: .long, help: "The folder to write (new or empty).") var to: String
+    @Option(name: .long, help: "Every message from this time on: \(ChatTime.help).") var since: String?
+    @Option(name: .long, help: "Every message up to this time.") var until: String?
+    @OptionGroup var g: GlobalOptions
+
+    func validate() throws {
+        if let s = since, ChatTime.parse(s) == nil { throw ValidationError("--since \(s): not a time — \(ChatTime.help)") }
+        if let u = until, ChatTime.parse(u) == nil { throw ValidationError("--until \(u): not a time — \(ChatTime.help)") }
+    }
+
+    /// What `--json` prints: the folder and the manifest (never a token).
+    struct Answer: Encodable { var folder: String; var manifest: ChatExportManifest }
+
+    func run() async throws {
+        try requireRoomName(room, g)
+        try chatNeedsDaemon(g)
+        let c = try chatOwner(g)
+        let s = try chatState(c, g)
+        guard s.rooms[room] != nil else { throw fail(HostError(.notFound, "no room \(room) (doz chat rooms)"), g) }
+        let m: ChatExportManifest
+        let folder: ExportFolder
+        do {
+            folder = try ExportFolder(to, store: g.dozableStore)
+            m = try ChatExport.write(room: room, since: since.flatMap { ChatTime.parse($0) }, until: until.flatMap { ChatTime.parse($0) },
+                                     into: folder, sweep: ExportSweep.forStore(g.dozableStore), fetch: chatFetch(c))
+        } catch { throw fail(HostError.from(error), g) }
+        if g.json { Out.json(Answer(folder: folder.path, manifest: m)); return }
+        let atts = m.files.count - 1
+        Out.stdout("Exported \(m.count) message\(m.count == 1 ? "" : "s") of \(room)" + (atts > 0 ? " and \(atts) attachment\(atts == 1 ? "" : "s")" : "")
+                   + " to \(DisplayPath.tilde(folder.path)) (manifest.json lists every file and its sha256).\n")
+        for x in m.missing ?? [] { Out.stdout("  not exported: \(x.name) — \(x.why)\n") }
+        if m.sweep.findings.isEmpty {
+            Out.stdout("The sweep found no token or secret.\n")
+        } else {
+            for f in m.sweep.findings { Out.stdout("  " + f.sentence + "\n") }
+        }
+    }
+}
+
 
 struct ChatWho: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "who", abstract: "Who is in chat: name, kind, token, how it is reached, rooms, and presence as the server says it (here, away, quiet, …).")

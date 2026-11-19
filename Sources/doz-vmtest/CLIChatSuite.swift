@@ -28,6 +28,8 @@
 //      session, delivered into a scratch one, the dozchat answer, set --deliver both ways keeping rooms and token, the sweep
 //  35–40. participants changed while the server runs (CLIChatMembersRows.swift): a batch of three with --to-dir and no
 //      restart, a removed participant's wait ended with 401, EDGE 17 (added again: back in its rooms), the sweep
+//  41–45. a whole room read (--since, no cap) and exported with its attachments and the leak sweep (CLIChatExportRows.swift);
+//      with no daemon both are refused and none is started
 //  21. chat.remote_listen / chat.remote_agents: a LAN, wildcard, range or link-local value refused; an address this Mac
 //      does not have on Tailscale is said (status, --json, doctor WARN, the firewall row) and never listened on
 //
@@ -205,6 +207,9 @@ func cliChatSuite(binary: String) async {
     // 35–40. participants changed while the server runs: over the daemon's control channel, never a restart
     cliChatMembersRows(h: h, root: root, paths: paths, page: page, sh: sh, server: server, supervisor: supervisor)
 
+    // 41–44. a whole room read and exported: no cap, attachments, the leak sweep
+    cliChatExportRows(h: h, root: root, paths: paths)
+
     // 28–34. a Claude Code session delivered to by inbox (a scratch one: the sessions folder is the suite's seam)
     cliChatInboxRows(h: h, root: root, paths: paths, page: page, sh: sh)
 
@@ -267,6 +272,7 @@ func cliChatSuite(binary: String) async {
     let s9 = server()
     r = h.run(["daemon", "stop"], timeout: 60)
     check(r.code == 0 && s9.map { !alive($0) } == true && serversOfStore().isEmpty, "9 daemon stop leaves no chat server")
+    cliChatExportNoDaemonRow(h: h, root: root)
 
     // 10. kill -9 the daemon
     r = h.run(["chat", "on"], timeout: 60)
