@@ -79,7 +79,9 @@ while `serve.mac_sessions` is `off` it does not see the loose sessions on this M
 lines of its log about them, or who is working — Home, **Loose agents** and a workspace's page say how many were left
 out. A workspace's brief follows `serve.chat`, as its room does: `off`, the page says "the brief is not shared with this
 browser"; `read`, it is shown; `write`, it can also be edited (its announcement in the room speaks as you; each edit is a
-line in `doz ui log`, never the text). Another browser never starts or stops a workspace, a worker or a bot. See
+line in `doz ui log`, never the text). Another browser never starts or stops a workspace, a worker or a bot, and never
+puts an agent in a workspace or takes one out — whatever `serve.chat` and `serve.mac_sessions` say, that is only the Mac's
+own browser (or `doz workspace adopt`, `new` and `release` in a terminal on the Mac); the page shows the command instead. See
 [Sessions on this Mac](34-sessions-on-this-mac.md#in-the-dashboard).
 
 **Your Macs** (the machine picker — "Dozable · studio ▾") is the same list on another browser as on this Mac: a phone

@@ -117,7 +117,7 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   "ended"`, `exitCode`) — a daemon-less look reads `NAME.final` where it lies, writing nothing (`endedScreen`); `forget`
   removes them. An older holder writes none: "no last screen (it was started by an older doz)".
 - **The dashboard**: the This Mac page and All sessions' section, its own routes and `serve.mac_sessions` — web.md,
-  "This Mac".
+  "This Mac". A session's page may show framed by its workspace (`#/w/NAME/agent/AGENT` — web.md, "An agent's screen").
 - **Daemon stop / uninstall / nuke**: stop says how many keep running (`HostStopResult.macSessions`); uninstall asks
   whether to end them; nuke ends them and removes the socket folder.
 

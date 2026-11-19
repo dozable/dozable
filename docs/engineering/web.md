@@ -11,9 +11,9 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | `Sources/DozableWeb/WebMacs.swift`; `WebSource/app/components/mac-picker.js`, `app/views/macs.js` | Your Macs — the machine picker in the brand row and This Mac › Your Macs: the one read (`WebMacReads`, `WebMacList`), the menu, the page ("Your Macs" below; the list itself is `MacBookmarks` in DozableHost, `doz ui macs`) |
 | `WebSource/app.js` | the entry — imports every module, the shell's own wiring (quick add, sign out, nav icons, the rail), `startApp`, `provide({…})` (every call up the layers), `expose({…})` (the probes' names), then the bootstrap |
 | `WebSource/app/dom/` | `h.js` (`h`, `$` — text only), `icons.js` (`icon`, `iconFor`, `withIcon`, `setButton`, the glyph maps) |
-| `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `routes.js` (the addresses: `parse`, `canonical`, `LEGACY`, `MAC_RESERVED` — pure), `router.js` (`route`, `routePage`, `refresh`), `workspaces.js` (the workspace, loose and bot reads, shared and never on a timer), `ws-log.js` (a workspace's log in a room: the pure `interleave`), `events.js` (SSE `connect`), `grid.js` + `vt-grid.js` (648: the GRID, its checks, a saved screen's VT read into one) |
-| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`; a link item), `mac-picker.js` (the machine picker), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `notes.js` (647: the notifications in the top-right corner — cards, pills, bell), `page-title.js` (647: the sticky title bar and table heads), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `ws-nav.js` (the sidebar's Workspaces), `ws-marks.js` (a workspace's state pill and dot, the driver and manager chips), `ws-brief.js` (a workspace's brief card), `ws-panel.js` (its side panel and each sender's meta line), `cmd-line.js` (a command with Copy), `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `screen-paint.js` + `grid-feed.js` + `session-thumb.js` (648: the painted pictures, the one feed, their sources), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
-| `WebSource/app/views/` | one per page: `home` (the workspaces), `workspace` (a workspace's page, `#/w/NAME`), `this-mac` (This Mac's overview), `macs` (This Mac › Your Macs), `loose` (Loose agents), `bots` (Agents / Bots), `overview` (This Mac › Sandboxes), `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
+| `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `routes.js` (the addresses: `parse`, `canonical`, `LEGACY`, `MAC_RESERVED`, `placeHash` — pure), `router.js` (`route`, `routePage`, `refresh`), `workspaces.js` (the workspace, loose and bot reads, shared and never on a timer), `ws-log.js` (a workspace's log in a room: the pure `interleave`), `events.js` (SSE `connect`), `grid.js` + `vt-grid.js` (648: the GRID, its checks, a saved screen's VT read into one) |
+| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`; a link item), `mac-picker.js` (the machine picker), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `notes.js` (647: the notifications in the top-right corner — cards, pills, bell), `page-title.js` (647: the sticky title bar and table heads), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `ws-nav.js` (the sidebar's Workspaces), `ws-marks.js` (a workspace's state pill and dot, the driver and manager chips), `ws-brief.js` (a workspace's brief card), `ws-panel.js` (its side panel and each sender's meta line), `agent-frame.js` (an agent's screen: the frame, "In this workspace", a place's own page's strip), `put-in-workspace.js` ("Put in a workspace…", "Take out…"), `cmd-line.js` (a command with Copy), `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `screen-paint.js` + `grid-feed.js` + `session-thumb.js` (648: the painted pictures, the one feed, their sources), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
+| `WebSource/app/views/` | one per page: `home` (the workspaces), `workspace` (a workspace's page, `#/w/NAME`), `ws-agents` (its Agents tab, `#/w/NAME/agents`, and an agent's card), `this-mac` (This Mac's overview), `macs` (This Mac › Your Macs), `loose` (Loose agents), `bots` (Agents / Bots), `overview` (This Mac › Sandboxes), `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the daemon attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Sources/DozableWeb/WebMac.swift`; `WebSource/app/views/mac.js`, `mac-capabilities.js`, `mac-wizard.js`, `app/core/places.js` | This Mac (`@mac`, the sessions held on the Mac itself — fenced or not): the projection (its fence, its capability rows, the tile's chips), the ticket's strict body, the grids rule, the Network / Conversations / quarantine answers, the New session wizard's plan (carrying `buildCommands` for the Swift / Xcode case — `MacBuildCommands`, the one source the wizard's "Inside the session" block, `doz run @mac --xcode --dry-run` and the fence suite share); the page (`#/mac`) and All sessions' section; "What this session can do"; the wizard; the place → route helper (`placePath`, `screenPath`) every ticket, socket and saved screen goes through (the page is This Mac › On this Mac, `#/mac/here`) |
@@ -243,7 +243,8 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
     (`#acc-badge`), Resources (`#res-total`), Devices `#/mac/devices`, Logs (Operations — `#ops-badge`, `#ops-alert` —,
     Activity, Notifications, Metrics at `#/mac/logs/<page>`), Doctor, Setup (the onboarding modal, `#onb-dot`), Settings,
     Debug; the rail below 980 px. **The addresses** are `core/routes.js`'s (pure): `parse(hash) → {view, param, session,
-    recipe, room, modal}` (`#/w/NAME[/room/LABEL]` → view `workspace`, `room` the label) and `LEGACY`, the ONE table of old addresses → canonical (`#/` and unknown → `#/home`; `#/overview` →
+    recipe, room, tab, agent, modal}` (`#/w/NAME[/room/LABEL]` → view `workspace`, `room` the label; `#/w/NAME/agents` → view
+    `workspace`, `tab` agents; `#/w/NAME/agent/AGENT[/SESSION|~home]` → view `wsagent` — "An agent's screen", below) and `LEGACY`, the ONE table of old addresses → canonical (`#/` and unknown → `#/home`; `#/overview` →
     `#/mac/sandboxes`; `#/sessions`, `#/terminals` → `#/mac/sessions`; `#/mac/SESSION` → `#/mac/here/SESSION` unless SESSION
     is one of `MAC_RESERVED` — here, sessions, sandboxes, loose, templates, images, accounts, resources, devices, logs,
     doctor, settings, debug, macs; `#/recipes[/…]`, `#/settings/recipes[/…]`, `#/browse` → `#/mac/templates…`; the Store and Setup
@@ -460,14 +461,15 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   — `WorkspaceName` — else 400 with a fixed message before any call; unknown → 404), `GET /api/v1/loose` → `workspace-ls`
   with `loose` (`doz workspace ls --loose`), `GET /api/v1/bots` → `bot-ls` (`doz bot ls`). Answered in-process when no daemon
   runs: looking never starts one.
-- **One action, `workspace-brief`** `{workspace, brief, ifBrief}` → exactly `workspace-edit` with only the name, the brief
+- **Four actions.** Filing (below, "Filing agents") and **`workspace-brief`** `{workspace, brief, ifBrief}` → exactly `workspace-edit` with only the name, the brief
   and `ifBrief` (the sha256 the page read; a brief changed since → `invalid-phase` "changed since you opened it", nothing
   written), strictly decoded — no reference, folder, manager or room; the brief is text (line breaks and tabs, no other
   control character) within the actions' 16 KiB body (the page shows `doz workspace edit W --prompt-file F` beyond it).
   After the start the daemon announces it in the main room as you. Another computer: `WebExposure.decideWorkspaceAction`
   — only with `serve.chat = write` (off → 403 `brief-remote`, read → `chat-read-only`), one `change` audit line (the
   action's word, never the brief). `WebActionTests` pins it: the only `workspace-*`/`bot-*`/`worker-*` HostOp that is an
-  action is `workspace-edit`, through `workspace-brief`; no lifecycle (start, stop, a worker, a bot) for any browser.
+  action is `workspace-edit`, through `workspace-brief`, plus the three filing HostOps; no lifecycle (start, stop, a worker, a bot) for any
+  browser.
 - **Projections** (`WebModels`: `WebWorkspaceListing`, `WebWorkspaceRow`, `WebWorkspaceManager`, `WebLooseAgent`,
   `WebWorkspaceDetail` — the brief's size and its references' count, never its text or hash —, `WebWorkspaceAgent` with
   its `kind` sandbox | mac | elsewhere, `WebBotListing`/`WebBotRow`), field by field; no secret-shaped field
@@ -503,8 +505,8 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   980 px where the panel folds under the room and the document scrolls): the title row (name, `workspacePill`,
   `driverChip`, the manager's `managerChip` — "acts as you" when unfenced —, ⋯ with the commands to copy and the set-up
   gaps); the tab row `WS_TABS` — Room · Agents · `PERMISSIONS_TAB` ("Permissions", ONE constant) · Network & secrets ·
-  Folders & points · Activity · Settings — only Room works, the others `aria-disabled` with a "coming" tag and a title
-  saying what they will hold; the notices (setting up: the gaps and `doz workspace start W`; no room; a missing room; log
+  Folders & points · Activity · Settings — Room and Agents work (links to `#/w/NAME` and `#/w/NAME/agents`), the others
+  `aria-disabled` with a "coming" tag and a title saying what they will hold; the notices (setting up: the gaps and `doz workspace start W`; no room; a missing room; log
   lines hidden); the brief (`components/ws-brief.js`); the room; the side panel (`components/ws-panel.js`).
 - **The brief card**: `renderMarkdown` text; references (paths through `tildePath`, links through `safeLink`, a new tab,
   no referrer); "by you · TIME · edited N times" (the log's `brief-edited` lines); open on `#/w/W`, one line on a room's
@@ -521,7 +523,7 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   left; a line before a message of the same time (the log's `at` is whole seconds, a message's `ts` finer) — drawn again
   after each page (`fill`, `loadOlder`) and each read of the log. Words: `lineText` — "you" as the person's chat name,
   "Dozable" for what doz did — and the CLI's sentence.
-- **The side panel**: Agents (state dot, name — its sandbox's page or `#/mac/here/SESSION` —, role, the isolation chip
+- **The side panel**: Agents (its heading links to the Agents tab; state dot, name — its screen, `#/w/NAME/agent/AGENT` —, role, the isolation chip
   `micro VM | fenced | unfenced | elsewhere`, "acts as you", a worker's task and `control`); every worker under the main
   room; how many this browser was not shown; **+ Worker** → `doz worker add W --task "…"` to copy; In this room (the moved
   people pane); Folders (path · rw/ro · main); Network (the preset, else locked).
@@ -536,13 +538,91 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
 - **The walk** (`make dashboard-walk`, after the shell's checks): chat ON with OS-chosen `chat.page_port` /
   `chat.line_port` (checked not live); `demo2` (a brief, a reference, a folder, the never-booted sandbox `beta`) started
   with no manager, an unrelated room `other`, and `demo3` with an unfenced manager recorded. Checks: `#/w/demo2` → view
-  `workspace`, the brief open with its text; the tabs in order, only Room enabled, "Permissions" from the constant; the
+  `workspace`, the brief open with its text; the tabs in order, Room and Agents enabled, "Permissions" from the constant; the
   kick-off bubble and "started the work" in time order; Edit → Save posts the announcement, adds "edited the work",
   History shows one edit; the strip lacks `other`, `#/w/demo2/room/other` opens the main room with the line; `#/chat`
   lists `other` with the one `#chat-text` back there; the panel equals `doz workspace show demo2 --json`; `demo3` shows
   "acts as you"; the sidebar and Home lead to `#/w/demo2`; `interleave` against fixtures; at 390 px the panel is below the
   room; with the daemon stopped, `#/w/demo2` still reads and starts none. `SHOTS=/tmp/DIR` keeps pictures (light, dark,
-  390 px).
+  390 px). Then the agents (`walkAgents`): `#/w/demo2/agents` equals `doz workspace show demo2 --json` with its chips, the
+  greyed cloud row and Grid disabled; demo3's unfenced manager reads "acts as you"; from Loose agents gamma goes into `demo`
+  (it leaves the loose list, joins demo's table, demo stays setting up, its log says "adopted gamma") and a new sandbox
+  `delta` into a NEW workspace (name prefilled, its room made, nothing posted, Home lists it); a harmless session on this
+  Mac (`/bin/sleep`, unfenced) filed into a workspace that is setting up turns it started with nothing posted;
+  `#/w/demo/agent/gamma` opens the sandbox page framed and a tab's switch keeps the `#/w/` address; `#/sandbox/gamma` says
+  "In demo"; Take out… makes gamma loose; at 390 px the table is cards; with the daemon stopped `#/w/demo/agents` starts
+  none. Another computer's 403 is `ServeHTTPTests`' (the walk's dashboard has no LAN side).
+
+## The Agents tab and an agent's screen
+
+- **The Agents tab** (`#/w/NAME/agents`, `views/ws-agents.js` `agentsTab`, drawn into `#ws-agents` while `state.wsTab` is
+  `agents` — the room is hidden, not torn down, and `main-chat` / `main-ws` apply to the room only): no read of its own —
+  the workspace's detail (`workspace-show`, additive `startedBy`, `startedAt`, a sandbox place's `session`) and its log
+  (ended workers: the `worker-ended` lines, folded below). One table for every kind of agent: the agent (name, role, its
+  program from Agents / Bots, its bot, its session), where (`this Mac` / `⇢ elsewhere` and the isolation chip; "acts as
+  you" for an unfenced one), state and activity, task ("runs the workspace", or "adopted"), uses · control (a VM's CPUs and
+  RAM from the sandbox list when it was read; the `control` line; "not run by Dozable · token only" elsewhere), started by ·
+  when, Watch / Open and ⋯ (`agentMenuItems`: its screen; Open in Terminal — a sandbox's; a session's `doz attach @mac S` to
+  copy —; Restart — `session-restart` / `mac-session-restart`, the server deciding by `serve.mac_sessions` as today —; End,
+  a live worker's command to copy; Take out of the workspace… and Move to another workspace… — Take out, then Put in: two
+  dialogs —, disabled with the CLI's command for a live worker or a running manager). A greyed `aria-disabled` "☁ a cloud
+  worker" row last; List | Grid with Grid disabled "coming"; "+ Add a worker" shows `doz worker add W --task "…"`; "N on this
+  Mac not shown to this browser" while `serve.mac_sessions` is off. Below 760 px each row is a card.
+- **An agent's screen** (`#/w/NAME/agent/AGENT[/SESSION|~home]` → view `wsagent` `{param, agent, session}`): the router
+  (`enterAgent`) reads the workspace's detail, finds the agent and sets **`state.frame`** `{workspace, agent, kind, place,
+  row, detail}`, then shows the page that already exists for its place — a sandbox: `state.view = 'sandbox'`, `param` the
+  sandbox, the agent's `session` (or the address's) selected; a session on this Mac: `state.view = 'mac'` with its session —
+  so every `state.view === 'sandbox' | 'mac'` check keeps working. Terminal tickets stay keyed by place
+  (`WebTerminalHTTPTests` unchanged). An agent with no page (elsewhere, a manager not started, a place gone, no such
+  agent) is `state.view = 'wsagent'`, a card (`viewWsAgent`: a participant with its token only; `doz workspace start W`; the
+  log's last line about it and Take out…). Any other address clears `state.frame`. `#/w/…/agent/A/can-do` is not an address
+  yet: `LEGACY` lands it on the agent.
+- **`placeHash(kind, name, session, frame)`** (`core/routes.js`, pure): THE address of a place's page. Every writer of
+  `#/sandbox/…` or `#/mac/here/…` into the location — the terminal's open (×2), the strip's session tabs, the arrival's
+  `~home`, a rename's and an rm's end, the sidebar's peek, the grid, the overview, Quick add — goes through it with
+  `state.frame`: while the frame's place is the page's, the address stays framed (`#/w/NAME/agent/AGENT[/SESSION]`); else
+  it is the place's own. A framed page that loses its place (404, rm) goes to `#/w/NAME/agents`. Links (`href`) to a place's
+  own page stay plain — following one leaves the frame. `WebModulesTests.testTheAgentsTabAndTheFramedAddresses` runs
+  `routes.js` in JavaScriptCore and greps that no module writes a place's address but through it.
+- **The frame** (`components/agent-frame.js`): above the sandbox page's title (`.sbx-bar-inner.is-framed`) or the session
+  pane's head, the breadcrumb `NAME › Agents › AGENT`, the chips (role, program, isolation, "acts as you") and "Open the
+  room beside" (`#/w/NAME`); in the sandbox's Overview, "In this workspace" (role, task, "started by X · TIME", bot,
+  isolation and control, the rooms — the main room always —, `doz worker ls W`). The framed page re-reads the detail with
+  its own refresh (at most every 2 s). A place's OWN page (`#/sandbox/NAME`, `#/mac/here/SESSION`) is never redirected: an
+  agent in a workspace carries the strip "In NAME as AGENT — open it there" and "Take out…" (`memberStrip`, found by
+  `WorkspaceRow.places`); a loose one shows nothing there and offers "Put in a workspace…" in its ⋯.
+
+## Filing agents
+
+- **Three actions, each exactly one HostOp the CLI sends**: `workspace-adopt` `{workspace, agent, as?}` → `workspace-adopt`
+  (`doz workspace adopt W AGENT [--as NAME]`); `workspace-new` `{workspace, brief, adopt: [AGENT]}` → `workspace-new` with
+  `folders: []`, `refs: []` and exactly ONE agent (`doz workspace new W --prompt-file F --adopt AGENT` — no folder, reference,
+  room, manager or project: the wizard widens it later; with chat on the daemon makes the room as you, as for the CLI);
+  `workspace-release` `{workspace, agent}` → `workspace-release`. Strictly decoded: the workspace by `WorkspaceName`; the agent
+  a sandbox's name or `@mac/SESSION` (never a bare `@mac`; release: also the agent's name in the workspace); `as` by the
+  agent-name rule; the brief as `workspace-brief`'s, within the actions' 16 KiB. `dedupeKey` includes the agent. The pinned
+  set in `WebActionTests` gains `.workspaceAdopt`, `.workspaceNew`, `.workspaceRelease`; the `workspace-*` actions are exactly
+  these four.
+- **This Mac's own browser only** (`WebAction.isFiling`, `WebExposure.decideFilingAction`): another computer gets 403
+  `mac-only` (`WebRejection.macOnlyFiling`: the family's code, its own words — `WebRejection.code`) whatever `serve.chat` or
+  `serve.mac_sessions` say — what a workspace holds decides what it, and later its manager, may reach, and `workspace-new`
+  makes a room as you. The refusal is one audit line like any other. The page draws the buttons disabled, titled "Only from
+  this Mac's own browser", with the command to copy. `ServeExposureTests.testFilingIsThisMacsOnly`,
+  `ServeHTTPTests.testFilingIsThisMacsBrowserOnlyWhateverTheServeSettings`.
+- **"Put in a workspace…"** (`components/put-in-workspace.js`) — from This Mac › Loose agents (a button per row), a loose
+  sandbox's ⋯ and a loose session's ⋯: A, an existing workspace (a radio list of those not archived with their state pills,
+  finished marked; "Give it another name there" opens `as`, and opens itself with the CLI's words when the name is taken);
+  B, a new workspace (its name prefilled from the agent's, checked live against `WorkspaceName` and the listing; the brief
+  required and prefilled "The work in AGENT." — editable; "Its room #NAME is made; nothing is posted", or "No room: chat is
+  off"). Every path shows the plan line "Only the workspace's record changes; AGENT keeps running as it is", whether it runs
+  (and so what filing does to a workspace setting up), "Show the command", and the daemon's refusal in the dialog. After
+  filing: the listing, the loose agents and the workspace are read again, and a note carries the operation's line and
+  "Open NAME". **"Take out of the workspace…"** is a plain confirmation (it is not destructive), then "AGENT is loose again"
+  with a link to Loose agents.
+- **The result line** (`WebOperations.filed`): filing a RUNNING agent into a workspace that is setting up marks it started
+  — `firstAgentAt`, no kick-off, nothing posted —: "NAME is started: AGENT was already running. The brief was not posted. doz
+  workspace start is not needed."; one that does not run: "AGENT is in NAME, which is still setting up" (its gaps are on the
+  page). The title pill and the setting-up banner follow at the next read.
 
 ## Your Macs (the machine picker)
 
