@@ -28,7 +28,12 @@ import { dialog } from '../components/dialog.js';
 import { panel, table } from '../components/blocks.js';
 import { capChips, capabilitiesPanel, fenceMarks } from './mac-capabilities.js';
 import { openMacWizard } from './mac-wizard.js';
+import { frameBar, frameOf, memberStrip } from '../components/agent-frame.js';
+import { moreMenu } from '../components/menus.js';
+import { filingRefusal, putInWorkspace } from '../components/put-in-workspace.js';
 import { networkPanel } from './sandbox-network.js';
+import { placeHash } from '../core/routes.js';
+import { state } from '../core/state.js';
 
 const mac = { built: false, active: false, tiles: new Map(), sessions: [], access: 'interactive', plan: false, refused: '', lastList: 0, timer: null,
               body: null, status: null, pane: null, term: null, open: null, tab: 'screen', tabBody: null, tabs: null, head: null, newBtn: null, bridgeErr: '' };
@@ -225,14 +230,17 @@ function openPane(session, mode, tab) {
   mac.tabBody = h('div', { class: 'mac-tab-body' });
   mac.stop = h('div', { class: 'mac-stop' });
   mac.modeBox = h('div', { class: 'mac-mode-box' });   // Watching | Controlling, right-aligned in the tab strip
-  mac.pane.replaceChildren(mac.head, mac.stop, h('div', { class: 'mac-tabs-row' }, mac.tabs, mac.modeBox), host, mac.tabBody);
+  // An agent's screen (#/w/NAME/agent/AGENT): the workspace's frame; its own address: where it is filed, if anywhere.
+  const frame = frameOf('mac', session);
+  mac.frame = frame ? frameBar(frame) : memberStrip('@mac/' + session);
+  mac.pane.replaceChildren(mac.frame, mac.head, mac.stop, h('div', { class: 'mac-tabs-row' }, mac.tabs, mac.modeBox), host, mac.tabBody);
   mac.host = host;
   paintPaneHead();
   mac.pane.hidden = false;
   host.append(t.els.wrap);
   showTab(mac.tab);
   paintCover(t);
-  history.replaceState(null, '', location.pathname + '#/mac/here/' + encodeURIComponent(session));
+  history.replaceState(null, '', location.pathname + placeHash('mac', session, null, state.frame));
   bootTerm(t, setting('ui.terminal_font_size', 13));
 }
 function current() { return mac.open ? mac.sessions.find((x) => x.name === mac.open.session) || null : null; }
@@ -245,7 +253,7 @@ function paintPaneHead() {
   mac.head.replaceChildren(
     h('span', { class: 'mac-pane-title' }, icon('monitor'), session),
     capChips(s, () => showTab('can')), ...fenceMarks(s, (tab) => showTab(tab)), ...(s.bypassed ? [bypassedChip()] : []),
-    h('span', { class: 'mac-pane-acts' }, btn('Close', closePane, { small: true, quiet: true, iconOnly: true, icon: 'x' })));
+    h('span', { class: 'mac-pane-acts' }, paneMore(s), btn('Close', closePane, { small: true, quiet: true, iconOnly: true, icon: 'x' })));
   mac.modeBox.replaceChildren(
     ...(mode === 'watch' ? [h('span', { class: 'mac-pane-mode' }, 'what you type does not reach it')] : []),
     modeToggle(s, mode));
@@ -261,6 +269,18 @@ function paintPaneHead() {
   mac.tabs.replaceChildren(...tabs.map(([id, label, ic]) => h('button', { type: 'button', class: 'seg' + (id === mac.tab ? ' active' : ''), role: 'tab', 'data-mac-tab': id,
     'aria-selected': id === mac.tab ? 'true' : 'false', on: { click: () => showTab(id) } }, icon(ic), label)));
   if (mac.tab === 'can') paintTab();
+}
+
+/// The pane's ⋯: a loose session is put in a workspace from here (one in a workspace: the strip above says where).
+function paneMore(s) {
+  const l = state.workspaces;
+  const loose = !!l && !l.workspaces.some((w) => (w.places || []).includes('@mac/' + s.name));
+  const why = filingRefusal();
+  return moreMenu('More for ' + s.name, [
+    loose ? { label: 'Put in a workspace…', icon: 'folder-input', desc: 'Only the workspace’s record changes', disabled: !!why, why, data: { 'put-in': '@mac/' + s.name },
+      onSelect: () => putInWorkspace('@mac/' + s.name, { running: s.state === 'running' }) }
+      : { label: 'In a workspace — see above', icon: 'layers', disabled: true, why: l ? 'Take it out there first' : 'The workspaces are being read' },
+  ], { small: true }).el;
 }
 
 /// The pane's two-state toggle: Watching (nothing typed reaches it) | Controlling (attached for real). Controlling is

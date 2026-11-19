@@ -7,6 +7,8 @@ import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { setting } from '../core/settings.js';
 import { dropThumbTerm, THUMB_COLS_PX, THUMB_ROWS_PX, thumbTerm } from './session-thumb.js';
+import { placeHash } from '../core/routes.js';
+import { state } from '../core/state.js';
 
 const ARM_MS = 500, HIDE_MS = 250, SCALE = 0.4;
 const peek = { pop: null, screen: null, label: null, key: null, term: null, armKey: null, armAt: 0, armTimer: null, hideTimer: null };
@@ -35,7 +37,7 @@ export function peekIcon(row, sandbox, x) {
   });
   b.addEventListener('pointerleave', () => { if (peek.armKey === key) disarm(); });
   // 642 (owner): a click opens the session, as its name does (resting still shows the picture).
-  b.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); disarm(); hidePeek(); location.hash = '#/sandbox/' + sandbox + '/' + x.name; });
+  b.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); disarm(); hidePeek(); location.hash = placeHash('sandbox', sandbox, x.name, state.frame); });
   row.addEventListener('pointerenter', () => { cancelHide(); if (peek.pop && !peek.pop.hidden && peek.key !== key) show(sandbox, x, row); });
   return b;
 }

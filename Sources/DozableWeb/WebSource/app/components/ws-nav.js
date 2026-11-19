@@ -4,7 +4,7 @@
 // Asleep and Finished & archived fold into a line each. What is unfolded is kept in this browser (doz.nav.ws).
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
-import { workspaceHash } from '../core/routes.js';
+import { agentHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { byState, forgetWorkspaces, isDone, loadWorkspace } from '../core/workspaces.js';
 import { workspaceDot } from './ws-marks.js';
@@ -32,7 +32,7 @@ export function renderNavWorkspaces(opts = {}) {
   const open = openSet();
   // Drawn again only when what it shows changed (a redraw is a style recalculation for the whole sidebar).
   const sig = JSON.stringify([all, [...open].sort(), [...state.wsDetails.entries()].filter(([n]) => open.has(n)),
-    !state.modal && state.view === 'workspace' ? [state.param, state.wsRoom] : null]);
+    !state.modal && state.view === 'workspace' ? [state.param, state.wsRoom, state.wsTab] : null, state.frame ? [state.frame.workspace, state.frame.agent] : null]);
   if (sig === lastSig && box.childElementCount) { if (!opts.details) for (const w of all) if (open.has(w.name)) readDetail(w.name, 0); return; }
   lastSig = sig;
   const sorted = byState(all);
@@ -89,9 +89,10 @@ function inside(w) {
     const parts = [dot, h('span', { class: 'ns-name' }, a.name), h('span', { class: 'nav-ws-role' }, a.role)];
     const title = a.name + ' — ' + a.role + ' · ' + (a.kind === 'mac' ? 'on this Mac' : a.kind === 'sandbox' ? 'micro VM ' + a.sandbox : 'elsewhere') + ' · ' + a.state
       + (a.activity ? ' · ' + a.activity : '');
-    const href = a.kind === 'sandbox' ? '#/sandbox/' + a.sandbox + '/~home' : a.kind === 'mac' ? '#/mac/here/' + encodeURIComponent(a.session) : null;
-    const el = href ? h('a', { href, class: 'nav-sess nav-ws-agent', 'data-ws-agent': a.name, title }, ...parts)
-      : h('span', { class: 'nav-sess nav-ws-agent', 'data-ws-agent': a.name, title }, ...parts);
+    // Its screen in the workspace: its sandbox's or its session's page, framed (an agent elsewhere: its card).
+    const on = state.frame && state.frame.workspace === w.name && state.frame.agent === a.name;
+    const el = h('a', { href: agentHash(w.name, a.name), class: 'nav-sess nav-ws-agent' + (on ? ' active' : ''), 'data-ws-agent': a.name, title,
+      'aria-current': on ? 'page' : null }, ...parts);
     return h('div', { class: 'nav-sess-row', role: 'listitem' }, el);
   });
   const hidden = d.hidden ? [h('span', { class: 'nav-sess nav-ws-wait', role: 'listitem' }, d.hidden + ' on this Mac not shown here')] : [];

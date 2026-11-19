@@ -9,6 +9,7 @@ import { startWithBootView } from './lifecycle.js';
 import { pageFailure, toast } from './notices.js';
 import { openTerminal } from './terminal.js';
 import { tildePath } from '../core/paths.js';
+import { placeHash } from '../core/routes.js';
 
 // ── 599c: Quick add (owner: "a "Quick Add" sandbox that picks defaults for workspace name etc and opens
 // it immediately") — one click, no form: the default image (defaults.image), a free name (claude-sandbox,
@@ -38,8 +39,8 @@ export async function quickAdd(button) {
     // 635: an out-of-date image is used as it is — said, never asked (a newer patch release stopped Quick add).
     if (p.notice) pageFailure(p.name + ': ' + p.notice, { key: 'quick-add-image', tone: 'info', title: 'A newer image is available' });
     // 617: the start sequence (the build, then tab zero Console, then the agent's tab), on its page.
-    if (terminalsAllowed()) { location.hash = '#/sandbox/' + p.name; await startWithBootView(p.name); return; }
-    location.hash = '#/sandbox/' + p.name;
+    if (terminalsAllowed()) { location.hash = placeHash('sandbox', p.name, null, state.frame); await startWithBootView(p.name); return; }
+    location.hash = placeHash('sandbox', p.name, null, state.frame);
     const started = await act({ action: 'start', sandbox: p.name });
     if (started && terminalsAllowed()) {
       const s = await waitOp(started.id, 600000);

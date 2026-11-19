@@ -8,6 +8,11 @@ export const state = {
   param: null,
   session: null,           // 593: #/sandbox/NAME/SESSION
   wsRoom: null,            // #/w/NAME/room/LABEL: the room's short label (null: the workspace's main room)
+  wsTab: null,             // #/w/NAME/agents: a workspace's tab other than its room (null: the room)
+  /// #/w/NAME/agent/AGENT: the workspace that frames the sandbox's or the session's page shown —
+  /// {workspace, agent, kind: 'sandbox' | 'mac' | 'card', place, row (the agent as the workspace's detail says), detail};
+  /// null on every other address (leaving clears it). core/routes.js placeHash keeps the framed address while it matches.
+  frame: null,
   sbx: null,               // 593: the shown sandbox's {name, d, net, accounts}
   opsSeenAt: Date.now(),   // 593: a failure that ended after this is unacknowledged (the Operations badge)
   opsFilter: '',

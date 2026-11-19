@@ -14,6 +14,7 @@ import { agentChip } from '../components/agent-status.js';
 import { pageFailure } from '../components/notices.js';
 import { pictureSource } from '../components/session-thumb.js';
 import { macSection } from './mac.js';
+import { placeHash } from '../core/routes.js';
 
 // ── All sessions: the grid (593) ────────────────────────────────────────────
 // A tile per session of every RUNNING sandbox, and the saved screens of every sleeping one. 648: each tile is PAINTED
@@ -165,7 +166,7 @@ function makeTile(w) {
     h('div', { class: 'tile-head' }, dot, glyph, title, agent, tag, phase, act), body);
   const tile = { key: w.key, sandbox: w.sandbox, session: w.session, el, dot, glyph, title, tag, phase, act, canvas, note, hit, kind: null, saved: null };
   tile.source = pictureSource(canvas, (st) => paintTag(tile, st));
-  hit.addEventListener('click', () => { location.hash = '#/sandbox/' + w.sandbox + (tile.session ? '/' + tile.session : ''); });
+  hit.addEventListener('click', () => { location.hash = placeHash('sandbox', w.sandbox, tile.session || null, state.frame); });
   // 642 (owner: "add the larger hover picture there too"): resting on a session's picture shows it larger, as on All sandboxes.
   if (w.session) hoverPeek(body, w.sandbox, () => ({ name: tile.session, saved: !!tile.saved,
     savedAt: tile.saved ? tile.saved.savedAt : null, savedReason: tile.saved ? tile.saved.savedReason : null }), peekOn);

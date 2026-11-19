@@ -31,6 +31,10 @@ import { filesPanel, syncFiles } from './sandbox-files.js';
 import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals.js';
 import { paintHome, soundLine } from './sandbox-home.js';
 import { tildePath } from '../core/paths.js';
+import { frameBar, frameBlock, frameOf, memberStrip } from '../components/agent-frame.js';
+import { putInWorkspace } from '../components/put-in-workspace.js';
+import { loadWorkspace } from '../core/workspaces.js';
+import { agentsHash, placeHash } from '../core/routes.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
 // #sbx is persistent: refreshSandbox() re-renders the bar and the details, never #terminals.
@@ -142,7 +146,11 @@ export async function refreshSandbox() {
   const name = state.param;
   try {
     const gen = state.trGen;
-    const [d, net, accounts] = await Promise.all([api('sandboxes/' + name), api('sandboxes/' + name + '/network'), api('accounts').catch(() => ({ accounts: [] }))]);
+    // Framed (an agent's screen): its workspace's detail too, so the frame says what is true now.
+    const f = frameOf('sandbox', name);
+    const [d, net, accounts, wd] = await Promise.all([api('sandboxes/' + name), api('sandboxes/' + name + '/network'), api('accounts').catch(() => ({ accounts: [] })),
+      f ? loadWorkspace(f.workspace, 2000).catch(() => null) : null]);
+    if (f && wd && state.frame === f) { const row = wd.agents.find((x) => x.name === f.agent); if (row) { f.row = row; f.detail = wd; } }
     if (state.view !== 'sandbox' || state.param !== name || state.signedOut) return;
     // A transition began or ended while this was read: what it read may be the phase before — read again.
     if (gen !== state.trGen) { sbxAgain = true; return; }
@@ -168,7 +176,7 @@ export async function refreshSandbox() {
   } catch (e) {
     // 617: a try whose create is under way (or failed) has its page before its sandbox exists.
     if (e.status === 404 && state.pendingTry && state.pendingTry.name === name) { drawPendingTry(name); return; }
-    if (e.status === 404) { if (state.view === 'sandbox' && state.param === name) location.hash = '#/mac/sandboxes'; return; }
+    if (e.status === 404) { if (state.view === 'sandbox' && state.param === name) location.hash = state.frame ? agentsHash(state.frame.workspace) : '#/mac/sandboxes'; return; }
     if (!state.signedOut) failureFor(name, e.message || String(e));
   } finally {
     sbxRefreshing = false;
@@ -223,7 +231,7 @@ async function sandboxArrived(name, want) {
     const v = sview(name), home = pageTerminals(name).find((t) => t.home);
     if (home) { v.selected[0] = home.id; v.focusedPane = 0; }
     state.session = null;
-    history.replaceState(null, '', location.pathname + '#/sandbox/' + name);
+    history.replaceState(null, '', location.pathname + placeHash('sandbox', name, null, state.frame));
     state.bgHash = location.hash;
     renderTerminals();
     return;
@@ -235,7 +243,7 @@ async function sandboxArrived(name, want) {
     else if (!running && (await savedRows(name)).some((r) => r.name === want)) openSavedTerminal(name, (await savedRows(name)).find((r) => r.name === want));
     // 617: a sandbox that is off has no sessions — its page's address (kept by a reload) drops the session quietly; a
     // notice there pushed the page down (browser-start-sequence C). A running one without it is still said.
-    else if (s.d.info.phase === 'off' || s.d.info.phase === 'failed') history.replaceState(null, '', '#/sandbox/' + name);
+    else if (s.d.info.phase === 'off' || s.d.info.phase === 'failed') history.replaceState(null, '', placeHash('sandbox', name, null, state.frame));
     else failureFor(name, 'Session ' + want + ' is not running in ' + name);
     return;
   }
@@ -314,6 +322,9 @@ function sandboxParts(name, d, net, accounts) {
     renameItem(name),                                  // owner, 2026-10-23/24: the dialog shuts it down first when it must
     { label: 'Save as template…', icon: 'layout-template', desc: 'Its root disk becomes an image (never its state disk)', disabled: !!holdWhy, why: holdWhy, onSelect: () => templateDialog(name, d, null) },
     { label: 'Boot log', icon: 'history', desc: 'Its last boots: the steps and the kernel console', onSelect: () => bootLogDialog(name) },
+    // A loose sandbox is put in a workspace from here (in one already: the strip under the title says where).
+    ...(looseSandbox(name) ? [{ label: 'Put in a workspace…', icon: 'folder-input', desc: 'Only the workspace’s record changes', disabled: isRemote(),
+      why: 'Only from this Mac’s own browser', data: { 'put-in': name }, onSelect: () => putInWorkspace(name, { running }) }] : []),
     { sep: true },
     { label: 'Reset…', icon: 'rotate-ccw', danger: true, desc: 'Discard the disk — back to the image', disabled: busy, why: 'Wait until it settles', data: { 'lifecycle-item': name }, onSelect: () => lifecycle('reset', name) },
     { label: 'Remove…', icon: 'trash-2', danger: true, desc: 'The sandbox, its disks and restore points', disabled: busy, why: 'Wait until it settles', data: { 'lifecycle-item': name }, onSelect: () => lifecycle('rm', name) },
@@ -326,7 +337,11 @@ function sandboxParts(name, d, net, accounts) {
   }, { quiet: true, iconOnly: true, icon: 'panel-right', title: (detailsOpen ? 'Hide' : 'Show') + ' the details: sessions, restore points, network, keys (remembered: ui.details_open)' });
   detailsBtn.setAttribute('aria-pressed', detailsOpen ? 'true' : 'false');
   const suggestions = net.permissions ? net.permissions.suggestions : [];
-  const bar = h('div', { class: 'sbx-bar-inner' },
+  // An agent's screen (#/w/NAME/agent/AGENT): the workspace's frame above the title; its own page (#/sandbox/NAME) of an
+  // agent in a workspace says where it is instead — never a redirect.
+  const frame = frameOf('sandbox', name);
+  const bar = h('div', { class: 'sbx-bar-inner' + (frame ? ' is-framed' : '') },
+    frame ? frameBar(frame) : memberStrip(name),
     h('div', { class: 'sbx-title' },
       h('h1', null, name), sandboxPill(i),
       h('span', { class: 'chips sbx-meta' },
@@ -385,6 +400,7 @@ function sandboxParts(name, d, net, accounts) {
   const details = h('div', { class: 'sbx-details-inner' }, tabs,
     d.guide ? panel_('guide', guideHead(), guidePanel(name, d.guide, (t) => inspShow(name, t))) : null,
     panel_('overview',
+      frame ? frameBlock(frame) : null,
       h('div', { class: 'stats' },
         stat('RAM held', mib(i.ramHeldMiB), 'of ' + mib(i.memoryMiB) + (i.memoryReturnedMiB ? ' · balloon returned ' + mib(i.memoryReturnedMiB) : '')),
         stat('Disk', bytes(i.diskBytes), d.snapshotBytes ? 'snapshot ' + bytes(d.snapshotBytes) : (d.hasRootDisk ? 'root disk kept' : 'no root disk yet')),
@@ -444,6 +460,11 @@ function sandboxParts(name, d, net, accounts) {
     h('div', { class: 'insp-resize', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': 'Resize the details', title: 'Drag to resize the details (320–560 px)',
       on: { pointerdown: inspResizeStart } }));
   return { bar, details };
+}
+/// A sandbox in no workspace (as the listing last read says; unknown: not offered).
+function looseSandbox(name) {
+  const l = state.workspaces;
+  return !!l && !l.workspaces.some((w) => (w.places || []).includes(name));
 }
 /// A menu on the sandbox page closed: a re-render it held back runs now.
 function sbxMenuClosed() { if (state.sbxHeld) { state.sbxHeld = false; refreshSandbox(); } }

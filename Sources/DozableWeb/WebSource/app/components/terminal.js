@@ -14,6 +14,7 @@ import { isInt, quietly, safeLink, utf8 } from '../core/util.js';
 import { validGrid } from '../core/grid.js';
 import { placePath, screenPath } from '../core/places.js';
 import { bridgeNotice, failureFor } from './notices.js';
+import { placeHash } from '../core/routes.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const lifecycle = upcall('lifecycle'), paintTabs = upcall('paintTabs'), renderTerminals = upcall('renderTerminals'), syncConsoleTab = upcall('syncConsoleTab');
 
@@ -150,7 +151,7 @@ export async function openTerminal(sandbox, session, mode, pane, opts = {}) {
   t.pane = v.split ? (pane ?? v.focusedPane) : 0;
   v.selected[t.pane] = t.id;
   paintCover(t);
-  if (state.view !== 'sandbox' || state.param !== sandbox) location.hash = '#/sandbox/' + sandbox;
+  if (state.view !== 'sandbox' || state.param !== sandbox) location.hash = placeHash('sandbox', sandbox, null, state.frame);
   else renderTerminals();
   // The body must be laid out before the engine measures it.
   await new Promise((r) => setTimeout(r, 0));
@@ -170,7 +171,7 @@ export async function openPendingTerminal(sandbox) {
   t.quiet = true;
   t.pane = 0;
   paintCover(t);
-  if (state.view !== 'sandbox' || state.param !== sandbox) location.hash = '#/sandbox/' + sandbox;
+  if (state.view !== 'sandbox' || state.param !== sandbox) location.hash = placeHash('sandbox', sandbox, null, state.frame);
   else renderTerminals();
   await new Promise((r) => setTimeout(r, 0));
   renderTerminals();

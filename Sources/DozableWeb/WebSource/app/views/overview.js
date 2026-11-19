@@ -22,6 +22,7 @@ import { quickAddButton } from '../components/quick-add.js';
 import { thumbFrame } from '../components/session-thumb.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser.js';
 import { newSandboxWizard } from './new-sandbox.js';
+import { placeHash } from '../core/routes.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refresh = upcall('refresh');
 
@@ -87,7 +88,7 @@ function mainRow(s) {
   const box = h('input', { type: 'checkbox', 'aria-label': 'Select ' + s.name, 'data-ov-select': s.name,
     on: { click: (ev) => ev.stopPropagation(), change: (ev) => { if (ev.target.checked) SEL.add(s.name); else SEL.delete(s.name); repaintSelection(); } } });
   box.checked = SEL.has(s.name);
-  return h('tr', { class: 'click', 'data-sandbox-row': s.name, on: { click: () => { location.hash = '#/sandbox/' + s.name; } } },
+  return h('tr', { class: 'click', 'data-sandbox-row': s.name, on: { click: () => { location.hash = placeHash('sandbox', s.name, null, state.frame); } } },
     h('td', { class: 'ov-sel', on: { click: (ev) => ev.stopPropagation() } }, box),
     // Owner, 2026-10-23: the tool's mark beside the name, and where its folder is (from ~).
     h('td', null, h('div', { class: 'ov-name' }, s.icon && s.icon.d ? mark(s.icon, 'ov-mark') : icon('box'),
@@ -196,7 +197,7 @@ function patchRows(list) {
     for (const x of sessions) {
       let th = st.thumbs.get(x.name);
       if (!th) {
-        th = thumbFrame('Open ' + x.name, () => { location.hash = '#/sandbox/' + s.name + '/' + x.name; }, false);
+        th = thumbFrame('Open ' + x.name, () => { location.hash = placeHash('sandbox', s.name, x.name, state.frame); }, false);
         th.session = x.name;
         const t = th;
         hoverPeek(th.el, s.name, () => t.row);

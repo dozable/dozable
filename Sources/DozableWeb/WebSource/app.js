@@ -18,6 +18,7 @@
 
 import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat.js';
 import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace.js';
+import { viewWsAgent } from './app/views/ws-agents.js';
 import { interleave } from './app/core/ws-log.js';
 import { configure as configureChat, dashboardFileUrl } from './app/core/chat-api.js';
 import { paintStartProgress } from './app/components/start-progress.js';
@@ -218,7 +219,7 @@ provide({
   persistLayout, reattachTerminals, refresh, refreshMacPicker, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
   renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
   viewBots, viewHome, viewImages, viewLoose, viewMacs, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
-  viewThisMac, viewTry, wizardStopPolling, wsEnter, wsRefresh,
+  viewThisMac, viewTry, viewWsAgent, wizardStopPolling, wsEnter, wsRefresh,
 });
 // The browser probes' names. The one script's top-level names were globals, and the workspace's browser probes
 // (probes/*, over CDP Runtime.evaluate) read and call some of them; module names are not globals, so these stay
