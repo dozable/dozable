@@ -161,7 +161,7 @@ public struct AgentPlace: Codable, Equatable, Sendable {
 /// An agent in the workspace.
 public struct WorkspaceAgent: Codable, Equatable, Sendable {
     public var name: String
-    /// `worker` (adopted) — `manager` comes with a later step.
+    /// `worker` (adopted) or `manager` (recorded by `--manager`, started by `doz workspace start`).
     public var role: String
     public var place: AgentPlace
     /// `you` or `doz`.
@@ -170,12 +170,23 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     /// The Agent / Bot it is (`bots.json`), when it is one; nil: an agent with no lasting identity. Additive: an older doz
     /// keeps it as an unknown field.
     public var bot: String?
+    /// A manager's isolation: `fenced`, `vm` or `unfenced` (unfenced only when named — it acts as you). Additive.
+    public var isolation: String?
+    /// When a manager was last stopped (`doz workspace stop`); nil while it runs or before its first start. Additive.
+    public var stoppedAt: Date?
     public var unknown = UnknownFields()
-    static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt", "bot"]
+    static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt", "bot", "isolation", "stoppedAt"]
 
-    public init(name: String, role: String = "worker", place: AgentPlace, startedBy: String = "you", startedAt: Date, bot: String? = nil) {
+    public init(name: String, role: String = "worker", place: AgentPlace, startedBy: String = "you", startedAt: Date, bot: String? = nil,
+                isolation: String? = nil) {
         self.name = name; self.role = role; self.place = place; self.startedBy = startedBy; self.startedAt = startedAt; self.bot = bot
+        self.isolation = isolation
     }
+
+    /// The workspace's manager (one at most).
+    public var isManager: Bool { role == "manager" }
+    /// An unfenced manager acts as you: said wherever it shows.
+    public var actsAsYou: Bool { isManager && isolation == "unfenced" }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: DynamicKey.self)
@@ -185,6 +196,8 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         startedBy = try c.decodeIfPresent(String.self, forKey: "startedBy") ?? "you"
         startedAt = try c.decode(Date.self, forKey: "startedAt")
         bot = try c.decodeIfPresent(String.self, forKey: "bot")
+        isolation = try c.decodeIfPresent(String.self, forKey: "isolation")
+        stoppedAt = try c.decodeIfPresent(Date.self, forKey: "stoppedAt")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -197,6 +210,8 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         try c.encode(startedBy, forKey: "startedBy")
         try c.encode(startedAt, forKey: "startedAt")
         try c.encodeIfPresent(bot, forKey: "bot")
+        try c.encodeIfPresent(isolation, forKey: "isolation")
+        try c.encodeIfPresent(stoppedAt, forKey: "stoppedAt")
     }
 }
 
@@ -211,10 +226,13 @@ public struct WorkspaceDefaults: Codable, Equatable, Sendable {
 public struct WorkspaceFlags: Codable, Equatable, Sendable {
     public var finishedAt: Date?
     public var archivedAt: Date?
-    /// When it first had an agent: an empty workspace that once had agents is asleep, not setting up.
+    /// When it first had a RUNNING agent (adopted while it ran): it is past setting up.
     public var firstAgentAt: Date?
-    public init(finishedAt: Date? = nil, archivedAt: Date? = nil, firstAgentAt: Date? = nil) {
-        self.finishedAt = finishedAt; self.archivedAt = archivedAt; self.firstAgentAt = firstAgentAt
+    /// When `doz workspace start` first kicked it off (the brief posted as your first message): it is past setting up, and
+    /// the brief is never posted again. Additive.
+    public var startedAt: Date?
+    public init(finishedAt: Date? = nil, archivedAt: Date? = nil, firstAgentAt: Date? = nil, startedAt: Date? = nil) {
+        self.finishedAt = finishedAt; self.archivedAt = archivedAt; self.firstAgentAt = firstAgentAt; self.startedAt = startedAt
     }
 }
 
@@ -289,6 +307,10 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
     /// The main folder.
     public var mainFolder: WorkspaceFolder? { folders.first { $0.main } ?? folders.first }
 
+    /// The manager's entry (nil: none).
+    public var managerIndex: Int? { agents.firstIndex { $0.isManager } }
+    public var manager: WorkspaceAgent? { managerIndex.map { agents[$0] } }
+
     /// The agent a person names: by its name, else by its place as typed (`wsa`, `@mac/wsu`).
     public func agentIndex(_ s: String) -> Int? {
         agents.firstIndex { $0.name == s } ?? agents.firstIndex { $0.place.display == s }
@@ -303,7 +325,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     /// `you` or `doz`.
     public var by: String
     /// created · room-made · room-linked · adopted · released · brief-edited ·
-    /// folders-edited · refs-edited · renamed · agent-renamed · agent-removed.
+    /// folders-edited · refs-edited · renamed · agent-renamed · agent-removed · manager-set · manager-removed ·
+    /// bot-invited · kicked-off · manager-started · manager-stopped.
     public var action: String
     public var agent: String?
     /// The agent's place key (`sandbox:NAME`, `mac:SESSION`).
@@ -317,19 +340,24 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var removed: Int?
     /// Why, in a person's words (never the brief).
     public var reason: String?
+    /// A manager's isolation (`manager-set`, `manager-started`).
+    public var isolation: String?
+    /// The fingerprint of the token a manager was started with (12 hex — never the token).
+    public var fingerprint: String?
 
     public init(at: Date = Date(), by: String = "you", action: String, agent: String? = nil, place: String? = nil, room: String? = nil,
                 from: String? = nil, to: String? = nil, sha256: String? = nil, bytes: Int? = nil, added: Int? = nil, removed: Int? = nil,
-                reason: String? = nil) {
+                reason: String? = nil, isolation: String? = nil, fingerprint: String? = nil) {
         v = 1
         self.at = at; self.by = by; self.action = action; self.agent = agent; self.place = place; self.room = room
         self.from = from; self.to = to; self.sha256 = sha256; self.bytes = bytes; self.added = added; self.removed = removed
-        self.reason = reason
+        self.reason = reason; self.isolation = isolation; self.fingerprint = fingerprint
     }
 
     public static let actions: Set<String> = ["created", "room-made", "room-linked", "adopted",
                                               "released", "brief-edited", "folders-edited", "refs-edited", "renamed", "agent-renamed",
-                                              "agent-removed"]
+                                              "agent-removed", "manager-set", "manager-removed", "bot-invited", "kicked-off",
+                                              "manager-started", "manager-stopped"]
 
     /// The line as a person reads it.
     public var sentence: String {
@@ -345,6 +373,12 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "renamed": return "renamed from \(from ?? "?") to \(to ?? "?")"
         case "agent-renamed": return "agent \(from ?? "?") is now \(to ?? "?")"
         case "agent-removed": return "agent \(agent ?? "?") removed (its sandbox was deleted)"
+        case "manager-set": return "the manager is \(agent ?? "?") (\(BotIsolation.words(isolation ?? "fenced")))"
+        case "manager-removed": return "no manager now (was \(agent ?? "?"))"
+        case "bot-invited": return "invited \(agent ?? "?") to \(room ?? "the room")"
+        case "kicked-off": return "posted the brief in \(room ?? "the room") (\(bytes ?? 0) bytes)"
+        case "manager-started": return "started the manager \(agent ?? "?") (\(BotIsolation.words(isolation ?? "fenced"))" + (place.map { ", \($0)" } ?? "") + ")"
+        case "manager-stopped": return "stopped the manager \(agent ?? "?")"
         default: return action
         }
     }

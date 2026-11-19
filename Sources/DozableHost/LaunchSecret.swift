@@ -22,11 +22,17 @@ public struct LaunchSecret: Codable, Equatable, Sendable {
     public var bearer: Bool
     /// The first 12 hex of the value's sha256 (as every foreign credential is shown).
     public var fingerprint: String
-    /// The keychain item holding the value (nil: this daemon's memory only — the keychain was locked).
+    /// The keychain item holding the value (nil: this daemon's memory only — the keychain was locked; or a bot-held one).
     public var keychainService: String?
+    /// A BOT-HELD secret: the bot whose token it is (a workspace's manager). Its value is read from the bot's own item
+    /// (`BotTokens.service`), only while its fingerprint is the one recorded; it has no item of its own and no ledger line,
+    /// so nothing that revokes, forgets or sweeps launch secrets ever deletes it. Additive: an older doz drops it and treats
+    /// the secret as memory-only (a 401 notice until the manager is started again — never a deletion). The daemon sets it;
+    /// one a client sends is cleared (`checkedLaunchSecrets`).
+    public var bot: String?
 
     public init(variable: String, fileVariable: String? = nil, host: String, port: UInt16, header: String = "authorization",
-                bearer: Bool = true, fingerprint: String, keychainService: String? = nil) {
+                bearer: Bool = true, fingerprint: String, keychainService: String? = nil, bot: String? = nil) {
         self.variable = variable
         self.fileVariable = fileVariable
         self.host = host.lowercased()
@@ -35,6 +41,7 @@ public struct LaunchSecret: Codable, Equatable, Sendable {
         self.bearer = bearer
         self.fingerprint = fingerprint
         self.keychainService = keychainService
+        self.bot = bot
     }
 
     /// `HOST:PORT`.

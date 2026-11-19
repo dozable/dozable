@@ -878,11 +878,15 @@ for, and any folders it works on (usually projects). Work starts only once it is
 
 ```bash
 doz workspace new NAME --prompt-file F|- [--ref PATH|URL]… [--folder DIR[:ro|:rw]]… [--room EXISTING | --no-room] [--from-project] [--adopt AGENT]…
-doz workspace ls [--loose] [--json]             # NAME  STATE  AGENTS  ROOM ("setting up · you"), then the loose agents
+                  [--manager BOT [--manager-isolation fenced|vm|unfenced]]
+doz workspace ls [--loose] [--json]             # NAME  STATE  AGENTS  ROOM ("idle · you · manager mira (fenced)"), then the loose agents
 doz workspace show W [--brief] [--json]         # its brief, folders, room and agents
+doz workspace start W                           # the set-up check, the brief posted as your first message (once), the manager started
+doz workspace stop W                            # the manager ended; its record, conversation and room kept
 doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME]   # as a worker; only the workspace's record changes
 doz workspace release W AGENT                   # loose again
 doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--add-folder DIR[:ro]]… [--remove-folder DIR]… [--make-room]
+                  [--manager BOT [--manager-isolation fenced|vm|unfenced] | --no-manager]
 doz workspace log W [--since T]                 # what happened and who did it (T: ISO 8601, or 30m, 2h, 3d)
 doz workspace rename W NEW                      # its room keeps its own name
 ```
@@ -892,8 +896,28 @@ so it needs one). With chat on, `new` makes a room named after the workspace (re
 links it instead); nothing is posted in it until the work starts. `ls`, `show` and `log` answer from the store without
 starting the daemon. A sandbox or session is in one workspace at most; `doz rename` and `doz rm` of a sandbox carry its
 workspace's record along. `doz ls --json` and `doz sessions NAME|@mac --json` carry `workspace` on an adopted one. Exit
-codes: 0 ok · 2 not found · 3 archived · 4 already exists or already in a workspace · 6 the daemon or chat unavailable ·
-64 usage.
+codes: 0 ok · 2 not found · 3 archived, not fully set up, or its manager running · 4 already exists, already in a
+workspace, or the bot already runs in another live workspace · 6 the daemon or chat unavailable · 64 usage.
+
+**The manager.** `--manager BOT` records one Agent / Bot as the workspace's manager — nothing is posted or started.
+Its isolation is **fenced** on this Mac by default, **vm** (a micro VM named after the workspace) when you say so or the
+bot's default is vm, and **unfenced** only when named with `--manager-isolation unfenced`: it then acts as you, and
+`show`, `ls` and `--json` (`actsAsYou: true`) say so. A bot elsewhere is refused (it runs on its own machine), and so is a
+retired one. `edit --manager` replaces it and `--no-manager` removes it, neither while it runs.
+
+`doz workspace start W` runs **the set-up check** first and refuses, listing every gap with its fix, until the brief is
+there, the room exists (with chat on — a manager needs chat), every folder and adopted agent's place is there, and its
+manager's bot is ready: its token held by Dozable and readable, reached by polling (a fenced or VM manager is refused
+for inbox — `doz bot set BOT --deliver poll` — and any manager for webhook), its agent program Claude Code or Codex (on
+this Mac's PATH unless it runs in a VM), and no other session or sandbox of its name. Then the bot is invited to the
+main room, the brief (and its references) is posted as **your first message** — once: a start after a stop never posts
+it again — and the manager is started with a first prompt telling it to read its START file (who it is, its room, how
+to use `dozchat`, its skills and instructions, the brief). Its token never appears in an argument, a record, a log or
+`--json`: a fenced or VM manager holds a placeholder the proxy swaps (`CHAT_TOKEN`, and a file named by
+`CHAT_TOKEN_FILE`); an unfenced one reads a 0600 file in a 0700 folder under your temp folder, deleted at stop. For now
+a bot runs in one live workspace at a time: starting a second is refused ("mira already manages launch-video, which is
+running…"). `doz workspace stop W` ends the manager and keeps its conversation; the next start resumes it. With no
+manager, `start` posts the brief and you drive. `doz bot ls` shows what each bot manages ("demo (running)").
 
 ### Settings
 

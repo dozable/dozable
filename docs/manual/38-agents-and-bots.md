@@ -4,8 +4,8 @@ An **Agent / Bot** is a lasting identity in chat: a participant with a name that
 Codex, …), its model and account, where it runs, how the chat server reaches it, and a token of its own. A sandbox or a
 session comes and goes; the bot is who did the work, and its messages keep its name.
 
-Nothing here starts a bot yet: you make its identity, and Dozable keeps it ready. A later version starts bots in a
-workspace (see [Workspaces](37-workspaces.md)).
+You make its identity, and Dozable keeps it ready. A bot is started as a workspace's **manager**:
+`doz workspace new demo … --manager mira`, then `doz workspace start demo` (see [Workspaces](37-workspaces.md)).
 
 ## Making one
 
@@ -54,6 +54,17 @@ doz chat who             # a bot's KIND ends "· bot" (--json: "bot": true)
 ```
 
 Looking never starts the daemon.
+
+## Managing a workspace
+
+A bot that runs on this Mac or in a sandbox can manage a workspace: `doz workspace new demo … --manager mira` records
+it, and `doz workspace start demo` starts it — fenced by default, in a sandbox with `--manager-isolation vm`, and
+unfenced (acting as you) only when you name it. Its token reaches the manager without ever being shown: a fenced or VM
+manager holds only a placeholder Dozable's proxy swaps for it, and stopping the workspace never deletes it from your
+keychain. A manager collects its messages itself, so a fenced or VM manager's bot is reached by polling (`doz bot set
+mira --deliver poll`). For now a bot runs in one live workspace at a time. `doz bot ls` says what each bot manages and
+where it runs now (`demo (running)`); `doz bot show` too. Giving a running manager's bot a new token stops it from
+talking until the workspace is started again.
 
 ## Changing one
 

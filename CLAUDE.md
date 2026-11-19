@@ -366,7 +366,7 @@ One row per area; each area's doc starts with the full table of its files.
   after a daemon restart a sandbox holding only one has no secret, and the proxy stops decrypting. A launch secret
   (692 `--secret`; network.md) has its own keychain item, re-read by a new daemon, deleted when revoked (shutdown/reset/
   rm/rename; a fenced record's removal); never a value in argv, a record, a log or the session. `LaunchSecretTests`.
-  A bot's token lives only in its keychain item (never argv, a record, a log or `--json`); retired names stay reserved (`BotTokenTests`).
+  A bot's token lives only in its keychain item (never argv, a record, a log or `--json`); retired names stay reserved (`BotTokenTests`); it reaches a session only as a bot-held launch secret (`LaunchSecret.bot`: never copied, never deleted with the session — `BotLaunchSecretTests`), and an unfenced manager's token file is 0600 in a 0700 temp folder, gone at stop.
   **Plain HTTP never carries a placeholder** but a launch secret's (all `secret:`, setting on, exact host AND port, to
   the route or Tailscale, every dialled address in 100.64/10). `PlainHTTPSecretRuleTests`, `EgressProxyPlainHTTPTests`.
 - **No silent fallback between accounts.** A missing, expired or signed-out credential is
@@ -406,7 +406,7 @@ are in its doc, so read it before changing that area.
 - [docs/engineering/sound.md](docs/engineering/sound.md) — `sandbox.audio`, the sound kernel (GPL-2.0, ours), the microphone's permission
 - [docs/engineering/chat.md](docs/engineering/chat.md) — the chat server: no VM parts, isolation, the strict config, the access rules and `agent_addresses`, the protocol's bytes and store, the conformance gate
 - [docs/engineering/menu-bar-app.md](docs/engineering/menu-bar-app.md) — Dozable.app: the doz command as its only interface, the menu's state table, refresh, `doz app install`, the seams
-- [docs/engineering/workspaces.md](docs/engineering/workspaces.md) — workspaces: the record and its store, the derived state, adopting agents, the main room in chat; Agents / Bots and their tokens
+- [docs/engineering/workspaces.md](docs/engineering/workspaces.md) — workspaces: the record and its store, the derived state, adopting agents, the main room in chat, the manager (the set-up check, start and stop); Agents / Bots and their tokens
 
 ## Verifying changes
 
@@ -425,7 +425,7 @@ make test-cli-onboarding # 594: test-cli's onboarding part alone (onboard, a joi
 make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake container, the real container build (SKIPs unless Apple's services run; BASES_START_BUILDER=1), the VM matrix (BASES_PARTS=…)
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox; make test-cli-timezone (W10): the Mac's (stubbed) zone at boot and every wake, or sandbox.timezone
-make test-cli-host   # sessions on this Mac (@mac), no VM: the real deckhold-mac, harmless programs only; make test-cli-bots: Agents / Bots, the leak sweep
+make test-cli-host   # sessions on this Mac (@mac), no VM: the real deckhold-mac, harmless programs only; make test-cli-bots: Agents / Bots, the leak sweep; make test-cli-workspace: workspaces and their manager (a FAKE claude, fenced, the leak sweep; -vm: one scratch lab VM)
 make test-cli-keychainlocked # a daemon started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned, named by account ls and doctor, never always on, a locked restart refused, replaced by the login item's look, never runs the keep-alive (no VM); make test-cli-alwayson: on by default, off at once, restarted in place after an install; make test-cli-daemon: the login item, no VM, a scratch LaunchAgents folder + a FAKE launchctl (never the real ones) — rows 1–12 in engine.md
 make test-cli-exectimeout # exec --timeout from doz's start, 124 from the daemon: the command killed, a start/wake that outlasts it goes on, a stopped client
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more

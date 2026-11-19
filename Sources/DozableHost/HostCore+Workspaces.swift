@@ -8,6 +8,10 @@ public protocol WorkspaceChat: Sendable {
     func readiness() async -> WorkspaceChatReadiness
     func rooms() throws -> Set<String>
     func makeRoom(_ name: String) throws
+    /// Post `content` in `room` as you (a workspace's kick-off).
+    func post(room: String, content: String) throws
+    /// Invite a participant to `room` as you; false: it was a member already.
+    @discardableResult func invite(room: String, name: String) throws -> Bool
 }
 
 public enum WorkspaceChatReadiness: Equatable, Sendable {
@@ -26,6 +30,8 @@ public struct OwnerWorkspaceChat: WorkspaceChat {
     public func makeRoom(_ name: String) throws {
         try owner.makeRoom(name, members: try owner.state().otherHumans)
     }
+    public func post(room: String, content: String) throws { try owner.post(room: room, content: content) }
+    @discardableResult public func invite(room: String, name: String) throws -> Bool { try owner.invite(room: room, name: name) }
 }
 
 /// The workspaces in the daemon (`workspace-*`). Reading (ls, show, log) is answered in-process by a read-only core too;
@@ -50,6 +56,9 @@ extension HostCore {
             break
         }
         guard !readOnly else { throw HostError(.unavailable, "\(r.op.rawValue) needs the daemon") }
+        // Start and stop take the gate themselves: the check under `workspaces`, the launch under `workspace:NAME`.
+        if r.op == .workspaceStart { return try JSONValue(encoding: try await workspaceStart(w)) }
+        if r.op == .workspaceStop { return try JSONValue(encoding: try await workspaceStop(w)) }
         await workspaceGate.lock("workspaces")
         defer { workspaceGate.unlock("workspaces") }
         switch r.op {
@@ -93,15 +102,22 @@ extension HostCore {
                     let phase = await effectivePhase(m).rawValue
                     state = phase
                     seen = WorkspaceState.agent(phase: phase, statuses: statuses[s].map { Array($0.values) })
+                } else if a.isManager {
+                    state = "not started"; seen = .notStarted
                 }
             } else if a.place.mac == true, let s = a.place.session {
                 let row = macs[s]
-                state = row == nil || row?.gone == true ? "gone" : row!.ended ? "ended" : "running"
-                seen = WorkspaceState.agent(macRow: row)
+                if row == nil, a.isManager {
+                    state = "not started"; seen = .notStarted
+                } else {
+                    state = row == nil || row?.gone == true ? "gone" : row!.ended ? "ended" : "running"
+                    seen = WorkspaceState.agent(macRow: row)
+                }
             } else {
                 state = "elsewhere"
             }
-            out.append((WorkspaceAgentRow(name: a.name, role: a.role, place: a.place.display, state: state, startedAt: a.startedAt), seen))
+            out.append((WorkspaceAgentRow(name: a.name, role: a.role, place: a.place.display, state: state, startedAt: a.startedAt, bot: a.bot,
+                                          isolation: a.isolation, actsAsYou: a.actsAsYou ? true : nil), seen))
         }
         return out
     }
@@ -110,7 +126,7 @@ extension HostCore {
         let macs: [String: SessionRow]
         if let given { macs = given } else { macs = rec.agents.contains { $0.place.mac == true } ? await workspaceMacRows() : [:] }
         let agents = await workspaceAgents(rec, macs: macs)
-        let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.map(\.1), flags: rec.flags))
+        let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.map(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
         return WorkspaceDetail(name: rec.name, state: state.rawValue, driver: rec.driver, createdAt: rec.createdAt, brief: rec.brief,
                                briefText: withBrief ? workspaces.readBrief(rec.name) : nil, folders: rec.folders, rooms: rec.rooms,
                                agents: agents.map(\.0), defaults: rec.defaults, flags: rec.flags, origin: rec.origin,
@@ -126,8 +142,13 @@ extension HostCore {
         if !looseOnly {
             for rec in records {
                 let agents = await workspaceAgents(rec, macs: macs)
-                let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.map(\.1), flags: rec.flags))
-                rows.append(WorkspaceRow(name: rec.name, state: state.rawValue, driver: rec.driver, agents: rec.agents.count, room: rec.mainRoom?.chatRoom))
+                let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.map(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
+                let manager = rec.managerIndex.map { i in
+                    WorkspaceManagerRow(bot: rec.agents[i].bot ?? rec.agents[i].name, isolation: rec.agents[i].isolation ?? "fenced",
+                                        actsAsYou: rec.agents[i].actsAsYou, state: agents[i].0.state)
+                }
+                rows.append(WorkspaceRow(name: rec.name, state: state.rawValue, driver: rec.driver, agents: rec.agents.count, room: rec.mainRoom?.chatRoom,
+                                         manager: manager))
             }
         }
         var loose: [LooseAgent] = []
@@ -153,6 +174,16 @@ extension HostCore {
         }
         guard managed[s] != nil else { throw HostError(.notFound, "no sandbox \(s) (doz ls)") }
         return (s, .sandbox(s))
+    }
+
+    /// Whether an agent's place runs now (adopting a RUNNING agent marks the workspace started).
+    func workspacePlaceRunning(_ place: AgentPlace) async -> Bool {
+        if let s = place.sandbox, let m = managed[s] {
+            let p = await effectivePhase(m)
+            return p == .running || p == .booting
+        }
+        if place.mac == true, let s = place.session, !buildFlavor.isHelper { return await mac.isRunning(s) }
+        return false
     }
 
     func workspaceCheckFree(_ place: AgentPlace, member: [String: String]) throws {
@@ -238,12 +269,26 @@ extension HostCore {
             }
             agents.append(WorkspaceAgent(name: n, place: place, startedAt: now))
         }
+        var anyRunning = false
+        for a in agents where await workspacePlaceRunning(a.place) { anyRunning = true }
+        // Its manager: recorded, not started (nothing posted, nothing started).
+        if w.managerIsolation != nil, w.manager == nil { throw HostError(.invalid, "--manager-isolation goes with --manager BOT") }
+        if let bot = w.manager {
+            let m = try workspaceManagerEntry(bot: bot, asked: w.managerIsolation, workspace: name, at: now)
+            try workspaceCheckFree(m.place, member: member)
+            guard !agents.contains(where: { $0.name == m.name }) else { throw HostError(.exists, "two agents would be called \(m.name)") }
+            agents.append(m)
+        }
         // The room: made, linked, or none — checked before anything is written.
         if w.noRoom == true, w.room != nil { throw HostError(.invalid, "--room or --no-room, not both") }
         var rooms: [WorkspaceRoom] = []
         var log = [WorkspaceLogEntry(at: now, action: "created")]
-        for a in agents { log.append(WorkspaceLogEntry(at: now, action: "adopted", agent: a.name, place: a.place.key)) }
         var notes: [String] = []
+        for a in agents where !a.isManager { log.append(WorkspaceLogEntry(at: now, action: "adopted", agent: a.name, place: a.place.key)) }
+        if let m = agents.first(where: \.isManager) {
+            if m.actsAsYou { notes.append("unfenced: \(m.name) acts as you when it runs") }
+            log.append(WorkspaceLogEntry(at: now, action: "manager-set", agent: m.name, place: m.place.key, isolation: m.isolation))
+        }
         let readiness = await workspaceChat?.readiness() ?? .off
         if w.noRoom == true {
             notes.append("no room — doz workspace edit \(name) --make-room makes one")
@@ -266,11 +311,11 @@ extension HostCore {
             notes.append("no room: chat is off — doz workspace edit \(name) --make-room once it is on")
         }
         let origin = w.project != nil ? WorkspaceOrigin(kind: "project", project: w.project)
-            : agents.isEmpty ? WorkspaceOrigin(kind: "new") : WorkspaceOrigin(kind: "adopted")
+            : agents.allSatisfy(\.isManager) ? WorkspaceOrigin(kind: "new") : WorkspaceOrigin(kind: "adopted")
         let rec = WorkspaceRecord(name: name, createdAt: now,
                                   brief: WorkspaceBrief(refs: refs, sha256: WorkspaceStore.sha256(brief), bytes: brief.count, updatedAt: now),
                                   folders: folders, rooms: rooms, agents: agents, defaults: WorkspaceDefaults(network: w.network),
-                                  flags: WorkspaceFlags(firstAgentAt: agents.isEmpty ? nil : now), origin: origin)
+                                  flags: WorkspaceFlags(firstAgentAt: anyRunning ? now : nil), origin: origin)
         try workspaces.create(rec, brief: brief, log: log)
         note(nil, "workspace \(name) made (\(agents.count) agent\(agents.count == 1 ? "" : "s"), \(rooms.isEmpty ? "no room" : "room \(rooms[0].chatRoom)"))")
         return await workspaceDetail(rec, withBrief: false, notes: notes)
@@ -290,7 +335,8 @@ extension HostCore {
         }
         let now = Date()
         rec.agents.append(WorkspaceAgent(name: agent, place: place, startedAt: now))
-        if rec.flags.firstAgentAt == nil { rec.flags.firstAgentAt = now }
+        // Adopting a RUNNING agent marks it started; one that does not run leaves it setting up.
+        if rec.flags.firstAgentAt == nil, await workspacePlaceRunning(place) { rec.flags.firstAgentAt = now }
         try workspaces.write(rec)
         try? workspaces.append(n, WorkspaceLogEntry(at: now, action: "adopted", agent: agent, place: place.key))
         return await workspaceDetail(rec, withBrief: false)
@@ -302,9 +348,12 @@ extension HostCore {
         guard let a = w.agent, let i = rec.agentIndex(a) else {
             throw HostError(.notFound, "\(w.agent ?? "?") is not in \(n) (doz workspace show \(n))")
         }
+        if rec.agents[i].isManager, await managerRunning(rec.agents[i]) {
+            throw HostError(.invalidPhase, "\(rec.agents[i].name) manages \(n) and is running — stop it first: doz workspace stop \(n)")
+        }
         let gone = rec.agents.remove(at: i)
         try workspaces.write(rec)
-        try? workspaces.append(n, WorkspaceLogEntry(action: "released", agent: gone.name, place: gone.place.key))
+        try? workspaces.append(n, WorkspaceLogEntry(action: gone.isManager ? "manager-removed" : "released", agent: gone.name, place: gone.place.key))
         return await workspaceDetail(rec, withBrief: false)
     }
 
@@ -340,6 +389,33 @@ extension HostCore {
             foldersAdded += 1
         }
         if !rec.folders.isEmpty, !rec.folders.contains(where: \.main) { rec.folders[0].main = true }
+        // The manager: added, replaced or removed — never while it runs.
+        var managerChanged = false
+        if w.manager != nil || w.managerIsolation != nil || w.noManager == true {
+            if w.noManager == true, w.manager != nil || w.managerIsolation != nil {
+                throw HostError(.invalid, "--manager or --no-manager, not both")
+            }
+            let old = rec.managerIndex.map { rec.agents[$0] }
+            if let old, await managerRunning(old) {
+                throw HostError(.invalidPhase, "\(old.name) is running — stop it first: doz workspace stop \(n)")
+            }
+            if w.noManager == true {
+                guard let old else { throw HostError(.notFound, "\(n) has no manager") }
+                rec.agents.removeAll { $0.isManager }
+                log.append(WorkspaceLogEntry(at: now, action: "manager-removed", agent: old.name, place: old.place.key))
+            } else {
+                guard let bot = w.manager ?? old?.bot else { throw HostError(.invalid, "--manager-isolation goes with --manager BOT") }
+                let m = try workspaceManagerEntry(bot: bot, asked: w.managerIsolation ?? (w.manager == nil ? old?.isolation : nil), workspace: n, at: now)
+                var member = workspaces.membership()
+                if let old, let k = old.place.key { member[k] = nil }
+                try workspaceCheckFree(m.place, member: member)
+                rec.agents.removeAll { $0.isManager }
+                guard !rec.agents.contains(where: { $0.name == m.name }) else { throw HostError(.exists, "\(n) already has an agent called \(m.name)") }
+                rec.agents.append(m)
+                log.append(WorkspaceLogEntry(at: now, action: "manager-set", agent: m.name, place: m.place.key, isolation: m.isolation))
+            }
+            managerChanged = true
+        }
         var chat: WorkspaceChat?
         if w.makeRoom == true {
             if let r = rec.mainRoom { throw HostError(.exists, "\(n) already has its room \(r.chatRoom)") }
@@ -347,8 +423,8 @@ extension HostCore {
             guard let c = try await workspaceRoomCheck(n) else { throw HostError(.unavailable, "chat is off — doz chat on, then try again") }
             chat = c
         }
-        guard brief != nil || refsAdded + refsRemoved + foldersAdded + foldersRemoved > 0 || chat != nil else {
-            throw HostError(.invalid, "nothing to change — give --prompt-file, --add-ref, --remove-ref, --add-folder, --remove-folder or --make-room")
+        guard brief != nil || refsAdded + refsRemoved + foldersAdded + foldersRemoved > 0 || chat != nil || managerChanged else {
+            throw HostError(.invalid, "nothing to change — give --prompt-file, --add-ref, --remove-ref, --add-folder, --remove-folder, --make-room, --manager or --no-manager")
         }
         // Then the room, then the files.
         if let chat {

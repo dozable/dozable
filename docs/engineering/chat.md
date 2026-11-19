@@ -305,6 +305,13 @@ non-loopback bind anyway. With it, **no TCP caller is ever the human**: the page
 loopback caller is an agent address), and the line port always asks for a token. The human comes in through the owner's
 socket only.
 
+**A workspace's manager polls when fenced or in a VM.** The server writes into the inbox of a Claude Code session run
+without a fence only, so `doz workspace start` refuses a fenced or VM manager whose bot is delivered to by inbox (or
+webhook) and names the fix (`doz bot set BOT --deliver poll`); start never changes a bot's delivery itself. An UNFENCED
+manager may be an inbox bot: an inbox naming another session is pointed at the manager's (`BotChat.set`, said and
+logged). The manager is invited to the main room as you (`/invite @BOT` over the owner's socket, `ChatOwnerRooms.invite`)
+and the brief posted as you (`ChatOwnerRooms.post`); nothing in the server or the protocol changes.
+
 **Delivery into a Claude Code session under the daemon.** `doz chat add NAME --inbox [--kind claude-session] [--session
 S]` (or `doz chat set NAME --deliver inbox`) records `deliver: "inbox"` (and `session` when it is not NAME) in
 `directory.json`; the generated config carries it as `inbox-socket` with `session`. While at least one such participant

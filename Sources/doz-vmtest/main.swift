@@ -920,6 +920,10 @@ Task {
             // Workspaces through the real doz, its daemon and chat server — no VM (CLIWorkspaceSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliWorkspaceSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-workspace-vm":
+            // A workspace's manager in a micro VM: one scratch lab VM, the manager seams (CLIWorkspaceVMSuite.swift).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliWorkspaceVMSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-bots":
             // Agents / Bots through the real doz, its daemon and chat server — no VM, the memory keychain (CLIBotsSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"

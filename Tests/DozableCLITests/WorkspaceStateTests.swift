@@ -10,18 +10,29 @@ final class WorkspaceStateTests: XCTestCase {
 
     func testTheTable() {
         let had = WorkspaceFlags(firstAgentAt: t)
+        let started = WorkspaceFlags(startedAt: t)
         let rows: [(S.Input, S, String)] = [
             (S.Input(agents: []), .settingUp, "no agents, never had one"),
-            (S.Input(agents: [], flags: had), .asleep, "empty, but once had agents"),
-            (S.Input(agents: [.starting]), .starting, "a sandbox booting"),
-            (S.Input(agents: [.running(sessions: ["blocked"])]), .waitingOnYou, "a session blocked"),
-            (S.Input(agents: [.running(sessions: ["error"])]), .waitingOnYou, "a session in error"),
-            (S.Input(agents: [.failed]), .waitingOnYou, "a sandbox failed"),
-            (S.Input(agents: [.asleep], openAsksForYou: 1), .waitingOnYou, "an open Ask for you"),
-            (S.Input(agents: [.running(sessions: ["working"])]), .working, "a program working"),
-            (S.Input(agents: [.running(sessions: [])]), .idle, "running, no status"),
-            (S.Input(agents: [.running(sessions: ["idle", "done"])]), .idle, "running, idle and done"),
-            (S.Input(agents: [.asleep, .asleep]), .asleep, "every agent asleep"),
+            (S.Input(agents: [], flags: had), .asleep, "empty, but once had a running agent"),
+            (S.Input(agents: [.starting], flags: had), .starting, "a sandbox booting"),
+            (S.Input(agents: [.running(sessions: ["blocked"])], flags: had), .waitingOnYou, "a session blocked"),
+            (S.Input(agents: [.running(sessions: ["error"])], flags: had), .waitingOnYou, "a session in error"),
+            (S.Input(agents: [.failed], flags: had), .waitingOnYou, "a sandbox failed"),
+            (S.Input(agents: [.asleep], flags: had, openAsksForYou: 1), .waitingOnYou, "an open Ask for you"),
+            (S.Input(agents: [.running(sessions: ["working"])], flags: had), .working, "a program working"),
+            (S.Input(agents: [.running(sessions: [])], flags: had), .idle, "running, no status"),
+            (S.Input(agents: [.running(sessions: ["idle", "done"])], flags: had), .idle, "running, idle and done"),
+            (S.Input(agents: [.asleep, .asleep], flags: had), .asleep, "every agent asleep"),
+            // The manager.
+            (S.Input(agents: [.notStarted]), .settingUp, "a recorded manager before the start"),
+            (S.Input(agents: [.notStarted], starting: true), .starting, "its start under way"),
+            (S.Input(agents: [.running(sessions: ["blocked"])], flags: started), .waitingOnYou, "the manager blocked: waiting on you"),
+            (S.Input(agents: [.running(sessions: ["working"])], flags: started), .working, "the manager working"),
+            (S.Input(agents: [.running(sessions: ["idle"])], flags: started), .idle, "the manager idle"),
+            (S.Input(agents: [.asleep], flags: started), .asleep, "the manager stopped"),
+            (S.Input(agents: [.notStarted], flags: started), .asleep, "started, the manager never came up"),
+            (S.Input(agents: [], flags: started), .asleep, "started with no agents (you drive)"),
+            (S.Input(agents: [.asleep]), .settingUp, "adopting an agent that does not run: still setting up"),
             (S.Input(agents: [.running(sessions: ["working"])], flags: WorkspaceFlags(finishedAt: t)), .finished, "finished"),
             (S.Input(agents: [.running(sessions: ["working"])], flags: WorkspaceFlags(finishedAt: t, archivedAt: t)), .archived, "archived"),
         ]
@@ -32,10 +43,13 @@ final class WorkspaceStateTests: XCTestCase {
     func testPrecedencePairs() {
         XCTAssertEqual(S.derive(S.Input(agents: [], flags: WorkspaceFlags(finishedAt: t, archivedAt: t))), .archived)
         XCTAssertEqual(S.derive(S.Input(agents: [], flags: WorkspaceFlags(finishedAt: t))), .finished, "finished over setting up")
-        XCTAssertEqual(S.derive(S.Input(agents: [.starting, .failed])), .starting, "starting over waiting on you")
-        XCTAssertEqual(S.derive(S.Input(agents: [.failed, .running(sessions: ["working"])])), .waitingOnYou, "waiting over working")
-        XCTAssertEqual(S.derive(S.Input(agents: [.running(sessions: ["working"]), .running(sessions: ["idle"])])), .working, "working over idle")
-        XCTAssertEqual(S.derive(S.Input(agents: [.running(sessions: []), .asleep])), .idle, "idle over asleep")
+        let had = WorkspaceFlags(firstAgentAt: t)
+        XCTAssertEqual(S.derive(S.Input(agents: [], flags: WorkspaceFlags(finishedAt: t), starting: true)), .finished, "finished over a start")
+        XCTAssertEqual(S.derive(S.Input(agents: [], starting: true)), .starting, "a start under way over setting up")
+        XCTAssertEqual(S.derive(S.Input(agents: [.starting, .failed], flags: had)), .starting, "starting over waiting on you")
+        XCTAssertEqual(S.derive(S.Input(agents: [.failed, .running(sessions: ["working"])], flags: had)), .waitingOnYou, "waiting over working")
+        XCTAssertEqual(S.derive(S.Input(agents: [.running(sessions: ["working"]), .running(sessions: ["idle"])], flags: had)), .working, "working over idle")
+        XCTAssertEqual(S.derive(S.Input(agents: [.running(sessions: []), .asleep], flags: had)), .idle, "idle over asleep")
         XCTAssertEqual(S.allCases.map(\.rawValue), ["archived", "finished", "setting-up", "starting", "waiting-on-you", "working", "idle", "asleep"])
         XCTAssertEqual(S.settingUp.words, "setting up")
         XCTAssertEqual(S.waitingOnYou.words, "waiting on you")

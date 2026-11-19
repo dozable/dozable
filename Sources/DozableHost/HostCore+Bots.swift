@@ -48,10 +48,15 @@ extension HostCore {
         let b = r.botRequest ?? BotRequest()
         switch r.op {
         case .botList:
-            return try JSONValue(encoding: try botListing(retired: b.retired == true))
+            var l = try botListing(retired: b.retired == true)
+            let running = await runningManagers()
+            for i in l.bots.indices { l.bots[i].running = running[l.bots[i].name] }
+            return try JSONValue(encoding: l)
         case .botShow:
             let n = try botName(b)
-            return try JSONValue(encoding: try botDetail(try botRecord(n, in: try bots.read())))
+            var d = try botDetail(try botRecord(n, in: try bots.read()))
+            d.running = await runningManagers()[n]
+            return try JSONValue(encoding: d)
         default:
             break
         }
