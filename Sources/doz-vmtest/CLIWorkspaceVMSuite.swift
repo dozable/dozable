@@ -23,6 +23,17 @@ import DozableHost
 //      CHAT_TOKEN_FILE is its own file — and "v2 is up" as v2; worker ls says "shares vw-v1"
 //   7. worker end vw v2: v1 still talks (it posts what it is asked to)
 //   8. worker end vw v1: its sandbox stopped, its disk kept; worker end vw v1 --rm deletes it
+//
+// Then the lifecycle (the same seams; v3 a VM worker of its own, v4 sharing its sandbox):
+//
+//   9. sleep vw: v3's sandbox hibernated ONCE for both (the plan: one change), its memory given back; wake: running, the
+//      same session pids (the same programs and screens)
+//  10. finish vw: the sandbox shut down, its disk kept; reopen + wake: a cold boot, both say they are up again (v4, whose
+//      token went with the shutdown, with a new one)
+//  11. archive vw --remove-sandboxes (a template kept first): vw-v3 gone, its template there, the workers retired; restore
+//      names the template
+//  12. delete vmw --remove-sandboxes: only the sandbox Dozable made for it (vmw) removed — an adopted one (vadopt) stays,
+//      loose
 func cliWorkspaceVMSuite(binary: String) async {
     print("cli: a workspace's manager in a micro VM (one lab sandbox, a FAKE manager)")
     let fm = FileManager.default
@@ -41,6 +52,9 @@ func cliWorkspaceVMSuite(binary: String) async {
     defer {
         h.run(["rm", "vmw", "--yes"], timeout: 180)
         h.run(["rm", "vw-v1", "--yes"], timeout: 180)
+        h.run(["rm", "vw-v3", "--yes"], timeout: 180)
+        h.run(["rm", "vadopt", "--yes"], timeout: 180)
+        h.run(["template", "rm", "vw-v3-tpl", "--yes"], timeout: 120)
         h.run(["chat", "off"], timeout: 30)
         h.run(["daemon", "stop"], timeout: 120)
         _ = h.waitFor(30) { !h.hostRunning }
@@ -208,4 +222,48 @@ func cliWorkspaceVMSuite(binary: String) async {
     check(r.code == 0 && h.row("vw-v1")?.phase == "off", "8 worker end vw v1: its sandbox stopped, kept (\(r.code) \(h.row("vw-v1")?.phase ?? "gone"))")
     r = h.run(["worker", "end", "vw", "v1", "--rm"], timeout: 300)
     check(r.code == 0 && h.row("vw-v1") == nil, "8 worker end vw v1 --rm: deleted (\(r.code) \(r.err.prefix(200)))")
+
+    // 9. sleep: one change for a shared sandbox, the same programs after the wake
+    r = h.run(["worker", "add", "vw", "v3", "--isolation", "vm", "--task", "stay"], timeout: 900)
+    check(r.code == 0, "9 worker add vw v3 --isolation vm (\(r.code) \(r.err.suffix(300)))")
+    r = h.run(["worker", "add", "vw", "v4", "--sandbox", "vw-v3", "--task", "stay too"], timeout: 300)
+    check(r.code == 0 && h.waitFor(120) { says("vw", "v4", "v4 is up: You are v4") }, "9 worker add vw v4 --sandbox vw-v3, up (\(r.code))")
+    let plan9 = h.json(["workspace", "sleep", "vw", "--dry-run"], WorkspaceLifecyclePlan.self)
+    check(plan9?.queue.changes == 1 && plan9?.rows.filter(\.changes).count == 2, "9 the plan: v3 and v4 are one change (\(plan9?.queue.changes ?? -1))")
+    func pids() -> [String: Int] {
+        var out: [String: Int] = [:]
+        for s in h.sessions("vw-v3") { if let p = s.pid { out[s.name] = p } }
+        return out
+    }
+    let before = pids()
+    r = h.run(["workspace", "sleep", "vw"], timeout: 600)
+    check(r.code == 0 && h.row("vw-v3")?.phase == "hibernated", "9 sleep vw: vw-v3 hibernated (\(r.code) \(h.row("vw-v3")?.phase ?? "?") \(r.err.suffix(300)))")
+    r = h.run(["workspace", "wake", "vw"], timeout: 600)
+    check(r.code == 0 && h.row("vw-v3")?.phase == "running", "9 wake vw: running (\(r.code) \(r.err.suffix(300)))")
+    let after = pids()
+    check(!before.isEmpty && before["v3"] != nil && before == after, "9 …the same sessions and pids (\(before) → \(after))")
+
+    // 10. finish, reopen, wake: a cold boot, both up again
+    r = h.run(["workspace", "finish", "vw", "--yes"], timeout: 600)
+    check(r.code == 0 && h.row("vw-v3")?.phase == "off", "10 finish vw: the sandbox shut down, kept (\(r.code) \(h.row("vw-v3")?.phase ?? "gone"))")
+    r = h.run(["workspace", "reopen", "vw"], timeout: 60)
+    let woke = h.run(["workspace", "wake", "vw"], timeout: 900)
+    func upCount(_ who: String) -> Int { messages("vw").filter { $0["from"] as? String == who && ($0["content"] as? String)?.hasPrefix("\(who) is up") == true }.count }
+    check(woke.code == 0 && h.row("vw-v3")?.phase == "running", "10 reopen + wake: a cold boot (\(woke.code) \(woke.err.suffix(300)))")
+    check(h.waitFor(120) { upCount("v3") >= 2 && upCount("v4") >= 2 }, "10 …v3 and v4 up again (v4 with a new token: \(woke.out.contains("new token")))")
+
+    // 11. archive with --remove-sandboxes: a template first, then the sandbox; restore names the template
+    r = h.run(["workspace", "archive", "vw", "--remove-sandboxes", "--yes"], timeout: 900)
+    check(r.code == 0 && h.row("vw-v3") == nil, "11 archive vw --remove-sandboxes: vw-v3 removed (\(r.code) \(r.err.suffix(300)))")
+    check(h.run(["template", "ls"]).out.contains("vw-v3-tpl"), "11 …its template vw-v3-tpl kept")
+    r = h.run(["workspace", "restore", "vw"], timeout: 120)
+    check(r.code == 0 && r.out.contains("vw-v3 is gone — its template vw-v3-tpl"), "11 restore names the template (\(r.code) \(r.out.suffix(300)))")
+
+    // 12. delete --remove-sandboxes: only what Dozable made for it
+    h.run(["create", "vadopt", "--image", "lab"], timeout: 300)
+    h.run(["workspace", "adopt", "vmw", "vadopt"], timeout: 60)
+    h.run(["workspace", "finish", "vmw", "--yes"], timeout: 600)
+    r = h.run(["workspace", "delete", "vmw", "--remove-sandboxes", "--yes"], timeout: 900)
+    check(r.code == 0 && h.row("vmw") == nil && h.row("vadopt") != nil, "12 delete vmw --remove-sandboxes: vmw removed, the adopted vadopt kept (\(r.code) \(r.err.suffix(300)))")
+    check(h.json(["workspace", "ls", "--loose"], WorkspaceListing.self)?.loose.contains { $0.name == "vadopt" } == true, "12 …vadopt loose again")
 }

@@ -491,6 +491,15 @@ Tests: `ChatDirectoryTests`, `ChatRestartPolicyTests`, `ChatSupervisorTests` (a 
 `ChatTokenHashesTests`, `ChatOwnerSocketTests`, `ChatProfileTests`, `ChatDaemonProfileServeTests` (a plain HTTP/1.1 client
 on the socket, TCP never the human, the parent watch), and `make test-cli-chat` (the whole of it end to end, no VM).
 
+**A workspace's lifecycle** (workspaces.md, "The lifecycle") uses the chat server as you, over the owner's socket
+(`ChatOwnerRooms.setArchived`: `/archive` or `/unarchive` sent in the room; nothing when it is so already — the state's
+`archived`): `doz workspace archive W` archives its rooms (read-only, their history and members kept) and retires its
+anonymous workers (`BotChat.remove`: out of every room, their tokens refused, their messages keep their names); a bot keeps
+its token and its membership. `restore` opens exactly the rooms the archive recorded (`flags.archive.rooms`). `delete`
+archives the rooms it had not — the chat server deletes no room, so they stay with their history. Archive and restore are
+refused while chat is off ("doz chat on"); nothing is ever posted by a lifecycle verb (the server's own line says who
+archived the room).
+
 ## In the dashboard
 
 The dashboard (`doz ui`) shows chat to the person: the rooms, a room's messages (Markdown, a safe subset), live updates, a

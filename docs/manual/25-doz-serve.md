@@ -79,11 +79,12 @@ while `serve.mac_sessions` is `off` it does not see the loose sessions on this M
 lines of its log about them, or who is working — Home, **Loose agents** and a workspace's page say how many were left
 out. A workspace's brief follows `serve.chat`, as its room does: `off`, the page says "the brief is not shared with this
 browser"; `read`, it is shown; `write`, it can also be edited (its announcement in the room speaks as you; each edit is a
-line in `doz ui log`, never the text). Another browser never makes, starts or stops a workspace, adds or ends a worker or
-changes a bot, and never puts an agent in a workspace or takes one out — whatever `serve.chat` and `serve.mac_sessions`
-say, that is only the Mac's own browser (the **New workspace** wizard, **Start** on a workspace that is setting up, **Put
-in a workspace…**, **Add a worker**, **End…**) or a terminal on the Mac (`doz workspace new`, `start`, `adopt` and
-`release`, `doz worker add` and `end`); another browser sees the wizard's and Add a worker's addresses as a notice and those
+line in `doz ui log`, never the text). Another browser never makes, starts, stops, puts to sleep, wakes, finishes, archives,
+restores or deletes a workspace, adds or ends a worker or changes a bot, and never puts an agent in a workspace or takes one
+out — whatever `serve.chat` and `serve.mac_sessions` say, that is only the Mac's own browser (the **New workspace** wizard,
+**Start**, **Sleep**, **Wake** and the rest of a workspace's **⋯**, **Put in a workspace…**, **Add a worker**, **End…**) or a
+terminal on the Mac (`doz workspace new`, `start`, `sleep`, `wake`, `finish`, `archive`, `delete`, `adopt` and `release`,
+`doz worker add` and `end`); another browser sees the wizard's and Add a worker's addresses as a notice and those
 buttons disabled, with the command instead. The isolation guide is the same on every browser. See
 [Sessions on this Mac](34-sessions-on-this-mac.md#in-the-dashboard).
 

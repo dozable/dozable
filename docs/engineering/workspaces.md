@@ -9,8 +9,8 @@ for, and any folders it works on (usually projects). Work starts only once it is
 Nothing moves by itself: today's sandboxes and sessions on this Mac are **loose agents** until a person adopts them, and
 adopting writes only the workspace's own record — never a sandbox's `doz.json` nor `mac-sessions/sessions.json`. The
 dashboard shows them (below, "In the dashboard"), changes a brief, files loose agents, and — this Mac's own browser only —
-makes and starts a workspace (the New workspace wizard) and adds and ends its workers (Add a worker); everything else is
-the CLI's. The manual's page is
+makes and starts a workspace (the New workspace wizard), adds and ends its workers (Add a worker) and runs its lifecycle
+(sleep, wake, finish, reopen, archive, restore, delete — "The lifecycle", below); everything else is the CLI's. The manual's page is
 `docs/manual/37-workspaces.md`.
 
 ## Where its code lives
@@ -29,6 +29,10 @@ the CLI's. The manual's page is
 | `Sources/DozableHost/WorkerKickoff.swift` | pure: a worker's START |
 | `Sources/DozableHost/WorkerPlan.swift` | `worker-plan`'s answer `WorkerPlan` (and `WorkerPlanProblem`); `WorkerFieldRefusal` (an add's refusal tagged with its field); `WorkerAddCommand` (the ONE command source: `argv`, `text`, a long task in `task.txt`); the plan's lines |
 | `Sources/DozableHost/HostCore+Workers.swift` | `worker-add` / `-ls` / `-end` / `-plan` (`workerBasics`, `workerPrepare` — the add's checks, shared with the plan), the `WorkerLauncher` seam and `DaemonWorkerLauncher`, `sweepPendingWorkers` |
+| `Sources/DozableHost/WorkspaceLifecycle.swift` | pure: `WorkspaceVerb` (its HostOp, how it is confirmed), `WorkspaceLifecycle.plan(verb:record:state:facts:options:)` — the ONE builder of a verb's plan (each agent's row, kept and goes, every refusal, the queue, the commands, the sha) —, `binRefusal`, `WorkspaceLifecyclePlan` / `Row` / `Item` / `Queue` |
+| `Sources/DozableHost/HostCore+WorkspaceLifecycle.swift` | the `WorkspaceAgentLifecycle` seam (`DaemonAgentLifecycle`: hibernate, wake, start, shut down, template, rm, a session's end, restart and forgetting), the facts (`agentFacts`, `workspaceLifecycleFacts`), `workspace-lifecycle-plan`, the seven verbs (`workspaceLifecycle`: the gate, `ifPlan`, the queue), `workerWake`, `retireWorker`, `removeOwnSandboxes`, `WorkspaceBin` |
+| `Sources/DozableCLI/WorkspaceLifecycleCommands.swift` | `doz workspace sleep | wake | finish | reopen | archive | restore | delete` (the plan's text, the questions, `--dry-run`, `--if-plan`) |
+| `Tests/DozableCLITests/WorkspaceLifecycleTests.swift`, `WorkspaceLifecycleHostTests.swift`; `Sources/doz-vmtest/CLIWorkspaceLifecycleRows.swift` | the builder over every kind of agent; the verbs in an in-process core with fakes (the order, `ifPlan`, a partial failure, archive and restore, delete, the Bin's seam, the dashboard's confirmations); `make test-cli-workspace` rows L1–L14 |
 | `Sources/DozableHost/HostCore+Workspaces.swift` | the `workspace-*` operations in the daemon (and the read-only core for ls/show/log); the `WorkspaceChat` seam and `OwnerWorkspaceChat`; the hooks of `doz rename` and `doz rm` |
 | `Sources/DozableHost/ChatOwnerRooms.swift` | making a room AS YOU over the owner's socket — the one implementation `doz chat room` and the workspaces use; `ChatStateView` |
 | `Sources/DozableHost/HostProtocol.swift` | `HostOp.workspace*`, `WorkspaceRequest`, `WorkspaceListing`/`WorkspaceRow`/`WorkspaceManagerRow`/`LooseAgent`, `WorkspaceDetail`/`WorkspaceAgentRow`, `WorkspaceStarted`, `WorkspaceStopped`; `HostOp.worker*`, `WorkerRequest`, `WorkerListing`/`WorkerRow`, `WorkerAdded`, `WorkerEnded`; `SandboxInfo.workspace`, `SessionRow.workspace` |
@@ -136,6 +140,8 @@ foldersMadeNow:)`). `WorkspacePlanTests.testThePlanAndNewAgree` holds the two to
 | `workspace-ls`, `-show`, `-log`, `-plan` | `query()`: an in-process `HostCore(readOnly: true)` when no daemon runs, else the daemon | looking never starts the daemon; phases from the store, `@mac` rows from `macRows()` |
 | `workspace-new`, `-adopt`, `-release`, `-edit`, `-rename` | `call()`: the daemon | ONE writer — each holds the `KeyedGate` key `workspaces`; rooms need the chat server the daemon runs; a read-only core refuses "needs the daemon" |
 | `workspace-start`, `-stop` | `call()`: the daemon | the check under `workspaces`, the launch under `workspace:NAME` (each record change takes `workspaces` again); never read-only |
+| `workspace-lifecycle-plan` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon nor reads the keychain |
+| `workspace-sleep`, `-wake`, `-finish`, `-reopen`, `-archive`, `-restore`, `-delete` | `call()`: the daemon | the plan again and `ifPlan` under `workspaces`, the run under `workspace:NAME` (each record change takes `workspaces` again); never read-only |
 | `worker-ls`, `worker-plan` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon |
 | `worker-add`, `-end` | `call()`: the daemon | the check and the pending entry under `workspaces`, the participant under `bots`, then the launch; never read-only |
 
@@ -373,6 +379,63 @@ added: …", the notes and the command exactly; it exits 0, else with the add's 
 acts as you`, `· shares X` in a shared sandbox), NETWORK (a session's preset, a sandbox's network, unfenced "not
 limited"), STATE and the task shortened; `--json` is `WorkerListing`; it answers in-process with the daemon stopped.
 
+## The lifecycle
+
+`doz workspace sleep | wake | finish | reopen | archive | restore | delete W` beside `start | stop` (stop is unchanged: the
+manager only). Reversible: sleep ↔ wake; stop ↔ start; finish → reopen, then wake; archive → restore (the rooms opened
+again, the result finished; retired anonymous workers and removed sandboxes are not undone); delete: none.
+
+**Check, then ask: one plan, three surfaces.** The read-only HostOp `workspace-lifecycle-plan` (`isReadOnly`: in-process with no
+daemon — the store's records and the sessions' holders read, `factsKnown: false`, "checked again when you act"; never the
+keychain) takes `WorkspaceRequest {name, verb, removeSandboxes?, keepTemplates?, binFolders?}` and answers
+`WorkspaceLifecyclePlan {rows (one per agent not ended: name, role, place, isolation, now, activity, after, back, changes),
+keeps, goes (sizes: the memory given back, a sandbox's disk and restore points; folder paths), refusals (all at once),
+refusalCode, queue {width, changes, note}, confirm (none | yes | typed, `confirmName`), command, commands (today's per-agent
+equivalents), notes, templates, sha}` from ONE pure builder, `WorkspaceLifecycle.plan`, over the record and the facts
+(`WorkspaceAgentLifecycle.facts`). The daemon builds the same plan again before it acts: a request whose `ifPlan` is not its
+sha is refused "W changed since you looked" (`invalid-phase`, exit 3), nothing done. The sha covers what is done to whom,
+the flags and the refusals — never sizes, activity or order (`WorkspaceLifecycleTests.testTheShaIsStableAndOrderIndependent`).
+The CLI prints the plan and `--dry-run` stops there (0, or the refusal's code; `--json` the plan); the dashboard draws it as
+its confirmation (web.md, "Lifecycle actions").
+
+**One gate per verb.** The verb holds `workspace:W` for its whole run and marks `lifecycleWorkspaces` (a `worker add` and a
+`start` are refused "busy" meanwhile); its agents change at most `ui.batch_concurrency` at once, the rest "queued — N
+ahead" (the daemon's log); two workers sharing a sandbox are one change. A flag (`finishedAt`, `archivedAt`) is set only
+once every agent reached its target; a partial failure answers which did not and why (`failed`, exit 1) and keeps what did —
+a retry plans only what is left (`WorkspaceLifecycleHostTests.testAPartialFailureSetsNoFlagAndARetryFinishes`).
+
+| Verb | A sandbox | A session on this Mac (fenced) | Unfenced | Elsewhere | Record |
+|---|---|---|---|---|---|
+| sleep | hibernated (memory back, the same programs and screens; a shared sandbox once) | ended (`macEnd`: HUP→TERM→KILL, its `claudeSessionID` learned), the record and its launch secrets kept | the same; a manager's or worker's token file deleted | untouched | every agent's `stoppedAt`; `slept`, `agent-slept` |
+| wake | woken; one shut down boots and its agent continues (`claude --continue`) | the manager through its start's restart branch; a worker in place (`WorkerLaunchOrder.restart` → `macReopen`: its conversation resumed, its kept secret; a bot's given again); an adopted session restarted (a program with no conversation starts fresh) | the token file written again (a bot's from its item; an anonymous worker's is a NEW token — its participant's replaced: the old one lived only in the file) | untouched | `stoppedAt` cleared; `woke`, `agent-woke` |
+| finish | shut down, its disk kept | ended, its conversation kept | ended, its token file deleted | untouched, in the room | `finishedAt`; rooms writable, tokens kept |
+| reopen | — | — | — | — | `finishedAt` cleared, `reopenedAt`: asleep until woken |
+| archive | finish's steps; with `removeSandboxes` a template of each sandbox Dozable made for it (`S-tpl`, unless `keepTemplates` is false), then `rm` | finish's steps | finish's steps | untouched | rooms `/archive`d as you; anonymous workers retired (participant removed, launch secret forgotten, `endedAt`); a bot keeps its token and membership; `archivedAt`, `archive {rooms, removed, templates}` |
+| restore | not made again (listed with its template) | — | — | — | exactly `archive.rooms` opened again as you; `archivedAt` cleared; finished |
+| delete | released loose; `rm` only with `removeSandboxes` | a manager's or worker's record forgotten | the same; its token folder swept | untouched | refused unless finished or archived and while anything runs; rooms archived (the chat server deletes none); anonymous workers retired; folders to the Bin only with `binFolders`; `<store>/workspaces/W/` removed, one `daemon.log` line |
+
+**The launch secret survives a sleep.** An anonymous fenced worker's daemon-made secret is a launch secret of its session:
+its keychain item, its ledger line and the session's record (`fence.secrets`). `macEnd` of a RUNNING session keeps the record
+(only ending one already ended forgets it), so the sweep keeps the item, and `macReopen` reopens with the record's secrets and
+a fresh placeholder — the same token (`make test-cli-workspace` L2–L3). A sandbox shut down (a finish) revokes its secrets:
+an anonymous worker in it gets a new token on its next wake, and the plan says so ("with a new token").
+
+**Safety.** Nothing on disk goes without its flag: a sandbox's disk only with `removeSandboxes`, and only one Dozable made for
+this workspace (a manager's or a worker's own — never an adopted one, never one a worker shares; `doz rm`'s hook leaves its
+entry while the lifecycle removes it, `lifecycleRemoving`); folders only with `binFolders`, moved to the Bin
+(`WorkspaceBin.move`: `FileManager.trashItem`), never deleted, and refused — in the plan and again before the move — for the
+disk's root, your home or a folder above it, the store or a folder around or in it, and a folder another workspace or a
+sandbox uses (`WorkspaceLifecycle.binRefusal`). A guarded test run moves into `DOZ_TEST_TRASH_DIR` and only a scratch folder
+(`TestSafety.trashViolation`): never the real Bin. Archive and delete need the name typed (the CLI asks on `/dev/tty`; the
+dashboard's `confirm` is checked by the daemon under `confirmRequired`); an unfenced manager's wake from a browser needs
+`unfencedConfirmed`, as its start does.
+
+**The log** gains `slept`, `woke`, `agent-slept`, `agent-woke`, `finished`, `reopened`, `archived`, `room-archived`,
+`room-unarchived`, `worker-retired`, `sandbox-removed`, `template-kept`, `restored`, each a sentence. **The record** gains,
+additively: `WorkspaceAgent.template`, `WorkspaceFlags.reopenedAt` and `.archive`; `WorkspaceFlags` keeps the fields it does not
+know. `WorkspaceState.derive` is unchanged (slept agents read asleep; finished outranks a session still running after a
+partial failure).
+
 ## `--json`
 
 `doz ls --json` and `doz sessions NAME|@mac --json` carry `workspace` (a string) on an adopted sandbox or session and
@@ -414,8 +477,10 @@ workspace wizard's `workspace-new` carries every field the CLI takes (never a pr
 `workspace-start` (with `confirmRequired`) is this Mac's own browser's too (web.md, "The New workspace wizard"). The two
 worker actions `worker-add` (every field the CLI takes; unfenced only with `confirm: "unfenced"`) and `worker-end`
 `{workspace, name, confirm}` are this Mac's own browser's, and so is the Add a worker page's plan route `POST
-/api/v1/worker-plan` (`worker-plan`, `mac-screen`) — web.md, "Adding a worker". No other `workspace-*` or `worker-*` HostOp
-is an action (CLAUDE.md's rule). The five `bot-*` changes are actions of this Mac's own browser, each `heldOnly` (below).
+/api/v1/worker-plan` (`worker-plan`, `mac-screen`) — web.md, "Adding a worker". The eight lifecycle actions
+(`workspace-stop` … `workspace-delete`, each with the plan's `ifPlan`) and their plan route `POST /api/v1/workspace-lifecycle-plan`
+are this Mac's own browser's too — web.md, "Lifecycle actions". No other `workspace-*` or `worker-*` HostOp is an action
+(CLAUDE.md's rule). The five `bot-*` changes are actions of this Mac's own browser, each `heldOnly` (below).
 Filing a RUNNING agent into a workspace that is setting up marks it started (`firstAgentAt`; nothing posted, nothing
 started), and the page says so ("NAME is started: AGENT was already running. The brief was not posted."); the title pill and
 the setting-up banner follow. Releasing the last agent of a started workspace leaves `firstAgentAt` set — the rule governs

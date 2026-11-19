@@ -179,6 +179,53 @@ posts the brief and you drive.
 **asleep**, and the next `start` wakes the manager where it left off. Nothing is posted in the room. With nothing
 running, `stop` says so.
 
+## Sleep, wake, finish, archive and delete
+
+A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is
+for, and any folders it works on (usually projects). Work starts only once it is fully set up. Once it has started, the
+whole workspace — every agent at once — can be put to sleep, woken, finished, archived and deleted:
+
+```bash
+doz workspace sleep demo        # every agent asleep: memory given back, conversations kept
+doz workspace wake demo         # back in the same sandboxes and conversations
+doz workspace finish demo       # the work is done: everything stops; the room and tokens are kept (asks first)
+doz workspace reopen demo       # finished → asleep until you wake it
+doz workspace archive demo      # put away: its rooms read-only, its anonymous workers retired (type its name)
+doz workspace restore demo      # archived → finished, its rooms writable again
+doz workspace delete demo       # its record gone; finished or archived only (type its name)
+```
+
+**Check, then ask.** Each shows first what it would do to each agent — where it runs, what it is now, what it becomes,
+how it comes back — what is kept and what goes (with sizes), how many agents change at once, and what would stop it. With
+`--dry-run` it stops there: nothing changes and no daemon starts. Then it asks: nothing for sleep, wake, reopen and restore,
+a yes for finish, and the workspace's name typed for archive and delete. `--yes` skips the question (a script needs it).
+It acts only on what it showed you: if the workspace changed in between, it is refused and says so.
+
+| | A micro VM | Fenced on this Mac | Unfenced on this Mac | Elsewhere |
+|---|---|---|---|---|
+| **sleep** | hibernated: its memory given back, the same programs and screens | ended, its conversation kept | ended; its token file deleted | untouched — it runs on its own machine |
+| **wake** | woken (one shut down boots and its agent continues) | the same conversation | the same conversation; its token file written again | untouched |
+| **finish** | shut down, its disk kept | ended, its conversation kept | ended | untouched; it stays in the room |
+
+A program that has no conversation to resume (one that is not an agent) starts fresh when it wakes. A workspace stays
+asleep until you wake it; messages wait in the room meanwhile.
+
+**Finish** is "the work is done": nothing runs afterwards, and no worker can be added — but the rooms stay writable and
+every token is kept, so `reopen`, then `wake`, picks it up again. **Archive** finishes it, makes its rooms read-only (their
+history stays readable) and retires its anonymous workers — their tokens are refused from then on; a bot keeps its token
+and its place in the rooms. `restore` opens the rooms again and leaves it finished; a retired worker stays ended.
+
+**Delete** works only on a finished or archived workspace (`doz workspace finish demo` first), and never while any of its
+agents still runs. It removes the workspace's record, brief and log, forgets its sessions on this Mac, and lets its
+adopted sandboxes and sessions go loose again. Its rooms stay, archived with their history — the chat server cannot delete a
+room — and so do its bots and their tokens, its templates and every folder. It cannot be undone.
+
+**Nothing on disk goes unless you say so.** `--remove-sandboxes` (archive, delete) also removes the sandboxes Dozable made for
+this workspace — never one you adopted, or one a worker shares — keeping a template of each first (`--no-keep-templates` to
+skip it); `doz workspace restore` then names the template rather than making the sandbox again. `--bin-folders` (delete)
+moves the workspace's folders to the Bin, never deletes them, and refuses your home folder, Dozable's store and a folder
+another workspace or sandbox uses, naming it.
+
 ## The manager
 
 A manager is one of your Agents / Bots playing the manager's role in a workspace: it reads the brief and talks in the

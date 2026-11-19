@@ -141,6 +141,12 @@ program reads it). Only the daemon makes one: a client's `--secret` never carrie
 it). A start after a stop goes through `macReopen(extra:botSecrets:managerStart:)`, so the conversation recorded at the
 stop is resumed with a fresh secret, the same environment and START.
 
+**A workspace's sleep is an end and a resume** (workspaces.md, "The lifecycle"): `doz workspace sleep W` ends each of its
+sessions on this Mac with `macEnd` (its `claudeSessionID` learned first, the record and its launch secrets kept — only ending a
+session already ended forgets it), and `doz workspace wake W` opens each again through `macReopen` (`MacPlace.restartArgv`:
+`--resume` the conversation it held; a program with no conversation starts fresh) — a worker's with `startFolder: "worker"`,
+its START rewritten, a bot's secret given again (`relaunchWorkerOnMac`). Delete forgets a manager's or a worker's record.
+
 **So is a fenced worker** (`doz worker add`; workspaces.md, "Workers"): the same open (`launchAgentOnMac`) with
 `startFolder: "worker"` (START at `etc/worker/start.md`), its bot's bot-held secret or — anonymous — a daemon-made one
 already kept as the session's own item (`mac.W-NAME`), and `openURL` and `clipboard` off. `doz worker end` ends it
