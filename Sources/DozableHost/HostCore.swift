@@ -119,6 +119,12 @@ public actor HostCore {
     public func setChatSettingOverride(_ on: Bool?) { chatSettingOverride = on }
     /// The workspaces whose `doz workspace start` is under way (their state reads "starting"; a bot in one counts as live).
     var startingWorkspaces: Set<String> = []
+    /// The workspaces a lifecycle verb (sleep, wake, finish, …) is changing now: a start or a worker's add is refused "busy".
+    var lifecycleWorkspaces: Set<String> = []
+    /// How a workspace's agents are looked at, put to sleep, woken, shut down and removed by its lifecycle (nil: the daemon's
+    /// own, `DaemonAgentLifecycle`; tests give a fake).
+    var agentLifecycleOverride: (any WorkspaceAgentLifecycle)?
+    public func setAgentLifecycle(_ l: (any WorkspaceAgentLifecycle)?) { agentLifecycleOverride = l }
     /// How a workspace's manager is started and stopped (nil: the daemon's own, `DaemonManagerLauncher`; tests give a fake).
     var managerLauncherOverride: (any ManagerLauncher)?
     public func setManagerLauncher(_ l: (any ManagerLauncher)?) { managerLauncherOverride = l }
@@ -877,7 +883,7 @@ public actor HostCore {
             // The chat server is the daemon's child: `HostServer` answers these (its `ChatSupervisor`), never the core.
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
         case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename,
-             .workspaceStart, .workspaceStop, .workspacePlan:
+             .workspaceStart, .workspaceStop, .workspacePlan, .workspaceLifecyclePlan:
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)

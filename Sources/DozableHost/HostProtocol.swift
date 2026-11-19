@@ -268,6 +268,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// started (`WorkspacePlan`: everything new would refuse at once, the set-up check's gaps, the lines and the commands).
     /// Only reads: answered in-process when no daemon runs (`doz workspace new … --dry-run`, the New workspace wizard).
     case workspacePlan = "workspace-plan"
+    /// What a lifecycle verb would do (`WorkspaceRequest.verb`: stop, sleep, wake, finish, reopen, archive, restore or delete,
+    /// and its flags) — `WorkspaceLifecyclePlan`: each agent's row, what is kept and what goes, every refusal, the queue, how
+    /// it is confirmed, the commands and its `sha`. Only reads: answered in-process when no daemon runs, never the keychain
+    /// (`doz workspace VERB W --dry-run`, the dashboard's dialogs).
+    case workspaceLifecyclePlan = "workspace-lifecycle-plan"
     /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
     /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
     /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),
@@ -293,7 +298,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .botList, .botShow, .workerList, .workerPlan, .macsList: true
+             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .botList, .botShow, .workerList, .workerPlan, .macsList: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -1670,6 +1675,18 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     /// dashboard sets both; the CLI sets neither). Additive: an older daemon ignores them.
     public var confirmRequired: Bool?
     public var unfencedConfirmed: Bool?
+    /// lifecycle-plan: the verb looked at (`WorkspaceVerb`). Additive.
+    public var verb: String?
+    /// stop … delete: the plan's `sha` as the person saw it — a plan changed since is refused, nothing done. Additive.
+    public var ifPlan: String?
+    /// archive, delete: remove the sandboxes Dozable made for it, a template of each first unless `keepTemplates` is false;
+    /// delete: move its folders to the Bin. Nothing on disk goes without them. Additive.
+    public var removeSandboxes: Bool?
+    public var keepTemplates: Bool?
+    public var binFolders: Bool?
+    /// archive, delete with `confirmRequired` (the dashboard's): the name as the person typed it — the daemon refuses
+    /// another. Additive.
+    public var confirm: String?
 
     public init(name: String? = nil) { self.name = name }
 }

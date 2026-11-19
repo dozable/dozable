@@ -73,6 +73,8 @@ extension HostCore {
             return try JSONValue(encoding: try workspaces.log(n, since: w.since))
         case .workspacePlan:
             return try JSONValue(encoding: await workspacePlan(w))
+        case .workspaceLifecyclePlan:
+            return try JSONValue(encoding: try await workspaceLifecyclePlan(w))
         default:
             break
         }

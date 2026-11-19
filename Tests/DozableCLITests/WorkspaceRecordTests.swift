@@ -70,6 +70,9 @@ final class WorkspaceRecordTests: XCTestCase {
             a[0]["later_\(k)"] = "kept"
             obj[k] = a
         }
+        var flags = (obj["flags"] as? [String: Any]) ?? [:]
+        flags["later_flags"] = "kept"
+        obj["flags"] = flags
         try JSONSerialization.data(withJSONObject: obj).write(to: URL(fileURLWithPath: path))
         var r = try XCTUnwrap(try ws.read("demo"))
         XCTAssertEqual(r.version, 7)
@@ -82,6 +85,7 @@ final class WorkspaceRecordTests: XCTestCase {
             XCTAssertEqual((again[k] as? [[String: Any]])?.first?["later_\(k)"] as? String, "kept", k)
         }
         XCTAssertEqual(((again["brief"] as? [String: Any])?["refs"] as? [String])?.last, "/tmp/x")
+        XCTAssertEqual((again["flags"] as? [String: Any])?["later_flags"] as? String, "kept", "a flag this build does not know is kept")
     }
 
     func testNames() {

@@ -172,7 +172,8 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     public var bot: String?
     /// A manager's isolation: `fenced`, `vm` or `unfenced` (unfenced only when named — it acts as you). Additive.
     public var isolation: String?
-    /// When a manager was last stopped (`doz workspace stop`); nil while it runs or before its first start. Additive.
+    /// When it was last stopped or put to sleep (`doz workspace stop` — a manager —, `sleep`, `finish` — any agent); nil while it
+    /// runs, before its first start, and after a wake. Additive.
     public var stoppedAt: Date?
     /// A worker's task (`doz worker add --task`): what it was brought up to do. Set only on a worker; additive.
     public var task: String?
@@ -182,9 +183,11 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     public var pendingAt: Date?
     /// When a worker was ended (`doz worker end`): it is no longer an agent of the workspace; its entry is kept. Additive.
     public var endedAt: Date?
+    /// The template kept of its sandbox when it was removed at an archive (`--remove-sandboxes --keep-templates`). Additive.
+    public var template: String?
     public var unknown = UnknownFields()
     static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt", "bot", "isolation", "stoppedAt", "task", "anonymous",
-                                     "pendingAt", "endedAt"]
+                                     "pendingAt", "endedAt", "template"]
 
     public init(name: String, role: String = "worker", place: AgentPlace, startedBy: String = "you", startedAt: Date, bot: String? = nil,
                 isolation: String? = nil) {
@@ -215,6 +218,7 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         anonymous = try c.decodeIfPresent(Bool.self, forKey: "anonymous")
         pendingAt = try c.decodeIfPresent(Date.self, forKey: "pendingAt")
         endedAt = try c.decodeIfPresent(Date.self, forKey: "endedAt")
+        template = try c.decodeIfPresent(String.self, forKey: "template")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -233,6 +237,7 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         try c.encodeIfPresent(anonymous, forKey: "anonymous")
         try c.encodeIfPresent(pendingAt, forKey: "pendingAt")
         try c.encodeIfPresent(endedAt, forKey: "endedAt")
+        try c.encodeIfPresent(template, forKey: "template")
     }
 }
 
@@ -243,7 +248,18 @@ public struct WorkspaceDefaults: Codable, Equatable, Sendable {
     public init(isolation: String? = nil, network: String? = nil) { self.isolation = isolation; self.network = network }
 }
 
-/// The states that are recorded rather than derived.
+/// What an archive put away, so a restore undoes exactly that: the rooms it archived (by their chat names), the sandboxes it
+/// removed, and the template kept of each (sandbox → template).
+public struct WorkspaceArchive: Codable, Equatable, Sendable {
+    public var rooms: [String]
+    public var removed: [String]
+    public var templates: [String: String]
+    public init(rooms: [String] = [], removed: [String] = [], templates: [String: String] = [:]) {
+        self.rooms = rooms; self.removed = removed; self.templates = templates
+    }
+}
+
+/// The states that are recorded rather than derived. Additive: a field this build does not know is kept.
 public struct WorkspaceFlags: Codable, Equatable, Sendable {
     public var finishedAt: Date?
     public var archivedAt: Date?
@@ -252,8 +268,37 @@ public struct WorkspaceFlags: Codable, Equatable, Sendable {
     /// When `doz workspace start` first kicked it off (the brief posted as your first message): it is past setting up, and
     /// the brief is never posted again. Additive.
     public var startedAt: Date?
+    /// When it was last reopened after a finish (`doz workspace reopen`). Additive.
+    public var reopenedAt: Date?
+    /// What its archive put away (nil: never archived, or restored). Additive.
+    public var archive: WorkspaceArchive?
+    public var unknown = UnknownFields()
+    static let known: Set<String> = ["finishedAt", "archivedAt", "firstAgentAt", "startedAt", "reopenedAt", "archive"]
+
     public init(finishedAt: Date? = nil, archivedAt: Date? = nil, firstAgentAt: Date? = nil, startedAt: Date? = nil) {
         self.finishedAt = finishedAt; self.archivedAt = archivedAt; self.firstAgentAt = firstAgentAt; self.startedAt = startedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: DynamicKey.self)
+        finishedAt = try c.decodeIfPresent(Date.self, forKey: "finishedAt")
+        archivedAt = try c.decodeIfPresent(Date.self, forKey: "archivedAt")
+        firstAgentAt = try c.decodeIfPresent(Date.self, forKey: "firstAgentAt")
+        startedAt = try c.decodeIfPresent(Date.self, forKey: "startedAt")
+        reopenedAt = try c.decodeIfPresent(Date.self, forKey: "reopenedAt")
+        archive = try c.decodeIfPresent(WorkspaceArchive.self, forKey: "archive")
+        unknown = try UnknownFields(c, known: Self.known)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: DynamicKey.self)
+        try unknown.encode(&c, known: Self.known)
+        try c.encodeIfPresent(finishedAt, forKey: "finishedAt")
+        try c.encodeIfPresent(archivedAt, forKey: "archivedAt")
+        try c.encodeIfPresent(firstAgentAt, forKey: "firstAgentAt")
+        try c.encodeIfPresent(startedAt, forKey: "startedAt")
+        try c.encodeIfPresent(reopenedAt, forKey: "reopenedAt")
+        try c.encodeIfPresent(archive, forKey: "archive")
     }
 }
 
@@ -354,7 +399,9 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     /// folders-edited · refs-edited · renamed · agent-renamed · agent-removed · manager-set · manager-removed ·
     /// bot-invited · kicked-off · manager-started · manager-stopped · worker-added · worker-ended · worker-add-undone ·
     /// brief-announced (an edit after the start, posted as you in `room`) · bot-changed (a running bot's instructions, model or
-    /// account changed — `reason` says which —, told as you in `room`).
+    /// account changed — `reason` says which —, told as you in `room`) · the lifecycle: slept · woke · agent-slept · agent-woke ·
+    /// finished · reopened · archived · room-archived · room-unarchived · worker-retired · sandbox-removed · template-kept ·
+    /// restored (`reason` says what did not reach its target).
     public var action: String
     public var agent: String?
     /// The agent's place key (`sandbox:NAME`, `mac:SESSION`).
@@ -386,7 +433,9 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
                                               "released", "brief-edited", "folders-edited", "refs-edited", "renamed", "agent-renamed",
                                               "agent-removed", "manager-set", "manager-removed", "bot-invited", "kicked-off",
                                               "manager-started", "manager-stopped", "worker-added", "worker-ended", "worker-add-undone",
-                                              "brief-announced", "bot-changed"]
+                                              "brief-announced", "bot-changed", "slept", "woke", "agent-slept", "agent-woke",
+                                              "finished", "reopened", "archived", "room-archived", "room-unarchived", "worker-retired",
+                                              "sandbox-removed", "template-kept", "restored"]
 
     /// The line as a person reads it.
     public var sentence: String {
@@ -414,6 +463,19 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
             + "; its task \(bytes ?? 0) bytes)"
         case "worker-ended": return "ended the worker \(agent ?? "?")"
         case "worker-add-undone": return "undid adding the worker \(agent ?? "?") (\(reason ?? "its place did not run"))"
+        case "slept": return "put the workspace to sleep" + (reason.map { " — \($0)" } ?? "")
+        case "woke": return "woke the workspace" + (reason.map { " — \($0)" } ?? "")
+        case "agent-slept": return "\(agent ?? "?") is asleep" + (reason.map { " (\($0))" } ?? "")
+        case "agent-woke": return "\(agent ?? "?") is awake" + (reason.map { " (\($0))" } ?? "")
+        case "finished": return "finished the work" + (reason.map { " — \($0)" } ?? "")
+        case "reopened": return "reopened the workspace"
+        case "archived": return "archived the workspace" + (reason.map { " — \($0)" } ?? "")
+        case "room-archived": return "archived the room \(room ?? "?") (it stays readable)"
+        case "room-unarchived": return "opened the room \(room ?? "?") again"
+        case "worker-retired": return "retired the worker \(agent ?? "?") (its token is refused from now on)"
+        case "sandbox-removed": return "removed the sandbox \(place.map { $0.hasPrefix("sandbox:") ? String($0.dropFirst(8)) : $0 } ?? agent ?? "?")"
+        case "template-kept": return "kept the template \(to ?? "?") of \(from ?? "?")"
+        case "restored": return "restored the workspace (finished)"
         default: return action
         }
     }

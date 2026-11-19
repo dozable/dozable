@@ -35,6 +35,12 @@ final class WorkspaceStateTests: XCTestCase {
             (S.Input(agents: [.asleep]), .settingUp, "adopting an agent that does not run: still setting up"),
             (S.Input(agents: [.running(sessions: ["working"])], flags: WorkspaceFlags(finishedAt: t)), .finished, "finished"),
             (S.Input(agents: [.running(sessions: ["working"])], flags: WorkspaceFlags(finishedAt: t, archivedAt: t)), .archived, "archived"),
+            // The lifecycle: a slept worker's session has ended (asleep); a finish that left a session running still reads finished.
+            (S.Input(agents: [.asleep, .asleep, .asleep], flags: started), .asleep, "slept: the manager and both workers asleep"),
+            (S.Input(agents: [.asleep, .running(sessions: ["idle"])], flags: started), .idle, "one slept, one woken"),
+            (S.Input(agents: [.running(sessions: ["working"]), .asleep], flags: WorkspaceFlags(finishedAt: t, startedAt: t)), .finished,
+             "finished outranks a session still running after a partial failure"),
+            (S.Input(agents: [.asleep], flags: { var f = WorkspaceFlags(startedAt: t); f.reopenedAt = t; return f }()), .asleep, "reopened: asleep until woken"),
         ]
         for (input, want, why) in rows { XCTAssertEqual(S.derive(input), want, why) }
     }
