@@ -1,13 +1,14 @@
 // components/ws-panel — A workspace page's side panel, "who's here and in what": its agents (state, name, role, where and
 // how isolated — micro VM, fenced, unfenced, elsewhere — "acts as you" for an unfenced one, a worker's task and what
 // isolates it; each links to its screen in the workspace, #/w/NAME/agent/AGENT), every worker under the main room; "In this
-// room" (the chat surface's own people list, moved here — a slot); its folders; its network. "+ Worker" shows the
-// command. Also the meta line each sender's name carries in the room (`agentMeta`).
+// room" (the chat surface's own people list, moved here — a slot); its folders; its network. "+ Worker" opens the Add a
+// worker page (#/w/NAME/agents/new; another computer: the command). Also the meta line each sender's name carries in the room (`agentMeta`).
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { tildePath } from '../core/paths.js';
 import { agentHash, agentsHash } from '../core/routes.js';
-import { cmdLine } from './cmd-line.js';
+import { addWorkerLink } from './worker-end.js';
+import { isolationChip } from './iso-chip.js';
 
 const PROGRAMS = { 'claude-code': 'Claude Code', codex: 'Codex' };
 /// An agent program as a person reads it (`claude-code` → Claude Code).
@@ -50,7 +51,7 @@ function agentRow(w, a) {
     h('div', { class: 'ws-agent-body' },
       h('div', { class: 'ws-agent-top' }, name, h('span', { class: 'ws-agent-role' }, a.role + (a.activity ? ' · ' + a.activity : a.state === 'running' ? '' : ' · ' + a.state))),
       h('div', { class: 'ws-agent-chips' },
-        h('span', { class: 'ws-iso ws-iso-' + iso.replace(/ /g, '-') }, iso),
+        isolationChip(iso),
         a.actsAsYou ? h('span', { class: 'ws-chip acts-as-you', title: 'Unfenced on this Mac: it acts as you' }, icon('triangle-alert'), 'acts as you') : null),
       a.task ? h('div', { class: 'ws-agent-task', title: a.task }, a.task) : null,
       a.control ? h('div', { class: 'ws-agent-control' }, a.control) : null));
@@ -62,10 +63,7 @@ export function wsPanel(o) {
   const managers = d.agents.filter((a) => a.role === 'manager');
   const workers = d.agents.filter((a) => a.role === 'worker' && a.task);
   const adopted = d.agents.filter((a) => !managers.includes(a) && !workers.includes(a));
-  const cmd = h('div', { class: 'ws-add-worker', hidden: true }, cmdLine('doz worker add ' + d.name + ' --task "…"'),
-    h('p', { class: 'muted' }, 'In a terminal on this Mac, once the work has started.'));
-  const add = h('button', { type: 'button', class: 'btn sm quiet', 'aria-expanded': 'false',
-    on: { click: () => { cmd.hidden = !cmd.hidden; add.setAttribute('aria-expanded', String(!cmd.hidden)); } } }, icon('plus'), 'Worker');
+  const add = addWorkerLink(d.name, [icon('plus'), 'Worker'], 'btn sm quiet');
   const agents = h('section', { class: 'ws-box', 'aria-label': 'Agents' },
     h('h2', { class: 'ws-box-h' }, icon('bot'), h('a', { href: agentsHash(d.name), class: 'ws-box-link', title: 'The Agents tab' }, 'Agents'),
       h('span', { class: 'ws-box-n' }, String(d.agents.length))),
@@ -73,7 +71,7 @@ export function wsPanel(o) {
     workers.length ? h('div', { class: 'ws-sub' }, 'Workers — in ' + (o.mainRoom ? '# ' + o.mainRoom : 'the main room')) : null,
     workers.length ? h('ul', { class: 'ws-agents' }, ...workers.map((a) => agentRow(d.name, a))) : null,
     d.hidden ? h('p', { class: 'muted ws-hidden' }, d.hidden + ' on this Mac not shown to this browser (serve.mac_sessions).') : null,
-    h('div', { class: 'ws-box-acts' }, add), cmd);
+    h('div', { class: 'ws-box-acts' }, add));
   const folders = h('section', { class: 'ws-box', 'aria-label': 'Folders' },
     h('h2', { class: 'ws-box-h' }, icon('folder'), 'Folders'),
     d.folders.length ? h('ul', { class: 'ws-folders' }, ...d.folders.map((f) => h('li', { 'data-ws-folder': f.path },

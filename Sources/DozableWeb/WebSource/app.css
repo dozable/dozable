@@ -2856,6 +2856,8 @@ main.main-chat { padding: var(--work-py) var(--work-px); display: flex; flex-dir
 .ws-agent-chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 .ws-iso { padding: 0 var(--sp-2); border-radius: var(--r-pill); background: var(--well); color: var(--ink-2); font-size: var(--fs-xs); }
 .ws-iso-unfenced { color: var(--warn); }
+a.ws-iso { text-decoration: none; }
+a.ws-iso:hover { color: var(--ink); text-decoration: underline; }
 .ws-sub { margin: var(--sp-3) 0 var(--sp-1); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--ink-2); }
 .ws-folders { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; font-size: var(--fs-sm); }
 .ws-path { font-family: var(--mono); font-size: var(--fs-mono); overflow-wrap: anywhere; }
@@ -3129,5 +3131,100 @@ a.btn.is-disabled { color: var(--ink-3); cursor: not-allowed; }
 @media (max-width: 760px) {
   .wsn-row, .wsn-preset-grid { grid-template-columns: minmax(0, 1fr); }
   .wsn-add input { flex-basis: 100%; }
+}
+}
+
+/* The isolation guide (views/isolation-guide.js, #/guide/isolation[/ID]): four cards in order of isolation, each with a
+   small diagram drawn with boxes — solid for the micro VM, dashed for the fence, none unfenced, two machines elsewhere —
+   the card the address names highlighted. Below 760 px the cards stack. */
+@layer views {
+.iso-guide { display: flex; flex-direction: column; gap: var(--sp-4); }
+.iso-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); }
+.iso-card { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; padding: var(--sp-4); border: var(--bw) solid var(--line);
+  border-radius: var(--r-lg); background: var(--surface); scroll-margin-top: var(--stack-h); }
+.iso-card-elsewhere { border-style: dashed; }
+.iso-card.is-current { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-tint); }
+.iso-card-h { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-lg); }
+.iso-card-title { font-weight: var(--fw-strong); }
+.iso-what, .iso-for, .iso-not, .iso-honest { margin: 0; font-size: var(--fs-sm); line-height: var(--lh-prose); }
+.iso-honest { display: inline-flex; align-items: center; gap: var(--sp-2); color: var(--warn); }
+.iso-honest .icon { width: 13px; height: 13px; flex: none; }
+.iso-cmds { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: auto; font-size: var(--fs-xs); }
+.iso-cmd { display: flex; flex-direction: column; gap: var(--sp-0); min-width: 0; }
+.iso-cmd .cmd-copy { max-width: 100%; }
+.iso-cmd .cmd-copy code { white-space: normal; overflow-wrap: anywhere; }
+.iso-fig { display: flex; align-items: center; gap: var(--sp-2); min-height: 6.5rem; padding: var(--sp-3); border-radius: var(--r-md); background: var(--well);
+  font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); }
+.iso-fig-mac { display: flex; flex-direction: column; gap: var(--sp-2); flex: 1; padding: var(--sp-2); border: var(--bw) solid var(--line-strong);
+  border-radius: var(--r-md); background: var(--surface); }
+.iso-fig-label { color: var(--ink-3); }
+.iso-fig-box, .iso-fig-none { display: flex; flex-direction: column; gap: var(--sp-0); margin-inline: var(--sp-4); padding: var(--sp-2); border-radius: var(--r-md); color: var(--ink); }
+.iso-fig-vm { border: 2px solid var(--ink); background: var(--shell); }
+.iso-fig-fenced { border: 2px dashed var(--ink); }
+.iso-fig-none { color: var(--warn); }
+.iso-fig-elsewhere .iso-fig-mac, .iso-fig-other { flex: 1; align-items: center; justify-content: center; min-height: 3.5rem; }
+.iso-fig-other { display: flex; padding: var(--sp-2); border: var(--bw) dashed var(--line-strong); border-radius: var(--r-md); }
+.iso-fig-link { flex: none; padding-bottom: var(--sp-1); border-bottom: var(--bw) solid var(--ink-2); }
+@media (max-width: 1180px) {
+  .iso-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .iso-cards { grid-template-columns: minmax(0, 1fr); }
+}
+}
+
+/* Add a worker (views/add-worker.js, #/w/NAME/agents/new): two columns — the fields, then where it runs (the comparison
+   table, its chosen column tinted) — the plan's refusal beside its field, the foot with Show the command, Cancel and Add
+   and start. Below 980 px one column; below 760 px the rows stack and the table scrolls inside its box. */
+@layer views {
+.aw { display: flex; flex-direction: column; gap: var(--sp-3); }
+.aw-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: var(--sp-6); align-items: start; }
+.aw-col { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.aw-field { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.aw-field[hidden] { display: none; }
+.aw-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--sp-3); }
+.aw-row[hidden] { display: none; }
+.aw-agents, .aw-checks { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.aw-pill { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); border: var(--bw) solid var(--line-strong);
+  border-radius: var(--r-pill); font-size: var(--fs-sm); cursor: pointer; }
+.aw-pill.is-off { color: var(--ink-3); border-style: dashed; cursor: not-allowed; }
+.aw-readonly { padding: var(--sp-1) 0; color: var(--ink-2); }
+.aw-check { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
+.aw-radio { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-sm);
+  line-height: var(--lh-prose); }
+.aw-radio select { grid-column: 2; justify-self: start; max-width: 100%; }
+.aw-size.is-bad { color: var(--bad); }
+.aw-problem { margin: 0; color: var(--bad); font-size: var(--fs-sm); }
+.aw-cmp-wrap { overflow-x: auto; border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.aw-cmp { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.aw-cmp th, .aw-cmp td { padding: var(--sp-1) var(--sp-2); border-bottom: var(--bw) solid var(--line); text-align: left; vertical-align: top; }
+.aw-cmp tbody th { color: var(--ink-2); font-weight: var(--fw-regular); white-space: nowrap; }
+.aw-cmp .is-chosen { background: var(--accent-tint); }
+.aw-cmp .is-later { color: var(--ink-3); }
+.aw-col-h { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
+.aw-mono { font-family: var(--mono); }
+.aw-tick { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--warn-tint);
+  color: var(--warn); font-size: var(--fs-sm); }
+.aw-tick[hidden], .aw-shared-note[hidden] { display: none; }
+.aw-shared-note { margin: 0; font-size: var(--fs-sm); }
+.aw-more summary { cursor: pointer; }
+.aw-more[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.aw-facts { margin: 0; }
+.aw-notes { margin: 0; padding-left: var(--sp-5); font-size: var(--fs-sm); color: var(--ink-2); }
+.aw-notes[hidden], .aw-cmd[hidden] { display: none; }
+.aw-cmd { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.aw-cmd .cmd-copy { max-width: 100%; }
+.aw-cmd .cmd-copy code { overflow-wrap: anywhere; white-space: pre-wrap; }
+.aw-foot { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding: var(--sp-3) 0;
+  border-top: var(--bw) solid var(--sep); background: var(--bg); }
+.aw-status { margin: 0; font-size: var(--fs-sm); }
+.aw-link-off { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.aw-link-off code { font-size: var(--fs-xs); }
+@media (max-width: 980px) {
+  .aw-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .aw-row { grid-template-columns: minmax(0, 1fr); }
+  .aw-foot { position: static; }
 }
 }

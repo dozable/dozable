@@ -162,21 +162,28 @@ workspace's opens its main room and says so.
 
 The side panel says who is here and in what: each agent with its state, its isolation (**micro VM**, **fenced**,
 **unfenced**, **elsewhere**), a worker's task — each opens its screen in the workspace (below) — then **In this room**,
-the workspace's folders and its network. **+ Worker** shows `doz worker add NAME --task "…"` to copy. In a narrow window
-the panel is below the room.
+the workspace's folders and its network. **+ Worker** opens **Add a worker** (below). In a narrow window the panel is
+below the room. Every isolation chip — here, on the Agents tab, on an agent's screen and in Agents / Bots — opens **the
+isolation guide** (`#/guide/isolation`) at that choice: micro VM, fenced on this Mac, unfenced on this Mac and elsewhere,
+in order of isolation, each with what it is for and not for and its commands.
 
 **Agents** (`#/w/NAME/agents`) is one table of every agent of the workspace, whatever runs it: where it is (**this Mac** or
 **elsewhere**) and how it is isolated (**micro VM**, **fenced**, **unfenced** — which says **acts as you** and "no proxy · no
 placeholders · no guard" — or **elsewhere**, "not run by Dozable · token only"), its state, its task, what it uses and what
-isolates it, who started it and when, **Watch** (or **Open**) and **⋯** (its screen, Open in Terminal, Restart, End — a
-command to copy —, **Take out of the workspace…** and **Move to another workspace…**). A worker that ended is listed folded
+isolates it, who started it and when, **Watch** (or **Open**) and **⋯** (its screen, Open in Terminal, Restart, **End…** for a
+worker — ticked, its place kept —, **Take out of the workspace…** and **Move to another workspace…**). **+ Add a worker** opens
+**Add a worker** (`#/w/NAME/agents/new`): the agent program, its name, the account it would use (shown, not chosen), its one
+task, its rooms, who it is (anonymous, or an Agent / Bot), where it is, and **where it runs** — a table of micro VM, fenced,
+unfenced and cloud (later) side by side, fenced chosen unless the workspace's or the bot's default is micro VM; unfenced is
+never chosen for you and needs the tick "It acts as you". Each field is checked as you type and a refusal shows beside it;
+**Show the command** gives `doz worker add …` to run in a terminal instead; **Add and start** adds it. A worker that ended is listed folded
 below; a greyed "cloud worker" row shows where a worker run off your Mac will appear later; **Grid** is coming. In a narrow
 window each agent is a card.
 
 **An agent's screen** (`#/w/NAME/agent/AGENT`) is its sandbox's page, or its session's on this Mac, as you know them — the
 terminals, Home, the details — under the workspace's name: a line `NAME › Agents › AGENT` with its chips and **Open the
-room beside**, and in the details' Overview **In this workspace** (its role, task, who started it and when, its isolation
-and rooms). Switching its tabs keeps that address. An agent with no screen here — one elsewhere, a manager not started, a
+room beside** and **⋯** (Add a worker…, and End… for a worker), and in the details' Overview **In this workspace** (its
+role, task, who started it and when, its isolation and rooms). Switching its tabs keeps that address. An agent with no screen here — one elsewhere, a manager not started, a
 sandbox or session that is gone — shows a card saying so (and, for one gone, **Take out…**). A sandbox's own page
 (`#/sandbox/NAME`) still opens as itself; for one in a workspace it says **In NAME as AGENT — open it there**.
 

@@ -979,7 +979,7 @@ manager, `start` posts the brief and you drive. `doz bot ls` shows what each bot
 
 ```bash
 doz worker add W [NAME] --task "…" [--agent claude-code|codex] [--isolation fenced|vm|unfenced] [--sandbox X] [--session S]
-               [--cpus N --memory M] [--from-bot BOT] [--room LABEL]… [--allow-tool T]…
+               [--cpus N --memory M] [--from-bot BOT] [--room LABEL]… [--allow-tool T]… [--dry-run]
 doz worker ls W [--all] [--json]                # NAME  ROLE  BOT  PLACE  ISOLATION  CONTROL  NETWORK  STATE  TASK — every agent
 doz worker end W NAME [--rm]                    # its session (or its own sandbox) ends; an anonymous one leaves chat
 ```
@@ -1020,6 +1020,19 @@ the workers (`--all`: the ended ones too) — with what isolates it: fenced `pro
 shared sandbox; it answers from the store without starting the daemon. `doz workspace stop W` stops only the manager.
 Exit codes: 0 ok · 2 not found · 3 setting up, finished, starting, a sandbox stopped, or ended already · 4 a name taken,
 or the bot live in another workspace · 6 the daemon or chat unavailable · 64 usage.
+
+**Adding one: the dry run.** `add … --dry-run` runs the add's own checks and shows what it would do — the worker's name
+(the first free `botN` when none is given), its agent program and account (by name: `mac` is this Mac's own login; an
+unfenced one has none of ours — it acts as you), where it runs and what isolates it, its folder, network and rooms, what
+a fenced Claude Code worker may do without asking — or the first thing the add would refuse ("It cannot be added: …",
+the add's own sentence), then the command that adds the same worker, printed exactly (`doz worker add W [NAME] --task
+'…' …`; a task over 1 KiB as `--task="$(cat task.txt)"`, with a note to save it as `task.txt`). Nothing is written, no
+participant is made, no keychain item is read and nothing is started; with no daemon running none is started, chat is
+judged from its setting, and whether its place already exists (or a `--sandbox` runs and reaches the chat server) is
+"checked again when you add". It exits 0 when nothing is refused, else with the add's exit code; `--json` prints the plan
+(`worker-plan`: `name`, `agent`, `account`, `isolation`, `place`, `session`, `sandbox`, `folder`, `network`, `control`,
+`rooms`, `allowTools`, `actsAsYou`, `shares`, `director`, `command`, `problem` — `{field, text, code}`, the field the
+refusal is about —, `notes`, `lines`). The dashboard's Add a worker page asks the same question.
 
 ### Settings
 

@@ -27,6 +27,7 @@ import DozableHost
 //  36–37. a running session filed into a workspace that is setting up: started, nothing posted; released, still running
 //  38–44. the dry run (nothing written, no daemon), its refusals, the commands it prints, the new fields, --start
 //      (CLIWorkspacePlanRows.swift)
+//  45–47. adding a worker with a look first: the dry run, its refusal, with the daemon stopped (CLIWorkerPlanRows.swift)
 func cliWorkspaceSuite(binary: String) async {
     print("cli: workspaces — no VM")
     let fm = FileManager.default
@@ -233,4 +234,6 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspaceBriefRows(h, root: root, store: store, started: &started)
     // 38–44. making one with a look first (CLIWorkspacePlanRows.swift)
     cliWorkspacePlanRows(h, root: root, store: store, started: &started)
+    // 45–47. adding a worker with a look first (CLIWorkerPlanRows.swift)
+    cliWorkerPlanRows(h, root: root, store: store)
 }

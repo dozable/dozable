@@ -9,7 +9,8 @@ for, and any folders it works on (usually projects). Work starts only once it is
 Nothing moves by itself: today's sandboxes and sessions on this Mac are **loose agents** until a person adopts them, and
 adopting writes only the workspace's own record — never a sandbox's `doz.json` nor `mac-sessions/sessions.json`. The
 dashboard shows them (below, "In the dashboard"), changes a brief, files loose agents, and — this Mac's own browser only —
-makes and starts a workspace (the New workspace wizard); everything else is the CLI's. The manual's page is
+makes and starts a workspace (the New workspace wizard) and adds and ends its workers (Add a worker); everything else is
+the CLI's. The manual's page is
 `docs/manual/37-workspaces.md`.
 
 ## Where its code lives
@@ -26,14 +27,16 @@ makes and starts a workspace (the New workspace wizard); everything else is the 
 | `Sources/DozableHost/HostCore+WorkspaceManager.swift` | `workspace-start` / `-stop`, the `ManagerLauncher` seam and `DaemonManagerLauncher`, `botLaunchSecret`, `liveWorkspace`, `liveWorkers`; the role-aware launch paths (`AgentMacLaunch`, `AgentVMLaunch` — a manager's and a worker's); the unfenced token file (separable) and its sweep |
 | `Sources/DozableHost/WorkerLaunch.swift` | pure: `WorkerIsolation.resolve`, `WorkerLaunch` (`placeName`, `tokenVariables`, `nextAnonymousName`, `flagProblems`, `plan`, `control`; the default allow-list, ONE constant) |
 | `Sources/DozableHost/WorkerKickoff.swift` | pure: a worker's START |
-| `Sources/DozableHost/HostCore+Workers.swift` | `worker-add` / `-ls` / `-end`, the `WorkerLauncher` seam and `DaemonWorkerLauncher`, `sweepPendingWorkers` |
+| `Sources/DozableHost/WorkerPlan.swift` | `worker-plan`'s answer `WorkerPlan` (and `WorkerPlanProblem`); `WorkerFieldRefusal` (an add's refusal tagged with its field); `WorkerAddCommand` (the ONE command source: `argv`, `text`, a long task in `task.txt`); the plan's lines |
+| `Sources/DozableHost/HostCore+Workers.swift` | `worker-add` / `-ls` / `-end` / `-plan` (`workerBasics`, `workerPrepare` — the add's checks, shared with the plan), the `WorkerLauncher` seam and `DaemonWorkerLauncher`, `sweepPendingWorkers` |
 | `Sources/DozableHost/HostCore+Workspaces.swift` | the `workspace-*` operations in the daemon (and the read-only core for ls/show/log); the `WorkspaceChat` seam and `OwnerWorkspaceChat`; the hooks of `doz rename` and `doz rm` |
 | `Sources/DozableHost/ChatOwnerRooms.swift` | making a room AS YOU over the owner's socket — the one implementation `doz chat room` and the workspaces use; `ChatStateView` |
 | `Sources/DozableHost/HostProtocol.swift` | `HostOp.workspace*`, `WorkspaceRequest`, `WorkspaceListing`/`WorkspaceRow`/`WorkspaceManagerRow`/`LooseAgent`, `WorkspaceDetail`/`WorkspaceAgentRow`, `WorkspaceStarted`, `WorkspaceStopped`; `HostOp.worker*`, `WorkerRequest`, `WorkerListing`/`WorkerRow`, `WorkerAdded`, `WorkerEnded`; `SandboxInfo.workspace`, `SessionRow.workspace` |
 | `Sources/DozableCLI/WorkspaceCommands.swift`, `WorkerCommands.swift` | `doz workspace new | ls | show | start | stop | adopt | release | edit | log | rename`; `doz worker add | ls | end` |
 | `Tests/DozableCLITests/WorkspacePlanTests.swift` | the plan and new agree over a table of requests, the plan writes nothing, gaps, a look never reads the keychain, chat from its setting with no daemon, presets, `newFolder`, the commands parsed back into the same request, the project's fill |
 | `Tests/DozableCLITests/WorkspaceRecordTests.swift`, `WorkspaceStateTests.swift`, `WorkspaceAdoptTests.swift`, `WorkspaceSetupCheckTests.swift`, `ManagerLaunchTests.swift`, `WorkspaceManagerTests.swift`, `BotLaunchSecretTests.swift`, `WorkerLaunchTests.swift`, `WorkerKickoffTests.swift`, `WorkspaceWorkerTests.swift` | the unit tests (scratch roots, a fake chat, fake launchers, a memory keychain) |
-| `Sources/doz-vmtest/CLIWorkspaceSuite.swift`, `CLIWorkspaceManagerRows.swift`, `CLIWorkspaceWorkerRows.swift`, `CLIWorkspaceBriefRows.swift`, `CLIWorkspacePlanRows.swift`, `CLIWorkspaceVMSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, a FAKE claude, no VM; `make test-cli-workspace-vm`: scratch lab VMs |
+| `Tests/DozableCLITests/WorkerPlanTests.swift` | the worker plan and the add agree over a table of requests (each refusal's sentence, code and field), the plan writes nothing, never unfenced from a default, no daemon; `WorkerAddCommandTests` (the argv parses back, the text is the argv to `/bin/sh`, a long task from a file) |
+| `Sources/doz-vmtest/CLIWorkspaceSuite.swift`, `CLIWorkspaceManagerRows.swift`, `CLIWorkspaceWorkerRows.swift`, `CLIWorkspaceBriefRows.swift`, `CLIWorkspacePlanRows.swift`, `CLIWorkerPlanRows.swift`, `CLIWorkspaceVMSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, a FAKE claude, no VM; `make test-cli-workspace-vm`: scratch lab VMs |
 | `Sources/DozableHost/BotRecord.swift` | Agents / Bots: `BotsFile` (`bots.json`, version 1), `BotRecord`, `BotIsolation`, `BotInstructions`, `BotTokenState`; `BotName` (the name rule), `BotKinds`, `BotFields` |
 | `Sources/DozableHost/BotStore.swift` | `BotStore`: `bots/bots.json` rewritten whole, `bots/<name>/instructions.md` and `notes.md`, 0600 in 0700 |
 | `Sources/DozableHost/BotTokens.swift` | a held bot's keychain item (`doz-bot-<store's 8 hex>-<name>`), the fingerprint, the sweep's orphans |
@@ -133,7 +136,7 @@ foldersMadeNow:)`). `WorkspacePlanTests.testThePlanAndNewAgree` holds the two to
 | `workspace-ls`, `-show`, `-log`, `-plan` | `query()`: an in-process `HostCore(readOnly: true)` when no daemon runs, else the daemon | looking never starts the daemon; phases from the store, `@mac` rows from `macRows()` |
 | `workspace-new`, `-adopt`, `-release`, `-edit`, `-rename` | `call()`: the daemon | ONE writer — each holds the `KeyedGate` key `workspaces`; rooms need the chat server the daemon runs; a read-only core refuses "needs the daemon" |
 | `workspace-start`, `-stop` | `call()`: the daemon | the check under `workspaces`, the launch under `workspace:NAME` (each record change takes `workspaces` again); never read-only |
-| `worker-ls` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon |
+| `worker-ls`, `worker-plan` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon |
 | `worker-add`, `-end` | `call()`: the daemon | the check and the pending entry under `workspaces`, the participant under `bots`, then the launch; never read-only |
 
 The workspace's name never travels in `HostRequest.name` (a sandbox's, which `perform` uses to apply a sandbox's
@@ -347,6 +350,24 @@ starting, ended → no agent, else its place — a session's row, or its sandbox
 started workspace with no manager and one working worker reads `working · you`; every worker ended and no manager:
 `asleep`. Ended workers are left out of `show`, `ls` and the count (`worker ls --all` shows them).
 
+**Adding one: the plan and the dry run.** `worker-plan` (`isReadOnly`: in-process with no daemon) takes the same
+`WorkerRequest` as `worker-add` and runs the add's own checks — `workerBasics` (the name, the task, the workspace), chat as
+a look sees it (`workspaceLookReadiness`: with no daemon, its setting), then `workerPrepare(look: true)`, the add's checks
+unchanged in order and words — and returns before the pending entry: nothing written, no participant made (the names
+come from `botDirectory()`, the daemon's chat or the store's `directory.json`), no keychain item read, nothing started.
+Each refusal is a `WorkerFieldRefusal {field, error}` — `workspace`, `task`, `name`, `agent`, `fromBot`, `isolation`,
+`sandbox`, `session`, `cpus`, `memory`, `rooms`, `allowTools` (`WorkerLaunch.flagProblem` names the field of a flag that
+does not go together) — and `HostError.from` gives the add its own error back, so the add answers exactly as before. The
+answer `WorkerPlan {workspace, name, agent, account (a name only; nil unfenced), isolation, place, session, sandbox,
+folder, network, control, rooms, allowTools, actsAsYou, shares, director, command, problem? {field, text, code}, notes,
+lines}`. With no daemon the checks that ask the daemon about a running place (whether `W-NAME` exists, whether `--sandbox
+X` runs and reaches the page port) are skipped and noted "checked again when you add"; the add re-checks everything under
+the gate anyway. **The one command source** is `WorkerAddCommand` (`argv`: the parser's order, a task starting with `-` as
+`--task=…`; `text`: quoted for a POSIX shell; a task over 1 KiB as `--task="$(cat task.txt)"` with a note) — the plan's
+`command`, `--dry-run` and the dashboard's Show the command. `doz worker add … --dry-run` prints the lines, "It cannot be
+added: …", the notes and the command exactly; it exits 0, else with the add's code; `--json` is the plan.
+`WorkerPlanTests`, `WorkerAddCommandTests`; `make test-cli-workspace` rows 45–47.
+
 **`doz worker ls W`** shows every agent — manager, adopted, workers — with CONTROL (`WorkerLaunch.control`: fenced
 `proxy · placeholders · guard`, vm `micro VM · proxy · placeholders`, unfenced `no proxy · no placeholders · no guard ·
 acts as you`, `· shares X` in a shared sandbox), NETWORK (a session's preset, a sandbox's network, unfenced "not
@@ -390,9 +411,11 @@ brief and `ifBrief` (another computer only with `serve.chat = write`), and FILIN
 workspace…" sends exactly one agent) and `workspace-release`, each exactly the CLI's HostOp, this
 Mac's own browser only (another computer: 403 `mac-only`, whatever its serve settings; web.md, "Filing agents"); the New
 workspace wizard's `workspace-new` carries every field the CLI takes (never a project path or `noManager`) and
-`workspace-start` (with `confirmRequired`) is this Mac's own browser's too (web.md, "The New workspace wizard"). No other
-`workspace-*`, and no `worker-*` HostOp, is an action (CLAUDE.md's rule). The five `bot-*` changes are actions of this
-Mac's own browser, each `heldOnly` (below).
+`workspace-start` (with `confirmRequired`) is this Mac's own browser's too (web.md, "The New workspace wizard"). The two
+worker actions `worker-add` (every field the CLI takes; unfenced only with `confirm: "unfenced"`) and `worker-end`
+`{workspace, name, confirm}` are this Mac's own browser's, and so is the Add a worker page's plan route `POST
+/api/v1/worker-plan` (`worker-plan`, `mac-screen`) — web.md, "Adding a worker". No other `workspace-*` or `worker-*` HostOp
+is an action (CLAUDE.md's rule). The five `bot-*` changes are actions of this Mac's own browser, each `heldOnly` (below).
 Filing a RUNNING agent into a workspace that is setting up marks it started (`firstAgentAt`; nothing posted, nothing
 started), and the page says so ("NAME is started: AGENT was already running. The brief was not posted."); the title pill and
 the setting-up banner follow. Releasing the last agent of a started workspace leaves `firstAgentAt` set — the rule governs

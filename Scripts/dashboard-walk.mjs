@@ -52,6 +52,13 @@
 //     unfenced asks for the confirmation and the review says "acts as you"; 10 "+ A new agent / bot…" and back, the choices
 //     intact; 11 ?bot=mira chooses her; 13 at 390 px the choices stack; 14 (below) with the daemon stopped it opens and the
 //     plan answers. (Another computer's 403 for both actions and the plan route is ServeHTTPTests'.)
+//   · Add a worker, chat still on, the FAKE claude (it reads START, says "NAME is up" with dozchat, sleeps), a scratch fence
+//     home: 1 the Agents tab's + Add a worker opens #/w/demo2/agents/new — four columns, cloud disabled, fenced preselected,
+//     the control row worker ls's words; 2 the live plan (as --dry-run's), micro VM shows its size, unfenced needs the tick
+//     (never added); 3 a bot live elsewhere greyed with the sentence, a taken name's refusal beside the name, worker ls
+//     unchanged; 4 Show the command is --dry-run's; 5 Add and start: in the panel, chat who, its "is up" line; 6 End…, ticked;
+//     7 a chip opens the isolation guide at its card, four cards in order; 9 at 390 px the cards stack; 10 (below) with the
+//     daemon stopped the page opens and the plan answers. (8, another computer's 403, is ServeHTTPTests'.)
 //   · with the daemon stopped, opening Home, Sandboxes, a workspace's page and its agents starts none (no daemon.pid).
 //
 // Self-contained: Node >= 22 (global WebSocket and fetch), no packages. Never the person's own Dozable or browser: the
@@ -68,8 +75,8 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:net';
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { spawnChrome } from './chrome-launch.mjs';
 
@@ -92,8 +99,11 @@ const ENV = { ...process.env, XDG_CONFIG_HOME: XDG, DOZ_STORE: STORE, DO_NOT_TRA
   // An inbox bot (made from the page) has the chat server look at Claude Code's sessions: a scratch folder, never the real one.
   DOZ_TEST_CLAUDE_SESSIONS: S + '/claude-sessions',
   // The sessions' PATH: a FAKE claude first (never the real one), so a manager's set-up check finds its program the same way
-  // on every Mac. Nothing here starts a manager.
-  DOZ_TEST_MAC_PATH: S + '/fakebin:/usr/bin:/bin' };
+  // on every Mac. Nothing here starts a manager; the workers the walk adds run it (it reads START, says it is up, sleeps).
+  // It lives in the fence's scratch home (a fenced session reads its tools there, as the CLI suite's does).
+  DOZ_TEST_MAC_PATH: '/private' + S + '/fence-home/.local/bin:/usr/bin:/bin',
+  // A fenced worker's scratch home (a guarded run without one is refused) — never the person's own.
+  DOZ_TEST_FENCE_HOME: '/private' + S + '/fence-home' };
 delete ENV.SSH_AUTH_SOCK;
 function doz(args, input) {
   const r = spawnSync(DOZ, [...args, '--store', STORE], { env: ENV, encoding: 'utf8', input, timeout: 120_000 });
@@ -104,6 +114,22 @@ const dozJSON = (args) => JSON.parse(doz([...args, '--json']).stdout || 'null');
 const realpath = (p) => realpathSync(p);
 /// A path as the page shows it: the scratch home stands in for ~ (DOZ_TEST_HOME) — else as it is.
 const tildeOf = (p) => p;
+
+/// A FAKE claude (never the real one): with "Read START and do what it says." among its arguments it says in its room that
+/// it is up — "NAME is up: <START's first line>" with dozchat — then sleeps; anything else just sleeps. The walk starts no
+/// manager; the workers it adds run this.
+const FAKE_CLAUDE = `#!/bin/sh
+start=""
+for a in "$@"; do
+  case "$a" in "Read "*" and do what it says.") start="\${a#Read }"; start="\${start% and do what it says.}" ;; esac
+done
+[ -n "$start" ] || exec sleep 600
+first=$(head -n 1 "$start")
+room=$(sed -n 's/^Your room in chat: //p' "$start")
+bot=$(printf '%s' "$first" | sed -n 's/^You are \\([^,]*\\),.*/\\1/p')
+dozchat send "$room" "$bot is up: $first" > /dev/null 2>&1
+exec sleep 600
+`;
 
 // ── the scratch store: three sandboxes (never started — no VM), chat off ─────────────────────────────────────────────
 const SANDBOXES = ['alpha', 'beta', 'gamma'];
@@ -118,11 +144,14 @@ function clearMacSocketFolder() { const d = macSocketFolder(); if (d && d.includ
 function stage() {
   rmSync(S, { recursive: true, force: true });
   clearMacSocketFolder();
-  for (const d of [STORE, XDG + '/doz', PROJECTS, S + '/codex-home', S + '/launch-agents', S + '/applications', S + '/claude-sessions']) mkdirSync(d, { recursive: true });
+  for (const d of [STORE, XDG + '/doz', PROJECTS, S + '/codex-home', S + '/launch-agents', S + '/applications', S + '/claude-sessions', S + '/fence-home']) mkdirSync(d, { recursive: true });
   writeFileSync(XDG + '/doz/doz.toml', `[store]\npath = "${STORE}"\n\n[defaults]\nprojects_dir = "${PROJECTS}"\n\n[chat]\nenabled = false\n`);
   writeFileSync(S + '/no-gh', '#!/bin/sh\necho "not logged in" >&2\nexit 1\n', { mode: 0o755 });
-  mkdirSync(S + '/fakebin', { recursive: true });
-  writeFileSync(S + '/fakebin/claude', '#!/bin/sh\n# A FAKE claude: the walk never starts a manager.\nexit 0\n', { mode: 0o755 });
+  const fakebin = S + '/fence-home/.local/bin';
+  mkdirSync(fakebin, { recursive: true });
+  writeFileSync(fakebin + '/claude', FAKE_CLAUDE, { mode: 0o755 });
+  // dozchat for the fake (a fenced session gets its own shim; this one is for an unfenced one).
+  if (existsSync(dirname(DOZ) + '/dozchat-mac')) symlinkSync(dirname(DOZ) + '/dozchat-mac', fakebin + '/dozchat');
   writeFileSync(S + '/gitconfig', '[user]\n\tname = dashboard-walk\n\temail = dashboard-walk@example.invalid\n');
   for (const n of SANDBOXES) doz(['create', n, '--image', 'lab', '--isolated']);
 }
@@ -521,8 +550,7 @@ async function walkAgents() {
   check(await evaluate(`!!document.querySelector('[data-wsa-view="grid"][disabled]') && /coming/.test(document.querySelector('[data-wsa-view="grid"]').textContent)`), '…Grid drawn disabled, "coming"');
   check(await evaluate(`document.querySelector('#ws [data-ws-tab="agents"]').getAttribute('aria-selected') === 'true' && document.querySelector('#ws .ws-body').hidden`),
     '…the Agents tab selected, the room hidden');
-  await evaluate(`document.querySelector('[data-add-worker]').click()`);
-  check(await evaluate(`/doz worker add demo2 --task/.test(document.querySelector('.wsa-add').textContent) && !document.querySelector('.wsa-add').hidden`), '"+ Add a worker" shows the command');
+  check(await evaluate(`document.querySelector('a[data-add-worker="demo2"]')?.getAttribute('href') === '#/w/demo2/agents/new'`), '"+ Add a worker" leads to its page (#/w/demo2/agents/new)');
   await goHash('#/w/demo3/agents');
   check(await waitFor(`!!document.querySelector('[data-agents-table="demo3"] [data-agent-row="otto"] .acts-as-you')`, 10000), 'an unfenced manager\'s row reads "acts as you"');
 
@@ -994,6 +1022,141 @@ async function walkBots() {
   console.log(`  leak sweep: ${sweeps} sweeps, ${apiBodies.length} /api/ answers — ` + Object.entries(swept).map(([k, v]) => k + ' ' + v).join(', '));
 }
 
+// ── Add a worker (chat on): #/w/demo2/agents/new, the plan live, a fenced FAKE claude added and ended, the guide ───────
+const startedWorkers = [];
+const AW_PLANNED = `(!!state.aw && !!state.aw.plan && !state.aw.asking)`;
+async function awType(sel, value) { await setField(sel, value); await sleep(500); await waitFor(AW_PLANNED, 10000); }
+async function awPick(sel) { await evaluate(`(() => { const i = document.querySelector(${JSON.stringify(sel)}); i.checked = true; i.dispatchEvent(new Event('change', { bubbles: true })); })()`); await sleep(500); await waitFor(AW_PLANNED, 10000); }
+const workerLs = (w) => (dozJSON(['worker', 'ls', w, '--all']) || { agents: [] }).agents;
+const chatLines = (room) => { const r = dozJSON(['chat', 'read', room, '--last', '100']); return Array.isArray(r) ? r : []; };
+async function walkAddWorker() {
+  const errorsBefore = pageErrors.length;
+  doz(['config', 'set', 'mac.account', 'none']);
+  // 1. From the Agents tab: the page, the table's four columns, cloud disabled, fenced preselected.
+  await goHash('#/w/demo2/agents');
+  await waitFor(`!!document.querySelector('a[data-add-worker="demo2"]')`, 10000);
+  await evaluate(`document.querySelector('a[data-add-worker="demo2"]').click()`);
+  check(await waitFor(`location.hash === '#/w/demo2/agents/new' && state.view === 'addworker' && !!document.querySelector('[data-add-worker-page="demo2"] [data-aw-compare]') && ${AW_PLANNED}`, 15000),
+    'add 1 "+ Add a worker" in the Agents tab opens #/w/demo2/agents/new');
+  const cols = await evaluate(`[...document.querySelectorAll('[data-aw-compare] thead th[data-col]')].map((t) => t.dataset.col)`);
+  check(JSON.stringify(cols) === '["vm","fenced","unfenced","cloud"]', `add 1 the comparison table's columns: micro VM, fenced, unfenced, cloud (${cols})`);
+  check(await evaluate(`document.querySelector('[data-aw-col="cloud"]').disabled && document.querySelector('[data-aw-col="fenced"]').checked && !document.querySelector('[data-aw-col="unfenced"]').checked`),
+    'add 1 cloud drawn disabled (later); fenced preselected, unfenced not');
+  check(await evaluate(`[...document.querySelectorAll('[data-aw-compare] thead [data-iso-guide]')].map((a) => a.getAttribute('href')).join(' ') === '#/guide/isolation/vm #/guide/isolation/fenced #/guide/isolation/unfenced'`),
+    'add 1 each heading is a chip that opens the guide at its choice');
+  // 2. The plan live: the name, the place; vm shows its size; unfenced needs the tick (never added here).
+  await awType('[data-aw-task]', 'List the files of the walk.');
+  const dry = dozJSON(['worker', 'add', 'demo2', '--task', 'List the files of the walk.', '--dry-run']) || {};
+  const p2 = await evaluate(`state.aw.plan`);
+  check(p2.name && p2.name === dry.name && p2.place === dry.place && p2.place === '@mac/demo2-' + p2.name && !p2.problem,
+    `add 2 the live plan: ${p2.name} on ${p2.place}, as --dry-run says (${dry.name}, ${dry.place})`);
+  check(await evaluate(`document.querySelector('[data-aw-name]').placeholder === ${JSON.stringify(dry.name || '?')} && !document.querySelector('[data-aw-add]').disabled`),
+    'add 2 the name\'s placeholder is the plan\'s next name; Add and start enabled');
+  await awPick('[data-aw-col="vm"]');
+  check(await evaluate(`!document.querySelector('.aw-size-row').hidden && state.aw.plan.isolation === 'vm' && state.aw.plan.sandbox === 'demo2-' + state.aw.plan.name`),
+    'add 2 micro VM: CPUs and memory shown, the plan a sandbox of its own');
+  await awPick('[data-aw-col="unfenced"]');
+  check(await evaluate(`!document.querySelector('.aw-tick').hidden && document.querySelector('[data-aw-add]').disabled && state.aw.plan.actsAsYou === true`)
+    && /It acts as you: your files, Keychain and network/.test(await evaluate(text('.aw-tick'))),
+    'add 2 unfenced: the tick "It acts as you: your files, Keychain and network", Add disabled until it is ticked');
+  await awPick('[data-aw-col="fenced"]');
+  check(await evaluate(`document.querySelector('.aw-tick').hidden && !document.querySelector('[data-aw-add]').disabled`), 'add 2 back to fenced: no tick, Add enabled');
+  // 3. A bot live elsewhere is greyed with the sentence; a taken name's refusal beside the name; nothing changes.
+  const wb = doz(['bot', 'new', 'wally', '--agent', 'claude-code']);
+  const wr = doz(['worker', 'add', 'wiz1', '--from-bot', 'wally', '--task', 'wait in wiz1']);
+  const wally = (dozJSON(['bot', 'ls']) || { bots: [] }).bots.find((b) => b.name === 'wally');
+  if (wr.status === 0) startedWorkers.push(['wiz1', 'wally']);
+  await goHash('#/w/demo2/agents');
+  await goHash('#/w/demo2/agents/new');
+  await waitFor(`state.view === 'addworker' && ${AW_PLANNED}`, 15000);
+  const before = JSON.stringify(workerLs('demo2'));
+  const greyed = wr.status === 0 && await waitFor(`(() => { const o = document.querySelector('[data-aw-bot] option[value="wally"]'); return !!o && o.disabled && /wally already works in wiz1, which is running\. For now a bot runs in one live workspace at a time/.test(o.dataset.why || ''); })()`, 8000);
+  const seen = greyed ? '' : ` — bot new ${wb.status}, worker add ${wr.status} ${(wr.stderr || '').trim().split('\n').pop() || ''}, doz bot ls: worksIn ${wally?.worksIn ?? '?'}, `
+    + `the page: ${await evaluate(`(() => { const o = document.querySelector('[data-aw-bot] option[value="wally"]'); return o ? 'disabled ' + o.disabled + ', why ' + (o.dataset.why || '-') : 'no option (bots read: ' + (state.bots?.bots || []).map((b) => b.name + ':' + (b.worksIn || '-')).join(' ') + ')'; })()`)}`;
+  check(greyed, 'add 3 a bot live in another workspace (wally works in wiz1) is greyed with the sentence' + seen);
+  await awType('[data-aw-task]', 'List the files of the walk.');
+  await awType('[data-aw-name]', 'mira');
+  const refusal = dozJSON(['worker', 'add', 'demo2', 'mira', '--task', 'x', '--dry-run']) || {};
+  check(await waitFor(`state.aw.plan.problem?.field === 'name' && !document.querySelector('[data-aw-problem="name"]').hidden && document.querySelector('[data-aw-add]').disabled`, 8000)
+    && (await evaluate(text('[data-aw-problem="name"]'))) === (refusal.problem?.text || '?'), `add 3 a taken name: the add's sentence beside the name (${refusal.problem?.text}), Add disabled`);
+  check(JSON.stringify(workerLs('demo2')) === before, 'add 3 …doz worker ls demo2 unchanged');
+  await awType('[data-aw-name]', '');
+  // 4. Show the command is --dry-run's.
+  await evaluate(`document.querySelector('[data-aw-show-command]').click()`);
+  const shown = await evaluate(`document.querySelector('[data-aw-command] [data-cmd]')?.dataset.cmd`);
+  const dry4 = dozJSON(['worker', 'add', 'demo2', '--task', 'List the files of the walk.', '--dry-run']) || {};
+  check(shown && shown === dry4.command, `add 4 Show the command is doz worker add … --dry-run's (${shown})`);
+  // 5. Add and start: in the panel, in chat who, and its "is up" line.
+  const name = await evaluate(`state.aw.plan.name`);
+  await evaluate(`document.querySelector('[data-aw-add]').click()`);
+  check(await waitFor(`location.hash === '#/w/demo2' && state.view === 'workspace'`, 60000), `add 5 Add and start → #/w/demo2`);
+  startedWorkers.push(['demo2', name]);
+  const row = workerLs('demo2').find((a) => a.name === name);
+  check(row && row.role === 'worker' && row.isolation === 'fenced' && row.task === 'List the files of the walk.', `add 5 doz worker ls: ${name}, fenced, its task`);
+  await goHash('#/w/demo2/agents/new');
+  await waitFor(`state.view === 'addworker' && !!document.querySelector('[data-row="control"] td[data-col="fenced"]')`, 10000);
+  const cell = await evaluate(text('[data-row="control"] td[data-col="fenced"]'));
+  check(row && cell === row.control, `add 1 the table's control words are worker ls's (${cell})`);
+  await goHash('#/w/demo2');
+  check(await waitFor(`!!document.querySelector('#ws [data-ws-agent=${JSON.stringify(name)}]')`, 20000), `add 5 ${name} in the side panel`);
+  let who = null;
+  for (let i = 0; i < 20 && !(who && JSON.stringify(who).includes('"' + name + '"')); i++) { who = dozJSON(['chat', 'who']); await sleep(300); }
+  check(JSON.stringify(who || {}).includes('"' + name + '"'), `add 5 doz chat who lists ${name}`);
+  let up = false;
+  for (let i = 0; i < 100 && !up; i++) { up = chatLines('demo2').some((m) => m.from === name && String(m.content || '').startsWith(name + ' is up: You are ' + name)); if (!up) await sleep(300); }
+  check(up, `add 5 "${name} is up" — the fenced FAKE claude read its START and said so in the room`);
+  // 6. End… with its tick.
+  await goHash('#/w/demo2/agents');
+  await waitFor(`!!document.querySelector('[data-agent-row=${JSON.stringify(name)}]')`, 10000);
+  await menuPick('More for ' + name, 'End…');
+  await tick();
+  check(await submitDialog(), `add 6 End… ${name}, ticked`);
+  let ended = false;
+  for (let i = 0; i < 30 && !ended; i++) { ended = workerLs('demo2').find((a) => a.name === name)?.state === 'ended'; if (!ended) await sleep(300); }
+  check(ended, `add 6 doz worker ls --all: ${name} ended`);
+  if (ended) startedWorkers.splice(startedWorkers.findIndex(([w, n]) => w === 'demo2' && n === name), 1);
+  // 7. An isolation chip opens the guide at that choice; four cards in order.
+  await goHash('#/w/demo2/agents');
+  await waitFor(`!!document.querySelector('[data-agent-row="beta"] a[data-iso-guide]')`, 10000);
+  await evaluate(`document.querySelector('[data-agent-row="beta"] a[data-iso-guide]').click()`);
+  check(await waitFor(`location.hash === '#/guide/isolation/vm' && state.view === 'guide' && !!document.querySelector('[data-iso-card="vm"].is-current')`, 10000),
+    'add 7 beta\'s "micro VM" chip opens #/guide/isolation/vm, its card highlighted');
+  const order = await evaluate(`[...document.querySelectorAll('[data-iso-card]')].map((c) => c.dataset.isoCard).join(' ')`);
+  check(order === 'vm fenced unfenced elsewhere', `add 7 four cards, in order of isolation (${order})`);
+  check(/Not isolated by Dozable/.test(await evaluate(text('[data-iso-card="elsewhere"]'))) && /keys never go inside/.test(await evaluate(text('.iso-keys'))),
+    'add 7 elsewhere "not isolated by Dozable"; keys never go inside');
+  for (const id of ['fenced', 'unfenced', 'elsewhere']) {
+    await goHash('#/guide/isolation/' + id);
+    check(await waitFor(`!!document.querySelector('[data-iso-card=${JSON.stringify(id)}].is-current') && document.querySelectorAll('.iso-card.is-current').length === 1`, 8000), `add 7 #/guide/isolation/${id} highlights its card`);
+  }
+  await goHash('#/bots');
+  await waitFor(`!!document.querySelector('[data-bot="mira"] a[data-iso-guide="fenced"]')`, 10000);
+  check(await evaluate(`document.querySelector('[data-bot="mira"] a[data-iso-guide]').getAttribute('href') === '#/guide/isolation/fenced'`), 'add 7 Agents / Bots\' chips lead to the guide too');
+  // 8. Another computer: 403 for worker-add, worker-end and the plan route — ServeHTTPTests' (this dashboard has no LAN side).
+  check(true, 'add 8 another computer\'s 403 for the three is ServeHTTPTests.testWorkersAreThisMacsBrowserOnlyWhateverTheServeSettings\'');
+  // 9. At 390 px the guide's cards stack, and the page has no sideways scroll.
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await goHash('#/guide/isolation');
+  await waitFor(`state.view === 'guide' && !!document.querySelector('[data-iso-card="fenced"]')`, 8000);
+  await sleep(300);
+  const stack = await evaluate(`(() => { const a = document.querySelector('[data-iso-card="vm"]').getBoundingClientRect(), b = document.querySelector('[data-iso-card="fenced"]').getBoundingClientRect();
+    return { below: b.top >= a.bottom - 1, w: document.documentElement.scrollWidth }; })()`);
+  await shot('guide-390');
+  check(stack.below && stack.w <= 390, `add 9 at 390 px the guide's cards stack, no sideways scroll (${stack.w} px)`);
+  await goHash('#/w/demo2/agents/new');
+  await waitFor(`state.view === 'addworker' && ${AW_PLANNED}`, 10000);
+  await sleep(300);
+  const narrow = await evaluate(`document.documentElement.scrollWidth`);
+  await shot('add-worker-390');
+  check(narrow <= 390, `add 9 at 390 px Add a worker has no sideways scroll (${narrow} px; the table scrolls in its box)`);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await goHash('#/w/demo2/agents/new');
+  await shot('add-worker-light');
+  await goHash('#/guide/isolation/fenced');
+  await shot('guide-light');
+  check(pageErrors.length === errorsBefore, 'add: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+}
+
 let failed = false;
 try {
   console.log('dashboard-walk: a scratch store at ' + S);
@@ -1042,6 +1205,7 @@ try {
   await walkAgents();
   await walkBots();
   await walkNewWorkspace();
+  await walkAddWorker();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
@@ -1053,8 +1217,13 @@ try {
   await goHash('#/new-workspace');
   check(await waitFor(`state.modal === 'new-workspace' && !!state.wsn?.plan && !state.wsn.planError`, 15000), 'wizard 14 with the daemon stopped, the wizard opens and the plan answers');
   await wizClose();
+  // 10. Add a worker with the daemon stopped: the page opens, the plan answers, nothing starts.
+  await goHash('#/w/demo2/agents/new');
+  check(await waitFor(`state.view === 'addworker' && !!state.aw?.plan && !state.aw.planError`, 15000), 'add 10 with the daemon stopped, Add a worker opens and the plan answers');
+  await awType('[data-aw-task]', 'List the files with no daemon.');
+  check(await evaluate(`!state.aw.plan.problem && (state.aw.plan.notes || []).some((n) => /checked again when you add/.test(n))`), 'add 10 …saying what is checked again when you add');
   await sleep(4000);
-  check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents, Agents / Bots, a workspace\'s agents and its page starts none');
+  check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents, Agents / Bots, a workspace\'s agents, its page and Add a worker starts none');
   check(await evaluate(`!!document.querySelector('[data-ws="demo"]')`) || (await goHash('#/home'), await waitFor(`!!document.querySelector('[data-ws="demo"]')`, 8000)),
     'Home still lists demo with no daemon (answered from the store)');
 
@@ -1068,6 +1237,7 @@ try {
 } finally {
   try { chrome && chrome.kill('SIGKILL'); } catch (_) { /* gone */ }
   if (macSession) spawnSync(DOZ, ['sessions', 'end', '@mac', macSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
+  for (const [w, n] of startedWorkers) spawnSync(DOZ, ['worker', 'end', w, n, '--store', STORE], { env: ENV, timeout: 60_000 });
   try { ui && process.kill(-ui.pid, 'SIGTERM'); } catch (_) { /* gone */ }
   if (uiB) spawnSync(DOZ, ['ui', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });
   spawnSync(DOZ, ['daemon', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });

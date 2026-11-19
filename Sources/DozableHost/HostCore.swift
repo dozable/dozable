@@ -881,7 +881,7 @@ public actor HostCore {
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)
-        case .workerAdd, .workerList, .workerEnd:
+        case .workerAdd, .workerList, .workerEnd, .workerPlan:
             return try await performWorker(r)
         case .macsList:
             return try JSONValue(encoding: try MacBookmarkStore(store: store).listing())

@@ -1,6 +1,7 @@
 import Foundation
 import JavaScriptCore
 import XCTest
+import DozableHost
 @testable import DozableWeb
 
 /// 607 — the page script as native ES modules (`WebSource/app.js` + `WebSource/app/<layer>/*.js`): what ships
@@ -208,6 +209,125 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(wiz.contains("new AbortController()"), "the latest plan wins")
         XCTAssertTrue(wiz.contains("sessionStorage"), "its choices kept for the trip to the bot editor")
         XCTAssertFalse(wiz.lowercased().contains("'draft") || wiz.contains("as draft"), "the state is setting up")
+    }
+
+    /// The isolation guide: its modules served; both addresses parse (and nothing else under #/guide/); core/isolation.js is
+    /// pure, lists the four choices in order of isolation, and its control words are exactly `doz worker ls`'s
+    /// (WorkerLaunch.control); every view that draws an isolation chip draws it through components/iso-chip.js, which links
+    /// to the guide at that choice.
+    func testTheIsolationGuide() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let a = try WebAssets.load()
+        for m in ["views/isolation-guide", "core/isolation", "components/iso-chip"] {
+            XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
+        }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        ctx.evaluateScript(try read("app/core/routes.js").replacingOccurrences(of: "export ", with: ""))
+        let pure = try read("app/core/isolation.js")
+        XCTAssertTrue(Self.specifiers(pure).isEmpty, "core/isolation.js is pure: it imports nothing")
+        ctx.evaluateScript(pure.replacingOccurrences(of: "export ", with: ""))
+        XCTAssertNil(thrown, thrown ?? "")
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("[parse('#/guide/isolation').view, parse('#/guide/isolation').param]"), #"["guide",null]"#)
+        for id in ["vm", "fenced", "unfenced", "elsewhere"] {
+            XCTAssertEqual(js("parse('#/guide/isolation/\(id)').param"), "\"\(id)\"")
+            XCTAssertEqual(js("guideHash('\(id)')"), "\"#/guide/isolation/\(id)\"")
+            XCTAssertEqual(js("canonical('#/guide/isolation/\(id)')"), "\"#/guide/isolation/\(id)\"")
+        }
+        XCTAssertEqual(js("parse('#/guide/isolation/cloud')"), "null")
+        XCTAssertEqual(js("parse('#/guide')"), "null")
+        XCTAssertEqual(js("ISOLATIONS.map((x) => x.id)"), #"["vm","fenced","unfenced","elsewhere"]"#, "in order of isolation")
+        XCTAssertEqual(js("GUIDE_ISOLATIONS"), js("ISOLATIONS.map((x) => x.id)"))
+        for iso in ["vm", "fenced", "unfenced"] {
+            XCTAssertEqual(js("isolationById('\(iso)').control"), "\"\(WorkerLaunch.control(isolation: iso))\"", "\(iso): worker ls's words")
+        }
+        XCTAssertEqual(js("[isolationIdOf('micro VM'), isolationIdOf('fenced'), isolationIdOf('on this Mac')]"), #"["vm","fenced",null]"#)
+        XCTAssertEqual(js("isolationById('unfenced').rows.manager"), #""✕ always asks you""#)
+        XCTAssertEqual(js("CLOUD.later"), "true")
+        let guide = try read("app/views/isolation-guide.js")
+        XCTAssertTrue(pure.contains("not isolated by Dozable") && guide.contains("Not isolated by Dozable."), "elsewhere named honestly")
+        // Every chip builder: no module but the chip's own (and the guide's heading) builds a `ws-iso` chip by hand.
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 }
+        for f in files where !["app/components/iso-chip.js", "app/views/isolation-guide.js"].contains(f) {
+            XCTAssertFalse(try read(f).contains("'ws-iso ws-iso-"), "\(f) draws an isolation chip by hand — use isolationChip")
+        }
+        for f in ["app/components/agent-frame.js", "app/components/ws-panel.js", "app/views/bot.js"] {
+            XCTAssertTrue(try read(f).contains("isolationChip("), "\(f) draws its chips through isolationChip")
+        }
+        let chip = try read("app/components/iso-chip.js")
+        XCTAssertTrue(chip.contains("href: guideHash(id)"), "the chip links to the guide at its choice")
+        XCTAssertEqual(try read("app.js").components(separatedBy: "viewIsolationGuide").count - 1, 2, "imported and provided")
+    }
+
+    /// Add a worker: its modules served; the address parses; core/add-worker.js is pure and builds exactly the request
+    /// `doz worker add` takes (only what differs from its defaults; unfenced never from a default; the tools only for a
+    /// fenced Claude Code worker of its own place); the pages send exactly `worker-add` (the page) and `worker-end` (End…),
+    /// nothing else sends a worker action; the page asks the plan route, the latest answer winning, and confirms unfenced.
+    func testTheAddWorkerPage() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let a = try WebAssets.load()
+        for m in ["views/add-worker", "core/add-worker", "components/worker-end"] {
+            XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
+        }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        ctx.evaluateScript(try read("app/core/routes.js").replacingOccurrences(of: "export ", with: ""))
+        let pure = try read("app/core/add-worker.js")
+        XCTAssertTrue(Self.specifiers(pure).isEmpty, "core/add-worker.js is pure: it imports nothing")
+        ctx.evaluateScript(pure.replacingOccurrences(of: "export ", with: ""))
+        XCTAssertNil(thrown, thrown ?? "")
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("[parse('#/w/demo/agents/new').view, parse('#/w/demo/agents/new').param]"), #"["addworker","demo"]"#)
+        XCTAssertEqual(js("addWorkerHash('demo')"), ##""#/w/demo/agents/new""##)
+        XCTAssertEqual(js("parse('#/w/demo/agents').tab"), #""agents""#, "the Agents tab is unchanged")
+        XCTAssertEqual(js("parse('#/w/Demo/agents/new')"), "null")
+        XCTAssertEqual(js("[defaultColumn(null, null), defaultColumn('vm', null), defaultColumn(null, 'vm'), defaultColumn('unfenced', 'unfenced')]"),
+                       #"["fenced","vm","vm","fenced"]"#, "never unfenced from a default")
+        let base = "{workspace:'w', task:'list the files', who:'anon', agent:'claude-code', place:'own', column:'fenced', picked:false, rooms:[], tools:[]"
+        XCTAssertEqual(js("workerRequestFrom(" + base + "})"), #"{"workspace":"w","task":"list the files"}"#, "the CLI's defaults are not sent")
+        XCTAssertEqual(js("workerRequestFrom(" + base + ", name:' carl ', agent:'codex', column:'vm', picked:true, cpus:'4', memory:'4G', rooms:['review']})"),
+                       #"{"workspace":"w","task":"list the files","name":"carl","agent":"codex","isolation":"vm","cpus":4,"memory":"4G","rooms":["review"]}"#)
+        XCTAssertEqual(js("workerRequestFrom(" + base + ", who:'bot', bot:'otto', name:'x', agent:'codex'})"), #"{"workspace":"w","task":"list the files","fromBot":"otto"}"#)
+        XCTAssertEqual(js("workerRequestFrom(" + base + ", place:'wsa', column:'unfenced', picked:true, cpus:'2'})"), #"{"workspace":"w","task":"list the files","sandbox":"wsa"}"#)
+        XCTAssertEqual(js("workerRequestFrom(" + base + ", tools:['Edit', 'Bash(dozchat:*)']})"), #"{"workspace":"w","task":"list the files","allowTools":["Edit"]}"#)
+        XCTAssertEqual(js("workerRequestFrom(" + base + ", tools:['Edit'], column:'vm'})"), #"{"workspace":"w","task":"list the files"}"#, "tools only fenced")
+        XCTAssertEqual(js("['task','name','fromBot','sandbox','isolation','cpus','memory','allowTools','rooms','agent','workspace'].map(fieldSlot)"),
+                       #"["task","name","who","in","where","size","size","tools","rooms","agent","top"]"#)
+        XCTAssertEqual(js("[fits({workspace:'w', task:'x'.repeat(15360)}), fits({workspace:'w', task:'x'.repeat(15361)}), utf8Length('é🎬')]"), "[true,false,6]")
+        XCTAssertEqual(js("FIXED_TOOLS"), #"["Bash(dozchat:*)"]"#)
+        XCTAssertEqual(js("FIXED_TOOLS"), "[\"" + WorkerLaunch.defaultAllowedTools.joined(separator: "\",\"") + "\"]", "the default allow-list, one constant")
+        XCTAssertEqual(js("UNFENCED_TICK"), #""It acts as you: your files, Keychain and network""#)
+        // What the pages send: the page exactly worker-add, End… exactly worker-end; nothing else a worker action.
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+        let action = try NSRegularExpression(pattern: #"action: '(worker-[a-z]+)'"#)
+        func sent(_ f: String) throws -> Set<String> {
+            let t = try read(f)
+            return Set(action.matches(in: t, range: NSRange(t.startIndex..., in: t)).map { (t as NSString).substring(with: $0.range(at: 1)) })
+        }
+        XCTAssertEqual(try sent("app/views/add-worker.js"), ["worker-add"])
+        XCTAssertEqual(try sent("app/components/worker-end.js"), ["worker-end"])
+        // (core/add-worker.js only measures the body it would be: `fits`.)
+        for f in files where !["app/views/add-worker.js", "app/components/worker-end.js", "app/core/add-worker.js"].contains(f) {
+            XCTAssertEqual(try sent(f), [], "\(f) sends a worker action")
+        }
+        let page = try read("app/views/add-worker.js")
+        XCTAssertTrue(page.contains("api('worker-plan'"), "the plan route")
+        XCTAssertTrue(page.contains("new AbortController()"), "the latest plan wins")
+        XCTAssertTrue(page.contains("const PLAN_WAIT_MS = 300;"), "debounced 300 ms")
+        XCTAssertTrue(page.contains("if (aw.f.place === 'own' && aw.f.column === 'unfenced') body.confirm = 'unfenced';"), "unfenced confirmed, only unfenced")
+        XCTAssertTrue(page.contains("isolationChip(c.chip)"), "every column heading is a chip to the guide")
+        XCTAssertFalse(page.contains("localStorage") || page.contains("sessionStorage"), "nothing kept in the browser")
+        for f in ["app/views/ws-agents.js", "app/components/ws-panel.js"] {
+            XCTAssertTrue(try read(f).contains("addWorkerLink("), "\(f): + Add a worker opens the page")
+        }
+        XCTAssertFalse(try read("app/views/ws-agents.js").contains("End: copy the command"), "End is the action now")
     }
 
     func testEveryModuleIsServedHashedAndImportedOnlyFromItsOwnLayerOrBelow() throws {

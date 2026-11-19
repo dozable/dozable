@@ -984,6 +984,9 @@ public final class DozableWebServer: @unchecked Sendable {
                 try WebWorkspaceNew.fill(&w)
                 return json(try operations.start(.workspaceNew(w, fromProject: false), priority: !request.batch), status: 202)
             }
+            // A worker added or ended: this Mac's own browser only, whatever the serve settings (a participant and a token
+            // made or revoked, a program started — maybe an unfenced one acting as you).
+            if request.action.isWorker, let r = WebExposure.decideWorkerAction(ctx.principal) { throw r }
             // An Agent / Bot changed: this Mac's own browser only, whatever the serve settings (a token made, replaced or revoked).
             if request.action.isBot, let r = WebExposure.decideBotAction(ctx.principal) { throw r }
             return json(try operations.start(request.action, priority: !request.batch), status: 202)
@@ -1071,6 +1074,13 @@ public final class DozableWebServer: @unchecked Sendable {
             var plan = WebWorkspacePlan(try await data.workspacePlan(w), project: project)
             if let refused { plan.refusals.insert(refused, at: 0) }
             return json(plan)
+        case .workerPlan:
+            // CSRF-checked (an unsafe method), the Mac's own browser only (WebExposure: mac-screen), the workspace by its rule
+            // and the action's fields strictly, before any call; exactly one read-only HostOp — nothing written, no daemon
+            // started.
+            try Self.requireJSONBody(md)
+            let q = try WebWorkerAdd.decodePlan(body)
+            return json(WebWorkerPlan(try await data.workerPlan(q), taskInFile: WorkerAddCommand.taskInFile(q)))
         case .macSessionPlan:
             // 683 M5: CSRF-checked (an unsafe method, above), the Mac's own browser only (WebExposure: mac-screen), a strict
             // body; the command is built on the Mac from the enums. `open: true` only for an Open-in-Terminal shape.

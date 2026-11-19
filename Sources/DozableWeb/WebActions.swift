@@ -102,7 +102,7 @@ public enum WebAction: Equatable, Sendable {
     /// HostOp `workspace-edit` with only the name, the brief and `ifBrief`: never its references, folders, manager or
     /// room). `ifBrief` is the sha256 the page read: a brief changed since is refused, nothing written. After the start
     /// the daemon announces it in the main room as you. Another computer only with `serve.chat = write`
-    /// (`WebExposure.decideWorkspaceAction`). The ONE workspace action: no start, stop, worker or bot from the browser.
+    /// (`WebExposure.decideWorkspaceAction`). The one workspace action another computer may have (with `serve.chat = write`).
     case workspaceBrief(workspace: String, brief: String, ifBrief: String)
     /// Filing a loose agent — this Mac's own browser only (`isFiling`, `WebExposure.decideFilingAction`), whatever the serve
     /// settings: what a workspace holds decides what it (and later its manager) may reach. Each is exactly the CLI's:
@@ -134,6 +134,13 @@ public enum WebAction: Equatable, Sendable {
     case botAdopt(BotRequest)
     /// `doz bot token NAME --new` for a held bot (confirmed: the old one is refused at once).
     case botToken(name: String)
+    /// A workspace's worker — this Mac's own browser only (`isWorker`, `WebExposure.decideWorkerAction`), whatever the serve
+    /// settings: an add makes a participant and a token and starts a program (maybe unfenced, acting as you); an end revokes
+    /// one. Each is exactly the CLI's HostOp. `doz worker add W [NAME] --task "…" […]` — an unfenced one only with `confirm`
+    /// = `unfenced` (the person ticked "It acts as you"); never preselected by the page;
+    case workerAdd(WorkerRequest)
+    /// `doz worker end W NAME` (confirmed with its name; never `--rm` from a browser).
+    case workerEnd(workspace: String, name: String)
 
     public static let lifecycleOps: [String: HostOp] = [
         "start": .start, "wake": .wake, "pause": .pause, "resume": .resume, "sleep": .sleep, "hibernate": .hibernate,
@@ -156,7 +163,8 @@ public enum WebAction: Equatable, Sendable {
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall,
              .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges,   // this Mac is no sandbox
              .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart,   // nor is a workspace
-             .botNew, .botSet, .botRetire, .botAdopt, .botToken:                          // nor is a bot
+             .botNew, .botSet, .botRetire, .botAdopt, .botToken,                          // nor is a bot
+             .workerAdd, .workerEnd:                                                      // nor a worker (its place is the daemon's)
             return nil
         }
     }
@@ -186,6 +194,11 @@ public enum WebAction: Equatable, Sendable {
         switch self { case .botNew, .botSet, .botRetire, .botAdopt, .botToken: true; default: false }
     }
 
+    /// A worker added or ended: this Mac's own browser only (`WebExposure.decideWorkerAction`).
+    public var isWorker: Bool {
+        switch self { case .workerAdd, .workerEnd: true; default: false }
+    }
+
     /// Destructive actions carry `confirm`, which must equal this (the page fills it only from a
     /// name the person typed).
     public var confirmationTarget: String? {
@@ -200,6 +213,9 @@ public enum WebAction: Equatable, Sendable {
         // A bot retired, adopted (its token replaced) or given a new token: the name, ticked in the page's dialog.
         case .botRetire(let n), .botToken(let n): n
         case .botAdopt(let b): b.name
+        // A worker ended: its name, ticked. An unfenced worker added: the word `unfenced` — it acts as you, ticked.
+        case .workerEnd(_, let n): n
+        case .workerAdd(let q) where q.isolation == "unfenced": WebWorkerAdd.unfencedConfirmation
         default: nil
         }
     }
@@ -214,6 +230,10 @@ public enum WebAction: Equatable, Sendable {
             // Filing names its agent: two agents put in one workspace at once are two operations.
             let agent = r.workspaceRequest?.agent ?? r.workspaceRequest?.adopt?.joined(separator: ",") ?? ""
             return [r.op.rawValue, "workspace:" + w, agent].joined(separator: "|")
+        }
+        // A worker's: its workspace and its name (or its bot's) — two workers added at once are two operations.
+        if let q = r.workerRequest {
+            return [r.op.rawValue, "workspace:" + (q.workspace ?? ""), "worker:" + (q.name ?? q.fromBot ?? "")].joined(separator: "|")
         }
         // A bot's request leaves `name` empty: its own key, so two bots changed at once are two operations.
         if let b = r.botRequest?.name { return [r.op.rawValue, "bot:" + b].joined(separator: "|") }
@@ -256,6 +276,8 @@ public enum WebAction: Equatable, Sendable {
         case .botRetire(let n): return "retire \(n)"
         case .botAdopt(let b): return "make \(b.name ?? "?") an Agent / Bot"
         case .botToken(let n): return "a new token for \(n)"
+        case .workerAdd(let q): return "add \(q.name ?? q.fromBot ?? "a worker") to \(q.workspace ?? "?")"
+        case .workerEnd(let w, let n): return "end \(n) in \(w)"
         default: break
         }
         let r = hostRequest
@@ -493,6 +515,16 @@ public enum WebAction: Equatable, Sendable {
         case .botRetire(let n): return Self.botRequest(.botRetire, BotRequest(name: n))
         case .botAdopt(let b): return Self.botRequest(.botAdopt, b)
         case .botToken(let n): return Self.botRequest(.botToken, BotRequest(name: n))
+        case .workerAdd(let q):
+            // What `doz worker add …` sends.
+            var r = HostRequest(.workerAdd)
+            r.workerRequest = q
+            return r
+        case .workerEnd(let w, let n):
+            // What `doz worker end W NAME` sends (never --rm from a browser).
+            var r = HostRequest(.workerEnd)
+            r.workerRequest = WorkerRequest(workspace: w, name: n)
+            return r
         }
     }
 
@@ -570,6 +602,8 @@ public enum WebAction: Equatable, Sendable {
             "bot-retire": ["name", "confirm"],
             "bot-adopt": ["name", "agent", "model", "isolation", "deliver", "confirm"],
             "bot-token": ["name", "confirm"],
+            "worker-add": WebWorkerAdd.fields,
+            "worker-end": ["workspace", "name", "confirm"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -827,12 +861,21 @@ public enum WebAction: Equatable, Sendable {
             a = .botAdopt(b)
         case "bot-token":
             a = .botToken(name: try f.botName("name"))
+        case "worker-add":
+            a = .workerAdd(try WebWorkerAdd.decode(f, forPlan: false))
+        case "worker-end":
+            a = .workerEnd(workspace: try f.workspaceName("workspace"), name: try f.botName("name"))
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }
             a = .lifecycle(op, name: try f.sandbox("sandbox"))
         }
         if let target = a.confirmationTarget {
-            guard let c = d["confirm"] as? String, c == target else { throw Invalid("\(verb) is destructive: confirm it (the name)") }
+            guard let c = d["confirm"] as? String, c == target else {
+                if case .workerAdd = a { throw Invalid("worker-add: an unfenced worker acts as you — confirm it (confirm: unfenced)") }
+                throw Invalid("\(verb) is destructive: confirm it (the name)")
+            }
+        } else if case .workerAdd = a, d["confirm"] != nil, !(d["confirm"] is NSNull) {
+            throw Invalid("confirm goes with an unfenced worker only")
         }
         return Request(action: a, batch: batch)
     }

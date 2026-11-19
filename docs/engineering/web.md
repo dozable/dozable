@@ -13,7 +13,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | `WebSource/app/dom/` | `h.js` (`h`, `$` — text only), `icons.js` (`icon`, `iconFor`, `withIcon`, `setButton`, the glyph maps) |
 | `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `routes.js` (the addresses: `parse`, `canonical`, `LEGACY`, `MAC_RESERVED`, `placeHash` — pure), `router.js` (`route`, `routePage`, `refresh`), `workspaces.js` (the workspace, loose and bot reads, shared and never on a timer), `ws-log.js` (a workspace's log in a room: the pure `interleave`), `events.js` (SSE `connect`), `grid.js` + `vt-grid.js` (648: the GRID, its checks, a saved screen's VT read into one) |
 | `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`; a link item), `mac-picker.js` (the machine picker), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `notes.js` (647: the notifications in the top-right corner — cards, pills, bell), `page-title.js` (647: the sticky title bar and table heads), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `ws-nav.js` (the sidebar's Workspaces), `ws-marks.js` (a workspace's state pill and dot, the driver and manager chips), `ws-brief.js` (a workspace's brief card), `ws-panel.js` (its side panel and each sender's meta line), `agent-frame.js` (an agent's screen: the frame, "In this workspace", a place's own page's strip), `put-in-workspace.js` ("Put in a workspace…", "Take out…"), `bot-form.js` (an Agent / Bot's edit tabs and a new one's form), `bot-invite.js` ("Add to a room…": `/invite` as you), `cmd-line.js` (a command with Copy), `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `screen-paint.js` + `grid-feed.js` + `session-thumb.js` (648: the painted pictures, the one feed, their sources), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
-| `WebSource/app/views/` | one per page: `home` (the workspaces), `new-workspace` (the New workspace wizard, `#/new-workspace`; its pure parts in `core/ws-new.js`, the gaps in `components/ws-gaps.js`; the server side `Sources/DozableWeb/WebWorkspaceNew.swift`), `workspace` (a workspace's page, `#/w/NAME`), `ws-agents` (its Agents tab, `#/w/NAME/agents`, and an agent's card), `bot` (one Agent / Bot, `#/bots/NAME[/TAB]`, and `#/bots/~new`), `this-mac` (This Mac's overview), `macs` (This Mac › Your Macs), `loose` (Loose agents), `bots` (Agents / Bots), `overview` (This Mac › Sandboxes), `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
+| `WebSource/app/views/` | one per page: `home` (the workspaces), `new-workspace` (the New workspace wizard, `#/new-workspace`; its pure parts in `core/ws-new.js`, the gaps in `components/ws-gaps.js`; the server side `Sources/DozableWeb/WebWorkspaceNew.swift`), `workspace` (a workspace's page, `#/w/NAME`), `ws-agents` (its Agents tab, `#/w/NAME/agents`, and an agent's card), `add-worker` (Add a worker, `#/w/NAME/agents/new`; its pure parts in `core/add-worker.js`, End… and the links in `components/worker-end.js`; the server side `Sources/DozableWeb/WebWorkers.swift`), `isolation-guide` (where an agent runs, `#/guide/isolation[/ID]`; its words `core/isolation.js`, the chip `components/iso-chip.js`), `bot` (one Agent / Bot, `#/bots/NAME[/TAB]`, and `#/bots/~new`), `this-mac` (This Mac's overview), `macs` (This Mac › Your Macs), `loose` (Loose agents), `bots` (Agents / Bots), `overview` (This Mac › Sandboxes), `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the daemon attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Sources/DozableWeb/WebMac.swift`; `WebSource/app/views/mac.js`, `mac-capabilities.js`, `mac-wizard.js`, `app/core/places.js` | This Mac (`@mac`, the sessions held on the Mac itself — fenced or not): the projection (its fence, its capability rows, the tile's chips), the ticket's strict body, the grids rule, the Network / Conversations / quarantine answers, the New session wizard's plan (carrying `buildCommands` for the Swift / Xcode case — `MacBuildCommands`, the one source the wizard's "Inside the session" block, `doz run @mac --xcode --dry-run` and the fence suite share); the page (`#/mac`) and All sessions' section; "What this session can do"; the wizard; the place → route helper (`placePath`, `screenPath`) every ticket, socket and saved screen goes through (the page is This Mac › On this Mac, `#/mac/here`) |
@@ -468,8 +468,8 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   After the start the daemon announces it in the main room as you. Another computer: `WebExposure.decideWorkspaceAction`
   — only with `serve.chat = write` (off → 403 `brief-remote`, read → `chat-read-only`), one `change` audit line (the
   action's word, never the brief). `WebActionTests` pins it: the `workspace-*`/`worker-*` HostOps that are actions are
-  `workspace-edit` (through `workspace-brief`), the three filing HostOps and `workspace-start` (the wizard's, "The New
-  workspace wizard" below); no stop, rename or worker for any browser. The `bot-*` actions are the five of "Agents / Bots
+  `workspace-edit` (through `workspace-brief`), the three filing HostOps, `workspace-start` (the wizard's, "The New
+  workspace wizard" below) and `worker-add` / `worker-end` ("Adding a worker" below); no stop or rename for any browser. The `bot-*` actions are the five of "Agents / Bots
   in the dashboard", below.
 - **Projections** (`WebModels`: `WebWorkspaceListing`, `WebWorkspaceRow`, `WebWorkspaceManager`, `WebLooseAgent`,
   `WebWorkspaceDetail` — the brief's size and its references' count, never its text or hash —, `WebWorkspaceAgent` with
@@ -526,7 +526,7 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   "Dozable" for what doz did — and the CLI's sentence.
 - **The side panel**: Agents (its heading links to the Agents tab; state dot, name — its screen, `#/w/NAME/agent/AGENT` —, role, the isolation chip
   `micro VM | fenced | unfenced | elsewhere`, "acts as you", a worker's task and `control`); every worker under the main
-  room; how many this browser was not shown; **+ Worker** → `doz worker add W --task "…"` to copy; In this room (the moved
+  room; how many this browser was not shown; **+ Worker** → Add a worker (another computer: the command); In this room (the moved
   people pane); Folders (path · rw/ro · main); Network (the preset, else locked).
 - **Reads**: on arrival `GET /api/v1/workspaces/{w}` (detail: `startedAt`, `network`, each agent's `control`),
   `/workspaces/{w}/brief`, `/workspaces/{w}/log`, `/bots`; on `hello`, `changed` and an operation's end the detail, the
@@ -564,10 +564,10 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   you" for an unfenced one), state and activity, task ("runs the workspace", or "adopted"), uses · control (a VM's CPUs and
   RAM from the sandbox list when it was read; the `control` line; "not run by Dozable · token only" elsewhere), started by ·
   when, Watch / Open and ⋯ (`agentMenuItems`: its screen; Open in Terminal — a sandbox's; a session's `doz attach @mac S` to
-  copy —; Restart — `session-restart` / `mac-session-restart`, the server deciding by `serve.mac_sessions` as today —; End,
-  a live worker's command to copy; Take out of the workspace… and Move to another workspace… — Take out, then Put in: two
+  copy —; Restart — `session-restart` / `mac-session-restart`, the server deciding by `serve.mac_sessions` as today —; End…,
+  a live worker's `worker-end` (`components/worker-end.js`); Take out of the workspace… and Move to another workspace… — Take out, then Put in: two
   dialogs —, disabled with the CLI's command for a live worker or a running manager). A greyed `aria-disabled` "☁ a cloud
-  worker" row last; List | Grid with Grid disabled "coming"; "+ Add a worker" shows `doz worker add W --task "…"`; "N on this
+  worker" row last; List | Grid with Grid disabled "coming"; "+ Add a worker" opens `#/w/NAME/agents/new`; "N on this
   Mac not shown to this browser" while `serve.mac_sessions` is off. Below 760 px each row is a card.
 - **An agent's screen** (`#/w/NAME/agent/AGENT[/SESSION|~home]` → view `wsagent` `{param, agent, session}`): the router
   (`enterAgent`) reads the workspace's detail, finds the agent and sets **`state.frame`** `{workspace, agent, kind, place,
@@ -690,6 +690,71 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   intact and the new bot chosen; 11 `?bot=mira` chooses her; 13 at 390 px the steps' choices stack; 14 with the daemon
   stopped the wizard opens and the plan answers, no daemon starts. Another computer's 403 (12) is `ServeHTTPTests`' (the
   walk's dashboard has no LAN side).
+
+## Adding a worker
+
+- **The address** `#/w/NAME/agents/new` (`core/routes.js` → view `addworker`, `addWorkerHash`) — a page, not a modal. Entry
+  points: the Agents tab's **+ Add a worker**, the side panel's **+ Worker** (`addWorkerLink`), an agent's screen's ⋯ (**Add
+  a worker…**, `frameBar`'s menu). `views/add-worker.js` (`viewAddWorker`) builds it ONCE per visit (`state.aw`; a refresh
+  while it is on screen returns null, so typing is never redrawn away); its pure parts are `core/add-worker.js`
+  (`workerRequestFrom` — only what differs from the CLI's defaults is sent —, `defaultColumn`, `fieldSlot`, `fits`; run in
+  JavaScriptCore by `WebModulesTests.testTheAddWorkerPage`).
+- **The fields → `doz worker add`'s** (the mockups' S12): the agent (Claude Code, Codex; Grok Build, OpenCode and a local
+  model greyed "not yet as a worker"; hidden "from a bot") → `agent`; the name (placeholder the plan's next `botN`) → `name`;
+  the account, read only, from the plan (a name; "this Mac's own login" for `mac`; unfenced "yours — it acts as you"); its
+  one task → `task` (≤ 15 KiB, the body ≤ 16 KiB — beyond it Add is off and the command, with the task in `task.txt`, is
+  offered); the rooms (the main one checked and disabled) → `rooms`; who — anonymous (recommended) or from a bot, the
+  non-retired bots that run here, one live in another workspace greyed with the one-live sentence → `fromBot`; in — a place
+  of its own, or a new session in a running sandbox of the workspace's adopted agents and workers (never the manager's),
+  "shares X: workers there can read each other's placeholders" → `sandbox`; **where it runs** — the comparison table
+  (`core/isolation.js`'s `COMPARE_ROWS`: place, your files, network, keys, control it gets — `worker ls`'s words —, cost, Mac
+  tools, sleeps with programs kept, approval prompts, manager may choose it; columns micro VM, fenced, unfenced and cloud
+  drawn disabled "later"), each heading `isolationChip` linking to the guide → `isolation` (sent only when the person picked
+  a column); fenced chosen unless the workspace's (`workerIsolation`) or the bot's default is vm; **unfenced never chosen for
+  you**, and it needs the tick "It acts as you: your files, Keychain and network" (the action's `confirm: "unfenced"`);
+  CPUs and memory for a micro VM of its own → `cpus`, `memory`; More: the allowed tools (fenced Claude Code only;
+  `Bash(dozchat:*)` fixed) → `allowTools`, and its folder, network, place and control read from the plan.
+- **The plan route** `POST /api/v1/worker-plan` (`WebRoute.workerPlan`, no payload — the workspace is in the body): CSRF, the
+  action's fields but `confirm`, strictly (`WebWorkerAdd.decodePlan`; the workspace by its rule, 400 before any call; the
+  task and the name may be empty while the person types), then exactly ONE read-only HostOp, `worker-plan` — in-process
+  with no daemon; nothing written, no daemon started. Kind **`mac-screen`**. The answer `WebWorkerPlan` field by field (+
+  `taskInFile`; never a token). The page asks it on each change, debounced 300 ms, the latest wins (`AbortController`);
+  the refusal is shown beside its field (`fieldSlot`: the problem's `field`), Add and start off meanwhile.
+- **The two actions** (`WebWorkerAdd.decode`, `WebAction.workerAdd` / `workerEnd`): `worker-add` — every field the CLI takes,
+  by its rules (`ChatNames`, the sandbox and session rules, 1–64 CPUs, a size, ≤ 8 rooms, ≤ 16 tools of 1–200 characters not
+  starting with `-`); `isolation: unfenced` only with `confirm: "unfenced"`, `confirm` only then — and `worker-end`
+  `{workspace, name, confirm = name}` (never `--rm`). Dedupe per workspace and worker. Both this Mac's own browser only
+  (`isWorker`, `WebExposure.decideWorkerAction` → 403 `mac-only`, `WebRejection.macOnlyWorkers`). **Show the command** is
+  the plan's `command` — exactly what `doz worker add … --dry-run` prints. **Add and start** sends `worker-add`, waits for its
+  operation and opens `#/w/NAME` with a note (the operation's line: name, isolation, place). **End…** (the Agents tab's ⋯, an
+  agent's screen's ⋯) is a dialog with a box to tick.
+- **Another computer** sees the page's address as a notice with the command, and + Add a worker, + Worker and End… disabled,
+  titled "Only from this Mac's own browser", with the command.
+- **Tests**: `WebActionTests.testTheWorkerActions`, `ServeExposureTests.testWorkersAreThisMacsOnly`,
+  `ServeHTTPTests.testWorkersAreThisMacsBrowserOnlyWhateverTheServeSettings`, `WebHTTPIntegrationTests.testTheWorkerPlanRoute`
+  (200/400/405/401), `WebModulesTests.testTheAddWorkerPage`; `make dashboard-walk`'s add rows (below).
+- **The walk** (`make dashboard-walk`, after the wizard, chat on, the FAKE claude first on `DOZ_TEST_MAC_PATH` — it reads
+  START, says "NAME is up" with dozchat, sleeps —, a scratch `DOZ_TEST_FENCE_HOME`, `mac.account none`): 1 the page from the
+  Agents tab, four columns, cloud disabled, fenced preselected, the control row equal to `worker ls --json`'s; 2 the live plan
+  (name and place as `--dry-run`'s), micro VM shows CPUs and memory, unfenced needs the tick (never added); 3 a bot live in
+  another workspace greyed with the sentence, a taken name's refusal beside the name, `worker ls` unchanged; 4 Show the
+  command equals `--dry-run`'s; 5 Add and start a fenced FAKE: in the panel, in `chat who`, its "is up" line; 6 End… ticked,
+  ended; 7 a chip opens the guide at its card, four cards in order; 8 another computer's 403 is `ServeHTTPTests`'; 9 at
+  390 px the guide's cards stack and the page has no sideways scroll; 10 with the daemon stopped the page opens, the plan
+  answers ("checked again when you add") and no daemon starts.
+
+## The isolation guide
+
+- **The address** `#/guide/isolation[/vm|fenced|unfenced|elsewhere]` (view `guide`, `guideHash`; `GUIDE_ISOLATIONS`) —
+  `views/isolation-guide.js` (`viewIsolationGuide`): static, no route, no HostOp, the same for every browser. Four cards in
+  order of isolation (`core/isolation.js`'s `ISOLATIONS` — ONE module of words, read by the guide and Add a worker's table;
+  pure, its `control` equal to `WorkerLaunch.control`, a test holds them), each with a diagram drawn with boxes (`.iso-fig`),
+  what it is, For, Not for (elsewhere: "Not isolated by Dozable."), today's commands as `cmdLine`s; the closing callout: keys
+  never go inside. The card the address names is highlighted (`.is-current`) and scrolled to.
+- **Every isolation chip links here**: `components/iso-chip.js` (`isolationChip`) is THE chip — `agentChips` (an agent's
+  screen, the Agents tab), the side panel, Agents / Bots (`isolationChips`), Add a worker's headings; a word that names no
+  choice ("on this Mac") stays a plain chip. `WebModulesTests.testTheIsolationGuide` refuses a `ws-iso` chip built by hand
+  anywhere else.
 
 ## Agents / Bots in the dashboard
 

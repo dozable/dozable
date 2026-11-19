@@ -8,7 +8,8 @@
 // #/mac/here[/SESSION] (the sessions on this Mac), #/mac/sessions, #/mac/sandboxes, #/mac/loose, #/mac/macs (Your Macs), #/mac/templates[/browse |
 // /V/P], #/mac/images, accounts, resources, devices, doctor, settings, debug, #/mac/logs/<operations|activity|notifications|
 // metrics> · the modals #/new (New sandbox), #/new-workspace[?bot=NAME] (New workspace, its manager chosen), #/onboarding,
-// #/try[/AGENT].
+// #/try[/AGENT] · #/guide/isolation[/vm|fenced|unfenced|elsewhere] (where an agent runs: the four choices, one highlighted) ·
+// #/w/NAME/agents/new (Add a worker — a page of its own, this Mac's own browser's).
 
 /// The words after #/mac/ that name a page of This Mac (a session on this Mac named like one loses its old deep link).
 export const MAC_RESERVED = ['here', 'sessions', 'sandboxes', 'loose', 'templates', 'images', 'accounts', 'resources', 'devices', 'logs',
@@ -35,6 +36,8 @@ const SESSION = '[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}';
 const BOT = '[a-z][a-z0-9-]{0,39}';
 /// A bot screen's tabs after "Across workspaces" (its own address, #/bots/NAME): the edit tabs, then Roles & ceiling.
 export const BOT_TABS = ['identity', 'runs', 'reached', 'instructions', 'account', 'roles'];
+/// The isolation guide's choices, in order of isolation (core/isolation.js has their words).
+export const GUIDE_ISOLATIONS = ['vm', 'fenced', 'unfenced', 'elsewhere'];
 
 /// Every old address and where it leads now: [pattern, replacement] — the replacement a string (`$1` the first group) or
 /// a function of the match. The only place an old address is written.
@@ -97,6 +100,8 @@ export function parse(hash) {
   if ((m = /^#\/chat(?:\/([a-z0-9][a-z0-9_-]{0,63}))?$/.exec(hash))) return r('chat', { param: m[1] });
   if ((m = new RegExp('^#/w/(' + WORKSPACE + ')(?:/room/(' + ROOM_LABEL + '))?$').exec(hash))) return r('workspace', { param: m[1], room: m[2] });
   if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/agents$').exec(hash))) return r('workspace', { param: m[1], tab: 'agents' });
+  if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/agents/new$').exec(hash))) return r('addworker', { param: m[1] });
+  if ((m = new RegExp('^#/guide/isolation(?:/(' + GUIDE_ISOLATIONS.join('|') + '))?$').exec(hash))) return r('guide', { param: m[1] });
   if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/agent/(' + AGENT + ')(?:/(~home|' + SESSION + '))?$').exec(hash)) && m[3] !== 'can-do') {
     return r('wsagent', { param: m[1], agent: m[2], session: m[3] });
   }
@@ -112,6 +117,10 @@ export function parse(hash) {
 export function workspaceHash(name, label) { return '#/w/' + name + (label ? '/room/' + label : ''); }
 /// An Agent / Bot's screen (`tab`: one of BOT_TABS; none: Across workspaces), or `~new` for a new one.
 export function botHash(name, tab) { return '#/bots/' + name + (tab ? '/' + tab : ''); }
+/// The isolation guide, at one choice (`id`: vm, fenced, unfenced, elsewhere; none: the top).
+export function guideHash(id) { return '#/guide/isolation' + (id ? '/' + id : ''); }
+/// A workspace's Add a worker page.
+export function addWorkerHash(name) { return '#/w/' + name + '/agents/new'; }
 /// A workspace's Agents tab.
 export function agentsHash(name) { return '#/w/' + name + '/agents'; }
 /// An agent's screen in its workspace (`session`: a session of its sandbox, or `~home`).

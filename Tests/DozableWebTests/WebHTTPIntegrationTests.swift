@@ -310,6 +310,36 @@ final class WebHTTPIntegrationTests: XCTestCase {
         XCTAssertEqual(fake.macsCalls, 1, "a refused method reads nothing")
     }
 
+    /// The Add a worker page's plan route: the session required (401), the body strict before any call (400: the workspace
+    /// missing or off its rule, an unknown field, a token-shaped field, `confirm`, a value off its rule), a POST only (PUT 405),
+    /// one read-only call (200), the answer field by field — the account by name, no token.
+    func testTheWorkerPlanRoute() async throws {
+        try await start()
+        let (cookie, csrf) = try signIn()
+        let h = ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"]
+        let path = "/api/v1/worker-plan"
+        XCTAssertEqual(try get(path, ["Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"], method: "POST", body: #"{"workspace":"demo"}"#).status, 401)
+        for body in [#"{"task":"x"}"#, #"{"workspace":"-bad","task":"x"}"#, #"{"workspace":"demo","task":"x","token":"dzc_x"}"#,
+                     #"{"workspace":"demo","task":"x","confirm":"unfenced"}"#, #"{"workspace":"demo","task":"x","isolation":"elsewhere"}"#,
+                     #"{"workspace":"demo","task":"x","cpus":0}"#, "[]"] {
+            XCTAssertEqual(try get(path, h, method: "POST", body: body).status, 400, body)
+        }
+        XCTAssertEqual(try get(path, ["Cookie": cookie], method: "PUT").status, 405)
+        XCTAssertEqual(fake.workspaceCalls.filter { $0.hasPrefix("worker-plan") }, [], "no call for a refused request")
+        let r = try get(path, h, method: "POST", body: #"{"workspace":"demo","task":"list the files","isolation":"vm","cpus":2,"memory":"2G"}"#)
+        XCTAssertEqual(r.status, 200, r.text)
+        let p = try JSONDecoder().decode(WebWorkerPlan.self, from: r.body)
+        XCTAssertEqual(p.name, "bot1")
+        XCTAssertEqual(p.isolation, "vm")
+        XCTAssertEqual(p.account, "mac")
+        XCTAssertEqual(p.command, "doz worker add demo --task 'list the files' --isolation vm --cpus 2 --memory 2G")
+        XCTAssertFalse(p.taskInFile)
+        XCTAssertFalse(r.text.contains("token") || r.text.contains("secret"), r.text)
+        let empty = try JSONDecoder().decode(WebWorkerPlan.self, from: try get(path, h, method: "POST", body: #"{"workspace":"demo","task":"","name":""}"#).body)
+        XCTAssertEqual(empty.problem?.field, "task", "a page being typed in: the daemon's refusal beside its field")
+        XCTAssertEqual(fake.workspaceCalls.filter { $0.hasPrefix("worker-plan") }, ["worker-plan demo -", "worker-plan demo -"])
+    }
+
     func testHostErrorsAreTypedAndEveryViewAnswers() async throws {
         try await start()
         let (cookie, _) = try signIn()
@@ -728,6 +758,21 @@ final class FakeData: DozableWebData, @unchecked Sendable {
                                briefText: "the brief's text", folders: [], rooms: [WorkspaceRoom(label: "demo", chatRoom: "demo", main: true)],
                                agents: [WorkspaceAgentRow(name: "wsa", role: "worker", place: "wsa", state: "off", startedAt: t)],
                                defaults: WorkspaceDefaults(), flags: WorkspaceFlags(), origin: WorkspaceOrigin(), notes: ["doz workspace start demo"])
+    }
+    /// The Add a worker page's plan: the task's refusal when it is empty, else bot1, fenced; the command from the request.
+    func workerPlan(_ q: WorkerRequest) async throws -> WorkerPlan {
+        lock.withLock { _workspaceCalls.append("worker-plan \(q.workspace ?? "") \(q.name ?? "-")") }
+        var p = WorkerPlan(workspace: q.workspace ?? "", command: WorkerAddCommand.text(q))
+        if (q.task ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            p.problem = WorkerPlanProblem(field: "task", text: "what is it to do? --task \"…\"", code: "invalid")
+        } else {
+            p.name = q.name ?? "bot1"
+            p.isolation = q.isolation ?? "fenced"
+            p.account = p.isolation == "unfenced" ? nil : "mac"
+            p.control = WorkerLaunch.control(isolation: p.isolation)
+            p.rooms = [q.workspace ?? ""]
+        }
+        return p
     }
     /// The New workspace wizard's plan: one gap (the brief) when it is empty, the request's name echoed back.
     func workspacePlan(_ w: WorkspaceRequest) async throws -> WorkspacePlan {

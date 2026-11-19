@@ -52,7 +52,8 @@ struct WorkerAdd: AsyncParsableCommand {
         prompt says to read; it says in the room that it is up. Dozable posts nothing there. Fenced on this Mac unless you \
         say otherwise; its network is the workspace's default, else locked; it reaches only the chat server's page port of \
         this Mac, and opens no URL and copies to no clipboard. Refused while the workspace is setting up — doz workspace start \
-        W first. Example: doz worker add demo --task "list the files"
+        W first. --dry-run shows what it would be — its name, place, control and network, or what would be refused — and \
+        the command, adding nothing and starting no daemon. Example: doz worker add demo --task "list the files"
         """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The workspace.") var workspace: String
@@ -69,8 +70,10 @@ struct WorkerAdd: AsyncParsableCommand {
     @Option(name: .customLong("room"), help: "Also invite it to this room of the workspace, by its label (repeatable).") var rooms: [String] = []
     @Option(name: .customLong("allow-tool"), help: "One more tool a fenced Claude Code worker may use without asking, like Edit (repeatable).")
     var allowTools: [String] = []
+    @Flag(name: .customLong("dry-run"), help: "Show what would be added, or what would be refused, and the command; add nothing.") var dryRun = false
 
-    func run() async throws {
+    /// The request this command sends.
+    func request() -> WorkerRequest {
         var q = WorkerRequest(workspace: workspace, name: name)
         q.task = task
         q.agent = agent
@@ -82,6 +85,17 @@ struct WorkerAdd: AsyncParsableCommand {
         q.fromBot = fromBot
         q.rooms = rooms.isEmpty ? nil : rooms
         q.allowTools = allowTools.isEmpty ? nil : allowTools
+        return q
+    }
+
+    func run() async throws {
+        let q = request()
+        if dryRun {
+            let plan = try decode(try await query(workerRequest(.workerPlan, q), g), WorkerPlan.self, g)
+            if g.json { Out.json(plan) } else { Out.stdout(Self.planText(plan)) }
+            if let p = plan.problem { throw ExitCode(DozableExit.code(for: HostError(HostError.Code(rawValue: p.code) ?? .failed, ""))) }
+            return
+        }
         let a = try decode(try call(workerRequest(.workerAdd, q), g), WorkerAdded.self, g)
         if g.json { Out.json(a); return }
         let w = a.worker
@@ -89,6 +103,15 @@ struct WorkerAdd: AsyncParsableCommand {
         Out.stdout("added \(w.name) to \(a.workspace) (\(w.actsAsYou == true ? "unfenced · acts as you" : w.isolation ?? "fenced")) \(place)\n"
                    + "  control  \(w.control)\n  network  \(w.network)\n  task     \(WorkerLaunch.shortTask(w.task ?? ""))\n"
                    + (a.notes ?? []).map { "note: \($0)\n" }.joined())
+    }
+
+    /// A dry run as a person reads it: the lines, what would be refused, the notes, then the command exactly.
+    static func planText(_ p: WorkerPlan) -> String {
+        var s = p.lines.map { "  " + $0 + "\n" }.joined()
+        if let x = p.problem { s += (s.isEmpty ? "" : "\n") + "It cannot be added: \(x.text)\n" }
+        for n in p.notes { s += "note: \(n)\n" }
+        s += "\nThe command:\n" + p.command + "\n"
+        return s
     }
 }
 
