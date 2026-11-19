@@ -9,6 +9,7 @@ import { byState, forgetWorkspaces, isDone, loadWorkspace } from '../core/worksp
 import { workspaceDot } from './ws-marks.js';
 
 const KEY = 'doz.nav.ws';
+let lastSig = '';
 function openSet() {
   try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return new Set(Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []); } catch (_) { return new Set(); }
 }
@@ -28,6 +29,11 @@ export function renderNavWorkspaces(opts = {}) {
   const f = box.contains(document.activeElement) ? focusKey(document.activeElement) : null;
   forgetWorkspaces(all.map((w) => w.name));
   const open = openSet();
+  // Drawn again only when what it shows changed (a redraw is a style recalculation for the whole sidebar).
+  const sig = JSON.stringify([all, [...open].sort(), [...state.wsDetails.entries()].filter(([n]) => open.has(n)),
+    !state.modal && state.view === 'chat' ? state.param : null]);
+  if (sig === lastSig && box.childElementCount) { if (!opts.details) for (const w of all) if (open.has(w.name)) readDetail(w.name, 0); return; }
+  lastSig = sig;
   const sorted = byState(all);
   const live = sorted.filter((w) => w.state !== 'asleep' && !isDone(w));
   const asleep = sorted.filter((w) => w.state === 'asleep');

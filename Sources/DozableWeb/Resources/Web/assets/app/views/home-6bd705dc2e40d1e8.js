@@ -17,9 +17,9 @@ import { panel } from '../components/blocks-6b2d43608253a84f.js';
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { cmdLine } from '../components/cmd-line-ea2a216eb159e21c.js';
-import { paintWorkspaceCounts } from '../components/nav-a9ff0e27ba2fc951.js';
+import { paintWorkspaceCounts } from '../components/nav-5f2c01708a60e509.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks-16479f7b77b97bee.js';
-import { renderNavWorkspaces } from '../components/ws-nav-62fb6ed39611cd71.js';
+import { renderNavWorkspaces } from '../components/ws-nav-20e64eca506a287f.js';
 
 /// The owner's definition, word for word (user text: a workspace is defined this way wherever it is defined).
 export const WORKSPACE_DEFINITION = 'A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up.';

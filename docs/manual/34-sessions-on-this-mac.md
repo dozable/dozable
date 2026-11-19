@@ -383,8 +383,9 @@ fenced or not.
 
 ## In the dashboard
 
-`doz ui` has a **This Mac** page (in the sidebar, under All sessions — tagged with how many run with **no isolation**,
-when any do; `#/mac`), and All sessions ends with a This Mac section. Each session is a tile with its picture, what its
+`doz ui` has an **On this Mac** page (in the sidebar under **This Mac**, after Sandboxes — tagged with how many run with
+**no isolation**, when any do; `#/mac/here`, a session's own `#/mac/here/SESSION`), and **This Mac › Sessions** ends with an
+On this Mac section. A session that is an agent of a workspace is also under that workspace in the sidebar. Each session is a tile with its picture, what its
 agent is doing, its folder and its chips — **Fenced**, **Fenced (Xcode)**, **Guard rail (Simulator)**, **Keychain
 open**, **Shared config**, **GitHub: push**, or **No isolation** — and marks for news: network waiting for a daemon,
 refusals seen, **Stopped: git config**. A session whose own command line bypasses its permissions says **permissions

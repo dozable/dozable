@@ -49,8 +49,9 @@ export async function refreshNavWorkspaces() {
 }
 export function paintWorkspaceCounts() {
   const b = $('nav-bots-count'), l = $('nav-loose-count');
-  if (b) b.textContent = state.bots && state.bots.bots.length ? String(state.bots.bots.length) : '';
-  if (l) l.textContent = state.workspaces && state.workspaces.loose.length ? String(state.workspaces.loose.length) : '';
+  const set = (el, t) => { if (el && el.textContent !== t) el.textContent = t; };
+  set(b, state.bots && state.bots.bots.length ? String(state.bots.bots.length) : '');
+  set(l, state.workspaces && state.workspaces.loose.length ? String(state.workspaces.loose.length) : '');
 }
 /// 641 (owner, D3): Accounts & keys' badge — how many problems break a sandbox's next session (the page's Needs you
 /// lines that name one). From the last accounts list and overview; nothing is fetched here.

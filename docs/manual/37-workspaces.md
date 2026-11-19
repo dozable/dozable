@@ -8,7 +8,8 @@ A *project* is something else: a folder (usually a repository) with its sandbox 
 
 Nothing you already have moves by itself. Your sandboxes and your sessions on this Mac are **loose agents** until you
 adopt them into a workspace, and adopting one changes only the workspace's own record: the sandbox and the session stay
-exactly as they were. The dashboard does not show workspaces yet; this page is the command line.
+exactly as they were. The dashboard shows them (below, [In the dashboard](#in-the-dashboard)); everything that changes one
+is the command line.
 
 ## Making one
 
@@ -58,7 +59,21 @@ started, or a sandbox is booting),
 up.
 
 `doz ls --json` and `doz sessions NAME --json` (and `doz sessions @mac --json`) give each adopted sandbox or session a
-`workspace` field; a loose one has none.
+`workspace` field; a loose one has none. While the daemon runs, `doz workspace ls --json` also says who is working in each
+workspace (`working`) and `doz workspace show --json` what each agent's program is doing (`activity`: `working`, `idle`,
+`blocked` or `error`); `ls --json` lists each workspace's `folders`.
+
+### In the dashboard
+
+**Home** (the page `doz ui` opens on) lists every workspace — its state (waiting on you first), its folders, who drives
+it, its manager (an unfenced one says **acts as you**), who is working (for one waiting on you, why), its room and the
+room's last line while the chat server runs — with one next action: **Open room**, or for one still setting up what it
+lacks and `doz workspace start NAME` to copy. With none, Home says what a workspace is and how many sandboxes and
+sessions on this Mac are not in any workspace yet. In the sidebar, **Workspaces** lists them, each unfolding to its
+rooms and agents; **This Mac › Loose agents** lists the sandboxes and sessions in none, each with the
+`doz workspace adopt WORKSPACE NAME` that adopts it. The dashboard only shows workspaces: making, adopting, starting
+and stopping are the commands on this page. It reads them when it opens, when something changes and when an action
+ends — a workspace made from the command line shows there the next time the page reads them (open Home, or reload).
 
 ## Adopting and releasing agents
 

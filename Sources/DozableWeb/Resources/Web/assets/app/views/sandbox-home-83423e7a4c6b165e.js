@@ -21,8 +21,8 @@ import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../com
 import { thumbFrame } from '../components/session-thumb-cc752f4f563b4f6b.js';
 import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal-e87a1442b97eee9f.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-e14d1959566965cf.js';
-import { openSavedTerminal } from './sandbox-layout-8240ba61f5721e57.js';
-import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-5ebfec8304024f87.js';
+import { openSavedTerminal } from './sandbox-layout-cb630f174629426f.js';
+import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-f09fa540682eedff.js';
 
 /// Each sandbox's Home: its document and the parts that hold a picture (built once and painted in place), keyed by
 /// session.

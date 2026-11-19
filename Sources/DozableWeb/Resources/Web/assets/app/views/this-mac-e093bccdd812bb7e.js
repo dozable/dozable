@@ -9,7 +9,7 @@ import { plural } from '../core/format-b2e68384da8d2f36.js';
 import { state } from '../core/state-58b070d3f17c1c53.js';
 import { loadLoose } from '../core/workspaces-ad329f235e66b166.js';
 import { brokenCount } from '../components/account-problems-c568a10734e5fa81.js';
-import { hostAction } from '../components/host-3eabe51ca8215697.js';
+import { hostAction } from '../components/host-cda95f17682bb7cd.js';
 
 function row(href, glyph, title, line, extra) {
   const k = href ? h('a', { href, class: 'tm-k', 'data-thismac-link': href }, icon(glyph), h('span', null, title))

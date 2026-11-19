@@ -1,173 +1,173 @@
 {
  "note": "make css-perf --write-baseline: the median of the walks on this build; compared by make css-perf",
- "recorded": "2026-10-23",
- "recalcs": 43,
- "recalcMs": 416.79,
- "selectorMs": 19.18,
- "selectors": 932,
+ "recorded": "2026-11-19",
+ "recalcs": 67,
+ "recalcMs": 522.62,
+ "selectorMs": 23.23,
+ "selectors": 1085,
  "runs": 5,
- "chrome": "Chrome/155.0.8059.86",
- "ownSelectorMs": 12.71,
+ "chrome": "Chrome/157.0.8103.79",
+ "ownSelectorMs": 16.38,
  "top": [
   {
    "selector": "*",
-   "elapsedUs": 1184,
-   "attempts": 30081,
-   "matches": 29521,
+   "elapsedUs": 1165,
+   "attempts": 45710,
+   "matches": 45441,
    "fastRejects": 0,
-   "usPerAttempt": 0.03936
+   "usPerAttempt": 0.02549
   },
   {
    "selector": ":not(svg)",
-   "elapsedUs": 606,
-   "attempts": 15184,
-   "matches": 13804,
+   "elapsedUs": 617,
+   "attempts": 19942,
+   "matches": 17971,
    "fastRejects": 0,
-   "usPerAttempt": 0.039909999999999994
+   "usPerAttempt": 0.030940000000000002
   },
   {
    "selector": "div",
-   "elapsedUs": 481,
-   "attempts": 11544,
-   "matches": 11544,
+   "elapsedUs": 508,
+   "attempts": 18072,
+   "matches": 18072,
    "fastRejects": 0,
-   "usPerAttempt": 0.04167
+   "usPerAttempt": 0.02811
   },
   {
    "selector": "svg:not(:root)",
-   "elapsedUs": 347,
-   "attempts": 2760,
-   "matches": 2760,
+   "elapsedUs": 367,
+   "attempts": 3942,
+   "matches": 3942,
    "fastRejects": 0,
-   "usPerAttempt": 0.12572
+   "usPerAttempt": 0.09309999999999999
   },
   {
    "selector": ".wiz-bar.indeterminate > span",
-   "elapsedUs": 209,
-   "attempts": 7658,
+   "elapsedUs": 340,
+   "attempts": 16366,
    "matches": 0,
-   "fastRejects": 7658,
-   "usPerAttempt": 0.02729
-  },
-  {
-   "selector": ".brand > div",
-   "elapsedUs": 208,
-   "attempts": 7826,
-   "matches": 30,
-   "fastRejects": 7760,
-   "usPerAttempt": 0.02658
-  },
-  {
-   "selector": "button",
-   "elapsedUs": 185,
-   "attempts": 3244,
-   "matches": 3244,
-   "fastRejects": 0,
-   "usPerAttempt": 0.057030000000000004
+   "fastRejects": 16366,
+   "usPerAttempt": 0.02077
   },
   {
    "selector": "a:-webkit-any-link:read-write",
-   "elapsedUs": 179,
-   "attempts": 607,
+   "elapsedUs": 217,
+   "attempts": 1253,
    "matches": 0,
    "fastRejects": 0,
-   "usPerAttempt": 0.29489
-  },
-  {
-   "selector": ".ob-layers > div:first-child",
-   "elapsedUs": 170,
-   "attempts": 6553,
-   "matches": 0,
-   "fastRejects": 6553,
-   "usPerAttempt": 0.02594
-  },
-  {
-   "selector": ".ak-edit-done > div:not(.ak-result)",
-   "elapsedUs": 169,
-   "attempts": 6553,
-   "matches": 0,
-   "fastRejects": 6553,
-   "usPerAttempt": 0.02579
-  },
-  {
-   "selector": "input[type=\"checkbox\" i]",
-   "elapsedUs": 167,
-   "attempts": 4670,
-   "matches": 2545,
-   "fastRejects": 0,
-   "usPerAttempt": 0.03576
-  },
-  {
-   "selector": "input:disabled",
-   "elapsedUs": 162,
-   "attempts": 4236,
-   "matches": 20,
-   "fastRejects": 0,
-   "usPerAttempt": 0.03824
-  },
-  {
-   "selector": ".prep-output > div",
-   "elapsedUs": 162,
-   "attempts": 6553,
-   "matches": 0,
-   "fastRejects": 6553,
-   "usPerAttempt": 0.02472
-  },
-  {
-   "selector": ".ob-layers > div",
-   "elapsedUs": 162,
-   "attempts": 6553,
-   "matches": 0,
-   "fastRejects": 6553,
-   "usPerAttempt": 0.02472
-  },
-  {
-   "selector": ".ob-two > div",
-   "elapsedUs": 161,
-   "attempts": 6553,
-   "matches": 0,
-   "fastRejects": 6553,
-   "usPerAttempt": 0.02457
+   "usPerAttempt": 0.17318
   },
   {
    "selector": ".qt-mhead > div",
-   "elapsedUs": 149,
-   "attempts": 6553,
+   "elapsedUs": 187,
+   "attempts": 9028,
    "matches": 0,
-   "fastRejects": 6553,
-   "usPerAttempt": 0.02274
+   "fastRejects": 9028,
+   "usPerAttempt": 0.02071
   },
   {
-   "selector": "button:disabled",
-   "elapsedUs": 146,
-   "attempts": 1622,
-   "matches": 240,
-   "fastRejects": 0,
-   "usPerAttempt": 0.09001
+   "selector": ".prep-output > div",
+   "elapsedUs": 182,
+   "attempts": 9028,
+   "matches": 0,
+   "fastRejects": 9028,
+   "usPerAttempt": 0.02016
   },
   {
-   "selector": "input:where(:not([type]), [type=\"text\"], [type=\"number\"], [type=\"password\"], [type=\"search\"])",
-   "elapsedUs": 135,
-   "attempts": 1059,
-   "matches": 125,
-   "fastRejects": 0,
-   "usPerAttempt": 0.12748
+   "selector": ".ov-ws span",
+   "elapsedUs": 181,
+   "attempts": 8183,
+   "matches": 45,
+   "fastRejects": 8138,
+   "usPerAttempt": 0.02212
   },
   {
-   "selector": "symbol",
-   "elapsedUs": 130,
-   "attempts": 3240,
-   "matches": 3240,
-   "fastRejects": 0,
-   "usPerAttempt": 0.040119999999999996
+   "selector": ".ms-field > span",
+   "elapsedUs": 179,
+   "attempts": 8183,
+   "matches": 0,
+   "fastRejects": 8183,
+   "usPerAttempt": 0.02187
   },
   {
    "selector": ".hbar > span",
-   "elapsedUs": 127,
-   "attempts": 3829,
+   "elapsedUs": 178,
+   "attempts": 8183,
    "matches": 0,
-   "fastRejects": 3829,
-   "usPerAttempt": 0.033170000000000005
+   "fastRejects": 8183,
+   "usPerAttempt": 0.02175
+  },
+  {
+   "selector": "button",
+   "elapsedUs": 177,
+   "attempts": 4164,
+   "matches": 4164,
+   "fastRejects": 0,
+   "usPerAttempt": 0.04251
+  },
+  {
+   "selector": ".home-row .st > span:last-child",
+   "elapsedUs": 174,
+   "attempts": 8183,
+   "matches": 0,
+   "fastRejects": 8183,
+   "usPerAttempt": 0.02126
+  },
+  {
+   "selector": ".ak-edit-done > div:not(.ak-result)",
+   "elapsedUs": 173,
+   "attempts": 9028,
+   "matches": 0,
+   "fastRejects": 9028,
+   "usPerAttempt": 0.01916
+  },
+  {
+   "selector": ".ob-two > div",
+   "elapsedUs": 173,
+   "attempts": 9028,
+   "matches": 0,
+   "fastRejects": 9028,
+   "usPerAttempt": 0.01916
+  },
+  {
+   "selector": ".wb-pop.bad .wp-bar > span",
+   "elapsedUs": 172,
+   "attempts": 8183,
+   "matches": 0,
+   "fastRejects": 8183,
+   "usPerAttempt": 0.02102
+  },
+  {
+   "selector": ".ob-layers > div:first-child",
+   "elapsedUs": 171,
+   "attempts": 9028,
+   "matches": 0,
+   "fastRejects": 9028,
+   "usPerAttempt": 0.018940000000000002
+  },
+  {
+   "selector": ".ob-check span",
+   "elapsedUs": 170,
+   "attempts": 8183,
+   "matches": 0,
+   "fastRejects": 8183,
+   "usPerAttempt": 0.02077
+  },
+  {
+   "selector": ".home-row .nm > span:first-child",
+   "elapsedUs": 170,
+   "attempts": 8183,
+   "matches": 0,
+   "fastRejects": 8183,
+   "usPerAttempt": 0.02077
+  },
+  {
+   "selector": ".ob-layers > div",
+   "elapsedUs": 170,
+   "attempts": 9028,
+   "matches": 0,
+   "fastRejects": 9028,
+   "usPerAttempt": 0.01883
   }
  ]
 }

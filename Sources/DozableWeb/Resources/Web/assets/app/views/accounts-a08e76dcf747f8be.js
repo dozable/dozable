@@ -37,7 +37,7 @@ import { btn as baseBtn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { confirmAction } from '../components/dialog-e39f089eb330ea6e.js';
 import { moreMenu } from '../components/menus-f405ee3ec6f0c314.js';
-import { paintAccountsBadge } from '../components/nav-a9ff0e27ba2fc951.js';
+import { paintAccountsBadge } from '../components/nav-5f2c01708a60e509.js';
 import { toast } from '../components/notices-7303533c52b47043.js';
 
 /// The one button family, with data-* hooks for the probes (opts.data).

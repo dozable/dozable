@@ -6,7 +6,7 @@ import { showUpdate } from '../core/session-5cc86e4ed1d76e0d.js';
 import { saveSetting, setting } from '../core/settings-981f5f480bac2e7e.js';
 import { state } from '../core/state-58b070d3f17c1c53.js';
 import { btn } from '../components/button-8109d54546d946d3.js';
-import { hostChanged } from '../components/host-3eabe51ca8215697.js';
+import { hostChanged } from '../components/host-cda95f17682bb7cd.js';
 import { clearNotes, notesMode } from '../components/notes-590adcd4daaafd56.js';
 import { banner, dropPageNotice, failureFor, pageFailure, toast } from '../components/notices-7303533c52b47043.js';
 import { panel } from '../components/blocks-6b2d43608253a84f.js';

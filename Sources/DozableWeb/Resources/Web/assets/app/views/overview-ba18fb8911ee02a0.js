@@ -12,16 +12,16 @@ import { state } from '../core/state-58b070d3f17c1c53.js';
 import { card, meter, panel } from '../components/blocks-6b2d43608253a84f.js';
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { dialog } from '../components/dialog-e39f089eb330ea6e.js';
-import { hostCard } from '../components/host-3eabe51ca8215697.js';
+import { hostCard } from '../components/host-cda95f17682bb7cd.js';
 import { rowLifecycle } from '../components/lifecycle-b4085b06f598cc2e.js';
-import { inTabOrder, renderNavSandboxes, sessionGlyph } from '../components/nav-a9ff0e27ba2fc951.js';
+import { inTabOrder, renderNavSandboxes, sessionGlyph } from '../components/nav-5f2c01708a60e509.js';
 import { hoverPeek } from '../components/nav-peek-fd76bd2e8f848062.js';
 import { paintRowOps } from '../components/notices-7303533c52b47043.js';
 import { sandboxPill } from '../components/pills-bcf362d5b606c8e3.js';
 import { quickAddButton } from '../components/quick-add-47076a8cbb0f20f0.js';
 import { thumbFrame } from '../components/session-thumb-cc752f4f563b4f6b.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-135bf604c4ba560e.js';
-import { newSandboxWizard } from './new-sandbox-dfaf21b6b8214086.js';
+import { newSandboxWizard } from './new-sandbox-b3ca0eb34e02f71b.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refresh = upcall('refresh');
 

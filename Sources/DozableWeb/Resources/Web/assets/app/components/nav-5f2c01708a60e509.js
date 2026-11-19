@@ -12,7 +12,7 @@ import { agentChip, agentDot, paintAgentStatuses } from './agent-status-8cc57ff6
 import { moreMenu } from './menus-f405ee3ec6f0c314.js';
 import { canPeek, peekIcon, peekRegion } from './nav-peek-fd76bd2e8f848062.js';
 import { renameItem } from './rename-dialog-c04d96a5ef777190.js';
-import { renderNavWorkspaces } from './ws-nav-62fb6ed39611cd71.js';
+import { renderNavWorkspaces } from './ws-nav-20e64eca506a287f.js';
 import { loadBots, loadWorkspaces } from '../core/workspaces-ad329f235e66b166.js';
 import { sessionMenuItems } from './session-actions-502aea0bf9b4bdc0.js';
 import { isAux, pageTerminals } from '../core/terminals-e2028f16ee8fa887.js';
@@ -49,8 +49,9 @@ export async function refreshNavWorkspaces() {
 }
 export function paintWorkspaceCounts() {
   const b = $('nav-bots-count'), l = $('nav-loose-count');
-  if (b) b.textContent = state.bots && state.bots.bots.length ? String(state.bots.bots.length) : '';
-  if (l) l.textContent = state.workspaces && state.workspaces.loose.length ? String(state.workspaces.loose.length) : '';
+  const set = (el, t) => { if (el && el.textContent !== t) el.textContent = t; };
+  set(b, state.bots && state.bots.bots.length ? String(state.bots.bots.length) : '');
+  set(l, state.workspaces && state.workspaces.loose.length ? String(state.workspaces.loose.length) : '');
 }
 /// 641 (owner, D3): Accounts & keys' badge — how many problems break a sandbox's next session (the page's Needs you
 /// lines that name one). From the last accounts list and overview; nothing is fetched here.

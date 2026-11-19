@@ -9,7 +9,7 @@ import { state } from '../core/state-58b070d3f17c1c53.js';
 import { card } from './blocks-6b2d43608253a84f.js';
 import { btn } from './button-8109d54546d946d3.js';
 import { dialog } from './dialog-e39f089eb330ea6e.js';
-import { refreshNav } from './nav-a9ff0e27ba2fc951.js';
+import { refreshNav } from './nav-5f2c01708a60e509.js';
 import { banner, dropBanner, pageFailure, toast } from './notices-7303533c52b47043.js';
 
 function sandboxLinks(names) {
