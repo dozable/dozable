@@ -5,7 +5,7 @@
 //   · Home with no workspace: the definition of a workspace, and how many sandboxes are in none;
 //   · then `demo` (one sandbox adopted) and a bot: Home's row reads "setting up" and "you";
 //   · the sidebar's parts in order — Home, Needs you (hidden), Chat (hidden: chat is off), Agents / Bots, Workspaces,
-//     This Mac — and `demo` unfolding to its agent, which links to its sandbox;
+//     This Mac — and `demo` unfolding to its agent, which links to its screen in the workspace;
 //   · every old address lands on its canonical one and its view, with something on the page, no page error and no
 //     "could not be read"; every link of This Mac opens its page;
 //   · Loose agents and Agents / Bots list exactly what `doz workspace ls --loose --json` and `doz bot ls --json` do;
@@ -18,13 +18,22 @@
 //   · a workspace's page, with chat ON (its two ports the OS's choice, checked not live): `demo2` with a brief, a
 //     reference, a folder, the adopted never-booted sandbox `beta`, an unrelated room `other`, started (no manager: you
 //     drive — the brief is the kick-off). #/w/demo2 → view `workspace`, the brief open with its text; the tabs in the
-//     mockups' order, only Room enabled, "Permissions" from its constant; the kick-off bubble and a "started the work"
+//     mockups' order, Room and Agents enabled, "Permissions" from its constant; the kick-off bubble and a "started the work"
 //     line in time order; Edit → Save posts the announcement bubble, adds "edited the work", History shows one edit; the
 //     room strip lacks `other`, #/w/demo2/room/other opens the main room with the line saying so; #/chat still lists
 //     `other` and there is exactly one #chat-text; the side panel is `doz workspace show demo2 --json`; an unfenced manager
 //     (`demo3`) shows "acts as you"; the sidebar and Home lead to #/w/demo2; `interleave` against fixtures; at 390 px the
 //     panel folds below the room;
-//   · with the daemon stopped, opening Home, Sandboxes and a workspace's page starts none (no daemon.pid).
+//   · a workspace's agents, chat still on: #/w/demo2/agents lists exactly the agents of `doz workspace show demo2 --json`
+//     with their chips, the greyed cloud row and Grid disabled; demo3's unfenced manager reads "acts as you"; from Loose
+//     agents "Put in a workspace…" files gamma into demo (it leaves the loose list and joins demo's table; demo stays
+//     setting up; its log says "adopted gamma") and a new sandbox delta into a NEW workspace (its name prefilled; its room
+//     made; Home lists it); a harmless session on this Mac (/bin/sleep, unfenced, its holder deckhold-mac) filed into a
+//     workspace that is setting up turns it started with nothing posted; #/w/demo/agent/gamma opens the sandbox's page
+//     framed and a tab's switch keeps the #/w/ address; #/sandbox/gamma says "In demo"; "Take out…" makes gamma loose
+//     again; at 390 px the table is cards. (Another computer's 403 for the three filing actions is ServeHTTPTests': the
+//     walk's dashboard has no LAN side — its fixed port is a live one.)
+//   · with the daemon stopped, opening Home, Sandboxes, a workspace's page and its agents starts none (no daemon.pid).
 //
 // Self-contained: Node >= 22 (global WebSocket and fetch), no packages. Never the person's own Dozable or browser: the
 // store, the settings (XDG_CONFIG_HOME), the Chrome profile and the projects folder are under SCRATCH (default
@@ -38,6 +47,7 @@
 // SHOTS=DIR (optional, under /tmp) keeps pictures of a workspace's page (light, dark, 390 px) for a person to look at.
 // Run from the repository's root (make does).
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:net';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -70,8 +80,17 @@ const dozJSON = (args) => JSON.parse(doz([...args, '--json']).stdout || 'null');
 
 // ── the scratch store: three sandboxes (never started — no VM), chat off ─────────────────────────────────────────────
 const SANDBOXES = ['alpha', 'beta', 'gamma'];
+/// The scratch store's folder of sessions on this Mac (the user's temp folder, `dh-` and 8 hex of the store path's sha256 —
+/// MacPlace.socketDirectory): a session the walk ran leaves its exit record there, which the next run would list. Only
+/// this store's own folder is ever removed.
+function macSocketFolder() {
+  const tmp = spawnSync('getconf', ['DARWIN_USER_TEMP_DIR'], { encoding: 'utf8' }).stdout.trim().replace(/\/+$/, '');
+  return tmp ? tmp + '/dh-' + createHash('sha256').update(STORE).digest('hex').slice(0, 8) : null;
+}
+function clearMacSocketFolder() { const d = macSocketFolder(); if (d && d.includes('/dh-')) rmSync(d, { recursive: true, force: true }); }
 function stage() {
   rmSync(S, { recursive: true, force: true });
+  clearMacSocketFolder();
   for (const d of [STORE, XDG + '/doz', PROJECTS, S + '/codex-home', S + '/launch-agents', S + '/applications']) mkdirSync(d, { recursive: true });
   writeFileSync(XDG + '/doz/doz.toml', `[store]\npath = "${STORE}"\n\n[defaults]\nprojects_dir = "${PROJECTS}"\n\n[chat]\nenabled = false\n`);
   writeFileSync(S + '/no-gh', '#!/bin/sh\necho "not logged in" >&2\nexit 1\n', { mode: 0o755 });
@@ -353,7 +372,7 @@ async function walkWorkspacePage() {
   const tabs = await evaluate(`[...document.querySelectorAll('#ws [data-ws-tab]')].map((t) => ({ label: t.firstChild.textContent, off: t.getAttribute('aria-disabled') === 'true', coming: !!t.querySelector('.ws-coming') }))`);
   check(JSON.stringify(tabs.map((t) => t.label)) === JSON.stringify(['Room', 'Agents', 'Permissions', 'Network & secrets', 'Folders & points', 'Activity', 'Settings']),
     'the tabs in the mockups\' order (' + tabs.map((t) => t.label).join(' · ') + ')');
-  check(tabs.filter((t) => !t.off).map((t) => t.label).join() === 'Room' && tabs.slice(1).every((t) => t.coming), 'only Room works; the others are marked coming');
+  check(tabs.filter((t) => !t.off).map((t) => t.label).join() === 'Room,Agents' && tabs.slice(2).every((t) => t.coming), 'Room and Agents work; the others are marked coming');
   check(await evaluate(`PERMISSIONS_TAB === 'Permissions' && document.querySelector('#ws [data-ws-tab="permissions"]').firstChild.textContent === PERMISSIONS_TAB`),
     'the permissions tab reads "Permissions", from its one constant');
   check(await waitFor(`[...document.querySelectorAll('#chat-log .chat-row')].some((r) => /Walk the workspace page/.test(r.textContent))`, 20000), 'the kick-off bubble is in the room');
@@ -403,8 +422,8 @@ async function walkWorkspacePage() {
   const net = await evaluate(`document.querySelector('#ws-panel [data-ws-network]').dataset.wsNetwork`);
   check(JSON.stringify(agents) === JSON.stringify(show.agents.map((a) => a.name).sort()) && JSON.stringify(folders) === JSON.stringify(show.folders.map((f) => f.path))
     && net === (show.defaults.network || 'locked'), `the side panel is doz workspace show demo2 --json (${agents.join(', ')}; ${folders.length} folder; ${net})`);
-  check(await evaluate(`document.querySelector('#ws-panel [data-ws-agent="beta"]').dataset.iso === 'micro VM' && !!document.querySelector('#ws-panel [data-ws-agent="beta"] a[href="#/sandbox/beta/~home"]')`),
-    'beta: micro VM, linking to its sandbox');
+  check(await evaluate(`document.querySelector('#ws-panel [data-ws-agent="beta"]').dataset.iso === 'micro VM' && !!document.querySelector('#ws-panel [data-ws-agent="beta"] a[href="#/w/demo2/agent/beta"]')`),
+    'beta: micro VM, linking to its screen in the workspace');
   check(await evaluate(`!!document.querySelector('#ws-panel #chat-people-pane')`), '"In this room" is the room\'s own people list, in the panel');
   await goHash('#/w/demo3');
   check(await waitFor(`state.param === 'demo3' && /acts as you/.test(${text('#ws-panel [data-ws-agent="otto"]')}) && !!document.querySelector('#ws-head .acts-as-you')`, 10000),
@@ -435,6 +454,132 @@ async function walkWorkspacePage() {
   await shot('workspace-390');
   check(fold.panel >= fold.room - 1 && fold.w <= 390, `at 390 px the panel is below the room, no sideways scroll (${Math.round(fold.room)} → ${Math.round(fold.panel)}, ${fold.w} px)`);
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+}
+
+// ── a workspace's agents, filing, an agent's screen (chat on) ────────────────────────────────────────────────────────
+const SUBMIT = `document.querySelector('dialog.dlg[open] button[type=submit]')`;
+async function submitDialog() {
+  await waitFor(`!!${SUBMIT} && !${SUBMIT}.disabled`, 8000);
+  await evaluate(`${SUBMIT}.click()`);
+  return waitFor(`!document.querySelector('dialog.dlg[open]')`, 30000);
+}
+const looseNames = () => (dozJSON(['workspace', 'ls', '--loose']) || { loose: [] }).loose.map((a) => a.name);
+let macSession = null;
+async function walkAgents() {
+  // The Agents tab against the CLI.
+  const show = dozJSON(['workspace', 'show', 'demo2']);
+  await goHash('#/w/demo2/agents');
+  check(await waitFor(`state.view === 'workspace' && state.wsTab === 'agents' && !!document.querySelector('[data-agents-table="demo2"]') && ${SHOWN}`, 10000),
+    '#/w/demo2/agents → the Agents tab');
+  const rows = (await evaluate(`[...document.querySelectorAll('[data-agents-table="demo2"] tr[data-agent-row]')].map((r) => r.dataset.agentRow).filter(Boolean)`)).sort();
+  check(JSON.stringify(rows) === JSON.stringify(show.agents.map((a) => a.name).sort()), `…exactly the agents of doz workspace show demo2 --json (${rows.join(', ')})`);
+  check(await evaluate(`document.querySelector('[data-agent-row="beta"] [data-place]')?.dataset.place === 'this Mac' && document.querySelector('[data-agent-row="beta"] [data-iso]')?.dataset.iso === 'micro VM'`),
+    '…beta with its place and isolation chips (this Mac · micro VM)');
+  check(await evaluate(`(() => { const c = document.querySelector('tr[data-kind="cloud"]'); return !!c && c.getAttribute('aria-disabled') === 'true' && /cloud worker/.test(c.textContent); })()`),
+    '…the greyed cloud row, last');
+  check(await evaluate(`!!document.querySelector('[data-wsa-view="grid"][disabled]') && /coming/.test(document.querySelector('[data-wsa-view="grid"]').textContent)`), '…Grid drawn disabled, "coming"');
+  check(await evaluate(`document.querySelector('#ws [data-ws-tab="agents"]').getAttribute('aria-selected') === 'true' && document.querySelector('#ws .ws-body').hidden`),
+    '…the Agents tab selected, the room hidden');
+  await evaluate(`document.querySelector('[data-add-worker]').click()`);
+  check(await evaluate(`/doz worker add demo2 --task/.test(document.querySelector('.wsa-add').textContent) && !document.querySelector('.wsa-add').hidden`), '"+ Add a worker" shows the command');
+  await goHash('#/w/demo3/agents');
+  check(await waitFor(`!!document.querySelector('[data-agents-table="demo3"] [data-agent-row="otto"] .acts-as-you')`, 10000), 'an unfenced manager\'s row reads "acts as you"');
+
+  // Loose agents › Put in a workspace… → an existing workspace (demo): gamma.
+  await goHash('#/mac/loose');
+  await waitFor(`!!document.querySelector('[data-put-in="gamma"]')`, 10000);
+  await evaluate(`document.querySelector('[data-put-in="gamma"]').click()`);
+  check(await waitFor(`!!document.querySelector('dialog.dlg[open] [data-piw="gamma"]')`, 8000), 'Put in a workspace… opens its dialog for gamma');
+  check(await evaluate(`/Only the workspace’s record changes; gamma keeps running as it is/.test(document.querySelector('dialog.dlg[open]').textContent)`), '…with the plan line');
+  await evaluate(`(() => { const r = document.querySelector('[data-piw-ws="demo"]'); r.checked = true; r.dispatchEvent(new Event('change')); })()`);
+  check(await evaluate(`/doz workspace adopt demo gamma/.test(document.querySelector('dialog.dlg[open] .piw-cmd').textContent)`), '…its command: doz workspace adopt demo gamma');
+  check(await submitDialog(), '…Put in closes it');
+  check(await waitFor(`!document.querySelector('[data-loose="gamma"]')`, 15000) && !looseNames().includes('gamma'), 'gamma leaves the loose list (page and CLI)');
+  const demo = dozJSON(['workspace', 'show', 'demo']);
+  check(demo.agents.some((a) => a.name === 'gamma') && demo.state === 'setting-up', `gamma is in demo, which stays setting up (${demo.state}: gamma is not running)`);
+  await goHash('#/w/demo/agents');
+  check(await waitFor(`!!document.querySelector('[data-agents-table="demo"] [data-agent-row="gamma"]')`, 10000), '…and joins demo\'s table');
+  await goHash('#/w/demo');
+  check(await waitFor(`state.view === 'workspace' && state.param === 'demo' && /setting up/.test(${text('#ws-head [data-ws-state]')})`, 10000), '#/w/demo still reads setting up');
+  check(await evaluate(`api('workspaces/demo/log').then((r) => r.lines.some((l) => /adopted gamma/.test(l.text)))`), 'demo\'s log says "adopted gamma"');
+
+  // A new workspace from a loose agent: delta (a new sandbox, never started).
+  doz(['create', 'delta', '--image', 'lab', '--isolated']);
+  await goHash('#/mac/loose');
+  await waitFor(`!!document.querySelector('[data-put-in="delta"]')`, 15000);
+  await evaluate(`document.querySelector('[data-put-in="delta"]').click()`);
+  await waitFor(`!!document.querySelector('dialog.dlg[open] [data-piw="delta"]')`, 8000);
+  await evaluate(`(() => { const r = document.querySelector('[data-piw-mode="new"]'); r.checked = true; r.dispatchEvent(new Event('change')); })()`);
+  check(await evaluate(`document.querySelector('[data-piw-new]').value === 'delta' && document.querySelector('[data-piw-brief]').value === 'The work in delta.'`),
+    'a new workspace: its name prefilled (delta) and the brief "The work in delta."');
+  check(await evaluate(`/Its room #delta is made; nothing is posted/.test(document.querySelector('.piw-room').textContent)`), '…"Its room #delta is made; nothing is posted"');
+  check(await submitDialog(), '…Put in closes it');
+  const delta = dozJSON(['workspace', 'show', 'delta']);
+  check(!!delta && delta.agents.some((a) => a.name === 'delta') && delta.rooms.some((r) => r.main && r.chatRoom === 'delta'), 'workspace delta made with delta in it, its room #delta');
+  const posted = dozJSON(['chat', 'read', 'delta', '--last', '20']) || [];
+  check(!posted.some((m) => m.from === 'ada' && m.kind !== 'change'), '…nothing posted in it');
+  await goHash('#/home');
+  check(await waitFor(`!!document.querySelector('[data-ws="delta"]')`, 10000), 'Home lists delta');
+
+  // A harmless session on this Mac filed into a workspace that is setting up: started, nothing posted.
+  const folder = PROJECTS + '/macws';
+  mkdirSync(folder, { recursive: true });
+  // `--store` before `--`: everything after it is the program's own argv.
+  const ran = spawnSync(DOZ, ['run', '@mac', '-d', '--unfenced', '--session', 'wkmac', '--folder', folder, '--store', STORE, '--', '/bin/sleep', '600'],
+    { env: ENV, encoding: 'utf8', timeout: 120_000 });
+  if (ran.status === 0) {
+    macSession = 'wkmac';
+    doz(['workspace', 'new', 'macws', '--prompt-file', '-'], 'File a running session.\n');
+    check(dozJSON(['workspace', 'show', 'macws']).state === 'setting-up', 'macws is setting up');
+    const ses = (dozJSON(['sessions', '@mac']) || []).find((x) => x.name === 'wkmac');
+    check(!!ses && !ses.ended && !ses.gone, 'wkmac runs on this Mac (/bin/sleep, unfenced)');
+    await goHash('#/mac/loose');
+    await waitFor(`!!document.querySelector('[data-put-in="@mac/wkmac"]')`, 15000);
+    await evaluate(`document.querySelector('[data-put-in="@mac/wkmac"]').click()`);
+    await waitFor(`!!document.querySelector('dialog.dlg[open] [data-piw="@mac/wkmac"]')`, 8000);
+    check(await evaluate(`document.querySelector('.piw-hint').dataset.piwRunning === 'yes'`), '…the dialog says it is running');
+    await evaluate(`(() => { const r = document.querySelector('[data-piw-ws="macws"]'); r.checked = true; r.dispatchEvent(new Event('change')); })()`);
+    check(await submitDialog(), 'filing @mac/wkmac (running) into macws');
+    check(await waitFor(`[...document.querySelectorAll('[data-filed="macws"]')].some((n) => /macws is started: wkmac was already running\. The brief was not posted/.test(n.textContent))`, 10000),
+      '…the result line: started, the brief not posted');
+    await goHash('#/w/macws');
+    check(await waitFor(`state.param === 'macws' && !/setting up/.test(${text('#ws-head [data-ws-state]')}) && !document.querySelector('#ws .ws-setup')`, 10000),
+      '…its pill is no longer setting up, and the setting-up banner is gone');
+    const said = dozJSON(['chat', 'read', 'macws', '--last', '20']) || [];
+    check(!said.some((m) => m.from === 'ada' && m.kind !== 'change'), '…nothing posted in its room');
+  } else {
+    console.log('  note no session on this Mac could start here (deckhold-mac?) — test-cli-workspace rows 36–37 hold that check');
+  }
+
+  // An agent's screen: gamma's sandbox page, framed.
+  await goHash('#/w/demo/agent/gamma');
+  check(await waitFor(`state.view === 'sandbox' && state.param === 'gamma' && state.frame && state.frame.workspace === 'demo' && !!document.querySelector('#sbx [data-agent-frame="demo/gamma"]')`, 15000),
+    '#/w/demo/agent/gamma opens gamma\'s sandbox page, framed (breadcrumb, chips)');
+  check(await waitFor(`location.hash.startsWith('#/w/demo/agent/gamma')`, 5000), '…its address stays #/w/demo/agent/gamma');
+  check(await waitFor(`!!document.querySelector('#sbx [data-agent-in-ws="demo"]')`, 8000), '…the Overview has "In this workspace"');
+  await evaluate(`(() => { const t = [...document.querySelectorAll('#sbx .tab-wrap')].find((x) => !x.classList.contains('is-active')) || document.querySelector('#sbx .tab-wrap'); t && (t.querySelector('button, .tab') || t).click(); renderTerminals(); })()`);
+  await sleep(400);
+  check(await evaluate(`location.hash.startsWith('#/w/demo/agent/gamma') && state.view === 'sandbox'`), `…switching its tabs keeps #/w/… (${await evaluate('location.hash')})`);
+  await goHash('#/sandbox/gamma');
+  check(await waitFor(`state.view === 'sandbox' && !state.frame && document.querySelector('#sbx [data-member-of]')?.dataset.memberOf === 'demo' && /In demo as gamma/.test(${text('#sbx [data-member-of]')})`, 10000),
+    '#/sandbox/gamma is not redirected: it says "In demo as gamma — open it there"');
+  await evaluate(`document.querySelector('#sbx [data-take-out="gamma"]').click()`);
+  check(await waitFor(`/Take gamma out of demo/.test(document.querySelector('dialog.dlg[open]')?.textContent || '')`, 8000), 'Take out… asks, plainly');
+  check(await submitDialog(), '…Take out closes it');
+  check(await waitFor(`state.workspaces && !state.workspaces.workspaces.some((w) => (w.places || []).includes('gamma'))`, 10000) && looseNames().includes('gamma'), 'gamma is loose again');
+
+  // A phone: the table is cards.
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await goHash('#/w/demo2/agents');
+  await waitFor(`!!document.querySelector('[data-agents-table="demo2"]')`, 10000);
+  await sleep(400);
+  const cards = await evaluate(`(() => { const t = document.querySelector('[data-agents-table="demo2"]'); return { head: getComputedStyle(t.querySelector('thead')).display,
+    row: getComputedStyle(t.querySelector('tbody tr')).display, w: document.documentElement.scrollWidth }; })()`);
+  await shot('agents-390');
+  check(cards.head === 'none' && cards.row === 'flex' && cards.w <= 390, `at 390 px the agents table is cards, no sideways scroll (${cards.head}, ${cards.row}, ${cards.w} px)`);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await goHash('#/w/demo2/agents');
+  await shot('agents-light');
 }
 
 let failed = false;
@@ -471,26 +616,27 @@ try {
   check(await evaluate(`!!document.querySelector('#home-needs') && document.querySelector('#home-needs').hidden`), 'Home: the Needs you slot is there, hidden');
 
   await walkSidebar();
-  // demo unfolds to its agent, which links to its sandbox.
+  // demo unfolds to its agent, which links to its screen in the workspace.
   await waitFor(`!!document.querySelector('[data-nav-ws="demo"]')`, 10000);
   await evaluate(`(() => { const c = document.querySelector('[data-ws-fold="demo"]'); if (c && c.getAttribute('aria-expanded') !== 'true') c.click(); })()`);
-  check(await waitFor(`!!document.querySelector('[data-nav-ws="demo"] a[data-ws-agent="alpha"][href="#/sandbox/alpha/~home"]')`, 8000),
-    'the sidebar: demo unfolds to its agent alpha, linking to its sandbox');
+  check(await waitFor(`!!document.querySelector('[data-nav-ws="demo"] a[data-ws-agent="alpha"][href="#/w/demo/agent/alpha"]')`, 8000),
+    'the sidebar: demo unfolds to its agent alpha, linking to its screen in the workspace');
 
   await walkOldAddresses();
   await walkThisMac();
   await walkLists();
   await walkMacs();
   await walkWorkspacePage();
+  await walkAgents();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
   for (let i = 0; i < 100 && existsSync(STORE + '/daemon.pid'); i++) await sleep(100);
   check(!existsSync(STORE + '/daemon.pid'), 'the daemon is stopped');
-  for (const h of ['#/mac/sandboxes', '#/home', '#/mac/loose', '#/bots', '#/w/demo2']) { await goHash(h); await waitFor(SHOWN, 8000); }
+  for (const h of ['#/mac/sandboxes', '#/home', '#/mac/loose', '#/bots', '#/w/demo/agents', '#/w/demo2']) { await goHash(h); await waitFor(SHOWN, 8000); }
   check(await waitFor(`state.view === 'workspace' && /Walk it again/.test(${text('[data-ws-brief="demo2"]')})`, 10000), 'with the daemon stopped, #/w/demo2 still reads (from the store)');
   await sleep(4000);
-  check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents, Agents / Bots and a workspace\'s page starts none');
+  check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents, Agents / Bots, a workspace\'s agents and its page starts none');
   check(await evaluate(`!!document.querySelector('[data-ws="demo"]')`) || (await goHash('#/home'), await waitFor(`!!document.querySelector('[data-ws="demo"]')`, 8000)),
     'Home still lists demo with no daemon (answered from the store)');
 
@@ -503,11 +649,12 @@ try {
   failed = true;
 } finally {
   try { chrome && chrome.kill('SIGKILL'); } catch (_) { /* gone */ }
+  if (macSession) spawnSync(DOZ, ['sessions', 'end', '@mac', macSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
   try { ui && process.kill(-ui.pid, 'SIGTERM'); } catch (_) { /* gone */ }
   if (uiB) spawnSync(DOZ, ['ui', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });
   spawnSync(DOZ, ['daemon', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });
   spawnSync(DOZ, ['daemon', 'stop', '--store', STORE], { env: ENV, timeout: 60_000 });
   await sleep(500);
-  if (process.env.KEEP !== '1') rmSync(S, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+  if (process.env.KEEP !== '1') { rmSync(S, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); clearMacSocketFolder(); }
 }
 process.exit(failed ? 1 : 0);

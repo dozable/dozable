@@ -419,6 +419,20 @@ final class WebOperations: @unchecked Sendable {
         }
     }
 
+    /// What filing an agent did to its workspace: adopting a RUNNING agent marks the
+    /// workspace started — nothing posted, nothing started; one that does not run leaves it setting up.
+    static func filed(_ w: String, _ agent: String, _ d: WorkspaceDetail?) -> String {
+        guard let d else { return "\(agent) is in \(w)" }
+        if d.state == WorkspaceState.settingUp.rawValue { return "\(agent) is in \(w), which is still setting up" }
+        if d.flags.startedAt == nil, d.flags.firstAgentAt != nil, d.agents.contains(where: { $0.name == agent && $0.state == "running" }) {
+            return "\(w) is started: \(agent) was already running. The brief was not posted. doz workspace start is not needed."
+        }
+        return "\(agent) is in \(w)"
+    }
+
+    /// A filed agent's default name: the sandbox's, or the session's for `@mac/SESSION`.
+    static func agentName(_ a: String) -> String { a.hasPrefix(MacPlace.name + "/") ? String(a.dropFirst(MacPlace.name.count + 1)) : a }
+
     /// One line for the page, from the host's result (never the result itself).
     static func summary(_ a: WebAction, _ v: JSONValue) -> String {
         switch a {
@@ -524,6 +538,14 @@ final class WebOperations: @unchecked Sendable {
             let d = try? v.decode(WorkspaceDetail.self)
             if let not = d?.notes?.first(where: { $0.hasPrefix("not announced") }) { return "edited the brief of \(w) — \(not)" }
             return d?.flags.startedAt != nil ? "edited the brief of \(w) — announced in its room" : "edited the brief of \(w)"
+        case .workspaceAdopt(let w, let agent, let asName):
+            return Self.filed(w, asName ?? Self.agentName(agent), try? v.decode(WorkspaceDetail.self))
+        case .workspaceNew(let w, _, let agent):
+            let d = try? v.decode(WorkspaceDetail.self)
+            let made = "made \(w)" + (d?.rooms.first(where: \.main).map { " with its room #\($0.chatRoom) (nothing posted)" } ?? "")
+            return made + " — " + Self.filed(w, Self.agentName(agent), d)
+        case .workspaceRelease(let w, let agent):
+            return "\(Self.agentName(agent)) is loose again (it keeps running as it was) — taken out of \(w)"
         case .macSessionBridges(let session, _, _, _):
             return (try? v.decode(SessionBridges.self))?.changed.map { "session \(session) on this Mac: \($0) — from the next one" }
                 ?? "session \(session) on this Mac: bridges unchanged"

@@ -25,6 +25,7 @@ import { stepperNode } from '../components/stepper.js';
 import { openDefaultTerminal } from '../components/terminal.js';
 import { planBlock } from '../components/plan-view.js';
 import { tildePath } from '../core/paths.js';
+import { placeHash } from '../core/routes.js';
 
 // ── 599f: the New Sandbox wizard (owner: "a new wizard process for creating a purposeful sandbox that steps
 // the user through all the choices, capturing the config in a doz_project.yml in the project / working dir").
@@ -179,7 +180,7 @@ function nwToolsNode(nw) {
   const open = () => {
     const name = t.name;
     state.nw = null;
-    location.hash = '#/sandbox/' + name;
+    location.hash = placeHash('sandbox', name, null, state.frame);
     openDefaultTerminal(name);                       // the image's own session, started (it is running), then attached
   };
   const buttons = busy ? [] : failed

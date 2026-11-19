@@ -1,4 +1,5 @@
 import Foundation
+import JavaScriptCore
 import XCTest
 @testable import DozableWeb
 
@@ -86,6 +87,69 @@ final class WebModulesTests: XCTestCase {
         let at = order.map { ws.range(of: "label: " + $0)?.lowerBound }
         XCTAssertFalse(at.contains(nil), "every tab")
         XCTAssertEqual(at.compactMap { $0 }, at.compactMap { $0 }.sorted(), "in the mockups' order")
+    }
+
+    /// The Agents tab and an agent's screen: their modules ship; `core/routes.js` (pure — no import) parses #/w/W/agents and
+    /// #/w/W/agent/A[/S|~home] (run here in JavaScriptCore) and `placeHash` keeps a framed address only for the frame's
+    /// place; and no module writes a place's address (`#/sandbox/…`, `#/mac/here/…` into the location) but through it.
+    func testTheAgentsTabAndTheFramedAddresses() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let a = try WebAssets.load()
+        for m in ["views/ws-agents", "components/put-in-workspace", "components/agent-frame"] {
+            XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
+        }
+        let routes = try read("app/core/routes.js")
+        XCTAssertTrue(Self.specifiers(routes).isEmpty, "core/routes.js is pure: it imports nothing")
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        ctx.evaluateScript(routes.replacingOccurrences(of: "export ", with: ""))
+        XCTAssertNil(thrown, thrown ?? "")
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        func parsed(_ hash: String) -> [String: Any]? {
+            (try? JSONSerialization.jsonObject(with: Data(js("parse('\(hash)')").utf8))) as? [String: Any]
+        }
+        XCTAssertEqual(parsed("#/w/demo/agents")?["view"] as? String, "workspace")
+        XCTAssertEqual(parsed("#/w/demo/agents")?["tab"] as? String, "agents")
+        XCTAssertEqual(parsed("#/w/demo")?["tab"] as? NSNull, NSNull(), "the room: no tab")
+        for (hash, session) in [("#/w/demo/agent/gamma", nil), ("#/w/demo/agent/gamma/~home", "~home"), ("#/w/demo/agent/bot_1.a/claude-2", "claude-2")] as [(String, String?)] {
+            let p = parsed(hash)
+            XCTAssertEqual(p?["view"] as? String, "wsagent", hash)
+            XCTAssertEqual(p?["param"] as? String, "demo", hash)
+            XCTAssertEqual(p?["agent"] as? String, hash.split(separator: "/")[4].description, hash)
+            XCTAssertEqual(p?["session"] as? String, session, hash)
+        }
+        XCTAssertEqual(js("parse('#/w/demo/agent/gamma/can-do')"), "null", "Can do: not an address yet")
+        XCTAssertEqual(js("canonical('#/w/demo/agent/gamma/can-do')"), "\"#/w/demo/agent/gamma\"", "…it lands on the agent")
+        for bad in ["#/w/demo/agent/", "#/w/demo/agent/-x", "#/w/demo/agent/.x", "#/w/Demo/agents", "#/w/demo/agent/a/b/c"] {
+            XCTAssertEqual(js("parse('\(bad)')"), "null", bad)
+        }
+        let frame = "{workspace:'demo',agent:'gamma',kind:'sandbox',place:'gamma'}"
+        XCTAssertEqual(js("placeHash('sandbox','gamma','claude-2',\(frame))"), "\"#/w/demo/agent/gamma/claude-2\"", "a session tab keeps the frame")
+        XCTAssertEqual(js("placeHash('sandbox','gamma','~home',\(frame))"), "\"#/w/demo/agent/gamma/~home\"")
+        XCTAssertEqual(js("placeHash('sandbox','gamma',null,\(frame))"), "\"#/w/demo/agent/gamma\"")
+        XCTAssertEqual(js("placeHash('sandbox','other','claude',\(frame))"), "\"#/sandbox/other/claude\"", "another place leaves it")
+        XCTAssertEqual(js("placeHash('mac','gamma',null,\(frame))"), "\"#/mac/here/gamma\"", "another kind leaves it")
+        XCTAssertEqual(js("placeHash('sandbox','gamma',null,null)"), "\"#/sandbox/gamma\"")
+        XCTAssertEqual(js("placeHash('mac','wsu',null,{workspace:'d',agent:'wsu',kind:'mac',place:'wsu'})"), "\"#/w/d/agent/wsu\"")
+        XCTAssertEqual(js("placeHash('mac','wsu',null,null)"), "\"#/mac/here/wsu\"")
+        // No module writes a place's address into the location but through placeHash (links — href — stay plain).
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+        let writer = try NSRegularExpression(pattern: #"(location\.hash\s*=|replaceState\()[^;\n]*'#/(sandbox|mac/here)/"#)
+        for f in files where f != "app/core/routes.js" {
+            let text = try read(f)
+            XCTAssertEqual(writer.numberOfMatches(in: text, range: NSRange(text.startIndex..., in: text)), 0, "\(f) writes a place's address itself")
+        }
+        // The tab row: Room and Agents work; the permissions tab's name is still the one constant.
+        let ws = try read("app/views/workspace.js")
+        XCTAssertTrue(ws.contains("{ id: 'agents', label: 'Agents', href:"), "Agents is enabled")
+        // Filing: only the three typed actions, never another workspace-* one.
+        let piw = try read("app/components/put-in-workspace.js")
+        let sent = Set(try NSRegularExpression(pattern: #"action: '(workspace-[a-z]+)'"#).matches(in: piw, range: NSRange(piw.startIndex..., in: piw))
+            .map { (piw as NSString).substring(with: $0.range(at: 1)) })
+        XCTAssertEqual(sent, ["workspace-adopt", "workspace-new", "workspace-release"])
     }
 
     func testEveryModuleIsServedHashedAndImportedOnlyFromItsOwnLayerOrBelow() throws {

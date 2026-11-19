@@ -1678,10 +1678,13 @@ public struct WorkspaceRow: Codable, Equatable, Sendable {
     public var working: [String]?
     /// Its folders' paths, the main one first (nil: none). Additive; `--json` only (the dashboard's Home shows them).
     public var folders: [String]?
+    /// The places of its agents that have not ended, as a person types them (`wsa`, `@mac/wsu`; nil: none) — so a sandbox's or
+    /// a session's page knows its workspace. Additive; `--json` only.
+    public var places: [String]?
     public init(name: String, state: String, driver: String, agents: Int, room: String?, manager: WorkspaceManagerRow? = nil,
-                working: [String]? = nil, folders: [String]? = nil) {
+                working: [String]? = nil, folders: [String]? = nil, places: [String]? = nil) {
         self.name = name; self.state = state; self.driver = driver; self.agents = agents; self.room = room; self.manager = manager
-        self.working = working; self.folders = folders
+        self.working = working; self.folders = folders; self.places = places
     }
 }
 
@@ -1731,11 +1734,16 @@ public struct WorkspaceAgentRow: Codable, Equatable, Sendable {
     /// What its program is doing now — `working`, `idle`, `blocked` or `error` (`WorkspaceState.activity`) — from what the
     /// daemon already holds, never a guest call; nil when not running, or answered in-process. Additive; `--json` only.
     public var activity: String?
+    /// Who brought it in (`you` or `doz`), and a sandbox place's session (a worker sharing a sandbox; `place` names only the
+    /// sandbox). Additive; `--json` only.
+    public var startedBy: String?
+    public var session: String?
     public init(name: String, role: String, place: String, state: String, startedAt: Date, bot: String? = nil, isolation: String? = nil,
-                actsAsYou: Bool? = nil, task: String? = nil, control: String? = nil, activity: String? = nil) {
+                actsAsYou: Bool? = nil, task: String? = nil, control: String? = nil, activity: String? = nil, startedBy: String? = nil,
+                session: String? = nil) {
         self.name = name; self.role = role; self.place = place; self.state = state; self.startedAt = startedAt
         self.bot = bot; self.isolation = isolation; self.actsAsYou = actsAsYou; self.task = task; self.control = control
-        self.activity = activity
+        self.activity = activity; self.startedBy = startedBy; self.session = session
     }
 }
 

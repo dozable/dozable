@@ -56,7 +56,8 @@ final class WorkspaceAdoptTests: XCTestCase {
     func macSession(_ name: String) throws {
         let dir = store.root.appendingPathComponent("mac-sessions")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        var recs = MacSessionRecords()
+        let file = dir.appendingPathComponent("sessions.json")
+        var recs = (try? Data(contentsOf: file)).flatMap { try? HostWire.decoder.decode(MacSessionRecords.self, from: $0) } ?? MacSessionRecords()
         recs.sessions[name] = MacSessionRecord(argv: ["/bin/sh"], workdir: folder.path, openedAt: Date())
         try HostWire.prettyEncoder.encode(recs).write(to: dir.appendingPathComponent("sessions.json"))
     }
@@ -131,6 +132,10 @@ final class WorkspaceAdoptTests: XCTestCase {
         XCTAssertEqual(listing.workspaces.map(\.name), ["demo"])
         XCTAssertEqual(listing.workspaces.first?.agents, 2)
         XCTAssertEqual(listing.loose, [])
+        // Additive (--json only): who brought each in, and the places a sandbox's or session's page finds its workspace by.
+        XCTAssertEqual(d.agents.map(\.startedBy), ["you", "you"])
+        XCTAssertEqual(d.agents.map(\.session), [nil, nil], "a session on this Mac is its place; a sandbox's own agent names none")
+        XCTAssertEqual(listing.workspaces.first?.places, ["wsa", "@mac/wsu"])
 
         var w = WorkspaceRequest(name: "demo")
         w.agent = "wsa"
@@ -146,6 +151,163 @@ final class WorkspaceAdoptTests: XCTestCase {
         let actions = try ws.log("demo").map(\.action)
         XCTAssertEqual(actions, ["created", "adopted", "adopted", "released"])
         XCTAssertNil(try ws.read("demo")?.flags.firstAgentAt, "only a running agent marks it started")
+    }
+
+    /// A worker sharing a sandbox names its session there; an ended worker's place is no longer the workspace's; a place shared
+    /// by two agents is listed once; an agent elsewhere has none.
+    func testTheDashboardFieldsSessionStartedByAndPlaces() async throws {
+        let c = await core()
+        await sandbox(c, "wsa")
+        let m = await new(c, "demo", noRoom: true, adopt: ["wsa"])
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        var rec = try XCTUnwrap(try ws.read("demo"))
+        let t = Date()
+        var shared = WorkspaceAgent(name: "bot1", place: AgentPlace(sandbox: "wsa", session: "bot1"), startedBy: "doz", startedAt: t)
+        shared.task = "list the files"
+        var ended = WorkspaceAgent(name: "bot2", place: .macSession("demo-bot2"), startedAt: t)
+        ended.task = "gone now"
+        ended.endedAt = t
+        rec.agents += [shared, ended, WorkspaceAgent(name: "far", place: AgentPlace(elsewhere: "another Mac"), startedAt: t)]
+        try ws.write(rec)
+        let s = await ask(c, .workspaceShow, WorkspaceRequest(name: "demo"))
+        let d = try XCTUnwrap(s.result).decode(WorkspaceDetail.self)
+        XCTAssertEqual(d.agents.map(\.name), ["wsa", "bot1", "far"], "an ended worker is left out")
+        XCTAssertEqual(d.agents.map(\.session), [nil, "bot1", nil])
+        XCTAssertEqual(d.agents.map(\.startedBy), ["you", "doz", "you"])
+        let l = await ask(c, .workspaceList, WorkspaceRequest())
+        let row = try XCTUnwrap(try XCTUnwrap(l.result).decode(WorkspaceListing.self).workspaces.first)
+        XCTAssertEqual(row.places, ["wsa"], "once each; not the ended worker's session, nothing for elsewhere")
+    }
+
+    /// A FAKE holder of a session on this Mac: it answers QUERY with an INFO line, so the session runs (no deckhold, no
+    /// program). Its socket is in the scratch store's own socket folder.
+    final class FakeHolder: @unchecked Sendable {
+        let lfd: Int32
+        let path: String
+        init(_ path: String) {
+            self.path = path
+            unlink(path)
+            lfd = socket(AF_UNIX, SOCK_STREAM, 0)
+            var a = sockaddr_un()
+            a.sun_family = sa_family_t(AF_UNIX)
+            withUnsafeMutableBytes(of: &a.sun_path) { r in r.copyBytes(from: Array(path.utf8)); r[path.utf8.count] = 0 }
+            _ = withUnsafePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(lfd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
+            listen(lfd, 8)
+            let l = lfd
+            let name = (path as NSString).lastPathComponent.replacingOccurrences(of: ".sock", with: "")
+            Thread.detachNewThread {
+                while true {
+                    let c = accept(l, nil, nil)
+                    if c < 0 { return }
+                    Thread.detachNewThread {
+                        var buf = [UInt8](repeating: 0, count: 4096)
+                        _ = read(c, &buf, buf.count)
+                        let f = DeckholdFrame.info("\(name)\tpid=42\tsize=80x24\tclients=0\tscreen=primary\thistory=0\tbytes=5\tgrid=1\tsleep").encoded
+                        f.withUnsafeBytes { _ = write(c, $0.baseAddress, $0.count) }
+                        close(c)
+                    }
+                }
+            }
+        }
+        func stop() { Darwin.shutdown(lfd, SHUT_RDWR); Darwin.close(lfd); unlink(path) }
+    }
+
+    /// A manager launcher that says which places run (nothing is ever launched).
+    final class RunningLauncher: ManagerLauncher, @unchecked Sendable {
+        let running: Set<String>
+        init(_ running: Set<String>) { self.running = running }
+        func info(isolation: ManagerIsolation, place: String) async -> ManagerPlaceInfo {
+            ManagerPlaceInfo(exists: running.contains(place), running: running.contains(place))
+        }
+        func launch(_ o: ManagerLaunchOrder) async throws -> [String] { throw HostError(.failed, "never launched here") }
+        func stop(isolation: ManagerIsolation, place: String) async throws {}
+    }
+
+    final class CountingChat: WorkspaceChat, @unchecked Sendable {
+        let lock = NSLock()
+        var roomSet: Set<String> = []
+        var posts = 0
+        func readiness() async -> WorkspaceChatReadiness { .ready }
+        func rooms() throws -> Set<String> { lock.withLock { roomSet } }
+        func makeRoom(_ name: String) throws { lock.withLock { _ = roomSet.insert(name) } }
+        func post(room: String, content: String) throws { lock.withLock { posts += 1 } }
+        func invite(room: String, name: String) throws -> Bool { false }
+    }
+
+    /// Filing a RUNNING agent marks the workspace started — `firstAgentAt` set, out of setting up — with nothing posted and
+    /// nothing started; one that does not run leaves it setting up; `new` with a running agent is started at once.
+    func testAdoptingARunningAgentMarksTheWorkspaceStartedWithNothingPosted() async throws {
+        let chat = CountingChat()
+        let c = await core(chat: chat)
+        try macSession("wsu")
+        try macSession("wsv")
+        await sandbox(c, "wsa")
+        try MacPlace.ensureFolder(c.mac.directory)
+        let holder = FakeHolder(c.mac.socket("wsu"))
+        let holder2 = FakeHolder(c.mac.socket("wsv"))
+        defer { holder.stop(); holder2.stop(); try? FileManager.default.removeItem(atPath: c.mac.directory) }
+        let isRunning = await c.mac.isRunning("wsu")
+        XCTAssertTrue(isRunning, "the fake holder answers")
+
+        var m = await new(c, "demo")
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        XCTAssertEqual(chat.roomSet, ["demo"], "its room made, nothing posted")
+        m = await adopt(c, "demo", "wsa")
+        var d = try XCTUnwrap(m.result).decode(WorkspaceDetail.self)
+        XCTAssertEqual(d.state, "setting-up", "an off sandbox leaves it setting up")
+        XCTAssertNil(d.flags.firstAgentAt)
+        m = await adopt(c, "demo", "@mac/wsu")
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        d = try XCTUnwrap(m.result).decode(WorkspaceDetail.self)
+        XCTAssertNotEqual(d.state, "setting-up", "a running agent marks it started")
+        XCTAssertNotNil(d.flags.firstAgentAt)
+        XCTAssertNil(d.flags.startedAt, "no kick-off: the brief is not posted")
+        XCTAssertEqual(d.agents.first { $0.name == "wsu" }?.state, "running")
+        XCTAssertEqual(chat.posts, 0, "nothing posted")
+        XCTAssertEqual(try ws.log("demo").map(\.action), ["created", "room-made", "adopted", "adopted"])
+
+        m = await new(c, "fresh", adopt: ["@mac/wsv"])
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        d = try XCTUnwrap(m.result).decode(WorkspaceDetail.self)
+        XCTAssertNotEqual(d.state, "setting-up", "new with a running agent is started")
+        XCTAssertNotNil(d.flags.firstAgentAt)
+        XCTAssertEqual(chat.posts, 0)
+
+        // Releasing it keeps the mark (the rule governs the start only); the agent is loose and runs on.
+        var w = WorkspaceRequest(name: "demo")
+        w.agent = "wsu"
+        m = await ask(c, .workspaceRelease, w)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        XCTAssertNotNil(try ws.read("demo")?.flags.firstAgentAt)
+        let answer = await ask(c, .workspaceList, WorkspaceRequest())
+        let l = try XCTUnwrap(answer.result).decode(WorkspaceListing.self)
+        XCTAssertEqual(l.loose.first { $0.name == "@mac/wsu" }?.state, "running")
+    }
+
+    /// Release refuses a live worker and a running manager, naming the command, and writes nothing.
+    func testReleaseRefusesALiveWorkerAndARunningManager() async throws {
+        let c = await core()
+        await sandbox(c, "wsa")
+        let m = await new(c, "demo", noRoom: true)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        var rec = try XCTUnwrap(try ws.read("demo"))
+        var worker = WorkspaceAgent(name: "bot1", place: AgentPlace(sandbox: "wsa", session: "bot1"), startedBy: "doz", startedAt: Date())
+        worker.task = "list the files"
+        rec.agents.append(worker)
+        rec.agents.append(WorkspaceAgent(name: "mira", role: "manager", place: .macSession("demo"), startedAt: Date(), bot: "mira", isolation: "fenced"))
+        try ws.write(rec)
+        await c.setManagerLauncher(RunningLauncher(["demo"]))
+        let before = (recordBytes("demo"), bytes(ws.folder("demo") + "/log.jsonl"))
+        var w = WorkspaceRequest(name: "demo")
+        w.agent = "bot1"
+        var r = await ask(c, .workspaceRelease, w)
+        XCTAssertEqual(r.error?.code, .invalidPhase)
+        XCTAssertEqual(r.error?.message, "bot1 is a worker of demo — doz worker end demo bot1")
+        w.agent = "mira"
+        r = await ask(c, .workspaceRelease, w)
+        XCTAssertEqual(r.error?.code, .invalidPhase)
+        XCTAssertEqual(r.error?.message, "mira manages demo and is running — stop it first: doz workspace stop demo")
+        XCTAssertTrue(recordBytes("demo") == before.0 && bytes(ws.folder("demo") + "/log.jsonl") == before.1, "nothing written")
     }
 
     /// In one workspace only; missing targets; bare @mac; a name clash — each refused with nothing written.

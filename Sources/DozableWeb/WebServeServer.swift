@@ -30,7 +30,7 @@ extension DozableWebServer {
             hub.broadcast("devices", ["changed": true])
             return json(sessionInfo(s, ctx, dev), extra: [sessionCookieHeader(s, ctx)])
         } catch let r as WebRejection {
-            st.audit.record(WebAuditEntry(kind: "admit-refused", address: ctx.client, outcome: r.rawValue))
+            st.audit.record(WebAuditEntry(kind: "admit-refused", address: ctx.client, outcome: r.code))
             throw r
         }
     }

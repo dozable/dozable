@@ -915,9 +915,11 @@ so it needs one). With chat on, `new` makes a room named after the workspace (re
 links it instead); nothing is posted in it until the work starts. `ls`, `show` and `log` answer from the store without
 starting the daemon. A sandbox or session is in one workspace at most; `doz rename` and `doz rm` of a sandbox carry its
 workspace's record along. `doz ls --json` and `doz sessions NAME|@mac --json` carry `workspace` on an adopted one.
-`doz workspace ls --json` carries each workspace's `folders` and, from a running daemon, `working` (the agents whose
-program is working now); `show --json` carries each agent's `activity` (`working`, `idle`, `blocked` or `error`) while
-it runs — both from what the daemon already knows, absent when answered with no daemon; the text is unchanged. Exit
+`doz workspace ls --json` carries each workspace's `folders`, its `places` (where its agents that have not ended run, as
+you type them: `wsa`, `@mac/wsu`) and, from a running daemon, `working` (the agents whose program is working now); `show
+--json` carries each agent's `startedBy` (`you` or `doz`), a sandbox place's `session` (a worker sharing a sandbox) and
+its `activity` (`working`, `idle`, `blocked` or `error`) while it runs — `working` and `activity` from what the daemon
+already knows, absent when answered with no daemon; the text is unchanged. Exit
 codes: 0 ok · 2 not found · 3 archived, not fully set up, its manager running, or its brief changed since `--if-brief` ·
 4 already exists, already in a workspace, or the bot already runs in another live workspace · 6 the daemon or chat
 unavailable · 64 usage.

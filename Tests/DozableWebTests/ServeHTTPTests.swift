@@ -541,6 +541,39 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "brief-remote" })
     }
 
+    static let filing = [
+        #"{"action":"workspace-adopt","workspace":"demo","agent":"gamma"}"#,
+        #"{"action":"workspace-new","workspace":"gamma","brief":"The work in gamma.","adopt":["gamma"]}"#,
+        #"{"action":"workspace-release","workspace":"demo","agent":"gamma"}"#,
+    ]
+
+    /// Filing an agent into a workspace or out of one: another computer gets 403 `mac-only` for each of the three — even with
+    /// serve.chat = write and serve.mac_sessions = interactive — nothing reaches the daemon and each is audited; this Mac's
+    /// own browser on the same port gets 202 and exactly the one HostOp.
+    func testFilingIsThisMacsBrowserOnlyWhateverTheServeSettings() async throws {
+        try await start(macSessions: "interactive", chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        for body in Self.filing {
+            let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", body, remote: true)
+            XCTAssertEqual(r.status, 403, r.text)
+            XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+            XCTAssertTrue(r.text.contains("this Mac's own browser"), r.text)
+        }
+        XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon")
+        let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+        XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "mac-only" && $0.route == "actions" }, "audited (repeats collapse)")
+        let (macCookie, macCSRF) = try macSignIn()
+        var want: [HostOp] = []
+        for (body, op) in zip(Self.filing, [HostOp.workspaceAdopt, .workspaceNew, .workspaceRelease]) {
+            let r = try macJSON(macCookie, macCSRF, "/api/v1/actions", body, remote: false)
+            XCTAssertEqual(r.status, 202, r.text)
+            want.append(op)
+            let deadline = Date().addingTimeInterval(5)
+            while fake.performedOps.count < want.count && Date() < deadline { usleep(10_000) }
+            XCTAssertEqual(fake.performedOps, want)
+        }
+    }
+
     func testServeChatWriteEditsTheBriefAuditedAsOneLine() async throws {
         try await start(chat: "write")
         let (devCookie, devCSRF) = try await admit()

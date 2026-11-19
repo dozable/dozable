@@ -6,6 +6,7 @@ import { h } from '../dom/h.js';
 import { state } from '../core/state.js';
 import { btn } from './button.js';
 import { dropPageNotice, pageFailure } from './notices.js';
+import { placeHash } from '../core/routes.js';
 
 /// The status of `session` in `sandbox` (null: its program said nothing — Codex, a shell, an older holder).
 export function agentStatusOf(sandbox, session) {
@@ -81,7 +82,7 @@ function tell(sandbox, st) {
   if (st.state === 'done') doneTimers.set(key, setTimeout(() => { doneTimers.delete(key); dropPageNotice(key); }, DONE_FOR_MS));
   const t = TELL[st.state];
   const says = st.state === 'blocked' ? (BLOCKED_SAYS[st.kind] || t.says) : t.says;
-  const open = btn('Open', () => { location.hash = '#/sandbox/' + sandbox + '/' + st.session; }, { small: true, quiet: true, title: 'Its session, on its sandbox’s page' });
+  const open = btn('Open', () => { location.hash = placeHash('sandbox', sandbox, st.session, state.frame); }, { small: true, quiet: true, title: 'Its session, on its sandbox’s page' });
   pageFailure(st.message || '', { key, tone: t.tone, title: sandbox + ' · ' + st.session + ' ' + says, actions: [open] });
 }
 

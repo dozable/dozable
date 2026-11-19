@@ -3,8 +3,9 @@ import { upcall } from './hooks.js';
 import { $ } from '../dom/h.js';
 import { remeasure } from './measure.js';
 import { loadPreparations } from './operations.js';
-import { canonical, HOME, MODAL_VIEWS, parse } from './routes.js';
+import { agentsHash, canonical, HOME, MODAL_VIEWS, parse } from './routes.js';
 import { state } from './state.js';
+import { loadWorkspace } from './workspaces.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), chatEnter = upcall('chatEnter'), chatLeave = upcall('chatLeave'),
   chatRefresh = upcall('chatRefresh'), wsEnter = upcall('wsEnter'), wsRefresh = upcall('wsRefresh'),
@@ -15,7 +16,7 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), ch
   viewDoctor = upcall('viewDoctor'), viewImages = upcall('viewImages'), viewMetrics = upcall('viewMetrics'),
   viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'), viewHome = upcall('viewHome'), viewThisMac = upcall('viewThisMac'), viewLoose = upcall('viewLoose'), viewBots = upcall('viewBots'), viewMacs = upcall('viewMacs'),
   viewBrowse = upcall('viewBrowse'), viewRecipes = upcall('viewRecipes'), viewResources = upcall('viewResources'), viewSettings = upcall('viewSettings'), viewDevices = upcall('viewDevices'), viewDebug = upcall('viewDebug'),
-  viewNotifications = upcall('viewNotifications'),
+  viewNotifications = upcall('viewNotifications'), viewWsAgent = upcall('viewWsAgent'),
   wizardStopPolling = upcall('wizardStopPolling');
 
 // ── routing ─────────────────────────────────────────────────────────────────
@@ -41,6 +42,10 @@ export function route() {
     closeWizardModal();
     if (location.hash === state.bgHash) return;                   // back to the page under it, as it was
   }
+  // #/w/NAME/agent/AGENT: its sandbox's or its session's page, framed by the workspace (read first).
+  if (p.view === 'wsagent') { enterAgent(p, c); return; }
+  state.frame = null;                                             // leaving an agent's screen
+  state.wsTab = p.tab;
   state.view = p.view;
   state.param = p.param;
   state.session = p.session;
@@ -48,6 +53,31 @@ export function route() {
   state.bgHash = location.hash;
   routePage();
 }
+/// An agent's screen: the router reads the workspace's detail, finds the agent and shows the page that already exists for
+/// its place — a sandbox's (`state.view = 'sandbox'`, its session selected) or a session's on this Mac (`'mac'`) — with
+/// `state.frame` set, so every check of `state.view` keeps working and every address the page writes stays framed
+/// (core/routes.js placeHash). An agent with no page (elsewhere, a manager not started, a place gone, none) is a card.
+let agentGen = 0;
+async function enterAgent(p, hash) {
+  const gen = ++agentGen;
+  let d = null, error = null;
+  try { d = await loadWorkspace(p.param, 1000); } catch (e) { error = e; }
+  if (gen !== agentGen || location.hash !== hash) return;
+  const a = d ? d.agents.find((x) => x.name === p.agent) || null : null;
+  const page = a && a.state !== 'gone' && a.state !== 'not started' ? (a.kind === 'sandbox' && a.sandbox ? 'sandbox' : a.kind === 'mac' && a.session ? 'mac' : null) : null;
+  state.frame = { workspace: p.param, agent: p.agent, kind: page || 'card', place: page === 'sandbox' ? a.sandbox : page === 'mac' ? a.session : null,
+    row: a, detail: d, error };
+  state.wsTab = null;
+  state.wsRoom = null;
+  if (page === 'sandbox') { state.view = 'sandbox'; state.param = a.sandbox; state.session = p.session || a.session || null; }
+  else if (page === 'mac') { state.view = 'mac'; state.param = null; state.session = a.session; }
+  else { state.view = 'wsagent'; state.param = p.param; state.session = null; }
+  state.bgHash = location.hash;
+  routePage();
+}
+/// Where a framed page that lost its place goes: its workspace's agents; else the list it came from.
+export function lostPlaceHash(fallback) { return state.frame ? agentsHash(state.frame.workspace) : fallback; }
+
 function routePage() {
   paintNav();
   // 591: the terminals live in their own section, never re-rendered by refresh() (a live update
@@ -57,15 +87,15 @@ function routePage() {
   // A workspace's page is a section too (#ws): the room surface the Chat page shows is MOVED into it (views/chat.js
   // mountChat — one chat client), so leaving one for the other never closes the stream.
   const onSbx = state.view === 'sandbox', onGrid = state.view === 'sessions', onMac = state.view === 'mac', onChat = state.view === 'chat',
-    onWs = state.view === 'workspace';
+    onWs = state.view === 'workspace', onRoom = onWs && !state.wsTab;
   $('sbx').hidden = !onSbx;
   $('grid').hidden = !onGrid;
   $('mac').hidden = !onMac;
   $('chat').hidden = !onChat;
   $('ws').hidden = !onWs;
   $('view').hidden = onSbx || onGrid || onMac || onChat || onWs;
-  $('main').classList.toggle('main-chat', onChat || onWs);
-  $('main').classList.toggle('main-ws', onWs);
+  $('main').classList.toggle('main-chat', onChat || onRoom);
+  $('main').classList.toggle('main-ws', onRoom);
   $('main').classList.toggle('main-terms', onSbx);
   if (!onGrid) gridLeave();
   if (!onMac) macLeave();
@@ -78,7 +108,7 @@ function routePage() {
   if (onGrid) { gridEnter(); return; }
   if (onMac) { macEnter(state.session); return; }
   if (onChat) { chatEnter(state.param); return; }
-  if (onWs) { wsEnter(state.param, state.wsRoom); return; }
+  if (onWs) { wsEnter(state.param, state.wsRoom, state.wsTab); return; }
   refresh(true);
 }
 window.addEventListener('hashchange', () => {
@@ -105,7 +135,8 @@ export async function refresh(scrollTop) {
   refreshing = true;
   try {
     const views = { home: viewHome, thismac: viewThisMac, loose: viewLoose, bots: viewBots, macs: viewMacs, overview: viewOverview, images: viewImages, resources: viewResources, operations: viewOperations, accounts: viewAccounts,
-                    metrics: viewMetrics, activity: viewActivity, doctor: viewDoctor, settings: viewSettings, recipes: viewRecipes, browse: viewBrowse, devices: viewDevices, debug: viewDebug, notifications: viewNotifications };
+                    metrics: viewMetrics, activity: viewActivity, doctor: viewDoctor, settings: viewSettings, recipes: viewRecipes, browse: viewBrowse, devices: viewDevices, debug: viewDebug, notifications: viewNotifications,
+                    wsagent: viewWsAgent };
     const fn = views[state.view] || viewHome;
     const node = await fn();
     if (node && !state.signedOut) {
@@ -115,7 +146,7 @@ export async function refresh(scrollTop) {
     }
   } catch (e) {
     if (!state.signedOut) {
-      if (e.status === 404 && state.view === 'sandbox') { location.hash = '#/mac/sandboxes'; return; }
+      if (e.status === 404 && state.view === 'sandbox') { location.hash = lostPlaceHash('#/mac/sandboxes'); return; }
       $('view').replaceChildren(callout('bad', { cls: 'notice', title: 'This page could not be read', body: e.message || String(e) }));
     }
   } finally {

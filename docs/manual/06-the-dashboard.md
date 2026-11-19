@@ -142,7 +142,7 @@ workspaces, agents and keys. On a phone, the name in the header row opens the sa
 A workspace's page (`#/w/NAME`; the sidebar's name, Home's row and **Open room** lead there) puts its room first. The
 title row has its name, its state, who drives it, its manager (an unfenced one says **acts as you**) and **⋯**, which
 holds the commands to copy — `doz workspace start NAME` while it is setting up, `doz workspace stop NAME` when it has a
-manager — and what it still lacks. Below are its tabs: **Room** works; **Agents**, **Permissions**, **Network & secrets**,
+manager — and what it still lacks. Below are its tabs: **Room** and **Agents** work; **Permissions**, **Network & secrets**,
 **Folders & points**, **Activity** and **Settings** are marked **coming** and say what they will hold.
 
 **The work** — the brief — sits above the room: its text, its references (a link opens in a new tab), who wrote it and
@@ -161,9 +161,24 @@ among the messages in grey, by time; it is never posted in the room. An address 
 workspace's opens its main room and says so.
 
 The side panel says who is here and in what: each agent with its state, its isolation (**micro VM**, **fenced**,
-**unfenced**, **elsewhere**), a worker's task — each opens its sandbox or its session on this Mac — then **In this room**,
+**unfenced**, **elsewhere**), a worker's task — each opens its screen in the workspace (below) — then **In this room**,
 the workspace's folders and its network. **+ Worker** shows `doz worker add NAME --task "…"` to copy. In a narrow window
 the panel is below the room.
+
+**Agents** (`#/w/NAME/agents`) is one table of every agent of the workspace, whatever runs it: where it is (**this Mac** or
+**elsewhere**) and how it is isolated (**micro VM**, **fenced**, **unfenced** — which says **acts as you** and "no proxy · no
+placeholders · no guard" — or **elsewhere**, "not run by Dozable · token only"), its state, its task, what it uses and what
+isolates it, who started it and when, **Watch** (or **Open**) and **⋯** (its screen, Open in Terminal, Restart, End — a
+command to copy —, **Take out of the workspace…** and **Move to another workspace…**). A worker that ended is listed folded
+below; a greyed "cloud worker" row shows where a worker run off your Mac will appear later; **Grid** is coming. In a narrow
+window each agent is a card.
+
+**An agent's screen** (`#/w/NAME/agent/AGENT`) is its sandbox's page, or its session's on this Mac, as you know them — the
+terminals, Home, the details — under the workspace's name: a line `NAME › Agents › AGENT` with its chips and **Open the
+room beside**, and in the details' Overview **In this workspace** (its role, task, who started it and when, its isolation
+and rooms). Switching its tabs keeps that address. An agent with no screen here — one elsewhere, a manager not started, a
+sandbox or session that is gone — shows a card saying so (and, for one gone, **Take out…**). A sandbox's own page
+(`#/sandbox/NAME`) still opens as itself; for one in a workspace it says **In NAME as AGENT — open it there**.
 
 ### Old addresses
 
@@ -180,7 +195,8 @@ address bar shows the new one):
 | `#/operations`, `#/activity`, `#/notifications`, `#/metrics` | `#/mac/logs/operations` and so on |
 
 `#/sandbox/NAME`, `#/chat`, `#/new`, `#/onboarding` and `#/try` are unchanged. A workspace's page is `#/w/NAME` (its main
-room) and `#/w/NAME/room/LABEL` (another of its rooms, by its short label). `#/mac` alone is now This Mac's overview
+room) and `#/w/NAME/room/LABEL` (another of its rooms, by its short label); its Agents tab is `#/w/NAME/agents` and an
+agent's screen `#/w/NAME/agent/AGENT` (with `/SESSION` for one of its sandbox's sessions). `#/mac` alone is now This Mac's overview
 (its first line leads to On this Mac), and a session on this Mac named like one of This Mac's pages (`images`, `logs`, …)
 is reached from On this Mac rather than by its old address.
 

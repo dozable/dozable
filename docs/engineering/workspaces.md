@@ -314,8 +314,12 @@ sandbox or session is shown as (`FolderRenameTests`); `workspaceCreated`, `works
 `workdir` are still refused. `doz workspace ls --json` is `WorkspaceListing {workspaces, loose}`; `show` and every change
 answer `WorkspaceDetail`; `log` is the entries.
 
-Additive, never persisted (an older doz ignores them; the text output prints neither): `WorkspaceRow.folders` (the
-paths, the main one first) and `WorkspaceRow.working` (the agents whose program is working now, by name);
+Additive, never persisted (an older doz ignores them; the text output prints none): `WorkspaceRow.folders` (the
+paths, the main one first), `WorkspaceRow.places` (the places of its agents that have not ended, each once, as a person
+types them — `HostCore.workspacePlaces`; so a sandbox's or a session's page in the dashboard knows its workspace; another
+computer that may not see this Mac's sessions gets none of `@mac/…`), `WorkspaceAgentRow.startedBy` (`you`, `doz`) and
+`.session` (a sandbox place's session — a worker sharing a sandbox; `place` names only the sandbox) and
+`WorkspaceRow.working` (the agents whose program is working now, by name);
 `WorkspaceAgentRow.activity` — `WorkspaceState.activity` of the `WorkspaceState.Agent` that `workspaceAgents` already
 computes (`blocked` or `error` before `working`, else `idle`; a failed sandbox `error`; nil when it does not run). Both
 come from what the daemon holds (its statuses), never a guest call; answered in-process (no daemon) `working` and
@@ -333,14 +337,22 @@ only with `serve.chat` read or write, else 403 `brief-remote`), `GET /api/v1/wor
 (`workspace-log --since`: `{lines: [{at, by, action, room?, agent?, text}], more, hidden}` — the sentences; never a hash,
 fingerprint, place key or size field; the newest 500; another computer while `serve.mac_sessions` is off gets no line
 about a session on this Mac, counted in `hidden`), `GET /api/v1/loose` (`workspace-ls --loose`), `GET /api/v1/bots`
-(`bot-ls`). ONE action changes a workspace from the page: `workspace-brief` = exactly `workspace-edit` with the name, the
-brief and `ifBrief` (another computer only with `serve.chat = write`); no other `workspace-*`, and no `bot-*` or `worker-*`
-HostOp, is an action — no lifecycle from any browser (CLAUDE.md's rule).
+(`bot-ls`). Four actions change a workspace from the page: `workspace-brief` = exactly `workspace-edit` with the name, the
+brief and `ifBrief` (another computer only with `serve.chat = write`), and FILING — `workspace-adopt`, `workspace-new` with
+exactly one agent (no folder, reference, room or manager) and `workspace-release`, each exactly the CLI's HostOp, this
+Mac's own browser only (another computer: 403 `mac-only`, whatever its serve settings; web.md, "Filing agents"). No other
+`workspace-*`, and no `bot-*` or `worker-*` HostOp, is an action — no lifecycle from any browser (CLAUDE.md's rule).
+Filing a RUNNING agent into a workspace that is setting up marks it started (`firstAgentAt`; nothing posted, nothing
+started), and the page says so ("NAME is started: AGENT was already running. The brief was not posted."); the title pill and
+the setting-up banner follow. Releasing the last agent of a started workspace leaves `firstAgentAt` set — the rule governs
+the start only.
 The sidebar lists the workspaces and unfolds one into its rooms and agents; Home is the table of them, or the definition
-with the loose count when there are none; This Mac › Loose agents lists what is in no workspace with the command that
-adopts it; Agents / Bots lists the bots. A workspace's page (`#/w/NAME[/room/LABEL]`, web.md "A workspace's page") puts
+with the loose count when there are none; This Mac › Loose agents lists what is in no workspace with "Put in a
+workspace…"; Agents / Bots lists the bots. A workspace's page (`#/w/NAME[/room/LABEL]`, web.md "A workspace's page") puts
 its room first: the brief above it, the log's sentences among its messages (the same words as `doz chat read
---with-log`), the agents, folders and network beside it.
+--with-log`), the agents, folders and network beside it; its Agents tab (`#/w/NAME/agents`) is one table of every agent, and
+an agent's screen (`#/w/NAME/agent/AGENT`) is its sandbox's or its session's page framed by the workspace (the additive
+`startedBy`, `session` and `places` above feed them).
 
 ## Agents / Bots — `doz bot`
 

@@ -5,6 +5,7 @@ import { remeasure, scheduleResTotal } from './measure.js';
 import { sandboxPhase, verbsFor } from './sandboxes.js';
 import { state } from './state.js';
 import { terminals } from './terminals.js';
+import { agentsHash, placeHash } from './routes.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const failureFor = upcall('failureFor'), opFailed = upcall('opFailed'), paintCover = upcall('paintCover'),
   paintRowOps = upcall('paintRowOps'), paintTransition = upcall('paintTransition'), refresh = upcall('refresh'),
@@ -119,11 +120,11 @@ export function trackOp(op) {
     remeasure();
     scheduleResTotal();
     // The sandbox this page shows is gone: back to the list (route() refreshes) instead of a 404.
-    if (op.state === 'done' && op.action === 'rm' && state.view === 'sandbox' && state.param === op.sandbox) { location.hash = '#/mac/sandboxes'; return; }
+    if (op.state === 'done' && op.action === 'rm' && state.view === 'sandbox' && state.param === op.sandbox) { location.hash = state.frame ? agentsHash(state.frame.workspace) : '#/mac/sandboxes'; return; }
     // Owner, 2026-10-23: renamed — the page it showed is under the new name now (the label is the server's
     // "rename OLD to NEW", both names checked by its rule).
     const renamed = op.state === 'done' && op.action === 'rename' && /^rename [a-z0-9-]+ to ([a-z0-9-]+)$/.exec(op.label || '');
-    if (renamed && state.view === 'sandbox' && state.param === op.sandbox) { location.hash = '#/sandbox/' + renamed[1] + '/~home'; return; }
+    if (renamed && state.view === 'sandbox' && state.param === op.sandbox) { location.hash = placeHash('sandbox', renamed[1], '~home', state.frame); return; }
     refresh(false);
   }
 }

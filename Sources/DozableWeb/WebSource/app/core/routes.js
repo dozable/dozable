@@ -2,7 +2,8 @@
 // `LEGACY`). Pure: no DOM, no state. The router replaces an old address with its canonical one first, then parses.
 //
 // Today's addresses: #/home · #/chat[/ROOM] · #/w/NAME[/room/LABEL] (a workspace's page, its main room or another of its
-// rooms by its short label) · #/bots · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
+// rooms by its short label) · #/w/NAME/agents (its Agents tab) · #/w/NAME/agent/AGENT[/SESSION|~home] (an agent's screen:
+// its sandbox's or its session's page, framed by the workspace) · #/bots · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
 // #/mac/here[/SESSION] (the sessions on this Mac), #/mac/sessions, #/mac/sandboxes, #/mac/loose, #/mac/macs (Your Macs), #/mac/templates[/browse |
 // /V/P], #/mac/images, accounts, resources, devices, doctor, settings, debug, #/mac/logs/<operations|activity|notifications|
 // metrics> · the modals #/new, #/onboarding, #/try[/AGENT].
@@ -24,6 +25,9 @@ const RECIPE = '[a-z0-9-]{1,40}(?:/[a-z0-9-]{1,40}){1,2}';
 const WORKSPACE = '[a-z0-9][a-z0-9-]{0,39}';
 const ROOM_LABEL = '[a-z0-9][a-z0-9_-]{0,63}';
 const MAC_SESSION = '[A-Za-z0-9_-][A-Za-z0-9._-]{0,31}';
+/// An agent's name in a workspace (the store's rule: 1–64 of letters, digits . _ -, not starting with - or .).
+const AGENT = '[A-Za-z0-9_][A-Za-z0-9._-]{0,63}';
+const SESSION = '[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}';
 
 /// Every old address and where it leads now: [pattern, replacement] — the replacement a string (`$1` the first group) or
 /// a function of the match. The only place an old address is written.
@@ -38,6 +42,8 @@ export const LEGACY = [
   [new RegExp('^#/(' + LOG_PAGES.join('|') + ')$'), (m) => '#/mac/logs/' + m[1]],
   [/^#\/mac\/logs\/?$/, () => '#/mac/logs/operations'],
   [/^#\/general$/, () => '#/chat'],
+  // An agent's "Can do" has no page yet: the address lands on the agent.
+  [new RegExp('^#/w/(' + WORKSPACE + ')/agent/(' + AGENT + ')/can-do$'), (m) => '#/w/' + m[1] + '/agent/' + m[2]],
   [/^#\/needs-you$/, () => HOME],
   [/^#\/?$/, () => HOME],
   [/^$/, () => HOME],
@@ -57,12 +63,14 @@ export function canonical(hash) {
   return HOME;
 }
 
-/// What a canonical address names: {view, param, session, recipe, room, modal} (null: not an address of the page).
-/// `view` is the page's view name (`state.view`); `recipe` is '' for the templates' list, 'V/P' for one, null otherwise;
-/// `room` a workspace room's short label (#/w/NAME/room/LABEL; null: its main room).
+/// What a canonical address names: {view, param, session, recipe, room, tab, agent, modal} (null: not an address of the
+/// page). `view` is the page's view name (`state.view`); `recipe` is '' for the templates' list, 'V/P' for one, null
+/// otherwise; `room` a workspace room's short label (#/w/NAME/room/LABEL; null: its main room); `tab` a workspace's tab
+/// other than its room (`agents`); `agent` an agent's name in the workspace (view `wsagent`: the router opens its
+/// sandbox's or its session's page, framed).
 export function parse(hash) {
   const r = (view, o = {}) => ({ view, param: o.param || null, session: o.session || null, recipe: o.recipe === undefined ? null : o.recipe,
-    room: o.room || null, modal: !!o.modal });
+    room: o.room || null, tab: o.tab || null, agent: o.agent || null, modal: !!o.modal });
   let m;
   if (hash === '#/home') return r('home');
   if (hash === '#/bots') return r('bots');
@@ -79,6 +87,10 @@ export function parse(hash) {
   if ((m = new RegExp('^#/mac/logs/(' + LOG_PAGES.join('|') + ')$').exec(hash))) return r(m[1]);
   if ((m = /^#\/chat(?:\/([a-z0-9][a-z0-9_-]{0,63}))?$/.exec(hash))) return r('chat', { param: m[1] });
   if ((m = new RegExp('^#/w/(' + WORKSPACE + ')(?:/room/(' + ROOM_LABEL + '))?$').exec(hash))) return r('workspace', { param: m[1], room: m[2] });
+  if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/agents$').exec(hash))) return r('workspace', { param: m[1], tab: 'agents' });
+  if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/agent/(' + AGENT + ')(?:/(~home|' + SESSION + '))?$').exec(hash)) && m[3] !== 'can-do') {
+    return r('wsagent', { param: m[1], agent: m[2], session: m[3] });
+  }
   // 635: `~home` (no session name can hold a ~) selects a sandbox page's Home tab.
   if ((m = /^#\/sandbox\/([a-z0-9-]{1,40})(?:\/(~home|[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}))?$/.exec(hash))) return r('sandbox', { param: m[1], session: m[2] });
   if (hash === '#/new' || hash === '#/onboarding') return r(hash.slice(2), { modal: true });
@@ -88,6 +100,24 @@ export function parse(hash) {
 
 /// A workspace's page: its main room (`label` null), or another of its rooms by its short label.
 export function workspaceHash(name, label) { return '#/w/' + name + (label ? '/room/' + label : ''); }
+/// A workspace's Agents tab.
+export function agentsHash(name) { return '#/w/' + name + '/agents'; }
+/// An agent's screen in its workspace (`session`: a session of its sandbox, or `~home`).
+export function agentHash(workspace, agent, session) {
+  return '#/w/' + workspace + '/agent/' + encodeURIComponent(agent) + (session ? '/' + session : '');
+}
+
+/// THE address of a place's page — every writer of `#/sandbox/…` or `#/mac/here/…` goes through it: `kind` 'sandbox'
+/// (`name` the sandbox, `session` one of its sessions or `~home`) or 'mac' (`name` the session on this Mac). While the
+/// page is framed by a workspace (`frame` — `state.frame`: {workspace, agent, kind, place}) and the place is the frame's,
+/// the address stays the framed one (#/w/NAME/agent/AGENT[/SESSION]); anything else is the place's own address.
+export function placeHash(kind, name, session, frame) {
+  if (frame && frame.kind === kind && frame.place === name) {
+    return agentHash(frame.workspace, frame.agent, kind === 'sandbox' ? session : null);
+  }
+  if (kind === 'mac') return '#/mac/here' + (name ? '/' + encodeURIComponent(name) : '');
+  return '#/sandbox/' + name + (session ? '/' + session : '');
+}
 
 /// The address of a view with no parameter (the sidebar's and a link's): `hashFor('images')` → '#/mac/images'.
 export function hashFor(view) {

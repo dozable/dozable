@@ -72,10 +72,10 @@ lacks and `doz workspace start NAME` to copy. A workspace's name opens **its pag
 room, its log among the room's messages, and beside them its agents, folders and network ([A workspace's
 page](06-the-dashboard.md#a-workspaces-page)). With none, Home says what a workspace is and how many sandboxes and
 sessions on this Mac are not in any workspace yet. In the sidebar, **Workspaces** lists them, each unfolding to its
-rooms and agents; **This Mac › Loose agents** lists the sandboxes and sessions in none, each with the
-`doz workspace adopt WORKSPACE NAME` that adopts it. From the dashboard you change one thing of a workspace: its brief
-(**Edit** on its page — announced in the room once the work has started). Making, adopting, starting and stopping are the
-commands on this page. It reads them when it opens, when something changes and when an action
+rooms and agents; **This Mac › Loose agents** lists the sandboxes and sessions in none, each with **Put in a
+workspace…**. From the dashboard you change two things of a workspace: its brief (**Edit** on its page — announced in the
+room once the work has started) and which agents it holds — putting a loose one in and taking one out (below). Starting
+and stopping, workers and bots are the commands on this page. It reads them when it opens, when something changes and when an action
 ends — a workspace made from the command line shows there the next time the page reads them (open Home, or reload).
 
 ## Adopting and releasing agents
@@ -88,7 +88,22 @@ doz workspace release demo my-sandbox         # loose again; it keeps running as
 ```
 
 A sandbox or session is in one workspace at most: adopting one that is already in another is refused, with the command
-that releases it. An agent of a workspace may be an Agent / Bot — a lasting identity in chat (see
+that releases it.
+
+**In the dashboard**, a loose sandbox or session is put in a workspace with **Put in a workspace…** — on **This Mac › Loose
+agents**, or in the **⋯** of its own page. Choose an existing workspace (and, if you like, another name for it there), or
+make a new one: its name starts as the agent's, its brief starts as "The work in AGENT." (change it to say what the work
+is for), and with chat on its room is made (nothing is posted). Only the workspace's record changes; the agent keeps
+running as it is. Putting a **running** agent in a workspace that is still setting up marks the work started — nothing is
+posted and nothing is started, and `doz workspace start` is not needed; one that is not running leaves it setting up.
+**Take out of the workspace…** (in a workspace's **Agents** tab, or on the agent's own page) makes it loose again, still
+running; a live worker is ended instead (`doz worker end`) and a running manager stopped first (`doz workspace stop`).
+**Move to another workspace…** is the two in turn. Only the Mac's own browser does this; another browser sees the
+buttons disabled and the command to copy.
+
+A workspace's **Agents** tab (`#/w/NAME/agents`) lists every agent — in a micro VM, fenced or unfenced on this Mac, or
+elsewhere — side by side, and each opens its screen in the workspace (`#/w/NAME/agent/AGENT`): its sandbox's or session's
+page with the workspace around it ([The dashboard](06-the-dashboard.md#a-workspaces-page)). An agent of a workspace may be an Agent / Bot — a lasting identity in chat (see
 [Agents / Bots](38-agents-and-bots.md)); a bot in a workspace is released from it before it can be retired. A sandbox you rename (`doz rename`) stays in its workspace under its new name; one you delete
 (`doz rm`) leaves it.
 

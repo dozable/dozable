@@ -1,11 +1,13 @@
-// views/loose — This Mac › Loose agents (#/mac/loose): each sandbox and session on this Mac in no workspace, with the
-// command that adopts one. Nothing moves by itself: adopting changes only the workspace's record.
+// views/loose — This Mac › Loose agents (#/mac/loose): each sandbox and session on this Mac in no workspace, with "Put in a
+// workspace…" (components/put-in-workspace.js — this Mac's own browser only; the command that does the same under "Show
+// the command"). Nothing moves by itself: filing changes only the workspace's record.
 import { h } from '../dom/h.js';
 import { state } from '../core/state.js';
 import { loadLoose } from '../core/workspaces.js';
 import { panel, table } from '../components/blocks.js';
 import { callout } from '../components/callout.js';
 import { cmdLine } from '../components/cmd-line.js';
+import { adoptCommand, filingRefusal, putInButton } from '../components/put-in-workspace.js';
 
 export async function viewLoose() {
   const l = await loadLoose(0);
@@ -17,14 +19,16 @@ export async function viewLoose() {
       h('td', null, session ? 'on this Mac' : 'micro VM'),
       h('td', null, h('span', { class: 'pill ph-' + phaseOf(a.state) }, a.state)),
       h('td', null, h('a', { href, class: 'btn sm quiet' }, 'Open')),
-      h('td', null, cmdLine('doz workspace adopt WORKSPACE ' + a.name)));
+      // Another computer cannot file it: the button is disabled and says so, and the command is there to copy.
+      h('td', { class: 'loose-acts' }, putInButton(a.name, { running: a.state === 'running' }), filingRefusal() ? cmdLine(adoptCommand(null, a.name)) : null));
   });
   const ws = state.workspaces ? state.workspaces.workspaces.length : 0;
   return h('div', { class: 'loose-page', 'data-loose-page': '' },
     h('div', { class: 'head' }, h('h1', null, 'Loose agents')),
     h('p', { class: 'sub' }, 'The sandboxes and sessions on this Mac that are not in any workspace' + (ws ? '' : ' — there are no workspaces yet') + '.'),
-    callout('info', { title: 'Nothing moves by itself', body: 'A sandbox or a session stays as it is until you adopt it into a workspace — only the workspace’s record changes. Run the command in a terminal on this Mac, with the workspace’s name.' }),
+    callout('info', { title: 'Nothing moves by itself', body: 'A sandbox or a session stays as it is until you put it in a workspace — only the workspace’s record changes, and it keeps running as it is.'
+      + (filingRefusal() ? ' ' + filingRefusal() + ': run the command in a terminal on this Mac.' : '') }),
     l.hidden ? callout('info', { compact: true, body: l.hidden + ' on this Mac not shown to this browser (serve.mac_sessions).' }) : null,
-    panel(table(['Name', 'Kind', 'State', '', 'To adopt it'], rows), 'Every sandbox and session on this Mac is in a workspace.'));
+    panel(table(['Name', 'Kind', 'State', '', 'Its workspace'], rows), 'Every sandbox and session on this Mac is in a workspace.'));
 }
 function phaseOf(s) { return ['running', 'booting', 'paused', 'asleep', 'hibernated', 'off', 'failed', 'ended'].includes(s) ? s : 'off'; }

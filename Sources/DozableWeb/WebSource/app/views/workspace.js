@@ -1,14 +1,14 @@
-// views/workspace — A workspace's page (#/w/NAME: its main room; #/w/NAME/room/LABEL: another of its rooms): the room
-// comes first. A section of its own (#ws), built once: the title row (its name, state, who drives, its manager, ⋯ with the
-// commands that start or stop it — never an action here), the tabs (only Room works yet; the others say what they will
-// hold), the brief ("The work", components/ws-brief.js), the room — THE chat surface of the Chat page, moved here
+// views/workspace — A workspace's page (#/w/NAME: its main room; #/w/NAME/room/LABEL: another of its rooms;
+// #/w/NAME/agents: its Agents tab, views/ws-agents.js): the room comes first. A section of its own (#ws), built once: the
+// title row (its name, state, who drives, its manager, ⋯ with the commands that start or stop it — never an action here),
+// the tabs (Room and Agents work; the others say what they will hold), the brief ("The work", components/ws-brief.js), the room — THE chat surface of the Chat page, moved here
 // (views/chat.js mountChat) and scoped to this workspace's rooms, its log's lines drawn among the messages — and the side
 // panel (components/ws-panel.js). Read on arrival, hello, `changed` and an operation's end — never on a timer.
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { actOrThrow, waitForOp } from '../core/operations.js';
-import { workspaceHash } from '../core/routes.js';
+import { agentsHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { loadBots, loadWorkspace, loadWorkspaces } from '../core/workspaces.js';
 import { briefEdits, forRoom, lineAt, mergeLines } from '../core/ws-log.js';
@@ -22,13 +22,14 @@ import { renderNavWorkspaces } from '../components/ws-nav.js';
 import { agentMeta, wsPanel } from '../components/ws-panel.js';
 import { chatRefresh, mountChat } from './chat.js';
 import { drawSys } from './chat-messages.js';
+import { agentsTab } from './ws-agents.js';
 
 /// The permissions tab's name — ONE constant (the owner's choice; every place that names the tab reads it).
 export const PERMISSIONS_TAB = 'Permissions';
-/// The tabs, in the mockups' order: only Room works; each other says what it will hold.
+/// The tabs, in the mockups' order: Room and Agents work (each an address); each other says what it will hold.
 export const WS_TABS = [
-  { id: 'room', label: 'Room' },
-  { id: 'agents', label: 'Agents', coming: 'Each agent: its place, its isolation, its screen, its permissions' },
+  { id: 'room', label: 'Room', href: (w) => workspaceHash(w) },
+  { id: 'agents', label: 'Agents', href: (w) => agentsHash(w) },
   { id: 'permissions', label: PERMISSIONS_TAB, coming: 'What each agent may do here: allow, ask or never, by role, and who decides' },
   { id: 'network', label: 'Network & secrets', coming: 'The sites its agents reach, the ports forwarded, the secrets they hold as placeholders' },
   { id: 'folders', label: 'Folders & points', coming: 'Its folders, what changed in them, and restore points' },
@@ -48,7 +49,7 @@ function build() {
   const tabs = h('div', { class: 'ws-tabs', role: 'tablist', 'aria-label': 'This workspace' }, ...WS_TABS.map((t) => t.coming
     ? h('button', { type: 'button', role: 'tab', class: 'ws-tab is-coming', 'aria-selected': 'false', 'aria-disabled': 'true', 'data-ws-tab': t.id,
       title: t.label + ' — coming: ' + t.coming }, t.label, h('span', { class: 'ws-coming' }, 'coming'))
-    : h('button', { type: 'button', role: 'tab', class: 'ws-tab is-on', 'aria-selected': 'true', 'data-ws-tab': t.id }, t.label)));
+    : h('a', { role: 'tab', class: 'ws-tab', 'aria-selected': 'false', 'data-ws-tab': t.id, href: '#/home' }, t.label)));
   $('ws').replaceChildren(
     h('div', { class: 'ws-head', id: 'ws-head' }),
     tabs,
@@ -57,7 +58,23 @@ function build() {
         h('div', { class: 'ws-notice', id: 'ws-notice' }),
         h('div', { class: 'ws-brief-slot', id: 'ws-brief' }),
         h('div', { class: 'ws-room', id: 'ws-room', role: 'region', 'aria-label': 'The room' })),
-      h('aside', { class: 'ws-panel', id: 'ws-panel', 'aria-label': 'Who is here and in what' })));
+      h('aside', { class: 'ws-panel', id: 'ws-panel', 'aria-label': 'Who is here and in what' })),
+    h('div', { class: 'ws-agents-tab', id: 'ws-agents', hidden: true, role: 'tabpanel', 'aria-label': 'Agents' }));
+}
+
+/// The tab row's state for `name` on `tab` (null: the room): each working tab is a link to its address.
+function paintTabs(name, tab) {
+  for (const el of $('ws').querySelectorAll('.ws-tabs [data-ws-tab]')) {
+    const t = WS_TABS.find((x) => x.id === el.dataset.wsTab);
+    if (!t || t.coming) continue;
+    const on = t.id === (tab || 'room');
+    el.setAttribute('href', t.href(name));
+    el.setAttribute('aria-selected', on ? 'true' : 'false');
+    el.classList.toggle('is-on', on);
+  }
+  const agents = tab === 'agents';
+  $('ws').querySelector('.ws-body').hidden = agents;
+  $('ws-agents').hidden = !agents;
 }
 
 function folded(name, label) {
@@ -108,12 +125,14 @@ function scope() {
   };
 }
 
-/// Arriving on #/w/NAME[/room/LABEL].
-export async function wsEnter(name, label) {
+/// Arriving on #/w/NAME[/room/LABEL] or #/w/NAME/agents (`tab`).
+export async function wsEnter(name, label, tab) {
   build();
+  paintTabs(name, tab);
   const fresh = !cur || cur.name !== name;
   if (fresh) {
-    cur = { name, label, detail: null, bots: null, brief: null, denied: false, lines: [], room: null, missing: null };
+    cur = { name, label, tab, detail: null, bots: null, brief: null, denied: false, lines: [], room: null, missing: null };
+    $('ws-agents').replaceChildren();
     card = null;
     $('ws-head').replaceChildren(h('h1', null, name));
     $('ws-brief').replaceChildren();
@@ -122,6 +141,7 @@ export async function wsEnter(name, label) {
   }
   if (fresh || cur.label !== label) cur.folded = folded(name, label);
   cur.label = label;
+  cur.tab = tab;
   let d;
   try { d = await loadWorkspace(name, 0); } catch (e) {
     if (!cur || cur.name !== name) return;
@@ -141,6 +161,7 @@ export async function wsEnter(name, label) {
   draw();
   // The sidebar's tree marks this page; a page opened here first reads the list once (never on a timer).
   if (state.workspaces) renderNavWorkspaces(); else loadWorkspaces(1000).then(() => renderNavWorkspaces()).catch(() => { /* the next hello */ });
+  if (tab === 'agents') { window.scrollTo(0, 0); return; }       // the room is mounted when its tab is shown
   await mountChat({ room: $('ws-room'), people: peopleSlot }, scope(), wr ? wr.room : null);
   drawSys();
 }
@@ -159,6 +180,7 @@ export async function wsRefresh() {
   cur.brief = b.brief; cur.denied = b.denied;
   if (log) { cur.lines = mergeLines(cur.lines, log.lines); cur.logHidden = log.hidden; }
   draw();
+  if (cur.tab === 'agents') return;
   chatRefresh();
   drawSys();
 }
@@ -220,6 +242,8 @@ function draw() {
   if (!card || card.dataset.wsBrief !== d.name) { card = briefCard(o); $('ws-brief').replaceChildren(card); } else card.redraw(o);
   // The side panel.
   $('ws-panel').replaceChildren(wsPanel({ detail: d, mainRoom: mainOf(d) ? mainOf(d).room : null, peopleSlot }));
+  // The Agents tab (drawn while it is shown).
+  if (cur.tab === 'agents') $('ws-agents').replaceChildren(agentsTab({ detail: d, lines: cur.lines, onChanged: () => wsRefresh() }));
 }
 
 async function copy(text) {

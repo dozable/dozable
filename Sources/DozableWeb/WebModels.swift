@@ -1803,10 +1803,14 @@ public struct WebWorkspaceRow: Codable, Equatable, Sendable {
     /// The agents working now, by name (nil: not known — no daemon, or left out for this browser).
     public var working: [String]?
     public var folders: [String]
+    /// The places of its agents that have not ended (`wsa`, `@mac/wsu`) — a sandbox's or a session's page finds its workspace
+    /// here. Another computer that may not see this Mac's sessions gets none of `@mac/…` (`WebWorkspaceReads.forBrowser`).
+    public var places: [String]
 
     public init(_ r: WorkspaceRow) {
         name = r.name; state = r.state; words = WorkspaceState(rawValue: r.state)?.words ?? r.state; driver = r.driver; agents = r.agents
         room = r.room; manager = r.manager.map(WebWorkspaceManager.init); working = r.working; folders = r.folders ?? []
+        places = r.places ?? []
     }
 }
 
@@ -1900,16 +1904,20 @@ public struct WebWorkspaceAgent: Codable, Equatable, Sendable {
     public var task: String?
     /// What isolates a worker, as a person reads it (`proxy · placeholders · guard`; nil: not a worker).
     public var control: String?
+    /// Who brought it in (`you`, `doz`; nil: an older daemon) and when.
+    public var startedBy: String?
+    public var startedAt: Date
 
     public init(_ a: WorkspaceAgentRow) {
         name = a.name; role = a.role; place = a.place; state = a.state; activity = a.activity; bot = a.bot; isolation = a.isolation
-        actsAsYou = a.actsAsYou == true; task = a.task; control = a.control
+        actsAsYou = a.actsAsYou == true; task = a.task; control = a.control; startedBy = a.startedBy; startedAt = a.startedAt
         if a.place.hasPrefix(MacPlace.name + "/") {
             kind = "mac"; session = String(a.place.dropFirst(MacPlace.name.count + 1))
         } else if a.state == "elsewhere" || !WebRoute.isSandboxName(a.place) {
             kind = "elsewhere"
         } else {
-            kind = "sandbox"; sandbox = a.place
+            // A worker sharing a sandbox runs in a session of its own there.
+            kind = "sandbox"; sandbox = a.place; session = a.session.flatMap { WebRoute.isSessionName($0) ? $0 : nil }
         }
     }
 }
