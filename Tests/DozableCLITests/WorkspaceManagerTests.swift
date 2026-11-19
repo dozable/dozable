@@ -61,7 +61,8 @@ final class WorkspaceManagerTests: BotTestCase {
             return []
         }
         func stop(isolation: ManagerIsolation, place: String) async throws {
-            lock.withLock { stops += 1; places[place]?.running = false }
+            // A VM's shutdown revokes its secrets: its record no longer names the bot.
+            lock.withLock { stops += 1; places[place]?.running = false; if isolation == .vm { places[place]?.heldBy = nil } }
             trace.add("stop \(place)")
         }
     }
@@ -316,6 +317,25 @@ final class WorkspaceManagerTests: BotTestCase {
         XCTAssertEqual(trace.all.last, "open demo again")
         XCTAssertEqual(wchat.posts.count, 1)
         XCTAssertNil(try record("demo")?.manager?.stoppedAt)
+    }
+
+    func testAVMManagerStartsAgainAfterAStop() async throws {
+        let c = await mgr()
+        try await newBot(c, "vera", isolation: "vm")
+        _ = try await newWorkspace(c, "vmw", manager: "vera")
+        _ = try started(await ws(c, .workspaceStart, "vmw"))
+        _ = await ws(c, .workspaceStop, "vmw")
+        XCTAssertNil(launcher.places["vmw"]?.heldBy)
+        let s = try started(await ws(c, .workspaceStart, "vmw"))
+        XCTAssertFalse(s.kickedOff)
+        XCTAssertEqual(trace.all.last, "open vmw again")
+        // A stranger's sandbox of that name, never this manager's: refused.
+        _ = try await newWorkspace(c, "other", manager: nil)
+        launcher.places["fresh"] = ManagerPlaceInfo(exists: true, running: false, heldBy: nil)
+        try await newBot(c, "nova", isolation: "vm")
+        _ = try await newWorkspace(c, "fresh", manager: "nova")
+        let m = await ws(c, .workspaceStart, "fresh")
+        XCTAssertTrue(m.error?.message.contains("a sandbox called fresh already exists") == true, m.error?.message ?? "")
     }
 
     func testNoManagerYouDrive() async throws {

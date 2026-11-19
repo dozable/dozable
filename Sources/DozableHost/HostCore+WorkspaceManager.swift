@@ -144,7 +144,9 @@ extension HostCore {
                 }
             }
             let info = await managerLauncher.info(isolation: iso, place: place)
-            let ours = info.heldBy == bot || (iso == .unfenced && (m.stoppedAt != nil || managerTokenFolderExists(place)))
+            // Ours: its record carries this bot's bot-held secret, or this manager was stopped there (a VM's shutdown revokes
+            // its secrets), or an unfenced one's token folder is there.
+            let ours = info.heldBy == bot || m.stoppedAt != nil || (iso == .unfenced && managerTokenFolderExists(place))
             check.placeTaken = info.exists && !ours
             manager = check
         }
