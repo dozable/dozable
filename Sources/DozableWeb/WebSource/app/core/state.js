@@ -4,7 +4,7 @@
 export const state = {
   csrf: null,
   expiresAt: null,
-  view: 'overview',
+  view: 'home',
   param: null,
   session: null,           // 593: #/sandbox/NAME/SESSION
   sbx: null,               // 593: the shown sandbox's {name, d, net, accounts}
@@ -23,8 +23,8 @@ export const state = {
   reloadAfterRestart: false, // 714: Restart dashboard was pressed — the next hello (the new doz ui's) reloads the page
   metricsFilter: { image: '', days: '', steps: false },
   settings: null,          // 591: {report, byKey} from GET /api/v1/settings
-  recipe: null,            // 669: #/recipes[/V/P] — '' the Recipes page, 'V/P' one recipe's page; null otherwise
-  recipeQuery: '',         // 669: Recipes › Browse's search (#/browse)
+  recipe: null,            // 669: #/mac/templates[/V/P] — '' the Templates page, 'V/P' one recipe's page; null otherwise
+  recipeQuery: '',         // 669: Templates › Browse's search (#/mac/templates/browse)
   tr: null,                // 617: the Quick try modal's state (views/try.js)
   tryAgent: null,          // 617: the agent of #/try/AGENT
   preps: [],               // 594: the daemon's image preparations (SSE `preparations`, GET /api/v1/preparations)

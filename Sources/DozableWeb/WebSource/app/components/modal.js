@@ -1,7 +1,7 @@
 // components/modal — The wizards' modal (603): a real dialog over the page under it.
 import { upcall } from '../core/hooks.js';
 import { $, h, markChildren } from '../dom/h.js';
-import { MODAL_VIEWS } from '../core/router.js';
+import { HOME, MODAL_VIEWS } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { WIZ } from '../core/wizards.js';
 import { btn } from './button.js';
@@ -107,7 +107,7 @@ export function wizardCloseRequest() {
   const leave = () => {
     if (state.modal === 'try') stopTryRead();
     if (state.modal === 'new') state.nw = null; else if (state.modal === 'onboarding') state.wiz = null; else if (state.modal === 'try') state.tr = null;
-    if (state.modalBack) history.back(); else location.replace(state.bgHash && !MODAL_VIEWS.has(state.bgHash.slice(2)) ? state.bgHash : '#/overview');
+    if (state.modalBack) history.back(); else location.replace(state.bgHash && !MODAL_VIEWS.has(state.bgHash.slice(2)) ? state.bgHash : HOME);
   };
   if (!wizDirty()) { leave(); return; }
   dialog(state.modal === 'new' ? 'Discard this new sandbox?' : 'Stop setting up?',

@@ -73,6 +73,7 @@ import { viewMetrics } from './app/views/metrics.js';
 import { newSandboxWizard, viewNew } from './app/views/new-sandbox.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations.js';
+import { viewHome } from './app/views/home.js';
 import { viewOverview } from './app/views/overview.js';
 import { viewResources } from './app/views/resources.js';
 import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try.js';
@@ -85,6 +86,7 @@ import { refreshSandbox, showSandbox } from './app/views/sandbox.js';
 import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions.js';
 import { macEnter, macLeave, macRefresh } from './app/views/mac.js';
 import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings.js';
+import { viewThisMac } from './app/views/this-mac.js';
 import './app/views/shortcuts.js';
 
 // 599c: Quick add in the sidebar, beside Sandboxes.
@@ -162,14 +164,14 @@ async function startApp() {
   if (state.started) return;
   state.started = true;
   {
-    if (!/^#\/[a-z]/.test(location.hash)) history.replaceState(null, '', location.pathname + '#/overview');
+    if (!/^#\/[a-z]/.test(location.hash)) history.replaceState(null, '', location.pathname + '#/home');
     await loadSettings();
     // 594 (D8): a store never onboarded opens on the setup wizard (once per page load).
     try {
       const o = await api('overview');
       state.overview = o;
       renderNavSandboxes();
-      if (o.onboarded === false && location.hash === '#/overview') history.replaceState(null, '', location.pathname + '#/onboarding');
+      if (o.onboarded === false && location.hash === '#/home') history.replaceState(null, '', location.pathname + '#/onboarding');
     } catch (_) { /* the overview says so itself */ }
     route();
     connect();
@@ -205,8 +207,8 @@ provide({
   paintCover, paintHome, paintNav, paintNotes, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition, paintUpdates,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
   renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
-  viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
-  viewTry, wizardStopPolling,
+  viewHome, viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
+  viewThisMac, viewTry, wizardStopPolling,
 });
 // The browser probes' names. The one script's top-level names were globals, and the workspace's browser probes
 // (probes/*, over CDP Runtime.evaluate) read and call some of them; module names are not globals, so these stay

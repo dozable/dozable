@@ -119,7 +119,7 @@ export function trackOp(op) {
     remeasure();
     scheduleResTotal();
     // The sandbox this page shows is gone: back to the list (route() refreshes) instead of a 404.
-    if (op.state === 'done' && op.action === 'rm' && state.view === 'sandbox' && state.param === op.sandbox) { location.hash = '#/overview'; return; }
+    if (op.state === 'done' && op.action === 'rm' && state.view === 'sandbox' && state.param === op.sandbox) { location.hash = '#/mac/sandboxes'; return; }
     // Owner, 2026-10-23: renamed — the page it showed is under the new name now (the label is the server's
     // "rename OLD to NEW", both names checked by its rule).
     const renamed = op.state === 'done' && op.action === 'rename' && /^rename [a-z0-9-]+ to ([a-z0-9-]+)$/.exec(op.label || '');

@@ -18,7 +18,7 @@ export async function bootstrap() {
   const m = /^#cap=([A-Za-z0-9_-]{16,256})(?:&to=(try(?:\/[a-z0-9][a-z0-9-]{0,39})?))?$/.exec(location.hash);
   if (m) {
     // The capability leaves the address bar and the history entry before anything else happens.
-    history.replaceState(null, '', location.pathname + (m[2] ? '#/' + m[2] : '#/overview'));
+    history.replaceState(null, '', location.pathname + (m[2] ? '#/' + m[2] : '#/home'));
     try {
       adopt(await api('session', { method: 'POST', bearer: m[1] }));
       return true;
