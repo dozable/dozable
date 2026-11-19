@@ -141,6 +141,13 @@ program reads it). Only the daemon makes one: a client's `--secret` never carrie
 it). A start after a stop goes through `macReopen(extra:botSecrets:managerStart:)`, so the conversation recorded at the
 stop is resumed with a fresh secret, the same environment and START.
 
+**So is a fenced worker** (`doz worker add`; workspaces.md, "Workers"): the same open (`launchAgentOnMac`) with
+`startFolder: "worker"` (START at `etc/worker/start.md`), its bot's bot-held secret or — anonymous — a daemon-made one
+already kept as the session's own item (`mac.W-NAME`), and `openURL` and `clipboard` off. `doz worker end` ends it
+(`macEnd`), drops its secret from the session's record and deletes its item; the record stays unless `--rm`. A worker in
+a SANDBOX that another agent shares gets its own variables, and the daemon gives its session alone `CHAT_TOKEN` /
+`CHAT_TOKEN_FILE` from them (`sessionSecretAliases`, read by `openSession`).
+
 - **The principle:** nothing a fenced program can write is later executed or loaded by anything unfenced, except the
   project's own files. Its temp, every tool cache it knows of, `XDG_CONFIG_HOME` and git's global config are its own
   (`~/Library/Application Support/Dozable/fence/<8 hex of the store>/<session>/`: `tmp/` emptied at every open, `cache/`

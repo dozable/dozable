@@ -20,13 +20,16 @@ dashboard shows nothing of workspaces yet; the CLI is the only way in. The manua
 | `Sources/DozableHost/WorkspaceSetupCheck.swift` | the set-up check: pure `gaps(_:)` (each `Gap {item, why, fix}`), the one-live-workspace rule (`liveElsewhere`, its refusal) |
 | `Sources/DozableHost/ManagerLaunch.swift` | pure: `ManagerIsolation.resolve`, the session name, the program, `plan(...)` (argv, environment, START's path, ports, the bot-held secret) |
 | `Sources/DozableHost/ManagerKickoff.swift` | pure: START's text and the brief's post |
-| `Sources/DozableHost/HostCore+WorkspaceManager.swift` | `workspace-start` / `-stop`, the `ManagerLauncher` seam and `DaemonManagerLauncher`, `botLaunchSecret`, `liveWorkspace`; the unfenced token file (separable) and its sweep |
+| `Sources/DozableHost/HostCore+WorkspaceManager.swift` | `workspace-start` / `-stop`, the `ManagerLauncher` seam and `DaemonManagerLauncher`, `botLaunchSecret`, `liveWorkspace`, `liveWorkers`; the role-aware launch paths (`AgentMacLaunch`, `AgentVMLaunch` — a manager's and a worker's); the unfenced token file (separable) and its sweep |
+| `Sources/DozableHost/WorkerLaunch.swift` | pure: `WorkerIsolation.resolve`, `WorkerLaunch` (`placeName`, `tokenVariables`, `nextAnonymousName`, `flagProblems`, `plan`, `control`; the default allow-list, ONE constant) |
+| `Sources/DozableHost/WorkerKickoff.swift` | pure: a worker's START |
+| `Sources/DozableHost/HostCore+Workers.swift` | `worker-add` / `-ls` / `-end`, the `WorkerLauncher` seam and `DaemonWorkerLauncher`, `sweepPendingWorkers` |
 | `Sources/DozableHost/HostCore+Workspaces.swift` | the `workspace-*` operations in the daemon (and the read-only core for ls/show/log); the `WorkspaceChat` seam and `OwnerWorkspaceChat`; the hooks of `doz rename` and `doz rm` |
 | `Sources/DozableHost/ChatOwnerRooms.swift` | making a room AS YOU over the owner's socket — the one implementation `doz chat room` and the workspaces use; `ChatStateView` |
-| `Sources/DozableHost/HostProtocol.swift` | `HostOp.workspace*`, `WorkspaceRequest`, `WorkspaceListing`/`WorkspaceRow`/`WorkspaceManagerRow`/`LooseAgent`, `WorkspaceDetail`/`WorkspaceAgentRow`, `WorkspaceStarted`, `WorkspaceStopped`; `SandboxInfo.workspace`, `SessionRow.workspace` |
-| `Sources/DozableCLI/WorkspaceCommands.swift` | `doz workspace new | ls | show | start | stop | adopt | release | edit | log | rename` |
-| `Tests/DozableCLITests/WorkspaceRecordTests.swift`, `WorkspaceStateTests.swift`, `WorkspaceAdoptTests.swift`, `WorkspaceSetupCheckTests.swift`, `ManagerLaunchTests.swift`, `WorkspaceManagerTests.swift`, `BotLaunchSecretTests.swift` | the unit tests (scratch roots, a fake chat, a fake launcher, a memory keychain) |
-| `Sources/doz-vmtest/CLIWorkspaceSuite.swift`, `CLIWorkspaceManagerRows.swift`, `CLIWorkspaceVMSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, a FAKE claude, no VM; `make test-cli-workspace-vm`: one scratch lab VM |
+| `Sources/DozableHost/HostProtocol.swift` | `HostOp.workspace*`, `WorkspaceRequest`, `WorkspaceListing`/`WorkspaceRow`/`WorkspaceManagerRow`/`LooseAgent`, `WorkspaceDetail`/`WorkspaceAgentRow`, `WorkspaceStarted`, `WorkspaceStopped`; `HostOp.worker*`, `WorkerRequest`, `WorkerListing`/`WorkerRow`, `WorkerAdded`, `WorkerEnded`; `SandboxInfo.workspace`, `SessionRow.workspace` |
+| `Sources/DozableCLI/WorkspaceCommands.swift`, `WorkerCommands.swift` | `doz workspace new | ls | show | start | stop | adopt | release | edit | log | rename`; `doz worker add | ls | end` |
+| `Tests/DozableCLITests/WorkspaceRecordTests.swift`, `WorkspaceStateTests.swift`, `WorkspaceAdoptTests.swift`, `WorkspaceSetupCheckTests.swift`, `ManagerLaunchTests.swift`, `WorkspaceManagerTests.swift`, `BotLaunchSecretTests.swift`, `WorkerLaunchTests.swift`, `WorkerKickoffTests.swift`, `WorkspaceWorkerTests.swift` | the unit tests (scratch roots, a fake chat, fake launchers, a memory keychain) |
+| `Sources/doz-vmtest/CLIWorkspaceSuite.swift`, `CLIWorkspaceManagerRows.swift`, `CLIWorkspaceWorkerRows.swift`, `CLIWorkspaceVMSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, a FAKE claude, no VM; `make test-cli-workspace-vm`: scratch lab VMs |
 | `Sources/DozableHost/BotRecord.swift` | Agents / Bots: `BotsFile` (`bots.json`, version 1), `BotRecord`, `BotIsolation`, `BotInstructions`, `BotTokenState`; `BotName` (the name rule), `BotKinds`, `BotFields` |
 | `Sources/DozableHost/BotStore.swift` | `BotStore`: `bots/bots.json` rewritten whole, `bots/<name>/instructions.md` and `notes.md`, 0600 in 0700 |
 | `Sources/DozableHost/BotTokens.swift` | a held bot's keychain item (`doz-bot-<store's 8 hex>-<name>`), the fingerprint, the sweep's orphans |
@@ -40,7 +43,8 @@ dashboard shows nothing of workspaces yet; the CLI is the only way in. The manua
 
 - `workspace.json` — `{version, name, createdAt, brief: {refs, sha256, bytes, updatedAt}, folders: [{path, mode: rw|ro,
   main}], rooms: [{label, chatRoom, main}], agents: [{name, role: worker|manager, place: {sandbox?, mac?, session?,
-  elsewhere?}, startedBy, startedAt, bot?, isolation?, stoppedAt?}], defaults: {isolation?, network?}, flags: {finishedAt?,
+  elsewhere?}, startedBy, startedAt, bot?, isolation?, stoppedAt?, task?, anonymous?, pendingAt?, endedAt?}],
+  defaults: {isolation?, network?}, flags: {finishedAt?,
   archivedAt?, firstAgentAt?, startedAt?}, driver:
   "you", origin: {kind: new|adopted|project, project?}}`.
 - `brief.md` — the brief's text (at most 256 KiB). The record keeps only its references, hash and size.
@@ -66,7 +70,8 @@ Rules (keep them, and their tests):
   a line of its own. Actions: `created`, `room-made`, `room-linked`, `adopted`, `released`, `brief-edited`,
   `folders-edited`, `refs-edited`, `renamed`, `agent-renamed`, `agent-removed`, `manager-set`, `manager-removed`,
   `bot-invited`, `kicked-off` (the post's sha256 and size — never its text), `manager-started` (isolation, place, the
-  token's fingerprint — never the token), `manager-stopped`.
+  token's fingerprint — never the token), `manager-stopped`, `worker-added` (isolation, place, the task's sha256 and size,
+  the token's fingerprint — never the task's text or the token), `worker-ended`, `worker-add-undone` (by `doz`).
 - **Folders are optional.** A workspace with none records `folders: []` and has no main folder; `--from-project` needs a
   main folder (it reads the project file there) and is refused without one.
 
@@ -77,6 +82,8 @@ Rules (keep them, and their tests):
 | `workspace-ls`, `-show`, `-log` | `query()`: an in-process `HostCore(readOnly: true)` when no daemon runs, else the daemon | looking never starts the daemon; phases from the store, `@mac` rows from `macRows()` |
 | `workspace-new`, `-adopt`, `-release`, `-edit`, `-rename` | `call()`: the daemon | ONE writer — each holds the `KeyedGate` key `workspaces`; rooms need the chat server the daemon runs; a read-only core refuses "needs the daemon" |
 | `workspace-start`, `-stop` | `call()`: the daemon | the check under `workspaces`, the launch under `workspace:NAME` (each record change takes `workspaces` again); never read-only |
+| `worker-ls` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon |
+| `worker-add`, `-end` | `call()`: the daemon | the check and the pending entry under `workspaces`, the participant under `bots`, then the launch; never read-only |
 
 The workspace's name never travels in `HostRequest.name` (a sandbox's, which `perform` uses to apply a sandbox's
 settings and to route `@mac`); it goes in `WorkspaceRequest.name`, the agent in `WorkspaceRequest.agent`.
@@ -194,6 +201,95 @@ running: said, exit 0. Nothing is posted in the room.
 
 `doz bot ls` and `bot show` carry `running` (the workspace where its manager runs now): "manages: demo (running)".
 
+## Workers
+
+`doz worker add W [NAME] --task "…"` brings up a worker in a STARTED workspace: an agent with one task, a participant of
+its own in the main room (and each `--room LABEL` of the workspace). Its entry is `{name, role: worker, place, bot?,
+isolation, task, anonymous?, pendingAt?, endedAt?}`; `isWorker` is a `worker` entry with a task (an adopted agent has
+none). Refused: setting up ("W is still setting up — doz workspace start W first (a workspace with no manager starts
+with you driving)"), finished or archived, a start under way, chat off or not ready, no main room. `doz workspace stop`
+stops only the manager. Dozable posts nothing in the room: the worker says it is up itself.
+
+**Names.** A worker's NAME is its participant's name — one flat namespace with the participants and the bots. None given:
+the first free `botN` (`WorkerLaunch.nextAnonymousName`) skipping every participant, every bot (retired included), you and
+every live worker of any workspace. `--from-bot BOT`: NAME is the bot's (another NAME refused, `--agent` refused). A NAME
+that is a bot's ("doz worker add W --from-bot X"), a participant's, a retired bot's or a live worker's is refused. An
+ended worker's entry is replaced by a new one of its name (the log keeps the history).
+
+**Isolation and place** (`WorkerIsolation.resolve`, `flagProblems`) — the narrowest unless asked: fenced; vm when asked,
+or the workspace's `defaults.isolation` or (from a bot) the bot's default is vm; **unfenced never unless
+`--isolation unfenced`** — and `unfencedManagerRefusal()` is the ONE switch that refuses unfenced managers and workers
+alike. Fenced or unfenced: the session `W-NAME` (`WorkerLaunch.placeName`: over 32 characters its first 27, `-` and 4
+hex; `--session` overrides). VM: a sandbox of its own, `W-NAME`, made as `doz create … --agent A --approvals skip
+--permissions P --host-port PORT --folder MAIN [--cpus N --memory M]` would, plus `sandbox.clipboard off` and
+`sandbox.browser_bridge off`; its session inside is NAME (its place has no `session`). `--sandbox X`: X runs, is an
+adopted agent's or another worker's sandbox of this workspace (never the manager's), proxied, reaches the page port
+already (else "doz net allow X host:PORT") and holds fewer than four secrets; the place is `{sandbox: X, session: NAME}`
+— membership stays by sandbox, a worker is told apart by its name. Refused together: `--cpus`/`--memory` without vm,
+`--sandbox` with `--isolation`, `--cpus`, `--memory` or `--session`; `--allow-tool` other than for a fenced Claude Code
+worker. Its folder is the workspace's main one, else `<projects_dir>/W/NAME` (0700). Its network is the workspace's
+default, else `locked`; fenced, its `MacFenceRequest` has `openURL` and `clipboard` off and the page port as its one
+host port. Agent: `claude-code` by default; only Claude Code and Codex (`ManagerLaunch.program`).
+
+**Its launch** (`WorkerLaunch.plan` on `AgentLaunch.plan`, the manager's builders): the first prompt `Read START and do
+what it says.`; START (`WorkerKickoff.startText`) begins `You are NAME, a worker in the workspace W. Your task: <its first
+line>` / `Your room in chat: ROOM` (the manager's shape, which the tests' FAKE claude reads), then who directs it (the
+manager while one runs, else the person), `dozchat` with `CHAT_TOKEN_FILE`, the skills `chat-worker`,
+`chat-room-member` and a bot's own, a bot's instructions, what it can do where it runs, to say it is up with its task in
+a few words, and the task in full. Fenced: START at `etc/worker/start.md`; argv `claude "<prompt>" --permission-mode
+dontAsk --allowedTools "Bash(dozchat:*)" [--allow-tool …]` — `WorkerLaunch.defaultAllowedTools` is the ONE constant of
+the default list (the allow-list last). Unfenced: no dontAsk. VM: START at `~/.doz-workspace/NAME/start.md`, approvals
+skipped, no list. The paths are the manager's, made role-aware: `launchAgentOnMac` (`AgentMacLaunch`) and
+`launchAgentInVM` (`AgentVMLaunch`); the manager's own launch is unchanged.
+
+**The token kinds.** From a bot: its bot-held launch secret (`botLaunchSecret`, never deleted). Anonymous: a throwaway
+participant made by the daemon (`BotChat.add`, polls) and its token as a **daemon-made launch secret** of its place
+(`daemonWorkerSecret`: `checkedLaunchSecrets(daemon: true)` — no source file, the reach check kept — then
+`keepLaunchSecrets(owner:)`: its own keychain item and a ledger line, so revoking and the sweep delete it; until its
+place exists the sweep leaves it alone, `pendingLaunchSecrets`). Owner `mac.W-NAME` fenced, the sandbox's name in a VM.
+Unfenced (either kind): the real token in a 0600 file in a 0700 folder at the unfenced manager's path for its session
+(`workerTokenFolder` — one line, open with the owner), deleted at end and by the daemon's sweep. Never in argv, a record,
+a log or `--json`.
+
+**A shared sandbox.** Every session of a sandbox gets every secret's placeholder (`deliverLaunchSecretFiles`), so a worker
+in `--sandbox X` gets its own pair, `CHAT_TOKEN_<NAME>` / `CHAT_TOKEN_FILE_<NAME>` (`tokenVariables`), and the daemon sets
+`CHAT_TOKEN` / `CHAT_TOKEN_FILE` to them for ITS session only (`sessionSecretAliases["X/NAME"]`, set just before the
+open and read by `openSession` — never a client's to set). Workers sharing X can read each other's placeholders: accepted,
+and said ("shares X: workers there can read each other's placeholders" in `add`, `ls` and the docs).
+
+**The order** (`workerAdd`): under `workspaces` every check (nothing written on a refusal) and the entry with `pendingAt`;
+then the throwaway participant (under `bots`, the name checked again), the invites (`bot-invited`), the token (the secret
+kept, or the token file), the launch (`WorkerLauncher.launch`); then `pendingAt` cleared and `worker-added`. A failing
+step undoes the earlier ones (the token file, the secret — forgotten and swept —, the participant, the entry) and says
+"NAME did not start: …". At a daemon's start `sweepPendingWorkers` undoes an entry left pending whose place does not run
+(its participant, its secret in a sandbox's record, its token file, the entry; `worker-add-undone` by `doz`) and clears the
+mark of one whose place runs.
+
+**End** (`workerEnd`): fenced/unfenced — `macEnd` while it runs, its secret dropped from the session's record, the token
+file deleted; the record kept unless `--rm`. Its own VM — its session ended and the sandbox shut down (which revokes its
+secrets); the disk kept unless `--rm`. A shared sandbox — only its session ends; its secret leaves `config.secrets` and
+the vault (`applyLaunchSecrets`); `--rm` refused. Anonymous: its item forgotten and `BotChat.remove` (out of every room,
+its token refused, its old messages keep its name). From a bot: nothing of the bot revoked; it stays a member of the room.
+The entry gets `endedAt` (`worker-ended`); its name is free again. `end --rm` of a worker already ended deletes the place
+it kept. `release` of a live worker is refused ("doz worker end W NAME"), and `doz rm` of a worker's sandbox leaves its
+entry (the hook skips workers).
+
+**The one-live rule counts workers.** `liveWorkspace(of:except:)` counts another workspace's running manager AND every
+worker entry not ended for that bot (`WorkspaceSetupCheck.Entry.role`); the refusal names the role: "otto already works in
+wk, which is running. For now a bot runs in one live workspace at a time — doz worker end wk otto first." Both
+`workspace start` and `worker add --from-bot` refuse. A bot is never a worker of the workspace it manages. `doz bot ls`
+and `bot show` carry `worksIn` ("works in: wk").
+
+**State.** `WorkspaceState.derive` stays pure; `WorkspaceState.worker(pending:ended:place:)` maps an entry: pending →
+starting, ended → no agent, else its place — a session's row, or its sandbox counting ONLY its own session's status. A
+started workspace with no manager and one working worker reads `working · you`; every worker ended and no manager:
+`asleep`. Ended workers are left out of `show`, `ls` and the count (`worker ls --all` shows them).
+
+**`doz worker ls W`** shows every agent — manager, adopted, workers — with CONTROL (`WorkerLaunch.control`: fenced
+`proxy · placeholders · guard`, vm `micro VM · proxy · placeholders`, unfenced `no proxy · no placeholders · no guard ·
+acts as you`, `· shares X` in a shared sandbox), NETWORK (a session's preset, a sandbox's network, unfenced "not
+limited"), STATE and the task shortened; `--json` is `WorkerListing`; it answers in-process with the daemon stopped.
+
 ## `--json`
 
 `doz ls --json` and `doz sessions NAME|@mac --json` carry `workspace` (a string) on an adopted sandbox or session and
@@ -208,7 +304,7 @@ An Agent / Bot is a lasting identity: a participant in chat with its agent progr
 (`vm`, `fenced` — the default —, `unfenced` — only when named, "acts as you" wherever it shows — or `elsewhere`), delivery
 (`poll` by default, `inbox` for a Claude Code bot, `webhook`), skills, instructions and a token of its own. Its kind in
 chat comes from its agent: Claude Code is a `claude-session`, every other agent an `agent`. A bot is started as a
-workspace's manager ("The manager", above); a workspace's agent names the bot it is with `WorkspaceAgent.bot` (additive). The manual's page is
+workspace's manager ("The manager", above) or one of its workers ("Workers"); a workspace's agent names the bot it is with `WorkspaceAgent.bot` (additive). The manual's page is
 `docs/manual/38-agents-and-bots.md`.
 
 **The record.** `<store>/bots/bots.json` `{version, bots: [{name, createdAt, origin: new|adopted, agent, model?,
@@ -240,7 +336,8 @@ atomically under the `bots` gate. `directory.json` gains no field. `BotRecordTes
 **Retiring** is removal plus reservation: the participant and its hash go (`BotChat.remove` — its token is refused), the
 item is deleted, the record keeps `retiredAt` and `keeper: none`. Old messages keep `from` as a plain string, so the name
 stays reserved: `bot new`, `bot adopt`, `chat add` (and naming yourself with `chat on --name`) refuse it. A bot that is an
-agent of a workspace is refused ("mira is in demo — doz workspace release demo mira first"). There is no un-retire.
+agent of a workspace is refused ("mira is in demo — doz workspace release demo mira first"; a live worker: "otto works in
+wk — doz worker end wk otto first"). There is no un-retire.
 
 **Adopting** an existing participant replaces its token (Dozable never had the old one — an agent still using it stops
 working at once); its kind, rooms and history are kept, `origin: adopted`. The CLI says so and asks (`--yes` with
@@ -269,8 +366,19 @@ working at once); its kind, rooms and history are kept, `origin: adopted`. The C
   `etc/secrets/CHAT_TOKEN`); one live workspace per bot; stop and start again (the brief once); unfenced only when named
   (its 0600 token file the only holder, gone at stop); a VM manager's gap with nothing booted; the refusals; ls/show with
   the daemon stopped.
-- `make test-cli-workspace-vm` — one scratch lab VM through the seams: the order, only the placeholder in the guest, stop
-  keeps the disk, a restart posts nothing.
-- `make test FILTER=WorkspaceSetupCheckTests|ManagerLaunchTests|WorkspaceManagerTests|BotLaunchSecretTests`.
+  Rows 23–33, the workers (the same FAKE claude): refused while setting up, nothing made; `worker add` (an anonymous
+  `bot1`, fenced, in `chat who`; the invite, then "bot1 is up: … list the files"; fenced in the workspace); the leak sweep
+  (no `dzc_` in `ps`, the store's files, the fence home or any `--json`; a placeholder; one ledger line); `worker ls`;
+  unfenced only when named (its 0600 token file; `defaults.isolation unfenced` alone still fenced); its token refused
+  after end (`dozchat rooms` exits 4); a bot as a worker and the one-live rule both ways; end keeps a bot's token; end
+  (kept, out of chat, the ledger line gone, the name free again); the refusals; `worker ls` with the daemon stopped.
+- `make test-cli-workspace-vm` — scratch lab VMs through the seams (`DOZ_TEST_MANAGER_*`, `DOZ_TEST_WORKER_IMAGE` /
+  `DOZ_TEST_WORKER_ARGV` — `TestSafety.workerSeams`, a FAKE script with its first prompt appended): the manager's order,
+  only the placeholder in the guest, stop keeps the disk, a restart posts nothing; a VM worker of its own (`--cpus`,
+  `--memory`), a second sharing its sandbox as its own participant (its own variables, aliased; "is up" as itself), end
+  keeps the other talking, end stops and keeps the sandbox, `--rm` deletes it.
+- `make test FILTER=WorkspaceSetupCheckTests|ManagerLaunchTests|WorkspaceManagerTests|BotLaunchSecretTests`;
+  `make test FILTER=WorkerLaunchTests|WorkerKickoffTests|WorkspaceWorkerTests` (the order, each failure undone, the
+  refusals, end, the sweep, the one-live rule both ways).
 - `make test FILTER=BotRecordTests|BotTokenTests|BotAdoptTests|BotGuardsTests` and `make test-cli-bots` — Agents / Bots
   (above).
