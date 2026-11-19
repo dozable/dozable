@@ -683,6 +683,48 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(fake.performedOps, want, "the plan is a read: no operation")
     }
 
+    static let lifecycleActions = WorkspaceVerb.allCases.map { v in
+        #"{"action":"workspace-\#(v.rawValue)","workspace":"launch","ifPlan":"0123456789abcdef"\#(v.confirm == .typed ? #","confirm":"launch""# : "")}"#
+    }
+
+    /// A workspace's lifecycle is this Mac's own browser only, whatever serve.chat and serve.mac_sessions say: every verb 403
+    /// `mac-only` with the family's words and its plan route 403 `mac-screen` — nothing reaches the daemon. This Mac's browser:
+    /// 202, each exactly its HostOp; the plan 200, a read.
+    func testTheLifecycleIsThisMacsBrowserOnlyWhateverTheServeSettings() async throws {
+        try await start(macSessions: "interactive", chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        for (ms, chat) in [("interactive", "write"), ("off", "off"), ("watch", "read")] {
+            try "[serve]\nmac_sessions = \"\(ms)\"\nchat = \"\(chat)\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+            for body in Self.lifecycleActions {
+                let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", body, remote: true)
+                XCTAssertEqual(r.status, 403, r.text)
+                XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+                XCTAssertTrue(r.text.contains("only in this Mac's own browser, or with doz workspace"), r.text)
+            }
+            let rp = try macJSON(devCookie, devCSRF, "/api/v1/workspace-lifecycle-plan", #"{"workspace":"launch","verb":"sleep"}"#, remote: true)
+            XCTAssertEqual(rp.status, 403, rp.text)
+            XCTAssertTrue(rp.text.contains("\"mac-screen\""), rp.text)
+            XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon (\(ms), \(chat))")
+            XCTAssertFalse(fake.workspaceCalls.contains { $0.hasPrefix("lifecycle-plan") }, "the plan was not asked")
+        }
+        let (macCookie, macCSRF) = try macSignIn()
+        var want: [HostOp] = []
+        for (body, v) in zip(Self.lifecycleActions, WorkspaceVerb.allCases) {
+            let r = try macJSON(macCookie, macCSRF, "/api/v1/actions", body, remote: false)
+            XCTAssertEqual(r.status, 202, r.text)
+            want.append(v.hostOp)
+            let deadline = Date().addingTimeInterval(5)
+            while fake.performedOps.count < want.count && Date() < deadline { usleep(10_000) }
+            XCTAssertEqual(fake.performedOps, want)
+        }
+        let bad = try macJSON(macCookie, macCSRF, "/api/v1/actions", #"{"action":"workspace-delete","workspace":"launch","ifPlan":"0123456789abcdef","confirm":"lunch"}"#, remote: false)
+        XCTAssertEqual(bad.status, 400, "a forged body with another name: refused before the daemon (\(bad.text))")
+        let p = try macJSON(macCookie, macCSRF, "/api/v1/workspace-lifecycle-plan", #"{"workspace":"launch","verb":"sleep"}"#, remote: false)
+        XCTAssertEqual(p.status, 200, p.text)
+        XCTAssertEqual(try JSONDecoder().decode(WebWorkspaceLifecyclePlan.self, from: p.body).verb, "sleep")
+        XCTAssertEqual(fake.performedOps, want, "the plan is a read: no operation")
+    }
+
     static let botActions = [
         #"{"action":"bot-new","name":"mira","agent":"claude-code","isolation":"fenced"}"#,
         #"{"action":"bot-set","name":"mira","model":"sonnet"}"#,

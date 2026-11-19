@@ -1,6 +1,7 @@
 // views/home — Home (#/home, the default page): every workspace, one row each — its state in the CLI's words, the
-// workspace and its folders, who drives, its manager, who is working, its room, the room's last line, one next action —
-// waiting on you first, then working, starting, idle, setting up, asleep; finished and archived fold into one line below.
+// workspace and its folders, who drives, its manager, who is working, its room, the room's last line, one next action (a
+// button: Sleep, Wake, Reopen or Restore — its plan's dialog, components/ws-lifecycle.js) — waiting on you first, then
+// working, starting, idle, setting up; asleep folds into "Asleep (N)", finished and archived into one line below it.
 // With none: what a workspace is, Quick try, and the sandboxes and sessions already on this Mac in none.
 // Read on arrival, hello, `changed` and an operation's end — never on a timer (listing the workspaces asks every session
 // on this Mac for its state). The room's last line is read only while the chat server runs and this browser may read it,
@@ -19,13 +20,17 @@ import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
 import { cmdLine } from '../components/cmd-line.js';
 import { paintWorkspaceCounts } from '../components/nav.js';
+import { toast } from '../components/notices.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks.js';
 import { renderNavWorkspaces } from '../components/ws-nav.js';
+import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from '../components/ws-lifecycle.js';
+import { LIFECYCLE, primaryVerb } from '../core/ws-lifecycle.js';
 import { newWorkspaceHash, newWorkspaceRefusal } from './new-workspace.js';
 import { WORKSPACE_DEFINITION } from '../core/ws-new.js';
 
 const LAST_ROWS = 12;
 let doneOpen = false;
+let asleepOpen = false;
 
 export async function viewHome() {
   const l = await loadWorkspaces(0);
@@ -36,13 +41,20 @@ export async function viewHome() {
   const hidden = l.hidden ? callout('info', { compact: true, body: plural(l.hidden, 'sandbox or session', 'sandboxes and sessions') + ' on this Mac not shown to this browser (serve.mac_sessions).' }) : null;
   if (!l.workspaces.length) return h('div', { class: 'hm-page', 'data-home': '' }, head, needs, empty(l), hidden);
   const sorted = byState(l.workspaces);
-  const live = sorted.filter((w) => !isDone(w)), done = sorted.filter(isDone);
+  const live = sorted.filter((w) => !isDone(w) && w.state !== 'asleep'), asleep = sorted.filter((w) => w.state === 'asleep'), done = sorted.filter(isDone);
   // What only a workspace's own read says: a setting-up one's gaps, a waiting one's reason (the rows on screen).
   const details = new Map();
   await Promise.all(live.slice(0, LAST_ROWS).filter((w) => w.state === 'setting-up' || w.state === 'waiting-on-you')
     .map((w) => loadWorkspace(w.name, 1000).then((d) => details.set(w.name, d)).catch(() => null)));
   const last = await lastLines(live.slice(0, LAST_ROWS));
   const rows = live.map((w) => row(w, details.get(w.name), last.get(w.name)));
+  if (asleep.length) {
+    rows.push(h('tr', { class: 'hm-done hm-asleep' }, h('td', { colspan: '8' },
+      h('button', { type: 'button', class: 'nav-ws-group hm-done-toggle', 'aria-expanded': asleepOpen ? 'true' : 'false', 'data-home-group': 'asleep',
+        on: { click: () => { asleepOpen = !asleepOpen; refresh(false); } } },
+        h('span', { class: 'nav-ws-gcaret' + (asleepOpen ? '' : ' folded') }, icon('chevron-down')), 'Asleep (' + asleep.length + ')'))));
+    if (asleepOpen) for (const w of asleep) rows.push(row(w, null, null));
+  }
   if (done.length) {
     rows.push(h('tr', { class: 'hm-done' }, h('td', { colspan: '8' },
       h('button', { type: 'button', class: 'nav-ws-group hm-done-toggle', 'aria-expanded': doneOpen ? 'true' : 'false',
@@ -60,7 +72,7 @@ export async function viewHome() {
 function row(w, d, last) {
   const folders = w.folders.length ? w.folders.map((f) => h('span', { class: 'hm-folder' }, tildePath(f))) : [h('span', { class: 'hm-folder muted' }, 'no folder')];
   return h('tr', { 'data-ws': w.name },
-    h('td', null, workspacePill(w.state, w.words)),
+    h('td', null, workspacePill(w.state, w.words, transitional(w.name))),
     h('td', null, h('div', { class: 'hm-ws' }, h('a', { href: workspaceHash(w.name), class: 'hm-ws-name' }, h('b', null, w.name)), h('div', { class: 'hm-folders' }, ...folders))),
     h('td', null, driverChip(w.driver)),
     h('td', null, managerChip(w.manager)),
@@ -81,8 +93,19 @@ function who(w, d) {
   return h('span', { class: 'muted' }, w.working ? 'nobody' : '—');
 }
 
-/// One next action: a started workspace's room; a setting-up one's gaps and the command that starts it.
+/// One next action: the button its state offers (Sleep, Wake, Reopen, Restore — the plan's dialog); a setting-up one's gaps
+/// and the command that starts it; a started one's room beside.
 function next(w, d) {
+  const verb = primaryVerb(w.state);
+  if (verb && verb !== 'start') {
+    const why = lifecycleRefusal(), v = LIFECYCLE[verb];
+    const b = h('button', { type: 'button', class: 'btn sm', 'data-home-next': verb, disabled: why || transitional(w.name) ? true : null,
+      title: why ? why + ' — ' + lifecycleCommand(verb, w.name) : v.desc,
+      on: { click: async () => {
+        try { openLifecycle(await loadWorkspace(w.name, 0), verb, async () => { await loadWorkspaces(0).catch(() => null); refresh(false); }); } catch (e) { toast(e.message || String(e), true); }
+      } } }, icon(v.icon), v.label);
+    return h('div', { class: 'hm-next-acts' }, b, !isDone(w) && w.room ? h('a', { href: workspaceHash(w.name), class: 'btn sm quiet' }, icon('message-square'), 'Open room') : null);
+  }
   if (isDone(w)) return null;
   if (w.state === 'setting-up') {
     const lines = d ? (d.gaps || []).map((g) => g.why).concat(d.notes) : [];

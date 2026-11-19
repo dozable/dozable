@@ -111,6 +111,9 @@ public enum WebRejection: String, Error, Equatable, Sendable {
     case macOnlyStart = "mac-only-start"
     /// A worker added or ended from another computer — the same `mac-only` code, its own words.
     case macOnlyWorkers = "mac-only-workers"
+    /// A workspace's lifecycle (stop, sleep, wake, finish, reopen, archive, restore, delete) from another computer — the same
+    /// `mac-only` code, its own words.
+    case macOnlyLifecycle = "mac-only-lifecycle"
     /// The sessions on this Mac (no isolation) asked from another computer, beyond what `serve.mac_sessions` allows.
     case macSession = "mac-session"
     /// `doz ui`'s Devices page needs a running doz serve for this.
@@ -133,11 +136,11 @@ public enum WebRejection: String, Error, Equatable, Sendable {
     case chatFileTooLarge = "chat-file-too-large"
 
     /// The code a response and the audit log carry: one family's refusals share it (`mac-only`), each with its own words.
-    public var code: String { [.macOnlyFiling, .macOnlyBots, .macOnlyStart, .macOnlyWorkers].contains(self) ? WebRejection.macOnly.rawValue : rawValue }
+    public var code: String { [.macOnlyFiling, .macOnlyBots, .macOnlyStart, .macOnlyWorkers, .macOnlyLifecycle].contains(self) ? WebRejection.macOnly.rawValue : rawValue }
 
     public var status: Int {
         switch self {
-        case .hostRejected, .originRejected, .crossSite, .csrfRejected, .terminalsOff, .secretEntryOff, .secretOverHTTP, .macScreen, .macOnly, .macOnlyFiling, .macOnlyBots, .macOnlyStart, .macOnlyWorkers, .macSession, .notServedAddress, .chatRemote, .chatReadOnly, .briefRemote: 403
+        case .hostRejected, .originRejected, .crossSite, .csrfRejected, .terminalsOff, .secretEntryOff, .secretOverHTTP, .macScreen, .macOnly, .macOnlyFiling, .macOnlyBots, .macOnlyStart, .macOnlyWorkers, .macOnlyLifecycle, .macSession, .notServedAddress, .chatRemote, .chatReadOnly, .briefRemote: 403
         case .methodNotAllowed: 405
         case .alreadyRunning, .pickerOpen, .serveNotRunning: 409
         case .tooManyAttempts: 429
@@ -197,6 +200,7 @@ public enum WebRejection: String, Error, Equatable, Sendable {
         case .macOnlyBots: "Agents / Bots are changed only in this Mac's own browser, or with doz bot … in a terminal on the Mac"
         case .macOnlyStart: "A workspace is started only in this Mac's own browser, or with doz workspace start in a terminal on the Mac"
         case .macOnlyWorkers: "Workers are added and ended only in this Mac's own browser, or with doz worker … in a terminal on the Mac"
+        case .macOnlyLifecycle: "A workspace is put to sleep, woken, finished, archived, restored or deleted only in this Mac's own browser, or with doz workspace … in a terminal on the Mac"
         case .macSession: "the sessions on this Mac are not isolated, so another computer does not get them unless the Mac allows it (on the Mac: doz config set serve.mac_sessions watch, or interactive)"
         case .serveNotRunning: "the dashboard is not on your network (its LAN option is off) — in a terminal on this Mac: doz config set ui.lan true, then doz ui restart"
         case .signupUnavailable: "this build (from the open-source repository) does not include the sign-up — sign up at \(Usage.signupPage)"

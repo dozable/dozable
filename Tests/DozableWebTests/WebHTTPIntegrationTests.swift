@@ -340,6 +340,31 @@ final class WebHTTPIntegrationTests: XCTestCase {
         XCTAssertEqual(fake.workspaceCalls.filter { $0.hasPrefix("worker-plan") }, ["worker-plan demo -", "worker-plan demo -"])
     }
 
+    /// `POST /api/v1/workspace-lifecycle-plan`: CSRF, the workspace and the verb strictly (400 before any call; no field but
+    /// the flags), exactly one read-only call (200), the answer field by field — never a token.
+    func testTheLifecyclePlanRoute() async throws {
+        try await start()
+        let (cookie, csrf) = try signIn()
+        let h = ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"]
+        let path = "/api/v1/workspace-lifecycle-plan"
+        XCTAssertEqual(try get(path, ["Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"], method: "POST", body: #"{"workspace":"demo","verb":"sleep"}"#).status, 401)
+        for body in [#"{"verb":"sleep"}"#, #"{"workspace":"-bad","verb":"sleep"}"#, #"{"workspace":"demo"}"#, #"{"workspace":"demo","verb":"pause"}"#,
+                     #"{"workspace":"demo","verb":"sleep","ifPlan":"0123456789abcdef"}"#, #"{"workspace":"demo","verb":"delete","confirm":"demo"}"#,
+                     #"{"workspace":"demo","verb":"sleep","removeSandboxes":"yes"}"#, "[]"] {
+            XCTAssertEqual(try get(path, h, method: "POST", body: body).status, 400, body)
+        }
+        XCTAssertEqual(try get(path, ["Cookie": cookie], method: "PUT").status, 405)
+        XCTAssertEqual(fake.workspaceCalls.filter { $0.hasPrefix("lifecycle-plan") }, [], "no call for a refused request")
+        let r = try get(path, h, method: "POST", body: #"{"workspace":"demo","verb":"delete","removeSandboxes":true,"binFolders":true}"#)
+        XCTAssertEqual(r.status, 200, r.text)
+        let p = try JSONDecoder().decode(WebWorkspaceLifecyclePlan.self, from: r.body)
+        XCTAssertEqual(p.rows.first?.after, "ended, its conversation kept")
+        XCTAssertEqual(p.sha, "0123456789abcdef")
+        XCTAssertEqual(p.confirm, "typed")
+        XCTAssertFalse(r.text.contains("\"token\":") || r.text.contains("secret"), r.text)
+        XCTAssertEqual(fake.workspaceCalls.filter { $0.hasPrefix("lifecycle-plan") }, ["lifecycle-plan demo delete rm bin"])
+    }
+
     func testHostErrorsAreTypedAndEveryViewAnswers() async throws {
         try await start()
         let (cookie, _) = try signIn()
@@ -760,6 +785,18 @@ final class FakeData: DozableWebData, @unchecked Sendable {
                                defaults: WorkspaceDefaults(), flags: WorkspaceFlags(), origin: WorkspaceOrigin(), notes: ["doz workspace start demo"])
     }
     /// The Add a worker page's plan: the task's refusal when it is empty, else bot1, fenced; the command from the request.
+    func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan {
+        lock.withLock { _workspaceCalls.append("lifecycle-plan \(w.name ?? "") \(w.verb ?? "-")\(w.removeSandboxes == true ? " rm" : "")\(w.binFolders == true ? " bin" : "")") }
+        var p = WorkspaceLifecyclePlan(workspace: w.name ?? "", verb: w.verb ?? "", state: "idle")
+        p.rows = [WorkspaceLifecycleRow(name: "mira", role: "manager", place: "@mac/demo", isolation: "fenced", now: "running", activity: "idle",
+                                        after: "ended, its conversation kept", back: "resumes its conversation", changes: true, change: "mac:demo", bot: "mira")]
+        p.keeps = [WorkspaceLifecycleItem("every token")]
+        p.command = "doz workspace \(w.verb ?? "") \(w.name ?? "")"
+        p.sha = "0123456789abcdef"
+        p.confirm = WorkspaceVerb(rawValue: w.verb ?? "")?.confirm.rawValue ?? "none"
+        return p
+    }
+
     func workerPlan(_ q: WorkerRequest) async throws -> WorkerPlan {
         lock.withLock { _workspaceCalls.append("worker-plan \(q.workspace ?? "") \(q.name ?? "-")") }
         var p = WorkerPlan(workspace: q.workspace ?? "", command: WorkerAddCommand.text(q))

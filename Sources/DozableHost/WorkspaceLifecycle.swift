@@ -469,6 +469,11 @@ public struct WorkspaceLifecycleRow: Codable, Equatable, Sendable {
     /// The change it is part of (its place: two workers sharing a sandbox are one change).
     public var change: String?
     public var bot: String?
+    public init(name: String, role: String, place: String, isolation: String, now: String, activity: String? = nil, after: String, back: String,
+                changes: Bool, change: String? = nil, bot: String? = nil) {
+        self.name = name; self.role = role; self.place = place; self.isolation = isolation; self.now = now; self.activity = activity
+        self.after = after; self.back = back; self.changes = changes; self.change = change; self.bot = bot
+    }
 }
 
 /// Something kept or gone, with its size or path when it has one.

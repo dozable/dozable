@@ -5,7 +5,12 @@ import { icon } from '../dom/icons.js';
 /// A workspace's state as a pill: its glyph and the CLI's words (`setting up`, `waiting on you`); the tone says the state.
 const WS_GLYPH = { 'waiting-on-you': 'triangle-alert', working: null, starting: null, idle: 'pause', 'setting-up': 'wrench', asleep: 'moon',
   finished: 'check', archived: 'box' };
-export function workspacePill(st, words) {
+/// `transitional`: the word of a lifecycle operation running now ("sleeping…", "waking…") — drawn instead, turning.
+export function workspacePill(st, words, transitional) {
+  if (transitional) {
+    return h('span', { class: 'pill ws-' + st + ' is-transitional', 'data-ws-state': st, 'data-ws-transitional': transitional },
+      h('span', { class: 'mini-spin', 'aria-hidden': 'true' }), transitional);
+  }
   const g = st === 'starting' ? h('span', { class: 'mini-spin', 'aria-hidden': 'true' })
     : st === 'working' ? h('span', { class: 'dot ws-working', 'aria-hidden': 'true' }) : WS_GLYPH[st] ? icon(WS_GLYPH[st]) : null;
   return h('span', { class: 'pill ws-' + st, 'data-ws-state': st }, g, words || st.replace(/-/g, ' '));

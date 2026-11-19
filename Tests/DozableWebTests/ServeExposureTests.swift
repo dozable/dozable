@@ -21,7 +21,7 @@ final class ServeExposureTests: XCTestCase {
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
-            .macSessionQuarantine("agent"), .macSessionPlan, .workspacePlan, .workerPlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
+            .macSessionQuarantine("agent"), .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
             .workspaceLog("demo", nil), .loose, .bots, .botsRetired, .bot("mira"), .macs,
         ]
         for r in all { _ = covered(r) }
@@ -38,7 +38,7 @@ final class ServeExposureTests: XCTestCase {
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck, .uiRestart,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
-             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .workspacePlan, .workerPlan, .chat,
+             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .chat,
              .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .botsRetired, .bot, .macs:
             return true
         }
@@ -49,7 +49,7 @@ final class ServeExposureTests: XCTestCase {
         var t: [String: (WebRejection?, WebRejection?, WebRejection?)] = [:]
         for r in samples { t[ServeExposureTests.label(r)] = (nil, nil, nil) }
         for secret in ["accountAdd", "sandboxKey", "accessGithubKey"] { t[secret] = (nil, .secretOverHTTP, nil) }
-        for screen in ["terminal", "workspaceChoose", "projectsDirChoose", "dockerfileChoose", "filesOpen", "editors", "portOpen", "macSessionPlan", "workspacePlan", "workerPlan"] { t[screen] = (nil, .macScreen, .macScreen) }
+        for screen in ["terminal", "workspaceChoose", "projectsDirChoose", "dockerfileChoose", "filesOpen", "editors", "portOpen", "macSessionPlan", "workspacePlan", "workerPlan", "workspaceLifecyclePlan"] { t[screen] = (nil, .macScreen, .macScreen) }
         t["serveProbe"] = (.notFound, nil, nil)
         t["uiRestart"] = (nil, .macOnly, .macOnly)          // 714: Restart dashboard — this Mac's own browser only
         // The sessions on this Mac: never another computer's by default (serve.mac_sessions = off).
@@ -193,6 +193,31 @@ final class ServeExposureTests: XCTestCase {
         let token = try WebAction.decode(Data(#"{"action":"bot-token","name":"mira","confirm":"mira"}"#.utf8))
         XCTAssertTrue(token.isBot)
         XCTAssertFalse(token.isWorkspace || token.isFiling || token.isMacSession, "decided by its own family, never a serve setting")
+    }
+
+    /// A workspace's lifecycle: every verb is this Mac's own browser only, whatever serve.chat or serve.mac_sessions say — the
+    /// `mac-only` code, its own words; its plan route is `mac-screen`.
+    func testTheLifecycleIsThisMacsOnly() throws {
+        XCTAssertNil(WebExposure.decideLifecycleAction(.mac))
+        for p: WebExposure.Principal in [.remote(secure: false), .remote(secure: true)] {
+            XCTAssertEqual(WebExposure.decideLifecycleAction(p), .macOnlyLifecycle, "\(p)")
+            for ms in WebExposure.MacSessions.allCases {
+                for c in WebExposure.ChatServe.allCases {
+                    XCTAssertEqual(WebExposure.decide(.workspaceLifecyclePlan, p, macSessions: ms, chat: c), .macScreen)
+                }
+            }
+        }
+        XCTAssertNil(WebExposure.decide(.workspaceLifecyclePlan, .mac))
+        XCTAssertEqual(WebExposure.kind(.workspaceLifecyclePlan), .macScreen)
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/workspace-lifecycle-plan"), .workspaceLifecyclePlan)
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/workspace-lifecycle-plan"), "a POST only")
+        XCTAssertEqual(WebRejection.macOnlyLifecycle.code, WebRejection.macOnly.code)
+        XCTAssertEqual(WebRejection.macOnlyLifecycle.status, 403)
+        for verb in WorkspaceVerb.allCases {
+            let a = try WebAction.decode(Data(#"{"action":"workspace-\#(verb.rawValue)","workspace":"demo","ifPlan":"0123456789abcdef"\#(verb.confirm == .typed ? #","confirm":"demo""# : "")}"#.utf8))
+            XCTAssertTrue(a.isLifecycle, verb.rawValue)
+            XCTAssertFalse(a.isWorkspace || a.isFiling || a.isMacSession || a.isStarting || a.isWorker || a.isBot, "decided by its own family, never a serve setting")
+        }
     }
 
     /// Workers: adding and ending one is this Mac's own browser only, whatever serve.chat or serve.mac_sessions say — the

@@ -29,6 +29,55 @@ final class WebModulesTests: XCTestCase {
     /// Who may call the server directly: `fetch` only in these modules (core/api.js is THE request; the others fetch static
     /// files of this origin — the sprite, the engine, the offline check), and a live stream (`EventSource`) only in these
     /// three. Chat's modules go through core/chat-api.js (→ apiFetch) and core/chat-stream.js only.
+    /// A workspace's lifecycle: its modules ship; core/ws-lifecycle.js is pure (no import) — the primary verb a state offers,
+    /// how each verb is confirmed (the daemon's `WorkspaceVerb.confirm`), the plan route's and the action's bodies, when its
+    /// button may be pressed; one component sends the eight actions, carrying the plan's sha, and asks the plan route first.
+    func testTheLifecycleDialogs() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let a = try WebAssets.load()
+        for m in ["components/ws-lifecycle", "core/ws-lifecycle"] {
+            XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
+        }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        let pure = try read("app/core/ws-lifecycle.js")
+        XCTAssertTrue(Self.specifiers(pure).isEmpty, "core/ws-lifecycle.js is pure: it imports nothing")
+        ctx.evaluateScript(pure.replacingOccurrences(of: "export ", with: ""))
+        XCTAssertNil(thrown, thrown ?? "")
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("['setting-up','idle','working','waiting-on-you','starting','asleep','finished','archived'].map(primaryVerb)"),
+                       #"["start","sleep","sleep","sleep","sleep","wake","reopen","restore"]"#)
+        for v in WorkspaceVerb.allCases {
+            XCTAssertEqual(js("confirmKind('\(v.rawValue)')"), "\"" + v.confirm.rawValue + "\"", "\(v.rawValue): confirmed as the daemon says")
+        }
+        XCTAssertEqual(js("planBody('w','sleep',{removeSandboxes:true, binFolders:true})"), #"{"workspace":"w","verb":"sleep"}"#, "flags only where they belong")
+        XCTAssertEqual(js("planBody('w','delete',{removeSandboxes:true, binFolders:true})"), #"{"workspace":"w","verb":"delete","removeSandboxes":true,"binFolders":true}"#)
+        let plan = "{workspace:'w', verb:'archive', sha:'0123456789abcdef', refusals:[], confirm:'typed', confirmName:'w'}"
+        XCTAssertEqual(js("actionBody(" + plan + ", {removeSandboxes:true, typed:'w', binFolders:true})"),
+                       #"{"action":"workspace-archive","workspace":"w","ifPlan":"0123456789abcdef","removeSandboxes":true,"confirm":"w"}"#)
+        XCTAssertEqual(js("[canConfirm(" + plan + ", {typed:'w'}), canConfirm(" + plan + ", {typed:'x'}), canConfirm(" + plan + ", {})]"), "[true,false,false]",
+                       "the name typed exactly")
+        XCTAssertEqual(js("canConfirm({refusals:['no'], confirm:'none'}, {})"), "false", "never while it would be refused")
+        XCTAssertEqual(js("[canConfirm({refusals:[], confirm:'none'}, {needsActsAsYou:true}), canConfirm({refusals:[], confirm:'none'}, {needsActsAsYou:true, actsAsYou:true})]"),
+                       "[false,true]", "an unfenced manager's wake: the tick")
+        XCTAssertEqual(js("[sizeWords(6200000000), sizeWords(420000000), sizeWords(0)]"), #"["6.2 GB","420 MB",""]"#)
+        // One component sends them, each its plan's sha; the plan route first; no other module sends a lifecycle action.
+        let comp = try read("app/components/ws-lifecycle.js")
+        XCTAssertTrue(comp.contains("api('workspace-lifecycle-plan'"), "the plan route")
+        XCTAssertTrue(comp.contains("actOrThrow(actionBody(plan, o))"), "the action is the plan's")
+        XCTAssertTrue(pure.contains("ifPlan: plan.sha"))
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+        let verbs = try NSRegularExpression(pattern: #"action: '(workspace-(stop|sleep|wake|finish|reopen|archive|restore|delete))'"#)
+        for f in files {
+            let t = try read(f)
+            XCTAssertEqual(verbs.numberOfMatches(in: t, range: NSRange(t.startIndex..., in: t)), 0, "\(f) sends a lifecycle action by hand")
+        }
+        for f in ["app/views/workspace.js", "app/views/home.js"] { XCTAssertTrue(try read(f).contains("ws-lifecycle.js"), "\(f) uses the dialogs") }
+    }
+
     func testFetchAndEventSourceOnlyWhereTheyAreAllowed() throws {
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
         var fetchers: Set<String> = [], streams: Set<String> = []

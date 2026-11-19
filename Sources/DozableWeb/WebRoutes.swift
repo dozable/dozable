@@ -110,6 +110,10 @@ public enum WebRoute: Equatable, Sendable {
     // The Add a worker page's plan: what `worker-add` would do with the page's fields — nothing written (the read-only HostOp
     // `worker-plan`, CSRF; the Mac's own browser only — `mac-screen`). The workspace by its name rule before any call (400).
     case workerPlan                     // POST /api/v1/worker-plan   ({workspace, name?, task?, agent?, isolation?, sandbox?, session?, cpus?, memory?, fromBot?, rooms?, allowTools?})
+    // A lifecycle verb's plan: what stop, sleep, wake, finish, reopen, archive, restore or delete would do to each agent — nothing
+    // written (the read-only HostOp `workspace-lifecycle-plan`, CSRF; the Mac's own browser only — `mac-screen`). No payload:
+    // the workspace is in the body, by its name rule before any call (400).
+    case workspaceLifecyclePlan         // POST /api/v1/workspace-lifecycle-plan  ({workspace, verb, removeSandboxes?, keepTemplates?, binFolders?})
     case macSessionPlan                 // POST /api/v1/mac/session-plan  ({case, program, folder, session?, preset?, account?, github?, agentConfig?, simulator?, keychain?, ports?, open?})
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
@@ -249,6 +253,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 2) where rest == ["mac", "session-plan"]: return .macSessionPlan
         case (.post, 1) where rest[0] == "workspace-plan": return .workspacePlan
         case (.post, 1) where rest[0] == "worker-plan": return .workerPlan
+        case (.post, 1) where rest[0] == "workspace-lifecycle-plan": return .workspaceLifecyclePlan
         case (.post, 2) where rest == ["project", "open"]: return .projectOpen
         case (.post, 2) where rest == ["project", "preview"]: return .projectPreview
         case (.post, 2) where rest == ["project", "write"]: return .projectWrite
