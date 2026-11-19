@@ -641,6 +641,48 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(try macJSON(macCookie, macCSRF, "/api/v1/workspace-plan", #"{"workspace":"x","project":"/etc"}"#, remote: false).status, 400)
     }
 
+    static let workerActions = [
+        #"{"action":"worker-add","workspace":"launch","task":"list the files"}"#,
+        #"{"action":"worker-end","workspace":"launch","name":"bot1","confirm":"bot1"}"#,
+    ]
+
+    /// Workers: adding and ending one is this Mac's own browser only, whatever serve.chat and serve.mac_sessions say — another
+    /// computer gets 403 `mac-only` for both actions (the family's words; nothing sent to the daemon) and the plan route is
+    /// refused (`mac-screen`); this Mac's browser: 202 for each (exactly its HostOp), 200 for the plan.
+    func testWorkersAreThisMacsBrowserOnlyWhateverTheServeSettings() async throws {
+        try await start(macSessions: "interactive", chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        // The serve settings are read per request: the same refusals whatever they say.
+        for (ms, chat) in [("interactive", "write"), ("off", "off"), ("watch", "read")] {
+            try "[serve]\nmac_sessions = \"\(ms)\"\nchat = \"\(chat)\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+            for body in Self.workerActions {
+                let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", body, remote: true)
+                XCTAssertEqual(r.status, 403, r.text)
+                XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+                XCTAssertTrue(r.text.contains("Workers are added and ended only in this Mac's own browser"), r.text)
+            }
+            let rp = try macJSON(devCookie, devCSRF, "/api/v1/worker-plan", #"{"workspace":"launch","task":"x"}"#, remote: true)
+            XCTAssertEqual(rp.status, 403, rp.text)
+            XCTAssertTrue(rp.text.contains("\"mac-screen\""), rp.text)
+            XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon (\(ms), \(chat))")
+            XCTAssertFalse(fake.workspaceCalls.contains { $0.hasPrefix("worker-plan") }, "the plan was not asked")
+        }
+        let (macCookie, macCSRF) = try macSignIn()
+        var want: [HostOp] = []
+        for (body, op) in zip(Self.workerActions, [HostOp.workerAdd, .workerEnd]) {
+            let r = try macJSON(macCookie, macCSRF, "/api/v1/actions", body, remote: false)
+            XCTAssertEqual(r.status, 202, r.text)
+            want.append(op)
+            let deadline = Date().addingTimeInterval(5)
+            while fake.performedOps.count < want.count && Date() < deadline { usleep(10_000) }
+            XCTAssertEqual(fake.performedOps, want)
+        }
+        let p = try macJSON(macCookie, macCSRF, "/api/v1/worker-plan", #"{"workspace":"launch","task":"list the files"}"#, remote: false)
+        XCTAssertEqual(p.status, 200, p.text)
+        XCTAssertEqual(try JSONDecoder().decode(WebWorkerPlan.self, from: p.body).name, "bot1")
+        XCTAssertEqual(fake.performedOps, want, "the plan is a read: no operation")
+    }
+
     static let botActions = [
         #"{"action":"bot-new","name":"mira","agent":"claude-code","isolation":"fenced"}"#,
         #"{"action":"bot-set","name":"mira","model":"sonnet"}"#,

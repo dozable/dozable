@@ -605,6 +605,15 @@ final class WebOperations: @unchecked Sendable {
             return "\(Self.agentName(agent)) is loose again (it keeps running as it was) — taken out of \(w)"
         case .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return Self.botSummary(a, v)
+        case .workerAdd(let q):
+            // Written from the answer's row — its name, isolation and place; never a token (the answer carries none).
+            guard let r = try? v.decode(WorkerAdded.self) else { return "added a worker to \(q.workspace ?? "?")" }
+            let w = r.worker
+            let iso = w.actsAsYou == true ? "unfenced · acts as you" : w.isolation == "vm" ? "micro VM" : w.isolation ?? "fenced"
+            let place = r.sandbox.map { "in the sandbox \($0)" } ?? "on this Mac as @mac/\(r.session)"
+            return "added \(w.name) to \(r.workspace) (\(iso)) \(place) — it says in the room when it is up"
+        case .workerEnd(let w, let n):
+            return "ended \(n) in \(w)" + ((try? v.decode(WorkerEnded.self))?.notes.map { $0.isEmpty ? "" : " — " + $0.joined(separator: "; ") } ?? "")
         case .macSessionBridges(let session, _, _, _):
             return (try? v.decode(SessionBridges.self))?.changed.map { "session \(session) on this Mac: \($0) — from the next one" }
                 ?? "session \(session) on this Mac: bridges unchanged"

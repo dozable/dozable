@@ -83,6 +83,8 @@ final class WebActionTests: XCTestCase {
         "bot-retire": #"{"action":"bot-retire","name":"tmp1","confirm":"tmp1"}"#,
         "bot-adopt": #"{"action":"bot-adopt","name":"olda","agent":"codex","confirm":"olda"}"#,
         "bot-token": #"{"action":"bot-token","name":"mira","confirm":"mira"}"#,
+        "worker-add": #"{"action":"worker-add","workspace":"launch-video","task":"Make the 15-second cut.","isolation":"vm","cpus":4,"memory":"4G","rooms":["review"]}"#,
+        "worker-end": #"{"action":"worker-end","workspace":"launch-video","name":"bot4","confirm":"bot4"}"#,
         // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
         "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
         // 669: a sandbox's own value of a per-sandbox setting, or "Follow the Mac" (clear).
@@ -170,6 +172,8 @@ final class WebActionTests: XCTestCase {
         .workspaceStart,
         // Agents / Bots from this Mac's own browser — exactly `doz bot new | set | retire | adopt | token --new`, each heldOnly.
         .botNew, .botSet, .botRetire, .botAdopt, .botToken,
+        // A workspace's workers from this Mac's own browser — exactly `doz worker add | end`.
+        .workerAdd, .workerEnd,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,
@@ -388,7 +392,8 @@ final class WebActionTests: XCTestCase {
         XCTAssertEqual(Set(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key)),
                        ["workspace-brief", "workspace-adopt", "workspace-new", "workspace-release", "workspace-start"])
         XCTAssertEqual(Set(ops.filter { ["workspace-", "worker-"].contains(where: $0.rawValue.hasPrefix) }),
-                       [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart])
+                       [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart, .workerAdd, .workerEnd])
+        XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isWorker == true ? $0.key : nil }), ["worker-add", "worker-end"])
         // The bot- actions are exactly new, set, retire, adopt and token — never bot-ls or bot-show (those are reads); every
         // one heldOnly, this Mac's own browser only.
         XCTAssertEqual(Set(ops.filter { $0.rawValue.hasPrefix("bot-") }), [.botNew, .botSet, .botRetire, .botAdopt, .botToken])
@@ -405,8 +410,8 @@ final class WebActionTests: XCTestCase {
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isFiling == true ? $0.key : nil }),
                        ["workspace-adopt", "workspace-new", "workspace-release"])
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isStarting == true ? $0.key : nil }), ["workspace-start"])
-        // The rest of the lifecycle stays the CLI's: no stop, rename, plan (a read) or worker for any browser.
-        for op: HostOp in [.workspaceStop, .workspaceRename, .workspacePlan, .workerAdd, .workerEnd, .workerList] {
+        // The rest of the lifecycle stays the CLI's: no stop or rename for any browser; the plans and worker-ls are reads.
+        for op: HostOp in [.workspaceStop, .workspaceRename, .workspacePlan, .workerPlan, .workerList] {
             XCTAssertFalse(ops.contains(op), "\(op.rawValue) is not an action")
         }
         // Your Macs are read (WebMacReads) and changed only from the CLI: no macs-* operation is an action.
@@ -566,6 +571,83 @@ final class WebActionTests: XCTestCase {
     /// rule; the dedupe key names the agent. Another computer gets none of them, whatever its serve settings.
     /// The New workspace wizard's two actions: `workspace-new` with every field the CLI takes (exactly its request), and
     /// `workspace-start` (exactly `doz workspace start W`, plus the confirmation an unfenced manager needs). Strict.
+    /// The two worker actions: each exactly the CLI's HostOp, strictly decoded by the CLI's rules; an unfenced worker only with
+    /// `confirm: "unfenced"` (never otherwise), an end confirmed with its name and never `--rm`; a task over 15 KiB refused;
+    /// two workers added at once are two operations, the same one twice is one.
+    func testTheWorkerActions() throws {
+        let a = try decode(Self.samples["worker-add"]!)
+        var want = WorkerRequest(workspace: "launch-video")
+        want.task = "Make the 15-second cut."
+        want.isolation = "vm"
+        want.cpus = 4
+        want.memory = "4G"
+        want.rooms = ["review"]
+        XCTAssertEqual(a.hostRequest.op, .workerAdd)
+        XCTAssertEqual(a.hostRequest.workerRequest, want, "exactly what doz worker add sends")
+        XCTAssertTrue(a.isWorker)
+        XCTAssertNil(a.sandbox)
+        XCTAssertNil(a.confirmationTarget)
+        XCTAssertEqual(a.label, "add a worker to launch-video")
+        let e = try decode(Self.samples["worker-end"]!)
+        XCTAssertEqual(e.hostRequest.op, .workerEnd)
+        XCTAssertEqual(e.hostRequest.workerRequest, WorkerRequest(workspace: "launch-video", name: "bot4"), "never --rm")
+        XCTAssertEqual(e.confirmationTarget, "bot4")
+        XCTAssertEqual(e.label, "end bot4 in launch-video")
+        // Every field the CLI takes, by its rules.
+        let full = try decode(#"{"action":"worker-add","workspace":"w","name":"carl","task":"one\ntwo\tthree","agent":"codex","isolation":"fenced","session":"w-carl","allowTools":["Edit","Bash(git status:*)"]}"#)
+        XCTAssertEqual(full.hostRequest.workerRequest?.allowTools, ["Edit", "Bash(git status:*)"])
+        XCTAssertEqual(full.hostRequest.workerRequest?.task, "one\ntwo\tthree")
+        XCTAssertEqual(try decode(#"{"action":"worker-add","workspace":"w","task":"x","fromBot":"otto"}"#).hostRequest.workerRequest?.fromBot, "otto")
+        XCTAssertEqual(try decode(#"{"action":"worker-add","workspace":"w","task":"x","sandbox":"wsa"}"#).hostRequest.workerRequest?.sandbox, "wsa")
+        // Unfenced: only with the tick, and the tick only with unfenced.
+        invalid(#"{"action":"worker-add","workspace":"w","task":"x","isolation":"unfenced"}"#, "unfenced without the tick")
+        invalid(#"{"action":"worker-add","workspace":"w","task":"x","isolation":"unfenced","confirm":"yes"}"#, "the wrong word")
+        invalid(#"{"action":"worker-add","workspace":"w","task":"x","confirm":"unfenced"}"#, "the tick without unfenced")
+        let u = try decode(#"{"action":"worker-add","workspace":"w","task":"x","isolation":"unfenced","confirm":"unfenced"}"#)
+        XCTAssertEqual(u.hostRequest.workerRequest?.isolation, "unfenced")
+        XCTAssertEqual(u.confirmationTarget, "unfenced")
+        // An end: its name, ticked; never --rm.
+        invalid(#"{"action":"worker-end","workspace":"w","name":"bot1"}"#, "no confirmation")
+        invalid(#"{"action":"worker-end","workspace":"w","name":"bot1","confirm":"bot2"}"#, "another name")
+        invalid(#"{"action":"worker-end","workspace":"w","name":"bot1","confirm":"bot1","rm":true}"#, "--rm")
+        // The strict field table.
+        let base = #"{"action":"worker-add","workspace":"w","task":"x""#
+        let manyRooms = (0..<9).map { "\"r\($0)\"" }.joined(separator: ",")
+        for (extra, why) in [
+            (#""unknown":1"#, "an unknown field"), (#""token":"dzc_x""#, "a token"), (#""all":true"#, "ls's field"), (#""rm":true"#, "end's field"),
+            (#""agent":"pi""#, "another program"), (#""isolation":"elsewhere""#, "elsewhere"), (#""name":"Carl""#, "a name off the rule"),
+            (#""fromBot":"Otto""#, "a bot off the rule"), (#""sandbox":"Bad Box""#, "a bad sandbox"), (#""session":".x""#, "a bad session"),
+            (#""cpus":0"#, "no CPUs"), (#""cpus":65"#, "65 CPUs"), (#""memory":"lots""#, "a bad size"), (#""rooms":["Bad Room"]"#, "a bad room"),
+            (#""rooms":["# + manyRooms + "]", "9 rooms"), (#""allowTools":["-x"]"#, "a tool like an option"), (#""allowTools":[""]"#, "an empty tool"),
+        ] {
+            invalid(base + "," + extra + "}", why)
+        }
+        invalid(#"{"action":"worker-add","workspace":"w"}"#, "no task")
+        invalid(#"{"action":"worker-add","workspace":"w","task":"  \n"}"#, "a blank task")
+        invalid(#"{"action":"worker-add","workspace":"w","task":"a\u0007b"}"#, "a control character")
+        invalid(#"{"action":"worker-add","workspace":"W","task":"x"}"#, "a workspace off the rule")
+        let long = String(repeating: "x", count: WebWorkerAdd.maximumTaskBytes + 1)
+        invalid(#"{"action":"worker-add","workspace":"w","task":""# + long + #""}"#, "a task over 15 KiB")
+        XCTAssertNoThrow(try decode(#"{"action":"worker-add","workspace":"w","task":""# + String(long.dropLast()) + #""}"#))
+        // Dedupe: per workspace and worker.
+        let one = try decode(#"{"action":"worker-add","workspace":"w","name":"carl","task":"x"}"#)
+        let again = try decode(#"{"action":"worker-add","workspace":"w","name":"carl","task":"y"}"#)
+        let other = try decode(#"{"action":"worker-add","workspace":"w","name":"dora","task":"x"}"#)
+        let elsewhere = try decode(#"{"action":"worker-add","workspace":"v","name":"carl","task":"x"}"#)
+        XCTAssertEqual(one.dedupeKey, again.dedupeKey)
+        XCTAssertNotEqual(one.dedupeKey, other.dedupeKey)
+        XCTAssertNotEqual(one.dedupeKey, elsewhere.dedupeKey)
+        XCTAssertNotEqual(try decode(#"{"action":"worker-end","workspace":"w","name":"carl","confirm":"carl"}"#).dedupeKey, one.dedupeKey)
+        // The plan route's body: the action's fields but confirm; empty while typing; the workspace always, by its rule.
+        let q = try WebWorkerAdd.decodePlan(Data(#"{"workspace":"w","name":"","task":"","fromBot":""}"#.utf8))
+        var typing = WorkerRequest(workspace: "w")
+        typing.task = ""
+        XCTAssertEqual(q, typing, "an empty task goes to the daemon, whose refusal is the add's")
+        XCTAssertThrowsError(try WebWorkerAdd.decodePlan(Data(#"{"task":"x"}"#.utf8)))
+        XCTAssertThrowsError(try WebWorkerAdd.decodePlan(Data(#"{"workspace":"W","task":"x"}"#.utf8)))
+        XCTAssertThrowsError(try WebWorkerAdd.decodePlan(Data(#"{"workspace":"w","confirm":"unfenced"}"#.utf8)))
+    }
+
     func testTheNewWorkspaceWizardsActions() throws {
         let body = #"{"action":"workspace-new","workspace":"launch-video","brief":"Make it.\n","refs":["https://example.com/a","/tmp"],"#
             + #""folders":[{"path":"/tmp","mode":"rw"},{"path":"/usr/share","mode":"ro"}],"newFolder":true,"room":"general","#
