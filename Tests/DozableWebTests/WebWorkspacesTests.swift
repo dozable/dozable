@@ -137,6 +137,27 @@ final class WebWorkspacesTests: XCTestCase {
         XCTAssertEqual(d.agents[0].control, "proxy · placeholders · guard")
     }
 
+    /// The set-up check's gaps reach the page only while it is setting up (`workspace-show`'s), each with the wizard's step;
+    /// another computer that may not see this Mac's sessions gets none that names one.
+    func testTheGapsWhileSettingUp() {
+        let t = Date(timeIntervalSince1970: 1_800_000_000)
+        func detail(_ state: String, _ gaps: [WorkspaceSetupCheck.Gap]?) -> WebWorkspaceDetail {
+            WebWorkspaceDetail(WorkspaceDetail(
+                name: "demo", state: state, driver: "you", createdAt: t, brief: WorkspaceBrief(sha256: "x", bytes: 1, updatedAt: t),
+                folders: [], rooms: [], agents: [], defaults: WorkspaceDefaults(isolation: "vm"), flags: WorkspaceFlags(), origin: WorkspaceOrigin(), gaps: gaps))
+        }
+        let gaps = [WorkspaceSetupCheck.Gap(item: "brief", why: "the brief is empty", fix: "doz workspace edit demo --prompt-file F"),
+                    WorkspaceSetupCheck.Gap(item: "manager", why: "a session called demo already exists on this Mac", fix: "doz sessions end @mac demo, or rename the workspace"),
+                    WorkspaceSetupCheck.Gap(item: "chat", why: "a manager needs chat", fix: "doz chat on")]
+        let d = detail("setting-up", gaps)
+        XCTAssertEqual(d.gaps?.map(\.step), [1, 2, 4])
+        XCTAssertEqual(d.workerIsolation, "vm")
+        XCTAssertNil(detail("idle", nil).gaps, "started: no gaps")
+        let remote = WebWorkspaceReads.forBrowser(d, macAllowed: false)
+        XCTAssertEqual(remote.gaps?.map(\.item), ["brief", "chat"], "a gap naming a session on this Mac is left out")
+        XCTAssertEqual(WebWorkspaceReads.forBrowser(d, macAllowed: true).gaps?.count, 3)
+    }
+
     /// The Agents tab's fields: who brought an agent in and when, a shared sandbox's session, and each workspace's places —
     /// which another computer that may not see this Mac's sessions never gets for `@mac/…`.
     func testStartedBySessionAndPlaces() {

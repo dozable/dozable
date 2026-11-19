@@ -81,6 +81,8 @@ public enum WebWorkspaceReads {
         out.agents = d.agents.filter { $0.kind != "mac" }
         out.hidden = d.agents.count - out.agents.count
         out.notes = d.notes.filter { !$0.contains(MacPlace.name) }
+        // A gap about a session on this Mac names it: not this browser's to see.
+        out.gaps = d.gaps?.filter { !$0.why.contains(MacPlace.name) && !$0.why.contains("session") && !$0.fix.contains(MacPlace.name) }
         return out
     }
 }

@@ -976,6 +976,14 @@ public final class DozableWebServer: @unchecked Sendable {
             if request.action.isWorkspace, let r = WebExposure.decideWorkspaceAction(ctx.principal, settings.chatServe) { throw r }
             // Filing an agent into a workspace or out of one: this Mac's own browser only, whatever the serve settings.
             if request.action.isFiling, let r = WebExposure.decideFilingAction(ctx.principal) { throw r }
+            // Starting a workspace: this Mac's own browser only, whatever the serve settings (the brief posted as you, a bot's
+            // token handed to a program, maybe an unfenced manager acting as you).
+            if request.action.isStarting, let r = WebExposure.decideStartAction(ctx.principal) { throw r }
+            // A new workspace from its project file: filled on the Mac (a browser never names a project path).
+            if case .workspaceNew(var w, true) = request.action {
+                try WebWorkspaceNew.fill(&w)
+                return json(try operations.start(.workspaceNew(w, fromProject: false), priority: !request.batch), status: 202)
+            }
             // An Agent / Bot changed: this Mac's own browser only, whatever the serve settings (a token made, replaced or revoked).
             if request.action.isBot, let r = WebExposure.decideBotAction(ctx.principal) { throw r }
             return json(try operations.start(request.action, priority: !request.batch), status: 202)
@@ -1049,6 +1057,20 @@ public final class DozableWebServer: @unchecked Sendable {
                              try await data.macTranscript(session, endedAt: endedAt, name: name))
         case .macSessionQuarantine(let session):
             return json(try await data.macQuarantine(session))
+        case .workspacePlan:
+            // CSRF-checked (an unsafe method), the Mac's own browser only (WebExposure: mac-screen), the action's fields
+            // strictly; exactly one read-only HostOp — nothing written, no daemon started. A project's fill that cannot be
+            // made is the plan's first refusal.
+            try Self.requireJSONBody(md)
+            var (w, fromProject) = try WebWorkspaceNew.decodePlan(body)
+            let project = WebWorkspaceNew.project(w)
+            var refused: String?
+            if fromProject {
+                do { try WebWorkspaceNew.fill(&w) } catch let e as WebAction.Invalid { refused = e.message }
+            }
+            var plan = WebWorkspacePlan(try await data.workspacePlan(w), project: project)
+            if let refused { plan.refusals.insert(refused, at: 0) }
+            return json(plan)
         case .macSessionPlan:
             // 683 M5: CSRF-checked (an unsafe method, above), the Mac's own browser only (WebExposure: mac-screen), a strict
             // body; the command is built on the Mac from the enums. `open: true` only for an Open-in-Terminal shape.

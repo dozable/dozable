@@ -108,9 +108,16 @@ public enum WebAction: Equatable, Sendable {
     /// settings: what a workspace holds decides what it (and later its manager) may reach. Each is exactly the CLI's:
     /// `doz workspace adopt W AGENT [--as NAME]` — the agent a sandbox's name or `@mac/SESSION`;
     case workspaceAdopt(workspace: String, agent: String, asName: String?)
-    /// `doz workspace new W --prompt-file F --adopt AGENT` — exactly one agent, no folder, reference, room or manager (the
-    /// room is made as with the CLI when chat is on);
-    case workspaceNew(workspace: String, brief: String, adopt: String)
+    /// `doz workspace new W --prompt-file F [--ref …] [--new-folder] [--folder DIR[:ro]] [--room R | --no-room] [--from-project]
+    /// [--manager BOT [--manager-isolation …]] [--worker-isolation fenced|vm] [--network …] [--adopt AGENT]…` — the New
+    /// workspace wizard's, and "Put in a workspace…"'s with one agent. Never a project path or `noManager` from a browser:
+    /// `fromProject` is the flag, and the web layer on the Mac fills `project` and `network` (`WorkspaceProjectFill`). The
+    /// room is made as with the CLI when chat is on;
+    case workspaceNew(WorkspaceRequest, fromProject: Bool)
+    /// `doz workspace start W` — this Mac's own browser only (`isStarting`, `WebExposure.decideStartAction`): it posts the
+    /// brief as you and starts a program holding a bot's token, maybe an unfenced manager acting as you. It sets
+    /// `confirmRequired`, so the daemon refuses an unfenced manager unless `actsAsYou` confirms it.
+    case workspaceStart(workspace: String, actsAsYou: Bool)
     /// `doz workspace release W AGENT` — the agent's name in the workspace, or `@mac/SESSION`. A live worker or a running
     /// manager is refused by the daemon, as for the CLI.
     case workspaceRelease(workspace: String, agent: String)
@@ -148,7 +155,7 @@ public enum WebAction: Equatable, Sendable {
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall,
              .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges,   // this Mac is no sandbox
-             .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease,          // nor is a workspace
+             .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart,   // nor is a workspace
              .botNew, .botSet, .botRetire, .botAdopt, .botToken:                          // nor is a bot
             return nil
         }
@@ -167,6 +174,11 @@ public enum WebAction: Equatable, Sendable {
     /// Filing an agent into a workspace or out of one: this Mac's own browser only (`WebExposure.decideFilingAction`).
     public var isFiling: Bool {
         switch self { case .workspaceAdopt, .workspaceNew, .workspaceRelease: true; default: false }
+    }
+
+    /// A workspace started: this Mac's own browser only (`WebExposure.decideStartAction`).
+    public var isStarting: Bool {
+        if case .workspaceStart = self { true } else { false }
     }
 
     /// An Agent / Bot changed: this Mac's own browser only (`WebExposure.decideBotAction`).
@@ -197,6 +209,8 @@ public enum WebAction: Equatable, Sendable {
     public var dedupeKey: String {
         let r = hostRequest
         if let w = r.workspaceRequest?.name {
+            // A workspace is made or started once at a time: its name is the key.
+            if r.op == .workspaceNew || r.op == .workspaceStart { return [r.op.rawValue, "workspace:" + w].joined(separator: "|") }
             // Filing names its agent: two agents put in one workspace at once are two operations.
             let agent = r.workspaceRequest?.agent ?? r.workspaceRequest?.adopt?.joined(separator: ",") ?? ""
             return [r.op.rawValue, "workspace:" + w, agent].joined(separator: "|")
@@ -232,7 +246,10 @@ public enum WebAction: Equatable, Sendable {
         case .sandboxSetting(let n, let k, let v): return v.map { "\(k) = \($0) for \(n)" } ?? "\(n) follows the Mac's \(k)"
         case .workspaceBrief(let w, _, _): return "edit the brief of \(w)"
         case .workspaceAdopt(let w, let a, _): return "put \(a) in \(w)"
-        case .workspaceNew(let w, _, let a): return "make \(w) with \(a)"
+        case .workspaceNew(let w, _):
+            let n = w.name ?? "?"
+            return w.adopt?.count == 1 ? "make \(n) with \(w.adopt![0])" : "make \(n)"
+        case .workspaceStart(let w, _): return "start \(w)"
         case .workspaceRelease(let w, let a): return "take \(a) out of \(w)"
         case .botNew(let b): return "make Agent / Bot \(b.name ?? "?")"
         case .botSet(let b): return "change \(b.name ?? "?")"
@@ -452,14 +469,17 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.workspaceAdopt)
             r.workspaceRequest = e
             return r
-        case .workspaceNew(let w, let brief, let agent):
-            // What `doz workspace new W --prompt-file F --adopt AGENT` sends: no folder, no reference.
-            var e = WorkspaceRequest(name: w)
-            e.brief = brief
-            e.folders = []
-            e.refs = []
-            e.adopt = [agent]
+        case .workspaceNew(let w, _):
+            // What `doz workspace new …` sends (the project's fill, when asked, is the web layer's on the Mac).
             var r = HostRequest(.workspaceNew)
+            r.workspaceRequest = w
+            return r
+        case .workspaceStart(let w, let actsAsYou):
+            // What `doz workspace start W` sends, plus the confirmation the daemon then requires of an unfenced manager.
+            var e = WorkspaceRequest(name: w)
+            e.confirmRequired = true
+            e.unfencedConfirmed = actsAsYou ? true : nil
+            var r = HostRequest(.workspaceStart)
             r.workspaceRequest = e
             return r
         case .workspaceRelease(let w, let agent):
@@ -542,7 +562,8 @@ public enum WebAction: Equatable, Sendable {
             "sandbox-setting": ["sandbox", "key", "value", "clear"],
             "workspace-brief": ["workspace", "brief", "ifBrief"],
             "workspace-adopt": ["workspace", "agent", "as"],
-            "workspace-new": ["workspace", "brief", "adopt"],
+            "workspace-new": WebWorkspaceNew.fields,
+            "workspace-start": ["workspace", "actsAsYou"],
             "workspace-release": ["workspace", "agent"],
             "bot-new": ["name", "agent", "model", "account", "avatar", "isolation", "deliver", "webhookEntry", "session", "skills", "instructions"],
             "bot-set": ["name", "model", "account", "avatar", "skills", "instructions", "isolation", "deliver", "webhookEntry", "session"],
@@ -771,11 +792,10 @@ public enum WebAction: Equatable, Sendable {
             }
             a = .workspaceAdopt(workspace: try f.workspaceName("workspace"), agent: try f.agentPlace("agent"), asName: asName)
         case "workspace-new":
-            guard let list = d["adopt"] as? [Any], list.count == 1, let one = list[0] as? String else {
-                throw Invalid("adopt: a list of exactly one agent (a sandbox's name or @mac/SESSION)")
-            }
-            a = .workspaceNew(workspace: try f.workspaceName("workspace"), brief: try f.brief("brief"),
-                              adopt: try Fields(["agent": one]).agentPlace("agent"))
+            let (w, fromProject) = try WebWorkspaceNew.decode(f, forPlan: false)
+            a = .workspaceNew(w, fromProject: fromProject)
+        case "workspace-start":
+            a = .workspaceStart(workspace: try f.workspaceName("workspace"), actsAsYou: try f.flag("actsAsYou") == true)
         case "workspace-release":
             guard let s = try f.string("agent", max: 64 + 5), WorkspaceName.isValidAgent(s) || Fields.isMacPlace(s) else {
                 throw Invalid("agent: its name in the workspace, or @mac/SESSION")

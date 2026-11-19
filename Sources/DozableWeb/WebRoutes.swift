@@ -103,6 +103,10 @@ public enum WebRoute: Equatable, Sendable {
     case macSessionTranscripts(String)  // GET  /api/v1/mac/sessions/{session}/transcripts
     case macSessionTranscript(String, String, String) // GET /api/v1/mac/sessions/{session}/transcripts/{endedAt}/{uuid}.jsonl
     case macSessionQuarantine(String)   // GET  /api/v1/mac/sessions/{session}/quarantine
+    // The New workspace wizard's plan: what `workspace-new` would do with the wizard's fields — nothing written (the
+    // read-only HostOp `workspace-plan`, CSRF; the Mac's own browser only — `mac-screen`: it shows this Mac's folders and
+    // bots). `workspaceCheck` is the folder check below.
+    case workspacePlan                  // POST /api/v1/workspace-plan    ({workspace, brief, refs?, folders?, newFolder?, fromProject?, room?, noRoom?, manager?, managerIsolation?, workerIsolation?, network?, adopt?})
     case macSessionPlan                 // POST /api/v1/mac/session-plan  ({case, program, folder, session?, preset?, account?, github?, agentConfig?, simulator?, keychain?, ports?, open?})
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
@@ -240,6 +244,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 1) where rest[0] == "grids": return .grids
         case (.post, 2) where rest == ["mac", "terminal-ticket"]: return .macTerminalTicket
         case (.post, 2) where rest == ["mac", "session-plan"]: return .macSessionPlan
+        case (.post, 1) where rest[0] == "workspace-plan": return .workspacePlan
         case (.post, 2) where rest == ["project", "open"]: return .projectOpen
         case (.post, 2) where rest == ["project", "preview"]: return .projectPreview
         case (.post, 2) where rest == ["project", "write"]: return .projectWrite

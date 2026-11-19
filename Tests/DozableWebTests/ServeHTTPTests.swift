@@ -597,6 +597,50 @@ final class ServeHTTPTests: XCTestCase {
         }
     }
 
+    static let wizard = [
+        #"{"action":"workspace-new","workspace":"launch","brief":"Make it.\n","folders":[{"path":"/tmp","mode":"ro"}],"manager":"mira","workerIsolation":"vm","network":"open"}"#,
+        #"{"action":"workspace-start","workspace":"launch","actsAsYou":true}"#,
+    ]
+
+    /// The New workspace wizard: creating and starting are this Mac's own browser's, whatever serve.chat and
+    /// serve.mac_sessions say — another computer gets 403 `mac-only` for both actions (one audit line, nothing sent to the
+    /// daemon) and the plan route is refused (`mac-screen`); this Mac's browser: 202 for each (exactly its HostOp), 200 for
+    /// the plan.
+    func testCreatingAndStartingAWorkspaceIsThisMacsBrowserOnly() async throws {
+        try await start(macSessions: "interactive", chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        for body in Self.wizard {
+            let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", body, remote: true)
+            XCTAssertEqual(r.status, 403, r.text)
+            XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+            XCTAssertTrue(r.text.contains("this Mac's own browser"), r.text)
+        }
+        let plan = #"{"workspace":"launch","brief":""}"#
+        let rp = try macJSON(devCookie, devCSRF, "/api/v1/workspace-plan", plan, remote: true)
+        XCTAssertEqual(rp.status, 403, rp.text)
+        XCTAssertTrue(rp.text.contains("\"mac-screen\""), rp.text)
+        XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon")
+        XCTAssertFalse(fake.workspaceCalls.contains { $0.hasPrefix("plan") }, "the plan was not asked")
+        let (macCookie, macCSRF) = try macSignIn()
+        var want: [HostOp] = []
+        for (body, op) in zip(Self.wizard, [HostOp.workspaceNew, .workspaceStart]) {
+            let r = try macJSON(macCookie, macCSRF, "/api/v1/actions", body, remote: false)
+            XCTAssertEqual(r.status, 202, r.text)
+            want.append(op)
+            let deadline = Date().addingTimeInterval(5)
+            while fake.performedOps.count < want.count && Date() < deadline { usleep(10_000) }
+            XCTAssertEqual(fake.performedOps, want)
+        }
+        let p = try macJSON(macCookie, macCSRF, "/api/v1/workspace-plan", plan, remote: false)
+        XCTAssertEqual(p.status, 200, p.text)
+        let answer = try JSONDecoder().decode(WebWorkspacePlan.self, from: p.body)
+        XCTAssertEqual(answer.gaps.map(\.step), [1], "the brief's gap is step 1's")
+        XCTAssertTrue(answer.commands.contains("doz workspace new launch --prompt-file -"), answer.commands)
+        XCTAssertEqual(fake.performedOps, want, "the plan is a read: no operation")
+        // Strict: an unknown field, or a project path, is refused before any call.
+        XCTAssertEqual(try macJSON(macCookie, macCSRF, "/api/v1/workspace-plan", #"{"workspace":"x","project":"/etc"}"#, remote: false).status, 400)
+    }
+
     static let botActions = [
         #"{"action":"bot-new","name":"mira","agent":"claude-code","isolation":"fenced"}"#,
         #"{"action":"bot-set","name":"mira","model":"sonnet"}"#,

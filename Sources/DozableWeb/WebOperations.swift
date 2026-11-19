@@ -584,10 +584,23 @@ final class WebOperations: @unchecked Sendable {
             return d?.flags.startedAt != nil ? "edited the brief of \(w) — announced in its room" : "edited the brief of \(w)"
         case .workspaceAdopt(let w, let agent, let asName):
             return Self.filed(w, asName ?? Self.agentName(agent), try? v.decode(WorkspaceDetail.self))
-        case .workspaceNew(let w, _, let agent):
+        case .workspaceNew(let w, _):
+            let n = w.name ?? "?"
             let d = try? v.decode(WorkspaceDetail.self)
-            let made = "made \(w)" + (d?.rooms.first(where: \.main).map { " with its room #\($0.chatRoom) (nothing posted)" } ?? "")
-            return made + " — " + Self.filed(w, Self.agentName(agent), d)
+            let made = "made \(n)" + (d?.rooms.first(where: \.main).map { " with its room #\($0.chatRoom) (nothing posted)" } ?? "")
+            if let agents = w.adopt, agents.count == 1 { return made + " — " + Self.filed(n, Self.agentName(agents[0]), d) }
+            return made + (d?.state == WorkspaceState.settingUp.rawValue ? " — setting up until it starts" : "")
+        case .workspaceStart(let w, _):
+            guard let s = try? v.decode(WorkspaceStarted.self) else { return "started \(w)" }
+            var out = "started \(w)"
+            if s.kickedOff { out += " — the brief is posted in #\(s.workspace.rooms.first(where: \.main)?.chatRoom ?? w)" }
+            if let m = s.manager {
+                out += s.alreadyRunning == true ? " — \(m) was running already"
+                    : " — \(m) started (\(s.isolation == "unfenced" ? "unfenced · acts as you" : s.isolation == "vm" ? "micro VM" : "fenced"))"
+            } else {
+                out += " — no manager: you drive"
+            }
+            return out
         case .workspaceRelease(let w, let agent):
             return "\(Self.agentName(agent)) is loose again (it keeps running as it was) — taken out of \(w)"
         case .botNew, .botSet, .botRetire, .botAdopt, .botToken:

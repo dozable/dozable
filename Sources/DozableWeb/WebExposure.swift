@@ -101,6 +101,11 @@ public enum WebExposure {
     /// manager) may reach, and `workspace-new` makes a room as you. Another computer is shown the command instead.
     public static func decideFilingAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyFiling : nil }
 
+    /// A workspace started (`workspace-start`) for `who`: this Mac's own browser only, whatever `serve.chat` or
+    /// `serve.mac_sessions` say — it posts the brief as you and starts a program holding a bot's token, maybe an unfenced
+    /// manager that acts as you. Another computer is shown the command instead; its attempt is one audit line.
+    public static func decideStartAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyStart : nil }
+
     /// An Agent / Bot changed (`bot-new`, `-set`, `-retire`, `-adopt`, `-token`) for `who`: this Mac's own browser only, whatever
     /// `serve.chat` or `serve.mac_sessions` say — each makes, replaces or revokes a token and writes the login keychain.
     /// Another computer is shown the command instead; its attempt is one audit line.
@@ -134,8 +139,10 @@ public enum WebExposure {
             return .secretEntry
         case .terminal, .workspaceChoose, .projectsDirChoose, .dockerfileChoose, .filesOpen, .editors,   // 646: editors with files/open
              .portOpen,                 // 666: opens this Mac's browser (signed in) — another computer's 127.0.0.1 is its own
-             .macSessionPlan:           // 683 M5: the New session wizard — its command is for this Mac's own terminal (and
+             .macSessionPlan,           // 683 M5: the New session wizard — its command is for this Mac's own terminal (and
                                         // Open in Terminal opens a window here): another computer never gets the route
+             .workspacePlan:            // the New workspace wizard's plan — it shows this Mac's folders and bots, and a
+                                        // workspace is made only from this Mac: another computer never gets the route
             return .macScreen
         case .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename:
             return .devices
