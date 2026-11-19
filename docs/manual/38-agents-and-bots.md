@@ -51,12 +51,12 @@ session over ssh), a bot on this Mac cannot be made or given a new token: run it
 doz bot ls               # NAME  AGENT · MODEL  ISOLATION  REACHED  MANAGES
 doz bot ls --retired     # the retired ones
 doz bot show mira        # its record, where its token is, its rooms while chat runs, its instructions' size
+doz bot show mira --instructions   # its instructions' text
 doz chat who             # a bot's KIND ends "· bot" (--json: "bot": true)
 ```
 
-Looking never starts the daemon. In the dashboard, **Agents / Bots** in the sidebar lists them (its count beside it): each
-one's agent program, isolation, how it is reached, the workspaces it manages or works in (each opens its room), whether
-it is in chat and when it was retired. It is a list; making or changing a bot is the commands here.
+Looking never starts the daemon. In the dashboard, **Agents / Bots** in the sidebar lists them (below, "In the
+dashboard").
 
 ## Managing a workspace
 
@@ -90,6 +90,10 @@ doz bot set mira --instructions-file instructions.md --skills chat-manager
 `--deliver` keeps its token, its rooms and its history. A bot is changed with `doz bot`, never `doz chat`: `doz chat
 remove`, `token` and `set` on a bot are refused and name the `doz bot` command to use.
 
+A running session keeps what it started with. When a bot that runs in a started workspace gets new instructions, a new
+model or a new account, Dozable says so as you in that workspace's room — "mira's instructions changed; they apply from
+mira's next session". A new avatar says nothing.
+
 ## Making an existing participant a bot
 
 ```bash
@@ -108,6 +112,31 @@ doz bot retire far
 It leaves chat and its token is refused. Its old messages keep its name, and the name is never used again — `doz bot new`,
 `doz bot adopt` and `doz chat add` refuse it. A bot that is an agent of a workspace is released from it first (a worker is ended first, `doz worker end W NAME`). `retire`
 asks first; pass `--yes` when there is no terminal or with `--json`.
+
+## In the dashboard
+
+**Agents / Bots** in the sidebar (its count beside it) is the roster: each bot's avatar and name, its agent program and
+model, how it runs (**acts as you** beside an unfenced one), how the chat server reaches it, what it manages or works in,
+who keeps its key (**held**, **elsewhere**, or **none** once retired) and what it is doing. **Show retired** lists the
+retired ones instead.
+
+- **+ New agent / bot** opens the form: its name, avatar, agent program and model; how it runs (fenced unless you pick
+  another; unfenced only when you pick it, and it says it acts as you); how it is reached; its instructions and skills; its
+  account. **Make the Agent / Bot** makes it — its token goes straight into your login keychain. Its page then says
+  "held by Dozable · fp …": the fingerprint only, never the token.
+- **A bot's page** (Open, or its name) shows where it is across your workspaces — whether it drives there, a link to its
+  screen in each, its rooms and what it said last — and the tabs **Identity**, **How it runs**, **Reached by**,
+  **Instructions** and **Account**, each with its own **Save**. **Roles & ceiling** comes with permissions.
+- Its **⋯**: **Edit**; **Duplicate** (the form filled from it, the name empty — e.g. the same bot with another model); **New
+  workspace with this bot** (the command, for now); **Include in a room…** (it joins as a voice — it reads and speaks there,
+  with no token step; a room's own menu has **Add an Agent / Bot…** too); **New token…** (the old one is refused at once —
+  tick to confirm); **Retire…** (tick to confirm; a bot in a workspace is released from it first).
+- **Make a chat participant a bot…** adopts one from the page, with the same warning as the command: its token is replaced.
+- **A bot elsewhere** is made, moved or given a new token only in a terminal on this Mac — its token is shown once there or
+  written to a file, never in a browser. The page shows the command to copy, e.g. `doz bot new far --agent codex
+  --isolation elsewhere --to-file ~/far.token`.
+- Every change is made only in this Mac's own browser. Another computer (`doz ui --lan`) sees the roster and each bot's page
+  read only, with fingerprints only; anything it tries to change is refused and recorded.
 
 ## Where it is kept
 

@@ -33,6 +33,16 @@
 //     framed and a tab's switch keeps the #/w/ address; #/sandbox/gamma says "In demo"; "Take out…" makes gamma loose
 //     again; at 390 px the table is cards. (Another computer's 403 for the three filing actions is ServeHTTPTests': the
 //     walk's dashboard has no LAN side — its fixed port is a live one.)
+//   · Agents / Bots, chat still on: far (elsewhere), tmp1 and the participant olda made with the CLI (their tokens read from
+//     their files, never printed). 1 the roster equals doz bot ls --json (keeper, isolation); 2 #/bots/~new makes nova
+//     (fenced by default, unfenced not preselected, elsewhere disabled with its command) and its fingerprint is the CLI's;
+//     3 an instructions edit changes the CLI's sha256; 4 a crafted bot-new elsewhere is 400 and a crafted bot-token for far
+//     is refused by the daemon (heldOnly), its fingerprint unchanged; 5 New token… changes nova's fingerprint; 6 adopting
+//     olda (Q9's words) makes it a bot and its old token 401; 7 retire tmp1 (Show retired), retiring otto — a manager — is
+//     refused with the release command; 8 Include in a room… puts otto in other, no token step. After every row the leak
+//     sweep: the known tokens and dzc_ in the DOM, every /api/ answer, the console, page errors, both storages,
+//     CacheStorage, IndexedDB, ui.operations.json, ui.log and doz ui's output, daemon.log, server.log and ps — zero, with a
+//     positive control; no page error on any bot screen. (Another computer's 403 is ServeHTTPTests'.)
 //   · with the daemon stopped, opening Home, Sandboxes, a workspace's page and its agents starts none (no daemon.pid).
 //
 // Self-contained: Node >= 22 (global WebSocket and fetch), no packages. Never the person's own Dozable or browser: the
@@ -69,7 +79,9 @@ const ENV = { ...process.env, XDG_CONFIG_HOME: XDG, DOZ_STORE: STORE, DO_NOT_TRA
   DOZ_TEST_NPM_REGISTRY: 'offline', DOZ_TEST_BASE_REGISTRY: 'pinned', DOZ_TEST_CLAUDE_DOWNLOADS: 'offline', DOZ_TEST_GH: S + '/no-gh',
   DOZ_TEST_SSH_AUTH_SOCK: S + '/no-agent.sock', DOZ_TEST_CONTAINER: '/nonexistent/container', GIT_CONFIG_GLOBAL: S + '/gitconfig',
   DOZ_TEST_HOME: '/tmp/doz-dashboard-walk-home', DOZ_TEST_MAC_NAME: 'walkmac', DOZ_TEST_LAUNCH_AGENTS_DIR: S + '/launch-agents',
-  DOZ_TEST_LAUNCHCTL: '/usr/bin/false', DOZ_TEST_APPLICATIONS_DIR: S + '/applications', DOZ_PROGRESS: 'plain', NO_COLOR: '1' };
+  DOZ_TEST_LAUNCHCTL: '/usr/bin/false', DOZ_TEST_APPLICATIONS_DIR: S + '/applications', DOZ_PROGRESS: 'plain', NO_COLOR: '1',
+  // An inbox bot (made from the page) has the chat server look at Claude Code's sessions: a scratch folder, never the real one.
+  DOZ_TEST_CLAUDE_SESSIONS: S + '/claude-sessions' };
 delete ENV.SSH_AUTH_SOCK;
 function doz(args, input) {
   const r = spawnSync(DOZ, [...args, '--store', STORE], { env: ENV, encoding: 'utf8', input, timeout: 120_000 });
@@ -91,7 +103,7 @@ function clearMacSocketFolder() { const d = macSocketFolder(); if (d && d.includ
 function stage() {
   rmSync(S, { recursive: true, force: true });
   clearMacSocketFolder();
-  for (const d of [STORE, XDG + '/doz', PROJECTS, S + '/codex-home', S + '/launch-agents', S + '/applications']) mkdirSync(d, { recursive: true });
+  for (const d of [STORE, XDG + '/doz', PROJECTS, S + '/codex-home', S + '/launch-agents', S + '/applications', S + '/claude-sessions']) mkdirSync(d, { recursive: true });
   writeFileSync(XDG + '/doz/doz.toml', `[store]\npath = "${STORE}"\n\n[defaults]\nprojects_dir = "${PROJECTS}"\n\n[chat]\nenabled = false\n`);
   writeFileSync(S + '/no-gh', '#!/bin/sh\necho "not logged in" >&2\nexit 1\n', { mode: 0o755 });
   writeFileSync(S + '/gitconfig', '[user]\n\tname = dashboard-walk\n\temail = dashboard-walk@example.invalid\n');
@@ -101,6 +113,8 @@ function stage() {
 // ── Chrome over the DevTools protocol ────────────────────────────────────────────────────────────────────────────────
 let ws, nextId = 1, chrome, ui, devPort, uiB = false;
 const pending = new Map(), pageErrors = [], requested = [];
+const apiIds = new Set(), apiBodies = [], consoleLines = [];
+let uiOut = '', chatPagePort = 0;
 function send(method, params = {}) { const id = nextId++; ws.send(JSON.stringify({ id, method, params })); return new Promise((res, rej) => pending.set(id, { res, rej })); }
 async function evaluate(expr) {
   const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
@@ -129,6 +143,15 @@ async function startChrome() {
     if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); m.error ? p.rej(new Error(m.error.message)) : p.res(m.result); return; }
     if (m.method === 'Runtime.exceptionThrown') pageErrors.push((m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text).split('\n').slice(0, 4).join(' ⏎ '));
     if (m.method === 'Network.requestWillBeSent') requested.push(m.params.request.url);
+    // The leak sweep's sources: every /api/ answer's body (not the event streams), and the console.
+    if (m.method === 'Network.responseReceived' && /\/api\/v1\//.test(m.params.response.url) && !/event-stream/.test(m.params.response.mimeType || '')) {
+      apiIds.add(m.params.requestId);
+    }
+    if (m.method === 'Network.loadingFinished' && apiIds.has(m.params.requestId)) {
+      apiIds.delete(m.params.requestId);
+      send('Network.getResponseBody', { requestId: m.params.requestId }).then((b) => apiBodies.push(b.base64Encoded ? Buffer.from(b.body, 'base64').toString('utf8') : b.body), () => {});
+    }
+    if (m.method === 'Runtime.consoleAPICalled') consoleLines.push(m.params.args.map((a) => String(a.value ?? a.description ?? '')).join(' '));
   });
   await send('Runtime.enable');
   await send('Page.enable');
@@ -139,7 +162,7 @@ async function startUI() {
   // `doz ui` prints the sign-in link only to a terminal: run it on one (script(1)); the link is read here, never printed.
   ui = spawn('script', ['-q', '/dev/null', DOZ, 'ui', '--print-url', '--no-open', '--store', STORE], { env: ENV, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
   let out = '';
-  ui.stdout.on('data', (d) => { out += d; });
+  ui.stdout.on('data', (d) => { out += d; uiOut += d; });
   for (let i = 0; i < 300; i++) { const m = /(http:\/\/127\.0\.0\.1:(\d+)\/#cap=[A-Za-z0-9_-]+)/.exec(out); if (m) return { link: m[1], port: Number(m[2]) }; await sleep(100); }
   throw new Error('no link from doz ui');
 }
@@ -349,6 +372,7 @@ async function walkWorkspacePage() {
   let p1 = await freePort(), p2 = await freePort();
   for (let i = 0; i < 5 && (LIVE_PORTS.includes(p1) || LIVE_PORTS.includes(p2) || p1 === p2); i++) { p1 = await freePort(); p2 = await freePort(); }
   check(p1 > 1023 && p2 > 1023 && p1 !== p2 && !LIVE_PORTS.includes(p1) && !LIVE_PORTS.includes(p2), 'chat\'s two ports are the OS\'s choice, not live ones');
+  chatPagePort = p1;
   doz(['config', 'set', 'chat.page_port', String(p1)]);
   doz(['config', 'set', 'chat.line_port', String(p2)]);
   check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (scratch store, OS-chosen ports)');
@@ -582,6 +606,212 @@ async function walkAgents() {
   await shot('agents-light');
 }
 
+// ── Agents / Bots (chat on): the roster, a new bot from the page, an edit, elsewhere only in a terminal, a new token,
+// adopting a participant, retiring, adding a bot to a room — and after every row the leak sweep ────────────────────────
+const knownTokens = [];
+const swept = { dom: 0, api: 0, console: 0, errors: 0, storage: 0, cache: 0, indexeddb: 0, files: 0, ps: 0 };
+let sweeps = 0;
+/// How many times a known token or the token shape `dzc_` appears in `s`.
+function hits(s) {
+  const t = String(s || '');
+  let n = (t.match(/dzc_/g) || []).length;
+  for (const k of knownTokens) if (k) n += t.split(k).length - 1;
+  return n;
+}
+/// The leak sweep: every token the walk knows and the `dzc_` shape, in the page's DOM, every /api/ answer read so far, the
+/// console, page errors, this origin's local and session storage, CacheStorage, IndexedDB, the store's operations file,
+/// ui.log (and doz ui's own output), daemon.log, the chat server's server.log and every process's command line. ZERO.
+async function leakSweep(row) {
+  sweeps++;
+  const found = {
+    dom: hits(await evaluate(`document.documentElement.outerHTML`)),
+    api: hits(apiBodies.join('\n')),
+    console: hits(consoleLines.join('\n')),
+    errors: hits(pageErrors.join('\n')),
+    storage: hits(await evaluate(`(() => { const out = []; for (const s of [localStorage, sessionStorage]) for (let i = 0; i < s.length; i++) { const k = s.key(i); out.push(k, s.getItem(k)); } return out.join('\\n'); })()`)),
+    cache: hits(await evaluate(`(async () => { const out = []; for (const n of await caches.keys()) { const c = await caches.open(n);
+      for (const r of await c.keys()) { out.push(r.url); try { out.push(await (await c.match(r)).text()); } catch (_) { /* opaque */ } } } return out.join('\\n'); })()`)),
+    indexeddb: hits(await evaluate(`(async () => { const out = []; for (const d of (await indexedDB.databases()) || []) { out.push(d.name);
+      const db = await new Promise((res, rej) => { const q = indexedDB.open(d.name); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+      for (const s of db.objectStoreNames) { const all = await new Promise((res) => { const q = db.transaction(s).objectStore(s).getAll(); q.onsuccess = () => res(q.result); q.onerror = () => res([]); });
+        out.push(JSON.stringify(all)); } db.close(); } return out.join('\\n'); })()`)),
+    files: hits([STORE + '/ui.operations.json', STORE + '/ui.log', STORE + '/daemon.log', STORE + '/chat/server.log']
+      .map((f) => (existsSync(f) ? readFileSync(f, 'utf8') : '')).join('\n') + uiOut),
+    ps: hits(spawnSync('ps', ['-axww', '-o', 'command'], { encoding: 'utf8' }).stdout),
+  };
+  for (const k of Object.keys(found)) swept[k] += found[k];
+  const total = Object.values(found).reduce((a, b) => a + b, 0);
+  check(total === 0, `the leak sweep after ${row}: no token anywhere (` + Object.entries(found).map(([k, v]) => k + ' ' + v).join(', ') + ')');
+}
+/// Open a ⋯ (by its aria-label) and choose an item by its label.
+async function menuPick(label, item) {
+  await evaluate(`document.querySelector('button[aria-label=${JSON.stringify(label)}]').click()`);
+  await waitFor(`[...document.querySelectorAll('[role=menuitem]')].some((m) => m.offsetParent && m.textContent.startsWith(${JSON.stringify(item)}))`, 5000);
+  await evaluate(`[...document.querySelectorAll('[role=menuitem]')].find((m) => m.offsetParent && m.textContent.startsWith(${JSON.stringify(item)})).click()`);
+}
+const DIALOG = `document.querySelector('dialog.dlg[open]')`;
+async function tick() { await waitFor(`!!${DIALOG}?.querySelector('[data-confirm-check]')`, 8000); await evaluate(`(() => { const b = ${DIALOG}.querySelector('[data-confirm-check]'); b.click(); })()`); }
+async function setField(sel, value, ev = 'input') {
+  return evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return false; e.value = ${JSON.stringify(value)};
+    e.dispatchEvent(new Event(${JSON.stringify(ev)}, { bubbles: true })); return true; })()`);
+}
+/// A crafted action from the page (its own session and CSRF token): {status, body}.
+const craft = (body) => evaluate(`(async () => { const r = await fetch('/api/v1/actions', { method: 'POST', credentials: 'same-origin',
+  headers: { 'Content-Type': 'application/json', 'X-Doz-CSRF': state.csrf }, body: ${JSON.stringify(JSON.stringify(body))} });
+  return { status: r.status, body: await r.text() }; })()`);
+const botShow = (n) => dozJSON(['bot', 'show', n]) || {};
+async function walkBots() {
+  const errorsBefore = pageErrors.length;
+  // Made in a terminal: a bot elsewhere (its token to a file), tmp1 to retire, and olda, a plain participant to adopt.
+  check(doz(['bot', 'new', 'far', '--agent', 'codex', '--isolation', 'elsewhere', '--to-file', S + '/far.token']).status === 0, 'bot new far --isolation elsewhere --to-file (the CLI)');
+  knownTokens.push(readFileSync(S + '/far.token', 'utf8').trim());
+  check(doz(['bot', 'new', 'tmp1', '--agent', 'codex']).status === 0, 'bot new tmp1 (to retire)');
+  check(doz(['chat', 'add', 'olda', '--to-file', S + '/olda.token']).status === 0, 'chat add olda --to-file (a participant to adopt)');
+  knownTokens.push(readFileSync(S + '/olda.token', 'utf8').trim());
+  check(knownTokens.every((t) => /^dzc_/.test(t)), 'the walk knows far\'s and olda\'s tokens (from their files — never printed)');
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+
+  // 1. The roster against doz bot ls --json, the new columns included.
+  const cli = (dozJSON(['bot', 'ls']) || { bots: [] }).bots;
+  await goHash('#/bots');
+  await waitFor(`state.view === 'bots' && document.querySelectorAll('[data-bot]').length === ${cli.length}`, 10000);
+  const rows = await evaluate(`[...document.querySelectorAll('[data-bot]')].map((r) => ({ name: r.dataset.bot, keeper: r.querySelector('[data-bot-keeper]').dataset.botKeeper,
+    iso: r.querySelector('[data-iso]').dataset.iso, acts: !!r.querySelector('.acts-as-you') }))`);
+  check(JSON.stringify(rows.map((r) => r.name).sort()) === JSON.stringify(cli.map((b) => b.name).sort()), `1 the roster lists what doz bot ls --json does (${cli.map((b) => b.name).join(', ')})`);
+  check(cli.every((b) => { const r = rows.find((x) => x.name === b.name); return r && r.keeper === b.tokenKeeper && r.iso === b.isolation && r.acts === (b.isolation === 'unfenced'); }),
+    '1 …each row\'s key keeper and isolation as the CLI says ("acts as you" on the unfenced one)');
+  await leakSweep('row 1 (the roster)');
+
+  // 2. #/bots/~new makes nova: fenced (the default), inbox, instructions; its fingerprint as the CLI says.
+  await goHash('#/bots/~new');
+  check(await waitFor(`state.view === 'bot' && !!document.querySelector('[data-bot-form="~new"]')`, 10000), '2 #/bots/~new → the new bot\'s form');
+  check(await evaluate(`document.querySelector('[data-bf-choice="isolation:fenced"]').checked && !document.querySelector('[data-bf-choice="isolation:unfenced"]').checked`),
+    '2 …fenced by default; unfenced never preselected');
+  check(await evaluate(`document.querySelector('[data-bf-choice="isolation:elsewhere"]').disabled
+    && /doz bot new .* --isolation elsewhere --to-file/.test(document.querySelector('[data-bot-form] .bf-elsewhere')?.dataset.cmd || '')`), '2 …elsewhere disabled, with its command');
+  await setField('[data-bot-form] input[data-bf="name"]', 'nova');
+  await evaluate(`document.querySelector('[data-bf-choice="deliver:inbox"]').click()`);
+  await setField('[data-bot-form] textarea[data-bf="instructions"]', 'Answer in one line.\nAsk before anything costly.\n');
+  check(await waitFor(`/collects its messages with dozchat/.test(${text('[data-bot-form]')})`, 3000), '2 inbox for a fenced bot says it collects its messages with dozchat');
+  await evaluate(`document.querySelector('[data-bot-make]').click()`);
+  check(await waitFor(`location.hash === '#/bots/nova' && !!document.querySelector('[data-bot-page="nova"] [data-bot-fp]')`, 30000), '2 Make → #/bots/nova' + ((await soft(`document.querySelector('[data-bf-error]')?.textContent || ''`)) || '').replace(/^(.+)$/, ' (the form says: $1)'));
+  const nova = botShow('nova');
+  check(nova.isolation?.default === 'fenced' && nova.deliver === 'inbox' && nova.instructions?.bytes > 0 && nova.token?.keeper === 'dozable', '2 …doz bot show nova: fenced, inbox, instructions, held');
+  check(await evaluate(`document.querySelector('[data-bot-fp]').dataset.botFp`) === nova.token?.fingerprint && /held by Dozable · fp /.test(await evaluate(text('[data-bot-key]'))),
+    '2 the page\'s fingerprint is doz bot show nova --json\'s: "held by Dozable · fp …"');
+  await leakSweep('row 2 (a new bot)');
+
+  // 3. Its instructions edited: the CLI's sha256 changes; the page says they apply from its next session.
+  const sha = nova.instructions?.sha256;
+  await goHash('#/bots/nova/instructions');
+  await waitFor(`!!document.querySelector('[data-bot-form="nova/instructions"] textarea')`, 10000);
+  check(/applies from its next session/.test(await evaluate(text('[data-bot-form]'))), '3 the instructions tab says a change applies from its next session');
+  await setField('[data-bot-form] textarea[data-bf="instructions"]', 'Answer in two lines.\n');
+  await evaluate(`document.querySelector('[data-bot-save]').click()`);
+  check(await waitFor(`!!document.querySelector('[data-bot-last]')`, 30000), '3 Save → the change\'s line');
+  check(botShow('nova').instructions?.sha256 !== sha, '3 …doz bot show: the instructions\' sha256 changed');
+  await leakSweep('row 3 (an edit)');
+
+  // 4. Elsewhere is the terminal's: disabled with its command; a crafted bot-new elsewhere 400; a crafted new token for far
+  // refused by the daemon (heldOnly), its fingerprint unchanged.
+  await goHash('#/bots/nova/runs');
+  await waitFor(`!!document.querySelector('[data-bot-form="nova/runs"]')`, 10000);
+  check(await evaluate(`document.querySelector('[data-bf-choice="isolation:elsewhere"]').disabled && /--isolation elsewhere --to-file/.test(document.querySelector('.bf-elsewhere')?.dataset.cmd || '')`),
+    '4 How it runs: elsewhere disabled, with the command');
+  const bad = await craft({ action: 'bot-new', name: 'far2', agent: 'codex', isolation: 'elsewhere' });
+  check(bad.status === 400 && /in a terminal on this Mac/.test(bad.body) && !/dzc_/.test(bad.body), `4 a crafted bot-new elsewhere → 400 with the command (${bad.status})`);
+  const farFp = botShow('far').token?.fingerprint;
+  const rot = await craft({ action: 'bot-token', name: 'far', confirm: 'far' });
+  const opId = (() => { try { return JSON.parse(rot.body).id; } catch (_) { return null; } })();
+  check(rot.status === 202 && !!opId, '4 a crafted bot-token for far is taken as an operation (202)');
+  check(await waitFor(`(() => { const o = state.ops.get(${JSON.stringify(opId)}); return !!o && o.state === 'failed' && /a bot elsewhere gets its token in a terminal on this Mac/.test(o.text); })()`, 20000),
+    '4 …and refused by the daemon: a bot elsewhere gets its token in a terminal');
+  check(botShow('far').token?.fingerprint === farFp, '4 …far\'s fingerprint unchanged');
+  await leakSweep('row 4 (elsewhere)');
+
+  // 5. A new token for nova, with the tick: its fingerprint changes; nothing shown.
+  const fp0 = botShow('nova').token?.fingerprint;
+  await goHash('#/bots/nova');
+  await waitFor(`!!document.querySelector('[data-bot-page="nova"]')`, 10000);
+  await menuPick('More for nova', 'New token…');
+  check(await waitFor(`/the old one is refused from now on; a running nova stops working until started again/i.test(${DIALOG}?.textContent || '')`, 8000), '5 New token… says the old one is refused and a running nova stops');
+  await tick();
+  check(await submitDialog(), '5 …ticked and replaced');
+  const fp1 = botShow('nova').token?.fingerprint;
+  check(fp1 && fp1 !== fp0, '5 nova\'s fingerprint changed (doz bot show)');
+  check(await waitFor(`document.querySelector('[data-bot-fp]')?.dataset.botFp === ${JSON.stringify(fp1)}`, 10000), '5 …and the page shows the new fingerprint, no token');
+  await leakSweep('row 5 (a new token)');
+
+  // 6. Adopt olda from the page: Q9's words, the tick; chat who marks it a bot; its old token is refused (401).
+  await goHash('#/bots');
+  await waitFor(`!!document.querySelector('[data-bots-adopt]')`, 10000);
+  await evaluate(`document.querySelector('[data-bots-adopt]').click()`);
+  await waitFor(`!!${DIALOG}?.querySelector('select[name=who]')`, 8000);
+  await setField('dialog.dlg[open] select[name=who]', 'olda', 'change');
+  await waitFor(`!!${SUBMIT} && !${SUBMIT}.disabled`, 8000);
+  await evaluate(`${SUBMIT}.click()`);                // the chooser closes and the adopt dialog opens at once
+  check(await waitFor(`/olda becomes a bot\\. Its token is replaced: Dozable never had the old one\\. An agent still using the old token stops working the moment this runs\\./.test(${DIALOG}?.textContent || '')`, 8000),
+    '6 the adopt dialog says the token is replaced, in Q9\'s words');
+  await setField('dialog.dlg[open] select[name=agent]', 'codex', 'change');
+  await tick();
+  check(await submitDialog(), '6 …ticked: olda is a bot');
+  const who = dozJSON(['chat', 'who']);
+  const oldaRow = (Array.isArray(who) ? who : who?.participants || []).find((r) => r.name === 'olda');
+  check(oldaRow?.bot === true, '6 doz chat who marks olda a bot');
+  const old = await fetch(`http://127.0.0.1:${chatPagePort}/agent/receive?wait=0`, { headers: { Authorization: 'Bearer ' + knownTokens[1] } }).then((r) => r.status, () => 0);
+  check(old === 401, `6 olda's old token is refused (${old})`);
+  await leakSweep('row 6 (adopt)');
+
+  // 7. Retire tmp1: it leaves the roster, its screen says retired, "Show retired" lists only the retired; retiring a bot in a
+  // workspace (otto manages demo3) is refused with the release command, the dialog open.
+  await goHash('#/bots/tmp1');
+  await waitFor(`!!document.querySelector('[data-bot-page="tmp1"]')`, 10000);
+  await menuPick('More for tmp1', 'Retire…');
+  await tick();
+  check(await submitDialog(), '7 Retire… tmp1, ticked');
+  check(await waitFor(`!!document.querySelector('[data-bot-retired]')`, 15000) || (await goHash('#/bots/tmp1'), await waitFor(`!!document.querySelector('[data-bot-retired]')`, 10000)),
+    '7 tmp1\'s screen reads retired');
+  await goHash('#/bots');
+  check(await waitFor(`!document.querySelector('[data-bot="tmp1"]') && !!document.querySelector('[data-bot="nova"]')`, 10000), '7 tmp1 leaves the roster');
+  await evaluate(`document.querySelector('[data-bots-retired]').click()`);
+  const retired = (dozJSON(['bot', 'ls', '--retired']) || { bots: [] }).bots.map((b) => b.name).sort();
+  check(await waitFor(`document.querySelector('[data-bots-page]')?.dataset.botsPage === 'retired'
+    && JSON.stringify([...document.querySelectorAll('[data-bot]')].map((r) => r.dataset.bot).sort()) === ${JSON.stringify(JSON.stringify(retired))}`, 10000),
+    `7 Show retired lists only the retired (${retired.join(', ')})`);
+  await evaluate(`document.querySelector('[data-bots-retired]').click()`);
+  await goHash('#/bots/otto');
+  await waitFor(`!!document.querySelector('[data-bot-page="otto"]')`, 10000);
+  await menuPick('More for otto', 'Retire…');
+  await tick();
+  await evaluate(`${SUBMIT}.click()`);
+  check(await waitFor(`/doz workspace release demo3 otto/.test(${DIALOG}?.querySelector('.dlg-error')?.textContent || '')`, 20000),
+    '7 retiring otto (in demo3) is refused with "doz workspace release demo3 otto", the dialog open');
+  await evaluate(`${DIALOG}.close()`);
+  check(!(dozJSON(['bot', 'ls']) || { bots: [] }).bots.find((b) => b.name === 'otto')?.retiredAt, '7 …otto is not retired');
+  await leakSweep('row 7 (retire)');
+
+  // 8. Add otto to the room other, as a voice: the chat server's /invite, no token step.
+  await menuPick('More for otto', 'Include in a room…');
+  await waitFor(`!!${DIALOG}?.querySelector('select[name=room]')`, 8000);
+  check(await evaluate(`!${DIALOG}.querySelector('input[type=password], [data-secret]')`), '8 Include in a room…: no token step');
+  await setField('dialog.dlg[open] select[name=room]', 'other', 'change');
+  check(await submitDialog(), '8 …otto invited to other');
+  let rooms = null;
+  for (let i = 0; i < 30 && !(rooms && (rooms.other || []).includes('otto')); i++) { rooms = dozJSON(['chat', 'rooms']); await sleep(300); }
+  check((rooms?.other || []).includes('otto'), '8 doz chat rooms: otto is in other');
+  const ottoWho = ((d) => (Array.isArray(d) ? d : d?.participants || []).find((r) => r.name === 'otto'))(dozJSON(['chat', 'who']));
+  check((ottoWho?.rooms || []).includes('other'), '8 doz chat who: otto\'s rooms include other');
+  await leakSweep('row 8 (add to a room)');
+
+  check(pageErrors.length === errorsBefore, '10 no page error on any bot screen' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  // The sweep's positive control: it finds a token where there is one, and it read what it says it read.
+  check(hits('x ' + knownTokens[0] + ' y') >= 1 && hits('dzc_') === 1, 'the leak sweep finds a known token and the dzc_ shape when they are there');
+  check(apiBodies.length > 20 && existsSync(STORE + '/daemon.log') && existsSync(STORE + '/chat/server.log') && existsSync(STORE + '/ui.operations.json'),
+    `…and it read ${apiBodies.length} /api/ answers, daemon.log, server.log and the operations file`);
+  console.log(`  leak sweep: ${sweeps} sweeps, ${apiBodies.length} /api/ answers — ` + Object.entries(swept).map(([k, v]) => k + ' ' + v).join(', '));
+}
+
 let failed = false;
 try {
   console.log('dashboard-walk: a scratch store at ' + S);
@@ -628,12 +858,13 @@ try {
   await walkMacs();
   await walkWorkspacePage();
   await walkAgents();
+  await walkBots();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
   for (let i = 0; i < 100 && existsSync(STORE + '/daemon.pid'); i++) await sleep(100);
   check(!existsSync(STORE + '/daemon.pid'), 'the daemon is stopped');
-  for (const h of ['#/mac/sandboxes', '#/home', '#/mac/loose', '#/bots', '#/w/demo/agents', '#/w/demo2']) { await goHash(h); await waitFor(SHOWN, 8000); }
+  for (const h of ['#/mac/sandboxes', '#/home', '#/mac/loose', '#/bots', '#/bots/nova', '#/w/demo/agents', '#/w/demo2']) { await goHash(h); await waitFor(SHOWN, 8000); }
   check(await waitFor(`state.view === 'workspace' && /Walk it again/.test(${text('[data-ws-brief="demo2"]')})`, 10000), 'with the daemon stopped, #/w/demo2 still reads (from the store)');
   await sleep(4000);
   check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents, Agents / Bots, a workspace\'s agents and its page starts none');
