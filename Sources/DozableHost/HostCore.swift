@@ -114,6 +114,11 @@ public actor HostCore {
     /// The chat server as the workspaces use it (the daemon sets it; nil: none — chat is treated as off).
     var workspaceChat: (any WorkspaceChat)?
     public func setWorkspaceChat(_ c: (any WorkspaceChat)?) { workspaceChat = c }
+    /// The workspaces whose `doz workspace start` is under way (their state reads "starting"; a bot in one counts as live).
+    var startingWorkspaces: Set<String> = []
+    /// How a workspace's manager is started and stopped (nil: the daemon's own, `DaemonManagerLauncher`; tests give a fake).
+    var managerLauncherOverride: (any ManagerLauncher)?
+    public func setManagerLauncher(_ l: (any ManagerLauncher)?) { managerLauncherOverride = l }
     /// The bots' changes, one at a time (the key `bots`) — `HostCore+Bots`.
     let botGate = KeyedGate()
     /// The chat server's participants as the bots change them (the daemon sets it; nil: a bot cannot be changed).
@@ -859,7 +864,8 @@ public actor HostCore {
         case .chatSync, .chatAdd, .chatSet, .chatRemove, .chatToken, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport:
             // The chat server is the daemon's child: `HostServer` answers these (its `ChatSupervisor`), never the core.
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
-        case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename:
+        case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename,
+             .workspaceStart, .workspaceStop:
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)

@@ -411,6 +411,12 @@ public actor MacSessions {
         return Opened(session: name, created: true, bypassed: bypassed, pid: pid, pathSource: loginPath?.source)
     }
 
+    /// Whether `program` is on the PATH a session on this Mac gets (the login shell's, read once; the seam in a test).
+    public func programOnPath(_ program: String) -> Bool {
+        if loginPath == nil { loginPath = MacSessionsEnvironment.loginPath(host: hostEnvironment) }
+        return Self.findProgram(program, path: loginPath?.path ?? "") != nil
+    }
+
     /// The session's name: as given, else the program's (checked).
     public nonisolated func sessionName(_ session: String?, argv given: [String]?) throws -> String {
         let argv = given.flatMap { $0.isEmpty ? nil : $0 }

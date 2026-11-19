@@ -486,7 +486,8 @@ extension HostCore {
     /// fresh placeholder each.
     func macOpenFenced(_ r: HostRequest, request: MacFenceRequest, holder: URL, name: String, argv: [String]?, workdir: String?,
                        recordedArgv: [String]?, previous: MacFenceRecord?, size: TermSize, extra: [String: String]?,
-                       claudeSessionID: String? = nil, secrets given: [LaunchSecretGrant]? = nil) async throws -> (MacSessions.Opened, MacFence, [String], [String]) {
+                       claudeSessionID: String? = nil, secrets given: [LaunchSecretGrant]? = nil, botSecrets: [LaunchSecret]? = nil,
+                       managerStart: Data? = nil) async throws -> (MacSessions.Opened, MacFence, [String], [String]) {
         // 691: `--permissions host:PORT` words are this Mac's ports (`--host-port`), never the policy's.
         var request = request
         if let words = request.permissions {
@@ -513,7 +514,7 @@ extension HostCore {
         }
         // 692: a secret's variables are never the caller's to set (a restart keeps the record's secrets).
         let keptSecrets = given == nil ? (previous?.secrets ?? []) : []
-        try Self.refuseSecretVariables((given ?? []).map(\.secret) + keptSecrets, extra)
+        try Self.refuseSecretVariables((given ?? []).map(\.secret) + keptSecrets + (botSecrets ?? []), extra)
         // 683: its agent's login (only a program whose embedded recipe declares a config folder: Claude Code).
         var login: (account: String?, placeholders: [String: String]) = (nil, [:])
         if let program = argv.flatMap(MacPlace.program), AgentRecipes.macAgent(program: program) != nil {
@@ -548,8 +549,18 @@ extension HostCore {
         } else {
             f.secrets = keptSecrets
         }
+        // A workspace's manager: its bot-held secret (made by the daemon, never a client's — `botLaunchSecret`) replaces one
+        // of the same variable; its value stays in the bot's own item.
+        if let bs = botSecrets, !bs.isEmpty {
+            f.secrets = f.secrets.filter { x in !bs.contains { $0.variable == x.variable } } + bs
+        }
         for x in f.secrets { f.placeholders[x.variable] = Self.newPlaceholder() }
         f.secretFiles = try Self.writeFenceSecretFiles(f)
+        // A workspace's manager: its START, host-owned under etc/ (the program reads it, never writes it).
+        if let text = managerStart {
+            try MacFenceHostFS.ensureDirectory(f.etc + "/manager")
+            try MacFenceHostFS.writeAtomically(text, dir: f.etc + "/manager", name: "start.md", mode: 0o400)
+        }
         // A new open drops what the record before it held (the record is replaced): its values leave memory, and the
         // sweep below deletes their keychain items once the new record is written.
         for old in previous?.secrets ?? [] where !f.secrets.contains(where: { $0.variable == old.variable }) {
@@ -679,7 +690,7 @@ extension HostCore {
         return rows
     }
 
-    func macOpen(_ r: HostRequest) async throws -> SessionOpened {
+    func macOpen(_ r: HostRequest, botSecrets: [LaunchSecret]? = nil, managerStart: Data? = nil) async throws -> SessionOpened {
         guard !readOnly else { throw HostError(.unavailable, "open-session needs the daemon") }
         if r.user != nil { throw HostError(.invalid, "--user does not apply on this Mac: its sessions run as you") }
         let located = MacDeckhold.locate()
@@ -702,7 +713,8 @@ extension HostCore {
             }
             let (o, f, notes, secretLines) = try await macOpenFenced(r, request: req, holder: holder, name: name, argv: r.argv, workdir: r.folder,
                                                                      recordedArgv: nil, previous: mac.records().sessions[name]?.fence, size: size,
-                                                                     extra: r.environment, secrets: r.secrets ?? [])
+                                                                     extra: r.environment, secrets: r.secrets ?? [], botSecrets: botSecrets,
+                                                                     managerStart: managerStart)
             note(MacPlace.name, "session \(o.session) opened on this Mac, fenced" + (f.keychain ? " (Keychain open)" : "")
                  + (o.bypassed ? " — its own argv bypasses permissions" : ""))
             metrics?.record(run: metricsRun, action: "mac session open", sandbox: MacPlace.name, image: "", startedAt: Date(), durationMs: 0,
@@ -898,7 +910,8 @@ extension HostCore {
     /// "exited at once (exit N)" with its own last lines, and its last screen becomes the session's saved screen; one
     /// that comes up loses the screen of the run before.
     func macReopen(_ s: String, rec: MacSessionRecord, holder: URL, fresh: Bool, size: TermSize, knownID: String?, ended: String,
-                   request r: HostRequest) async throws -> SessionRestarted {
+                   request r: HostRequest, extra: [String: String]? = nil, botSecrets: [LaunchSecret]? = nil,
+                   managerStart: Data? = nil) async throws -> SessionRestarted {
         var notes: [String] = []
         // 683: its conversations so far go back to the person's own first (a private agent folder keeps them too).
         if let t = await macCarryBack(s) { notes.append(t) }
@@ -912,7 +925,7 @@ extension HostCore {
         if claude, !fresh, how == .none {
             notes.append("no earlier conversation in \(DisplayPath.tilde(rec.workdir)) — claude starts a new one")
         }
-        if let keys = rec.environmentKeys, !keys.isEmpty {
+        if extra == nil, let keys = rec.environmentKeys, !keys.isEmpty {
             notes.append("the variables it was opened with (\(keys.joined(separator: ", "))) are not kept — it runs without them")
         }
         // The id the new program holds from its start (a resumed or re-opened id); else it learns its own.
@@ -928,9 +941,10 @@ extension HostCore {
             dropFenceWatch(s)
             for p in MacFenceStop.members(sentinel: f.sentinel, anti: f.antiSentinel, program: nil).pids { kill(p, SIGKILL) }
             o = try await macOpenFenced(r, request: f.request, holder: holder, name: s, argv: argv, workdir: rec.workdir,
-                                        recordedArgv: rec.argv, previous: f, size: openSize, extra: nil, claudeSessionID: carried).0
+                                        recordedArgv: rec.argv, previous: f, size: openSize, extra: extra, claudeSessionID: carried,
+                                        botSecrets: botSecrets, managerStart: managerStart).0
         } else {
-            o = try await mac.open(session: s, argv: Self.macPromptArgv(argv, workdir: rec.workdir), workdir: rec.workdir, extra: nil, size: openSize,
+            o = try await mac.open(session: s, argv: Self.macPromptArgv(argv, workdir: rec.workdir), workdir: rec.workdir, extra: extra, size: openSize,
                                    holder: holder, recordedArgv: rec.argv, claudeSessionID: carried)
         }
         await watchStatus(MacPlace.name, session: s)

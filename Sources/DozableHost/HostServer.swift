@@ -171,6 +171,8 @@ public final class HostServer: @unchecked Sendable {
         // tokens.json); their tokens' keychain items of no bot are swept once (never in the read-only core).
         await server.core.setBotChat(SupervisorBotChat(supervisor: server.chat, blocked: { [weak server] in await server?.chatBlocked() ?? true }))
         Task.detached { await server.core.sweepBotTokens() }
+        // An unfenced workspace manager's token folders whose session does not run (a daemon that died before a stop).
+        Task.detached { await server.core.sweepManagerTokenFiles() }
         do {
             server.listenFD = try UnixSocket.listen(store.socket.path)
         } catch {

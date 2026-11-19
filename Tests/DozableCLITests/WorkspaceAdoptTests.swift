@@ -20,6 +20,8 @@ final class WorkspaceAdoptTests: XCTestCase {
         func readiness() async -> WorkspaceChatReadiness { lock.withLock { state } }
         func rooms() throws -> Set<String> { lock.withLock { roomSet } }
         func makeRoom(_ name: String) throws { lock.withLock { roomSet.insert(name); made.append(name) } }
+        func post(room: String, content: String) throws {}
+        func invite(room: String, name: String) throws -> Bool { false }
     }
 
     override func setUpWithError() throws {
@@ -111,7 +113,7 @@ final class WorkspaceAdoptTests: XCTestCase {
         XCTAssertEqual(d.agents.map(\.place), ["wsa", "@mac/wsu"])
         XCTAssertEqual(d.agents.map(\.role), ["worker", "worker"])
         XCTAssertEqual(d.agents.map(\.state), ["off", "gone"])
-        XCTAssertEqual(d.state, "asleep")
+        XCTAssertEqual(d.state, "setting-up", "neither runs: adopting them does not start the work")
         XCTAssertEqual(bytes(store.configFile("wsa").path), docJSON, "the sandbox's doz.json is never written")
         XCTAssertEqual(bytes(store.root.appendingPathComponent("mac-sessions/sessions.json").path), sessionsJSON, "sessions.json is never written")
 
@@ -143,7 +145,7 @@ final class WorkspaceAdoptTests: XCTestCase {
         XCTAssertNil(ls2.first { $0.name == "wsa" }?.workspace)
         let actions = try ws.log("demo").map(\.action)
         XCTAssertEqual(actions, ["created", "adopted", "adopted", "released"])
-        XCTAssertEqual(try ws.read("demo")?.flags.firstAgentAt != nil, true, "once had an agent")
+        XCTAssertNil(try ws.read("demo")?.flags.firstAgentAt, "only a running agent marks it started")
     }
 
     /// In one workspace only; missing targets; bare @mac; a name clash — each refused with nothing written.
@@ -204,7 +206,7 @@ final class WorkspaceAdoptTests: XCTestCase {
         XCTAssertEqual(log.suffix(2).map(\.by), ["doz", "doz"])
         let a9 = await ask(c, .workspaceShow, WorkspaceRequest(name: "demo"))
         let d = try XCTUnwrap(a9.result).decode(WorkspaceDetail.self)
-        XCTAssertEqual(d.state, "asleep", "empty, but it once had an agent")
+        XCTAssertEqual(d.state, "setting-up", "empty, and its only agent never ran here: still setting up")
     }
 
     // MARK: rooms

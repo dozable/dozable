@@ -260,6 +260,10 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     case workspaceList = "workspace-ls", workspaceShow = "workspace-show", workspaceLog = "workspace-log"
     case workspaceNew = "workspace-new", workspaceAdopt = "workspace-adopt", workspaceRelease = "workspace-release"
     case workspaceEdit = "workspace-edit", workspaceRename = "workspace-rename"
+    /// The set-up check, then the kick-off (the brief as your first message, once) and the manager started from its bot
+    /// (`WorkspaceStarted`); and the manager stopped, its record and conversation kept (`WorkspaceStopped`). The daemon's,
+    /// never read-only (`HostCore+WorkspaceManager`).
+    case workspaceStart = "workspace-start", workspaceStop = "workspace-stop"
     /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
     /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
     /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),
@@ -1627,6 +1631,11 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var loose: Bool?
     /// show: the brief's text too.
     public var withBrief: Bool?
+    /// new / edit: the bot that manages it (one at most), and its isolation (`fenced` — the default —, `vm`, or `unfenced`,
+    /// only when named); edit: `noManager` removes it.
+    public var manager: String?
+    public var managerIsolation: String?
+    public var noManager: Bool?
     /// log: entries at or after.
     public var since: Date?
 
@@ -1649,9 +1658,26 @@ public struct WorkspaceRow: Codable, Equatable, Sendable {
     public var agents: Int
     /// The main room in the chat server (nil: none).
     public var room: String?
-    public init(name: String, state: String, driver: String, agents: Int, room: String?) {
-        self.name = name; self.state = state; self.driver = driver; self.agents = agents; self.room = room
+    /// Its manager (nil: none — you drive).
+    public var manager: WorkspaceManagerRow?
+    public init(name: String, state: String, driver: String, agents: Int, room: String?, manager: WorkspaceManagerRow? = nil) {
+        self.name = name; self.state = state; self.driver = driver; self.agents = agents; self.room = room; self.manager = manager
     }
+}
+
+/// A workspace's manager as `ls` shows it: `manager mira (fenced)`, or `(unfenced · acts as you)`.
+public struct WorkspaceManagerRow: Codable, Equatable, Sendable {
+    public var bot: String
+    public var isolation: String
+    /// An unfenced manager acts as you — said wherever it shows.
+    public var actsAsYou: Bool
+    /// Its session's or sandbox's state (`running`, `ended`, `not started`, a phase).
+    public var state: String
+    public init(bot: String, isolation: String, actsAsYou: Bool, state: String) {
+        self.bot = bot; self.isolation = isolation; self.actsAsYou = actsAsYou; self.state = state
+    }
+    /// `mira (fenced)`, `otto (unfenced · acts as you)`.
+    public var words: String { "\(bot) (\(isolation)\(actsAsYou ? " · acts as you" : ""))" }
 }
 
 /// A sandbox or a session on this Mac in no workspace.
@@ -1674,8 +1700,45 @@ public struct WorkspaceAgentRow: Codable, Equatable, Sendable {
     /// A sandbox's phase; a session's `running`, `ended`, or `gone` (its record was pruned or its sandbox deleted).
     public var state: String
     public var startedAt: Date
-    public init(name: String, role: String, place: String, state: String, startedAt: Date) {
+    /// The Agent / Bot it is (nil: none), its isolation (a manager's), and whether it acts as you (an unfenced manager).
+    public var bot: String?
+    public var isolation: String?
+    public var actsAsYou: Bool?
+    public init(name: String, role: String, place: String, state: String, startedAt: Date, bot: String? = nil, isolation: String? = nil,
+                actsAsYou: Bool? = nil) {
         self.name = name; self.role = role; self.place = place; self.state = state; self.startedAt = startedAt
+        self.bot = bot; self.isolation = isolation; self.actsAsYou = actsAsYou
+    }
+}
+
+/// `workspace-start`: what happened — the brief posted now (`kickedOff`; false on a start after a stop), the manager and
+/// its session or sandbox (nil: none — you drive), and what to know next.
+public struct WorkspaceStarted: Codable, Equatable, Sendable {
+    public var name: String
+    public var kickedOff: Bool
+    public var manager: String?
+    public var isolation: String?
+    public var session: String?
+    /// The manager was already running (nothing started).
+    public var alreadyRunning: Bool?
+    public var notes: [String]?
+    public var workspace: WorkspaceDetail
+    public init(name: String, kickedOff: Bool, manager: String? = nil, isolation: String? = nil, session: String? = nil,
+                alreadyRunning: Bool? = nil, notes: [String]? = nil, workspace: WorkspaceDetail) {
+        self.name = name; self.kickedOff = kickedOff; self.manager = manager; self.isolation = isolation; self.session = session
+        self.alreadyRunning = alreadyRunning; self.notes = notes; self.workspace = workspace
+    }
+}
+
+/// `workspace-stop`: whether a manager was stopped (false: nothing was running), and the workspace as it is now.
+public struct WorkspaceStopped: Codable, Equatable, Sendable {
+    public var name: String
+    public var stopped: Bool
+    public var manager: String?
+    public var notes: [String]?
+    public var workspace: WorkspaceDetail
+    public init(name: String, stopped: Bool, manager: String? = nil, notes: [String]? = nil, workspace: WorkspaceDetail) {
+        self.name = name; self.stopped = stopped; self.manager = manager; self.notes = notes; self.workspace = workspace
     }
 }
 
@@ -1747,13 +1810,14 @@ public struct BotRow: Codable, Equatable, Sendable {
     public var deliver: String
     /// Whether it is a participant in chat now.
     public var inChat: Bool
-    /// The workspaces it manages (none yet: a later step makes managers).
+    /// The workspaces it manages, and the one where its manager runs now (nil: none).
     public var manages: [String]
+    public var running: String?
     public var retiredAt: Date?
     public init(name: String, agent: String, model: String?, isolation: String, kind: String, deliver: String, inChat: Bool, manages: [String],
-                retiredAt: Date?) {
+                running: String? = nil, retiredAt: Date?) {
         self.name = name; self.agent = agent; self.model = model; self.isolation = isolation; self.kind = kind; self.deliver = deliver
-        self.inChat = inChat; self.manages = manages; self.retiredAt = retiredAt
+        self.inChat = inChat; self.manages = manages; self.running = running; self.retiredAt = retiredAt
     }
 }
 
@@ -1780,6 +1844,8 @@ public struct BotDetail: Codable, Equatable, Sendable {
     /// The workspaces it is an agent of, and the ones it manages.
     public var workspaces: [String]
     public var manages: [String]
+    /// The workspace where its manager runs now (nil: none).
+    public var running: String?
     /// Its rooms, as the chat server says them (the CLI asks over your socket while chat runs; nil: not asked).
     public var rooms: [String]?
     /// What the person may want to know or do next.

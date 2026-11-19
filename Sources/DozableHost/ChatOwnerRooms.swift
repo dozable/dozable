@@ -64,6 +64,26 @@ public struct ChatOwnerRooms: Sendable {
         return try state().rooms[name] ?? []
     }
 
+    /// Post `content` in `room` AS YOU (a workspace's kick-off). Refused unless the server took it.
+    public func post(room: String, content: String) throws {
+        guard chatIsRoomName(room) else { throw HostError(.invalid, "\(room) is not a room name") }
+        let (status, v) = try ask("POST", "/api/rooms/\(room)/messages", body: .map(["content": .string(content)]))
+        guard status == 200 else { throw HostError(.failed, "the chat server did not take the message: " + Self.reason(v, status)) }
+    }
+
+    /// Invite `name` to `room` AS YOU (`/invite @NAME`, sent in that room); nothing when it is a member already. Answers
+    /// whether it was invited now.
+    @discardableResult
+    public func invite(room: String, name: String) throws -> Bool {
+        let s = try state()
+        guard let members = s.rooms[room] else { throw HostError(.notFound, "no room \(room) in chat") }
+        if members.contains(name) { return false }
+        guard s.participants.contains(where: { $0.name == name }) else { throw HostError(.notFound, "no participant \(name) in chat") }
+        let (status, v) = try ask("POST", "/api/rooms/\(room)/messages", body: .map(["content": .string("/invite @" + name)]))
+        guard status == 200 else { throw HostError(.failed, "\(name) could not be invited to \(room): " + Self.reason(v, status)) }
+        return true
+    }
+
     static func reason(_ v: JValue, _ status: Int) -> String {
         v.field("detail")?.stringValue ?? v.field("error")?.stringValue ?? "refused (\(status))"
     }

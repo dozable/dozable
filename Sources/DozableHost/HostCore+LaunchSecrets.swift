@@ -35,6 +35,7 @@ extension HostCore {
             let value = try LaunchSecrets.checkedValue(Array(g.value.utf8), variable: v)
             s.fingerprint = CredentialFingerprint.of(value)
             s.keychainService = nil
+            s.bot = nil                         // a bot-held secret is the daemon's to make, never a client's
             // The file: never one the session could read (its folder, its workspace, a root of its fence).
             var resolved = [CChar](repeating: 0, count: Int(PATH_MAX))
             let src = realpath(g.source, &resolved).map { String(cString: $0) } ?? g.source
@@ -105,6 +106,12 @@ extension HostCore {
     /// The value of `s` (owned by `owner`): this daemon's memory, else its keychain item (read again by a new daemon), else
     /// nil.
     func launchSecretValue(owner: String, _ s: LaunchSecret) -> String? {
+        // A bot-held secret: the bot's own item, read each time, only while it is the token recorded (a rotated one is not).
+        if let bot = s.bot {
+            guard let v = services.keychain.read(service: BotTokens.service(store: store.root, name: bot), account: Keychain.user).value,
+                  CredentialFingerprint.of(v) == s.fingerprint else { return nil }
+            return v
+        }
         let service = LaunchSecrets.service(store: store.root, owner: owner, variable: s.variable)
         if let v = launchSecretMemory[service] { return v }
         guard let k = s.keychainService, let v = services.keychain.read(service: k, account: Keychain.user).value else { return nil }
@@ -119,7 +126,8 @@ extension HostCore {
     func forgetLaunchSecret(owner: String, _ s: LaunchSecret) {
         let service = LaunchSecrets.service(store: store.root, owner: owner, variable: s.variable)
         launchSecretMemory[service] = nil
-        guard !readOnly else { return }
+        // A bot-held secret has no item of its own: the bot's token stays in the bot's item, never deleted here.
+        guard !readOnly, s.bot == nil else { return }
         if let k = s.keychainService { try? services.keychain.delete(service: k, account: Keychain.user) }
         var ledger = LaunchSecretLedger.load(store)
         if ledger.items.removeValue(forKey: s.keychainService ?? service) != nil { ledger.save(store) }
@@ -136,8 +144,9 @@ extension HostCore {
         for b in vault.allBindings where b.isLaunchSecret && !wanted.contains(b.id) { vault.remove(b.id) }
         for s in secrets {
             let value = launchSecretValue(owner: owner, s)
-            vault.set(s.binding(plainHTTP: plain), secret: value, expiresAt: nil, environment: [:],
-                      notice: value == nil ? "\(who) has no secret behind \(s.variable)'s placeholder now (the daemon restarted and its keychain item could not be read) — give it again: --secret \(s.variable),src=…" : nil)
+            let missing = s.bot.map { "\(who) has no token behind \(s.variable)'s placeholder now (\($0)'s token was replaced, or cannot be read from the login keychain) — start the workspace again: doz workspace start" }
+                ?? "\(who) has no secret behind \(s.variable)'s placeholder now (the daemon restarted and its keychain item could not be read) — give it again: --secret \(s.variable),src=…"
+            vault.set(s.binding(plainHTTP: plain), secret: value, expiresAt: nil, environment: [:], notice: value == nil ? missing : nil)
         }
     }
 

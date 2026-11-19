@@ -38,6 +38,14 @@ public enum TestSafety {
         return "a test resolved the DEFAULT store (\(d)) — give it a scratch store (--store / DOZ_STORE, and store.path in a scratch XDG_CONFIG_HOME)"
     }
 
+    /// Why writing an unfenced workspace manager's token file for `store` is refused (nil: allowed): its temp folder is named
+    /// by the store, so a test writes one only for a scratch store — never the person's (`<temp>/doz-<default store's hex>`).
+    public static func managerTokenViolation(store: URL, home: URL = realHome) -> String? {
+        storeViolation(store, home: home).map { _ in
+            "a test would write a manager's token file for the DEFAULT store — give it a scratch store (--store / DOZ_STORE)"
+        }
+    }
+
     // `codexHomeViolation` lives in CodexMacLogin.swift — the one file that may name the Mac's Codex home.
 
     /// Why touching keychain item `service` is refused (nil: allowed). Claude Code's own login items.
