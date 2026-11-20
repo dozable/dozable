@@ -21,8 +21,21 @@ public struct MacSessionRecord: Codable, Equatable, Sendable {
     /// 685 M1: the conversation its Claude Code holds, as last read from Claude's `sessions/<pid>.json` (a lower-case UUID)
     /// — what a restart resumes when the program no longer runs (`MacPlace.restartArgv`).
     public var claudeSessionID: String?
+    /// Every conversation its Claude Code was seen holding, oldest first (at most 64): `/clear` and `/resume` start or
+    /// pick another, and the export copies exactly these (`MacTranscriptExport`). nil: none recorded (every record before).
+    public var claudeSessionIDs: [String]?
     /// 685 M1: the terminal size it was opened (or last restarted) at.
     public var size: TermSize?
+}
+
+extension MacSessionRecord {
+    /// The conversation ids with `id` added at the end (once; the oldest dropped past 64). nil `id`: unchanged.
+    public static func adding(_ id: String?, to ids: [String]?) -> [String]? {
+        guard let id else { return ids }
+        var out = (ids ?? []).filter { $0 != id } + [id]
+        if out.count > 64 { out.removeFirst(out.count - 64) }
+        return out
+    }
 }
 
 /// `<store>/mac-sessions/sessions.json` (0600 in a 0700 folder) — fields only ever added. It outlives the holders (a
@@ -407,6 +420,8 @@ public actor MacSessions {
         record(name, MacSessionRecord(argv: recordedArgv ?? argv, workdir: fence?.workdir ?? dir, environmentKeys: (extra ?? [:]).keys.sorted().nilIfEmpty,
                                       openedAt: Date(), holderVersion: nil, holderSHA256: Self.sha256(holder), pid: pid,
                                       bypassed: bypassed ? true : nil, fence: fenceRecord, claudeSessionID: claudeSessionID,
+                                      // A restart keeps every conversation the session held before; a new one starts its own list.
+                                      claudeSessionIDs: MacSessionRecord.adding(claudeSessionID, to: recordedArgv != nil ? records().sessions[name]?.claudeSessionIDs : nil),
                                       size: TermSize(cols: cols, rows: rows)))
         return Opened(session: name, created: true, bypassed: bypassed, pid: pid, pathSource: loginPath?.source)
     }

@@ -257,14 +257,21 @@ extension HostCore {
         let root = (MacFencePaths.resolve(mac.folder.path) ?? mac.folder.path) + "/transcripts/" + s
         let items = MacTranscripts.list(root)
         let rec = mac.records().sessions[s]
-        if items.isEmpty, rec?.fence == nil, MacFenceHostFS.kind(root) == nil {
-            throw HostError(.notFound, "no fenced session \(s) on this Mac, and no conversations of it kept (doz sessions @mac)")
+        if items.isEmpty, rec == nil, MacFenceHostFS.kind(root) == nil {
+            throw HostError(.notFound, "no session \(s) on this Mac, and no conversations of it kept (doz sessions @mac)")
         }
         var to: String?
         if let f = rec?.fence, let id = f.agent, let m = AgentRecipes.macAgent(program: id)?.launch.macConfig, let home = mac.fenceHome() {
             to = home + "/" + m.homeName + "/" + m.transcripts.folder(workdir: rec!.workdir)
         }
-        return MacTranscripts.Listing(session: s, items: items, carriedTo: to)
+        var l = MacTranscripts.Listing(session: s, items: items, carriedTo: to)
+        if let rec {
+            l.workdir = rec.workdir
+            let own = MacTranscriptExport.ownFiles(rec, carriedTo: to, projects: MacPlace.claudeProjects(mac.hostEnvironment))
+            l.conversations = own.items
+            l.notes = own.notes.isEmpty ? nil : own.notes
+        }
+        return l
     }
 
     /// A fenced session's git guard, its stop wired to every process of the fence.
@@ -1022,8 +1029,11 @@ extension HostCore {
               case .info(let line) = await mac.state(s), let pid = SessionInfo.parseList(line).first?.pid,
               let id = MacPlace.claudeHeldSessionID(sessions: macClaudeFolders(rec).sessions, pid: pid) else { return nil }
         macLearnedAt[s] = Date()
-        if rec.claudeSessionID != id {
-            await mac.updateRecord(s) { $0.claudeSessionID = id }
+        if rec.claudeSessionID != id || !(rec.claudeSessionIDs ?? []).contains(id) {
+            await mac.updateRecord(s) { r in
+                r.claudeSessionID = id
+                r.claudeSessionIDs = MacSessionRecord.adding(id, to: r.claudeSessionIDs)
+            }
             HostLog.line("\(MacPlace.name): session \(s): its Claude conversation is \(id)")
         }
         return id

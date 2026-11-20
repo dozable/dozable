@@ -147,8 +147,13 @@ public enum MacTranscripts {
         public var bytes: Int
         /// Its file in the store (absolute).
         public var path: String
-        public init(name: String, endedAt: String, bytes: Int, path: String) {
-            self.name = name; self.endedAt = endedAt; self.bytes = bytes; self.path = path
+        /// Outside the archive: `carried` (a fenced session's copy in the person's folder) or `conversation` (an unfenced
+        /// session's recorded conversation). nil: the archive.
+        public var source: String?
+        /// A carried copy's sha256 as it was carried (it is exported only while it still matches).
+        public var sha256: String?
+        public init(name: String, endedAt: String, bytes: Int, path: String, source: String? = nil, sha256: String? = nil) {
+            self.name = name; self.endedAt = endedAt; self.bytes = bytes; self.path = path; self.source = source; self.sha256 = sha256
         }
     }
 
@@ -157,6 +162,13 @@ public enum MacTranscripts {
         public var items: [Item]
         /// Where they were carried (the person's folder), when known.
         public var carriedTo: String?
+        /// The session's own conversation files outside the archive (`MacTranscriptExport.ownFiles`): a fenced session's
+        /// carried copies, an unfenced session's recorded conversations. Never found by listing a folder.
+        public var conversations: [Item]?
+        /// The session's folder (every line of a conversation copied must have been written there).
+        public var workdir: String?
+        /// What is worth saying (no conversation recorded, a carried copy gone).
+        public var notes: [String]?
         public init(session: String, items: [Item], carriedTo: String?) {
             self.session = session; self.items = items; self.carriedTo = carriedTo
         }

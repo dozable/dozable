@@ -402,8 +402,8 @@ struct SessionsList: AsyncParsableCommand {
     @Flag(name: .long, help: "With --screen: write the saved VT bytes (redraw with `cat` in a terminal) — only to a file or a pipe.") var vt = false
     @Option(name: .long, help: "@mac: what was taken out of this fenced session's git configs (why it stopped).") var quarantine: String?
     @Option(name: .long, help: "@mac: what this session can do — one line per capability (its fence, Keychain, network, settings folder, bridges…).") var capabilities: String?
-    @Option(name: .long, help: "@mac: this fenced session's conversations kept in Dozable's archive.") var transcripts: String?
-    @Option(name: .long, help: "With --transcripts: copy them into this folder.") var export: String?
+    @Option(name: .long, help: "@mac: this session's conversations — a fenced one's in Dozable's archive and carried back, an unfenced one's recorded ones.") var transcripts: String?
+    @Option(name: .long, help: "With --transcripts: copy them, with a manifest, into this new or empty folder (no link followed, every file swept for tokens).") var export: String?
 
     func run() async throws {
         if let screen { try await printScreen(screen); return }
@@ -426,34 +426,32 @@ struct SessionsList: AsyncParsableCommand {
             r.session = s
             let got = try decode(try await query(r, g), MacTranscripts.Listing.self, g)
             if let dir = export {
-                let to = URL(fileURLWithPath: dir).standardizedFileURL.path
-                var isDir: ObjCBool = false
-                guard FileManager.default.fileExists(atPath: to, isDirectory: &isDir), isDir.boolValue else {
-                    throw fail(HostError(.invalid, "--export \(dir): not a folder"), g, code: DozableExit.usage)
-                }
-                var copied: [String] = []
-                for i in got.items {
-                    let name = "\(i.endedAt)-\(i.name)"
-                    guard !FileManager.default.fileExists(atPath: to + "/" + name) else { continue }
-                    // The archive is the host's (in the store); copied as it is, never through a link.
-                    var st = stat()
-                    guard lstat(i.path, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else { continue }
-                    do { try FileManager.default.copyItem(atPath: i.path, toPath: to + "/" + name); copied.append(name) } catch {
-                        throw fail(HostError(.failed, "--export: \(name): \(error.localizedDescription)"), g)
-                    }
-                }
-                if g.json { Out.json(["exported": copied]); return }
-                Out.stdout("exported \(copied.count) conversation\(copied.count == 1 ? "" : "s") of \(s) to \(DisplayPath.tilde(to))\n")
+                // One copier for every session on this Mac: no link followed, only the session's own files, swept.
+                let folder: ExportFolder
+                let m: MacTranscriptExport.Manifest
+                do {
+                    folder = try ExportFolder(dir, store: g.dozableStore)
+                    m = try MacTranscriptExport.export(got, into: folder, sweep: ExportSweep.forStore(g.dozableStore))
+                } catch { throw fail(HostError.from(error), g) }
+                if g.json { Out.json(m); return }
+                Out.stdout("exported \(m.files.count) conversation file\(m.files.count == 1 ? "" : "s") of \(s) to \(DisplayPath.tilde(folder.path)) (manifest.json lists each, with its sha256)\n")
+                for x in m.skipped ?? [] { Out.stdout("  not exported: \(x.name) — \(x.why)\n") }
+                for n in m.notes ?? [] { Out.stdout("  \(n)\n") }
+                for f in m.sweep.findings { Out.stdout("  " + f.sentence + "\n") }
                 return
             }
             if g.json { Out.json(got); return }
-            if got.items.isEmpty {
+            let own = got.conversations ?? []
+            if got.items.isEmpty && own.isEmpty {
                 Out.stdout("no conversations of \(s) are kept in Dozable's archive" + (got.carriedTo.map { " (they are copied to \(DisplayPath.tilde($0)) when it ends)" } ?? "") + "\n")
+                for n in got.notes ?? [] { Out.stdout("  \(n)\n") }
                 return
             }
             var t = [["ENDED", "CONVERSATION", "SIZE"]]
             for i in got.items { t.append([i.endedAt, i.name, "\(i.bytes / 1024) KiB"]) }
+            for i in own { t.append([i.source == "carried" ? "carried back" : "recorded", i.name, "—"]) }
             Out.stdout(Out.table(t))
+            for n in got.notes ?? [] { Out.stdout("  \(n)\n") }
             if let to = got.carriedTo { Out.stderr("also copied back to \(DisplayPath.tilde(to)); doz sessions @mac --transcripts \(s) --export DIR copies these\n") }
             return
         }
