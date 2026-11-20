@@ -1,0 +1,43 @@
+{
+  "package": "space-editor",
+  "provenance": "peer-commit",
+  "commit": "7d482afad89102f0f107f5d0e32a5413bbab6197",
+  "source": "the space editor's portable build",
+  "pinFile": "PIN",
+  "pinSha256": "6c3da9700edd326dba2666cd7ca540fa08a93d4d732ebcd3ca61ee581f601e7c",
+  "publish": "flat",
+  "components": [
+    { "name": "space-editor", "version": "7d482af", "licence": "MIT", "licenceFile": "LICENSES/space-editor.txt" },
+    { "name": "yaml", "version": "2.9.1", "licence": "ISC", "licenceFile": "LICENSES/yaml.txt" },
+    { "name": "lucide-static", "version": "1.48.0", "licence": "ISC", "licenceFile": "LICENSES/lucide-static.txt" }
+  ],
+  "files": [
+    {
+      "file": "space-render.js",
+      "sha256": "39aa090097b61c7f5b8d72ee33f7c3c801ed33d01074a43734b4b05983be3c1f",
+      "serve": "module",
+      "publicName": "vendor-space-render",
+      "lazyReference": "/vendor/space-editor/space-render.js"
+    },
+    {
+      "file": "space-render.d.ts",
+      "sha256": "1a3e51a6be6aaabb5a58609d471374757b6d58fb156734c40596152478730944",
+      "serve": "reference"
+    },
+    {
+      "file": "LICENSES/space-editor.txt",
+      "sha256": "c0b82dcebaf684987cae4e4b73c34f2ceaf71d60f30c7b655b8ccafac5963a75",
+      "serve": "licence"
+    },
+    {
+      "file": "LICENSES/yaml.txt",
+      "sha256": "5bba27375d93e9119f76c1015f7672cf9ad5f70952296e0842fb2243d6376869",
+      "serve": "licence"
+    },
+    {
+      "file": "LICENSES/lucide-static.txt",
+      "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
+      "serve": "licence"
+    }
+  ]
+}

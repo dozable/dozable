@@ -547,7 +547,9 @@ final class WebModulesTests: XCTestCase {
     func testAServedModuleIsItsSourceWithHashedSpecifiersOnly() throws {
         let a = try WebAssets.load()
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
-        let unhash = { (t: String) in t.replacingOccurrences(of: #"-[0-9a-f]{16}\.js'"#, with: ".js'", options: .regularExpression) }
+        // 742: and the one lazy literal, its hashed vendored path back to what the source names.
+        let unhash = { (t: String) in t.replacingOccurrences(of: #"import\('/assets/vendor-space-render-[0-9a-f]{16}\.js'\)"#, with: "import('/vendor/space-editor/space-render.js')", options: .regularExpression)
+            .replacingOccurrences(of: #"-[0-9a-f]{16}\.js'"#, with: ".js'", options: .regularExpression) }
         for (path, asset) in a.assets where path.hasPrefix("/assets/app/") {
             let rel = String(path.dropFirst("/assets/app/".count)).replacingOccurrences(of: #"-[0-9a-f]{16}\.js$"#, with: ".js", options: .regularExpression)
             let source = try String(contentsOf: src.appendingPathComponent("app/" + rel), encoding: .utf8)
@@ -647,6 +649,130 @@ final class WebModulesTests: XCTestCase {
             let index = src.appendingPathComponent("index.html")
             let html = try String(contentsOf: index, encoding: .utf8)
             try Data(html.replacingOccurrences(of: "<script type=\"module\" src=\"/app.js\"></script>", with: "<script src=\"/app.js\" defer></script>").utf8).write(to: index)
+        }
+    }
+    // MARK: 742 — the space renderer, vendored at its peer commit, loaded by the ONE lazy import()
+
+    static let peer = "Sources/DozableWeb/WebSource/vendor/space-editor"
+
+    /// What ships: the renderer at its PIN's sha, under one hashed name, loaded only by core/space-pictures.js's one literal
+    /// (rewritten); the `.d.ts` never shipped; its licences bundled; the first load (index.html, sw.js) never names it; no
+    /// other module holds an import(); ghostty-web and Lucide unchanged.
+    func testTheSpaceRendererShipsAtItsPinAndLoadsOnlyLazily() throws {
+        let a = try WebAssets.load()
+        let pin = try String(contentsOf: Self.root.appendingPathComponent(Self.peer + "/PIN"), encoding: .utf8)
+        let sha = try XCTUnwrap(pin.split(separator: "\n").first { $0.hasSuffix("  space-render.js") }.map { String($0.prefix(64)) })
+        let path = "/assets/vendor-space-render-\(sha.prefix(16)).js"
+        XCTAssertEqual(a.assets[path]?.sha256, sha, "ships at its pin")
+        XCTAssertFalse(a.assets.keys.contains { $0.hasSuffix(".d.ts") || $0.contains("space-render.d") }, "the .d.ts is never shipped")
+        for doc in ["/", WebAssets.serviceWorker] {
+            XCTAssertFalse(String(decoding: a.assets[doc]!.data, as: UTF8.self).contains("vendor-space-render"), "\(doc) never names it")
+        }
+        var lazy: [String: Int] = [:]
+        for (p, asset) in a.assets where p.hasPrefix("/assets/app") && p.hasSuffix(".js") {
+            let t = String(decoding: asset.data, as: UTF8.self)
+            let n = t.components(separatedBy: "import(").count - 1
+            if n > 0 { lazy[p] = n }
+            if n > 0 { XCTAssertTrue(t.contains("import('\(path)')"), "\(p) loads the hashed path") }
+        }
+        XCTAssertEqual(lazy.count, 1, "one module holds an import(): \(lazy.keys.sorted())")
+        XCTAssertTrue(lazy.keys.first?.hasPrefix("/assets/app/core/space-pictures-") == true)
+        XCTAssertEqual(lazy.values.first, 1, "exactly once")
+        let web = Self.root.appendingPathComponent("Sources/DozableWeb/Resources/Web/licences")
+        for l in ["space-editor", "yaml", "lucide-static"] {
+            XCTAssertTrue(FileManager.default.fileExists(atPath: web.appendingPathComponent("space-editor-LICENSES-\(l).txt").path), "\(l)'s licence ships")
+        }
+        XCTAssertEqual(a.assets.keys.filter { $0.hasPrefix("/assets/vendor-ghostty-") }.count, 2, "ghostty-web unchanged")
+        XCTAssertEqual(a.assets.keys.filter { $0.hasPrefix("/assets/vendor-lucide-icons-") }.count, 1, "Lucide unchanged")
+    }
+
+    /// Re-pins a changed vendored file in the scratch copy (VENDOR.json, the PIN line, the PIN's sha) — so a refusal is
+    /// about what the file holds, not its pin.
+    static func repin(_ src: URL, _ file: String, _ data: Data) throws {
+        let dir = src.appendingPathComponent("vendor/space-editor")
+        let old = WebAssets.sha256Hex(try Data(contentsOf: dir.appendingPathComponent(file)))
+        try data.write(to: dir.appendingPathComponent(file))
+        let new = WebAssets.sha256Hex(data)
+        let pin = try String(contentsOf: dir.appendingPathComponent("PIN"), encoding: .utf8).replacingOccurrences(of: old + "  " + file, with: new + "  " + file)
+        try Data(pin.utf8).write(to: dir.appendingPathComponent("PIN"))
+        let pinOld = try String(contentsOf: dir.appendingPathComponent("VENDOR.json"), encoding: .utf8)
+        let pinSha = WebAssets.sha256Hex(Data(pin.utf8))
+        let json = pinOld.replacingOccurrences(of: old, with: new)
+            .replacingOccurrences(of: #""pinSha256": "[0-9a-f]{64}""#, with: "\"pinSha256\": \"\(pinSha)\"", options: .regularExpression)
+        try Data(json.utf8).write(to: dir.appendingPathComponent("VENDOR.json"))
+    }
+    static func edit(_ src: URL, _ rel: String, _ f: (String) -> String) throws {
+        let u = src.appendingPathComponent(rel)
+        try Data(f(try String(contentsOf: u, encoding: .utf8)).utf8).write(to: u)
+    }
+
+    func testTheCompilerAdmitsThePeerVendorOnlyAtItsPinAndCommit() throws {
+        func refused(_ what: String, _ expect: String, _ change: (URL) throws -> Void) throws {
+            let (status, out) = try compileScratch(change)
+            XCTAssertNotEqual(status, 0, what)
+            XCTAssertTrue(out.contains(expect), "\(what): \(out)")
+        }
+        let v = "vendor/space-editor/"
+        try refused("one changed byte in space-render.js", "is not the pinned file") { src in
+            let u = src.appendingPathComponent(v + "space-render.js")
+            var d = try Data(contentsOf: u); d[d.count - 2] ^= 0x01; try d.write(to: u)
+        }
+        try refused("one changed byte in the PIN", "is not the pinned PIN") { src in
+            let u = src.appendingPathComponent(v + "PIN")
+            var d = try Data(contentsOf: u); d[0] = d[0] == 0x30 ? 0x31 : 0x30; try d.write(to: u)
+        }
+        try refused("an unlisted LICENSES/x.txt", "does not pin") { src in
+            try Data("x\n".utf8).write(to: src.appendingPathComponent(v + "LICENSES/x.txt"))
+        }
+        try refused("a listed file the PIN lacks", "is not the file its PIN names") { src in
+            let x = Data("extra\n".utf8)
+            try x.write(to: src.appendingPathComponent(v + "LICENSES/extra.txt"))
+            try Self.edit(src, v + "VENDOR.json") { $0.replacingOccurrences(of: "\"files\": [", with: "\"files\": [\n    { \"file\": \"LICENSES/extra.txt\", \"sha256\": \"\(WebAssets.sha256Hex(x))\", \"serve\": \"reference\" },") }
+        }
+        try refused("a short commit", "the full 40-character hash") { src in
+            try Self.edit(src, v + "VENDOR.json") { $0.replacingOccurrences(of: #""commit": "[0-9a-f]{40}""#, with: "\"commit\": \"7d482af\"", options: .regularExpression) }
+        }
+        try refused("a licence off the allowlist", "is not on the allowlist") { src in
+            try Self.edit(src, v + "VENDOR.json") { $0.replacingOccurrences(of: "\"licence\": \"ISC\", \"licenceFile\": \"LICENSES/yaml.txt\"", with: "\"licence\": \"GPL-3.0\", \"licenceFile\": \"LICENSES/yaml.txt\"") }
+        }
+        try refused("a flat module that imports", "holds an import") { src in
+            let d = try Data(contentsOf: src.appendingPathComponent(v + "space-render.js"))
+            try Self.repin(src, "space-render.js", Data("import{x}from'./x.js';".utf8) + d)
+        }
+        try refused("a flat module with import.meta", "holds import.meta") { src in
+            let d = try Data(contentsOf: src.appendingPathComponent(v + "space-render.js"))
+            try Self.repin(src, "space-render.js", d + Data("\nconst u=import.meta.url;".utf8))
+        }
+        // Re-pinned whole (file, PIN line, PIN sha), a changed renderer is admitted — the pin is what admits it.
+        let ok = try compileScratch { src in
+            let d = try Data(contentsOf: src.appendingPathComponent(v + "space-render.js"))
+            try Self.repin(src, "space-render.js", d + Data("\n".utf8))
+        }
+        XCTAssertEqual(ok.0, 0, ok.1)
+    }
+
+    /// The one lazy import(): accepted only as the one literal in core/space-pictures.js (rewritten to the hashed path);
+    /// refused as a second one, in another module, in a comment, as a template, a variable or another literal, and a
+    /// '/vendor/…' string anywhere else.
+    func testTheOneLazyImportIsTheCompilersTables() throws {
+        func refused(_ what: String, _ expect: String, _ change: (URL) throws -> Void) throws {
+            let (status, out) = try compileScratch(change)
+            XCTAssertNotEqual(status, 0, what)
+            XCTAssertTrue(out.contains(expect), "\(what): \(out)")
+        }
+        let lit = "import('/vendor/space-editor/space-render.js')"
+        let pics = "app/core/space-pictures.js"
+        try refused("a second one", "exactly once") { src in try Self.edit(src, pics) { $0 + "\nexport const again = () => \(lit);\n" } }
+        try refused("none", "exactly once") { src in try Self.edit(src, pics) { $0.replacingOccurrences(of: lit, with: "Promise.reject(new Error('x'))") } }
+        try refused("in another module", "uses import()") { src in try Self.add(src, "core/zz-a.js", "export const a = () => \(lit);\n") }
+        try refused("in a comment", "beyond its one lazy literal") { src in try Self.edit(src, pics) { $0 + "\n// later: import('./x.js')\n" } }
+        try refused("a template", "beyond its one lazy literal") { src in try Self.edit(src, pics) { $0 + "\nexport const t = () => import(`/vendor/space-editor/space-render.js`);\n" } }
+        try refused("a variable", "beyond its one lazy literal") { src in try Self.edit(src, pics) { $0 + "\nexport const v = (p) => import(p);\n" } }
+        try refused("another literal", "beyond its one lazy literal") { src in try Self.edit(src, pics) { $0 + "\nexport const o = () => import('/vendor/space-editor/other.js');\n" } }
+        try refused("a /vendor/ string in another module", "names a /vendor/ path") { src in try Self.add(src, "core/zz-a.js", "export const a = '/vendor/space-editor/space-render.js';\n") }
+        try refused("the table's module missing", "does not exist") { src in
+            try FileManager.default.removeItem(at: src.appendingPathComponent(pics))
+            try Self.edit(src, "app.js") { $0.replacingOccurrences(of: "import './app/core/space-pictures.js';\n", with: "") }
         }
     }
 }

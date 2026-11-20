@@ -36,6 +36,7 @@ import { act } from './app/core/operations.js';
 import { showUiOverlay, uiLost, uiRetryTick } from './app/core/reconnect.js';
 import { refresh, route } from './app/core/router.js';
 import './app/core/sandboxes.js';
+import './app/core/space-pictures.js';
 import { bootstrap, signedOut } from './app/core/session.js';
 import { loadSettings, resetSetting, saveSetting } from './app/core/settings.js';
 import { state } from './app/core/state.js';

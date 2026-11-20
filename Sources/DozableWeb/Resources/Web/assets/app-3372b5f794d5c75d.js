@@ -36,6 +36,7 @@ import { act } from './app/core/operations-13729f56119714a1.js';
 import { showUiOverlay, uiLost, uiRetryTick } from './app/core/reconnect-719dc17c22f6bae6.js';
 import { refresh, route } from './app/core/router-0594a4856483c7f4.js';
 import './app/core/sandboxes-22d3f4db6a2f8876.js';
+import './app/core/space-pictures-b59d59797e0a75f6.js';
 import { bootstrap, signedOut } from './app/core/session-cae9e98674cc3e6a.js';
 import { loadSettings, resetSetting, saveSetting } from './app/core/settings-1667a23271641164.js';
 import { state } from './app/core/state-dee60cc8f4c9cdbe.js';
