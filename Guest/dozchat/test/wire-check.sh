@@ -42,6 +42,38 @@ out=$(env -i PATH=/usr/bin:/bin CHAT_URL="http://127.0.0.1:$SPORT" CHAT_TOKEN_FI
 [ $rc = 4 ] && ! grep -q wrong-token <<<"$out" && grep -q 'HTTP 401' <<<"$out"; check $? "a wrong token: exit 4, the token in no output (exit $rc)"
 grep -q "$TOKEN" "$W"/e* && bad=1 || bad=0; check $bad "the token in no stderr of the calls above"
 
+# Asks: posted with the options, deciders and the time to expire; decided once (a second is refused, exit 3); ask-show
+# --wait's exit codes (0 decided, 10 declined, 12 withdrawn); --questions passed verbatim, a file that is not one array
+# refused before anything is sent; a bare number is #N.
+out=$(run "$BIN" ask room1 "Ship it?" --option yes=Yes --option no=No --decider decbot --reason "the release" --expires-in 60 2>"$W/e5"); rc=$?
+[ $rc = 0 ] && grep -q '"state":"queued"' <<<"$out"; check $? "ask (exit $rc)"
+grep 'send ' "$W/server.log" | tail -1 | grep -q '"ask": {"deciders": \["decbot"\], "expires_at": "20[0-9-]*T[0-9:]*Z", "questions": \[{"options": \[{"id": "yes", "label": "Yes"}, {"id": "no", "label": "No"}\]}\], "reason": "the release"}'
+check $? "…the ask's body: questions, deciders, reason, expires_at"
+grep 'send ' "$W/server.log" | tail -1 | grep -q '"kind": "ask"'; check $? "…kind ask"
+out=$(run "$BIN" decide room1 1 yes "after lunch" 2>"$W/e6"); rc=$?
+[ $rc = 0 ] && grep -q '"state":"decided"' <<<"$out"; check $? "decide 1 yes: a bare number is #N (exit $rc)"
+grep 'decide ' "$W/server.log" | tail -1 | grep -q '"ask_id": "#1".*"option": "yes".*"text": "after lunch"'; check $? "…the decision's body"
+out=$(run "$BIN" decide room1 '#1' no 2>&1); rc=$?
+[ $rc = 3 ] && grep -q 'this ask is closed' <<<"$out"; check $? "a second decision is refused: exit 3 (exit $rc)"
+run "$BIN" ask-show room1 '#1' --wait 5 >/dev/null 2>&1; rc=$?; check $([ $rc = 0 ]; echo $?) "ask-show --wait: decided, exit 0 ($rc)"
+run "$BIN" ask room1 "Again?" >/dev/null 2>&1
+run "$BIN" decide room1 '#2' --decline "not now" >/dev/null 2>&1
+run "$BIN" ask-show room1 2 --wait 5 >/dev/null 2>&1; rc=$?; check $([ $rc = 10 ]; echo $?) "ask-show --wait: declined, exit 10 ($rc)"
+run "$BIN" ask room1 "Once more?" >/dev/null 2>&1
+run "$BIN" withdraw room1 '#3' >/dev/null 2>&1
+run "$BIN" ask-show room1 '#3' --wait 5 >/dev/null 2>&1; rc=$?; check $([ $rc = 12 ]; echo $?) "ask-show --wait: withdrawn, exit 12 ($rc)"
+printf '%s' '[{"id":"q1","question":"One?"}, {"id":"q2","question":"Two?"}]' > "$W/qs.json"
+out=$(run "$BIN" ask room1 "Two things" --questions "$W/qs.json" 2>&1); rc=$?
+[ $rc = 0 ] && grep 'send ' "$W/server.log" | tail -1 | grep -q '"questions": \[{"id": "q1", "question": "One?"}, {"id": "q2", "question": "Two?"}\]'
+check $? "--questions passed verbatim (exit $rc)"
+n=$(grep -c 'send ' "$W/server.log")
+printf '%s' '{"id":"q1"}' > "$W/notarray.json"
+out=$(run "$BIN" ask room1 "Bad" --questions "$W/notarray.json" 2>&1); rc=$?
+[ $rc = 2 ] && [ "$(grep -c 'send ' "$W/server.log")" = "$n" ]; check $? "--questions that is not one array: exit 2, nothing sent (exit $rc)"
+out=$(run "$BIN" decide room1 'ZZ' yes 2>&1); rc=$?
+[ $rc = 2 ]; check $? "an ask named neither #N nor an id: exit 2 (exit $rc)"
+grep -q "$TOKEN" "$W"/e5 "$W"/e6 && bad=1 || bad=0; check $bad "the token in no stderr of the asks"
+
 # A proxy that refuses the credentials (407, or 401) and closes before reading the body: exit 4 at once, one attempt,
 # "the proxy refused the credentials", the password in no output — a small message and one too big to be read first.
 head -c 900000 /dev/zero | tr '\0' 'x' > "$W/big.txt"

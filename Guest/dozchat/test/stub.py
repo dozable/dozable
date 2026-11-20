@@ -28,6 +28,7 @@ class State:
     lock = threading.Lock()
     pending = []  # items not yet acknowledged
     n = 0
+    asks = {}  # msg_id -> {"number", "state", "declined"}
 
 
 class Server(http.server.BaseHTTPRequestHandler):
@@ -63,11 +64,29 @@ class Server(http.server.BaseHTTPRequestHandler):
         b = self.body()
         if self.path == "/agent/send":
             log(self.logfile, "send " + json.dumps(b, sort_keys=True))
+            if b.get("kind") == "ask":
+                with State.lock:
+                    State.asks[b["msg_id"]] = {"number": len(State.asks) + 1, "state": "open", "declined": False}
+                self.answer(200, {"state": "queued", "msg_id": b["msg_id"], "detail": ""})
+                return
             with State.lock:
                 State.n += 1
                 State.pending.append({"room": b.get("room", "general"), "msg_id": b["msg_id"], "delivery": b["msg_id"],
                                       "from": "bot1", "message": {"content": b["message"]["content"]}})
             self.answer(200, {"state": "queued", "msg_id": b["msg_id"], "detail": ""})
+        elif self.path in ("/agent/decide", "/agent/withdraw"):
+            log(self.logfile, self.path[7:] + " " + json.dumps(b, sort_keys=True))
+            with State.lock:
+                a = self.find(b.get("ask_id", ""))
+                if a is None:
+                    self.answer(404, {"error": "no such ask"})
+                    return
+                if a["state"] != "open":
+                    self.answer(422, {"state": "refused", "detail": "this ask is closed"})
+                    return
+                a["state"] = "decided" if self.path == "/agent/decide" else "withdrawn"
+                a["declined"] = bool(b.get("decline"))
+            self.answer(200, {"state": a["state"], "msg_id": b.get("msg_id", ""), "detail": ""})
         elif self.path == "/agent/ack":
             ids = {a["msg_id"] for a in b.get("acks", [])}
             with State.lock:
@@ -79,10 +98,33 @@ class Server(http.server.BaseHTTPRequestHandler):
         else:
             self.answer(404, {"error": "no such call"})
 
+    def find(self, ref):
+        if ref.startswith("#"):
+            for k, v in State.asks.items():
+                if str(v["number"]) == ref[1:]:
+                    return v
+            return None
+        hits = [v for k, v in State.asks.items() if k.startswith(ref)]
+        return hits[0] if len(hits) == 1 else None
+
     def do_GET(self):
         if not self.authed():
             return
         u = urllib.parse.urlsplit(self.path)
+        if u.path.startswith("/agent/asks/"):
+            ref = urllib.parse.unquote(u.path[len("/agent/asks/"):])
+            with State.lock:
+                a = self.find(ref)
+                if a is None:
+                    self.answer(404, {"error": "no such ask"})
+                    return
+                if a["state"] == "open" and a.get("expire_on_look"):
+                    a["state"] = "expired"
+                ask = {"state": a["state"], "number": a["number"]}
+                if a["state"] in ("decided", "expired"):
+                    ask["decision"] = {"declined": a["declined"] or a["state"] == "expired"}
+            self.answer(200, {"kind": "ask", "ask": ask})
+            return
         if u.path != "/agent/receive":
             self.answer(404, {"error": "no such call"})
             return

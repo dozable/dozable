@@ -16,6 +16,14 @@
  *     dozchat file get URL-OR-ID [--out FOLDER] [--name NAME]
  *     dozchat file send ROOM PATH [TEXT] [--re MSG_ID]
  *     dozchat protocol [--room ROOM]
+ *     dozchat ask ROOM QUESTION... [--option ID=LABEL ...] [--decider NAME ...] [--multi] [--reason TEXT]
+ *                 [--expires-in SECONDS] [--questions FILE]                put a question to deciders (section 13)
+ *     dozchat decide ROOM ASK OPTION [TEXT...] | --decline [TEXT...] | --answers JSON
+ *     dozchat withdraw ROOM ASK
+ *     dozchat ask-show ROOM ASK [--wait SECONDS]                           one JSON line; --wait until it is not open:
+ *                                                                          exit 0 decided, 10 declined, 11 expired,
+ *                                                                          12 withdrawn
+ *   ASK is #N, a bare N (made #N here), or the start of the ask's msg_id.
  *
  * Configuration, from the environment only (nothing secret on the command line, ever):
  *     CHAT_URL          http://HOST[:PORT] — no user, path or query; default http://host.dozable.internal:8790, and on a
@@ -1500,14 +1508,23 @@ static int print_item(void *vctx, const unsigned char *s, size_t a, size_t b) {
 #define MAX_POS 16
 #define MAX_TO 64
 
+#define MAX_ASK_OPTIONS 8
+#define MAX_QUESTIONS_FILE (64 * KIB)
+
 struct opts {
     const char *pos[MAX_POS];
     size_t npos;
     const char *room, *re, *out, *name;
     const char *to[MAX_TO];
     size_t nto;
-    int dm, ack, redeliver, once, help;
-    long wait; /* -1: not given */
+    const char *option[MAX_ASK_OPTIONS + 1];
+    size_t noption;
+    const char *decider[MAX_TO];
+    size_t ndecider;
+    const char *reason, *questions, *answers;
+    int dm, ack, redeliver, once, help, multi, decline;
+    long wait;       /* -1: not given */
+    long expires_in; /* -1: not given */
 };
 
 static const char USAGE[] =
@@ -1521,6 +1538,12 @@ static const char USAGE[] =
     "  dozchat file get URL-OR-ID [--out FOLDER] [--name NAME]\n"
     "  dozchat file send ROOM PATH [TEXT] [--re MSG_ID]\n"
     "  dozchat protocol [--room ROOM]                    the protocol, as Markdown\n"
+    "  dozchat ask ROOM QUESTION [--option ID=LABEL ...] [--decider NAME ...] [--multi] [--reason TEXT] [--expires-in SECONDS]\n"
+    "              [--questions FILE]                    to ask the person: put a question to deciders, and wait for its outcome\n"
+    "  dozchat decide ROOM ASK OPTION [TEXT] | --decline [TEXT] | --answers JSON     answer an ask (you need the decider role)\n"
+    "  dozchat withdraw ROOM ASK                         withdraw an ask you asked\n"
+    "  dozchat ask-show ROOM ASK [--wait SECONDS]        the ask as JSON; --wait until its outcome: exit 0 decided, 10 declined,\n"
+    "                                                    11 expired, 12 withdrawn (ASK: #N, N, or the start of its id)\n"
     "  dozchat --version\n"
     "A send answers \"queued\" (it waits for each recipient); a reaction answers \"added\" (recorded at once, it wakes nobody).\n"
     "CHAT_URL defaults to " DEFAULT_URL "; on a Mac with no proxy set, " MAC_DIRECT_URL ". The token is never given on the command line.\n"
@@ -1536,6 +1559,7 @@ static int usage_error(const char *what) {
 static int parse_opts(int argc, char **argv, int from, const char *allowed, struct opts *o) {
     memset(o, 0, sizeof *o);
     o->wait = -1;
+    o->expires_in = -1;
     int only_pos = 0;
     for (int i = from; i < argc; i++) {
         const char *a = argv[i];
@@ -1561,12 +1585,14 @@ static int parse_opts(int argc, char **argv, int from, const char *allowed, stru
                                        : "the token and the address are never given on the command line: set CHAT_TOKEN_FILE and CHAT_URL");
         if (!strstr(allowed, name)) return usage_error("unknown option for this command");
         int flag = strcmp(name, " --dm ") == 0 || strcmp(name, " --ack ") == 0 || strcmp(name, " --redeliver ") == 0 ||
-                   strcmp(name, " --once ") == 0;
+                   strcmp(name, " --once ") == 0 || strcmp(name, " --multi ") == 0 || strcmp(name, " --decline ") == 0;
         if (flag) {
             if (val) return usage_error("that option takes no value");
             if (strcmp(name, " --dm ") == 0) o->dm = 1;
             else if (strcmp(name, " --ack ") == 0) o->ack = 1;
             else if (strcmp(name, " --redeliver ") == 0) o->redeliver = 1;
+            else if (strcmp(name, " --multi ") == 0) o->multi = 1;
+            else if (strcmp(name, " --decline ") == 0) o->decline = 1;
             else o->once = 1;
             continue;
         }
@@ -1578,7 +1604,26 @@ static int parse_opts(int argc, char **argv, int from, const char *allowed, stru
         else if (strcmp(name, " --re ") == 0) o->re = val;
         else if (strcmp(name, " --out ") == 0) o->out = val;
         else if (strcmp(name, " --name ") == 0) o->name = val;
-        else if (strcmp(name, " --to ") == 0) {
+        else if (strcmp(name, " --reason ") == 0) o->reason = val;
+        else if (strcmp(name, " --questions ") == 0) o->questions = val;
+        else if (strcmp(name, " --answers ") == 0) o->answers = val;
+        else if (strcmp(name, " --option ") == 0) {
+            if (o->noption >= MAX_ASK_OPTIONS) return usage_error("at most 8 --option");
+            o->option[o->noption++] = val;
+        } else if (strcmp(name, " --decider ") == 0) {
+            if (o->ndecider >= MAX_TO) return usage_error("too many --decider");
+            o->decider[o->ndecider++] = val;
+        } else if (strcmp(name, " --expires-in ") == 0) {
+            size_t l = strlen(val);
+            if (l == 0 || l > 6) return usage_error("--expires-in takes whole seconds");
+            long v = 0;
+            for (size_t k = 0; k < l; k++) {
+                if (val[k] < '0' || val[k] > '9') return usage_error("--expires-in takes whole seconds");
+                v = v * 10 + (val[k] - '0');
+            }
+            if (v < 1) return usage_error("--expires-in takes whole seconds");
+            o->expires_in = v;
+        } else if (strcmp(name, " --to ") == 0) {
             if (o->nto >= MAX_TO) return usage_error("too many --to");
             o->to[o->nto++] = val;
         } else if (strcmp(name, " --wait ") == 0) {
@@ -2019,6 +2064,293 @@ static int cmd_file_get(const struct opts *o) {
     return rc;
 }
 
+/* ---------------------------------------------------------------------------------------------------------------
+ * Asks (the protocol's section 13), with this participant's own token. Bodies are literal text plus json_str(); a
+ * --questions file or --answers value is passed verbatim (at most 64 KiB, strict UTF-8, exactly one JSON array by the
+ * bounded scanner — never parsed: the server checks it). The answer is printed as it came; the scanner reads only the
+ * ask object's `state` (and its decision's `declined`) for ask-show --wait.
+ * ------------------------------------------------------------------------------------------------------------ */
+
+/* An ask's name as typed: "#N" (N 1..999999999), a bare N made "#N", or 1..36 lower-case hex digits and dashes (its
+ * msg_id or the start of it). 0 and `out` set, or -1. */
+static int ask_ref(const char *in, char out[40]) {
+    size_t n = strlen(in);
+    const char *d = in[0] == '#' ? in + 1 : in;
+    size_t dn = strlen(d);
+    int digits = dn > 0 && dn <= 9;
+    for (size_t i = 0; digits && i < dn; i++) digits = d[i] >= '0' && d[i] <= '9';
+    if (digits) {
+        int zero = 1;
+        for (size_t i = 0; i < dn; i++) zero &= d[i] == '0';
+        if (zero) return -1;
+        out[0] = '#';
+        memcpy(out + 1, d, dn);
+        out[dn + 1] = 0;
+        return 0;
+    }
+    if (in[0] == '#' || n == 0 || n > 36) return -1;
+    for (size_t i = 0; i < n; i++)
+        if (!((in[i] >= '0' && in[i] <= '9') || (in[i] >= 'a' && in[i] <= 'f') || in[i] == '-')) return -1;
+    memcpy(out, in, n + 1);
+    return 0;
+}
+
+/* Now plus `secs`, as RFC 3339 in UTC ("2026-11-21T09:00:00Z"). */
+static int rfc3339_after(long secs, char out[32]) {
+    time_t t = time(NULL);
+    if (t == (time_t)-1) return -1;
+    t += (time_t)secs;
+    struct tm tm;
+    if (!gmtime_r(&t, &tm)) return -1;
+    return strftime(out, 32, "%Y-%m-%dT%H:%M:%SZ", &tm) == 20 ? 0 : -1;
+}
+
+/* A JSON array given verbatim (a --questions file, an --answers value): strict UTF-8, at most 64 KiB, exactly one
+ * value by the bounded scanner and that value an array. Appended to `body` with the whitespace outside strings removed. */
+static int add_verbatim_array(struct buf *body, const unsigned char *s, size_t n, const char *what) {
+    if (n > MAX_QUESTIONS_FILE) { say("%s is larger than 64 KiB", what); return EXIT_USAGE; }
+    for (size_t i = 0; i < n;) {
+        size_t k = utf8_seq(s + i, n - i);
+        if (!k) { say("%s is not UTF-8", what); return EXIT_USAGE; }
+        i += k;
+    }
+    size_t a, b;
+    if (n == 0 || scan_document(s, n, &a, &b) < 0 || s[a] != '[') { say("%s must be one JSON array", what); return EXIT_USAGE; }
+    return json_compact(body, s, a, b) < 0 ? EXIT_USAGE : EXIT_DONE;
+}
+
+/* The ask object's state in an answer of GET /agent/asks/ID ({"…","ask":{"state":…,"decision":{"declined":…}}}): 0 with
+ * `state` (at most 15 bytes) and *declined set, or -1. */
+static int ask_state_of(const unsigned char *s, size_t n, char state[16], int *declined) {
+    size_t a, b, va, vb, da, db;
+    *declined = 0;
+    state[0] = 0;
+    if (scan_document(s, n, &a, &b) < 0 || s[a] != '{') return -1;
+    if (obj_find(s, a, b, "ask", &va, &vb) != FIND_FOUND || s[va] != '{') return -1;
+    unsigned char sb[16];
+    struct buf st = {sb, 0, sizeof sb - 1, sizeof sb - 1};
+    if (obj_string(s, va, vb, "state", &st) != FIND_FOUND || st.len == 0) return -1;
+    for (size_t i = 0; i < st.len; i++)
+        if (sb[i] < 'a' || sb[i] > 'z') return -1;
+    memcpy(state, sb, st.len);
+    state[st.len] = 0;
+    if (obj_find(s, va, vb, "decision", &da, &db) == FIND_FOUND && s[da] == '{') {
+        size_t xa, xb;
+        if (obj_find(s, da, db, "declined", &xa, &xb) == FIND_FOUND && xb - xa == 4 && memcmp(s + xa, "true", 4) == 0) *declined = 1;
+    }
+    return 0;
+}
+
+/* POST `path` with `body`, tried 3 times on "no answer" with the SAME msg_id in it (a repeat is a duplicate); the answer
+ * (compact) on stdout. */
+static int post_retried(const char *path, const struct buf *body) {
+    int rc = EXIT_AWAY;
+    for (int attempt = 0; attempt < 3; attempt++) {
+        struct answer ans;
+        size_t a0, a1;
+        rc = json_call("POST", path, body, CALL_TIMEOUT, &ans, &a0, &a1, attempt < 2);
+        if (rc == EXIT_DONE) {
+            struct buf c = buf_new(MAX_ANSWER);
+            if (json_compact(&c, ans.body.p, a0, a1) < 0 || out_line(c.p, c.len) < 0) rc = EXIT_LOCAL;
+            buf_free(&c);
+            buf_free(&ans.body);
+            break;
+        }
+        if (rc != EXIT_AWAY || attempt == 2) break;
+        say("%s; trying again in %d s with the same msg_id (a repeat is answered as a duplicate)", g_why, 1 + attempt);
+        sleep_s((unsigned)(1 + attempt));
+    }
+    return rc;
+}
+
+/* `,"room":R,"msg_id":ID` — the room checked as UTF-8. */
+static int add_room_and_id(struct buf *body, const char *room, char id[37]) {
+    if (new_uuid(id) < 0) { say("no random bytes for a msg_id"); return EXIT_LOCAL; }
+    int e = buf_adds(body, "\"room\":");
+    int r = json_strz(body, room);
+    if (r == ESC_INVALID) { say("the room is not UTF-8"); return EXIT_USAGE; }
+    e |= r | buf_adds(body, ",\"msg_id\":") | json_strz(body, id);
+    if (e) { say("the request is too large"); return EXIT_USAGE; }
+    return EXIT_DONE;
+}
+
+/* Words joined with one space, from pos[from]. */
+static int join_words(struct buf *b, const struct opts *o, size_t from) {
+    for (size_t i = from; i < o->npos; i++)
+        if ((i > from && buf_addc(b, ' ') < 0) || buf_adds(b, o->pos[i]) < 0) return -1;
+    return 0;
+}
+
+static int cmd_ask(const struct opts *o) {
+    if (o->npos < 2) return usage_error("ask takes ROOM QUESTION");
+    if (o->questions && (o->noption || o->multi)) return usage_error("--questions holds every question: give --option and --multi in the file");
+    int rc = configure();
+    if (rc) return rc;
+    struct buf q = buf_new(MAX_STDIN_TEXT);
+    struct buf body = buf_new(MAX_REQUEST_BODY);
+    char id[37];
+    int e = buf_addc(&body, '{');
+    if ((rc = add_room_and_id(&body, o->pos[0], id))) goto done;
+    if (join_words(&q, o, 1) < 0) { rc = usage_error("the question is longer than 1 MiB"); goto done; }
+    e |= buf_adds(&body, ",\"kind\":\"ask\",\"message\":{\"content\":");
+    int r = json_str(&body, q.p ? q.p : (const unsigned char *)"", q.len);
+    if (r == ESC_INVALID) { rc = usage_error("the question is not UTF-8"); goto done; }
+    e |= r | buf_adds(&body, "},\"ask\":{\"questions\":");
+    if (o->questions) {
+        int fd = open(o->questions, O_RDONLY | O_CLOEXEC);
+        if (fd < 0) { say("cannot read --questions: %s", strerror(errno)); rc = EXIT_USAGE; goto done; }
+        struct buf f = buf_new(MAX_QUESTIONS_FILE + 1);
+        unsigned char chunk[8192];
+        ssize_t got;
+        int big = 0;
+        while ((got = read(fd, chunk, sizeof chunk)) != 0) {
+            if (got < 0) { if (errno == EINTR) continue; break; }
+            if (buf_add(&f, chunk, (size_t)got) < 0) { big = 1; break; }
+        }
+        close(fd);
+        if (got < 0) { buf_free(&f); say("cannot read --questions"); rc = EXIT_LOCAL; goto done; }
+        if (big) { buf_free(&f); say("--questions is larger than 64 KiB"); rc = EXIT_USAGE; goto done; }
+        rc = add_verbatim_array(&body, f.p ? f.p : (const unsigned char *)"", f.len, "--questions");
+        buf_free(&f);
+        if (rc) goto done;
+    } else {
+        e |= buf_adds(&body, "[{");
+        if (o->multi) e |= buf_adds(&body, "\"multi\":true,");
+        e |= buf_adds(&body, "\"options\":[");
+        for (size_t i = 0; i < o->noption; i++) {
+            const char *opt = o->option[i];
+            const char *eq = strchr(opt, '=');
+            size_t idn = eq ? (size_t)(eq - opt) : strlen(opt);
+            if (i) e |= buf_addc(&body, ',');
+            e |= buf_adds(&body, "{\"id\":");
+            r = json_str(&body, (const unsigned char *)opt, idn);
+            if (r == ESC_INVALID) { rc = usage_error("--option is not UTF-8"); goto done; }
+            e |= r | buf_adds(&body, ",\"label\":");
+            r = json_strz(&body, eq ? eq + 1 : "");
+            if (r == ESC_INVALID) { rc = usage_error("--option is not UTF-8"); goto done; }
+            e |= r | buf_addc(&body, '}');
+        }
+        e |= buf_adds(&body, "]}]");
+    }
+    if (o->ndecider) {
+        e |= buf_adds(&body, ",\"deciders\":[");
+        for (size_t i = 0; i < o->ndecider; i++) {
+            const char *nm = o->decider[i];
+            while (*nm == '@') nm++;
+            if (i) e |= buf_addc(&body, ',');
+            r = json_strz(&body, nm);
+            if (r == ESC_INVALID) { rc = usage_error("--decider is not UTF-8"); goto done; }
+            e |= r;
+        }
+        e |= buf_addc(&body, ']');
+    }
+    if (o->reason) {
+        e |= buf_adds(&body, ",\"reason\":");
+        r = json_strz(&body, o->reason);
+        if (r == ESC_INVALID) { rc = usage_error("--reason is not UTF-8"); goto done; }
+        e |= r;
+    }
+    if (o->expires_in > 0) {
+        char at[32];
+        if (rfc3339_after(o->expires_in, at) < 0) { say("cannot tell the time"); rc = EXIT_LOCAL; goto done; }
+        e |= buf_adds(&body, ",\"expires_at\":") | json_strz(&body, at);
+    }
+    e |= buf_adds(&body, "}}");
+    if (e) { rc = usage_error("the ask is too large"); goto done; }
+    rc = post_retried("/agent/send", &body);
+done:
+    buf_free(&q);
+    buf_free(&body);
+    return rc;
+}
+
+static int cmd_decide(const struct opts *o, int withdraw) {
+    char ref[40];
+    if (withdraw && o->npos != 2) return usage_error("withdraw takes ROOM ASK");
+    if (o->npos < 2) return usage_error("decide takes ROOM ASK OPTION [TEXT], ROOM ASK --decline [TEXT] or ROOM ASK --answers JSON");
+    if (ask_ref(o->pos[1], ref) < 0) return usage_error("ASK is #N, N, or the start of its id");
+    if (!withdraw) {
+        if (o->decline && o->answers) return usage_error("--decline, or --answers: not both");
+        if (o->answers && o->npos > 2) return usage_error("with --answers, give the words in each answer's text");
+        if (!o->decline && !o->answers && o->npos < 3) return usage_error("say the option (its id or letter), --decline, or --answers");
+    }
+    int rc = configure();
+    if (rc) return rc;
+    struct buf body = buf_new(MAX_REQUEST_BODY);
+    struct buf words = buf_new(MAX_STDIN_TEXT);
+    char id[37];
+    int e = buf_addc(&body, '{');
+    if ((rc = add_room_and_id(&body, o->pos[0], id))) goto done;
+    e |= buf_adds(&body, ",\"ask_id\":") | json_strz(&body, ref);
+    if (!withdraw) {
+        int r;
+        if (o->answers) {
+            e |= buf_adds(&body, ",\"answers\":");
+            if ((rc = add_verbatim_array(&body, (const unsigned char *)o->answers, strlen(o->answers), "--answers"))) goto done;
+        } else {
+            size_t from = o->decline ? 2 : 3;
+            if (join_words(&words, o, from) < 0) { rc = usage_error("the words are longer than 1 MiB"); goto done; }
+            if (o->decline) e |= buf_adds(&body, ",\"decline\":true");
+            else {
+                e |= buf_adds(&body, ",\"option\":");
+                r = json_strz(&body, o->pos[2]);
+                if (r == ESC_INVALID) { rc = usage_error("the option is not UTF-8"); goto done; }
+                e |= r;
+            }
+            e |= buf_adds(&body, ",\"text\":");
+            r = json_str(&body, words.p ? words.p : (const unsigned char *)"", words.len);
+            if (r == ESC_INVALID) { rc = usage_error("the words are not UTF-8"); goto done; }
+            e |= r;
+        }
+    }
+    e |= buf_addc(&body, '}');
+    if (e) { rc = usage_error("the request is too large"); goto done; }
+    rc = post_retried(withdraw ? "/agent/withdraw" : "/agent/decide", &body);
+done:
+    buf_free(&body);
+    buf_free(&words);
+    return rc;
+}
+
+static int cmd_ask_show(const struct opts *o) {
+    char ref[40];
+    if (o->npos != 2) return usage_error("ask-show takes ROOM ASK");
+    if (ask_ref(o->pos[1], ref) < 0) return usage_error("ASK is #N, N, or the start of its id");
+    if (o->wait > 86400) return usage_error("--wait is at most 86400 seconds");
+    int rc = configure();
+    if (rc) return rc;
+    struct buf path = buf_new(1024);
+    if (buf_adds(&path, "/agent/asks/") | pct_encode(&path, ref) | buf_adds(&path, "?room=") | pct_encode(&path, o->pos[0]) | buf_addc(&path, 0)) {
+        buf_free(&path);
+        return usage_error("the room is too long");
+    }
+    double until = now_s() + (o->wait > 0 ? (double)o->wait : 0);
+    for (;;) {
+        struct answer ans;
+        size_t a0, a1;
+        rc = json_call("GET", (const char *)path.p, NULL, CALL_TIMEOUT, &ans, &a0, &a1, o->wait > 0);
+        if (rc == EXIT_AWAY && o->wait > 0 && now_s() < until) { sleep_s(2); continue; }
+        if (rc != EXIT_DONE) break;
+        char state[16];
+        int declined = 0;
+        int known = ask_state_of(ans.body.p, ans.body.len, state, &declined) == 0;
+        int open = known && strcmp(state, "open") == 0;
+        if (o->wait > 0 && open && now_s() < until) { buf_free(&ans.body); sleep_s(2); continue; }
+        struct buf c = buf_new(MAX_ANSWER);
+        if (json_compact(&c, ans.body.p, a0, a1) < 0 || out_line(c.p, c.len) < 0) rc = EXIT_LOCAL;
+        buf_free(&c);
+        buf_free(&ans.body);
+        if (rc == EXIT_DONE && o->wait >= 0 && known && !open) {
+            if (strcmp(state, "decided") == 0) rc = declined ? 10 : 0;
+            else if (strcmp(state, "expired") == 0) rc = 11;
+            else if (strcmp(state, "withdrawn") == 0) rc = 12;
+        }
+        break;
+    }
+    buf_free(&path);
+    return rc;
+}
+
 static int run(int argc, char **argv) {
     if (argc < 2) { fputs(USAGE, stderr); return EXIT_USAGE; }
     const char *cmd = argv[1];
@@ -2046,6 +2378,10 @@ static int run(int argc, char **argv) {
     else if (strcmp(cmd, "ack") == 0) allowed = " ";
     else if (strcmp(cmd, "listen") == 0) allowed = " --wait --once ";
     else if (strcmp(cmd, "rooms") == 0 || strcmp(cmd, "protocol") == 0) allowed = " --room ";
+    else if (strcmp(cmd, "ask") == 0) allowed = " --option --decider --multi --reason --expires-in --questions ";
+    else if (strcmp(cmd, "decide") == 0) allowed = " --decline --answers ";
+    else if (strcmp(cmd, "withdraw") == 0) allowed = " ";
+    else if (strcmp(cmd, "ask-show") == 0) allowed = " --wait ";
     else return usage_error("unknown command");
     if ((rc = parse_opts(argc, argv, 2, allowed, &o))) return rc;
     if (o.help) { fputs(USAGE, stdout); return EXIT_DONE; }
@@ -2054,6 +2390,10 @@ static int run(int argc, char **argv) {
     if (strcmp(cmd, "receive") == 0) return cmd_receive(&o);
     if (strcmp(cmd, "ack") == 0) return cmd_ack(&o);
     if (strcmp(cmd, "listen") == 0) return cmd_listen(&o);
+    if (strcmp(cmd, "ask") == 0) return cmd_ask(&o);
+    if (strcmp(cmd, "decide") == 0) return cmd_decide(&o, 0);
+    if (strcmp(cmd, "withdraw") == 0) return cmd_decide(&o, 1);
+    if (strcmp(cmd, "ask-show") == 0) return cmd_ask_show(&o);
     if (strcmp(cmd, "rooms") == 0) return cmd_command(&o, "/rooms", 0);
     return cmd_command(&o, "/protocol", 1);
 }
