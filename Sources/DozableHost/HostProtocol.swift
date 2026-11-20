@@ -369,6 +369,12 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// ceiling — the owner's, through the daemon (`HostCore+Permissions`), answered with `PermissionsChanged`.
     case permissionsShow = "permissions-show", permissionsWhy = "permissions-why"
     case permissionsGrant = "permissions-grant", permissionsRevoke = "permissions-revoke", permissionsCeiling = "permissions-ceiling"
+    /// Asks, as you (`chatAsk`: a `ChatAskRequest`), each ONE fixed call on the chat server's owner's socket
+    /// (`HostCore+ChatAsks`): `chat-ask` posts an ask in a room (`ChatAskOutcome`); `chat-decide` decides one, once per
+    /// `actionID` (sent as `X-Chat-Id`: a retry is a duplicate, never a second decision); `chat-withdraw` withdraws your
+    /// own; `chat-asks` lists the open asks of your rooms (`ChatAsksListing`). A refusal is told in Dozable's words
+    /// (`ChatAskRefusal`). The daemon's — and never for an agent: an agent asks and answers with its own token (dozchat).
+    case chatAsk = "chat-ask", chatDecide = "chat-decide", chatWithdraw = "chat-withdraw", chatAsks = "chat-asks"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
@@ -703,6 +709,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// agent's permissions (`PermissionGate`), never widens anything. Only on the owner's socket (the hidden `--as W/AGENT`, a
     /// preview and test path); a request without it is the owner's, and the owner is never gated. Additive.
     public var actAs: String?
+    /// The `chat-ask`, `chat-decide`, `chat-withdraw` and `chat-asks` operations' arguments. Additive.
+    public var chatAsk: ChatAskRequest?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -2251,6 +2259,86 @@ public struct WorkerEnded: Codable, Equatable, Sendable {
 }
 
 /// `chat-room-*`'s arguments.
+/// An ask's answer to one question (`chat-decide`'s `answers`).
+public struct ChatAskAnswerItem: Codable, Equatable, Sendable {
+    public var questionId: String
+    public var options: [String]?
+    public var text: String?
+    public var skipped: Bool?
+    public init(questionId: String, options: [String]? = nil, text: String? = nil, skipped: Bool? = nil) {
+        self.questionId = questionId; self.options = options; self.text = text; self.skipped = skipped
+    }
+}
+
+/// `chat-ask`, `chat-decide`, `chat-withdraw`, `chat-asks`. `ask`: `#N`, or the start of its msg_id. A decision is exactly
+/// one of `answers`, `decline` (with `text` as the reason), `option` (with `text`: the reference's 0.15 form) or `reply`
+/// (a person's words: an option, its letter or label, decline, or a free-text answer — `ChatAskReply`). `actionID` (a
+/// lower-case v4 UUID; made when missing) makes the change once: the ask's msg_id, a decision's `X-Chat-Id`.
+public struct ChatAskRequest: Codable, Equatable, Sendable {
+    public var room: String?
+    public var ask: String?
+    /// `chat-ask`: the question (the ask's title, and the question of a one-question ask) and the ask object as the
+    /// protocol takes it (`questions`, `deciders`, `reason`, `expires_at`, `about`, …) — checked by the chat server.
+    public var question: String?
+    public var spec: JSONValue?
+    public var answers: [ChatAskAnswerItem]?
+    public var decline: Bool?
+    public var text: String?
+    public var option: String?
+    public var reply: String?
+    public var actionID: String?
+    public init(room: String? = nil, ask: String? = nil) { self.room = room; self.ask = ask }
+}
+
+/// What `chat-ask`, `chat-decide` and `chat-withdraw` did. `state`: asked, decided, withdrawn, or duplicate (the same
+/// `actionID` again: nothing new done). `summary`: the decision in one line. Never the server's raw message.
+public struct ChatAskOutcome: Codable, Equatable, Sendable {
+    public var room: String
+    /// `#N`, or the first 8 of its msg_id.
+    public var ask: String
+    public var msgId: String
+    public var state: String
+    public var deciders: [String]?
+    public var askState: String?
+    public var summary: String?
+    public var decidedBy: String?
+    public init(room: String, ask: String, msgId: String, state: String) { self.room = room; self.ask = ask; self.msgId = msgId; self.state = state }
+}
+
+/// One open ask, as `chat-asks` lists it.
+public struct OpenAsk: Codable, Equatable, Sendable {
+    public var room: String
+    public var msgId: String
+    public var number: Int?
+    public var from: String
+    /// Seconds since 1970.
+    public var at: Double
+    public var title: String
+    /// The one question's text, or the title for several questions.
+    public var question: String
+    public var reason: String?
+    /// The one question's option labels ([] for several questions or several options at once).
+    public var options: [String]
+    public var questions: Int
+    public var multi: Bool
+    public var freeText: Bool
+    public var deciders: [String]
+    public var expiresAt: String?
+    public var noDecider: Bool?
+    public init(room: String, msgId: String, from: String, at: Double, title: String, question: String, options: [String], questions: Int,
+                multi: Bool, freeText: Bool, deciders: [String]) {
+        self.room = room; self.msgId = msgId; self.from = from; self.at = at; self.title = title; self.question = question
+        self.options = options; self.questions = questions; self.multi = multi; self.freeText = freeText; self.deciders = deciders
+    }
+    /// `#N`, or the first 8 of its msg_id.
+    public var label: String { (number ?? 0) > 0 ? "#\(number!)" : String(msgId.prefix(8)) }
+}
+
+public struct ChatAsksListing: Codable, Equatable, Sendable {
+    public var asks: [OpenAsk]
+    public init(asks: [OpenAsk]) { self.asks = asks }
+}
+
 public struct ChatRoomRequest: Codable, Equatable, Sendable {
     public var room: String
     /// plan: `archive` or `rm`.

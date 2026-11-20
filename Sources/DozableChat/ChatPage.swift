@@ -269,7 +269,10 @@ public struct ChatPageHandler: Sendable {
         case "decide-agent", "withdraw-agent": return agentAsk(name == "decide-agent", r)
         case "ask-get":
             let token = Self.bearerToken(r)
-            guard let caller = core.whoHolds(token), !(r.caller == .remote && core.isHuman(caller)) else { return .jsonError(401, Self.needBearer) }
+            // Dozable's: on the owner's socket with no token it is the human's look (the daemon reads an ask's state
+            // after a refusal); every other caller needs a participant's token, as the reference's.
+            let holder = token.isEmpty && r.caller == .owner ? Optional(core.human()).flatMap { $0.isEmpty ? nil : $0 } : core.whoHolds(token)
+            guard let caller = holder, !(r.caller == .remote && core.isHuman(caller)) else { return .jsonError(401, Self.needBearer) }
             return core.askLookup(name: caller, room: r.query("room"), ref: vars["id"] ?? "")
         case "asks":
             if let refusal = pageCaller(r, "listing the open asks") { return refusal }

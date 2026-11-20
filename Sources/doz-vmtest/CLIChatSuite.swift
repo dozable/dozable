@@ -222,6 +222,9 @@ func cliChatSuite(binary: String) async {
     // A1–A10. asks: the decider role, posting, limits, deciding each way, expiry, withdraw, off and on, a finished workspace
     cliChatAskRows(h: h, root: root, paths: paths, page: page, sh: sh, server: server, supervisor: supervisor)
 
+    // D1–D14. asks for people (doz chat ask | decide | withdraw | asks) and bots (dozchat)
+    cliChatAskClientRows(h: h, root: root, paths: paths, page: page, sh: sh, server: server, supervisor: supervisor)
+
     // 6. a killed server comes back
     guard let s6 = server() else { check(false, "6 a chat server runs"); return }
     kill(s6, SIGKILL)

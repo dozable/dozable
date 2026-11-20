@@ -353,6 +353,10 @@ public struct ChatAnswerIn: Sendable, Equatable {
     public var options: [String] = []
     public var text = ""
     public var skipped = false
+
+    public init(questionID: String = "", options: [String] = [], text: String = "", skipped: Bool = false) {
+        self.questionID = questionID; self.options = options; self.text = text; self.skipped = skipped
+    }
 }
 
 /// What a decider sends: the 0.15 form {option, text} (an ask of one question), answers, or decline; or the words of a

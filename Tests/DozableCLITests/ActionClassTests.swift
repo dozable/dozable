@@ -22,6 +22,7 @@ final class ActionClassTests: XCTestCase {
         .filesMkdir: ["folder.write"], .filesNew: ["folder.write"], .filesMove: ["folder.write"],
         .filesRm: ["delete"], .pointRm: ["delete"], .rm: ["delete"], .imageRm: ["delete"],
         .chatRoomArchive: ["room.manage"], .chatRoomRm: ["room.manage"], .chatAdd: ["room.manage"], .chatRemove: ["room.manage"], .chatSet: ["room.manage"],
+        .chatAsk: ["chat.post"], .chatWithdraw: ["chat.post"], .chatDecide: ["chat.decide"], .chatAsks: ["chat.read"],
         .workspaceSleep: ["workspace.sleep"], .workspaceWake: ["workspace.sleep"],
         .workspaceFinish: ["workspace.finish"], .workspaceReopen: ["workspace.finish"],
         .workspaceArchive: ["workspace.archive"], .workspaceRestore: ["workspace.archive"], .workspaceRunArchive: ["workspace.archive"],
@@ -82,6 +83,10 @@ final class ActionClassTests: XCTestCase {
         var room = HostRequest(.chatRoomRm)
         room.chatRoom = ChatRoomRequest(room: "demo-review")
         XCTAssertEqual(ActionClasses.classify(room), .needs(["room.manage"], .room("demo-review")))
+        var decide = HostRequest(.chatDecide)
+        decide.chatAsk = ChatAskRequest(room: "demo-review", ask: "#3")
+        XCTAssertEqual(ActionClasses.classify(decide), .needs(["chat.decide"], .room("demo-review")))
+        XCTAssertEqual(ActionClasses.classify(HostRequest(.chatAsks)), .needs(["chat.read"], .nowhere))
     }
 }
 

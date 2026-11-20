@@ -210,12 +210,17 @@ public struct GrantDecision: Equatable, Sendable, Codable {
         }
 
         // 3. the roles in the most specific scope that has any, combined to the more permissive answer.
+        // The decider role is given in chat, by the owner alone (`doz chat set NAME --role decider`): it is added to the
+        // roles held wherever the action is (its words: "added to another role").
+        let chatDecider = f.deciders.contains(q.name) || (q.bot.map { f.deciders.contains($0) } ?? false)
         if answer == nil {
-            if let top = held.map({ $0.scope.rank }).max() {
-                let here = held.filter { $0.scope.rank == top }
+            let top = held.map({ $0.scope.rank }).max()
+            if top != nil || chatDecider {
+                let here = top.map { t in held.filter { $0.scope.rank == t } } ?? []
                 var names: [String] = []
                 for h in here where !names.contains(h.role) { names.append(h.role) }
-                let where_ = here.first.map { $0.scope.display } ?? ""
+                if chatDecider && !names.contains("decider") { names.append("decider") }
+                let where_ = here.first.map { $0.scope.display } ?? "chat"
                 let answers = names.compactMap { RoleTable.answer($0, perm) }
                 if let a = answers.max() {
                     answer = a
