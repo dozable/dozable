@@ -160,7 +160,7 @@ public enum AgentPrompt {
 
     ## What you cannot do from inside
 
-    You cannot change the network policy, take or restore a restore point, add a key or account, share another Mac folder, or change the VM's CPUs or memory — the user does these with `doz` on the Mac. Ask them when you need one, and say exactly what. When you are in a chat room, to ask the person: `dozchat ask ROOM "…" --option yes=Yes --option no=No`, then `dozchat ask-show ROOM #N --wait 600` for the answer.
+    You cannot change the network policy, take or restore a restore point, add a key or account, share another Mac folder, or change the VM's CPUs or memory — the user does these with `doz` on the Mac. Ask them when you need one, and say exactly what. When you are in a chat room, to ask the person: `dozchat ask ROOM "…" --option yes=Yes --option no=No`, then `dozchat ask-show ROOM #N --wait 60` for the answer.
     """
 
     /// The file `doz onboard` writes as the user's template when there is none: every line inside

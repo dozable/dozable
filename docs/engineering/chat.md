@@ -80,7 +80,12 @@ enough is recorded with the feature that published it.
 `dozchat` is a small client of this protocol, written in C (`Guest/dozchat/dozchat.c`, libc and POSIX only), so that an
 agent in a Dozable sandbox or fenced session is a room member with nothing to install. Its commands and exit codes are
 the Python client's (`rooms`, `send`, `receive`, `ack`, `listen`, `file get|send`, `protocol`), plus `send ROOM -` (the
-text on stdin, at most 1 MiB) and `react ROOM MSG_ID REACTION`. Its default `CHAT_URL` is
+text on stdin, at most 1 MiB) and `react ROOM MSG_ID REACTION`, and the asks: `ask ROOM QUESTION [--option ID=LABEL]…
+[--decider NAME]… [--multi] [--reason T] [--expires-in S] [--questions FILE]` (`/agent/send` with `kind: "ask"`, tried three
+times with the same msg_id; a `--questions` file passed verbatim — at most 64 KiB, strict UTF-8, one JSON array by the
+scanner, never parsed), `decide ROOM ASK OPTION [TEXT] | --decline [TEXT] | --answers JSON`, `withdraw ROOM ASK` and
+`ask-show ROOM ASK [--wait S]` (one JSON line; `--wait` until it is not open: exit 0 decided, 10 declined, 11 expired, 12
+withdrawn). ASK is `#N`, a bare `N` (made `#N`), or the start of its msg_id; a refusal prints the server's words, exit 3. Its default `CHAT_URL` is
 `http://host.dozable.internal:8790` — and, built for the Mac with no proxy set (a session run on the Mac without a
 fence), `http://127.0.0.1:8790` (`default_url`; a fenced session always has its proxy, and no DNS); https is refused ("plain http only; outside Dozable use chat_client.py"). It goes
 through the session's own proxy (`http_proxy`, then `HTTP_PROXY`; the request in absolute form, the proxy URL's password
@@ -101,7 +106,8 @@ Homebrew formula links `bin/dozchat` → `libexec/doz/dozchat-mac`, the CLI tarb
 **Its rules** (each tested — `make dozchat-check`, `make test`):
 - No JSON parser. A request body is literal text plus `json_str` (a strict UTF-8 check: overlong forms, surrogates and
   anything above U+10FFFF refused); an answer is printed as it came; a bounded scanner (depth 64) finds only the
-  `messages` array, the ids an acknowledgement gives back (printable ASCII, at most 256 bytes) and `error`/`detail`.
+  `messages` array, the ids an acknowledgement gives back (printable ASCII, at most 256 bytes), `error`/`detail`, and an ask's `state` (and its
+  decision's `declined`) for `ask-show --wait`.
 - Every buffer has a hard maximum (an answer 32 MiB + 64 KiB, a head 64 KiB, a header line 8 KiB, a file 20 MiB, text on
   stdin 1 MiB); every size computation is checked; no strcpy/sprintf/strcat/gets; every format string a literal;
   `-Wall -Wextra -Wformat=2 -Wshadow -Wvla -Werror`.
@@ -479,7 +485,7 @@ reference's words, checks and order are kept exactly; the conformance runner run
   the ask is marked `no_decider`, stays open and expires as usual; the asker is told.
 - **The outcome** goes to the asker the way it takes messages: a webhook `chan-ask-outcome` (or `chan-ask-no-decider`, the
   message's tries), a notice `ask-outcome` on `/agent/receive` kept until acknowledged, a line in a Claude session's inbox;
-  every change of state is an `ask` event on the stream (the dashboard ignores it for now and shows an ask as its text).
+  every change of state is an `ask` event on the stream (the dashboard draws the ask's card again from it).
   `GET /agent/asks/{id}?room=` answers the whole message for a waiter that reconnects.
 - **Off** (`no_asks`, written when `chat.asks` is off): an ask, `/decide` and `/withdraw` are refused with `asks are off on
   this server`; `GET /agent/asks/…` is 404; the description has `features: []` and no `asks`. The version hashes the asks
@@ -498,6 +504,24 @@ own name the version is the reference's, 25861a6db9); `GET /api/asks?state=open`
 (`[{room, message}]`, the human only); the wake's `server.line` is the bind address and the line port (never a name); and
 `chat.asks` and the limits are Dozable settings. An import (`doz chat import`) brings the `asks` table and kind `ask` across,
 closing each open ask as expired on the staged copy (nobody told, no cooldown).
+
+**Clients.** A person asks, answers, withdraws and lists open asks with `doz chat ask | decide | withdraw | asks`
+(`ChatAskCommands.swift`), and the dashboard's decision card answers (web.md, "Chat"); both send the same four HostOps
+(`chat-ask`, `chat-decide`, `chat-withdraw`, `chat-asks` — `HostCore+ChatAsks`), each one fixed call on the owner's
+socket as you: the page's post with `kind: "ask"`, `POST /api/rooms/R/messages/%23N/decide` with `X-Chat-Id` the request's
+`actionID` (a retry is a duplicate, never a second decision), the page's withdraw, `GET /api/asks?state=open`. A person's
+words become a decision by `ChatAskReply` (an option's id, its letter, its label, `decline` and a reason, or a free-text
+answer; several questions or several options at once need `--answers`); a refusal is read again — the ask's state after
+it decides — and told in Dozable's words (`ChatAskRefusal`: expired, answered, withdrawn, not one of its deciders, the
+asker, its room closed, asks off, a bad answer; the person's own words are never repeated in it). `doz chat ask --wait`
+exits 0 decided, 10 declined, 11 expired, 12 withdrawn; `doz chat read` marks an ask "ask #N · open | decided by X |
+expired | withdrawn" above its text. Dozable never speaks for an agent: a request made as one (`--as W/AGENT`) gets the
+gate's answer first (`chat.decide` only with the decider role, which `GrantDecision` adds to the roles held), and allowed,
+the daemon still refuses — an agent asks and answers with its own token, through dozchat. Dozable's client-side
+deviations: a bare number is `#N` in clients (the server still reads it as the start of a msg_id), and on the owner's
+socket `GET /agent/asks/ID` with no token is the human's look. Tests: `ChatAskReplyTests`, `ChatAskHostTests` (the real
+core behind the owner's socket: every refusal, once per action id, `%23N`, chat off), `PermissionGateTests`
+(`testAnAgentNeverAnswersThroughTheDaemon`), `make test-cli-chat` rows D1–D14.
 
 **Under the daemon.** `doz chat set NAME --role decider|none` (`chat-set` with `roles`; `--deliver` optional) records
 `roles` in `directory.json` (an older doz drops it when it rewrites the file) and the generated config writes

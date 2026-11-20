@@ -814,8 +814,19 @@ The manual's page is `docs/manual/39-space-files.md`.
   status (blocked → `waiting`, working, idle or done → `idle`, else `unknown`); attention: a blocked program (permission →
   `permission`, a question → `confirm`, sign-in → `problem`; its words `SessionStatus.label` and, for a viewer who may see
   that session, the program's own message as one line of at most 120 characters — in the sha, never in a `detail`), a
-  failed sandbox (`health`), an up that stopped at a failure (`refusal`, from the log). No chat message text, ever; the Ask
-  fields are decoded but never made before Asks arrive. `host` is this Mac's name; `run` the open run (`up`) or the last
+  failed sandbox (`health`), an up that stopped at a failure (`refusal`, from the log), and one `ask` per open ask in the
+  workspace's rooms (`SpaceStateFacts.asks`, from the same `GET /api/asks` as `chat-asks`; nil while chat is off or not
+  ready): its subject the asker's name in the file (the record agent whose name or bot is the asker), else the space; its
+  text "NAME asks a question" (never the message); `askId` (the full msg_id), `room`, `from`, `openedAt`, `expiresAt`; the
+  `question` (the one question's text, or the title) only for a viewer with `askText`; `options` the one question's labels
+  and "Decline" (`[]` for several questions or several options at once); `answerers` its deciders; `canAnswer` only with
+  `answerHere`, for one of its deciders who did not ask it (the daemon's own chat name — `SpaceStateViewer.chatName`), open,
+  someone left to decide, answerable with one string. The viewer's `askText` and `answerHere` are set by the dashboard's
+  server from the principal (`WorkspaceRequest.askTextHidden`, `asksAnsweredElsewhere`), never by a browser: this Mac's
+  browser and the CLI both; another computer the question only with `serve.chat` read or write, and never `canAnswer`.
+  The one chat text in the document is that question and those labels, live only: a frame drops them
+  (`SpaceStateFacts.dropMessages` — no question, no options, nothing answerable), and frames are not moved by an ask's
+  events (the next poke takes it). Attention is sorted with `askId` the last key. `host` is this Mac's name; `run` the open run (`up`) or the last
   one (`down`). The `sha` is sha256 of JSON.stringify's bytes of the document without `sha` and `observedAt`, in the
   editor's key order (`SpaceState.stringify`, `ordered`) — never a volatile value in the document (no "2m ago"), so the same
   facts give the same sha; `SpaceStateTests` reproduces all seven fixtures' shas. With no daemon it is answered in-process,

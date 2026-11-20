@@ -436,6 +436,29 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   agents act on — which is why the default is off: a device's cookie lasts long, and a lost phone could instruct every
   agent. Every remote write is ONE line in the serve audit log (`auditChange`, kind `change`, route `chat-<call>` from
   `WebChatRoute.label` — never a body or a value); a refusal is a `refused` line.
+- **An ask is its decision card** (`components/chat-ask.js`, drawn by `chat-messages.js` `add()` for `kind: "ask"` with a
+  readable `ask` — one without is its plain text, never Markdown): its title and reason; each question (at most 5, stacked) a
+  `fieldset` + `legend`, options lettered A–J (radios for one, checkboxes for several with the min/max hint), "Something
+  else" opening a field when the question takes words, Skip for an optional one; Answer (primary), Decline (quiet, its
+  reason inline, never a modal); a state line (`role="status"`, polite). The draft is kept per msg_id across redraws;
+  closed, only what was chosen and how it ended ("decided by Worker (decider role)", "declined by you", "expired · answer:
+  decline", "withdrawn"); read-only, no control and one line why ("Only Decbot can answer", "You asked this", "Answered in
+  this Mac's own browser"). Keyboard: Tab, the arrows in a radio group, Space, a letter key on that question's control
+  (never in a text field), Enter on Answer or ⌘/Ctrl+Enter in the card, Escape in a text field back to its option; focus on
+  the state line after sending. At 390 px the rows are 44 px. `chat-live.js` draws it again on the stream's `ask` event (the
+  draft kept; another room's: the counts read again) and previews an ask as "asks: TITLE". **The one answer path is
+  `core/asks.js`** (`answerAsk`, and `answerFromDiagram(askId, reply)` for the space diagram, which finds the room from
+  `rememberAttention(items)`; `canAnswer(m)` mirrors `ChatAskViewer.canAnswer`; `onAskChange(fn)`): the typed action
+  **`chat-decide`** (`WebAction.chatDecide`, strictly decoded by `WebChatDecide`: `room`, `ask` (`#N` or hex ≤ 36), exactly
+  one of `answers` (≤ 5 × `{questionId, options ≤ 10 ids, text ≤ 4 KiB, skipped}`), `decline` (+ `text`) or `reply` (≤ 4 KiB),
+  `actionId` (a lower-case v4 UUID — the decision's `X-Chat-Id`, so a retry is a duplicate)) — exactly the HostOp
+  `chat-decide` that `doz chat decide` sends, followed to its end (`{ok: true}` or `{refused: the end's text}`, Dozable's
+  words). **This Mac's own browser only** (`WebAction.isAsk`, `WebExposure.decideAskAction` → 403 `mac-only` whatever
+  `serve.chat` says; another computer gets the words at once, with no request). Its label is "answer ask #N in ROOM" and its
+  line "answered #N in ROOM" — the answer's text never in a label, `ui.operations.json` or `ui.log`. No route of its own.
+  `WebActionTests.testTheAskDecision`, `ServeExposureTests.testAnsweringAnAskIsThisMacsOnly`,
+  `ServeHTTPTests.testAnAskIsAnsweredOnlyInThisMacsBrowserWhateverTheServeSettings`,
+  `WebModulesTests.testTheAskCardAndItsOneAnswerPath`, `make dashboard-walk` ask 1–7.
 - **The page** (`views/chat.js`, the section `#chat`, built once): rooms (`chat-rooms.js`), the log (`chat-messages.js`:
   bubbles, tombstones, direct-message stubs with **Reveal**, change lines, older pages on scrolling up; a message's tools:
   the detail, the reactions picker on someone else's, the pencil on your own, ⋮ › Delete… on any — `confirmCheck`), the
