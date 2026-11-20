@@ -84,6 +84,13 @@ final class ControlChatProcesses: ChatProcesses, @unchecked Sendable {
                 let n = read(child, &buf, buf.count)
                 if n <= 0 { break }
                 let line = String(decoding: buf[0..<n], as: UTF8.self)
+                // The closed set the supervisor sends at every start (ChatRoomControl): answered as a server does, by its id.
+                if let v = try? ChatJSON.parse(Array(line.utf8).filter { $0 != 0x0A }), v.field("closed") != nil {
+                    let id = v.field("id")?.stringValue ?? ""
+                    let out = #"{"closed":{},"id":"\#(id)"}"# + "\n"
+                    _ = out.withCString { write(child, $0, strlen($0)) }
+                    continue
+                }
                 let a = lock.withLock { () -> Answer in requests.append(line); return answer }
                 let sha = (try? ChatJSON.parse(Array(line.utf8).filter { $0 != 0x0A }))?.field("reload")?.stringValue ?? ""
                 let out: String

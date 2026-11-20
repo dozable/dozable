@@ -80,20 +80,30 @@ public enum ChatReload {
 
     /// Serves the control channel on a thread of its own until the other end closes it. Each line is answered in order.
     public static func serve(fd: Int32, core: ChatServerCore, configPath: String, overrides: ChatConfig.Overrides, hashesPath: String,
-                             log: ChatLog) {
+                             log: ChatLog, pending: [UInt8] = []) {
         _ = fcntl(fd, F_SETFD, FD_CLOEXEC)
         let t = Thread {
-            var buf: [UInt8] = []
+            var buf: [UInt8] = pending
             var chunk = [UInt8](repeating: 0, count: 4096)
+            var first = !pending.isEmpty
             while true {
-                let n = read(fd, &chunk, chunk.count)
-                if n < 0 && errno == EINTR { continue }
-                if n <= 0 { break }
-                buf += chunk[0..<n]
+                if !first {
+                    let n = read(fd, &chunk, chunk.count)
+                    if n < 0 && errno == EINTR { continue }
+                    if n <= 0 { break }
+                    buf += chunk[0..<n]
+                }
+                first = false
                 if buf.count > 64 << 10 { log("chat: the control channel sent a line too long; closed"); break }
                 while let nl = buf.firstIndex(of: 0x0A) {
                     let line = Array(buf[..<nl])
                     buf.removeSubrange(...nl)
+                    // The closed set and a room's removal (ChatRoomControl.swift).
+                    if let v = try? ChatJSON.parse(line), v.isObject, (try? v.field("version")?.goInt("version")) == 1,
+                       v.field("reload") == nil, let other = ChatRoomControl.answer(v, core: core) {
+                        ChatRoomControl.write(fd, other)
+                        continue
+                    }
                     let out = answer(line, core: core, configPath: configPath, overrides: overrides, hashesPath: hashesPath)
                     switch out {
                     case .reloaded: log("chat: took a change of participants without a restart")

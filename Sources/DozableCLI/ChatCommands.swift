@@ -706,17 +706,47 @@ func requireRoomName(_ room: String, _ g: GlobalOptions) throws {
 }
 
 struct ChatRooms: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "rooms", abstract: "The rooms and their members.")
+    static let configuration = CommandConfiguration(commandName: "rooms", abstract: "The rooms, their state and their members.",
+        discussion: "STATE is open, closed (its workspace is finished: readable, posts refused until it is reopened) or archived (read-only). --gone lists the rooms removed for good, from their tombstones.")
     @OptionGroup var g: GlobalOptions
+    @Flag(name: .customLong("gone"), help: "The rooms removed for good: their tombstones (id, when, the archive that holds them).") var gone = false
     func run() async throws {
+        if gone {
+            let idx = try ChatRoomIndex.load(ChatPaths(store: g.dozableStore))
+            if g.json { Out.json(idx.tombstones); return }
+            if idx.tombstones.isEmpty { Out.stdout("no room was removed for good\n"); return }
+            var t = [["ROOM", "ID", "REMOVED", "OWNER", "ARCHIVE"]]
+            let f = ISO8601DateFormatter()
+            for x in idx.tombstones { t.append([x.name, x.id, f.string(from: x.deletedAt), x.owner ?? "—", (x.run.map { "run \($0): " } ?? "") + x.archive]) }
+            Out.stdout(Out.table(t))
+            return
+        }
         let s = try chatState(try chatOwner(g), g)
+        let closed = roomClosedSet(g)
         if g.json { Out.json(s.rooms); return }
-        for r in s.rooms.keys.sorted() { Out.stdout("\(r) — \(s.rooms[r]!.joined(separator: ", "))\n") }
+        var t = [["ROOM", "STATE", "MEMBERS"]]
+        for r in s.rooms.keys.sorted() {
+            let state = RoomState.derive(exists: true, archived: s.archived.contains(r), closedBy: closed[r], tombstone: false)
+            t.append([r, state.rawValue, s.rooms[r]!.joined(separator: ", ")])
+        }
+        Out.stdout(Out.table(t))
     }
 }
 
+/// The closed set as the records say it (read in-process; the chat server holds the same, sent by the daemon).
+func roomClosedSet(_ g: GlobalOptions) -> [String: String] {
+    let ws = WorkspaceStore(store: g.dozableStore)
+    return WorkspaceRuns.closedSet(ws.records()) { rec, room in room.owned ?? WorkspaceRuns.owned(room, log: (try? ws.log(rec.name)) ?? []) }
+}
+
 struct ChatRoom: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "room", abstract: "Make a room with these members (and you).",
+    static let configuration = CommandConfiguration(commandName: "room", abstract: "Make a room with these members (and you); archive or remove one.",
+        discussion: "Example: doz chat room room1 @bot1 @bot2. Add someone later by sending /invite @NAME in the room (doz chat send room1 \"/invite @bot2\"). doz chat room archive R and doz chat room rm R put a room away and remove it for good.",
+        subcommands: [ChatRoomMake.self, ChatRoomArchiveCommand.self, ChatRoomRmCommand.self], defaultSubcommand: ChatRoomMake.self)
+}
+
+struct ChatRoomMake: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "make", abstract: "Make a room with these members (and you) — doz chat room NAME @MEMBER… does the same.",
         discussion: "Example: doz chat room room1 @bot1 @bot2. Add someone later by sending /invite @NAME in the room (doz chat send room1 \"/invite @bot2\").")
     @Argument(help: "The room's name: lower-case letters, digits, - and _.") var name: String
     @Argument(help: "Its members, each @NAME (or NAME).") var members: [String] = []

@@ -39,6 +39,7 @@ extension ChatServerCore {
         if isArchived(room) {
             return .failure(ChatAPIError(status: 422, description: "room \(room) is archived: its messages cannot be \(verb). A human can reopen it with /unarchive"))
         }
+        if let no = closedRefusal(room) { return .failure(ChatAPIError(status: 422, description: no.detail, reason: no.reason)) }
         return .success(st)
     }
 
@@ -76,11 +77,11 @@ extension ChatServerCore {
         var room = room
         let st: ChatRoomStore, m: ChatStored
         switch changeGate(&room, sender, "edited") {
-        case .failure(let e): return .refused(e.description)
+        case .failure(let e): return e.receipt
         case .success(let s): st = s
         }
         switch changeTarget(st, room, sender, ref) {
-        case .failure(let e): return .refused(e.description)
+        case .failure(let e): return e.receipt
         case .success(let x): m = x
         }
         if m.from != sender { return .refused("only \(m.from) can edit that message") }
@@ -109,11 +110,11 @@ extension ChatServerCore {
         var room = room
         let st: ChatRoomStore, m: ChatStored
         switch changeGate(&room, who, "deleted") {
-        case .failure(let e): return .refused(e.description)
+        case .failure(let e): return e.receipt
         case .success(let s): st = s
         }
         switch changeTarget(st, room, who, ref) {
-        case .failure(let e): return .refused(e.description)
+        case .failure(let e): return e.receipt
         case .success(let x): m = x
         }
         if m.from != who && !isHuman(who) { return .refused("only \(m.from) or a human can delete that message") }

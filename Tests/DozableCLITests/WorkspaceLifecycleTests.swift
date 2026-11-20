@@ -137,10 +137,26 @@ final class WorkspaceLifecycleTests: XCTestCase {
         XCTAssertEqual(row(p, "mira")?.after, "ended, its conversation kept")
         XCTAssertEqual(row(p, "bot2")?.after, "ended, its conversation kept; its token file deleted")
         XCTAssertEqual(row(p, "far")?.after, "untouched; stays in the room")
-        XCTAssertTrue(p.keeps.contains { $0.text.contains("you can still write") })
+        // 0.52.15 (the owner's decision): finish closes the room it made — it was "you can still write" in 0.52.12.
+        XCTAssertTrue(p.keeps.contains { $0.text.contains("members can read") })
         XCTAssertTrue(p.keeps.contains { $0.text == "every token (reopen works)" })
-        XCTAssertTrue(p.goes.isEmpty, "nothing goes at a finish")
+        XCTAssertEqual(p.rooms?.first?.after, "linked: not closed", "a room it does not own is not closed")
+        XCTAssertTrue(p.goes.isEmpty, "nothing goes at a finish when no room is its own")
         XCTAssertTrue(p.commands.contains("doz shutdown demo-otto"))
+        // Its own room: closed, the owner's line verbatim, and the sha covers it.
+        var f = L.Facts(agents: running(), chat: .ready, home: "/Users/ada", store: "/Users/ada/doz-store")
+        f.ownedRooms = ["demo"]
+        let owned = L.plan(verb: .finish, record: record(), state: "working", facts: f, options: L.Options())
+        XCTAssertEqual(owned.rooms?.first, WorkspaceLifecycleRoomRow(room: "demo", label: "main", owned: true,
+                                                                     after: "closed: members can read it, posts refused (space-down)"))
+        XCTAssertTrue(owned.notes.contains("finish closes the room to new messages until you reopen"))
+        XCTAssertTrue(owned.goes.contains { $0.text.contains("closed until you reopen") })
+        XCTAssertNotEqual(owned.sha, p.sha)
+        // --no-archive is part of the command and the sha.
+        let off = plan(.finish, options: L.Options(noArchive: true))
+        XCTAssertTrue(off.command.hasSuffix("--no-archive"))
+        XCTAssertEqual(off.archive?.off, true)
+        XCTAssertNotEqual(off.sha, p.sha)
     }
 
     func testReopenAndRestore() {
@@ -202,7 +218,7 @@ final class WorkspaceLifecycleTests: XCTestCase {
         XCTAssertEqual(row(p, "far")?.after, "untouched; stays in the room")
         XCTAssertTrue(p.keeps.contains { $0.text == "every folder, untouched" })
         XCTAssertFalse(p.goes.contains { $0.path != nil }, "no folder goes without --bin-folders")
-        XCTAssertTrue(p.notes.contains { $0.contains("cannot delete a room") })
+        XCTAssertTrue(p.notes.contains { $0.contains("doz chat room rm R removes a room for good") })
         // While anything runs: refused, naming them; not finished: refused.
         var g = f
         g["lab"]?.now = .running

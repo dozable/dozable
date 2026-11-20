@@ -166,7 +166,14 @@ public final class HostServer: @unchecked Sendable {
                 let st = try await server.chat.sync(human: nil, retry: false, waitReady: true, blocked: await server.chatBlocked())
                 return st.ready ? .ready : .notReady(st.problem ?? st.state)
             } catch { return .notReady(HostError.from(error).message) }
-        }, owner: ChatOwnerRooms(client: ChatOwnerClient(paths: server.chat.paths))))
+        }, owner: ChatOwnerRooms(client: ChatOwnerClient(paths: server.chat.paths)),
+           closed: { [weak server] set in await server?.chat.setClosed(set, reasons: DozableSettings.load().bool(SettingKey.chatRefusalReasons)) },
+           remove: { [weak server] room, id, last in
+               guard let server else { throw HostError(.unavailable, "the daemon is stopping") }
+               try await server.chat.removeRoom(room, id: id, lastSeq: last)
+           }))
+        // The closed set, worked out from the records, handed to the chat server (kept for its every start).
+        Task.detached { await server.core.pushClosedSet() }
         // The bots change the chat server's participants through the supervisor (its one writer of directory.json and
         // tokens.json); their tokens' keychain items of no bot are swept once (never in the read-only core).
         await server.core.setBotChat(SupervisorBotChat(supervisor: server.chat, blocked: { [weak server] in await server?.chatBlocked() ?? true }))

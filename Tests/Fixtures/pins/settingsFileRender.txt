@@ -312,6 +312,12 @@
 # (Tailscale addresses like 100.100.1.2, comma-separated, each one exactly ("" = none); applies at once (the UI re-reads it))
 # remote_agents = ""
 
+# Give a refused post its reason as an extra field (reason: space-down when the room's workspace
+# is finished), beside the refusal the chat server always gives. Off by default: clients made for
+# the reference never see it.
+# (boolean; applies at once (the UI re-reads it))
+# refusal_reasons = false
+
 [daemon]
 
 # Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once

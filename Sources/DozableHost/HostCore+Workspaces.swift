@@ -54,7 +54,19 @@ public enum WorkspaceChatReadiness: Equatable, Sendable {
 public struct OwnerWorkspaceChat: WorkspaceChat {
     let ready: @Sendable () async -> WorkspaceChatReadiness
     let owner: ChatOwnerRooms
-    public init(ready: @escaping @Sendable () async -> WorkspaceChatReadiness, owner: ChatOwnerRooms) { self.ready = ready; self.owner = owner }
+    /// The supervisor's control channel: the closed set, a room's removal.
+    let closed: (@Sendable ([String: String]) async -> [String: Int64]?)?
+    let remove: (@Sendable (String, String, Int64) async throws -> Void)?
+    public init(ready: @escaping @Sendable () async -> WorkspaceChatReadiness, owner: ChatOwnerRooms,
+                closed: (@Sendable ([String: String]) async -> [String: Int64]?)? = nil,
+                remove: (@Sendable (String, String, Int64) async throws -> Void)? = nil) {
+        self.ready = ready; self.owner = owner; self.closed = closed; self.remove = remove
+    }
+    public func setClosed(_ rooms: [String: String]) async throws -> [String: Int64]? { await closed?(rooms) }
+    public func removeRoom(_ room: String, id: String, lastSeq: Int64) async throws {
+        guard let remove else { throw HostError(.notImplemented, "this chat cannot remove a room") }
+        try await remove(room, id, lastSeq)
+    }
     public func readiness() async -> WorkspaceChatReadiness { await ready() }
     public func rooms() throws -> Set<String> { Set(try owner.state().rooms.keys) }
     public func makeRoom(_ name: String) throws {
@@ -122,6 +134,8 @@ extension HostCore {
             return try JSONValue(encoding: try await workspaceLifecyclePlan(w))
         case .workspaceRuns:
             return try JSONValue(encoding: try workspaceRuns(w))
+        case .workspaceRunChat:
+            return try JSONValue(encoding: try workspaceRunChat(w))
         default:
             break
         }

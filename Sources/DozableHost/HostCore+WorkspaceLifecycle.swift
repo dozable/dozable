@@ -135,6 +135,7 @@ extension HostCore {
             f.foldersInUse[WorkspaceStore.resolved(folder)] = "the sandbox \(m.name)"
         }
         f.imagesTaken = Set(store.layout("_").customImages().map(\.name)).union(DozableImages.builtIn)
+        f.ownedRooms = Set(ownedRooms(rec))
         return f
     }
 
@@ -574,9 +575,12 @@ extension HostCore {
         // A sandbox agent's conversations and screen, copied out while its VM still runs.
         let current = rec.openRun ?? WorkspaceRuns.legacyRun(rec)
         let pre = o.noArchive || current == nil ? RunPreStop() : await gatherBeforeStop(rec, current!)
+        // 1. Its own rooms closed to new messages first: the close's answer is each room's last seq, taken under the chat
+        // server's lock — the run's end marker.
+        let toSeq = await closeOwnedRooms(rec)
         let results = await stopEverything(rec, plan)
         if let failed = Self.lifecycleFailure(n, "stop", results) { throw failed }
-        let closed = try await closeRun(n, by: "finish", toSeq: await roomLastSeqs(rec), noArchive: o.noArchive)
+        let closed = try await closeRun(n, by: "finish", toSeq: toSeq, noArchive: o.noArchive)
         let archive = await archiveClosedRun(n, closed, plan: plan, pre: pre, noArchive: o.noArchive)
         _ = try await workspaceUpdate(n) { r in
             r.flags.finishedAt = Date()
@@ -589,6 +593,24 @@ extension HostCore {
                                  workspace: await workspaceDetail(try workspaceRecord(n), withBrief: false))
         c.run = closed?.id; c.archive = archive.path; c.archiveSHA256 = archive.sha; c.archiveProblem = archive.problem
         return c
+    }
+
+    /// Finish's first step: the workspace's own rooms closed (the closed set with them), each room's last seq as the chat
+    /// server took it under its lock; a linked room is not closed — its last seq is read as it is. Each closed room logged.
+    func closeOwnedRooms(_ rec: WorkspaceRecord) async -> [String: Int64] {
+        let n = rec.name
+        let owned = ownedRooms(rec)
+        var toSeq = await roomLastSeqs(rec)
+        guard !owned.isEmpty else { return toSeq }
+        var extra: [String: String] = [:]
+        for r in owned { extra[r] = n }
+        if let seqs = await pushClosedSet(extra: extra) {
+            for r in owned { if let s = seqs[r] { toSeq[r] = s } }
+            for r in owned { try? workspaces.append(n, WorkspaceLogEntry(action: "room-closed", room: r)) }
+        } else {
+            for r in owned { try? workspaces.append(n, WorkspaceLogEntry(action: "room-closed", room: r, reason: "the chat server takes it at its next start")) }
+        }
+        return toSeq
     }
 
     /// The closed run's archive written (unless `noArchive`): what was gathered before the stop and what is read now. A
@@ -650,7 +672,11 @@ extension HostCore {
             r.flags.reopenedAt = Date()
             return [WorkspaceLogEntry(action: "reopened")]
         }
-        // A new run opens: each room's last seq now is its start marker.
+        // Its rooms open to new messages again (the closed set without them), then a new run opens: each room's last seq
+        // now is its start marker.
+        if await pushClosedSet() != nil {
+            for room in ownedRooms(rec) { try? workspaces.append(n, WorkspaceLogEntry(action: "room-opened", room: room)) }
+        }
         try await openRun(n)
         let r = try workspaceRecord(n)
         note(nil, "workspace \(n): reopened")
@@ -670,7 +696,7 @@ extension HostCore {
         var archive: (path: String?, sha: String?, problem: String?, notes: [String]) = (nil, nil, nil, [])
         var closedRun: WorkspaceRun?
         if rec.flags.finishedAt == nil {
-            closedRun = try await closeRun(n, by: "archive", toSeq: await roomLastSeqs(rec), noArchive: o.noArchive)
+            closedRun = try await closeRun(n, by: "archive", toSeq: await closeOwnedRooms(rec), noArchive: o.noArchive)
             archive = await archiveClosedRun(n, closedRun, plan: plan, pre: pre, noArchive: o.noArchive)
         }
         // The rooms, read-only from now on (their history kept) — as you.
@@ -702,6 +728,7 @@ extension HostCore {
         if !removed.isEmpty { notes.append("removed: \(removed.joined(separator: ", "))" + (templates.isEmpty ? "" : " — templates kept: " + templates.values.sorted().joined(separator: ", "))) }
         notes.append("doz workspace restore \(n) brings it back, finished")
         notes += archive.notes
+        await pushClosedSet()
         note(nil, "workspace \(n): archived (\(archivedRooms.count) room\(archivedRooms.count == 1 ? "" : "s"), \(removed.count) sandbox\(removed.count == 1 ? "" : "es") removed)")
         var c = WorkspaceChanged(name: n, verb: "archive", results: results, templates: templates.isEmpty ? nil : templates, notes: notes,
                                  workspace: await workspaceDetail(r, withBrief: false))
@@ -808,6 +835,10 @@ extension HostCore {
             return [WorkspaceLogEntry(action: "restored")]
         }
         notes.append("it is finished: doz workspace reopen \(n), then wake, to work on it again")
+        // Its rooms are closed again (finished): readable, posts refused until it is reopened.
+        if r.runs.last.map({ !$0.isOpen }) == true, !ownedRooms(r).isEmpty, await pushClosedSet() != nil {
+            notes.append("its rooms read closed: doz workspace reopen \(n) opens them to new messages")
+        }
         note(nil, "workspace \(n): restored (finished)")
         return WorkspaceChanged(name: n, verb: "restore", results: [], notes: notes, workspace: await workspaceDetail(r, withBrief: false))
     }
@@ -861,6 +892,7 @@ extension HostCore {
         await workspaceGate.lock("workspaces")
         defer { workspaceGate.unlock("workspaces") }
         try workspaces.remove(n)
+        Task { await self.pushClosedSet() }
         let released = rec.agents.filter { !$0.isManager && !$0.isWorker && $0.place.key != nil }.map { $0.place.display }
         HostLog.line("workspaces: \(n) deleted (\(rec.agents.count) agent\(rec.agents.count == 1 ? "" : "s"), \(released.count) released loose, \(removed.count) sandbox\(removed.count == 1 ? "" : "es") removed, \(binned.count) folder\(binned.count == 1 ? "" : "s") to the Bin)")
         if !released.isEmpty { notes.append("loose again: \(released.joined(separator: ", "))") }

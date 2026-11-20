@@ -185,6 +185,42 @@ public enum RunArchive {
         return (manifest, msha)
     }
 
+    /// A room's whole history archived (`doz chat room archive`): `chat/<room>.jsonl`, its attachments and `manifest.json`,
+    /// swept, swept again, verified and put in place. Answers the manifest, its sha256 and the folder relative to the store.
+    public static func writeRoom(room: String, id: String, owner: String?, messages ms: [JValue], store: DozableStore, sweep: ExportSweep,
+                                 fetch: @escaping ChatExport.Fetch) throws -> (manifest: Manifest, sha256: String, path: String) {
+        let place = try RunArchiveFolder(store: store, owner: owner, room: room, id: id)
+        do {
+            let folder = place.folder
+            let w = try ChatExport.writeMessages(ms, room: room, jsonl: "chat/\(room).jsonl", attachments: "attachments/\(room)", into: folder,
+                                                 sweep: sweep, fetch: fetch)
+            let files = w.files.map { File(path: $0.path, sha256: $0.sha256, bytes: $0.bytes) }
+            var second = 0
+            for f in files {
+                let back = try folder.read(f.path)
+                guard sha(back) == f.sha256 else { throw HostError(.failed, "\(f.path) changed while the archive was written") }
+                second += sweep.clean(back, file: f.path).findings.count
+            }
+            if second > 0 { throw HostError(.failed, "the archive's second sweep found \(second) secret\(second == 1 ? "" : "s") — it was not kept") }
+            let at = ms.compactMap { $0.field("at")?.doubleValue }
+            let window = RunWindow(from: Date(timeIntervalSince1970: at.min() ?? Date().timeIntervalSince1970),
+                                   to: Date(timeIntervalSince1970: at.max() ?? Date().timeIntervalSince1970))
+            let lastSeq = ms.compactMap { (try? $0.field("seq")?.goInt("seq")) ?? nil }.max() ?? 0
+            let m = Manifest(run: "room", workspace: owner ?? "_", window: window, versions: [:], rooms: [room: id], labels: [:],
+                             notes: ["the room's whole history, up to its last message \(lastSeq)"],
+                             sweep: Sweep(at: Date(), findings: w.findings, redacted: w.findings.count), files: files.sorted { $0.path < $1.path },
+                             messages: [room: ms.count])
+            let msha = try folder.write("manifest.json", Array(try HostWire.prettyEncoder.encode(m)) + [0x0A])
+            let check = verify(folder)
+            guard check.problems.isEmpty else { throw HostError(.failed, "the archive did not verify: " + check.problems.prefix(3).joined(separator: "; ")) }
+            try place.finish()
+            return (m, msha, "archives/\(owner ?? "_")/rooms/\(room)-\(id)")
+        } catch {
+            place.discard()
+            throw error
+        }
+    }
+
     public static func sha(_ b: [UInt8]) -> String { SHA256.hash(data: b).map { String(format: "%02x", $0) }.joined() }
 
     public struct Verified: Equatable, Sendable {
@@ -221,13 +257,24 @@ final class RunArchiveFolder {
     let folder: ExportFolder
     private var done = false
 
-    init(store: DozableStore, workspace: String, run: String) throws {
+    convenience init(store: DozableStore, workspace: String, run: String) throws {
         try WorkspaceName.validate(workspace)
         guard WorkspaceRuns.isValidID(run) else { throw HostError(.invalid, "\(run) is not a run's id") }
+        try self.init(store: store, parts: [workspace, "runs"], name: run, what: "run \(run)")
+    }
+
+    /// A room's archive: `<store>/archives/<owner, or _ for a loose room>/rooms/<room>-<id>/`.
+    convenience init(store: DozableStore, owner: String?, room: String, id: String) throws {
+        if let owner { try WorkspaceName.validate(owner) }
+        guard chatIsRoomName(room), ChatRoomIndex.isID(id) else { throw HostError(.invalid, "\(room) is not a room's name") }
+        try self.init(store: store, parts: [owner ?? "_", "rooms"], name: room + "-" + id, what: "the room \(room)")
+    }
+
+    init(store: DozableStore, parts: [String], name run: String, what: String) throws {
         let root = WorkspaceStore.resolved(store.root.path)
         var dir = open(root, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard dir >= 0 else { throw HostError(.failed, "the store cannot be opened: \(String(cString: strerror(errno)))") }
-        for p in ["archives", workspace, "runs"] {
+        for p in ["archives"] + parts {
             if mkdirat(dir, p, 0o700) != 0 && errno != EEXIST { let e = errno; close(dir); throw HostError(.failed, "archives: \(String(cString: strerror(e)))") }
             let next = openat(dir, p, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             close(dir)
@@ -242,7 +289,7 @@ final class RunArchiveFolder {
         var st = stat()
         if fstatat(dir, run, &st, AT_SYMLINK_NOFOLLOW) == 0 {
             close(dir)
-            throw HostError(.exists, "the archive of run \(run) is written already")
+            throw HostError(.exists, "the archive of \(what) is written already")
         }
         // A partial left by an earlier attempt is Dozable's own: removed.
         if fstatat(dir, run + ".partial", &st, AT_SYMLINK_NOFOLLOW) == 0 { Self.removeTree(dir, run + ".partial") }
@@ -251,7 +298,7 @@ final class RunArchiveFolder {
         }
         let p = openat(dir, run + ".partial", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard p >= 0 else { close(dir); throw HostError(.failed, "the archive of run \(run) cannot be opened") }
-        folder = ExportFolder(adopting: p, path: root + "/archives/\(workspace)/runs/\(run).partial")
+        folder = ExportFolder(adopting: p, path: root + "/archives/" + parts.joined(separator: "/") + "/\(run).partial")
     }
 
     deinit { close(runsFD) }

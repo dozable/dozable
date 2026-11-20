@@ -44,6 +44,8 @@ public enum WorkspaceVerb: String, Codable, CaseIterable, Sendable {
 
 public enum WorkspaceLifecycle {
     public enum Confirm: String, Codable, Sendable { case none, yes, typed }
+    /// The finish plan's line when it closes a room (verbatim, the owner's words).
+    public static let closesNote = "finish closes the room to new messages until you reopen"
 
     /// What the plan knows of one agent's place now.
     public struct AgentFacts: Equatable, Sendable {
@@ -100,6 +102,8 @@ public enum WorkspaceLifecycle {
         public var imagesTaken: Set<String>
         /// Finish (and archive of a workspace not finished): what the run's archive would hold (nil: not looked at).
         public var archive: ArchiveFacts?
+        /// The rooms the workspace made (owns): only these are closed at finish (nil: as the record says).
+        public var ownedRooms: Set<String>?
         public init(known: Bool = true, agents: [String: AgentFacts] = [:], chat: Chat = .ready, width: Int = 3, busy: Bool = false,
                     home: String = "/Users/nobody", store: String = "/tmp/store", foldersInUse: [String: String] = [:], imagesTaken: Set<String> = []) {
             self.known = known; self.agents = agents; self.chat = chat; self.width = width; self.busy = busy; self.home = home; self.store = store
@@ -196,6 +200,7 @@ public enum WorkspaceLifecycle {
             }
         }
         var rows: [WorkspaceLifecycleRow] = []
+        var roomRows: [WorkspaceLifecycleRoomRow] = []
         var commands: [String] = []
         var notes: [String] = []
         var keeps: [WorkspaceLifecycleItem] = []
@@ -352,11 +357,25 @@ public enum WorkspaceLifecycle {
         case .wake:
             keeps = [.init("the brief is not posted again")]
         case .finish:
-            keeps = [.init(rec.rooms.isEmpty ? "no room" : "the room\(rec.rooms.count == 1 ? "" : "s") \(roomList) — you can still write"),
+            keeps = [.init(rec.rooms.isEmpty ? "no room" : "the room\(rec.rooms.count == 1 ? "" : "s") \(roomList) and \(rec.rooms.count == 1 ? "its" : "their") history — members can read"),
                      .init("every token (reopen works)"), .init("every disk and conversation"), .init("every folder, untouched")]
+            var closes = false
+            for room in rec.rooms where room.goneAt == nil {
+                let owned = facts.ownedRooms?.contains(room.chatRoom) ?? (room.owned == true)
+                roomRows.append(WorkspaceLifecycleRoomRow(room: room.chatRoom, label: room.label, owned: owned,
+                                                          after: owned ? "closed: members can read it, posts refused (space-down)" : "linked: not closed"))
+                if owned { closes = true }
+            }
+            if closes {
+                goes.append(.init("new messages in \(roomRows.filter(\.owned).map { "#" + $0.room }.joined(separator: ", ")) (closed until you reopen)"))
+                notes.append(WorkspaceLifecycle.closesNote)
+            }
             notes.append("nothing runs afterwards; doz workspace reopen \(n), then wake, to work on it again")
         case .reopen:
             keeps = [.init("everything as it was finished")]
+            if rec.runs.last.map({ !$0.isOpen }) == true, !(facts.ownedRooms ?? []).isEmpty {
+                notes.append("its rooms open to new messages again, and a new run begins")
+            }
             notes.append("nothing runs yet: doz workspace wake \(n) brings its agents back")
         case .archive:
             keeps = [.init(rec.rooms.isEmpty ? "no room" : "the history and files of \(roomList) (read-only)"), .init("the brief, its log and the conversations"),
@@ -397,7 +416,8 @@ public enum WorkspaceLifecycle {
             }
             if !running.isEmpty { refuse(.invalidPhase, "\(running.joined(separator: ", ")) still run\(running.count == 1 ? "s" : "") — doz workspace finish \(n) stops \(running.count == 1 ? "it" : "them") first") }
             if !rec.rooms.isEmpty, facts.chat != .ready, rec.flags.archivedAt == nil { notes.append("chat is not running: its rooms stay as they are") }
-            notes.append("the chat server cannot delete a room: its rooms stay, archived, with their history")
+            notes.append("its rooms stay, archived, with their history — doz chat room rm R removes a room for good")
+            if !rec.runs.isEmpty { keeps.append(.init("its run archives (\(rec.runs.filter { $0.archive != nil }.count)) in the store")) }
         }
         // The run's evidence archive: what it will hold, and what would keep it from being written.
         var archivePlan: WorkspaceArchivePlan?
@@ -449,6 +469,7 @@ public enum WorkspaceLifecycle {
         p.factsKnown = facts.known
         p.templates = templates.isEmpty ? nil : templates
         p.archive = archivePlan
+        p.rooms = roomRows.isEmpty ? nil : roomRows
         p.sha = sha(p, options: o)
         return p
     }
@@ -511,6 +532,7 @@ public enum WorkspaceLifecycle {
         parts += p.rows.sorted { $0.name < $1.name }.map { [$0.name, $0.role, $0.place, $0.isolation, $0.now, $0.after, $0.changes ? "1" : "0"].joined(separator: "\u{1F}") }
         parts += p.goes.map { $0.text + ($0.path ?? "") }.sorted()
         parts += p.refusals.sorted()
+        parts += (p.rooms ?? []).map { "room:\($0.room):\($0.after)" }
         // The archive's shape — never its counts or sizes, which move by themselves.
         if let a = p.archive {
             parts += ["archive", a.off ? "off" : "on", a.path ?? "", a.rooms.map(\.room).joined(separator: ","),
@@ -587,6 +609,8 @@ public struct WorkspaceLifecyclePlan: Codable, Equatable, Sendable {
     public var templates: [String: String]?
     /// Finish (and archive of a workspace not finished): the run's evidence archive. Additive.
     public var archive: WorkspaceArchivePlan?
+    /// Finish: each room and what becomes of it (an owned room is closed, a linked one is not). Additive.
+    public var rooms: [WorkspaceLifecycleRoomRow]?
     /// The plan's identity: a verb sent with `ifPlan` is refused when the plan it builds has another.
     public var sha = ""
     public init(workspace: String, verb: String, state: String) { self.workspace = workspace; self.verb = verb; self.state = state }
@@ -607,4 +631,13 @@ public struct WorkspaceArchivePlan: Codable, Equatable, Sendable {
     public var screens: [String] = []
     public var estimateBytes: Int64?
     public init(off: Bool) { self.off = off }
+}
+
+/// A room in a finish's plan: what becomes of it.
+public struct WorkspaceLifecycleRoomRow: Codable, Equatable, Sendable {
+    public var room: String
+    public var label: String
+    public var owned: Bool
+    public var after: String
+    public init(room: String, label: String, owned: Bool, after: String) { self.room = room; self.label = label; self.owned = owned; self.after = after }
 }

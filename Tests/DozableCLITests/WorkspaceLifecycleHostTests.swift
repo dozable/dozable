@@ -65,6 +65,16 @@ final class WorkspaceLifecycleHostTests: BotTestCase {
                 return out
             }
         }
+        func removeRoom(_ room: String, id: String, lastSeq: Int64) async throws {
+            try lock.withLock {
+                guard (seqs[room] ?? 0) == lastSeq else { throw HostError(.invalidPhase, "the room \(room) changed since it was archived") }
+                removed.append((room, id, lastSeq))
+                roomSet.remove(room)
+                archived.remove(room)
+                msgs[room] = nil
+                seqs[room] = nil
+            }
+        }
         /// Someone else posted (a worker): the room's seq moves.
         func otherPost(_ room: String, _ content: String = "from bot1") { add(room, from: "bot1", content) }
         func invite(room: String, name: String) throws -> Bool { true }

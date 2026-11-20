@@ -298,6 +298,18 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// A closed run's archive written again (`WorkspaceRequest.run`) — when it could not be written at its finish
     /// (`WorkspaceChanged`'s `archive` or `archiveProblem`). The daemon's.
     case workspaceRunArchive = "workspace-run-archive"
+    /// One room's messages of a closed run, from its archive's files — verified first (`WorkspaceRunChat`; `WorkspaceRequest`:
+    /// `run`, `room`, `before`, `limit`), and the run's timesheet. Never a conversation or a screen. Only reads.
+    case workspaceRunChat = "workspace-run-chat"
+    /// A room's archive or removal looked at first (`chatRoom`: `room`, `verb` archive | rm, `loose`) — `ChatRoomPlan`: its
+    /// owner, state, last seq, archive copy and every refusal. Only reads: in-process when no daemon runs (the last seq then
+    /// "not known"). Owner-only operations: never a slash command or a protocol message.
+    case chatRoomPlan = "chat-room-plan"
+    /// The room's whole history archived into the store (swept, verified), then `/archive` as you (`chatRoom`: `ifPlan`).
+    case chatRoomArchive = "chat-room-archive"
+    /// The room removed for good, after its archived copy is hash-checked (`chatRoom`: `ifPlan`, `confirm` = the name typed,
+    /// `loose`); a tombstone is kept. Through the chat server's control channel — it keeps running.
+    case chatRoomRm = "chat-room-rm"
     /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
     /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
     /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),
@@ -323,7 +335,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .botList, .botShow, .workerList, .workerPlan, .macsList: true
+             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .macsList: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -594,6 +606,9 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// `session-forget`: these sessions (with `session`, or alone), or `forgetEnded` every ended or gone one.
     public var sessions: [String]?
     public var forgetEnded: Bool?
+    /// `session-forget`: also discard the session's conversations, each only where its sha256 is still the one a closed
+    /// run's verified archive holds (`TranscriptDiscard`). Additive.
+    public var discardTranscripts: Bool?
     /// `session-end` from the dashboard: end a RUNNING session only — one that is not running is refused, never forgotten
     /// (forgetting is this Mac's own browser's `mac-session-forget`). nil: the CLI's end (a second end forgets).
     public var onlyRunning: Bool?
@@ -635,6 +650,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var botRequest: BotRequest?
     /// The `worker-*` operations' arguments.
     public var workerRequest: WorkerRequest?
+    /// `chat-room-plan`, `chat-room-archive`, `chat-room-rm`: the room and how it is confirmed.
+    public var chatRoom: ChatRoomRequest?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -1757,6 +1774,8 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var run: String?
     /// finish, archive: no evidence archive is written (`--no-archive`). Additive.
     public var noArchive: Bool?
+    /// run-chat: the room of the run. Additive.
+    public var runRoom: String?
 
     public init(name: String? = nil) { self.name = name }
 }
@@ -2155,4 +2174,80 @@ public struct WorkerEnded: Codable, Equatable, Sendable {
     public init(workspace: String, name: String, removed: Bool, notes: [String]?) {
         self.workspace = workspace; self.name = name; self.removed = removed; self.notes = notes
     }
+}
+
+/// `chat-room-*`'s arguments.
+public struct ChatRoomRequest: Codable, Equatable, Sendable {
+    public var room: String
+    /// plan: `archive` or `rm`.
+    public var verb: String?
+    /// The plan's sha as the person saw it: changed since → refused, nothing done.
+    public var ifPlan: String?
+    /// rm: the name as the person typed it (the daemon checks it).
+    public var confirm: String?
+    /// A room no workspace owns or links (the CLI only).
+    public var loose: Bool?
+    public init(room: String, verb: String? = nil) { self.room = room; self.verb = verb }
+}
+
+/// What archiving or removing a room would do, and everything that keeps it from being done.
+public struct ChatRoomPlan: Codable, Equatable, Sendable {
+    public var room: String
+    public var verb: String
+    public var id: String?
+    /// `open`, `closed`, `archived`, `gone` (`RoomState`).
+    public var state: String
+    /// The workspace that made it (nil: none — a loose room).
+    public var owner: String?
+    /// Workspaces that link it (never removed while one does).
+    public var linkedBy: [String] = []
+    /// Its newest seq (nil: not known — no daemon, or chat not ready).
+    public var lastSeq: Int64?
+    public var messages: Int?
+    /// Where its archive goes (archive) or the copy rm relies on: relative to the store, and whether it verifies now.
+    public var archive: String?
+    public var archiveVerified: Bool?
+    /// The run whose archive covers it (rm, when that is the copy).
+    public var run: String?
+    public var refusals: [String] = []
+    public var refusalCode: String?
+    /// `yes` (archive) or `typed` (rm: the name).
+    public var confirm: String
+    public var confirmName: String?
+    public var notes: [String] = []
+    public var command: String
+    public var sha: String = ""
+    public init(room: String, verb: String, state: String, confirm: String, command: String) {
+        self.room = room; self.verb = verb; self.state = state; self.confirm = confirm; self.command = command
+    }
+}
+
+/// `chat-room-archive` / `chat-room-rm`'s answer.
+public struct ChatRoomChanged: Codable, Equatable, Sendable {
+    public var room: String
+    public var verb: String
+    public var id: String?
+    public var archive: String?
+    public var tombstone: ChatRoomIndex.Tombstone?
+    public var notes: [String] = []
+    public init(room: String, verb: String) { self.room = room; self.verb = verb }
+}
+
+/// `workspace-run-chat`'s answer: one room's archived messages of a run (oldest first; at most `limit` ending before
+/// `before`), and its timesheet.
+public struct WorkspaceRunChat: Codable, Equatable, Sendable {
+    public struct Message: Codable, Equatable, Sendable {
+        public var seq: Int64
+        public var from: String
+        public var content: String
+        public var at: Double?
+        /// A recorded change (an archive line, a join); empty: an ordinary message.
+        public var kind: String?
+    }
+    public var workspace: String
+    public var run: String
+    public var room: String
+    public var messages: [Message]
+    public var more: Bool
+    public var timesheet: String?
 }

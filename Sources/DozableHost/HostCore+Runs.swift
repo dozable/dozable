@@ -340,3 +340,65 @@ extension HostCore {
         }
     }
 }
+
+// MARK: the closed set
+
+extension HostCore {
+    /// The rooms `rec` owns (made them), by the record or its log.
+    func ownedRooms(_ rec: WorkspaceRecord) -> [String] {
+        let log = (try? workspaces.log(rec.name)) ?? []
+        return rec.rooms.filter { $0.goneAt == nil && WorkspaceRuns.owned($0, log: log) }.map(\.chatRoom)
+    }
+
+    /// The closed set worked out from the records (`WorkspaceRuns.closedSet`), plus `extra`, handed to the chat server (the
+    /// whole set, every time). Answers each room's last seq as the server took it (nil: no server took it now — it is handed
+    /// over at its start).
+    @discardableResult
+    func pushClosedSet(extra: [String: String] = [:]) async -> [String: Int64]? {
+        guard !readOnly, let chat = workspaceChat else { return nil }
+        var logs: [String: [WorkspaceLogEntry]] = [:]
+        var set = WorkspaceRuns.closedSet(workspaces.records()) { rec, room in
+            if let o = room.owned { return o }
+            if logs[rec.name] == nil { logs[rec.name] = (try? self.workspaces.log(rec.name)) ?? [] }
+            return WorkspaceRuns.owned(room, log: logs[rec.name]!)
+        }
+        set.merge(extra) { _, b in b }
+        return try? await chat.setClosed(set)
+    }
+}
+
+// MARK: a run's archived chat
+
+extension HostCore {
+    /// `workspace-run-chat`: a room's messages of a closed run, read from its archive once the archive verifies.
+    func workspaceRunChat(_ w: WorkspaceRequest) throws -> WorkspaceRunChat {
+        let n = try workspaceName(w)
+        let rec = try workspaceRecord(n)
+        guard let id = w.run, WorkspaceRuns.isValidID(id), let run = rec.runs.first(where: { $0.id == id }) else {
+            throw HostError(.notFound, "\(n) has no such run (doz workspace runs \(n))")
+        }
+        guard let room = w.runRoom, run.rooms.contains(where: { $0.room == room }) else { throw HostError(.notFound, "run \(id) has no such room") }
+        guard let a = run.archive else { throw HostError(.notFound, "run \(id) has no archive") }
+        let root = storeRoot + "/" + a
+        let v = RunArchive.verify(root: root)
+        guard v.ok else { throw HostError(.failed, "run \(id)'s archive does not verify: " + v.problems.prefix(2).joined(separator: "; ")) }
+        let fd = open(root, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { throw HostError(.notFound, "run \(id)'s archive is not there") }
+        let folder = ExportFolder(adopting: fd, path: root)
+        var all: [WorkspaceRunChat.Message] = []
+        if let bytes = try? folder.read("chat/\(room).jsonl") {
+            for line in bytes.split(separator: 0x0A) {
+                guard let o = (try? JSONSerialization.jsonObject(with: Data(line))) as? [String: Any] else { continue }
+                all.append(.init(seq: (o["seq"] as? NSNumber)?.int64Value ?? 0, from: o["from"] as? String ?? "?", content: o["content"] as? String ?? "",
+                                 at: (o["at"] as? NSNumber)?.doubleValue, kind: (o["kind"] as? String).flatMap { $0.isEmpty ? nil : $0 }))
+            }
+        }
+        let limit = max(1, min(w.limit ?? 500, 500))
+        var page = all
+        if let b = w.before { page = page.filter { $0.seq < Int64(b) } }
+        let more = page.count > limit
+        page = Array(page.suffix(limit))
+        let sheet = (try? folder.read("timesheet.md")).map { String(decoding: $0, as: UTF8.self) }
+        return WorkspaceRunChat(workspace: n, run: id, room: room, messages: page, more: more, timesheet: sheet)
+    }
+}

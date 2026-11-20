@@ -128,6 +128,9 @@ func workspaceLifecycleText(_ p: WorkspaceLifecyclePlan, commands: Bool = true) 
     }
     if !p.keeps.isEmpty { s += "Kept:\n" + p.keeps.map { "  " + lifecycleItem($0) + "\n" }.joined() }
     if !p.goes.isEmpty { s += "Goes:\n" + p.goes.map { "  " + lifecycleItem($0) + "\n" }.joined() }
+    if let rooms = p.rooms, !rooms.isEmpty {
+        s += "Rooms:\n" + rooms.map { "  #\($0.room) → \($0.after)\n" }.joined()
+    }
     if let a = p.archive, !a.off {
         s += "The run's archive" + (a.run.map { " (run \($0))" } ?? "") + (a.path.map { ": the store's \($0)" } ?? "") + "\n"
         for r in a.rooms { s += "  #\(r.room): " + (r.messages.map { "\($0) message\($0 == 1 ? "" : "s")" } ?? "its messages") + "\n" }

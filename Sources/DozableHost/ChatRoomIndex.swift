@@ -14,6 +14,7 @@ public struct ChatRoomIndex: Codable, Equatable, Sendable {
     /// was written, and its manifest's sha256.
     public struct ArchiveRef: Codable, Equatable, Sendable {
         public var path: String
+        /// The room's last seq the copy holds (every message up to it).
         public var lastSeq: Int64
         public var sha256: String
         public var at: Date
