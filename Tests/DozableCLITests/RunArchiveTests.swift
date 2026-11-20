@@ -254,7 +254,8 @@ final class SandboxTranscriptExportTests: XCTestCase {
         let since = Date(timeIntervalSince1970: 1000)
         XCTAssertEqual(SandboxTranscriptExport.parseList("\(a) 2000\n\(b) 500\nnotes.jsonl 3000\n\(c) 1500\n", since: since), [a, c])
         let g = Guest()
-        g.list = "\(a) 2000\n\(c) 2000\n"
+        XCTAssertEqual(SandboxTranscriptExport.parseLinks("\(a) link\nnotes.jsonl link\n\(b) 900\n"), [a])
+        g.list = "\(a) 2000\n\(c) 2000\n\(b) link\n"
         let ok = Data(#"{"type":"user","cwd":"/workspace","message":{"content":"x"}}"#.utf8 + [0x0A])
         g.files = [a: tar(a, ok), c: tar(c, Data(), type: UInt8(ascii: "2"))]
         let got = await SandboxTranscriptExport.collect(g, sandbox: "wsa", agent: "bot1", since: since)
@@ -262,6 +263,7 @@ final class SandboxTranscriptExportTests: XCTestCase {
         XCTAssertEqual(got.files.first?.data, ok)
         XCTAssertEqual(got.files.first?.source, "sandbox")
         XCTAssertTrue(got.notes.contains { $0.contains(c) && $0.contains("a link") }, "\(got.notes)")
+        XCTAssertTrue(got.notes.contains { $0.contains(b) && $0.contains("a link — refused") }, "a listed link is refused and said")
         g.running = false
         let off = await SandboxTranscriptExport.collect(g, sandbox: "wsa", agent: "bot1", since: since)
         XCTAssertTrue(off.files.isEmpty)

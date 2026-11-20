@@ -114,6 +114,12 @@ func cliWorkspaceVMSuite(binary: String) async {
     printf '%s' "$CHAT_TOKEN_FILE" > "/workspace/res-$me-path"
     env | grep '^CHAT_TOKEN' | sort > "/workspace/res-$me-env"
     dozchat send "$room" "$me is up: $first" > "/workspace/res-$me-send" 2>&1
+    # A conversation in Claude Code's folder for /workspace (what a run's archive copies out), with what plant.txt holds,
+    # and a link beside it (refused by the copy).
+    d="$HOME/.claude/projects/-workspace"; mkdir -p "$d"
+    id=$(cat /proc/sys/kernel/random/uuid)
+    printf '{"type":"user","cwd":"/workspace","message":{"content":"%s works: %s"}}\\n' "$me" "$(cat /workspace/plant.txt 2>/dev/null)" > "$d/$id.jsonl"
+    [ -e "$d/00000000-0000-4000-8000-00000000000$(printf '%s' "$me" | tail -c 1).jsonl" ] || ln -s /etc/hostname "$d/00000000-0000-4000-8000-00000000000$(printf '%s' "$me" | tail -c 1).jsonl"
     while :; do
       for f in /workspace/say-$me-*; do
         [ -f "$f" ] || continue
@@ -124,6 +130,9 @@ func cliWorkspaceVMSuite(binary: String) async {
 
     """
     try? fakeWorker.write(to: work.appendingPathComponent("fake-worker.sh"), atomically: true, encoding: .utf8)
+    // A live chat token for the guest's conversation (V1): a participant's, known to the store by its hash only.
+    let vplantFile = root.path + "-vplant.token"
+    defer { try? fm.removeItem(atPath: vplantFile) }
     let brief = root.path + "-brief.md"
     try? "Make the VM demo.\n".write(toFile: brief, atomically: true, encoding: .utf8)
     defer { try? fm.removeItem(atPath: brief) }
@@ -132,6 +141,9 @@ func cliWorkspaceVMSuite(binary: String) async {
     h.run(["config", "set", "chat.line_port", String(freePort())])
     var r = h.run(["chat", "on", "--name", "ada"], timeout: 60)
     check(r.code == 0, "chat on (\(r.code))")
+    h.run(["chat", "add", "vplant", "--to-file", vplantFile], timeout: 60)
+    let vplant = ((try? String(contentsOfFile: vplantFile, encoding: .utf8)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
     r = h.run(["bot", "new", "vera", "--agent", "claude-code", "--isolation", "vm"], timeout: 60)
     check(r.code == 0, "bot new vera --isolation vm (\(r.code) \(r.err.prefix(160)))")
     r = h.run(["workspace", "new", "vmw", "--prompt-file", brief, "--folder", work.path, "--manager", "vera", "--manager-isolation", "vm"], timeout: 60)
@@ -223,7 +235,9 @@ func cliWorkspaceVMSuite(binary: String) async {
     r = h.run(["worker", "end", "vw", "v1", "--rm"], timeout: 300)
     check(r.code == 0 && h.row("vw-v1") == nil, "8 worker end vw v1 --rm: deleted (\(r.code) \(r.err.prefix(200)))")
 
-    // 9. sleep: one change for a shared sandbox, the same programs after the wake
+    // 9. sleep: one change for a shared sandbox, the same programs after the wake (v3 and v4 also write a conversation with
+    // what plant.txt holds — put there only now, after the leak sweeps of rows 2 and 6, and taken away after V1)
+    try? vplant.write(to: work.appendingPathComponent("plant.txt"), atomically: true, encoding: .utf8)
     r = h.run(["worker", "add", "vw", "v3", "--isolation", "vm", "--task", "stay"], timeout: 900)
     check(r.code == 0, "9 worker add vw v3 --isolation vm (\(r.code) \(r.err.suffix(300)))")
     r = h.run(["worker", "add", "vw", "v4", "--sandbox", "vw-v3", "--task", "stay too"], timeout: 300)
@@ -244,8 +258,20 @@ func cliWorkspaceVMSuite(binary: String) async {
     check(!before.isEmpty && before["v3"] != nil && before == after, "9 …the same sessions and pids (\(before) → \(after))")
 
     // 10. finish, reopen, wake: a cold boot, both up again
-    r = h.run(["workspace", "finish", "vw", "--yes"], timeout: 600)
+    r = h.run(["workspace", "finish", "vw", "--yes", "--json"], timeout: 600)
     check(r.code == 0 && h.row("vw-v3")?.phase == "off", "10 finish vw: the sandbox shut down, kept (\(r.code) \(h.row("vw-v3")?.phase ?? "gone"))")
+    // V1–V3: the run's archive holds the shared sandbox's conversations, copied out before it shut down.
+    let fin = try? HostWire.decoder.decode(WorkspaceChanged.self, from: r.outData)
+    let sroot = WorkspaceStore.resolved(root.path)
+    let ver = RunArchive.verify(root: sroot + "/" + (fin?.archive ?? "?"))
+    let vt = (ver.manifest?.files ?? []).filter { $0.path.hasPrefix("transcripts/vw-v3/") }
+    check(ver.ok && !vt.isEmpty && vt.allSatisfy { $0.source == "sandbox" && $0.sourceSHA256 != nil },
+          "V1 finish archives the sandbox's conversations, each with its source's sha256 (\(vt.map(\.path)))")
+    var archived = ""
+    for f in ver.manifest?.files ?? [] { archived += (fm.contents(atPath: sroot + "/" + (fin?.archive ?? "?") + "/" + f.path)).map { String(decoding: $0, as: UTF8.self) } ?? "" }
+    check(!vplant.isEmpty && !archived.contains(vplant) && archived.contains("[a chat token of vplant, removed by doz]"), "V1 …a token planted in the guest's conversation is redacted")
+    try? fm.removeItem(at: work.appendingPathComponent("plant.txt"))
+    check(ver.manifest?.notes.contains { $0.contains(".jsonl not copied (a link") } == true, "V2 a symlinked guest .jsonl is refused, and said (\(ver.manifest?.notes.prefix(4) ?? []))")
     r = h.run(["workspace", "reopen", "vw"], timeout: 60)
     let woke = h.run(["workspace", "wake", "vw"], timeout: 900)
     func upCount(_ who: String) -> Int { messages("vw").filter { $0["from"] as? String == who && ($0["content"] as? String)?.hasPrefix("\(who) is up") == true }.count }
@@ -262,7 +288,13 @@ func cliWorkspaceVMSuite(binary: String) async {
     // 12. delete --remove-sandboxes: only what Dozable made for it
     h.run(["create", "vadopt", "--image", "lab"], timeout: 300)
     h.run(["workspace", "adopt", "vmw", "vadopt"], timeout: 60)
-    h.run(["workspace", "finish", "vmw", "--yes"], timeout: 600)
+    // V3: a sandbox shut down before the finish is never woken: "not running", its conversations stay on its disk.
+    h.run(["shutdown", "vmw"], timeout: 300)
+    r = h.run(["workspace", "finish", "vmw", "--yes", "--json"], timeout: 600)
+    let vfin = try? HostWire.decoder.decode(WorkspaceChanged.self, from: r.outData)
+    let vnotes = RunArchive.verify(root: WorkspaceStore.resolved(root.path) + "/" + (vfin?.archive ?? "?")).manifest?.notes ?? []
+    check(r.code == 0 && h.row("vmw")?.phase == "off" && vnotes.contains { $0.contains("vmw is not running: its conversations stay on its disk") },
+          "V3 a sandbox shut down before finish: not woken, \"not running: its conversations stay on its disk\" (\(vnotes.prefix(3)))")
     r = h.run(["workspace", "delete", "vmw", "--remove-sandboxes", "--yes"], timeout: 900)
     check(r.code == 0 && h.row("vmw") == nil && h.row("vadopt") != nil, "12 delete vmw --remove-sandboxes: vmw removed, the adopted vadopt kept (\(r.code) \(r.err.suffix(300)))")
     check(h.json(["workspace", "ls", "--loose"], WorkspaceListing.self)?.loose.contains { $0.name == "vadopt" } == true, "12 …vadopt loose again")

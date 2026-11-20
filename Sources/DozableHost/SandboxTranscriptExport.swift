@@ -23,10 +23,18 @@ public enum SandboxTranscriptExport {
         "$HOME/.claude/projects/" + MacPlace.claudeProjectFolderName(workdir)
     }
 
-    /// Lists `NAME MTIME` for each regular file of the folder (never a link — `-f` and `! -L`), one per line.
+    /// Lists `NAME MTIME` for each regular file of the folder, and `NAME link` for a link (never followed), one per line.
     public static func listScript(_ workdir: String = guestFolder) -> [String] {
         ["sh", "-c", "d=\"\(projectsFolder(workdir))\"; [ -d \"$d\" ] && [ ! -L \"$d\" ] || exit 0; cd \"$d\" || exit 0; "
-            + "for f in *.jsonl; do [ -f \"$f\" ] && [ ! -L \"$f\" ] && echo \"$f $(stat -c %Y \"$f\" 2>/dev/null || echo 0)\"; done; exit 0"]
+            + "for f in *.jsonl; do if [ -L \"$f\" ]; then echo \"$f link\"; elif [ -f \"$f\" ]; then echo \"$f $(stat -c %Y \"$f\" 2>/dev/null || echo 0)\"; fi; done; exit 0"]
+    }
+
+    /// The conversation names that are links (never copied: refused, and said).
+    public static func parseLinks(_ out: String) -> [String] {
+        out.split(separator: "\n").compactMap { line -> String? in
+            let parts = line.split(separator: " ")
+            return parts.count == 2 && parts[1] == "link" && MacTranscripts.isTranscriptName(String(parts[0])) ? String(parts[0]) : nil
+        }.sorted()
     }
 
     /// The names worth copying: a conversation's name (`<uuid>.jsonl`, lower case), modified at or after `since`.
@@ -80,7 +88,7 @@ public enum SandboxTranscriptExport {
         }
         guard let out else { return ([], ["\(agent): \(sandbox) is not running: its conversations stay on its disk"]) }
         var files: [RunTranscript] = []
-        var notes: [String] = []
+        var notes: [String] = parseLinks(out).map { "\(agent): \($0) not copied (a link — refused)" }
         for n in parseList(out, since: since) {
             do {
                 let raw = try await source.tar(sandbox: sandbox, argv: tarArgv(n, workdir: workdir), maximum: MacTranscripts.maximumFileBytes + 4096)
