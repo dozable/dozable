@@ -114,10 +114,11 @@ final class ChatAccessTests: XCTestCase {
                               sessionsDir: (c.dataDir as NSString).appendingPathComponent("no-sessions"))
     }
 
-    /// The served protocol text is the reference's (its 0.17.0 wording; asks come with their own description). A change
-    /// here is a protocol change agents are told about.
+    /// The served protocol text is the reference's 0.17.0 wording, asks included, byte for byte but for one thing: the
+    /// example decider in `asks.post` is a neutral name (with the reference's own name the version is the reference's,
+    /// 25861a6db9). A change here is a protocol change agents are told about.
     func testTheProtocolVersionIsTheReferences() {
-        XCTAssertEqual(ChatProtocol.version, "62f4fcde53")
+        XCTAssertEqual(ChatProtocol.version, "9051bb194b")
     }
 
     func testThePageHandlerAppliesTheRulesAndTheHeader() throws {

@@ -124,15 +124,20 @@ extension ChatServerCore {
     /// each closed room's last seq.
     @discardableResult
     public func setClosed(_ set: [String: String], reasons: Bool) -> [String: Int64] {
-        closeGate.write()
-        defer { closeGate.done() }
-        let known = lock.withLock { () -> Set<String> in
-            closed = set.filter { rooms[$0.key] != nil }
-            refusalReasons = reasons
-            return Set(closed.keys)
-        }
-        var out: [String: Int64] = [:]
-        for r in known { out[r] = (try? store(r))?.lastSeq() ?? 0 }
+        let out: [String: Int64] = {
+            closeGate.write()
+            defer { closeGate.done() }
+            let known = lock.withLock { () -> Set<String> in
+                closed = set.filter { rooms[$0.key] != nil }
+                refusalReasons = reasons
+                return Set(closed.keys)
+            }
+            var out: [String: Int64] = [:]
+            for r in known { out[r] = (try? store(r))?.lastSeq() ?? 0 }
+            return out
+        }()
+        // A closed room leaves no ask waiting — after the gate is let go (the lock order, ChatAsks.swift).
+        expireClosedRooms(Array(out.keys))
         return out
     }
 
@@ -158,6 +163,7 @@ extension ChatServerCore {
             for n in m { roomGoneEpoch[n, default: 0] += 1 }
             return (m, rooms, archived, holds)
         }
+        askTimers.cancelRoom(room)   // its asks go with it; the numbers they had stay used
         st.close()
         saveRooms(all)
         save("archived.json", .map(arch.mapValues { JValue.bool($0) }))

@@ -30,6 +30,15 @@ extension ChatServerCore {
         return once(st, id, who, run)
     }
 
+    /// A call done once per id in a room's command table (an agent's decide or withdraw, by its msg_id): the same id again
+    /// is answered duplicate with what the first did. A room that does not exist, or a caller not in it, is refused by
+    /// the call itself, and nothing is remembered.
+    func onceIn(room: String, who: String, id: String, _ run: () -> ChatReceipt) -> ChatReceipt {
+        let room = room.isEmpty ? config.defaultRoom : room
+        guard let st = try? store(room), member(room, who) else { return run() }
+        return once(st, id, who, run)
+    }
+
     /// What edit and delete share: the room exists, the sender is in it, and it is not archived.
     private func changeGate(_ room: inout String, _ sender: String, _ verb: String) -> Result<ChatRoomStore, ChatAPIError> {
         if room.isEmpty { room = config.defaultRoom }

@@ -154,6 +154,7 @@ extension ChatServerCore {
         }
         for n in revoked { wakePoll(n) }
         publishPresence()
+        checkAllDeciders()   // a decider removed: an open ask may have no one left to decide it
         return revoked
     }
 

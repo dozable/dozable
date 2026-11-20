@@ -409,7 +409,7 @@ public final class ChatServerCore: @unchecked Sendable {
         ])
     }
 
-    public func protocolJSON() -> JValue { ChatProtocol.description(rooms: allRooms(), defaultRoom: config.defaultRoom) }
+    public func protocolJSON() -> JValue { ChatProtocol.description(rooms: allRooms(), defaultRoom: config.defaultRoom, asks: config.asksOn) }
 
     /// Whether viewer may read a message: not a direct message, revealed, or the viewer sent it or is one it is for.
     static func canSee(_ m: ChatStored, _ viewer: String) -> Bool {
@@ -583,6 +583,13 @@ public final class ChatServerCore: @unchecked Sendable {
             if f.count < 2 { return .refused("use /react like. " + ChatReactions.help) }
             let (content, target) = (m.content, m.reMsgID)
             return once(st, m.msgID, sender) { reactCommand(room, sender, target: target, content) }
+        case "/decide", "/withdraw":   // not stored as a message: the ask's new state and its event are the record
+            let (content, verified) = (m.content, m.verified)
+            let rc = once(st, m.msgID, sender) {
+                f[0] == "/decide" ? decideCommand(room, sender, content, verified: verified) : withdrawCommand(room, sender, content, verified: verified)
+            }
+            tellRefused(sender, f[0], rc)
+            return rc
         default: break
         }
         if isArchived(room) && !["/unarchive", "/leave", "/room", "/rooms"].contains(f[0]) { return .refused(Self.archivedRefusal(room)) }
@@ -615,6 +622,8 @@ public final class ChatServerCore: @unchecked Sendable {
         case .failure(let e): return .refused(e.description)
         }
         // a decider who left or was removed: an open ask may have no one left to decide it
+        let recheck = Self.isMemberCommand(f[0])
+        defer { if recheck { checkDeciders(room) } }
         var ch = ChatStored.change(m.msgID, from: sender, content: text, at: chatNow())
         do { if try st.insert(&ch) { return ChatReceipt("duplicate") } } catch { return .refused("store: \(error)") }
         published(room, ch)
@@ -846,6 +855,7 @@ public final class ChatServerCore: @unchecked Sendable {
                 var ch = ChatStored.change(chatNewID(), from: by, content: "The session \(capitalFirst(name)) was taken out of the room by \(capitalFirst(by)) and removed", at: chatNow())
                 if (try? st.insert(&ch)) == false { published(room, ch) }
             }
+            checkDeciders(room)   // a decider unregistered: an open ask may have no one left to decide it
         }
     }
 

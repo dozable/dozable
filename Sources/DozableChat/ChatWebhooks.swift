@@ -117,6 +117,15 @@ extension ChatServerCore {
             "attach": .string(#"To send a file, add "attachments":[{"name":"<file name>","data_base64":"<the bytes, base64>"}] to the answer line. At most 10 files of 20 MB each. To read an attachment, send its fetch line; the reply carries data_base64."#),
             "started": .string(#"{"msgV":1,"msg_id":"<new uuid>","type":"control","action":"thinking","room":\#(r),"re_msg_id":\#(id)}"#),
         ])
+        if m.kind == "ask", let a = m.ask, a.deciders.contains(p.name), case .object(var how)? = body["how_to_respond"] {
+            let decide = a.questions.count == 1
+                ? #"{"msgV":1,"msg_id":"<new uuid>","type":"user","message":{"role":"user","content":"/decide \#(m.msgID) <option id or letter, A for the first> [text]"},"room":\#(r)}"#
+                : #"This ask has \#(a.questions.count) questions, so it is decided with decide_answers, not a line; the line {"msgV":1,"msg_id":"<new uuid>","type":"user","message":{"role":"user","content":"/decide \#(m.msgID) decline [text]"},"room":\#(r)} declines it"#
+            how.append(JMember("decide", .string(decide)))
+            how.append(JMember("decide_answers", .string("POST /agent/decide on this server's page port, with this server's token, and " + ChatAskForm.decideBody(room: room, id: m.msgID, a)
+                + #" (an answer for every question); or {"room":\#(r),"ask_id":\#(id),"decline":true,"text":"<why>"} to decline"#)))
+            body["how_to_respond"] = .map(Dictionary(how.map { ($0.key, $0.value) }, uniquingKeysWith: { _, b in b }))
+        }
         return body
     }
 

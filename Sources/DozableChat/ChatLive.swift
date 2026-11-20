@@ -181,6 +181,7 @@ extension ChatServerCore {
             o.omitEmpty("session_url", l.links[p.name] ?? "")
             o.add("state", .string(state)); o.omitEmpty("activity", activity); o.add("detail", .string(detail))
             if let t = l.seen[p.name] { o.omitEmpty("last_seen", t) }
+            if !p.roles.isEmpty { o.add("roles", .strings(p.roles)) }
             return o.value
         }
     }
