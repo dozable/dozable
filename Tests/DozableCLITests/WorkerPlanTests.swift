@@ -92,7 +92,8 @@ final class WorkerPlanTests: BotTestCase {
         let base = store.root.path
         guard let e = FileManager.default.enumerator(atPath: base) else { return [:] }
         for case let p as String in e {
-            if p.hasSuffix(".log") || p.hasPrefix("logs") { continue }
+            // Logs, and the daemon's own metrics database (its sampler writes the WAL on a timer, whatever a request does).
+            if p.hasSuffix(".log") || p.hasPrefix("logs") || p.hasPrefix("metrics.sqlite") { continue }
             let full = base + "/" + p
             var d: ObjCBool = false
             FileManager.default.fileExists(atPath: full, isDirectory: &d)
@@ -101,9 +102,17 @@ final class WorkerPlanTests: BotTestCase {
         return out
     }
 
-    /// What a look must leave as it was.
+    /// What a look must leave as it was. Every part is put in a fixed order first: two dictionaries with the same
+    /// contents need not print in the same order, so comparing their descriptions failed now and then (CI, 0.52.14).
     func snapshot() -> String {
-        "\(treeDigest()) \(chat.dir) \(chat.hashes) \(keychain.items(servicePrefix: "").map(\.service)) \(workers.orders.count) \(workers.ends.count) \(trace.all)"
+        func sorted(_ v: Any) -> String {
+            if let d = v as? [String: Any] { return d.keys.sorted().map { "\($0)=\(sorted(d[$0]!))" }.joined(separator: ",") }
+            if let s = v as? Set<String> { return s.sorted().joined(separator: ",") }
+            return "\(v)"
+        }
+        let services = keychain.items(servicePrefix: "").map(\.service).sorted()
+        return [sorted(treeDigest()), sorted(chat.dir), sorted(chat.hashes), "\(services)",
+                "\(workers.orders.count)", "\(workers.ends.count)", "\(trace.all)"].joined(separator: " | ")
     }
 
     // MARK: the plan and the add agree
