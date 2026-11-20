@@ -65,6 +65,8 @@ func cliWorkspaceLifecycleRows(_ h: CLIHarness, root: URL, store: DozableStore, 
       printf '{"pid":%s,"sessionId":"%s","cwd":"%s"}\\n' "$$" "$id" "$(pwd -P)" > "$CLAUDE_CONFIG_DIR/sessions/$$.json"
       folder="$CLAUDE_CONFIG_DIR/projects/$(pwd -P | sed 's/[^A-Za-z0-9]/-/g')"
       mkdir -p "$folder"; [ -f "$folder/$id.jsonl" ] || echo '{}' > "$folder/$id.jsonl"
+      # The run rows (CLIWorkspaceRunRows): a line naming what plant.txt holds, written in the agent's folder.
+      [ -f plant.txt ] && printf '{"type":"user","cwd":"%s","message":{"content":"%s"}}\\n' "$(pwd -P)" "$(cat plant.txt)" >> "$folder/$id.jsonl"
     fi
     [ -n "$start" ] || exec sleep 600
     first=$(head -n 1 "$start")
@@ -293,6 +295,9 @@ func cliWorkspaceLifecycleRows(_ h: CLIHarness, root: URL, store: DozableStore, 
     r = h.run(["workspace", "delete", "binh", "--bin-folders", "--dry-run"], timeout: 60)
     check(r.code == 64 && r.out.contains("your home folder"), "L11 your home refused by name (a dry run only) (\(r.code) \(r.out.suffix(200)))")
     for n in ["binx", "binh"] { h.run(["workspace", "delete", n, "--yes"], timeout: 60) }
+
+    // R1–R13: runs and their archive (CLIWorkspaceRunRows.swift), with this file's fake claude, fence home and Claude folders.
+    cliWorkspaceRunRows(h, root: root, store: store, home: home, brief: brief, started: &started)
 
     // L14. the daemon stopped: every verb's dry run answers, none starts.
     h.run(["workspace", "new", "idle", "--prompt-file", brief, "--no-room"], timeout: 60)
