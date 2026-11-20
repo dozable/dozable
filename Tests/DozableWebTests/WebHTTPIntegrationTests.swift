@@ -1203,6 +1203,13 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         return .null
     }
 
+    /// Chat on: `doz chat on`'s last call, recorded as a perform (nothing else of it is faked).
+    func chatOn(name: String?) async throws -> JSONValue {
+        var r = HostRequest(.chatSync)
+        r.chat = ChatRequest(name: name, retry: true, wait: true)
+        return try await perform(r, onEvent: { _ in })
+    }
+
     func perform(_ r: HostRequest, onEvent: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
         lock.withLock { performed.append(r) }
         onEvent(HostEvent(kind: .step, sandbox: r.name, text: "fake step one", milliseconds: 5))

@@ -79,13 +79,17 @@ final class ChatWebhookAddressTests: XCTestCase {
         let files = try FileManager.default.contentsOfDirectory(atPath: web.path).filter { $0.hasSuffix(".swift") }
         XCTAssertFalse(files.isEmpty)
         // A room's archive and removal (`chat-room-*`) are the dashboard's deliberately — each exactly its HostOp, this Mac's own
-        // browser only (WebActionTests.testTheRoomActions); every other chat operation (participants, tokens, webhooks) never.
-        let chatOps = HostOp.allCases.filter { $0.rawValue.hasPrefix("chat-") && !$0.rawValue.hasPrefix("chat-room-") }
+        // browser only (WebActionTests.testTheRoomActions); so are an ask's decision (`chat-decide`, the card) and chat turned
+        // on (`chat-sync`, `doz chat on`'s calls), each this Mac's own browser only (WebActionTests.testTheAskDecision,
+        // testChatOnAndMakeRoom); every other chat operation (participants, tokens, webhooks, asking) never.
+        let chatOps = HostOp.allCases.filter { $0.rawValue.hasPrefix("chat-") && !$0.rawValue.hasPrefix("chat-room-") && ![.chatDecide, .chatSync].contains($0) }
         XCTAssertTrue(chatOps.contains(.chatWebhookSet))
         for f in files {
             let text = try String(contentsOfFile: web.appendingPathComponent(f).path, encoding: .utf8)
             for op in chatOps {
-                XCTAssertFalse(text.contains("." + String(describing: op)) || text.contains("\"" + op.rawValue + "\""), "\(f) names \(op.rawValue)")
+                // `.chatAsk` is also `HostRequest.chatAsk`, the decision's arguments: the operation is `HostRequest(.chatAsk)`.
+                let named = op == .chatAsk ? text.contains("(.chatAsk)") : text.contains("." + String(describing: op))
+                XCTAssertFalse(named || text.contains("\"" + op.rawValue + "\""), "\(f) names \(op.rawValue)")
             }
         }
     }
