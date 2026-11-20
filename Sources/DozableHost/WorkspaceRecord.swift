@@ -627,7 +627,16 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "permission-decided":
             let who = subject.flatMap(GrantSubject.init(stored:))?.display ?? subject ?? "?"
             return "\(who): \(perm ?? "?") → \(answer ?? "?")" + (reason.map { " (\($0))" } ?? "")
-        case "transcripts-discarded": return "discarded \(agent ?? "?")'s conversations (\(removed ?? 0) file\(removed == 1 ? "" : "s"); the run's archive keeps them)"
+        case "transcripts-discarded":
+            if let r = reason { return "discarded \(agent ?? "?")'s conversations (\(removed ?? 0) file\(removed == 1 ? "" : "s")): \(r)" }
+            return "discarded \(agent ?? "?")'s conversations (\(removed ?? 0) file\(removed == 1 ? "" : "s"); the run's archive keeps them)"
+        case "space-up": return "set it up from its space file" + (reason.map { " — \($0)" } ?? "")
+        case "space-down": return "took it down (its space file)" + (reason.map { " — \($0)" } ?? "")
+        case "space-purged": return "retired what its space file kept (--purge)"
+        case "memory-kept": return "kept \(agent ?? "?")'s memory (\(added ?? 0) file\(added == 1 ? "" : "s")) for its next fenced session"
+        case "memory-reset": return "reset \(agent ?? "?")'s kept memory" + (reason.map { " (\($0))" } ?? "")
+        case "scratch-removed": return "removed a scratch folder" + (reason.map { " — \($0)" } ?? "")
+        case "folder-released": return "released a folder the space kept" + (reason.map { " (\($0))" } ?? "")
         default: return action
         }
     }

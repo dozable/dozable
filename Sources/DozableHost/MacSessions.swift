@@ -284,7 +284,8 @@ public actor MacSessions {
         }
         let seeded = try MacFenceSessionFolder.prepare(fence, previous: previous?.grants, person: person)
         if let a = fence.agent {
-            fence.agent = try MacAgentConfig.prepare(a, fence: fence, placeholderTail: placeholders["ANTHROPIC_API_KEY"].map { String($0.suffix(20)) })
+            fence.agent = try MacAgentConfig.prepare(a, fence: fence, placeholderTail: placeholders["ANTHROPIC_API_KEY"].map { String($0.suffix(20)) },
+                                                     memory: SpaceMemory.seedFolder(store: places.store, session: session))
         }
         return (fence, seeded, fence.homeReads.notes + seeded.notes + (fence.agent?.notes ?? []))
     }

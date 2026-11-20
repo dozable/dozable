@@ -146,7 +146,7 @@ public enum ActionClasses {
              .sessionGrids, .dotfiles, .dotfilesResolve, .dotfilesUpdate,
              .chatSync, .chatToken, .chatMembers, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport,
              .workspaceList, .workspaceAdopt, .workspaceRelease, .workspaceRename, .workspacePlan, .workspaceLifecyclePlan,
-             .chatRoomPlan, .botList, .botShow, .botToken, .workerPlan, .workspaceUpPlan, .workspaceUp, .macsList, .permissionsCeiling:
+             .chatRoomPlan, .botList, .botShow, .botToken, .workerPlan, .workspaceUpPlan, .workspaceUp, .workspaceDownPlan, .workspaceDown, .macsList, .permissionsCeiling:
             return .dozableOwn
         }
     }

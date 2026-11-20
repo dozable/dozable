@@ -29,7 +29,7 @@ struct WorkspaceCommand: AsyncParsableCommand {
         subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceSleep.self,
                       WorkspaceWake.self, WorkspaceFinish.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
                       WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceRename.self,
-                      SpacePlanCommand.self, SpaceUpCommand.self, SpaceConfig.self])
+                      SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
 }
 
 // MARK: helpers
@@ -283,6 +283,7 @@ struct WorkspaceShow: AsyncParsableCommand {
         if let t = d.briefText { Out.stdout("\n" + t + (t.hasSuffix("\n") ? "" : "\n")) }
     }
 }
+
 
 struct WorkspaceAdopt: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "adopt", abstract: "Adopt a sandbox or a session on this Mac into a workspace, as a worker.",

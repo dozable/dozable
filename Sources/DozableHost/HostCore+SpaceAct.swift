@@ -45,6 +45,11 @@ extension HostCore {
         return workspaces.readBrief(rec.name)
     }
 
+    /// The facts `keptFolderPaths` needs: the home and the projects folder.
+    func spaceFactsHome() -> SpaceFacts {
+        SpaceFacts(known: true, home: TestSafety.realHome.path, projectsDir: (Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent)
+    }
+
     /// Why a folder the space would make is refused (nil: fine): never in the store.
     func spaceFolderRefusal(_ path: String) -> String? {
         let p = WorkspaceStore.resolved(path)
@@ -136,6 +141,9 @@ extension HostCore {
         var t: [String: String] = [:]
         for a in i.ownedAgents where a.memory == nil && a.transcripts?.value == "discard" { t[a.name] = "discard" }
         ref.transcripts = t.isEmpty ? nil : t
+        var kept = ref.persistedPaths ?? []
+        for k in SpaceUp.keptFolderPaths(i, spaceFactsHome()) where !kept.contains(k.path) { kept.append(k.path) }
+        ref.persistedPaths = kept.isEmpty ? nil : kept
         var iso = ref.memoryIsolation ?? [:]
         for a in i.ownedAgents where a.memory != nil { iso[a.name] = a.isolation?.value ?? "fenced" }
         ref.memoryIsolation = iso.isEmpty ? nil : iso
@@ -343,4 +351,268 @@ public struct SpaceRequestRow: Codable, Equatable, Sendable {
     public var source: String
     public var spaceSHA: String
     public var at: Date
+}
+
+// MARK: down and --purge
+
+// `workspace-down`: the space's run ended and what it made for the run removed — and with `purge` what persists too. In
+// order: (1) finish (rooms closed, agents stopped, the archive written and hash-checked, the run closed); (2) a persisted
+// fenced agent's memory captured; (3) each run-lifetime agent ended and forgotten (its own sandbox removed), its transcripts
+// discarded where `transcripts: discard` — only unchanged files, against the archive or, with `archive: off`, the
+// hashes-only ledger written just before; (4) the run's scratch folders copied into the archive and hash-checked, then
+// removed — only a folder the record names, never in the store; (5) the run-lifetime rooms archived, hash-checked, then
+// removed (a tombstone kept). Nothing content-bearing goes when the archive failed. `archive: off` is the one exception
+// to "a copy first": what goes with no copy is named in the plan and the confirmation. A failed step is logged and down
+// carries on; a second down plans only what is left. Folders the space keeps are never deleted (`--purge` releases them);
+// external things are never touched.
+extension HostCore {
+    func spaceDownPlan(_ q: SpaceDownRequest?) throws -> SpaceDownPlan {
+        guard let q else { throw HostError(.invalid, "which workspace? (doz workspace ls)") }
+        try WorkspaceName.validate(q.workspace)
+        return SpaceDown.plan(try workspaces.read(q.workspace), space: q.workspace, purge: q.purge == true)
+    }
+
+    func spaceDown(_ q: SpaceDownRequest?) async throws -> SpaceActed {
+        guard !readOnly else { throw HostError(.unavailable, "workspace-down needs the daemon") }
+        guard let q else { throw HostError(.invalid, "which workspace? (doz workspace ls)") }
+        let n = q.workspace
+        try WorkspaceName.validate(n)
+        await workspaceGate.lock("space:" + n)
+        defer { workspaceGate.unlock("space:" + n) }
+        let plan = try spaceDownPlan(q)
+        guard let want = q.ifPlan, want == plan.sha else {
+            throw HostError(.invalidPhase, "\(n) changed since you looked — look again: doz workspace down \(n) --dry-run")
+        }
+        if let first = plan.refusals.first { throw HostError(HostError.Code(rawValue: plan.refusalCode ?? "") ?? .invalidPhase, first) }
+        var out = SpaceActed(space: n, verb: q.purge == true ? "purge" : "down")
+        out.run = plan.run
+        var archiveFailed = false
+        var toSeq: [String: Int64] = [:]
+        for st in plan.steps {
+            let fail = { (why: String) in
+                out.ok = false
+                out.results.append(.init(n: st.n, kind: st.kind, subject: st.subject, status: "failed", text: st.text + ": " + why))
+                try? self.workspaces.append(n, WorkspaceLogEntry(action: "space-down", reason: "FAILED \(st.subject): \(why)"))
+            }
+            // Nothing content-bearing goes when the archive failed: the rooms, the scratch folders and discarded transcripts.
+            // (An agent still ends and is forgotten — its transcripts kept.)
+            if archiveFailed, st.kind == "scratch-rm" || st.kind == "room-rm" {
+                out.results.append(.init(n: st.n, kind: st.kind, subject: st.subject, status: "skipped",
+                                         text: st.text + " (kept: the run's archive was not written, so nothing is removed)"))
+                continue
+            }
+            do {
+                var notes: [String] = []
+                switch st.kind {
+                case "finish":
+                    let rec = try workspaceRecord(n)
+                    let ref = SpaceRecordRef.of(rec)
+                    var w = WorkspaceRequest(name: n)
+                    w.noArchive = ref?.archiveOff == true ? true : nil
+                    let c = try await workspaceLifecycle(.finish, w)
+                    notes = c.notes ?? []
+                    if ref?.archiveOff != true, c.archiveProblem != nil || c.archive == nil { archiveFailed = true; notes.append("the run's archive was not written: nothing content-bearing is removed") }
+                    if let r = try workspaceRecord(n).runs.last { for x in r.rooms { if let t = x.toSeq { toSeq[x.room] = t } } }
+                case "memory":
+                    notes = try spaceMemoryCapture(n, agent: String(st.subject.dropFirst("agent ".count)))
+                case "worker-end":
+                    notes = try await spaceEndAgent(n, String(st.subject.dropFirst("agent ".count)), discard: st.copy, archiveFailed: archiveFailed)
+                case "release":
+                    var w = WorkspaceRequest(name: n)
+                    w.agent = String(st.subject.dropFirst("agent ".count))
+                    await workspaceGate.lock("workspaces")
+                    defer { workspaceGate.unlock("workspaces") }
+                    _ = try await workspaceRelease(w)
+                case "scratch-rm":
+                    notes = try await spaceRemoveScratch(n, name: String(st.subject.dropFirst("folder ".count)), noCopy: st.copy == "none")
+                case "room-rm":
+                    notes = try await spaceRemoveRoom(n, room: String(st.subject.dropFirst("room ".count)), noCopy: st.copy == "none", toSeq: toSeq)
+                case "memory-rm":
+                    spaceMemoryReset(n, agent: String(st.subject.dropFirst("agent ".count)))
+                case "sandbox-rm":
+                    let s = String(st.subject.dropFirst("sandbox ".count))
+                    if managed[s] != nil, workspaces.membership()["sandbox:" + s] == n {
+                        let a = await handle(HostRequest(.rm, name: s))
+                        if let e = a.error { throw HostError(e.code, e.message) }
+                        try? workspaces.append(n, WorkspaceLogEntry(action: "sandbox-removed", place: "sandbox:" + s))
+                    }
+                case "folder-release":
+                    let path = String(st.subject.dropFirst("folder ".count))
+                    var w = WorkspaceRequest(name: n)
+                    if try workspaceRecord(n).folders.contains(where: { $0.path == path }) {
+                        w.removeFolders = [path]
+                        await workspaceGate.lock("workspaces")
+                        defer { workspaceGate.unlock("workspaces") }
+                        _ = try await workspaceEdit(w)
+                    }
+                    _ = try await workspaceUpdate(n) { r in
+                        var ref = SpaceRecordRef.of(r) ?? SpaceRecordRef()
+                        ref.persistedPaths?.removeAll { $0 == path }
+                        ref.store(in: &r)
+                        return [WorkspaceLogEntry(action: "folder-released", reason: "kept on disk, off the record")]
+                    }
+                case "record":
+                    let purge = q.purge == true
+                    _ = try await workspaceUpdate(n) { r in
+                        var ref = SpaceRecordRef.of(r) ?? SpaceRecordRef()
+                        ref.downAt = Date()
+                        if purge { ref.purgedAt = Date(); ref.memoryIsolation = nil }
+                        ref.store(in: &r)
+                        return [WorkspaceLogEntry(action: purge ? "space-purged" : "space-down", reason: out.ok ? nil : "a step failed; down again does what is left", run: plan.run)]
+                    }
+                default:
+                    break
+                }
+                out.results.append(.init(n: st.n, kind: st.kind, subject: st.subject, status: "done", text: st.text, notes: notes.isEmpty ? nil : notes))
+            } catch {
+                fail(HostError.from(error).message)
+            }
+        }
+        out.notes = plan.notes
+        if !out.ok { out.notes.append("a step failed: down carried on and did what it could — doz workspace down \(n) again does what is left") }
+        if let r = try? workspaceRecord(n) { out.workspace = await workspaceDetail(r, withBrief: false) }
+        note(nil, "space \(n): \(out.verb) — \(out.results.filter { $0.status == "done" }.count) done" + (out.ok ? "" : ", a step failed"))
+        return out
+    }
+
+    /// A persisted fenced agent's memory, captured from its session's private agent folder into the store.
+    func spaceMemoryCapture(_ n: String, agent: String) throws -> [String] {
+        let rec = try workspaceRecord(n)
+        guard let a = rec.agents.last(where: { $0.name == agent && $0.endedAt == nil }), let s = a.place.session, a.place.mac == true else { return [] }
+        guard let fence = mac.records().sessions[s]?.fence, fence.agentConfig == MacAgentConfig.privateMode else {
+            return ["\(agent): no private agent folder — its memory is its own (never ~/.claude)"]
+        }
+        let agentDir = MacFence.sessionFolder(try mac.fencePlaces(), session: s) + "/agent"
+        let dest = WorkspaceStore.resolved(workspaces.folder(n)) + "/memory/" + agent
+        let count = try SpaceMemory.capture(agentDir: agentDir, into: dest)
+        try? workspaces.append(n, WorkspaceLogEntry(action: "memory-kept", agent: agent, added: count))
+        return ["\(agent): \(count) memory file\(count == 1 ? "" : "s") kept for its next fenced session"]
+    }
+
+    /// A run-lifetime agent ended and forgotten — its own sandbox removed unless the space keeps it —, its transcripts
+    /// discarded first when the space says so: against the run's verified archive, or with `archive: off` against the
+    /// hashes-only ledger written now. With a failed archive nothing is discarded.
+    func spaceEndAgent(_ n: String, _ name: String, discard: String?, archiveFailed: Bool) async throws -> [String] {
+        let rec = try workspaceRecord(n)
+        guard let a = rec.agents.last(where: { $0.name == name && $0.isWorker && $0.endedAt == nil }) else { return ["\(name) has ended already"] }
+        let ref = SpaceRecordRef.of(rec)
+        var notes: [String] = []
+        if discard != nil, !archiveFailed, a.place.mac == true, let s = a.place.session {
+            if discard == "none" {
+                notes += try spaceDiscardByLedger(n, session: s, run: rec.runs.last?.id ?? "run")
+            } else {
+                let d = macDiscardTranscripts(s, workspace: n)
+                if let why = d.refused { notes.append("\(name)'s transcripts kept: \(why)") } else {
+                    notes += d.notes
+                    try? workspaces.append(n, WorkspaceLogEntry(action: "transcripts-discarded", agent: name, place: "mac:" + s, removed: d.removed, run: d.run))
+                }
+            }
+        }
+        let shared = a.place.sandbox != nil && a.place.session != nil
+        let keepsSandbox = a.place.sandbox.map { ref?.owned?.sandboxes[$0] == "persisted" } ?? false
+        var q = WorkerRequest(workspace: n, name: name)
+        q.rm = !shared && !keepsSandbox && a.bot == nil
+        let e = try await workerEnd(q)
+        return notes + (e.notes ?? [])
+    }
+
+    /// `transcripts: discard` with `archive: off`: the session's conversations hashed now (the ledger: names and sha256
+    /// only, in the store) and each removed only while it still hashes so, through its descriptor, its inode unchanged.
+    func spaceDiscardByLedger(_ n: String, session s: String, run: String) throws -> [String] {
+        var r = HostRequest(.sessionTranscripts, name: MacPlace.name)
+        r.session = s
+        let own = ((try? macTranscriptsList(r))?.conversations ?? []).filter { $0.sha256 != nil }
+        let ledger = SpaceLedger(run: run, session: s, files: own.map { .init(name: $0.name, source: $0.source ?? "", sha256: $0.sha256!) })
+        let dir = WorkspaceStore.resolved(workspaces.folder(n)) + "/ledger"
+        try MacFenceHostFS.ensureDirectory(dir)
+        try MacFenceHostFS.writeAtomically(try HostWire.prettyEncoder.encode(ledger), dir: dir, name: "\(run)-\(s).json")
+        var removed = 0
+        var notes: [String] = []
+        for i in own {
+            switch TranscriptDiscard.remove(i.path, sha256: i.sha256!) {
+            case .removed: removed += 1
+            case .kept(let why): notes.append("\(s): \((i.path as NSString).lastPathComponent) kept — \(why)")
+            }
+        }
+        try? workspaces.append(n, WorkspaceLogEntry(action: "transcripts-discarded", agent: s, place: "mac:" + s, removed: removed, reason: "deleted with no copy (archive: off); the ledger keeps their sha256", run: run))
+        return ["\(s): \(removed) conversation file\(removed == 1 ? "" : "s") deleted with no copy (archive: off)"] + notes
+    }
+
+    /// A recorded scratch folder removed: copied into the archive and hash-checked first (none with `archive: off`); only a
+    /// folder the record names, under `<projects_dir>/.runs/<space>/`, never in the store.
+    func spaceRemoveScratch(_ n: String, name: String, noCopy: Bool) async throws -> [String] {
+        let rec = try workspaceRecord(n)
+        guard let ref = SpaceRecordRef.of(rec), let s = (ref.scratch ?? []).first(where: { $0.name == name }) else {
+            throw HostError(.notFound, "no scratch folder \(name) in the record — nothing removed")
+        }
+        let projects = WorkspaceStore.resolved((Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent)
+        guard s.path.hasPrefix(projects + "/.runs/\(n)/"), spaceFolderRefusal(s.path) == nil else {
+            throw HostError(.invalid, "\(DisplayPath.tilde(s.path)) is not where a scratch folder of \(n) is made — nothing removed")
+        }
+        var notes: [String] = []
+        if MacFenceHostFS.kind(s.path) == S_IFDIR {
+            if !noCopy {
+                let path = try RunArchive.writeFolder(source: s.path, name: name, workspace: n, run: s.run, store: store, sweep: ExportSweep.forStore(store))
+                guard RunArchive.verify(root: storeRoot + "/" + path).ok else { throw HostError(.failed, "the copy of \(name) does not verify — kept") }
+                notes.append("copied into \(DisplayPath.tilde(storeRoot + "/" + path)) and hash-checked")
+            }
+            if rec.folders.contains(where: { $0.path == s.path }) {
+                var w = WorkspaceRequest(name: n)
+                w.removeFolders = [s.path]
+                await workspaceGate.lock("workspaces")
+                defer { workspaceGate.unlock("workspaces") }
+                _ = try await workspaceEdit(w)
+            }
+            try MacFenceHostFS.remove(s.path)
+        }
+        _ = try await workspaceUpdate(n) { r in
+            var x = SpaceRecordRef.of(r) ?? SpaceRecordRef()
+            x.scratch?.removeAll { $0.name == name && $0.run == s.run }
+            x.store(in: &r)
+            return [WorkspaceLogEntry(action: "scratch-removed", reason: noCopy ? "\(name): deleted with no copy (archive: off)" : "\(name): copied and hash-checked first", run: s.run)]
+        }
+        return notes + (noCopy ? ["\(name): deleted with no copy (archive: off)"] : [])
+    }
+
+    /// A room the space made removed for good: archived and hash-checked first (`chat-room-archive`, then `chat-room-rm`
+    /// and its guards), or — `archive: off` — with no copy, only while its last message is still the run's close.
+    func spaceRemoveRoom(_ n: String, room: String, noCopy: Bool, toSeq: [String: Int64]) async throws -> [String] {
+        await workspaceGate.lock("room:" + room)
+        defer { workspaceGate.unlock("room:" + room) }
+        if !noCopy {
+            var a = ChatRoomRequest(room: room)
+            do { _ = try await roomArchive(a) } catch let e as HostError where e.code == .exists {}
+            a.confirm = room
+            let c = try await roomRemove(a)
+            return c.notes ?? []
+        }
+        guard let chat = workspaceChat, await chat.readiness() == .ready else { throw HostError(.unavailable, "chat is not ready — doz chat status") }
+        guard try chat.rooms().contains(room) else { return ["\(room) is gone already"] }
+        let rec = try workspaceRecord(n)
+        guard rec.openRun == nil else { throw HostError(.invalidPhase, "\(n)'s run is open — kept") }
+        let last = try chat.lastSeq(room: room)
+        let closedAt = toSeq[room] ?? rec.runs.last?.rooms.first { $0.room == room }?.toSeq
+        guard let closedAt, last == closedAt else {
+            throw HostError(.invalidPhase, "\(room) has messages after its run closed — kept (no copy of them would be left)")
+        }
+        let id = try await roomIndexUpdate { $0.ensure(room, owner: n).id }
+        try await chat.removeRoom(room, id: id, lastSeq: last)
+        let now = Date()
+        _ = try await roomIndexUpdate { idx in idx.bury(room, at: now, run: rec.runs.last?.id, archive: "") }
+        _ = try await workspaceUpdate(n) { r in
+            for i in r.rooms.indices where r.rooms[i].chatRoom == room && r.rooms[i].goneAt == nil { r.rooms[i].goneAt = now }
+            return [WorkspaceLogEntry(action: "room-removed", room: room, reason: "deleted with no copy (archive: off)", run: rec.runs.last?.id)]
+        }
+        await pushClosedSet()
+        return ["\(room) deleted with no copy (archive: off); a tombstone stays"]
+    }
+}
+
+/// The hashes-only ledger of a discard with `archive: off` (`<store>/workspaces/W/ledger/<run>-<session>.json`): names and
+/// sha256 only — never a byte of a conversation.
+struct SpaceLedger: Codable {
+    struct File: Codable { var name: String; var source: String; var sha256: String }
+    var run: String
+    var session: String
+    var files: [File]
 }
