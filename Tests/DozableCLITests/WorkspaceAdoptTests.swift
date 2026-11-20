@@ -380,7 +380,7 @@ final class WorkspaceAdoptTests: XCTestCase {
         var m = await new(c, "demo")
         XCTAssertNil(m.error, m.error?.message ?? "")
         XCTAssertEqual(chat.made, ["demo"])
-        XCTAssertEqual(try ws.read("demo")?.rooms, [WorkspaceRoom(label: "main", chatRoom: "demo", main: true)])
+        XCTAssertEqual(try ws.read("demo")?.rooms, [WorkspaceRoom(label: "main", chatRoom: "demo", main: true, owned: true)])
         XCTAssertEqual(try ws.log("demo").map(\.action), ["created", "room-made"])
         // The room exists already: refused, nothing written.
         chat.roomSet.insert("taken")

@@ -105,11 +105,19 @@ public struct WorkspaceRoom: Codable, Equatable, Sendable {
     public var label: String
     public var chatRoom: String
     public var main: Bool
+    /// The room's id in the room index (`rm_<16 hex>`, `ChatRoomIndex`): a room made again under the same name is another
+    /// room. nil: not known yet (a record written before ids). Additive.
+    public var id: String?
+    /// The workspace made it (true) or linked an existing one (false); nil: read once from the log (`room-made` is owned,
+    /// `room-linked` is not — `WorkspaceRuns.owned`). Only an owned room is closed at finish, archived or removed. Additive.
+    public var owned: Bool?
+    /// When the room was removed for good (`doz chat room rm`): its tombstone is in the room index. Additive.
+    public var goneAt: Date?
     public var unknown = UnknownFields()
-    static let known: Set<String> = ["label", "chatRoom", "main"]
+    static let known: Set<String> = ["label", "chatRoom", "main", "id", "owned", "goneAt"]
 
-    public init(label: String, chatRoom: String, main: Bool) {
-        self.label = label; self.chatRoom = chatRoom; self.main = main
+    public init(label: String, chatRoom: String, main: Bool, id: String? = nil, owned: Bool? = nil) {
+        self.label = label; self.chatRoom = chatRoom; self.main = main; self.id = id; self.owned = owned
     }
 
     public init(from decoder: Decoder) throws {
@@ -117,6 +125,9 @@ public struct WorkspaceRoom: Codable, Equatable, Sendable {
         label = try c.decode(String.self, forKey: "label")
         chatRoom = try c.decode(String.self, forKey: "chatRoom")
         main = try c.decodeIfPresent(Bool.self, forKey: "main") ?? false
+        id = try c.decodeIfPresent(String.self, forKey: "id")
+        owned = try c.decodeIfPresent(Bool.self, forKey: "owned")
+        goneAt = try c.decodeIfPresent(Date.self, forKey: "goneAt")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -126,6 +137,100 @@ public struct WorkspaceRoom: Codable, Equatable, Sendable {
         try c.encode(label, forKey: "label")
         try c.encode(chatRoom, forKey: "chatRoom")
         try c.encode(main, forKey: "main")
+        try c.encodeIfPresent(id, forKey: "id")
+        try c.encodeIfPresent(owned, forKey: "owned")
+        try c.encodeIfPresent(goneAt, forKey: "goneAt")
+    }
+}
+
+/// One room's part of a run: the room's last seq when the run opened (`fromSeq`) and when the room was closed at its end
+/// (`toSeq`, the close's answer under the chat server's lock). The run's messages are exactly `fromSeq < seq <= toSeq`.
+/// Nothing is posted to mark a run: the markers are data.
+public struct WorkspaceRunRoom: Codable, Equatable, Sendable {
+    public var room: String
+    public var id: String?
+    public var fromSeq: Int64
+    public var toSeq: Int64?
+    public var unknown = UnknownFields()
+    static let known: Set<String> = ["room", "id", "fromSeq", "toSeq"]
+
+    public init(room: String, id: String? = nil, fromSeq: Int64, toSeq: Int64? = nil) {
+        self.room = room; self.id = id; self.fromSeq = fromSeq; self.toSeq = toSeq
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: DynamicKey.self)
+        room = try c.decode(String.self, forKey: "room")
+        id = try c.decodeIfPresent(String.self, forKey: "id")
+        fromSeq = try c.decodeIfPresent(Int64.self, forKey: "fromSeq") ?? 0
+        toSeq = try c.decodeIfPresent(Int64.self, forKey: "toSeq")
+        unknown = try UnknownFields(c, known: Self.known)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: DynamicKey.self)
+        try unknown.encode(&c, known: Self.known)
+        try c.encode(room, forKey: "room")
+        try c.encodeIfPresent(id, forKey: "id")
+        try c.encode(fromSeq, forKey: "fromSeq")
+        try c.encodeIfPresent(toSeq, forKey: "toSeq")
+    }
+}
+
+/// One run: a start (or a reopen) to its finish (or archive). Sleep, wake, stop and start inside a run never close it.
+/// Its id is `YYYY-MM-DD-N` (local day; N unique within the record). Additive.
+public struct WorkspaceRun: Codable, Equatable, Sendable {
+    public var id: String
+    public var startedAt: Date
+    public var endedAt: Date?
+    /// Its evidence archive, relative to the store (`archives/<workspace>/runs/<id>`); nil: none written.
+    public var archive: String?
+    public var rooms: [WorkspaceRunRoom]
+    /// The archive's `manifest.json` sha256, as written and re-hashed.
+    public var archiveSHA256: String?
+    /// Why the archive could not be written (`doz workspace runs W --archive RUN` writes it again).
+    public var archiveProblem: String?
+    /// `finish` or `archive` (the verb that closed it).
+    public var closedBy: String?
+    /// A run that began before runs were kept: opened at its finish, its start the workspace's first start.
+    public var legacy: Bool?
+    /// Finish was asked not to write an archive (`--no-archive`).
+    public var noArchive: Bool?
+    public var unknown = UnknownFields()
+    static let known: Set<String> = ["id", "startedAt", "endedAt", "archive", "rooms", "archiveSHA256", "archiveProblem", "closedBy", "legacy", "noArchive"]
+
+    public init(id: String, startedAt: Date, rooms: [WorkspaceRunRoom] = []) { self.id = id; self.startedAt = startedAt; self.rooms = rooms }
+
+    public var isOpen: Bool { endedAt == nil }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: DynamicKey.self)
+        id = try c.decode(String.self, forKey: "id")
+        startedAt = try c.decode(Date.self, forKey: "startedAt")
+        endedAt = try c.decodeIfPresent(Date.self, forKey: "endedAt")
+        archive = try c.decodeIfPresent(String.self, forKey: "archive")
+        rooms = try c.decodeIfPresent([WorkspaceRunRoom].self, forKey: "rooms") ?? []
+        archiveSHA256 = try c.decodeIfPresent(String.self, forKey: "archiveSHA256")
+        archiveProblem = try c.decodeIfPresent(String.self, forKey: "archiveProblem")
+        closedBy = try c.decodeIfPresent(String.self, forKey: "closedBy")
+        legacy = try c.decodeIfPresent(Bool.self, forKey: "legacy")
+        noArchive = try c.decodeIfPresent(Bool.self, forKey: "noArchive")
+        unknown = try UnknownFields(c, known: Self.known)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: DynamicKey.self)
+        try unknown.encode(&c, known: Self.known)
+        try c.encode(id, forKey: "id")
+        try c.encode(startedAt, forKey: "startedAt")
+        try c.encodeIfPresent(endedAt, forKey: "endedAt")
+        try c.encodeIfPresent(archive, forKey: "archive")
+        try c.encode(rooms, forKey: "rooms")
+        try c.encodeIfPresent(archiveSHA256, forKey: "archiveSHA256")
+        try c.encodeIfPresent(archiveProblem, forKey: "archiveProblem")
+        try c.encodeIfPresent(closedBy, forKey: "closedBy")
+        try c.encodeIfPresent(legacy, forKey: "legacy")
+        try c.encodeIfPresent(noArchive, forKey: "noArchive")
     }
 }
 
@@ -325,8 +430,10 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
     /// Who drives it: always `you` in this version.
     public var driver: String
     public var origin: WorkspaceOrigin
+    /// Its runs, oldest first (`WorkspaceRuns`). Additive: written only once there is one.
+    public var runs: [WorkspaceRun] = []
     public var unknown = UnknownFields()
-    static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "defaults", "flags", "driver", "origin"]
+    static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "defaults", "flags", "driver", "origin", "runs"]
 
     public init(name: String, createdAt: Date, brief: WorkspaceBrief, folders: [WorkspaceFolder], rooms: [WorkspaceRoom] = [],
                 agents: [WorkspaceAgent] = [], defaults: WorkspaceDefaults = WorkspaceDefaults(), flags: WorkspaceFlags = WorkspaceFlags(),
@@ -349,6 +456,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         flags = try c.decodeIfPresent(WorkspaceFlags.self, forKey: "flags") ?? WorkspaceFlags()
         driver = try c.decodeIfPresent(String.self, forKey: "driver") ?? "you"
         origin = try c.decodeIfPresent(WorkspaceOrigin.self, forKey: "origin") ?? WorkspaceOrigin()
+        runs = try c.decodeIfPresent([WorkspaceRun].self, forKey: "runs") ?? []
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -366,7 +474,12 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         try c.encode(flags, forKey: "flags")
         try c.encode(driver, forKey: "driver")
         try c.encode(origin, forKey: "origin")
+        if !runs.isEmpty { try c.encode(runs, forKey: "runs") }
     }
+
+    /// The open run's index (nil: none open).
+    public var openRunIndex: Int? { runs.lastIndex { $0.isOpen } }
+    public var openRun: WorkspaceRun? { openRunIndex.map { runs[$0] } }
 
     /// The main room (nil: none).
     public var mainRoom: WorkspaceRoom? { rooms.first { $0.main } ?? rooms.first }
@@ -401,7 +514,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     /// brief-announced (an edit after the start, posted as you in `room`) · bot-changed (a running bot's instructions, model or
     /// account changed — `reason` says which —, told as you in `room`) · the lifecycle: slept · woke · agent-slept · agent-woke ·
     /// finished · reopened · archived · room-archived · room-unarchived · worker-retired · sandbox-removed · template-kept ·
-    /// restored (`reason` says what did not reach its target).
+    /// restored (`reason` says what did not reach its target) · runs: run-opened · run-closed · run-archived ·
+    /// run-archive-failed · room-closed · room-opened · room-removed · transcripts-discarded (`run` names the run).
     public var action: String
     public var agent: String?
     /// The agent's place key (`sandbox:NAME`, `mac:SESSION`).
@@ -419,14 +533,16 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var isolation: String?
     /// The fingerprint of the token a manager or worker was started with (12 hex — never the token).
     public var fingerprint: String?
+    /// The run a run-, room- or transcripts- line is about. Additive.
+    public var run: String?
 
     public init(at: Date = Date(), by: String = "you", action: String, agent: String? = nil, place: String? = nil, room: String? = nil,
                 from: String? = nil, to: String? = nil, sha256: String? = nil, bytes: Int? = nil, added: Int? = nil, removed: Int? = nil,
-                reason: String? = nil, isolation: String? = nil, fingerprint: String? = nil) {
+                reason: String? = nil, isolation: String? = nil, fingerprint: String? = nil, run: String? = nil) {
         v = 1
         self.at = at; self.by = by; self.action = action; self.agent = agent; self.place = place; self.room = room
         self.from = from; self.to = to; self.sha256 = sha256; self.bytes = bytes; self.added = added; self.removed = removed
-        self.reason = reason; self.isolation = isolation; self.fingerprint = fingerprint
+        self.reason = reason; self.isolation = isolation; self.fingerprint = fingerprint; self.run = run
     }
 
     public static let actions: Set<String> = ["created", "room-made", "room-linked", "adopted",
@@ -435,7 +551,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
                                               "manager-started", "manager-stopped", "worker-added", "worker-ended", "worker-add-undone",
                                               "brief-announced", "bot-changed", "slept", "woke", "agent-slept", "agent-woke",
                                               "finished", "reopened", "archived", "room-archived", "room-unarchived", "worker-retired",
-                                              "sandbox-removed", "template-kept", "restored"]
+                                              "sandbox-removed", "template-kept", "restored", "run-opened", "run-closed", "run-archived",
+                                              "run-archive-failed", "room-closed", "room-opened", "room-removed", "transcripts-discarded"]
 
     /// The line as a person reads it.
     public var sentence: String {
@@ -476,6 +593,14 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "sandbox-removed": return "removed the sandbox \(place.map { $0.hasPrefix("sandbox:") ? String($0.dropFirst(8)) : $0 } ?? agent ?? "?")"
         case "template-kept": return "kept the template \(to ?? "?") of \(from ?? "?")"
         case "restored": return "restored the workspace (finished)"
+        case "run-opened": return "opened the run \(run ?? "?")"
+        case "run-closed": return "closed the run \(run ?? "?")"
+        case "run-archived": return "wrote the archive of run \(run ?? "?") (\(added ?? 0) file\(added == 1 ? "" : "s"))"
+        case "run-archive-failed": return "could not write the archive of run \(run ?? "?")" + (reason.map { ": \($0)" } ?? "")
+        case "room-closed": return "closed the room \(room ?? "?") to new messages (it stays readable)"
+        case "room-opened": return "opened the room \(room ?? "?") to new messages again"
+        case "room-removed": return "removed the room \(room ?? "?") for good (its archive is kept)"
+        case "transcripts-discarded": return "discarded \(agent ?? "?")'s conversations (\(removed ?? 0) file\(removed == 1 ? "" : "s"); the run's archive keeps them)"
         default: return action
         }
     }

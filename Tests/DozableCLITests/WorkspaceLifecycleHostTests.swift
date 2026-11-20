@@ -31,7 +31,25 @@ final class WorkspaceLifecycleHostTests: BotTestCase {
         func readiness() async -> WorkspaceChatReadiness { lock.withLock { ready } }
         func rooms() throws -> Set<String> { lock.withLock { roomSet } }
         func makeRoom(_ name: String) throws { lock.withLock { _ = roomSet.insert(name) } }
-        func post(room: String, content: String) throws { trace.add("post \(room)") }
+        var seqs: [String: Int64] = [:]
+        var closedSets: [[String: String]] = []
+        var removed: [(room: String, id: String, lastSeq: Int64)] = []
+        func post(room: String, content: String) throws {
+            trace.add("post \(room)")
+            lock.withLock { seqs[room, default: 0] += 1 }
+        }
+        func lastSeq(room: String) throws -> Int64 { lock.withLock { seqs[room] ?? 0 } }
+        func archivedRooms() throws -> Set<String> { lock.withLock { archived } }
+        func setClosed(_ rooms: [String: String]) async throws -> [String: Int64]? {
+            lock.withLock {
+                closedSets.append(rooms)
+                var out: [String: Int64] = [:]
+                for r in rooms.keys { out[r] = seqs[r] ?? 0 }
+                return out
+            }
+        }
+        /// Someone else posted (a worker): the room's seq moves.
+        func otherPost(_ room: String) { lock.withLock { seqs[room, default: 0] += 1 } }
         func invite(room: String, name: String) throws -> Bool { true }
         func setArchived(room: String, _ on: Bool) throws -> Bool {
             let changed = lock.withLock { on ? archived.insert(room).inserted : archived.remove(room) != nil }

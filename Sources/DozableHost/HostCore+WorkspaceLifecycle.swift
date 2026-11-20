@@ -534,6 +534,7 @@ extension HostCore {
         let n = rec.name
         let results = await stopEverything(rec, plan)
         if let failed = Self.lifecycleFailure(n, "stop", results) { throw failed }
+        try await closeRun(n, by: "finish", toSeq: await roomLastSeqs(rec))
         _ = try await workspaceUpdate(n) { r in
             r.flags.finishedAt = Date()
             return [WorkspaceLogEntry(action: "finished")]
@@ -574,11 +575,14 @@ extension HostCore {
 
     func lifecycleReopen(_ rec: WorkspaceRecord) async throws -> WorkspaceChanged {
         let n = rec.name
-        let r = try await workspaceUpdate(n) { r in
+        _ = try await workspaceUpdate(n) { r in
             r.flags.finishedAt = nil
             r.flags.reopenedAt = Date()
             return [WorkspaceLogEntry(action: "reopened")]
         }
+        // A new run opens: each room's last seq now is its start marker.
+        try await openRun(n)
+        let r = try workspaceRecord(n)
         note(nil, "workspace \(n): reopened")
         return WorkspaceChanged(name: n, verb: "reopen", results: [], notes: ["nothing runs yet — doz workspace wake \(n) brings its agents back"],
                                 workspace: await workspaceDetail(r, withBrief: false))
@@ -590,6 +594,8 @@ extension HostCore {
         let n = rec.name
         var results = await stopEverything(rec, plan)
         if let failed = Self.lifecycleFailure(n, "stop", results) { throw failed }
+        // Archive does finish's steps when it is not finished: its run closes here.
+        if rec.flags.finishedAt == nil { try await closeRun(n, by: "archive", toSeq: await roomLastSeqs(rec)) }
         // The rooms, read-only from now on (their history kept) — as you.
         var archivedRooms: [String] = []
         var notes: [String] = []

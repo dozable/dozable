@@ -292,6 +292,9 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// A workspace's folders, what changed in each since its start (a bounded walk — never a program run in an agent's folder)
     /// and each VM agent's restore points — `WorkspaceFolders`. Only reads: in-process when no daemon runs.
     case workspaceFolders = "workspace-folders"
+    /// A workspace's runs (`WorkspaceRunsListing`): each run's window, its archive's status, place and size, and the
+    /// timesheet's totals. Only reads: in-process when no daemon runs.
+    case workspaceRuns = "workspace-runs"
     /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
     /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
     /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),
@@ -317,7 +320,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .botList, .botShow, .workerList, .workerPlan, .macsList: true
+             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .botList, .botShow, .workerList, .workerPlan, .macsList: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -1747,6 +1750,10 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     /// archive, delete with `confirmRequired` (the dashboard's): the name as the person typed it — the daemon refuses
     /// another. Additive.
     public var confirm: String?
+    /// runs, run-archive: the run (`YYYY-MM-DD-N`). Additive.
+    public var run: String?
+    /// finish, archive: no evidence archive is written (`--no-archive`). Additive.
+    public var noArchive: Bool?
 
     public init(name: String? = nil) { self.name = name }
 }

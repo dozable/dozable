@@ -937,6 +937,7 @@ doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--a
 doz workspace log W [--since T]                 # what happened and who did it (T: ISO 8601, or 30m, 2h, 3d)
 doz workspace log W --limit N [--before I]      # one page, the newest N (1–500); --before the page's first: the page before (--json: first, more)
 doz workspace rename W NEW                      # its room keeps its own name
+doz workspace runs W [--json]                   # its runs: each start or reopen to its finish, its archive's status and size, the timesheet's totals
 ```
 
 `show --can-do`, `--network` and `--folders` answer from the store when no daemon runs and start none (what each agent was
