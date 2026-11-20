@@ -347,6 +347,18 @@ isolation guide** (`#/guide/isolation`) at that choice: the four choices in orde
 for, and the commands of today. Whatever the choice, your keys never go inside a micro VM or a fenced session; an
 unfenced agent is the one exception, and the reason it always asks. An agent elsewhere is not isolated by Dozable.
 
+## Runs and their archive
+
+Each start (or reopen) to its finish is a **run**. `doz workspace finish W` closes the workspace's own rooms to new
+messages — members can still read them; `doz workspace reopen W` opens them again — and writes the run's evidence into
+Dozable's store: its messages, each agent's conversations and last screen, the usage and a timesheet. Nothing is removed,
+and no program is run in your folders (commits are not collected). `--no-archive` writes none.
+
+```bash
+doz workspace runs W                 # each run, its archive and its totals
+doz workspace runs W --archive RUN   # write a run's archive again
+```
+
 ## Changing one
 
 ```bash

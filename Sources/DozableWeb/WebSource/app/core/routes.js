@@ -38,7 +38,7 @@ const BOT = '[a-z][a-z0-9-]{0,39}';
 /// A bot screen's tabs after "Across workspaces" (its own address, #/bots/NAME): the edit tabs, then Roles & ceiling.
 export const BOT_TABS = ['identity', 'runs', 'reached', 'instructions', 'account', 'roles'];
 /// A workspace's tabs that have an address of their own (the room is #/w/NAME itself).
-export const WS_VIEW_TABS = ['agents', 'network', 'folders', 'activity'];
+export const WS_VIEW_TABS = ['agents', 'network', 'folders', 'activity', 'runs'];
 /// The isolation guide's choices, in order of isolation (core/isolation.js has their words).
 export const GUIDE_ISOLATIONS = ['vm', 'fenced', 'unfenced', 'elsewhere'];
 
@@ -129,6 +129,8 @@ export function agentsHash(name) { return '#/w/' + name + '/agents'; }
 export function networkHash(name) { return '#/w/' + name + '/network'; }
 export function foldersHash(name) { return '#/w/' + name + '/folders'; }
 export function activityHash(name) { return '#/w/' + name + '/activity'; }
+/// A workspace's Runs tab: its runs, their archives, its rooms.
+export function runsHash(name) { return '#/w/' + name + '/runs'; }
 /// What an agent of a workspace can do.
 export function canDoHash(workspace, agent) { return '#/w/' + workspace + '/agent/' + encodeURIComponent(agent) + '/can-do'; }
 /// An agent's screen in its workspace (`session`: a session of its sandbox, or `~home`).

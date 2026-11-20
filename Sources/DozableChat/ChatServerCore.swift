@@ -76,14 +76,29 @@ public struct ChatLine: Sendable {
 public struct ChatReceipt: Sendable, Equatable {
     public var state: String
     public var detail: String
+    /// Why, as a word (`space-down`: its workspace is finished) — set only when the daemon asks for reasons
+    /// (`chat.refusal_reasons`); the reference's clients never see it otherwise.
+    public var reason: String = ""
     public init(_ state: String, _ detail: String = "") { self.state = state; self.detail = detail }
     static func refused(_ d: String) -> ChatReceipt { ChatReceipt("refused", d) }
+
+    /// The JSON members an answer carries for it: state, detail, and the reason only when there is one.
+    func members(_ extra: [String: JValue] = [:]) -> JValue {
+        var m = extra
+        m["state"] = .string(state)
+        m["detail"] = .string(detail)
+        if !reason.isEmpty { m["reason"] = .string(reason) }
+        return .map(m)
+    }
 }
 
 /// A refusal of an /agent/ call with its HTTP status.
 public struct ChatAPIError: Error, Sendable, CustomStringConvertible {
     public var status: Int
     public var description: String
+    /// A refusal's reason word (a closed room's `space-down`, only with `chat.refusal_reasons`).
+    public var reason: String = ""
+    var receipt: ChatReceipt { var r = ChatReceipt.refused(description); r.reason = reason; return r }
 }
 
 public final class ChatServerCore: @unchecked Sendable {
@@ -110,6 +125,16 @@ public final class ChatServerCore: @unchecked Sendable {
     var pollWake: [String: ChatWake] = [:]
     /// Bumped for a participant removed (or given a new token) by a reload: a receive that waits ends then (ChatReload.swift).
     var pollEpoch: [String: Int] = [:]
+    /// The closed set (`ChatRoomControl.swift`): room → the workspace whose finish closed it. Held in memory only; the daemon
+    /// sends the whole of it after every start and every change.
+    var closed: [String: String] = [:]
+    /// Whether a refusal carries its reason as an extra field (`chat.refusal_reasons`, sent with the closed set).
+    var refusalReasons = false
+    /// Held for reading while a post is checked and stored, for writing while the closed set changes: a room's last seq
+    /// answered at its close is exact (`ChatRoomControl.swift`).
+    let closeGate = ChatRWLock()
+    /// Bumped for each member of a room removed for good: its waiting receive ends (with nothing), as for a room it is not in.
+    var roomGoneEpoch: [String: Int] = [:]
     /// One hand-over to a polling participant at a time.
     let collectLock = NSLock()
     let bus = ChatEventBus()
@@ -415,6 +440,10 @@ public final class ChatServerCore: @unchecked Sendable {
             return rc
         }
         if isArchived(room) { return .refused(Self.archivedRefusal(room)) }
+        // From the closed check to the store: one read of the close gate (a close waits, so its last seq is exact).
+        closeGate.read()
+        defer { closeGate.done() }
+        if let no = closedRefusal(room) { return no }
         if !m.reMsgID.isEmpty && m.reMsgID.utf8.count < 36 { m.reMsgID = st.fullID(m.reMsgID) }
         // "/dm @name text" is a direct message to those named.
         if words.first == "/dm" {
@@ -511,6 +540,8 @@ public final class ChatServerCore: @unchecked Sendable {
         default: break
         }
         if isArchived(room) && !["/unarchive", "/leave", "/room", "/rooms"].contains(f[0]) { return .refused(Self.archivedRefusal(room)) }
+        // A closed room: only leaving, the room list, and (a human's) archiving or opening it again.
+        if !["/leave", "/rooms", "/archive", "/unarchive"].contains(f[0]), let no = closedRefusal(room) { return no }
         switch f[0] {
         case "/protocol":
             guard let p = participant(sender), p.deliver == "inbox-socket" else { return ChatReceipt("info", ChatProtocol.markdown) }

@@ -135,6 +135,7 @@ extension HostCore {
             f.foldersInUse[WorkspaceStore.resolved(folder)] = "the sandbox \(m.name)"
         }
         f.imagesTaken = Set(store.layout("_").customImages().map(\.name)).union(DozableImages.builtIn)
+        f.ownedRooms = Set(ownedRooms(rec))
         return f
     }
 
@@ -150,9 +151,48 @@ extension HostCore {
 
     /// The plan of `verb` for `rec` as it is now.
     func lifecyclePlan(_ verb: WorkspaceVerb, _ rec: WorkspaceRecord, _ o: WorkspaceLifecycle.Options) async -> WorkspaceLifecyclePlan {
-        let facts = await workspaceLifecycleFacts(rec)
+        var facts = await workspaceLifecycleFacts(rec)
+        if (verb == .finish || (verb == .archive && rec.flags.finishedAt == nil)) && !o.noArchive { facts.archive = await archiveFacts(rec, chat: facts.chat) }
         let d = await workspaceDetail(rec, withBrief: false)
         return WorkspaceLifecycle.plan(verb: verb, record: rec, state: d.state, facts: facts, options: o)
+    }
+}
+
+// MARK: what a run's archive would hold
+
+extension HostCore {
+    /// The archive section's facts: the run, each room's messages so far (only when chat answers), each agent's conversations
+    /// (a session on this Mac's from its listing; a sandbox's are found when it is copied), the screens, the free space.
+    func archiveFacts(_ rec: WorkspaceRecord, chat: WorkspaceLifecycle.Chat) async -> WorkspaceLifecycle.ArchiveFacts {
+        let run = rec.openRun ?? WorkspaceRuns.legacyRun(rec) ?? WorkspaceRun(id: WorkspaceRuns.nextID(rec.runs, at: Date()), startedAt: Date())
+        var a = WorkspaceLifecycle.ArchiveFacts(run: run.id, path: WorkspaceRuns.archivePath(workspace: rec.name, run: run.id))
+        let rooms = run.rooms.isEmpty ? rec.rooms.filter { $0.goneAt == nil }.map { WorkspaceRunRoom(room: $0.chatRoom, fromSeq: 0) } : run.rooms
+        for r in rooms {
+            var count: Int?
+            if chat == .ready, !readOnly, let c = workspaceChat, let last = try? c.lastSeq(room: r.room) { count = Int(max(0, last - r.fromSeq)) }
+            a.rooms[r.room] = count
+        }
+        let since = MacTranscripts.stamp(run.startedAt)
+        for ag in runAgents(rec, run) where ag.place.key != nil {
+            a.screens.append(ag.name)
+            if let s = ag.place.sandbox {
+                let who = ag.place.session != nil && ag.isWorker ? s : ag.name
+                if a.transcripts[who] == nil { a.transcripts[who] = ("sandbox", nil, nil) }
+                continue
+            }
+            guard let s = ag.place.session, !buildFlavor.isHelper else { continue }
+            let fenced = mac.records().sessions[s]?.fence != nil
+            var r = HostRequest(.sessionTranscripts, name: MacPlace.name)
+            r.session = s
+            let l = try? macTranscriptsList(r)
+            let items = (l?.items.filter { $0.endedAt >= since } ?? []) + (l?.conversations ?? [])
+            var bytes: Int64 = 0
+            for i in items { var st = stat(); if lstat(i.path, &st) == 0 { bytes += Int64(st.st_size) } }
+            a.transcripts[ag.name] = (fenced ? "fenced" : "unfenced", items.count, bytes)
+        }
+        var fs = statfs()
+        if statfs(storeRoot, &fs) == 0 { a.freeBytes = Int64(fs.f_bavail) * Int64(fs.f_bsize) }
+        return a
     }
 }
 
@@ -286,7 +326,7 @@ extension HostCore {
         case .stop: throw HostError(.invalid, "stop is workspace-stop")
         case .sleep: return try await lifecycleSleep(rec, plan)
         case .wake: return try await lifecycleWake(rec, plan)
-        case .finish: return try await lifecycleFinish(rec, plan)
+        case .finish: return try await lifecycleFinish(rec, plan, o)
         case .reopen: return try await lifecycleReopen(rec)
         case .archive: return try await lifecycleArchive(rec, plan, o)
         case .restore: return try await lifecycleRestore(rec)
@@ -530,18 +570,71 @@ extension HostCore {
 
     // MARK: finish
 
-    func lifecycleFinish(_ rec: WorkspaceRecord, _ plan: WorkspaceLifecyclePlan) async throws -> WorkspaceChanged {
+    func lifecycleFinish(_ rec: WorkspaceRecord, _ plan: WorkspaceLifecyclePlan, _ o: WorkspaceLifecycle.Options) async throws -> WorkspaceChanged {
         let n = rec.name
+        // A sandbox agent's conversations and screen, copied out while its VM still runs.
+        let current = rec.openRun ?? WorkspaceRuns.legacyRun(rec)
+        let pre = o.noArchive || current == nil ? RunPreStop() : await gatherBeforeStop(rec, current!)
+        // 1. Its own rooms closed to new messages first: the close's answer is each room's last seq, taken under the chat
+        // server's lock — the run's end marker.
+        let toSeq = await closeOwnedRooms(rec)
         let results = await stopEverything(rec, plan)
         if let failed = Self.lifecycleFailure(n, "stop", results) { throw failed }
+        let closed = try await closeRun(n, by: "finish", toSeq: toSeq, noArchive: o.noArchive)
+        let archive = await archiveClosedRun(n, closed, plan: plan, pre: pre, noArchive: o.noArchive)
         _ = try await workspaceUpdate(n) { r in
             r.flags.finishedAt = Date()
             return [WorkspaceLogEntry(action: "finished")]
         }
         note(nil, "workspace \(n): finished")
-        return WorkspaceChanged(name: n, verb: "finish", results: results,
-                                notes: ["nothing runs now; its room\(rec.rooms.count == 1 ? "" : "s") and tokens are kept — doz workspace reopen \(n), then wake, to work on it again"],
-                                workspace: await workspaceDetail(try workspaceRecord(n), withBrief: false))
+        var c = WorkspaceChanged(name: n, verb: "finish", results: results,
+                                 notes: ["nothing runs now; its room\(rec.rooms.count == 1 ? "" : "s") and tokens are kept — doz workspace reopen \(n), then wake, to work on it again"]
+                                     + archive.notes,
+                                 workspace: await workspaceDetail(try workspaceRecord(n), withBrief: false))
+        c.run = closed?.id; c.archive = archive.path; c.archiveSHA256 = archive.sha; c.archiveProblem = archive.problem
+        return c
+    }
+
+    /// Finish's first step: the workspace's own rooms closed (the closed set with them), each room's last seq as the chat
+    /// server took it under its lock; a linked room is not closed — its last seq is read as it is. Each closed room logged.
+    func closeOwnedRooms(_ rec: WorkspaceRecord) async -> [String: Int64] {
+        let n = rec.name
+        let owned = ownedRooms(rec)
+        var toSeq = await roomLastSeqs(rec)
+        guard !owned.isEmpty else { return toSeq }
+        var extra: [String: String] = [:]
+        for r in owned { extra[r] = n }
+        if let seqs = await pushClosedSet(extra: extra) {
+            for r in owned { if let s = seqs[r] { toSeq[r] = s } }
+            for r in owned { try? workspaces.append(n, WorkspaceLogEntry(action: "room-closed", room: r)) }
+        } else {
+            for r in owned { try? workspaces.append(n, WorkspaceLogEntry(action: "room-closed", room: r, reason: "the chat server takes it at its next start")) }
+        }
+        return toSeq
+    }
+
+    /// The closed run's archive written (unless `noArchive`): what was gathered before the stop and what is read now. A
+    /// failure is recorded in the run and answered — the verb itself is never undone by it.
+    func archiveClosedRun(_ n: String, _ closed: WorkspaceRun?, plan: WorkspaceLifecyclePlan, pre: RunPreStop,
+                          noArchive: Bool) async -> (path: String?, sha: String?, problem: String?, notes: [String]) {
+        guard let run = closed, !noArchive, let rec = try? workspaceRecord(n) else {
+            return (nil, nil, nil, closed != nil && noArchive ? ["no archive was written (--no-archive)"] : [])
+        }
+        var g = gatherAfterStop(rec, run)
+        g.transcripts = pre.transcripts + g.transcripts
+        g.screens.merge(pre.screens) { a, _ in a }
+        g.notes = pre.notes + g.notes
+        do {
+            let (path, sha) = try await writeRunArchive(rec, run, plan: plan, gathered: g)
+            await recordRunArchive(n, run.id, path: path, sha: sha, problem: nil)
+            note(nil, "workspace \(n): the archive of run \(run.id) written")
+            return (path, sha, nil, ["run \(run.id)'s archive: \(DisplayPath.tilde(storeRoot + "/" + path))"])
+        } catch {
+            let why = HostError.from(error).message
+            await recordRunArchive(n, run.id, path: nil, sha: nil, problem: why)
+            note(nil, "workspace \(n): the archive of run \(run.id) was not written: \(why)")
+            return (nil, nil, why, ["run \(run.id)'s archive was not written: \(why) — doz workspace runs \(n) --archive \(run.id) writes it again"])
+        }
     }
 
     /// Finish's steps: every place that runs (or sleeps in a VM) shut down or ended, its record, disk and conversation kept;
@@ -574,11 +667,18 @@ extension HostCore {
 
     func lifecycleReopen(_ rec: WorkspaceRecord) async throws -> WorkspaceChanged {
         let n = rec.name
-        let r = try await workspaceUpdate(n) { r in
+        _ = try await workspaceUpdate(n) { r in
             r.flags.finishedAt = nil
             r.flags.reopenedAt = Date()
             return [WorkspaceLogEntry(action: "reopened")]
         }
+        // Its rooms open to new messages again (the closed set without them), then a new run opens: each room's last seq
+        // now is its start marker.
+        if await pushClosedSet() != nil {
+            for room in ownedRooms(rec) { try? workspaces.append(n, WorkspaceLogEntry(action: "room-opened", room: room)) }
+        }
+        try await openRun(n)
+        let r = try workspaceRecord(n)
         note(nil, "workspace \(n): reopened")
         return WorkspaceChanged(name: n, verb: "reopen", results: [], notes: ["nothing runs yet — doz workspace wake \(n) brings its agents back"],
                                 workspace: await workspaceDetail(r, withBrief: false))
@@ -588,8 +688,17 @@ extension HostCore {
 
     func lifecycleArchive(_ rec: WorkspaceRecord, _ plan: WorkspaceLifecyclePlan, _ o: WorkspaceLifecycle.Options) async throws -> WorkspaceChanged {
         let n = rec.name
+        let current = rec.flags.finishedAt == nil ? (rec.openRun ?? WorkspaceRuns.legacyRun(rec)) : nil
+        let pre = o.noArchive || current == nil ? RunPreStop() : await gatherBeforeStop(rec, current!)
         var results = await stopEverything(rec, plan)
         if let failed = Self.lifecycleFailure(n, "stop", results) { throw failed }
+        // Archive does finish's steps when it is not finished: its run closes here, and its archive is written.
+        var archive: (path: String?, sha: String?, problem: String?, notes: [String]) = (nil, nil, nil, [])
+        var closedRun: WorkspaceRun?
+        if rec.flags.finishedAt == nil {
+            closedRun = try await closeRun(n, by: "archive", toSeq: await closeOwnedRooms(rec), noArchive: o.noArchive)
+            archive = await archiveClosedRun(n, closedRun, plan: plan, pre: pre, noArchive: o.noArchive)
+        }
         // The rooms, read-only from now on (their history kept) — as you.
         var archivedRooms: [String] = []
         var notes: [String] = []
@@ -618,9 +727,13 @@ extension HostCore {
         }
         if !removed.isEmpty { notes.append("removed: \(removed.joined(separator: ", "))" + (templates.isEmpty ? "" : " — templates kept: " + templates.values.sorted().joined(separator: ", "))) }
         notes.append("doz workspace restore \(n) brings it back, finished")
+        notes += archive.notes
+        await pushClosedSet()
         note(nil, "workspace \(n): archived (\(archivedRooms.count) room\(archivedRooms.count == 1 ? "" : "s"), \(removed.count) sandbox\(removed.count == 1 ? "" : "es") removed)")
-        return WorkspaceChanged(name: n, verb: "archive", results: results, templates: templates.isEmpty ? nil : templates, notes: notes,
-                                workspace: await workspaceDetail(r, withBrief: false))
+        var c = WorkspaceChanged(name: n, verb: "archive", results: results, templates: templates.isEmpty ? nil : templates, notes: notes,
+                                 workspace: await workspaceDetail(r, withBrief: false))
+        c.run = closedRun?.id; c.archive = archive.path; c.archiveSHA256 = archive.sha; c.archiveProblem = archive.problem
+        return c
     }
 
     /// An anonymous worker retired: its participant removed (out of every room, its token refused, its messages kept), its
@@ -722,6 +835,10 @@ extension HostCore {
             return [WorkspaceLogEntry(action: "restored")]
         }
         notes.append("it is finished: doz workspace reopen \(n), then wake, to work on it again")
+        // Its rooms are closed again (finished): readable, posts refused until it is reopened.
+        if r.runs.last.map({ !$0.isOpen }) == true, !ownedRooms(r).isEmpty, await pushClosedSet() != nil {
+            notes.append("its rooms read closed: doz workspace reopen \(n) opens them to new messages")
+        }
         note(nil, "workspace \(n): restored (finished)")
         return WorkspaceChanged(name: n, verb: "restore", results: [], notes: notes, workspace: await workspaceDetail(r, withBrief: false))
     }
@@ -775,6 +892,7 @@ extension HostCore {
         await workspaceGate.lock("workspaces")
         defer { workspaceGate.unlock("workspaces") }
         try workspaces.remove(n)
+        Task { await self.pushClosedSet() }
         let released = rec.agents.filter { !$0.isManager && !$0.isWorker && $0.place.key != nil }.map { $0.place.display }
         HostLog.line("workspaces: \(n) deleted (\(rec.agents.count) agent\(rec.agents.count == 1 ? "" : "s"), \(released.count) released loose, \(removed.count) sandbox\(removed.count == 1 ? "" : "es") removed, \(binned.count) folder\(binned.count == 1 ? "" : "s") to the Bin)")
         if !released.isEmpty { notes.append("loose again: \(released.joined(separator: ", "))") }

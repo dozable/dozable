@@ -725,6 +725,43 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(fake.performedOps, want, "the plan is a read: no operation")
     }
 
+    /// A room archived or removed, a run's archive written again: another computer gets 403 `mac-only` whatever the serve
+    /// settings say, and the room plan route 403 `mac-screen`; nothing reaches the daemon. This Mac's own browser: each
+    /// exactly its HostOp; rm with another name than the room's is refused before the daemon (400).
+    func testRoomActionsAreThisMacsBrowserOnlyWhateverTheServeSettings() async throws {
+        try await start(macSessions: "interactive", chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        let bodies = [#"{"action":"chat-room-archive","room":"launch","ifPlan":"0123456789abcdef"}"#,
+                      #"{"action":"chat-room-rm","room":"launch","ifPlan":"0123456789abcdef","confirm":"launch"}"#,
+                      #"{"action":"workspace-run-archive","workspace":"launch","run":"2026-11-20-1"}"#]
+        for (ms, chat) in [("interactive", "write"), ("off", "off"), ("watch", "read")] {
+            try "[serve]\nmac_sessions = \"\(ms)\"\nchat = \"\(chat)\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+            for body in bodies {
+                let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", body, remote: true)
+                XCTAssertEqual(r.status, 403, r.text)
+                XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+            }
+            let rp = try macJSON(devCookie, devCSRF, "/api/v1/chat-room-plan", #"{"room":"launch","verb":"rm"}"#, remote: true)
+            XCTAssertEqual(rp.status, 403, rp.text)
+            XCTAssertTrue(rp.text.contains("\"mac-screen\""), rp.text)
+            XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon (\(ms), \(chat))")
+        }
+        let (macCookie, macCSRF) = try macSignIn()
+        let forged = try macJSON(macCookie, macCSRF, "/api/v1/actions", #"{"action":"chat-room-rm","room":"launch","ifPlan":"0123456789abcdef","confirm":"lunch"}"#, remote: false)
+        XCTAssertEqual(forged.status, 400, "a forged name: refused before the daemon (\(forged.text))")
+        let loose = try macJSON(macCookie, macCSRF, "/api/v1/actions", #"{"action":"chat-room-rm","room":"launch","ifPlan":"0123456789abcdef","confirm":"launch","loose":true}"#, remote: false)
+        XCTAssertEqual(loose.status, 400, "never --loose from a browser (\(loose.text))")
+        var want: [HostOp] = []
+        for (body, op) in zip(bodies, [HostOp.chatRoomArchive, .chatRoomRm, .workspaceRunArchive]) {
+            let r = try macJSON(macCookie, macCSRF, "/api/v1/actions", body, remote: false)
+            XCTAssertEqual(r.status, 202, r.text)
+            want.append(op)
+            let deadline = Date().addingTimeInterval(5)
+            while fake.performedOps.count < want.count && Date() < deadline { usleep(10_000) }
+            XCTAssertEqual(fake.performedOps, want)
+        }
+    }
+
     /// A fenced session's site allowed from another computer: 403 `mac-only` whatever serve.mac_sessions and serve.chat say,
     /// one audit line each, nothing sent to the daemon; this Mac's own browser: 202, exactly `net-policy` on `@mac` with the
     /// session. The wide views read from another computer: held secrets a count only, this Mac's agents per serve.mac_sessions.

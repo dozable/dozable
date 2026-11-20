@@ -14,12 +14,33 @@ public protocol WorkspaceChat: Sendable {
     @discardableResult func invite(room: String, name: String) throws -> Bool
     /// Archive `room` as you (read-only, its history kept) or open it again; false: it was so already.
     @discardableResult func setArchived(room: String, _ on: Bool) throws -> Bool
+    /// The room's newest seq (0: empty) — a run's marker, as data.
+    func lastSeq(room: String) throws -> Int64
+    /// The rooms archived now.
+    func archivedRooms() throws -> Set<String>
+    /// One request on the owner's socket (a run's chat slice, a room's whole history): the status and the body.
+    func fetch(_ target: String) throws -> (status: Int, body: Data)
+    /// The closed set — the whole of it, room → workspace — handed to the running chat server over its control channel
+    /// and kept for its next start. Answers each room's last seq as the server took it under its lock (nil: no server took
+    /// it now — it is handed over at its start).
+    func setClosed(_ rooms: [String: String]) async throws -> [String: Int64]?
+    /// A room removed for good by the running chat server (its id and its last seq checked under its lock).
+    func removeRoom(_ room: String, id: String, lastSeq: Int64) async throws
 }
 
 extension WorkspaceChat {
     /// A chat that cannot archive (a test's that does not need to).
     @discardableResult public func setArchived(room: String, _ on: Bool) throws -> Bool {
         throw HostError(.notImplemented, "this chat cannot archive a room")
+    }
+    public func lastSeq(room: String) throws -> Int64 { 0 }
+    public func archivedRooms() throws -> Set<String> { [] }
+    public func fetch(_ target: String) throws -> (status: Int, body: Data) {
+        throw HostError(.notImplemented, "this chat cannot be read")
+    }
+    public func setClosed(_ rooms: [String: String]) async throws -> [String: Int64]? { nil }
+    public func removeRoom(_ room: String, id: String, lastSeq: Int64) async throws {
+        throw HostError(.notImplemented, "this chat cannot remove a room")
     }
 }
 
@@ -33,7 +54,19 @@ public enum WorkspaceChatReadiness: Equatable, Sendable {
 public struct OwnerWorkspaceChat: WorkspaceChat {
     let ready: @Sendable () async -> WorkspaceChatReadiness
     let owner: ChatOwnerRooms
-    public init(ready: @escaping @Sendable () async -> WorkspaceChatReadiness, owner: ChatOwnerRooms) { self.ready = ready; self.owner = owner }
+    /// The supervisor's control channel: the closed set, a room's removal.
+    let closed: (@Sendable ([String: String]) async -> [String: Int64]?)?
+    let remove: (@Sendable (String, String, Int64) async throws -> Void)?
+    public init(ready: @escaping @Sendable () async -> WorkspaceChatReadiness, owner: ChatOwnerRooms,
+                closed: (@Sendable ([String: String]) async -> [String: Int64]?)? = nil,
+                remove: (@Sendable (String, String, Int64) async throws -> Void)? = nil) {
+        self.ready = ready; self.owner = owner; self.closed = closed; self.remove = remove
+    }
+    public func setClosed(_ rooms: [String: String]) async throws -> [String: Int64]? { await closed?(rooms) }
+    public func removeRoom(_ room: String, id: String, lastSeq: Int64) async throws {
+        guard let remove else { throw HostError(.notImplemented, "this chat cannot remove a room") }
+        try await remove(room, id, lastSeq)
+    }
     public func readiness() async -> WorkspaceChatReadiness { await ready() }
     public func rooms() throws -> Set<String> { Set(try owner.state().rooms.keys) }
     public func makeRoom(_ name: String) throws {
@@ -42,6 +75,18 @@ public struct OwnerWorkspaceChat: WorkspaceChat {
     public func post(room: String, content: String) throws { try owner.post(room: room, content: content) }
     @discardableResult public func invite(room: String, name: String) throws -> Bool { try owner.invite(room: room, name: name) }
     @discardableResult public func setArchived(room: String, _ on: Bool) throws -> Bool { try owner.setArchived(room: room, on) }
+    public func lastSeq(room: String) throws -> Int64 { try owner.lastSeq(room: room) }
+    public func archivedRooms() throws -> Set<String> { try owner.state().archived }
+    public func fetch(_ target: String) throws -> (status: Int, body: Data) {
+        do {
+            let a = try owner.client.request("GET", target, json: nil)
+            return (a.status, a.body)
+        } catch ChatOwnerClient.Failure.notListening {
+            throw HostError(.unavailable, "chat is on but its server is not ready — doz chat status")
+        } catch ChatOwnerClient.Failure.failed(let why) {
+            throw HostError(.unavailable, why)
+        }
+    }
 }
 
 /// What `workspace-new` would write (`HostCore.workspaceNewDraft`).
@@ -87,6 +132,10 @@ extension HostCore {
             return try JSONValue(encoding: await workspacePlan(w))
         case .workspaceLifecyclePlan:
             return try JSONValue(encoding: try await workspaceLifecyclePlan(w))
+        case .workspaceRuns:
+            return try JSONValue(encoding: try workspaceRuns(w))
+        case .workspaceRunChat:
+            return try JSONValue(encoding: try workspaceRunChat(w))
         default:
             break
         }
@@ -95,6 +144,7 @@ extension HostCore {
         if r.op == .workspaceStart { return try JSONValue(encoding: try await workspaceStart(w)) }
         if r.op == .workspaceStop { return try JSONValue(encoding: try await workspaceStop(w)) }
         if let verb = WorkspaceVerb(op: r.op) { return try JSONValue(encoding: try await workspaceLifecycle(verb, w)) }
+        if r.op == .workspaceRunArchive { return try JSONValue(encoding: try await workspaceRunArchive(w)) }
         await workspaceGate.lock("workspaces")
         defer { workspaceGate.unlock("workspaces") }
         switch r.op {
@@ -411,7 +461,7 @@ extension HostCore {
                 }
                 if let owner = workspaceRoomOwner(room) { refuse(HostError(.exists, "the room \(room) is already the room of \(owner)")) }
             }
-            rooms.append(WorkspaceRoom(label: "main", chatRoom: room, main: true))
+            rooms.append(WorkspaceRoom(label: "main", chatRoom: room, main: true, owned: false))
             log.append(WorkspaceLogEntry(at: now, action: "room-linked", room: room))
             linked = true
         } else {
@@ -427,7 +477,7 @@ extension HostCore {
                     refuse(HostError(.exists, "there is already a room \(name) — pass --room \(name) to make it this workspace's room, or choose another name"))
                 }
                 if named, let owner = workspaceRoomOwner(name) { refuse(HostError(.exists, "the room \(name) is already the room of \(owner)")) }
-                rooms.append(WorkspaceRoom(label: "main", chatRoom: name, main: true))
+                rooms.append(WorkspaceRoom(label: "main", chatRoom: name, main: true, owned: true))
                 log.append(WorkspaceLogEntry(at: now, action: "room-made", room: name))
                 makeRoom = name
             }
@@ -468,6 +518,9 @@ extension HostCore {
             if let p = d.makeFolder { try? FileManager.default.removeItem(atPath: p) }
             throw error
         }
+        // Its room's id in the room index (its owner when the workspace made it) — the index's own gate; the record takes the
+        // id when its first run opens.
+        for r in d.record.rooms { _ = try? await roomIndexUpdate { $0.ensure(r.chatRoom, owner: r.owned == true ? name : nil) } }
         let rec = d.record
         note(nil, "workspace \(name) made (\(rec.agents.count) agent\(rec.agents.count == 1 ? "" : "s"), \(rec.rooms.isEmpty ? "no room" : "room \(rec.rooms[0].chatRoom)"))")
         return await workspaceDetail(rec, withBrief: false, notes: d.notes)
@@ -601,7 +654,8 @@ extension HostCore {
         // Then the room, then the files.
         if let chat {
             try chat.makeRoom(n)
-            rec.rooms.append(WorkspaceRoom(label: "main", chatRoom: n, main: true))
+            let id = try? await roomIndexUpdate { $0.ensure(n, owner: n).id }
+            rec.rooms.append(WorkspaceRoom(label: "main", chatRoom: n, main: true, id: id, owned: true))
             log.append(WorkspaceLogEntry(at: now, action: "room-made", room: n))
         }
         if let brief {

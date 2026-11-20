@@ -100,6 +100,15 @@ public struct ChatOwnerRooms: Sendable {
         return true
     }
 
+    /// The room's newest seq as you read it (0: an empty room).
+    public func lastSeq(room: String) throws -> Int64 {
+        guard chatIsRoomName(room) else { throw HostError(.invalid, "\(room) is not a room name") }
+        let (status, v) = try ask("GET", "/api/rooms/\(room)/messages?limit=1")
+        guard status == 200 else { throw HostError(status == 404 || status == 403 ? .notFound : .failed, Self.reason(v, status)) }
+        guard case .array(let page) = v, let last = page.last else { return 0 }
+        return Int64(((try? last.field("seq")?.goInt("seq")) ?? nil) ?? 0)
+    }
+
     static func reason(_ v: JValue, _ status: Int) -> String {
         v.field("detail")?.stringValue ?? v.field("error")?.stringValue ?? "refused (\(status))"
     }

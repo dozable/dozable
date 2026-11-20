@@ -210,7 +210,7 @@ doz builder start [--yes]      # container system start --enable-kernel-install 
 | `run @mac …` · `attach @mac` · `sessions … @mac …` | Sessions on THIS Mac: held like a sandbox's; fenced by default (its folder, its own temp and caches, Dozable's proxy; your Keychain and secrets closed), `--unfenced` for no isolation at all (see the manual's "Sessions on this Mac"). Every other command refuses `@mac`, but `net … @mac --session S` for a fenced one. |
 | `run @mac [--fenced] [--keychain] [--read DIR]… [--write DIR]… [--permissions P] [--local-port N]… [--agent-config private\|shared] [--github read\|push] [--ssh-agent] [--xcode \| --simulator] [--dry-run] -- CMD` · `--unfenced` | A session on this Mac, fenced by default (the setting `mac.fence`, `on`): it reads and writes only its folder (`--folder DIR`; default: the one you are in) and its own temp and caches, reads your tools but not your secrets or other folders, has no Keychain unless `--keychain`, and reaches the network only through Dozable's proxy by its permissions; `--read`/`--write` add a folder (never your home, `~/.ssh`, `~/.config`, `~/Library` or the store). `--unfenced` is no isolation, as before; a session keeps its mode when restarted. `--dry-run` says what it could do. |
 | `sessions @mac --transcripts SESSION [--export DIR]` | Its conversations: a fenced one's archived and carried-back copies, an unfenced one's recorded ones (each `/clear` or `/resume` adds one). `--export` copies exactly those into a new or empty folder with `manifest.json` (each file's source and the sha256 of the original and the copy), never following a link, every file swept for chat tokens. No daemon needed. |
-| `sessions @mac --forget-ended [--dry-run] [--yes]` · `--forget SESSION` | Forget ended and gone sessions on this Mac (asked once): each one's conversations carried back first; never a running session or a workspace's (kept, with why); a gone one can no longer be restarted. `--dry-run` says what would go, with no daemon. A second run forgets nothing. |
+| `sessions @mac --forget-ended [--dry-run] [--yes]` · `--forget SESSION` | Forget ended and gone sessions on this Mac (asked once): each one's conversations carried back first; never a running session or a workspace's (kept, with why); a gone one can no longer be restarted. `--dry-run` says what would go, with no daemon. A second run forgets nothing. `--forget SESSION --discard-transcripts` also removes its conversations — each only while it is the copy a closed run's verified archive holds (a finished workspace's session too: it starts fresh on wake); a changed one is kept, with why. |
 | `sessions resume @mac SESSION` · `sessions @mac --quarantine SESSION` | A fenced session that changed a git config in a way it may not (a hook path, an fsmonitor, a pager, an unknown key) is stopped at once and the change taken out: `--quarantine` shows what was taken out; `resume` continues it (refused while such a change is there again). |
 | `ls` · `inspect NAME` | Every sandbox: image, phase, RAM held, disk, sessions, network · everything as JSON. |
 
@@ -857,6 +857,9 @@ doz chat webhook set E [--from-file F]          # a webhook bot's entry: address
 doz chat webhook status [E] | remove E
 doz chat import PATH [--dry-run] [--add-missing] [--replace]   # another chat's history (chat off first)
 doz chat rooms | room NAME @MEMBER… | send ROOM TEXT | read ROOM [--last N] [--follow] [--with-log]   # as you, on your own socket
+doz chat rooms [--gone]                         # each room and its members, then (closed: its workspace is finished) or (archived); --gone: the tombstones
+doz chat room archive ROOM [--loose] [--dry-run] [--yes]       # its whole history copied into the store and verified, then read-only (owned rooms; --loose: one no workspace owns or links)
+doz chat room rm ROOM [--loose] [--dry-run] [--yes --confirm ROOM]   # removed for good once its archived copy verifies (the name typed); a tombstone stays
 doz chat read ROOM --since T [--until T] [--json]   # every message of a window, no cap, oldest first
 doz chat export ROOM --to DIR [--since T] [--until T] [--json]   # ROOM.jsonl, attachments/, manifest.json — swept for tokens
 ```
@@ -925,9 +928,9 @@ doz workspace start W                           # the set-up check, the brief po
 doz workspace stop W                            # the manager ended; its record, conversation and room kept
 doz workspace sleep W [--dry-run] [--yes] [--if-plan SHA]     # every agent asleep: a sandbox hibernated, a session ended (its conversation kept)
 doz workspace wake W [--dry-run] [--yes] [--if-plan SHA]      # back in the same sandboxes and conversations
-doz workspace finish W [--dry-run] [--yes] [--if-plan SHA]    # everything stops; rooms, tokens, disks and folders kept (asks [y/N])
+doz workspace finish W [--no-archive] [--dry-run] [--yes] [--if-plan SHA]    # everything stops; the run archived; tokens, disks and folders kept (asks [y/N])
 doz workspace reopen W [--dry-run] [--if-plan SHA]            # finished → asleep until you wake it
-doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
+doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--no-archive] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
 doz workspace restore W [--dry-run] [--if-plan SHA]           # archived → finished, its rooms writable again
 doz workspace delete W [--remove-sandboxes [--no-keep-templates]] [--bin-folders] [--dry-run] [--yes] [--if-plan SHA]   # finished or archived only (the name typed)
 doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME]   # as a worker; only the workspace's record changes
@@ -937,6 +940,8 @@ doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--a
 doz workspace log W [--since T]                 # what happened and who did it (T: ISO 8601, or 30m, 2h, 3d)
 doz workspace log W --limit N [--before I]      # one page, the newest N (1–500); --before the page's first: the page before (--json: first, more)
 doz workspace rename W NEW                      # its room keeps its own name
+doz workspace runs W [--json]                   # its runs: each start or reopen to its finish, its archive's status and size, the timesheet's totals
+doz workspace runs W --archive RUN              # a closed run's archive written again (when it could not be written at its finish)
 ```
 
 `show --can-do`, `--network` and `--folders` answer from the store when no daemon runs and start none (what each agent was

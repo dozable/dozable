@@ -190,6 +190,11 @@ public enum ChatServer {
             core.waitForAnnouncement(seconds: 2)
         }
 
+        // The daemon's control channel: the closed set comes first, before the ports answer (ChatRoomControl.swift).
+        var controlPending: [UInt8] = []
+        if let fd = o.controlFD, o.tokenHashesFile != nil {
+            controlPending = ChatRoomControl.takeFirst(fd: fd, core: core, seconds: 3, log: log)
+        }
         let listeners: ChatListeners
         do {
             listeners = try await ChatListeners.bind(core: core, host: host, remoteHosts: config.remoteBind, linePort: config.linePort, pagePort: config.httpPort,
@@ -232,7 +237,7 @@ public enum ChatServer {
         StatusWriter.current?.refreshEvery(5, snapshot)
         // The daemon's control channel, once the server is ready: participant changes without a restart.
         if let fd = o.controlFD, let hashes = o.tokenHashesFile {
-            ChatReload.serve(fd: fd, core: core, configPath: o.configPath, overrides: o.overrides, hashesPath: hashes, log: log)
+            ChatReload.serve(fd: fd, core: core, configPath: o.configPath, overrides: o.overrides, hashesPath: hashes, log: log, pending: controlPending)
         }
         await listeners.serve()
         fault(ChatExit.restartMe, "the listeners stopped")

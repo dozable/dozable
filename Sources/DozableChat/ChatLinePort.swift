@@ -53,6 +53,7 @@ public struct ChatLineConnection: Sendable {
         func receipt(_ rc: ChatReceipt) -> Outcome {
             var r = base + [JMember("action", .string("receipt")), JMember("state", .string(rc.state))]
             if !rc.detail.isEmpty { r.append(JMember("detail", .string(rc.detail))) }
+            if !rc.reason.isEmpty { r.append(JMember("reason", .string(rc.reason))) }
             return reply(r)
         }
         switch (m.type, m.action) {

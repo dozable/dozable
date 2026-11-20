@@ -212,7 +212,7 @@ final class WorkspaceManagerTests: BotTestCase {
                        || String(decoding: o.start, as: UTF8.self).contains("dzc_"), "no token in what is launched")
         let rec = try XCTUnwrap(record("demo"))
         XCTAssertNotNil(rec.flags.startedAt)
-        XCTAssertEqual(try WorkspaceStore(store: store).log("demo").map(\.action).suffix(3), ["bot-invited", "kicked-off", "manager-started"])
+        XCTAssertEqual(try WorkspaceStore(store: store).log("demo").map(\.action).suffix(4), ["bot-invited", "run-opened", "kicked-off", "manager-started"])
         let logText = String(decoding: try Data(contentsOf: URL(fileURLWithPath: WorkspaceStore(store: store).folder("demo") + "/log.jsonl")), as: UTF8.self)
         XCTAssertFalse(logText.contains("Make the launch video") || logText.contains("dzc_"), "the log has hashes, never the brief or a token")
         XCTAssertTrue(logText.contains(BotTokens.fingerprint(token)))

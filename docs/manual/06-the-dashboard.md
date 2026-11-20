@@ -287,6 +287,16 @@ choices and menus; **Escape** closes a menu or a dialog. Five page shortcuts: **
 Settings filter, **?** the list of shortcuts. None of them works while a
 terminal has the focus — there every key is the terminal's.
 
+### A workspace's runs
+
+A workspace's **Runs** tab lists each run — each start or reopen to its finish — with its length, whether its archive was
+written and how big it is, and its totals. **Read its messages** opens a past run's chat from its archive, read-only, with
+its timesheet. Below, each of the workspace's rooms shows its state (open, closed, archived or gone). In this Mac's own
+browser, **Archive room…** and **Remove room…** put a finished workspace's room away and then remove it for good; Remove
+room… asks you to type the room's name. When a workspace is finished, its room's message box is off and says so; reopen
+the workspace to post again. The Finish dialog shows what becomes of each room and what the run's archive will hold, with
+**Finish without an archive** unticked.
+
 ## The daemon, watched
 
 The status bar at the foot of the sidebar (it stays there as the sidebar's pages scroll; the sidebar's head stays at its top) starts with a dot for the dashboard's connection and

@@ -187,6 +187,19 @@ A shared session writes its conversations straight into your own folder, and Doz
 there. A conversation written in a fenced session and continued outside it is still text the fenced agent wrote:
 the end message says so.
 
+### Discarding a session's conversations once a run's archive holds them
+
+When a workspace finishes, its run's archive keeps a copy of each agent's conversations. Once that copy exists, you can
+remove the session's own files too:
+
+```bash
+doz sessions @mac --forget SESSION --discard-transcripts
+```
+
+Each file goes only while it is exactly the copy the archive holds; a file that changed since is kept, and you are told
+why. Nothing is discarded while the workspace's run is still open, and nothing for a session no archive holds. A finished
+workspace's session starts fresh the next time you wake it.
+
 ## The network
 
 The session's proxy decides by host name, with the permissions of a sandbox. This Mac's default for a fenced session

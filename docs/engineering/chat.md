@@ -425,6 +425,22 @@ place (a person's `--foreground` daemon still exits); the login item counts it a
 every `chat.*` key, `ServeRulesTests`): `chat.enabled` (false), `chat.page_port` (8790), `chat.line_port` (8791),
 `chat.remote_listen` and `chat.remote_agents` ("", below).
 
+### The closed set and removing a room
+
+Over the same control channel (`ChatRoomControl`), never a route, file or slash command: `{"version":1,"id":…,"closed":{"rooms":
+{R: W},"reasons":B}}` — the WHOLE closed set, in memory only, sent by the supervisor right after every start (the server
+reads that first line before its ports answer) and after every change; answered with each room's last seq taken under the
+close gate (a read-write lock posts hold from their check to their store). A closed room refuses posts, edits, reactions and
+commands (but `/leave`, `/rooms` and a human's `/archive`, `/unarchive`) with the archived room's status (422 `refused`) and
+Dozable's words; `reason: "space-down"` only with `chat.refusal_reasons`. Archived outranks closed. `{"roomRemove":{"room":R,
+"id":ID,"lastSeq":N}}` removes a room under the lock — refused when its last seq moved —: its store closed, memberships,
+archived flag, hold and app dropped, its members' waiting receives ended (empty, as for a room they are not in), its
+`rooms/<room>.db`, `-wal`, `-shm` and the attachments no other room names removed; the server keeps running. The daemon
+keeps the tombstone (`ChatRoomIndex`). `doz chat room archive|rm` are the owner's (`HostCore+RoomLifecycle`): owned rooms
+only (`--loose`: a loose room, the CLI only), never a linked room or while its run is open; rm only once an archived copy
+verifies now and the name is typed. Conformance is unchanged (171): it starts `doz chat serve` without a channel.
+`ChatClosedTests`, `RoomLifecycleHostTests`.
+
 ## Agents on other machines
 
 Turning the remote listener on opens both chat ports on this Mac's Tailscale address to the machines named in

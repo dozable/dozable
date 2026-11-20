@@ -442,6 +442,41 @@ additively: `WorkspaceAgent.template`, `WorkspaceFlags.reopenedAt` and `.archive
 know. `WorkspaceState.derive` is unchanged (slept agents read asleep; finished outranks a session still running after a
 partial failure).
 
+## Runs
+
+A run is one start (the kick-off) or reopen to its finish (or archive); sleep, wake, stop and start never close it
+(`WorkspaceRuns`, `HostCore+Runs`). `WorkspaceRecord.runs` (additive) holds `{id, startedAt, endedAt?, archive?, rooms:
+[{room, id, fromSeq, toSeq?}], archiveSHA256?, archiveProblem?, closedBy?, legacy?, noArchive?}`; ids are `YYYY-MM-DD-N`, N
+unique in the record. The markers are data, never posts: `fromSeq` is each room's last seq when the run opened, `toSeq` the
+last seq the chat server answered when finish closed the room (under its close gate), and the run's messages are exactly
+`fromSeq < seq <= toSeq`. A record started before runs gets an implicit run (`legacy`) at its next finish; one finished
+before runs is never closed after the fact. A room's id and owner live in `<store>/chat/room-index.json`
+(`ChatRoomIndex`: ids `rm_<16 hex>`, an archive reference, tombstones `{name, id, deletedAt, run, archive, owner}`);
+`WorkspaceRoom` gains `id`, `owned` (nil: read from the log — `room-made` owns, `room-linked` does not) and `goneAt`.
+`doz workspace runs W` (`workspace-runs`) answers from the store with no daemon started.
+
+Finish's order: (1) its own rooms closed — the whole closed set handed to the chat server (chat.md, "The control
+channel"), the answer each room's `toSeq`; (2) the agents stopped — a sandbox agent's conversations and screen copied out
+first, while its VM runs (`SandboxTranscriptExport`, through an exec to list and a one-member tar to read, never woken);
+(3) the archive written; (4) the run closed; (5) `finishedAt`. A failed archive removes only its own partial, records
+`archiveProblem`, and finish still completes (the CLI exits 1 and names `doz workspace runs W --archive RUN`). The finish
+plan shows each room's row (an owned one closed, a linked one not), "finish closes the room to new messages until you
+reopen", the archive section (estimate, refusals: chat not ready, not enough free space) and `--no-archive`; the sha covers
+the rows and the archive's shape, never its counts. Reopen opens the rooms again and a new run.
+
+## The archive
+
+`<store>/archives/<workspace>/runs/<run>/` (outside `workspaces/W/`, so delete keeps it), written by `RunArchive` into
+`<run>.partial/` through `RunArchiveFolder` (0700 folders, 0600 files, `O_CREAT|O_EXCL|O_NOFOLLOW`, never through a link,
+only under `<store>/archives/`): `manifest.json` (`run, workspace, window, versions, rooms {name: id}, labels, notes, sweep,
+files [{path, sha256, sourceSHA256?, bytes, agent?, source?, session?}], messages`), `run.json` (the run and the confirmed
+plan), `brief.md`, `chat/<room>.jsonl` and `attachments/<room>/…` (no cap), `transcripts/<agent>/…` (a session on this
+Mac's — Dozable's kept copies since the run began, its carried copies and recorded conversations, by `TranscriptCopy`'s
+rules; a sandbox's), `screens/<agent>.txt`, `usage.json` (`TranscriptUsage` over the archived copies) and `timesheet.md`
+(`Timesheet`; commits "not collected": Dozable never runs git in an agent's folder). Every file is swept as written
+(`ExportSweep`), then the whole archive is swept again — a finding fails it —, then the manifest is written and every file
+re-hashed through the folder's descriptor, then the partial is renamed into place. No program is run.
+
 ## Workspace-wide views
 
 What a workspace can reach, hold and change, in one place — the CLI's `doz workspace show W --can-do | --network | --folders`,

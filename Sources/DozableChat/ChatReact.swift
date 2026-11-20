@@ -15,6 +15,7 @@ extension ChatServerCore {
         if isArchived(room) {
             return .refused("room \(room) is archived: its messages cannot be reacted to. A human can reopen it with /unarchive")
         }
+        if let no = closedRefusal(room) { return no }
         guard let r = ChatReactions.of(what) else { return .refused(ChatReactions.help) }
         let id = msgID.utf8.count < 36 ? st.fullID(msgID) : msgID
         if id.isEmpty || st.sender(of: id).isEmpty { return .refused("no such message in room \(room)") }

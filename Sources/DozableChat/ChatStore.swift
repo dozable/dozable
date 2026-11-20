@@ -330,6 +330,22 @@ public final class ChatRoomStore: @unchecked Sendable {
         }) ?? []
     }
 
+    /// The newest seq in the log (0: empty).
+    public func lastSeq() -> Int64 {
+        (try? sync { try self.query("SELECT COALESCE(MAX(seq),0) FROM messages", []) { sqlite3_column_int64($0, 0) } })?.first ?? 0
+    }
+
+    /// Every attachment id the room's messages name.
+    public func attachmentIDs() -> Set<String> {
+        let rows = (try? sync { try self.query("SELECT attachments FROM messages WHERE attachments<>'' AND attachments<>'[]'", []) { Self.text($0, 0) } }) ?? []
+        var out = Set<String>()
+        for r in rows {
+            guard let v = try? ChatJSON.parse(Array(r.utf8)), case .array(let a) = v else { continue }
+            for e in a { if let id = e.field("id")?.stringValue, ChatFileRules.isFileID(id) { out.insert(id) } }
+        }
+        return out
+    }
+
     /// Whether a message other than except still refers to a file id, in its attachments or its text.
     public func usesFile(_ id: String, except: String) -> Bool {
         let n = (try? sync {

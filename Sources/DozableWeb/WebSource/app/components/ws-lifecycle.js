@@ -56,8 +56,20 @@ export function planView(p) {
     p.goes.length ? h('div', { class: 'wl-goes' }, h('h3', null, 'Goes'), h('ul', null, ...p.goes.map(item))) : null);
   const cmd = h('details', { class: 'wl-cmd' }, h('summary', null, 'Show the command'), cmdLine(p.command),
     p.commands.length ? h('div', { class: 'wl-today' }, h('p', { class: 'muted' }, 'Today, one agent at a time:'), ...p.commands.map((c) => cmdLine(c))) : null);
+  // A finish's rooms (its own closed, a linked one not) and the run's archive.
+  const rooms = p.rooms && p.rooms.length ? h('div', { class: 'wl-rooms' }, h('h3', null, 'Rooms'),
+    h('ul', null, ...p.rooms.map((r) => h('li', { class: 'wl-item', 'data-wl-room': r.room }, h('b', null, '#' + r.room), h('span', null, ' → ' + r.after))))) : null;
+  const a = p.archive;
+  const archive = a && !a.off ? h('div', { class: 'wl-archive', 'data-wl-archive': a.run || '' }, h('h3', null, 'The run’s archive'),
+    h('ul', null,
+      a.path ? h('li', { class: 'wl-item' }, h('code', { class: 'wl-path' }, a.path), h('span', null, 'in Dozable’s store')) : null,
+      ...(a.rooms || []).map((r) => h('li', { class: 'wl-item' }, h('span', null, '#' + r.room + ': ' + (r.messages == null ? 'its messages' : r.messages + ' message' + (r.messages === 1 ? '' : 's'))))),
+      ...(a.transcripts || []).map((t) => h('li', { class: 'wl-item' }, h('span', null, t.agent + '’s conversations' + (t.files == null ? '' : ' (' + t.files + ')') + ' — '
+        + (t.source === 'sandbox' ? 'copied out of its sandbox before it shuts down' : t.source === 'fenced' ? 'a fenced session’s' : 'an unfenced session’s')))),
+      (a.screens || []).length ? h('li', { class: 'wl-item' }, h('span', null, 'last screens: ' + a.screens.join(', '))) : null,
+      h('li', { class: 'wl-item' }, h('span', null, 'usage and a timesheet'), a.estimateBytes ? h('span', { class: 'wl-size' }, 'about ' + sizeWords(a.estimateBytes)) : null))) : null;
   return h('div', { class: 'wl-plan', 'data-wl-plan': p.verb, 'data-wl-sha': p.sha },
-    table, lists,
+    table, lists, rooms, archive,
     p.queue.note ? h('p', { class: 'wl-queue muted' }, icon('hourglass'), p.queue.note) : null,
     p.refusals.length ? callout('bad', { compact: true, title: 'It cannot be done now', body: h('ul', null, ...p.refusals.map((x) => h('li', null, x))), attrs: { 'data-wl-refusals': String(p.refusals.length) } }) : null,
     p.notes.length ? h('ul', { class: 'wl-notes muted' }, ...p.notes.map((n) => h('li', null, n))) : null,
@@ -67,7 +79,7 @@ export function planView(p) {
 /// Open `verb`'s dialog for workspace `d` (its detail); `onDone(end)` after its operation ended.
 export async function openLifecycle(d, verb, onDone) {
   const v = LIFECYCLE[verb];
-  const o = { removeSandboxes: false, binFolders: false, typed: '', actsAsYou: false, needsActsAsYou: false };
+  const o = { removeSandboxes: false, binFolders: false, noArchive: false, typed: '', actsAsYou: false, needsActsAsYou: false };
   const body = h('div', { class: 'wl-body' }, h('p', { class: 'muted' }, 'Reading what it would do…'));
   const extras = h('div', { class: 'wl-extras' });
   let plan = null;
@@ -114,6 +126,7 @@ export async function openLifecycle(d, verb, onDone) {
       parts.push(tick(words, 'removeSandboxes', verb === 'archive' ? 'A template of each is kept first; adopted sandboxes are never removed' : 'Adopted sandboxes are never removed'));
     }
     if (verb === 'delete') parts.push(tick('Also move its folders on this Mac to the Bin', 'binFolders', d.folders.map((f) => f.path).join(', ') || 'It has no folder'));
+    if (plan.archive) parts.push(tick(verb === 'archive' ? 'Archive without the run’s evidence' : 'Finish without an archive', 'noArchive', 'No copy of the run’s messages, conversations, screens and usage is kept'));
     if (o.needsActsAsYou) parts.push(tick('Yes, ' + m.name + ' acts as me: unfenced, no proxy, no placeholders, no guard', 'actsAsYou'));
     if (plan.confirm === 'typed') {
       const input = h('input', { type: 'text', autocomplete: 'off', spellcheck: 'false', 'data-wl-typed': '', placeholder: plan.confirmName });

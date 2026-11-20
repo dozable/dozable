@@ -929,8 +929,14 @@ extension HostCore {
                 continue
             }
             if let w = member["mac:" + s] ?? row.workspace {
-                out.kept.append(.init(name: s, why: "in workspace \(w): doz workspace release \(w) \(s), or the workspace's own end, forgets it"))
-                continue
+                // The one exception: discarding a finished workspace's session (no run open) — it starts fresh on wake.
+                let finished = (try? workspaceRecord(w)).map { $0.flags.finishedAt != nil && $0.openRun == nil } ?? false
+                if !(r.discardTranscripts == true && finished) {
+                    out.kept.append(.init(name: s, why: r.discardTranscripts == true
+                        ? "in workspace \(w), whose run is open — doz workspace finish \(w) first (its archive keeps the conversations)"
+                        : "in workspace \(w): doz workspace release \(w) \(s), or the workspace's own end, forgets it"))
+                    continue
+                }
             }
             let fence = mac.records().sessions[s]?.fence
             if dry { out.forgotten.append(s); continue }
@@ -950,12 +956,56 @@ extension HostCore {
                     continue
                 }
             }
+            if r.discardTranscripts == true {
+                let d = macDiscardTranscripts(s, workspace: member["mac:" + s] ?? row.workspace)
+                if let why = d.refused { out.kept.append(.init(name: s, why: why)); continue }
+                notices += d.notes
+                if let w = member["mac:" + s] ?? row.workspace {
+                    try? workspaces.append(w, WorkspaceLogEntry(action: "transcripts-discarded", agent: s, place: "mac:" + s, removed: d.removed, run: d.run))
+                    notices.append("\(s): its record is forgotten — it starts fresh on wake")
+                }
+            }
             await macForget(s, fence: fence)
             out.forgotten.append(s)
         }
         if !out.forgotten.isEmpty && !dry { HostLog.line("\(MacPlace.name): forgot \(out.forgotten.count) ended session(s): \(out.forgotten.joined(separator: ", "))") }
         out.notices = notices.isEmpty ? nil : notices
         return out
+    }
+
+    /// A session's conversations discarded where a closed run's verified archive holds them (`TranscriptDiscard`). Refused
+    /// (nothing removed) when no such archive names its files.
+    func macDiscardTranscripts(_ s: String, workspace: String?) -> (removed: Int, notes: [String], run: String?, refused: String?) {
+        var files: [RunArchive.File] = []
+        var run: String?
+        let recs = workspace.flatMap { try? workspaceRecord($0) }.map { [$0] } ?? workspaces.records()
+        for rec in recs {
+            for r in rec.runs.reversed() where !r.isOpen {
+                guard let a = r.archive else { continue }
+                let v = RunArchive.verify(root: storeRoot + "/" + a)
+                guard v.ok, let m = v.manifest else { continue }
+                let mine = m.files.filter { $0.session == s && $0.sourceSHA256 != nil }
+                if !mine.isEmpty { files += mine; run = run ?? r.id }
+            }
+        }
+        guard !files.isEmpty else {
+            return (0, [], nil, "no closed run's verified archive holds its conversations — finish its workspace first, or forget it without --discard-transcripts")
+        }
+        var r = HostRequest(.sessionTranscripts, name: MacPlace.name)
+        r.session = s
+        let own = (try? macTranscriptsList(r))?.conversations ?? []
+        let kept = (MacFencePaths.resolve(mac.folder.path) ?? mac.folder.path) + "/transcripts/" + s
+        var removed = 0
+        var notes: [String] = []
+        var seen = Set<String>()
+        for t in TranscriptDiscard.targets(session: s, archived: files, keptRoot: kept, own: own) where seen.insert(t.path).inserted {
+            switch TranscriptDiscard.remove(t.path, sha256: t.sha256) {
+            case .removed: removed += 1
+            case .kept(let why): notes.append("\(s): \((t.path as NSString).lastPathComponent) kept — \(why)")
+            }
+        }
+        notes.insert("\(s): \(removed) conversation file\(removed == 1 ? "" : "s") discarded (run \(run ?? "?")'s archive keeps \(removed == 1 ? "it" : "them"))", at: 0)
+        return (removed, notes, run, nil)
     }
 
     func macRestart(_ r: HostRequest) async throws -> SessionRestarted {

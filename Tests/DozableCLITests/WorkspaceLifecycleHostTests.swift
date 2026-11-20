@@ -31,7 +31,52 @@ final class WorkspaceLifecycleHostTests: BotTestCase {
         func readiness() async -> WorkspaceChatReadiness { lock.withLock { ready } }
         func rooms() throws -> Set<String> { lock.withLock { roomSet } }
         func makeRoom(_ name: String) throws { lock.withLock { _ = roomSet.insert(name) } }
-        func post(room: String, content: String) throws { trace.add("post \(room)") }
+        var seqs: [String: Int64] = [:]
+        var closedSets: [[String: String]] = []
+        var removed: [(room: String, id: String, lastSeq: Int64)] = []
+        var msgs: [String: [JValue]] = [:]
+        func add(_ room: String, from: String, _ content: String) {
+            lock.withLock {
+                seqs[room, default: 0] += 1
+                msgs[room, default: []].append(.map(["seq": .int(seqs[room]!), "from": .string(from), "content": .string(content),
+                                                     "at": .double(Date().timeIntervalSince1970)]))
+            }
+        }
+        func post(room: String, content: String) throws {
+            trace.add("post \(room)")
+            add(room, from: "ada", content)
+        }
+        func fetch(_ target: String) throws -> (status: Int, body: Data) {
+            if target == "/api/state" { return (200, Data(#"{"participants":[{"name":"ada","kind":"human"}],"rooms":{}}"#.utf8)) }
+            let room = String(target.dropFirst("/api/rooms/".count).prefix { $0 != "/" })
+            let q = URLComponents(string: "http://x" + target)!.queryItems ?? []
+            let before = Int64(q.first { $0.name == "before" }?.value ?? "0") ?? 0
+            let limit = Int(q.first { $0.name == "limit" }?.value ?? "500") ?? 500
+            let all = lock.withLock { msgs[room] ?? [] }.filter { m in before == 0 || ((try? m.field("seq")?.goInt("seq")) ?? 0)! < before }
+            return (200, Data(ChatJSON.encode(.array(Array(all.suffix(limit))))))
+        }
+        func lastSeq(room: String) throws -> Int64 { lock.withLock { seqs[room] ?? 0 } }
+        func archivedRooms() throws -> Set<String> { lock.withLock { archived } }
+        func setClosed(_ rooms: [String: String]) async throws -> [String: Int64]? {
+            lock.withLock {
+                closedSets.append(rooms)
+                var out: [String: Int64] = [:]
+                for r in rooms.keys { out[r] = seqs[r] ?? 0 }
+                return out
+            }
+        }
+        func removeRoom(_ room: String, id: String, lastSeq: Int64) async throws {
+            try lock.withLock {
+                guard (seqs[room] ?? 0) == lastSeq else { throw HostError(.invalidPhase, "the room \(room) changed since it was archived") }
+                removed.append((room, id, lastSeq))
+                roomSet.remove(room)
+                archived.remove(room)
+                msgs[room] = nil
+                seqs[room] = nil
+            }
+        }
+        /// Someone else posted (a worker): the room's seq moves.
+        func otherPost(_ room: String, _ content: String = "from bot1") { add(room, from: "bot1", content) }
         func invite(room: String, name: String) throws -> Bool { true }
         func setArchived(room: String, _ on: Bool) throws -> Bool {
             let changed = lock.withLock { on ? archived.insert(room).inserted : archived.remove(room) != nil }

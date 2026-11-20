@@ -172,6 +172,11 @@ public final class ChatSupervisor: @unchecked Sendable {
     private var lastWritten: Data?
     /// The webhook entries as last read from the keychain (or set or removed here): read once, not at every look.
     private var entries: [String: EntryRead] = [:]
+    /// The closed set (room → workspace) and whether refusals carry their reason: handed to every server right after it
+    /// starts and on every change (`ChatRoomControl`); kept here only — the records are the truth.
+    private var closedSet: [String: String] = [:]
+    private var closedReasons = false
+    private var controlID = 0
 
     enum EntryRead { case set(ChatWebhookEntry), missing, unreadable(String, at: Double) }
 
@@ -658,37 +663,99 @@ public final class ChatSupervisor: @unchecked Sendable {
         start(files)
     }
 
+    /// One request on the control channel and its answer: the first line back that `matches` (an earlier answer — the
+    /// start's closed set — is passed over), within `seconds`. nil: none (closed, or no answer in time — said in the log).
+    private func exchange(_ fd: Int32, _ req: [UInt8], seconds: Double, what: String, matches: (JValue) -> Bool) -> JValue? {
+        var at = 0
+        while at < req.count {
+            let w = req[at...].withUnsafeBytes { Darwin.write(fd, $0.baseAddress!, $0.count) }
+            if w < 0 && errno == EINTR { continue }
+            if w <= 0 { HostLog.line("chat: the chat server's control channel is closed (\(what))"); return nil }
+            at += w
+        }
+        var buf: [UInt8] = []
+        let until = Self.now() + seconds
+        while true {
+            while let nl = buf.firstIndex(of: 0x0A) {
+                let line = Array(buf[..<nl])
+                buf.removeSubrange(...nl)
+                if let v = try? ChatJSON.parse(line), matches(v) { return v }
+            }
+            let left = until - Self.now()
+            if left <= 0 { HostLog.line("chat: the chat server did not answer \(what) within \(Int(seconds)) s"); return nil }
+            var p = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
+            let r = poll(&p, 1, Int32(max(1, left * 1000)))
+            if r < 0 && errno == EINTR { continue }
+            if r <= 0 { continue }
+            var chunk = [UInt8](repeating: 0, count: 4096)
+            let n = Darwin.read(fd, &chunk, chunk.count)
+            if n < 0 && errno == EINTR { continue }
+            if n <= 0 { HostLog.line("chat: the chat server's control channel is closed (\(what))"); return nil }
+            buf += chunk[0..<n]
+            if buf.count > 1 << 20 { return nil }
+        }
+    }
+
+    /// The closed set as one control line, with a fresh id.
+    private func closedLine() -> (id: String, bytes: [UInt8]) {
+        controlID += 1
+        let id = "c\(controlID)"
+        let v = JValue.map(["version": .int(1), "id": .string(id),
+                            "closed": .map(["rooms": .map(closedSet.mapValues { JValue.string($0) }), "reasons": .bool(closedReasons)])])
+        return (id, ChatJSON.encode(v) + [0x0A])
+    }
+
+    /// The closed set changed (`ChatRoomControl`): kept for every start, and handed to the running server now. Answers each
+    /// room's last seq as the server took it under its lock — nil when no server took it now (it is handed over at its
+    /// start). A server without a control channel is restarted once to take it.
+    public func setClosed(_ set: [String: String], reasons: Bool) async -> [String: Int64]? {
+        await run {
+            self.closedSet = set
+            self.closedReasons = reasons
+            guard let c = self.child else { return nil }
+            guard let fd = c.control else {
+                HostLog.line("chat: the chat server has no control channel (it was started before) — restarting it to take the closed rooms")
+                self.stopChild(counted: false)
+                self.look(blocked: false, force: true)
+                return nil
+            }
+            guard c.ready else { return nil }   // it took (or takes) the set at its start
+            let (id, line) = self.closedLine()
+            guard let v = self.exchange(fd, line, seconds: 5, what: "the closed rooms", matches: { $0.field("id")?.stringValue == id }),
+                  case .object(let m)? = v.field("closed") else { return nil }
+            var out: [String: Int64] = [:]
+            for e in m { if let n = (try? e.value.goInt(e.key)) ?? nil { out[e.key] = Int64(n) } }
+            return out
+        }
+    }
+
+    /// A room removed for good by the running server (`roomRemove`): its last seq checked there, under its lock.
+    public func removeRoom(_ room: String, id: String, lastSeq: Int64) async throws {
+        try await runThrowing {
+            guard let c = self.child, c.ready, let fd = c.control else { throw HostError(.unavailable, "chat is not ready — doz chat status") }
+            self.controlID += 1
+            let rid = "r\(self.controlID)"
+            let req = ChatJSON.encode(.map(["version": .int(1), "id": .string(rid),
+                                            "roomRemove": .map(["room": .string(room), "id": .string(id), "lastSeq": .int(lastSeq)])])) + [0x0A]
+            guard let v = self.exchange(fd, req, seconds: 10, what: "the removal of \(room)", matches: { $0.field("id")?.stringValue == rid }) else {
+                throw HostError(.unavailable, "the chat server did not answer the removal of \(room)")
+            }
+            if let why = v.field("refused")?.stringValue { throw HostError(.invalidPhase, why) }
+            guard v.field("removed")?.stringValue == room else { throw HostError(.failed, "the chat server did not remove \(room)") }
+        }
+    }
+
     /// Asks the running server to take the files it was just written (`ChatReload`): one request line, one answer within
     /// `reloadSeconds`. True only when it answered `reloaded` with these files' sha; anything else is logged and the
     /// caller restarts it.
     private func reload(_ fd: Int32, _ files: Files) -> Bool {
         let sha = files.reloadSHA
         let req = Array(#"{"version":1,"reload":"\#(sha)"}"#.utf8) + [0x0A]
-        var at = 0
-        while at < req.count {
-            let w = req[at...].withUnsafeBytes { Darwin.write(fd, $0.baseAddress!, $0.count) }
-            if w < 0 && errno == EINTR { continue }
-            if w <= 0 { HostLog.line("chat: the chat server's control channel is closed — restarting it to take the change"); return false }
-            at += w
+        guard let v = exchange(fd, req, seconds: Self.reloadSeconds, what: "a reload",
+                               matches: { $0.field("id") == nil && ($0.field("reloaded") != nil || $0.field("refused") != nil) }) else {
+            HostLog.line("chat: restarting the chat server to take the change")
+            return false
         }
-        var buf: [UInt8] = []
-        let until = Self.now() + Self.reloadSeconds
-        while !buf.contains(0x0A) {
-            let left = until - Self.now()
-            if left <= 0 { HostLog.line("chat: the chat server did not answer a reload within \(Int(Self.reloadSeconds)) s — restarting it"); return false }
-            var p = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
-            let r = poll(&p, 1, Int32(max(1, left * 1000)))
-            if r < 0 && errno == EINTR { continue }
-            if r <= 0 { continue }
-            var chunk = [UInt8](repeating: 0, count: 1024)
-            let n = Darwin.read(fd, &chunk, chunk.count)
-            if n < 0 && errno == EINTR { continue }
-            if n <= 0 { HostLog.line("chat: the chat server's control channel is closed — restarting it to take the change"); return false }
-            buf += chunk[0..<n]
-            if buf.count > 8192 { return false }
-        }
-        let line = Array(buf[..<buf.firstIndex(of: 0x0A)!])
-        guard let v = try? ChatJSON.parse(line) else { return false }
         if v.field("reloaded")?.stringValue == sha {
             HostLog.line("chat: the chat server took a change of participants without a restart")
             return true
@@ -764,6 +831,8 @@ public final class ChatSupervisor: @unchecked Sendable {
             let (pid, control) = try processes.spawnSupervised(executable: executable, arguments: args, environment: env, log: paths.serverLog,
                                                                input: files.webhooks.isEmpty ? nil : files.webhooks)
             child = Child(pid: pid, started: Self.now(), files: files, ready: false, control: control)
+            // The closed set first, before the server says it is ready (it waits for this line before its ports answer).
+            if let fd = control { ChatRoomControl.write(fd, closedLine().bytes) }
             st.pid = pid
             st.state = "starting"
             st.ready = false

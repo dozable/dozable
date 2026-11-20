@@ -518,6 +518,8 @@ public enum SettingKey {
     public static let chatLinePort = "chat.line_port"
     public static let chatRemoteListen = "chat.remote_listen"
     public static let chatRemoteAgents = "chat.remote_agents"
+    /// A closed room's refusal carries `reason: "space-down"` (sent with the closed set over the control channel).
+    public static let chatRefusalReasons = "chat.refusal_reasons"
     public static let serveBind = "serve.bind"
     public static let servePublicOrigins = "serve.public_origins"
     public static let serveTrustedProxies = "serve.trusted_proxies"
@@ -918,6 +920,9 @@ public struct DozableSettings: Sendable {
                   applies: .now, ui: false),
             .init("chat", "remote_agents", .tailnetAddresses, .string(""),
                   "The Tailscale addresses of the other machines that may connect to the chat server (each exactly; no range). Each is always an agent: it must send its token; it gets /agent/… and files with its token, never your page or /api.",
+                  applies: .now, ui: false),
+            .init("chat", "refusal_reasons", .bool, .bool(false),
+                  "Give a refused post its reason as an extra field (reason: space-down when the room's workspace is finished), beside the refusal the chat server always gives. Off by default: clients made for the reference never see it.",
                   applies: .now, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",

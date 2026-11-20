@@ -454,11 +454,11 @@ async function walkWorkspacePage() {
   check(await evaluate(`!!document.querySelector('[data-ws-brief="demo2"] .ws-brief-text strong')`), '…its Markdown drawn (bold)');
   check(await evaluate(`!!document.querySelector('[data-ws-brief="demo2"] a.ws-ref[href="https://example.com/spec"][rel="noopener noreferrer"]')`), '…its reference a safe link');
   const tabs = await evaluate(`[...document.querySelectorAll('#ws [data-ws-tab]')].map((t) => ({ label: t.firstChild.textContent, off: t.getAttribute('aria-disabled') === 'true', coming: !!t.querySelector('.ws-coming') }))`);
-  check(JSON.stringify(tabs.map((t) => t.label)) === JSON.stringify(['Room', 'Agents', 'Permissions', 'Network & secrets', 'Folders & points', 'Activity', 'Settings']),
+  check(JSON.stringify(tabs.map((t) => t.label)) === JSON.stringify(['Room', 'Agents', 'Permissions', 'Network & secrets', 'Folders & points', 'Activity', 'Runs', 'Settings']),
     'the tabs in the mockups\' order (' + tabs.map((t) => t.label).join(' · ') + ')');
-  check(tabs.filter((t) => !t.off).map((t) => t.label).join() === 'Room,Agents,Network & secrets,Folders & points,Activity'
+  check(tabs.filter((t) => !t.off).map((t) => t.label).join() === 'Room,Agents,Network & secrets,Folders & points,Activity,Runs'
     && tabs.filter((t) => t.off).map((t) => t.label).join() === 'Permissions,Settings' && tabs.filter((t) => t.off).every((t) => t.coming),
-    'Room, Agents, Network & secrets, Folders & points and Activity work; Permissions and Settings are marked coming');
+    'Room, Agents, Network & secrets, Folders & points, Activity and Runs work; Permissions and Settings are marked coming');
   check(await evaluate(`PERMISSIONS_TAB === 'Permissions' && document.querySelector('#ws [data-ws-tab="permissions"]').firstChild.textContent === PERMISSIONS_TAB`),
     'the permissions tab reads "Permissions", from its one constant');
   check(await waitFor(`[...document.querySelectorAll('#chat-log .chat-row')].some((r) => /Walk the workspace page/.test(r.textContent))`, 20000), 'the kick-off bubble is in the room');
@@ -1274,17 +1274,29 @@ async function walkLifecycle() {
   for (let i = 0; i < 40 && !awake; i++) { const st = wsState('life'); awake = st && st !== 'asleep'; if (!awake) await sleep(300); }
   const sh = (dozJSON(['sessions', '@mac']) || []).find((r) => r.name === 'lifesh');
   check(awake && sh && !sh.ended, `life 3 awake (${wsState('life')}), lifesh running again`);
-  // 4. Finish…: a plain confirmation; finished; the composer still takes a post.
+  // 4. Finish…: a plain confirmation, its room closed (0.52.15, the owner's decision — it said "the composer still takes a
+  // post" in 0.52.12); finished; the composer off with the closed notice; a post refused; the Runs tab lists the run, archived.
   await goHash('#/w/life');
   await waitFor(`state.view === 'workspace' && !!document.querySelector('button[aria-label="More for life"]')`, 10000);
   await menuPick('More for life', 'Finish…');
   await waitFor(WL_READ, 15000);
   check(await evaluate(`!document.querySelector('[data-wl-typed]')`), 'life 4 Finish… is a plain confirmation (no name to type)');
+  check(await evaluate(`/finish closes the room to new messages until you reopen/.test(document.querySelector('[data-wl-plan]')?.textContent || '')
+    && !!document.querySelector('[data-wl-room="life"]') && !!document.querySelector('[data-wl-archive]') && !document.querySelector('[data-wl-tick="noArchive"]').checked`),
+    'life 4 …the room\'s row, "finish closes the room…", the archive section, "Finish without an archive" unticked');
+  const finishDry = dozJSON(['workspace', 'finish', 'life', '--dry-run']);
+  check(!!finishDry && finishDry.sha === await evaluate(`document.querySelector('[data-wl-plan]').dataset.wlSha`), 'life 4 …the dialog\'s plan is finish --dry-run --json\'s (the same sha)');
   check(await wlSubmit(), 'life 4 Finish: the operation ended');
   check(await waitFor(`!!document.querySelector('#ws-head [data-ws-state="finished"]')`, 20000) && wsState('life') === 'finished', 'life 4 finished');
   await waitFor(`!!document.querySelector('#chat-text')`, 10000);
-  check(await evaluate(`!document.querySelector('#chat-text').disabled && !/archived/.test(document.querySelector('#chat-text').placeholder)`) && doz(['chat', 'send', 'life', 'still writable']).status === 0,
-    'life 4 …the composer still takes a post');
+  check(doz(['chat', 'send', 'life', 'a post after the finish']).status !== 0, 'life 4 …a post is refused (closed)');
+  await goHash('#/w/life/runs');
+  check(await waitFor(`!!document.querySelector('[data-wr-run][data-wr-status="written"]')`, 15000), 'life 4 Runs lists the run, its archive written');
+  check(await evaluate(`document.querySelector('[data-wr-room-state]')?.dataset.wrRoomState === 'closed'`), 'life 4 …its room reads closed');
+  // Back in the room (its state read again on arrival): the composer off, with the closed notice.
+  await goHash('#/w/life');
+  check(await waitFor(`!!document.querySelector('#chat-text') && document.querySelector('#chat-text').disabled && /Closed: its workspace life is finished/.test(document.querySelector('#chat-text').placeholder)`, 20000),
+    'life 4 …the composer is off with the closed notice');
   // 5. Reopen (the primary button) → asleep.
   await waitFor(`!!document.querySelector('#ws-head [data-ws-primary="reopen"]')`, 10000);
   await evaluate(`document.querySelector('#ws-head [data-ws-primary="reopen"]').click()`);
@@ -1321,6 +1333,45 @@ async function walkLifecycle() {
   await leakSweep('the lifecycle');
 }
 let lifeSession = null;
+
+// ── a finished workspace's room archived, then removed for good, from the Runs tab (this Mac's own browser) ─────────────
+async function walkRooms() {
+  const errorsBefore = pageErrors.length;
+  doz(['workspace', 'new', 'rmw', '--prompt-file', '-'], 'Keep its record.\n');
+  doz(['workspace', 'start', 'rmw']);
+  for (const m of ['first in the run', 'second in the run', 'third in the run']) doz(['chat', 'send', 'rmw', m]);
+  const fin = doz(['workspace', 'finish', 'rmw', '--yes']);
+  check(fin.status === 0, 'rooms 1 rmw finished, its run archived (' + fin.status + ')');
+  await goHash('#/w/rmw/runs');
+  check(await waitFor(`document.querySelector('[data-wr-room-state]')?.dataset.wrRoomState === 'closed'`, 15000), 'rooms 1 its room reads closed on the Runs tab');
+  // 2. Archive room…: its plan, then the copy.
+  await evaluate(`document.querySelector('[data-wr-room-archive="rmw"]').click()`);
+  check(await waitFor(`document.querySelector('dialog.dlg[open]')?.dataset.wrRoomDialog === 'archive' && !!document.querySelector('dialog.dlg[open]')?.dataset.wrSha`, 15000),
+    'rooms 2 Archive room… shows its plan');
+  check(await wlSubmit(120000), 'rooms 2 Archive: the operation ended');
+  check(await waitFor(`document.querySelector('[data-wr-room-state]')?.dataset.wrRoomState === 'archived'`, 20000), 'rooms 2 …the room reads archived');
+  // 3. Remove room…: a wrong name keeps the button off; a forged confirm is refused; the right name removes it.
+  await evaluate(`document.querySelector('[data-wr-room-rm="rmw"]').click()`);
+  await waitFor(`document.querySelector('dialog.dlg[open]')?.dataset.wrRoomDialog === 'rm' && !!document.querySelector('dialog.dlg[open]')?.dataset.wrSha`, 15000);
+  await setField('[data-wr-typed]', 'rm');
+  check(await evaluate(`${SUBMIT}.disabled`), 'rooms 3 Remove room…: a wrong name keeps the button off');
+  const sha = await evaluate(`document.querySelector('dialog.dlg[open]').dataset.wrSha`);
+  const forged = await craft({ action: 'chat-room-rm', room: 'rmw', ifPlan: sha, confirm: 'rm' });
+  check(forged.status === 400 && doz(['chat', 'rooms']).stdout.includes('rmw —'), `rooms 3 a forged confirm: ${forged.status}, nothing removed`);
+  await setField('[data-wr-typed]', 'rmw');
+  check(await evaluate(`!${SUBMIT}.disabled`), 'rooms 3 …the name typed: the button on');
+  check(await wlSubmit(120000), 'rooms 3 Remove: the operation ended');
+  check(await waitFor(`document.querySelector('[data-wr-room-state]')?.dataset.wrRoomState === 'gone'`, 20000) && !doz(['chat', 'rooms']).stdout.includes('rmw —'),
+    'rooms 3 …the room reads gone, and doz chat rooms no longer lists it');
+  const gone = dozJSON(['chat', 'rooms', '--gone']) || [];
+  check(gone.some((t) => t.name === 'rmw' && t.id && t.archive), 'rooms 3 …its tombstone kept');
+  // 4. The run's archived messages are still readable.
+  await evaluate(`document.querySelector('[data-wr-run] .wr-actions button')?.click()`);
+  check(await waitFor(`/third in the run/.test(document.querySelector('[data-wr-page] [data-wr-room="rmw"]')?.textContent || '')`, 15000),
+    'rooms 4 run 1\'s chat is still read from its archive');
+  check(pageErrors.length === errorsBefore, 'rooms: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  await leakSweep('the rooms');
+}
 
 // ── a workspace's wide views: Network & secrets, Folders & points, Activity and an agent's Can do ────────────────────
 /// `wide`: a fenced session (widef) with a launch secret whose value is a SENTINEL and two more (widef2, widef3), each having been
@@ -1521,6 +1572,7 @@ try {
   await walkNewWorkspace();
   await walkAddWorker();
   await walkLifecycle();
+  await walkRooms();
   await walkWideViews();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
@@ -1553,6 +1605,11 @@ try {
     headers: { 'Content-Type': 'application/json', 'X-Doz-CSRF': state.csrf }, body: JSON.stringify({ workspace: 'demo2', verb: 'sleep' }) });
     return { status: r.status, body: await r.json() }; })()`);
   check(p11.status === 200 && p11.body.verb === 'sleep' && p11.body.factsKnown === false, `life 11 with the daemon stopped, the plan route answers (${p11.status})`);
+  // Runs with the daemon stopped: the tab and the CLI answer from the store.
+  await goHash('#/w/rmw/runs');
+  check(await waitFor(`!!document.querySelector('[data-wr-run][data-wr-status="written"]')`, 15000), 'rooms 5 with the daemon stopped, the Runs tab reads');
+  const stoppedRuns = dozJSON(['workspace', 'runs', 'rmw']);
+  check(!!stoppedRuns && stoppedRuns.runs.length === 1 && !existsSync(STORE + '/daemon.pid'), 'rooms 5 …and doz workspace runs --json answers; neither starts the daemon');
   await sleep(4000);
   check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents, Agents / Bots, a workspace\'s agents, its page and Add a worker starts none');
   check(await evaluate(`!!document.querySelector('[data-ws="demo"]')`) || (await goHash('#/home'), await waitFor(`!!document.querySelector('[data-ws="demo"]')`, 8000)),

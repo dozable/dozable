@@ -565,3 +565,13 @@ a SANDBOX that another agent shares gets its own variables, and the daemon gives
   error (dropped when no longer true; 635.B2: never for the session being watched — its tab shown in a focused window —
   dropped once it is, and a done one goes by itself after 10 s). The UI's monitor pokes its poll on a `session-status` event; it is not an
   Activity line. `probes/612-*/browser-status.mjs` checks it in a real Chrome (scratch store and profile).
+
+## Discarding a session's conversations
+
+`doz sessions @mac --forget S --discard-transcripts` (`session-forget` + `discardTranscripts`, `TranscriptDiscard`): allowed for
+a loose ended session or a finished workspace's (no run open — it starts fresh on wake), and only where a closed run's
+verified archive names the session's files. Each file — Dozable's kept copy, a carried copy (by the record's `carried`
+`name:sha256`, equal to the archive's), an unfenced session's `<projects>/<slug>/<id>.jsonl` — is opened through its folder
+(`O_NOFOLLOW_ANY`), `fstat`ed, hashed through the descriptor and unlinked only when the sha256 is the archive's
+`sourceSHA256` and its dev/inode are unchanged; anything else is kept, with why. Never a folder, a listing or another file.
+`TranscriptDiscardTests`.

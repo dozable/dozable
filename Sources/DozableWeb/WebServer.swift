@@ -990,6 +990,8 @@ public final class DozableWebServer: @unchecked Sendable {
             // A workspace's lifecycle: this Mac's own browser only, whatever the serve settings (what it holds stopped, started
             // or removed; its rooms archived as you; a bot's token handed to a program again).
             if request.action.isLifecycle, let r = WebExposure.decideLifecycleAction(ctx.principal) { throw r }
+            // A room archived or removed, a run's archive written again: this Mac's own browser only, whatever the settings.
+            if request.action.isRoomLifecycle, let r = WebExposure.decideRoomAction(ctx.principal) { throw r }
             // A fenced session's site allowed: this Mac's own browser only, whatever the serve settings (its network is what
             // holds an agent working as you on this Mac to its folder).
             if request.action.isMacNet, let r = WebExposure.decideMacNetAction(ctx.principal) { throw r }
@@ -1116,6 +1118,19 @@ public final class DozableWebServer: @unchecked Sendable {
             try Self.requireJSONBody(md)
             return json(WebWorkspaceActivity(try await data.workspaceActivity(try WebWorkspaceViews.decodeActivity(body)),
                                              macAllowed: WebGridsRequest.macAllowed(ctx.principal, settings.macSessions)))
+        case .workspaceRuns:
+            // A read that carries its question: CSRF-checked, the workspace by its rule strictly; one read-only HostOp.
+            try Self.requireJSONBody(md)
+            return json(try await data.workspaceRuns(try WebRuns.decodeRuns(body)))
+        case .workspaceRunChat:
+            // The same, `workspace-run-chat`: a run's messages from its verified archive (decided above as chat for another
+            // computer); never a conversation or a screen.
+            try Self.requireJSONBody(md)
+            return json(try await data.workspaceRunChat(try WebRuns.decodeChat(body)))
+        case .chatRoomPlan:
+            // CSRF-checked, the Mac's own browser only (mac-screen), strict; one read-only HostOp — never `loose`.
+            try Self.requireJSONBody(md)
+            return json(try await data.chatRoomPlan(try WebRuns.decodePlan(body)))
         case .macSessionPlan:
             // 683 M5: CSRF-checked (an unsafe method, above), the Mac's own browser only (WebExposure: mac-screen), a strict
             // body; the command is built on the Mac from the enums. `open: true` only for an Open-in-Terminal shape.
