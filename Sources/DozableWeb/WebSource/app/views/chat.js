@@ -6,10 +6,12 @@
 // turns it on — while it is off, the command to run is shown. Shown in this Mac's own browser only (the server refuses
 // another computer every chat route, and the sidebar's entry stays hidden there).
 import { state } from '../core/state.js';
+import { upcall } from '../core/hooks.js';
 import { apiFetch } from '../core/api.js';
 import { getJSON } from '../core/chat-api.js';
 import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
+import { chatOnForm, rememberChatStatus } from '../components/chat-on.js';
 import { showDown, toFoot } from '../components/chat-log.js';
 import { CHAT_READ_ONLY, chatNote } from '../components/chat-note.js';
 import { loadUnread, showUnread } from '../components/chat-unread.js';
@@ -69,13 +71,25 @@ function build() {
   setInterval(() => { if (state.chat.active && state.chat.srv) standing(); }, 20000);
 }
 
+const refresh = upcall('refresh');
+
+/// Chat came on from the page: the sidebar's entry, then the view read again (a workspace's page reads its gaps and room).
+async function chatCameOn() {
+  await chatNavCheck();
+  if (state.view === 'chat') chatRefresh(); else refresh();
+}
+
 /// What the page says instead of chat while it cannot be used (off, starting, failing, no daemon, another computer).
 function notice(st) {
   const box = $('chat-notice'), cols = $('chat-cols');
   const say = (tone, title, body, extra) => { cols.hidden = true; box.replaceChildren(callout(tone, { title, body: [body, extra].filter(Boolean) })); };
   const cmd = (t) => h('code', { class: 'chat-cmdline' }, t);
   switch (st.state) {
-    case 'off': say('info', 'Chat is off', h('span', null, 'Turn it on in a terminal: ', cmd('doz chat on --name YOUR-NAME'))); break;
+    case 'off':
+      // Turned on here (this Mac's own browser), or in a terminal: then the page reads again — the room view loads.
+      rememberChatStatus(st);
+      say('info', 'Chat is off', chatOnForm({ status: st, onOn: chatCameOn }));
+      break;
     case 'starting': say('info', 'Chat is starting…', 'This page looks again every few seconds.'); break;
     case 'no-daemon': say('warn', "Dozable's daemon is not running", h('span', null, 'Chat runs under it. In a terminal: ', cmd('doz daemon start'))); break;
     case 'failing': say('bad', 'Chat is not running', st.problem || 'Its server stopped.', h('span', null, 'In a terminal: ', cmd('doz chat status'))); break;

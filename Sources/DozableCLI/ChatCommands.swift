@@ -36,7 +36,8 @@ struct ChatCommand: AsyncParsableCommand {
             Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already exists · 6 chat is off or not ready · 64 usage.
             """,
         subcommands: [ChatOn.self, ChatOff.self, ChatStatusCommand.self, ChatAdd.self, ChatSet.self, ChatRemove.self, ChatWho.self, ChatTokenCommand.self,
-                      ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self, ChatExportCommand.self])
+                      ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self, ChatExportCommand.self,
+                      ChatAskCommand.self, ChatDecideCommand.self, ChatWithdrawCommand.self, ChatAsksCommand.self])
 }
 
 // MARK: - status
@@ -961,6 +962,7 @@ struct ChatRead: AsyncParsableCommand {
         if case .array(let files)? = m.field("attachments"), !files.isEmpty {
             text += " [" + files.compactMap { $0.field("name")?.stringValue }.joined(separator: ", ") + "]"
         }
+        if kind == "ask", m.field("deleted") != .bool(true), let mark = chatAskMark(m) { text = mark + "\n" + text }
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
         let lead = kind == "change" ? "\(stamp) — " : "\(stamp) \(from): "
         Out.stdout(lead + (lines.first.map(String.init) ?? "") + "\n")

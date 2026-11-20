@@ -323,7 +323,7 @@ final class FilesTests: XCTestCase {
         let s2 = try hub.watch(try FileWatchTarget.resolve(store: store, sandbox: "x", folders: ["docs"])) { two.add($0) }
         XCTAssertEqual(hub.streams, 1, "one FSEventStream for the sandbox, shared")
         // FSEvents starts "since now", but on a loaded Mac the folders made just above can still arrive late (CI on
-        // m1max2): let the stream settle, then forget whatever came before the checks.
+        // john-mac-studio-2): let the stream settle, then forget whatever came before the checks.
         usleep(1_000_000)
         one.clear(); two.clear()
         try write("src/new.c")

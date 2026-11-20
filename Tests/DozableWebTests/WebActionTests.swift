@@ -100,6 +100,12 @@ final class WebActionTests: XCTestCase {
         "chat-room-archive": #"{"action":"chat-room-archive","room":"launch-video","ifPlan":"0123456789abcdef"}"#,
         "chat-room-rm": #"{"action":"chat-room-rm","room":"launch-video","ifPlan":"0123456789abcdef","confirm":"launch-video"}"#,
         "workspace-run-archive": #"{"action":"workspace-run-archive","workspace":"launch-video","run":"2026-11-20-1"}"#,
+        // An ask answered from its card — exactly `doz chat decide`, this Mac's own browser only.
+        // Chat turned on from the page — exactly `doz chat on --name NAME`, this Mac's own browser only.
+        "chat-on": #"{"action":"chat-on","name":"ada"}"#,
+        // A workspace's room made — exactly `doz workspace edit W --make-room`, this Mac's own browser only.
+        "workspace-make-room": #"{"action":"workspace-make-room","workspace":"launch-video"}"#,
+        "chat-decide": ##"{"action":"chat-decide","room":"launch-video","ask":"#4","reply":"B","actionId":"0b7e2c4a-1111-4222-8333-444455556666"}"##,
         "workspace-space-save": #"{"action":"workspace-space-save","workspace":"launch-video","text":"doz: space/3\nspace: launch-video\n","ifMatch":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}"#,
         // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
         "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
@@ -194,6 +200,10 @@ final class WebActionTests: XCTestCase {
         // archive | restore | delete`, each with the plan's sha the page showed.
         .workspaceStop, .workspaceSleep, .workspaceWake, .workspaceFinish, .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete,
         .chatRoomArchive, .chatRoomRm, .workspaceRunArchive,
+        // An ask answered from its card, this Mac's own browser only — exactly `doz chat decide R ASK …`.
+        .chatDecide,
+        // Chat turned on from the page, this Mac's own browser only — `doz chat on`'s calls (`chat-sync`).
+        .chatSync,
         // A space workspace's file saved from its space view, this Mac's own browser only — exactly `doz workspace edit W
         // --space-file F --if-match SHA`.
         .workspaceSpaceSave,
@@ -432,6 +442,83 @@ final class WebActionTests: XCTestCase {
         XCTAssertNil(WebExposure.decideRoomAction(.mac))
     }
 
+    /// The decision card's action: exactly `chat-decide` with what `doz chat decide` sends — one of answers, decline (+ its
+    /// reason) or a reply, an action id that makes it once — strictly decoded; this Mac's own browser only; its label and
+    /// key name the ask and the room, never the answer.
+    func testTheAskDecision() throws {
+        let a = try decode(Self.samples["chat-decide"]!)
+        XCTAssertEqual(a.hostOp, .chatDecide)
+        XCTAssertTrue(a.isAsk)
+        XCTAssertEqual(a.hostRequest.chatAsk?.room, "launch-video")
+        XCTAssertEqual(a.hostRequest.chatAsk?.ask, "#4")
+        XCTAssertEqual(a.hostRequest.chatAsk?.reply, "B")
+        XCTAssertEqual(a.hostRequest.chatAsk?.actionID, "0b7e2c4a-1111-4222-8333-444455556666")
+        XCTAssertEqual(a.label, "answer ask #4 in launch-video")
+        let words = try decode(##"{"action":"chat-decide","room":"r","ask":"#4","reply":"after lunch, then\nship","actionId":"0b7e2c4a-1111-4222-8333-444455556666"}"##)
+        XCTAssertFalse(words.label.contains("lunch") || words.dedupeKey.contains("lunch"), "the answer is never in the label or the key")
+        let ans = try decode(##"{"action":"chat-decide","room":"r","ask":"4f1a","answers":[{"questionId":"q1","options":["web"]},{"questionId":"q2","text":"today"},{"questionId":"q3","skipped":true}],"actionId":"0b7e2c4a-1111-4222-8333-444455556666"}"##)
+        XCTAssertEqual(ans.hostRequest.chatAsk?.answers, [ChatAskAnswerItem(questionId: "q1", options: ["web"]), ChatAskAnswerItem(questionId: "q2", text: "today"),
+                                                         ChatAskAnswerItem(questionId: "q3", skipped: true)])
+        let dec = try decode(##"{"action":"chat-decide","room":"r","ask":"#4","decline":true,"text":"not now","actionId":"0b7e2c4a-1111-4222-8333-444455556666"}"##)
+        XCTAssertEqual(dec.hostRequest.chatAsk?.decline, true)
+        XCTAssertEqual(dec.hostRequest.chatAsk?.text, "not now")
+        let id = #""actionId":"0b7e2c4a-1111-4222-8333-444455556666""#
+        for bad in [##"{"action":"chat-decide","room":"r","ask":"#4","reply":"B"}"##,                                         // no action id
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"B","actionId":"0B7E2C4A-1111-4222-8333-444455556666"}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4",\##(id)}"##,                                                  // no answer
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"B","decline":true,\##(id)}"##,                     // two
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"B","text":"x",\##(id)}"##,                         // text with a reply
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","decline":false,\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"R","ask":"#4","reply":"B",\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"../x","reply":"B",\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#0","reply":"B",\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"",\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"\u0007",\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","answers":[],\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","answers":[{"questionId":"q1","extra":1}],\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","answers":[{"questionId":"q1","options":["A B"]}],\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"B","as":"x",\##(id)}"##] {
+            invalid(bad)
+        }
+        invalid(##"{"action":"chat-decide","room":"r","ask":"#4","reply":"\##(String(repeating: "x", count: 4097))",\##(id)}"##, "a reply is at most 4 KiB")
+        let six = (1...6).map { #"{"questionId":"q\#($0)","text":"x"}"# }.joined(separator: ",")
+        invalid(##"{"action":"chat-decide","room":"r","ask":"#4","answers":[\##(six)],\##(id)}"##, "at most 5 answers")
+        XCTAssertEqual(WebExposure.decideAskAction(.remote(secure: true)), .macOnlyAsks)
+        XCTAssertEqual(WebRejection.macOnlyAsks.code, "mac-only")
+        XCTAssertNil(WebExposure.decideAskAction(.mac))
+    }
+
+    /// Chat on and a workspace's room: `chat-on` is `doz chat on --name NAME` (its HostOp `chat-sync`; the name checked by the
+    /// chat's rule and never repeated in the refusal), `workspace-make-room` is `doz workspace edit W --make-room` (only the
+    /// name and `makeRoom`); both this Mac's own browser only.
+    func testChatOnAndMakeRoom() throws {
+        let on = try decode(Self.samples["chat-on"]!)
+        XCTAssertEqual(on, .chat(.on(name: "ada")))
+        XCTAssertEqual(on.hostOp, .chatSync)
+        XCTAssertEqual(on.hostRequest.chat?.wait, true)
+        XCTAssertEqual(try decode(#"{"action":"chat-on"}"#), .chat(.on(name: "")), "no name: doz chat on's own")
+        XCTAssertThrowsError(try decode(#"{"action":"chat-on","name":"Ada Lovelace"}"#)) {
+            let m = ($0 as? WebAction.Invalid)?.message ?? ""
+            XCTAssertTrue(m.hasPrefix("name: that name is not a name in chat"), m)
+            XCTAssertFalse(m.contains("Lovelace"), "the name never repeated")
+        }
+        invalid(#"{"action":"chat-on","name":"chat"}"#, "a reserved name")
+        invalid(#"{"action":"chat-on","name":"ada","enabled":true}"#, "nothing but the name")
+        let mk = try decode(Self.samples["workspace-make-room"]!)
+        XCTAssertEqual(mk.hostOp, .workspaceEdit)
+        XCTAssertEqual(mk.hostRequest.workspaceRequest?.makeRoom, true)
+        XCTAssertNil(mk.hostRequest.workspaceRequest?.brief)
+        XCTAssertNil(mk.hostRequest.workspaceRequest?.addFolders)
+        invalid(#"{"action":"workspace-make-room","workspace":"launch-video","brief":"x"}"#, "never a brief")
+        XCTAssertTrue(on.isChatOn && mk.isMakeRoom)
+        XCTAssertEqual(WebExposure.decideChatOnAction(.remote(secure: true)), .macOnlyChatOn)
+        XCTAssertEqual(WebExposure.decideMakeRoomAction(.remote(secure: true)), .macOnlyMakeRoom)
+        XCTAssertEqual(WebRejection.macOnlyChatOn.code, "mac-only")
+        XCTAssertEqual(WebRejection.macOnlyMakeRoom.code, "mac-only")
+        XCTAssertNil(WebExposure.decideChatOnAction(.mac))
+        XCTAssertNil(WebExposure.decideMakeRoomAction(.mac))
+    }
+
     /// Every web action is the owner's: none carries `actAs`, so each is `.owner` at the daemon's gate — the owner is never
     /// gated, from any browser (a browser that may act at all is decided by `WebExposure`, never by an agent's permissions).
     func testEveryActionIsTheOwners() throws {
@@ -461,7 +548,8 @@ final class WebActionTests: XCTestCase {
             ops.append(a.hostOp)
             // The sessions on this Mac have their own two actions: the same HostOp, on the place @mac.
             // Remove and Remove all ended are both `session-forget`: one names a session, the other the list the page showed.
-            places.append(a.hostOp.rawValue + (a.isMacSession || a.isMacNet || a.isMacForget ? " @mac" : "") + (a.hostRequest.sessions != nil ? " (the list)" : ""))
+            places.append(a.hostOp.rawValue + (a.isMacSession || a.isMacNet || a.isMacForget ? " @mac" : "") + (a.hostRequest.sessions != nil ? " (the list)" : "")
+                          + (a.isMakeRoom ? " (its room)" : ""))
             XCTAssertEqual(a.isMacSession || a.isMacNet || a.isMacForget, a.hostRequest.name == "@mac", "\(name): @mac only through its own actions")
         }
         XCTAssertEqual(places.count, Set(places).count, "one action per HostOp (and place)")
@@ -480,7 +568,7 @@ final class WebActionTests: XCTestCase {
         // adopt, new with one agent, release (this Mac's own browser only); the start; the eight lifecycle verbs (this Mac's
         // own browser only); and the five bot changes below.
         XCTAssertEqual(Set(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key)),
-                       ["workspace-brief", "workspace-adopt", "workspace-new", "workspace-release", "workspace-start", "workspace-stop", "workspace-sleep",
+                       ["workspace-brief", "workspace-make-room", "workspace-adopt", "workspace-new", "workspace-release", "workspace-start", "workspace-stop", "workspace-sleep",
                         "workspace-wake", "workspace-finish", "workspace-reopen", "workspace-archive", "workspace-restore", "workspace-delete",
                         "workspace-run-archive", "workspace-space-save"])
         XCTAssertEqual(Set(ops.filter { ["workspace-", "worker-"].contains(where: $0.rawValue.hasPrefix) }),

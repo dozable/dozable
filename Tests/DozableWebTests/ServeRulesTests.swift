@@ -9,7 +9,7 @@ final class ServeRulesTests: XCTestCase {
     func ip(_ s: String) -> WebIP { WebIP(s)! }
     func iface(_ name: String, _ a: String, _ p: Int) -> WebInterfaceAddress { WebInterfaceAddress(name: name, address: ip(a), prefix: p) }
 
-    /// m1max as measured (606 nat-source.md): two LAN interfaces, Tailscale, a vmnet bridge, another VPN, loopback.
+    /// john-mac-studio as measured (606 nat-source.md): two LAN interfaces, Tailscale, a vmnet bridge, another VPN, loopback.
     lazy var mac: [WebInterfaceAddress] = [
         iface("lo0", "127.0.0.1", 8), iface("lo0", "::1", 128),
         iface("en0", "192.168.86.65", 24), iface("en0", "fe80::1c2b:3a4d:5e6f:7081", 64), iface("en0", "fd53:3f5a:6290:d699::65", 64),
@@ -24,7 +24,7 @@ final class ServeRulesTests: XCTestCase {
         XCTAssertEqual(ip("::ffff:192.168.112.2"), ip("192.168.112.2"), "an IPv4-mapped peer is its IPv4 address")
         XCTAssertEqual(ip("[::1]").description, "::1")
         XCTAssertEqual(ip("fe80::1%en0"), ip("fe80::1"))
-        XCTAssertNil(WebIP("m1max.local"))
+        XCTAssertNil(WebIP("john-mac-studio.local"))
         XCTAssertNil(WebIP("300.1.1.1"))
         XCTAssertTrue(ip("127.0.0.5").isLoopback)
         XCTAssertTrue(ip("fe80::5").isLinkLocal)
@@ -111,7 +111,7 @@ final class ServeRulesTests: XCTestCase {
         XCTAssertTrue(mac("127.0.0.1", "127.0.0.1", "127.0.0.1:7443"))
         XCTAssertTrue(mac("::ffff:127.0.0.1", "::ffff:127.0.0.1", "127.0.0.1:7443"), "a dual-stack listener's mapped loopback")
         XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", "localhost:7443"), "a name is never the Mac (DNS rebinding)")
-        XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", "m1max.local:7443"))
+        XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", "john-mac-studio.local:7443"))
         XCTAssertFalse(mac("::1", "::1", "[::1]:7443"))
         XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", "127.0.0.1:7444"), "another port")
         XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", "127.0.0.1"), "no port")
@@ -133,11 +133,11 @@ final class ServeRulesTests: XCTestCase {
         XCTAssertEqual(WebDashboardPort.resolve(uiPort: 17606, lan: false, servePort: 7443), .fixed(17606))
     }
 
-    let names = WebMacNames(localHostName: "m1max", hostName: "m1max.lan")
+    let names = WebMacNames(localHostName: "john-mac-studio", hostName: "john-mac-studio.lan")
 
     func testDirectOrigins() {
         let d = WebServeRules.directOrigins(port: 7443, bind: .lan, interfaces: mac, names: names)
-        XCTAssertTrue(d.isSuperset(of: ["http://m1max.local:7443", "http://m1max.lan:7443", "http://192.168.86.65:7443", "http://100.124.200.51:7443",
+        XCTAssertTrue(d.isSuperset(of: ["http://john-mac-studio.local:7443", "http://john-mac-studio.lan:7443", "http://192.168.86.65:7443", "http://100.124.200.51:7443",
                                         "http://[fd7a:115c:a1e0::7c3b:c833]:7443"]))
         XCTAssertFalse(d.contains("http://192.168.112.1:7443"), "never the bridge")
         XCTAssertTrue(d.isSuperset(of: ["http://127.0.0.1:7443", "http://[::1]:7443", "http://localhost:7443"]), "the Mac's own browser")
@@ -145,7 +145,7 @@ final class ServeRulesTests: XCTestCase {
         XCTAssertFalse(d.contains { $0.contains("fe80") || $0.contains("169.254") }, "a link-local address is never a Host literal")
         let lo = WebServeRules.directOrigins(port: 7443, bind: .loopback, interfaces: mac, names: names)
         XCTAssertEqual(lo, ["http://127.0.0.1:7443", "http://[::1]:7443", "http://localhost:7443"])
-        XCTAssertEqual(WebMacNames(localHostName: "m1max.local", hostName: "192.168.1.5").names, ["m1max.local"], "an address is not a name")
+        XCTAssertEqual(WebMacNames(localHostName: "john-mac-studio.local", hostName: "192.168.1.5").names, ["john-mac-studio.local"], "an address is not a name")
     }
 
     func origin(_ host: String?, proto: String? = nil, fhost: String? = nil, xff: String? = nil, peer: String = "192.168.86.48",
@@ -155,18 +155,18 @@ final class ServeRulesTests: XCTestCase {
     }
 
     func testTheRequestsOwnOriginDirectly() {
-        XCTAssertEqual(origin("m1max.local:7443").origin, "http://m1max.local:7443")
-        XCTAssertEqual(origin("M1MAX.LOCAL:7443").origin, "http://m1max.local:7443", "a name in any case")
+        XCTAssertEqual(origin("john-mac-studio.local:7443").origin, "http://john-mac-studio.local:7443")
+        XCTAssertEqual(origin("JOHN-MAC-STUDIO.LOCAL:7443").origin, "http://john-mac-studio.local:7443", "a name in any case")
         XCTAssertEqual(origin("192.168.86.65:7443").origin, "http://192.168.86.65:7443")
         XCTAssertEqual(origin("[fd7a:115c:a1e0::7c3b:c833]:7443").origin, "http://[fd7a:115c:a1e0::7c3b:c833]:7443")
         // DNS rebinding: another name pointed at the Mac — refused by name.
         XCTAssertNil(origin("evil.example:7443").origin)
-        XCTAssertNil(origin("m1max.local").origin, "the port is part of the origin")
-        XCTAssertNil(origin("m1max.local:7444").origin)
+        XCTAssertNil(origin("john-mac-studio.local").origin, "the port is part of the origin")
+        XCTAssertNil(origin("john-mac-studio.local:7444").origin)
         XCTAssertNil(origin(nil).origin, "no (or a repeated) Host")
         XCTAssertNil(origin("192.168.112.1:7443").origin, "the bridge's address is not a name of this server")
-        XCTAssertFalse(origin("m1max.local:7443").secure)
-        XCTAssertEqual(origin("m1max.local:7443", peer: "192.168.86.48").client, "192.168.86.48")
+        XCTAssertFalse(origin("john-mac-studio.local:7443").secure)
+        XCTAssertEqual(origin("john-mac-studio.local:7443", peer: "192.168.86.48").client, "192.168.86.48")
     }
 
     func testForwardedHeadersOnlyFromATrustedProxy() {
@@ -190,8 +190,8 @@ final class ServeRulesTests: XCTestCase {
         XCTAssertTrue(origin("doz.home.example", proto: "wss", peer: "127.0.0.1", config: proxied).secure)
         // The same headers from anyone else: ignored — and the public origin is never allowed without a trusted proxy.
         let lan = WebServeConfig(publicOrigins: [WebPublicOrigin("https://doz.home.example")!], trustedProxies: [WebCIDR("127.0.0.1")!])
-        r = origin("m1max.local:7443", proto: "https", fhost: "doz.home.example", xff: "1.2.3.4", peer: "192.168.86.48", config: lan)
-        XCTAssertEqual(r.origin, "http://m1max.local:7443", "an untrusted peer's X-Forwarded-* change nothing")
+        r = origin("john-mac-studio.local:7443", proto: "https", fhost: "doz.home.example", xff: "1.2.3.4", peer: "192.168.86.48", config: lan)
+        XCTAssertEqual(r.origin, "http://john-mac-studio.local:7443", "an untrusted peer's X-Forwarded-* change nothing")
         XCTAssertFalse(r.secure)
         XCTAssertEqual(r.client, "192.168.86.48", "nor its X-Forwarded-For")
         XCTAssertNil(origin("doz.home.example", peer: "192.168.86.48", config: lan).origin, "the public name, not through the proxy: refused")
@@ -222,7 +222,7 @@ final class ServeRulesTests: XCTestCase {
 
     /// The settings' checks (DozableHost) and the web layer's parsers agree.
     func testTheSettingsAndTheWebLayerAgree() {
-        for b in ["lan", "loopback", "192.168.86.65", "192.168.86.65, fd00::5", "[::1]", "0.0.0.0", "::", "fe80::1", "169.254.1.1", "m1max.local", "", "1.2.3.4,"] {
+        for b in ["lan", "loopback", "192.168.86.65", "192.168.86.65, fd00::5", "[::1]", "0.0.0.0", "::", "fe80::1", "169.254.1.1", "john-mac-studio.local", "", "1.2.3.4,"] {
             XCTAssertEqual(ServeSettingValues.isBind(b), WebServeBind.parse(b) != nil && !b.isEmpty, b)
         }
         for o in ["https://doz.example", "https://a.example, http://b.example:8080", "doz.example", "https://x.example/p", ""] {

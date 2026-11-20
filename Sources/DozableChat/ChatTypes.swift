@@ -256,7 +256,7 @@ public func chatIsSessionName(_ s: String) -> Bool {
     return u.allSatisfy { (0x61...0x7A).contains($0) || (0x30...0x39).contains($0) || $0 == 0x2D }
 }
 
-/// A Claude Code session's name, as its record says it: free text the person sets ("Release review", "ops on m1max"),
+/// A Claude Code session's name, as its record says it: free text the person sets ("Release review", "ops on john-mac-studio"),
 /// compared exactly. 1–100 characters; no control characters or line breaks, no `/` (never a path), no space at either end.
 public func chatIsClaudeSessionName(_ s: String) -> Bool {
     let u = s.unicodeScalars

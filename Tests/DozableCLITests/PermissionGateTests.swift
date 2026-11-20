@@ -140,6 +140,38 @@ final class PermissionGateTests: XCTestCase {
         XCTAssertEqual(GrantFactsReader(store: store).facts(GrantWho(name: "mira", home: "demo", bot: "mira"), workspace: "demo").deciders, ["bot1"])
     }
 
+    /// An agent's `chat-decide` (`--as W/AGENT`): without the decider role the gate refuses it, citing `chat.decide`; with
+    /// the role (given in chat, by the owner) the gate lets it by — and the daemon still never speaks for an agent: it asks
+    /// and answers with its own token. The owner's own decide is never gated.
+    func testAnAgentNeverAnswersThroughTheDaemon() async throws {
+        let ws = WorkspaceStore(store: store)
+        var rec = try XCTUnwrap(try ws.read("demo"))
+        rec.rooms = [WorkspaceRoom(label: "main", chatRoom: "demo", main: true)]
+        try ws.write(rec)
+        var q = ChatAskRequest(room: "demo", ask: "#1")
+        q.reply = "B"
+        let r = asAgent(.chatDecide) { $0.chatAsk = q }
+        let e = PermissionGate.refusal(r, store: store)
+        XCTAssertEqual(e?.code, .notPermitted)
+        XCTAssertTrue(e?.message.hasPrefix("chat.decide for bot1 in demo is never") == true, e?.message ?? "")
+        let paths = ChatPaths(store: store)
+        try FileManager.default.createDirectory(atPath: paths.folder, withIntermediateDirectories: true)
+        try paths.write("directory.json", ChatDirectory(human: "ada", participants: [.init(name: "bot1", added: "x", roles: ["decider"])]).bytes())
+        XCTAssertNil(PermissionGate.refusal(r, store: store), "the decider role answers chat.decide")
+        let core = HostCore(store: store, readOnly: false, version: "test")
+        let m = await core.handle(r)
+        XCTAssertEqual(m.error?.code, .notPermitted)
+        XCTAssertEqual(m.error?.message, HostCore.neverForAnAgent)
+        for op in [HostOp.chatAsk, .chatWithdraw, .chatAsks] {
+            var a = HostRequest(op)
+            a.chatAsk = ChatAskRequest(room: "demo")
+            XCTAssertNil(PermissionGate.refusal(a, store: store), "the owner is never gated: \(op)")
+            a.actAs = "demo/bot1"
+            let x = await core.handle(a)
+            XCTAssertEqual(x.error?.code, .notPermitted, op.rawValue)
+        }
+    }
+
     func testAnotherWorkspaceIsNever() throws {
         let r = asAgent(.workspaceShow) { $0.workspaceRequest = WorkspaceRequest(name: "other") }
         let e = PermissionGate.refusal(r, store: store)

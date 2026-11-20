@@ -65,8 +65,8 @@ final class ChatDozchatClientTests: XCTestCase {
         page = ChatPythonClientTests.freePort(); line = ChatPythonClientTests.freePort()
         let c = """
             {"line_port": \(line), "http_port": \(page), "data_dir": "\(data.path)", "default_room": "general",
-             "participants": [{"name": "ada", "kind": "human", "deliver": "web"}, {"name": "bot1", "kind": "agent"}, {"name": "bot2", "kind": "agent"}, {"name": "bot3", "kind": "agent"}],
-             "rooms": {"general": ["ada"], "room1": ["ada", "bot1", "bot2"]}, "allow": ["127.0.0.1", "::1"], "require_tokens": true,
+             "participants": [{"name": "ada", "kind": "human", "deliver": "web"}, {"name": "bot1", "kind": "agent"}, {"name": "bot2", "kind": "agent", "roles": ["decider"]}, {"name": "bot3", "kind": "agent"}],
+             "ask_cooldown_seconds": -1, "rooms": {"general": ["ada"], "room1": ["ada", "bot1", "bot2"]}, "allow": ["127.0.0.1", "::1"], "require_tokens": true,
              "agent_addresses": ["127.0.0.0/8", "::1"], "secrets_file_only": true}
             """
         try Data(c.utf8).write(to: configFile)
@@ -344,6 +344,64 @@ final class ChatDozchatClientTests: XCTestCase {
         assertNoSecret()
     }
 
+    /// Asks with the bot's own token: asked with options, deciders and a reason; read back; decided by the decider role
+    /// (bot2) and refused a second time and to a bot that is not a decider (exit 3, the server's words); withdrawn by its
+    /// asker only; ask-show --wait's exit codes; several questions from a file, answered with --answers.
+    func asksEachWay() throws {
+        var r = dz("bot1", ["ask", "room1", "Ship", "it?", "--option", "yes=Yes", "--option", "no=No", "--decider", "bot2", "--reason", "the tests pass"])
+        XCTAssertEqual(r.code, 0, r.err)
+        XCTAssertEqual(items(r.out).first?["state"] as? String, "queued", r.out)
+        let id = items(r.out).first?["msg_id"] as? String ?? ""
+        r = dz("bot1", ["ask-show", "room1", id])
+        XCTAssertEqual(r.code, 0, r.err)
+        let ask = items(r.out).first?["ask"] as? [String: Any]
+        XCTAssertEqual(ask?["state"] as? String, "open")
+        XCTAssertEqual(ask?["deciders"] as? [String], ["bot2"])
+        XCTAssertEqual(ask?["reason"] as? String, "the tests pass")
+        let n = ask?["number"] as? Int ?? 0
+        XCTAssertGreaterThan(n, 0)
+        r = dz("bot2", ["decide", "room1", "\(n)", "yes", "all", "green"])
+        XCTAssertEqual(r.code, 0, r.err)
+        XCTAssertEqual(items(r.out).first?["state"] as? String, "decided", r.out)
+        r = dz("bot1", ["ask-show", "room1", "#\(n)", "--wait", "5"])
+        XCTAssertEqual(r.code, 0, "decided: exit 0 \(r.err)")
+        let d = (items(r.out).first?["ask"] as? [String: Any])?["decision"] as? [String: Any]
+        XCTAssertEqual(d?["decider_role"] as? Bool, true)
+        XCTAssertEqual(d?["text"] as? String, "all green")
+        r = dz("bot2", ["decide", "room1", "#\(n)", "no"])
+        XCTAssertEqual(r.code, 3, "a second decision is refused")
+        XCTAssertTrue(r.err.contains("this ask was already decided by bot2"), r.err)
+
+        r = dz("bot1", ["ask", "room1", "Lunch?"])
+        let m = (items(dz("bot1", ["ask-show", "room1", items(r.out).first?["msg_id"] as? String ?? "x"]).out).first?["ask"] as? [String: Any])?["number"] as? Int ?? 0
+        r = dz("bot2", ["decide", "room1", "#\(m)", "yes"])
+        XCTAssertEqual(r.code, 3)
+        XCTAssertTrue(r.err.contains("bot2 is not a decider of this ask"), r.err)
+        r = dz("bot2", ["withdraw", "room1", "#\(m)"])
+        XCTAssertEqual(r.code, 3)
+        XCTAssertTrue(r.err.contains("only bot1, who asked it, can withdraw this ask"), r.err)
+        r = dz("bot1", ["withdraw", "room1", "#\(m)"])
+        XCTAssertEqual(r.code, 0, r.err)
+        r = dz("bot1", ["ask-show", "room1", "#\(m)", "--wait", "5"])
+        XCTAssertEqual(r.code, 12, "withdrawn: exit 12")
+
+        let qs = root.appendingPathComponent("qs.json")
+        try Data(#"[{"id":"q1","question":"Which build?","options":[{"id":"web","label":"Web"}]},{"id":"q2","question":"When?"}]"#.utf8).write(to: qs)
+        r = dz("bot1", ["ask", "room1", "Release", "--questions", qs.path, "--decider", "bot2", "--expires-in", "600"])
+        XCTAssertEqual(r.code, 0, r.err)
+        let q = (items(dz("bot1", ["ask-show", "room1", items(r.out).first?["msg_id"] as? String ?? "x"]).out).first?["ask"] as? [String: Any])
+        XCTAssertEqual((q?["questions"] as? [Any])?.count, 2)
+        XCTAssertNotNil(q?["expires_at"] as? String)
+        let k = q?["number"] as? Int ?? 0
+        r = dz("bot2", ["decide", "room1", "#\(k)", "--answers", #"[{"question_id":"q1","options":["web"]},{"question_id":"q2","text":"today"}]"#])
+        XCTAssertEqual(r.code, 0, r.err)
+        r = dz("bot1", ["ask", "room1", "Soon?", "--expires-in", "1"])
+        let e = (items(dz("bot1", ["ask-show", "room1", items(r.out).first?["msg_id"] as? String ?? "x"]).out).first?["ask"] as? [String: Any])?["number"] as? Int ?? 0
+        r = dz("bot1", ["ask-show", "room1", "#\(e)", "--wait", "10"])
+        XCTAssertEqual(r.code, 11, "expired: exit 11")
+        assertNoSecret()
+    }
+
     func listenSurvivesARestart() throws {
         let (p, o, e) = process("bot2", ["listen", "--wait", "3"])
         try p.run()
@@ -402,6 +460,8 @@ final class ChatDozchatClientTests: XCTestCase {
     func testAFileBothWaysThroughTheProxy() throws { try useProxy(); try aFileBothWays() }
     func testRefusalsDirect() throws { try refusals() }
     func testRefusalsThroughTheProxy() throws { try useProxy(); try refusals() }
+    func testAsksDirect() throws { try asksEachWay() }
+    func testAsksThroughTheProxy() throws { try useProxy(); try asksEachWay(); assertProxied() }
     func testListenSurvivesARestartDirect() throws { try listenSurvivesARestart() }
     func testListenSurvivesARestartThroughTheProxy() throws { try useProxy(); try listenSurvivesARestart(); assertProxied() }
     /// A local proxy with no password (HTTP_PROXY=http://127.0.0.1:PORT): the absolute form, NO Proxy-Authorization, the

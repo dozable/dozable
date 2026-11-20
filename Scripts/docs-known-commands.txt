@@ -192,6 +192,10 @@ chat/room
 chat/send
 chat/read
 chat/export
+chat/ask
+chat/decide
+chat/withdraw
+chat/asks
 workspace
 workspace/new
 workspace/ls

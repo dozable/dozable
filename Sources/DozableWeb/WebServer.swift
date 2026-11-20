@@ -995,6 +995,11 @@ public final class DozableWebServer: @unchecked Sendable {
             if request.action.isLifecycle, let r = WebExposure.decideLifecycleAction(ctx.principal) { throw r }
             // A room archived or removed, a run's archive written again: this Mac's own browser only, whatever the settings.
             if request.action.isRoomLifecycle, let r = WebExposure.decideRoomAction(ctx.principal) { throw r }
+            // An ask answered: this Mac's own browser only, whatever serve.chat says (a decision made as you).
+            if request.action.isAsk, let r = WebExposure.decideAskAction(ctx.principal) { throw r }
+            // Chat turned on, a workspace's room made: this Mac's own browser only (a server that listens; a room as you).
+            if request.action.isChatOn, let r = WebExposure.decideChatOnAction(ctx.principal) { throw r }
+            if request.action.isMakeRoom, let r = WebExposure.decideMakeRoomAction(ctx.principal) { throw r }
             // A space file saved: this Mac's own browser only, whatever the serve settings (it decides what the next up starts).
             if request.action.isSpace, let r = WebExposure.decideSpaceAction(ctx.principal) { throw r }
             // A fenced session's site allowed: this Mac's own browser only, whatever the serve settings (its network is what
@@ -1149,6 +1154,9 @@ public final class DozableWebServer: @unchecked Sendable {
             try Self.requireJSONBody(md)
             var w = try WebSpace.decodeRead(body)
             w.macSessionsHidden = WebGridsRequest.macAllowed(ctx.principal, settings.macSessions) ? nil : true
+            // An open ask's question: another computer only with serve.chat read or write; answered here only on this Mac.
+            w.askTextHidden = ctx.principal.isRemote && settings.chatServe == .off ? true : nil
+            w.asksAnsweredElsewhere = ctx.principal.isRemote ? true : nil
             return json(try await data.workspaceState(w))
         case .workspaceRunFrames:
             // `workspace-run-frames`: each frame projected as the state is (this Mac's sessions as serve.mac_sessions allows).
@@ -1432,7 +1440,8 @@ public final class DozableWebServer: @unchecked Sendable {
             await monitor.streamOpened()
             return .stream(client)
         case .chat(let c):
-            return try await chatReply(c, md, body: body, cookie: cookie, writable: !ctx.principal.isRemote || settings.chatServe == .write)
+            return try await chatReply(c, md, body: body, cookie: cookie, writable: !ctx.principal.isRemote || settings.chatServe == .write,
+                                       mac: !ctx.principal.isRemote)
         }
     }
 

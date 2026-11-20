@@ -543,6 +543,96 @@ static void check_send_options(void) {
           "send ROOM WORDS… --re=ID WORDS…");
 }
 
+
+/* Asks: an ask's name, the state ask-show reads, a verbatim array, and the options. */
+static int state_is(const char *doc, int want_rc, const char *want_state, int want_declined) {
+    size_t n = strlen(doc);
+    unsigned char *c = dup_exact(doc, n);
+    char st[16];
+    int d = -1;
+    int rc = ask_state_of(c, n, st, &d);
+    free(c);
+    if (rc != want_rc) return 0;
+    return rc != 0 || (strcmp(st, want_state) == 0 && d == want_declined);
+}
+
+static void check_asks(void) {
+    char r[40];
+    CHECK(ask_ref("12", r) == 0 && strcmp(r, "#12") == 0, "a bare number is #N");
+    CHECK(ask_ref("#7", r) == 0 && strcmp(r, "#7") == 0, "#N");
+    CHECK(ask_ref("4f1a-0b", r) == 0 && strcmp(r, "4f1a-0b") == 0, "the start of an id");
+    const char *bad[] = {"", "#", "#0", "0", "#x", "../x", "ABC", "%23", "#1234567890", "4f1a 0b",
+                         "0123456789abcdef0123456789abcdef01234"};
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) CHECK(ask_ref(bad[i], r) < 0, "ask_ref refuses \"%s\"", bad[i]);
+    CHECK(state_is("{\"ask\":{\"state\":\"open\"}}", 0, "open", 0), "open");
+    CHECK(state_is("{\"msg_id\":\"m\",\"ask\":{\"question\":\"q\",\"state\":\"decided\",\"decision\":{\"by\":\"ada\",\"declined\":false}}}", 0, "decided", 0), "decided");
+    CHECK(state_is("{\"ask\":{\"decision\":{\"declined\":true},\"state\":\"decided\"}}", 0, "decided", 1), "declined");
+    CHECK(state_is(" { \"ask\" : { \"state\" : \"expired\" , \"decision\" : { \"declined\" : true } } } ", 0, "expired", 1), "with spaces");
+    CHECK(state_is("{\"ask\":{\"state\":\"withdrawn\"},\"x\":{\"state\":\"open\"}}", 0, "withdrawn", 0), "only the ask's own state");
+    CHECK(state_is("{\"state\":\"open\"}", -1, "", 0), "no ask object");
+    CHECK(state_is("{\"ask\":{\"state\":\"OPEN\"}}", -1, "", 0), "a state not a lower-case word");
+    CHECK(state_is("{\"ask\":{\"state\":\"aaaaaaaaaaaaaaaaaaaaaaaaa\"}}", -1, "", 0), "a state too long");
+    CHECK(state_is("{\"ask\":{\"state\":1}}", -1, "", 0), "a state not a string");
+    CHECK(state_is("{\"ask\":{\"state\":\"open\"}", -1, "", 0), "a cut document");
+    CHECK(state_is("[]", -1, "", 0), "not an object");
+    struct buf b = buf_new(1 << 20);
+    CHECK(add_verbatim_array(&b, (const unsigned char *)"[ {\"id\" : \"q1\"} ]", 17, "x") == EXIT_DONE && b.len == 13 &&
+              memcmp(b.p, "[{\"id\":\"q1\"}]", 13) == 0, "a verbatim array, compacted");
+    b.len = 0;
+    CHECK(add_verbatim_array(&b, (const unsigned char *)"{\"id\":1}", 8, "x") == EXIT_USAGE, "an object is refused");
+    CHECK(add_verbatim_array(&b, (const unsigned char *)"[1] [2]", 7, "x") == EXIT_USAGE, "two values are refused");
+    CHECK(add_verbatim_array(&b, (const unsigned char *)"[\"\xC0\xAF\"]", 6, "x") == EXIT_USAGE, "an overlong form is refused");
+    CHECK(add_verbatim_array(&b, (const unsigned char *)"", 0, "x") == EXIT_USAGE, "nothing is refused");
+    buf_free(&b);
+    char at[32];
+    CHECK(rfc3339_after(60, at) == 0 && strlen(at) == 20 && at[10] == 'T' && at[19] == 'Z', "an expiry in RFC 3339 (%s)", at);
+    struct opts o;
+    char *a1[] = {"dozchat", "ask", "room1", "Ship", "it?", "--option", "yes=Yes", "--option=no=No", "--decider", "@decbot", "--multi",
+                  "--expires-in", "60", NULL};
+    CHECK(parse_opts(13, a1, 2, " --option --decider --multi --reason --expires-in --questions ", &o) == EXIT_DONE && o.npos == 3 &&
+              o.noption == 2 && strcmp(o.option[1], "no=No") == 0 && o.ndecider == 1 && o.multi && o.expires_in == 60,
+          "ask's options");
+    char *a2[] = {"dozchat", "ask", "r", "q", "--expires-in", "0", NULL};
+    CHECK(parse_opts(6, a2, 2, " --expires-in ", &o) == EXIT_USAGE, "--expires-in 0 is refused");
+    char *a3[] = {"dozchat", "decide", "r", "#1", "--decline", "not", "now", NULL};
+    CHECK(parse_opts(7, a3, 2, " --decline --answers ", &o) == EXIT_DONE && o.decline && o.npos == 4, "decide --decline WORDS");
+    char *a4[] = {"dozchat", "decide", "r", "#1", "--as", "x", NULL};
+    CHECK(parse_opts(6, a4, 2, " --decline --answers ", &o) == EXIT_USAGE, "decide has no --as");
+}
+
+/* The state reader on mutated answers: it never reads past the end and answers only a lower-case word or -1. */
+static void fuzz_ask_state(long iterations) {
+    static const char base[] = "{\"msg_id\":\"m\",\"ask\":{\"question\":\"q\",\"state\":\"decided\",\"decision\":{\"by\":\"a\",\"declined\":true}}}";
+    long found = 0;
+    for (long it = 0; it < iterations; it++) {
+        size_t n = sizeof base - 1;
+        unsigned char tmp[sizeof base + 8];
+        memcpy(tmp, base, n);
+        int muts = 1 + (int)(rnd() % 4);
+        for (int m = 0; m < muts; m++) {
+            size_t at = (size_t)(rnd() % n);
+            switch (rnd() % 3) {
+            case 0: tmp[at] = (unsigned char)rnd(); break;
+            case 1: n = at; break;
+            default: tmp[at] = "{}[]\":,\\ "[rnd() % 9]; break;
+            }
+            if (n == 0) break;
+        }
+        unsigned char *c = dup_exact(tmp, n);
+        char st[16];
+        int d;
+        if (ask_state_of(c, n, st, &d) == 0) {
+            found++;
+            size_t l = strlen(st);
+            int word = l > 0 && l < 16;
+            for (size_t i = 0; i < l; i++) word &= st[i] >= 'a' && st[i] <= 'z';
+            CHECK(word, "ask_state_of answered a state that is not a lower-case word");
+        }
+        free(c);
+    }
+    CHECK(found > 0, "ask state fuzz: some mutations still read (%ld of %ld)", found, iterations);
+}
+
 static int escape_mode(const char *file) {
     FILE *f = fopen(file, "r");
     if (!f) { fprintf(stderr, "cannot open %s\n", file); return 2; }
@@ -581,8 +671,10 @@ int main(int argc, char **argv) {
     check_secrets();
     check_default_url();
     check_send_options();
+    check_asks();
     fuzz_escaper(iterations);
     fuzz_scanner(iterations);
+    fuzz_ask_state(iterations);
     if (failures) {
         fprintf(stderr, "x dozchat-check: %d of %d checks failed\n", failures, checks);
         return 1;

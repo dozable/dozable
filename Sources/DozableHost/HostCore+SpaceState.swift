@@ -30,8 +30,11 @@ extension HostCore {
         let n = try workspaceName(w)
         let (rec, ref, intent) = try spaceStateInputs(n)
         let facts = await spaceStateFacts(rec, intent)
-        return SpaceStateBuilder.build(intent: intent, ref: ref, record: rec, facts: facts, host: Self.spaceStateHost(), now: Date(),
-                                       viewer: SpaceStateViewer(macSessions: w.macSessionsHidden != true))
+        // Who reads it: set by the dashboard's server from the principal (never a browser's field); the person's chat name is
+        // the daemon's own directory's.
+        let viewer = SpaceStateViewer(macSessions: w.macSessionsHidden != true, askText: w.askTextHidden != true, answerHere: w.asksAnsweredElsewhere != true,
+                                      chatName: (try? ChatDirectory.load(chatPaths))?.human)
+        return SpaceStateBuilder.build(intent: intent, ref: ref, record: rec, facts: facts, host: Self.spaceStateHost(), now: Date(), viewer: viewer)
     }
 
     /// This Mac's name as a person reads it (its host name's first label); in a guarded test run `DOZ_TEST_MAC_NAME`.
@@ -103,6 +106,9 @@ extension HostCore {
             f.rooms = try? chat.rooms()
             f.archivedRooms = (try? chat.archivedRooms()) ?? []
             if let d = try? ChatDirectory.load(chatPaths) { f.participants = Set(d.participants.map(\.name) + (d.human.map { [$0] } ?? [])) }
+            // The open asks of the workspace's own rooms (one look on the owner's socket, as `chat-asks`).
+            let mine = Set(rec.rooms.filter { $0.goneAt == nil }.map(\.chatRoom))
+            f.asks = (try? chat.openAsks())?.filter { mine.contains($0.room) }
         }
         return f
     }

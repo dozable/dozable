@@ -117,6 +117,13 @@ public enum ActionClasses {
             return needs(["room.manage"], .room(r.chatRoom?.room))
         case .chatAdd, .chatRemove, .chatSet:
             return needs(["room.manage"], .nowhere)
+        // asks: the gate's answer first; allowed, the daemon still never speaks for an agent (`HostCore+ChatAsks`)
+        case .chatAsk, .chatWithdraw:
+            return needs(["chat.post"], .room(r.chatAsk?.room))
+        case .chatDecide:
+            return needs(["chat.decide"], .room(r.chatAsk?.room))
+        case .chatAsks:
+            return needs(["chat.read"], .nowhere)
         // the lifecycle
         case .workspaceSleep, .workspaceWake:
             return needs(["workspace.sleep"], ws)

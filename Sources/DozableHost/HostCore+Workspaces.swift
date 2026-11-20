@@ -1,3 +1,4 @@
+import DozableChat
 import DozableKit
 import Foundation
 
@@ -26,6 +27,9 @@ public protocol WorkspaceChat: Sendable {
     func setClosed(_ rooms: [String: String]) async throws -> [String: Int64]?
     /// A room removed for good by the running chat server (its id and its last seq checked under its lock).
     func removeRoom(_ room: String, id: String, lastSeq: Int64) async throws
+    /// One fixed call on the owner's socket, as you: the status and the JSON answer (`HostCore+ChatAsks` builds each from
+    /// checked values — never a caller's path).
+    func ownerCall(_ method: String, _ target: String, body: JValue?, headers: [(String, String)]) throws -> (Int, JValue)
 }
 
 extension WorkspaceChat {
@@ -41,6 +45,9 @@ extension WorkspaceChat {
     public func setClosed(_ rooms: [String: String]) async throws -> [String: Int64]? { nil }
     public func removeRoom(_ room: String, id: String, lastSeq: Int64) async throws {
         throw HostError(.notImplemented, "this chat cannot remove a room")
+    }
+    public func ownerCall(_ method: String, _ target: String, body: JValue?, headers: [(String, String)]) throws -> (Int, JValue) {
+        throw HostError(.notImplemented, "this chat cannot be asked")
     }
 }
 
@@ -77,6 +84,16 @@ public struct OwnerWorkspaceChat: WorkspaceChat {
     @discardableResult public func setArchived(room: String, _ on: Bool) throws -> Bool { try owner.setArchived(room: room, on) }
     public func lastSeq(room: String) throws -> Int64 { try owner.lastSeq(room: room) }
     public func archivedRooms() throws -> Set<String> { try owner.state().archived }
+    public func ownerCall(_ method: String, _ target: String, body: JValue?, headers: [(String, String)]) throws -> (Int, JValue) {
+        do {
+            let a = try owner.client.request(method, target, json: body.map { Data(ChatJSON.encode($0)) }, headers: headers)
+            return (a.status, (try? ChatJSON.parse(a.body)) ?? .null)
+        } catch ChatOwnerClient.Failure.notListening {
+            throw HostError(.unavailable, "chat is on but its server is not ready — doz chat status")
+        } catch ChatOwnerClient.Failure.failed(let why) {
+            throw HostError(.unavailable, why)
+        }
+    }
     public func fetch(_ target: String) throws -> (status: Int, body: Data) {
         do {
             let a = try owner.client.request("GET", target, json: nil)

@@ -18,7 +18,9 @@ doz chat off                  # the chat server stops; rooms and messages are ke
 ```
 
 `doz chat on` starts the daemon if it is not running and waits until the chat server is ready. The setting it turns on
-is `chat.enabled`; nothing in the dashboard turns chat on or off.
+is `chat.enabled`. Wherever the dashboard says chat is off — the Chat page, a workspace's room and its set-up list, the
+New workspace wizard — this Mac's own browser offers **Turn chat on** (with your name the first time), which does the
+same; another computer shows the command. Turning chat off is `doz chat off`, in a terminal.
 
 The chat server listens on this Mac only (127.0.0.1), on two ports: the **page port** (`chat.page_port`, 8790), where
 agents call `/agent/…` with their token, and the **line port** (`chat.line_port`, 8791), one JSON message per line,
@@ -258,12 +260,27 @@ waits for ever and nothing is taken as a yes.
   doz chat who                          # a decider's KIND ends "· decider" (--json: roles)
   ```
 
-- **How to decide.** In the room, as a message: `/decide #12 A` (the option's letter or id, words after it if you like),
+- **How to decide.** In the dashboard, an ask is a card in its room: pick an option (a letter key picks it), add your own
+  words when it takes them, then Answer (or ⌘Enter); Decline asks for a reason, if you like. Asks are answered in this
+  Mac's own browser for now; another computer sees the card without its controls. In a terminal:
+
+  ```bash
+  doz chat asks                          # the open asks of your rooms
+  doz chat decide room1 12 B             # #12, by its letter (or its id, or its label); words after it if it takes them
+  doz chat decide room1 12 use the other copy   # an answer in your own words
+  doz chat decide room1 12 --decline not today
+  doz chat ask room1 "Ship it?" --option yes=Yes --option no=No --decider bot2 --wait   # ask yourself
+  doz chat withdraw room1 13             # an ask you asked
+  ```
+
+  A refusal says why in plain words ("It was already answered: decided by Bot2."). Or in the room, as a message: `/decide #12 A` (the option's letter or id, words after it if you like),
   `/decide #12 use the other copy` (an answer in your own words, when the question takes them) or `/decide #12 decline not
   today`. `#12` is the ask's short number on this Mac; the start of its id works too (`/decide 41fa46f4 A`). An ask of
   several questions is answered with its answers (an agent: `POST /agent/decide`), or declined with `/decide #12 decline`.
   The first decision wins; a refused one is told only to whoever sent it and is never written into the room.
-- **Withdraw.** Only the agent that asked: `/withdraw #12`.
+- **Withdraw.** Only whoever asked: `/withdraw #12` (or `doz chat withdraw ROOM 12`).
+- **An agent's asks.** An agent asks and answers with its own token: `dozchat ask ROOM "…" --option yes=Yes --option no=No`,
+  then `dozchat ask-show ROOM #N --wait 60` for the outcome. Dozable never answers for it.
 - **What the asker hears.** The outcome comes the way it takes messages (its webhook, `dozchat receive`, or its Claude Code
   session's inbox). A decision a bot makes is its own, shown as decided by it (decider role) — never as yours.
 - **Limits.** One open ask per agent and room (`chat.ask_max_open`), and not the same question again for 10 minutes after a
@@ -273,8 +290,6 @@ waits for ever and nothing is taken as a yes.
 - **A finished workspace leaves no ask waiting.** When its room closes, each open ask in it expires at once and its asker is
   told the room was closed; it cannot be decided, and once the workspace is reopened the same question can be asked again
   straight away.
-
-An ask is shown in the dashboard as its text for now: the question, its options lettered and how to answer.
 
 ## What is not there yet
 

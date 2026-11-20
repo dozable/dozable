@@ -17,6 +17,42 @@ extension WorkspaceLifecycleHostTests {
 
     func mode(_ p: String) -> Int { ((try? FileManager.default.attributesOfItem(atPath: p))?[.posixPermissions] as? NSNumber)?.intValue ?? -1 }
 
+    /// An open ask in the space's room: `workspace-state` (the CLI's, the owner's) carries its question and `canAnswer`; a
+    /// frame of the same moment carries neither its question nor its options, and nothing answerable.
+    func testAFrameCarriesNoAsksQuestion() async throws {
+        try await withBriefHome {
+            let c = await lcore()
+            c.spaceFrames.debounce = .milliseconds(20)
+            let (s, _) = try liveSpace()
+            _ = try acted(try await spaceUpAct(c, try spaceRequest(s)))
+            let rec = try XCTUnwrap(record("lv"))
+            let room = try XCTUnwrap(rec.rooms.first?.chatRoom)
+            let paths = ChatPaths(store: store)
+            try FileManager.default.createDirectory(atPath: paths.folder, withIntermediateDirectories: true)
+            try paths.write("directory.json", ChatDirectory(human: "ada", participants: []).bytes())
+            let ask = #"{"msg_id":"bbbbbbbb-1111-4222-8333-444455556666","kind":"ask","from":"w1","at":1795000100,"content":"x","ask":{"question":"THE-ASKS-QUESTION?","questions":[{"id":"q1","question":"THE-ASKS-QUESTION?","options":[{"id":"yes","label":"THE-ASKS-OPTION"}],"multi":false,"min":1,"max":1,"free_text":true,"optional":false}],"deciders":["ada"],"digest":"d","state":"open","number":1}}"#
+            rooms.lock.withLock { rooms.openAsks = [.map(["room": .string(room), "message": try! ChatJSON.parse(Array(ask.utf8))])] }
+            let m = await ws(c, .workspaceState, "lv")
+            let live = try XCTUnwrap(m.result).decode(SpaceState.self)
+            let item = try XCTUnwrap(live.attention.first { $0.kind == "ask" })
+            XCTAssertEqual(item.question, "THE-ASKS-QUESTION?")
+            XCTAssertEqual(item.options, ["THE-ASKS-OPTION", "Decline"])
+            XCTAssertEqual(item.canAnswer, true)
+            let run = try XCTUnwrap(rec.openRun)
+            _ = await c.spaceFrameRecord("lv", label: "an ask")
+            let folder = c.spaceFrameFolder("lv", run.id)
+            let files = frameNames(folder)
+            XCTAssertFalse(files.isEmpty)
+            var sawAsk = false
+            for f in files + ["last.json"] {
+                let t = (try? String(contentsOfFile: folder + "/" + f, encoding: .utf8)) ?? ""
+                XCTAssertFalse(t.contains("THE-ASKS-QUESTION") || t.contains("THE-ASKS-OPTION"), "\(f): a frame never holds an ask's text")
+                if t.contains("bbbbbbbb-1111-4222-8333-444455556666") { sawAsk = true; XCTAssertFalse(t.contains("\"canAnswer\":true"), f) }
+            }
+            XCTAssertTrue(sawAsk, "the ask is in a frame, without its text")
+        }
+    }
+
     func testFramesOnlyOnAShaChangeBoundedArchivedAndVerified() async throws {
         try await withBriefHome {
             let c = await lcore()

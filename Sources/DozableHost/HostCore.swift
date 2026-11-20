@@ -909,6 +909,8 @@ public actor HostCore {
             return try await performBot(r)
         case .chatRoomPlan, .chatRoomArchive, .chatRoomRm, .chatRoomClose, .chatRoomOpen:
             return try await performRoomLifecycle(r)
+        case .chatAsk, .chatDecide, .chatWithdraw, .chatAsks:
+            return try await performChatAsk(r)
         case .workerAdd, .workerList, .workerEnd, .workerPlan:
             return try await performWorker(r)
         case .workspaceUpPlan:

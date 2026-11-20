@@ -28,6 +28,7 @@ public enum ManagerKickoff {
         s += "A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects).\n\n"
         s += "## How you talk\n\n"
         s += "Use `dozchat` (on your PATH): `dozchat send \(room) \"…\"` to post, `dozchat receive --wait 60 --ack` to collect what is said to you. "
+        s += "To ask the person: `dozchat ask \(room) \"…\" --option yes=Yes --option no=No`, then `dozchat ask-show \(room) #N --wait 60` for the answer. "
         s += "Your token is in the file named by $\(ManagerLaunch.tokenFileVariable); never print it, never put it in a message or a file.\n\n"
         s += "## Skills\n\n"
         s += "- chat-room-member" + (skills.isEmpty ? "" : "\n" + skills.map { "- " + $0 }.joined(separator: "\n")) + "\n\n"

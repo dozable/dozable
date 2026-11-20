@@ -13,7 +13,7 @@ import { api } from '../core/api.js';
 import { actOrThrow, waitForOp } from '../core/operations.js';
 import { activityHash, agentsHash, foldersHash, networkHash, runsHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
-import { loadBots, loadWorkspace, loadWorkspaces } from '../core/workspaces.js';
+import { loadBots, loadWorkspace, loadWorkspaces, readWorkspaceAfresh } from '../core/workspaces.js';
 import { briefEdits, forRoom, lineAt, mergeLines } from '../core/ws-log.js';
 import { callout } from '../components/callout.js';
 import { cmdLine } from '../components/cmd-line.js';
@@ -27,7 +27,8 @@ import { driverChip, managerChip, workspacePill } from '../components/ws-marks.j
 import { renderNavWorkspaces } from '../components/ws-nav.js';
 import { lifecycleItems, primaryButton, transitional } from '../components/ws-lifecycle.js';
 import { agentMeta, wsPanel } from '../components/ws-panel.js';
-import { chatRefresh, mountChat } from './chat.js';
+import { chatNavCheck, chatRefresh, mountChat } from './chat.js';
+import { chatOnForm } from '../components/chat-on.js';
 import { drawSys } from './chat-messages.js';
 import { openRoom, refreshState } from './chat-rooms.js';
 import { agentsTab } from './ws-agents.js';
@@ -222,6 +223,41 @@ export async function wsRefresh() {
   drawSys();
 }
 
+/// Chat came on from this page: the sidebar's entry, then the workspace read again (its gaps, its room).
+async function chatCameOn() {
+  await chatNavCheck();
+  if (cur) readWorkspaceAfresh(cur.name);
+  await wsRefresh();
+}
+
+/// "No room yet": Make its room — exactly `doz workspace edit W --make-room` (this Mac's own browser; another computer the
+/// command). While chat is off, the chat-on form first and the button off until chat is on.
+function noRoomBody(d) {
+  const command = cmdLine('doz workspace edit ' + d.name + ' --make-room');
+  if (newWorkspaceRefusal()) return command;
+  const on = !!state.chat.on;
+  const err = h('p', { class: 'chat-on-error', role: 'alert', 'data-ws-make-room-error': '', hidden: true });
+  const make = h('button', { type: 'button', class: 'btn sm primary', 'data-ws-make-room': d.name, disabled: on ? null : true,
+    title: on ? 'Make its room in chat now, named after the workspace' : 'Chat is off: turn it on first' }, icon('plus'), 'Make its room');
+  make.addEventListener('click', async () => {
+    make.disabled = true;
+    err.hidden = true;
+    try {
+      const end = await waitForOp(await actOrThrow({ action: 'workspace-make-room', workspace: d.name }), 120);
+      // Made: the page read again as on arriving (its room mounted, the set-up items again).
+      if (end && end.state === 'done') {
+        readWorkspaceAfresh(d.name);
+        if (cur && cur.name === d.name) await wsEnter(cur.name, cur.label, cur.tab);
+        return;
+      }
+      err.textContent = (end && end.text) || 'No answer yet — Operations shows how it ends.';
+    } catch (e) { err.textContent = e.message || String(e); }
+    err.hidden = false;
+    make.disabled = false;
+  });
+  return [on ? null : chatOnForm({ onOn: chatCameOn }), h('div', { class: 'ws-start-row' }, make, command), err].filter(Boolean);
+}
+
 /// Save the brief: one `workspace-brief` (the sha256 read with it — a brief changed since is refused, nothing written).
 async function save(text, sha) {
   try {
@@ -292,11 +328,11 @@ function draw() {
       on: { click: () => startWorkspace(d) } }, icon(starting ? 'hourglass' : 'play'), 'Start');
     notes.push(callout('info', { compact: true, cls: 'ws-setup', title: 'Setting up — the work starts once it is fully set up',
       attrs: { 'data-ws-setup': String(gaps.length) },
-      body: [gaps.length ? gapsList(gaps) : h('p', { class: 'muted' }, 'Nothing is missing: it can start.'),
+      body: [gaps.length ? gapsList(gaps, { onChatOn: chatCameOn }) : h('p', { class: 'muted' }, 'Nothing is missing: it can start.'),
         d.notes.length ? h('ul', { class: 'hm-gaps' }, ...d.notes.map((n) => h('li', null, n))) : null,
         h('div', { class: 'ws-start-row' }, start, cmdLine('doz workspace start ' + d.name))].filter(Boolean) }));
   }
-  if (!d.rooms.length) notes.push(callout('info', { compact: true, title: 'No room yet', body: cmdLine('doz workspace edit ' + d.name + ' --make-room') }));
+  if (!d.rooms.length) notes.push(callout('info', { compact: true, title: 'No room yet', attrs: { 'data-ws-noroom': d.name }, body: noRoomBody(d) }));
   // Made by a space file: which, and up (its run) or down.
   if (d.space) {
     const s = d.space;

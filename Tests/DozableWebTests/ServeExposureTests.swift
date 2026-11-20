@@ -176,6 +176,20 @@ final class ServeExposureTests: XCTestCase {
 
     /// Filing an agent into a workspace or out of one: this Mac's own browser only — no serve setting opens it to another
     /// computer, which gets the `mac-only` code with filing's own words.
+    /// Answering an ask (`chat-decide`) is this Mac's own browser only, whatever `serve.chat` says: a decision is made as you.
+    func testAnsweringAnAskIsThisMacsOnly() throws {
+        XCTAssertNil(WebExposure.decideAskAction(.mac))
+        for p: WebExposure.Principal in [.remote(secure: false), .remote(secure: true)] {
+            XCTAssertEqual(WebExposure.decideAskAction(p), .macOnlyAsks, "\(p)")
+        }
+        XCTAssertEqual(WebRejection.macOnlyAsks.code, "mac-only")
+        XCTAssertEqual(WebRejection.macOnlyAsks.status, 403)
+        XCTAssertTrue(WebRejection.macOnlyAsks.message.contains("doz chat decide"))
+        let a = try WebAction.decode(Data(##"{"action":"chat-decide","room":"r","ask":"#1","reply":"A","actionId":"0b7e2c4a-1111-4222-8333-444455556666"}"##.utf8))
+        XCTAssertTrue(a.isAsk)
+        XCTAssertFalse(a.isWorkspace || a.isFiling || a.isMacSession, "serve.chat never decides it")
+    }
+
     func testFilingIsThisMacsOnly() {
         XCTAssertNil(WebExposure.decideFilingAction(.mac))
         for p: WebExposure.Principal in [.remote(secure: false), .remote(secure: true)] {

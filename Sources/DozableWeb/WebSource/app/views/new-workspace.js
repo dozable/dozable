@@ -33,6 +33,8 @@ import { pageFailure, toast } from '../components/notices.js';
 import { stepperNode } from '../components/stepper.js';
 import { BRIEF_MAX_BYTES } from '../components/ws-brief.js';
 import { gapsPanel, startsOnce } from '../components/ws-gaps.js';
+import { chatOnForm } from '../components/chat-on.js';
+import { chatNavCheck } from './chat.js';
 
 /// Why this browser may not make or start a workspace (null: it may).
 export const WSN_REMOTE = 'A workspace is made only in this Mac’s own browser, or with doz workspace new … in a terminal on the Mac';
@@ -284,7 +286,8 @@ const SLOTS = {
     if (live && state.wsn.step >= 1) out.push(callout('warn', { compact: true, attrs: { 'data-wsn-live': '' }, body: live }));
     return out;
   },
-  gaps: () => gapsPanel(gaps(), { goStep: (i) => go(i), readyText: 'Fully set up — it can start', startWords: 'what the start would refuse now' }),
+  gaps: () => gapsPanel(gaps(), { goStep: (i) => go(i), readyText: 'Fully set up — it can start', startWords: 'what the start would refuse now',
+    onChatOn: chatCameOn }),
   lines: () => {
     const p = state.wsn.plan;
     return p ? h('ul', { class: 'wsn-lines', 'data-wsn-lines': '' }, ...p.lines.map((l) => h('li', { class: /acts as you/.test(l) ? 'is-acts' : null }, tildePath(l),
@@ -303,7 +306,26 @@ const SLOTS = {
 function commandsText() {
   const p = state.wsn.plan;
   if (!p) return '';
-  return p.commands + (state.wsn.when === 'now' ? p.startCommand + '\n' : '');
+  // Chat turned on in the wizard: the copy turns it on too (harmless where it is on already), so it works in a fresh terminal.
+  const on = state.wsn.chatTurnedOn ? 'doz chat on' + (state.wsn.chatOnName ? ' --name ' + state.wsn.chatOnName : '') + '\n' : '';
+  return on + p.commands + (state.wsn.when === 'now' ? p.startCommand + '\n' : '');
+}
+
+/// Chat came on from the wizard: what was typed is kept; the sidebar's entry, the rooms and the plan are read again.
+async function chatCameOn(name) {
+  const w = state.wsn;
+  if (!w) return;
+  w.chatTurnedOn = true;
+  w.chatOnName = name || null;
+  await chatNavCheck();
+  const s = await chatRooms();
+  if (state.wsn !== w) return;
+  if (s) {
+    const owned = new Set(((state.workspaces && state.workspaces.workspaces) || []).map((x) => x.room).filter(Boolean));
+    const archived = new Set(s.archived || []);
+    w.rooms = Object.keys(s.rooms || {}).filter((r) => !owned.has(r) && !archived.has(r)).sort();
+  }
+  changed(true);
 }
 
 function createButtons() {
@@ -605,7 +627,7 @@ function stepWhen() {
   const later = (label) => h('li', { class: 'wsn-later' }, h('span', null, label), h('span', { class: 'ws-coming' }, 'later'));
   let rooms;
   if (!chatOn()) {
-    rooms = [h('p', { class: 'muted', 'data-wsn-room': 'none' }, 'No room: chat is off.' + (b ? ' A manager needs chat — doz chat on.' : ''))];
+    rooms = [h('p', { class: 'muted', 'data-wsn-room': 'none' }, 'No room: chat is off.' + (b ? ' A manager needs chat.' : '')), chatOnForm({ onOn: chatCameOn })];
   } else {
     const opts = [['make', 'Its room #' + mainName() + ' is made; nothing is posted until it starts'], ...((w.rooms || []).map((r) => [r, 'Use #' + r + ' instead (an existing room)'])),
       ['none', 'No room']];

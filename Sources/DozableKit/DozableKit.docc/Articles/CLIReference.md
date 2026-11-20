@@ -863,7 +863,11 @@ doz chat room archive ROOM [--loose] [--dry-run] [--yes]       # its whole histo
 doz chat room rm ROOM [--loose] [--dry-run] [--yes --confirm ROOM]   # removed for good once its archived copy verifies (the name typed); a tombstone stays
 doz chat room close ROOM --loose              # a loose room closed to new messages (still readable) — a workspace's rooms close at its finish
 doz chat room open ROOM --loose               # opened again
-doz chat read ROOM --since T [--until T] [--json]   # every message of a window, no cap, oldest first
+doz chat read ROOM --since T [--until T] [--json]   # every message of a window, no cap, oldest first; an ask shows "ask #N · open" (or how it ended) above its text
+doz chat ask ROOM QUESTION [--option ID=LABEL[::DESC]]… [--multi --min N --max N] [--no-free-text] [--decider NAME]… [--reason T] [--expires 2h|TIME] [--about JSON] [--questions FILE|-] [--wait] [--json]   # ask, as you; --wait: exit 0 decided, 10 declined, 11 expired, 12 withdrawn
+doz chat decide ROOM ASK [ANSWER…] [--text WORDS] [--decline] [--answers JSON|-] [--json]   # ASK: #N, N or the start of its id; the answer an option's id, letter or label, or words
+doz chat withdraw ROOM ASK                      # an ask you asked
+doz chat asks [ROOM] [--json]                   # the open asks of your rooms: #N ROOM FROM AGE TITLE (deciders; expires in …)
 doz chat export ROOM --to DIR [--since T] [--until T] [--json]   # ROOM.jsonl, attachments/, manifest.json — swept for tokens
 ```
 

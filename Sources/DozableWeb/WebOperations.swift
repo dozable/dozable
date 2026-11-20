@@ -340,8 +340,11 @@ final class WebOperations: @unchecked Sendable {
             let outcome: (String, String)
             do {
                 let onEvent: @Sendable (HostEvent) -> Void = { [weak self] e in self?.progress(id, e) }
-                let result = action == .hostRestart ? try await data.restartHost(onEvent: onEvent)
-                                                    : try await data.perform(request, onEvent: onEvent)
+                let result: JSONValue
+                if action == .hostRestart { result = try await data.restartHost(onEvent: onEvent) }
+                // Chat on: the name, the setting, then the server until it is ready — `doz chat on`, in doz ui.
+                else if case .chat(let c) = action, c.kind == .on { result = try await data.chatOn(name: c.name.isEmpty ? nil : c.name) }
+                else { result = try await data.perform(request, onEvent: onEvent) }
                 outcome = ("done", Self.summary(action, result))
             } catch {
                 outcome = ("failed", HostError.from(error).message)
@@ -630,6 +633,20 @@ final class WebOperations: @unchecked Sendable {
             return "saved the space file of \(w)" + (saved.map { " (\($0.shownPath))" } ?? "") + " — not applied: up applies it"
         case .workspaceRunArchive(let w, let run):
             return "run \(run) of \(w): its archive written"
+        case .chat(let c) where c.kind == .on:
+            let st = try? v.decode(ChatServerState.self)
+            return "chat is on" + (st.map { $0.pagePort > 0 ? " — page port \($0.pagePort), line port \($0.linePort)" : "" } ?? "")
+        case .chat(let c) where c.kind == .makeRoom:
+            let w = c.workspace
+            let d = try? v.decode(WorkspaceDetail.self)
+            return "made the room of \(w)" + (d?.rooms.first(where: \.main).map { " — #" + $0.chatRoom } ?? "")
+        case .chat(let c):
+            let room = c.room, ask = c.ask
+            // Who decided and the ask's name — never the answer (it is not kept in the operations' ring or the log).
+            let o = try? v.decode(ChatAskOutcome.self)
+            let name = o?.ask ?? ask
+            if o?.state == "duplicate" { return "\(name) in \(room): answered already by this request" }
+            return "answered \(name) in \(room)"
         case .macNetPolicy(let session, let grant):
             return "allowed \(grant.map { String($0.dropFirst(5)) }.joined(separator: ", ")) for session \(session) on this Mac — from its next connection"
         case .macSessionBridges(let session, _, _, _):

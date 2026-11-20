@@ -86,7 +86,7 @@
 // SHOTS=DIR (optional, under /tmp) keeps pictures of a workspace's page (light, dark, 390 px) for a person to look at.
 // Run from the repository's root (make does).
 import { spawn, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -432,14 +432,77 @@ async function walkMacs() {
 
 // ── a workspace's page, chat on ──────────────────────────────────────────────────────────────────────────────────────
 const BRIEF = 'Walk the workspace page.\n\nKeep the **logo** reveal.\n';
-async function walkWorkspacePage() {
+// ── turning chat on from the page: the Chat page, a workspace's page (and Make its room), the wizard ─────────────────
+const chatState = () => (dozJSON(['chat', 'status']) || {}).state;
+async function walkChatOn() {
+  const errorsBefore = pageErrors.length;
   let p1 = await freePort(), p2 = await freePort();
   for (let i = 0; i < 5 && (LIVE_PORTS.includes(p1) || LIVE_PORTS.includes(p2) || p1 === p2); i++) { p1 = await freePort(); p2 = await freePort(); }
   check(p1 > 1023 && p2 > 1023 && p1 !== p2 && !LIVE_PORTS.includes(p1) && !LIVE_PORTS.includes(p2), 'chat\'s two ports are the OS\'s choice, not live ones');
   chatPagePort = p1;
   doz(['config', 'set', 'chat.page_port', String(p1)]);
   doz(['config', 'set', 'chat.line_port', String(p2)]);
-  check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (scratch store, OS-chosen ports)');
+  // 1. The Chat page: the form (your name, prefilled), Turn chat on, and the chat view with no reload of the page.
+  await goHash('#/chat');
+  check(await waitFor(`!!document.querySelector('#chat-notice [data-chat-on] [data-chat-on-go]')`, 15000)
+    && await evaluate(`(document.querySelector('[data-chat-on-name]')?.value || '').length > 0 && !!document.querySelector('#chat-notice [data-cmd^="doz chat on --name"]')`),
+    'chat on 1 the Chat page while chat is off: the form, your name prefilled, Turn chat on, the terminal line beneath');
+  await setField('[data-chat-on-name]', 'Ada Lovelace');
+  await evaluate(`document.querySelector('[data-chat-on-go]').click()`);
+  check(await waitFor(`!document.querySelector('[data-chat-on-error]')?.hidden && /not a name in chat/.test(document.querySelector('[data-chat-on-error]').textContent)`, 15000)
+    && chatState() === 'off', 'chat on 1 …a name the chat refuses: Dozable\'s words inline, chat still off');
+  await setField('[data-chat-on-name]', 'ada');
+  await evaluate(`window.__walkStay = 1; document.querySelector('[data-chat-on-go]').click()`);
+  check(await waitFor(`state.chat.status?.state === 'running' && !document.getElementById('chat-cols').hidden && !!document.getElementById('chat-text')`, 90000)
+    && await evaluate(`window.__walkStay === 1 && ['live', 'connecting'].includes(state.chat.live)`) && chatState() === 'running'
+    && (dozJSON(['chat', 'status']) || {}).human === 'ada', 'chat on 1 …Turn chat on: the chat view loads with no reload, "live", you are ada');
+  // 2. A workspace's page: setting up with chat off — the set-up item's Turn chat on, then Make its room.
+  doz(['chat', 'off']);
+  doz(['bot', 'new', 'cwbot', '--agent', 'claude-code']);
+  doz(['workspace', 'new', 'cw', '--prompt-file', '-', '--manager', 'cwbot'], 'Turn chat on from the page.\n');
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/w/cw');
+  check(await waitFor(`!!document.querySelector('[data-ws-setup] [data-gap="chat"] [data-chat-on-inline]') && !!document.querySelector('[data-ws-noroom="cw"] [data-chat-on]')
+    && document.querySelector('[data-ws-make-room="cw"]')?.disabled === true`, 15000),
+    'chat on 2 a workspace setting up with chat off: "a manager needs chat" with Turn chat on, No room yet with the form, Make its room off');
+  await evaluate(`document.querySelector('[data-gap="chat"] [data-chat-on-inline]').click()`);
+  check(await waitFor(`!document.querySelector('[data-ws-setup] [data-gap="chat"]') && !!document.querySelector('[data-ws-setup] [data-gap="room"]')
+    && document.querySelector('[data-ws-make-room="cw"]')?.disabled === false`, 90000) && chatState() === 'running',
+    'chat on 2 …on: the set-up item clears, "no main room" instead, Make its room on');
+  await evaluate(`document.querySelector('[data-ws-make-room="cw"]').click()`);
+  check(await waitFor(`!document.querySelector('[data-ws-noroom]') && !document.querySelector('[data-ws-setup] [data-gap="room"]') && state.chat.room === 'cw'`, 30000)
+    && (dozJSON(['workspace', 'show', 'cw']) || {}).rooms?.some((r) => r.chatRoom === 'cw'),
+    'chat on 2 Make its room: the room made (doz workspace show), the room view loads, the set-up items clear — '
+    + JSON.stringify(await evaluate(`({ noroom: !!document.querySelector('[data-ws-noroom]'), gaps: [...document.querySelectorAll('[data-ws-setup] [data-gap]')].map((g) => g.dataset.gap),
+      room: state.chat.room, err: document.querySelector('[data-ws-make-room-error]')?.textContent || '', btn: document.querySelector('[data-ws-make-room]')?.disabled,
+      ops: [...state.ops.values()].filter((o) => o.action === 'workspace-edit' || /room/.test(o.label || '')).map((o) => [o.action, o.label, o.state, o.text]) })`)) + ' ' + JSON.stringify((dozJSON(['workspace', 'show', 'cw']) || {}).rooms));
+  // 3. The wizard: chat off at step 4 — its room's form; on, the plan again with nothing typed lost; Create and start.
+  doz(['chat', 'off']);
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/new-workspace');
+  await waitFor(`state.modal === 'new-workspace' && !!document.querySelector('[data-wsn="work"]')`, 10000);
+  await wizType('[data-wsn-brief]', 'A room once chat is on.');
+  await wizType('[data-wsn-name]', 'cwiz');
+  await wizNext(1); await wizNext(2); await wizNext(3);
+  check(await waitFor(`!!document.querySelector('.wsn-rooms [data-wsn-room="none"]') && !!document.querySelector('.wsn-rooms [data-chat-on-go]')`, 10000),
+    'chat on 3 the wizard\'s step 4 with chat off: "No room: chat is off." and the form');
+  await evaluate(`document.querySelector('.wsn-rooms [data-chat-on-go]').click()`);
+  check(await waitFor(`!!document.querySelector('select[data-wsn-room]') && ${PLANNED} && state.wsn.brief === 'A room once chat is on.' && state.wsn.name === 'cwiz'
+    && !document.querySelector('[data-wsn-create="now"]').disabled`, 90000),
+    'chat on 3 …on: its room can be made, the plan again, nothing typed lost, Create and start on — ' + JSON.stringify(await evaluate(`({ select: !!document.querySelector('select[data-wsn-room]'),
+      none: !!document.querySelector('[data-wsn-room="none"]'), err: document.querySelector('.wsn-rooms [data-chat-on-error]')?.textContent || '', gaps: (state.wsn?.plan?.gaps || []).map((g) => g.item),
+      refusals: state.wsn?.plan?.refusals || [], name: state.wsn?.name, brief: state.wsn?.brief, planned: ${PLANNED}, start: document.querySelector('[data-wsn-create="now"]')?.disabled, on: state.chat.on })`)));
+  check(/^doz chat on\n/.test(await evaluate(`document.querySelector('[data-wsn-commands]')?.textContent || ''`)), 'chat on 3 …the copied commands turn chat on first');
+  await evaluate(`document.querySelector('[data-wsn-create="now"]').click()`);
+  check(await waitFor(`state.view === 'workspace' && state.param === 'cwiz' && !state.modal`, 60000)
+    && !!(dozJSON(['workspace', 'show', 'cwiz']) || {}).flags?.startedAt, 'chat on 3 Create and start: cwiz started, with its room');
+  check(pageErrors.length === errorsBefore, 'chat on: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+}
+
+async function walkWorkspacePage() {
+  check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (scratch store, OS-chosen ports): on already, the page turned it on');
   // From here every permission is never — this Mac's ceiling and an everywhere never for every role. Permissions constrain
   // agents and never the owner: every check below (the workspaces, the wizard, workers, the lifecycle) runs exactly as before.
   const allNever = ['workspace.read', 'agent.start', 'agent.stop', 'worker.start', 'worker.stop', 'isolation.unfenced', 'net.allow', 'secret.use',
@@ -1410,6 +1473,111 @@ async function walkRooms() {
   await leakSweep('the rooms');
 }
 
+// ── asks in chat: the decision card (chat on) ────────────────────────────────────────────────────────────────────────
+/// A bot's ask with dozchat (beside doz) and its own token from its file: the answer's msg_id.
+function botAsk(bot, args) {
+  const r = spawnSync(dirname(DOZ) + '/dozchat-mac', ['ask', 'askw', ...args], { encoding: 'utf8', timeout: 60_000,
+    env: { PATH: '/usr/bin:/bin', HOME: S, CHAT_URL: 'http://127.0.0.1:' + chatPagePort, CHAT_TOKEN_FILE: S + '/' + bot + '.token' } });
+  try { return JSON.parse(r.stdout).msg_id || ''; } catch (_) { return ''; }
+}
+const askNumber = (id) => (((dozJSON(['chat', 'asks', 'askw']) || {}).asks || []).find((a) => a.msgId === id) || {}).number || 0;
+const CARD = (id) => `document.querySelector('[data-ask="${id}"]')`;
+async function walkAsks() {
+  const errorsBefore = pageErrors.length;
+  for (const b of ['askerbot', 'decbot']) {
+    doz(['chat', 'add', b, '--to-file', S + '/' + b + '.token']);
+    knownTokens.push(readFileSync(S + '/' + b + '.token', 'utf8').trim());
+  }
+  doz(['chat', 'set', 'decbot', '--role', 'decider']);
+  doz(['workspace', 'new', 'askw', '--prompt-file', '-'], 'Answer the bots.\n');
+  doz(['workspace', 'start', 'askw']);
+  for (const b of ['askerbot', 'decbot']) doz(['chat', 'send', 'askw', '/invite @' + b]);
+  // The page reads the workspaces again on a reload — the CLI's changes are no event of their own.
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/w/askw');
+  await waitFor(`state.view === 'workspace' && state.chat.room === 'askw' && state.chat.live === 'live'`, 20000);
+  // 1. A bot's ask of two questions is a card.
+  writeFileSync(S + '/ask-qs.json', JSON.stringify([
+    { id: 'build', header: 'Build', question: 'Which build goes out?', options: [{ id: 'web', label: 'Web' }, { id: 'desktop', label: 'Desktop' }] },
+    { id: 'when', question: 'When?', options: [{ id: 'today', label: 'Today' }, { id: 'monday', label: 'Monday' }] }]));
+  const a1 = botAsk('askerbot', ['Release today', '--questions', S + '/ask-qs.json', '--reason', 'the tests pass']);
+  const drawn = await waitFor(`!!${CARD(a1)}`, 15000);
+  const card = await evaluate(`(() => { const c = ${CARD(a1)}; if (!c) return null; return { title: c.querySelector('.chat-ask-title')?.textContent, reason: c.querySelector('.chat-ask-reason')?.textContent,
+    qs: c.querySelectorAll('fieldset.chat-ask-q').length, letters: [...c.querySelectorAll('.chat-ask-letter')].map((e) => e.textContent).join(''),
+    other: /Something else/.test(c.textContent), decline: !!c.querySelector('.chat-ask-decline-btn'), state: c.querySelector('.chat-ask-state')?.textContent }; })()`);
+  check(drawn && card && card.title === 'Release today' && /the tests pass/.test(card.reason) && card.qs === 2 && card.letters.startsWith('AB')
+    && card.other && card.decline && /^open · expires in/.test(card.state), 'ask 1 a bot\'s ask is a card: title, reason, two questions, lettered options, Something else, Decline, open · expires in'
+    + (card ? ` (${JSON.stringify(card)})` : ` — not drawn: ${JSON.stringify(await evaluate(`({ view: state.view, room: state.chat.room, live: state.chat.live,
+      last: [...state.chat.byId.values()].slice(-3).map((m) => [m.kind || '', !!m.ask, String(m.msg_id).slice(0, 8)]), id: ${JSON.stringify(a1)} })`))}; ${pageErrors.slice(-2).join(' | ')}`));
+  if (!drawn) return;
+  // 2. Answered by keyboard only: focus on its first option, B, Tab, A, then ⌘Enter.
+  await evaluate(`${CARD(a1)}.querySelector('input.chat-ask-input').focus()`);
+  await key('b', 'KeyB', 66);
+  await key('Tab', 'Tab', 9);
+  await key('a', 'KeyA', 65);
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 4 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 4 });
+  const decided = await waitFor(`/decided by you/.test(${CARD(a1)}?.querySelector('.chat-ask-state')?.textContent || '')`, 20000);
+  const left = (dozJSON(['chat', 'asks', 'askw']) || { asks: [1] }).asks;
+  check(decided && left.length === 0 && /B\. Desktop/.test(await evaluate(`${CARD(a1)}.textContent`)),
+    'ask 2 answered by keyboard only (B, Tab, A, ⌘Enter): "decided by you", B. Desktop shown, doz chat asks --json empty');
+  // 3. Answered by the CLI meanwhile: a second action from the page is refused in Dozable's words, and the op says so.
+  const a3 = botAsk('askerbot', ['Ship it?', '--option', 'yes=Yes', '--option', 'no=No']);
+  await waitFor(`!!${CARD(a3)}`, 15000);
+  const n3 = askNumber(a3);
+  doz(['chat', 'decide', 'askw', '#' + n3, 'A']);
+  const crafted = await craft({ action: 'chat-decide', room: 'askw', ask: '#' + n3, reply: 'B', actionId: randomUUID() });
+  let opId = '';
+  try { opId = JSON.parse(crafted.body).id; } catch (_) { /* no op */ }
+  const ended = await waitFor(`(state.ops.get(${JSON.stringify(opId)}) || {}).state === 'failed'`, 20000);
+  const opText = await evaluate(`(state.ops.get(${JSON.stringify(opId)}) || {}).text || ''`);
+  check(crafted.status === 202 && ended && opText === 'It was already answered: decided by Ada.' && await waitFor(`/decided by you/.test(${CARD(a3)}?.textContent || '')`, 10000),
+    `ask 3 a card the CLI answered: the crafted second action ends "${opText}", the card reads decided`);
+  // 5. Read-only: an ask only decbot decides shows no control and its line. 4. Live: it came without a reload; a withdraw
+  // turns it withdrawn.
+  const r4 = doz(['chat', 'ask', 'askw', 'Lunch at noon?', '--option', 'yes=Yes', '--decider', 'decbot', '--json']);
+  let a4 = '';
+  try { a4 = JSON.parse(r4.stdout).msgId; } catch (_) { /* refused */ }
+  check(await waitFor(`!!${CARD(a4)}`, 15000), 'ask 4 a CLI-posted ask appears live, with no reload');
+  check(await evaluate(`${CARD(a4)}.querySelectorAll('input, textarea, button').length === 0 && /You asked this/.test(${CARD(a4)}.querySelector('.chat-ask-state').textContent)`),
+    'ask 5 read-only: your own ask shows no control and "You asked this"');
+  const a5 = botAsk('askerbot', ['Read the shared folder?', '--option', 'yes=Allow', '--decider', 'decbot']);
+  check(await waitFor(`!!${CARD(a5)}`, 15000) && await evaluate(`${CARD(a5)}.querySelectorAll('input, textarea, button').length === 0
+    && /Only Decbot can answer/.test(${CARD(a5)}.querySelector('.chat-ask-state').textContent)`), 'ask 5 read-only: an ask only decbot decides shows no control and "Only Decbot can answer"');
+  spawnSync(dirname(DOZ) + '/dozchat-mac', ['withdraw', 'askw', a5], { encoding: 'utf8', timeout: 60_000,
+    env: { PATH: '/usr/bin:/bin', HOME: S, CHAT_URL: 'http://127.0.0.1:' + chatPagePort, CHAT_TOKEN_FILE: S + '/askerbot.token' } });
+  doz(['chat', 'withdraw', 'askw', '#' + askNumber(a4)]);
+  check(await waitFor(`/withdrawn/.test(${CARD(a4)}?.querySelector('.chat-ask-state')?.textContent || '')`, 15000), 'ask 4 …withdrawn from the CLI, the card turns "withdrawn" live');
+  // 6. The diagram's path: the hashed core/asks module, answerFromDiagram(id, 'Yes') → ok; again → refused.
+  const a6 = botAsk('askerbot', ['Deploy now?', '--option', 'yes=Yes', '--option', 'no=No']);
+  await waitFor(`!!${CARD(a6)}`, 15000);
+  const diag = await evaluate(`(async () => { const u = performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\\/assets\\/app\\/core\\/asks-[0-9a-f]+\\.js$/.test(n));
+    if (!u) return { none: true }; const m = await import(u); m.rememberAttention([{ kind: 'ask', askId: ${JSON.stringify(a6)}, room: 'askw' }]);
+    const one = await m.answerFromDiagram(${JSON.stringify(a6)}, 'Yes'); const two = await m.answerFromDiagram(${JSON.stringify(a6)}, 'Yes');
+    const gone = await m.answerFromDiagram('0b7e2c4a-1111-4222-8333-444455556666', 'Yes'); return { one, two, gone }; })()`);
+  check(diag && diag.one && diag.one.ok === true && diag.two && /^It was already answered/.test(diag.two.refused || '') && /not shown here any more/.test(diag.gone?.refused || ''),
+    'ask 6 the diagram\'s path: answerFromDiagram(id, "Yes") → {ok: true}; again → refused "It was already answered…"' + ` (${JSON.stringify(diag)})`);
+  // 7. At 390 px: no sideways scroll, rows of at least 44 px; an answer in words, then the leak sweep for it.
+  const a7 = botAsk('askerbot', ['Anything else?', '--option', 'no=No']);
+  await waitFor(`!!${CARD(a7)}`, 15000);
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(400);
+  const phone = await evaluate(`(() => { const c = ${CARD(a7)}; c.scrollIntoView(); const rows = [...c.querySelectorAll('.chat-ask-opt')].map((e) => e.getBoundingClientRect().height);
+    return { scroll: document.scrollingElement.scrollWidth, log: document.querySelector('#chat-log').scrollWidth - document.querySelector('#chat-log').clientWidth, rows }; })()`);
+  check(phone.scroll <= 390 && phone.log <= 0 && phone.rows.length > 0 && phone.rows.every((h) => h >= 44), `ask 7 at 390 px: no sideways scroll, option rows ≥ 44 px (${JSON.stringify(phone)})`);
+  const words = 'FAKE-ASK-ANSWER-' + process.pid + '-7d1e';
+  await evaluate(`(() => { const c = ${CARD(a7)}; const o = [...c.querySelectorAll('.chat-ask-opt')].find((l) => /Something else/.test(l.textContent)).querySelector('input'); o.click(); })()`);
+  await setField(`[data-ask="${a7}"] textarea.chat-ask-text`, words);
+  await evaluate(`${CARD(a7)}.querySelector('.chat-ask-answer').click()`);
+  await waitFor(`/decided by you/.test(${CARD(a7)}?.textContent || '')`, 20000);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  const said = ['ui.operations.json', 'ui.log'].map((f) => (existsSync(STORE + '/' + f) ? readFileSync(STORE + '/' + f, 'utf8') : '')).join('\n') + uiOut + consoleLines.join('\n');
+  check(await waitFor(`(${CARD(a7)}?.textContent || '').includes(${JSON.stringify(words)})`, 15000) && !said.includes(words), 'ask 7 the answer in words is shown in the card, and in no operation, ui.log or console line');
+  check(pageErrors.length === errorsBefore, 'asks: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  await leakSweep('the asks');
+}
+
 // ── a workspace's wide views: Network & secrets, Folders & points, Activity and an agent's Can do ────────────────────
 /// `wide`: a fenced session (widef) with a launch secret whose value is a SENTINEL and two more (widef2, widef3), each having been
 /// refused one site; an unfenced session (wideu); the never-booted sandbox gamma. All harmless programs, no VM.
@@ -1613,6 +1781,7 @@ try {
   await walkRemoveEnded();
   await walkLists();
   await walkMacs();
+  await walkChatOn();
   await walkWorkspacePage();
   await walkAgents();
   await walkBots();
@@ -1620,6 +1789,7 @@ try {
   await walkAddWorker();
   await walkLifecycle();
   await walkRooms();
+  await walkAsks();
   await walkWideViews();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.

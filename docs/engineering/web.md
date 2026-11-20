@@ -436,6 +436,45 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   agents act on — which is why the default is off: a device's cookie lasts long, and a lost phone could instruct every
   agent. Every remote write is ONE line in the serve audit log (`auditChange`, kind `change`, route `chat-<call>` from
   `WebChatRoute.label` — never a body or a value); a refusal is a `refused` line.
+- **An ask is its decision card** (`components/chat-ask.js`, drawn by `chat-messages.js` `add()` for `kind: "ask"` with a
+  readable `ask` — one without is its plain text, never Markdown): its title and reason; each question (at most 5, stacked) a
+  `fieldset` + `legend`, options lettered A–J (radios for one, checkboxes for several with the min/max hint), "Something
+  else" opening a field when the question takes words, Skip for an optional one; Answer (primary), Decline (quiet, its
+  reason inline, never a modal); a state line (`role="status"`, polite). The draft is kept per msg_id across redraws;
+  closed, only what was chosen and how it ended ("decided by Worker (decider role)", "declined by you", "expired · answer:
+  decline", "withdrawn"); read-only, no control and one line why ("Only Decbot can answer", "You asked this", "Answered in
+  this Mac's own browser"). Keyboard: Tab, the arrows in a radio group, Space, a letter key on that question's control
+  (never in a text field), Enter on Answer or ⌘/Ctrl+Enter in the card, Escape in a text field back to its option; focus on
+  the state line after sending. At 390 px the rows are 44 px. `chat-live.js` draws it again on the stream's `ask` event (the
+  draft kept; another room's: the counts read again) and previews an ask as "asks: TITLE". **The one answer path is
+  `core/asks.js`** (`answerAsk`, and `answerFromDiagram(askId, reply)` for the space diagram, which finds the room from
+  `rememberAttention(items)`; `canAnswer(m)` mirrors `ChatAskViewer.canAnswer`; `onAskChange(fn)`): the typed action
+  **`chat-decide`** (`WebAction.chatDecide`, strictly decoded by `WebChatDecide`: `room`, `ask` (`#N` or hex ≤ 36), exactly
+  one of `answers` (≤ 5 × `{questionId, options ≤ 10 ids, text ≤ 4 KiB, skipped}`), `decline` (+ `text`) or `reply` (≤ 4 KiB),
+  `actionId` (a lower-case v4 UUID — the decision's `X-Chat-Id`, so a retry is a duplicate)) — exactly the HostOp
+  `chat-decide` that `doz chat decide` sends, followed to its end (`{ok: true}` or `{refused: the end's text}`, Dozable's
+  words). **This Mac's own browser only** (`WebAction.isAsk`, `WebExposure.decideAskAction` → 403 `mac-only` whatever
+  `serve.chat` says; another computer gets the words at once, with no request). Its label is "answer ask #N in ROOM" and its
+  line "answered #N in ROOM" — the answer's text never in a label, `ui.operations.json` or `ui.log`. No route of its own.
+  `WebActionTests.testTheAskDecision`, `ServeExposureTests.testAnsweringAnAskIsThisMacsOnly`,
+  `ServeHTTPTests.testAnAskIsAnsweredOnlyInThisMacsBrowserWhateverTheServeSettings`,
+  `WebModulesTests.testTheAskCardAndItsOneAnswerPath`, `make dashboard-walk` ask 1–7.
+- **Turning chat on from the page** is ONE component, `components/chat-on.js` (`chatOnForm`: your name in chat — shown only
+  while you have none, filled with what `doz chat on` would use: chat/status's `named` or `suggestedName`, this Mac's
+  browser only —, "Turn chat on", its error inline in Dozable's words, the terminal's command beneath; `chatOnInline`: the
+  button alone), used wherever the page says chat is off: the Chat page's notice (and so a workspace's Room tab), a
+  workspace's set-up item "a manager needs chat" (`gapsList`'s `onChatOn`), the wizard's "Its room" and its gap. It sends
+  the action **`chat-on`** `{name?}` (the name by the chat's rule, never repeated in a refusal) — exactly what `doz chat on`
+  does, in doz ui (`DozableWebData.chatOn`: named first while you have none, `chat.enabled` set, then `chat-sync` until the
+  server is ready; its HostOp `chat-sync`; "chat is on, but the chat server is not ready: …" when it is not). Then the view
+  reads again: the Chat page's room view loads with no reload of the page, a workspace's page its gaps and room, the wizard
+  its plan with nothing typed lost (its copied commands then start with `doz chat on`). A workspace's "No room yet" has
+  **Make its room**, the action **`workspace-make-room`** `{workspace}` — exactly `doz workspace edit W --make-room` (the
+  HostOp `workspace-edit` with only the name and `makeRoom`) — off until chat is on (the chat-on form first). Both are this
+  Mac's own browser only (`WebAction.isChatOn`/`isMakeRoom`, `WebExposure.decideChatOnAction`/`decideMakeRoomAction` → 403
+  `mac-only`); another computer sees only the commands. Turning chat off stays a terminal's.
+  `WebActionTests.testChatOnAndMakeRoom`, `ServeHTTPTests.testChatOnAndMakeRoomAreThisMacsBrowserOnly`,
+  `WebModulesTests.testChatOnIsOneComponent`, `make dashboard-walk` chat on 1–3.
 - **The page** (`views/chat.js`, the section `#chat`, built once): rooms (`chat-rooms.js`), the log (`chat-messages.js`:
   bubbles, tombstones, direct-message stubs with **Reveal**, change lines, older pages on scrolling up; a message's tools:
   the detail, the reactions picker on someone else's, the pencil on your own, ⋮ › Delete… on any — `confirmCheck`), the

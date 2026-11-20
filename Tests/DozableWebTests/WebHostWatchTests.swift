@@ -22,7 +22,7 @@ final class WebHostWatchTests: XCTestCase {
         return WebOverview(host: h, sandboxes: rows, source: h.running ? "host" : "store")
     }
 
-    /// 625 (the m4air15 console): a running guest's disk grows by a few KiB every few seconds; each `changed` made an open
+    /// 625 (the john-macbook-air console): a running guest's disk grows by a few KiB every few seconds; each `changed` made an open
     /// sandbox page list its sessions in the guest — the monitor compares disks in 16 MiB steps, and never the idle clock.
     func testAGrowingDiskIsNotAChangeUntilItMovesAStep() throws {
         func key(_ disk: Int64, idle: Double? = nil, phase: String = "running") throws -> Data {
@@ -34,7 +34,7 @@ final class WebHostWatchTests: XCTestCase {
             return try WebJSON.encoder.encode(WebMonitor.changeKey(WebOverview(host: h, sandboxes: [row], source: "host")))
         }
         let base: Int64 = 1_625_587_712
-        XCTAssertEqual(try key(base), try key(base + 12_288), "the m4air15 diff: 12 KiB more is not a change")
+        XCTAssertEqual(try key(base), try key(base + 12_288), "the john-macbook-air diff: 12 KiB more is not a change")
         XCTAssertEqual(try key(base, idle: 3), try key(base, idle: 40), "the daemon's idle clock is not a change")
         XCTAssertNotEqual(try key(base), try key(base + WebMonitor.diskStep), "a step of disk is")
         XCTAssertNotEqual(try key(base), try key(base, phase: "paused"), "a phase is")
