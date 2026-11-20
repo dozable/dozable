@@ -269,6 +269,8 @@ public enum WebAction: Equatable, Sendable {
         case .workerAdd(let q) where q.isolation == "unfenced": WebWorkerAdd.unfencedConfirmation
         // An archive or a delete: the workspace's name as the person typed it (the daemon checks it too).
         case .workspaceLifecycle(let v, let w) where v.confirm == .typed: w.name
+        // A room removed for good: the name typed (checked here, and again by the daemon).
+        case .chatRoomRm(let room, _, _): room
         default: nil
         }
     }
