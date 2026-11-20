@@ -198,6 +198,23 @@ final class ServeExposureTests: XCTestCase {
     /// The wide views are reads (`read`, for every browser that may read): projections decide what another computer sees. A
     /// fenced session's site allowed (`mac-net-policy`) is this Mac's own browser only, whatever serve.mac_sessions or serve.chat
     /// say — the `mac-only` code, its own words.
+    /// Removing an ended session on this Mac (`mac-session-forget`, `mac-sessions-forget-ended`) is this Mac's own browser
+    /// only, whatever serve.mac_sessions says — the `mac-only` code, its own words.
+    func testForgettingIsThisMacsOnly() throws {
+        XCTAssertNil(WebExposure.decideMacForgetAction(.mac))
+        for p: WebExposure.Principal in [.remote(secure: false), .remote(secure: true)] {
+            XCTAssertEqual(WebExposure.decideMacForgetAction(p), .macOnlySessions, "\(p)")
+        }
+        XCTAssertEqual(WebRejection.macOnlySessions.code, WebRejection.macOnly.code)
+        XCTAssertEqual(WebRejection.macOnlySessions.status, 403)
+        XCTAssertTrue(WebRejection.macOnlySessions.message.contains("doz sessions @mac --forget-ended"))
+        for body in [#"{"action":"mac-session-forget","session":"old"}"#, #"{"action":"mac-sessions-forget-ended","sessions":["old"]}"#] {
+            let a = try WebAction.decode(Data(body.utf8))
+            XCTAssertTrue(a.isMacForget)
+            XCTAssertFalse(a.isMacSession || a.isMacNet || a.isWorkspace || a.isFiling || a.isLifecycle, "decided by its own rule, never a serve setting")
+        }
+    }
+
     func testMacNetIsThisMacsOnly() throws {
         for r: WebRoute in [.workspaceReach, .workspaceFolders, .workspaceActivity] {
             XCTAssertEqual(WebExposure.kind(r), .read, "\(r)")

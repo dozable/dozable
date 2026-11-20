@@ -36,7 +36,7 @@ struct ChatCommand: AsyncParsableCommand {
             Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already exists · 6 chat is off or not ready · 64 usage.
             """,
         subcommands: [ChatOn.self, ChatOff.self, ChatStatusCommand.self, ChatAdd.self, ChatSet.self, ChatRemove.self, ChatWho.self, ChatTokenCommand.self,
-                      ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self])
+                      ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self, ChatExportCommand.self])
 }
 
 // MARK: - status
@@ -61,6 +61,8 @@ struct ChatStatusReport: Encodable {
     var dataFolder: String
     var daemonRunning: Bool
     var restarts: Int
+    /// Participant changes the running server took without a restart (nil: none since the daemon started).
+    var reloads: Int?
     var lastExit: String?
     var problem: String?
     /// Standing problems that do not stop the server (a webhook entry not set or unreadable, …).
@@ -93,6 +95,7 @@ struct ChatStatusReport: Encodable {
                                  ownerSocket: FileManager.default.fileExists(atPath: paths.directory) ? paths.socket : nil,
                                  dataFolder: paths.data, daemonRunning: daemon, restarts: sup?.restarts ?? 0, lastExit: sup?.lastExit, problem: nil)
         if server.running { r.pid = Int32(server.pid) }
+        r.reloads = sup?.reloads
         if !view.enabled {
             r.state = server.running ? "stopping" : "off"
             return r
@@ -163,6 +166,7 @@ struct ChatStatusReport: Encodable {
             s += "  you are \(h); \(n) participant\(n == 1 ? "" : "s")" + (rooms.map { ", \($0) room\($0 == 1 ? "" : "s")" } ?? "") + "\n"
             s += "  data folder: \(DisplayPath.tilde(dataFolder))\n"
         }
+        if let n = reloads, n > 0 { s += "  took \(n) participant change\(n == 1 ? "" : "s") without a restart\n" }
         if restarts > 0 { s += "  restarted \(restarts) time\(restarts == 1 ? "" : "s")" + (lastExit.map { " (last: \($0))" } ?? "") + "\n" }
         if let p = problem { s += "  problem: \(p)\n" }
         for w in otherWarnings { s += "  warning: \(w)\n" }
@@ -358,6 +362,14 @@ struct TokenDestination {
 
     /// Nothing was made: the empty file goes.
     func abandon() { if let file { close(fd); unlink(file) } }
+
+    /// Writes the token to the file, saying nothing (a batch says it once).
+    func keep(_ token: String) {
+        guard file != nil else { return }
+        _ = token.withCString { Darwin.write(fd, $0, strlen($0)) }
+        _ = Darwin.write(fd, "\n", 1)
+        close(fd)
+    }
 }
 
 /// What `add` / `token --json` print — never the token.
@@ -424,8 +436,12 @@ struct ChatAdd: AsyncParsableCommand {
         abstract: "Add a participant: an agent with its own token (shown once) that polls, a bot the server calls at its webhook, or a Claude Code session the server writes into.",
         discussion: """
             The token is printed once on a terminal, or written to a new file with --to-file (only you can read it); doz keeps \
-            only its hash. The agent sends it as Authorization: Bearer TOKEN on the page port's /agent/ calls. The chat \
-            server restarts to take it (under a second).
+            only its hash. The agent sends it as Authorization: Bearer TOKEN on the page port's /agent/ calls. The running \
+            chat server takes it without a restart.
+
+            Several names at once (doz chat add A B C --to-dir DIR) are added together or not at all; each token is written \
+            to its own new file DIR/NAME.token (only you can read it), never printed. A new participant is in no room until \
+            it is invited (/invite @NAME); a name that was removed and is added again is back in the rooms it was in.
 
             With --webhook the server calls the bot with each message for it, at its webhook entry: set it next with \
             doz chat webhook set NAME (the bot still sends with its own token).
@@ -436,7 +452,7 @@ struct ChatAdd: AsyncParsableCommand {
             a fence keep their record there: a fenced session polls with dozchat instead. The session answers with \
             dozchat send ROOM --re MSG_ID "…" and its own token, from CHAT_TOKEN_FILE.
             """)
-    @Argument(help: "Its name: a lower-case letter, then lower-case letters, digits and -.") var name: String
+    @Argument(help: "Its name: a lower-case letter, then lower-case letters, digits and -. Several names need --to-dir.") var names: [String]
     @Option(name: .long, help: "Its kind: agent (the default; claude-session with --inbox), claude-session or grok-bot — how its messages are labelled.") var kind: String?
     @Flag(name: .long, help: "The server calls it at its webhook entry with each message for it (instead of it polling).") var webhook = false
     @Option(name: .customLong("webhook-entry"), help: "The webhook entry it uses (with --webhook; default: its own name). One entry may serve several bots.") var webhookEntry: String?
@@ -444,11 +460,17 @@ struct ChatAdd: AsyncParsableCommand {
     @Option(name: .long, help: "With --inbox: the Claude Code session's name, as its record says it (default: NAME).") var session: String?
     @Option(name: .customLong("to-file"), help: "Write its token to this new file instead of the terminal.") var toFile: String?
     @Flag(name: .customLong("from-stdin"), help: "Use a token it already has, read from standard input (16 to 256 characters).") var fromStdin = false
+    @Option(name: .customLong("to-dir"), help: "Write each new token to its own new file in this folder, NAME.token (made 0700 when missing).") var toDir: String?
     @OptionGroup var g: GlobalOptions
 
     var theKind: String { kind ?? (inbox ? "claude-session" : "agent") }
+    var name: String { names.first ?? "" }
 
     func validate() throws {
+        guard !names.isEmpty else { throw ValidationError("which participant?") }
+        if names.count > 1 && toDir == nil { throw ValidationError("several names need --to-dir DIR (each token goes to its own file there, never to the terminal)") }
+        if toDir != nil && (toFile != nil || fromStdin) { throw ValidationError("--to-dir makes each token: not with --to-file or --from-stdin") }
+        if names.count > 1 && session != nil { throw ValidationError("--session names one session: add one participant at a time with it") }
         guard ChatDirectory.kinds.contains(theKind) else { throw ValidationError("--kind is one of \(ChatDirectory.kinds.joined(separator: ", "))") }
         if webhookEntry != nil && !webhook { throw ValidationError("--webhook-entry goes with --webhook") }
         if webhook && inbox { throw ValidationError("one of --webhook or --inbox") }
@@ -456,6 +478,7 @@ struct ChatAdd: AsyncParsableCommand {
         if inbox || session != nil, let why = ChatDirectory.deliveryRefusal(inbox ? "inbox" : "poll", kind: theKind, session: session) { throw ValidationError(why) }
     }
     func run() async throws {
+        if let dir = toDir { return try addSeveral(dir) }
         let (a, dest) = try chatTokenCall(.chatAdd, name: name, toFile: toFile, fromStdin: fromStdin, g,
                                           kind: theKind, webhook: webhook ? true : nil, entry: webhookEntry, inbox: inbox ? true : nil, session: session)
         let delivery = inbox ? "inbox" : webhook ? "webhook" : "poll"
@@ -477,6 +500,77 @@ struct ChatAdd: AsyncParsableCommand {
         if let t = a.token { dest?.deliver(t, name: name) } else { Out.stdout("It uses the token you gave.\n") }
         if inbox { Out.stdout(chatInboxEnvironment(tokenFile: dest?.file, pagePort: a.chat.pagePort)) }
     }
+}
+
+extension ChatAdd {
+    /// `--to-dir`: every name judged, every file made (none existing) before the daemon is asked; one `chat-members`; each
+    /// token written to its file. Nothing is printed of a token, ever.
+    func addSeveral(_ dir: String) throws {
+        for n in names { if let why = ChatNames.refusal(n) { throw fail(HostError(.invalid, why), g) } }
+        if Set(names).count != names.count { throw fail(HostError(.invalid, "a name is given twice"), g) }
+        let folder = try TokenFolder.open(dir, g)
+        var files: [String: TokenDestination] = [:]
+        do {
+            for n in names { files[n] = try folder.create(n + ".token", g) }
+        } catch {
+            for f in files.values { f.abandon() }
+            folder.close()
+            throw error
+        }
+        var r = HostRequest(.chatMembers)
+        var c = ChatRequest()
+        c.add = names.map { ChatMemberAdd(name: $0, kind: theKind, webhook: webhook ? true : nil, entry: webhookEntry, inbox: inbox ? true : nil) }
+        r.chat = c
+        let a: ChatMembersAnswer
+        do { a = try decode(try call(r, g), ChatMembersAnswer.self, g) } catch {
+            for f in files.values { f.abandon() }
+            folder.close()
+            throw error
+        }
+        for m in a.added { files[m.name]?.keep(m.token) }
+        folder.close()
+        let delivery = inbox ? "inbox" : webhook ? "webhook" : "poll"
+        if g.json {
+            Out.json(a.added.map { ChatParticipantChange(name: $0.name, kind: theKind, tokenFile: files[$0.name]?.file,
+                                                          webhookEntry: webhook ? (webhookEntry ?? $0.name) : nil, delivery: delivery, chat: a.chat) })
+            return
+        }
+        Out.stdout("Added \(a.added.map(\.name).joined(separator: ", ")) (\(theKind)). Each token is in its own file in \(DisplayPath.tilde(folder.path)) (only you can read them).\n")
+        if webhook { Out.stdout("Set each one's webhook entry with doz chat webhook set ENTRY.\n") }
+    }
+}
+
+/// A folder of new token files (`--to-dir`): made 0700 when missing, never a link; each file made in it with
+/// `O_CREAT|O_EXCL|O_NOFOLLOW`, 0600 — never written over.
+struct TokenFolder {
+    var path: String
+    var fd: Int32
+
+    static func open(_ dir: String, _ g: GlobalOptions) throws -> TokenFolder {
+        let path = URL(fileURLWithPath: (dir as NSString).expandingTildeInPath).standardizedFileURL.path
+        if mkdir(path, 0o700) != 0 && errno != EEXIST {
+            throw fail(HostError(.failed, "\(DisplayPath.tilde(path)): \(String(cString: strerror(errno)))"), g)
+        }
+        let fd = Darwin.open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { throw fail(HostError(.failed, "\(DisplayPath.tilde(path)): not a folder (a link is never followed)"), g) }
+        var st = stat()
+        guard fstat(fd, &st) == 0, st.st_uid == getuid(), st.st_mode & 0o077 == 0 else {
+            Darwin.close(fd)
+            throw fail(HostError(.invalid, "\(DisplayPath.tilde(path)): a folder for tokens must be yours alone (chmod 700)"), g)
+        }
+        return TokenFolder(path: path, fd: fd)
+    }
+
+    func create(_ name: String, _ g: GlobalOptions) throws -> TokenDestination {
+        let f = openat(fd, name, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
+        let full = (path as NSString).appendingPathComponent(name)
+        guard f >= 0 else {
+            throw fail(HostError(errno == EEXIST ? .exists : .failed, "\(DisplayPath.tilde(full)): " + (errno == EEXIST ? "it exists already (a token file is never written over)" : String(cString: strerror(errno)))), g)
+        }
+        return TokenDestination(file: full, fd: f)
+    }
+
+    func close() { Darwin.close(fd) }
 }
 
 struct ChatSet: AsyncParsableCommand {
@@ -550,10 +644,29 @@ struct ChatTokenCommand: AsyncParsableCommand {
 }
 
 struct ChatRemove: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "remove", abstract: "Remove a participant and its token; it leaves every room.")
-    @Argument(help: "The participant.") var name: String
+    static let configuration = CommandConfiguration(commandName: "remove", abstract: "Remove a participant and its token; it leaves every room.",
+        discussion: """
+            Its token is refused at once, and a receive it has waiting ends. Several names are removed together or not at \
+            all, after one question (--yes answers it).
+            """)
+    @Argument(help: "The participant (several: all of them).") var names: [String]
+    @Flag(name: .long, help: "With several names: do not ask.") var yes = false
     @OptionGroup var g: GlobalOptions
+    func validate() throws { guard !names.isEmpty else { throw ValidationError("which participant?") } }
     func run() async throws {
+        if names.count > 1 {
+            for n in names { if let why = ChatNames.refusal(n) { throw fail(HostError(.invalid, why), g) } }
+            try confirm("Remove \(names.joined(separator: ", ")) from chat? Their tokens are refused at once", yes: yes, g)
+            var r = HostRequest(.chatMembers)
+            var c = ChatRequest()
+            c.remove = names
+            r.chat = c
+            let a = try decode(try call(r, g), ChatMembersAnswer.self, g)
+            if g.json { Out.json(a.removed.map { ChatParticipantChange(name: $0, kind: "agent", chat: a.chat) }); return }
+            Out.stdout("Removed \(a.removed.joined(separator: ", ")).\n")
+            return
+        }
+        let name = names[0]
         var r = HostRequest(.chatRemove)
         r.chat = ChatRequest(name: name)
         let a = try decode(try call(r, g), ChatAnswer.self, g)
@@ -665,24 +778,55 @@ struct ChatSend: AsyncParsableCommand {
 }
 
 struct ChatRead: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "read", abstract: "Read a room as you see it; --follow keeps showing what comes.")
+    static let configuration = CommandConfiguration(commandName: "read", abstract: "Read a room as you see it; --follow keeps showing what comes.",
+        discussion: """
+            --last shows the latest messages (at most 500). --since (and --until) show every message of a time window, \
+            however many, oldest first; --json then gives them as one array. The chat server runs while the daemon does: \
+            with no daemon this is refused, and nothing starts one (doz chat status).
+            """)
     @Argument(help: "The room.") var room: String
-    @Option(name: .long, help: "How many of the latest messages (1 to 500).") var last = 20
+    @Option(name: .long, help: "How many of the latest messages (1 to 500; 20 when not given).") var last: Int?
+    @Option(name: .long, help: "Every message from this time on: \(ChatTime.help).") var since: String?
+    @Option(name: .long, help: "With --since (or alone): every message up to this time.") var until: String?
     @Flag(name: .long, help: "Keep showing new messages until interrupted (Ctrl-C).") var follow = false
     @Flag(name: .customLong("with-log"), help: "Show the log of the workspace this room belongs to among the messages, by time (what was done — the work started, its brief edited, workers added — never posted in the room). With --follow only the first page has them.")
     var withLog = false
     @OptionGroup var g: GlobalOptions
 
+    var lastCount: Int { last ?? 20 }
+    var windowed: Bool { since != nil || until != nil }
+
     func validate() throws {
-        guard (1...500).contains(last) else { throw ValidationError("--last is 1 to 500") }
+        guard (1...500).contains(lastCount) else { throw ValidationError("--last is 1 to 500") }
+        if windowed && last != nil { throw ValidationError("--last is the latest messages; --since/--until a time window: one or the other") }
+        if windowed && follow { throw ValidationError("--follow shows what comes; --since/--until a time window: one or the other") }
+        if let s = since, ChatTime.parse(s) == nil { throw ValidationError("--since \(s): not a time — \(ChatTime.help)") }
+        if let u = until, ChatTime.parse(u) == nil { throw ValidationError("--until \(u): not a time — \(ChatTime.help)") }
         if withLog && g.json { throw ValidationError("--with-log is for reading; --json gives the messages only (doz workspace log W --json gives the log)") }
     }
 
     func run() async throws {
         try requireRoomName(room, g)
+        if windowed { try chatNeedsDaemon(g) }
         let c = try chatOwner(g)
         let s = try chatState(c, g)
         guard s.rooms[room] != nil else { throw fail(HostError(.notFound, "no room \(room) (doz chat rooms)"), g) }
+        if windowed {
+            let ms: [JValue]
+            do {
+                ms = try ChatExport.messages(room: room, since: since.flatMap { ChatTime.parse($0) }, until: until.flatMap { ChatTime.parse($0) },
+                                             fetch: chatFetch(c))
+            } catch { throw fail(HostError.from(error), g) }
+            if g.json { Out.stdout(String(decoding: ChatJSON.encodeIndented(.array(ms), indent: "  "), as: UTF8.self) + "\n"); return }
+            let log = withLog ? try await workspaceLog() : []
+            var lines = log.filter { e in ms.first.map { e.at.timeIntervalSince1970 >= ($0.field("at")?.doubleValue ?? 0) } ?? true }[...]
+            for m in ms {
+                let at = m.field("at")?.doubleValue ?? 0
+                while let e = lines.first, e.at.timeIntervalSince1970 <= at { showLog(e); lines = lines.dropFirst() }
+                show(m)
+            }
+            return
+        }
         let log = withLog ? try await workspaceLog() : []
         var seen = try page(c, after: 0, log: log)
         guard follow else { return }
@@ -728,14 +872,14 @@ struct ChatRead: AsyncParsableCommand {
     /// Prints a page (the latest `last`, or everything after `after`) — with `log`, its lines from the first message shown
     /// on (all of them when the room holds no more), a line before a message of the same time; answers the last seq shown.
     func page(_ c: ChatOwnerClient, after: Int64, log: [WorkspaceLogEntry] = []) throws -> Int64 {
-        let target = after > 0 ? "/api/rooms/\(room)/messages?after=\(after)&limit=500" : "/api/rooms/\(room)/messages?limit=\(last)"
+        let target = after > 0 ? "/api/rooms/\(room)/messages?after=\(after)&limit=500" : "/api/rooms/\(room)/messages?limit=\(lastCount)"
         let (status, v) = try chatAsk(c, "GET", target, g)
         guard status == 200, case .array(let ms) = v else {
             throw fail(HostError(status == 403 ? .notFound : .failed, v.field("error")?.stringValue ?? "the chat server answered \(status)"), g)
         }
         var top = after
         if g.json && !follow { Out.stdout(String(decoding: ChatJSON.encodeIndented(v, indent: "  "), as: UTF8.self) + "\n") }
-        let from = ms.count < last ? -Double.infinity : (ms.first?.field("at")?.doubleValue ?? 0)
+        let from = ms.count < lastCount ? -Double.infinity : (ms.first?.field("at")?.doubleValue ?? 0)
         var lines = log.filter { $0.at.timeIntervalSince1970 >= from }[...]
         for m in ms {
             let at = m.field("at")?.doubleValue ?? 0
@@ -776,6 +920,81 @@ struct ChatRead: AsyncParsableCommand {
         for l in lines.dropFirst() { Out.stdout(String(repeating: " ", count: lead.count) + l + "\n") }
     }
 }
+
+/// A read of a whole room or a window needs the running chat server, which runs while the daemon does: with no daemon
+/// it is refused, and nothing starts one.
+func chatNeedsDaemon(_ g: GlobalOptions) throws {
+    guard g.dozableStore.hostIsRunning() else {
+        throw fail(HostError(.unavailable, "the chat server runs while the daemon does — doz chat status"), g)
+    }
+}
+
+/// One request on your socket for `ChatExport` (the status and the body; a server that does not answer is exit 6).
+func chatFetch(_ c: ChatOwnerClient) -> ChatExport.Fetch {
+    { target in
+        do {
+            let a = try c.request("GET", target, timeout: 60, maximum: 64 << 20)
+            return (a.status, a.body)
+        } catch ChatOwnerClient.Failure.notListening {
+            throw HostError(.unavailable, "chat is on but its server is not ready — doz chat status")
+        } catch ChatOwnerClient.Failure.failed(let why) {
+            throw HostError(.unavailable, why)
+        }
+    }
+}
+
+struct ChatExportCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "export",
+        abstract: "Write a room's messages (every one, or a time window), its attachments and a manifest to a new folder.",
+        discussion: """
+            The folder must be new or empty and outside doz's store; it is made 0700, every file 0600. It gets ROOM.jsonl \
+            (one message per line, oldest first, as the chat server's API gives them), attachments/ID/NAME (each fetched as \
+            you; one that is gone is listed in the manifest) and manifest.json (the room, the window, the count, the first and \
+            last message numbers, each file's sha256 and size, and the sweep). Every file is swept before it is written: a \
+            live chat token found in it is replaced by "[a chat token of NAME, removed by doz]" and named here with its fix \
+            (doz chat token NAME --new) — never its value. The chat server runs while the daemon does: with no daemon this \
+            is refused, and nothing starts one.
+            """)
+    @Argument(help: "The room.") var room: String
+    @Option(name: .long, help: "The folder to write (new or empty).") var to: String
+    @Option(name: .long, help: "Every message from this time on: \(ChatTime.help).") var since: String?
+    @Option(name: .long, help: "Every message up to this time.") var until: String?
+    @OptionGroup var g: GlobalOptions
+
+    func validate() throws {
+        if let s = since, ChatTime.parse(s) == nil { throw ValidationError("--since \(s): not a time — \(ChatTime.help)") }
+        if let u = until, ChatTime.parse(u) == nil { throw ValidationError("--until \(u): not a time — \(ChatTime.help)") }
+    }
+
+    /// What `--json` prints: the folder and the manifest (never a token).
+    struct Answer: Encodable { var folder: String; var manifest: ChatExportManifest }
+
+    func run() async throws {
+        try requireRoomName(room, g)
+        try chatNeedsDaemon(g)
+        let c = try chatOwner(g)
+        let s = try chatState(c, g)
+        guard s.rooms[room] != nil else { throw fail(HostError(.notFound, "no room \(room) (doz chat rooms)"), g) }
+        let m: ChatExportManifest
+        let folder: ExportFolder
+        do {
+            folder = try ExportFolder(to, store: g.dozableStore)
+            m = try ChatExport.write(room: room, since: since.flatMap { ChatTime.parse($0) }, until: until.flatMap { ChatTime.parse($0) },
+                                     into: folder, sweep: ExportSweep.forStore(g.dozableStore), fetch: chatFetch(c))
+        } catch { throw fail(HostError.from(error), g) }
+        if g.json { Out.json(Answer(folder: folder.path, manifest: m)); return }
+        let atts = m.files.count - 1
+        Out.stdout("Exported \(m.count) message\(m.count == 1 ? "" : "s") of \(room)" + (atts > 0 ? " and \(atts) attachment\(atts == 1 ? "" : "s")" : "")
+                   + " to \(DisplayPath.tilde(folder.path)) (manifest.json lists every file and its sha256).\n")
+        for x in m.missing ?? [] { Out.stdout("  not exported: \(x.name) — \(x.why)\n") }
+        if m.sweep.findings.isEmpty {
+            Out.stdout("The sweep found no token or secret.\n")
+        } else {
+            for f in m.sweep.findings { Out.stdout("  " + f.sentence + "\n") }
+        }
+    }
+}
+
 
 struct ChatWho: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "who", abstract: "Who is in chat: name, kind, token, how it is reached, rooms, and presence as the server says it (here, away, quiet, …).")

@@ -50,11 +50,14 @@ public final class ChatLongPoll: @unchecked Sendable {
     let name: String
     let ack: Bool
     let seconds: Int
+    /// The reload count it started under: a reload that removes the participant (or replaces its token) ends it with 401.
+    let epoch: Int
     private let lock = NSLock()
     private var gone = false
 
     init(core: ChatServerCore, name: String, ack: Bool, seconds: Int) {
         self.core = core; self.name = name; self.ack = ack; self.seconds = seconds
+        epoch = core.pollEpochOf(name)
     }
 
     /// The caller went away: stop waiting, hand nothing over.
@@ -73,6 +76,7 @@ public final class ChatLongPoll: @unchecked Sendable {
             if left <= 0 { break }
             await core.waker(name).wait(seconds: min(left, tick))
             if cancelled { break }
+            if !core.pollStillValid(name, epoch) { return .jsonError(401, ChatPageHandler.needBearer) }
             let (core, name, ack) = (self.core, self.name, self.ack)
             items = await ChatListeners.offload { core.collect(name, ack: ack, redeliver: false) }
         }

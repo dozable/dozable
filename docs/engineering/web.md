@@ -1172,6 +1172,17 @@ browser only and `heldOnly`.
 - **End / Restart are their own actions**, `mac-session-end` / `mac-session-restart` (one HostOp each — the daemon's
   `session-end` / `session-restart` on the place; `confirm` = the session), never the sandbox actions with a made-up name
   (a sandbox name is `a-z0-9-`: `@mac` is refused there). `WebActionTests` pins one action per HostOp and place.
+- **Remove (forget) is this Mac's own browser only**: `mac-session-forget` `{session}` and `mac-sessions-forget-ended`
+  `{sessions: [the names the page showed]}`, each exactly `session-forget` (`doz sessions @mac --forget S` /
+  `--forget-ended`); `WebAction.isMacForget` → `WebExposure.decideMacForgetAction` → 403 `mac-only` (`macOnlySessions`,
+  one audit line) for another computer whatever `serve.mac_sessions` says — a gone session can no longer be restarted.
+  And the gap is closed: `mac-session-end` sends `onlyRunning`, so ending a session that is not running is refused rather
+  than forgetting it (a remote `interactive` browser could forget through End before). The page (`views/mac.js`): Remove…
+  on an ended or gone tile in no workspace, Remove all ended… in the header, both only when `plan` (offered to this Mac's
+  own browser); the dialog names them, says a gone one cannot be restarted and that their conversations are carried back
+  first; another browser sees "Remove in this Mac's browser, or doz sessions @mac --forget-ended". The tiles' sessions carry
+  `workspace` (`WebMacSession`). `WebActionTests.testTheForgetActions`, `ServeExposureTests.testForgettingIsThisMacsOnly`,
+  `ServeHTTPTests.testForgettingIsThisMacsBrowserOnlyWhateverTheServeSettings`, `make dashboard-walk` (the removal).
 - **Another computer gets what `serve.mac_sessions` allows** (`off` default | `watch` | `interactive`; `ui: false`,
   read per request): `WebExposure` kind `mac-session`, plus `decideMacTerminal` (a ticket's mode, decided again at the
   socket) and `decideMacAction`; `@mac` grid items likewise. Refusal: 403 `mac-session`, its message naming the setting.

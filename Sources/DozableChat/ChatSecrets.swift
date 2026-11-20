@@ -53,6 +53,12 @@ public struct ChatSecrets: Sendable {
     /// server the daemon runs (`--token-hashes`): no plain token is ever written for it. The same file checks as the
     /// secrets file (a regular file, mode 0600, the user's own); every value must be 64 lower-case hex digits.
     public static func loadHashes(path: String) throws -> ChatSecrets {
+        try parseHashes(try readHashesFile(path: path), path: path)
+    }
+
+    /// The token hashes file's bytes, read only when it is a regular file of this user that nobody else may read (at
+    /// most 4 MiB). A reload reads them again this way and hashes them before it parses them.
+    public static func readHashesFile(path: String) throws -> Data {
         var st = stat()
         guard lstat(path, &st) == 0 else { throw ChatConfigError("token hashes: \(path) does not exist or cannot be read") }
         guard (st.st_mode & S_IFMT) == S_IFREG else { throw ChatConfigError("token hashes: \(path) is not a regular file") }
@@ -65,7 +71,7 @@ public struct ChatSecrets: Sendable {
         }
         guard let fh = FileHandle(forReadingAtPath: path) else { throw ChatConfigError("token hashes: cannot read \(path)") }
         defer { try? fh.close() }
-        return try parseHashes((try? fh.read(upToCount: 4 << 20)) ?? Data(), path: path)
+        return (try? fh.read(upToCount: 4 << 20)) ?? Data()
     }
 
     public static func parseHashes(_ data: Data, path: String = "the token hashes file") throws -> ChatSecrets {
@@ -141,6 +147,8 @@ public struct ChatSecrets: Sendable {
 
     /// The webhook entries the daemon handed in on its pipe (`ChatWebhookPipe`): the only ones a server it runs has.
     public mutating func setWebhooks(_ w: [String: ChatWebhook]) { webhooks = w }
+    /// A reload's new token hashes (the webhook entries stay as the daemon's pipe handed them).
+    public mutating func setTokenHashes(_ h: [String: String]) { tokenHashes = h }
 
     /// The webhook a participant's entry name points to: its own entry when it has an address, else the shared one
     /// ("default"); nil when neither has an address. The header is the Authorization value without an

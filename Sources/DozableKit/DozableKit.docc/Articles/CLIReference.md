@@ -209,6 +209,8 @@ doz builder start [--yes]      # container system start --enable-kernel-install 
 | `sessions wait NAME SESSION --until STATE[,STATE…] [--timeout S]` | Wait until the session's program reports one of the states (`idle`, `working`, `done`, `blocked`, `error` — its own status reports; a comma list or `--until` again, so `--until idle,done,blocked,error` is "has it stopped working?"); the state now counts. Exit 124 when `--timeout` passes first (`--json`: `timedOut`). Running sandboxes only — never woken. |
 | `run @mac …` · `attach @mac` · `sessions … @mac …` | Sessions on THIS Mac: held like a sandbox's; fenced by default (its folder, its own temp and caches, Dozable's proxy; your Keychain and secrets closed), `--unfenced` for no isolation at all (see the manual's "Sessions on this Mac"). Every other command refuses `@mac`, but `net … @mac --session S` for a fenced one. |
 | `run @mac [--fenced] [--keychain] [--read DIR]… [--write DIR]… [--permissions P] [--local-port N]… [--agent-config private\|shared] [--github read\|push] [--ssh-agent] [--xcode \| --simulator] [--dry-run] -- CMD` · `--unfenced` | A session on this Mac, fenced by default (the setting `mac.fence`, `on`): it reads and writes only its folder (`--folder DIR`; default: the one you are in) and its own temp and caches, reads your tools but not your secrets or other folders, has no Keychain unless `--keychain`, and reaches the network only through Dozable's proxy by its permissions; `--read`/`--write` add a folder (never your home, `~/.ssh`, `~/.config`, `~/Library` or the store). `--unfenced` is no isolation, as before; a session keeps its mode when restarted. `--dry-run` says what it could do. |
+| `sessions @mac --transcripts SESSION [--export DIR]` | Its conversations: a fenced one's archived and carried-back copies, an unfenced one's recorded ones (each `/clear` or `/resume` adds one). `--export` copies exactly those into a new or empty folder with `manifest.json` (each file's source and the sha256 of the original and the copy), never following a link, every file swept for chat tokens. No daemon needed. |
+| `sessions @mac --forget-ended [--dry-run] [--yes]` · `--forget SESSION` | Forget ended and gone sessions on this Mac (asked once): each one's conversations carried back first; never a running session or a workspace's (kept, with why); a gone one can no longer be restarted. `--dry-run` says what would go, with no daemon. A second run forgets nothing. |
 | `sessions resume @mac SESSION` · `sessions @mac --quarantine SESSION` | A fenced session that changed a git config in a way it may not (a hook path, an fsmonitor, a pager, an unknown key) is stopped at once and the change taken out: `--quarantine` shows what was taken out; `resume` continues it (refused while such a change is there again). |
 | `ls` · `inspect NAME` | Every sandbox: image, phase, RAM held, disk, sessions, network · everything as JSON. |
 
@@ -845,15 +847,28 @@ doz chat on [--name NAME]                       # chat on (chat.enabled): the da
 doz chat off                                    # it stops; rooms and messages are kept
 doz chat status [--json]                        # on, ready, its ports (as the running server has them), you, the participants
 doz chat add NAME [--kind KIND] [--webhook [--webhook-entry E] | --inbox [--session S]] [--to-file F | --from-stdin]   # a participant and its token (shown once)
+doz chat add A B C --to-dir DIR [--kind KIND] [--webhook | --inbox]   # several at once, all or nothing; each token in DIR/NAME.token (0600)
 doz chat set NAME --deliver inbox|poll|webhook [--webhook-entry E] [--kind KIND] [--session S]   # how it is reached; token, rooms, history kept
-doz chat remove NAME                            # it leaves every room; its token is refused
+doz chat remove NAME                            # it leaves every room; its token is refused at once
+doz chat remove A B C [--yes]                   # several at once, all or nothing (asked once)
 doz chat who [--json]                           # name, kind, token, how it is reached, rooms, presence; a bot's KIND ends "· bot" (--json: bot: true)
 doz chat token NAME --new | --from-stdin [--to-file F]   # replace a participant's token
 doz chat webhook set E [--from-file F]          # a webhook bot's entry: address, then Authorization value (login keychain)
 doz chat webhook status [E] | remove E
 doz chat import PATH [--dry-run] [--add-missing] [--replace]   # another chat's history (chat off first)
 doz chat rooms | room NAME @MEMBER… | send ROOM TEXT | read ROOM [--last N] [--follow] [--with-log]   # as you, on your own socket
+doz chat read ROOM --since T [--until T] [--json]   # every message of a window, no cap, oldest first
+doz chat export ROOM --to DIR [--since T] [--until T] [--json]   # ROOM.jsonl, attachments/, manifest.json — swept for tokens
 ```
+
+Participants added or removed (one or a batch) and a replaced token are taken by the running chat server without a
+restart: its pid and restart count stay, and a removed participant's token is refused at once (its waiting receive ends
+with 401). A new participant is in no room until it is invited; a name removed and added again is back in the rooms it
+was in. A port, a delivery or a webhook entry still restarts it. `T` is ISO 8601 (or a day), Unix seconds, or a time ago
+(`30m`, `2h`, `7d`). `read --since` and `export` need the running chat server, which runs while the daemon does: with no
+daemon they are refused, and nothing starts one. An export folder is new or empty, outside the store, 0700 with 0600
+files; every file is swept before it is written — a live chat token is replaced by "[a chat token of NAME, removed by
+doz]" and named with its fix, never its value.
 
 You take part through your own socket in the store (no token for you exists); every agent has its own token and uses
 the page port (`chat.page_port`, `/agent/…`) or the line port (`chat.line_port`). `chat.remote_listen` and

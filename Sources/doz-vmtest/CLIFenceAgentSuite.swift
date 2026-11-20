@@ -162,7 +162,22 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
     let exp = folder("export")
     r = t.run(["sessions", "@mac", "--transcripts", "cc", "--export", exp])
     check(r.code == 0 && ((try? FileManager.default.contentsOfDirectory(atPath: exp)) ?? []).contains { $0.hasSuffix(u1 + ".jsonl") }, "3.9b --export writes copies")
-    t.run(["sessions", "end", "@mac", "cc", "--yes"], timeout: 60)            // forgotten: carried once, nothing again
+    // 3.9e: forgetting carries back first (nothing new: its sha is recorded) and keeps a session that left a conversation
+    // behind; the archive's export still works after it is gone, and a second forget changes nothing.
+    let carriedBefore = (try? FileManager.default.contentsOfDirectory(atPath: personProjects)) ?? []
+    r = t.run(["sessions", "@mac", "--forget", "cc", "--yes", "--json"], timeout: 60)
+    let fg = try? HostWire.decoder.decode(SessionsForgotten.self, from: r.outData)
+    // cc left a conversation-named file behind (3.9c's non-JSON 1b1c2d3e…): forgetting keeps it, saying why — nothing lost.
+    check(r.code == 0 && fg?.forgotten.isEmpty == true && fg?.kept.contains { $0.name == "cc" && $0.why.contains("not carried back") } == true
+          && rows().first { $0.name == "cc" } != nil, "3.9e --forget cc: kept, a conversation of it was not carried back (\(r.code) \(r.err.prefix(160)))")
+    t.run(["sessions", "end", "@mac", "cc", "--yes"], timeout: 60)            // the CLI's end of an ended session still forgets it
+    check(((try? FileManager.default.contentsOfDirectory(atPath: personProjects)) ?? []) == carriedBefore, "3.9e …its conversations were carried back already: nothing new, nothing twice")
+    let exp2 = folder("export-after")
+    r = t.run(["sessions", "@mac", "--transcripts", "cc", "--export", exp2], timeout: 60)
+    check(r.code == 0 && ((try? FileManager.default.contentsOfDirectory(atPath: exp2)) ?? []).contains { $0.hasSuffix(u1 + ".jsonl") },
+          "3.9e the archive's export works after the forget")
+    r = t.run(["sessions", "@mac", "--forget", "cc", "--yes"], timeout: 60)
+    check(r.code == 0 && r.out.contains("nothing to forget"), "3.9e a second forget changes nothing")
 
     // 3.9d + 3.9a + 3.10: a restart continues from its own folder; a grown conversation replaces its prefix; agent-default.
     let hd = folder("hd")
@@ -178,7 +193,8 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
           "3.9d the person's copy (a prefix, cloned in at the first open) is replaced by the longer one")
     check(r.out.contains("older than 30 days"), "3.9 agent-default: the end says Claude Code's own rule (\(r.out.prefix(200)))")
     r = t.run(["sessions", "@mac", "--transcripts", "hd"])
-    check(!r.out.contains(u1), "3.9 agent-default: not archived")
+    // (its carried copy in the person's folder is listed as "carried back" — the export's — never as an archived row)
+    check(!r.out.split(separator: "\n").contains { $0.contains(u1) && !$0.hasPrefix("carried back") }, "3.9 agent-default: not archived")
     t.run(["sessions", "end", "@mac", "hd", "--yes"], timeout: 60)
     r = run("nope", hd, ["--account", "nobody"])
     check(r.code != 0 && r.err.contains("nobody"), "an account that does not exist is refused (no fallback) (\(r.code))")

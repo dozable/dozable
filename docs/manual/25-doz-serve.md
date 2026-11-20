@@ -87,7 +87,8 @@ terminal on the Mac (`doz workspace new`, `start`, `sleep`, `wake`, `finish`, `a
 `doz worker add` and `end`); another browser sees the wizard's and Add a worker's addresses as a notice and those
 buttons disabled, with the command instead. A workspace's **Network & secrets**, **Folders &
 points**, **Activity** and an agent's **Can do** are shown too, with the same rule for this Mac's sessions; another browser
-sees how many secrets each agent holds, never their names, and cannot allow a site for a session on this Mac (that is
+sees how many secrets each agent holds, never their names, cannot remove an ended session on this Mac (that is this Mac's
+own browser, or `doz sessions @mac --forget-ended`, whatever `serve.mac_sessions` says), and cannot allow a site for a session on this Mac (that is
 `doz net allow @mac --session SESSION site:HOST` on the Mac). The isolation guide is the same on every browser. See
 [Sessions on this Mac](34-sessions-on-this-mac.md#in-the-dashboard).
 

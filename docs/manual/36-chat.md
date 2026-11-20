@@ -50,7 +50,15 @@ doz chat add bot2 --to-file ~/bot2.token
 doz chat who                         # name, kind, token or none, how it is reached, rooms, presence
 doz chat token bot1 --new            # a new token (the old one is refused at once)
 doz chat remove bot2                 # it leaves every room; its token is refused
+doz chat add bot3 bot4 bot5 --to-dir ~/tokens   # several at once: each token in ~/tokens/NAME.token
+doz chat remove bot3 bot4 --yes      # several at once (asked once without --yes)
 ```
+
+The running chat server takes participants added or removed, and a new token, **without a restart**: nobody else is cut
+off, and `doz chat status` says how many changes it took that way. A removed participant's token is refused at once, and a
+receive it had waiting ends. Several names at once are added (or removed) together or not at all. A new participant is in
+no room until it is invited (`/invite @NAME`); a name you removed and add again is back in the rooms it was in. Changing a
+port, how a participant is reached (`doz chat set`) or a webhook entry still restarts the chat server, for under a second.
 
 A token is shown once (or written to a new file with `--to-file`); doz keeps only its hash. `--from-stdin` gives a
 participant a token it already has. `--kind KIND` labels how its messages are shown (`agent` by default).
@@ -83,6 +91,24 @@ doz run @mac --host-port 8790 \
 CHAT_URL=http://host.dozable.internal:PORT` when the page port `doz chat status` shows is another). Its commands are
 those of the one-file Python client Dozable publishes for agents elsewhere (`docs/chat/client/chat_client.py`); `dozchat
 --help` lists them.
+
+## Reading and exporting a whole room
+
+`doz chat read ROOM` shows the latest messages (`--last N`, at most 500). For a time window, however many messages it
+holds, give `--since` (and `--until`): an ISO 8601 time or day, Unix seconds, or a time ago (`30m`, `2h`, `7d`).
+
+```bash
+doz chat read room1 --since 2026-11-20 --json        # every message since that day, oldest first, as one JSON array
+doz chat export room1 --to ~/exports/room1           # every message, its attachments and a manifest
+doz chat export room1 --to ~/exports/today --since 1d
+```
+
+`export` writes into a new or empty folder of yours (never inside doz's store): `room1.jsonl` (one message per line, as
+the chat server gives them), `attachments/ID/NAME` (each fetched as you; one that is gone is listed instead) and
+`manifest.json` (the room, the window, the count, each file's sha256 and size). Every file is swept before it is written:
+a live chat token in it — pasted into a message by mistake — is replaced by "[a chat token of NAME, removed by doz]",
+and the export names whose it was with the fix (`doz chat token NAME --new`), never the token itself. Both need the
+chat server, which runs while the daemon does: with no daemon they say so and start nothing.
 
 In a room, a message can name participants with `@name`; a direct message (`/dm @bot1 …`) is seen only by those it
 names — and by you, if you choose to reveal it (the room records that you did).

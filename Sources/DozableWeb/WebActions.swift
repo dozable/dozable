@@ -79,6 +79,13 @@ public enum WebAction: Equatable, Sendable {
     /// another computer only with `serve.mac_sessions = interactive` (`WebExposure.decideMacAction`). No action OPENS one.
     case macSessionEnd(session: String)
     case macSessionRestart(session: String, fresh: Bool)
+    /// Remove (forget) an ended or gone session on this Mac — exactly `session-forget` with that one session (`doz sessions
+    /// @mac --forget S`); and Remove all ended — exactly `session-forget` with the names the page showed (`doz sessions @mac
+    /// --forget-ended`, acting on what was shown). Each is carried back first; never a running or a workspace's session.
+    /// This Mac's own browser only (`isMacForget`, `WebExposure.decideMacForgetAction`), whatever `serve.mac_sessions` says:
+    /// a forgotten session can no longer be restarted.
+    case macSessionForget(session: String)
+    case macSessionsForgetEnded(sessions: [String])
     /// 683 M5: a fenced session stopped for a git config change continues (`doz sessions resume @mac S` — the host refuses
     /// while a change outside the allowlist is there again); its bridges switched live (`doz sessions bridges @mac S …`,
     /// each nil: as it is — the next open-URL, open-file or copy follows). Neither OPENS anything nor widens a grant made
@@ -175,6 +182,7 @@ public enum WebAction: Equatable, Sendable {
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall,
              .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges, .macNetPolicy,   // this Mac is no sandbox
+             .macSessionForget, .macSessionsForgetEnded,
              .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart,   // nor is a workspace
              .botNew, .botSet, .botRetire, .botAdopt, .botToken,                          // nor is a bot
              .workerAdd, .workerEnd,                                                      // nor a worker (its place is the daemon's)
@@ -206,6 +214,11 @@ public enum WebAction: Equatable, Sendable {
     /// An Agent / Bot changed: this Mac's own browser only (`WebExposure.decideBotAction`).
     public var isBot: Bool {
         switch self { case .botNew, .botSet, .botRetire, .botAdopt, .botToken: true; default: false }
+    }
+
+    /// An ended or gone session on this Mac forgotten: this Mac's own browser only (`WebExposure.decideMacForgetAction`).
+    public var isMacForget: Bool {
+        switch self { case .macSessionForget, .macSessionsForgetEnded: true; default: false }
     }
 
     /// A fenced session's site allowed: this Mac's own browser only (`WebExposure.decideMacNetAction`).
@@ -283,6 +296,8 @@ public enum WebAction: Equatable, Sendable {
         case .sessionEnd(let n, let s): return "end session \(s) in \(n)"
         case .sessionRestart(let n, let s, _): return "restart session \(s) in \(n)"
         case .macSessionEnd(let s): return "end session \(s) on this Mac"
+        case .macSessionForget(let s): return "remove session \(s) on this Mac"
+        case .macSessionsForgetEnded(let ss): return "remove \(ss.count) ended session\(ss.count == 1 ? "" : "s") on this Mac"
         case .macSessionRestart(let s, _): return "restart session \(s) on this Mac"
         case .macSessionResume(let s): return "resume session \(s) on this Mac"
         case .macSessionBridges(let s, _, _, _): return "bridges of session \(s) on this Mac"
@@ -461,6 +476,16 @@ public enum WebAction: Equatable, Sendable {
         case .macSessionEnd(let s):
             var r = HostRequest(.sessionEnd, name: MacPlace.name)
             r.session = s
+            // A running session only: the dashboard never forgets one by ending it again (that is Remove, this Mac's own).
+            r.onlyRunning = true
+            return r
+        case .macSessionForget(let s):
+            var r = HostRequest(.sessionForget, name: MacPlace.name)
+            r.session = s
+            return r
+        case .macSessionsForgetEnded(let ss):
+            var r = HostRequest(.sessionForget, name: MacPlace.name)
+            r.sessions = ss
             return r
         case .macSessionRestart(let s, let fresh):
             var r = HostRequest(.sessionRestart, name: MacPlace.name)
@@ -626,6 +651,8 @@ public enum WebAction: Equatable, Sendable {
             "session-end": ["sandbox", "session"],
             "session-restart": ["sandbox", "session", "fresh"],
             "mac-session-end": ["session", "confirm"],
+            "mac-session-forget": ["session"],
+            "mac-sessions-forget-ended": ["sessions"],
             "mac-session-restart": ["session", "fresh", "confirm"],
             "mac-session-resume": ["session"],
             "mac-session-bridges": ["session", "openURL", "openFiles", "clipboard"],
@@ -831,6 +858,21 @@ public enum WebAction: Equatable, Sendable {
                 throw Invalid("session: a session on this Mac — 1–32 of letters, digits . _ - (not starting with .)")
             }
             a = verb == "mac-session-end" ? .macSessionEnd(session: s) : .macSessionRestart(session: s, fresh: try f.flag("fresh") == true)
+        case "mac-session-forget":
+            guard let s = try f.session("session"), WebRoute.isMacSessionName(s) else {
+                throw Invalid("session: a session on this Mac — 1–32 of letters, digits . _ - (not starting with .)")
+            }
+            a = .macSessionForget(session: s)
+        case "mac-sessions-forget-ended":
+            guard let v = d["sessions"] as? [Any], (1...64).contains(v.count) else { throw Invalid("sessions: the 1–64 ended sessions the page showed") }
+            var ss: [String] = []
+            for x in v {
+                guard let s = x as? String, WebRoute.isMacSessionName(s), !ss.contains(s) else {
+                    throw Invalid("sessions: sessions on this Mac, each once — 1–32 of letters, digits . _ - (not starting with .)")
+                }
+                ss.append(s)
+            }
+            a = .macSessionsForgetEnded(sessions: ss)
         case "mac-session-resume", "mac-session-bridges":
             guard let s = try f.session("session"), WebRoute.isMacSessionName(s) else {
                 throw Invalid("session: a session on this Mac — 1–32 of letters, digits . _ - (not starting with .)")

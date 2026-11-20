@@ -26,6 +26,10 @@
 //  20. webhook remove: who says not set; a message fails at once again
 //  28–34. a Claude Code session delivered to by inbox (CLIChatInboxRows.swift): add --inbox, who, status, failed with no
 //      session, delivered into a scratch one, the dozchat answer, set --deliver both ways keeping rooms and token, the sweep
+//  35–40. participants changed while the server runs (CLIChatMembersRows.swift): a batch of three with --to-dir and no
+//      restart, a removed participant's wait ended with 401, EDGE 17 (added again: back in its rooms), the sweep
+//  41–45. a whole room read (--since, no cap) and exported with its attachments and the leak sweep (CLIChatExportRows.swift);
+//      with no daemon both are refused and none is started
 //  21. chat.remote_listen / chat.remote_agents: a LAN, wildcard, range or link-local value refused; an address this Mac
 //      does not have on Tailscale is said (status, --json, doctor WARN, the firewall row) and never listened on
 //
@@ -200,6 +204,12 @@ func cliChatSuite(binary: String) async {
     let lineAnswer = sh(["/bin/sh", "-c", "printf '%s\\n' '{\"type\":\"user\",\"room\":\"room1\",\"msg_id\":\"\(UUID().uuidString.lowercased())\",\"message\":{\"content\":\"x\"}}' | /usr/bin/nc -w 3 127.0.0.1 \(line)"]).1
     check(!lineAnswer.contains("\"queued\""), "5 the line port refuses a message without a token (\(lineAnswer.prefix(120)))")
 
+    // 35–40. participants changed while the server runs: over the daemon's control channel, never a restart
+    cliChatMembersRows(h: h, root: root, paths: paths, page: page, sh: sh, server: server, supervisor: supervisor)
+
+    // 41–44. a whole room read and exported: no cap, attachments, the leak sweep
+    cliChatExportRows(h: h, root: root, paths: paths)
+
     // 28–34. a Claude Code session delivered to by inbox (a scratch one: the sessions folder is the suite's seam)
     cliChatInboxRows(h: h, root: root, paths: paths, page: page, sh: sh)
 
@@ -207,7 +217,7 @@ func cliChatSuite(binary: String) async {
     await cliChatWebhookRows(h: h, root: root, paths: paths, page: page, line: line, sh: sh, server: server, supervisor: supervisor)
 
     // 6. a killed server comes back
-    guard let s6 = server() else { check(false, "6 a chat server runs"); return }      // `add` restarted the first one
+    guard let s6 = server() else { check(false, "6 a chat server runs"); return }
     kill(s6, SIGKILL)
     let back = h.waitFor(15) { server().map { $0 != s6 } == true && supervisor()?.ready == true }
     check(back && supervisor()?.restarts == 1, "6 kill -9 the server: restarted, restarts \(supervisor()?.restarts ?? -1)")
@@ -262,6 +272,7 @@ func cliChatSuite(binary: String) async {
     let s9 = server()
     r = h.run(["daemon", "stop"], timeout: 60)
     check(r.code == 0 && s9.map { !alive($0) } == true && serversOfStore().isEmpty, "9 daemon stop leaves no chat server")
+    cliChatExportNoDaemonRow(h: h, root: root)
 
     // 10. kill -9 the daemon
     r = h.run(["chat", "on"], timeout: 60)

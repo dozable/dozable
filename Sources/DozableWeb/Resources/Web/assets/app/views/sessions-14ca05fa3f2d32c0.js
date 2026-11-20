@@ -13,7 +13,7 @@ import { hidePeek, hoverPeek } from '../components/nav-peek-2393216f68da7776.js'
 import { agentChip } from '../components/agent-status-82bc8c34137c0c73.js';
 import { pageFailure } from '../components/notices-4a3a8a4f95efab5b.js';
 import { pictureSource } from '../components/session-thumb-862bf068c6c5d26b.js';
-import { macSection } from './mac-58104b1710bd20c9.js';
+import { macSection } from './mac-2cb032ca9540ecca.js';
 import { placeHash } from '../core/routes-c852df10d8105b86.js';
 
 // ── All sessions: the grid (593) ────────────────────────────────────────────

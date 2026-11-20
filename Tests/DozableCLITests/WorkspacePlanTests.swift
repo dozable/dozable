@@ -110,7 +110,8 @@ final class WorkspacePlanTests: BotTestCase {
         let base = store.root.path
         guard let e = FileManager.default.enumerator(atPath: base) else { return [:] }
         for case let p as String in e {
-            if p.hasSuffix(".log") || p.hasPrefix("logs") { continue }
+            // Logs, and the daemon's own metrics database (its sampler writes the WAL on a timer, whatever a request does).
+            if p.hasSuffix(".log") || p.hasPrefix("logs") || p.hasPrefix("metrics.sqlite") { continue }
             let full = base + "/" + p
             var d: ObjCBool = false
             FileManager.default.fileExists(atPath: full, isDirectory: &d)

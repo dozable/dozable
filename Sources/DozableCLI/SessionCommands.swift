@@ -337,6 +337,40 @@ struct SessionsEnd: AsyncParsableCommand {
     }
 }
 
+extension SessionsList {
+    /// `--forget-ended` / `--forget S`: what would go and what stays (in-process, no daemon needed), asked once on the
+    /// terminal (no terminal and no --yes: declined), then the daemon forgets them — each carried back first.
+    func forgetSessions() async throws {
+        var r = HostRequest(.sessionForget, name: name)
+        r.session = forget
+        r.forgetEnded = forgetEnded ? true : nil
+        r.dryRun = true
+        let plan = try decode(try await query(r, g), SessionsForgotten.self, g)
+        func say(_ f: SessionsForgotten, verb: String) {
+            if f.forgotten.isEmpty { Out.stdout("nothing to forget on this Mac\n") } else {
+                Out.stdout("\(verb) \(f.forgotten.count) session\(f.forgotten.count == 1 ? "" : "s"): \(f.forgotten.joined(separator: ", "))\n")
+            }
+            for k in f.kept { Out.stdout("  kept \(k.name): \(k.why)\n") }
+            for n in f.notices ?? [] { Out.stdout("  \(n)\n") }
+        }
+        if dryRun || plan.forgotten.isEmpty {
+            if g.json { Out.json(plan); return }
+            say(plan, verb: "would forget")
+            return
+        }
+        if !g.json { say(plan, verb: "to forget") }
+        try confirm("Forget \(plan.forgotten.joined(separator: ", "))? A gone session can no longer be restarted; their conversations are carried back first",
+                    yes: yes, g)
+        r.dryRun = nil
+        r.sessions = plan.forgotten
+        r.session = nil
+        r.forgetEnded = nil
+        let done = try decode(try call(r, g), SessionsForgotten.self, g)
+        if g.json { Out.json(done); return }
+        say(done, verb: "forgot")
+    }
+}
+
 struct SessionsRestart: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "restart",
         abstract: "Restart a session: end its program and start the same one again, in the same folder. An agent's session continues its conversation — each Claude Code session its own; Codex's and pi's own session the folder's newest — only the turn in progress is lost.",
@@ -402,11 +436,21 @@ struct SessionsList: AsyncParsableCommand {
     @Flag(name: .long, help: "With --screen: write the saved VT bytes (redraw with `cat` in a terminal) — only to a file or a pipe.") var vt = false
     @Option(name: .long, help: "@mac: what was taken out of this fenced session's git configs (why it stopped).") var quarantine: String?
     @Option(name: .long, help: "@mac: what this session can do — one line per capability (its fence, Keychain, network, settings folder, bridges…).") var capabilities: String?
-    @Option(name: .long, help: "@mac: this fenced session's conversations kept in Dozable's archive.") var transcripts: String?
-    @Option(name: .long, help: "With --transcripts: copy them into this folder.") var export: String?
+    @Option(name: .long, help: "@mac: this session's conversations — a fenced one's in Dozable's archive and carried back, an unfenced one's recorded ones.") var transcripts: String?
+    @Option(name: .long, help: "With --transcripts: copy them, with a manifest, into this new or empty folder (no link followed, every file swept for tokens).") var export: String?
+    @Option(name: .long, help: "@mac: forget this ended or gone session (its conversations carried back first; never a running one or a workspace's).") var forget: String?
+    @Flag(name: .customLong("forget-ended"), help: "@mac: forget every ended or gone session — listed, then asked once.") var forgetEnded = false
+    @Flag(name: .customLong("dry-run"), help: "With --forget-ended or --forget: say what would be forgotten and kept; change nothing (no daemon needed).") var dryRun = false
+    @Flag(name: [.short, .long], help: "With --forget-ended or --forget: do not ask.") var yes = false
 
     func run() async throws {
         if let screen { try await printScreen(screen); return }
+        if forget != nil || forgetEnded {
+            guard MacPlace.isPlace(name) else { throw fail(HostError(.invalid, "--forget and --forget-ended are for doz sessions @mac"), g, code: DozableExit.usage) }
+            try await forgetSessions()
+            return
+        }
+        if dryRun || yes { throw fail(HostError(.invalid, "--dry-run and --yes go with --forget-ended or --forget SESSION"), g, code: DozableExit.usage) }
         if vt { throw fail(HostError(.invalid, "--vt goes with --screen SESSION"), g, code: DozableExit.usage) }
         if (capabilities != nil || transcripts != nil), !MacPlace.isPlace(name) {
             throw fail(HostError(.invalid, "--capabilities and --transcripts are for doz sessions @mac"), g, code: DozableExit.usage)
@@ -426,34 +470,32 @@ struct SessionsList: AsyncParsableCommand {
             r.session = s
             let got = try decode(try await query(r, g), MacTranscripts.Listing.self, g)
             if let dir = export {
-                let to = URL(fileURLWithPath: dir).standardizedFileURL.path
-                var isDir: ObjCBool = false
-                guard FileManager.default.fileExists(atPath: to, isDirectory: &isDir), isDir.boolValue else {
-                    throw fail(HostError(.invalid, "--export \(dir): not a folder"), g, code: DozableExit.usage)
-                }
-                var copied: [String] = []
-                for i in got.items {
-                    let name = "\(i.endedAt)-\(i.name)"
-                    guard !FileManager.default.fileExists(atPath: to + "/" + name) else { continue }
-                    // The archive is the host's (in the store); copied as it is, never through a link.
-                    var st = stat()
-                    guard lstat(i.path, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else { continue }
-                    do { try FileManager.default.copyItem(atPath: i.path, toPath: to + "/" + name); copied.append(name) } catch {
-                        throw fail(HostError(.failed, "--export: \(name): \(error.localizedDescription)"), g)
-                    }
-                }
-                if g.json { Out.json(["exported": copied]); return }
-                Out.stdout("exported \(copied.count) conversation\(copied.count == 1 ? "" : "s") of \(s) to \(DisplayPath.tilde(to))\n")
+                // One copier for every session on this Mac: no link followed, only the session's own files, swept.
+                let folder: ExportFolder
+                let m: MacTranscriptExport.Manifest
+                do {
+                    folder = try ExportFolder(dir, store: g.dozableStore)
+                    m = try MacTranscriptExport.export(got, into: folder, sweep: ExportSweep.forStore(g.dozableStore))
+                } catch { throw fail(HostError.from(error), g) }
+                if g.json { Out.json(m); return }
+                Out.stdout("exported \(m.files.count) conversation file\(m.files.count == 1 ? "" : "s") of \(s) to \(DisplayPath.tilde(folder.path)) (manifest.json lists each, with its sha256)\n")
+                for x in m.skipped ?? [] { Out.stdout("  not exported: \(x.name) — \(x.why)\n") }
+                for n in m.notes ?? [] { Out.stdout("  \(n)\n") }
+                for f in m.sweep.findings { Out.stdout("  " + f.sentence + "\n") }
                 return
             }
             if g.json { Out.json(got); return }
-            if got.items.isEmpty {
+            let own = got.conversations ?? []
+            if got.items.isEmpty && own.isEmpty {
                 Out.stdout("no conversations of \(s) are kept in Dozable's archive" + (got.carriedTo.map { " (they are copied to \(DisplayPath.tilde($0)) when it ends)" } ?? "") + "\n")
+                for n in got.notes ?? [] { Out.stdout("  \(n)\n") }
                 return
             }
             var t = [["ENDED", "CONVERSATION", "SIZE"]]
             for i in got.items { t.append([i.endedAt, i.name, "\(i.bytes / 1024) KiB"]) }
+            for i in own { t.append([i.source == "carried" ? "carried back" : "recorded", i.name, "—"]) }
             Out.stdout(Out.table(t))
+            for n in got.notes ?? [] { Out.stdout("  \(n)\n") }
             if let to = got.carriedTo { Out.stderr("also copied back to \(DisplayPath.tilde(to)); doz sessions @mac --transcripts \(s) --export DIR copies these\n") }
             return
         }

@@ -156,6 +156,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 608: end a session's program (`session`) — HUP, then TERM, then KILL of its process group
     /// (`SessionEnded`). A running sandbox only: it never wakes one.
     case sessionEnd = "session-end"
+    /// Forget ended and gone sessions on this Mac (`@mac` only): `session` or `sessions` named, or every ended one
+    /// (`forgetEnded`); `dryRun` says what would be forgotten and kept, in-process with no daemon (`SessionsForgotten`).
+    /// Each is carried back first (a fenced session's conversations); never a running session, a workspace's, or one whose
+    /// carry-back was refused or skipped files — each kept with why.
+    case sessionForget = "session-forget"
     /// 608: end it and open the SAME session again — the program, folder and user it was opened with
     /// (`sessions.json`); an agent's session continues its conversation unless `fresh` (648: each Claude Code session its own; else the default session only)
     /// (`SessionRestarted`). Serialised with open-session.
@@ -242,7 +247,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// the human named once, a stopped server tried again (`retry`), answered with `ChatServerState` once ready (`wait`).
     /// `chat-add` / `chat-remove` / `chat-token`: a participant added, removed, or its token replaced — answered with
     /// `ChatAnswer`, whose token travels this once and is never logged.
-    case chatSync = "chat-sync", chatAdd = "chat-add", chatRemove = "chat-remove", chatToken = "chat-token"
+    case chatSync = "chat-sync", chatAdd = "chat-add", chatRemove = "chat-remove", chatToken = "chat-token", chatMembers = "chat-members"
     /// `chat-set`: how an existing participant is reached (`chat`: `name`, `deliver`, and `kind`, `entry`, `session`),
     /// its token, rooms and history kept — answered with `ChatSetAnswer`.
     case chatSet = "chat-set"
@@ -312,7 +317,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .botList, .botShow, .workerList, .workerPlan, .macsList: true
+             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .botList, .botShow, .workerList, .workerPlan, .macsList: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -580,6 +585,12 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var warnings: Bool?
     /// 608 `session-restart`: a new conversation instead of continuing the last one.
     public var fresh: Bool?
+    /// `session-forget`: these sessions (with `session`, or alone), or `forgetEnded` every ended or gone one.
+    public var sessions: [String]?
+    public var forgetEnded: Bool?
+    /// `session-end` from the dashboard: end a RUNNING session only — one that is not running is refused, never forgotten
+    /// (forgetting is this Mac's own browser's `mac-session-forget`). nil: the CLI's end (a second end forgets).
+    public var onlyRunning: Bool?
     /// 612 `events`: include `session-status` events (an older client could not decode them).
     public var sessionStatus: Bool?
     /// 643 `files-list`: the folder (relative to /workspace, or `/workspace/…`; nil: /workspace).
@@ -1601,6 +1612,9 @@ public struct ChatRequest: Codable, Equatable, Sendable {
     public var path: String?
     public var addMissing: Bool?
     public var replace: Bool?
+    /// chat-members: the participants added (each gets a new token) and removed, all or nothing, in one change.
+    public var add: [ChatMemberAdd]?
+    public var remove: [String]?
     public init(name: String? = nil, token: String? = nil, retry: Bool? = nil, wait: Bool? = nil, kind: String? = nil, webhook: Bool? = nil,
                 entry: String? = nil, url: String? = nil, authorization: String? = nil, path: String? = nil, addMissing: Bool? = nil,
                 replace: Bool? = nil, inbox: Bool? = nil, session: String? = nil, deliver: String? = nil) {
@@ -1609,6 +1623,33 @@ public struct ChatRequest: Codable, Equatable, Sendable {
         self.kind = kind; self.webhook = webhook; self.entry = entry; self.url = url; self.authorization = authorization
         self.path = path; self.addMissing = addMissing; self.replace = replace
     }
+}
+
+/// One participant `chat-members` adds: what `chat-add` takes, but never a token (the daemon makes each one).
+public struct ChatMemberAdd: Codable, Equatable, Sendable {
+    public var name: String
+    public var kind: String?
+    public var webhook: Bool?
+    public var entry: String?
+    public var inbox: Bool?
+    public var session: String?
+    public init(name: String, kind: String? = nil, webhook: Bool? = nil, entry: String? = nil, inbox: Bool? = nil, session: String? = nil) {
+        self.name = name; self.kind = kind; self.webhook = webhook; self.entry = entry; self.inbox = inbox; self.session = session
+    }
+}
+
+/// The answer to `chat-members`: each new participant's token (to the command that asked, once — the CLI writes each to
+/// its file and never prints it), the names removed, and the server's state.
+public struct ChatMembersAnswer: Codable, Equatable, Sendable {
+    public struct Added: Codable, Equatable, Sendable {
+        public var name: String
+        public var token: String
+        public init(name: String, token: String) { self.name = name; self.token = token }
+    }
+    public var added: [Added]
+    public var removed: [String]
+    public var chat: ChatServerState
+    public init(added: [Added], removed: [String], chat: ChatServerState) { self.added = added; self.removed = removed; self.chat = chat }
 }
 
 /// The answer to `chat-set`: the participant as it is now, and the server's state.

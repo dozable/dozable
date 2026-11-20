@@ -242,6 +242,19 @@ func cliWorkspaceWorkerRows(_ h: CLIHarness, root: URL, store: DozableStore, sta
     check(!inChat("bot1"), "31 …gone from chat who")
     check(!ledger().values.contains("mac.wk-bot1"), "31 …its ledger line gone (its item deleted)")
     check(listing("wk")?.agents.contains { $0.name == "bot1" } == false, "31 …and left out of worker ls without --all")
+    // 31a. (the peer's EDGE 6) after the worker's end: a loose ended session is forgotten; the workspace's own is kept, with why.
+    let loose = scratch.appendingPathComponent("loose-6")
+    try? fm.createDirectory(at: loose, withIntermediateDirectories: true)
+    r = h.run(["run", "@mac", "-d", "--unfenced", "--session", "loose6", "--folder", loose.path, "--", "/bin/sh", "-c", "echo loose"], timeout: 60)
+    _ = h.waitFor(10) { macRow("loose6")?.ended == true }
+    r = h.run(["sessions", "@mac", "--forget-ended", "--dry-run", "--json"], timeout: 60)
+    let plan6 = try? HostWire.decoder.decode(SessionsForgotten.self, from: r.outData)
+    check(plan6?.forgotten.contains("loose6") == true && plan6?.kept.contains { $0.name == "wk-bot1" && $0.why.contains("in workspace wk") } == true,
+          "31a --forget-ended --dry-run: loose6 would go, wk-bot1 is kept (in workspace wk) (\(plan6?.kept.map(\.name) ?? []))")
+    r = h.run(["sessions", "@mac", "--forget", "wk-bot1", "--yes"], timeout: 60)
+    check(r.code == 0 && r.out.contains("in workspace wk") && macRow("wk-bot1") != nil, "31a --forget wk-bot1: kept with its reason")
+    r = h.run(["sessions", "@mac", "--forget", "loose6", "--yes"], timeout: 60)
+    check(r.code == 0 && macRow("loose6") == nil, "31a --forget loose6: forgotten (\(r.out.prefix(120)))")
     r = h.run(["worker", "add", "wk", "--task", "list the files again"], timeout: 120)
     check(r.code == 0 && r.out.contains("added bot1 to wk"), "31 a new add gives bot1 again (\(r.code) \(r.out.prefix(160)) \(r.err.prefix(200)))")
     h.run(["worker", "end", "wk", "bot1", "--rm"], timeout: 60)

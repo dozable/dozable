@@ -1,5 +1,6 @@
 // views/mac — This Mac: the sessions held on this Mac (`doz run @mac`), which NOTHING isolates — they run as you, with
-// your files, Keychain and network. The page lists, watches, types into (on a click), ends and restarts them; it never
+// your files, Keychain and network. The page lists, watches, types into (on a click), ends and restarts them, and — this
+// Mac's own browser only — removes ended and gone ones (each carried back first; never a workspace's); it never
 // opens one (that is the person's command on the Mac). Its own section (`#mac`, beside the grid), so a live refresh never
 // tears down the open pane. Every tile and the pane say "No isolation"; a session whose own command line bypasses its
 // permissions is marked so. The pane opens in WATCH mode (nothing typed reaches the session); its two-state toggle
@@ -36,7 +37,8 @@ import { canDoHash, placeHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 
 const mac = { built: false, active: false, tiles: new Map(), sessions: [], access: 'interactive', plan: false, refused: '', lastList: 0, timer: null,
-              body: null, status: null, pane: null, term: null, open: null, tab: 'screen', tabBody: null, tabs: null, head: null, newBtn: null, bridgeErr: '' };
+              body: null, status: null, pane: null, term: null, open: null, tab: 'screen', tabBody: null, tabs: null, head: null, newBtn: null, bridgeErr: '',
+              removeBtn: null, removeNote: null };
 
 /// The permanent mark of everything here: no sandbox, no proxy, nothing around it.
 export function noIsolationChip() {
@@ -60,9 +62,13 @@ function build() {
   mac.pane = h('div', { class: 'mac-pane', hidden: true });
   mac.newBtn = btn('New session on this Mac…', () => openMacWizard({ folder: lastFolder() }), { small: true, primary: true, icon: 'plus' });
   mac.newBtn.hidden = true;
+  // Remove all ended: this Mac's own browser only (the server refuses another computer whatever serve.mac_sessions says).
+  mac.removeBtn = btn('Remove all ended…', () => removeEnded(), { small: true, quiet: true, icon: 'trash-2' });
+  mac.removeBtn.hidden = true;
+  mac.removeNote = h('span', { class: 'sub', hidden: true }, 'Remove in this Mac’s browser, or doz sessions @mac --forget-ended');
   root.replaceChildren(
     h('div', { class: 'head' }, h('h1', null, 'On this Mac'),
-      h('div', { class: 'actions' }, mac.newBtn, btn('Refresh', () => macRefresh(true), { small: true, icon: 'refresh-cw' }))),
+      h('div', { class: 'actions' }, mac.removeNote, mac.removeBtn, mac.newBtn, btn('Refresh', () => macRefresh(true), { small: true, icon: 'refresh-cw' }))),
     noIsolationCallout(false),
     h('div', { class: 'toolbar' }, mac.status),
     mac.pane, mac.body);
@@ -116,8 +122,15 @@ function lastFolder() {
   return s && !isTemporaryFolder(s.folder) ? s.folder : '';
 }
 
+/// Ended or gone, and in no workspace (a workspace's own session is forgotten by its workspace): what Remove takes.
+function removable(s) { return s.state !== 'running' && !s.workspace; }
+
 function render() {
   if (mac.newBtn) mac.newBtn.hidden = !mac.plan;
+  // `plan` is offered to this Mac's own browser only: so is removing an ended session.
+  const ended = mac.refused ? [] : mac.sessions.filter(removable);
+  if (mac.removeBtn) mac.removeBtn.hidden = !mac.plan || !ended.length;
+  if (mac.removeNote) mac.removeNote.hidden = mac.plan || !ended.length;
   if (mac.refused) {
     for (const t of mac.tiles.values()) { t.source.drop(); t.el.remove(); }
     mac.tiles.clear();
@@ -186,7 +199,8 @@ function paintTile(t, s) {
     btn('Watch', () => openPane(s.name, 'watch'), { small: true, quiet: true, icon: 'eye' }),
     ...(can && s.state === 'running' ? [btn('Control', () => openPane(s.name, 'interactive'), { small: true, quiet: true, icon: 'terminal', title: 'Attach: what you type reaches it' })] : []),
     ...(can ? [btn('Restart…', () => restart(s), { small: true, quiet: true })] : []),
-    ...(can && s.state === 'running' ? [btn('End…', () => end(s), { small: true, quiet: true, danger: true })] : []));
+    ...(can && s.state === 'running' ? [btn('End…', () => end(s), { small: true, quiet: true, danger: true })] : []),
+    ...(mac.plan && removable(s) ? [btn('Remove…', () => removeOne(s), { small: true, quiet: true, danger: true, icon: 'trash-2' })] : []));
   t.hit.hidden = s.state !== 'running';
   t.source.want(!setting('ui.terminals', true) ? null
     : s.state === 'running' ? { kind: 'live', sandbox: MAC, session: s.name }
@@ -205,6 +219,22 @@ function paintTag(t, st) {
 function end(s) {
   confirmAction('End ' + s.name, 'Its program on this Mac is hung up, then terminated, then killed if it must be. What it is doing now is lost.', s.name,
     { action: 'mac-session-end', session: s.name });
+}
+/// Remove (forget) ended and gone sessions: each one's conversations are carried back first; a gone one can no longer be
+/// restarted. The dialog names them; the action names exactly them (the daemon keeps any that is running again by then).
+function removeDialog(list, body) {
+  const gone = list.filter((s) => s.state === 'gone').map((s) => s.name);
+  const text = 'Dozable forgets ' + list.map((s) => s.name).join(', ') + ': their records, screens and session folders. '
+    + 'Their conversations are carried back first. '
+    + (gone.length ? (gone.length === 1 ? gone[0] + ' is gone and' : gone.join(', ') + ' are gone and') + ' can no longer be restarted. ' : '')
+    + 'Nothing running is touched.';
+  dialog(list.length === 1 ? 'Remove ' + list[0].name : 'Remove ' + list.length + ' ended sessions', text, [], 'Remove',
+    async () => { await actOrThrow(body); macRefresh(true); }, { danger: true, icon: 'trash-2' });
+}
+function removeOne(s) { removeDialog([s], { action: 'mac-session-forget', session: s.name }); }
+function removeEnded() {
+  const list = mac.sessions.filter(removable);
+  if (list.length) removeDialog(list, { action: 'mac-sessions-forget-ended', sessions: list.map((s) => s.name) });
 }
 function restart(s) {
   confirmAction('Restart ' + s.name, 'Its program stops and starts again in ' + (s.folder ? tildePath(s.folder) : 'its folder') + '. Claude continues the folder’s newest conversation when there is one.',

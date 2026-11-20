@@ -44,12 +44,12 @@ struct ChatAttachment: Sendable, Equatable {
     }
 }
 
-enum ChatFileRules {
+public enum ChatFileRules {
     static let maxSize = ChatProtocol.maxFileSize
     static let maxCount = ChatProtocol.maxAttachments
 
     /// `^([0-9a-f]{16}|[0-9a-f]{32})$`: a file id of this release (32) or of an earlier one (16).
-    static func isFileID(_ s: String) -> Bool {
+    public static func isFileID(_ s: String) -> Bool {
         let u = Array(s.utf8)
         return (u.count == 16 || u.count == 32) && u.allSatisfy { (0x30...0x39).contains($0) || (0x61...0x66).contains($0) }
     }
@@ -57,7 +57,7 @@ enum ChatFileRules {
     /// The stored name of what a caller called a file: its last part (a backslash counts as a separator), every
     /// character but `A-Za-z0-9._ ()+-` made `_`, leading dots and spaces dropped, `file` when nothing is left, and the
     /// last 120 bytes of a longer one.
-    static func cleanName(_ raw: String) -> String {
+    public static func cleanName(_ raw: String) -> String {
         var s = raw.replacingOccurrences(of: "\\", with: "/")
         // filepath.Base: trailing slashes go; the last part; "" is ".", only slashes is "/".
         while s.count > 1 && s.hasSuffix("/") { s.removeLast() }

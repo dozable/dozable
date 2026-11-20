@@ -49,6 +49,8 @@ extension HostCore {
             return try JSONValue(encoding: try await macBridges(r))
         case .sessionTranscripts:
             return try JSONValue(encoding: try macTranscriptsList(r))
+        case .sessionForget:
+            return try JSONValue(encoding: try await macForgetSessions(r))
         default:
             throw MacPlace.refusal(r.op.rawValue)
         }
@@ -90,9 +92,12 @@ extension HostCore {
     /// Carry a PRIVATE fenced session's conversations back into the person's own folder (and, under `keep`, Dozable's
     /// archive) — at its end, when it is forgotten, and when the host first sees its program ended or gone. Idempotent
     /// (each file's sha256 is recorded). Returns the end message (nil: nothing to say).
-    func macCarryBack(_ s: String) async -> String? {
+    func macCarryBack(_ s: String) async -> String? { await macCarryBackOutcome(s).message }
+
+    /// The same, with what was done (nil outcome: nothing to carry — not a private fenced session).
+    func macCarryBackOutcome(_ s: String) async -> (outcome: MacTranscripts.Outcome?, message: String?) {
         guard !readOnly, let rec = mac.records().sessions[s], let f = rec.fence, f.agentConfig == MacAgentConfig.privateMode,
-              let id = f.agent, let r = AgentRecipes.macAgent(program: id), let m = r.launch.macConfig, let home = mac.fenceHome() else { return nil }
+              let id = f.agent, let r = AgentRecipes.macAgent(program: id), let m = r.launch.macConfig, let home = mac.fenceHome() else { return (nil, nil) }
         let setup = MacAgentSetup(recipe: r.id, title: r.title, config: m, mode: MacAgentConfig.privateMode, modeSource: f.agentConfigSource ?? "",
                                   history: f.history ?? AgentHistory.keep, historySource: f.historySource ?? "", agentDefault: r.launch.history?.agentDefault,
                                   historyMap: r.launch.history, personHome: home + "/" + m.homeName, personBeside: nil, agentDir: f.sessionFolder + "/agent")
@@ -104,7 +109,7 @@ extension HostCore {
         if !o.carried.isEmpty || !o.renamed.isEmpty || !o.skipped.isEmpty || o.refused != nil {
             HostLog.line("\(MacPlace.name): session \(s): conversations carried back \(o.carried.count + o.renamed.count), archived \(o.archived.count), skipped \(o.skipped.count)")
         }
-        return MacTranscripts.message(o, setup: setup, session: s)
+        return (o, MacTranscripts.message(o, setup: setup, session: s))
     }
 
     /// The Claude login of a fenced session: the account asked (else `mac.account`) and a fresh placeholder for its variable
@@ -257,14 +262,21 @@ extension HostCore {
         let root = (MacFencePaths.resolve(mac.folder.path) ?? mac.folder.path) + "/transcripts/" + s
         let items = MacTranscripts.list(root)
         let rec = mac.records().sessions[s]
-        if items.isEmpty, rec?.fence == nil, MacFenceHostFS.kind(root) == nil {
-            throw HostError(.notFound, "no fenced session \(s) on this Mac, and no conversations of it kept (doz sessions @mac)")
+        if items.isEmpty, rec == nil, MacFenceHostFS.kind(root) == nil {
+            throw HostError(.notFound, "no session \(s) on this Mac, and no conversations of it kept (doz sessions @mac)")
         }
         var to: String?
         if let f = rec?.fence, let id = f.agent, let m = AgentRecipes.macAgent(program: id)?.launch.macConfig, let home = mac.fenceHome() {
             to = home + "/" + m.homeName + "/" + m.transcripts.folder(workdir: rec!.workdir)
         }
-        return MacTranscripts.Listing(session: s, items: items, carriedTo: to)
+        var l = MacTranscripts.Listing(session: s, items: items, carriedTo: to)
+        if let rec {
+            l.workdir = rec.workdir
+            let own = MacTranscriptExport.ownFiles(rec, carriedTo: to, projects: MacPlace.claudeProjects(mac.hostEnvironment))
+            l.conversations = own.items
+            l.notes = own.notes.isEmpty ? nil : own.notes
+        }
+        return l
     }
 
     /// A fenced session's git guard, its stop wired to every process of the fence.
@@ -838,6 +850,13 @@ extension HostCore {
         let s = try macSession(r, "doz sessions end @mac SESSION")
         await sessionGate.lock(MacPlace.name)
         defer { sessionGate.unlock(MacPlace.name) }
+        // The dashboard ends a running session only: one that is not running is never forgotten from here (forgetting is
+        // this Mac's own browser's Remove — `session-forget`).
+        if r.onlyRunning == true {
+            guard case .info = await mac.state(s) else {
+                throw HostError(.invalid, "session \(s) on this Mac is not running — removing it is Remove in this Mac's own browser, or doz sessions @mac --forget \(s)")
+            }
+        }
         let fence = mac.records().sessions[s]?.fence
         // A stopped fenced session: continued first, so its program can hang up like any other.
         if let f = fence, f.stoppedForGit != nil {
@@ -862,12 +881,7 @@ extension HostCore {
             var known = mac.records().sessions[s] != nil
             if !known, case .ended = await mac.state(s) { known = true }
             guard known else { throw HostError(.notFound, "no session \(s) on this Mac (doz sessions @mac)") }
-            dropFenceWatch(s)
-            macDenials.forget(session: s)
-            await mac.forget(s)
-            // 692: its secrets go with its record — their values from memory, their keychain items deleted.
-            if let gone = fence?.secrets { dropFenceSecretMemory(s, gone) }
-            sweepLaunchSecrets()
+            await macForget(s, fence: fence)
         case .stuck:
             throw HostError(.failed, "session \(s) on this Mac did not end, even after SIGKILL — a program stuck in the kernel")
         default:
@@ -876,6 +890,71 @@ extension HostCore {
         }
         var out = SessionEnded(name: MacPlace.name, session: s, how: how.rawValue)
         out.notice = carried
+        return out
+    }
+
+    /// Forget a session that does not run: its watch, its denials, its record and files, its secrets. The caller holds the
+    /// session gate and has carried its conversations back.
+    func macForget(_ s: String, fence: MacFenceRecord?) async {
+        dropFenceWatch(s)
+        macDenials.forget(session: s)
+        await mac.forget(s)
+        // 692: its secrets go with its record — their values from memory, their keychain items deleted.
+        if let gone = fence?.secrets { dropFenceSecretMemory(s, gone) }
+        sweepLaunchSecrets()
+    }
+
+    /// `session-forget`: the named sessions, or every ended or gone one (`forgetEnded`), forgotten — each carried back first
+    /// (idempotent), under the session gate. Kept, with why: a running session, a workspace's (its workspace forgets it), one
+    /// whose carry-back was refused or skipped a file. `dryRun`: what would be, nothing changed (in-process with no daemon).
+    func macForgetSessions(_ r: HostRequest) async throws -> SessionsForgotten {
+        let dry = r.dryRun == true
+        if !dry && readOnly { throw HostError(.unavailable, "session-forget needs the daemon (--dry-run looks without one)") }
+        var named = (r.sessions ?? []) + (r.session.map { [$0] } ?? [])
+        for s in named { try MacPlace.validateSessionName(s) }
+        if !dry { await sessionGate.lock(MacPlace.name) }
+        defer { if !dry { sessionGate.unlock(MacPlace.name) } }
+        let rows = await macRows()
+        if r.forgetEnded == true { named = Array(Set(named + rows.filter(\.ended).map(\.name))).sorted() }
+        var out = SessionsForgotten(forgotten: [], kept: [], dryRun: dry ? true : nil)
+        var notices: [String] = []
+        let member = workspaces.membership()
+        for s in named {
+            guard let row = rows.first(where: { $0.name == s }) else {
+                out.kept.append(.init(name: s, why: "no such session on this Mac (doz sessions @mac)"))
+                continue
+            }
+            if !row.ended {
+                out.kept.append(.init(name: s, why: "it is running — doz sessions end @mac \(s) ends it first"))
+                continue
+            }
+            if let w = member["mac:" + s] ?? row.workspace {
+                out.kept.append(.init(name: s, why: "in workspace \(w): doz workspace release \(w) \(s), or the workspace's own end, forgets it"))
+                continue
+            }
+            let fence = mac.records().sessions[s]?.fence
+            if dry { out.forgotten.append(s); continue }
+            // A fenced session's conversations go back to the person (and the archive) first — never forgotten with them.
+            if fence?.agentConfig == MacAgentConfig.privateMode {
+                let o = await macCarryBackOutcome(s)
+                if let m = o.message { notices.append("\(s): \(m)") }
+                if let refused = o.outcome?.refused {
+                    out.kept.append(.init(name: s, why: "its conversations could not be carried back (\(refused)) — kept so nothing is lost"))
+                    continue
+                }
+                // A conversation that could not be carried (a link, too large, another folder's lines) keeps the session;
+                // what is never carried by design (a folder, a file that is no conversation) does not.
+                let lost = (o.outcome?.skipped ?? []).filter { MacTranscripts.isTranscriptName(String($0.prefix { $0 != " " })) }
+                if !lost.isEmpty {
+                    out.kept.append(.init(name: s, why: "a conversation of it was not carried back (\(lost.prefix(3).joined(separator: "; "))) — kept so nothing is lost"))
+                    continue
+                }
+            }
+            await macForget(s, fence: fence)
+            out.forgotten.append(s)
+        }
+        if !out.forgotten.isEmpty && !dry { HostLog.line("\(MacPlace.name): forgot \(out.forgotten.count) ended session(s): \(out.forgotten.joined(separator: ", "))") }
+        out.notices = notices.isEmpty ? nil : notices
         return out
     }
 
@@ -1022,8 +1101,11 @@ extension HostCore {
               case .info(let line) = await mac.state(s), let pid = SessionInfo.parseList(line).first?.pid,
               let id = MacPlace.claudeHeldSessionID(sessions: macClaudeFolders(rec).sessions, pid: pid) else { return nil }
         macLearnedAt[s] = Date()
-        if rec.claudeSessionID != id {
-            await mac.updateRecord(s) { $0.claudeSessionID = id }
+        if rec.claudeSessionID != id || !(rec.claudeSessionIDs ?? []).contains(id) {
+            await mac.updateRecord(s) { r in
+                r.claudeSessionID = id
+                r.claudeSessionIDs = MacSessionRecord.adding(id, to: r.claudeSessionIDs)
+            }
             HostLog.line("\(MacPlace.name): session \(s): its Claude conversation is \(id)")
         }
         return id

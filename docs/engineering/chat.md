@@ -37,12 +37,15 @@ and another browser of the LAN option gets what `serve.chat` allows (below, "In 
 | `ChatPage.swift` | `ChatPageHandler`: one HTTP request in, one answer out — the access gate, the router (an untidy path is redirected, a wrong method is 405), every route |
 | `ChatLinePort.swift` | `ChatLineConnection`: one line-port connection's state and what each line does (a reply, nothing, or a close) |
 | `ChatListeners.swift` | the two swift-nio listeners: JSON-lines framing (a line of 32 MiB or more closes the connection; 30 s without a line closes it) and HTTP/1.1 with keep-alive; work is handed off the event loop, in order per connection |
+| `ChatReload.swift` | the control channel (`--control-fd`): a participant change taken without a restart — the two files read again, judged, applied under the core's lock (`ChatServerCore.apply`); what a removal cuts (below, "The control channel") |
 | `ChatServer.swift` | one server's life: the data folder's lock (`server.lock`), `status.json`, the signals, the exit codes; `doz chat status` |
 | `ChatOwnerSocket.swift` | the owner's private socket: who may serve it (a 0700 folder of this user, the socket 0600) and who may connect (`admit`: this user only) |
 | `Sources/DozableCLI/ChatCommandLine.swift` | `doz chat serve` and `doz chat status --data-dir`, dispatched by `DozableEntry` before anything else of doz runs (`isServerCommand`) |
 | `Sources/DozableHost/ChatDirectory.swift` | under the daemon: the store's chat folder (`ChatPaths`), Dozable's records (`ChatDirectory`, `ChatTokenHashes`), names, tokens, the generated `config.json` (`ChatConfigFile`), `ChatRestartPolicy` |
 | `Sources/DozableHost/ChatRemote.swift` | agents on other machines: the two settings' rule (`ChatRemoteSettings`) and what the supervisor says of the remote listener (`ChatRemoteState`) |
 | `Sources/DozableHost/ChatWebhookEntries.swift` | a webhook bot's entry: its keychain item (`doz-chat-webhook-<store id>-<entry>`, JSON `{"authorization","set","url"}`, at most 1800 bytes), the fingerprint, what `webhook status` may show (`ChatWebhookInfo`), the pipe's bytes, the two-line input |
+| `Sources/DozableHost/ChatReloadPolicy.swift` | `ChatServerFiles` (the files a server is started with) and `ChatReloadPolicy.decide` (same, reload or restart — pure) |
+| `Sources/DozableHost/ExportSweep.swift` | every export's leak sweep (`ExportSweep`), the export folder (`ExportFolder`), `ChatTime` (`--since`/`--until`), `ChatExport` (a room paged backwards with no cap, the JSONL, attachments and manifest) |
 | `Sources/DozableHost/ChatSupervisor.swift` | `ChatSupervisor`: the server as the daemon's child — the generated files, posix_spawn, readiness, restarts, stops; `ChatServerState` (`supervisor.json`, `daemon status`); `ChatProcesses`, the seam the tests fake |
 | `Sources/DozableHost/ChatOwnerClient.swift` | the person's HTTP client on the owner's socket (the `doz chat` commands and the dashboard): request headers, the answer's headers, a cap per call, a stream another thread can cancel (`StreamHandle`) |
 | `Sources/DozableWeb/WebChat.swift`, `WebSource/app/*/chat*.js` | the dashboard's Chat page: its closed routes on the owner's socket and the page (web.md, "Chat") |
@@ -396,7 +399,9 @@ it to a new 0600 file (`--to-file`, never over an existing one) — never into a
 **The supervisor** (`ChatSupervisor`, owned by `HostServer`; one serial queue). Wanted: `chat.enabled` while the daemon is
 not stopping and its program has not been replaced. The daemon looks every second (the settings every 5 s; a `doz chat`
 change at once):
-- the files are brought up to date; a server started with other bytes (a participant, a token, a port) is restarted;
+- the files are brought up to date; a server started with other bytes is asked to take them over its control channel when
+  only participants or tokens changed (`ChatReloadPolicy`, below), and restarted otherwise (a port, a delivery, a webhook
+  entry, the sessions folder, the remote listener);
 - the child is the daemon's own program: `doz chat serve --config … --bind 127.0.0.1 --token-hashes … --owner-socket …
   --supervised`, by posix_spawn (no shell), an environment allowlist (HOME, PATH, LANG, TMPDIR, and DOZ_TEST_* in a
   guarded run), stdin /dev/null, stdout and stderr to `server.log`, no other descriptor, its own process group;
@@ -487,7 +492,49 @@ curl -s -H "Authorization: Bearer $T" -H 'Content-Type: application/json' \
      -d '{"room":"room1","message":{"content":"hi ada"}}' http://127.0.0.1:8790/agent/send
 ```
 
-Tests: `ChatDirectoryTests`, `ChatRestartPolicyTests`, `ChatSupervisorTests` (a fake process table), `ChatIdleAndSettingsTests`,
+**The control channel — a participant change without a restart.** `posix_spawn` hands the child one end of a
+`socketpair` as descriptor 4 (`--control-fd 4`, accepted only with `--supervised` and `--token-hashes`; the conformance
+runner's `doz chat serve` has none, and there is no signal, file or HTTP way to ask — SIGHUP still stops the server with
+exit 0). After writing the files, the supervisor decides (`ChatReloadPolicy.decide(old:new:)`, pure, a table test):
+`.reload` only when the config differs by participant entries added or removed (every other byte the same, and every
+entry both have the same) and/or the token hashes differ, with the webhook entries and the sessions folder equal; anything
+else restarts as before. For a reload it writes `{"version":1,"reload":"<sha256 of config then tokens>"}` and waits at
+most 2 s for `{"reloaded":"<the same sha>"}`; no channel (a fake's, a server from before), no answer, a closed channel or
+`{"refused":…}` restarts it instead (logged, counted as `reloadFallbacks`). The server reads both files again, checks they
+are the bytes named, judges the config with the loader every start uses (`ChatConfig.resolve(data:)`), refuses unless only
+`participants` changed (`ChatReload.refusal`), and applies under the core's lock (`ChatServerCore.apply`): the
+participants as the config gives them, the registered sessions and every room's members recomputed from `agents.json`
+and `rooms.json` exactly as `load` does (so a name removed and added again is back in the rooms the data folder still
+lists it in, exactly as after a restart), the new hashes (the webhook entries kept). What a
+restart would have cut is cut: a removed participant's — or a replaced — token is refused at once, its waiting receive
+ends with 401 (`ChatLongPoll`'s reload count), a line-port connection it authenticated is closed at its next line
+(`stillHolds`), and its presence goes. **A reload equals a restart**: `ChatLiveReloadTests` compares the state after a
+reload with a fresh start on the same files (participants, rooms and members, registered sessions, hashes, every token's
+owner, the status problems); when in doubt the policy restarts. `add`, `remove`, `token` and `chat-members` return only
+after the answer; `supervisor.json` counts `reloads`, and `doz chat status` says "took N participant changes without a
+restart". A bot's change (`BotChat`) takes the same path.
+
+**Several at once** (`chat-members`, on the daemon's socket only): `{add: [{name, kind?, webhook?, entry?, inbox?,
+session?}], remove: [name]}` — every name judged first (the name rule, a name twice, one already there, one not there, the
+human, the kind and delivery, and `BotGuards.chatRefusal` for each), then ONE write of the two files and one reload; all or
+nothing. `doz chat add A B C --to-dir DIR` writes each token to `DIR/NAME.token` (`openat`, `O_CREAT|O_EXCL|O_NOFOLLOW`,
+0600; the folder 0700, never a link) before anything is asked, and never prints one; a second name without `--to-dir` is
+refused; `doz chat remove A B C` asks once (`--yes`). The single-name forms are unchanged (the conformance runner's
+`-add-cmd`). `--json` names the files, never a token.
+
+**Exporting a room** (`doz chat read ROOM --since T [--until T]`, `doz chat export ROOM --to DIR`): the owner's socket's
+page API (`/api/rooms/R/messages?before=SEQ&limit=500`) paged backwards from the latest until a page starts before the
+window — no cap, no wire change. The export folder (`ExportFolder`): new or empty, never inside the store, 0700, every
+file `openat(O_CREAT|O_EXCL|O_NOFOLLOW)` 0600; `ROOM.jsonl` (the API's `ChatJSON` bytes, a line each), `attachments/ID/NAME`
+fetched as you (an id of the rule, the server's cleaned name; a 404 listed in the manifest), `manifest.json` v1. **Every
+file passes `ExportSweep`** first: each 16–256 character run (of the token alphabet; of anything but white space, `"` and
+`\`; and the 47 characters from each `dzc_`) is hashed and looked up among `tokens.json`'s hashes — no plaintext needed —
+and a live token is replaced by "[a chat token of NAME, removed by doz]"; Bearer values, `sk-` keys and vault placeholders
+by shape. The findings name the file, the kind and the participant, never the value (`ExportSweepTests`, `ChatExportTests`,
+`make test-cli-chat` rows 41–45). Both refuse with no daemon ("the chat server runs while the daemon does") and start none.
+
+Tests: `ChatDirectoryTests`, `ChatRestartPolicyTests`, `ChatReloadPolicyTests`, `ChatSupervisorReloadTests` (a process table whose children answer the channel),
+`ChatLiveReloadTests` (the differential test, a removal's cuts, the refusals), `ChatSupervisorTests` (a fake process table), `ChatIdleAndSettingsTests`,
 `ChatTokenHashesTests`, `ChatOwnerSocketTests`, `ChatProfileTests`, `ChatDaemonProfileServeTests` (a plain HTTP/1.1 client
 on the socket, TCP never the human, the parent watch), and `make test-cli-chat` (the whole of it end to end, no VM).
 

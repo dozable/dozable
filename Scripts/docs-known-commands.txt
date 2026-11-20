@@ -191,6 +191,7 @@ chat/rooms
 chat/room
 chat/send
 chat/read
+chat/export
 workspace
 workspace/new
 workspace/ls

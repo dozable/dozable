@@ -41,6 +41,10 @@ A bare file name is in `Sources/DozableKit/`.
 
 ## Rules that each cost a bug to learn here
 
+- **`session-transcripts` only reads** (`HostOp.isReadOnly`): `doz sessions @mac --transcripts S [--export DIR]` and the
+  forget's `--dry-run` (`session-forget` with `dryRun`) answer in-process with no daemon and never start one; forgetting
+  itself needs the daemon (`MacForgetTests`).
+
 - **Every `doz exec` deadline is counted from process start and enforced by the daemon** (678: a `--timeout 3` exec
   once ran 40 s — the clock started after the client's start-up and the wake, and the guest program outlived it).
   `ExecDeadline` (DozableHost): `ProcessStart.date` is the kernel's `p_starttime`; `DozableEntry.main`'s FIRST line arms

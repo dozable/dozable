@@ -124,7 +124,16 @@ public struct ChatConfig: Sendable, Equatable {
 
     /// The config file read, the flags applied, and every check passed.
     public static func resolve(path: String, _ o: Overrides) throws -> ChatConfig {
-        var c = try load(path: path)
+        try apply(o, to: try load(path: path))
+    }
+
+    /// The same from the config's bytes (a reload hashes what it read before it judges it).
+    public static func resolve(data: Data, _ o: Overrides) throws -> ChatConfig {
+        try apply(o, to: try parse(data))
+    }
+
+    static func apply(_ o: Overrides, to loaded: ChatConfig) throws -> ChatConfig {
+        var c = loaded
         if let d = o.dataDir { c.dataDir = d }
         if let b = o.bind { c.bind = b }
         if let n = o.linePort { c.linePort = n }
