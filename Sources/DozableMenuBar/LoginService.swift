@@ -28,6 +28,8 @@ struct SystemLoginItemService: LoginItemService {
     }
 
     func register() -> (lines: [String], error: String?) {
+        // Never from the dev build — `loginService` never hands it this service, and it refuses even if reached.
+        if MenuBarFlavour.current.isDev { return RefusingLoginItemService().register() }
         var lines: [String] = []
         for (name, service) in [("agent \(AgentPlist.label)", agent), ("mainApp", SMAppService.mainApp)] {
             // Registering what is registered already is an error to SMAppService; it is left as it is.
@@ -44,6 +46,7 @@ struct SystemLoginItemService: LoginItemService {
     }
 
     func unregister() -> (lines: [String], error: String?) {
+        if MenuBarFlavour.current.isDev { return RefusingLoginItemService().unregister() }
         var lines: [String] = []
         var failure: String?
         for (name, service) in [("agent \(AgentPlist.label)", agent), ("mainApp", SMAppService.mainApp)] {
@@ -65,7 +68,9 @@ struct SystemLoginItemService: LoginItemService {
     }
 }
 
-/// The login service for this run: SMAppService's, or — in ANY test run — the recording one.
-func loginService(env: [String: String]) -> LoginItemService {
-    MenuBarSeams.testRun(env) ? RecordingLoginItemService(env: env) : SystemLoginItemService()
+/// The login service for this run: the dev flavour's refusing one (in every run), else SMAppService's, or — in ANY
+/// test run — the recording one.
+func loginService(env: [String: String], flavour: MenuBarFlavour) -> LoginItemService {
+    if flavour.isDev { return RefusingLoginItemService() }
+    return MenuBarSeams.testRun(env) ? RecordingLoginItemService(env: env) : SystemLoginItemService()
 }

@@ -1196,7 +1196,8 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
 .callout .c-body { grid-column: 2; min-width: 0; overflow-wrap: anywhere; }
 .callout .c-body > p { margin: 0; }
 .callout .c-title { font-weight: var(--fw-strong); }
-.callout .c-acts { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.callout .c-acts { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; justify-content: flex-end; max-width: 50%; min-width: 0; }
+.callout .c-acts .cmd-line { overflow-wrap: anywhere; min-width: 0; }   /* a long command wraps; it never takes the body's width */
 .callout .c-acts .btn.quiet { color: var(--ink-2); }
 .callout.ok { --tone: var(--ok); --tone-t: var(--ok-tint); }
 .callout.warn { --tone: var(--warn); --tone-t: var(--warn-tint); }

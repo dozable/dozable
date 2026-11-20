@@ -22,6 +22,9 @@ import DozableMenuBarCore
 let env = ProcessInfo.processInfo.environment
 let arguments = Array(CommandLine.arguments.dropFirst())
 let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+/// Release or dev — from the bundle's Info.plist, set when it was assembled (`make app` / `make app-dev`), never from
+/// anything typed at run time.
+let flavour = MenuBarFlavour.current
 /// A release build (`swift build -c release`: what the release ships) requires Dozable's team signature of the doz its
 /// login agent runs; a development build (`make app`) does not.
 let releaseBuild: Bool = {
@@ -47,14 +50,15 @@ let usage = """
     """
 
 func loginContext() -> SnapshotSource.LoginContext {
-    SnapshotSource.LoginContext(service: loginService(env: env), look: LaunchdLook(env: env),
+    SnapshotSource.LoginContext(service: loginService(env: env, flavour: flavour), look: LaunchdLook(env: env),
                                 stablePlace: LoginPlace.isStable(bundlePath: Bundle.main.bundlePath, env: env))
 }
 
 func source() -> SnapshotSource {
     let bundlePath = Bundle.main.bundlePath
-    return SnapshotSource(locator: .standard(env: env), runner: CommandRunner(), appVersion: appVersion, login: loginContext(),
-                          installedAppVersion: { AppOnDisk.version(bundlePath: bundlePath) })
+    return SnapshotSource(locator: .standard(flavour: flavour, env: env),
+                          runner: CommandRunner(extraEnvironment: flavour.childEnvironment(env: env)), appVersion: appVersion,
+                          login: loginContext(), installedAppVersion: { AppOnDisk.version(bundlePath: bundlePath) }, flavour: flavour)
 }
 
 func jsonLine(_ dict: [String: Any]) -> String {
@@ -71,7 +75,7 @@ case nil:
         complain("a test run never shows the menu bar app (DOZ_TEST_GUARD=1) — use --dump-menu or --run-action")
         exit(70)
     }
-    runMenuBarApp(source: source())
+    runMenuBarApp(source: source(), flavour: flavour)
 case "--dump-menu"?:
     say(MenuDump(source().snapshot()).json())
     exit(0)
@@ -97,26 +101,33 @@ case "--run-action"?:
     exit(error == nil ? 0 : 1)
 case "--launch-daemon"?:
     // launchd's job: no NSApplication, nothing drawn. Never returns (exec, or exit 0).
-    LaunchAgent.run(locator: .forLaunchAgent(env: env, requireTeam: requireTeam))
+    LaunchAgent.run(locator: .forLaunchAgent(env: env, requireTeam: requireTeam), flavour: flavour)
 case "--unregister"?:
     // doz app uninstall / doz uninstall: this copy takes back what it registered (only on a person's command).
-    let service = loginService(env: env)
+    let service = loginService(env: env, flavour: flavour)
     let before = service.state()
     let held = before.agent.registered || before.mainApp.registered
     let r = service.unregister()
     say(jsonLine(["ok": r.error == nil, "held": held, "steps": r.lines, "error": r.error ?? NSNull()]))
     exit(0)
 case "--login-status"?:
-    let st = loginService(env: env).state()
+    let st = loginService(env: env, flavour: flavour).state()
     say(jsonLine(["agent": st.agent.rawValue, "mainApp": st.mainApp.rawValue, "label": AgentPlist.label,
                   "jobLoaded": LaunchdLook(env: env).loaded(), "bundle": Bundle.main.bundlePath,
                   "stablePlace": LoginPlace.isStable(bundlePath: Bundle.main.bundlePath, env: env)]))
     exit(0)
 case "--self-config"?:
-    say(jsonLine(["bundleIdentifier": Bundle.main.bundleIdentifier ?? NSNull(), "version": appVersion ?? NSNull(),
-                  "minimumDoz": MenuBarApp.minimumDoz, "minimumDozForLogin": MenuBarApp.minimumDozForLogin,
-                  "requireTeam": requireTeam, "agentLabel": AgentPlist.label,
-                  "executable": Bundle.main.executablePath ?? NSNull()]))
+    var config: [String: Any] = ["bundleIdentifier": Bundle.main.bundleIdentifier ?? NSNull(), "version": appVersion ?? NSNull(),
+                                 "minimumDoz": MenuBarApp.minimumDoz, "minimumDozForLogin": MenuBarApp.minimumDozForLogin,
+                                 "requireTeam": requireTeam, "agentLabel": AgentPlist.label,
+                                 "executable": Bundle.main.executablePath ?? NSNull(), "flavour": flavour.rawName]
+    if flavour.isDev {
+        for (field, key) in [("devDoz", MenuBarFlavour.devDozKey), ("devConfigHome", MenuBarFlavour.devConfigHomeKey),
+                             ("devStore", MenuBarFlavour.devStoreKey), ("devCommit", MenuBarFlavour.devCommitKey)] {
+            config[field] = Bundle.main.object(forInfoDictionaryKey: key) ?? NSNull()
+        }
+    }
+    say(jsonLine(config))
     exit(0)
 case "--version"?:
     say(appVersion ?? "unknown (not inside Dozable.app)")

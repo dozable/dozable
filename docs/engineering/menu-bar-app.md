@@ -14,7 +14,7 @@ only gains fields).
 
 | Path | What |
 |---|---|
-| `Sources/DozableMenuBarCore/` — `DozStatus.swift`, `MenuModel.swift`, `SnapshotSource.swift`, `DozLocator.swift`, `CommandRunner.swift`, `Version.swift`, `LoginItem.swift`, `LaunchAgent.swift` | the target `DozableMenuBarCore` (Foundation, Security and os only): the app's own all-optional types for `doz daemon status --json` and `doz app status --json`, the menu as a pure function (`MenuModel.items(for:)`, `loginItem(for:)`, `icon(for:)`, `header(for:)`), the refresh and the actions (`SnapshotSource`), finding doz (`DozLocator`, `FileIdentity`, `MenuBarSeams`; the team check `DozSignature`), running it (`CommandRunner`, `DozCommand`), versions (`DozVersion`), Start at Login without SMAppService (`AgentPlist`, the `LoginItemService` protocol, `RecordingLoginItemService`, `LaunchdLook`, `LoginItemFlow`, `LoginPlace`), the login agent's mode (`LaunchAgent`), the constants (`MenuBarApp.minimumDoz` 0.50.5, `minimumDozForLogin` 0.50.8) |
+| `Sources/DozableMenuBarCore/` — `DozStatus.swift`, `MenuModel.swift`, `SnapshotSource.swift`, `DozLocator.swift`, `CommandRunner.swift`, `Version.swift`, `LoginItem.swift`, `LaunchAgent.swift`, `Flavour.swift` (the dev flavour: `MenuBarFlavour`, `RefusingLoginItemService` — below) | the target `DozableMenuBarCore` (Foundation, Security and os only): the app's own all-optional types for `doz daemon status --json` and `doz app status --json`, the menu as a pure function (`MenuModel.items(for:)`, `loginItem(for:)`, `icon(for:)`, `header(for:)`), the refresh and the actions (`SnapshotSource`), finding doz (`DozLocator`, `FileIdentity`, `MenuBarSeams`; the team check `DozSignature`), running it (`CommandRunner`, `DozCommand`), versions (`DozVersion`), Start at Login without SMAppService (`AgentPlist`, the `LoginItemService` protocol, `RecordingLoginItemService`, `LaunchdLook`, `LoginItemFlow`, `LoginPlace`), the login agent's mode (`LaunchAgent`), the constants (`MenuBarApp.minimumDoz` 0.50.5, `minimumDozForLogin` 0.50.8) |
 | `Sources/DozableMenuBar/` — `main.swift`, `MenuBarController.swift`, `LoginService.swift` | the executable target `DozableMenuBar`, product `Dozable` (AppKit + Core): the modes, `NSStatusItem` + `NSMenu` drawing the model, the timers, the Stop question; `LoginService.swift` is the ONE file that imports ServiceManagement (`SystemLoginItemService`: `SMAppService.agent(plistName:)` + `SMAppService.mainApp`) |
 | `Resources/MenuBar/Info.plist`, `Resources/MenuBar/com.dozable.app.daemon.plist`, `Scripts/assemble-app.sh`, `Scripts/check-agent-plist.py` | the bundle's Info.plist template, the login agent's plist (copied as is to `Contents/Library/LaunchAgents/`), the assembly (no signing; every Info.plist value checked with `plutil -extract`, the agent plist with `check-agent-plist.py`: exactly its keys, its label doz's reserved one) |
 | `Sources/DozableCLI/AppCommands.swift` | `doz app install|status|uninstall` (`MenuBarAppInstall`: the bundled copy, the destination, verify, the swap, the running copies, the open seam); `doz uninstall` lists and removes an installed copy (`UninstallCommand.swift`) |
@@ -185,6 +185,43 @@ shape changes).
 - `doz uninstall` lists an installed copy, runs its `--unregister`, quits it and removes it with the rest; so does
   `doz app uninstall`.
 
+## The dev flavour — Dozable Dev.app
+
+A contributor's tool, never shipped: a second menu bar app that runs BESIDE an installed release Dozable.app and talks
+only to a development doz install (the private workspace's doz-dev: `~/.local/doz-dev`, its own store and settings), so a
+person can watch an unreleased build next to the release one and tell them apart at a glance.
+
+- **Chosen at assembly, never at run time.** `make app-dev` → `Scripts/assemble-app.sh --dev` → `.build/debug/Dozable
+  Dev.app`: `CFBundleIdentifier` `com.dozable.app.dev` (its own preferences, LaunchServices entry and signature
+  identifier), `CFBundleName`/`CFBundleDisplayName` "Dozable Dev", and the keys the app reads (`MenuBarFlavour.from(info:)`):
+  `DozableFlavour = dev`; `DozableDevDoz`, the dev doz's absolute path (default `~/.local/doz-dev/bin/doz`, expanded by the
+  script; `DEV_DOZ=` overrides); `DozableDevConfigHome`, its `XDG_CONFIG_HOME` (default `~/.local/doz-dev/config`;
+  `DEV_CONFIG_HOME=`); `DozableDevStore`, its `DOZ_STORE` (default `~/doz-dev-store`; `DEV_STORE=`);
+  `DozableDevCommit`, the commit it was built from. The script's `plutil` checks cover both flavours;
+  the release assembly is byte-for-byte what it was (`AssembleAppTests.testTheReleaseBundleIsUnchanged`).
+- **Its ONE doz is `DozableDevDoz`**, used only when it is an executable regular file (a link followed) AND the settings
+  and store keys are there too: never a standard place, never a PATH search, never on the default store — so it can never
+  drive the release daemon by mistake. Missing → "doz is not installed".
+  A guarded test run still uses only the seam `DOZ_MENUBAR_DOZ`, whatever the flavour.
+- **Its doz runs with the dev settings and store**: `CommandRunner.extraEnvironment` = `MenuBarFlavour.childEnvironment`
+  adds `XDG_CONFIG_HOME = DozableDevConfigHome`, `DOZ_STORE = DozableDevStore` and `DO_NOT_TRACK=1` over the inherited
+  environment (in a guarded run only the seams `DOZ_MENUBAR_CONFIG_HOME` / `DOZ_MENUBAR_STORE`). The store must be named:
+  the dev install keeps its store by `DOZ_STORE`, not in its settings, so the settings alone would leave the dev doz on
+  the default store — the release app's daemon (seen on the first real run). Still an absolute path and an argv.
+- **It registers nothing with the system.** No Start at Login (the row reads "Start at Login — not in the dev build",
+  disabled; `SnapshotSource.performLogin` refuses before any step; the login service is `RefusingLoginItemService` in
+  every run, and `SystemLoginItemService` refuses too if ever reached), no login agent (the bundle carries no
+  `Contents/Library/LaunchAgents`; `--launch-daemon` starts nothing: `LaunchAgent.decide(_:flavour:)`), no
+  `doz app install` ("Update Menu Bar App — not in the dev build"; `perform(.updateApp)` refuses). Why: a second
+  holder of Start at Login, or an install over /Applications, would collide with the release app the person relies on.
+- **Told apart at a glance**: the status item draws "DEV" as a small heavy title beside the template icon (the menu bar
+  draws both in its own label colour, so it reads in light and dark menu bars and when highlighted); the menu's first
+  line is "Dozable Dev"; `--dump-menu` carries `flavour` and `badge`; `--self-config` the dev keys.
+- **Signature**: ad hoc, as `make app`; the login agent's team requirement only ever applied to a release build's agent,
+  and the dev build has none.
+
+`MenuBarFlavourTests`, `AssembleAppTests`, `make test-cli-app` (11).
+
 ## The modes (no NSApplication, nothing drawn)
 
 `Dozable --dump-menu` (the model as JSON, with SMAppService's states under `loginItem` — also useful over ssh),
@@ -210,8 +247,11 @@ dashboard through `DOZ_TEST_BROWSER_LOG` → one `open http://127.0.0.1:N`, no l
 swapped by rename, opened through the seam, a tampered copy refused, no destination refused) and `doz uninstall`; (10)
 Start at Login through the recording service and the fake launchctl: doz's own item → the hand-over offered; login-on →
 "would register" agent + mainApp, the job loaded, THEN `daemon.login_item on` (doz's plist gone, owner app); login-off;
-needs approval (doz not told); `doz app uninstall` running `--unregister`. `make test-cli-daemon` row 12 checks doz's side
-with the SMAppService-shaped job.
+needs approval (doz not told); `doz app uninstall` running `--unregister`; (11) the DEV app (`--dev-app`, `make app-dev`)
+against a fake doz: its identifier and no agent in the bundle, "Dozable Dev" first and the DEV badge, the two rows
+"not in the dev build", every doz call with the dev `XDG_CONFIG_HOME` and `DOZ_STORE` seams, no seam → no doz, login-on refused with the
+service never asked, `--launch-daemon` starting nothing, `--unregister` holding nothing, the menu refused (exit 70).
+`make test-cli-daemon` row 12 checks doz's side with the SMAppService-shaped job.
 
 **Only a person at the screen can verify**: the menu itself, the icon in light and dark, the Stop question, Gatekeeper's
 first open of the notarised app, that Open Dashboard lands signed in — and everything SMAppService does for real: the

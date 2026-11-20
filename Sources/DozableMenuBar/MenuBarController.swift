@@ -3,10 +3,10 @@ import DozableMenuBarCore
 
 /// Start the menu: an accessory app (no Dock icon, no main window) with one status item. Never returns.
 @MainActor
-func runMenuBarApp(source: SnapshotSource) -> Never {
+func runMenuBarApp(source: SnapshotSource, flavour: MenuBarFlavour) -> Never {
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
-    let controller = MenuBarController(source: source)
+    let controller = MenuBarController(source: source, flavour: flavour)
     withExtendedLifetime(controller) { app.run() }
     exit(0)
 }
@@ -19,9 +19,10 @@ func runMenuBarApp(source: SnapshotSource) -> Never {
 /// queue: a tick that comes while one runs is skipped.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
-    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private let statusItem: NSStatusItem
     private let menu = NSMenu()
     private let source: SnapshotSource
+    private let flavour: MenuBarFlavour
     private let queue = DispatchQueue(label: "com.dozable.app.doz")
     private var inFlight = false
     private var snapshot: Snapshot
@@ -33,9 +34,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     static let closedInterval: TimeInterval = 60
     static let openInterval: TimeInterval = 2
 
-    init(source: SnapshotSource) {
+    init(source: SnapshotSource, flavour: MenuBarFlavour) {
         self.source = source
-        snapshot = Snapshot(doz: .missing, appVersion: source.appVersion)
+        self.flavour = flavour
+        // The dev flavour's item is wider: its icon and the "DEV" badge beside it.
+        statusItem = NSStatusBar.system.statusItem(withLength: flavour.badge == nil ? NSStatusItem.squareLength : NSStatusItem.variableLength)
+        snapshot = Snapshot(doz: .missing, appVersion: source.appVersion, flavour: flavour)
         super.init()
         menu.delegate = self
         menu.autoenablesItems = false
@@ -97,11 +101,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private func draw() {
         let s = current
         let symbol = MenuModel.icon(for: s)
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Dozable")
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: flavour.name)
         image?.isTemplate = true
         statusItem.button?.image = image
-        statusItem.button?.title = image == nil ? "D" : ""
-        statusItem.button?.toolTip = MenuModel.header(for: s)
+        if let badge = flavour.badge {
+            // A title beside the template icon: the status bar draws both in its own label colour, so the badge reads
+            // in a light and a dark menu bar alike (and when the item is highlighted).
+            statusItem.button?.imagePosition = .imageLeading
+            statusItem.button?.attributedTitle = NSAttributedString(string: image == nil ? "D " + badge : badge, attributes: [
+                .font: NSFont.systemFont(ofSize: 9, weight: .heavy), .kern: 0.5, .baselineOffset: 0.5])
+            statusItem.button?.toolTip = flavour.name + " — " + MenuModel.header(for: s)
+        } else {
+            statusItem.button?.title = image == nil ? "D" : ""
+            statusItem.button?.toolTip = MenuModel.header(for: s)
+        }
 
         let model = MenuModel.items(for: s)
         // In place when the shape is the same (an open menu updates without flicker); rebuilt otherwise.

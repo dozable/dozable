@@ -137,8 +137,10 @@ final class WebSecurityTests: XCTestCase {
         XCTAssertTrue(h["content-security-policy"]!.contains("frame-ancestors 'none'"))
         // 591 (T2): the PAGE gains only `frame-src 'self'` (its own terminal frame) and compiles no
         // WebAssembly; the frame alone may ('wasm-unsafe-eval'), and it can connect to nothing.
+        // Owner, 2026-11-20: the ONE "unsafe" the page allows is inline styles (an editor runs in the page);
+        // `testScriptsStayStrictWhileStylesMayBeInline` pins every directive.
         let csp = h["content-security-policy"]!
-        XCTAssertFalse(csp.contains("unsafe"))
+        XCTAssertFalse(csp.replacingOccurrences(of: "style-src 'self' 'unsafe-inline'", with: "").contains("unsafe"))
         XCTAssertTrue(csp.contains("script-src 'self';"))
         XCTAssertTrue(csp.contains("connect-src 'self';"))
         XCTAssertTrue(csp.contains("frame-src 'self';"))
