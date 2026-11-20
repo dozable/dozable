@@ -910,6 +910,47 @@ codes: 0 ok · 2 not found · 4 already exists, or a retired name · 6 the daemo
 daemon says so as you in that workspace's main room ("mira's instructions changed; they apply from mira's next session") —
 its running session keeps what it started with.
 
+### Permissions: what agents may do
+
+What an agent may do in Dozable — not to be confused with `doz net permissions`, which is what a sandbox's network may
+reach. One list of permissions (`workspace.read`, `agent.start`, `agent.stop`, `worker.start`, `worker.stop`,
+`isolation.unfenced`, `net.allow`, `secret.use`, `keychain.use`, `folder.read`, `folder.write`, `delete`, `room.manage`,
+`chat.read`, `chat.post`, `chat.decide`, `workspace.sleep`, `workspace.finish`, `workspace.archive`, `workspace.delete`,
+`bot.manage`, `grant.give`, `spend`, `sudo`), each answered `allow`, `ask` or `never`. A role bundles answers (`manager`,
+`worker`, `member`, `decider`, `admin`, and the presets `cautious-manager` and `trusted-manager`); an agent's role in a
+workspace is the one the workspace's record gives it ("worker (from the workspace)") — nothing is written for it. A grant
+gives a role, or one permission's answer, in exactly one scope. A ceiling — this Mac's, a bot's, a workspace's, and
+Dozable's own above them all (another workspace, Dozable's settings, a new account, key or token, the ceilings
+themselves) — is the most an agent may ever get.
+
+```bash
+doz permissions show [W] [--agent A | --bot B | --mac] [--roles] [--json]   # each permission's answer, its source (role, ✎ grant, ▲ ceiling, default) and ENFORCED
+doz permissions grant SUBJECT ROLE | PERM=allow|ask|never … (--in W | --room W/R | --everywhere) [--until DATE]
+doz permissions revoke SUBJECT ROLE|PERM … [--in W | --room W/R | --everywhere]
+doz permissions ceiling (--mac | --in W | --bot B) [PERM=ask|never …] [--clear PERM]   # no PERM: the ceiling as it is
+doz why AGENT PERM [--in W] [--room R] [--json]   # the five steps, and what decided (also: doz permissions why)
+doz grant SUBJECT …                               # = doz permissions grant (doz grant give …)
+doz grant ls | why | revoke …                     # = doz permissions show | why | revoke
+doz bot ceiling NAME [PERM=ask|never …] [--clear PERM]   # = doz permissions ceiling --bot NAME
+```
+
+SUBJECT is an agent of the workspace or a bot by its name, `bot:NAME`, `agent:W/NAME`, or `role:ROLE` (every agent with
+that role in the scope). How an answer is found: (1) any never wins — a ceiling's, or your explicit never in any scope that
+applies; (2) a permission grant, the most specific scope first (room > workspace > everywhere; within one, the agent > its
+bot > a role); (3) the roles in the most specific scope that has any, combined to the more permissive answer; (4) nothing
+says anything: ask (`sudo` and `isolation.unfenced` fail closed: never; an unknown permission: ask); (5) the strictest
+ceiling caps it (an ask ceiling turns allow into ask). A grant `--until` a date ends then and stays listed "ended DATE".
+Refused: an unknown permission (with the list), the `owner` role (yours, never an agent's), `admin` anywhere but
+`--everywhere`, `chat.decide` (deciders are made in chat, by you only), a role the workspace's record gives (change the
+workspace), two scopes at once, a `--until` in the past. Every change is one line of `<store>/grants/log.jsonl` by `you`
+(and of the workspace's log for a workspace's grant); the everywhere grants and this Mac's ceiling are
+`<store>/grants/grants.json`, a workspace's in its `workspace.json`, a bot's ceiling in `bots.json`.
+
+**Permissions constrain agents, never you**: nothing you run is ever checked against them. None is enforced yet — no agent
+can drive Dozable; `show`'s ENFORCED column says "not yet — no agent can drive Dozable" (or "promise — acts as you" for
+an unfenced agent). `show` and `why` answer from the store and never start the daemon. Exit codes: 0 ok · 2 not found · 6
+the daemon unavailable · 64 usage.
+
 ### Workspaces
 
 A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is

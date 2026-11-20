@@ -906,6 +906,8 @@ public actor HostCore {
             return try await performWorker(r)
         case .macsList:
             return try JSONValue(encoding: try MacBookmarkStore(store: store).listing())
+        case .permissionsShow, .permissionsWhy, .permissionsGrant, .permissionsRevoke, .permissionsCeiling:
+            return try await performPermissions(r)
         case .tools, .toolsApply:
             let m = try get(r.name)
             let phase = await m.sandbox.status.phase

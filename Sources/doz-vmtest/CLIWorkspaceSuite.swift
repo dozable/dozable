@@ -28,6 +28,7 @@ import DozableHost
 //  38–44. the dry run (nothing written, no daemon), its refusals, the commands it prints, the new fields, --start
 //      (CLIWorkspacePlanRows.swift)
 //  45–47. adding a worker with a look first: the dry run, its refusal, with the daemon stopped (CLIWorkerPlanRows.swift)
+//  P1–P10. what agents may do: permissions, grants, ceilings, why (CLIWorkspacePermissionRows.swift)
 func cliWorkspaceSuite(binary: String) async {
     print("cli: workspaces — no VM")
     let fm = FileManager.default
@@ -240,4 +241,6 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspaceLifecycleRows(h, root: root, store: store, started: &started)
     // V1–V5. the wide views (CLIWorkspaceViewRows.swift)
     cliWorkspaceViewRows(h, root: root, store: store, started: &started)
+    // P1–P10. what agents may do (CLIWorkspacePermissionRows.swift)
+    cliWorkspacePermissionRows(h, root: root, store: store, started: &started)
 }
