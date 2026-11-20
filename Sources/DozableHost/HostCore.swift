@@ -635,6 +635,9 @@ public actor HostCore {
     /// Every request but the streaming ones (`attach`, `events`, `net-log --follow` — see HostServer).
     public func handle(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void = { _ in }) async -> HostMessage {
         if let refused = HostProtocol.refusal(r) { return .failure(refused) }
+        // An agent's request is decided at the daemon's door (`PermissionGate` in `HostServer.serve`); the in-process core
+        // serves only the owner, so a request narrowed to an agent is never answered here.
+        if r.actAs != nil && readOnly { return .failure(HostError(.unavailable, "--as needs the daemon: an agent's request is decided there")) }
         // 593: `terminal-layout-set` is answered in-process too: it writes one small file of the web UI's
         // state beside doz.json (never a VM, never a secret — like the UI's doz.toml), and a host is not
         // started to write it. With a host running, the host writes it (serialised with `rm`).
@@ -906,6 +909,8 @@ public actor HostCore {
             return try await performWorker(r)
         case .macsList:
             return try JSONValue(encoding: try MacBookmarkStore(store: store).listing())
+        case .permissionsShow, .permissionsWhy, .permissionsGrant, .permissionsRevoke, .permissionsCeiling:
+            return try await performPermissions(r)
         case .tools, .toolsApply:
             let m = try get(r.name)
             let phase = await m.sandbox.status.phase

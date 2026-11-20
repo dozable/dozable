@@ -5,8 +5,8 @@ import XCTest
 @testable import DozableHost
 
 /// `workspace-reach` in an in-process core on a scratch store (no VM: a lab sandbox made, never booted; sessions on this Mac
-/// as records, no process started): every kind of agent and role, the control words, live or at the next start, the later
-/// rows never data, no secret value or chat token's fingerprint anywhere in the answer, no daemon → refusals not known.
+/// as records, no process started): every kind of agent and role, the control words, live or at the next start, the
+/// permissions and ceiling rows (real answers, `permissions show`'s counts), no secret value or chat token's fingerprint anywhere in the answer, no daemon → refusals not known.
 final class WorkspaceReachTests: XCTestCase {
     private var root: URL!
     private var folder: URL!
@@ -140,8 +140,16 @@ final class WorkspaceReachTests: XCTestCase {
         XCTAssertEqual(side.capabilities.first { $0.id == "network" }?.editable, "live")
         // The chat row: the manager's token held by Dozable.
         XCTAssertTrue(by["mira"]!.capabilities.contains { $0.id == "chat" && $0.sentence.contains("its chat token is held by Dozable") })
-        // The later rows are never data.
-        for a in r.agents { XCTAssertFalse(a.capabilities.contains { ["permissions", "ceiling"].contains($0.id) || $0.name.contains("Ceiling") }) }
+        // Last, each agent's permissions and ceiling — real answers, the counts `permissions show` prints, read only.
+        for a in r.agents {
+            XCTAssertEqual(a.capabilities.suffix(2).map(\.id), ["permissions", "ceiling"], a.name)
+            let p = a.capabilities.first { $0.id == "permissions" }!
+            XCTAssertTrue(p.state.hasPrefix("allow ") && p.state.contains(" · ask ") && p.state.contains(" · never "), p.state)
+            XCTAssertTrue(p.sentence.contains("not enforced yet"), p.sentence)
+            XCTAssertEqual(p.link, "doz permissions show demo --agent \(a.name)")
+            XCTAssertEqual(a.capabilities.first { $0.id == "ceiling" }?.state, "none set: no cap")
+        }
+        XCTAssertTrue(by["otto"]!.capabilities.first { $0.id == "permissions" }!.sentence.contains("acts as you, so what it does is a promise"))
         // One agent only.
         let (one, _) = try await reach(c, agent: "otto")
         XCTAssertEqual(one.agents.map(\.name), ["otto"])
@@ -397,5 +405,37 @@ final class WorkspaceLogPageTests: XCTestCase {
         r.workspaceRequest = WorkspaceRequest(name: "demo")
         let old = await c.handle(r)
         XCTAssertEqual(try XCTUnwrap(old.result).decode([WorkspaceLogEntry].self).count, 5)
+    }
+}
+
+/// `AgentCapabilities.permissions` — pure: the counts are `permissions show`'s, the ceiling the strictest cap per permission
+/// with whose it is, "none set: no cap" when nothing caps it.
+final class AgentCapabilitiesTests: XCTestCase {
+    func answers(_ actsAsYou: Bool = false) -> AgentGrantAnswers {
+        let f = GrantFacts(macCeiling: ["sudo": .never], botCeiling: ["spend": .ask, "sudo": .never])
+        let rows = GrantPermissions.ids.map { p in
+            GrantAnswerRow(GrantDecision.decide(GrantQuery(name: "bot1", home: "demo", bot: nil, perm: p, workspace: "demo",
+                                                           recordRoles: [HeldRole(role: "worker", workspace: "demo")]), f), enforced: PermissionWords.notYet)
+        }
+        return AgentGrantAnswers(name: "bot1", workspace: "demo", bot: nil, roles: ["worker (from the workspace)"], actsAsYou: actsAsYou, rows: rows)
+    }
+
+    func testThePermissionsAndCeilingRows() {
+        let g = answers()
+        let ceilings = [CeilingRow(lid: "mac", words: "this Mac's", perm: "sudo", answer: "never"),
+                        CeilingRow(lid: "bot:otto", words: "otto's", perm: "sudo", answer: "never"),
+                        CeilingRow(lid: "bot:otto", words: "otto's", perm: "spend", answer: "ask")]
+        let rows = AgentCapabilities.permissions(g, ceilings: ceilings, workspace: "demo")
+        XCTAssertEqual(rows.map(\.id), ["permissions", "ceiling"])
+        XCTAssertEqual(rows[0].state, g.counts)
+        XCTAssertEqual(rows[0].link, "doz permissions show demo --agent bot1")
+        XCTAssertTrue(rows[0].sentence.contains("worker (from the workspace)") && rows[0].sentence.contains("not enforced yet"))
+        XCTAssertEqual(rows[1].state, "1 never · 1 ask (otto's, this Mac's)")
+        XCTAssertTrue(rows[1].sentence.contains("spend=ask (otto's)") && rows[1].sentence.contains("sudo=never (this Mac's, otto's)"), rows[1].sentence)
+        XCTAssertTrue(rows.allSatisfy { $0.editable == "live" })
+        XCTAssertEqual(AgentCapabilities.permissions(g, ceilings: [], workspace: "demo")[1].state, "none set: no cap")
+        XCTAssertTrue(AgentCapabilities.permissions(answers(true), ceilings: [], workspace: "demo")[0].sentence.contains("a promise"))
+        let c = g.rows.reduce(into: [String: Int]()) { $0[$1.answer, default: 0] += 1 }
+        XCTAssertEqual(g.counts, "allow \(c["allow"] ?? 0) · ask \(c["ask"] ?? 0) · never \(c["never"] ?? 0)")
     }
 }

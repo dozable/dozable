@@ -188,7 +188,14 @@ public final class HostClient {
         return s.split(separator: "\n").suffix(n).joined(separator: " | ")
     }
 
+    /// The CLI's hidden `--as W/AGENT`: every request this process sends is narrowed to that agent (`HostRequest.actAs`;
+    /// the daemon's `PermissionGate` decides it). nil — always, but for that preview and test path — is the owner. The client's
+    /// own `ping` (which daemon answers, its version) is not narrowed: it asks nothing of Dozable an agent would.
+    nonisolated(unsafe) public static var narrowTo: String?
+
     public func send(_ r: HostRequest) throws {
+        var r = r
+        if r.actAs == nil, r.op != .ping, let a = Self.narrowTo { r.actAs = a }
         var d = try HostWire.encoder.encode(r)
         d.append(10)
         guard UnixSocket.writeAll(fd, d) else { throw HostError(.unavailable, "the daemon closed the connection") }

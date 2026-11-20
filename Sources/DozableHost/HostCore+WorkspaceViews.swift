@@ -26,6 +26,14 @@ extension HostCore {
                               refusalsKnown: !readOnly, notes: notes.isEmpty ? nil : notes)
     }
 
+    /// Its permissions' rows: every answer here and the ceilings over it (`GrantDecision`, read from the store).
+    func withGrants(_ i: inout AgentCapabilities.Input, _ rec: WorkspaceRecord, _ a: WorkspaceAgent) {
+        let who = GrantFactsReader.who(a, in: rec)
+        i.grants = grantAnswers(who, workspace: rec.name)
+        i.ceilings = agentCeilings(who, workspace: rec.name)
+        i.workspace = rec.name
+    }
+
     /// One agent's reach, from its place's own records (and the live proxy, the daemon's only).
     func agentReach(_ rec: WorkspaceRecord, _ a: WorkspaceAgent, state: String) async -> AgentReach {
         let rooms = (a.isManager || a.isWorker || a.bot != nil) ? (rec.mainRoom.map { [$0.chatRoom] } ?? []) : []
@@ -58,6 +66,7 @@ extension HostCore {
                 i.account = cfg.account
                 i.keys = cfg.credentialSources.isEmpty ? "none" : "\(cfg.credentialSources.count) held by Dozable"
             }
+            withGrants(&i, rec, a)
             return AgentReach(name: a.name, role: a.role, isolation: "vm", place: a.place.display, kind: "sandbox",
                               control: WorkerLaunch.control(isolation: "vm", shares: shares), actsAsYou: false, state: state,
                               capabilities: AgentCapabilities.rows(i), network: i.network, held: i.held, folders: i.folders, account: i.account, rooms: rooms)
@@ -92,12 +101,14 @@ extension HostCore {
                     }
                 }
             }
+            withGrants(&i, rec, a)
             return AgentReach(name: a.name, role: a.role, isolation: iso, place: a.place.display, kind: "mac",
                               control: WorkerLaunch.control(isolation: iso), actsAsYou: !fenced, state: state,
                               capabilities: AgentCapabilities.rows(i), network: i.network, held: i.held, folders: i.folders, account: i.account, rooms: rooms)
         }
         var i = AgentCapabilities.Input(name: a.name, role: a.role, isolation: "elsewhere", place: a.place.display)
         i.rooms = rooms
+        withGrants(&i, rec, a)
         return AgentReach(name: a.name, role: a.role, isolation: "elsewhere", place: a.place.display, kind: "elsewhere",
                           control: "not run by Dozable · token only", actsAsYou: false, state: state,
                           capabilities: AgentCapabilities.rows(i), network: .none, held: [], folders: [], account: nil, rooms: rooms)

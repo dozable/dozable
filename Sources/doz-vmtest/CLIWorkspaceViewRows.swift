@@ -11,7 +11,8 @@ import DozableHost
 //  V2. the leak sweep: the sentinel nowhere in any answer (text or --json), the store's files, daemon.log or ps
 //  V3. show --folders: a file touched after the start listed (A), one from before not, a link's target neither listed nor followed
 //  V4. log --limit 1, then --before its first: the page before; --json carries first and more
-//  V5. the daemon stopped: show --can-do and --network answer (refusals "not known"), and no daemon starts
+//  V5. the daemon stopped: show --can-do (its permissions and ceiling rows) and --network answer (refusals "not known"), and
+//      no daemon starts
 func cliWorkspaceViewRows(_ h: CLIHarness, root: URL, store: DozableStore, started: inout Set<String>) {
     print("cli: a workspace's wide views — what it can reach and hold, its folders, its log in pages")
     let fm = FileManager.default
@@ -118,7 +119,8 @@ func cliWorkspaceViewRows(_ h: CLIHarness, root: URL, store: DozableStore, start
     // V5. no daemon: the views answer from the store, and none starts.
     stopDaemon()
     r = h.run(["workspace", "show", "views", "--can-do"], timeout: 60)
-    check(r.code == 0 && r.out.contains("Control") && r.out.contains("Permissions (allow · ask · never) — later"), "V5 show --can-do with the daemon stopped (\(r.code) \(r.out.prefix(200)))")
+    check(r.code == 0 && r.out.contains("Control") && r.out.contains("Permissions (allow · ask · never)  allow ") && r.out.contains("not enforced yet")
+          && !r.out.contains("— later"), "V5 show --can-do with the daemon stopped: its permissions and ceiling rows (\(r.code) \(r.out.prefix(200)))")
     r = h.run(["workspace", "show", "views", "--network"], timeout: 60)
     check(r.code == 0 && r.out.contains("not known: no daemon is running"), "V5 show --network: refusals not known (\(r.out.prefix(300)))")
     check(h.run(["workspace", "show", "views", "--folders"], timeout: 60).code == 0, "V5 show --folders answers")

@@ -432,8 +432,11 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
     public var origin: WorkspaceOrigin
     /// Its runs, oldest first (`WorkspaceRuns`). Additive: written only once there is one.
     public var runs: [WorkspaceRun] = []
+    /// Its own grants and ceiling (`GrantModel`; nil: none ever set). Additive: an older doz keeps it as an unknown field.
+    public var permissions: WorkspaceGrants?
     public var unknown = UnknownFields()
-    static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "defaults", "flags", "driver", "origin", "runs"]
+    static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "defaults", "flags", "driver", "origin", "runs",
+                                     "permissions"]
 
     public init(name: String, createdAt: Date, brief: WorkspaceBrief, folders: [WorkspaceFolder], rooms: [WorkspaceRoom] = [],
                 agents: [WorkspaceAgent] = [], defaults: WorkspaceDefaults = WorkspaceDefaults(), flags: WorkspaceFlags = WorkspaceFlags(),
@@ -457,6 +460,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         driver = try c.decodeIfPresent(String.self, forKey: "driver") ?? "you"
         origin = try c.decodeIfPresent(WorkspaceOrigin.self, forKey: "origin") ?? WorkspaceOrigin()
         runs = try c.decodeIfPresent([WorkspaceRun].self, forKey: "runs") ?? []
+        permissions = try c.decodeIfPresent(WorkspaceGrants.self, forKey: "permissions")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -475,6 +479,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         try c.encode(driver, forKey: "driver")
         try c.encode(origin, forKey: "origin")
         if !runs.isEmpty { try c.encode(runs, forKey: "runs") }
+        try c.encodeIfPresent(permissions, forKey: "permissions")
     }
 
     /// The open run's index (nil: none open).
@@ -535,6 +540,15 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var fingerprint: String?
     /// The run a run-, room- or transcripts- line is about. Additive.
     public var run: String?
+    /// A permissions line (`granted`, `revoked`, `ceiling-set`, `request-recorded`, `permission-decided`): whom (`bot:otto`,
+    /// `agent:demo/bot1`, `role:worker`), the permission or role, the answer, the scope, until when, the operation. Additive.
+    public var subject: String?
+    public var perm: String?
+    public var role: String?
+    public var answer: String?
+    public var scope: String?
+    public var until: Date?
+    public var op: String?
 
     public init(at: Date = Date(), by: String = "you", action: String, agent: String? = nil, place: String? = nil, room: String? = nil,
                 from: String? = nil, to: String? = nil, sha256: String? = nil, bytes: Int? = nil, added: Int? = nil, removed: Int? = nil,
@@ -552,7 +566,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
                                               "brief-announced", "bot-changed", "slept", "woke", "agent-slept", "agent-woke",
                                               "finished", "reopened", "archived", "room-archived", "room-unarchived", "worker-retired",
                                               "sandbox-removed", "template-kept", "restored", "run-opened", "run-closed", "run-archived",
-                                              "run-archive-failed", "room-closed", "room-opened", "room-removed", "transcripts-discarded"]
+                                              "run-archive-failed", "room-closed", "room-opened", "room-removed", "transcripts-discarded",
+                                              "granted", "revoked", "ceiling-set", "request-recorded", "permission-decided"]
 
     /// The line as a person reads it.
     public var sentence: String {
@@ -600,6 +615,18 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "room-closed": return "closed the room \(room ?? "?") to new messages (it stays readable)"
         case "room-opened": return "opened the room \(room ?? "?") to new messages again"
         case "room-removed": return "removed the room \(room ?? "?") for good (its archive is kept)"
+        case "granted", "revoked":
+            let who = subject.flatMap(GrantSubject.init(stored:))?.display ?? subject ?? "?"
+            let what = role ?? "\(perm ?? "?")=\(answer ?? "?")"
+            let scopeWords = scope.flatMap(GrantScope.init(stored:)).map { $0 == .everywhere ? "everywhere" : "in " + $0.display } ?? ""
+            let till = until.map { " until " + BotName.day($0) } ?? ""
+            return action == "granted" ? "granted \(who) \(what) \(scopeWords)\(till)" : "revoked \(who)'s \(role ?? perm ?? "?") \(scopeWords)"
+        case "ceiling-set":
+            return answer == "none" ? "cleared the workspace's ceiling on \(perm ?? "?")" : "set the workspace's ceiling: \(perm ?? "?")=\(answer ?? "?")"
+        case "request-recorded": return "recorded a request for \(perm ?? role ?? "?")"
+        case "permission-decided":
+            let who = subject.flatMap(GrantSubject.init(stored:))?.display ?? subject ?? "?"
+            return "\(who): \(perm ?? "?") → \(answer ?? "?")" + (reason.map { " (\($0))" } ?? "")
         case "transcripts-discarded": return "discarded \(agent ?? "?")'s conversations (\(removed ?? 0) file\(removed == 1 ? "" : "s"); the run's archive keeps them)"
         default: return action
         }

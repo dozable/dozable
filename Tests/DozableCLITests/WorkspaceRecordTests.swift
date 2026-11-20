@@ -88,6 +88,41 @@ final class WorkspaceRecordTests: XCTestCase {
         XCTAssertEqual((again["flags"] as? [String: Any])?["later_flags"] as? String, "kept", "a flag this build does not know is kept")
     }
 
+    /// The permissions section (additive): a record written before it reads unchanged and is written back with no such key;
+    /// with it, a newer section's fields survive a rewrite, and "an older doz" — one that does not know the key — keeps it whole
+    /// as a field it does not know.
+    func testThePermissionsSection() throws {
+        try make(record())
+        let path = ws.folder("demo") + "/workspace.json"
+        let before = try Data(contentsOf: URL(fileURLWithPath: path))
+        var r = try XCTUnwrap(try ws.read("demo"))
+        XCTAssertNil(r.permissions, "a record from before: no section")
+        try ws.write(r)
+        XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: path)), before, "written back byte for byte")
+        r.permissions = WorkspaceGrants(grants: [Grant(id: "g1", subject: .agent("demo", "wsa"), perm: "net.allow", answer: .ask, scope: .workspace("demo"),
+                                                       at: Date(timeIntervalSince1970: 1_900_000_000))], ceiling: ["sudo": "never"])
+        try ws.write(r)
+        var obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: path))) as? [String: Any])
+        var p = try XCTUnwrap(obj["permissions"] as? [String: Any])
+        XCTAssertEqual(p["version"] as? Int, 1)
+        p["version"] = 2
+        p["later"] = "kept"
+        obj["permissions"] = p
+        try JSONSerialization.data(withJSONObject: obj).write(to: URL(fileURLWithPath: path))
+        var back = try XCTUnwrap(try ws.read("demo"))
+        XCTAssertEqual(back.permissions?.version, 2)
+        XCTAssertEqual(back.permissions?.grants.first?.perm, "net.allow")
+        back.brief.refs.append("/tmp/y")
+        try ws.write(back)
+        let again = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: path))) as? [String: Any])
+        XCTAssertEqual((again["permissions"] as? [String: Any])?["later"] as? String, "kept")
+        XCTAssertEqual((again["permissions"] as? [String: Any])?["version"] as? Int, 2)
+        // An older doz: the key is not one it knows, so it is carried as it was.
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        let c = try JSONDecoder().decode(OlderRecord.self, from: data)
+        XCTAssertNotNil(c.unknown.extra["permissions"], "an older doz keeps the section as a field it does not know")
+    }
+
     func testNames() {
         for ok in ["a", "demo", "launch-video", "x1", String(repeating: "a", count: 40)] { XCTAssertTrue(WorkspaceName.isValid(ok), ok) }
         for bad in ["", "-a", "A", "a_b", "a.b", "a/b", "..", ".new-x", "a b", "é", String(repeating: "a", count: 41)] {
@@ -179,5 +214,14 @@ final class WorkspaceRecordTests: XCTestCase {
         try ws.append("demo", old)
         try ws.append("demo", new)
         XCTAssertEqual(try ws.log("demo", since: now.addingTimeInterval(-60)).map(\.action), ["released"])
+    }
+}
+
+/// A record as a doz from before the permissions section reads it: every key it does not know kept (`UnknownFields`).
+private struct OlderRecord: Decodable {
+    var unknown: UnknownFields
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: DynamicKey.self)
+        unknown = try UnknownFields(c, known: WorkspaceRecord.known.subtracting(["permissions"]))
     }
 }

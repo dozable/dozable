@@ -167,8 +167,12 @@ extension HostCore {
     func botDetail(_ rec: BotRecord, notes: [String] = []) throws -> BotDetail {
         let dir = (try? botDirectory()) ?? ChatDirectory()
         let ws = botWorkspaces()
-        return BotDetail(rec, inChat: dir.participants.contains { $0.name == rec.name }, workspaces: ws.member[rec.name] ?? [],
-                         manages: ws.manages[rec.name] ?? [], notes: notes.isEmpty ? nil : notes)
+        var d = BotDetail(rec, inChat: dir.participants.contains { $0.name == rec.name }, workspaces: ws.member[rec.name] ?? [],
+                          manages: ws.manages[rec.name] ?? [], notes: notes.isEmpty ? nil : notes)
+        var roles: [String: String] = [:]
+        for w in workspaces.records() { for a in w.agents where a.bot == rec.name && a.endedAt == nil { roles[w.name] = a.role } }
+        d.roles = roles.isEmpty ? nil : roles
+        return d
     }
 
     func botListing(retired: Bool) throws -> BotListing {

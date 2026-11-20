@@ -329,13 +329,20 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// `<store>/macs.json`. Read-only: answered in-process when no daemon runs. Adding, removing and checking are the CLI's
     /// own (`doz ui macs`, in-process): no operation writes the list.
     case macsList = "macs-ls"
+    /// What agents may do in Dozable (`permissionsRequest`: a `PermissionsRequest`) — never `net-permissions`, which is what a
+    /// sandbox's network may reach. `permissions-show` (`PermissionsShown`) and `-why` (`GrantDecision`) only read: answered
+    /// in-process when no daemon runs. `-grant`, `-revoke` and `-ceiling` change the grants, a workspace's record or a bot's
+    /// ceiling — the owner's, through the daemon (`HostCore+Permissions`), answered with `PermissionsChanged`.
+    case permissionsShow = "permissions-show", permissionsWhy = "permissions-why"
+    case permissionsGrant = "permissions-grant", permissionsRevoke = "permissions-revoke", permissionsCeiling = "permissions-ceiling"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .macsList: true
+             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .macsList,
+             .permissionsShow, .permissionsWhy: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -652,6 +659,12 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var workerRequest: WorkerRequest?
     /// `chat-room-plan`, `chat-room-archive`, `chat-room-rm`: the room and how it is confirmed.
     public var chatRoom: ChatRoomRequest?
+    /// The `permissions-*` operations' arguments.
+    public var permissionsRequest: PermissionsRequest?
+    /// `W/AGENT`: this request is made as that agent of workspace W would make it — it NARROWS the owner's request to the
+    /// agent's permissions (`PermissionGate`), never widens anything. Only on the owner's socket (the hidden `--as W/AGENT`, a
+    /// preview and test path); a request without it is the owner's, and the owner is never gated. Additive.
+    public var actAs: String?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -687,6 +700,8 @@ public struct HostError: Codable, Equatable, Sendable, Error, LocalizedError {
     public enum Code: String, Codable, Sendable {
         case failed, notFound = "not-found", invalidPhase = "invalid-phase", exists, invalid
         case notImplemented = "not-implemented", version, unavailable
+        /// An agent's request its permissions do not allow (never the owner's: the owner is never gated).
+        case notPermitted = "not-permitted"
     }
     public var code: Code
     public var message: String
@@ -2065,11 +2080,15 @@ public struct BotDetail: Codable, Equatable, Sendable {
     /// The instructions' text (UTF-8, at most 256 KiB), only when asked (`BotRequest.withInstructions`). Your prose — never a
     /// credential.
     public var instructionsText: String?
+    /// Its ceiling: per permission the most it may ever be (`ask` or `never`; nil: none set — `doz bot ceiling`). Additive.
+    public var ceilingAnswers: [String: String]?
+    /// Its role in each workspace it is a live agent of (the workspace's record gives it: `manager`, `worker`). Additive.
+    public var roles: [String: String]?
 
     public init(_ r: BotRecord, inChat: Bool, workspaces: [String], manages: [String], notes: [String]? = nil) {
         name = r.name; createdAt = r.createdAt; origin = r.origin; agent = r.agent; model = r.model; account = r.account; avatar = r.avatar
         isolation = r.isolation; kind = r.kind; deliver = r.deliver; webhookEntry = r.webhookEntry; session = r.session; skills = r.skills
-        instructions = r.instructions; token = r.token; retiredAt = r.retiredAt
+        instructions = r.instructions; token = r.token; retiredAt = r.retiredAt; ceilingAnswers = r.ceilingAnswers
         self.inChat = inChat; self.workspaces = workspaces; self.manages = manages; self.notes = notes
     }
 }

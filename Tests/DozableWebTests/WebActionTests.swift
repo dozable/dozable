@@ -398,6 +398,22 @@ final class WebActionTests: XCTestCase {
         XCTAssertNil(WebExposure.decideRoomAction(.mac))
     }
 
+    /// Every web action is the owner's: none carries `actAs`, so each is `.owner` at the daemon's gate — the owner is never
+    /// gated, from any browser (a browser that may act at all is decided by `WebExposure`, never by an agent's permissions).
+    func testEveryActionIsTheOwners() throws {
+        for (name, json) in Self.samples {
+            let a = try decode(json)
+            XCTAssertNil(a.hostRequest.actAs, name)
+            XCTAssertEqual(try Caller.of(a.hostRequest), .owner, name)
+            XCTAssertEqual(PermissionGate.check(a.hostRequest, caller: try Caller.of(a.hostRequest), reader: {
+                XCTFail("\(name): an owner's request read the grants")
+                return GrantFactsReader(store: DozableStore(root: URL(fileURLWithPath: "/nonexistent-doz-store")))
+            }), .pass, name)
+        }
+        // A JSON body naming actAs is not one any action reads: strictly decoded, it is refused or ignored — never an agent.
+        if let a = try? decode(#"{"action":"daemon-restart","actAs":"demo/mira"}"#) { XCTAssertNil(a.hostRequest.actAs) }
+    }
+
     func testEveryActionIsExactlyOneAllowedHostOp() throws {
         XCTAssertEqual(Set(Self.samples.keys), Set(WebAction.actionNames), "a sample for every action, and no action without one")
         var ops: [HostOp] = []

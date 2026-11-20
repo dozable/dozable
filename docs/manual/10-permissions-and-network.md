@@ -4,6 +4,9 @@ A sandbox has **no network card**. Its only way out is a proxy in Dozable's host
 checks every connection against the sandbox's **permissions** — a short list of plain-language
 switches — and logs it. You decide what the agent may reach; the agent can't change it.
 
+These are a sandbox's **network** permissions (`doz net permissions`). What an agent may do in Dozable itself — start a
+worker, archive a workspace — is a different list, `doz permissions` ([Workspaces](37-workspaces.md), "What agents may do").
+
 ## Concepts
 
 - **Permissions** are what an agent may do, each a switch:

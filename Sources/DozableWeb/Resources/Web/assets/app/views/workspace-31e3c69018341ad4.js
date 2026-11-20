@@ -30,7 +30,7 @@ import { agentMeta, wsPanel } from '../components/ws-panel-34140d294f90e296.js';
 import { chatRefresh, mountChat } from './chat-b6d90d0841520f18.js';
 import { drawSys } from './chat-messages-dfb983938b7f0c9e.js';
 import { openRoom, refreshState } from './chat-rooms-21b6cc33f975b06f.js';
-import { agentsTab } from './ws-agents-8ea55a2cbda4a51a.js';
+import { agentsTab } from './ws-agents-255faf19f260acd6.js';
 import { networkTab } from './ws-network-166633be23c4d99c.js';
 import { foldersTab } from './ws-folders-e675cf615f8064dc.js';
 import { activityTab } from './ws-activity-8ab6e6cb90d8f583.js';

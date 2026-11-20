@@ -28,6 +28,8 @@ import DozableHost
 //  38–44. the dry run (nothing written, no daemon), its refusals, the commands it prints, the new fields, --start
 //      (CLIWorkspacePlanRows.swift)
 //  45–47. adding a worker with a look first: the dry run, its refusal, with the daemon stopped (CLIWorkerPlanRows.swift)
+//  P1–P10. what agents may do: permissions, grants, ceilings, why, the gate (CLIWorkspacePermissionRows.swift); P5 sets every
+//      permission never before row 12, so every row from 12 on runs as the owner under them
 func cliWorkspaceSuite(binary: String) async {
     print("cli: workspaces — no VM")
     let fm = FileManager.default
@@ -225,6 +227,9 @@ func cliWorkspaceSuite(binary: String) async {
     r = h.run(["workspace", "new", "proj", "--prompt-file", brief, "--from-project"])
     check(r.code == 64 && r.err.contains("--folder") && !ws.exists("proj"), "11 --from-project with no folder: refused (\(r.code))")
 
+    // P5 (first half): from here on every permission is never — this Mac's ceiling and an everywhere never for every role. The
+    // owner is never gated: every row below runs exactly as before (CLIWorkspacePermissionRows.swift).
+    cliWorkspaceOwnerUnderNevers(h)
     // 12–22. a workspace's manager (CLIWorkspaceManagerRows.swift)
     cliWorkspaceManagerRows(h, root: root, store: store, started: &started)
     // 23–33. its workers (CLIWorkspaceWorkerRows.swift)
@@ -240,4 +245,6 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspaceLifecycleRows(h, root: root, store: store, started: &started)
     // V1–V5. the wide views (CLIWorkspaceViewRows.swift)
     cliWorkspaceViewRows(h, root: root, store: store, started: &started)
+    // P1–P10. what agents may do (CLIWorkspacePermissionRows.swift)
+    cliWorkspacePermissionRows(h, root: root, store: store, started: &started)
 }

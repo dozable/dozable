@@ -71,6 +71,17 @@ final class WebWorkspaceViewsTests: XCTestCase {
         }
     }
 
+    /// The Can do tab's permissions and ceiling rows travel as two more capabilities, field by field, to every browser.
+    func testThePermissionRowsAreProjected() throws {
+        var r = Self.reach()
+        let g = AgentGrantAnswers(name: "vmw", workspace: "demo", bot: nil, roles: ["worker (from the workspace)"], actsAsYou: false, rows: [])
+        r.agents[0].capabilities = AgentCapabilities.permissions(g, ceilings: [CeilingRow(lid: "mac", words: "this Mac's", perm: "sudo", answer: "never")], workspace: "demo")
+        let w = WebWorkspaceReach.forBrowser(WebWorkspaceReach(r), remote: true, macAllowed: false)
+        XCTAssertEqual(w.agents[0].capabilities.map(\.id), ["permissions", "ceiling"])
+        XCTAssertEqual(w.agents[0].capabilities[1].state, "1 never (this Mac's)")
+        XCTAssertEqual(w.agents[0].capabilities[0].link, "doz permissions show demo --agent vmw")
+    }
+
     func testAnotherComputerSeesHeldSecretsAsACountAndThisMacsAgentsPerTheSetting() throws {
         let r = WebWorkspaceReach(Self.reach())
         XCTAssertEqual(r.agents[0].held.map(\.name), ["MUSIC_API_TOKEN", "CHAT_TOKEN"])

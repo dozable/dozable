@@ -26,6 +26,8 @@ import DozableHost
 //  11. the guards: chat remove / token / set on mira refused with the doz bot command; a plain participant still removable
 //  12. bot set mira --deliver poll --model M: chat who says polls; the hash unchanged; an unknown field kept; 0700/0600;
 //      bot set mira --instructions-file F, then bot show mira --instructions prints the text (--json: instructionsText)
+//  12b. bot ceiling mira sudo=never keychain.use=ask: in bots.json and bot show --json, printed by bot ceiling mira; --clear
+//      takes one away; allow and an unknown permission refused (64) with nothing changed; the token's hash unchanged
 //  13. bot retire mira --yes: its hash gone from tokens.json; bot show --json says token.keeper none
 func cliBotsSuite(binary: String) async {
     print("cli: Agents / Bots — no VM")
@@ -280,6 +282,27 @@ func cliBotsSuite(binary: String) async {
     check(withText?["instructionsText"] as? String == words, "12 …with --json: instructionsText")
     r = json(["bot", "show", "mira"])
     check(!r.out.contains("instructionsText"), "12 plain bot show --json carries no instructionsText")
+
+    // 12b. the bot's ceiling
+    let hash12b = hash("mira")
+    r = h.run(["bot", "ceiling", "mira", "sudo=never", "keychain.use=ask"], timeout: 60)
+    check(r.code == 0 && r.out.contains("mira's ceiling: sudo=never") && r.out.contains("mira's ceiling: keychain.use=ask"),
+          "12b bot ceiling mira sudo=never keychain.use=ask (\(r.code) \(r.out.prefix(160)) \(r.err.prefix(160)))")
+    let ceilingFile = (try? JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: bots.file)))) as? [String: Any]
+    let mira12b = (ceilingFile?["bots"] as? [[String: Any]])?.first { $0["name"] as? String == "mira" }
+    check((mira12b?["ceilingAnswers"] as? [String: String]) == ["sudo": "never", "keychain.use": "ask"], "12b bots.json carries ceilingAnswers")
+    let shown12b = h.json(["bot", "show", "mira"], BotDetail.self)
+    check(shown12b?.ceilingAnswers == ["sudo": "never", "keychain.use": "ask"], "12b bot show --json carries it (\(String(describing: shown12b?.ceilingAnswers)))")
+    r = h.run(["bot", "ceiling", "mira"], timeout: 60)
+    check(r.code == 0 && r.out.contains("▲ mira's sudo=never") && r.out.contains("▲ mira's keychain.use=ask"), "12b bot ceiling mira prints it (\(r.out.prefix(200)))")
+    let before12b = sha(bots.file)
+    r = h.run(["bot", "ceiling", "mira", "sudo=allow"], timeout: 60)
+    check(r.code == 64 && sha(bots.file) == before12b, "12b allow is no ceiling: refused, nothing changed (\(r.code))")
+    r = h.run(["bot", "ceiling", "mira", "teleport=never"], timeout: 60)
+    check(r.code == 64 && r.err.contains("is not a permission") && sha(bots.file) == before12b, "12b an unknown permission: refused with the list (\(r.code))")
+    r = h.run(["bot", "ceiling", "mira", "--clear", "keychain.use"], timeout: 60)
+    check(r.code == 0 && h.json(["bot", "show", "mira"], BotDetail.self)?.ceilingAnswers == ["sudo": "never"], "12b --clear keychain.use (\(r.code))")
+    check(hash("mira") == hash12b, "12b its token's hash is unchanged")
 
     // 13. retire mira
     r = h.run(["bot", "retire", "mira", "--yes"], timeout: 60)

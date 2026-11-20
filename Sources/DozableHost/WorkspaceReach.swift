@@ -131,8 +131,9 @@ public struct ReachFolder: Codable, Equatable, Sendable {
 
 /// "What it can do" for any agent of a workspace — ONE pure function, every view says the same: an `@mac` agent's rows are
 /// `MacFence.capabilities` unchanged, then its control and its room; a VM's, an elsewhere one's, built here in the same
-/// vocabulary. Each row is live or at the next start. The later rows (Permissions: allow · ask · never; the ceiling) are
-/// never data — the page draws them, disabled.
+/// vocabulary. Each row is live or at the next start. Last, its permissions (allow · ask · never, from `GrantDecision` — the
+/// counts `doz permissions show W --agent A` prints) and its ceiling (the effective lid and where each cap comes from):
+/// read only — changed in the terminal, and none is enforced yet.
 public enum AgentCapabilities {
     public struct Input: Sendable {
         public var name: String
@@ -151,6 +152,10 @@ public enum AgentCapabilities {
         public var keys: String?
         /// A worker sharing a sandbox.
         public var shares: String?
+        /// Its answers to every permission here, and the ceilings that cap it (nil: not asked — no rows).
+        public var grants: AgentGrantAnswers?
+        public var ceilings: [CeilingRow] = []
+        public var workspace: String?
         public init(name: String, role: String, isolation: String, place: String) {
             self.name = name; self.role = role; self.isolation = isolation; self.place = place
         }
@@ -209,7 +214,41 @@ public enum AgentCapabilities {
         }
         out.append(control(role: i.role, isolation: i.isolation, shares: i.shares))
         if let c = chat(i) { out.append(c) }
+        if let g = i.grants { out += permissions(g, ceilings: i.ceilings, workspace: i.workspace) }
         return out
+    }
+
+    /// The two permission rows: its answers (counts, by role and grant) and its ceiling (each cap, the strictest per
+    /// permission, with whose it is). Read only; "not enforced yet" said where it shows.
+    public static func permissions(_ g: AgentGrantAnswers, ceilings: [CeilingRow], workspace: String?) -> [MacCapability] {
+        let show = "doz permissions show " + (workspace.map { $0 + " " } ?? "") + "--agent " + g.name
+        let roles = g.roles.isEmpty ? "no role" : g.roles.joined(separator: ", ")
+        let p = row("permissions", "Permissions (allow · ask · never)", g.counts,
+                    "What it may do in Dozable, by its role (\(roles)) and your grants — not enforced yet: no agent can drive Dozable"
+                    + (g.actsAsYou ? "; it acts as you, so what it does is a promise." : "."), live: true, link: show)
+        // The strictest cap per permission, and whose.
+        var caps: [String: (GrantAnswer, [String])] = [:]
+        for c in ceilings {
+            guard let a = GrantAnswer(rawValue: c.answer) else { continue }
+            if let have = caps[c.perm] {
+                if a < have.0 { caps[c.perm] = (a, [c.words]) } else if a == have.0 { caps[c.perm] = (a, have.1 + [c.words]) }
+            } else {
+                caps[c.perm] = (a, [c.words])
+            }
+        }
+        let own = "Above every ceiling, Dozable's own: never another workspace, Dozable's settings, a new account, key or token."
+        guard !caps.isEmpty else {
+            return [p, row("ceiling", "Ceiling", "none set: no cap", "Nothing caps what it may be granted. " + own, live: true, link: show)]
+        }
+        let order = GrantPermissions.ids
+        let listed = caps.sorted { (order.firstIndex(of: $0.key) ?? 99) < (order.firstIndex(of: $1.key) ?? 99) }
+        let nevers = listed.filter { $0.value.0 == .never }.count, asks = listed.count - nevers
+        let whose = Array(Set(listed.flatMap { $0.value.1 })).sorted()
+        let state = [nevers > 0 ? "\(nevers) never" : nil, asks > 0 ? "\(asks) ask" : nil].compactMap { $0 }.joined(separator: " · ")
+            + " (" + whose.joined(separator: ", ") + ")"
+        let words = listed.prefix(6).map { "\($0.key)=\($0.value.0.rawValue) (\($0.value.1.joined(separator: ", ")))" }.joined(separator: ", ")
+            + (listed.count > 6 ? " and \(listed.count - 6) more" : "")
+        return [p, row("ceiling", "Ceiling", state, "The most it may ever get, whatever it is granted: \(words). " + own, live: true, link: show)]
     }
 
     /// A micro VM's rows: isolation, folders, network, this Mac's ports, forwarded ports, secrets, the account, keys.

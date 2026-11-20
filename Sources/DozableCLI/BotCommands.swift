@@ -24,7 +24,7 @@ struct BotCommand: AsyncParsableCommand {
         gets its token once, on a terminal or in a new file (--to-file); Dozable never keeps it. Retiring a bot keeps its \
         name with its old messages: nobody can take it again.
         """,
-        subcommands: [BotNew.self, BotList.self, BotShow.self, BotSet.self, BotRetire.self, BotAdopt.self, BotTokenCommand.self])
+        subcommands: [BotNew.self, BotList.self, BotShow.self, BotSet.self, BotRetire.self, BotAdopt.self, BotTokenCommand.self, BotCeiling.self])
 }
 
 // MARK: helpers
