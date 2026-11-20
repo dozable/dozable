@@ -250,6 +250,8 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspaceLifecycleRows(h, root: root, store: store, started: &started)
     // S2–S11, S13, S14. a space file acted on: up, down, --purge (CLISpaceActRows.swift)
     cliSpaceActRows(h, root: root, store: store)
+    // F1–F6. a space's state, its file through the daemon, its frames (CLISpaceStateRows.swift)
+    cliSpaceStateRows(h, root: root, store: store)
     // V1–V5. the wide views (CLIWorkspaceViewRows.swift)
     cliWorkspaceViewRows(h, root: root, store: store, started: &started)
     // P1–P10. what agents may do (CLIWorkspacePermissionRows.swift)

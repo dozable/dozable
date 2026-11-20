@@ -96,6 +96,8 @@ extension HostCore {
         if let sb = managed[name]?.sandbox {
             Task { await sb.setSessionsBusy(await self.sessionsWorking(name)) }
         }
+        // A space's frames: its state may have changed (the label names the session and its activity, never its message).
+        spaceFramesPoke(nil, "\(session): \(SpaceStateBuilder.activity(s))")
         var e = HostEvent(kind: .sessionStatus, sandbox: name, text: s?.logLine ?? "session \(session): no status")
         e.session = session
         e.sessionStatus = s

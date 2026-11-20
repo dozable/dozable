@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "space": "example-space",
+  "observedAt": "2026-11-20T10:00:00Z",
+  "factsKnown": true,
+  "host": "host-a",
+  "run": {
+    "id": "2026-11-20-1",
+    "startedAt": "2026-11-20T09:30:00Z",
+    "phase": "up"
+  },
+  "items": [
+    {
+      "subject": "manager",
+      "type": "agent",
+      "lifetime": "external",
+      "state": "running",
+      "activity": "idle"
+    },
+    {
+      "subject": "manager",
+      "type": "member",
+      "lifetime": "external",
+      "state": "present"
+    },
+    {
+      "subject": "worker",
+      "type": "agent",
+      "lifetime": "run",
+      "state": "running",
+      "activity": "working"
+    },
+    {
+      "subject": "worker",
+      "type": "member",
+      "lifetime": "run",
+      "state": "present"
+    },
+    {
+      "subject": "helper",
+      "type": "agent",
+      "lifetime": "run",
+      "state": "asleep",
+      "detail": "in build-vm, hibernated"
+    },
+    {
+      "subject": "helper",
+      "type": "member",
+      "lifetime": "run",
+      "state": "present"
+    },
+    {
+      "subject": "web",
+      "type": "service",
+      "lifetime": "external",
+      "state": "healthy",
+      "detail": "port 8180, 200 OK"
+    },
+    {
+      "subject": "build-vm",
+      "type": "sandbox",
+      "lifetime": "persisted",
+      "state": "hibernated"
+    },
+    {
+      "subject": "repo",
+      "type": "folder",
+      "lifetime": "external",
+      "state": "present"
+    },
+    {
+      "subject": "scratch",
+      "type": "folder",
+      "lifetime": "run",
+      "state": "present"
+    },
+    {
+      "subject": "team",
+      "type": "room",
+      "lifetime": "persisted",
+      "state": "open",
+      "detail": "4 members, last message 2m ago"
+    }
+  ],
+  "extras": [],
+  "attention": [],
+  "sha": "db6067575c4b37a7eb83f8c93fdb8a863603a7aa0f1883999b7426e0bbc361e9"
+}

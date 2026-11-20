@@ -484,6 +484,8 @@ public final class DozableWebServer: @unchecked Sendable {
         case .chat(.post), .chat(.edit): return max(limits.maximumRequestBodyBytes, WebChatProxy.maximumPostBody)
         // The chat server's file limit and one byte more (so one byte over is told from the limit itself) — never more.
         case .chat(.upload): return WebChatProxy.maximumUpload + 1
+        // The space view's plan carries a whole space file (at most 256 KiB, as JSON text).
+        case .workspaceSpacePlan: return max(limits.maximumRequestBodyBytes, WebSpace.maximumPlanBody)
         default: return limits.maximumRequestBodyBytes
         }
     }
@@ -993,6 +995,8 @@ public final class DozableWebServer: @unchecked Sendable {
             if request.action.isLifecycle, let r = WebExposure.decideLifecycleAction(ctx.principal) { throw r }
             // A room archived or removed, a run's archive written again: this Mac's own browser only, whatever the settings.
             if request.action.isRoomLifecycle, let r = WebExposure.decideRoomAction(ctx.principal) { throw r }
+            // A space file saved: this Mac's own browser only, whatever the serve settings (it decides what the next up starts).
+            if request.action.isSpace, let r = WebExposure.decideSpaceAction(ctx.principal) { throw r }
             // A fenced session's site allowed: this Mac's own browser only, whatever the serve settings (its network is what
             // holds an agent working as you on this Mac to its folder).
             if request.action.isMacNet, let r = WebExposure.decideMacNetAction(ctx.principal) { throw r }
@@ -1128,6 +1132,30 @@ public final class DozableWebServer: @unchecked Sendable {
             // computer); never a conversation or a screen.
             try Self.requireJSONBody(md)
             return json(try await data.workspaceRunChat(try WebRuns.decodeChat(body)))
+        case .workspaceSpace:
+            // A read that carries its question: CSRF-checked, the workspace by its rule strictly (400 before any call); one
+            // read-only HostOp — the record's file, never a path from the request. Another computer only with serve.chat read
+            // or write (decided above), and it never saves (`canSave` false: the command instead).
+            try Self.requireJSONBody(md)
+            return json(WebSpaceFile(try await data.workspaceSpace(try WebSpace.decodeRead(body)), canSave: !ctx.principal.isRemote))
+        case .workspaceSpacePlan:
+            // The page's open text planned: read in doz ui under the space file's rules (the record's path; `${VAR}` from the
+            // .env beside it only), then the existing read-only `workspace-up-plan` — nothing written, no daemon started.
+            try Self.requireJSONBody(md)
+            let (w, text) = try WebSpace.decodePlan(body)
+            return json(try await data.spacePlan(workspace: w, text: text))
+        case .workspaceState:
+            // `workspace-state`: this Mac's sessions as serve.mac_sessions allows (set here, never by the browser).
+            try Self.requireJSONBody(md)
+            var w = try WebSpace.decodeRead(body)
+            w.macSessionsHidden = WebGridsRequest.macAllowed(ctx.principal, settings.macSessions) ? nil : true
+            return json(try await data.workspaceState(w))
+        case .workspaceRunFrames:
+            // `workspace-run-frames`: each frame projected as the state is (this Mac's sessions as serve.mac_sessions allows).
+            try Self.requireJSONBody(md)
+            var w = try WebSpace.decodeFrames(body)
+            w.macSessionsHidden = WebGridsRequest.macAllowed(ctx.principal, settings.macSessions) ? nil : true
+            return json(try await data.workspaceRunFrames(w))
         case .chatRoomPlan:
             // CSRF-checked, the Mac's own browser only (mac-screen), strict; one read-only HostOp — never `loose`.
             try Self.requireJSONBody(md)

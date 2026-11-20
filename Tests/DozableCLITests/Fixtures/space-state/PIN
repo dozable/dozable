@@ -1,0 +1,17 @@
+# Copies of the space editor's SpaceState schema and fixtures (version 1), read-only. Provenance: the editor's commit
+# below; its fixtures are already neutral (the space example-space on the host host-a, the agents manager, worker and
+# helper, the sandbox build-vm, the folders repo and scratch, the room team). Its run snapshots and example space file in
+# the same folder are left out (Dozable does not read them). SpaceStateTests reproduces each fixture's sha and
+# SpaceStateSchemaTests validates every fixture and every document the builder makes against the schema; re-vendor by
+# copying them again from a neutral commit and updating this file.
+peer-commit 4c9308a735a006e35f43aa752c9e19c5f3f83674
+sources: space-state-1.schema.json <- schema/space-state-1.schema.json, *.json <- test/fixtures/space-state/*.json
+sha256:
+  92b15f6b0c12b13b6fbad18701a502d0671310afdc55512c5e026359cac325b1  ./answered.json
+  eef23bb327d104ba57eaf1146abb9605c09431fcac924c43cac8b181c5ff5c38  ./asleep.json
+  2adb29687c97e8943d9c32af31ffe1a589e43520c77e0e3928950295240ebfda  ./attention.json
+  6991c6a4bb1b1d871d36ed9ef9b222552602e79c7d80d163e209eb3b3853fd1c  ./down.json
+  160c73656e82276facdd1c2e88ceea02997511477de8631847cafe313f66a41a  ./drift.json
+  490ce6858562444dacabc06f106a4abc393db7cc835f11e66c82b9e289510352  ./running.json
+  a44bcbd45c93f1f8213274518cca702554d9ff477e344808dd271310c74d957f  ./space-state-1.schema.json
+  c4e026f9e6b1544e68005c54de9251664d48eb453fcd70857e622020434a825c  ./unknown.json

@@ -1,0 +1,459 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:doz:space-state:1",
+  "title": "SpaceState",
+  "description": "What is true about a space beside what its file says (docs/ops/DESIGN.md). One document a host supplies, read-only, rendered as the canvas's state layer, the attention list, drift and the runs strip. New fields may be added.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "space",
+    "observedAt",
+    "factsKnown",
+    "host",
+    "items",
+    "extras",
+    "attention",
+    "sha"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "space": {
+      "type": "string"
+    },
+    "observedAt": {
+      "type": "string"
+    },
+    "factsKnown": {
+      "type": "boolean"
+    },
+    "host": {
+      "type": "string",
+      "description": "a display name only"
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "startedAt",
+        "phase"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "endedAt": {
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "starting",
+            "up",
+            "stopping",
+            "down"
+          ]
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/item"
+      }
+    },
+    "extras": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/item"
+      }
+    },
+    "attention": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attention"
+      }
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "sha256 of the document without sha and observedAt: the same facts, the same sha"
+    }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "type",
+        "lifetime",
+        "state"
+      ],
+      "properties": {
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "description": "the same subject string the plan's steps use; items are keyed by (type, subject)"
+        },
+        "type": {
+          "enum": [
+            "agent",
+            "service",
+            "sandbox",
+            "folder",
+            "room",
+            "member"
+          ]
+        },
+        "lifetime": {
+          "enum": [
+            "external",
+            "persisted",
+            "run"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "description": "one of the type's states; every type has unknown (not known) and gone (removed by down, no drift)"
+        },
+        "activity": {
+          "enum": [
+            "working",
+            "idle",
+            "waiting",
+            "unknown"
+          ],
+          "description": "agents only"
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "one line a person reads; never a message's text"
+        },
+        "since": {
+          "type": "string"
+        },
+        "drift": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "text"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "missing",
+                "extra",
+                "differs"
+              ]
+            },
+            "text": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "agent"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "running",
+                  "asleep",
+                  "ended",
+                  "missing",
+                  "gone",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "service"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "healthy",
+                  "unhealthy",
+                  "starting",
+                  "stopped",
+                  "missing",
+                  "gone",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "sandbox"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "running",
+                  "hibernated",
+                  "stopped",
+                  "missing",
+                  "gone",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "folder"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "present",
+                  "missing",
+                  "gone",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "room"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "open",
+                  "closed",
+                  "archived",
+                  "missing",
+                  "gone",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "member"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "present",
+                  "away",
+                  "absent",
+                  "gone",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "type": {
+                  "const": "agent"
+                }
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "activity"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "attention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject",
+        "kind",
+        "text"
+      ],
+      "properties": {
+        "subject": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "permission",
+            "trust",
+            "confirm",
+            "health",
+            "refusal",
+            "problem",
+            "ask"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        },
+        "askId": {
+          "type": "string"
+        },
+        "room": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "openedAt": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string",
+          "description": "an Ask only, and live only: the one place message text may appear; absent when hidden from this viewer; never in fixtures or snapshots"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "answerers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "canAnswer": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "ask"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "askId",
+              "room",
+              "from",
+              "openedAt",
+              "options",
+              "answerers",
+              "canAnswer"
+            ]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "askId"
+                  ]
+                },
+                {
+                  "required": [
+                    "room"
+                  ]
+                },
+                {
+                  "required": [
+                    "from"
+                  ]
+                },
+                {
+                  "required": [
+                    "openedAt"
+                  ]
+                },
+                {
+                  "required": [
+                    "expiresAt"
+                  ]
+                },
+                {
+                  "required": [
+                    "question"
+                  ]
+                },
+                {
+                  "required": [
+                    "options"
+                  ]
+                },
+                {
+                  "required": [
+                    "answerers"
+                  ]
+                },
+                {
+                  "required": [
+                    "canAnswer"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

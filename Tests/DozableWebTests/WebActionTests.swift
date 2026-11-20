@@ -100,6 +100,7 @@ final class WebActionTests: XCTestCase {
         "chat-room-archive": #"{"action":"chat-room-archive","room":"launch-video","ifPlan":"0123456789abcdef"}"#,
         "chat-room-rm": #"{"action":"chat-room-rm","room":"launch-video","ifPlan":"0123456789abcdef","confirm":"launch-video"}"#,
         "workspace-run-archive": #"{"action":"workspace-run-archive","workspace":"launch-video","run":"2026-11-20-1"}"#,
+        "workspace-space-save": #"{"action":"workspace-space-save","workspace":"launch-video","text":"doz: space/3\nspace: launch-video\n","ifMatch":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}"#,
         // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
         "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
         // 669: a sandbox's own value of a per-sandbox setting, or "Follow the Mac" (clear).
@@ -193,6 +194,9 @@ final class WebActionTests: XCTestCase {
         // archive | restore | delete`, each with the plan's sha the page showed.
         .workspaceStop, .workspaceSleep, .workspaceWake, .workspaceFinish, .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete,
         .chatRoomArchive, .chatRoomRm, .workspaceRunArchive,
+        // A space workspace's file saved from its space view, this Mac's own browser only — exactly `doz workspace edit W
+        // --space-file F --if-match SHA`.
+        .workspaceSpaceSave,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,
@@ -380,6 +384,36 @@ final class WebActionTests: XCTestCase {
         invalid(#"{"action":"duplicate","sandbox":"a","newName":"b","image":"lab"}"#)           // not a field of duplicate
     }
 
+    /// A space file saved: exactly `workspace-space-save` with the name, the text and `ifMatch` — never a path (the file is the
+    /// record's); a text that is not a space file, a missing or malformed `ifMatch`, a control character or any other field is
+    /// refused before the daemon; this Mac's own browser only.
+    func testTheSpaceSave() throws {
+        let a = try decode(Self.samples["workspace-space-save"]!)
+        XCTAssertTrue(a.isSpace)
+        XCTAssertEqual(a.hostOp, .workspaceSpaceSave)
+        let w = try XCTUnwrap(a.hostRequest.workspaceRequest)
+        XCTAssertEqual(w.name, "launch-video")
+        XCTAssertEqual(w.text, "doz: space/3\nspace: launch-video\n")
+        XCTAssertEqual(w.ifMatch, String(repeating: "e", count: 64))
+        XCTAssertNil(w.brief); XCTAssertNil(w.folders); XCTAssertNil(w.addFolders); XCTAssertNil(w.project)
+        XCTAssertEqual(a.label, "save the space file of launch-video")
+        let sha = String(repeating: "e", count: 64)
+        for bad in [#"{"action":"workspace-space-save","workspace":"launch-video","text":"space: x\n","ifMatch":"\#(sha)"}"#,
+                    #"{"action":"workspace-space-save","workspace":"launch-video","text":"doz: space/3\n"}"#,
+                    #"{"action":"workspace-space-save","workspace":"launch-video","text":"doz: space/3\n","ifMatch":"ABC"}"#,
+                    #"{"action":"workspace-space-save","workspace":"launch-video","text":"doz: space/3\n\u0001","ifMatch":"\#(sha)"}"#,
+                    #"{"action":"workspace-space-save","workspace":"launch-video","text":"doz: space/3\n","ifMatch":"\#(sha)","path":"/etc/x"}"#,
+                    #"{"action":"workspace-space-save","workspace":"../x","text":"doz: space/3\n","ifMatch":"\#(sha)"}"#] {
+            XCTAssertThrowsError(try decode(bad), bad)
+        }
+        XCTAssertEqual(WebExposure.decideSpaceAction(.remote(secure: true)), .macOnlySpace)
+        XCTAssertEqual(WebExposure.decideSpaceAction(.remote(secure: false)), .macOnlySpace)
+        XCTAssertNil(WebExposure.decideSpaceAction(.mac))
+        XCTAssertEqual(WebRejection.macOnlySpace.code, "mac-only")
+        XCTAssertEqual(WebRejection.macOnlySpace.status, 403)
+        XCTAssertTrue(WebRejection.macOnlySpace.message.hasPrefix("A space file is changed only in this Mac's own browser"))
+    }
+
     /// The room actions: strictly decoded, exactly the CLI's HostOp — never `loose` from a browser; rm carries the name typed.
     func testTheRoomActions() throws {
         let rm = try decode(Self.samples["chat-room-rm"]!)
@@ -448,11 +482,11 @@ final class WebActionTests: XCTestCase {
         XCTAssertEqual(Set(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key)),
                        ["workspace-brief", "workspace-adopt", "workspace-new", "workspace-release", "workspace-start", "workspace-stop", "workspace-sleep",
                         "workspace-wake", "workspace-finish", "workspace-reopen", "workspace-archive", "workspace-restore", "workspace-delete",
-                        "workspace-run-archive"])
+                        "workspace-run-archive", "workspace-space-save"])
         XCTAssertEqual(Set(ops.filter { ["workspace-", "worker-"].contains(where: $0.rawValue.hasPrefix) }),
                        [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart, .workerAdd, .workerEnd, .workspaceStop,
                         .workspaceSleep, .workspaceWake, .workspaceFinish, .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete,
-                        .workspaceRunArchive])
+                        .workspaceRunArchive, .workspaceSpaceSave])
         // A room's archive and removal and a run's archive written again: exactly their HostOps, this Mac's own browser only.
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isRoomLifecycle == true ? $0.key : nil }),
                        ["chat-room-archive", "chat-room-rm", "workspace-run-archive"])

@@ -970,6 +970,7 @@ doz workspace show W [--brief] [--json]         # its brief, folders, room and a
 doz workspace show W --can-do [--agent A]       # what each agent can do: isolation and control, folders, network, secrets by name, its room — live or at the next start
 doz workspace show W --network [--agent A]      # what it can reach and hold: each agent's network, what it was refused lately, this Mac's ports, secrets held (by name), accounts
 doz workspace show W --folders                  # its folders, the files changed since the start (never a program run there), restore points
+doz workspace show W --space [--json]           # the space file that defines it: up or down, its run, its brief; the file's size and sha256 (--json: its text too)
 doz workspace start W                           # the set-up check, the brief posted as your first message (once), the manager started
 doz workspace stop W                            # the manager ended; its record, conversation and room kept
 doz workspace sleep W [--dry-run] [--yes] [--if-plan SHA]     # every agent asleep: a sandbox hibernated, a session ended (its conversation kept)
@@ -983,15 +984,18 @@ doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME]   # as a worker; only the
 doz workspace release W AGENT                   # loose again
 doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--add-folder DIR[:ro]]… [--remove-folder DIR]… [--make-room]
                   [--manager BOT [--manager-isolation fenced|vm|unfenced] | --no-manager] [--if-brief SHA256]
+doz workspace edit W --space-file F|- --if-match SHA256   # save over the space file it was made from, only if it is still the one you read; never applied (up applies it)
 doz workspace log W [--since T]                 # what happened and who did it (T: ISO 8601, or 30m, 2h, 3d)
 doz workspace log W --limit N [--before I]      # one page, the newest N (1–500); --before the page's first: the page before (--json: first, more)
 doz workspace rename W NEW                      # its room keeps its own name
 doz workspace runs W [--json]                   # its runs: each start or reopen to its finish, its archive's status and size, the timesheet's totals
 doz workspace runs W --archive RUN              # a closed run's archive written again (when it could not be written at its finish)
+doz workspace runs W --frames RUN [--json]      # a space's run in frames: its state each time it changed (never a message), its archive checked now
 doz workspace plan [-f FILE] [--profile P]… [--json]  # what up would do with a space file: the steps, what down will do, the summary (every risky setting with its file:line)
 doz workspace up [-f FILE] [--profile P]… [--yes] [--dry-run] [--json]  # set it up from the file: the plan, every unfenced agent confirmed on the terminal, then each step
 doz workspace down [W] [-f FILE] [--purge] [--yes] [--dry-run] [--json]  # end its run (archived and hash-checked first), remove what the run made; --purge: what persists too
 doz workspace config [FILE] [--profile P]… [--json]    # a space file merged (its defaults files, the file, its override, ${VAR}), each value with its source
+doz workspace state W [--json]                  # a space workspace now beside its file: each thing's state, what is not in the file, what waits for you, the sha
 doz space plan|up|down|config …                 # the same: doz space is the space-file commands under a shorter name
 ```
 
@@ -1004,6 +1008,25 @@ message and a hint; an error exits 2 and nothing is done. `plan` and `up --dry-r
 2 a problem in the file or an external thing missing · 3 chat off or the workspace archived · 4 a workspace of that name
 made without a space file, or a bot live elsewhere · 7 not in this version (an owned service, a preset other than standard
 or bypass, secrets for an owned agent) · 64 usage.
+
+`state W` (`workspace-state`, a workspace made from a space file) lists each agent, chat member, service, sandbox, folder and
+room the file declares with its state now — `gone` is a run's thing that down removed, as it should be; `missing` one that
+should be there and is not (drift) —, what the workspace or the chat server holds named like the space but not in the file,
+and what waits for you (a permission prompt, a failed sandbox, an up that stopped at a failure); never a chat message's
+text. It is built from the merged spec `up` recorded, never the file. With no daemon running none is started and every
+state is "not known". `--json` is the document the dashboard's space view reads (`SpaceState` version 1): its `sha` covers
+everything but `sha` and `observedAt`, so the same facts give the same sha. Exit 2: not a workspace, or not made from a
+space file.
+
+`show W --space` names the space file the workspace was made from and, read now under the brief's rules (no link, a
+regular file of yours under your home), its size and sha256 (`--json`: its `path`, `text`, `sha256`, `bytes`). `edit W
+--space-file F|- --if-match SHA256` saves F over that file — always the one the workspace records, never another path —
+only while it is still the one whose sha256 you read; changed since: nothing is written (exit 3). Saving never applies
+it: `doz workspace up -f FILE` does. The text must start with `doz: space/3`. `runs W --frames RUN` shows a space's run
+as it went: its state each time it changed (recorded by the daemon on events — a program's status, a sandbox's phase,
+a change of the workspace — never on a timer, and never a message), at most 2,000 frames or 16 MiB a run (then only the
+last state is kept after it), with its archive checked now once the run is down; a run from before frames were kept shows
+its last state. These three answer with no daemon running and start none.
 
 `show --can-do`, `--network` and `--folders` answer from the store when no daemon runs and start none (what each agent was
 refused lately is then "not known"); `--json` adds `reach` or `folders` to `show`'s answer. Nothing they print is a secret: a

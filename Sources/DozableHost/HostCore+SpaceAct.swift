@@ -8,7 +8,8 @@ import Foundation
 // order through the daemon's own operations, in-process (new, edit, the rooms, reopen and wake, start, the run's scratch
 // folders, adopt, each worker), under `space:W` — so every rule of theirs holds. It stops at the first failure: the rest
 // are "not run", the run stays open, and a second up makes only what is missing. `up` never writes a grant, a ceiling or
-// `bots.json` (a request is recorded, never granted), never writes the brief, and opens no named file but the brief.
+// `bots.json` (a request is recorded, never granted), never writes the brief, and opens no named file but the brief (the
+// space file itself is opened only by `workspace-space` and `-space-save`, never by up).
 // docs/engineering/workspaces.md ("Space files").
 
 /// What `up` or `down` did, step by step.

@@ -655,6 +655,8 @@ struct UIRunner {
         }
         // 599f: the New Sandbox wizard reads project files with the CLI's own parser (Yams stays here).
         WebProjectFiles.install { text, file in try DozableProject.parse(text, file: file) }
+        // The space view's plan: the space file read with the CLI's own resolver (Yams stays here), then `workspace-up-plan`.
+        data.spacePlanner = { store, workspace, text, send in try await SpaceDashboardPlan.plan(store: store, workspace: workspace, text: text, send: send) }
         return data
     }
 

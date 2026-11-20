@@ -4,7 +4,8 @@ import Foundation
 
 // A space file as the daemon receives it: ONE merged document (an ordered JSON value — the file's order is kept, the
 // messages and the plan depend on it), each place's origin (the source and the line that set it), and every source with
-// its sha256. The CLI reads the files (`SpaceResolver`, Yams); the daemon never opens a space or a defaults file.
+// its sha256. The CLI reads the files (`SpaceResolver`, Yams); the daemon never plans from a file and never opens a defaults
+// file — it opens the recorded space file only to read and save it (`workspace-space`, `-space-save`; `SpaceRecordFile`).
 
 /// Where a place of the merged document was set: the index of its source, the line of its value and of its key.
 public struct SpaceOrigin: Codable, Equatable, Sendable {
@@ -62,7 +63,8 @@ public struct SpaceRequest: Codable, Equatable, Sendable {
     public var spec: String
     public var sources: [SpaceSource]
     public var origins: [String: SpaceOrigin]
-    /// The space file's path as the person named it (shown, never opened).
+    /// The space file's path as the person named it (shown; never opened to plan — `SpaceRecordFile` reads and saves the
+    /// recorded one for `workspace-space`).
     public var specPath: String?
     public var brief: SpaceBriefLook?
     /// `--profile`: the profiles whose resources are included.

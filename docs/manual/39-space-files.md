@@ -120,3 +120,18 @@ doz workspace show launch-video --space            # "Defined by launch-video.sp
 Exit codes: 0 ok · 1 a step failed · 2 a problem in the file, or something external missing · 3 not in a state to go
 on (chat off, a workspace archived), or changed since the plan · 4 a workspace of that name made without a space file ·
 5 not confirmed · 7 not in this version · 64 usage.
+
+## While it runs
+
+- **`doz workspace state NAME`** shows the space as it is now beside its file: each agent (running, asleep, gone after
+  down, missing — and whether it is working, idle or waiting for you), its chat member, every folder, sandbox and room,
+  what the workspace holds named like the space but not in the file, and what waits for you (a permission prompt, a
+  sandbox that failed, an up that stopped part way). A chat message's text is never in it. `--json` is the document the
+  dashboard reads. With no daemon running it starts none, and every state says "not known".
+- **`doz workspace show NAME --space`** names the file and, read now, its size and sha256. **`doz workspace edit NAME
+  --space-file F --if-match SHA`** saves F over that same file — only while it is still the one whose sha256 you read
+  (changed since: nothing is written, exit 3). A save is never applied: `doz workspace up -f FILE` applies it. From the
+  dashboard the file is saved only in this Mac's own browser.
+- **`doz workspace runs NAME --frames RUN`** shows a run as it went: its state each time it changed (recorded when
+  something happens, never on a timer; at most 2,000 frames a run, then only the last state). Down keeps them in the run's
+  archive and checks them.

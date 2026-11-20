@@ -36,6 +36,8 @@ public actor HostCore {
     /// 595: operations that touch the store's disks under way now (a deletion waits for none).
     var diskOpsInFlight = 0
     nonisolated let hub = HostEventHub()
+    /// A space's frames during a run, moved by events (`SpaceStateRecorder`, `HostCore+SpaceState`).
+    nonisolated let spaceFrames = SpaceStateRecorder()
     /// 599h: the tools layer's downloads (gh), once per store.
     public nonisolated var toolsCache: ToolsCache { ToolsCacheRegistry.cache(for: store.root.appendingPathComponent("tools")) }
     /// 588: the store's accounts (metadata only), the keychain / verifier / Claude probes (fakes in
@@ -363,6 +365,7 @@ public actor HostCore {
     private func handleEvent(_ name: String, _ e: SandboxEvent) {
         // 612: a sandbox that comes to run gets its sessions' status watchers again; one that is off has no programs.
         if case .phase(let p) = e {
+            spaceFramesPoke(nil, "\(name): \(p.rawValue)")
             if p == .running { sessionRegistry.cameToRun(name); Task { await self.refreshStatusWatches(name) } }
             if p == .off { clearStatuses(name); sessionRegistry.clear(name) }
             // 617 (RP-1): forwards listen while the sandbox runs, and only then.
@@ -899,7 +902,8 @@ public actor HostCore {
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
         case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename,
              .workspaceStart, .workspaceStop, .workspacePlan, .workspaceLifecyclePlan, .workspaceSleep, .workspaceWake, .workspaceFinish,
-             .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunArchive, .workspaceRunChat:
+             .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunArchive, .workspaceRunChat,
+             .workspaceState, .workspaceSpace, .workspaceSpaceSave, .workspaceRunFrames:
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)

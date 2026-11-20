@@ -28,7 +28,7 @@ struct WorkspaceCommand: AsyncParsableCommand {
         """,
         subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceSleep.self,
                       WorkspaceWake.self, WorkspaceFinish.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
-                      WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceRename.self,
+                      WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceStateCommand.self, WorkspaceRename.self,
                       SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
 }
 
@@ -265,6 +265,20 @@ struct WorkspaceShow: AsyncParsableCommand {
             reach = try await workspaceViewAnswer(.workspaceReach, q, WorkspaceReach.self, g)
         }
         if folders { view = try await workspaceViewAnswer(.workspaceFolders, WorkspaceRequest(name: name), WorkspaceFolders.self, g) }
+        if space {
+            guard let s = d.space else { throw fail(HostError(.notFound, "\(d.name) was made without a space file"), g) }
+            // The file as it is now (`workspace-space`, read-only): its sha256 is what `edit --space-file --if-match` takes.
+            var file: WorkspaceSpaceFile?, problem: String?
+            do { file = try decode(try await query(workspaceRequest(.workspaceSpace, WorkspaceRequest(name: name)), g), WorkspaceSpaceFile.self, g) } catch {
+                problem = HostError.from(error).message
+            }
+            if g.json { Out.json(SpaceShowJSON(shown: s, file: file, problem: problem)); return }
+            var t = spaceShownText(s)
+            if let f = file { t += "File: \(f.bytes) bytes, sha256 \(f.sha256)\n" }
+            if let p = problem { t += "note: the file cannot be read: \(p)\n" }
+            Out.stdout(t)
+            return
+        }
         if g.json {
             if reach == nil && view == nil { Out.json(d) } else { Out.json(WorkspaceShowJSON(detail: d, reach: reach, folders: view)) }
             return
@@ -280,15 +294,25 @@ struct WorkspaceShow: AsyncParsableCommand {
             printFolders(view)
             return
         }
-        if space {
-            guard let s = d.space else { throw fail(HostError(.notFound, "\(d.name) was made without a space file"), g) }
-            if g.json { Out.json(s); return }
-            Out.stdout(spaceShownText(s))
-            return
-        }
         printWorkspace(d)
         if let s = d.space { Out.stdout(spaceShownText(s)) }
         if let t = d.briefText { Out.stdout("\n" + t + (t.hasSuffix("\n") ? "" : "\n")) }
+    }
+}
+
+/// `show --space --json`: the space's line (`SpaceShown`) and, additively, the file as it is now — `path`, `text`, `sha256`,
+/// `bytes` (`workspace-space`) — or why it cannot be read (`fileProblem`).
+struct SpaceShowJSON: Encodable {
+    var shown: SpaceShown
+    var file: WorkspaceSpaceFile?
+    var problem: String?
+    func encode(to encoder: Encoder) throws {
+        guard case .object(var o) = try JSONValue(encoding: shown) else { return try shown.encode(to: encoder) }
+        if let f = file {
+            o["path"] = .string(f.path); o["text"] = .string(f.text); o["sha256"] = .string(f.sha256); o["bytes"] = .number(Double(f.bytes))
+        }
+        if let p = problem { o["fileProblem"] = .string(p) }
+        try JSONValue.object(o).encode(to: encoder)
     }
 }
 
@@ -349,7 +373,12 @@ struct WorkspaceEdit: AsyncParsableCommand {
     @Flag(name: .customLong("no-manager"), help: "Remove its manager (not while it runs).") var noManager = false
     @Option(name: .customLong("if-brief"), help: "Change it only if the brief is still this one: its sha256 (doz workspace show W --json). Otherwise nothing is written.")
     var ifBrief: String?
+    @Option(name: .customLong("space-file"), help: "Save this text (a file, or - for standard input) over the space file the workspace was made from — never applied: up applies it. Needs --if-match.")
+    var spaceFile: String?
+    @Option(name: .customLong("if-match"), help: "With --space-file: the sha256 of the space file as you read it (doz workspace show W --space --json). Changed since: nothing is written.")
+    var ifMatch: String?
     func run() async throws {
+        if spaceFile != nil || ifMatch != nil { return try saveSpaceFile() }
         var w = WorkspaceRequest(name: name)
         if let ifBrief {
             guard ifBrief.count == 64, ifBrief.allSatisfy({ $0.isHexDigit && !$0.isUppercase }) else {
@@ -369,6 +398,29 @@ struct WorkspaceEdit: AsyncParsableCommand {
         let d = try decode(try call(workspaceRequest(.workspaceEdit, w), g), WorkspaceDetail.self, g)
         if g.json { Out.json(d); return }
         printWorkspace(d)
+    }
+
+    /// `--space-file F --if-match SHA` (alone): `workspace-space-save` — the text written over the recorded space file only
+    /// when it is still the one you read; never applied.
+    func saveSpaceFile() throws {
+        guard let f = spaceFile, let sha = ifMatch else { throw fail(HostError(.invalid, "--space-file and --if-match go together"), g) }
+        let others = promptFile != nil || !addRefs.isEmpty || !removeRefs.isEmpty || !addFolders.isEmpty || !removeFolders.isEmpty || makeRoom
+            || manager != nil || managerIsolation != nil || noManager || ifBrief != nil
+        if others { throw fail(HostError(.invalid, "--space-file saves the space file alone — change the rest with up, or in another edit"), g) }
+        guard sha.count == 64, sha.allSatisfy({ $0.isHexDigit && !$0.isUppercase }) else {
+            throw fail(HostError(.invalid, "--if-match: the space file's sha256, 64 lower-case hex digits (doz workspace show \(name) --space --json)"), g)
+        }
+        let data: Data?
+        if f == "-" { data = FileHandle.standardInput.readDataToEndOfFile() } else { data = FileManager.default.contents(atPath: workspaceAbsolute(f)) }
+        guard let data, data.count <= SpaceRecordFile.maximumBytes, let text = String(data: data, encoding: .utf8) else {
+            throw fail(HostError(.invalid, "--space-file: a UTF-8 file of at most \(SpaceRecordFile.maximumBytes >> 10) KiB"), g)
+        }
+        var w = WorkspaceRequest(name: name)
+        w.text = text
+        w.ifMatch = sha
+        let saved = try decode(try call(workspaceRequest(.workspaceSpaceSave, w), g), WorkspaceSpaceSaved.self, g)
+        if g.json { Out.json(saved); return }
+        Out.stdout("saved \(saved.shownPath) (\(saved.bytes) bytes, sha256 \(saved.sha256))\nnot applied: doz workspace up -f \(saved.shownPath) applies it\n")
     }
 }
 

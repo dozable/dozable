@@ -196,8 +196,11 @@ public struct WorkspaceRun: Codable, Equatable, Sendable {
     public var legacy: Bool?
     /// Finish was asked not to write an archive (`--no-archive`).
     public var noArchive: Bool?
+    /// A space's run past its frames' bound (2,000 frames or 16 MiB): only `frames/last.json` was rewritten after it.
+    public var framesCapped: Bool?
     public var unknown = UnknownFields()
-    static let known: Set<String> = ["id", "startedAt", "endedAt", "archive", "rooms", "archiveSHA256", "archiveProblem", "closedBy", "legacy", "noArchive"]
+    static let known: Set<String> = ["id", "startedAt", "endedAt", "archive", "rooms", "archiveSHA256", "archiveProblem", "closedBy", "legacy", "noArchive",
+                                     "framesCapped"]
 
     public init(id: String, startedAt: Date, rooms: [WorkspaceRunRoom] = []) { self.id = id; self.startedAt = startedAt; self.rooms = rooms }
 
@@ -215,6 +218,7 @@ public struct WorkspaceRun: Codable, Equatable, Sendable {
         closedBy = try c.decodeIfPresent(String.self, forKey: "closedBy")
         legacy = try c.decodeIfPresent(Bool.self, forKey: "legacy")
         noArchive = try c.decodeIfPresent(Bool.self, forKey: "noArchive")
+        framesCapped = try c.decodeIfPresent(Bool.self, forKey: "framesCapped")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -231,6 +235,7 @@ public struct WorkspaceRun: Codable, Equatable, Sendable {
         try c.encodeIfPresent(closedBy, forKey: "closedBy")
         try c.encodeIfPresent(legacy, forKey: "legacy")
         try c.encodeIfPresent(noArchive, forKey: "noArchive")
+        try c.encodeIfPresent(framesCapped, forKey: "framesCapped")
     }
 }
 
@@ -633,6 +638,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "space-up": return "set it up from its space file" + (reason.map { " — \($0)" } ?? "")
         case "space-down": return "took it down (its space file)" + (reason.map { " — \($0)" } ?? "")
         case "space-purged": return "retired what its space file kept (--purge)"
+        case "space-saved": return "saved its space file (\(bytes ?? 0) bytes) — not applied: up applies it"
         case "memory-kept": return "kept \(agent ?? "?")'s memory (\(added ?? 0) file\(added == 1 ? "" : "s")) for its next fenced session"
         case "memory-reset": return "reset \(agent ?? "?")'s kept memory" + (reason.map { " (\($0))" } ?? "")
         case "scratch-removed": return "removed a scratch folder" + (reason.map { " — \($0)" } ?? "")

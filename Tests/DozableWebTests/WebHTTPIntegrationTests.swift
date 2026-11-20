@@ -373,6 +373,51 @@ final class WebHTTPIntegrationTests: XCTestCase {
         XCTAssertEqual(fake.performedOps, [], "reads: no operation")
     }
 
+    /// The space view's three reads and its one action over HTTP: POST with the workspace in the body, CSRF, strict bodies
+    /// (400 before any call — never a path), each exactly one call; this Mac's own browser may save (`canSave`); the save is
+    /// exactly `workspace-space-save` with the text and `ifMatch`.
+    func testTheSpaceRoutesAndTheSave() async throws {
+        try await start()
+        let (cookie, csrf) = try signIn()
+        let h = ["Cookie": cookie, "Origin": origin, "X-Doz-CSRF": csrf, "Content-Type": "application/json"]
+        for (path, good, bads) in [
+            ("/api/v1/workspace-space", #"{"workspace":"demo"}"#, [#"{}"#, #"{"workspace":"-bad"}"#, #"{"workspace":"demo","path":"/etc/passwd"}"#, "[]"]),
+            ("/api/v1/workspace-space-plan", #"{"workspace":"demo","text":"doz: space/3\nspace: demo\n"}"#,
+             [#"{"workspace":"demo"}"#, #"{"workspace":"demo","text":"x","path":"/x"}"#, #"{"workspace":"demo","text":"\u0001"}"#, #"{"workspace":"Demo","text":"x"}"#]),
+            ("/api/v1/workspace-state", #"{"workspace":"demo"}"#, [#"{"workspace":"demo","macSessionsHidden":false}"#, #"{"workspace":"de mo"}"#]),
+            ("/api/v1/workspace-run-frames", #"{"workspace":"demo","run":"2026-11-20-1"}"#, [#"{"workspace":"demo"}"#, #"{"workspace":"demo","run":"../x"}"#]),
+        ] {
+            XCTAssertEqual(try get(path, ["Cookie": cookie, "Origin": origin, "Content-Type": "application/json"], method: "POST", body: good).status, 403, "\(path): CSRF")
+            XCTAssertEqual(try get(path, ["Cookie": cookie], method: "GET").status, 404, "\(path): POST only")
+            let before = fake.workspaceCalls.count
+            for b in bads { XCTAssertEqual(try get(path, h, method: "POST", body: b).status, 400, "\(path) \(b)") }
+            XCTAssertEqual(fake.workspaceCalls.count, before, "no call for a refused request (\(path))")
+            let r = try get(path, h, method: "POST", body: good)
+            XCTAssertEqual(r.status, 200, r.text)
+            XCTAssertEqual(fake.workspaceCalls.count, before + 1, path)
+        }
+        XCTAssertEqual(fake.workspaceCalls.suffix(4), ["space demo", "space-plan demo 25", "state demo", "frames demo 2026-11-20-1"])
+        let file = try JSONDecoder().decode(WebSpaceFile.self, from: try get("/api/v1/workspace-space", h, method: "POST", body: #"{"workspace":"demo"}"#).body)
+        XCTAssertTrue(file.canSave, "this Mac's own browser saves")
+        XCTAssertNil(file.command)
+        XCTAssertEqual(file.shownPath, "~/work/demo.space.yaml")
+        let raw = try get("/api/v1/workspace-space", h, method: "POST", body: #"{"workspace":"demo"}"#).text
+        XCTAssertFalse(raw.contains("/Users/someone"), "the path is shown with ~, never the absolute one: \(raw)")
+        let state = try JSONDecoder().decode(SpaceState.self, from: try get("/api/v1/workspace-state", h, method: "POST", body: #"{"workspace":"demo"}"#).body)
+        XCTAssertEqual(state.sha, state.computedSHA)
+        XCTAssertEqual(try get("/api/v1/workspace-space", h, method: "POST", body: #"{"workspace":"nope"}"#).status, 404)
+        XCTAssertEqual(fake.performedOps, [], "reads: no operation")
+        // The save: one operation, exactly its HostOp.
+        let sha = file.sha256
+        let save = try get("/api/v1/actions", h, method: "POST", body: #"{"action":"workspace-space-save","workspace":"demo","text":"doz: space/3\nspace: demo\ntitle: t\n","ifMatch":"\#(sha)"}"#)
+        XCTAssertEqual(save.status, 202, save.text)
+        let deadline = Date().addingTimeInterval(5)
+        while fake.performed.isEmpty && Date() < deadline { usleep(10_000) }
+        XCTAssertEqual(fake.performedOps, [.workspaceSpaceSave])
+        XCTAssertEqual(fake.performed.first?.workspaceRequest?.text, "doz: space/3\nspace: demo\ntitle: t\n")
+        XCTAssertEqual(fake.performed.first?.workspaceRequest?.ifMatch, sha)
+    }
+
     func testTheLifecyclePlanRoute() async throws {
         try await start()
         let (cookie, csrf) = try signIn()
@@ -855,6 +900,30 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         lock.withLock { _workspaceCalls.append("activity \(w.name ?? "") \(w.before.map(String.init) ?? "-") \(w.limit.map(String.init) ?? "-")") }
         return WorkspaceLogPage(entries: [WorkspaceLogEntry(action: "adopted", agent: "build", place: "mac:build"), WorkspaceLogEntry(action: "created")],
                                 first: 12, more: true)
+    }
+
+    /// A space workspace: its file (always "demo"'s, from the record), its state, and the page's text planned.
+    func workspaceSpace(_ w: WorkspaceRequest) async throws -> WorkspaceSpaceFile {
+        lock.withLock { _workspaceCalls.append("space \(w.name ?? "")") }
+        guard w.name == "demo" else { throw HostError(.notFound, "\(w.name ?? "") was not made from a space file") }
+        let text = "doz: space/3\nspace: demo\n"
+        return WorkspaceSpaceFile(workspace: "demo", file: "demo.space.yaml", path: "/Users/someone/work/demo.space.yaml", shownPath: "~/work/demo.space.yaml",
+                                  text: text, sha256: WorkspaceStore.sha256(Data(text.utf8)), bytes: text.utf8.count)
+    }
+    func workspaceState(_ w: WorkspaceRequest) async throws -> SpaceState {
+        lock.withLock { _workspaceCalls.append("state \(w.name ?? "")\(w.macSessionsHidden == true ? " hidden" : "")") }
+        var s = SpaceState(space: w.name ?? "", observedAt: "2026-11-20T10:00:00Z", factsKnown: true, host: "testmac",
+                           items: [SpaceState.Item(subject: "w1", type: "agent", lifetime: "run", state: "running", activity: "idle")])
+        s.seal()
+        return s
+    }
+    func workspaceRunFrames(_ w: WorkspaceRequest) async throws -> SpaceRunDetail {
+        lock.withLock { _workspaceCalls.append("frames \(w.name ?? "") \(w.run ?? "-")\(w.macSessionsHidden == true ? " hidden" : "")") }
+        return SpaceRunDetail(workspace: w.name ?? "", id: w.run ?? "", frames: [])
+    }
+    func spacePlan(workspace: String, text: String) async throws -> SpacePlan {
+        lock.withLock { _workspaceCalls.append("space-plan \(workspace) \(text.utf8.count)") }
+        return SpacePlan(space: workspace, title: "", specPath: "/Users/someone/work/demo.space.yaml", specSHA: "ab", sources: [], factsKnown: false)
     }
 
     func workerPlan(_ q: WorkerRequest) async throws -> WorkerPlan {

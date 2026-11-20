@@ -16,8 +16,19 @@ struct WorkspaceRunsCommand: AsyncParsableCommand {
     @Argument(help: "The workspace.") var name: String
     @Option(name: .customLong("archive"), help: "Write this closed run's archive again (when it could not be written at its finish).")
     var archive: String?
+    @Option(name: .customLong("frames"), help: "A space's run in frames: its state each time it changed, and its archive checked now.")
+    var frames: String?
 
     func run() async throws {
+        if archive != nil, frames != nil { throw fail(HostError(.invalid, "--archive or --frames, not both"), g) }
+        if let run = frames {
+            var w = WorkspaceRequest(name: name)
+            w.run = run
+            let d = try decode(try await query(workspaceRequest(.workspaceRunFrames, w), g), SpaceRunDetail.self, g)
+            if g.json { Out.json(d); return }
+            Out.stdout(spaceRunFramesText(d))
+            return
+        }
         if let run = archive {
             var w = WorkspaceRequest(name: name)
             w.run = run
@@ -65,3 +76,23 @@ func workspaceRunsText(_ l: WorkspaceRunsListing) -> String {
 }
 
 func runLength(_ minutes: Int) -> String { "\(minutes / 60) h \(String(format: "%02d", minutes % 60)) min" }
+
+/// A run's frames as a person reads them: each frame's time, what changed, and what waited; then its archive checked now.
+func spaceRunFramesText(_ d: SpaceRunDetail) -> String {
+    var s = "run \(d.id) of \(d.workspace): \(d.frames.count) frame\(d.frames.count == 1 ? "" : "s")\(d.capped == true ? " (past the bound: the last state kept after it)" : "")\n"
+    var t = [["FRAME", "AT", "WHAT CHANGED", "STATE"]]
+    for f in d.frames {
+        let running = f.state.items.filter { $0.type == "agent" && $0.state == "running" }.count
+        let agents = f.state.items.filter { $0.type == "agent" }.count
+        var state = "\(running)/\(agents) agents running"
+        if !f.state.attention.isEmpty { state += ", \(f.state.attention.count) waiting for you" }
+        if let r = f.state.run { state += ", run \(r.phase)" }
+        t.append([f.file, f.at, f.label, state])
+    }
+    s += Out.table(t)
+    if let a = d.archive {
+        s += "archive: \(a.path) — " + (a.verified ? "verified (\(a.files.count) files)" : "does not verify: " + a.mismatched.joined(separator: ", ")) + "\n"
+    }
+    if let n = d.note { s += "note: \(n)\n" }
+    return s
+}

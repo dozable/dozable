@@ -762,6 +762,57 @@ final class ServeHTTPTests: XCTestCase {
         }
     }
 
+    /// A space file: another computer reads it and plans it only with serve.chat read or write (403 `space-remote` while off),
+    /// never saves it (`canSave` false, the command instead) and its save is 403 `mac-only` whatever the serve settings —
+    /// nothing reaches the daemon; its state is a read whose sessions on this Mac follow serve.mac_sessions.
+    func testTheSpaceFileIsSavedOnlyInThisMacsBrowserAndReadAsServeChatAllows() async throws {
+        try await start()
+        let (devCookie, devCSRF) = try await admit()
+        let sha = String(repeating: "a", count: 64)
+        let save = #"{"action":"workspace-space-save","workspace":"demo","text":"doz: space/3\nspace: demo\n","ifMatch":"\#(sha)"}"#
+        for path in ["/api/v1/workspace-space", "/api/v1/workspace-space-plan"] {
+            let body = path.hasSuffix("plan") ? #"{"workspace":"demo","text":"doz: space/3\n"}"# : #"{"workspace":"demo"}"#
+            let r = try macJSON(devCookie, devCSRF, path, body, remote: true)
+            XCTAssertEqual(r.status, 403, r.text)
+            XCTAssertTrue(r.text.contains("space-remote") && r.text.contains("serve.chat"), r.text)
+        }
+        let state = try macJSON(devCookie, devCSRF, "/api/v1/workspace-state", #"{"workspace":"demo"}"#, remote: true)
+        XCTAssertEqual(state.status, 200, state.text)
+        XCTAssertEqual(fake.workspaceCalls.last, "state demo hidden", "this Mac's sessions hidden while serve.mac_sessions is off")
+        let frames = try macJSON(devCookie, devCSRF, "/api/v1/workspace-run-frames", #"{"workspace":"demo","run":"2026-11-20-1"}"#, remote: true)
+        XCTAssertEqual(frames.status, 200, frames.text)
+        XCTAssertEqual(fake.workspaceCalls.last, "frames demo 2026-11-20-1 hidden")
+        for (ms, chat) in [("off", "off"), ("watch", "read"), ("interactive", "write")] {
+            try FileManager.default.createDirectory(at: dir.appendingPathComponent("xdg/doz"), withIntermediateDirectories: true)
+            try "[serve]\nmac_sessions = \"\(ms)\"\nchat = \"\(chat)\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+            let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", save, remote: true)
+            XCTAssertEqual(r.status, 403, r.text)
+            XCTAssertTrue(r.text.contains("\"mac-only\"") && r.text.contains("A space file is changed only in this Mac's own browser"), r.text)
+        }
+        XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon")
+        let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+        XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "space-remote" })
+        XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "mac-only" })
+    }
+
+    func testTheSpaceFileIsReadRemotelyWithServeChatButNeverSaved() async throws {
+        try await start(macSessions: "watch", chat: "read")
+        let (devCookie, devCSRF) = try await admit()
+        let r = try macJSON(devCookie, devCSRF, "/api/v1/workspace-space", #"{"workspace":"demo"}"#, remote: true)
+        XCTAssertEqual(r.status, 200, r.text)
+        let f = try JSONDecoder().decode(WebSpaceFile.self, from: r.body)
+        XCTAssertFalse(f.canSave)
+        XCTAssertEqual(f.command, "doz workspace edit demo --space-file ~/work/demo.space.yaml --if-match \(f.sha256)")
+        let p = try macJSON(devCookie, devCSRF, "/api/v1/workspace-space-plan", #"{"workspace":"demo","text":"doz: space/3\n"}"#, remote: true)
+        XCTAssertEqual(p.status, 200, p.text)
+        _ = try macJSON(devCookie, devCSRF, "/api/v1/workspace-state", #"{"workspace":"demo"}"#, remote: true)
+        XCTAssertEqual(fake.workspaceCalls.last, "state demo", "serve.mac_sessions watch: shown")
+        let (macCookie, macCSRF) = try macSignIn()
+        let own = try JSONDecoder().decode(WebSpaceFile.self, from: try macJSON(macCookie, macCSRF, "/api/v1/workspace-space", #"{"workspace":"demo"}"#, remote: false).body)
+        XCTAssertTrue(own.canSave, "this Mac's own browser saves")
+        XCTAssertTrue(fake.performedOps.isEmpty)
+    }
+
     /// A fenced session's site allowed from another computer: 403 `mac-only` whatever serve.mac_sessions and serve.chat say,
     /// one audit line each, nothing sent to the daemon; this Mac's own browser: 202, exactly `net-policy` on `@mac` with the
     /// session. The wide views read from another computer: held secrets a count only, this Mac's agents per serve.mac_sessions.
