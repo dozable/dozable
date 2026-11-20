@@ -33,6 +33,8 @@ and another browser of the LAN option gets what `serve.chat` allows (below, "In 
 | `ChatAttachments.swift` | attachments: `ChatFileRules` (the id rule, the name cleaning, the media type from the extension else the bytes, the limits), `attach` (check every file, then store), `saveFile`, `storedFile`, who may fetch a file (`mayFetch`), the files a delete removes, the line port's `file` reply |
 | `ChatWebhookAddress.swift` | a webhook entry's address rule (`ChatWebhookAddress.refusal`: https anywhere but unspecified, multicast, broadcast and link-local; http only to this Mac or 100.64.0.0/10; no user, fragment, space or control character; the header one line) and the pipe the daemon hands the entries on (`ChatWebhookPipe`: `--webhooks-fd`, a FIFO read to its end in 5 s, at most 16 KiB, `{"version":1,"webhooks":{…}}`, a `tokens` member refused) |
 | `ChatWebhookClient.swift` | the webhook client (`ChatWebhookPoster`, `ChatURLSessionWebhook`): one POST, no proxy, no redirect followed, the answer's body never read, a deadline on the whole call, a failure reason with no address in it |
+| `ChatAsk.swift` | asks' shapes and form (below, "Asks"): the questions as stored and returned, the 0.15 form read into v3, how a posted ask is checked (the reference's words, in its order), the digest, canonical `about`, the plain text, a typed `/decide` read, a decision checked, the outcome's summary; `ChatTime` (RFC 3339 to the nanosecond, as Go writes it) |
+| `ChatAsks.swift` | asks' server side: posting (under `askLock`), the numbers (`ask-numbers.json`), finding one (`#N`, a msg_id or its start), deciding and withdrawing (once per msg_id or `X-Chat-Id`, the first wins), the audit line, expiry (`ChatAskTimers`: one timer for the earliest, and the start's look), no decider left, the outcome to the asker, `GET /agent/asks/{id}`, `GET /api/asks`; the lock order |
 | `ChatProtocol.swift` | the protocol's own description (`GET /api/protocol`, `/protocol`) and its version: the first 10 hex of the SHA-256 of that description's encoding |
 | `ChatPage.swift` | `ChatPageHandler`: one HTTP request in, one answer out — the access gate, the router (an untidy path is redirected, a wrong method is 405), every route |
 | `ChatLinePort.swift` | `ChatLineConnection`: one line-port connection's state and what each line does (a reply, nothing, or a close) |
@@ -442,8 +444,78 @@ verifies now and the name is typed. `doz chat room close|open R --loose` (`chat-
 close a LOOSE room by hand and open it again: the mark is the room index's `closedAt`, and the daemon adds every such room
 to the closed set with the value `_` (`ChatRoomControl.looseOwner`: "closed by the owner … doz chat room open R --loose");
 a workspace's own rooms are refused — its finish (a space's down) closes them and its reopen (up) opens them. Conformance
-is unchanged (171): it starts `doz chat serve` without a channel. `ChatClosedTests`, `RoomLifecycleHostTests`,
+is unchanged by it: it starts `doz chat serve` without a channel. `ChatClosedTests`, `RoomLifecycleHostTests`,
 `WorkspaceLifecycleHostTests.testALooseRoomIsClosedAndOpenedThroughTheClosedSet`.
+
+## Asks
+
+An **ask** (the protocol's section 13, at the pin 0.17.0) is a message of kind `ask` that puts 1 to 5 questions (0 to 8
+options each, single or multiple choice, free text by default) to named **deciders** and waits for a **decision**. Every
+ask can be declined, every ask expires (24 hours by default, at most 7 days) and on expiry the answer is decline. The
+reference's words, checks and order are kept exactly; the conformance runner runs its 25 checks of section 13 with `-ask`.
+
+- **Posting** (the line port, `/agent/send`, the page's post: `kind: "ask"` or an `ask` object): checked after the room,
+  the msg_id and membership, then in the reference's order (`ChatAskForm.questions`, `ChatServerCore.newAsk`): not a direct
+  message; the questions; the reason; the deciders (named — each a member, never the asker, a participant that is not human
+  only with the role `decider` — or the room's humans now); `about` (an object, at most 4096 bytes, kept as canonical JSON);
+  `expires_at`; `on_expiry` (decline only); then the limits (`ask_max_open` open asks per asker and room; the cooldown: the
+  same asker, room and `about` declined or expired within `ask_cooldown_seconds`). Refused: a 422 receipt, nothing stored.
+  Accepted: the deciders join `to`; `content` is the plain text (13.3) — written once, never changed — so every reader that
+  knows no asks reads the question, its lettered options and how to answer; the room file's table `asks` (the reference's
+  statement, made with `CREATE TABLE IF NOT EXISTS`, so an older file gains it) gets the ask's row in the same transaction.
+  The digest is the SHA-256 of the reference's array, written with no HTML escaping (`ChatJSON.encode(_:escapeHTML:)`).
+- **Deciding**: `/decide <ask> <options> [words]` in any room message (the sender verified by its token), `POST
+  /agent/decide` (a participant's token; the human's is 403), the page's `POST /api/rooms/R/messages/ID/decide` (the human;
+  the dashboard's owner socket). Each answers a receipt and stores no message; each is done once per msg_id or `X-Chat-Id`;
+  the first valid decision wins (`UPDATE … WHERE state='open'` under `askLock`). The role is checked at naming AND at
+  deciding. A refusal is private: its receipt, and for a Claude session (which sees no receipt) a note in its own inbox.
+  One `chat: ask audit:` line in the server's log for every decision and withdrawal, refused or not. `/withdraw` (the asker
+  only) closes it with no decision and no cooldown. An ask cannot be edited; an open one cannot be deleted.
+- **Expiry**: one `DispatchSourceTimer` per server (`ChatAskTimers`), armed for the earliest open ask; at start, before the
+  ports answer, every room's open asks are read — those due are expired, the rest scheduled — and decide, withdraw, a look
+  and the open count expire a due one first. The decision is the server's (`by: chat`, `via: expiry`, no sender). Nothing
+  expires while asks are off; back on, the start's look does it.
+- **No one left to decide** (a decider left, was removed, unregistered, lost the role at a restart or a reload removed it):
+  the ask is marked `no_decider`, stays open and expires as usual; the asker is told.
+- **The outcome** goes to the asker the way it takes messages: a webhook `chan-ask-outcome` (or `chan-ask-no-decider`, the
+  message's tries), a notice `ask-outcome` on `/agent/receive` kept until acknowledged, a line in a Claude session's inbox;
+  every change of state is an `ask` event on the stream (the dashboard ignores it for now and shows an ask as its text).
+  `GET /agent/asks/{id}?room=` answers the whole message for a waiter that reconnects.
+- **Off** (`no_asks`, written when `chat.asks` is off): an ask, `/decide` and `/withdraw` are refused with `asks are off on
+  this server`; `GET /agent/asks/…` is 404; the description has `features: []` and no `asks`. The version hashes the asks
+  description either way, so turning asks off never changes it.
+- **The lock order**: the close gate (a post reads it) → `askLock` → the core's lock → the expiry index's own lock. Nothing
+  holding `askLock` takes the close gate; the timer lets go of its own lock before it takes `askLock`; the closed set expires
+  its rooms' asks after it let go of the close gate. `ChatAskLockOrderTests` runs them all at once.
+
+**Dozable's deviations** (each with its test): a **number** per Mac in the stored ask's JSON (`number`, a key the reference
+ignores; not in the digest) — the next is one more than the highest ever given (`ask-numbers.json` `{"version":1,"last":N}`,
+or the highest a room holds), never reused, even after its room is removed — and `#N` is accepted wherever an ask id is; a
+**closed room** (a finished workspace, a loose room closed by the owner) refuses deciding and withdrawing with its closed
+text, and entering the closed set expires its open asks at once with the note "…expired: room R was closed" and no
+cooldown; a room **removed** takes its timers; the description's example decider is a neutral name (with the reference's
+own name the version is the reference's, 25861a6db9); `GET /api/asks?state=open` lists the open asks of the human's rooms
+(`[{room, message}]`, the human only); the wake's `server.line` is the bind address and the line port (never a name); and
+`chat.asks` and the limits are Dozable settings. An import (`doz chat import`) brings the `asks` table and kind `ask` across,
+closing each open ask as expired on the staged copy (nobody told, no cooldown).
+
+**Under the daemon.** `doz chat set NAME --role decider|none` (`chat-set` with `roles`; `--deliver` optional) records
+`roles` in `directory.json` (an older doz drops it when it rewrites the file) and the generated config writes
+`"roles": ["decider"]`; the person is refused ("a person decides without a role"); a bot's name takes a role-only change
+(`BotGuards.chatRefusal(roleOnly:)`). Only the owner gives the role: `PermissionGate` refuses an agent's `chat-set` that
+carries roles (`chat.decide`, `GrantPermissions.ownerOnly`), and `GrantFacts.deciders` are the directory's deciders. The
+settings `chat.asks` (on), `chat.ask_max_open` (1–20, 1), `chat.ask_expiry_seconds` (60–604800, 86400) and
+`chat.ask_cooldown_seconds` (-1–86400, 600) go into the generated config only when not the default (`no_asks: true` only
+when off), so a store with no roles and default settings gets the bytes it got before. A role or an asks setting changed
+restarts the server (`ChatReloadPolicy`); open asks survive it. `doz chat who` marks a decider (`--json`: `roles`).
+
+Tests: `ChatAskSpecTests` (`ChatAskFormTests.swift`: every posting refusal, the shape, the digest vector, canonical
+`about`, the 0.15 form, times, the plain text, an older file gains the table), `ChatAskDecideTests` (every decide refusal,
+letters, multi, free text, decline, skipped, 8 deciders at once, once per msg_id and `X-Chat-Id`), `ChatAskLifecycleTests`
+(expiry up and at start, a restart byte for byte, limits and cooldown, no decider, a closed room once, numbers, off),
+`ChatAskDeliveryTests` (webhook, poll, inbox, the refusal note, the stream), `ChatAskLockOrderTests`, `ChatConfigTests`,
+`ChatImportTests`, `ChatDirectoryTests`, `ChatReloadPolicyTests`, `BotGuardsTests`, `PermissionGateTests`, the conformance
+gate, `make test-cli-chat` rows A1–A10.
 
 ## Agents on other machines
 
@@ -661,8 +733,8 @@ The reference implementation's own outside-in suite judges this server over its 
 folder and a home for every check, starts `doz chat serve --config {config} --bind {bind}` on 127.0.0.1 with two ports it
 picked, waits until the line port accepts and `GET /api/state` answers, runs the check, and stops it with SIGTERM.
 
-The runner is a program of a private repository, so it is not here. `Tests/Conformance/RUNNER` pins its version and
-SHA-256; `Tests/Conformance/expected-green.txt` is the ratchet — the checks that must PASS, by the names the runner prints.
+The runner is a program of a private repository, so it is not here. `Tests/Conformance/RUNNER` pins its version (0.17.0:
+the reference's darwin-arm64 release asset, its SHA-256 checked against the release's `SHA256SUMS`) and SHA-256; `Tests/Conformance/expected-green.txt` is the ratchet — the checks that must PASS, by the names the runner prints.
 A check that was green may never turn red; a new green check is added in the same change.
 
 ```bash
@@ -674,7 +746,8 @@ The script finds the runner at `$DOZ_CHAT_CONFORMANCE`, else `~/.cache/doz/switc
 prints `conformance: not run (private runner)` and passes, which is what CI and contributors see. It refuses a runner
 whose SHA-256 differs from the pin, and a ratchet that names a check twice or has fewer names than the pin's `minimum`
 (`ConformanceRatchetTests` holds the same in `make test`). It runs the runner with `-no-room-apps` (room apps are not
-here; their calls answer 501, and a change without the human's token is 401 first) and hands it the ratchet as its
+here; their calls answer 501, and a change without the human's token is 401 first) and `-ask` (asks are offered, so the
+checks of section 13 are required, never skipped), and hands it the ratchet as its
 `-expect FILE`: it prints the `SUMMARY` and
 `EXPECT` lines, fails for every ratchet check that is not PASS (`EXPECT-MISSING`, with the runner's first message for
 it), and lists every PASS not yet in the ratchet (`EXPECT-EXTRA`). `CHECKS=` runs a subset as a look only: it prints

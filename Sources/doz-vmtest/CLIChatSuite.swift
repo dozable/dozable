@@ -219,6 +219,9 @@ func cliChatSuite(binary: String) async {
     // 15–21. a webhook bot (its entry in the daemon's keychain seam — the memory one here — handed over on a pipe)
     await cliChatWebhookRows(h: h, root: root, paths: paths, page: page, line: line, sh: sh, server: server, supervisor: supervisor)
 
+    // A1–A10. asks: the decider role, posting, limits, deciding each way, expiry, withdraw, off and on, a finished workspace
+    cliChatAskRows(h: h, root: root, paths: paths, page: page, sh: sh, server: server, supervisor: supervisor)
+
     // 6. a killed server comes back
     guard let s6 = server() else { check(false, "6 a chat server runs"); return }
     kill(s6, SIGKILL)

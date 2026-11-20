@@ -849,9 +849,10 @@ doz chat status [--json]                        # on, ready, its ports (as the r
 doz chat add NAME [--kind KIND] [--webhook [--webhook-entry E] | --inbox [--session S]] [--to-file F | --from-stdin]   # a participant and its token (shown once)
 doz chat add A B C --to-dir DIR [--kind KIND] [--webhook | --inbox]   # several at once, all or nothing; each token in DIR/NAME.token (0600)
 doz chat set NAME --deliver inbox|poll|webhook [--webhook-entry E] [--kind KIND] [--session S]   # how it is reached; token, rooms, history kept
+doz chat set NAME --role decider|none           # the decider role (asks): only the owner gives it; a bot's name too; not you
 doz chat remove NAME                            # it leaves every room; its token is refused at once
 doz chat remove A B C [--yes]                   # several at once, all or nothing (asked once)
-doz chat who [--json]                           # name, kind, token, how it is reached, rooms, presence; a bot's KIND ends "· bot" (--json: bot: true)
+doz chat who [--json]                           # name, kind, token, how it is reached, rooms, presence; a bot's KIND ends "· bot" (--json: bot: true), a decider's "· decider" (--json: roles)
 doz chat token NAME --new | --from-stdin [--to-file F]   # replace a participant's token
 doz chat webhook set E [--from-file F]          # a webhook bot's entry: address, then Authorization value (login keychain)
 doz chat webhook status [E] | remove E

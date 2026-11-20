@@ -187,6 +187,10 @@ This table is generated from `doz config show` and checked against it on every b
 | `chat.remote_listen` | `""` | Tailscale addresses like 100.100.1.2, comma-separated, each one exactly ("" = none) | at once | — | This Mac's own Tailscale addresses (100.64.0.0/10) on which the chat server also listens, both ports, for agents on other machines. Only agents, each with its own token; never you. Plain HTTP: Tailscale encrypts it; any other address is refused. |
 | `chat.remote_agents` | `""` | Tailscale addresses like 100.100.1.2, comma-separated, each one exactly ("" = none) | at once | — | The Tailscale addresses of the other machines that may connect to the chat server (each exactly; no range). Each is always an agent: it must send its token; it gets /agent/… and files with its token, never your page or /api. |
 | `chat.refusal_reasons` | `false` | boolean | at once | — | Give a refused post its reason as an extra field (reason: space-down when the room's workspace is finished), beside the refusal the chat server always gives. Off by default: clients made for the reference never see it. |
+| `chat.asks` | `true` | boolean | at once | — | Asks in chat: an agent may post a question that waits for a decision by you (or a participant you made a decider with doz chat set NAME --role decider). Off: an ask, /decide and /withdraw are refused, and open asks stay as they are until asks are on again. The chat server restarts to take it. |
+| `chat.ask_max_open` | `1` | integer 1–20 | at once | — | How many open asks one participant may have in one room at once (1 to 20). The chat server restarts to take it. |
+| `chat.ask_expiry_seconds` | `86400` | integer 60–604800 | at once | — | How long an ask stays open when it names no expiry of its own, in seconds (60 to 604800, a week); then its answer is decline. The chat server restarts to take it. |
+| `chat.ask_cooldown_seconds` | `600` | integer -1–86400 | at once | — | How long after an ask is declined or expires its asker may not ask about the same thing again, in seconds (0 to 86400; -1 turns it off). The chat server restarts to take it. |
 
 ### `[daemon]`
 

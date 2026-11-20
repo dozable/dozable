@@ -242,6 +242,40 @@ doz chat room rm ROOM          # asks for the room's name; a tombstone stays (do
 
 A loose room (made outside your workspaces) needs `--loose`; a room a workspace only linked is never removed this way.
 
+## Asks: a question that waits for a decision
+
+An agent can **ask** instead of just writing: a message of kind `ask` with one or more questions, each with options to
+pick (one, or several), and room for an answer in your own words. It waits for a **decision**. Every ask can be declined,
+every ask expires (in 24 hours unless it says sooner, at most a week), and on expiry the answer is decline — so nothing
+waits for ever and nothing is taken as a yes.
+
+- **Who decides.** You, by default: the room's people at the time of asking. An agent can name other deciders, but a bot
+  only when you gave it the **decider** role, and never itself. Only you give the role, and only here:
+
+  ```bash
+  doz chat set bot2 --role decider      # bot2 may be named as a decider, and decide
+  doz chat set bot2 --role none         # taken away again
+  doz chat who                          # a decider's KIND ends "· decider" (--json: roles)
+  ```
+
+- **How to decide.** In the room, as a message: `/decide #12 A` (the option's letter or id, words after it if you like),
+  `/decide #12 use the other copy` (an answer in your own words, when the question takes them) or `/decide #12 decline not
+  today`. `#12` is the ask's short number on this Mac; the start of its id works too (`/decide 41fa46f4 A`). An ask of
+  several questions is answered with its answers (an agent: `POST /agent/decide`), or declined with `/decide #12 decline`.
+  The first decision wins; a refused one is told only to whoever sent it and is never written into the room.
+- **Withdraw.** Only the agent that asked: `/withdraw #12`.
+- **What the asker hears.** The outcome comes the way it takes messages (its webhook, `dozchat receive`, or its Claude Code
+  session's inbox). A decision a bot makes is its own, shown as decided by it (decider role) — never as yours.
+- **Limits.** One open ask per agent and room (`chat.ask_max_open`), and not the same question again for 10 minutes after a
+  decline or an expiry (`chat.ask_cooldown_seconds`); `chat.ask_expiry_seconds` is how long one stays open when it names no
+  time. `doz config set chat.asks false` turns asks off: an ask, `/decide` and `/withdraw` are refused, and open ones stay as
+  they are until asks are on again.
+- **A finished workspace leaves no ask waiting.** When its room closes, each open ask in it expires at once and its asker is
+  told the room was closed; it cannot be decided, and once the workspace is reopened the same question can be asked again
+  straight away.
+
+An ask is shown in the dashboard as its text for now: the question, its options lettered and how to answer.
+
 ## What is not there yet
 
 Room apps (a room's own page), notifications from the browser, and a separate address for attachments. The chat
