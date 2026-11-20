@@ -479,6 +479,35 @@ final class ChatImportTests: XCTestCase {
         assertRefused(src, "not an SQLite file")
     }
 
+    /// A history with asks (the reference's table `asks`, kind `ask`) comes across; an open ask is closed as expired on the
+    /// staged copy (the server's decline, no cooldown, nobody told) and a closed one is kept as it was.
+    func testAsksComeAcrossAndAnOpenOneIsExpired() throws {
+        let src = try makeCopy("asks")
+        let db = src + "/rooms/room1.db"
+        let open = "11111111-1111-4111-8111-111111111111", done = "22222222-2222-4222-8222-222222222222"
+        let ask = #"{"question":"Q?","questions":[{"id":"q1","question":"Q?","options":[{"id":"yes","label":"Yes"}],"multi":false,"min":1,"max":1,"free_text":false,"optional":false}],"deciders":["ada"],"digest":"abc","state":""}"#
+        try sql(db, """
+            CREATE TABLE IF NOT EXISTS asks(msg_id TEXT PRIMARY KEY, ask TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'open', expires REAL NOT NULL DEFAULT 0,
+              decision TEXT NOT NULL DEFAULT '', closed_at REAL NOT NULL DEFAULT 0, asker TEXT NOT NULL DEFAULT '',
+              about TEXT NOT NULL DEFAULT '', declined INTEGER NOT NULL DEFAULT 0, no_decider INTEGER NOT NULL DEFAULT 0);
+            INSERT INTO messages(msg_id,sender,recipients,content,at,kind) VALUES('\(open)','bot1','["ada"]','Q? plain',1,'ask'),('\(done)','bot1','["ada"]','Q? plain',2,'ask');
+            INSERT INTO asks(msg_id,ask,state,expires,asker) VALUES('\(open)','\(ask)','open',9999999999,'bot1');
+            INSERT INTO asks(msg_id,ask,state,decision,closed_at,asker,declined) VALUES('\(done)','\(ask)','decided','{"by":"ada","declined":true,"answers":[],"option":"decline","label":"Decline","at":3,"digest":"abc","via":"page"}',3,'bot1',1);
+            """)
+        let c = try ChatImport.read(src)
+        let staging = scratch + "/staged-asks"
+        let staged = try ChatImport.stage(c, into: staging, human: "ada")
+        XCTAssertEqual(staged.asksExpired, 1)
+        let st = try ChatRoomStore(path: staging + "/rooms/room1.db")
+        defer { st.close() }
+        let a = try XCTUnwrap(st.askOf(open))
+        XCTAssertEqual(a.state, "expired")
+        XCTAssertEqual(a.decision?.via, "expiry"); XCTAssertEqual(a.decision?.digest, "abc")
+        XCTAssertNil(st.declinedSince("bot1", about: "", since: 3.5), "the import's expiry starts no cooldown")
+        XCTAssertEqual(st.askOf(done)?.decision?.by, "ada")
+        XCTAssertEqual(st.openAsks().count, 0)
+    }
+
     func testAMessageWhoseJSONColumnsDoNotParseIsRefused() throws {
         var src = try makeCopy("m1")
         try sql(src + "/rooms/room1.db", "UPDATE messages SET recipients='[1,2' WHERE seq=2;")

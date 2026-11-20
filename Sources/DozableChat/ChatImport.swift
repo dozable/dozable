@@ -97,6 +97,8 @@ public struct ChatImportStaged: Sendable, Equatable {
     /// Per recipient: marked cancelled.
     public var cancelled: [String: Int] = [:]
     public var notices = 0
+    /// Open asks closed as expired on the staged copy (nobody told, no cooldown).
+    public var asksExpired = 0
 }
 
 public enum ChatImport {
@@ -122,6 +124,8 @@ public enum ChatImport {
         "notices": [("id", "INTEGER"), ("recipient", "TEXT"), ("msg_id", "TEXT"), ("kind", "TEXT"), ("item", "TEXT"),
                     ("at", "REAL"), ("handed_at", "REAL")],
         "commands": [("msg_id", "TEXT"), ("sender", "TEXT"), ("state", "TEXT"), ("detail", "TEXT"), ("at", "REAL")],
+        "asks": [("msg_id", "TEXT"), ("ask", "TEXT"), ("state", "TEXT"), ("expires", "REAL"), ("decision", "TEXT"), ("closed_at", "REAL"),
+                 ("asker", "TEXT"), ("about", "TEXT"), ("declined", "INTEGER"), ("no_decider", "INTEGER")],
     ]
     static let requiredMessageColumns = 7
 
@@ -374,7 +378,7 @@ public enum ChatImport {
             for (id, sender, recipients, kind, attachments, mentions, info, content) in rows {
                 count += 1
                 guard !id.isEmpty else { throw refuse("a message has no msg_id") }
-                guard kind == "" || kind == "change" else { throw refuse("message \(id): an unknown kind \(goQuote(kind))") }
+                guard kind == "" || kind == "change" || kind == "ask" else { throw refuse("message \(id): an unknown kind \(goQuote(kind))") }
                 guard let to = stringList(recipients) else { throw refuse("message \(id): recipients is not a list of names") }
                 guard let ment = stringList(mentions) else { throw refuse("message \(id): mentions is not a list of names") }
                 guard case .array(let atts)? = try? ChatJSON.parse(Array(attachments.utf8)) else { throw refuse("message \(id): attachments is not a list") }
@@ -390,14 +394,27 @@ public enum ChatImport {
                 for fid in files.keys where content.contains("/files/" + fid + "/") { referenced.insert(fid) }
                 if !info.isEmpty {
                     guard let v = try? ChatJSON.parse(Array(info.utf8)), let s = ChatSender.read(v) else { throw refuse("message \(id): sender_info is not a sender") }
-                    if s.kind == "human" && kind == "" { names.humans.insert(sender) }
-                    if kind == "" && names.kinds[sender] == nil {
+                    if s.kind == "human" && kind != "change" { names.humans.insert(sender) }
+                    if kind != "change" && names.kinds[sender] == nil {
                         if s.id.hasPrefix("anthropic:claude-code:") { names.kinds[sender] = "claude-session" } else if s.id.hasPrefix("xai:grok-bot:") { names.kinds[sender] = "grok-bot" }
                     }
                 }
                 // A change line is the server's or whoever caused it: shown as it is, never addressed.
-                if kind == "" { names.add(sender) }
+                if kind != "change" { names.add(sender) }
                 for n in to + ment { names.add(n) }
+            }
+            // An ask's deciders and whoever decided it are names of the history too.
+            if present.contains("asks") {
+                guard try db.query("SELECT COUNT(*) FROM asks WHERE typeof(ask)<>'text' OR typeof(state)<>'text' OR typeof(decision)<>'text' OR typeof(asker)<>'text'",
+                                   [], { $0.int(0) }).first == 0 else { throw refuse("an ask has a value of the wrong type") }
+                for (asker, raw, dec) in try db.query("SELECT asker, ask, decision FROM asks", [], { ($0.text(0), $0.text(1), $0.text(2)) }) {
+                    guard let v = try? ChatJSON.parse(Array(raw.utf8)), v.isObject, let ds = try? v.field("deciders")?.goStrings("deciders") ?? [] else {
+                        throw refuse("an ask is not an ask object")
+                    }
+                    if !asker.isEmpty { names.add(asker) }
+                    for d in ds { names.add(d) }
+                    if !dec.isEmpty, let by = (try? ChatJSON.parse(Array(dec.utf8)))?.field("by")?.stringValue, by != ChatProtocol.systemName { names.add(by) }
+                }
             }
             if present.contains("states") {
                 for (who, detail) in try db.query("SELECT recipient, detail FROM states WHERE typeof(recipient)='text'", [], { ($0.text(0), $0.text(1)) }) {
@@ -464,6 +481,7 @@ public enum ChatImport {
             let q = try st.quietForImport(human: human, detail: cancelDetail, at: now)
             for (k, v) in q.cancelled { out.cancelled[k, default: 0] += v }
             out.notices += q.notices
+            out.asksExpired += try st.expireOpenAsksForImport(at: now)
         }
         for (id, name) in c.fileIDs.sorted(by: { $0.key < $1.key }) {
             let d = join(filesDir, id)

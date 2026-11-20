@@ -309,6 +309,8 @@ public struct ChatPageHandler: Sendable {
                 line.reMsgID = try v.field("re_msg_id")?.goString("re_msg_id") ?? ""
                 line.msgID = try v.field("msg_id")?.goString("msg_id") ?? ""
                 line.isPrivate = try v.field("private")?.goBool("private") ?? false
+                line.kind = try v.field("kind")?.goString("kind") ?? ""
+                line.ask = try ChatAskSpec.read(v.field("ask") ?? .null)
                 switch v.field("attachments") ?? .null {
                 case .null: break
                 case .array(let a):

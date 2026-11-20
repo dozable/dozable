@@ -82,6 +82,28 @@ final class ChatConfigTests: XCTestCase {
         refused("[]", containing: "not a JSON object")
     }
 
+    /// Asks' keys (the protocol's 10.1, 13.10): on by default; no_asks and the three limits with their defaults; the
+    /// deprecated experiments object still read (an explicit ask false turns asks off, the top-level values win, one note
+    /// at start); a participant's roles.
+    func testAsksKeysAndTheirDefaults() throws {
+        let d = try parse(Self.contract(""))
+        XCTAssertTrue(d.asksOn); XCTAssertEqual(d.features, ["ask"])
+        XCTAssertEqual([d.askExpiry, d.askCooldown], [86400, 600]); XCTAssertEqual(d.askMaxOpenValue, 1); XCTAssertNil(d.deprecatedExperiments)
+        let c = try parse(Self.contract(#", "no_asks": true, "ask_expiry_seconds": 60, "ask_cooldown_seconds": -1, "ask_max_open": 3"#))
+        XCTAssertFalse(c.asksOn); XCTAssertEqual(c.features, [])
+        XCTAssertEqual([c.askExpiry, c.askCooldown], [60, 0]); XCTAssertEqual(c.askMaxOpenValue, 3)
+        let e = try parse(Self.contract(#", "experiments": {"ask": false, "ask_max_open": 4, "ask_expiry_seconds": 90}, "ask_expiry_seconds": 30"#))
+        XCTAssertFalse(e.asksOn); XCTAssertEqual(e.askMaxOpenValue, 4); XCTAssertEqual(e.askExpiry, 30, "the top-level value wins")
+        XCTAssertNotNil(e.deprecatedExperiments)
+        XCTAssertTrue(try parse(Self.contract(#", "experiments": {"ask": true}"#)).asksOn)
+        refused(Self.contract(#", "experiments": {"mystery": 1}"#), containing: "unknown key \"mystery\"")
+        refused(Self.contract(#", "ask_max_open": "1""#), containing: "config ask_max_open")
+        let r = try parse(#"{"participants": [{"name": "bot1", "kind": "agent", "roles": ["decider"]}], "data_dir": "/x", "secrets_file_only": true}"#)
+        XCTAssertEqual(r.participants.first?.roles, ["decider"])
+        XCTAssertEqual(ChatJSON.encodeString(r.participants[0].json), #"{"name":"bot1","kind":"agent","deliver":"","roles":["decider"]}"#)
+        refused(#"{"participants": [{"name": "bot1", "kind": "agent", "roles": "decider"}], "data_dir": "/x", "secrets_file_only": true}"#, containing: "roles")
+    }
+
     func testAgentAddressesAreReadAndChecked() throws {
         let c = try parse(Self.contract(#", "agent_addresses": ["127.0.0.1/8", "::1", "::ffff:10.0.0.0/104"]"#))
         try c.check()

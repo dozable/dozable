@@ -13,14 +13,18 @@ public struct ChatParticipant: Sendable, Equatable {
     public var launcher = ""      // poll: who registered it
     public var identity = ""      // vendor:product:name; from the kind when empty
     public var avatar = ""        // the avatar it starts with
+    /// Roles the owner gives a participant in the config. `decider`: a participant that is not human may decide asks
+    /// (ChatAsks.swift). A human is a decider without it.
+    public var roles: [String] = []
 
     public init(name: String, kind: String, deliver: String, session: String = "", webhook: String = "", launcher: String = "",
-                identity: String = "", avatar: String = "") {
+                identity: String = "", avatar: String = "", roles: [String] = []) {
         self.name = name; self.kind = kind; self.deliver = deliver; self.session = session; self.webhook = webhook
-        self.launcher = launcher; self.identity = identity; self.avatar = avatar
+        self.launcher = launcher; self.identity = identity; self.avatar = avatar; self.roles = roles
     }
 
     public var isHuman: Bool { kind == "human" }
+    public func hasRole(_ r: String) -> Bool { roles.contains(r) }
 
     /// How messages reach it: its deliver value, except that a participant that is not the human and has no deliver
     /// value at all collects what is addressed to it with GET /agent/receive, as a registered session does.
@@ -43,20 +47,21 @@ public struct ChatParticipant: Sendable, Equatable {
         o.add("name", .string(name)); o.add("kind", .string(kind)); o.add("deliver", .string(deliver))
         o.omitEmpty("session", session); o.omitEmpty("webhook", webhook); o.omitEmpty("launcher", launcher)
         o.omitEmpty("identity", identity); o.omitEmpty("avatar", avatar)
+        if !roles.isEmpty { o.add("roles", .strings(roles)) }
         return o.value
     }
 
     /// Reads one entry. Strict: every key must be one of the fields, and each a string.
     public static func read(_ v: JValue, strict: Bool) throws -> ChatParticipant {
         guard case .object(let members) = v else { throw ChatFieldError(description: "a participant is not an object") }
-        let known: Set<String> = ["name", "kind", "deliver", "session", "webhook", "launcher", "identity", "avatar"]
+        let known: Set<String> = ["name", "kind", "deliver", "session", "webhook", "launcher", "identity", "avatar", "roles"]
         if strict, let bad = members.first(where: { !known.contains($0.key) }) {
             throw ChatFieldError(description: "a participant has the unknown key \"\(bad.key)\"")
         }
         func s(_ k: String) throws -> String { try v.field(k)?.goString(k) ?? "" }
         return ChatParticipant(name: try s("name"), kind: try s("kind"), deliver: try s("deliver"), session: try s("session"),
                                webhook: try s("webhook"), launcher: try s("launcher"), identity: try s("identity"),
-                               avatar: try s("avatar"))
+                               avatar: try s("avatar"), roles: try v.field("roles")?.goStrings("roles") ?? [])
     }
 }
 
@@ -172,6 +177,8 @@ public struct ChatStored: Sendable, Equatable {
     public var editedAt: Double = 0
     public var deletedAt: Double = 0
     public var deletedBy = ""
+    /// An ask (kind `ask`): its questions, deciders, state and decision. Absent on a tombstone.
+    public var ask: ChatAsk?
 
     public init(kind: String = "", msgID: String, from: String, to: [String] = [], reMsgID: String = "", content: String = "",
                 at: Double, mentions: [String] = [], sender: ChatSender? = nil, isPrivate: Bool = false) {
@@ -203,6 +210,7 @@ public struct ChatStored: Sendable, Equatable {
         o.omitEmpty("deleted", deleted)
         o.omitEmpty("deleted_at", deletedAt)
         o.omitEmpty("deleted_by", deletedBy)
+        if let ask { o.add("ask", ask.json) }
         return o.value
     }
 
