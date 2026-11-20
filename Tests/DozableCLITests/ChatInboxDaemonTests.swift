@@ -58,7 +58,7 @@ final class ChatInboxDirectoryTests: XCTestCase {
         XCTAssertNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: "worker-2"))
         XCTAssertTrue(ChatDirectory.deliveryRefusal("inbox", kind: "agent", session: nil)?.contains("claude-session") == true)
         // A Claude Code session's name is free text the person sets: capitals and spaces are fine, compared exactly.
-        XCTAssertNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: "OPS-PROJECTS on m1max"))
+        XCTAssertNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: "OPS-PROJECTS on john-mac-studio"))
         XCTAssertNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: "Revue de code — été"))
         XCTAssertNil(ChatDirectory.deliveryRefusal("inbox", kind: "claude-session", session: String(repeating: "a", count: 100)))
         for bad in ["", " lead", "lead ", "a\nb", "a\u{0}b", "a\u{1B}[31mb", "a\u{2028}b", "a\u{202E}b", "../x", "/tmp/sock",

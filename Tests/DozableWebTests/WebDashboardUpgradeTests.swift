@@ -70,19 +70,19 @@ final class WebDashboardUpgradeTests: XCTestCase {
     // MARK: the app named for its Mac
 
     func testTheShortNameFitsTwelveCharacters() {
-        XCTAssertEqual(WebAppName.names(mac: "m1max").shortName, "Doz m1max")
-        XCTAssertEqual(WebAppName.names(mac: "m1max").name, "Dozable – m1max")
+        XCTAssertEqual(WebAppName.names(mac: "john-mac-studio").shortName, "Doz john")
+        XCTAssertEqual(WebAppName.names(mac: "john-mac-studio").name, "Dozable – john-mac-studio")
         XCTAssertEqual(WebAppName.short("Johns-MacBook-Pro"), "Johns")
         XCTAssertEqual(WebAppName.short("MacBook-Pro"), "MacBook")
         XCTAssertEqual(WebAppName.short("studiomaxwell"), "studioma")
         XCTAssertEqual(WebAppName.short("Extraordinary-Mac"), "Extraord")
-        for m in ["m1max", "Johns-MacBook-Pro", "studiomaxwell", "a-b", "x"] {
+        for m in ["john-mac-studio", "Johns-MacBook-Pro", "studiomaxwell", "a-b", "x"] {
             XCTAssertLessThanOrEqual(WebAppName.names(mac: m).shortName.count, 12, m)
         }
         XCTAssertNil(WebAppName.clean("<script>"))
         XCTAssertNil(WebAppName.clean(""))
         XCTAssertNil(WebAppName.clean(String(repeating: "a", count: 64)))
-        XCTAssertEqual(WebAppName.clean(" m1max "), "m1max")
+        XCTAssertEqual(WebAppName.clean(" john-mac-studio "), "john-mac-studio")
     }
 
     func testTheSeamNamesTheMacOnlyInAGuardedRun() {
@@ -93,7 +93,7 @@ final class WebDashboardUpgradeTests: XCTestCase {
 
     func testTheManifestAndTitleAreNamedForTheMacAndTheAppStaysOne() throws {
         let base = try WebAssets.load()
-        let named = base.forMac("m1max")
+        let named = base.forMac("john-mac-studio")
         let m = try XCTUnwrap(named.assets.values.first { $0.mimeType == "application/manifest+json" })
         let old = try XCTUnwrap(base.assets.values.first { $0.mimeType == "application/manifest+json" })
         XCTAssertNotEqual(m.publicPath, old.publicPath, "a new hashed path: a copy cached under another name is not reused")
@@ -103,8 +103,8 @@ final class WebDashboardUpgradeTests: XCTestCase {
         XCTAssertEqual(m.sha256, WebAssets.sha256Hex(m.data))
         let j = try XCTUnwrap(try JSONSerialization.jsonObject(with: m.data) as? [String: Any])
         let o = try XCTUnwrap(try JSONSerialization.jsonObject(with: old.data) as? [String: Any])
-        XCTAssertEqual(j["name"] as? String, "Dozable – m1max")
-        XCTAssertEqual(j["short_name"] as? String, "Doz m1max")
+        XCTAssertEqual(j["name"] as? String, "Dozable – john-mac-studio")
+        XCTAssertEqual(j["short_name"] as? String, "Doz john")
         for k in ["id", "start_url", "scope", "display", "background_color", "theme_color", "description"] {
             XCTAssertEqual(j[k] as? String, o[k] as? String, k)
         }
@@ -112,7 +112,7 @@ final class WebDashboardUpgradeTests: XCTestCase {
         XCTAssertEqual((j["icons"] as? [Any])?.count, (o["icons"] as? [Any])?.count)
         let index = String(decoding: try XCTUnwrap(named.assets["/"]).data, as: UTF8.self)
         XCTAssertTrue(index.contains("<link rel=\"manifest\" href=\"\(m.publicPath)\">"), "the page links the named manifest")
-        XCTAssertTrue(index.contains("<title>Dozable – m1max</title>"))
+        XCTAssertTrue(index.contains("<title>Dozable – john-mac-studio</title>"))
         XCTAssertEqual(named.pageScript, base.pageScript)
         XCTAssertEqual(named.assets.count, base.assets.count)
         // No name (or one unfit for a title): the build's own files.
@@ -122,7 +122,7 @@ final class WebDashboardUpgradeTests: XCTestCase {
 
     /// The named manifest is served with the static file's headers (type, immutable cache) and the page's CSP unchanged.
     func testTheNamedManifestIsServedAsTheStaticOneWas() async throws {
-        let assets = try WebAssets.load().forMac("m1max")
+        let assets = try WebAssets.load().forMac("john-mac-studio")
         let server = try await DozableWebServer.bind(data: FakeData(), assets: assets, version: "test",
                                                      capability: try WebBootstrapCapability(testingValue: "test-capability-abcdefghijklmnopqrstuvwxyz"))
         let task = Task { try await server.run() }
@@ -131,10 +131,10 @@ final class WebDashboardUpgradeTests: XCTestCase {
         XCTAssertEqual(r.status, 200)
         XCTAssertEqual(r.header("content-type"), "application/manifest+json")
         XCTAssertEqual(r.header("cache-control"), WebAssets.immutable)
-        XCTAssertTrue(r.text.contains("Dozable – m1max"))
+        XCTAssertTrue(r.text.contains("Dozable – john-mac-studio"))
         let page = try RawHTTP.request(port: server.origin.port, method: "GET", path: "/", headers: ["Host": server.origin.authority])
         XCTAssertTrue(page.header("content-security-policy")?.contains("manifest-src 'self'") == true)
-        XCTAssertTrue(page.text.contains("<title>Dozable – m1max</title>"))
+        XCTAssertTrue(page.text.contains("<title>Dozable – john-mac-studio</title>"))
         await server.close()
         _ = try? await task.value
     }

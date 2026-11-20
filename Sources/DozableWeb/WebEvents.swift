@@ -233,7 +233,7 @@ actor WebMonitor {
     /// What an overview is compared by, for `changed`: not the host's idle clock or its connections, and each disk in
     /// steps of `diskStep` — a running guest's disk grows by a few KiB every few seconds (its logs), and every `changed`
     /// makes an open sandbox page read the sandbox, which lists its sessions in the guest (`deckhold ls`) and its served
-    /// ports: two guest execs every few seconds for as long as the page was open (625, the m4air15 console).
+    /// ports: two guest execs every few seconds for as long as the page was open (625, the john-macbook-air console).
     static let diskStep: Int64 = 16 << 20
     static func changeKey(_ o: WebOverview) -> WebOverview {
         var k = o

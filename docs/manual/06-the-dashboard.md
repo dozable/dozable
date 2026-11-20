@@ -59,7 +59,7 @@ minutes.
 ## Install it as an app
 
 - **Chrome (or Edge):** on the dashboard, the address bar's install icon or **⋮ › Cast, save and share ›
-  Install page as app…** — *Install Dozable – m1max* (the app is named for its Mac: its local hostname, from
+  Install page as app…** — *Install Dozable – john-mac-studio* (the app is named for its Mac: its local hostname, from
   System Settings › General › Sharing). It opens in its own window, with the Dozable icon in the
   Dock and in ⌘-Tab, and shares Chrome's sign-in. Each Mac's dashboard is its own app — install the one of each
   Mac you use (from another computer, with [the LAN option](25-doz-serve.md)) and the windows are titled apart.

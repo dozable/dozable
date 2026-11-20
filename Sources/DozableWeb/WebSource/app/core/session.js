@@ -62,7 +62,7 @@ export function adopt(info) {
   const sp = $('store-path');
   sp.textContent = mac ? 'on ' + mac + ' · ' + tildePath(info.store) : tildePath(info.store);
   sp.title = tildePath(info.store);
-  // The brand row names the Mac: the name the server gave this page ("Dozable – m1max"), else the one doz serve said.
+  // The brand row names the Mac: the name the server gave this page ("Dozable – john-mac-studio"), else the one doz serve said.
   const named = /^Dozable [–-] (.+)$/.exec(PAGE_TITLE);
   const bm = $('brand-mac');
   if (bm) bm.textContent = named ? '· ' + named[1] : mac ? '· ' + mac : '';
@@ -70,7 +70,7 @@ export function adopt(info) {
   if (tbm && bm) tbm.textContent = bm.textContent;
   $('version').textContent = 'doz ' + info.version;
   paintFootLine();
-  // 714: the server names the page for its Mac ("Dozable – m1max", the <title> it serves) — kept, so two Macs' installed
+  // 714: the server names the page for its Mac ("Dozable – john-mac-studio", the <title> it serves) — kept, so two Macs' installed
   // dashboards are told apart; another computer's page says the Mac as before when the server named none.
   document.title = (PAGE_TITLE !== 'Dozable' ? PAGE_TITLE : mac ? 'Dozable on ' + mac : 'Dozable') + ' — ' + info.store.split('/').pop();
   const k = document.querySelector('#live .foot-k');

@@ -34,7 +34,7 @@ final class WebPublishRedirectTests: XCTestCase {
 
     func testEveryRequestIsRedirectedToThePublishedAddressOverALoopbackPort() async throws {
         let port = try XCTUnwrap(TailscalePublish.freeLoopbackPort())
-        let origin = "https://dozable-m1max.junco-shaula.ts.net"
+        let origin = "https://dozable-john-mac-studio.junco-shaula.ts.net"
         XCTAssertNil(TailscalePublish.askRedirect(port: port), "nothing listens yet")
         let r = try await WebPublishRedirect.start(port: port, origin: origin)
         XCTAssertEqual(r.port, port)

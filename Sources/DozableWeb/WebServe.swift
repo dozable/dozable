@@ -240,8 +240,8 @@ public enum WebDashboardPort: Equatable, Sendable {
 
 /// The Mac's names a browser on the LAN may use (`<LocalHostName>.local`, its host name).
 public struct WebMacNames: Equatable, Sendable {
-    public var localHostName: String?     // m1max  → m1max.local
-    public var hostName: String?          // m1max.lan (the router's DNS), when it is a name
+    public var localHostName: String?     // john-mac-studio  → john-mac-studio.local
+    public var hostName: String?          // john-mac-studio.lan (the router's DNS), when it is a name
 
     public init(localHostName: String?, hostName: String?) {
         self.localHostName = localHostName
@@ -297,7 +297,7 @@ public enum WebServeRules {
     /// A LAN interface or Tailscale: `en*`, the Thunderbolt Bridge (`bridge0`…`bridge99`), and a `utun`
     /// holding a Tailscale address. Never loopback, a vmnet bridge, or another VPN's tunnel. A LAN interface's
     /// LINK-LOCAL address is served too: another Mac's `<mac>.local` (mDNS) often resolves to it first (measured:
-    /// m1a's curl reached m1max.local over fe80::) — only it is never a Host literal (`directOrigins`).
+    /// john-mac-mini's curl reached john-mac-studio.local over fe80::) — only it is never a Host literal (`directOrigins`).
     public static func isServed(_ a: WebInterfaceAddress) -> Bool {
         guard !a.address.isLoopback, !a.address.isUnspecified, !isSandboxBridge(a.name) else { return false }
         if a.name.hasPrefix("en") { return a.name.dropFirst(2).allSatisfy(\.isNumber) }
@@ -375,7 +375,7 @@ public enum WebServeRules {
 
     /// What one request is, as the security checks see it.
     public struct RequestOrigin: Equatable, Sendable {
-        /// The request's OWN origin (`http://m1max.local:7443`, `https://doz.home.example`); nil = its Host is
+        /// The request's OWN origin (`http://john-mac-studio.local:7443`, `https://doz.home.example`); nil = its Host is
         /// not one this server answers to (refused before anything else).
         public var origin: String?
         /// It arrived over https at a trusted proxy (X-Forwarded-Proto: https from a `serve.trusted_proxies` peer).

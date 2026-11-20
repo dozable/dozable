@@ -2,9 +2,9 @@ import Foundation
 import DozableHost
 
 // 714 (owner: "we need machine based names for the web app manifest so that i can install it per machine") — the
-// installed dashboard is named for its Mac: "Dozable – m1max" (short name "Doz m1max"), and so is the page's <title>, so
+// installed dashboard is named for its Mac: "Dozable – john-mac-studio" (short name "Doz john"), and so is the page's <title>, so
 // two Macs' dashboards installed on one computer are two apps that can be told apart. The Mac's name is its
-// LocalHostName (System Settings › Sharing › Local hostname — `m1max`, the name `<mac>.local` and the LAN option already
+// LocalHostName (System Settings › Sharing › Local hostname — `john-mac-studio`, the name `<mac>.local` and the LAN option already
 // use): short, ASCII, already what a person sees for this Mac in Dozable. (`Host.current().localizedName` — "John's
 // MacBook Pro" — is longer and carries the owner's name into every window title.) Only the names change: the
 // manifest's `id` (`/?app=dozable`), `start_url` and `scope` stay as built — one origin is one app — and its headers

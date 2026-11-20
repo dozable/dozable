@@ -20,7 +20,7 @@ final class TailscalePublishTests: XCTestCase {
     // MARK: the name
 
     func testTheDefaultNameIsDozableAndTheMacsLocalHostNameAsOneDNSLabel() {
-        XCTAssertEqual(TailscalePublish.defaultName(mac: "m1max"), "dozable-m1max")
+        XCTAssertEqual(TailscalePublish.defaultName(mac: "john-mac-studio"), "dozable-john-mac-studio")
         XCTAssertEqual(TailscalePublish.defaultName(mac: "Johns-MacBook-Pro"), "dozable-johns-macbook-pro")
         XCTAssertEqual(TailscalePublish.defaultName(mac: "John's MacBook  Pro (2)"), "dozable-john-s-macbook-pro-2")
         XCTAssertEqual(TailscalePublish.defaultName(mac: "--Mac--"), "dozable-mac")
@@ -71,8 +71,8 @@ final class TailscalePublishTests: XCTestCase {
             "--socket=/tmp/doz-ts--store/tailscale/tailscaled.sock", "--port=0"])
         XCTAssertEqual(TailscalePublish.cli(b, p, TailscalePublish.statusArguments()),
                        ["/opt/homebrew/opt/tailscale/bin/tailscale", "--socket=/tmp/doz-ts--store/tailscale/tailscaled.sock", "status", "--json"])
-        XCTAssertEqual(TailscalePublish.upArguments(name: "dozable-m1max", timeout: 300), ["up", "--hostname=dozable-m1max", "--timeout=300s"])
-        XCTAssertEqual(TailscalePublish.setArguments(name: "dozable-m1max"), ["set", "--hostname=dozable-m1max"])
+        XCTAssertEqual(TailscalePublish.upArguments(name: "dozable-john-mac-studio", timeout: 300), ["up", "--hostname=dozable-john-mac-studio", "--timeout=300s"])
+        XCTAssertEqual(TailscalePublish.setArguments(name: "dozable-john-mac-studio"), ["set", "--hostname=dozable-john-mac-studio"])
         XCTAssertEqual(TailscalePublish.serveHTTPSArguments(port: 7443), ["serve", "--bg", "--yes", "--https=443", "http://127.0.0.1:7443"])
         // Port 80: a loopback TCP target — never `unix:` (Tailscale serves a unix socket or a path only for an admin).
         XCTAssertEqual(TailscalePublish.serveHTTPArguments(redirectPort: 51234), ["serve", "--bg", "--yes", "--http=80", "http://127.0.0.1:51234"])
@@ -101,13 +101,13 @@ final class TailscalePublishTests: XCTestCase {
     // MARK: what the node says
 
     func testStatusSignedInAndNot() throws {
-        let running = #"{"Version":"1.104.7","BackendState":"Running","AuthURL":"","Self":{"HostName":"dozable-m1max","DNSName":"dozable-m1max.junco-shaula.ts.net.","Online":true},"MagicDNSSuffix":"junco-shaula.ts.net"}"#
+        let running = #"{"Version":"1.104.7","BackendState":"Running","AuthURL":"","Self":{"HostName":"dozable-john-mac-studio","DNSName":"dozable-john-mac-studio.junco-shaula.ts.net.","Online":true},"MagicDNSSuffix":"junco-shaula.ts.net"}"#
         let s = try XCTUnwrap(TailscalePublish.parseStatus(Data(running.utf8)))
         XCTAssertTrue(s.signedIn)
-        XCTAssertEqual(s.dnsName, "dozable-m1max.junco-shaula.ts.net")
-        XCTAssertEqual(s.hostName, "dozable-m1max")
+        XCTAssertEqual(s.dnsName, "dozable-john-mac-studio.junco-shaula.ts.net")
+        XCTAssertEqual(s.hostName, "dozable-john-mac-studio")
         XCTAssertNil(s.authURL)
-        XCTAssertEqual(TailscalePublish.origin(dnsName: s.dnsName!), "https://dozable-m1max.junco-shaula.ts.net")
+        XCTAssertEqual(TailscalePublish.origin(dnsName: s.dnsName!), "https://dozable-john-mac-studio.junco-shaula.ts.net")
         let login = #"{"BackendState":"NeedsLogin","AuthURL":"https://login.tailscale.com/a/abc","Self":{"HostName":"localhost","DNSName":""}}"#
         let n = try XCTUnwrap(TailscalePublish.parseStatus(Data(login.utf8)))
         XCTAssertFalse(n.signedIn)
@@ -118,7 +118,7 @@ final class TailscalePublishTests: XCTestCase {
     }
 
     func testServeConfigFor443And80() throws {
-        let json = #"{"TCP":{"443":{"HTTPS":true},"80":{"HTTP":true}},"Web":{"dozable-m1max.junco-shaula.ts.net:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:7443"}}},"dozable-m1max.junco-shaula.ts.net:80":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:51234"}}}}}"#
+        let json = #"{"TCP":{"443":{"HTTPS":true},"80":{"HTTP":true}},"Web":{"dozable-john-mac-studio.junco-shaula.ts.net:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:7443"}}},"dozable-john-mac-studio.junco-shaula.ts.net:80":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:51234"}}}}}"#
         let c = try XCTUnwrap(TailscalePublish.parseServe(Data(json.utf8)))
         XCTAssertEqual(c, .init(https: "http://127.0.0.1:7443", http: "http://127.0.0.1:51234"))
         XCTAssertEqual(c.http, TailscalePublish.httpTarget(redirectPort: 51234))
@@ -139,7 +139,7 @@ final class TailscalePublishTests: XCTestCase {
     // MARK: port 80's redirect
 
     func testTheRedirectGoesToThePublishedAddressWithThePathOnly() {
-        let o = "https://dozable-m1max.junco-shaula.ts.net"
+        let o = "https://dozable-john-mac-studio.junco-shaula.ts.net"
         XCTAssertEqual(TailscalePublish.redirectLocation(origin: o, target: "/"), o + "/")
         XCTAssertEqual(TailscalePublish.redirectLocation(origin: o, target: "/devices?x=1#f"), o + "/devices?x=1#f")
         // Never another host: an absolute-form target, a scheme-relative one stays a path of the published host.
@@ -158,11 +158,11 @@ final class TailscalePublishTests: XCTestCase {
         let env = ["XDG_CONFIG_HOME": xdg.path]
         var s = DozableSettings.load(environment: env)
         s = try s.writing(SettingKey.serveChat, .string("read"))
-        s = try TailscalePublish.apply(TailscalePublish.publishSettings(port: 7443, origin: "https://dozable-m1max.junco-shaula.ts.net"), to: s)
+        s = try TailscalePublish.apply(TailscalePublish.publishSettings(port: 7443, origin: "https://dozable-john-mac-studio.junco-shaula.ts.net"), to: s)
         XCTAssertEqual(s.int(SettingKey.uiPort), 7443)
         XCTAssertTrue(s.bool(SettingKey.uiLAN))
         XCTAssertEqual(s.string(SettingKey.serveBind), "loopback")
-        XCTAssertEqual(s.string(SettingKey.servePublicOrigins), "https://dozable-m1max.junco-shaula.ts.net")
+        XCTAssertEqual(s.string(SettingKey.servePublicOrigins), "https://dozable-john-mac-studio.junco-shaula.ts.net")
         XCTAssertEqual(s.string(SettingKey.serveTrustedProxies), "127.0.0.1,::1")
         XCTAssertEqual(s.string(SettingKey.serveChat), "read", "serve.chat is never touched")
         XCTAssertFalse(TailscalePublish.publishSettings(port: 1, origin: "https://x").contains { $0.key == SettingKey.serveChat })
@@ -252,7 +252,7 @@ final class TailscalePublishTests: XCTestCase {
     func testTheMarkerRoundTrips() throws {
         let store = DozableStore(root: root.appendingPathComponent("store2"))
         XCTAssertNil(TailscalePublish.readMarker(store))
-        let m = TailscalePublish.Marker(name: "dozable-m1max", origin: "https://dozable-m1max.junco-shaula.ts.net", port: 7443,
+        let m = TailscalePublish.Marker(name: "dozable-john-mac-studio", origin: "https://dozable-john-mac-studio.junco-shaula.ts.net", port: 7443,
                                         published: Date(timeIntervalSince1970: 1_800_000_000))
         try TailscalePublish.writeMarker(store, m)
         XCTAssertEqual(TailscalePublish.readMarker(store), m)
@@ -271,10 +271,10 @@ final class TailscalePublishTests: XCTestCase {
     func testAnOlderMarkerWithoutTheRedirectPortDecodes() throws {
         let store = DozableStore(root: root.appendingPathComponent("store4"))
         try TailscalePublish.ensureRoot(store)
-        let old = #"{"name":"dozable-m1max","origin":"https://dozable-m1max.junco-shaula.ts.net","port":7443,"published":"2026-11-17T10:00:00Z"}"#
+        let old = #"{"name":"dozable-john-mac-studio","origin":"https://dozable-john-mac-studio.junco-shaula.ts.net","port":7443,"published":"2026-11-17T10:00:00Z"}"#
         try Data(old.utf8).write(to: TailscalePublish.paths(store).marker)
         let m = try XCTUnwrap(TailscalePublish.readMarker(store))
-        XCTAssertEqual(m.origin, "https://dozable-m1max.junco-shaula.ts.net")
+        XCTAssertEqual(m.origin, "https://dozable-john-mac-studio.junco-shaula.ts.net")
         XCTAssertEqual(m.port, 7443)
         XCTAssertNil(m.redirectPort)
         XCTAssertEqual(TailscalePublish.chooseRedirectPort(previous: m, dashboardPort: 7443, free: { 50001 }), 50001)

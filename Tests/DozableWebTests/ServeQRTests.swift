@@ -62,7 +62,7 @@ final class ServeQRTests: XCTestCase {
     }
 
     func testAnInviteLinkFitsAtLevelMAndTheMatrixRoundTripsAsRows() throws {
-        let link = "http://m1max.local:7443/#cap=" + String(repeating: "A", count: 43)
+        let link = "http://john-mac-studio.local:7443/#cap=" + String(repeating: "A", count: 43)
         let qr = try WebQR.encode(link)
         XCTAssertEqual(qr.level, .medium)
         XCTAssertLessThanOrEqual(qr.version, 6)
