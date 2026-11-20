@@ -132,6 +132,33 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(try read("app/views/ws-activity.js").contains("api('workspace-activity', { method: 'POST'"))
     }
 
+    /// The Runs tab: served, its address, its three reads as POSTs to their own routes, the room actions only from it (never
+    /// `loose`), rm's name typed, and a closed room's composer off with its notice; the Finish dialog's "without an archive".
+    func testTheRunsTabAndTheRoomActions() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let a = try WebAssets.load()
+        XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/views/ws-runs-") }, "views/ws-runs is served")
+        let ctx = try XCTUnwrap(JSContext())
+        ctx.evaluateScript(try read("app/core/routes.js").replacingOccurrences(of: "export ", with: ""))
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("[parse('#/w/demo/runs').view, parse('#/w/demo/runs').tab, runsHash('demo')]"), ##"["workspace","runs","#/w/demo/runs"]"##)
+        let runs = try read("app/views/ws-runs.js")
+        for route in ["workspace-runs", "workspace-run-chat", "chat-room-plan"] { XCTAssertTrue(runs.contains("api('\(route)', { method: 'POST'"), route) }
+        XCTAssertFalse(runs.contains("loose"), "never a loose room from a browser")
+        XCTAssertTrue(runs.contains("typed === room") && runs.contains("b.confirm = typed"), "rm only with the name typed")
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+        for f in files where f != "app/views/ws-runs.js" {
+            let t = try read(f)
+            for action in ["'chat-room-archive'", "'chat-room-rm'", "'workspace-run-archive'"] { XCTAssertFalse(t.contains(action), "\(f) sends \(action)") }
+        }
+        let rooms = try read("app/views/chat-rooms.js")
+        XCTAssertTrue(rooms.contains("state.chat.srv.closed") && rooms.contains("Reopen it to post"), "a closed room's composer says why it is off")
+        XCTAssertTrue(try read("app/components/ws-lifecycle.js").contains("Finish without an archive"))
+        XCTAssertTrue(try read("app/core/ws-lifecycle.js").contains("b.noArchive = true"))
+    }
+
     func testFetchAndEventSourceOnlyWhereTheyAreAllowed() throws {
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
         var fetchers: Set<String> = [], streams: Set<String> = []
