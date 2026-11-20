@@ -8,6 +8,25 @@ import DozableHost
 /// answers are projections (never the brief's text, no secret-shaped field), and a name off the rule is refused before any
 /// call. (The HTTP side: `WebHTTPIntegrationTests.testTheWorkspaceReads`; what another computer sees: `ServeExposureTests`.)
 final class WebWorkspacesTests: XCTestCase {
+    /// The space view's reads: each exactly one read-only HostOp the CLI also sends (`doz workspace show W --space`,
+    /// `doz workspace state W`), the workspace in its own request, never a path; the plan route's `workspace-up-plan` is
+    /// read-only too, and `workspace-space-save` is not (an action, the daemon's).
+    func testTheSpaceReadsAreEachOneReadOnlyHostOp() throws {
+        for (body, op) in [(#"{"workspace":"demo"}"#, HostOp.workspaceSpace), (#"{"workspace":"demo"}"#, .workspaceState)] {
+            let w = try WebSpace.decodeRead(Data(body.utf8))
+            let r = WebSpace.request(op, w)
+            XCTAssertEqual(r.op, op)
+            XCTAssertTrue(r.op.isReadOnly, "\(op.rawValue): answered in-process with no daemon")
+            XCTAssertNil(r.name)
+            XCTAssertEqual(r.workspaceRequest, WorkspaceRequest(name: "demo"), "exactly the CLI's request")
+        }
+        XCTAssertTrue(HostOp.workspaceUpPlan.isReadOnly)
+        XCTAssertFalse(HostOp.workspaceSpaceSave.isReadOnly)
+        let (w, t) = try WebSpace.decodePlan(Data(#"{"workspace":"demo","text":"doz: space/3\n"}"#.utf8))
+        XCTAssertEqual(w, "demo"); XCTAssertEqual(t, "doz: space/3\n")
+        XCTAssertThrowsError(try WebSpace.decodePlan(Data(#"{"workspace":"demo","text":"\#(String(repeating: "x", count: 257 << 10))"}"#.utf8)))
+    }
+
     func testEveryReadRouteIsExactlyOneReadOnlyHostOp() throws {
         let want: [(WebRoute, HostOp, String)] = [
             (.workspaces, .workspaceList, "doz workspace ls"),

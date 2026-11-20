@@ -135,6 +135,12 @@ public protocol DozableWebData: Sendable {
     func workspaceRuns(_ w: WorkspaceRequest) async throws -> WorkspaceRunsListing
     func workspaceRunChat(_ w: WorkspaceRequest) async throws -> WorkspaceRunChat
     func chatRoomPlan(_ q: ChatRoomRequest) async throws -> ChatRoomPlan
+    /// A space workspace: its file as it is now (`workspace-space`), what is true about it (`workspace-state`) — each the CLI's
+    /// request (`WebSpace.request`), in-process when no daemon runs — and the page's open text planned (`spacePlan`: the
+    /// record's path and the files beside it read in doz ui, then the existing `workspace-up-plan`).
+    func workspaceSpace(_ w: WorkspaceRequest) async throws -> WorkspaceSpaceFile
+    func workspaceState(_ w: WorkspaceRequest) async throws -> SpaceState
+    func spacePlan(workspace: String, text: String) async throws -> SpacePlan
     /// A workspace's wide views: what each agent can reach and hold (`workspace-reach`), its folders' changes and restore
     /// points (`workspace-folders`), one page of its log (`workspace-log` with `before`/`limit`) — each the CLI's request
     /// (`WebWorkspaceViews.request`); in-process when no daemon runs.
@@ -183,6 +189,9 @@ extension DozableWebData {
     public func workspaceRuns(_ w: WorkspaceRequest) async throws -> WorkspaceRunsListing { throw HostError(.notImplemented, "workspaces") }
     public func workspaceRunChat(_ w: WorkspaceRequest) async throws -> WorkspaceRunChat { throw HostError(.notImplemented, "workspaces") }
     public func chatRoomPlan(_ q: ChatRoomRequest) async throws -> ChatRoomPlan { throw HostError(.notImplemented, "workspaces") }
+    public func workspaceSpace(_ w: WorkspaceRequest) async throws -> WorkspaceSpaceFile { throw HostError(.notImplemented, "workspaces") }
+    public func workspaceState(_ w: WorkspaceRequest) async throws -> SpaceState { throw HostError(.notImplemented, "workspaces") }
+    public func spacePlan(workspace: String, text: String) async throws -> SpacePlan { throw HostError(.notImplemented, "workspaces") }
     public func workspaceReach(_ w: WorkspaceRequest) async throws -> WorkspaceReach { throw HostError(.notImplemented, "workspaces") }
     public func workspaceFolders(_ w: WorkspaceRequest) async throws -> WorkspaceFolders { throw HostError(.notImplemented, "workspaces") }
     public func workspaceActivity(_ w: WorkspaceRequest) async throws -> WorkspaceLogPage { throw HostError(.notImplemented, "workspaces") }
@@ -281,6 +290,11 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     private var macLoginCache: (Date, Bool)?
     /// 643: this UI's file watches (one FSEventStream per sandbox, shared by every open watch stream).
     let fileWatches = FileWatchHub()
+    /// The space view's plan: the CLI's reading of a space file (its resolver lives with the CLI — Yams is the CLI's alone),
+    /// given the store, the workspace, the page's text and the way this data source asks the daemon (in-process with none).
+    /// Set by `doz ui` before it serves; nil: not offered.
+    public var spacePlanner: (@Sendable (_ store: String, _ workspace: String, _ text: String,
+                                         _ send: @escaping @Sendable (HostRequest) async throws -> JSONValue) async throws -> SpacePlan)?
 
     public init(store: DozableStore, version: String, executable: String = HostLauncher.executablePath,
                 terminal: (@Sendable (String) throws -> Void)? = nil,
@@ -569,6 +583,19 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan {
         try await query(WebWorkspaceLifecycle.planRequest(w)).0.decode(WorkspaceLifecyclePlan.self)
+    }
+
+    public func workspaceSpace(_ w: WorkspaceRequest) async throws -> WorkspaceSpaceFile {
+        try await query(WebSpace.request(.workspaceSpace, w)).0.decode(WorkspaceSpaceFile.self)
+    }
+
+    public func workspaceState(_ w: WorkspaceRequest) async throws -> SpaceState {
+        try await query(WebSpace.request(.workspaceState, w)).0.decode(SpaceState.self)
+    }
+
+    public func spacePlan(workspace: String, text: String) async throws -> SpacePlan {
+        guard let planner = spacePlanner else { throw HostError(.notImplemented, "the space view's plan") }
+        return try await planner(storePath, workspace, text) { [self] r in try await self.query(r).0 }
     }
 
     public func workspaceRuns(_ w: WorkspaceRequest) async throws -> WorkspaceRunsListing {

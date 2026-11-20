@@ -900,7 +900,7 @@ public actor HostCore {
         case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename,
              .workspaceStart, .workspaceStop, .workspacePlan, .workspaceLifecyclePlan, .workspaceSleep, .workspaceWake, .workspaceFinish,
              .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunArchive, .workspaceRunChat,
-             .workspaceState:
+             .workspaceState, .workspaceSpace, .workspaceSpaceSave:
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)

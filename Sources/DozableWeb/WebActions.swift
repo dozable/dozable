@@ -168,6 +168,11 @@ public enum WebAction: Equatable, Sendable {
     case chatRoomArchive(room: String, ifPlan: String)
     case chatRoomRm(room: String, ifPlan: String, confirm: String)
     case workspaceRunArchive(workspace: String, run: String)
+    /// A space workspace's file saved from the space view — exactly `doz workspace edit W --space-file F --if-match SHA` (the
+    /// HostOp `workspace-space-save`: the name, the text and `ifMatch`, never a path — the file is the record's). A file changed
+    /// since the page read it is refused, nothing written; saving never runs up. This Mac's own browser only (`isSpace`,
+    /// `WebExposure.decideSpaceAction`), whatever the serve settings.
+    case workspaceSpaceSave(workspace: String, text: String, ifMatch: String)
 
     public static let lifecycleOps: [String: HostOp] = [
         "start": .start, "wake": .wake, "pause": .pause, "resume": .resume, "sleep": .sleep, "hibernate": .hibernate,
@@ -193,7 +198,7 @@ public enum WebAction: Equatable, Sendable {
              .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart,   // nor is a workspace
              .botNew, .botSet, .botRetire, .botAdopt, .botToken,                          // nor is a bot
              .workerAdd, .workerEnd,                                                      // nor a worker (its place is the daemon's)
-             .workspaceLifecycle, .chatRoomArchive, .chatRoomRm, .workspaceRunArchive:
+             .workspaceLifecycle, .chatRoomArchive, .chatRoomRm, .workspaceRunArchive, .workspaceSpaceSave:
             return nil
         }
     }
@@ -243,6 +248,11 @@ public enum WebAction: Equatable, Sendable {
     /// A room archived or removed, a run's archive written again: this Mac's own browser only (`WebExposure.decideRoomAction`).
     public var isRoomLifecycle: Bool {
         switch self { case .chatRoomArchive, .chatRoomRm, .workspaceRunArchive: true; default: false }
+    }
+
+    /// A space file saved: this Mac's own browser only (`WebExposure.decideSpaceAction`).
+    public var isSpace: Bool {
+        if case .workspaceSpaceSave = self { true } else { false }
     }
 
     /// A worker added or ended: this Mac's own browser only (`WebExposure.decideWorkerAction`).
@@ -342,6 +352,7 @@ public enum WebAction: Equatable, Sendable {
         case .chatRoomArchive(let room, _): return "archive #\(room)"
         case .chatRoomRm(let room, _, _): return "remove #\(room)"
         case .workspaceRunArchive(let w, let run): return "archive run \(run) of \(w)"
+        case .workspaceSpaceSave(let w, _, _): return "save the space file of \(w)"
         default: break
         }
         let r = hostRequest
@@ -627,6 +638,14 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.workspaceRunArchive)
             r.workspaceRequest = q
             return r
+        case .workspaceSpaceSave(let w, let text, let ifMatch):
+            // What `doz workspace edit W --space-file F --if-match SHA` sends: the name, the text, the sha — never a path.
+            var q = WorkspaceRequest(name: w)
+            q.text = text
+            q.ifMatch = ifMatch
+            var r = HostRequest(.workspaceSpaceSave)
+            r.workspaceRequest = q
+            return r
         }
     }
 
@@ -720,6 +739,7 @@ public enum WebAction: Equatable, Sendable {
             "chat-room-archive": ["room", "ifPlan"],
             "chat-room-rm": ["room", "ifPlan", "confirm"],
             "workspace-run-archive": ["workspace", "run"],
+            "workspace-space-save": ["workspace", "text", "ifMatch"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -1024,6 +1044,11 @@ public enum WebAction: Equatable, Sendable {
         case "workspace-run-archive":
             a = .workspaceRunArchive(workspace: try f.workspaceName("workspace"),
                                      run: try f.required(f.matching("run", "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{1,6}$", "a run's id"), "run"))
+        case "workspace-space-save":
+            let sha = try f.required(f.matching("ifMatch", "^[0-9a-f]{64}$", "the space file's sha256 as read, 64 lower-case hex digits"), "ifMatch")
+            let text = try WebSpace.spaceText(f, "text")
+            guard SpaceRecordFile.formatRefusal(text) == nil else { throw Invalid("text: a space file starts with doz: space/3") }
+            a = .workspaceSpaceSave(workspace: try f.workspaceName("workspace"), text: text, ifMatch: sha)
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }
             a = .lifecycle(op, name: try f.sandbox("sandbox"))

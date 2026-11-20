@@ -349,6 +349,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// merged spec `up` recorded, never the file. Only reads: answered in-process when no daemon runs, `factsKnown` false.
     /// Dozable's own.
     case workspaceState = "workspace-state"
+    /// A space workspace's file (`WorkspaceRequest`: the name): `-space` reads it (`WorkspaceSpaceFile`: its text, sha256 and
+    /// size — read-only, in-process with no daemon); `-space-save` writes `text` over it only when the file is still the one
+    /// whose sha256 is `ifMatch` (`WorkspaceSpaceSaved`; changed since → refused, nothing written) and never runs up. The path
+    /// is always the record's. Dozable's own.
+    case workspaceSpace = "workspace-space", workspaceSpaceSave = "workspace-space-save"
     /// Your Macs (`MacBookmarks`): the other Macs' dashboards this store keeps a bookmark of — `MacListing`, read from
     /// `<store>/macs.json`. Read-only: answered in-process when no daemon runs. Adding, removing and checking are the CLI's
     /// own (`doz ui macs`, in-process): no operation writes the list.
@@ -366,7 +371,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
              .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .workspaceDownPlan, .macsList,
-             .workspaceState, .permissionsShow, .permissionsWhy: true
+             .workspaceState, .workspaceSpace, .permissionsShow, .permissionsWhy: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -1822,6 +1827,9 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     /// state: the reader may not see the sessions on this Mac (another computer while `serve.mac_sessions` is off) — set by
     /// the dashboard's server, never by a browser. Additive.
     public var macSessionsHidden: Bool?
+    /// space-save: the space file's new text (at most 256 KiB), and the sha256 of the file as the editor read it. Additive.
+    public var text: String?
+    public var ifMatch: String?
 
     public init(name: String? = nil) { self.name = name }
 }

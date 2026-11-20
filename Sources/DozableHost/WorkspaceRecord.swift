@@ -633,6 +633,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "space-up": return "set it up from its space file" + (reason.map { " — \($0)" } ?? "")
         case "space-down": return "took it down (its space file)" + (reason.map { " — \($0)" } ?? "")
         case "space-purged": return "retired what its space file kept (--purge)"
+        case "space-saved": return "saved its space file (\(bytes ?? 0) bytes) — not applied: up applies it"
         case "memory-kept": return "kept \(agent ?? "?")'s memory (\(added ?? 0) file\(added == 1 ? "" : "s")) for its next fenced session"
         case "memory-reset": return "reset \(agent ?? "?")'s kept memory" + (reason.map { " (\($0))" } ?? "")
         case "scratch-removed": return "removed a scratch folder" + (reason.map { " — \($0)" } ?? "")

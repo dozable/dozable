@@ -625,6 +625,9 @@ final class WebOperations: @unchecked Sendable {
             return "#\(room) is archived: its history copied into the store and verified"
         case .chatRoomRm(let room, _, _):
             return "#\(room) is removed for good; its archive and a tombstone stay"
+        case .workspaceSpaceSave(let w, _, _):
+            let saved = try? v.decode(WorkspaceSpaceSaved.self)
+            return "saved the space file of \(w)" + (saved.map { " (\($0.shownPath))" } ?? "") + " — not applied: up applies it"
         case .workspaceRunArchive(let w, let run):
             return "run \(run) of \(w): its archive written"
         case .macNetPolicy(let session, let grant):

@@ -970,6 +970,7 @@ doz workspace show W [--brief] [--json]         # its brief, folders, room and a
 doz workspace show W --can-do [--agent A]       # what each agent can do: isolation and control, folders, network, secrets by name, its room — live or at the next start
 doz workspace show W --network [--agent A]      # what it can reach and hold: each agent's network, what it was refused lately, this Mac's ports, secrets held (by name), accounts
 doz workspace show W --folders                  # its folders, the files changed since the start (never a program run there), restore points
+doz workspace show W --space [--json]           # the space file that defines it: up or down, its run, its brief; the file's size and sha256 (--json: its text too)
 doz workspace start W                           # the set-up check, the brief posted as your first message (once), the manager started
 doz workspace stop W                            # the manager ended; its record, conversation and room kept
 doz workspace sleep W [--dry-run] [--yes] [--if-plan SHA]     # every agent asleep: a sandbox hibernated, a session ended (its conversation kept)
@@ -983,6 +984,7 @@ doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME]   # as a worker; only the
 doz workspace release W AGENT                   # loose again
 doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--add-folder DIR[:ro]]… [--remove-folder DIR]… [--make-room]
                   [--manager BOT [--manager-isolation fenced|vm|unfenced] | --no-manager] [--if-brief SHA256]
+doz workspace edit W --space-file F|- --if-match SHA256   # save over the space file it was made from, only if it is still the one you read; never applied (up applies it)
 doz workspace log W [--since T]                 # what happened and who did it (T: ISO 8601, or 30m, 2h, 3d)
 doz workspace log W --limit N [--before I]      # one page, the newest N (1–500); --before the page's first: the page before (--json: first, more)
 doz workspace rename W NEW                      # its room keeps its own name

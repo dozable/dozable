@@ -152,6 +152,9 @@ public struct SpacePlan: Codable, Equatable, Sendable {
     public var notes: [String] = []
     public var sha: String = ""
     public var intent: SpaceIntent?
+    public init(space: String, title: String, specPath: String?, specSHA: String, sources: [SpaceSource], factsKnown: Bool) {
+        self.space = space; self.title = title; self.specPath = specPath; self.specSHA = specSHA; self.sources = sources; self.factsKnown = factsKnown
+    }
 }
 
 public enum SpaceUp {
