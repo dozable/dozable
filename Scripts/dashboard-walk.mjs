@@ -1573,7 +1573,7 @@ async function walkAsks() {
   await waitFor(`/decided by you/.test(${CARD(a7)}?.textContent || '')`, 20000);
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   const said = ['ui.operations.json', 'ui.log'].map((f) => (existsSync(STORE + '/' + f) ? readFileSync(STORE + '/' + f, 'utf8') : '')).join('\n') + uiOut + consoleLines.join('\n');
-  check(await evaluate(`${CARD(a7)}.textContent.includes(${JSON.stringify(words)})`) && !said.includes(words), 'ask 7 the answer in words is shown in the card, and in no operation, ui.log or console line');
+  check(await waitFor(`(${CARD(a7)}?.textContent || '').includes(${JSON.stringify(words)})`, 15000) && !said.includes(words), 'ask 7 the answer in words is shown in the card, and in no operation, ui.log or console line');
   check(pageErrors.length === errorsBefore, 'asks: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
   await leakSweep('the asks');
 }

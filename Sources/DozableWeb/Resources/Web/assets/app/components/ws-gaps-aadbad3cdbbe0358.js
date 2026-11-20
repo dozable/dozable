@@ -4,7 +4,7 @@
 // `workspace-show`'s (GET /api/v1/workspaces/{w}: `gaps`). Both are looks: nothing is written, the keychain is not read.
 import { h } from '../dom/h-f853cc7eb6672c45.js';
 import { icon } from '../dom/icons-9b284ea0ffb2ad04.js';
-import { chatOnInline } from './chat-on-162c8f64ae5297df.js';
+import { chatOnInline } from './chat-on-ef3f5d9b8dbfb33a.js';
 import { cmdLine } from './cmd-line-e34a50f80637ff89.js';
 
 const STEP_WORDS = ['the work', 'who manages', 'where it runs', 'grants & when'];

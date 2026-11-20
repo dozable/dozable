@@ -11,7 +11,7 @@ import { apiFetch } from '../core/api-575fccc668c266ed.js';
 import { getJSON } from '../core/chat-api-ec968582d97ebdcb.js';
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
-import { chatOnForm, rememberChatStatus } from '../components/chat-on-162c8f64ae5297df.js';
+import { chatOnForm, rememberChatStatus } from '../components/chat-on-ef3f5d9b8dbfb33a.js';
 import { showDown, toFoot } from '../components/chat-log-8750dcbffc279417.js';
 import { CHAT_READ_ONLY, chatNote } from '../components/chat-note-7d9b58ce10feea44.js';
 import { loadUnread, showUnread } from '../components/chat-unread-98632d7b3a1f7178.js';

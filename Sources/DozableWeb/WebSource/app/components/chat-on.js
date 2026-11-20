@@ -54,7 +54,9 @@ export function chatOnForm(opts = {}) {
     field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go.click(); } });
   }
   row.append(go);
+  let known = Promise.resolve();
   go.addEventListener('click', async () => {
+    await known;   // the status read below, when one is under way: your name or none
     const named = !field || !field.isConnected;
     const name = named ? '' : field.value.trim();
     if (!named && !name) { err.textContent = 'Say your name in chat: a lower-case letter, then lower-case letters, digits and -.'; err.hidden = false; field.focus(); return; }
@@ -70,7 +72,7 @@ export function chatOnForm(opts = {}) {
   wrap.append(row, err, cmd);
   // No status given (the wizard, a workspace's page): read it — your name once you have one, else the one to suggest.
   if (!opts.status && field) {
-    apiFetch('chat/status').then((r) => (r.ok ? r.json() : null)).then((st2) => {
+    known = apiFetch('chat/status').then((r) => (r.ok ? r.json() : null)).then((st2) => {
       if (!st2) return;
       rememberChatStatus(st2);
       if (st2.named) { field.closest('label').remove(); field.value = ''; } else if (!field.value && st2.suggestedName) field.value = st2.suggestedName;

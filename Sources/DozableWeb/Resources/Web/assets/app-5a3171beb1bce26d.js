@@ -16,8 +16,8 @@
 //   · 605: the page outlives its server. doz ui restarting is a calm pause (terminals reattach, operations
 //     resolve, a newer build offers a reload); a sign-in again happens INSIDE the page, over what it shows.
 
-import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat-d8a6f1220f703bf4.js';
-import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-10e8698d00fb102a.js';
+import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat-821133e88dabe3d0.js';
+import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-f8ff010cef31de12.js';
 import { viewWsAgent } from './app/views/ws-agents-4f57d9a1da664e5c.js';
 import { viewIsolationGuide } from './app/views/isolation-guide-a618cc2432a854d9.js';
 import { viewAddWorker } from './app/views/add-worker-abdc13cbc1f2c906.js';
@@ -77,12 +77,12 @@ import { viewDoctor } from './app/views/doctor-a1d80e7c4f05262f.js';
 import { viewImages } from './app/views/images-f74a8acbd5edd1f2.js';
 import { viewMetrics } from './app/views/metrics-0f841a35dc8ccb41.js';
 import { newSandboxWizard, viewNew } from './app/views/new-sandbox-486d9309358d0e07.js';
-import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, viewNewWorkspace } from './app/views/new-workspace-a3dd240933ef2784.js';
+import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, viewNewWorkspace } from './app/views/new-workspace-54058354c13f2c11.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-2e44956e2050a391.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-594fd92fcfb72748.js';
-import { viewBots } from './app/views/bots-019a5d4e948fe390.js';
-import { viewBot } from './app/views/bot-2d8e0eda2b029513.js';
-import { viewHome } from './app/views/home-ffa16860922281c0.js';
+import { viewBots } from './app/views/bots-fe1e29c4a111845e.js';
+import { viewBot } from './app/views/bot-77c5a45129c33737.js';
+import { viewHome } from './app/views/home-774a15d0b483f9a7.js';
 import { viewLoose } from './app/views/loose-9ce7cb3d125279f2.js';
 import { viewMacs } from './app/views/macs-3bf2786a01a379dc.js';
 import { viewOverview } from './app/views/overview-d2695269d3a99cfe.js';

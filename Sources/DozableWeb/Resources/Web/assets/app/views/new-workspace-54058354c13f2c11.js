@@ -32,9 +32,9 @@ import { addNote } from '../components/notes-1979331b5b970ae1.js';
 import { pageFailure, toast } from '../components/notices-64b09147d0894f01.js';
 import { stepperNode } from '../components/stepper-2c0827f6cc22be2c.js';
 import { BRIEF_MAX_BYTES } from '../components/ws-brief-8fe264cd7d399f7d.js';
-import { gapsPanel, startsOnce } from '../components/ws-gaps-973a29ff6fbe0d21.js';
-import { chatOnForm } from '../components/chat-on-162c8f64ae5297df.js';
-import { chatNavCheck } from './chat-d8a6f1220f703bf4.js';
+import { gapsPanel, startsOnce } from '../components/ws-gaps-aadbad3cdbbe0358.js';
+import { chatOnForm } from '../components/chat-on-ef3f5d9b8dbfb33a.js';
+import { chatNavCheck } from './chat-821133e88dabe3d0.js';
 
 /// Why this browser may not make or start a workspace (null: it may).
 export const WSN_REMOTE = 'A workspace is made only in this Mac’s own browser, or with doz workspace new … in a terminal on the Mac';
