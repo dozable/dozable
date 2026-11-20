@@ -183,8 +183,11 @@ public enum ChatServer {
         // What waited when the server last stopped is handed over again, and a new protocol version is announced,
         // before the ports answer: a caller that finds the server ready finds the announcement's webhook calls made
         // (the reference reaches the same order by serving its page only after both).
+        if let note = config.deprecatedExperiments { log("chat: " + note) }
         let again = core.redeliver()
         if again > 0 { log("chat: handing over \(again) message(s) that were not delivered before the last stop") }
+        let asks = core.startAsks()
+        if asks > 0 { log("chat: \(asks) open ask(s); those that expired while the server was down are closed") }
         if core.announceProtocol() {
             log("chat: the message protocol is now version \(ChatProtocol.version); told every room")
             core.waitForAnnouncement(seconds: 2)
@@ -208,6 +211,7 @@ public enum ChatServer {
             fault(inUse || denied ? ChatExit.badSetting : ChatExit.restartMe,
                   "cannot listen on \(host) (line port \(config.linePort), page port \(config.httpPort)): " + (inUse ? "a port is in use" : text))
         }
+        core.setLineAddress(host: host, port: listeners.linePort)
         let presence = core.watchPresence()   // presence to open pages whenever it changes
         let ownerSocket = o.ownerSocket
         Stop.add { presence.cancel(); listeners.close(); core.close(); StatusWriter.current?.remove(); if let s = ownerSocket { unlink(s) } }

@@ -1681,6 +1681,8 @@ public struct ChatRequest: Codable, Equatable, Sendable {
     public var session: String?
     /// chat-set: `inbox`, `poll` or `webhook`.
     public var deliver: String?
+    /// chat-set: its roles now — `["decider"]`, or `[]` for none (nil: unchanged). Only the owner sends it.
+    public var roles: [String]?
     /// chat-webhook-set: the address and the Authorization value (empty: no header). Never logged.
     public var url: String?
     public var authorization: String?
@@ -1693,8 +1695,8 @@ public struct ChatRequest: Codable, Equatable, Sendable {
     public var remove: [String]?
     public init(name: String? = nil, token: String? = nil, retry: Bool? = nil, wait: Bool? = nil, kind: String? = nil, webhook: Bool? = nil,
                 entry: String? = nil, url: String? = nil, authorization: String? = nil, path: String? = nil, addMissing: Bool? = nil,
-                replace: Bool? = nil, inbox: Bool? = nil, session: String? = nil, deliver: String? = nil) {
-        self.inbox = inbox; self.session = session; self.deliver = deliver
+                replace: Bool? = nil, inbox: Bool? = nil, session: String? = nil, deliver: String? = nil, roles: [String]? = nil) {
+        self.inbox = inbox; self.session = session; self.deliver = deliver; self.roles = roles
         self.name = name; self.token = token; self.retry = retry; self.wait = wait
         self.kind = kind; self.webhook = webhook; self.entry = entry; self.url = url; self.authorization = authorization
         self.path = path; self.addMissing = addMissing; self.replace = replace
@@ -1736,9 +1738,12 @@ public struct ChatSetAnswer: Codable, Equatable, Sendable {
     public var delivery: String
     public var webhookEntry: String?
     public var session: String?
+    /// Its roles (`decider`); nil: none.
+    public var roles: [String]?
     public var chat: ChatServerState
-    public init(name: String, kind: String, delivery: String, webhookEntry: String?, session: String?, chat: ChatServerState) {
-        self.name = name; self.kind = kind; self.delivery = delivery; self.webhookEntry = webhookEntry; self.session = session; self.chat = chat
+    public init(name: String, kind: String, delivery: String, webhookEntry: String?, session: String?, roles: [String]? = nil, chat: ChatServerState) {
+        self.name = name; self.kind = kind; self.delivery = delivery; self.webhookEntry = webhookEntry; self.session = session; self.roles = roles
+        self.chat = chat
     }
 }
 

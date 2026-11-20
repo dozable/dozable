@@ -30,6 +30,15 @@ extension ChatServerCore {
         return once(st, id, who, run)
     }
 
+    /// A call done once per id in a room's command table (an agent's decide or withdraw, by its msg_id): the same id again
+    /// is answered duplicate with what the first did. A room that does not exist, or a caller not in it, is refused by
+    /// the call itself, and nothing is remembered.
+    func onceIn(room: String, who: String, id: String, _ run: () -> ChatReceipt) -> ChatReceipt {
+        let room = room.isEmpty ? config.defaultRoom : room
+        guard let st = try? store(room), member(room, who) else { return run() }
+        return once(st, id, who, run)
+    }
+
     /// What edit and delete share: the room exists, the sender is in it, and it is not archived.
     private func changeGate(_ room: inout String, _ sender: String, _ verb: String) -> Result<ChatRoomStore, ChatAPIError> {
         if room.isEmpty { room = config.defaultRoom }
@@ -66,7 +75,7 @@ extension ChatServerCore {
             return fail("no such message in room \(room)")
         }
         guard let m = try? st.one(id) else { return fail("no such message in room \(room)") }
-        if !m.kind.isEmpty { return fail("only an ordinary message can be edited or deleted, not a recorded change") }
+        if !m.kind.isEmpty && m.kind != "ask" { return fail("only an ordinary message can be edited or deleted, not a recorded change") }
         if m.deleted { return fail("that message was already deleted") }
         return .success(m)
     }
@@ -84,6 +93,8 @@ extension ChatServerCore {
         case .failure(let e): return e.receipt
         case .success(let x): m = x
         }
+        // what the deciders decide on stays as they saw it (its digest)
+        if m.kind == "ask" { return .refused("an ask cannot be edited: withdraw it with /withdraw and ask again") }
         if m.from != sender { return .refused("only \(m.from) can edit that message") }
         let text = Self.trimSpace(text)
         if let w = Self.fields(text).first, ChatProtocol.isCommandWord(w) {
@@ -118,6 +129,9 @@ extension ChatServerCore {
         case .success(let x): m = x
         }
         if m.from != who && !isHuman(who) { return .refused("only \(m.from) or a human can delete that message") }
+        if m.kind == "ask", m.ask?.state == "open" {
+            return .refused("an open ask cannot be deleted: its asker withdraws it first with /withdraw " + Self.short(m.msgID))
+        }
         let at = chatNow()
         do { try st.delete(m.msgID, by: who, at: at) } catch { return .refused("store: \(error)") }
         heard(who, answered: true)

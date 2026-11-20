@@ -318,6 +318,28 @@
 # (boolean; applies at once (the UI re-reads it))
 # refusal_reasons = false
 
+# Asks in chat: an agent may post a question that waits for a decision by you (or a participant
+# you made a decider with doz chat set NAME --role decider). Off: an ask, /decide and /withdraw
+# are refused, and open asks stay as they are until asks are on again. The chat server restarts to
+# take it.
+# (boolean; applies at once (the UI re-reads it))
+# asks = true
+
+# How many open asks one participant may have in one room at once (1 to 20). The chat server
+# restarts to take it.
+# (integer 1–20; applies at once (the UI re-reads it))
+# ask_max_open = 1
+
+# How long an ask stays open when it names no expiry of its own, in seconds (60 to 604800, a
+# week); then its answer is decline. The chat server restarts to take it.
+# (integer 60–604800; applies at once (the UI re-reads it))
+# ask_expiry_seconds = 86400
+
+# How long after an ask is declined or expires its asker may not ask about the same thing again,
+# in seconds (0 to 86400; -1 turns it off). The chat server restarts to take it.
+# (integer -1–86400; applies at once (the UI re-reads it))
+# ask_cooldown_seconds = 600
+
 [daemon]
 
 # Keep the doz daemon running when nothing runs, so sessions and sandboxes are answered at once

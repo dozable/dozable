@@ -107,11 +107,13 @@ public struct ChatSettingsView: Equatable, Sendable {
     /// `chat.remote_listen` and `chat.remote_agents` (`ChatRemoteSettings`).
     public var remoteListen: [String]
     public var remoteAgents: [String]
+    /// `chat.asks` and the asks limits: written into the generated config, so a change restarts the server.
+    public var asks: ChatAskSettings
 
     public init(enabled: Bool, pagePort: Int = 8790, linePort: Int = 8791, dashboards: [String: Int] = [:], remoteListen: [String] = [],
-                remoteAgents: [String] = []) {
+                remoteAgents: [String] = [], asks: ChatAskSettings = ChatAskSettings()) {
         self.enabled = enabled; self.pagePort = pagePort; self.linePort = linePort; self.dashboards = dashboards
-        self.remoteListen = remoteListen; self.remoteAgents = remoteAgents
+        self.remoteListen = remoteListen; self.remoteAgents = remoteAgents; self.asks = asks
     }
 
     public static func read(_ s: DozableSettings = .load()) -> ChatSettingsView {
@@ -122,7 +124,9 @@ public struct ChatSettingsView: Equatable, Sendable {
         }
         return ChatSettingsView(enabled: s.bool(SettingKey.chatEnabled), pagePort: s.int(SettingKey.chatPagePort), linePort: s.int(SettingKey.chatLinePort),
                                 dashboards: [SettingKey.uiPort: s.int(SettingKey.uiPort), SettingKey.servePort: s.int(SettingKey.servePort)],
-                                remoteListen: addresses(SettingKey.chatRemoteListen), remoteAgents: addresses(SettingKey.chatRemoteAgents))
+                                remoteListen: addresses(SettingKey.chatRemoteListen), remoteAgents: addresses(SettingKey.chatRemoteAgents),
+                                asks: ChatAskSettings(enabled: s.bool(SettingKey.chatAsks), maxOpen: s.int(SettingKey.chatAskMaxOpen),
+                                                      expirySeconds: s.int(SettingKey.chatAskExpiry), cooldownSeconds: s.int(SettingKey.chatAskCooldown)))
     }
 }
 
@@ -286,12 +290,28 @@ public final class ChatSupervisor: @unchecked Sendable {
     /// rooms and its history kept (the rooms are the server's, by name; the token's hash stays as it is). Inbox only for a
     /// `claude-session` (`kind` may change it in the same call); webhook with an entry name (its own by default). The
     /// server restarts to take it; what still waits for it (queued) is handed over the new way at that start.
-    public func set(_ name: String, deliver: String, kind: String? = nil, entry: String? = nil, session: String? = nil) async throws -> ChatDirectory.Participant {
+    /// `roles`: its roles now (`[]` takes them away; nil leaves them); `deliver` nil leaves how it is reached. A role
+    /// change restarts the server (the role is in the generated config): an open ask survives it.
+    public func set(_ name: String, deliver: String?, kind: String? = nil, entry: String? = nil, session: String? = nil,
+                    roles: [String]? = nil) async throws -> ChatDirectory.Participant {
         try await runThrowing {
             var d = try ChatDirectory.load(self.paths)
+            if roles != nil && d.human == name { throw HostError(.invalid, "\(name) is you: a person decides without a role") }
             if d.human == name { throw HostError(.invalid, "\(name) is you: you are reached on your own page and socket") }
             guard let i = d.participants.firstIndex(where: { $0.name == name }) else { throw HostError(.notFound, "no participant \(name) in chat") }
             var p = d.participants[i]
+            if let roles {
+                for r in roles where r != "decider" { throw HostError(.invalid, "\(r) is not a role: decider, or none") }
+                p.roles = roles.isEmpty ? nil : ["decider"]
+            }
+            guard let deliver else {
+                if kind != nil || entry != nil || session != nil { throw HostError(.invalid, "--kind, --webhook-entry and --session go with --deliver") }
+                d.participants[i] = p
+                try self.paths.write("directory.json", d.bytes())
+                HostLog.line("chat: \(name) " + (p.isDecider ? "has the decider role" : "has no role"))
+                self.look(blocked: false, force: true)
+                return p
+            }
             if let kind {
                 guard ChatDirectory.kinds.contains(kind) else { throw HostError(.invalid, "\(kind) is not a kind: \(ChatDirectory.kinds.joined(separator: ", "))") }
                 p.kind = kind
@@ -607,7 +627,7 @@ public final class ChatSupervisor: @unchecked Sendable {
             let sessions = d.hasInbox ? claudeSessions() : nil
             st.claudeSessions = sessions
             files = Files(config: try ChatConfigFile.bytes(d, paths: paths, pagePort: settings.pagePort, linePort: settings.linePort,
-                                                           remoteBind: remoteHere, remoteAgents: settings.remoteAgents),
+                                                           remoteBind: remoteHere, remoteAgents: settings.remoteAgents, asks: settings.asks),
                           tokens: h.bytes(), webhooks: webhooks, sessions: sessions)
             if FileManager.default.contents(atPath: paths.config).map(Array.init) != files.config { try paths.write("config.json", Data(files.config)) }
             if FileManager.default.contents(atPath: paths.tokens) != files.tokens { try paths.write("tokens.json", files.tokens) }

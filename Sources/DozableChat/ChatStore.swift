@@ -38,6 +38,10 @@ public final class ChatRoomStore: @unchecked Sendable {
           item TEXT NOT NULL, at REAL NOT NULL, handed_at REAL NOT NULL DEFAULT 0, UNIQUE(recipient, msg_id));
         CREATE TABLE IF NOT EXISTS commands(
           msg_id TEXT PRIMARY KEY, sender TEXT NOT NULL, state TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS asks(
+          msg_id TEXT PRIMARY KEY, ask TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'open', expires REAL NOT NULL DEFAULT 0,
+          decision TEXT NOT NULL DEFAULT '', closed_at REAL NOT NULL DEFAULT 0, asker TEXT NOT NULL DEFAULT '',
+          about TEXT NOT NULL DEFAULT '', declined INTEGER NOT NULL DEFAULT 0, no_decider INTEGER NOT NULL DEFAULT 0);
         """
 
     /// The columns added to older files; each fails harmlessly when it is there.
@@ -87,20 +91,36 @@ public final class ChatRoomStore: @unchecked Sendable {
 
     // MARK: writing
 
-    /// Adds a message; dup is true when the msg_id is already there. The message's seq is set.
+    /// Adds a message, and an ask's row with it (one transaction) when the message is an ask; dup is true when the msg_id
+    /// is already there. The message's seq is set.
     @discardableResult
     public func insert(_ m: inout ChatStored) throws -> Bool {
         let to = ChatJSON.encodeString(.strings(m.to))
         let att = ChatJSON.encodeString(.array(m.attachments))
         let men = ChatJSON.encodeString(.strings(m.mentions))
         let snd = m.sender.map { ChatJSON.encodeString($0.json) } ?? ""
-        let (changes, rowid) = try sync {
-            let n = try self.run("""
-                INSERT INTO messages(msg_id,sender,recipients,re_msg_id,content,at,kind,attachments,mentions,private,sender_info) VALUES(?,?,?,?,?,?,?,?,?,?,?)
-                \tON CONFLICT(msg_id) DO NOTHING
-                """, [.text(m.msgID), .text(m.from), .text(to), .text(m.reMsgID), .text(m.content), .real(m.at), .text(m.kind),
-                      .text(att), .text(men), .int(m.isPrivate ? 1 : 0), .text(snd)])
-            return (n, sqlite3_last_insert_rowid(self.db))
+        let ask = m.ask
+        let (msgID, from) = (m.msgID, m.from)
+        let row: [SQLValue] = [.text(m.msgID), .text(m.from), .text(to), .text(m.reMsgID), .text(m.content), .real(m.at), .text(m.kind),
+                               .text(att), .text(men), .int(m.isPrivate ? 1 : 0), .text(snd)]
+        let (changes, rowid) = try sync { () -> (Int32, Int64) in
+            if ask != nil { try self.exec("BEGIN IMMEDIATE") }
+            do {
+                let n = try self.run("""
+                    INSERT INTO messages(msg_id,sender,recipients,re_msg_id,content,at,kind,attachments,mentions,private,sender_info) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                    \tON CONFLICT(msg_id) DO NOTHING
+                    """, row)
+                let id = sqlite3_last_insert_rowid(self.db)
+                if let ask, n == 1 {
+                    try self.run("INSERT INTO asks(msg_id,ask,state,expires,asker,about) VALUES(?,?,'open',?,?,?)",
+                                 [.text(msgID), .text(ask.storedJSON), .real(ask.expires), .text(from), .text(ask.about)])
+                }
+                if ask != nil { try self.exec("COMMIT") }
+                return (n, id)
+            } catch {
+                if ask != nil { try? self.exec("ROLLBACK") }
+                throw error
+            }
         }
         if changes == 0 { return true }
         m.seq = rowid
@@ -237,6 +257,7 @@ public final class ChatRoomStore: @unchecked Sendable {
                     return ChatReaction(msgID: id, who: Self.text($0, 0), reaction: r, emoji: ChatReactions.of(r)?.emoji ?? "",
                                         at: sqlite3_column_double($0, 2))
                 }
+                if out[i].kind == "ask" && !out[i].deleted { out[i].ask = try self.askRow(id) }   // a tombstone keeps nothing of what it asked
             }
             return out
         }
@@ -358,7 +379,7 @@ public final class ChatRoomStore: @unchecked Sendable {
     /// The newest ordinary message sender wrote that is not deleted, or "".
     public func latest(of sender: String) -> String {
         (try? sync {
-            try self.query("SELECT msg_id FROM messages WHERE sender=? AND kind='' AND deleted_at=0 ORDER BY seq DESC LIMIT 1", [.text(sender)]) { Self.text($0, 0) }
+            try self.query("SELECT msg_id FROM messages WHERE sender=? AND kind IN ('','ask') AND deleted_at=0 ORDER BY seq DESC LIMIT 1", [.text(sender)]) { Self.text($0, 0) }
         })?.first ?? ""
     }
 
@@ -395,7 +416,7 @@ public final class ChatRoomStore: @unchecked Sendable {
             try self.query("""
                 SELECT COALESCE((SELECT MAX(seq) FROM messages),0),
                 \t\tCOUNT(*), COALESCE(SUM(CASE WHEN instr(mentions,?)>0 THEN 1 ELSE 0 END),0)
-                \t\tFROM messages WHERE seq>? AND kind='' AND sender<>?
+                \t\tFROM messages WHERE seq>? AND kind IN ('','ask') AND sender<>?
                 \t\tAND deleted_at=0 AND (private=0 OR revealed=1 OR instr(recipients,?)>0)
                 """, [.text(q), .int(after), .text(viewer), .text(q)]) {
                 (sqlite3_column_int64($0, 0), sqlite3_column_int64($0, 1), sqlite3_column_int64($0, 2))
@@ -408,12 +429,106 @@ public final class ChatRoomStore: @unchecked Sendable {
         let q = "\"" + viewer + "\""
         guard var p = (try? sync {
             try self.query("""
-                SELECT msg_id, sender, content, at FROM messages WHERE kind='' AND deleted_at=0
+                SELECT msg_id, sender, content, at FROM messages WHERE kind IN ('','ask') AND deleted_at=0
                 \t\tAND (private=0 OR revealed=1 OR sender=? OR instr(recipients,?)>0) ORDER BY seq DESC LIMIT 1
                 """, [.text(viewer), .text(q)]) { (Self.text($0, 0), Self.text($0, 1), Self.text($0, 2), sqlite3_column_double($0, 3)) }
         })?.first else { return nil }
         if p.2.unicodeScalars.count > 140 { p.2 = String(String.UnicodeScalarView(p.2.unicodeScalars.prefix(140))) + "…" }
         return (p.0, p.1, p.2, p.3)
+    }
+
+    // MARK: asks (the protocol's 13.11: the table `asks`)
+
+    /// The ask of a message, with its state and decision, normalised (an ask stored by 0.15 reads in today's shape); nil
+    /// when the message is not an ask.
+    public func askOf(_ msgID: String) -> ChatAsk? { (try? sync { try self.askRow(msgID) }) ?? nil }
+
+    private func askRow(_ msgID: String) throws -> ChatAsk? {
+        let rows = try query("SELECT ask, state, decision, closed_at, no_decider FROM asks WHERE msg_id=?", [.text(msgID)]) {
+            (Self.text($0, 0), Self.text($0, 1), Self.text($0, 2), sqlite3_column_double($0, 3), sqlite3_column_int64($0, 4) != 0)
+        }
+        guard let r = rows.first, var a = ChatAsk.readStored(r.0) else { return nil }
+        a.state = r.1; a.closedAt = r.3; a.noDecider = r.4
+        if !r.2.isEmpty, let v = try? ChatJSON.parse(Array(r.2.utf8)), v.isObject { a.decision = ChatAskDecision.read(v) }
+        a.normalise()
+        return a
+    }
+
+    /// Moves an open ask to state (decided, expired or withdrawn) with its decision; only an open ask moves, so the first
+    /// close wins. `declined` starts the asker's cooldown.
+    public func closeAsk(_ msgID: String, state: String, decision: ChatAskDecision?, at: Double, declined: Bool) throws -> Bool {
+        let dec = decision.map { ChatJSON.encodeString($0.json) } ?? ""
+        return try sync {
+            try self.run("UPDATE asks SET state=?, decision=?, closed_at=?, declined=? WHERE msg_id=? AND state='open'",
+                         [.text(state), .text(dec), .real(at), .int(declined ? 1 : 0), .text(msgID)]) == 1
+        }
+    }
+
+    /// Marks an open ask as one no one may decide any more; false when it was marked already or is not open.
+    public func setNoDecider(_ msgID: String) -> Bool {
+        ((try? sync { try self.run("UPDATE asks SET no_decider=1 WHERE msg_id=? AND state='open' AND no_decider=0", [.text(msgID)]) }) ?? 0) == 1
+    }
+
+    /// Every open ask of the room with when it expires (0: never), oldest first.
+    public func openAsks() -> [(msgID: String, expires: Double)] {
+        (try? sync {
+            try self.query("SELECT a.msg_id, a.expires FROM asks a JOIN messages m ON m.msg_id=a.msg_id WHERE a.state='open' ORDER BY m.seq", []) {
+                (Self.text($0, 0), sqlite3_column_double($0, 1))
+            }
+        }) ?? []
+    }
+
+    /// The open asks of one asker in this room that are not deleted.
+    public func openAsksOf(_ asker: String) -> Int {
+        Int((try? sync {
+            try self.query("SELECT COUNT(*) FROM asks a JOIN messages m ON m.msg_id=a.msg_id WHERE a.state='open' AND a.asker=? AND m.deleted_at=0",
+                           [.text(asker)]) { sqlite3_column_int64($0, 0) }
+        })?.first ?? 0)
+    }
+
+    /// When an ask of this asker with this about (its canonical JSON, "" for none) was last declined or expired, if after
+    /// `since`: the cooldown.
+    public func declinedSince(_ asker: String, about: String, since: Double) -> Double? {
+        let at = (try? sync {
+            try self.query("SELECT COALESCE(MAX(closed_at),0) FROM asks WHERE asker=? AND about=? AND declined=1 AND closed_at>?",
+                           [.text(asker), .text(about), .real(since)]) { sqlite3_column_double($0, 0) }
+        })?.first ?? 0
+        return at > 0 ? at : nil
+    }
+
+    /// The highest ask number this room's asks carry (0: none).
+    public func maxAskNumber() -> Int {
+        Int((try? sync {
+            try self.query("SELECT COALESCE(MAX(CAST(json_extract(ask,'$.number') AS INTEGER)),0) FROM asks WHERE json_valid(ask)", []) { sqlite3_column_int64($0, 0) }
+        })?.first ?? 0)
+    }
+
+    /// The msg_id of the ask with this number, or nil.
+    public func askNumbered(_ n: Int) -> String? {
+        (try? sync {
+            try self.query("SELECT msg_id FROM asks WHERE json_valid(ask) AND CAST(json_extract(ask,'$.number') AS INTEGER)=? LIMIT 2", [.int(Int64(n))]) { Self.text($0, 0) }
+        }).flatMap { $0.count == 1 ? $0[0] : nil }
+    }
+
+    /// An import's quiet for asks (on a staged copy only): every open ask closed as expired, with the server's answer on
+    /// expiry and no cooldown (`declined` 0) — nobody is told. How many.
+    public func expireOpenAsksForImport(at: Double) throws -> Int {
+        try sync {
+            let rows = try self.query("SELECT msg_id, ask FROM asks WHERE state='open'", []) { (Self.text($0, 0), Self.text($0, 1)) }
+            try self.exec("BEGIN IMMEDIATE")
+            do {
+                for (id, raw) in rows {
+                    let d = ChatAskDecision.expiry(digest: ChatAsk.readStored(raw)?.digest ?? "", at: at)
+                    try self.run("UPDATE asks SET state='expired', decision=?, closed_at=?, declined=0 WHERE msg_id=? AND state='open'",
+                                 [.text(ChatJSON.encodeString(d.json)), .real(at), .text(id)])
+                }
+                try self.exec("COMMIT")
+            } catch {
+                try? self.exec("ROLLBACK")
+                throw error
+            }
+            return rows.count
+        }
     }
 
     // MARK: polling sessions' bookkeeping (never read by the page)

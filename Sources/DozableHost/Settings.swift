@@ -520,6 +520,11 @@ public enum SettingKey {
     public static let chatRemoteAgents = "chat.remote_agents"
     /// A closed room's refusal carries `reason: "space-down"` (sent with the closed set over the control channel).
     public static let chatRefusalReasons = "chat.refusal_reasons"
+    /// Asks in chat (a message that waits for a decision) and their limits: written into the chat server's generated config.
+    public static let chatAsks = "chat.asks"
+    public static let chatAskMaxOpen = "chat.ask_max_open"
+    public static let chatAskExpiry = "chat.ask_expiry_seconds"
+    public static let chatAskCooldown = "chat.ask_cooldown_seconds"
     public static let serveBind = "serve.bind"
     public static let servePublicOrigins = "serve.public_origins"
     public static let serveTrustedProxies = "serve.trusted_proxies"
@@ -923,6 +928,20 @@ public struct DozableSettings: Sendable {
                   applies: .now, ui: false),
             .init("chat", "refusal_reasons", .bool, .bool(false),
                   "Give a refused post its reason as an extra field (reason: space-down when the room's workspace is finished), beside the refusal the chat server always gives. Off by default: clients made for the reference never see it.",
+                  applies: .now, ui: false),
+            // Asks: a message that puts a question to deciders (you, or an Agent / Bot you made a decider with doz chat set
+            // NAME --role decider) and waits for a decision. Set on this Mac only; a change restarts the chat server.
+            .init("chat", "asks", .bool, .bool(true),
+                  "Asks in chat: an agent may post a question that waits for a decision by you (or a participant you made a decider with doz chat set NAME --role decider). Off: an ask, /decide and /withdraw are refused, and open asks stay as they are until asks are on again. The chat server restarts to take it.",
+                  applies: .now, ui: false),
+            .init("chat", "ask_max_open", .int(1...20), .int(1),
+                  "How many open asks one participant may have in one room at once (1 to 20). The chat server restarts to take it.",
+                  applies: .now, ui: false),
+            .init("chat", "ask_expiry_seconds", .int(60...604_800), .int(86_400),
+                  "How long an ask stays open when it names no expiry of its own, in seconds (60 to 604800, a week); then its answer is decline. The chat server restarts to take it.",
+                  applies: .now, ui: false),
+            .init("chat", "ask_cooldown_seconds", .int(-1...86_400), .int(600),
+                  "How long after an ask is declined or expires its asker may not ask about the same thing again, in seconds (0 to 86400; -1 turns it off). The chat server restarts to take it.",
                   applies: .now, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",

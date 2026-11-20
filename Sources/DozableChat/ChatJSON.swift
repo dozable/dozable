@@ -52,11 +52,12 @@ public struct JObject {
 // MARK: - Writing
 
 public enum ChatJSON {
-    /// The compact encoding (`json.Marshal`).
-    public static func encode(_ v: JValue) -> [UInt8] {
+    /// The compact encoding (`json.Marshal`). `escapeHTML: false` is a `json.Encoder` with `SetEscapeHTML(false)`: `<`, `>`
+    /// and `&` written as they are (an ask's digest and its canonical `about`).
+    public static func encode(_ v: JValue, escapeHTML: Bool = true) -> [UInt8] {
         var out: [UInt8] = []
         out.reserveCapacity(256)
-        write(v, into: &out, indent: nil, level: 0)
+        write(v, into: &out, indent: nil, level: 0, escapeHTML: escapeHTML)
         return out
     }
 
@@ -74,21 +75,21 @@ public enum ChatJSON {
         for _ in 0..<level { out.append(contentsOf: indent) }
     }
 
-    private static func write(_ v: JValue, into out: inout [UInt8], indent: [UInt8]?, level: Int) {
+    private static func write(_ v: JValue, into out: inout [UInt8], indent: [UInt8]?, level: Int, escapeHTML: Bool = true) {
         switch v {
         case .null: out.append(contentsOf: Array("null".utf8))
         case .bool(let b): out.append(contentsOf: Array((b ? "true" : "false").utf8))
         case .int(let n): out.append(contentsOf: Array(String(n).utf8))
         case .double(let d): out.append(contentsOf: Array(goFloat(d).utf8))
         case .number(let raw): out.append(contentsOf: Array(raw.utf8))
-        case .string(let s): writeString(s, into: &out)
+        case .string(let s): writeString(s, into: &out, escapeHTML: escapeHTML)
         case .array(let a):
             if a.isEmpty { out.append(contentsOf: [0x5B, 0x5D]); return }
             out.append(0x5B)
             for (i, e) in a.enumerated() {
                 if i > 0 { out.append(0x2C) }
                 if let indent { newline(&out, indent, level + 1) }
-                write(e, into: &out, indent: indent, level: level + 1)
+                write(e, into: &out, indent: indent, level: level + 1, escapeHTML: escapeHTML)
             }
             if let indent { newline(&out, indent, level) }
             out.append(0x5D)
@@ -98,10 +99,10 @@ public enum ChatJSON {
             for (i, e) in m.enumerated() {
                 if i > 0 { out.append(0x2C) }
                 if let indent { newline(&out, indent, level + 1) }
-                writeString(e.key, into: &out)
+                writeString(e.key, into: &out, escapeHTML: escapeHTML)
                 out.append(0x3A)
                 if indent != nil { out.append(0x20) }
-                write(e.value, into: &out, indent: indent, level: level + 1)
+                write(e.value, into: &out, indent: indent, level: level + 1, escapeHTML: escapeHTML)
             }
             if let indent { newline(&out, indent, level) }
             out.append(0x7D)
@@ -111,9 +112,10 @@ public enum ChatJSON {
     private static let hex = Array("0123456789abcdef".utf8)
 
     /// Go's string encoding with HTML escaping (the default of `json.Marshal` and `json.Encoder`).
-    static func writeString(_ s: String, into out: inout [UInt8]) {
+    static func writeString(_ s: String, into out: inout [UInt8], escapeHTML: Bool = true) {
         out.append(0x22)
         for u in s.unicodeScalars {
+            if !escapeHTML, u.value == 0x3C || u.value == 0x3E || u.value == 0x26 { out.append(UInt8(u.value)); continue }
             switch u.value {
             case 0x22: out.append(contentsOf: [0x5C, 0x22])
             case 0x5C: out.append(contentsOf: [0x5C, 0x5C])

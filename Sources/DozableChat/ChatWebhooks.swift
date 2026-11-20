@@ -104,14 +104,28 @@ extension ChatServerCore {
         if !m.reMsgID.isEmpty { head += ", answering " + m.reMsgID }
         body["message_text"] = .string(head + "\n\n" + m.content)
         let (r, id) = (goQuote(room), goQuote(m.msgID))
+        // Every wake names this server and its line address: a bot may be in several chat servers that share its webhook,
+        // and must answer the one that woke it, never a default.
+        let at = lineAddress
+        body["server"] = .map(["version": .string(release), "line": .string(at)])
         body["how_to_respond"] = .map([
-            "where": .string("one TCP connection to the line port: an auth line, then one line below, then read one receipt line and close"),
+            "rule": .string("Answer THIS server (line port \(at)), in room \(r), with re_msg_id \(id), using the token this server gave you. Never a default server, port or room: you may be in other chat servers that share this webhook."),
+            "where": .string("one TCP connection to this server's line port \(at): an auth line with this server's token, then one line below, then read one receipt line and close"),
             "answer": .string(#"{"msgV":1,"msg_id":"<new uuid>","type":"user","message":{"role":"user","content":"<Markdown text>"},"room":\#(r),"re_msg_id":\#(id)}"#),
             "react": .string(#"{"msgV":1,"msg_id":"<new uuid>","type":"reaction","room":\#(r),"re_msg_id":\#(id),"reaction":"like"}"#),
             "reactions": .string("like, love, lol, wow, sad, thanks, yes, no, eyes, party, or any emoji. The same reaction again takes it off. React when no words are needed."),
             "attach": .string(#"To send a file, add "attachments":[{"name":"<file name>","data_base64":"<the bytes, base64>"}] to the answer line. At most 10 files of 20 MB each. To read an attachment, send its fetch line; the reply carries data_base64."#),
             "started": .string(#"{"msgV":1,"msg_id":"<new uuid>","type":"control","action":"thinking","room":\#(r),"re_msg_id":\#(id)}"#),
         ])
+        if m.kind == "ask", let a = m.ask, a.deciders.contains(p.name), case .object(var how)? = body["how_to_respond"] {
+            let decide = a.questions.count == 1
+                ? #"{"msgV":1,"msg_id":"<new uuid>","type":"user","message":{"role":"user","content":"/decide \#(m.msgID) <option id or letter, A for the first> [text]"},"room":\#(r)}"#
+                : #"This ask has \#(a.questions.count) questions, so it is decided with decide_answers, not a line; the line {"msgV":1,"msg_id":"<new uuid>","type":"user","message":{"role":"user","content":"/decide \#(m.msgID) decline [text]"},"room":\#(r)} declines it"#
+            how.append(JMember("decide", .string(decide)))
+            how.append(JMember("decide_answers", .string("POST /agent/decide on this server's page port, with this server's token, and " + ChatAskForm.decideBody(room: room, id: m.msgID, a)
+                + #" (an answer for every question); or {"room":\#(r),"ask_id":\#(id),"decline":true,"text":"<why>"} to decline"#)))
+            body["how_to_respond"] = .map(Dictionary(how.map { ($0.key, $0.value) }, uniquingKeysWith: { _, b in b }))
+        }
         return body
     }
 

@@ -34,6 +34,12 @@ public enum PermissionGate {
     /// `reader` is asked for only when the caller is an agent.
     public static func check(_ r: HostRequest, caller: Caller, reader: () -> GrantFactsReader, log: Bool = true, now: Date = Date()) -> Outcome {
         guard case .agent(let home, let name) = caller else { return .pass }
+        // A role in chat (decider: `chat.decide`) is given by the owner alone, never by an agent, whatever it holds.
+        if r.op == .chatSet, r.chat?.roles != nil {
+            let perm = GrantPermissions.ownerOnly.sorted().joined(separator: ", ")
+            let d = GrantDecision.dozableOwn(name: name, op: r.op.rawValue, workspace: home)
+            return .refused(HostError(.notPermitted, "only the owner gives a role in chat (\(perm)): never \(name) in \(home)"), d)
+        }
         let facts = reader()
         let op = r.op.rawValue
         let workspaces = WorkspaceStore(store: facts.store)

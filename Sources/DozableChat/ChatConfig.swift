@@ -35,15 +35,60 @@ public struct ChatConfig: Sendable, Equatable {
     /// Every connection accepted there is an agent (`ChatCaller.remote`). Only IPv4 in 100.64.0.0/10, only with
     /// `require_tokens`.
     public var remoteBind: [String] = []
+    /// Asks (the protocol's section 13) are on unless this is true.
+    public var noAsks = false
+    /// How long an ask that names no expires_at stays open; 0 is the default, 24 hours.
+    public var askExpirySeconds = 0
+    /// How long after a decline or an expiry the same asker may not ask about the same thing again; 0 is the default, 10
+    /// minutes; below 0 turns the cooldown off.
+    public var askCooldownSeconds = 0
+    /// How many open asks one asker may have in one room; 0 is the default, 1.
+    public var askMaxOpen = 0
+    /// The deprecated `experiments` object, still read so that a config written for an earlier release starts.
+    public var experiments = LegacyExperiments()
+
+    /// The deprecated `experiments` object: `ask: false` turns asks off; its three tuning values are used when the
+    /// top-level one is not set.
+    public struct LegacyExperiments: Sendable, Equatable {
+        public var ask: Bool?
+        public var askExpirySeconds = 0, askCooldownSeconds = 0, askMaxOpen = 0
+        public init() {}
+        var isSet: Bool { ask != nil || askExpirySeconds != 0 || askCooldownSeconds != 0 || askMaxOpen != 0 }
+    }
 
     public init() {}
+
+    /// Whether this server offers asks: on unless `no_asks` is set or the deprecated `experiments.ask` is false.
+    public var asksOn: Bool { !noAsks && (experiments.ask ?? true) }
+    /// The optional parts of the protocol this server offers, in a fixed order; never nil.
+    public var features: [String] { asksOn ? ["ask"] : [] }
+    private static func legacyOr(_ top: Int, _ legacy: Int) -> Int { top != 0 ? top : legacy }
+    /// The ask settings with their defaults applied.
+    public var askExpiry: Double {
+        let s = Self.legacyOr(askExpirySeconds, experiments.askExpirySeconds)
+        return s > 0 ? Double(s) : 24 * 3600
+    }
+    public var askCooldown: Double {
+        let s = Self.legacyOr(askCooldownSeconds, experiments.askCooldownSeconds)
+        return s < 0 ? 0 : (s > 0 ? Double(s) : 600)
+    }
+    public var askMaxOpenValue: Int {
+        let n = Self.legacyOr(askMaxOpen, experiments.askMaxOpen)
+        return n > 0 ? n : 1
+    }
+    /// The one line logged at start when the config still sets an ask key under the deprecated `experiments` object.
+    public var deprecatedExperiments: String? {
+        guard experiments.isSet else { return nil }
+        return #"the config's "experiments" object is deprecated (still read): asks are on by default; use "no_asks": true to turn them off, "#
+            + "and the top-level ask_expiry_seconds, ask_cooldown_seconds and ask_max_open instead of the ones under experiments"
+    }
 
     /// Every key the file may have.
     public static let keys: Set<String> = [
         "line_port", "http_port", "data_dir", "token_service", "default_room", "participants", "rooms", "allow",
         "require_tokens", "require_tokens_from", "peer_name", "agent_run_cap", "https_port", "https_domain",
         "tailscale_command", "secrets_file_only", "test_owned_addresses", "agent_addresses", "bind", "no_loopback_agent",
-        "remote_bind",
+        "remote_bind", "no_asks", "ask_expiry_seconds", "ask_cooldown_seconds", "ask_max_open", "experiments",
     ]
 
     /// Reads the config file.
@@ -96,6 +141,25 @@ public struct ChatConfig: Sendable, Equatable {
         if let a = try get("agent_addresses", { try $0.goStrings("agent_addresses") }) { c.agentAddresses = a }
         if let s = try get("bind", { try $0.goString("bind") }) { c.bind = s }
         if let a = try get("remote_bind", { try $0.goStrings("remote_bind") }) { c.remoteBind = a }
+        if let b = try get("no_asks", { try $0.goBool("no_asks") }) { c.noAsks = b }
+        if let n = try get("ask_expiry_seconds", { try $0.goInt("ask_expiry_seconds") }) { c.askExpirySeconds = n }
+        if let n = try get("ask_cooldown_seconds", { try $0.goInt("ask_cooldown_seconds") }) { c.askCooldownSeconds = n }
+        if let n = try get("ask_max_open", { try $0.goInt("ask_max_open") }) { c.askMaxOpen = n }
+        if let e = try get("experiments", { v -> LegacyExperiments in
+            var e = LegacyExperiments()
+            switch v {
+            case .null: return e
+            case .object(let ms):
+                let known: Set<String> = ["ask", "ask_expiry_seconds", "ask_cooldown_seconds", "ask_max_open"]
+                if let bad = ms.first(where: { !known.contains($0.key) }) { throw ChatFieldError(description: "unknown key \"\(bad.key)\"") }
+                if let a = v.field("ask"), !a.isNull { e.ask = try a.goBool("ask") }
+                e.askExpirySeconds = try v.field("ask_expiry_seconds")?.goInt("ask_expiry_seconds") ?? 0
+                e.askCooldownSeconds = try v.field("ask_cooldown_seconds")?.goInt("ask_cooldown_seconds") ?? 0
+                e.askMaxOpen = try v.field("ask_max_open")?.goInt("ask_max_open") ?? 0
+                return e
+            default: throw ChatFieldError(description: "not an object")
+            }
+        }) { c.experiments = e }
         // The reference's keys for what this server does not do: accepted only when they ask for nothing.
         if let s = try get("peer_name", { try $0.goString("peer_name") }), !s.isEmpty {
             throw ChatConfigError("config peer_name: \"\(s)\" — this server is not a Claude Code peer; leave it empty")

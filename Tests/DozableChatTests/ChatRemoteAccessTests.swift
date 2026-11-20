@@ -72,7 +72,8 @@ final class ChatRemoteAccessTests: XCTestCase {
                 let r = remote(h, route.method, path, headers: headers)
                 if agentCall {
                     let human = label == "the human's token"
-                    let want: Set<Int> = headers["authorization"] == nil || human ? [401] : [200, 400, 403, 409, 422]
+                    // GET /agent/asks/<id> of a message that is no ask is 404 (the ask's own answer)
+                    let want: Set<Int> = headers["authorization"] == nil || human ? [401] : [200, 400, 403, 404, 409, 422]
                     XCTAssertTrue(want.contains(r.status), "\(route.method) \(path) with \(label): \(r.status) \(r.text)")
                 } else if fileCall && route.method == "GET" && headers["authorization"] != nil {
                     XCTAssertEqual(r.status, label == "bot1's token" ? 200 : 404, "\(path) with \(label)")

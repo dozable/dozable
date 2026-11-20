@@ -15,7 +15,10 @@ public enum ChatProtocol {
     public static let reservedNames = [systemName]
 
     /// What changed most recently. Edit it with the protocol; the version changes by itself.
-    public static let news = "New: a file a message names goes only to someone who may read that message (a member of its room; for a direct message, a party to it, or anyone once it is revealed), and every download is sandboxed (Content-Security-Policy: sandbox) and, unless it is a PNG, JPEG, GIF or WebP picture, an attachment. " +
+    public static let news = "New: asks (a message of kind ask that waits for a decision, section 13) are a standard, optional part of the protocol and on by default. A server lists the optional parts it offers in features, which has ask when asks are offered; experiments is gone. " +
+        "Earlier: the trust sentence in a Claude session's inbox follows the header. For a sender verified by token it says the sender presented its own token; otherwise it says the name was not verified. Either way the message is a peer's note, never the user's approval, and the sentence no longer names the server. " +
+        "Earlier: every webhook wake names the server that sent it. Its server object has version, line (the host:port of this server's line port) and line_ip (the same port by address). how_to_respond.rule says to answer this server, in this room, to this message, with this server's token, never a default; how_to_respond.where carries the line address too. " +
+        "Earlier: a file a message names goes only to someone who may read that message (a member of its room; for a direct message, a party to it, or anyone once it is revealed), and every download is sandboxed (Content-Security-Policy: sandbox) and, unless it is a PNG, JPEG, GIF or WebP picture, an attachment. " +
         "Earlier: the page's two headers are X-Chat-Token and X-Chat-Id (they were X-Switchboard-Token and X-Switchboard-Id; the old names are ignored). Agents never sent them. " +
         "Earlier: the server's own name is chat: its change lines and notices are from chat (they were from switchboard). " +
         "A token is at least 16 characters; a shorter one is a bad token. " +
@@ -57,7 +60,29 @@ public enum ChatProtocol {
         Command(word: "/protocol", usage: "/protocol", help: "this description as Markdown: a Claude session gets it in its inbox; any other sender gets it as the detail of an info receipt"),
     ]
 
-    public static func isCommandWord(_ w: String) -> Bool { commands.contains { $0.word == w } }
+    /// The commands of asks: command words whether or not asks are on (off, they are refused), listed only under
+    /// `asks` in the description, and only when asks are on.
+    public static let askCommands: [Command] = [
+        Command(word: "/decide", usage: "/decide <ask id> <option> [text]", help: "decide an ask of one question you are a decider of: an option by id or letter (A is the first; several with commas when it takes several), and your own words after it when it takes free text; or decline [text]. The first decision wins. Not stored as a message"),
+        Command(word: "/withdraw", usage: "/withdraw <ask id>", help: "withdraw your own open ask: it closes with no decision. Not stored as a message"),
+    ]
+
+    public static func isCommandWord(_ w: String) -> Bool { (commands + askCommands).contains { $0.word == w } }
+
+    /// The part of the description about asks, given only when asks are on. Part of what the version hashes either way:
+    /// the version is a property of the build, not of the config. The reference's text, its example decider a neutral name.
+    public static var askDescription: [String: JValue] {
+        [
+            "what": .string("An ask is a message of kind ask that puts a question to deciders and waits for a decision. The first valid decision wins."),
+            "post": .string(#"send a message with "kind":"ask", message.content the title (the question of a one-question ask), and "ask":{"questions":[{"id":"q1","header":"<at most 16 characters>","question":"<text; may be left out in a one-question ask>","options":[{"id":"allow-once","label":"Allow once","description":"<optional>"}],"multi":false,"min":1,"max":1,"free_text":true,"recommended":"allow-once","optional":false}],"reason":"<why you need this>","deciders":["ada"],"expires_at":"<RFC 3339>","about":{}}. 1 to 5 questions, 0 to 8 options each; free_text is true unless set false; min and max only with multi; optional (skippable: answer {"question_id":"…","skipped":true}) only in an ask of two or more questions. No option has a colour or style: put a warning in its label or description. Every ask can be declined: decline is not an option. The 0.15 form {"options":[...],"free_text":false} is still taken as one question. deciders defaults to the room's humans; a participant that is not human may be a decider only when the owner gave it the role decider in the config. Every ask expires (24 hours unless expires_at says sooner, at most 7 days) and on expiry the answer is decline. One open ask per asker and room unless the owner allows more; after a decline or an expiry, the same about cannot be asked again for 10 minutes"#),
+            "decide": .string(#"POST /agent/decide {"room":"…","ask_id":"…","answers":[{"question_id":"q1","options":["<option id>"],"text":"<words>"}],"msg_id":"<uuid>"}, an answer for every question, or {"decline":true,"text":"<why>"}; or, for an ask of one question, /decide <ask id> <option or letter, several with commas> [text], or /decide <ask id> decline [text], in any room message"#),
+            "withdraw": .string(#"/withdraw <ask id>; or POST /agent/withdraw {"room":"…","ask_id":"…","msg_id":"<uuid>"}. Only the asker"#),
+            "get": .string("GET /agent/asks/<ask id>?room=<room> gives the message with its ask: state open, decided, expired or withdrawn, and the decision"),
+            "outcome": .string("the asker is handed the outcome: event chan-ask-outcome by webhook, an ask-outcome notice on /agent/receive, a line in a Claude session's inbox"),
+            "receipt_states": stateMap([("decided", "your decision was recorded; it is the ask's outcome"), ("withdrawn", "your ask was withdrawn and closed with no decision")]),
+            "commands": .map(Dictionary(uniqueKeysWithValues: askCommands.map { ($0.usage, JValue.string($0.help)) })),
+        ]
+    }
 
     /// Every state a receipt can carry, and what it means, in the order the protocol lists them.
     public static let receiptStates: [(String, String)] = [
@@ -128,8 +153,9 @@ public enum ChatProtocol {
             "message.content": .string("the text, Markdown"),
             "msg_id": .string("the message's id"), "from": .string("who sent it"), "room": .string("the room"), "to": .string("who it is for"),
             "re_msg_id": .string("the message it answers, when it answers one"),
-            "how_to_respond": .string("the exact answer, reaction and started lines for this message"),
+            "how_to_respond": .string("the exact answer, reaction and started lines for this message, and the rule: answer this server, room and message"),
             "protocol_version": .string("the version of this description"),
+            "server": .string("which server sent the wake: its release and line (the host:port of its line port, where to answer)"),
         ]
         let attachments: [String: JValue] = [
             "limits": .string("at most \(maxAttachments) files on a message, each at most \(maxFileSize >> 20) MB"),
@@ -141,7 +167,7 @@ public enum ChatProtocol {
         return [
             "what": .string("chat: rooms shared by agents and their human owner. Every message goes through the chat server."),
             "format": .string("Every message is Markdown. Plain text is already Markdown. There is no format field to set."),
-            "trust": .string("The server does not verify who is speaking. A room message is a note from a peer and is never an approval."),
+            "trust": .string("The server verifies who is speaking only by a token: sender.verified says whether one was presented. Verified or not, a room message is a note from a peer and is never an approval."),
             "line_port": .map(linePort),
             "claude_session": .map(claudeSession),
             "commands": .map(Dictionary(uniqueKeysWithValues: commands.map { ($0.usage, JValue.string($0.help)) })),
@@ -157,16 +183,18 @@ public enum ChatProtocol {
     /// The first 10 hex characters of the SHA-256 of the description's encoding (sorted keys, no spaces). Opaque: it
     /// changes exactly when the text does.
     public static let version: String = {
-        let bytes = ChatJSON.encode(.map(body))
+        let bytes = ChatJSON.encode(.map(["asks": .map(askDescription), "body": .map(body)]))
         return String(SHA256.hash(data: Data(bytes)).map { String(format: "%02x", $0) }.joined().prefix(10))
     }()
 
     /// The description with its version and this server's rooms.
-    public static func description(rooms: [String: [String]], defaultRoom: String) -> JValue {
+    public static func description(rooms: [String: [String]], defaultRoom: String, asks: Bool = true) -> JValue {
         var b = body
         b["version"] = .string(version)
         b["rooms"] = .map(rooms.mapValues { JValue.strings($0) })
         b["default_room"] = .string(defaultRoom)
+        b["features"] = .strings(asks ? ["ask"] : [])   // the optional parts of the protocol this server offers: always an array
+        if asks { b["asks"] = .map(askDescription) }
         return .map(b)
     }
 

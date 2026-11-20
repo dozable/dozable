@@ -37,5 +37,9 @@ final class BotGuardsTests: XCTestCase {
             if let words { XCTAssertTrue(e?.message.contains(words) == true, "\(op.rawValue) \(name ?? "-"): \(e?.message ?? "")") }
         }
         XCTAssertNil(BotGuards.chatRefusal(.chatRemove, name: "mira", bots: BotsFile()), "no bots: nothing refused")
+        // A bot's role is given in chat (doz chat set mira --role decider): only a role-only change goes through.
+        XCTAssertNil(BotGuards.chatRefusal(.chatSet, name: "mira", bots: bots, roleOnly: true))
+        XCTAssertEqual(BotGuards.chatRefusal(.chatSet, name: "mira", bots: bots, roleOnly: false)?.code, .invalid)
+        XCTAssertEqual(BotGuards.chatRefusal(.chatToken, name: "mira", bots: bots, roleOnly: true)?.code, .invalid, "only chat-set")
     }
 }

@@ -116,10 +116,21 @@ final class ChatWebhookTests: XCTestCase {
         let escaped = "\\" + "u003cb" + "\\" + "u003e"   // the six-character escapes, spelled out
         XCTAssertTrue(raw.contains(escaped) && !raw.contains("<b>"), "< and > escaped as the reference writes them")
         XCTAssertTrue(raw.hasPrefix(#"{"addressed_to_you":"#), "keys in order")
+        // the wake names this server: its release and its line port, and the rule to answer it and nothing else
+        let line = "127.0.0.1:\(core.config.linePort)"
+        XCTAssertEqual(body["server"] as? [String: String], ["version": "1.2.3", "line": line])
+        let how = try XCTUnwrap(body["how_to_respond"] as? [String: String])
+        XCTAssertEqual(how["rule"], "Answer THIS server (line port \(line)), in room \"room1\", with re_msg_id \"\(id)\", using the token this server gave you. Never a default server, port or room: you may be in other chat servers that share this webhook.")
+        XCTAssertEqual(how["where"], "one TCP connection to this server's line port \(line): an auth line with this server's token, then one line below, then read one receipt line and close")
+        core.setLineAddress(host: "127.0.0.1", port: 40123)
+        humanSays(core, "again")
+        let deadline = Date().addingTimeInterval(5)
+        while l.calls.count < 2 && Date() < deadline { usleep(20_000) }
+        XCTAssertEqual((l.calls.last?.json?["server"] as? [String: String])?["line"], "127.0.0.1:40123", "the port listened on")
         // a reaction, a command and an edit of nothing new wake nobody
         XCTAssertEqual(core.react(room: "room1", sender: "ada", msgID: id, what: "like").state, "added")
         usleep(300_000)
-        XCTAssertEqual(l.calls.count, 1)
+        XCTAssertEqual(l.calls.count, 2)
     }
 
     func testTheTextIsCutAt600CharactersNotBytes() throws {

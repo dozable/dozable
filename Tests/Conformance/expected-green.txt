@@ -194,3 +194,33 @@ TestS10_RestartKeepsEverything
 # The pin 0.14.1: /rooms and /protocol from outside the room; a file from an agent address needs a participant's token.
 TestS3_4_RoomsAndProtocolFromOutsideTheRoom
 TestS4_8_FetchFromAgentAddress
+
+# 0.17.0: features, the optional parts of the protocol, always an array.
+TestS9_1_Features
+
+# 0.17.0: asks (the protocol's section 13), required with -ask.
+TestS13_1_PostAsk
+TestS13_1_PostRefusals
+TestS13_2_FallbackText
+TestS13_3_DecideEachWay
+TestS13_3_DecideRefused
+TestS13_3_FirstWins
+TestS13_3_Duplicate
+TestS13_5_Withdraw
+TestS13_6_EditDelete
+TestS13_7_Expiry
+TestS13_7_ExpiredWhileDown
+TestS13_9_OutcomeWebhook
+TestS13_9_OutcomePoll
+TestS13_9_Get
+TestS13_8_StreamEvent
+TestS13_1_FeatureOff
+TestS13_4_DeciderRole
+TestS13_10_Limits
+TestS13_10_MaxOpenSetting
+TestS13_11_Restart
+TestS13_4_RoleRemovedWhileOpen
+TestS13_4_MultiSelect
+TestS13_4_Letters
+TestS13_4_Decline
+TestS13_4_TwoQuestions

@@ -218,6 +218,12 @@ public struct ChatPageHandler: Sendable {
         r("POST", "/api/rooms/{room}/messages/{id}/reveal", "reveal"),
         r("POST", "/api/rooms/{room}/messages/{id}/edit", "edit"),
         r("POST", "/api/rooms/{room}/messages/{id}/delete", "delete"),
+        r("POST", "/api/rooms/{room}/messages/{id}/decide", "decide-page"),
+        r("POST", "/api/rooms/{room}/messages/{id}/withdraw", "withdraw-page"),
+        r("POST", "/agent/decide", "decide-agent"),
+        r("POST", "/agent/withdraw", "withdraw-agent"),
+        r("GET", "/agent/asks/{id}", "ask-get"),
+        r("GET", "/api/asks", "asks"),
         r("POST", "/api/files", "upload"),
         r("GET", "/files/{id}/{name}", "file"),
         r("GET", "/api/rooms/{room}/app", "later"),
@@ -259,6 +265,17 @@ public struct ChatPageHandler: Sendable {
             case .failure(let e): return .jsonError(e.status, e.description)
             }
         case "edit", "delete": return change(name, vars["room"] ?? "", vars["id"] ?? "", r)
+        case "decide-page", "withdraw-page": return pageAsk(name == "decide-page", vars["room"] ?? "", vars["id"] ?? "", r)
+        case "decide-agent", "withdraw-agent": return agentAsk(name == "decide-agent", r)
+        case "ask-get":
+            let token = Self.bearerToken(r)
+            guard let caller = core.whoHolds(token), !(r.caller == .remote && core.isHuman(caller)) else { return .jsonError(401, Self.needBearer) }
+            return core.askLookup(name: caller, room: r.query("room"), ref: vars["id"] ?? "")
+        case "asks":
+            if let refusal = pageCaller(r, "listing the open asks") { return refusal }
+            let state = r.query("state")
+            guard state.isEmpty || state == "open" else { return .jsonError(400, "state must be open") }
+            return .json(200, core.openAsksJSON())
         case "react": return react(vars["room"] ?? "", r)
         case "upload": return upload(r)
         case "file": return download(vars["id"] ?? "", r)
@@ -309,6 +326,8 @@ public struct ChatPageHandler: Sendable {
                 line.reMsgID = try v.field("re_msg_id")?.goString("re_msg_id") ?? ""
                 line.msgID = try v.field("msg_id")?.goString("msg_id") ?? ""
                 line.isPrivate = try v.field("private")?.goBool("private") ?? false
+                line.kind = try v.field("kind")?.goString("kind") ?? ""
+                line.ask = try ChatAskSpec.read(v.field("ask") ?? .null)
                 switch v.field("attachments") ?? .null {
                 case .null: break
                 case .array(let a):
@@ -344,6 +363,47 @@ public struct ChatPageHandler: Sendable {
             verb == "edit" ? core.edit(room: room, sender: who, ref: id, text: text) : core.delete(room: room, who: who, ref: id)
         }) else { return .jsonError(400, Self.idHeader + " must be a uuid") }
         return .json(rc.state == "refused" ? 422 : 200, rc.members())
+    }
+
+    /// The human decides or withdraws an ask from the page, done once per X-Chat-Id. A decision's body is one of the three
+    /// forms (answers, decline, or the 0.15 option and text); a withdrawal's is not read.
+    private func pageAsk(_ deciding: Bool, _ room: String, _ id: String, _ r: ChatHTTPRequest) -> ChatHTTPResponse {
+        var who = core.whoHas(r.header(Self.tokenHeader)) ?? ""
+        if r.humanWithoutToken(requireTokens: core.config.requireTokens) { who = core.human() }
+        guard core.isHuman(who) else { return .jsonError(401, "deciding an ask needs the human's token") }
+        var input = ChatDecideInput()
+        if deciding {
+            guard r.body.count <= 1 << 16, let v = Self.decodeFirst(r.body, limit: 1 << 16), let i = try? ChatDecideInput.read(v) else {
+                return .jsonError(400, #"body must be JSON: {"answers":[{"question_id":"…","options":["…"],"text":"…"}]}, {"decline":true,"text":"…"} or {"option":"…","text":"…"}"#)
+            }
+            input = i
+        }
+        let verified = core.config.requireTokens || r.caller == .owner
+        guard let rc = core.pageOnce(id: r.header(Self.idHeader), room: room, who: who, {
+            deciding ? core.decide(room: room, who: who, ref: id, input: input, via: "page", verified: verified)
+                : core.withdraw(room: room, who: who, ref: id, via: "page")
+        }) else { return .jsonError(400, Self.idHeader + " must be a uuid") }
+        return .json(rc.state == "refused" ? 422 : 200, rc.members())
+    }
+
+    /// An agent decides or withdraws with its token (not the human's: the human decides from the page); `msg_id` makes it
+    /// once.
+    private func agentAsk(_ deciding: Bool, _ r: ChatHTTPRequest) -> ChatHTTPResponse {
+        let verb = deciding ? "decide" : "withdraw"
+        guard let name = core.whoHolds(Self.bearerToken(r)), !(r.caller == .remote && core.isHuman(name)) else { return .jsonError(401, Self.needBearer) }
+        if core.isHuman(name) { return .jsonError(403, "the human's token cannot \(verb) on /agent/\(verb): the human \(verb)s from the page") }
+        let bad = ChatHTTPResponse.jsonError(400, #"send {"room":"…","ask_id":"…","option":"…","msg_id":"<uuid>"}"#)
+        guard r.body.count <= 1 << 16, let v = Self.decodeFirst(r.body, limit: 1 << 16), v.isObject || v.isNull,
+              let input = try? ChatDecideInput.read(v), let room = try? v.field("room")?.goString("room") ?? "",
+              let askID = try? v.field("ask_id")?.goString("ask_id") ?? "", var msgID = try? v.field("msg_id")?.goString("msg_id") ?? "" else { return bad }
+        if msgID.isEmpty { msgID = chatNewID() }
+        guard chatIsUUID(msgID) else { return .jsonError(400, "msg_id must be a uuid") }
+        core.heard(name, answered: false)
+        let rc = core.onceIn(room: room, who: name, id: msgID) {
+            deciding ? core.decide(room: room, who: name, ref: askID, input: input, via: "agent", verified: true)
+                : core.withdraw(room: room, who: name, ref: askID, via: "agent")
+        }
+        return .json(rc.state == "refused" ? 422 : 200, rc.members(["msg_id": .string(msgID)]))
     }
 
     /// The human reacts from the page, done once per X-Chat-Id. The body is at most 4096 bytes.

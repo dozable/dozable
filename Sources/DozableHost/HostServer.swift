@@ -603,7 +603,9 @@ public final class HostServer: @unchecked Sendable {
         let c = req.chat ?? ChatRequest()
         // A bot's name: changed through `doz bot`, never `doz chat` (a retired one is never taken again).
         let bots = BotStore(store: store).readOrEmpty()
-        if let refused = BotGuards.chatRefusal(req.op, name: c.name, bots: bots) { return .failure(refused) }
+        // A bot's role is the owner's to give in chat (doz chat set BOT --role decider): only how it is reached is doz bot's.
+        let roleOnly = req.op == .chatSet && c.roles != nil && c.deliver == nil && c.kind == nil && c.entry == nil && c.session == nil
+        if let refused = BotGuards.chatRefusal(req.op, name: c.name, bots: bots, roleOnly: roleOnly) { return .failure(refused) }
         // A batch: every name judged as its own add or remove would be, before anything is changed.
         for a in c.add ?? [] { if let refused = BotGuards.chatRefusal(.chatAdd, name: a.name, bots: bots) { return .failure(refused) } }
         for n in c.remove ?? [] { if let refused = BotGuards.chatRefusal(.chatRemove, name: n, bots: bots) { return .failure(refused) } }
@@ -629,12 +631,12 @@ public final class HostServer: @unchecked Sendable {
                 // A token the person gave is not sent back: they have it.
                 return .success(try JSONValue(encoding: ChatAnswer(name: n, token: c.token == nil ? token : nil, chat: await chat.status())))
             case .chatSet:
-                guard let n = c.name, let deliver = c.deliver else { throw HostError(.invalid, "which participant, and how is it reached?") }
-                let p = try await chat.set(n, deliver: deliver, kind: c.kind, entry: c.entry, session: c.session)
+                guard let n = c.name, c.deliver != nil || c.roles != nil else { throw HostError(.invalid, "which participant, and how is it reached or its role?") }
+                let p = try await chat.set(n, deliver: c.deliver, kind: c.kind, entry: c.entry, session: c.session, roles: c.roles)
                 // The server restarted to take it: answered once it is ready again (or stopped), at most 15 s.
                 _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
                 return .success(try JSONValue(encoding: ChatSetAnswer(name: n, kind: p.kind, delivery: p.delivery, webhookEntry: p.webhookEntry,
-                                                                      session: p.inboxSession, chat: await chat.status())))
+                                                                      session: p.inboxSession, roles: p.roles, chat: await chat.status())))
             case .chatRemove:
                 guard let n = c.name else { throw HostError(.invalid, "which participant?") }
                 try await chat.remove(n)

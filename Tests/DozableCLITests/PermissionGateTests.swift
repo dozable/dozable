@@ -118,6 +118,28 @@ final class PermissionGateTests: XCTestCase {
         XCTAssertEqual(((try? WorkspaceStore(store: store).log("demo")) ?? []).filter { $0.action == "permission-decided" }.count, 5)
     }
 
+    /// A role in chat (decider) is the owner's alone to give: an agent's chat-set carrying roles is refused whatever it
+    /// holds, even with every grant there is; the owner's passes; the directory's deciders are the facts' deciders.
+    func testOnlyTheOwnerGivesTheDeciderRole() throws {
+        try GrantStore(store: store).write(GrantsFile(grants: GrantPermissions.ids.filter { !GrantPermissions.ownerOnly.contains($0) }.map {
+            Grant(subject: .agent("demo", "mira"), perm: $0, answer: .allow, scope: .everywhere, at: at)
+        }))
+        let role = asAgent(.chatSet, "demo/mira") { $0.chat = ChatRequest(name: "bot1", roles: ["decider"]) }
+        let e = PermissionGate.refusal(role, store: store)
+        XCTAssertEqual(e?.code, .notPermitted)
+        XCTAssertTrue(e?.message.hasPrefix("only the owner gives a role in chat (chat.decide)") == true, e?.message ?? "")
+        XCTAssertNil(PermissionGate.refusal(asAgent(.chatSet, "demo/mira") { $0.chat = ChatRequest(name: "bot1", deliver: "poll") }, store: store),
+                     "without a role, chat-set is room.manage as before")
+        var owner = HostRequest(.chatSet)
+        owner.chat = ChatRequest(name: "bot1", roles: ["decider"])
+        XCTAssertNil(PermissionGate.refusal(owner, store: store))
+        let paths = ChatPaths(store: store)
+        try FileManager.default.createDirectory(atPath: paths.folder, withIntermediateDirectories: true)
+        try paths.write("directory.json", ChatDirectory(human: "ada", participants: [.init(name: "bot1", added: "x", roles: ["decider"]),
+                                                                                    .init(name: "bot2", added: "x")]).bytes())
+        XCTAssertEqual(GrantFactsReader(store: store).facts(GrantWho(name: "mira", home: "demo", bot: "mira"), workspace: "demo").deciders, ["bot1"])
+    }
+
     func testAnotherWorkspaceIsNever() throws {
         let r = asAgent(.workspaceShow) { $0.workspaceRequest = WorkspaceRequest(name: "other") }
         let e = PermissionGate.refusal(r, store: store)

@@ -34,8 +34,15 @@ public struct ChatLine: Sendable {
     public var reaction = ""
     public var action = ""
     public var token = ""
+    /// `ask` for an ask (ChatAsks.swift); anything else is an ordinary message.
+    public var kind = ""
+    /// An ask's questions, deciders and expiry, as the asker sent them.
+    public var ask: ChatAskSpec?
     /// Set by the server, never by a sender: the sender presented its token.
     public var verified = false
+
+    /// Whether the line is an ask: kind `ask`, or an `ask` object.
+    public var isAsk: Bool { kind == "ask" || ask != nil }
 
     public init() {}
 
@@ -49,6 +56,8 @@ public struct ChatLine: Sendable {
         m.msgID = try s("msg_id"); m.type = try s("type"); m.from = try s("from"); m.room = try s("room")
         m.reMsgID = try s("re_msg_id"); m.id = try s("id"); m.reaction = try s("reaction"); m.action = try s("action")
         m.token = try s("token")
+        m.kind = try s("kind")
+        m.ask = try ChatAskSpec.read(v.field("ask") ?? .null)
         _ = try s("priority")
         m.to = try v.field("to")?.goStrings("to") ?? []
         m.isPrivate = try v.field("private")?.goBool("private") ?? false
@@ -158,6 +167,20 @@ public final class ChatServerCore: @unchecked Sendable {
     var stopping = false
     /// The announcement's webhook calls still out.
     let announcing = DispatchGroup()
+    /// One post of an ask, decide, withdraw or expiry at a time (ChatAsks.swift: the lock order).
+    let askLock = NSLock()
+    /// The open asks' expiry index and its one timer.
+    let askTimers = ChatAskTimers()
+    /// The highest ask number given (`#12`); guarded by `askLock`.
+    var askNumberHigh = 0
+    /// This server's line port as `host:port` (the bind address and the port listened on), named in every webhook wake.
+    /// The config's until the listeners are bound (`setLineAddress`).
+    private var boundLine = ""
+    var lineAddress: String {
+        lock.withLock { boundLine.isEmpty ? Self.joinHostPort(config.bind.isEmpty ? "127.0.0.1" : config.bind, config.linePort) : boundLine }
+    }
+    public func setLineAddress(host: String, port: Int) { lock.withLock { boundLine = Self.joinHostPort(host, port) } }
+    static func joinHostPort(_ h: String, _ p: Int) -> String { h.contains(":") ? "[\(h)]:\(p)" : "\(h):\(p)" }
 
     /// The page this server serves at `/`: a shell (the human's page is Dozable's dashboard).
     public static let pageShell = """
@@ -298,6 +321,7 @@ public final class ChatServerCore: @unchecked Sendable {
     /// not is abandoned; its message still waits in the room's file and is handed over at the next start), then the
     /// rooms' files close.
     public func close() {
+        askTimers.stop()
         closeStreams()
         lock.withLock { stopping = true }
         let until = chatNow() + stopDeliveryMax
@@ -385,7 +409,7 @@ public final class ChatServerCore: @unchecked Sendable {
         ])
     }
 
-    public func protocolJSON() -> JValue { ChatProtocol.description(rooms: allRooms(), defaultRoom: config.defaultRoom) }
+    public func protocolJSON() -> JValue { ChatProtocol.description(rooms: allRooms(), defaultRoom: config.defaultRoom, asks: config.asksOn) }
 
     /// Whether viewer may read a message: not a direct message, revealed, or the viewer sent it or is one it is for.
     static func canSee(_ m: ChatStored, _ viewer: String) -> Bool {
@@ -396,7 +420,7 @@ public final class ChatServerCore: @unchecked Sendable {
     static func forViewer(_ m: ChatStored, _ viewer: String) -> ChatStored {
         if canSee(m, viewer) { return m }
         var s = m
-        s.kind = "private"; s.content = ""; s.attachments = []; s.mentions = []; s.reactions = []; s.states = []
+        s.kind = "private"; s.content = ""; s.attachments = []; s.mentions = []; s.reactions = []; s.states = []; s.ask = nil
         return s
     }
 
@@ -433,7 +457,9 @@ public final class ChatServerCore: @unchecked Sendable {
             return rc
         }
         if !member(room, sender) { return .refused("\(sender) is not a member of room \(room)") }
-        if let w = words.first, ChatProtocol.isCommandWord(w), w != "/dm" {
+        let asking = m.isAsk
+        if asking && !asksOn { return .refused(Self.askOff) }
+        if let w = words.first, ChatProtocol.isCommandWord(w), w != "/dm", !asking {
             let rc = command(m, room: room, store: st, sender: sender, words: words)
             heard(sender, answered: false)   // every command is a sign of life, whatever its answer
             publishPresence()
@@ -445,8 +471,26 @@ public final class ChatServerCore: @unchecked Sendable {
         defer { closeGate.done() }
         if let no = closedRefusal(room) { return no }
         if !m.reMsgID.isEmpty && m.reMsgID.utf8.count < 36 { m.reMsgID = st.fullID(m.reMsgID) }
+        // An ask: its questions are checked with its deciders, its deciders are addressed, and its stored text is the
+        // question with its options and how to answer (ChatAsks.swift). The limits hold until it is stored.
+        var ask: ChatAsk?
+        if asking {
+            if m.isPrivate { return .refused("an ask cannot be a direct message") }
+            askLock.lock()
+        }
+        defer { if asking { askLock.unlock() } }
+        if asking {
+            switch newAsk(st, room: room, asker: sender, question: m.content, spec: m.ask) {
+            case .failure(let e): return .refused(e.description)
+            case .success(var a):
+                a.number = takeAskNumber()
+                ask = a
+                m.content = ChatAskForm.text(id: m.msgID, asker: sender, a)
+                m.to += a.deciders
+            }
+        }
         // "/dm @name text" is a direct message to those named.
-        if words.first == "/dm" {
+        if words.first == "/dm" && !asking {
             var rest = Self.trimSpace(String(Self.trimSpace(m.content).dropFirst(3)))
             while true {
                 let w = Self.fields(rest)
@@ -486,9 +530,11 @@ public final class ChatServerCore: @unchecked Sendable {
         var sm = ChatStored(msgID: m.msgID, from: sender, to: to, reMsgID: m.reMsgID, content: m.content, at: chatNow(),
                             mentions: mentions, sender: senderOf(sender, verified: m.verified), isPrivate: m.isPrivate)
         sm.attachments = files
+        if let ask { sm.kind = "ask"; sm.ask = ask }
         do {
             if try st.insert(&sm) { return ChatReceipt("duplicate") }
         } catch { return .refused("store: \(error)") }
+        if let ask { scheduleAsk(room, sm.msgID, at: ask.expires) }
         heard(sender, answered: true)
         published(room, sm)
         if !m.reMsgID.isEmpty && st.received(m.reMsgID, by: sender) {   // only someone who was handed it can answer it
@@ -537,6 +583,13 @@ public final class ChatServerCore: @unchecked Sendable {
             if f.count < 2 { return .refused("use /react like. " + ChatReactions.help) }
             let (content, target) = (m.content, m.reMsgID)
             return once(st, m.msgID, sender) { reactCommand(room, sender, target: target, content) }
+        case "/decide", "/withdraw":   // not stored as a message: the ask's new state and its event are the record
+            let (content, verified) = (m.content, m.verified)
+            let rc = once(st, m.msgID, sender) {
+                f[0] == "/decide" ? decideCommand(room, sender, content, verified: verified) : withdrawCommand(room, sender, content, verified: verified)
+            }
+            tellRefused(sender, f[0], rc)
+            return rc
         default: break
         }
         if isArchived(room) && !["/unarchive", "/leave", "/room", "/rooms"].contains(f[0]) { return .refused(Self.archivedRefusal(room)) }
@@ -568,6 +621,9 @@ public final class ChatServerCore: @unchecked Sendable {
         case .success(let t): text = t
         case .failure(let e): return .refused(e.description)
         }
+        // a decider who left or was removed: an open ask may have no one left to decide it
+        let recheck = Self.isMemberCommand(f[0])
+        defer { if recheck { checkDeciders(room) } }
         var ch = ChatStored.change(m.msgID, from: sender, content: text, at: chatNow())
         do { if try st.insert(&ch) { return ChatReceipt("duplicate") } } catch { return .refused("store: \(error)") }
         published(room, ch)
@@ -799,6 +855,7 @@ public final class ChatServerCore: @unchecked Sendable {
                 var ch = ChatStored.change(chatNewID(), from: by, content: "The session \(capitalFirst(name)) was taken out of the room by \(capitalFirst(by)) and removed", at: chatNow())
                 if (try? st.insert(&ch)) == false { published(room, ch) }
             }
+            checkDeciders(room)   // a decider unregistered: an open ask may have no one left to decide it
         }
     }
 

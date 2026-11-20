@@ -330,7 +330,10 @@ for (name, text) in pages {
 let internalRX = try! NSRegularExpression(pattern: "\\b(W[0-9]{1,2}|(58|59|60)[0-9]([a-z]|\\.B[0-9]+)?|feature [0-9]+)\\b")
 for (name, text) in pages {
     for m in internalRX.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
-        if let r = Range(m.range, in: text) { problem("\(name): an internal number in the manual: \(text[r])") }
+        guard let r = Range(m.range, in: text) else { continue }
+        // A value that is a whole code span (a setting's default, such as `600` seconds) is a value, not a feature's number.
+        if r.lowerBound > text.startIndex, text[text.index(before: r.lowerBound)] == "`", r.upperBound < text.endIndex, text[r.upperBound] == "`" { continue }
+        problem("\(name): an internal number in the manual: \(text[r])")
     }
 }
 

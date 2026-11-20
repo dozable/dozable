@@ -95,9 +95,17 @@ public struct ChatDirectory: Codable, Equatable, Sendable {
         public var webhook: String?
         /// With `inbox`: the Claude Code session's name, as its record says it (nil: its own name).
         public var session: String?
-        public init(name: String, kind: String = "agent", added: String, deliver: String? = nil, webhook: String? = nil, session: String? = nil) {
+        /// The roles the owner gave it (`doz chat set NAME --role decider`): `decider` lets a participant that is not human be
+        /// named as a decider of an ask, and decide it. nil: none. An older doz drops it when it rewrites the file.
+        public var roles: [String]?
+        public init(name: String, kind: String = "agent", added: String, deliver: String? = nil, webhook: String? = nil, session: String? = nil,
+                    roles: [String]? = nil) {
             self.name = name; self.kind = kind; self.added = added; self.deliver = deliver; self.webhook = webhook; self.session = session
+            self.roles = roles
         }
+
+        /// Whether the owner made it a decider.
+        public var isDecider: Bool { roles?.contains("decider") == true }
 
         /// The entry its calls use, when it is delivered to by webhook.
         public var webhookEntry: String? { deliver == "webhook" ? (webhook ?? name) : nil }
@@ -109,6 +117,8 @@ public struct ChatDirectory: Codable, Equatable, Sendable {
 
     /// The deliveries `doz chat set --deliver` takes.
     public static let deliveries = ["inbox", "poll", "webhook"]
+    /// The roles `doz chat set --role` takes (`none` takes every role away).
+    public static let roles = ["decider", "none"]
 
     /// Whether any participant is delivered to by inbox (the server then reads the person's Claude Code session records).
     public var hasInbox: Bool { participants.contains { $0.inboxSession != nil } }
@@ -244,6 +254,18 @@ public enum ChatTokens {
     }
 }
 
+/// The asks settings the generated config carries (`chat.asks`, `chat.ask_max_open`, `chat.ask_expiry_seconds`,
+/// `chat.ask_cooldown_seconds`); the defaults are the server's own.
+public struct ChatAskSettings: Equatable, Sendable {
+    public var enabled = true
+    public var maxOpen = 1
+    public var expirySeconds = 86400
+    public var cooldownSeconds = 600
+    public init(enabled: Bool = true, maxOpen: Int = 1, expirySeconds: Int = 86400, cooldownSeconds: Int = 600) {
+        self.enabled = enabled; self.maxOpen = maxOpen; self.expirySeconds = expirySeconds; self.cooldownSeconds = cooldownSeconds
+    }
+}
+
 /// The server's `config.json`, generated: the human's and the participants' entries, the first room, and an access
 /// profile in which no TCP caller is ever the human — loopback only (`bind` and `allow`), tokens required from every
 /// caller, and every loopback address an agent address (the page port serves it /agent/… and nothing else). The human
@@ -254,8 +276,10 @@ public enum ChatConfigFile {
 
     /// `remoteBind`: this Mac's Tailscale addresses the server also listens on (the ones of `chat.remote_listen` it has
     /// now); `remoteAgents`: the machines let in there — each in `allow` (the line port) and an agent address.
+    /// `asks`: the asks settings (`chat.asks`, `chat.ask_*`), each written only when it is not the server's default — a
+    /// store with no roles and default settings gets the same bytes as before asks.
     public static func bytes(_ d: ChatDirectory, paths: ChatPaths, pagePort: Int, linePort: Int, remoteBind: [String] = [],
-                             remoteAgents: [String] = []) throws -> [UInt8] {
+                             remoteAgents: [String] = [], asks: ChatAskSettings = ChatAskSettings()) throws -> [UInt8] {
         guard let human = d.human else { throw HostError(.failed, "chat has no human yet (doz chat on names you)") }
         var people: [JValue] = [.object([JMember("name", .string(human)), JMember("kind", .string("human")), JMember("deliver", .string("web"))])]
         // No deliver value: a participant that is not the human collects what is addressed to it by polling, with its own
@@ -267,6 +291,7 @@ public enum ChatConfigFile {
             var fields = [JMember("name", .string(p.name)), JMember("kind", .string(p.kind))]
             if let e = p.webhookEntry { fields += [JMember("deliver", .string("webhook")), JMember("webhook", .string(e))] }
             if let s = p.inboxSession { fields += [JMember("deliver", .string("inbox-socket")), JMember("session", .string(s))] }
+            if p.isDecider { fields.append(JMember("roles", .strings(["decider"]))) }
             people.append(.object(fields))
         }
         var members = [
@@ -283,6 +308,11 @@ public enum ChatConfigFile {
             JMember("bind", .string(bind)),
         ]
         if !remoteBind.isEmpty { members.append(JMember("remote_bind", .strings(remoteBind))) }
+        if !asks.enabled { members.append(JMember("no_asks", .bool(true))) }
+        let def = ChatAskSettings()
+        if asks.expirySeconds != def.expirySeconds { members.append(JMember("ask_expiry_seconds", .int(Int64(asks.expirySeconds)))) }
+        if asks.cooldownSeconds != def.cooldownSeconds { members.append(JMember("ask_cooldown_seconds", .int(Int64(asks.cooldownSeconds)))) }
+        if asks.maxOpen != def.maxOpen { members.append(JMember("ask_max_open", .int(Int64(asks.maxOpen)))) }
         let v = JValue.object(members)
         let out = ChatJSON.encodeIndented(v, indent: " ") + [0x0A]
         // The server's own loader judges it before it is written, and the profile is asserted, not assumed.
