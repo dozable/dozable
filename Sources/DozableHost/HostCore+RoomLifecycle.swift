@@ -81,9 +81,9 @@ extension HostCore {
             if let t = idx.tombstone(room) { refuse(.notFound, "\(room) is gone: it was removed for good — read it in \(DisplayPath.tilde(storeRoot + "/" + t.archive))") }
             else { refuse(.notFound, "no room \(room) (doz chat rooms)") }
         }
-        if !linkedBy.isEmpty { refuse(.invalid, "\(room) is linked by the workspace \(linkedBy.joined(separator: ", ")): a linked room is never archived or removed here") }
+        if !linkedBy.isEmpty { refuse(.invalidPhase, "\(room) is linked by the workspace \(linkedBy.joined(separator: ", ")): a linked room is never archived or removed here") }
         else if owner == nil && !loose {
-            refuse(.invalid, "\(room) is a loose room (made and linked by none of your workspaces): --loose, on the command line only, takes one")
+            refuse(.invalidPhase, "\(room) is a loose room (made and linked by none of your workspaces): --loose, on the command line only, takes one")
         }
         if let o = owner, let rec = records.first(where: { $0.name == o }), let run = rec.openRun {
             refuse(.invalidPhase, "\(o)'s run \(run.id) is open — doz workspace finish \(o) first")

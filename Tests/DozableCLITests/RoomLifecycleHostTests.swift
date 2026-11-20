@@ -82,10 +82,14 @@ extension WorkspaceLifecycleHostTests {
         XCTAssertTrue(p.refusals.contains { $0.contains("changed since it was archived") }, "\(p.refusals)")
         p = try await roomPlan(c, "archive", "demo")
         XCTAssertEqual(p.refusals, [])
-        let again = await roomIndexArchive()
-        try FileManager.default.removeItem(atPath: WorkspaceStore.resolved(store.root.path) + "/" + (again ?? path))
+        // Archived again: a copy of its own beside the first (which is kept).
         a = await room(c, .chatRoomArchive, "demo") { $0.ifPlan = p.sha }
         XCTAssertNil(a.error, a.error?.message ?? "")
+        let second = try XCTUnwrap(try XCTUnwrap(a.result).decode(ChatRoomChanged.self).archive)
+        XCTAssertNotEqual(second, path)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: WorkspaceStore.resolved(store.root.path) + "/" + path), "the first copy is kept")
+        let indexed = await roomIndexArchive()
+        XCTAssertEqual(indexed, second)
         // rm: the name typed, checked by the daemon.
         p = try await roomPlan(c, "rm", "demo")
         XCTAssertEqual(p.refusals, [])

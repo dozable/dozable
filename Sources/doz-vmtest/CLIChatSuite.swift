@@ -210,6 +210,9 @@ func cliChatSuite(binary: String) async {
     // 41–44. a whole room read and exported: no cap, attachments, the leak sweep
     cliChatExportRows(h: h, root: root, paths: paths)
 
+    // C1–C5b. a room archived and removed for good, only after a copy that verifies now
+    cliChatRoomRows(h: h, root: root, paths: paths, page: page, server: server, curl: curl)
+
     // 28–34. a Claude Code session delivered to by inbox (a scratch one: the sessions folder is the suite's seam)
     cliChatInboxRows(h: h, root: root, paths: paths, page: page, sh: sh)
 

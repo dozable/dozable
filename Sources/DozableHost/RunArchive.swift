@@ -189,7 +189,12 @@ public enum RunArchive {
     /// swept, swept again, verified and put in place. Answers the manifest, its sha256 and the folder relative to the store.
     public static func writeRoom(room: String, id: String, owner: String?, messages ms: [JValue], store: DozableStore, sweep: ExportSweep,
                                  fetch: @escaping ChatExport.Fetch) throws -> (manifest: Manifest, sha256: String, path: String) {
-        let place = try RunArchiveFolder(store: store, owner: owner, room: room, id: id)
+        let lastSeq = ms.compactMap { (try? $0.field("seq")?.goInt("seq")) ?? nil }.max() ?? 0
+        let place: RunArchiveFolder
+        do { place = try RunArchiveFolder(store: store, owner: owner, room: room, id: id) } catch let e as HostError where e.code == .exists {
+            place = try RunArchiveFolder(store: store, owner: owner, room: room, id: id, again: Int64(lastSeq))
+        }
+        let name = (place.folder.path as NSString).lastPathComponent.replacingOccurrences(of: ".partial", with: "")
         do {
             let folder = place.folder
             let w = try ChatExport.writeMessages(ms, room: room, jsonl: "chat/\(room).jsonl", attachments: "attachments/\(room)", into: folder,
@@ -205,7 +210,6 @@ public enum RunArchive {
             let at = ms.compactMap { $0.field("at")?.doubleValue }
             let window = RunWindow(from: Date(timeIntervalSince1970: at.min() ?? Date().timeIntervalSince1970),
                                    to: Date(timeIntervalSince1970: at.max() ?? Date().timeIntervalSince1970))
-            let lastSeq = ms.compactMap { (try? $0.field("seq")?.goInt("seq")) ?? nil }.max() ?? 0
             let m = Manifest(run: "room", workspace: owner ?? "_", window: window, versions: [:], rooms: [room: id], labels: [:],
                              notes: ["the room's whole history, up to its last message \(lastSeq)"],
                              sweep: Sweep(at: Date(), findings: w.findings, redacted: w.findings.count), files: files.sorted { $0.path < $1.path },
@@ -214,7 +218,7 @@ public enum RunArchive {
             let check = verify(folder)
             guard check.problems.isEmpty else { throw HostError(.failed, "the archive did not verify: " + check.problems.prefix(3).joined(separator: "; ")) }
             try place.finish()
-            return (m, msha, "archives/\(owner ?? "_")/rooms/\(room)-\(id)")
+            return (m, msha, "archives/\(owner ?? "_")/rooms/\(name)")
         } catch {
             place.discard()
             throw error
@@ -264,10 +268,11 @@ final class RunArchiveFolder {
     }
 
     /// A room's archive: `<store>/archives/<owner, or _ for a loose room>/rooms/<room>-<id>/`.
-    convenience init(store: DozableStore, owner: String?, room: String, id: String) throws {
+    /// A room archived again after it changed gets a copy of its own, `<room>-<id>-s<last seq>` (the earlier one is kept).
+    convenience init(store: DozableStore, owner: String?, room: String, id: String, again lastSeq: Int64? = nil) throws {
         if let owner { try WorkspaceName.validate(owner) }
         guard chatIsRoomName(room), ChatRoomIndex.isID(id) else { throw HostError(.invalid, "\(room) is not a room's name") }
-        try self.init(store: store, parts: [owner ?? "_", "rooms"], name: room + "-" + id, what: "the room \(room)")
+        try self.init(store: store, parts: [owner ?? "_", "rooms"], name: room + "-" + id + (lastSeq.map { "-s\($0)" } ?? ""), what: "the room \(room)")
     }
 
     init(store: DozableStore, parts: [String], name run: String, what: String) throws {
