@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "space": "example-space",
+  "observedAt": "2026-11-20T10:00:00Z",
+  "factsKnown": true,
+  "host": "host-a",
+  "run": {
+    "id": "2026-11-20-1",
+    "startedAt": "2026-11-20T09:30:00Z",
+    "phase": "up"
+  },
+  "items": [
+    {
+      "subject": "manager",
+      "type": "agent",
+      "lifetime": "external",
+      "state": "running",
+      "activity": "idle"
+    },
+    {
+      "subject": "manager",
+      "type": "member",
+      "lifetime": "external",
+      "state": "present"
+    },
+    {
+      "subject": "worker",
+      "type": "agent",
+      "lifetime": "run",
+      "state": "running",
+      "activity": "waiting"
+    },
+    {
+      "subject": "worker",
+      "type": "member",
+      "lifetime": "run",
+      "state": "present"
+    },
+    {
+      "subject": "helper",
+      "type": "agent",
+      "lifetime": "run",
+      "state": "running",
+      "activity": "idle"
+    },
+    {
+      "subject": "helper",
+      "type": "member",
+      "lifetime": "run",
+      "state": "present"
+    },
+    {
+      "subject": "web",
+      "type": "service",
+      "lifetime": "external",
+      "state": "unhealthy",
+      "detail": "port 8180, no answer"
+    },
+    {
+      "subject": "build-vm",
+      "type": "sandbox",
+      "lifetime": "persisted",
+      "state": "running"
+    },
+    {
+      "subject": "repo",
+      "type": "folder",
+      "lifetime": "external",
+      "state": "present"
+    },
+    {
+      "subject": "scratch",
+      "type": "folder",
+      "lifetime": "run",
+      "state": "present"
+    },
+    {
+      "subject": "team",
+      "type": "room",
+      "lifetime": "persisted",
+      "state": "open",
+      "detail": "4 members, last message 2m ago"
+    }
+  ],
+  "extras": [],
+  "attention": [
+    {
+      "subject": "web",
+      "kind": "health",
+      "text": "web: port 8180, no answer"
+    },
+    {
+      "subject": "example-space",
+      "kind": "refusal",
+      "text": "the file has 1 error: up refuses to start"
+    },
+    {
+      "subject": "worker",
+      "kind": "ask",
+      "text": "worker asks a question",
+      "askId": "ask-1",
+      "room": "team",
+      "from": "worker",
+      "openedAt": "2026-11-20T09:58:00Z",
+      "question": "(stand-in) Which of the two branches should worker build on?",
+      "options": [
+        "main",
+        "next"
+      ],
+      "answerers": [
+        "owner"
+      ],
+      "canAnswer": true
+    },
+    {
+      "subject": "manager",
+      "kind": "ask",
+      "text": "manager asks a question",
+      "askId": "ask-2",
+      "room": "team",
+      "from": "manager",
+      "openedAt": "2026-11-20T09:46:00Z",
+      "question": "(stand-in) Which of the two branches should manager build on?",
+      "options": [
+        "main",
+        "next"
+      ],
+      "answerers": [
+        "owner"
+      ],
+      "canAnswer": true,
+      "expiresAt": "2026-11-20T10:46:00Z"
+    },
+    {
+      "subject": "helper",
+      "kind": "ask",
+      "text": "helper asks a question",
+      "askId": "ask-3",
+      "room": "team",
+      "from": "helper",
+      "openedAt": "2026-11-20T09:53:00Z",
+      "question": "(stand-in) Step 1 of 3: go on?",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "answerers": [
+        "owner"
+      ],
+      "canAnswer": true
+    },
+    {
+      "subject": "helper",
+      "kind": "ask",
+      "text": "helper asks a question",
+      "askId": "ask-4",
+      "room": "team",
+      "from": "helper",
+      "openedAt": "2026-11-20T09:54:00Z",
+      "question": "(stand-in) Step 2 of 3: go on?",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "answerers": [
+        "owner"
+      ],
+      "canAnswer": true
+    },
+    {
+      "subject": "helper",
+      "kind": "ask",
+      "text": "helper asks a question",
+      "askId": "ask-5",
+      "room": "team",
+      "from": "helper",
+      "openedAt": "2026-11-20T09:55:00Z",
+      "question": "(stand-in) Step 3 of 3: go on?",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "answerers": [
+        "owner"
+      ],
+      "canAnswer": true
+    },
+    {
+      "subject": "worker",
+      "kind": "ask",
+      "text": "worker asks a question",
+      "askId": "ask-6",
+      "room": "team",
+      "from": "worker",
+      "openedAt": "2026-11-20T09:59:00Z",
+      "options": [
+        "main",
+        "next"
+      ],
+      "answerers": [
+        "owner"
+      ],
+      "canAnswer": false
+    }
+  ],
+  "sha": "bed9c10022b350d0f1f30519bbe14de55830f5cdb6b6149188bf027c45731cc5"
+}

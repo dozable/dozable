@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "space": "example-space",
+  "observedAt": "2026-11-20T10:00:00Z",
+  "factsKnown": false,
+  "host": "host-a",
+  "run": {
+    "id": "2026-11-20-1",
+    "startedAt": "2026-11-20T09:30:00Z",
+    "phase": "up"
+  },
+  "items": [
+    {
+      "subject": "manager",
+      "type": "agent",
+      "lifetime": "external",
+      "state": "unknown",
+      "activity": "unknown"
+    },
+    {
+      "subject": "manager",
+      "type": "member",
+      "lifetime": "external",
+      "state": "unknown"
+    },
+    {
+      "subject": "worker",
+      "type": "agent",
+      "lifetime": "run",
+      "state": "unknown",
+      "activity": "unknown"
+    },
+    {
+      "subject": "worker",
+      "type": "member",
+      "lifetime": "run",
+      "state": "unknown"
+    },
+    {
+      "subject": "helper",
+      "type": "agent",
+      "lifetime": "run",
+      "state": "unknown",
+      "activity": "unknown"
+    },
+    {
+      "subject": "helper",
+      "type": "member",
+      "lifetime": "run",
+      "state": "unknown"
+    },
+    {
+      "subject": "web",
+      "type": "service",
+      "lifetime": "external",
+      "state": "unknown"
+    },
+    {
+      "subject": "build-vm",
+      "type": "sandbox",
+      "lifetime": "persisted",
+      "state": "unknown"
+    },
+    {
+      "subject": "repo",
+      "type": "folder",
+      "lifetime": "external",
+      "state": "unknown"
+    },
+    {
+      "subject": "scratch",
+      "type": "folder",
+      "lifetime": "run",
+      "state": "unknown"
+    },
+    {
+      "subject": "team",
+      "type": "room",
+      "lifetime": "persisted",
+      "state": "unknown"
+    }
+  ],
+  "extras": [],
+  "attention": [],
+  "sha": "d8fc0c64bfee26f87ea9c1a83253b9d18299a5d40f6312387cb60ec185ae24db"
+}

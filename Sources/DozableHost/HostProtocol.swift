@@ -344,6 +344,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// too — would do (`SpaceDownPlan`; read-only, in-process with no daemon); `workspace-down` does it on the plan the
     /// person saw (`ifPlan`), answering `SpaceActed`. Dozable's own.
     case workspaceDownPlan = "workspace-down-plan", workspaceDown = "workspace-down"
+    /// What is true about a space workspace beside what its file says (`WorkspaceRequest`: the name; `SpaceState`): one item
+    /// per thing the file declares, extras, attention and a sha over the facts — never a chat message's text. Built from the
+    /// merged spec `up` recorded, never the file. Only reads: answered in-process when no daemon runs, `factsKnown` false.
+    /// Dozable's own.
+    case workspaceState = "workspace-state"
     /// Your Macs (`MacBookmarks`): the other Macs' dashboards this store keeps a bookmark of — `MacListing`, read from
     /// `<store>/macs.json`. Read-only: answered in-process when no daemon runs. Adding, removing and checking are the CLI's
     /// own (`doz ui macs`, in-process): no operation writes the list.
@@ -361,7 +366,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
              .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .workspaceDownPlan, .macsList,
-             .permissionsShow, .permissionsWhy: true
+             .workspaceState, .permissionsShow, .permissionsWhy: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -1814,6 +1819,9 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var noArchive: Bool?
     /// run-chat: the room of the run. Additive.
     public var runRoom: String?
+    /// state: the reader may not see the sessions on this Mac (another computer while `serve.mac_sessions` is off) — set by
+    /// the dashboard's server, never by a browser. Additive.
+    public var macSessionsHidden: Bool?
 
     public init(name: String? = nil) { self.name = name }
 }

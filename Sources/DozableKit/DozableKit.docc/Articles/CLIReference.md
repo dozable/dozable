@@ -992,6 +992,7 @@ doz workspace plan [-f FILE] [--profile P]… [--json]  # what up would do with 
 doz workspace up [-f FILE] [--profile P]… [--yes] [--dry-run] [--json]  # set it up from the file: the plan, every unfenced agent confirmed on the terminal, then each step
 doz workspace down [W] [-f FILE] [--purge] [--yes] [--dry-run] [--json]  # end its run (archived and hash-checked first), remove what the run made; --purge: what persists too
 doz workspace config [FILE] [--profile P]… [--json]    # a space file merged (its defaults files, the file, its override, ${VAR}), each value with its source
+doz workspace state W [--json]                  # a space workspace now beside its file: each thing's state, what is not in the file, what waits for you, the sha
 doz space plan|up|down|config …                 # the same: doz space is the space-file commands under a shorter name
 ```
 
@@ -1004,6 +1005,15 @@ message and a hint; an error exits 2 and nothing is done. `plan` and `up --dry-r
 2 a problem in the file or an external thing missing · 3 chat off or the workspace archived · 4 a workspace of that name
 made without a space file, or a bot live elsewhere · 7 not in this version (an owned service, a preset other than standard
 or bypass, secrets for an owned agent) · 64 usage.
+
+`state W` (`workspace-state`, a workspace made from a space file) lists each agent, chat member, service, sandbox, folder and
+room the file declares with its state now — `gone` is a run's thing that down removed, as it should be; `missing` one that
+should be there and is not (drift) —, what the workspace or the chat server holds named like the space but not in the file,
+and what waits for you (a permission prompt, a failed sandbox, an up that stopped at a failure); never a chat message's
+text. It is built from the merged spec `up` recorded, never the file. With no daemon running none is started and every
+state is "not known". `--json` is the document the dashboard's space view reads (`SpaceState` version 1): its `sha` covers
+everything but `sha` and `observedAt`, so the same facts give the same sha. Exit 2: not a workspace, or not made from a
+space file.
 
 `show --can-do`, `--network` and `--folders` answer from the store when no daemon runs and start none (what each agent was
 refused lately is then "not known"); `--json` adds `reach` or `folders` to `show`'s answer. Nothing they print is a secret: a

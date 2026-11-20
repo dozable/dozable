@@ -211,6 +211,7 @@ workspace/edit
 workspace/log
 workspace/rename
 workspace/runs
+workspace/state
 workspace/plan
 workspace/up
 space/down

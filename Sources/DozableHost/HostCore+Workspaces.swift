@@ -136,6 +136,8 @@ extension HostCore {
             return try JSONValue(encoding: try workspaceRuns(w))
         case .workspaceRunChat:
             return try JSONValue(encoding: try workspaceRunChat(w))
+        case .workspaceState:
+            return try JSONValue(encoding: try await workspaceState(w))
         default:
             break
         }
