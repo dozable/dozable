@@ -123,7 +123,7 @@ case "--self-config"?:
                                  "executable": Bundle.main.executablePath ?? NSNull(), "flavour": flavour.rawName]
     if flavour.isDev {
         for (field, key) in [("devDoz", MenuBarFlavour.devDozKey), ("devConfigHome", MenuBarFlavour.devConfigHomeKey),
-                             ("devCommit", MenuBarFlavour.devCommitKey)] {
+                             ("devStore", MenuBarFlavour.devStoreKey), ("devCommit", MenuBarFlavour.devCommitKey)] {
             config[field] = Bundle.main.object(forInfoDictionaryKey: key) ?? NSNull()
         }
     }

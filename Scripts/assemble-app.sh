@@ -14,25 +14,27 @@
 # design's keys, its label doz's reserved one. It is sealed by the signature that follows.
 #
 # --dev (`make app-dev`) assembles the DEV flavour instead: "Dozable Dev.app", identifier com.dozable.app.dev, name
-# "Dozable Dev", and three keys the app reads — DozableFlavour = dev, DozableDevDoz (the ONE doz it runs; default
-# ~/.local/doz-dev/bin/doz) and DozableDevConfigHome (that doz's XDG_CONFIG_HOME; default ~/.local/doz-dev/config), both
-# expanded here to absolute paths — plus DozableDevCommit when --commit is given. It carries NO login agent plist: the
+# "Dozable Dev", and the keys the app reads — DozableFlavour = dev, DozableDevDoz (the ONE doz it runs; default
+# ~/.local/doz-dev/bin/doz), DozableDevConfigHome (that doz's XDG_CONFIG_HOME; default ~/.local/doz-dev/config) and
+# DozableDevStore (its DOZ_STORE; default ~/doz-dev-store), expanded here to absolute paths — plus DozableDevCommit
+# when --commit is given. It carries NO login agent plist: the
 # dev build registers nothing with the system. The release assembly is unchanged by any of this.
 #
 #   Scripts/assemble-app.sh --dev --exe .build/debug/Dozable --version 0.52.16 --out .build/debug --commit SHA \
-#       [--dev-doz PATH] [--dev-config-home PATH]
+#       [--dev-doz PATH] [--dev-config-home PATH] [--dev-store PATH]
 set -euo pipefail
 
 PACKAGE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMPLATE="$PACKAGE/Resources/MenuBar/Info.plist"
 AGENT="$PACKAGE/Resources/MenuBar/com.dozable.app.daemon.plist"
 EXE=""; VERSION=""; OUT=""
-DEV=0; DEV_DOZ="$HOME/.local/doz-dev/bin/doz"; DEV_CONFIG="$HOME/.local/doz-dev/config"; COMMIT=""
+DEV=0; DEV_DOZ="$HOME/.local/doz-dev/bin/doz"; DEV_CONFIG="$HOME/.local/doz-dev/config"; DEV_STORE="$HOME/doz-dev-store"; COMMIT=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --dev) DEV=1; shift ;;
         --dev-doz) DEV_DOZ="$2"; shift 2 ;;
         --dev-config-home) DEV_CONFIG="$2"; shift 2 ;;
+        --dev-store) DEV_STORE="$2"; shift 2 ;;
         --commit) COMMIT="$2"; shift 2 ;;
         --exe) EXE="$2"; shift 2 ;;
         --version) VERSION="$2"; shift 2 ;;
@@ -48,7 +50,8 @@ fail() { printf 'x assemble-app: %s\n' "$*" >&2; exit 1; }
 [[ -f "$TEMPLATE" ]] || fail "missing $TEMPLATE"
 [[ -f "$AGENT" ]] || fail "missing $AGENT"
 if [[ "$DEV" == 1 ]]; then
-    [[ "$DEV_DOZ" == /* && "$DEV_CONFIG" == /* ]] || fail "--dev-doz and --dev-config-home must be absolute paths"
+    [[ "$DEV_DOZ" == /* && "$DEV_CONFIG" == /* && "$DEV_STORE" == /* ]] \
+        || fail "--dev-doz, --dev-config-home and --dev-store must be absolute paths"
     [[ -z "$COMMIT" || "$COMMIT" =~ ^[0-9a-f]{7,40}$ ]] || fail "--commit must be a commit id, not '$COMMIT'"
     NAME="Dozable Dev"; IDENTIFIER=com.dozable.app.dev
 else
@@ -78,6 +81,7 @@ else
     plutil -insert DozableFlavour -string dev "$PL"
     plutil -insert DozableDevDoz -string "$DEV_DOZ" "$PL"
     plutil -insert DozableDevConfigHome -string "$DEV_CONFIG" "$PL"
+    plutil -insert DozableDevStore -string "$DEV_STORE" "$PL"
     [[ -z "$COMMIT" ]] || plutil -insert DozableDevCommit -string "$COMMIT" "$PL"
 fi
 
@@ -107,6 +111,7 @@ else
     want DozableFlavour dev
     want DozableDevDoz "$DEV_DOZ"
     want DozableDevConfigHome "$DEV_CONFIG"
+    want DozableDevStore "$DEV_STORE"
     [[ -z "$COMMIT" ]] || want DozableDevCommit "$COMMIT"
     [[ ! -e "$TMP/Contents/Library" ]] || fail "the dev build must carry no login agent"
 fi

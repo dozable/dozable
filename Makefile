@@ -285,10 +285,11 @@ app: ## Build the menu bar app, assemble .build/debug/Dozable.app, sign it ad ho
 
 # The DEV menu bar app (a contributor's tool, run beside the release one): Scripts/assemble-app.sh --dev.
 DEV_APP_BUNDLE := .build/debug/Dozable Dev.app
-app-dev: ## The DEV menu bar app: .build/debug/Dozable Dev.app (com.dozable.app.dev, a DEV badge; runs only ~/.local/doz-dev/bin/doz with its settings, registers nothing; DEV_DOZ= / DEV_CONFIG_HOME= override), ad hoc, never opened
+app-dev: ## The DEV menu bar app: .build/debug/Dozable Dev.app (com.dozable.app.dev, a DEV badge; runs only ~/.local/doz-dev/bin/doz with its settings and store, registers nothing; DEV_DOZ= / DEV_CONFIG_HOME= / DEV_STORE= override), ad hoc, never opened
 	swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS) --product Dozable
 	Scripts/assemble-app.sh --dev --exe .build/debug/Dozable --version "$$(cat VERSION)" --out .build/debug \
-	  --commit "$$(git rev-parse HEAD)" $(if $(DEV_DOZ),--dev-doz "$(DEV_DOZ)") $(if $(DEV_CONFIG_HOME),--dev-config-home "$(DEV_CONFIG_HOME)")
+	  --commit "$$(git rev-parse HEAD)" $(if $(DEV_DOZ),--dev-doz "$(DEV_DOZ)") $(if $(DEV_CONFIG_HOME),--dev-config-home "$(DEV_CONFIG_HOME)") \
+	  $(if $(DEV_STORE),--dev-store "$(DEV_STORE)")
 	codesign --force --sign - --options runtime --identifier com.dozable.app.dev "$(DEV_APP_BUNDLE)"
 	codesign --verify --strict "$(DEV_APP_BUNDLE)"
 

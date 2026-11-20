@@ -73,7 +73,8 @@ final class AssembleAppTests: XCTestCase {
 
     func testDevGivesTheDevIdentifierKeysAndName() throws {
         let r = assemble(["--dev", "--commit", "0123456789abcdef0123456789abcdef01234567",
-                          "--dev-doz", "/Users/someone/.local/doz-dev/bin/doz", "--dev-config-home", "/Users/someone/.local/doz-dev/config"])
+                          "--dev-doz", "/Users/someone/.local/doz-dev/bin/doz", "--dev-config-home", "/Users/someone/.local/doz-dev/config",
+                          "--dev-store", "/Users/someone/doz-dev-store"])
         XCTAssertEqual(r.code, 0, r.out)
         let app = dir.appendingPathComponent("out/Dozable Dev.app")
         XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("out/Dozable.app").path), "never the release bundle's place")
@@ -89,6 +90,7 @@ final class AssembleAppTests: XCTestCase {
         XCTAssertEqual(i["DozableFlavour"] as? String, "dev")
         XCTAssertEqual(i["DozableDevDoz"] as? String, "/Users/someone/.local/doz-dev/bin/doz")
         XCTAssertEqual(i["DozableDevConfigHome"] as? String, "/Users/someone/.local/doz-dev/config")
+        XCTAssertEqual(i["DozableDevStore"] as? String, "/Users/someone/doz-dev-store")
         XCTAssertEqual(i["DozableDevCommit"] as? String, "0123456789abcdef0123456789abcdef01234567")
     }
 
@@ -101,8 +103,10 @@ final class AssembleAppTests: XCTestCase {
         let i = try info(dir.appendingPathComponent("out/Dozable Dev.app"))
         XCTAssertEqual(i["DozableDevDoz"] as? String, "/Users/someone/.local/doz-dev/bin/doz")
         XCTAssertEqual(i["DozableDevConfigHome"] as? String, "/Users/someone/.local/doz-dev/config")
+        XCTAssertEqual(i["DozableDevStore"] as? String, "/Users/someone/doz-dev-store")
         XCTAssertNil(i["DozableDevCommit"])
         XCTAssertEqual(assemble(["--dev", "--dev-doz", "relative/doz"]).code, 1, "never a relative doz")
+        XCTAssertEqual(assemble(["--dev", "--dev-store", "relative/store"]).code, 1, "never a relative store")
         XCTAssertEqual(assemble(["--dev", "--commit", "not-a-sha"]).code, 1)
     }
 }

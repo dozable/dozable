@@ -196,14 +196,18 @@ person can watch an unreleased build next to the release one and tell them apart
   identifier), `CFBundleName`/`CFBundleDisplayName` "Dozable Dev", and the keys the app reads (`MenuBarFlavour.from(info:)`):
   `DozableFlavour = dev`; `DozableDevDoz`, the dev doz's absolute path (default `~/.local/doz-dev/bin/doz`, expanded by the
   script; `DEV_DOZ=` overrides); `DozableDevConfigHome`, its `XDG_CONFIG_HOME` (default `~/.local/doz-dev/config`;
-  `DEV_CONFIG_HOME=`); `DozableDevCommit`, the commit it was built from. The script's `plutil` checks cover both flavours;
+  `DEV_CONFIG_HOME=`); `DozableDevStore`, its `DOZ_STORE` (default `~/doz-dev-store`; `DEV_STORE=`);
+  `DozableDevCommit`, the commit it was built from. The script's `plutil` checks cover both flavours;
   the release assembly is byte-for-byte what it was (`AssembleAppTests.testTheReleaseBundleIsUnchanged`).
-- **Its ONE doz is `DozableDevDoz`**, used only when it is an executable regular file (a link followed): never a standard
-  place, never a PATH search — so it can never drive the release doz by mistake. Missing → "doz is not installed".
+- **Its ONE doz is `DozableDevDoz`**, used only when it is an executable regular file (a link followed) AND the settings
+  and store keys are there too: never a standard place, never a PATH search, never on the default store — so it can never
+  drive the release daemon by mistake. Missing → "doz is not installed".
   A guarded test run still uses only the seam `DOZ_MENUBAR_DOZ`, whatever the flavour.
-- **Its doz runs with the dev settings**: `CommandRunner.extraEnvironment` = `MenuBarFlavour.childEnvironment` adds
-  `XDG_CONFIG_HOME = DozableDevConfigHome` over the inherited environment (in a guarded run only the seam
-  `DOZ_MENUBAR_CONFIG_HOME`), so the store, settings and daemon are the dev install's. Still an absolute path and an argv.
+- **Its doz runs with the dev settings and store**: `CommandRunner.extraEnvironment` = `MenuBarFlavour.childEnvironment`
+  adds `XDG_CONFIG_HOME = DozableDevConfigHome`, `DOZ_STORE = DozableDevStore` and `DO_NOT_TRACK=1` over the inherited
+  environment (in a guarded run only the seams `DOZ_MENUBAR_CONFIG_HOME` / `DOZ_MENUBAR_STORE`). The store must be named:
+  the dev install keeps its store by `DOZ_STORE`, not in its settings, so the settings alone would leave the dev doz on
+  the default store — the release app's daemon (seen on the first real run). Still an absolute path and an argv.
 - **It registers nothing with the system.** No Start at Login (the row reads "Start at Login — not in the dev build",
   disabled; `SnapshotSource.performLogin` refuses before any step; the login service is `RefusingLoginItemService` in
   every run, and `SystemLoginItemService` refuses too if ever reached), no login agent (the bundle carries no
@@ -245,7 +249,7 @@ Start at Login through the recording service and the fake launchctl: doz's own i
 "would register" agent + mainApp, the job loaded, THEN `daemon.login_item on` (doz's plist gone, owner app); login-off;
 needs approval (doz not told); `doz app uninstall` running `--unregister`; (11) the DEV app (`--dev-app`, `make app-dev`)
 against a fake doz: its identifier and no agent in the bundle, "Dozable Dev" first and the DEV badge, the two rows
-"not in the dev build", every doz call with the dev `XDG_CONFIG_HOME` seam, no seam → no doz, login-on refused with the
+"not in the dev build", every doz call with the dev `XDG_CONFIG_HOME` and `DOZ_STORE` seams, no seam → no doz, login-on refused with the
 service never asked, `--launch-daemon` starting nothing, `--unregister` holding nothing, the menu refused (exit 70).
 `make test-cli-daemon` row 12 checks doz's side with the SMAppService-shaped job.
 

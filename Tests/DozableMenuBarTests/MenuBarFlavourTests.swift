@@ -24,7 +24,8 @@ final class MenuBarFlavourTests: XCTestCase {
 
     let devInfo: [String: Any] = ["CFBundleIdentifier": "com.dozable.app.dev", "DozableFlavour": "dev",
                                   "DozableDevDoz": "/Users/someone/.local/doz-dev/bin/doz",
-                                  "DozableDevConfigHome": "/Users/someone/.local/doz-dev/config"]
+                                  "DozableDevConfigHome": "/Users/someone/.local/doz-dev/config",
+                                  "DozableDevStore": "/Users/someone/doz-dev-store"]
     var dev: MenuBarFlavour { MenuBarFlavour.from(info: devInfo) }
     /// A person's run (no test guard): what the app does outside a test.
     let personEnv: [String: String] = [:]
@@ -32,12 +33,14 @@ final class MenuBarFlavourTests: XCTestCase {
     // MARK: choosing the flavour
 
     func testTheFlavourComesFromTheInfoPlist() {
-        XCTAssertEqual(dev, .dev(doz: "/Users/someone/.local/doz-dev/bin/doz", configHome: "/Users/someone/.local/doz-dev/config"))
+        XCTAssertEqual(dev, .dev(doz: "/Users/someone/.local/doz-dev/bin/doz", configHome: "/Users/someone/.local/doz-dev/config",
+                                 store: "/Users/someone/doz-dev-store"))
         XCTAssertEqual(MenuBarFlavour.from(info: nil), .release)
         XCTAssertEqual(MenuBarFlavour.from(info: ["CFBundleIdentifier": "com.dozable.app"]), .release)
         XCTAssertEqual(MenuBarFlavour.from(info: ["DozableFlavour": "release"]), .release)
-        XCTAssertEqual(MenuBarFlavour.from(info: ["DozableFlavour": "dev", "DozableDevDoz": "bin/doz", "DozableDevConfigHome": 3]),
-                       .dev(doz: nil, configHome: nil), "a relative or wrong-typed value is no value — never a fallback")
+        XCTAssertEqual(MenuBarFlavour.from(info: ["DozableFlavour": "dev", "DozableDevDoz": "bin/doz", "DozableDevConfigHome": 3,
+                                                  "DozableDevStore": "~/doz-dev-store"]),
+                       .dev(doz: nil, configHome: nil, store: nil), "a relative or wrong-typed value is no value — never a fallback")
         XCTAssertTrue(dev.isDev)
         XCTAssertEqual(dev.name, "Dozable Dev")
         XCTAssertEqual(dev.badge, "DEV")
@@ -52,11 +55,14 @@ final class MenuBarFlavourTests: XCTestCase {
         XCTAssertEqual(MenuBarFlavour.dev(doz: nil, configHome: nil).dozCandidates(env: personEnv, home: "/h"), [],
                        "no dev doz named → no doz at all: never the release doz, never a PATH search")
         XCTAssertEqual(MenuBarFlavour.dev(doz: nil, configHome: nil).dozCandidates(env: ["PATH": "/opt/homebrew/bin"], home: "/h"), [])
+        // A dev doz without its settings or its store would run on the default store — the release app's daemon: none.
+        XCTAssertEqual(MenuBarFlavour.dev(doz: "/d/doz", configHome: "/d/config", store: nil).dozCandidates(env: personEnv, home: "/h"), [])
+        XCTAssertEqual(MenuBarFlavour.dev(doz: "/d/doz", configHome: nil, store: "/d/store").dozCandidates(env: personEnv, home: "/h"), [])
     }
 
     func testTheDevDozIsUsedOnlyWhenItIsAnExecutableFile() throws {
         let missing = dir.appendingPathComponent("doz-dev/bin/doz").path
-        let flavour = MenuBarFlavour.dev(doz: missing, configHome: nil)
+        let flavour = MenuBarFlavour.dev(doz: missing, configHome: "/d/config", store: "/d/store")
         XCTAssertNil(DozLocator.standard(flavour: flavour, env: personEnv).locate(), "missing → not installed, nothing else tried")
         try FileManager.default.createDirectory(atPath: missing, withIntermediateDirectories: true)
         XCTAssertNil(DozLocator.standard(flavour: flavour, env: personEnv).locate(), "a directory is not doz")
@@ -95,12 +101,14 @@ final class MenuBarFlavourTests: XCTestCase {
     // MARK: the child's environment
 
     func testTheDevDozRunsWithTheDevSettings() throws {
-        XCTAssertEqual(dev.childEnvironment(env: personEnv), ["XDG_CONFIG_HOME": "/Users/someone/.local/doz-dev/config"])
-        XCTAssertEqual(MenuBarFlavour.dev(doz: "/x/doz", configHome: nil).childEnvironment(env: personEnv), [:])
-        // A test run: only the seam, never the real dev settings.
-        XCTAssertEqual(dev.childEnvironment(env: ["DOZ_TEST_GUARD": "1"]), [:])
-        XCTAssertEqual(dev.childEnvironment(env: ["DOZ_TEST_GUARD": "1", "DOZ_MENUBAR_CONFIG_HOME": "/tmp/xdg"]), ["XDG_CONFIG_HOME": "/tmp/xdg"])
-        XCTAssertEqual(dev.childEnvironment(env: ["DOZ_TEST_GUARD": "1", "DOZ_MENUBAR_CONFIG_HOME": "rel"]), [:])
+        XCTAssertEqual(dev.childEnvironment(env: personEnv), ["XDG_CONFIG_HOME": "/Users/someone/.local/doz-dev/config",
+                                                               "DOZ_STORE": "/Users/someone/doz-dev-store", "DO_NOT_TRACK": "1"])
+        // A test run: only the seams, never the real dev settings or store.
+        XCTAssertEqual(dev.childEnvironment(env: ["DOZ_TEST_GUARD": "1"]), ["DO_NOT_TRACK": "1"])
+        XCTAssertEqual(dev.childEnvironment(env: ["DOZ_TEST_GUARD": "1", "DOZ_MENUBAR_CONFIG_HOME": "/tmp/xdg", "DOZ_MENUBAR_STORE": "/tmp/s"]),
+                       ["XDG_CONFIG_HOME": "/tmp/xdg", "DOZ_STORE": "/tmp/s", "DO_NOT_TRACK": "1"])
+        XCTAssertEqual(dev.childEnvironment(env: ["DOZ_TEST_GUARD": "1", "DOZ_MENUBAR_CONFIG_HOME": "rel", "DOZ_MENUBAR_STORE": "rel"]),
+                       ["DO_NOT_TRACK": "1"])
 
         let p = try XCTUnwrap(CommandRunner.process(.status, doz: "/x/doz", extraEnvironment: ["XDG_CONFIG_HOME": "/dev/config"],
                                                     base: ["HOME": "/Users/someone", "XDG_CONFIG_HOME": "/Users/someone/.config"]))

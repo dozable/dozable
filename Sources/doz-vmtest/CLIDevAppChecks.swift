@@ -4,7 +4,7 @@
 //
 //  11. --self-config → com.dozable.app.dev, flavour dev; the bundle carries no login agent. --dump-menu → "Dozable Dev"
 //      first, the DEV badge, Start at Login "not in the dev build" (disabled, no action); every doz call the fake saw
-//      carried the dev settings' XDG_CONFIG_HOME. No seam → no doz (the real dev doz is never run in a test).
+//      carried the dev settings' XDG_CONFIG_HOME and the dev DOZ_STORE (seams DOZ_MENUBAR_CONFIG_HOME / _STORE). No seam → no doz (the real dev doz is never run in a test).
 //      --run-action login-on → refused, the recording login service never asked; --launch-daemon → exit 0, the fake not
 //      run; --unregister → nothing held, nothing unregistered; no argument → refused the menu (exit 70).
 import Darwin
@@ -19,9 +19,10 @@ func cliDevAppChecks(devApp: String, env: [String: String], base: URL, loginLog:
     let fake = dir.appendingPathComponent("doz").path
     let fakeLog = dir.appendingPathComponent("calls.log").path
     let devConfig = dir.appendingPathComponent("dev-config").path
+    let devStore = dir.appendingPathComponent("dev-store").path
     let script = """
     #!/bin/sh
-    echo "$XDG_CONFIG_HOME|$*" >> '\(fakeLog)'
+    echo "$XDG_CONFIG_HOME|$DOZ_STORE|$*" >> '\(fakeLog)'
     case "$1" in
       --version) echo 0.52.16 ;;
       daemon) case "$2" in status) echo '{"running":false,"held":false,"alwaysOn":true,"store":"/tmp/x"}' ;; *) echo '{}' ;; esac ;;
@@ -39,6 +40,7 @@ func cliDevAppChecks(devApp: String, env: [String: String], base: URL, loginLog:
         a.env = env
         if let doz { a.env["DOZ_MENUBAR_DOZ"] = doz } else { a.env.removeValue(forKey: "DOZ_MENUBAR_DOZ") }
         a.env["DOZ_MENUBAR_CONFIG_HOME"] = devConfig
+        a.env["DOZ_MENUBAR_STORE"] = devStore
         return a.run(args, timeout: 60)
     }
     func json(_ r: CLIRun) -> [String: Any] { (try? JSONSerialization.jsonObject(with: r.outData)) as? [String: Any] ?? [:] }
@@ -60,8 +62,8 @@ func cliDevAppChecks(devApp: String, env: [String: String], base: URL, loginLog:
           && update?["title"] as? String == "Update Menu Bar App — not in the dev build" && update?["action"] == nil,
           "app 11: Start at Login and the app update say \"not in the dev build\" and do nothing")
     let calls = fakeCalls()
-    check(!calls.isEmpty && calls.allSatisfy { $0.hasPrefix(devConfig + "|") },
-          "app 11: every doz call carried the dev settings' XDG_CONFIG_HOME (\(calls))")
+    check(!calls.isEmpty && calls.allSatisfy { $0.hasPrefix(devConfig + "|" + devStore + "|") },
+          "app 11: every doz call carried the dev settings' XDG_CONFIG_HOME and the dev DOZ_STORE (\(calls))")
 
     let none = json(devRun(["--dump-menu"], doz: nil))
     check(((none["items"] as? [[String: Any]])?.dropFirst().first?["title"] as? String) == "doz is not installed",
