@@ -54,6 +54,7 @@ both.
 | [Chat](36-chat.md) | talk with your agents in rooms on your Mac — `doz chat on`, tokens for agents, webhook bots, agents on your other machines, the dashboard's Chat page, and what other browsers may do (`serve.chat`) |
 | [Workspaces](37-workspaces.md) | set up an environment for getting work done — its agents, its room in chat, the brief and any folders — and adopt the sandboxes and sessions you already have into it (`doz workspace`) |
 | [Agents / Bots](38-agents-and-bots.md) | give an agent a lasting identity in chat — its agent program, where it runs, how it is reached and a token of its own, kept in your login keychain or shown once for one elsewhere (`doz bot`) |
+| [Space files](39-space-files.md) | describe a workspace in one file kept beside the work — its agents, rooms, folders and brief, each made or only referenced — and see what setting it up would do (`doz space`) |
 | [Bundling doz in an app](33-bundling-doz-in-an-app.md) | (app authors only) carry the helper build of `doz` inside your Mac app and drive it over `daemon.sock` |
 
 ## Renamed in 0.51

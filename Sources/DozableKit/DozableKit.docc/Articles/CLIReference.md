@@ -986,7 +986,21 @@ doz workspace log W --limit N [--before I]      # one page, the newest N (1–50
 doz workspace rename W NEW                      # its room keeps its own name
 doz workspace runs W [--json]                   # its runs: each start or reopen to its finish, its archive's status and size, the timesheet's totals
 doz workspace runs W --archive RUN              # a closed run's archive written again (when it could not be written at its finish)
+doz workspace plan [-f FILE] [--profile P]… [--json]  # what up would do with a space file: the steps, what down will do, the summary (every risky setting with its file:line)
+doz workspace up [-f FILE] [--profile P]… --dry-run    # the same plan, as up shows it (this version: --dry-run only; without it, exit 7)
+doz workspace config [FILE] [--profile P]… [--json]    # a space file merged (its defaults files, the file, its override, ${VAR}), each value with its source
+doz space plan|up|config …                      # the same: doz space is the space-file commands under a shorter name
 ```
+
+Space files (`NAME.space.yaml`, the format `space/3`): without `-f`/FILE, the one `*.space.yaml` in this folder (two or more:
+exit 64, naming them). The CLI reads the file, every `extends:` defaults file, `NAME.space.override.yaml` and `${VAR}` (the
+environment, then the `.env` beside it); the daemon receives one merged document with each place's origin and the sources'
+sha256 (`workspace-up-plan`, at most 256 KiB) and never opens a file. Every problem is printed at once as `file:line`, the
+message and a hint; an error exits 2 and nothing is done. `plan` and `up --dry-run` answer in-process with no daemon
+(`factsKnown` false: what only a running daemon knows is "not known") and change nothing. Exit codes: 0 up could run ·
+2 a problem in the file or an external thing missing · 3 chat off or the workspace archived · 4 a workspace of that name
+made without a space file, or a bot live elsewhere · 7 not in this version (an owned service, a preset other than standard
+or bypass, secrets for an owned agent) · 64 usage.
 
 `show --can-do`, `--network` and `--folders` answer from the store when no daemon runs and start none (what each agent was
 refused lately is then "not known"); `--json` adds `reach` or `folders` to `show`'s answer. Nothing they print is a secret: a

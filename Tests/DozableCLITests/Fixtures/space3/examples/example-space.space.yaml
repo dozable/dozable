@@ -1,0 +1,33 @@
+# This workspace, as a doz space v3 file. Compare: examples/space/example-space.space.yaml (v2).
+doz: space/3
+extends: ./my_doz_workspace_defaults.yaml                  # bypass, the team room and every agent's memory, archive, approvals
+space: example-space                                  # → doz://host-a/example-space/…
+title: The example-space workspace
+brief: ../../BRIEF.md
+owner: ada
+
+folders:
+  repo: { external: ~/work/example-repo, trust: before }   # the work outlives every run
+
+agents:
+  admin:                                                   # the manager: long-lived, only referenced
+    external: doz://host-a/_/bot/manager                     # shorthand: { bot: manager }
+    role: manager
+  worker:                                                 # → doz://host-a/example-space/agent/worker
+    kind: claude-code
+    role: worker
+    where: mac
+    isolation: unfenced                                    # always written here: never unfenced by inheritance
+    folder: repo
+    remote_control: true
+    chat: { delivery: inbox }
+    labels: { billable: "true" }
+    prompt: |
+      You are worker, the worker in a new workspace. Read BRIEF.md in this folder and do the work it describes.
+      Your manager is `manager` in the room example-space; Ada is there too.
+
+chat:
+  rooms:
+    example-space:                                    # persisted by the defaults' team-chat: { room: "{space}" }
+      main: true
+      members: [owner, admin, worker]

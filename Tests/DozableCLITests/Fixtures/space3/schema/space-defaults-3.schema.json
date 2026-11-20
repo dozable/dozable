@@ -1,0 +1,363 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "space-defaults-3.schema.json",
+  "title": "doz space defaults file (space-defaults/3)",
+  "description": "Settings shared by many spaces, taken with extends:. Space-only settings: persist, archive, approvals, agent_defaults and x-*. Never owner, agents, rooms, services or sandboxes, so inheriting never starts anything the space file didn't write.",
+  "markdownDescription": "Settings shared by many spaces, taken with `extends:`. Space-only settings: `persist`, `archive`, `approvals`, `agent_defaults` and `x-*`. Never `owner`, agents, rooms, services or sandboxes, so inheriting never starts anything the space file didn't write.",
+  "type": "object",
+  "required": [
+    "doz"
+  ],
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x-": {
+      "description": "Ignored by doz; for other tools.",
+      "markdownDescription": "Ignored by doz; for other tools."
+    }
+  },
+  "properties": {
+    "doz": {
+      "const": "space-defaults/3",
+      "description": "The format of this file. Always space-defaults/3.",
+      "markdownDescription": "The format of this file. Always `space-defaults/3`."
+    },
+    "extends": {
+      "$ref": "#/$defs/extends"
+    },
+    "persist": {
+      "$ref": "#/$defs/persist"
+    },
+    "archive": {
+      "$ref": "#/$defs/archive"
+    },
+    "approvals": {
+      "$ref": "#/$defs/approvals"
+    },
+    "agent_defaults": {
+      "$ref": "#/$defs/agent_defaults"
+    }
+  },
+  "$defs": {
+    "agentSettings": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "claude-code"
+          ],
+          "description": "claude-code (others as Dozable adds them).",
+          "markdownDescription": "`claude-code` (others as Dozable adds them)."
+        },
+        "role": {
+          "enum": [
+            "manager",
+            "worker",
+            "reviewer"
+          ],
+          "description": "What it does in this space. At most one manager. Roles that carry power (admin) are requested under requests, not given.",
+          "markdownDescription": "What it does in this space. At most one manager. Roles that carry power (admin) are requested under `requests`, not given."
+        },
+        "where": {
+          "type": "string",
+          "pattern": "^(mac|sandbox:[a-z][a-z0-9-]*)$",
+          "description": "mac (default) or sandbox:NAME.",
+          "markdownDescription": "`mac` (default) or `sandbox:NAME`.",
+          "examples": [
+            "mac",
+            "sandbox:build-vm"
+          ]
+        },
+        "isolation": {
+          "enum": [
+            "fenced",
+            "unfenced"
+          ],
+          "description": "For where: mac. Default fenced. Must be written on the agent itself when permissions: bypass. In a sandbox, the VM is the boundary.",
+          "markdownDescription": "For `where: mac`. Default `fenced`. Must be written on the agent itself when `permissions: bypass`. In a sandbox, the VM is the boundary."
+        },
+        "permissions": {
+          "$ref": "#/$defs/preset",
+          "description": "A preset held by Dozable, by name. Default: the space's permissions, else the owner's default.",
+          "markdownDescription": "A preset held by Dozable, by name. Default: the space's `permissions`, else the owner's default."
+        },
+        "access": {
+          "enum": [
+            "rw",
+            "ro"
+          ],
+          "description": "Narrower access to its folder (ro).",
+          "markdownDescription": "Narrower access to its folder (`ro`)."
+        },
+        "secrets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Names from secrets. Delivered as placeholders; the proxy swaps in the value.",
+          "markdownDescription": "Names from `secrets`. Delivered as placeholders; the proxy swaps in the value."
+        },
+        "model": {
+          "type": "string",
+          "description": "Optional model choice.",
+          "markdownDescription": "Optional model choice."
+        },
+        "remote_control": {
+          "type": "boolean",
+          "description": "Turn on Remote Control for the session.",
+          "markdownDescription": "Turn on Remote Control for the session."
+        },
+        "chat": {
+          "type": "object",
+          "description": "How it gets messages, and its extra rooms. Every worker is always in the main room.",
+          "markdownDescription": "How it gets messages, and its extra rooms. Every worker is always in the main room.",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "properties": {
+            "delivery": {
+              "enum": [
+                "inbox",
+                "poll"
+              ],
+              "description": "inbox (messages arrive in the session) or poll (dozchat listen).",
+              "markdownDescription": "`inbox` (messages arrive in the session) or `poll` (`dozchat listen`)."
+            },
+            "rooms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Rooms (names or full names) besides the main room.",
+              "markdownDescription": "Rooms (names or full names) besides the main room."
+            }
+          }
+        },
+        "transcripts": {
+          "enum": [
+            "keep",
+            "discard"
+          ],
+          "description": "What happens to its Claude transcripts at down. Default by case: memory persisted, always keep; archive on, discard after the archived copy is hash-checked; archive: off, keep.",
+          "markdownDescription": "What happens to its Claude transcripts at `down`. Default by case: memory persisted, always `keep`; archive on, `discard` after the archived copy is hash-checked; `archive: off`, `keep`."
+        },
+        "resume": {
+          "enum": [
+            "none",
+            "summary"
+          ],
+          "description": "summary: when its memory isn't persisted, start it with a summary of the last run, from the archive.",
+          "markdownDescription": "`summary`: when its memory isn't persisted, start it with a summary of the last run, from the archive."
+        },
+        "approvals": {
+          "$ref": "#/$defs/approvals",
+          "description": "Overrides the space's approvals for this agent.",
+          "markdownDescription": "Overrides the space's `approvals` for this agent."
+        },
+        "labels": {
+          "$ref": "#/$defs/labels"
+        },
+        "profiles": {
+          "$ref": "#/$defs/profiles"
+        }
+      }
+    },
+    "agent_defaults": {
+      "type": "object",
+      "description": "Keys applied to every owned agent unless the agent sets them: any agent key except prompt, prompt_file, folder, requests and isolation: unfenced (an agent is never unfenced by inheritance).",
+      "markdownDescription": "Keys applied to every owned agent unless the agent sets them: any agent key except `prompt`, `prompt_file`, `folder`, `requests` and `isolation: unfenced` (an agent is never unfenced by inheritance).",
+      "$ref": "#/$defs/agentSettings",
+      "unevaluatedProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      },
+      "properties": {
+        "isolation": {
+          "enum": [
+            "fenced"
+          ],
+          "description": "Only fenced: an agent is never unfenced by inheritance. Each unfenced agent writes isolation: unfenced itself.",
+          "markdownDescription": "Only `fenced`: an agent is never unfenced by inheritance. Each unfenced agent writes `isolation: unfenced` itself."
+        }
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "description": "Who decides, and how. Approvals point at policies Dozable holds; the file does not define them. A room message is never an approval.",
+      "markdownDescription": "Who decides, and how. Approvals point at policies Dozable holds; the file does not define them. A room message is never an approval.",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^x-": {}
+      },
+      "properties": {
+        "deciders": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Who answers Asks: owner, or agent names.",
+          "markdownDescription": "Who answers Asks: `owner`, or agent names.",
+          "examples": [
+            [
+              "owner"
+            ]
+          ]
+        },
+        "via": {
+          "enum": [
+            "ask"
+          ],
+          "description": "ask: anything outside the agent's grants becomes an Ask to the deciders.",
+          "markdownDescription": "`ask`: anything outside the agent's grants becomes an Ask to the deciders."
+        }
+      }
+    },
+    "archive": {
+      "description": "The evidence down writes, and where. On by default; off turns it off.",
+      "markdownDescription": "The evidence `down` writes, and where. On by default; `off` turns it off.",
+      "anyOf": [
+        {
+          "const": "off",
+          "description": "No archive at all. The plan summary says so.",
+          "markdownDescription": "No archive at all. The plan summary says so."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x-": {}
+          },
+          "properties": {
+            "to": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Where runs are archived. Default ~/Library/Application Support/doz/spaces/{space}/runs/{run}. An owner-chosen folder is allowed if no agent of the space can write it.",
+              "markdownDescription": "Where runs are archived. Default `~/Library/Application Support/doz/spaces/{space}/runs/{run}`. An owner-chosen folder is allowed if no agent of the space can write it."
+            },
+            "keep": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "plan",
+                  "commands",
+                  "status",
+                  "chat",
+                  "transcripts",
+                  "screens",
+                  "usage",
+                  "git"
+                ]
+              },
+              "description": "What to keep (default: all). manifest and timesheet are written whenever the archive is on.",
+              "markdownDescription": "What to keep (default: all). `manifest` and `timesheet` are written whenever the archive is on."
+            }
+          }
+        }
+      ]
+    },
+    "extends": {
+      "description": "A defaults file, or a list applied in order. Paths are relative to this file; ~ is the home folder.",
+      "markdownDescription": "A defaults file, or a list applied in order. Paths are relative to this file; `~` is the home folder.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      ],
+      "examples": [
+        "./my_doz_workspace_defaults.yaml"
+      ]
+    },
+    "labels": {
+      "type": "object",
+      "description": "Free string metadata, kept in the manifest and timesheet (client: acme, billable: \"true\").",
+      "markdownDescription": "Free string metadata, kept in the manifest and timesheet (`client: acme`, `billable: \"true\"`).",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "persist": {
+      "type": "object",
+      "description": "What carries over between runs; nothing else does. A map of named entries, each naming one owned thing: { room: NAME }, { sandbox: NAME }, { agent: NAME } or { folder: PATH }. null removes an inherited entry. {space} is the space's name and \"*\" every owned agent.",
+      "markdownDescription": "What carries over between runs; nothing else does. A map of named entries, each naming one owned thing: `{ room: NAME }`, `{ sandbox: NAME }`, `{ agent: NAME }` or `{ folder: PATH }`. `null` removes an inherited entry. `{space}` is the space's name and `\"*\"` every owned agent.",
+      "propertyNames": {
+        "pattern": "^([a-z][a-z0-9-]*|x-.*)$"
+      },
+      "patternProperties": {
+        "^x-": {}
+      },
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/$defs/persistEntry"
+          }
+        ]
+      }
+    },
+    "persistEntry": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "room": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An owned room in chat.rooms: kept with its history and id; closed between runs.",
+          "markdownDescription": "An owned room in `chat.rooms`: kept with its history and id; `closed` between runs."
+        },
+        "sandbox": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An owned sandbox: its disk is kept, with the VM shut down.",
+          "markdownDescription": "An owned sandbox: its disk is kept, with the VM shut down."
+        },
+        "agent": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An owned agent: its Claude conversations and memory; the next run starts it with --continue. \"*\" is every owned agent.",
+          "markdownDescription": "An owned agent: its Claude conversations and memory; the next run starts it with `--continue`. `\"*\"` is every owned agent."
+        },
+        "folder": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A data folder, kept as it is; made on the first up if missing.",
+          "markdownDescription": "A data folder, kept as it is; made on the first `up` if missing."
+        }
+      }
+    },
+    "preset": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A permission preset held by Dozable, by name: standard, auto, bypass, or one the owner defined.",
+      "markdownDescription": "A permission preset held by Dozable, by name: `standard`, `auto`, `bypass`, or one the owner defined.",
+      "examples": [
+        "standard",
+        "auto",
+        "bypass"
+      ]
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "description": "Included only with up --profile NAME, e.g. [review].",
+      "markdownDescription": "Included only with `up --profile NAME`, e.g. `[review]`."
+    }
+  }
+}

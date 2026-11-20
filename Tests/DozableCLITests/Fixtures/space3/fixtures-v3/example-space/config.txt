@@ -1,0 +1,70 @@
+$ worker space config examples/space3/example-space.space.yaml
+--- stdout
+# the merged space "example-space" (worker space config): defaults, then the space file, then the override file, then profiles
+# sources, lowest first:
+#   defaults ~/work/example-repo/examples/space3/my_doz_workspace_defaults.yaml  sha256 f818661c1a6a0830…
+#   space    ~/work/example-repo/examples/space3/example-space.space.yaml  sha256 57a344c5a652ed6b…
+# risky settings and where they come from:
+#   agents.worker.permissions: my_doz_workspace_defaults.yaml:6
+#   agents.worker.isolation: example-space.space.yaml:20
+#   agents.worker.remote_control: example-space.space.yaml:22
+#   persist.team-chat: my_doz_workspace_defaults.yaml:10
+#   persist.memory: my_doz_workspace_defaults.yaml:11
+agent_defaults:
+  permissions: bypass
+  model: claude-opus-5-5
+persist:
+  team-chat:
+    room: "{space}"
+  memory:
+    agent: "*"
+archive:
+  keep:
+    - plan
+    - commands
+    - status
+    - chat
+    - transcripts
+    - screens
+    - usage
+    - git
+approvals:
+  deciders:
+    - owner
+  via: ask
+doz: space/3
+space: example-space
+title: The example-space workspace
+brief: ../../BRIEF.md
+owner: ada
+folders:
+  repo:
+    external: ~/work/example-repo
+    trust: before
+agents:
+  admin:
+    external: doz://host-a/_/bot/manager
+    role: manager
+  worker:
+    kind: claude-code
+    role: worker
+    where: mac
+    isolation: unfenced
+    folder: repo
+    remote_control: true
+    chat:
+      delivery: inbox
+    labels:
+      billable: "true"
+    prompt: |
+      You are worker, the worker in a new workspace. Read BRIEF.md in this folder and do the work it describes.
+      Your manager is `manager` in the room example-space; Ada is there too.
+chat:
+  rooms:
+    example-space:
+      main: true
+      members:
+        - owner
+        - admin
+        - worker
+--- exit 0

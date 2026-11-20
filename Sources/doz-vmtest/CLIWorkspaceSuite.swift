@@ -28,6 +28,8 @@ import DozableHost
 //  38–44. the dry run (nothing written, no daemon), its refusals, the commands it prints, the new fields, --start
 //      (CLIWorkspacePlanRows.swift)
 //  45–47. adding a worker with a look first: the dry run, its refusal, with the daemon stopped (CLIWorkerPlanRows.swift)
+//  S1, S12. space files: plan and up --dry-run with the daemon stopped start none and write nothing; doz space is the same
+//      commands; without -f the one *.space.yaml in the folder (CLISpaceRows.swift)
 //  P1–P10. what agents may do: permissions, grants, ceilings, why, the gate (CLIWorkspacePermissionRows.swift); P5 sets every
 //      permission never before row 12, so every row from 12 on runs as the owner under them
 func cliWorkspaceSuite(binary: String) async {
@@ -241,6 +243,8 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspacePlanRows(h, root: root, store: store, started: &started)
     // 45–47. adding a worker with a look first (CLIWorkerPlanRows.swift)
     cliWorkerPlanRows(h, root: root, store: store)
+    // S1, S12. space files: the plan with the daemon stopped, the alias and picking the one file (CLISpaceRows.swift)
+    cliSpaceRows(h, root: root, store: store)
     // L1–L14. the lifecycle (CLIWorkspaceLifecycleRows.swift)
     cliWorkspaceLifecycleRows(h, root: root, store: store, started: &started)
     // V1–V5. the wide views (CLIWorkspaceViewRows.swift)
