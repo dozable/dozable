@@ -80,8 +80,8 @@ import { newSandboxWizard, viewNew } from './app/views/new-sandbox-928e2a3a0cad8
 import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, viewNewWorkspace } from './app/views/new-workspace-a3f29f3db0c8da8e.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-e5eea7bfd15bca8c.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-e96cf3d2d230628c.js';
-import { viewBots } from './app/views/bots-452f0345af35295d.js';
-import { viewBot } from './app/views/bot-44f3fc4e6dd8da91.js';
+import { viewBots } from './app/views/bots-64627c1c09164532.js';
+import { viewBot } from './app/views/bot-f8f600cb90cf2485.js';
 import { viewHome } from './app/views/home-160b0f08aebd6a99.js';
 import { viewLoose } from './app/views/loose-4955f3ebfefce68b.js';
 import { viewMacs } from './app/views/macs-ea5fc7a57dd64b26.js';

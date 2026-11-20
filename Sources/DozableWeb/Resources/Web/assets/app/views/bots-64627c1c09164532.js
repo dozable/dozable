@@ -19,7 +19,7 @@ import { dialog } from '../components/dialog-9c713118d7ef88d3.js';
 import { moreMenu } from '../components/menus-b8f822d6b7817c72.js';
 import { toast } from '../components/notices-4a3a8a4f95efab5b.js';
 import { programName } from '../components/ws-panel-75b647891b9c14c3.js';
-import { adoptDialog, botAvatar, botMenuItems, isolationChips } from './bot-44f3fc4e6dd8da91.js';
+import { adoptDialog, botAvatar, botMenuItems, isolationChips } from './bot-f8f600cb90cf2485.js';
 
 const KEY = { dozable: 'held', elsewhere: 'elsewhere', none: 'none' };
 
@@ -61,8 +61,10 @@ export async function viewBots() {
     h('div', { class: 'bot-notes' },
       callout('info', { compact: true, title: 'One identity, many workspaces', body: 'Each workspace runs its own session of the bot, with its own conversation; the name, avatar and chat identity are shared.' }),
       callout('info', { compact: true, title: 'Retire, don’t delete', body: 'A retired bot’s name stays on its messages and is never used again; its token is refused.' }),
-      callout('info', { compact: true, title: 'Its key is never shown', body: 'Dozable keeps a bot’s token in your login keychain and shows its fingerprint only. A bot on another machine gets its token in a terminal on this Mac: ',
-        actions: [cmdLine('doz bot new far --agent codex --isolation elsewhere --to-file ~/far.token')] })));
+      // The command goes in the body (where .cmd-line wraps), never in `actions`: that column is sized to its content,
+      // and a long unbroken command there took the whole width and left the text one letter wide.
+      callout('info', { compact: true, title: 'Its key is never shown', body: ['Dozable keeps a bot’s token in your login keychain and shows its fingerprint only. A bot on another machine gets its token in a terminal on this Mac:',
+        cmdLine('doz bot new far --agent codex --isolation elsewhere --to-file ~/far.token')] })));
 }
 
 /// "Make a chat participant a bot…": the participants in chat that are not bots (nor people), then the adopt dialog.

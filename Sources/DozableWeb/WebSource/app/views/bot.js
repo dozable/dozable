@@ -255,7 +255,7 @@ async function newBot() {
   return h('div', { class: 'bot-page bot-new', 'data-bot-page': '~new' },
     h('div', { class: 'head' }, h('h1', null, draft ? 'A new Agent / Bot like ' + draft.name : 'A new Agent / Bot')),
     h('p', { class: 'sub' }, 'Defined once — its name in every room, its agent program, how it runs and is reached, its instructions — then played as a manager or a worker in workspaces.'),
-    remote ? callout('info', { compact: true, body: remote + ' — in a terminal on the Mac: ', actions: [cmdLine('doz bot new NAME --agent claude-code')] }) : null,
+    remote ? callout('info', { compact: true, body: [remote + ' — in a terminal on the Mac: ', cmdLine('doz bot new NAME --agent claude-code')] }) : null,
     callout('info', { compact: true, title: 'A bot on another machine?', body: ['It gets its token once, in a terminal on this Mac — never in a browser: ', cmdLine(elsewhereCommand())] }),
     f.el,
     state.botReturn === 'new-workspace' ? callout('info', { compact: true, attrs: { 'data-bot-return': '' }, body: 'Made here, it is chosen as the new workspace’s manager and you go back to the New workspace wizard.' }) : null,
