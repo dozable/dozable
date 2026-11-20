@@ -997,6 +997,9 @@ public final class DozableWebServer: @unchecked Sendable {
             if request.action.isRoomLifecycle, let r = WebExposure.decideRoomAction(ctx.principal) { throw r }
             // An ask answered: this Mac's own browser only, whatever serve.chat says (a decision made as you).
             if request.action.isAsk, let r = WebExposure.decideAskAction(ctx.principal) { throw r }
+            // Chat turned on, a workspace's room made: this Mac's own browser only (a server that listens; a room as you).
+            if request.action.isChatOn, let r = WebExposure.decideChatOnAction(ctx.principal) { throw r }
+            if request.action.isMakeRoom, let r = WebExposure.decideMakeRoomAction(ctx.principal) { throw r }
             // A space file saved: this Mac's own browser only, whatever the serve settings (it decides what the next up starts).
             if request.action.isSpace, let r = WebExposure.decideSpaceAction(ctx.principal) { throw r }
             // A fenced session's site allowed: this Mac's own browser only, whatever the serve settings (its network is what
@@ -1437,7 +1440,8 @@ public final class DozableWebServer: @unchecked Sendable {
             await monitor.streamOpened()
             return .stream(client)
         case .chat(let c):
-            return try await chatReply(c, md, body: body, cookie: cookie, writable: !ctx.principal.isRemote || settings.chatServe == .write)
+            return try await chatReply(c, md, body: body, cookie: cookie, writable: !ctx.principal.isRemote || settings.chatServe == .write,
+                                       mac: !ctx.principal.isRemote)
         }
     }
 

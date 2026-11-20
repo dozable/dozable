@@ -850,6 +850,26 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(fake.performedOps, [.netPolicy])
     }
 
+    /// Turning chat on and making a workspace's room are this Mac's own browser only, whatever serve.chat says: 403
+    /// `mac-only` with their words, nothing sent to the daemon.
+    func testChatOnAndMakeRoomAreThisMacsBrowserOnly() async throws {
+        try await start(macSessions: "interactive", chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        for (body, words) in [(#"{"action":"chat-on","name":"ada"}"#, "doz chat on"), (#"{"action":"workspace-make-room","workspace":"demo"}"#, "--make-room")] {
+            let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", body, remote: true)
+            XCTAssertEqual(r.status, 403, r.text)
+            XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+            XCTAssertTrue(r.text.contains(words), r.text)
+        }
+        XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon")
+        let (macCookie, macCSRF) = try macSignIn()
+        let r = try macJSON(macCookie, macCSRF, "/api/v1/actions", #"{"action":"workspace-make-room","workspace":"demo"}"#, remote: false)
+        XCTAssertEqual(r.status, 202, r.text)
+        let deadline = Date().addingTimeInterval(5)
+        while fake.performedOps.isEmpty && Date() < deadline { usleep(10_000) }
+        XCTAssertEqual(fake.performedOps, [.workspaceEdit])
+    }
+
     /// Answering an ask is this Mac's own browser only, whatever serve.chat says (off, read, write): 403 `mac-only` with its
     /// words, one audit line, nothing sent to the daemon — and the answer's words in no audit line. This Mac's browser
     /// sends exactly `chat-decide`.

@@ -671,8 +671,9 @@ A workspace's page shows the same room surface, moved there and scoped to that w
 page"); it is still one client with one stream. It is a CLIENT of the owner's socket, exactly like the `doz chat` commands — no daemon operation, no TCP port, no token:
 `DozableWeb` opens `<store>/chat/chat.sock` itself (`ChatOwnerClient`) as the person. Only a closed set of routes reaches
 it, each a fixed call built from checked values (web.md, "Chat"); a browser of another computer gets what `serve.chat`
-(off | read | write, off by default, set on this Mac only) allows. The page never turns chat on (`chat.enabled` is not
-settable from the dashboard): while it is off the page shows `doz chat on --name YOUR-NAME`.
+(off | read | write, off by default, set on this Mac only) allows. `chat.enabled` is not settable through the Settings
+route; this Mac's own browser turns chat on only with the action `chat-on`, exactly what `doz chat on` does (web.md,
+"Chat"), and another computer is shown `doz chat on --name YOUR-NAME`. Turning chat off stays a terminal's.
 
 The person is "here" exactly while the Chat page's own stream is open (it closes 5 s after the page is left) — never just
 because the dashboard is open — and messages to the person are marked `delivered` then. The sidebar's badge counts what is

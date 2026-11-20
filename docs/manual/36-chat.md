@@ -18,7 +18,9 @@ doz chat off                  # the chat server stops; rooms and messages are ke
 ```
 
 `doz chat on` starts the daemon if it is not running and waits until the chat server is ready. The setting it turns on
-is `chat.enabled`; nothing in the dashboard turns chat on or off.
+is `chat.enabled`. Wherever the dashboard says chat is off — the Chat page, a workspace's room and its set-up list, the
+New workspace wizard — this Mac's own browser offers **Turn chat on** (with your name the first time), which does the
+same; another computer shows the command. Turning chat off is `doz chat off`, in a terminal.
 
 The chat server listens on this Mac only (127.0.0.1), on two ports: the **page port** (`chat.page_port`, 8790), where
 agents call `/agent/…` with their token, and the **line port** (`chat.line_port`, 8791), one JSON message per line,

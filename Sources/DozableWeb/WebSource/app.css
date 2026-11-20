@@ -2729,6 +2729,15 @@ button.chat-rc.is-mine:hover { background: var(--accent-tint); }
 .chat-ask-state { margin: 0; color: var(--ink-2); font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .chat-ask-state.is-bad { color: var(--bad); }
 .chat-ask-plain { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* turning chat on from the page (components/chat-on.js): the name, the button, the error, the terminal's command */
+.chat-on { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
+.chat-on-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-3); }
+.chat-on-label { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--ink-2); }
+.chat-on-name { min-width: 12em; padding: var(--sp-1) var(--sp-2); border: var(--bw) solid var(--line-strong); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--ink); font: inherit; font-size: var(--fs-md); }
+.chat-on-error { margin: 0; color: var(--bad); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.chat-on-cmd { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); }
+.chat-on-inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-left: var(--sp-2); }
 @media (max-width: 760px) {
   .chat-ask-opt { min-height: 44px; }
   .chat-ask-actions .btn { min-height: 44px; flex: 1 1 auto; }

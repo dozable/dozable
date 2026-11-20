@@ -4,11 +4,13 @@
 // `workspace-show`'s (GET /api/v1/workspaces/{w}: `gaps`). Both are looks: nothing is written, the keychain is not read.
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
+import { chatOnInline } from './chat-on.js';
 import { cmdLine } from './cmd-line.js';
 
 const STEP_WORDS = ['the work', 'who manages', 'where it runs', 'grants & when'];
 
-/// The gaps as a list (`opts.goStep(i)`: a link to that step of the wizard; `opts.steps`: false leaves the step out).
+/// The gaps as a list (`opts.goStep(i)`: a link to that step of the wizard; `opts.steps`: false leaves the step out;
+/// `opts.onChatOn`: chat's gap gets an inline "Turn chat on", and this is called once chat is on).
 export function gapsList(gaps, opts = {}) {
   return h('ul', { class: 'ws-gaps', 'data-ws-gaps': String(gaps.length) }, ...gaps.map((g) => {
     const step = typeof g.step === 'number' ? g.step - 1 : null;
@@ -17,6 +19,7 @@ export function gapsList(gaps, opts = {}) {
       : null;
     return h('li', { class: 'ws-gap', 'data-gap': g.item },
       h('span', { class: 'ws-gap-why' }, icon('triangle-alert'), g.why),
+      g.item === 'chat' && opts.onChatOn ? chatOnInline({ onOn: opts.onChatOn }) : null,
       where,
       h('details', { class: 'ws-gap-fix' }, h('summary', null, 'Show the command'), cmdLine(g.fix)));
   }));

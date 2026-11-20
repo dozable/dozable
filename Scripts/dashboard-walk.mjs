@@ -432,14 +432,77 @@ async function walkMacs() {
 
 // ── a workspace's page, chat on ──────────────────────────────────────────────────────────────────────────────────────
 const BRIEF = 'Walk the workspace page.\n\nKeep the **logo** reveal.\n';
-async function walkWorkspacePage() {
+// ── turning chat on from the page: the Chat page, a workspace's page (and Make its room), the wizard ─────────────────
+const chatState = () => (dozJSON(['chat', 'status']) || {}).state;
+async function walkChatOn() {
+  const errorsBefore = pageErrors.length;
   let p1 = await freePort(), p2 = await freePort();
   for (let i = 0; i < 5 && (LIVE_PORTS.includes(p1) || LIVE_PORTS.includes(p2) || p1 === p2); i++) { p1 = await freePort(); p2 = await freePort(); }
   check(p1 > 1023 && p2 > 1023 && p1 !== p2 && !LIVE_PORTS.includes(p1) && !LIVE_PORTS.includes(p2), 'chat\'s two ports are the OS\'s choice, not live ones');
   chatPagePort = p1;
   doz(['config', 'set', 'chat.page_port', String(p1)]);
   doz(['config', 'set', 'chat.line_port', String(p2)]);
-  check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (scratch store, OS-chosen ports)');
+  // 1. The Chat page: the form (your name, prefilled), Turn chat on, and the chat view with no reload of the page.
+  await goHash('#/chat');
+  check(await waitFor(`!!document.querySelector('#chat-notice [data-chat-on] [data-chat-on-go]')`, 15000)
+    && await evaluate(`(document.querySelector('[data-chat-on-name]')?.value || '').length > 0 && !!document.querySelector('#chat-notice [data-cmd^="doz chat on --name"]')`),
+    'chat on 1 the Chat page while chat is off: the form, your name prefilled, Turn chat on, the terminal line beneath');
+  await setField('[data-chat-on-name]', 'Ada Lovelace');
+  await evaluate(`document.querySelector('[data-chat-on-go]').click()`);
+  check(await waitFor(`!document.querySelector('[data-chat-on-error]')?.hidden && /not a name in chat/.test(document.querySelector('[data-chat-on-error]').textContent)`, 15000)
+    && chatState() === 'off', 'chat on 1 …a name the chat refuses: Dozable\'s words inline, chat still off');
+  await setField('[data-chat-on-name]', 'ada');
+  await evaluate(`window.__walkStay = 1; document.querySelector('[data-chat-on-go]').click()`);
+  check(await waitFor(`state.chat.status?.state === 'running' && !document.getElementById('chat-cols').hidden && !!document.getElementById('chat-text')`, 90000)
+    && await evaluate(`window.__walkStay === 1 && ['live', 'connecting'].includes(state.chat.live)`) && chatState() === 'running'
+    && (dozJSON(['chat', 'status']) || {}).human === 'ada', 'chat on 1 …Turn chat on: the chat view loads with no reload, "live", you are ada');
+  // 2. A workspace's page: setting up with chat off — the set-up item's Turn chat on, then Make its room.
+  doz(['chat', 'off']);
+  doz(['bot', 'new', 'cwbot', '--agent', 'claude-code']);
+  doz(['workspace', 'new', 'cw', '--prompt-file', '-', '--manager', 'cwbot'], 'Turn chat on from the page.\n');
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/w/cw');
+  check(await waitFor(`!!document.querySelector('[data-ws-setup] [data-gap="chat"] [data-chat-on-inline]') && !!document.querySelector('[data-ws-noroom="cw"] [data-chat-on]')
+    && document.querySelector('[data-ws-make-room="cw"]')?.disabled === true`, 15000),
+    'chat on 2 a workspace setting up with chat off: "a manager needs chat" with Turn chat on, No room yet with the form, Make its room off');
+  await evaluate(`document.querySelector('[data-gap="chat"] [data-chat-on-inline]').click()`);
+  check(await waitFor(`!document.querySelector('[data-ws-setup] [data-gap="chat"]') && !!document.querySelector('[data-ws-setup] [data-gap="room"]')
+    && document.querySelector('[data-ws-make-room="cw"]')?.disabled === false`, 90000) && chatState() === 'running',
+    'chat on 2 …on: the set-up item clears, "no main room" instead, Make its room on');
+  await evaluate(`document.querySelector('[data-ws-make-room="cw"]').click()`);
+  check(await waitFor(`!document.querySelector('[data-ws-noroom]') && !document.querySelector('[data-ws-setup] [data-gap="room"]') && state.chat.room === 'cw'`, 30000)
+    && (dozJSON(['workspace', 'show', 'cw']) || {}).rooms?.some((r) => r.chatRoom === 'cw'),
+    'chat on 2 Make its room: the room made (doz workspace show), the room view loads, the set-up items clear — '
+    + JSON.stringify(await evaluate(`({ noroom: !!document.querySelector('[data-ws-noroom]'), gaps: [...document.querySelectorAll('[data-ws-setup] [data-gap]')].map((g) => g.dataset.gap),
+      room: state.chat.room, err: document.querySelector('[data-ws-make-room-error]')?.textContent || '', btn: document.querySelector('[data-ws-make-room]')?.disabled,
+      ops: [...state.ops.values()].filter((o) => o.action === 'workspace-edit' || /room/.test(o.label || '')).map((o) => [o.action, o.label, o.state, o.text]) })`)) + ' ' + JSON.stringify((dozJSON(['workspace', 'show', 'cw']) || {}).rooms));
+  // 3. The wizard: chat off at step 4 — its room's form; on, the plan again with nothing typed lost; Create and start.
+  doz(['chat', 'off']);
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/new-workspace');
+  await waitFor(`state.modal === 'new-workspace' && !!document.querySelector('[data-wsn="work"]')`, 10000);
+  await wizType('[data-wsn-brief]', 'A room once chat is on.');
+  await wizType('[data-wsn-name]', 'cwiz');
+  await wizNext(1); await wizNext(2); await wizNext(3);
+  check(await waitFor(`!!document.querySelector('.wsn-rooms [data-wsn-room="none"]') && !!document.querySelector('.wsn-rooms [data-chat-on-go]')`, 10000),
+    'chat on 3 the wizard\'s step 4 with chat off: "No room: chat is off." and the form');
+  await evaluate(`document.querySelector('.wsn-rooms [data-chat-on-go]').click()`);
+  check(await waitFor(`!!document.querySelector('select[data-wsn-room]') && ${PLANNED} && state.wsn.brief === 'A room once chat is on.' && state.wsn.name === 'cwiz'
+    && !document.querySelector('[data-wsn-create="now"]').disabled`, 90000),
+    'chat on 3 …on: its room can be made, the plan again, nothing typed lost, Create and start on — ' + JSON.stringify(await evaluate(`({ select: !!document.querySelector('select[data-wsn-room]'),
+      none: !!document.querySelector('[data-wsn-room="none"]'), err: document.querySelector('.wsn-rooms [data-chat-on-error]')?.textContent || '', gaps: (state.wsn?.plan?.gaps || []).map((g) => g.item),
+      refusals: state.wsn?.plan?.refusals || [], name: state.wsn?.name, brief: state.wsn?.brief, planned: ${PLANNED}, start: document.querySelector('[data-wsn-create="now"]')?.disabled, on: state.chat.on })`)));
+  check(/^doz chat on\n/.test(await evaluate(`document.querySelector('[data-wsn-commands]')?.textContent || ''`)), 'chat on 3 …the copied commands turn chat on first');
+  await evaluate(`document.querySelector('[data-wsn-create="now"]').click()`);
+  check(await waitFor(`state.view === 'workspace' && state.param === 'cwiz' && !state.modal`, 60000)
+    && !!(dozJSON(['workspace', 'show', 'cwiz']) || {}).flags?.startedAt, 'chat on 3 Create and start: cwiz started, with its room');
+  check(pageErrors.length === errorsBefore, 'chat on: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+}
+
+async function walkWorkspacePage() {
+  check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (scratch store, OS-chosen ports): on already, the page turned it on');
   // From here every permission is never — this Mac's ceiling and an everywhere never for every role. Permissions constrain
   // agents and never the owner: every check below (the workspaces, the wizard, workers, the lifecycle) runs exactly as before.
   const allNever = ['workspace.read', 'agent.start', 'agent.stop', 'worker.start', 'worker.stop', 'isolation.unfenced', 'net.allow', 'secret.use',
@@ -1718,6 +1781,7 @@ try {
   await walkRemoveEnded();
   await walkLists();
   await walkMacs();
+  await walkChatOn();
   await walkWorkspacePage();
   await walkAgents();
   await walkBots();

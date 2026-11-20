@@ -459,6 +459,22 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   `WebActionTests.testTheAskDecision`, `ServeExposureTests.testAnsweringAnAskIsThisMacsOnly`,
   `ServeHTTPTests.testAnAskIsAnsweredOnlyInThisMacsBrowserWhateverTheServeSettings`,
   `WebModulesTests.testTheAskCardAndItsOneAnswerPath`, `make dashboard-walk` ask 1–7.
+- **Turning chat on from the page** is ONE component, `components/chat-on.js` (`chatOnForm`: your name in chat — shown only
+  while you have none, filled with what `doz chat on` would use: chat/status's `named` or `suggestedName`, this Mac's
+  browser only —, "Turn chat on", its error inline in Dozable's words, the terminal's command beneath; `chatOnInline`: the
+  button alone), used wherever the page says chat is off: the Chat page's notice (and so a workspace's Room tab), a
+  workspace's set-up item "a manager needs chat" (`gapsList`'s `onChatOn`), the wizard's "Its room" and its gap. It sends
+  the action **`chat-on`** `{name?}` (the name by the chat's rule, never repeated in a refusal) — exactly what `doz chat on`
+  does, in doz ui (`DozableWebData.chatOn`: named first while you have none, `chat.enabled` set, then `chat-sync` until the
+  server is ready; its HostOp `chat-sync`; "chat is on, but the chat server is not ready: …" when it is not). Then the view
+  reads again: the Chat page's room view loads with no reload of the page, a workspace's page its gaps and room, the wizard
+  its plan with nothing typed lost (its copied commands then start with `doz chat on`). A workspace's "No room yet" has
+  **Make its room**, the action **`workspace-make-room`** `{workspace}` — exactly `doz workspace edit W --make-room` (the
+  HostOp `workspace-edit` with only the name and `makeRoom`) — off until chat is on (the chat-on form first). Both are this
+  Mac's own browser only (`WebAction.isChatOn`/`isMakeRoom`, `WebExposure.decideChatOnAction`/`decideMakeRoomAction` → 403
+  `mac-only`); another computer sees only the commands. Turning chat off stays a terminal's.
+  `WebActionTests.testChatOnAndMakeRoom`, `ServeHTTPTests.testChatOnAndMakeRoomAreThisMacsBrowserOnly`,
+  `WebModulesTests.testChatOnIsOneComponent`, `make dashboard-walk` chat on 1–3.
 - **The page** (`views/chat.js`, the section `#chat`, built once): rooms (`chat-rooms.js`), the log (`chat-messages.js`:
   bubbles, tombstones, direct-message stubs with **Reveal**, change lines, older pages on scrolling up; a message's tools:
   the detail, the reactions picker on someone else's, the pencil on your own, ⋮ › Delete… on any — `confirmCheck`), the

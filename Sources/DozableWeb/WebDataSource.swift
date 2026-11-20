@@ -72,6 +72,9 @@ public protocol DozableWebData: Sendable {
     func hostAnswers() -> Bool
     /// 594 W20: stop an OLDER host and start this UI's build (refused otherwise).
     func restartHost(onEvent: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue
+    /// Chat on — exactly `doz chat on [--name NAME]`: named first when you have no name (`chat-sync` with it, chat still off),
+    /// `chat.enabled` set in the settings file, then `chat-sync` until the chat server is ready (its `ChatServerState`).
+    func chatOn(name: String?) async throws -> JSONValue
     /// 596: the recommended bases and Apple's container tool (the host's `bases` and `builder-status`,
     /// in-process when no host runs — looking never starts anything).
     func bases() async throws -> WebBases
@@ -212,6 +215,7 @@ extension DozableWebData {
     public func restartHost(onEvent: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
         throw HostError(.notImplemented, "daemon restart")
     }
+    public func chatOn(name: String?) async throws -> JSONValue { throw HostError(.notImplemented, "chat on") }
     public func hostProbe() -> WebHostProbe? { nil }
     public func hostAnswers() -> Bool { true }
     public func onboarding() async throws -> WebOnboarding { throw HostError(.notImplemented, "onboarding") }
@@ -463,6 +467,32 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     /// UI's own build, started the normal detached way (HostLauncher). 594 W20 offered it only for an OLDER host;
     /// 647 (owner: "a way to start/restart the host") offers it on the status card for any running host. Refused
     /// with no host (Start host starts one); `host stop` on its own stays out of the browser.
+    public func chatOn(name: String?) async throws -> JSONValue {
+        let store = self.store
+        let paths = ChatPaths(store: store)
+        guard paths.socketFits else { throw HostError(.invalid, paths.socketTooLong) }
+        if let n = name, let why = ChatNames.refusal(n) { throw HostError(.invalid, why) }
+        // You are named first (chat still off, nothing starts), so the daemon never names you itself meanwhile.
+        if name != nil || (try? ChatDirectory.load(paths))?.human == nil {
+            var first = HostRequest(.chatSync)
+            first.chat = ChatRequest(name: name ?? ChatNames.defaultHuman())
+            let req = first
+            let m = try await blocking { try HostClient.request(req, store: store, autostart: true) }
+            guard m.ok == true else { throw m.error ?? HostError(.failed, "the daemon gave no reason") }
+        }
+        do { _ = try DozableSettings.load().writing(SettingKey.chatEnabled, .bool(true)) } catch let e as SettingsError {
+            throw HostError(.failed, e.message)
+        }
+        var r = HostRequest(.chatSync)
+        r.chat = ChatRequest(retry: true, wait: true)
+        let sync = r
+        let m = try await blocking { try HostClient.request(sync, store: store, autostart: true) }
+        guard m.ok == true else { throw m.error ?? HostError(.failed, "the daemon gave no reason") }
+        let st = try (m.result ?? .null).decode(ChatServerState.self)
+        guard st.ready else { throw HostError(.failed, "chat is on, but the chat server is not ready: " + (st.problem ?? st.state) + " (doz chat status)") }
+        return m.result ?? .null
+    }
+
     public func restartHost(onEvent: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
         let store = self.store
         guard store.hostIsRunning(), await hostStatus() != nil else {

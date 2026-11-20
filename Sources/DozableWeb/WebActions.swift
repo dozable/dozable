@@ -171,7 +171,14 @@ public enum WebAction: Equatable, Sendable {
     /// An ask answered from its card in chat — exactly `doz chat decide R ASK …` (the HostOp `chat-decide`, `WebChatDecide`),
     /// once per `actionId`. This Mac's own browser only (`isAsk`, `WebExposure.decideAskAction` → 403 `mac-only`, whatever
     /// `serve.chat` says). Its label and line name the ask and the room, never the answer.
-    case chatDecide(room: String, ask: String, input: WebChatDecide, actionID: String)
+    case chat(WebChatAction)
+    /// Chat turned on — exactly what `doz chat on [--name NAME]` does (`DozableWebData.chatOn`): you named first when you
+    /// have no name yet (`chat-sync` with the name, chat still off), `chat.enabled` set, then `chat-sync` until the chat server
+    /// is ready. Its HostOp is `chat-sync`. This Mac's own browser only (`isChatOn`, `WebExposure.decideChatOnAction` → 403
+    /// `mac-only`): it starts a server that listens. Turning chat off stays a terminal's.
+    /// A workspace's room made now — exactly `doz workspace edit W --make-room` (the HostOp `workspace-edit` with only the
+    /// name and `makeRoom`). This Mac's own browser only (`isMakeRoom`, `WebExposure.decideMakeRoomAction` → 403 `mac-only`):
+    /// the room is made as you.
     /// A space workspace's file saved from the space view — exactly `doz workspace edit W --space-file F --if-match SHA` (the
     /// HostOp `workspace-space-save`: the name, the text and `ifMatch`, never a path — the file is the record's). A file changed
     /// since the page read it is refused, nothing written; saving never runs up. This Mac's own browser only (`isSpace`,
@@ -202,7 +209,7 @@ public enum WebAction: Equatable, Sendable {
              .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart,   // nor is a workspace
              .botNew, .botSet, .botRetire, .botAdopt, .botToken,                          // nor is a bot
              .workerAdd, .workerEnd,                                                      // nor a worker (its place is the daemon's)
-             .workspaceLifecycle, .chatRoomArchive, .chatRoomRm, .workspaceRunArchive, .workspaceSpaceSave, .chatDecide:
+             .workspaceLifecycle, .chatRoomArchive, .chatRoomRm, .workspaceRunArchive, .workspaceSpaceSave, .chat:
             return nil
         }
     }
@@ -254,9 +261,19 @@ public enum WebAction: Equatable, Sendable {
         switch self { case .chatRoomArchive, .chatRoomRm, .workspaceRunArchive: true; default: false }
     }
 
+    /// Chat turned on: this Mac's own browser only (`WebExposure.decideChatOnAction`).
+    public var isChatOn: Bool {
+        if case .chat(let c) = self { c.kind == .on } else { false }
+    }
+
+    /// A workspace's room made: this Mac's own browser only (`WebExposure.decideMakeRoomAction`).
+    public var isMakeRoom: Bool {
+        if case .chat(let c) = self { c.kind == .makeRoom } else { false }
+    }
+
     /// An ask answered: this Mac's own browser only (`WebExposure.decideAskAction`).
     public var isAsk: Bool {
-        if case .chatDecide = self { true } else { false }
+        if case .chat(let c) = self { c.kind == .decide } else { false }
     }
 
     /// A space file saved: this Mac's own browser only (`WebExposure.decideSpaceAction`).
@@ -364,7 +381,12 @@ public enum WebAction: Equatable, Sendable {
         case .chatRoomRm(let room, _, _): return "remove #\(room)"
         case .workspaceRunArchive(let w, let run): return "archive run \(run) of \(w)"
         case .workspaceSpaceSave(let w, _, _): return "save the space file of \(w)"
-        case .chatDecide(let room, let ask, _, _): return "answer ask \(ask) in \(room)"
+        case .chat(let c):
+            switch c.kind {
+            case .decide: return "answer ask \(c.ask) in \(c.room)"
+            case .on: return "turn chat on"
+            case .makeRoom: return "make the room of \(c.workspace)"
+            }
         default: break
         }
         let r = hostRequest
@@ -650,8 +672,22 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.workspaceRunArchive)
             r.workspaceRequest = q
             return r
-        case .chatDecide(let room, let ask, let input, let id):
-            return input.request(room: room, ask: ask, actionID: id)
+        case .chat(let c) where c.kind == .decide:
+            return (c.input ?? WebChatDecide()).request(room: c.room, ask: c.ask, actionID: c.actionID)
+        case .chat(let c) where c.kind == .on:
+            let name: String? = c.name.isEmpty ? nil : c.name
+            // `doz chat on`'s last call: the chat server until it is ready (the name and the setting come first —
+            // `DozableWebData.chatOn` does all three).
+            var r = HostRequest(.chatSync)
+            r.chat = ChatRequest(name: name, retry: true, wait: true)
+            return r
+        case .chat(let c):
+            // What `doz workspace edit W --make-room` sends.
+            var q = WorkspaceRequest(name: c.workspace)
+            q.makeRoom = true
+            var r = HostRequest(.workspaceEdit)
+            r.workspaceRequest = q
+            return r
         case .workspaceSpaceSave(let w, let text, let ifMatch):
             // What `doz workspace edit W --space-file F --if-match SHA` sends: the name, the text, the sha — never a path.
             var q = WorkspaceRequest(name: w)
@@ -755,6 +791,8 @@ public enum WebAction: Equatable, Sendable {
             "workspace-run-archive": ["workspace", "run"],
             "workspace-space-save": ["workspace", "text", "ifMatch"],
             "chat-decide": WebChatDecide.fields,
+            "chat-on": ["name"],
+            "workspace-make-room": ["workspace"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -788,6 +826,8 @@ public enum WebAction: Equatable, Sendable {
         let extra = Set(d.keys).subtracting(allowed).subtracting(allowBatch ? ["action", "batch"] : ["action"])
         guard extra.isEmpty else { throw Invalid("unexpected field(s) for \(verb): \(extra.sorted().joined(separator: ", "))") }
         let f = Fields(d)
+        // Chat's actions (none needs a confirmation), decided before the long switch.
+        if let c = try chatAction(verb, d, f) { return Request(action: .chat(c), batch: batch) }
         let a: WebAction
         switch verb {
         case "create":
@@ -1059,9 +1099,6 @@ public enum WebAction: Equatable, Sendable {
         case "workspace-run-archive":
             a = .workspaceRunArchive(workspace: try f.workspaceName("workspace"),
                                      run: try f.required(f.matching("run", "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{1,6}$", "a run's id"), "run"))
-        case "chat-decide":
-            let x = try WebChatDecide.decode(d)
-            a = .chatDecide(room: x.room, ask: x.ask, input: x.input, actionID: x.actionID)
         case "workspace-space-save":
             let sha = try f.required(f.matching("ifMatch", "^[0-9a-f]{64}$", "the space file's sha256 as read, 64 lower-case hex digits"), "ifMatch")
             let text = try WebSpace.spaceText(f, "text")
@@ -1080,6 +1117,25 @@ public enum WebAction: Equatable, Sendable {
             throw Invalid("confirm goes with an unfenced worker only")
         }
         return Request(action: a, batch: batch)
+    }
+
+    /// `chat-on`, `workspace-make-room`, `chat-decide` (nil: another action).
+    static func chatAction(_ verb: String, _ d: [String: Any], _ f: Fields) throws -> WebChatAction? {
+        switch verb {
+        case "chat-on": return .on(name: try chatName(f) ?? "")
+        case "workspace-make-room": return .makeRoom(workspace: try f.workspaceName("workspace"))
+        case "chat-decide":
+            let x = try WebChatDecide.decode(d)
+            return .decide(room: x.room, ask: x.ask, input: x.input, actionID: x.actionID)
+        default: return nil
+        }
+    }
+
+    /// `chat-on`'s name: absent, or one the chat takes — refused in Dozable's words, the name itself never repeated.
+    static func chatName(_ f: Fields) throws -> String? {
+        guard let n = try f.string("name", max: 64) else { return nil }
+        if let why = ChatNames.refusal(n) { throw Invalid("name: " + why.replacingOccurrences(of: n, with: "that name")) }
+        return n
     }
 
     /// Typed field readers — each enforces the rule the CLI or the library would.
@@ -1537,5 +1593,35 @@ public struct WebOpProgress: Codable, Equatable, Sendable {
             break
         }
         if steps.count > 40 { steps.removeFirst(steps.count - 40) }
+    }
+}
+
+/// Chat's actions from the page, as one case of `WebAction` (`.chat`): each is exactly one HostOp the CLI sends.
+///   - `decide`: an ask answered from its card — `doz chat decide R ASK …` (`chat-decide`, `WebChatDecide`), once per
+///     `actionID`; this Mac's own browser only (`isAsk`); its label and line never the answer.
+///   - `on`: chat turned on — exactly `doz chat on [--name NAME]` (`DozableWebData.chatOn`; its HostOp `chat-sync`); `name`
+///     "" when none is given; this Mac's own browser only (`isChatOn`).
+///   - `makeRoom`: a workspace's room made — exactly `doz workspace edit W --make-room` (`workspace-edit` with only the name
+///     and `makeRoom`); this Mac's own browser only (`isMakeRoom`).
+public final class WebChatAction: Equatable, Sendable {
+    public enum Kind: String, Equatable, Sendable { case decide, on, makeRoom }
+    public let kind: Kind
+    public let room: String, ask: String, actionID: String
+    public let input: WebChatDecide?
+    public let name: String
+    public let workspace: String
+    init(_ kind: Kind, room: String = "", ask: String = "", actionID: String = "", input: WebChatDecide? = nil, name: String = "", workspace: String = "") {
+        self.kind = kind; self.room = room; self.ask = ask; self.actionID = actionID; self.input = input; self.name = name; self.workspace = workspace
+    }
+
+    public static func decide(room: String, ask: String, input: WebChatDecide, actionID: String) -> WebChatAction {
+        WebChatAction(.decide, room: room, ask: ask, actionID: actionID, input: input)
+    }
+    public static func on(name: String) -> WebChatAction { WebChatAction(.on, name: name) }
+    public static func makeRoom(workspace: String) -> WebChatAction { WebChatAction(.makeRoom, workspace: workspace) }
+
+    public static func == (a: WebChatAction, b: WebChatAction) -> Bool {
+        a.kind == b.kind && a.room == b.room && a.ask == b.ask && a.actionID == b.actionID && a.input == b.input && a.name == b.name
+            && a.workspace == b.workspace
     }
 }

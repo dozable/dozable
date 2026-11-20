@@ -116,6 +116,8 @@ public enum WebRejection: String, Error, Equatable, Sendable {
     case macOnlyLifecycle = "mac-only-lifecycle"
     case macOnlyRooms = "mac-only-rooms"
     case macOnlyAsks = "mac-only-asks"
+    case macOnlyChatOn = "mac-only-chat-on"
+    case macOnlyMakeRoom = "mac-only-make-room"
     /// A space file saved from another computer — the same `mac-only` code, its own words.
     case macOnlySpace = "mac-only-space"
     /// A fenced session's site allowed from another computer — the same `mac-only` code, its own words.
@@ -146,11 +148,11 @@ public enum WebRejection: String, Error, Equatable, Sendable {
     case chatFileTooLarge = "chat-file-too-large"
 
     /// The code a response and the audit log carry: one family's refusals share it (`mac-only`), each with its own words.
-    public var code: String { [.macOnlyFiling, .macOnlyBots, .macOnlyStart, .macOnlyWorkers, .macOnlyLifecycle, .macOnlyRooms, .macOnlyAsks, .macOnlyNet, .macOnlySessions, .macOnlySpace].contains(self) ? WebRejection.macOnly.rawValue : rawValue }
+    public var code: String { [.macOnlyFiling, .macOnlyBots, .macOnlyStart, .macOnlyWorkers, .macOnlyLifecycle, .macOnlyRooms, .macOnlyAsks, .macOnlyChatOn, .macOnlyMakeRoom, .macOnlyNet, .macOnlySessions, .macOnlySpace].contains(self) ? WebRejection.macOnly.rawValue : rawValue }
 
     public var status: Int {
         switch self {
-        case .hostRejected, .originRejected, .crossSite, .csrfRejected, .terminalsOff, .secretEntryOff, .secretOverHTTP, .macScreen, .macOnly, .macOnlyFiling, .macOnlyBots, .macOnlyStart, .macOnlyWorkers, .macOnlyLifecycle, .macOnlyRooms, .macOnlyAsks, .macOnlyNet, .macOnlySessions, .macOnlySpace, .macSession, .notServedAddress, .chatRemote, .chatReadOnly, .briefRemote, .spaceRemote: 403
+        case .hostRejected, .originRejected, .crossSite, .csrfRejected, .terminalsOff, .secretEntryOff, .secretOverHTTP, .macScreen, .macOnly, .macOnlyFiling, .macOnlyBots, .macOnlyStart, .macOnlyWorkers, .macOnlyLifecycle, .macOnlyRooms, .macOnlyAsks, .macOnlyChatOn, .macOnlyMakeRoom, .macOnlyNet, .macOnlySessions, .macOnlySpace, .macSession, .notServedAddress, .chatRemote, .chatReadOnly, .briefRemote, .spaceRemote: 403
         case .methodNotAllowed: 405
         case .alreadyRunning, .pickerOpen, .serveNotRunning: 409
         case .tooManyAttempts: 429
@@ -213,6 +215,8 @@ public enum WebRejection: String, Error, Equatable, Sendable {
         case .macOnlySessions: "Ended sessions on this Mac are removed only in this Mac's own browser, or with doz sessions @mac --forget-ended in a terminal on the Mac"
         case .macOnlyNet: "A site is allowed for a session on this Mac only in this Mac's own browser, or with doz net allow @mac --session SESSION site:HOST in a terminal on the Mac"
         case .macOnlyLifecycle: "A workspace is put to sleep, woken, finished, archived, restored or deleted only in this Mac's own browser, or with doz workspace … in a terminal on the Mac"
+        case .macOnlyChatOn: "Chat is turned on only in this Mac's own browser, or with doz chat on in a terminal on the Mac"
+        case .macOnlyMakeRoom: "A workspace's room is made only in this Mac's own browser, or with doz workspace edit … --make-room in a terminal on the Mac"
         case .macOnlyAsks: "Asks are answered in this Mac's own browser for now, or with doz chat decide in a terminal on the Mac"
         case .macOnlyRooms: "A room is archived or removed, and a run's archive written again, only in this Mac's own browser, or with doz chat room … and doz workspace runs … in a terminal on the Mac"
         case .macOnlySpace: "A space file is changed only in this Mac's own browser, or with doz workspace edit in a terminal on the Mac"

@@ -160,6 +160,29 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(try read("app/core/ws-lifecycle.js").contains("b.noArchive = true"))
     }
 
+    /// Chat on: one component (`components/chat-on.js`) sends `chat-on`, and every place that says chat is off uses it (the
+    /// Chat page and a workspace's Room tab, the set-up item, the wizard's room and gap); only a workspace's page sends
+    /// `workspace-make-room`.
+    func testChatOnIsOneComponent() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        XCTAssertTrue(try WebAssets.load().assets.keys.contains { $0.hasPrefix("/assets/app/components/chat-on-") })
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+        var on: [String] = [], room: [String] = []
+        for f in files {
+            let t = try read(f)
+            if t.contains("'chat-on'") { on.append(f) }
+            if t.contains("'workspace-make-room'") { room.append(f) }
+        }
+        XCTAssertEqual(on, ["app/components/chat-on.js"])
+        XCTAssertEqual(room, ["app/views/workspace.js"])
+        XCTAssertTrue(try read("app/views/chat.js").contains("chatOnForm("))
+        XCTAssertTrue(try read("app/components/ws-gaps.js").contains("chatOnInline("))
+        XCTAssertTrue(try read("app/views/new-workspace.js").contains("chatOnForm({ onOn: chatCameOn })"))
+        XCTAssertTrue(try read("app/views/workspace.js").contains("gapsList(gaps, { onChatOn: chatCameOn })"))
+    }
+
     /// Asks: the card and the one answer path ship; only core/asks.js sends `chat-decide` (the card and the space diagram
     /// both call it); the card is drawn by chat-messages for an ask, and chat-live redraws it on the stream's `ask` event.
     func testTheAskCardAndItsOneAnswerPath() throws {

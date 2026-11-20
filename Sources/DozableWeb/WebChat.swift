@@ -456,6 +456,10 @@ public struct WebChatStatus: Codable, Equatable, Sendable {
     /// What this browser may do: `write` (this Mac's own, or another computer with `serve.chat = write`) or `read` (the
     /// composer and every control that changes something are off). nil before chat runs.
     public var access: String?
+    /// Chat off, this Mac's browser only: your name in chat if you have one (`named`), else the one `doz chat on` would give
+    /// you (`suggestedName`, the Mac account's short name) — the chat-on form's field. Never for another computer.
+    public var named: String?
+    public var suggestedName: String?
 
     public init(state: String, problem: String? = nil, access: String? = nil) {
         self.state = state; self.problem = problem; self.access = access
@@ -548,11 +552,15 @@ final class WebChatProxy: @unchecked Sendable {
 
 extension DozableWebServer {
     /// One chat route (the Mac's own browser, signed in, its unsafe-request checks passed already).
-    func chatReply(_ route: WebChatRoute, _ md: WebRequestMetadata, body: Data, cookie: String, writable: Bool = true) async throws -> Reply {
+    func chatReply(_ route: WebChatRoute, _ md: WebRequestMetadata, body: Data, cookie: String, writable: Bool = true, mac: Bool = false) async throws -> Reply {
         let jsonType = ("Content-Type", "application/json; charset=utf-8")
         if case .status = route {
             var st = chat.status()
             if st.state == "running" { st.access = writable ? "write" : "read" }
+            if st.state == "off", mac {
+                st.named = (try? ChatDirectory.load(chat.paths))?.human
+                if st.named == nil { st.suggestedName = ChatNames.defaultHuman() }
+            }
             return json(st)
         }
         if case .stream = route {
