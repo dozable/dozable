@@ -44,6 +44,8 @@ public enum WorkspaceVerb: String, Codable, CaseIterable, Sendable {
 
 public enum WorkspaceLifecycle {
     public enum Confirm: String, Codable, Sendable { case none, yes, typed }
+    /// The finish plan's line when it closes a room (verbatim, the owner's words).
+    public static let closesNote = "finish closes the room to new messages until you reopen"
 
     /// What the plan knows of one agent's place now.
     public struct AgentFacts: Equatable, Sendable {
@@ -98,10 +100,45 @@ public enum WorkspaceLifecycle {
         public var foldersInUse: [String: String]
         /// The image and template names taken (a kept template gets a free one).
         public var imagesTaken: Set<String>
+        /// Finish (and archive of a workspace not finished): what the run's archive would hold (nil: not looked at).
+        public var archive: ArchiveFacts?
+        /// The rooms the workspace made (owns): only these are closed at finish (nil: as the record says).
+        public var ownedRooms: Set<String>?
         public init(known: Bool = true, agents: [String: AgentFacts] = [:], chat: Chat = .ready, width: Int = 3, busy: Bool = false,
                     home: String = "/Users/nobody", store: String = "/tmp/store", foldersInUse: [String: String] = [:], imagesTaken: Set<String> = []) {
             self.known = known; self.agents = agents; self.chat = chat; self.width = width; self.busy = busy; self.home = home; self.store = store
             self.foldersInUse = foldersInUse; self.imagesTaken = imagesTaken
+        }
+    }
+
+    /// What the run's archive would hold, as the plan sees it.
+    public struct ArchiveFacts: Equatable, Sendable {
+        /// The run's id (the open one, or the one its finish would record) and where its archive goes (relative to the store).
+        public var run: String
+        public var path: String
+        /// Each room of the run → its messages so far (nil: not known — chat is not ready).
+        public var rooms: [String: Int?]
+        /// Each agent → where its conversations come from, how many and their bytes (nil: not known until it stops).
+        public var transcripts: [String: (source: String, files: Int?, bytes: Int64?)]
+        /// The agents with a screen kept.
+        public var screens: [String]
+        /// Free bytes on the store's disk (nil: not known).
+        public var freeBytes: Int64?
+        public init(run: String, path: String, rooms: [String: Int?] = [:], transcripts: [String: (source: String, files: Int?, bytes: Int64?)] = [:],
+                    screens: [String] = [], freeBytes: Int64? = nil) {
+            self.run = run; self.path = path; self.rooms = rooms; self.transcripts = transcripts; self.screens = screens; self.freeBytes = freeBytes
+        }
+        public static func == (a: ArchiveFacts, b: ArchiveFacts) -> Bool {
+            a.run == b.run && a.path == b.path && a.rooms == b.rooms && a.screens == b.screens && a.freeBytes == b.freeBytes
+                && a.transcripts.mapValues { "\($0.source)|\($0.files.map(String.init) ?? "")|\($0.bytes.map(String.init) ?? "")" }
+                == b.transcripts.mapValues { "\($0.source)|\($0.files.map(String.init) ?? "")|\($0.bytes.map(String.init) ?? "")" }
+        }
+
+        /// A rough size: each message about 2 KiB, the conversations' bytes, 64 KiB a screen and the small files.
+        public var estimateBytes: Int64 {
+            let msgs = rooms.values.compactMap { $0 }.reduce(0, +)
+            let tr = transcripts.values.compactMap(\.bytes).reduce(0, +)
+            return Int64(msgs) * 2048 + tr + Int64(screens.count) * 65_536 + 262_144
         }
     }
 
@@ -113,11 +150,14 @@ public enum WorkspaceLifecycle {
         public var keepTemplates: Bool
         /// Delete: move its folders to the Bin.
         public var binFolders: Bool
-        public init(removeSandboxes: Bool = false, keepTemplates: Bool = true, binFolders: Bool = false) {
-            self.removeSandboxes = removeSandboxes; self.keepTemplates = keepTemplates; self.binFolders = binFolders
+        /// Finish, archive: no evidence archive (`--no-archive`).
+        public var noArchive: Bool
+        public init(removeSandboxes: Bool = false, keepTemplates: Bool = true, binFolders: Bool = false, noArchive: Bool = false) {
+            self.removeSandboxes = removeSandboxes; self.keepTemplates = keepTemplates; self.binFolders = binFolders; self.noArchive = noArchive
         }
         public init(_ w: WorkspaceRequest) {
-            self.init(removeSandboxes: w.removeSandboxes == true, keepTemplates: w.keepTemplates != false, binFolders: w.binFolders == true)
+            self.init(removeSandboxes: w.removeSandboxes == true, keepTemplates: w.keepTemplates != false, binFolders: w.binFolders == true,
+                      noArchive: w.noArchive == true)
         }
     }
 
@@ -160,6 +200,7 @@ public enum WorkspaceLifecycle {
             }
         }
         var rows: [WorkspaceLifecycleRow] = []
+        var roomRows: [WorkspaceLifecycleRoomRow] = []
         var commands: [String] = []
         var notes: [String] = []
         var keeps: [WorkspaceLifecycleItem] = []
@@ -316,11 +357,25 @@ public enum WorkspaceLifecycle {
         case .wake:
             keeps = [.init("the brief is not posted again")]
         case .finish:
-            keeps = [.init(rec.rooms.isEmpty ? "no room" : "the room\(rec.rooms.count == 1 ? "" : "s") \(roomList) — you can still write"),
+            keeps = [.init(rec.rooms.isEmpty ? "no room" : "the room\(rec.rooms.count == 1 ? "" : "s") \(roomList) and \(rec.rooms.count == 1 ? "its" : "their") history — members can read"),
                      .init("every token (reopen works)"), .init("every disk and conversation"), .init("every folder, untouched")]
+            var closes = false
+            for room in rec.rooms where room.goneAt == nil {
+                let owned = facts.ownedRooms?.contains(room.chatRoom) ?? (room.owned == true)
+                roomRows.append(WorkspaceLifecycleRoomRow(room: room.chatRoom, label: room.label, owned: owned,
+                                                          after: owned ? "closed: members can read it, posts refused (space-down)" : "linked: not closed"))
+                if owned { closes = true }
+            }
+            if closes {
+                goes.append(.init("new messages in \(roomRows.filter(\.owned).map { "#" + $0.room }.joined(separator: ", ")) (closed until you reopen)"))
+                notes.append(WorkspaceLifecycle.closesNote)
+            }
             notes.append("nothing runs afterwards; doz workspace reopen \(n), then wake, to work on it again")
         case .reopen:
             keeps = [.init("everything as it was finished")]
+            if rec.runs.last.map({ !$0.isOpen }) == true, !(facts.ownedRooms ?? []).isEmpty {
+                notes.append("its rooms open to new messages again, and a new run begins")
+            }
             notes.append("nothing runs yet: doz workspace wake \(n) brings its agents back")
         case .archive:
             keeps = [.init(rec.rooms.isEmpty ? "no room" : "the history and files of \(roomList) (read-only)"), .init("the brief, its log and the conversations"),
@@ -361,7 +416,34 @@ public enum WorkspaceLifecycle {
             }
             if !running.isEmpty { refuse(.invalidPhase, "\(running.joined(separator: ", ")) still run\(running.count == 1 ? "s" : "") — doz workspace finish \(n) stops \(running.count == 1 ? "it" : "them") first") }
             if !rec.rooms.isEmpty, facts.chat != .ready, rec.flags.archivedAt == nil { notes.append("chat is not running: its rooms stay as they are") }
-            notes.append("the chat server cannot delete a room: its rooms stay, archived, with their history")
+            notes.append("its rooms stay, archived, with their history — doz chat room rm R removes a room for good")
+            if !rec.runs.isEmpty { keeps.append(.init("its run archives (\(rec.runs.filter { $0.archive != nil }.count)) in the store")) }
+        }
+        // The run's evidence archive: what it will hold, and what would keep it from being written.
+        var archivePlan: WorkspaceArchivePlan?
+        if verb == .finish || (verb == .archive && !finished) {
+            if o.noArchive {
+                archivePlan = WorkspaceArchivePlan(off: true)
+                notes.append("no archive of the run is written (--no-archive)")
+            } else if let a = facts.archive {
+                var ap = WorkspaceArchivePlan(off: false)
+                ap.run = a.run
+                ap.path = a.path
+                ap.rooms = a.rooms.keys.sorted().map { WorkspaceArchivePlan.Room(room: $0, messages: a.rooms[$0] ?? nil) }
+                ap.transcripts = a.transcripts.keys.sorted().map { k in
+                    let t = a.transcripts[k]!
+                    return WorkspaceArchivePlan.Transcripts(agent: k, source: t.source, files: t.files)
+                }
+                ap.screens = a.screens.sorted()
+                ap.estimateBytes = a.estimateBytes
+                archivePlan = ap
+                if !a.rooms.isEmpty, facts.chat != .ready {
+                    refuse(.unavailable, "chat is not ready, and the run's messages go into its archive — doz chat status, or --no-archive to finish without one")
+                }
+                if let free = a.freeBytes, a.estimateBytes > free {
+                    refuse(.unavailable, "the run's archive needs about \(DozableImages.formatBytes(a.estimateBytes)) and the store's disk has \(DozableImages.formatBytes(free)) free — free some space, or --no-archive")
+                }
+            }
         }
         if (verb == .archive || verb == .delete), o.removeSandboxes, removedNames.isEmpty {
             notes.append("no sandbox was made for it by Dozable: --remove-sandboxes removes nothing (adopted sandboxes are never removed)")
@@ -386,6 +468,8 @@ public enum WorkspaceLifecycle {
         p.notes = notes
         p.factsKnown = facts.known
         p.templates = templates.isEmpty ? nil : templates
+        p.archive = archivePlan
+        p.rooms = roomRows.isEmpty ? nil : roomRows
         p.sha = sha(p, options: o)
         return p
     }
@@ -398,6 +482,7 @@ public enum WorkspaceLifecycle {
             if !o.keepTemplates { a.append("--no-keep-templates") }
         }
         if verb == .delete, o.binFolders { a.append("--bin-folders") }
+        if verb == .finish || verb == .archive, o.noArchive { a.append("--no-archive") }
         return a.joined(separator: " ")
     }
 
@@ -447,6 +532,12 @@ public enum WorkspaceLifecycle {
         parts += p.rows.sorted { $0.name < $1.name }.map { [$0.name, $0.role, $0.place, $0.isolation, $0.now, $0.after, $0.changes ? "1" : "0"].joined(separator: "\u{1F}") }
         parts += p.goes.map { $0.text + ($0.path ?? "") }.sorted()
         parts += p.refusals.sorted()
+        parts += (p.rooms ?? []).map { "room:\($0.room):\($0.after)" }
+        // The archive's shape — never its counts or sizes, which move by themselves.
+        if let a = p.archive {
+            parts += ["archive", a.off ? "off" : "on", a.path ?? "", a.rooms.map(\.room).joined(separator: ","),
+                      a.transcripts.map { "\($0.agent):\($0.source)" }.joined(separator: ",")]
+        }
         let d = Data(parts.joined(separator: "\u{1E}").utf8)
         return SHA256.hash(data: d).map { String(format: "%02x", $0) }.joined().prefix(16).description
     }
@@ -516,7 +607,37 @@ public struct WorkspaceLifecyclePlan: Codable, Equatable, Sendable {
     public var factsKnown = true
     /// Archive and delete with `--remove-sandboxes --keep-templates`: sandbox → the template kept of it.
     public var templates: [String: String]?
+    /// Finish (and archive of a workspace not finished): the run's evidence archive. Additive.
+    public var archive: WorkspaceArchivePlan?
+    /// Finish: each room and what becomes of it (an owned room is closed, a linked one is not). Additive.
+    public var rooms: [WorkspaceLifecycleRoomRow]?
     /// The plan's identity: a verb sent with `ifPlan` is refused when the plan it builds has another.
     public var sha = ""
     public init(workspace: String, verb: String, state: String) { self.workspace = workspace; self.verb = verb; self.state = state }
+}
+
+/// The archive section of a finish's plan: where the run's archive goes, the messages per room, each agent's
+/// conversations and where they come from, the screens kept, and a size estimate.
+public struct WorkspaceArchivePlan: Codable, Equatable, Sendable {
+    public struct Room: Codable, Equatable, Sendable { public var room: String; public var messages: Int? }
+    public struct Transcripts: Codable, Equatable, Sendable { public var agent: String; public var source: String; public var files: Int? }
+    /// `--no-archive`: none is written.
+    public var off: Bool
+    public var run: String?
+    /// Relative to the store.
+    public var path: String?
+    public var rooms: [Room] = []
+    public var transcripts: [Transcripts] = []
+    public var screens: [String] = []
+    public var estimateBytes: Int64?
+    public init(off: Bool) { self.off = off }
+}
+
+/// A room in a finish's plan: what becomes of it.
+public struct WorkspaceLifecycleRoomRow: Codable, Equatable, Sendable {
+    public var room: String
+    public var label: String
+    public var owned: Bool
+    public var after: String
+    public init(room: String, label: String, owned: Bool, after: String) { self.room = room; self.label = label; self.owned = owned; self.after = after }
 }

@@ -229,6 +229,19 @@ browser. With `read` the composer and every control that changes something are o
 `write`, each thing such a browser sends is a line in the dashboard's audit log (`doz ui log`): which browser, which
 action, never what it said. This Mac's own browser always has chat.
 
+## Closing, archiving and removing a room
+
+A room a workspace made is **closed** when the workspace finishes: it can be read, and a post is refused until the
+workspace is reopened. `doz chat rooms` shows each room's state. When a workspace is finished you can put one of its rooms
+away and then remove it for good — only after its history is copied into the store and checked:
+
+```bash
+doz chat room archive ROOM
+doz chat room rm ROOM          # asks for the room's name; a tombstone stays (doz chat rooms --gone)
+```
+
+A loose room (made outside your workspaces) needs `--loose`; a room a workspace only linked is never removed this way.
+
 ## What is not there yet
 
 Room apps (a room's own page), notifications from the browser, and a separate address for attachments. The chat

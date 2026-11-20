@@ -99,6 +99,10 @@ dashboard, where the browser needs that Mac's own invite. Adding or removing a M
 
 `ui.lan` and the `serve.*` settings — who can reach the dashboard — are changed only on the Mac, with `doz config set`.
 
+A workspace's runs can be listed from another browser, and a past run's messages read there only when `serve.chat`
+allows reading chat. Archiving or removing a room, and writing a run's archive again, happen only in this Mac's own
+browser (or with `doz chat room …` and `doz workspace runs …` in a terminal on the Mac).
+
 ## Adding this Mac to another Mac's list
 
 To open this Mac's dashboard from another Mac's machine picker, put this dashboard on the network first (`doz ui --lan`,

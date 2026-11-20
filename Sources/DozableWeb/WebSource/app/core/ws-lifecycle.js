@@ -37,6 +37,7 @@ export function planBody(workspace, verb, o) {
   const b = { workspace, verb };
   if ((verb === 'archive' || verb === 'delete') && o && o.removeSandboxes) b.removeSandboxes = true;
   if (verb === 'delete' && o && o.binFolders) b.binFolders = true;
+  if ((verb === 'finish' || verb === 'archive') && o && o.noArchive) b.noArchive = true;
   return b;
 }
 
@@ -46,6 +47,7 @@ export function actionBody(plan, o) {
   if ((plan.verb === 'archive' || plan.verb === 'delete') && o.removeSandboxes) b.removeSandboxes = true;
   if (plan.verb === 'delete' && o.binFolders) b.binFolders = true;
   if (plan.verb === 'wake' && o.actsAsYou) b.actsAsYou = true;
+  if ((plan.verb === 'finish' || plan.verb === 'archive') && o.noArchive) b.noArchive = true;
   if (confirmKind(plan.verb) === 'typed') b.confirm = o.typed || '';
   return b;
 }

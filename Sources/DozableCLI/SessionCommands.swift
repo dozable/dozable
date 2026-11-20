@@ -344,6 +344,7 @@ extension SessionsList {
         var r = HostRequest(.sessionForget, name: name)
         r.session = forget
         r.forgetEnded = forgetEnded ? true : nil
+        r.discardTranscripts = discardTranscripts ? true : nil
         r.dryRun = true
         let plan = try decode(try await query(r, g), SessionsForgotten.self, g)
         func say(_ f: SessionsForgotten, verb: String) {
@@ -359,8 +360,8 @@ extension SessionsList {
             return
         }
         if !g.json { say(plan, verb: "to forget") }
-        try confirm("Forget \(plan.forgotten.joined(separator: ", "))? A gone session can no longer be restarted; their conversations are carried back first",
-                    yes: yes, g)
+        try confirm("Forget \(plan.forgotten.joined(separator: ", "))? A gone session can no longer be restarted; their conversations are carried back first"
+                    + (discardTranscripts ? ", then discarded where a closed run's verified archive holds the same bytes" : ""), yes: yes, g)
         r.dryRun = nil
         r.sessions = plan.forgotten
         r.session = nil
@@ -440,6 +441,8 @@ struct SessionsList: AsyncParsableCommand {
     @Option(name: .long, help: "With --transcripts: copy them, with a manifest, into this new or empty folder (no link followed, every file swept for tokens).") var export: String?
     @Option(name: .long, help: "@mac: forget this ended or gone session (its conversations carried back first; never a running one or a workspace's).") var forget: String?
     @Flag(name: .customLong("forget-ended"), help: "@mac: forget every ended or gone session — listed, then asked once.") var forgetEnded = false
+    @Flag(name: .customLong("discard-transcripts"), help: "With --forget: also discard its conversations — each only while it is the same as the copy a closed run's verified archive holds (a finished workspace's session too: it starts fresh on wake).")
+    var discardTranscripts = false
     @Flag(name: .customLong("dry-run"), help: "With --forget-ended or --forget: say what would be forgotten and kept; change nothing (no daemon needed).") var dryRun = false
     @Flag(name: [.short, .long], help: "With --forget-ended or --forget: do not ask.") var yes = false
 
@@ -451,6 +454,7 @@ struct SessionsList: AsyncParsableCommand {
             return
         }
         if dryRun || yes { throw fail(HostError(.invalid, "--dry-run and --yes go with --forget-ended or --forget SESSION"), g, code: DozableExit.usage) }
+        if discardTranscripts { throw fail(HostError(.invalid, "--discard-transcripts goes with --forget SESSION"), g, code: DozableExit.usage) }
         if vt { throw fail(HostError(.invalid, "--vt goes with --screen SESSION"), g, code: DozableExit.usage) }
         if (capabilities != nil || transcripts != nil), !MacPlace.isPlace(name) {
             throw fail(HostError(.invalid, "--capabilities and --transcripts are for doz sessions @mac"), g, code: DozableExit.usage)

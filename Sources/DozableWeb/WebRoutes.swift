@@ -120,6 +120,9 @@ public enum WebRoute: Equatable, Sendable {
     case workspaceReach                 // POST /api/v1/workspace-reach     ({workspace, agent?})
     case workspaceFolders               // POST /api/v1/workspace-folders   ({workspace})
     case workspaceActivity              // POST /api/v1/workspace-activity  ({workspace, before?, limit?})
+    case workspaceRuns                  // POST /api/v1/workspace-runs      ({workspace})
+    case workspaceRunChat               // POST /api/v1/workspace-run-chat  ({workspace, run, room, before?, limit?})
+    case chatRoomPlan                   // POST /api/v1/chat-room-plan      ({room, verb})
     case macSessionPlan                 // POST /api/v1/mac/session-plan  ({case, program, folder, session?, preset?, account?, github?, agentConfig?, simulator?, keychain?, ports?, open?})
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
@@ -263,6 +266,9 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 1) where rest[0] == "workspace-reach": return .workspaceReach
         case (.post, 1) where rest[0] == "workspace-folders": return .workspaceFolders
         case (.post, 1) where rest[0] == "workspace-activity": return .workspaceActivity
+        case (.post, 1) where rest[0] == "workspace-runs": return .workspaceRuns
+        case (.post, 1) where rest[0] == "workspace-run-chat": return .workspaceRunChat
+        case (.post, 1) where rest[0] == "chat-room-plan": return .chatRoomPlan
         case (.post, 2) where rest == ["project", "open"]: return .projectOpen
         case (.post, 2) where rest == ["project", "preview"]: return .projectPreview
         case (.post, 2) where rest == ["project", "write"]: return .projectWrite

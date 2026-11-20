@@ -436,4 +436,5 @@ extension JValue {
     }
 
     public var stringValue: String? { if case .string(let s) = self { return s }; return nil }
+    public var boolValue: Bool? { if case .bool(let b) = self { return b }; return nil }
 }

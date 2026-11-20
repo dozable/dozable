@@ -235,9 +235,11 @@ extension HostCore {
                 try? workspaces.append(n, WorkspaceLogEntry(action: "bot-invited", agent: bot, room: room))
             }
         }
-        // 3. The kick-off, as you, before the manager — once.
+        // 3. The kick-off, as you, before the manager — once. The first run opens just before it (each room's last seq its
+        // start marker, as data): the brief is the run's first message.
         var kickedOff = false
         if rec.flags.startedAt == nil {
+            _ = try? await openRun(n)
             if let room, let chat, ready {
                 let brief = workspaces.readBrief(n) ?? ""
                 let text = ManagerKickoff.briefPost(brief: brief, refs: rec.brief.refs)

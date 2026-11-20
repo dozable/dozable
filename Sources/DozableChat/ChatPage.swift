@@ -326,8 +326,7 @@ public struct ChatPageHandler: Sendable {
         // Checked: by its token, or by the owner's socket (only this user's processes reach it).
         line.verified = core.config.requireTokens || r.caller == .owner
         let rc = core.post(line, sender: who)
-        return .json(rc.state == "refused" ? 422 : 200,
-                     .map(["msg_id": .string(line.msgID), "state": .string(rc.state), "detail": .string(rc.detail)]))
+        return .json(rc.state == "refused" ? 422 : 200, rc.members(["msg_id": .string(line.msgID)]))
     }
 
     /// The human edits or deletes a message, done once per X-Chat-Id.
@@ -344,7 +343,7 @@ public struct ChatPageHandler: Sendable {
         guard let rc = core.pageOnce(id: r.header(Self.idHeader), room: room, who: who, {
             verb == "edit" ? core.edit(room: room, sender: who, ref: id, text: text) : core.delete(room: room, who: who, ref: id)
         }) else { return .jsonError(400, Self.idHeader + " must be a uuid") }
-        return .json(rc.state == "refused" ? 422 : 200, .map(["state": .string(rc.state), "detail": .string(rc.detail)]))
+        return .json(rc.state == "refused" ? 422 : 200, rc.members())
     }
 
     /// The human reacts from the page, done once per X-Chat-Id. The body is at most 4096 bytes.
@@ -359,7 +358,7 @@ public struct ChatPageHandler: Sendable {
         guard let rc = core.pageOnce(id: r.header(Self.idHeader), room: room, who: who, {
             core.react(room: room, sender: who, msgID: id, what: what)
         }) else { return .jsonError(400, Self.idHeader + " must be a uuid") }
-        return .json(rc.state == "refused" ? 422 : 200, .map(["state": .string(rc.state), "detail": .string(rc.detail)]))
+        return .json(rc.state == "refused" ? 422 : 200, rc.members())
     }
 
     /// The most a request's body may be: a file upload's is one file and one byte more (so one byte over is told from
@@ -517,8 +516,7 @@ public struct ChatPageHandler: Sendable {
             line.verified = true
             core.heard(caller, answered: false)
             let rc = core.post(line, sender: caller)
-            return .json(rc.state == "refused" ? 422 : 200,
-                         .map(["state": .string(rc.state), "detail": .string(rc.detail), "msg_id": .string(line.msgID)]))
+            return .json(rc.state == "refused" ? 422 : 200, rc.members(["msg_id": .string(line.msgID)]))
         case "ack":
             if let refusal = core.mayPoll(caller) { return .jsonError(refusal.status, refusal.description) }
             let bad = ChatHTTPResponse.jsonError(400, "send {\"acks\":[{\"room\":\"…\",\"msg_id\":\"…\"}]}")

@@ -97,9 +97,13 @@ export async function openRoom(r) {
   $('chat-log').replaceChildren();
   $('chat-room-name').textContent = roomTitle(r);
   const arch = (state.chat.srv.archived || []).includes(r);
+  // A closed room (its workspace is finished): readable, the composer off until the workspace is reopened.
+  const closedBy = !arch ? (state.chat.srv.closed || {})[r] : null;
   const ro = !canWrite();
-  for (const id of ['chat-text', 'chat-clip', 'chat-send']) $(id).disabled = arch || ro;
-  $('chat-text').placeholder = ro ? 'This browser may read chat only' : arch ? 'This room is archived: read-only.' : 'Message ' + r;
+  for (const id of ['chat-text', 'chat-clip', 'chat-send']) $(id).disabled = arch || !!closedBy || ro;
+  $('chat-text').placeholder = ro ? 'This browser may read chat only' : arch ? 'This room is archived: read-only.'
+    : closedBy ? 'Closed: its workspace ' + closedBy + ' is finished. Reopen it to post' : 'Message ' + r;
+  $('chat-text').dataset.closed = closedBy || '';
   loadDraft();
   showDown();
   drawRooms();

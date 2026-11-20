@@ -164,7 +164,45 @@ public final class ExportFolder {
         self.fd = fd
     }
 
+    /// A folder already opened (no link in its path, this user's, made 0700) — the run archive's (`RunArchiveFolder`).
+    init(adopting fd: Int32, path: String) {
+        self.fd = fd
+        self.path = path
+    }
+
     deinit { close(fd) }
+
+    /// A file of the folder read back through the folder's descriptor (no link followed), at most `maximum` bytes.
+    public func read(_ relative: String, maximum: Int = 1 << 30) throws -> [UInt8] {
+        let parts = relative.split(separator: "/").map(String.init)
+        guard !parts.isEmpty, parts.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+            throw HostError(.invalid, "not a name in the folder: \(relative)")
+        }
+        var dir = dup(fd)
+        defer { close(dir) }
+        for p in parts.dropLast() {
+            let next = openat(dir, p, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            guard next >= 0 else { throw HostError(.failed, "\(relative): \(String(cString: strerror(errno)))") }
+            close(dir)
+            dir = next
+        }
+        let f = openat(dir, parts.last!, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard f >= 0 else { throw HostError(.failed, "\(relative): \(String(cString: strerror(errno)))") }
+        defer { close(f) }
+        var st = stat()
+        guard fstat(f, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG, st.st_nlink == 1, st.st_size <= off_t(maximum) else {
+            throw HostError(.failed, "\(relative): not a regular file of the folder")
+        }
+        var out = [UInt8](repeating: 0, count: Int(st.st_size))
+        var got = 0
+        while got < out.count {
+            let n = out.withUnsafeMutableBytes { Darwin.read(f, $0.baseAddress! + got, $0.count - got) }
+            if n < 0 && errno == EINTR { continue }
+            if n <= 0 { break }
+            got += n
+        }
+        return Array(out.prefix(got))
+    }
 
     /// Writes a new file at `relative` (its folders made 0700 as needed, never through a link). Answers its sha256 hex.
     @discardableResult
@@ -274,16 +312,51 @@ public enum ChatExport {
         }
     }
 
+    /// Every message of the room with `fromSeq < seq <= toSeq` (toSeq nil: up to the latest), oldest first, with no cap —
+    /// pages of 500 backwards from `toSeq`, until one reaches `fromSeq` or the room's start. A run's slice (its markers are
+    /// data: nothing was posted to mark it).
+    public static func messages(room: String, fromSeq: Int64, toSeq: Int64?, fetch: Fetch) throws -> [JValue] {
+        var all: [JValue] = []
+        var before: Int64 = toSeq.map { $0 + 1 } ?? 0
+        func seq(_ m: JValue) -> Int64 { Int64(((try? m.field("seq")?.goInt("seq")) ?? nil) ?? 0) }
+        if let t = toSeq, t <= fromSeq { return [] }
+        while true {
+            let (status, body) = try fetch("/api/rooms/\(room)/messages?limit=500" + (before > 0 ? "&before=\(before)" : ""))
+            guard status == 200, case .array(let page)? = try? ChatJSON.parse(body) else {
+                let why = (try? ChatJSON.parse(body))?.field("error")?.stringValue
+                throw HostError(status == 403 || status == 404 ? .notFound : .failed, why ?? "the chat server answered \(status)")
+            }
+            if page.isEmpty { break }
+            all.insert(contentsOf: page, at: 0)
+            let first = seq(page[0])
+            if first <= fromSeq + 1 || page.count < 500 || first <= 1 { break }
+            before = first
+        }
+        return all.filter { m in let s = seq(m); return s > fromSeq && (toSeq.map { s <= $0 } ?? true) }
+    }
+
     /// Writes the export into `folder`: `<room>.jsonl`, `attachments/<id>/<clean name>`, `manifest.json`. Every file swept.
     public static func write(room: String, since: Double?, until: Double?, into folder: ExportFolder, sweep: ExportSweep,
                              fetch: Fetch) throws -> ChatExportManifest {
         let ms = try messages(room: room, since: since, until: until, fetch: fetch)
+        let w = try writeMessages(ms, room: room, jsonl: room + ".jsonl", attachments: "attachments", into: folder, sweep: sweep, fetch: fetch)
+        let seqs: [Int64] = ms.compactMap { m in ((try? m.field("seq")?.goInt("seq")) ?? nil).map(Int64.init) }
+        let manifest = ChatExportManifest(room: room, window: .init(since: since, until: until), count: ms.count, firstSeq: seqs.first,
+                                          lastSeq: seqs.last, files: w.files, missing: w.missing.isEmpty ? nil : w.missing,
+                                          sweep: .init(findings: w.findings, redacted: w.findings.count), exportedAt: Date())
+        try folder.write("manifest.json", manifest.bytes())
+        return manifest
+    }
+
+    /// The messages as JSONL at `jsonl` and their attachments under `attachments/<id>/<clean name>`, each swept and written
+    /// new; what could not be fetched is named.
+    public static func writeMessages(_ ms: [JValue], room: String, jsonl: String, attachments: String, into folder: ExportFolder, sweep: ExportSweep,
+                                     fetch: Fetch) throws -> (files: [ChatExportManifest.File], findings: [ExportSweep.Finding], missing: [ChatExportManifest.Missing]) {
         var findings: [ExportSweep.Finding] = []
         var files: [ChatExportManifest.File] = []
         var missing: [ChatExportManifest.Missing] = []
         var lines: [UInt8] = []
         for m in ms { lines += ChatJSON.encode(m) + [0x0A] }
-        let jsonl = room + ".jsonl"
         let cleaned = sweep.clean(lines, file: jsonl)
         findings += cleaned.findings
         files.append(.init(path: jsonl, sha256: try folder.write(jsonl, cleaned.bytes), bytes: cleaned.bytes.count))
@@ -301,17 +374,12 @@ public enum ChatExport {
                 let target = "/files/\(id)/" + (clean.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? clean)
                 let (status, body) = try fetch(target)
                 guard status == 200 else { missing.append(.init(id: id, name: clean, why: status == 404 ? "gone (404)" : "the chat server answered \(status)")); continue }
-                let rel = "attachments/\(id)/\(clean)"
+                let rel = "\(attachments)/\(id)/\(clean)"
                 let c = sweep.clean(Array(body), file: rel)
                 findings += c.findings
                 files.append(.init(path: rel, sha256: try folder.write(rel, c.bytes), bytes: c.bytes.count))
             }
         }
-        let seqs: [Int64] = ms.compactMap { m in ((try? m.field("seq")?.goInt("seq")) ?? nil).map(Int64.init) }
-        let manifest = ChatExportManifest(room: room, window: .init(since: since, until: until), count: ms.count, firstSeq: seqs.first,
-                                          lastSeq: seqs.last, files: files, missing: missing.isEmpty ? nil : missing,
-                                          sweep: .init(findings: findings, redacted: findings.count), exportedAt: Date())
-        try folder.write("manifest.json", manifest.bytes())
-        return manifest
+        return (files, findings, missing)
     }
 }

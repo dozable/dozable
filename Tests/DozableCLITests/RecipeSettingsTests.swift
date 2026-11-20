@@ -102,8 +102,8 @@ final class RecipeSettingsTests: XCTestCase {
         // 683 M3: mac.agent_config, mac.account, mac.agent_prompt, mac.open_url, mac.open_files, mac.clipboard.
         // 687: mac.fence_loopback_listen. 691: network.host_ports_live. 692: network.placeholders_plain_http.
         // 693: daemon.always_on. 694: daemon.login_item. The chat server: chat.enabled, chat.page_port, chat.line_port,
-        // chat.remote_listen, chat.remote_agents; serve.chat (chat for another computer).
-        XCTAssertEqual(own, 88)
+        // chat.remote_listen, chat.remote_agents, chat.refusal_reasons; serve.chat (chat for another computer).
+        XCTAssertEqual(own, 89)
         XCTAssertEqual(fresh.components(separatedBy: "\n# ").filter { $0.range(of: #"^[a-z_]+ = "#, options: .regularExpression) != nil }.count, own)
         // One value of a recipe: exactly its block, the others commented.
         let one = DozableSettings.render(values: ["recipes.anthropic.claude-code.version": .string("2.1.290")])

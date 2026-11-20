@@ -7,7 +7,7 @@ import Foundation
 /// --dry-run` sends — its strict body and its projection; the eight actions are `WebAction.workspaceLifecycle`
 /// (`WebExposure.decideLifecycleAction`: 403 `mac-only` for another computer), the route `mac-screen`.
 public enum WebWorkspaceLifecycle {
-    static let planFields: Set<String> = ["workspace", "verb", "removeSandboxes", "keepTemplates", "binFolders"]
+    static let planFields: Set<String> = ["workspace", "verb", "removeSandboxes", "keepTemplates", "binFolders", "noArchive"]
 
     /// The request the plan route sends (the plan reads, never writes).
     public static func planRequest(_ w: WorkspaceRequest) -> HostRequest {
@@ -30,6 +30,7 @@ public enum WebWorkspaceLifecycle {
         w.removeSandboxes = try f.bool("removeSandboxes") == true ? true : nil
         w.keepTemplates = try f.bool("keepTemplates") == false ? false : nil
         w.binFolders = try f.bool("binFolders") == true ? true : nil
+        w.noArchive = try f.bool("noArchive") == true ? true : nil
         return w
     }
 }
@@ -75,6 +76,9 @@ public struct WebWorkspaceLifecyclePlan: Codable, Equatable, Sendable {
     public var notes: [String]
     public var factsKnown: Bool
     public var templates: [String: String]?
+    /// A finish's rooms (its own closed, a linked one not) and the run's archive section.
+    public var rooms: [WorkspaceLifecycleRoomRow]?
+    public var archive: WorkspaceArchivePlan?
     public var sha: String
 
     public init(_ p: WorkspaceLifecyclePlan) {
@@ -86,6 +90,6 @@ public struct WebWorkspaceLifecyclePlan: Codable, Equatable, Sendable {
         refusals = p.refusals; refusalCode = p.refusalCode
         queue = Queue(width: p.queue.width, changes: p.queue.changes, note: p.queue.note)
         confirm = p.confirm; confirmName = p.confirmName; command = p.command; commands = p.commands; notes = p.notes
-        factsKnown = p.factsKnown; templates = p.templates; sha = p.sha
+        factsKnown = p.factsKnown; templates = p.templates; rooms = p.rooms; archive = p.archive; sha = p.sha
     }
 }

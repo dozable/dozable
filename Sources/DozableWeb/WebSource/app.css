@@ -3319,6 +3319,19 @@ a.btn.is-disabled { color: var(--ink-3); cursor: not-allowed; }
 .wsc-who { color: var(--ink-2); }
 .wsc-text { overflow-wrap: anywhere; min-width: 0; }
 .wsc-text .pill { margin-left: var(--sp-1); }
+/* A workspace's Runs tab (views/ws-runs.js): its runs, a past run's archived messages, its rooms and their actions. */
+.wr-list, .wr-room-list, .wr-log { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.wr-run, .wr-room { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2) 0; border-bottom: var(--bw) solid var(--line); }
+.wr-room { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.wr-head, .wr-actions { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); }
+.wr-totals { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.wr-msg { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: var(--sp-1) var(--sp-2); padding: var(--sp-1) 0; font-size: var(--fs-sm); }
+.wr-msg.is-change { color: var(--ink-3); }
+.wr-from { font-weight: 600; overflow-wrap: anywhere; }
+.wr-at { font-variant-numeric: tabular-nums; }
+.wr-text { grid-column: 1 / -1; overflow-wrap: anywhere; white-space: pre-wrap; }
+.wr-pre { overflow-x: auto; font-size: var(--fs-xs); }
+.wl-rooms, .wl-archive { margin-top: var(--sp-2); }
 @media (max-width: 760px) {
   .wsn-table thead, .cando-table thead { display: none; }
   .wsn-table tr, .cando-table tr { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3) var(--cell-px); border-top: var(--bw) solid var(--line); }

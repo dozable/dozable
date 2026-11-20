@@ -1357,3 +1357,15 @@ browser only and `heldOnly`.
 - **`console` is a daemon op and a CLI command** (`doz console NAME [--follow]`, D5): the lines so far
   (in-process when no daemon runs), or a stream of `console` events tailing `Sandbox.bootLogURL` across a
   cold boot's recreated log (`BootConsoleTail`). The CLI never prints the guest's control characters.
+
+## Runs and rooms
+
+A workspace's Runs tab (`views/ws-runs.js`, `#/w/NAME/runs`): `POST /api/v1/workspace-runs` (a read), `POST
+/api/v1/workspace-run-chat` (a run's archived messages and timesheet, from the verified archive — another computer only as
+`serve.chat` lets it read chat; conversations and screens never served) and `POST /api/v1/chat-room-plan` (`mac-screen`),
+each payload-less with its name in the body (`WebRuns`). The actions `chat-room-archive`, `chat-room-rm` (the name typed,
+checked by the daemon; never loose) and `workspace-run-archive` are each exactly one HostOp, this Mac's own browser only
+(`WebAction.isRoomLifecycle`, `WebExposure.decideRoomAction` → 403 `mac-only`). The chat page reads `closed` beside
+`/api/state` (the records' closed set) and turns a closed room's composer off: "Closed: its workspace W is finished.
+Reopen it to post". The Finish dialog shows the rooms' rows, the archive section and "Finish without an archive"
+(unticked).

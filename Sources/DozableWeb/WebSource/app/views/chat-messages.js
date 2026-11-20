@@ -24,7 +24,8 @@ import { icon } from '../dom/icons.js';
 
 const presenceOf = (n) => state.chat.presence.find((p) => p.name === n) || {};
 const PAGE = 100;
-const archived = () => ((state.chat.srv && state.chat.srv.archived) || []).includes(state.chat.room);
+const archived = () => ((state.chat.srv && state.chat.srv.archived) || []).includes(state.chat.room)
+  || !!((state.chat.srv && state.chat.srv.closed) || {})[state.chat.room];
 
 /// Read a direct message between others: the room records that the person did.
 async function reveal(m) {

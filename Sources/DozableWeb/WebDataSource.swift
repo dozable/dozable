@@ -132,6 +132,9 @@ public protocol DozableWebData: Sendable {
     /// A lifecycle verb's plan (`workspace-lifecycle-plan` — `WebWorkspaceLifecycle.planRequest`): nothing written; in-process
     /// when no daemon runs.
     func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan
+    func workspaceRuns(_ w: WorkspaceRequest) async throws -> WorkspaceRunsListing
+    func workspaceRunChat(_ w: WorkspaceRequest) async throws -> WorkspaceRunChat
+    func chatRoomPlan(_ q: ChatRoomRequest) async throws -> ChatRoomPlan
     /// A workspace's wide views: what each agent can reach and hold (`workspace-reach`), its folders' changes and restore
     /// points (`workspace-folders`), one page of its log (`workspace-log` with `before`/`limit`) — each the CLI's request
     /// (`WebWorkspaceViews.request`); in-process when no daemon runs.
@@ -177,6 +180,9 @@ extension DozableWebData {
     public func workspacePlan(_ w: WorkspaceRequest) async throws -> WorkspacePlan { throw HostError(.notImplemented, "workspaces") }
     public func workerPlan(_ q: WorkerRequest) async throws -> WorkerPlan { throw HostError(.notImplemented, "workers") }
     public func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan { throw HostError(.notImplemented, "workspaces") }
+    public func workspaceRuns(_ w: WorkspaceRequest) async throws -> WorkspaceRunsListing { throw HostError(.notImplemented, "workspaces") }
+    public func workspaceRunChat(_ w: WorkspaceRequest) async throws -> WorkspaceRunChat { throw HostError(.notImplemented, "workspaces") }
+    public func chatRoomPlan(_ q: ChatRoomRequest) async throws -> ChatRoomPlan { throw HostError(.notImplemented, "workspaces") }
     public func workspaceReach(_ w: WorkspaceRequest) async throws -> WorkspaceReach { throw HostError(.notImplemented, "workspaces") }
     public func workspaceFolders(_ w: WorkspaceRequest) async throws -> WorkspaceFolders { throw HostError(.notImplemented, "workspaces") }
     public func workspaceActivity(_ w: WorkspaceRequest) async throws -> WorkspaceLogPage { throw HostError(.notImplemented, "workspaces") }
@@ -563,6 +569,18 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func workspaceLifecyclePlan(_ w: WorkspaceRequest) async throws -> WorkspaceLifecyclePlan {
         try await query(WebWorkspaceLifecycle.planRequest(w)).0.decode(WorkspaceLifecyclePlan.self)
+    }
+
+    public func workspaceRuns(_ w: WorkspaceRequest) async throws -> WorkspaceRunsListing {
+        try await query(WebRuns.request(.workspaceRuns, w)).0.decode(WorkspaceRunsListing.self)
+    }
+
+    public func workspaceRunChat(_ w: WorkspaceRequest) async throws -> WorkspaceRunChat {
+        try await query(WebRuns.request(.workspaceRunChat, w)).0.decode(WorkspaceRunChat.self)
+    }
+
+    public func chatRoomPlan(_ q: ChatRoomRequest) async throws -> ChatRoomPlan {
+        try await query(WebRuns.planRequest(q)).0.decode(ChatRoomPlan.self)
     }
 
     public func workspaceReach(_ w: WorkspaceRequest) async throws -> WorkspaceReach {

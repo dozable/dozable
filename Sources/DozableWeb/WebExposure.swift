@@ -127,6 +127,10 @@ public enum WebExposure {
     /// on this Mac to its folder. Another computer is shown the command instead; its attempt is one audit line.
     public static func decideMacNetAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyNet : nil }
 
+    /// A room archived or removed for good, or a run's archive written again, for `who`: this Mac's own browser only, whatever
+    /// the serve settings — a room's removal cannot be undone, and its archive is written as you.
+    public static func decideRoomAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyRooms : nil }
+
     /// An ended or gone session on this Mac removed (`mac-session-forget`, `mac-sessions-forget-ended`) for `who`: this Mac's
     /// own browser only, whatever `serve.mac_sessions` says (watch or interactive) — a forgotten session can no longer be
     /// restarted. Another computer is shown the command instead; its attempt is one audit line.
@@ -149,6 +153,8 @@ public enum WebExposure {
              .botsRetired, .bot,        // Agents / Bots: read only everywhere; a bot's inbox session follows serve.mac_sessions (WebBotReads)
              .workspaceLog,             // the log's lines about this Mac's sessions follow serve.mac_sessions too
              .workspaceBrief,           // the brief's text: another computer only with serve.chat read or write (`decide`)
+             .workspaceRuns,            // a workspace's runs: their windows, archives' status and totals (no message, no file)
+             .workspaceRunChat,         // a run's archived messages: another computer only as serve.chat lets it read (`decide`)
              .workspaceReach, .workspaceFolders, .workspaceActivity,  // the wide views: projections — this Mac's sessions follow
                                         // serve.mac_sessions, held secrets a count only (WebWorkspaceReach.forBrowser)
              .macs:                     // Your Macs — another computer sees the same list (a phone switching Macs is its main use)
@@ -168,6 +174,7 @@ public enum WebExposure {
                                         // workspace is made only from this Mac: another computer never gets the route
              .workerPlan,               // the Add a worker page's plan — it shows this Mac's bots, sessions and folders, and a
                                         // worker is added only from this Mac: another computer never gets the route
+             .chatRoomPlan,             // a room's archive or removal looked at — the actions are this Mac's own browser's
              .workspaceLifecyclePlan:   // a lifecycle verb's plan — this Mac's agents, sessions and folders; the verbs are this
                                         // Mac's own browser's: another computer never gets the route
             return .macScreen
@@ -192,6 +199,8 @@ public enum WebExposure {
         if case .chat(let c) = route, who.isRemote { return decideChat(c, who, chat) }
         // A workspace's brief is what its agents act on, as chat is: another computer reads it only as serve.chat allows.
         if case .workspaceBrief = route, who.isRemote, chat == .off { return .briefRemote }
+        // A run's archived messages are chat: another computer reads them only as serve.chat allows.
+        if case .workspaceRunChat = route, who.isRemote, chat == .off { return .chatRemote }
         switch (kind(route), who) {
         case (.secretEntry, .remote(secure: false)): return .secretOverHTTP
         case (.macScreen, .remote): return .macScreen

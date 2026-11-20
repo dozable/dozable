@@ -58,13 +58,26 @@ func runWorkspaceLifecycle(_ verb: WorkspaceVerb, _ a: LifecycleArguments, edit:
     let r = verb == .stop ? try call(workspaceRequest(.workspaceStop, w), g) : try call(workspaceRequest(verb.hostOp, w), g)
     if verb == .stop { if g.json { Out.json(try decode(r, WorkspaceStopped.self, g)) }; return }
     let c = try decode(r, WorkspaceChanged.self, g)
-    if g.json { Out.json(c); return }
+    // The verb did everything, but its run's archive could not be written: said, and exit 1.
+    let archiveFailed = c.archiveProblem.map { HostError(.failed, "\(c.name) is \(verb == .archive ? "archived" : "finished"), but run \(c.run ?? "?")'s archive was not written: \($0) — doz workspace runs \(c.name) --archive \(c.run ?? "RUN") writes it again") }
+    if g.json {
+        Out.json(c)
+        if archiveFailed != nil { throw ExitCode(1) }
+        return
+    }
     var out = ""
     for x in c.results { out += "  \(x.name): \(x.text)\n" }
     if let b = c.binned { for p in b { out += "  moved to the Bin: \(DisplayPath.tilde(p))\n" } }
     out += lifecycleDone(verb, c) + "\n"
     for n in c.notes ?? [] { out += "note: \(n)\n" }
     Out.stdout(out)
+    if let archiveFailed { throw fail(archiveFailed, g, code: 1) }
+}
+
+/// Finish's and archive's evidence archive.
+struct LifecycleArchiveFlag: ParsableArguments {
+    @Flag(name: .customLong("no-archive"), help: "Write no evidence archive of the run (its messages, conversations, screens, usage and timesheet).")
+    var noArchive = false
 }
 
 func capitalised(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
@@ -115,6 +128,19 @@ func workspaceLifecycleText(_ p: WorkspaceLifecyclePlan, commands: Bool = true) 
     }
     if !p.keeps.isEmpty { s += "Kept:\n" + p.keeps.map { "  " + lifecycleItem($0) + "\n" }.joined() }
     if !p.goes.isEmpty { s += "Goes:\n" + p.goes.map { "  " + lifecycleItem($0) + "\n" }.joined() }
+    if let rooms = p.rooms, !rooms.isEmpty {
+        s += "Rooms:\n" + rooms.map { "  #\($0.room) → \($0.after)\n" }.joined()
+    }
+    if let a = p.archive, !a.off {
+        s += "The run's archive" + (a.run.map { " (run \($0))" } ?? "") + (a.path.map { ": the store's \($0)" } ?? "") + "\n"
+        for r in a.rooms { s += "  #\(r.room): " + (r.messages.map { "\($0) message\($0 == 1 ? "" : "s")" } ?? "its messages") + "\n" }
+        for t in a.transcripts {
+            let from = t.source == "sandbox" ? "copied out of its sandbox before it shuts down" : t.source == "fenced" ? "a fenced session's" : "an unfenced session's"
+            s += "  \(t.agent)'s conversations: " + (t.files.map { "\($0) file\($0 == 1 ? "" : "s"), " } ?? "") + from + "\n"
+        }
+        if !a.screens.isEmpty { s += "  last screens: \(a.screens.joined(separator: ", "))\n" }
+        s += "  usage and a timesheet" + (a.estimateBytes.map { "; about \(DozableImages.formatBytes($0))" } ?? "") + "\n"
+    }
     if let q = p.queue.note { s += "note: \(q)\n" }
     if !p.refusals.isEmpty { s += "It cannot be done:\n" + p.refusals.map { "  - \($0)\n" }.joined() }
     for n in p.notes { s += "note: \(n)\n" }
@@ -155,14 +181,17 @@ struct WorkspaceWake: AsyncParsableCommand {
 }
 
 struct WorkspaceFinish: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "finish", abstract: "The work is done: everything stops; the rooms, tokens, disks and folders are kept.",
+    static let configuration = CommandConfiguration(commandName: "finish", abstract: "The work is done: everything stops; the run is archived; the tokens, disks and folders are kept.",
         discussion: """
-        Every sandbox shut down (its disk kept), every session ended (its conversation kept). Its rooms stay writable and \
-        every token is kept, so doz workspace reopen W, then wake, works on it again. No worker can be added while it is \
-        finished. Asks first (--yes skips).
+        Every sandbox shut down (its disk kept), every session ended (its conversation kept). The run closes and its \
+        evidence is archived in Dozable's store: its messages, each agent's conversations and last screen, the usage and a \
+        timesheet (--no-archive writes none). Every token is kept, so doz workspace reopen W, then wake, works on it again. \
+        No worker can be added while it is finished. Asks first (--yes skips). If the archive cannot be written, everything \
+        else is still done and it exits 1: doz workspace runs W --archive RUN writes it again.
         """)
     @OptionGroup var a: LifecycleArguments
-    func run() async throws { try await runWorkspaceLifecycle(.finish, a) }
+    @OptionGroup var x: LifecycleArchiveFlag
+    func run() async throws { try await runWorkspaceLifecycle(.finish, a) { w in w.noArchive = x.noArchive ? true : nil } }
 }
 
 struct WorkspaceReopen: AsyncParsableCommand {
@@ -181,8 +210,10 @@ struct WorkspaceArchive: AsyncParsableCommand {
         """)
     @OptionGroup var a: LifecycleArguments
     @OptionGroup var s: LifecycleSandboxFlags
+    @OptionGroup var x: LifecycleArchiveFlag
     func run() async throws {
         try await runWorkspaceLifecycle(.archive, a) { w in
+            w.noArchive = x.noArchive ? true : nil
             w.removeSandboxes = s.removeSandboxes ? true : nil
             w.keepTemplates = s.removeSandboxes && !s.keepTemplates ? false : nil
         }

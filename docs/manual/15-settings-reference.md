@@ -186,6 +186,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `chat.line_port` | `8791` | integer 1024–65535 | at once | — | The chat server's line port on 127.0.0.1 (one JSON message per line). Every caller needs a token. When it changes, the daemon restarts the chat server within a few seconds. |
 | `chat.remote_listen` | `""` | Tailscale addresses like 100.100.1.2, comma-separated, each one exactly ("" = none) | at once | — | This Mac's own Tailscale addresses (100.64.0.0/10) on which the chat server also listens, both ports, for agents on other machines. Only agents, each with its own token; never you. Plain HTTP: Tailscale encrypts it; any other address is refused. |
 | `chat.remote_agents` | `""` | Tailscale addresses like 100.100.1.2, comma-separated, each one exactly ("" = none) | at once | — | The Tailscale addresses of the other machines that may connect to the chat server (each exactly; no range). Each is always an agent: it must send its token; it gets /agent/… and files with its token, never your page or /api. |
+| `chat.refusal_reasons` | `false` | boolean | at once | — | Give a refused post its reason as an extra field (reason: space-down when the room's workspace is finished), beside the refusal the chat server always gives. Off by default: clients made for the reference never see it. |
 
 ### `[daemon]`
 

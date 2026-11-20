@@ -78,7 +78,9 @@ final class ChatWebhookAddressTests: XCTestCase {
             .appendingPathComponent("Sources/DozableWeb")
         let files = try FileManager.default.contentsOfDirectory(atPath: web.path).filter { $0.hasSuffix(".swift") }
         XCTAssertFalse(files.isEmpty)
-        let chatOps = HostOp.allCases.filter { $0.rawValue.hasPrefix("chat-") }
+        // A room's archive and removal (`chat-room-*`) are the dashboard's deliberately — each exactly its HostOp, this Mac's own
+        // browser only (WebActionTests.testTheRoomActions); every other chat operation (participants, tokens, webhooks) never.
+        let chatOps = HostOp.allCases.filter { $0.rawValue.hasPrefix("chat-") && !$0.rawValue.hasPrefix("chat-room-") }
         XCTAssertTrue(chatOps.contains(.chatWebhookSet))
         for f in files {
             let text = try String(contentsOfFile: web.appendingPathComponent(f).path, encoding: .utf8)
