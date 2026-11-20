@@ -33,6 +33,7 @@
 //      open seam, nothing opened; a test never asks macOS to open an app, nor runs a program inside a scratch bundle), a tampered copy
 //      refused (the installed one unchanged), no destination in a test run refused, `doz app status --json`,
 //      `doz app uninstall --dest`, and `doz uninstall` listing and removing it.
+//  11. The DEV app (`--dev-app`, make app-dev) against a fake doz: CLIDevAppChecks.swift.
 //
 // Every daemon and UI it starts is stopped at the end; the scratch folders are removed.
 import Darwin
@@ -40,7 +41,7 @@ import Foundation
 import DozableKit
 import DozableHost
 
-func cliAppSuite(binary: String, app: String) async {
+func cliAppSuite(binary: String, app: String, devApp: String? = nil) async {
     print("cli: the menu bar app (no screen — --dump-menu and --run-action only)")
     let fm = FileManager.default
     let base = URL(fileURLWithPath: "/tmp/dzo-\(getpid())-ap")
@@ -481,6 +482,9 @@ func cliAppSuite(binary: String, app: String) async {
           && loginLines().suffix(2) == ["would unregister agent com.dozable.app.daemon", "would unregister mainApp"],
           "app 10: doz app uninstall runs the app's --unregister first (it held one) and removes it")
     check(loginLines().allSatisfy { $0.hasPrefix("would ") }, "app 10: the recording service only ever said what it would do")
+
+    // 11. the DEV app (make app-dev), when given.
+    if let devApp { cliDevAppChecks(devApp: devApp, env: h.env, base: base, loginLog: loginLog) }
 }
 
 /// The installed copy's version (its Info.plist), for the checks above.

@@ -26,6 +26,8 @@ public final class SnapshotSource: @unchecked Sendable {
     public let login: LoginContext?
     /// The version of the copy on disk at this app's own place (`AppOnDisk.version`; nil: not looked at).
     public let installedAppVersion: (@Sendable () -> String?)?
+    /// Which app this is: the dev flavour refuses Start at Login and `doz app install`, whatever asks.
+    public let flavour: MenuBarFlavour
     private let lock = NSLock()
     private var cache: (path: String, ids: [FileIdentity], version: String?, bundled: String?)?
 
@@ -40,10 +42,13 @@ public final class SnapshotSource: @unchecked Sendable {
     }
 
     public init(locator: DozLocator, runner: CommandRunning, appVersion: String?, login: LoginContext? = nil,
-                installedAppVersion: (@Sendable () -> String?)? = nil) {
+                installedAppVersion: (@Sendable () -> String?)? = nil, flavour: MenuBarFlavour = .release) {
         self.locator = locator; self.runner = runner; self.appVersion = appVersion; self.login = login
-        self.installedAppVersion = installedAppVersion
+        self.installedAppVersion = installedAppVersion; self.flavour = flavour
     }
+
+    /// What the dev flavour answers an action it never takes.
+    public static let devRefusal = "Updating the menu bar app is \(MenuBarFlavour.notInDev)"
 
     /// The login row's state (SMAppService's status is a local look — no process).
     func loginSnapshot() -> LoginSnapshot? {
@@ -53,7 +58,9 @@ public final class SnapshotSource: @unchecked Sendable {
     /// The menu's state now. `busy` and `lastError` are the caller's to fill.
     public func snapshot() -> Snapshot {
         let onDisk = installedAppVersion?()
-        guard let doz = locator.locate() else { return Snapshot(doz: .missing, appVersion: appVersion, login: loginSnapshot(), installedAppVersion: onDisk) }
+        guard let doz = locator.locate() else {
+            return Snapshot(doz: .missing, appVersion: appVersion, login: loginSnapshot(), installedAppVersion: onDisk, flavour: flavour)
+        }
         let ids = FileIdentity.ofDoz(doz)
         let cached: (version: String?, bundled: String?)? = lock.withLock {
             guard let c = cache, c.path == doz, c.ids == ids, !ids.isEmpty else { return nil }
@@ -69,7 +76,7 @@ public final class SnapshotSource: @unchecked Sendable {
             lock.withLock { cache = (doz, ids, version, bundled) }
         }
         var s = Snapshot(doz: .found(path: doz, version: version), appVersion: appVersion, bundledAppVersion: bundled, login: loginSnapshot(),
-                         installedAppVersion: onDisk)
+                         installedAppVersion: onDisk, flavour: flavour)
         let r = runner.run(.status, doz: doz)
         if r.timedOut { s.statusProblem = "doz did not answer within \(Int(DozCommand.status.timeout)) seconds" }
         else if r.exit != 0 { s.statusProblem = "doz daemon status failed (\(Self.failure(r)))" }
@@ -88,6 +95,8 @@ public final class SnapshotSource: @unchecked Sendable {
         default: break
         }
         guard let command = action.command else { return nil }
+        // `doz app install` puts an app in Applications: never from the dev build, even if something asks.
+        if flavour.isDev, action == .updateApp { return Self.devRefusal }
         guard let doz = locator.locate() else { return "doz is not installed" }
         let r = runner.run(command, doz: doz)
         if r.ok { return nil }
@@ -108,6 +117,8 @@ public final class SnapshotSource: @unchecked Sendable {
 
     /// Start at Login's clicks, step by step (`--run-action login-on|login-off` prints the steps).
     public func performLogin(_ action: MenuAction) -> LoginOutcome {
+        // The dev flavour registers nothing with the system — refused before any step, any doz command.
+        if flavour.isDev { return LoginOutcome(steps: [], error: RefusingLoginItemService.refusal, needsApproval: false) }
         guard let login else { return LoginOutcome(steps: [], error: "Start at Login is not available here", needsApproval: false) }
         switch action {
         case .loginOn:

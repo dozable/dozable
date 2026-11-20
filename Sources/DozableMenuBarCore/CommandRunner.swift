@@ -75,17 +75,25 @@ public struct CommandRunner: CommandRunning {
 
     /// Where the log line goes (os_log by default; a test collects it).
     public var log: @Sendable (String) -> Void
+    /// Variables set in doz's environment on top of this process's own (the dev flavour's `XDG_CONFIG_HOME` —
+    /// `MenuBarFlavour.childEnvironment`; empty for the release app, whose child inherits the environment as is).
+    public var extraEnvironment: [String: String]
 
-    public init(log: @escaping @Sendable (String) -> Void = { line in CommandRunner.logger.notice("\(line, privacy: .public)") }) {
+    public init(extraEnvironment: [String: String] = [:],
+                log: @escaping @Sendable (String) -> Void = { line in CommandRunner.logger.notice("\(line, privacy: .public)") }) {
+        self.extraEnvironment = extraEnvironment
         self.log = log
     }
 
     /// The process this runner would start for `command` — the executable and its arguments, nothing else decided here.
-    public static func process(_ command: DozCommand, doz: String) -> Process? {
+    /// `extraEnvironment` (non-empty) is set over this process's environment; empty, the child inherits it untouched.
+    public static func process(_ command: DozCommand, doz: String, extraEnvironment: [String: String] = [:],
+                               base: [String: String] = ProcessInfo.processInfo.environment) -> Process? {
         guard doz.hasPrefix("/") else { return nil }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: doz)
         p.arguments = command.arguments
+        if !extraEnvironment.isEmpty { p.environment = base.merging(extraEnvironment) { _, new in new } }
         p.standardInput = FileHandle.nullDevice
         p.standardError = FileHandle.nullDevice
         if command.output == .discard { p.standardOutput = FileHandle.nullDevice }
@@ -104,7 +112,7 @@ public struct CommandRunner: CommandRunning {
     public func run(_ command: DozCommand, doz: String) -> CommandResult {
         let started = Date()
         func ms() -> Int { Int(Date().timeIntervalSince(started) * 1000) }
-        guard let p = Self.process(command, doz: doz) else {
+        guard let p = Self.process(command, doz: doz, extraEnvironment: extraEnvironment) else {
             let r = CommandResult(exit: nil, launchError: "not an absolute path", milliseconds: 0)
             log(Self.logLine(command, r))
             return r

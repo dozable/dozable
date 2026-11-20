@@ -32,6 +32,14 @@ public enum LaunchAgent {
         return .none("doz is not installed (looked in \(locator.candidates.joined(separator: ", "))) — nothing to start")
     }
 
+    /// The dev flavour has no login agent (it registers nothing, and its bundle carries no agent plist): even if
+    /// launchd or a person ran `--launch-daemon`, it starts nothing.
+    public static let devRefusal = "the dev build has no login agent — the daemon was not started"
+
+    public static func decide(_ locator: DozLocator, flavour: MenuBarFlavour) -> Decision {
+        flavour.isDev ? .none(devRefusal) : decide(locator)
+    }
+
     /// Whether this build requires Dozable's team signature of doz: a release build does; a development build (`make app`)
     /// does not — unless a test run asks for it (`DOZ_TEST_MENUBAR_REQUIRE_TEAM=1`, guarded runs only).
     public static func requiresTeam(releaseBuild: Bool, env: [String: String]) -> Bool {
@@ -39,8 +47,8 @@ public enum LaunchAgent {
     }
 
     /// Run the agent: exec doz, or log why not and exit 0. Never returns.
-    public static func run(locator: DozLocator) -> Never {
-        switch decide(locator) {
+    public static func run(locator: DozLocator, flavour: MenuBarFlavour = .release) -> Never {
+        switch decide(locator, flavour: flavour) {
         case .none(let why):
             logger.notice("launch-daemon: \(why, privacy: .public)")
             exit(0)

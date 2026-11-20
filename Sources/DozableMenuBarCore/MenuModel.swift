@@ -44,12 +44,15 @@ public struct Snapshot: Equatable, Sendable {
     public var lastError: String?
     /// Start at Login (nil: not known — no row is drawn).
     public var login: LoginSnapshot?
+    /// Which app this is (the dev flavour: its own header, and no Start at Login or app install).
+    public var flavour: MenuBarFlavour
 
     public init(doz: Doz, status: DozStatus? = nil, statusProblem: String? = nil, busy: Busy? = nil, appVersion: String? = nil,
-                bundledAppVersion: String? = nil, lastError: String? = nil, login: LoginSnapshot? = nil, installedAppVersion: String? = nil) {
+                bundledAppVersion: String? = nil, lastError: String? = nil, login: LoginSnapshot? = nil, installedAppVersion: String? = nil,
+                flavour: MenuBarFlavour = .release) {
         self.doz = doz; self.status = status; self.statusProblem = statusProblem; self.busy = busy; self.appVersion = appVersion
         self.bundledAppVersion = bundledAppVersion; self.lastError = lastError; self.login = login
-        self.installedAppVersion = installedAppVersion
+        self.installedAppVersion = installedAppVersion; self.flavour = flavour
     }
 
     public var dozPath: String? { if case .found(let p, _) = doz { return p }; return nil }
@@ -167,7 +170,10 @@ public enum MenuModel {
     }
 
     public static func items(for s: Snapshot) -> [MenuItem] {
-        var items: [MenuItem] = [MenuItem(kind: .header, title: header(for: s), enabled: false)]
+        var items: [MenuItem] = []
+        // The dev flavour names itself first, so it is never mistaken for the release app beside it.
+        if s.flavour.isDev { items.append(MenuItem(kind: .header, title: MenuBarFlavour.devName, enabled: false)) }
+        items.append(MenuItem(kind: .header, title: header(for: s), enabled: false))
         let found: Bool = { if case .found = s.doz { return true }; return false }()
         let idle = s.busy == nil
         let st = s.status
@@ -208,13 +214,18 @@ public enum MenuModel {
                 // An install already put a newer copy where this one runs: restarting is the update.
                 items.append(MenuItem(kind: .action, title: "Restart to Update (\(mine) → \(onDisk))", enabled: idle, action: .restartApp))
             } else if let bundled = s.bundledAppVersion, let mine = s.appVersion, DozVersion.isOlder(mine, than: bundled) {
-                items.append(MenuItem(kind: .action, title: "Update Menu Bar App (\(mine) → \(bundled))", enabled: idle, action: .updateApp))
+                if s.flavour.isDev {
+                    // `doz app install` puts the release app in Applications: never from the dev build.
+                    items.append(MenuItem(kind: .action, title: "Update Menu Bar App — \(MenuBarFlavour.notInDev)", enabled: false, action: nil))
+                } else {
+                    items.append(MenuItem(kind: .action, title: "Update Menu Bar App (\(mine) → \(bundled))", enabled: idle, action: .updateApp))
+                }
             }
         } else {
             items.append(MenuItem(kind: .action, title: "How to Install doz…", enabled: true, action: .installHelp))
         }
         items.append(.separator)
-        items.append(MenuItem(kind: .action, title: "Quit Dozable Menu", enabled: true, action: .quit))
+        items.append(MenuItem(kind: .action, title: s.flavour.isDev ? "Quit Dozable Dev Menu" : "Quit Dozable Menu", enabled: true, action: .quit))
         return items
     }
 }
@@ -228,6 +239,8 @@ extension MenuModel {
     ///   · doz holds its own login item → ✓ "(set by doz — click to let this app hold it)" (a click hands it over);
     ///   · else "Start at Login", unchecked.
     public static func loginItem(for s: Snapshot) -> MenuItem? {
+        // The dev flavour registers nothing with the system: the row says so, and does nothing.
+        if s.flavour.isDev { return MenuItem(kind: .action, title: "Start at Login — \(MenuBarFlavour.notInDev)", enabled: false, action: nil) }
         guard let login = s.login else { return nil }
         let idle = s.busy == nil
         let title = "Start at Login"
@@ -260,6 +273,10 @@ public struct MenuDump: Encodable, Sendable {
     public var items: [MenuItem]
     /// Start at Login as SMAppService reports it (nil: not looked at).
     public var loginItem: LoginDump?
+    /// "release" or "dev".
+    public var flavour: String
+    /// What is drawn beside the icon (the dev flavour's "DEV"; nil: the icon alone).
+    public var badge: String?
 
     public struct LoginDump: Encodable, Sendable {
         public var agent: LoginServiceStatus
@@ -280,6 +297,8 @@ public struct MenuDump: Encodable, Sendable {
         icon = MenuModel.icon(for: s)
         items = MenuModel.items(for: s)
         loginItem = s.login.map { LoginDump(agent: $0.service.agent, mainApp: $0.service.mainApp, stablePlace: $0.stablePlace) }
+        flavour = s.flavour.rawName
+        badge = s.flavour.badge
     }
 
     public func json() -> String {
