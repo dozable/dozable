@@ -120,6 +120,7 @@ extension HostCore {
         row.archiveProblem = run.archiveProblem
         row.closedBy = run.closedBy
         row.legacy = run.legacy
+        row.frames = spaceFrameCount(n, run)
         if status == "written", let a = run.archive {
             let root = storeRoot + "/" + a
             row.archiveBytes = RunArchiveSummary.bytes(root)
@@ -279,6 +280,7 @@ extension HostCore {
         e.transcripts = gathered.transcripts
         e.screens = gathered.screens
         e.notes = gathered.notes
+        e.frames = spaceFrameFiles(n, run.id)
         e.agents = runAgents(rec, run).map { a in
             (a.name, Self.roleName(a), a.place.key == nil ? "elsewhere: its conversations are on its own machine" : nil)
         }
@@ -330,6 +332,7 @@ extension HostCore {
         do {
             let (path, sha) = try await writeRunArchive(rec, run, plan: nil, gathered: g)
             await recordRunArchive(n, id, path: path, sha: sha, problem: nil)
+            spaceFramesArchived(n, id, archive: path)
             var c = WorkspaceChanged(name: n, verb: "run-archive", results: [], notes: g.notes.isEmpty ? nil : g.notes, workspace: nil)
             c.run = id; c.archive = path; c.archiveSHA256 = sha
             return c

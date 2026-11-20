@@ -147,7 +147,7 @@ public enum ActionClasses {
              .chatSync, .chatToken, .chatMembers, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport,
              .workspaceList, .workspaceAdopt, .workspaceRelease, .workspaceRename, .workspacePlan, .workspaceLifecyclePlan,
              .chatRoomPlan, .botList, .botShow, .botToken, .workerPlan, .workspaceUpPlan, .workspaceUp, .workspaceDownPlan, .workspaceDown, .chatRoomClose, .chatRoomOpen, .macsList, .permissionsCeiling,
-             .workspaceState, .workspaceSpace, .workspaceSpaceSave:
+             .workspaceState, .workspaceSpace, .workspaceSpaceSave, .workspaceRunFrames:
             return .dozableOwn
         }
     }

@@ -120,6 +120,8 @@ public struct WorkspaceRunRow: Codable, Equatable, Sendable {
     public var activeMinutes: Int?
     /// The messages in its chat slice, by room (from the archive's manifest).
     public var messages: Int?
+    /// A space's frames of the run (its folder's while open, else its archive's). Additive.
+    public var frames: Int?
     public init(id: String, startedAt: Date, endedAt: Date?, minutes: Int, archiveStatus: String, rooms: [WorkspaceRunRoom]) {
         self.id = id; self.startedAt = startedAt; self.endedAt = endedAt; self.minutes = minutes; self.archiveStatus = archiveStatus; self.rooms = rooms
     }

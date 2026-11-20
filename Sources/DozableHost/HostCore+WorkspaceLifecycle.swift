@@ -617,6 +617,8 @@ extension HostCore {
     /// failure is recorded in the run and answered — the verb itself is never undone by it.
     func archiveClosedRun(_ n: String, _ closed: WorkspaceRun?, plan: WorkspaceLifecyclePlan, pre: RunPreStop,
                           noArchive: Bool) async -> (path: String?, sha: String?, problem: String?, notes: [String]) {
+        // A space's final frame (its run down), before the archive copies the run's frames.
+        if let run = closed { await spaceFrameRecord(n, label: "down", closed: run) }
         guard let run = closed, !noArchive, let rec = try? workspaceRecord(n) else {
             return (nil, nil, nil, closed != nil && noArchive ? ["no archive was written (--no-archive)"] : [])
         }
@@ -633,6 +635,7 @@ extension HostCore {
         do {
             let (path, sha) = try await writeRunArchive(rec, run, plan: plan, gathered: g)
             await recordRunArchive(n, run.id, path: path, sha: sha, problem: nil)
+            spaceFramesArchived(n, run.id, archive: path)
             note(nil, "workspace \(n): the archive of run \(run.id) written")
             return (path, sha, nil, ["run \(run.id)'s archive: \(DisplayPath.tilde(storeRoot + "/" + path))"])
         } catch {

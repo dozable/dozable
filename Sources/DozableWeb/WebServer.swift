@@ -1150,6 +1150,12 @@ public final class DozableWebServer: @unchecked Sendable {
             var w = try WebSpace.decodeRead(body)
             w.macSessionsHidden = WebGridsRequest.macAllowed(ctx.principal, settings.macSessions) ? nil : true
             return json(try await data.workspaceState(w))
+        case .workspaceRunFrames:
+            // `workspace-run-frames`: each frame projected as the state is (this Mac's sessions as serve.mac_sessions allows).
+            try Self.requireJSONBody(md)
+            var w = try WebSpace.decodeFrames(body)
+            w.macSessionsHidden = WebGridsRequest.macAllowed(ctx.principal, settings.macSessions) ? nil : true
+            return json(try await data.workspaceRunFrames(w))
         case .chatRoomPlan:
             // CSRF-checked, the Mac's own browser only (mac-screen), strict; one read-only HostOp — never `loose`.
             try Self.requireJSONBody(md)

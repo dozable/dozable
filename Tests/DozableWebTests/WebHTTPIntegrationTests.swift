@@ -385,6 +385,7 @@ final class WebHTTPIntegrationTests: XCTestCase {
             ("/api/v1/workspace-space-plan", #"{"workspace":"demo","text":"doz: space/3\nspace: demo\n"}"#,
              [#"{"workspace":"demo"}"#, #"{"workspace":"demo","text":"x","path":"/x"}"#, #"{"workspace":"demo","text":"\u0001"}"#, #"{"workspace":"Demo","text":"x"}"#]),
             ("/api/v1/workspace-state", #"{"workspace":"demo"}"#, [#"{"workspace":"demo","macSessionsHidden":false}"#, #"{"workspace":"de mo"}"#]),
+            ("/api/v1/workspace-run-frames", #"{"workspace":"demo","run":"2026-11-20-1"}"#, [#"{"workspace":"demo"}"#, #"{"workspace":"demo","run":"../x"}"#]),
         ] {
             XCTAssertEqual(try get(path, ["Cookie": cookie, "Origin": origin, "Content-Type": "application/json"], method: "POST", body: good).status, 403, "\(path): CSRF")
             XCTAssertEqual(try get(path, ["Cookie": cookie], method: "GET").status, 404, "\(path): POST only")
@@ -395,7 +396,7 @@ final class WebHTTPIntegrationTests: XCTestCase {
             XCTAssertEqual(r.status, 200, r.text)
             XCTAssertEqual(fake.workspaceCalls.count, before + 1, path)
         }
-        XCTAssertEqual(fake.workspaceCalls.suffix(3), ["space demo", "space-plan demo 25", "state demo"])
+        XCTAssertEqual(fake.workspaceCalls.suffix(4), ["space demo", "space-plan demo 25", "state demo", "frames demo 2026-11-20-1"])
         let file = try JSONDecoder().decode(WebSpaceFile.self, from: try get("/api/v1/workspace-space", h, method: "POST", body: #"{"workspace":"demo"}"#).body)
         XCTAssertTrue(file.canSave, "this Mac's own browser saves")
         XCTAssertNil(file.command)
@@ -915,6 +916,10 @@ final class FakeData: DozableWebData, @unchecked Sendable {
                            items: [SpaceState.Item(subject: "w1", type: "agent", lifetime: "run", state: "running", activity: "idle")])
         s.seal()
         return s
+    }
+    func workspaceRunFrames(_ w: WorkspaceRequest) async throws -> SpaceRunDetail {
+        lock.withLock { _workspaceCalls.append("frames \(w.name ?? "") \(w.run ?? "-")\(w.macSessionsHidden == true ? " hidden" : "")") }
+        return SpaceRunDetail(workspace: w.name ?? "", id: w.run ?? "", frames: [])
     }
     func spacePlan(workspace: String, text: String) async throws -> SpacePlan {
         lock.withLock { _workspaceCalls.append("space-plan \(workspace) \(text.utf8.count)") }

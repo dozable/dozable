@@ -142,6 +142,21 @@ public struct SpaceState: Codable, Equatable, Sendable {
         return .object(m)
     }
 
+    /// The document as a viewer who may not see this Mac's sessions reads it (`SpaceStateBuilder.macSubjects`): those agents'
+    /// items and members `unknown`, "not shown to another computer"; their attention and extras left out; sealed again.
+    public func hiding(_ subjects: (items: Set<String>, extras: Set<String>)) -> SpaceState {
+        var out = self
+        out.items = items.map { i in
+            guard (i.type == "agent" || i.type == "member"), subjects.items.contains(i.subject) else { return i }
+            return Item(subject: i.subject, type: i.type, lifetime: i.lifetime, state: "unknown", activity: i.type == "agent" ? "unknown" : nil,
+                        detail: SpaceStateBuilder.hiddenDetail)
+        }
+        out.extras = extras.filter { !($0.type == "agent" && subjects.extras.contains($0.subject)) }
+        out.attention = attention.filter { !subjects.items.contains($0.subject) }
+        out.seal()
+        return out
+    }
+
     /// The sha of these facts: sha256 of the document without `sha` and `observedAt`.
     public var computedSHA: String { Self.sha256(Self.stringify(ordered(sha: false, observedAt: false))) }
 
@@ -253,6 +268,11 @@ public struct SpaceStateFacts: Sendable {
     /// The last up stopped at a failure (the record's log says so).
     public var upStopped: Bool = false
     public init(known: Bool, home: String, projectsDir: String) { self.known = known; self.home = home; self.projectsDir = projectsDir }
+    /// The programs' own messages left out (a frame keeps states, never a program's text).
+    public mutating func dropMessages() {
+        for k in agents.keys { agents[k]?.status?.message = nil; agents[k]?.status?.title = nil }
+        for k in sessions.keys { sessions[k]?.status?.message = nil; sessions[k]?.status?.title = nil }
+    }
     public func expand(_ p: String) -> String { p == "~" ? home : p.hasPrefix("~/") ? home + String(p.dropFirst(1)) : p }
 }
 
@@ -308,7 +328,7 @@ public enum SpaceStateBuilder {
             let entry = recordAgent(a, rec)
             if let e = entry { matched.insert(e.name) }
             let lifetime = life("agent", a.name, external: a.external, persisted: a.memory != nil)
-            let onMac = entry.map { $0.place.mac == true } ?? (a.session != nil || (!a.external && a.sandbox == nil))
+            let onMac = Self.onMac(a, entry)
             let hidden = onMac && !viewer.macSessions
             let chatName: String? = a.session != nil ? nil : a.external ? a.bot : a.name
             let wantsMember = chatName != nil && !i.rooms.isEmpty
@@ -425,6 +445,25 @@ public enum SpaceStateBuilder {
         doc.attention = attention.sorted { ($0.subject, $0.kind, $0.text) < ($1.subject, $1.kind, $1.text) }
         doc.seal()
         return doc
+    }
+
+    /// Whether an agent of the file runs as a session on this Mac (its record's place; with none, an external session or an
+    /// owned agent not in a sandbox).
+    static func onMac(_ a: SpaceIntent.Agent, _ entry: WorkspaceAgent?) -> Bool {
+        entry.map { $0.place.mac == true } ?? (a.session != nil || (!a.external && a.sandbox == nil))
+    }
+
+    /// What a viewer who may not see this Mac's sessions must not be told: the file's agents on this Mac (their items and
+    /// members keep their keys), and the record's agents on this Mac the file does not name (left out of extras).
+    public static func macSubjects(intent i: SpaceIntent, record rec: WorkspaceRecord?) -> (items: Set<String>, extras: Set<String>) {
+        var items = Set<String>(), matched = Set<String>()
+        for a in i.agents {
+            let e = recordAgent(a, rec)
+            if let e { matched.insert(e.name) }
+            if onMac(a, e) { items.insert(a.name) }
+        }
+        let extras = Set((rec?.agents ?? []).filter { $0.endedAt == nil && $0.place.mac == true && !matched.contains($0.name) }.map(\.name))
+        return (items, extras)
     }
 
     /// The record's entry for an agent of the file: an owned one by its name (a worker); an external bot as the manager or a

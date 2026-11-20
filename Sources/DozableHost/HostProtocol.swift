@@ -331,7 +331,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// Add a worker page).
     case workerPlan = "worker-plan"
     /// What `doz workspace up -f FILE` would do (`space`: a `SpaceRequest` — the merged document, its sources' sha256 and
-    /// each place's origin; the daemon never opens the file): the daemon validates the document again (with the backstop:
+    /// each place's origin; the daemon never plans from the file): the daemon validates the document again (with the backstop:
     /// nothing that starts or owns something from a defaults file), compiles it and plans the steps against the record
     /// and what it knows (`SpacePlan`). Only reads: answered in-process when no daemon runs, `factsKnown` false. Dozable's
     /// own (an agent never sends it).
@@ -354,6 +354,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// whose sha256 is `ifMatch` (`WorkspaceSpaceSaved`; changed since → refused, nothing written) and never runs up. The path
     /// is always the record's. Dozable's own.
     case workspaceSpace = "workspace-space", workspaceSpaceSave = "workspace-space-save"
+    /// A space's run in frames (`WorkspaceRequest`: the name and `run`; `SpaceRunDetail`): its state as it changed, from the
+    /// run's folder while it is open, else from its archive — verified first, its files and what no longer matches; a run
+    /// from before frames were kept has one, the last state. Never a message. Only reads: in-process with no daemon.
+    /// Dozable's own.
+    case workspaceRunFrames = "workspace-run-frames"
     /// Your Macs (`MacBookmarks`): the other Macs' dashboards this store keeps a bookmark of — `MacListing`, read from
     /// `<store>/macs.json`. Read-only: answered in-process when no daemon runs. Adding, removing and checking are the CLI's
     /// own (`doz ui macs`, in-process): no operation writes the list.
@@ -371,7 +376,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
              .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .workspaceDownPlan, .macsList,
-             .workspaceState, .workspaceSpace, .permissionsShow, .permissionsWhy: true
+             .workspaceState, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }

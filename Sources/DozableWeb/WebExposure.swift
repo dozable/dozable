@@ -163,6 +163,7 @@ public enum WebExposure {
              .workspaceSpace, .workspaceSpacePlan,  // a space file's text and its plan: another computer only with serve.chat
                                         // read or write (`decide`) — the file is what the agents are set up from
              .workspaceState,           // a space's state: this Mac's sessions as serve.mac_sessions allows (SpaceStateViewer)
+             .workspaceRunFrames,       // a space's run in frames: the same projection, frame by frame; never a message
              .workspaceReach, .workspaceFolders, .workspaceActivity,  // the wide views: projections — this Mac's sessions follow
                                         // serve.mac_sessions, held secrets a count only (WebWorkspaceReach.forBrowser)
              .macs:                     // Your Macs — another computer sees the same list (a phone switching Macs is its main use)

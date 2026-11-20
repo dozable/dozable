@@ -10,16 +10,26 @@ import Foundation
 ///     the record's path and the files beside it (extends, override, `.env` — `${VAR}` from that `.env` only, never doz ui's
 ///     environment), then sends the existing `workspace-up-plan` (in-process with no daemon); the same exposure;
 ///   `POST /api/v1/workspace-state` → `workspace-state` (`doz workspace state W --json`; this Mac's sessions as
-///     serve.mac_sessions allows).
+///     serve.mac_sessions allows);
+///   `POST /api/v1/workspace-run-frames` `{workspace, run}` → `workspace-run-frames` (`doz workspace runs W --frames RUN
+///     --json`): a run's frames, each projected the same way, and its archive checked now.
 /// The one change, `workspace-space-save` (a `WebAction`), is this Mac's own browser's only (`WebExposure.decideSpaceAction`).
 public enum WebSpace {
     static let readFields: Set<String> = ["workspace"]
     static let planFields: Set<String> = ["workspace", "text"]
+    static let framesFields: Set<String> = ["workspace", "run"]
     /// The plan route's body: a space file of at most 256 KiB, as JSON text (its escapes) and its name.
     public static let maximumPlanBody = 400 << 10
 
     public static func decodeRead(_ body: Data) throws -> WorkspaceRequest {
         WorkspaceRequest(name: try WebWorkspaceViews.object(body, readFields).workspaceName("workspace"))
+    }
+
+    public static func decodeFrames(_ body: Data) throws -> WorkspaceRequest {
+        let f = try WebWorkspaceViews.object(body, framesFields)
+        var w = WorkspaceRequest(name: try f.workspaceName("workspace"))
+        w.run = try f.required(f.matching("run", "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{1,6}$", "a run's id"), "run")
+        return w
     }
 
     public static func decodePlan(_ body: Data) throws -> (workspace: String, text: String) {

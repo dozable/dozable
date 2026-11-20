@@ -265,6 +265,20 @@ struct WorkspaceShow: AsyncParsableCommand {
             reach = try await workspaceViewAnswer(.workspaceReach, q, WorkspaceReach.self, g)
         }
         if folders { view = try await workspaceViewAnswer(.workspaceFolders, WorkspaceRequest(name: name), WorkspaceFolders.self, g) }
+        if space {
+            guard let s = d.space else { throw fail(HostError(.notFound, "\(d.name) was made without a space file"), g) }
+            // The file as it is now (`workspace-space`, read-only): its sha256 is what `edit --space-file --if-match` takes.
+            var file: WorkspaceSpaceFile?, problem: String?
+            do { file = try decode(try await query(workspaceRequest(.workspaceSpace, WorkspaceRequest(name: name)), g), WorkspaceSpaceFile.self, g) } catch {
+                problem = HostError.from(error).message
+            }
+            if g.json { Out.json(SpaceShowJSON(shown: s, file: file, problem: problem)); return }
+            var t = spaceShownText(s)
+            if let f = file { t += "File: \(f.bytes) bytes, sha256 \(f.sha256)\n" }
+            if let p = problem { t += "note: the file cannot be read: \(p)\n" }
+            Out.stdout(t)
+            return
+        }
         if g.json {
             if reach == nil && view == nil { Out.json(d) } else { Out.json(WorkspaceShowJSON(detail: d, reach: reach, folders: view)) }
             return
@@ -280,20 +294,6 @@ struct WorkspaceShow: AsyncParsableCommand {
             printFolders(view)
             return
         }
-        if space {
-            guard let s = d.space else { throw fail(HostError(.notFound, "\(d.name) was made without a space file"), g) }
-            // The file as it is now (`workspace-space`, read-only): its sha256 is what `edit --space-file --if-match` takes.
-            var file: WorkspaceSpaceFile?, problem: String?
-            do { file = try decode(try await query(workspaceRequest(.workspaceSpace, WorkspaceRequest(name: name)), g), WorkspaceSpaceFile.self, g) } catch {
-                problem = HostError.from(error).message
-            }
-            if g.json { Out.json(SpaceShowJSON(shown: s, file: file, problem: problem)); return }
-            var t = spaceShownText(s)
-            if let f = file { t += "File: \(f.bytes) bytes, sha256 \(f.sha256)\n" }
-            if let p = problem { t += "note: the file cannot be read: \(p)\n" }
-            Out.stdout(t)
-            return
-        }
         printWorkspace(d)
         if let s = d.space { Out.stdout(spaceShownText(s)) }
         if let t = d.briefText { Out.stdout("\n" + t + (t.hasSuffix("\n") ? "" : "\n")) }
@@ -306,14 +306,13 @@ struct SpaceShowJSON: Encodable {
     var shown: SpaceShown
     var file: WorkspaceSpaceFile?
     var problem: String?
-    enum K: String, CodingKey { case path, text, sha256, bytes, fileProblem }
     func encode(to encoder: Encoder) throws {
-        try shown.encode(to: encoder)
-        var c = encoder.container(keyedBy: K.self)
+        guard case .object(var o) = try JSONValue(encoding: shown) else { return try shown.encode(to: encoder) }
         if let f = file {
-            try c.encode(f.path, forKey: .path); try c.encode(f.text, forKey: .text); try c.encode(f.sha256, forKey: .sha256); try c.encode(f.bytes, forKey: .bytes)
+            o["path"] = .string(f.path); o["text"] = .string(f.text); o["sha256"] = .string(f.sha256); o["bytes"] = .number(Double(f.bytes))
         }
-        try c.encodeIfPresent(problem, forKey: .fileProblem)
+        if let p = problem { o["fileProblem"] = .string(p) }
+        try JSONValue.object(o).encode(to: encoder)
     }
 }
 

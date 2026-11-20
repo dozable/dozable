@@ -990,6 +990,7 @@ doz workspace log W --limit N [--before I]      # one page, the newest N (1–50
 doz workspace rename W NEW                      # its room keeps its own name
 doz workspace runs W [--json]                   # its runs: each start or reopen to its finish, its archive's status and size, the timesheet's totals
 doz workspace runs W --archive RUN              # a closed run's archive written again (when it could not be written at its finish)
+doz workspace runs W --frames RUN [--json]      # a space's run in frames: its state each time it changed (never a message), its archive checked now
 doz workspace plan [-f FILE] [--profile P]… [--json]  # what up would do with a space file: the steps, what down will do, the summary (every risky setting with its file:line)
 doz workspace up [-f FILE] [--profile P]… [--yes] [--dry-run] [--json]  # set it up from the file: the plan, every unfenced agent confirmed on the terminal, then each step
 doz workspace down [W] [-f FILE] [--purge] [--yes] [--dry-run] [--json]  # end its run (archived and hash-checked first), remove what the run made; --purge: what persists too
@@ -1016,6 +1017,16 @@ text. It is built from the merged spec `up` recorded, never the file. With no da
 state is "not known". `--json` is the document the dashboard's space view reads (`SpaceState` version 1): its `sha` covers
 everything but `sha` and `observedAt`, so the same facts give the same sha. Exit 2: not a workspace, or not made from a
 space file.
+
+`show W --space` names the space file the workspace was made from and, read now under the brief's rules (no link, a
+regular file of yours under your home), its size and sha256 (`--json`: its `path`, `text`, `sha256`, `bytes`). `edit W
+--space-file F|- --if-match SHA256` saves F over that file — always the one the workspace records, never another path —
+only while it is still the one whose sha256 you read; changed since: nothing is written (exit 3). Saving never applies
+it: `doz workspace up -f FILE` does. The text must start with `doz: space/3`. `runs W --frames RUN` shows a space's run
+as it went: its state each time it changed (recorded by the daemon on events — a program's status, a sandbox's phase,
+a change of the workspace — never on a timer, and never a message), at most 2,000 frames or 16 MiB a run (then only the
+last state is kept after it), with its archive checked now once the run is down; a run from before frames were kept shows
+its last state. These three answer with no daemon running and start none.
 
 `show --can-do`, `--network` and `--folders` answer from the store when no daemon runs and start none (what each agent was
 refused lately is then "not known"); `--json` adds `reach` or `folders` to `show`'s answer. Nothing they print is a secret: a

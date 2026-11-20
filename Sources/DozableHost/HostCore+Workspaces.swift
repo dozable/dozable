@@ -142,6 +142,8 @@ extension HostCore {
             return try JSONValue(encoding: try workspaceSpaceFile(w))
         case .workspaceSpaceSave:
             return try JSONValue(encoding: try await workspaceSpaceSave(w))
+        case .workspaceRunFrames:
+            return try JSONValue(encoding: try await workspaceRunFrames(w))
         default:
             break
         }

@@ -236,6 +236,17 @@ final class SpaceStateTests: XCTestCase {
         XCTAssertEqual(hidden.items.first { $0.type == "agent" && $0.subject == "helper" }?.state, "running")
     }
 
+    /// A frame's facts drop the programs' own messages: the attention line keeps the status, never the text.
+    func testAFramesFactsCarryNoProgramMessage() throws {
+        let i = try intent()
+        var f = runningFacts()
+        f.agents["worker"] = .init(state: "running", status: status(.blocked, kind: .permission, message: "Allow THE-WORDS?"))
+        f.dropMessages()
+        let s = build(i, f)
+        XCTAssertEqual(s.attention.map(\.text), ["worker: blocked: needs permission"])
+        XCTAssertFalse(SpaceState.stringify(s.ordered()).contains("THE-WORDS"))
+    }
+
     func testTheSameFactsTheSameSha() throws {
         let i = try intent()
         let a = build(i, runningFacts(), now: t0)

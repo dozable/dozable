@@ -305,6 +305,7 @@ extension HostCore {
         let log = try change(&r)
         try workspaces.write(r)
         for e in log { try? workspaces.append(n, e) }
+        spaceFramesPoke(n, log.first?.action ?? "the workspace changed")
         return r
     }
 

@@ -779,6 +779,9 @@ final class ServeHTTPTests: XCTestCase {
         let state = try macJSON(devCookie, devCSRF, "/api/v1/workspace-state", #"{"workspace":"demo"}"#, remote: true)
         XCTAssertEqual(state.status, 200, state.text)
         XCTAssertEqual(fake.workspaceCalls.last, "state demo hidden", "this Mac's sessions hidden while serve.mac_sessions is off")
+        let frames = try macJSON(devCookie, devCSRF, "/api/v1/workspace-run-frames", #"{"workspace":"demo","run":"2026-11-20-1"}"#, remote: true)
+        XCTAssertEqual(frames.status, 200, frames.text)
+        XCTAssertEqual(fake.workspaceCalls.last, "frames demo 2026-11-20-1 hidden")
         for (ms, chat) in [("off", "off"), ("watch", "read"), ("interactive", "write")] {
             try FileManager.default.createDirectory(at: dir.appendingPathComponent("xdg/doz"), withIntermediateDirectories: true)
             try "[serve]\nmac_sessions = \"\(ms)\"\nchat = \"\(chat)\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)

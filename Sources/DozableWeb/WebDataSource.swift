@@ -141,6 +141,7 @@ public protocol DozableWebData: Sendable {
     func workspaceSpace(_ w: WorkspaceRequest) async throws -> WorkspaceSpaceFile
     func workspaceState(_ w: WorkspaceRequest) async throws -> SpaceState
     func spacePlan(workspace: String, text: String) async throws -> SpacePlan
+    func workspaceRunFrames(_ w: WorkspaceRequest) async throws -> SpaceRunDetail
     /// A workspace's wide views: what each agent can reach and hold (`workspace-reach`), its folders' changes and restore
     /// points (`workspace-folders`), one page of its log (`workspace-log` with `before`/`limit`) — each the CLI's request
     /// (`WebWorkspaceViews.request`); in-process when no daemon runs.
@@ -192,6 +193,7 @@ extension DozableWebData {
     public func workspaceSpace(_ w: WorkspaceRequest) async throws -> WorkspaceSpaceFile { throw HostError(.notImplemented, "workspaces") }
     public func workspaceState(_ w: WorkspaceRequest) async throws -> SpaceState { throw HostError(.notImplemented, "workspaces") }
     public func spacePlan(workspace: String, text: String) async throws -> SpacePlan { throw HostError(.notImplemented, "workspaces") }
+    public func workspaceRunFrames(_ w: WorkspaceRequest) async throws -> SpaceRunDetail { throw HostError(.notImplemented, "workspaces") }
     public func workspaceReach(_ w: WorkspaceRequest) async throws -> WorkspaceReach { throw HostError(.notImplemented, "workspaces") }
     public func workspaceFolders(_ w: WorkspaceRequest) async throws -> WorkspaceFolders { throw HostError(.notImplemented, "workspaces") }
     public func workspaceActivity(_ w: WorkspaceRequest) async throws -> WorkspaceLogPage { throw HostError(.notImplemented, "workspaces") }
@@ -591,6 +593,10 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func workspaceState(_ w: WorkspaceRequest) async throws -> SpaceState {
         try await query(WebSpace.request(.workspaceState, w)).0.decode(SpaceState.self)
+    }
+
+    public func workspaceRunFrames(_ w: WorkspaceRequest) async throws -> SpaceRunDetail {
+        try await query(WebSpace.request(.workspaceRunFrames, w)).0.decode(SpaceRunDetail.self)
     }
 
     public func spacePlan(workspace: String, text: String) async throws -> SpacePlan {

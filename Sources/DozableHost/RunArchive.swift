@@ -13,7 +13,8 @@ import Foundation
 // What it holds: `manifest.json` (`{run, workspace, window, versions, rooms {name: id}, labels, notes, sweep, files [{path,
 // sha256, sourceSHA256?, bytes}], messages}`), `run.json` (the run and the plan that was confirmed), `brief.md`,
 // `chat/<room>.jsonl` (the slice `fromSeq < seq <= toSeq`) and `attachments/<room>/<id>/<name>`, `transcripts/<agent>/…`
-// (each with its source's sha256), `screens/<agent>.txt`, `usage.json`, `timesheet.md`.
+// (each with its source's sha256), `screens/<agent>.txt`, `usage.json`, `timesheet.md`, and a space's `frames/` (its state as
+// it changed during the run — `SpaceStateRecorder`; the run's folder of them removed only once this archive verifies).
 
 /// One transcript to archive: who, where it came from, its bytes as read (checked by `TranscriptCopy`'s rules) and their sha256.
 public struct RunTranscript: Sendable {
@@ -51,6 +52,8 @@ public struct RunEvidence: Sendable {
     public var notes: [String]
     public var you: String
     public var versions: [String: String]
+    /// A space's frames of the run (`frames/NNNNNN.json`, `frames/last.json`): its state as it changed, never a message.
+    public var frames: [(name: String, data: Data)] = []
     public init(workspace: String, run: WorkspaceRun, endedAt: Date, brief: Data) {
         self.workspace = workspace; self.run = run; self.endedAt = endedAt; self.brief = brief
         plan = nil; rooms = [:]; chat = [:]; transcripts = []; screens = [:]; agents = []; notes = []; you = "you"; versions = [:]
@@ -151,6 +154,7 @@ public enum RunArchive {
             byAgent[t.agent, default: []].append(Data(try folder.read(rel)))
         }
         for (agent, text) in e.screens.sorted(by: { $0.key < $1.key }) { try put("screens/\(agent).txt", Array(text.utf8)) }
+        for f in e.frames where SpaceStateRecorder.isFrameName(f.name) { try put("frames/\(f.name)", Array(f.data)) }
         // Usage and the timesheet, from the archived copies.
         let window = RunWindow(from: e.run.startedAt, to: e.endedAt)
         var agents: [TranscriptUsage.Agent] = []
@@ -231,6 +235,8 @@ public enum RunArchive {
         public var manifest: Manifest?
         public var manifestSHA256: String?
         public var problems: [String]
+        /// The files the manifest lists that are missing or differ now.
+        public var mismatched: [String] = []
         public var ok: Bool { problems.isEmpty && manifest != nil }
     }
 
@@ -244,12 +250,12 @@ public enum RunArchive {
     static func verify(_ folder: ExportFolder) -> Verified {
         guard let m = try? folder.read("manifest.json", maximum: 64 << 20) else { return Verified(problems: ["no manifest.json"]) }
         guard let manifest = try? HostWire.decoder.decode(Manifest.self, from: Data(m)) else { return Verified(problems: ["manifest.json cannot be read"]) }
-        var problems: [String] = []
+        var problems: [String] = [], mismatched: [String] = []
         for f in manifest.files {
-            guard let b = try? folder.read(f.path) else { problems.append("\(f.path) is missing"); continue }
-            if sha(b) != f.sha256 || b.count != f.bytes { problems.append("\(f.path) changed since it was archived") }
+            guard let b = try? folder.read(f.path) else { problems.append("\(f.path) is missing"); mismatched.append(f.path); continue }
+            if sha(b) != f.sha256 || b.count != f.bytes { problems.append("\(f.path) changed since it was archived"); mismatched.append(f.path) }
         }
-        return Verified(manifest: manifest, manifestSHA256: sha(m), problems: problems)
+        return Verified(manifest: manifest, manifestSHA256: sha(m), problems: problems, mismatched: mismatched)
     }
 }
 

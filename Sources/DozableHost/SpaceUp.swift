@@ -28,7 +28,8 @@ public struct SpaceRecordRef: Codable, Equatable, Sendable {
         public var path: String
         public init(run: String, name: String, path: String) { self.run = run; self.name = name; self.path = path }
     }
-    /// The space file's name, its path (shown, never opened by the daemon) and the merged spec's sha256.
+    /// The space file's name, its path and the merged spec's sha256. The daemon never plans from the path: it opens it only
+    /// to read and save the file (`workspace-space`, `-space-save`), under `SpaceRecordFile`'s rules.
     public var file: String?
     public var path: String?
     public var sha256: String?

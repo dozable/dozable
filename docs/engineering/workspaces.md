@@ -49,6 +49,9 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableHost/SpaceFormat.swift`, `SpaceDocument.swift`, `SpaceValidator.swift` | Space files (`NAME.space.yaml`, space/3): the format's key tables, full names and words; the ordered merged document, `SpaceOrigin`/`SpaceSource`/`SpaceProblem`, `SpaceRequest` (strict, 256 KiB); the ONE pure validator (`checkSource`, `checkMerged` + the backstop, `report`), `SpaceModel`, `SpaceRisk` ("Space files", below) |
 | `Sources/DozableHost/SpaceIntent.swift`, `SpaceUp.swift`, `HostCore+Space.swift` | pure: `SpaceIntent.compile` (what the file asks, in Dozable's terms), `SpaceUp.plan` (the steps, what down will do, the summary, the confirm set, the sha), `SpaceRecordRef`, `SpaceFacts`, `SpacePlan`; `workspace-up-plan` and its facts |
 | `Sources/DozableCLI/SpaceResolver.swift`, `SpaceCommands.swift` | the CLI's reading of the files (Yams: extends, override, `${VAR}`, the merge, each place's origin); `doz workspace plan -f | up -f --dry-run | config` and the `doz space` group |
+| `Sources/DozableHost/SpaceRecordFile.swift`, `HostCore+SpaceFile.swift`; `Sources/DozableCLI/SpaceDashboardPlan.swift` | the files a space workspace's record names (`SpaceRecordFile`: kinds `brief` and `space`, one rule set; `SpaceBriefFile` its brief); `workspace-space` and `workspace-space-save`; the dashboard's plan of the open text ("Space files", below) |
+| `Sources/DozableHost/SpaceState.swift`, `HostCore+SpaceState.swift`, `SpaceStateRecorder.swift`; `Sources/DozableCLI/WorkspaceStateCommands.swift` | `SpaceState` (the editor's document, version 1) and the pure `SpaceStateBuilder`; `workspace-state` and its facts; the frames during a run and `workspace-run-frames` (`SpaceRunDetail`); `doz workspace state` |
+| `Tests/DozableCLITests/SpaceStateTests.swift`, `SpaceStateSchemaTests.swift`, `SpaceRecordFileTests.swift`, `SpaceStateRecorderTests.swift`; `Fixtures/space-state/` (vendored, `PIN`); `Sources/doz-vmtest/CLISpaceStateRows.swift` | the editor's seven fixture shas, the builder's facts against them, the schema by exactly its keywords; the file's rules and the daemon's read and save; the frames; `make test-cli-workspace` rows F1–F6 |
 | `Tests/DozableCLITests/SpaceValidationTableTests.swift`, `SpaceSchemaDriftTests.swift`, `SpaceResolverTests.swift`, `SpaceUpPlanTests.swift`; `Fixtures/space3/` (vendored, `PIN`); `Sources/doz-vmtest/CLISpaceRows.swift` | the reference's 68 rows exactly, the tables against its schemas, the resolver and its recorded `config` values, the plan's facts against its recorded plans; `make test-cli-workspace` rows S1 and S12 |
 | `Sources/DozableHost/GrantModel.swift`, `GrantDecision.swift`, `GrantStore.swift`, `ActionClasses.swift`, `PermissionGate.swift`, `PermissionsProtocol.swift`, `HostCore+Permissions.swift`; `Sources/DozableCLI/PermissionCommands.swift` | what agents may do: the model, the ONE decision, the grants' files, every HostOp's class, the gate at the daemon's door, `doz permissions` / `doz why` ("Permissions", below) |
 | `Sources/DozableHost/BotRecord.swift` | Agents / Bots: `BotsFile` (`bots.json`, version 1), `BotRecord`, `BotIsolation`, `BotInstructions`, `BotTokenState`; `BotName` (the name rule), `BotKinds`, `BotFields` |
@@ -734,8 +737,10 @@ The manual's page is `docs/manual/39-space-files.md`.
   origin `{source, line, keyLine}`. Scalars follow YAML 1.2's core schema (`off` is text); anchors and aliases are
   refused. It sends `workspace-up-plan` ONE merged document (`{space}` filled, `{run}` literal, `extends` resolved away)
   as ordered JSON text, the origins and every source's sha256 (`SpaceRequest`: strictly decoded, at most 256 KiB). The
-  daemon never opens the space file or a defaults file; the brief is looked at by the CLI (sha256 and size, never its
-  text) and read by the daemon only as the recorded brief (`SpaceBriefFile`, below).
+  daemon never plans from a file and never opens a defaults file: it opens only the two files the record names — the
+  brief (read for the kick-off and the archive, written by an edit) and the space file itself (read and saved for the
+  dashboard and `show --space` / `edit --space-file`, never planned from) —, each under `SpaceRecordFile` (below). The brief
+  is looked at by the CLI (sha256 and size, never its text).
 - **One validator, twice.** `SpaceValidator` (DozableHost, pure, hand-written — 36 of the reference's 68 refusals are
   rules no schema says, and the words are the reader's): `checkSource` on each defaults file (what a defaults file may
   hold, its schema), `checkMerged` on the merged document (the schema by hand, then the rules: one namespace, externals,
@@ -774,7 +779,7 @@ The manual's page is `docs/manual/39-space-files.md`.
   (the rest `not-run`, the run open, exit 1). The record's `space` (`SpaceRecordRef`: file, path, sha256, sources,
   provenance, brief, owned `{agents|rooms|sandboxes|folders: run|persisted}`, archive, transcripts, scratch, kept paths,
   memory isolation, planSHA, upAt, downAt, purgedAt) and `<store>/workspaces/W/space.json` (0600) are written at the end.
-- **The brief is the file** (`SpaceBriefFile`): one rule set for every read and write — `MacFenceHostFS`, no link anywhere
+- **The brief is the file** (`SpaceRecordFile`, kind `brief`; `SpaceBriefFile`): one rule set for every read and write — `MacFenceHostFS`, no link anywhere
   below the home (only the home itself is resolved), a regular file of this user with one name, ≤ 256 KiB, UTF-8, under the
   home (a guarded run: `DOZ_TEST_BRIEF_HOME`), never the store, `~/.claude` or `~/Library`; writes by temp-and-rename, its
   mode kept. `workspaceBriefText(rec)` is every reader (show `--brief`, the kick-off, the manager's START, the set-up check,
@@ -782,6 +787,56 @@ The manual's page is `docs/manual/39-space-files.md`.
   the file as it is now; a missing file is "BRIEF.md is gone from PATH". `up` never writes it. `show --space` and the
   page's "Defined by FILE" line and up/down pill come from `SpaceShown`; another computer gets the same line and the brief's
   path as it gets a folder's (the brief's own `serve.chat` rules unchanged).
+- **The space file, read and saved** (`SpaceRecordFile`, kind `space`: the brief's rules, and the text must start with
+  `doz: space/3` or `doz: space-defaults/3` — its first line that is not blank or a comment — before and after a save).
+  `workspace-space` (read-only, in-process with no daemon; `doz workspace show W --space [--json]`) answers `{workspace,
+  file, path, shownPath, text, sha256, bytes}` — a workspace made without a space file: not found, "not made from a space
+  file". `workspace-space-save` `{workspace, text, ifMatch}` (the daemon's, under the space's gate; `doz workspace edit W
+  --space-file F|- --if-match SHA`) writes over the record's path only when the file, hashed now through the descriptor it is
+  read by, is the one whose sha256 is `ifMatch` — changed since: refused ("the space file changed since you opened it",
+  exit 3), nothing written; never runs up (the record and its reference are untouched: "Saved. Not applied: up applies it");
+  logged `space-saved` with its sha256 and size, never its text. The path is always the record's, never a request's. From a
+  browser: this Mac's own only (web.md, "A space workspace's file, plan, state and frames"). The dashboard's plan of the
+  open text (`workspace-space-plan`) is `SpaceDashboardPlan` in doz ui: the CLI's resolver at the record's path, the files
+  beside it under the same rules, `${VAR}` only from the `.env` beside the file (a variable not there is a warning, "set
+  in your terminal, not known here"), then the existing `workspace-up-plan` (in-process with no daemon).
+- **Its state** (`workspace-state`, `SpaceState` version 1 — the space editor's document, shaped exactly on its schema,
+  vendored with its seven fixtures under `Tests/DozableCLITests/Fixtures/space-state/`, PIN): built by the pure
+  `SpaceStateBuilder.build(intent:ref:record:facts:host:now:viewer:)` from the merged spec `up` recorded (`space.json`
+  → `SpaceIntent`; never YAML, never the file), the record and its reference (`owned` lifetimes, the open run, `scratch`)
+  and the facts the daemon holds (each agent's place and its program's status, the sandboxes' phases, the folders looked
+  at, the chat server's rooms, archived and closed ones, the tombstones, its participants). One item per thing the file
+  declares, keyed by (type, subject) — the subject is its name in the file; each agent is followed by its chat member
+  (present while it runs or sleeps, away, absent); services are declared but never checked ("not checked by this Mac");
+  `unknown` and `gone` for every type. Drift only where a thing should exist — an external always, a persisted thing once
+  the space has run, a run's thing while a run is open: missing → `drift: missing`; removed by down → `gone`, no drift.
+  Extras: the record's agents and rooms and the chat server's `<space>-*` rooms the file does not name. Activity from the
+  status (blocked → `waiting`, working, idle or done → `idle`, else `unknown`); attention: a blocked program (permission →
+  `permission`, a question → `confirm`, sign-in → `problem`; its words `SessionStatus.label` and, for a viewer who may see
+  that session, the program's own message as one line of at most 120 characters — in the sha, never in a `detail`), a
+  failed sandbox (`health`), an up that stopped at a failure (`refusal`, from the log). No chat message text, ever; the Ask
+  fields are decoded but never made before Asks arrive. `host` is this Mac's name; `run` the open run (`up`) or the last
+  one (`down`). The `sha` is sha256 of JSON.stringify's bytes of the document without `sha` and `observedAt`, in the
+  editor's key order (`SpaceState.stringify`, `ordered`) — never a volatile value in the document (no "2m ago"), so the same
+  facts give the same sha; `SpaceStateTests` reproduces all seven fixtures' shas. With no daemon it is answered in-process,
+  `factsKnown` false and every item `unknown`. Another computer that may not see this Mac's sessions (`serve.mac_sessions`
+  off; `WorkspaceRequest.macSessionsHidden`, set by the dashboard's server) gets this Mac's agents as `unknown`, "not shown
+  to another computer", their keys kept and nothing else about them (`SpaceState.hiding` is exactly the builder's).
+  Read-only and Dozable's own (`ActionClasses`); `doz workspace state W [--json]`.
+- **Frames during a run** (`SpaceStateRecorder`, `HostCore+SpaceState`): only for a space workspace with an open run;
+  moved by events, never a timer — a program's status (`setStatus`), a sandbox's phase, every write of the record
+  (`workspaceUpdate`: rooms closed and opened, up and down among them); pokes within a second coalesce into one recompute;
+  a frame is written only when the sha differs from the last one: `<store>/workspaces/W/runs/<run>/frames/NNNNNN.json` =
+  `{at, label, state}` (the label names what changed — "sf-w1: waiting" —, the state built with the programs' messages
+  left out), 0600 in 0700, atomic. Bounded at 2,000 frames or 16 MiB per run: past that only `frames/last.json` is
+  rewritten and the run marked `framesCapped` (additive) — the end state always kept. Finish (and so down) writes a final
+  frame (the run `down`); the run's archive copies `frames/` (in its manifest, swept, hash-checked) and the run's folder is
+  removed only after `RunArchive.verify` passes — a failed archive keeps it, and `workspace-run-archive` takes it later.
+  `workspace-run-frames` (read-only, in-process with no daemon; `doz workspace runs W --frames RUN [--json]`) answers
+  `SpaceRunDetail {workspace, id, frames: [{file, label, at, state}], capped?, archive?: {path (~), files, verified,
+  mismatched}, note?}` — from the run's folder while it has one, else from its archive (verified now; a frame that no
+  longer matches is left out); a run from before frames were kept has one, built now: "the last state (no frames were kept
+  before this version)". `WorkspaceRunRow.frames` (additive) counts them.
 - **`down` and `--purge`** (`workspace-down-plan`, read-only; `workspace-down`, `SpaceDown.plan` pure, its sha over what is
   done to what): `finish` (no archive with `archive: off`; `archive.keep` filters transcripts and screens), the memory of
   each persisted fenced agent captured (`SpaceMemory`), each run-lifetime agent ended and forgotten (`worker-end --rm`; a
@@ -835,6 +890,15 @@ The manual's page is `docs/manual/39-space-files.md`.
   ("Space files", above); `make test-cli-workspace` rows S1 (plan and up --dry-run with the daemon stopped start none and
   change nothing in the store or the settings; up without --dry-run exit 7) and S12 (`doz space` is the same commands; the
   one `*.space.yaml` in the folder; two refused).
+- `make test FILTER=SpaceStateTests|SpaceStateSchemaTests|SpaceRecordFileTests` and the space rows of
+  `WorkspaceLifecycleHostTests` (`testTheSpaceFileIsReadAndSavedThroughTheRecord`,
+  `testTheDashboardsPlanReadsTheOpenTextAndOnlyTheEnvBesideIt`, `testFramesOnlyOnAShaChangeBoundedArchivedAndVerified`,
+  `testAFailedArchiveKeepsTheFramesAndAnOldRunHasItsLastState`); `make test-cli-workspace` rows F1–F6
+  (`CLISpaceStateRows.swift`, a FAKE claude that reports working and then a permission prompt): `state --json` (facts known,
+  one item per thing, the sha, the worker working), the frames of the open run, the prompt as `waiting` + `permission` with
+  no frame holding its message, `show --space --json` and `edit --space-file` (a stale `--if-match` exit 3, nothing written;
+  the current one written and never applied), down (the final frame, the archive's `frames/` verified, the run's folder
+  gone), and with the daemon stopped `state`, `show --space` and `runs --frames` answering with none started.
 - `make test FILTER=WorkspaceLifecycleHostTests` (its space rows: `SpaceUpHostTests`, `SpaceDownHostTests`, the brief and
   the loose room), `SpaceMemoryTests`, `SpaceBriefFileTests` — up (the reference, requests never granted, `grants.json`
   byte-identical, bypass in argv, `<space>-<name>`, the confirm set, a changed plan, idempotence, a partial up), down and
