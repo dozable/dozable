@@ -383,6 +383,8 @@ struct ChatParticipantChange: Encodable {
     var delivery: String?
     /// With inbox: the Claude Code session's name.
     var session: String?
+    /// set --role: its roles now (`[]`: none).
+    var roles: [String]?
     var chat: ChatServerState
 }
 
@@ -575,8 +577,12 @@ struct TokenFolder {
 
 struct ChatSet: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "set",
-        abstract: "Change how a participant is reached — inbox, poll or webhook — keeping its token, its rooms and its history.",
+        abstract: "Change how a participant is reached — inbox, poll or webhook — or its role, keeping its token, its rooms and its history.",
         discussion: """
+            --role decider: it may be named as a decider of an ask (a message that waits for a decision) and decide it; \
+            --role none takes the role away (an open ask naming only it is then marked as having no one left to decide it). \
+            Only you give a role, and only here; you decide every ask put to you without one. A bot's role is set here too. \
+            
             --deliver inbox: the server writes each message for it into the inbox of the running Claude Code session of that \
             name (--session, by default NAME) on this Mac — its kind must be claude-session (--kind claude-session changes it \
             here). Only a Claude Code session run on this Mac without a fence can be reached this way; a fenced session polls \
@@ -585,14 +591,18 @@ struct ChatSet: AsyncParsableCommand {
             The chat server restarts to take it (under a second); what still waits for it is handed over the new way.
             """)
     @Argument(help: "The participant.") var name: String
-    @Option(name: .long, help: "How it is reached: inbox, poll or webhook.") var deliver: String
+    @Option(name: .long, help: "How it is reached: inbox, poll or webhook.") var deliver: String?
+    @Option(name: .long, help: "Its role in chat: decider, or none.") var role: String?
     @Option(name: .customLong("webhook-entry"), help: "With --deliver webhook: the entry it uses (default: its own name).") var webhookEntry: String?
     @Option(name: .long, help: "Its kind too: agent, claude-session or grok-bot.") var kind: String?
     @Option(name: .long, help: "With --deliver inbox: the Claude Code session's name, as its record says it (default: NAME).") var session: String?
     @OptionGroup var g: GlobalOptions
 
     func validate() throws {
-        guard ChatDirectory.deliveries.contains(deliver) else { throw ValidationError("--deliver is one of \(ChatDirectory.deliveries.joined(separator: ", "))") }
+        guard deliver != nil || role != nil else { throw ValidationError("say how it is reached (--deliver) or its role (--role), or both") }
+        if let r = role, !ChatDirectory.roles.contains(r) { throw ValidationError("--role is decider or none") }
+        if let d = deliver, !ChatDirectory.deliveries.contains(d) { throw ValidationError("--deliver is one of \(ChatDirectory.deliveries.joined(separator: ", "))") }
+        if deliver == nil && (kind != nil || webhookEntry != nil || session != nil) { throw ValidationError("--kind, --webhook-entry and --session go with --deliver") }
         if let k = kind, !ChatDirectory.kinds.contains(k) { throw ValidationError("--kind is one of \(ChatDirectory.kinds.joined(separator: ", "))") }
         if webhookEntry != nil && deliver != "webhook" { throw ValidationError("--webhook-entry goes with --deliver webhook") }
         if session != nil && deliver != "inbox" { throw ValidationError("--session goes with --deliver inbox") }
@@ -601,11 +611,19 @@ struct ChatSet: AsyncParsableCommand {
     func run() async throws {
         if let why = ChatNames.refusal(name) { throw fail(HostError(.invalid, why), g) }
         var r = HostRequest(.chatSet)
-        r.chat = ChatRequest(name: name, kind: kind, entry: webhookEntry, session: session, deliver: deliver)
+        r.chat = ChatRequest(name: name, kind: kind, entry: webhookEntry, session: session, deliver: deliver,
+                             roles: role.map { $0 == "none" ? [] : [$0] })
         let a = try decode(try call(r, g), ChatSetAnswer.self, g)
         if g.json {
-            Out.json(ChatParticipantChange(name: a.name, kind: a.kind, webhookEntry: a.webhookEntry, delivery: a.delivery, session: a.session, chat: a.chat))
+            Out.json(ChatParticipantChange(name: a.name, kind: a.kind, webhookEntry: a.webhookEntry, delivery: a.delivery, session: a.session,
+                                           roles: role == nil ? nil : (a.roles ?? []), chat: a.chat))
             return
+        }
+        if role != nil {
+            Out.stdout(a.roles?.contains("decider") == true
+                ? "\(name) has the decider role: an ask may name it as a decider, and it may decide one. Its token, rooms and history are kept.\n"
+                : "\(name) has no role: it decides no ask. Its token, rooms and history are kept.\n")
+            if deliver == nil { return }
         }
         switch a.delivery {
         case "inbox":
@@ -1034,7 +1052,8 @@ struct ChatWho: AsyncParsableCommand {
     /// `presence`: the server's own word (`/api/presence`: here, away, present, quiet, woken, working, idle, not running);
     /// `here`: true only for one with a page open or heard from lately — never for one not heard from.
     /// `bot`: true for an Agent / Bot (`doz bot`); nil for anyone else.
-    struct Row: Encodable { var name: String; var kind: String; var token: Bool; var delivery: String?; var webhookEntry: String?; var rooms: [String]; var here: Bool?; var presence: String?; var bot: Bool? }
+    /// `roles`: the roles the owner gave it (`decider`); nil for none.
+    struct Row: Encodable { var name: String; var kind: String; var token: Bool; var delivery: String?; var webhookEntry: String?; var rooms: [String]; var here: Bool?; var presence: String?; var bot: Bool?; var roles: [String]? }
 
     /// Whether a presence word means the participant is here now (a page open, or heard from lately).
     static func isHere(_ state: String) -> Bool { ["here", "present", "working", "idle"].contains(state) }
@@ -1063,22 +1082,23 @@ struct ChatWho: AsyncParsableCommand {
         // Whether each webhook entry is set: as the daemon last saw it (supervisor.json says set / not set / unreadable only).
         let entryStates = ChatServerState.load(paths)?.webhooks ?? [:]
         let bots = Set(BotStore(store: g.dozableStore).readOrEmpty().active.map(\.name))
-        func row(_ n: String, kind: String, token: Bool, delivery: String?, entry: String?) -> Row {
+        func row(_ n: String, kind: String, token: Bool, delivery: String?, entry: String?, roles: [String]? = nil) -> Row {
             let word = running ? (presence[n] ?? "") : ""
             return Row(name: n, kind: kind, token: token, delivery: delivery, webhookEntry: entry, rooms: roomsOf(n),
-                       here: running ? Self.isHere(word) : nil, presence: running && !word.isEmpty ? word : nil, bot: bots.contains(n) ? true : nil)
+                       here: running ? Self.isHere(word) : nil, presence: running && !word.isEmpty ? word : nil, bot: bots.contains(n) ? true : nil,
+                       roles: roles?.isEmpty == false ? roles : nil)
         }
         if let h = dir.human { rows.append(row(h, kind: "you", token: false, delivery: nil, entry: nil)) }
         for p in dir.participants {
             let delivery = p.webhookEntry.map { "webhook (\(entryStates[$0] ?? "not set"))" }
                 ?? p.inboxSession.map { $0 == p.name ? "inbox" : "inbox (session \($0))" } ?? "polls"
-            rows.append(row(p.name, kind: p.kind, token: hashes.sha256[p.name] != nil, delivery: delivery, entry: p.webhookEntry))
+            rows.append(row(p.name, kind: p.kind, token: hashes.sha256[p.name] != nil, delivery: delivery, entry: p.webhookEntry, roles: p.roles))
         }
         if g.json { Out.json(rows); return }
         if rows.isEmpty { Out.stdout("nobody yet — doz chat on, then doz chat add NAME\n"); return }
         var t = [["NAME", "KIND", "TOKEN", "DELIVERY", "ROOMS", "PRESENCE"]]
         for r in rows {
-            t.append([r.name, r.kind + (r.bot == true ? " · bot" : ""), r.kind == "you" ? "—" : (r.token ? "yes" : "no"), r.delivery ?? "—", r.rooms.isEmpty ? "—" : r.rooms.joined(separator: ","),
+            t.append([r.name, r.kind + (r.bot == true ? " · bot" : "") + (r.roles?.contains("decider") == true ? " · decider" : ""), r.kind == "you" ? "—" : (r.token ? "yes" : "no"), r.delivery ?? "—", r.rooms.isEmpty ? "—" : r.rooms.joined(separator: ","),
                       r.presence ?? r.here.map { $0 ? "here" : "away" } ?? "—"])
         }
         Out.stdout(Out.table(t))

@@ -217,7 +217,7 @@ extension HostCore {
             if word.contains("=") {
                 let (perm, answer) = try GrantWords.parse(word)
                 if GrantPermissions.ownerOnly.contains(perm) {
-                    throw HostError(.invalid, "chat.decide is never granted: deciders are made in chat, by you only (doz chat set NAME --role decider, in a later version)")
+                    throw HostError(.invalid, "chat.decide is never granted: deciders are made in chat, by you only (doz chat set NAME --role decider)")
                 }
                 made.append(Grant(subject: subject, perm: perm, answer: answer, scope: scope, until: p.until, at: now))
             } else {

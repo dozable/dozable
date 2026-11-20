@@ -21,7 +21,8 @@ public protocol BotChat: Sendable {
 
 /// What `doz chat` refuses for a bot's name — pure (`BotGuardsTests`). Everything else is unchanged.
 public enum BotGuards {
-    public static func chatRefusal(_ op: HostOp, name: String?, bots: BotsFile) -> HostError? {
+    /// `roleOnly`: a `chat-set` that changes only the participant's role — the owner gives a bot the decider role in chat.
+    public static func chatRefusal(_ op: HostOp, name: String?, bots: BotsFile, roleOnly: Bool = false) -> HostError? {
         guard let n = name, let b = bots.bot(n) else { return nil }
         if let at = b.retiredAt {
             // The name stays with its old messages: nobody takes it, in chat or as you.
@@ -32,7 +33,7 @@ public enum BotGuards {
         case .chatSync: return HostError(.exists, "\(n) is a bot's name — you need a name of your own")
         case .chatRemove: return HostError(.invalid, "\(n) is a bot — doz bot retire \(n)")
         case .chatToken: return HostError(.invalid, "\(n) is a bot — doz bot token \(n) --new")
-        case .chatSet: return HostError(.invalid, "\(n) is a bot — doz bot set \(n) --deliver inbox|poll|webhook")
+        case .chatSet: return roleOnly ? nil : HostError(.invalid, "\(n) is a bot — doz bot set \(n) --deliver inbox|poll|webhook")
         default: return nil
         }
     }

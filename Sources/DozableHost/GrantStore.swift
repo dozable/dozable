@@ -143,11 +143,11 @@ public struct GrantFactsReader: Sendable {
         let file = GrantStore(store: store).readOrEmpty()
         let rec = w.flatMap { try? workspaces.read($0) }
         let bot = who.bot.flatMap { bots.readOrEmpty().bot($0) }
-        let human = (try? ChatDirectory.load(ChatPaths(store: store)))?.human
+        let directory = try? ChatDirectory.load(ChatPaths(store: store))
         return GrantFacts(grants: file.grants + (rec?.permissions?.grants ?? []), macCeiling: GrantCeiling.caps(file.ceiling),
                           botCeiling: GrantCeiling.caps(bot?.ceilingAnswers), botIsolationCeiling: bot?.isolation.ceiling,
-                          workspaceCeiling: GrantCeiling.caps(rec?.permissions?.ceiling), now: now, owner: human,
-                          manager: rec?.manager?.name, deciders: [])
+                          workspaceCeiling: GrantCeiling.caps(rec?.permissions?.ceiling), now: now, owner: directory?.human,
+                          manager: rec?.manager?.name, deciders: directory?.participants.filter(\.isDecider).map(\.name) ?? [])
     }
 
     /// The decision for `who` and `perm` in `w` (and room `room`).

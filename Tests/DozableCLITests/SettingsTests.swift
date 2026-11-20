@@ -80,8 +80,8 @@ final class SettingsTests: XCTestCase {
         XCTAssertNotNil(DozableSettings.definition("echo-agent.permissions"), "the recipe's settings exist")
         XCTAssertEqual(DozableSettings.render(values: [:]), before, "one more recipe adds nothing to the file")
         // 683: 36 KiB (the six mac.* settings of fenced sessions put it just over 32); 38 KiB with the chat server's three;
-        // 39 KiB with chat.refusal_reasons. The reader's own limit is the line below.
-        XCTAssertLessThan(before.utf8.count, 39 * 1024)
+        // 39 KiB with chat.refusal_reasons; 40 KiB with the four of asks. The reader's own limit is the line below.
+        XCTAssertLessThan(before.utf8.count, 40 * 1024)
         XCTAssertLessThan(before.utf8.count * 20, TOML.maximumBytes)
         for d in DozableSettings.schema where d.agent != nil {
             XCTAssertFalse(before.contains("[\(d.section)]"), "no section of \(d.agent!)'s: \(d.section)")

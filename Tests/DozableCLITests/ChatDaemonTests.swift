@@ -67,6 +67,27 @@ final class ChatDirectoryTests: XCTestCase {
         XCTAssertFalse(c.participants.contains { $0.deliver == "inbox-socket" })
     }
 
+    /// Asks in the generated config: a store with no roles and the default settings gets the bytes it got before asks
+    /// (the golden config above); a decider's entry carries `roles`, and each asks setting appears only when it is not the
+    /// server's default — `no_asks` only when `chat.asks` is off. The server's own loader reads each back.
+    func testRolesAndTheAsksSettingsInTheGeneratedConfig() throws {
+        var d = ChatDirectory(human: "ada", participants: [.init(name: "bot1", added: "x"), .init(name: "bot2", added: "x", roles: ["decider"])])
+        let base = try ChatConfigFile.bytes(d, paths: paths, pagePort: 8790, linePort: 8791)
+        XCTAssertEqual(base, try ChatConfigFile.bytes(d, paths: paths, pagePort: 8790, linePort: 8791, asks: ChatAskSettings()))
+        let text = String(decoding: base, as: UTF8.self)
+        XCTAssertFalse(text.contains("no_asks") || text.contains("ask_"), "defaults are never written")
+        let c = try ChatConfig.parse(Data(base))
+        XCTAssertEqual(c.participants.first { $0.name == "bot2" }?.roles, ["decider"])
+        XCTAssertEqual(c.participants.first { $0.name == "bot1" }?.roles, [])
+        XCTAssertTrue(c.asksOn)
+        let off = try ChatConfig.parse(Data(try ChatConfigFile.bytes(d, paths: paths, pagePort: 8790, linePort: 8791,
+                                                                    asks: ChatAskSettings(enabled: false, maxOpen: 2, expirySeconds: 60, cooldownSeconds: -1))))
+        XCTAssertFalse(off.asksOn)
+        XCTAssertEqual([off.askMaxOpen, off.askExpirySeconds, off.askCooldownSeconds], [2, 60, -1])
+        d.participants[1].roles = nil
+        XCTAssertFalse(String(decoding: try ChatConfigFile.bytes(d, paths: paths, pagePort: 8790, linePort: 8791), as: UTF8.self).contains("roles"))
+    }
+
     func testNoHumanNoConfig() {
         XCTAssertThrowsError(try ChatConfigFile.bytes(ChatDirectory(), paths: paths, pagePort: 8790, linePort: 8791))
     }

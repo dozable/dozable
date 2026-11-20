@@ -43,6 +43,21 @@ final class ChatReloadPolicyTests: XCTestCase {
         }
     }
 
+    /// A role given or taken, or an asks setting changed, restarts the server: never a reload (open asks survive it).
+    func testARoleOrAnAsksSettingRestarts() throws {
+        var d = ChatDirectory()
+        d.human = "ada"
+        d.participants = [.init(name: "bot1", kind: "agent", added: "x")]
+        let a = files(try ChatConfigFile.bytes(d, paths: paths, pagePort: 8790, linePort: 8791))
+        d.participants[0].roles = ["decider"]
+        XCTAssertEqual(ChatReloadPolicy.decide(old: a, new: files(try ChatConfigFile.bytes(d, paths: paths, pagePort: 8790, linePort: 8791))), .restart)
+        d.participants[0].roles = nil
+        XCTAssertEqual(ChatReloadPolicy.decide(old: a, new: files(try ChatConfigFile.bytes(d, paths: paths, pagePort: 8790, linePort: 8791,
+                                                                                           asks: ChatAskSettings(enabled: false)))), .restart)
+        XCTAssertEqual(ChatReloadPolicy.decide(old: a, new: files(try ChatConfigFile.bytes(d, paths: paths, pagePort: 8790, linePort: 8791,
+                                                                                           asks: ChatAskSettings(maxOpen: 2)))), .restart)
+    }
+
     func testAChangedDeliveryRestarts() throws {
         let a = files(try config(["bot1"], webhook: "hook1"))
         var d = ChatDirectory()
