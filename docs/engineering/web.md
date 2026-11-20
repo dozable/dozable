@@ -624,8 +624,9 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   them.
 - **Can do** (`components/can-do.js`, `canDoTable`; the page in `views/ws-agents.js`): the agent's rows from
   `AgentCapabilities.rows` (an `@mac` agent's are `MacFence.capabilities` unchanged), each live or at the next start; an unfenced
-  agent's control row is the warning chip "acts as you"; the two later rows — Permissions (allow · ask · never) and Ceiling —
-  drawn `aria-disabled`, "later", never data (`LATER_ROWS`). The frame's bar links to it; a framed session's "What it can do"
+  agent's control row is the warning chip "acts as you"; its last two rows — Permissions (allow · ask · never, the counts
+  `doz permissions show` prints) and Ceiling — are `workspace-reach`'s data like the rest, read only (no control; Edit comes
+  with the permissions screens). The frame's bar links to it; a framed session's "What it can do"
   tab and chips lead there.
 - **Network & secrets** (`views/ws-network.js`): the workspace's permissions per agent and a "new workers" row; Refused lately
   (the daemon's proxies only — with no daemon "not known") with **Allow for A** (a micro VM: `net-policy` `{sandbox, grant:

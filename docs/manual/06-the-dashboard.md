@@ -159,8 +159,8 @@ work started (found without running anything there; it never says which agent ch
 restore points, with **Take a restore point**. **Activity** is the workspace's log, newest first (**Load older** for more),
 with the operations this dashboard started for its agents (the last 50); show **All**, **You**, **Agents**, **Lifecycle** or
 **Network**. Each tab is read afresh when you open it. An agent's **Can do** (the **Can do** button on its screen) is its
-capability table: each row live or at the next start, an unfenced agent's **acts as you**, and the rows that come later
-drawn greyed.
+capability table: each row live or at the next start, an unfenced agent's **acts as you**, and last its **Permissions**
+(how many allow, ask and never — the counts `doz permissions show W --agent A` prints) and its **Ceiling**, read only.
 
 **The work** — the brief — sits above the room: its text, its references (a link opens in a new tab), who wrote it and
 when, and how many times it was edited. It is open on the workspace's page and one line on another room's; **Fold** and

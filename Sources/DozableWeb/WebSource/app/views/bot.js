@@ -172,11 +172,26 @@ function editTab(b, tab, accounts, readOnly) {
   return h('div', { class: 'bot-edit' }, f.el, acts);
 }
 
+/// Roles & ceiling, read only: its role in each workspace (the workspace gives it), and its ceiling — each cap, set in a
+/// terminal (doz bot ceiling). Nothing is enforced yet: no agent can drive Dozable.
 function roles(b) {
+  const held = Object.entries(b.roles || {}).sort((x, y) => x[0].localeCompare(y[0]));
+  const caps = Object.entries(b.ceilingAnswers || {}).sort((x, y) => x[0].localeCompare(y[0]));
+  const iso = b.ceiling === 'fenced' || b.ceiling === 'vm';
   return h('div', { class: 'bot-roles', 'data-bot-section': 'roles' },
-    callout('info', { title: 'Comes with permissions', body: 'Roles, grants and the ceiling — the most it may ever be given — are set here once permissions exist. Until then it has what its isolation gives it.' }),
-    h('p', null, 'Ceiling: ', h('b', null, b.ceiling ? ISOLATION_WORDS[b.ceiling] || b.ceiling : 'none set'), ' (read only).'),
-    h('p', null, 'In a room it joins as a voice: it reads and speaks there, with no grants.'));
+    h('h2', null, 'Its roles'),
+    held.length ? h('ul', { class: 'bot-role-list' }, ...held.map(([w, r]) => h('li', { 'data-bot-role': w },
+      h('a', { href: workspaceHash(w) }, w), ': ', h('b', null, r), h('span', { class: 'muted' }, ' (from the workspace)'))))
+      : h('p', { class: 'muted' }, 'Not an agent of any workspace yet. In a room it joins as a voice: it reads and speaks there, with no grants.'),
+    h('h2', null, 'Its ceiling'),
+    caps.length || iso ? h('ul', { class: 'bot-ceiling', 'data-bot-ceiling': caps.map(([p]) => p).join(' ') },
+      ...caps.map(([p, a]) => h('li', { 'data-cap': p }, h('code', null, p), ' — ', h('b', null, a))),
+      iso ? h('li', { 'data-cap': 'isolation.unfenced' }, h('code', null, 'isolation.unfenced'), ' — ', h('b', null, 'never'),
+        h('span', { class: 'muted' }, ' (its isolation ceiling: ' + (ISOLATION_WORDS[b.ceiling] || b.ceiling) + ')')) : null)
+      : h('p', null, 'None set: no cap.'),
+    h('p', { class: 'muted' }, 'The most it may ever get, wherever it works — read only here; set in a terminal: ',
+      cmdLine('doz bot ceiling ' + b.name + ' PERM=never')),
+    h('p', { class: 'muted' }, 'Not enforced yet: no agent can drive Dozable.'));
 }
 
 /// Across workspaces: where it is, its rooms, what it said last.

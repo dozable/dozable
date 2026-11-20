@@ -71,6 +71,8 @@
 //     finished; 8 Delete… with the Bin box unticked → gone from Home and the sidebar, its folder still on disk; 9 another
 //     computer's 403 is ServeHTTPTests'; 11 (below) with the daemon stopped the plan route answers. The leak sweep after.
 //   · with the daemon stopped, opening Home, Sandboxes, a workspace's page and its agents starts none (no daemon.pid).
+//   · from chat on, every permission is never (this Mac's ceiling, an everywhere never for every role): every check after
+//     runs as the owner, never gated; an agent's Can do shows its Permissions and Ceiling as live, read-only rows.
 //
 // Self-contained: Node >= 22 (global WebSocket and fetch), no packages. Never the person's own Dozable or browser: the
 // store, the settings (XDG_CONFIG_HOME), the Chrome profile and the projects folder are under SCRATCH (default
@@ -436,6 +438,14 @@ async function walkWorkspacePage() {
   doz(['config', 'set', 'chat.page_port', String(p1)]);
   doz(['config', 'set', 'chat.line_port', String(p2)]);
   check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (scratch store, OS-chosen ports)');
+  // From here every permission is never — this Mac's ceiling and an everywhere never for every role. Permissions constrain
+  // agents and never the owner: every check below (the workspaces, the wizard, workers, the lifecycle) runs exactly as before.
+  const allNever = ['workspace.read', 'agent.start', 'agent.stop', 'worker.start', 'worker.stop', 'isolation.unfenced', 'net.allow', 'secret.use',
+    'keychain.use', 'folder.read', 'folder.write', 'delete', 'room.manage', 'chat.read', 'chat.post', 'workspace.sleep', 'workspace.finish',
+    'workspace.archive', 'workspace.delete', 'bot.manage', 'grant.give', 'spend', 'sudo'].map((p) => p + '=never');
+  check(doz(['permissions', 'ceiling', '--mac', ...allNever, 'chat.decide=never']).status === 0
+    && ['manager', 'worker', 'member'].every((r) => doz(['permissions', 'grant', 'role:' + r, ...allNever, '--everywhere']).status === 0),
+    'every permission never from here (this Mac\'s ceiling, an everywhere never for every role): the owner is never gated');
   check(doz(['chat', 'room', 'other']).status === 0, 'an unrelated room, other');
   const folder = PROJECTS + '/demo2-src';
   mkdirSync(folder, { recursive: true });
@@ -1459,13 +1469,23 @@ async function walkWideViews() {
   check(await waitFor(`state.view === 'wsagent' && !!document.querySelector('[data-cando-table="wideu"]')`, 15000), 'wide 4 #/w/wide/agent/wideu/can-do draws its Can do');
   check(await evaluate(`/acts as you/.test(document.querySelector('[data-cando="control"]').textContent) && !!document.querySelector('[data-cando="control"] .acts-as-you')`),
     'wide 4 an unfenced agent: the warning chip "acts as you"');
-  check(await evaluate(`['permissions', 'ceiling'].every((id) => { const r = document.querySelector('[data-cando="' + id + '"]'); return r && r.getAttribute('aria-disabled') === 'true' && /later/.test(r.textContent); })`),
-    'wide 4 Permissions (allow · ask · never) and Ceiling drawn disabled, "later"');
+  // Its permissions and ceiling: live rows (not disabled, no "later"), read only (no control in the table but the command to
+  // copy), the counts `doz permissions show W --agent A` prints.
+  check(await evaluate(`['permissions', 'ceiling'].every((id) => { const r = document.querySelector('[data-cando="' + id + '"]'); return r && r.getAttribute('aria-disabled') !== 'true' && !r.classList.contains('is-later') && !/\\blater\\b/.test(r.textContent); })`),
+    'wide 4 Permissions (allow · ask · never) and Ceiling are live rows, not "later"');
+  const uCounts = ((dozJSON(['permissions', 'show', 'wide', '--agent', 'wideu']) || { agents: [{}] }).agents[0] || {}).rows || [];
+  const tally = (a) => uCounts.filter((r) => r.answer === a).length;
+  const wantCounts = `allow ${tally('allow')} · ask ${tally('ask')} · never ${tally('never')}`;
+  const pageCounts = await evaluate(text('[data-cando-table="wideu"] [data-cando="permissions"] .cando-state'));
+  check(uCounts.length > 0 && pageCounts === wantCounts, `wide 4 …its Permissions row says what doz permissions show says (${pageCounts} / ${wantCounts})`);
+  check(await evaluate(`!document.querySelector('[data-cando-table] input, [data-cando-table] select, [data-cando-table] textarea, [data-cando-table] [contenteditable]') && [...document.querySelectorAll('[data-cando-table] button')].every((b) => b.closest('.cmd-copy'))`),
+    'wide 4 …and nothing in the table edits (Edit comes with the permissions screens)');
   const canCli = ((dozJSON(['workspace', 'show', 'wide', '--can-do', '--agent', 'widef']) || { reach: { agents: [{ capabilities: [] }] } }).reach.agents[0].capabilities).map((c) => c.id);
   await goHash('#/w/wide/agent/widef/can-do');
   await waitFor(`!!document.querySelector('[data-cando-table="widef"]')`, 15000);
   const canPage = await evaluate(`[...document.querySelectorAll('[data-cando-table="widef"] [data-cando]')].map((r) => r.dataset.cando)`);
-  check(JSON.stringify(canPage) === JSON.stringify([...canCli, 'permissions', 'ceiling']), `wide 4 widef's rows are show --can-do --json's, then the two later ones (${canPage.length})`);
+  check(JSON.stringify(canPage) === JSON.stringify(canCli) && canCli.slice(-2).join(' ') === 'permissions ceiling',
+    `wide 4 widef's rows are show --can-do --json's, its permissions and ceiling last (${canPage.length})`);
   // 5. Folders & points: a changed file appears; Take only for a micro VM agent; the honest line.
   const fcli = (dozJSON(['workspace', 'show', 'wide', '--folders']) || { folders: { folders: [] } }).folders;
   await goHash('#/w/wide/folders');

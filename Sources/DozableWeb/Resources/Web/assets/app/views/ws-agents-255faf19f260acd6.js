@@ -19,7 +19,7 @@ import { confirmAction } from '../components/dialog-4e65dd3da1ca3eeb.js';
 import { moreMenu } from '../components/menus-b8f822d6b7817c72.js';
 import { pageFailure, toast } from '../components/notices-64b09147d0894f01.js';
 import { agentChips } from '../components/agent-frame-420ba5fd9f099e5e.js';
-import { canDoTable } from '../components/can-do-8dd2934bbaa3eb48.js';
+import { canDoTable } from '../components/can-do-42ec4d0bbd3a554d.js';
 import { putInWorkspace, takeOut, filingRefusal, releaseCommand } from '../components/put-in-workspace-bd5ed3a4a3e8d487.js';
 import { restartSessionDialog } from '../components/session-actions-d95a6af1618dcad6.js';
 import { programName } from '../components/ws-panel-34140d294f90e296.js';

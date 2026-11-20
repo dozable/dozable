@@ -117,12 +117,13 @@ final class WebModulesTests: XCTestCase {
         XCTAssertEqual(js("mergeActivity(\(lines), \(ops), 'demo', \(places), 'agents').map(x => x.action)"), #"["worker-added"]"#)
         XCTAssertEqual(js("mergeActivity(\(lines), \(ops), 'demo', \(places), 'lifecycle').map(x => x.action)"), #"["workspace-sleep","created"]"#)
         XCTAssertEqual(js("mergeActivity(\(lines), \(ops), 'demo', \(places), 'you').length"), "4")
-        // The tabs are enabled; Permissions still coming, saying where its answer is today; the later rows drawn.
+        // The tabs are enabled; Permissions still coming, saying where its answer is today.
         let ws = try read("app/views/workspace.js")
         for t in ["network", "folders", "activity"] { XCTAssertTrue(ws.contains("{ id: '\(t)', label:") && ws.contains("href: (w) => \(t)Hash(w)"), t) }
         XCTAssertTrue(ws.contains("today: each agent’s Can do"))
         let cando = try read("app/components/can-do.js")
-        XCTAssertTrue(cando.contains("Permissions (allow · ask · never)") && cando.contains("'Ceiling'") && cando.contains("'aria-disabled': 'true'"))
+        XCTAssertFalse(cando.contains("LATER_ROWS") || cando.contains("'aria-disabled'") || cando.contains("'later'"),
+                       "the permissions and ceiling rows are data now (workspace-reach), drawn like every other row")
         // mac-net-policy is sent by Network & secrets only; the reads are POSTs to their own routes.
         let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
             .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]

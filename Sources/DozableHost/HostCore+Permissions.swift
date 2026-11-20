@@ -52,6 +52,14 @@ extension HostCore {
         return AgentGrantAnswers(name: who.name, workspace: w, bot: who.bot, roles: roles, actsAsYou: who.actsAsYou, rows: rows)
     }
 
+    /// The ceilings over one agent acting in `w`: this Mac's, its bot's, the workspace's.
+    func agentCeilings(_ who: GrantWho, workspace w: String?) -> [CeilingRow] {
+        var out = ceilingRows("mac", "this Mac's", grantStore.readOrEmpty().ceiling)
+        if let b = who.bot.flatMap({ BotStore(store: store).readOrEmpty().bot($0) }) { out += botCeilingRows(b) }
+        if let w, let rec = try? workspaces.read(w) { out += ceilingRows("workspace:" + w, "\(w)'s", rec.permissions?.ceiling) }
+        return out
+    }
+
     func ceilingRows(_ lid: String, _ words: String, _ raw: [String: String]?) -> [CeilingRow] {
         GrantCeiling.caps(raw).sorted { $0.key < $1.key }.map { CeilingRow(lid: lid, words: words, perm: $0.key, answer: $0.value.rawValue) }
     }

@@ -113,6 +113,21 @@ It leaves chat and its token is refused. Its old messages keep its name, and the
 `doz bot adopt` and `doz chat add` refuse it. A bot that is an agent of a workspace is released from it first (a worker is ended first, `doz worker end W NAME`). `retire`
 asks first; pass `--yes` when there is no terminal or with `--json`.
 
+## Its ceiling
+
+A bot's **ceiling** is the most it may ever get, wherever it works and whatever it is granted: per permission, `ask` or
+`never` ([what agents may do](37-workspaces.md)). Its isolation ceiling (`fenced` or `vm`) means it never runs unfenced.
+
+```bash
+doz bot ceiling otto sudo=never keychain.use=never   # the same as doz permissions ceiling --bot otto
+doz bot ceiling otto                                 # the ceiling as it is
+doz bot ceiling otto --clear keychain.use
+doz permissions show --bot otto                      # its ceiling, its role in each workspace, its grants
+```
+
+`doz bot ceiling otto sudo=never` followed by `doz grant otto sudo=allow --in demo` still answers never: a ceiling is a lid
+no grant goes past. It constrains the bot only — never you — and nothing is enforced yet: no agent can drive Dozable.
+
 ## In the dashboard
 
 **Agents / Bots** in the sidebar (its count beside it) is the roster: each bot's avatar and name, its agent program and
@@ -126,7 +141,8 @@ retired ones instead.
   "held by Dozable · fp …": the fingerprint only, never the token.
 - **A bot's page** (Open, or its name) shows where it is across your workspaces — whether it drives there, a link to its
   screen in each, its rooms and what it said last — and the tabs **Identity**, **How it runs**, **Reached by**,
-  **Instructions** and **Account**, each with its own **Save**. **Roles & ceiling** comes with permissions.
+  **Instructions** and **Account**, each with its own **Save**. **Roles & ceiling** shows, read only, its role in each
+  workspace and its ceiling, each cap — set in a terminal with `doz bot ceiling`.
 - Its **⋯**: **Edit**; **Duplicate** (the form filled from it, the name empty — e.g. the same bot with another model); **New
   workspace with this bot** (the New workspace wizard with it chosen as the manager); **Include in a room…** (it joins as a voice — it reads and speaks there,
   with no token step; a room's own menu has **Add an Agent / Bot…** too); **New token…** (the old one is refused at once —
@@ -143,8 +159,8 @@ retired ones instead.
 
 ## Where it is kept
 
-The store's `bots/bots.json` holds each bot's record — never a token — and `bots/NAME/` its instructions and an empty
-`notes.md`. They are readable by you alone.
+The store's `bots/bots.json` holds each bot's record — never a token, its ceiling included — and `bots/NAME/` its
+instructions and an empty `notes.md`. They are readable by you alone.
 
 Exit codes: 2 not found · 4 already exists, or a retired name · 6 the daemon or the keychain is not available · 64 usage
 (a missing `--yes` included).

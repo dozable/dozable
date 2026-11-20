@@ -76,8 +76,9 @@ doz workspace log demo --limit 50           # the newest 50 lines; it prints the
 **Can do** says, for each agent, only what is true today, each row live (it changes now) or at the next start: where it runs
 and what holds it there, the folders it reads and writes, its network, the secrets it holds as placeholders (by name and
 where each goes), the Claude account by name, and what it can drive. A fenced or micro VM manager talks in the room only — it
-cannot drive Dozable; an unfenced one **acts as you**: it runs doz and anything else as you. Permissions (allow · ask · never)
-and a ceiling are later.
+cannot drive Dozable; an unfenced one **acts as you**: it runs doz and anything else as you. Last, its **permissions** — how
+many answer allow, ask and never, by its role and your grants — and its **ceiling**, each cap and whose it is ("What agents
+may do", below). They are read only there and in the dashboard, and none is enforced yet.
 
 **Network** gathers what the workspace can reach in one place. What an agent was refused lately is known while the daemon
 runs; `doz net allow` with the command shown allows it for that agent. Nothing it prints is a secret: a held secret is a name,
@@ -358,6 +359,58 @@ and no program is run in your folders (commits are not collected). `--no-archive
 doz workspace runs W                 # each run, its archive and its totals
 doz workspace runs W --archive RUN   # write a run's archive again
 ```
+
+## What agents may do
+
+What an agent may do in Dozable — start a worker, sleep the workspace, reach a folder beyond its own — is one list of
+**permissions**, each answered **allow**, **ask** or **never**. (What a sandbox's *network* may reach is a different list,
+`doz net permissions` — [permissions and the network](10-permissions-and-network.md).)
+
+- A **role** bundles answers: `manager`, `worker`, `member`, `decider`, `admin`, and the presets `cautious-manager` and
+  `trusted-manager`. An agent's role in a workspace is the one the workspace gives it — its manager is `manager`, its workers
+  and adopted agents `worker` — shown "worker (from the workspace)"; nothing is written for it.
+- A **grant** gives a role, or one permission's answer, in exactly one scope — `--everywhere`, `--in W`, or one room
+  `--room W/R` — optionally `--until` a date.
+- A **ceiling** is the most an agent may ever get: this Mac's (`--mac`), a workspace's (`--in W`), a bot's (`--bot B` —
+  [Agents / Bots](38-agents-and-bots.md)), and above them all Dozable's own, which nothing can grant: another workspace,
+  Dozable's settings, a new account, key or token, the ceilings themselves.
+
+```bash
+doz permissions show --roles                     # the role table: ✓ allow · ? ask · ✕ never · · says nothing
+doz permissions show demo                        # each agent's answers (✎ a grant · ▲ a ceiling), the grants and ceilings
+doz permissions show demo --agent bot1           # every permission: its answer, where it comes from, where it is enforced
+doz grant mira keychain.use=never --in demo      # one answer, for mira in demo (the same as doz permissions grant)
+doz grant otto worker --room demo/review --until 3d
+doz permissions revoke otto worker --room demo/review
+doz permissions ceiling --mac sudo=never         # this Mac's ceiling, for every agent
+doz why bot1 folder.read --in demo               # which of the five steps decided
+```
+
+`doz why` prints the five steps an answer is found in, and what decided:
+
+```text
+bot2 · folder.read · in myapp-tests
+1 any never               none (no ceiling, no never in any scope)
+2 permission grants        none (room, workspace, everywhere)
+3 roles here               worker (myapp-tests): ask
+4 —
+5 bot2's ceiling           none set: no cap
+→ ask · an Ask to ada (owner); mira is not a decider here
+```
+
+1. **Any never wins** — any ceiling's, or your explicit never in any scope that applies.
+2. A **permission grant**, the most specific scope first: a room beats its workspace, which beats everywhere (and within one
+   scope, the agent beats its bot, which beats a role).
+3. The **roles** in the most specific scope that has any, combined to the more permissive answer.
+4. **Nothing says anything**: ask. `sudo` and `isolation.unfenced` fail closed: never.
+5. The strictest **ceiling caps** it: an ask ceiling turns allow into ask.
+
+**Permissions constrain agents, never you.** Nothing you do — in a terminal or in the dashboard — is checked against them,
+not even your own nevers and ceilings. And none is enforced yet: no agent can drive Dozable, so `show` says "not yet — no
+agent can drive Dozable" (an unfenced agent's: "promise — acts as you"). Asks come later; until then, an answer of ask is
+a refusal for an agent. The owner role is yours and is never granted; `admin` is given everywhere only; deciders are made
+in chat, by you only. Every change is recorded, by you, in the store's `grants/log.jsonl` (and a workspace's grant in its
+log).
 
 ## Changing one
 

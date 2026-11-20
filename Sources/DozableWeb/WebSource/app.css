@@ -3298,7 +3298,6 @@ a.btn.is-disabled { color: var(--ink-3); cursor: not-allowed; }
 .cando-link { margin-top: var(--sp-1); }
 .cando-link .cmd-copy, .cando-cmds .cmd-copy { max-width: 100%; }
 .cando-table tr.is-warn th { color: var(--warn); }
-.cando-table tr.is-later th, .cando-table tr.is-later td { color: var(--ink-3); cursor: not-allowed; }
 .cando-cmds { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .wsf-folder, .wsf-point { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--panel-p); }
 .wsf-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); min-width: 0; }

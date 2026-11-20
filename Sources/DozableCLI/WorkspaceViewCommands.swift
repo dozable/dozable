@@ -39,7 +39,6 @@ func printCanDo(_ r: WorkspaceReach) {
     for a in r.agents {
         s += "\(a.name) — \(a.role) · \(a.actsAsYou ? "unfenced · acts as you" : BotIsolation.words(a.isolation)) · \(a.place)\n"
         s += MacFence.capabilitiesText(a.capabilities).split(separator: "\n").map { "  " + $0 }.joined(separator: "\n") + "\n"
-        s += "  Permissions (allow · ask · never) — later\n  Ceiling — later\n"
     }
     if r.agents.isEmpty { s += "no agents yet\n" }
     Out.stdout(s)

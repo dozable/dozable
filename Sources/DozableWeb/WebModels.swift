@@ -2051,8 +2051,12 @@ public struct WebBotDetail: Codable, Equatable, Sendable {
     public var instructionsUpdatedAt: Date?
     // where
     public var isolation: String
-    /// The most it may be given (read only: nothing sets it yet).
+    /// Its isolation ceiling (`fenced` or `vm`: never unfenced), read only.
     public var ceiling: String?
+    /// Its ceiling, per permission (`ask` or `never`; `doz bot ceiling`), and its role in each workspace (the workspace's
+    /// record gives it) — read only.
+    public var ceilingAnswers: [String: String]
+    public var roles: [String: String]
     public var actsAsYou: Bool
     public var workspaces: [String]
     public var manages: [String]
@@ -2078,6 +2082,8 @@ public struct WebBotDetail: Codable, Equatable, Sendable {
         instructions = d.instructions == nil ? nil : d.instructionsText
         instructionsBytes = d.instructions?.bytes; instructionsUpdatedAt = d.instructions?.updatedAt
         isolation = d.isolation.default; ceiling = d.isolation.ceiling; actsAsYou = d.isolation.default == "unfenced"
+        ceilingAnswers = (d.ceilingAnswers ?? [:]).filter { GrantPermissions.isKnown($0.key) && ($0.value == "ask" || $0.value == "never") }
+        roles = d.roles ?? [:]
         workspaces = d.workspaces; manages = d.manages; running = d.running; worksIn = d.worksIn
         deliver = d.deliver; webhookEntry = d.webhookEntry; session = d.session
         keeper = BotTokenState.keepers.contains(d.token.keeper) ? d.token.keeper : "none"

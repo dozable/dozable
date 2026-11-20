@@ -2082,6 +2082,8 @@ public struct BotDetail: Codable, Equatable, Sendable {
     public var instructionsText: String?
     /// Its ceiling: per permission the most it may ever be (`ask` or `never`; nil: none set — `doz bot ceiling`). Additive.
     public var ceilingAnswers: [String: String]?
+    /// Its role in each workspace it is a live agent of (the workspace's record gives it: `manager`, `worker`). Additive.
+    public var roles: [String: String]?
 
     public init(_ r: BotRecord, inChat: Bool, workspaces: [String], manages: [String], notes: [String]? = nil) {
         name = r.name; createdAt = r.createdAt; origin = r.origin; agent = r.agent; model = r.model; account = r.account; avatar = r.avatar

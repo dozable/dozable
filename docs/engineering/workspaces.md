@@ -46,6 +46,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Tests/DozableCLITests/WorkspaceRecordTests.swift`, `WorkspaceStateTests.swift`, `WorkspaceAdoptTests.swift`, `WorkspaceSetupCheckTests.swift`, `ManagerLaunchTests.swift`, `WorkspaceManagerTests.swift`, `BotLaunchSecretTests.swift`, `WorkerLaunchTests.swift`, `WorkerKickoffTests.swift`, `WorkspaceWorkerTests.swift` | the unit tests (scratch roots, a fake chat, fake launchers, a memory keychain) |
 | `Tests/DozableCLITests/WorkerPlanTests.swift` | the worker plan and the add agree over a table of requests (each refusal's sentence, code and field), the plan writes nothing, never unfenced from a default, no daemon; `WorkerAddCommandTests` (the argv parses back, the text is the argv to `/bin/sh`, a long task from a file) |
 | `Sources/doz-vmtest/CLIWorkspaceSuite.swift`, `CLIWorkspaceManagerRows.swift`, `CLIWorkspaceWorkerRows.swift`, `CLIWorkspaceBriefRows.swift`, `CLIWorkspacePlanRows.swift`, `CLIWorkerPlanRows.swift`, `CLIWorkspaceVMSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, a FAKE claude, no VM; `make test-cli-workspace-vm`: scratch lab VMs |
+| `Sources/DozableHost/GrantModel.swift`, `GrantDecision.swift`, `GrantStore.swift`, `ActionClasses.swift`, `PermissionGate.swift`, `PermissionsProtocol.swift`, `HostCore+Permissions.swift`; `Sources/DozableCLI/PermissionCommands.swift` | what agents may do: the model, the ONE decision, the grants' files, every HostOp's class, the gate at the daemon's door, `doz permissions` / `doz why` ("Permissions", below) |
 | `Sources/DozableHost/BotRecord.swift` | Agents / Bots: `BotsFile` (`bots.json`, version 1), `BotRecord`, `BotIsolation`, `BotInstructions`, `BotTokenState`; `BotName` (the name rule), `BotKinds`, `BotFields` |
 | `Sources/DozableHost/BotStore.swift` | `BotStore`: `bots/bots.json` rewritten whole, `bots/<name>/instructions.md` and `notes.md`, 0600 in 0700 |
 | `Sources/DozableHost/BotTokens.swift` | a held bot's keychain item (`doz-bot-<store's 8 hex>-<name>`), the fingerprint, the sweep's orphans |
@@ -495,7 +496,7 @@ Can do (web.md, "Workspace-wide views"). Two read-only HostOps beside `workspace
   destination (next start), the Claude account by name, keys as state; elsewhere "not isolated by Dozable"; then the control row —
   a fenced or VM manager "talks in the room only — it cannot drive Dozable", unfenced "acts as you — runs doz and anything else as
   you", elsewhere "not run by Dozable — token only", a worker `WorkerLaunch.control`'s words — and the chat row ("its chat token is
-  held by Dozable"). The later rows (Permissions: allow · ask · never; the ceiling) are never data.
+  held by Dozable"). The last two are its permissions and its ceiling ("Permissions", below), read only.
 - **`workspace-folders`** answers `WorkspaceFolders {workspace, since, folders: [{path, mode, main, workspace, exists, rules:
   {ignore, readonly}, agents, changes: [{kind, path}], count, truncated, scanned}], points: [{agent, sandbox, rows}]}`: the
   workspace's folders, then each agent's own working folder not among them; `since` = `flags.startedAt ?? firstAgentAt ??
@@ -642,6 +643,77 @@ is kept whatever the chat server says (`WorkspaceManagerTests.testARunningBotsCh
 `doz bot token NAME` without `--new` is answered by `bot-show`; `bot-token` always rotates. **The guards**:
 `HostServer.chatRequest` asks `BotGuards.chatRefusal` first — `chat add` of a bot's or a retired name, `chat remove` /
 `token` / `set` of a bot (each naming the `doz bot` command); every other participant is unchanged (`BotGuardsTests`).
+
+## Permissions — what agents may do (`doz permissions`, `doz why`)
+
+`doz net permissions` is what a sandbox's NETWORK may reach (`Permissions.swift`, `AgentPermissions.swift`,
+`PermissionReport`, `PermissionPolicy` — unchanged). `doz permissions` is what an AGENT may do in Dozable. The new code
+never reuses the network's names: `GrantModel`, `GrantDecision`, `GrantStore`, `ActionClasses`, `PermissionGate`.
+
+| Path | What |
+|---|---|
+| `Sources/DozableHost/GrantModel.swift` | `GrantAnswer` (`never < ask < allow`), `GrantPermissions` (the ONE list; `failClosed`: sudo, isolation.unfenced; `ownerOnly`: chat.decide), `GrantScope` (`everywhere`, `workspace:W`, `room:W/R`), `GrantSubject` (`bot:NAME`, `agent:W/NAME`, `role:ROLE`), `Grant`, `GrantCeiling`, `WorkspaceGrants` (workspace.json's `permissions`), `GrantsFile`, `RoleTable`, `GrantLogEntry` |
+| `Sources/DozableHost/GrantDecision.swift` | `GrantQuery`, `GrantFacts`, `HeldRole`; `GrantDecision.decide` — the ONE pure decision, its five steps' words and `lines` (what `doz why` prints); `dozableOwn` |
+| `Sources/DozableHost/GrantStore.swift` | `GrantStore` (`<store>/grants/grants.json` + `log.jsonl`); `GrantWho` and `GrantFactsReader` (who a question is about; the facts read from the store) |
+| `Sources/DozableHost/ActionClasses.swift` | `ActionClasses.classify(HostRequest)` — every HostOp's needs and target, no default |
+| `Sources/DozableHost/PermissionGate.swift` | `Caller` (`.owner`, `.agent`; `Caller.of` reads `actAs`), `PermissionGate.check` / `refusal` |
+| `Sources/DozableHost/PermissionsProtocol.swift`, `HostCore+Permissions.swift` | `PermissionsRequest`, `PermissionsShown`, `PermissionsChanged`, `GrantRow`, `CeilingRow`, `GrantAnswerRow`, `AgentGrantAnswers`, `RoleRow`, `PermissionWords`; the five `permissions-*` ops in the daemon (and show/why in-process) |
+| `Sources/DozableCLI/PermissionCommands.swift` | `doz permissions show | why | grant | revoke | ceiling`, `doz why`, `doz grant [give] | ls | why | revoke`, `doz bot ceiling` (nothing from DozableWeb: the helper build carries it) |
+| `Tests/DozableCLITests/GrantDecisionTests.swift`, `GrantStoreTests.swift`, `ActionClassTests.swift`, `PermissionGateTests.swift`; `Sources/doz-vmtest/CLIWorkspacePermissionRows.swift` | the unit tests; `make test-cli-workspace` rows P1–P10 |
+
+**The model.** One list of permissions (`GrantPermissions.list`), each answered `allow`, `ask` or `never`. A role is a
+named bundle of answers (`RoleTable`: `owner` — the person, never granted —, `manager`, `worker`, `member`, `decider`, `admin`,
+and the presets `cautious-manager`, `trusted-manager`); a permission a role does not name, it says nothing about. An agent's
+role in a workspace is DERIVED: its entry's `role` in `workspace.json` is its role there, shown "worker (from the workspace)"
+— nothing is written for today's agents (no backfill), and `revoke` refuses it ("change the workspace"). A grant gives a
+subject a role, or one `perm=answer`, in one scope, optionally `until` (an ended grant stays, listed "ended DATE", and never
+answers). Ceilings map `perm → ask|never` (allow = no cap), four lids: Dozable's own (code: another workspace — unless an
+everywhere grant reaches it —, and every HostOp outside the action table), this Mac's, the bot's (`ceilingAnswers`; an
+`isolation.ceiling` of fenced or vm is `isolation.unfenced=never`) and the workspace's.
+
+**The decision** (`GrantDecision.decide`, pure, no I/O — `why`, `show`, the gate and the Can do rows print the same words):
+(1) any never wins — a lid's, or an explicit never grant for the agent, its bot or a role it holds, in any applicable scope;
+(2) a permission grant: the most specific scope (room > workspace > everywhere), within it agent > bot > role (several of
+one rank: the more permissive); (3) the roles in the most specific scope that has any, combined to the more permissive
+answer (all silent: on to 4); (4) the default: ask — `sudo` and `isolation.unfenced` never, an unknown permission ask; (5) the
+strictest lid caps it (an ask ceiling turns allow into ask). The mockups' `doz why bot2 folder.read --in myapp-tests`
+prints their five lines verbatim (`GrantDecisionTests.testTheMockupsFiveLines`, `make test-cli-workspace` P3).
+
+**The files** (versioned, additive, 0600 in 0700, atomic, read in-process): `<store>/grants/grants.json`
+`{version: 1, grants, ceiling}` — the everywhere grants and this Mac's ceiling; `<store>/grants/log.jsonl` — one line per
+change (`granted`, `revoked`, `ceiling-set`, `request-recorded`) and per agent decision (`permission-decided`), by `you`
+(a decision: by the agent); `workspace.json` key `permissions` `{version: 1, grants, ceiling, requests}` — a workspace's or
+room's grants and the workspace's ceiling (`requests`: what a space file asks for, recorded, never consulted; an older doz
+keeps the whole key as a field it does not know; archive keeps it, delete removes it); `bots.json` per bot `ceilingAnswers`.
+A workspace's change is also a line of its own log (`WorkspaceLogEntry` gains `subject`, `perm`, `role`, `answer`, `scope`,
+`until`, `op`).
+
+**Who may change them:** the owner only, through the daemon (`permissions-grant`, `-revoke`, `-ceiling`; the `workspaces`
+gate, a bot's ceiling the `bots` gate), every word checked before anything is written. Refused: an unknown permission (with
+the list), the owner role, admin outside `--everywhere`, any `chat.decide` (deciders are made in chat, by the owner only), a
+derived role's revoke, two scopes, a past `--until`.
+
+**The gate.** `PermissionGate.check(request, caller)` runs ONCE, at the top of `HostServer.serve`, after the protocol check
+and before any routing — so the core, the chat ops and the streams (attach, copy, events) all pass it. `Caller.of(r)` is
+`.owner` for every request with no `actAs`: today's CLI on the owner's socket, every web action (`WebActionTests
+.testEveryActionIsTheOwners`), the in-process core. **`.owner` returns before any grant is read**: the owner is never gated,
+not even by their own nevers and ceilings (`PermissionGateTests.testTheOwnerIsNeverGated` — every HostOp, every ceiling and an
+everywhere never on everything; `make test-cli-workspace` P5 — rows 12 on run under them). `.agent(W, NAME)` resolves each
+need (`ActionClasses.classify`: the permissions, the target workspace from the request — its workspace field, else
+`WorkspaceStore.membership()` for a place, a room's workspace by its record) and takes the strictest decision: allow runs;
+**ask is refused** for now — "worker.start for mira in demo would ask; Asks come later. See: doz why mira worker.start --in
+demo" (`not-permitted`, exit 9) —; never is refused with what decided. Every agent decision is logged.
+
+**`--as W/AGENT`** (a preview and test path, never a boundary): `DozableEntry` takes it off the command line before it is
+parsed (only with a value naming `W/AGENT`, so `workspace adopt --as NAME` keeps its own); `HostClient.narrowTo` stamps it on
+every request this process sends but its own `ping` (`HostRequest.actAs`); a query with it goes to the daemon (the read-only
+core refuses one). It only narrows: a bad value is refused, never the owner's. No agent caller exists otherwise in this
+version; the manager's control route will make one in-process, never from a wire field.
+
+**Shown read only.** `show`'s ENFORCED column: "not yet — no agent can drive Dozable" ("promise — acts as you" for an unfenced
+agent). The Can do tab's last two rows (`AgentCapabilities.permissions`: "allow N · ask N · never N" and the effective
+ceiling with whose each cap is) come through `workspace-reach` — no new route or action; `doz workspace show --can-do`
+prints the same rows; the bot page's Roles & ceiling reads `bot-show`'s additive `ceilingAnswers` and `roles`.
 
 ## Tests
 
