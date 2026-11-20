@@ -18,7 +18,7 @@ import { icon } from '../dom/icons.js';
 import { initComposer } from './chat-composer.js';
 import { loadOlder } from './chat-messages.js';
 import { loadPresence, roomMenu, standing } from './chat-people.js';
-import { drawRooms, mine, openRoom } from './chat-rooms.js';
+import { drawRooms, mine, openRoom, refreshState } from './chat-rooms.js';
 import { startLive, stopLive } from './chat-live.js';
 
 let built = false, loaded = false, statusT = 0, wanted = null, loading = false, scopeKey = '';
@@ -179,6 +179,8 @@ async function enter(room) {
   const first = state.chat.scope || !(d && rooms.includes(d)) ? rooms[0] : d;
   const r = wanted && rooms.includes(wanted) ? wanted : (state.chat.scope || !state.chat.room ? first : null);
   if (r && r !== state.chat.room) await openRoom(r);
+  // Back in the same room: its state read again (it may have been closed, archived or opened meanwhile).
+  else if (r && r === state.chat.room) { await refreshState(); await openRoom(r); }
   else if (!r && state.chat.scope) await openRoom(null);
   else showUnread();
   startLive();

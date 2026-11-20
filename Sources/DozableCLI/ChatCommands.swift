@@ -707,7 +707,7 @@ func requireRoomName(_ room: String, _ g: GlobalOptions) throws {
 
 struct ChatRooms: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "rooms", abstract: "The rooms, their state and their members.",
-        discussion: "STATE is open, closed (its workspace is finished: readable, posts refused until it is reopened) or archived (read-only). --gone lists the rooms removed for good, from their tombstones.")
+        discussion: "A room that is not open says so after its members: closed (its workspace is finished: readable, posts refused until it is reopened) or archived (read-only). --gone lists the rooms removed for good, from their tombstones.")
     @OptionGroup var g: GlobalOptions
     @Flag(name: .customLong("gone"), help: "The rooms removed for good: their tombstones (id, when, the archive that holds them).") var gone = false
     func run() async throws {
@@ -724,12 +724,11 @@ struct ChatRooms: AsyncParsableCommand {
         let s = try chatState(try chatOwner(g), g)
         let closed = roomClosedSet(g)
         if g.json { Out.json(s.rooms); return }
-        var t = [["ROOM", "STATE", "MEMBERS"]]
+        // As before — ROOM — its members — with the room's state after them when it is not open.
         for r in s.rooms.keys.sorted() {
             let state = RoomState.derive(exists: true, archived: s.archived.contains(r), closedBy: closed[r], tombstone: false)
-            t.append([r, state.rawValue, s.rooms[r]!.joined(separator: ", ")])
+            Out.stdout("\(r) — \(s.rooms[r]!.joined(separator: ", "))" + (state == .open ? "" : " (\(state == .closed ? "closed: its workspace \(closed[r]!) is finished" : state.rawValue))") + "\n")
         }
-        Out.stdout(Out.table(t))
     }
 }
 

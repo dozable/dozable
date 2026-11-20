@@ -18,11 +18,12 @@ import DozableHost
 //  L4. lw2's token file gone while asleep and back 0600 in 0700 after the wake
 //  L5. lshell, a program with no conversation: ended at sleep, running again after wake
 //  L6. delete while it runs → exit 3; finish with no terminal and no --yes → exit 5, nothing done; with --yes finished,
-//      the room still takes a post, worker add refused
+//      the room CLOSED (0.52.15, the owner's decision — 0.52.12 kept it writable): a post refused naming the reopen, chat read
+//      still works, the run closed with its archive written (runs --json, the daemon stopped later); worker add refused
 //  L7. reopen, then wake: running again
 //  L8. archive: the typed name refused under --json without --yes (exit 5); with --yes archived, the room read-only, lw2's
 //      old token 401, remy's token held
-//  L9. restore: the room writable, finished, the retired workers listed ended
+//  L9. restore: finished, its room closed again (readable, a post refused), the retired workers listed ended
 //  L10. delete: the record gone, its folder untouched, lshell loose, the room archived and readable
 //  L11. --bin-folders: a scratch folder moved into the test's Bin; the store (and your home, in a dry run) refused by name
 //  L12. --if-plan with an old plan → exit 3, nothing done
@@ -210,13 +211,19 @@ func cliWorkspaceLifecycleRows(_ h: CLIHarness, root: URL, store: DozableStore, 
     // L6. delete while running; finish asks
     r = h.run(["workspace", "delete", "life", "--yes"], timeout: 60)
     check(r.code == 3 && r.err.contains("finish it first"), "L6 delete while it runs: exit 3 (\(r.code) \(r.err.prefix(200)))")
+    r = h.run(["workspace", "finish", "life", "--dry-run"], timeout: 60)
+    check(r.code == 0 && r.out.contains("finish closes the room to new messages until you reopen") && r.out.contains("#life → closed")
+          && r.out.contains("The run's archive"), "R2 finish --dry-run: the room's row, the owner's line, the archive section (\(r.code))")
     r = h.run(["workspace", "finish", "life"], timeout: 60)
     check(r.code == 5 && detail("life")?.flags.finishedAt == nil && sessions.allSatisfy(runs), "L6 finish with no terminal and no --yes: exit 5, nothing done (\(r.code))")
     r = h.run(["workspace", "finish", "life", "--yes"], timeout: 180)
     check(r.code == 0 && detail("life")?.state == "finished", "L6 finish --yes: finished (\(r.code) \(r.err.prefix(300)))")
     check(sessions.allSatisfy(ended), "L6 …everything stopped")
     r = h.run(["chat", "send", "life", "still here"])
-    check(r.code == 0, "L6 …the room still takes a post (\(r.code) \(r.err.prefix(160)))")
+    check(r.code != 0 && r.err.contains("is closed") && r.err.contains("doz workspace reopen life"), "L6 …the room is closed: a post refused (\(r.code) \(r.err.prefix(200)))")
+    check(h.run(["chat", "read", "life"]).code == 0, "L6 …and readable")
+    let runsL6 = h.json(["workspace", "runs", "life"], WorkspaceRunsListing.self)
+    check(runsL6?.runs.last?.archiveStatus == "written" && runsL6?.runs.last?.endedAt != nil, "L6 …its run closed, its archive written (\(runsL6?.runs.last?.archiveStatus ?? "?"))")
     r = h.run(["worker", "add", "life", "--task", "more"], timeout: 60)
     check(r.code == 3, "L6 …worker add refused (\(r.code))")
 
@@ -254,7 +261,7 @@ func cliWorkspaceLifecycleRows(_ h: CLIHarness, root: URL, store: DozableStore, 
     // L9. restore
     r = h.run(["workspace", "restore", "life"], timeout: 60)
     check(r.code == 0 && detail("life")?.state == "finished", "L9 restore: finished (\(r.code) \(r.err.prefix(200)))")
-    check(h.run(["chat", "send", "life", "back again"]).code == 0, "L9 …the room is writable")
+    check(h.run(["chat", "send", "life", "back again"]).code != 0 && h.run(["chat", "read", "life"]).code == 0, "L9 …its room closed again: readable, a post refused")
     let all = h.json(["worker", "ls", "life", "--all"], WorkerListing.self)
     check(["lw1", "lw2"].allSatisfy { n in all?.agents.contains { $0.name == n && $0.state == "ended" } == true }, "L9 …the retired workers are listed ended")
 

@@ -16,8 +16,8 @@
 //   · 605: the page outlives its server. doz ui restarting is a calm pause (terminals reattach, operations
 //     resolve, a newer build offers a reload); a sign-in again happens INSIDE the page, over what it shows.
 
-import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat-b847f5002af5e3f8.js';
-import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-b8c64501417aec06.js';
+import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat-b6d90d0841520f18.js';
+import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-2fc4b1ad01f0c5f1.js';
 import { viewWsAgent } from './app/views/ws-agents-8ea55a2cbda4a51a.js';
 import { viewIsolationGuide } from './app/views/isolation-guide-a618cc2432a854d9.js';
 import { viewAddWorker } from './app/views/add-worker-c9845c4971f992c5.js';

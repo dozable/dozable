@@ -1289,13 +1289,14 @@ async function walkLifecycle() {
   check(await wlSubmit(), 'life 4 Finish: the operation ended');
   check(await waitFor(`!!document.querySelector('#ws-head [data-ws-state="finished"]')`, 20000) && wsState('life') === 'finished', 'life 4 finished');
   await waitFor(`!!document.querySelector('#chat-text')`, 10000);
-  check(await waitFor(`document.querySelector('#chat-text').disabled && /Closed: its workspace life is finished/.test(document.querySelector('#chat-text').placeholder)`, 15000),
-    'life 4 …the composer is off with the closed notice');
   check(doz(['chat', 'send', 'life', 'a post after the finish']).status !== 0, 'life 4 …a post is refused (closed)');
   await goHash('#/w/life/runs');
   check(await waitFor(`!!document.querySelector('[data-wr-run][data-wr-status="written"]')`, 15000), 'life 4 Runs lists the run, its archive written');
   check(await evaluate(`document.querySelector('[data-wr-room-state]')?.dataset.wrRoomState === 'closed'`), 'life 4 …its room reads closed');
+  // Back in the room (its state read again on arrival): the composer off, with the closed notice.
   await goHash('#/w/life');
+  check(await waitFor(`!!document.querySelector('#chat-text') && document.querySelector('#chat-text').disabled && /Closed: its workspace life is finished/.test(document.querySelector('#chat-text').placeholder)`, 20000),
+    'life 4 …the composer is off with the closed notice');
   // 5. Reopen (the primary button) → asleep.
   await waitFor(`!!document.querySelector('#ws-head [data-ws-primary="reopen"]')`, 10000);
   await evaluate(`document.querySelector('#ws-head [data-ws-primary="reopen"]').click()`);

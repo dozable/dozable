@@ -857,7 +857,7 @@ doz chat webhook set E [--from-file F]          # a webhook bot's entry: address
 doz chat webhook status [E] | remove E
 doz chat import PATH [--dry-run] [--add-missing] [--replace]   # another chat's history (chat off first)
 doz chat rooms | room NAME @MEMBER… | send ROOM TEXT | read ROOM [--last N] [--follow] [--with-log]   # as you, on your own socket
-doz chat rooms [--gone]                         # each room's STATE: open, closed (its workspace is finished) or archived; --gone: the tombstones
+doz chat rooms [--gone]                         # each room and its members, then (closed: its workspace is finished) or (archived); --gone: the tombstones
 doz chat room archive ROOM [--loose] [--dry-run] [--yes]       # its whole history copied into the store and verified, then read-only (owned rooms; --loose: one no workspace owns or links)
 doz chat room rm ROOM [--loose] [--dry-run] [--yes --confirm ROOM]   # removed for good once its archived copy verifies (the name typed); a tombstone stays
 doz chat read ROOM --since T [--until T] [--json]   # every message of a window, no cap, oldest first

@@ -18,7 +18,7 @@ import { icon } from '../dom/icons-9b284ea0ffb2ad04.js';
 import { initComposer } from './chat-composer-db45d2dab002c2f3.js';
 import { loadOlder } from './chat-messages-dfb983938b7f0c9e.js';
 import { loadPresence, roomMenu, standing } from './chat-people-f4cc36e9051d0ca4.js';
-import { drawRooms, mine, openRoom } from './chat-rooms-21b6cc33f975b06f.js';
+import { drawRooms, mine, openRoom, refreshState } from './chat-rooms-21b6cc33f975b06f.js';
 import { startLive, stopLive } from './chat-live-59a2786bbe3458da.js';
 
 let built = false, loaded = false, statusT = 0, wanted = null, loading = false, scopeKey = '';
@@ -179,6 +179,8 @@ async function enter(room) {
   const first = state.chat.scope || !(d && rooms.includes(d)) ? rooms[0] : d;
   const r = wanted && rooms.includes(wanted) ? wanted : (state.chat.scope || !state.chat.room ? first : null);
   if (r && r !== state.chat.room) await openRoom(r);
+  // Back in the same room: its state read again (it may have been closed, archived or opened meanwhile).
+  else if (r && r === state.chat.room) { await refreshState(); await openRoom(r); }
   else if (!r && state.chat.scope) await openRoom(null);
   else showUnread();
   startLive();

@@ -176,3 +176,11 @@ A bare file name is in `Sources/DozableKit/`.
   every named request and every `ensureRunning`. The facts say it (`sandbox.timezone`).
   `DOZ_TEST_MAC_TIMEZONE` (a name, or a file holding one, read at each look) stubs the Mac's zone;
   `make test-cli-timezone`.
+
+## A sandbox's conversations for a run's archive
+
+At finish, while a sandbox agent's VM still runs (`SandboxTranscriptExport`, the daemon's `DaemonSandboxTranscripts`): an exec
+lists the regular `<uuid>.jsonl` files of `~/.claude/projects/<slug of /workspace>/` with their times, and each one modified
+since the run began is read as a one-member tar on the guest stream (the `copy` operation's way; a link or anything but a
+regular file is refused), then checked on the Mac by `TranscriptCopy`'s content rules. A sandbox not running is never woken
+("not running: its conversations stay on its disk"); nothing in a VM is ever discarded.
