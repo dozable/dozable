@@ -1,0 +1,24 @@
+# A live fixture: space-test-h as doz: space/3. A throwaway space with no Claude session: in space/3 every owned
+# agent is started and Dozable has no owned services yet, so this space owns folders and rooms only, and references an
+# external folder. Every name is space-test-v3-a*.
+# One real up → down → up → down --purge.
+doz: space/3
+extends: ./space-test-v3-defaults.yaml       # persists "{space}-room"; the archive's keep list
+space: space-test-v3-a
+title: space/3 live fixture A (persist, extends, archive, room removal)
+brief: ../../BRIEF.md
+owner: ada
+labels: { purpose: live-fixture }
+
+folders:
+  svc:     { external: ~/work/example-repo/test/live/cmp-test-svc }   # never touched
+  scratch: {}                                # inside runs/{run}/: archived as a tarball, then removed
+  data:    {}                                # persisted below: kept across runs, retired by --purge
+
+persist:
+  shared-data: { folder: data }              # beside the defaults' team-chat entry
+
+chat:
+  rooms:
+    space-test-v3-a-room: { members: [owner] }   # persisted by the defaults file: kept by down, removed by --purge
+    space-test-v3-a-run:  { members: [owner] }   # this run's only: removed by down, after the run is closed

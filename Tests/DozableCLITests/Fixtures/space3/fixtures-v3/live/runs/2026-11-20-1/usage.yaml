@@ -1,0 +1,6 @@
+# per agent, within the run's window, from its Claude Code transcripts (cost: Claude Code's own estimate for the whole session)
+run: 2026-11-20-1
+window:
+  from: 2026-11-20T22:25:39+11:00
+  to: 2026-11-20T22:25:41+11:00
+agents: {}

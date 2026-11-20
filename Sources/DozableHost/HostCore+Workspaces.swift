@@ -234,10 +234,12 @@ extension HostCore {
         if let given { macs = given } else { macs = rec.agents.contains { $0.place.mac == true } ? await workspaceMacRows() : [:] }
         let agents = await workspaceAgents(rec, macs: macs)
         let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.compactMap(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
-        return WorkspaceDetail(name: rec.name, state: state.rawValue, driver: rec.driver, createdAt: rec.createdAt, brief: rec.brief,
-                               briefText: withBrief ? workspaces.readBrief(rec.name) : nil, folders: rec.folders, rooms: rec.rooms,
-                               agents: agents.map(\.0), defaults: rec.defaults, flags: rec.flags, origin: rec.origin,
-                               notes: notes.isEmpty ? nil : notes)
+        var d = WorkspaceDetail(name: rec.name, state: state.rawValue, driver: rec.driver, createdAt: rec.createdAt, brief: rec.brief,
+                                briefText: withBrief ? workspaceBriefText(rec) : nil, folders: rec.folders, rooms: rec.rooms,
+                                agents: agents.map(\.0), defaults: rec.defaults, flags: rec.flags, origin: rec.origin,
+                                notes: notes.isEmpty ? nil : notes)
+        d.space = SpaceShown.of(rec)
+        return d
     }
 
     func workspaceListing(looseOnly: Bool) async -> WorkspaceListing {
@@ -358,7 +360,9 @@ extension HostCore {
     /// What `workspace-new` would make of `w`, with nothing written, no room made and the keychain not read: the record, the
     /// brief, the log, EVERY refusal (in the order `new` checks them — `new` answers with the first) and the notes. `look`:
     /// the plan's (with no daemon, chat is judged from its setting and a room's clash becomes a note); else `new`'s own.
-    func workspaceNewDraft(_ w: WorkspaceRequest, look: Bool) async -> WorkspaceNewDraft {
+    /// `space`: made by `up` from a space file — its brief is the file's (read under `SpaceBriefFile`'s rules; the store's
+    /// `brief.md` stays empty, never a copy) and the record carries the space's reference from its first write.
+    func workspaceNewDraft(_ w: WorkspaceRequest, look: Bool, space: (ref: SpaceRecordRef, brief: SpaceBriefFile.Read)? = nil) async -> WorkspaceNewDraft {
         var refusals: [HostError] = []
         func refuse(_ e: HostError) { refusals.append(e) }
         func attempt(_ f: () throws -> Void) { do { try f() } catch { refuse(HostError.from(error)) } }
@@ -367,7 +371,8 @@ extension HostCore {
         let named = WorkspaceName.isValid(name)
         if named, workspaces.exists(name) { refuse(HostError(.exists, "there is already a workspace \(name)")) }
         var brief = Data((w.brief ?? "").utf8)
-        attempt { brief = try workspaceCheckBrief(w.brief ?? "") }
+        if let space { attempt { _ = try workspaceCheckBrief(space.brief.text) }; brief = Data() }
+        else { attempt { brief = try workspaceCheckBrief(w.brief ?? "") } }
         // The folders: `<projects_dir>/NAME` first when it is made now, then each given one.
         var folders: [WorkspaceFolder] = []
         var makeFolder: String?
@@ -484,11 +489,13 @@ extension HostCore {
         }
         let origin = w.project != nil ? WorkspaceOrigin(kind: "project", project: w.project)
             : agents.allSatisfy(\.isManager) ? WorkspaceOrigin(kind: "new") : WorkspaceOrigin(kind: "adopted")
-        let rec = WorkspaceRecord(name: name, createdAt: now,
-                                  brief: WorkspaceBrief(refs: refs, sha256: WorkspaceStore.sha256(brief), bytes: brief.count, updatedAt: now),
+        var rec = WorkspaceRecord(name: name, createdAt: now,
+                                  brief: WorkspaceBrief(refs: refs, sha256: space?.brief.sha256 ?? WorkspaceStore.sha256(brief),
+                                                        bytes: space?.brief.bytes ?? brief.count, updatedAt: now),
                                   folders: folders, rooms: rooms, agents: agents,
                                   defaults: WorkspaceDefaults(isolation: w.workerIsolation, network: w.network),
                                   flags: WorkspaceFlags(firstAgentAt: anyRunning ? now : nil), origin: origin)
+        if let space { space.ref.store(in: &rec) }
         return WorkspaceNewDraft(record: rec, brief: brief, log: log, refusals: refusals, notes: notes, makeRoom: makeRoom, roomLinked: linked,
                                  makeFolder: makeFolder)
     }
@@ -501,8 +508,8 @@ extension HostCore {
         return ((chatSettingOverride ?? ChatSettingsView.read().enabled) ? .ready : .off, true)
     }
 
-    func workspaceNew(_ w: WorkspaceRequest) async throws -> WorkspaceDetail {
-        let d = await workspaceNewDraft(w, look: false)
+    func workspaceNew(_ w: WorkspaceRequest, space: (ref: SpaceRecordRef, brief: SpaceBriefFile.Read)? = nil) async throws -> WorkspaceDetail {
+        let d = await workspaceNewDraft(w, look: false, space: space)
         if let first = d.refusals.first { throw first }
         let name = d.record.name
         // Then the folder made now, the room, the files — the folder taken back when a later step fails.
@@ -584,8 +591,11 @@ extension HostCore {
         var rec = try workspaceRecord(n)
         let now = Date()
         var log: [WorkspaceLogEntry] = []
-        // Everything is checked first — the brief as the editor read it first of all (a change since: nothing written).
-        if let want = w.ifBrief, want != rec.brief.sha256 {
+        // Everything is checked first — the brief as the editor read it first of all (a change since: nothing written). A
+        // space's brief is its file, hashed as it is now through its descriptor; the path is the record's, never a request's.
+        let spaceBrief = SpaceRecordRef.of(rec)?.brief.flatMap { $0.path.isEmpty ? nil : $0.path }
+        let current = try spaceBrief.map { try SpaceBriefFile.read($0, store: storeRoot).sha256 } ?? rec.brief.sha256
+        if let want = w.ifBrief, want != current {
             throw HostError(.invalidPhase, "the brief of \(n) changed since you opened it — read it again (doz workspace show \(n) --brief)")
         }
         var brief: Data?
@@ -658,7 +668,14 @@ extension HostCore {
             rec.rooms.append(WorkspaceRoom(label: "main", chatRoom: n, main: true, id: id, owned: true))
             log.append(WorkspaceLogEntry(at: now, action: "room-made", room: n))
         }
-        if let brief {
+        if let brief, let path = spaceBrief {
+            // The file wins: written in place (temp, then renamed over it, its mode kept); the store's copy never.
+            let wrote = try SpaceBriefFile.write(String(decoding: brief, as: UTF8.self), to: path, ifSHA: current, store: storeRoot)
+            rec.brief.sha256 = wrote.sha256
+            rec.brief.bytes = wrote.bytes
+            rec.brief.updatedAt = now
+            log.append(WorkspaceLogEntry(at: now, action: "brief-edited", sha256: wrote.sha256, bytes: wrote.bytes, reason: "written to the space's brief file"))
+        } else if let brief {
             try workspaces.writeBrief(n, brief)
             rec.brief.sha256 = WorkspaceStore.sha256(brief)
             rec.brief.bytes = brief.count

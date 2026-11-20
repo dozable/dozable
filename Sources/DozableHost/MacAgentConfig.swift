@@ -103,7 +103,9 @@ public enum MacAgentConfig {
 
     /// Make the session's agent folder (private) and decide what the profile opens for it. `placeholder`: the API key's
     /// placeholder Claude Code is told to accept (an API-key account), if any.
-    public static func prepare(_ s: MacAgentSetup, fence f: MacFence, placeholderTail: String? = nil) throws -> MacAgentSetup {
+    /// `memory`: a persisted space agent's kept memory (`SpaceMemory.seedFolder`) — seeded after the clearing into this
+    /// private folder only; a shared folder (the person's own) is never seeded.
+    public static func prepare(_ s: MacAgentSetup, fence f: MacFence, placeholderTail: String? = nil, memory: String? = nil) throws -> MacAgentSetup {
         var s = s
         guard s.isPrivate else {
             // Shared: the person's own folder — nothing seeded, nothing written. Opened by the profile (MacFenceProfile).
@@ -119,6 +121,12 @@ public enum MacAgentConfig {
         try MacFenceHostFS.ensureDirectory(dir)
         let projects = s.transcriptsFolder(workdir: f.workdir)
         s.notes += try clearKeepingTranscripts(dir, projects: projects)
+        if let m = memory {
+            do {
+                let n = try SpaceMemory.seed(from: m, into: dir)
+                if n > 0 { s.notes.append("its kept memory: \(n) file\(n == 1 ? "" : "s") brought back") }
+            } catch { s.notes.append("its kept memory was not brought back: \(HostError.from(error).message)") }
+        }
         s = try link(s, fence: f)
         try writeSettings(&s, home: f.places.home)
         try writeFirstRun(s, workdir: f.workdir, placeholderTail: placeholderTail)

@@ -1,4 +1,4 @@
-# The sandboxed team as a doz space v3 file. Compare: examples/space/sandbox-team.space.yaml (v2).
+# The sandboxed team as a doz space v3 file. Compare: spaces/sandbox-team.space.yaml (v2).
 doz: space/3
 extends: ./my_doz_workspace_defaults.yaml
 space: sandbox-team

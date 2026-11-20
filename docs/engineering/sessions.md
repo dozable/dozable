@@ -575,3 +575,12 @@ verified archive names the session's files. Each file — Dozable's kept copy, a
 (`O_NOFOLLOW_ANY`), `fstat`ed, hashed through the descriptor and unlinked only when the sha256 is the archive's
 `sourceSHA256` and its dev/inode are unchanged; anything else is kept, with why. Never a folder, a listing or another file.
 `TranscriptDiscardTests`.
+
+## A space agent's kept memory
+
+A private fenced agent folder is cleared at every open but its transcripts, so Claude Code's memory
+(`projects/<folder>/memory/`) does not survive by itself. For an agent a space file persists (`persist: {x: {agent: A}}`,
+fenced), `doz workspace down` captures it into `<store>/workspaces/W/memory/A/` (`SpaceMemory.capture`), and
+`MacAgentConfig.prepare` seeds it back after the clearing — only when `SpaceMemory.seedFolder` finds a live worker of that
+workspace whose session this is and whose space keeps its memory as fenced. Never into `~/.claude` or a shared folder; a
+non-persisted agent starts with none (`SpaceMemoryTests`). The conversation itself continues as a wake's does.

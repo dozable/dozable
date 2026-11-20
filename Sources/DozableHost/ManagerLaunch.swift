@@ -98,7 +98,7 @@ public enum AgentLaunch {
     public static func plan(role: Role, isolation: ManagerIsolation, agent: String, model: String?, bot: String?, startFile: String,
                             pagePort: Int, fingerprint: String, tokenFile: String? = nil,
                             variable: String = ManagerLaunch.tokenVariable, fileVariable: String = ManagerLaunch.tokenFileVariable,
-                            allowedTools: [String]) throws -> ManagerLaunch.Plan {
+                            allowedTools: [String], permissionMode: String? = nil) throws -> ManagerLaunch.Plan {
         guard let program = ManagerLaunch.program(agent: agent) else {
             throw HostError(.invalid, "Dozable does not start \(role == .manager ? "a manager" : "a worker") running \(agent) yet")
         }
@@ -108,7 +108,10 @@ public enum AgentLaunch {
         if let model, isolation != .vm { argv += ["--model", model] }
         argv.append(prompt)
         if program == "claude", isolation != .vm {
-            if isolation == .fenced { argv += ["--permission-mode", "dontAsk"] }
+            // `bypass` (a space file's `permissions: bypass`): the worker's own argv, marked wherever its session shows
+            // (`MacPlace.bypassesPermissions`); a VM's approvals are skipped already.
+            if permissionMode == "bypass" { argv += ["--permission-mode", "bypassPermissions"] }
+            else if isolation == .fenced { argv += ["--permission-mode", "dontAsk"] }
             // The allow-list takes every word after it: it goes last.
             argv += ["--allowedTools"] + allowedTools
         }

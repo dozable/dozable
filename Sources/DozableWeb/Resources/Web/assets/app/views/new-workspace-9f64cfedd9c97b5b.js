@@ -31,7 +31,7 @@ import { wizHead, wizMount } from '../components/modal-e967813eac792c1a.js';
 import { addNote } from '../components/notes-1979331b5b970ae1.js';
 import { pageFailure, toast } from '../components/notices-64b09147d0894f01.js';
 import { stepperNode } from '../components/stepper-2c0827f6cc22be2c.js';
-import { BRIEF_MAX_BYTES } from '../components/ws-brief-9bfd53f6b09ab458.js';
+import { BRIEF_MAX_BYTES } from '../components/ws-brief-8fe264cd7d399f7d.js';
 import { gapsPanel, startsOnce } from '../components/ws-gaps-ecc3dc59f47d609b.js';
 
 /// Why this browser may not make or start a workspace (null: it may).

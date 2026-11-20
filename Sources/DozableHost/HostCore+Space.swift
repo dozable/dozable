@@ -21,7 +21,8 @@ extension HostCore {
             return plan
         }
         let intent = SpaceIntent.compile(checked.model, doc, loc)
-        var out = SpaceUp.plan(intent, facts: await spaceFacts(intent, brief: q.brief), specSHA: specSHA, sources: q.sources, specPath: q.specPath)
+        var out = SpaceUp.plan(intent, facts: await spaceFacts(intent, brief: q.brief), specSHA: specSHA, sources: q.sources, specPath: q.specPath,
+                               prompts: q.prompts ?? [:])
         out.problems = checked.problems
         return out
     }
@@ -56,8 +57,8 @@ extension HostCore {
             f.goneRooms = Set(idx.tombstones.map(\.name))
         }
         if !readOnly, case .ready = readiness { f.rooms = try? workspaceChat?.rooms() }
-        var paths = i.folders.compactMap(\.path) + i.persistedPaths.map(\.value)
-        paths = paths.map { f.expand($0) }
+        var paths = i.folders.compactMap(\.path).map { f.expand($0) }
+        paths += SpaceUp.keptFolderPaths(i, f).map(\.path)
         for p in paths {
             var d: ObjCBool = false
             f.folders[p] = FileManager.default.fileExists(atPath: p, isDirectory: &d) && d.boolValue

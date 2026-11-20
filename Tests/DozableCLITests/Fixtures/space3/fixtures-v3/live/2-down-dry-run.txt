@@ -1,0 +1,9 @@
+$ doz space down spaces/space-test-v3-a.space.yaml --dry-run
+  would archive run 2026-11-20-1 into ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-1, then:
+  remove room space-test-v3-a-run — deleted once the run is closed and its archived messages are hash-checked
+  keep   room space-test-v3-a-room (persisted: one thread across runs) — persisted: kept with its history; the run's members leave it as they are removed
+  keep   folder data (persisted) — persisted: kept for the next run
+  remove folder scratch — archived as a tarball first
+  never  folder svc exists (external: ~/work/example-repo/test/live/cmp-test-svc)
+down: run 2026-11-20-1 closed
+(exit 0)

@@ -310,6 +310,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// The room removed for good, after its archived copy is hash-checked (`chatRoom`: `ifPlan`, `confirm` = the name typed,
     /// `loose`); a tombstone is kept. Through the chat server's control channel — it keeps running.
     case chatRoomRm = "chat-room-rm"
+    /// `doz chat room close R --loose` / `open R --loose`: a LOOSE room (made and linked by none of your workspaces) closed
+    /// to new messages — still readable — or opened again; kept in the room index (`closedAt`) and handed to the chat server
+    /// in the closed set, only over the supervised control channel. Owner only (Dozable's own); a workspace's own rooms are
+    /// closed by its finish (and a space's by its down) and opened by its reopen (and up).
+    case chatRoomClose = "chat-room-close", chatRoomOpen = "chat-room-open"
     /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
     /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
     /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),
@@ -331,6 +336,14 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// and what it knows (`SpacePlan`). Only reads: answered in-process when no daemon runs, `factsKnown` false. Dozable's
     /// own (an agent never sends it).
     case workspaceUpPlan = "workspace-up-plan"
+    /// `doz workspace up -f FILE`: the space acted on (`space`: the same `SpaceRequest`, with `ifPlan` — the plan's sha the
+    /// person saw — and `confirmed`, the unfenced agents confirmed on a terminal: exactly the plan's confirm set, or
+    /// refused). The daemon plans again and runs each step through its own operations (`SpaceActed`). Dozable's own.
+    case workspaceUp = "workspace-up"
+    /// `doz workspace down W` (`spaceDown`: a `SpaceDownRequest`): `-plan` is what down — and with `purge` what persists
+    /// too — would do (`SpaceDownPlan`; read-only, in-process with no daemon); `workspace-down` does it on the plan the
+    /// person saw (`ifPlan`), answering `SpaceActed`. Dozable's own.
+    case workspaceDownPlan = "workspace-down-plan", workspaceDown = "workspace-down"
     /// Your Macs (`MacBookmarks`): the other Macs' dashboards this store keeps a bookmark of — `MacListing`, read from
     /// `<store>/macs.json`. Read-only: answered in-process when no daemon runs. Adding, removing and checking are the CLI's
     /// own (`doz ui macs`, in-process): no operation writes the list.
@@ -347,7 +360,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .macsList,
+             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .workspaceDownPlan, .macsList,
              .permissionsShow, .permissionsWhy: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
@@ -669,6 +682,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var permissionsRequest: PermissionsRequest?
     /// `workspace-up-plan`: the merged space (strictly decoded, at most 256 KiB).
     public var space: SpaceRequest?
+    /// `workspace-down-plan`, `workspace-down`: the workspace and `purge`. Additive.
+    public var spaceDown: SpaceDownRequest?
     /// `W/AGENT`: this request is made as that agent of workspace W would make it — it NARROWS the owner's request to the
     /// agent's permissions (`PermissionGate`), never widens anything. Only on the owner's socket (the hidden `--as W/AGENT`, a
     /// preview and test path); a request without it is the owner's, and the owner is never gated. Additive.
@@ -1978,6 +1993,8 @@ public struct WorkspaceDetail: Codable, Equatable, Sendable {
     /// `workspace-show` while it is setting up: what the set-up check would refuse now (never reading the keychain — a locked
     /// one shows only at the start). Additive; nil otherwise.
     public var gaps: [WorkspaceSetupCheck.Gap]?
+    /// Made by a space file: which, whether it is up, its run and times, and where its brief is. Additive.
+    public var space: SpaceShown?
     public init(name: String, state: String, driver: String, createdAt: Date, brief: WorkspaceBrief, briefText: String? = nil,
                 folders: [WorkspaceFolder], rooms: [WorkspaceRoom], agents: [WorkspaceAgentRow], defaults: WorkspaceDefaults,
                 flags: WorkspaceFlags, origin: WorkspaceOrigin, notes: [String]? = nil, gaps: [WorkspaceSetupCheck.Gap]? = nil) {
@@ -2136,6 +2153,10 @@ public struct WorkerRequest: Codable, Equatable, Sendable {
     public var rooms: [String]?
     /// add: more tools a fenced Claude Code worker may use without asking.
     public var allowTools: [String]?
+    /// add: `standard` (nil: as today) or `bypass` — its own argv bypasses its permissions, marked wherever it shows. Additive.
+    public var permissionMode: String?
+    /// add: a new sandbox's name (vm only; default `W-NAME`) — a space file's `<space>-<sandbox>`. Additive.
+    public var newSandbox: String?
     /// end: delete its place too (its session's record, or its own sandbox).
     public var rm: Bool?
     /// ls: ended workers too.
@@ -2277,4 +2298,35 @@ public struct WorkspaceRunChat: Codable, Equatable, Sendable {
     public var messages: [Message]
     public var more: Bool
     public var timesheet: String?
+}
+
+/// A workspace a space file made, as `show --space` and its page say it: "Defined by FILE" and up or down.
+public struct SpaceShown: Codable, Equatable, Sendable {
+    /// The space file's name and its path as shown (`~`); the brief's file name and where it is (shown the same way).
+    public var file: String
+    public var shownPath: String?
+    public var up: Bool
+    /// The open run, when up.
+    public var run: String?
+    public var runSince: Date?
+    public var upAt: Date?
+    public var downAt: Date?
+    public var purgedAt: Date?
+    public var brief: String?
+    public var briefShownPath: String?
+    public init(file: String, up: Bool) { self.file = file; self.up = up }
+
+    public static func of(_ rec: WorkspaceRecord) -> SpaceShown? {
+        guard let ref = SpaceRecordRef.of(rec) else { return nil }
+        var s = SpaceShown(file: ref.file ?? "space file", up: rec.openRun != nil && rec.flags.finishedAt == nil)
+        s.shownPath = ref.path.map { DisplayPath.tilde($0) }
+        s.run = s.up ? rec.openRun?.id : nil
+        s.runSince = s.up ? rec.openRun?.startedAt : nil
+        s.upAt = ref.upAt; s.downAt = ref.downAt; s.purgedAt = ref.purgedAt
+        if let p = ref.brief?.path, !p.isEmpty {
+            s.brief = (p as NSString).lastPathComponent
+            s.briefShownPath = DisplayPath.tilde(p)
+        }
+        return s
+    }
 }

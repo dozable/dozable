@@ -9,20 +9,62 @@ import Foundation
 // here acts: `workspace-up-plan` answers it, `doz workspace plan -f` and `up --dry-run` print it.
 // docs/engineering/workspaces.md, "Space files".
 
-/// The record's reference to the space file that made it (additive; an older doz keeps it). Read here; `up` writes it.
+/// The record's reference to the space file that made it (`workspace.json`'s `space`, additive: an older doz keeps it as
+/// an unknown field). `up` writes it; `down` and `--purge` act only on what it names as the space's own.
 public struct SpaceRecordRef: Codable, Equatable, Sendable {
+    /// What the space owns, by its name in the file: `run` (this run only) or `persisted`.
+    public struct Owned: Codable, Equatable, Sendable {
+        public var agents: [String: String] = [:]
+        public var rooms: [String: String] = [:]
+        public var sandboxes: [String: String] = [:]
+        public var folders: [String: String] = [:]
+        public init() {}
+    }
+    /// A scratch folder `up` made for a run (`<projects_dir>/.runs/<space>/<run>/<name>`): the only kind `down` removes,
+    /// and only when it is recorded here.
+    public struct Scratch: Codable, Equatable, Sendable {
+        public var run: String
+        public var name: String
+        public var path: String
+        public init(run: String, name: String, path: String) { self.run = run; self.name = name; self.path = path }
+    }
+    /// The space file's name, its path (shown, never opened by the daemon) and the merged spec's sha256.
     public var file: String?
     public var path: String?
     public var sha256: String?
+    public var title: String?
+    public var sources: [SpaceSource]?
+    /// JSON pointer → `FILE:LINE`, for the values that did not come from the space file itself.
+    public var provenance: [String: String]?
+    /// The brief: the file the space names (the daemon reads it under `SpaceBriefFile`'s rules), its sha256 at the last up.
     public var brief: SpaceBriefLook?
+    public var owned: Owned?
+    /// `archive: off` (down keeps no copy) and the archive's `keep:` list.
+    public var archiveOff: Bool?
+    public var archiveKeep: [String]?
+    /// Agent → `discard` (its transcripts deleted at down once their archived copy, or the hashes-only ledger, matches).
+    public var transcripts: [String: String]?
+    public var scratch: [Scratch]?
+    /// Persisted `{folder: PATH}` folders `up` made (never deleted; `--purge` releases them).
+    public var persistedPaths: [String]?
+    /// Persisted agents' isolation at the last up (a switch fenced ↔ unfenced resets the kept memory).
+    public var memoryIsolation: [String: String]?
     public var planSHA: String?
     public var upAt: Date?
     public var downAt: Date?
+    public var purgedAt: Date?
+    public init() {}
     /// The record's `space`, if it has one.
     public static func of(_ rec: WorkspaceRecord) -> SpaceRecordRef? {
         guard let v = rec.unknown.extra["space"] else { return nil }
         return try? v.decode(SpaceRecordRef.self)
     }
+    /// Written into the record (kept by an older doz as an unknown field).
+    public func store(in rec: inout WorkspaceRecord) {
+        if let v = try? JSONValue(encoding: self) { rec.unknown.extra["space"] = v }
+    }
+    /// Up when the last up is later than the last down.
+    public var isUp: Bool { guard let u = upAt else { return false }; return downAt.map { u > $0 } ?? true }
 }
 
 /// What the daemon knows when it plans. `known` false: answered with no daemon — what only a running daemon knows (a
@@ -113,8 +155,24 @@ public struct SpacePlan: Codable, Equatable, Sendable {
 }
 
 public enum SpaceUp {
-    /// The plan for `intent` (from a document whose sha256 is `specSHA`), given the facts. Pure.
-    public static func plan(_ i: SpaceIntent, facts f: SpaceFacts, specSHA: String, sources: [SpaceSource], specPath: String? = nil) -> SpacePlan {
+    /// An agent's task when the file gives it no prompt.
+    public static let defaultTask = "Read the brief (BRIEF.md beside the space file, posted in the room) and do the work it describes."
+
+    /// The folders the space keeps across runs: an owned folder named by `persist:` (`<projects_dir>/<space>/<name>`) and a
+    /// `persist: { folder: PATH }`. Absolute, `~` expanded.
+    public static func keptFolderPaths(_ i: SpaceIntent, _ f: SpaceFacts) -> [(name: String, path: String, source: String)] {
+        var out: [(String, String, String)] = []
+        for x in i.folders where x.path == nil {
+            if let p = x.persisted { out.append((x.name, (f.projectsDir as NSString).appendingPathComponent("\(i.space)/\(x.name)"), p.source)) }
+        }
+        for x in i.persistedPaths { out.append((x.value, f.expand(x.value), x.source)) }
+        return out
+    }
+
+    /// The plan for `intent` (from a document whose sha256 is `specSHA`), given the facts. `prompts`: the owned agents'
+    /// `prompt_file` texts, read by the CLI. Pure.
+    public static func plan(_ i: SpaceIntent, facts f: SpaceFacts, specSHA: String, sources: [SpaceSource], specPath: String? = nil,
+                            prompts: [String: String] = [:]) -> SpacePlan {
         var p = SpacePlan(space: i.space, title: i.title, specPath: specPath, specSHA: specSHA, sources: sources, factsKnown: f.known)
         p.intent = i
         p.risks = i.risks
@@ -193,12 +251,23 @@ public enum SpaceUp {
         if !f.chatOn && !i.rooms.isEmpty { refuse("chat is off — a space's rooms need it (doz chat on)", .invalidPhase) }
         if let b = f.brief, let problem = b.problem { refuse("the brief: \(problem)", .notFound) }
 
-        // 2. The workspace: new, or the record this space made; never one made without a space file.
+        // 2. The folders the space keeps (made when missing, never deleted): before the workspace, which holds them.
         let manager = i.manager
-        let folderPaths = i.folders.compactMap { x -> WorkspaceFolder? in
+        let keptFolders = keptFolderPaths(i, f)
+        for k in keptFolders {
+            let exists = f.folders[k.path] ?? false
+            step("folder", "folder \(k.name)", "persisted", "the data folder \(DisplayPath.tilde(k.path)) (persisted, from \(k.source))",
+                 action: exists ? "skip" : "run", why: exists ? "already there" : nil, down: "kept; never deleted (--purge releases it)")
+        }
+        let scratchPaths = Set((ref?.scratch ?? []).map(\.path))
+        var folderPaths = i.folders.compactMap { x -> WorkspaceFolder? in
             guard let path = x.path, f.folders[f.expand(path)] == true else { return nil }
             return WorkspaceFolder(path: f.expand(path), mode: x.access)
         }
+        for k in keptFolders where !folderPaths.contains(where: { $0.path == k.path }) { folderPaths.append(WorkspaceFolder(path: k.path, mode: "rw")) }
+
+        // 3. The workspace: new, or the record this space made; never one made without a space file.
+        var reopens = false
         if let rec {
             if ref == nil {
                 step("workspace-new", "workspace \(i.space)", "run", "the workspace \(i.space)", action: "refuse",
@@ -206,17 +275,18 @@ public enum SpaceUp {
                 refuse("\(i.space) was made without a space file: up manages only a workspace a space file made (rename that one, or give the space another name)", .exists)
             } else {
                 var diff: [String] = []
-                let have = Set(rec.folders.map(\.path)), want = Set(folderPaths.map(\.path))
+                let have = Set(rec.folders.map(\.path)).subtracting(scratchPaths), want = Set(folderPaths.map(\.path))
                 for x in want.subtracting(have).sorted() { diff.append("+ folder \(DisplayPath.tilde(x))") }
                 for x in have.subtracting(want).sorted() { diff.append("- folder \(DisplayPath.tilde(x))") }
                 if rec.manager?.bot != manager?.bot { diff.append("manager \(rec.manager?.bot ?? "none") → \(manager?.bot ?? "none")") }
                 if let a = ref?.brief?.sha256, let b = f.brief?.sha256, a != b { diff.append("the brief changed since the last up") }
+                let edits = diff.contains { !$0.hasPrefix("the brief") }
                 step("workspace-edit", "workspace \(i.space)", "run", diff.isEmpty ? "the workspace \(i.space): as the file says" : "the workspace \(i.space): " + diff.joined(separator: "; "),
-                     action: diff.isEmpty ? "skip" : "run", op: diff.isEmpty ? nil : .workspaceEdit)
+                     action: edits ? "run" : "skip", op: edits ? .workspaceEdit : nil)
                 if rec.flags.archivedAt != nil {
                     refuse("\(i.space) is archived — doz workspace restore \(i.space) first", .invalidPhase)
                 } else if rec.flags.finishedAt != nil {
-                    step("workspace-reopen", "workspace \(i.space)", "run", "reopen \(i.space) (it is down)", op: .workspaceReopen)
+                    reopens = true
                 }
             }
         } else {
@@ -228,59 +298,85 @@ public enum SpaceUp {
             parts.append("the brief from \(i.brief) (read from the file, never copied)")
             text += ": " + parts.joined(separator: "; ")
             step("workspace-new", "workspace \(i.space)", "run", text,
-                 down: "the record stays: down ends the run; doz space rm retires it", op: .workspaceNew)
+                 down: "the record stays: down ends the run; --purge retires what persists", op: .workspaceNew)
         }
 
-        // 3. Rooms besides the main one; scratch and persisted folders.
-        for r in i.rooms where !r.main {
-            if r.external {
-                step("room", "room \(r.name)", "external", "link the room \(r.chatRoom); invite its missing members", down: "never touched; its run-window messages archived")
+        // 4. Rooms: the main one made again when down removed it; the others made (or linked) before the run opens, so the
+        // run's markers cover them.
+        func liveRoom(_ name: String) -> Bool { rec?.rooms.contains { $0.chatRoom == name && $0.goneAt == nil } ?? false }
+        for r in i.rooms {
+            let downText = r.persisted == nil ? (i.archive.value == "off" ? "closed, then deleted with no copy (a tombstone kept)" : "closed, archived, then deleted (a tombstone kept)")
+                : "closed: kept with its history and id until the next up"
+            if r.main {
+                guard rec != nil, ref != nil, !r.external, !liveRoom(r.chatRoom) else { continue }
+                step("room", "room \(r.name)", r.persisted == nil ? "run" : "persisted", "make the main room \(r.chatRoom) again as you", down: downText)
+            } else if r.external {
+                step("room", "room \(r.name)", "external", "link the room \(r.chatRoom); invite its missing members",
+                     action: liveRoom(r.chatRoom) ? "skip" : "run", why: liveRoom(r.chatRoom) ? "already linked" : nil,
+                     down: "never touched; its run-window messages archived")
             } else {
-                let had = rec?.rooms.contains { $0.chatRoom == r.chatRoom } ?? false
+                let had = liveRoom(r.chatRoom)
                 step("room", "room \(r.name)", r.persisted == nil ? "run" : "persisted", "make the room \(r.chatRoom) as you" + (r.persisted.map { " (\($0.words))" } ?? ""),
-                     action: had && r.persisted != nil ? "skip" : "run", why: had && r.persisted != nil ? "already there (persisted)" : nil,
-                     down: r.persisted == nil ? "archived, then deleted (a tombstone kept)" : "closed: kept with its history and id until the next up")
+                     action: had ? "skip" : "run", why: had ? "already there" : nil, down: downText)
             }
         }
-        let runFolder = (f.projectsDir as NSString).appendingPathComponent(".runs/\(i.space)/{run}")
-        for x in i.folders where x.path == nil {
-            step("folder", "folder \(x.name)", "run", "make the scratch folder \(DisplayPath.tilde(runFolder))/\(x.name)",
-                 down: i.archive.value == "off" ? "removed with no copy (archive: off)" : "copied into the run's archive, then removed")
-        }
-        for x in i.persistedPaths {
-            let path = f.expand(x.value)
-            let exists = f.folders[path] ?? false
-            step("folder", "folder \(x.value)", "persisted", "the data folder \(DisplayPath.tilde(path)) (persisted, from \(x.source))",
-                 action: exists ? "skip" : "run", why: exists ? "already there" : nil, down: "kept; never deleted (--purge releases it)")
-        }
 
-        // 4. The start: opens the run (the brief posted as your first message on the first start only).
-        if let openRun {
+        // 5. The run: reopened when it is down (the persisted agents woken: their conversations continue), else started.
+        let asleep = (rec?.agents ?? []).filter { $0.endedAt == nil && ($0.isManager || $0.isWorker) }
+        if reopens {
+            step("workspace-reopen", "workspace \(i.space)", "run", "reopen \(i.space) (it is down): a new run, its rooms open again", op: .workspaceReopen)
+            if !asleep.isEmpty {
+                step("workspace-wake", "workspace \(i.space)", "persisted", "wake what it kept: " + asleep.map(\.name).joined(separator: ", "), op: .workspaceWake)
+            }
+        } else if let openRun {
             step("workspace-start", "run \(openRun.id)", "run", "the run \(openRun.id) is open: up attaches to it and makes only what is missing", action: "skip", why: "already open")
         } else {
             step("workspace-start", "run {run}", "run", "start: open a new run" + ((rec?.flags.startedAt == nil) ? "; the brief posted as your first message" : ""),
                  down: i.archive.value == "off" ? "the run closed with no archive" : "the run archived (evidence), then closed", op: .workspaceStart)
         }
 
-        // 5. Adopt the external sessions; 6. each owned agent in file order.
+        // 6. The run's scratch folders.
+        let runFolder = (f.projectsDir as NSString).appendingPathComponent(".runs/\(i.space)/{run}")
+        for x in i.folders where x.path == nil && x.persisted == nil {
+            let made = openRun.map { o in (ref?.scratch ?? []).contains { $0.run == o.id && $0.name == x.name } } ?? false
+            step("folder", "folder \(x.name)", "run", "make the scratch folder \(DisplayPath.tilde(runFolder))/\(x.name)",
+                 action: made && !reopens ? "skip" : "run", why: made && !reopens ? "already there" : nil,
+                 down: i.archive.value == "off" ? "removed with no copy (archive: off)" : "copied into the run's archive, then removed")
+        }
+
+        // 7. Adopt the external sessions; 8. each agent Dozable starts, in file order (a worker from a bot too).
         for a in i.agents where a.external && a.session != nil {
             let have = rec?.agents.contains { $0.place.session == a.session && $0.endedAt == nil } ?? false
             step("workspace-adopt", "agent \(a.name)", "external", "adopt the session @mac/\(a.session!) as \(a.name)",
                  action: have ? "skip" : "run", why: have ? "already adopted" : nil, down: "released; never ended", op: .workspaceAdopt)
         }
+        for a in i.agents where a.external && a.bot != nil && a.role != "manager" {
+            var w = WorkerRequest(workspace: i.space, name: a.bot)
+            w.fromBot = a.bot
+            w.task = defaultTask
+            w.rooms = a.rooms.isEmpty ? nil : a.rooms.compactMap { n in i.rooms.first { $0.name == n }?.chatRoom }
+            let live = rec?.agents.contains { $0.bot == a.bot && $0.isLiveWorker } ?? false
+            var s = SpacePlan.Step(n: steps.count + 1, kind: "worker-add", subject: "agent \(a.name)", action: live ? "skip" : "run", lifetime: "external",
+                                   text: "start \(a.bot!) as a worker (its own identity and token)", why: live ? "already working in this run" : nil,
+                                   down: "ended; the bot keeps its token", op: HostOp.workerAdd.rawValue)
+            s.worker = w
+            steps.append(s)
+        }
         var sandboxMade: Set<String> = []
         for a in i.ownedAgents {
             var w = WorkerRequest(workspace: i.space, name: a.name)
             w.agent = "claude-code"
-            w.task = a.prompt ?? a.promptFile.map { "(the prompt in \($0))" }
+            w.task = a.prompt ?? prompts[a.name] ?? defaultTask
             let iso = a.isolation?.value ?? "fenced"
             var whereText: String
             if let sb = a.sandbox, let s = i.sandboxes.first(where: { $0.name == sb }) {
-                if s.external || sandboxMade.contains(sb) {
+                let exists = !s.external && (rec?.agents.contains { $0.place.sandbox == s.placeName && $0.endedAt == nil } ?? false)
+                if s.external || sandboxMade.contains(sb) || exists {
                     w.sandbox = s.placeName
                     whereText = "in the sandbox \(s.placeName)"
                 } else {
                     w.isolation = "vm"; w.cpus = s.cpus; w.memory = s.memory
+                    w.newSandbox = s.placeName
                     whereText = "in a new sandbox \(s.placeName)" + (s.persisted.map { " (\($0.words): its disk kept)" } ?? "")
                     sandboxMade.insert(sb)
                 }
@@ -290,26 +386,40 @@ public enum SpaceUp {
             }
             w.rooms = a.rooms.isEmpty ? nil : a.rooms.compactMap { n in i.rooms.first { $0.name == n }?.chatRoom }
             let bypass = a.permissions?.value == "bypass"
+            if bypass { w.permissionMode = "bypass" }
             var text = "start \(a.name) " + whereText
             if bypass { text += ", bypassing permissions (\(a.permissions!.words))" }
             if let m = a.memory { text += "; its memory persisted (\(m.source)): it continues its conversation" }
-            let live = rec?.agents.contains { $0.name == a.name && $0.isLiveWorker } ?? false
+            let entry = rec?.agents.last { $0.name == a.name && $0.isWorker && $0.endedAt == nil }
+            var action = "run", why: String?, lifetime = a.memory == nil ? "run" : "persisted"
+            if let e = entry {
+                let was = e.isolation ?? "fenced", now = w.isolation ?? "vm"
+                if a.memory != nil, was != now, (was == "unfenced") != (now == "unfenced") {
+                    why = "its isolation changed (\(was) → \(now)): its kept memory is reset and it starts fresh"
+                    lifetime = "persisted"
+                } else {
+                    action = "skip"
+                    why = reopens ? "kept from the last run: woken, its conversation continues" : "already running in this run"
+                }
+            }
             var down: String
             switch (a.memory != nil, a.transcripts?.value) {
             case (true, _): down = "ended; its conversation and memory kept for the next run"
             case (false, "discard"): down = "ended and forgotten; its transcripts " + (i.archive.value == "off" ? "deleted with no copy" : "deleted once the archived copy is hash-checked")
             default: down = "ended and forgotten; its transcripts kept"
             }
-            var s = SpacePlan.Step(n: steps.count + 1, kind: "worker-add", subject: "agent \(a.name)", action: live ? "skip" : "run",
-                                   lifetime: a.memory == nil ? "run" : "persisted", text: text, why: live ? "already running in this run" : nil, down: down,
-                                   op: HostOp.workerAdd.rawValue)
+            var s = SpacePlan.Step(n: steps.count + 1, kind: "worker-add", subject: "agent \(a.name)", action: action,
+                                   lifetime: lifetime, text: text, why: why, down: down, op: HostOp.workerAdd.rawValue)
             s.worker = w
             s.permissionMode = bypass ? "bypass" : (a.permissions?.value ?? nil)
             steps.append(s)
         }
         if !i.requests.isEmpty {
+            func key(_ agent: String, _ role: String?, _ grants: [String], _ reason: String) -> String { ([agent, role ?? "", reason] + grants).joined(separator: "\u{1E}") }
+            let have = Set((rec?.permissions?.requests ?? []).compactMap { try? $0.decode(SpaceRequestRow.self) }.map { key($0.agent, $0.role, $0.grants, $0.reason) })
+            let same = have == Set(i.requests.map { key($0.agent, $0.role, $0.grants, $0.reason) })
             step("requests", "requests", "run", "record \(i.requests.count) request\(i.requests.count == 1 ? "" : "s") in the workspace's permissions (none granted)",
-                 down: "kept with the record")
+                 action: same ? "skip" : "run", why: same ? "recorded already" : nil, down: "kept with the record")
         }
 
         // Refusals make every step that has not run a refusal's consequence: nothing changes.

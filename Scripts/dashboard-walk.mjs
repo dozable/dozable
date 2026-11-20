@@ -118,7 +118,9 @@ const ENV = { ...process.env, XDG_CONFIG_HOME: XDG, DOZ_STORE: STORE, DO_NOT_TRA
   // A fenced worker's scratch home (a guarded run without one is refused) — never the person's own.
   DOZ_TEST_FENCE_HOME: '/private' + S + '/fence-home',
   // The Bin of a delete with --bin-folders: a scratch folder — a test never reaches the real one (none is ticked here anyway).
-  DOZ_TEST_TRASH_DIR: S + '/bin-of-the-walk' };
+  DOZ_TEST_TRASH_DIR: S + '/bin-of-the-walk',
+  // A space file's brief must be under the home: in the walk, the scratch folder stands in for it.
+  DOZ_TEST_BRIEF_HOME: S };
 delete ENV.SSH_AUTH_SOCK;
 function doz(args, input) {
   const r = spawnSync(DOZ, [...args, '--store', STORE], { env: ENV, encoding: 'utf8', input, timeout: 120_000 });
@@ -493,6 +495,31 @@ async function walkWorkspacePage() {
   await evaluate(`[...document.querySelectorAll('[data-ws-brief="demo2"] button')].find((b) => /History/.test(b.textContent)).click()`);
   check(await waitFor(`document.querySelectorAll('.ws-brief-hist li').length === 1 && !!document.querySelector('.ws-brief-hist .chat-link')`), 'History shows one edit, linked to the room');
   check(await evaluate(ordered), 'still in time order after the edit');
+
+  // A workspace a space file made: "Defined by" and its up pill; its brief card is the file's, and Save writes the file —
+  // never the store's copy.
+  const SPACE = S + '/space';
+  mkdirSync(SPACE, { recursive: true });
+  writeFileSync(SPACE + '/BRIEF.md', 'The space walk.\n');
+  writeFileSync(SPACE + '/spc.space.yaml', 'doz: space/3\nspace: spc\nbrief: BRIEF.md\nowner: ada\nchat:\n  rooms:\n    spc: { members: [owner] }\n');
+  const up = doz(['workspace', 'up', '-f', SPACE + '/spc.space.yaml', '--yes']);
+  check(up.status === 0, 'workspace up -f spc.space.yaml (a room, the run started; nothing unfenced, so nothing asked)');
+  await goHash('#/w/spc');
+  check(await waitFor(`!!document.querySelector('[data-ws-space="spc.space.yaml"] [data-ws-space-pill="up"]') && /Defined by/.test(${text('[data-ws-space]')})`, 15000),
+    'the page says "Defined by spc.space.yaml" with its up pill');
+  check(await waitFor(`/BRIEF\.md — from the space file/.test(${text('[data-ws-brief="spc"] .ws-brief-label')})`, 10000), 'the brief card is "BRIEF.md — from the space file"');
+  await evaluate(`[...document.querySelectorAll('[data-ws-brief="spc"] button')].find((b) => /Edit/.test(b.textContent)).click()`);
+  check(await waitFor(`!!document.querySelector('[data-ws-brief-saves]')`), '…its editor says where it saves');
+  await evaluate(`(() => { const a = document.querySelector('.ws-brief-area'); a.value = 'The space walk, edited.'; a.dispatchEvent(new Event('input')); })()`);
+  await evaluate(`[...document.querySelectorAll('.ws-brief-acts button')].find((b) => /Save/.test(b.textContent)).click()`);
+  check(await waitFor(`/The space walk, edited/.test(${text('[data-ws-brief="spc"] .ws-brief-text')})`, 15000), '…Save shows the new text');
+  check(/The space walk, edited/.test(readFileSync(SPACE + '/BRIEF.md', 'utf8')), '…and wrote it into BRIEF.md beside the space file');
+  check(readFileSync(STORE + '/workspaces/spc/brief.md', 'utf8') === '', '…never into the store\'s copy');
+  check(doz(['workspace', 'down', 'spc', '--yes']).status === 0, 'workspace down spc');
+  await goHash('#/w/demo2');
+  await waitFor(`state.param === 'demo2'`);
+  await goHash('#/w/spc');
+  check(await waitFor(`!!document.querySelector('[data-ws-space-pill="down"]')`, 15000), 'the pill says down');
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
   await sleep(300);
   await shot('workspace-light');

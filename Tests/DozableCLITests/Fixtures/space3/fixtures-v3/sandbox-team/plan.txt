@@ -1,4 +1,4 @@
-$ worker space plan examples/space3/sandbox-team.space.yaml
+$ doz space plan spaces/sandbox-team.space.yaml
 --- stdout
 plan for space "sandbox-team", run {run}: 13 steps
   Starts 2 other agents (builder: sandboxed, tester: sandboxed), 1 sandbox, 1 room (sandbox-team: persisted). Externals: admin (bot: manager), repo, general. Persisted: room sandbox-team (from my_doz_workspace_defaults.yaml:10), sandbox build-vm. Transcripts: builder, tester: inside build-vm, archived first; they go with the VM, or stay with a persisted one.
@@ -40,7 +40,7 @@ plan for space "sandbox-team", run {run}: 13 steps
  9. room sandbox-team (persisted: one thread across runs)  [room:sandbox-team · space]
       up:   doz chat room sandbox-team @manager @builder @tester
       down: keep (persisted: kept with its history; the run's members leave it as they are removed)
-      rm:   delete room sandbox-team (doz chat room rm, where Dozable has it; otherwise mark it retired)
+      rm:   doz chat room archive sandbox-team --loose, then doz chat room rm sandbox-team --loose (each dry-run first; a tombstone stays; before Dozable 0.52, marked retired instead)
 10. agent builder (in build-vm)  [agent:builder · run]
       up:   doz run build-vm --cwd /workspace --detach --session builder --host-port 8790 --secret 'CHAT_TOKEN,src=~/Library/Application Support/doz/spaces/sandbox-team/runs/{run}/tokens/builder.token,to=host.dozable.internal:8790,file=CHAT_TOKEN_FILE' -- claude --name builder --dangerously-skip-permissions --model claude-opus-5-5 'Build the project in /workspace and post the result in the…'
       down: doz sessions end build-vm builder --yes   # its transcripts are inside the VM: archived first, then they go with it (or stay with a persisted sandbox)

@@ -724,7 +724,7 @@ prints the same rows; the bot page's Roles & ceiling reads `bot-show`'s additive
 A space file (`NAME.space.yaml`, the format `space/3` of the doz space reference) describes a workspace in one file kept in
 git: its agents, rooms, folders, sandboxes and brief, each **owned** (the space makes it) or **external** (only referenced),
 what persists between runs and the archive. The file is the record's declarative front end, never a second writer: the
-daemon's record stays the truth, and `up` (next version) drives the daemon's own operations, so every rule of theirs holds.
+daemon's record stays the truth, and `up` and `down` drive the daemon's own operations, so every rule of theirs holds.
 The manual's page is `docs/manual/39-space-files.md`.
 
 - **The CLI reads; the daemon decides.** `SpaceResolver` (DozableCLI, the one place Yams reads it) reads the file, the
@@ -735,7 +735,7 @@ The manual's page is `docs/manual/39-space-files.md`.
   refused. It sends `workspace-up-plan` ONE merged document (`{space}` filled, `{run}` literal, `extends` resolved away)
   as ordered JSON text, the origins and every source's sha256 (`SpaceRequest`: strictly decoded, at most 256 KiB). The
   daemon never opens the space file or a defaults file; the brief is looked at by the CLI (sha256 and size, never its
-  text) and, from the next version, read by the daemon only as the recorded brief.
+  text) and read by the daemon only as the recorded brief (`SpaceBriefFile`, below).
 - **One validator, twice.** `SpaceValidator` (DozableHost, pure, hand-written — 36 of the reference's 68 refusals are
   rules no schema says, and the words are the reader's): `checkSource` on each defaults file (what a defaults file may
   hold, its schema), `checkMerged` on the merged document (the schema by hand, then the rules: one namespace, externals,
@@ -757,6 +757,49 @@ The manual's page is `docs/manual/39-space-files.md`.
   space file is refused (exit 4). `workspace-up-plan` is read-only, Dozable's own (`ActionClasses`), answered in-process
   with no daemon (`factsKnown` false: a session's or a bot's liveness and the chat server's rooms not known, nothing
   refused for them).
+- **`up` acts** (`workspace-up`, `HostCore+SpaceAct`): the CLI shows the plan (the daemon's — started for it, so the sha is
+  the one checked), asks on `/dev/tty` once for every unfenced agent (no terminal: exit 5; `--yes` answers on a terminal
+  only), then sends the same document with `ifPlan` and `confirmed`. The daemon plans again under `space:W`, refuses a
+  changed plan (exit 3), any refusal, and a confirm set that is not exactly the plan's; then runs the steps in order through
+  its own operations: the kept folders (`<projects_dir>/<space>/<name>`, a `persist: {folder: P}`; made if missing, never
+  deleted), `workspace-new` (its brief the file's: the store's `brief.md` stays empty, the record carries the space's
+  reference from its first write) or `-edit` (folders, manager), the rooms (another owned room `<space>-<name>` made as
+  you; the main room made again after a down removed it; an external one linked, its missing bot members invited),
+  `reopen` and `wake` when it is down (the persisted agents continue), else `start`, the run's scratch folders
+  (`<projects_dir>/.runs/<space>/<run>/<name>`, 0700, recorded in the reference BEFORE use, never in the store), adopt,
+  each worker (`WorkerRequest.permissionMode` `bypass`: `--permission-mode bypassPermissions` in its own argv, marked;
+  `newSandbox`: an owned sandbox `<space>-<name>`, the first agent in it makes it), and the requests
+  (`permissions.requests[]` `{agent, role?, grants, reason, source, spaceSHA, at}`, replaced each up, logged once as
+  `request-recorded` here and in `grants/log.jsonl`; never a grant, ceiling or `bots.json`). It stops at the first failure
+  (the rest `not-run`, the run open, exit 1). The record's `space` (`SpaceRecordRef`: file, path, sha256, sources,
+  provenance, brief, owned `{agents|rooms|sandboxes|folders: run|persisted}`, archive, transcripts, scratch, kept paths,
+  memory isolation, planSHA, upAt, downAt, purgedAt) and `<store>/workspaces/W/space.json` (0600) are written at the end.
+- **The brief is the file** (`SpaceBriefFile`): one rule set for every read and write — `MacFenceHostFS`, no link anywhere
+  below the home (only the home itself is resolved), a regular file of this user with one name, ≤ 256 KiB, UTF-8, under the
+  home (a guarded run: `DOZ_TEST_BRIEF_HOME`), never the store, `~/.claude` or `~/Library`; writes by temp-and-rename, its
+  mode kept. `workspaceBriefText(rec)` is every reader (show `--brief`, the kick-off, the manager's START, the set-up check,
+  the run's archive). `workspace-edit` with `brief` writes the file when there is a reference, `ifBrief` checked against
+  the file as it is now; a missing file is "BRIEF.md is gone from PATH". `up` never writes it. `show --space` and the
+  page's "Defined by FILE" line and up/down pill come from `SpaceShown`; another computer gets the same line and the brief's
+  path as it gets a folder's (the brief's own `serve.chat` rules unchanged).
+- **`down` and `--purge`** (`workspace-down-plan`, read-only; `workspace-down`, `SpaceDown.plan` pure, its sha over what is
+  done to what): `finish` (no archive with `archive: off`; `archive.keep` filters transcripts and screens), the memory of
+  each persisted fenced agent captured (`SpaceMemory`), each run-lifetime agent ended and forgotten (`worker-end --rm`; a
+  persisted sandbox kept), `transcripts: discard` through `macDiscardTranscripts` against the verified archive or — with
+  `archive: off` — a hashes-only ledger (`<store>/workspaces/W/ledger/<run>-<session>.json`, names and sha256 only) and
+  `TranscriptDiscard.remove`; the run's scratch folders copied into `archives/<W>/folders/<run>/<name>/` (`RunArchive.writeFolder`:
+  regular files only, bounded, swept, hash-checked) and removed only when recorded; the run's rooms archived
+  (`chat-room-archive`) and removed (`chat-room-rm`, a tombstone), or with `archive: off` removed with no copy while the
+  room's last seq is still the run's `toSeq`. A failed archive skips every room and scratch removal (agents still end,
+  transcripts kept). A failed step is logged ("FAILED …") and down carries on; a second down plans only what is left.
+  `--purge` then removes the persisted rooms (archived first), sandboxes and kept memory and releases the kept folders.
+  Log actions: `space-up`, `space-down`, `space-purged`, `memory-kept`, `memory-reset`, `scratch-removed`,
+  `folder-released`, `request-recorded`.
+- **Memory** (`SpaceMemory`): `projects/*/memory/**` of the session's private agent folder, regular files only, ≤ 2 MiB and
+  200 files, into `<store>/workspaces/W/memory/<agent>/` with `memory.json {isolation: "fenced", files}`; `MacAgentConfig.prepare`
+  seeds it after the clearing only for a live worker of a space that keeps that agent's memory as fenced
+  (`SpaceMemory.seedFolder`), never a shared folder or `~/.claude`. A switch fenced ↔ unfenced resets it (ended, forgotten,
+  `memory-reset`).
 
 ## Tests
 
@@ -792,3 +835,15 @@ The manual's page is `docs/manual/39-space-files.md`.
   ("Space files", above); `make test-cli-workspace` rows S1 (plan and up --dry-run with the daemon stopped start none and
   change nothing in the store or the settings; up without --dry-run exit 7) and S12 (`doz space` is the same commands; the
   one `*.space.yaml` in the folder; two refused).
+- `make test FILTER=WorkspaceLifecycleHostTests` (its space rows: `SpaceUpHostTests`, `SpaceDownHostTests`, the brief and
+  the loose room), `SpaceMemoryTests`, `SpaceBriefFileTests` — up (the reference, requests never granted, `grants.json`
+  byte-identical, bypass in argv, `<space>-<name>`, the confirm set, a changed plan, idempotence, a partial up), down and
+  `--purge` (archive first, a failed archive removes nothing content-bearing, `archive: off` named, kept folders never
+  deleted, scratch only when recorded and never in the store, externals untouched), memory only for the same agent.
+- `make test-cli-workspace` rows S2–S11, S13, S14 (`CLISpaceActRows.swift`, a FAKE claude that writes `memory/notes.md` and
+  echoes its argv): an unfenced agent with no terminal exits 5 and makes nothing; a partial up (exit 1) and the up that
+  finishes it; the reference, the request, `grants.json` byte-identical, no token in `ps` or `--json`; a third up makes
+  nothing; the brief written into BRIEF.md (a stale `--if-brief` refused); down (the archive, the run agent forgotten and out
+  of chat, the run room's tombstone, the persisted room closed, the scratch folder gone, the memory kept); up #2 (the room's
+  id kept, the memory seeded, the conversation resumed; a run agent starts with none); `--purge` (the kept folder released,
+  never deleted); a clean room's "deleted with no copy"; a similarly named session survives.

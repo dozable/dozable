@@ -1,9 +1,9 @@
-$ worker space config examples/space3/example-space.space.yaml
+$ doz space config spaces/example-space.space.yaml
 --- stdout
-# the merged space "example-space" (worker space config): defaults, then the space file, then the override file, then profiles
+# the merged space "example-space" (doz space config): defaults, then the space file, then the override file, then profiles
 # sources, lowest first:
 #   defaults ~/work/example-repo/examples/space3/my_doz_workspace_defaults.yaml  sha256 f818661c1a6a0830…
-#   space    ~/work/example-repo/examples/space3/example-space.space.yaml  sha256 57a344c5a652ed6b…
+#   space    ~/work/example-repo/examples/space3/example-space.space.yaml  sha256 bf5c18701871c800…
 # risky settings and where they come from:
 #   agents.worker.permissions: my_doz_workspace_defaults.yaml:6
 #   agents.worker.isolation: example-space.space.yaml:20

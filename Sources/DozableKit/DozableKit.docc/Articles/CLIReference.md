@@ -860,6 +860,8 @@ doz chat rooms | room NAME @MEMBER… | send ROOM TEXT | read ROOM [--last N] [-
 doz chat rooms [--gone]                         # each room and its members, then (closed: its workspace is finished) or (archived); --gone: the tombstones
 doz chat room archive ROOM [--loose] [--dry-run] [--yes]       # its whole history copied into the store and verified, then read-only (owned rooms; --loose: one no workspace owns or links)
 doz chat room rm ROOM [--loose] [--dry-run] [--yes --confirm ROOM]   # removed for good once its archived copy verifies (the name typed); a tombstone stays
+doz chat room close ROOM --loose              # a loose room closed to new messages (still readable) — a workspace's rooms close at its finish
+doz chat room open ROOM --loose               # opened again
 doz chat read ROOM --since T [--until T] [--json]   # every message of a window, no cap, oldest first
 doz chat export ROOM --to DIR [--since T] [--until T] [--json]   # ROOM.jsonl, attachments/, manifest.json — swept for tokens
 ```
@@ -987,9 +989,10 @@ doz workspace rename W NEW                      # its room keeps its own name
 doz workspace runs W [--json]                   # its runs: each start or reopen to its finish, its archive's status and size, the timesheet's totals
 doz workspace runs W --archive RUN              # a closed run's archive written again (when it could not be written at its finish)
 doz workspace plan [-f FILE] [--profile P]… [--json]  # what up would do with a space file: the steps, what down will do, the summary (every risky setting with its file:line)
-doz workspace up [-f FILE] [--profile P]… --dry-run    # the same plan, as up shows it (this version: --dry-run only; without it, exit 7)
+doz workspace up [-f FILE] [--profile P]… [--yes] [--dry-run] [--json]  # set it up from the file: the plan, every unfenced agent confirmed on the terminal, then each step
+doz workspace down [W] [-f FILE] [--purge] [--yes] [--dry-run] [--json]  # end its run (archived and hash-checked first), remove what the run made; --purge: what persists too
 doz workspace config [FILE] [--profile P]… [--json]    # a space file merged (its defaults files, the file, its override, ${VAR}), each value with its source
-doz space plan|up|config …                      # the same: doz space is the space-file commands under a shorter name
+doz space plan|up|down|config …                 # the same: doz space is the space-file commands under a shorter name
 ```
 
 Space files (`NAME.space.yaml`, the format `space/3`): without `-f`/FILE, the one `*.space.yaml` in this folder (two or more:

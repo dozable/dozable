@@ -1,0 +1,13 @@
+     557  chat/space-test-v3-a-room.jsonl
+     558  chat/space-test-v3-a-run.jsonl
+    4136  commands.log
+     101  folders/scratch.tar.gz
+      78  git.yaml
+    2172  manifest.yaml
+    2216  plan.yaml
+    1594  run.yaml
+     693  spec.yaml
+     943  status/0001-up.yaml
+     943  status/0002-down.yaml
+    1124  timesheet.md
+     231  usage.yaml

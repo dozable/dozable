@@ -177,7 +177,7 @@ struct SpaceCommand: AsyncParsableCommand {
         each made by the space or only referenced (external:). doz space plan -f FILE shows what up would do; doz space \
         config FILE prints it merged with the files it extends. Looking never starts the daemon and changes nothing.
         """,
-        subcommands: [SpacePlanCommand.self, SpaceUpCommand.self, SpaceConfig.self])
+        subcommands: [SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
 }
 
 // MARK: plan, up --dry-run
@@ -214,8 +214,8 @@ func spacePlan(file: String?, profiles: [String], _ g: GlobalOptions) async thro
 }
 
 /// The plan as a person reads it.
-func printSpacePlan(_ p: SpacePlan, dryRun: Bool) {
-    var s = dryRun ? "space up \"\(p.space)\" (dry run: nothing changes)\n" : "plan for space \"\(p.space)\": \(p.steps.count) step\(p.steps.count == 1 ? "" : "s")\n"
+func printSpacePlan(_ p: SpacePlan, dryRun: Bool, acting: Bool = false) {
+    var s = dryRun ? "space up \"\(p.space)\" (dry run: nothing changes)\n" : acting ? "space up \"\(p.space)\"\n" : "plan for space \"\(p.space)\": \(p.steps.count) step\(p.steps.count == 1 ? "" : "s")\n"
     if let f = p.specPath { s += "  file: \(DisplayPath.tilde(f))\n" }
     if !p.factsKnown { s += "  no daemon is running: what only a running daemon knows is marked not known (none was started)\n" }
     for line in p.summary { s += "  \(line)\n" }
@@ -241,7 +241,7 @@ func printSpacePlan(_ p: SpacePlan, dryRun: Bool) {
     if !p.refusals.isEmpty {
         s += "\nstopped before changing anything:\n" + p.refusals.map { "  - \($0)\n" }.joined() + "nothing was changed\n"
     } else {
-        s += dryRun ? "dry run done: nothing was changed\n" : "the plan's sha: \(p.sha)\n"
+        s += dryRun ? "dry run done: nothing was changed\n" : acting ? "\n" : "the plan's sha: \(p.sha)\n"
     }
     Out.stdout(s)
 }
@@ -273,22 +273,164 @@ struct SpacePlanCommand: AsyncParsableCommand {
     }
 }
 
-/// `doz workspace up -f FILE --dry-run`: the plan as `up` would show it. `up` itself acts in a later version.
+/// The owned agents' `prompt_file`s, read beside the space file (a regular file, at most 16 KiB of UTF-8): agent → text.
+func spacePrompts(_ r: SpaceResolver.Resolved) throws -> [String: String] {
+    var out: [String: String] = [:]
+    let dir = (r.file as NSString).deletingLastPathComponent
+    for m in SpaceDoc.members(SpaceDoc.member(r.filled, "agents")) {
+        guard let pf = SpaceDoc.string(SpaceDoc.member(m.value, "prompt_file")) else { continue }
+        let expanded = pf.hasPrefix("~/") ? NSHomeDirectory() + String(pf.dropFirst(1)) : pf
+        let path = URL(fileURLWithPath: expanded, relativeTo: URL(fileURLWithPath: dir, isDirectory: true)).standardizedFileURL.path
+        var st = stat()
+        guard lstat(path, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else { throw HostError(.notFound, "agent \(m.key): its prompt_file \(DisplayPath.tilde(path)) is not a file (no link)") }
+        guard st.st_size <= Int64(WorkerLaunch.maximumTaskBytes), let d = FileManager.default.contents(atPath: path), let t = String(data: d, encoding: .utf8) else {
+            throw HostError(.invalid, "agent \(m.key): its prompt_file \(DisplayPath.tilde(path)) is not UTF-8 text of at most \(WorkerLaunch.maximumTaskBytes >> 10) KiB")
+        }
+        out[m.key] = t
+    }
+    return out
+}
+
+/// `doz workspace up -f FILE`: the plan, then — every unfenced agent confirmed on a terminal — the space set up through the
+/// daemon (`workspace-up`). With --dry-run, the plan only.
 struct SpaceUpCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "up", abstract: "Set a workspace up from a space file (this version: --dry-run, the plan only).",
+    static let configuration = CommandConfiguration(commandName: "up", abstract: "Set a workspace up from a space file: its rooms, folders, the run and its agents.",
         discussion: """
-        With --dry-run, prints what up would do — the same as doz workspace plan — and changes nothing. Setting the \
-        workspace up from the file comes in the next version.
+        Reads FILE (or the one *.space.yaml in this folder) and the files it extends, shows the plan — every step and the \
+        summary naming each risky setting with the file and line that set it — and then sets the workspace up through the \
+        daemon: the workspace (made, or changed to match the file), its rooms, the run (started, or reopened when the \
+        space is down), its scratch folders and each agent. A second up in an open run makes only what is missing. An \
+        unfenced agent acts with full access to your user: up asks you to confirm it on the terminal at every up, \
+        whatever set it — --yes answers that question on a terminal, and with no terminal up stops (exit 5). Up records \
+        what the file requests for its agents and grants nothing (doz permissions grant does). With --dry-run, the plan \
+        only: nothing is started or written. Exit codes: 0 done · 1 a step failed (the rest not run; up again makes what \
+        is missing) · 2 a problem in the file or something external missing · 3 changed since the plan · 4 a workspace \
+        of that name made without a space file · 5 not confirmed · 7 something this version does not do yet.
         """)
     @OptionGroup var g: GlobalOptions
     @Option(name: [.customShort("f"), .customLong("file")], help: "The space file (default: the one *.space.yaml in this folder).") var file: String?
     @Option(name: .customLong("profile"), help: "Include the resources of this profile (repeatable).") var profiles: [String] = []
     @Flag(name: .customLong("dry-run"), help: "Show the plan and stop: nothing is started or written.") var dryRun = false
+    @Flag(name: .long, help: "Answer the unfenced agents' question yes — on a terminal only.") var yes = false
 
     func run() async throws {
-        guard dryRun else {
-            throw fail(HostError(.notImplemented, "doz workspace up sets a workspace up from its file in the next version — --dry-run shows what it would do"), g)
+        if dryRun { try finishSpacePlan(try await spacePlan(file: file, profiles: profiles, g), dryRun: true, g); return }
+        let path = try spaceFile(file, g)
+        let r = SpaceResolver().resolve(path)
+        let (problems, model) = r.check(profiles: profiles)
+        if problems.contains(where: \.isError) || model == nil { try reportSpaceProblems(problems, g) }
+        var q = HostRequest(.workspaceUpPlan)
+        var space = r.request(profiles: profiles, brief: spaceBriefLook(model?.brief ?? "", file: r.file))
+        do { space.prompts = try spacePrompts(r) } catch { throw fail(HostError.from(error), g) }
+        q.space = space
+        // Acting needs the daemon: the plan is the daemon's (started now), so its sha is the one up checks.
+        let plan = try decode(try call(q, g), SpacePlan.self, g)
+        if !g.json { try reportSpaceProblems(plan.problems, g); printSpacePlan(plan, dryRun: false, acting: true) }
+        if plan.problems.contains(where: \.isError) { if g.json { Out.json(plan) }; throw ExitCode(DozableExit.notFound) }
+        if let c = plan.refusalCode {
+            if g.json { Out.json(plan) }
+            throw ExitCode(DozableExit.code(for: HostError(HostError.Code(rawValue: c) ?? .failed, "")))
         }
-        try finishSpacePlan(try await spacePlan(file: file, profiles: profiles, g), dryRun: true, g)
+        // Every unfenced agent, at every up: asked on the terminal — never stdin, never without one.
+        var confirmed: [String] = []
+        if !plan.confirm.isEmpty {
+            let fd = open("/dev/tty", O_RDWR)
+            guard fd >= 0 else {
+                throw fail(HostError(.failed, "\(plan.confirm.joined(separator: ", ")) would run unfenced, with full access to your user — up asks you on a terminal, and there is none: nothing was done"),
+                           g, code: DozableExit.declined)
+            }
+            defer { close(fd) }
+            if !yes {
+                let prompt = "Start \(plan.confirm.joined(separator: ", ")) unfenced, with full access to your user? [y/N] "
+                _ = prompt.withCString { write(fd, $0, strlen($0)) }
+                var buf = [UInt8](repeating: 0, count: 64)
+                let n = read(fd, &buf, buf.count)
+                let answer = n > 0 ? String(decoding: buf[0..<n], as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() : ""
+                guard answer == "y" || answer == "yes" else { throw fail(HostError(.failed, "not confirmed — nothing done"), g, code: DozableExit.declined) }
+            }
+            confirmed = plan.confirm
+        }
+        var up = HostRequest(.workspaceUp)
+        space.ifPlan = plan.sha
+        space.confirmed = confirmed
+        up.space = space
+        let done = try decode(try call(up, g), SpaceActed.self, g)
+        if g.json { Out.json(done) } else { Out.stdout(spaceActedText(done)) }
+        if !done.ok { throw ExitCode(DozableExit.failed) }
     }
+}
+
+/// What `up` or `down` did, as a person reads it.
+func spaceActedText(_ d: SpaceActed) -> String {
+    var s = ""
+    for x in d.results {
+        let mark = x.status == "done" ? "done   " : x.status == "skipped" ? "skip   " : x.status == "failed" ? "FAILED " : "not run"
+        s += "  \(mark) \(x.n). \(x.text)\n"
+        for n in x.notes ?? [] { s += "           \(n)\n" }
+    }
+    for n in d.notes { s += "note: \(n)\n" }
+    let done = d.results.filter { $0.status == "done" }.count, skipped = d.results.filter { $0.status == "skipped" }.count
+    s += "\(d.verb): \(d.space)" + (d.run.map { ", run \($0)" } ?? "") + ": \(done) step\(done == 1 ? "" : "s") done, \(skipped) already there or nothing to do"
+        + (d.ok ? "" : "; stopped at a failure") + "\n"
+    return s
+}
+
+/// `doz workspace down [W]` / `doz space down`: the space's run ended and what it made for the run removed — archived and
+/// hash-checked first — and with --purge what persists too. Asks on the terminal; --dry-run shows the plan only.
+struct SpaceDownCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "down", abstract: "Take a space down: end its run, archive it, remove what it made for the run (--purge: also what persists).",
+        discussion: """
+        Ends the run of the workspace a space file made: its rooms closed, every agent stopped, the run's archive written \\
+        into the store and hash-checked, the run closed. Then what the space made for this run goes, each only after its \\
+        archived copy is hash-checked: the agents (ended and forgotten; their transcripts deleted only where the file \\
+        says transcripts: discard, and only files unchanged since), the run's scratch folders and its rooms (a tombstone \\
+        stays). A persisted agent's memory is kept in the store for its next fenced session. With archive: off nothing is \\
+        copied: what goes with no copy is listed before you confirm. --purge also removes what persists — its rooms, \\
+        sandboxes and kept memory — and releases its folders (never deleted). External folders, rooms, sandboxes and \\
+        bots are never touched. Asks on the terminal (--yes answers it; no terminal and no --yes: exit 5). A failed step \\
+        is said and down carries on; down again does what is left. Exit codes: 0 done · 1 a step failed · 2 no such \\
+        workspace · 3 changed since the plan · 4 made without a space file · 5 not confirmed.
+        """)
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The workspace (default: the space in FILE, or in the one *.space.yaml in this folder).") var workspace: String?
+    @Option(name: [.customShort("f"), .customLong("file")], help: "The space file whose workspace to take down.") var file: String?
+    @Flag(name: .long, help: "Also remove what persists: its rooms, sandboxes and kept memory; release its folders (never deleted).") var purge = false
+    @Flag(name: .long, help: "Answer the question yes.") var yes = false
+    @Flag(name: .customLong("dry-run"), help: "Show the plan and stop: nothing is changed.") var dryRun = false
+
+    func run() async throws {
+        let n: String
+        if let w = workspace { n = w } else {
+            let r = SpaceResolver().resolve(try spaceFile(file, g))
+            n = r.spaceName
+        }
+        var q = HostRequest(.workspaceDownPlan)
+        q.spaceDown = SpaceDownRequest(workspace: n, purge: purge ? true : nil)
+        let plan = try decode(try await query(q, g), SpaceDownPlan.self, g)
+        if g.json && dryRun { Out.json(plan) } else if !g.json { Out.stdout(spaceDownText(plan, dryRun: dryRun)) }
+        if let c = plan.refusalCode { throw ExitCode(DozableExit.code(for: HostError(HostError.Code(rawValue: c) ?? .failed, ""))) }
+        if dryRun || plan.steps.isEmpty { return }
+        let question = (purge ? "Purge \(n): take it down and remove what persists?" : "Take \(n) down?")
+            + (plan.noCopy.isEmpty ? "" : " Deleted with no copy (archive: off): " + plan.noCopy.joined(separator: ", ") + ".")
+        try confirm(question, yes: yes, g)
+        var a = HostRequest(.workspaceDown)
+        a.spaceDown = SpaceDownRequest(workspace: n, purge: purge ? true : nil, ifPlan: plan.sha)
+        let done = try decode(try call(a, g), SpaceActed.self, g)
+        if g.json { Out.json(done) } else { Out.stdout(spaceActedText(done)) }
+        if !done.ok { throw ExitCode(DozableExit.failed) }
+    }
+}
+
+/// The down plan as a person reads it.
+func spaceDownText(_ p: SpaceDownPlan, dryRun: Bool) -> String {
+    var s = "space \(p.purge ? "down --purge" : "down") \"\(p.space)\"" + (dryRun ? " (dry run: nothing changes)" : "") + "\n"
+    for line in p.summary { s += "  \(line)\n" }
+    let width = String(max(p.steps.count, 1)).count
+    for st in p.steps {
+        s += String(repeating: " ", count: width - String(st.n).count + 1) + "\(st.n). \(st.text)" + (st.action == "run" ? "" : " (\(st.action))") + "\n"
+    }
+    for n in p.notes { s += "note: \(n)\n" }
+    if !p.refusals.isEmpty { s += "It cannot be done:\n" + p.refusals.map { "  - \($0)\n" }.joined() }
+    if dryRun { s += "dry run done: nothing was changed\n" }
+    return s
 }

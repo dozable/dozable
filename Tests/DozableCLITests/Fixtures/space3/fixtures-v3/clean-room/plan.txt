@@ -1,4 +1,4 @@
-$ worker space plan examples/space3/clean-room.space.yaml
+$ doz space plan spaces/clean-room.space.yaml
 --- stdout
 plan for space "clean-room", run {run}: 6 steps
   Starts 1 other agent (worker: fenced), 1 room (clean-room: this run only). Nothing persisted. Archive: off. Transcripts: worker: in Dozable's fenced archive (exported to the run's archive). (A clean room: down leaves nothing.)
@@ -17,7 +17,7 @@ plan for space "clean-room", run {run}: 6 steps
       note: the chat server restarts to take a new member (under a second)
  4. room clean-room  [room:clean-room · run]
       up:   doz chat room clean-room @worker
-      down: delete room clean-room (doz chat room rm, where Dozable has it; otherwise mark it retired)   # deleted after the run (archive off); where Dozable can't delete rooms yet, marked retired
+      down: doz chat room archive clean-room --loose, then doz chat room rm clean-room --loose (each dry-run first; a tombstone stays; before Dozable 0.52, marked retired instead)   # deleted once the run is closed (archive off)
  5. agent worker (fenced)  [agent:worker · run]
       up:   doz run @mac --fenced --account mac --folder ~/'Library/Application Support/doz/spaces/clean-room/runs/{run}/scratch/scratch' --detach --session worker --host-port 8790 --secret 'CHAT_TOKEN,src=~/Library/Application Support/doz/spaces/clean-room/runs/{run}/tokens/worker.token,to=host.dozable.internal:8790,file=CHAT_TOKEN_FILE' -- claude --name worker 'Do the task in the brief, then stop.'
       down: doz sessions end @mac worker --yes   # its transcripts are in Dozable's fenced archive (exported to the run's archive first)

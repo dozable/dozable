@@ -17,7 +17,7 @@
 //     resolve, a newer build offers a reload); a sign-in again happens INSIDE the page, over what it shows.
 
 import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat-b6d90d0841520f18.js';
-import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-31e3c69018341ad4.js';
+import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-41247f19ff7390c1.js';
 import { viewWsAgent } from './app/views/ws-agents-255faf19f260acd6.js';
 import { viewIsolationGuide } from './app/views/isolation-guide-a618cc2432a854d9.js';
 import { viewAddWorker } from './app/views/add-worker-c9845c4971f992c5.js';
@@ -77,12 +77,12 @@ import { viewDoctor } from './app/views/doctor-a1d80e7c4f05262f.js';
 import { viewImages } from './app/views/images-6294a8f9a491c916.js';
 import { viewMetrics } from './app/views/metrics-59943757947af542.js';
 import { newSandboxWizard, viewNew } from './app/views/new-sandbox-a6caffc21c35ebb5.js';
-import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, viewNewWorkspace } from './app/views/new-workspace-fbf26dcdfbedc219.js';
+import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, viewNewWorkspace } from './app/views/new-workspace-9f64cfedd9c97b5b.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-3d74a1a05ebce97c.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-594fd92fcfb72748.js';
-import { viewBots } from './app/views/bots-698f19be74d5555b.js';
-import { viewBot } from './app/views/bot-6f6c7874c8246d54.js';
-import { viewHome } from './app/views/home-ef6e92d7a9e700c0.js';
+import { viewBots } from './app/views/bots-e25341c3c676227d.js';
+import { viewBot } from './app/views/bot-847f4623052037a9.js';
+import { viewHome } from './app/views/home-4f60614b22c22ca7.js';
 import { viewLoose } from './app/views/loose-7cc24b5a3f2e0998.js';
 import { viewMacs } from './app/views/macs-3bf2786a01a379dc.js';
 import { viewOverview } from './app/views/overview-9d3c27520a1fb319.js';

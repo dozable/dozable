@@ -213,10 +213,13 @@ workspace/rename
 workspace/runs
 workspace/plan
 workspace/up
+space/down
+workspace/down
 workspace/config
 space
 space/plan
 space/up
+space/down
 space/config
 bot
 bot/new

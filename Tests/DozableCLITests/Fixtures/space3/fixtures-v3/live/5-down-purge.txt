@@ -1,0 +1,24 @@
+$ doz space down spaces/space-test-v3-a.space.yaml --purge --yes
+space down --purge "space-test-v3-a": archive, then remove everything the space owns, including what persists (rooms are deleted, or marked retired where Dozable can't delete rooms yet). External things are never touched.
+  a run is open: down first
+  down   run 2026-11-20-2 (since 2026-11-20T22:25:42+11:00)
+  mark   space-test-v3-a-room: — run 2026-11-20-2 ended —
+  mark   space-test-v3-a-run: — run 2026-11-20-2 ended —
+  archive → ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2
+  keep   room space-test-v3-a-room (persisted: one thread across runs) — persisted: kept with its history; the run's members leave it as they are removed
+  keep   folder data (persisted) — persisted: kept for the next run
+  remove folder scratch
+           tar -czf '~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/folders/scratch.tar.gz' -C ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/scratch/scratch' .
+           rm -r ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/scratch/scratch'  (only if this space made it)
+  remove room space-test-v3-a-run (the run is closed; its archived chat checked)
+           archived room space-test-v3-a-run (Dozable's copy verified; read-only)
+           removed room space-test-v3-a-run: tombstone rm_e0264e503691cf82, 2026-11-20T11:25:44.275Z, its archive archives/_/rooms/space-test-v3-a-run-rm_e0264e503691cf82
+  closed run 2026-11-20-2: 2 removed, 2 kept; archive ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2
+  retire space "space-test-v3-a" → ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-retire
+  retire room space-test-v3-a-room (persisted: one thread across runs)
+           archived room space-test-v3-a-room (Dozable's copy verified; read-only)
+           removed room space-test-v3-a-room: tombstone rm_966b3c443671c4a2, 2026-11-20T11:25:44.747Z, its archive archives/_/rooms/space-test-v3-a-room-rm_966b3c443671c4a2
+  retire folder data (persisted)
+  retired 2026-11-20T22:25:44+11:00
+retired; final record in ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-retire
+(exit 0)

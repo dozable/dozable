@@ -903,12 +903,18 @@ public actor HostCore {
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)
-        case .chatRoomPlan, .chatRoomArchive, .chatRoomRm:
+        case .chatRoomPlan, .chatRoomArchive, .chatRoomRm, .chatRoomClose, .chatRoomOpen:
             return try await performRoomLifecycle(r)
         case .workerAdd, .workerList, .workerEnd, .workerPlan:
             return try await performWorker(r)
         case .workspaceUpPlan:
             return try JSONValue(encoding: try await spaceUpPlan(r.space))
+        case .workspaceUp:
+            return try JSONValue(encoding: try await spaceUp(r.space))
+        case .workspaceDownPlan:
+            return try JSONValue(encoding: try spaceDownPlan(r.spaceDown))
+        case .workspaceDown:
+            return try JSONValue(encoding: try await spaceDown(r.spaceDown))
         case .macsList:
             return try JSONValue(encoding: try MacBookmarkStore(store: store).listing())
         case .permissionsShow, .permissionsWhy, .permissionsGrant, .permissionsRevoke, .permissionsCeiling:

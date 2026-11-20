@@ -162,7 +162,7 @@ extension HostCore {
             check.placeTaken = info.exists && !ours
             manager = check
         }
-        return WorkspaceSetupCheck.Input(workspace: rec.name, briefBytes: brief ?? workspaces.readBrief(rec.name)?.utf8.count ?? 0, chat: chat,
+        return WorkspaceSetupCheck.Input(workspace: rec.name, briefBytes: brief ?? workspaceBriefText(rec)?.utf8.count ?? 0, chat: chat,
                                          mainRoom: rec.mainRoom?.chatRoom, mainRoomExists: roomExists, folders: folders, agents: agents,
                                          manager: manager)
     }
@@ -241,7 +241,7 @@ extension HostCore {
         if rec.flags.startedAt == nil {
             _ = try? await openRun(n)
             if let room, let chat, ready {
-                let brief = workspaces.readBrief(n) ?? ""
+                let brief = workspaceBriefText(rec) ?? ""
                 let text = ManagerKickoff.briefPost(brief: brief, refs: rec.brief.refs)
                 try chat.post(room: room, content: text)
                 kickedOff = true
@@ -316,7 +316,7 @@ extension HostCore {
         let workdir = try managerFolder(rec)
         let instructions = bots.readInstructions(bot)
         let start = Data(ManagerKickoff.startText(bot: bot, workspace: rec.name, room: rec.mainRoom?.chatRoom ?? rec.name, isolation: iso,
-                                                  skills: b.skills, instructions: instructions, brief: workspaces.readBrief(rec.name) ?? "",
+                                                  skills: b.skills, instructions: instructions, brief: workspaceBriefText(rec) ?? "",
                                                   refs: rec.brief.refs).utf8)
         var notes: [String] = []
         let fingerprint: String

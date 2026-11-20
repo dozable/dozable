@@ -1,0 +1,26 @@
+# every file in this run's archive, with its sha256 (tokens/ is never archived)
+run: 2026-11-20-retire
+space: space-test-v3-a
+started_at: 2026-11-20T22:25:44+11:00
+ended_at: 2026-11-20T22:25:44+11:00
+space_file: ~/work/example-repo/test/live/space-test-v3-a.space.yaml
+space_file_sha256: cffd09067ed42373dcbb66d4dd6ac80bc3c0cbcf44764696aaaeced46718552d
+labels:
+  purpose: live-fixture
+doz_version: 0.52.17
+claude_code_version: 2.1.329 (Claude Code)
+recorder: a stand-in for doz space
+retired: true
+notes:
+  - "room space-test-v3-a-room: archived and removed by Dozable (tombstone rm_966b3c443671c4a2; Dozable's copy: archives/_/rooms/space-test-v3-a-room-rm_966b3c443671c4a2)"
+  - "the space was retired (doz space rm): persisted things were archived and removed"
+files:
+  - path: commands.log
+    bytes: 2672
+    sha256: ed6dfd8cdbacd8ecaad1b7cdd007aba5ec90e5ff18cc2388a46bd6f0e1417ae4
+  - path: folders/data.tar.gz
+    bytes: 102
+    sha256: d221fa33d0fb83baef227910b7739a75e4edf2315620d858f48c9ca94ed5c286
+  - path: run.yaml
+    bytes: 646
+    sha256: 4651180d6b8946c8b91324281df1226cd500cfa970c5b721a68ec2435dbf5ace

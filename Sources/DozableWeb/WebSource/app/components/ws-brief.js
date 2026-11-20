@@ -50,7 +50,10 @@ export function briefCard(o) {
     if (!o.canEdit || !b) edit.disabled = true;
     const hist = h('button', { type: 'button', class: 'btn sm quiet', 'aria-expanded': history ? 'true' : 'false',
       on: { click: () => { history = !history; draw(); } } }, icon('history'), 'History');
-    const head = h('div', { class: 'ws-brief-head' }, h('span', { class: 'ws-brief-label' }, 'The work'), h('span', { class: 'ws-brief-meta' }, meta),
+    // A space workspace's brief is its file: "BRIEF.md — from the space file", and where an edit is saved.
+    const label = b && b.file ? b.file + ' — from the space file' : 'The work';
+    const head = h('div', { class: 'ws-brief-head' }, h('span', { class: 'ws-brief-label', 'data-ws-brief-file': b && b.file ? b.file : null }, label),
+      h('span', { class: 'ws-brief-meta' }, meta),
       h('span', { class: 'ws-sp' }), editing ? null : edit, hist, editing ? null : fold);
     const kids = [head];
     if (o.denied) {
@@ -59,6 +62,7 @@ export function briefCard(o) {
     } else if (!b) {
       kids.push(h('p', { class: 'ws-brief-denied' }, 'The brief could not be read.'));
     } else if (editing) {
+      if (b.savesTo) kids.push(h('p', { class: 'ws-brief-line muted', 'data-ws-brief-saves': '' }, 'Saved to ', h('code', null, tildePath(b.savesTo))));
       kids.push(editor(b));
     } else if (o.folded) {
       const first = String(b.text).split('\n').map((x) => x.trim()).find(Boolean) || '';

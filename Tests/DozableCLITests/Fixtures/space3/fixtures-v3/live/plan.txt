@@ -1,0 +1,25 @@
+$ doz space plan spaces/space-test-v3-a.space.yaml
+plan for space "space-test-v3-a", run {run}: 5 steps
+  Starts 2 rooms (space-test-v3-a-room: persisted; space-test-v3-a-run: this run only). Externals: svc. Persisted: room space-test-v3-a-room (from space-test-v3-defaults.yaml:4), folder data.
+  run folder: ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/{run}
+
+ 1. folder svc exists (external: ~/work/example-repo/test/live/cmp-test-svc)  [check:svc · external]
+      up:   check only
+      down: never touched
+ 2. folder scratch  [folder:scratch · run]
+      up:   mkdir -p ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/{run}/scratch/scratch'
+      down: tar -czf ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/{run}/folders/scratch.tar.gz' -C ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/{run}/scratch/scratch' .
+      down: rm -r ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/{run}/scratch/scratch'  (only if this space made it)   # archived as a tarball first
+ 3. folder data (persisted)  [folder:data · space]
+      up:   mkdir -p ~/'Library/Application Support/doz/spaces/space-test-v3-a/folders/data'
+      down: keep (persisted: kept for the next run)
+      rm:   tar -czf ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/{run}/folders/data.tar.gz' -C ~/'Library/Application Support/doz/spaces/space-test-v3-a/folders/data' .
+      rm:   rm -r ~/'Library/Application Support/doz/spaces/space-test-v3-a/folders/data'  (only if this space made it)
+ 4. room space-test-v3-a-room (persisted: one thread across runs)  [room:space-test-v3-a-room · space]
+      up:   doz chat room space-test-v3-a-room
+      down: keep (persisted: kept with its history; the run's members leave it as they are removed)
+      rm:   doz chat room archive space-test-v3-a-room --loose, then doz chat room rm space-test-v3-a-room --loose (each dry-run first; a tombstone stays; before Dozable 0.52, marked retired instead)
+ 5. room space-test-v3-a-run  [room:space-test-v3-a-run · run]
+      up:   doz chat room space-test-v3-a-run
+      down: doz chat room archive space-test-v3-a-run --loose, then doz chat room rm space-test-v3-a-run --loose (each dry-run first; a tombstone stays; before Dozable 0.52, marked retired instead)   # deleted once the run is closed and its archived messages are hash-checked
+(exit 0)

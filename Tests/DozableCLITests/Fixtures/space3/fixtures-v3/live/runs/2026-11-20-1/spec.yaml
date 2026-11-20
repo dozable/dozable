@@ -1,0 +1,35 @@
+# the merged space up used (extends:, the space file, the override file); see run.yaml sources
+persist:
+  team-chat:
+    room: "{space}-room"
+  shared-data:
+    folder: data
+archive:
+  keep:
+    - plan
+    - commands
+    - status
+    - chat
+    - screens
+    - usage
+    - git
+doz: space/3
+space: space-test-v3-a
+title: space/3 live fixture A (persist, extends, archive, room removal)
+brief: ../../BRIEF.md
+owner: ada
+labels:
+  purpose: live-fixture
+folders:
+  svc:
+    external: ~/work/example-repo/test/live/cmp-test-svc
+  scratch: {}
+  data: {}
+chat:
+  rooms:
+    space-test-v3-a-room:
+      members:
+        - owner
+    space-test-v3-a-run:
+      members:
+        - owner

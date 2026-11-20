@@ -94,6 +94,7 @@ public enum WorkerAddCommand {
         if let x = q.memory { a += ["--memory", x] }
         if let x = q.fromBot { a += ["--from-bot", x] }
         for r in q.rooms ?? [] { a += ["--room", r] }
+        if let x = q.permissionMode { a += ["--permissions", x] }
         for t in q.allowTools ?? [] { a += ["--allow-tool", t] }
         return a
     }

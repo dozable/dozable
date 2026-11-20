@@ -1,0 +1,53 @@
+# the plan up followed (doz space plan)
+space: space-test-v3-a
+run: 2026-11-20-2
+summary: "Starts 2 rooms (space-test-v3-a-room: persisted; space-test-v3-a-run: this run only). Externals: svc. Persisted: room space-test-v3-a-room (from space-test-v3-defaults.yaml:4), folder data."
+steps:
+  - id: check:svc
+    lifetime: external
+    title: "folder svc exists (external: ~/work/example-repo/test/live/cmp-test-svc)"
+    up: []
+    down:
+      mode: never
+      actions: []
+      note: "external: never touched"
+  - id: folder:scratch
+    lifetime: run
+    title: folder scratch
+    up:
+      - mkdir -p ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/scratch/scratch'
+    down:
+      mode: remove
+      actions:
+        - tar -czf '~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/folders/scratch.tar.gz' -C ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/scratch/scratch' .
+        - rm -r ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/scratch/scratch'  (only if this space made it)
+      note: archived as a tarball first
+  - id: folder:data
+    lifetime: space
+    title: folder data (persisted)
+    up:
+      - mkdir -p ~/'Library/Application Support/doz/spaces/space-test-v3-a/folders/data'
+    down:
+      mode: keep
+      actions: []
+      note: "persisted: kept for the next run"
+  - id: room:space-test-v3-a-room
+    lifetime: space
+    title: "room space-test-v3-a-room (persisted: one thread across runs)"
+    up:
+      - doz chat room space-test-v3-a-room
+    down:
+      mode: keep
+      actions: []
+      note: "persisted: kept with its history; the run's members leave it as they are removed"
+  - id: room:space-test-v3-a-run
+    lifetime: run
+    title: room space-test-v3-a-run
+    up:
+      - doz chat room space-test-v3-a-run
+    down:
+      mode: remove
+      actions:
+        - doz chat room archive space-test-v3-a-run --loose, then doz chat room rm space-test-v3-a-run --loose (each dry-run first; a tombstone stays; before Dozable 0.52, marked retired instead)
+      note: deleted once the run is closed and its archived messages are hash-checked
+notes: []

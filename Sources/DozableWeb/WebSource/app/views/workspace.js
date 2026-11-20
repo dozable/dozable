@@ -297,6 +297,13 @@ function draw() {
         h('div', { class: 'ws-start-row' }, start, cmdLine('doz workspace start ' + d.name))].filter(Boolean) }));
   }
   if (!d.rooms.length) notes.push(callout('info', { compact: true, title: 'No room yet', body: cmdLine('doz workspace edit ' + d.name + ' --make-room') }));
+  // Made by a space file: which, and up (its run) or down.
+  if (d.space) {
+    const s = d.space;
+    const pill = h('span', { class: 'pill ' + (s.up ? 'st-ok' : 'st-off'), 'data-ws-space-pill': s.up ? 'up' : 'down' },
+      s.up ? 'up' + (s.run ? ' · run ' + s.run : '') + (s.runSince ? ' since ' + new Date(s.runSince).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '') : 'down');
+    notes.push(h('p', { class: 'ws-space-line muted', 'data-ws-space': s.file }, 'Defined by ', h('code', null, s.file), ' ', pill));
+  }
   if (cur.logHidden) notes.push(callout('info', { compact: true, body: cur.logHidden + ' of its log’s lines are about sessions on this Mac and are not shown to this browser.' }));
   $('ws-notice').replaceChildren(...notes);
   // The brief.

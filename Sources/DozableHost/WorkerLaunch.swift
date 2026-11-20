@@ -24,6 +24,9 @@ public enum WorkerLaunch {
     /// What a fenced Claude Code worker may do without asking: talk in chat. `--allow-tool` adds to it.
     /// OPEN WITH THE OWNER (a default set — edit, write, a shell inside the fence — instead): this ONE constant is the change.
     public static let defaultAllowedTools = ["Bash(dozchat:*)"]
+    /// The permission modes a worker can be given (`--permissions`): `standard` (as today) or `bypass` (its own argv
+    /// bypasses permissions — marked wherever it shows).
+    public static let permissionModes = ["standard", "bypass"]
     /// The longest task (`--task`), in bytes.
     public static let maximumTaskBytes = 16 << 10
     /// Where a VM worker's START is copied (under the image user's home): `~/.doz-workspace/NAME/start.md`.
@@ -111,11 +114,12 @@ public enum WorkerLaunch {
     /// then `--allow-tool`; only a fenced one takes any beyond the default).
     public static func plan(isolation: ManagerIsolation, agent: String, model: String?, bot: String?, startFile: String, pagePort: Int,
                             fingerprint: String, tokenFile: String? = nil, name: String, shared: Bool,
-                            allowTools: [String] = []) throws -> ManagerLaunch.Plan {
+                            allowTools: [String] = [], permissionMode: String? = nil) throws -> ManagerLaunch.Plan {
         let v = tokenVariables(name: name, shared: shared)
         return try AgentLaunch.plan(role: .worker, isolation: isolation, agent: agent, model: model, bot: bot, startFile: startFile,
                                     pagePort: pagePort, fingerprint: fingerprint, tokenFile: tokenFile, variable: v.variable,
-                                    fileVariable: v.fileVariable, allowedTools: defaultAllowedTools + (isolation == .fenced ? allowTools : []))
+                                    fileVariable: v.fileVariable, allowedTools: defaultAllowedTools + (isolation == .fenced ? allowTools : []),
+                                    permissionMode: permissionMode)
     }
 
     /// What isolates it, as a person reads it (`doz worker ls`'s CONTROL).

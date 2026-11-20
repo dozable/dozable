@@ -21,8 +21,8 @@ import { menuButton } from '../components/menus-b8f822d6b7817c72.js';
 import { pageFailure, toast } from '../components/notices-64b09147d0894f01.js';
 import { dialog } from '../components/dialog-4e65dd3da1ca3eeb.js';
 import { gapsList, startsOnce } from '../components/ws-gaps-ecc3dc59f47d609b.js';
-import { newWorkspaceRefusal } from './new-workspace-fbf26dcdfbedc219.js';
-import { briefCard } from '../components/ws-brief-9bfd53f6b09ab458.js';
+import { newWorkspaceRefusal } from './new-workspace-9f64cfedd9c97b5b.js';
+import { briefCard } from '../components/ws-brief-8fe264cd7d399f7d.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks-26369af31d4dbb6f.js';
 import { renderNavWorkspaces } from '../components/ws-nav-cdc9953c79021145.js';
 import { lifecycleItems, primaryButton, transitional } from '../components/ws-lifecycle-fd52672bba023683.js';
@@ -297,6 +297,13 @@ function draw() {
         h('div', { class: 'ws-start-row' }, start, cmdLine('doz workspace start ' + d.name))].filter(Boolean) }));
   }
   if (!d.rooms.length) notes.push(callout('info', { compact: true, title: 'No room yet', body: cmdLine('doz workspace edit ' + d.name + ' --make-room') }));
+  // Made by a space file: which, and up (its run) or down.
+  if (d.space) {
+    const s = d.space;
+    const pill = h('span', { class: 'pill ' + (s.up ? 'st-ok' : 'st-off'), 'data-ws-space-pill': s.up ? 'up' : 'down' },
+      s.up ? 'up' + (s.run ? ' · run ' + s.run : '') + (s.runSince ? ' since ' + new Date(s.runSince).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '') : 'down');
+    notes.push(h('p', { class: 'ws-space-line muted', 'data-ws-space': s.file }, 'Defined by ', h('code', null, s.file), ' ', pill));
+  }
   if (cur.logHidden) notes.push(callout('info', { compact: true, body: cur.logHidden + ' of its log’s lines are about sessions on this Mac and are not shown to this browser.' }));
   $('ws-notice').replaceChildren(...notes);
   // The brief.

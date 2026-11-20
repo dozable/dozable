@@ -67,6 +67,12 @@ public struct SpaceRequest: Codable, Equatable, Sendable {
     public var brief: SpaceBriefLook?
     /// `--profile`: the profiles whose resources are included.
     public var profiles: [String]?
+    /// `workspace-up`: the plan's sha as the person saw it (changed since → refused, nothing done), and the unfenced
+    /// agents the person confirmed — exactly the plan's confirm set, or refused.
+    public var ifPlan: String?
+    public var confirmed: [String]?
+    /// An owned agent's `prompt_file`, read by the CLI beside the space file (at most 16 KiB each): agent → its text.
+    public var prompts: [String: String]?
 
     public init(spec: String, sources: [SpaceSource], origins: [String: SpaceOrigin], specPath: String? = nil,
                 brief: SpaceBriefLook? = nil, profiles: [String]? = nil) {
@@ -74,8 +80,8 @@ public struct SpaceRequest: Codable, Equatable, Sendable {
         self.profiles = profiles
     }
 
-    static let known: Set<String> = ["spec", "sources", "origins", "specPath", "brief", "profiles"]
-    enum CodingKeys: String, CodingKey { case spec, sources, origins, specPath, brief, profiles }
+    static let known: Set<String> = ["spec", "sources", "origins", "specPath", "brief", "profiles", "ifPlan", "confirmed", "prompts"]
+    enum CodingKeys: String, CodingKey { case spec, sources, origins, specPath, brief, profiles, ifPlan, confirmed, prompts }
 
     public init(from decoder: Decoder) throws {
         let any = try decoder.container(keyedBy: DynamicKey.self)
@@ -89,6 +95,9 @@ public struct SpaceRequest: Codable, Equatable, Sendable {
         specPath = try c.decodeIfPresent(String.self, forKey: .specPath)
         brief = try c.decodeIfPresent(SpaceBriefLook.self, forKey: .brief)
         profiles = try c.decodeIfPresent([String].self, forKey: .profiles)
+        ifPlan = try c.decodeIfPresent(String.self, forKey: .ifPlan)
+        confirmed = try c.decodeIfPresent([String].self, forKey: .confirmed)
+        prompts = try c.decodeIfPresent([String: String].self, forKey: .prompts)
     }
 
     /// The request's own limits, checked before anything is read from it (the daemon's and the in-process core's).
@@ -102,6 +111,9 @@ public struct SpaceRequest: Codable, Equatable, Sendable {
             throw HostError(.invalid, "space: one space source, and only space, defaults, override or env sources")
         }
         for o in origins.values where o.s < 0 || o.s >= sources.count { throw HostError(.invalid, "space: an origin names no source") }
+        for (k, v) in prompts ?? [:] where !WorkspaceName.isValidAgent(k) || v.utf8.count > WorkerLaunch.maximumTaskBytes {
+            throw HostError(.invalid, "space: the prompt of \(k.prefix(40)) is not one an agent can take (at most \(WorkerLaunch.maximumTaskBytes >> 10) KiB)")
+        }
         let doc: JValue
         do { doc = try ChatJSON.parse(Data(spec.utf8)) } catch { throw HostError(.invalid, "space: the merged document is not JSON") }
         guard case .object = doc else { throw HostError(.invalid, "space: the merged document is not a map") }

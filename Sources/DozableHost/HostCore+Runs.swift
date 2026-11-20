@@ -272,7 +272,7 @@ extension HostCore {
     /// Answers its path and its manifest's sha256, or throws why it was not kept (nothing else is touched).
     func writeRunArchive(_ rec: WorkspaceRecord, _ run: WorkspaceRun, plan: WorkspaceLifecyclePlan?, gathered: RunPreStop) async throws -> (path: String, sha: String) {
         let n = rec.name
-        var e = RunEvidence(workspace: n, run: run, endedAt: run.endedAt ?? Date(), brief: Data((workspaces.readBrief(n) ?? "").utf8))
+        var e = RunEvidence(workspace: n, run: run, endedAt: run.endedAt ?? Date(), brief: Data((workspaceBriefText(rec) ?? "").utf8))
         e.plan = try plan.map { try JSONValue(encoding: $0) }
         for r in run.rooms { e.rooms[r.room] = r.id ?? (rec.rooms.first { $0.chatRoom == r.room }?.id ?? "") }
         e.versions = ["doz": version]
@@ -361,6 +361,10 @@ extension HostCore {
             if let o = room.owned { return o }
             if logs[rec.name] == nil { logs[rec.name] = (try? self.workspaces.log(rec.name)) ?? [] }
             return WorkspaceRuns.owned(room, log: logs[rec.name]!)
+        }
+        // Loose rooms closed by hand (`doz chat room close --loose`): `_`, no workspace.
+        if let idx = try? ChatRoomIndex.load(chatPaths) {
+            for (room, e) in idx.rooms where e.closedAt != nil && e.owner == nil && set[room] == nil { set[room] = ChatRoomControl.looseOwner }
         }
         set.merge(extra) { _, b in b }
         return try? await chat.setClosed(set)

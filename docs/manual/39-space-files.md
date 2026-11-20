@@ -5,8 +5,8 @@ its rooms, the brief, any folders and sandboxes. Each thing in it is either **ow
 **external**: it exists already and is only referenced (`external:`). The file asks; Dozable decides: it holds the
 workspace's record (see [Workspaces](37-workspaces.md)), and every rule the daemon keeps holds for a file too.
 
-This version reads, checks and plans a space file. Setting the workspace up from it and taking it down again come in
-the next version (`doz space up` without `--dry-run`, and a `down`); this page says already what they will do.
+Dozable reads, checks and plans a space file, sets the workspace up from it (`doz space up`) and takes it down again
+(`doz space down`, and `--purge` for what persists).
 
 ```yaml
 doz: space/3
@@ -87,15 +87,36 @@ Not in this version, and said so in the plan: owned services (refused), a manage
 secrets for an agent Dozable starts (refused), a preset other than `standard` or `bypass` (refused), and `model`,
 Remote Control, chat delivery, `resume: summary` and folder trust (noted, not applied).
 
-## Up and down (the next version)
+## Up and down
 
-- **`up`** makes what is missing and starts the run: the workspace (or the changes the plan shows), its rooms, the
-  start (the brief posted as your first message the first time only), each agent. A second `up` in an open run makes
-  only what is missing.
-- **`down`** archives the run first — chat, transcripts, what was run — into the store, then removes what the run made:
-  agents ended and forgotten, scratch folders and run rooms removed (a room leaves a tombstone), sandboxes not persisted
-  removed. What `persist:` names is kept for the next run: a room closed with its history, a sandbox's disk, an agent's
-  memory. External things are never touched. With `archive: off`, nothing is copied first.
+```sh
+doz space up -f launch-video.space.yaml            # the plan, then it is set up
+doz space down launch-video                        # end the run; archive it; remove what the run made
+doz space down launch-video --purge                # and what persists
+doz workspace show launch-video --space            # "Defined by launch-video.space.yaml": up or down
+```
 
-Exit codes: 0 ok · 2 a problem in the file, or something external missing · 3 not in a state to go on (chat off,
-a workspace archived) · 4 a workspace of that name made without a space file · 7 not in this version · 64 usage.
+- **`up`** shows the plan and makes what is missing: the folders it keeps, the workspace (or the changes the plan
+  shows), its rooms, the run (started — the brief posted as your first message the first time only — or reopened when
+  the space is down, its kept agents woken), the run's scratch folders, each agent. An agent that runs **unfenced**
+  acts with full access to your user: `up` asks you about it on the terminal at every up, whatever set it — `--yes`
+  answers that question on a terminal; with no terminal, `up` does nothing and exits 5. What the file **requests** for
+  an agent (a role, grants) is recorded, never granted: `doz permissions grant` does that. `up` stops at the first step
+  that fails (the rest are "not run", exit 1); `up` again makes only what is missing.
+- **The brief is the file.** The kick-off, `doz workspace show --brief` and the run's archive read `BRIEF.md` beside
+  the space file; an edit on the workspace's page or with `doz workspace edit --prompt-file` is saved into it. `up`
+  never writes it. The file must be yours, under your home, and no link.
+- **`down`** asks first (`--yes`; no terminal and no `--yes`: exit 5). It archives the run — chat, transcripts, screens,
+  usage — into the store and checks it, then removes what the run made, each only after its copy verifies: agents
+  ended and forgotten (transcripts deleted only with `transcripts: discard`, and only files unchanged since), the run's
+  scratch folders and rooms (a room leaves a tombstone). If the archive could not be written, nothing that holds work
+  is removed. What `persist:` names is kept for the next run: a room closed with its history, a sandbox's disk, an
+  agent's memory (a fenced agent's comes back in its next fenced session only). External things are never touched.
+  With **`archive: off`** nothing is copied: what goes with no copy is listed before you confirm. A step that fails is
+  said and `down` carries on; `down` again does what is left.
+- **`--purge`** takes it down first, then removes what persists — its rooms (archived first), sandboxes and kept
+  memory — and releases the folders it kept: they leave the workspace and stay on disk.
+
+Exit codes: 0 ok · 1 a step failed · 2 a problem in the file, or something external missing · 3 not in a state to go
+on (chat off, a workspace archived), or changed since the plan · 4 a workspace of that name made without a space file ·
+5 not confirmed · 7 not in this version · 64 usage.

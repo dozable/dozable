@@ -1,0 +1,42 @@
+run: 2026-11-20-1
+space: space-test-v3-a
+file: ~/work/example-repo/test/live/space-test-v3-a.space.yaml
+file_sha256: cffd09067ed42373dcbb66d4dd6ac80bc3c0cbcf44764696aaaeced46718552d
+started_at: 2026-11-20T22:25:39+11:00
+profiles: []
+labels:
+  purpose: live-fixture
+externals:
+  svc:
+    ref: ~/work/example-repo/test/live/cmp-test-svc
+    ok: true
+created:
+  folders:
+    - ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-1/scratch/scratch
+  trust: []
+sessions: {}
+markers:
+  space-test-v3-a-room:
+    start: 2
+    end: 3
+  space-test-v3-a-run:
+    start: 2
+    end: 3
+notes:
+  - "room space-test-v3-a-run: archived and removed by Dozable (tombstone rm_d73b2a64364a13b4; Dozable's copy: archives/_/rooms/space-test-v3-a-run-rm_d73b2a64364a13b4)"
+sources:
+  - file: ~/work/example-repo/test/live/space-test-v3-defaults.yaml
+    sha256: 8129e09dab22afcce809e850aba613a600e738a75fccc2d966c41a34140cd0dc
+    kind: defaults
+  - file: ~/work/example-repo/test/live/space-test-v3-a.space.yaml
+    sha256: cffd09067ed42373dcbb66d4dd6ac80bc3c0cbcf44764696aaaeced46718552d
+    kind: space
+provenance:
+  persist.team-chat: space-test-v3-defaults.yaml:4
+  persist.shared-data: space-test-v3-a.space.yaml:19
+  archive: space-test-v3-defaults.yaml:6
+  transcripts: the default
+archived:
+  chat/space-test-v3-a-room.jsonl: 20649055b5bbccb3bec4b2bd741e3d3f743c567a488bdb58f8e4a606cb3dfa60
+  chat/space-test-v3-a-run.jsonl: fda6ed25067ddcfd3b179d3be0d3db10041c0284a936c0a38ba2bb66629a5ea1
+ended_at: 2026-11-20T22:25:41+11:00

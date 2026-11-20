@@ -1,32 +1,73 @@
-# Scrubbed copies of the doz space reference's files (space/3), read-only. Provenance: the reference's
-# commit below; the copies were rewritten so they carry no personal or project names (an owner ada, the host
-# host-a, the bot manager, the space example-space with its agent worker, the folder ~/work/example-repo) and the
-# recorded config outputs' sha256 prefixes recomputed for the rewritten files. Its notes about people and process
-# are left out. SpaceSchemaDriftTests and SpaceValidationTableTests check against these copies; re-vendor by copying
-# the reference again, rewriting it the same way and updating this file.
-peer-commit 3dc3521840b8b55c3582bc93978cb0947d965b2d (fixtures-v3 recorded from its code at 3cfd44a)
-sources: schema/ <- schema/, validation-errors.json <- docs/space/spec-v3/, examples/ <- examples/space3/, fixtures-v3/ <- docs/space/fixtures-for-dozable/v3/ (README and RECORDED.txt left out)
-sha256 (the scrubbed copies):
+# Copies of the doz space reference's files (space/3), read-only. Provenance: the reference's commits below; its
+# fixtures for Dozable are already neutral (an owner ada, the host host-a, the bot manager, the space example-space with
+# its agent worker, the folder ~/work/example-repo). fixtures-v3/ is its fixtures-for-dozable/v3 as recorded (README and
+# RECORDED.txt left out; recorded on Dozable 0.52.17, 2026-11-20), including live/, one real up → down → up →
+# down --purge cycle. examples/ is that folder's spaces/. The schemas and validation-errors.json are the reference's
+# spec files with the same stand-in names written in (the rewrite changes names only). SpaceSchemaDriftTests,
+# SpaceValidationTableTests, SpaceResolverTests and SpaceUpPlanTests check against these copies; re-vendor by copying
+# the reference again from a neutral commit and updating this file.
+peer-commit f054c51488750ce2937964011a152599d984aa13 (examples/, fixtures-v3/)
+peer-commit 1493fdf977d77789197cce025db2395dfb1f585e (schema/, validation-errors.json: the diagram's pins key x-editor, case 58)
+sources: schema/ <- schema/ (names rewritten), validation-errors.json <- docs/space/spec-v3/ (names rewritten), examples/ <- docs/space/fixtures-for-dozable/v3/spaces/, fixtures-v3/ <- docs/space/fixtures-for-dozable/v3/
+sha256:
   c5513db65d4760ec251dc6fb8e92516ff0829e1e7f619878fc065bb82a100383  ./examples/clean-room.space.yaml
-  57a344c5a652ed6bd471ebec5526ee27c6e748945ff710976aa0a4cc79bfe6e1  ./examples/example-space.space.yaml
+  bf5c18701871c8005e7453bac41420506d5a5ff7e0f9b142b8495b660b4c4ec6  ./examples/example-space.space.yaml
   f818661c1a6a0830d9c9fa01f986e7ba098e23c3900f05da3314723729ae5217  ./examples/my_doz_workspace_defaults.yaml
-  e9fd99f550cad57902fc94097d8ee7ed4193a7134e9803b45cf41ab9c6db53d7  ./examples/sandbox-team.space.yaml
-  a10078df019d25a68f914cc5a1d289f7d4e3d924b50792d69bd34721483a8a8b  ./fixtures-v3/clean-room/config.txt
-  898f05c8af2bb638be6855ec79a96c34c533bb075a891c0322ca3ff5c239b678  ./fixtures-v3/clean-room/down-dry-run.txt
-  1e42a95010c89354002f5d176069c8488e09c907cf77b07e6fcaa4f3df008476  ./fixtures-v3/clean-room/plan.txt
-  130ab64af0cf225390a36f0752645f0d60ea5ed590cd831ec2474c874a739f2c  ./fixtures-v3/clean-room/up-dry-run.txt
-  8b098614bc1f82a20f81a0f0d3043f4da2425fe604683f21d87bc554b12edfbd  ./fixtures-v3/example-space/config.txt
-  255c016bfed2824afa32e94b59d4bc6fa7c5cded35beeb07670f75b4085108e9  ./fixtures-v3/example-space/down-dry-run.txt
-  e0bf40f27c146013dd10d971df6e574fb353d2ae7384b57bb52f0df35d95a0c9  ./fixtures-v3/example-space/plan.txt
-  8b51b3985ec72a41750e7b58aecd05d12901032ab6f0622e13cda516e9dfc5ea  ./fixtures-v3/example-space/up-dry-run.txt
-  83278113efef03d3b841ce05eaec9035ea3164a7c5193300a54a19dcaf762dd0  ./fixtures-v3/sandbox-team/config.txt
-  4e9e02c097cda15e11d5bf0e0a89dbd19ee2e9274d4f681d750e97e4149a9cd4  ./fixtures-v3/sandbox-team/down-dry-run.txt
-  53d49bd35685318bf5fe58e2fce6dcb098c85f895261368fb7eb76c764bcea6c  ./fixtures-v3/sandbox-team/plan.txt
-  8a6854ce968b984987d2f27a2dcf868dc484d1bd96825a4404d999b23faf6bda  ./fixtures-v3/sandbox-team/up-dry-run.txt
+  417aeb6b073c1c6eb78648451bee529a10dcb1dc012c3709aa2cdcbc9fcdd17f  ./examples/sandbox-team.space.yaml
+  02847debc326b6b4cbfb3fd0298be9dad26941e3132504a8e5de3944ac88be33  ./fixtures-v3/clean-room/config.txt
+  5c314d05941a0ceee4ed79969ee4e29f222b459e59fcb23f3739da5c7e54ebb6  ./fixtures-v3/clean-room/down-dry-run.txt
+  9e0dcedd6f3b1e6be430e847a0275aa404b9819c6a89f2fd22a28e6b8f005e1d  ./fixtures-v3/clean-room/plan.txt
+  922dd837b5836e4e24c34a714fa73ccb1f534338722f3c6aefac97c99ee32dac  ./fixtures-v3/clean-room/up-dry-run.txt
+  bb1863a38f80e181789cc6faebd5161117050c814320507f1d60a4ee98e7749f  ./fixtures-v3/example-space/config.txt
+  5a0a1b291b8f579f9e06aefd536780e9481b9c5c688ac46702fba329776fdce2  ./fixtures-v3/example-space/down-dry-run.txt
+  110e2fa60310cebaa41fec7733754d2cba8540674ab55a4d93c9996cffa24a2a  ./fixtures-v3/example-space/plan.txt
+  885668f8ec7baba0ab0c30e9fb378a78a43ab6fee22e000bc417b8b710827bd2  ./fixtures-v3/example-space/up-dry-run.txt
+  f126fe78d9c543d3f52f9833ef09b6986964af83b205ffe50e6847e42446c164  ./fixtures-v3/live/1-up.txt
+  4121d48e950459be2a270e3d2c6b231173e02c85bb8883d5f0b553f8b075c9f2  ./fixtures-v3/live/2-down-dry-run.txt
+  6a41637b7ae320d902b49e0732837c21dcd46835bb5fc68f2b34b2fc433bad39  ./fixtures-v3/live/3-down.txt
+  81be174e1940903fbc48916bcd0ff45cb9fb12b0e12112736480e2b3c23cdb27  ./fixtures-v3/live/4-up.txt
+  1585828ef2df62fbef726f384c33e99127f6037dae555daf2109c037a4c60a0b  ./fixtures-v3/live/5-down-purge.txt
+  369eed23b2998705938258ee4997951e9380952f95729baef718041c19d480d5  ./fixtures-v3/live/6-runs.txt
+  ec7808f551f650c4785dee689f30a366f4f49e21100489c23ebe0930d5470676  ./fixtures-v3/live/7-what-is-left.txt
+  b4f3c3f3bfa8e4d0989a8d6d397d18c25ab2d6910824a6c214e67ba01da72cbc  ./fixtures-v3/live/config.txt
+  fb78b208422d1f7df572c6e68945c0748c20e35d2f23c8e0b6078b2530fc735a  ./fixtures-v3/live/plan.txt
+  20649055b5bbccb3bec4b2bd741e3d3f743c567a488bdb58f8e4a606cb3dfa60  ./fixtures-v3/live/runs/2026-11-20-1/chat/space-test-v3-a-room.jsonl
+  fda6ed25067ddcfd3b179d3be0d3db10041c0284a936c0a38ba2bb66629a5ea1  ./fixtures-v3/live/runs/2026-11-20-1/chat/space-test-v3-a-run.jsonl
+  f75c3f26cb378371633c01bc39d1b19fddc6c3e71d3247d3d65300f726e6dbab  ./fixtures-v3/live/runs/2026-11-20-1/commands.log
+  1f1400434b407f18ea1d6810210b8d92843525aa65c735bcafc2afe49a6bebad  ./fixtures-v3/live/runs/2026-11-20-1/git.yaml
+  03881060787c92644c3bd6717f50cd0859590c3fc62d79af7642992df75c710f  ./fixtures-v3/live/runs/2026-11-20-1/manifest.yaml
+  2422710b2840cadb828ffcf2ca337827fc899de726411a3e913179e038907814  ./fixtures-v3/live/runs/2026-11-20-1/plan.yaml
+  9fcf5c7882d0061aadc1e4f9eb8697ea8a5082b21cfd80b1151ba415ee585972  ./fixtures-v3/live/runs/2026-11-20-1/run.yaml
+  f624d06194b69f111743316214bbc48ce8a3414d6b64ae1ecd51724979ccd83d  ./fixtures-v3/live/runs/2026-11-20-1/spec.yaml
+  e4c49b921a32be825a964401909e06b607753a9eb5bdeb0d1484233d598fd476  ./fixtures-v3/live/runs/2026-11-20-1/timesheet.md
+  fb0639be0513684a830e542ad64f5e9b15e5c516c4dfbf52c87ad04b035091b9  ./fixtures-v3/live/runs/2026-11-20-1/tree.txt
+  3ee455fe9438b657183c808b16bb3baa7f43ff7e1a3f52a74584ad5d5e20da63  ./fixtures-v3/live/runs/2026-11-20-1/usage.yaml
+  a7ecaf50049394f5a92aa48f96e2764e4c3fdfe04a45e137e9b3584c04a9c73b  ./fixtures-v3/live/runs/2026-11-20-2/chat/space-test-v3-a-room.jsonl
+  1954e30252f60735131518a120b5308d94650b6614bff64962a01a915d5e8573  ./fixtures-v3/live/runs/2026-11-20-2/chat/space-test-v3-a-run.jsonl
+  4b7ca702d9a578fcca9ba88214b2b15e3ce602307ca1e9a8548a6977392dcbd6  ./fixtures-v3/live/runs/2026-11-20-2/commands.log
+  53fd0f58a33d25ee88dfb29df6ca4ddd0de8b0d27ddddce6f4e45bc7f719ecef  ./fixtures-v3/live/runs/2026-11-20-2/git.yaml
+  0413b123ce64453aeff5dfbb2c7470f2fa8a0261b1a5940fb93eb9de8d3be816  ./fixtures-v3/live/runs/2026-11-20-2/manifest.yaml
+  7769aee73c33536c05722f1b225d113244dc1c3b53b0473ca56ff5526dcd0a4b  ./fixtures-v3/live/runs/2026-11-20-2/plan.yaml
+  7d396f2a03fc744051904027d2a4ee0c68c44d8b302195ec2efa136754a477fe  ./fixtures-v3/live/runs/2026-11-20-2/run.yaml
+  f624d06194b69f111743316214bbc48ce8a3414d6b64ae1ecd51724979ccd83d  ./fixtures-v3/live/runs/2026-11-20-2/spec.yaml
+  2c65492c81eb49bd91d745c74b7310b3fb82815a3225df4c2f583f87a41bfdcb  ./fixtures-v3/live/runs/2026-11-20-2/timesheet.md
+  154f36518387782b69574a704f8329bd3f61a10b118fb7e572c0a3e4817754e3  ./fixtures-v3/live/runs/2026-11-20-2/tree.txt
+  a39d8fbc747a7618e3799369e2a523401222ca91e687208829c8dec12ff3fc14  ./fixtures-v3/live/runs/2026-11-20-2/usage.yaml
+  ed6dfd8cdbacd8ecaad1b7cdd007aba5ec90e5ff18cc2388a46bd6f0e1417ae4  ./fixtures-v3/live/runs/2026-11-20-retire/commands.log
+  83875b3daadf0019b31a77933a0d450c59ba7d11320b99d727c87343ba568df7  ./fixtures-v3/live/runs/2026-11-20-retire/manifest.yaml
+  4651180d6b8946c8b91324281df1226cd500cfa970c5b721a68ec2435dbf5ace  ./fixtures-v3/live/runs/2026-11-20-retire/run.yaml
+  ea67c1e5c6ace7855c15f5023ef45b034f07cbfc215a7eb7aeda1c452d234728  ./fixtures-v3/live/runs/2026-11-20-retire/tree.txt
+  cffd09067ed42373dcbb66d4dd6ac80bc3c0cbcf44764696aaaeced46718552d  ./fixtures-v3/live/spaces/space-test-v3-a.space.yaml
+  8129e09dab22afcce809e850aba613a600e738a75fccc2d966c41a34140cd0dc  ./fixtures-v3/live/spaces/space-test-v3-defaults.yaml
+  1cae380f3b39a56669fc7b1040053f959c5512ac12f013fea4357c0363edb4da  ./fixtures-v3/live/up-dry-run.txt
+  ece989d1b580ccf14aeada5287f5b4b4ca13da5c70670bd997399870c76fd03d  ./fixtures-v3/sandbox-team/config.txt
+  8730861714ee3a9dcbfe4459477e206d1210669c92d7d3b1442b5e112f657b46  ./fixtures-v3/sandbox-team/down-dry-run.txt
+  02505e2c71e0491f2c4ec330a2363526415ef671be3f328b4905a54e7ae442fe  ./fixtures-v3/sandbox-team/plan.txt
+  d2b5a1b7a859bee9c3e4c4a07c91c1d355dd9f011082531cad84ecd328fb70b9  ./fixtures-v3/sandbox-team/up-dry-run.txt
   c5513db65d4760ec251dc6fb8e92516ff0829e1e7f619878fc065bb82a100383  ./fixtures-v3/spaces/clean-room.space.yaml
-  57a344c5a652ed6bd471ebec5526ee27c6e748945ff710976aa0a4cc79bfe6e1  ./fixtures-v3/spaces/example-space.space.yaml
+  bf5c18701871c8005e7453bac41420506d5a5ff7e0f9b142b8495b660b4c4ec6  ./fixtures-v3/spaces/example-space.space.yaml
   f818661c1a6a0830d9c9fa01f986e7ba098e23c3900f05da3314723729ae5217  ./fixtures-v3/spaces/my_doz_workspace_defaults.yaml
-  e9fd99f550cad57902fc94097d8ee7ed4193a7134e9803b45cf41ab9c6db53d7  ./fixtures-v3/spaces/sandbox-team.space.yaml
+  417aeb6b073c1c6eb78648451bee529a10dcb1dc012c3709aa2cdcbc9fcdd17f  ./fixtures-v3/spaces/sandbox-team.space.yaml
   91ad9b45db10240883d8cce128768b04c508a52ee0de3b2abf3bf5143a3ae632  ./schema/space-3.schema.json
   9c2c7b91127538157b65a37b199ccd3fd4260ca991a3d1149275bfc380d70be7  ./schema/space-defaults-3.schema.json
-  3d681d6689d6ca0fe0318ea645801fcf3c2df4a1295e24a9e399e30e6c9e0d6b  ./validation-errors.json
+  f65feba106f954e05599182cfa05bdf82ccfb75200507c1fde6161c402f0782c  ./validation-errors.json

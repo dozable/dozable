@@ -1,0 +1,6 @@
+# Defaults for the v3 live fixture: the space's own room through {space}, and what the archive keeps.
+doz: space-defaults/3
+persist:
+  team-chat: { room: "{space}-room" }      # every space that extends this keeps its main room across runs
+archive:
+  keep: [plan, commands, status, chat, screens, usage, git]

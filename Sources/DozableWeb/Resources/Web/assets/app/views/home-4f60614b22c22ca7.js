@@ -25,7 +25,7 @@ import { driverChip, managerChip, workspacePill } from '../components/ws-marks-2
 import { renderNavWorkspaces } from '../components/ws-nav-cdc9953c79021145.js';
 import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from '../components/ws-lifecycle-fd52672bba023683.js';
 import { LIFECYCLE, primaryVerb } from '../core/ws-lifecycle-54187500e950c88c.js';
-import { newWorkspaceHash, newWorkspaceRefusal } from './new-workspace-fbf26dcdfbedc219.js';
+import { newWorkspaceHash, newWorkspaceRefusal } from './new-workspace-9f64cfedd9c97b5b.js';
 import { WORKSPACE_DEFINITION } from '../core/ws-new-60f08868f5e5e130.js';
 
 const LAST_ROWS = 12;

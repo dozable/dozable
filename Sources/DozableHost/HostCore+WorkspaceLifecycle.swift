@@ -623,6 +623,12 @@ extension HostCore {
         var g = gatherAfterStop(rec, run)
         g.transcripts = pre.transcripts + g.transcripts
         g.screens.merge(pre.screens) { a, _ in a }
+        // A space file's `archive: keep:` filters what is optional: transcripts and screens (the chat slice, the manifest,
+        // usage and the timesheet are always kept — a room's removal relies on the slice).
+        if let keep = SpaceRecordRef.of(rec)?.archiveKeep {
+            if !keep.contains("transcripts") { g.transcripts = []; g.notes.append("transcripts not kept (the space's archive keep list)") }
+            if !keep.contains("screens") { g.screens = [:] }
+        }
         g.notes = pre.notes + g.notes
         do {
             let (path, sha) = try await writeRunArchive(rec, run, plan: plan, gathered: g)

@@ -30,9 +30,13 @@ public final class ChatRWLock: @unchecked Sendable {
 public enum ChatRoomControl {
     public static let reasonWord = "space-down"
 
+    /// The closed set's value for a loose room the owner closed by hand.
+    public static let looseOwner = "_"
+
     /// Dozable's words for a closed room.
     public static func closedText(room: String, workspace: String) -> String {
-        "room \(room) is closed: its workspace \(workspace) is finished. It can still be read; the owner can reopen it with doz workspace reopen \(workspace)"
+        if workspace == looseOwner { return "room \(room) is closed by the owner. It can still be read; the owner can open it with doz chat room open \(room) --loose" }
+        return "room \(room) is closed: its workspace \(workspace) is finished. It can still be read; the owner can reopen it with doz workspace reopen \(workspace)"
     }
 
     /// One control line that is not a reload: answered (nil: not one of these).

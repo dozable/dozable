@@ -1,9 +1,9 @@
-$ worker space config examples/space3/sandbox-team.space.yaml
+$ doz space config spaces/sandbox-team.space.yaml
 --- stdout
-# the merged space "sandbox-team" (worker space config): defaults, then the space file, then the override file, then profiles
+# the merged space "sandbox-team" (doz space config): defaults, then the space file, then the override file, then profiles
 # sources, lowest first:
 #   defaults ~/work/example-repo/examples/space3/my_doz_workspace_defaults.yaml  sha256 f818661c1a6a0830…
-#   space    ~/work/example-repo/examples/space3/sandbox-team.space.yaml  sha256 e9fd99f550cad579…
+#   space    ~/work/example-repo/examples/space3/sandbox-team.space.yaml  sha256 417aeb6b073c1c6e…
 # risky settings and where they come from:
 #   agents.builder.permissions: my_doz_workspace_defaults.yaml:6
 #   agents.tester.permissions: my_doz_workspace_defaults.yaml:6

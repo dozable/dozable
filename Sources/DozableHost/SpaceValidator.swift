@@ -780,6 +780,9 @@ public enum SpaceValidator {
             Slot(at: ["persist", "*", "sandbox"], targets: [.sandboxes], what: "a persisted sandbox"),
             Slot(at: ["persist", "*", "agent"], targets: [.agents], extra: ["*"], what: "a persisted agent's memory"),
             Slot(at: ["persist", "*", "folder"], targets: [.folders], pathOK: true, what: "a persisted folder"),
+            // The diagram's pinned positions: `x-editor` (spec v3). The key this reader took before is still read the same
+            // way (the spec gives no fallback rule; any other `x-` key is ignored).
+            Slot(at: ["x-editor", "layout", "*"], targets: [.folders, .agents, .services, .sandboxes, .secrets, .rooms], key: true, what: "a pinned position"),
             Slot(at: ["x-worker", "layout", "*"], targets: [.folders, .agents, .services, .sandboxes, .secrets, .rooms], key: true, what: "a pinned position"),
         ]
 

@@ -70,6 +70,8 @@ struct WorkerAdd: AsyncParsableCommand {
     @Option(name: .customLong("room"), help: "Also invite it to this room of the workspace, by its label (repeatable).") var rooms: [String] = []
     @Option(name: .customLong("allow-tool"), help: "One more tool a fenced Claude Code worker may use without asking, like Edit (repeatable).")
     var allowTools: [String] = []
+    @Option(name: .customLong("permissions"), help: "standard (the default) or bypass: its own command line bypasses its permissions, marked wherever it shows.")
+    var permissions: String?
     @Flag(name: .customLong("dry-run"), help: "Show what would be added, or what would be refused, and the command; add nothing.") var dryRun = false
 
     /// The request this command sends.
@@ -85,6 +87,7 @@ struct WorkerAdd: AsyncParsableCommand {
         q.fromBot = fromBot
         q.rooms = rooms.isEmpty ? nil : rooms
         q.allowTools = allowTools.isEmpty ? nil : allowTools
+        q.permissionMode = permissions
         return q
     }
 

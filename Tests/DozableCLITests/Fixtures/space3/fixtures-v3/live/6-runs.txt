@@ -1,0 +1,7 @@
+$ doz space runs spaces/space-test-v3-a.space.yaml
+RUN                STARTED              ENDED                LENGTH  ARCHIVE   FOLDER
+2026-11-20-1       2026-11-20 22:25:39  2026-11-20 22:25:41  0 min   12 files  ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-1
+2026-11-20-2       2026-11-20 22:25:42  2026-11-20 22:25:43  0 min   12 files  ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2
+2026-11-20-retire  2026-11-20 22:25:44  2026-11-20 22:25:44  0 min   3 files   ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-retire
+retired 2026-11-20T22:25:44+11:00
+(exit 0)

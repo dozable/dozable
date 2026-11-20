@@ -29,7 +29,7 @@ struct WorkspaceCommand: AsyncParsableCommand {
         subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceSleep.self,
                       WorkspaceWake.self, WorkspaceFinish.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
                       WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceRename.self,
-                      SpacePlanCommand.self, SpaceUpCommand.self, SpaceConfig.self])
+                      SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
 }
 
 // MARK: helpers
@@ -251,8 +251,9 @@ struct WorkspaceShow: AsyncParsableCommand {
     @Flag(name: .long, help: "Its folders, the files changed in each since the start (looked at without running anything there) and each micro VM agent's restore points.")
     var folders = false
     @Option(name: .long, help: "With --can-do or --network: one agent only.") var agent: String?
+    @Flag(name: .long, help: "The space file that defines it: which, up or down, its run, and where its brief is.") var space = false
     func run() async throws {
-        if [canDo, network, folders].filter({ $0 }).count > 1 { throw fail(HostError(.invalid, "one of --can-do, --network and --folders"), g) }
+        if [canDo, network, folders, space].filter({ $0 }).count > 1 { throw fail(HostError(.invalid, "one of --can-do, --network and --folders"), g) }
         if agent != nil, !canDo, !network { throw fail(HostError(.invalid, "--agent goes with --can-do or --network"), g) }
         var w = WorkspaceRequest(name: name)
         w.withBrief = brief ? true : nil
@@ -279,9 +280,25 @@ struct WorkspaceShow: AsyncParsableCommand {
             printFolders(view)
             return
         }
+        if space {
+            guard let s = d.space else { throw fail(HostError(.notFound, "\(d.name) was made without a space file"), g) }
+            if g.json { Out.json(s); return }
+            Out.stdout(spaceShownText(s))
+            return
+        }
         printWorkspace(d)
+        if let s = d.space { Out.stdout(spaceShownText(s)) }
         if let t = d.briefText { Out.stdout("\n" + t + (t.hasSuffix("\n") ? "" : "\n")) }
     }
+}
+
+/// "Defined by FILE" and whether it is up, as `show` prints it.
+func spaceShownText(_ s: SpaceShown) -> String {
+    var t = "Defined by \(s.file)" + (s.shownPath.map { " (\($0))" } ?? "") + ": "
+    t += s.up ? "up" + (s.run.map { " · run \($0)" } ?? "") : (s.purgedAt != nil ? "down, retired (--purge)" : "down")
+    t += "\n"
+    if let b = s.brief { t += "Brief: \(b), from the space file" + (s.briefShownPath.map { " (\($0)) — edits are saved there" } ?? "") + "\n" }
+    return t
 }
 
 struct WorkspaceAdopt: AsyncParsableCommand {
