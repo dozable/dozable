@@ -163,7 +163,13 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   secret (`testNoAPIModelHasASecretShapedField`).
 - **The page renders with `textContent` only.** Hostnames, paths, session commands and notes come
   from inside a sandbox, which is untrusted. The asset compiler refuses `innerHTML`, inline script or
-  style, event-handler attributes and external URLs (the CSP would refuse them anyway) — in every module.
+  style, event-handler attributes and external URLs — in every module. The CSP refuses inline script and eval
+  (`script-src 'self'`); since the owner's ruling of 2026-11-20 it ALLOWS inline styles (`style-src 'self'
+  'unsafe-inline'`), so an editor such as Monaco or CodeMirror can run in the page. That makes `textContent`
+  rendering and the sanitiser the only guard against agent-written text restyling the page — hiding or faking a
+  warning, a confirmation or an Ask's buttons — so keep both, and never let agent text become markup. A per-load
+  nonce instead is a backlog item. The terminal frame keeps `style-src 'self'`
+  (`WebInstallableTests.testScriptsStayStrictWhileStylesMayBeInline`).
 - **The page script is native ES modules, layered** (v1: no framework, no bundler; that is v2). `index.html`
   loads `<script type="module" src="/app.js">` (the CSP's `script-src 'self'` covers modules). Layers:
   `dom` < `core` < `components` < `views` < `app.js` — a module imports only from its own layer or below

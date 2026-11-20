@@ -32,9 +32,34 @@ final class WebInstallableTests: XCTestCase {
         }
     }
 
+    /// Owner, 2026-11-20: inline styles are allowed in the page (an editor runs in it); scripts never are. The page's own
+    /// code stays inline-free (the asset compiler), and the terminal frame keeps its strict style policy.
+    func testScriptsStayStrictWhileStylesMayBeInline() {
+        func directives(_ headers: [(String, String)]) -> [String: String] {
+            let csp = Dictionary(uniqueKeysWithValues: headers.map { ($0.0.lowercased(), $0.1) })["content-security-policy"]!
+            var out: [String: String] = [:]
+            for part in csp.split(separator: ";") {
+                let words = part.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 1)
+                if words.count == 2 { out[String(words[0])] = String(words[1]) }
+            }
+            return out
+        }
+        let page = directives(WebSecurity.responseHeaders)
+        XCTAssertEqual(page["script-src"], "'self'", "no inline script, no eval, no other source")
+        XCTAssertEqual(page["style-src"], "'self' 'unsafe-inline'")
+        XCTAssertEqual(page["default-src"], "'none'")
+        XCTAssertEqual(page["connect-src"], "'self'")
+        XCTAssertEqual(page["img-src"], "'self' data:")
+        for (name, value) in page {
+            XCTAssertFalse(value.contains("unsafe-eval"), "\(name) must not allow eval")
+            if name != "style-src" { XCTAssertFalse(value.contains("unsafe-inline"), "\(name) must not allow inline") }
+        }
+        XCTAssertEqual(directives(WebSecurity.frameHeaders)["style-src"], "'self'", "the terminal frame stays strict")
+    }
+
     func testThePageMayLinkItsManifestAndRegisterItsWorkerAndNothingElseChanged() {
         let csp = Dictionary(uniqueKeysWithValues: WebSecurity.responseHeaders.map { ($0.0.lowercased(), $0.1) })["content-security-policy"]!
-        XCTAssertEqual(csp, "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; frame-src 'self'; manifest-src 'self'; worker-src 'self'")
+        XCTAssertEqual(csp, "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; frame-src 'self'; manifest-src 'self'; worker-src 'self'")
         XCTAssertFalse(csp.contains("manifest-src 'none'"))
         let sw = Dictionary(uniqueKeysWithValues: WebSecurity.serviceWorkerHeaders.map { ($0.0.lowercased(), $0.1) })
         XCTAssertEqual(sw["content-security-policy"], "default-src 'none'; connect-src 'self'")

@@ -378,8 +378,14 @@ public enum WebSecurity {
     /// (`ws://127.0.0.1:<port>`, CSP3). The engine runs only in the frame, under `frameCSP`.
     /// 605: the page links its web app manifest (`manifest-src 'self'`) and registers its service worker
     /// (`worker-src 'self'` — `default-src 'none'` would forbid it); nothing else changed.
+    /// Owner, 2026-11-20: styles may be inline (`style-src 'self' 'unsafe-inline'`) so an editor such as Monaco or
+    /// CodeMirror can run in the page itself; scripts stay strict (`script-src 'self'`: no inline script, no eval).
+    /// The trade-off is on record (the backlog item for a per-load nonce): if agent-written text ever became markup,
+    /// styles alone could hide or fake a warning or a confirmation. So the page's own code stays inline-free
+    /// (`Scripts/build-web-assets.swift` refuses a `<style>` or `style=` in it) and everything is still built with DOM
+    /// APIs and sanitised. The terminal frame's policy is unchanged.
     public static let responseHeaders: [(String, String)] = [
-        ("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; frame-src 'self'; manifest-src 'self'; worker-src 'self'"),
+        ("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; frame-src 'self'; manifest-src 'self'; worker-src 'self'"),
         ("X-Content-Type-Options", "nosniff"),
         ("X-Frame-Options", "DENY"),
         ("Referrer-Policy", "no-referrer"),
