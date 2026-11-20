@@ -1,0 +1,17 @@
+$ worker space up examples/space3/clean-room.space.yaml --dry-run
+--- stdout
+space up "clean-room" (dry run: nothing changes)
+  Starts 1 other agent (worker: fenced), 1 room (clean-room: this run only). Nothing persisted. Archive: off. Transcripts: worker: in Dozable's fenced archive (exported to the run's archive). (A clean room: down leaves nothing.)
+  run    1. folder scratch [run]
+           mkdir -p ~/'Library/Application Support/doz/spaces/clean-room/runs/{next run}/scratch/scratch'
+  run    2. the run's private token folder [run]
+           mkdir -p -m 700 ~/'Library/Application Support/doz/spaces/clean-room/runs/{next run}/tokens'
+  run    3. chat member worker (poll) [run]
+           doz chat add worker --kind claude-session --to-file ~/'Library/Application Support/doz/spaces/clean-room/runs/{next run}/tokens/worker.token'
+  run    4. room clean-room [run]
+           doz chat room clean-room @worker
+  run    5. agent worker (fenced) [run]
+           doz run @mac --fenced --account mac --folder ~/'Library/Application Support/doz/spaces/clean-room/runs/{next run}/scratch/scratch' --detach --session worker --host-port 8790 --secret 'CHAT_TOKEN,src=~/Library/Application Support/doz/spaces/clean-room/runs/{next run}/tokens/worker.token,to=host.dozable.internal:8790,file=CHAT_TOKEN_FILE' -- claude --name worker 'Do the task in the brief, then stop.'
+  hand   6. answer worker's folder-trust prompt [run]
+dry run done
+--- exit 0

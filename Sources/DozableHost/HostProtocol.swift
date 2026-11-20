@@ -325,6 +325,12 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// and the command). Only reads: answered in-process when no daemon runs (`doz worker add … --dry-run`, the dashboard's
     /// Add a worker page).
     case workerPlan = "worker-plan"
+    /// What `doz workspace up -f FILE` would do (`space`: a `SpaceRequest` — the merged document, its sources' sha256 and
+    /// each place's origin; the daemon never opens the file): the daemon validates the document again (with the backstop:
+    /// nothing that starts or owns something from a defaults file), compiles it and plans the steps against the record
+    /// and what it knows (`SpacePlan`). Only reads: answered in-process when no daemon runs, `factsKnown` false. Dozable's
+    /// own (an agent never sends it).
+    case workspaceUpPlan = "workspace-up-plan"
     /// Your Macs (`MacBookmarks`): the other Macs' dashboards this store keeps a bookmark of — `MacListing`, read from
     /// `<store>/macs.json`. Read-only: answered in-process when no daemon runs. Adding, removing and checking are the CLI's
     /// own (`doz ui macs`, in-process): no operation writes the list.
@@ -341,7 +347,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
-             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .macsList,
+             .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .macsList,
              .permissionsShow, .permissionsWhy: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
@@ -661,6 +667,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var chatRoom: ChatRoomRequest?
     /// The `permissions-*` operations' arguments.
     public var permissionsRequest: PermissionsRequest?
+    /// `workspace-up-plan`: the merged space (strictly decoded, at most 256 KiB).
+    public var space: SpaceRequest?
     /// `W/AGENT`: this request is made as that agent of workspace W would make it — it NARROWS the owner's request to the
     /// agent's permissions (`PermissionGate`), never widens anything. Only on the owner's socket (the hidden `--as W/AGENT`, a
     /// preview and test path); a request without it is the owner's, and the owner is never gated. Additive.

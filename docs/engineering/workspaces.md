@@ -46,6 +46,10 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Tests/DozableCLITests/WorkspaceRecordTests.swift`, `WorkspaceStateTests.swift`, `WorkspaceAdoptTests.swift`, `WorkspaceSetupCheckTests.swift`, `ManagerLaunchTests.swift`, `WorkspaceManagerTests.swift`, `BotLaunchSecretTests.swift`, `WorkerLaunchTests.swift`, `WorkerKickoffTests.swift`, `WorkspaceWorkerTests.swift` | the unit tests (scratch roots, a fake chat, fake launchers, a memory keychain) |
 | `Tests/DozableCLITests/WorkerPlanTests.swift` | the worker plan and the add agree over a table of requests (each refusal's sentence, code and field), the plan writes nothing, never unfenced from a default, no daemon; `WorkerAddCommandTests` (the argv parses back, the text is the argv to `/bin/sh`, a long task from a file) |
 | `Sources/doz-vmtest/CLIWorkspaceSuite.swift`, `CLIWorkspaceManagerRows.swift`, `CLIWorkspaceWorkerRows.swift`, `CLIWorkspaceBriefRows.swift`, `CLIWorkspacePlanRows.swift`, `CLIWorkerPlanRows.swift`, `CLIWorkspaceVMSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, a FAKE claude, no VM; `make test-cli-workspace-vm`: scratch lab VMs |
+| `Sources/DozableHost/SpaceFormat.swift`, `SpaceDocument.swift`, `SpaceValidator.swift` | Space files (`NAME.space.yaml`, space/3): the format's key tables, full names and words; the ordered merged document, `SpaceOrigin`/`SpaceSource`/`SpaceProblem`, `SpaceRequest` (strict, 256 KiB); the ONE pure validator (`checkSource`, `checkMerged` + the backstop, `report`), `SpaceModel`, `SpaceRisk` ("Space files", below) |
+| `Sources/DozableHost/SpaceIntent.swift`, `SpaceUp.swift`, `HostCore+Space.swift` | pure: `SpaceIntent.compile` (what the file asks, in Dozable's terms), `SpaceUp.plan` (the steps, what down will do, the summary, the confirm set, the sha), `SpaceRecordRef`, `SpaceFacts`, `SpacePlan`; `workspace-up-plan` and its facts |
+| `Sources/DozableCLI/SpaceResolver.swift`, `SpaceCommands.swift` | the CLI's reading of the files (Yams: extends, override, `${VAR}`, the merge, each place's origin); `doz workspace plan -f | up -f --dry-run | config` and the `doz space` group |
+| `Tests/DozableCLITests/SpaceValidationTableTests.swift`, `SpaceSchemaDriftTests.swift`, `SpaceResolverTests.swift`, `SpaceUpPlanTests.swift`; `Fixtures/space3/` (vendored, `PIN`); `Sources/doz-vmtest/CLISpaceRows.swift` | the reference's 68 rows exactly, the tables against its schemas, the resolver and its recorded `config` values, the plan's facts against its recorded plans; `make test-cli-workspace` rows S1 and S12 |
 | `Sources/DozableHost/GrantModel.swift`, `GrantDecision.swift`, `GrantStore.swift`, `ActionClasses.swift`, `PermissionGate.swift`, `PermissionsProtocol.swift`, `HostCore+Permissions.swift`; `Sources/DozableCLI/PermissionCommands.swift` | what agents may do: the model, the ONE decision, the grants' files, every HostOp's class, the gate at the daemon's door, `doz permissions` / `doz why` ("Permissions", below) |
 | `Sources/DozableHost/BotRecord.swift` | Agents / Bots: `BotsFile` (`bots.json`, version 1), `BotRecord`, `BotIsolation`, `BotInstructions`, `BotTokenState`; `BotName` (the name rule), `BotKinds`, `BotFields` |
 | `Sources/DozableHost/BotStore.swift` | `BotStore`: `bots/bots.json` rewritten whole, `bots/<name>/instructions.md` and `notes.md`, 0600 in 0700 |
@@ -715,6 +719,45 @@ agent). The Can do tab's last two rows (`AgentCapabilities.permissions`: "allow 
 ceiling with whose each cap is) come through `workspace-reach` — no new route or action; `doz workspace show --can-do`
 prints the same rows; the bot page's Roles & ceiling reads `bot-show`'s additive `ceilingAnswers` and `roles`.
 
+## Space files
+
+A space file (`NAME.space.yaml`, the format `space/3` of the doz space reference) describes a workspace in one file kept in
+git: its agents, rooms, folders, sandboxes and brief, each **owned** (the space makes it) or **external** (only referenced),
+what persists between runs and the archive. The file is the record's declarative front end, never a second writer: the
+daemon's record stays the truth, and `up` (next version) drives the daemon's own operations, so every rule of theirs holds.
+The manual's page is `docs/manual/39-space-files.md`.
+
+- **The CLI reads; the daemon decides.** `SpaceResolver` (DozableCLI, the one place Yams reads it) reads the file, the
+  `extends:` chain (each defaults file after the files it extends, once; a loop named), `NAME.space.override.yaml`,
+  `${VAR}` (the environment over `.env`; values only, never keys, never under `secrets:`; one `${VAR}` alone takes its
+  value's type), merges (maps merge — a key keeps its place —, lists replace, `null` removes) and records each place's
+  origin `{source, line, keyLine}`. Scalars follow YAML 1.2's core schema (`off` is text); anchors and aliases are
+  refused. It sends `workspace-up-plan` ONE merged document (`{space}` filled, `{run}` literal, `extends` resolved away)
+  as ordered JSON text, the origins and every source's sha256 (`SpaceRequest`: strictly decoded, at most 256 KiB). The
+  daemon never opens the space file or a defaults file; the brief is looked at by the CLI (sha256 and size, never its
+  text) and, from the next version, read by the daemon only as the recorded brief.
+- **One validator, twice.** `SpaceValidator` (DozableHost, pure, hand-written — 36 of the reference's 68 refusals are
+  rules no schema says, and the words are the reader's): `checkSource` on each defaults file (what a defaults file may
+  hold, its schema), `checkMerged` on the merged document (the schema by hand, then the rules: one namespace, externals,
+  folders, references, persist, isolation, transcripts, managers, rooms, services, the archive), then the **backstop**:
+  anything under `/agents`, `/owner`, `/chat/rooms`, `/sandboxes`, `/services`, `/folders` or `/secrets` whose origin is a
+  defaults file is refused, whatever the CLI checked. A message about a place set in the override says "(in the override
+  file)", one set in a defaults file "(from NAME)". `SpaceSchemaDriftTests` compares the key tables (`SpaceFormat`) with
+  the vendored schemas; `SpaceValidationTableTests` runs all 68 rows through the resolver and both passes, exactly.
+- **The plan is pure.** `SpaceIntent.compile` maps the file onto Dozable: the main room takes the space's name, another
+  owned room or sandbox `<space>-<name>` (unless already prefixed); an external bot is the manager or a worker from a bot;
+  an external session is adopted; an owned agent is a worker (`fenced`, `unfenced`, or `vm` in its sandbox — the first
+  agent in an owned sandbox makes it, the others join it); scratch folders go under `<projects_dir>/.runs/<space>/<run>/`.
+  Refused in this version: an owned manager, owned services, secrets for an owned agent, presets other than `standard` and
+  `bypass`; noted, not applied: model, Remote Control, delivery, `resume: summary`, folder trust. `SpaceUp.plan` gives each
+  step `run`, `skip` (already there — a second up in an open run makes only what is missing) or `refuse`, what down will
+  do to it, the summary (every risky setting — unfenced, bypass, Remote Control, what persists, `archive: off`, transcripts
+  discarded — with its `file:line`), the confirm set (every unfenced owned agent, wherever the setting came from: inheriting
+  never pre-approves) and a sha over what is done to whom (never a time). A workspace of the space's name made without a
+  space file is refused (exit 4). `workspace-up-plan` is read-only, Dozable's own (`ActionClasses`), answered in-process
+  with no daemon (`factsKnown` false: a session's or a bot's liveness and the chat server's rooms not known, nothing
+  refused for them).
+
 ## Tests
 
 - `make test FILTER=WorkspaceRecordTests|WorkspaceStateTests|WorkspaceAdoptTests` — scratch roots, an in-process daemon
@@ -745,3 +788,7 @@ prints the same rows; the bot page's Roles & ceiling reads `bot-show`'s additive
   refusals, end, the sweep, the one-live rule both ways).
 - `make test FILTER=BotRecordTests|BotTokenTests|BotAdoptTests|BotGuardsTests` and `make test-cli-bots` — Agents / Bots
   (above).
+- `make test FILTER=SpaceValidationTableTests|SpaceSchemaDriftTests|SpaceResolverTests|SpaceUpPlanTests` — space files
+  ("Space files", above); `make test-cli-workspace` rows S1 (plan and up --dry-run with the daemon stopped start none and
+  change nothing in the store or the settings; up without --dry-run exit 7) and S12 (`doz space` is the same commands; the
+  one `*.space.yaml` in the folder; two refused).

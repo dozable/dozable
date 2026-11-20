@@ -324,7 +324,10 @@ let package = Package(
         .testTarget(
             name: "DozableCLITests",
             dependencies: ["DozableCLI", "DozableHost", "DozableKit", "DozableTUI", "DozableChat"],
-            path: "Tests/DozableCLITests"
+            path: "Tests/DozableCLITests",
+            // The space format's vendored reference files (schemas, the 68 cases, the examples, the recorded outputs, PIN):
+            // read from the source tree by the tests, never built.
+            exclude: ["Fixtures"]
         ),
         // 590 — the web UI's security rules as unit tests, and a real listener driven over HTTP.
         .testTarget(

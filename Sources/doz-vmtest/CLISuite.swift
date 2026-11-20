@@ -86,8 +86,9 @@ final class CLIHarness: @unchecked Sendable {
 
     /// Run `doz args…` to completion (killed after `timeout`).
     @discardableResult
-    func run(_ args: [String], stdin: Data? = nil, timeout: Double = 180) -> CLIRun {
+    func run(_ args: [String], stdin: Data? = nil, timeout: Double = 180, cwd: URL? = nil) -> CLIRun {
         let p = process(args)
+        if let cwd { p.currentDirectoryURL = cwd }
         let o = Pipe(), e = Pipe()
         p.standardOutput = o
         p.standardError = e

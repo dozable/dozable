@@ -422,6 +422,12 @@ doz workspace edit demo --make-room                 # its room, now that chat is
 doz workspace rename demo launch-video              # its room keeps its own name
 ```
 
+## From a file
+
+A workspace can be described in one file kept beside the work, `NAME.space.yaml`: `doz space plan -f FILE` shows what
+setting it up would do, and `doz space config FILE` the file merged with what it extends. See
+[Space files](39-space-files.md).
+
 ## Where it is kept
 
 Each workspace is a folder in the store, `workspaces/NAME/`: `workspace.json` (the record), `brief.md` (the brief) and

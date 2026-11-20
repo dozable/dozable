@@ -1,0 +1,30 @@
+$ worker space config examples/space3/clean-room.space.yaml
+--- stdout
+# the merged space "clean-room" (worker space config): defaults, then the space file, then the override file, then profiles
+# sources, lowest first:
+#   space    ~/work/example-repo/examples/space3/clean-room.space.yaml  sha256 c5513db65d4760ec…
+# risky settings and where they come from:
+#   archive: clean-room.space.yaml:8
+#   transcripts: every agent discards
+doz: space/3
+space: clean-room
+brief: BRIEF.md
+owner: ada
+archive: off
+agent_defaults:
+  transcripts: discard
+folders:
+  scratch: {}
+agents:
+  worker:
+    kind: claude-code
+    isolation: fenced
+    folder: scratch
+    prompt: Do the task in the brief, then stop.
+chat:
+  rooms:
+    clean-room:
+      members:
+        - owner
+        - worker
+--- exit 0

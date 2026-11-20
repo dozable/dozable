@@ -211,6 +211,13 @@ workspace/edit
 workspace/log
 workspace/rename
 workspace/runs
+workspace/plan
+workspace/up
+workspace/config
+space
+space/plan
+space/up
+space/config
 bot
 bot/new
 bot/ls

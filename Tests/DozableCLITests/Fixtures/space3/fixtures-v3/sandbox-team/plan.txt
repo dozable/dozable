@@ -1,0 +1,61 @@
+$ worker space plan examples/space3/sandbox-team.space.yaml
+--- stdout
+plan for space "sandbox-team", run {run}: 13 steps
+  Starts 2 other agents (builder: sandboxed, tester: sandboxed), 1 sandbox, 1 room (sandbox-team: persisted). Externals: admin (bot: manager), repo, general. Persisted: room sandbox-team (from my_doz_workspace_defaults.yaml:10), sandbox build-vm. Transcripts: builder, tester: inside build-vm, archived first; they go with the VM, or stay with a persisted one.
+  run folder: ~/Library/Application Support/doz/spaces/sandbox-team/runs/{run}
+
+ 1. folder repo exists (external: ~/work/throwaway/sandbox-team)  [check:repo · external]
+      up:   check only
+      down: never touched
+ 2. agent admin exists (external: bot: manager)  [check:admin · external]
+      up:   check only
+      down: never touched
+ 3. room general exists (external: general)  [check:general · external]
+      up:   check only
+      down: never touched
+      note: up invites the space's missing members; its run-window messages are archived
+ 4. sandbox build-vm (lifetime space: its disk is kept)  [sandbox:build-vm · space]
+      up:   doz create build-vm --image claude-code --folder ~/work/throwaway/sandbox-team --cpus 2 --memory 4G
+      up:   doz start build-vm
+      down: doz shutdown build-vm --yes   # shut down; its disk is kept for the next run
+      rm:   doz rm build-vm --yes
+      note: a later up only starts it (doz start), from its kept disk
+ 5. folder scratch  [folder:scratch · run]
+      up:   mkdir -p ~/'Library/Application Support/doz/spaces/sandbox-team/runs/{run}/scratch/scratch'
+      down: tar -czf ~/'Library/Application Support/doz/spaces/sandbox-team/runs/{run}/folders/scratch.tar.gz' -C ~/'Library/Application Support/doz/spaces/sandbox-team/runs/{run}/scratch/scratch' .
+      down: rm -r ~/'Library/Application Support/doz/spaces/sandbox-team/runs/{run}/scratch/scratch'  (only if this space made it)   # archived as a tarball first
+ 6. the run's private token folder  [tokens · run]
+      up:   mkdir -p -m 700 ~/'Library/Application Support/doz/spaces/sandbox-team/runs/{run}/tokens'
+      down: rm -r ~/'Library/Application Support/doz/spaces/sandbox-team/runs/{run}/tokens'  (only if this space made it)   # after the members (and their tokens) are removed
+ 7. chat member builder (poll)  [member:builder · run]
+      up:   doz chat add builder --kind claude-session --to-file ~/'Library/Application Support/doz/spaces/sandbox-team/runs/{run}/tokens/builder.token'
+      down: doz chat remove builder
+      down: rm -f ~/'Library/Application Support/doz/spaces/sandbox-team/runs/{run}/tokens/builder.token'   # it leaves every room; its token is refused from then on
+      note: the chat server restarts to take a new member (under a second)
+ 8. chat member tester (poll)  [member:tester · run]
+      up:   doz chat add tester --kind claude-session --to-file ~/'Library/Application Support/doz/spaces/sandbox-team/runs/{run}/tokens/tester.token'
+      down: doz chat remove tester
+      down: rm -f ~/'Library/Application Support/doz/spaces/sandbox-team/runs/{run}/tokens/tester.token'   # it leaves every room; its token is refused from then on
+      note: the chat server restarts to take a new member (under a second)
+ 9. room sandbox-team (persisted: one thread across runs)  [room:sandbox-team · space]
+      up:   doz chat room sandbox-team @manager @builder @tester
+      down: keep (persisted: kept with its history; the run's members leave it as they are removed)
+      rm:   delete room sandbox-team (doz chat room rm, where Dozable has it; otherwise mark it retired)
+10. agent builder (in build-vm)  [agent:builder · run]
+      up:   doz run build-vm --cwd /workspace --detach --session builder --host-port 8790 --secret 'CHAT_TOKEN,src=~/Library/Application Support/doz/spaces/sandbox-team/runs/{run}/tokens/builder.token,to=host.dozable.internal:8790,file=CHAT_TOKEN_FILE' -- claude --name builder --dangerously-skip-permissions --model claude-opus-5-5 'Build the project in /workspace and post the result in the…'
+      down: doz sessions end build-vm builder --yes   # its transcripts are inside the VM: archived first, then they go with it (or stay with a persisted sandbox)
+11. agent tester (in build-vm)  [agent:tester · run]
+      up:   doz run build-vm --cwd /workspace --detach --session tester --host-port 8790 --secret 'CHAT_TOKEN,src=~/Library/Application Support/doz/spaces/sandbox-team/runs/{run}/tokens/tester.token,to=host.dozable.internal:8790,file=CHAT_TOKEN_FILE' -- claude --name tester --dangerously-skip-permissions --model claude-opus-5-5 'Run the tests in /workspace after each build and post…'
+      down: doz sessions end build-vm tester --yes   # its transcripts are inside the VM: archived first, then they go with it (or stay with a persisted sandbox)
+12. answer builder's folder-trust prompt  [manual:builder-trust · run]
+      up:   (by hand)
+      down: never touched
+      note: read the screen with doz sessions screen build-vm builder and answer it; the space doesn't type into terminals
+13. answer tester's folder-trust prompt  [manual:tester-trust · run]
+      up:   (by hand)
+      down: never touched
+      note: read the screen with doz sessions screen build-vm tester and answer it; the space doesn't type into terminals
+
+note: reviewer is only in profile review: left out (doz space up --profile review)
+note: approvals: requests preset (the owner's default); the owner grants them, and anything outside them becomes an Ask to the owner
+--- exit 0

@@ -1,0 +1,16 @@
+# Defaults that Ada's spaces share (extends: my_doz_workspace_defaults.yaml). A defaults file holds settings of a
+# space only: it never starts or owns anything, and it can never make an agent unfenced.
+doz: space-defaults/3
+
+agent_defaults:                      # beneath each owned agent's own keys
+  permissions: bypass                # risky: up's summary names this file as its source, and still asks
+  model: claude-opus-5-5
+
+persist:
+  team-chat: { room: "{space}" }     # the room named like the space keeps its history across runs
+  memory:    { agent: "*" }          # every owned agent continues its own conversation next run
+
+archive:
+  keep: [plan, commands, status, chat, transcripts, screens, usage, git]
+
+approvals: { deciders: [owner], via: ask }

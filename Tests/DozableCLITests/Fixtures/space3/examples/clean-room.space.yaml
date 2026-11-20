@@ -1,0 +1,23 @@
+# The clean room (SPEC-v3 §12): nothing persisted, nothing archived, transcripts deleted. At down every owned thing
+# goes, rooms included (each leaves a tombstone); external things are untouched.
+doz: space/3
+space: clean-room
+brief: BRIEF.md
+owner: ada
+
+archive: off
+agent_defaults: { transcripts: discard }
+
+folders:
+  scratch: {}
+
+agents:
+  worker:
+    kind: claude-code
+    isolation: fenced
+    folder: scratch
+    prompt: Do the task in the brief, then stop.
+
+chat:
+  rooms:
+    clean-room: { members: [owner, worker] }
