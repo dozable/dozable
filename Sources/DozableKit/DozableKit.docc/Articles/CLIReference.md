@@ -860,6 +860,8 @@ doz chat rooms | room NAME @MEMBER… | send ROOM TEXT | read ROOM [--last N] [-
 doz chat rooms [--gone]                         # each room and its members, then (closed: its workspace is finished) or (archived); --gone: the tombstones
 doz chat room archive ROOM [--loose] [--dry-run] [--yes]       # its whole history copied into the store and verified, then read-only (owned rooms; --loose: one no workspace owns or links)
 doz chat room rm ROOM [--loose] [--dry-run] [--yes --confirm ROOM]   # removed for good once its archived copy verifies (the name typed); a tombstone stays
+doz chat room close ROOM --loose              # a loose room closed to new messages (still readable) — a workspace's rooms close at its finish
+doz chat room open ROOM --loose               # opened again
 doz chat read ROOM --since T [--until T] [--json]   # every message of a window, no cap, oldest first
 doz chat export ROOM --to DIR [--since T] [--until T] [--json]   # ROOM.jsonl, attachments/, manifest.json — swept for tokens
 ```

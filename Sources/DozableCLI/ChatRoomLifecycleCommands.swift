@@ -97,3 +97,37 @@ struct ChatRoomRmCommand: AsyncParsableCommand {
     @Option(name: .customLong("confirm"), help: "With --yes: the room's name, typed.") var confirmName: String?
     func run() async throws { try await runChatRoomLifecycle("rm", a, confirmName: confirmName) }
 }
+
+/// `doz chat room close R --loose` / `open R --loose`: a loose room closed to new messages (still readable), or opened again.
+func runChatRoomCloseOpen(close: Bool, room: String, loose: Bool, _ g: GlobalOptions) throws {
+    guard chatIsRoomName(room) else { throw fail(HostError(.invalid, "\(room) is not a room name"), g) }
+    var q = ChatRoomRequest(room: room)
+    q.loose = loose ? true : nil
+    var r = HostRequest(close ? .chatRoomClose : .chatRoomOpen)
+    r.chatRoom = q
+    let c = try decode(try call(r, g), ChatRoomChanged.self, g)
+    if g.json { Out.json(c); return }
+    Out.stdout(c.notes.map { $0 + "\n" }.joined())
+}
+
+struct ChatRoomCloseCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "close", abstract: "Close a loose room to new messages; it can still be read.",
+        discussion: """
+        Only a loose room (--loose: neither made nor linked by any of your workspaces); a workspace's own rooms are closed by \
+        its finish and opened by its reopen. A post, edit or reaction in a closed room is refused; reading it is not. \
+        doz chat room open R --loose opens it again.
+        """)
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The room.") var room: String
+    @Flag(name: .customLong("loose"), help: "Take a loose room: one neither made nor linked by any of your workspaces.") var loose = false
+    func run() async throws { try runChatRoomCloseOpen(close: true, room: room, loose: loose, g) }
+}
+
+struct ChatRoomOpenCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "open", abstract: "Open a loose room you closed again.",
+        discussion: "Only a loose room (--loose); a workspace's own rooms are opened by its reopen.")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The room.") var room: String
+    @Flag(name: .customLong("loose"), help: "Take a loose room: one neither made nor linked by any of your workspaces.") var loose = false
+    func run() async throws { try runChatRoomCloseOpen(close: false, room: room, loose: loose, g) }
+}

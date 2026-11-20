@@ -310,6 +310,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// The room removed for good, after its archived copy is hash-checked (`chatRoom`: `ifPlan`, `confirm` = the name typed,
     /// `loose`); a tombstone is kept. Through the chat server's control channel — it keeps running.
     case chatRoomRm = "chat-room-rm"
+    /// `doz chat room close R --loose` / `open R --loose`: a LOOSE room (made and linked by none of your workspaces) closed
+    /// to new messages — still readable — or opened again; kept in the room index (`closedAt`) and handed to the chat server
+    /// in the closed set, only over the supervised control channel. Owner only (Dozable's own); a workspace's own rooms are
+    /// closed by its finish (and a space's by its down) and opened by its reopen (and up).
+    case chatRoomClose = "chat-room-close", chatRoomOpen = "chat-room-open"
     /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
     /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
     /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),

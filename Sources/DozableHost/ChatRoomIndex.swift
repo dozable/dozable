@@ -27,8 +27,10 @@ public struct ChatRoomIndex: Codable, Equatable, Sendable {
         /// The workspace that made it (nil: none — a loose room, or one a workspace only linked).
         public var owner: String?
         public var archive: ArchiveRef?
+        /// A loose room closed by hand (`doz chat room close R --loose`): in the closed set until it is opened. Additive.
+        public var closedAt: Date?
         public var unknown = UnknownFields()
-        static let known: Set<String> = ["id", "since", "owner", "archive"]
+        static let known: Set<String> = ["id", "since", "owner", "archive", "closedAt"]
         public init(id: String, since: Date, owner: String? = nil) { self.id = id; self.since = since; self.owner = owner }
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: DynamicKey.self)
@@ -36,6 +38,7 @@ public struct ChatRoomIndex: Codable, Equatable, Sendable {
             since = try c.decode(Date.self, forKey: "since")
             owner = try c.decodeIfPresent(String.self, forKey: "owner")
             archive = try c.decodeIfPresent(ArchiveRef.self, forKey: "archive")
+            closedAt = try c.decodeIfPresent(Date.self, forKey: "closedAt")
             unknown = try UnknownFields(c, known: Self.known)
         }
         public func encode(to encoder: Encoder) throws {
@@ -45,6 +48,7 @@ public struct ChatRoomIndex: Codable, Equatable, Sendable {
             try c.encode(since, forKey: "since")
             try c.encodeIfPresent(owner, forKey: "owner")
             try c.encodeIfPresent(archive, forKey: "archive")
+            try c.encodeIfPresent(closedAt, forKey: "closedAt")
         }
     }
 

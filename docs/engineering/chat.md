@@ -438,8 +438,12 @@ archived flag, hold and app dropped, its members' waiting receives ended (empty,
 `rooms/<room>.db`, `-wal`, `-shm` and the attachments no other room names removed; the server keeps running. The daemon
 keeps the tombstone (`ChatRoomIndex`). `doz chat room archive|rm` are the owner's (`HostCore+RoomLifecycle`): owned rooms
 only (`--loose`: a loose room, the CLI only), never a linked room or while its run is open; rm only once an archived copy
-verifies now and the name is typed. Conformance is unchanged (171): it starts `doz chat serve` without a channel.
-`ChatClosedTests`, `RoomLifecycleHostTests`.
+verifies now and the name is typed. `doz chat room close|open R --loose` (`chat-room-close`, `chat-room-open`, owner only)
+close a LOOSE room by hand and open it again: the mark is the room index's `closedAt`, and the daemon adds every such room
+to the closed set with the value `_` (`ChatRoomControl.looseOwner`: "closed by the owner … doz chat room open R --loose");
+a workspace's own rooms are refused — its finish (a space's down) closes them and its reopen (up) opens them. Conformance
+is unchanged (171): it starts `doz chat serve` without a channel. `ChatClosedTests`, `RoomLifecycleHostTests`,
+`WorkspaceLifecycleHostTests.testALooseRoomIsClosedAndOpenedThroughTheClosedSet`.
 
 ## Agents on other machines
 

@@ -26,6 +26,11 @@ extension HostCore {
             await workspaceGate.lock("room:" + q.room)
             defer { workspaceGate.unlock("room:" + q.room) }
             return try JSONValue(encoding: r.op == .chatRoomArchive ? try await roomArchive(q) : try await roomRemove(q))
+        case .chatRoomClose, .chatRoomOpen:
+            guard !readOnly else { throw HostError(.unavailable, "\(r.op.rawValue) needs the daemon") }
+            await workspaceGate.lock("room:" + q.room)
+            defer { workspaceGate.unlock("room:" + q.room) }
+            return try JSONValue(encoding: try await roomCloseLoose(q, close: r.op == .chatRoomClose))
         default:
             throw HostError(.invalid, "not a room operation")
         }
@@ -190,6 +195,47 @@ extension HostCore {
         c.archive = copy.path
         c.tombstone = tomb
         c.notes = ["\(room) is gone; read it in \(DisplayPath.tilde(storeRoot + "/" + copy.path))" + (copy.run.map { " (run \($0)'s archive)" } ?? "")]
+        return c
+    }
+}
+
+// MARK: closing a loose room
+
+extension HostCore {
+    /// A loose room closed to new messages (still readable) or opened again: refused for a room a workspace made or links
+    /// (finish and reopen, down and up close and open those), without `--loose`, and for a room that is gone or not there.
+    /// The mark lives in the room index (`closedAt`); the chat server takes it in the closed set over the control channel.
+    func roomCloseLoose(_ q: ChatRoomRequest, close: Bool) async throws -> ChatRoomChanged {
+        let room = q.room
+        let verb = close ? "close" : "open"
+        guard q.loose == true else { throw HostError(.invalidPhase, "\(room): only a loose room is closed or opened by hand — --loose, on the command line only, takes one") }
+        let idx = (try? ChatRoomIndex.load(chatPaths)) ?? ChatRoomIndex()
+        for rec in workspaces.records() where rec.rooms.contains(where: { $0.chatRoom == room && $0.goneAt == nil }) {
+            throw HostError(.invalidPhase, "\(room) is a room of the workspace \(rec.name): its finish closes it and its reopen opens it")
+        }
+        if let o = idx.rooms[room]?.owner { throw HostError(.invalidPhase, "\(room) was made by the workspace \(o)") }
+        guard let chat = workspaceChat, await chat.readiness() == .ready else { throw HostError(.unavailable, "chat is not ready — doz chat status") }
+        guard try chat.rooms().contains(room) else {
+            if idx.tombstone(room) != nil { throw HostError(.notFound, "\(room) is gone: it was removed for good") }
+            throw HostError(.notFound, "no room \(room) (doz chat rooms)")
+        }
+        let was = idx.rooms[room]?.closedAt != nil
+        if was == close {
+            var c = ChatRoomChanged(room: room, verb: verb)
+            c.notes = ["#\(room) is \(close ? "closed" : "open") already"]
+            return c
+        }
+        let id = try await roomIndexUpdate { i -> String in
+            let id = i.ensure(room).id
+            i.rooms[room]?.closedAt = close ? Date() : nil
+            return id
+        }
+        await pushClosedSet()
+        HostLog.line("chat: \(close ? "closed" : "opened") the loose room \(room) (\(id))")
+        var c = ChatRoomChanged(room: room, verb: verb)
+        c.id = id
+        c.notes = [close ? "#\(room) is closed: it can still be read; doz chat room open \(room) --loose opens it again"
+                         : "#\(room) is open again"]
         return c
     }
 }

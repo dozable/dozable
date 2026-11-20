@@ -741,7 +741,7 @@ func roomClosedSet(_ g: GlobalOptions) -> [String: String] {
 struct ChatRoom: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "room", abstract: "Make a room with these members (and you); archive or remove one.",
         discussion: "Example: doz chat room room1 @bot1 @bot2. Add someone later by sending /invite @NAME in the room (doz chat send room1 \"/invite @bot2\"). doz chat room archive R and doz chat room rm R put a room away and remove it for good.",
-        subcommands: [ChatRoomMake.self, ChatRoomArchiveCommand.self, ChatRoomRmCommand.self], defaultSubcommand: ChatRoomMake.self)
+        subcommands: [ChatRoomMake.self, ChatRoomArchiveCommand.self, ChatRoomRmCommand.self, ChatRoomCloseCommand.self, ChatRoomOpenCommand.self], defaultSubcommand: ChatRoomMake.self)
 }
 
 struct ChatRoomMake: AsyncParsableCommand {

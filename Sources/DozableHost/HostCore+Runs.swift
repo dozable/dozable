@@ -362,6 +362,10 @@ extension HostCore {
             if logs[rec.name] == nil { logs[rec.name] = (try? self.workspaces.log(rec.name)) ?? [] }
             return WorkspaceRuns.owned(room, log: logs[rec.name]!)
         }
+        // Loose rooms closed by hand (`doz chat room close --loose`): `_`, no workspace.
+        if let idx = try? ChatRoomIndex.load(chatPaths) {
+            for (room, e) in idx.rooms where e.closedAt != nil && e.owner == nil && set[room] == nil { set[room] = ChatRoomControl.looseOwner }
+        }
         set.merge(extra) { _, b in b }
         return try? await chat.setClosed(set)
     }
