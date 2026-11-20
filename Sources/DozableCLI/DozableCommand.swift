@@ -43,7 +43,7 @@ public struct DozableCommand: AsyncParsableCommand {
         and attaches; `doz up NAME` creates, starts or wakes, and attaches. Every command takes --json and --store (or $DOZ_STORE).
 
         Exit codes: 0 ok · 1 failed · 2 not found · 3 not possible in this phase · 4 already exists · \
-        5 not confirmed · 6 daemon unavailable · 7 not implemented yet · 64 usage. exec, run and attach \
+        5 not confirmed · 6 daemon unavailable · 7 not implemented yet · 9 not permitted (an agent's request) · 64 usage. exec, run and attach \
         exit with the program's own code, and 125 when doz itself fails.
         """,
         version: version,
@@ -151,6 +151,8 @@ public enum DozableExit {
     public static let notImplemented: Int32 = 7
     /// 617: `doz search` — supported, but not with what was asked (`--base alpine`).
     public static let limited: Int32 = 8
+    /// A request made as an agent (`--as W/AGENT`) that its permissions do not allow. Never the owner's own.
+    public static let notPermitted: Int32 = 9
     public static let usage: Int32 = 64
     /// 678: exec — its --timeout passed (counted from when doz started), as GNU timeout's. A program's own 124 looks the
     /// same; `--json`'s `timedOut` tells them apart.
@@ -167,6 +169,7 @@ public enum DozableExit {
         case .invalid: usage
         case .notImplemented: notImplemented
         case .version, .unavailable: unavailable
+        case .notPermitted: notPermitted
         }
     }
 }
@@ -402,6 +405,31 @@ final class Progress: @unchecked Sendable {
     }
 }
 
+/// The hidden `--as W/AGENT`: every request this command sends is made as that agent of workspace W would make it — it only
+/// NARROWS (the daemon's gate decides each by the agent's permissions; an agent's request is never answered in-process). A
+/// preview and test path on your own socket, never a boundary. Taken off the command line before it is parsed, and only with
+/// a value naming a workspace and an agent (`W/AGENT`): `doz workspace adopt … --as NAME` keeps its own `--as`.
+public enum ActAs {
+    nonisolated(unsafe) public static var value: String? {
+        didSet { HostClient.narrowTo = value }
+    }
+
+    /// `args` without `--as W/AGENT` (or `--as=W/AGENT`); the value is kept in `value`.
+    public static func take(_ args: [String]) -> [String] {
+        var out: [String] = []
+        var i = 0
+        while i < args.count {
+            let a = args[i]
+            if a == "--" { out += args[i...]; break }
+            if a == "--as", i + 1 < args.count, args[i + 1].contains("/") { value = args[i + 1]; i += 2; continue }
+            if a.hasPrefix("--as="), a.dropFirst(5).contains("/") { value = String(a.dropFirst(5)); i += 1; continue }
+            out.append(a)
+            i += 1
+        }
+        return out
+    }
+}
+
 /// Send one request to the host (starting it when needed) and return the result.
 func call(_ r: HostRequest, _ g: GlobalOptions, autostart: Bool = true) throws -> JSONValue {
     let m = try rawCall(r, g, autostart: autostart)
@@ -461,7 +489,8 @@ func rawCall(_ r: HostRequest, _ g: GlobalOptions, autostart: Bool = true) throw
 /// a host does), else answered from the store in this process — so looking never starts a daemon.
 func query(_ r: HostRequest, _ g: GlobalOptions) async throws -> JSONValue {
     let store = g.dozableStore
-    if store.hostIsRunning() || !store.needsRecovery().isEmpty {
+    // An agent's request is decided by the daemon only (`--as`).
+    if store.hostIsRunning() || !store.needsRecovery().isEmpty || ActAs.value != nil {
         return try call(r, g)
     }
     let core = HostCore(store: store, readOnly: true, version: DozableCommand.version)

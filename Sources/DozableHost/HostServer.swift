@@ -543,6 +543,13 @@ public final class HostServer: @unchecked Sendable {
             finished(conn)
             return
         }
+        // The ONE permission gate, before any routing (the core, chat and the streams): the owner's request — every request
+        // with no `actAs` — passes before anything is read; an agent's is decided (`PermissionGate`, docs/engineering/workspaces.md).
+        if let refused = PermissionGate.refusal(req, store: store) {
+            conn.send(.failure(refused))
+            finished(conn)
+            return
+        }
         switch req.op {
         case .attach:
             attach(conn, reader: reader, request: req)

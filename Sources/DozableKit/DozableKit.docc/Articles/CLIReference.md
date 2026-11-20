@@ -949,7 +949,10 @@ workspace), two scopes at once, a `--until` in the past. Every change is one lin
 **Permissions constrain agents, never you**: nothing you run is ever checked against them. None is enforced yet — no agent
 can drive Dozable; `show`'s ENFORCED column says "not yet — no agent can drive Dozable" (or "promise — acts as you" for
 an unfenced agent). `show` and `why` answer from the store and never start the daemon. Exit codes: 0 ok · 2 not found · 6
-the daemon unavailable · 64 usage.
+the daemon unavailable · 64 usage. The daemon checks an agent's request at its door; the hidden `--as W/AGENT` makes a
+command's requests as that agent would (a preview and test path on your own socket — it only narrows): one its permissions
+do not allow is refused with exit 9, not permitted ("worker.start for mira in demo would ask; Asks come later" — Asks come
+later; or "… is never: " and what decided).
 
 ### Workspaces
 
@@ -1228,6 +1231,8 @@ JSON documents only ever gain fields.
 | 5 | not confirmed |
 | 6 | daemon unavailable |
 | 7 | not implemented yet |
+| 8 | supported, but not with what was asked (`doz search`) |
+| 9 | not permitted: a request made as an agent (`--as W/AGENT`) that its permissions do not allow — never yours |
 | 64 | usage |
 | *program's own* | `exec`, `run`, `attach` (125 = doz itself failed) |
 

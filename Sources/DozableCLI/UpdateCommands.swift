@@ -321,7 +321,8 @@ struct HostRestart: AsyncParsableCommand {
 public enum DozableEntry {
     public static func main() async -> Never {
         // TEMPORARY: the host→daemon migration's one call (its file says how to delete it).
-        let args = HostToDaemon.begin(Array(CommandLine.arguments.dropFirst()))
+        // The hidden `--as W/AGENT` (a request narrowed to an agent's permissions) is taken off before anything parses.
+        let args = ActAs.take(HostToDaemon.begin(Array(CommandLine.arguments.dropFirst())))
         // 683 M4: inside a fenced session (ssh's ProxyCommand) — before anything of doz is read or made.
         if args.first == "fence-connect" { exit(FenceConnect.run(Array(args.dropFirst()), environment: ProcessInfo.processInfo.environment)) }
         // The chat server (hidden): before anything of doz is read or made — no settings, store, daemon or Keychain.

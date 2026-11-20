@@ -12,9 +12,29 @@ import DozableHost
 //      workspace's log; revoke: ask again, a log line; --until 2h listed with its date; a past --until refused (64)
 //  P3. why bot2 folder.read --in myapp-tests: the mockups' five steps exactly, then → ask, mira not a decider
 //  P4. bot ceiling otto sudo=never, then grant otto sudo=allow --in myapp-tests: why says never (otto's ceiling)
+//  P5. the owner is never gated: before row 12 every permission is set never in this Mac's ceiling and by an everywhere never
+//      for every role (cliWorkspaceOwnerUnderNevers) — rows 12–47, L1–L14 and V1–V5 (the managers, worker add and end, the
+//      lifecycle) all ran under them, exactly as before; here they are found still in force, then cleared
+//  P6. --as myapp-tests/bot2 worker add: refused "would ask; Asks come later", exit 9; nothing made; a permission-decided line
+//  P7. a never refused with its reason (exit 9): an unfenced worker (the worker role), a bot made (Dozable's own: another
+//      workspace), ls (Dozable's own)
 //  P8. grant otto net.allow=allow --in myapp-tests does not reach permb: why there says ask, step 2 none
 //  P9. permissions show says not enforced yet — no agent can drive Dozable; --agent's rows each say so
 //  P10. the --json leak sweep: every permissions answer parses and carries no token; nor do the grants' files
+/// P5's first half, run before row 12: every permission never — this Mac's ceiling, and an everywhere never for every role.
+func cliWorkspaceOwnerUnderNevers(_ h: CLIHarness) {
+    print("cli: every ceiling at never — the owner's commands below run under them")
+    let words = GrantPermissions.ids.map { "\($0)=never" }
+    var r = h.run(["permissions", "ceiling", "--mac"] + words, timeout: 60)
+    check(r.code == 0, "P5 this Mac's ceiling: every permission never (\(r.code) \(r.err.prefix(200)))")
+    // chat.decide is never a grant (deciders are made in chat, by you only): every other permission.
+    let grantable = GrantPermissions.ids.filter { !GrantPermissions.ownerOnly.contains($0) }.map { "\($0)=never" }
+    for role in ["manager", "worker", "member"] {
+        r = h.run(["permissions", "grant", "role:\(role)"] + grantable + ["--everywhere"], timeout: 60)
+        check(r.code == 0, "P5 an everywhere never on every permission for every \(role) (\(r.code) \(r.err.prefix(200)))")
+    }
+}
+
 func cliWorkspacePermissionRows(_ h: CLIHarness, root: URL, store: DozableStore, started: inout Set<String>) {
     print("cli: what agents may do — permissions, grants, ceilings, why")
     let fm = FileManager.default
@@ -49,6 +69,18 @@ func cliWorkspacePermissionRows(_ h: CLIHarness, root: URL, store: DozableStore,
     r = h.run(["workspace", "new", "permb", "--prompt-file", brief, "--no-room"], timeout: 60)
     check(r.code == 0, "P new permb (\(r.code))")
     check((try? ws.read("myapp-tests"))??.permissions == nil, "P nothing is written for today's agents: no permissions section")
+
+    // P5. the owner's commands ran under every never; still in force — then cleared for the rows below.
+    let mac = h.json(["permissions", "show", "--mac"], PermissionsShown.self)
+    check(mac?.ceilings.count == GrantPermissions.ids.count && mac?.ceilings.allSatisfy { $0.answer == "never" } == true
+          && mac?.grants.filter { $0.what.hasSuffix("=never") && $0.scope == "everywhere" }.count == (GrantPermissions.ids.count - 1) * 3,
+          "P5 rows 12–V5 (worker add and end, the managers, the lifecycle) ran as before under this Mac's ceiling and an everywhere never on everything")
+    r = h.run(["permissions", "ceiling", "--mac"] + GrantPermissions.ids.flatMap { ["--clear", $0] }, timeout: 60)
+    check(r.code == 0, "P5 this Mac's ceiling cleared (\(r.code))")
+    for role in ["manager", "worker", "member"] {
+        r = h.run(["permissions", "revoke", "role:\(role)"] + GrantPermissions.ids.filter { !GrantPermissions.ownerOnly.contains($0) } + ["--everywhere"], timeout: 60)
+        check(r.code == 0, "P5 every \(role)'s nevers revoked (\(r.code) \(r.err.prefix(160)))")
+    }
 
     // P1. looking never starts the daemon.
     stopDaemon()
@@ -119,6 +151,32 @@ func cliWorkspacePermissionRows(_ h: CLIHarness, root: URL, store: DozableStore,
     check(r.code == 0, "P4 grant otto sudo=allow --in myapp-tests (\(r.code) \(r.err.prefix(160)))")
     r = h.run(["why", "otto", "sudo", "--in", "myapp-tests"], timeout: 60)
     check(r.code == 0 && r.out.contains("→ never · refused: otto's ceiling: sudo=never"), "P4 why otto sudo: never, otto's ceiling (\(r.out.suffix(200)))")
+
+    // P6. a request made as an agent that would ask: refused, nothing made.
+    let rec6 = text(ws.folder("myapp-tests") + "/workspace.json")
+    let decided = grants.log().filter { $0.action == "permission-decided" }.count
+    r = h.run(["worker", "add", "myapp-tests", "--task", "list the files", "--as", "myapp-tests/bot2"], timeout: 60)
+    check(r.code == 9 && r.err.contains("worker.start for bot2 in myapp-tests would ask; Asks come later. See: doz why bot2 worker.start --in myapp-tests"),
+          "P6 --as myapp-tests/bot2 worker add: would ask, Asks come later, exit 9 (\(r.code) \(r.err.prefix(240)))")
+    check(text(ws.folder("myapp-tests") + "/workspace.json") == rec6, "P6 …nothing made")
+    let line6 = grants.log().last
+    check(grants.log().filter { $0.action == "permission-decided" }.count == decided + 1 && line6?.answer == "ask" && line6?.reason == "refused: Asks come later"
+          && line6?.op == "worker-add", "P6 …one permission-decided line: ask, refused (\(line6?.reason ?? "none"))")
+    r = h.run(["worker", "add", "myapp-tests", "--task", "x", "--as", "myapp-tests/bot2", "--json"], timeout: 60)
+    check(r.code == 9 && r.out.contains("not-permitted"), "P6 …--json: the code not-permitted (\(r.out.prefix(200)))")
+    r = h.run(["workspace", "show", "myapp-tests", "--as", "myapp-tests/bot2"], timeout: 60)
+    check(r.code == 0, "P6 the same agent may read its workspace (allow) (\(r.code) \(r.err.prefix(160)))")
+
+    // P7. a never, with its reason.
+    r = h.run(["worker", "add", "myapp-tests", "--task", "x", "--isolation", "unfenced", "--as", "myapp-tests/bot2"], timeout: 60)
+    check(r.code == 9 && r.err.contains("isolation.unfenced for bot2 in myapp-tests is never: the worker role (myapp-tests)"),
+          "P7 an unfenced worker: never, the worker role (\(r.code) \(r.err.prefix(240)))")
+    r = h.run(["bot", "new", "zed", "--agent", "claude-code", "--as", "myapp-tests/bot2"], timeout: 60)
+    check(r.code == 9 && r.err.contains("bot.manage for bot2 in myapp-tests is never: Dozable's own: another workspace") && h.json(["bot", "show", "zed"], BotDetail.self) == nil,
+          "P7 bot new: never, Dozable's own — no bot made (\(r.code) \(r.err.prefix(240)))")
+    r = h.run(["ls", "--as", "myapp-tests/bot2"], timeout: 60)
+    check(r.code == 9 && r.err.contains("ls is Dozable's own: never for an agent"), "P7 ls: Dozable's own (\(r.code) \(r.err.prefix(200)))")
+    check(((try? ws.log("myapp-tests")) ?? []).contains { $0.action == "permission-decided" && $0.answer == "never" }, "P7 …in the workspace's log too")
 
     // P8. a grant in one workspace does not reach another.
     r = h.run(["grant", "otto", "net.allow=allow", "--in", "myapp-tests"], timeout: 60)

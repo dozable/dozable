@@ -661,6 +661,10 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var chatRoom: ChatRoomRequest?
     /// The `permissions-*` operations' arguments.
     public var permissionsRequest: PermissionsRequest?
+    /// `W/AGENT`: this request is made as that agent of workspace W would make it — it NARROWS the owner's request to the
+    /// agent's permissions (`PermissionGate`), never widens anything. Only on the owner's socket (the hidden `--as W/AGENT`, a
+    /// preview and test path); a request without it is the owner's, and the owner is never gated. Additive.
+    public var actAs: String?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -696,6 +700,8 @@ public struct HostError: Codable, Equatable, Sendable, Error, LocalizedError {
     public enum Code: String, Codable, Sendable {
         case failed, notFound = "not-found", invalidPhase = "invalid-phase", exists, invalid
         case notImplemented = "not-implemented", version, unavailable
+        /// An agent's request its permissions do not allow (never the owner's: the owner is never gated).
+        case notPermitted = "not-permitted"
     }
     public var code: Code
     public var message: String

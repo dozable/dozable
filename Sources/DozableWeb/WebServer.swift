@@ -742,6 +742,7 @@ public final class DozableWebServer: @unchecked Sendable {
             case .unavailable, .version: 503
             case .exists: 409
             case .failed, .notImplemented: 500
+            case .notPermitted: 403      // never the owner's: no web action is ever made as an agent
             }
             auditChange(route, md, body, ctx, device, outcome: e.code.rawValue)
             return .response(status, [("Content-Type", "application/json; charset=utf-8")], Self.errorBody(e.code.rawValue, e.message))
