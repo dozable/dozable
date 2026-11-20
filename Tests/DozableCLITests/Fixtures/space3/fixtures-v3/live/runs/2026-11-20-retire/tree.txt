@@ -1,0 +1,4 @@
+    2684  commands.log
+     102  folders/data.tar.gz
+    1186  manifest.yaml
+     674  run.yaml

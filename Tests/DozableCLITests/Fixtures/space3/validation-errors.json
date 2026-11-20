@@ -655,10 +655,10 @@
     "area": "references",
     "layer": "rule",
     "severity": "warning",
-    "path": "/x-worker/layout/ghost",
+    "path": "/x-editor/layout/ghost",
     "line": 6,
     "message": "no resource \"ghost\" to pin",
-    "yaml": "doz: space/3\nspace: t\nbrief: B.md\nowner: ada\nx-worker:\n  layout: { ghost: { at: [0, 0] } }\n"
+    "yaml": "doz: space/3\nspace: t\nbrief: B.md\nowner: ada\nx-editor:\n  layout: { ghost: { at: [0, 0] } }\n"
   },
   {
     "n": 59,

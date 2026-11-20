@@ -909,6 +909,8 @@ public actor HostCore {
             return try await performWorker(r)
         case .workspaceUpPlan:
             return try JSONValue(encoding: try await spaceUpPlan(r.space))
+        case .workspaceUp:
+            return try JSONValue(encoding: try await spaceUp(r.space))
         case .macsList:
             return try JSONValue(encoding: try MacBookmarkStore(store: store).listing())
         case .permissionsShow, .permissionsWhy, .permissionsGrant, .permissionsRevoke, .permissionsCeiling:

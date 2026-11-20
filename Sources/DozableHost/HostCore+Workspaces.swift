@@ -235,7 +235,7 @@ extension HostCore {
         let agents = await workspaceAgents(rec, macs: macs)
         let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.compactMap(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
         return WorkspaceDetail(name: rec.name, state: state.rawValue, driver: rec.driver, createdAt: rec.createdAt, brief: rec.brief,
-                               briefText: withBrief ? workspaces.readBrief(rec.name) : nil, folders: rec.folders, rooms: rec.rooms,
+                               briefText: withBrief ? workspaceBriefText(rec) : nil, folders: rec.folders, rooms: rec.rooms,
                                agents: agents.map(\.0), defaults: rec.defaults, flags: rec.flags, origin: rec.origin,
                                notes: notes.isEmpty ? nil : notes)
     }
@@ -358,7 +358,9 @@ extension HostCore {
     /// What `workspace-new` would make of `w`, with nothing written, no room made and the keychain not read: the record, the
     /// brief, the log, EVERY refusal (in the order `new` checks them — `new` answers with the first) and the notes. `look`:
     /// the plan's (with no daemon, chat is judged from its setting and a room's clash becomes a note); else `new`'s own.
-    func workspaceNewDraft(_ w: WorkspaceRequest, look: Bool) async -> WorkspaceNewDraft {
+    /// `space`: made by `up` from a space file — its brief is the file's (read under `SpaceBriefFile`'s rules; the store's
+    /// `brief.md` stays empty, never a copy) and the record carries the space's reference from its first write.
+    func workspaceNewDraft(_ w: WorkspaceRequest, look: Bool, space: (ref: SpaceRecordRef, brief: SpaceBriefFile.Read)? = nil) async -> WorkspaceNewDraft {
         var refusals: [HostError] = []
         func refuse(_ e: HostError) { refusals.append(e) }
         func attempt(_ f: () throws -> Void) { do { try f() } catch { refuse(HostError.from(error)) } }
@@ -367,7 +369,8 @@ extension HostCore {
         let named = WorkspaceName.isValid(name)
         if named, workspaces.exists(name) { refuse(HostError(.exists, "there is already a workspace \(name)")) }
         var brief = Data((w.brief ?? "").utf8)
-        attempt { brief = try workspaceCheckBrief(w.brief ?? "") }
+        if let space { attempt { _ = try workspaceCheckBrief(space.brief.text) }; brief = Data() }
+        else { attempt { brief = try workspaceCheckBrief(w.brief ?? "") } }
         // The folders: `<projects_dir>/NAME` first when it is made now, then each given one.
         var folders: [WorkspaceFolder] = []
         var makeFolder: String?
@@ -484,11 +487,13 @@ extension HostCore {
         }
         let origin = w.project != nil ? WorkspaceOrigin(kind: "project", project: w.project)
             : agents.allSatisfy(\.isManager) ? WorkspaceOrigin(kind: "new") : WorkspaceOrigin(kind: "adopted")
-        let rec = WorkspaceRecord(name: name, createdAt: now,
-                                  brief: WorkspaceBrief(refs: refs, sha256: WorkspaceStore.sha256(brief), bytes: brief.count, updatedAt: now),
+        var rec = WorkspaceRecord(name: name, createdAt: now,
+                                  brief: WorkspaceBrief(refs: refs, sha256: space?.brief.sha256 ?? WorkspaceStore.sha256(brief),
+                                                        bytes: space?.brief.bytes ?? brief.count, updatedAt: now),
                                   folders: folders, rooms: rooms, agents: agents,
                                   defaults: WorkspaceDefaults(isolation: w.workerIsolation, network: w.network),
                                   flags: WorkspaceFlags(firstAgentAt: anyRunning ? now : nil), origin: origin)
+        if let space { space.ref.store(in: &rec) }
         return WorkspaceNewDraft(record: rec, brief: brief, log: log, refusals: refusals, notes: notes, makeRoom: makeRoom, roomLinked: linked,
                                  makeFolder: makeFolder)
     }
@@ -501,8 +506,8 @@ extension HostCore {
         return ((chatSettingOverride ?? ChatSettingsView.read().enabled) ? .ready : .off, true)
     }
 
-    func workspaceNew(_ w: WorkspaceRequest) async throws -> WorkspaceDetail {
-        let d = await workspaceNewDraft(w, look: false)
+    func workspaceNew(_ w: WorkspaceRequest, space: (ref: SpaceRecordRef, brief: SpaceBriefFile.Read)? = nil) async throws -> WorkspaceDetail {
+        let d = await workspaceNewDraft(w, look: false, space: space)
         if let first = d.refusals.first { throw first }
         let name = d.record.name
         // Then the folder made now, the room, the files — the folder taken back when a later step fails.

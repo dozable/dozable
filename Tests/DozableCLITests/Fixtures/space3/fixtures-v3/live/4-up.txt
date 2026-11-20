@@ -1,0 +1,16 @@
+$ doz space up spaces/space-test-v3-a.space.yaml --yes
+space up "space-test-v3-a"
+  Starts 2 rooms (space-test-v3-a-room: persisted; space-test-v3-a-run: this run only). Externals: svc. Persisted: room space-test-v3-a-room (from space-test-v3-defaults.yaml:4), folder data.
+  ok     folder svc exists (external: ~/work/example-repo/test/live/cmp-test-svc)
+  open   run 2026-11-20-2 → ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2
+  run     1. folder scratch
+           mkdir -p ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/scratch/scratch'
+  skip    2. folder data (persisted) (already there)
+  skip    3. room space-test-v3-a-room (persisted: one thread across runs) (already there)
+  run     4. room space-test-v3-a-run
+           doz chat room space-test-v3-a-run
+         Made space-test-v3-a-run with ada.
+  mark   space-test-v3-a-room: — run 2026-11-20-2 started —
+  mark   space-test-v3-a-run: — run 2026-11-20-2 started —
+up: run 2026-11-20-2: 2 step(s) run, 2 already there
+(exit 0)

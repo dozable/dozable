@@ -272,7 +272,7 @@ extension HostCore {
     /// Answers its path and its manifest's sha256, or throws why it was not kept (nothing else is touched).
     func writeRunArchive(_ rec: WorkspaceRecord, _ run: WorkspaceRun, plan: WorkspaceLifecyclePlan?, gathered: RunPreStop) async throws -> (path: String, sha: String) {
         let n = rec.name
-        var e = RunEvidence(workspace: n, run: run, endedAt: run.endedAt ?? Date(), brief: Data((workspaces.readBrief(n) ?? "").utf8))
+        var e = RunEvidence(workspace: n, run: run, endedAt: run.endedAt ?? Date(), brief: Data((workspaceBriefText(rec) ?? "").utf8))
         e.plan = try plan.map { try JSONValue(encoding: $0) }
         for r in run.rooms { e.rooms[r.room] = r.id ?? (rec.rooms.first { $0.chatRoom == r.room }?.id ?? "") }
         e.versions = ["doz": version]

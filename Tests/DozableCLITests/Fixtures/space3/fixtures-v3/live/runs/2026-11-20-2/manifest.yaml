@@ -1,0 +1,52 @@
+# every file in this run's archive, with its sha256 (tokens/ is never archived)
+run: 2026-11-20-2
+space: space-test-v3-a
+started_at: 2026-11-20T22:25:42+11:00
+ended_at: 2026-11-20T22:25:43+11:00
+space_file: ~/work/example-repo/test/live/space-test-v3-a.space.yaml
+space_file_sha256: cffd09067ed42373dcbb66d4dd6ac80bc3c0cbcf44764696aaaeced46718552d
+labels:
+  purpose: live-fixture
+doz_version: 0.52.17
+claude_code_version: 2.1.329 (Claude Code)
+recorder: a stand-in for doz space
+profiles: []
+notes:
+  - "room space-test-v3-a-run: archived and removed by Dozable (tombstone rm_e0264e503691cf82; Dozable's copy: archives/_/rooms/space-test-v3-a-run-rm_e0264e503691cf82)"
+files:
+  - path: chat/space-test-v3-a-room.jsonl
+    bytes: 551
+    sha256: a7ecaf50049394f5a92aa48f96e2764e4c3fdfe04a45e137e9b3584c04a9c73b
+  - path: chat/space-test-v3-a-run.jsonl
+    bytes: 552
+    sha256: 1954e30252f60735131518a120b5308d94650b6614bff64962a01a915d5e8573
+  - path: commands.log
+    bytes: 4089
+    sha256: 4b7ca702d9a578fcca9ba88214b2b15e3ce602307ca1e9a8548a6977392dcbd6
+  - path: folders/scratch.tar.gz
+    bytes: 101
+    sha256: 2a826ee14f8f0da8827292cc08ce9582851c4dde0a20bc7e54826477ea6a77a1
+  - path: git.yaml
+    bytes: 78
+    sha256: 53fd0f58a33d25ee88dfb29df6ca4ddd0de8b0d27ddddce6f4e45bc7f719ecef
+  - path: plan.yaml
+    bytes: 2193
+    sha256: 7769aee73c33536c05722f1b225d113244dc1c3b53b0473ca56ff5526dcd0a4b
+  - path: run.yaml
+    bytes: 1533
+    sha256: 7d396f2a03fc744051904027d2a4ee0c68c44d8b302195ec2efa136754a477fe
+  - path: spec.yaml
+    bytes: 676
+    sha256: f624d06194b69f111743316214bbc48ce8a3414d6b64ae1ecd51724979ccd83d
+  - path: status/0001-up.yaml
+    bytes: 943
+    sha256: e6071762be6439a1823bc74d94ea879733bc56217e99786a8c75169a7372b820
+  - path: status/0002-down.yaml
+    bytes: 943
+    sha256: 6bc26d51667cad331942a5270e60ef453a7a6ae0ba6b2ff8c7d7f650d8742147
+  - path: timesheet.md
+    bytes: 1118
+    sha256: 2c65492c81eb49bd91d745c74b7310b3fb82815a3225df4c2f583f87a41bfdcb
+  - path: usage.yaml
+    bytes: 231
+    sha256: a39d8fbc747a7618e3799369e2a523401222ca91e687208829c8dec12ff3fc14

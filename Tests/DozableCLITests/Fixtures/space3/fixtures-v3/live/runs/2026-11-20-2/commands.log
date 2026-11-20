@@ -1,0 +1,60 @@
+2026-11-20T22:25:42+11:00  exit 0  0.0 s  check external svc: ~/work/example-repo/test/live/cmp-test-svc
+2026-11-20T22:25:42+11:00  exit 0  0.0 s  mkdir -p ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/scratch/scratch'
+    made
+2026-11-20T22:25:42+11:00  exit 0  0.0 s  doz chat room space-test-v3-a-run
+    Made space-test-v3-a-run with ada.
+2026-11-20T22:25:42+11:00  exit 0  0.0 s  doz chat send space-test-v3-a-room '— run 2026-11-20-2 started —'
+    Sent to space-test-v3-a-room.
+2026-11-20T22:25:42+11:00  exit 0  0.0 s  doz chat send space-test-v3-a-run '— run 2026-11-20-2 started —'
+    Sent to space-test-v3-a-run.
+2026-11-20T22:25:43+11:00  exit 0  0.0 s  doz chat send space-test-v3-a-room '— run 2026-11-20-2 ended —'
+    Sent to space-test-v3-a-room.
+2026-11-20T22:25:43+11:00  exit 0  0.0 s  doz chat send space-test-v3-a-run '— run 2026-11-20-2 ended —'
+    Sent to space-test-v3-a-run.
+2026-11-20T22:25:43+11:00  exit 0  0.0 s  doz chat read space-test-v3-a-room --last 500 --json
+    (5 messages read)
+2026-11-20T22:25:43+11:00  exit 0  0.0 s  doz chat read space-test-v3-a-run --last 500 --json
+    (3 messages read)
+2026-11-20T22:25:43+11:00  exit 0  0.0 s  git -C ~/work/example-repo/test/live/cmp-test-svc log --since=2026-11-20T22:25:42+11:00 --until=2026-11-20T22:25:43+11:00 --format=%H%x09%an%x09%aI%x09%s -- .
+    (0 commits)
+2026-11-20T22:25:43+11:00  exit 0  0.0 s  tar -czf '~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/folders/scratch.tar.gz' -C ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/scratch/scratch' .
+2026-11-20T22:25:43+11:00  exit 0  0.0 s  rm -r ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-2/scratch/scratch'  (only if this space made it)
+    removed
+2026-11-20T22:25:43+11:00  exit 0  0.1 s  doz chat room archive space-test-v3-a-run --loose --dry-run
+    Archive #space-test-v3-a-run? — open now
+      owner: none (a loose room)
+      messages: up to 3
+      its whole history into the store's archives/_/rooms/space-test-v3-a-run-rm_…, then it is archived as you (read-only)
+    
+    The command:
+    doz chat room archive space-test-v3-a-run --loose
+2026-11-20T22:25:44+11:00  exit 0  0.1 s  doz chat room archive space-test-v3-a-run --loose --yes
+    Archive #space-test-v3-a-run? — open now
+      owner: none (a loose room)
+      messages: up to 3
+      its whole history into the store's archives/_/rooms/space-test-v3-a-run-rm_…, then it is archived as you (read-only)
+    
+    The command:
+    doz chat room archive space-test-v3-a-run --loose
+    #space-test-v3-a-run is archived
+    note: 3 messages copied and verified; the room is read-only — doz chat room rm space-test-v3-a-run removes it for good
+2026-11-20T22:25:44+11:00  exit 0  0.1 s  doz chat room rm space-test-v3-a-run --loose --dry-run
+    Remove #space-test-v3-a-run? — archived now (rm_e0264e503691cf82)
+      owner: none (a loose room)
+      messages: up to 4
+      its archived copy: the store's archives/_/rooms/space-test-v3-a-run-rm_e0264e503691cf82, verified now
+    note: rm removes the room for good: its members, its history in the chat server and its files; a tombstone and its archive stay
+    
+    The command:
+    doz chat room rm space-test-v3-a-run --loose
+2026-11-20T22:25:44+11:00  exit 0  0.1 s  doz chat room rm space-test-v3-a-run --loose --yes --confirm space-test-v3-a-run
+    Remove #space-test-v3-a-run? — archived now (rm_e0264e503691cf82)
+      owner: none (a loose room)
+      messages: up to 4
+      its archived copy: the store's archives/_/rooms/space-test-v3-a-run-rm_e0264e503691cf82, verified now
+    note: rm removes the room for good: its members, its history in the chat server and its files; a tombstone and its archive stay
+    
+    The command:
+    doz chat room rm space-test-v3-a-run --loose
+    #space-test-v3-a-run is removed for good
+    note: space-test-v3-a-run is gone; read it in ~/Library/Application Support/doz/archives/_/rooms/space-test-v3-a-run-rm_e0264e503691cf82

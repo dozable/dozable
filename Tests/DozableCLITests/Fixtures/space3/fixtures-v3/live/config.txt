@@ -1,0 +1,43 @@
+$ doz space config spaces/space-test-v3-a.space.yaml
+# the merged space "space-test-v3-a" (doz space config): defaults, then the space file, then the override file, then profiles
+# sources, lowest first:
+#   defaults ~/work/example-repo/test/live/space-test-v3-defaults.yaml  sha256 8129e09dab22afcc…
+#   space    ~/work/example-repo/test/live/space-test-v3-a.space.yaml  sha256 cffd09067ed42373…
+# risky settings and where they come from:
+#   persist.team-chat: space-test-v3-defaults.yaml:4
+#   persist.shared-data: space-test-v3-a.space.yaml:19
+persist:
+  team-chat:
+    room: "{space}-room"
+  shared-data:
+    folder: data
+archive:
+  keep:
+    - plan
+    - commands
+    - status
+    - chat
+    - screens
+    - usage
+    - git
+doz: space/3
+space: space-test-v3-a
+title: space/3 live fixture A (persist, extends, archive, room removal)
+brief: ../../BRIEF.md
+owner: ada
+labels:
+  purpose: live-fixture
+folders:
+  svc:
+    external: ~/work/example-repo/test/live/cmp-test-svc
+  scratch: {}
+  data: {}
+chat:
+  rooms:
+    space-test-v3-a-room:
+      members:
+        - owner
+    space-test-v3-a-run:
+      members:
+        - owner
+(exit 0)

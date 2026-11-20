@@ -1,0 +1,41 @@
+2026-11-20T22:25:44+11:00  exit 0  0.1 s  doz chat room archive space-test-v3-a-room --loose --dry-run
+    Archive #space-test-v3-a-room? — open now
+      owner: none (a loose room)
+      messages: up to 5
+      its whole history into the store's archives/_/rooms/space-test-v3-a-room-rm_…, then it is archived as you (read-only)
+    
+    The command:
+    doz chat room archive space-test-v3-a-room --loose
+2026-11-20T22:25:44+11:00  exit 0  0.1 s  doz chat room archive space-test-v3-a-room --loose --yes
+    Archive #space-test-v3-a-room? — open now
+      owner: none (a loose room)
+      messages: up to 5
+      its whole history into the store's archives/_/rooms/space-test-v3-a-room-rm_…, then it is archived as you (read-only)
+    
+    The command:
+    doz chat room archive space-test-v3-a-room --loose
+    #space-test-v3-a-room is archived
+    note: 5 messages copied and verified; the room is read-only — doz chat room rm space-test-v3-a-room removes it for good
+2026-11-20T22:25:44+11:00  exit 0  0.1 s  doz chat room rm space-test-v3-a-room --loose --dry-run
+    Remove #space-test-v3-a-room? — archived now (rm_966b3c443671c4a2)
+      owner: none (a loose room)
+      messages: up to 6
+      its archived copy: the store's archives/_/rooms/space-test-v3-a-room-rm_966b3c443671c4a2, verified now
+    note: rm removes the room for good: its members, its history in the chat server and its files; a tombstone and its archive stay
+    
+    The command:
+    doz chat room rm space-test-v3-a-room --loose
+2026-11-20T22:25:44+11:00  exit 0  0.1 s  doz chat room rm space-test-v3-a-room --loose --yes --confirm space-test-v3-a-room
+    Remove #space-test-v3-a-room? — archived now (rm_966b3c443671c4a2)
+      owner: none (a loose room)
+      messages: up to 6
+      its archived copy: the store's archives/_/rooms/space-test-v3-a-room-rm_966b3c443671c4a2, verified now
+    note: rm removes the room for good: its members, its history in the chat server and its files; a tombstone and its archive stay
+    
+    The command:
+    doz chat room rm space-test-v3-a-room --loose
+    #space-test-v3-a-room is removed for good
+    note: space-test-v3-a-room is gone; read it in ~/Library/Application Support/doz/archives/_/rooms/space-test-v3-a-room-rm_966b3c443671c4a2
+2026-11-20T22:25:44+11:00  exit 0  0.0 s  tar -czf '~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-retire/folders/data.tar.gz' -C ~/'Library/Application Support/doz/spaces/space-test-v3-a/folders/data' .
+2026-11-20T22:25:44+11:00  exit 0  0.0 s  rm -r ~/'Library/Application Support/doz/spaces/space-test-v3-a/folders/data'  (only if this space made it)
+    removed

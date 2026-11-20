@@ -1,4 +1,4 @@
-$ worker space up examples/space3/example-space.space.yaml --dry-run
+$ doz space up spaces/example-space.space.yaml --dry-run
 --- stdout
 space up "example-space" (dry run: nothing changes)
   Starts 1 unfenced bypass agent with full access to your user (worker: unfenced + bypass, bypass from my_doz_workspace_defaults.yaml:6), 1 room (example-space: persisted). Externals: admin (bot: manager), repo. Persisted: room example-space (from my_doz_workspace_defaults.yaml:10), agent worker (from my_doz_workspace_defaults.yaml:11). Transcripts: kept for worker (persisted: the next run continues them).

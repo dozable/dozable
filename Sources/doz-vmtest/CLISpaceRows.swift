@@ -7,8 +7,7 @@ import DozableHost
 // with the human ada). A space file and its brief in a scratch folder beside the store:
 //
 //  S1. plan -f and up -f --dry-run with the daemon stopped: answered (`factsKnown` false, the summary, the steps), no
-//      daemon starts, nothing in the store or the settings changes, no workspace is made; up without --dry-run is refused
-//      (exit 7) and changes nothing
+//      daemon starts, nothing in the store or the settings changes, no workspace is made
 //  S12. doz space plan|up|config are doz workspace plan|up|config (the same answer); without -f, the one *.space.yaml in
 //      the folder; two of them refused (exit 64), naming both; config's merged values
 func cliSpaceRows(_ h: CLIHarness, root: URL, store: DozableStore) {
@@ -62,8 +61,6 @@ func cliSpaceRows(_ h: CLIHarness, root: URL, store: DozableStore) {
           "S1 …--json: factsKnown false, the steps (\(pj.code) \(pj.out.prefix(200)))")
     let dry = h.run(["workspace", "up", "-f", file.path, "--dry-run"], timeout: 60)
     check(dry.code == plan.code && dry.out.contains("space up \"s1\" (dry run: nothing changes)"), "S1 up --dry-run: the same plan (\(dry.code))")
-    let up = h.run(["workspace", "up", "-f", file.path], timeout: 60)
-    check(up.code == 7 && up.err.contains("--dry-run"), "S1 up without --dry-run: refused in this version (\(up.code) \(up.err.prefix(200)))")
     check(!h.hostRunning, "S1 …no daemon started")
     check(tree() == before, "S1 …nothing in the store or the settings changed")
     check(!WorkspaceStore(store: store).exists("s1"), "S1 …no workspace made")

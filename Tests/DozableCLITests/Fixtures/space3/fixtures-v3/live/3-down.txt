@@ -1,0 +1,16 @@
+$ doz space down spaces/space-test-v3-a.space.yaml
+  down   run 2026-11-20-1 (since 2026-11-20T22:25:39+11:00)
+  mark   space-test-v3-a-room: — run 2026-11-20-1 ended —
+  mark   space-test-v3-a-run: — run 2026-11-20-1 ended —
+  archive → ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-1
+  keep   room space-test-v3-a-room (persisted: one thread across runs) — persisted: kept with its history; the run's members leave it as they are removed
+  keep   folder data (persisted) — persisted: kept for the next run
+  remove folder scratch
+           tar -czf '~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-1/folders/scratch.tar.gz' -C ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-1/scratch/scratch' .
+           rm -r ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-1/scratch/scratch'  (only if this space made it)
+  remove room space-test-v3-a-run (the run is closed; its archived chat checked)
+           archived room space-test-v3-a-run (Dozable's copy verified; read-only)
+           removed room space-test-v3-a-run: tombstone rm_d73b2a64364a13b4, 2026-11-20T11:25:41.769Z, its archive archives/_/rooms/space-test-v3-a-run-rm_d73b2a64364a13b4
+  closed run 2026-11-20-1: 2 removed, 2 kept; archive ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-1
+down: run 2026-11-20-1 closed, archived in ~/Library/Application Support/doz/spaces/space-test-v3-a/runs/2026-11-20-1
+(exit 0)

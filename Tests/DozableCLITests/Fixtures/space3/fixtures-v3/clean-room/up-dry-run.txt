@@ -1,4 +1,4 @@
-$ worker space up examples/space3/clean-room.space.yaml --dry-run
+$ doz space up spaces/clean-room.space.yaml --dry-run
 --- stdout
 space up "clean-room" (dry run: nothing changes)
   Starts 1 other agent (worker: fenced), 1 room (clean-room: this run only). Nothing persisted. Archive: off. Transcripts: worker: in Dozable's fenced archive (exported to the run's archive). (A clean room: down leaves nothing.)

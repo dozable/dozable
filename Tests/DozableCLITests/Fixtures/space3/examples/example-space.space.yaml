@@ -1,4 +1,4 @@
-# This workspace, as a doz space v3 file. Compare: examples/space/example-space.space.yaml (v2).
+# This workspace, as a doz space v3 file. Compare: spaces/example-space.space.yaml (v2).
 doz: space/3
 extends: ./my_doz_workspace_defaults.yaml                  # bypass, the team room and every agent's memory, archive, approvals
 space: example-space                                  # → doz://host-a/example-space/…

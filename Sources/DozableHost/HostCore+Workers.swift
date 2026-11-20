@@ -234,6 +234,8 @@ extension HostCore {
         var cpus: Int?
         var memoryMiB: UInt64?
         var allowTools: [String]
+        /// `bypass`: its own argv bypasses its permissions (marked); nil: as today.
+        var permissionMode: String? = nil
         /// A look with no daemon: the checks that need one, skipped ("checked again when you add").
         var notes: [String] = []
     }
@@ -306,6 +308,13 @@ extension HostCore {
             memoryMiB = v
         }
         if let c = q.cpus, !(1...64).contains(c) { throw no("cpus", HostError(.invalid, "--cpus is 1 to 64")) }
+        if let pm = q.permissionMode, !WorkerLaunch.permissionModes.contains(pm) {
+            throw no("permissionMode", HostError(.invalid, "--permissions is standard or bypass, not \(pm.prefix(40)) — not a preset Dozable holds yet"))
+        }
+        if let ns = q.newSandbox {
+            guard iso == .vm, q.sandbox == nil else { throw no("newSandbox", HostError(.invalid, "a new sandbox's name goes with --isolation vm")) }
+            if let why = Self.sandboxNameRefusal(ns) { throw no("newSandbox", HostError(.invalid, why)) }
+        }
         if iso != .vm, buildFlavor.isHelper { throw no("isolation", HostError(.notImplemented, BuildFlavor.helperLeavesOut("sessions on this Mac"))) }
         // A bot's own rules: one role in a workspace, one live workspace, reached by polling where it is fenced.
         if let b = bot {
@@ -375,7 +384,7 @@ extension HostCore {
             place = x
             session = name
         } else {
-            place = iso == .vm ? WorkerLaunch.placeName(workspace: n, name: name) : (q.session ?? WorkerLaunch.placeName(workspace: n, name: name))
+            place = iso == .vm ? (q.newSandbox ?? WorkerLaunch.placeName(workspace: n, name: name)) : (q.session ?? WorkerLaunch.placeName(workspace: n, name: name))
             if iso != .vm { try tagged(placeField) { try MacPlace.validateSessionName(place) } } else { session = name }
             if iso == .vm, let why = Self.sandboxNameRefusal(place) { throw no("name", HostError(.invalid, why)) }
             if skipLive {
@@ -404,7 +413,7 @@ extension HostCore {
         if let m = rec.manager, let mb = m.bot, await managerRunning(m) { director = mb }
         return WorkerPrepared(record: rec, entry: e, isolation: iso, bot: bot, agent: agent, place: place, session: session, shared: shared,
                               rooms: rooms, permissions: rec.defaults.network ?? "locked", director: director, cpus: q.cpus, memoryMiB: memoryMiB,
-                              allowTools: q.allowTools ?? [], notes: notes)
+                              allowTools: q.allowTools ?? [], permissionMode: q.permissionMode == "bypass" ? "bypass" : nil, notes: notes)
     }
 
     /// `worker-plan`: the add's checks and decisions with nothing written, no participant made, no keychain item read and
@@ -507,7 +516,7 @@ extension HostCore {
             made.fingerprint = secret.fingerprint
             var pl = try WorkerLaunch.plan(isolation: p.isolation, agent: p.agent, model: p.bot?.model, bot: p.bot?.name, startFile: startFile,
                                            pagePort: pagePort, fingerprint: secret.fingerprint, name: name, shared: p.shared,
-                                           allowTools: p.isolation == .fenced ? p.allowTools : [])
+                                           allowTools: p.isolation == .fenced ? p.allowTools : [], permissionMode: p.permissionMode)
             pl.secret = secret
             plan = pl
         case .unfenced:
@@ -530,7 +539,8 @@ extension HostCore {
             notes.append("unfenced: \(name) acts as you; its token is in a 0600 file named by $\(ManagerLaunch.tokenFileVariable), deleted at doz worker end")
             if let b = p.bot { notes += await pointBotInbox(n, bot: b, place: p.place) }
             plan = try WorkerLaunch.plan(isolation: .unfenced, agent: p.agent, model: p.bot?.model, bot: p.bot?.name, startFile: files.startFile,
-                                         pagePort: pagePort, fingerprint: made.fingerprint ?? "", tokenFile: files.tokenFile, name: name, shared: false)
+                                         pagePort: pagePort, fingerprint: made.fingerprint ?? "", tokenFile: files.tokenFile, name: name, shared: false,
+                                         permissionMode: p.permissionMode)
         }
         if p.shared { notes.append("\(name) shares \(p.place): workers there can read each other's placeholders") }
         // 5. Its session or sandbox.
@@ -563,7 +573,8 @@ extension HostCore {
     /// A worker's folder: the workspace's main one, else `<projects_dir>/<workspace>/<name>` (made 0700).
     func workerFolder(_ rec: WorkspaceRecord, name: String) throws -> String {
         if let f = rec.mainFolder?.path { return f }
-        let parent = Workspace.defaultPath(name: rec.name)
+        // Resolved first (`/var` and `/tmp` are links, which the folder's walk refuses).
+        let parent = WorkspaceStore.resolved(Workspace.defaultPath(name: rec.name))
         let p = parent + "/" + name
         do {
             try MacFenceHostFS.ensureDirectory(parent, mode: 0o700)

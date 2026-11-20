@@ -1,0 +1,14 @@
+$ doz space up spaces/space-test-v3-a.space.yaml --dry-run
+space up "space-test-v3-a" (dry run: nothing changes)
+  Starts 2 rooms (space-test-v3-a-room: persisted; space-test-v3-a-run: this run only). Externals: svc. Persisted: room space-test-v3-a-room (from space-test-v3-defaults.yaml:4), folder data.
+  ok     folder svc exists (external: ~/work/example-repo/test/live/cmp-test-svc)
+  run    1. folder scratch [run]
+           mkdir -p ~/'Library/Application Support/doz/spaces/space-test-v3-a/runs/{next run}/scratch/scratch'
+  run    2. folder data (persisted) [space]
+           mkdir -p ~/'Library/Application Support/doz/spaces/space-test-v3-a/folders/data'
+  run    3. room space-test-v3-a-room (persisted: one thread across runs) [space]
+           doz chat room space-test-v3-a-room
+  run    4. room space-test-v3-a-run [run]
+           doz chat room space-test-v3-a-run
+dry run done
+(exit 0)

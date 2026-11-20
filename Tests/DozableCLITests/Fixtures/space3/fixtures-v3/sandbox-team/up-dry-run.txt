@@ -1,4 +1,4 @@
-$ worker space up examples/space3/sandbox-team.space.yaml --dry-run
+$ doz space up spaces/sandbox-team.space.yaml --dry-run
 --- stdout
 space up "sandbox-team" (dry run: nothing changes)
   Starts 2 other agents (builder: sandboxed, tester: sandboxed), 1 sandbox, 1 room (sandbox-team: persisted). Externals: admin (bot: manager), repo, general. Persisted: room sandbox-team (from my_doz_workspace_defaults.yaml:10), sandbox build-vm. Transcripts: builder, tester: inside build-vm, archived first; they go with the VM, or stay with a persisted one.

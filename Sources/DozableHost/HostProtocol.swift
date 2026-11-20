@@ -331,6 +331,10 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// and what it knows (`SpacePlan`). Only reads: answered in-process when no daemon runs, `factsKnown` false. Dozable's
     /// own (an agent never sends it).
     case workspaceUpPlan = "workspace-up-plan"
+    /// `doz workspace up -f FILE`: the space acted on (`space`: the same `SpaceRequest`, with `ifPlan` — the plan's sha the
+    /// person saw — and `confirmed`, the unfenced agents confirmed on a terminal: exactly the plan's confirm set, or
+    /// refused). The daemon plans again and runs each step through its own operations (`SpaceActed`). Dozable's own.
+    case workspaceUp = "workspace-up"
     /// Your Macs (`MacBookmarks`): the other Macs' dashboards this store keeps a bookmark of — `MacListing`, read from
     /// `<store>/macs.json`. Read-only: answered in-process when no daemon runs. Adding, removing and checking are the CLI's
     /// own (`doz ui macs`, in-process): no operation writes the list.
@@ -2136,6 +2140,10 @@ public struct WorkerRequest: Codable, Equatable, Sendable {
     public var rooms: [String]?
     /// add: more tools a fenced Claude Code worker may use without asking.
     public var allowTools: [String]?
+    /// add: `standard` (nil: as today) or `bypass` — its own argv bypasses its permissions, marked wherever it shows. Additive.
+    public var permissionMode: String?
+    /// add: a new sandbox's name (vm only; default `W-NAME`) — a space file's `<space>-<sandbox>`. Additive.
+    public var newSandbox: String?
     /// end: delete its place too (its session's record, or its own sandbox).
     public var rm: Bool?
     /// ls: ended workers too.

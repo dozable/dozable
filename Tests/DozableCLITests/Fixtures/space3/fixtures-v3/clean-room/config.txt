@@ -1,6 +1,6 @@
-$ worker space config examples/space3/clean-room.space.yaml
+$ doz space config spaces/clean-room.space.yaml
 --- stdout
-# the merged space "clean-room" (worker space config): defaults, then the space file, then the override file, then profiles
+# the merged space "clean-room" (doz space config): defaults, then the space file, then the override file, then profiles
 # sources, lowest first:
 #   space    ~/work/example-repo/examples/space3/clean-room.space.yaml  sha256 c5513db65d4760ec…
 # risky settings and where they come from:

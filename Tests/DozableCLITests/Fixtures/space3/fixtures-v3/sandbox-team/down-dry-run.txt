@@ -1,4 +1,4 @@
-$ worker space down examples/space3/sandbox-team.space.yaml --dry-run
+$ doz space down spaces/sandbox-team.space.yaml --dry-run
 --- stdout
   no run is open for space "sandbox-team": nothing to take down
 down: nothing to do

@@ -1,4 +1,4 @@
-$ worker space plan examples/space3/example-space.space.yaml
+$ doz space plan spaces/example-space.space.yaml
 --- stdout
 plan for space "example-space", run {run}: 7 steps
   Starts 1 unfenced bypass agent with full access to your user (worker: unfenced + bypass, bypass from my_doz_workspace_defaults.yaml:6), 1 room (example-space: persisted). Externals: admin (bot: manager), repo. Persisted: room example-space (from my_doz_workspace_defaults.yaml:10), agent worker (from my_doz_workspace_defaults.yaml:11). Transcripts: kept for worker (persisted: the next run continues them).
@@ -21,7 +21,7 @@ plan for space "example-space", run {run}: 7 steps
  5. room example-space (persisted: one thread across runs)  [room:example-space · space]
       up:   doz chat room example-space @manager @worker
       down: keep (persisted: kept with its history; the run's members leave it as they are removed)
-      rm:   delete room example-space (doz chat room rm, where Dozable has it; otherwise mark it retired)
+      rm:   doz chat room archive example-space --loose, then doz chat room rm example-space --loose (each dry-run first; a tombstone stays; before Dozable 0.52, marked retired instead)
  6. trust the folder ~/work/example-repo  [trust:~/work/example-repo · run]
       up:   write projects["~/work/example-repo"].hasTrustDialogAccepted = true in ~/.claude.json (backup, one key, atomic)
       down: remove projects["~/work/example-repo"].hasTrustDialogAccepted from ~/.claude.json, if this run added it   # only if this run added it

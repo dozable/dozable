@@ -1,0 +1,18 @@
+run: 2026-11-20-retire
+space: space-test-v3-a
+file: ~/work/example-repo/test/live/space-test-v3-a.space.yaml
+file_sha256: cffd09067ed42373dcbb66d4dd6ac80bc3c0cbcf44764696aaaeced46718552d
+started_at: 2026-11-20T22:25:44+11:00
+profiles: []
+labels:
+  purpose: live-fixture
+externals: {}
+created:
+  folders: []
+  trust: []
+sessions: {}
+markers: {}
+notes:
+  - "room space-test-v3-a-room: archived and removed by Dozable (tombstone rm_966b3c443671c4a2; Dozable's copy: archives/_/rooms/space-test-v3-a-room-rm_966b3c443671c4a2)"
+  - "the space was retired (doz space rm): persisted things were archived and removed"
+ended_at: 2026-11-20T22:25:44+11:00

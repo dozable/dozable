@@ -1,0 +1,10 @@
+chat members named space-test-v3-a-*: []
+session records named space-test-v3-a-* on @mac: []
+room space-test-v3-a-run gone: tombstone rm_d73b2a64364a13b4, removed 2026-11-20T11:25:41.769Z, Dozable's copy archives/_/rooms/space-test-v3-a-run-rm_d73b2a64364a13b4
+room space-test-v3-a-run gone: tombstone rm_e0264e503691cf82, removed 2026-11-20T11:25:44.275Z, Dozable's copy archives/_/rooms/space-test-v3-a-run-rm_e0264e503691cf82
+room space-test-v3-a-room gone: tombstone rm_966b3c443671c4a2, removed 2026-11-20T11:25:44.747Z, Dozable's copy archives/_/rooms/space-test-v3-a-room-rm_966b3c443671c4a2
+scratch folders left: []
+persisted folders left: []
+run 2026-11-20-1: tokens/ gone; scratch/ gone; manifest matches every file
+run 2026-11-20-2: tokens/ gone; scratch/ gone; manifest matches every file
+run 2026-11-20-retire: tokens/ gone; scratch/ gone; manifest matches every file
