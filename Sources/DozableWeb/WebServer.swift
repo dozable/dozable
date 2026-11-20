@@ -1151,6 +1151,9 @@ public final class DozableWebServer: @unchecked Sendable {
             try Self.requireJSONBody(md)
             var w = try WebSpace.decodeRead(body)
             w.macSessionsHidden = WebGridsRequest.macAllowed(ctx.principal, settings.macSessions) ? nil : true
+            // An open ask's question: another computer only with serve.chat read or write; answered here only on this Mac.
+            w.askTextHidden = ctx.principal.isRemote && settings.chatServe == .off ? true : nil
+            w.asksAnsweredElsewhere = ctx.principal.isRemote ? true : nil
             return json(try await data.workspaceState(w))
         case .workspaceRunFrames:
             // `workspace-run-frames`: each frame projected as the state is (this Mac's sessions as serve.mac_sessions allows).

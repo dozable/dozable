@@ -287,4 +287,81 @@ final class SpaceStateTests: XCTestCase {
             XCTAssertEqual(SpaceStateSchemaTests.validate(v, schema), [])
         }
     }
+
+    // MARK: asks
+
+    func openAsk(_ id: String, from: String, deciders: [String] = ["ada"], options: [String] = ["Ship", "Wait"], questions: Int = 1, multi: Bool = false,
+                 noDecider: Bool = false, at: Double = 1_795_000_100) -> OpenAsk {
+        var a = OpenAsk(room: "example-space", msgId: id, from: from, at: at, title: "Ship it now?", question: "Ship the WORDS-OF-THE-ASK now?",
+                        options: options, questions: questions, multi: multi, freeText: true, deciders: deciders)
+        a.number = 3
+        a.expiresAt = "2026-11-21T09:00:00.123Z"
+        a.noDecider = noDecider ? true : nil
+        return a
+    }
+
+    /// The owner sees an open ask as an attention item: the asker's subject in the file, never its message, the question,
+    /// the one question's labels and Decline, its deciders, and `canAnswer`. Another computer sees the question only with
+    /// serve.chat (askText) and never answers; a non-decider, the asker, no decider left and several questions answer
+    /// nothing; the sha is stable; the document passes the schema.
+    func testOpenAsksAreAttentionItemsAnsweredOnlyWhereTheyMayBe() throws {
+        let i = try intent()
+        var f = runningFacts()
+        f.asks = [openAsk("bbbbbbbb-1111-4222-8333-444455556666", from: "manager"), openAsk("aaaaaaaa-1111-4222-8333-444455556666", from: "someone-else")]
+        let me = SpaceStateViewer(macSessions: true, chatName: "ada")
+        let s = build(i, f, viewer: me)
+        let asks = s.attention.filter { $0.kind == "ask" }
+        XCTAssertEqual(asks.map(\.subject), ["example-space", "manager"], "the asker's name in the file, else the space")
+        let m = try XCTUnwrap(asks.first { $0.subject == "manager" })
+        XCTAssertEqual(m.text, "manager asks a question")
+        XCTAssertEqual(m.askId, "bbbbbbbb-1111-4222-8333-444455556666")
+        XCTAssertEqual(m.room, "example-space")
+        XCTAssertEqual(m.question, "Ship the WORDS-OF-THE-ASK now?")
+        XCTAssertEqual(m.options, ["Ship", "Wait", "Decline"])
+        XCTAssertEqual(m.answerers, ["ada"])
+        XCTAssertEqual(m.canAnswer, true)
+        XCTAssertEqual(m.openedAt, "2026-11-18T11:08:20Z")
+        XCTAssertEqual(m.expiresAt, "2026-11-21T09:00:00Z")
+        let remote = build(i, f, viewer: SpaceStateViewer(macSessions: true, askText: false, answerHere: false, chatName: "ada"))
+        XCTAssertTrue(remote.attention.filter { $0.kind == "ask" }.allSatisfy { $0.question == nil && $0.canAnswer == false })
+        XCTAssertFalse(SpaceState.stringify(remote.ordered()).contains("WORDS-OF-THE-ASK"))
+        let readable = build(i, f, viewer: SpaceStateViewer(macSessions: true, askText: true, answerHere: false, chatName: "ada"))
+        XCTAssertTrue(readable.attention.filter { $0.kind == "ask" }.allSatisfy { $0.question != nil && $0.canAnswer == false }, "serve.chat read: the question, no answer")
+        for (ask, why) in [(openAsk("c", from: "manager", deciders: ["decbot"]), "not a decider"), (openAsk("c", from: "ada"), "the asker"),
+                           (openAsk("c", from: "manager", noDecider: true), "no decider left"),
+                           (openAsk("c", from: "manager", options: [], questions: 2), "several questions"),
+                           (openAsk("c", from: "manager", options: [], multi: true), "several options at once")] {
+            var g = runningFacts()
+            g.asks = [ask]
+            let x = try XCTUnwrap(build(i, g, viewer: me).attention.first { $0.kind == "ask" })
+            XCTAssertEqual(x.canAnswer, false, why)
+            if ask.questions > 1 || ask.multi { XCTAssertEqual(x.options, [], why) }
+        }
+        XCTAssertEqual(build(i, f, viewer: me, now: t0).sha, build(i, f, viewer: me, now: t0.addingTimeInterval(600)).sha, "the sha is stable")
+        var g = f
+        g.asks = Array(f.asks!.reversed())
+        XCTAssertEqual(build(i, g, viewer: me).sha, s.sha, "sorted: the order asks came in changes nothing")
+        let schema = try SpaceStateSchemaTests.schema()
+        for doc in [s, remote, readable] {
+            XCTAssertEqual(SpaceStateSchemaTests.validate(try JSONSerialization.jsonObject(with: Data(SpaceState.stringify(doc.ordered()).utf8)), schema), [])
+        }
+        // A viewer who may not see this Mac's sessions: the manager's ask goes with its subject.
+        let hidden = s.hiding(SpaceStateBuilder.macSubjects(intent: i, record: record(open: true).0))
+        XCTAssertFalse(hidden.attention.contains { $0.kind == "ask" && $0.subject == "manager" })
+    }
+
+    /// A frame's facts carry no ask's text and nothing answerable.
+    func testAFrameCarriesNoAsksQuestion() throws {
+        let i = try intent()
+        var f = runningFacts()
+        f.asks = [openAsk("bbbbbbbb-1111-4222-8333-444455556666", from: "manager")]
+        f.dropMessages()
+        let s = build(i, f, viewer: SpaceStateViewer(macSessions: true, chatName: "ada"))
+        let a = try XCTUnwrap(s.attention.first { $0.kind == "ask" })
+        XCTAssertNil(a.question)
+        XCTAssertEqual(a.canAnswer, false)
+        XCTAssertEqual(a.options, [])
+        XCTAssertFalse(SpaceState.stringify(s.ordered()).contains("WORDS-OF-THE-ASK"))
+        XCTAssertFalse(SpaceState.stringify(s.ordered()).contains("Ship it now"))
+    }
 }

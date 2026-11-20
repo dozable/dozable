@@ -11,7 +11,10 @@ import Foundation
 //   - not known is an answer (`unknown`, never healthy); `gone` is a run's thing that down removed (no drift); drift only
 //     where a thing should exist (an external always, a persisted thing once the space has run, a run's thing while a run
 //     is open);
-//   - no chat message text, ever; a program's own status message only for a viewer who may see its session, one line;
+//   - one chat text only: an open Ask's question and its option labels (attention of kind `ask`), live only — for this
+//     Mac's browser and the CLI, and for another computer only with `serve.chat` read or write; never in a frame or a run's
+//     archive (`SpaceStateFacts.dropMessages`); no other message's text, ever; a program's own status message only for a
+//     viewer who may see its session, one line;
 //   - no volatile value (no "2m ago"): the `sha` — sha256 of the document without `sha` and `observedAt`, as compact JSON
 //     in the editor's key order (`stringify` is JSON.stringify's output, byte for byte) — changes only when a fact does.
 // docs/engineering/workspaces.md ("Space files").
@@ -58,8 +61,8 @@ public struct SpaceState: Codable, Equatable, Sendable {
         }
     }
 
-    /// What waits for a person. The Ask fields (`askId` … `canAnswer`) only on kind `ask` — none is made before Asks arrive;
-    /// they are here so a document carrying one decodes.
+    /// What waits for a person. The Ask fields (`askId` … `expiresAt`) only on kind `ask`: one per open ask in the
+    /// workspace's rooms (`SpaceStateBuilder.askItems`).
     public struct Attention: Codable, Equatable, Sendable {
         public var subject: String
         /// `permission`, `trust`, `confirm`, `health`, `refusal`, `problem` or `ask`.
@@ -230,7 +233,15 @@ public struct SpaceState: Codable, Equatable, Sendable {
 /// computer", and nothing else about it.
 public struct SpaceStateViewer: Equatable, Sendable {
     public var macSessions: Bool
-    public init(macSessions: Bool) { self.macSessions = macSessions }
+    /// An open ask's question is shown (this Mac's browser and the CLI; another computer with `serve.chat` read or write).
+    public var askText: Bool
+    /// Asks may be answered where this viewer is (this Mac's browser and the CLI; never another computer, for now).
+    public var answerHere: Bool
+    /// The person's name in chat (the daemon's own directory — never a request's): who `canAnswer` is about.
+    public var chatName: String?
+    public init(macSessions: Bool, askText: Bool = true, answerHere: Bool = true, chatName: String? = nil) {
+        self.macSessions = macSessions; self.askText = askText; self.answerHere = answerHere; self.chatName = chatName
+    }
     public static let owner = SpaceStateViewer(macSessions: true)
 }
 
@@ -267,11 +278,22 @@ public struct SpaceStateFacts: Sendable {
     public var participants: Set<String>?
     /// The last up stopped at a failure (the record's log says so).
     public var upStopped: Bool = false
+    /// The open asks of the workspace's rooms (nil: not known — chat off or not ready).
+    public var asks: [OpenAsk]?
+    /// Asks' texts dropped (a frame): no question, and nothing answerable.
+    public var asksDropped = false
     public init(known: Bool, home: String, projectsDir: String) { self.known = known; self.home = home; self.projectsDir = projectsDir }
     /// The programs' own messages left out (a frame keeps states, never a program's text).
+    /// An ask's question and options too: a frame never carries a chat text, and nothing in it is answerable.
     public mutating func dropMessages() {
         for k in agents.keys { agents[k]?.status?.message = nil; agents[k]?.status?.title = nil }
         for k in sessions.keys { sessions[k]?.status?.message = nil; sessions[k]?.status?.title = nil }
+        asks = asks?.map { a in
+            var a = a
+            a.question = ""; a.title = ""; a.reason = nil
+            return a
+        }
+        asksDropped = true
     }
     public func expand(_ p: String) -> String { p == "~" ? home : p.hasPrefix("~/") ? home + String(p.dropFirst(1)) : p }
 }
@@ -436,15 +458,57 @@ public enum SpaceStateBuilder {
                                               drift: SpaceState.Drift(kind: "extra", text: "a room named like this space, not in the file")))
             }
         }
+        attention += askItems(intent: i, record: rec, facts: f, viewer: viewer)
         if f.upStopped {
             attention.append(SpaceState.Attention(subject: i.space, kind: "refusal",
                                                   text: "up stopped at a failure: the rest was not run — doz workspace up again makes only what is missing"))
         }
         doc.items = items
         doc.extras = extras.sorted { ($0.type, $0.subject) < ($1.type, $1.subject) }
-        doc.attention = attention.sorted { ($0.subject, $0.kind, $0.text) < ($1.subject, $1.kind, $1.text) }
+        doc.attention = attention.sorted { ($0.subject, $0.kind, $0.text, $0.askId ?? "") < ($1.subject, $1.kind, $1.text, $1.askId ?? "") }
         doc.seal()
         return doc
+    }
+
+    /// One attention item per open ask: its subject the asker's name in the file (the record agent whose name or bot is
+    /// the asker), else the space; the text never the message's; the question only for a viewer who may read it; the
+    /// options the one question's labels and "Decline" (none for several questions or several options at once); the
+    /// answerers its deciders; `canAnswer` only where it may be answered, by one of its deciders who did not ask it, with
+    /// one string.
+    static func askItems(intent i: SpaceIntent, record rec: WorkspaceRecord?, facts f: SpaceStateFacts, viewer: SpaceStateViewer) -> [SpaceState.Attention] {
+        guard let asks = f.asks else { return [] }
+        func subject(_ from: String) -> String {
+            for a in i.agents {
+                if a.name == from { return a.name }
+                if let e = recordAgent(a, rec), e.name == from || e.bot == from { return a.name }
+            }
+            return i.space
+        }
+        let iso = ISO8601DateFormatter()
+        func when(_ s: String?) -> String? {
+            guard let s, !s.isEmpty else { return nil }
+            for o in [ISO8601DateFormatter.Options.withInternetDateTime, [.withInternetDateTime, .withFractionalSeconds]] {
+                iso.formatOptions = o
+                if let d = iso.date(from: s) { return SpaceState.time(d) }
+            }
+            return nil
+        }
+        return asks.sorted { ($0.room, $0.at, $0.msgId) < ($1.room, $1.at, $1.msgId) }.map { a in
+            var x = SpaceState.Attention(subject: subject(a.from), kind: "ask", text: "\(a.from) asks a question")
+            x.askId = a.msgId
+            x.room = a.room
+            x.from = a.from
+            x.openedAt = SpaceState.time(Date(timeIntervalSince1970: a.at.rounded(.down)))
+            let q = a.question.isEmpty ? a.title : a.question
+            if viewer.askText, !f.asksDropped, !q.isEmpty { x.question = q }
+            let one = a.questions == 1 && !a.multi
+            x.options = one && !f.asksDropped ? a.options + ["Decline"] : []
+            x.answerers = a.deciders
+            let me = viewer.chatName ?? ""
+            x.canAnswer = viewer.answerHere && !f.asksDropped && one && a.noDecider != true && !me.isEmpty && a.deciders.contains(me) && a.from != me
+            x.expiresAt = when(a.expiresAt)
+            return x
+        }
     }
 
     /// Whether an agent of the file runs as a session on this Mac (its record's place; with none, an external session or an

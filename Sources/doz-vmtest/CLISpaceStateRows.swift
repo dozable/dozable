@@ -6,12 +6,14 @@ import DozableHost
 // `make test-cli-workspace`, a space's state, its file and its frames (after the space-file rows, in the same scratch store;
 // chat on with the human ada). The real doz, a scratch fence home, and a FAKE claude first on the sessions' PATH: it says it
 // is up in its room, reports `working` (OSC 7501), and once a `block` file appears in its agent folder reports a permission
-// prompt with a message. Never the real claude.
+// prompt with a message (and `working` again once an `unblock` file appears). Never the real claude.
 //
 //  F1. up; doz workspace state --json: the facts known, one item per thing the file declares, a sha; the worker working
 //  F2. the frames of the open run: written while it runs (doz workspace runs --frames)
 //  F3. a permission prompt: the agent waiting, attention `permission` (the program's message for this Mac's owner); no frame
 //      holds the message
+//  D14. an open ask in the space's room: workspace state --json has its item with the question and canAnswer; a frame
+//      written after it has neither (test-cli-chat's D rows, here where a space runs)
 //  F4. show --space --json: the file's text and sha256; edit --space-file with a stale --if-match: exit 3, nothing written;
 //      with the current one: written, never applied (the record's plan unchanged), logged as space-saved
 //  F5. down: the final frame, the archive holds frames/ and verifies, the run's folder of frames gone
@@ -46,6 +48,8 @@ func cliSpaceStateRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     printf '\033]7501;state=working:app=fake\033\\'
     while [ ! -e "$CLAUDE_CONFIG_DIR/block" ]; do sleep 0.3; done
     printf '\033]7501;state=blocked:kind=permission:app=fake:msg=%s\033\\' "$(printf 'Allow FAKE-SECRET-WORDS?' | base64)"
+    while [ ! -e "$CLAUDE_CONFIG_DIR/unblock" ]; do sleep 0.3; done
+    printf '\033]7501;state=working:app=fake\033\\'
     exec sleep 600
 
     """#
@@ -116,6 +120,42 @@ func cliSpaceStateRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     check(h.waitFor(20) { (h.json(["workspace", "runs", "sf", "--frames", runID], SpaceRunDetail.self)?.frames.count ?? 0) > before },
           "F3 …a new frame for it, moved by the event")
     check(!allText(framesFolder).contains("FAKE-SECRET-WORDS"), "F3 …no frame holds the program's message")
+
+    // D14. an open ask: the live state carries its question and canAnswer; a frame neither
+    let tokenFile = root.appendingPathComponent("d14bot.token").path
+    h.run(["chat", "add", "d14bot", "--to-file", tokenFile], timeout: 60)
+    h.run(["chat", "send", "sf", "/invite @d14bot"], timeout: 60)
+    let st = (try? JSONSerialization.jsonObject(with: h.run(["chat", "status", "--json"]).outData)) as? [String: Any]
+    let page = (st?["pagePort"] as? Int) ?? 0
+    let ask = Process()
+    ask.executableURL = URL(fileURLWithPath: dozchat)
+    ask.arguments = ["ask", "sf", "Ship the space today?", "--option", "yes=Yes"]
+    ask.environment = ["PATH": "/usr/bin:/bin", "HOME": home.path, "CHAT_URL": "http://127.0.0.1:\(page)", "CHAT_TOKEN_FILE": tokenFile]
+    let askOut = Pipe()
+    ask.standardOutput = askOut
+    ask.standardError = FileHandle.nullDevice
+    try? ask.run()
+    let askID = ((try? JSONSerialization.jsonObject(with: askOut.fileHandleForReading.readDataToEndOfFile())) as? [String: Any])?["msg_id"] as? String ?? "?"
+    ask.waitUntilExit()
+    check(h.waitFor(20) { state()?.attention.contains { $0.kind == "ask" && $0.askId == askID } == true }, "D14 workspace state --json has the ask's item (\(ask.terminationStatus))")
+    let item = state()?.attention.first { $0.kind == "ask" && $0.askId == askID }
+    check(item?.question == "Ship the space today?" && item?.canAnswer == true && item?.options == ["Yes", "Decline"] && item?.answerers == ["ada"]
+          && item?.text == "d14bot asks a question", "D14 …with its question, options and canAnswer for you (\(item.map { "\($0.question ?? "-") \($0.canAnswer ?? false)" } ?? "none"))")
+    let framesBefore = h.json(["workspace", "runs", "sf", "--frames", runID], SpaceRunDetail.self)?.frames.count ?? 0
+    if let d = agentDir("sf-w1") { fm.createFile(atPath: d + "/unblock", contents: Data()) }
+    check(h.waitFor(30) { (h.json(["workspace", "runs", "sf", "--frames", runID], SpaceRunDetail.self)?.frames.count ?? 0) > framesBefore },
+          "D14 …a new frame after it (moved by the program's status)")
+    let framed = allText(framesFolder)
+    check(framed.contains(askID) && !framed.contains("Ship the space today") && !framed.contains("\"canAnswer\":true"),
+          "D14 …the frame has the ask's item, never its question nor anything answerable")
+    let wd = Process()
+    wd.executableURL = URL(fileURLWithPath: dozchat)
+    wd.arguments = ["withdraw", "sf", askID]
+    wd.environment = ask.environment
+    wd.standardOutput = FileHandle.nullDevice
+    wd.standardError = FileHandle.nullDevice
+    try? wd.run()
+    wd.waitUntilExit()
 
     // F4. the file through the daemon's operations
     let shown = h.run(["workspace", "show", "sf", "--space", "--json"])

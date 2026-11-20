@@ -57,6 +57,12 @@ final class WorkspaceLifecycleHostTests: BotTestCase {
         }
         func lastSeq(room: String) throws -> Int64 { lock.withLock { seqs[room] ?? 0 } }
         func archivedRooms() throws -> Set<String> { lock.withLock { archived } }
+        /// The open asks the owner's socket answers (`GET /api/asks?state=open`): `[{room, message}]`.
+        var openAsks: [JValue] = []
+        func ownerCall(_ method: String, _ target: String, body: JValue?, headers: [(String, String)]) throws -> (Int, JValue) {
+            guard method == "GET", target == "/api/asks?state=open" else { return (404, .map(["error": .string("not in this fake")])) }
+            return (200, .array(lock.withLock { openAsks }))
+        }
         func setClosed(_ rooms: [String: String]) async throws -> [String: Int64]? {
             lock.withLock {
                 closedSets.append(rooms)

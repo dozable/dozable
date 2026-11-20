@@ -1845,6 +1845,10 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     /// state: the reader may not see the sessions on this Mac (another computer while `serve.mac_sessions` is off) — set by
     /// the dashboard's server, never by a browser. Additive.
     public var macSessionsHidden: Bool?
+    /// state: an open ask's question is not shown to the reader (another computer while `serve.chat` is off), and asks are
+    /// not answered where it is (another computer) — both set by the dashboard's server, never by a browser. Additive.
+    public var askTextHidden: Bool?
+    public var asksAnsweredElsewhere: Bool?
     /// space-save: the space file's new text (at most 256 KiB), and the sha256 of the file as the editor read it. Additive.
     public var text: String?
     public var ifMatch: String?

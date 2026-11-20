@@ -118,6 +118,25 @@ final class SpaceStateSchemaTests: XCTestCase {
         }
     }
 
+    /// An ask's attention item as the builder writes it passes the schema; one without what kind `ask` requires does not.
+    func testAnAskItemPassesTheSchemaAndAMissingFieldDoesNot() throws {
+        let schema = try Self.schema()
+        var d = try XCTUnwrap(try JSONSerialization.jsonObject(with: try SpaceStateTests.fixture("running")) as? [String: Any])
+        let item: [String: Any] = ["subject": "manager", "kind": "ask", "text": "manager asks a question", "askId": "bbbbbbbb-1111-4222-8333-444455556666",
+                                   "room": "example-space", "from": "manager", "openedAt": "2026-11-18T11:08:20Z", "question": "Ship it now?",
+                                   "options": ["Ship", "Wait", "Decline"], "answerers": ["ada"], "canAnswer": true, "expiresAt": "2026-11-21T09:00:00Z"]
+        d["attention"] = [item]
+        XCTAssertEqual(Self.validate(d, schema), [])
+        var hidden = item
+        hidden["question"] = nil
+        d["attention"] = [hidden]
+        XCTAssertEqual(Self.validate(d, schema), [], "the question is absent when hidden")
+        var bad = item
+        bad["canAnswer"] = nil
+        d["attention"] = [bad]
+        XCTAssertFalse(Self.validate(d, schema).isEmpty, "kind ask requires canAnswer")
+    }
+
     func testWhatTheSchemaRefusesIsRefused() throws {
         let schema = try Self.schema()
         func doc(_ change: (inout [String: Any]) -> Void) throws -> [String: Any] {
