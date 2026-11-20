@@ -995,6 +995,8 @@ public final class DozableWebServer: @unchecked Sendable {
             if request.action.isLifecycle, let r = WebExposure.decideLifecycleAction(ctx.principal) { throw r }
             // A room archived or removed, a run's archive written again: this Mac's own browser only, whatever the settings.
             if request.action.isRoomLifecycle, let r = WebExposure.decideRoomAction(ctx.principal) { throw r }
+            // An ask answered: this Mac's own browser only, whatever serve.chat says (a decision made as you).
+            if request.action.isAsk, let r = WebExposure.decideAskAction(ctx.principal) { throw r }
             // A space file saved: this Mac's own browser only, whatever the serve settings (it decides what the next up starts).
             if request.action.isSpace, let r = WebExposure.decideSpaceAction(ctx.principal) { throw r }
             // A fenced session's site allowed: this Mac's own browser only, whatever the serve settings (its network is what

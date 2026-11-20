@@ -7,7 +7,7 @@ import { endEdit } from '../components/chat-edit-2c6b193b376f4ebb.js';
 import { showDown } from '../components/chat-log-8750dcbffc279417.js';
 import { showPreviews, showUnread } from '../components/chat-unread-98632d7b3a1f7178.js';
 import { $, h } from '../dom/h-f853cc7eb6672c45.js';
-import { fill } from './chat-messages-dfb983938b7f0c9e.js';
+import { fill } from './chat-messages-1c5501e11eb036d5.js';
 import { people } from './chat-people-f4cc36e9051d0ca4.js';
 
 /// The rooms the chat server shows the person: those they are in.

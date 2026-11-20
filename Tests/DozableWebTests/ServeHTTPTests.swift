@@ -850,6 +850,34 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(fake.performedOps, [.netPolicy])
     }
 
+    /// Answering an ask is this Mac's own browser only, whatever serve.chat says (off, read, write): 403 `mac-only` with its
+    /// words, one audit line, nothing sent to the daemon — and the answer's words in no audit line. This Mac's browser
+    /// sends exactly `chat-decide`.
+    func testAnAskIsAnsweredOnlyInThisMacsBrowserWhateverTheServeSettings() async throws {
+        try await start(macSessions: "interactive", chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        let body = ##"{"action":"chat-decide","room":"demo","ask":"#3","reply":"after lunch","actionId":"0b7e2c4a-1111-4222-8333-444455556666"}"##
+        for chat in ["write", "read", "off"] {
+            try "[serve]\nmac_sessions = \"interactive\"\nchat = \"\(chat)\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+            let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", body, remote: true)
+            XCTAssertEqual(r.status, 403, r.text)
+            XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+            XCTAssertTrue(r.text.contains("doz chat decide"), r.text)
+            XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon (\(chat))")
+        }
+        let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+        XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "mac-only" && $0.route == "actions" }, "audited")
+        let raw = (try? String(contentsOf: dir.appendingPathComponent("serve/audit.jsonl"), encoding: .utf8)) ?? ""
+        XCTAssertFalse(raw.contains("lunch"), "the answer's words in no audit line")
+        let (macCookie, macCSRF) = try macSignIn()
+        let r = try macJSON(macCookie, macCSRF, "/api/v1/actions", body, remote: false)
+        XCTAssertEqual(r.status, 202, r.text)
+        XCTAssertFalse(r.text.contains("lunch"), "the operation's label carries no answer")
+        let deadline = Date().addingTimeInterval(5)
+        while fake.performedOps.isEmpty && Date() < deadline { usleep(10_000) }
+        XCTAssertEqual(fake.performedOps, [.chatDecide])
+    }
+
     /// Removing ended sessions on this Mac is this Mac's own browser only, whatever serve.mac_sessions says (off, watch,
     /// interactive): 403 `mac-only` with its words, one audit line, nothing sent to the daemon. And the gap is closed: a remote
     /// `mac-session-end` (interactive) reaches the daemon only as an end of a RUNNING session — never a forget.

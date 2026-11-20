@@ -80,7 +80,8 @@ public enum ChatAskReply {
         if let o = q.options.first(where: { $0.label.caseInsensitiveCompare(words) == .orderedSame }) { return pick(o, "") }
         if first.lowercased() == "decline" { return decline() }
         if q.freeText || q.options.isEmpty { return .success(ChatDecideInput(answers: [ChatAnswerIn(questionID: q.id, text: words)])) }
-        return .failure(.init(.badAnswer, "\u{201C}\(ChatAskForm.clipLine(words, 60))\u{201D} is not one of this ask's options: \(optionList(q)), or decline."))
+        // The words are never repeated back: a refusal's text is kept (an operation's line in the dashboard).
+        return .failure(.init(.badAnswer, "That is not one of this ask's options: \(optionList(q)), or decline."))
     }
 
     /// "A. Yes, B. No".

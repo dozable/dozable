@@ -191,7 +191,7 @@ final class ChatAskHostTests: XCTestCase {
         XCTAssertEqual(v12, "Only the one who asked it can withdraw it.")
         // a bad answer: the options listed, nothing sent
         let v13 = refused(await decide(c, "#6", reply: "maybe"))
-        XCTAssertEqual(v13, "\u{201C}maybe\u{201D} is not one of this ask's options: A. Now, B. Next, or decline.")
+        XCTAssertEqual(v13, "That is not one of this ask's options: A. Now, B. Next, or decline.")
         // no such ask
         let none = await decide(c, "#99", reply: "A")
         XCTAssertEqual(none.error?.code, .notFound)

@@ -630,6 +630,12 @@ final class WebOperations: @unchecked Sendable {
             return "saved the space file of \(w)" + (saved.map { " (\($0.shownPath))" } ?? "") + " — not applied: up applies it"
         case .workspaceRunArchive(let w, let run):
             return "run \(run) of \(w): its archive written"
+        case .chatDecide(let room, let ask, _, _):
+            // Who decided and the ask's name — never the answer (it is not kept in the operations' ring or the log).
+            let o = try? v.decode(ChatAskOutcome.self)
+            let name = o?.ask ?? ask
+            if o?.state == "duplicate" { return "\(name) in \(room): answered already by this request" }
+            return "answered \(name) in \(room)"
         case .macNetPolicy(let session, let grant):
             return "allowed \(grant.map { String($0.dropFirst(5)) }.joined(separator: ", ")) for session \(session) on this Mac — from its next connection"
         case .macSessionBridges(let session, _, _, _):

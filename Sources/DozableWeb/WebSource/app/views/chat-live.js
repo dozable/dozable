@@ -4,6 +4,7 @@
 // missing and nothing reloads.
 import { state } from '../core/state.js';
 import { viewer } from '../core/chat-api.js';
+import { askChanged } from '../core/asks.js';
 import { setSeen } from '../core/chat-storage.js';
 import { openChatStream } from '../core/chat-stream.js';
 import { reacts } from '../components/chat-reactions.js';
@@ -32,6 +33,17 @@ function event(e) {
   if (e.kind === 'presence') { if (Array.isArray(e.presence)) { c.presence = e.presence; changes(c.presence); people(); } return; }
   const m = e.message;
   if (e.kind === 'message' && m && !m.kind && c.srv.rooms[e.room]) setPreview(e.room, m);
+  // An ask's preview is what it asks, never its lettered text.
+  if (e.kind === 'message' && m && m.kind === 'ask' && c.srv.rooms[e.room]) {
+    setPreview(e.room, { ...m, content: 'asks: ' + String((m.ask && m.ask.question) || '').split('\n')[0] });
+  }
+  // An ask changed (decided, expired, withdrawn, no decider left): here its card is drawn again, keeping what the person
+  // chose; elsewhere the counts are read again.
+  if (e.kind === 'ask' && m) {
+    if (e.room === c.room) add(m, true); else if (c.srv.rooms[e.room]) loadUnread();
+    askChanged(m);
+    return;
+  }
   if ((e.kind === 'edited' || e.kind === 'deleted') && m && c.srv.rooms[e.room]) {
     const p = c.previews[e.room];
     if (e.kind === 'edited' && p && p.msg_id === m.msg_id) setPreview(e.room, m);
@@ -62,6 +74,7 @@ function event(e) {
   if (e.kind === 'message' && m) {
     if (m.kind === 'change' && MEMBERCHANGE.test(' ' + m.content + ' ')) refreshState();
     add(m);
+    if (m.kind === 'ask') askChanged(m);
     c.lastSeq = Math.max(c.lastSeq, +m.seq || 0);
     if (c.active) setSeen(c.room, c.lastSeq);
   }

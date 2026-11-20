@@ -86,7 +86,7 @@
 // SHOTS=DIR (optional, under /tmp) keeps pictures of a workspace's page (light, dark, 390 px) for a person to look at.
 // Run from the repository's root (make does).
 import { spawn, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -1410,6 +1410,111 @@ async function walkRooms() {
   await leakSweep('the rooms');
 }
 
+// ── asks in chat: the decision card (chat on) ────────────────────────────────────────────────────────────────────────
+/// A bot's ask with dozchat (beside doz) and its own token from its file: the answer's msg_id.
+function botAsk(bot, args) {
+  const r = spawnSync(dirname(DOZ) + '/dozchat-mac', ['ask', 'askw', ...args], { encoding: 'utf8', timeout: 60_000,
+    env: { PATH: '/usr/bin:/bin', HOME: S, CHAT_URL: 'http://127.0.0.1:' + chatPagePort, CHAT_TOKEN_FILE: S + '/' + bot + '.token' } });
+  try { return JSON.parse(r.stdout).msg_id || ''; } catch (_) { return ''; }
+}
+const askNumber = (id) => (((dozJSON(['chat', 'asks', 'askw']) || {}).asks || []).find((a) => a.msgId === id) || {}).number || 0;
+const CARD = (id) => `document.querySelector('[data-ask="${id}"]')`;
+async function walkAsks() {
+  const errorsBefore = pageErrors.length;
+  for (const b of ['askerbot', 'decbot']) {
+    doz(['chat', 'add', b, '--to-file', S + '/' + b + '.token']);
+    knownTokens.push(readFileSync(S + '/' + b + '.token', 'utf8').trim());
+  }
+  doz(['chat', 'set', 'decbot', '--role', 'decider']);
+  doz(['workspace', 'new', 'askw', '--prompt-file', '-'], 'Answer the bots.\n');
+  doz(['workspace', 'start', 'askw']);
+  for (const b of ['askerbot', 'decbot']) doz(['chat', 'send', 'askw', '/invite @' + b]);
+  // The page reads the workspaces again on a reload — the CLI's changes are no event of their own.
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/w/askw');
+  await waitFor(`state.view === 'workspace' && state.chat.room === 'askw' && state.chat.live === 'live'`, 20000);
+  // 1. A bot's ask of two questions is a card.
+  writeFileSync(S + '/ask-qs.json', JSON.stringify([
+    { id: 'build', header: 'Build', question: 'Which build goes out?', options: [{ id: 'web', label: 'Web' }, { id: 'desktop', label: 'Desktop' }] },
+    { id: 'when', question: 'When?', options: [{ id: 'today', label: 'Today' }, { id: 'monday', label: 'Monday' }] }]));
+  const a1 = botAsk('askerbot', ['Release today', '--questions', S + '/ask-qs.json', '--reason', 'the tests pass']);
+  const drawn = await waitFor(`!!${CARD(a1)}`, 15000);
+  const card = await evaluate(`(() => { const c = ${CARD(a1)}; if (!c) return null; return { title: c.querySelector('.chat-ask-title')?.textContent, reason: c.querySelector('.chat-ask-reason')?.textContent,
+    qs: c.querySelectorAll('fieldset.chat-ask-q').length, letters: [...c.querySelectorAll('.chat-ask-letter')].map((e) => e.textContent).join(''),
+    other: /Something else/.test(c.textContent), decline: !!c.querySelector('.chat-ask-decline-btn'), state: c.querySelector('.chat-ask-state')?.textContent }; })()`);
+  check(drawn && card && card.title === 'Release today' && /the tests pass/.test(card.reason) && card.qs === 2 && card.letters.startsWith('AB')
+    && card.other && card.decline && /^open · expires in/.test(card.state), 'ask 1 a bot\'s ask is a card: title, reason, two questions, lettered options, Something else, Decline, open · expires in'
+    + (card ? ` (${JSON.stringify(card)})` : ` — not drawn: ${JSON.stringify(await evaluate(`({ view: state.view, room: state.chat.room, live: state.chat.live,
+      last: [...state.chat.byId.values()].slice(-3).map((m) => [m.kind || '', !!m.ask, String(m.msg_id).slice(0, 8)]), id: ${JSON.stringify(a1)} })`))}; ${pageErrors.slice(-2).join(' | ')}`));
+  if (!drawn) return;
+  // 2. Answered by keyboard only: focus on its first option, B, Tab, A, then ⌘Enter.
+  await evaluate(`${CARD(a1)}.querySelector('input.chat-ask-input').focus()`);
+  await key('b', 'KeyB', 66);
+  await key('Tab', 'Tab', 9);
+  await key('a', 'KeyA', 65);
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 4 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 4 });
+  const decided = await waitFor(`/decided by you/.test(${CARD(a1)}?.querySelector('.chat-ask-state')?.textContent || '')`, 20000);
+  const left = (dozJSON(['chat', 'asks', 'askw']) || { asks: [1] }).asks;
+  check(decided && left.length === 0 && /B\. Desktop/.test(await evaluate(`${CARD(a1)}.textContent`)),
+    'ask 2 answered by keyboard only (B, Tab, A, ⌘Enter): "decided by you", B. Desktop shown, doz chat asks --json empty');
+  // 3. Answered by the CLI meanwhile: a second action from the page is refused in Dozable's words, and the op says so.
+  const a3 = botAsk('askerbot', ['Ship it?', '--option', 'yes=Yes', '--option', 'no=No']);
+  await waitFor(`!!${CARD(a3)}`, 15000);
+  const n3 = askNumber(a3);
+  doz(['chat', 'decide', 'askw', '#' + n3, 'A']);
+  const crafted = await craft({ action: 'chat-decide', room: 'askw', ask: '#' + n3, reply: 'B', actionId: randomUUID() });
+  let opId = '';
+  try { opId = JSON.parse(crafted.body).id; } catch (_) { /* no op */ }
+  const ended = await waitFor(`(state.ops.get(${JSON.stringify(opId)}) || {}).state === 'failed'`, 20000);
+  const opText = await evaluate(`(state.ops.get(${JSON.stringify(opId)}) || {}).text || ''`);
+  check(crafted.status === 202 && ended && opText === 'It was already answered: decided by Ada.' && await waitFor(`/decided by you/.test(${CARD(a3)}?.textContent || '')`, 10000),
+    `ask 3 a card the CLI answered: the crafted second action ends "${opText}", the card reads decided`);
+  // 5. Read-only: an ask only decbot decides shows no control and its line. 4. Live: it came without a reload; a withdraw
+  // turns it withdrawn.
+  const r4 = doz(['chat', 'ask', 'askw', 'Lunch at noon?', '--option', 'yes=Yes', '--decider', 'decbot', '--json']);
+  let a4 = '';
+  try { a4 = JSON.parse(r4.stdout).msgId; } catch (_) { /* refused */ }
+  check(await waitFor(`!!${CARD(a4)}`, 15000), 'ask 4 a CLI-posted ask appears live, with no reload');
+  check(await evaluate(`${CARD(a4)}.querySelectorAll('input, textarea, button').length === 0 && /You asked this/.test(${CARD(a4)}.querySelector('.chat-ask-state').textContent)`),
+    'ask 5 read-only: your own ask shows no control and "You asked this"');
+  const a5 = botAsk('askerbot', ['Read the shared folder?', '--option', 'yes=Allow', '--decider', 'decbot']);
+  check(await waitFor(`!!${CARD(a5)}`, 15000) && await evaluate(`${CARD(a5)}.querySelectorAll('input, textarea, button').length === 0
+    && /Only Decbot can answer/.test(${CARD(a5)}.querySelector('.chat-ask-state').textContent)`), 'ask 5 read-only: an ask only decbot decides shows no control and "Only Decbot can answer"');
+  spawnSync(dirname(DOZ) + '/dozchat-mac', ['withdraw', 'askw', a5], { encoding: 'utf8', timeout: 60_000,
+    env: { PATH: '/usr/bin:/bin', HOME: S, CHAT_URL: 'http://127.0.0.1:' + chatPagePort, CHAT_TOKEN_FILE: S + '/askerbot.token' } });
+  doz(['chat', 'withdraw', 'askw', '#' + askNumber(a4)]);
+  check(await waitFor(`/withdrawn/.test(${CARD(a4)}?.querySelector('.chat-ask-state')?.textContent || '')`, 15000), 'ask 4 …withdrawn from the CLI, the card turns "withdrawn" live');
+  // 6. The diagram's path: the hashed core/asks module, answerFromDiagram(id, 'Yes') → ok; again → refused.
+  const a6 = botAsk('askerbot', ['Deploy now?', '--option', 'yes=Yes', '--option', 'no=No']);
+  await waitFor(`!!${CARD(a6)}`, 15000);
+  const diag = await evaluate(`(async () => { const u = performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\\/assets\\/app\\/core\\/asks-[0-9a-f]+\\.js$/.test(n));
+    if (!u) return { none: true }; const m = await import(u); m.rememberAttention([{ kind: 'ask', askId: ${JSON.stringify(a6)}, room: 'askw' }]);
+    const one = await m.answerFromDiagram(${JSON.stringify(a6)}, 'Yes'); const two = await m.answerFromDiagram(${JSON.stringify(a6)}, 'Yes');
+    const gone = await m.answerFromDiagram('0b7e2c4a-1111-4222-8333-444455556666', 'Yes'); return { one, two, gone }; })()`);
+  check(diag && diag.one && diag.one.ok === true && diag.two && /^It was already answered/.test(diag.two.refused || '') && /not shown here any more/.test(diag.gone?.refused || ''),
+    'ask 6 the diagram\'s path: answerFromDiagram(id, "Yes") → {ok: true}; again → refused "It was already answered…"' + ` (${JSON.stringify(diag)})`);
+  // 7. At 390 px: no sideways scroll, rows of at least 44 px; an answer in words, then the leak sweep for it.
+  const a7 = botAsk('askerbot', ['Anything else?', '--option', 'no=No']);
+  await waitFor(`!!${CARD(a7)}`, 15000);
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(400);
+  const phone = await evaluate(`(() => { const c = ${CARD(a7)}; c.scrollIntoView(); const rows = [...c.querySelectorAll('.chat-ask-opt')].map((e) => e.getBoundingClientRect().height);
+    return { scroll: document.scrollingElement.scrollWidth, log: document.querySelector('#chat-log').scrollWidth - document.querySelector('#chat-log').clientWidth, rows }; })()`);
+  check(phone.scroll <= 390 && phone.log <= 0 && phone.rows.length > 0 && phone.rows.every((h) => h >= 44), `ask 7 at 390 px: no sideways scroll, option rows ≥ 44 px (${JSON.stringify(phone)})`);
+  const words = 'FAKE-ASK-ANSWER-' + process.pid + '-7d1e';
+  await evaluate(`(() => { const c = ${CARD(a7)}; const o = [...c.querySelectorAll('.chat-ask-opt')].find((l) => /Something else/.test(l.textContent)).querySelector('input'); o.click(); })()`);
+  await setField(`[data-ask="${a7}"] textarea.chat-ask-text`, words);
+  await evaluate(`${CARD(a7)}.querySelector('.chat-ask-answer').click()`);
+  await waitFor(`/decided by you/.test(${CARD(a7)}?.textContent || '')`, 20000);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  const said = ['ui.operations.json', 'ui.log'].map((f) => (existsSync(STORE + '/' + f) ? readFileSync(STORE + '/' + f, 'utf8') : '')).join('\n') + uiOut + consoleLines.join('\n');
+  check(await evaluate(`${CARD(a7)}.textContent.includes(${JSON.stringify(words)})`) && !said.includes(words), 'ask 7 the answer in words is shown in the card, and in no operation, ui.log or console line');
+  check(pageErrors.length === errorsBefore, 'asks: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  await leakSweep('the asks');
+}
+
 // ── a workspace's wide views: Network & secrets, Folders & points, Activity and an agent's Can do ────────────────────
 /// `wide`: a fenced session (widef) with a launch secret whose value is a SENTINEL and two more (widef2, widef3), each having been
 /// refused one site; an unfenced session (wideu); the never-booted sandbox gamma. All harmless programs, no VM.
@@ -1620,6 +1725,7 @@ try {
   await walkAddWorker();
   await walkLifecycle();
   await walkRooms();
+  await walkAsks();
   await walkWideViews();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.

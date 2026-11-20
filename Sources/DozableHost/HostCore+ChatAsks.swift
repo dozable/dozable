@@ -93,7 +93,7 @@ extension HostCore {
     }
 
     /// A lower-case v4 UUID, or a new one.
-    static func actionID(_ s: String?) throws -> String {
+    public static func actionID(_ s: String?) throws -> String {
         guard let s else { return UUID().uuidString.lowercased() }
         let u = Array(s.utf8)
         let hex: (UInt8) -> Bool = { (0x30...0x39).contains($0) || (0x61...0x66).contains($0) }

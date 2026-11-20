@@ -100,6 +100,8 @@ final class WebActionTests: XCTestCase {
         "chat-room-archive": #"{"action":"chat-room-archive","room":"launch-video","ifPlan":"0123456789abcdef"}"#,
         "chat-room-rm": #"{"action":"chat-room-rm","room":"launch-video","ifPlan":"0123456789abcdef","confirm":"launch-video"}"#,
         "workspace-run-archive": #"{"action":"workspace-run-archive","workspace":"launch-video","run":"2026-11-20-1"}"#,
+        // An ask answered from its card — exactly `doz chat decide`, this Mac's own browser only.
+        "chat-decide": ##"{"action":"chat-decide","room":"launch-video","ask":"#4","reply":"B","actionId":"0b7e2c4a-1111-4222-8333-444455556666"}"##,
         "workspace-space-save": #"{"action":"workspace-space-save","workspace":"launch-video","text":"doz: space/3\nspace: launch-video\n","ifMatch":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}"#,
         // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
         "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
@@ -194,6 +196,8 @@ final class WebActionTests: XCTestCase {
         // archive | restore | delete`, each with the plan's sha the page showed.
         .workspaceStop, .workspaceSleep, .workspaceWake, .workspaceFinish, .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete,
         .chatRoomArchive, .chatRoomRm, .workspaceRunArchive,
+        // An ask answered from its card, this Mac's own browser only — exactly `doz chat decide R ASK …`.
+        .chatDecide,
         // A space workspace's file saved from its space view, this Mac's own browser only — exactly `doz workspace edit W
         // --space-file F --if-match SHA`.
         .workspaceSpaceSave,
@@ -430,6 +434,52 @@ final class WebActionTests: XCTestCase {
         }
         XCTAssertEqual(WebExposure.decideRoomAction(.remote(secure: true)), .macOnlyRooms)
         XCTAssertNil(WebExposure.decideRoomAction(.mac))
+    }
+
+    /// The decision card's action: exactly `chat-decide` with what `doz chat decide` sends — one of answers, decline (+ its
+    /// reason) or a reply, an action id that makes it once — strictly decoded; this Mac's own browser only; its label and
+    /// key name the ask and the room, never the answer.
+    func testTheAskDecision() throws {
+        let a = try decode(Self.samples["chat-decide"]!)
+        XCTAssertEqual(a.hostOp, .chatDecide)
+        XCTAssertTrue(a.isAsk)
+        XCTAssertEqual(a.hostRequest.chatAsk?.room, "launch-video")
+        XCTAssertEqual(a.hostRequest.chatAsk?.ask, "#4")
+        XCTAssertEqual(a.hostRequest.chatAsk?.reply, "B")
+        XCTAssertEqual(a.hostRequest.chatAsk?.actionID, "0b7e2c4a-1111-4222-8333-444455556666")
+        XCTAssertEqual(a.label, "answer ask #4 in launch-video")
+        let words = try decode(##"{"action":"chat-decide","room":"r","ask":"#4","reply":"after lunch, then\nship","actionId":"0b7e2c4a-1111-4222-8333-444455556666"}"##)
+        XCTAssertFalse(words.label.contains("lunch") || words.dedupeKey.contains("lunch"), "the answer is never in the label or the key")
+        let ans = try decode(##"{"action":"chat-decide","room":"r","ask":"4f1a","answers":[{"questionId":"q1","options":["web"]},{"questionId":"q2","text":"today"},{"questionId":"q3","skipped":true}],"actionId":"0b7e2c4a-1111-4222-8333-444455556666"}"##)
+        XCTAssertEqual(ans.hostRequest.chatAsk?.answers, [ChatAskAnswerItem(questionId: "q1", options: ["web"]), ChatAskAnswerItem(questionId: "q2", text: "today"),
+                                                         ChatAskAnswerItem(questionId: "q3", skipped: true)])
+        let dec = try decode(##"{"action":"chat-decide","room":"r","ask":"#4","decline":true,"text":"not now","actionId":"0b7e2c4a-1111-4222-8333-444455556666"}"##)
+        XCTAssertEqual(dec.hostRequest.chatAsk?.decline, true)
+        XCTAssertEqual(dec.hostRequest.chatAsk?.text, "not now")
+        let id = #""actionId":"0b7e2c4a-1111-4222-8333-444455556666""#
+        for bad in [##"{"action":"chat-decide","room":"r","ask":"#4","reply":"B"}"##,                                         // no action id
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"B","actionId":"0B7E2C4A-1111-4222-8333-444455556666"}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4",\##(id)}"##,                                                  // no answer
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"B","decline":true,\##(id)}"##,                     // two
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"B","text":"x",\##(id)}"##,                         // text with a reply
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","decline":false,\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"R","ask":"#4","reply":"B",\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"../x","reply":"B",\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#0","reply":"B",\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"",\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"\u0007",\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","answers":[],\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","answers":[{"questionId":"q1","extra":1}],\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","answers":[{"questionId":"q1","options":["A B"]}],\##(id)}"##,
+                    ##"{"action":"chat-decide","room":"r","ask":"#4","reply":"B","as":"x",\##(id)}"##] {
+            invalid(bad)
+        }
+        invalid(##"{"action":"chat-decide","room":"r","ask":"#4","reply":"\##(String(repeating: "x", count: 4097))",\##(id)}"##, "a reply is at most 4 KiB")
+        let six = (1...6).map { #"{"questionId":"q\#($0)","text":"x"}"# }.joined(separator: ",")
+        invalid(##"{"action":"chat-decide","room":"r","ask":"#4","answers":[\##(six)],\##(id)}"##, "at most 5 answers")
+        XCTAssertEqual(WebExposure.decideAskAction(.remote(secure: true)), .macOnlyAsks)
+        XCTAssertEqual(WebRejection.macOnlyAsks.code, "mac-only")
+        XCTAssertNil(WebExposure.decideAskAction(.mac))
     }
 
     /// Every web action is the owner's: none carries `actAs`, so each is `.owner` at the daemon's gate — the owner is never

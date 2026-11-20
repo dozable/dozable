@@ -40,7 +40,7 @@ final class ChatAskReplyTests: XCTestCase {
         let a = ask(#"{"questions": [{"options": [{"id": "yes", "label": "Yes"}, {"id": "no", "label": "No"}], "free_text": false}]}"#)
         guard case .failure(let r) = ChatAskReply.resolve(a, words: "perhaps") else { return XCTFail("taken") }
         XCTAssertEqual(r.code, .badAnswer)
-        XCTAssertEqual(r.words, "\u{201C}perhaps\u{201D} is not one of this ask's options: A. Yes, B. No, or decline.")
+        XCTAssertEqual(r.words, "That is not one of this ask's options: A. Yes, B. No, or decline.")
         guard case .failure(let empty) = ChatAskReply.resolve(a, words: "  ") else { return XCTFail("taken") }
         XCTAssertEqual(empty.code, .badAnswer)
         let multi = ask(#"{"questions": [{"options": [{"id": "a"}, {"id": "b"}], "multi": true}]}"#)

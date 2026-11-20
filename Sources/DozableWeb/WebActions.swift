@@ -168,6 +168,10 @@ public enum WebAction: Equatable, Sendable {
     case chatRoomArchive(room: String, ifPlan: String)
     case chatRoomRm(room: String, ifPlan: String, confirm: String)
     case workspaceRunArchive(workspace: String, run: String)
+    /// An ask answered from its card in chat — exactly `doz chat decide R ASK …` (the HostOp `chat-decide`, `WebChatDecide`),
+    /// once per `actionId`. This Mac's own browser only (`isAsk`, `WebExposure.decideAskAction` → 403 `mac-only`, whatever
+    /// `serve.chat` says). Its label and line name the ask and the room, never the answer.
+    case chatDecide(room: String, ask: String, input: WebChatDecide, actionID: String)
     /// A space workspace's file saved from the space view — exactly `doz workspace edit W --space-file F --if-match SHA` (the
     /// HostOp `workspace-space-save`: the name, the text and `ifMatch`, never a path — the file is the record's). A file changed
     /// since the page read it is refused, nothing written; saving never runs up. This Mac's own browser only (`isSpace`,
@@ -198,7 +202,7 @@ public enum WebAction: Equatable, Sendable {
              .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart,   // nor is a workspace
              .botNew, .botSet, .botRetire, .botAdopt, .botToken,                          // nor is a bot
              .workerAdd, .workerEnd,                                                      // nor a worker (its place is the daemon's)
-             .workspaceLifecycle, .chatRoomArchive, .chatRoomRm, .workspaceRunArchive, .workspaceSpaceSave:
+             .workspaceLifecycle, .chatRoomArchive, .chatRoomRm, .workspaceRunArchive, .workspaceSpaceSave, .chatDecide:
             return nil
         }
     }
@@ -250,6 +254,11 @@ public enum WebAction: Equatable, Sendable {
         switch self { case .chatRoomArchive, .chatRoomRm, .workspaceRunArchive: true; default: false }
     }
 
+    /// An ask answered: this Mac's own browser only (`WebExposure.decideAskAction`).
+    public var isAsk: Bool {
+        if case .chatDecide = self { true } else { false }
+    }
+
     /// A space file saved: this Mac's own browser only (`WebExposure.decideSpaceAction`).
     public var isSpace: Bool {
         if case .workspaceSpaceSave = self { true } else { false }
@@ -289,6 +298,8 @@ public enum WebAction: Equatable, Sendable {
     /// (and session, point, image or account). A double-clicked "open session" is one operation.
     public var dedupeKey: String {
         let r = hostRequest
+        // An ask: its room and its name — two asks answered at once are two operations.
+        if let q = r.chatAsk { return [r.op.rawValue, q.room ?? "", q.ask ?? ""].joined(separator: "|") }
         if let w = r.workspaceRequest?.name {
             // A workspace is made or started once at a time: its name is the key.
             if r.op == .workspaceNew || r.op == .workspaceStart { return [r.op.rawValue, "workspace:" + w].joined(separator: "|") }
@@ -353,6 +364,7 @@ public enum WebAction: Equatable, Sendable {
         case .chatRoomRm(let room, _, _): return "remove #\(room)"
         case .workspaceRunArchive(let w, let run): return "archive run \(run) of \(w)"
         case .workspaceSpaceSave(let w, _, _): return "save the space file of \(w)"
+        case .chatDecide(let room, let ask, _, _): return "answer ask \(ask) in \(room)"
         default: break
         }
         let r = hostRequest
@@ -638,6 +650,8 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.workspaceRunArchive)
             r.workspaceRequest = q
             return r
+        case .chatDecide(let room, let ask, let input, let id):
+            return input.request(room: room, ask: ask, actionID: id)
         case .workspaceSpaceSave(let w, let text, let ifMatch):
             // What `doz workspace edit W --space-file F --if-match SHA` sends: the name, the text, the sha — never a path.
             var q = WorkspaceRequest(name: w)
@@ -740,6 +754,7 @@ public enum WebAction: Equatable, Sendable {
             "chat-room-rm": ["room", "ifPlan", "confirm"],
             "workspace-run-archive": ["workspace", "run"],
             "workspace-space-save": ["workspace", "text", "ifMatch"],
+            "chat-decide": WebChatDecide.fields,
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -1044,6 +1059,9 @@ public enum WebAction: Equatable, Sendable {
         case "workspace-run-archive":
             a = .workspaceRunArchive(workspace: try f.workspaceName("workspace"),
                                      run: try f.required(f.matching("run", "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{1,6}$", "a run's id"), "run"))
+        case "chat-decide":
+            let x = try WebChatDecide.decode(d)
+            a = .chatDecide(room: x.room, ask: x.ask, input: x.input, actionID: x.actionID)
         case "workspace-space-save":
             let sha = try f.required(f.matching("ifMatch", "^[0-9a-f]{64}$", "the space file's sha256 as read, 64 lower-case hex digits"), "ifMatch")
             let text = try WebSpace.spaceText(f, "text")

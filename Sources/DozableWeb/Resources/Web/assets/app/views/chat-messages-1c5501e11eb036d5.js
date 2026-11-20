@@ -10,6 +10,8 @@ import { cap, time } from '../core/chat-format-bc877d395788e64c.js';
 import { renderMarkdown } from '../core/chat-markdown-d2b388ff50a05492.js';
 import { setSeen } from '../core/chat-storage-95add63ce40b26df.js';
 import { interleave, lineAt, lineKey, lineText } from '../core/ws-log-725b407c6811cd6c.js';
+import { isAsk } from '../core/asks-4e5a5b34fcdb06c6.js';
+import { askCard, focusKey, refocus } from '../components/chat-ask-f6e485cf1594671c.js';
 import { drawAtts } from '../components/chat-attachments-2586d1f017fa135c.js';
 import { askDelete, startEdit } from '../components/chat-edit-2c6b193b376f4ebb.js';
 import { moments, place } from '../components/chat-log-8750dcbffc279417.js';
@@ -122,7 +124,7 @@ export function add(m, again, older) {
   if (canWrite()) {
     if (!me) tools.append(picker(m));
     if (!archived()) {
-      if (me) {
+      if (me && m.kind !== 'ask') {
         const eb = h('button', { type: 'button', class: 'chat-ibtn', title: 'Edit this message', 'aria-label': 'Edit this message' }, icon('pencil'));
         eb.addEventListener('click', (e) => { e.stopPropagation(); startEdit(state.chat.byId.get(m.msg_id)); });
         tools.append(eb);
@@ -139,8 +141,15 @@ export function add(m, again, older) {
     d.append(h('div', { class: 'chat-re is-detail', 'data-re': m.re_msg_id }, was && was.deleted ? 'answers a deleted message' : 'answers ' + String(m.re_msg_id).slice(0, 8)));
   }
   const body = h('div', { class: 'chat-md' });
-  body.append(renderMarkdown(String(m.content || '')));
-  watchTables(body);
+  let refocusKey = null;
+  if (m.kind === 'ask') {
+    // An ask is its card; one whose ask cannot be read is its plain text (never Markdown).
+    refocusKey = focusKey(instead);
+    if (isAsk(m)) body.append(askCard(m)); else body.append(h('p', { class: 'chat-ask-plain' }, String(m.content || '')));
+  } else {
+    body.append(renderMarkdown(String(m.content || '')));
+    watchTables(body);
+  }
   d.append(body);
   m._body = body;
   m._atts = h('div', { class: 'chat-atts' });
@@ -161,6 +170,7 @@ export function add(m, again, older) {
   m._el = row;
   state.chat.byId.set(m.msg_id, m);
   place(row, instead, older);
+  if (refocusKey) refocus(row, refocusKey);
 }
 
 /// Read the log after what is shown: the newest page first time, then on while the server says more is left.

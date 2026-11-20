@@ -136,6 +136,10 @@ public enum WebExposure {
     /// the serve settings — a room's removal cannot be undone, and its archive is written as you.
     public static func decideRoomAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyRooms : nil }
 
+    /// An ask answered from its card (`chat-decide`) for `who`: this Mac's own browser only, whatever `serve.chat` says — a
+    /// decision is made as you and cannot be taken back. Another computer sees the card read-only.
+    public static func decideAskAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyAsks : nil }
+
     /// An ended or gone session on this Mac removed (`mac-session-forget`, `mac-sessions-forget-ended`) for `who`: this Mac's
     /// own browser only, whatever `serve.mac_sessions` says (watch or interactive) — a forgotten session can no longer be
     /// restarted. Another computer is shown the command instead; its attempt is one audit line.

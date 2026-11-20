@@ -27,9 +27,9 @@ import { driverChip, managerChip, workspacePill } from '../components/ws-marks-2
 import { renderNavWorkspaces } from '../components/ws-nav-cdc9953c79021145.js';
 import { lifecycleItems, primaryButton, transitional } from '../components/ws-lifecycle-fd52672bba023683.js';
 import { agentMeta, wsPanel } from '../components/ws-panel-34140d294f90e296.js';
-import { chatRefresh, mountChat } from './chat-b6d90d0841520f18.js';
-import { drawSys } from './chat-messages-dfb983938b7f0c9e.js';
-import { openRoom, refreshState } from './chat-rooms-21b6cc33f975b06f.js';
+import { chatRefresh, mountChat } from './chat-c01a6b5058aeccac.js';
+import { drawSys } from './chat-messages-1c5501e11eb036d5.js';
+import { openRoom, refreshState } from './chat-rooms-229aef8184e7b3db.js';
 import { agentsTab } from './ws-agents-255faf19f260acd6.js';
 import { networkTab } from './ws-network-166633be23c4d99c.js';
 import { foldersTab } from './ws-folders-e675cf615f8064dc.js';

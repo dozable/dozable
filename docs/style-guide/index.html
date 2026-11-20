@@ -1547,6 +1547,56 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   </div></div>
 </section>
 
+<section>
+  <h2>Chat: an ask's card</h2>
+  <p>An ask (a message of kind <code>ask</code>) is drawn as its decision card (<code>components/chat-ask.js</code>, <code>.chat-ask</code>): its title and reason, each question a <code>fieldset</code> with its options lettered A–J (radios for one, checkboxes for several with how many to pick), "Something else" for the decider's own words, Answer and Decline with its reason inline, and a state line (<code>role="status"</code>). It answers only through <code>core/asks.js</code> (the action <code>chat-decide</code>), in this Mac's own browser. Below: open, read-only (someone else decides), decided, expired, and a refusal shown in the card.</p>
+  <div class="pair"><div class="scheme">
+    <section class="chat-ask is-open" aria-label="Ask #4 from Bot1">
+      <div class="chat-ask-head"><span class="chat-ask-badge">Ask #4</span><span class="chat-ask-title">Which build goes out today?</span></div>
+      <p class="chat-ask-reason">Why: the release is ready and the tests pass</p>
+      <fieldset class="chat-ask-q"><legend class="chat-ask-legend">Question 1 of 2 · Build: Which build goes out today?</legend>
+        <label class="chat-ask-opt"><input type="radio" name="sg-ask-1" class="chat-ask-input"><span class="chat-ask-letter">A</span><span class="chat-ask-label">Web<span class="chat-ask-desc">the site and its assets</span></span></label>
+        <label class="chat-ask-opt"><input type="radio" name="sg-ask-1" class="chat-ask-input" checked><span class="chat-ask-letter">B</span><span class="chat-ask-label">Desktop<span class="chat-ask-rec">recommended</span></span></label>
+        <label class="chat-ask-opt"><input type="radio" name="sg-ask-1" class="chat-ask-input"><span class="chat-ask-letter"></span><span class="chat-ask-label">Something else</span></label>
+      </fieldset>
+      <fieldset class="chat-ask-q"><legend class="chat-ask-legend">Question 2 of 2: Which checks? (optional)</legend>
+        <label class="chat-ask-opt"><input type="checkbox" class="chat-ask-input" checked><span class="chat-ask-letter">A</span><span class="chat-ask-label">Unit</span></label>
+        <label class="chat-ask-opt"><input type="checkbox" class="chat-ask-input"><span class="chat-ask-letter">B</span><span class="chat-ask-label">End to end</span></label>
+        <p class="chat-ask-hint">Pick 1 to 2</p>
+        <label class="chat-ask-opt chat-ask-skip"><input type="checkbox" class="chat-ask-input"><span class="chat-ask-label">Skip this question</span></label>
+      </fieldset>
+      <div class="chat-ask-actions"><button type="button" class="btn btn-primary chat-ask-answer">Answer</button><button type="button" class="btn btn-quiet chat-ask-decline-btn">Decline…</button></div>
+      <div class="chat-ask-decline"><input type="text" class="chat-ask-why" placeholder="Why (optional)"><button type="button" class="btn chat-ask-confirm">Decline</button><button type="button" class="btn btn-quiet">Cancel</button></div>
+      <p class="chat-ask-state" role="status">open · expires in 23 h</p>
+    </section>
+    <section class="chat-ask is-open is-readonly" aria-label="Ask #5 from Bot1">
+      <div class="chat-ask-head"><span class="chat-ask-badge">Ask #5</span><span class="chat-ask-title">Read the shared folder?</span></div>
+      <fieldset class="chat-ask-q"><legend class="chat-ask-legend">Read the shared folder?</legend>
+        <ul class="chat-ask-list"><li class="chat-ask-item"><span class="chat-ask-letter">A</span>Allow once</li><li class="chat-ask-item"><span class="chat-ask-letter">B</span>Copy instead</li></ul>
+      </fieldset>
+      <p class="chat-ask-state" role="status">open · expires in 2 h · Only Decbot can answer</p>
+    </section>
+    <section class="chat-ask is-closed" aria-label="Ask #3 from Bot1">
+      <div class="chat-ask-head"><span class="chat-ask-badge">Ask #3</span><span class="chat-ask-title">Ship it?</span></div>
+      <fieldset class="chat-ask-q"><legend class="chat-ask-legend">Ship it?</legend><p class="chat-ask-chosen">A. Yes</p><p class="chat-ask-chosen chat-ask-words">“after lunch”</p></fieldset>
+      <p class="chat-ask-state" role="status">decided by Worker (decider role)</p>
+    </section>
+    <section class="chat-ask is-closed" aria-label="Ask #2 from Bot1">
+      <div class="chat-ask-head"><span class="chat-ask-badge">Ask #2</span><span class="chat-ask-title">Roll back?</span></div>
+      <fieldset class="chat-ask-q"><legend class="chat-ask-legend">Roll back?</legend></fieldset>
+      <p class="chat-ask-state" role="status">expired · answer: decline</p>
+    </section>
+    <section class="chat-ask is-open" aria-label="Ask #6 from Bot1">
+      <div class="chat-ask-head"><span class="chat-ask-badge">Ask #6</span><span class="chat-ask-title">Merge now?</span></div>
+      <fieldset class="chat-ask-q"><legend class="chat-ask-legend">Merge now?</legend>
+        <label class="chat-ask-opt"><input type="radio" name="sg-ask-6" class="chat-ask-input" checked><span class="chat-ask-letter">A</span><span class="chat-ask-label">Yes</span></label>
+      </fieldset>
+      <div class="chat-ask-actions"><button type="button" class="btn btn-primary chat-ask-answer">Answer</button><button type="button" class="btn btn-quiet chat-ask-decline-btn">Decline…</button></div>
+      <p class="chat-ask-state is-bad" role="status">It was already answered: decided by Worker.</p>
+    </section>
+  </div></div>
+</section>
+
 <section id="sg-workspace-page">
   <h2>A workspace's page — the title row, the tabs, the brief, the room, the side panel</h2>
   <p>A workspace's page (<code>#/w/NAME</code>, <code>#/w/NAME/room/LABEL</code>; <code>views/workspace.js</code>, a persistent section <code>#ws</code>): the title row (its name,

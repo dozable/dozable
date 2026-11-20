@@ -160,6 +160,30 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(try read("app/core/ws-lifecycle.js").contains("b.noArchive = true"))
     }
 
+    /// Asks: the card and the one answer path ship; only core/asks.js sends `chat-decide` (the card and the space diagram
+    /// both call it); the card is drawn by chat-messages for an ask, and chat-live redraws it on the stream's `ask` event.
+    func testTheAskCardAndItsOneAnswerPath() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let a = try WebAssets.load()
+        for m in ["core/asks", "components/chat-ask"] {
+            XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
+        }
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+        var senders: [String] = []
+        for f in files where try read(f).contains("'chat-decide'") { senders.append(f) }
+        XCTAssertEqual(senders, ["app/core/asks.js"], "only core/asks.js sends chat-decide")
+        let asks = try read("app/core/asks.js")
+        for fn in ["export async function answerAsk", "export async function answerFromDiagram", "export function rememberAttention",
+                   "export function onAskChange", "export function canAnswer"] { XCTAssertTrue(asks.contains(fn), fn) }
+        XCTAssertTrue(asks.contains("if (isRemote()) return { refused: MAC_ONLY }"), "another computer: no request")
+        XCTAssertTrue(try read("app/components/chat-ask.js").contains("answerAsk("))
+        XCTAssertTrue(try read("app/views/chat-messages.js").contains("askCard(m)"))
+        let live = try read("app/views/chat-live.js")
+        XCTAssertTrue(live.contains("e.kind === 'ask'") && live.contains("add(m, true)"))
+    }
+
     func testFetchAndEventSourceOnlyWhereTheyAreAllowed() throws {
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
         var fetchers: Set<String> = [], streams: Set<String> = []
