@@ -74,7 +74,9 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   the descriptor closed ONCE by the reader after the writer let go. A socket that is gone answers as `deckhold pipe`:
   EXIT from `NAME.exit`, else NOSESSION.
 - **Records** (`<store>/mac-sessions/sessions.json`, 0600; on-disk keys kept — `workdir` is the session's folder, shown as `folder` in `doz sessions --json`): argv, workdir, environment NAMES, openedAt, holder sha256,
-  pid, `bypassed`, `fence`, `claudeSessionID` (the learned conversation), `size` — fields only ever added. A daemon start ADOPTS (`MacSessions.adopt`): a live socket is watched (statuses, `session-status`
+  pid, `bypassed`, `fence`, `claudeSessionID` (the learned conversation), `claudeSessionIDs` (every conversation it was
+  seen holding, oldest first, at most 64 — `macLearnClaudeID` appends; a restart keeps them; the export copies exactly
+  these), `size` — fields only ever added. A daemon start ADOPTS (`MacSessions.adopt`): a live socket is watched (statuses, `session-status`
   events under the place name `@mac`); a socket nothing answers is unlinked (only our own socket, in our folder); a
   record with no socket is ended (its `.exit`) or **gone** (rebooted, holder killed). Looking reads the folder
   in-process — no daemon.
@@ -226,6 +228,22 @@ a SANDBOX that another agent shares gets its own variables, and the daemon gives
   flag `--history`): also archived in `<store>/mac-sessions/transcripts/<session>/<ended-at>/` (`session-transcripts`,
   `doz sessions @mac --transcripts S [--export DIR]`); `agent-default`: carried, not archived, the end message gives the
   recipe's `agent_default` words. A restart of a private session continues from `agent/projects`.
+- **Exporting** (`MacTranscriptExport`, `TranscriptCopy`; `doz sessions @mac --transcripts S --export DIR`): ONE copier for
+  every session on this Mac. `session-transcripts` is read-only (in-process with no daemon); its listing keeps the
+  archive's `items` (the dashboard's) and adds `conversations` — a fenced session's carried copies, exactly the
+  `MacFenceRecord.carried` `name:sha256` (its name or `<uuid>.doz-<tag>.jsonl`), exported only while the sha256 still
+  matches; an unfenced session's `<projects>/<the folder's name>/<id>.jsonl` for each recorded id (the folder as given or
+  resolved) — never a listing, so another session's file there is never found. Each is read with no link in its path
+  (`MacFenceHostFS.readRegular`: `O_NOFOLLOW_ANY`, then `fstat` — regular, one link, this user's, ≤ 64 MiB), a
+  conversation's name and every `cwd` checked, swept (`ExportSweep`), written into an `ExportFolder`; `manifest.json`
+  names each with its source and the sha256 of the source and of the copy. `TranscriptCopyTests`, `make test-cli-host` T1–T3.
+- **Forgetting** (`session-forget`, `HostCore.macForgetSessions`; `doz sessions @mac --forget-ended [--dry-run] [--yes]`,
+  `--forget S`): under the session gate, the named sessions or every ended or gone one; each fenced one carried back
+  first (idempotent), then `macForget` (the factored-out end of `macEnd`'s not-running branch). Kept, each with why: a
+  running session, a workspace's (its workspace forgets it), one whose carry-back was refused or left a conversation
+  behind (what is never carried by design does not keep it). `dryRun` answers in-process with no daemon. The dashboard's
+  `mac-session-end` sends `onlyRunning`, so a browser forgets only through Remove. `MacForgetTests`, `make test-cli-host`
+  F1–F4, `make test-cli-fence` 3.9e.
 - **The Claude login** (`HostCore.fenceAccount`, `bindFenceAccount`, `bindAnthropicAccount`): for an agent program only,
   `--account NAME|mac|none` (else `mac.account`): a placeholder minted at open (`CLAUDE_CODE_OAUTH_TOKEN` for this Mac's
   login or a setup token, `ANTHROPIC_API_KEY` for an API key), its sha256 in `MacFenceRecord.placeholderHashes`; the

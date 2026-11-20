@@ -8,6 +8,9 @@
 //     This Mac — and `demo` unfolding to its agent, which links to its screen in the workspace;
 //   · every old address lands on its canonical one and its view, with something on the page, no page error and no
 //     "could not be read"; every link of This Mac opens its page;
+//   · On this Mac, Remove: three ended sessions, one running and an ended one filed in `demo` — Remove… on each ended tile
+//     only (not the running one or the workspace's), Remove on one, then Remove all ended… (its dialog names the two left)
+//     → no ended tile is left to remove; the leak sweep after;
 //   · Loose agents and Agents / Bots list exactly what `doz workspace ls --loose --json` and `doz bot ls --json` do;
 //   · Your Macs (the machine picker): a second scratch store runs a `doz ui` named `mini` on an OS-chosen port; `doz ui
 //     macs add` keeps it (checked) and `air` (a closed port, --no-check); the brand button reads "Dozable · walkmac", Enter
@@ -540,6 +543,50 @@ async function walkWorkspacePage() {
   await shot('workspace-390');
   check(fold.panel >= fold.room - 1 && fold.w <= 390, `at 390 px the panel is below the room, no sideways scroll (${Math.round(fold.room)} → ${Math.round(fold.panel)}, ${fold.w} px)`);
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+}
+
+// ── This Mac: Remove ended sessions (this Mac's own browser) ─────────────────────────────────────────────────────────
+// Three ended sessions and one running, plus an ended one filed in a workspace: Remove on one tile, then Remove all ended
+// (the dialog names the two left); no Remove on the running tile or the workspace's; the leak sweep after.
+async function walkRemoveEnded() {
+  const folder = PROJECTS + '/remove-walk';
+  mkdirSync(folder, { recursive: true });
+  const run = (s, argv) => spawnSync(DOZ, ['run', '@mac', '-d', '--unfenced', '--session', s, '--folder', folder, '--store', STORE, '--', ...argv],
+    { env: ENV, encoding: 'utf8', timeout: 120_000 }).status === 0;
+  const made = ['rme1', 'rme2', 'rme3', 'rmws'].map((s) => run(s, ['/bin/sh', '-c', 'echo ended-' + s])).every(Boolean) && run('rmrun', ['/bin/sleep', '600']);
+  if (!made) { console.log('  note no session on this Mac could start here (deckhold-mac?) — make test-cli-host holds the forget rows'); return; }
+  doz(['workspace', 'adopt', 'demo', '@mac/rmws']);
+  const sessions = () => dozJSON(['sessions', '@mac']) || [];
+  for (let i = 0; i < 100 && !['rme1', 'rme2', 'rme3', 'rmws'].every((n) => sessions().find((x) => x.name === n)?.ended); i++) await sleep(200);
+  await goHash('#/mac/here');
+  const TILE = (n) => `document.querySelector('.mac-tile[data-session="${n}"]')`;
+  const hasRemove = (n) => `!![...(${TILE(n)}?.querySelectorAll('.mac-acts button') || [])].find((b) => b.textContent.startsWith('Remove'))`;
+  check(await waitFor(`${hasRemove('rme1')} && ${hasRemove('rme2')} && ${hasRemove('rme3')}`, 15000), 'remove: each ended tile has Remove…');
+  check(await waitFor(`!!${TILE('rmrun')} && !!${TILE('rmws')}`, 10000) && !(await evaluate(hasRemove('rmrun'))) && !(await evaluate(hasRemove('rmws'))),
+    'remove: no Remove on the running tile or the workspace\'s');
+  const HEAD = `[...document.querySelectorAll('#mac .head button')].find((b) => b.textContent.startsWith('Remove all ended'))`;
+  check(await evaluate(`!!${HEAD} && !${HEAD}.hidden`), 'remove: Remove all ended… in the header (this Mac\'s own browser)');
+  await evaluate(`[...${TILE('rme1')}.querySelectorAll('.mac-acts button')].find((b) => b.textContent.startsWith('Remove')).click()`);
+  await waitFor(`!!document.querySelector('dialog.dlg[open]')`, 8000);
+  const one = await evaluate(`document.querySelector('dialog.dlg[open]').textContent`);
+  check(/rme1/.test(one) && /carried back first/.test(one), 'remove: the dialog names it and says its conversations are carried back first');
+  check(await submitDialog(), 'remove: Remove rme1');
+  check(await waitFor(`!${TILE('rme1')}`, 20000) && !sessions().some((x) => x.name === 'rme1'), 'remove: rme1 is gone from the page and from doz sessions @mac');
+  await waitFor(`!!${HEAD} && !${HEAD}.hidden`, 8000);
+  await evaluate(`${HEAD}.click()`);
+  await waitFor(`!!document.querySelector('dialog.dlg[open]')`, 8000);
+  const all = await evaluate(`document.querySelector('dialog.dlg[open]').textContent`);
+  check(/Remove 2 ended sessions/.test(all) && /rme2/.test(all) && /rme3/.test(all) && !/rmws/.test(all) && !/rmrun/.test(all),
+    'remove: Remove all ended… lists the two left, not the running or the workspace\'s');
+  check(await submitDialog(), 'remove: Remove all ended');
+  check(await waitFor(`!${TILE('rme2')} && !${TILE('rme3')}`, 20000), 'remove: no ended tile is left to remove');
+  const left = sessions().map((x) => x.name);
+  check(left.includes('rmrun') && left.includes('rmws') && !left.includes('rme2') && !left.includes('rme3'), 'remove: the running and the workspace\'s session are still there');
+  check(await waitFor(`!${HEAD} || ${HEAD}.hidden`, 8000), 'remove: Remove all ended… is gone with them');
+  await leakSweep('removing ended sessions');
+  // Put back what the rest of the walk expects: no session of these.
+  doz(['workspace', 'release', 'demo', '@mac/rmws']);
+  for (const s of ['rmrun', 'rmws']) { doz(['sessions', 'end', '@mac', s, '--yes']); doz(['sessions', 'end', '@mac', s, '--yes']); }
 }
 
 // ── a workspace's agents, filing, an agent's screen (chat on) ────────────────────────────────────────────────────────
@@ -1465,6 +1512,7 @@ try {
 
   await walkOldAddresses();
   await walkThisMac();
+  await walkRemoveEnded();
   await walkLists();
   await walkMacs();
   await walkWorkspacePage();

@@ -170,11 +170,18 @@ What else happens follows the conversation-history setting (`agent.history`, per
 
   ```bash
   doz sessions @mac --transcripts agent                    # what was kept, when
-  doz sessions @mac --transcripts agent --export ~/saved   # copies
+  doz sessions @mac --transcripts agent --export ~/saved   # copies, with a manifest
   ```
 
   The dashboard's **Conversations** tab lists and downloads them.
 - **`agent-default`**: copied back, where Claude Code's own rule decides how long they stay; nothing archived.
+
+**Exporting.** `--export DIR` writes into a new or empty folder of yours: the archived conversations, the copies carried
+back (only while they are still what was carried), and `manifest.json` (each file's name, where it came from, and the
+sha256 of the original and of the copy). An **unfenced** Claude Code session's conversations are exported too: exactly
+the ones Dozable saw it hold (each `/clear` or `/resume` adds one), from your own `~/.claude/projects/<folder>/` — never
+another session's file in the same folder. A link is never followed, and every file is swept for chat tokens, as a chat
+export is. Listing and exporting need no daemon and never start one.
 
 A shared session writes its conversations straight into your own folder, and Dozable never changes your settings
 there. A conversation written in a fenced session and continued outside it is still text the fenced agent wrote:
@@ -397,6 +404,11 @@ bypassed**.
 - The pane's two-state toggle, **Watching** | **Controlling**, says which it is and switches: Controlling attaches for
   real (the tile's **Control** does the same). It is offered only to a browser that may type into these sessions, and
   only while the session runs. **Restart…** and **End…** ask first.
+- **Remove…** on an ended or gone session's tile, and **Remove all ended…** in the page's header (this Mac's own browser
+  only), forget them: the dialog names each, says a gone one can no longer be restarted, and their conversations are
+  carried back first. A running session, or one that is an agent of a workspace, is never removed here (its workspace
+  forgets it). In a terminal: `doz sessions @mac --forget-ended` (it lists them and asks once; `--dry-run` only says, with
+  no daemon; `--yes` does not ask) or `--forget SESSION`. A second run forgets nothing.
 - **New session on this Mac…** (this Mac's own browser) is the five-case guide above (its folder starts as the newest
   session's, never a temporary folder): it shows the command, **Copy**,
   and **Open in Terminal** for the plainly fenced cases (Plain agent, Web / Node, Swift / Xcode without the Simulator
@@ -410,7 +422,7 @@ these sessions unless you say so — a browser on your network typing into one i
 |---|---|
 | `off` (the default) | nothing — the page and its entry are not there |
 | `watch` | list them and watch them (read-only); no typing, no Restart, End, Resume or bridge switches |
-| `interactive` | everything this Mac's own browser does with them, except New session |
+| `interactive` | everything this Mac's own browser does with them, except New session and Remove |
 
 ```bash
 doz config set serve.mac_sessions watch        # applies at once
