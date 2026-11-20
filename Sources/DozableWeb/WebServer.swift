@@ -993,6 +993,9 @@ public final class DozableWebServer: @unchecked Sendable {
             // A fenced session's site allowed: this Mac's own browser only, whatever the serve settings (its network is what
             // holds an agent working as you on this Mac to its folder).
             if request.action.isMacNet, let r = WebExposure.decideMacNetAction(ctx.principal) { throw r }
+            // An ended session on this Mac removed: this Mac's own browser only, whatever serve.mac_sessions says (a
+            // forgotten session can no longer be restarted).
+            if request.action.isMacForget, let r = WebExposure.decideMacForgetAction(ctx.principal) { throw r }
             // An Agent / Bot changed: this Mac's own browser only, whatever the serve settings (a token made, replaced or revoked).
             if request.action.isBot, let r = WebExposure.decideBotAction(ctx.principal) { throw r }
             return json(try operations.start(request.action, priority: !request.batch), status: 202)

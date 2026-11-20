@@ -391,6 +391,8 @@ func cliHostSuite(binary: String) async {
     }
     // T1–T3: an unfenced session's conversations exported — only the recorded ones, no link, no daemon needed.
     cliHostTranscriptRows(t: t, root: root, projects: projects, claudeSessions: claudeSessions, work: work, started: { started.insert($0) })
+    // F1–F4: ended and gone sessions forgotten — never a running one; the dry run with no daemon.
+    cliHostForgetRows(t: t, work: work, started: { started.insert($0) })
     // (c) a restart whose program dies at once: an error with ITS last lines, and its screen replaces an older one.
     let bmDir = work.appendingPathComponent("bm")
     try? FileManager.default.createDirectory(at: bmDir, withIntermediateDirectories: true)

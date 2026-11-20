@@ -67,6 +67,9 @@ final class WebActionTests: XCTestCase {
         "mac-session-resume": #"{"action":"mac-session-resume","session":"agent"}"#,
         "mac-session-bridges": #"{"action":"mac-session-bridges","session":"agent","openURL":false}"#,
         "mac-net-policy": #"{"action":"mac-net-policy","session":"agent","grant":["site:fonts.example-cdn.com"]}"#,
+        // Remove an ended session on this Mac, and Remove all ended (the names the page showed) — this Mac's own browser only.
+        "mac-session-forget": #"{"action":"mac-session-forget","session":"old"}"#,
+        "mac-sessions-forget-ended": #"{"action":"mac-sessions-forget-ended","sessions":["old","older"]}"#,
         // 644: the Files panel's changes.
         "files-mkdir": #"{"action":"files-mkdir","sandbox":"web","path":"/workspace/src/new"}"#,
         "files-new": #"{"action":"files-new","sandbox":"web","path":"notes.md"}"#,
@@ -200,6 +203,8 @@ final class WebActionTests: XCTestCase {
         .sessionEnd, .sessionRestart,
         // 683 M5: @mac only — a fenced session's resume after a git stop, its bridges (host-side switches, per event).
         .sessionResume, .sessionBridges,
+        // @mac only, this Mac's own browser only: Remove / Remove all ended — exactly `doz sessions @mac --forget S | --forget-ended`.
+        .sessionForget,
         // 594 W20: only as Restart host, which the data source refuses unless the host is OLDER.
         .hostStop,
     ]
@@ -383,8 +388,9 @@ final class WebActionTests: XCTestCase {
             XCTAssertNil(a.hostRequest.secret, "no action ever carries a secret")
             ops.append(a.hostOp)
             // The sessions on this Mac have their own two actions: the same HostOp, on the place @mac.
-            places.append(a.hostOp.rawValue + (a.isMacSession || a.isMacNet ? " @mac" : ""))
-            XCTAssertEqual(a.isMacSession || a.isMacNet, a.hostRequest.name == "@mac", "\(name): @mac only through its own actions")
+            // Remove and Remove all ended are both `session-forget`: one names a session, the other the list the page showed.
+            places.append(a.hostOp.rawValue + (a.isMacSession || a.isMacNet || a.isMacForget ? " @mac" : "") + (a.hostRequest.sessions != nil ? " (the list)" : ""))
+            XCTAssertEqual(a.isMacSession || a.isMacNet || a.isMacForget, a.hostRequest.name == "@mac", "\(name): @mac only through its own actions")
         }
         XCTAssertEqual(places.count, Set(places).count, "one action per HostOp (and place)")
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isMacSession == true ? (try? decode($0.value))?.hostOp : nil }),
@@ -432,7 +438,7 @@ final class WebActionTests: XCTestCase {
         }
         // Your Macs are read (WebMacReads) and changed only from the CLI: no macs-* operation is an action.
         XCTAssertFalse(ops.contains { $0.rawValue.hasPrefix("macs-") }, "Your Macs are not changed from the browser")
-        XCTAssertFalse(WebAction.actionNames.contains { $0.hasPrefix("mac-") && !$0.hasPrefix("mac-session-") && $0 != "mac-net-policy" }, "no action for Your Macs")
+        XCTAssertFalse(WebAction.actionNames.contains { $0.hasPrefix("mac-") && !$0.hasPrefix("mac-session-") && $0 != "mac-net-policy" && $0 != "mac-sessions-forget-ended" }, "no action for Your Macs")
     }
 
     /// The eight lifecycle actions: each exactly the CLI's HostOp, its fields strict (`ifPlan` required, 16 hex), the flags
@@ -440,6 +446,37 @@ final class WebActionTests: XCTestCase {
     /// `confirmRequired`), a wake's "acts as you" carried as `unfencedConfirmed`.
     /// `mac-net-policy` is exactly `net-policy` with `@mac` and the session — `doz net allow @mac --session S site:HOST` —
     /// `site:` grants only (never a permission, a revoke, a deny, a preset or a `host:` port), this Mac's own browser only.
+    /// Remove / Remove all ended: each exactly `session-forget` on @mac — one session, or the names shown (never "every ended
+    /// one": the daemon acts on what the page showed); strictly decoded. And `mac-session-end` ends a RUNNING session only.
+    func testTheForgetActions() throws {
+        let one = try decode(Self.samples["mac-session-forget"]!)
+        var want = HostRequest(.sessionForget, name: "@mac")
+        want.session = "old"
+        XCTAssertEqual(one.hostRequest, want)
+        XCTAssertTrue(one.isMacForget)
+        XCTAssertFalse(one.isMacSession, "decided as this Mac's own, never by serve.mac_sessions")
+        XCTAssertNil(one.sandbox)
+        let all = try decode(Self.samples["mac-sessions-forget-ended"]!)
+        want = HostRequest(.sessionForget, name: "@mac")
+        want.sessions = ["old", "older"]
+        XCTAssertEqual(all.hostRequest, want)
+        XCTAssertNil(all.hostRequest.forgetEnded, "never every ended one: only the names shown")
+        XCTAssertTrue(all.isMacForget)
+        for bad in [#"{"action":"mac-session-forget"}"#,
+                    #"{"action":"mac-session-forget","session":"../x"}"#,
+                    #"{"action":"mac-session-forget","session":"old","sessions":["a"]}"#,
+                    #"{"action":"mac-sessions-forget-ended","sessions":[]}"#,
+                    #"{"action":"mac-sessions-forget-ended","sessions":["a","a"]}"#,
+                    #"{"action":"mac-sessions-forget-ended","sessions":["a"],"ended":true}"#,
+                    #"{"action":"mac-sessions-forget-ended","sessions":["a"],"forgetEnded":true}"#,
+                    #"{"action":"mac-sessions-forget-ended","sessions":"a"}"#,
+                    #"{"action":"mac-sessions-forget-ended","sandbox":"web","sessions":["a"]}"#] {
+            XCTAssertThrowsError(try decode(bad), bad)
+        }
+        let end = try decode(Self.samples["mac-session-end"]!)
+        XCTAssertEqual(end.hostRequest.onlyRunning, true, "the dashboard's End never forgets an ended session")
+    }
+
     func testTheMacNetPolicyIsExactlyNetPolicyWithSitesOnly() throws {
         let a = try decode(Self.samples["mac-net-policy"]!)
         guard case .macNetPolicy(let s, let g) = a else { return XCTFail("mac-net-policy") }

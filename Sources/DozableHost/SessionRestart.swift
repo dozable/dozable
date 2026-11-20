@@ -127,6 +127,21 @@ public struct SessionEnded: Codable, Equatable, Sendable {
     public init(name: String, session: String, how: String) { self.name = name; self.session = session; self.how = how }
 }
 
+/// `session-forget`'s answer: what was forgotten, what was kept and why (a dry run: what would be).
+public struct SessionsForgotten: Codable, Equatable, Sendable {
+    public struct Kept: Codable, Equatable, Sendable {
+        public var name: String
+        public var why: String
+        public init(name: String, why: String) { self.name = name; self.why = why }
+    }
+    public var forgotten: [String]
+    public var kept: [Kept]
+    public var dryRun: Bool?
+    /// What carrying their conversations back said, per session (a fenced one's).
+    public var notices: [String]?
+    public init(forgotten: [String], kept: [Kept], dryRun: Bool? = nil) { self.forgotten = forgotten; self.kept = kept; self.dryRun = dryRun }
+}
+
 /// `session-restart`'s answer.
 public struct SessionRestarted: Codable, Equatable, Sendable {
     public var name: String

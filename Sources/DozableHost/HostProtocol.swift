@@ -156,6 +156,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 608: end a session's program (`session`) — HUP, then TERM, then KILL of its process group
     /// (`SessionEnded`). A running sandbox only: it never wakes one.
     case sessionEnd = "session-end"
+    /// Forget ended and gone sessions on this Mac (`@mac` only): `session` or `sessions` named, or every ended one
+    /// (`forgetEnded`); `dryRun` says what would be forgotten and kept, in-process with no daemon (`SessionsForgotten`).
+    /// Each is carried back first (a fenced session's conversations); never a running session, a workspace's, or one whose
+    /// carry-back was refused or skipped files — each kept with why.
+    case sessionForget = "session-forget"
     /// 608: end it and open the SAME session again — the program, folder and user it was opened with
     /// (`sessions.json`); an agent's session continues its conversation unless `fresh` (648: each Claude Code session its own; else the default session only)
     /// (`SessionRestarted`). Serialised with open-session.
@@ -580,6 +585,12 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var warnings: Bool?
     /// 608 `session-restart`: a new conversation instead of continuing the last one.
     public var fresh: Bool?
+    /// `session-forget`: these sessions (with `session`, or alone), or `forgetEnded` every ended or gone one.
+    public var sessions: [String]?
+    public var forgetEnded: Bool?
+    /// `session-end` from the dashboard: end a RUNNING session only — one that is not running is refused, never forgotten
+    /// (forgetting is this Mac's own browser's `mac-session-forget`). nil: the CLI's end (a second end forgets).
+    public var onlyRunning: Bool?
     /// 612 `events`: include `session-status` events (an older client could not decode them).
     public var sessionStatus: Bool?
     /// 643 `files-list`: the folder (relative to /workspace, or `/workspace/…`; nil: /workspace).

@@ -337,6 +337,40 @@ struct SessionsEnd: AsyncParsableCommand {
     }
 }
 
+extension SessionsList {
+    /// `--forget-ended` / `--forget S`: what would go and what stays (in-process, no daemon needed), asked once on the
+    /// terminal (no terminal and no --yes: declined), then the daemon forgets them — each carried back first.
+    func forgetSessions() async throws {
+        var r = HostRequest(.sessionForget, name: name)
+        r.session = forget
+        r.forgetEnded = forgetEnded ? true : nil
+        r.dryRun = true
+        let plan = try decode(try await query(r, g), SessionsForgotten.self, g)
+        func say(_ f: SessionsForgotten, verb: String) {
+            if f.forgotten.isEmpty { Out.stdout("nothing to forget on this Mac\n") } else {
+                Out.stdout("\(verb) \(f.forgotten.count) session\(f.forgotten.count == 1 ? "" : "s"): \(f.forgotten.joined(separator: ", "))\n")
+            }
+            for k in f.kept { Out.stdout("  kept \(k.name): \(k.why)\n") }
+            for n in f.notices ?? [] { Out.stdout("  \(n)\n") }
+        }
+        if dryRun || plan.forgotten.isEmpty {
+            if g.json { Out.json(plan); return }
+            say(plan, verb: "would forget")
+            return
+        }
+        if !g.json { say(plan, verb: "to forget") }
+        try confirm("Forget \(plan.forgotten.joined(separator: ", "))? A gone session can no longer be restarted; their conversations are carried back first",
+                    yes: yes, g)
+        r.dryRun = nil
+        r.sessions = plan.forgotten
+        r.session = nil
+        r.forgetEnded = nil
+        let done = try decode(try call(r, g), SessionsForgotten.self, g)
+        if g.json { Out.json(done); return }
+        say(done, verb: "forgot")
+    }
+}
+
 struct SessionsRestart: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "restart",
         abstract: "Restart a session: end its program and start the same one again, in the same folder. An agent's session continues its conversation — each Claude Code session its own; Codex's and pi's own session the folder's newest — only the turn in progress is lost.",
@@ -404,9 +438,19 @@ struct SessionsList: AsyncParsableCommand {
     @Option(name: .long, help: "@mac: what this session can do — one line per capability (its fence, Keychain, network, settings folder, bridges…).") var capabilities: String?
     @Option(name: .long, help: "@mac: this session's conversations — a fenced one's in Dozable's archive and carried back, an unfenced one's recorded ones.") var transcripts: String?
     @Option(name: .long, help: "With --transcripts: copy them, with a manifest, into this new or empty folder (no link followed, every file swept for tokens).") var export: String?
+    @Option(name: .long, help: "@mac: forget this ended or gone session (its conversations carried back first; never a running one or a workspace's).") var forget: String?
+    @Flag(name: .customLong("forget-ended"), help: "@mac: forget every ended or gone session — listed, then asked once.") var forgetEnded = false
+    @Flag(name: .customLong("dry-run"), help: "With --forget-ended or --forget: say what would be forgotten and kept; change nothing (no daemon needed).") var dryRun = false
+    @Flag(name: [.short, .long], help: "With --forget-ended or --forget: do not ask.") var yes = false
 
     func run() async throws {
         if let screen { try await printScreen(screen); return }
+        if forget != nil || forgetEnded {
+            guard MacPlace.isPlace(name) else { throw fail(HostError(.invalid, "--forget and --forget-ended are for doz sessions @mac"), g, code: DozableExit.usage) }
+            try await forgetSessions()
+            return
+        }
+        if dryRun || yes { throw fail(HostError(.invalid, "--dry-run and --yes go with --forget-ended or --forget SESSION"), g, code: DozableExit.usage) }
         if vt { throw fail(HostError(.invalid, "--vt goes with --screen SESSION"), g, code: DozableExit.usage) }
         if (capabilities != nil || transcripts != nil), !MacPlace.isPlace(name) {
             throw fail(HostError(.invalid, "--capabilities and --transcripts are for doz sessions @mac"), g, code: DozableExit.usage)

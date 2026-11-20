@@ -36,6 +36,8 @@ public struct WebMacSession: Codable, Equatable, Sendable {
     public var capabilities: [WebMacCapability] = []
     public var chips: [WebMacChip] = []
     public var moreCapabilities: Int = 0
+    /// The workspace it is an agent of (nil: loose) — a workspace's session is never removed from This Mac's page.
+    public var workspace: String? = nil
 
     public init(_ s: SessionRow) {
         name = s.name
@@ -54,6 +56,7 @@ public struct WebMacSession: Codable, Equatable, Sendable {
         fence = s.fence.map(WebMacFence.init)
         capabilities = (s.capabilities ?? []).map(WebMacCapability.init)
         (chips, moreCapabilities) = WebMacChips.pick(capabilities, fenced: fenced)
+        workspace = s.workspace
     }
 }
 

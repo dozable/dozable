@@ -634,7 +634,8 @@ public actor HostCore {
         if readOnly && !(r.op.isReadOnly || (r.op == .netPolicy && isPolicyQuery(r)) || r.op == .sessions || (r.op == .netLog && r.follow != true)
                          || (r.op == .console && r.follow != true) || (r.op == .agentPrompt && r.prompt == nil && r.clearPrompt != true && r.agentSudo == nil && r.clearAgentSudo != true)
                          || r.op.isAnsweredWithoutHost || ([.resourcesRemove, .resourcesClean].contains(r.op) && r.dryRun == true)
-                         || (r.op == .sandboxSettings && r.setting == nil) || (r.op == .access && r.check != true)) {
+                         || (r.op == .sandboxSettings && r.setting == nil) || (r.op == .access && r.check != true)
+                         || (r.op == .sessionForget && r.dryRun == true)) {
             return .failure(HostError(.unavailable, "\(r.op.rawValue) needs the daemon"))
         }
         // 598: an upgrade removed this host's installation — refuse a boot plainly, before it fails oddly.
@@ -835,6 +836,8 @@ public actor HostCore {
             throw HostError(.invalid, "only a fenced session on this Mac is stopped and resumed this way (doz sessions resume @mac SESSION)")
         case .sessionBridges, .sessionTranscripts:
             throw HostError(.invalid, "only a fenced session on this Mac has these (doz sessions bridges @mac SESSION, doz sessions @mac --transcripts SESSION) — a sandbox's bridges are doz config set --sandbox NAME")
+        case .sessionForget:
+            throw HostError(.invalid, "only a session on this Mac is forgotten this way (doz sessions @mac --forget-ended) — a sandbox's sessions end with it")
         case .bootLog:
             return try bootLog(r)
         case .buildLog:

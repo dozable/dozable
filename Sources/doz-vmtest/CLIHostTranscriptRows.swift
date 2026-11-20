@@ -74,3 +74,60 @@ func cliHostTranscriptRows(t: CLIHarness, root: URL, projects: URL, claudeSessio
     try? fm.removeItem(atPath: chat.folder)
     try? fm.removeItem(atPath: elsewhere)
 }
+
+/// `make test-cli-host` F1–F4: forgetting ended and gone sessions on this Mac (`doz sessions @mac --forget-ended`), no VM.
+///
+///  F1. --dry-run with no daemon: an ended, a gone and (from T1) another ended one would go, never the running one — and no
+///      daemon is started
+///  F2. no terminal and no --yes: declined, nothing forgotten
+///  F3. --yes: the ended and the gone ones forgotten, the running one kept
+///  F4. a second run forgets nothing; --forget on the running one keeps it, saying why
+func cliHostForgetRows(t: CLIHarness, work: URL, started: (String) -> Void) {
+    func rows() -> [SessionRow] { t.json(["sessions", "@mac"], [SessionRow].self) ?? [] }
+    let dir = work.appendingPathComponent("fg")
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    func run(_ s: String, _ argv: [String]) -> Bool {
+        let r = t.run(["run", "@mac", "-d", "--unfenced", "--session", s, "--folder", dir.path, "--"] + argv, timeout: 60)
+        if r.code == 0 { started(s) }
+        return r.code == 0
+    }
+    let made = run("fe1", ["/bin/sh", "-c", "echo fe1"]) && run("fr1", ["/bin/sleep", "600"]) && run("fg1", ["/bin/sleep", "600"])
+    check(made && t.waitFor(10) { rows().first { $0.name == "fe1" }?.ended == true }, "F an ended (fe1), a running (fr1) and a third session (fg1)")
+    t.run(["daemon", "stop"], timeout: 60)
+    if let child = rows().first(where: { $0.name == "fg1" })?.pid, let holder = parentOf(child) {
+        kill(pid_t(holder), SIGKILL)
+        kill(pid_t(child), SIGKILL)
+    }
+    check(t.waitFor(10) { rows().first { $0.name == "fg1" }?.gone == true }, "F fg1's holder killed: gone")
+    check(t.waitFor(10) { !t.hostRunning }, "F no daemon runs")
+
+    var r = t.run(["sessions", "@mac", "--forget-ended", "--dry-run", "--json"], timeout: 30)
+    let plan = try? HostWire.decoder.decode(SessionsForgotten.self, from: r.outData)
+    check(r.code == 0 && plan?.dryRun == true && Set(plan?.forgotten ?? []).isSuperset(of: ["fe1", "fg1"]) && !(plan?.forgotten ?? []).contains("fr1"),
+          "F1 --dry-run: fe1 and fg1 would go, the running fr1 is no candidate (\(plan?.forgotten ?? []))")
+    check(!t.hostRunning, "F1 …with no daemon, and none was started")
+    r = t.run(["sessions", "@mac", "--forget-ended"], timeout: 60)
+    check(r.code != 0 && rows().contains { $0.name == "fe1" }, "F2 no terminal and no --yes: declined, nothing forgotten (\(r.code))")
+    r = t.run(["sessions", "@mac", "--forget-ended", "--yes", "--json"], timeout: 60)
+    let done = try? HostWire.decoder.decode(SessionsForgotten.self, from: r.outData)
+    let names = Set(rows().map(\.name))
+    check(r.code == 0 && Set(done?.forgotten ?? []).isSuperset(of: ["fe1", "fg1"]) && !names.contains("fe1") && !names.contains("fg1") && names.contains("fr1"),
+          "F3 --yes: the ended and the gone ones forgotten, the running one kept (\(done?.forgotten ?? []))")
+    r = t.run(["sessions", "@mac", "--forget-ended", "--yes"], timeout: 60)
+    check(r.code == 0 && r.out.contains("nothing to forget"), "F4 a second run forgets nothing (\(r.out.split(separator: "\n").first ?? ""))")
+    r = t.run(["sessions", "@mac", "--forget", "fr1", "--yes"], timeout: 60)
+    check(r.code == 0 && r.out.contains("kept fr1") && r.out.contains("running") && rows().contains { $0.name == "fr1" && !$0.ended },
+          "F4 --forget on a running session keeps it, saying why")
+}
+
+/// The parent of `pid` (`ps -o ppid=`).
+private func parentOf(_ pid: Int) -> Int? {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/bin/ps")
+    p.arguments = ["-o", "ppid=", "-p", String(pid)]
+    let o = Pipe()
+    p.standardOutput = o
+    try? p.run()
+    p.waitUntilExit()
+    return Int(String(decoding: o.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+}

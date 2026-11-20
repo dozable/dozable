@@ -127,6 +127,11 @@ public enum WebExposure {
     /// on this Mac to its folder. Another computer is shown the command instead; its attempt is one audit line.
     public static func decideMacNetAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlyNet : nil }
 
+    /// An ended or gone session on this Mac removed (`mac-session-forget`, `mac-sessions-forget-ended`) for `who`: this Mac's
+    /// own browser only, whatever `serve.mac_sessions` says (watch or interactive) — a forgotten session can no longer be
+    /// restarted. Another computer is shown the command instead; its attempt is one audit line.
+    public static func decideMacForgetAction(_ who: Principal) -> WebRejection? { who.isRemote ? .macOnlySessions : nil }
+
     /// 683 M5: a conversation exported (its whole text) — another computer only with `serve.mac_sessions = interactive`
     /// (watching shows screens, never a session's history).
     public static func decideMacExport(_ who: Principal, _ allowed: MacSessions) -> WebRejection? { decideMacAction(who, allowed) }

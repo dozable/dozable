@@ -762,6 +762,43 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(fake.performedOps, [.netPolicy])
     }
 
+    /// Removing ended sessions on this Mac is this Mac's own browser only, whatever serve.mac_sessions says (off, watch,
+    /// interactive): 403 `mac-only` with its words, one audit line, nothing sent to the daemon. And the gap is closed: a remote
+    /// `mac-session-end` (interactive) reaches the daemon only as an end of a RUNNING session — never a forget.
+    func testForgettingIsThisMacsBrowserOnlyWhateverTheServeSettings() async throws {
+        try await start(macSessions: "interactive", chat: "write")
+        let (devCookie, devCSRF) = try await admit()
+        var refusals = 0
+        for ms in ["interactive", "off", "watch"] {
+            try "[serve]\nmac_sessions = \"\(ms)\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+            for body in [#"{"action":"mac-session-forget","session":"old"}"#, #"{"action":"mac-sessions-forget-ended","sessions":["old","older"]}"#] {
+                let r = try macJSON(devCookie, devCSRF, "/api/v1/actions", body, remote: true)
+                XCTAssertEqual(r.status, 403, r.text)
+                XCTAssertTrue(r.text.contains("\"mac-only\""), r.text)
+                XCTAssertTrue(r.text.contains("doz sessions @mac --forget-ended"), r.text)
+                refusals += 1
+                XCTAssertTrue(fake.performedOps.isEmpty, "nothing reached the daemon (\(ms))")
+                let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+                XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "mac-only" && $0.route == "actions" }, "audited (\(refusals))")
+            }
+        }
+        // A remote interactive End: the daemon is asked to end a running session only.
+        try "[serve]\nmac_sessions = \"interactive\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+        let end = try macJSON(devCookie, devCSRF, "/api/v1/actions", #"{"action":"mac-session-end","session":"old","confirm":"old"}"#, remote: true)
+        XCTAssertEqual(end.status, 202, end.text)
+        var deadline = Date().addingTimeInterval(5)
+        while fake.performed.isEmpty && Date() < deadline { usleep(10_000) }
+        XCTAssertEqual(fake.performed.map(\.op), [.sessionEnd])
+        XCTAssertEqual(fake.performed.first?.onlyRunning, true, "a remote End can no longer forget an ended session")
+        // This Mac's own browser: 202, exactly session-forget.
+        let (macCookie, macCSRF) = try macSignIn()
+        let r = try macJSON(macCookie, macCSRF, "/api/v1/actions", #"{"action":"mac-session-forget","session":"old"}"#, remote: false)
+        XCTAssertEqual(r.status, 202, r.text)
+        deadline = Date().addingTimeInterval(5)
+        while fake.performedOps.count < 2 && Date() < deadline { usleep(10_000) }
+        XCTAssertEqual(fake.performedOps, [.sessionEnd, .sessionForget])
+    }
+
     static let botActions = [
         #"{"action":"bot-new","name":"mira","agent":"claude-code","isolation":"fenced"}"#,
         #"{"action":"bot-set","name":"mira","model":"sonnet"}"#,

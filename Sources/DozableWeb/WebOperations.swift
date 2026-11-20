@@ -572,6 +572,11 @@ final class WebOperations: @unchecked Sendable {
         case .macSessionEnd(let session):
             let r = try? v.decode(SessionEnded.self)
             return r?.how == "not-running" ? "session \(session) on this Mac was not running" : "ended session \(session) on this Mac"
+        case .macSessionForget, .macSessionsForgetEnded:
+            guard let f = try? v.decode(SessionsForgotten.self) else { return "removed" }
+            var t = f.forgotten.isEmpty ? "nothing removed" : "removed \(f.forgotten.joined(separator: ", ")) — their conversations were carried back first"
+            if !f.kept.isEmpty { t += "; kept " + f.kept.map { "\($0.name) (\($0.why))" }.joined(separator: "; ") }
+            return t
         case .macSessionRestart(let session, _):
             guard let r = try? v.decode(SessionRestarted.self) else { return "restarted session \(session) on this Mac" }
             return "restarted session \(session) on this Mac" + (r.resumed ? " — claude continues its conversation" : "") + (r.notice.map { " (\($0))" } ?? "")
