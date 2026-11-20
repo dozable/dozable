@@ -161,6 +161,13 @@ public enum WebAction: Equatable, Sendable {
     /// and the "acts as you" confirmation of an unfenced manager's wake (`actsAsYou`). Archive: `removeSandboxes?`,
     /// `keepTemplates?`; delete: `removeSandboxes?`, `binFolders?` — nothing on disk goes without them.
     case workspaceLifecycle(WorkspaceVerb, WorkspaceRequest)
+    /// A room's whole history archived (`doz chat room archive R`), or the room removed for good once its archived copy
+    /// verifies (`doz chat room rm R`, the name typed — checked by the daemon): owned rooms only, never `--loose` from a
+    /// browser; and a closed run's archive written again (`doz workspace runs W --archive RUN`). This Mac's own browser only
+    /// (`isRoomLifecycle`, `WebExposure.decideRoomAction`).
+    case chatRoomArchive(room: String, ifPlan: String)
+    case chatRoomRm(room: String, ifPlan: String, confirm: String)
+    case workspaceRunArchive(workspace: String, run: String)
 
     public static let lifecycleOps: [String: HostOp] = [
         "start": .start, "wake": .wake, "pause": .pause, "resume": .resume, "sleep": .sleep, "hibernate": .hibernate,
@@ -186,7 +193,7 @@ public enum WebAction: Equatable, Sendable {
              .workspaceBrief, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart,   // nor is a workspace
              .botNew, .botSet, .botRetire, .botAdopt, .botToken,                          // nor is a bot
              .workerAdd, .workerEnd,                                                      // nor a worker (its place is the daemon's)
-             .workspaceLifecycle:
+             .workspaceLifecycle, .chatRoomArchive, .chatRoomRm, .workspaceRunArchive:
             return nil
         }
     }
@@ -229,6 +236,13 @@ public enum WebAction: Equatable, Sendable {
     /// A workspace's lifecycle verb: this Mac's own browser only (`WebExposure.decideLifecycleAction`).
     public var isLifecycle: Bool {
         if case .workspaceLifecycle = self { true } else { false }
+    }
+
+    var isRoomRm: Bool { if case .chatRoomRm = self { true } else { false } }
+
+    /// A room archived or removed, a run's archive written again: this Mac's own browser only (`WebExposure.decideRoomAction`).
+    public var isRoomLifecycle: Bool {
+        switch self { case .chatRoomArchive, .chatRoomRm, .workspaceRunArchive: true; default: false }
     }
 
     /// A worker added or ended: this Mac's own browser only (`WebExposure.decideWorkerAction`).
@@ -323,6 +337,9 @@ public enum WebAction: Equatable, Sendable {
         case .workerAdd(let q): return "add \(q.name ?? q.fromBot ?? "a worker") to \(q.workspace ?? "?")"
         case .workerEnd(let w, let n): return "end \(n) in \(w)"
         case .workspaceLifecycle(let v, let w): return "\(v.rawValue) \(w.name ?? "?")"
+        case .chatRoomArchive(let room, _): return "archive #\(room)"
+        case .chatRoomRm(let room, _, _): return "remove #\(room)"
+        case .workspaceRunArchive(let w, let run): return "archive run \(run) of \(w)"
         default: break
         }
         let r = hostRequest
@@ -593,6 +610,21 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(v.hostOp)
             r.workspaceRequest = e
             return r
+        case .chatRoomArchive(let room, let sha), .chatRoomRm(let room, let sha, _):
+            // What `doz chat room archive|rm R` sends (never --loose); rm carries the name as typed, checked by the daemon.
+            var q = ChatRoomRequest(room: room)
+            q.ifPlan = sha
+            if case .chatRoomRm(_, _, let c) = self { q.confirm = c }
+            var r = HostRequest(self.isRoomRm ? .chatRoomRm : .chatRoomArchive)
+            r.chatRoom = q
+            return r
+        case .workspaceRunArchive(let w, let run):
+            // What `doz workspace runs W --archive RUN` sends.
+            var q = WorkspaceRequest(name: w)
+            q.run = run
+            var r = HostRequest(.workspaceRunArchive)
+            r.workspaceRequest = q
+            return r
         }
     }
 
@@ -683,6 +715,9 @@ public enum WebAction: Equatable, Sendable {
             "workspace-archive": ["workspace", "ifPlan", "removeSandboxes", "keepTemplates", "confirm"],
             "workspace-restore": ["workspace", "ifPlan"],
             "workspace-delete": ["workspace", "ifPlan", "removeSandboxes", "binFolders", "confirm"],
+            "chat-room-archive": ["room", "ifPlan"],
+            "chat-room-rm": ["room", "ifPlan", "confirm"],
+            "workspace-run-archive": ["workspace", "run"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -976,8 +1011,17 @@ public enum WebAction: Equatable, Sendable {
             w.keepTemplates = try f.bool("keepTemplates") == false ? false : nil
             w.binFolders = try f.bool("binFolders") == true ? true : nil
             w.unfencedConfirmed = try f.flag("actsAsYou") == true ? true : nil
+            w.noArchive = try f.bool("noArchive") == true ? true : nil
             w.confirm = try f.string("confirm", max: 40)
             a = .workspaceLifecycle(v, w)
+        case "chat-room-archive", "chat-room-rm":
+            let room = try f.required(f.matching("room", "^[a-z0-9][a-z0-9_-]{0,63}$", "a room's name"), "room")
+            let sha = try f.required(f.matching("ifPlan", "^[0-9a-f]{16}$", "the plan's sha as shown, 16 lower-case hex digits"), "ifPlan")
+            a = verb == "chat-room-rm" ? .chatRoomRm(room: room, ifPlan: sha, confirm: try f.string("confirm", max: 64) ?? "")
+                : .chatRoomArchive(room: room, ifPlan: sha)
+        case "workspace-run-archive":
+            a = .workspaceRunArchive(workspace: try f.workspaceName("workspace"),
+                                     run: try f.required(f.matching("run", "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{1,6}$", "a run's id"), "run"))
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }
             a = .lifecycle(op, name: try f.sandbox("sandbox"))

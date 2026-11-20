@@ -621,6 +621,12 @@ final class WebOperations: @unchecked Sendable {
             return "ended \(n) in \(w)" + ((try? v.decode(WorkerEnded.self))?.notes.map { $0.isEmpty ? "" : " — " + $0.joined(separator: "; ") } ?? "")
         case .workspaceLifecycle(let verb, let w):
             return Self.lifecycleSummary(verb, w.name ?? "?", v)
+        case .chatRoomArchive(let room, _):
+            return "#\(room) is archived: its history copied into the store and verified"
+        case .chatRoomRm(let room, _, _):
+            return "#\(room) is removed for good; its archive and a tombstone stay"
+        case .workspaceRunArchive(let w, let run):
+            return "run \(run) of \(w): its archive written"
         case .macNetPolicy(let session, let grant):
             return "allowed \(grant.map { String($0.dropFirst(5)) }.joined(separator: ", ")) for session \(session) on this Mac — from its next connection"
         case .macSessionBridges(let session, _, _, _):

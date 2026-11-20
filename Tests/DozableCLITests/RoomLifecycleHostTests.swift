@@ -61,8 +61,9 @@ extension WorkspaceLifecycleHostTests {
         let c = await lcore()
         try await started(c)
         _ = try ok(try await act(c, .finish))
-        // rm before an archive: refused.
+        // Its state now: closed. rm before an archive: refused.
         var p = try await roomPlan(c, "rm", "demo")
+        XCTAssertEqual(p.state, "closed")
         XCTAssertTrue(p.refusals.contains { $0.contains("not archived") }, "\(p.refusals)")
         // Archive: the whole history copied, verified, then archived as you.
         p = try await roomPlan(c, "archive", "demo")

@@ -306,6 +306,13 @@ enum WebChatProjection {
         return try? JSONSerialization.data(withJSONObject: out, options: [.sortedKeys, .withoutEscapingSlashes])
     }
 
+    /// The state with `closed` (room → its finished workspace) beside it.
+    static func withClosed(_ d: Data, _ closed: [String: String]) -> Data {
+        guard var o = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return d }
+        o["closed"] = closed.filter { WebChatRoute.isRoom($0.key) }
+        return (try? JSONSerialization.data(withJSONObject: o, options: [.sortedKeys, .withoutEscapingSlashes])) ?? d
+    }
+
     /// The post's answer: msg_id, state and detail only.
     static func posted(_ body: Data) -> Data? {
         guard let o = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] else { return nil }
@@ -473,6 +480,12 @@ final class WebChatProxy: @unchecked Sendable {
     private let queue = DispatchQueue(label: "doz.web.chat", attributes: .concurrent)
     private let slots = DispatchSemaphore(value: WebChatProxy.maximumAtOnce)
 
+    /// The closed set as the store's records say it (`WorkspaceRuns.closedSet`): the room → its finished workspace.
+    func closedRooms() -> [String: String] {
+        let ws = WorkspaceStore(store: store)
+        return WorkspaceRuns.closedSet(ws.records()) { rec, room in room.owned ?? WorkspaceRuns.owned(room, log: (try? ws.log(rec.name)) ?? []) }
+    }
+
     init(storePath: String, enabled: @escaping @Sendable () -> Bool) {
         store = DozableStore(root: URL(fileURLWithPath: storePath))
         paths = ChatPaths(store: store)
@@ -599,7 +612,9 @@ extension DozableWebServer {
         case .status, .stream:
             throw WebRejection.notFound
         case .state:
-            guard let d = WebChatProjection.state(answer.body) else { throw bad }
+            guard var d = WebChatProjection.state(answer.body) else { throw bad }
+            // The closed set as the records say it: the page disables a closed room's composer (the server refuses anyway).
+            d = WebChatProjection.withClosed(d, chat.closedRooms())
             return .response(200, [jsonType], d)
         case .presence:
             guard let d = WebChatProjection.passThrough(answer.body, array: true) else { throw bad }

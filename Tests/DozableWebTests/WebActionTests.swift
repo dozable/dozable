@@ -97,6 +97,9 @@ final class WebActionTests: XCTestCase {
         "workspace-archive": #"{"action":"workspace-archive","workspace":"launch-video","ifPlan":"0123456789abcdef","removeSandboxes":true,"keepTemplates":false,"confirm":"launch-video"}"#,
         "workspace-restore": #"{"action":"workspace-restore","workspace":"launch-video","ifPlan":"0123456789abcdef"}"#,
         "workspace-delete": #"{"action":"workspace-delete","workspace":"launch-video","ifPlan":"0123456789abcdef","binFolders":true,"confirm":"launch-video"}"#,
+        "chat-room-archive": #"{"action":"chat-room-archive","room":"launch-video","ifPlan":"0123456789abcdef"}"#,
+        "chat-room-rm": #"{"action":"chat-room-rm","room":"launch-video","ifPlan":"0123456789abcdef","confirm":"launch-video"}"#,
+        "workspace-run-archive": #"{"action":"workspace-run-archive","workspace":"launch-video","run":"2026-11-20-1"}"#,
         // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
         "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
         // 669: a sandbox's own value of a per-sandbox setting, or "Follow the Mac" (clear).
@@ -189,6 +192,7 @@ final class WebActionTests: XCTestCase {
         // A workspace's lifecycle from this Mac's own browser — exactly `doz workspace stop | sleep | wake | finish | reopen |
         // archive | restore | delete`, each with the plan's sha the page showed.
         .workspaceStop, .workspaceSleep, .workspaceWake, .workspaceFinish, .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete,
+        .chatRoomArchive, .chatRoomRm, .workspaceRunArchive,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,
@@ -376,6 +380,24 @@ final class WebActionTests: XCTestCase {
         invalid(#"{"action":"duplicate","sandbox":"a","newName":"b","image":"lab"}"#)           // not a field of duplicate
     }
 
+    /// The room actions: strictly decoded, exactly the CLI's HostOp — never `loose` from a browser; rm carries the name typed.
+    func testTheRoomActions() throws {
+        let rm = try decode(Self.samples["chat-room-rm"]!)
+        XCTAssertEqual(rm.hostRequest.chatRoom?.confirm, "launch-video")
+        XCTAssertNil(rm.hostRequest.chatRoom?.loose, "never a loose room from a browser")
+        XCTAssertEqual(rm.hostRequest.chatRoom?.ifPlan, "0123456789abcdef")
+        let ar = try decode(Self.samples["workspace-run-archive"]!)
+        XCTAssertEqual(ar.hostRequest.workspaceRequest?.run, "2026-11-20-1")
+        for bad in [#"{"action":"chat-room-rm","room":"launch-video","ifPlan":"0123456789abcdef","confirm":"x","loose":true}"#,
+                    #"{"action":"chat-room-archive","room":"Launch Video","ifPlan":"0123456789abcdef"}"#,
+                    #"{"action":"chat-room-archive","room":"launch-video"}"#,
+                    #"{"action":"workspace-run-archive","workspace":"launch-video","run":"../x"}"#] {
+            XCTAssertThrowsError(try decode(bad), bad)
+        }
+        XCTAssertEqual(WebExposure.decideRoomAction(.remote(secure: true)), .macOnlyRooms)
+        XCTAssertNil(WebExposure.decideRoomAction(.mac))
+    }
+
     func testEveryActionIsExactlyOneAllowedHostOp() throws {
         XCTAssertEqual(Set(Self.samples.keys), Set(WebAction.actionNames), "a sample for every action, and no action without one")
         var ops: [HostOp] = []
@@ -409,10 +431,16 @@ final class WebActionTests: XCTestCase {
         // own browser only); and the five bot changes below.
         XCTAssertEqual(Set(Self.samples.filter { (try? decode($0.value).hostOp)?.rawValue.hasPrefix("workspace-") == true }.map(\.key)),
                        ["workspace-brief", "workspace-adopt", "workspace-new", "workspace-release", "workspace-start", "workspace-stop", "workspace-sleep",
-                        "workspace-wake", "workspace-finish", "workspace-reopen", "workspace-archive", "workspace-restore", "workspace-delete"])
+                        "workspace-wake", "workspace-finish", "workspace-reopen", "workspace-archive", "workspace-restore", "workspace-delete",
+                        "workspace-run-archive"])
         XCTAssertEqual(Set(ops.filter { ["workspace-", "worker-"].contains(where: $0.rawValue.hasPrefix) }),
                        [.workspaceEdit, .workspaceAdopt, .workspaceNew, .workspaceRelease, .workspaceStart, .workerAdd, .workerEnd, .workspaceStop,
-                        .workspaceSleep, .workspaceWake, .workspaceFinish, .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete])
+                        .workspaceSleep, .workspaceWake, .workspaceFinish, .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete,
+                        .workspaceRunArchive])
+        // A room's archive and removal and a run's archive written again: exactly their HostOps, this Mac's own browser only.
+        XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isRoomLifecycle == true ? $0.key : nil }),
+                       ["chat-room-archive", "chat-room-rm", "workspace-run-archive"])
+        XCTAssertEqual(Set(ops.filter { $0.rawValue.hasPrefix("chat-room") }), [.chatRoomArchive, .chatRoomRm])
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isLifecycle == true ? $0.key : nil }),
                        Set(WorkspaceVerb.allCases.map { "workspace-" + $0.rawValue }))
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isWorker == true ? $0.key : nil }), ["worker-add", "worker-end"])

@@ -11,7 +11,7 @@ import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { actOrThrow, waitForOp } from '../core/operations.js';
-import { activityHash, agentsHash, foldersHash, networkHash, workspaceHash } from '../core/routes.js';
+import { activityHash, agentsHash, foldersHash, networkHash, runsHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { loadBots, loadWorkspace, loadWorkspaces } from '../core/workspaces.js';
 import { briefEdits, forRoom, lineAt, mergeLines } from '../core/ws-log.js';
@@ -34,6 +34,7 @@ import { agentsTab } from './ws-agents.js';
 import { networkTab } from './ws-network.js';
 import { foldersTab } from './ws-folders.js';
 import { activityTab } from './ws-activity.js';
+import { runsTab } from './ws-runs.js';
 
 /// The permissions tab's name — ONE constant (the owner's choice; every place that names the tab reads it).
 export const PERMISSIONS_TAB = 'Permissions';
@@ -45,6 +46,7 @@ export const WS_TABS = [
   { id: 'network', label: 'Network & secrets', href: (w) => networkHash(w) },
   { id: 'folders', label: 'Folders & points', href: (w) => foldersHash(w) },
   { id: 'activity', label: 'Activity', href: (w) => activityHash(w) },
+  { id: 'runs', label: 'Runs', href: (w) => runsHash(w) },
   { id: 'settings', label: 'Settings', coming: 'Its defaults: isolation, network, the manager, finishing and archiving' },
 ];
 const FOLD_KEY = (w) => 'doz.ws.fold:' + w;
@@ -92,7 +94,7 @@ function paintTabs(name, tab) {
 }
 
 /// The tabs drawn from a read of their own (each read afresh on every visit).
-const VIEW_TABS = ['network', 'folders', 'activity'];
+const VIEW_TABS = ['network', 'folders', 'activity', 'runs'];
 
 /// The places of the workspace's agents, as a person types them (the activity's operations are filtered by them).
 const placesOf = (d) => d.agents.map((a) => (a.kind === 'sandbox' ? a.sandbox : a.kind === 'mac' ? '@mac/' + a.session : null)).filter(Boolean);
@@ -104,6 +106,7 @@ function drawView(fresh) {
   if (fresh) host.replaceChildren(h('p', { class: 'muted' }, 'reading…'));
   if (cur.tab === 'network') networkTab(name, host);
   else if (cur.tab === 'folders') foldersTab(name, host, cur.detail);
+  else if (cur.tab === 'runs') runsTab(name, host, cur.detail);
   else activityTab(name, host, placesOf(cur.detail), fresh);
 }
 

@@ -1870,7 +1870,7 @@ public struct WebWorkspaceDetail: Codable, Equatable, Sendable {
         name = d.name; state = d.state; words = WorkspaceState(rawValue: d.state)?.words ?? d.state; driver = d.driver; createdAt = d.createdAt
         briefBytes = d.brief.bytes; refs = d.brief.refs.count
         folders = d.folders.map { WebWorkspaceFolder(path: $0.path, mode: $0.mode, main: $0.main) }
-        rooms = d.rooms.map { WebWorkspaceRoom(label: $0.label, room: $0.chatRoom, main: $0.main) }
+        rooms = d.rooms.map { WebWorkspaceRoom(label: $0.label, room: $0.chatRoom, main: $0.main, owned: $0.owned, goneAt: $0.goneAt) }
         agents = d.agents.map(WebWorkspaceAgent.init)
         notes = d.notes ?? []
         finishedAt = d.flags.finishedAt; archivedAt = d.flags.archivedAt
@@ -1892,6 +1892,9 @@ public struct WebWorkspaceRoom: Codable, Equatable, Sendable {
     public var label: String
     public var room: String
     public var main: Bool
+    /// The workspace made it (nil: not recorded yet) and when it was removed for good (its tombstone in the room index).
+    public var owned: Bool? = nil
+    public var goneAt: Date? = nil
 }
 
 public struct WebWorkspaceAgent: Codable, Equatable, Sendable {

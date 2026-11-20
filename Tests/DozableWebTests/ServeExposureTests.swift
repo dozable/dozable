@@ -21,7 +21,7 @@ final class ServeExposureTests: XCTestCase {
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
             .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
             .macSessionNetwork("agent"), .macSessionTranscripts("agent"), .macSessionTranscript("agent", "20261113T101500Z", "x.jsonl"),
-            .macSessionQuarantine("agent"), .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
+            .macSessionQuarantine("agent"), .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .chat(.status), .workspaces, .workspace("demo"), .workspaceBrief("demo"),
             .workspaceLog("demo", nil), .loose, .bots, .botsRetired, .bot("mira"), .macs,
         ]
         for r in all { _ = covered(r) }
@@ -38,7 +38,7 @@ final class ServeExposureTests: XCTestCase {
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck, .uiRestart,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
              .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
-             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .chat,
+             .macSessionNetwork, .macSessionTranscripts, .macSessionTranscript, .macSessionQuarantine, .macSessionPlan, .workspacePlan, .workerPlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceActivity, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .chat,
              .workspaces, .workspace, .workspaceBrief, .workspaceLog, .loose, .bots, .botsRetired, .bot, .macs:
             return true
         }
@@ -49,7 +49,9 @@ final class ServeExposureTests: XCTestCase {
         var t: [String: (WebRejection?, WebRejection?, WebRejection?)] = [:]
         for r in samples { t[ServeExposureTests.label(r)] = (nil, nil, nil) }
         for secret in ["accountAdd", "sandboxKey", "accessGithubKey"] { t[secret] = (nil, .secretOverHTTP, nil) }
-        for screen in ["terminal", "workspaceChoose", "projectsDirChoose", "dockerfileChoose", "filesOpen", "editors", "portOpen", "macSessionPlan", "workspacePlan", "workerPlan", "workspaceLifecyclePlan"] { t[screen] = (nil, .macScreen, .macScreen) }
+        for screen in ["terminal", "workspaceChoose", "projectsDirChoose", "dockerfileChoose", "filesOpen", "editors", "portOpen", "macSessionPlan", "workspacePlan", "workerPlan", "workspaceLifecyclePlan", "chatRoomPlan"] { t[screen] = (nil, .macScreen, .macScreen) }
+        // A run's archived messages are chat: another computer reads them only with serve.chat read or write.
+        t["workspaceRunChat"] = (nil, .chatRemote, .chatRemote)
         t["serveProbe"] = (.notFound, nil, nil)
         t["uiRestart"] = (nil, .macOnly, .macOnly)          // 714: Restart dashboard — this Mac's own browser only
         // The sessions on this Mac: never another computer's by default (serve.mac_sessions = off).
