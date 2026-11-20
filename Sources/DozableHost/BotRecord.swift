@@ -85,9 +85,11 @@ public struct BotRecord: Codable, Equatable, Sendable {
     public var instructions: BotInstructions?
     public var token: BotTokenState
     public var retiredAt: Date?
+    /// Its ceiling: per permission the most it may ever be, `ask` or `never` (`doz bot ceiling`; nil: none set). Additive.
+    public var ceilingAnswers: [String: String]?
     public var unknown = UnknownFields()
     static let known: Set<String> = ["name", "createdAt", "origin", "agent", "model", "account", "avatar", "isolation", "kind", "deliver",
-                                     "webhookEntry", "session", "skills", "instructions", "token", "retiredAt"]
+                                     "webhookEntry", "session", "skills", "instructions", "token", "retiredAt", "ceilingAnswers"]
 
     public init(name: String, createdAt: Date, origin: String = "new", agent: String, model: String? = nil, account: String? = nil,
                 avatar: String? = nil, isolation: BotIsolation, kind: String, deliver: String = "poll", webhookEntry: String? = nil,
@@ -115,6 +117,7 @@ public struct BotRecord: Codable, Equatable, Sendable {
         instructions = try c.decodeIfPresent(BotInstructions.self, forKey: "instructions")
         token = try c.decode(BotTokenState.self, forKey: "token")
         retiredAt = try c.decodeIfPresent(Date.self, forKey: "retiredAt")
+        ceilingAnswers = try c.decodeIfPresent([String: String].self, forKey: "ceilingAnswers")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -137,6 +140,7 @@ public struct BotRecord: Codable, Equatable, Sendable {
         try c.encodeIfPresent(instructions, forKey: "instructions")
         try c.encode(token, forKey: "token")
         try c.encodeIfPresent(retiredAt, forKey: "retiredAt")
+        if let a = ceilingAnswers, !a.isEmpty { try c.encode(a, forKey: "ceilingAnswers") }
     }
 
     public var retired: Bool { retiredAt != nil }

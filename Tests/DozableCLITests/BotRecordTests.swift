@@ -146,4 +146,20 @@ final class BotRecordTests: XCTestCase {
         XCTAssertNil(obj["bot"], "no bot: no field")
         XCTAssertNil(try HostWire.decoder.decode(WorkspaceAgent.self, from: try HostWire.encoder.encode(old)).bot)
     }
+
+    /// The bot's ceiling (`ceilingAnswers`, additive): a record from before has none and is written back without the key; one
+    /// set survives a rewrite, and only ask and never cap (`GrantCeiling.caps`).
+    func testTheCeilingAnswers() throws {
+        var r = record()
+        try bots.write(BotsFile(bots: [r]))
+        let before = try Data(contentsOf: URL(fileURLWithPath: bots.file))
+        XCTAssertNil(try bots.read().bot("mira")?.ceilingAnswers)
+        try bots.write(try bots.read())
+        XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: bots.file)), before, "written back byte for byte")
+        r.ceilingAnswers = ["sudo": "never", "spend": "ask"]
+        try bots.write(BotsFile(bots: [r]))
+        let back = try XCTUnwrap(try bots.read().bot("mira"))
+        XCTAssertEqual(back.ceilingAnswers, ["sudo": "never", "spend": "ask"])
+        XCTAssertEqual(GrantCeiling.caps(back.ceilingAnswers), ["sudo": .never, "spend": .ask])
+    }
 }

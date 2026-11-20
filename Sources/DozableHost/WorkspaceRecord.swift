@@ -432,8 +432,11 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
     public var origin: WorkspaceOrigin
     /// Its runs, oldest first (`WorkspaceRuns`). Additive: written only once there is one.
     public var runs: [WorkspaceRun] = []
+    /// Its own grants and ceiling (`GrantModel`; nil: none ever set). Additive: an older doz keeps it as an unknown field.
+    public var permissions: WorkspaceGrants?
     public var unknown = UnknownFields()
-    static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "defaults", "flags", "driver", "origin", "runs"]
+    static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "defaults", "flags", "driver", "origin", "runs",
+                                     "permissions"]
 
     public init(name: String, createdAt: Date, brief: WorkspaceBrief, folders: [WorkspaceFolder], rooms: [WorkspaceRoom] = [],
                 agents: [WorkspaceAgent] = [], defaults: WorkspaceDefaults = WorkspaceDefaults(), flags: WorkspaceFlags = WorkspaceFlags(),
@@ -457,6 +460,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         driver = try c.decodeIfPresent(String.self, forKey: "driver") ?? "you"
         origin = try c.decodeIfPresent(WorkspaceOrigin.self, forKey: "origin") ?? WorkspaceOrigin()
         runs = try c.decodeIfPresent([WorkspaceRun].self, forKey: "runs") ?? []
+        permissions = try c.decodeIfPresent(WorkspaceGrants.self, forKey: "permissions")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -475,6 +479,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         try c.encode(driver, forKey: "driver")
         try c.encode(origin, forKey: "origin")
         if !runs.isEmpty { try c.encode(runs, forKey: "runs") }
+        try c.encodeIfPresent(permissions, forKey: "permissions")
     }
 
     /// The open run's index (nil: none open).
