@@ -295,6 +295,9 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// A workspace's runs (`WorkspaceRunsListing`): each run's window, its archive's status, place and size, and the
     /// timesheet's totals. Only reads: in-process when no daemon runs.
     case workspaceRuns = "workspace-runs"
+    /// A closed run's archive written again (`WorkspaceRequest.run`) — when it could not be written at its finish
+    /// (`WorkspaceChanged`'s `archive` or `archiveProblem`). The daemon's.
+    case workspaceRunArchive = "workspace-run-archive"
     /// Agents / Bots (`botRequest`: a `BotRequest` — never a token). `bot-ls` (`BotListing`) and `bot-show` (`BotDetail`)
     /// only read: answered in-process when no daemon runs. `-new`, `-set`, `-retire`, `-adopt` and `-token` change the
     /// store, the chat server's participants and the bots' keychain items: the daemon's, one at a time (`HostCore+Bots`),
@@ -1900,6 +1903,12 @@ public struct WorkspaceChanged: Codable, Equatable, Sendable {
     public var binned: [String]?
     public var notes: [String]?
     public var workspace: WorkspaceDetail?
+    /// Finish, archive: the run closed, its archive (relative to the store) and its manifest's sha256 — or why it could not
+    /// be written (the verb still did everything else; `doz workspace runs W --archive RUN` writes it again). Additive.
+    public var run: String?
+    public var archive: String?
+    public var archiveSHA256: String?
+    public var archiveProblem: String?
     public init(name: String, verb: String, results: [WorkspaceAgentResult], templates: [String: String]? = nil, binned: [String]? = nil,
                 notes: [String]? = nil, workspace: WorkspaceDetail?) {
         self.name = name; self.verb = verb; self.results = results; self.templates = templates; self.binned = binned; self.notes = notes

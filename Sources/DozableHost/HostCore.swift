@@ -127,6 +127,13 @@ public actor HostCore {
     /// own, `DaemonAgentLifecycle`; tests give a fake).
     var agentLifecycleOverride: (any WorkspaceAgentLifecycle)?
     public func setAgentLifecycle(_ l: (any WorkspaceAgentLifecycle)?) { agentLifecycleOverride = l }
+    /// How a sandbox agent's conversations are copied out for a run's archive (nil: the daemon's, through the guest; tests
+    /// give a fake). `SandboxTranscriptExport`.
+    var sandboxTranscriptsOverride: (any SandboxTranscriptSource)?
+    public func setSandboxTranscripts(_ s: (any SandboxTranscriptSource)?) { sandboxTranscriptsOverride = s }
+    /// The archive's second, whole-archive sweep (nil: the same as the first) — a test's seam to prove it fails the archive.
+    var archiveVerifySweepOverride: ExportSweep?
+    public func setArchiveVerifySweep(_ s: ExportSweep?) { archiveVerifySweepOverride = s }
     /// How a workspace's manager is started and stopped (nil: the daemon's own, `DaemonManagerLauncher`; tests give a fake).
     var managerLauncherOverride: (any ManagerLauncher)?
     public func setManagerLauncher(_ l: (any ManagerLauncher)?) { managerLauncherOverride = l }
@@ -889,7 +896,7 @@ public actor HostCore {
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
         case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename,
              .workspaceStart, .workspaceStop, .workspacePlan, .workspaceLifecyclePlan, .workspaceSleep, .workspaceWake, .workspaceFinish,
-             .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete, .workspaceReach, .workspaceFolders, .workspaceRuns:
+             .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunArchive:
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
             return try await performBot(r)

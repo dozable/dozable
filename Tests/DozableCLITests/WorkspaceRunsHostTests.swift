@@ -66,3 +66,71 @@ extension WorkspaceLifecycleHostTests {
         XCTAssertFalse(r.runs[0].isOpen)
     }
 }
+
+/// The archive at finish: written in the store (the slice excludes what came before the start), recorded in the run; a
+/// failure finishes anyway, removes nothing, says why, and `workspace-run-archive` writes it once fixed.
+extension WorkspaceLifecycleHostTests {
+    func testFinishWritesTheRunsArchive() async throws {
+        let c = await lcore()
+        rooms.otherPost("demo", "before the start")
+        try await started(c)
+        rooms.otherPost("demo", "work")
+        let p = try await plan(c, .finish)
+        XCTAssertEqual(p.archive?.off, false)
+        XCTAssertEqual(p.archive?.rooms.map(\.room), ["demo"])
+        XCTAssertEqual(p.archive?.rooms.first?.messages, 2, "the brief and the post after it")
+        let f = try ok(try await act(c, .finish))
+        XCTAssertNil(f.archiveProblem, f.archiveProblem ?? "")
+        let path = try XCTUnwrap(f.archive)
+        let dir = WorkspaceStore.resolved(store.root.path) + "/" + path
+        XCTAssertTrue(RunArchive.verify(root: dir).ok)
+        let chat = try String(contentsOfFile: dir + "/chat/demo.jsonl", encoding: .utf8)
+        XCTAssertFalse(chat.contains("before the start"), "the slice excludes a message from before the start")
+        XCTAssertTrue(chat.contains("\"work\""))
+        let r = try XCTUnwrap(record())
+        XCTAssertEqual(r.runs.last?.archive, path)
+        XCTAssertEqual(r.runs.last?.archiveSHA256, f.archiveSHA256)
+        XCTAssertTrue(log().contains("run-archived"))
+        // Runs: written, with its size and its messages.
+        let lr = await ws(c, .workspaceRuns, "demo")
+        let l = try XCTUnwrap(lr.result).decode(WorkspaceRunsListing.self)
+        XCTAssertEqual(l.runs.first?.archiveStatus, "written")
+        XCTAssertEqual(l.runs.first?.messages, 2)
+        XCTAssertGreaterThan(l.runs.first?.archiveBytes ?? 0, 0)
+    }
+
+    func testAFailedArchiveFinishesAnywayAndIsWrittenAgainOnceFixed() async throws {
+        let c = await lcore()
+        try await started(c)
+        // The archives' folder cannot be made: a file stands where it would be.
+        let blocker = WorkspaceStore.resolved(store.root.path) + "/archives"
+        try Data("x".utf8).write(to: URL(fileURLWithPath: blocker))
+        let f = try ok(try await act(c, .finish))
+        XCTAssertEqual(f.workspace?.state, "finished", "finish still completes")
+        let why = try XCTUnwrap(f.archiveProblem)
+        XCTAssertTrue(f.notes?.contains { $0.contains("--archive \(f.run ?? "")") } == true)
+        XCTAssertEqual(try XCTUnwrap(record()).runs.last?.archiveProblem, why)
+        XCTAssertTrue(log().contains("run-archive-failed"))
+        XCTAssertEqual(try String(contentsOfFile: blocker, encoding: .utf8), "x", "nothing of the person's was removed")
+        try FileManager.default.removeItem(atPath: blocker)
+        let again = await ws(c, .workspaceRunArchive, "demo") { $0.run = f.run }
+        XCTAssertNil(again.error, again.error?.message ?? "")
+        let r = try XCTUnwrap(record())
+        XCTAssertNil(r.runs.last?.archiveProblem)
+        XCTAssertNotNil(r.runs.last?.archive)
+        let twice = await ws(c, .workspaceRunArchive, "demo") { $0.run = f.run }
+        XCTAssertEqual(twice.error?.code, .exists)
+    }
+
+    func testFinishWithoutAnArchive() async throws {
+        let c = await lcore()
+        try await started(c)
+        let p = try await plan(c, .finish) { $0.noArchive = true }
+        XCTAssertEqual(p.archive?.off, true)
+        XCTAssertTrue(p.command.hasSuffix("--no-archive"))
+        let f = try ok(try await act(c, .finish) { $0.noArchive = true })
+        XCTAssertNil(f.archive)
+        XCTAssertEqual(try XCTUnwrap(record()).runs.last?.noArchive, true)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: WorkspaceStore.resolved(store.root.path) + "/archives"))
+    }
+}

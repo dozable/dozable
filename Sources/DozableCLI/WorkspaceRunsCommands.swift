@@ -14,8 +14,20 @@ struct WorkspaceRunsCommand: AsyncParsableCommand {
         """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The workspace.") var name: String
+    @Option(name: .customLong("archive"), help: "Write this closed run's archive again (when it could not be written at its finish).")
+    var archive: String?
 
     func run() async throws {
+        if let run = archive {
+            var w = WorkspaceRequest(name: name)
+            w.run = run
+            let c = try decode(try call(workspaceRequest(.workspaceRunArchive, w), g), WorkspaceChanged.self, g)
+            if g.json { Out.json(c); return }
+            var out = "run \(run)'s archive written: \(DisplayPath.tilde(g.dozableStore.root.path + "/" + (c.archive ?? "")))\n"
+            for n in c.notes ?? [] { out += "note: \(n)\n" }
+            Out.stdout(out)
+            return
+        }
         let l = try decode(try await query(workspaceRequest(.workspaceRuns, WorkspaceRequest(name: name)), g), WorkspaceRunsListing.self, g)
         if g.json { Out.json(l); return }
         Out.stdout(workspaceRunsText(l))

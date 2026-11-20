@@ -130,6 +130,7 @@ extension HostCore {
         if r.op == .workspaceStart { return try JSONValue(encoding: try await workspaceStart(w)) }
         if r.op == .workspaceStop { return try JSONValue(encoding: try await workspaceStop(w)) }
         if let verb = WorkspaceVerb(op: r.op) { return try JSONValue(encoding: try await workspaceLifecycle(verb, w)) }
+        if r.op == .workspaceRunArchive { return try JSONValue(encoding: try await workspaceRunArchive(w)) }
         await workspaceGate.lock("workspaces")
         defer { workspaceGate.unlock("workspaces") }
         switch r.op {

@@ -925,9 +925,9 @@ doz workspace start W                           # the set-up check, the brief po
 doz workspace stop W                            # the manager ended; its record, conversation and room kept
 doz workspace sleep W [--dry-run] [--yes] [--if-plan SHA]     # every agent asleep: a sandbox hibernated, a session ended (its conversation kept)
 doz workspace wake W [--dry-run] [--yes] [--if-plan SHA]      # back in the same sandboxes and conversations
-doz workspace finish W [--dry-run] [--yes] [--if-plan SHA]    # everything stops; rooms, tokens, disks and folders kept (asks [y/N])
+doz workspace finish W [--no-archive] [--dry-run] [--yes] [--if-plan SHA]    # everything stops; the run archived; tokens, disks and folders kept (asks [y/N])
 doz workspace reopen W [--dry-run] [--if-plan SHA]            # finished → asleep until you wake it
-doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
+doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--no-archive] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
 doz workspace restore W [--dry-run] [--if-plan SHA]           # archived → finished, its rooms writable again
 doz workspace delete W [--remove-sandboxes [--no-keep-templates]] [--bin-folders] [--dry-run] [--yes] [--if-plan SHA]   # finished or archived only (the name typed)
 doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME]   # as a worker; only the workspace's record changes
@@ -938,6 +938,7 @@ doz workspace log W [--since T]                 # what happened and who did it (
 doz workspace log W --limit N [--before I]      # one page, the newest N (1–500); --before the page's first: the page before (--json: first, more)
 doz workspace rename W NEW                      # its room keeps its own name
 doz workspace runs W [--json]                   # its runs: each start or reopen to its finish, its archive's status and size, the timesheet's totals
+doz workspace runs W --archive RUN              # a closed run's archive written again (when it could not be written at its finish)
 ```
 
 `show --can-do`, `--network` and `--folders` answer from the store when no daemon runs and start none (what each agent was

@@ -150,9 +150,48 @@ extension HostCore {
 
     /// The plan of `verb` for `rec` as it is now.
     func lifecyclePlan(_ verb: WorkspaceVerb, _ rec: WorkspaceRecord, _ o: WorkspaceLifecycle.Options) async -> WorkspaceLifecyclePlan {
-        let facts = await workspaceLifecycleFacts(rec)
+        var facts = await workspaceLifecycleFacts(rec)
+        if (verb == .finish || (verb == .archive && rec.flags.finishedAt == nil)) && !o.noArchive { facts.archive = await archiveFacts(rec, chat: facts.chat) }
         let d = await workspaceDetail(rec, withBrief: false)
         return WorkspaceLifecycle.plan(verb: verb, record: rec, state: d.state, facts: facts, options: o)
+    }
+}
+
+// MARK: what a run's archive would hold
+
+extension HostCore {
+    /// The archive section's facts: the run, each room's messages so far (only when chat answers), each agent's conversations
+    /// (a session on this Mac's from its listing; a sandbox's are found when it is copied), the screens, the free space.
+    func archiveFacts(_ rec: WorkspaceRecord, chat: WorkspaceLifecycle.Chat) async -> WorkspaceLifecycle.ArchiveFacts {
+        let run = rec.openRun ?? WorkspaceRuns.legacyRun(rec) ?? WorkspaceRun(id: WorkspaceRuns.nextID(rec.runs, at: Date()), startedAt: Date())
+        var a = WorkspaceLifecycle.ArchiveFacts(run: run.id, path: WorkspaceRuns.archivePath(workspace: rec.name, run: run.id))
+        let rooms = run.rooms.isEmpty ? rec.rooms.filter { $0.goneAt == nil }.map { WorkspaceRunRoom(room: $0.chatRoom, fromSeq: 0) } : run.rooms
+        for r in rooms {
+            var count: Int?
+            if chat == .ready, !readOnly, let c = workspaceChat, let last = try? c.lastSeq(room: r.room) { count = Int(max(0, last - r.fromSeq)) }
+            a.rooms[r.room] = count
+        }
+        let since = MacTranscripts.stamp(run.startedAt)
+        for ag in runAgents(rec, run) where ag.place.key != nil {
+            a.screens.append(ag.name)
+            if let s = ag.place.sandbox {
+                let who = ag.place.session != nil && ag.isWorker ? s : ag.name
+                if a.transcripts[who] == nil { a.transcripts[who] = ("sandbox", nil, nil) }
+                continue
+            }
+            guard let s = ag.place.session, !buildFlavor.isHelper else { continue }
+            let fenced = mac.records().sessions[s]?.fence != nil
+            var r = HostRequest(.sessionTranscripts, name: MacPlace.name)
+            r.session = s
+            let l = try? macTranscriptsList(r)
+            let items = (l?.items.filter { $0.endedAt >= since } ?? []) + (l?.conversations ?? [])
+            var bytes: Int64 = 0
+            for i in items { var st = stat(); if lstat(i.path, &st) == 0 { bytes += Int64(st.st_size) } }
+            a.transcripts[ag.name] = (fenced ? "fenced" : "unfenced", items.count, bytes)
+        }
+        var fs = statfs()
+        if statfs(storeRoot, &fs) == 0 { a.freeBytes = Int64(fs.f_bavail) * Int64(fs.f_bsize) }
+        return a
     }
 }
 
@@ -286,7 +325,7 @@ extension HostCore {
         case .stop: throw HostError(.invalid, "stop is workspace-stop")
         case .sleep: return try await lifecycleSleep(rec, plan)
         case .wake: return try await lifecycleWake(rec, plan)
-        case .finish: return try await lifecycleFinish(rec, plan)
+        case .finish: return try await lifecycleFinish(rec, plan, o)
         case .reopen: return try await lifecycleReopen(rec)
         case .archive: return try await lifecycleArchive(rec, plan, o)
         case .restore: return try await lifecycleRestore(rec)
@@ -530,19 +569,50 @@ extension HostCore {
 
     // MARK: finish
 
-    func lifecycleFinish(_ rec: WorkspaceRecord, _ plan: WorkspaceLifecyclePlan) async throws -> WorkspaceChanged {
+    func lifecycleFinish(_ rec: WorkspaceRecord, _ plan: WorkspaceLifecyclePlan, _ o: WorkspaceLifecycle.Options) async throws -> WorkspaceChanged {
         let n = rec.name
+        // A sandbox agent's conversations and screen, copied out while its VM still runs.
+        let current = rec.openRun ?? WorkspaceRuns.legacyRun(rec)
+        let pre = o.noArchive || current == nil ? RunPreStop() : await gatherBeforeStop(rec, current!)
         let results = await stopEverything(rec, plan)
         if let failed = Self.lifecycleFailure(n, "stop", results) { throw failed }
-        try await closeRun(n, by: "finish", toSeq: await roomLastSeqs(rec))
+        let closed = try await closeRun(n, by: "finish", toSeq: await roomLastSeqs(rec), noArchive: o.noArchive)
+        let archive = await archiveClosedRun(n, closed, plan: plan, pre: pre, noArchive: o.noArchive)
         _ = try await workspaceUpdate(n) { r in
             r.flags.finishedAt = Date()
             return [WorkspaceLogEntry(action: "finished")]
         }
         note(nil, "workspace \(n): finished")
-        return WorkspaceChanged(name: n, verb: "finish", results: results,
-                                notes: ["nothing runs now; its room\(rec.rooms.count == 1 ? "" : "s") and tokens are kept — doz workspace reopen \(n), then wake, to work on it again"],
-                                workspace: await workspaceDetail(try workspaceRecord(n), withBrief: false))
+        var c = WorkspaceChanged(name: n, verb: "finish", results: results,
+                                 notes: ["nothing runs now; its room\(rec.rooms.count == 1 ? "" : "s") and tokens are kept — doz workspace reopen \(n), then wake, to work on it again"]
+                                     + archive.notes,
+                                 workspace: await workspaceDetail(try workspaceRecord(n), withBrief: false))
+        c.run = closed?.id; c.archive = archive.path; c.archiveSHA256 = archive.sha; c.archiveProblem = archive.problem
+        return c
+    }
+
+    /// The closed run's archive written (unless `noArchive`): what was gathered before the stop and what is read now. A
+    /// failure is recorded in the run and answered — the verb itself is never undone by it.
+    func archiveClosedRun(_ n: String, _ closed: WorkspaceRun?, plan: WorkspaceLifecyclePlan, pre: RunPreStop,
+                          noArchive: Bool) async -> (path: String?, sha: String?, problem: String?, notes: [String]) {
+        guard let run = closed, !noArchive, let rec = try? workspaceRecord(n) else {
+            return (nil, nil, nil, closed != nil && noArchive ? ["no archive was written (--no-archive)"] : [])
+        }
+        var g = gatherAfterStop(rec, run)
+        g.transcripts = pre.transcripts + g.transcripts
+        g.screens.merge(pre.screens) { a, _ in a }
+        g.notes = pre.notes + g.notes
+        do {
+            let (path, sha) = try await writeRunArchive(rec, run, plan: plan, gathered: g)
+            await recordRunArchive(n, run.id, path: path, sha: sha, problem: nil)
+            note(nil, "workspace \(n): the archive of run \(run.id) written")
+            return (path, sha, nil, ["run \(run.id)'s archive: \(DisplayPath.tilde(storeRoot + "/" + path))"])
+        } catch {
+            let why = HostError.from(error).message
+            await recordRunArchive(n, run.id, path: nil, sha: nil, problem: why)
+            note(nil, "workspace \(n): the archive of run \(run.id) was not written: \(why)")
+            return (nil, nil, why, ["run \(run.id)'s archive was not written: \(why) — doz workspace runs \(n) --archive \(run.id) writes it again"])
+        }
     }
 
     /// Finish's steps: every place that runs (or sleeps in a VM) shut down or ended, its record, disk and conversation kept;
@@ -592,10 +662,17 @@ extension HostCore {
 
     func lifecycleArchive(_ rec: WorkspaceRecord, _ plan: WorkspaceLifecyclePlan, _ o: WorkspaceLifecycle.Options) async throws -> WorkspaceChanged {
         let n = rec.name
+        let current = rec.flags.finishedAt == nil ? (rec.openRun ?? WorkspaceRuns.legacyRun(rec)) : nil
+        let pre = o.noArchive || current == nil ? RunPreStop() : await gatherBeforeStop(rec, current!)
         var results = await stopEverything(rec, plan)
         if let failed = Self.lifecycleFailure(n, "stop", results) { throw failed }
-        // Archive does finish's steps when it is not finished: its run closes here.
-        if rec.flags.finishedAt == nil { try await closeRun(n, by: "archive", toSeq: await roomLastSeqs(rec)) }
+        // Archive does finish's steps when it is not finished: its run closes here, and its archive is written.
+        var archive: (path: String?, sha: String?, problem: String?, notes: [String]) = (nil, nil, nil, [])
+        var closedRun: WorkspaceRun?
+        if rec.flags.finishedAt == nil {
+            closedRun = try await closeRun(n, by: "archive", toSeq: await roomLastSeqs(rec), noArchive: o.noArchive)
+            archive = await archiveClosedRun(n, closedRun, plan: plan, pre: pre, noArchive: o.noArchive)
+        }
         // The rooms, read-only from now on (their history kept) — as you.
         var archivedRooms: [String] = []
         var notes: [String] = []
@@ -624,9 +701,12 @@ extension HostCore {
         }
         if !removed.isEmpty { notes.append("removed: \(removed.joined(separator: ", "))" + (templates.isEmpty ? "" : " — templates kept: " + templates.values.sorted().joined(separator: ", "))) }
         notes.append("doz workspace restore \(n) brings it back, finished")
+        notes += archive.notes
         note(nil, "workspace \(n): archived (\(archivedRooms.count) room\(archivedRooms.count == 1 ? "" : "s"), \(removed.count) sandbox\(removed.count == 1 ? "" : "es") removed)")
-        return WorkspaceChanged(name: n, verb: "archive", results: results, templates: templates.isEmpty ? nil : templates, notes: notes,
-                                workspace: await workspaceDetail(r, withBrief: false))
+        var c = WorkspaceChanged(name: n, verb: "archive", results: results, templates: templates.isEmpty ? nil : templates, notes: notes,
+                                 workspace: await workspaceDetail(r, withBrief: false))
+        c.run = closedRun?.id; c.archive = archive.path; c.archiveSHA256 = archive.sha; c.archiveProblem = archive.problem
+        return c
     }
 
     /// An anonymous worker retired: its participant removed (out of every room, its token refused, its messages kept), its
