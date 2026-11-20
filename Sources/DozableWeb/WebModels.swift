@@ -1865,6 +1865,9 @@ public struct WebWorkspaceDetail: Codable, Equatable, Sendable {
     /// (`workspace-show`'s `gaps` — a look, never the keychain). nil otherwise.
     public var gaps: [WebWorkspacePlan.Gap]?
     public var hidden: Int
+    /// Made by a space file: "Defined by FILE", up or down (its run), and the brief's file — its path shown like a
+    /// folder's. Additive; nil for any other workspace.
+    public var space: WebWorkspaceSpace?
 
     public init(_ d: WorkspaceDetail) {
         name = d.name; state = d.state; words = WorkspaceState(rawValue: d.state)?.words ?? d.state; driver = d.driver; createdAt = d.createdAt
@@ -1878,6 +1881,20 @@ public struct WebWorkspaceDetail: Codable, Equatable, Sendable {
         workerIsolation = d.defaults.isolation
         gaps = d.gaps.map { $0.map { WebWorkspacePlan.Gap(item: $0.item, why: $0.why, fix: $0.fix, step: WebWorkspacePlan.step($0.item)) } }
         hidden = 0
+        space = d.space.map(WebWorkspaceSpace.init)
+    }
+}
+
+/// A space workspace's line on its page: the file that defines it and whether it is up.
+public struct WebWorkspaceSpace: Codable, Equatable, Sendable {
+    public var file: String
+    public var up: Bool
+    public var run: String?
+    public var runSince: Date?
+    public var brief: String?
+    public var briefPath: String?
+    public init(_ s: SpaceShown) {
+        file = s.file; up = s.up; run = s.run; runSince = s.runSince; brief = s.brief; briefPath = s.briefShownPath
     }
 }
 
@@ -1940,9 +1957,13 @@ public struct WebWorkspaceBrief: Codable, Equatable, Sendable {
     public var bytes: Int
     public var updatedAt: Date
     public var sha256: String
+    /// A space workspace's brief is its file (`BRIEF.md`, from the space file): its name and where an edit is saved. Additive.
+    public var file: String?
+    public var savesTo: String?
 
     public init(_ d: WorkspaceDetail) {
         text = d.briefText ?? ""; refs = d.brief.refs; bytes = d.brief.bytes; updatedAt = d.brief.updatedAt; sha256 = d.brief.sha256
+        file = d.space?.brief; savesTo = d.space?.briefShownPath
     }
 }
 

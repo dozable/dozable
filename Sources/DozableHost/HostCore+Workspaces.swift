@@ -234,10 +234,12 @@ extension HostCore {
         if let given { macs = given } else { macs = rec.agents.contains { $0.place.mac == true } ? await workspaceMacRows() : [:] }
         let agents = await workspaceAgents(rec, macs: macs)
         let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.compactMap(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
-        return WorkspaceDetail(name: rec.name, state: state.rawValue, driver: rec.driver, createdAt: rec.createdAt, brief: rec.brief,
-                               briefText: withBrief ? workspaceBriefText(rec) : nil, folders: rec.folders, rooms: rec.rooms,
-                               agents: agents.map(\.0), defaults: rec.defaults, flags: rec.flags, origin: rec.origin,
-                               notes: notes.isEmpty ? nil : notes)
+        var d = WorkspaceDetail(name: rec.name, state: state.rawValue, driver: rec.driver, createdAt: rec.createdAt, brief: rec.brief,
+                                briefText: withBrief ? workspaceBriefText(rec) : nil, folders: rec.folders, rooms: rec.rooms,
+                                agents: agents.map(\.0), defaults: rec.defaults, flags: rec.flags, origin: rec.origin,
+                                notes: notes.isEmpty ? nil : notes)
+        d.space = SpaceShown.of(rec)
+        return d
     }
 
     func workspaceListing(looseOnly: Bool) async -> WorkspaceListing {
@@ -589,8 +591,11 @@ extension HostCore {
         var rec = try workspaceRecord(n)
         let now = Date()
         var log: [WorkspaceLogEntry] = []
-        // Everything is checked first — the brief as the editor read it first of all (a change since: nothing written).
-        if let want = w.ifBrief, want != rec.brief.sha256 {
+        // Everything is checked first — the brief as the editor read it first of all (a change since: nothing written). A
+        // space's brief is its file, hashed as it is now through its descriptor; the path is the record's, never a request's.
+        let spaceBrief = SpaceRecordRef.of(rec)?.brief.flatMap { $0.path.isEmpty ? nil : $0.path }
+        let current = try spaceBrief.map { try SpaceBriefFile.read($0, store: storeRoot).sha256 } ?? rec.brief.sha256
+        if let want = w.ifBrief, want != current {
             throw HostError(.invalidPhase, "the brief of \(n) changed since you opened it — read it again (doz workspace show \(n) --brief)")
         }
         var brief: Data?
@@ -663,7 +668,14 @@ extension HostCore {
             rec.rooms.append(WorkspaceRoom(label: "main", chatRoom: n, main: true, id: id, owned: true))
             log.append(WorkspaceLogEntry(at: now, action: "room-made", room: n))
         }
-        if let brief {
+        if let brief, let path = spaceBrief {
+            // The file wins: written in place (temp, then renamed over it, its mode kept); the store's copy never.
+            let wrote = try SpaceBriefFile.write(String(decoding: brief, as: UTF8.self), to: path, ifSHA: current, store: storeRoot)
+            rec.brief.sha256 = wrote.sha256
+            rec.brief.bytes = wrote.bytes
+            rec.brief.updatedAt = now
+            log.append(WorkspaceLogEntry(at: now, action: "brief-edited", sha256: wrote.sha256, bytes: wrote.bytes, reason: "written to the space's brief file"))
+        } else if let brief {
             try workspaces.writeBrief(n, brief)
             rec.brief.sha256 = WorkspaceStore.sha256(brief)
             rec.brief.bytes = brief.count

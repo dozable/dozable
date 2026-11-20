@@ -43,10 +43,17 @@ public enum SpaceBriefFile {
         return nil
     }
 
+    /// The path as the file system takes it: only the home folder itself resolved (`/tmp` is a link to `/private/tmp`) —
+    /// never a link below it, which every open then refuses (`O_NOFOLLOW_ANY`).
+    static func onDisk(_ path: String, home: String) -> String {
+        guard path.hasPrefix(home + "/") else { return path }
+        return WorkspaceStore.resolved(home) + String(path.dropFirst(home.count))
+    }
+
     /// The brief's text, read by its descriptor under every rule. A missing file is "BRIEF.md is gone from PATH".
     public static func read(_ path: String, store: String, home: String = SpaceBriefFile.home()) throws -> Read {
         if let why = placeRefusal(path, home: home, store: store) { throw HostError(.invalid, "the brief: \(why)") }
-        let resolved = WorkspaceStore.resolved((path as NSString).deletingLastPathComponent) + "/" + (path as NSString).lastPathComponent
+        let resolved = onDisk(path, home: home)
         guard MacFenceHostFS.kind(resolved) != nil else {
             throw HostError(.notFound, "\((path as NSString).lastPathComponent) is gone from \(DisplayPath.tilde((path as NSString).deletingLastPathComponent))")
         }
@@ -70,8 +77,9 @@ public enum SpaceBriefFile {
         guard data.count <= WorkspaceStore.maximumBriefBytes else {
             throw HostError(.invalid, "the brief is \(data.count) bytes — at most \(WorkspaceStore.maximumBriefBytes >> 10) KiB")
         }
-        let dir = WorkspaceStore.resolved((path as NSString).deletingLastPathComponent)
-        let name = (path as NSString).lastPathComponent
+        let full = onDisk(path, home: home)
+        let dir = (full as NSString).deletingLastPathComponent
+        let name = (full as NSString).lastPathComponent
         var st = stat()
         let mode: mode_t = lstat(dir + "/" + name, &st) == 0 ? st.st_mode & 0o777 : 0o644
         do { try MacFenceHostFS.writeAtomically(data, dir: dir, name: name, mode: mode) } catch {

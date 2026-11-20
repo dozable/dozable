@@ -1993,6 +1993,8 @@ public struct WorkspaceDetail: Codable, Equatable, Sendable {
     /// `workspace-show` while it is setting up: what the set-up check would refuse now (never reading the keychain — a locked
     /// one shows only at the start). Additive; nil otherwise.
     public var gaps: [WorkspaceSetupCheck.Gap]?
+    /// Made by a space file: which, whether it is up, its run and times, and where its brief is. Additive.
+    public var space: SpaceShown?
     public init(name: String, state: String, driver: String, createdAt: Date, brief: WorkspaceBrief, briefText: String? = nil,
                 folders: [WorkspaceFolder], rooms: [WorkspaceRoom], agents: [WorkspaceAgentRow], defaults: WorkspaceDefaults,
                 flags: WorkspaceFlags, origin: WorkspaceOrigin, notes: [String]? = nil, gaps: [WorkspaceSetupCheck.Gap]? = nil) {
@@ -2298,3 +2300,33 @@ public struct WorkspaceRunChat: Codable, Equatable, Sendable {
     public var timesheet: String?
 }
 
+/// A workspace a space file made, as `show --space` and its page say it: "Defined by FILE" and up or down.
+public struct SpaceShown: Codable, Equatable, Sendable {
+    /// The space file's name and its path as shown (`~`); the brief's file name and where it is (shown the same way).
+    public var file: String
+    public var shownPath: String?
+    public var up: Bool
+    /// The open run, when up.
+    public var run: String?
+    public var runSince: Date?
+    public var upAt: Date?
+    public var downAt: Date?
+    public var purgedAt: Date?
+    public var brief: String?
+    public var briefShownPath: String?
+    public init(file: String, up: Bool) { self.file = file; self.up = up }
+
+    public static func of(_ rec: WorkspaceRecord) -> SpaceShown? {
+        guard let ref = SpaceRecordRef.of(rec) else { return nil }
+        var s = SpaceShown(file: ref.file ?? "space file", up: rec.openRun != nil && rec.flags.finishedAt == nil)
+        s.shownPath = ref.path.map { DisplayPath.tilde($0) }
+        s.run = s.up ? rec.openRun?.id : nil
+        s.runSince = s.up ? rec.openRun?.startedAt : nil
+        s.upAt = ref.upAt; s.downAt = ref.downAt; s.purgedAt = ref.purgedAt
+        if let p = ref.brief?.path, !p.isEmpty {
+            s.brief = (p as NSString).lastPathComponent
+            s.briefShownPath = DisplayPath.tilde(p)
+        }
+        return s
+    }
+}
