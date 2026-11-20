@@ -1806,11 +1806,14 @@ public struct WebWorkspaceRow: Codable, Equatable, Sendable {
     /// The places of its agents that have not ended (`wsa`, `@mac/wsu`) — a sandbox's or a session's page finds its workspace
     /// here. Another computer that may not see this Mac's sessions gets none of `@mac/…` (`WebWorkspaceReads.forBrowser`).
     public var places: [String]
+    /// The space file that made it and whether it is up (nil: made without one) — Home and the sidebar draw its picture
+    /// from it (the page reads the file itself, under its own route's rules), or a plain tile with none.
+    public var space: WorkspaceRowSpace?
 
     public init(_ r: WorkspaceRow) {
         name = r.name; state = r.state; words = WorkspaceState(rawValue: r.state)?.words ?? r.state; driver = r.driver; agents = r.agents
         room = r.room; manager = r.manager.map(WebWorkspaceManager.init); working = r.working; folders = r.folders ?? []
-        places = r.places ?? []
+        places = r.places ?? []; space = r.space
     }
 }
 

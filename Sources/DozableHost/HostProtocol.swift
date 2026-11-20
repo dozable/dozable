@@ -1882,10 +1882,25 @@ public struct WorkspaceRow: Codable, Equatable, Sendable {
     /// The places of its agents that have not ended, as a person types them (`wsa`, `@mac/wsu`; nil: none) — so a sandbox's or
     /// a session's page knows its workspace. Additive; `--json` only.
     public var places: [String]?
+    /// The space file that made it (its name) and whether it is up — from the record's `space` (the file is never opened;
+    /// nil: made without one). Additive; `--json` only (Home and the sidebar draw its picture, or a plain tile with none).
+    public var space: WorkspaceRowSpace?
     public init(name: String, state: String, driver: String, agents: Int, room: String?, manager: WorkspaceManagerRow? = nil,
-                working: [String]? = nil, folders: [String]? = nil, places: [String]? = nil) {
+                working: [String]? = nil, folders: [String]? = nil, places: [String]? = nil, space: WorkspaceRowSpace? = nil) {
         self.name = name; self.state = state; self.driver = driver; self.agents = agents; self.room = room; self.manager = manager
-        self.working = working; self.folders = folders; self.places = places
+        self.working = working; self.folders = folders; self.places = places; self.space = space
+    }
+}
+
+/// A workspace row's space file: its name (`sp.space.yaml`) and up (the last up later than the last down).
+public struct WorkspaceRowSpace: Codable, Equatable, Sendable {
+    public var file: String
+    public var up: Bool
+    public init(file: String, up: Bool) { self.file = file; self.up = up }
+    /// From the record's reference (nil: none, or one that names no file).
+    public static func of(_ rec: WorkspaceRecord) -> WorkspaceRowSpace? {
+        guard let ref = SpaceRecordRef.of(rec), let file = ref.file else { return nil }
+        return WorkspaceRowSpace(file: file, up: ref.isUp)
     }
 }
 

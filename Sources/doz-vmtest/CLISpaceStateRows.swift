@@ -9,6 +9,7 @@ import DozableHost
 // prompt with a message (and `working` again once an `unblock` file appears). Never the real claude.
 //
 //  F1. up; doz workspace state --json: the facts known, one item per thing the file declares, a sha; the worker working
+//  F1b. ls --json: the row's space (the file, up); none on a workspace made without one (F5: not up after down)
 //  F2. the frames of the open run: written while it runs (doz workspace runs --frames)
 //  F3. a permission prompt: the agent waiting, attention `permission` (the program's message for this Mac's owner); no frame
 //      holds the message
@@ -102,6 +103,13 @@ func cliSpaceStateRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     let t1 = h.run(["workspace", "state", "sf"])
     check(t1.code == 0 && t1.out.contains("agent") && t1.out.contains("w1") && t1.out.contains("sha "), "F1 …and as text")
     let runID = h.json(["workspace", "runs", "sf"], WorkspaceRunsListing.self)?.runs.last?.id ?? "?"
+    // F1b. ls --json: the row says which space file made it and that it is up; a workspace made without one says nothing
+    let l1 = h.json(["workspace", "ls"], WorkspaceListing.self)
+    check(l1?.workspaces.first { $0.name == "sf" }?.space == WorkspaceRowSpace(file: "sf.space.yaml", up: true),
+          "F1b ls --json: sf made by sf.space.yaml, up (\(String(describing: l1?.workspaces.first { $0.name == "sf" }?.space)))")
+    let plain = l1?.workspaces.filter { (try? ws.read($0.name)).flatMap { $0 }.flatMap(SpaceRecordRef.of) == nil } ?? []
+    check(!plain.isEmpty && plain.allSatisfy { $0.space == nil } && l1?.workspaces.filter { $0.space != nil }.allSatisfy { $0.space!.file.hasSuffix(".space.yaml") } == true,
+          "F1b …a workspace made without a space file carries none (\(plain.count) such)")
 
     // F2. frames of the open run
     let framesFolder = WorkspaceStore.resolved(ws.folder("sf")) + "/runs/\(runID)/frames"
@@ -183,6 +191,8 @@ func cliSpaceStateRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     let archive = WorkspaceStore.resolved(store.root.path) + "/archives/sf/runs/\(runID)/frames"
     check(!allText(archive).contains("FAKE-SECRET-WORDS"), "F5 …no archived frame holds the program's message")
     check((h.json(["workspace", "runs", "sf"], WorkspaceRunsListing.self)?.runs.last?.frames ?? 0) >= 3, "F5 …runs --json counts the frames")
+    check(h.json(["workspace", "ls"], WorkspaceListing.self)?.workspaces.first { $0.name == "sf" }?.space == WorkspaceRowSpace(file: "sf.space.yaml", up: false),
+          "F5 …ls --json: sf still made by sf.space.yaml, not up")
 
     // F6. looking with the daemon stopped starts none
     h.run(["daemon", "stop"], timeout: 60)

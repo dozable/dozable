@@ -137,6 +137,38 @@ extension WorkspaceLifecycleHostTests {
         }
     }
 
+    /// `workspace-ls`: a row made by a space file says which and whether it is up (from the record — the file never
+    /// opened); a plain one carries none; a listing from before the field decodes.
+    func testTheListingSaysWhetherASpaceFileMadeAWorkspace() async throws {
+        try await withBriefHome {
+            let c = await lcore()
+            let s = try spaceFiles(agents: "  w1: { kind: claude-code, isolation: fenced, prompt: list the files }")
+            let up = try acted(try await spaceUpAct(c, try spaceRequest(s)))
+            XCTAssertTrue(up.ok)
+            let plain = await ws(c, .workspaceNew, "plain") { $0.brief = "x\n" }
+            XCTAssertNil(plain.error, plain.error?.message ?? "")
+            func rows() async throws -> [String: WorkspaceRow] {
+                let m = await c.handle(HostRequest(.workspaceList))
+                let l = try XCTUnwrap(m.result).decode(WorkspaceListing.self)
+                return Dictionary(uniqueKeysWithValues: l.workspaces.map { ($0.name, $0) })
+            }
+            var r = try await rows()
+            XCTAssertEqual(r["sp"]?.space, WorkspaceRowSpace(file: "sp.space.yaml", up: true))
+            XCTAssertNil(try XCTUnwrap(r["plain"]).space, "made without a space file")
+            // Down: the same file, not up.
+            var rec = try XCTUnwrap(record("sp"))
+            var ref = try XCTUnwrap(SpaceRecordRef.of(rec))
+            ref.downAt = Date().addingTimeInterval(60)
+            ref.store(in: &rec)
+            try WorkspaceStore(store: store).write(rec)
+            r = try await rows()
+            XCTAssertEqual(r["sp"]?.space, WorkspaceRowSpace(file: "sp.space.yaml", up: false))
+            // A row written before the field decodes (nil).
+            let old = #"{"name":"a","state":"idle","driver":"you","agents":0}"#
+            XCTAssertNil(try JSONDecoder().decode(WorkspaceRow.self, from: Data(old.utf8)).space)
+        }
+    }
+
     func testEveryUnfencedAgentIsConfirmedAtEveryUpAndAChangedPlanIsRefused() async throws {
         try await withBriefHome {
             let c = await lcore()
