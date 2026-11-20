@@ -158,6 +158,14 @@ public final class ChatServerCore: @unchecked Sendable {
     var stopping = false
     /// The announcement's webhook calls still out.
     let announcing = DispatchGroup()
+    /// This server's line port as `host:port` (the bind address and the port listened on), named in every webhook wake.
+    /// The config's until the listeners are bound (`setLineAddress`).
+    private var boundLine = ""
+    var lineAddress: String {
+        lock.withLock { boundLine.isEmpty ? Self.joinHostPort(config.bind.isEmpty ? "127.0.0.1" : config.bind, config.linePort) : boundLine }
+    }
+    public func setLineAddress(host: String, port: Int) { lock.withLock { boundLine = Self.joinHostPort(host, port) } }
+    static func joinHostPort(_ h: String, _ p: Int) -> String { h.contains(":") ? "[\(h)]:\(p)" : "\(h):\(p)" }
 
     /// The page this server serves at `/`: a shell (the human's page is Dozable's dashboard).
     public static let pageShell = """

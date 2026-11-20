@@ -208,6 +208,7 @@ public enum ChatServer {
             fault(inUse || denied ? ChatExit.badSetting : ChatExit.restartMe,
                   "cannot listen on \(host) (line port \(config.linePort), page port \(config.httpPort)): " + (inUse ? "a port is in use" : text))
         }
+        core.setLineAddress(host: host, port: listeners.linePort)
         let presence = core.watchPresence()   // presence to open pages whenever it changes
         let ownerSocket = o.ownerSocket
         Stop.add { presence.cancel(); listeners.close(); core.close(); StatusWriter.current?.remove(); if let s = ownerSocket { unlink(s) } }

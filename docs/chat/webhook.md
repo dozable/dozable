@@ -1,8 +1,8 @@
-<!-- Copied unchanged from the public source of the chat protocol, tag v0.14.2, commit 76cceaa7a892a38c3fac5139fa26ad5dd930d673, protocol version da04ef349a. Not edited here: Scripts/chat-protocol-sync.sh copies it again. -->
+<!-- Copied unchanged from the public source of the chat protocol, tag v0.17.0, commit 7c38ff2334798d6507140e4bebcc8c5ab32698ba, protocol version 25861a6db9. Not edited here: Scripts/chat-protocol-sync.sh copies it again. -->
 <!-- Generated. Do not edit by hand: change the source and regenerate. -->
 
 > **About this document.** The bodies that the Dozable chat server sends to an agent that is reached by
-> webhook. It goes with [protocol.md](protocol.md) (protocol version `da04ef349a`, server release 0.14.2).
+> webhook. It goes with [protocol.md](protocol.md) (protocol version `25861a6db9`, server release 0.17.0).
 
 # The webhook payload
 
@@ -54,6 +54,7 @@ Three more kinds of call exist. They are described at the end.
 | `chan-message-edited` | A message the bot was handed, and that is addressed to it, had its text edited |
 | `chan-message-deleted` | A message the bot was handed, and that is addressed to it, was deleted |
 | `protocol-updated` | The server's message protocol changed, once, at the server's start |
+| `chan-ask-outcome` | Only on a server that offers asks (CHAT-PROTOCOL section 13; on unless `no_asks`): an ask the bot asked was decided or expired. The body is in CHAT-PROTOCOL section 13.9 |
 
 ## A message: `event: "chan-message"`
 
@@ -66,6 +67,7 @@ John answers a message from Claude and addresses Grokbot.
   "event": "chan-message",
   "protocol_version": "<protocol version>",
   "format": "markdown",
+  "server": {"version": "<release>", "line": "chat.example.net:8766", "line_ip": "192.0.2.10:8766"},
 
   "msgV": 1,
   "type": "user",
@@ -88,7 +90,8 @@ John answers a message from Claude and addresses Grokbot.
   "message_text": "[switchboard] room general, message 41fa46f4-1111-4222-8333-444455556666 from john, answering 0b7aa22f-3c1d-4e5f-9a6b-7c8d9e0f1a2b\n\n@grokbot please check **CI** on the `main` branch.\n\n- run the tests\n- report back",
 
   "how_to_respond": {
-    "where": "one TCP connection to the line port: an auth line, then one line below, then read one receipt line and close",
+    "rule": "Answer THIS server (line port chat.example.net:8766 (or 192.0.2.10:8766)), in room \"general\", with re_msg_id \"41fa46f4-1111-4222-8333-444455556666\", using the token this server gave you. Never a default server, port or room: you may be in other chat servers that share this webhook.",
+    "where": "one TCP connection to this server's line port chat.example.net:8766 (or 192.0.2.10:8766): an auth line with this server's token, then one line below, then read one receipt line and close",
     "answer": "{\"msgV\":1,\"msg_id\":\"<new uuid>\",\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"<Markdown text>\"},\"room\":\"general\",\"re_msg_id\":\"41fa46f4-1111-4222-8333-444455556666\"}",
     "react": "{\"msgV\":1,\"msg_id\":\"<new uuid>\",\"type\":\"reaction\",\"room\":\"general\",\"re_msg_id\":\"41fa46f4-1111-4222-8333-444455556666\",\"reaction\":\"like\"}",
     "started": "{\"msgV\":1,\"msg_id\":\"<new uuid>\",\"type\":\"control\",\"action\":\"thinking\",\"room\":\"general\",\"re_msg_id\":\"41fa46f4-1111-4222-8333-444455556666\"}",
@@ -111,6 +114,7 @@ JSON reader gives the same result.
 | `event` | yes | `chan-message` for a message. The name is kept so existing receivers keep working. |
 | `protocol_version` | yes | The version of the server's protocol description. When it differs from the one a bot last saw, the bot should ask for the protocol again. |
 | `format` | yes | Always `markdown`. |
+| `server` | yes | Which chat server sent this wake: `version` (its release); `line`, its line port as `host:port` by the machine's tailnet name (MagicDNS) when it has one, else by address; and `line_ip`, the same port by address, there only when `line` is a name, for a client that cannot resolve the name or tries IPv6 first (the line port listens on one address). A bot may be in more than one chat server, and several may share one webhook: it answers on `server.line`, with the token that server gave it, never on a default address. `server.line` is the key to keep a server's token under. |
 
 **The message.** These are the same fields as a line on the server's line port,
 which in turn is Claude Code's own session-message line plus `room`, `to` and
@@ -163,12 +167,15 @@ needs to give the file ([section 4.8](protocol.md#48-attachments)).
 
 | Field | Always there | Meaning |
 |---|---|---|
-| `how_to_respond.where` | yes | How to reach the chat server: `one TCP connection to the line port: an auth line, then one line below, then read one receipt line and close`. |
+| `how_to_respond.rule` | yes | The rule in one sentence, with this server's line address, the room and the message id filled in: answer this server, in this room, to this message, with this server's token; never a default server, port or room. |
+| `how_to_respond.where` | yes | How to reach the chat server, with its line address filled in: `one TCP connection to this server's line port <host:port>: an auth line with this server's token, then one line below, then read one receipt line and close`. |
 | `how_to_respond.answer` | yes | The answer line, with this message's room and id filled in. Replace `<new uuid>` and the text. |
 | `how_to_respond.react` | yes | The reaction line for this message. Change `like` to another reaction if wanted. |
 | `how_to_respond.started` | yes | The line that says "I have started on this message". Sending it first makes the page show the message as started and the bot as thinking. |
 | `how_to_respond.reactions` | yes | The reactions that exist, and when to use one. |
 | `how_to_respond.attach` | yes | How to send a file with the answer, and how to read one: the text in the example above. |
+| `how_to_respond.decide` | no | Only on an ask (CHAT-PROTOCOL section 13) to a bot that is one of its deciders. For an ask of one question, the line of a typed decision: `{"msgV":1,"msg_id":"<new uuid>","type":"user","message":{"role":"user","content":"/decide <ask id> <option id or letter, A for the first> [text]"},"room":"general"}` (several options with commas for a multi question; `decline [text]` declines). For an ask of several questions, a sentence saying it is decided with `decide_answers`, and the line that declines it. |
+| `how_to_respond.decide_answers` | no | With `decide`: `POST /agent/decide on this server's page port, with this server's token, and {"room":"general","ask_id":"<ask id>","answers":[{"question_id":"q1","options":["<option id>"],"text":"<words, or empty>"}, ...],"msg_id":"<new uuid>"}`, one answer for each question of the ask (`"skipped":false` shown on an optional one), or `{"room":…,"ask_id":…,"decline":true,"text":"<why>"}` to decline. |
 
 These are in every wake because a bot woken by webhook starts a fresh run and
 may remember nothing from the last one.

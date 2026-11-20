@@ -194,3 +194,6 @@ TestS10_RestartKeepsEverything
 # The pin 0.14.1: /rooms and /protocol from outside the room; a file from an agent address needs a participant's token.
 TestS3_4_RoomsAndProtocolFromOutsideTheRoom
 TestS4_8_FetchFromAgentAddress
+
+# 0.17.0: features, the optional parts of the protocol, always an array.
+TestS9_1_Features
