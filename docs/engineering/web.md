@@ -1370,3 +1370,12 @@ checked by the daemon; never loose) and `workspace-run-archive` are each exactly
 `/api/state` (the records' closed set) and turns a closed room's composer off: "Closed: its workspace W is finished.
 Reopen it to post". The Finish dialog shows the rooms' rows, the archive section and "Finish without an archive"
 (unticked).
+
+## A space workspace's page
+
+`workspace-show` carries `space` (`SpaceShown` → `WebWorkspaceSpace`: the file, up or down, its run): the page draws "Defined
+by NAME.space.yaml" with an up pill ("up · run R since HH:MM") or "down". Its brief route carries `file` and `savesTo`: the
+card reads "BRIEF.md — from the space file" and its editor says where Save writes — the `workspace-brief` action is
+unchanged (exactly `workspace-edit`), and the daemon writes the file (`SpaceBriefFile`), never the store's copy. No new
+route or action; another computer sees the same line and the brief's path as it sees a folder's, and the brief only under
+its `serve.chat` rules. `make dashboard-walk` walks it (Defined by, the pill up then down, Save writing BRIEF.md).
