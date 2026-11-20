@@ -1334,6 +1334,45 @@ async function walkLifecycle() {
 }
 let lifeSession = null;
 
+// ── a finished workspace's room archived, then removed for good, from the Runs tab (this Mac's own browser) ─────────────
+async function walkRooms() {
+  const errorsBefore = pageErrors.length;
+  doz(['workspace', 'new', 'rmw', '--prompt-file', '-'], 'Keep its record.\n');
+  doz(['workspace', 'start', 'rmw']);
+  for (const m of ['first in the run', 'second in the run', 'third in the run']) doz(['chat', 'send', 'rmw', m]);
+  const fin = doz(['workspace', 'finish', 'rmw', '--yes']);
+  check(fin.status === 0, 'rooms 1 rmw finished, its run archived (' + fin.status + ')');
+  await goHash('#/w/rmw/runs');
+  check(await waitFor(`document.querySelector('[data-wr-room-state]')?.dataset.wrRoomState === 'closed'`, 15000), 'rooms 1 its room reads closed on the Runs tab');
+  // 2. Archive room…: its plan, then the copy.
+  await evaluate(`document.querySelector('[data-wr-room-archive="rmw"]').click()`);
+  check(await waitFor(`document.querySelector('dialog.dlg[open]')?.dataset.wrRoomDialog === 'archive' && !!document.querySelector('dialog.dlg[open]')?.dataset.wrSha`, 15000),
+    'rooms 2 Archive room… shows its plan');
+  check(await wlSubmit(120000), 'rooms 2 Archive: the operation ended');
+  check(await waitFor(`document.querySelector('[data-wr-room-state]')?.dataset.wrRoomState === 'archived'`, 20000), 'rooms 2 …the room reads archived');
+  // 3. Remove room…: a wrong name keeps the button off; a forged confirm is refused; the right name removes it.
+  await evaluate(`document.querySelector('[data-wr-room-rm="rmw"]').click()`);
+  await waitFor(`document.querySelector('dialog.dlg[open]')?.dataset.wrRoomDialog === 'rm' && !!document.querySelector('dialog.dlg[open]')?.dataset.wrSha`, 15000);
+  await setField('[data-wr-typed]', 'rm');
+  check(await evaluate(`${SUBMIT}.disabled`), 'rooms 3 Remove room…: a wrong name keeps the button off');
+  const sha = await evaluate(`document.querySelector('dialog.dlg[open]').dataset.wrSha`);
+  const forged = await craft({ action: 'chat-room-rm', room: 'rmw', ifPlan: sha, confirm: 'rm' });
+  check(forged.status === 400 && doz(['chat', 'rooms']).stdout.includes('rmw —'), `rooms 3 a forged confirm: ${forged.status}, nothing removed`);
+  await setField('[data-wr-typed]', 'rmw');
+  check(await evaluate(`!${SUBMIT}.disabled`), 'rooms 3 …the name typed: the button on');
+  check(await wlSubmit(120000), 'rooms 3 Remove: the operation ended');
+  check(await waitFor(`document.querySelector('[data-wr-room-state]')?.dataset.wrRoomState === 'gone'`, 20000) && !doz(['chat', 'rooms']).stdout.includes('rmw —'),
+    'rooms 3 …the room reads gone, and doz chat rooms no longer lists it');
+  const gone = dozJSON(['chat', 'rooms', '--gone']) || [];
+  check(gone.some((t) => t.name === 'rmw' && t.id && t.archive), 'rooms 3 …its tombstone kept');
+  // 4. The run's archived messages are still readable.
+  await evaluate(`document.querySelector('[data-wr-run] .wr-actions button')?.click()`);
+  check(await waitFor(`/third in the run/.test(document.querySelector('[data-wr-page] [data-wr-room="rmw"]')?.textContent || '')`, 15000),
+    'rooms 4 run 1\'s chat is still read from its archive');
+  check(pageErrors.length === errorsBefore, 'rooms: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  await leakSweep('the rooms');
+}
+
 // ── a workspace's wide views: Network & secrets, Folders & points, Activity and an agent's Can do ────────────────────
 /// `wide`: a fenced session (widef) with a launch secret whose value is a SENTINEL and two more (widef2, widef3), each having been
 /// refused one site; an unfenced session (wideu); the never-booted sandbox gamma. All harmless programs, no VM.
@@ -1533,6 +1572,7 @@ try {
   await walkNewWorkspace();
   await walkAddWorker();
   await walkLifecycle();
+  await walkRooms();
   await walkWideViews();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
@@ -1565,6 +1605,11 @@ try {
     headers: { 'Content-Type': 'application/json', 'X-Doz-CSRF': state.csrf }, body: JSON.stringify({ workspace: 'demo2', verb: 'sleep' }) });
     return { status: r.status, body: await r.json() }; })()`);
   check(p11.status === 200 && p11.body.verb === 'sleep' && p11.body.factsKnown === false, `life 11 with the daemon stopped, the plan route answers (${p11.status})`);
+  // Runs with the daemon stopped: the tab and the CLI answer from the store.
+  await goHash('#/w/rmw/runs');
+  check(await waitFor(`!!document.querySelector('[data-wr-run][data-wr-status="written"]')`, 15000), 'rooms 5 with the daemon stopped, the Runs tab reads');
+  const stoppedRuns = dozJSON(['workspace', 'runs', 'rmw']);
+  check(!!stoppedRuns && stoppedRuns.runs.length === 1 && !existsSync(STORE + '/daemon.pid'), 'rooms 5 …and doz workspace runs --json answers; neither starts the daemon');
   await sleep(4000);
   check(!existsSync(STORE + '/daemon.pid'), 'with the daemon stopped, opening Home, Sandboxes, Loose agents, Agents / Bots, a workspace\'s agents, its page and Add a worker starts none');
   check(await evaluate(`!!document.querySelector('[data-ws="demo"]')`) || (await goHash('#/home'), await waitFor(`!!document.querySelector('[data-ws="demo"]')`, 8000)),
