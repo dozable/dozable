@@ -1,7 +1,7 @@
 // core/routes — The page's addresses: what a hash names (`parse`), and the old addresses that lead to today's (`canonical`,
 // `LEGACY`). Pure: no DOM, no state. The router replaces an old address with its canonical one first, then parses.
 //
-// Today's addresses: #/home · #/chat[/ROOM] · #/w/NAME (a workspace's
+// Today's addresses: #/home · #/chat[/ROOM] · #/workspaces (every workspace, rows or a grid) · #/w/NAME (a workspace's
 // page: its Home tab) · #/w/NAME/room[/LABEL] (its Room tab: its main room, or another of its rooms by its short label) ·
 // #/w/NAME/agents (its Agents tab) · #/w/NAME/network, /folders, /activity (its Network &
 // secrets, Folders & points and Activity tabs) · #/w/NAME/agent/AGENT[/SESSION|~home] (an agent's screen: its sandbox's or
@@ -89,6 +89,7 @@ export function parse(hash) {
   let m;
   if (hash === '#/home') return r('home');
   if (hash === '#/bots') return r('bots');
+  if (hash === '#/workspaces') return r('workspaces');
   if (hash === '#/bots/~new') return r('bot', { param: '~new' });
   if ((m = new RegExp('^#/bots/(' + BOT + ')(?:/(' + BOT_TABS.join('|') + '))?$').exec(hash))) return r('bot', { param: m[1], tab: m[2] });
   if (hash === '#/mac') return r('thismac');
@@ -159,7 +160,7 @@ export function placeHash(kind, name, session, frame) {
 
 /// The address of a view with no parameter (the sidebar's and a link's): `hashFor('images')` → '#/mac/images'.
 export function hashFor(view) {
-  if (view === 'home' || view === 'bots') return '#/' + view;
+  if (view === 'home' || view === 'bots' || view === 'workspaces') return '#/' + view;
   if (view === 'thismac') return '#/mac';
   if (view === 'mac') return '#/mac/here';
   if (view === 'sessions' || view === 'loose' || view === 'macs') return '#/mac/' + view;

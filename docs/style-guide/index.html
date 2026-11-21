@@ -1686,7 +1686,8 @@ exec /usr/local/bin/gemini "$@"</pre></details>
     view, <code>.sp-full</code>); a file that doesn't read adds Dozable's own verdict (<code>.ws-hero-problem</code>) under the drawing.
     On Home a thumbnail in the Workspace cell (<code>.sp-thumb-home</code>, 128 × 80; 96 × 60 at phone width) and in the sidebar one at the top of an
     unfolded workspace (<code>.nav-ws-thumb</code>, <code>ui.nav_thumbnails</code>) — each an <code>&lt;img&gt;</code> of the drawing at 160 × 100. With no file (or one this
-    browser may not read): the plain tile (<code>.sp-tile</code>, Lucide's boxes) on Home, the compact band (<code>.ws-hero-none</code>) on a workspace's Home, nothing in the
+    browser may not read): a small tile (<code>.sp-tile-sm</code>, 32 × 32, Lucide's boxes) on Home and the Workspaces page, keeping the thumbnail's slot so the names line up (a file this
+    browser may not read keeps its box, the icon centred), the compact band (<code>.ws-hero-none</code>) on a workspace's Home, nothing in the
     sidebar. While a hero is on screen (<code>body.ws-hero-on</code>) the notification cards stack at the bottom right, never over
     its drawing. The drawings below are the vendored renderer's own, made here.</p>
   <div class="pair"><div class="scheme">
@@ -1703,7 +1704,7 @@ exec /usr/local/bin/gemini "$@"</pre></details>
     <div class="sg-row">
       <div class="hm-ws-cell"><a class="hm-thumb-link" href="#"><span class="sp-thumb sp-thumb-home"><img class="sp-img" alt="launch, drawn from its space file" width="160" height="100" data-sg-space="thumb"></span></a>
         <div class="hm-ws"><a class="hm-ws-name" href="#"><b>launch</b></a><div class="hm-folders"><span class="hm-folder">~/video/launch</span></div></div></div>
-      <div class="hm-ws-cell"><span class="sp-thumb sp-thumb-home"><span class="sp-tile" title="Made without a space file"><i data-i="boxes"></i></span></span>
+      <div class="hm-ws-cell"><a class="hm-thumb-link" href="#"><span class="sp-tile sp-tile-sm" title="Made without a space file"><i data-i="boxes"></i></span></a>
         <div class="hm-ws"><a class="hm-ws-name" href="#"><b>demo</b></a><div class="hm-folders"><span class="hm-folder muted">no folder</span></div></div></div>
       <div class="hm-ws-cell"><span class="sp-thumb sp-thumb-home is-problem"><img class="sp-img" alt="broken, drawn from its space file" width="160" height="100" data-sg-space="thumb-broken"></span></div>
       <div style="width:200px"><a class="nav-ws-thumb" href="#"><span class="sp-thumb sp-thumb-nav"><img class="sp-img" alt="" width="160" height="100" data-sg-space="thumb"></span></a></div>
@@ -1737,6 +1738,42 @@ exec /usr/local/bin/gemini "$@"</pre></details>
       <section class="ws-card" aria-labelledby="sg-wc-net"><h2 class="ws-card-h" id="sg-wc-net"><i data-i="shield"></i><a class="ws-card-link" href="#">Network<span class="ws-card-go" aria-hidden="true"> →</span></a></h2>
         <div class="ws-card-body"><p class="ws-net">locked — its agents’ preset (the default)</p></div></section>
     </div>
+  </div></div>
+</section>
+
+<section id="sg-workspaces">
+  <h2>The Workspaces page — the toolbar, a row, a grid card</h2>
+  <p><code>#/workspaces</code> (<code>views/workspaces.js</code>; the sidebar's Workspaces heading): every workspace as rows (<code>.wsl-rows</code>, a
+    160 × 100 picture — 96 × 60 at phone width) or a grid of cards (<code>.wsl-grid</code>: <code>repeat(auto-fill, minmax(15rem, 1fr))</code>, a 16:10 picture
+    band). One workspace is one <code>&lt;li&gt;</code> with its own links and buttons, never a wrapping link: the keyboard reaches its name, then its room,
+    then its action. A plain card keeps the band's height on the card's own surface with the small tile and why.</p>
+  <div class="pair"><div class="scheme">
+    <div class="toolbar wsl-toolbar"><label>Show <select aria-label="Show"><option>Every workspace (5)</option></select></label>
+      <label>Sort <select aria-label="Sort"><option>State</option></select></label>
+      <div class="segmented" role="group" aria-label="Layout"><button type="button" class="seg" aria-pressed="false"><i data-i="list"></i>Rows</button>
+        <button type="button" class="seg" aria-pressed="true"><i data-i="layout-grid"></i>Grid</button></div></div>
+    <ul class="wsl-rows" style="max-width:900px">
+      <li class="wsl-row"><a class="wsl-pic" href="#"><span class="sp-thumb sp-thumb-list"><img class="sp-img" alt="launch, drawn from its space file" width="160" height="100" data-sg-space="thumb"></span></a>
+        <div class="wsl-main"><div class="wsl-top"><a class="wsl-name" href="#">launch</a><span class="pill ws-working"><span class="dot ws-working"></span>working</span>
+          <span class="ws-chip ws-driver">you</span><span class="ws-chip ws-manager">mira (fenced)</span></div>
+          <div class="wsl-meta"><span>cutter working</span><span class="hm-folder">~/video/launch</span></div>
+          <div class="wsl-meta"><a class="hm-room" href="#"># launch</a><span class="wsl-last">active 3 h ago</span></div></div>
+        <div class="wsl-next"><div class="hm-next-acts"><button type="button" class="btn sm"><i data-i="moon"></i>Sleep</button></div></div></li>
+      <li class="wsl-row"><a class="wsl-pic is-plain" href="#"><span class="sp-tile sp-tile-sm" title="Made without a space file"><i data-i="boxes"></i></span><span class="wsl-plain-why">No drawing — made without a space file</span></a>
+        <div class="wsl-main"><div class="wsl-top"><a class="wsl-name" href="#">demo</a><span class="pill ws-idle"><i data-i="pause"></i>idle</span><span class="ws-chip ws-driver">you</span></div>
+          <div class="wsl-meta"><span class="hm-folder muted">no folder</span></div>
+          <div class="wsl-meta"><a class="hm-room" href="#"># demo</a><span class="wsl-last muted">no activity yet</span></div></div>
+        <div class="wsl-next"></div></li>
+    </ul>
+    <ul class="wsl-grid" style="max-width:640px">
+      <li class="wsl-card"><a class="wsl-pic" href="#"><span class="sp-thumb sp-thumb-list"><img class="sp-img" alt="launch, drawn from its space file" width="160" height="100" data-sg-space="thumb"></span></a>
+        <div class="wsl-card-body"><div class="wsl-top"><a class="wsl-name" href="#">launch</a><span class="pill ws-working"><span class="dot ws-working"></span>working</span></div>
+          <div class="wsl-meta"><span class="ws-chip ws-manager">mira (fenced)</span></div><div class="wsl-meta"><span>1 working</span><span class="wsl-last">active 3 h ago</span></div>
+          <div class="wsl-meta"><a class="hm-room" href="#"># launch</a></div></div></li>
+      <li class="wsl-card"><a class="wsl-pic is-plain" href="#"><span class="sp-tile sp-tile-sm" title="Made without a space file"><i data-i="boxes"></i></span><span class="wsl-plain-why">No drawing — made without a space file</span></a>
+        <div class="wsl-card-body"><div class="wsl-top"><a class="wsl-name" href="#">demo</a><span class="pill ws-idle"><i data-i="pause"></i>idle</span></div>
+          <div class="wsl-meta"><span class="wsl-last muted">no activity yet</span></div><div class="wsl-meta"><a class="hm-room" href="#"># demo</a></div></div></li>
+    </ul>
   </div></div>
 </section>
 

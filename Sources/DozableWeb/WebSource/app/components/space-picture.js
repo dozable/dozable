@@ -6,7 +6,7 @@ import { dropPicture, pictureProblems, pictureView, setPictureSize, setPictureVi
 import { cmdLine } from './cmd-line.js';
 import { watchVisible } from './grid-feed.js';
 
-const THUMB = { w: 160, h: 100 };     // Home's and the sidebar's (CSS sizes it)
+const THUMB = { w: 160, h: 100 };     // Home's, the Workspaces page's and the sidebar's (CSS sizes it)
 const slots = new Map();
 
 export function pictureTile(why, cls) {
@@ -15,10 +15,10 @@ export function pictureTile(why, cls) {
 const why = (text) => h('span', { class: 'ws-hero-why' }, text);
 const bigTile = (pic, text) => pic.replaceChildren(pictureTile(text, 'sp-tile-hero'), why(text));
 
-/// A row's thumbnail (home|nav), kept per place and name: a redraw moves it.
+/// A row's thumbnail (home|list|nav), kept per place and name: a redraw moves it. With no file: a small tile (none in nav).
 export function spaceThumb(row, place) {
   const k = place + ':' + row.name;
-  if (!row.space) { forgetSlot(k); return place === 'nav' ? null : h('span', { class: 'sp-thumb sp-thumb-' + place }, pictureTile('Made without a space file')); }
+  if (!row.space) { forgetSlot(k); return place === 'nav' ? null : pictureTile('Made without a space file', 'sp-tile-sm'); }
   const have = slots.get(k);
   if (have) return have.el;
   const img = h('img', { class: 'sp-img', alt: row.name + ', drawn from its space file', width: String(THUMB.w), height: String(THUMB.h), decoding: 'async', hidden: true });

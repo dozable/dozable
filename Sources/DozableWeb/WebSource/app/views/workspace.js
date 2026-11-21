@@ -302,9 +302,11 @@ async function lifecycleDone(end) {
     return;
   }
   await wsRefresh();
-  // An archive or a restore changed what its room is: the chat server's state read again, the room shown as it now is
-  // (the archived notice, the composer off — or back on).
-  if (cur && cur.tab === 'room' && state.chat.room) { await refreshState(); await openRoom(state.chat.room); }
+  // A finish, an archive or a restore changed what its room is: the chat server's state read again (on any tab — the Room
+  // tab opened later must not draw the room as it was), the room shown as it now is (the closed or archived notice, the
+  // composer off — or back on).
+  if (state.chat.srv) await refreshState();
+  if (cur && cur.tab === 'room' && state.chat.room) await openRoom(state.chat.room);
 }
 
 /// `read`: Home's own reads again too (arrival, hello, `changed`, an operation's end — never a redraw of what is known).

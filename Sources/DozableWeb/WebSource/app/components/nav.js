@@ -249,6 +249,9 @@ export function paintNav() {
     a.classList.toggle('active', on);
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
+  // The Workspaces heading is the Workspaces page's link.
+  const wsl = document.querySelector('#nav [data-nav="workspaces"]');
+  if (wsl) { const on = !state.modal && state.view === 'workspaces'; wsl.classList.toggle('active', on); if (on) wsl.setAttribute('aria-current', 'page'); else wsl.removeAttribute('aria-current'); }
   renderNavSandboxes();
   renderNavWorkspaces();
   navRail(false);

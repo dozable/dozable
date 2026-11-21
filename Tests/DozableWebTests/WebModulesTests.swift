@@ -304,6 +304,13 @@ final class WebModulesTests: XCTestCase {
         XCTAssertEqual(js("[roomHash('d'), roomHash('d','x'), workspaceHash('d'), workspaceHash('d','x')]"),
                        ##"["#/w/d/room","#/w/d/room/x","#/w/d","#/w/d/room/x"]"##, "workspaceHash is Home; with a label, that room")
         XCTAssertEqual(js("parse('#/w/d/home')"), "null", "Home has one address")
+        // The Workspaces page: its address, served, and drawn from the listing alone (no workspace's own read, no message).
+        XCTAssertEqual(js("[parse('#/workspaces').view, hashFor('workspaces'), canonical('#/workspaces')]"), ##"["workspaces","#/workspaces","#/workspaces"]"##)
+        for m in ["views/workspaces", "components/ws-next"] { XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served") }
+        let wsl = try read("app/views/workspaces.js")
+        XCTAssertTrue(wsl.contains("loadWorkspaces(0)") && !wsl.contains("loadWorkspace(") && !wsl.contains("api("), "one listing read")
+        XCTAssertTrue(wsl.contains("'doz.workspaces.layout'") && wsl.contains("'doz.workspaces.sort'"))
+        XCTAssertTrue(try read("index.html").contains(##"<a class="ng-label" href="#/workspaces" data-nav="workspaces""##), "the sidebar's heading leads there")
         for (hash, session) in [("#/w/demo/agent/gamma", nil), ("#/w/demo/agent/gamma/~home", "~home"), ("#/w/demo/agent/bot_1.a/claude-2", "claude-2")] as [(String, String?)] {
             let p = parsed(hash)
             XCTAssertEqual(p?["view"] as? String, "wsagent", hash)
