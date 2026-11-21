@@ -1847,6 +1847,13 @@ async function walkAskStates() {
 }
 
 // ── chat 10: the Chat page's side panes as drawers ────────────────────────────────────────────────────────────────────
+/// The open drawer's heading (its words and its count) against the notification bell's box: what overlaps (the drawer
+/// has no close control of its own — its toggle, the scrim and Escape close it).
+const BELL_CLEAR = (which) => `(() => { const bell = document.querySelector('#notes .note-bell'); if (!bell || !bell.getClientRects().length) return { bell: false, out: [] };
+  const b = bell.getBoundingClientRect(), out = [];
+  const hit = (a) => a.width && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+  for (const e of document.querySelectorAll('#chat-${which}-pane .chat-sh, #chat-${which}-pane .chat-sh > *')) if (hit(e.getBoundingClientRect())) out.push(e.className || e.tagName.toLowerCase());
+  return { bell: true, out }; })()`;
 async function walkChatDrawers() {
   const errorsBefore = pageErrors.length;
   const SURF = `document.querySelector('#chat-surface')`;
@@ -1865,6 +1872,8 @@ async function walkChatDrawers() {
   await evaluate(`document.querySelector('#chat-people-btn').click()`);
   const open900 = await waitFor(`${SURF}.classList.contains('is-people-open') && getComputedStyle(document.querySelector('#chat-people-pane')).position === 'fixed'
     && getComputedStyle(document.querySelector('.chat-scrim')).display === 'block' && document.querySelector('#chat-people-pane').contains(document.activeElement)`, 5000);
+  const bell900 = await evaluate(BELL_CLEAR('people'));
+  check(bell900.out.length === 0, 'chat 10 at 900 px the open people drawer\'s heading clears the bell (' + JSON.stringify(bell900) + ')');
   for (let i = 0; i < 6; i++) await key('Tab', 'Tab', 9);
   const trapped = await evaluate(`document.querySelector('#chat-people-pane').contains(document.activeElement)`);
   await key(...ESC);
@@ -1889,6 +1898,8 @@ async function walkChatDrawers() {
     && document.querySelector('#chat-rooms-pane').contains(document.activeElement)`, 5000);
   await evaluate(`document.querySelector('#chat-people-btn').click()`);
   const one = await waitFor(`${SURF}.classList.contains('is-people-open') && !${SURF}.classList.contains('is-rooms-open')`, 5000);
+  const bell390 = await evaluate(BELL_CLEAR('people'));
+  check(bell390.bell && bell390.out.length === 0, 'chat 10 at 390 px the open people drawer\'s heading clears the bell (' + JSON.stringify(bell390) + ')');
   await key(...ESC);
   await evaluate(`document.querySelector('#chat-rooms-btn').click()`);
   await waitFor(`${SURF}.classList.contains('is-rooms-open')`, 5000);

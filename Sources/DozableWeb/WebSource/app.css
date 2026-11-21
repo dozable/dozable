@@ -2908,7 +2908,7 @@ main.main-chat { padding: var(--work-py) var(--work-px); display: flex; flex-dir
   .chat-people-pane { display: none; }
   .chat-people-btn { display: inline-flex; }
   .chat-surface.is-people-open .chat-people-pane { display: flex; position: fixed; top: 0; right: 0; bottom: 0; z-index: calc(var(--z-modal) + 1); width: min(320px, 86vw);
-    padding: var(--sp-5) var(--sp-4); border-radius: 0; background: var(--surface); box-shadow: var(--shadow-3); }
+    padding: var(--sp-5) var(--corner-w) var(--sp-5) var(--sp-4); border-radius: 0;   /* the bell keeps its corner */ background: var(--surface); box-shadow: var(--shadow-3); }
   .chat-surface.is-people-open .chat-scrim { display: block; }
 }
 @media (max-width: 760px) {
@@ -2919,6 +2919,7 @@ main.main-chat { padding: var(--work-py) var(--work-px); display: flex; flex-dir
   .chat-surface.is-rooms-open .chat-rooms-pane { display: flex; position: fixed; top: 0; left: 0; bottom: 0; z-index: calc(var(--z-modal) + 1); width: min(300px, 82vw);
     padding: var(--sp-5) var(--sp-3); border-radius: 0; background: var(--surface); box-shadow: var(--shadow-3); }
   .chat-surface.is-rooms-open .chat-scrim { display: block; }
+  .chat-surface.is-people-open .chat-people-pane { top: var(--header-h); }   /* below the phone's top bar and its bell */
   .chat-title, .chat-dash-label { display: none; }
   .chat-head { gap: var(--sp-2); }
   /* A bubble stops where the other side's bubbles begin (an avatar and a gap short of the far edge); its time below it. */

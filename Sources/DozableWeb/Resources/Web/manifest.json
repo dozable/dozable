@@ -6,7 +6,7 @@
       "mimeType" : "text/html; charset=utf-8",
       "publicPath" : "/",
       "resourcePath" : "index.html",
-      "sha256" : "ec9072c73c44f41cf0016086dd82ece3a5b125ac1091e972d9cf74f832c74c4b"
+      "sha256" : "b6973e578ba993af6d9b3f5e03e10684ad5133a7a62099b0c76b95a3d7725675"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
@@ -20,9 +20,9 @@
       "cachePolicy" : "public, max-age=31536000, immutable",
       "class" : "page",
       "mimeType" : "text/css; charset=utf-8",
-      "publicPath" : "/assets/app-be20e9de6ec69208.css",
-      "resourcePath" : "assets/app-be20e9de6ec69208.css",
-      "sha256" : "be20e9de6ec69208152c399dcb37a1a1819dc63f2746c24778b9d88a99665de5"
+      "publicPath" : "/assets/app-c375c457f093d8a9.css",
+      "resourcePath" : "assets/app-c375c457f093d8a9.css",
+      "sha256" : "c375c457f093d8a9f1382b7014ea507682ae7d4020b078c5e2a1b1462ddb5ebf"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
@@ -1814,7 +1814,7 @@
       "mimeType" : "text/html; charset=utf-8",
       "publicPath" : "/chat",
       "resourcePath" : "chat.html",
-      "sha256" : "985c8d18f4b8bab160273f47cb0f02fcdfbe6bd8e82ed1965fd4537138933cdd"
+      "sha256" : "59462b77bc1d43315b233b3e2e91546aa2512c1ee8b83c042e1b50fe2735965f"
     },
     {
       "cachePolicy" : "no-store",
