@@ -6,7 +6,7 @@ import { canWrite, chatError, request, roomUrl, viewer } from '../core/chat-api-
 import { h } from '../dom/h-f853cc7eb6672c45.js';
 import { icon } from '../dom/icons-9b284ea0ffb2ad04.js';
 import { dialog } from './dialog-e95f6ec91fb53452.js';
-import { chatNote } from './chat-note-7d9b58ce10feea44.js';
+import { chatNote } from './chat-note-95e0cc435178e0d8.js';
 import { menuButton } from './menus-b8f822d6b7817c72.js';
 import { chips } from './chat-receipts-7846ac9d891c8025.js';
 

@@ -17,7 +17,7 @@ import { viewer } from '../core/chat-api-ec968582d97ebdcb.js';
 import { answerAsk, askName, canAnswer } from '../core/asks-50f65e2b13eb4ee5.js';
 import { cap } from '../core/chat-format-bc877d395788e64c.js';
 import { isRemote } from '../core/session-76fecfa2ea8ff65b.js';
-import { chatNote } from './chat-note-7d9b58ce10feea44.js';
+import { chatNote } from './chat-note-95e0cc435178e0d8.js';
 import { h } from '../dom/h-f853cc7eb6672c45.js';
 
 const LETTERS = 'ABCDEFGHIJK';

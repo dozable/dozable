@@ -34,7 +34,7 @@ import { stepperNode } from '../components/stepper-2c0827f6cc22be2c.js';
 import { BRIEF_MAX_BYTES } from '../components/ws-brief-a5a6a8d8cd3eebec.js';
 import { gapsPanel, startsOnce } from '../components/ws-gaps-b5de58c6cfb74f78.js';
 import { chatOnForm } from '../components/chat-on-0c4225dd5651593c.js';
-import { chatNavCheck } from './chat-a43906526d7fc4ca.js';
+import { chatNavCheck } from './chat-96f6e80667680a62.js';
 
 /// Why this browser may not make or start a workspace (null: it may).
 export const WSN_REMOTE = 'A workspace is made only in this Mac’s own browser, or with doz workspace new … in a terminal on the Mac';

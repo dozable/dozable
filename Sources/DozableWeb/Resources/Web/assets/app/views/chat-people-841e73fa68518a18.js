@@ -5,7 +5,7 @@ import { state } from '../core/state-1036883eb74b9520.js';
 import { canWrite, chatError, getJSON, request, roomUrl, viewer } from '../core/chat-api-ec968582d97ebdcb.js';
 import { cap, mins, time } from '../core/chat-format-bc877d395788e64c.js';
 import { status } from '../components/chat-log-e1b72169c7992e47.js';
-import { chatNote } from '../components/chat-note-7d9b58ce10feea44.js';
+import { chatNote } from '../components/chat-note-95e0cc435178e0d8.js';
 import { addBotToRoom } from '../components/bot-invite-31a38f8e4a29171d.js';
 import { dialog } from '../components/dialog-e95f6ec91fb53452.js';
 import { menuButton } from '../components/menus-b8f822d6b7817c72.js';

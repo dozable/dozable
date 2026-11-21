@@ -7,7 +7,7 @@ import { MAX_FILE, chatError, cleanFileName, fileUrl, request } from '../core/ch
 import { getDraft, setDraft } from '../core/chat-storage-33378969d815dcb0.js';
 import { $, h } from '../dom/h-f853cc7eb6672c45.js';
 import { icon } from '../dom/icons-9b284ea0ffb2ad04.js';
-import { chatNote } from './chat-note-7d9b58ce10feea44.js';
+import { chatNote } from './chat-note-95e0cc435178e0d8.js';
 
 let draftT = 0;
 export function scheduleDraft() { clearTimeout(draftT); draftT = setTimeout(saveDraft, 400); }

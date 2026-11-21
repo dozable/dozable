@@ -14,17 +14,17 @@ import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { chatOnForm, rememberChatStatus } from '../components/chat-on-0c4225dd5651593c.js';
 import { showDown, toFoot } from '../components/chat-log-e1b72169c7992e47.js';
-import { CHAT_READ_ONLY, chatNote } from '../components/chat-note-7d9b58ce10feea44.js';
+import { CHAT_READ_ONLY, chatNote } from '../components/chat-note-95e0cc435178e0d8.js';
 import { loadUnread, showUnread } from '../components/chat-unread-9284e62b88511529.js';
 import { $, h } from '../dom/h-f853cc7eb6672c45.js';
 import { icon } from '../dom/icons-9b284ea0ffb2ad04.js';
 import { openOwnWindow } from '../core/windows-392fe33565b4f8f7.js';
 import { chatWindowName, chatWindowPath } from '../core/routes-c03e6aed84ec9eb3.js';
-import { initComposer } from './chat-composer-8dc5826039ace730.js';
-import { loadOlder } from './chat-messages-a7371395463fa36f.js';
-import { loadPresence, roomMenu, standing } from './chat-people-81da863f438cd8f3.js';
-import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms-c15851b167728ff2.js';
-import { startLive, stopLive } from './chat-live-b67e638957c4083c.js';
+import { initComposer } from './chat-composer-c6de6601a45edc5e.js';
+import { loadOlder, watchTaps } from './chat-messages-2e06dabbf3710b66.js';
+import { loadPresence, roomMenu, standing } from './chat-people-841e73fa68518a18.js';
+import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms-6bd4e410aebb2ad0.js';
+import { startLive, stopLive } from './chat-live-d1e15a98d39e15bc.js';
 
 let built = false, loaded = false, statusT = 0, wanted = null, loading = false, scopeKey = '';
 
@@ -82,6 +82,7 @@ function build() {
     if (log.scrollTop < 120) loadOlder();
   }, { passive: true });
   $('chat-down').addEventListener('click', toFoot);
+  watchTaps(log);
   initComposer();
   setInterval(() => { if (state.chat.active && state.chat.srv) standing(); }, 20000);
 }

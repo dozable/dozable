@@ -11,12 +11,12 @@ import { renderMarkdown } from '../core/chat-markdown-a6b1b4fee6227bd8.js';
 import { setSeen } from '../core/chat-storage-33378969d815dcb0.js';
 import { interleave, lineAt, lineKey, lineText } from '../core/ws-log-725b407c6811cd6c.js';
 import { isAsk } from '../core/asks-50f65e2b13eb4ee5.js';
-import { askCard, focusKey, refocus } from '../components/chat-ask-3388a48344084d79.js';
+import { askCard, focusKey, refocus } from '../components/chat-ask-29032452233e540c.js';
 import { drawAtts } from '../components/chat-attachments-2586d1f017fa135c.js';
-import { askDelete, startEdit } from '../components/chat-edit-992ccf740f7f7457.js';
+import { askDelete, startEdit } from '../components/chat-edit-001471e78907ed04.js';
 import { moments, place } from '../components/chat-log-e1b72169c7992e47.js';
-import { chatNote } from '../components/chat-note-7d9b58ce10feea44.js';
-import { picker, reacts } from '../components/chat-reactions-907d45273d718b3b.js';
+import { chatNote } from '../components/chat-note-95e0cc435178e0d8.js';
+import { picker, reacts } from '../components/chat-reactions-6a3c9349297b704b.js';
 import { moreMenu } from '../components/menus-b8f822d6b7817c72.js';
 import { chips } from '../components/chat-receipts-7846ac9d891c8025.js';
 import { watchTables } from '../components/chat-tables-e57e43edc3e205ea.js';
@@ -171,6 +171,17 @@ export function add(m, again, older) {
   state.chat.byId.set(m.msg_id, m);
   place(row, instead, older);
   if (refocusKey) refocus(row, refocusKey);
+}
+
+/// A touch screen has no hover: a tap on a bubble shows its tools (and hides another's); a tap on a link, a button or a
+/// field is that control's own. One listener for the whole log.
+export function watchTaps(log) {
+  log.addEventListener('pointerup', (e) => {
+    if (e.pointerType !== 'touch' || !(e.target instanceof Element) || e.target.closest('a, button, input, textarea, label, select')) return;
+    const msg = e.target.closest('.chat-msg');
+    for (const o of log.querySelectorAll('.chat-msg.is-tap')) if (o !== msg) o.classList.remove('is-tap');
+    if (msg) msg.classList.toggle('is-tap');
+  });
 }
 
 /// Read the log after what is shown: the newest page first time, then on while the server says more is left.

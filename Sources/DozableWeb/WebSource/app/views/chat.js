@@ -21,7 +21,7 @@ import { icon } from '../dom/icons.js';
 import { openOwnWindow } from '../core/windows.js';
 import { chatWindowName, chatWindowPath } from '../core/routes.js';
 import { initComposer } from './chat-composer.js';
-import { loadOlder } from './chat-messages.js';
+import { loadOlder, watchTaps } from './chat-messages.js';
 import { loadPresence, roomMenu, standing } from './chat-people.js';
 import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms.js';
 import { startLive, stopLive } from './chat-live.js';
@@ -82,6 +82,7 @@ function build() {
     if (log.scrollTop < 120) loadOlder();
   }, { passive: true });
   $('chat-down').addEventListener('click', toFoot);
+  watchTaps(log);
   initComposer();
   setInterval(() => { if (state.chat.active && state.chat.srv) standing(); }, 20000);
 }

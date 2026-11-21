@@ -10,4 +10,5 @@ export function chatNote(text, bad) {
   if (!n) return;
   n.textContent = text || CHAT_HINT;
   n.classList.toggle('is-bad', !!bad);
+  n.classList.toggle('is-hint', !text);   // the idle hint (a phone has no room for it)
 }
