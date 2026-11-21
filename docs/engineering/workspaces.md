@@ -798,6 +798,11 @@ The manual's page is `docs/manual/39-space-files.md`.
   computer that may not see this Mac's sessions gets none for a workspace with a place on this Mac
   (`WebWorkspaceReads.forBrowser`). `SpaceUpHostTests.testTheListingSaysWhenItsLogLastMoved`, `WebWorkspacesTests`,
   `make test-cli-workspace` F1c.
+- **Edited in the dashboard** (web.md, "The space editor's page"): `#/w/NAME/space` opens the file in the space editor
+  through the same four reads and the one save (`workspace-space-save`, over the sha256 the page read — no new route or
+  action): this Mac's own browser edits and saves, another computer reads it with `serve.chat` and never saves; a save is
+  never applied — up applies it. Live state comes from the dashboard's events, never a poll; an unsaved file is never left
+  or reloaded without asking.
 - **The space file, read and saved** (`SpaceRecordFile`, kind `space`: the brief's rules, and the text must start with
   `doz: space/3` or `doz: space-defaults/3` — its first line that is not blank or a comment — before and after a save).
   `workspace-space` (read-only, in-process with no daemon; `doz workspace show W --space [--json]`) answers `{workspace,

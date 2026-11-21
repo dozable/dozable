@@ -2,7 +2,8 @@
 // vendor-neutral-check.swift — code vendored by peer commit (WebSource/vendor/<package>/ with "provenance": "peer-commit")
 // carries nothing of the machine or the people it was built by: no home path, email, tailnet address or `*.ts.net` name,
 // and — when a word list is given — none of its words, in any file's name or text, in the source folder and in the copy
-// that ships (Resources/Web/assets/<publicName>-*). Licence files are skipped (a copyright line names its holder on purpose).
+// that ships (Resources/Web/assets/<publicName>-*, and a tree's folder assets/vendor-<package>-*/ walked whole — 744).
+// Licence files are skipped (a copyright line names its holder on purpose).
 //
 //   DOZ_NEUTRAL_DENYLIST=FILE swift Scripts/vendor-neutral-check.swift   (Scripts/audit.sh runs it when the variable is set)
 //
@@ -70,7 +71,17 @@ for pkg in ((try? fm.contentsOfDirectory(atPath: vendor.path)) ?? []).sorted() {
             scan("vendor/\(pkg)/\(rel)", (try? Data(contentsOf: u)) ?? Data())
         }
     }
-    // The copies that ship.
+    // The copies that ship: a flat module's file, and (744) a tree's folder, walked whole.
+    for served in ((try? fm.contentsOfDirectory(atPath: assets.path)) ?? []).sorted() where served.hasPrefix("vendor-\(pkg)-") {
+        let folder = assets.appendingPathComponent(served)
+        guard (try? folder.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true,
+              let e = fm.enumerator(at: folder, includingPropertiesForKeys: [.isRegularFileKey]) else { continue }
+        let fbase = folder.resolvingSymlinksInPath().path + "/"
+        while let u = e.nextObject() as? URL {
+            guard (try? u.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+            scan("Resources/Web/assets/\(served)/" + String(u.resolvingSymlinksInPath().path.dropFirst(fbase.count)), (try? Data(contentsOf: u)) ?? Data())
+        }
+    }
     for f in v.files ?? [] where f.serve == "module" {
         guard let name = f.publicName else { continue }
         for served in ((try? fm.contentsOfDirectory(atPath: assets.path)) ?? []).sorted() where served.hasPrefix(name + "-") {

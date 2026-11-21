@@ -1,0 +1,1859 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:doz:timeline:1",
+  "title": "Timeline",
+  "description": "A host's history as the timeline component reads it (docs/timeline/README.md): from a whole machine down to one sandbox session. Every document is one of catalog, query, result, batch, view or recording, told by type. No message text, prompts, secrets or real hostnames. New fields may be added in a later version.",
+  "type": "object",
+  "required": [
+    "timeline",
+    "type"
+  ],
+  "properties": {
+    "timeline": {
+      "const": 1
+    },
+    "type": {
+      "enum": [
+        "catalog",
+        "query",
+        "result",
+        "batch",
+        "view",
+        "recording"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "catalog"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/catalog"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "query"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/query"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "result"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/result"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "batch"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/batch"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "view"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/view"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "recording"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "$ref": "#/$defs/recording"
+      }
+    }
+  ],
+  "$defs": {
+    "scope": {
+      "type": "string",
+      "pattern": "^(?:(?:host|workspace|sandbox|session|room|run):(?:(?:[^/:%\\s]|%[0-9A-F]{2})+)(?:/(?:host|workspace|sandbox|session|room|run):(?:(?:[^/:%\\s]|%[0-9A-F]{2})+))*)?$",
+      "description": "kind:name segments from the fleet down, joined by \"/\"; \"\" is the fleet. A host segment is the display name the host sets per Mac (%-escaped), never a real hostname; a session is name~rowid; a room goes by its id"
+    },
+    "severity": {
+      "enum": [
+        "debug",
+        "info",
+        "notice",
+        "warning",
+        "error"
+      ]
+    },
+    "bin": {
+      "enum": [
+        "1m",
+        "1h",
+        "1d"
+      ]
+    },
+    "scopeName": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "label"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "label": {
+          "type": "string"
+        },
+        "space": {
+          "type": "boolean"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope"
+          },
+          "description": "scopes it was known as before a rename"
+        }
+      }
+    },
+    "match": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "value"
+          ],
+          "properties": {
+            "field": {
+              "const": "text"
+            },
+            "value": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "value"
+          ],
+          "properties": {
+            "field": {
+              "enum": [
+                "kind",
+                "source"
+              ]
+            },
+            "value": {
+              "type": "string"
+            },
+            "prefix": {
+              "const": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "value",
+            "op"
+          ],
+          "properties": {
+            "field": {
+              "const": "severity"
+            },
+            "value": {
+              "enum": [
+                "debug",
+                "info",
+                "notice",
+                "warning",
+                "error"
+              ]
+            },
+            "op": {
+              "enum": [
+                "eq",
+                "ge",
+                "gt",
+                "le",
+                "lt"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "value",
+            "from"
+          ],
+          "properties": {
+            "field": {
+              "const": "scope"
+            },
+            "value": {
+              "type": "string"
+            },
+            "from": {
+              "enum": [
+                "top",
+                "segments"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "value",
+            "link"
+          ],
+          "properties": {
+            "field": {
+              "const": "link"
+            },
+            "value": {
+              "type": "string"
+            },
+            "link": {
+              "enum": [
+                "run",
+                "ask",
+                "msg",
+                "session",
+                "decision"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "value",
+            "key"
+          ],
+          "properties": {
+            "field": {
+              "const": "attr"
+            },
+            "value": {
+              "type": "string"
+            },
+            "key": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          }
+        }
+      ]
+    },
+    "astTerm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "any"
+      ],
+      "properties": {
+        "not": {
+          "const": true
+        },
+        "any": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/match"
+          }
+        }
+      }
+    },
+    "searchAst": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all"
+      ],
+      "description": "the parsed search: every term ANDed; a term is any of its matches (or none, when not); times are already in from and to",
+      "properties": {
+        "all": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/astTerm"
+          }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "t",
+        "scope",
+        "source",
+        "kind",
+        "severity",
+        "summary",
+        "attrs",
+        "links"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "unique within its source and stable: a later batch with the same id replaces it"
+        },
+        "t": {
+          "type": "number",
+          "description": "ms since 1970-01-01T00:00:00Z"
+        },
+        "dur": {
+          "type": "number",
+          "minimum": 0,
+          "description": "a span's length in ms (so far, while open); absent for a mark"
+        },
+        "open": {
+          "const": true,
+          "description": "an ongoing span: it lasts to now; a later batch gives its end"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "one line a person reads: never a message's text, a prompt, a secret, a real hostname, a folder or a sensitive attr's value"
+        },
+        "attrs": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "not": {
+              "enum": [
+                "text",
+                "body",
+                "message",
+                "prompt",
+                "question",
+                "command",
+                "argv",
+                "token",
+                "secret",
+                "password",
+                "key_value",
+                "query",
+                "query_string",
+                "url",
+                "path",
+                "headers",
+                "cookie",
+                "hostname"
+              ]
+            }
+          },
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "description": "a flat map of scalars; never text, secrets, argv, query strings, paths or bodies (a destination is a host and port only)"
+        },
+        "links": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "type": "string",
+              "description": "workspace/run-id"
+            },
+            "ask": {
+              "type": "string"
+            },
+            "msg": {
+              "type": "string",
+              "description": "a message's id, never its text"
+            },
+            "session": {
+              "type": "string"
+            },
+            "decision": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "actions"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "action.ok",
+                  "action.error",
+                  "action.open",
+                  "step.ok",
+                  "step.error",
+                  "step.open"
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "action",
+                    "phase_before",
+                    "phase_after",
+                    "image",
+                    "bytes",
+                    "parent",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "sessions"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "session",
+                  "session.open",
+                  "session.end"
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "program",
+                    "image",
+                    "exit_code",
+                    "open_ms",
+                    "first_attach_ms",
+                    "first_screen_ms"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "daemon"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "daemon.run",
+                  "daemon.start",
+                  "daemon.stop"
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "run_kind",
+                    "app_version",
+                    "build",
+                    "machine",
+                    "chip",
+                    "macos",
+                    "pid"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "network"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": false,
+              "attrs": {
+                "maxProperties": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "workspace"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "workspace.created",
+                      "workspace.renamed",
+                      "workspace.slept",
+                      "workspace.woke",
+                      "workspace.finished",
+                      "workspace.reopened",
+                      "workspace.archived",
+                      "workspace.restored",
+                      "workspace.run-opened",
+                      "workspace.run-closed",
+                      "workspace.run-archive-failed",
+                      "workspace.worker-added",
+                      "workspace.space-up",
+                      "workspace.space-down",
+                      "workspace.space-purged"
+                    ]
+                  },
+                  {
+                    "pattern": "^workspace\\.[a-z][a-z0-9-]*$"
+                  }
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "action",
+                    "by",
+                    "agent",
+                    "place",
+                    "room",
+                    "run",
+                    "from",
+                    "to",
+                    "reason",
+                    "isolation",
+                    "added",
+                    "removed",
+                    "bytes",
+                    "folder"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "grants"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "decision.allow",
+                  "decision.ask",
+                  "decision.never",
+                  "grant.add",
+                  "grant.revoke",
+                  "grant.request",
+                  "ceiling.set"
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "action",
+                    "by",
+                    "subject",
+                    "perm",
+                    "role",
+                    "answer",
+                    "scope",
+                    "until",
+                    "op",
+                    "grant",
+                    "reason"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "runs"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "run",
+                  "run.open",
+                  "run.frame",
+                  "run.close"
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "how",
+                    "closed_by",
+                    "archived",
+                    "frames",
+                    "frames_capped",
+                    "legacy",
+                    "label"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "chat"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "chat.message",
+                  "chat.queued",
+                  "chat.held",
+                  "chat.delivered",
+                  "chat.started",
+                  "chat.answered",
+                  "chat.failed",
+                  "chat.cancelled",
+                  "chat.woken",
+                  "chat.handover",
+                  "chat.edited",
+                  "chat.deleted",
+                  "ask.open",
+                  "ask.decided",
+                  "ask.expired",
+                  "ask.withdrawn"
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "from",
+                    "to",
+                    "to_count",
+                    "msg_kind",
+                    "private",
+                    "re_msg_id",
+                    "seq",
+                    "ms_to_deliver",
+                    "decider",
+                    "option",
+                    "declined",
+                    "no_decider"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "daemon-events"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "daemon.event"
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "event",
+                    "subject"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "egress"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "egress.allowed",
+                  "egress.denied",
+                  "egress.failed"
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "dest",
+                    "port",
+                    "protocol",
+                    "bytes_up",
+                    "bytes_down",
+                    "rule"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "net-permissions"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "net.permit",
+                  "net.unpermit"
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "permission",
+                    "by",
+                    "reason"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "resources"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": false,
+              "attrs": {
+                "maxProperties": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "keys"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "key.use",
+                  "proxy.use"
+                ]
+              },
+              "attrs": {
+                "propertyNames": {
+                  "enum": [
+                    "key",
+                    "via",
+                    "ok"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "chat-metrics"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "kind": false,
+              "attrs": {
+                "maxProperties": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "series",
+        "scope",
+        "t",
+        "value"
+      ],
+      "properties": {
+        "series": {
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "t": {
+          "type": "number",
+          "description": "ms since 1970-01-01T00:00:00Z"
+        },
+        "value": {
+          "type": "number"
+        }
+      }
+    },
+    "rollup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "series",
+        "scope",
+        "t",
+        "bin",
+        "min",
+        "max",
+        "sum",
+        "count"
+      ],
+      "description": "a series over [t, t + bin): a coarser bin is the min of mins, the max of maxes, and the sums of sums and counts",
+      "properties": {
+        "series": {
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "t": {
+          "type": "number",
+          "description": "ms since 1970-01-01T00:00:00Z"
+        },
+        "bin": {
+          "$ref": "#/$defs/bin"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "sum": {
+          "type": "number"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "metric": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/point"
+        },
+        {
+          "$ref": "#/$defs/rollup"
+        }
+      ]
+    },
+    "eventBin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "t",
+        "bin",
+        "count",
+        "severity"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "t": {
+          "type": "number",
+          "description": "ms since 1970-01-01T00:00:00Z"
+        },
+        "bin": {
+          "$ref": "#/$defs/bin"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "severity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "debug": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "info": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "notice": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "warning": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "error": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "kinds": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "kindsTruncated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "events",
+        "rollups"
+      ],
+      "properties": {
+        "events": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "days kept; null: kept until the user deletes it"
+        },
+        "rollups": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "1m",
+            "1h",
+            "1d"
+          ],
+          "properties": {
+            "1m": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "description": "days kept; null: kept until the user deletes it"
+            },
+            "1h": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "description": "days kept; null: kept until the user deletes it"
+            },
+            "1d": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "description": "days kept; null: kept until the user deletes it"
+            }
+          }
+        }
+      }
+    },
+    "effectiveRetention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "events",
+        "rollups",
+        "setBy",
+        "keptFrom"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "events": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "days kept; null: kept until the user deletes it"
+        },
+        "rollups": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "1m",
+            "1h",
+            "1d"
+          ],
+          "properties": {
+            "1m": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "description": "days kept; null: kept until the user deletes it"
+            },
+            "1h": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "description": "days kept; null: kept until the user deletes it"
+            },
+            "1d": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "description": "days kept; null: kept until the user deletes it"
+            }
+          }
+        },
+        "setBy": {
+          "enum": [
+            "user",
+            "default"
+          ]
+        },
+        "keptFrom": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rollups"
+          ],
+          "properties": {
+            "events": {
+              "type": "number",
+              "description": "ms since 1970-01-01T00:00:00Z"
+            },
+            "rollups": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "1m": {
+                  "type": "number",
+                  "description": "ms since 1970-01-01T00:00:00Z"
+                },
+                "1h": {
+                  "type": "number",
+                  "description": "ms since 1970-01-01T00:00:00Z"
+                },
+                "1d": {
+                  "type": "number",
+                  "description": "ms since 1970-01-01T00:00:00Z"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "title",
+        "status",
+        "at",
+        "kinds",
+        "series",
+        "attrs",
+        "defaultRetention"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "kept",
+            "not-yet"
+          ]
+        },
+        "at": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "host",
+              "workspace",
+              "sandbox",
+              "session",
+              "room",
+              "run"
+            ]
+          }
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "title"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "span": {
+                "type": "boolean"
+              },
+              "notYet": {
+                "type": "boolean",
+                "description": "named, not yet recorded"
+              }
+            }
+          }
+        },
+        "kindPattern": {
+          "type": "string",
+          "format": "regex",
+          "description": "kinds taken verbatim from the host's own names (workspace.<action>)"
+        },
+        "series": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "unit",
+              "type",
+              "at",
+              "title"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "counter",
+                  "gauge"
+                ]
+              },
+              "at": {
+                "enum": [
+                  "host",
+                  "workspace",
+                  "sandbox",
+                  "session",
+                  "room",
+                  "run"
+                ]
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "attrs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "not": {
+              "enum": [
+                "text",
+                "body",
+                "message",
+                "prompt",
+                "question",
+                "command",
+                "argv",
+                "token",
+                "secret",
+                "password",
+                "key_value",
+                "query",
+                "query_string",
+                "url",
+                "path",
+                "headers",
+                "cookie",
+                "hostname"
+              ]
+            }
+          }
+        },
+        "sensitive": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "people": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "attrs naming a person: the viewer is \"you\""
+        },
+        "defaultRetention": {
+          "$ref": "#/$defs/retention"
+        }
+      }
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "severity": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "debug",
+              "info",
+              "notice",
+              "warning",
+              "error"
+            ]
+          }
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope"
+          }
+        }
+      }
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "label",
+        "kind",
+        "depth",
+        "children",
+        "count"
+      ],
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "label": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "host",
+            "workspace",
+            "sandbox",
+            "session",
+            "room",
+            "run",
+            "fleet"
+          ]
+        },
+        "space": {
+          "type": "boolean",
+          "description": "a workspace made from a space file"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "own": {
+          "type": "boolean",
+          "description": "events at this shallower scope, on their own row"
+        },
+        "children": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "first": {
+          "type": "number",
+          "description": "ms since 1970-01-01T00:00:00Z"
+        },
+        "last": {
+          "type": "number",
+          "description": "ms since 1970-01-01T00:00:00Z"
+        }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeline",
+        "type",
+        "hosts",
+        "sources",
+        "retention",
+        "now"
+      ],
+      "properties": {
+        "timeline": {
+          "const": 1
+        },
+        "type": {
+          "const": "catalog"
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "display names the host sets per Mac (the same as SpaceState host): never real hostnames"
+        },
+        "names": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scopeName"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        },
+        "retention": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effectiveRetention"
+          }
+        },
+        "now": {
+          "type": "number",
+          "description": "ms since 1970-01-01T00:00:00Z"
+        }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeline",
+        "type",
+        "scope",
+        "depth",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "timeline": {
+          "const": 1
+        },
+        "type": {
+          "const": "query"
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "from": {
+          "type": "number",
+          "description": "ms since 1970-01-01T00:00:00Z"
+        },
+        "to": {
+          "type": "number",
+          "description": "ms since 1970-01-01T00:00:00Z"
+        },
+        "bin": {
+          "$ref": "#/$defs/bin"
+        },
+        "tz": {
+          "type": "string",
+          "description": "the owner's time zone (IANA): 1d bins start at its midnight"
+        },
+        "where": {
+          "$ref": "#/$defs/searchAst"
+        },
+        "q": {
+          "type": "string",
+          "description": "the search as typed: display and saved views only"
+        },
+        "filters": {
+          "$ref": "#/$defs/filters"
+        },
+        "series": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "cursor": {
+          "type": "string"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeline",
+        "type",
+        "rows",
+        "metrics",
+        "total",
+        "retention"
+      ],
+      "properties": {
+        "timeline": {
+          "const": 1
+        },
+        "type": {
+          "const": "result"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/row"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "bins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/eventBin"
+          }
+        },
+        "spans": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metric"
+          }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "totalEstimated": {
+          "type": "boolean"
+        },
+        "retention": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effectiveRetention"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "next": {
+          "type": "string"
+        }
+      }
+    },
+    "batch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeline",
+        "type",
+        "events",
+        "metrics",
+        "now"
+      ],
+      "properties": {
+        "timeline": {
+          "const": 1
+        },
+        "type": {
+          "const": "batch"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metric"
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/row"
+          }
+        },
+        "now": {
+          "type": "number",
+          "description": "ms since 1970-01-01T00:00:00Z"
+        },
+        "retention": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/effectiveRetention"
+          }
+        },
+        "resume": {
+          "type": "string",
+          "description": "the SSE event's id: resume from here"
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeline",
+        "type",
+        "name",
+        "scope",
+        "depth",
+        "range"
+      ],
+      "properties": {
+        "timeline": {
+          "const": 1
+        },
+        "type": {
+          "const": "view"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/scope"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "range": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "from",
+                "to"
+              ],
+              "properties": {
+                "from": {
+                  "type": "number",
+                  "description": "ms since 1970-01-01T00:00:00Z"
+                },
+                "to": {
+                  "type": "number",
+                  "description": "ms since 1970-01-01T00:00:00Z"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "last"
+              ],
+              "properties": {
+                "last": {
+                  "enum": [
+                    "15m",
+                    "1h",
+                    "1d",
+                    "1w",
+                    "run"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "q": {
+          "type": "string"
+        },
+        "filters": {
+          "$ref": "#/$defs/filters"
+        },
+        "live": {
+          "type": "boolean"
+        },
+        "collapseGaps": {
+          "type": "boolean",
+          "description": "time breaks off when false"
+        },
+        "quietRows": {
+          "type": "boolean",
+          "description": "rows with nothing in the range shown when true"
+        }
+      }
+    },
+    "recording": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timeline",
+        "type",
+        "catalog",
+        "events",
+        "metrics"
+      ],
+      "properties": {
+        "timeline": {
+          "const": 1
+        },
+        "type": {
+          "const": "recording"
+        },
+        "catalog": {
+          "$ref": "#/$defs/catalog"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metric"
+          }
+        }
+      }
+    }
+  }
+}

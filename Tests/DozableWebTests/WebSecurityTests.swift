@@ -320,41 +320,79 @@ final class WebSecurityTests: XCTestCase {
                 XCTAssertTrue(scripts.contains { $0.contains("/\(name)'") }, "a page script imports \(path)")
                 continue
             }
-            // 742: the space renderer is loaded only by the one lazy import() of a module (its hashed path in quotes).
-            if path.hasPrefix("/assets/vendor-space-render-") {
-                XCTAssertTrue(scripts.contains { $0.contains("import('\(path)')") }, "a module loads \(path) lazily")
+            // 744: the space editor's tree: its two entries are a module's lazy literals (its renderer and core imported, its
+            // stylesheet linked); every other file of it is named by the tree's own files (WebModulesTests checks how).
+            if path.hasPrefix("/assets/vendor-space-editor-") {
+                if path.hasSuffix("/space-render.js") || path.hasSuffix("/space-core.js") {
+                    XCTAssertTrue(scripts.contains { $0.contains("import('\(path)')") }, "a module loads \(path) lazily")
+                } else if path.hasSuffix("/space-editor.css") {
+                    XCTAssertTrue(scripts.contains { $0.contains("'\(path)'") }, "a module links \(path)")
+                }
                 continue
             }
             XCTAssertTrue(docs.contains { $0.contains("\"\(path)\"") }, "a document references \(path)")
         }
         let index = String(decoding: a.assets["/"]!.data, as: UTF8.self)
         XCTAssertFalse(index.contains("vendor-ghostty-web"), "591 T2: the page never loads the engine — only its frame does")
-        // 742: nor the space renderer — not index.html, not the service worker's precache.
-        XCTAssertFalse(index.contains("vendor-space-render"), "the first load never names the space renderer")
-        XCTAssertFalse(String(decoding: a.assets[WebAssets.serviceWorker]!.data, as: UTF8.self).contains("vendor-space-render"), "sw.js never precaches it")
+        // 742, 744: nor the space editor's tree — not index.html, not the service worker's precache.
+        XCTAssertFalse(index.contains("vendor-space-"), "the first load never names the space editor")
+        XCTAssertFalse(String(decoding: a.assets[WebAssets.serviceWorker]!.data, as: UTF8.self).contains("vendor-space-"), "sw.js never precaches it")
     }
 
-    /// 742: the space renderer is a vendored asset — JavaScript, immutable, `vendor` in the manifest, served under the
-    /// page's headers (nosniff) — only at its listed path; nothing deeper under /assets is a route.
-    func testTheSpaceRendererIsAVendorAssetOnlyWhenListed() throws {
+    /// 744: the space editor ships as a TREE under one folder named by its PIN's sha — 3- and 4-segment paths are assets,
+    /// served only when the manifest lists them, each with its type (the icon font `font/ttf`), immutable, class vendor.
+    func testTheSpaceEditorsTreeIsAVendorAssetOnlyWhenListed() throws {
         let a = try WebAssets.load()
-        let paths = a.assets.keys.filter { $0.hasPrefix("/assets/vendor-space-render-") }
-        XCTAssertEqual(paths.count, 1)
-        let path = try XCTUnwrap(paths.first)
-        XCTAssertNotNil(path.range(of: #"^/assets/vendor-space-render-[0-9a-f]{16}\.js$"#, options: .regularExpression), path)
-        XCTAssertEqual(WebRoute.parse(method: .get, target: path), .asset(path))
-        let asset = try XCTUnwrap(a.assets[path])
-        XCTAssertEqual(asset.mimeType, "application/javascript; charset=utf-8")
-        XCTAssertEqual(asset.cachePolicy, WebAssets.immutable)
-        XCTAssertTrue(WebSecurity.responseHeaders.contains { $0 == ("X-Content-Type-Options", "nosniff") })
+        let tree = a.assets.keys.filter { $0.hasPrefix("/assets/vendor-space-editor-") }.sorted()
+        let folder = try XCTUnwrap(tree.first.map { String($0.split(separator: "/")[1]) })
+        XCTAssertNotNil(folder.range(of: #"^vendor-space-editor-[0-9a-f]{16}$"#, options: .regularExpression), folder)
+        XCTAssertTrue(tree.allSatisfy { $0.hasPrefix("/assets/\(folder)/") }, "one folder")
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Sources/DozableWeb/Resources/Web/manifest.json"))) as? [String: Any]
-        let entry = (manifest?["assets"] as? [[String: Any]])?.first { $0["publicPath"] as? String == path }
-        XCTAssertEqual(entry?["class"] as? String, "vendor")
-        // Only the listed name is served; a folder under it is no route at all.
-        XCTAssertNil(a.assets[path.replacingOccurrences(of: #"[0-9a-f]{16}"#, with: "0000000000000000", options: .regularExpression)])
-        XCTAssertNil(WebRoute.parse(method: .get, target: "/assets/vendor-space-render-x/y.js"))
-        XCTAssertNil(WebRoute.parse(method: .post, target: path))
+        let entries = (manifest?["assets"] as? [[String: Any]]) ?? []
+        for (file, type) in [("space-core.js", "application/javascript; charset=utf-8"), ("space-render.js", "application/javascript; charset=utf-8"),
+                             ("space-editor.css", "text/css; charset=utf-8"), ("monaco/monaco.js", "application/javascript; charset=utf-8"),
+                             ("monaco/editor.worker.js", "application/javascript; charset=utf-8"), ("monaco/monaco.css", "text/css; charset=utf-8"),
+                             ("monaco/codicon.ttf", "font/ttf")] {
+            let path = "/assets/\(folder)/\(file)"
+            XCTAssertEqual(WebRoute.parse(method: .get, target: path), .asset(path), file)
+            XCTAssertNil(WebRoute.parse(method: .post, target: path), file)
+            let asset = try XCTUnwrap(a.assets[path], file)
+            XCTAssertEqual(asset.mimeType, type, file)
+            XCTAssertEqual(asset.cachePolicy, WebAssets.immutable, file)
+            XCTAssertEqual(entries.first { $0["publicPath"] as? String == path }?["class"] as? String, "vendor", file)
+        }
+        XCTAssertTrue(WebSecurity.responseHeaders.contains { $0 == ("X-Content-Type-Options", "nosniff") })
+        // Never a route: five segments, a folder that is not vendor-<package>-<16 hex>, a dot part; never served: unlisted.
+        for bad in ["/assets/\(folder)/monaco/x/y.js", "/assets/vendor-x/space-core.js", "/assets/vendor-space-editor-xyz/space-core.js",
+                    "/assets/\(folder)/../app.css", "/assets/\(folder)/./space-core.js", "/assets/\(folder)/monaco/.."] {
+            XCTAssertNil(WebRoute.parse(method: .get, target: bad), bad)
+        }
+        XCTAssertNil(a.assets["/assets/\(folder)/space-editor.js"], "the everything entry is not vendored")
+        XCTAssertNil(a.assets["/assets/\(folder)/space-core.d.ts"], "a reference is never shipped")
+        XCTAssertNil(a.assets["/assets/\(folder.replacingOccurrences(of: #"[0-9a-f]{16}$"#, with: "0000000000000000", options: .regularExpression))/space-core.js"])
+        XCTAssertTrue(a.assets.keys.filter { $0.hasPrefix("/assets/vendor-space-render-") }.isEmpty, "the renderer moved into the tree")
+    }
+
+    /// 744: the icon font's type is a vendored file's only — the page's own class may not carry it.
+    func testAFontIsAVendorTypeOnly() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("doz-webassets-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("assets/vendor-x-0123456789abcdef"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let html = Data("<!doctype html>".utf8), ttf = Data([0, 1, 0, 0, 9])
+        try html.write(to: dir.appendingPathComponent("index.html"))
+        try ttf.write(to: dir.appendingPathComponent("assets/vendor-x-0123456789abcdef/f.ttf"))
+        func manifest(_ cls: String) throws {
+            let m: [String: Any] = ["version": 1, "assets": [
+                ["publicPath": "/", "resourcePath": "index.html", "mimeType": "text/html; charset=utf-8", "sha256": WebAssets.sha256Hex(html), "cachePolicy": "no-store"],
+                ["publicPath": "/assets/vendor-x-0123456789abcdef/f.ttf", "resourcePath": "assets/vendor-x-0123456789abcdef/f.ttf", "mimeType": "font/ttf",
+                 "sha256": WebAssets.sha256Hex(ttf), "cachePolicy": WebAssets.immutable, "class": cls]]]
+            try JSONSerialization.data(withJSONObject: m).write(to: dir.appendingPathComponent("manifest.json"))
+        }
+        try manifest("page")
+        XCTAssertThrowsError(try WebAssets.load(webRoot: dir)) { XCTAssertEqual($0 as? WebAssetError, .unsupportedType) }
+        try manifest("vendor")
+        XCTAssertNoThrow(try WebAssets.load(webRoot: dir))
     }
 
     /// The drift check, in the test suite too: the committed Resources/Web must be exactly what
@@ -375,9 +413,10 @@ final class WebSecurityTests: XCTestCase {
         // WebAssembly; (593) the icon sprite; (605) the offline page + offline.css + offline.js, the service
         // worker, the web app manifest, the SVG icon and its four PNGs; (607) one per module of app.js.
         let modules = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? []).filter { $0.hasSuffix(".js") }
-        // (742) the space renderer, loaded lazily.
-        XCTAssertEqual(loaded.assets.count, 20 + modules.count)
-        XCTAssertEqual(loaded.assets.keys.filter { $0.hasPrefix("/assets/vendor-") }.count, 4)
+        // (744) the space editor's tree, loaded lazily: 34 modules (the core, 8 features, 23 chunks, the renderer,
+        // Monaco), Monaco's worker, 2 styles and the icon font.
+        XCTAssertEqual(loaded.assets.count, 19 + 38 + modules.count)
+        XCTAssertEqual(loaded.assets.keys.filter { $0.hasPrefix("/assets/vendor-") }.count, 3 + 38)
     }
 
     func testAnAlteredAssetRefusesToLoad() throws {

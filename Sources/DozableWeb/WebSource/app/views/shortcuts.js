@@ -6,7 +6,7 @@ import { openMacPicker } from '../components/mac-picker.js';
 
 // ── 603: page shortcuts (owner decision 10 — only the guide's): g then h → Home, g then s → Sandboxes, / → the Settings filter,
 // ? → this list. Never while a terminal has the focus (its frame), nor in a field, a menu or a dialog.
-const SHORTCUTS = [['g h', 'Home'], ['g s', 'Sandboxes (This Mac)'], ['g m', 'Your Macs (the machine picker)'], ['/', 'The Settings filter'], ['?', 'These shortcuts'], ['Esc', 'Close a menu or a dialog']];
+const SHORTCUTS = [['g h', 'Home'], ['g s', 'Sandboxes (This Mac)'], ['g m', 'Your Macs (the machine picker)'], ['/', 'The Settings filter'], ['?', 'These shortcuts'], ['Esc', 'Close a menu or a dialog'], ['?', 'In the space editor, ? shows its own keys']];
 let gPending = 0;
 function shortcutsDialog() {
   const d = h('dialog', { class: 'dlg', 'aria-labelledby': 'sc-title' });
@@ -23,7 +23,7 @@ function shortcutsDialog() {
 document.addEventListener('keydown', (ev) => {
   if (ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.altKey || state.signedOut) return;
   const a = document.activeElement;
-  if (a && (a.tagName === 'IFRAME' || a.closest('input, textarea, select, [contenteditable], dialog, .menu'))) return;
+  if (a && (a.tagName === 'IFRAME' || a.closest('input, textarea, select, [contenteditable], dialog, .menu, .space-editor'))) return;
   if (document.querySelector('dialog[open]') || state.modal || document.body.classList.contains('ui-paused')) return;
   if (ev.key === 'g') { gPending = Date.now(); return; }
   if (ev.key === 'h' && Date.now() - gPending < 1200) { gPending = 0; ev.preventDefault(); location.hash = '#/home'; return; }

@@ -140,8 +140,8 @@ on (chat off, a workspace archived), or changed since the plan · 4 a workspace 
 
 In the dashboard a workspace a space file made is drawn from its file and what is running now: its agents, rooms, folders
 and sandboxes in the file's layout, each marked as it is — running, asleep, missing, gone after down — and what waits for
-you. The picture is on the workspace's **Home** tab, across the page — on no other tab: click it to see it in the whole
-window (**Esc**, **Close** or a click outside closes it). Home and the Workspaces page show each workspace small beside its
+you. The picture is on the workspace's **Home** tab, across the page — on no other tab: click it to open the file in the
+space editor (below). Home and the Workspaces page show each workspace small beside its
 name, and the sidebar shows it at the top of an unfolded workspace (the setting `ui.nav_thumbnails` turns the sidebar's
 pictures off; the sidebar keeps no empty box while a picture is on its way). The picture follows what happens — an up or down, a save, a
 sleep or wake from the dashboard, a sandbox starting or stopping — and is never read on a timer; a change made only in a
@@ -151,3 +151,27 @@ A file that doesn't read is drawn as a small warning, and the page adds what Doz
 command that checks it, `doz workspace up -f FILE --dry-run`. A workspace made without a space file shows a small tile on
 Home and the Workspaces page and, on its Home tab, "Made without a space file — `doz workspace up -f FILE` draws it". Another computer sees the picture
 only while `serve.chat` lets it read; otherwise it sees the tile, "Shown to another computer only with serve.chat read".
+
+## Editing a space in the dashboard
+
+A workspace's picture (or **Edit the space** beside it) opens its space file in the space editor, the whole window, at
+its own address — `#/w/NAME/space`, which you can bookmark, reload or open in a new tab. The bar above it leads back to
+the workspace, names the file, says **Saved**, **Unsaved** or **Read-only here**, and has **Text**, **Watch** and **Open in
+a new window**.
+
+- **The canvas** draws the file; you change it there, and its problems are listed and marked as you go — a problem in a
+  defaults file it extends is named with that file. **Live** draws what is running now over it (the agents, their rooms,
+  what waits for you — a permission prompt, an open Ask, which you can answer there), following what happens; it is never
+  read on a timer. The runs strip under it steps through a past run's states.
+- **Text** adds the YAML beside the canvas; it is loaded only when you ask for it, and your changes, undo and selection
+  carry over. The dashboard remembers that you use it.
+- **Saving** (**⌘S**) writes the file only if it is still the version you opened. If it changed since — in your editor or
+  with `doz workspace edit` — nothing is written and the editor says **Changed elsewhere**; **Reload** reads the file as it
+  is now (your changes there are lost). A save is never applied: "Saved. Not applied: Up applies it." — `doz workspace up
+  -f FILE` applies it. A file too long to send from the page is saved with the command the page shows.
+- **Unsaved changes are never lost without asking**: leaving the page asks first (**Stay** or **Leave**), closing the tab
+  asks too, and a restart of `doz ui` waits to reload the page until the file is saved.
+- **Watch** (`#/w/NAME/space/watch`) shows the drawing with Live on and nothing else, read-only — for a second screen.
+- **Another computer** sees the file only while `serve.chat` lets it read, read-only: "Changed only in this Mac's own
+  browser", with the command that changes it on the Mac. Only this Mac's own browser saves a space file.
+- **A phone** shows the drawing and Live, read-only ("Edit on a wider screen").

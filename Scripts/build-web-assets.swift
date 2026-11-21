@@ -100,9 +100,16 @@ struct Vendor: Decodable {
 /// name). Serve kinds: `module` (an ES module loaded ONLY by the one lazy `import()` the compiler's table allows — flat
 /// at `assets/<publicName>-<sha16>.js`, and only with no import of its own), `reference` (kept in source, never shipped)
 /// and `licence` (bundled as `licences/<package>-<path with / as ->`). Each component's licence on the allowlist, its
-/// file listed `licence`. `publish` is `flat` (one file per module); a tree (relative layout kept) is not built yet.
+/// file listed `licence`; a notice or index file (`licence` too) is named by a component's `notices` or the package's
+/// `licenceIndex`. `publish` is `flat` (one file per module) or (744) `tree`: every shipped file at
+/// `assets/vendor-<package>-<pin16>/<path>` (its layout kept, at most one sub-folder), so the build's own relative imports,
+/// worker and style URLs resolve unrewritten — admitted only by the structural checks (`treeScriptCheck`, `treeStyleCheck`);
+/// kinds `module`, `worker` (JavaScript), `style` (CSS) and `font` (TrueType), besides `reference` and `licence`.
 struct PeerVendor: Decodable {
-    struct Component: Decodable { let name: String; let version: String; let licence: String; let licenceFile: String }
+    struct Component: Decodable {
+        let name: String; let version: String; let licence: String; let licenceFile: String
+        let notices: [String]?
+    }
     struct File: Decodable {
         let file: String
         let sha256: String
@@ -118,15 +125,120 @@ struct PeerVendor: Decodable {
     let pinFile: String
     let pinSha256: String
     let publish: String
+    let licenceIndex: String?
     let components: [Component]
     let files: [File]
 }
 
+/// 744: what a tree's script may hold — checked on every `module` and `worker`, whatever its size. Each static `import` /
+/// `export … from` and each `import("…")` a literal `./` path (no `..`) to a listed module of the tree; no bare, absolute,
+/// URL or computed `import(`; `import.meta` only as `new URL("<literal>", import.meta.url)` naming a listed worker or style;
+/// `new Worker(` only over such a URL (no `blob:` or `data:` worker); no `eval(`, `Function(` or string timer. The tree's
+/// own text is never rewritten.
+func treeScriptCheck(_ file: String, _ raw: String, sha: String, pkg: String, modules: Set<String>, urlTargets: Set<String>) throws {
+    let at = "vendor/\(pkg)/\(file)"
+    var text = raw
+    // Each allowance (the compiler's table, bound to this exact file) occurs exactly once; its text is then not checked.
+    for a in vendorAllowances[sha] ?? [] {
+        guard text.components(separatedBy: a.text).count == 2 else { throw Failure.source("\(at): an allowance of the compiler's table is not in it exactly once") }
+        if let n = a.names { guard urlTargets.contains(try treeResolve(n, from: file, at)) else { throw Failure.source("\(at): an allowance names \(n), which the tree does not list") } }
+        text = text.replacingOccurrences(of: a.text, with: " ")
+    }
+    func scan(_ pattern: String, _ body: (NSTextCheckingResult, NSString) throws -> Void) throws {
+        let re = try NSRegularExpression(pattern: pattern)
+        let ns = text as NSString
+        for m in re.matches(in: text, range: NSRange(location: 0, length: ns.length)) { try body(m, ns) }
+    }
+    for (pattern, what) in [(#"\beval\s*\("#, "eval("), (#"\bFunction\s*\("#, "the Function constructor"),
+                            (#"\bset(?:Timeout|Interval)\s*\(\s*["'`]"#, "a string timer"), (#"\bimportScripts\s*\("#, "an importScripts call")]
+    where text.range(of: pattern, options: .regularExpression) != nil {
+        throw Failure.source("\(at) holds \(what) — a vendored tree runs only its own listed files")
+    }
+    // new URL("<literal>", import.meta.url): a listed worker or style. Then no other import.meta, and every Worker over one.
+    let urlForm = #"new\s+URL\(\s*(["'])([^"'\n]*)\1\s*,\s*import\.meta\.url\s*\)"#
+    try scan(urlForm) { m, ns in
+        let lit = ns.substring(with: m.range(at: 2))
+        guard urlTargets.contains(try treeResolve(lit, from: file, at)) else { throw Failure.source("\(at): new URL(\"\(lit)\", import.meta.url) names no listed worker or style") }
+    }
+    let workerFree = text.replacingOccurrences(of: #"new\s+Worker\(\s*"# + urlForm, with: " ", options: .regularExpression)
+    if workerFree.range(of: #"\bnew\s+Worker\s*\("#, options: .regularExpression) != nil {
+        throw Failure.source("\(at): new Worker( over anything but new URL(\"<listed worker>\", import.meta.url) — no blob:, data: or computed worker")
+    }
+    if text.replacingOccurrences(of: urlForm, with: " ", options: .regularExpression).range(of: #"\bimport\s*\.\s*meta\b"#, options: .regularExpression) != nil {
+        throw Failure.source("\(at): import.meta only as new URL(\"<literal>\", import.meta.url)")
+    }
+    // import("./x.js"): a literal, a listed module.
+    let dynamicForm = #"\bimport\s*\(\s*(["'])([^"'\n]*)\1\s*\)"#
+    try scan(dynamicForm) { m, ns in
+        let lit = ns.substring(with: m.range(at: 2))
+        guard lit.hasPrefix("./") else { throw Failure.source("\(at): import(\"\(lit)\") — a vendored module imports only by './…', a file of its tree") }
+        guard modules.contains(try treeResolve(lit, from: file, at)) else { throw Failure.source("\(at): import(\"\(lit)\") names no listed module of the tree") }
+    }
+    if text.replacingOccurrences(of: dynamicForm, with: " ", options: .regularExpression).range(of: #"\bimport\s*\("#, options: .regularExpression) != nil {
+        throw Failure.source("\(at): a computed import( — only import(\"./<listed module>\")")
+    }
+    // Static imports and re-exports, at a statement's start.
+    try scan(#"(?:^|[;}\n])\s*(?:import\s*(?:[\w$*{][^;"'`]*?\bfrom\s*)?|export\s*(?:\*(?:\s*as\s*[\w$]+)?|\{[^}]*\})\s*from\s*)(["'])([^"'\n]*)\1"#) { m, ns in
+        let spec = ns.substring(with: m.range(at: 2))
+        guard spec.hasPrefix("./") else { throw Failure.source("\(at) imports '\(spec)' — a vendored module imports only by './…', a file of its tree") }
+        guard modules.contains(try treeResolve(spec, from: file, at)) else { throw Failure.source("\(at) imports '\(spec)', which is no listed module of the tree") }
+    }
+}
+
+/// 744: a tree's stylesheet: `@import` and `url()` only to a listed file of the tree, a `data:` URL or a `#id`.
+func treeStyleCheck(_ file: String, _ text: String, pkg: String, listed: Set<String>) throws {
+    let at = "vendor/\(pkg)/\(file)"
+    let re = try NSRegularExpression(pattern: #"@import\s*(?:url\(\s*)?(["']?)([^"')\s;]*)\1|url\(\s*(["']?)([^"')]*)\3\s*\)"#)
+    let ns = text as NSString
+    for m in re.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
+        let isImport = m.range(at: 2).location != NSNotFound
+        let ref = ns.substring(with: isImport ? m.range(at: 2) : m.range(at: 4)).trimmingCharacters(in: .whitespaces)
+        if !isImport, ref.hasPrefix("data:") || ref.hasPrefix("#") { continue }
+        guard listed.contains(try treeResolve(ref, from: file, at)) else { throw Failure.source("\(at): \(isImport ? "@import" : "url()") of \(ref), which is no listed file of the tree") }
+    }
+}
+
+/// A tree's relative reference (`./x`, `x`, `./monaco/x` — never `..`, `/`, a scheme or a query) → its path in the tree.
+func treeResolve(_ ref: String, from file: String, _ at: String) throws -> String {
+    let dir = file.split(separator: "/").dropLast().map(String.init)
+    let r = ref.hasPrefix("./") ? String(ref.dropFirst(2)) : ref
+    let parts = r.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+    guard !ref.hasPrefix("/"), !ref.contains(":"), !ref.contains("?"), !ref.contains("#"), parts.allSatisfy(isPlainName) else {
+        throw Failure.source("\(at) names '\(ref)' — a vendored tree refers only to its own files, by a plain relative path")
+    }
+    return (dir + parts).joined(separator: "/")
+}
+
+/// 744: sites in a vendored tree's file the structural checks would refuse that are known inert, each bound to the file's
+/// exact bytes (its sha256) and present exactly once — a new build is a new entry here, on purpose. `names`: the listed
+/// worker or style the allowed text names.
+let vendorAllowances: [String: [(text: String, names: String?, why: String)]] = [
+    // space-chunk-XWXO2R2C.js (the text view): the worker's URL is held in a variable two words before it.
+    "e00dc8de58449060506911374cda3b4a04f045e3e82190b41c06d8e84b03bc3a": [
+        (#"E="monaco/editor.worker.js",x=new Set;self.MonacoEnvironment={getWorker:()=>{let s=new Worker(new URL(E,import.meta.url))"#,
+         "monaco/editor.worker.js", "the listed worker, named by a literal the worker's URL is built from"),
+    ],
+    // monaco/monaco.js (monaco-editor 0.57.0, as the space editor's build makes it).
+    "eb27774481b147571cec23d8ceda42b9f53b1fdfdfb25b43167a846dbb476435": [
+        (#"esmModuleLocationBundler:()=>new URL("../../common/services/editorWebWorkerMain.js",import.meta.url)"#, nil,
+         "never called: the host gives MonacoEnvironment.getWorker, so Monaco never asks a bundler for a worker URL"),
+        (#"referenced by "new URL('...?esm', import.meta.url)""#, nil, "words in an error message"),
+        (#"return new Worker(oAe?oAe.createScriptURL(o):o,{...e,type:"module"})"#, nil,
+         "reached only with a blob: URL (it throws otherwise), and this build's blob maker throws before it"),
+    ],
+]
+
 /// 742: the ONE way a module loads code lazily — `import('LITERAL')` (single quotes, exactly that form), exactly once per
 /// literal, only in the module this table names, the literal a peer-commit `module`'s `lazyReference` (rewritten to its
-/// hashed path). Any other `import(` — in a comment, a template, a variable, another module — is refused, and so is a
-/// `'/vendor/…'` string anywhere else in the modules. A new entry is a change to this table, on purpose.
-let lazyImports: [String: [String]] = ["core/space-pictures.js": ["/vendor/space-editor/space-render.js"]]
+/// public path). Any other `import(` — in a comment, a template, a variable, another module — is refused, and so is a
+/// `'/vendor/…'` string anywhere else in the modules. 744: a `.css` literal is a `style`'s lazyReference, written exactly
+/// once as `'LITERAL'` (the page links it). A new entry is a change to this table, on purpose.
+let lazyImports: [String: [String]] = [
+    "core/space-pictures.js": ["/vendor/space-editor/space-render.js"],
+    "views/space-page.js": ["/vendor/space-editor/space-core.js", "/vendor/space-editor/space-editor.css"],
+]
+/// The form a lazy literal takes in its module.
+func lazyForm(_ lit: String) -> String { lit.hasSuffix(".css") ? "'\(lit)'" : "import('\(lit)')" }
 
 /// Licences a vendored file may carry (SPDX). Anything else needs this list changed on purpose.
 let allowedLicences: Set<String> = ["MIT", "BSD-2-Clause", "BSD-3-Clause", "Apache-2.0", "ISC"]
@@ -328,7 +440,7 @@ func loadModules(sources: URL, entry: String) throws -> ModuleGraph {
         // 742: the lazy literals this module may hold (the compiler's table) — each exactly once, in exactly that form.
         var rest = text
         for lit in lazyImports[from ?? ""] ?? [] {
-            let form = "import('\(lit)')"
+            let form = lazyForm(lit)
             guard text.components(separatedBy: form).count == 2 else {
                 throw Failure.source("\(file) must load \(lit) exactly once, as \(form) (the compiler's lazy-import table)")
             }
@@ -510,7 +622,13 @@ func main() throws {
             guard parts.count == 2, parts[0].count == 64 else { throw Failure.source("vendor/\(pkg)/PIN: a line is not \"sha256  path\"") }
             pinned[parts[1].trimmingCharacters(in: .whitespaces)] = parts[0]
         }
-        guard v.publish == "flat" else { throw Failure.source("vendor/\(pkg): publish must be flat (a tree is not built yet)") }
+        guard v.publish == "flat" || v.publish == "tree" else { throw Failure.source("vendor/\(pkg): publish must be flat or tree") }
+        let tree = v.publish == "tree"
+        // 744: a tree is served under its PIN's sha, so every file of one build shares one folder.
+        let treeRoot = "assets/vendor-\(pkg)-\(v.pinSha256.prefix(16))/"
+        let treeModules = Set(v.files.filter { $0.serve == "module" }.map(\.file))
+        let treeURLs = Set(v.files.filter { $0.serve == "worker" || $0.serve == "style" }.map(\.file))
+        let treeShipped = Set(v.files.filter { ["module", "worker", "style", "font"].contains($0.serve) }.map(\.file))
         // Every file present (recursively) is listed, but VENDOR.json and the PIN.
         var present = Set<String>()
         let base = dir.resolvingSymlinksInPath().path + "/"
@@ -525,14 +643,25 @@ func main() throws {
         guard unlisted.isEmpty else { throw Failure.source("vendor/\(pkg) holds files VENDOR.json does not pin: \(unlisted.sorted())") }
         for c in v.components {
             guard allowedLicences.contains(c.licence) else { throw Failure.source("vendor/\(pkg): \(c.name)'s licence \(c.licence) is not on the allowlist") }
-            guard v.files.contains(where: { $0.file == c.licenceFile && $0.serve == "licence" }) else {
-                throw Failure.source("vendor/\(pkg): \(c.name)'s licence file must be listed (serve: licence)")
+            for lf in [c.licenceFile] + (c.notices ?? []) {
+                guard v.files.contains(where: { $0.file == lf && $0.serve == "licence" }) else {
+                    throw Failure.source("vendor/\(pkg): \(c.name)'s licence file \(lf) must be listed (serve: licence)")
+                }
             }
+        }
+        if let ix = v.licenceIndex, !v.files.contains(where: { $0.file == ix && $0.serve == "licence" }) {
+            throw Failure.source("vendor/\(pkg): the licence index \(ix) must be listed (serve: licence)")
         }
         guard !v.components.isEmpty else { throw Failure.source("vendor/\(pkg): no component — each needs its licence") }
         for f in v.files {
             guard f.file.split(separator: "/", omittingEmptySubsequences: false).allSatisfy({ isPlainName(String($0)) }) else {
                 throw Failure.source("vendor/\(pkg): bad file name \(f.file)")
+            }
+            if tree, treeShipped.contains(f.file) {
+                guard f.file.split(separator: "/").count <= 2 else { throw Failure.source("vendor/\(pkg)/\(f.file): a tree keeps at most one sub-folder") }
+            }
+            guard f.lazyReference == nil || f.serve == "module" || (tree && f.serve == "style") else {
+                throw Failure.source("vendor/\(pkg)/\(f.file): only a module (or a tree's style) has a lazyReference")
             }
             guard let data = try? Data(contentsOf: dir.appendingPathComponent(f.file)) else { throw Failure.source("vendor/\(pkg)/\(f.file) is missing") }
             guard sha256(data) == f.sha256 else {
@@ -541,10 +670,32 @@ func main() throws {
             guard pinned[f.file] == f.sha256 else { throw Failure.source("vendor/\(pkg)/\(f.file) is not the file its PIN names") }
             switch f.serve {
             case "licence":
-                guard v.components.contains(where: { $0.licenceFile == f.file }) else { throw Failure.source("vendor/\(pkg)/\(f.file): a licence no component names") }
+                guard v.components.contains(where: { $0.licenceFile == f.file || ($0.notices ?? []).contains(f.file) }) || v.licenceIndex == f.file else {
+                    throw Failure.source("vendor/\(pkg)/\(f.file): a licence or notice no component names (licenceFile, notices) and not the licenceIndex")
+                }
                 expected["licences/\(pkg)-\(f.file.replacingOccurrences(of: "/", with: "-"))"] = data
             case "reference":
                 continue
+            case let kind where tree && ["module", "worker", "style", "font"].contains(kind):
+                let text = String(decoding: data, as: UTF8.self)
+                if f.serve == "module" || f.serve == "worker" {
+                    guard f.file.hasSuffix(".js") else { throw Failure.source("vendor/\(pkg)/\(f.file): a module or worker is a .js file") }
+                    try treeScriptCheck(f.file, text, sha: f.sha256, pkg: pkg, modules: treeModules, urlTargets: treeURLs)
+                } else if f.serve == "style" {
+                    guard f.file.hasSuffix(".css") else { throw Failure.source("vendor/\(pkg)/\(f.file): a style is a .css file") }
+                    try treeStyleCheck(f.file, text, pkg: pkg, listed: treeShipped)
+                } else {
+                    guard f.file.hasSuffix(".ttf"), data.starts(with: [0x00, 0x01, 0x00, 0x00]) else { throw Failure.source("vendor/\(pkg)/\(f.file): a font is a TrueType .ttf") }
+                }
+                if let ref = f.lazyReference {
+                    guard ref == "/vendor/\(pkg)/\(f.file)", !f.file.contains("/") else { throw Failure.source("vendor/\(pkg)/\(f.file): its lazyReference is /vendor/\(pkg)/\(f.file)") }
+                }
+                let path = treeRoot + f.file
+                if let ref = f.lazyReference { lazyTargets[ref] = "/" + path }
+                expected[path] = data
+                let type = ["module": "application/javascript; charset=utf-8", "worker": "application/javascript; charset=utf-8",
+                            "style": "text/css; charset=utf-8", "font": "font/ttf"][f.serve]!
+                assets.append(Asset(publicPath: "/" + path, resourcePath: path, mimeType: type, sha256: f.sha256, cachePolicy: immutable, class: "vendor"))
             case "module":
                 guard let name = f.publicName, isPlainName(name), name.hasPrefix("vendor-"), f.file.hasSuffix(".js"),
                       let ref = f.lazyReference, ref == "/vendor/\(pkg)/\(f.file)" else {
@@ -563,7 +714,8 @@ func main() throws {
                 assets.append(Asset(publicPath: "/" + path, resourcePath: path, mimeType: "application/javascript; charset=utf-8",
                                     sha256: f.sha256, cachePolicy: immutable, class: "vendor"))
             default:
-                throw Failure.source("vendor/\(pkg)/\(f.file): serve must be module, reference or licence")
+                throw Failure.source(tree ? "vendor/\(pkg)/\(f.file): serve must be module, worker, style, font, reference or licence"
+                                          : "vendor/\(pkg)/\(f.file): serve must be module, reference or licence (a flat package)")
             }
         }
     }
@@ -729,7 +881,7 @@ func main() throws {
     }
     for rel in modules.order {
         var text = try modules.rewrite(modules.files[rel]!, from: rel, hashed: moduleHashed)
-        for lit in lazyImports[rel] ?? [] { text = text.replacingOccurrences(of: "import('\(lit)')", with: "import('\(lazyTargets[lit]!)')") }
+        for lit in lazyImports[rel] ?? [] { text = text.replacingOccurrences(of: lazyForm(lit), with: lazyForm(lit).replacingOccurrences(of: lit, with: lazyTargets[lit]!)) }
         let data = Data(text.utf8)
         let name = "\(rel.dropLast(3))-\(sha256(data).prefix(16)).js"
         moduleHashed[rel] = name

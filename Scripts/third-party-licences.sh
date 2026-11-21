@@ -84,7 +84,8 @@ done
     done
     for v in Sources/DozableWeb/WebSource/vendor/*/; do
         name="$(basename "$v")"
-        # 742: a package vendored by peer commit names its components, each with its own licence file.
+        # 742: a package vendored by peer commit names its components, each with its own licence file; 744: and a
+        # component's notices (third-party notices it carries) and the package's licence index.
         if python3 -c "import json,sys; sys.exit(0 if json.load(open('$v/VENDOR.json')).get('provenance') == 'peer-commit' else 1)"; then
             while IFS=$'\t' read -r cname cver clic cfile; do
                 printf '\n\n================================================================================\n'
@@ -93,8 +94,13 @@ done
                 cat "$v/$cfile"
             done < <(python3 -c "
 import json
-for c in json.load(open('$v/VENDOR.json'))['components']:
-    print('\t'.join([c['name'], c['version'], c['licence'], c['licenceFile']]))")
+d = json.load(open('$v/VENDOR.json'))
+for c in d['components']:
+    print('\t'.join([c['name'], c['version'], c['licence'], c['licenceFile']]))
+    for n in c.get('notices', []):
+        print('\t'.join([c['name'] + ' (its notices)', c['version'], c['licence'], n]))
+if d.get('licenceIndex'):
+    print('\t'.join([d['package'] + ' (its licence index)', d['commit'][:7], 'index', d['licenceIndex']]))")
             continue
         fi
         lf="$(python3 -c "import json,sys; d=json.load(open('$v/VENDOR.json')); print(d.get('licenceFile','LICENSE'), d.get('licence',''), d.get('version',''))")"

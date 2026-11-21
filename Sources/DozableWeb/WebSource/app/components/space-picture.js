@@ -1,8 +1,9 @@
-// components/space-picture — The workspace drawn (core/space-pictures.js draws it): thumbnails, the hero, the full
-// view; a plain tile with no file, one not readable here or not drawn. A hero on screen moves the toasts (ws-hero-on).
+// components/space-picture — The workspace drawn (core/space-pictures.js draws it): thumbnails and the hero — a link to the
+// space editor's page; a plain tile with no file, one not readable here or not drawn. A hero on screen moves the toasts (ws-hero-on).
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { dropPicture, pictureProblems, pictureView, setPictureSize, setPictureVisible } from '../core/space-pictures.js';
+import { spaceHash } from '../core/routes.js';
 import { cmdLine } from './cmd-line.js';
 import { watchVisible } from './grid-feed.js';
 
@@ -48,15 +49,17 @@ export function forgetThumbs(names, place) {
 const narrow = matchMedia('(max-width: 760px)');
 const heroSize = () => (narrow.matches ? { w: 800, h: 560 } : { w: 1200, h: 500 });
 
-/// The hero (a workspace's Home only): o {name, file}; a button that opens the full-window view. → {el, set(o), dispose()}.
+/// The hero (a workspace's Home only): o {name, file, edit}; a link to the space editor's page (a new tab with ⌘-click,
+/// a bookmark). → {el, set(o), dispose()}.
 export function spaceHero(o) {
   let cur = o, view = null, unwatch = null, problemFor = null;
   const pic = h('div', { class: 'ws-hero-pic', 'aria-hidden': 'true' });
-  const hero = h('button', { type: 'button', class: 'ws-hero', 'data-ws-hero': o.name, on: { click: () => openFull(cur.name, hero) } }, pic);
+  const hero = h('a', { class: 'ws-hero', href: spaceHash(o.name), 'data-ws-hero': o.name }, pic);
+  const open = h('a', { class: 'btn sm ws-hero-open', href: spaceHash(o.name), 'data-ws-hero-open': '' });
   const problem = h('div', { class: 'ws-hero-problem', 'data-ws-hero-problem': '', hidden: true });
   const label = h('span', { class: 'ws-hero-label' });
   const el = h('section', { class: 'ws-hero-band', 'aria-label': 'The picture', 'data-ws-hero-band': o.name },
-    h('div', { class: 'ws-hero-head' }, label), hero, problem);
+    h('div', { class: 'ws-hero-head' }, label, open), hero, problem);
   function paint(r) {
     if (r.reading) { if (!pic.childElementCount) pic.replaceChildren(why('drawing…')); return; }
     if (r.svg) { pic.replaceChildren(r.svg); hero.dataset.picKey = r.key; } else { bigTile(pic, r.fallback); delete hero.dataset.picKey; }
@@ -77,7 +80,10 @@ export function spaceHero(o) {
   const shown = (v) => { document.body.classList.toggle('ws-hero-on', v); setPictureVisible(view, v); };
   function draw() {
     label.replaceChildren(icon('boxes'), h('span', null, 'Drawn from ', h('code', null, cur.file)));
-    hero.setAttribute('aria-label', cur.name + ', drawn from its space file ' + cur.file + ' — open it in the full window');
+    const verb = cur.edit ? 'Edit the space' : 'Open the space';
+    hero.href = open.href = spaceHash(cur.name);
+    hero.setAttribute('aria-label', cur.name + ', drawn from its space file ' + cur.file + ' — ' + verb.toLowerCase());
+    open.replaceChildren(icon(cur.edit ? 'pencil' : 'eye'), verb);
     if (!view) {
       view = pictureView(cur.name, 'hero', heroSize(), hero, paint);
       unwatch = watchVisible(hero, shown);
@@ -97,26 +103,4 @@ export function spaceHero(o) {
 export function heroNone(name) {
   return h('section', { class: 'ws-hero-band ws-hero-none', 'aria-label': 'The picture', 'data-ws-hero-none': name },
     pictureTile('Made without a space file'), why('Made without a space file — '), cmdLine('doz workspace up -f FILE'), why(' draws it'));
-}
-
-// ── the full-window view (no address of its own)
-function openFull(name, from) {
-  if (document.querySelector('.sp-full')) return;
-  const pic = h('div', { class: 'sp-full-pic' }, why('drawing…'));
-  const close = h('button', { type: 'button', class: 'btn sm', 'data-sp-full-close': '' }, icon('x'), 'Close');
-  const box = h('div', { class: 'sp-full-box', role: 'dialog', 'aria-modal': 'true', 'aria-label': name + ', drawn from its space file' },
-    h('div', { class: 'sp-full-head' }, h('b', null, name), h('span', { class: 'ws-sp' }), close), pic);
-  const back = h('div', { class: 'sp-full', 'data-sp-full': name }, box);
-  const size = { w: Math.max(320, Math.round(innerWidth - 64)), h: Math.max(240, Math.round(innerHeight - 120)) };
-  const view = pictureView(name, 'full', size, pic, (r) => {
-    if (r.svg) { pic.replaceChildren(r.svg); pic.dataset.picKey = r.key; } else if (r.fallback) bigTile(pic, r.fallback);
-  });
-  const shut = () => { dropPicture(view); document.removeEventListener('keydown', onKey, true); back.remove(); if (from.isConnected) from.focus(); };
-  const onKey = (ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); shut(); } };
-  close.addEventListener('click', shut);
-  back.addEventListener('click', (ev) => { if (ev.target === back) shut(); });
-  document.addEventListener('keydown', onKey, true);
-  document.body.append(back);
-  setPictureVisible(view, true);
-  close.focus();
 }

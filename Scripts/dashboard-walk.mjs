@@ -74,17 +74,29 @@
 //     shows a plain tile, its bytes printed, the two glue modules at most 16 KB; `spc2` brought up from a space file (a
 //     fenced worker running the FAKE claude) — Home and the unfolded sidebar show one thumbnail per space workspace and a
 //     tile for each plain one (none in the sidebar), the renderer fetched once; #/w/spc2's hero draws, named; down → after
-//     `changed` the hero's key and state sha change; 3 s without an event reads no state; the full-window view opens and
-//     closes (Escape), the focus back on the hero; dark → a new key, light again → a cache hit; at 390 px the hero fits;
+//     `changed` the hero's key and state sha change; 3 s without an event reads no state; the hero is a link to its
+//     space editor; dark → a new key, light again → a cache hit; at 390 px the hero fits;
 //     under reduced motion the hero has no animation; a toast does not cover the hero's drawing; a file that doesn't read → the marker and Dozable's problem line;
 //     no CSP violation (a listener from every document's start); the leak sweep; pictures to SHOTS (the page light, dark, 390 px
 //     and with a toast; Home light and 390 px; the sidebar with spc2 unfolded).
+//   · the space editor's page, chat still on: `spc3` up from a space file that extends a defaults file (a fenced worker on the
+//     FAKE claude that reports itself blocked; an unused sentinel in the .env beside it); 1 nothing of the editor fetched
+//     before its page, its glue at most 16 KB; 2 the hero is a link to #/w/spc3/space, the page the whole window, a reload opens
+//     it again; 3 the canvas draws, the core and canvas/edit/plan/live/motion fetched once, never Monaco, text, sim or timeline;
+//     8 Live on (kept), 3 s without an event reads no state, the agent's "blocked" drawn after an event; 4 Text loads Monaco
+//     then and only then; 5 typing → Unsaved, the leave guard (Stay), ⌘S saves (the file's sha is show --space's), "Not
+//     applied"; 6 a stale save → "Changed elsewhere", nothing written, Reload; 7 a typo listed, a defaults file's problem
+//     named; 9 a bot's Ask drawn and answered from it (chat-decide done); 11 watch; 13 390 px canvas only; 14 ? opens the
+//     editor's keys, Escape stays, three visits leave no editor and no listener more; 12 another computer (its read rewritten
+//     to canSave false): read-only, the command, no edit fetched; 10 after down the runs strip reads a run's frames; 15 no CSP
+//     violation; 16 the leak sweep. Pictures: space-editor-light, -dark, -text, -conflict, space-watch, space-390,
+//     space-another-computer.
 //   · a workspace's Home tab: 1 #/w/demo2 opens it (selected; no picture outside it); 2 its cards each link their tab, Needs
 //     you absent when nothing waits, the room's last messages, at most five log lines, no walk of the folders; 3 wiz2
 //     (setting up) — Needs you lists what is missing and Start, its Room tab one line; 4 an open ask in askw's room in Needs
 //     you, "Answer in the room" → #/w/askw/room, gone once decided; 5 an agent blocked (a harmless session reporting OSC 7501
 //     blocked) named; 6 #/w/demo2/room mounts the room and the brief, Back and Forward keep the surface and the draft; 7 spc2's
-//     hero on Home (full window, focus back), off on Agents with no state read in 3 s; 8 a message arriving on Home is not
+//     hero on Home (a link to its space editor), off on Agents with no state read in 3 s; 8 a message arriving on Home is not
 //     marked seen, and Home holds no chat stream.
 //   · the Workspaces page: 1 the sidebar's heading opens #/workspaces, every workspace under Every with the listing's counts,
 //     Show resets on a new visit; 2 Rows → Grid kept across a reload, Sort by Name and Last activity; 3 an <img> only for
@@ -104,7 +116,8 @@
 // runs (the workspaces have no running manager). All of it is removed at the end (KEEP=1 keeps it).
 //
 // Inputs (environment): DOZ (default .build/debug/doz — `make cli` first), CHROME (default Google Chrome's app), SCRATCH;
-// SHOTS=DIR (optional, under /tmp) keeps pictures of a workspace's page (light, dark, 390 px) for a person to look at.
+// SHOTS=DIR (optional, under /tmp) keeps pictures of a workspace's page (light, dark, 390 px) for a person to look at;
+// SPACE_ONLY=1 walks the space editor's rows alone (chat on, then those rows: a quicker loop while working on them).
 // Run from the repository's root (make does).
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
@@ -166,6 +179,8 @@ first=$(head -n 1 "$start")
 room=$(sed -n 's/^Your room in chat: //p' "$start")
 bot=$(printf '%s' "$first" | sed -n 's/^You are \\([^,]*\\),.*/\\1/p')
 dozchat send "$room" "$bot is up: $first" > /dev/null 2>&1
+# A space agent whose START says BLOCK-ME reports itself blocked (OSC 7501), as Claude Code does waiting on a permission.
+if grep -q BLOCK-ME "$start"; then printf '\\033]7501;?\\033\\\\'; sleep 1; printf '\\033]7501;state=blocked:app=fake\\033\\\\'; fi
 exec sleep 600
 `;
 
@@ -196,7 +211,7 @@ function stage() {
 }
 
 // ── Chrome over the DevTools protocol ────────────────────────────────────────────────────────────────────────────────
-let ws, nextId = 1, chrome, ui, devPort, uiB = false;
+let ws, nextId = 1, chrome, ui, devPort, uiB = false, pausedHook = null;
 const pending = new Map(), pageErrors = [], requested = [];
 const apiIds = new Set(), apiBodies = [], consoleLines = [], sseEvents = [];
 let uiOut = '', chatPagePort = 0;
@@ -237,6 +252,7 @@ async function startChrome() {
       send('Network.getResponseBody', { requestId: m.params.requestId }).then((b) => apiBodies.push(b.base64Encoded ? Buffer.from(b.body, 'base64').toString('utf8') : b.body), () => {});
     }
     if (m.method === 'Runtime.consoleAPICalled') consoleLines.push(m.params.args.map((a) => String(a.value ?? a.description ?? '')).join(' '));
+    if (m.method === 'Fetch.requestPaused') { (pausedHook ? pausedHook(m.params) : send('Fetch.continueRequest', { requestId: m.params.requestId })).catch(() => {}); return; }
     if (m.method === 'Network.eventSourceMessageReceived') sseEvents.push({ at: Date.now(), name: m.params.eventName });
   });
   await send('Runtime.enable');
@@ -1623,10 +1639,10 @@ async function walkAsks() {
 /// `wide`: a fenced session (widef) with a launch secret whose value is a SENTINEL and two more (widef2, widef3), each having been
 /// refused one site; an unfenced session (wideu); the never-booted sandbox gamma. All harmless programs, no VM.
 // ── the workspace drawn ────────────────────────────────────────────────────────────────────────────────────────────
-const RENDERER = /\/assets\/vendor-space-render-[0-9a-f]{16}\.js/;
+const RENDERER = /\/assets\/vendor-space-editor-[0-9a-f]{16}\/space-render\.js/;
 let firstLoad = null;
 async function walkFirstLoad() {
-  check(!requested.some((u) => RENDERER.test(u)), 'pictures: the first load (Home with only plain workspaces) fetches no renderer byte');
+  check(!requested.some((u) => EDITOR_ANY.test(u)), 'pictures: the first load (Home with only plain workspaces) fetches no byte of the space editor (its renderer included)');
   check(await waitFor(`!!document.querySelector('[data-ws="demo"] [data-pic-tile="Made without a space file"]')`, 8000), 'pictures: …a plain tile for demo, made without a space file');
   firstLoad = await evaluate(`(() => { const all = performance.getEntriesByType('navigation').concat(performance.getEntriesByType('resource'))
     .filter((e) => !e.name.includes('/api/'));
@@ -1637,8 +1653,14 @@ async function walkFirstLoad() {
     const f = readdirSync(dir).find((n) => n.startsWith(p.split('/')[1]) && n.endsWith('.js'));
     return f ? readFileSync(dir + '/' + f).length : 1e9;
   });
-  console.log(`  first load: ${firstLoad.files} files, ${firstLoad.bytes} bytes (the two picture modules ${glue[0]} + ${glue[1]} bytes)`);
+  const editorGlue = ['views/space-page-', 'core/space-editor-'].map((p) => {
+    const dir = web + p.split('/')[0];
+    const f = readdirSync(dir).find((n) => n.startsWith(p.split('/')[1]) && n.endsWith('.js'));
+    return f ? readFileSync(dir + '/' + f).length : 1e9;
+  });
+  console.log(`  first load: ${firstLoad.files} files, ${firstLoad.bytes} bytes (the two picture modules ${glue[0]} + ${glue[1]} bytes; the editor's ${editorGlue[0]} + ${editorGlue[1]} bytes)`);
   check(glue[0] + glue[1] <= 16384, `pictures: the two glue modules are at most 16 KB (${glue[0] + glue[1]} bytes)`);
+  check(editorGlue[0] + editorGlue[1] <= 16384, `space 1 the editor's two glue modules are at most 16 KB (${editorGlue[0] + editorGlue[1]} bytes)`);
 }
 const pictureSessions = [];
 const HERO = (w) => `document.querySelector('[data-ws-hero="${w}"]')`;
@@ -1697,11 +1719,8 @@ async function walkPictures() {
   const evs = sseEvents.filter((e) => e.at >= t0 && ['changed', 'host', 'hello'].includes(e.name)).length;
   const reads = requested.filter((u) => /\/api\/v1\/workspace-state$/.test(u)).length - r0;
   check(evs > 0 ? reads <= evs * 4 : reads === 0, `pictures: 3 s — ${evs} event(s), ${reads} state read(s) (none without an event; no timer reads)`);
-  // The full-window view, then Escape: the focus back on the hero.
-  await evaluate(`${HERO('spc2')}.click()`);
-  check(await waitFor(`!!document.querySelector('[data-sp-full="spc2"] svg.space-render')`, 15000), 'pictures: the hero opens the full-window view, drawn');
-  await key(...ESC);
-  check(await waitFor(`!document.querySelector('[data-sp-full]') && document.activeElement === ${HERO('spc2')}`, 5000), 'pictures: …Escape closes it, the focus back on the hero');
+  // The hero is a link to the space editor's page (the editor's own rows are walkSpace's).
+  check(await evaluate(`${HERO('spc2')}.tagName === 'A' && ${HERO('spc2')}.getAttribute('href') === '#/w/spc2/space'`), 'pictures: the hero is a link to #/w/spc2/space');
   // Theme: dark is a new drawing; light again is the cache's.
   await evaluate(`document.documentElement.dataset.theme = 'light'`);
   await waitFor(`(${HERO('spc2')}.dataset.picKey || '').includes('|light|')`, 10000);
@@ -1769,6 +1788,258 @@ async function walkPictures() {
   check((await evaluate('window.__violations.length')) === 0, 'pictures: no CSP violation' + ((await evaluate('window.__violations.join(" | ")')) || ''));
   check(pageErrors.length === errorsBefore, 'pictures: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
   await leakSweep('the workspace drawn');
+}
+
+// ── the space editor's page ───────────────────────────────────────────────────────────────────────────────────────────
+const EDITOR_ANY = /\/assets\/vendor-space-editor-[0-9a-f]{16}\//;
+const treeFile = (f) => new RegExp('/assets/vendor-space-editor-[0-9a-f]{16}/' + f.replace(/[.]/g, '\\.') + '$');
+const fetchedSince = (mark, f) => requested.slice(mark).filter((u) => treeFile(f).test(u)).length;
+const SE = (sel) => `document.querySelector('#space .space-editor ${sel}')`;
+const spaceSessions = [];
+async function keyMod(k, code, modifiers) {
+  const vk = k.length === 1 ? k.toUpperCase().charCodeAt(0) : 0;
+  for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type, key: k, code, modifiers, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, ...(type === 'keyDown' && !modifiers ? { text: k } : {}) });
+}
+const MONACO_INPUT = `document.querySelector('#space .monaco-editor .native-edit-context, #space .monaco-editor textarea')`;
+async function typeInText(t) {
+  await evaluate(`${MONACO_INPUT}.focus()`);
+  await send('Input.insertText', { text: t });
+}
+/// The leak sweep's and a listener count: the window's and the document's listeners (DOMDebugger), for the dispose rows.
+async function listenerCount() {
+  let n = 0;
+  for (const expr of ['window', 'document']) {
+    const o = await send('Runtime.evaluate', { expression: expr });
+    n += (await send('DOMDebugger.getEventListeners', { objectId: o.result.objectId })).listeners.length;
+  }
+  return n;
+}
+/// A real click at an element's centre (the editor's own controls listen for the pointer).
+async function clickAt(expr) {
+  const p = await evaluate(`(() => { const e = ${expr}; if (!e) return null; e.scrollIntoView({ block: 'nearest' }); const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+  if (!p) return false;
+  for (const type of ['mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x: p[0], y: p[1], button: 'left', clickCount: 1 });
+  return true;
+}
+const strayTabs = async () => (await (await fetch(`http://127.0.0.1:${devPort}/json/list`)).json()).filter((t) => t.type === 'page' && !t.url.startsWith('http://127.0.0.1')).map((t) => t.url);
+async function walkSpace() {
+  const errorsBefore = pageErrors.length;
+  const SPACE = S + '/space3';
+  mkdirSync(SPACE, { recursive: true });
+  writeFileSync(SPACE + '/BRIEF.md', 'The editor walk.\n');
+  const SENTINEL = 'spc3-sentinel-' + randomUUID();
+  knownTokens.push(SENTINEL);
+  writeFileSync(SPACE + '/.env', 'SPC3_UNUSED=' + SENTINEL + '\n');
+  const DEFAULTS = 'doz: space-defaults/3\npersist:\n  team-chat: { room: spc3 }\n';
+  writeFileSync(SPACE + '/walk_defaults.yaml', DEFAULTS);
+  const SPC3 = 'doz: space/3\nextends: ./walk_defaults.yaml\nspace: spc3\nbrief: BRIEF.md\nowner: ada\nagents:\n'
+    + '  w3: { kind: claude-code, isolation: fenced, prompt: BLOCK-ME and watch the editor }\n'
+    + 'chat:\n  rooms:\n    spc3: { main: true, members: [owner, w3] }\n';
+  writeFileSync(SPACE + '/spc3.space.yaml', SPC3);
+  doz(['chat', 'add', 'spcask', '--to-file', S + '/spcask.token']);
+  if (existsSync(S + '/spcask.token')) knownTokens.push(readFileSync(S + '/spcask.token', 'utf8').trim());
+  const up = doz(['workspace', 'up', '-f', SPACE + '/spc3.space.yaml', '--yes']);
+  if (up.status === 0) spaceSessions.push('spc3-w3');
+  doz(['chat', 'send', 'spc3', '/invite @spcask']);
+  check(up.status === 0, 'space: workspace up -f spc3.space.yaml (extends a defaults file; a fenced worker on the FAKE claude)');
+  // 1. Nothing of the editor before its page: the first load fetched no byte of the tree but the renderer's.
+  check(!requested.some((u) => EDITOR_ANY.test(u) && !RENDERER.test(u)), 'space 1 nothing of the editor is fetched before its page (the renderer only, for pictures)');
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/mac/sandboxes');
+  // 2. The hero is a link to the page; following it opens the editor.
+  await goHash('#/w/spc3');
+  check(await waitFor(`document.querySelector('[data-ws-hero="spc3"]')?.getAttribute('href') === '#/w/spc3/space'`, 20000)
+    && await evaluate(`/Edit the space/.test(document.querySelector('[data-ws-hero-band="spc3"] [data-ws-hero-open]')?.textContent || '')`),
+    'space 2 the hero is a link to #/w/spc3/space (a new tab with ⌘-click), beside "Edit the space"');
+  const mark = requested.length;
+  await evaluate(`document.querySelector('[data-ws-hero="spc3"]').click()`);
+  check(await waitFor(`location.hash === '#/w/spc3/space' && state.view === 'space' && document.body.classList.contains('space-page') && !document.getElementById('space').hidden`, 10000)
+    && await evaluate(`getComputedStyle(document.querySelector('.side')).display === 'none' && document.title === 'spc3 — space'`), 'space 2 …it opens the page: the whole window, its title');
+  // 3. The canvas draws; only the features this viewer may use are fetched.
+  check(await waitFor(`!!${SE('svg.scene [data-id]')} || !!${SE('.canvas-stage svg')}`, 30000), 'space 3 the canvas draws');
+  await sleep(800);
+  const got = ['space-core.js', 'space-canvas.js', 'space-edit.js', 'space-plan.js', 'space-live.js', 'space-motion.js'].filter((f) => fetchedSince(mark, f) === 1);
+  const never = ['monaco/monaco.js', 'monaco/editor.worker.js', 'monaco/monaco.css', 'monaco/codicon.ttf', 'space-text.js', 'space-sim.js', 'space-timeline.js'].filter((f) => fetchedSince(mark, f) > 0);
+  check(got.length === 6 && never.length === 0, `space 3 fetched: the core, canvas, edit, plan, live, motion once each (${got.length}); never Monaco, text, sim or timeline (${never.join(', ') || 'none'})`);
+  check(await evaluate(`document.querySelector('[data-sp-word]')?.textContent === 'Saved' && !!document.querySelector('[data-sp-text]:not([hidden])')`), 'space 3 …the bar: Saved, Text');
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  await sleep(1200);
+  await shot('space-editor-light');
+  await evaluate(`document.documentElement.dataset.theme = 'dark'`);
+  await sleep(1200);
+  await shot('space-editor-dark');
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  // Reload and a bookmark: the same address opens the editor again.
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  check(await waitFor(`state.view === 'space' && !!${SE('.canvas-stage')}`, 30000), 'space 2 …a reload (a bookmark) opens the editor again');
+  // 8. Live on (the viewer's choice, kept in this browser), then live from the events only: 3 s without one reads no state.
+  await evaluate(`(() => { const b = ${SE('.live-toggle')}; if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); })()`);
+  check(await waitFor(`${SE('.live-toggle')}?.getAttribute('aria-pressed') === 'true'`, 5000) && await evaluate(`localStorage.getItem('doz.space.spc3.live') === '1'`),
+    'space 8 Live on, kept for this viewer (doz.space.spc3.live)');
+  await sleep(1500);
+  const s0 = requested.filter((u) => /\/api\/v1\/workspace-state$/.test(u)).length, t0 = Date.now();
+  await sleep(3000);
+  const evs = sseEvents.filter((e) => e.at >= t0 && ['changed', 'host', 'hello'].includes(e.name)).length;
+  const reads = requested.filter((u) => /\/api\/v1\/workspace-state$/.test(u)).length - s0;
+  check(evs > 0 ? reads <= evs * 2 : reads === 0, `space 8 3 s — ${evs} event(s), ${reads} state read(s): none without an event (no polling)`);
+  // 8. The FAKE agent reports itself blocked: after an event, the drawing's attention (a sandbox made beside it is the event).
+  doz(['create', 'space-poke', '--image', 'lab', '--isolated']);
+  check(await waitFor(`/w3: blocked/.test(document.querySelector('#space .space-editor').textContent)`, 30000),
+    'space 8 the agent blocked: the drawing\'s attention says so, after an event');
+  // 4. Text: Monaco is fetched then, and only then.
+  const tm = requested.length;
+  await evaluate(`document.querySelector('[data-sp-text]').click()`);
+  check(await waitFor(`!!document.querySelector('#space .monaco-editor') && spaceNow().features.includes('text')`, 30000), 'space 4 Text opens the text view (added to the editor)');
+  await sleep(1500);
+  const mon = ['monaco/monaco.js', 'monaco/monaco.css', 'monaco/editor.worker.js', 'space-text.js'].map((f) => fetchedSince(tm, f));
+  const font = fetchedSince(tm, 'monaco/codicon.ttf');
+  check(mon.every((n) => n === 1) && font <= 1 && fetchedSince(0, 'monaco/monaco.js') === 1, `space 4 …Monaco, its stylesheet, its worker and the text feature fetched after the click, once (${mon.join(',')}; the icon font ${font})`);
+  await shot('space-editor-text');
+  // 5. Typing makes it dirty; the guard holds a hash change (Stay keeps it); ⌘S saves over the version read.
+  await typeInText('# typed in the walk\n');
+  check(await waitFor(`state.spaceDirty === true && document.querySelector('[data-sp-word]').textContent === 'Unsaved'`, 10000), 'space 5 typing: Unsaved');
+  await evaluate(`location.hash = '#/w/spc3/agents'`);
+  check(await waitFor(`!!document.querySelector('dialog[data-sp-dialog="leave"][open]') && location.hash === '#/w/spc3/space'`, 5000), 'space 5 the guard: leaving asks, the address stays');
+  await evaluate(`[...document.querySelectorAll('dialog[data-sp-dialog="leave"] button')].find((b) => b.textContent === 'Stay').click()`);
+  check(await waitFor(`!document.querySelector('dialog[open]') && state.view === 'space' && state.spaceDirty`, 5000), 'space 5 …Stay keeps the page and the changes');
+  await evaluate(`${MONACO_INPUT}.focus()`);
+  await keyMod('s', 'KeyS', 4);
+  check(await waitFor(`!state.spaceDirty && document.querySelector('[data-sp-word]').textContent === 'Saved'`, 30000), 'space 5 ⌘S saves: Saved');
+  const disk = readFileSync(SPACE + '/spc3.space.yaml', 'utf8');
+  const shown = dozJSON(['workspace', 'show', 'spc3', '--space']) || {};
+  const shaDisk = createHash('sha256').update(disk).digest('hex');
+  check(disk.includes('# typed in the walk') && (shown.sha256 || shown.space?.sha256) === shaDisk, `space 5 …the file holds it and show --space --json has its sha (${(shown.sha256 || shown.space?.sha256 || '?').slice(0, 8)} = ${shaDisk.slice(0, 8)})`);
+  check(await waitFor(`[...document.querySelectorAll('.notes .callout')].some((n) => /Not applied: Up applies it/.test(n.textContent))`, 8000), 'space 5 …"Saved. Not applied: Up applies it."');
+  // 6. Changed on disk since: ⌘S → Changed elsewhere, nothing written; Reload takes the file as it is.
+  const elsewhere = disk + '# changed elsewhere\n';
+  writeFileSync(SPACE + '/spc3.space.yaml', elsewhere);
+  await typeInText('# typed again\n');
+  await keyMod('s', 'KeyS', 4);
+  check(await waitFor(`/Changed elsewhere/.test(${SE('#se-filebar')}?.textContent || '') && !document.querySelector('[data-sp-reload]').hidden`, 30000)
+    && readFileSync(SPACE + '/spc3.space.yaml', 'utf8') === elsewhere, 'space 6 a stale save: "Changed elsewhere", nothing written, Reload offered');
+  await shot('space-editor-conflict');
+  await evaluate(`document.querySelector('[data-sp-reload]').click()`);
+  check(await waitFor(`spaceNow().text === ${JSON.stringify(elsewhere)} && !state.spaceDirty`, 15000), 'space 6 …Reload: the file as it is now, clean');
+  // 7. A typo: listed and marked; the defaults file's problem named, not placed in this file.
+  await typeInText('agentz: 1\n');
+  check(await waitFor(`[...document.querySelectorAll('#space #se-problems-list .prob')].some((p) => /agentz/.test(p.textContent))`, 20000), 'space 7 a typo is listed');
+  await evaluate(`(() => { const t = ${JSON.stringify(elsewhere)}; })()`);
+  writeFileSync(SPACE + '/walk_defaults.yaml', DEFAULTS + 'agents: { x: {} }\n');
+  await typeInText('# again\n');
+  check(await waitFor(`[...document.querySelectorAll('#space #se-problems-list .prob.other-file')].some((p) => /walk_defaults/.test(p.textContent))`, 20000),
+    'space 7 …a problem in the defaults file is named with its file, not placed here');
+  writeFileSync(SPACE + '/walk_defaults.yaml', DEFAULTS);
+  await evaluate(`(async () => { const e = document.querySelector('[data-sp-reload]'); e.hidden = false; e.click(); })()`);
+  await waitFor(`!state.spaceDirty`, 10000);
+  // 9. A bot's Ask in the space's room: drawn through onAskChange and the next state; answered through the Ask flow.
+  const askId = (() => {
+    writeFileSync(S + '/spc3-q.json', JSON.stringify([{ id: 'ship', question: 'Ship the editor?', options: [{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }] }]));
+    const r = spawnSync(dirname(DOZ) + '/dozchat-mac', ['ask', 'spc3', 'Ship the editor', '--questions', S + '/spc3-q.json'], { encoding: 'utf8', timeout: 60_000,
+      env: { PATH: '/usr/bin:/bin', HOME: S, CHAT_URL: 'http://127.0.0.1:' + chatPagePort, CHAT_TOKEN_FILE: S + '/spcask.token' } });
+    try { return JSON.parse(r.stdout).msg_id || ''; } catch (_) { return ''; }
+  })();
+  doz(['create', 'space-poke2', '--image', 'lab', '--isolated']);
+  const asked = await waitFor(`document.querySelectorAll('#space .space-editor .ask-card').length > 0`, 30000);
+  check(!!askId && asked, 'space 9 a bot\'s Ask in spc3 is drawn on the canvas' + (askId ? '' : ' (no ask made)'));
+  if (asked) {
+    await clickAt(`[...document.querySelectorAll('#space .space-editor #se-problems-list .prob.k-ask')].find((b) => /Ship the editor/.test(b.textContent))`);
+    await waitFor(`!!${SE('dialog.ask-dlg[open] .ask-option')}`, 8000);
+    await clickAt(`[...document.querySelectorAll('#space .space-editor dialog.ask-dlg .ask-option')].find((b) => b.textContent === 'Yes')`);
+    await clickAt(`[...document.querySelectorAll('#space .space-editor dialog.ask-dlg .dlg-foot button')].find((b) => b.textContent === 'Send')`);
+    const answered = await waitFor(`[...state.ops.values()].some((o) => o.action === 'chat-decide' && o.state === 'done')`, 30000);
+    check(answered && !(((dozJSON(['chat', 'asks', 'spc3']) || {}).asks || []).some((a) => a.msgId === askId)), 'space 9 …answered from the drawing: the operation done, the ask no longer open');
+  }
+  // 11. Watch: read-only, the canvas with Live on, no bar.
+  await goHash('#/w/spc3/space/watch');
+  check(await waitFor(`state.view === 'space' && spaceNow()?.mode === 'watch' && !!${SE('.canvas-stage')}`, 20000)
+    && await evaluate(`!document.querySelector('[data-sp-bar]') && !!document.querySelector('[data-sp-back][href="#/w/spc3/space"]')
+      && ${SE('.live-toggle')}?.getAttribute('aria-pressed') === 'true' && !document.querySelector('#space .monaco-editor')`), 'space 11 watch: the canvas, Live on, no bar, no text, "Back to the editor"');
+  await shot('space-watch');
+  // 13. 390 px: the canvas only, no sideways scroll.
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await goHash('#/w/spc3');
+  await goHash('#/w/spc3/space');
+  check(await waitFor(`state.view === 'space' && !!${SE('.canvas-stage')}`, 20000), 'space 13 at 390 px the editor opens');
+  await evaluate(`document.querySelectorAll('.notes .b-x').forEach((b) => b.click())`);
+  await sleep(2500);
+  const narrow = await evaluate(`({ w: document.documentElement.scrollWidth, f: spaceNow().features.join(','), mon: !!document.querySelector('#space .monaco-editor'),
+    note: /Edit on a wider screen/.test(document.querySelector('[data-sp-bar]')?.textContent || '') })`);
+  check(narrow.w <= 390 && narrow.f === 'canvas,live,motion' && !narrow.mon && narrow.note, `space 13 …the canvas only (${narrow.f}), "Edit on a wider screen", ${narrow.w} px`);
+  // The drawing fits on its first paint, no Fit pressed: drawn shapes inside the canvas's box.
+  const inside = await evaluate(`(() => { const st = ${SE('.canvas-stage')}.getBoundingClientRect();
+    return [...document.querySelectorAll('#space .space-editor .canvas-stage svg [data-id]')].map((e) => e.getBoundingClientRect())
+      .filter((r) => r.width > 0 && r.height > 0 && r.left >= st.left - 1 && r.right <= st.right + 1 && r.top >= st.top - 1 && r.bottom <= st.bottom + 1).length; })()`);
+  check(inside > 0, `space 13 …the drawing is visible on its first paint, no Fit pressed (${inside} shapes inside the canvas's box)`);
+  await shot('space-390');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  // 14. The dashboard's keys stay out; ? inside opens the editor's own sheet.
+  await goHash('#/w/spc3');
+  await goHash('#/w/spc3/space');
+  await waitFor(`!!${SE('.canvas-stage')}`, 20000);
+  await evaluate(`(() => { const c = ${SE('.canvas-stage')}; c.setAttribute('tabindex', c.getAttribute('tabindex') || '-1'); c.focus(); })()`);
+  for (const type of ['keyDown', 'keyUp']) {
+    await send('Input.dispatchKeyEvent', { type, key: '?', code: 'Slash', modifiers: 8, windowsVirtualKeyCode: 191, nativeVirtualKeyCode: 191, ...(type === 'keyDown' ? { text: '?' } : {}) });
+  }
+  check(await waitFor(`!!${SE('dialog.keys-dlg[open]')}`, 5000) && await evaluate(`!document.getElementById('sc-title')`), 'space 14 ? inside opens the editor\'s own keys, not the dashboard\'s');
+  // (Escape without a native key code: CDP's native 27 is another key on a Mac.)
+  for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type, key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+  check(await waitFor(`!${SE('dialog.keys-dlg[open]')}`, 3000) && await evaluate(`state.view === 'space'`), 'space 14 …Escape closes it and never leaves the page');
+  const strays = (await strayTabs());
+  check(strays.length === 0 && (await evaluate('document.visibilityState')) === 'visible', `space 14 …and no other tab opened (${strays.join(', ') || 'none'})`);
+  // Dispose three times: no editor left, no listener growing.
+  await goHash('#/w/spc3');
+  const before = await listenerCount();
+  for (let i = 0; i < 3; i++) {
+    await goHash('#/w/spc3/space');
+    await waitFor(`!!${SE('.canvas-stage')}`, 20000);
+    await goHash('#/w/spc3');
+    await waitFor(`state.view === 'workspace'`, 5000);
+  }
+  await sleep(500);
+  const after = await listenerCount();
+  check(await evaluate(`document.querySelectorAll('.space-editor').length === 0 && document.getElementById('space').childElementCount === 0`) && after <= before,
+    `space 14 entered and left three times: no editor left, listeners ${before} → ${after}`);
+  // 12. Another computer (its file read as canSave false): no edit fetched, no Save, the text read-only, no answer.
+  await send('Fetch.enable', { patterns: [{ urlPattern: '*/api/v1/workspace-space', requestStage: 'Response' }] });
+  pausedHook = async (p) => {
+    const b = await send('Fetch.getResponseBody', { requestId: p.requestId });
+    const j = JSON.parse(b.base64Encoded ? Buffer.from(b.body, 'base64').toString('utf8') : b.body);
+    j.canSave = false; j.command = 'doz workspace edit spc3 --space-file ' + j.shownPath + ' --if-match ' + j.sha256;
+    await send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, responseHeaders: p.responseHeaders, body: Buffer.from(JSON.stringify(j)).toString('base64') });
+  };
+  const rm = requested.length;
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/w/spc3/space');
+  check(await waitFor(`state.view === 'space' && !!${SE('.canvas-stage')}`, 30000), 'space 12 another computer: the editor opens');
+  await sleep(1500);
+  const remote = await evaluate(`({ word: document.querySelector('[data-sp-word]')?.textContent, said: /Changed only in this Mac/.test(document.querySelector('[data-sp-bar]')?.textContent || ''),
+    cmd: !!document.querySelector('[data-sp-bar] [data-cmd^="doz workspace edit spc3"]'), f: spaceNow().features.join(',') })`);
+  check(remote.word === 'Read-only here' && remote.said && remote.cmd && fetchedSince(rm, 'space-edit.js') === 0 && !remote.f.includes('edit'),
+    `space 12 …read-only here, "Changed only in this Mac's own browser" and the command; no edit feature fetched (${remote.f})`);
+  await shot('space-another-computer');
+  await send('Fetch.disable');
+  pausedHook = null;
+  check(true, 'space 12 …another computer\'s 403 for the save and an answer is ServeHTTPTests\' (testTheSpaceFileIsReadRemotelyWithServeChatButNeverSaved, testAnAskIsAnsweredOnlyInThisMacsBrowserWhateverTheServeSettings)');
+  // 10. Runs: after down, the strip lists the run with its frames; stepping one reads its frames.
+  await goHash('#/w/spc3');
+  check(doz(['workspace', 'down', 'spc3', '--yes']).status === 0, 'space 10 workspace down spc3');
+  spaceSessions.length = 0;
+  await goHash('#/w/spc3/space');
+  await waitFor(`!!${SE('.canvas-stage')}`, 20000);
+  const fr = requested.length;
+  const chips = await waitFor(`document.querySelectorAll('#space .space-editor .run-chip').length > 0`, 20000);
+  if (chips) await clickAt(`document.querySelector('#space .space-editor .run-chip')`);
+  await sleep(2000);
+  check(chips && requested.slice(fr).some((u) => /\/api\/v1\/workspace-run-frames$/.test(u)),
+    'space 10 the runs strip lists the run; choosing it reads its frames');
+  await goHash('#/w/spc3');
+  // 15, 16.
+  check((await evaluate('window.__violations.length')) === 0, 'space 15 no CSP violation' + ((await evaluate('window.__violations.join(" | ")')) || ''));
+  check(pageErrors.length === errorsBefore, 'space: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  await leakSweep('the space editor (the .env sentinel, the bot\'s token)');
 }
 
 // ── a workspace's Home tab ─────────────────────────────────────────────────────────────────────────────────────────
@@ -1862,13 +2133,11 @@ async function walkHome() {
   await evaluate(`history.forward()`);
   check(await waitFor(`location.hash === '#/w/demo2' && state.wsTab === 'home' && !document.getElementById('ws-home').hidden`, 10000), 'home 6 …Forward: Home again');
   await evaluate(`document.getElementById('chat-text').value = ''`);
-  // 7. spc2's Home: the hero drawn, opening the full window, the focus back; on another tab it is off, and nothing reads.
+  // 7. spc2's Home: the hero drawn, a link to its space editor; on another tab it is off, and nothing reads.
   await goHash('#/w/spc2');
   check(await waitFor(`!!document.querySelector('#ws-home [data-ws-hero="spc2"]')?.dataset.picKey`, 20000), 'home 7 spc2\'s Home draws the workspace (data-pic-key)');
-  await evaluate(`document.querySelector('[data-ws-hero="spc2"]').click()`);
-  check(await waitFor(`!!document.querySelector('[data-sp-full="spc2"]')`, 10000), 'home 7 …a click opens the full window');
-  await key(...ESC);
-  check(await waitFor(`!document.querySelector('[data-sp-full]') && document.activeElement === document.querySelector('[data-ws-hero="spc2"]')`, 5000), 'home 7 …Escape: the focus back on the drawing');
+  check(await evaluate(`document.querySelector('[data-ws-hero="spc2"]').getAttribute('href') === '#/w/spc2/space'
+    && !!document.querySelector('[data-ws-hero-band="spc2"] [data-ws-hero-open][href="#/w/spc2/space"]')`), 'home 7 …the drawing and "Edit the space" lead to its space editor');
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
   await evaluate(`document.documentElement.dataset.theme = 'light'`);
   await sleep(1200);
@@ -2182,6 +2451,18 @@ try {
   // An onboarding never done opens the setup over Home: close it (its own page is checked with the old addresses).
   await goHash('#/home');
   await waitFor(`state.view === 'home' && !state.modal && !!document.querySelector('[data-home]')`);
+  if (process.env.SPACE_ONLY === '1') {
+    // Only the space editor's rows (a quicker loop while working on them): chat on at OS-chosen ports, then the rows.
+    const [p1, p2] = [await freePort(), await freePort()];
+    chatPagePort = p1;
+    doz(['config', 'set', 'chat.page_port', String(p1)]);
+    doz(['config', 'set', 'chat.line_port', String(p2)]);
+    check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (SPACE_ONLY)');
+    await walkSpace();
+    failed = failures.length > 0;
+    console.log(`dashboard-walk (SPACE_ONLY): ${passed} passed, ${failures.length} failed` + (failed ? '\n  ' + failures.join('\n  ') : ''));
+    throw Object.assign(new Error('space only'), { spaceOnly: true });
+  }
 
   // Home, before any workspace.
   await waitFor(`!!document.querySelector('[data-home-empty]')`, 10000);
@@ -2226,6 +2507,7 @@ try {
   await walkAsks();
   await walkWideViews();
   await walkPictures();
+  await walkSpace();
   await walkHome();
   await walkWorkspacesList();
 
@@ -2274,13 +2556,12 @@ try {
   console.log(`dashboard-walk: ${passed} passed, ${failures.length} failed` + (failed ? '\n  ' + failures.join('\n  ') : ''));
   console.log(failed ? 'dashboard-walk: FAILED' : 'dashboard-walk: ok');
 } catch (e) {
-  console.log('dashboard-walk: FAILED — ' + (e.stack || e));
-  failed = true;
+  if (!e.spaceOnly) { console.log('dashboard-walk: FAILED — ' + (e.stack || e)); failed = true; }
 } finally {
   try { chrome && chrome.kill('SIGKILL'); } catch (_) { /* gone */ }
   if (macSession) spawnSync(DOZ, ['sessions', 'end', '@mac', macSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
   if (lifeSession) spawnSync(DOZ, ['sessions', 'end', '@mac', lifeSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
-  for (const s of wideSessions.concat(pictureSessions, homeSessions)) spawnSync(DOZ, ['sessions', 'end', '@mac', s, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
+  for (const s of wideSessions.concat(pictureSessions, homeSessions, spaceSessions)) spawnSync(DOZ, ['sessions', 'end', '@mac', s, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
   for (const [w, n] of startedWorkers) spawnSync(DOZ, ['worker', 'end', w, n, '--store', STORE], { env: ENV, timeout: 60_000 });
   try { ui && process.kill(-ui.pid, 'SIGTERM'); } catch (_) { /* gone */ }
   if (uiB) spawnSync(DOZ, ['ui', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });

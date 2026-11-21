@@ -101,6 +101,7 @@ import { macEnter, macLeave, macRefresh } from './app/views/mac.js';
 import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings.js';
 import { viewThisMac } from './app/views/this-mac.js';
 import './app/views/shortcuts.js';
+import { spaceEnter, spaceLeave, spaceNow } from './app/views/space-page.js';
 
 // 599c: Quick add in the sidebar, beside This Mac.
 $('nav-quick-add').replaceChildren(icon('plus'));
@@ -232,7 +233,7 @@ provide({
   gridRefresh, hostChanged, lifecycle, macEnter, macLeave, macRefresh, modalInert, opFailed, openWizardModal, pageFailure,
   paintCover, paintHome, paintNav, paintNotes, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition, paintUpdates,
   persistLayout, reattachTerminals, refresh, refreshMacPicker, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
-  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
+  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, spaceEnter, spaceLeave, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
   viewBots, viewBot, viewHome, viewImages, viewLoose, viewMacs, viewMetrics, viewNew, viewNewWorkspace, newWorkspaceDirty, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
   viewThisMac, viewTry, viewWsAgent, viewIsolationGuide, viewAddWorker, viewWorkspaces, wizardStopPolling, wsEnter, wsRefresh,
 });
@@ -248,6 +249,8 @@ expose({
   PERMISSIONS_TAB, interleave,
   // The workspace drawn: what was read and drawn (the walk counts the reads and the cache's hits).
   pictureStats,
+  // The space editor's page: what it holds (the walk reads the text and the features).
+  spaceNow,
 });
 
 (async () => { if (await bootstrap()) startApp(); })();

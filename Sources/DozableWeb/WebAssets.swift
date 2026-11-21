@@ -29,7 +29,7 @@ public struct WebAssets: Sendable {
     ]
     /// 591: types only a VENDORED file may have (the terminal engine's WebAssembly). The page's own
     /// code is never WebAssembly.
-    static let vendorOnlyTypes: Set<String> = ["application/wasm"]
+    static let vendorOnlyTypes: Set<String> = ["application/wasm", "font/ttf"]   // 744: the space editor's text view's icon font
     static let immutable = "public, max-age=31536000, immutable"
 
     /// From the resource bundle beside the executable (or the test bundle), like `DeckholdBinary` —
@@ -109,6 +109,14 @@ public struct WebAssets: Sendable {
 
     /// 607: the page script's modules are served from one directory per layer, /assets/app/<layer>/.
     public static let moduleLayers: Set<String> = ["dom", "core", "components", "views"]
+
+    /// 744: a vendored tree's folder, `vendor-<package>-<the first 16 hex of its PIN's sha256>`.
+    public static func isVendorTreeFolder(_ part: String) -> Bool {
+        part.range(of: #"^vendor-[a-z0-9-]+-[0-9a-f]{16}$"#, options: .regularExpression) != nil
+    }
+    static func isPlainPart(_ part: String) -> Bool {
+        !part.isEmpty && part != "." && part != ".." && part.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || ".-_".contains($0)) }
+    }
 
     static func isIconPNG(_ publicPath: String) -> Bool {
         publicPath.hasPrefix("/assets/icon-") && publicPath.hasSuffix(".png")

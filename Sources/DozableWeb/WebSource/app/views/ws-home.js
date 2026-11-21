@@ -11,6 +11,7 @@ import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { askName, onAskChange } from '../core/asks.js';
 import { full, when } from '../core/format.js';
+import { isRemote } from '../core/session.js';
 import { lineText } from '../core/ws-log.js';
 import { activityHash, agentHash, agentsHash, foldersHash, networkHash, roomHash, runsHash } from '../core/routes.js';
 import { state } from '../core/state.js';
@@ -64,7 +65,7 @@ function paintHero(d) {
     if (!slot.querySelector('[data-ws-hero-none]')) slot.replaceChildren(heroNone(d.name));
     return;
   }
-  const o = { name: d.name, file: d.space.file };
+  const o = { name: d.name, file: d.space.file, edit: !isRemote() };
   if (!hero) { hero = spaceHero(o); slot.replaceChildren(hero.el); } else hero.set(o);
 }
 
