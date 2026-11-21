@@ -3,6 +3,7 @@
 // `changed`, an operation's end and arriving on a page — never on a timer: listing the workspaces asks each session
 // on this Mac for its state. A read under way is shared; a read newer than `maxAgeMs` is reused.
 import { api } from './api.js';
+import { forgetPictures } from './space-pictures.js';
 import { state } from './state.js';
 
 const reads = new Map();      // key → {at, value, inflight}
@@ -40,6 +41,7 @@ export function readWorkspaceAfresh(name) { reads.delete('ws:' + name); }
 /// A workspace gone from the list: forget its details.
 export function forgetWorkspaces(names) {
   for (const n of [...state.wsDetails.keys()]) if (!names.includes(n)) { state.wsDetails.delete(n); reads.delete('ws:' + n); }
+  forgetPictures(names);
 }
 
 /// The order Home and the sidebar list workspaces in: waiting on you, working, starting, idle, setting up, asleep; then

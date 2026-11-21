@@ -4,7 +4,8 @@
 // working, starting, idle, setting up; asleep folds into "Asleep (N)", finished and archived into one line below it.
 // With none: what a workspace is, Quick try, and the sandboxes and sessions already on this Mac in none.
 // Read on arrival, hello, `changed` and an operation's end — never on a timer (listing the workspaces asks every session
-// on this Mac for its state). The room's last line is read only while the chat server runs and this browser may read it,
+// on this Mac for its state). Each row's workspace drawn small beside its name (components/space-picture.js: a space
+// file's picture, read only while on screen; a plain tile for one made without a file). The room's last line is read only while the chat server runs and this browser may read it,
 // for the rows on screen (at most 12).
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
@@ -23,6 +24,7 @@ import { paintWorkspaceCounts } from '../components/nav.js';
 import { toast } from '../components/notices.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks.js';
 import { renderNavWorkspaces } from '../components/ws-nav.js';
+import { forgetThumbs, spaceThumb } from '../components/space-picture.js';
 import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from '../components/ws-lifecycle.js';
 import { LIFECYCLE, primaryVerb } from '../core/ws-lifecycle.js';
 import { newWorkspaceHash, newWorkspaceRefusal } from './new-workspace.js';
@@ -34,6 +36,7 @@ let asleepOpen = false;
 
 export async function viewHome() {
   const l = await loadWorkspaces(0);
+  forgetThumbs(l.workspaces.map((w) => w.name), 'home');
   paintWorkspaceCounts();
   renderNavWorkspaces();
   const head = h('div', { class: 'head' }, h('h1', null, 'Home'), newWorkspaceButton());
@@ -73,7 +76,8 @@ function row(w, d, last) {
   const folders = w.folders.length ? w.folders.map((f) => h('span', { class: 'hm-folder' }, tildePath(f))) : [h('span', { class: 'hm-folder muted' }, 'no folder')];
   return h('tr', { 'data-ws': w.name },
     h('td', null, workspacePill(w.state, w.words, transitional(w.name))),
-    h('td', null, h('div', { class: 'hm-ws' }, h('a', { href: workspaceHash(w.name), class: 'hm-ws-name' }, h('b', null, w.name)), h('div', { class: 'hm-folders' }, ...folders))),
+    h('td', null, h('div', { class: 'hm-ws-cell' }, h('a', { href: workspaceHash(w.name), class: 'hm-thumb-link', tabindex: '-1', 'aria-hidden': w.space ? null : 'true' }, spaceThumb(w, 'home')),
+      h('div', { class: 'hm-ws' }, h('a', { href: workspaceHash(w.name), class: 'hm-ws-name' }, h('b', null, w.name)), h('div', { class: 'hm-folders' }, ...folders)))),
     h('td', null, driverChip(w.driver)),
     h('td', null, managerChip(w.manager)),
     h('td', { class: 'hm-who' }, who(w, d)),

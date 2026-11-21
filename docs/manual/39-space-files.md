@@ -135,3 +135,19 @@ on (chat off, a workspace archived), or changed since the plan · 4 a workspace 
 - **`doz workspace runs NAME --frames RUN`** shows a run as it went: its state each time it changed (recorded when
   something happens, never on a timer; at most 2,000 frames a run, then only the last state). Down keeps them in the run's
   archive and checks them.
+
+## The workspace drawn
+
+In the dashboard a workspace a space file made is drawn from its file and what is running now: its agents, rooms, folders
+and sandboxes in the file's layout, each marked as it is — running, asleep, missing, gone after down — and what waits for
+you. On its page the picture sits under the title row: click it to see it in the whole window (**Esc**, **Close** or a
+click outside closes it), **Fold** puts it away (folded when you open one of its rooms; this browser remembers). Home shows
+each workspace small beside its name, and the sidebar shows it at the top of an unfolded workspace (the setting
+`ui.nav_thumbnails` turns the sidebar's pictures off). The picture follows what happens — an up or down, a save, a
+sleep or wake from the dashboard, a sandbox starting or stopping — and is never read on a timer; a change made only in a
+terminal to agents on this Mac shows the next time you open a page.
+
+A file that doesn't read is drawn as a small warning, and the page adds what Dozable itself found wrong with it and the
+command that checks it, `doz workspace up -f FILE --dry-run`. A workspace made without a space file shows a plain tile on
+Home and, on its page, "Made without a space file — `doz workspace up -f FILE` draws it". Another computer sees the picture
+only while `serve.chat` lets it read; otherwise it sees the tile, "Shown to another computer only with serve.chat read".

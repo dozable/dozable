@@ -246,6 +246,10 @@ final class WebWorkspacesTests: XCTestCase {
         row.working = nil
         XCTAssertEqual(WebWorkspaceRow(row).folders, [], "no folder")
         XCTAssertNil(WebWorkspaceRow(row).working, "not known (no daemon)")
+        // A space file's name and up, as the row says (nil: made without one).
+        XCTAssertNil(WebWorkspaceRow(row).space)
+        row.space = WorkspaceRowSpace(file: "launch-video.space.yaml", up: true)
+        XCTAssertEqual(WebWorkspaceRow(row).space, WorkspaceRowSpace(file: "launch-video.space.yaml", up: true))
 
         let loose = WebLooseAgent(LooseAgent(name: "@mac/build", kind: "mac", state: "running"))
         XCTAssertEqual(loose.macSession, "build")

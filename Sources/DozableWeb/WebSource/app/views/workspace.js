@@ -3,7 +3,8 @@
 // title row (its name, state, who drives, its manager, one primary button by state — Start, Sleep, Wake, Reopen, Restore —
 // and ⋯ with its lifecycle: Stop the manager, Sleep and Wake everything, Finish…, Archive…, Delete…, each a dialog drawn from
 // its plan — components/ws-lifecycle.js),
-// the tabs (Room, Agents, Network & secrets, Folders & points and Activity work — views/ws-network.js, ws-folders.js,
+// the picture (the workspace drawn from its space file and live state — components/space-picture.js; Home and the sidebar
+// show it small), the tabs (Room, Agents, Network & secrets, Folders & points and Activity work — views/ws-network.js, ws-folders.js,
 // ws-activity.js, each read afresh on every visit; Permissions and Settings say what they will hold), the brief ("The work", components/ws-brief.js), the room — THE chat surface of the Chat page, moved here
 // (views/chat.js mountChat) and scoped to this workspace's rooms, its log's lines drawn among the messages — and the side
 // panel (components/ws-panel.js). Read on arrival, hello, `changed` and an operation's end — never on a timer.
@@ -23,6 +24,7 @@ import { dialog } from '../components/dialog.js';
 import { gapsList, startsOnce } from '../components/ws-gaps.js';
 import { newWorkspaceRefusal } from './new-workspace.js';
 import { briefCard } from '../components/ws-brief.js';
+import { heroNone, spaceHero } from '../components/space-picture.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks.js';
 import { renderNavWorkspaces } from '../components/ws-nav.js';
 import { lifecycleItems, primaryButton, transitional } from '../components/ws-lifecycle.js';
@@ -51,10 +53,12 @@ export const WS_TABS = [
   { id: 'settings', label: 'Settings', coming: 'Its defaults: isolation, network, the manager, finishing and archiving' },
 ];
 const FOLD_KEY = (w) => 'doz.ws.fold:' + w;
+const HERO_KEY = (w) => 'doz.ws.hero:' + w;
 
 let built = false;
 let cur = null;          // {name, label, detail, bots, brief, denied, lines, room, missing}
 let card = null;
+let hero = null;         // the workspace drawn (components/space-picture.js), built once per workspace
 const peopleSlot = h('div', { class: 'ws-people-slot' });
 
 function build() {
@@ -66,6 +70,7 @@ function build() {
     : h('a', { role: 'tab', class: 'ws-tab', 'aria-selected': 'false', 'data-ws-tab': t.id, href: '#/home' }, t.label)));
   $('ws').replaceChildren(
     h('div', { class: 'ws-head', id: 'ws-head' }),
+    h('div', { class: 'ws-hero-slot', id: 'ws-hero' }),
     tabs,
     h('div', { class: 'ws-body' },
       h('div', { class: 'ws-main' },
@@ -118,6 +123,26 @@ function folded(name, label) {
 function rememberFold(name, f) {
   try { if (f) localStorage.setItem(FOLD_KEY(name), 'folded'); else localStorage.removeItem(FOLD_KEY(name)); } catch (_) { /* this page only */ }
 }
+/// The picture folds like the brief: folded on a room's address, else as this browser left it (doz.ws.hero:W).
+function heroFolded(name, label) {
+  if (label) return true;
+  try { return localStorage.getItem(HERO_KEY(name)) === 'folded'; } catch (_) { return false; }
+}
+function rememberHeroFold(name, f) {
+  try { if (f) localStorage.setItem(HERO_KEY(name), 'folded'); else localStorage.removeItem(HERO_KEY(name)); } catch (_) { /* this page only */ }
+}
+/// The workspace drawn from its space file and its live state (redrawn only when what it shows changed), or — made
+/// without a file — the compact band that says how one draws it.
+function paintHero(d) {
+  const slot = $('ws-hero');
+  if (!d.space) {
+    if (hero) { hero.dispose(); hero = null; }
+    if (!slot.querySelector('[data-ws-hero-none]')) slot.replaceChildren(heroNone(d.name));
+    return;
+  }
+  const o = { name: d.name, file: d.space.file, folded: cur.heroFolded, onFold: (f) => { cur.heroFolded = f; if (!cur.label) rememberHeroFold(d.name, f); } };
+  if (!hero) { hero = spaceHero(o); slot.replaceChildren(hero.el); } else hero.set(o);
+}
 
 async function readBrief(name) {
   try { return { brief: await api('workspaces/' + encodeURIComponent(name) + '/brief'), denied: false }; } catch (e) {
@@ -168,12 +193,14 @@ export async function wsEnter(name, label, tab) {
     cur = { name, label, tab, detail: null, bots: null, brief: null, denied: false, lines: [], room: null, missing: null };
     $('ws-agents').replaceChildren();
     card = null;
+    if (hero) { hero.dispose(); hero = null; }
+    $('ws-hero').replaceChildren();
     $('ws-head').replaceChildren(h('h1', null, name));
     $('ws-brief').replaceChildren();
     $('ws-notice').replaceChildren();
     $('ws-panel').replaceChildren(h('p', { class: 'muted' }, 'reading…'));
   }
-  if (fresh || cur.label !== label) cur.folded = folded(name, label);
+  if (fresh || cur.label !== label) { cur.folded = folded(name, label); cur.heroFolded = heroFolded(name, label); }
   cur.label = label;
   cur.tab = tab;
   let d;
@@ -342,6 +369,7 @@ function draw() {
   }
   if (cur.logHidden) notes.push(callout('info', { compact: true, body: cur.logHidden + ' of its log’s lines are about sessions on this Mac and are not shown to this browser.' }));
   $('ws-notice').replaceChildren(...notes);
+  paintHero(d);
   // The brief.
   const e = canEdit();
   const o = { workspace: d.name, brief: cur.brief, denied: cur.denied, edits: briefEdits(cur.lines), started, folded: cur.folded,

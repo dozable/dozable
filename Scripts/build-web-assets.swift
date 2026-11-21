@@ -11,7 +11,10 @@
 //                                                               from them, admitted by icons/PROVENANCE.json
 //   Sources/DozableWeb/WebSource/vendor/<package>/               591: VENDORED third-party files, each
 //                                                               byte-identical to its registry tarball
-//                                                               and pinned in that directory's VENDOR.json
+//                                                               and pinned in that directory's VENDOR.json —
+//                                                               742: or a peer's build at one commit, admitted by
+//                                                               that build's PIN (PeerVendor), loaded lazily only
+//                                                               through the lazy-import table
 //   Sources/DozableWeb/Resources/Web/                           what ships (COMMITTED, generated):
 //       index.html                  referencing the hashed names
 //       assets/app-<sha16>.css      content-hashed
@@ -89,6 +92,41 @@ struct Vendor: Decodable {
     let licenceFile: String
     let files: [File]
 }
+
+/// 742: a package vendored BY PEER COMMIT (`"provenance": "peer-commit"` — code that comes from no registry): the files of
+/// one commit's build, byte for byte, admitted by that build's own `PIN` (`sha256  path` per line) and the commit's full
+/// hash. Every listed file's sha256 is VENDOR.json's AND its PIN line's; the PIN itself is pinned by `pinSha256`; the
+/// PIN may name files not vendored; nothing unlisted may sit in the directory (sub-folders allowed, each part a plain
+/// name). Serve kinds: `module` (an ES module loaded ONLY by the one lazy `import()` the compiler's table allows — flat
+/// at `assets/<publicName>-<sha16>.js`, and only with no import of its own), `reference` (kept in source, never shipped)
+/// and `licence` (bundled as `licences/<package>-<path with / as ->`). Each component's licence on the allowlist, its
+/// file listed `licence`. `publish` is `flat` (one file per module); a tree (relative layout kept) is not built yet.
+struct PeerVendor: Decodable {
+    struct Component: Decodable { let name: String; let version: String; let licence: String; let licenceFile: String }
+    struct File: Decodable {
+        let file: String
+        let sha256: String
+        let serve: String
+        let publicName: String?
+        /// What the one lazy `import('…')` names for it (rewritten to the hashed public path).
+        let lazyReference: String?
+    }
+    let package: String
+    let provenance: String
+    let commit: String
+    let source: String
+    let pinFile: String
+    let pinSha256: String
+    let publish: String
+    let components: [Component]
+    let files: [File]
+}
+
+/// 742: the ONE way a module loads code lazily — `import('LITERAL')` (single quotes, exactly that form), exactly once per
+/// literal, only in the module this table names, the literal a peer-commit `module`'s `lazyReference` (rewritten to its
+/// hashed path). Any other `import(` — in a comment, a template, a variable, another module — is refused, and so is a
+/// `'/vendor/…'` string anywhere else in the modules. A new entry is a change to this table, on purpose.
+let lazyImports: [String: [String]] = ["core/space-pictures.js": ["/vendor/space-editor/space-render.js"]]
 
 /// Licences a vendored file may carry (SPDX). Anything else needs this list changed on purpose.
 let allowedLicences: Set<String> = ["MIT", "BSD-2-Clause", "BSD-3-Clause", "Apache-2.0", "ISC"]
@@ -284,10 +322,26 @@ func loadModules(sources: URL, entry: String) throws -> ModuleGraph {
         }
     }
     let dynamic = try NSRegularExpression(pattern: #"\bimport\s*\("#)
+    let vendorString = try NSRegularExpression(pattern: #"['"`]/vendor/"#)
     func checked(_ text: String, _ from: String?) throws -> [String] {
         let file = from.map { "app/" + $0 } ?? "app.js"
-        if dynamic.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) != nil {
-            throw Failure.source("\(file) uses import() — the module graph is static (the compiler hashes every module)")
+        // 742: the lazy literals this module may hold (the compiler's table) — each exactly once, in exactly that form.
+        var rest = text
+        for lit in lazyImports[from ?? ""] ?? [] {
+            let form = "import('\(lit)')"
+            guard text.components(separatedBy: form).count == 2 else {
+                throw Failure.source("\(file) must load \(lit) exactly once, as \(form) (the compiler's lazy-import table)")
+            }
+            rest = rest.replacingOccurrences(of: form, with: "")
+        }
+        let restRange = NSRange(location: 0, length: (rest as NSString).length)
+        if dynamic.firstMatch(in: rest, range: restRange) != nil {
+            throw Failure.source(lazyImports[from ?? ""] == nil
+                ? "\(file) uses import() — the module graph is static (the compiler hashes every module; the one lazy import is its table's)"
+                : "\(file) uses import() beyond its one lazy literal (the compiler's lazy-import table)")
+        }
+        if vendorString.firstMatch(in: rest, range: restRange) != nil {
+            throw Failure.source("\(file) names a /vendor/ path — vendored code is loaded only by the compiler's lazy-import table")
         }
         var out: [String] = []
         for (spec, _) in ModuleGraph.specifiers(text) {
@@ -439,11 +493,90 @@ func main() throws {
     // ── Vendored packages (591): provenance, not content.
     let vendorRoot = sources.appendingPathComponent("vendor")
     let packages = ((try? fm.contentsOfDirectory(atPath: vendorRoot.path)) ?? []).filter { $0 != ".DS_Store" }.sorted()
+    var lazyTargets: [String: String] = [:]      // 742: a lazyReference → its hashed public path
+    /// 742: a package vendored by peer commit (`PeerVendor` says what is checked).
+    func admitPeerCommit(_ pkg: String, dir: URL, _ vd: Data) throws {
+        let v: PeerVendor
+        do { v = try JSONDecoder().decode(PeerVendor.self, from: vd) } catch { throw Failure.source("vendor/\(pkg)/VENDOR.json: \(error)") }
+        guard v.package == pkg else { throw Failure.source("vendor/\(pkg)/VENDOR.json names package \(v.package)") }
+        guard v.commit.count == 40, v.commit.allSatisfy({ $0.isHexDigit && !$0.isUppercase }) else {
+            throw Failure.source("vendor/\(pkg): the commit must be the full 40-character hash")
+        }
+        guard v.pinFile == "PIN", let pin = try? Data(contentsOf: dir.appendingPathComponent("PIN")) else { throw Failure.source("vendor/\(pkg): its PIN is missing") }
+        guard sha256(pin) == v.pinSha256 else { throw Failure.source("vendor/\(pkg)/PIN is not the pinned PIN (sha256 differs from VENDOR.json)") }
+        var pinned: [String: String] = [:]
+        for line in String(decoding: pin, as: UTF8.self).split(separator: "\n") where !line.trimmingCharacters(in: .whitespaces).isEmpty {
+            let parts = line.split(separator: " ", maxSplits: 1).map(String.init)
+            guard parts.count == 2, parts[0].count == 64 else { throw Failure.source("vendor/\(pkg)/PIN: a line is not \"sha256  path\"") }
+            pinned[parts[1].trimmingCharacters(in: .whitespaces)] = parts[0]
+        }
+        guard v.publish == "flat" else { throw Failure.source("vendor/\(pkg): publish must be flat (a tree is not built yet)") }
+        // Every file present (recursively) is listed, but VENDOR.json and the PIN.
+        var present = Set<String>()
+        let base = dir.resolvingSymlinksInPath().path + "/"
+        if let e = fm.enumerator(at: dir, includingPropertiesForKeys: [.isRegularFileKey]) {
+            while let u = e.nextObject() as? URL {
+                guard u.lastPathComponent != ".DS_Store", (try? u.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+                present.insert(String(u.resolvingSymlinksInPath().path.dropFirst(base.count)))
+            }
+        }
+        let listed = Set(v.files.map(\.file))
+        let unlisted = present.subtracting(listed).subtracting(["VENDOR.json", "PIN"])
+        guard unlisted.isEmpty else { throw Failure.source("vendor/\(pkg) holds files VENDOR.json does not pin: \(unlisted.sorted())") }
+        for c in v.components {
+            guard allowedLicences.contains(c.licence) else { throw Failure.source("vendor/\(pkg): \(c.name)'s licence \(c.licence) is not on the allowlist") }
+            guard v.files.contains(where: { $0.file == c.licenceFile && $0.serve == "licence" }) else {
+                throw Failure.source("vendor/\(pkg): \(c.name)'s licence file must be listed (serve: licence)")
+            }
+        }
+        guard !v.components.isEmpty else { throw Failure.source("vendor/\(pkg): no component — each needs its licence") }
+        for f in v.files {
+            guard f.file.split(separator: "/", omittingEmptySubsequences: false).allSatisfy({ isPlainName(String($0)) }) else {
+                throw Failure.source("vendor/\(pkg): bad file name \(f.file)")
+            }
+            guard let data = try? Data(contentsOf: dir.appendingPathComponent(f.file)) else { throw Failure.source("vendor/\(pkg)/\(f.file) is missing") }
+            guard sha256(data) == f.sha256 else {
+                throw Failure.source("vendor/\(pkg)/\(f.file) is not the pinned file (sha256 differs from VENDOR.json) — vendored bytes are never edited")
+            }
+            guard pinned[f.file] == f.sha256 else { throw Failure.source("vendor/\(pkg)/\(f.file) is not the file its PIN names") }
+            switch f.serve {
+            case "licence":
+                guard v.components.contains(where: { $0.licenceFile == f.file }) else { throw Failure.source("vendor/\(pkg)/\(f.file): a licence no component names") }
+                expected["licences/\(pkg)-\(f.file.replacingOccurrences(of: "/", with: "-"))"] = data
+            case "reference":
+                continue
+            case "module":
+                guard let name = f.publicName, isPlainName(name), name.hasPrefix("vendor-"), f.file.hasSuffix(".js"),
+                      let ref = f.lazyReference, ref == "/vendor/\(pkg)/\(f.file)" else {
+                    throw Failure.source("vendor/\(pkg)/\(f.file): a module needs publicName (vendor-…) and lazyReference /vendor/\(pkg)/\(f.file)")
+                }
+                // Flat: one file, so it may import nothing (no static import, re-export, import() or import.meta).
+                let text = String(decoding: data, as: UTF8.self)
+                for (pattern, what) in [(#"(?:^|[;}\n])\s*import\b"#, "an import"), (#"\bexport\s*(?:\*|\{[^}]*\})\s*from\b"#, "a re-export"),
+                                        (#"\bimport\s*\("#, "an import()"), (#"\bimport\.meta\b"#, "import.meta")]
+                where text.range(of: pattern, options: .regularExpression) != nil {
+                    throw Failure.source("vendor/\(pkg)/\(f.file) holds \(what) — a flat module loads nothing else")
+                }
+                let path = "assets/\(name)-\(f.sha256.prefix(16)).js"
+                lazyTargets[ref] = "/" + path
+                expected[path] = data
+                assets.append(Asset(publicPath: "/" + path, resourcePath: path, mimeType: "application/javascript; charset=utf-8",
+                                    sha256: f.sha256, cachePolicy: immutable, class: "vendor"))
+            default:
+                throw Failure.source("vendor/\(pkg)/\(f.file): serve must be module, reference or licence")
+            }
+        }
+    }
     for pkg in packages {
         guard isPlainName(pkg) else { throw Failure.source("vendor/\(pkg): not a plain directory name") }
         let dir = vendorRoot.appendingPathComponent(pkg)
         guard let vd = try? Data(contentsOf: dir.appendingPathComponent("VENDOR.json")) else {
             throw Failure.source("vendor/\(pkg) has no VENDOR.json — a vendored file is admitted only with its pin")
+        }
+        struct Probe: Decodable { let provenance: String? }
+        if (try? JSONDecoder().decode(Probe.self, from: vd))?.provenance == "peer-commit" {
+            try admitPeerCommit(pkg, dir: dir, vd)
+            continue
         }
         let v: Vendor
         do { v = try JSONDecoder().decode(Vendor.self, from: vd) } catch { throw Failure.source("vendor/\(pkg)/VENDOR.json: \(error)") }
@@ -585,8 +718,18 @@ func main() throws {
     //    hashed names (relative, so they resolve beside it), then it is hashed itself — and so is the entry, so
     //    app-<h>.js changes whenever any module does (605's `hello.script` still names "this build's page").
     var moduleHashed: [String: String] = [:]          // "dom/h.js" → "dom/h-<sha16>.js"
+    // 742: the lazy imports' literals → their modules' hashed paths (every literal a declared lazyReference; every
+    // lazyReference loaded by the table — a vendored module nothing loads is a mistake).
+    for (rel, lits) in lazyImports {
+        guard modules.files[rel] != nil else { throw Failure.source("the lazy-import table names app/\(rel), which does not exist") }
+        for lit in lits where lazyTargets[lit] == nil { throw Failure.source("app/\(rel) loads \(lit), which no VENDOR.json declares as a lazyReference") }
+    }
+    if let unused = Set(lazyTargets.keys).subtracting(lazyImports.values.flatMap { $0 }).sorted().first {
+        throw Failure.source("\(unused) is vendored as a module, but the lazy-import table loads it nowhere")
+    }
     for rel in modules.order {
-        let text = try modules.rewrite(modules.files[rel]!, from: rel, hashed: moduleHashed)
+        var text = try modules.rewrite(modules.files[rel]!, from: rel, hashed: moduleHashed)
+        for lit in lazyImports[rel] ?? [] { text = text.replacingOccurrences(of: "import('\(lit)')", with: "import('\(lazyTargets[lit]!)')") }
         let data = Data(text.utf8)
         let name = "\(rel.dropLast(3))-\(sha256(data).prefix(16)).js"
         moduleHashed[rel] = name

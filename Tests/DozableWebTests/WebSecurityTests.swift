@@ -320,10 +320,41 @@ final class WebSecurityTests: XCTestCase {
                 XCTAssertTrue(scripts.contains { $0.contains("/\(name)'") }, "a page script imports \(path)")
                 continue
             }
+            // 742: the space renderer is loaded only by the one lazy import() of a module (its hashed path in quotes).
+            if path.hasPrefix("/assets/vendor-space-render-") {
+                XCTAssertTrue(scripts.contains { $0.contains("import('\(path)')") }, "a module loads \(path) lazily")
+                continue
+            }
             XCTAssertTrue(docs.contains { $0.contains("\"\(path)\"") }, "a document references \(path)")
         }
         let index = String(decoding: a.assets["/"]!.data, as: UTF8.self)
         XCTAssertFalse(index.contains("vendor-ghostty-web"), "591 T2: the page never loads the engine — only its frame does")
+        // 742: nor the space renderer — not index.html, not the service worker's precache.
+        XCTAssertFalse(index.contains("vendor-space-render"), "the first load never names the space renderer")
+        XCTAssertFalse(String(decoding: a.assets[WebAssets.serviceWorker]!.data, as: UTF8.self).contains("vendor-space-render"), "sw.js never precaches it")
+    }
+
+    /// 742: the space renderer is a vendored asset — JavaScript, immutable, `vendor` in the manifest, served under the
+    /// page's headers (nosniff) — only at its listed path; nothing deeper under /assets is a route.
+    func testTheSpaceRendererIsAVendorAssetOnlyWhenListed() throws {
+        let a = try WebAssets.load()
+        let paths = a.assets.keys.filter { $0.hasPrefix("/assets/vendor-space-render-") }
+        XCTAssertEqual(paths.count, 1)
+        let path = try XCTUnwrap(paths.first)
+        XCTAssertNotNil(path.range(of: #"^/assets/vendor-space-render-[0-9a-f]{16}\.js$"#, options: .regularExpression), path)
+        XCTAssertEqual(WebRoute.parse(method: .get, target: path), .asset(path))
+        let asset = try XCTUnwrap(a.assets[path])
+        XCTAssertEqual(asset.mimeType, "application/javascript; charset=utf-8")
+        XCTAssertEqual(asset.cachePolicy, WebAssets.immutable)
+        XCTAssertTrue(WebSecurity.responseHeaders.contains { $0 == ("X-Content-Type-Options", "nosniff") })
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("Sources/DozableWeb/Resources/Web/manifest.json"))) as? [String: Any]
+        let entry = (manifest?["assets"] as? [[String: Any]])?.first { $0["publicPath"] as? String == path }
+        XCTAssertEqual(entry?["class"] as? String, "vendor")
+        // Only the listed name is served; a folder under it is no route at all.
+        XCTAssertNil(a.assets[path.replacingOccurrences(of: #"[0-9a-f]{16}"#, with: "0000000000000000", options: .regularExpression)])
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/assets/vendor-space-render-x/y.js"))
+        XCTAssertNil(WebRoute.parse(method: .post, target: path))
     }
 
     /// The drift check, in the test suite too: the committed Resources/Web must be exactly what
@@ -344,8 +375,9 @@ final class WebSecurityTests: XCTestCase {
         // WebAssembly; (593) the icon sprite; (605) the offline page + offline.css + offline.js, the service
         // worker, the web app manifest, the SVG icon and its four PNGs; (607) one per module of app.js.
         let modules = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? []).filter { $0.hasSuffix(".js") }
-        XCTAssertEqual(loaded.assets.count, 19 + modules.count)
-        XCTAssertEqual(loaded.assets.keys.filter { $0.hasPrefix("/assets/vendor-") }.count, 3)
+        // (742) the space renderer, loaded lazily.
+        XCTAssertEqual(loaded.assets.count, 20 + modules.count)
+        XCTAssertEqual(loaded.assets.keys.filter { $0.hasPrefix("/assets/vendor-") }.count, 4)
     }
 
     func testAnAlteredAssetRefusesToLoad() throws {

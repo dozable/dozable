@@ -5,6 +5,7 @@ import { adoptOperations, loadPreparations, trackOp } from './operations.js';
 import { buildUiOverlay, checkBuild, movedAway, uiBack, uiLost } from './reconnect.js';
 import { refresh, route } from './router.js';
 import { setLive, signedOut } from './session.js';
+import { picturesStale } from './space-pictures.js';
 import { state } from './state.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const chatNavCheck = upcall('chatNavCheck'), hostChanged = upcall('hostChanged'), refreshMacPicker = upcall('refreshMacPicker'), reattachTerminals = upcall('reattachTerminals'),
@@ -32,6 +33,7 @@ export function connect() {
     checkBuild(hello);
     try { adoptOperations(await api('operations')); } catch (_) { /* */ }
     loadPreparations();
+    picturesStale({ file: true });                     // the pictures on screen: their files and states read again
     refreshNav({ accounts: true });
     refresh(true);
     reattachTerminals();
@@ -43,6 +45,7 @@ export function connect() {
   es.addEventListener('changed', (ev) => {
     let topics = [];
     try { topics = JSON.parse(ev.data).topics || []; } catch (_) { /* an older doz ui: no topics */ }
+    picturesStale();                                   // the pictures on screen: their states read again
     refreshNav({ accounts: topics.includes('accounts') });
     liveRefresh();
     refreshMacPicker();
@@ -51,7 +54,7 @@ export function connect() {
   // 606: a browser was let in, removed or renamed — the Devices page re-reads.
   es.addEventListener('devices', () => { if (state.view === 'devices') refresh(false); });
   es.addEventListener('notice', (ev) => { try { toast(JSON.parse(ev.data).text, false, 'info'); } catch (_) { /* */ } });
-  es.addEventListener('host', (ev) => { try { hostChanged(JSON.parse(ev.data)); } catch (_) { /* ignore a malformed line */ } });
+  es.addEventListener('host', (ev) => { picturesStale(); try { hostChanged(JSON.parse(ev.data)); } catch (_) { /* ignore a malformed line */ } });
   // 594: the host's image preparations, while any runs (and once when the last ends).
   es.addEventListener('preparations', (ev) => {
     try { state.preps = JSON.parse(ev.data); } catch (_) { return; }

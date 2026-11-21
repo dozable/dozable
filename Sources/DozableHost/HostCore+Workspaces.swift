@@ -282,7 +282,8 @@ extension HostCore {
                 } }
                 rows.append(WorkspaceRow(name: rec.name, state: state.rawValue, driver: rec.driver, agents: agents.count, room: rec.mainRoom?.chatRoom,
                                          manager: manager, working: readOnly ? nil : WorkspaceState.working(agents.map(\.0)),
-                                         folders: rec.folders.isEmpty ? nil : rec.folders.map(\.path), places: Self.workspacePlaces(rec)))
+                                         folders: rec.folders.isEmpty ? nil : rec.folders.map(\.path), places: Self.workspacePlaces(rec),
+                                         space: WorkspaceRowSpace.of(rec)))
             }
         }
         var loose: [LooseAgent] = []

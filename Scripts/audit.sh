@@ -323,6 +323,13 @@ CSIZE=$(wc -c < "$CBIN" | tr -d ' ')
 
 # ── 7. (590) The web UI's committed assets match their sources ───────────────
 swift "$PACKAGE/Scripts/build-web-assets.swift" --check >/dev/null || fail "Sources/DozableWeb/Resources/Web is stale — run make web-assets and commit it"
+# 742: code vendored by peer commit carries nothing of the machine or the people it was built by (the word list is a file
+# outside this repository, named by DOZ_NEUTRAL_DENYLIST; without it this step is skipped).
+if [[ -n "${DOZ_NEUTRAL_DENYLIST:-}" ]]; then
+    swift "$PACKAGE/Scripts/vendor-neutral-check.swift" || fail "vendored peer code is not neutral (Scripts/vendor-neutral-check.swift)"
+else
+    printf 'vendor-neutral-check: skipped: no denylist (DOZ_NEUTRAL_DENYLIST)\n'
+fi
 
 # ── 8. (592) The old product name is gone ─────────────────────────────────────
 # The pattern is assembled, so this script does not match itself.
