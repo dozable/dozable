@@ -1682,22 +1682,17 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   <h2>The workspace drawn — the hero, the thumbnails, the tile, the full-window view</h2>
   <p>A workspace a space file made is drawn from its file and its live state by the space editor's renderer
     (<code>vendor/space-editor/space-render.js</code>, loaded only once a picture is on screen; <code>core/space-pictures.js</code> reads and draws,
-    <code>components/space-picture.js</code> lays out). On its page the hero (<code>.ws-hero-band</code>, <code>.ws-hero</code> — a button: it opens the full-window
-    view, <code>.sp-full</code>), folded like the brief; a file that doesn't read adds Dozable's own verdict (<code>.ws-hero-problem</code>) under the drawing.
+    <code>components/space-picture.js</code> lays out). On a workspace's Home tab — and on no other tab — the hero (<code>.ws-hero-band</code>, <code>.ws-hero</code> — a button: it opens the full-window
+    view, <code>.sp-full</code>); a file that doesn't read adds Dozable's own verdict (<code>.ws-hero-problem</code>) under the drawing.
     On Home a thumbnail in the Workspace cell (<code>.sp-thumb-home</code>, 128 × 80; 96 × 60 at phone width) and in the sidebar one at the top of an
     unfolded workspace (<code>.nav-ws-thumb</code>, <code>ui.nav_thumbnails</code>) — each an <code>&lt;img&gt;</code> of the drawing at 160 × 100. With no file (or one this
-    browser may not read): the plain tile (<code>.sp-tile</code>, Lucide's boxes) on Home, the compact band (<code>.ws-hero-none</code>) on the page, nothing in the
-    sidebar. While an unfolded hero is on screen (<code>body.ws-hero-on</code>) the notification cards stack at the bottom right, never over
+    browser may not read): the plain tile (<code>.sp-tile</code>, Lucide's boxes) on Home, the compact band (<code>.ws-hero-none</code>) on a workspace's Home, nothing in the
+    sidebar. While a hero is on screen (<code>body.ws-hero-on</code>) the notification cards stack at the bottom right, never over
     its drawing. The drawings below are the vendored renderer's own, made here.</p>
   <div class="pair"><div class="scheme">
     <section class="ws-hero-band" style="max-width:640px">
-      <div class="ws-hero-head"><span class="ws-hero-label"><i data-i="boxes"></i><span>Drawn from <code>launch.space.yaml</code></span></span><span class="ws-sp"></span>
-        <button type="button" class="btn sm quiet ws-hero-fold" aria-expanded="true"><i data-i="chevron-down"></i>Fold</button></div>
+      <div class="ws-hero-head"><span class="ws-hero-label"><i data-i="boxes"></i><span>Drawn from <code>launch.space.yaml</code></span></span></div>
       <button type="button" class="ws-hero" aria-label="launch, drawn from its space file launch.space.yaml — open it in the full window"><div class="ws-hero-pic" data-sg-space="hero"></div></button>
-    </section>
-    <section class="ws-hero-band is-folded" style="max-width:640px">
-      <div class="ws-hero-head"><span class="ws-hero-label"><i data-i="boxes"></i><span>Drawn from <code>launch.space.yaml</code></span></span><span class="ws-sp"></span>
-        <button type="button" class="btn sm quiet ws-hero-fold" aria-expanded="false"><i data-i="chevron-right"></i>Show</button></div>
     </section>
     <section class="ws-hero-band" style="max-width:640px">
       <div class="ws-hero-problem"><p class="ws-hero-problem-text"><i data-i="triangle-alert"></i>This file doesn’t read: “agents” is a map of names to settings, not a list.</p>
@@ -1716,6 +1711,31 @@ exec /usr/local/bin/gemini "$@"</pre></details>
     <div class="sp-full" style="position:relative;inset:auto;height:360px;z-index:auto">
       <div class="sp-full-box" role="dialog" aria-label="launch, drawn from its space file"><div class="sp-full-head"><b>launch</b><span class="ws-sp"></span>
         <button type="button" class="btn sm"><i data-i="x"></i>Close</button></div><div class="sp-full-pic" data-sg-space="full"></div></div>
+    </div>
+  </div></div>
+</section>
+
+<section id="sg-ws-home">
+  <h2>A workspace's Home — the cards</h2>
+  <p>A workspace opens on its Home tab (<code>views/ws-home.js</code>, <code>#/w/NAME</code>): the drawing full width, then its cards in a grid
+    (<code>.ws-cards</code>: <code>repeat(auto-fit, minmax(17rem, 1fr))</code>, one column at phone width). A card (<code>components/ws-card.js</code>,
+    <code>.ws-card</code>) is a titled section whose heading links to the tab that holds the whole of it (“Who →” the Agents tab), with a count
+    beside the title when one says something (<code>.ws-card-n</code>); its body is never a link itself. Needs you (<code>.ws-card.is-needs</code>) comes
+    first and only when something waits: the setting-up checklist and Start, its rooms' open asks (each answered in the room), an agent blocked
+    or in error.</p>
+  <div class="pair"><div class="scheme">
+    <div class="ws-cards" style="max-width:900px">
+      <section class="ws-card is-needs" aria-labelledby="sg-wc-needs"><h2 class="ws-card-h" id="sg-wc-needs"><i data-i="bell"></i>Needs you</h2>
+        <div class="ws-card-body"><ul class="ws-home-list"><li><i data-i="info"></i><b>#3</b> <span class="muted">mira asks: </span>Ship the cut on Friday? <span class="muted">· expires in 3 h</span>
+          <a class="btn sm" href="#"><i data-i="message-square"></i>Answer in the room</a></li>
+          <li><i data-i="triangle-alert"></i><a href="#">cutter</a> is blocked · <a href="#">Agents</a></li></ul></div></section>
+      <section class="ws-card" aria-labelledby="sg-wc-who"><h2 class="ws-card-h" id="sg-wc-who"><i data-i="bot"></i><a class="ws-card-link" href="#">Who<span class="ws-card-go" aria-hidden="true"> →</span></a><span class="ws-card-n">3</span></h2>
+        <div class="ws-card-body"><p class="ws-home-who"><span class="muted">Driven by </span><span class="ws-chip ws-driver">you</span><span class="muted"> · managed by </span><span class="ws-chip ws-manager">mira (fenced)</span></p></div></section>
+      <section class="ws-card" aria-labelledby="sg-wc-room"><h2 class="ws-card-h" id="sg-wc-room"><i data-i="message-square"></i><a class="ws-card-link" href="#"># launch<span class="ws-card-go" aria-hidden="true"> →</span></a></h2>
+        <div class="ws-card-body"><div class="ws-home-msgs"><p class="hm-line"><b>mira: </b>The rough cut is up.<span class="hm-age"> · 4 min ago</span></p>
+          <p class="hm-line"><b>you: </b>Looks good.<span class="hm-age"> · just now</span></p></div></div></section>
+      <section class="ws-card" aria-labelledby="sg-wc-net"><h2 class="ws-card-h" id="sg-wc-net"><i data-i="shield"></i><a class="ws-card-link" href="#">Network<span class="ws-card-go" aria-hidden="true"> →</span></a></h2>
+        <div class="ws-card-body"><p class="ws-net">locked — its agents’ preset (the default)</p></div></section>
     </div>
   </div></div>
 </section>

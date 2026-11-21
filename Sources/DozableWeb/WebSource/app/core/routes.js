@@ -1,8 +1,9 @@
 // core/routes — The page's addresses: what a hash names (`parse`), and the old addresses that lead to today's (`canonical`,
 // `LEGACY`). Pure: no DOM, no state. The router replaces an old address with its canonical one first, then parses.
 //
-// Today's addresses: #/home · #/chat[/ROOM] · #/w/NAME[/room/LABEL] (a workspace's page, its main room or another of its
-// rooms by its short label) · #/w/NAME/agents (its Agents tab) · #/w/NAME/network, /folders, /activity (its Network &
+// Today's addresses: #/home · #/chat[/ROOM] · #/w/NAME (a workspace's
+// page: its Home tab) · #/w/NAME/room[/LABEL] (its Room tab: its main room, or another of its rooms by its short label) ·
+// #/w/NAME/agents (its Agents tab) · #/w/NAME/network, /folders, /activity (its Network &
 // secrets, Folders & points and Activity tabs) · #/w/NAME/agent/AGENT[/SESSION|~home] (an agent's screen: its sandbox's or
 // its session's page, framed by the workspace) · #/w/NAME/agent/AGENT/can-do (what it can do) · #/bots · #/bots/~new (a new Agent / Bot) · #/bots/NAME[/TAB]
 // (one Agent / Bot: across its workspaces, or an edit tab — BOT_TABS) · #/sandbox/NAME[/SESSION|~home] · #/mac (This Mac) and its pages,
@@ -37,7 +38,7 @@ const SESSION = '[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}';
 const BOT = '[a-z][a-z0-9-]{0,39}';
 /// A bot screen's tabs after "Across workspaces" (its own address, #/bots/NAME): the edit tabs, then Roles & ceiling.
 export const BOT_TABS = ['identity', 'runs', 'reached', 'instructions', 'account', 'roles'];
-/// A workspace's tabs that have an address of their own (the room is #/w/NAME itself).
+/// A workspace's tabs drawn from a read of their own (Home is #/w/NAME itself, the Room tab #/w/NAME/room[/LABEL]).
 export const WS_VIEW_TABS = ['agents', 'network', 'folders', 'activity', 'runs'];
 /// The isolation guide's choices, in order of isolation (core/isolation.js has their words).
 export const GUIDE_ISOLATIONS = ['vm', 'fenced', 'unfenced', 'elsewhere'];
@@ -56,6 +57,9 @@ export const LEGACY = [
   [/^#\/mac\/logs\/?$/, () => '#/mac/logs/operations'],
   [/^#\/general$/, () => '#/chat'],
   [/^#\/needs-you$/, () => HOME],
+  // A workspace's Home has one address: #/w/NAME (a trailing slash, or /home, lead to it); /room/ to its Room tab.
+  [new RegExp('^#/w/(' + WORKSPACE + ')/(?:home)?$'), (m) => '#/w/' + m[1]],
+  [new RegExp('^#/w/(' + WORKSPACE + ')/room/$'), (m) => '#/w/' + m[1] + '/room'],
   [/^#\/?$/, () => HOME],
   [/^$/, () => HOME],
 ];
@@ -77,7 +81,7 @@ export function canonical(hash) {
 /// What a canonical address names: {view, param, session, recipe, room, tab, agent, modal} (null: not an address of the
 /// page). `view` is the page's view name (`state.view`); `recipe` is '' for the templates' list, 'V/P' for one, null
 /// otherwise; `room` a workspace room's short label (#/w/NAME/room/LABEL; null: its main room); `tab` a workspace's tab
-/// other than its room (`agents`); `agent` an agent's name in the workspace (view `wsagent`: the router opens its
+/// (`home` — #/w/NAME —, `room`, `agents`, …); `agent` an agent's name in the workspace (view `wsagent`: the router opens its
 /// sandbox's or its session's page, framed).
 export function parse(hash) {
   const r = (view, o = {}) => ({ view, param: o.param || null, session: o.session || null, recipe: o.recipe === undefined ? null : o.recipe,
@@ -99,7 +103,8 @@ export function parse(hash) {
   if ((m = new RegExp('^#/mac/(' + MAC_SAME.join('|') + ')$').exec(hash))) return r(m[1]);
   if ((m = new RegExp('^#/mac/logs/(' + LOG_PAGES.join('|') + ')$').exec(hash))) return r(m[1]);
   if ((m = /^#\/chat(?:\/([a-z0-9][a-z0-9_-]{0,63}))?$/.exec(hash))) return r('chat', { param: m[1] });
-  if ((m = new RegExp('^#/w/(' + WORKSPACE + ')(?:/room/(' + ROOM_LABEL + '))?$').exec(hash))) return r('workspace', { param: m[1], room: m[2] });
+  if ((m = new RegExp('^#/w/(' + WORKSPACE + ')$').exec(hash))) return r('workspace', { param: m[1], tab: 'home' });
+  if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/room(?:/(' + ROOM_LABEL + '))?$').exec(hash))) return r('workspace', { param: m[1], tab: 'room', room: m[2] });
   if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/(' + WS_VIEW_TABS.join('|') + ')$').exec(hash))) return r('workspace', { param: m[1], tab: m[2] });
   if ((m = new RegExp('^#/w/(' + WORKSPACE + ')/agents/new$').exec(hash))) return r('addworker', { param: m[1] });
   if ((m = new RegExp('^#/guide/isolation(?:/(' + GUIDE_ISOLATIONS.join('|') + '))?$').exec(hash))) return r('guide', { param: m[1] });
@@ -115,8 +120,10 @@ export function parse(hash) {
   return null;
 }
 
-/// A workspace's page: its main room (`label` null), or another of its rooms by its short label.
-export function workspaceHash(name, label) { return '#/w/' + name + (label ? '/room/' + label : ''); }
+/// A workspace's Room tab: its main room (`label` null), or another of its rooms by its short label.
+export function roomHash(name, label) { return '#/w/' + name + '/room' + (label ? '/' + label : ''); }
+/// A workspace's page — its Home tab; with a `label`, that room (`roomHash`).
+export function workspaceHash(name, label) { return label ? roomHash(name, label) : '#/w/' + name; }
 /// An Agent / Bot's screen (`tab`: one of BOT_TABS; none: Across workspaces), or `~new` for a new one.
 export function botHash(name, tab) { return '#/bots/' + name + (tab ? '/' + tab : ''); }
 /// The isolation guide, at one choice (`id`: vm, fenced, unfenced, elsewhere; none: the top).

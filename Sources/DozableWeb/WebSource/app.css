@@ -3000,6 +3000,36 @@ body.ws-hero-on .notes-stack { position: fixed; top: auto; right: var(--sp-3); b
 }
 }
 
+/* ── A workspace's Home (views/ws-home.js): the drawing full width, then its cards in a grid (one column on a phone);
+   each card (components/ws-card.js) a titled section whose heading links to the tab that holds the whole of it. ── */
+@layer components {
+.ws-card { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; padding: var(--sp-3); border: var(--bw) solid var(--line);
+  border-radius: var(--r-lg); background: var(--surface); }
+.ws-card.is-needs { border-color: var(--warn); }
+.ws-card-h { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-md); font-weight: var(--fw-strong); min-width: 0; }
+.ws-card-h .icon { width: 14px; height: 14px; flex: none; }
+.ws-card-link { color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.ws-card-link:hover { text-decoration: underline; }
+.ws-card-go { color: var(--ink-3); }
+.ws-card-n { margin-left: auto; font-size: var(--fs-xs); font-weight: var(--fw-regular); color: var(--ink-2); }
+.ws-card-body { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; font-size: var(--fs-sm); }
+}
+@layer views {
+.ws-home { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.ws-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: var(--gap); align-items: start; }
+.ws-home-list, .ws-home-log { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
+.ws-home-list li { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1); }
+.ws-home-list .icon { width: 14px; height: 14px; flex: none; }
+.ws-home-lead, .ws-home-state, .ws-home-who, .ws-home-asof { margin: 0; }
+.ws-home-acts { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.ws-home-msgs { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ws-home-msgs .hm-line { margin: 0; overflow-wrap: anywhere; }
+.ws-home-setup { display: flex; flex-direction: column; gap: var(--sp-2); }
+@media (max-width: 760px) {
+  .ws-cards { grid-template-columns: minmax(0, 1fr); }
+}
+}
+
 /* This Mac (views/this-mac.js): one line per page — its name (a link), what it says now, an action (the daemon's). Loose
    agents and Agents / Bots are tables; a workspace a bot manages links to its room. */
 @layer views {

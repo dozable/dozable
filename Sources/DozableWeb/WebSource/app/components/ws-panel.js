@@ -3,6 +3,7 @@
 // isolates it; each links to its screen in the workspace, #/w/NAME/agent/AGENT), every worker under the main room; "In this
 // room" (the chat surface's own people list, moved here — a slot); its folders; its network. "+ Worker" opens the Add a
 // worker page (#/w/NAME/agents/new; another computer: the command). Also the meta line each sender's name carries in the room (`agentMeta`).
+// Its boxes are exported one by one (`agentsBox`, `foldersBox`, `networkBox`): a workspace's Home draws them compact in its cards.
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { tildePath } from '../core/paths.js';
@@ -58,29 +59,44 @@ function agentRow(w, a, asleep) {
       a.control ? h('div', { class: 'ws-agent-control' }, a.control) : null));
 }
 
-/// o: {detail, mainRoom (its name, or null), peopleSlot (the element "In this room" lives in)}.
-export function wsPanel(o) {
-  const d = o.detail;
+/// Its agents: managers and adopted ones, then the workers under the main room. opts: {mainRoom (its name, or null),
+/// compact (Home's card: no box and no heading of its own — the card has one)}.
+export function agentsBox(d, opts = {}) {
   const managers = d.agents.filter((a) => a.role === 'manager');
   const workers = d.agents.filter((a) => a.role === 'worker' && a.task);
   const adopted = d.agents.filter((a) => !managers.includes(a) && !workers.includes(a));
-  const add = addWorkerLink(d.name, [icon('plus'), 'Worker'], 'btn sm quiet');
-  const agents = h('section', { class: 'ws-box', 'aria-label': 'Agents' },
-    h('h2', { class: 'ws-box-h' }, icon('bot'), h('a', { href: agentsHash(d.name), class: 'ws-box-link', title: 'The Agents tab' }, 'Agents'),
-      h('span', { class: 'ws-box-n' }, String(d.agents.length))),
-    d.agents.length ? h('ul', { class: 'ws-agents' }, ...managers.map((a) => agentRow(d.name, a, d.state === 'asleep')), ...adopted.map((a) => agentRow(d.name, a, d.state === 'asleep'))) : h('p', { class: 'muted' }, 'No agent yet.'),
-    workers.length ? h('div', { class: 'ws-sub' }, 'Workers — in ' + (o.mainRoom ? '# ' + o.mainRoom : 'the main room')) : null,
-    workers.length ? h('ul', { class: 'ws-agents' }, ...workers.map((a) => agentRow(d.name, a, d.state === 'asleep'))) : null,
+  const asleep = d.state === 'asleep';
+  const body = [
+    d.agents.length ? h('ul', { class: 'ws-agents' }, ...managers.map((a) => agentRow(d.name, a, asleep)), ...adopted.map((a) => agentRow(d.name, a, asleep))) : h('p', { class: 'muted' }, 'No agent yet.'),
+    workers.length ? h('div', { class: 'ws-sub' }, 'Workers — in ' + (opts.mainRoom ? '# ' + opts.mainRoom : 'the main room')) : null,
+    workers.length ? h('ul', { class: 'ws-agents' }, ...workers.map((a) => agentRow(d.name, a, asleep))) : null,
     d.hidden ? h('p', { class: 'muted ws-hidden' }, d.hidden + ' on this Mac not shown to this browser (serve.mac_sessions).') : null,
-    h('div', { class: 'ws-box-acts' }, add));
-  const folders = h('section', { class: 'ws-box', 'aria-label': 'Folders' },
-    h('h2', { class: 'ws-box-h' }, icon('folder'), 'Folders'),
-    d.folders.length ? h('ul', { class: 'ws-folders' }, ...d.folders.map((f) => h('li', { 'data-ws-folder': f.path },
-      h('span', { class: 'ws-path', title: f.path }, tildePath(f.path)), h('span', { class: 'muted' }, ' · ' + f.mode + (f.main ? ' · main' : '')))))
-      : h('p', { class: 'muted' }, 'None — a workspace may work on no folder.'));
-  const network = h('section', { class: 'ws-box', 'aria-label': 'Network' },
-    h('h2', { class: 'ws-box-h' }, icon('shield'), 'Network'),
-    h('p', { class: 'ws-net', 'data-ws-network': d.network || 'locked' }, d.network ? d.network + ' — its agents’ preset' : 'locked — its agents’ preset (the default)'));
+    h('div', { class: 'ws-box-acts' }, addWorkerLink(d.name, [icon('plus'), 'Worker'], 'btn sm quiet'))];
+  if (opts.compact) return h('div', { class: 'ws-box-in' }, ...body.filter(Boolean));
+  return h('section', { class: 'ws-box', 'aria-label': 'Agents' },
+    h('h2', { class: 'ws-box-h' }, icon('bot'), h('a', { href: agentsHash(d.name), class: 'ws-box-link', title: 'The Agents tab' }, 'Agents'),
+      h('span', { class: 'ws-box-n' }, String(d.agents.length))), ...body.filter(Boolean));
+}
+
+/// Its folders, each with its mode (never a walk of them — the Folders & points tab does that).
+export function foldersBox(d, opts = {}) {
+  const body = d.folders.length ? h('ul', { class: 'ws-folders' }, ...d.folders.map((f) => h('li', { 'data-ws-folder': f.path },
+    h('span', { class: 'ws-path', title: f.path }, tildePath(f.path)), h('span', { class: 'muted' }, ' · ' + f.mode + (f.main ? ' · main' : '')))))
+    : h('p', { class: 'muted' }, 'None — a workspace may work on no folder.');
+  if (opts.compact) return h('div', { class: 'ws-box-in' }, body);
+  return h('section', { class: 'ws-box', 'aria-label': 'Folders' }, h('h2', { class: 'ws-box-h' }, icon('folder'), 'Folders'), body);
+}
+
+/// Its agents' network preset.
+export function networkBox(d, opts = {}) {
+  const body = h('p', { class: 'ws-net', 'data-ws-network': d.network || 'locked' }, d.network ? d.network + ' — its agents’ preset' : 'locked — its agents’ preset (the default)');
+  if (opts.compact) return h('div', { class: 'ws-box-in' }, body);
+  return h('section', { class: 'ws-box', 'aria-label': 'Network' }, h('h2', { class: 'ws-box-h' }, icon('shield'), 'Network'), body);
+}
+
+/// o: {detail, mainRoom (its name, or null), peopleSlot (the element "In this room" lives in)}.
+export function wsPanel(o) {
+  const d = o.detail;
   const people = h('section', { class: 'ws-box ws-people' }, o.peopleSlot);
-  return h('div', { class: 'ws-panel-in' }, agents, people, folders, network);
+  return h('div', { class: 'ws-panel-in' }, agentsBox(d, { mainRoom: o.mainRoom }), people, foldersBox(d), networkBox(d));
 }

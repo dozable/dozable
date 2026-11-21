@@ -48,16 +48,15 @@ export function forgetThumbs(names, place) {
 const narrow = matchMedia('(max-width: 760px)');
 const heroSize = () => (narrow.matches ? { w: 800, h: 560 } : { w: 1200, h: 500 });
 
-/// The hero: o {name, file, folded, onFold}; a button that opens the full-window view. → {el, set(o), dispose()}.
+/// The hero (a workspace's Home only): o {name, file}; a button that opens the full-window view. → {el, set(o), dispose()}.
 export function spaceHero(o) {
   let cur = o, view = null, unwatch = null, problemFor = null;
   const pic = h('div', { class: 'ws-hero-pic', 'aria-hidden': 'true' });
   const hero = h('button', { type: 'button', class: 'ws-hero', 'data-ws-hero': o.name, on: { click: () => openFull(cur.name, hero) } }, pic);
   const problem = h('div', { class: 'ws-hero-problem', 'data-ws-hero-problem': '', hidden: true });
-  const fold = h('button', { type: 'button', class: 'btn sm quiet ws-hero-fold', on: { click: () => { cur.folded = !cur.folded; cur.onFold(cur.folded); draw(); } } });
   const label = h('span', { class: 'ws-hero-label' });
   const el = h('section', { class: 'ws-hero-band', 'aria-label': 'The picture', 'data-ws-hero-band': o.name },
-    h('div', { class: 'ws-hero-head' }, label, h('span', { class: 'ws-sp' }), fold), hero, problem);
+    h('div', { class: 'ws-hero-head' }, label), hero, problem);
   function paint(r) {
     if (r.reading) { if (!pic.childElementCount) pic.replaceChildren(why('drawing…')); return; }
     if (r.svg) { pic.replaceChildren(r.svg); hero.dataset.picKey = r.key; } else { bigTile(pic, r.fallback); delete hero.dataset.picKey; }
@@ -78,15 +77,10 @@ export function spaceHero(o) {
   const shown = (v) => { document.body.classList.toggle('ws-hero-on', v); setPictureVisible(view, v); };
   function draw() {
     label.replaceChildren(icon('boxes'), h('span', null, 'Drawn from ', h('code', null, cur.file)));
-    fold.setAttribute('aria-expanded', cur.folded ? 'false' : 'true');
-    fold.replaceChildren(icon(cur.folded ? 'chevron-right' : 'chevron-down'), cur.folded ? 'Show' : 'Fold');
-    hero.hidden = !!cur.folded;
-    el.classList.toggle('is-folded', !!cur.folded);
     hero.setAttribute('aria-label', cur.name + ', drawn from its space file ' + cur.file + ' — open it in the full window');
-    if (cur.folded) { problem.hidden = true; if (view) shown(false); return; }
     if (!view) {
       view = pictureView(cur.name, 'hero', heroSize(), hero, paint);
-      unwatch = watchVisible(hero, (v) => shown(v && !cur.folded));
+      unwatch = watchVisible(hero, shown);
     }
   }
   const onNarrow = () => { if (view) setPictureSize(view, heroSize()); };

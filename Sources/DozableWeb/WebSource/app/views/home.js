@@ -12,7 +12,7 @@ import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { plural, when } from '../core/format.js';
 import { refresh } from '../core/router.js';
-import { workspaceHash } from '../core/routes.js';
+import { roomHash, workspaceHash } from '../core/routes.js';
 import { tildePath } from '../core/paths.js';
 import { state } from '../core/state.js';
 import { byState, isDone, loadWorkspace, loadWorkspaces } from '../core/workspaces.js';
@@ -81,7 +81,7 @@ function row(w, d, last) {
     h('td', null, driverChip(w.driver)),
     h('td', null, managerChip(w.manager)),
     h('td', { class: 'hm-who' }, who(w, d)),
-    h('td', null, w.room ? h('a', { href: workspaceHash(w.name), class: 'hm-room' }, '# ' + w.room) : h('span', { class: 'muted' }, '—')),
+    h('td', null, w.room ? h('a', { href: roomHash(w.name), class: 'hm-room' }, '# ' + w.room) : h('span', { class: 'muted' }, '—')),
     h('td', { class: 'hm-last' }, last || ''),
     h('td', { class: 'hm-next' }, next(w, d)));
 }
@@ -108,7 +108,7 @@ function next(w, d) {
       on: { click: async () => {
         try { openLifecycle(await loadWorkspace(w.name, 0), verb, async () => { await loadWorkspaces(0).catch(() => null); refresh(false); }); } catch (e) { toast(e.message || String(e), true); }
       } } }, icon(v.icon), v.label);
-    return h('div', { class: 'hm-next-acts' }, b, !isDone(w) && w.room ? h('a', { href: workspaceHash(w.name), class: 'btn sm quiet' }, icon('message-square'), 'Open room') : null);
+    return h('div', { class: 'hm-next-acts' }, b, !isDone(w) && w.room ? h('a', { href: roomHash(w.name), class: 'btn sm quiet' }, icon('message-square'), 'Open room') : null);
   }
   if (isDone(w)) return null;
   if (w.state === 'setting-up') {
@@ -116,7 +116,7 @@ function next(w, d) {
     const gaps = lines.length ? h('ul', { class: 'hm-gaps' }, ...lines.map((n) => h('li', null, n))) : null;
     return h('div', { class: 'hm-start' }, gaps, cmdLine('doz workspace start ' + w.name));
   }
-  return w.room ? h('a', { href: workspaceHash(w.name), class: 'btn sm' }, icon('message-square'), 'Open room') : null;
+  return w.room ? h('a', { href: roomHash(w.name), class: 'btn sm' }, icon('message-square'), 'Open room') : null;
 }
 
 /// The latest line of each row's room — only while the chat server runs and this browser may read it.

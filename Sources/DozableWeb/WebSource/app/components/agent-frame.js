@@ -7,7 +7,7 @@
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { full, when } from '../core/format.js';
-import { addWorkerHash, agentHash, agentsHash, canDoHash, workspaceHash } from '../core/routes.js';
+import { addWorkerHash, agentHash, agentsHash, canDoHash, roomHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { loadWorkspace, loadWorkspaces } from '../core/workspaces.js';
 import { cmdLine } from './cmd-line.js';
@@ -54,7 +54,7 @@ export function frameBar(f) {
     h('span', { class: 'ws-sp' }),
     h('a', { class: 'btn sm quiet', href: canDoHash(f.workspace, f.agent), 'data-can-do': f.agent, title: 'What ' + f.agent + ' can do: isolation, folders, network, secrets by name' },
       icon('shield'), 'Can do'),
-    h('a', { class: 'btn sm quiet', href: workspaceHash(f.workspace), 'data-room-beside': f.workspace, title: 'The workspace’s room, with this agent among its people' },
+    h('a', { class: 'btn sm quiet', href: roomHash(f.workspace), 'data-room-beside': f.workspace, title: 'The workspace’s room, with this agent among its people' },
       icon('message-square'), 'Open the room beside'),
     moreMenu('More for ' + f.agent, frameItems(f), { small: true, data: { agentFrameMore: f.agent } }).el);
 }

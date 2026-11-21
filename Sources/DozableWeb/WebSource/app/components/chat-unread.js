@@ -43,9 +43,13 @@ export function showPreviews() {
   }
 }
 
+const previewFns = new Set();
+/// Called with the room each time its latest line changes while the stream is open (a workspace's Home redraws its card).
+export function onPreview(fn) { previewFns.add(fn); return () => previewFns.delete(fn); }
 export function setPreview(r, m) {
   state.chat.previews[r] = { msg_id: m.msg_id, sender: m.from, text: String(m.content || '').slice(0, 140), at: m.at };
   showPreviews();
+  for (const fn of [...previewFns]) { try { fn(r); } catch (_) { /* a listener's own problem */ } }
 }
 
 /// Ask the chat server how much is unread after this browser's markers (a room seen for the first time is read up to now).

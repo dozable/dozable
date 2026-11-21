@@ -93,7 +93,7 @@ function routePage() {
   // A workspace's page is a section too (#ws): the room surface the Chat page shows is MOVED into it (views/chat.js
   // mountChat — one chat client), so leaving one for the other never closes the stream.
   const onSbx = state.view === 'sandbox', onGrid = state.view === 'sessions', onMac = state.view === 'mac', onChat = state.view === 'chat',
-    onWs = state.view === 'workspace', onRoom = onWs && !state.wsTab;
+    onWs = state.view === 'workspace', onRoom = onWs && state.wsTab === 'room';
   $('sbx').hidden = !onSbx;
   $('grid').hidden = !onGrid;
   $('mac').hidden = !onMac;
