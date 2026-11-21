@@ -787,6 +787,11 @@ The manual's page is `docs/manual/39-space-files.md`.
   the file as it is now; a missing file is "BRIEF.md is gone from PATH". `up` never writes it. `show --space` and the
   page's "Defined by FILE" line and up/down pill come from `SpaceShown`; another computer gets the same line and the brief's
   path as it gets a folder's (the brief's own `serve.chat` rules unchanged).
+- **The listing says which** (`WorkspaceRow.space`, `WorkspaceRowSpace.of`): each `workspace-ls` row a space file made
+  carries `space {file, up}` — the file's name and whether the last up is later than the last down — from the record's
+  reference, the file never opened (nil: made without one; additive, `--json` only). The dashboard draws a picture for such
+  a row and a plain tile for the rest with no request (web.md, "The workspace drawn"). `SpaceUpHostTests`
+  (`testTheListingSaysWhetherASpaceFileMadeAWorkspace`), `make test-cli-workspace` F1b and F5.
 - **The space file, read and saved** (`SpaceRecordFile`, kind `space`: the brief's rules, and the text must start with
   `doz: space/3` or `doz: space-defaults/3` — its first line that is not blank or a comment — before and after a save).
   `workspace-space` (read-only, in-process with no daemon; `doz workspace show W --space [--json]`) answers `{workspace,

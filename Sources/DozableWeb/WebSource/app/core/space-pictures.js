@@ -26,7 +26,7 @@ function entry(name) {
   return entries.get(name);
 }
 
-/// Something may have changed (`file`: the file or its run too). Coalesced; the pictures on screen are read again.
+/// Something may have changed (`file`: the file too). Coalesced; the pictures on screen are read again.
 export function picturesStale(o = {}) {
   if (marked) { marked.file = marked.file || !!o.file; return; }
   marked = { file: !!o.file };
@@ -54,7 +54,7 @@ function watchTheme() {
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', again);
 }
 
-/// kind hero|full|thumb; paint({svg}|{src} + key, problem | {fallback} | {reading}).
+/// paint({svg}|{src} + key, problem | {fallback} | {reading}).
 export function pictureView(name, kind, size, el, paint) {
   watchTheme();
   const v = { name, kind, w: size.w, h: size.h, el, paint, visible: false, key: null, painted: null, dropped: false };
@@ -74,12 +74,13 @@ export function dropPicture(v) { v.dropped = true; v.visible = false; views.dele
 const onScreen = (v) => v.visible && !v.dropped && v.el.isConnected;
 
 // ── reads
-function quiet(name) {     // asleep, finished, archived: its state read only on a file mark
+function quiet(name) {
   const w = state.workspaces && state.workspaces.workspaces.find((x) => x.name === name);
   return !!w && ['asleep', 'finished', 'archived'].includes(w.state);
 }
 const needsFile = (e) => e.fileAt < fileEpoch;
-const needsState = (e) => !!e.text && (quiet(e.name) ? e.stateFileAt < fileEpoch : e.stateAt < stateEpoch);
+// asleep, finished, archived: read once more, then only on a file mark
+const needsState = (e) => !!e.text && (quiet(e.name) && e.wasQuiet ? e.stateFileAt < fileEpoch : e.stateAt < stateEpoch);
 
 function pump() {
   const names = [...new Set([...views].filter(onScreen).map((v) => v.name))];
@@ -111,7 +112,7 @@ async function readOne(e) {
       const at = stateEpoch, fat = fileEpoch;
       pictureStats.stateReads++;
       try { e.st = await api('workspace-state', { method: 'POST', json: { workspace: e.name } }); } catch (_) { e.st = null; }
-      e.stateAt = at; e.stateFileAt = fat;
+      e.stateAt = at; e.stateFileAt = fat; e.wasQuiet = quiet(e.name);
     }
   } finally {
     e.inflight = false;

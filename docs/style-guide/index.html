@@ -1687,7 +1687,8 @@ exec /usr/local/bin/gemini "$@"</pre></details>
     On Home a thumbnail in the Workspace cell (<code>.sp-thumb-home</code>, 128 × 80; 96 × 60 at phone width) and in the sidebar one at the top of an
     unfolded workspace (<code>.nav-ws-thumb</code>, <code>ui.nav_thumbnails</code>) — each an <code>&lt;img&gt;</code> of the drawing at 160 × 100. With no file (or one this
     browser may not read): the plain tile (<code>.sp-tile</code>, Lucide's boxes) on Home, the compact band (<code>.ws-hero-none</code>) on the page, nothing in the
-    sidebar. The drawings below are the vendored renderer's own, made here.</p>
+    sidebar. While an unfolded hero is on screen (<code>body.ws-hero-on</code>) the notification cards stack at the bottom right, never over
+    its drawing. The drawings below are the vendored renderer's own, made here.</p>
   <div class="pair"><div class="scheme">
     <section class="ws-hero-band" style="max-width:640px">
       <div class="ws-hero-head"><span class="ws-hero-label"><i data-i="boxes"></i><span>Drawn from <code>launch.space.yaml</code></span></span><span class="ws-sp"></span>

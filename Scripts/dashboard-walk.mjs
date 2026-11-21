@@ -70,6 +70,15 @@
 //     name keeps the button off; a crafted action with another name is 400), then the room's archived notice; 7 Restore →
 //     finished; 8 Delete… with the Bin box unticked → gone from Home and the sidebar, its folder still on disk; 9 another
 //     computer's 403 is ServeHTTPTests'; 11 (below) with the daemon stopped the plan route answers. The leak sweep after.
+//   · the workspace drawn, chat still on: the first load (Home with only plain workspaces) fetches no renderer byte and
+//     shows a plain tile, its bytes printed, the two glue modules at most 16 KB; `spc2` brought up from a space file (a
+//     fenced worker running the FAKE claude) — Home and the unfolded sidebar show one thumbnail per space workspace and a
+//     tile for each plain one (none in the sidebar), the renderer fetched once; #/w/spc2's hero draws, named; down → after
+//     `changed` the hero's key and state sha change; 3 s without an event reads no state; the full-window view opens and
+//     closes (Escape), the focus back on the hero; dark → a new key, light again → a cache hit; at 390 px the hero fits;
+//     under reduced motion the hero has no animation; a toast does not cover the hero's drawing; a file that doesn't read → the marker and Dozable's problem line;
+//     no CSP violation (a listener from every document's start); the leak sweep; pictures to SHOTS (the page light, dark, 390 px
+//     and with a toast; Home light and 390 px; the sidebar with spc2 unfolded).
 //   · with the daemon stopped, opening Home, Sandboxes, a workspace's page and its agents starts none (no daemon.pid).
 //   · from chat on, every permission is never (this Mac's ceiling, an everywhere never for every role): every check after
 //     runs as the owner, never gated; an agent's Can do shows its Permissions and Ceiling as live, read-only rows.
@@ -88,7 +97,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { spawnChrome } from './chrome-launch.mjs';
@@ -177,7 +186,7 @@ function stage() {
 // ── Chrome over the DevTools protocol ────────────────────────────────────────────────────────────────────────────────
 let ws, nextId = 1, chrome, ui, devPort, uiB = false;
 const pending = new Map(), pageErrors = [], requested = [];
-const apiIds = new Set(), apiBodies = [], consoleLines = [];
+const apiIds = new Set(), apiBodies = [], consoleLines = [], sseEvents = [];
 let uiOut = '', chatPagePort = 0;
 function send(method, params = {}) { const id = nextId++; ws.send(JSON.stringify({ id, method, params })); return new Promise((res, rej) => pending.set(id, { res, rej })); }
 async function evaluate(expr) {
@@ -216,10 +225,14 @@ async function startChrome() {
       send('Network.getResponseBody', { requestId: m.params.requestId }).then((b) => apiBodies.push(b.base64Encoded ? Buffer.from(b.body, 'base64').toString('utf8') : b.body), () => {});
     }
     if (m.method === 'Runtime.consoleAPICalled') consoleLines.push(m.params.args.map((a) => String(a.value ?? a.description ?? '')).join(' '));
+    if (m.method === 'Network.eventSourceMessageReceived') sseEvents.push({ at: Date.now(), name: m.params.eventName });
   });
   await send('Runtime.enable');
   await send('Page.enable');
   await send('Network.enable');
+  // Anything the page's CSP blocks, from each document's start (the walk's pictures row counts it: none).
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__violations = [];
+    document.addEventListener('securitypolicyviolation', (e) => window.__violations.push(e.violatedDirective + ' ' + e.blockedURI));` });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
 }
 async function startUI() {
@@ -233,10 +246,12 @@ async function startUI() {
 
 // ── the checks ───────────────────────────────────────────────────────────────────────────────────────────────────────
 const SHOTS = process.env.SHOTS && process.env.SHOTS.startsWith('/tmp/') ? process.env.SHOTS : null;
-async function shot(name) {
+async function shot(name, sel) {
   if (!SHOTS) return;
   mkdirSync(SHOTS, { recursive: true });
-  const r = await send('Page.captureScreenshot', { format: 'png' });
+  // `sel`: only that element (its box on the page).
+  const box = sel ? await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })()`) : null;
+  const r = await send('Page.captureScreenshot', box ? { format: 'png', clip: { ...box, scale: 1 } } : { format: 'png' });
   writeFileSync(SHOTS + '/' + name + '.png', Buffer.from(r.data, 'base64'));
 }
 const failures = [];
@@ -1581,6 +1596,149 @@ async function walkAsks() {
 // ── a workspace's wide views: Network & secrets, Folders & points, Activity and an agent's Can do ────────────────────
 /// `wide`: a fenced session (widef) with a launch secret whose value is a SENTINEL and two more (widef2, widef3), each having been
 /// refused one site; an unfenced session (wideu); the never-booted sandbox gamma. All harmless programs, no VM.
+// ── the workspace drawn ────────────────────────────────────────────────────────────────────────────────────────────
+const RENDERER = /\/assets\/vendor-space-render-[0-9a-f]{16}\.js/;
+let firstLoad = null;
+async function walkFirstLoad() {
+  check(!requested.some((u) => RENDERER.test(u)), 'pictures: the first load (Home with only plain workspaces) fetches no renderer byte');
+  check(await waitFor(`!!document.querySelector('[data-ws="demo"] [data-pic-tile="Made without a space file"]')`, 8000), 'pictures: …a plain tile for demo, made without a space file');
+  firstLoad = await evaluate(`(() => { const all = performance.getEntriesByType('navigation').concat(performance.getEntriesByType('resource'))
+    .filter((e) => !e.name.includes('/api/'));
+    return { files: all.length, bytes: all.reduce((n, e) => n + (e.encodedBodySize || 0), 0) }; })()`);
+  const web = 'Sources/DozableWeb/Resources/Web/assets/app/';
+  const glue = ['core/space-pictures-', 'components/space-picture-'].map((p) => {
+    const dir = web + p.split('/')[0];
+    const f = readdirSync(dir).find((n) => n.startsWith(p.split('/')[1]) && n.endsWith('.js'));
+    return f ? readFileSync(dir + '/' + f).length : 1e9;
+  });
+  console.log(`  first load: ${firstLoad.files} files, ${firstLoad.bytes} bytes (the two picture modules ${glue[0]} + ${glue[1]} bytes)`);
+  check(glue[0] + glue[1] <= 16384, `pictures: the two glue modules are at most 16 KB (${glue[0] + glue[1]} bytes)`);
+}
+const pictureSessions = [];
+const HERO = (w) => `document.querySelector('[data-ws-hero="${w}"]')`;
+const heroKey = (w) => evaluate(`${HERO(w)}?.dataset.picKey || ''`);
+async function walkPictures() {
+  const errorsBefore = pageErrors.length;
+  const SPACE = S + '/space';
+  mkdirSync(SPACE, { recursive: true });
+  writeFileSync(SPACE + '/BRIEF.md', 'The space walk.\n');
+  const SPC2 = 'doz: space/3\nspace: spc2\nbrief: BRIEF.md\nowner: ada\nagents:\n  w1: { kind: claude-code, isolation: fenced, prompt: watch the walk }\n'
+    + 'chat:\n  rooms:\n    spc2: { main: true, members: [owner, w1] }\n';
+  writeFileSync(SPACE + '/spc2.space.yaml', SPC2);
+  const up = doz(['workspace', 'up', '-f', SPACE + '/spc2.space.yaml', '--yes']);
+  if (up.status === 0) pictureSessions.push('spc2-w1');
+  check(up.status === 0, 'pictures: workspace up -f spc2.space.yaml (a fenced worker running the FAKE claude)');
+  // Home, read again on a reload: one thumbnail per space workspace on screen, a tile for each plain one.
+  const mark = requested.length;
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  // (the setup, never done here, opens over Home on a load: another page first closes it)
+  await goHash('#/mac/sandboxes');
+  await goHash('#/home');
+  await waitFor(`state.view === 'home' && !state.modal`, 10000);
+  check(await waitFor(`!!document.querySelector('[data-ws="spc2"] .sp-thumb img.sp-img:not([hidden])')`, 20000), 'pictures: Home draws spc2\'s thumbnail');
+  const rows = (dozJSON(['workspace', 'ls']) || { workspaces: [] }).workspaces;
+  await sleep(800);
+  const home = await evaluate(`[...document.querySelectorAll('tr[data-ws]')].map((r) => ({ name: r.dataset.ws, img: !!r.querySelector('.sp-thumb[data-pic] img.sp-img:not([hidden])'),
+    tile: !!r.querySelector('[data-pic-tile]') }))`);
+  const wrong = home.filter((r) => { const w = rows.find((x) => x.name === r.name); return !w || (w.space ? !r.img : !r.tile); });
+  check(home.length > 2 && !wrong.length, `pictures: Home — a thumbnail for each space workspace, a tile for each plain one (${home.length} rows${wrong.length ? '; wrong: ' + wrong.map((r) => r.name).join(', ') : ''})`);
+  // The sidebar: spc2 unfolded shows its picture; demo (plain) unfolded shows none.
+  for (const n of ['spc2', 'demo']) await evaluate(`(() => { const c = document.querySelector('[data-ws-fold="${n}"]'); if (c && c.getAttribute('aria-expanded') !== 'true') c.click(); })()`);
+  check(await waitFor(`!!document.querySelector('[data-nav-ws="spc2"] .nav-ws-thumb img.sp-img:not([hidden])')`, 15000), 'pictures: the unfolded sidebar draws spc2');
+  check(await evaluate(`!!document.querySelector('[data-nav-ws="demo"] [data-ws-inside]') && !document.querySelector('[data-nav-ws="demo"] .nav-ws-thumb')`), 'pictures: …and nothing for demo, made without a space file');
+  check(requested.slice(mark).filter((u) => RENDERER.test(u)).length === 1, `pictures: the renderer is fetched once (${requested.slice(mark).filter((u) => RENDERER.test(u)).length})`);
+  // Pictures for a person: Home light, the sidebar with spc2 unfolded, Home at 390 px.
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  await sleep(1200);
+  await shot('pictures-home-light');
+  await shot('pictures-sidebar', '#nav');
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(1200);
+  await shot('pictures-home-390');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await evaluate(`delete document.documentElement.dataset.theme`);
+  // The hero on #/w/spc2.
+  await goHash('#/w/spc2');
+  check(await waitFor(`!!${HERO('spc2')}?.dataset.picKey && !!${HERO('spc2')}.querySelector('svg.space-render')`, 20000), 'pictures: #/w/spc2 draws its hero');
+  check(/spc2, drawn from its space file/.test(await evaluate(`${HERO('spc2')}.getAttribute('aria-label')`)), 'pictures: …its aria-label names it');
+  const ms = await evaluate(`JSON.stringify(pictureStats.ms)`);
+  console.log('  render times (ms, this Mac): ' + ms);
+  // No event, no read: 3 s with no changed / host / hello reads no state.
+  await sleep(1500);
+  const r0 = requested.filter((u) => /\/api\/v1\/workspace-state$/.test(u)).length, t0 = Date.now();
+  await sleep(3000);
+  const evs = sseEvents.filter((e) => e.at >= t0 && ['changed', 'host', 'hello'].includes(e.name)).length;
+  const reads = requested.filter((u) => /\/api\/v1\/workspace-state$/.test(u)).length - r0;
+  check(evs > 0 ? reads <= evs * 4 : reads === 0, `pictures: 3 s — ${evs} event(s), ${reads} state read(s) (none without an event; no timer reads)`);
+  // The full-window view, then Escape: the focus back on the hero.
+  await evaluate(`${HERO('spc2')}.click()`);
+  check(await waitFor(`!!document.querySelector('[data-sp-full="spc2"] svg.space-render')`, 15000), 'pictures: the hero opens the full-window view, drawn');
+  await key(...ESC);
+  check(await waitFor(`!document.querySelector('[data-sp-full]') && document.activeElement === ${HERO('spc2')}`, 5000), 'pictures: …Escape closes it, the focus back on the hero');
+  // Theme: dark is a new drawing; light again is the cache's.
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  await waitFor(`(${HERO('spc2')}.dataset.picKey || '').includes('|light|')`, 10000);
+  const light = await heroKey('spc2');
+  await evaluate(`document.documentElement.dataset.theme = 'dark'`);
+  check(await waitFor(`(${HERO('spc2')}.dataset.picKey || '').includes('|dark|')`, 10000), 'pictures: dark — a new drawing');
+  await shot('pictures-dark');
+  const hits = await evaluate('pictureStats.hits');
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  const again = await waitFor(`${HERO('spc2')}.dataset.picKey === ${JSON.stringify(light)} && pictureStats.hits > ${hits}`, 10000);
+  check(again, 'pictures: light again — the same drawing, from the cache' + (again ? '' : ` (was ${light}, now ${await heroKey('spc2')}, hits ${await evaluate('pictureStats.hits')})`));
+  await shot('pictures-light');
+  await evaluate(`delete document.documentElement.dataset.theme`);
+  // Reduced motion: the hero is a still.
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await sleep(300);
+  check(await evaluate(`${HERO('spc2')}.querySelector('svg').getAnimations({ subtree: true }).length === 0`), 'pictures: under reduced motion the hero has no animation');
+  await send('Emulation.setEmulatedMedia', { features: [] });
+  // A toast never covers the hero's drawing: a brief saved here announces itself in a card while the hero is shown.
+  await evaluate(`[...document.querySelectorAll('[data-ws-brief="spc2"] button')].find((b) => /Edit/.test(b.textContent)).click()`);
+  await waitFor(`!!document.querySelector('.ws-brief-area')`, 8000);
+  await evaluate(`(() => { const a = document.querySelector('.ws-brief-area'); a.value = 'The space walk, seen.'; a.dispatchEvent(new Event('input')); })()`);
+  await evaluate(`[...document.querySelectorAll('.ws-brief-acts button')].find((b) => /Save/.test(b.textContent)).click()`);
+  const toast = await waitFor(`[...document.querySelectorAll('.notes .callout.note')].some((n) => n.getBoundingClientRect().height > 0)`, 15000);
+  const overlap = await evaluate(`(() => { const p = ${HERO('spc2')}.querySelector('.ws-hero-pic').getBoundingClientRect();
+    return [...document.querySelectorAll('.notes .callout.note')].map((n) => n.getBoundingClientRect()).filter((r) => r.height > 0)
+      .filter((r) => r.left < p.right && r.right > p.left && r.top < p.bottom && r.bottom > p.top).length; })()`);
+  check(toast && overlap === 0, `pictures: a toast while the hero is shown does not cover its drawing (${toast ? overlap + ' overlapping' : 'no toast seen'})`);
+  await shot('pictures-toast');
+  // (the brief's editor scrolled the page: the hero back on screen — only pictures on screen are read)
+  await evaluate(`window.scrollTo(0, 0)`);
+  check(await waitFor(`document.body.classList.contains('ws-hero-on')`, 8000), 'pictures: …the hero back on screen');
+  // A state change redraws: down, then after `changed` a new key with a new state sha. (The down of a space whose agents
+  // all run on this Mac is no event of its own — `changed` follows the sandboxes; so a sandbox made beside it, never
+  // booted, is the event here.)
+  const before = await heroKey('spc2'), downAt = Date.now(), readsBefore = await evaluate('pictureStats.stateReads');
+  const down = doz(['workspace', 'down', 'spc2', '--yes']);
+  check(down.status === 0, 'pictures: workspace down spc2');
+  doz(['create', 'pictures-poke', '--image', 'lab', '--isolated']);
+  const redrawn = await waitFor(`(() => { const k = ${HERO('spc2')}?.dataset.picKey || ''; return k && k.split('|')[1] !== ${JSON.stringify(before.split('|')[1])}; })()`, 30000);
+  check(redrawn, 'pictures: …after changed, the hero is drawn again with a new state sha' + (redrawn ? '' : ` (events ${sseEvents.filter((e) => e.at >= downAt).map((e) => e.name).join(',')};`
+    + ` state reads ${(await evaluate('pictureStats.stateReads')) - readsBefore}; key ${await heroKey('spc2')})`));
+  // 390 px: the hero fits.
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  check(await waitFor(`(${HERO('spc2')}?.dataset.picKey || '').includes('|800x560|')`, 10000), 'pictures: at 390 px the hero is drawn at its narrow size');
+  const fit = await evaluate(`({ w: ${HERO('spc2')}.getBoundingClientRect().width, page: document.documentElement.scrollWidth })`);
+  check(fit.w <= 390 && fit.page <= 390, `pictures: …and fits (${Math.round(fit.w)} px, the page ${fit.page} px)`);
+  await shot('pictures-390');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  // A file that doesn't read: the marker and Dozable's problem line (read again on arriving).
+  writeFileSync(SPACE + '/spc2.space.yaml', 'doz: space/3\nspace: spc2\nagents: [one, two]\n');
+  await goHash('#/w/demo2');
+  await waitFor(`state.param === 'demo2'`);
+  await goHash('#/w/spc2');
+  check(await waitFor(`!!${HERO('spc2')}.querySelector('svg.space-render.problem')`, 15000), 'pictures: a file that doesn\'t read draws the marker');
+  check(await waitFor(`(() => { const p = document.querySelector('[data-ws-hero-problem]'); return !!p && !p.hidden && /doesn.t read/.test(p.textContent) && !!p.querySelector('[data-cmd*="--dry-run"]'); })()`, 15000),
+    'pictures: …and Dozable\'s problem line with the dry run\'s command');
+  writeFileSync(SPACE + '/spc2.space.yaml', SPC2);
+  check((await evaluate('window.__violations.length')) === 0, 'pictures: no CSP violation' + ((await evaluate('window.__violations.join(" | ")')) || ''));
+  check(pageErrors.length === errorsBefore, 'pictures: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  await leakSweep('the workspace drawn');
+}
+
 const wideSessions = [];
 const WIDE_SENTINEL = 'FAKE-WIDE-SENTINEL-' + process.pid + '-9c3a';
 async function walkWideViews() {
@@ -1768,6 +1926,7 @@ try {
   const pill = await evaluate(text('[data-ws="demo"] [data-ws-state]')), driver = await evaluate(text('[data-ws="demo"] .ws-driver'));
   check(pill === 'setting up' && driver === 'you', `Home's row for demo reads "setting up" and "you" (${pill} · ${driver})`);
   check(await evaluate(`!!document.querySelector('#home-needs') && document.querySelector('#home-needs').hidden`), 'Home: the Needs you slot is there, hidden');
+  await walkFirstLoad();
 
   await walkSidebar();
   // demo unfolds to its agent, which links to its screen in the workspace.
@@ -1791,6 +1950,7 @@ try {
   await walkRooms();
   await walkAsks();
   await walkWideViews();
+  await walkPictures();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
@@ -1843,7 +2003,7 @@ try {
   try { chrome && chrome.kill('SIGKILL'); } catch (_) { /* gone */ }
   if (macSession) spawnSync(DOZ, ['sessions', 'end', '@mac', macSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
   if (lifeSession) spawnSync(DOZ, ['sessions', 'end', '@mac', lifeSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
-  for (const s of wideSessions) spawnSync(DOZ, ['sessions', 'end', '@mac', s, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
+  for (const s of wideSessions.concat(pictureSessions)) spawnSync(DOZ, ['sessions', 'end', '@mac', s, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
   for (const [w, n] of startedWorkers) spawnSync(DOZ, ['worker', 'end', w, n, '--store', STORE], { env: ENV, timeout: 60_000 });
   try { ui && process.kill(-ui.pid, 'SIGTERM'); } catch (_) { /* gone */ }
   if (uiB) spawnSync(DOZ, ['ui', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });

@@ -1,13 +1,13 @@
-// components/space-picture — The workspace drawn (core/space-pictures.js reads and draws): thumbnails on Home and in the
-// sidebar, the hero, the full-window view; a plain tile with no file, a file not readable here, or one not drawn.
+// components/space-picture — The workspace drawn (core/space-pictures.js draws it): thumbnails, the hero, the full
+// view; a plain tile with no file, one not readable here or not drawn. A hero on screen moves the toasts (ws-hero-on).
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { dropPicture, pictureProblems, pictureView, setPictureSize, setPictureVisible } from '../core/space-pictures.js';
 import { cmdLine } from './cmd-line.js';
 import { watchVisible } from './grid-feed.js';
 
-const THUMB = { w: 160, h: 100 };     // one drawing for Home and the sidebar (the stylesheet sizes it)
-const slots = new Map();              // place:name → {el, view, unwatch}
+const THUMB = { w: 160, h: 100 };     // Home's and the sidebar's (CSS sizes it)
+const slots = new Map();
 
 export function pictureTile(why, cls) {
   return h('span', { class: 'sp-tile' + (cls ? ' ' + cls : ''), title: why, 'data-pic-tile': why }, icon('boxes'), h('span', { class: 'sr-only' }, why));
@@ -15,10 +15,10 @@ export function pictureTile(why, cls) {
 const why = (text) => h('span', { class: 'ws-hero-why' }, text);
 const bigTile = (pic, text) => pic.replaceChildren(pictureTile(text, 'sp-tile-hero'), why(text));
 
-/// A row's thumbnail (place home|nav — nav shows nothing without a file); kept per place and name, so a redraw moves it.
+/// A row's thumbnail (home|nav), kept per place and name: a redraw moves it.
 export function spaceThumb(row, place) {
   const k = place + ':' + row.name;
-  if (!row.space) { forgetSlot(k); return place === 'nav' ? null : pictureTile('Made without a space file', 'sp-thumb sp-thumb-' + place); }
+  if (!row.space) { forgetSlot(k); return place === 'nav' ? null : h('span', { class: 'sp-thumb sp-thumb-' + place }, pictureTile('Made without a space file')); }
   const have = slots.get(k);
   if (have) return have.el;
   const img = h('img', { class: 'sp-img', alt: row.name + ', drawn from its space file', width: String(THUMB.w), height: String(THUMB.h), decoding: 'async', hidden: true });
@@ -75,6 +75,7 @@ export function spaceHero(o) {
     cmdLine('doz workspace up -f ' + (p.shownPath || cur.file) + ' --dry-run'));
     problem.hidden = false;
   }
+  const shown = (v) => { document.body.classList.toggle('ws-hero-on', v); setPictureVisible(view, v); };
   function draw() {
     label.replaceChildren(icon('boxes'), h('span', null, 'Drawn from ', h('code', null, cur.file)));
     fold.setAttribute('aria-expanded', cur.folded ? 'false' : 'true');
@@ -82,10 +83,10 @@ export function spaceHero(o) {
     hero.hidden = !!cur.folded;
     el.classList.toggle('is-folded', !!cur.folded);
     hero.setAttribute('aria-label', cur.name + ', drawn from its space file ' + cur.file + ' — open it in the full window');
-    if (cur.folded) { problem.hidden = true; if (view) setPictureVisible(view, false); return; }
+    if (cur.folded) { problem.hidden = true; if (view) shown(false); return; }
     if (!view) {
       view = pictureView(cur.name, 'hero', heroSize(), hero, paint);
-      unwatch = watchVisible(hero, (v) => setPictureVisible(view, v && !cur.folded));
+      unwatch = watchVisible(hero, (v) => shown(v && !cur.folded));
     }
   }
   const onNarrow = () => { if (view) setPictureSize(view, heroSize()); };
@@ -94,7 +95,7 @@ export function spaceHero(o) {
   return {
     el,
     set(n) { const changed = n.name !== cur.name; cur = { ...cur, ...n }; if (changed) { this.drop(); } draw(); },
-    drop() { if (unwatch) unwatch(); if (view) dropPicture(view); view = null; unwatch = null; pic.replaceChildren(); problemFor = null; problem.hidden = true; },
+    drop() { if (unwatch) unwatch(); if (view) { shown(false); dropPicture(view); } view = null; unwatch = null; pic.replaceChildren(); problemFor = null; problem.hidden = true; },
     dispose() { this.drop(); narrow.removeEventListener('change', onNarrow); },
   };
 }
