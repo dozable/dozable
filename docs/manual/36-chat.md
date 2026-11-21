@@ -213,6 +213,23 @@ messages to agents wait until you post) and changes your avatar (a letter, a sha
 You are "here" in chat while the Chat page is open (and for a few seconds after you leave it), not just because the
 dashboard is open. Messages to you are marked delivered then.
 
+### Pop a room out
+
+The button with the arrow out of a box, at the top right of a room (on the Chat page and on a workspace's Room tab), opens
+that room in a window of its own: the room alone, the same messages, composer, asks and people, the height of the
+window. Clicking it again brings the same window forward; each room has one window. Cmd-click (or a middle click) opens
+it in a tab instead. The window's address is `/chat#/ROOM`, so a bookmark or a reload opens the same room, and a draft
+you were typing is kept.
+
+The window loads only chat: it opens quickly and leaves the rest of the dashboard alone. **Open in the dashboard** goes
+back to the room there. A room you read in a window counts as read in the dashboard too, and two windows on one room never
+mark it unread again. You can answer an ask and turn chat on from the window. If the window was signed out, it says so:
+sign in on the dashboard, then come back to the window.
+
+Keep it to about four windows at once, with the dashboard on a page other than Chat. Over plain HTTP a browser opens at
+most six connections to one address, and each window holds one of them open. Too many windows and new messages arrive
+late, or a window says its stream is paused (use **Reconnect** there).
+
 ## Chat on your other browsers: `serve.chat`
 
 With the dashboard on your network (`ui.lan`, [The dashboard on your other computers, tablets and phones](25-doz-serve.md)), the setting
