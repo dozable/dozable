@@ -39,6 +39,9 @@ public struct ChatServerState: Codable, Equatable, Sendable {
     public var lastExit: String?
     /// What is wrong, in a person's words (a stopped server's last line, the port to change).
     public var problem: String?
+    /// A default port another program had, and the free one chat took instead (saved in the settings): said by `doz chat on`
+    /// and `doz chat status` while this daemon runs.
+    public var note: String?
     public var startedAt: Date?
     public var updatedAt: Date?
     /// Each webhook entry in use: `set`, `not set` or `unreadable` — never its address or header. nil: none in use.
@@ -86,12 +89,15 @@ public protocol ChatProcesses: Sendable {
     func portInUse(_ port: Int) -> Bool
     /// Whether `spawnSupervised` hands the child a control channel (descriptor 4). A fake without one: every change restarts.
     var offersControl: Bool { get }
+    /// A TCP port on 127.0.0.1 nothing holds now, as the system gives one (nil: none).
+    func freePort() -> Int?
     /// `spawn`, plus — when `offersControl` — one end of a socketpair as the child's descriptor 4; answers the other end.
     func spawnSupervised(executable: String, arguments: [String], environment: [String: String], log: String, input: Data?) throws -> (pid: pid_t, control: Int32?)
 }
 
 extension ChatProcesses {
     public var offersControl: Bool { false }
+    public func freePort() -> Int? { ChatPortChoice.systemFreePort() }
     public func spawnSupervised(executable: String, arguments: [String], environment: [String: String], log: String, input: Data?) throws -> (pid: pid_t, control: Int32?) {
         (try spawn(executable: executable, arguments: arguments, environment: environment, log: log, input: input), nil)
     }
@@ -104,6 +110,10 @@ public struct ChatSettingsView: Equatable, Sendable {
     public var linePort: Int
     /// The dashboards' ports, which chat must never take (`ui.port`, `serve.port`).
     public var dashboards: [String: Int]
+    /// Whether the person chose each port (any value but the default — a value in the settings file, a flag). A port left
+    /// at its default that another program holds is moved to a free one (`ChatPortChoice`); a chosen one never is.
+    public var pageChosen = true
+    public var lineChosen = true
     /// `chat.remote_listen` and `chat.remote_agents` (`ChatRemoteSettings`).
     public var remoteListen: [String]
     public var remoteAgents: [String]
@@ -116,17 +126,29 @@ public struct ChatSettingsView: Equatable, Sendable {
         self.remoteListen = remoteListen; self.remoteAgents = remoteAgents; self.asks = asks
     }
 
-    public static func read(_ s: DozableSettings = .load()) -> ChatSettingsView {
+    public static func read(_ s: DozableSettings = .load(), environment: [String: String] = ProcessInfo.processInfo.environment) -> ChatSettingsView {
         // A value the schema refuses never reaches here (the default, "", applies): nothing listens on it.
         func addresses(_ k: String) -> [String] {
             let v = s.string(k) ?? ""
             return ChatRemoteSettings.problem(v) == nil ? ChatRemoteSettings.list(v) : []
         }
-        return ChatSettingsView(enabled: s.bool(SettingKey.chatEnabled), pagePort: s.int(SettingKey.chatPagePort), linePort: s.int(SettingKey.chatLinePort),
+        // A port left at its default; in a guarded run the default itself may be the test's (`DOZ_TEST_CHAT_DEFAULT_PAGE_PORT`,
+        // `…_LINE_PORT`): a test never holds a fixed port.
+        func port(_ key: String, seam: String) -> (Int, Bool) {
+            let chosen = s.resolve(key).source != .default
+            if !chosen, TestSafety.guarded(environment), let v = environment[seam].flatMap(Int.init), (1024...65_535).contains(v) { return (v, false) }
+            return (s.int(key), chosen)
+        }
+        let page = port(SettingKey.chatPagePort, seam: "DOZ_TEST_CHAT_DEFAULT_PAGE_PORT")
+        let line = port(SettingKey.chatLinePort, seam: "DOZ_TEST_CHAT_DEFAULT_LINE_PORT")
+        var v = ChatSettingsView(enabled: s.bool(SettingKey.chatEnabled), pagePort: page.0, linePort: line.0,
                                 dashboards: [SettingKey.uiPort: s.int(SettingKey.uiPort), SettingKey.servePort: s.int(SettingKey.servePort)],
                                 remoteListen: addresses(SettingKey.chatRemoteListen), remoteAgents: addresses(SettingKey.chatRemoteAgents),
                                 asks: ChatAskSettings(enabled: s.bool(SettingKey.chatAsks), maxOpen: s.int(SettingKey.chatAskMaxOpen),
                                                       expirySeconds: s.int(SettingKey.chatAskExpiry), cooldownSeconds: s.int(SettingKey.chatAskCooldown)))
+        v.pageChosen = page.1
+        v.lineChosen = line.1
+        return v
     }
 }
 
@@ -135,6 +157,8 @@ public final class ChatSupervisor: @unchecked Sendable {
     let executable: String
     let processes: ChatProcesses
     let readSettings: @Sendable () -> ChatSettingsView
+    /// Writes ports chat moved to into this Mac's settings file (a test hands its own).
+    let savePorts: @Sendable ([String: Int]) throws -> Void
     let release: String
     /// The guarded test environment the child keeps (DOZ_TEST_*), when this daemon runs guarded.
     let testEnvironment: [String: String]
@@ -196,8 +220,10 @@ public final class ChatSupervisor: @unchecked Sendable {
                 keychain: KeychainAccess = MemoryKeychain(), keychainLocked: @escaping @Sendable () -> String? = { nil },
                 unreadableRetrySeconds: Double = 60, interfaces: @escaping @Sendable () -> [ChatInterface] = { ChatInterface.current() },
                 claudeSessions: (@Sendable () -> String)? = nil,
-                readSettings: @escaping @Sendable () -> ChatSettingsView = { ChatSettingsView.read() }) {
+                readSettings: @escaping @Sendable () -> ChatSettingsView = { ChatSettingsView.read() },
+                savePorts: @escaping @Sendable ([String: Int]) throws -> Void = { try ChatPortChoice.save($0) }) {
         self.keychain = keychain
+        self.savePorts = savePorts
         self.environment = environment
         self.claudeSessions = claudeSessions ?? { ChatClaudeSessions.folder(environment: environment) }
         self.interfaces = interfaces
@@ -595,6 +621,8 @@ public final class ChatSupervisor: @unchecked Sendable {
             if !settings.enabled { policy.reset(); heldFor = nil; nextTry = nil }
             return
         }
+        // Before a server starts: a port left at its default that another program holds moves to a free one, saved.
+        if child == nil, processes.server(dataDir: paths.data).pid == nil { moveTakenDefaults() }
         // The files, generated from the settings and the records.
         let files: Files
         do {
@@ -896,6 +924,31 @@ public final class ChatSupervisor: @unchecked Sendable {
         }
     }
 
+    /// A port the person never chose (at its default) that another program holds: chat takes a free one instead — the next
+    /// above it, else the system's — and saves it in this Mac's settings, so it stays the same across restarts (sandboxes,
+    /// tokens and webhook bodies carry the line port). A chosen port that is taken is refused as before (`portHint`).
+    private func moveTakenDefaults() {
+        var avoid = Set(settings.dashboards.values).union([settings.pagePort, settings.linePort])
+        var moved: [String: Int] = [:], words: [String] = []
+        for (key, word, port, chosen) in [(SettingKey.chatPagePort, "page", settings.pagePort, settings.pageChosen),
+                                          (SettingKey.chatLinePort, "line", settings.linePort, settings.lineChosen)]
+        where !chosen && processes.portInUse(port) {
+            guard let p = ChatPortChoice.free(after: port, avoid: avoid, inUse: processes.portInUse, system: processes.freePort) else { continue }
+            moved[key] = p
+            avoid.insert(p)
+            words.append("\(word) port \(port) was taken by another program; chat uses \(p) (saved in your settings)")
+        }
+        guard !moved.isEmpty else { return }
+        do { try savePorts(moved) } catch {
+            HostLog.line("chat: a free port was found but not saved (\(error)) — the taken default stays")
+            return
+        }
+        if let p = moved[SettingKey.chatPagePort] { settings.pagePort = p; settings.pageChosen = true }
+        if let p = moved[SettingKey.chatLinePort] { settings.linePort = p; settings.lineChosen = true }
+        st.note = words.joined(separator: "; ")
+        HostLog.line("chat: " + st.note!)
+    }
+
     /// "a port is in use" said with the setting to change.
     private func portHint(_ line: String) -> String? {
         guard line.contains("a port is in use") else { return nil }
@@ -1124,5 +1177,40 @@ public enum ProcessArguments {
             i += 1
         }
         return out
+    }
+}
+
+/// A free port for chat when a default one is taken (`ChatSupervisor.moveTakenDefaults`).
+public enum ChatPortChoice {
+    /// How far above a taken default the next free port is looked for before the system is asked.
+    public static let scan = 20
+
+    /// The first port above `taken` (up to `scan`) that is free and not in `avoid`, else the system's free port.
+    public static func free(after taken: Int, avoid: Set<Int>, inUse: (Int) -> Bool, system: () -> Int?) -> Int? {
+        for p in (taken + 1)...(taken + scan) where p <= 65_535 && !avoid.contains(p) && !inUse(p) { return p }
+        if let p = system(), p >= 1024, !avoid.contains(p) { return p }
+        return nil
+    }
+
+    /// This Mac's settings file, with these port settings written (each through the schema's validation).
+    public static func save(_ ports: [String: Int]) throws {
+        var s = DozableSettings.load()
+        for (k, v) in ports.sorted(by: { $0.key < $1.key }) { s = try s.writing(k, .int(v)) }
+    }
+
+    /// A port of 127.0.0.1 the system gives (bound to 0, read back, let go).
+    public static func systemFreePort() -> Int? {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        var a = sockaddr_in()
+        a.sin_family = sa_family_t(AF_INET)
+        a.sin_port = 0
+        a.sin_addr.s_addr = inet_addr("127.0.0.1")
+        let r = withUnsafePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }
+        guard r == 0 else { return nil }
+        var out = sockaddr_in(), len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        guard withUnsafeMutablePointer(to: &out, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &len) } }) == 0 else { return nil }
+        return Int(UInt16(bigEndian: out.sin_port))
     }
 }

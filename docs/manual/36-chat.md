@@ -27,6 +27,11 @@ agents call `/agent/…` with their token, and the **line port** (`chat.line_por
 also with a token. `doz config set chat.page_port N` (or `line_port`) moves it: the daemon restarts the chat server
 within a few seconds, and `doz chat status` says it is restarting until the new server has the new port.
 
+If you never set a port and another program already uses its default (a second Dozable on this Mac, say), chat takes a
+free port instead and saves it in your settings, so it stays the same next time. `doz chat on` and `doz chat status` say
+so: "page port 8790 was taken by another program; chat uses 8792 (saved in your settings)". A port you set yourself is
+never moved: if it is taken, chat says which setting to change.
+
 **You never have a token.** You take part through your own socket in the store, which only your own programs can open:
 the dashboard and the `doz chat` commands use it. Nothing on the network acts as you.
 
