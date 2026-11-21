@@ -249,11 +249,14 @@ public final class MetricsStore: @unchecked Sendable {
             """,
             "CREATE INDEX key_use_t ON key_use(t)",
             "CREATE INDEX sessions_opened ON sessions(opened_at)",
+            "CREATE INDEX network_minute ON network(minute)",
         ]),
     ]
     public static var currentSchemaVersion: Int { migrations.last?.version ?? 0 }
 
     public let url: URL
+    /// 747: told after every write (the timeline's indexer reads the new rows from its own connection).
+    public var onWrite: (@Sendable () -> Void)?
     private var db: OpaquePointer?
     private let lock = NSLock()
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -414,6 +417,7 @@ public final class MetricsStore: @unchecked Sendable {
             buckets[minute] = b
         }
         sqlite3_exec(db, "COMMIT", nil, nil, nil)
+        if let w = onWrite { DispatchQueue.global(qos: .utility).async(execute: w) }
         return buckets
     }
 
@@ -572,6 +576,11 @@ public final class MetricsStore: @unchecked Sendable {
     }
 
     private func execute(_ sql: String, _ args: [Value]) throws {
+        try executeLocked(sql, args)
+        onWrite?()
+    }
+
+    private func executeLocked(_ sql: String, _ args: [Value]) throws {
         lock.lock(); defer { lock.unlock() }
         let st = try prepare(sql, args)
         defer { sqlite3_finalize(st) }
@@ -588,6 +597,7 @@ public final class MetricsStore: @unchecked Sendable {
     }
 
     private func insert(_ sql: String, _ args: [Value]) throws -> Int64 {
+        defer { onWrite?() }
         lock.lock(); defer { lock.unlock() }
         let st = try prepare(sql, args)
         defer { sqlite3_finalize(st) }

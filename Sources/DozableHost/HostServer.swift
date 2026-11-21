@@ -193,6 +193,8 @@ public final class HostServer: @unchecked Sendable {
         Task.detached { await server.core.recoverAfterStart() }
         // 747: the resource samples (timeline.sample_seconds).
         Task.detached { await server.core.runSampler() }
+        // 747: the timeline's derived store — caught up now (a first start fills it in the background), then kept so.
+        Task.detached { await server.core.startTimeline() }
         // The sessions held on this Mac outlive any host: this one adopts what runs (and drops stale sockets).
         Task.detached { await server.core.adoptMacSessions() }
         // 695: keep-alive always — a watcher on each Mac login with nothing using it (after the adoption: its fenced sessions

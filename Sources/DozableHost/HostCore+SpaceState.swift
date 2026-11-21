@@ -197,6 +197,7 @@ extension HostCore {
                 try MacFenceHostFS.writeAtomically(data, dir: folder, name: String(format: "%06d.json", m.count), mode: 0o600)
                 m.bytes += data.count
             }
+            TimelineSignal.poke(store.root.path, .runs)               // 747: the timeline reads the frame
             m.lastSHA = s.sha
             spaceFrames.setMemo(key, m)
             return true

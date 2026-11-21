@@ -60,6 +60,7 @@ public struct GrantStore: Sendable {
         let d = Data(((last == 0x0A ? "" : "\n") + line).utf8)
         let n = d.withUnsafeBytes { Darwin.write(fd, $0.baseAddress!, $0.count) }
         guard n == d.count else { throw HostError(.failed, "the grants' log: a short write") }
+        TimelineSignal.poke(store.root.path, .grants)             // 747: the timeline reads the new line
     }
 
     /// The log's lines, oldest first (a torn one skipped).

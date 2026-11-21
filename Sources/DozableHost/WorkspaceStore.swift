@@ -183,6 +183,7 @@ public struct WorkspaceStore: Sendable {
             throw HostError(.failed, "could not make the workspace \(record.name): \(String(cString: strerror(e)))")
         }
         placed = true
+        TimelineSignal.poke(store.root.path, .workspace)
     }
 
     /// Replace the record (atomically; every field this build does not know kept as read).
@@ -190,6 +191,7 @@ public struct WorkspaceStore: Sendable {
         try WorkspaceName.validate(record.name)
         try Self.ensureOwnedDirectory(folder(record.name))
         try MacFenceHostFS.writeAtomically(try Self.encode(record), dir: folder(record.name), name: "workspace.json")
+        TimelineSignal.poke(store.root.path, .workspace)          // 747: its runs, rooms and membership
     }
 
     public func writeBrief(_ name: String, _ text: Data) throws {
@@ -211,6 +213,7 @@ public struct WorkspaceStore: Sendable {
         let d = Data(((last == 0x0A ? "" : "\n") + Self.line(entry)).utf8)
         let n = d.withUnsafeBytes { Darwin.write(fd, $0.baseAddress!, $0.count) }
         guard n == d.count else { throw HostError(.failed, "the log of \(name): a short write") }
+        TimelineSignal.poke(store.root.path, .workspace)          // 747: the timeline reads the new line
     }
 
     /// The workspace's folder renamed (`RENAME_EXCL`) and its record's name with it.

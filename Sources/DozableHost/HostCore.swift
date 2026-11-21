@@ -38,6 +38,8 @@ public actor HostCore {
     nonisolated let hub = HostEventHub()
     /// 747: the resource samples' helper lookups and their cost (`TimelineSampler`).
     nonisolated let sampler = ResourceSampler()
+    /// 747: fills `timeline.sqlite` (the daemon only; a look in-process reads the file as it is).
+    nonisolated let timeline: TimelineIndexer?
     /// A space's frames during a run, moved by events (`SpaceStateRecorder`, `HostCore+SpaceState`).
     nonisolated let spaceFrames = SpaceStateRecorder()
     /// 599h: the tools layer's downloads (gh), once per store.
@@ -235,10 +237,14 @@ public actor HostCore {
         if readOnly {
             metrics = nil
             metricsRun = 0
+            timeline = nil
         } else {
             let m = try? MetricsStore(url: store.metrics)
             metrics = m
             metricsRun = m?.beginRun(.current(kind: "doz host", version: version)) ?? 0
+            let ix = TimelineIndexer(store: store)
+            timeline = ix
+            m?.onWrite = { [weak ix] in ix?.poke(.metrics) }
         }
     }
 
