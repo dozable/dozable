@@ -251,6 +251,19 @@ final class WebWorkspacesTests: XCTestCase {
         row.space = WorkspaceRowSpace(file: "launch-video.space.yaml", up: true)
         XCTAssertEqual(WebWorkspaceRow(row).space, WorkspaceRowSpace(file: "launch-video.space.yaml", up: true))
 
+        // When its log last moved, as the row says; another computer that may not see this Mac's sessions gets it only for a
+        // workspace with no place on this Mac (its last line may be about one).
+        row.lastAt = t
+        XCTAssertEqual(WebWorkspaceRow(row).lastAt, t)
+        var withMac = row
+        withMac.name = "mixed"
+        withMac.places = ["wsa", "@mac/wsu"]
+        row.places = ["wsa"]
+        let listing = WebWorkspaceListing(WorkspaceListing(workspaces: [row, withMac], loose: []))
+        let remote = WebWorkspaceReads.forBrowser(listing, macAllowed: false)
+        XCTAssertEqual(remote.workspaces.map(\.lastAt), [t, nil])
+        XCTAssertEqual(WebWorkspaceReads.forBrowser(listing, macAllowed: true).workspaces.map(\.lastAt), [t, t])
+
         let loose = WebLooseAgent(LooseAgent(name: "@mac/build", kind: "mac", state: "running"))
         XCTAssertEqual(loose.macSession, "build")
         XCTAssertNil(WebLooseAgent(LooseAgent(name: "lab", kind: "sandbox", state: "off")).macSession)

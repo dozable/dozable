@@ -792,6 +792,12 @@ The manual's page is `docs/manual/39-space-files.md`.
   reference, the file never opened (nil: made without one; additive, `--json` only). The dashboard draws a picture for such
   a row and a plain tile for the rest with no request (web.md, "The workspace drawn"). `SpaceUpHostTests`
   (`testTheListingSaysWhetherASpaceFileMadeAWorkspace`), `make test-cli-workspace` F1b and F5.
+- **The listing says when** (`WorkspaceRow.lastAt`): each `workspace-ls` row carries the time of its log's last line —
+  `WorkspaceStore.logPage(name, limit: 1)`, one 64 KiB block read backwards per workspace, never a guest call (nil: no
+  log yet; additive, `--json` only). The dashboard's Workspaces page shows it as the last activity and sorts by it; another
+  computer that may not see this Mac's sessions gets none for a workspace with a place on this Mac
+  (`WebWorkspaceReads.forBrowser`). `SpaceUpHostTests.testTheListingSaysWhenItsLogLastMoved`, `WebWorkspacesTests`,
+  `make test-cli-workspace` F1c.
 - **The space file, read and saved** (`SpaceRecordFile`, kind `space`: the brief's rules, and the text must start with
   `doz: space/3` or `doz: space-defaults/3` — its first line that is not blank or a comment — before and after a save).
   `workspace-space` (read-only, in-process with no daemon; `doz workspace show W --space [--json]`) answers `{workspace,

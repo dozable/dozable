@@ -68,6 +68,8 @@ public enum WebWorkspaceReads {
         out.hidden = l.loose.count - out.loose.count
         for i in out.workspaces.indices {
             out.workspaces[i].working = nil
+            // Its last line may be about a session on this Mac: when it was written is not this browser's to see either.
+            if out.workspaces[i].places.contains(where: { $0.hasPrefix(MacPlace.name) }) { out.workspaces[i].lastAt = nil }
             // A session's name on this Mac is not this browser's to see.
             out.workspaces[i].places = out.workspaces[i].places.filter { !$0.hasPrefix(MacPlace.name) }
         }

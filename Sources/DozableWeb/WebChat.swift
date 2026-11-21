@@ -23,6 +23,8 @@ public enum WebChatRoute: Equatable, Sendable {
     case unread([WebChatMarker])
     /// GET protocol — `/api/protocol`.
     case protocolDescription
+    /// GET asks — the open asks of every room the person is in (`/api/asks?state=open`): a workspace's Home lists its rooms'.
+    case asks
     /// GET rooms/ROOM/messages?after=&before=&limit= — one page of a room's log.
     case messages(room: String, after: Int64?, before: Int64?, limit: Int?)
     /// POST rooms/ROOM/messages — the person posts (a strict body, re-encoded).
@@ -48,7 +50,7 @@ public enum WebChatRoute: Equatable, Sendable {
     /// Only the reads; every POST changes something (and is refused to a `serve.chat = read` browser).
     public var isSafe: Bool {
         switch self {
-        case .status, .state, .presence, .unread, .protocolDescription, .messages, .stream, .file: true
+        case .status, .state, .presence, .unread, .protocolDescription, .asks, .messages, .stream, .file: true
         case .post, .upload, .react, .edit, .delete, .reveal, .typing: false
         }
     }
@@ -67,6 +69,7 @@ public enum WebChatRoute: Equatable, Sendable {
         case .presence: "presence"
         case .unread: "unread"
         case .protocolDescription: "protocol"
+        case .asks: "asks"
         case .messages: "messages"
         case .post: "post"
         case .stream: "stream"
@@ -154,6 +157,7 @@ public enum WebChatRoute: Equatable, Sendable {
             case "state": return q.isEmpty ? .state : nil
             case "presence": return q.isEmpty ? .presence : nil
             case "protocol": return q.isEmpty ? .protocolDescription : nil
+            case "asks": return q.isEmpty ? .asks : nil
             case "stream": return q.isEmpty && method == .get ? .stream : nil
             case "unread": return WebChatMarker.parse(q).map(WebChatRoute.unread)
             default: return nil
@@ -234,6 +238,7 @@ public enum WebChatRoute: Equatable, Sendable {
         case .state: return "/api/state"
         case .presence: return "/api/presence"
         case .protocolDescription: return "/api/protocol"
+        case .asks: return "/api/asks?state=open"
         case .stream: return "/api/stream"
         case .unread(let ms): return "/api/unread" + (ms.isEmpty ? "" : "?" + ms.map { "\($0.room)=\($0.seq)" }.joined(separator: "&"))
         case .messages(let room, let after, let before, let limit):
@@ -598,7 +603,7 @@ extension DozableWebServer {
             guard body.count <= WebChatProxy.maximumUpload else { throw WebRejection.chatFileTooLarge }
             upstreamBody = body
             contentType = "application/octet-stream"
-        case .status, .state, .presence, .unread, .protocolDescription, .messages, .stream, .file:
+        case .status, .state, .presence, .unread, .protocolDescription, .asks, .messages, .stream, .file:
             break
         }
         let isFile: Bool = if case .file = route { true } else { false }
@@ -624,7 +629,7 @@ extension DozableWebServer {
             // The closed set as the records say it: the page disables a closed room's composer (the server refuses anyway).
             d = WebChatProjection.withClosed(d, chat.closedRooms())
             return .response(200, [jsonType], d)
-        case .presence:
+        case .presence, .asks:
             guard let d = WebChatProjection.passThrough(answer.body, array: true) else { throw bad }
             return .response(200, [jsonType], d)
         case .unread, .protocolDescription:

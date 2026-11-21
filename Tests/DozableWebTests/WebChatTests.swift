@@ -19,6 +19,7 @@ final class WebChatRouteTests: XCTestCase {
         XCTAssertEqual(route(.get, "/api/v1/chat/state"), .state)
         XCTAssertEqual(route(.get, "/api/v1/chat/presence"), .presence)
         XCTAssertEqual(route(.get, "/api/v1/chat/protocol"), .protocolDescription)
+        XCTAssertEqual(route(.get, "/api/v1/chat/asks"), .asks)
         XCTAssertEqual(route(.get, "/api/v1/chat/stream"), .stream)
         XCTAssertEqual(route(.get, "/api/v1/chat/unread"), .unread([]))
         XCTAssertEqual(route(.get, "/api/v1/chat/unread?room1=4&general=0"), .unread([WebChatMarker(room: "room1", seq: 4), WebChatMarker(room: "general", seq: 0)]))
@@ -37,6 +38,8 @@ final class WebChatRouteTests: XCTestCase {
             (.post, "/api/v1/chat/files"), (.get, "/api/v1/chat/typing"), (.get, "/api/v1/chat/rooms/room1/reactions"),
             (.post, "/api/v1/chat/rooms/room1/messages/0f8fad5b-d9cb-469f-a165-70867728950e/pin"),
             (.post, "/api/v1/chat/state"), (.delete, "/api/v1/chat/rooms/room1/messages"), (.post, "/api/v1/chat/stream"),
+            (.get, "/api/v1/chat/asks?state=open"), (.get, "/api/v1/chat/asks?state=all"), (.post, "/api/v1/chat/asks"),
+            (.get, "/api/v1/chat/asks/x"), (.get, "/api/v1/chat/rooms/room1/asks"),
             (.get, "/api/v1/chat/state?x=1"), (.get, "/api/v1/chat/stream?after=1"), (.post, "/api/v1/chat/rooms/room1/messages?x=1"),
             (.get, "/api/v1/chat/rooms/Room1/messages"), (.get, "/api/v1/chat/rooms/-x/messages"), (.get, "/api/v1/chat/rooms/../messages"),
             (.get, "/api/v1/chat/rooms/" + String(repeating: "a", count: 65) + "/messages"),
@@ -64,10 +67,15 @@ final class WebChatRouteTests: XCTestCase {
         XCTAssertEqual(WebChatRoute.unread([WebChatMarker(room: "general", seq: 9)]).upstreamTarget, "/api/unread?general=9")
         XCTAssertEqual(WebChatRoute.file(id: "0123456789abcdef", name: "my notes.pdf").upstreamTarget, "/files/0123456789abcdef/my%20notes.pdf")
         XCTAssertEqual(WebChatRoute.post(room: "general").upstreamTarget, "/api/rooms/general/messages")
+        // The open asks: one fixed upstream call, nothing of the browser's request in it; a read.
+        XCTAssertEqual(WebChatRoute.asks.upstreamTarget, "/api/asks?state=open")
+        XCTAssertTrue(WebChatRoute.asks.isSafe)
+        XCTAssertFalse(WebChatRoute.asks.takesActionID)
+        XCTAssertEqual(WebChatRoute.asks.label, "asks")
     }
 
     func testEveryChatRouteIsKindChatAndARemoteBrowserIsRefused() {
-        let all: [WebChatRoute] = [.status, .state, .presence, .unread([]), .protocolDescription, .messages(room: "r", after: nil, before: nil, limit: nil),
+        let all: [WebChatRoute] = [.status, .state, .presence, .unread([]), .protocolDescription, .asks, .messages(room: "r", after: nil, before: nil, limit: nil),
                                    .post(room: "r"), .stream, .file(id: "0123456789abcdef", name: "a")]
         for c in all {
             XCTAssertEqual(WebExposure.kind(.chat(c)), .chat)

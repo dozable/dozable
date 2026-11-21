@@ -10,6 +10,7 @@ import DozableHost
 //
 //  F1. up; doz workspace state --json: the facts known, one item per thing the file declares, a sha; the worker working
 //  F1b. ls --json: the row's space (the file, up); none on a workspace made without one (F5: not up after down)
+//  F1c. ls --json: each row's lastAt is its log's last line (workspace log --json's newest)
 //  F2. the frames of the open run: written while it runs (doz workspace runs --frames)
 //  F3. a permission prompt: the agent waiting, attention `permission` (the program's message for this Mac's owner); no frame
 //      holds the message
@@ -110,6 +111,12 @@ func cliSpaceStateRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     let plain = l1?.workspaces.filter { (try? ws.read($0.name)).flatMap { $0 }.flatMap(SpaceRecordRef.of) == nil } ?? []
     check(!plain.isEmpty && plain.allSatisfy { $0.space == nil } && l1?.workspaces.filter { $0.space != nil }.allSatisfy { $0.space!.file.hasSuffix(".space.yaml") } == true,
           "F1b …a workspace made without a space file carries none (\(plain.count) such)")
+    // F1c. ls --json: when each workspace's log last moved — the newest line `workspace log` prints
+    // (read after the listing: a line written in between is newer, so lastAt is one of its lines)
+    let lastAt = l1?.workspaces.first { $0.name == "sf" }?.lastAt
+    let lines = h.json(["workspace", "log", "sf"], [WorkspaceLogEntry].self)?.map(\.at) ?? []
+    check(lastAt != nil && lines.contains { abs($0.timeIntervalSince(lastAt!)) < 0.001 },
+          "F1c ls --json: sf's lastAt is its log's last line (\(String(describing: lastAt)) · newest \(String(describing: lines.max())))")
 
     // F2. frames of the open run
     let framesFolder = WorkspaceStore.resolved(ws.folder("sf")) + "/runs/\(runID)/frames"

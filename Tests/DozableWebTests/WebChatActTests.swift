@@ -105,7 +105,7 @@ final class WebChatActRouteTests: XCTestCase {
     /// serve.chat: off refuses every chat route to another computer; read lets it read and refuses every change; write is
     /// everything. The Mac's own browser has chat whatever the setting says.
     func testServeChatDecides() {
-        let reads: [WebChatRoute] = [.status, .state, .presence, .unread([]), .protocolDescription, .messages(room: "r", after: nil, before: nil, limit: nil),
+        let reads: [WebChatRoute] = [.status, .state, .presence, .unread([]), .protocolDescription, .asks, .messages(room: "r", after: nil, before: nil, limit: nil),
                                      .stream, .file(id: "0123456789abcdef", name: "a")]
         let writes: [WebChatRoute] = [.post(room: "r"), .upload(name: "a"), .react(room: "r"), .edit(room: "r", id: Self.id),
                                       .delete(room: "r", id: Self.id), .reveal(room: "r", id: Self.id), .typing]
@@ -392,7 +392,7 @@ final class WebChatServeTests: XCTestCase {
     func testOffIsTheDefaultAndGivesNothing() async throws {
         try await start(chat: nil)
         let (cookie, csrf) = try await admit()
-        for p in ["/api/v1/chat/status", "/api/v1/chat/state", "/api/v1/chat/stream"] {
+        for p in ["/api/v1/chat/status", "/api/v1/chat/state", "/api/v1/chat/stream", "/api/v1/chat/asks"] {
             let r = try req(p, ["Cookie": cookie])
             XCTAssertEqual(r.status, 403, p)
             XCTAssertTrue(r.text.contains("chat-remote"), r.text)
@@ -413,6 +413,10 @@ final class WebChatServeTests: XCTestCase {
                        "the page disables its composer")
         XCTAssertEqual(try req("/api/v1/chat/state", ["Cookie": cookie]).status, 200)
         XCTAssertEqual(try req("/api/v1/chat/rooms/general/messages", ["Cookie": cookie]).status, 200)
+        // The open asks are a read like the messages: the one fixed upstream call.
+        let asks = try req("/api/v1/chat/asks", ["Cookie": cookie])
+        XCTAssertEqual(asks.status, 200, asks.text)
+        XCTAssertTrue(socket!.asked.contains { $0.head.hasPrefix("GET /api/asks?state=open ") }, "the fixed upstream call")
         for (name, r) in try writes(cookie, csrf) {
             XCTAssertEqual(r.status, 403, name)
             XCTAssertTrue(r.text.contains("chat-read-only"), "\(name): \(r.text)")

@@ -1885,10 +1885,14 @@ public struct WorkspaceRow: Codable, Equatable, Sendable {
     /// The space file that made it (its name) and whether it is up — from the record's `space` (the file is never opened;
     /// nil: made without one). Additive; `--json` only (Home and the sidebar draw its picture, or a plain tile with none).
     public var space: WorkspaceRowSpace?
+    /// When its log's last line was written (nil: no log yet) — one block of the log read backwards per workspace, never a
+    /// guest call. Additive; `--json` only (the dashboard's Workspaces page shows and sorts by it).
+    public var lastAt: Date?
     public init(name: String, state: String, driver: String, agents: Int, room: String?, manager: WorkspaceManagerRow? = nil,
-                working: [String]? = nil, folders: [String]? = nil, places: [String]? = nil, space: WorkspaceRowSpace? = nil) {
+                working: [String]? = nil, folders: [String]? = nil, places: [String]? = nil, space: WorkspaceRowSpace? = nil,
+                lastAt: Date? = nil) {
         self.name = name; self.state = state; self.driver = driver; self.agents = agents; self.room = room; self.manager = manager
-        self.working = working; self.folders = folders; self.places = places; self.space = space
+        self.working = working; self.folders = folders; self.places = places; self.space = space; self.lastAt = lastAt
     }
 }
 

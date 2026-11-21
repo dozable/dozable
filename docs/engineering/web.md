@@ -393,7 +393,8 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   owner's socket built from checked values — never a proxy. GET `status` (no upstream: `chat.enabled`, the daemon's lock and
   `supervisor.json` → `off | no-daemon | starting | running | failing`); GET `state` (`/api/state` PROJECTED: rooms, archived,
   participants {name, kind}, default_room, reactions, version — `token_service`, `need_token`, `https_url`, `apps`,
-  `release` dropped); GET `presence`, `unread?ROOM=SEQ…` (≤ 256), `protocol`, `rooms/ROOM/messages?after&before&limit`
+  `release` dropped); GET `presence`, `unread?ROOM=SEQ…` (≤ 256), `protocol`, `asks` (no query: the one fixed call
+  `/api/asks?state=open` — the open asks of the person's rooms, a workspace's Home), `rooms/ROOM/messages?after&before&limit`
   (`X-More` copied back — the only upstream header that ever is); POST `rooms/ROOM/messages` (CSRF and the unsafe-request
   checks; a strict body `{content ≤ 64 KiB, to? ≤ 32 names, re_msg_id?}` re-encoded; 80 KiB — `bodyLimit(for:)`, every other
   route keeps 16 KiB); GET `stream`; GET `files/ID/NAME` (the one path whose name may carry `%20`, parsed before the
@@ -415,7 +416,7 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   pinned by a test) — each refused at once and the connection closed. The read stops one byte past the limit
   (`bodyLimit`: 20 MiB + 1; chunked included) → 413 `chat-file-too-large`. The answer is projected (`uploaded`: id, name,
   type, size, url — never the server's `path`, a folder of this Mac).
-- **Answers**: JSON as `application/json`; the message, presence, unread and protocol bodies pass through (the protocol's
+- **Answers**: JSON as `application/json`; the message, presence, asks, unread and protocol bodies pass through (the protocol's
   view for the person; its human API has no token field) only when they ARE JSON of the expected kind; an upstream refusal is
   re-wrapped `{error:{code:"chat", message}}` (≤ 300 characters); no socket → 503 `chat-off` (naming `doz chat on`) or
   `chat-not-ready` (naming `doz chat status`). Calls run on their own queue, at most 8 at once — never the event loop.

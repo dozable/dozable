@@ -1046,7 +1046,7 @@ starting the daemon. A sandbox or session is in one workspace at most; `doz rena
 workspace's record along. `doz ls --json` and `doz sessions NAME|@mac --json` carry `workspace` on an adopted one.
 `doz workspace ls --json` carries each workspace's `folders`, its `places` (where its agents that have not ended run, as
 you type them: `wsa`, `@mac/wsu`), `space` (`{file, up}` — the space file that made it and whether it is up; absent for
-one made without a file) and, from a running daemon, `working` (the agents whose program is working now); `show
+one made without a file), `lastAt` (when its log's last line was written; absent with no log) and, from a running daemon, `working` (the agents whose program is working now); `show
 --json` carries each agent's `startedBy` (`you` or `doz`), a sandbox place's `session` (a worker sharing a sandbox) and
 its `activity` (`working`, `idle`, `blocked` or `error`) while it runs — `working` and `activity` from what the daemon
 already knows, absent when answered with no daemon; the text is unchanged. Exit
