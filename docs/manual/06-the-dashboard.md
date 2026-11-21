@@ -154,7 +154,8 @@ tabs: **Home**, **Room**, **Agents**, **Network & secrets**, **Folders & points*
 **Settings** are marked **coming** and say what they will hold.
 
 **Home** shows the workspace at a glance. A workspace a space file made is drawn from its file and its live state, across the
-page; click the picture to see it in the whole window (**Esc** closes it; see [The workspace drawn](39-space-files.md#the-workspace-drawn)).
+page; click the picture (or **Edit the space** beside it) to open the file in the space editor, the whole window (see
+[Editing a space in the dashboard](39-space-files.md#editing-a-space-in-the-dashboard)).
 Below it, cards, each heading a link to the tab that holds the whole of it: **Needs you** first, only when something waits
 — what it still lacks while it is setting up, with **Start** and `doz workspace start NAME`; an open ask in one of its rooms,
 with **Answer in the room** (asks are answered in the room); an agent that is blocked or ended in error —, then **State and
