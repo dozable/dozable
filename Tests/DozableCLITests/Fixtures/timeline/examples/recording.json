@@ -1,0 +1,1269 @@
+{
+  "timeline": 1,
+  "type": "recording",
+  "catalog": {
+    "timeline": 1,
+    "type": "catalog",
+    "hosts": [
+      "host-a"
+    ],
+    "names": [
+      {
+        "scope": "host:host-a",
+        "label": "host-a"
+      },
+      {
+        "scope": "host:host-a/workspace:example-space",
+        "label": "example-space",
+        "space": true
+      },
+      {
+        "scope": "host:host-a/workspace:example-space/room:rm_3fa2c1",
+        "label": "team"
+      },
+      {
+        "scope": "host:host-a/workspace:docs-site",
+        "label": "docs-site",
+        "aliases": [
+          "host:host-a/workspace:docs"
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "name": "actions",
+        "title": "Actions (metrics: events)",
+        "status": "kept",
+        "at": [
+          "host",
+          "workspace",
+          "sandbox",
+          "session"
+        ],
+        "kinds": [
+          {
+            "name": "action.ok",
+            "title": "An action that finished",
+            "span": true
+          },
+          {
+            "name": "action.error",
+            "title": "An action that failed",
+            "span": true
+          },
+          {
+            "name": "action.open",
+            "title": "An action begun, not yet finished",
+            "span": true
+          },
+          {
+            "name": "step.ok",
+            "title": "A step of an action",
+            "span": true
+          },
+          {
+            "name": "step.error",
+            "title": "A step that failed",
+            "span": true
+          },
+          {
+            "name": "step.open",
+            "title": "A step begun",
+            "span": true
+          }
+        ],
+        "series": [
+          {
+            "name": "action.duration",
+            "unit": "ms",
+            "type": "gauge",
+            "at": "workspace",
+            "title": "Action duration"
+          }
+        ],
+        "attrs": [
+          "action",
+          "phase_before",
+          "phase_after",
+          "image",
+          "bytes",
+          "parent",
+          "error"
+        ],
+        "sensitive": [
+          "error"
+        ],
+        "defaultRetention": {
+          "events": 30,
+          "rollups": {
+            "1m": 30,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "sessions",
+        "title": "Sessions (metrics: sessions)",
+        "status": "kept",
+        "at": [
+          "host",
+          "workspace",
+          "sandbox",
+          "session"
+        ],
+        "kinds": [
+          {
+            "name": "session",
+            "title": "A session, open to end",
+            "span": true
+          },
+          {
+            "name": "session.open",
+            "title": "Opening (open_ms long)",
+            "span": true
+          },
+          {
+            "name": "session.end",
+            "title": "Ended"
+          }
+        ],
+        "series": [],
+        "attrs": [
+          "program",
+          "image",
+          "exit_code",
+          "open_ms",
+          "first_attach_ms",
+          "first_screen_ms"
+        ],
+        "defaultRetention": {
+          "events": 30,
+          "rollups": {
+            "1m": 30,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "daemon",
+        "title": "Daemon runs (metrics: runs)",
+        "status": "kept",
+        "at": [
+          "host"
+        ],
+        "kinds": [
+          {
+            "name": "daemon.run",
+            "title": "The daemon, from its start to the next",
+            "span": true
+          },
+          {
+            "name": "daemon.start",
+            "title": "Started"
+          },
+          {
+            "name": "daemon.stop",
+            "title": "Stopped",
+            "notYet": true
+          }
+        ],
+        "series": [],
+        "attrs": [
+          "run_kind",
+          "app_version",
+          "build",
+          "machine",
+          "chip",
+          "macos",
+          "pid"
+        ],
+        "sensitive": [
+          "machine"
+        ],
+        "defaultRetention": {
+          "events": 30,
+          "rollups": {
+            "1m": 30,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "network",
+        "title": "Network, per minute (metrics: network)",
+        "status": "kept",
+        "at": [
+          "sandbox"
+        ],
+        "kinds": [],
+        "series": [
+          {
+            "name": "net.allowed",
+            "unit": "count",
+            "type": "counter",
+            "at": "sandbox",
+            "title": "Connections allowed"
+          },
+          {
+            "name": "net.denied",
+            "unit": "count",
+            "type": "counter",
+            "at": "sandbox",
+            "title": "Connections denied"
+          },
+          {
+            "name": "net.failed",
+            "unit": "count",
+            "type": "counter",
+            "at": "sandbox",
+            "title": "Connections failed"
+          },
+          {
+            "name": "net.bytes_up",
+            "unit": "bytes",
+            "type": "counter",
+            "at": "sandbox",
+            "title": "Bytes up"
+          },
+          {
+            "name": "net.bytes_down",
+            "unit": "bytes",
+            "type": "counter",
+            "at": "sandbox",
+            "title": "Bytes down"
+          }
+        ],
+        "attrs": [],
+        "defaultRetention": {
+          "events": 30,
+          "rollups": {
+            "1m": 30,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "workspace",
+        "title": "Workspace log",
+        "status": "kept",
+        "at": [
+          "workspace",
+          "sandbox",
+          "session",
+          "room",
+          "run"
+        ],
+        "kinds": [
+          {
+            "name": "workspace.created",
+            "title": "created"
+          },
+          {
+            "name": "workspace.renamed",
+            "title": "renamed"
+          },
+          {
+            "name": "workspace.slept",
+            "title": "slept"
+          },
+          {
+            "name": "workspace.woke",
+            "title": "woke"
+          },
+          {
+            "name": "workspace.finished",
+            "title": "finished"
+          },
+          {
+            "name": "workspace.reopened",
+            "title": "reopened"
+          },
+          {
+            "name": "workspace.archived",
+            "title": "archived"
+          },
+          {
+            "name": "workspace.restored",
+            "title": "restored"
+          },
+          {
+            "name": "workspace.run-opened",
+            "title": "run opened"
+          },
+          {
+            "name": "workspace.run-closed",
+            "title": "run closed"
+          },
+          {
+            "name": "workspace.run-archive-failed",
+            "title": "run archive failed"
+          },
+          {
+            "name": "workspace.worker-added",
+            "title": "worker added"
+          },
+          {
+            "name": "workspace.space-up",
+            "title": "space up"
+          },
+          {
+            "name": "workspace.space-down",
+            "title": "space down"
+          },
+          {
+            "name": "workspace.space-purged",
+            "title": "space purged"
+          }
+        ],
+        "kindPattern": "^workspace\\.[a-z][a-z0-9-]*$",
+        "series": [],
+        "attrs": [
+          "action",
+          "by",
+          "agent",
+          "place",
+          "room",
+          "run",
+          "from",
+          "to",
+          "reason",
+          "isolation",
+          "added",
+          "removed",
+          "bytes",
+          "folder"
+        ],
+        "sensitive": [
+          "reason",
+          "folder"
+        ],
+        "people": [
+          "by"
+        ],
+        "defaultRetention": {
+          "events": 30,
+          "rollups": {
+            "1m": 30,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "grants",
+        "title": "Permission decisions (grants log)",
+        "status": "kept",
+        "at": [
+          "workspace",
+          "sandbox",
+          "session"
+        ],
+        "kinds": [
+          {
+            "name": "decision.allow",
+            "title": "Allowed"
+          },
+          {
+            "name": "decision.ask",
+            "title": "Asked a person (refused today)"
+          },
+          {
+            "name": "decision.never",
+            "title": "Refused (never)"
+          },
+          {
+            "name": "grant.add",
+            "title": "A grant given"
+          },
+          {
+            "name": "grant.revoke",
+            "title": "A grant revoked"
+          },
+          {
+            "name": "grant.request",
+            "title": "A request recorded"
+          },
+          {
+            "name": "ceiling.set",
+            "title": "A ceiling set"
+          }
+        ],
+        "series": [],
+        "attrs": [
+          "action",
+          "by",
+          "subject",
+          "perm",
+          "role",
+          "answer",
+          "scope",
+          "until",
+          "op",
+          "grant",
+          "reason"
+        ],
+        "sensitive": [
+          "reason"
+        ],
+        "people": [
+          "by"
+        ],
+        "defaultRetention": {
+          "events": 90,
+          "rollups": {
+            "1m": 90,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "runs",
+        "title": "Workspace runs and space frames",
+        "status": "kept",
+        "at": [
+          "run"
+        ],
+        "kinds": [
+          {
+            "name": "run",
+            "title": "A run, start (or reopen) to finish (or archive)",
+            "span": true
+          },
+          {
+            "name": "run.open",
+            "title": "Started or reopened"
+          },
+          {
+            "name": "run.frame",
+            "title": "A frame: the space's state, recorded"
+          },
+          {
+            "name": "run.close",
+            "title": "Finished or archived"
+          }
+        ],
+        "series": [],
+        "attrs": [
+          "how",
+          "closed_by",
+          "archived",
+          "frames",
+          "frames_capped",
+          "legacy",
+          "label"
+        ],
+        "defaultRetention": {
+          "events": null,
+          "rollups": {
+            "1m": null,
+            "1h": null,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "chat",
+        "title": "Chat times and Ask outcomes",
+        "status": "kept",
+        "at": [
+          "room"
+        ],
+        "kinds": [
+          {
+            "name": "chat.message",
+            "title": "A message sent (its time, never its text)"
+          },
+          {
+            "name": "chat.queued",
+            "title": "A message queued (one per recipient)"
+          },
+          {
+            "name": "chat.held",
+            "title": "A message held (one per recipient)"
+          },
+          {
+            "name": "chat.delivered",
+            "title": "A message delivered (one per recipient)"
+          },
+          {
+            "name": "chat.started",
+            "title": "A message started (one per recipient)"
+          },
+          {
+            "name": "chat.answered",
+            "title": "A message answered (one per recipient)"
+          },
+          {
+            "name": "chat.failed",
+            "title": "A message failed (one per recipient)"
+          },
+          {
+            "name": "chat.cancelled",
+            "title": "A message cancelled (one per recipient)"
+          },
+          {
+            "name": "chat.woken",
+            "title": "A message woken (one per recipient)"
+          },
+          {
+            "name": "chat.handover",
+            "title": "A message handed over"
+          },
+          {
+            "name": "chat.edited",
+            "title": "A message edited"
+          },
+          {
+            "name": "chat.deleted",
+            "title": "A message deleted"
+          },
+          {
+            "name": "ask.open",
+            "title": "An Ask, open to its outcome",
+            "span": true
+          },
+          {
+            "name": "ask.decided",
+            "title": "An Ask decided"
+          },
+          {
+            "name": "ask.expired",
+            "title": "An Ask expired"
+          },
+          {
+            "name": "ask.withdrawn",
+            "title": "An Ask withdrawn"
+          }
+        ],
+        "series": [],
+        "attrs": [
+          "from",
+          "to",
+          "to_count",
+          "msg_kind",
+          "private",
+          "re_msg_id",
+          "seq",
+          "ms_to_deliver",
+          "decider",
+          "option",
+          "declined",
+          "no_decider"
+        ],
+        "people": [
+          "from",
+          "to",
+          "decider"
+        ],
+        "defaultRetention": {
+          "events": 30,
+          "rollups": {
+            "1m": 30,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "daemon-events",
+        "title": "The daemon's event stream",
+        "status": "not-yet",
+        "at": [
+          "host",
+          "workspace",
+          "sandbox",
+          "session"
+        ],
+        "kinds": [
+          {
+            "name": "daemon.event",
+            "title": "An event"
+          }
+        ],
+        "series": [],
+        "attrs": [
+          "event",
+          "subject"
+        ],
+        "defaultRetention": {
+          "events": 7,
+          "rollups": {
+            "1m": 30,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "egress",
+        "title": "Egress, per connection",
+        "status": "not-yet",
+        "at": [
+          "sandbox",
+          "session"
+        ],
+        "kinds": [
+          {
+            "name": "egress.allowed",
+            "title": "A connection allowed",
+            "span": true
+          },
+          {
+            "name": "egress.denied",
+            "title": "A connection denied"
+          },
+          {
+            "name": "egress.failed",
+            "title": "A connection failed"
+          }
+        ],
+        "series": [
+          {
+            "name": "egress.allowed",
+            "unit": "count",
+            "type": "counter",
+            "at": "sandbox",
+            "title": "Connections allowed"
+          },
+          {
+            "name": "egress.denied",
+            "unit": "count",
+            "type": "counter",
+            "at": "sandbox",
+            "title": "Connections denied"
+          },
+          {
+            "name": "egress.bytes",
+            "unit": "bytes",
+            "type": "counter",
+            "at": "sandbox",
+            "title": "Bytes"
+          }
+        ],
+        "attrs": [
+          "dest",
+          "port",
+          "protocol",
+          "bytes_up",
+          "bytes_down",
+          "rule"
+        ],
+        "sensitive": [
+          "dest",
+          "rule"
+        ],
+        "defaultRetention": {
+          "events": 7,
+          "rollups": {
+            "1m": 7,
+            "1h": 90,
+            "1d": 365
+          }
+        }
+      },
+      {
+        "name": "net-permissions",
+        "title": "Sandbox network permissions",
+        "status": "not-yet",
+        "at": [
+          "sandbox"
+        ],
+        "kinds": [
+          {
+            "name": "net.permit",
+            "title": "A permission added"
+          },
+          {
+            "name": "net.unpermit",
+            "title": "A permission removed"
+          }
+        ],
+        "series": [],
+        "attrs": [
+          "permission",
+          "by",
+          "reason"
+        ],
+        "sensitive": [
+          "permission",
+          "reason"
+        ],
+        "people": [
+          "by"
+        ],
+        "defaultRetention": {
+          "events": 7,
+          "rollups": {
+            "1m": 7,
+            "1h": 90,
+            "1d": 365
+          }
+        }
+      },
+      {
+        "name": "resources",
+        "title": "CPU, memory and disk samples",
+        "status": "not-yet",
+        "at": [
+          "host",
+          "sandbox"
+        ],
+        "kinds": [],
+        "series": [
+          {
+            "name": "cpu",
+            "unit": "%",
+            "type": "gauge",
+            "at": "sandbox",
+            "title": "CPU"
+          },
+          {
+            "name": "memory",
+            "unit": "bytes",
+            "type": "gauge",
+            "at": "sandbox",
+            "title": "Memory"
+          },
+          {
+            "name": "disk",
+            "unit": "bytes",
+            "type": "gauge",
+            "at": "sandbox",
+            "title": "Disk"
+          }
+        ],
+        "attrs": [],
+        "defaultRetention": {
+          "events": 7,
+          "rollups": {
+            "1m": 7,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "keys",
+        "title": "Key and proxy use",
+        "status": "not-yet",
+        "at": [
+          "sandbox",
+          "session"
+        ],
+        "kinds": [
+          {
+            "name": "key.use",
+            "title": "A key used (by name, never its value)"
+          },
+          {
+            "name": "proxy.use",
+            "title": "The proxy used"
+          }
+        ],
+        "series": [
+          {
+            "name": "keys.uses",
+            "unit": "count",
+            "type": "counter",
+            "at": "sandbox",
+            "title": "Key uses"
+          }
+        ],
+        "attrs": [
+          "key",
+          "via",
+          "ok"
+        ],
+        "defaultRetention": {
+          "events": 30,
+          "rollups": {
+            "1m": 30,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      },
+      {
+        "name": "chat-metrics",
+        "title": "Chat metrics",
+        "status": "not-yet",
+        "at": [
+          "room"
+        ],
+        "kinds": [],
+        "series": [
+          {
+            "name": "chat.messages",
+            "unit": "count",
+            "type": "counter",
+            "at": "room",
+            "title": "Messages"
+          },
+          {
+            "name": "chat.delivery",
+            "unit": "ms",
+            "type": "gauge",
+            "at": "room",
+            "title": "Delivery time"
+          }
+        ],
+        "attrs": [],
+        "defaultRetention": {
+          "events": 30,
+          "rollups": {
+            "1m": 30,
+            "1h": 365,
+            "1d": null
+          }
+        }
+      }
+    ],
+    "retention": [
+      {
+        "source": "actions",
+        "events": 30,
+        "rollups": {
+          "1m": 30,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "events": 1794906000000,
+          "rollups": {
+            "1m": 1794906000000,
+            "1h": 1794906000000,
+            "1d": 1794906000000
+          }
+        }
+      },
+      {
+        "source": "sessions",
+        "events": 30,
+        "rollups": {
+          "1m": 30,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "events": 1794906000000,
+          "rollups": {
+            "1m": 1794906000000,
+            "1h": 1794906000000,
+            "1d": 1794906000000
+          }
+        }
+      },
+      {
+        "source": "daemon",
+        "events": 30,
+        "rollups": {
+          "1m": 30,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "events": 1794906000000,
+          "rollups": {
+            "1m": 1794906000000,
+            "1h": 1794906000000,
+            "1d": 1794906000000
+          }
+        }
+      },
+      {
+        "source": "network",
+        "events": 30,
+        "rollups": {
+          "1m": 30,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "events": 1794906000000,
+          "rollups": {
+            "1m": 1794906000000,
+            "1h": 1794906000000,
+            "1d": 1794906000000
+          }
+        }
+      },
+      {
+        "source": "workspace",
+        "events": 30,
+        "rollups": {
+          "1m": 30,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "events": 1794906000000,
+          "rollups": {
+            "1m": 1794906000000,
+            "1h": 1794906000000,
+            "1d": 1794906000000
+          }
+        }
+      },
+      {
+        "source": "grants",
+        "events": 90,
+        "rollups": {
+          "1m": 90,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "events": 1794906000000,
+          "rollups": {
+            "1m": 1794906000000,
+            "1h": 1794906000000,
+            "1d": 1794906000000
+          }
+        }
+      },
+      {
+        "source": "runs",
+        "events": null,
+        "rollups": {
+          "1m": null,
+          "1h": null,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "events": 1794906000000,
+          "rollups": {
+            "1m": 1794906000000,
+            "1h": 1794906000000,
+            "1d": 1794906000000
+          }
+        }
+      },
+      {
+        "source": "chat",
+        "events": 14,
+        "rollups": {
+          "1m": 30,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "user",
+        "keptFrom": {
+          "events": 1794906000000,
+          "rollups": {
+            "1m": 1794906000000,
+            "1h": 1794906000000,
+            "1d": 1794906000000
+          }
+        }
+      },
+      {
+        "source": "daemon-events",
+        "events": 7,
+        "rollups": {
+          "1m": 30,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "rollups": {}
+        }
+      },
+      {
+        "source": "egress",
+        "events": 7,
+        "rollups": {
+          "1m": 7,
+          "1h": 90,
+          "1d": 365
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "rollups": {}
+        }
+      },
+      {
+        "source": "net-permissions",
+        "events": 7,
+        "rollups": {
+          "1m": 7,
+          "1h": 90,
+          "1d": 365
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "rollups": {}
+        }
+      },
+      {
+        "source": "resources",
+        "events": 7,
+        "rollups": {
+          "1m": 7,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "rollups": {}
+        }
+      },
+      {
+        "source": "keys",
+        "events": 30,
+        "rollups": {
+          "1m": 30,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "rollups": {}
+        }
+      },
+      {
+        "source": "chat-metrics",
+        "events": 30,
+        "rollups": {
+          "1m": 30,
+          "1h": 365,
+          "1d": null
+        },
+        "setBy": "default",
+        "keptFrom": {
+          "rollups": {}
+        }
+      }
+    ],
+    "now": 1795168800000
+  },
+  "events": [
+    {
+      "id": "daemon/41",
+      "t": 1795164600000,
+      "dur": 4210000,
+      "open": true,
+      "scope": "host:host-a",
+      "source": "daemon",
+      "kind": "daemon.run",
+      "severity": "info",
+      "summary": "daemon (0.52.22)",
+      "attrs": {
+        "run_kind": "daemon",
+        "app_version": "0.52.22",
+        "build": "5222",
+        "chip": "arm64",
+        "macos": "27.2",
+        "pid": 812
+      },
+      "links": {}
+    },
+    {
+      "id": "sessions/812",
+      "t": 1795165200000,
+      "dur": 1800000,
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm/session:agent~812",
+      "source": "sessions",
+      "kind": "session",
+      "severity": "info",
+      "summary": "agent (worker)",
+      "attrs": {
+        "program": "agent",
+        "image": "base",
+        "open_ms": 640,
+        "first_attach_ms": 2100
+      },
+      "links": {
+        "session": "812"
+      }
+    },
+    {
+      "id": "sessions/812/open",
+      "t": 1795165200000,
+      "dur": 640,
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm/session:agent~812",
+      "source": "sessions",
+      "kind": "session.open",
+      "severity": "info",
+      "summary": "agent opened in 640 ms",
+      "attrs": {
+        "program": "agent",
+        "open_ms": 640
+      },
+      "links": {
+        "session": "812"
+      }
+    },
+    {
+      "id": "actions/9001",
+      "t": 1795165260000,
+      "dur": 850,
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm/session:agent~812",
+      "source": "actions",
+      "kind": "action.ok",
+      "severity": "info",
+      "summary": "sandbox.start: ok in 850 ms",
+      "attrs": {
+        "action": "sandbox.start",
+        "phase_before": "stopped",
+        "phase_after": "running",
+        "image": "base"
+      },
+      "links": {
+        "session": "812"
+      }
+    },
+    {
+      "id": "actions/9002",
+      "t": 1795165260000,
+      "dur": 300,
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm/session:agent~812",
+      "source": "actions",
+      "kind": "step.ok",
+      "severity": "debug",
+      "summary": "boot: ok",
+      "attrs": {
+        "action": "boot",
+        "parent": 9001
+      },
+      "links": {
+        "session": "812"
+      }
+    },
+    {
+      "id": "grants/example-space@2026-10-02T09:00:00Z/48211",
+      "t": 1795165320000,
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm/session:agent~812",
+      "source": "grants",
+      "kind": "decision.ask",
+      "severity": "notice",
+      "summary": "folder.write: asked (refused today)",
+      "attrs": {
+        "action": "permission-decided",
+        "subject": "worker",
+        "perm": "folder.write",
+        "role": "worker",
+        "answer": "ask",
+        "by": "policy"
+      },
+      "links": {
+        "session": "812"
+      }
+    },
+    {
+      "id": "workspace/example-space@2026-10-02T09:00:00Z/48390",
+      "t": 1795165400000,
+      "scope": "host:host-a/workspace:example-space",
+      "source": "workspace",
+      "kind": "workspace.worker-added",
+      "severity": "info",
+      "summary": "a worker added: helper",
+      "attrs": {
+        "action": "worker-added",
+        "agent": "helper",
+        "by": "you",
+        "isolation": "fenced"
+      },
+      "links": {}
+    },
+    {
+      "id": "chat/msg_0004d2",
+      "t": 1795165500000,
+      "scope": "host:host-a/workspace:example-space/room:rm_3fa2c1",
+      "source": "chat",
+      "kind": "chat.message",
+      "severity": "info",
+      "summary": "a message from worker to 2",
+      "attrs": {
+        "from": "worker",
+        "to_count": 2,
+        "msg_kind": "chat",
+        "private": false,
+        "seq": 1234
+      },
+      "links": {
+        "msg": "msg_0004d2"
+      }
+    },
+    {
+      "id": "chat/msg_0004d2/you/delivered",
+      "t": 1795165500140,
+      "scope": "host:host-a/workspace:example-space/room:rm_3fa2c1",
+      "source": "chat",
+      "kind": "chat.delivered",
+      "severity": "debug",
+      "summary": "to you: delivered in 140 ms",
+      "attrs": {
+        "from": "worker",
+        "to": "you",
+        "ms_to_deliver": 140
+      },
+      "links": {
+        "msg": "msg_0004d2"
+      }
+    },
+    {
+      "id": "ask/#12/decided",
+      "t": 1795165560000,
+      "scope": "host:host-a/workspace:example-space/room:rm_3fa2c1",
+      "source": "chat",
+      "kind": "ask.decided",
+      "severity": "info",
+      "summary": "Ask #12 decided",
+      "attrs": {
+        "decider": "you",
+        "option": "yes"
+      },
+      "links": {
+        "ask": "#12"
+      }
+    },
+    {
+      "id": "runs/example-space/2026-11-20-1/000003",
+      "t": 1795165600000,
+      "scope": "host:host-a/workspace:example-space/run:2026-11-20-1",
+      "source": "runs",
+      "kind": "run.frame",
+      "severity": "debug",
+      "summary": "frame 3",
+      "attrs": {
+        "label": "observed"
+      },
+      "links": {
+        "run": "example-space/2026-11-20-1"
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "series": "net.allowed",
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm",
+      "t": 1795165260000,
+      "value": 12
+    },
+    {
+      "series": "net.denied",
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm",
+      "t": 1795165260000,
+      "value": 1
+    },
+    {
+      "series": "net.bytes_down",
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm",
+      "t": 1795165260000,
+      "value": 482113
+    }
+  ]
+}

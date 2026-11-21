@@ -1,0 +1,39 @@
+{
+  "timeline": 1,
+  "type": "query",
+  "scope": "host:host-a/workspace:example-space",
+  "depth": 1,
+  "from": 1795165200000,
+  "to": 1795168800000,
+  "tz": "Australia/Sydney",
+  "q": "kind:session* -severity:debug since:2026-11-20T09:00Z",
+  "where": {
+    "all": [
+      {
+        "any": [
+          {
+            "field": "kind",
+            "value": "session",
+            "prefix": true
+          }
+        ]
+      },
+      {
+        "not": true,
+        "any": [
+          {
+            "field": "severity",
+            "op": "eq",
+            "value": "debug"
+          }
+        ]
+      }
+    ]
+  },
+  "filters": {
+    "source": [
+      "sessions",
+      "grants"
+    ]
+  }
+}

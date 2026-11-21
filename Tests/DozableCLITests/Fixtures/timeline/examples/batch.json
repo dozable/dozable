@@ -1,0 +1,52 @@
+{
+  "timeline": 1,
+  "type": "batch",
+  "events": [
+    {
+      "id": "sessions/812",
+      "t": 1795165200000,
+      "dur": 1800000,
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm/session:agent~812",
+      "source": "sessions",
+      "kind": "session",
+      "severity": "info",
+      "summary": "agent (worker), ended",
+      "attrs": {
+        "program": "agent",
+        "image": "base",
+        "open_ms": 640,
+        "first_attach_ms": 2100
+      },
+      "links": {
+        "session": "812"
+      }
+    },
+    {
+      "id": "chat/msg_0004d3/you/delivered",
+      "t": 1795168799000,
+      "scope": "host:host-a/workspace:example-space/room:rm_3fa2c1",
+      "source": "chat",
+      "kind": "chat.delivered",
+      "severity": "debug",
+      "summary": "to you: delivered in 140 ms",
+      "attrs": {
+        "from": "helper",
+        "to": "you",
+        "ms_to_deliver": 140
+      },
+      "links": {
+        "msg": "msg_0004d3"
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "series": "net.allowed",
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm",
+      "t": 1795165260000,
+      "value": 14
+    }
+  ],
+  "now": 1795168800000,
+  "resume": "18842"
+}

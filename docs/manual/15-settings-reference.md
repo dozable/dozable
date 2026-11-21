@@ -201,6 +201,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `daemon.login_item` | `ask` | ask \| on \| off | at once | — | Start the doz daemon when you log in, from your desktop session: one login item in ~/Library/LaunchAgents, removed by off and by doz uninstall. ask: not installed; doz offers it once. Set on this Mac (doz daemon login-item on\|off), never from the dashboard. |
 | `daemon.screen_capture_minutes` | `5` | integer 0–1440 | after `doz daemon stop` | `$DOZ_SCREEN_CAPTURE` | Every this many minutes, save the screen of each running sandbox's sessions that printed something since (what a sleep or hibernation falls back on); 0 = only when it pauses, sleeps or hibernates. |
 | `daemon.boot_logs_kept` | `5` | integer 1–50 | next boot | `$DOZ_BOOT_LOGS` | How many boots of each sandbox to keep (its steps and kernel console — the web UI's Boot log, doz console --boot N); the oldest goes. |
+| `daemon.mac_name` | `this Mac` | a name of 1–63 letters, digits, spaces or hyphens | at once | `$DOZ_MAC_NAME` | The name this Mac goes by in its history and in a space's state, e.g. "studio". It is shown, never looked up on the network. |
 | `daemon.keepalive` | `false` | boolean | a store that hasn't chosen | — | When a Mac login expires, while a sandbox or fenced session uses it and no unfenced Claude Code runs, the daemon runs the Mac's claude once to renew it (doz account keepalive always: also with nothing using it). |
 
 ### `[store]`

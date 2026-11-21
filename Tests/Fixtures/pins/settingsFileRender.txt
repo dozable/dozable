@@ -377,6 +377,11 @@
 # (integer 1–50; env DOZ_BOOT_LOGS; applies when the next boot of a sandbox is kept)
 # boot_logs_kept = 5
 
+# The name this Mac goes by in its history and in a space's state, e.g. "studio". It is shown,
+# never looked up on the network.
+# (a name of 1–63 letters, digits, spaces or hyphens; env DOZ_MAC_NAME; applies at once (the UI re-reads it))
+# mac_name = "this Mac"
+
 # When a Mac login expires, while a sandbox or fenced session uses it and no unfenced Claude Code
 # runs, the daemon runs the Mac's claude once to renew it (doz account keepalive always: also with
 # nothing using it).

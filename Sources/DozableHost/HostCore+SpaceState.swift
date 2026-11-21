@@ -37,13 +37,9 @@ extension HostCore {
         return SpaceStateBuilder.build(intent: intent, ref: ref, record: rec, facts: facts, host: Self.spaceStateHost(), now: Date(), viewer: viewer)
     }
 
-    /// This Mac's name as a person reads it (its host name's first label); in a guarded test run `DOZ_TEST_MAC_NAME`.
+    /// This Mac's name as a person reads it: the setting `daemon.mac_name` (`MacDisplayName`) — never its network name.
     nonisolated static func spaceStateHost(_ env: [String: String] = ProcessInfo.processInfo.environment) -> String {
-        if TestSafety.guarded(env) { return env["DOZ_TEST_MAC_NAME"].flatMap { $0.isEmpty ? nil : $0 } ?? "this Mac" }
-        var buf = [CChar](repeating: 0, count: 256)
-        guard gethostname(&buf, buf.count) == 0 else { return "this Mac" }
-        let first = String(cString: buf).split(separator: ".").first.map(String.init) ?? ""
-        return first.isEmpty ? "this Mac" : first
+        MacDisplayName.current(env)
     }
 
     /// The facts of one space workspace now. With no daemon: nothing known but the record's own (its last up).

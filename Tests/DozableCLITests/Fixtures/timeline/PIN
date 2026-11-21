@@ -1,0 +1,20 @@
+# Copies of the timeline contract's schema, examples, search vectors and one recording (version 1), read-only.
+# Provenance: the timeline contract's commit below; its documents are already neutral (the host host-a, the space
+# example-space, the sandbox build-vm, the room team, "you"). Its README, frames recording, example space file and
+# scripts are left out (Dozable does not read them). TimelineSchemaTests reproduces each file's sha, checks every example
+# and every document Dozable builds against the schema; TimelineMatchTests runs every vector against the recording.
+# Re-vendor by copying them again from a later commit and updating this file.
+peer-commit 4f43c1f8616679085bee15483352a5c295f0de68
+sources: timeline-1.schema.json <- schema/timeline-1.schema.json, examples/*.json <- docs/timeline/examples/*.json, vectors.json <- docs/timeline/vectors.json, host-a-week.json <- docs/timeline/fixtures/host-a-week.json
+sha256:
+  93b03e811a12ef9971015af2be46e2ea6c044bb6f39346deb5b2bff2eef137ff  ./examples/batch.json
+  d067ba6ca87ae596fbfe1aae563532401c97d75e1913298fdf6e8aa6d89435b4  ./examples/catalog.json
+  613f58ce0242d7f28776dee00cb937e7df5f8b49811992f9ebb0bbab727304e6  ./examples/query-binned.json
+  83d9ee3a85ebb3f492e1d95115e856fe00d0af13e41c7bf6eb77b60ad406cd61  ./examples/query.json
+  976a98c33c11f8388fd4bd9e04b3a9e8b4a1800874688424bb88ee46fe39cc7d  ./examples/recording.json
+  bc6495fa0363750a6d8386df059e5fd9794b5564fc7e01af2ebcc1efb117544f  ./examples/result-binned.json
+  fba69dfcc3fdbe7037310db1c70dd9f7b3897fe4589a2588124f5cbc8bbd00c3  ./examples/result.json
+  2a7bc90dfe42fb73c92c3f88585caf0b55d828cfc1a0d078b4bc0e960933415b  ./examples/view.json
+  395313f6aececfb5638b168b29a79af20bbaf1b9446a500513552885faac7c3a  ./host-a-week.json
+  fd842f433ed1b5cd785a26b795ac78ba1d0a17a7c88b7de7d6b3d2d5b8830719  ./timeline-1.schema.json
+  13a43201c8683e31c3ed902cd838e6b4e7443b93aa58d06b2a3ee3ba55008424  ./vectors.json
