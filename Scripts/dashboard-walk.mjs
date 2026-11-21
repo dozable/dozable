@@ -102,6 +102,11 @@
 //     then read-only; 12 390 px; 13 no CSP violation or page error from any window's start, the leak sweep; 14 (after the
 //     space editor's rows) its "Open in a new window" opens its own window, reused. Pictures: chat-window-light-440,
 //     -dark-440, -ask, -light-390, -dark-390 (2x).
+//   · chat 10, the Chat page's side panes: at 1440 both are columns; at 900 the people a drawer (its toggle with the count,
+//     the scrim, the focus inside and kept there, Escape and the scrim close it, the focus back on the toggle); at 390 the
+//     rooms one too (one drawer at a time; opening a room closes it), the head with nothing overlapping; a workspace's
+//     Room tab keeps its strip and has no toggle. chat 11 (in the window's rows): the chat window at 440 and 390 — the
+//     decision card, no rooms toggle, the people a drawer.
 //   · the chat pictures (last of the walk): a busy room (code, a link, a mention, replies, reactions, a picture and a file
 //     from the clip's chooser) and eleven asks, each in its own room — open, multi-select, free text, two questions,
 //     decided, declined, expired, withdrawn, no decider, answering and a refusal (the live stream held while the asker
@@ -135,7 +140,7 @@
 // Inputs (environment): DOZ (default .build/debug/doz — `make cli` first), CHROME (default Google Chrome's app), SCRATCH;
 // SHOTS=DIR (optional, under /tmp) keeps pictures of a workspace's page (light, dark, 390 px) for a person to look at;
 // CHAT_WINDOW_ONLY=1 walks the chat rows alone (chat on, the asks, the chat window's rows, then the chat pictures); with
-// ASKS_ONLY=1 as well, the asks' rows alone.
+// ASKS_ONLY=1 as well, the asks' rows alone. CHAT_PERF_ONLY=1 measures "chat perf" alone (an A/B of two builds: DOZ=…).
 // SPACE_ONLY=1 walks the space editor's rows alone (chat on, then those rows: a quicker loop while working on them).
 // Run from the repository's root (make does).
 import { spawn, spawnSync } from 'node:child_process';
@@ -1684,6 +1689,9 @@ const LOG_OVERLAPS = `(() => { const out = []; const R = (e) => e.getBoundingCli
     if (tr && tr.width) {
       for (const x of m.querySelectorAll('.chat-from, .chat-meta, .chat-acts, .chat-kind, .chat-lock'))
         if (x.getClientRects().length && R(x).width && hit(tr, R(x))) out.push('the tools × ' + x.className.split(' ')[0] + ' of ' + (m.closest('.chat-row')?.dataset.who || '?'));
+      const mr = R(m);
+      for (const b of t.querySelectorAll('button')) { const br = R(b); if (br.width && (br.top < mr.top - 0.5 || br.bottom > mr.bottom + 0.5 || br.left < mr.left - 0.5 || br.right > mr.right + 0.5))
+        out.push('a tool outside its bubble: ' + (b.getAttribute('aria-label') || b.className) + ' of ' + (m.closest('.chat-row')?.dataset.who || '?')); }
       const first = m.querySelector('.chat-md')?.firstElementChild;
       const fr = first && first.getClientRects()[0];
       if (fr && hit(tr, fr)) out.push('the tools × the first line of ' + (m.closest('.chat-row')?.dataset.who || '?'));
@@ -1736,7 +1744,7 @@ async function walkAskStates() {
     const ov = await evaluate(ASK_OVERLAPS);
     check(ov.n > 0 && ov.out.length === 0, `ask 9 at ${w} px nothing in the room's asks overlaps (${ov.n} cards${ov.out.length ? ': ' + ov.out.join(', ') : ''})`);
     const lo = await evaluate(LOG_OVERLAPS);
-    check(lo.n > 0 && lo.out.length === 0, `ask 9 at ${w} px a message's tools cover nothing and no time covers a bubble (${lo.n} bubbles${lo.out.length ? ': ' + [...new Set(lo.out)].join(', ') : ''})`);
+    check(lo.n > 0 && lo.out.length === 0, `ask 9 at ${w} px a message's tools cover nothing and stay inside its bubble, and no time covers a bubble (${lo.n} bubbles${lo.out.length ? ': ' + [...new Set(lo.out)].join(', ') : ''})`);
   }
   // …and in a workspace's room whose agents carry their place and "acts as you" (the full walk's demo3), at each width.
   if (await evaluate(`!!(state.chat.srv && state.chat.srv.rooms.demo3)`)) {
@@ -1833,6 +1841,69 @@ async function walkAskStates() {
   check(await waitFor(`/^withdrawn$/.test(${stateOf(a11r)}) && ${REFUSED} === ${JSON.stringify(words)}`, 15000), 'ask 11 …the card drawn again reads withdrawn, the refusal still said in it');
 }
 
+// ── chat 10: the Chat page's side panes as drawers ────────────────────────────────────────────────────────────────────
+async function walkChatDrawers() {
+  const errorsBefore = pageErrors.length;
+  const SURF = `document.querySelector('#chat-surface')`;
+  await goHash('#/chat/askw');
+  await waitFor(`state.view === 'chat' && state.chat.room === 'askw' && state.chat.live === 'live'`, 20000);
+  // At 1440 both panes are columns: no toggle.
+  const wide = await evaluate(`({ rooms: !!document.querySelector('#chat-rooms-btn').getClientRects().length, people: !!document.querySelector('#chat-people-btn').getClientRects().length,
+    pane: getComputedStyle(document.querySelector('#chat-people-pane')).display })`);
+  check(!wide.rooms && !wide.people && wide.pane === 'flex', 'chat 10 at 1440 px both panes are columns, no toggle (' + JSON.stringify(wide) + ')');
+  // At 900 the people are a drawer: the toggle (with the count here) opens it over the log with the scrim; Escape and the
+  // scrim close it; the focus goes back to the toggle; Tab stays inside.
+  await send('Emulation.setDeviceMetricsOverride', { width: 900, height: 900, deviceScaleFactor: 1, mobile: false });
+  await sleep(400);
+  const btn900 = await evaluate(`({ shown: !!document.querySelector('#chat-people-btn').getClientRects().length, n: document.querySelector('#chat-people-n').textContent,
+    pane: getComputedStyle(document.querySelector('#chat-people-pane')).display, rooms: !!document.querySelector('#chat-rooms-btn').getClientRects().length })`);
+  await evaluate(`document.querySelector('#chat-people-btn').click()`);
+  const open900 = await waitFor(`${SURF}.classList.contains('is-people-open') && getComputedStyle(document.querySelector('#chat-people-pane')).position === 'fixed'
+    && getComputedStyle(document.querySelector('.chat-scrim')).display === 'block' && document.querySelector('#chat-people-pane').contains(document.activeElement)`, 5000);
+  for (let i = 0; i < 6; i++) await key('Tab', 'Tab', 9);
+  const trapped = await evaluate(`document.querySelector('#chat-people-pane').contains(document.activeElement)`);
+  await key(...ESC);
+  const esc900 = await waitFor(`!${SURF}.classList.contains('is-people-open') && document.activeElement?.id === 'chat-people-btn'`, 5000);
+  await evaluate(`document.querySelector('#chat-people-btn').click()`);
+  await waitFor(`${SURF}.classList.contains('is-people-open')`, 5000);
+  await evaluate(`document.querySelector('.chat-scrim').click()`);
+  const scrim900 = await waitFor(`!${SURF}.classList.contains('is-people-open') && getComputedStyle(document.querySelector('.chat-scrim')).display === 'none'`, 5000);
+  check(btn900.shown && /^\d+$/.test(btn900.n) && btn900.pane === 'none' && !btn900.rooms && open900 && trapped && esc900 && scrim900,
+    'chat 10 at 900 px the people a drawer: its toggle (with the count) opens it with the scrim, the focus inside and kept there by Tab; Escape closes it (the focus back on the toggle), and so does the scrim — '
+    + JSON.stringify({ ...btn900, open900, trapped, esc900, scrim900 }));
+  // At 390 the rooms are a drawer too (one drawer at a time); opening a room from it closes it.
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(400);
+  const ov = await evaluate(HEAD_OVERLAPS);
+  check(ov.out.length === 0 && await evaluate(`document.scrollingElement.scrollWidth <= 390`), `chat 10 at 390 px the page's head: nothing overlaps, no sideways scroll (${ov.n} controls${ov.out.length ? ': ' + ov.out.join(', ') : ''})`);
+  await evaluate(`document.querySelector('#chat-rooms-btn').click()`);
+  const open390 = await waitFor(`${SURF}.classList.contains('is-rooms-open') && getComputedStyle(document.querySelector('#chat-rooms-pane')).position === 'fixed'
+    && document.querySelector('#chat-rooms-pane').contains(document.activeElement)`, 5000);
+  await evaluate(`document.querySelector('#chat-people-btn').click()`);
+  const one = await waitFor(`${SURF}.classList.contains('is-people-open') && !${SURF}.classList.contains('is-rooms-open')`, 5000);
+  await key(...ESC);
+  await evaluate(`document.querySelector('#chat-rooms-btn').click()`);
+  await waitFor(`${SURF}.classList.contains('is-rooms-open')`, 5000);
+  await key(...ESC);
+  const esc390 = await waitFor(`!${SURF}.classList.contains('is-rooms-open') && document.activeElement?.id === 'chat-rooms-btn'`, 5000);
+  await evaluate(`document.querySelector('#chat-rooms-btn').click()`);
+  await waitFor(`${SURF}.classList.contains('is-rooms-open')`, 5000);
+  await evaluate(`document.querySelector('#chat-rooms a.chat-rm[data-room="asks-declined"]').click()`);
+  const picked = await waitFor(`state.chat.room === 'asks-declined' && !${SURF}.classList.contains('is-rooms-open')`, 15000);
+  check(open390 && one && esc390 && picked, 'chat 10 at 390 px the rooms a drawer: its toggle opens it (the focus inside), the people\'s toggle swaps it (one at a time), Escape closes it, and opening a room from it closes it — '
+    + JSON.stringify({ open390, one, esc390, picked }));
+  // A workspace's Room tab keeps its strip, and has neither toggle.
+  await goHash('#/w/askw/room');
+  await waitFor(`state.view === 'workspace' && state.chat.room === 'askw'`, 20000);
+  await sleep(400);
+  const ws = await evaluate(`({ rooms: !!document.querySelector('#chat-rooms-btn').getClientRects().length, people: !!document.querySelector('#chat-people-btn').getClientRects().length,
+    strip: getComputedStyle(document.querySelector('#chat-rooms-pane')).display })`);
+  check(!ws.rooms && !ws.people && ws.strip === 'flex', 'chat 10 a workspace\'s Room tab at 390 px keeps its strip of rooms, with no toggle (' + JSON.stringify(ws) + ')');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await sleep(300);
+  check(pageErrors.length === errorsBefore, 'chat 10: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+}
+
 // ── the chat pictures: the reference chat's subjects drawn by Dozable's chat (light and dark, 1440 at 1x and 390 at 2x),
 // and the chat page's style recalculation measured (report only) ───────────────────────────────────────────────────
 /// A bot says something with dozchat and its own token (from its file): the message's id.
@@ -1861,8 +1932,10 @@ async function openChatRoom(r) {
 }
 /// A side pane's drawer (rooms or people) opened or closed with its toggle, where the page has one and shows it.
 async function chatDrawer(which, open) {
+  // (Closed where its toggle is hidden too: the scrim's click closes it.)
   await evaluate(`(() => { const b = document.querySelector('#chat-${which}-btn'), s = document.querySelector('#chat-surface');
-    if (!b || !b.getClientRects().length || s.classList.contains('is-${which}-open') === ${open}) return; b.click(); })()`);
+    if (!b || s.classList.contains('is-${which}-open') === ${open}) return;
+    if (${open}) { if (b.getClientRects().length) b.click(); } else document.querySelector('.chat-scrim')?.click(); })()`);
   await sleep(250);
 }
 const chatScroll = (sel, block = 'center') => evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (e) e.scrollIntoView({ block: ${JSON.stringify(block)} }); })()`);
@@ -1893,8 +1966,8 @@ async function hoverAt(sel) {
   if (p) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y });
 }
 const ROW_OF = (id) => `[data-row-id="${id}"]`;
-async function walkChatPictures() {
-  const errorsBefore = pageErrors.length;
+/// The busy room (team) and two quieter ones: code, a link, a mention, your own messages, replies and reactions.
+function busyRoom() {
   doz(['chat', 'add', 'coder', '--to-file', S + '/coder.token']);
   knownTokens.push(readFileSync(S + '/coder.token', 'utf8').trim());
   for (const r of ['team', 'design', 'release']) doz(['chat', 'room', r, '@askerbot', '@decbot', '@coder']);
@@ -1913,6 +1986,11 @@ async function walkChatPictures() {
   const r2 = chatBot('askerbot', ['send', 'team', 'Looks right. One test for the cap, please.', '--re', m1]);
   chatBot('coder', ['send', 'design', 'Agreed, I will open the chat text up to 16 px on phones.']);
   chatBot('askerbot', ['send', 'release', 'Morning. The nightly build is green.']);
+  return { m1, m5, r1, r2 };
+}
+async function walkChatPictures() {
+  const errorsBefore = pageErrors.length;
+  const { m1, m5, r1, r2 } = busyRoom();
   // The asks, each in a room of its own, after the same two lines.
   const askRoom = (r, ...args) => {
     doz(['chat', 'room', r, '@askerbot', '@decbot']);
@@ -1973,11 +2051,13 @@ async function walkChatPictures() {
   await markRows();
   await chatShots('message-actions', async (vp) => {
     await key(...ESC);
+    await evaluate(`document.querySelectorAll('dialog[open]').forEach((d) => d.close())`);
+    await chatDrawer('people', false);
     await chatScroll(ROW_OF(m1));
     await sleep(200);
     if (vp === '390') await tapAt(ROW_OF(m1) + ' .chat-msg'); else await hoverAt(ROW_OF(m1) + ' .chat-msg');
     await sleep(200);
-    await evaluate(`(() => { const b = [...document.querySelectorAll(${JSON.stringify(ROW_OF(m1) + ' .chat-tools button')})].pop(); if (b) b.click(); })()`);
+    await evaluate(`[...document.querySelectorAll(${JSON.stringify(ROW_OF(m1) + ' .chat-tools .menu-wrap > button')})].pop()?.click()`);
   });
   await key(...ESC);
   await chatShots('reply', async () => {
@@ -2002,7 +2082,9 @@ async function walkChatPictures() {
   // The asks.
   const card = (id) => `[data-ask="${id}"]`;
   const showAsk = async (room, id) => { await openChatRoom(room); await waitFor(`!!document.querySelector(${JSON.stringify(card(id))})`, 15000); };
-  const atCard = (id) => async () => { await evaluate(`document.querySelector(${JSON.stringify(card(id))})?.closest('.chat-row')?.scrollIntoView({ block: 'end' })`); };
+  // The card's whole bubble in view where it fits (its top, name row and tools included), else from its top.
+  const atCard = (id) => async () => { await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(card(id))})?.closest('.chat-row'); if (!r) return;
+    const l = document.querySelector('#chat-log'); r.scrollIntoView({ block: r.offsetHeight <= l.clientHeight ? 'end' : 'start' }); })()`); };
   const pickIn = (id, sel) => evaluate(`(() => { const c = document.querySelector(${JSON.stringify(card(id))}); const i = c && c.querySelector(${JSON.stringify(sel)}); if (i && !i.checked) i.click(); })()`);
   const pickRow = (id, q, text) => evaluate(`(() => { const c = document.querySelector(${JSON.stringify(card(id))}); const f = c && c.querySelector('[data-q="${q}"]');
     const l = f && [...f.querySelectorAll('label.chat-ask-opt')].find((x) => x.textContent.includes(${JSON.stringify(text)})); const i = l && l.querySelector('input'); if (i && !i.checked) i.click(); })()`);
@@ -2054,26 +2136,36 @@ async function chatPerf() {
     await openChatRoom('design');
     const a = await metric();
     await openChatRoom('team');
+    const a1 = await metric();
     for (const w of [900, 390, 1440]) await width(w);
+    const a2 = await metric();
     for (const t of ['light', 'dark', 'light']) { await evaluate(`document.documentElement.dataset.theme = '${t}'`); await sleep(200); }
+    const a3 = await metric();
     for (let k = 0; k < 3; k++) {
       const t = 'Perf ' + (i + 1) + '.' + (k + 1) + ' — a live line.';
       doz(['chat', 'send', 'team', t]);
       await waitFor(`[...state.chat.byId.values()].some((m) => m.content === ${JSON.stringify(t)})`, 10000);
     }
+    const a4 = await metric();
     await width(900);
+    const c = await metric();
     await chatDrawer('people', true);
     await key(...ESC);
     await sleep(250);
+    const d = await metric();
     await width(1440);
     const b = await metric();
-    runs.push({ ms: (b.d - a.d) * 1000, n: b.n - a.n });
+    runs.push({ ms: (b.d - a.d) * 1000, n: b.n - a.n, drawerMs: (d.d - c.d) * 1000, drawerN: d.n - c.n,
+      steps: [[a, a1], [a1, a2], [a2, a3], [a3, a4]].map(([x, y]) => [(y.d - x.d) * 1000, y.n - x.n]) });
   }
   await evaluate(`delete document.documentElement.dataset.theme`);
   await send('Performance.disable');
   const med = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
   console.log(`  ·    chat perf (report only): style recalculation over the fixed sequence, median of 5 — ${med(runs.map((r) => r.ms)).toFixed(1)} ms, `
-    + `${med(runs.map((r) => r.n))} recalculations (runs: ${runs.map((r) => r.ms.toFixed(1) + ' ms/' + r.n).join(', ')})`);
+    + `${med(runs.map((r) => r.n))} recalculations (runs: ${runs.map((r) => r.ms.toFixed(1) + ' ms/' + r.n).join(', ')}); of which the drawer's step `
+    + `${med(runs.map((r) => r.drawerMs)).toFixed(1)} ms, ${med(runs.map((r) => r.drawerN))}; without it ${med(runs.map((r) => r.ms - r.drawerMs)).toFixed(1)} ms, `
+    + `${med(runs.map((r) => r.n - r.drawerN))} recalculations; by step (open, widths, themes, messages): `
+    + [0, 1, 2, 3].map((k) => med(runs.map((r) => r.steps[k][0])).toFixed(1) + ' ms/' + med(runs.map((r) => r.steps[k][1]))).join(', '));
 }
 
 // ── the chat window: a room popped out into a window of its own ─────────────────────────────────────────────────────
@@ -2398,6 +2490,23 @@ async function walkChatWindow(origin) {
     await kshot(w, 'chat-window-' + t + '-390');
   }
   await kevaluate(w, `delete document.documentElement.dataset.theme`);
+  await bsend('Emulation.setDeviceMetricsOverride', { width: 440, height: 760, deviceScaleFactor: 1, mobile: false }, w.sid);
+  // chat 11. The window at 440 and 390: the same decision card, no rooms toggle, and the people a drawer that its toggle
+  // opens, Escape closes, the focus back on the toggle.
+  const kEsc = async () => { for (const type of ['keyDown', 'keyUp']) await bsend('Input.dispatchKeyEvent', { type, key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, w.sid); };
+  for (const [wd, ht, m] of [[440, 760, false], [390, 844, true]]) {
+    await bsend('Emulation.setDeviceMetricsOverride', { width: wd, height: ht, deviceScaleFactor: 1, mobile: m }, w.sid);
+    await sleep(400);
+    const before = await kevaluate(w, `({ card: document.querySelectorAll('#chat-log .chat-ask').length, rooms: !!document.querySelector('#chat-rooms-btn')?.getClientRects().length,
+      people: !!document.querySelector('#chat-people-btn')?.getClientRects().length })`);
+    await kevaluate(w, `document.querySelector('#chat-people-btn').click()`, true);
+    const opened = await kwait(w, `document.querySelector('#chat-surface').classList.contains('is-people-open') && getComputedStyle(document.querySelector('#chat-people-pane')).position === 'fixed'
+      && document.querySelector('#chat-people-pane').contains(document.activeElement) && document.querySelector('#chat-people-btn').getAttribute('aria-expanded') === 'true'`, 5000);
+    await kEsc();
+    const closed = await kwait(w, `!document.querySelector('#chat-surface').classList.contains('is-people-open') && document.activeElement?.id === 'chat-people-btn'`, 5000);
+    check(before.card > 0 && !before.rooms && before.people && opened && closed,
+      `chat 11 the chat window at ${wd} px: the decision card, no rooms toggle, the people a drawer (opened by its toggle, the focus in it; Escape closes it, the focus back) — ${JSON.stringify({ ...before, opened, closed })}`);
+  }
   await bsend('Emulation.setDeviceMetricsOverride', { width: 440, height: 760, deviceScaleFactor: 1, mobile: false }, w.sid);
   // 13. No CSP violation in any window from its start, no page error; the leak sweep (the windows' answers included).
   let violations = 0, errors = [];
@@ -3249,6 +3358,21 @@ try {
   // An onboarding never done opens the setup over Home: close it (its own page is checked with the old addresses).
   await goHash('#/home');
   await waitFor(`state.view === 'home' && !state.modal && !!document.querySelector('[data-home]')`);
+  if (process.env.CHAT_PERF_ONLY === '1') {
+    // Only "chat perf" (chat on at OS-chosen ports, the bots, the busy room): a quick A/B of two builds' stylesheets.
+    const [p1, p2] = [await freePort(), await freePort()];
+    chatPagePort = p1;
+    doz(['config', 'set', 'chat.page_port', String(p1)]);
+    doz(['config', 'set', 'chat.line_port', String(p2)]);
+    check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (CHAT_PERF_ONLY)');
+    for (const b of ['askerbot', 'decbot']) { doz(['chat', 'add', b, '--to-file', S + '/' + b + '.token']); knownTokens.push(readFileSync(S + '/' + b + '.token', 'utf8').trim()); }
+    busyRoom();
+    await send('Page.reload');
+    await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+    await chatPerf();
+    failed = failures.length > 0;
+    throw Object.assign(new Error('chat perf only'), { spaceOnly: true });
+  }
   if (process.env.CHAT_WINDOW_ONLY === '1') {
     // Only the chat window's rows (with the asks' set-up they use): chat on at OS-chosen ports.
     const [p1, p2] = [await freePort(), await freePort()];
@@ -3258,6 +3382,7 @@ try {
     check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (CHAT_WINDOW_ONLY)');
     await walkAsks();
     if (process.env.ASKS_ONLY === '1') throw Object.assign(new Error('asks only'), { spaceOnly: true });
+    await walkChatDrawers();
     await walkChatWindow(origin);
     await walkChatPictures();
     failed = failures.length > 0;
@@ -3319,6 +3444,7 @@ try {
   await walkLifecycle();
   await walkRooms();
   await walkAsks();
+  await walkChatDrawers();
   await walkChatWindow(origin);
   await walkWideViews();
   await walkPictures();

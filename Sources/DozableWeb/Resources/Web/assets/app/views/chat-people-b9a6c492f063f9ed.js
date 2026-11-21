@@ -105,6 +105,12 @@ export function people() {
   box.replaceChildren(...rows);
   const c = $('chat-people-count');
   if (c) c.textContent = here ? String(here) + ' here' : '';
+  // The head's people toggle carries the count of those here (written only when it changes: presence comes often).
+  const n = $('chat-people-n'), count = here ? String(here) : '';
+  if (n && n.textContent !== count) {
+    n.textContent = count;
+    $('chat-people-btn').setAttribute('aria-label', 'People in this room' + (here ? ': ' + here + ' here' : ''));
+  }
   const busy = $('chat-busy');
   if (busy) {
     const list = state.chat.presence.filter((p) => m.includes(p.name) && p.activity && p.name !== viewer());

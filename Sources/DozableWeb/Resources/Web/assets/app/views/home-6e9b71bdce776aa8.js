@@ -26,7 +26,7 @@ import { renderNavWorkspaces } from '../components/ws-nav-d692c7e2fa53642d.js';
 import { forgetThumbs, spaceThumb } from '../components/space-picture-cb73348fa3ec00b0.js';
 import { transitional } from '../components/ws-lifecycle-eeaead5ad6401354.js';
 import { wsNext } from '../components/ws-next-44599a2919fc4a1e.js';
-import { newWorkspaceHash, newWorkspaceRefusal } from './new-workspace-0b0fba8a28ee6e3f.js';
+import { newWorkspaceHash, newWorkspaceRefusal } from './new-workspace-0084cdee027b7bda.js';
 import { WORKSPACE_DEFINITION } from '../core/ws-new-60f08868f5e5e130.js';
 
 const LAST_ROWS = 12;
