@@ -43,7 +43,7 @@ struct Uninstall: AsyncParsableCommand {
     static func looksLikeStore(_ root: URL) -> Bool {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
         if names.isEmpty { return true }
-        let known: Set<String> = ["sandboxes", "images", "kernels", "golden", "content", "initfs.ext4", "daemon.log", "daemon.lock", "host.log", "host.lock", "metrics.sqlite",
+        let known: Set<String> = ["sandboxes", "images", "kernels", "golden", "content", "initfs.ext4", "daemon.log", "daemon.lock", "host.log", "host.lock", "metrics.sqlite", "timeline.sqlite", "timeline.sqlite-wal", "timeline.sqlite-shm",
                                   "accounts.json", "onboarded.json", "ui.lock", "ui.port", "ui.sessions", "state.json", "containers"]
         return names.contains(where: known.contains)
     }

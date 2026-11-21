@@ -52,8 +52,12 @@ public final class TimelineQueryEngine: @unchecked Sendable {
     let retention: (String) -> (retention: TimelineRetention, setBy: String)
 
     public init(store: TimelineStore, host: String, now: Int64, indexing: Int? = nil,
-                retention: @escaping (String) -> (retention: TimelineRetention, setBy: String) = { TimelineRetentionSettings.effective($0) }) {
-        self.store = store; self.host = host; self.now = now; self.indexing = indexing; self.retention = retention
+                retention: ((String) -> (retention: TimelineRetention, setBy: String))? = nil) {
+        self.store = store; self.host = host; self.now = now; self.indexing = indexing
+        if let retention { self.retention = retention } else {
+            let all = TimelineRetentionSettings.all()          // read once per answer
+            self.retention = { all[$0] ?? TimelineRetentionSettings.effective($0) }
+        }
     }
 
     var db: SQLiteDB { store.db }
@@ -406,9 +410,13 @@ public final class TimelineQueryEngine: @unchecked Sendable {
         var acc: [String: Acc] = [:]
         // An event counts in the bin of its t: grouped by quarter hour (every zone's offset is whole quarters), then placed.
         let width: Int64 = bin == .m1 ? 60_000 : 900_000
+        // A prune under way: what its counts already hold is not counted again from the events not yet deleted.
+        let cutsNow = try kept()
+        var already = "", alreadyArgs: [SQLValue] = []
+        for (src, c) in cutsNow { if let ce = c.events { already += " AND NOT (source = ? AND t < ? AND open = 0)"; alreadyArgs += [.text(src), .int(ce)] } }
         for r in try db.rows("""
-            SELECT scope, (t / ?) AS q, kind, sev, COUNT(*) FROM events WHERE \(whereSQL) AND t >= ? GROUP BY scope, q, kind, sev
-            """, [.int(width)] + args + [.int(q.from)]) {
+            SELECT scope, (t / ?) AS q, kind, sev, COUNT(*) FROM events WHERE \(whereSQL) AND t >= ?\(already) GROUP BY scope, q, kind, sev
+            """, [.int(width)] + args + [.int(q.from)] + alreadyArgs) {
             guard let s = r[0].text, let key = try row(s, &rows, depth: q.depth) else { continue }
             let t = TimelineTime.start((r[1].int ?? 0) * width, bin, tz)
             let k = "\(key)\u{0}\(t)"

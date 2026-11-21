@@ -107,6 +107,39 @@ public final class TimelineIndexer: @unchecked Sendable {
         }
     }
 
+    /// A retention pass (`TimelinePruner`) on this queue: never the daemon's actor, never beside an indexing pass.
+    public func prune(dryRun: Bool, retention: [String: (retention: TimelineRetention, setBy: String)] = TimelineRetentionSettings.all()) -> TimelinePruneReport {
+        queue.sync {
+            guard let t = try? open() else { return TimelinePruneReport(refused: "the history file cannot be opened") }
+            let rep = TimelinePruner(store: store, timeline: t, retention: retention, now: Int64(now().timeIntervalSince1970 * 1000)).run(dryRun: dryRun)
+            if !dryRun, !rep.removed.isEmpty { try? t.db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); onChange?() }
+            return rep
+        }
+    }
+
+    /// The Resources deletion of the metrics: their sources' derived rows go too, and what they are kept from is now.
+    public func clearMetricsDerived() {
+        queue.sync {
+            guard let t = try? open() else { return }
+            let sources = ["actions", "sessions", "daemon", "network", "daemon-events", "egress", "resources", "keys"]
+            let series = sources.flatMap { TimelineSources.source($0)?.series.map(\.name) ?? [] }
+            let nowMs = Int64(now().timeIntervalSince1970 * 1000)
+            try? t.db.transaction {
+                for s in sources {
+                    try t.db.run("DELETE FROM events WHERE source = ?", [.text(s)])
+                    try t.db.run("DELETE FROM ebins WHERE source = ?", [.text(s)])
+                    try t.db.run("""
+                        INSERT INTO kept (source, events, m1, h1, d1, pruned_rev) VALUES (?,?,?,?,?,?) ON CONFLICT(source) DO UPDATE SET events = excluded.events,
+                          m1 = excluded.m1, h1 = excluded.h1, d1 = excluded.d1, pruned_rev = excluded.pruned_rev
+                        """, [.text(s), .int(nowMs), .int(nowMs), .int(nowMs), .int(nowMs), .int(t.nextRev())])
+                }
+                for x in series { try t.db.run("DELETE FROM rollups WHERE series = ?", [.text(x)]) }
+                try t.db.run("DELETE FROM cursors WHERE key GLOB 'metrics.*'")
+            }
+            _ = pass([.metrics])
+        }
+    }
+
     /// Everything, now, on the queue (the start-up and hourly catch-ups, a test's wait).
     public func catchUpNow() { queue.sync { _ = self.pass([.all]) } }
 

@@ -98,9 +98,14 @@ extension HostCore {
             guard diskOpsInFlight == 0, runningPreparations().isEmpty else { continue }
             let plan = Resources.plan(store: store, facts: facts, ids: ids, clean: clean)
             let metrics = self.metrics, run = self.metricsRun, url = store.metrics, readOnly = self.readOnly
+            let history = timeline, storeRef = store
             let done = Resources.execute(plan, store: store) {
                 if let metrics { try metrics.clearHistory(keepingRun: readOnly ? nil : run) }
                 else if FileManager.default.fileExists(atPath: url.path) { try MetricsStore(url: url).clearHistory(keepingRun: nil) }
+                // 747: the metrics' sources leave the history too (what they are kept from is now).
+                if history != nil || FileManager.default.fileExists(atPath: TimelineStore.url(storeRef).path) {
+                    (history ?? TimelineIndexer(store: storeRef)).clearMetricsDerived()
+                }
             }
             for id in done.deleted { emit(HostEvent(kind: .step, sandbox: nil, text: "deleted \(id)", milliseconds: 0)) }
             note(nil, "resources: deleted \(done.deleted.joined(separator: ", "))"

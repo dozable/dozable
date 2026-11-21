@@ -10,6 +10,24 @@ extension HostCore {
         guard let ix = timeline else { return }
         TimelineSignal.register(store.root.path) { [weak ix] p in ix?.poke(p) }
         ix.poke(.all)
+        // Retention (14.5a: the history file and the four new records only): 5 minutes after the start, then hourly, and
+        // soon after a retention setting changes.
+        Task.detached { [weak ix] in
+            try? await Task.sleep(for: .seconds(300))
+            var last = ""
+            var minutes = 60
+            while !Task.isCancelled, let ix {
+                let all = TimelineRetentionSettings.all()
+                let words = all.keys.sorted().map { "\($0)=\(TimelineRetentionSettings.words(all[$0]!.retention))" }.joined(separator: ",")
+                if minutes >= 60 || words != last {
+                    _ = ix.prune(dryRun: false, retention: all)
+                    last = words
+                    minutes = 0
+                }
+                try? await Task.sleep(for: .seconds(60))
+                minutes += 1
+            }
+        }
         Task.detached { [weak ix] in
             var round = 0
             while !Task.isCancelled, let ix {
@@ -77,6 +95,13 @@ public struct TimelineRetentionReport: Codable, Equatable, Sendable {
     public var now: Int64
 }
 
+extension TimelineRetentionReport {
+    init(sources: [Source], pruned: Bool?, dryRun: Bool?, bytes: Int64, indexing: Int?, sampler: ResourceSampler.Cost?, now: Int64) {
+        self.init(sources: sources, bytes: bytes, indexing: indexing, sampler: sampler, pruned: pruned, dryRun: dryRun, now: now)
+    }
+    var ordered: Self { self }
+}
+
 extension HostCore {
     /// The derived store as a query reads it: its own read-only connection (an empty store when there is no file yet).
     nonisolated func timelineEngine() throws -> TimelineQueryEngine {
@@ -107,12 +132,29 @@ extension HostCore {
     }
 
     nonisolated func timelineRetention(_ req: TimelineRequest) throws -> TimelineRetentionReport {
+        var removed: [String: [String: Int]]?
+        if req.prune == true {
+            guard let ix = timeline else { throw HostError(.unavailable, "a prune needs the daemon (doz daemon start); --dry-run shows what it would remove") }
+            let rep = ix.prune(dryRun: false)
+            if let why = rep.refused { throw HostError(.failed, "nothing was pruned: \(why)") }
+            removed = rep.removed
+        } else if req.dryRun == true {
+            let rep: TimelinePruneReport
+            if let ix = timeline { rep = ix.prune(dryRun: true) } else {
+                let url = TimelineStore.url(store)
+                let t = FileManager.default.fileExists(atPath: url.path) ? try TimelineStore(url: url, readOnly: true) : try TimelineStore.empty()
+                rep = TimelinePruner(store: store, timeline: t, retention: TimelineRetentionSettings.all(), now: TimelineClock.nowMs()).run(dryRun: true)
+            }
+            if let why = rep.refused { throw HostError(.failed, why) }
+            removed = rep.removed
+        }
         let e = try timelineEngine()
         let eff = try e.effective(TimelineSources.kept.map(\.name))
-        let sources = eff.map { TimelineRetentionReport.Source(source: $0.source, setting: TimelineRetentionSettings.key($0.source), retention: $0, removed: nil) }
-        return TimelineRetentionReport(sources: sources, bytes: FileManager.default.fileExists(atPath: TimelineStore.url(store).path)
+        let sources = eff.map { r in TimelineRetentionReport.Source(source: r.source, setting: TimelineRetentionSettings.key(r.source), retention: r,
+                                                                    removed: removed.map { $0[r.source] ?? [:] }) }
+        return TimelineRetentionReport(sources: sources, pruned: req.prune == true ? true : nil, dryRun: req.dryRun == true ? true : nil, bytes: FileManager.default.fileExists(atPath: TimelineStore.url(store).path)
                                        ? (try? TimelineStore(url: TimelineStore.url(store), readOnly: true).size) ?? 0 : 0,
-                                       indexing: timeline?.progress, sampler: readOnly ? nil : sampler.cost, now: e.now)
+                                       indexing: timeline?.progress, sampler: readOnly ? nil : sampler.cost, now: e.now).ordered
     }
 
     /// The live feed: a batch whenever something the query keeps changed (at most one a second), from `resume` on; a

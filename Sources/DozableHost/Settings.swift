@@ -70,6 +70,8 @@ public enum SettingType: Sendable, Equatable {
     case tailnetAddresses
     /// 747: this Mac's display name (`MacDisplayName`): 1–63 letters, digits, spaces and hyphens.
     case macName
+    /// 747: a timeline source's retention, `EVENTS/1M/1H/1D` in days (each 1–36500, or `kept`) — `TimelineRetentionSettings`.
+    case retention
 
     /// The variables a title may use.
     public static let titleVariables = ["sandbox", "session", "image", "time", "phase"]
@@ -119,6 +121,7 @@ public enum SettingType: Sendable, Equatable {
         case .homePathList: "paths relative to your home, comma-separated, like \"notes, src/shared\" (\"\" = none)"
         case .tailnetAddresses: "Tailscale addresses like 100.100.1.2, comma-separated, each one exactly (\"\" = none)"
         case .macName: "a name of 1–63 letters, digits, spaces or hyphens"
+        case .retention: "days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept"
         }
     }
 
@@ -311,6 +314,9 @@ public struct SettingDefinition: Sendable {
         case (.homePathList, .string(let s)):
             if let why = MacFencePaths.fenceReadProblem(s) { throw SettingsError("\(key): \(why)") }
             return v
+        case (.retention, .string(let s)):
+            if let why = TimelineRetentionSettings.problem(s) { throw SettingsError("\(key): \(why)") }
+            return v
         case (.macName, .string(let s)):
             guard MacDisplayName.isValid(s) else { throw SettingsError("\(key) is 1–63 letters, digits, spaces or hyphens") }
             return v
@@ -337,7 +343,7 @@ public struct SettingDefinition: Sendable {
         case .int:
             guard let i = Int(t) else { throw SettingsError("\(key) is a whole number") }
             return try validate(.int(i))
-        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles, .homePathList, .tailnetAddresses, .macName:
+        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles, .homePathList, .tailnetAddresses, .macName, .retention:
             return try validate(.string(t))
         case .titleTemplate:
             return try validate(.string(text))          // its spaces are its own
@@ -989,6 +995,8 @@ public struct DozableSettings: Sendable {
             .init("timeline", "sample_seconds", .int(0...3600), .int(60),
                   "How often, in seconds, each running sandbox's CPU, memory and disk use are kept for its history (10–3600); 0 = never. Read from this Mac, never inside the sandbox.",
                   env: "DOZ_TIMELINE_SAMPLE_SECONDS", applies: .now),
+            // 747: how long each source of the history is kept (14.5a: the history file and the four new records only).
+        ] + TimelineRetentionSettings.definitions + [
             .init("daemon", "keepalive", .bool, .bool(false),
                   "When a Mac login expires, while a sandbox or fenced session uses it and no unfenced Claude Code runs, the daemon runs the Mac's claude once to renew it (doz account keepalive always: also with nothing using it).",
                   applies: .newStore),
@@ -1536,6 +1544,7 @@ public struct DozableSettings: Sendable {
             case .homePathList: kind = "home-paths"
             case .tailnetAddresses: kind = "addresses"
             case .macName: kind = "string"
+            case .retention: kind = "string"
             }
             var note: String?
             switch r.source {

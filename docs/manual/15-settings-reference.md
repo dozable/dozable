@@ -209,6 +209,18 @@ This table is generated from `doz config show` and checked against it on every b
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
 | `timeline.sample_seconds` | `60` | integer 0–3600 | at once | `$DOZ_TIMELINE_SAMPLE_SECONDS` | How often, in seconds, each running sandbox's CPU, memory and disk use are kept for its history (10–3600); 0 = never. Read from this Mac, never inside the sandbox. |
+| `timeline.actions` | `30/30/365/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps actions: single events, then counts by minute, hour and day (kept = until you delete it). |
+| `timeline.sessions` | `30/30/365/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps sessions: single events, then counts by minute, hour and day (kept = until you delete it). |
+| `timeline.daemon` | `30/30/365/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps daemon runs: single events, then counts by minute, hour and day (kept = until you delete it). |
+| `timeline.network` | `30/30/365/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps network, per minute: single events, then counts by minute, hour and day (kept = until you delete it). |
+| `timeline.workspace` | `90/90/365/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps workspace log: single events, then counts by minute, hour and day (kept = until you delete it). |
+| `timeline.grants` | `365/365/365/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps permission decisions: single events, then counts by minute, hour and day (kept = until you delete it). |
+| `timeline.runs` | `kept/kept/kept/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps workspace runs and space frames: single events, then counts by minute, hour and day (kept = until you delete it). A run's frames are its record, kept as the run folder is. |
+| `timeline.chat` | `30/30/365/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps chat times and ask outcomes: single events, then counts by minute, hour and day (kept = until you delete it). |
+| `timeline.daemon_events` | `7/30/365/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps the daemon's event stream: single events, then counts by minute, hour and day (kept = until you delete it). |
+| `timeline.egress` | `7/7/90/365` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps egress, per connection: single events, then counts by minute, hour and day (kept = until you delete it). Single connections name the hosts a sandbox reached; their counts per sandbox (never a host) are what the longer parts keep. |
+| `timeline.resources` | `7/7/365/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps cpu, memory and disk samples: single events, then counts by minute, hour and day (kept = until you delete it). |
+| `timeline.keys` | `30/30/365/kept` | days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept | at once | — | Days the history keeps key and proxy use: single events, then counts by minute, hour and day (kept = until you delete it). |
 
 ### `[store]`
 

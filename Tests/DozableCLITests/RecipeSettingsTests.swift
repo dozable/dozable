@@ -103,8 +103,9 @@ final class RecipeSettingsTests: XCTestCase {
         // 687: mac.fence_loopback_listen. 691: network.host_ports_live. 692: network.placeholders_plain_http.
         // 693: daemon.always_on. 694: daemon.login_item. The chat server: chat.enabled, chat.page_port, chat.line_port,
         // chat.remote_listen, chat.remote_agents, chat.refusal_reasons; serve.chat (chat for another computer); asks:
-        // chat.asks, chat.ask_max_open, chat.ask_expiry_seconds, chat.ask_cooldown_seconds.
-        XCTAssertEqual(own, 93)
+        // chat.asks, chat.ask_max_open, chat.ask_expiry_seconds, chat.ask_cooldown_seconds. 747: daemon.mac_name,
+        // timeline.sample_seconds and one timeline.SOURCE retention per kept source (12).
+        XCTAssertEqual(own, 107)
         XCTAssertEqual(fresh.components(separatedBy: "\n# ").filter { $0.range(of: #"^[a-z_]+ = "#, options: .regularExpression) != nil }.count, own)
         // One value of a recipe: exactly its block, the others commented.
         let one = DozableSettings.render(values: ["recipes.anthropic.claude-code.version": .string("2.1.290")])

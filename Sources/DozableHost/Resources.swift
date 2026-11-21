@@ -333,6 +333,7 @@ public enum Resources {
         case "kernels": return c.count >= 2 ? "kernel:\(kernelVersion(c[1]))" : "store"
         case "containers": return c.count >= 2 ? "leftover:\(c[1])" : "store"
         case "metrics.sqlite", "metrics.sqlite-wal", "metrics.sqlite-shm": return "metrics"
+        case "timeline.sqlite", "timeline.sqlite-wal", "timeline.sqlite-shm": return "timeline"
         default:
             if c.count == 1, first.hasSuffix(".log") { return "logs" }
             if storeRecords.contains(first) { return "store" }
@@ -602,6 +603,12 @@ public enum Resources {
                              sizeBytes: l.size, freedBytes: l.freed, deletable: true, later: "the history is cleared (Metrics starts again)",
                              path: "metrics.sqlite"))
         }
+        if byLeaf["timeline"] != nil {
+            let l = leaf("timeline")
+            add(ResourceItem(id: "timeline", group: "logs", name: "history", detail: "the timeline's index of every record, and the counts kept after them",
+                             sizeBytes: l.size, freedBytes: l.freed, deletable: true,
+                             later: "rebuilt from the records (counts kept for time whose records are gone are lost)", path: "timeline.sqlite"))
+        }
         if byLeaf["store"] != nil {
             let l = leaf("store")
             add(ResourceItem(id: "store", group: "store", name: "Dozable's own records", detail: "accounts (names only), onboarding, preparations, the daemon's lock and socket",
@@ -681,7 +688,7 @@ public enum Resources {
             it.cleanable && it.deletable && it.refusal == nil
                 && !(it.id.hasPrefix("image:") && !it.id.contains("@"))        // an image by its keys
                 && !["template:", "sandbox:", "point:", "screens:", "boots:", "stray:", "outside:"].contains { it.id.hasPrefix($0) }
-                && !["logs", "metrics", "initfs", "store", "unattributed"].contains(it.id)
+                && !["logs", "metrics", "timeline", "initfs", "store", "unattributed"].contains(it.id)
         }.map(\.id)
     }
 
@@ -758,6 +765,9 @@ public enum Resources {
                     for f in byLeaf["logs"] ?? [] { try truncate(f.url) }
                 case "metrics":
                     try clearMetrics()
+                case "timeline":
+                    // 747: the derived file only — the daemon makes it again from the records.
+                    for n in ["timeline.sqlite", "timeline.sqlite-wal", "timeline.sqlite-shm"] { try removeIfPresent(root.appendingPathComponent(n)) }
                 case "cache:downloads":
                     for n in ["content", "state.json"] { try removeIfPresent(root.appendingPathComponent(n)) }
                 case "cache:tools":
