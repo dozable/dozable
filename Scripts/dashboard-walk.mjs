@@ -1691,7 +1691,8 @@ const LOG_OVERLAPS = `(() => { const out = []; const R = (e) => e.getBoundingCli
         if (x.getClientRects().length && R(x).width && hit(tr, R(x))) out.push('the tools × ' + x.className.split(' ')[0] + ' of ' + (m.closest('.chat-row')?.dataset.who || '?'));
       const mr = R(m);
       for (const b of t.querySelectorAll('button')) { const br = R(b); if (br.width && (br.top < mr.top - 0.5 || br.bottom > mr.bottom + 0.5 || br.left < mr.left - 0.5 || br.right > mr.right + 0.5))
-        out.push('a tool outside its bubble: ' + (b.getAttribute('aria-label') || b.className) + ' of ' + (m.closest('.chat-row')?.dataset.who || '?')); }
+        out.push('a tool outside its bubble: ' + (b.getAttribute('aria-label') || b.className) + ' of ' + (m.closest('.chat-row')?.dataset.who || '?')
+          + ' ' + JSON.stringify({ b: [br.left, br.top, br.right, br.bottom].map(Math.round), m: [mr.left, mr.top, mr.right, mr.bottom].map(Math.round) })); }
       const first = m.querySelector('.chat-md')?.firstElementChild;
       const fr = first && first.getClientRects()[0];
       if (fr && hit(tr, fr)) out.push('the tools × the first line of ' + (m.closest('.chat-row')?.dataset.who || '?'));
@@ -1720,7 +1721,11 @@ async function walkAskStates() {
     options: [{ id: 'unit', label: 'Unit' }, { id: 'e2e', label: 'End to end' }] }]));
   const a8 = botAsk('askerbot', ['Which checks run?', '--questions', S + '/ask-q8.json']);
   await waitFor(`!!${CARD(a8)}`, 15000);
-  await evaluate(`(() => { const c = ${CARD(a8)}; c.closest('.chat-row').scrollIntoView({ block: 'center' }); c.querySelector('input.chat-ask-input').focus(); })()`);
+  // (The card may be drawn again by the live stream just after it comes: the focus is put on Unit until it holds.)
+  await waitFor(`(() => { const c = ${CARD(a8)}; if (!c) return false; c.closest('.chat-row').scrollIntoView({ block: 'center' });
+    const i = c.querySelector('input.chat-ask-input'); if (document.activeElement !== i) i.focus(); return document.activeElement === i; })()`, 10000);
+  await sleep(300);
+  await evaluate(`(() => { const i = ${CARD(a8)}.querySelector('input.chat-ask-input'); if (document.activeElement !== i) i.focus(); })()`);
   await key('a', 'KeyA', 65);   // Unit ticked by its letter: Answer is on
   const where = `(() => { const f = document.activeElement; const el = f.closest('.chat-ask-opt') || f;
     return { k: f.getAttribute('data-k') || f.className, ring: getComputedStyle(el).outlineStyle }; })()`;
@@ -1875,7 +1880,10 @@ async function walkChatDrawers() {
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await sleep(400);
   const ov = await evaluate(HEAD_OVERLAPS);
-  check(ov.out.length === 0 && await evaluate(`document.scrollingElement.scrollWidth <= 390`), `chat 10 at 390 px the page's head: nothing overlaps, no sideways scroll (${ov.n} controls${ov.out.length ? ': ' + ov.out.join(', ') : ''})`);
+  const flat = await waitFor(`document.scrollingElement.scrollWidth <= 390`, 4000);
+  const wider = flat ? '' : await evaluate(`(() => { const o = [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().right > 391).slice(0, 4);
+    return document.scrollingElement.scrollWidth + ' px: ' + o.map((e) => e.tagName.toLowerCase() + '.' + String(e.className).split(' ')[0] + ' ' + Math.round(e.getBoundingClientRect().right)).join(', '); })()`);
+  check(ov.out.length === 0 && flat, `chat 10 at 390 px the page's head: nothing overlaps, no sideways scroll (${ov.n} controls${ov.out.length ? ': ' + ov.out.join(', ') : ''}${wider ? '; ' + wider : ''})`);
   await evaluate(`document.querySelector('#chat-rooms-btn').click()`);
   const open390 = await waitFor(`${SURF}.classList.contains('is-rooms-open') && getComputedStyle(document.querySelector('#chat-rooms-pane')).position === 'fixed'
     && document.querySelector('#chat-rooms-pane').contains(document.activeElement)`, 5000);
@@ -1965,7 +1973,6 @@ async function hoverAt(sel) {
   const p = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(sel)})?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
   if (p) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y });
 }
-const ROW_OF = (id) => `[data-row-id="${id}"]`;
 /// The busy room (team) and two quieter ones: code, a link, a mention, your own messages, replies and reactions.
 function busyRoom() {
   doz(['chat', 'add', 'coder', '--to-file', S + '/coder.token']);
@@ -2033,7 +2040,11 @@ async function walkChatPictures() {
   await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
   await openChatRoom('team');
   // Each message's row says its id (the walk's own mark, for the pictures).
-  const markRows = () => evaluate(`(() => { for (const m of state.chat.byId.values()) if (m._el && m.msg_id) m._el.dataset.rowId = m.msg_id; })()`);
+  // (and the rows the pictures pick, found by their text: m1, its two replies)
+  const markRows = () => evaluate(`(() => { for (const m of state.chat.byId.values()) if (m._el && m.msg_id) m._el.dataset.rowId = m.msg_id;
+    const mark = (start, name) => { const r = [...document.querySelectorAll('#chat-log .chat-row')].find((x) => (x.querySelector('.chat-md')?.textContent || '').startsWith(start)); if (r) r.dataset.shot = name; };
+    mark('First cut of the back-off helper', 'm1'); mark('Done: ', 'r1'); mark('Looks right.', 'r2'); })()`);
+  const SHOT = (name) => `[data-shot="${name}"]`;
   await markRows();
   await chatShots('busy-room', async () => { await chatFoot(); });
   await chatShots('rooms-list', async (vp) => { await chatDrawer('rooms', vp === '390'); await chatFoot(); });
@@ -2050,18 +2061,20 @@ async function walkChatPictures() {
   await evaluate(`(() => { const t = document.getElementById('chat-text'); t.value = ''; t.dispatchEvent(new Event('input', { bubbles: true })); t.blur(); })()`);
   await markRows();
   await chatShots('message-actions', async (vp) => {
+    await markRows();   // (drawn again since? each row says its id afresh)
     await key(...ESC);
     await evaluate(`document.querySelectorAll('dialog[open]').forEach((d) => d.close())`);
     await chatDrawer('people', false);
-    await chatScroll(ROW_OF(m1));
+    await chatScroll(SHOT('m1'));
+    await sleep(300);
+    if (vp === '390') await tapAt(SHOT('m1') + ' .chat-msg'); else await hoverAt(SHOT('m1') + ' .chat-msg');
     await sleep(200);
-    if (vp === '390') await tapAt(ROW_OF(m1) + ' .chat-msg'); else await hoverAt(ROW_OF(m1) + ' .chat-msg');
-    await sleep(200);
-    await evaluate(`[...document.querySelectorAll(${JSON.stringify(ROW_OF(m1) + ' .chat-tools .menu-wrap > button')})].pop()?.click()`);
+    await evaluate(`[...document.querySelectorAll(${JSON.stringify(SHOT('m1') + ' .chat-tools .menu-wrap > button')})].pop()?.click()`);
   });
   await key(...ESC);
   await chatShots('reply', async () => {
-    for (const id of [r1, r2]) await evaluate(`(() => { const b = document.querySelector(${JSON.stringify(ROW_OF(id) + ' .chat-ibtn')}); if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); })()`);
+    await markRows();
+    for (const id of ['r1', 'r2']) await evaluate(`(() => { const b = document.querySelector(${JSON.stringify(SHOT(id) + ' .chat-ibtn')}); if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); })()`);
     await chatFoot();
   });
   // Attachments: a picture and a file from the clip's chooser, sent with a line; and a bot's file.
@@ -3480,7 +3493,8 @@ try {
   await goHash('#/w/demo2/agents/new');
   check(await waitFor(`state.view === 'addworker' && !!state.aw?.plan && !state.aw.planError`, 15000), 'add 10 with the daemon stopped, Add a worker opens and the plan answers');
   await awType('[data-aw-task]', 'List the files with no daemon.');
-  check(await evaluate(`!state.aw.plan.problem && (state.aw.plan.notes || []).some((n) => /checked again when you add/.test(n))`), 'add 10 …saying what is checked again when you add');
+  const said10 = await waitFor(`!state.aw.plan.problem && (state.aw.plan.notes || []).some((n) => /checked again when you add/.test(n))`, 10000);
+  check(said10, 'add 10 …saying what is checked again when you add' + (said10 ? '' : ' ' + JSON.stringify(await evaluate(`({ problem: state.aw.plan.problem, notes: state.aw.plan.notes })`))));
   // 11. A lifecycle verb's plan with the daemon stopped: answered from the store.
   const p11 = await evaluate(`(async () => { const r = await fetch('/api/v1/workspace-lifecycle-plan', { method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-Doz-CSRF': state.csrf }, body: JSON.stringify({ workspace: 'demo2', verb: 'sleep' }) });
