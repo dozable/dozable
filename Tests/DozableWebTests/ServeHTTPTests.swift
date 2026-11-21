@@ -95,6 +95,33 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertTrue(r.text.contains("chat-remote"), r.text)
     }
 
+    /// 745: another computer gets the chat window's DOCUMENT either way (it holds nothing); what it may read is decided per
+    /// chat route by serve.chat, exactly as on the Chat page: off → 403 chat-remote, read → the reads and never a post.
+    func testTheChatWindowsExposureIsTheChatViews() async throws {
+        try await start()
+        let (offCookie, _) = try await admit()
+        for h in [["Cookie": offCookie], [:]] {
+            let doc = try req("/chat", h)
+            XCTAssertEqual(doc.status, 200, "the document, with or without a session")
+            XCTAssertTrue(doc.text.contains("/assets/chat-"))
+        }
+        let off = try req("/api/v1/chat/status", ["Cookie": offCookie])
+        XCTAssertEqual(off.status, 403)
+        XCTAssertTrue(off.text.contains("chat-remote"), off.text)
+        await server.close()
+        _ = try? await serveTask?.value
+        try await start(chat: "read")
+        let (cookie, csrf) = try await admit()
+        XCTAssertEqual(try req("/chat", ["Cookie": cookie]).status, 200)
+        let st = try req("/api/v1/chat/status", ["Cookie": cookie])
+        XCTAssertEqual(st.status, 200, st.text)
+        XCTAssertFalse(st.text.contains("chat-remote"), "read: the chat routes answer (chat itself is off here)")
+        let post = try req("/api/v1/chat/rooms/general/messages", ["Cookie": cookie, "Origin": own, "X-Doz-CSRF": csrf, "Content-Type": "application/json"],
+                           method: "POST", body: #"{"content":"hi"}"#)
+        XCTAssertEqual(post.status, 403)
+        XCTAssertTrue(post.text.contains("chat-read-only"), post.text)
+    }
+
     func testNotAdmittedThenALinkOnceThenTheDashboard() async throws {
         try await start()
         XCTAssertEqual(try req("/").status, 200, "the page loads (it signs in inside itself)")

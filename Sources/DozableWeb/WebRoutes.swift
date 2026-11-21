@@ -25,6 +25,9 @@ public enum WebRoute: Equatable, Sendable {
     case offline
     /// 605: GET /sw.js — the service worker (its own CSP; it caches only the offline page and its files).
     case serviceWorker
+    /// 745: GET /chat — the chat window's document (the room in the fragment, `/chat#/ROOM`). No session, no data: every
+    /// read it makes is a chat route under `/api/v1/chat/`, decided as the Chat page's are.
+    case chatPage
     // session
     case sessionBootstrap          // POST   /api/v1/session   (Authorization: Bearer <capability>)
     case sessionInfo               // GET    /api/v1/session
@@ -215,7 +218,7 @@ public enum WebRoute: Equatable, Sendable {
     case macs                           // GET  /api/v1/macs              (macs-ls)
 
     public var isStatic: Bool {
-        switch self { case .index, .asset, .terminalFrame, .offline, .serviceWorker: true; default: false }
+        switch self { case .index, .asset, .terminalFrame, .offline, .serviceWorker, .chatPage: true; default: false }
     }
 
     /// Parse a request target. Only the metrics routes (three keys) and the file routes (643: `path` only,
@@ -238,6 +241,7 @@ public enum WebRoute: Equatable, Sendable {
         if path == WebAssets.frameDocument { return method.isSafe ? .terminalFrame : nil }
         if path == WebAssets.offlineDocument { return method.isSafe ? .offline : nil }
         if path == WebAssets.serviceWorker { return method.isSafe ? .serviceWorker : nil }
+        if path == WebAssets.chatDocument { return method.isSafe ? .chatPage : nil }
         let parts = path.dropFirst().split(separator: "/", omittingEmptySubsequences: false).map(String.init)
         guard !parts.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }) else { return nil }
         if parts.count == 2, parts[0] == "assets" { return method.isSafe ? .asset(path) : nil }

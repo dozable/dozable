@@ -129,7 +129,9 @@ final class WebInstallableTests: XCTestCase {
         XCTAssertFalse(text.contains("@build@"))
         XCTAssertNotNil(text.range(of: #"const CACHE = "doz-offline-[0-9a-f]{16}";"#, options: .regularExpression))
         for banned in ["importScripts", "eval(", "cache.put", ".put("] { XCTAssertFalse(text.contains(banned), banned) }
-        XCTAssertTrue(text.contains("r.mode === 'navigate' && r.destination === 'document' && url.pathname === '/'"))
+        XCTAssertTrue(text.contains("r.mode === 'navigate' && r.destination === 'document' && PAGES.includes(url.pathname)"))
+        // 745: its pages are the documents a person opens — the dashboard and the chat window — and nothing else.
+        XCTAssertTrue(text.contains(#"const PAGES = ["/", "/chat"];"#))
         // The offline page: a document without a session, its own script and style (precached).
         let offline = try XCTUnwrap(a.assets[WebAssets.offlineDocument])
         XCTAssertEqual(offline.cachePolicy, "no-store")

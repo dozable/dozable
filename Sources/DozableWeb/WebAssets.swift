@@ -130,7 +130,9 @@ public struct WebAssets: Sendable {
     public static let frameDocument = "/terminal-frame"
     public static let offlineDocument = "/offline"
     public static let serviceWorker = "/sw.js"
-    static let documents: Set<String> = ["/", frameDocument, offlineDocument, serviceWorker]
+    /// 745: the chat window (`/chat#/ROOM`) — the dashboard's stylesheet, its own module entry (`chat-<sha16>.js`).
+    public static let chatDocument = "/chat"
+    static let documents: Set<String> = ["/", frameDocument, offlineDocument, serviceWorker, chatDocument]
 
     /// 591: what the sandboxed (opaque-origin) terminal frame loads: its own script and style and the
     /// engine's script. Those requests come from an opaque origin — `Sec-Fetch-Site: cross-site`, no

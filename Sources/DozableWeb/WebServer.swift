@@ -142,7 +142,7 @@ public final class DozableWebServer: @unchecked Sendable {
         auth = WebAuth(browser: sessions, devices: serveState?.devices)
         hub = SSEHub(maxClients: limits.maximumSSEClients, capacity: limits.maximumBufferedSSEEvents)
         filesHub = SSEHub(maxClients: limits.maximumSSEClients, capacity: limits.maximumBufferedSSEEvents)
-        chatHub = SSEHub(maxClients: 4, capacity: limits.maximumBufferedSSEEvents)
+        chatHub = SSEHub(maxClients: limits.maximumChatStreams, capacity: limits.maximumBufferedSSEEvents)
         chat = WebChatProxy(storePath: data.storePath, enabled: { [settings] in settings.bool(SettingKey.chatEnabled) })
         tickets = WebTerminalTicketStore()
         terminals = WebTerminalHub()
@@ -858,9 +858,9 @@ public final class DozableWebServer: @unchecked Sendable {
                           device: inout WebDeviceView?) async throws -> Reply {
         let view = ctx.view
         switch route {
-        case .index, .asset:
+        case .index, .asset, .chatPage:
             try WebSecurity.validateStatic(md, view)
-            let path = if case .asset(let p) = route { p } else { "/" }
+            let path = if case .asset(let p) = route { p } else if route == .chatPage { WebAssets.chatDocument } else { "/" }
             guard let a = assets.assets[path] else { throw WebRejection.notFound }
             return .response(200, [("Content-Type", a.mimeType), ("Cache-Control", a.cachePolicy)], a.data)
         case .terminalFrame:
@@ -906,7 +906,7 @@ public final class DozableWebServer: @unchecked Sendable {
         // 606: who may do what (WebExposure — the server is the wall; the page only hides).
         if let r = WebExposure.decide(route, ctx.principal, macSessions: settings.macSessions, chat: settings.chatServe) { throw r }
         switch route {
-        case .index, .asset, .sessionBootstrap, .terminalFrame, .offline, .serviceWorker, .serveProbe:
+        case .index, .asset, .sessionBootstrap, .terminalFrame, .offline, .serviceWorker, .chatPage, .serveProbe:
             throw WebRejection.notFound
         case .sessionInfo:
             return json(sessionInfo(session, ctx, device))

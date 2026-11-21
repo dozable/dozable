@@ -114,6 +114,11 @@ final class WebDashboardUpgradeTests: XCTestCase {
         XCTAssertTrue(index.contains("<link rel=\"manifest\" href=\"\(m.publicPath)\">"), "the page links the named manifest")
         XCTAssertTrue(index.contains("<title>Dozable – john-mac-studio</title>"))
         XCTAssertEqual(named.pageScript, base.pageScript)
+        // 745: the chat window's title names the Mac too (it links no manifest).
+        let chat = String(decoding: try XCTUnwrap(named.assets[WebAssets.chatDocument]).data, as: UTF8.self)
+        XCTAssertTrue(chat.contains("<title>Chat – john-mac-studio</title>"), chat)
+        XCTAssertEqual(named.assets[WebAssets.chatDocument]?.sha256, WebAssets.sha256Hex(named.assets[WebAssets.chatDocument]!.data))
+        XCTAssertEqual(base.forMac(nil).assets[WebAssets.chatDocument]?.data, base.assets[WebAssets.chatDocument]?.data)
         XCTAssertEqual(named.assets.count, base.assets.count)
         // No name (or one unfit for a title): the build's own files.
         XCTAssertEqual(base.forMac(nil).assets["/"]?.data, base.assets["/"]?.data)

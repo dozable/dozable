@@ -534,8 +534,11 @@ final class WebModulesTests: XCTestCase {
         let modules = a.assets.keys.filter { $0.hasPrefix("/assets/app/") }
         XCTAssertEqual(modules.count, sources.count, "one served module per source module")
         let entry = try XCTUnwrap(a.pageScript)
+        // 745: the chat window's entry too — each entry's closure, both together every module.
+        let chatEntry = try XCTUnwrap(a.assets.keys.first { $0.hasPrefix("/assets/chat-") && $0.hasSuffix(".js") })
+        let entries: Set<String> = [entry, chatEntry]
         var reached = Set<String>()
-        var queue = [entry]
+        var queue = [entry, chatEntry]
         while let p = queue.popLast() {
             let asset = try XCTUnwrap(a.assets[p], p)
             XCTAssertEqual(asset.mimeType, "application/javascript; charset=utf-8", p)
@@ -548,7 +551,7 @@ final class WebModulesTests: XCTestCase {
                 XCTAssertTrue(target.hasPrefix("/assets/app/"), "\(p) → \(target)")
                 XCTAssertNotNil(a.assets[target], "\(p) imports \(target), which is served")
                 XCTAssertTrue(target.range(of: #"-[0-9a-f]{16}\.js$"#, options: .regularExpression) != nil, "\(target) is a hashed name")
-                if p != entry {
+                if !entries.contains(p) {
                     let from = p.split(separator: "/")[2], to = target.split(separator: "/")[2]
                     XCTAssertLessThanOrEqual(Self.layers[String(to)]!, Self.layers[String(from)]!, "\(p) imports \(target): never up a layer")
                 }
@@ -559,6 +562,9 @@ final class WebModulesTests: XCTestCase {
         if !modules.isEmpty {
             let index = String(decoding: a.assets["/"]!.data, as: UTF8.self)
             XCTAssertTrue(index.contains("<script type=\"module\" src=\"\(entry)\"></script>"), "index.html loads the entry as a module")
+            let chat = String(decoding: a.assets[WebAssets.chatDocument]!.data, as: UTF8.self)
+            XCTAssertTrue(chat.contains("<script type=\"module\" src=\"\(chatEntry)\"></script>"), "chat.html loads its entry as a module")
+            XCTAssertTrue(chat.contains("href=\"\(a.pageStyle!)\""), "with the dashboard's stylesheet")
         }
     }
 
@@ -577,6 +583,13 @@ final class WebModulesTests: XCTestCase {
         }
         let entry = String(decoding: a.assets[a.pageScript!]!.data, as: UTF8.self)
         XCTAssertEqual(unhash(entry), try String(contentsOf: src.appendingPathComponent("app.js"), encoding: .utf8))
+        // 745: the chat window's entry likewise — and it imports only hashed module names.
+        let chatPath = try XCTUnwrap(a.assets.keys.first { $0.hasPrefix("/assets/chat-") && $0.hasSuffix(".js") })
+        let chat = String(decoding: a.assets[chatPath]!.data, as: UTF8.self)
+        XCTAssertEqual(unhash(chat), try String(contentsOf: src.appendingPathComponent("chat.js"), encoding: .utf8))
+        for spec in Self.specifiers(chat) {
+            XCTAssertTrue(spec.hasPrefix("./app/") && spec.range(of: #"-[0-9a-f]{16}\.js$"#, options: .regularExpression) != nil, spec)
+        }
     }
 
     // MARK: the compiler's refusals, on a scratch copy of the sources
@@ -671,6 +684,56 @@ final class WebModulesTests: XCTestCase {
             try Data(html.replacingOccurrences(of: "<script type=\"module\" src=\"/app.js\"></script>", with: "<script src=\"/app.js\" defer></script>").utf8).write(to: index)
         }
     }
+    /// 745: the chat window's entry, chat.js — checked like app.js over ITS closure, and it reaches no dashboard view.
+    func testTheCompilerChecksTheChatWindowsEntry() throws {
+        func refused(_ what: String, _ expect: String, _ change: (URL) throws -> Void) throws {
+            let (status, out) = try compileScratch(change)
+            XCTAssertNotEqual(status, 0, what)
+            XCTAssertTrue(out.contains(expect), "\(what): \(out)")
+        }
+        func prepend(_ src: URL, _ file: String, _ text: String) throws {
+            let u = src.appendingPathComponent(file)
+            try Data((text + (try String(contentsOf: u, encoding: .utf8))).utf8).write(to: u)
+        }
+        try refused("a dashboard view in the chat window", "chat.js reaches app/views/home.js — the chat window loads only chat's code") { src in
+            try prepend(src, "chat.js", "import './app/views/home.js';\n")
+        }
+        try refused("an upcall chat.js does not provide", "which chat.js does not provide") { src in
+            try Self.add(src, "core/zz-up.js", "const nowhere = upcall('zzNowhere');\nexport const a = nowhere;\n", importFromEntry: false)
+            try prepend(src, "chat.js", "import './app/core/zz-up.js';\n")
+            let entry = src.appendingPathComponent("app.js")
+            let t = try String(contentsOf: entry, encoding: .utf8)
+            try Data(("import './app/core/zz-up.js';\nconst zzNowhere = () => 0;\n" + t.replacingOccurrences(of: "provide({", with: "provide({ zzNowhere,")).utf8).write(to: entry)
+        }
+        try refused("a provide nothing in its closure upcalls", "chat.js provides zzExtra, which no module it loads upcalls") { src in
+            let u = src.appendingPathComponent("chat.js")
+            let t = try String(contentsOf: u, encoding: .utf8)
+            try Data(t.replacingOccurrences(of: "provide({", with: "provide({ zzExtra,").utf8).write(to: u)
+            try prepend(src, "chat.js", "const zzExtra = () => 0;\n")
+        }
+        try refused("an inline script in chat.html", "chat.html has an inline <script>") { src in
+            let u = src.appendingPathComponent("chat.html")
+            let t = try String(contentsOf: u, encoding: .utf8)
+            try Data(t.replacingOccurrences(of: "</body>", with: "<script>alert(1)</script></body>").utf8).write(to: u)
+        }
+        try refused("chat.html loading chat.js as a classic script", "chat.html must load chat.js as a module") { src in
+            let u = src.appendingPathComponent("chat.html")
+            let t = try String(contentsOf: u, encoding: .utf8)
+            try Data(t.replacingOccurrences(of: "<script type=\"module\" src=\"/chat.js\"></script>", with: "<script src=\"/chat.js\" defer></script>").utf8).write(to: u)
+        }
+        try refused("the worker's pages not the page documents", "sw.js must list its pages exactly") { src in
+            let u = src.appendingPathComponent("sw.js")
+            let t = try String(contentsOf: u, encoding: .utf8)
+            try Data(t.replacingOccurrences(of: #"const PAGES = ["/", "/chat"];"#, with: #"const PAGES = ["/"];"#).utf8).write(to: u)
+        }
+        // A module only the chat window reaches compiles (app.js need not load it), and is served once.
+        let ok = try compileScratch { src in
+            try Self.add(src, "core/zz-only-chat.js", "export const z = 1;\n", importFromEntry: false)
+            try prepend(src, "chat.js", "import './app/core/zz-only-chat.js';\n")
+        }
+        XCTAssertEqual(ok.0, 0, ok.1)
+    }
+
     /// 744: the space editor's page — its two addresses (pure, in JavaScriptCore), its modules (the glue: no timer, no DOM in
     /// the data module), the guard a dirty file sets (the router's, the restart's reload, the page's own keys left alone).
     func testTheSpaceEditorsPageAndItsAddresses() throws {
