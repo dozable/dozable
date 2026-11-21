@@ -43,6 +43,12 @@
       "serve": "icon"
     },
     {
+      "file": "boxes.svg",
+      "fromTarball": "package/icons/boxes.svg",
+      "sha256": "d761caff5a082577a3ffe49d502921d3b8f94a5c084b124544d6bbaef5f32a6d",
+      "serve": "icon"
+    },
+    {
       "file": "bug.svg",
       "fromTarball": "package/icons/bug.svg",
       "sha256": "e62de3abcbbe5a375ca9c61a011819b2982fde4b715758af6abd77944128c0fb",

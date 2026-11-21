@@ -314,8 +314,10 @@ final class WebTerminalUnitTests: XCTestCase {
             XCTAssertEqual(WebAssets.sha256Hex(try Data(contentsOf: vendor.appendingPathComponent(name))), f["sha256"] as? String, name)
         }
         let assets = try WebAssets.load()
-        // 593: the icon sprite is vendored too, but GENERATED from its pinned files (WebTerminalHTTPTests checks it).
-        let vendored = assets.assets.values.filter { $0.publicPath.hasPrefix("/assets/vendor-") && !$0.publicPath.hasPrefix("/assets/vendor-lucide-icons-") }
+        // 593: the icon sprite is vendored too, but GENERATED from its pinned files (WebTerminalHTTPTests checks it); 742: the
+        // space renderer is pinned by its own PIN (WebModulesTests.testTheSpaceRendererShipsAtItsPinAndLoadsOnlyLazily).
+        let vendored = assets.assets.values.filter { $0.publicPath.hasPrefix("/assets/vendor-") && !$0.publicPath.hasPrefix("/assets/vendor-lucide-icons-")
+            && !$0.publicPath.hasPrefix("/assets/vendor-space-render-") }
         XCTAssertEqual(Set(vendored.map(\.mimeType)), ["application/javascript; charset=utf-8", "application/wasm"])
         for a in vendored {
             XCTAssertTrue(files.contains { ($0["sha256"] as? String) == a.sha256 }, "\(a.publicPath) is a pinned file")

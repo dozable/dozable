@@ -6,6 +6,7 @@ import { loadPreparations } from './operations.js';
 import { agentsHash, canonical, HOME, MODAL_VIEWS, parse } from './routes.js';
 import { state } from './state.js';
 import { loadWorkspace } from './workspaces.js';
+import { picturesStale } from './space-pictures.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), chatEnter = upcall('chatEnter'), chatLeave = upcall('chatLeave'),
   chatRefresh = upcall('chatRefresh'), wsEnter = upcall('wsEnter'), wsRefresh = upcall('wsRefresh'),
@@ -83,6 +84,7 @@ async function enterAgent(p, hash) {
 export function lostPlaceHash(fallback) { return state.frame ? agentsHash(state.frame.workspace) : fallback; }
 
 function routePage() {
+  picturesStale({ file: true });                                  // arriving: the pictures on screen read afresh
   paintNav();
   // 591: the terminals live in their own section, never re-rendered by refresh() (a live update
   // must not steal a terminal's focus or reparent its canvas). 593: that section is the sandbox

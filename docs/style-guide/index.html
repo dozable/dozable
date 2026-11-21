@@ -1678,6 +1678,47 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   </div></div>
 </section>
 
+<section id="sg-space-pictures">
+  <h2>The workspace drawn — the hero, the thumbnails, the tile, the full-window view</h2>
+  <p>A workspace a space file made is drawn from its file and its live state by the space editor's renderer
+    (<code>vendor/space-editor/space-render.js</code>, loaded only once a picture is on screen; <code>core/space-pictures.js</code> reads and draws,
+    <code>components/space-picture.js</code> lays out). On its page the hero (<code>.ws-hero-band</code>, <code>.ws-hero</code> — a button: it opens the full-window
+    view, <code>.sp-full</code>), folded like the brief; a file that doesn't read adds Dozable's own verdict (<code>.ws-hero-problem</code>) under the drawing.
+    On Home a thumbnail in the Workspace cell (<code>.sp-thumb-home</code>, 128 × 80; 96 × 60 at phone width) and in the sidebar one at the top of an
+    unfolded workspace (<code>.nav-ws-thumb</code>, <code>ui.nav_thumbnails</code>) — each an <code>&lt;img&gt;</code> of the drawing at 160 × 100. With no file (or one this
+    browser may not read): the plain tile (<code>.sp-tile</code>, Lucide's boxes) on Home, the compact band (<code>.ws-hero-none</code>) on the page, nothing in the
+    sidebar. The drawings below are the vendored renderer's own, made here.</p>
+  <div class="pair"><div class="scheme">
+    <section class="ws-hero-band" style="max-width:640px">
+      <div class="ws-hero-head"><span class="ws-hero-label"><i data-i="boxes"></i><span>Drawn from <code>launch.space.yaml</code></span></span><span class="ws-sp"></span>
+        <button type="button" class="btn sm quiet ws-hero-fold" aria-expanded="true"><i data-i="chevron-down"></i>Fold</button></div>
+      <button type="button" class="ws-hero" aria-label="launch, drawn from its space file launch.space.yaml — open it in the full window"><div class="ws-hero-pic" data-sg-space="hero"></div></button>
+    </section>
+    <section class="ws-hero-band is-folded" style="max-width:640px">
+      <div class="ws-hero-head"><span class="ws-hero-label"><i data-i="boxes"></i><span>Drawn from <code>launch.space.yaml</code></span></span><span class="ws-sp"></span>
+        <button type="button" class="btn sm quiet ws-hero-fold" aria-expanded="false"><i data-i="chevron-right"></i>Show</button></div>
+    </section>
+    <section class="ws-hero-band" style="max-width:640px">
+      <div class="ws-hero-problem"><p class="ws-hero-problem-text"><i data-i="triangle-alert"></i>This file doesn’t read: “agents” is a map of names to settings, not a list.</p>
+        <span class="cmd-copy"><code>doz workspace up -f ~/spaces/broken.space.yaml --dry-run</code><button type="button" class="btn sm quiet icon-only" aria-label="Copy"><i data-i="copy"></i></button></span></div>
+    </section>
+    <section class="ws-hero-band ws-hero-none" style="max-width:640px"><span class="sp-tile" title="Made without a space file"><i data-i="boxes"></i></span>
+      <span class="ws-hero-why">Made without a space file — </span><span class="cmd-copy"><code>doz workspace up -f FILE</code><button type="button" class="btn sm quiet icon-only" aria-label="Copy"><i data-i="copy"></i></button></span><span class="ws-hero-why"> draws it</span></section>
+    <div class="sg-row">
+      <div class="hm-ws-cell"><a class="hm-thumb-link" href="#"><span class="sp-thumb sp-thumb-home"><img class="sp-img" alt="launch, drawn from its space file" width="160" height="100" data-sg-space="thumb"></span></a>
+        <div class="hm-ws"><a class="hm-ws-name" href="#"><b>launch</b></a><div class="hm-folders"><span class="hm-folder">~/video/launch</span></div></div></div>
+      <div class="hm-ws-cell"><span class="sp-thumb sp-thumb-home"><span class="sp-tile" title="Made without a space file"><i data-i="boxes"></i></span></span>
+        <div class="hm-ws"><a class="hm-ws-name" href="#"><b>demo</b></a><div class="hm-folders"><span class="hm-folder muted">no folder</span></div></div></div>
+      <div class="hm-ws-cell"><span class="sp-thumb sp-thumb-home is-problem"><img class="sp-img" alt="broken, drawn from its space file" width="160" height="100" data-sg-space="thumb-broken"></span></div>
+      <div style="width:200px"><a class="nav-ws-thumb" href="#"><span class="sp-thumb sp-thumb-nav"><img class="sp-img" alt="" width="160" height="100" data-sg-space="thumb"></span></a></div>
+    </div>
+    <div class="sp-full" style="position:relative;inset:auto;height:360px;z-index:auto">
+      <div class="sp-full-box" role="dialog" aria-label="launch, drawn from its space file"><div class="sp-full-head"><b>launch</b><span class="ws-sp"></span>
+        <button type="button" class="btn sm"><i data-i="x"></i>Close</button></div><div class="sp-full-pic" data-sg-space="full"></div></div>
+    </div>
+  </div></div>
+</section>
+
 <section id="sg-agents-tab">
   <h2>A workspace's agents — the Agents tab, an agent's screen, “Put in a workspace…”</h2>
   <p>The Agents tab (<code>#/w/NAME/agents</code>, <code>views/ws-agents.js</code>, <code>.wsa-table</code>): one table for every kind of agent, told apart by the

@@ -1,12 +1,15 @@
 // components/ws-nav — The sidebar's Workspaces: one line per workspace (its state's mark, its name, a caret). The name
 // opens its page (#/w/NAME — the main room first). Unfolded (GET /api/v1/workspaces/{w}): its rooms (`# label`, each its
 // page's address: #/w/NAME, #/w/NAME/room/LABEL) and its agents — a sandbox's opens its page, a session on this Mac its pane, one elsewhere is a name only.
-// Asleep and Finished & archived fold into a line each. What is unfolded is kept in this browser (doz.nav.ws).
+// Asleep and Finished & archived fold into a line each. What is unfolded is kept in this browser (doz.nav.ws). An unfolded
+// workspace a space file made shows its picture first (ui.nav_thumbnails; components/space-picture.js).
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { agentHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { byState, forgetWorkspaces, isDone, loadWorkspace } from '../core/workspaces.js';
+import { setting } from '../core/settings.js';
+import { forgetThumbs, spaceThumb } from './space-picture.js';
 import { workspaceDot } from './ws-marks.js';
 
 const KEY = 'doz.nav.ws';
@@ -30,8 +33,11 @@ export function renderNavWorkspaces(opts = {}) {
   const f = box.contains(document.activeElement) ? focusKey(document.activeElement) : null;
   forgetWorkspaces(all.map((w) => w.name));
   const open = openSet();
+  // A picture of each unfolded workspace a space file made (ui.nav_thumbnails, on by default) — none without a file.
+  const thumbs = setting('ui.nav_thumbnails', true) !== false;
+  forgetThumbs(thumbs ? all.filter((w) => open.has(w.name)).map((w) => w.name) : [], 'nav');
   // Drawn again only when what it shows changed (a redraw is a style recalculation for the whole sidebar).
-  const sig = JSON.stringify([all, [...open].sort(), [...state.wsDetails.entries()].filter(([n]) => open.has(n)),
+  const sig = JSON.stringify([all, thumbs, [...open].sort(), [...state.wsDetails.entries()].filter(([n]) => open.has(n)),
     !state.modal && state.view === 'workspace' ? [state.param, state.wsRoom, state.wsTab] : null, state.frame ? [state.frame.workspace, state.frame.agent] : null]);
   if (sig === lastSig && box.childElementCount) { if (!opts.details) for (const w of all) if (open.has(w.name)) readDetail(w.name, 0); return; }
   lastSig = sig;
@@ -71,7 +77,9 @@ function line(w, open) {
     'aria-expanded': unfolded ? 'true' : 'false', 'aria-label': (unfolded ? 'Fold ' : 'Show ') + w.name + '’s rooms and agents',
     title: unfolded ? 'Fold its rooms and agents' : 'Show its rooms and agents',
     on: { click: (ev) => { ev.preventDefault(); ev.stopPropagation(); toggle(); } } }, icon('chevron-down'));
-  return h('div', { class: 'nav-sbx nav-ws', role: 'listitem', 'data-nav-ws': w.name }, link, caret, unfolded ? inside(w) : null);
+  const thumb = unfolded && setting('ui.nav_thumbnails', true) !== false ? spaceThumb(w, 'nav') : null;
+  return h('div', { class: 'nav-sbx nav-ws', role: 'listitem', 'data-nav-ws': w.name }, link, caret,
+    thumb ? h('a', { href: workspaceHash(w.name), class: 'nav-ws-thumb', tabindex: '-1', 'aria-hidden': 'true' }, thumb) : null, unfolded ? inside(w) : null);
 }
 
 function inside(w) {

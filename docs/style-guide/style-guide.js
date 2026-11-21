@@ -5,6 +5,7 @@
 //    gets that mark, and the registry section lists them all.
 //  · light and dark: each .pair's panel is cloned as the dark one (color-scheme decides app.css's light-dark()).
 //  · the theme switch: auto · light · dark — the app's own data-theme on <html>.
+//  · the workspace drawn: the vendored space renderer (vendor/space-editor) draws each [data-sg-space] specimen.
 // No framework; nothing outside the repository is fetched.
 (async function () {
   const NS = 'http://www.w3.org/2000/svg';
@@ -25,6 +26,21 @@
     const l = p.querySelector('.scheme'); if (!l || p.querySelectorAll('.scheme').length > 1) continue;
     l.dataset.s = 'light'; const d = l.cloneNode(true); d.dataset.s = 'dark'; p.append(d);
   }
+
+  // The workspace drawn: every [data-sg-space] gets the vendored renderer's own drawing of a small space file, in its
+  // panel's scheme (a thumbnail as the <img> the dashboard makes, the hero and the full view as an element).
+  const SPACE = 'doz: space/3\nspace: launch\nowner: ada\nagents:\n  editor: { kind: claude-code, isolation: fenced, prompt: cut the video }\n'
+    + '  checker: { kind: claude-code, isolation: fenced, prompt: check each scene }\nchat:\n  rooms:\n    launch: { main: true, members: [owner, editor, checker] }\n';
+  const BROKEN = 'doz: space/3\nspace: broken\nagents: [one, two]\n';
+  try {
+    const r = await import(ROOT + 'Sources/DozableWeb/WebSource/vendor/space-editor/space-render.js');
+    let n = 0;
+    for (const el of document.querySelectorAll('[data-sg-space]')) {
+      const theme = el.closest('.scheme')?.dataset.s === 'dark' ? 'dark' : 'light', kind = el.dataset.sgSpace, id = 'sg' + (n++) + '-';
+      if (kind.startsWith('thumb')) el.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(r.render(kind === 'thumb' ? SPACE : BROKEN, undefined, { detail: 'thumb', width: 160, height: 100, theme, idPrefix: id }));
+      else el.replaceChildren(r.renderElement(SPACE, undefined, { detail: 'hero', width: kind === 'full' ? 1000 : 1200, height: kind === 'full' ? 300 : 500, theme, idPrefix: id }));
+    }
+  } catch (e) { for (const el of document.querySelectorAll('[data-sg-space]')) el.title = 'the renderer could not be read (' + e.message + ')'; }
 
   // The vendored Lucide set → one inline sprite.
   const sprite = document.createElementNS(NS, 'svg');

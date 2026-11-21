@@ -6,6 +6,7 @@ import { sandboxPhase, verbsFor } from './sandboxes.js';
 import { state } from './state.js';
 import { terminals } from './terminals.js';
 import { agentsHash, placeHash } from './routes.js';
+import { picturesStale } from './space-pictures.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const failureFor = upcall('failureFor'), opFailed = upcall('opFailed'), paintCover = upcall('paintCover'),
   paintRowOps = upcall('paintRowOps'), paintTransition = upcall('paintTransition'), refresh = upcall('refresh'),
@@ -92,6 +93,7 @@ export function transitionOf(name) {
   const o = [...state.ops.values()].find((x) => x.sandbox === name && x.state === 'running' && TRANSITION_LABEL[x.action]);
   return o ? { action: o.action, verbs: null } : null;
 }
+const FILE_ACTIONS = /^workspace-(space-save|up|down|start|stop|sleep|wake|finish|reopen|archive|restore|delete|new)$/;
 export function trackOp(op) {
   const before = state.ops.get(op.id);
   // 595: a fast operation's end (SSE) can arrive before the POST's own "running" answer — never
@@ -114,6 +116,8 @@ export function trackOp(op) {
   else if (before && op.state === 'running' && !!before.queued !== !!op.queued) refresh(false);
   if (op.state !== 'running' && (!before || before.state === 'running')) {
     endTransition(op.sandbox, op.action, op.state === 'failed');
+    // The pictures on screen: their states read again — and their files after a save, an up or down, a lifecycle verb.
+    picturesStale({ file: FILE_ACTIONS.test(op.action || '') });
     if (op.state === 'failed') opFailed(op);
     refreshNav({ accounts: /^account-/.test(op.action || '') });
     // 595: an operation's end may have changed the disks — measure again (the nav's total too).

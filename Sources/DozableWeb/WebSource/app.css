@@ -2928,6 +2928,51 @@ a.ws-iso:hover { color: var(--ink); text-decoration: underline; }
 .ws-brief-acts { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-sm); }
 .ws-brief-err { margin: 0; color: var(--bad); font-size: var(--fs-sm); }
 .ws-brief-over { font-size: var(--fs-sm); }
+/* ── 742: the workspace drawn (components/space-picture.js) — the hero band on a workspace's page, the thumbnails on Home
+   and in the sidebar, the plain tile, the full-window view. The drawing brings its own style, scoped to its ids; this
+   lays it out. The hero is a still: its live pulse stops (the drawing's style is unlayered, so it takes !important). ── */
+.ws-hero-band { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.ws-hero-head { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--ink-2); }
+.ws-hero-label { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+.ws-hero-label .icon { width: 14px; height: 14px; flex: none; }
+.ws-hero { display: block; width: 100%; height: clamp(160px, 28vh, 320px); padding: 0; border: var(--bw) solid var(--line); border-radius: var(--r-lg);
+  background: var(--surface); color: var(--ink); cursor: zoom-in; overflow: hidden; }
+.ws-hero:hover { border-color: var(--line-strong); }
+.ws-hero.is-fallback { cursor: pointer; }
+.ws-hero-pic { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); width: 100%; height: 100%; }
+.ws-hero-pic .space-render { display: block; width: 100%; height: 100%; }
+.ws-hero .live-pulse { animation: none !important; }
+.ws-hero-why { font-size: var(--fs-sm); color: var(--ink-2); }
+.ws-hero-problem { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ws-hero-problem-text { display: flex; align-items: center; gap: var(--sp-1); margin: 0; color: var(--bad); font-size: var(--fs-sm); }
+.ws-hero-problem-text .icon { width: 14px; height: 14px; flex: none; }
+.ws-hero-none { flex-direction: row; align-items: center; flex-wrap: wrap; min-height: 48px; padding: var(--sp-2) var(--sp-3);
+  border: var(--bw) dashed var(--line); border-radius: var(--r-lg); }
+.ws-hero-none .sp-tile { width: 32px; height: 32px; }
+.sp-thumb { display: inline-flex; flex: none; overflow: hidden; border-radius: var(--r-md); background: var(--well); }
+.sp-thumb-home { width: 128px; height: 80px; }
+.sp-thumb-nav { width: 160px; max-width: 100%; height: auto; aspect-ratio: 16 / 10; }
+.sp-thumb.is-problem { outline: var(--bw) solid var(--bad); }
+.sp-img { display: block; width: 100%; height: 100%; }
+.sp-tile { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; border-radius: var(--r-md);
+  background: var(--well); color: var(--ink-3); }
+.sp-tile .icon { width: 22px; height: 22px; }
+.sp-tile.sp-tile-hero { width: 64px; height: 64px; }
+.hm-ws-cell { display: flex; align-items: flex-start; gap: var(--sp-3); min-width: 0; }
+.hm-thumb-link { display: block; flex: none; }
+.nav-ws-thumb { display: block; margin: var(--sp-1) 0 var(--sp-1) var(--sp-5); }
+.sp-full { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center; padding: var(--sp-5);
+  background: var(--scrim); }
+.sp-full-box { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; height: 100%; padding: var(--sp-3); border-radius: var(--r-xl);
+  background: var(--surface); box-shadow: var(--shadow-3); }
+.sp-full-head { display: flex; align-items: center; gap: var(--sp-2); }
+.sp-full-pic { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 0; }
+.sp-full-pic .space-render { display: block; width: 100%; height: 100%; }
+@media (max-width: 760px) {
+  .sp-thumb-home { width: 96px; height: 60px; }
+  .ws-hero { height: clamp(140px, 34vh, 280px); }
+  .sp-full { padding: var(--sp-2); }
+}
 .chat-surface.is-scoped .chat-title { display: none; }
 .chat-surface.is-scoped .chat-room-name { color: var(--ink); font-weight: var(--fw-strong); }
 .chat-surface.is-scoped .chat-cols:not([hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: var(--sp-2); }
