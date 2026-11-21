@@ -101,6 +101,7 @@ import { macEnter, macLeave, macRefresh } from './app/views/mac.js';
 import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings.js';
 import { viewThisMac } from './app/views/this-mac.js';
 import './app/views/shortcuts.js';
+import './app/views/space-page.js';
 
 // 599c: Quick add in the sidebar, beside This Mac.
 $('nav-quick-add').replaceChildren(icon('plus'));

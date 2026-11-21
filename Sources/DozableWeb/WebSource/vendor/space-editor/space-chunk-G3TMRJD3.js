@@ -1,0 +1,1 @@
+var r=e=>e.kind==="do"&&e.origin==="text";function c(e,i=150){let o=0,t=()=>{o=0,e()},n=()=>{clearTimeout(o),o=window.setTimeout(t,i)};return n.now=()=>{clearTimeout(o),t()},n.pending=()=>o!==0,n.cancel=()=>{clearTimeout(o),o=0},n}export{r as a,c as b};

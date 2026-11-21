@@ -246,6 +246,12 @@ public enum WebRoute: Equatable, Sendable {
         if parts.count == 4, parts[0] == "assets", parts[1] == "app", WebAssets.moduleLayers.contains(parts[2]) {
             return method.isSafe ? .asset(path) : nil
         }
+        // 744: a vendored tree — /assets/vendor-<package>-<16 hex>/<file> or /<folder>/<file> (its layout kept; served only
+        // when the manifest lists the exact path).
+        if parts.count == 3 || parts.count == 4, parts[0] == "assets", WebAssets.isVendorTreeFolder(parts[1]),
+           parts.dropFirst(2).allSatisfy(WebAssets.isPlainPart) {
+            return method.isSafe ? .asset(path) : nil
+        }
         guard parts.count >= 3, parts[0] == "api", parts[1] == "v1" else { return nil }
         let rest = Array(parts.dropFirst(2))
         if rest.first == "chat" {

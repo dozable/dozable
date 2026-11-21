@@ -1623,7 +1623,7 @@ async function walkAsks() {
 /// `wide`: a fenced session (widef) with a launch secret whose value is a SENTINEL and two more (widef2, widef3), each having been
 /// refused one site; an unfenced session (wideu); the never-booted sandbox gamma. All harmless programs, no VM.
 // ── the workspace drawn ────────────────────────────────────────────────────────────────────────────────────────────
-const RENDERER = /\/assets\/vendor-space-render-[0-9a-f]{16}\.js/;
+const RENDERER = /\/assets\/vendor-space-editor-[0-9a-f]{16}\/space-render\.js/;
 let firstLoad = null;
 async function walkFirstLoad() {
   check(!requested.some((u) => RENDERER.test(u)), 'pictures: the first load (Home with only plain workspaces) fetches no renderer byte');
