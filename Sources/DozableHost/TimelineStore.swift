@@ -156,8 +156,8 @@ public struct StoredEvent: Equatable, Sendable {
 
     /// What free text searches: the summary, kind, source, scope and the non-sensitive string attrs, lowercased, each
     /// apart (a value never matches across two of them).
-    public var hay: String {
-        var parts = [summary, kind, source, "/" + scope + "/"]
+    public func hay(host: String) -> String {
+        var parts = [summary, kind, source, TimelineStore.full(scope, host: host)]
         for k in attrs.keys.sorted() { if case .string(let s) = attrs[k]! { parts.append(s) } }
         return parts.map { $0.lowercased() }.joined(separator: "\u{1}")
     }
@@ -180,6 +180,8 @@ public final class TimelineStore: @unchecked Sendable {
     /// The newest `rev` given (a change's order: subscribe resumes from it, a restart included).
     private var revSeq: Int64 = 0
     private let revLock = NSLock()
+    /// This host's segment, as free text sees an event's scope.
+    public var host = MacDisplayName.scope()
     /// Scopes already noted (with their ancestors) by this connection.
     private var known: Set<String> = []
 
@@ -233,7 +235,16 @@ public final class TimelineStore: @unchecked Sendable {
         "CREATE TABLE IF NOT EXISTS kept (source TEXT PRIMARY KEY, events INTEGER, m1 INTEGER, h1 INTEGER, d1 INTEGER, pruned_rev INTEGER NOT NULL DEFAULT 0)",
     ]
 
-    /// Open (and make, 0600) the store's file. A file of an older schema is set aside and made again.
+    /// An empty store in memory (a look with no derived file yet answers from it: nothing).
+    public static func empty() throws -> TimelineStore { try TimelineStore(memory: ()) }
+
+    private init(memory: ()) throws {
+        url = URL(fileURLWithPath: "/dev/null")
+        db = try SQLiteDB(path: ":memory:", readOnly: false, create: true)
+        for s in Self.schema { try db.exec(s) }
+    }
+
+    /// Open (and make, 0600) the store's file.
     public init(url: URL, readOnly: Bool = false) throws {
         self.url = url
         if readOnly {
@@ -300,7 +311,7 @@ public final class TimelineStore: @unchecked Sendable {
                     """, [.text(e.id), .text(e.source), .int(e.t), .opt(e.dur), .int(e.open ? 1 : 0), .text(e.scope), .text(e.kind),
                           .int(Int64(e.severity.rank)), .text(e.summary), .text(Self.json(e.attrs)),
                           e.sattrs.isEmpty ? .null : .text(Self.json(e.sattrs)), .opt(e.links.run), .opt(e.links.ask), .opt(e.links.msg),
-                          .opt(e.links.session), .opt(e.links.decision), .int(nextRev()), .text(e.hay)])
+                          .opt(e.links.session), .opt(e.links.decision), .int(nextRev()), .text(e.hay(host: host))])
                 try noteOnce(e.scope, t: e.t)
             }
         }
@@ -377,6 +388,18 @@ public final class TimelineStore: @unchecked Sendable {
     /// The ids of a source's events still open (their records are read again until they close).
     public func openIDs(_ source: String) -> [String] {
         ((try? db.rows("SELECT id FROM events WHERE source = ? AND open = 1", [.text(source)])) ?? []).compactMap { $0[0].text }
+    }
+
+    /// A contract event (a recording's, a test's) stored as the indexer would: its scope made relative to `host`, its
+    /// sensitive attrs apart.
+    public static func stored(_ e: TimelineEvent, host: String) -> StoredEvent? {
+        guard let rel = relative(e.scope, host: host) else { return nil }
+        var a = TimelineAttrs.Builder(), s = TimelineAttrs.Builder()
+        for (k, v) in e.attrs { if TimelineSources.isSensitive(e.source, k) { s.set(k, v) } else { a.set(k, v) } }
+        var out = StoredEvent(id: e.id, source: e.source, t: e.t, dur: e.dur, open: e.open == true, scope: rel, kind: e.kind, severity: e.severity,
+                              summary: e.summary, attrs: a, sattrs: s, links: e.links)
+        out.summary = e.summary
+        return out
     }
 
     public var size: Int64 {

@@ -565,6 +565,8 @@ public final class HostServer: @unchecked Sendable {
                 return core.subscribe().filter { (name == nil || $0.sandbox == name) && (statuses || $0.kind != .sessionStatus) }
                     .map { HostMessage(event: $0) }
             }
+        case .timelineSubscribe:
+            stream(conn, reader: reader) { [core] in core.timelineBatches(req) }
         case .copy:
             copy(conn, reader: reader, request: req)
         case .netLog where req.follow == true:

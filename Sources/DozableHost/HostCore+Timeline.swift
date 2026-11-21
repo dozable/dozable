@@ -25,3 +25,126 @@ extension HostCore {
     /// Something the timeline keeps changed (a sample, a record written elsewhere).
     nonisolated func timelinePoke(_ p: TimelinePoke) { timeline?.poke(p) }
 }
+
+/// What a timeline op carries (`HostRequest.timeline`), strictly decoded: nothing but these fields.
+public struct TimelineRequest: Codable, Equatable, Sendable {
+    public var query: TimelineQuery?
+    /// The live feed's resume token (a `rev`).
+    public var resume: String?
+    /// `timeline-retention`: what a prune would remove (`dryRun`), or prune now (`prune`).
+    public var dryRun: Bool?
+    public var prune: Bool?
+    /// `timeline-rebuild`: start from an empty derived store.
+    public var clean: Bool?
+    public init(query: TimelineQuery? = nil, resume: String? = nil, dryRun: Bool? = nil, prune: Bool? = nil, clean: Bool? = nil) {
+        self.query = query; self.resume = resume; self.dryRun = dryRun; self.prune = prune; self.clean = clean
+    }
+    public static let maximumBytes = 256 << 10
+    static let fields: Set<String> = ["query", "resume", "dryRun", "prune", "clean"]
+    static let queryFields: Set<String> = ["timeline", "type", "scope", "depth", "from", "to", "bin", "tz", "where", "q", "filters", "series", "limit", "cursor"]
+
+    public static func decode(_ v: JSONValue?) throws -> TimelineRequest {
+        guard let v else { return TimelineRequest() }
+        let data = try HostWire.encoder.encode(v)
+        guard data.count <= maximumBytes else { throw HostError(.invalid, "a timeline request is at most \(maximumBytes / 1024) KiB") }
+        guard case .object(let o) = v else { throw HostError(.invalid, "a timeline request is an object") }
+        if let bad = o.keys.first(where: { !fields.contains($0) }) { throw HostError(.invalid, "a timeline request has no field \(bad)") }
+        if case .object(let q)? = o["query"], let bad = q.keys.first(where: { !queryFields.contains($0) }) {
+            throw HostError(.invalid, "a timeline query has no field \(bad)")
+        }
+        do { return try HostWire.decoder.decode(TimelineRequest.self, from: data) } catch {
+            throw HostError(.invalid, "not a timeline/1 request: \(error.localizedDescription)")
+        }
+    }
+}
+
+/// `timeline-retention`'s answer (Dozable's own, not the contract's): each source's retention and setting, the derived
+/// store's size, the samples' cost, and — with a dry run or a prune — what each source would lose or lost.
+public struct TimelineRetentionReport: Codable, Equatable, Sendable {
+    public struct Source: Codable, Equatable, Sendable {
+        public var source: String
+        public var setting: String
+        public var retention: TimelineEffectiveRetention
+        /// A dry run or a prune: rows removed (or that would be), by kind of row.
+        public var removed: [String: Int]?
+    }
+    public var sources: [Source]
+    public var bytes: Int64
+    public var indexing: Int?
+    public var sampler: ResourceSampler.Cost?
+    public var pruned: Bool?
+    public var dryRun: Bool?
+    public var now: Int64
+}
+
+extension HostCore {
+    /// The derived store as a query reads it: its own read-only connection (an empty store when there is no file yet).
+    nonisolated func timelineEngine() throws -> TimelineQueryEngine {
+        let url = TimelineStore.url(store)
+        let t: TimelineStore
+        if FileManager.default.fileExists(atPath: url.path) { t = try TimelineStore(url: url, readOnly: true) } else { t = try TimelineStore.empty() }
+        return TimelineQueryEngine(store: t, host: MacDisplayName.scope(), now: TimelineClock.nowMs(), indexing: timeline?.progress)
+    }
+
+    func performTimeline(_ r: HostRequest) async throws -> JSONValue {
+        let req = try TimelineRequest.decode(r.timeline)
+        switch r.op {
+        case .timelineCatalog:
+            return try JSONValue(encoding: try timelineEngine().catalog())
+        case .timelineQuery:
+            guard let q = req.query else { throw HostError(.invalid, "a timeline query is needed") }
+            return try JSONValue(encoding: try timelineEngine().query(q))
+        case .timelineRetention:
+            return try JSONValue(encoding: try timelineRetention(req))
+        case .timelineRebuild:
+            guard let ix = timeline else { throw HostError(.unavailable, "a rebuild needs the daemon (doz daemon start)") }
+            let clean = req.clean == true
+            await Task.detached { ix.rebuild(clean: clean) }.value
+            return try JSONValue(encoding: try timelineRetention(TimelineRequest()))
+        default:
+            throw HostError(.invalid, "\(r.op.rawValue) is a stream (doz timeline tail)")
+        }
+    }
+
+    nonisolated func timelineRetention(_ req: TimelineRequest) throws -> TimelineRetentionReport {
+        let e = try timelineEngine()
+        let eff = try e.effective(TimelineSources.kept.map(\.name))
+        let sources = eff.map { TimelineRetentionReport.Source(source: $0.source, setting: TimelineRetentionSettings.key($0.source), retention: $0, removed: nil) }
+        return TimelineRetentionReport(sources: sources, bytes: FileManager.default.fileExists(atPath: TimelineStore.url(store).path)
+                                       ? (try? TimelineStore(url: TimelineStore.url(store), readOnly: true).size) ?? 0 : 0,
+                                       indexing: timeline?.progress, sampler: readOnly ? nil : sampler.cost, now: e.now)
+    }
+
+    /// The live feed: a batch whenever something the query keeps changed (at most one a second), from `resume` on; a
+    /// token older than what retention removed since ends it with `reset` (the client queries afresh).
+    public nonisolated func timelineBatches(_ r: HostRequest) -> AsyncStream<HostMessage> {
+        AsyncStream { cont in
+            let task = Task.detached { [self] in
+                let req: TimelineRequest
+                do { req = try TimelineRequest.decode(r.timeline) } catch {
+                    cont.yield(.failure(error as? HostError ?? HostError(.invalid, "\(error)"))); cont.finish(); return
+                }
+                guard let q = req.query else { cont.yield(.failure(HostError(.invalid, "a timeline query is needed"))); cont.finish(); return }
+                var token = Int64(req.resume ?? "") ?? ((try? self.timelineEngine().store.currentRev) ?? 0)
+                var quiet = 0
+                while !Task.isCancelled {
+                    guard let e = try? self.timelineEngine() else { try? await Task.sleep(for: .seconds(1)); continue }
+                    guard let b = try? e.batch(q, after: token) else {
+                        cont.yield(HostMessage(result: .object(["reset": .bool(true)])))
+                        cont.finish()
+                        return
+                    }
+                    let next = Int64(b.resume ?? "") ?? token
+                    if !b.events.isEmpty || !b.metrics.isEmpty || quiet >= 15 {
+                        cont.yield(HostMessage(result: (try? JSONValue(encoding: b)) ?? .null))
+                        quiet = 0
+                    } else { quiet += 1 }
+                    token = next
+                    try? await Task.sleep(for: .seconds(1))
+                }
+                cont.finish()
+            }
+            cont.onTermination = { _ in task.cancel() }
+        }
+    }
+}

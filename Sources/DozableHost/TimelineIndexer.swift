@@ -92,6 +92,21 @@ public final class TimelineIndexer: @unchecked Sendable {
         _ = pass(what)
     }
 
+    /// Read every record again (`doz timeline rebuild`): every cursor forgotten, every event upserted — nothing deleted.
+    /// `clean`: the derived file set aside first, so it starts empty (what retention removed from it is lost).
+    public func rebuild(clean: Bool) {
+        queue.sync {
+            if clean {
+                tstore = nil
+                for s in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: url.path + s) }
+            } else if let t = try? open() {
+                try? t.db.run("DELETE FROM cursors")
+                try? t.db.run("DELETE FROM meta WHERE key = 'backfilled'")
+            }
+            _ = pass([.all])
+        }
+    }
+
     /// Everything, now, on the queue (the start-up and hourly catch-ups, a test's wait).
     public func catchUpNow() { queue.sync { _ = self.pass([.all]) } }
 

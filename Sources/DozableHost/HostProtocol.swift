@@ -263,6 +263,10 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// read: answered in-process when no daemon runs. `-new`, `-adopt`, `-release`, `-edit` and `-rename` change the store
     /// and (new, edit) the chat server: the daemon's, one at a time (`HostCore+Workspaces`), answered with `WorkspaceDetail`.
     case workspaceList = "workspace-ls", workspaceShow = "workspace-show", workspaceLog = "workspace-log"
+    /// 747: the timeline — its catalogue, a query, the live feed (a stream, like `events`), each source's retention (and a
+    /// prune's dry run or a prune), a rebuild of the derived store. The owner's only.
+    case timelineCatalog = "timeline-catalog", timelineQuery = "timeline-query", timelineSubscribe = "timeline-subscribe"
+    case timelineRetention = "timeline-retention", timelineRebuild = "timeline-rebuild"
     case workspaceNew = "workspace-new", workspaceAdopt = "workspace-adopt", workspaceRelease = "workspace-release"
     case workspaceEdit = "workspace-edit", workspaceRename = "workspace-rename"
     /// The set-up check, then the kick-off (the brief as your first message, once) and the manager started from its bot
@@ -382,7 +386,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
              .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .workspaceDownPlan, .macsList,
-             .workspaceState, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy: true
+             .workspaceState, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -703,6 +707,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var permissionsRequest: PermissionsRequest?
     /// `workspace-up-plan`: the merged space (strictly decoded, at most 256 KiB).
     public var space: SpaceRequest?
+    /// 747: a timeline request (`TimelineRequest`, strictly decoded by the daemon; at most 256 KiB).
+    public var timeline: JSONValue?
     /// `workspace-down-plan`, `workspace-down`: the workspace and `purge`. Additive.
     public var spaceDown: SpaceDownRequest?
     /// `W/AGENT`: this request is made as that agent of workspace W would make it — it NARROWS the owner's request to the

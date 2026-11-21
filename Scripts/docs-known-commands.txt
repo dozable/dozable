@@ -68,6 +68,13 @@ net
 key
 account
 metrics
+timeline
+timeline/catalog
+timeline/query
+timeline/tail
+timeline/retention
+timeline/prune
+timeline/rebuild
 doctor
 daemon
 events

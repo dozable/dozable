@@ -1251,6 +1251,12 @@ never sends.
 
 ```bash
 doz metrics [--csv] [--image X] [--days N] [--no-steps]   # count, median, p90, min, max, failures
+doz timeline [catalog] [--json]                             # this Mac's history: its name, each source, how long it is kept
+doz timeline query FILE|- [--json]                          # a timeline/1 query (JSON) answered: rows, events or bins, metrics
+doz timeline tail FILE|- [--resume TOKEN] [--json]          # follow a query live (needs the daemon; starts none)
+doz timeline retention [--json]                             # each source's days (timeline.SOURCE), what is held, the file's size
+doz timeline prune [--dry-run] [--json]                     # remove what retention no longer keeps (hourly by itself)
+doz timeline rebuild [--clean] [--yes]                      # read every record again into the history file
 doz doctor                                                  # macOS, Apple silicon, entitlement, kernel, store, daemon, Claude login
 doz events [NAME]                                           # follow phases and timed steps live
 doz console NAME [--follow]                                 # the boot console (kernel + init); --follow keeps printing it

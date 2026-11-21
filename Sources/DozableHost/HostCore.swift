@@ -933,6 +933,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await spaceDown(r.spaceDown))
         case .macsList:
             return try JSONValue(encoding: try MacBookmarkStore(store: store).listing())
+        case .timelineCatalog, .timelineQuery, .timelineSubscribe, .timelineRetention, .timelineRebuild:
+            return try await performTimeline(r)
         case .permissionsShow, .permissionsWhy, .permissionsGrant, .permissionsRevoke, .permissionsCeiling:
             return try await performPermissions(r)
         case .tools, .toolsApply:
