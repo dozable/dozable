@@ -101,7 +101,7 @@ import { macEnter, macLeave, macRefresh } from './app/views/mac-56420c07beb433ba
 import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings-6bddbfc7221091cc.js';
 import { viewThisMac } from './app/views/this-mac-f53f66bd659f5db7.js';
 import './app/views/shortcuts-3f250bc921b7e631.js';
-import { spaceEnter, spaceLeave, spaceNow } from './app/views/space-page-7e60efdedcca5e2b.js';
+import { spaceEnter, spaceLeave, spaceNow } from './app/views/space-page-e69e3b25545299e8.js';
 
 // 599c: Quick add in the sidebar, beside This Mac.
 $('nav-quick-add').replaceChildren(icon('plus'));

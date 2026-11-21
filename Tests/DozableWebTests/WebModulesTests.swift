@@ -764,9 +764,12 @@ final class WebModulesTests: XCTestCase {
                        "a marker only moves forward: two windows on one room never lower it")
         // The ONE place that opens: windows.js keeps the browser's open; terminal.js imports it (so it runs first) and refuses the rest.
         let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? []).filter { $0.hasSuffix(".js") }
-        for f in files where f != "core/windows.js" && f != "views/space-page.js" {
+        for f in files where f != "core/windows.js" {
             XCTAssertFalse(try read("app/" + f).contains("window.open("), "app/\(f) opens no window of its own (core/windows.js does)")
         }
+        // The space editor's "Open in a new window": its own window, named for the workspace (a 0.52.25 bug: it called the
+        // refusal terminal.js leaves in window.open, and opened nothing).
+        XCTAssertTrue(try read("app/views/space-page.js").contains("openOwnWindow(location.pathname + location.hash, 'doz-space-' + name, { w: 1280, h: 860 })"))
         let term = try read("app/components/terminal.js")
         XCTAssertTrue(term.contains("import { openExternal } from '../core/windows.js';") && term.contains("window.open = function refuseToOpen() { return null; };"))
         // The ear for operations: the dashboard's stream only while one of this window's operations runs, no timer that reads.
