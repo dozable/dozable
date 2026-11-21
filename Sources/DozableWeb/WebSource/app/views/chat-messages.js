@@ -173,6 +173,17 @@ export function add(m, again, older) {
   if (refocusKey) refocus(row, refocusKey);
 }
 
+/// A touch screen has no hover: a tap on a bubble shows its tools (and hides another's); a tap on a link, a button or a
+/// field is that control's own. One listener for the whole log.
+export function watchTaps(log) {
+  log.addEventListener('pointerup', (e) => {
+    if (e.pointerType !== 'touch' || !(e.target instanceof Element) || e.target.closest('a, button, input, textarea, label, select')) return;
+    const msg = e.target.closest('.chat-msg');
+    for (const o of log.querySelectorAll('.chat-msg.is-tap')) if (o !== msg) o.classList.remove('is-tap');
+    if (msg) msg.classList.toggle('is-tap');
+  });
+}
+
 /// Read the log after what is shown: the newest page first time, then on while the server says more is left.
 export async function fill() {
   const r = state.chat.room;

@@ -2,14 +2,15 @@
 // (state.chat.scope) only that workspace's rooms, by their short labels, each its workspace address, and "+ room".
 import { state } from '../core/state-1036883eb74b9520.js';
 import { canWrite, getJSON, viewer } from '../core/chat-api-ec968582d97ebdcb.js';
-import { loadDraft, saveDraft } from '../components/chat-composer-box-0583e0de7bdd10ee.js';
-import { endEdit } from '../components/chat-edit-992ccf740f7f7457.js';
+import { loadDraft, saveDraft } from '../components/chat-composer-box-0bd02e4fca9e7f89.js';
+import { closeDrawer } from '../components/chat-drawers-b5519cc89145589b.js';
+import { endEdit } from '../components/chat-edit-001471e78907ed04.js';
 import { showDown } from '../components/chat-log-e1b72169c7992e47.js';
 import { showPreviews, showUnread } from '../components/chat-unread-9284e62b88511529.js';
 import { $, h } from '../dom/h-f853cc7eb6672c45.js';
-import { fill } from './chat-messages-107e3ad45c4516fc.js';
+import { fill } from './chat-messages-2e06dabbf3710b66.js';
 import { chatWindowName, chatWindowPath } from '../core/routes-c03e6aed84ec9eb3.js';
-import { people } from './chat-people-81da863f438cd8f3.js';
+import { people } from './chat-people-b9a6c492f063f9ed.js';
 
 /// The rooms the chat server shows the person: those they are in.
 export const mine = (r) => !viewer() || ((state.chat.srv.rooms[r] || []).includes(viewer()));
@@ -86,6 +87,7 @@ const SOLO_TITLE = document.title;
 /// Show room `r`: its draft, its log from the newest page, its people (null: none — a workspace with no room of the person's).
 export async function openRoom(r) {
   if (!state.chat.srv) return;
+  if (r !== state.chat.room) closeDrawer(false);   // a room opened from the rooms drawer closes it
   endEdit();
   saveDraft();
   if (!r) {

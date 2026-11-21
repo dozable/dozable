@@ -202,7 +202,25 @@ final class WebModulesTests: XCTestCase {
         for fn in ["export async function answerAsk", "export async function answerFromDiagram", "export function rememberAttention",
                    "export function onAskChange", "export function canAnswer"] { XCTAssertTrue(asks.contains(fn), fn) }
         XCTAssertTrue(asks.contains("if (isRemote()) return { refused: MAC_ONLY }"), "another computer: no request")
-        XCTAssertTrue(try read("app/components/chat-ask.js").contains("answerAsk("))
+        let card = try read("app/components/chat-ask.js")
+        XCTAssertTrue(card.contains("answerAsk("))
+        // Its rows keep the native controls (out of sight, never removed): the keyboard and assistive technology are the
+        // browser's own.
+        XCTAssertTrue(card.contains("type: q.multi ? 'checkbox' : 'radio'"), "the card's rows are native radios and checkboxes")
+        // The panes' drawers are chat's own: in the chat window's closure (its entry reaches them).
+        let chatEntry = try XCTUnwrap(a.assets.keys.first { $0.hasPrefix("/assets/chat-") && $0.hasSuffix(".js") })
+        var reached = Set<String>(), queue = [chatEntry]
+        while let p = queue.popLast() {
+            for spec in Self.specifiers(String(decoding: try XCTUnwrap(a.assets[p], p).data, as: UTF8.self)) {
+                let t = Self.resolve(spec, against: p)
+                if reached.insert(t).inserted { queue.append(t) }
+            }
+        }
+        XCTAssertTrue(reached.contains { $0.hasPrefix("/assets/app/components/chat-drawers-") }, "components/chat-drawers.js is in the chat window's closure")
+        // Chat's modules build their markup as nodes, never from a string.
+        for f in files where f.split(separator: "/").last?.hasPrefix("chat") == true {
+            XCTAssertFalse(try read(f).contains("innerHTML"), "\(f) sets no innerHTML")
+        }
         XCTAssertTrue(try read("app/views/chat-messages.js").contains("askCard(m)"))
         let live = try read("app/views/chat-live.js")
         XCTAssertTrue(live.contains("e.kind === 'ask'") && live.contains("add(m, true)"))

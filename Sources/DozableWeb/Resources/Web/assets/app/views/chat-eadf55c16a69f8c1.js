@@ -13,18 +13,19 @@ import { getJSON } from '../core/chat-api-ec968582d97ebdcb.js';
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { chatOnForm, rememberChatStatus } from '../components/chat-on-0c4225dd5651593c.js';
+import { closeDrawer, drawer, drawerScrim } from '../components/chat-drawers-b5519cc89145589b.js';
 import { showDown, toFoot } from '../components/chat-log-e1b72169c7992e47.js';
-import { CHAT_READ_ONLY, chatNote } from '../components/chat-note-7d9b58ce10feea44.js';
+import { CHAT_READ_ONLY, chatNote } from '../components/chat-note-95e0cc435178e0d8.js';
 import { loadUnread, showUnread } from '../components/chat-unread-9284e62b88511529.js';
 import { $, h } from '../dom/h-f853cc7eb6672c45.js';
 import { icon } from '../dom/icons-9b284ea0ffb2ad04.js';
 import { openOwnWindow } from '../core/windows-392fe33565b4f8f7.js';
 import { chatWindowName, chatWindowPath } from '../core/routes-c03e6aed84ec9eb3.js';
-import { initComposer } from './chat-composer-8dc5826039ace730.js';
-import { loadOlder } from './chat-messages-107e3ad45c4516fc.js';
-import { loadPresence, roomMenu, standing } from './chat-people-81da863f438cd8f3.js';
-import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms-5ac98585ebd8d369.js';
-import { startLive, stopLive } from './chat-live-09b2a7d8e858da97.js';
+import { initComposer } from './chat-composer-c6de6601a45edc5e.js';
+import { loadOlder, watchTaps } from './chat-messages-2e06dabbf3710b66.js';
+import { loadPresence, roomMenu, standing } from './chat-people-b9a6c492f063f9ed.js';
+import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms-4fe660fd4df92617.js';
+import { startLive, stopLive } from './chat-live-6c373591333d4eed.js';
 
 let built = false, loaded = false, statusT = 0, wanted = null, loading = false, scopeKey = '';
 
@@ -51,16 +52,27 @@ function build() {
     if (!r || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
     if (openOwnWindow(chatWindowPath(r), chatWindowName(r), { w: 440, h: 760 })) ev.preventDefault();
   });
-  // The chat window's way back: this room in the dashboard (a new tab).
-  const dash = h('a', { class: 'btn sm quiet chat-dash', id: 'chat-dash', href: '/#/chat', target: '_blank', rel: 'noopener', hidden: true },
-    icon('house'), 'Open in the dashboard');
-  $('chat').replaceChildren(h('div', { class: 'chat-surface', id: 'chat-surface' },
-    h('div', { class: 'chat-head' }, h('h1', { class: 'chat-title' }, icon('message-square'), 'Chat'),
+  // The chat window's way back: this room in the dashboard (a new tab). At phone width its icon alone (its label kept).
+  const dash = h('a', { class: 'btn sm quiet chat-dash', id: 'chat-dash', href: '/#/chat', target: '_blank', rel: 'noopener', hidden: true,
+    'aria-label': 'Open in the dashboard' }, icon('house'), h('span', { class: 'chat-dash-label' }, 'Open in the dashboard'));
+  // The side panes' toggles: where a pane does not fit beside the log it is a drawer (components/chat-drawers.js) — the
+  // people below 1101 px, the rooms at phone width (the Chat page's only: a workspace's Room tab keeps its strip).
+  const roomsBtn = h('button', { type: 'button', class: 'btn sm quiet icon-only chat-pane-btn chat-rooms-btn', id: 'chat-rooms-btn', title: 'Rooms',
+    'aria-label': 'Rooms' }, icon('list'));
+  const peopleBtn = h('button', { type: 'button', class: 'btn sm quiet chat-pane-btn chat-people-btn', id: 'chat-people-btn', title: 'People in this room',
+    'aria-label': 'People in this room' }, icon('users'), h('span', { class: 'chat-people-n', id: 'chat-people-n' }));
+  const roomsPane = h('nav', { class: 'chat-pane chat-rooms-pane', id: 'chat-rooms-pane', 'aria-label': 'Rooms' }, h('h2', { class: 'chat-sh' }, 'Rooms'),
+    h('div', { class: 'chat-rooms', id: 'chat-rooms' }));
+  const peoplePane = h('aside', { class: 'chat-pane chat-people-pane', id: 'chat-people-pane', 'aria-label': 'People in this room' },
+    h('h2', { class: 'chat-sh' }, icon('users'), 'In this room', h('span', { class: 'chat-sh-n', id: 'chat-people-count' })),
+    h('div', { class: 'chat-people', id: 'chat-people' }));
+  const surface = h('div', { class: 'chat-surface', id: 'chat-surface' },
+    h('div', { class: 'chat-head' }, roomsBtn, h('h1', { class: 'chat-title' }, icon('message-square'), 'Chat'),
       h('span', { class: 'chat-room-name', id: 'chat-room-name' }), h('span', { class: 'chat-live is-off', id: 'chat-live', role: 'status' }, 'not connected'),
-      h('span', { class: 'chat-room-tools', id: 'chat-room-tools' }), pop, dash),
+      h('span', { class: 'chat-head-sp' }), peopleBtn, h('span', { class: 'chat-room-tools', id: 'chat-room-tools' }), pop, dash),
     h('div', { class: 'chat-notice', id: 'chat-notice' }),
     h('div', { class: 'chat-cols', id: 'chat-cols', hidden: true },
-      h('nav', { class: 'chat-pane chat-rooms-pane', 'aria-label': 'Rooms' }, h('h2', { class: 'chat-sh' }, 'Rooms'), h('div', { class: 'chat-rooms', id: 'chat-rooms' })),
+      roomsPane,
       h('div', { class: 'chat-center' },
         log,
         h('div', { class: 'chat-downwrap' }, h('button', { type: 'button', class: 'chat-down', id: 'chat-down', hidden: true })),
@@ -71,9 +83,11 @@ function build() {
           h('div', { class: 'chat-pend', id: 'chat-pend', hidden: true, 'aria-live': 'polite' }),
           h('div', { class: 'chat-inputs' }, clip, text, send), pick),
         h('p', { class: 'chat-note', id: 'chat-note', 'aria-live': 'polite' })),
-      h('aside', { class: 'chat-pane chat-people-pane', id: 'chat-people-pane', 'aria-label': 'People in this room' },
-        h('h2', { class: 'chat-sh' }, icon('users'), 'In this room', h('span', { class: 'chat-sh-n', id: 'chat-people-count' })),
-        h('div', { class: 'chat-people', id: 'chat-people' })))));
+      peoplePane),
+    drawerScrim());
+  $('chat').replaceChildren(surface);
+  drawer(surface, 'rooms', roomsBtn, roomsPane);
+  drawer(surface, 'people', peopleBtn, peoplePane);
   log.addEventListener('scroll', () => {
     const was = state.chat.atFoot;
     state.chat.atFoot = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
@@ -82,6 +96,7 @@ function build() {
     if (log.scrollTop < 120) loadOlder();
   }, { passive: true });
   $('chat-down').addEventListener('click', toFoot);
+  watchTaps(log);
   initComposer();
   setInterval(() => { if (state.chat.active && state.chat.srv) standing(); }, 20000);
 }
@@ -188,6 +203,7 @@ export async function chatEnter(room) { return mountChat(null, null, room); }
 export async function mountChat(host, scope, room) {
   build();
   const surface = $('chat-surface'), people = $('chat-people-pane');
+  closeDrawer(false);
   if (host) {
     if (surface.parentNode !== host.room) host.room.append(surface);
     if (host.people && people.parentNode !== host.people) host.people.append(people);

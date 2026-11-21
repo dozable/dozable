@@ -13,6 +13,7 @@ import { getJSON } from '../core/chat-api.js';
 import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
 import { chatOnForm, rememberChatStatus } from '../components/chat-on.js';
+import { closeDrawer, drawer, drawerScrim } from '../components/chat-drawers.js';
 import { showDown, toFoot } from '../components/chat-log.js';
 import { CHAT_READ_ONLY, chatNote } from '../components/chat-note.js';
 import { loadUnread, showUnread } from '../components/chat-unread.js';
@@ -21,7 +22,7 @@ import { icon } from '../dom/icons.js';
 import { openOwnWindow } from '../core/windows.js';
 import { chatWindowName, chatWindowPath } from '../core/routes.js';
 import { initComposer } from './chat-composer.js';
-import { loadOlder } from './chat-messages.js';
+import { loadOlder, watchTaps } from './chat-messages.js';
 import { loadPresence, roomMenu, standing } from './chat-people.js';
 import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms.js';
 import { startLive, stopLive } from './chat-live.js';
@@ -51,16 +52,27 @@ function build() {
     if (!r || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
     if (openOwnWindow(chatWindowPath(r), chatWindowName(r), { w: 440, h: 760 })) ev.preventDefault();
   });
-  // The chat window's way back: this room in the dashboard (a new tab).
-  const dash = h('a', { class: 'btn sm quiet chat-dash', id: 'chat-dash', href: '/#/chat', target: '_blank', rel: 'noopener', hidden: true },
-    icon('house'), 'Open in the dashboard');
-  $('chat').replaceChildren(h('div', { class: 'chat-surface', id: 'chat-surface' },
-    h('div', { class: 'chat-head' }, h('h1', { class: 'chat-title' }, icon('message-square'), 'Chat'),
+  // The chat window's way back: this room in the dashboard (a new tab). At phone width its icon alone (its label kept).
+  const dash = h('a', { class: 'btn sm quiet chat-dash', id: 'chat-dash', href: '/#/chat', target: '_blank', rel: 'noopener', hidden: true,
+    'aria-label': 'Open in the dashboard' }, icon('house'), h('span', { class: 'chat-dash-label' }, 'Open in the dashboard'));
+  // The side panes' toggles: where a pane does not fit beside the log it is a drawer (components/chat-drawers.js) — the
+  // people below 1101 px, the rooms at phone width (the Chat page's only: a workspace's Room tab keeps its strip).
+  const roomsBtn = h('button', { type: 'button', class: 'btn sm quiet icon-only chat-pane-btn chat-rooms-btn', id: 'chat-rooms-btn', title: 'Rooms',
+    'aria-label': 'Rooms' }, icon('list'));
+  const peopleBtn = h('button', { type: 'button', class: 'btn sm quiet chat-pane-btn chat-people-btn', id: 'chat-people-btn', title: 'People in this room',
+    'aria-label': 'People in this room' }, icon('users'), h('span', { class: 'chat-people-n', id: 'chat-people-n' }));
+  const roomsPane = h('nav', { class: 'chat-pane chat-rooms-pane', id: 'chat-rooms-pane', 'aria-label': 'Rooms' }, h('h2', { class: 'chat-sh' }, 'Rooms'),
+    h('div', { class: 'chat-rooms', id: 'chat-rooms' }));
+  const peoplePane = h('aside', { class: 'chat-pane chat-people-pane', id: 'chat-people-pane', 'aria-label': 'People in this room' },
+    h('h2', { class: 'chat-sh' }, icon('users'), 'In this room', h('span', { class: 'chat-sh-n', id: 'chat-people-count' })),
+    h('div', { class: 'chat-people', id: 'chat-people' }));
+  const surface = h('div', { class: 'chat-surface', id: 'chat-surface' },
+    h('div', { class: 'chat-head' }, roomsBtn, h('h1', { class: 'chat-title' }, icon('message-square'), 'Chat'),
       h('span', { class: 'chat-room-name', id: 'chat-room-name' }), h('span', { class: 'chat-live is-off', id: 'chat-live', role: 'status' }, 'not connected'),
-      h('span', { class: 'chat-room-tools', id: 'chat-room-tools' }), pop, dash),
+      h('span', { class: 'chat-head-sp' }), peopleBtn, h('span', { class: 'chat-room-tools', id: 'chat-room-tools' }), pop, dash),
     h('div', { class: 'chat-notice', id: 'chat-notice' }),
     h('div', { class: 'chat-cols', id: 'chat-cols', hidden: true },
-      h('nav', { class: 'chat-pane chat-rooms-pane', 'aria-label': 'Rooms' }, h('h2', { class: 'chat-sh' }, 'Rooms'), h('div', { class: 'chat-rooms', id: 'chat-rooms' })),
+      roomsPane,
       h('div', { class: 'chat-center' },
         log,
         h('div', { class: 'chat-downwrap' }, h('button', { type: 'button', class: 'chat-down', id: 'chat-down', hidden: true })),
@@ -71,9 +83,11 @@ function build() {
           h('div', { class: 'chat-pend', id: 'chat-pend', hidden: true, 'aria-live': 'polite' }),
           h('div', { class: 'chat-inputs' }, clip, text, send), pick),
         h('p', { class: 'chat-note', id: 'chat-note', 'aria-live': 'polite' })),
-      h('aside', { class: 'chat-pane chat-people-pane', id: 'chat-people-pane', 'aria-label': 'People in this room' },
-        h('h2', { class: 'chat-sh' }, icon('users'), 'In this room', h('span', { class: 'chat-sh-n', id: 'chat-people-count' })),
-        h('div', { class: 'chat-people', id: 'chat-people' })))));
+      peoplePane),
+    drawerScrim());
+  $('chat').replaceChildren(surface);
+  drawer(surface, 'rooms', roomsBtn, roomsPane);
+  drawer(surface, 'people', peopleBtn, peoplePane);
   log.addEventListener('scroll', () => {
     const was = state.chat.atFoot;
     state.chat.atFoot = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
@@ -82,6 +96,7 @@ function build() {
     if (log.scrollTop < 120) loadOlder();
   }, { passive: true });
   $('chat-down').addEventListener('click', toFoot);
+  watchTaps(log);
   initComposer();
   setInterval(() => { if (state.chat.active && state.chat.srv) standing(); }, 20000);
 }
@@ -188,6 +203,7 @@ export async function chatEnter(room) { return mountChat(null, null, room); }
 export async function mountChat(host, scope, room) {
   build();
   const surface = $('chat-surface'), people = $('chat-people-pane');
+  closeDrawer(false);
   if (host) {
     if (surface.parentNode !== host.room) host.room.append(surface);
     if (host.people && people.parentNode !== host.people) host.people.append(people);

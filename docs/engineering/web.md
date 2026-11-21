@@ -441,15 +441,30 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   agent. Every remote write is ONE line in the serve audit log (`auditChange`, kind `change`, route `chat-<call>` from
   `WebChatRoute.label` — never a body or a value); a refusal is a `refused` line.
 - **An ask is its decision card** (`components/chat-ask.js`, drawn by `chat-messages.js` `add()` for `kind: "ask"` with a
-  readable `ask` — one without is its plain text, never Markdown): its title and reason; each question (at most 5, stacked) a
-  `fieldset` + `legend`, options lettered A–J (radios for one, checkboxes for several with the min/max hint), "Something
-  else" opening a field when the question takes words, Skip for an optional one; Answer (primary), Decline (quiet, its
-  reason inline, never a modal); a state line (`role="status"`, polite). The draft is kept per msg_id across redraws;
-  closed, only what was chosen and how it ended ("decided by Worker (decider role)", "declined by you", "expired · answer:
-  decline", "withdrawn"); read-only, no control and one line why ("Only Decbot can answer", "You asked this", "Answered in
-  this Mac's own browser"). Keyboard: Tab, the arrows in a radio group, Space, a letter key on that question's control
-  (never in a text field), Enter on Answer or ⌘/Ctrl+Enter in the card, Escape in a text field back to its option; focus on
-  the state line after sending. At 390 px the rows are 44 px. `chat-live.js` draws it again on the stream's `ask` event (the
+  readable `ask` — one without is its plain text, never Markdown): its title (`--fs-xl`) and reason; each question (at most
+  5, stacked — never a wizard) a `fieldset` whose `legend` is kept for assistive technology and out of sight, with its
+  header as a chip (`.chat-ask-chip`, sentence case) and "Question 2 of 3 · optional", its text (left out when it is the
+  title), a multi-select's rule ABOVE its rows from min and max ("Choose 2", "Choose up to 3", "Choose 2 to 3", "Choose all
+  that apply"); options as full-width rows lettered A–J (`label.chat-ask-opt`: the native radio or checkbox in each, out of
+  sight but focusable — `clip`, never `display: none`; the row `.is-on` while its input is checked, set by the change
+  handler, never `:has()`; the badge round for one, square for several, filled when chosen; the focus ring on the row by
+  `:focus-within`); "(recommended)" beside the asker's pick, never preselected; no option styled by the asker; "Something
+  else" the next letter when the question takes words (its letter key opens the field under the row), Skip for an optional
+  one. Picking a row never sends. The footer (only for a decider here): Decline… (quiet, underlined; its reason inline,
+  never a modal) then Answer (primary, off until the answer is complete). The meta line: the state (`role="status"`,
+  polite) — a pill, open / decided / declined / ended in the accent / ok / warn / quiet tone, then " · expires in 3 h",
+  " · for Ada" (or the read-only reason) — and the number ("#7"); its text still reads "open · expires in …". The draft is
+  kept per msg_id across redraws; closed, a decided ask shows only the rows chosen (lit, `.is-chosen`) and the words,
+  a declined one `Declined: "…"` under the question, an expired or withdrawn one the question alone; the pill says how it
+  ended ("decided by Worker (decider role)", "declined by you", "expired · answer: decline", "withdrawn"). Open with no
+  decider left: the rows read-only and a warn line, "No one here can decide this. It expires to decline; its asker may
+  withdraw it." Read-only: the rows dimmed, no control, and one line why ("Only Decbot can answer", "You asked this",
+  "Answered in this Mac's own browser"). A refused answer is said in the card in the bad tone (`.chat-ask-refused`) and in
+  the note under the composer, and stays in the card when it is drawn again (the ask may have closed meanwhile), until
+  the next press. Keyboard: Tab, the arrows in a radio group, Space, a letter key on that question's control (never in a
+  text field), Enter on Answer or ⌘/Ctrl+Enter in the card, Escape in a text field back to its option; focus on the state
+  line after sending. At phone width the bubble is the card (no border, padding or background of its own), rows 48 px,
+  Answer 44, the text 16 px (`--chat-text`); a coarse pointer gets the same sizes. `chat-live.js` draws it again on the stream's `ask` event (the
   draft kept; another room's: the counts read again) and previews an ask as "asks: TITLE". **The one answer path is
   `core/asks.js`** (`answerAsk`, and `answerFromDiagram(askId, reply)` for the space diagram, which finds the room from
   `rememberAttention(items)`; `canAnswer(m)` mirrors `ChatAskViewer.canAnswer`; `onAskChange(fn)`): the typed action
@@ -462,7 +477,10 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   line "answered #N in ROOM" — the answer's text never in a label, `ui.operations.json` or `ui.log`. No route of its own.
   `WebActionTests.testTheAskDecision`, `ServeExposureTests.testAnsweringAnAskIsThisMacsOnly`,
   `ServeHTTPTests.testAnAskIsAnsweredOnlyInThisMacsBrowserWhateverTheServeSettings`,
-  `WebModulesTests.testTheAskCardAndItsOneAnswerPath`, `make dashboard-walk` ask 1–7.
+  `WebModulesTests.testTheAskCardAndItsOneAnswerPath` (also: the rows are native inputs; no `innerHTML` in chat's modules;
+  `components/chat-drawers.js` in the chat window's closure), `make dashboard-walk` ask 1–11 (8 the keyboard, 9 nothing
+  overlapping at 1440, 900 and 390, 10 the card at 390 px, 11 each state from the page's own actions). Every state has its
+  specimen in the style guide ("Chat: the decision card in every state"), light and dark, wide and at phone width.
 - **Turning chat on from the page** is ONE component, `components/chat-on.js` (`chatOnForm`: your name in chat — shown only
   while you have none, filled with what `doz chat on` would use: chat/status's `named` or `suggestedName`, this Mac's
   browser only —, "Turn chat on", its error inline in Dozable's words, the terminal's command beneath; `chatOnInline`: the
@@ -479,6 +497,21 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   `mac-only`); another computer sees only the commands. Turning chat off stays a terminal's.
   `WebActionTests.testChatOnAndMakeRoom`, `ServeHTTPTests.testChatOnAndMakeRoomAreThisMacsBrowserOnly`,
   `WebModulesTests.testChatOnIsOneComponent`, `make dashboard-walk` chat on 1–3.
+- **The page's look**: a message reads at `--chat-text` (14 px, 16 at phone width); rows `--sp-3` apart, a bubble's padding
+  `--sp-4`; the sender's name in ink; a moment line ruled on both sides. A message's tools sit at the end of its name row,
+  in the row's flow (never over a word), hidden — the row's height kept — until the bubble is hovered, focused, showing its
+  detail or, on a touch screen, tapped (`.is-tap`: one `pointerup` listener on the log, touch only, never on a link, a
+  button or a field); a hover counts only under `(hover: hover)`, so a tap leaves no tools or highlight behind, and the
+  tools stay inside their bubble (walk ask 9). The time sits beside the bubble on a wide window and below it at phone width, where a bubble stops
+  an avatar and a gap short of the far edge (`--chat-av`). The composer's clip, field and Send are one height
+  (`--chat-ctl`, 44 px at phone width or for a coarse pointer); at phone width the idle hint goes (`.chat-note.is-hint`).
+  The head: the room's name in ink, the live chip (a dot in the stream's colour), then the people's toggle (with the count
+  here), the room's menu and the pop-out. **The side panes are drawers** where they do not fit
+  (`components/chat-drawers.js`; the surface's `.is-people-open` / `.is-rooms-open`): the people below 1101 px, the rooms at
+  phone width (the Chat page only — a workspace's Room tab keeps its strip and has neither toggle); one at a time, over the
+  log with the scrim; the scrim, Escape and the toggle close it, Tab stays inside, the focus goes back to the toggle, and
+  opening a room closes the rooms drawer. `make dashboard-walk` chat 10–11; css-perf has no chat page, so the walk reports
+  "chat perf" (the chat page's style recalculation over a fixed sequence, median of five — never a check).
 - **The page** (`views/chat.js`, the section `#chat`, built once): rooms (`chat-rooms.js`), the log (`chat-messages.js`:
   bubbles, tombstones, direct-message stubs with **Reveal**, change lines, older pages on scrolling up; a message's tools:
   the detail, the reactions picker on someone else's, the pencil on your own, ⋮ › Delete… on any — `confirmCheck`), the
@@ -1678,8 +1711,8 @@ anything, no manifest link; `forMac` names its title "Chat – MAC"). Its entry 
 - **Its start**: `adoptSession(await api('session'))` (no DOM), `loadSettings()` (`ui.theme`, `ui.density`,
   `ui.notifications`), `configureChat` as `app.js` does, then the room from the fragment (`chatWindowRoom`, the chat
   server's room rule). It sets `window.name = 'doz-chat-ROOM'` and calls `chatWindow(room)`, which is `mountChat(null,
-  null, room)` with `state.chat.solo`: `candidates()` is the room alone, `.chat-surface.is-solo` hides the rooms pane,
-  and the head has "Open in the dashboard" (`/#/chat/ROOM`). A room not the person's gets "This room is not here". The
+  null, room)` with `state.chat.solo`: `candidates()` is the room alone, `.chat-surface.is-solo` hides the rooms pane and its
+  toggle, and the head has "Open in the dashboard" (`/#/chat/ROOM`; its icon alone at phone width). A room not the person's gets "This room is not here". The
   title is "ROOM — Chat…". `hashchange` follows the room. Shown again, it re-reads the settings (the theme follows the
   dashboard) and the room.
 - **The pop-out** (`#chat-pop`, in the Chat page's head, so also on a workspace's Room tab): a link to `/chat#/ROOM`
@@ -1712,12 +1745,15 @@ anything, no manifest link; `forMac` names its title "Chat – MAC"). Its entry 
   (`serve.chat`: off → "Chat is not shared with this browser", read → read-only composer and decision card).
   `ServeHTTPTests.testTheChatWindowsExposureIsTheChatViews`.
 - **Styling**: `body.chat-window` is a `100dvh` column with the log between the head and the composer. The notification
-  bell keeps the window's corner (`body.chat-window .notes`), and the head leaves it room. At 390 px it fits. The focus
+  bell keeps the window's corner (`body.chat-window .notes`), and the head leaves it room. At 390 px it fits. The people
+  are beside the log from 1101 px, a drawer below (the Chat page's toggle and rules). The focus
   starts on the composer; the dashboard's shortcuts are not loaded.
 - **Tests**: `WebModulesTests` (`testTheChatWindowsAddressAndTheOneWayToOpenAWindow`,
   `testTheCompilerChecksTheChatWindowsEntry`), `WebSecurityTests.testTheChatWindowIsOneStaticRoute`,
   `WebHTTPIntegrationTests.testTheChatWindowIsADocumentWithoutASessionAndThePagesPolicy`,
   `WebDashboardUpgradeTests` (the title), `WebSecurityTests.testEightChatStreamsOfOneBrowserFit`. `make dashboard-walk`
   "window" rows 1–14 (`CHAT_WINDOW_ONLY=1` walks them alone; row 14 is the space editor's window): open, fetched,
-  live, reload, reuse, Decide, Turn chat on, unread, another computer, four windows, bytes, 390 px, CSP and leaks.
-  SHOTS `chat-window-light`, `-dark`, `-390`, `-ask`.
+  live, reload, reuse, Decide, Turn chat on, unread, another computer, four windows, bytes, 390 px, CSP and leaks; chat 11,
+  the window at 440 and 390 (the card, no rooms toggle, the people drawer). SHOTS `chat-window-light-440`, `-dark-440`,
+  `-light-390`, `-dark-390` (2x), `-ask`; and the chat pictures, `chat-<subject>-<light|dark>-<desktop|390>.png` for the
+  reference chat's nineteen subjects (the walk's last rows).

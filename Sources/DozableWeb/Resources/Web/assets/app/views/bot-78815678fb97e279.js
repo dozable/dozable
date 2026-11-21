@@ -25,7 +25,7 @@ import { chatRooms, includeInRoom } from '../components/bot-invite-31a38f8e4a291
 import { isolationChip } from '../components/iso-chip-b91f61533859e39d.js';
 import { workspacePill } from '../components/ws-marks-26369af31d4dbb6f.js';
 import { programName } from '../components/ws-panel-d448ee9ed42b9e4b.js';
-import { newWorkspaceHash } from './new-workspace-442b9f04b87a7fe2.js';
+import { newWorkspaceHash } from './new-workspace-0084cdee027b7bda.js';
 
 /// The key, as a person reads it: who keeps it and its fingerprint shortened (3f9a…c2) — the whole one in `title`.
 export function keyWords(keeper, fp) {

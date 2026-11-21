@@ -5,8 +5,8 @@ import { state } from '../core/state-1036883eb74b9520.js';
 import { chatError, request, roomUrl, viewer } from '../core/chat-api-ec968582d97ebdcb.js';
 import { $ } from '../dom/h-f853cc7eb6672c45.js';
 import { dialog } from './dialog-e95f6ec91fb53452.js';
-import { chatNote } from './chat-note-7d9b58ce10feea44.js';
-import { grow, saveDraft, showPending } from './chat-composer-box-0583e0de7bdd10ee.js';
+import { chatNote } from './chat-note-95e0cc435178e0d8.js';
+import { grow, saveDraft, showPending } from './chat-composer-box-0bd02e4fca9e7f89.js';
 
 /// The person's own latest message in the room shown (nil: none).
 export const latestOwn = () => [...state.chat.byId.values()].filter((m) => m.from === viewer() && !m.kind && !m.deleted && m._body)

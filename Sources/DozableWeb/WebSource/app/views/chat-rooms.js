@@ -3,6 +3,7 @@
 import { state } from '../core/state.js';
 import { canWrite, getJSON, viewer } from '../core/chat-api.js';
 import { loadDraft, saveDraft } from '../components/chat-composer-box.js';
+import { closeDrawer } from '../components/chat-drawers.js';
 import { endEdit } from '../components/chat-edit.js';
 import { showDown } from '../components/chat-log.js';
 import { showPreviews, showUnread } from '../components/chat-unread.js';
@@ -86,6 +87,7 @@ const SOLO_TITLE = document.title;
 /// Show room `r`: its draft, its log from the newest page, its people (null: none — a workspace with no room of the person's).
 export async function openRoom(r) {
   if (!state.chat.srv) return;
+  if (r !== state.chat.room) closeDrawer(false);   // a room opened from the rooms drawer closes it
   endEdit();
   saveDraft();
   if (!r) {
