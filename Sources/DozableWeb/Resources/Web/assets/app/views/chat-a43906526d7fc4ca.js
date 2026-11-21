@@ -21,10 +21,10 @@ import { icon } from '../dom/icons-9b284ea0ffb2ad04.js';
 import { openOwnWindow } from '../core/windows-392fe33565b4f8f7.js';
 import { chatWindowName, chatWindowPath } from '../core/routes-c03e6aed84ec9eb3.js';
 import { initComposer } from './chat-composer-8dc5826039ace730.js';
-import { loadOlder } from './chat-messages-107e3ad45c4516fc.js';
+import { loadOlder } from './chat-messages-a7371395463fa36f.js';
 import { loadPresence, roomMenu, standing } from './chat-people-81da863f438cd8f3.js';
-import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms-5ac98585ebd8d369.js';
-import { startLive, stopLive } from './chat-live-09b2a7d8e858da97.js';
+import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms-c15851b167728ff2.js';
+import { startLive, stopLive } from './chat-live-b67e638957c4083c.js';
 
 let built = false, loaded = false, statusT = 0, wanted = null, loading = false, scopeKey = '';
 

@@ -1595,8 +1595,12 @@ async function walkAsks() {
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 4 });
   const decided = await waitFor(`/decided by you/.test(${CARD(a1)}?.querySelector('.chat-ask-state')?.textContent || '')`, 20000);
   const left = (dozJSON(['chat', 'asks', 'askw']) || { asks: [1] }).asks;
-  check(decided && left.length === 0 && /B\. Desktop/.test(await evaluate(`${CARD(a1)}.textContent`)),
-    'ask 2 answered by keyboard only (B, Tab, A, ⌘Enter): "decided by you", B. Desktop shown, doz chat asks --json empty');
+  // Decided, the card shows only the rows chosen, lit: in the first question B, Desktop, and no other row.
+  const lit = await waitFor(`(() => { const f = ${CARD(a1)}?.querySelector('[data-q="build"]'); const rows = f ? [...f.querySelectorAll('.chat-ask-opt')] : [];
+    return rows.length === 1 && rows[0].classList.contains('is-chosen') && rows[0].querySelector('.chat-ask-letter')?.textContent === 'B'
+      && rows[0].querySelector('.chat-ask-name')?.textContent === 'Desktop'; })()`, 15000);
+  check(decided && left.length === 0 && lit,
+    'ask 2 answered by keyboard only (B, Tab, A, ⌘Enter): "decided by you", the chosen row lit (B, Desktop) and no other, doz chat asks --json empty');
   // 3. Answered by the CLI meanwhile: a second action from the page is refused in Dozable's words, and the op says so.
   const a3 = botAsk('askerbot', ['Ship it?', '--option', 'yes=Yes', '--option', 'no=No']);
   await waitFor(`!!${CARD(a3)}`, 15000);
@@ -1649,8 +1653,127 @@ async function walkAsks() {
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   const said = ['ui.operations.json', 'ui.log'].map((f) => (existsSync(STORE + '/' + f) ? readFileSync(STORE + '/' + f, 'utf8') : '')).join('\n') + uiOut + consoleLines.join('\n');
   check(await waitFor(`(${CARD(a7)}?.textContent || '').includes(${JSON.stringify(words)})`, 15000) && !said.includes(words), 'ask 7 the answer in words is shown in the card, and in no operation, ui.log or console line');
+  await walkAskStates();
   check(pageErrors.length === errorsBefore, 'asks: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
   await leakSweep('the asks');
+}
+
+/// What overlaps in the room's log: an ask's footer buttons with one another or with its meta line; a card wider than its
+/// bubble. (Each is a list of what was found; none may be.)
+const ASK_OVERLAPS = `(() => { const out = []; const R = (e) => e.getBoundingClientRect();
+  const hit = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+  const cards = [...document.querySelectorAll('#chat-log .chat-ask')];
+  for (const c of cards) {
+    const bs = [...c.querySelectorAll('.chat-ask-actions > button')].filter((b) => b.getClientRects().length).map(R);
+    for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) if (hit(bs[i], bs[j])) out.push('the footer buttons of ' + c.dataset.ask.slice(0, 8));
+    const meta = c.querySelector('.chat-ask-meta');
+    if (meta && bs.some((b) => hit(b, R(meta)))) out.push('a footer button × the meta of ' + c.dataset.ask.slice(0, 8));
+    const b = c.closest('.chat-msg'); if (b && R(c).right > R(b).right + 0.5) out.push('the card wider than its bubble: ' + c.dataset.ask.slice(0, 8));
+  }
+  return { n: cards.length, out }; })()`;
+/// The live stream held (as a phone asleep): the page's own chat-live module, stopped now or started again.
+async function chatLive(on) {
+  const u = await evaluate(`performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\\/assets\\/app\\/views\\/chat-live-[0-9a-f]+\\.js$/.test(n)) || ''`);
+  await evaluate(`import(${JSON.stringify(u)}).then((m) => ${on ? 'm.startLive()' : 'm.stopLive(true)'})`);
+  if (on) await waitFor(`state.chat.live === 'live'`, 15000);
+}
+function botWithdraw(id) {
+  spawnSync(dirname(DOZ) + '/dozchat-mac', ['withdraw', 'askw', id], { encoding: 'utf8', timeout: 60_000,
+    env: { PATH: '/usr/bin:/bin', HOME: S, CHAT_URL: 'http://127.0.0.1:' + chatPagePort, CHAT_TOKEN_FILE: S + '/askerbot.token' } });
+}
+/// Asks 8–11: the keyboard, nothing overlapping, the card at 390 px, and every state drawn from the page's own actions.
+async function walkAskStates() {
+  const stateOf = (id) => `(${CARD(id)}?.querySelector('.chat-ask-state')?.textContent || '')`;
+  // 8. The keyboard: Tab reaches every option, Something else (C), Decline… and Answer, in that order, each with a visible
+  // ring; the letter of Something else opens its field, and Escape there goes back to its row.
+  writeFileSync(S + '/ask-q8.json', JSON.stringify([{ id: 'k', question: 'Which checks run?', multi: true, min: 1, max: 2, free_text: true,
+    options: [{ id: 'unit', label: 'Unit' }, { id: 'e2e', label: 'End to end' }] }]));
+  const a8 = botAsk('askerbot', ['Which checks run?', '--questions', S + '/ask-q8.json']);
+  await waitFor(`!!${CARD(a8)}`, 15000);
+  await evaluate(`(() => { const c = ${CARD(a8)}; c.closest('.chat-row').scrollIntoView({ block: 'center' }); c.querySelector('input.chat-ask-input').focus(); })()`);
+  await key('a', 'KeyA', 65);   // Unit ticked by its letter: Answer is on
+  const where = `(() => { const f = document.activeElement; const el = f.closest('.chat-ask-opt') || f;
+    return { k: f.getAttribute('data-k') || f.className, ring: getComputedStyle(el).outlineStyle }; })()`;
+  const seq = [await evaluate(where)];
+  for (let i = 0; i < 4; i++) { await key('Tab', 'Tab', 9); seq.push(await evaluate(where)); }
+  const want = ['k:unit', 'k:e2e', 'k:other', 'chat-ask-decline-btn', 'btn primary chat-ask-answer'];
+  check(seq.map((x) => x.k).join('|') === want.join('|') && seq.every((x) => x.ring !== 'none'),
+    'ask 8 the keyboard: Tab reaches each option, Something else, Decline… and Answer in that order, each with a visible ring (' + JSON.stringify(seq) + ')');
+  await evaluate(`${CARD(a8)}.querySelector('input.chat-ask-input').focus()`);
+  await key('c', 'KeyC', 67);
+  const field = await evaluate(`(() => { const f = document.activeElement; return f && f.matches('textarea.chat-ask-text') && !f.hidden
+    && ${CARD(a8)}.querySelector('[data-k="k:other"]').checked; })()`);
+  await key(...ESC);
+  check(field && await evaluate(`document.activeElement?.getAttribute('data-k') === 'k:other'`),
+    'ask 8 …C (Something else) opens its field and takes the focus there; Escape goes back to its row');
+  // 9. Nothing overlaps: an ask's footer buttons with one another or the meta, a card wider than its bubble — at 1440, 900, 390.
+  for (const w of [1440, 900, 390]) {
+    await send('Emulation.setDeviceMetricsOverride', { width: w, height: w === 390 ? 844 : 900, deviceScaleFactor: 1, mobile: w === 390 });
+    await sleep(400);
+    await evaluate(`${CARD(a8)}.closest('.chat-row').scrollIntoView({ block: 'center' })`);
+    const ov = await evaluate(ASK_OVERLAPS);
+    check(ov.n > 0 && ov.out.length === 0, `ask 9 at ${w} px nothing in the room's asks overlaps (${ov.n} cards${ov.out.length ? ': ' + ov.out.join(', ') : ''})`);
+  }
+  // 10. At 390 px: no sideways scroll, the bubble is the card (no border of its own), rows and Answer at least 44 px, the
+  // composer's text at least 16 px (no zoom on focus), and a bubble stops an avatar and a gap short of the far edge.
+  const a10 = botAsk('askerbot', ['Ship the phone build?', '--option', 'yes=Ship it', '--option', 'no=Not yet']);
+  await waitFor(`!!${CARD(a10)}`, 15000);
+  const drawn10 = await waitFor(`!!${CARD(a10)}?.querySelector('.chat-ask-answer')`, 15000);
+  const p10 = await evaluate(`(() => { try { const c = ${CARD(a10)}, row = c.closest('.chat-row'); row.scrollIntoView({ block: 'center' });
+    const log = document.querySelector('#chat-log'), av = row.querySelector('.chat-av'), gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+    return { scroll: document.scrollingElement.scrollWidth, log: log.scrollWidth - log.clientWidth, border: getComputedStyle(c).borderTopWidth,
+      rows: [...c.querySelectorAll('.chat-ask-opt')].map((e) => Math.round(e.getBoundingClientRect().height)), answer: Math.round(c.querySelector('.chat-ask-answer').getBoundingClientRect().height),
+      font: parseFloat(getComputedStyle(document.getElementById('chat-text')).fontSize), right: Math.round(c.closest('.chat-msg').getBoundingClientRect().right),
+      limit: Math.round(innerWidth - av.getBoundingClientRect().width - gap) }; } catch (e) { return { error: String(e) }; } })()`);
+  check(drawn10 && p10.scroll <= 390 && p10.log <= 0 && p10.border === '0px' && p10.rows.length >= 2 && p10.rows.every((x) => x >= 44) && p10.answer >= 44 && p10.font >= 16,
+    'ask 10 at 390 px: no sideways scroll, no frame of its own, rows and Answer ≥ 44 px, the composer\'s text ≥ 16 px (' + JSON.stringify(p10) + ')');
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await sleep(300);
+  // 11. The states. Declined from the page with a reason → its words under the card, the pill "declined by you".
+  const a11 = botAsk('askerbot', ['Drop the old cache?', '--option', 'yes=Drop it', '--option', 'no=Keep it']);
+  await waitFor(`!!${CARD(a11)}`, 15000);
+  await evaluate(`${CARD(a11)}.querySelector('.chat-ask-decline-btn').click()`);
+  await setField(`[data-ask="${a11}"] .chat-ask-why`, 'Not before the migration');
+  await evaluate(`${CARD(a11)}.querySelector('.chat-ask-confirm').click()`);
+  check(await waitFor(`${CARD(a11)}?.querySelector('.chat-ask-said')?.textContent === 'Declined: “Not before the migration”' && /^declined by you$/.test(${stateOf(a11)})
+    && ${CARD(a11)}.querySelectorAll('.chat-ask-opt').length === 0`, 20000), 'ask 11 declined from the page with a reason: Declined: “…” under it, "declined by you", no rows');
+  // Expired → the question alone and "expired · answer: decline".
+  const a11e = botAsk('askerbot', ['Restart the cache now?', '--option', 'yes=Yes', '--expires-in', '5']);
+  check(await waitFor(`/^expired · answer: decline$/.test(${stateOf(a11e)}) && ${CARD(a11e)}.querySelectorAll('.chat-ask-opt').length === 0`, 30000),
+    'ask 11 expired: the question alone, "expired · answer: decline"');
+  // No decider left → the warn line, the rows dimmed and read-only.
+  const a11n = botAsk('askerbot', ['Open port 8443?', '--option', 'yes=Open it', '--decider', 'decbot']);
+  await waitFor(`!!${CARD(a11n)}`, 15000);
+  doz(['chat', 'send', 'askw', '/remove @decbot']);
+  check(await waitFor(`/^No one here can decide this\\./.test(${CARD(a11n)}?.querySelector('.chat-ask-none')?.textContent || '')`, 20000)
+    && await evaluate(`${CARD(a11n)}.querySelectorAll('input, button').length === 0 && ${CARD(a11n)}.querySelectorAll('.chat-ask-opt.is-ro').length === 1`),
+    'ask 11 no decider left: the warn line, its row read-only');
+  botWithdraw(a11n);
+  doz(['chat', 'send', 'askw', '/invite @decbot']);
+  // A multi-select of 1 to 2 of three → "Choose up to 2" above the rows, square badges.
+  writeFileSync(S + '/ask-q11.json', JSON.stringify([{ id: 'p', question: 'Which platforms?', multi: true, min: 1, max: 2,
+    options: [{ id: 'web', label: 'Web' }, { id: 'ios', label: 'iOS' }, { id: 'android', label: 'Android' }] }]));
+  const a11m = botAsk('askerbot', ['Which platforms?', '--questions', S + '/ask-q11.json']);
+  check(await waitFor(`(() => { const c = ${CARD(a11m)}; const hint = c && c.querySelector('.chat-ask-hint'); const first = c && c.querySelector('.chat-ask-opt');
+    return !!hint && hint.textContent === 'Choose up to 2' && !!first && !!(hint.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && c.querySelectorAll('.chat-ask-letter.is-multi').length === 3; })()`, 15000), 'ask 11 a multi-select of 1 to 2: "Choose up to 2" above its rows, square badges');
+  // A refusal: the card is stale (the live stream held), the asker withdraws, Answer → its words in the card and the note.
+  const a11r = botAsk('askerbot', ['Merge the release branch?', '--option', 'yes=Merge', '--option', 'no=Wait']);
+  await waitFor(`!!${CARD(a11r)}`, 15000);
+  await chatLive(false);
+  botWithdraw(a11r);
+  await sleep(600);
+  await evaluate(`(() => { const c = ${CARD(a11r)}; c.querySelector('input.chat-ask-input').click(); c.querySelector('.chat-ask-answer').click(); })()`);
+  const REFUSED = `(${CARD(a11r)}?.querySelector('.chat-ask-refused:not([hidden])')?.textContent || '')`;
+  const bad = await waitFor(`${REFUSED}.length > 0`, 20000);
+  const words = await evaluate(REFUSED);
+  check(bad && await evaluate(`getComputedStyle(${CARD(a11r)}.querySelector('.chat-ask-refused')).color === getComputedStyle(document.getElementById('chat-note')).color
+    && document.getElementById('chat-note').classList.contains('is-bad') && document.getElementById('chat-note').textContent === ${JSON.stringify(words)}`),
+    `ask 11 a refusal: the card says it in the bad tone, and the line under the composer too ("${words}")`);
+  await chatLive(true);
+  check(await waitFor(`/^withdrawn$/.test(${stateOf(a11r)}) && ${REFUSED} === ${JSON.stringify(words)}`, 15000), 'ask 11 …the card drawn again reads withdrawn, the refusal still said in it');
+  for (const id of [a8, a10, a11m]) botWithdraw(id);
+  await waitFor(`/^withdrawn$/.test(${stateOf(a11m)})`, 15000);
 }
 
 // ── the chat pictures: the reference chat's subjects drawn by Dozable's chat (light and dark, 1440 at 1x and 390 at 2x),
@@ -1851,7 +1974,7 @@ async function walkChatPictures() {
   await sleep(800);
   await evaluate(`(() => { const c = document.querySelector(${JSON.stringify(card(aRefusal))}); const i = c && c.querySelector('input.chat-ask-input'); if (i && !i.checked) i.click(); })()`);
   await evaluate(`document.querySelector(${JSON.stringify(card(aRefusal) + ' .chat-ask-answer')})?.click()`);
-  const refused = await waitFor(`document.querySelector(${JSON.stringify(card(aRefusal) + ' .chat-ask-state')})?.classList.contains('is-bad')`, 20000);
+  const refused = await waitFor(`!!document.querySelector(${JSON.stringify(card(aRefusal) + ' .chat-ask-refused:not([hidden])')})`, 20000);
   check(refused, 'chat pictures: a stale card\'s Answer is refused in the card (the asker withdrew it meanwhile)');
   await chatShots('ask-refusal', atCard(aRefusal));
   await evaluate(`import(${JSON.stringify(live)}).then((m) => m.startLive())`);

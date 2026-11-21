@@ -7,7 +7,7 @@ import { endEdit } from '../components/chat-edit-992ccf740f7f7457.js';
 import { showDown } from '../components/chat-log-e1b72169c7992e47.js';
 import { showPreviews, showUnread } from '../components/chat-unread-9284e62b88511529.js';
 import { $, h } from '../dom/h-f853cc7eb6672c45.js';
-import { fill } from './chat-messages-107e3ad45c4516fc.js';
+import { fill } from './chat-messages-a7371395463fa36f.js';
 import { chatWindowName, chatWindowPath } from '../core/routes-c03e6aed84ec9eb3.js';
 import { people } from './chat-people-81da863f438cd8f3.js';
 

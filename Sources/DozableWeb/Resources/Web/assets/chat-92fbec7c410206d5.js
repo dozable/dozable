@@ -18,8 +18,8 @@ import { banner, dropBanner, failureFor, opFailed, pageFailure, toast } from './
 import { paintNotes } from './app/components/notes-7c4f97201ba84f32.js';
 import { $, h } from './app/dom/h-f853cc7eb6672c45.js';
 import { withIcon } from './app/dom/icons-9b284ea0ffb2ad04.js';
-import { chatRefresh, chatWindow } from './app/views/chat-e5ead05888e71e09.js';
-import { onLiveEnd } from './app/views/chat-live-09b2a7d8e858da97.js';
+import { chatRefresh, chatWindow } from './app/views/chat-a43906526d7fc4ca.js';
+import { onLiveEnd } from './app/views/chat-live-b67e638957c4083c.js';
 
 state.view = 'chat';                 // the chat view is this window's only view (Turn chat on reads it again here)
 let firstVersion = null, firstStyle = null;
