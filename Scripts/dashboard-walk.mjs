@@ -100,8 +100,14 @@
 //     "here" after one closes; 10 four windows and the dashboard: no eviction loop, fetches answer; 11 cold bytes of both
 //     documents (the window ≤ 40 %), and the warm open's; 9 another computer (session and chat/status rewritten): not shared,
 //     then read-only; 12 390 px; 13 no CSP violation or page error from any window's start, the leak sweep; 14 (after the
-//     space editor's rows) its "Open in a new window" opens its own window, reused. Pictures: chat-window-light, -dark,
-//     -ask, -390.
+//     space editor's rows) its "Open in a new window" opens its own window, reused. Pictures: chat-window-light-440,
+//     -dark-440, -ask, -light-390, -dark-390 (2x).
+//   · the chat pictures (last of the walk): a busy room (code, a link, a mention, replies, reactions, a picture and a file
+//     from the clip's chooser) and eleven asks, each in its own room — open, multi-select, free text, two questions,
+//     decided, declined, expired, withdrawn, no decider, answering and a refusal (the live stream held while the asker
+//     withdraws it) —, drawn in the reference chat's subjects to SHOTS as chat-<subject>-<light|dark>-<desktop|390>.png
+//     (1440×900 at 1x; 390×844 at 2x with touch); then "chat perf", the chat page's style recalculation over a fixed
+//     sequence (report only).
 //   · a workspace's Home tab: 1 #/w/demo2 opens it (selected; no picture outside it); 2 its cards each link their tab, Needs
 //     you absent when nothing waits, the room's last messages, at most five log lines, no walk of the folders; 3 wiz2
 //     (setting up) — Needs you lists what is missing and Start, its Room tab one line; 4 an open ask in askw's room in Needs
@@ -128,7 +134,7 @@
 //
 // Inputs (environment): DOZ (default .build/debug/doz — `make cli` first), CHROME (default Google Chrome's app), SCRATCH;
 // SHOTS=DIR (optional, under /tmp) keeps pictures of a workspace's page (light, dark, 390 px) for a person to look at;
-// CHAT_WINDOW_ONLY=1 walks the chat window's rows alone (chat on, the asks' set-up, then those rows).
+// CHAT_WINDOW_ONLY=1 walks the chat rows alone (chat on, the asks, the chat window's rows, then the chat pictures).
 // SPACE_ONLY=1 walks the space editor's rows alone (chat on, then those rows: a quicker loop while working on them).
 // Run from the repository's root (make does).
 import { spawn, spawnSync } from 'node:child_process';
@@ -1647,6 +1653,248 @@ async function walkAsks() {
   await leakSweep('the asks');
 }
 
+// ── the chat pictures: the reference chat's subjects drawn by Dozable's chat (light and dark, 1440 at 1x and 390 at 2x),
+// and the chat page's style recalculation measured (report only) ───────────────────────────────────────────────────
+/// A bot says something with dozchat and its own token (from its file): the message's id.
+function chatBot(name, args) {
+  const r = spawnSync(dirname(DOZ) + '/dozchat-mac', args, { encoding: 'utf8', timeout: 60_000,
+    env: { PATH: '/usr/bin:/bin', HOME: S, CHAT_URL: 'http://127.0.0.1:' + chatPagePort, CHAT_TOKEN_FILE: S + '/' + name + '.token' } });
+  try { return JSON.parse(r.stdout).msg_id || ''; } catch (_) { return (/"msg_id":"([0-9a-f-]+)"/.exec(r.stdout || '') || [])[1] || ''; }
+}
+/// The id of the latest message in ROOM whose text starts with `start` (as you read it).
+function msgIdOf(room, start) {
+  const ms = dozJSON(['chat', 'read', room, '--last', '200']) || [];
+  return ((Array.isArray(ms) ? ms : ms.messages || []).filter((m) => String(m.content || '').startsWith(start)).pop() || {}).msg_id || '';
+}
+const CHAT_PHONE = { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }, CHAT_DESK = { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false };
+async function chatView(vp) {
+  const phone = vp === '390';
+  await send('Emulation.setDeviceMetricsOverride', phone ? CHAT_PHONE : CHAT_DESK);
+  await send('Emulation.setTouchEmulationEnabled', phone ? { enabled: true, maxTouchPoints: 5 } : { enabled: false });
+  await sleep(350);
+}
+async function openChatRoom(r) {
+  await goHash('#/chat/' + r);
+  const ok = await waitFor(`state.view === 'chat' && state.chat.room === ${JSON.stringify(r)} && state.chat.live === 'live' && document.querySelectorAll('#chat-log > *').length > 0`, 20000);
+  await sleep(400);
+  return ok;
+}
+/// A side pane's drawer (rooms or people) opened or closed with its toggle, where the page has one and shows it.
+async function chatDrawer(which, open) {
+  await evaluate(`(() => { const b = document.querySelector('#chat-${which}-btn'), s = document.querySelector('#chat-surface');
+    if (!b || !b.getClientRects().length || s.classList.contains('is-${which}-open') === ${open}) return; b.click(); })()`);
+  await sleep(250);
+}
+const chatScroll = (sel, block = 'center') => evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (e) e.scrollIntoView({ block: ${JSON.stringify(block)} }); })()`);
+const chatFoot = () => evaluate(`(() => { const l = document.querySelector('#chat-log'); l.scrollTop = l.scrollHeight; })()`);
+/// The four pictures of a subject: light and dark, each at 1440 and at 390 (2x, touch); `arrange(vp)` sets the scene.
+async function chatShots(subject, arrange) {
+  if (!SHOTS) return;
+  for (const theme of ['light', 'dark']) {
+    await evaluate(`document.documentElement.dataset.theme = '${theme}'`);
+    for (const vp of ['desktop', '390']) {
+      await chatView(vp);
+      if (arrange) await arrange(vp);
+      await sleep(400);
+      await shot(`chat-${subject}-${theme}-${vp}`);
+    }
+  }
+  await evaluate(`delete document.documentElement.dataset.theme`);
+  await chatView('desktop');
+}
+/// A tap as the page hears it: a touch pointer's pointerup on the element (the protocol's own touch events can stall a
+/// headless Chrome).
+async function tapAt(sel) {
+  await evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)});
+    if (e) e.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch', isPrimary: true })); })()`);
+}
+async function hoverAt(sel) {
+  const p = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(sel)})?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null; })()`);
+  if (p) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y });
+}
+const ROW_OF = (id) => `[data-row-id="${id}"]`;
+async function walkChatPictures() {
+  const errorsBefore = pageErrors.length;
+  doz(['chat', 'add', 'coder', '--to-file', S + '/coder.token']);
+  knownTokens.push(readFileSync(S + '/coder.token', 'utf8').trim());
+  for (const r of ['team', 'design', 'release']) doz(['chat', 'room', r, '@askerbot', '@decbot', '@coder']);
+  // The busy room: code, a link, a mention, your own messages, replies and reactions.
+  const m1 = chatBot('coder', ['send', 'team', 'First cut of the back-off helper:\n\n```\ndef backoff(attempt, base=0.5, cap=30.0):\n    """Exponential back-off with a cap."""\n    return min(cap, base * (2 ** attempt))\n```\n\nIt returns seconds. Jitter comes next.']);
+  chatBot('askerbot', ['send', 'team', 'I will review whatever lands. The docs are at https://example.com/docs/retries if anyone needs the spec.']);
+  doz(['chat', 'send', 'team', 'Nice. Should the cap be configurable per call? I would rather not hard-code `30.0`.']);
+  chatBot('decbot', ['send', 'team', 'Agreed with @ada. A keyword argument is enough, and `retry_cap` in the config file can feed it.']);
+  doz(['chat', 'send', 'team', 'Yes, make it a keyword argument. Keep the default at 30 seconds.']);
+  const m5 = msgIdOf('team', 'Yes, make it a keyword');
+  chatBot('askerbot', ['react', 'team', m1, '🎉']);
+  chatBot('decbot', ['react', 'team', m1, '🙏']);
+  chatBot('coder', ['react', 'team', m5, '✅']);
+  chatBot('askerbot', ['react', 'team', m5, '👍']);
+  const r1 = chatBot('coder', ['send', 'team', 'Done: `cap` is a keyword argument now, default 30.', '--re', m5]);
+  const r2 = chatBot('askerbot', ['send', 'team', 'Looks right. One test for the cap, please.', '--re', m1]);
+  chatBot('coder', ['send', 'design', 'Agreed, I will open the chat text up to 16 px on phones.']);
+  chatBot('askerbot', ['send', 'release', 'Morning. The nightly build is green.']);
+  // The asks, each in a room of its own, after the same two lines.
+  const askRoom = (r, ...args) => {
+    doz(['chat', 'room', r, '@askerbot', '@decbot']);
+    doz(['chat', 'send', r, 'Can you check the deploy script before we ship? @askerbot']);
+    chatBot('askerbot', ['send', r, 'Looking at it now. I need one decision from you first, so I am sending an ask.']);
+    return chatBot('askerbot', ['ask', r, ...args]);
+  };
+  const qs = (name, list) => { writeFileSync(S + '/' + name + '.json', JSON.stringify(list)); return S + '/' + name + '.json'; };
+  const ACCESS = { id: 'access', header: 'Access', question: 'Let the deploy script read the shared config folder, read-only?', recommended: 'once', options: [
+    { id: 'once', label: 'Allow once', description: 'Only for this run of the deploy script' },
+    { id: 'copy', label: 'Copy the config instead', description: 'A copy in the build folder; nothing shared is read' },
+    { id: 'always', label: 'Allow always', description: 'Careful: it keeps read access until you take it back' }] };
+  const RELEASE = [
+    { id: 'what', header: 'Promote what', question: 'Which builds go out?', multi: true, min: 1, max: 3, options: [{ id: 'web', label: 'Web' }, { id: 'ios', label: 'iOS' }, { id: 'android', label: 'Android' }] },
+    { id: 'when', header: 'When', question: 'When should it ship?', free_text: true, options: [{ id: 'now', label: 'Now' }, { id: 'tonight', label: 'Tonight' }, { id: 'monday', label: 'Monday', description: 'After the weekend freeze' }] },
+    { id: 'note', header: 'Note', question: 'Anything to tell QA?', optional: true, free_text: true, options: [] }];
+  const aExpired = askRoom('ask-expired', 'Restart the staging cache?', '--option', 'yes=Yes', '--option', 'no=No', '--expires-in', '4');
+  const aOpen = askRoom('ask-open', ACCESS.question, '--questions', qs('q-access', [ACCESS]), '--reason', 'the build needs the config values to set up the staging environment');
+  const aMulti = askRoom('ask-multi', 'Which platforms get the 2.4 build?', '--questions', qs('q-multi', [{ id: 'plat', header: 'Platforms', question: 'Which platforms get the 2.4 build?',
+    multi: true, min: 1, max: 2, options: [{ id: 'web', label: 'Web' }, { id: 'ios', label: 'iOS' }, { id: 'android', label: 'Android' }, { id: 'desktop', label: 'Desktop' }] }]));
+  const aFree = askRoom('ask-free', 'Which branch should the hotfix go on?', '--questions', qs('q-free', [{ id: 'branch', header: 'Branch', question: 'Which branch should the hotfix go on?',
+    free_text: true, options: [{ id: 'main', label: 'main' }, { id: 'rel', label: 'release-2.4' }] }]));
+  const aTwo = askRoom('ask-two', 'Release today', '--questions', qs('q-two', [
+    { id: 'build', header: 'Build', question: 'Which build goes out?', options: [{ id: 'web', label: 'Web' }, { id: 'desktop', label: 'Desktop' }] },
+    { id: 'when', header: 'When', question: 'When?', options: [{ id: 'today', label: 'Today' }, { id: 'monday', label: 'Monday' }] }]), '--reason', 'the tests pass');
+  const aDecided = askRoom('ask-decided', 'Release 2.4: a few choices before I cut it', '--questions', qs('q-rel', RELEASE), '--reason', 'I want to cut it today');
+  doz(['chat', 'decide', 'ask-decided', aDecided.slice(0, 8), '--answers', JSON.stringify([{ question_id: 'what', options: ['web', 'android'] },
+    { question_id: 'when', options: ['tonight'] }, { question_id: 'note', text: 'Please re-test the login flow.' }])]);
+  const aDeclined = askRoom('ask-declined', 'Delete the old staging database?', '--option', 'yes=Delete it', '--option', 'no=Keep it');
+  doz(['chat', 'decide', 'ask-declined', aDeclined.slice(0, 8), '--decline', '--text', 'Keep it until the migration is verified.']);
+  const aWithdrawn = askRoom('ask-withdrawn', 'Rotate the deploy key now?', '--option', 'yes=Yes', '--option', 'no=No');
+  chatBot('askerbot', ['withdraw', 'ask-withdrawn', aWithdrawn]);
+  const aNone = askRoom('ask-no-decider', 'Open port 8443 on the staging box?', '--option', 'yes=Open it', '--option', 'no=Keep it closed', '--decider', 'decbot');
+  doz(['chat', 'send', 'ask-no-decider', '/remove @decbot']);
+  const aAnswering = askRoom('ask-answering', 'Release 2.4: a few choices before I cut it', '--questions', qs('q-rel', RELEASE), '--reason', 'I want to cut it today');
+  const aRefusal = askRoom('ask-refusal', 'Merge the release branch now?', '--option', 'yes=Merge', '--option', 'no=Wait');
+  check(!!(m1 && m5 && r1 && r2 && aOpen && aMulti && aFree && aTwo && aDecided && aDeclined && aWithdrawn && aNone && aAnswering && aRefusal && aExpired),
+    'chat pictures: the fixtures — a busy room (code, a link, a mention, replies, reactions) and eleven asks, each in its own room');
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await openChatRoom('team');
+  // Each message's row says its id (the walk's own mark, for the pictures).
+  const markRows = () => evaluate(`(() => { for (const m of state.chat.byId.values()) if (m._el && m.msg_id) m._el.dataset.rowId = m.msg_id; })()`);
+  await markRows();
+  await chatShots('busy-room', async () => { await chatFoot(); });
+  await chatShots('rooms-list', async (vp) => { await chatDrawer('rooms', vp === '390'); await chatFoot(); });
+  await chatDrawer('rooms', false);
+  await chatShots('people-pane', async (vp) => { await chatDrawer('people', vp === '390'); await chatFoot(); });
+  await chatDrawer('people', false);
+  const compose = (v) => async () => {
+    await chatFoot();
+    await evaluate(`(() => { const t = document.getElementById('chat-text'); t.focus(); t.value = ${JSON.stringify(v)}; t.setSelectionRange(t.value.length, t.value.length);
+      t.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  };
+  await chatShots('composer-mention', compose('@'));
+  await chatShots('composer-slash', compose('/'));
+  await evaluate(`(() => { const t = document.getElementById('chat-text'); t.value = ''; t.dispatchEvent(new Event('input', { bubbles: true })); t.blur(); })()`);
+  await markRows();
+  await chatShots('message-actions', async (vp) => {
+    await key(...ESC);
+    await chatScroll(ROW_OF(m1));
+    await sleep(200);
+    if (vp === '390') await tapAt(ROW_OF(m1) + ' .chat-msg'); else await hoverAt(ROW_OF(m1) + ' .chat-msg');
+    await sleep(200);
+    await evaluate(`(() => { const b = [...document.querySelectorAll(${JSON.stringify(ROW_OF(m1) + ' .chat-tools button')})].pop(); if (b) b.click(); })()`);
+  });
+  await key(...ESC);
+  await chatShots('reply', async () => {
+    for (const id of [r1, r2]) await evaluate(`(() => { const b = document.querySelector(${JSON.stringify(ROW_OF(id) + ' .chat-ibtn')}); if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); })()`);
+    await chatFoot();
+  });
+  // Attachments: a picture and a file from the clip's chooser, sent with a line; and a bot's file.
+  const png = await evaluate(`(() => { const c = document.createElement('canvas'); c.width = 480; c.height = 270; const g = c.getContext('2d');
+    g.fillStyle = '#f4f3ef'; g.fillRect(0, 0, 480, 270); const hs = [120, 180, 90, 210, 150, 240]; const cs = ['#3b74f0', '#23934a', '#d9701f', '#7a4fd6', '#14899a', '#cc3a3a'];
+    hs.forEach((h, i) => { g.fillStyle = cs[i]; g.fillRect(30 + i * 75, 250 - h, 50, h); }); return c.toDataURL('image/png').split(',')[1]; })()`);
+  writeFileSync(S + '/latency-chart.png', Buffer.from(png, 'base64'));
+  writeFileSync(S + '/retry-report.txt', 'attempt,delay_s\n' + [0, 1, 2, 3, 4, 5, 6].map((a) => a + ',' + Math.min(30, 0.5 * 2 ** a)).join('\n') + '\n');
+  const doc = await send('DOM.getDocument', { depth: 0 });
+  const pick = await send('DOM.querySelector', { nodeId: doc.root.nodeId, selector: '#chat-pick' });
+  await send('DOM.setFileInputFiles', { nodeId: pick.nodeId, files: [S + '/latency-chart.png', S + '/retry-report.txt'] });
+  const up = await waitFor(`state.chat.pending.length === 2 && !state.chat.uploading`, 20000);
+  await evaluate(`(() => { const t = document.getElementById('chat-text'); t.value = 'The latency chart and the retry report.'; t.dispatchEvent(new Event('input', { bubbles: true }));
+    document.getElementById('chat-form').requestSubmit(); })()`);
+  check(up && await waitFor(`[...state.chat.byId.values()].some((m) => (m.attachments || []).length === 2)`, 15000), 'chat pictures: a picture and a file attached from the clip\'s chooser');
+  await waitFor(`[...document.querySelectorAll('#chat-log img.chat-att')].every((i) => i.complete)`, 10000);
+  await chatShots('attachments', async () => { await chatFoot(); });
+  // The asks.
+  const card = (id) => `[data-ask="${id}"]`;
+  const showAsk = async (room, id) => { await openChatRoom(room); await waitFor(`!!document.querySelector(${JSON.stringify(card(id))})`, 15000); };
+  const atCard = (id) => async () => { await evaluate(`document.querySelector(${JSON.stringify(card(id))})?.closest('.chat-row')?.scrollIntoView({ block: 'end' })`); };
+  const pickIn = (id, sel) => evaluate(`(() => { const c = document.querySelector(${JSON.stringify(card(id))}); const i = c && c.querySelector(${JSON.stringify(sel)}); if (i && !i.checked) i.click(); })()`);
+  const pickRow = (id, q, text) => evaluate(`(() => { const c = document.querySelector(${JSON.stringify(card(id))}); const f = c && c.querySelector('[data-q="${q}"]');
+    const l = f && [...f.querySelectorAll('label.chat-ask-opt')].find((x) => x.textContent.includes(${JSON.stringify(text)})); const i = l && l.querySelector('input'); if (i && !i.checked) i.click(); })()`);
+  for (const [subject, room, id, set] of [
+    ['ask-open-options', 'ask-open', aOpen, null],
+    ['ask-multi-select', 'ask-multi', aMulti, async () => { await pickRow(aMulti, 'plat', 'Web'); await pickRow(aMulti, 'plat', 'Android'); }],
+    ['ask-free-text', 'ask-free', aFree, async () => { await pickRow(aFree, 'branch', 'Something else'); }],
+    ['ask-two-questions', 'ask-two', aTwo, null],
+    ['ask-decided', 'ask-decided', aDecided, null],
+    ['ask-declined', 'ask-declined', aDeclined, null],
+    ['ask-withdrawn', 'ask-withdrawn', aWithdrawn, null],
+    ['ask-no-decider', 'ask-no-decider', aNone, null],
+    ['ask-answering', 'ask-answering', aAnswering, async () => { await pickRow(aAnswering, 'what', 'Web'); await pickRow(aAnswering, 'when', 'Something else'); }],
+    ['ask-expired', 'ask-expired', aExpired, null]]) {
+    await showAsk(room, id);
+    if (subject === 'ask-expired') await waitFor(`/expired/.test(document.querySelector(${JSON.stringify(card(id) + ' .chat-ask-state')})?.textContent || '')`, 20000);
+    if (set) await set();
+    await evaluate(`document.activeElement && document.activeElement.blur && document.activeElement.blur()`);
+    await chatShots(subject, atCard(id));
+  }
+  // A refusal: the card is stale (the live stream held, as a phone asleep), the asker withdraws, Answer → its words.
+  await showAsk('ask-refusal', aRefusal);
+  const live = await evaluate(`performance.getEntriesByType('resource').map((e) => e.name).find((n) => /\\/assets\\/app\\/views\\/chat-live-[0-9a-f]+\\.js$/.test(n)) || ''`);
+  await evaluate(`import(${JSON.stringify(live)}).then((m) => m.stopLive(true))`);
+  chatBot('askerbot', ['withdraw', 'ask-refusal', aRefusal]);
+  await sleep(800);
+  await evaluate(`(() => { const c = document.querySelector(${JSON.stringify(card(aRefusal))}); const i = c && c.querySelector('input.chat-ask-input'); if (i && !i.checked) i.click(); })()`);
+  await evaluate(`document.querySelector(${JSON.stringify(card(aRefusal) + ' .chat-ask-answer')})?.click()`);
+  const refused = await waitFor(`document.querySelector(${JSON.stringify(card(aRefusal) + ' .chat-ask-state')})?.classList.contains('is-bad')`, 20000);
+  check(refused, 'chat pictures: a stale card\'s Answer is refused in the card (the asker withdrew it meanwhile)');
+  await chatShots('ask-refusal', atCard(aRefusal));
+  await evaluate(`import(${JSON.stringify(live)}).then((m) => m.startLive())`);
+  await waitFor(`state.chat.live === 'live'`, 15000);
+  await chatPerf();
+  check(pageErrors.length === errorsBefore, 'chat pictures: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+}
+
+/// The chat page's style recalculation over a fixed sequence (report only — never a check): the busy room opened, 1440 →
+/// 900 → 390 → 1440, the theme light → dark → light, three live messages, the people drawer opened and closed (at 900,
+/// where it is a drawer), each run measured by Chrome's own counters (Performance.getMetrics); the median of five.
+async function chatPerf() {
+  await send('Performance.enable', { timeDomain: 'threadTicks' });
+  const metric = async () => { const r = await send('Performance.getMetrics'); const m = Object.fromEntries(r.metrics.map((x) => [x.name, x.value]));
+    return { d: m.RecalcStyleDuration || 0, n: m.RecalcStyleCount || 0 }; };
+  const width = async (w) => { await send('Emulation.setDeviceMetricsOverride', { width: w, height: w === 390 ? 844 : 900, deviceScaleFactor: 1, mobile: w === 390 }); await sleep(300); };
+  const runs = [];
+  for (let i = 0; i < 5; i++) {
+    await openChatRoom('design');
+    const a = await metric();
+    await openChatRoom('team');
+    for (const w of [900, 390, 1440]) await width(w);
+    for (const t of ['light', 'dark', 'light']) { await evaluate(`document.documentElement.dataset.theme = '${t}'`); await sleep(200); }
+    for (let k = 0; k < 3; k++) {
+      const t = 'Perf ' + (i + 1) + '.' + (k + 1) + ' — a live line.';
+      doz(['chat', 'send', 'team', t]);
+      await waitFor(`[...state.chat.byId.values()].some((m) => m.content === ${JSON.stringify(t)})`, 10000);
+    }
+    await width(900);
+    await chatDrawer('people', true);
+    await key(...ESC);
+    await sleep(250);
+    await width(1440);
+    const b = await metric();
+    runs.push({ ms: (b.d - a.d) * 1000, n: b.n - a.n });
+  }
+  await evaluate(`delete document.documentElement.dataset.theme`);
+  await send('Performance.disable');
+  const med = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+  console.log(`  ·    chat perf (report only): style recalculation over the fixed sequence, median of 5 — ${med(runs.map((r) => r.ms)).toFixed(1)} ms, `
+    + `${med(runs.map((r) => r.n))} recalculations (runs: ${runs.map((r) => r.ms.toFixed(1) + ' ms/' + r.n).join(', ')})`);
+}
+
 // ── the chat window: a room popped out into a window of its own ─────────────────────────────────────────────────────
 // The browser's own endpoint (one more socket) attaches to every new window from its first byte (waiting for the debugger),
 // so each one's requests, bytes, errors and CSP violations are counted from its document's start.
@@ -1822,10 +2070,10 @@ async function walkChatWindow(origin) {
   // SHOTS: light, dark.
   await kevaluate(w, `document.documentElement.dataset.theme = 'light'`);
   await sleep(300);
-  await kshot(w, 'chat-window-light');
+  await kshot(w, 'chat-window-light-440');
   await kevaluate(w, `document.documentElement.dataset.theme = 'dark'`);
   await sleep(300);
-  await kshot(w, 'chat-window-dark');
+  await kshot(w, 'chat-window-dark-440');
   await kevaluate(w, `delete document.documentElement.dataset.theme`);
   // 6. An Ask decided in the window: the dashboard's stream opens for its operation, then closes.
   const a = botAsk('askerbot', ['From the window?', '--option', 'yes=Yes', '--option', 'no=No']);
@@ -1961,7 +2209,14 @@ async function walkChatWindow(origin) {
   check(phone.scroll <= 390, `window 12 at 390 px no sideways scroll (${JSON.stringify(phone)})`);
   const ov390 = await kevaluate(w, HEAD_OVERLAPS);
   check(ov390.out.length === 0, `window 12 …and no two controls in its head overlap, the bell included (${ov390.n} controls${ov390.out.length ? ': ' + ov390.out.join(', ') : ''})`);
-  await kshot(w, 'chat-window-390');
+  // SHOTS at 390 px, 2x as a phone: light and dark.
+  await bsend('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }, w.sid);
+  for (const t of ['light', 'dark']) {
+    await kevaluate(w, `document.documentElement.dataset.theme = '${t}'`);
+    await sleep(400);
+    await kshot(w, 'chat-window-' + t + '-390');
+  }
+  await kevaluate(w, `delete document.documentElement.dataset.theme`);
   await bsend('Emulation.setDeviceMetricsOverride', { width: 440, height: 760, deviceScaleFactor: 1, mobile: false }, w.sid);
   // 13. No CSP violation in any window from its start, no page error; the leak sweep (the windows' answers included).
   let violations = 0, errors = [];
@@ -2822,6 +3077,7 @@ try {
     check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (CHAT_WINDOW_ONLY)');
     await walkAsks();
     await walkChatWindow(origin);
+    await walkChatPictures();
     failed = failures.length > 0;
     console.log(`dashboard-walk (CHAT_WINDOW_ONLY): ${passed} passed, ${failures.length} failed` + (failed ? '\n  ' + failures.join('\n  ') : ''));
     throw Object.assign(new Error('chat window only'), { spaceOnly: true });
@@ -2888,6 +3144,9 @@ try {
   await walkSpaceWindow('spc3');
   await walkHome();
   await walkWorkspacesList();
+  // Last of the chat rows (its rooms and open asks would be in the counts the rows before read): the pictures and the
+  // chat page's recalculation.
+  await walkChatPictures();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
