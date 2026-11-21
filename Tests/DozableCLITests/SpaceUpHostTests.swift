@@ -169,6 +169,28 @@ extension WorkspaceLifecycleHostTests {
         }
     }
 
+    /// `workspace-ls`: a row's `lastAt` is when its log's last line was written (one block read backwards — the same line
+    /// `logPage(limit: 1)` gives); nil with no log; a listing from before the field decodes.
+    func testTheListingSaysWhenItsLogLastMoved() async throws {
+        let c = await lcore()
+        let made = await ws(c, .workspaceNew, "plain") { $0.brief = "x\n" }
+        XCTAssertNil(made.error, made.error?.message ?? "")
+        func row() async throws -> WorkspaceRow? {
+            let m = await c.handle(HostRequest(.workspaceList))
+            return try XCTUnwrap(m.result).decode(WorkspaceListing.self).workspaces.first { $0.name == "plain" }
+        }
+        let store = WorkspaceStore(store: self.store)
+        let last = try XCTUnwrap(try store.logPage("plain", limit: 1).entries.first)
+        let have = try await row()
+        XCTAssertEqual(have?.lastAt, last.at, "the log's last line")
+        try FileManager.default.removeItem(atPath: store.folder("plain") + "/log.jsonl")
+        let none = try await row()
+        XCTAssertNotNil(none)
+        XCTAssertNil(none?.lastAt, "no log: none")
+        let old = #"{"name":"a","state":"idle","driver":"you","agents":0}"#
+        XCTAssertNil(try JSONDecoder().decode(WorkspaceRow.self, from: Data(old.utf8)).lastAt)
+    }
+
     func testEveryUnfencedAgentIsConfirmedAtEveryUpAndAChangedPlanIsRefused() async throws {
         try await withBriefHome {
             let c = await lcore()

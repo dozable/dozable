@@ -1809,11 +1809,14 @@ public struct WebWorkspaceRow: Codable, Equatable, Sendable {
     /// The space file that made it and whether it is up (nil: made without one) — Home and the sidebar draw its picture
     /// from it (the page reads the file itself, under its own route's rules), or a plain tile with none.
     public var space: WorkspaceRowSpace?
+    /// When its log's last line was written (nil: none, or left out for this browser — `WebWorkspaceReads.forBrowser`): the
+    /// Workspaces page's "last activity".
+    public var lastAt: Date?
 
     public init(_ r: WorkspaceRow) {
         name = r.name; state = r.state; words = WorkspaceState(rawValue: r.state)?.words ?? r.state; driver = r.driver; agents = r.agents
         room = r.room; manager = r.manager.map(WebWorkspaceManager.init); working = r.working; folders = r.folders ?? []
-        places = r.places ?? []; space = r.space
+        places = r.places ?? []; space = r.space; lastAt = r.lastAt
     }
 }
 

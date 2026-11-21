@@ -11,7 +11,7 @@ import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { full, when } from '../core/format.js';
 import { actOrThrow, waitForOp } from '../core/operations.js';
-import { agentHash, botHash, workspaceHash } from '../core/routes.js';
+import { agentHash, botHash, roomHash, workspaceHash } from '../core/routes.js';
 import { isRemote } from '../core/session.js';
 import { state } from '../core/state.js';
 import { loadBot, loadBots, loadWorkspaces } from '../core/workspaces.js';
@@ -208,7 +208,7 @@ async function across(b, ws) {
       h('td', null, manages ? 'manager' : works ? 'worker' : 'agent'),
       h('td', null, drives ? 'yes (it runs)' : manages ? 'not running' : h('span', { class: 'muted' }, 'no')),
       h('td', null, h('a', { href: agentHash(w, b.name), class: 'btn sm quiet' }, 'Its screen there'), ' ',
-        row && row.room ? h('a', { href: workspaceHash(w), class: 'btn sm quiet' }, icon('message-square'), 'Open room') : null));
+        row && row.room ? h('a', { href: roomHash(w), class: 'btn sm quiet' }, icon('message-square'), 'Open room') : null));
   });
   const where = h('div', { class: 'panel' }, rows.length ? h('table', null,
     h('thead', null, h('tr', null, ...['Workspace', 'State', 'Its role', 'Drives there', ''].map((x) => h('th', null, x)))), h('tbody', null, ...rows))

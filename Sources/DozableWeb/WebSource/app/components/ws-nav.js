@@ -1,11 +1,11 @@
 // components/ws-nav — The sidebar's Workspaces: one line per workspace (its state's mark, its name, a caret). The name
-// opens its page (#/w/NAME — the main room first). Unfolded (GET /api/v1/workspaces/{w}): its rooms (`# label`, each its
-// page's address: #/w/NAME, #/w/NAME/room/LABEL) and its agents — a sandbox's opens its page, a session on this Mac its pane, one elsewhere is a name only.
+// opens its page (#/w/NAME — its Home tab). Unfolded (GET /api/v1/workspaces/{w}): its rooms (`# label`, each its Room
+// tab's address: #/w/NAME/room, #/w/NAME/room/LABEL) and its agents — a sandbox's opens its page, a session on this Mac its pane, one elsewhere is a name only.
 // Asleep and Finished & archived fold into a line each. What is unfolded is kept in this browser (doz.nav.ws). An unfolded
 // workspace a space file made shows its picture first (ui.nav_thumbnails; components/space-picture.js).
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
-import { agentHash, workspaceHash } from '../core/routes.js';
+import { agentHash, roomHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { byState, forgetWorkspaces, isDone, loadWorkspace } from '../core/workspaces.js';
 import { setting } from '../core/settings.js';
@@ -86,9 +86,9 @@ function inside(w) {
   const d = state.wsDetails.get(w.name);
   if (!d) return h('div', { class: 'nav-sessions', role: 'list', 'aria-label': w.name }, h('span', { class: 'nav-sess nav-ws-wait', role: 'listitem' }, 'reading…'));
   const rooms = d.rooms.slice().sort((a, b) => (a.main ? -1 : b.main ? 1 : a.label.localeCompare(b.label))).map((r) => {
-    const on = !state.modal && state.view === 'workspace' && state.param === w.name && (r.main ? !state.wsRoom : state.wsRoom === r.label);
+    const on = !state.modal && state.view === 'workspace' && state.param === w.name && state.wsTab === 'room' && (r.main ? !state.wsRoom : state.wsRoom === r.label);
     return h('div', { class: 'nav-sess-row', role: 'listitem' },
-      h('a', { href: workspaceHash(w.name, r.main ? null : r.label), class: 'nav-sess nav-ws-room' + (on ? ' active' : ''), 'data-ws-room': r.room,
+      h('a', { href: roomHash(w.name, r.main ? null : r.label), class: 'nav-sess nav-ws-room' + (on ? ' active' : ''), 'data-ws-room': r.room,
         title: (r.main ? 'Its main room' : 'Its room') + ' ' + r.room, 'aria-current': on ? 'page' : null },
         h('span', { class: 'nav-hash', 'aria-hidden': 'true' }, '#'), h('span', { class: 'ns-name' }, r.main ? r.room : r.label)));
   });

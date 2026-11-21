@@ -79,7 +79,8 @@ name is the machine picker (see [Your other Macs](#your-other-macs-the-machine-p
 right corner of the window is where notifications appear (see [Notifications](#notifications)). Each
 page's title stays at the top as the page scrolls, and a table's column headings stay under it. The
 sidebar has four parts, top to bottom: **Home** (your workspaces — the page the dashboard opens on), **Chat** (while
-chat is on), **Agents / Bots** (with how many there are), then **Workspaces** — one line per workspace — and
+chat is on), **Agents / Bots** (with how many there are), then **Workspaces** — one line per workspace; the heading itself
+opens [the Workspaces page](#the-workspaces-page) — and
 **This Mac**, which holds every page that every workspace shares: **Overview**, **Sessions**, **Sandboxes** (each sandbox
 under it), **On this Mac**, **Loose agents**, **Templates** (**Installed**, **Browse**, **Quick try** — its **+** opens Quick
 try too), **Images**, **Accounts & keys**, **Resources**, **Devices**, **Logs** (**Operations**, **Activity**,
@@ -87,8 +88,8 @@ try too), **Images**, **Accounts & keys**, **Resources**, **Devices**, **Logs** 
 Quick add. The page, sandbox or session you are on is tinted, with a line at its left edge.
 
 A workspace's line in the sidebar shows its state as a dot (a ring while it is setting up), its name, and a caret. Its
-name opens the workspace's page (below, [A workspace's page](#a-workspaces-page)); the caret unfolds it into its rooms (**#
-review**, each opening that room on the workspace's page) and its agents — a sandbox's opens the sandbox's page, a session on this Mac opens it under **On this Mac**, an
+name opens the workspace's page at its **Home** (below, [A workspace's page](#a-workspaces-page)); the caret unfolds it into its rooms (**#
+review**, each opening that room on the workspace's **Room** tab) and its agents — a sandbox's opens the sandbox's page, a session on this Mac opens it under **On this Mac**, an
 agent elsewhere is its name only; a workspace a space file made shows a small picture of itself first (see [The workspace
 drawn](39-space-files.md#the-workspace-drawn); `ui.nav_thumbnails` turns it off). Asleep workspaces fold into one line, **Asleep (2)**, and finished and archived ones into
 **Finished & archived (5)**; this browser remembers what you unfolded. Click **Sandboxes** while its page is shown (or
@@ -101,7 +102,7 @@ sidebar as a drawer, the machine picker, a key button while a key needs you, and
 
 | page | what it's for |
 |---|---|
-| **Home** | Every workspace, one row each: its state in the words `doz workspace ls` uses (**waiting on you** first, then **working**, **starting**, **idle**, **setting up**, **asleep**; finished and archived fold into one line below), the workspace — drawn small from its space file, or a plain tile for one made without a file — and its folders, who drives it (**you**), its manager (**mira (fenced)**; an unfenced one says **acts as you** in the warning colour), who is working (for a workspace waiting on you, why — an agent blocked, in error, or a sandbox that failed), its room, the room's last line (while the chat server runs) and one next action: **Sleep**, **Wake**, **Reopen** or **Restore** (the same dialog as on its page) and **Open room** (the workspace's page), or for a workspace still setting up what it lacks and the command that starts it, `doz workspace start NAME`, to copy; asleep workspaces fold into **Asleep (N)** above the finished and archived ones. **New workspace** (also the **+** beside **Workspaces** in the sidebar) opens the New workspace wizard over the page, `#/new-workspace` — the work, who manages it, where it runs and when it starts, with what is still missing shown as you go; only in this Mac's own browser (see [The New workspace wizard](37-workspaces.md#the-new-workspace-wizard)). With no workspace yet, Home says what one is — "A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up." — offers **Just try an agent** (Quick try), counts the sandboxes and sessions on this Mac that are not in any workspace (**Put them in workspaces…** opens **Loose agents**) and points to **Agents / Bots** for an agent elsewhere. See [Workspaces](37-workspaces.md). |
+| **Home** | Every workspace, one row each: its state in the words `doz workspace ls` uses (**waiting on you** first, then **working**, **starting**, **idle**, **setting up**, **asleep**; finished and archived fold into one line below), the workspace — drawn small from its space file, or a plain tile for one made without a file — and its folders, who drives it (**you**), its manager (**mira (fenced)**; an unfenced one says **acts as you** in the warning colour), who is working (for a workspace waiting on you, why — an agent blocked, in error, or a sandbox that failed), its room, the room's last line (while the chat server runs) and one next action: **Sleep**, **Wake**, **Reopen** or **Restore** (the same dialog as on its page) and **Open room** (the workspace's **Room** tab), or for a workspace still setting up what it lacks and the command that starts it, `doz workspace start NAME`, to copy; asleep workspaces fold into **Asleep (N)** above the finished and archived ones. **New workspace** (also the **+** beside **Workspaces** in the sidebar) opens the New workspace wizard over the page, `#/new-workspace` — the work, who manages it, where it runs and when it starts, with what is still missing shown as you go; only in this Mac's own browser (see [The New workspace wizard](37-workspaces.md#the-new-workspace-wizard)). With no workspace yet, Home says what one is — "A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up." — offers **Just try an agent** (Quick try), counts the sandboxes and sessions on this Mac that are not in any workspace (**Put them in workspaces…** opens **Loose agents**) and points to **Agents / Bots** for an agent elsewhere. See [Workspaces](37-workspaces.md). |
 | **Agents / Bots** | Every Agent / Bot, as `doz bot ls` lists them: its avatar and name, its agent program, how it runs (**acts as you** when unfenced), how the chat server reaches it, the workspaces it manages or works in, who keeps its key, and what it is doing; **Show retired** lists the retired ones. **+ New agent / bot** makes one; a bot's page (`#/bots/NAME`) shows it across its workspaces, its rooms and what it said last, and its tabs edit it; its ⋯ duplicates it, includes it in a room as a voice, gives it a new token or retires it. Only this Mac's own browser changes a bot, and no page ever shows a bot's token — a bot elsewhere gets its token in a terminal. See [Agents / Bots](38-agents-and-bots.md). |
 | **This Mac › Overview** | One line for each of This Mac's pages, saying what it holds now: what runs (sandboxes running, sessions on this Mac fenced and unfenced), the loose agents, a key that does not work, the disk Dozable uses (once Resources has measured it), a failed operation, the chat server's state, and the daemon with **Restart daemon** (or **Start daemon**). Nothing is measured or checked when you open it. |
 | **This Mac › Your Macs** | The other Macs the machine picker opens, as `doz ui macs ls` lists them: each one's name, address (**plain HTTP** when it is), when it was last seen, what the last check found, **Open**, and the command that removes it, `doz ui macs rm NAME`, to copy; then how to add one, `doz ui macs add NAME ADDRESS`. The list is changed in a terminal on this Mac only. |
@@ -140,18 +141,27 @@ workspaces, agents and keys. On a phone, the name in the header row opens the sa
 
 ### A workspace's page
 
-A workspace's page (`#/w/NAME`; the sidebar's name, Home's row and **Open room** lead there) puts its room first. The
-title row has its name, its state, who drives it, its manager (an unfenced one says **acts as you**), one button for what
+A workspace's page opens on its **Home** (`#/w/NAME`; the sidebar's name and Home's row lead there); its room is the
+**Room** tab (`#/w/NAME/room`; **Open room** and a room's line in the sidebar lead there). The title row has its name, its state, who drives it, its manager (an unfenced one says **acts as you**), one button for what
 its state offers next — **Start** while it is setting up, **Sleep** while it runs, **Wake** when it is asleep, **Reopen**
 when it is finished, **Restore** when it is archived — and **⋯**: **Stop the manager**, **Sleep everything**, **Wake
 everything**, **Finish…**, **Archive…** and **Delete…**, and what it still lacks. Each opens a dialog that shows what it
 would do to each agent (on a phone, a card each), what is kept and what goes with sizes, how many change at once and
 **Show the command**; finish asks once, archive and delete want the workspace's name typed, and **Also free …: remove the
 sandboxes Dozable made for it** and **Also move its folders on this Mac to the Bin** are never ticked for you. While it
-works the state reads **sleeping…** or **waking…**. Only this Mac's own browser does these (see [Workspaces](37-workspaces.md#sleep-wake-finish-archive-and-delete)). Under the title row,
-a workspace a space file made is drawn from its file and its live state; click the picture to see it in the whole window
-(**Esc** closes it), and **Fold** puts it away (see [The workspace drawn](39-space-files.md#the-workspace-drawn)). Below are its tabs: **Room**, **Agents**, **Network & secrets**,
-**Folders & points** and **Activity** work; **Permissions** and **Settings** are marked **coming** and say what they will hold.
+works the state reads **sleeping…** or **waking…**. Only this Mac's own browser does these (see [Workspaces](37-workspaces.md#sleep-wake-finish-archive-and-delete)). Below are its
+tabs: **Home**, **Room**, **Agents**, **Network & secrets**, **Folders & points**, **Activity** and **Runs** work; **Permissions** and
+**Settings** are marked **coming** and say what they will hold.
+
+**Home** shows the workspace at a glance. A workspace a space file made is drawn from its file and its live state, across the
+page; click the picture to see it in the whole window (**Esc** closes it; see [The workspace drawn](39-space-files.md#the-workspace-drawn)).
+Below it, cards, each heading a link to the tab that holds the whole of it: **Needs you** first, only when something waits
+— what it still lacks while it is setting up, with **Start** and `doz workspace start NAME`; an open ask in one of its rooms,
+with **Answer in the room** (asks are answered in the room); an agent that is blocked or ended in error —, then **State and
+run** (since when, the space file it came from and whether it is up, its other lifecycle buttons, **Runs**), **Who** (who
+drives it, its manager, its agents, **+ Worker**), the room's last two messages, **Recent activity** (the log's last five
+lines), **Folders** and **Network**. Home follows what happens without being reloaded, and never counts as being in the
+room: a message that arrives while you are on Home stays unread.
 
 **Network & secrets** answers "what can this workspace reach?": each agent's network and the sites beyond it, what it was
 refused lately — **Allow for** that agent, or **For all** that can be limited (an unfenced agent and one elsewhere cannot; the
@@ -166,7 +176,7 @@ capability table: each row live or at the next start, an unfenced agent's **acts
 (how many allow, ask and never — the counts `doz permissions show W --agent A` prints) and its **Ceiling**, read only.
 
 **The work** — the brief — sits above the room: its text, its references (a link opens in a new tab), who wrote it and
-when, and how many times it was edited. It is open on the workspace's page and one line on another room's; **Fold** and
+when, and how many times it was edited, above the room on the **Room** tab. It is open on the main room and one line on another room's; **Fold** and
 **Open** change that, and this browser remembers it for each workspace. **Edit** changes the brief and nothing else; once
 the work has started, saving posts it in the room as your message ("I edited the work:" and the new text). If the brief
 changed since you opened it (from a terminal, or another browser), the save is refused and nothing is written. A brief
@@ -207,6 +217,16 @@ role, task, who started it and when, its isolation and rooms). Switching its tab
 sandbox or session that is gone — shows a card saying so (and, for one gone, **Take out…**). A sandbox's own page
 (`#/sandbox/NAME`) still opens as itself; for one in a workspace it says **In NAME as AGENT — open it there**.
 
+### The Workspaces page
+
+**Workspaces** (`#/workspaces`; click the **Workspaces** heading in the sidebar, or **All workspaces →** on Home) lists every
+workspace on this Mac, finished and archived ones too, as **Rows** or as a **Grid** of cards. Each shows its picture (a small
+tile for one made without a space file), its name (it opens its Home), its state, who drives it and its manager, who is
+working, its room (it opens the Room tab), how long ago its log last moved ("active 3 h ago") and its one next action. **Show**
+picks which — **Every workspace**, **Waiting on you**, **Working**, **Idle**, **Setting up**, **Asleep**, **Finished & archived**,
+each with how many —, and **Sort** orders them by **State** (as Home and the sidebar do), **Name** or **Last activity**. This
+browser remembers the layout and the sort; **Show** starts at every workspace each time.
+
 ### Old addresses
 
 The dashboard's addresses moved with its pages; a bookmark or a link to an old one opens the page's new address (the
@@ -222,8 +242,9 @@ address bar shows the new one):
 | `#/operations`, `#/activity`, `#/notifications`, `#/metrics` | `#/mac/logs/operations` and so on |
 
 `#/sandbox/NAME`, `#/chat`, `#/new` (New sandbox), `#/onboarding` and `#/try` are unchanged; `#/new-workspace` is the New
-workspace wizard (`#/new-workspace?bot=NAME` with that Agent / Bot chosen as its manager). A workspace's page is `#/w/NAME` (its main
-room) and `#/w/NAME/room/LABEL` (another of its rooms, by its short label); its Agents tab is `#/w/NAME/agents` and an
+workspace wizard (`#/new-workspace?bot=NAME` with that Agent / Bot chosen as its manager). A workspace's page is `#/w/NAME` (its
+Home; `#/w/NAME/` and `#/w/NAME/home` lead there), its Room tab `#/w/NAME/room` (its main room) and `#/w/NAME/room/LABEL`
+(another of its rooms, by its short label); the Workspaces page is `#/workspaces`; its Agents tab is `#/w/NAME/agents` and an
 agent's screen `#/w/NAME/agent/AGENT` (with `/SESSION` for one of its sandbox's sessions). `#/mac` alone is now This Mac's overview
 (its first line leads to On this Mac), and a session on this Mac named like one of This Mac's pages (`images`, `logs`, …)
 is reached from On this Mac rather than by its old address.

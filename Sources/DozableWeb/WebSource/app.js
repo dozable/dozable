@@ -84,6 +84,7 @@ import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './a
 import { viewBots } from './app/views/bots.js';
 import { viewBot } from './app/views/bot.js';
 import { viewHome } from './app/views/home.js';
+import { viewWorkspaces } from './app/views/workspaces.js';
 import { viewLoose } from './app/views/loose.js';
 import { viewMacs } from './app/views/macs.js';
 import { viewOverview } from './app/views/overview.js';
@@ -233,7 +234,7 @@ provide({
   persistLayout, reattachTerminals, refresh, refreshMacPicker, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
   renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
   viewBots, viewBot, viewHome, viewImages, viewLoose, viewMacs, viewMetrics, viewNew, viewNewWorkspace, newWorkspaceDirty, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
-  viewThisMac, viewTry, viewWsAgent, viewIsolationGuide, viewAddWorker, wizardStopPolling, wsEnter, wsRefresh,
+  viewThisMac, viewTry, viewWsAgent, viewIsolationGuide, viewAddWorker, viewWorkspaces, wizardStopPolling, wsEnter, wsRefresh,
 });
 // The browser probes' names. The one script's top-level names were globals, and the workspace's browser probes
 // (probes/*, over CDP Runtime.evaluate) read and call some of them; module names are not globals, so these stay

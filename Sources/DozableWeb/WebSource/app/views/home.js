@@ -12,7 +12,7 @@ import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { plural, when } from '../core/format.js';
 import { refresh } from '../core/router.js';
-import { workspaceHash } from '../core/routes.js';
+import { roomHash, workspaceHash } from '../core/routes.js';
 import { tildePath } from '../core/paths.js';
 import { state } from '../core/state.js';
 import { byState, isDone, loadWorkspace, loadWorkspaces } from '../core/workspaces.js';
@@ -21,12 +21,11 @@ import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
 import { cmdLine } from '../components/cmd-line.js';
 import { paintWorkspaceCounts } from '../components/nav.js';
-import { toast } from '../components/notices.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks.js';
 import { renderNavWorkspaces } from '../components/ws-nav.js';
 import { forgetThumbs, spaceThumb } from '../components/space-picture.js';
-import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from '../components/ws-lifecycle.js';
-import { LIFECYCLE, primaryVerb } from '../core/ws-lifecycle.js';
+import { transitional } from '../components/ws-lifecycle.js';
+import { wsNext } from '../components/ws-next.js';
 import { newWorkspaceHash, newWorkspaceRefusal } from './new-workspace.js';
 import { WORKSPACE_DEFINITION } from '../core/ws-new.js';
 
@@ -69,7 +68,8 @@ export async function viewHome() {
     h('thead', null, h('tr', null, ...['State', 'Workspace', 'Driver', 'Manager', 'Who is working', 'Room', 'Last', h('span', { class: 'sr-only' }, 'Next')].map((c) => h('th', null, c)))),
     h('tbody', null, rows));
   return h('div', { class: 'hm-page', 'data-home': '' }, head,
-    h('p', { class: 'sub' }, plural(l.workspaces.length, 'workspace', 'workspaces') + ' on this Mac — the work, who drives it and who is working.'),
+    h('p', { class: 'sub' }, plural(l.workspaces.length, 'workspace', 'workspaces') + ' on this Mac — the work, who drives it and who is working. ',
+      h('a', { href: '#/workspaces', 'data-home-all': '' }, 'All workspaces →')),
     needs, hidden, panel(table));
 }
 function row(w, d, last) {
@@ -81,9 +81,9 @@ function row(w, d, last) {
     h('td', null, driverChip(w.driver)),
     h('td', null, managerChip(w.manager)),
     h('td', { class: 'hm-who' }, who(w, d)),
-    h('td', null, w.room ? h('a', { href: workspaceHash(w.name), class: 'hm-room' }, '# ' + w.room) : h('span', { class: 'muted' }, '—')),
+    h('td', null, w.room ? h('a', { href: roomHash(w.name), class: 'hm-room' }, '# ' + w.room) : h('span', { class: 'muted' }, '—')),
     h('td', { class: 'hm-last' }, last || ''),
-    h('td', { class: 'hm-next' }, next(w, d)));
+    h('td', { class: 'hm-next' }, wsNext(w, d)));
 }
 
 /// Who is working — and, waiting on you, the reason known today (an agent blocked or in error, a sandbox failed).
@@ -95,28 +95,6 @@ function who(w, d) {
   }
   if (w.working && w.working.length) return w.working.join(', ');
   return h('span', { class: 'muted' }, w.working ? 'nobody' : '—');
-}
-
-/// One next action: the button its state offers (Sleep, Wake, Reopen, Restore — the plan's dialog); a setting-up one's gaps
-/// and the command that starts it; a started one's room beside.
-function next(w, d) {
-  const verb = primaryVerb(w.state);
-  if (verb && verb !== 'start') {
-    const why = lifecycleRefusal(), v = LIFECYCLE[verb];
-    const b = h('button', { type: 'button', class: 'btn sm', 'data-home-next': verb, disabled: why || transitional(w.name) ? true : null,
-      title: why ? why + ' — ' + lifecycleCommand(verb, w.name) : v.desc,
-      on: { click: async () => {
-        try { openLifecycle(await loadWorkspace(w.name, 0), verb, async () => { await loadWorkspaces(0).catch(() => null); refresh(false); }); } catch (e) { toast(e.message || String(e), true); }
-      } } }, icon(v.icon), v.label);
-    return h('div', { class: 'hm-next-acts' }, b, !isDone(w) && w.room ? h('a', { href: workspaceHash(w.name), class: 'btn sm quiet' }, icon('message-square'), 'Open room') : null);
-  }
-  if (isDone(w)) return null;
-  if (w.state === 'setting-up') {
-    const lines = d ? (d.gaps || []).map((g) => g.why).concat(d.notes) : [];
-    const gaps = lines.length ? h('ul', { class: 'hm-gaps' }, ...lines.map((n) => h('li', null, n))) : null;
-    return h('div', { class: 'hm-start' }, gaps, cmdLine('doz workspace start ' + w.name));
-  }
-  return w.room ? h('a', { href: workspaceHash(w.name), class: 'btn sm' }, icon('message-square'), 'Open room') : null;
 }
 
 /// The latest line of each row's room — only while the chat server runs and this browser may read it.

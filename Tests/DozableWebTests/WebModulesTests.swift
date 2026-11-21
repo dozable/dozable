@@ -180,7 +180,8 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(try read("app/views/chat.js").contains("chatOnForm("))
         XCTAssertTrue(try read("app/components/ws-gaps.js").contains("chatOnInline("))
         XCTAssertTrue(try read("app/views/new-workspace.js").contains("chatOnForm({ onOn: chatCameOn })"))
-        XCTAssertTrue(try read("app/views/workspace.js").contains("gapsList(gaps, { onChatOn: chatCameOn })"))
+        XCTAssertTrue(try read("app/views/ws-home.js").contains("gapsList(gaps, { onChatOn: cur.o.onChatOn })"), "Home's setting-up checklist")
+        XCTAssertTrue(try read("app/views/workspace.js").contains("onChatOn: chatCameOn"))
     }
 
     /// Asks: the card and the one answer path ship; only core/asks.js sends `chat-decide` (the card and the space diagram
@@ -235,7 +236,7 @@ final class WebModulesTests: XCTestCase {
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
         let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
         let a = try WebAssets.load()
-        for m in ["views/workspace", "components/ws-brief", "components/ws-panel", "core/ws-log"] {
+        for m in ["views/workspace", "views/ws-home", "components/ws-card", "components/ws-brief", "components/ws-panel", "core/ws-log"] {
             XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served")
         }
         let ws = try read("app/views/workspace.js")
@@ -254,7 +255,10 @@ final class WebModulesTests: XCTestCase {
         let log = try read("app/core/ws-log.js")
         XCTAssertTrue(Self.specifiers(log).isEmpty, "core/ws-log.js is pure: it imports nothing")
         XCTAssertTrue(log.contains("export function interleave("))
-        for f in ["app/views/workspace.js", "app/components/ws-brief.js", "app/components/ws-panel.js", "app/core/ws-log.js"] {
+        // Home never opens chat's stream: its two reads are plain GETs (the room's last messages, the open asks).
+        let home = try read("app/views/ws-home.js")
+        XCTAssertTrue(home.contains("api('chat/asks')") && home.contains("'/messages?limit=2'"))
+        for f in ["app/views/workspace.js", "app/views/ws-home.js", "app/components/ws-card.js", "app/components/ws-brief.js", "app/components/ws-panel.js", "app/core/ws-log.js"] {
             let text = try read(f)
             for never in ["fetch(", "EventSource(", "openChatStream", "chat/stream", "innerHTML", "chat-text"] {
                 XCTAssertFalse(text.contains(never), "\(f): \(never)")
@@ -291,7 +295,22 @@ final class WebModulesTests: XCTestCase {
         }
         XCTAssertEqual(parsed("#/w/demo/agents")?["view"] as? String, "workspace")
         XCTAssertEqual(parsed("#/w/demo/agents")?["tab"] as? String, "agents")
-        XCTAssertEqual(parsed("#/w/demo")?["tab"] as? NSNull, NSNull(), "the room: no tab")
+        XCTAssertEqual(parsed("#/w/demo")?["tab"] as? String, "home", "a workspace opens on its Home")
+        XCTAssertEqual(parsed("#/w/demo")?["room"] as? NSNull, NSNull())
+        XCTAssertEqual(js("[parse('#/w/d/room').view, parse('#/w/d/room').tab, parse('#/w/d/room').room, parse('#/w/d/room/x').tab, parse('#/w/d/room/x').room]"),
+                       #"["workspace","room",null,"room","x"]"#, "the Room tab: the main room, or another by its label")
+        XCTAssertEqual(js("[canonical('#/w/d'), canonical('#/w/d/'), canonical('#/w/d/home'), canonical('#/w/d/room'), canonical('#/w/d/room/'), canonical('#/w/d/room/x')]"),
+                       ##"["#/w/d","#/w/d","#/w/d","#/w/d/room","#/w/d/room","#/w/d/room/x"]"##)
+        XCTAssertEqual(js("[roomHash('d'), roomHash('d','x'), workspaceHash('d'), workspaceHash('d','x')]"),
+                       ##"["#/w/d/room","#/w/d/room/x","#/w/d","#/w/d/room/x"]"##, "workspaceHash is Home; with a label, that room")
+        XCTAssertEqual(js("parse('#/w/d/home')"), "null", "Home has one address")
+        // The Workspaces page: its address, served, and drawn from the listing alone (no workspace's own read, no message).
+        XCTAssertEqual(js("[parse('#/workspaces').view, hashFor('workspaces'), canonical('#/workspaces')]"), ##"["workspaces","#/workspaces","#/workspaces"]"##)
+        for m in ["views/workspaces", "components/ws-next"] { XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served") }
+        let wsl = try read("app/views/workspaces.js")
+        XCTAssertTrue(wsl.contains("loadWorkspaces(0)") && !wsl.contains("loadWorkspace(") && !wsl.contains("api("), "one listing read")
+        XCTAssertTrue(wsl.contains("'doz.workspaces.layout'") && wsl.contains("'doz.workspaces.sort'"))
+        XCTAssertTrue(try read("index.html").contains(##"<a class="ng-label" href="#/workspaces" data-nav="workspaces""##), "the sidebar's heading leads there")
         for (hash, session) in [("#/w/demo/agent/gamma", nil), ("#/w/demo/agent/gamma/~home", "~home"), ("#/w/demo/agent/bot_1.a/claude-2", "claude-2")] as [(String, String?)] {
             let p = parsed(hash)
             XCTAssertEqual(p?["view"] as? String, "wsagent", hash)

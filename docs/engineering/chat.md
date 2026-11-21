@@ -509,7 +509,10 @@ closing each open ask as expired on the staged copy (nobody told, no cooldown).
 (`ChatAskCommands.swift`), and the dashboard's decision card answers (web.md, "Chat"); both send the same four HostOps
 (`chat-ask`, `chat-decide`, `chat-withdraw`, `chat-asks` — `HostCore+ChatAsks`), each one fixed call on the owner's
 socket as you: the page's post with `kind: "ask"`, `POST /api/rooms/R/messages/%23N/decide` with `X-Chat-Id` the request's
-`actionID` (a retry is a duplicate, never a second decision), the page's withdraw, `GET /api/asks?state=open`. A person's
+`actionID` (a retry is a duplicate, never a second decision), the page's withdraw, `GET /api/asks?state=open`. The
+dashboard also READS that list — `GET /api/v1/chat/asks` (`WebChatRoute.asks`, payload-less, a read under `serve.chat` like
+the messages; one fixed upstream call `GET /api/asks?state=open`): a workspace's Home lists its rooms' open asks and
+links each to its room, where the decision card answers. A person's
 words become a decision by `ChatAskReply` (an option's id, its letter, its label, `decline` and a reason, or a free-text
 answer; several questions or several options at once need `--answers`); a refusal is read again — the ask's state after
 it decides — and told in Dozable's words (`ChatAskRefusal`: expired, answered, withdrawn, not one of its deciders, the

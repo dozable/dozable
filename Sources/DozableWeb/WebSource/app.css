@@ -2954,16 +2954,22 @@ body.ws-hero-on .notes-stack { position: fixed; top: auto; right: var(--sp-3); b
 .ws-hero-none .sp-tile { width: 32px; height: 32px; }
 .sp-thumb { display: inline-flex; flex: none; overflow: hidden; border-radius: var(--r-md); background: var(--well); }
 .sp-thumb-home { width: 128px; height: 80px; }
-.sp-thumb-nav { width: 160px; max-width: 100%; height: auto; aspect-ratio: 16 / 10; }
+.sp-thumb-nav { width: 160px; max-width: 100%; height: auto; background: none; }
+/* The sidebar keeps no empty box: 0 px tall until a picture lands, then 16:10 on the well. */
+.sp-thumb-nav[data-pic-key] { aspect-ratio: 16 / 10; background: var(--well); }
 .sp-thumb.is-problem { outline: var(--bw) solid var(--bad); }
 .sp-img { display: block; width: 100%; height: 100%; }
+.sp-img[hidden] { display: none; }
 .sp-tile { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; border-radius: var(--r-md);
   background: var(--well); color: var(--ink-3); }
 .sp-tile .icon { width: 22px; height: 22px; }
 .sp-tile.sp-tile-hero { width: 64px; height: 64px; }
+/* Made without a space file: a small tile on Home and the Workspaces page, never a big empty box. */
+.sp-tile.sp-tile-sm { flex: none; width: 32px; height: 32px; }
+.sp-tile.sp-tile-sm .icon { width: 18px; height: 18px; }
 .hm-ws-cell { display: flex; align-items: flex-start; gap: var(--sp-3); min-width: 0; }
 .hm-ws-cell .hm-ws { min-width: 8rem; }
-.hm-thumb-link { display: block; flex: none; }
+.hm-thumb-link { display: flex; flex: none; justify-content: flex-start; width: 128px; }
 .nav-ws-thumb { display: block; margin: var(--sp-1) 0 var(--sp-1) var(--sp-5); }
 .sp-full { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center; padding: var(--sp-5);
   background: var(--scrim); }
@@ -2974,6 +2980,7 @@ body.ws-hero-on .notes-stack { position: fixed; top: auto; right: var(--sp-3); b
 .sp-full-pic .space-render { display: block; width: 100%; height: 100%; }
 @media (max-width: 760px) {
   .sp-thumb-home { width: 96px; height: 60px; }
+  .hm-thumb-link { width: 96px; }
   .ws-hero { height: clamp(140px, 34vh, 280px); }
   .sp-full { padding: var(--sp-2); }
 }
@@ -2997,6 +3004,69 @@ body.ws-hero-on .notes-stack { position: fixed; top: auto; right: var(--sp-3); b
   .ws-body { display: flex; flex-direction: column; }
   .ws-room { flex: none; height: 75vh; }
   .ws-panel { overflow: visible; }
+}
+}
+
+/* ── A workspace's Home (views/ws-home.js): the drawing full width, then its cards in a grid (one column on a phone);
+   each card (components/ws-card.js) a titled section whose heading links to the tab that holds the whole of it. ── */
+@layer components {
+.ws-card { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; padding: var(--sp-3); border: var(--bw) solid var(--line);
+  border-radius: var(--r-lg); background: var(--surface); }
+.ws-card.is-needs { border-color: var(--warn); }
+.ws-card-h { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-md); font-weight: var(--fw-strong); min-width: 0; }
+.ws-card-h .icon { width: 14px; height: 14px; flex: none; }
+.ws-card-link { color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.ws-card-link:hover { text-decoration: underline; }
+.ws-card-go { color: var(--ink-3); }
+.ws-card-n { margin-left: auto; font-size: var(--fs-xs); font-weight: var(--fw-regular); color: var(--ink-2); }
+.ws-card-body { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; font-size: var(--fs-sm); }
+}
+@layer views {
+.ws-home { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.ws-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: var(--gap); align-items: start; }
+.ws-home-list, .ws-home-log { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
+.ws-home-list li { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1); }
+.ws-home-list .icon { width: 14px; height: 14px; flex: none; }
+.ws-home-lead, .ws-home-state, .ws-home-who, .ws-home-asof { margin: 0; }
+.ws-home-acts { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.ws-home-msgs { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ws-home-msgs .hm-line { margin: 0; overflow-wrap: anywhere; }
+.ws-home-setup { display: flex; flex-direction: column; gap: var(--sp-2); }
+@media (max-width: 760px) {
+  .ws-cards { grid-template-columns: minmax(0, 1fr); }
+}
+}
+
+/* ── The Workspaces page (views/workspaces.js): a toolbar (Show, Sort, Rows | Grid), then rows or a grid of cards, each its
+   picture (the same 160 × 100 drawing, scaled), its name, state, people, room, last activity and next action. ── */
+@layer views {
+a.ng-label { color: inherit; text-decoration: none; }
+a.ng-label:hover, a.ng-label.active { color: var(--ink); }
+a.ng-label:hover { text-decoration: underline; }
+.wsl-toolbar label { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.wsl-rows, .wsl-grid { margin: 0; padding: 0; list-style: none; }
+.wsl-rows { display: flex; flex-direction: column; gap: var(--sp-2); }
+.wsl-row { display: grid; grid-template-columns: 160px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3);
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.wsl-pic { display: flex; align-items: center; justify-content: flex-start; min-width: 0; color: var(--ink-2); text-decoration: none; }
+.wsl-rows .sp-thumb-list { width: 160px; height: 100px; }
+.wsl-main, .wsl-card-body { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.wsl-top { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); min-width: 0; }
+.wsl-name { font-weight: var(--fw-strong); overflow-wrap: anywhere; }
+.wsl-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); min-width: 0; font-size: var(--fs-sm); color: var(--ink-2); }
+.wsl-next { min-width: 0; }
+.wsl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); align-items: stretch; gap: var(--gap); }
+.wsl-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.wsl-grid .wsl-pic { flex-direction: column; justify-content: center; gap: var(--sp-1); aspect-ratio: 16 / 10; background: var(--well); }
+/* Made without a space file: a thin band, a quarter of a drawing's (16:10 → 16:2.5), the small tile on the card's own surface. */
+.wsl-grid .wsl-pic.is-plain { align-items: center; aspect-ratio: 16 / 2.5; background: none; border-bottom: var(--bw) solid var(--sep); }
+.wsl-grid .sp-thumb-list { width: 100%; height: 100%; border-radius: 0; }
+.wsl-card-body { flex: 1; padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.wsl-card .wsl-next { margin-top: auto; padding-top: var(--sp-1); }
+@media (max-width: 760px) {
+  .wsl-row { grid-template-columns: 96px minmax(0, 1fr); }
+  .wsl-rows .sp-thumb-list { width: 96px; height: 60px; }
+  .wsl-row .wsl-next { grid-column: 1 / -1; }
 }
 }
 

@@ -15,7 +15,7 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), ch
   paintRowOps = upcall('paintRowOps'), refreshSandbox = upcall('refreshSandbox'),
   showSandbox = upcall('showSandbox'), viewAccounts = upcall('viewAccounts'), viewActivity = upcall('viewActivity'),
   viewDoctor = upcall('viewDoctor'), viewImages = upcall('viewImages'), viewMetrics = upcall('viewMetrics'),
-  viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'), viewHome = upcall('viewHome'), viewThisMac = upcall('viewThisMac'), viewLoose = upcall('viewLoose'), viewBots = upcall('viewBots'), viewBot = upcall('viewBot'), viewMacs = upcall('viewMacs'),
+  viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'), viewHome = upcall('viewHome'), viewWorkspaces = upcall('viewWorkspaces'), viewThisMac = upcall('viewThisMac'), viewLoose = upcall('viewLoose'), viewBots = upcall('viewBots'), viewBot = upcall('viewBot'), viewMacs = upcall('viewMacs'),
   viewBrowse = upcall('viewBrowse'), viewRecipes = upcall('viewRecipes'), viewResources = upcall('viewResources'), viewSettings = upcall('viewSettings'), viewDevices = upcall('viewDevices'), viewDebug = upcall('viewDebug'),
   viewNotifications = upcall('viewNotifications'), viewWsAgent = upcall('viewWsAgent'), viewIsolationGuide = upcall('viewIsolationGuide'), viewAddWorker = upcall('viewAddWorker'),
   wizardStopPolling = upcall('wizardStopPolling');
@@ -93,7 +93,7 @@ function routePage() {
   // A workspace's page is a section too (#ws): the room surface the Chat page shows is MOVED into it (views/chat.js
   // mountChat — one chat client), so leaving one for the other never closes the stream.
   const onSbx = state.view === 'sandbox', onGrid = state.view === 'sessions', onMac = state.view === 'mac', onChat = state.view === 'chat',
-    onWs = state.view === 'workspace', onRoom = onWs && !state.wsTab;
+    onWs = state.view === 'workspace', onRoom = onWs && state.wsTab === 'room';
   $('sbx').hidden = !onSbx;
   $('grid').hidden = !onGrid;
   $('mac').hidden = !onMac;
@@ -140,7 +140,7 @@ export async function refresh(scrollTop) {
   if (refreshing) { again = true; return; }
   refreshing = true;
   try {
-    const views = { home: viewHome, thismac: viewThisMac, loose: viewLoose, bots: viewBots, bot: viewBot, macs: viewMacs, overview: viewOverview, images: viewImages, resources: viewResources, operations: viewOperations, accounts: viewAccounts,
+    const views = { home: viewHome, workspaces: viewWorkspaces, thismac: viewThisMac, loose: viewLoose, bots: viewBots, bot: viewBot, macs: viewMacs, overview: viewOverview, images: viewImages, resources: viewResources, operations: viewOperations, accounts: viewAccounts,
                     metrics: viewMetrics, activity: viewActivity, doctor: viewDoctor, settings: viewSettings, recipes: viewRecipes, browse: viewBrowse, devices: viewDevices, debug: viewDebug, notifications: viewNotifications,
                     wsagent: viewWsAgent, guide: viewIsolationGuide, addworker: viewAddWorker };
     const fn = views[state.view] || viewHome;

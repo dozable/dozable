@@ -1,18 +1,18 @@
-// views/workspace — A workspace's page (#/w/NAME: its main room; #/w/NAME/room/LABEL: another of its rooms;
-// #/w/NAME/agents: its Agents tab, views/ws-agents.js): the room comes first. A section of its own (#ws), built once: the
+// views/workspace — A workspace's page (#/w/NAME: its Home tab, views/ws-home.js; #/w/NAME/room[/LABEL]: its Room tab —
+// its main room or another of its rooms; #/w/NAME/agents: its Agents tab, views/ws-agents.js). A section of its own (#ws), built once: the
 // title row (its name, state, who drives, its manager, one primary button by state — Start, Sleep, Wake, Reopen, Restore —
 // and ⋯ with its lifecycle: Stop the manager, Sleep and Wake everything, Finish…, Archive…, Delete…, each a dialog drawn from
 // its plan — components/ws-lifecycle.js),
-// the picture (the workspace drawn from its space file and live state — components/space-picture.js; Home and the sidebar
-// show it small), the tabs (Room, Agents, Network & secrets, Folders & points and Activity work — views/ws-network.js, ws-folders.js,
-// ws-activity.js, each read afresh on every visit; Permissions and Settings say what they will hold), the brief ("The work", components/ws-brief.js), the room — THE chat surface of the Chat page, moved here
+// the tabs (Home — the workspace drawn and its cards —, Room, Agents, Network & secrets, Folders & points, Activity and Runs work —
+// views/ws-network.js, ws-folders.js, ws-activity.js, ws-runs.js, each read afresh on every visit; Permissions and Settings say
+// what they will hold); on the Room tab the brief ("The work", components/ws-brief.js), the room — THE chat surface of the Chat page, moved here
 // (views/chat.js mountChat) and scoped to this workspace's rooms, its log's lines drawn among the messages — and the side
 // panel (components/ws-panel.js). Read on arrival, hello, `changed` and an operation's end — never on a timer.
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { actOrThrow, waitForOp } from '../core/operations.js';
-import { activityHash, agentsHash, foldersHash, networkHash, runsHash, workspaceHash } from '../core/routes.js';
+import { activityHash, agentsHash, foldersHash, networkHash, roomHash, runsHash, workspaceHash } from '../core/routes.js';
 import { state } from '../core/state.js';
 import { loadBots, loadWorkspace, loadWorkspaces, readWorkspaceAfresh } from '../core/workspaces.js';
 import { briefEdits, forRoom, lineAt, mergeLines } from '../core/ws-log.js';
@@ -21,15 +21,14 @@ import { cmdLine } from '../components/cmd-line.js';
 import { menuButton } from '../components/menus.js';
 import { pageFailure, toast } from '../components/notices.js';
 import { dialog } from '../components/dialog.js';
-import { gapsList, startsOnce } from '../components/ws-gaps.js';
+import { startsOnce } from '../components/ws-gaps.js';
 import { newWorkspaceRefusal } from './new-workspace.js';
 import { briefCard } from '../components/ws-brief.js';
-import { heroNone, spaceHero } from '../components/space-picture.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks.js';
 import { renderNavWorkspaces } from '../components/ws-nav.js';
 import { lifecycleItems, primaryButton, transitional } from '../components/ws-lifecycle.js';
 import { agentMeta, wsPanel } from '../components/ws-panel.js';
-import { chatNavCheck, chatRefresh, mountChat } from './chat.js';
+import { chatLeave, chatNavCheck, chatRefresh, mountChat } from './chat.js';
 import { chatOnForm } from '../components/chat-on.js';
 import { drawSys } from './chat-messages.js';
 import { openRoom, refreshState } from './chat-rooms.js';
@@ -38,12 +37,15 @@ import { networkTab } from './ws-network.js';
 import { foldersTab } from './ws-folders.js';
 import { activityTab } from './ws-activity.js';
 import { runsTab } from './ws-runs.js';
+import { homeDispose, homeTab } from './ws-home.js';
 
 /// The permissions tab's name — ONE constant (the owner's choice; every place that names the tab reads it).
 export const PERMISSIONS_TAB = 'Permissions';
-/// The tabs, in the mockups' order: Room and Agents work (each an address); each other says what it will hold.
+/// The tabs, in the mockups' order: Home (the workspace's own address), Room and the rest that work (each an address);
+/// each other says what it will hold.
 export const WS_TABS = [
-  { id: 'room', label: 'Room', href: (w) => workspaceHash(w) },
+  { id: 'home', label: 'Home', href: (w) => workspaceHash(w) },
+  { id: 'room', label: 'Room', href: (w) => roomHash(w) },
   { id: 'agents', label: 'Agents', href: (w) => agentsHash(w) },
   { id: 'permissions', label: PERMISSIONS_TAB, coming: 'What each agent may do here: allow, ask or never, by role, and who decides — today: each agent’s Can do' },
   { id: 'network', label: 'Network & secrets', href: (w) => networkHash(w) },
@@ -53,12 +55,10 @@ export const WS_TABS = [
   { id: 'settings', label: 'Settings', coming: 'Its defaults: isolation, network, the manager, finishing and archiving' },
 ];
 const FOLD_KEY = (w) => 'doz.ws.fold:' + w;
-const HERO_KEY = (w) => 'doz.ws.hero:' + w;
 
 let built = false;
 let cur = null;          // {name, label, detail, bots, brief, denied, lines, room, missing}
 let card = null;
-let hero = null;         // the workspace drawn (components/space-picture.js), built once per workspace
 const peopleSlot = h('div', { class: 'ws-people-slot' });
 
 function build() {
@@ -70,9 +70,9 @@ function build() {
     : h('a', { role: 'tab', class: 'ws-tab', 'aria-selected': 'false', 'data-ws-tab': t.id, href: '#/home' }, t.label)));
   $('ws').replaceChildren(
     h('div', { class: 'ws-head', id: 'ws-head' }),
-    h('div', { class: 'ws-hero-slot', id: 'ws-hero' }),
     tabs,
-    h('div', { class: 'ws-body' },
+    h('div', { class: 'ws-home-tab', id: 'ws-home', hidden: true, role: 'tabpanel', 'aria-label': 'Home' }),
+    h('div', { class: 'ws-body', hidden: true },
       h('div', { class: 'ws-main' },
         h('div', { class: 'ws-notice', id: 'ws-notice' }),
         h('div', { class: 'ws-brief-slot', id: 'ws-brief' }),
@@ -82,18 +82,19 @@ function build() {
     h('div', { class: 'ws-view-tab', id: 'ws-view', hidden: true, role: 'tabpanel' }));
 }
 
-/// The tab row's state for `name` on `tab` (null: the room): each working tab is a link to its address.
+/// The tab row's state for `name` on `tab` (home, room, agents, …): each working tab is a link to its address.
 function paintTabs(name, tab) {
   for (const el of $('ws').querySelectorAll('.ws-tabs [data-ws-tab]')) {
     const t = WS_TABS.find((x) => x.id === el.dataset.wsTab);
     if (!t || t.coming) continue;
-    const on = t.id === (tab || 'room');
+    const on = t.id === tab;
     el.setAttribute('href', t.href(name));
     el.setAttribute('aria-selected', on ? 'true' : 'false');
     el.classList.toggle('is-on', on);
   }
   const agents = tab === 'agents', view = VIEW_TABS.includes(tab);
-  $('ws').querySelector('.ws-body').hidden = !!tab;
+  $('ws-home').hidden = tab !== 'home';
+  $('ws').querySelector('.ws-body').hidden = tab !== 'room';
   $('ws-agents').hidden = !agents;
   $('ws-view').hidden = !view;
   if (view) $('ws-view').setAttribute('aria-label', WS_TABS.find((t) => t.id === tab).label);
@@ -122,26 +123,6 @@ function folded(name, label) {
 }
 function rememberFold(name, f) {
   try { if (f) localStorage.setItem(FOLD_KEY(name), 'folded'); else localStorage.removeItem(FOLD_KEY(name)); } catch (_) { /* this page only */ }
-}
-/// The picture folds like the brief: folded on a room's address, else as this browser left it (doz.ws.hero:W).
-function heroFolded(name, label) {
-  if (label) return true;
-  try { return localStorage.getItem(HERO_KEY(name)) === 'folded'; } catch (_) { return false; }
-}
-function rememberHeroFold(name, f) {
-  try { if (f) localStorage.setItem(HERO_KEY(name), 'folded'); else localStorage.removeItem(HERO_KEY(name)); } catch (_) { /* this page only */ }
-}
-/// The workspace drawn from its space file and its live state (redrawn only when what it shows changed), or — made
-/// without a file — the compact band that says how one draws it.
-function paintHero(d) {
-  const slot = $('ws-hero');
-  if (!d.space) {
-    if (hero) { hero.dispose(); hero = null; }
-    if (!slot.querySelector('[data-ws-hero-none]')) slot.replaceChildren(heroNone(d.name));
-    return;
-  }
-  const o = { name: d.name, file: d.space.file, folded: cur.heroFolded, onFold: (f) => { cur.heroFolded = f; if (!cur.label) rememberHeroFold(d.name, f); } };
-  if (!hero) { hero = spaceHero(o); slot.replaceChildren(hero.el); } else hero.set(o);
 }
 
 async function readBrief(name) {
@@ -180,11 +161,11 @@ function scope() {
     rooms: d.rooms.slice().sort((a, b) => (a.main ? -1 : b.main ? 1 : a.label.localeCompare(b.label))),
     who: (n) => (cur && cur.detail ? agentMeta(cur.detail, cur.bots, n) : null),
     sysLines: (room) => (cur ? forRoom(cur.lines, room, main ? main.room : null) : []),
-    address: (wr) => workspaceHash(d.name, wr.main ? null : wr.label),
+    address: (wr) => roomHash(d.name, wr.main ? null : wr.label),
   };
 }
 
-/// Arriving on #/w/NAME[/room/LABEL] or #/w/NAME/agents (`tab`).
+/// Arriving on #/w/NAME (`tab` home), #/w/NAME/room[/LABEL] (room) or another tab.
 export async function wsEnter(name, label, tab) {
   build();
   paintTabs(name, tab);
@@ -193,20 +174,21 @@ export async function wsEnter(name, label, tab) {
     cur = { name, label, tab, detail: null, bots: null, brief: null, denied: false, lines: [], room: null, missing: null };
     $('ws-agents').replaceChildren();
     card = null;
-    if (hero) { hero.dispose(); hero = null; }
-    $('ws-hero').replaceChildren();
+    homeDispose();
+    $('ws-home').replaceChildren(h('p', { class: 'muted' }, 'reading…'));
     $('ws-head').replaceChildren(h('h1', null, name));
     $('ws-brief').replaceChildren();
     $('ws-notice').replaceChildren();
     $('ws-panel').replaceChildren(h('p', { class: 'muted' }, 'reading…'));
   }
-  if (fresh || cur.label !== label) { cur.folded = folded(name, label); cur.heroFolded = heroFolded(name, label); }
+  if (fresh || cur.label !== label) cur.folded = folded(name, label);
   cur.label = label;
   cur.tab = tab;
   let d;
   try { d = await loadWorkspace(name, 0); } catch (e) {
     if (!cur || cur.name !== name) return;
-    $('ws-notice').replaceChildren(callout(e.status === 404 ? 'warn' : 'bad', { title: e.status === 404 ? name + ' is not a workspace' : 'This workspace could not be read',
+    homeDispose();
+    $(tab === 'home' ? 'ws-home' : 'ws-notice').replaceChildren(callout(e.status === 404 ? 'warn' : 'bad', { title: e.status === 404 ? name + ' is not a workspace' : 'This workspace could not be read',
       body: e.status === 404 ? h('span', null, 'It may have been renamed. ', h('a', { href: '#/home' }, 'Home'), ' lists the workspaces.') : e.message || String(e) }));
     return;
   }
@@ -219,10 +201,12 @@ export async function wsEnter(name, label, tab) {
   cur.logHidden = log ? log.hidden : 0;
   const { wr, missing } = roomFor(d, label);
   cur.room = wr; cur.missing = missing;
-  draw();
+  draw(true);
   // The sidebar's tree marks this page; a page opened here first reads the list once (never on a timer).
   if (state.workspaces) renderNavWorkspaces(); else loadWorkspaces(1000).then(() => renderNavWorkspaces()).catch(() => { /* the next hello */ });
   if (VIEW_TABS.includes(tab)) { drawView(true); window.scrollTo(0, 0); return; }     // read afresh on every visit
+  // Home never holds chat's stream (being here is not being in the room): a stream the Room tab opened closes 5 s later.
+  if (tab === 'home') { chatLeave(); window.scrollTo(0, 0); return; }
   if (tab === 'agents') { window.scrollTo(0, 0); return; }       // the room is mounted when its tab is shown
   await mountChat({ room: $('ws-room'), people: peopleSlot }, scope(), wr ? wr.room : null);
   drawSys();
@@ -241,11 +225,11 @@ export async function wsRefresh() {
   cur.detail = d;
   cur.brief = b.brief; cur.denied = b.denied;
   if (log) { cur.lines = mergeLines(cur.lines, log.lines); cur.logHidden = log.hidden; }
-  draw();
+  draw(true);
   // Activity follows a change (its newest page); Network & secrets and Folders & points are read on each visit only — a
   // walk of the folders is never run on an event.
   if (cur.tab === 'activity') drawView(false);
-  if (cur.tab) return;
+  if (cur.tab !== 'room') return;
   chatRefresh();
   drawSys();
 }
@@ -318,12 +302,15 @@ async function lifecycleDone(end) {
     return;
   }
   await wsRefresh();
-  // An archive or a restore changed what its room is: the chat server's state read again, the room shown as it now is
-  // (the archived notice, the composer off — or back on).
-  if (cur && !cur.tab && state.chat.room) { await refreshState(); await openRoom(state.chat.room); }
+  // A finish, an archive or a restore changed what its room is: the chat server's state read again (on any tab — the Room
+  // tab opened later must not draw the room as it was), the room shown as it now is (the closed or archived notice, the
+  // composer off — or back on).
+  if (state.chat.srv) await refreshState();
+  if (cur && cur.tab === 'room' && state.chat.room) await openRoom(state.chat.room);
 }
 
-function draw() {
+/// `read`: Home's own reads again too (arrival, hello, `changed`, an operation's end — never a redraw of what is known).
+function draw(read) {
   const d = cur.detail, started = !!d.startedAt;
   // The title row: name, state (or what a lifecycle operation is doing to it), who drives, its manager, the one primary
   // button its state offers, ⋯ (the lifecycle — each a dialog drawn from its plan).
@@ -335,41 +322,19 @@ function draw() {
     items, { label: 'More for ' + d.name, align: 'end' }).el;
   const managerRow = manager ? { bot: manager.bot || manager.name, isolation: manager.isolation || 'fenced', actsAsYou: manager.actsAsYou, state: manager.state,
     words: (manager.bot || manager.name) + ' (' + (manager.actsAsYou ? 'unfenced · acts as you' : manager.isolation || 'fenced') + ')' } : null;
-  const primary = d.state === 'setting-up'
-    ? h('button', { type: 'button', class: 'btn sm primary', 'data-ws-primary': 'start', disabled: newWorkspaceRefusal() || (d.gaps || []).length || starting ? true : null,
-      title: newWorkspaceRefusal() ? 'A workspace is started only in this Mac’s own browser, or with doz workspace start in a terminal on the Mac'
-        : (d.gaps || []).length ? startsOnce(d.gaps) : 'Post the brief as your first message and start the work', on: { click: () => startWorkspace(d) } }, icon('play'), 'Start')
-    : primaryButton(d, lifecycleDone);
+  const primary = d.state === 'setting-up' ? startButton(d, { 'data-ws-primary': 'start' }) : primaryButton(d, lifecycleDone);
   $('ws-head').replaceChildren(...[h('h1', { class: 'ws-name' }, d.name), workspacePill(d.state, d.words, transitional(d.name)), driverChip(d.driver),
     managerRow ? managerChip(managerRow) : null, h('span', { class: 'ws-sp' }), primary, more].filter(Boolean));
-  // The notices: setting up (what is missing, the command), a room address that names no room, no room at all.
+  // The Room tab's notices: a room address that names no room, setting up (Home has what is missing), no room at all.
   const notes = [];
   if (cur.missing) notes.push(callout('warn', { compact: true, attrs: { 'data-ws-missing': '' }, body: cur.missing + ' — this is its main room.' }));
   if (d.state === 'setting-up') {
-    // What its start would refuse now (`workspace-show`'s gaps — a look), live; Start is the wizard's same action, this
-    // Mac's own browser only, and disabled while anything is missing.
-    const gaps = d.gaps || [];
-    const why = newWorkspaceRefusal();
-    const start = h('button', { type: 'button', class: 'btn sm primary', 'data-ws-start': d.name, disabled: why || gaps.length || starting ? true : null,
-      title: why ? 'A workspace is started only in this Mac’s own browser, or with doz workspace start in a terminal on the Mac' : gaps.length ? startsOnce(gaps) : 'Post the brief as your first message and start the work',
-      on: { click: () => startWorkspace(d) } }, icon(starting ? 'hourglass' : 'play'), 'Start');
-    notes.push(callout('info', { compact: true, cls: 'ws-setup', title: 'Setting up — the work starts once it is fully set up',
-      attrs: { 'data-ws-setup': String(gaps.length) },
-      body: [gaps.length ? gapsList(gaps, { onChatOn: chatCameOn }) : h('p', { class: 'muted' }, 'Nothing is missing: it can start.'),
-        d.notes.length ? h('ul', { class: 'hm-gaps' }, ...d.notes.map((n) => h('li', null, n))) : null,
-        h('div', { class: 'ws-start-row' }, start, cmdLine('doz workspace start ' + d.name))].filter(Boolean) }));
+    notes.push(callout('info', { compact: true, cls: 'ws-setup', attrs: { 'data-ws-setup-line': String((d.gaps || []).length) },
+      body: h('span', null, 'Setting up — ', h('a', { href: workspaceHash(d.name) }, 'Home'), ' shows what is missing') }));
   }
   if (!d.rooms.length) notes.push(callout('info', { compact: true, title: 'No room yet', attrs: { 'data-ws-noroom': d.name }, body: noRoomBody(d) }));
-  // Made by a space file: which, and up (its run) or down.
-  if (d.space) {
-    const s = d.space;
-    const pill = h('span', { class: 'pill ' + (s.up ? 'st-ok' : 'st-off'), 'data-ws-space-pill': s.up ? 'up' : 'down' },
-      s.up ? 'up' + (s.run ? ' · run ' + s.run : '') + (s.runSince ? ' since ' + new Date(s.runSince).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '') : 'down');
-    notes.push(h('p', { class: 'ws-space-line muted', 'data-ws-space': s.file }, 'Defined by ', h('code', null, s.file), ' ', pill));
-  }
   if (cur.logHidden) notes.push(callout('info', { compact: true, body: cur.logHidden + ' of its log’s lines are about sessions on this Mac and are not shown to this browser.' }));
   $('ws-notice').replaceChildren(...notes);
-  paintHero(d);
   // The brief.
   const e = canEdit();
   const o = { workspace: d.name, brief: cur.brief, denied: cur.denied, edits: briefEdits(cur.lines), started, folded: cur.folded,
@@ -379,6 +344,20 @@ function draw() {
   $('ws-panel').replaceChildren(wsPanel({ detail: d, mainRoom: mainOf(d) ? mainOf(d).room : null, peopleSlot }));
   // The Agents tab (drawn while it is shown).
   if (cur.tab === 'agents') $('ws-agents').replaceChildren(agentsTab({ detail: d, lines: cur.lines, onChanged: () => wsRefresh() }));
+  // Home (drawn while it is shown; its picture kept across redraws).
+  if (cur.tab === 'home') {
+    homeTab({ detail: d, lines: cur.lines, logHidden: cur.logHidden, onLifecycle: lifecycleDone, onChatOn: chatCameOn,
+      startButton: () => startButton(d, { 'data-ws-start': d.name }) }, $('ws-home'), read);
+  }
+}
+
+/// Start (setting up): the wizard's same action, this Mac's own browser only, disabled while anything is missing.
+function startButton(d, attrs) {
+  const why = newWorkspaceRefusal(), gaps = d.gaps || [];
+  return h('button', { type: 'button', class: 'btn sm primary', ...attrs, disabled: why || gaps.length || starting ? true : null,
+    title: why ? 'A workspace is started only in this Mac’s own browser, or with doz workspace start in a terminal on the Mac'
+      : gaps.length ? startsOnce(gaps) : 'Post the brief as your first message and start the work',
+    on: { click: () => startWorkspace(d) } }, icon(starting ? 'hourglass' : 'play'), 'Start');
 }
 
 /// Start: `workspace-start` — the brief posted as you, the manager started. An unfenced manager was confirmed when it was
