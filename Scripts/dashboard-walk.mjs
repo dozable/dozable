@@ -20,8 +20,8 @@
 //     --json` does; at 390 px the top bar's name opens the same list;
 //   · a workspace's page, with chat ON (its two ports the OS's choice, checked not live): `demo2` with a brief, a
 //     reference, a folder, the adopted never-booted sandbox `beta`, an unrelated room `other`, started (no manager: you
-//     drive — the brief is the kick-off). #/w/demo2 → view `workspace`, the brief open with its text; the tabs in the
-//     mockups' order, Room and Agents enabled, "Permissions" from its constant; the kick-off bubble and a "started the work"
+//     drive — the brief is the kick-off). #/w/demo2/room → view `workspace`, the brief open with its text; the tabs in the
+//     mockups' order, Home, Room and Agents enabled, "Permissions" from its constant; the kick-off bubble and a "started the work"
 //     line in time order; Edit → Save posts the announcement bubble, adds "edited the work", History shows one edit; the
 //     room strip lacks `other`, #/w/demo2/room/other opens the main room with the line saying so; #/chat still lists
 //     `other` and there is exactly one #chat-text; the side panel is `doz workspace show demo2 --json`; an unfenced manager
@@ -79,6 +79,18 @@
 //     under reduced motion the hero has no animation; a toast does not cover the hero's drawing; a file that doesn't read → the marker and Dozable's problem line;
 //     no CSP violation (a listener from every document's start); the leak sweep; pictures to SHOTS (the page light, dark, 390 px
 //     and with a toast; Home light and 390 px; the sidebar with spc2 unfolded).
+//   · a workspace's Home tab: 1 #/w/demo2 opens it (selected; no picture outside it); 2 its cards each link their tab, Needs
+//     you absent when nothing waits, the room's last messages, at most five log lines, no walk of the folders; 3 wiz2
+//     (setting up) — Needs you lists what is missing and Start, its Room tab one line; 4 an open ask in askw's room in Needs
+//     you, "Answer in the room" → #/w/askw/room, gone once decided; 5 an agent blocked (a harmless session reporting OSC 7501
+//     blocked) named; 6 #/w/demo2/room mounts the room and the brief, Back and Forward keep the surface and the draft; 7 spc2's
+//     hero on Home (full window, focus back), off on Agents with no state read in 3 s; 8 a message arriving on Home is not
+//     marked seen, and Home holds no chat stream.
+//   · the Workspaces page: 1 the sidebar's heading opens #/workspaces, every workspace under Every with the listing's counts,
+//     Show resets on a new visit; 2 Rows → Grid kept across a reload, Sort by Name and Last activity; 3 an <img> only for
+//     space workspaces, plain tiles ≤ 40 px here and on Home, the renderer fetched once, the sidebar's box 0 px until drawn;
+//     4 390 px; 5 the keyboard order and Space on the layout; 6 no CSP violation, the leak sweep. Pictures: ws-home-light,
+//     ws-home-390, ws-home-needs, workspaces-rows-light, workspaces-rows-390, workspaces-grid-light, workspaces-grid-390.
 //   · with the daemon stopped, opening Home, Sandboxes, a workspace's page and its agents starts none (no daemon.pid).
 //   · from chat on, every permission is never (this Mac's ceiling, an everywhere never for every role): every check after
 //     runs as the owner, never gated; an agent's Can do shows its Permissions and Ceiling as live, read-only rows.
@@ -284,6 +296,8 @@ const OLD = [
   // Unchanged.
   // (An off sandbox's page writes its own address without the tab: `~home` is kept only while it runs.)
   ['#/sandbox/beta', '#/sandbox/beta', 'sandbox'], ['#/sandbox/beta/~home', '#/sandbox/beta', 'sandbox'], ['#/chat', '#/chat', 'chat'],
+  // A workspace's Home has one address; its Room tab's trailing slash goes.
+  ['#/w/demo/', '#/w/demo', 'workspace'], ['#/w/demo/home', '#/w/demo', 'workspace'], ['#/w/demo/room/', '#/w/demo/room', 'workspace'],
 ];
 const MODALS = [['#/new', 'new'], ['#/onboarding', 'onboarding'], ['#/try', 'try']];
 
@@ -477,16 +491,20 @@ async function walkChatOn() {
   doz(['workspace', 'new', 'cw', '--prompt-file', '-', '--manager', 'cwbot'], 'Turn chat on from the page.\n');
   await send('Page.reload');
   await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/w/cw/room');
+  check(await waitFor(`!!document.querySelector('[data-ws-noroom="cw"] [data-chat-on]') && document.querySelector('[data-ws-make-room="cw"]')?.disabled === true
+    && !!document.querySelector('[data-ws-setup-line]')`, 15000),
+    'chat on 2 a workspace setting up with chat off, its Room tab: No room yet with the form, Make its room off, the one setting-up line');
   await goHash('#/w/cw');
-  check(await waitFor(`!!document.querySelector('[data-ws-setup] [data-gap="chat"] [data-chat-on-inline]') && !!document.querySelector('[data-ws-noroom="cw"] [data-chat-on]')
-    && document.querySelector('[data-ws-make-room="cw"]')?.disabled === true`, 15000),
-    'chat on 2 a workspace setting up with chat off: "a manager needs chat" with Turn chat on, No room yet with the form, Make its room off');
+  check(await waitFor(`!!document.querySelector('[data-ws-card="needs"] [data-ws-setup] [data-gap="chat"] [data-chat-on-inline]')`, 15000),
+    'chat on 2 …its Home: Needs you says "a manager needs chat" with Turn chat on');
   await evaluate(`document.querySelector('[data-gap="chat"] [data-chat-on-inline]').click()`);
-  check(await waitFor(`!document.querySelector('[data-ws-setup] [data-gap="chat"]') && !!document.querySelector('[data-ws-setup] [data-gap="room"]')
-    && document.querySelector('[data-ws-make-room="cw"]')?.disabled === false`, 90000) && chatState() === 'running',
-    'chat on 2 …on: the set-up item clears, "no main room" instead, Make its room on');
+  check(await waitFor(`!document.querySelector('[data-ws-setup] [data-gap="chat"]') && !!document.querySelector('[data-ws-setup] [data-gap="room"]')`, 90000) && chatState() === 'running',
+    'chat on 2 …on: the set-up item clears, "no main room" instead');
+  await goHash('#/w/cw/room');
+  check(await waitFor(`document.querySelector('[data-ws-make-room="cw"]')?.disabled === false`, 30000), 'chat on 2 …Make its room on');
   await evaluate(`document.querySelector('[data-ws-make-room="cw"]').click()`);
-  check(await waitFor(`!document.querySelector('[data-ws-noroom]') && !document.querySelector('[data-ws-setup] [data-gap="room"]') && state.chat.room === 'cw'`, 30000)
+  check(await waitFor(`!document.querySelector('[data-ws-noroom]') && state.chat.room === 'cw'`, 30000)
     && (dozJSON(['workspace', 'show', 'cw']) || {}).rooms?.some((r) => r.chatRoom === 'cw'),
     'chat on 2 Make its room: the room made (doz workspace show), the room view loads, the set-up items clear — '
     + JSON.stringify(await evaluate(`({ noroom: !!document.querySelector('[data-ws-noroom]'), gaps: [...document.querySelectorAll('[data-ws-setup] [data-gap]')].map((g) => g.dataset.gap),
@@ -537,18 +555,18 @@ async function walkWorkspacePage() {
   await send('Page.reload');
   await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
 
-  await goHash('#/w/demo2');
-  check(await waitFor(`state.view === 'workspace' && state.param === 'demo2' && ${SHOWN}`), '#/w/demo2 → the view workspace');
+  await goHash('#/w/demo2/room');
+  check(await waitFor(`state.view === 'workspace' && state.param === 'demo2' && ${SHOWN}`), '#/w/demo2/room → the view workspace, its Room tab');
   check(await waitFor(`/Walk the workspace page/.test(${text('[data-ws-brief="demo2"] .ws-brief-text')}) && !document.querySelector('[data-ws-brief="demo2"]').classList.contains('is-folded')`, 15000),
     'the brief is open, with its text');
   check(await evaluate(`!!document.querySelector('[data-ws-brief="demo2"] .ws-brief-text strong')`), '…its Markdown drawn (bold)');
   check(await evaluate(`!!document.querySelector('[data-ws-brief="demo2"] a.ws-ref[href="https://example.com/spec"][rel="noopener noreferrer"]')`), '…its reference a safe link');
   const tabs = await evaluate(`[...document.querySelectorAll('#ws [data-ws-tab]')].map((t) => ({ label: t.firstChild.textContent, off: t.getAttribute('aria-disabled') === 'true', coming: !!t.querySelector('.ws-coming') }))`);
-  check(JSON.stringify(tabs.map((t) => t.label)) === JSON.stringify(['Room', 'Agents', 'Permissions', 'Network & secrets', 'Folders & points', 'Activity', 'Runs', 'Settings']),
+  check(JSON.stringify(tabs.map((t) => t.label)) === JSON.stringify(['Home', 'Room', 'Agents', 'Permissions', 'Network & secrets', 'Folders & points', 'Activity', 'Runs', 'Settings']),
     'the tabs in the mockups\' order (' + tabs.map((t) => t.label).join(' · ') + ')');
-  check(tabs.filter((t) => !t.off).map((t) => t.label).join() === 'Room,Agents,Network & secrets,Folders & points,Activity,Runs'
+  check(tabs.filter((t) => !t.off).map((t) => t.label).join() === 'Home,Room,Agents,Network & secrets,Folders & points,Activity,Runs'
     && tabs.filter((t) => t.off).map((t) => t.label).join() === 'Permissions,Settings' && tabs.filter((t) => t.off).every((t) => t.coming),
-    'Room, Agents, Network & secrets, Folders & points, Activity and Runs work; Permissions and Settings are marked coming');
+    'Home, Room, Agents, Network & secrets, Folders & points, Activity and Runs work; Permissions and Settings are marked coming');
   check(await evaluate(`PERMISSIONS_TAB === 'Permissions' && document.querySelector('#ws [data-ws-tab="permissions"]').firstChild.textContent === PERMISSIONS_TAB`),
     'the permissions tab reads "Permissions", from its one constant');
   check(await waitFor(`[...document.querySelectorAll('#chat-log .chat-row')].some((r) => /Walk the workspace page/.test(r.textContent))`, 20000), 'the kick-off bubble is in the room');
@@ -583,8 +601,9 @@ async function walkWorkspacePage() {
   const up = doz(['workspace', 'up', '-f', SPACE + '/spc.space.yaml', '--yes']);
   check(up.status === 0, 'workspace up -f spc.space.yaml (a room, the run started; nothing unfenced, so nothing asked)');
   await goHash('#/w/spc');
-  check(await waitFor(`!!document.querySelector('[data-ws-space="spc.space.yaml"] [data-ws-space-pill="up"]') && /Defined by/.test(${text('[data-ws-space]')})`, 15000),
-    'the page says "Defined by spc.space.yaml" with its up pill');
+  check(await waitFor(`!!document.querySelector('[data-ws-card="state"] [data-ws-space="spc.space.yaml"] [data-ws-space-pill="up"]') && /Defined by/.test(${text('[data-ws-space]')})`, 15000),
+    'its Home says "Defined by spc.space.yaml" with its up pill');
+  await goHash('#/w/spc/room');
   check(await waitFor(`/BRIEF\.md — from the space file/.test(${text('[data-ws-brief="spc"] .ws-brief-label')})`, 10000), 'the brief card is "BRIEF.md — from the space file"');
   await evaluate(`[...document.querySelectorAll('[data-ws-brief="spc"] button')].find((b) => /Edit/.test(b.textContent)).click()`);
   check(await waitFor(`!!document.querySelector('[data-ws-brief-saves]')`), '…its editor says where it saves');
@@ -597,7 +616,7 @@ async function walkWorkspacePage() {
   await goHash('#/w/demo2');
   await waitFor(`state.param === 'demo2'`);
   await goHash('#/w/spc');
-  check(await waitFor(`!!document.querySelector('[data-ws-space-pill="down"]')`, 15000), 'the pill says down');
+  check(await waitFor(`!!document.querySelector('[data-ws-space-pill="down"]')`, 15000), 'the pill says down (its Home)');
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
   await sleep(300);
   await shot('workspace-light');
@@ -612,7 +631,7 @@ async function walkWorkspacePage() {
   await goHash('#/chat');
   check(await waitFor(`state.view === 'chat' && !!document.querySelector('#chat #chat-rooms [data-room="other"]')`, 10000), '#/chat still lists other');
   check(await evaluate(`document.querySelectorAll('#chat-text').length === 1 && !!document.querySelector('#chat #chat-text')`), '…with the one composer back on the Chat page');
-  await goHash('#/w/demo2');
+  await goHash('#/w/demo2/room');
   await waitFor(`state.view === 'workspace' && state.chat.room === 'demo2'`, 10000);
 
   // The side panel against the CLI.
@@ -626,7 +645,7 @@ async function walkWorkspacePage() {
   check(await evaluate(`document.querySelector('#ws-panel [data-ws-agent="beta"]').dataset.iso === 'micro VM' && !!document.querySelector('#ws-panel [data-ws-agent="beta"] a[href="#/w/demo2/agent/beta"]')`),
     'beta: micro VM, linking to its screen in the workspace');
   check(await evaluate(`!!document.querySelector('#ws-panel #chat-people-pane')`), '"In this room" is the room\'s own people list, in the panel');
-  await goHash('#/w/demo3');
+  await goHash('#/w/demo3/room');
   check(await waitFor(`state.param === 'demo3' && /acts as you/.test(${text('#ws-panel [data-ws-agent="otto"]')}) && !!document.querySelector('#ws-head .acts-as-you')`, 10000),
     'an unfenced manager shows "acts as you" (the panel and the title row)');
 
@@ -636,10 +655,15 @@ async function walkWorkspacePage() {
   await waitFor(`!!document.querySelector('[data-ws="demo2"]') || !!document.querySelector('[data-home-group="asleep"]')`, 10000);
   await evaluate(`(() => { const g = document.querySelector('[data-home-group="asleep"]'); if (g && g.getAttribute('aria-expanded') !== 'true') g.click(); })()`);
   await waitFor(`!!document.querySelector('[data-ws="demo2"]')`, 10000);
-  check(await evaluate(`[...document.querySelectorAll('[data-ws="demo2"] a')].every((a) => a.getAttribute('href') === '#/w/demo2') && document.querySelectorAll('[data-ws="demo2"] a').length >= 2`),
-    'Home: demo2\'s links (its name, its room, Open room) lead to #/w/demo2');
+  check(await evaluate(`[...document.querySelectorAll('[data-ws="demo2"] a.hm-ws-name, [data-ws="demo2"] a.hm-thumb-link')].every((a) => a.getAttribute('href') === '#/w/demo2')
+    && [...document.querySelectorAll('[data-ws="demo2"] a.hm-room, [data-ws="demo2"] .hm-next a')].every((a) => a.getAttribute('href') === '#/w/demo2/room')
+    && document.querySelectorAll('[data-ws="demo2"] a.hm-room, [data-ws="demo2"] .hm-next a').length >= 1`),
+    'Home: demo2\'s name leads to its Home (#/w/demo2), its room and Open room to its Room tab (#/w/demo2/room)');
   await evaluate(`(() => { const g = document.querySelector('[data-ws-group="~asleep"]'); if (g && g.getAttribute('aria-expanded') !== 'true') g.click(); })()`);
   check(await waitFor(`document.querySelector('[data-ws-link="demo2"]')?.getAttribute('href') === '#/w/demo2'`, 8000), 'the sidebar: demo2 opens #/w/demo2');
+  await evaluate(`(() => { const c = document.querySelector('[data-ws-fold="demo2"]'); if (c && c.getAttribute('aria-expanded') !== 'true') c.click(); })()`);
+  check(await waitFor(`document.querySelector('[data-nav-ws="demo2"] a[data-ws-room="demo2"]')?.getAttribute('href') === '#/w/demo2/room'`, 8000),
+    'the sidebar: demo2\'s main room line opens its Room tab (#/w/demo2/room)');
 
   // The merge itself, against fixtures (the page's own function).
   const kinds = (args) => evaluate(`interleave(${args}).map((x) => x.kind).join()`);
@@ -650,7 +674,7 @@ async function walkWorkspacePage() {
 
   // A phone: the panel folds below the room.
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
-  await goHash('#/w/demo2');
+  await goHash('#/w/demo2/room');
   await waitFor(`state.view === 'workspace' && state.param === 'demo2'`);
   await sleep(500);
   const fold = await evaluate(`(() => { const r = document.querySelector('#ws-room').getBoundingClientRect(), p = document.querySelector('#ws-panel').getBoundingClientRect();
@@ -895,8 +919,10 @@ async function walkNewWorkspace() {
   check(w1.flags?.startedAt && JSON.stringify(w1.folders?.map((f) => [f.path, f.mode, f.main])) === JSON.stringify([[rA, 'rw', true], [rB, 'ro', false]])
     && w1.defaults?.network === 'open' && w1.defaults?.isolation === 'fenced' && w1.origin?.project === rA + '/doz_project.yaml' && !w1.agents?.length
     && lines.includes('folders: 2 (1 read-only), main ' + tildeOf(rA)), 'wizard 6 doz workspace show wiz1 --json matches the review (started, two folders, open, fenced workers, from the project)');
+  check(await waitFor(`location.hash === '#/w/wiz1'`, 5000), 'wizard 6 …it opens on its Home');
+  await goHash('#/w/wiz1/room');
   check(await waitFor(`[...document.querySelectorAll('#chat-log .chat-row')].some((r) => /Launch notes for the walk/.test(r.textContent))`, 20000)
-    && await waitFor(`/started the work/.test(${text('#chat-log .chat-sys[data-action="kicked-off"]')})`, 10000), 'wizard 6 #/w/wiz1: the kick-off bubble and "started the work"');
+    && await waitFor(`/started the work/.test(${text('#chat-log .chat-sys[data-action="kicked-off"]')})`, 10000), 'wizard 6 #/w/wiz1/room: the kick-off bubble and "started the work"');
   // 7. The copied commands are doz workspace new … --dry-run's for the same choices.
   const dry = JSON.parse(doz(['workspace', 'new', 'wiz1', '--prompt-file', '-', '--folder', A, '--folder', B + ':ro', '--from-project', '--worker-isolation', 'fenced',
     '--start', '--dry-run', '--json'], 'Launch notes for the walk: short and plain.\n').stdout || '{}');
@@ -1409,7 +1435,7 @@ async function walkLifecycle() {
   check(await waitFor(`!!document.querySelector('[data-wr-run][data-wr-status="written"]')`, 15000), 'life 4 Runs lists the run, its archive written');
   check(await evaluate(`document.querySelector('[data-wr-room-state]')?.dataset.wrRoomState === 'closed'`), 'life 4 …its room reads closed');
   // Back in the room (its state read again on arrival): the composer off, with the closed notice.
-  await goHash('#/w/life');
+  await goHash('#/w/life/room');
   check(await waitFor(`!!document.querySelector('#chat-text') && document.querySelector('#chat-text').disabled && /Closed: its workspace life is finished/.test(document.querySelector('#chat-text').placeholder)`, 20000),
     'life 4 …the composer is off with the closed notice');
   // 5. Reopen (the primary button) → asleep.
@@ -1510,7 +1536,7 @@ async function walkAsks() {
   // The page reads the workspaces again on a reload — the CLI's changes are no event of their own.
   await send('Page.reload');
   await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
-  await goHash('#/w/askw');
+  await goHash('#/w/askw/room');
   await waitFor(`state.view === 'workspace' && state.chat.room === 'askw' && state.chat.live === 'live'`, 20000);
   // 1. A bot's ask of two questions is a card.
   writeFileSync(S + '/ask-qs.json', JSON.stringify([
@@ -1694,12 +1720,18 @@ async function walkPictures() {
   await sleep(300);
   check(await evaluate(`${HERO('spc2')}.querySelector('svg').getAnimations({ subtree: true }).length === 0`), 'pictures: under reduced motion the hero has no animation');
   await send('Emulation.setEmulatedMedia', { features: [] });
-  // A toast never covers the hero's drawing: a brief saved here announces itself in a card while the hero is shown.
+  // A toast never covers the hero's drawing: a brief saved on the Room tab announces itself in a card, then Home's hero is
+  // shown while it is up. (On the Room tab there is no hero.)
+  await goHash('#/w/spc2/room');
+  check(await waitFor(`!!document.querySelector('[data-ws-brief="spc2"]') && !document.body.classList.contains('ws-hero-on')`, 10000), 'pictures: the Room tab shows no hero');
   await evaluate(`[...document.querySelectorAll('[data-ws-brief="spc2"] button')].find((b) => /Edit/.test(b.textContent)).click()`);
   await waitFor(`!!document.querySelector('.ws-brief-area')`, 8000);
   await evaluate(`(() => { const a = document.querySelector('.ws-brief-area'); a.value = 'The space walk, seen.'; a.dispatchEvent(new Event('input')); })()`);
   await evaluate(`[...document.querySelectorAll('.ws-brief-acts button')].find((b) => /Save/.test(b.textContent)).click()`);
-  const toast = await waitFor(`[...document.querySelectorAll('.notes .callout.note')].some((n) => n.getBoundingClientRect().height > 0)`, 15000);
+  const toastSeen = await waitFor(`[...document.querySelectorAll('.notes .callout.note')].some((n) => n.getBoundingClientRect().height > 0)`, 15000);
+  await goHash('#/w/spc2');
+  await waitFor(`document.body.classList.contains('ws-hero-on')`, 5000);
+  const toast = toastSeen && await waitFor(`[...document.querySelectorAll('.notes .callout.note')].some((n) => n.getBoundingClientRect().height > 0)`, 2000);
   const overlap = await evaluate(`(() => { const p = ${HERO('spc2')}.querySelector('.ws-hero-pic').getBoundingClientRect();
     return [...document.querySelectorAll('.notes .callout.note')].map((n) => n.getBoundingClientRect()).filter((r) => r.height > 0)
       .filter((r) => r.left < p.right && r.right > p.left && r.top < p.bottom && r.bottom > p.top).length; })()`);
@@ -1737,6 +1769,244 @@ async function walkPictures() {
   check((await evaluate('window.__violations.length')) === 0, 'pictures: no CSP violation' + ((await evaluate('window.__violations.join(" | ")')) || ''));
   check(pageErrors.length === errorsBefore, 'pictures: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
   await leakSweep('the workspace drawn');
+}
+
+// ── a workspace's Home tab ─────────────────────────────────────────────────────────────────────────────────────────
+const homeSessions = [];
+const CARDS = `Object.fromEntries([...document.querySelectorAll('#ws-home [data-ws-card]')].map((c) => [c.dataset.wsCard, c.querySelector('.ws-card-h a')?.getAttribute('href') || null]))`;
+async function walkHome() {
+  const errorsBefore = pageErrors.length;
+  // 1. #/w/demo2 is its Home: the tab selected, no picture outside it.
+  await goHash('#/w/demo2/agents');
+  const mark0 = requested.length;
+  await goHash('#/w/demo2');
+  check(await waitFor(`state.view === 'workspace' && state.wsTab === 'home' && document.querySelector('#ws [data-ws-tab="home"]')?.getAttribute('aria-selected') === 'true'
+    && !!document.querySelector('#ws-home [data-ws-home="demo2"]') && !document.getElementById('ws-home').hidden`, 15000), 'home 1 #/w/demo2 opens its Home tab, selected');
+  check(await evaluate(`![...document.querySelectorAll('.ws-hero-band')].some((b) => !b.closest('#ws-home')) && !document.getElementById('ws-hero')`), 'home 1 …no picture outside Home');
+  // 2. Its cards, each heading its tab's address; Needs you absent when nothing waits.
+  await waitFor(`!!document.querySelector('#ws-home [data-ws-card="network"]')`, 10000);
+  const cards = await evaluate(CARDS);
+  const want = { state: '#/w/demo2/runs', who: '#/w/demo2/agents', room: '#/w/demo2/room', activity: '#/w/demo2/activity', folders: '#/w/demo2/folders', network: '#/w/demo2/network' };
+  check(Object.entries(want).every(([k, v]) => cards[k] === v), 'home 2 the cards state, who, room, activity, folders and network, each heading its tab ' + JSON.stringify(cards));
+  check(!('needs' in cards), 'home 2 …Needs you absent when nothing waits');
+  check(await waitFor(`(() => { const n = document.querySelectorAll('#ws-home [data-ws-card="room"] [data-ws-home-msg]').length; return n >= 1 && n <= 2; })()`, 10000),
+    'home 2 …the room card shows its last messages (at most two)');
+  check(await evaluate(`(() => { const n = document.querySelectorAll('#ws-home [data-ws-card="activity"] .ws-home-log li').length; return n >= 1 && n <= 5; })()`), 'home 2 …recent activity: at most five lines');
+  check(await evaluate(`!!document.querySelector('#ws-home [data-ws-card="folders"] [data-ws-folder]') && !!document.querySelector('#ws-home [data-ws-card="who"] [data-ws-agent="beta"]')`),
+    'home 2 …its folder and its agents, as the side panel has them');
+  check(!requested.slice(mark0).some((u) => /\/api\/v1\/workspace-folders$/.test(u)), 'home 2 …no walk of its folders');
+  // 3. Setting up: Needs you lists what is missing and Start; the Room tab keeps one line.
+  await goHash('#/w/wiz2');
+  check(await waitFor(`!!document.querySelector('#ws-home [data-ws-card="needs"] [data-ws-setup]') && !!document.querySelector('#ws-home [data-ws-start="wiz2"]')
+    && /doz workspace start wiz2/.test(${text('#ws-home [data-ws-card="needs"]')})`, 15000), 'home 3 wiz2 (setting up): Needs you lists what is missing, Start and its command');
+  await goHash('#/w/wiz2/room');
+  check(await waitFor(`!!document.querySelector('#ws-notice [data-ws-setup-line]') && /Home shows what is missing/.test(${text('#ws-notice [data-ws-setup-line]')})
+    && !document.querySelector('#ws-notice [data-gap]')`, 10000), 'home 3 …its Room tab: the one line, "Home shows what is missing"');
+  // 4. An open ask in askw's room is in Needs you, linking to the room (answered there); decided, gone on the next arrival.
+  const ask = botAsk('askerbot', ['Ready for Home?', '--option', 'yes=Yes', '--option', 'no=No']);
+  await goHash('#/w/askw');
+  check(await waitFor(`document.querySelector('#ws-home [data-ws-home-ask="${ask}"] a[data-ws-home-answer]')?.getAttribute('href') === '#/w/askw/room'`, 15000)
+    && /Ready for Home\?/.test(await evaluate(text('#ws-home [data-ws-card="needs"]'))), 'home 4 an open ask in its room is in Needs you, "Answer in the room" → #/w/askw/room');
+  check(await evaluate(`!document.querySelector('#ws-home [data-ask]') && !document.querySelector('#ws-home .chat-ask-input')`), 'home 4 …never answered here (no decision card on Home)');
+  doz(['chat', 'decide', 'askw', '#' + askNumber(ask), 'A']);
+  await goHash('#/w/askw/agents');
+  await goHash('#/w/askw');
+  check(await waitFor(`!document.querySelector('#ws-home [data-ws-home-ask="${ask}"]')`, 15000), 'home 4 …decided, gone on the next arrival');
+  // 8. A message arriving while on Home is not marked seen (Home is not the room; the room card follows while the stream is open).
+  await goHash('#/w/askw/room');
+  await waitFor(`state.chat.room === 'askw' && state.chat.live === 'live'`, 15000);
+  await goHash('#/w/askw');
+  await waitFor(`state.wsTab === 'home'`, 5000);
+  const words = 'while you are on Home ' + process.pid;
+  const seenBefore = await evaluate(`localStorage.getItem('doz.chat.seen:askw')`);
+  spawnSync(dirname(DOZ) + '/dozchat-mac', ['send', 'askw', words], { encoding: 'utf8', timeout: 60_000,
+    env: { PATH: '/usr/bin:/bin', HOME: S, CHAT_URL: 'http://127.0.0.1:' + chatPagePort, CHAT_TOKEN_FILE: S + '/askerbot.token' } });
+  const last = (dozJSON(['chat', 'read', 'askw', '--last', '1']) || [])[0] || {};
+  check(last.content === words, 'home 8 a bot posts in askw while the page is on its Home');
+  const live = await waitFor(`(${text('#ws-home [data-ws-card="room"]')}).includes(${JSON.stringify(words)})`, 4000);
+  await sleep(800);
+  const seen = await evaluate(`localStorage.getItem('doz.chat.seen:askw')`);
+  check(seen === seenBefore && (last.seq === undefined || +seen < +last.seq), `home 8 …not marked seen (the marker ${seenBefore} → ${seen}, the message ${last.seq})` + (live ? '; the room card shows it at once' : ''));
+  check(await waitFor(`state.chat.live !== 'live'`, 9000), 'home 8 …and Home holds no chat stream (closed 5 s after the room was left)');
+  // 5. An agent blocked: Needs you names it.
+  const run = spawnSync(DOZ, ['run', '@mac', '-d', '--unfenced', '--session', 'homeblk', '--store', STORE, '--', '/bin/sh', '-c',
+    "printf '\\033]7501;?\\033\\\\'; sleep 1; printf '\\033]7501;state=blocked:app=fake\\033\\\\'; exec sleep 600"], { env: ENV, encoding: 'utf8', timeout: 120_000 });
+  if (run.status === 0) {
+    homeSessions.push('homeblk');
+    doz(['workspace', 'new', 'homew', '--prompt-file', '-'], 'Wait on me.\n');
+    doz(['workspace', 'adopt', 'homew', '@mac/homeblk']);
+    await send('Page.reload');
+    await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+    await goHash('#/mac/sandboxes');
+    let blocked = false;
+    for (let i = 0; i < 20 && !blocked; i++) {
+      await goHash('#/w/homew/agents');
+      await goHash('#/w/homew');
+      blocked = await waitFor(`!!document.querySelector('#ws-home [data-ws-card="needs"] [data-ws-stuck="homeblk"]')`, 1500);
+    }
+    check(blocked && /is blocked/.test(await evaluate(text('#ws-home [data-ws-stuck="homeblk"]'))), 'home 5 an agent blocked: Needs you names it ("homeblk is blocked"), linking to Agents');
+    await shot('ws-home-needs');
+  } else {
+    console.log('  note no session on this Mac could start here (deckhold-mac?) — home 5 skipped');
+  }
+  // 6. The Room tab: chat and the brief; Back and Forward between Home and Room keep the chat where it was.
+  await goHash('#/w/demo2/room');
+  check(await waitFor(`state.chat.room === 'demo2' && !!document.querySelector('#ws-room #chat-surface') && !!document.querySelector('#ws-brief [data-ws-brief="demo2"]')`, 15000),
+    'home 6 #/w/demo2/room mounts the room and the brief');
+  await evaluate(`window.__surf = document.getElementById('chat-surface'); window.__draft = 'a draft kept ' + Date.now(); document.getElementById('chat-text').value = window.__draft`);
+  await goHash('#/w/demo2');
+  await waitFor(`state.wsTab === 'home'`, 5000);
+  await evaluate(`history.back()`);
+  check(await waitFor(`location.hash === '#/w/demo2/room' && state.wsTab === 'room' && state.chat.room === 'demo2' && document.getElementById('chat-surface') === window.__surf
+    && document.getElementById('chat-text').value === window.__draft && !document.getElementById('ws-room').closest('[hidden]')`, 10000), 'home 6 Back from Home: the same room, its surface and what was typed kept');
+  await evaluate(`history.forward()`);
+  check(await waitFor(`location.hash === '#/w/demo2' && state.wsTab === 'home' && !document.getElementById('ws-home').hidden`, 10000), 'home 6 …Forward: Home again');
+  await evaluate(`document.getElementById('chat-text').value = ''`);
+  // 7. spc2's Home: the hero drawn, opening the full window, the focus back; on another tab it is off, and nothing reads.
+  await goHash('#/w/spc2');
+  check(await waitFor(`!!document.querySelector('#ws-home [data-ws-hero="spc2"]')?.dataset.picKey`, 20000), 'home 7 spc2\'s Home draws the workspace (data-pic-key)');
+  await evaluate(`document.querySelector('[data-ws-hero="spc2"]').click()`);
+  check(await waitFor(`!!document.querySelector('[data-sp-full="spc2"]')`, 10000), 'home 7 …a click opens the full window');
+  await key(...ESC);
+  check(await waitFor(`!document.querySelector('[data-sp-full]') && document.activeElement === document.querySelector('[data-ws-hero="spc2"]')`, 5000), 'home 7 …Escape: the focus back on the drawing');
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  await sleep(1200);
+  await shot('ws-home-light');
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(1200);
+  const phone = await evaluate(`(() => { const cs = [...document.querySelectorAll('#ws-home .ws-card')].map((c) => Math.round(c.getBoundingClientRect().left));
+    return { w: document.documentElement.scrollWidth, iw: innerWidth, lefts: [...new Set(cs)].length }; })()`);
+  await shot('ws-home-390');
+  check(phone.w <= phone.iw && phone.lefts === 1, `workspaces 4 at 390 px Home has no sideways scroll and one column of cards (${phone.w}/${phone.iw} px, ${phone.lefts} column)`);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await evaluate(`delete document.documentElement.dataset.theme`);
+  await send('Emulation.setEmulatedMedia', { features: [] });
+  await goHash('#/w/spc2/agents');
+  await sleep(800);
+  const r0 = requested.filter((u) => /\/api\/v1\/workspace-state$/.test(u)).length, t0 = Date.now();
+  await sleep(3000);
+  const evs = sseEvents.filter((e) => e.at >= t0 && ['changed', 'host', 'hello'].includes(e.name)).length;
+  const reads = requested.filter((u) => /\/api\/v1\/workspace-state$/.test(u)).length - r0;
+  check(await evaluate(`!document.body.classList.contains('ws-hero-on') && document.querySelector('[data-ws-hero="spc2"] svg') ? document.querySelector('[data-ws-hero="spc2"] svg').getAnimations({ subtree: true }).length === 0 : !document.body.classList.contains('ws-hero-on')`)
+    && (evs > 0 || reads === 0), `home 7 on Agents the drawing is off (no ws-hero-on, no animation) and 3 s read no state (${reads} read(s), ${evs} event(s))`);
+  check(pageErrors.length === errorsBefore, 'home: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+}
+
+// ── the Workspaces page ────────────────────────────────────────────────────────────────────────────────────────────
+const SHOW_F = { all: () => true, waiting: (w) => w.state === 'waiting-on-you', working: (w) => w.state === 'working' || w.state === 'starting',
+  idle: (w) => w.state === 'idle', 'setting-up': (w) => w.state === 'setting-up', asleep: (w) => w.state === 'asleep', done: (w) => w.state === 'finished' || w.state === 'archived' };
+const WSL = `[...document.querySelectorAll('[data-wsl]')].map((e) => e.dataset.wsl)`;
+async function walkWorkspacesList() {
+  const errorsBefore = pageErrors.length;
+  // 1. The sidebar's Workspaces heading opens it; every workspace under Every; the counts are the listing's.
+  await goHash('#/home');
+  await waitFor(`state.view === 'home'`, 8000);
+  await evaluate(`document.querySelector('#nav a[data-nav="workspaces"]').click()`);
+  check(await waitFor(`location.hash === '#/workspaces' && state.view === 'workspaces' && !!document.querySelector('[data-workspaces] [data-wsl]')`, 15000)
+    && await evaluate(`document.querySelector('#nav a[data-nav="workspaces"]').getAttribute('aria-current') === 'page'`), 'workspaces 1 the sidebar\'s Workspaces heading opens #/workspaces, marked');
+  await evaluate(`document.querySelector('[data-wsl-layout="rows"]').click()`);
+  await waitFor(`!!document.querySelector('[data-wsl-list="rows"]')`, 8000);
+  const ls = (dozJSON(['workspace', 'ls']) || { workspaces: [] }).workspaces;
+  const names = (await evaluate(WSL)).slice().sort();
+  check(JSON.stringify(names) === JSON.stringify(ls.map((w) => w.name).sort()), `workspaces 1 Every workspace lists each one, finished and archived included (${names.length}: ${ls.filter(SHOW_F.done).length} done)`);
+  const pageRows = await evaluate(`state.workspaces.workspaces`);
+  const opts = await evaluate(`[...document.querySelectorAll('[data-wsl-show] option')].map((o) => [o.value, +((o.textContent.match(/[0-9]+(?=[)]$)/) || [])[0] ?? -1)])`);
+  check(opts.length === 7 && opts.every(([v, n]) => n === pageRows.filter(SHOW_F[v]).length) && pageRows.length === ls.length,
+    'workspaces 1 …each Show choice\'s count is the listing\'s ' + JSON.stringify(opts));
+  // Show: one filter, then Every again on the next visit.
+  await evaluate(`(() => { const s = document.querySelector('[data-wsl-show]'); s.value = 'asleep'; s.dispatchEvent(new Event('change')); })()`);
+  check(await waitFor(`(${WSL}).every((n) => state.workspaces.workspaces.find((w) => w.name === n)?.state === 'asleep')`, 8000), 'workspaces 1 Show Asleep lists only asleep ones');
+  await goHash('#/home');
+  await goHash('#/workspaces');
+  check(await waitFor(`document.querySelector('[data-wsl-show]')?.value === 'all'`, 8000), 'workspaces 1 …a new visit starts at Every workspace');
+  // 2. Rows → Grid, kept across a reload; Sort by Name and by Last activity.
+  const mark = requested.length;
+  await evaluate(`document.querySelector('[data-wsl-layout="grid"]').click()`);
+  check(await waitFor(`!!document.querySelector('[data-wsl-list="grid"]') && document.querySelector('[data-wsl-layout="grid"]').getAttribute('aria-pressed') === 'true'`, 8000), 'workspaces 2 Grid');
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/mac/sandboxes');
+  await goHash('#/workspaces');
+  check(await waitFor(`!!document.querySelector('[data-wsl-list="grid"]')`, 15000), 'workspaces 2 …still Grid after a reload (kept in this browser)');
+  await evaluate(`(() => { const s = document.querySelector('[data-wsl-sort]'); s.value = 'name'; s.dispatchEvent(new Event('change')); })()`);
+  await sleep(500);
+  const byName = await evaluate(WSL);
+  check(JSON.stringify(byName) === JSON.stringify(byName.slice().sort((a, b) => a.localeCompare(b))) && byName.length === ls.length, 'workspaces 2 Sort by Name');
+  await evaluate(`(() => { const s = document.querySelector('[data-wsl-sort]'); s.value = 'last'; s.dispatchEvent(new Event('change')); })()`);
+  await sleep(500);
+  const byLast = await evaluate(WSL);
+  const rowsNow = await evaluate(`state.workspaces.workspaces`);
+  const wantLast = rowsNow.slice().sort((a, b) => (Date.parse(b.lastAt) || 0) - (Date.parse(a.lastAt) || 0) || a.name.localeCompare(b.name)).map((w) => w.name);
+  const cliLast = Object.fromEntries(ls.map((w) => [w.name, w.lastAt || null]));
+  check(JSON.stringify(byLast) === JSON.stringify(wantLast) && rowsNow.filter((w) => w.lastAt && cliLast[w.name]).length >= ls.length - 1,
+    'workspaces 2 Sort by Last activity: newest first, per each row\'s lastAt (doz workspace ls --json\'s)');
+  await evaluate(`(() => { const s = document.querySelector('[data-wsl-sort]'); s.value = 'state'; s.dispatchEvent(new Event('change')); })()`);
+  await sleep(500);
+  // 3. Pictures only for space workspaces; a plain one a small tile here and on Home; the sidebar's box 0 px until drawn.
+  await waitFor(`!!document.querySelector('[data-wsl="spc2"] img.sp-img:not([hidden])')`, 20000);
+  const pics = await evaluate(`[...document.querySelectorAll('[data-wsl]')].map((e) => ({ name: e.dataset.wsl, img: !!e.querySelector('img.sp-img'),
+    tile: [...e.querySelectorAll('[data-pic-tile]')].map((t) => Math.round(t.getBoundingClientRect().width)) }))`);
+  const spaced = new Set(ls.filter((w) => w.space).map((w) => w.name));
+  const off = pics.filter((p) => (spaced.has(p.name) ? !p.img : p.img || !p.tile.length || p.tile.some((x) => x > 40)));
+  check(!off.length, `workspaces 3 an <img> only for each space workspace, a tile ≤ 40 px for each plain one (${pics.length}${off.length ? '; wrong: ' + JSON.stringify(off) : ''})`);
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  await sleep(1200);
+  await shot('workspaces-grid-light');
+  await evaluate(`delete document.documentElement.dataset.theme`);
+  await goHash('#/home');
+  await waitFor(`state.view === 'home' && !!document.querySelector('tr[data-ws]')`, 10000);
+  const homeTiles = await evaluate(`[...document.querySelectorAll('tr[data-ws] [data-pic-tile]')].map((t) => Math.round(t.getBoundingClientRect().width))`);
+  check(homeTiles.length > 0 && homeTiles.every((x) => x <= 40), `workspaces 3 …Home's plain tiles are small too (${homeTiles.join(', ')} px)`);
+  check(requested.slice(mark).filter((u) => RENDERER.test(u)).length === 1, `workspaces 3 the renderer fetched once since the reload (${requested.slice(mark).filter((u) => RENDERER.test(u)).length})`);
+  // (spc2 is down now: it may sit under a folded group)
+  for (const g of ['~asleep', '~done']) await evaluate(`(() => { const b = document.querySelector('[data-ws-group="${g}"]'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click(); })()`);
+  await waitFor(`!!document.querySelector('[data-ws-fold="spc2"]')`, 8000);
+  await evaluate(`(() => { const c = document.querySelector('[data-ws-fold="spc2"]'); if (c && c.getAttribute('aria-expanded') !== 'true') c.click(); })()`);
+  const navDrawn = await waitFor(`!!document.querySelector('[data-nav-ws="spc2"] .sp-thumb-nav[data-pic-key] img:not([hidden])')`, 15000);
+  check(navDrawn, 'workspaces 3 the sidebar\'s box, 0 px tall until drawn, is still seen and drawn');
+  const nav = !navDrawn ? { before: -1, drawn: 0 } : await evaluate(`(() => { const t = document.querySelector('[data-nav-ws="spc2"] .sp-thumb-nav'); const r = t.getBoundingClientRect(); const drawn = r.height / r.width;
+    const k = t.dataset.picKey, img = t.querySelector('img'); delete t.dataset.picKey; img.hidden = true; const before = t.getBoundingClientRect().height;
+    t.dataset.picKey = k; img.hidden = false; return { drawn: Math.round(drawn * 1000) / 1000, before }; })()`);
+  check(nav.before === 0 && Math.abs(nav.drawn - 0.625) < 0.02, `workspaces 3 …the sidebar's box is 0 px before a picture, 16:10 after (${nav.before} px; ${nav.drawn})`);
+  // 4. 390 px: both layouts, no sideways scroll; the grid one column.
+  await goHash('#/workspaces');
+  await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await sleep(1200);
+  const g390 = await evaluate(`({ w: document.documentElement.scrollWidth, iw: innerWidth, cols: new Set([...document.querySelectorAll('.wsl-card')].map((c) => Math.round(c.getBoundingClientRect().left))).size })`);
+  await shot('workspaces-grid-390');
+  await evaluate(`document.querySelector('[data-wsl-layout="rows"]').click()`);
+  await waitFor(`!!document.querySelector('[data-wsl-list="rows"]')`, 8000);
+  await sleep(1200);
+  const r390 = await evaluate(`({ w: document.documentElement.scrollWidth, iw: innerWidth })`);
+  await shot('workspaces-rows-390');
+  check(g390.w <= g390.iw && g390.cols === 1 && r390.w <= r390.iw, `workspaces 4 at 390 px no sideways scroll, the grid one column (grid ${g390.w}/${g390.iw}, ${g390.cols} column; rows ${r390.w}/${r390.iw})`);
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  await evaluate(`document.documentElement.dataset.theme = 'light'`);
+  await sleep(1200);
+  await shot('workspaces-rows-light');
+  await evaluate(`delete document.documentElement.dataset.theme`);
+  // 5. The keyboard: Tab from the toolbar reaches the first row's name, then its room, then its action; Space toggles the layout.
+  await evaluate(`document.querySelector('[data-wsl-layout="grid"]').focus()`);
+  const seq = [];
+  for (let i = 0; i < 3; i++) {
+    await key('Tab', 'Tab', 9);
+    seq.push(await evaluate(`(() => { const a = document.activeElement, li = a.closest('[data-wsl]'); return { li: li ? li.dataset.wsl : null, first: li === document.querySelector('[data-wsl]'),
+      cls: a.className, href: a.getAttribute('href') }; })()`));
+  }
+  const first = await evaluate(`document.querySelector('[data-wsl]').dataset.wsl`);
+  check(seq.every((x) => x.first) && /wsl-name/.test(seq[0].cls) && seq[0].href === '#/w/' + first && (seq[1].href === '#/w/' + first + '/room' || /btn/.test(seq[1].cls)),
+    'workspaces 5 Tab from the toolbar: the first row\'s name, then its room, then its action ' + JSON.stringify(seq));
+  await evaluate(`document.querySelector('[data-wsl-layout="grid"]').focus()`);
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32, text: ' ' });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
+  check(await waitFor(`!!document.querySelector('[data-wsl-list="grid"]') && document.activeElement === document.querySelector('[data-wsl-layout="grid"]')`, 8000),
+    'workspaces 5 Space on Grid toggles the layout, the focus kept on it');
+  await evaluate(`document.querySelector('[data-wsl-layout="rows"]').click()`);
+  // 6. No CSP violation; the first load's glue as before; the leak sweep.
+  check((await evaluate('window.__violations.length')) === 0, 'workspaces 6 no CSP violation');
+  check(pageErrors.length === errorsBefore, 'workspaces: no page error' + (pageErrors.length > errorsBefore ? ': ' + pageErrors.slice(errorsBefore, errorsBefore + 3).join(' | ') : ''));
+  await leakSweep('Home and the Workspaces page');
 }
 
 const wideSessions = [];
@@ -1951,12 +2221,14 @@ try {
   await walkAsks();
   await walkWideViews();
   await walkPictures();
+  await walkHome();
+  await walkWorkspacesList();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);
   for (let i = 0; i < 100 && existsSync(STORE + '/daemon.pid'); i++) await sleep(100);
   check(!existsSync(STORE + '/daemon.pid'), 'the daemon is stopped');
-  for (const h of ['#/mac/sandboxes', '#/home', '#/mac/loose', '#/bots', '#/bots/nova', '#/w/demo/agents', '#/w/demo2']) { await goHash(h); await waitFor(SHOWN, 8000); }
+  for (const h of ['#/mac/sandboxes', '#/home', '#/mac/loose', '#/bots', '#/bots/nova', '#/w/demo/agents', '#/w/demo2', '#/w/demo2/room']) { await goHash(h); await waitFor(SHOWN, 8000); }
   check(await waitFor(`state.view === 'workspace' && /Walk it again/.test(${text('[data-ws-brief="demo2"]')})`, 10000), 'with the daemon stopped, #/w/demo2 still reads (from the store)');
   // The wide views with the daemon stopped: each tab reads from the store, none starts it.
   for (const [h, sel] of [['#/w/wide/network', '[data-ws-network="wide"]'], ['#/w/wide/folders', '[data-ws-folders="wide"]'], ['#/w/wide/activity', '[data-ws-activity="wide"]'],
@@ -2003,7 +2275,7 @@ try {
   try { chrome && chrome.kill('SIGKILL'); } catch (_) { /* gone */ }
   if (macSession) spawnSync(DOZ, ['sessions', 'end', '@mac', macSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
   if (lifeSession) spawnSync(DOZ, ['sessions', 'end', '@mac', lifeSession, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
-  for (const s of wideSessions.concat(pictureSessions)) spawnSync(DOZ, ['sessions', 'end', '@mac', s, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
+  for (const s of wideSessions.concat(pictureSessions, homeSessions)) spawnSync(DOZ, ['sessions', 'end', '@mac', s, '--yes', '--store', STORE], { env: ENV, timeout: 60_000 });
   for (const [w, n] of startedWorkers) spawnSync(DOZ, ['worker', 'end', w, n, '--store', STORE], { env: ENV, timeout: 60_000 });
   try { ui && process.kill(-ui.pid, 'SIGTERM'); } catch (_) { /* gone */ }
   if (uiB) spawnSync(DOZ, ['ui', 'stop', '--store', STORE_B], { env: ENV_B, timeout: 60_000 });

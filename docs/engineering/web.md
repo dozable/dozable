@@ -14,7 +14,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | `WebSource/app/dom/` | `h.js` (`h`, `$` — text only), `icons.js` (`icon`, `iconFor`, `withIcon`, `setButton`, the glyph maps) |
 | `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `routes.js` (the addresses: `parse`, `canonical`, `LEGACY`, `MAC_RESERVED`, `placeHash` — pure), `router.js` (`route`, `routePage`, `refresh`), `workspaces.js` (the workspace, loose and bot reads, shared and never on a timer), `ws-log.js` (a workspace's log in a room: the pure `interleave`), `ws-lifecycle.js` (the lifecycle's pure parts), `space-pictures.js` (the workspace drawn: reads, queue, cache, the one lazy load — "The workspace drawn" below), `events.js` (SSE `connect`), `grid.js` + `vt-grid.js` (648: the GRID, its checks, a saved screen's VT read into one) |
 | `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`; a link item), `mac-picker.js` (the machine picker), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `notes.js` (647: the notifications in the top-right corner — cards, pills, bell), `page-title.js` (647: the sticky title bar and table heads), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `ws-nav.js` (the sidebar's Workspaces), `ws-marks.js` (a workspace's state pill and dot, the driver and manager chips), `ws-brief.js` (a workspace's brief card), `ws-panel.js` (its side panel and each sender's meta line), `ws-lifecycle.js` (its lifecycle's dialogs, the primary button, the ⋯ items), `space-picture.js` (the workspace drawn: the thumbnails, the hero, the full-window view, the tile), `agent-frame.js` (an agent's screen: the frame, "In this workspace", a place's own page's strip), `put-in-workspace.js` ("Put in a workspace…", "Take out…"), `bot-form.js` (an Agent / Bot's edit tabs and a new one's form), `bot-invite.js` ("Add to a room…": `/invite` as you), `cmd-line.js` (a command with Copy), `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `screen-paint.js` + `grid-feed.js` + `session-thumb.js` (648: the painted pictures, the one feed, their sources), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
-| `WebSource/app/views/` | one per page: `home` (the workspaces), `new-workspace` (the New workspace wizard, `#/new-workspace`; its pure parts in `core/ws-new.js`, the gaps in `components/ws-gaps.js`; the server side `Sources/DozableWeb/WebWorkspaceNew.swift`), `workspace` (a workspace's page, `#/w/NAME`), `ws-agents` (its Agents tab, `#/w/NAME/agents`, and an agent's card), `add-worker` (Add a worker, `#/w/NAME/agents/new`; its pure parts in `core/add-worker.js`, End… and the links in `components/worker-end.js`; the server side `Sources/DozableWeb/WebWorkers.swift`), `isolation-guide` (where an agent runs, `#/guide/isolation[/ID]`; its words `core/isolation.js`, the chip `components/iso-chip.js`), `bot` (one Agent / Bot, `#/bots/NAME[/TAB]`, and `#/bots/~new`), `this-mac` (This Mac's overview), `macs` (This Mac › Your Macs), `loose` (Loose agents), `bots` (Agents / Bots), `overview` (This Mac › Sandboxes), `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
+| `WebSource/app/views/` | one per page: `home` (the workspaces), `workspaces` (every workspace, rows or a grid, `#/workspaces`; a row's next action `components/ws-next.js`), `new-workspace` (the New workspace wizard, `#/new-workspace`; its pure parts in `core/ws-new.js`, the gaps in `components/ws-gaps.js`; the server side `Sources/DozableWeb/WebWorkspaceNew.swift`), `workspace` (a workspace's page, `#/w/NAME`), `ws-home` (its Home tab, `#/w/NAME`: the drawing and its cards, `components/ws-card.js`), `ws-agents` (its Agents tab, `#/w/NAME/agents`, and an agent's card), `add-worker` (Add a worker, `#/w/NAME/agents/new`; its pure parts in `core/add-worker.js`, End… and the links in `components/worker-end.js`; the server side `Sources/DozableWeb/WebWorkers.swift`), `isolation-guide` (where an agent runs, `#/guide/isolation[/ID]`; its words `core/isolation.js`, the chip `components/iso-chip.js`), `bot` (one Agent / Bot, `#/bots/NAME[/TAB]`, and `#/bots/~new`), `this-mac` (This Mac's overview), `macs` (This Mac › Your Macs), `loose` (Loose agents), `bots` (Agents / Bots), `overview` (This Mac › Sandboxes), `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the daemon attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Sources/DozableWeb/WebMac.swift`; `WebSource/app/views/mac.js`, `mac-capabilities.js`, `mac-wizard.js`, `app/core/places.js` | This Mac (`@mac`, the sessions held on the Mac itself — fenced or not): the projection (its fence, its capability rows, the tile's chips), the ticket's strict body, the grids rule, the Network / Conversations / quarantine answers, the New session wizard's plan (carrying `buildCommands` for the Swift / Xcode case — `MacBuildCommands`, the one source the wizard's "Inside the session" block, `doz run @mac --xcode --dry-run` and the fence suite share); the page (`#/mac`) and All sessions' section; "What this session can do"; the wizard; the place → route helper (`placePath`, `screenPath`) every ticket, socket and saved screen goes through (the page is This Mac › On this Mac, `#/mac/here`) |
@@ -536,31 +536,60 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
 
 ## A workspace's page
 
-- **Addresses** (`core/routes.js`): `#/w/NAME` — the main room — and `#/w/NAME/room/LABEL` — another room by its short
-  label; both parse to view `workspace` with `{param: NAME, room: LABEL|null}` (NAME by `WorkspaceName`, LABEL by the room
-  rule). An unknown label opens the main room with the line "no room LABEL in NAME". `#/chat[/ROOM]` is unchanged. The
-  sidebar's name, its `# label`s, Home's row and Open room, and Agents / Bots lead here (`workspaceHash`). No address for
-  the later tabs.
+- **Addresses** (`core/routes.js`): `#/w/NAME` — its **Home** tab, the page's default — `#/w/NAME/room` — the Room tab,
+  its main room — and `#/w/NAME/room/LABEL` — another room by its short label; each parses to view `workspace` with
+  `{param: NAME, tab: 'home'|'room', room: LABEL|null}` (NAME by `WorkspaceName`, LABEL by the room rule). `LEGACY`:
+  `#/w/NAME/` and `#/w/NAME/home` → `#/w/NAME`; `#/w/NAME/room/` → `#/w/NAME/room`. An unknown label opens the main room
+  with the line "no room LABEL in NAME". `#/chat[/ROOM]` is unchanged. `workspaceHash(name)` is Home (the sidebar's name,
+  Home's row, the crumbs, "Open W", Agents / Bots); `roomHash(name, label)` is the Room tab — every link that means the
+  room (Home's `# room` and Open room, the sidebar's `# label`s, "the room, with this agent", a bot's Open room, the room
+  strip's own addresses); `workspaceHash(name, label)` with a label is `roomHash`'s.
 - **One chat client** (`views/chat.js`): `build()` makes the room surface ONCE — `#chat-surface` (the head, the notice,
   `#chat-cols`: the rooms, the log with its composer) and the people pane `#chat-people-pane`. `mountChat(host, scope,
   room)` MOVES that subtree: into the workspace page's `#ws-room` (the people pane into the side panel's slot), or back into
   `#chat` (`host` null; `chatEnter` is `mountChat(null, null, room)`). `scope` is null on `#/chat`; on a workspace
   `{workspace, rooms: [{label, room, main}], who(name), sysLines(room), address(room)}` in `state.chat.scope`. A change of
   scope always opens the room again (`openRoom`), so no stale room or focus survives the move. `drawRooms` lists only the
-  scope's rooms the person is in (`# label`, the main room by its own name, each its `#/w/…` address) plus a disabled
+  scope's rooms the person is in (`# label`, the main room by its own name, each its `#/w/…/room` address) plus a disabled
   "+ room". `openRoom`, `chat-live.js` (one stream — the router leaves it open between the two views), drafts, unread,
   edit, reactions and the gallery are untouched. No second fetch path, stream or composer: `WebModulesTests.
-  testTheWorkspacePageIsOneChatClient`; the walk asserts exactly one `#chat-text`.
+  testTheWorkspacePageIsOneChatClient`; the walk asserts exactly one `#chat-text`. The room is mounted on the Room tab's
+  first visit; Home never holds the stream (`chatLeave` on arriving there: being on Home is not being in the room, so a
+  message that arrives then is not marked seen), and coming back reopens it with the surface, the room and its draft as
+  they were.
 - **The page** (`views/workspace.js`, the section `#ws`, built once; the router's `main-chat` layout, `main-ws` below
   980 px where the panel folds under the room and the document scrolls): the title row (name, `workspacePill`,
   `driverChip`, the manager's `managerChip` — "acts as you" when unfenced —, the one primary button its state offers and ⋯
-  with its lifecycle and the set-up gaps — "Lifecycle actions", below); the tab row `WS_TABS` — Room · Agents · `PERMISSIONS_TAB` ("Permissions", ONE constant) · Network & secrets ·
-  Folders & points · Activity · Settings — Room, Agents, Network & secrets, Folders & points and Activity work (links to `#/w/NAME`,
-  `#/w/NAME/agents`, `/network`, `/folders`, `/activity` — "Workspace-wide views", below), Permissions and Settings
-  `aria-disabled` with a "coming" tag and a title saying what they will hold (Permissions: "today: each agent's Can do"); the notices (setting up: the gaps and `doz workspace start W`; no room; a missing room; log
-  lines hidden); the brief (`components/ws-brief.js`); the room; the side panel (`components/ws-panel.js`).
+  with its lifecycle and the set-up gaps — "Lifecycle actions", below); the tab row `WS_TABS` — Home · Room · Agents · `PERMISSIONS_TAB` ("Permissions", ONE constant) · Network & secrets ·
+  Folders & points · Activity · Runs · Settings — Home, Room, Agents, Network & secrets, Folders & points, Activity and Runs work (links to `#/w/NAME`,
+  `#/w/NAME/room`, `/agents`, `/network`, `/folders`, `/activity`, `/runs` — "Workspace-wide views", below), Permissions and Settings
+  `aria-disabled` with a "coming" tag and a title saying what they will hold (Permissions: "today: each agent's Can do");
+  Home (`#ws-home`, below); on the Room tab the notices (setting up: ONE line, "Setting up — Home shows what is missing";
+  no room; a missing room; log lines hidden), the brief (`components/ws-brief.js`), the room and the side panel
+  (`components/ws-panel.js`).
+- **Home** (`views/ws-home.js`, `#ws-home`, a `tabpanel`): the workspace drawn full width ("The workspace drawn", below —
+  the hero, or a plain one's compact band), then its cards in a grid (`.ws-cards`: `repeat(auto-fit, minmax(17rem, 1fr))`,
+  one column at ≤ 760 px; the DOM order is the focus order: the title row, the tabs, the drawing, Needs you, the cards).
+  A card (`components/ws-card.js`, `wsCard({id, title, icon, href, linkLabel, count, body})` → `<section class="ws-card"
+  data-ws-card=ID aria-labelledby>`) has a heading that links to the tab holding the whole of it ("Who →" the Agents tab);
+  its body is never a link itself. **Needs you** (only when something waits, first): the setting-up checklist — the gaps
+  (`gapsList`), Start and `doz workspace start W` (moved here from the Room tab) —, the workspace's notes, its rooms' open
+  asks (`#N`, who asks, the question's first line, when it expires, "Answer in the room" → `roomHash(W, LABEL)`; answering
+  stays the room's decision card — Home never answers), and agents blocked, in error or failed (each its screen, and
+  Agents). **State and run** (→ Runs): the pill and since when (made, started, finished or archived), "Defined by FILE ·
+  up · run R since T" (moved from the notices), the lifecycle verbs beside the head's — not its primary, not Archive or
+  Delete (⋯ keeps them) —, Runs. **Who** (→ Agents): who drives, the manager, `agentsBox` compact, + Worker. **The room**
+  (→ Room): `# room`, its last two messages (a direct message, an ask — "asks: …" — or a deleted one by what it is), "No
+  room yet". **Recent activity** (→ Activity): the log's last five lines (`lineText`), the hidden-lines note. **Folders**
+  (`foldersBox`, never a walk of them) and **Network** (`networkBox`) — the side panel's boxes, exported one by one
+  (`agentsBox`, `foldersBox`, `networkBox`; `wsPanel` composes them as before). Reads: what `wsEnter`/`wsRefresh` already
+  read (the detail, the log), plus two of its own while it is the tab — `chat/rooms/R/messages?limit=2` and the open asks
+  (`GET /api/v1/chat/asks`, "Chat" above), only while chat runs and this browser may read it — on arrival, hello, `changed`
+  and an operation's end; and, while chat's stream happens to be open (the Room tab was just left), `onAskChange` and
+  `onPreview` (`components/chat-unread.js`, beside `setPreview`) read them again. Never a timer; "as of HH:MM" while the
+  stream is closed. Another computer: the asks and messages follow `serve.chat`, the agents `serve.mac_sessions`.
 - **The brief card**: `renderMarkdown` text; references (paths through `tildePath`, links through `safeLink`, a new tab,
-  no referrer); "by you · TIME · edited N times" (the log's `brief-edited` lines); open on `#/w/W`, one line on a room's
+  no referrer); "by you · TIME · edited N times" (the log's `brief-edited` lines); open on `#/w/W/room`, one line on another room's
   address, remembered per workspace in browser storage `doz.ws.fold:<w>` (try/catch); **Edit** — the brief only — saves
   with the one action `workspace-brief` and the sha256 read with it (a change since: refused, said in the card); at most
   `BRIEF_MAX_BYTES` (15 KiB, the JSON body within the actions' 16 KiB) — beyond it, `doz workspace edit W --prompt-file F`
@@ -588,12 +617,12 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   with this browser"); Edit only with `write` (`state.chat.status.access`); every lifecycle button disabled with its command — CLAUDE.md's rule.
 - **The walk** (`make dashboard-walk`, after the shell's checks): chat ON with OS-chosen `chat.page_port` /
   `chat.line_port` (checked not live); `demo2` (a brief, a reference, a folder, the never-booted sandbox `beta`) started
-  with no manager, an unrelated room `other`, and `demo3` with an unfenced manager recorded. Checks: `#/w/demo2` → view
-  `workspace`, the brief open with its text; the tabs in order, Room and Agents enabled, "Permissions" from the constant; the
+  with no manager, an unrelated room `other`, and `demo3` with an unfenced manager recorded. Checks: `#/w/demo2/room` → view
+  `workspace`, the brief open with its text; the tabs in order, Home, Room and Agents enabled, "Permissions" from the constant; the
   kick-off bubble and "started the work" in time order; Edit → Save posts the announcement, adds "edited the work",
   History shows one edit; the strip lacks `other`, `#/w/demo2/room/other` opens the main room with the line; `#/chat`
   lists `other` with the one `#chat-text` back there; the panel equals `doz workspace show demo2 --json`; `demo3` shows
-  "acts as you"; the sidebar and Home lead to `#/w/demo2`; `interleave` against fixtures; at 390 px the panel is below the
+  "acts as you"; the sidebar and Home lead to `#/w/demo2` (their room links to `#/w/demo2/room`); `interleave` against fixtures; at 390 px the panel is below the
   room; with the daemon stopped, `#/w/demo2` still reads and starts none. `SHOTS=/tmp/DIR` keeps pictures (light, dark,
   390 px). Then the agents (`walkAgents`): `#/w/demo2/agents` equals `doz workspace show demo2 --json` with its chips, the
   greyed cloud row and Grid disabled; demo3's unfenced manager reads "acts as you"; from Loose agents gamma goes into `demo`
@@ -1477,12 +1506,14 @@ never applied — up applies it. `WebActionTests.testTheSpaceSave`, `ServeExposu
 
 A workspace a space file made is drawn from its file and its live state by the space editor's renderer
 (`vendor/space-editor/space-render.js`, "Vendoring by peer commit" above): a thumbnail on Home (the Workspace cell, 128 × 80;
-96 × 60 at phone width) and at the top of an unfolded workspace in the sidebar (`ui.nav_thumbnails`, on by default — the
-same setting as the sidebar's session pictures), and the hero on its page, between the title row and the tabs.
+96 × 60 at phone width), on the Workspaces page (rows and the grid's band — the same 160 × 100 drawing, scaled) and at the
+top of an unfolded workspace in the sidebar (`ui.nav_thumbnails`, on by default — the same setting as the sidebar's session
+pictures), and the hero on its Home tab, full width — on no other tab.
 
 - **Which**: `workspace-ls` rows carry `space {file, up}` (from the record, the file never opened; workspaces.md, "Space
-  files"), so Home and the sidebar know with no request: a row without one gets the plain tile (Lucide `boxes`, "Made
-  without a space file"; nothing in the sidebar), and on its page a compact band ("Made without a space file — `doz
+  files"), so Home, the Workspaces page and the sidebar know with no request: a row without one gets a small tile
+  (`.sp-tile-sm`, 32 × 32, Lucide `boxes`, "Made without a space file") in a slot the thumbnail's width — never a big
+  empty box —, nothing in the sidebar; a file this browser may not read keeps its box, the icon centred; and on its Home a compact band ("Made without a space file — `doz
   workspace up -f FILE` draws it"). A page with no space workspace never loads the renderer.
 - **The data** (`core/space-pictures.js`): one entry per workspace, shared by every picture of it — the file (`POST
   workspace-space`) and the state (`POST workspace-state`), read one at a time per workspace, at most two reads at once, and
@@ -1505,14 +1536,17 @@ same setting as the sidebar's session pictures), and the hero on its page, betwe
   redraw (the same `<img>` moved — a slot per place and name), is a cache hit. The hero is redrawn only when its key
   changes (`data-pic-key`, which the walk reads). The renderer loads the first time a picture shows; a failed load shows
   "The picture could not be drawn". About 20–30 ms a drawing in the walk (a hero ~20, a thumbnail ~30).
-- **The hero** (`components/space-picture.js`, `.ws-hero-band`): folds like the brief (`doz.ws.hero:W`; folded on a room's
-  address); a button that opens the full-window view (`.sp-full`, no address of its own — Escape, Close or the backdrop
+- **The hero** (`components/space-picture.js`, `.ws-hero-band`, drawn by `views/ws-home.js`; no fold): a button that opens the full-window view (`.sp-full`, no address of its own — Escape, Close or the backdrop
   close it, the focus goes back to the hero). A still: its `live-pulse` stopped (`.ws-hero .live-pulse { animation: none
   !important }` — the drawing's own style is unlayered, so a layered rule needs `!important`); the drawing's own
-  `prefers-reduced-motion` rule covers the rest. While an unfolded hero is on screen it sets `body.ws-hero-on`, and the
+  `prefers-reduced-motion` rule covers the rest. While the hero is on screen it sets `body.ws-hero-on` (another tab hides
+  Home, and the visibility watch turns it off), and the
   notification cards stack at the bottom right instead of hanging over its drawing (the walk checks the boxes never meet). A file that doesn't read (the root `<svg>` has class `problem`): the hero
   adds Dozable's verdict — `workspace-space-plan` once per file sha, the first two problems and the count, and `doz workspace
   up -f FILE --dry-run`; a thumbnail shows only the marker. State unreadable: the file alone.
+- **The sidebar's box** (CSS only): `.sp-thumb-nav` has no height and no well until a picture lands (`[data-pic-key]`:
+  16:10 on the well), so an unfolded workspace shows no empty box while it reads or is off screen; the visibility watch
+  still sees the 0 px box (the walk checks it is drawn and 0 px without its key).
 - **Another computer**: the file follows `serve.chat` through its own route (403 `space-remote` → the tile, "Shown to another
   computer only with serve.chat read"); the state follows the `serve.mac_sessions` projection the server sets. The page
   never sends a viewer field.
@@ -1522,3 +1556,37 @@ same setting as the sidebar's session pictures), and the hero on its page, betwe
   fetched once, the hero named; 3 s without an event reads no state; the full-window view opens and closes; dark is a new
   drawing, light again a cache hit; under reduced motion no animation; down, then a sandbox change → a new state sha; at
   390 px it fits; a file that doesn't read → the marker and the problem line; the leak sweep; pictures to `SHOTS`.
+
+## The Workspaces page
+
+`#/workspaces` (`views/workspaces.js`, in `#view` like Home; the router's `refresh()` table): every workspace on this Mac,
+finished and archived ones included. The sidebar's Workspaces heading is its link (`<a class="ng-label" href="#/workspaces"
+data-nav="workspaces">`, marked by `paintNav`), and Home's sub line says "All workspaces →".
+
+- **Data**: `loadWorkspaces(0)` on arrival, hello, `changed` and an operation's end, like Home — no workspace's own read, no
+  message read. Last activity is the row's `lastAt` (the time of its log's last line — workspaces.md, "The listing says
+  when"; another computer gets none for a workspace with a place on this Mac while `serve.mac_sessions` is off).
+- **The toolbar** (`.toolbar`): **Show** — Every workspace (the default), Waiting on you, Working, Idle, Setting up, Asleep,
+  Finished & archived, each with its count; **Sort** — State (the default: `byState`, then the name, as Home and the
+  sidebar), Name, Last activity (newest first, none last); **Layout** — `.segmented role=group` with Rows and Grid
+  (`aria-pressed`). Layout and sort are kept in this browser (`doz.workspaces.layout`, `doz.workspaces.sort`, try/catch);
+  Show starts at Every workspace on each visit; a change redraws with `refresh(false)` and the focus stays on the control.
+- **Rows** (`<ul class="wsl-rows">`, one `<li data-wsl=NAME>` each): the picture (160 × 100; 96 × 60 at ≤ 760 px), the
+  name (its Home), the state pill, who drives and the manager, who is working, the folders, `# room` (`roomHash`), "active
+  3 h ago" (`when(lastAt)`) and the one next action (`components/ws-next.js` — Home's, moved there: Sleep, Wake, Reopen,
+  Restore, a setting-up one's command, Open room). **Grid** (`<ul class="wsl-grid">`, `repeat(auto-fill, minmax(15rem,
+  1fr))`, `grid-auto-rows: 1fr`): a 16:10 picture band, the name and pill, the manager, how many work, last activity,
+  `# room`, the next action; a plain card keeps the band's height on its own surface with the small tile and "No drawing —
+  made without a space file".
+- **Pictures**: one place, `'list'`, for both layouts (a switch or a redraw moves the same `<img>`; `forgetThumbs(names,
+  'list')` each draw), drawn 160 × 100 and scaled by CSS — the same drawing as Home's, a cache hit. Only space workspaces
+  on screen are read; an asleep, finished or archived one's state only on hello or arrival ("The workspace drawn", above).
+- **Keyboard**: each workspace is one `<li>` with its own links and buttons, never a wrapping link (the picture's link is
+  out of the tab order): Tab from the toolbar reaches the first row's name, its room, its action. One column at 390 px.
+- **The walk** (`make dashboard-walk`, "home" and "workspaces" rows): Home's tab, its cards and their tabs, Needs you
+  (setting up, an open ask then decided, an agent blocked), the Room tab's one line, Back and Forward keeping the room, a
+  message on Home not marked seen, the hero on Home only (off on Agents, no reads in 3 s); the page from the sidebar, every
+  workspace with the listing's counts, Rows → Grid kept across a reload, the two sorts, pictures only for space workspaces and
+  small tiles (≤ 40 px) elsewhere, the sidebar's box 0 px until drawn, 390 px, the keyboard order, Space on the layout; no CSP
+  violation; the leak sweep. Pictures under `SHOTS`: `ws-home-light`, `ws-home-390`, `ws-home-needs`, `workspaces-rows-light`,
+  `workspaces-rows-390`, `workspaces-grid-light`, `workspaces-grid-390`.
