@@ -35,6 +35,9 @@ public struct ConnectionRecord: Sendable, Codable, Equatable, Identifiable {
     public var decrypted: Bool
     /// What happened to a credential: `injected anthropic`, `swapped anthropic`, `rejected: …`.
     public var credential: String?
+    /// 747: the same, structured, for the timeline's key source: which binding (by name, never a value), how, whether it
+    /// went through. Set beside each `credential`.
+    public var credentialUse: CredentialUse?
     public var bytesUp: Int
     public var bytesDown: Int
     /// Time to reach the upstream (connect; TLS for decrypted tunnels), ms.
@@ -69,6 +72,22 @@ public struct ConnectionRecord: Sendable, Codable, Equatable, Identifiable {
 
     /// `host:port`, or the bare host for DNS.
     public var target: String { port.map { "\(host):\($0)" } ?? host }
+}
+
+/// 747: what happened to a credential on one connection — the binding's NAME (never a value), how it was used, and
+/// whether it went through. `via`: injected · swapped · renewal · foreign · rejected · refused · unavailable.
+public struct CredentialUse: Sendable, Codable, Equatable {
+    public var binding: String?
+    public var via: String
+    public var ok: Bool
+    public init(binding: String?, via: String, ok: Bool) { self.binding = binding; self.via = via; self.ok = ok }
+    public static func injected(_ b: String) -> Self { .init(binding: b, via: "injected", ok: true) }
+    public static func swapped(_ b: String) -> Self { .init(binding: b, via: "swapped", ok: true) }
+    public static let foreign = Self(binding: nil, via: "foreign", ok: true)
+    public static let rejected = Self(binding: nil, via: "rejected", ok: false)
+    public static let refused = Self(binding: nil, via: "refused", ok: false)
+    public static let unavailable = Self(binding: nil, via: "unavailable", ok: false)
+    public static func renewal(ok: Bool) -> Self { .init(binding: "chatgpt", via: "renewal", ok: ok) }
 }
 
 /// A sandbox's connection log: the newest `capacity` records, updated in place while a

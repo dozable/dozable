@@ -707,7 +707,7 @@ public final class EgressProxy: @unchecked Sendable {
         let tokens = CredentialVault.placeholders(inHead: head)
         if !tokens.isEmpty {
             func refuse(_ why: String, credential: String? = nil) {
-                rec.verdict = .denied; rec.open = false; rec.credential = credential ?? "rejected: \(why)"
+                rec.verdict = .denied; rec.open = false; rec.credential = credential ?? "rejected: \(why)"; rec.credentialUse = .rejected
                 log.upsert(rec)
                 _ = Wire.writeAll(fd, Self.forbidden(why))
             }
@@ -729,7 +729,7 @@ public final class EgressProxy: @unchecked Sendable {
                     guard let again = HTTPHead(out) else { refuse("unreadable request"); return }
                     head = out
                     h = again
-                    rec.credential = "swapped \(b)"
+                    rec.credential = "swapped \(b)"; rec.credentialUse = .swapped(b)
                     if case .swap(let ts) = verdict { tailscaleDial = ts }
                 case .reject(let why):
                     refuse(why)
@@ -737,6 +737,7 @@ public final class EgressProxy: @unchecked Sendable {
                 case .refuse(let code, let why):
                     rec.verdict = .denied; rec.open = false
                     rec.credential = code == 401 ? "unavailable: \(why)" : "refused: \(why)"
+                    rec.credentialUse = code == 401 ? .unavailable : .refused
                     log.upsert(rec)
                     _ = Wire.writeAll(fd, Self.refusal(host: host, code, why))
                     return
@@ -783,7 +784,7 @@ public final class EgressProxy: @unchecked Sendable {
         rec.latencyMs = milliseconds(since: t0)
         if up < 0, requireTailscale, refused == tailscaleWhy {
             let why = PlainHTTPSecretRule.message(host: host, port: port) + " (\(tailscaleWhy))"
-            rec.verdict = .denied; rec.open = false; rec.detail = tailscaleWhy; rec.credential = "rejected: \(why)"
+            rec.verdict = .denied; rec.open = false; rec.detail = tailscaleWhy; rec.credential = "rejected: \(why)"; rec.credentialUse = .rejected
             log.upsert(rec)
             _ = Wire.writeAll(fd, Self.forbidden(why))
             return
@@ -936,6 +937,7 @@ public final class EgressProxy: @unchecked Sendable {
         func refuseGitHub(_ record: ConnectionRecord, _ why: String) {
             var r = record
             r.verdict = .denied; r.open = false; r.credential = "refused: GitHub is read-only for this sandbox"
+            r.credentialUse = CredentialUse(binding: CredentialBinding.github.id, via: "refused", ok: false)
             log.upsert(r)
             current = nil
             reject(Self.response(403, why + "\n", extra: "X-Sandbox-Policy: github\r\n"))
@@ -969,6 +971,7 @@ public final class EgressProxy: @unchecked Sendable {
                 r.verdict = ok ? .allowed : .denied
                 r.open = false
                 r.credential = ok ? "answered chatgpt renewal (the Mac renews the sign-in)" : "refused chatgpt renewal"
+                r.credentialUse = .renewal(ok: ok)
                 log.upsert(r)
                 current = nil
                 reject(answer)
@@ -1005,7 +1008,7 @@ public final class EgressProxy: @unchecked Sendable {
                                                  verdict: .allowed, rule: "ChatGPT sign-in renewal (answered by Dozable on the Mac)", decrypted: true, open: true)
                         let length = Int(h.value("content-length") ?? "") ?? -1
                         guard h.value("transfer-encoding") == nil, length >= 0, length <= Self.maximumRenewalBody else {
-                            var d = r; d.verdict = .denied; d.open = false; d.credential = "refused: a renewal Dozable could not read"
+                            var d = r; d.verdict = .denied; d.open = false; d.credential = "refused: a renewal Dozable could not read"; d.credentialUse = .renewal(ok: false)
                             log.upsert(d)
                             current = nil
                             reject(OpenAIAccess.refreshAnswer(placeholder: "", guestIDToken: nil, problem: "a sign-in renewal Dozable could not read was refused"))
@@ -1029,7 +1032,7 @@ public final class EgressProxy: @unchecked Sendable {
                     awaitingStatus = nil
                     switch decision {
                     case .reject(let why):
-                        r.verdict = .denied; r.open = false; r.credential = "rejected: \(why)"
+                        r.verdict = .denied; r.open = false; r.credential = "rejected: \(why)"; r.credentialUse = .rejected
                         log.upsert(r)
                         current = nil
                         reject(Self.forbidden(why))
@@ -1037,15 +1040,16 @@ public final class EgressProxy: @unchecked Sendable {
                     case .refuse(let code, let why):
                         r.verdict = .denied; r.open = false
                         r.credential = code == 401 ? "unavailable: \(why)" : "refused: \(why)"
+                        r.credentialUse = code == 401 ? .unavailable : .refused
                         log.upsert(r)
                         current = nil
                         // 599i: in OpenAI's error shape on OpenAI's hosts (Codex shows its message). 617: and in each key
                         // provider's own shape on its hosts (xAI's is OpenAI's; Google's its own).
                         reject(Self.refusal(host: host, code, why))
                         return
-                    case .swapped(_, let b): r.credential = "swapped \(b)"; awaitingStatus = b
-                    case .injected(_, let b): r.credential = "injected \(b)"; awaitingStatus = b
-                    case .foreign(_, let f): r.credential = f.label; foreignOnConnection = true
+                    case .swapped(_, let b): r.credential = "swapped \(b)"; r.credentialUse = .swapped(b); awaitingStatus = b
+                    case .injected(_, let b): r.credential = "injected \(b)"; r.credentialUse = .injected(b); awaitingStatus = b
+                    case .foreign(_, let f): r.credential = f.label; r.credentialUse = .foreign; foreignOnConnection = true
                     case .passThrough: break
                     }
                     let out = decision.head ?? raw

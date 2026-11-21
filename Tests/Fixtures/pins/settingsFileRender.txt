@@ -388,6 +388,13 @@
 # (boolean; the choice for a store that has not made one (doz account keepalive wins))
 # keepalive = false
 
+[timeline]
+
+# How often, in seconds, each running sandbox's CPU, memory and disk use are kept for its history
+# (10–3600); 0 = never. Read from this Mac, never inside the sandbox.
+# (integer 0–3600; env DOZ_TIMELINE_SAMPLE_SECONDS; applies at once (the UI re-reads it))
+# sample_seconds = 60
+
 [store]
 
 # The store: images, kernels, sandboxes and the daemon's files.

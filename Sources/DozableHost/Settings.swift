@@ -265,6 +265,7 @@ public struct SettingDefinition: Sendable {
             guard r.contains(i) else { throw SettingsError("\(key) is \(r.lowerBound)–\(r.upperBound)") }
             // 605: a fixed dashboard port is an unprivileged one (0 = automatic).
             if key == SettingKey.uiPort, (1...1023).contains(i) { throw SettingsError("\(key) is 0 (automatic) or a port 1024–65535") }
+            if key == SettingKey.timelineSampleSeconds, (1...9).contains(i) { throw SettingsError("\(key) is 0 (off) or 10–3600 seconds") }
             return v
         case (.choice(let c), .string(let s)):
             guard c.contains(s) else { throw SettingsError("\(key) is one of \(c.joined(separator: ", "))") }
@@ -458,6 +459,8 @@ public enum SettingKey {
     public static let bootLogsKept = "daemon.boot_logs_kept"
     /// 747: this Mac's display name in the timeline and SpaceState (`MacDisplayName`).
     public static let macName = "daemon.mac_name"
+    /// 747: how often each running sandbox's CPU, memory and disk are sampled (0: never).
+    public static let timelineSampleSeconds = "timeline.sample_seconds"
     public static let keepalive = "daemon.keepalive"
     public static let storePath = "store.path"
     public static let cpus = "defaults.cpus"
@@ -982,6 +985,10 @@ public struct DozableSettings: Sendable {
             .init("daemon", "mac_name", .macName, .string("this Mac"),
                   "The name this Mac goes by in its history and in a space's state, e.g. \"studio\". It is shown, never looked up on the network.",
                   env: "DOZ_MAC_NAME", applies: .now),
+            // 747: the timeline's resource samples, read from the Mac's side only (never a command in the sandbox).
+            .init("timeline", "sample_seconds", .int(0...3600), .int(60),
+                  "How often, in seconds, each running sandbox's CPU, memory and disk use are kept for its history (10–3600); 0 = never. Read from this Mac, never inside the sandbox.",
+                  env: "DOZ_TIMELINE_SAMPLE_SECONDS", applies: .now),
             .init("daemon", "keepalive", .bool, .bool(false),
                   "When a Mac login expires, while a sandbox or fenced session uses it and no unfenced Claude Code runs, the daemon runs the Mac's claude once to renew it (doz account keepalive always: also with nothing using it).",
                   applies: .newStore),

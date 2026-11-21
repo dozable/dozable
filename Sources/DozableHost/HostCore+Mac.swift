@@ -311,6 +311,7 @@ extension HostCore {
             macDenials.unwatch(session: s)
             // 683: its program ended by itself (or is gone): its conversations go back now.
             if let t = await macCarryBack(s) { note(MacPlace.name, "session \(s) on this Mac ended: \(t)") }
+            macSessionRowEnded(s)
         }
         return Set(macFenceWatches.keys).union(macProxies.keys).sorted()
     }
@@ -731,6 +732,7 @@ extension HostCore {
                  + (o.bypassed ? " — its own argv bypasses permissions" : ""))
             metrics?.record(run: metricsRun, action: "mac session open", sandbox: MacPlace.name, image: "", startedAt: Date(), durationMs: 0,
                             detail: ["session": o.session, "bypassed": o.bypassed ? "yes" : "no", "fenced": "yes"])
+            if o.created { macSessionRowOpened(o.session, argv: r.argv) }
             await watchStatus(MacPlace.name, session: o.session)
             if o.created { macScheduleLearn(o.session) }
             var s = SessionOpened(name: MacPlace.name, session: o.session, created: o.created)
@@ -748,6 +750,7 @@ extension HostCore {
                  + (o.pathSource.map { "; PATH from the \($0)" } ?? ""))
             metrics?.record(run: metricsRun, action: "mac session open", sandbox: MacPlace.name, image: "", startedAt: Date(), durationMs: 0,
                             detail: ["session": o.session, "bypassed": o.bypassed ? "yes" : "no"])
+            macSessionRowOpened(o.session, argv: r.argv)
         }
         await watchStatus(MacPlace.name, session: o.session)
         if o.created { macScheduleLearn(o.session) }
@@ -887,6 +890,7 @@ extension HostCore {
         default:
             dropFenceWatch(s)
             note(MacPlace.name, "session \(s) on this Mac ended (\(how.rawValue))" + (carried.map { " — " + $0 } ?? ""))
+            macSessionRowEnded(s)
         }
         var out = SessionEnded(name: MacPlace.name, session: s, how: how.rawValue)
         out.notice = carried
@@ -1209,5 +1213,22 @@ final class MacFenceWatch: @unchecked Sendable {
         let r = MacFenceStop.stop(sentinel: sentinel, anti: anti, program: pid)
         lock.withLock { _stopped.formUnion(r.pids.map(Int.init)) }
         if r.how != "sandbox_check" { HostLog.line("@mac: a fenced session was stopped by its group (\(r.how))") }
+    }
+}
+
+extension HostCore {
+    /// 747: a session on this Mac gets a `sessions` row like a sandbox's (`sandbox = '@mac'`): its program by its basename
+    /// only — never the command line.
+    func macSessionRowOpened(_ session: String, argv: [String]?) {
+        guard let metrics else { return }
+        let program = argv?.first.map { ($0 as NSString).lastPathComponent } ?? "shell"
+        let id = metrics.sessionOpened(run: metricsRun, sandbox: MacPlace.name, image: nil, session: session, command: program,
+                                       openedAt: Date(), openMs: 0)
+        if id > 0 { macSessionRows[session] = id }
+    }
+
+    func macSessionRowEnded(_ session: String, exitCode: Int32? = nil) {
+        guard let id = macSessionRows.removeValue(forKey: session) else { return }
+        metrics?.sessionEnded(id, exitCode: exitCode)
     }
 }

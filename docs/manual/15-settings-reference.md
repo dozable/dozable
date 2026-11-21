@@ -204,6 +204,12 @@ This table is generated from `doz config show` and checked against it on every b
 | `daemon.mac_name` | `this Mac` | a name of 1–63 letters, digits, spaces or hyphens | at once | `$DOZ_MAC_NAME` | The name this Mac goes by in its history and in a space's state, e.g. "studio". It is shown, never looked up on the network. |
 | `daemon.keepalive` | `false` | boolean | a store that hasn't chosen | — | When a Mac login expires, while a sandbox or fenced session uses it and no unfenced Claude Code runs, the daemon runs the Mac's claude once to renew it (doz account keepalive always: also with nothing using it). |
 
+### `[timeline]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `timeline.sample_seconds` | `60` | integer 0–3600 | at once | `$DOZ_TIMELINE_SAMPLE_SECONDS` | How often, in seconds, each running sandbox's CPU, memory and disk use are kept for its history (10–3600); 0 = never. Read from this Mac, never inside the sandbox. |
+
 ### `[store]`
 
 | key | default | values | applies | overridden by | what it does |

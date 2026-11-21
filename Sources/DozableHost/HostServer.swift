@@ -191,6 +191,8 @@ public final class HostServer: @unchecked Sendable {
         Thread.detachNewThread { server.acceptLoop(lfd) }
         server.installSignalHandlers()
         Task.detached { await server.core.recoverAfterStart() }
+        // 747: the resource samples (timeline.sample_seconds).
+        Task.detached { await server.core.runSampler() }
         // The sessions held on this Mac outlive any host: this one adopts what runs (and drops stale sockets).
         Task.detached { await server.core.adoptMacSessions() }
         // 695: keep-alive always — a watcher on each Mac login with nothing using it (after the adoption: its fenced sessions
