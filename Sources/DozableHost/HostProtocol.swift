@@ -386,7 +386,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
              .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .workspaceDownPlan, .macsList,
-             .workspaceState, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery: true
+             .workspaceState, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery, .timelineRetention: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }

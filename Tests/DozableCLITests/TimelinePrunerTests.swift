@@ -252,7 +252,7 @@ final class TimelinePrunerTests: XCTestCase {
     func testOnlyTheStoresOwnFilesAndNoLinkIsFollowed() throws {
         // metrics.sqlite is a link to a database outside the store: nothing at all is pruned.
         let outside = dir.deletingLastPathComponent().appendingPathComponent("doz-747-outside-\(UUID().uuidString.prefix(8)).sqlite")
-        defer { try? FileManager.default.removeItem(at: outside) }
+        defer { for x in ["", "-wal", "-shm"] { try? FileManager.default.removeItem(atPath: outside.path + x) } }
         let m = try MetricsStore(url: outside)
         let run = m.beginRun(.init(kind: "x", appVersion: "1", build: "1", machine: "m", chip: "c", macOS: "x"), at: Date(timeIntervalSince1970: 1))
         m.hostEvent(run: run, at: Date(timeIntervalSince1970: 1), kind: "note", sandbox: nil, summary: "old", ms: nil, failed: false)

@@ -706,12 +706,13 @@ public final class EgressProxy: @unchecked Sendable {
         let seamForSecret = fenceUpstreamForTests(host)
         let tokens = CredentialVault.placeholders(inHead: head)
         if !tokens.isEmpty {
+            let bindings = tokens.map { t in vault.binding(ofPlaceholder: t).flatMap { vault.binding($0) } }
             func refuse(_ why: String, credential: String? = nil) {
-                rec.verdict = .denied; rec.open = false; rec.credential = credential ?? "rejected: \(why)"; rec.credentialUse = .rejected
+                rec.verdict = .denied; rec.open = false; rec.credential = credential ?? "rejected: \(why)"
+                rec.credentialUse = CredentialUse(binding: bindings.compactMap { $0?.id }.first, via: "rejected", ok: false)
                 log.upsert(rec)
                 _ = Wire.writeAll(fd, Self.forbidden(why))
             }
-            let bindings = tokens.map { t in vault.binding(ofPlaceholder: t).flatMap { vault.binding($0) } }
             let verdict = PlainHTTPSecretRule.judge(bindings: bindings, host: host, port: port, macOnTailscale: macOnTailscale,
                                                     throughSeam: seamForSecret != nil)
             switch verdict {

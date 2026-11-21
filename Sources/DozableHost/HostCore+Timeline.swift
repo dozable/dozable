@@ -8,6 +8,8 @@ extension HostCore {
     /// indexer has its own queue.
     public nonisolated func startTimeline() async {
         guard let ix = timeline else { return }
+        // Only the daemon indexes: a write pokes the indexer once this ran (a core in a test or in-process never does).
+        metrics?.onWrite = { [weak ix] in ix?.poke(.metrics) }
         TimelineSignal.register(store.root.path) { [weak ix] p in ix?.poke(p) }
         ix.poke(.all)
         // Retention (14.5a: the history file and the four new records only): 5 minutes after the start, then hourly, and

@@ -43,8 +43,10 @@ doz resources rm point:web/3           # by id, as doz resources lists them
 
 - **Clean up** deletes what is **re-creatable and unused**: the download cache, the tools layer's cache, base disks, kernels
   nothing needs, images no sandbox was made from in the last `resources.clean_unused_days` (30) days,
-  and leftovers. It **never** deletes templates, sandboxes, restore points, settings or keys; logs and
-  metrics are kept too (select them yourself to clear them).
+  and leftovers. It **never** deletes templates, sandboxes, restore points, settings or keys; logs,
+  metrics and the history file are kept too (select them yourself to clear them). Clearing the metrics clears
+  their part of the history; deleting the **history** item (`timeline.sqlite`) has the daemon make it again from the
+  records (see [History and retention](40-history-and-retention.md)).
 - **`rm`** deletes what you name, after showing the plan: each item, what it frees, what it costs
   later ("prepared again when next needed, about 3 min, needs network"), and anything refused and why.
 - **Nothing breaks a sandbox.** Refused, always: a sandbox's own disks (remove the sandbox instead);

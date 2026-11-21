@@ -242,9 +242,7 @@ public actor HostCore {
             let m = try? MetricsStore(url: store.metrics)
             metrics = m
             metricsRun = m?.beginRun(.current(kind: "doz host", version: version)) ?? 0
-            let ix = TimelineIndexer(store: store)
-            timeline = ix
-            m?.onWrite = { [weak ix] in ix?.poke(.metrics) }
+            timeline = TimelineIndexer(store: store)
         }
     }
 

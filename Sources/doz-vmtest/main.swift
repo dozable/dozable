@@ -928,6 +928,14 @@ Task {
             // Agents / Bots through the real doz, its daemon and chat server — no VM, the memory keychain (CLIBotsSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliBotsSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-timeline":
+            // This Mac's history, no VM (CLITimelineSuite.swift).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliTimelineSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-timeline-vm":
+            // The history with one scratch lab VM: a connection, samples, a key's use (CLITimelineSuite.swift).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliTimelineVMSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-macs":
             // Your Macs: doz ui macs against a second scratch doz ui and a local listener — no VM, no other Mac (CLIMacsSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"

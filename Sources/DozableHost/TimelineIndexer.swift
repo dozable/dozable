@@ -148,9 +148,11 @@ public final class TimelineIndexer: @unchecked Sendable {
     func pass(_ what: Set<TimelinePoke>) -> Bool {
         guard let t = try? open() else { return false }
         let before = t.currentRev
-        let all = what.contains(.all)
         let backfill = t.meta("backfilled") == nil
+        // A new (or deleted and made again) file is filled from everything, whatever was poked.
+        let what: Set<TimelinePoke> = backfill ? [.all] : what
         if backfill { lock.lock(); _progress = 0; lock.unlock() }
+        let all = what.contains(.all)
         if all || what.contains(.metrics) || what.contains(.samples) {
             indexMetrics(t)
         }
