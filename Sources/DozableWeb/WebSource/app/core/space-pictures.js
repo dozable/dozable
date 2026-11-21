@@ -11,7 +11,7 @@ export function loadRenderer() {
   return renderer;
 }
 
-export const pictureStats = { fileReads: 0, stateReads: 0, planReads: 0, renders: 0, hits: 0, ms: { hero: [], full: [], thumb: [] } };
+export const pictureStats = { fileReads: 0, stateReads: 0, planReads: 0, renders: 0, hits: 0, ms: { hero: [], thumb: [] } };
 
 const entries = new Map();
 const views = new Set();
@@ -142,7 +142,7 @@ export async function pictureProblems(name) {
 // ── drawing
 const renders = new Set();
 let frame = 0, failed = false;
-const ORDER = { hero: 0, full: 0, thumb: 1 };
+const ORDER = { hero: 0, thumb: 1 };
 
 function keyOf(v, e) {
   const st = e.st;
@@ -188,7 +188,7 @@ async function drawNext() {
       let got = cache.get(key);
       if (got !== undefined) { pictureStats.hits++; lru(key, got); } else {
         pictureStats.renders++;
-        const prefix = (v.kind === 'hero' ? 'dzh-' : v.kind === 'full' ? 'dzf-' : 'dzt-') + v.name + '-';
+        const prefix = (v.kind === 'hero' ? 'dzh-' : 'dzt-') + v.name + '-';
         const opts = { detail: v.kind === 'thumb' ? 'thumb' : 'hero', width: v.w, height: v.h, theme: currentTheme(), idPrefix: prefix };
         const st = e.st || undefined, t0 = performance.now();
         got = v.kind === 'thumb' ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(mod.render(e.text, st, opts)) : mod.renderElement(e.text, st, opts);

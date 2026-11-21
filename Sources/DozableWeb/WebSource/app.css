@@ -2936,9 +2936,9 @@ a.ws-iso:hover { color: var(--ink); text-decoration: underline; }
 .ws-hero-label { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
 .ws-hero-label .icon { width: 14px; height: 14px; flex: none; }
 .ws-hero { display: block; width: 100%; height: clamp(160px, 28vh, 320px); padding: 0; border: var(--bw) solid var(--line); border-radius: var(--r-lg);
-  background: var(--surface); color: var(--ink); cursor: zoom-in; overflow: hidden; }
+  background: var(--surface); color: var(--ink); cursor: pointer; overflow: hidden; }
+.ws-hero-open { margin-left: auto; }
 .ws-hero:hover { border-color: var(--line-strong); }
-.ws-hero.is-fallback { cursor: pointer; }
 .ws-hero-pic { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); width: 100%; height: 100%; }
 .ws-hero-pic .space-render { display: block; width: 100%; height: 100%; }
 .ws-hero .live-pulse { animation: none !important; }
@@ -2971,13 +2971,6 @@ body.ws-hero-on .notes-stack { position: fixed; top: auto; right: var(--sp-3); b
 .hm-ws-cell .hm-ws { min-width: 8rem; }
 .hm-thumb-link { display: flex; flex: none; justify-content: flex-start; width: 128px; }
 .nav-ws-thumb { display: block; margin: var(--sp-1) 0 var(--sp-1) var(--sp-5); }
-.sp-full { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center; padding: var(--sp-5);
-  background: var(--scrim); }
-.sp-full-box { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; height: 100%; padding: var(--sp-3); border-radius: var(--r-xl);
-  background: var(--surface); box-shadow: var(--shadow-3); }
-.sp-full-head { display: flex; align-items: center; gap: var(--sp-2); }
-.sp-full-pic { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 0; }
-.sp-full-pic .space-render { display: block; width: 100%; height: 100%; }
 /* The space editor's page (#/w/NAME/space): the whole window — no sidebar, no top bar; a slim bar, then the editor, which
    lays itself out (its own stylesheet, scoped to .space-editor, is never linted here). */
 body.space-page .side, body.space-page .topbar { display: none; }
@@ -3006,7 +2999,6 @@ body.space-page .notes { --notes-right: var(--sp-2); }
   .sp-thumb-home { width: 96px; height: 60px; }
   .hm-thumb-link { width: 96px; }
   .ws-hero { height: clamp(140px, 34vh, 280px); }
-  .sp-full { padding: var(--sp-2); }
 }
 .chat-surface.is-scoped .chat-title { display: none; }
 .chat-surface.is-scoped .chat-room-name { color: var(--ink); font-weight: var(--fw-strong); }
