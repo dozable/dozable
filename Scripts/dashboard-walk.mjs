@@ -88,7 +88,7 @@
 //     marked seen, and Home holds no chat stream.
 //   · the Workspaces page: 1 the sidebar's heading opens #/workspaces, every workspace under Every with the listing's counts,
 //     Show resets on a new visit; 2 Rows → Grid kept across a reload, Sort by Name and Last activity; 3 an <img> only for
-//     space workspaces, plain tiles ≤ 40 px here and on Home, the renderer fetched once, the sidebar's box 0 px until drawn;
+//     space workspaces, plain tiles ≤ 40 px here and on Home, a plain card's band ≤ 30 % of a drawn one's, the renderer fetched once, the sidebar's box 0 px until drawn;
 //     4 390 px; 5 the keyboard order and Space on the layout; 6 no CSP violation, the leak sweep. Pictures: ws-home-light,
 //     ws-home-390, ws-home-needs, workspaces-rows-light, workspaces-rows-390, workspaces-grid-light, workspaces-grid-390.
 //   · with the daemon stopped, opening Home, Sandboxes, a workspace's page and its agents starts none (no daemon.pid).
@@ -1950,6 +1950,11 @@ async function walkWorkspacesList() {
   const spaced = new Set(ls.filter((w) => w.space).map((w) => w.name));
   const off = pics.filter((p) => (spaced.has(p.name) ? !p.img : p.img || !p.tile.length || p.tile.some((x) => x > 40)));
   check(!off.length, `workspaces 3 an <img> only for each space workspace, a tile ≤ 40 px for each plain one (${pics.length}${off.length ? '; wrong: ' + JSON.stringify(off) : ''})`);
+  // In the grid a plain card's band is thin: at most 30 % of a drawn one's.
+  const bands = await evaluate(`(() => { const hs = (sel) => [...document.querySelectorAll('.wsl-grid ' + sel)].map((e) => e.getBoundingClientRect().height);
+    return { drawn: hs('.wsl-pic:not(.is-plain)'), plain: hs('.wsl-pic.is-plain') }; })()`);
+  check(bands.drawn.length > 0 && bands.plain.length > 0 && Math.max(...bands.plain) <= 0.3 * Math.min(...bands.drawn),
+    `workspaces 3 a plain card's band is thin: ≤ 30 % of a drawn one's (${Math.round(Math.max(...bands.plain))} / ${Math.round(Math.min(...bands.drawn))} px)`);
   await evaluate(`document.documentElement.dataset.theme = 'light'`);
   await sleep(1200);
   await shot('workspaces-grid-light');

@@ -84,7 +84,7 @@ import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './a
 import { viewBots } from './app/views/bots-671608029f48e2a9.js';
 import { viewBot } from './app/views/bot-7c5e3d0746e5f216.js';
 import { viewHome } from './app/views/home-10d76c162b855cb7.js';
-import { viewWorkspaces } from './app/views/workspaces-1f3875b24298c0f3.js';
+import { viewWorkspaces } from './app/views/workspaces-5d1817d976053665.js';
 import { viewLoose } from './app/views/loose-3bea0b096e2687f7.js';
 import { viewMacs } from './app/views/macs-8f6f92bf0856b75a.js';
 import { viewOverview } from './app/views/overview-57b0d7d488a11e77.js';

@@ -1575,9 +1575,9 @@ data-nav="workspaces">`, marked by `paintNav`), and Home's sub line says "All wo
   name (its Home), the state pill, who drives and the manager, who is working, the folders, `# room` (`roomHash`), "active
   3 h ago" (`when(lastAt)`) and the one next action (`components/ws-next.js` — Home's, moved there: Sleep, Wake, Reopen,
   Restore, a setting-up one's command, Open room). **Grid** (`<ul class="wsl-grid">`, `repeat(auto-fill, minmax(15rem,
-  1fr))`, `grid-auto-rows: 1fr`): a 16:10 picture band, the name and pill, the manager, how many work, last activity,
-  `# room`, the next action; a plain card keeps the band's height on its own surface with the small tile and "No drawing —
-  made without a space file".
+  1fr))`): a 16:10 picture band, the name and pill, the manager, how many work, last activity,
+  `# room`, the next action; a plain card's band is thin (`aspect-ratio: 16 / 2.5`, a quarter of a drawing's), the small
+  tile alone on the card's own surface; each row is as tall as its tallest card (no `grid-auto-rows: 1fr`).
 - **Pictures**: one place, `'list'`, for both layouts (a switch or a redraw moves the same `<img>`; `forgetThumbs(names,
   'list')` each draw), drawn 160 × 100 and scaled by CSS — the same drawing as Home's, a cache hit. Only space workspaces
   on screen are read; an asleep, finished or archived one's state only on hello or arrival ("The workspace drawn", above).

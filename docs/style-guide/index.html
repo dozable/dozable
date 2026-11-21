@@ -1746,7 +1746,8 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   <p><code>#/workspaces</code> (<code>views/workspaces.js</code>; the sidebar's Workspaces heading): every workspace as rows (<code>.wsl-rows</code>, a
     160 × 100 picture — 96 × 60 at phone width) or a grid of cards (<code>.wsl-grid</code>: <code>repeat(auto-fill, minmax(15rem, 1fr))</code>, a 16:10 picture
     band). One workspace is one <code>&lt;li&gt;</code> with its own links and buttons, never a wrapping link: the keyboard reaches its name, then its room,
-    then its action. A plain card keeps the band's height on the card's own surface with the small tile and why.</p>
+    then its action. A plain card's band is thin — a quarter of a drawing's height, the small tile alone on the card's own surface; each row of
+    the grid is as tall as its tallest card.</p>
   <div class="pair"><div class="scheme">
     <div class="toolbar wsl-toolbar"><label>Show <select aria-label="Show"><option>Every workspace (5)</option></select></label>
       <label>Sort <select aria-label="Sort"><option>State</option></select></label>
@@ -1759,7 +1760,7 @@ exec /usr/local/bin/gemini "$@"</pre></details>
           <div class="wsl-meta"><span>cutter working</span><span class="hm-folder">~/video/launch</span></div>
           <div class="wsl-meta"><a class="hm-room" href="#"># launch</a><span class="wsl-last">active 3 h ago</span></div></div>
         <div class="wsl-next"><div class="hm-next-acts"><button type="button" class="btn sm"><i data-i="moon"></i>Sleep</button></div></div></li>
-      <li class="wsl-row"><a class="wsl-pic is-plain" href="#"><span class="sp-tile sp-tile-sm" title="Made without a space file"><i data-i="boxes"></i></span><span class="wsl-plain-why">No drawing — made without a space file</span></a>
+      <li class="wsl-row"><a class="wsl-pic is-plain" href="#"><span class="sp-tile sp-tile-sm" title="Made without a space file"><i data-i="boxes"></i></span></a>
         <div class="wsl-main"><div class="wsl-top"><a class="wsl-name" href="#">demo</a><span class="pill ws-idle"><i data-i="pause"></i>idle</span><span class="ws-chip ws-driver">you</span></div>
           <div class="wsl-meta"><span class="hm-folder muted">no folder</span></div>
           <div class="wsl-meta"><a class="hm-room" href="#"># demo</a><span class="wsl-last muted">no activity yet</span></div></div>
@@ -1770,7 +1771,7 @@ exec /usr/local/bin/gemini "$@"</pre></details>
         <div class="wsl-card-body"><div class="wsl-top"><a class="wsl-name" href="#">launch</a><span class="pill ws-working"><span class="dot ws-working"></span>working</span></div>
           <div class="wsl-meta"><span class="ws-chip ws-manager">mira (fenced)</span></div><div class="wsl-meta"><span>1 working</span><span class="wsl-last">active 3 h ago</span></div>
           <div class="wsl-meta"><a class="hm-room" href="#"># launch</a></div></div></li>
-      <li class="wsl-card"><a class="wsl-pic is-plain" href="#"><span class="sp-tile sp-tile-sm" title="Made without a space file"><i data-i="boxes"></i></span><span class="wsl-plain-why">No drawing — made without a space file</span></a>
+      <li class="wsl-card"><a class="wsl-pic is-plain" href="#"><span class="sp-tile sp-tile-sm" title="Made without a space file"><i data-i="boxes"></i></span></a>
         <div class="wsl-card-body"><div class="wsl-top"><a class="wsl-name" href="#">demo</a><span class="pill ws-idle"><i data-i="pause"></i>idle</span></div>
           <div class="wsl-meta"><span class="wsl-last muted">no activity yet</span></div><div class="wsl-meta"><a class="hm-room" href="#"># demo</a></div></div></li>
     </ul>

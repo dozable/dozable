@@ -73,11 +73,11 @@ export async function viewWorkspaces() {
     h('p', { class: 'sub' }, plural(all.length, 'workspace', 'workspaces') + ' on this Mac.'), toolbar, body);
 }
 
-/// Its picture, a link to its Home (the name beside it is the link the keyboard reaches).
+/// Its picture, a link to its Home (the name beside it is the link the keyboard reaches); with no file, the small tile alone
+/// (in the grid a thin band, a quarter of a drawing's height).
 function pic(w) {
   const t = spaceThumb(w, 'list');
-  return h('a', { href: workspaceHash(w.name), class: 'wsl-pic' + (w.space ? '' : ' is-plain'), tabindex: '-1', 'aria-hidden': 'true' }, t,
-    w.space ? null : h('span', { class: 'wsl-plain-why' }, 'No drawing — made without a space file'));
+  return h('a', { href: workspaceHash(w.name), class: 'wsl-pic' + (w.space ? '' : ' is-plain'), tabindex: '-1', 'aria-hidden': 'true' }, t);
 }
 const lastText = (w) => (w.lastAt ? h('span', { class: 'wsl-last', title: full(w.lastAt) }, 'active ' + when(w.lastAt)) : h('span', { class: 'wsl-last muted' }, 'no activity yet'));
 const roomLink = (w) => (w.room ? h('a', { href: roomHash(w.name), class: 'hm-room' }, '# ' + w.room) : h('span', { class: 'muted' }, 'no room'));
