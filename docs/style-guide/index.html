@@ -1487,6 +1487,18 @@ exec /usr/local/bin/gemini "$@"</pre></details>
   </div></div>
 </section>
 
+<section id="sg-chat-window">
+  <h2>The chat window — the pop-out, a room in a window of its own</h2>
+  <p>A room pops out into a window of its own (<code>/chat#/ROOM</code>, <code>chat.js</code>, <code>core/windows.js</code>): the Chat page's head carries the pop-out (<code>#chat-pop</code>, <code>external-link</code>, a link whose target is the room's window, so a second click brings that window forward and a modified click opens a tab). The window is the same surface with that room alone (<code>.chat-surface.is-solo</code>: no rooms pane, the people only in a wide window) and its way back (<code>#chat-dash</code>, "Open in the dashboard"). Its stream paused by another chat window of this browser says so and waits for Reconnect; a room that is not here, and a window signed out, say so over it.</p>
+  <div class="pair"><div class="scheme">
+    <div class="chat-head" style="max-width: 640px"><h1 class="chat-title"><i data-i="message-square"></i>Chat</h1><span class="chat-room-name">general</span><span class="chat-live is-live" role="status">live</span><span class="chat-room-tools"></span><a class="btn sm quiet icon-only chat-pop" href="#" title="Open this room in its own window" aria-label="Open this room in its own window"><i data-i="external-link"></i></a></div>
+    <div class="chat-head" style="max-width: 440px"><h1 class="chat-title"><i data-i="message-square"></i>Chat</h1><span class="chat-room-name">general</span><span class="chat-live is-live" role="status">live</span><a class="btn sm quiet chat-dash" href="#"><i data-i="house"></i>Open in the dashboard</a></div>
+    <div class="chat-head" style="max-width: 440px"><span class="chat-room-name">general</span><span class="chat-live is-paused" role="status">paused — another chat window took this stream <button type="button" class="btn sm quiet chat-live-again">Reconnect</button></span></div>
+    <div class="callout warn" style="max-width: 440px"><i data-i="triangle-alert"></i><div class="c-body"><div class="c-title">This room is not here</div># old-plans is not one of your rooms on this Mac. <a href="#">Open Chat in the dashboard</a></div></div>
+    <div class="ui-ov-card" style="max-width: 440px; position: static"><div class="ui-ov-head"><h2>This window is signed out</h2></div><div><p>Sign in on the dashboard, then come back to this window — it looks again when it is shown.</p><p><a class="btn primary" href="#">Open the dashboard</a></p></div></div>
+  </div></div>
+</section>
+
 <section>
   <h2>Chat — the rooms, a room's log, the composer</h2>
   <p>The Chat page (<code>#/chat</code>, <code>views/chat*.js</code>; a persistent section like This Mac) shows the chat server's rooms to the person, in this Mac's own browser only. Every message is an agent's untrusted text: <code>core/chat-markdown.js</code> builds it with <code>h()</code> (links http/https only, through <code>safeLink</code>; pictures only this chat server's attachments). Below: the rooms list (the shown room selected, a count of unread, a mention's count in red), a bubble from a bot with its Markdown and delivery mark, the person's own bubble (<code>--chat-me</code>), a mention (<code>--chat-mention</code>), a deleted message's tombstone, the stub of a direct message between others, a moment line, the composer with its suggestions, and what the page says while chat is off: Turn chat on (<code>components/chat-on.js</code>), with your name the first time, and the terminal's command beneath. Avatars: a letter, an emoji or a shape, coloured by class (<code>.chat-av-&lt;name&gt;</code>, tokens <code>--chat-hue-1…11</code>).</p>

@@ -3,7 +3,7 @@
 import { state } from '../core/state.js';
 import { getJSON, viewer } from '../core/chat-api.js';
 import { cap, plain, shortWhen, shown } from '../core/chat-format.js';
-import { getSeen, setSeen } from '../core/chat-storage.js';
+import { getSeen, SEEN_PREFIX, setSeen } from '../core/chat-storage.js';
 import { avatar } from '../dom/chat-avatar.js';
 import { $ } from '../dom/h.js';
 
@@ -68,3 +68,12 @@ export async function loadUnread() {
     showPreviews();
   } catch (_) { /* the next look tries again */ }
 }
+
+// Another window of this browser read a room (a chat window, or the dashboard): its marker moved, so the counts here are
+// asked again — once for a burst of changes. Only while this page knows the rooms.
+let seenT = 0;
+window.addEventListener('storage', (e) => {
+  if (!e.key || !e.key.startsWith(SEEN_PREFIX) || !state.chat.srv) return;
+  clearTimeout(seenT);
+  seenT = setTimeout(loadUnread, 250);
+});

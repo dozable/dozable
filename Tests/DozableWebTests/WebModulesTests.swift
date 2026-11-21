@@ -212,14 +212,15 @@ final class WebModulesTests: XCTestCase {
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
         var fetchers: Set<String> = [], streams: Set<String> = []
         let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
-            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js", "chat.js"]
         for f in files {
             let text = try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8)
             if text.contains("fetch(") && text.range(of: #"(?<![A-Za-z])fetch\("#, options: .regularExpression) != nil { fetchers.insert(f) }
             if text.contains("EventSource(") { streams.insert(f) }
         }
         XCTAssertEqual(fetchers, ["app/core/api.js", "app/core/reconnect.js", "app/components/terminal.js", "app/dom/icons.js"])
-        XCTAssertEqual(streams, ["app/core/events.js", "app/core/chat-stream.js", "app/views/sandbox-files.js"])
+        // 745: the chat window's ear for its own operations (core/op-stream.js) — the dashboard's stream, only while one runs.
+        XCTAssertEqual(streams, ["app/core/events.js", "app/core/chat-stream.js", "app/core/op-stream.js", "app/views/sandbox-files.js"])
         for f in files where f.contains("/chat") {
             let text = try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8)
             for never in ["innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "X-Doz-CSRF", "localStorage.setItem('sb", "/api/v1/chat/stream'", "eval("] where !(never == "/api/v1/chat/stream'" && f == "app/core/chat-stream.js") {
@@ -732,6 +733,50 @@ final class WebModulesTests: XCTestCase {
             try prepend(src, "chat.js", "import './app/core/zz-only-chat.js';\n")
         }
         XCTAssertEqual(ok.0, 0, ok.1)
+    }
+
+    /// 745: the chat window — its address (pure, in JavaScriptCore), the ONE place a window is opened (core/windows.js: only
+    /// Dozable's own two pages, by name; terminal.js keeps refusing everything else), unread markers that never move back,
+    /// and the window's ear for its operations (open only while one runs; no timer that reads).
+    func testTheChatWindowsAddressAndTheOneWayToOpenAWindow() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        ctx.evaluateScript("var opened = []; var window = { open: function (u, n, f) { opened.push([u, n, f]); return { focus: function () {} }; } };"
+            + "var store = {}; var localStorage = { getItem: function (k) { return k in store ? store[k] : null; }, setItem: function (k, v) { store[k] = String(v); }, removeItem: function (k) { delete store[k]; } };")
+        for f in ["app/core/routes.js", "app/core/windows.js", "app/core/chat-storage.js"] {
+            ctx.evaluateScript(try read(f).replacingOccurrences(of: "export ", with: ""))
+            XCTAssertNil(thrown, "\(f): \(thrown ?? "")")
+        }
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("[chatWindowRoom('#/general'), chatWindowRoom('#/a_b-1'), chatWindowRoom('#/'), chatWindowRoom('#/Bad'), chatWindowRoom('#/x/y'), chatWindowRoom('')]"),
+                       #"["general","a_b-1",null,null,null,null]"#)
+        XCTAssertEqual(js("[chatWindowPath('general'), chatWindowName('general')]"), ##"["/chat#/general","doz-chat-general"]"##)
+        XCTAssertEqual(js("[isOwnWindowPath('/chat#/general'), isOwnWindowPath('/#/w/demo/space'), isOwnWindowPath('/#/w/demo/space/watch')]"), "[true,true,true]")
+        XCTAssertEqual(js("['https://example.com/', '/#/home', '/chat', '/chat#/a/b', '//evil/chat#/x', '/#/w/demo/space?x', 'javascript:alert(1)'].map(isOwnWindowPath)"),
+                       "[false,false,false,false,false,false,false]")
+        XCTAssertEqual(js("[openOwnWindow('/chat#/general', 'doz-chat-general', { w: 440, h: 760 }) !== null, openOwnWindow('https://example.com/', 'doz-chat-x'), openOwnWindow('/chat#/general', '_blank')]"),
+                       "[true,null,null]")
+        XCTAssertEqual(js("opened"), ##"[["/chat#/general","doz-chat-general","popup,width=440,height=760"]]"##, "named, a popup, never noopener (it would stop the reuse)")
+        XCTAssertEqual(js("(() => { setSeen('r', 5); const a = getSeen('r'); setSeen('r', 3); const b = getSeen('r'); setSeen('r', 9); return [a, b, getSeen('r')]; })()"), "[5,5,9]",
+                       "a marker only moves forward: two windows on one room never lower it")
+        // The ONE place that opens: windows.js keeps the browser's open; terminal.js imports it (so it runs first) and refuses the rest.
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? []).filter { $0.hasSuffix(".js") }
+        for f in files where f != "core/windows.js" && f != "views/space-page.js" {
+            XCTAssertFalse(try read("app/" + f).contains("window.open("), "app/\(f) opens no window of its own (core/windows.js does)")
+        }
+        let term = try read("app/components/terminal.js")
+        XCTAssertTrue(term.contains("import { openExternal } from '../core/windows.js';") && term.contains("window.open = function refuseToOpen() { return null; };"))
+        // The ear for operations: the dashboard's stream only while one of this window's operations runs, no timer that reads.
+        let ear = try read("app/core/op-stream.js")
+        XCTAssertFalse(ear.contains("setInterval"))
+        XCTAssertTrue(ear.contains("if (mine().length && !es && !state.signedOut) open();") && ear.contains("else if (!mine().length && es) close();"))
+        XCTAssertTrue(try read("app/views/chat.js").contains("export async function chatWindow(room)"))
+        let entry = try read("chat.js")
+        XCTAssertFalse(entry.contains("setInterval"), "the window polls nothing")
+        XCTAssertTrue(entry.contains("chatWindow(room)") && entry.contains("window.name = chatWindowName(room)"))
     }
 
     /// 744: the space editor's page — its two addresses (pure, in JavaScriptCore), its modules (the glue: no timer, no DOM in

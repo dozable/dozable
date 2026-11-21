@@ -3000,6 +3000,25 @@ body.space-page .notes { --notes-right: var(--sp-2); }
   .hm-thumb-link { width: 96px; }
   .ws-hero { height: clamp(140px, 34vh, 280px); }
 }
+/* The chat window (/chat#/ROOM, chat.js): one room, the window's height — the head, then the log flexed between it and the
+   composer; no rooms pane; the people beside it only in a wide window. The pop-out (#chat-pop) and the way back to the
+   dashboard (#chat-dash) sit in the head. */
+body.chat-window { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+body.chat-window > .chat-root:not([hidden]) { padding: var(--sp-3); flex: 1; min-height: 0; }
+.chat-surface.is-solo .chat-rooms-pane { display: none; }
+.chat-surface.is-solo .chat-cols:not([hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.chat-pop[hidden], .chat-dash[hidden] { display: none; }
+/* The notification bell keeps the window's top-right corner (no top bar here to make room for): the head leaves it room. */
+body.chat-window .notes { --notes-right: var(--sp-2); }
+.chat-live.is-paused { color: var(--warn); }
+.chat-live-again { margin-left: var(--sp-1); }
+@media (min-width: 1101px) {
+  .chat-surface.is-solo .chat-cols:not([hidden]) { grid-template-columns: minmax(0, 1fr) 220px; }
+}
+@media (max-width: 760px) {
+  body.chat-window > .chat-root:not([hidden]) { padding: var(--sp-2); }
+  .chat-surface.is-solo .chat-title { display: none; }
+}
 .chat-surface.is-scoped .chat-title { display: none; }
 .chat-surface.is-scoped .chat-room-name { color: var(--ink); font-weight: var(--fw-strong); }
 .chat-surface.is-scoped .chat-cols:not([hidden]) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: var(--sp-2); }

@@ -177,3 +177,13 @@ export function hashFor(view) {
   if (view === 'chat') return '#/chat';
   return HOME;
 }
+
+/// The chat window (`/chat#/ROOM`, a document of its own): the room its fragment names by the chat server's room rule,
+/// else null.
+export function chatWindowRoom(hash) {
+  const m = new RegExp('^#/(' + ROOM_LABEL + ')$').exec(hash || '');
+  return m ? m[1] : null;
+}
+/// A room's chat window address, and the window's name (one window per room: a second open reuses it).
+export const chatWindowPath = (room) => '/chat#/' + room;
+export const chatWindowName = (room) => 'doz-chat-' + room;

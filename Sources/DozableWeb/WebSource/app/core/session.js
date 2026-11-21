@@ -47,7 +47,10 @@ function usageStatsOf(u) {
 }
 /// 714: the title the server gave this document (named for its Mac), before the page changes it.
 const PAGE_TITLE = document.title;
-export function adopt(info) {
+/// The session's facts, with no DOM (the dashboard paints them in `adopt`; the chat window adopts only these): the CSRF
+/// token, when it expires, who asks (another computer's `serve`), the build's flags, this Mac's homes; then the renewal
+/// (`onInfo` gets each renewal's answer) and the service worker.
+export function adoptSession(info, onInfo = adoptSession) {
   state.csrf = info.csrf;
   state.expiresAt = new Date(info.expiresAt);
   // 606: doz serve — another computer's browser: the Mac's name in the title and the brand line.
@@ -57,8 +60,16 @@ export function adopt(info) {
   state.signupPage = typeof info.signupPage === 'string' && /^https:\/\//.test(info.signupPage) ? info.signupPage : '';
   state.chatgptSignIn = info.chatgptSignIn !== false;   // a public build has no ChatGPT sign-in of its own
   state.sound = info.sound === true;                    // 667: this doz can give a sandbox sound
-  const mac = state.serve ? (state.serve.mac || 'the Mac') : null;
+  state.version = info.version;
   setHomes(info.homes);
+  state.update = info.update || null;
+  state.everSignedIn = true;
+  scheduleRenew(onInfo);
+  registerWorker();
+}
+export function adopt(info) {
+  adoptSession(info, adopt);
+  const mac = state.serve ? (state.serve.mac || 'the Mac') : null;
   const sp = $('store-path');
   sp.textContent = mac ? 'on ' + mac + ' · ' + tildePath(info.store) : tildePath(info.store);
   sp.title = tildePath(info.store);
@@ -78,12 +89,8 @@ export function adopt(info) {
   $('sign-out').hidden = false;
   // 611: an update — a newer doz (how to upgrade, its notes), or one an automatic update installed that this
   // dashboard is older than (restart to apply). From the last check; the page itself never asks the network.
-  state.update = info.update || null;
   showUpdate(state.update);
   paintUpdates();                    // 647: the status card's updates row
-  state.everSignedIn = true;
-  scheduleRenew();
-  registerWorker();
 }
 /// The update notice (611): a newer doz (how to upgrade, its notes), or one an automatic update installed (restart).
 /// From the last check (the page load's session info, or the status card's Check — 647).
@@ -103,11 +110,11 @@ function registerWorker() {
   navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' }).catch(() => { /* the page works without it */ });
 }
 
-function scheduleRenew() {
+function scheduleRenew(onInfo) {
   clearTimeout(state.renewTimer);
   const half = Math.max(30000, (state.expiresAt.getTime() - Date.now()) / 2);
   state.renewTimer = setTimeout(async () => {
-    try { adopt(await api('session/renew', { method: 'POST' })); } catch (_) { /* signedOut() handles 401 */ }
+    try { onInfo(await api('session/renew', { method: 'POST' })); } catch (_) { /* signedOut() handles 401 */ }
   }, half);
 }
 /// 605 (C.4): signed out — the page asks for a new link INSIDE itself, over what it shows: the view, an

@@ -21,6 +21,7 @@ let resTotalTimer = null;
 /// The nav's total, measured a moment after an operation ends (or at load) — never on a live update.
 export function scheduleResTotal(delay = 2000) {
   clearTimeout(resTotalTimer);
+  if (state.chat.solo) return;                         // the chat window shows no total
   resTotalTimer = setTimeout(async () => {
     if (state.view === 'resources') return;            // the page measures (and paints the total) itself
     try { await measured('resources', 'resources'); } catch (_) { /* the last total */ }

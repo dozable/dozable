@@ -4,6 +4,7 @@
 export const state = {
   csrf: null,
   expiresAt: null,
+  version: null,           // this doz ui's version (the session info) — the chat window compares a later one with it
   view: 'home',
   param: null,
   session: null,           // 593: #/sandbox/NAME/SESSION
@@ -67,6 +68,7 @@ export const state = {
     srv: null,             // chat/state: rooms, archived, participants {name, kind}, default_room, reactions, version
     human: null,           // the person's name in chat
     room: null,            // the room shown
+    solo: null,            // the chat window's one room (/chat#/ROOM); null in the dashboard
     byId: new Map(),       // msg_id → the message shown (its DOM parts under _el, _body, …)
     lastSeq: 0,            // the newest seq of the room read
     firstSeq: 0,           // the oldest seq shown (older pages load above it)
