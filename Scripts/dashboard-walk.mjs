@@ -1782,6 +1782,9 @@ async function walkChatWindow(origin) {
   const ov = await kevaluate(w, HEAD_OVERLAPS);
   check(ov.n >= 4 && ov.out.length === 0, `window 1 …no two controls in its head overlap, the bell included (${ov.n} controls${ov.out.length ? ': ' + ov.out.join(', ') : ''})`);
   const warmBytes = kbytes(w), warmCached = (w.cached || new Set()).size;
+  // The page's own account too (transferSize 0: from this browser's cache).
+  const warmPage = await kevaluate(w, `(() => { const all = [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')].filter((e) => !/\\/api\\//.test(e.name));
+    return { bytes: all.reduce((a, e) => a + (e.transferSize || 0), 0), files: all.length, cached: all.filter((e) => e.transferSize === 0).length }; })()`);
   // 2. What the window fetched: only chat's code, no other view, no overview, no dashboard stream while idle.
   await sleep(1500);
   const got = pageFetched(w);
@@ -1852,6 +1855,7 @@ async function walkChatWindow(origin) {
   await goHash('#/home');
   await sleep(5600);                                            // the dashboard's chat stream closes 5 s after leaving Chat
   const seen = () => evaluate(`+(localStorage.getItem('doz.chat.seen:askw') || 0)`);
+  const dashMark = requested.length;
   const m0 = await seen();
   const marks = [m0];
   const second = new Set(kids.keys());
@@ -1866,8 +1870,8 @@ async function walkChatWindow(origin) {
   for (let i = 0; i < 5; i++) { marks.push(await seen()); await sleep(150); }
   const never = marks.every((v, i) => i === 0 || v >= marks[i - 1]);
   check(marks[marks.length - 1] > m0 && never, `window 8 reading in the windows moves the marker forward only (${m0} → ${marks[marks.length - 1]}, ${marks.length} samples, never lower)`);
-  check(await waitFor(`!(state.chat.unread.askw && state.chat.unread.askw.n) && document.getElementById('chat-badge').hidden`, 8000),
-    'window 8 …and the dashboard\'s badge for it clears (another window read it)');
+  check(await waitFor(`!(state.chat.unread.askw && state.chat.unread.askw.n)`, 8000) && requested.slice(dashMark).some((u) => /\/api\/v1\/chat\/unread/.test(u)),
+    'window 8 …and the dashboard (off Chat) heard the other window\'s marker and read the counts again: askw is not unread there');
   if (w2) await bsend('Target.closeTarget', { targetId: w2.target });
   await sleep(2500);
   const pres = await evaluate(`(async () => { const r = await fetch('/api/v1/chat/presence', { credentials: 'same-origin' }); const j = await r.json(); return (j.find((p) => p.name === 'ada') || {}).state || ''; })()`);
@@ -1916,7 +1920,7 @@ async function walkChatWindow(origin) {
   const dcold = await coldOf(origin + '/#/home', /\/#\/home$/, `typeof state === 'undefined' ? false : !!document.querySelector('[data-home]')`);
   const wcold = await coldOf(origin + '/chat#/askw', /\/chat#\/askw$/, `document.querySelector('#chat-live')?.textContent === 'live'`);
   check(dcold.bytes > 0 && wcold.bytes > 0 && wcold.bytes <= 0.4 * dcold.bytes,
-    `window 11 cold first load (cache off): the dashboard ${dcold.bytes} B in ${dcold.files} files, the window ${wcold.bytes} B in ${wcold.files} files (${Math.round(100 * wcold.bytes / Math.max(1, dcold.bytes))} %); the window opened warm from the dashboard: ${warmBytes} B (${warmCached} of its files from this browser's cache)`);
+    `window 11 cold first load (cache off): the dashboard ${dcold.bytes} B in ${dcold.files} files, the window ${wcold.bytes} B in ${wcold.files} files (${Math.round(100 * wcold.bytes / Math.max(1, dcold.bytes))} %); the window opened warm from the dashboard: ${warmBytes} B on the wire by DevTools (${warmCached} files from cache), ${warmPage.bytes} B by the page's own timing (${warmPage.cached} of ${warmPage.files} files from cache)`);
   for (const c of [dcold, wcold]) if (c.k) await bsend('Target.closeTarget', { targetId: c.k.target });
   // 9. Another computer: chat not shared, then shared read-only.
   const remote = async (shared) => {
