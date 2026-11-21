@@ -30,8 +30,11 @@ function entry(name) {
 export function picturesStale(o = {}) {
   if (marked) { marked.file = marked.file || !!o.file; return; }
   marked = { file: !!o.file };
-  queueMicrotask(() => { stateEpoch++; if (marked.file) fileEpoch++; marked = null; pump(); });
+  queueMicrotask(() => { stateEpoch++; if (marked.file) fileEpoch++; marked = null; pump(); for (const fn of [...staleFns]) fn(); });
 }
+const staleFns = new Set();
+/// Called after each (coalesced) mark — the space editor's Live reads on these events too. → stop.
+export function onPicturesStale(fn) { staleFns.add(fn); return () => staleFns.delete(fn); }
 
 export function forgetPictures(names) {
   for (const n of [...entries.keys()]) if (!names.includes(n)) entries.delete(n);

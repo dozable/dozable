@@ -671,6 +671,54 @@ final class WebModulesTests: XCTestCase {
             try Data(html.replacingOccurrences(of: "<script type=\"module\" src=\"/app.js\"></script>", with: "<script src=\"/app.js\" defer></script>").utf8).write(to: index)
         }
     }
+    /// 744: the space editor's page — its two addresses (pure, in JavaScriptCore), its modules (the glue: no timer, no DOM in
+    /// the data module), the guard a dirty file sets (the router's, the restart's reload, the page's own keys left alone).
+    func testTheSpaceEditorsPageAndItsAddresses() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        ctx.evaluateScript(try read("app/core/routes.js").replacingOccurrences(of: "export ", with: ""))
+        XCTAssertNil(thrown, thrown ?? "")
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("[parse('#/w/d/space').view, parse('#/w/d/space').param, parse('#/w/d/space').tab]"), #"["space","d",null]"#)
+        XCTAssertEqual(js("[parse('#/w/d/space/watch').view, parse('#/w/d/space/watch').tab]"), #"["space","watch"]"#)
+        XCTAssertEqual(js("[parse('#/w/d/space/x'), parse('#/w/d/space/')]"), "[null,null]")
+        XCTAssertEqual(js("[canonical('#/w/d/space'), canonical('#/w/d/space/watch'), spaceHash('d'), spaceWatchHash('d')]"),
+                       ##"["#/w/d/space","#/w/d/space/watch","#/w/d/space","#/w/d/space/watch"]"##)
+        let a = try WebAssets.load()
+        for m in ["views/space-page", "core/space-editor"] { XCTAssertTrue(a.assets.keys.contains { $0.hasPrefix("/assets/app/\(m)-") }, "\(m) is served") }
+        let glue = try read("app/views/space-page.js").utf8.count + read("app/core/space-editor.js").utf8.count
+        XCTAssertLessThanOrEqual(glue, 16384, "the editor's glue is at most 16 KB")
+        let data = try read("app/core/space-editor.js")
+        for banned in ["setTimeout", "setInterval", "document.", "state(text"] { XCTAssertFalse(data.contains(banned), "core/space-editor.js: \(banned)") }
+        XCTAssertTrue(data.contains("onPicturesStale(") && data.contains("onAskChange("), "live from events")
+        let page = try read("app/views/space-page.js")
+        XCTAssertTrue(page.contains("setLeaveGuard(") && page.contains("beforeunload") && page.contains("addFeatures(['text'])"))
+        XCTAssertFalse(page.contains("'sim'") || page.contains("'timeline'"), "sim and timeline are never named")
+        XCTAssertTrue(try read("app/core/reconnect.js").contains("state.spaceDirty"), "a restart's reload waits for a dirty file")
+        XCTAssertTrue(try read("app/views/shortcuts.js").contains(".space-editor"), "the dashboard's keys stay out of the editor")
+        XCTAssertTrue(try read("index.html").contains(#"<section id="space" class="space-root""#))
+    }
+
+    /// 744: every token the editor's stylesheet reads (but its own --iso-* and --se-*) is the dashboard's, its own, or one its
+    /// script sets on an element.
+    func testTheSpaceEditorsStylesheetReadsTheDashboardsTokens() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let css = try String(contentsOf: src.appendingPathComponent("vendor/space-editor/space-editor.css"), encoding: .utf8)
+        let app = try String(contentsOf: src.appendingPathComponent("app.css"), encoding: .utf8)
+        let dir = src.appendingPathComponent("vendor/space-editor")
+        let scripts = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasSuffix(".js") }
+            .map { try String(contentsOf: dir.appendingPathComponent($0), encoding: .utf8) }.joined()
+        let used = Set(try NSRegularExpression(pattern: #"var\((--[A-Za-z0-9-]+)"#).matches(in: css, range: NSRange(location: 0, length: (css as NSString).length))
+            .map { (css as NSString).substring(with: $0.range(at: 1)) })
+        XCTAssertGreaterThan(used.count, 40)
+        for t in used.sorted() where !t.hasPrefix("--iso-") && !t.hasPrefix("--se-") {
+            XCTAssertTrue(app.contains(t + ":") || css.contains(t + ":") || scripts.contains("\"" + t + "\""), "\(t) is defined")
+        }
+    }
+
     // MARK: 742, 744 — the space editor's build, vendored at its commit as a tree, loaded only through the lazy-import table
 
     static let peer = "Sources/DozableWeb/WebSource/vendor/space-editor"

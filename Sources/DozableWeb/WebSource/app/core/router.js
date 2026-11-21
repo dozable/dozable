@@ -17,7 +17,7 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), ch
   viewDoctor = upcall('viewDoctor'), viewImages = upcall('viewImages'), viewMetrics = upcall('viewMetrics'),
   viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'), viewHome = upcall('viewHome'), viewWorkspaces = upcall('viewWorkspaces'), viewThisMac = upcall('viewThisMac'), viewLoose = upcall('viewLoose'), viewBots = upcall('viewBots'), viewBot = upcall('viewBot'), viewMacs = upcall('viewMacs'),
   viewBrowse = upcall('viewBrowse'), viewRecipes = upcall('viewRecipes'), viewResources = upcall('viewResources'), viewSettings = upcall('viewSettings'), viewDevices = upcall('viewDevices'), viewDebug = upcall('viewDebug'),
-  viewNotifications = upcall('viewNotifications'), viewWsAgent = upcall('viewWsAgent'), viewIsolationGuide = upcall('viewIsolationGuide'), viewAddWorker = upcall('viewAddWorker'),
+  spaceEnter = upcall('spaceEnter'), spaceLeave = upcall('spaceLeave'), viewNotifications = upcall('viewNotifications'), viewWsAgent = upcall('viewWsAgent'), viewIsolationGuide = upcall('viewIsolationGuide'), viewAddWorker = upcall('viewAddWorker'),
   wizardStopPolling = upcall('wizardStopPolling');
 
 // ── routing ─────────────────────────────────────────────────────────────────
@@ -26,6 +26,10 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'), ch
 // hash state.bgHash) is never re-rendered or torn down by opening or closing one (the sandbox page's terminals
 // stay as they are). A deep link opens the modal over Home.
 export { MODAL_VIEWS };
+// 744: a page that must not be left as it is (the space editor with a dirty file): `fn(to)` → true when it holds the way
+// (it asks itself, and sets the address when the person says Leave). A modal's address passes through.
+let leaveGuard = null;
+export function setLeaveGuard(fn) { leaveGuard = fn || null; }
 export function route() {
   const c = canonical(location.hash);
   if (c !== location.hash) { location.replace(c); return; }      // its hashchange routes again
@@ -93,19 +97,22 @@ function routePage() {
   // A workspace's page is a section too (#ws): the room surface the Chat page shows is MOVED into it (views/chat.js
   // mountChat — one chat client), so leaving one for the other never closes the stream.
   const onSbx = state.view === 'sandbox', onGrid = state.view === 'sessions', onMac = state.view === 'mac', onChat = state.view === 'chat',
-    onWs = state.view === 'workspace', onRoom = onWs && state.wsTab === 'room';
+    onWs = state.view === 'workspace', onRoom = onWs && state.wsTab === 'room', onSpace = state.view === 'space';
   $('sbx').hidden = !onSbx;
   $('grid').hidden = !onGrid;
   $('mac').hidden = !onMac;
   $('chat').hidden = !onChat;
   $('ws').hidden = !onWs;
-  $('view').hidden = onSbx || onGrid || onMac || onChat || onWs;
+  $('space').hidden = !onSpace;
+  document.body.classList.toggle('space-page', onSpace);
+  $('view').hidden = onSbx || onGrid || onMac || onChat || onWs || onSpace;
   $('main').classList.toggle('main-chat', onChat || onRoom);
   $('main').classList.toggle('main-ws', onRoom);
   $('main').classList.toggle('main-terms', onSbx);
   if (!onGrid) gridLeave();
   if (!onMac) macLeave();
   if (!onChat && !onWs) chatLeave();
+  if (!onSpace) spaceLeave();
   if (state.view !== 'operations') state.opsBox = null;
   if (state.view === 'operations') { acknowledgeOps(); loadPreparations(); }
   if (state.modal !== 'onboarding') wizardStopPolling();
@@ -115,6 +122,7 @@ function routePage() {
   if (onMac) { macEnter(state.session); return; }
   if (onChat) { chatEnter(state.param); return; }
   if (onWs) { wsEnter(state.param, state.wsRoom, state.wsTab); return; }
+  if (onSpace) { spaceEnter(state.param, state.wsTab === 'watch' ? 'watch' : 'edit'); return; }
   refresh(true);
 }
 window.addEventListener('hashchange', () => {
@@ -126,7 +134,13 @@ window.addEventListener('hashchange', () => {
     if (field) { field.value = link; $('signin-form').requestSubmit(); }
     return;
   }
-  if (!state.signedOut) route();
+  if (state.signedOut) return;
+  const to = location.hash, p = parse(canonical(to));
+  if (leaveGuard && to !== state.bgHash && !(p && p.modal) && leaveGuard(to)) {
+    history.replaceState(null, '', location.pathname + (state.bgHash || HOME));
+    return;
+  }
+  route();
 });
 
 let refreshing = false, again = false;
@@ -137,6 +151,7 @@ export async function refresh(scrollTop) {
   if (state.view === 'mac') { macRefresh(false); return; }
   if (state.view === 'chat') { chatRefresh(); return; }
   if (state.view === 'workspace') { wsRefresh(); return; }
+  if (state.view === 'space') return;                             // the editor is never re-rendered by a refresh
   if (refreshing) { again = true; return; }
   refreshing = true;
   try {

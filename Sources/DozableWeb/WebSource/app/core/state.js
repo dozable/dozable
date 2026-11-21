@@ -8,6 +8,7 @@ export const state = {
   param: null,
   session: null,           // 593: #/sandbox/NAME/SESSION
   wsRoom: null,            // #/w/NAME/room/LABEL: the room's short label (null: the workspace's main room)
+  spaceDirty: false,       // 744: the space editor holds unsaved changes (a restart's reload waits)
   wsTab: null,             // a workspace's tab: 'home' (#/w/NAME), 'room' (#/w/NAME/room[/LABEL]), 'agents', …
   /// #/w/NAME/agent/AGENT: the workspace that frames the sandbox's or the session's page shown —
   /// {workspace, agent, kind: 'sandbox' | 'mac' | 'card', place, row (the agent as the workspace's detail says), detail};

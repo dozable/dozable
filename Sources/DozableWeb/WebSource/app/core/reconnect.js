@@ -210,6 +210,7 @@ export function checkBuild(hello) {
 /// field focused, nothing typed in a field.
 function pageIsIdle() {
   if (state.modal || document.querySelector('dialog[open]')) return false;
+  if (state.spaceDirty) return false;                             // 744: a space file with unsaved changes
   const a = document.activeElement;
   if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) return false;
   if (a && a.tagName === 'IFRAME') {
