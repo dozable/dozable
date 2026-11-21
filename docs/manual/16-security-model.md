@@ -195,6 +195,10 @@ fully resolved path.
 - **The update check**: Dozable's version and channel, at most once a day (`updates.mode off` stops it).
 - **Your agent's own traffic**, through the proxy, to what you allow.
 
+Nothing else: the history of this Mac (`doz timeline`) stays in your store. It keeps the host and port of each
+connection a sandbox made — never a path, query string, header or body — for 7 days by default (`timeline.egress`),
+hidden until you ask for it, and after that only counts per sandbox. See [History and retention](40-history-and-retention.md).
+
 ## What Dozable can't protect
 
 - **Your shared folder.** It's the agent's to change. Commit often. [Folder rules](20-workspace-rules.md)

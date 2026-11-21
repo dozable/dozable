@@ -1,0 +1,136 @@
+{
+  "timeline": 1,
+  "type": "result",
+  "rows": [
+    {
+      "scope": "host:host-a",
+      "label": "host-a",
+      "kind": "host",
+      "depth": 0,
+      "own": true,
+      "children": 1,
+      "count": 1,
+      "first": 1795164600000,
+      "last": 1795164600000
+    },
+    {
+      "scope": "host:host-a/workspace:example-space",
+      "label": "example-space",
+      "kind": "workspace",
+      "space": true,
+      "depth": 1,
+      "children": 3,
+      "count": 10,
+      "first": 1795165200000,
+      "last": 1795165600000
+    }
+  ],
+  "bins": [
+    {
+      "scope": "host:host-a/workspace:example-space",
+      "t": 1795165200000,
+      "bin": "1h",
+      "count": 10,
+      "severity": {
+        "debug": 4,
+        "info": 5,
+        "notice": 1
+      },
+      "kinds": {
+        "session": 1,
+        "session.open": 1,
+        "action.ok": 1,
+        "step.ok": 1,
+        "decision.ask": 1,
+        "workspace.worker-added": 1,
+        "chat.message": 1,
+        "chat.delivered": 1,
+        "ask.decided": 1,
+        "run.frame": 1
+      }
+    },
+    {
+      "scope": "host:host-a",
+      "t": 1795161600000,
+      "bin": "1h",
+      "count": 1,
+      "severity": {
+        "info": 1
+      }
+    }
+  ],
+  "spans": [
+    {
+      "id": "daemon/41",
+      "t": 1795164600000,
+      "dur": 4210000,
+      "open": true,
+      "scope": "host:host-a",
+      "source": "daemon",
+      "kind": "daemon.run",
+      "severity": "info",
+      "summary": "daemon (0.52.22)",
+      "attrs": {
+        "run_kind": "daemon",
+        "app_version": "0.52.22",
+        "build": "5222",
+        "chip": "arm64",
+        "macos": "27.2",
+        "pid": 812
+      },
+      "links": {}
+    },
+    {
+      "id": "sessions/812",
+      "t": 1795165200000,
+      "dur": 1800000,
+      "scope": "host:host-a/workspace:example-space/sandbox:build-vm/session:agent~812",
+      "source": "sessions",
+      "kind": "session",
+      "severity": "info",
+      "summary": "agent (worker)",
+      "attrs": {
+        "program": "agent",
+        "image": "base",
+        "open_ms": 640,
+        "first_attach_ms": 2100
+      },
+      "links": {
+        "session": "812"
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "series": "net.denied",
+      "scope": "host:host-a/workspace:example-space",
+      "t": 1795165200000,
+      "bin": "1h",
+      "min": 0,
+      "max": 1,
+      "sum": 1,
+      "count": 60
+    }
+  ],
+  "total": 11,
+  "retention": [
+    {
+      "source": "network",
+      "events": 30,
+      "rollups": {
+        "1m": 30,
+        "1h": 365,
+        "1d": null
+      },
+      "setBy": "default",
+      "keptFrom": {
+        "events": 1794906000000,
+        "rollups": {
+          "1m": 1794906000000,
+          "1h": 1794906000000,
+          "1d": 1794906000000
+        }
+      }
+    }
+  ]
+}

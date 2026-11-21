@@ -78,7 +78,7 @@ ok "doz upgrade refuses (\"this doz belongs to Smoke; Smoke updates it\"); doz u
 
 # 3. An empty store: the host, then a VM.
 [[ ! -e "$W/store" ]] || die "the store is not empty"
-st="$(d host start --json)"
+st="$(d daemon start --json)"
 flavour="$(python3 -I -c 'import json,sys; print(json.load(sys.stdin).get("flavour"))' <<<"$st")"
 [[ "$flavour" == helper ]] || die "host status flavour is $flavour: $st"
 ok "doz daemon start: the host runs, its status (the ping answer) says flavour \"helper\""

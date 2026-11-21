@@ -68,6 +68,10 @@ public enum SettingType: Sendable, Equatable {
     /// Exact Tailscale IPv4 addresses (100.64.0.0/10), comma-separated, no range — the chat server's other machines;
     /// `""` = none.
     case tailnetAddresses
+    /// 747: this Mac's display name (`MacDisplayName`): 1–63 letters, digits, spaces and hyphens.
+    case macName
+    /// 747: a timeline source's retention, `EVENTS/1M/1H/1D` in days (each 1–36500, or `kept`) — `TimelineRetentionSettings`.
+    case retention
 
     /// The variables a title may use.
     public static let titleVariables = ["sandbox", "session", "image", "time", "phase"]
@@ -116,6 +120,8 @@ public enum SettingType: Sendable, Equatable {
         case .dotfiles: "a git repository's https:// URL, or a folder on this Mac that is one (\"\" = none)"
         case .homePathList: "paths relative to your home, comma-separated, like \"notes, src/shared\" (\"\" = none)"
         case .tailnetAddresses: "Tailscale addresses like 100.100.1.2, comma-separated, each one exactly (\"\" = none)"
+        case .macName: "a name of 1–63 letters, digits, spaces or hyphens"
+        case .retention: "days EVENTS/1M/1H/1D, each a number of days or kept, like 30/30/365/kept"
         }
     }
 
@@ -262,6 +268,7 @@ public struct SettingDefinition: Sendable {
             guard r.contains(i) else { throw SettingsError("\(key) is \(r.lowerBound)–\(r.upperBound)") }
             // 605: a fixed dashboard port is an unprivileged one (0 = automatic).
             if key == SettingKey.uiPort, (1...1023).contains(i) { throw SettingsError("\(key) is 0 (automatic) or a port 1024–65535") }
+            if key == SettingKey.timelineSampleSeconds, (1...9).contains(i) { throw SettingsError("\(key) is 0 (off) or 10–3600 seconds") }
             return v
         case (.choice(let c), .string(let s)):
             guard c.contains(s) else { throw SettingsError("\(key) is one of \(c.joined(separator: ", "))") }
@@ -307,6 +314,12 @@ public struct SettingDefinition: Sendable {
         case (.homePathList, .string(let s)):
             if let why = MacFencePaths.fenceReadProblem(s) { throw SettingsError("\(key): \(why)") }
             return v
+        case (.retention, .string(let s)):
+            if let why = TimelineRetentionSettings.problem(s) { throw SettingsError("\(key): \(why)") }
+            return v
+        case (.macName, .string(let s)):
+            guard MacDisplayName.isValid(s) else { throw SettingsError("\(key) is 1–63 letters, digits, spaces or hyphens") }
+            return v
         case (.appList, .string(let s)):
             guard WorkspaceFiles.appNames(s) != nil else {
                 throw SettingsError("\(key) is app names separated by commas (at most 16, each 1–64 characters, no / or ;), or \"\"")
@@ -330,7 +343,7 @@ public struct SettingDefinition: Sendable {
         case .int:
             guard let i = Int(t) else { throw SettingsError("\(key) is a whole number") }
             return try validate(.int(i))
-        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles, .homePathList, .tailnetAddresses:
+        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles, .homePathList, .tailnetAddresses, .macName, .retention:
             return try validate(.string(t))
         case .titleTemplate:
             return try validate(.string(text))          // its spaces are its own
@@ -450,6 +463,10 @@ public enum SettingKey {
     public static let idleTimeout = "daemon.idle_timeout_minutes"
     public static let screenCapture = "daemon.screen_capture_minutes"
     public static let bootLogsKept = "daemon.boot_logs_kept"
+    /// 747: this Mac's display name in the timeline and SpaceState (`MacDisplayName`).
+    public static let macName = "daemon.mac_name"
+    /// 747: how often each running sandbox's CPU, memory and disk are sampled (0: never).
+    public static let timelineSampleSeconds = "timeline.sample_seconds"
     public static let keepalive = "daemon.keepalive"
     public static let storePath = "store.path"
     public static let cpus = "defaults.cpus"
@@ -969,6 +986,17 @@ public struct DozableSettings: Sendable {
             .init("daemon", "boot_logs_kept", .int(1...50), .int(BootLogs.defaultKept),
                   "How many boots of each sandbox to keep (its steps and kernel console — the web UI's Boot log, doz console --boot N); the oldest goes.",
                   env: "DOZ_BOOT_LOGS", applies: .nextBoot),
+            // 747: the name this Mac goes by in its history (the timeline's host) and a space's state — never its network
+            // name. The installable dashboard keeps the Mac's own name unless this is set.
+            .init("daemon", "mac_name", .macName, .string("this Mac"),
+                  "The name this Mac goes by in its history and in a space's state, e.g. \"studio\". It is shown, never looked up on the network.",
+                  env: "DOZ_MAC_NAME", applies: .now),
+            // 747: the timeline's resource samples, read from the Mac's side only (never a command in the sandbox).
+            .init("timeline", "sample_seconds", .int(0...3600), .int(60),
+                  "How often, in seconds, each running sandbox's CPU, memory and disk use are kept for its history (10–3600); 0 = never. Read from this Mac, never inside the sandbox.",
+                  env: "DOZ_TIMELINE_SAMPLE_SECONDS", applies: .now),
+            // 747: how long each source of the history is kept (14.5a: the history file and the four new records only).
+        ] + TimelineRetentionSettings.definitions + [
             .init("daemon", "keepalive", .bool, .bool(false),
                   "When a Mac login expires, while a sandbox or fenced session uses it and no unfenced Claude Code runs, the daemon runs the Mac's claude once to renew it (doz account keepalive always: also with nothing using it).",
                   applies: .newStore),
@@ -1515,6 +1543,8 @@ public struct DozableSettings: Sendable {
             case .dotfiles: kind = "dotfiles"
             case .homePathList: kind = "home-paths"
             case .tailnetAddresses: kind = "addresses"
+            case .macName: kind = "string"
+            case .retention: kind = "string"
             }
             var note: String?
             switch r.source {

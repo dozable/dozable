@@ -797,3 +797,10 @@ server instead. A new runner version is a deliberate change: bump `RUNNER`, run 
 
 The runner's `-test.list` prints the check names only with `-test.v` (in its report mode the list goes to its log and it
 reports a failed run).
+
+## Read by the timeline
+
+The timeline's indexer (`TimelineIndexer.indexChat`, [timeline.md](timeline.md)) reads each room's database with its
+own `mode=ro` connection, every 30 seconds, from a cursor (seq and times): message ids, times, counts and kinds, each
+recipient's states, handovers, edits and deletions, an Ask's number and outcome — the SQL never selects `content`, an
+Ask's question or a decision's text. It never writes a room and never talks to the chat server.

@@ -36,6 +36,10 @@ public actor HostCore {
     /// 595: operations that touch the store's disks under way now (a deletion waits for none).
     var diskOpsInFlight = 0
     nonisolated let hub = HostEventHub()
+    /// 747: the resource samples' helper lookups and their cost (`TimelineSampler`).
+    nonisolated let sampler = ResourceSampler()
+    /// 747: fills `timeline.sqlite` (the daemon only; a look in-process reads the file as it is).
+    nonisolated let timeline: TimelineIndexer?
     /// A space's frames during a run, moved by events (`SpaceStateRecorder`, `HostCore+SpaceState`).
     nonisolated let spaceFrames = SpaceStateRecorder()
     /// 599h: the tools layer's downloads (gh), once per store.
@@ -93,6 +97,8 @@ public actor HostCore {
     }
 
     var managed: [String: Managed] = [:]
+    /// 747: the `sessions` row of each session on this Mac opened by this daemon.
+    var macSessionRows: [String: Int64] = [:]
     /// The sessions held on THIS Mac (`@mac`) — never in `managed` (no `Sandbox`): `HostCore+Mac`.
     public nonisolated let mac: MacSessions
     /// The git guard of each FENCED session on this Mac this host watches (`HostCore+Mac`).
@@ -231,10 +237,12 @@ public actor HostCore {
         if readOnly {
             metrics = nil
             metricsRun = 0
+            timeline = nil
         } else {
             let m = try? MetricsStore(url: store.metrics)
             metrics = m
             metricsRun = m?.beginRun(.current(kind: "doz host", version: version)) ?? 0
+            timeline = TimelineIndexer(store: store)
         }
     }
 
@@ -360,6 +368,14 @@ public actor HostCore {
         let e = HostEvent(kind: sandbox == nil ? .host : .note, sandbox: sandbox, text: text)
         hub.yield(e)
         if !readOnly { HostLog.line(e.line) }
+        keepHostEvent(e)
+    }
+
+    /// 747: a daemon event into `host_events` (the kinds `HostEventSummary` keeps, its line made safe).
+    func keepHostEvent(_ e: HostEvent) {
+        guard let metrics, let summary = HostEventSummary.make(e) else { return }
+        metrics.hostEvent(run: metricsRun, at: e.time, kind: e.kind.rawValue, sandbox: e.sandbox, session: e.session, summary: summary,
+                          ms: e.milliseconds, failed: e.kind == .failed)
     }
 
     private func handleEvent(_ name: String, _ e: SandboxEvent) {
@@ -367,6 +383,7 @@ public actor HostCore {
         if case .phase(let p) = e {
             spaceFramesPoke(nil, "\(name): \(p.rawValue)")
             if p == .running { sessionRegistry.cameToRun(name); Task { await self.refreshStatusWatches(name) } }
+            if p != .running { sampler.forget(name) }                // 747: its VM helper is found again at the next run
             if p == .off { clearStatuses(name); sessionRegistry.clear(name) }
             // 617 (RP-1): forwards listen while the sandbox runs, and only then.
             if p == .running { Task { await self.bindPorts(name, settle: true) } }
@@ -382,6 +399,7 @@ public actor HostCore {
             managed[name]?.bootTail?.record(he)
             hub.yield(he)
             if he.kind != .progress, he.kind != .output { HostLog.line(he.line) }   // 593: a bake's output is live only
+            keepHostEvent(he)
         }
         guard case .step(let label, let ms) = e, let metrics, let m = managed[name] else { return }
         let recent = m.lastAction.flatMap { Date().timeIntervalSince($0.at) < 1.5 ? $0.row : nil }
@@ -393,20 +411,10 @@ public actor HostCore {
     /// Finished connections into the metrics, as counts and bytes per sandbox per minute (never hosts).
     func recordNetwork(_ name: String) {
         guard let metrics, let m = managed[name], let log = m.sandbox.egress?.log else { return }
-        var buckets: [Int64: (allowed: Int, denied: Int, failed: Int, up: Int, down: Int)] = [:]
-        for r in log.records where !r.open && !m.networkCounted.contains(r.id) {
-            m.networkCounted.insert(r.id)
-            let minute = Int64(r.time.timeIntervalSince1970 / 60)
-            var b = buckets[minute] ?? (0, 0, 0, 0, 0)
-            switch r.verdict {
-            case .allowed: b.allowed += 1
-            case .denied: b.denied += 1
-            case .failed: b.failed += 1
-            }
-            b.up += r.bytesUp
-            b.down += r.bytesDown
-            buckets[minute] = b
-        }
+        // 747: each closed connection kept once by its id (`egress`, `key_use`), counted in its minute only the first time.
+        let fresh = log.records.filter { !$0.open && !m.networkCounted.contains($0.id) }
+        for r in fresh { m.networkCounted.insert(r.id) }
+        let buckets = metrics.recordConnections(run: metricsRun, sandbox: name, fresh)
         for (minute, b) in buckets {
             metrics.addNetwork(run: metricsRun, sandbox: name, minute: minute, allowed: b.allowed, denied: b.denied,
                                failed: b.failed, bytesUp: b.up, bytesDown: b.down)
@@ -923,6 +931,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await spaceDown(r.spaceDown))
         case .macsList:
             return try JSONValue(encoding: try MacBookmarkStore(store: store).listing())
+        case .timelineCatalog, .timelineQuery, .timelineSubscribe, .timelineRetention, .timelineRebuild:
+            return try await performTimeline(r)
         case .permissionsShow, .permissionsWhy, .permissionsGrant, .permissionsRevoke, .permissionsCeiling:
             return try await performPermissions(r)
         case .tools, .toolsApply:

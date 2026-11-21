@@ -1,0 +1,666 @@
+{
+  "now": 1795262400000,
+  "from": 1794657600000,
+  "to": 1795262400000,
+  "tz": "UTC",
+  "vectors": [
+    {
+      "q": "",
+      "where": {
+        "all": []
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "exec",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "exec"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "\"ok in 12\"",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "ok in 12"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "EXEC failed",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "EXEC"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "failed"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "kind:action.ok",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "kind",
+                "value": "action.ok"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "kind:action.*",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "kind",
+                "value": "action.",
+                "prefix": true
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "kind:session.open kind:session.end",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "kind",
+                "value": "session.open"
+              },
+              {
+                "field": "kind",
+                "value": "session.end"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "source:grants kind:decision.never",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "source",
+                "value": "grants"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "field": "kind",
+                "value": "decision.never"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "-source:chat",
+      "where": {
+        "all": [
+          {
+            "not": true,
+            "any": [
+              {
+                "field": "source",
+                "value": "chat"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "-\"timed out\"",
+      "where": {
+        "all": [
+          {
+            "not": true,
+            "any": [
+              {
+                "field": "text",
+                "value": "timed out"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "severity:warning",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "severity",
+                "op": "eq",
+                "value": "warning"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "severity:>=notice",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "severity",
+                "op": "ge",
+                "value": "notice"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "severity:<info",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "severity",
+                "op": "lt",
+                "value": "info"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "severity:bad",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "severity:bad"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": [
+        "\"severity:bad\": no severity bad (debug, info, notice, warning, error); searched as text"
+      ]
+    },
+    {
+      "q": "scope:host:host-a/workspace:example-space",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "scope",
+                "value": "host:host-a/workspace:example-space",
+                "from": "top"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "scope:sandbox:build-vm",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "scope",
+                "value": "sandbox:build-vm",
+                "from": "segments"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "scope:workspace:example-space/room:rm_3fa2c1",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "scope",
+                "value": "workspace:example-space/room:rm_3fa2c1",
+                "from": "segments"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "run:example-space/2026-11-20-1",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "link",
+                "link": "run",
+                "value": "example-space/2026-11-20-1"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "run:2026-11-20-1",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "link",
+                "link": "run",
+                "value": "2026-11-20-1"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "ask:#12",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "link",
+                "link": "ask",
+                "value": "#12"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "session:812",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "link",
+                "link": "session",
+                "value": "812"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "msg:msg_0004d2",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "link",
+                "link": "msg",
+                "value": "msg_0004d2"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "decision:g7",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "link",
+                "link": "decision",
+                "value": "g7"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "attr.perm:folder.write",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "attr",
+                "key": "perm",
+                "value": "folder.write"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "attr.reason:\"disk full\"",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "attr",
+                "key": "reason",
+                "value": "disk full"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "since:2h",
+      "where": {
+        "all": []
+      },
+      "from": 1795255200000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "since:1w",
+      "where": {
+        "all": []
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "since:2026-11-20T09:30Z before:2026-11-21T00:00Z",
+      "where": {
+        "all": []
+      },
+      "from": 1795167000000,
+      "to": 1795219200000,
+      "warnings": []
+    },
+    {
+      "q": "before:3d",
+      "where": {
+        "all": []
+      },
+      "from": 1794657600000,
+      "to": 1795003200000,
+      "warnings": []
+    },
+    {
+      "q": "since:soon",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "since:soon"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": [
+        "\"since:soon\": can't read the time soon (15m, 2h, 3d, 1w, or a date like 2026-11-20 or 2026-11-20T09:30); searched as text"
+      ]
+    },
+    {
+      "q": "-since:2h",
+      "where": {
+        "all": [
+          {
+            "not": true,
+            "any": [
+              {
+                "field": "text",
+                "value": "since:2h"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": [
+        "\"since:2h\": -since isn't allowed (use before); searched as text"
+      ]
+    },
+    {
+      "q": "when:later exec",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "when:later"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "exec"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": [
+        "\"when:later\": no field when; searched as text"
+      ]
+    },
+    {
+      "q": "kind:",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "kind:"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": [
+        "\"kind:\": kind: needs a value; searched as text"
+      ]
+    },
+    {
+      "q": "- lone",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "-"
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "field": "text",
+                "value": "lone"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    },
+    {
+      "q": "kind:\"workspace.run-opened\" -kind:workspace.slept",
+      "where": {
+        "all": [
+          {
+            "any": [
+              {
+                "field": "kind",
+                "value": "workspace.run-opened"
+              }
+            ]
+          },
+          {
+            "not": true,
+            "any": [
+              {
+                "field": "kind",
+                "value": "workspace.slept"
+              }
+            ]
+          }
+        ]
+      },
+      "from": 1794657600000,
+      "to": 1795262400000,
+      "warnings": []
+    }
+  ]
+}

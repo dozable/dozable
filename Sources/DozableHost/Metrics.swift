@@ -6,6 +6,7 @@
 // The system `SQLite3` module only: no new dependency. One connection per store, serialised by a
 // lock (the writes are a few rows per action; WAL keeps a reader — `doz metrics` — from blocking
 // the host). The schema is versioned by `schema_migrations`; `migrations` only ever grows.
+import DozableKit
 import Foundation
 import SQLite3
 
@@ -222,10 +223,40 @@ public final class MetricsStore: @unchecked Sendable {
               PRIMARY KEY (run, sandbox, minute))
             """,
         ]),
+        // 747: what the timeline keeps that lived only in memory — the daemon's events (never guest text), each
+        // connection (a host and port, never a path, query, header or credential), resource samples, key use (a binding's
+        // name, never a value). Additive: the four tables SandboxLab's schema lacks; its own still compare.
+        (2, [
+            """
+            CREATE TABLE host_events (id INTEGER PRIMARY KEY AUTOINCREMENT, run INTEGER NOT NULL REFERENCES runs(id), t REAL NOT NULL,
+              kind TEXT NOT NULL, sandbox TEXT, session TEXT, summary TEXT NOT NULL, ms REAL, failed INTEGER NOT NULL DEFAULT 0)
+            """,
+            "CREATE INDEX host_events_t ON host_events(t)",
+            """
+            CREATE TABLE egress (id INTEGER PRIMARY KEY AUTOINCREMENT, run INTEGER NOT NULL REFERENCES runs(id), uuid TEXT NOT NULL UNIQUE,
+              sandbox TEXT NOT NULL, t REAL NOT NULL, kind TEXT NOT NULL, host TEXT NOT NULL, port INTEGER, verdict TEXT NOT NULL,
+              rule TEXT NOT NULL, bytes_up INTEGER NOT NULL DEFAULT 0, bytes_down INTEGER NOT NULL DEFAULT 0, duration_ms REAL,
+              decrypted INTEGER NOT NULL DEFAULT 0)
+            """,
+            "CREATE INDEX egress_t ON egress(t)",
+            """
+            CREATE TABLE samples (run INTEGER NOT NULL REFERENCES runs(id), sandbox TEXT NOT NULL, t INTEGER NOT NULL, cpu_pct REAL,
+              mem_bytes INTEGER, disk_bytes INTEGER, PRIMARY KEY (sandbox, t))
+            """,
+            """
+            CREATE TABLE key_use (id INTEGER PRIMARY KEY AUTOINCREMENT, run INTEGER NOT NULL REFERENCES runs(id), egress_uuid TEXT,
+              sandbox TEXT NOT NULL, t REAL NOT NULL, binding TEXT, via TEXT NOT NULL, ok INTEGER NOT NULL)
+            """,
+            "CREATE INDEX key_use_t ON key_use(t)",
+            "CREATE INDEX sessions_opened ON sessions(opened_at)",
+            "CREATE INDEX network_minute ON network(minute)",
+        ]),
     ]
     public static var currentSchemaVersion: Int { migrations.last?.version ?? 0 }
 
     public let url: URL
+    /// 747: told after every write (the timeline's indexer reads the new rows from its own connection).
+    public var onWrite: (@Sendable () -> Void)?
     private var db: OpaquePointer?
     private let lock = NSLock()
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -343,6 +374,62 @@ public final class MetricsStore: @unchecked Sendable {
                   .int(Int64(bytesUp)), .int(Int64(bytesDown))])
     }
 
+    // MARK: 747 — the records the timeline keeps
+
+    /// One of the daemon's own events (a phase, a step, a note, a line of its own) — its summary already made safe by the
+    /// caller (`HostEventSummary`): never guest text, a path outside `~`, or a host.
+    public func hostEvent(run: Int64, at: Date, kind: String, sandbox: String?, session: String? = nil, summary: String, ms: Double?, failed: Bool) {
+        try? execute("INSERT INTO host_events (run, t, kind, sandbox, session, summary, ms, failed) VALUES (?,?,?,?,?,?,?,?)",
+                     [.int(run), .real(at.timeIntervalSince1970), .text(kind), .opt(sandbox), .opt(session), .text(summary),
+                      ms.map(Value.real) ?? .null, .int(failed ? 1 : 0)])
+    }
+
+    /// Closed connections of one sandbox, each kept ONCE by its id (a second sight — the same record again, a restart —
+    /// changes nothing): a row per connection (an allowed DNS lookup is counted, never kept), and a key-use row where a
+    /// credential was used. Returns the minute buckets of the connections new here, for `addNetwork`.
+    public func recordConnections(run: Int64, sandbox: String, _ records: [ConnectionRecord]) -> [Int64: NetworkBucket] {
+        var buckets: [Int64: NetworkBucket] = [:]
+        guard !records.isEmpty else { return buckets }
+        lock.lock(); defer { lock.unlock() }
+        guard sqlite3_exec(db, "BEGIN IMMEDIATE", nil, nil, nil) == SQLITE_OK else { return buckets }
+        for r in records {
+            var counted = true
+            if !(r.kind == .dns && r.verdict == .allowed) {
+                counted = (try? stepLocked("""
+                    INSERT OR IGNORE INTO egress (run, uuid, sandbox, t, kind, host, port, verdict, rule, bytes_up, bytes_down, duration_ms, decrypted)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """, [.int(run), .text(r.id.uuidString), .text(sandbox), .real(r.time.timeIntervalSince1970), .text(r.kind.rawValue),
+                          .text(r.host), r.port.map { .int(Int64($0)) } ?? .null, .text(r.verdict.rawValue), .text(r.rule),
+                          .int(Int64(r.bytesUp)), .int(Int64(r.bytesDown)), r.durationMs.map(Value.real) ?? .null,
+                          .int(r.decrypted ? 1 : 0)])) == true && sqlite3_changes(db) == 1
+                if counted, let u = r.credentialUse {
+                    _ = try? stepLocked("INSERT INTO key_use (run, egress_uuid, sandbox, t, binding, via, ok) VALUES (?,?,?,?,?,?,?)",
+                                        [.int(run), .text(r.id.uuidString), .text(sandbox), .real(r.time.timeIntervalSince1970), .opt(u.binding),
+                                         .text(u.via), .int(u.ok ? 1 : 0)])
+                }
+            }
+            guard counted else { continue }
+            let minute = Int64(r.time.timeIntervalSince1970 / 60)
+            var b = buckets[minute] ?? NetworkBucket()
+            switch r.verdict { case .allowed: b.allowed += 1; case .denied: b.denied += 1; case .failed: b.failed += 1 }
+            b.up += r.bytesUp
+            b.down += r.bytesDown
+            buckets[minute] = b
+        }
+        sqlite3_exec(db, "COMMIT", nil, nil, nil)
+        if let w = onWrite { DispatchQueue.global(qos: .utility).async(execute: w) }
+        return buckets
+    }
+
+    public struct NetworkBucket: Sendable, Equatable { public var allowed = 0, denied = 0, failed = 0, up = 0, down = 0; public init() {} }
+
+    /// One resource sample of a sandbox, in its minute (a later one in the same minute replaces it).
+    public func sample(run: Int64, sandbox: String, minute: Int64, cpuPercent: Double?, memoryBytes: Int64?, diskBytes: Int64?) {
+        try? execute("INSERT OR REPLACE INTO samples (run, sandbox, t, cpu_pct, mem_bytes, disk_bytes) VALUES (?,?,?,?,?,?)",
+                     [.int(run), .text(sandbox), .int(minute), cpuPercent.map(Value.real) ?? .null, memoryBytes.map(Value.int) ?? .null,
+                      diskBytes.map(Value.int) ?? .null])
+    }
+
     // MARK: reads
 
     public func events(_ f: MetricsFilter = MetricsFilter()) -> [MetricsEvent] {
@@ -408,6 +495,7 @@ public final class MetricsStore: @unchecked Sendable {
     /// the file shrinks.
     public func clearHistory(keepingRun: Int64?) throws {
         let keep = keepingRun ?? -1
+        for t in ["host_events", "egress", "samples", "key_use"] { try execute("DELETE FROM \(t) WHERE run != ?", [.int(keep)]) }
         try execute("DELETE FROM network WHERE run != ?", [.int(keep)])
         try execute("DELETE FROM sessions WHERE run != ?", [.int(keep)])
         try execute("DELETE FROM events WHERE run != ?", [.int(keep)])
@@ -488,13 +576,28 @@ public final class MetricsStore: @unchecked Sendable {
     }
 
     private func execute(_ sql: String, _ args: [Value]) throws {
+        try executeLocked(sql, args)
+        onWrite?()
+    }
+
+    private func executeLocked(_ sql: String, _ args: [Value]) throws {
         lock.lock(); defer { lock.unlock() }
         let st = try prepare(sql, args)
         defer { sqlite3_finalize(st) }
         guard sqlite3_step(st) == SQLITE_DONE else { throw MetricsError.sqlite(errorMessage()) }
     }
 
+    /// One statement, the lock already held.
+    @discardableResult
+    private func stepLocked(_ sql: String, _ args: [Value]) throws -> Bool {
+        let st = try prepare(sql, args)
+        defer { sqlite3_finalize(st) }
+        guard sqlite3_step(st) == SQLITE_DONE else { throw MetricsError.sqlite(errorMessage()) }
+        return true
+    }
+
     private func insert(_ sql: String, _ args: [Value]) throws -> Int64 {
+        defer { onWrite?() }
         lock.lock(); defer { lock.unlock() }
         let st = try prepare(sql, args)
         defer { sqlite3_finalize(st) }

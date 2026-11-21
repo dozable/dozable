@@ -1,0 +1,12 @@
+{
+  "timeline": 1,
+  "type": "view",
+  "name": "build-vm decisions",
+  "scope": "host:host-a/workspace:example-space/sandbox:build-vm",
+  "depth": 1,
+  "range": {
+    "last": "1d"
+  },
+  "q": "source:grants severity:>=notice",
+  "live": true
+}

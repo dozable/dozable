@@ -1,0 +1,13 @@
+{
+  "timeline": 1,
+  "type": "query",
+  "scope": "host:host-a",
+  "depth": 1,
+  "from": 1794560400000,
+  "to": 1795168800000,
+  "bin": "1h",
+  "tz": "Australia/Sydney",
+  "series": [
+    "net.denied"
+  ]
+}

@@ -401,12 +401,12 @@ are in its doc, so read it before changing that area.
 - [docs/engineering/sessions.md](docs/engineering/sessions.md) — saved screens and the kept layout, boot logs, the session bridges (OSC 52, the browser bridge, tmux, the Ctrl-] menu, the folder's files), OSC 7501, painted thumbnails
 - [docs/engineering/updates-and-release.md](docs/engineering/updates-and-release.md) — `BuildFlavor`, anonymous usage statistics and the sign-up, the signed update feed and channels, `make release`, signing, Homebrew
 - [docs/engineering/workspace-rules.md](docs/engineering/workspace-rules.md) — `.dozignore` / `.dozreadonly`: `dozview`, Docker's semantics in C and Swift, modes, the wake
-- [docs/engineering/tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) — the tools layer (gh, tmux 3.8, …) and the person's dotfiles
+- [docs/engineering/tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) — the tools layer (gh, tmux 3.8, …) and the person's dotfiles; [docs/engineering/sound.md](docs/engineering/sound.md) — `sandbox.audio`, the sound kernel (GPL-2.0, ours), the microphone's permission
 - [docs/engineering/files.md](docs/engineering/files.md) — the file watcher (`files-list`, `doz files`, the files routes) and the Files tab's changes, Open in an editor
-- [docs/engineering/sound.md](docs/engineering/sound.md) — `sandbox.audio`, the sound kernel (GPL-2.0, ours), the microphone's permission
 - [docs/engineering/chat.md](docs/engineering/chat.md) — the chat server: no VM parts, isolation, the strict config, the access rules and `agent_addresses`, the protocol's bytes and store, the conformance gate
 - [docs/engineering/menu-bar-app.md](docs/engineering/menu-bar-app.md) — Dozable.app: the doz command as its only interface, the menu's state table, refresh, `doz app install`, the seams
 - [docs/engineering/workspaces.md](docs/engineering/workspaces.md) — workspaces: the record and its store, the derived state, adopting agents, the main room in chat, the manager (the set-up check, start and stop), workers (add, the token kinds, a shared sandbox, end, the sweep); Agents / Bots and their tokens
+- [docs/engineering/timeline.md](docs/engineering/timeline.md) — this Mac's history: the records it added, the derived `timeline.sqlite` and its indexer, queries and the live feed, retention (only what it added), privacy
 
 ## Verifying changes
 

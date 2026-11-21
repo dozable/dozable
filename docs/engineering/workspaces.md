@@ -938,3 +938,11 @@ The manual's page is `docs/manual/39-space-files.md`.
   of chat, the run room's tombstone, the persisted room closed, the scratch folder gone, the memory kept); up #2 (the room's
   id kept, the memory seeded, the conversation resumed; a run agent starts with none); `--purge` (the kept folder released,
   never deleted); a clean room's "deleted with no copy"; a similarly named session survives.
+
+## Read by the timeline
+
+The workspace log and the grants log are read by the timeline's indexer from a byte offset (`createdAt:inode:offset`;
+[timeline.md](timeline.md)) — an append pokes it (`TimelineSignal`). Its ids are `workspace/<name>@<createdAt ms>/<offset>`
+and `grants/_@<first line's ms>/<offset>`, so a removed-and-remade workspace never reuses one. The workspace source skips
+the permission lines (the grants source carries them). Nothing here trims either log; their retention waits for a later
+step.
