@@ -102,6 +102,10 @@ export interface SpaceEditor {
      *  the selection. A feature already here does nothing. An unknown name rejects, and so does one that can only come
      *  with a mount ('canvas', 'edit', 'live', 'motion', 'sim', 'timeline'), unless it is already here. */
     addFeatures(names: readonly string[]): Promise<void>;
+    /** v0.4.2: fit the drawing to the canvas, as on mount and as the Fit button does, and give the view back to the
+     *  editor: until the person next zooms or pans, it stays fitted as the canvas's size changes. For a host whose own
+     *  layout settles after mount. Without the canvas feature, nothing. */
+    fit(): void;
     dispose(): void;
 }
 

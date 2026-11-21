@@ -765,7 +765,7 @@ final class WebModulesTests: XCTestCase {
         XCTAssertTrue(pageText.contains("import('\(folder)space-core.js')"))
         XCTAssertTrue(pageText.contains("'\(folder)space-editor.css'"))
         // The build's own relative loads are served unrewritten (its bytes are its pin's).
-        XCTAssertTrue(String(decoding: a.assets[folder + "space-chunk-JN76RU4H.js"]!.data, as: UTF8.self).contains("import(\"./space-text.js\")"))
+        XCTAssertTrue(String(decoding: a.assets[folder + "space-chunk-TRNLMGLK.js"]!.data, as: UTF8.self).contains("import(\"./space-text.js\")"))
         let web = Self.root.appendingPathComponent("Sources/DozableWeb/Resources/Web/licences")
         for l in ["space-editor", "monaco-editor", "monaco-editor__ThirdPartyNotices", "ajv", "fast-deep-equal", "yaml", "lucide-static", "README"] {
             XCTAssertTrue(FileManager.default.fileExists(atPath: web.appendingPathComponent("space-editor-LICENSES-\(l).txt").path), "\(l) ships")
@@ -809,7 +809,7 @@ final class WebModulesTests: XCTestCase {
         func flip(_ file: String) -> (URL) throws -> Void {
             { src in let u = src.appendingPathComponent(v + file); var d = try Data(contentsOf: u); d[d.count / 2] ^= 0x01; try d.write(to: u) }
         }
-        try refused("one changed byte in a chunk", "is not the pinned file", flip("space-chunk-JN76RU4H.js"))
+        try refused("one changed byte in a chunk", "is not the pinned file", flip("space-chunk-TRNLMGLK.js"))
         try refused("one changed byte in monaco.js", "is not the pinned file", flip("monaco/monaco.js"))
         try refused("one changed byte in the PIN", "is not the pinned PIN") { src in
             let u = src.appendingPathComponent(v + "PIN")
@@ -827,7 +827,7 @@ final class WebModulesTests: XCTestCase {
             try Self.edit(src, v + "VENDOR.json") { $0.replacingOccurrences(of: "\"files\": [", with: "\"files\": [\n    { \"file\": \"LICENSES/extra.txt\", \"sha256\": \"\(WebAssets.sha256Hex(x))\", \"serve\": \"reference\" },") }
         }
         try refused("a short commit", "the full 40-character hash") { src in
-            try Self.edit(src, v + "VENDOR.json") { $0.replacingOccurrences(of: #""commit": "[0-9a-f]{40}""#, with: "\"commit\": \"6a60612\"", options: .regularExpression) }
+            try Self.edit(src, v + "VENDOR.json") { $0.replacingOccurrences(of: #""commit": "[0-9a-f]{40}""#, with: "\"commit\": \"6ca335f\"", options: .regularExpression) }
         }
         try refused("a licence off the allowlist", "is not on the allowlist") { src in
             try Self.edit(src, v + "VENDOR.json") { $0.replacingOccurrences(of: "\"licence\": \"ISC\", \"licenceFile\": \"LICENSES/yaml.txt\"", with: "\"licence\": \"GPL-3.0\", \"licenceFile\": \"LICENSES/yaml.txt\"") }

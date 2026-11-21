@@ -298,6 +298,7 @@
 @container se-root (max-width: 760px){
 .space-editor .right,.space-editor .vgrip,.space-editor #se-panel{ display: none; }
 .space-editor .titlebar{ overflow: hidden; }
+.space-editor .canvas-tools{ left: var(--sp-2); right: var(--sp-2); bottom: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; width: fit-content; margin-left: auto; max-width: calc(100% - 2 * var(--sp-2)); }
 .space-editor .titlebar{ padding: 0 var(--sp-4); }
 .space-editor .titlebar .brand{ display: none; }
 .space-editor #se-tree{ display: inline-flex; }

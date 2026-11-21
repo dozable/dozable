@@ -89,7 +89,7 @@
 //     named; 9 a bot's Ask drawn and answered from it (chat-decide done); 11 watch; 13 390 px canvas only; 14 ? opens the
 //     editor's keys, Escape stays, three visits leave no editor and no listener more; 12 another computer (its read rewritten
 //     to canSave false): read-only, the command, no edit fetched; 10 after down the runs strip reads a run's frames; 15 no CSP
-//     violation; 16 the leak sweep. Pictures: space-editor-light, -dark, -text, -conflict, space-watch, space-390, space-390-fit,
+//     violation; 16 the leak sweep. Pictures: space-editor-light, -dark, -text, -conflict, space-watch, space-390,
 //     space-another-computer.
 //   · a workspace's Home tab: 1 #/w/demo2 opens it (selected; no picture outside it); 2 its cards each link their tab, Needs
 //     you absent when nothing waits, the room's last messages, at most five log lines, no walk of the folders; 3 wiz2
@@ -1967,11 +1967,12 @@ async function walkSpace() {
   const narrow = await evaluate(`({ w: document.documentElement.scrollWidth, f: spaceNow().features.join(','), mon: !!document.querySelector('#space .monaco-editor'),
     note: /Edit on a wider screen/.test(document.querySelector('[data-sp-bar]')?.textContent || '') })`);
   check(narrow.w <= 390 && narrow.f === 'canvas,live,motion' && !narrow.mon && narrow.note, `space 13 …the canvas only (${narrow.f}), "Edit on a wider screen", ${narrow.w} px`);
+  // The drawing fits on its first paint, no Fit pressed: drawn shapes inside the canvas's box.
+  const inside = await evaluate(`(() => { const st = ${SE('.canvas-stage')}.getBoundingClientRect();
+    return [...document.querySelectorAll('#space .space-editor .canvas-stage svg [data-id]')].map((e) => e.getBoundingClientRect())
+      .filter((r) => r.width > 0 && r.height > 0 && r.left >= st.left - 1 && r.right <= st.right + 1 && r.top >= st.top - 1 && r.bottom <= st.bottom + 1).length; })()`);
+  check(inside > 0, `space 13 …the drawing is visible on its first paint, no Fit pressed (${inside} shapes inside the canvas's box)`);
   await shot('space-390');
-  // (the editor's narrow layout opens at 100 %, the drawing partly off its stage; Fit shows it whole)
-  await clickAt(`[...document.querySelectorAll('#space .space-editor button')].find((b) => b.textContent.trim() === 'Fit')`);
-  await sleep(800);
-  await shot('space-390-fit');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   // 14. The dashboard's keys stay out; ? inside opens the editor's own sheet.
   await goHash('#/w/spc3');
