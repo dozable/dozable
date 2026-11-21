@@ -358,7 +358,8 @@ struct ModuleGraph {
     static let entryLayer = 4
     var files: [String: String] = [:]          // "dom/h.js" → its text (paths relative to app/)
     var imports: [String: [String]] = [:]      // a module → the modules it imports
-    var entryImports: [String] = []
+    var entryImports: [String: [String]] = [:]  // an entry (app.js, chat.js) → the modules it imports
+    var closure: [String: Set<String>] = [:]   // an entry → every module it reaches
     var order: [String] = []                   // dependencies first (each module after everything it imports)
 
     static let importPattern = try! NSRegularExpression(
@@ -407,7 +408,9 @@ struct ModuleGraph {
     }
 }
 
-func loadModules(sources: URL, entry: String) throws -> ModuleGraph {
+/// 745: one graph, several ENTRIES (`app.js` the dashboard's, `chat.js` the chat window's) — each in WebSource/, layer 4;
+/// "unreached" is a module no entry reaches; the calls up the layers are checked per entry over its own closure.
+func loadModules(sources: URL, entries: [String: String]) throws -> ModuleGraph {
     let fm = FileManager.default
     var g = ModuleGraph()
     let root = sources.appendingPathComponent("app")
@@ -435,8 +438,8 @@ func loadModules(sources: URL, entry: String) throws -> ModuleGraph {
     }
     let dynamic = try NSRegularExpression(pattern: #"\bimport\s*\("#)
     let vendorString = try NSRegularExpression(pattern: #"['"`]/vendor/"#)
-    func checked(_ text: String, _ from: String?) throws -> [String] {
-        let file = from.map { "app/" + $0 } ?? "app.js"
+    func checked(_ text: String, _ from: String?, entry: String = "app.js") throws -> [String] {
+        let file = from.map { "app/" + $0 } ?? entry
         // 742: the lazy literals this module may hold (the compiler's table) — each exactly once, in exactly that form.
         var rest = text
         for lit in lazyImports[from ?? ""] ?? [] {
@@ -467,7 +470,7 @@ func loadModules(sources: URL, entry: String) throws -> ModuleGraph {
         }
         return out
     }
-    g.entryImports = try checked(entry, nil)
+    for (name, text) in entries { g.entryImports[name] = try checked(text, nil, entry: name) }
     for (rel, text) in g.files { g.imports[rel] = try checked(text, rel) }
     // No cycle; dependencies first; every module reached from the entry.
     var state: [String: Int] = [:]          // 1 visiting, 2 done
@@ -483,29 +486,42 @@ func loadModules(sources: URL, entry: String) throws -> ModuleGraph {
         stack.removeLast(); state[m] = 2
         g.order.append(m)
     }
-    for m in g.entryImports { try visit(m) }
+    for name in entries.keys.sorted() { for m in g.entryImports[name] ?? [] { try visit(m) } }
     let unreached = Set(g.files.keys).subtracting(g.order)
     guard unreached.isEmpty else { throw Failure.source("app.js never loads \(unreached.sorted().map { "app/" + $0 }) — a module nothing imports is a mistake") }
-    // Calls up the layers: each upcall('x') provided by app.js, and nothing provided that nobody upcalls.
+    // Each entry's closure: the modules it reaches.
+    for name in entries.keys {
+        var seen = Set<String>(), queue = g.entryImports[name] ?? []
+        while let m = queue.popLast() { if seen.insert(m).inserted { queue += g.imports[m] ?? [] } }
+        g.closure[name] = seen
+    }
+    // 745: the chat window loads only chat's code — no view of the dashboard's but chat's own.
+    if let c = g.closure["chat.js"], let v = c.filter({ $0.hasPrefix("views/") && !$0.hasPrefix("views/chat") }).sorted().first {
+        throw Failure.source("chat.js reaches app/\(v) — the chat window loads only chat's code")
+    }
+    // Calls up the layers, per entry over its closure: each upcall('x') its modules make provided by that entry's
+    // provide({…}), and nothing provided that none of them upcalls.
     let upcall = try NSRegularExpression(pattern: #"\bupcall\(\s*'([A-Za-z_$][\w$]*)'\s*\)"#)
-    var upcalled: [String: String] = [:]
+    var upcalls: [String: [String]] = [:]          // a module → the names it upcalls
     let lineComment = try NSRegularExpression(pattern: #"(?m)^[ \t]*//[^\n]*$"#)
     for (rel, raw) in g.files {
         let text = lineComment.stringByReplacingMatches(in: raw, range: NSRange(location: 0, length: (raw as NSString).length), withTemplate: "")
-        for m in upcall.matches(in: text, range: NSRange(location: 0, length: (text as NSString).length)) {
-            upcalled[(text as NSString).substring(with: m.range(at: 1))] = "app/" + rel
+        upcalls[rel] = upcall.matches(in: text, range: NSRange(location: 0, length: (text as NSString).length)).map { (text as NSString).substring(with: $0.range(at: 1)) }
+    }
+    for (name, entry) in entries.sorted(by: { $0.key < $1.key }) {
+        var upcalled: [String: String] = [:]
+        for rel in g.closure[name] ?? [] { for n in upcalls[rel] ?? [] { upcalled[n] = "app/" + rel } }
+        var provided = Set<String>()
+        if let m = try NSRegularExpression(pattern: #"\bprovide\(\{([^}]*)\}\)"#).firstMatch(in: entry, range: NSRange(location: 0, length: (entry as NSString).length)) {
+            let list = (entry as NSString).substring(with: m.range(at: 1))
+            provided = Set(list.components(separatedBy: CharacterSet(charactersIn: ", \n\t")).filter { !$0.isEmpty })
         }
-    }
-    var provided = Set<String>()
-    if let m = try NSRegularExpression(pattern: #"\bprovide\(\{([^}]*)\}\)"#).firstMatch(in: entry, range: NSRange(location: 0, length: (entry as NSString).length)) {
-        let list = (entry as NSString).substring(with: m.range(at: 1))
-        provided = Set(list.components(separatedBy: CharacterSet(charactersIn: ", \n\t")).filter { !$0.isEmpty })
-    }
-    for (name, file) in upcalled.sorted(by: { $0.key < $1.key }) where !provided.contains(name) {
-        throw Failure.source("\(file) calls upcall('\(name)'), which app.js does not provide")
-    }
-    if let extra = provided.subtracting(upcalled.keys).sorted().first {
-        throw Failure.source("app.js provides \(extra), which no module upcalls")
+        for (n, file) in upcalled.sorted(by: { $0.key < $1.key }) where !provided.contains(n) {
+            throw Failure.source("\(file) calls upcall('\(n)'), which \(name) does not provide")
+        }
+        if let extra = provided.subtracting(upcalled.keys).sorted().first {
+            throw Failure.source("\(name) provides \(extra), which no module it loads upcalls")
+        }
     }
     return g
 }
@@ -525,12 +541,17 @@ func main() throws {
 
     // The page's own documents, each with its one stylesheet and one script (591: the terminal
     // engine's sandboxed frame is the second document).
-    let documents: [(file: String, publicPath: String, css: String, js: String)] = [
-        ("index.html", "/", "app", "app"),
-        ("terminal.html", "/terminal-frame", "frame", "frame"),
+    // `page`: a document a person navigates to (the service worker's PAGES — its navigation fallback).
+    let documents: [(file: String, publicPath: String, css: String, js: String, page: Bool)] = [
+        ("index.html", "/", "app", "app", true),
+        ("terminal.html", "/terminal-frame", "frame", "frame", false),
         // 605: what the service worker shows while doz ui is not running (an installed app opened, a reload).
-        ("offline.html", "/offline", "offline", "offline"),
+        ("offline.html", "/offline", "offline", "offline", false),
+        // 745: the chat window — the dashboard's stylesheet, its own module entry (chat.js: only chat's modules).
+        ("chat.html", "/chat", "app", "chat", true),
     ]
+    /// 745: the module entries — each document's script that is an ES module entry, with its own closure.
+    let moduleEntries = ["app", "chat"]
     // Nothing but those files, the service worker, the manifest, icons/, vendor/ and (607) app/ — the page
     // script's modules — lives in WebSource: a stray file is a mistake.
     let top = Set((try? fm.contentsOfDirectory(atPath: sources.path)) ?? []).subtracting([".DS_Store"])
@@ -579,9 +600,11 @@ func main() throws {
         throw Failure.source("app.webmanifest is not a JSON object")
     }
     // 607: the page script's modules (WebSource/app/**) — every one is page code under the same rules.
-    let modules = try loadModules(sources: sources, entry: String(decoding: scripts["app"]!, as: UTF8.self))
-    guard modules.files.isEmpty || docText["index.html"]!.contains("<script type=\"module\" src=\"/app.js\"></script>") else {
-        throw Failure.source("index.html must load app.js as a module: <script type=\"module\" src=\"/app.js\"></script>")
+    let modules = try loadModules(sources: sources, entries: Dictionary(uniqueKeysWithValues: moduleEntries.map { ($0 + ".js", String(decoding: scripts[$0]!, as: UTF8.self)) }))
+    for d in documents where moduleEntries.contains(d.js) {
+        guard modules.files.isEmpty || docText[d.file]!.contains("<script type=\"module\" src=\"/\(d.js).js\"></script>") else {
+            throw Failure.source("\(d.file) must load \(d.js).js as a module: <script type=\"module\" src=\"/\(d.js).js\"></script>")
+        }
     }
     let pageFiles = docText.map { ($0.key, $0.value) } + styles.map { ($0.key + ".css", String(decoding: $0.value, as: UTF8.self)) }
         + scripts.map { ($0.key + ".js", String(decoding: $0.value, as: UTF8.self)) } + [("sw.js", swText), ("app.webmanifest", manifestText)]
@@ -890,7 +913,7 @@ func main() throws {
         assets.append(Asset(publicPath: "/" + path, resourcePath: path, mimeType: "application/javascript; charset=utf-8",
                             sha256: sha256(data), cachePolicy: immutable, class: "page"))
     }
-    scripts["app"] = Data(try modules.rewrite(String(decoding: scripts["app"]!, as: UTF8.self), from: nil, hashed: moduleHashed).utf8)
+    for e in moduleEntries { scripts[e] = Data(try modules.rewrite(String(decoding: scripts[e]!, as: UTF8.self), from: nil, hashed: moduleHashed).utf8) }
 
     // ── The page's own files.
     var hashed: [String: String] = [:]      // "/offline.css" → "/assets/offline-….css"
@@ -901,11 +924,12 @@ func main() throws {
         let docData = Data(docText[d.file]!
             .replacingOccurrences(of: "href=\"/\(d.css).css\"", with: "href=\"/\(cssPath)\"")
             .replacingOccurrences(of: "src=\"/\(d.js).js\"", with: "src=\"/\(jsPath)\"").utf8)
-        assets += [
+        // 745: a stylesheet two documents share (the chat window's is the dashboard's) is one asset.
+        for a in [
             Asset(publicPath: d.publicPath, resourcePath: d.file, mimeType: "text/html; charset=utf-8", sha256: sha256(docData), cachePolicy: "no-store", class: "page"),
             Asset(publicPath: "/" + cssPath, resourcePath: cssPath, mimeType: "text/css; charset=utf-8", sha256: sha256(css), cachePolicy: immutable, class: "page"),
             Asset(publicPath: "/" + jsPath, resourcePath: jsPath, mimeType: "application/javascript; charset=utf-8", sha256: sha256(js), cachePolicy: immutable, class: "page"),
-        ]
+        ] where !assets.contains(where: { $0.publicPath == a.publicPath }) { assets.append(a) }
         expected[d.file] = docData
         expected[cssPath] = css
         expected[jsPath] = js
@@ -925,6 +949,12 @@ func main() throws {
         precacheDigest += to
     }
     guard sw.contains("\"/offline\""), sw.contains("@build@") else { throw Failure.source("sw.js must precache \"/offline\" and name its cache with @build@") }
+    // 745: its navigation fallback covers exactly the pages a person opens (`page` documents, each at its own path).
+    let pageList = documents.filter(\.page).map(\.publicPath)
+    guard let pm = sw.range(of: #"const PAGES = \[[^\]]*\];"#, options: .regularExpression),
+          Set(sw[pm].split(separator: "\"").enumerated().filter { $0.offset % 2 == 1 }.map { String($0.element) }) == Set(pageList) else {
+        throw Failure.source("sw.js must list its pages exactly: const PAGES = [\(pageList.map { "\"\($0)\"" }.joined(separator: ", "))];")
+    }
     precacheDigest += sha256(expected["offline.html"]!)
     sw = sw.replacingOccurrences(of: "@build@", with: String(sha256(Data(precacheDigest.utf8)).prefix(16)))
     if let stray = sw.range(of: #""/(icons/[^"]*|[a-z]+\.(css|js))""#, options: .regularExpression) {

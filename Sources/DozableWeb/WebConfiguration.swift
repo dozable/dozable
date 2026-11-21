@@ -99,6 +99,8 @@ public struct WebLimits: Sendable, Equatable {
     public var maximumBufferedSSEEvents: Int
     public var heartbeatInterval: TimeInterval
     public var maximumConnections: Int
+    /// 745: chat's own live streams (`chatHub`) — the Chat page and up to about four chat windows, each one stream.
+    public var maximumChatStreams: Int
 
     /// 605 (owner Q8, "remember this browser"): a session lasts 14 days without use — the page renews it
     /// when it loads and while it is open — so an installed app on this Mac stays signed in.
@@ -106,14 +108,15 @@ public struct WebLimits: Sendable, Equatable {
 
     public init(maximumRequestBodyBytes: Int = 16 * 1024, sessionLifetime: TimeInterval = WebLimits.rememberedSession,
                 bootstrapLifetime: TimeInterval = 5 * 60, maximumSSEClients: Int = 8, maximumBufferedSSEEvents: Int = 64,
-                heartbeatInterval: TimeInterval = 15, maximumConnections: Int = 32) throws {
+                heartbeatInterval: TimeInterval = 15, maximumConnections: Int = 32, maximumChatStreams: Int = 8) throws {
         guard (1...1_048_576).contains(maximumRequestBodyBytes),
               (30...(30 * 24 * 60 * 60)).contains(sessionLifetime),
               (1...3_600).contains(bootstrapLifetime),
               (1...32).contains(maximumSSEClients),
               (1...1024).contains(maximumBufferedSSEEvents),
               (0.05...60).contains(heartbeatInterval),
-              (2...256).contains(maximumConnections) else {
+              (2...256).contains(maximumConnections),
+              (1...32).contains(maximumChatStreams) else {
             throw WebConfigurationError.invalidLimit
         }
         self.maximumRequestBodyBytes = maximumRequestBodyBytes
@@ -123,6 +126,7 @@ public struct WebLimits: Sendable, Equatable {
         self.maximumBufferedSSEEvents = maximumBufferedSSEEvents
         self.heartbeatInterval = heartbeatInterval
         self.maximumConnections = maximumConnections
+        self.maximumChatStreams = maximumChatStreams
     }
 
     public static let standard = try! WebLimits()

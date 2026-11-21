@@ -207,7 +207,11 @@ final class FakeChatProcesses: ChatProcesses, @unchecked Sendable {
     }
     func server(dataDir: String) -> (pid: Int32?, ready: Bool) { lock.withLock { (lockHolder, ready) } }
     func arguments(of pid: pid_t) -> [String]? { lock.withLock { holderArguments } }
-    func portInUse(_ port: Int) -> Bool { false }
+    /// Ports another program holds (none by default); the system's free port when asked.
+    var taken: Set<Int> = []
+    var osPort: Int? = 41_234
+    func portInUse(_ port: Int) -> Bool { lock.withLock { taken.contains(port) } }
+    func freePort() -> Int? { lock.withLock { osPort } }
     /// The child dies by itself.
     func die(_ pid: pid_t, _ e: ChatChildExit) { lock.withLock { exits[pid] = e } }
     var spawnCount: Int { lock.withLock { spawned.count } }
@@ -402,5 +406,119 @@ final class ChatIdleAndSettingsTests: XCTestCase {
             XCTAssertEqual(d.settingClass, .mac)
             XCTAssertFalse(d.summary.lowercased().contains("hub"))
         }
+    }
+}
+
+/// A chat port left at its default that another program holds (two Dozables on one Mac): chat takes a free one — the next
+/// above it, else the system's — saves it in the settings and says so; a port the person chose is never moved.
+final class ChatPortChoiceTests: XCTestCase {
+    final class Saved: @unchecked Sendable {
+        let lock = NSLock()
+        var writes: [[String: Int]] = []
+        func add(_ p: [String: Int]) { lock.withLock { writes.append(p) } }
+        var all: [[String: Int]] { lock.withLock { writes } }
+    }
+    var root: String!
+    override func setUpWithError() throws {
+        root = "/tmp/dzc-ports-\(getpid())-\(UUID().uuidString.prefix(6))"
+        try FileManager.default.createDirectory(atPath: root, withIntermediateDirectories: true)
+    }
+    override func tearDownWithError() throws { try? FileManager.default.removeItem(atPath: root) }
+
+    func supervisor(_ fake: FakeChatProcesses, _ box: SettingsBox, _ saved: Saved) -> ChatSupervisor {
+        ChatSupervisor(paths: ChatPaths(folder: root + "/chat"), executable: "/usr/bin/false", release: "0.0.0", processes: fake,
+                       environment: [:], readSettings: { box.get() }, savePorts: { p in
+                           saved.add(p)
+                           box.lock.withLock {
+                               if let v = p[SettingKey.chatPagePort] { box.view.pagePort = v; box.view.pageChosen = true }
+                               if let v = p[SettingKey.chatLinePort] { box.view.linePort = v; box.view.lineChosen = true }
+                           }
+                       })
+    }
+    func defaults(_ box: SettingsBox) { box.lock.withLock { box.view.enabled = true; box.view.pageChosen = false; box.view.lineChosen = false } }
+
+    func testATakenDefaultMovesToAFreePortSavedAndSaid() async throws {
+        let fake = FakeChatProcesses(), box = SettingsBox(), saved = Saved()
+        defaults(box)
+        fake.taken = [8790, 8792]                                   // 8791 is ours (the line port), 8792 another's
+        let sup = supervisor(fake, box, saved)
+        _ = try await sup.sync(human: "ada", retry: true, waitReady: false, blocked: false)
+        XCTAssertEqual(saved.all, [[SettingKey.chatPagePort: 8793]], "the next free one above, never the line port or a taken one")
+        let st = await sup.status()
+        XCTAssertEqual(st.pagePort, 8793)
+        XCTAssertEqual(st.linePort, 8791, "a free default stays")
+        XCTAssertEqual(st.note, "page port 8790 was taken by another program; chat uses 8793 (saved in your settings)")
+        XCTAssertEqual(fake.spawnCount, 1)
+    }
+
+    func testNothingFreeNearbyTakesTheSystemsPort() async throws {
+        let fake = FakeChatProcesses(), box = SettingsBox(), saved = Saved()
+        defaults(box)
+        fake.taken = Set(8791...8811)                               // the line default and the 20 above it
+        let sup = supervisor(fake, box, saved)
+        _ = try await sup.sync(human: "ada", retry: true, waitReady: false, blocked: false)
+        XCTAssertEqual(saved.all, [[SettingKey.chatLinePort: 41_234]])
+        let st = await sup.status()
+        XCTAssertEqual(st.linePort, 41_234)
+        XCTAssertEqual(st.note, "line port 8791 was taken by another program; chat uses 41234 (saved in your settings)")
+    }
+
+    func testAChosenPortThatIsTakenIsNeverMoved() async throws {
+        let fake = FakeChatProcesses(), box = SettingsBox(), saved = Saved()
+        box.set(true)                                               // pageChosen and lineChosen: the person set them
+        fake.taken = [8790]
+        let sup = supervisor(fake, box, saved)
+        _ = try await sup.sync(human: "ada", retry: true, waitReady: false, blocked: false)
+        XCTAssertTrue(saved.all.isEmpty, "nothing written")
+        let st = await sup.status()
+        XCTAssertEqual(st.pagePort, 8790)
+        XCTAssertNil(st.note)
+    }
+
+    func testAFreeDefaultIsUnchanged() async throws {
+        let fake = FakeChatProcesses(), box = SettingsBox(), saved = Saved()
+        defaults(box)
+        let sup = supervisor(fake, box, saved)
+        _ = try await sup.sync(human: "ada", retry: true, waitReady: false, blocked: false)
+        XCTAssertTrue(saved.all.isEmpty)
+        let st = await sup.status()
+        XCTAssertEqual([st.pagePort, st.linePort], [8790, 8791])
+        XCTAssertNil(st.note)
+    }
+
+    func testARestartKeepsThePickedPorts() async throws {
+        let fake = FakeChatProcesses(), box = SettingsBox(), saved = Saved()
+        defaults(box)
+        fake.taken = [8790]
+        let first = supervisor(fake, box, saved)
+        _ = try await first.sync(human: "ada", retry: true, waitReady: false, blocked: false)
+        await first.stopForExit()
+        // Another daemon later (the saved setting now chosen), 8790 free again: chat stays on the port it took.
+        fake.taken = []
+        let f2 = FakeChatProcesses()
+        let second = supervisor(f2, box, saved)
+        _ = try await second.sync(human: "ada", retry: true, waitReady: false, blocked: false)
+        let st = await second.status()
+        XCTAssertEqual(st.pagePort, 8792, "the port it took (8791 is the line port, so never that)")
+        XCTAssertEqual(saved.all.count, 1, "saved once")
+        XCTAssertNil(st.note, "nothing moved this time")
+    }
+
+    func testTheSaveWritesTheSettingsFileThroughTheSchema() throws {
+        let xdg = root + "/xdg"
+        try FileManager.default.createDirectory(atPath: xdg + "/doz", withIntermediateDirectories: true)
+        let env = ["XDG_CONFIG_HOME": xdg, "DOZ_TEST_GUARD": "1"]
+        var s = DozableSettings.load(environment: env)
+        s = try s.writing(SettingKey.chatPagePort, .int(8793))
+        let back = DozableSettings.load(environment: env)
+        XCTAssertEqual(back.int(SettingKey.chatPagePort), 8793)
+        XCTAssertEqual(ChatSettingsView.read(back, environment: env).pageChosen, true)
+        XCTAssertEqual(ChatSettingsView.read(back, environment: env).lineChosen, false)
+        // The test seam: a guarded run's default may be the test's own port; a chosen value is never replaced by it.
+        let seam = env.merging(["DOZ_TEST_CHAT_DEFAULT_LINE_PORT": "45000", "DOZ_TEST_CHAT_DEFAULT_PAGE_PORT": "45001"]) { $1 }
+        let v = ChatSettingsView.read(back, environment: seam)
+        XCTAssertEqual([v.pagePort, v.linePort], [8793, 45000])
+        XCTAssertEqual(ChatPortChoice.free(after: 8790, avoid: [8791], inUse: { $0 == 8792 }, system: { nil }), 8793)
+        XCTAssertNil(ChatPortChoice.free(after: 8790, avoid: [], inUse: { _ in true }, system: { nil }))
     }
 }

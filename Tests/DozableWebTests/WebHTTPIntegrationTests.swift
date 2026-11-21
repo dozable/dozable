@@ -749,6 +749,25 @@ final class WebHTTPIntegrationTests: XCTestCase {
 
     // MARK: 605 — installable, and graceful restarts
 
+    /// 745: the chat window's document — `/chat` exactly, GET/HEAD, no session (it holds no data), no-store, the page's CSP.
+    func testTheChatWindowIsADocumentWithoutASessionAndThePagesPolicy() async throws {
+        try await start()
+        let page = try get("/")
+        let c = try get("/chat")
+        XCTAssertEqual(c.status, 200, c.text)
+        XCTAssertEqual(c.header("content-type"), "text/html; charset=utf-8")
+        XCTAssertEqual(c.header("cache-control"), "no-store")
+        XCTAssertEqual(c.header("content-security-policy"), page.header("content-security-policy"), "the page's CSP, unchanged")
+        XCTAssertEqual(c.header("x-frame-options"), "DENY")
+        XCTAssertNil(c.header("set-cookie"))
+        XCTAssertTrue(c.text.contains("<script type=\"module\" src=\"/assets/chat-"), c.text)
+        XCTAssertFalse(c.text.contains("rel=\"manifest\""), "the window is no app of its own")
+        for p in ["/chat/x", "/chat/", "/chat.html", "/chat.js"] { XCTAssertEqual(try get(p).status, 404, p) }
+        XCTAssertEqual(try get("/chat", method: "POST", body: nil).status, 404)
+        XCTAssertEqual(try get("/chat", ["Host": "evil.example:\(server.origin.port)"]).status, 403, "the exact Host first")
+        XCTAssertEqual(try get("/chat", ["Sec-Fetch-Site": "cross-site"]).status, 403)
+    }
+
     func testTheWorkerAndTheOfflinePageAreServedWithoutASessionAndTheirOwnHeaders() async throws {
         try await start()
         let sw = try get("/sw.js")

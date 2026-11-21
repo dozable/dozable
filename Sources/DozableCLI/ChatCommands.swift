@@ -66,6 +66,8 @@ struct ChatStatusReport: Encodable {
     var reloads: Int?
     var lastExit: String?
     var problem: String?
+    /// A default port another program had, and the one chat took instead (saved in the settings).
+    var note: String?
     /// Standing problems that do not stop the server (a webhook entry not set or unreadable, …).
     var warnings: [String]?
     /// Agents on other machines: where it also listens, for whom, and what is missing (nil: not set).
@@ -108,6 +110,7 @@ struct ChatStatusReport: Encodable {
         }
         r.state = sup?.state ?? "starting"
         r.problem = sup?.problem
+        r.note = sup?.note
         r.warnings = sup?.warnings
         r.remote = sup?.remote
         r.claudeSessions = dir.hasInbox ? sup?.claudeSessions : nil
@@ -169,6 +172,7 @@ struct ChatStatusReport: Encodable {
         }
         if let n = reloads, n > 0 { s += "  took \(n) participant change\(n == 1 ? "" : "s") without a restart\n" }
         if restarts > 0 { s += "  restarted \(restarts) time\(restarts == 1 ? "" : "s")" + (lastExit.map { " (last: \($0))" } ?? "") + "\n" }
+        if let n = note { s += "  note: \(n)\n" }
         if let p = problem { s += "  problem: \(p)\n" }
         for w in otherWarnings { s += "  warning: \(w)\n" }
         return s
@@ -307,6 +311,7 @@ struct ChatOn: AsyncParsableCommand {
         }
         if g.json { Out.json(report); return }
         Out.stdout("Chat is on: \(st.bind), page port \(st.pagePort), line port \(st.linePort). You are \(report.human ?? "?").\n")
+        if let n = st.note { Out.stdout("Note: \(n).\n") }
     }
 }
 

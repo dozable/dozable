@@ -158,7 +158,7 @@ public enum WebExposure {
 
     public static func kind(_ route: WebRoute) -> Kind {
         switch route {
-        case .index, .asset, .terminalFrame, .offline, .serviceWorker, .sessionBootstrap, .sessionInfo, .sessionRenew, .sessionEnd:
+        case .index, .asset, .terminalFrame, .offline, .serviceWorker, .chatPage, .sessionBootstrap, .sessionInfo, .sessionRenew, .sessionEnd:
             return .page
         case .overview, .sandbox, .sandboxSessions, .sandboxNetwork, .sandboxTools, .images, .imageTree, .accounts, .metrics,
              .metricsCSV, .events, .doctor, .stream, .operations, .settings, .sessionScreen, .terminalLayout, .bootLogs, .bootLog, .buildLog,

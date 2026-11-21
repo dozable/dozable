@@ -198,7 +198,7 @@ export async function fill() {
   drawSys();
   moments();
   if (state.chat.atFoot) { const l = $('chat-log'); l.scrollTop = l.scrollHeight; }
-  setSeen(r, state.chat.lastSeq);
+  if (document.visibilityState === 'visible') setSeen(r, state.chat.lastSeq);   // read only while it is seen
 }
 
 /// The workspace's log lines among the room's messages (a workspace's page only): drawn again from the lines known

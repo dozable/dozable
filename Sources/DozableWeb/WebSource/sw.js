@@ -6,13 +6,16 @@
 //
 // What it NEVER does (the probe checks): cache or answer anything under /api (the event stream
 // included), /terminal-frame, or any response with a cookie. It answers exactly two kinds of request:
-//   · a top-level navigation of / whose network request FAILS → the precached /offline page;
+//   · a top-level navigation of a page (/, or /chat — the chat window) whose network request FAILS → the precached
+//     /offline page (it reloads the same address once doz ui answers);
 //   · the precached files themselves (the offline page's style, script and icon) → from its cache.
 // Everything else gets no respondWith() at all: the network, exactly as without a worker.
 'use strict';
 
 const CACHE = "doz-offline-@build@";
 const OFFLINE = "/offline";
+// The pages a person opens (the compiler checks this is exactly its page documents).
+const PAGES = ["/", "/chat"];
 const PRECACHE = ["/offline", "/offline.css", "/offline.js", "/icons/icon.svg"];
 
 self.addEventListener('install', (event) => {
@@ -30,7 +33,7 @@ self.addEventListener('fetch', (event) => {
   if (r.method !== 'GET') return;
   const url = new URL(r.url);
   if (url.origin !== self.location.origin) return;
-  if (r.mode === 'navigate' && r.destination === 'document' && url.pathname === '/') {
+  if (r.mode === 'navigate' && r.destination === 'document' && PAGES.includes(url.pathname)) {
     event.respondWith(fetch(r).catch(() => caches.open(CACHE).then((c) => c.match(OFFLINE)).then((m) => m || Response.error())));
     return;
   }

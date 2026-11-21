@@ -91,6 +91,17 @@
 //     to canSave false): read-only, the command, no edit fetched; 10 after down the runs strip reads a run's frames; 15 no CSP
 //     violation; 16 the leak sweep. Pictures: space-editor-light, -dark, -text, -conflict, space-watch, space-390,
 //     space-another-computer.
+//   · the chat window (a second DevTools socket on the browser's endpoint attaches every new window from its first byte):
+//     1 the Chat page's pop-out opens /chat#/askw named doz-chat-askw — the room alone, live, the focus on the composer, no two
+//     head controls overlapping (the bell included); 2 what it fetched: chat's code only, no other view, no overview, no
+//     dashboard stream while idle; 3 a CLI post in the window and the dashboard; 4 a reload keeps the room and the draft;
+//     5 a second click reuses the window; 6 Decide in the window (the dashboard's stream opens for it, then closes);
+//     7 Turn chat on from the window; 8 reading there clears the dashboard's badge, markers never lower, presence stays
+//     "here" after one closes; 10 four windows and the dashboard: no eviction loop, fetches answer; 11 cold bytes of both
+//     documents (the window ≤ 40 %), and the warm open's; 9 another computer (session and chat/status rewritten): not shared,
+//     then read-only; 12 390 px; 13 no CSP violation or page error from any window's start, the leak sweep; 14 (after the
+//     space editor's rows) its "Open in a new window" opens its own window, reused. Pictures: chat-window-light, -dark,
+//     -ask, -390.
 //   · a workspace's Home tab: 1 #/w/demo2 opens it (selected; no picture outside it); 2 its cards each link their tab, Needs
 //     you absent when nothing waits, the room's last messages, at most five log lines, no walk of the folders; 3 wiz2
 //     (setting up) — Needs you lists what is missing and Start, its Room tab one line; 4 an open ask in askw's room in Needs
@@ -117,6 +128,7 @@
 //
 // Inputs (environment): DOZ (default .build/debug/doz — `make cli` first), CHROME (default Google Chrome's app), SCRATCH;
 // SHOTS=DIR (optional, under /tmp) keeps pictures of a workspace's page (light, dark, 390 px) for a person to look at;
+// CHAT_WINDOW_ONLY=1 walks the chat window's rows alone (chat on, the asks' set-up, then those rows).
 // SPACE_ONLY=1 walks the space editor's rows alone (chat on, then those rows: a quicker loop while working on them).
 // Run from the repository's root (make does).
 import { spawn, spawnSync } from 'node:child_process';
@@ -216,8 +228,8 @@ const pending = new Map(), pageErrors = [], requested = [];
 const apiIds = new Set(), apiBodies = [], consoleLines = [], sseEvents = [];
 let uiOut = '', chatPagePort = 0;
 function send(method, params = {}) { const id = nextId++; ws.send(JSON.stringify({ id, method, params })); return new Promise((res, rej) => pending.set(id, { res, rej })); }
-async function evaluate(expr) {
-  const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
+async function evaluate(expr, gesture = false) {
+  const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true, userGesture: gesture });
   if (r.exceptionDetails) throw new Error(r.exceptionDetails.text + ' in ' + expr.slice(0, 80));
   return r.result.value;
 }
@@ -1635,6 +1647,356 @@ async function walkAsks() {
   await leakSweep('the asks');
 }
 
+// ── the chat window: a room popped out into a window of its own ─────────────────────────────────────────────────────
+// The browser's own endpoint (one more socket) attaches to every new window from its first byte (waiting for the debugger),
+// so each one's requests, bytes, errors and CSP violations are counted from its document's start.
+let bws = null, bNext = 1, mainTarget = null, nextKid = {};
+const bPending = new Map(), kids = new Map();
+function bsend(method, params = {}, sessionId) {
+  const id = bNext++;
+  bws.send(JSON.stringify(sessionId ? { id, method, params, sessionId } : { id, method, params }));
+  // A window that never answers (closed, or paused) never holds the walk: 20 s, then an error.
+  return new Promise((res, rej) => { bPending.set(id, { res, rej }); setTimeout(() => { if (bPending.delete(id)) rej(new Error(method + ': no answer')); }, 20000); });
+}
+async function kevaluate(k, expr, gesture = false) {
+  const r = await bsend('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true, userGesture: gesture }, k.sid);
+  if (r.exceptionDetails) throw new Error(r.exceptionDetails.text + ' in ' + expr.slice(0, 80));
+  return r.result.value;
+}
+const ksoft = async (k, expr) => { try { return await kevaluate(k, expr); } catch (_) { return null; } };
+async function kwait(k, expr, ms = 15000) { const end = Date.now() + ms; while (Date.now() < end) { if (await ksoft(k, expr)) return true; await sleep(120); } return false; }
+async function kshot(k, name) {
+  if (!SHOTS) return;
+  mkdirSync(SHOTS, { recursive: true });
+  const r = await bsend('Page.captureScreenshot', { format: 'png' }, k.sid);
+  writeFileSync(SHOTS + '/' + name + '.png', Buffer.from(r.data, 'base64'));
+}
+async function browserSocket() {
+  if (bws) return;
+  mainTarget = (await (await fetch(`http://127.0.0.1:${devPort}/json/list`)).json()).find((t) => t.type === 'page' && t.url.startsWith('http://127.0.0.1')).id;
+  const v = await (await fetch(`http://127.0.0.1:${devPort}/json/version`)).json();
+  bws = new WebSocket(v.webSocketDebuggerUrl);
+  await new Promise((r) => bws.addEventListener('open', r, { once: true }));
+  bws.addEventListener('message', (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.id && bPending.has(m.id)) { const p = bPending.get(m.id); bPending.delete(m.id); m.error ? p.rej(new Error(m.error.message)) : p.res(m.result); return; }
+    if (m.method === 'Target.attachedToTarget') {
+      const { sessionId, targetInfo, waitingForDebugger } = m.params;
+      if (targetInfo.type !== 'page' || targetInfo.targetId === mainTarget) { if (waitingForDebugger) bsend('Runtime.runIfWaitingForDebugger', {}, sessionId).catch(() => {}); return; }
+      const opts = nextKid;
+      nextKid = {};
+      const k = { sid: sessionId, target: targetInfo.targetId, opener: targetInfo.openerId || null, requested: [], bytes: new Map(), errors: [], streams: new Map(), ready: null };
+      kids.set(sessionId, k);
+      k.ready = (async () => {
+        await bsend('Network.enable', {}, sessionId);
+        if (opts.cold) await bsend('Network.setCacheDisabled', { cacheDisabled: true }, sessionId);
+        await bsend('Runtime.enable', {}, sessionId);
+        await bsend('Page.enable', {}, sessionId);
+        await bsend('Page.addScriptToEvaluateOnNewDocument', { source: `window.__violations = [];
+          document.addEventListener('securitypolicyviolation', (e) => window.__violations.push(e.violatedDirective + ' ' + e.blockedURI));` }, sessionId);
+        await bsend('Emulation.setDeviceMetricsOverride', { width: opts.width || 440, height: opts.height || 760, deviceScaleFactor: 1, mobile: false }, sessionId);
+        if (opts.fetch) await opts.fetch(k);
+        await bsend('Runtime.runIfWaitingForDebugger', {}, sessionId);
+      })().catch(() => {});
+      return;
+    }
+    if (m.method === 'Target.detachedFromTarget' && kids.has(m.params.sessionId)) { kids.get(m.params.sessionId).gone = true; return; }
+    const k = m.sessionId && kids.get(m.sessionId);
+    if (!k) return;
+    const p = m.params || {};
+    if (m.method === 'Network.requestWillBeSent') {
+      k.requested.push(p.request.url);
+      if (/\/api\/v1\/stream$/.test(p.request.url)) k.streams.set(p.requestId, 'open');
+    }
+    if (m.method === 'Network.responseReceived' && /\/api\/v1\//.test(p.response.url) && !/event-stream/.test(p.response.mimeType || '')) k.api = (k.api || new Set()).add(p.requestId);
+    // Served from this browser's cache: no byte over the wire.
+    if ((m.method === 'Network.responseReceived' && (p.response.fromDiskCache || p.response.fromPrefetchCache)) || m.method === 'Network.requestServedFromCache') (k.cached = k.cached || new Set()).add(p.requestId);
+    if (m.method === 'Network.loadingFinished') {
+      k.bytes.set(p.requestId, p.encodedDataLength);
+      if (k.streams.has(p.requestId)) k.streams.set(p.requestId, 'closed');
+      if (k.api && k.api.has(p.requestId)) {
+        k.api.delete(p.requestId);
+        bsend('Network.getResponseBody', { requestId: p.requestId }, k.sid).then((b) => apiBodies.push(b.base64Encoded ? Buffer.from(b.body, 'base64').toString('utf8') : b.body), () => {});
+      }
+    }
+    if (m.method === 'Network.loadingFailed' && k.streams.has(p.requestId)) k.streams.set(p.requestId, 'closed');
+    if (m.method === 'Network.requestWillBeSent' && /^http/.test(p.request.url)) k.urls = (k.urls || new Map()).set(p.requestId, p.request.url);
+    if (m.method === 'Runtime.exceptionThrown') k.errors.push((p.exceptionDetails.exception?.description || p.exceptionDetails.text).split('\n').slice(0, 4).join(' ⏎ '));
+    if (m.method === 'Fetch.requestPaused' && k.paused) k.paused(p).catch(() => {});
+  });
+  await bsend('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
+}
+/// The new window (one not seen before `since`) whose address matches, once it is attached and running.
+async function newKid(since, re, ms = 15000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    for (const k of kids.values()) {
+      if (since.has(k.sid) || k.gone) continue;
+      await Promise.race([k.ready, sleep(5000)]);
+      const href = await ksoft(k, 'location.href');
+      if (href && re.test(href)) return k;
+    }
+    await sleep(150);
+  }
+  return null;
+}
+const liveKids = () => [...kids.values()].filter((k) => !k.gone);
+const pageFetched = (k) => k.requested.filter((u) => /^http:\/\/127\.0\.0\.1/.test(u) && !/\/api\//.test(u)).map((u) => new URL(u).pathname);
+const kbytes = (k) => [...k.bytes.entries()].filter(([id]) => !/\/api\//.test((k.urls || new Map()).get(id) || '') && !(k.cached && k.cached.has(id))).reduce((a, [, b]) => a + b, 0);
+const POP = `document.querySelector('#chat-pop')`;
+/// The head's controls (and the notification bell in the window's corner) that overlap one another: none may.
+const HEAD_OVERLAPS = `(() => { const els = [...document.querySelectorAll('#chat-surface .chat-head > *'), document.querySelector('#notes .note-bell')]
+  .filter((e) => e && !e.hidden && e.getClientRects().length && e.getBoundingClientRect().width > 0);
+  const name = (e) => e.id || e.className; const out = [];
+  for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) { const a = els[i].getBoundingClientRect(), b = els[j].getBoundingClientRect();
+    if (a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5) out.push(name(els[i]) + ' × ' + name(els[j])); }
+  return { n: els.length, out }; })()`;
+async function popOut() { await evaluate(`${POP}.click()`, true); }
+async function walkChatWindow(origin) {
+  const errorsBefore = pageErrors.length;
+  await browserSocket();
+  const room = 'askw';
+  // Three more rooms for row 10 (a workspace made while chat is on makes its room).
+  for (const n of ['win1', 'win2', 'win3']) doz(['workspace', 'new', n, '--prompt-file', '-'], 'A room for a chat window.\n');
+  await send('Page.reload');
+  await waitFor(`typeof state === 'object' && !!state.csrf`, 30000);
+  await goHash('#/chat/' + room);
+  await waitFor(`state.view === 'chat' && state.chat.room === ${JSON.stringify(room)} && state.chat.live === 'live'`, 20000);
+  check(await waitFor(`!${POP}.hidden && ${POP}.getAttribute('href') === '/chat#/${room}' && ${POP}.target === 'doz-chat-${room}'`, 8000),
+    'window 1 the Chat page\'s head has the pop-out: a link to /chat#/askw, its target the room\'s window');
+  // 1. The pop-out opens the room's own window.
+  const before = new Set(kids.keys());
+  const dashBefore = requested.length;
+  await popOut();
+  const w = await newKid(before, /\/chat#\/askw$/);
+  check(!!w, 'window 1 the pop-out opens a new window at /chat#/askw');
+  if (!w) return;
+  check(await kwait(w, `window.name === 'doz-chat-${room}' && document.title.startsWith('${room} — Chat') && !!document.querySelector('#chat-surface.is-solo')
+    && !document.querySelector('#chat-cols').hidden && document.querySelector('#chat-room-name').textContent === 'askw'
+    && document.querySelector('#chat-live').textContent === 'live'`, 20000),
+    'window 1 …named doz-chat-askw, the room drawn alone (no rooms pane), its title "askw — Chat", the chip live — '
+    + JSON.stringify(await ksoft(w, `({ name: window.name, title: document.title, live: document.querySelector('#chat-live')?.textContent, room: document.querySelector('#chat-room-name')?.textContent })`)));
+  check(await kevaluate(w, `document.activeElement && document.activeElement.id === 'chat-text'`), 'window 1 …the focus starts on the composer');
+  check(await kevaluate(w, `getComputedStyle(document.querySelector('.chat-rooms-pane')).display === 'none' && !!document.querySelector('#chat-dash[href="/#/chat/askw"]')
+    && document.querySelector('#chat-pop').hidden`), 'window 1 …no rooms pane, "Open in the dashboard" → /#/chat/askw, no pop-out of its own');
+  const ov = await kevaluate(w, HEAD_OVERLAPS);
+  check(ov.n >= 4 && ov.out.length === 0, `window 1 …no two controls in its head overlap, the bell included (${ov.n} controls${ov.out.length ? ': ' + ov.out.join(', ') : ''})`);
+  const warmBytes = kbytes(w), warmCached = (w.cached || new Set()).size;
+  // The page's own account too (transferSize 0: from this browser's cache).
+  const warmPage = await kevaluate(w, `(() => { const all = [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')].filter((e) => !/\\/api\\//.test(e.name));
+    return { bytes: all.reduce((a, e) => a + (e.transferSize || 0), 0), files: all.length, cached: all.filter((e) => e.transferSize === 0).length }; })()`);
+  // 2. What the window fetched: only chat's code, no other view, no overview, no dashboard stream while idle.
+  await sleep(1500);
+  const got = pageFetched(w);
+  const mods = got.filter((p) => p.startsWith('/assets/app/'));
+  const others = got.filter((p) => !p.startsWith('/assets/app/') && !/^\/chat$/.test(p) && !/^\/assets\/chat-[0-9a-f]{16}\.js$/.test(p)
+    && !/^\/assets\/app-[0-9a-f]{16}\.css$/.test(p) && !/^\/assets\/vendor-lucide-icons-[0-9a-f]{16}\.svg$/.test(p) && !/^\/assets\/icon-[0-9a-f]{16}\.svg$/.test(p) && p !== '/sw.js');
+  const views = mods.filter((p) => /^\/assets\/app\/views\//.test(p) && !/^\/assets\/app\/views\/chat/.test(p));
+  const api = w.requested.filter((u) => /\/api\//.test(u)).map((u) => new URL(u).pathname);
+  check(others.length === 0 && views.length === 0 && mods.length > 30 && !api.includes('/api/v1/overview') && !api.includes('/api/v1/stream'),
+    `window 2 fetched: the document, its entry, the stylesheet, the sprite, the icon and ${mods.length} of chat's modules — no other view, no overview, no dashboard stream while idle`
+    + (others.length || views.length ? ' ' + JSON.stringify({ others, views }) : ''));
+  const dashMods = requested.filter((u) => /\/assets\/app\//.test(u)).length;
+  console.log(`  ·    window 2 the window fetched ${got.length} files (${mods.length} modules) and ${api.length} API reads: ${[...new Set(api)].join(' ')}; the dashboard's first load fetched ${dashMods} module URLs`);
+  // 3. A CLI post is in the window and the dashboard.
+  const said = 'Seen in two places ' + process.pid;
+  doz(['chat', 'send', room, said]);
+  const has = (t) => `[...state.chat.byId.values()].some((m) => m.content === ${JSON.stringify(t)})`;
+  const inWin = (t) => `(document.querySelector('#chat-log')?.textContent || '').includes(${JSON.stringify(t)})`;
+  check(await kwait(w, inWin(said), 15000) && await waitFor(has(said), 15000), 'window 3 a CLI post shows in the window and in the dashboard');
+  // 4. A reload keeps the room and the draft.
+  const draft = 'a draft kept ' + process.pid;
+  await kevaluate(w, `(() => { const t = document.getElementById('chat-text'); t.value = ${JSON.stringify(draft)}; t.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  await sleep(700);
+  await bsend('Page.reload', {}, w.sid);
+  check(await kwait(w, `document.querySelector('#chat-room-name')?.textContent === 'askw' && document.getElementById('chat-text')?.value === ${JSON.stringify(draft)}`, 20000),
+    'window 4 a reload keeps the room and the draft');
+  await kwait(w, `document.querySelector('#chat-live')?.textContent === 'live'`, 15000);
+  // 5. A second click brings the same window forward: no new window, the draft kept, nothing fetched again.
+  const kidsNow = liveKids().length, fetchedNow = pageFetched(w).length;
+  await popOut();
+  await sleep(1200);
+  check(liveKids().length === kidsNow && !w.gone && pageFetched(w).length === fetchedNow && await kevaluate(w, `document.getElementById('chat-text').value === ${JSON.stringify(draft)}`),
+    `window 5 a second click reuses the window (the same target), the draft kept, nothing fetched again (${liveKids().length} windows)`);
+  await kevaluate(w, `(() => { const t = document.getElementById('chat-text'); t.value = ''; t.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  // SHOTS: light, dark.
+  await kevaluate(w, `document.documentElement.dataset.theme = 'light'`);
+  await sleep(300);
+  await kshot(w, 'chat-window-light');
+  await kevaluate(w, `document.documentElement.dataset.theme = 'dark'`);
+  await sleep(300);
+  await kshot(w, 'chat-window-dark');
+  await kevaluate(w, `delete document.documentElement.dataset.theme`);
+  // 6. An Ask decided in the window: the dashboard's stream opens for its operation, then closes.
+  const a = botAsk('askerbot', ['From the window?', '--option', 'yes=Yes', '--option', 'no=No']);
+  const card = `document.querySelector('[data-ask="${a}"]')`;
+  check(await kwait(w, `!!${card}?.querySelector('.chat-ask-answer')`, 15000), 'window 6 a bot\'s ask is a card in the window');
+  await kevaluate(w, `${card}.scrollIntoView()`);
+  await kshot(w, 'chat-window-ask');
+  const streamsBefore = w.streams.size;
+  await kevaluate(w, `(() => { const c = ${card}; c.querySelector('input.chat-ask-input').click(); c.querySelector('.chat-ask-answer').click(); })()`);
+  const decided = await kwait(w, `/decided by you/.test(${card}?.querySelector('.chat-ask-state')?.textContent || '')`, 30000);
+  await sleep(1500);
+  const opened = [...w.streams.values()].slice(streamsBefore);
+  check(decided && (dozJSON(['chat', 'asks', room]) || { asks: [1] }).asks.every((x) => x.msgId !== a) && opened.length >= 1 && [...w.streams.values()].every((s) => s === 'closed'),
+    `window 6 Decide in the window: chat-decide done ("decided by you"), /api/v1/stream opened for it (${opened.length}) and closed after`);
+  // 7. Turn chat on from the window while chat is off.
+  doz(['chat', 'off']);
+  await bsend('Page.reload', {}, w.sid);
+  check(await kwait(w, `!!document.querySelector('#chat-notice [data-chat-on] [data-chat-on-go]') && document.querySelector('#chat-pop').hidden`, 20000),
+    'window 7 chat off: the window says so, with Turn chat on');
+  const sBefore = w.streams.size;
+  await kevaluate(w, `document.querySelector('[data-chat-on-go]').click()`);
+  check(await kwait(w, `!document.querySelector('#chat-cols').hidden && document.querySelector('#chat-room-name')?.textContent === 'askw' && document.querySelector('#chat-live')?.textContent === 'live'`, 90000)
+    && chatState() === 'running' && w.streams.size > sBefore, 'window 7 …Turn chat on from the window: chat runs, the room comes back, its operation heard on the stream');
+  await sleep(1500);
+  check([...w.streams.values()].every((s) => s === 'closed'), 'window 7 …and the stream closed again once it ended');
+  // 8. Read in the window, the dashboard's badge clears; two windows on one room never lower a marker; presence.
+  await goHash('#/home');
+  await sleep(5600);                                            // the dashboard's chat stream closes 5 s after leaving Chat
+  const seen = () => evaluate(`+(localStorage.getItem('doz.chat.seen:askw') || 0)`);
+  const dashMark = requested.length;
+  const m0 = await seen();
+  const marks = [m0];
+  const second = new Set(kids.keys());
+  nextKid = {};
+  await bsend('Target.createTarget', { url: origin + '/chat#/askw' });
+  const w2 = await newKid(second, /\/chat#\/askw$/);
+  await kwait(w2, `document.querySelector('#chat-live')?.textContent === 'live'`, 20000);
+  const said8 = 'Read in the window ' + process.pid;
+  doz(['chat', 'send', room, said8]);
+  for (let i = 0; i < 30; i++) { marks.push(await seen()); if (await ksoft(w, inWin(said8)) && await ksoft(w2, inWin(said8))) break; await sleep(200); }
+  await sleep(800);
+  for (let i = 0; i < 5; i++) { marks.push(await seen()); await sleep(150); }
+  const never = marks.every((v, i) => i === 0 || v >= marks[i - 1]);
+  check(marks[marks.length - 1] > m0 && never, `window 8 reading in the windows moves the marker forward only (${m0} → ${marks[marks.length - 1]}, ${marks.length} samples, never lower)`);
+  check(await waitFor(`!(state.chat.unread.askw && state.chat.unread.askw.n)`, 8000) && requested.slice(dashMark).some((u) => /\/api\/v1\/chat\/unread/.test(u)),
+    'window 8 …and the dashboard (off Chat) heard the other window\'s marker and read the counts again: askw is not unread there');
+  if (w2) await bsend('Target.closeTarget', { targetId: w2.target });
+  await sleep(2500);
+  const pres = await evaluate(`(async () => { const r = await fetch('/api/v1/chat/presence', { credentials: 'same-origin' }); const j = await r.json(); return (j.find((p) => p.name === 'ada') || {}).state || ''; })()`);
+  check(/^(here|present)$/.test(pres), `window 8 …one window closed, the other open: ada is still "${pres}"`);
+  console.log('  ·    window 10 four windows');
+  // 10. Four chat windows and the dashboard: no eviction loop, fetches answer.
+  await goHash('#/chat');
+  await waitFor(`state.view === 'chat' && !!state.chat.srv`, 15000);
+  const rooms = (await evaluate(`Object.keys(state.chat.srv.rooms).filter((r) => (state.chat.srv.rooms[r] || []).includes('ada') && !(state.chat.srv.archived || []).includes(r))`)).filter((r) => r !== room).slice(0, 3);
+  const four = [w];
+  for (const r of rooms) {
+    await goHash('#/chat/' + r);
+    await waitFor(`state.chat.room === ${JSON.stringify(r)} && !${POP}.hidden`, 10000);
+    const was = new Set(kids.keys());
+    await popOut();
+    const k = await newKid(was, new RegExp('/chat#/' + r + '$'));
+    if (k) four.push(k);
+  }
+  await sleep(4000);
+  const states = [];
+  for (const k of four) states.push(await ksoft(k, `document.querySelector('#chat-live')?.textContent || ''`));
+  const answers = [];
+  // The dashboard leaves Chat (its chat stream closes 5 s later): over plain HTTP a browser keeps 6 connections to one
+  // origin, and four windows' streams + the dashboard's own stream leave one for fetches (web.md, "The chat window").
+  await goHash('#/home');
+  await sleep(5600);
+  for (const k of four) answers.push(await ksoft(k, `(async () => { const t = Date.now(); const r = await fetch('/api/v1/chat/status', { credentials: 'same-origin' }); return r.status === 200 && Date.now() - t < 5000; })()`));
+  const dashAnswers = await evaluate(`(async () => { const r = await fetch('/api/v1/chat/status', { credentials: 'same-origin' }); return r.status === 200; })()`);
+  check(four.length === 4 && states.every((s) => s === 'live') && answers.every(Boolean) && dashAnswers,
+    `window 10 four chat windows and the dashboard: every stream live, none paused (no eviction loop), every fetch answers (${JSON.stringify({ states, answers, dashAnswers })})`);
+  for (const k of four.slice(1)) await bsend('Target.closeTarget', { targetId: k.target });
+  console.log('  ·    window 11 cold loads');
+  // 11. Cold first-load bytes of both documents (cache off), and the window's warm open.
+  await goHash('#/home');
+  const coldOf = async (url, re, settle) => {
+    const was = new Set(kids.keys());
+    nextKid = { cold: true, width: 1440, height: 900 };
+    await bsend('Target.createTarget', { url });
+    const k = await newKid(was, re, 20000);
+    if (!k) return { bytes: 0, files: 0 };
+    await kwait(k, settle, 30000);
+    await sleep(2500);
+    const out = { bytes: kbytes(k), files: pageFetched(k).length, k };
+    return out;
+  };
+  const dcold = await coldOf(origin + '/#/home', /\/#\/home$/, `typeof state === 'undefined' ? false : !!document.querySelector('[data-home]')`);
+  const wcold = await coldOf(origin + '/chat#/askw', /\/chat#\/askw$/, `document.querySelector('#chat-live')?.textContent === 'live'`);
+  check(dcold.bytes > 0 && wcold.bytes > 0 && wcold.bytes <= 0.4 * dcold.bytes,
+    `window 11 cold first load (cache off): the dashboard ${dcold.bytes} B in ${dcold.files} files, the window ${wcold.bytes} B in ${wcold.files} files (${Math.round(100 * wcold.bytes / Math.max(1, dcold.bytes))} %); the window opened warm from the dashboard: ${warmBytes} B on the wire by DevTools (${warmCached} files from cache), ${warmPage.bytes} B by the page's own timing (${warmPage.cached} of ${warmPage.files} files from cache)`);
+  for (const c of [dcold, wcold]) if (c.k) await bsend('Target.closeTarget', { targetId: c.k.target });
+  // 9. Another computer: chat not shared, then shared read-only.
+  const remote = async (shared) => {
+    w.paused = async (p) => {
+      const body = await bsend('Fetch.getResponseBody', { requestId: p.requestId }, w.sid).catch(() => null);
+      if (/\/api\/v1\/chat\/status$/.test(p.request.url) && !shared) {
+        await bsend('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 403, responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
+          body: Buffer.from(JSON.stringify({ error: { code: 'chat-remote', message: 'Chat is not shared with another computer' } })).toString('base64') }, w.sid);
+        return;
+      }
+      let j = {};
+      try { j = JSON.parse(body.base64Encoded ? Buffer.from(body.body, 'base64').toString('utf8') : body.body); } catch (_) { /* */ }
+      if (/\/api\/v1\/session$/.test(p.request.url)) j.serve = { exposure: 'remote', secure: true, secretsAllowed: false, mac: 'walkmac' };
+      else j.access = 'read';
+      await bsend('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, responseHeaders: p.responseHeaders, body: Buffer.from(JSON.stringify(j)).toString('base64') }, w.sid);
+    };
+    await bsend('Fetch.enable', { patterns: [{ urlPattern: '*/api/v1/session', requestStage: 'Response' }, { urlPattern: '*/api/v1/chat/status', requestStage: 'Response' }] }, w.sid);
+    await bsend('Page.reload', {}, w.sid);
+  };
+  await remote(false);
+  check(await kwait(w, `/Chat is not shared with this browser/.test(document.querySelector('#chat-notice')?.textContent || '') && document.querySelector('#chat-cols').hidden`, 20000),
+    'window 9 another computer with serve.chat off: "Chat is not shared with this browser"');
+  const a9 = botAsk('askerbot', ['Read from afar?', '--option', 'yes=Yes']);
+  await remote(true);
+  check(await kwait(w, `document.getElementById('chat-text')?.disabled === true && !!document.querySelector('[data-ask="${a9}"]')
+    && document.querySelectorAll('[data-ask="${a9}"] input, [data-ask="${a9}"] button').length === 0`, 20000),
+    'window 9 …with serve.chat read: the composer off, the decision card read-only (the 403s are ServeHTTPTests\')');
+  await bsend('Fetch.disable', {}, w.sid);
+  w.paused = null;
+  spawnSync(dirname(DOZ) + '/dozchat-mac', ['withdraw', room, a9], { encoding: 'utf8', timeout: 60_000,
+    env: { PATH: '/usr/bin:/bin', HOME: S, CHAT_URL: 'http://127.0.0.1:' + chatPagePort, CHAT_TOKEN_FILE: S + '/askerbot.token' } });
+  await bsend('Page.reload', {}, w.sid);
+  await kwait(w, `document.querySelector('#chat-live')?.textContent === 'live'`, 20000);
+  // 12. At 390 px no sideways scroll.
+  await bsend('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true }, w.sid);
+  await sleep(500);
+  const phone = await kevaluate(w, `({ scroll: document.scrollingElement.scrollWidth, people: getComputedStyle(document.querySelector('#chat-people-pane')).display })`);
+  check(phone.scroll <= 390, `window 12 at 390 px no sideways scroll (${JSON.stringify(phone)})`);
+  const ov390 = await kevaluate(w, HEAD_OVERLAPS);
+  check(ov390.out.length === 0, `window 12 …and no two controls in its head overlap, the bell included (${ov390.n} controls${ov390.out.length ? ': ' + ov390.out.join(', ') : ''})`);
+  await kshot(w, 'chat-window-390');
+  await bsend('Emulation.setDeviceMetricsOverride', { width: 440, height: 760, deviceScaleFactor: 1, mobile: false }, w.sid);
+  // 13. No CSP violation in any window from its start, no page error; the leak sweep (the windows' answers included).
+  let violations = 0, errors = [];
+  for (const k of kids.values()) {
+    if (!k.gone) violations += (await ksoft(k, 'window.__violations.length')) || 0;
+    errors = errors.concat(k.errors);
+  }
+  check(violations === 0 && (await evaluate('window.__violations.length')) === 0, `window 13 no CSP violation in the dashboard or any window from its start (${violations})`);
+  check(errors.length === 0 && pageErrors.length === errorsBefore, 'window 13 no page error in any window' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
+  const kidDom = await ksoft(w, `document.documentElement.outerHTML + (() => { const o = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); o.push(k, localStorage.getItem(k)); } return o.join('\\n'); })()`);
+  check(hits(kidDom) === 0, 'window 13 the window\'s DOM and storage hold no token');
+  await leakSweep('the chat window');
+  await bsend('Target.closeTarget', { targetId: w.target });
+}
+
+/// 14. The space editor's "Open in a new window": its own window, named for the workspace; a second click reuses it.
+async function walkSpaceWindow(name) {
+  await browserSocket();
+  await goHash('#/w/' + name + '/space');
+  const BTN = `[...document.querySelectorAll('[data-sp-bar] button')].find((b) => b.getAttribute('aria-label') === 'Open in a new window')`;
+  await waitFor(`!!(${BTN})`, 20000);
+  const was = new Set(kids.keys());
+  await evaluate(`(${BTN}).click()`, true);
+  const k = await newKid(was, new RegExp('/#/w/' + name + '/space$'), 20000);
+  check(!!k && await kwait(k, `window.name === 'doz-space-${name}' && !!document.querySelector('#space .space-editor')`, 30000),
+    'window 14 the space editor\'s "Open in a new window" opens one: its own window at #/w/' + name + '/space, named doz-space-' + name);
+  if (!k) return;
+  const n = liveKids().length;
+  await evaluate(`(${BTN}).click()`, true);
+  await sleep(1500);
+  check(liveKids().length === n && !k.gone, 'window 14 …a second click reuses it (no new window)');
+  await bsend('Target.closeTarget', { targetId: k.target });
+  await goHash('#/w/' + name);
+}
+
 // ── a workspace's wide views: Network & secrets, Folders & points, Activity and an agent's Can do ────────────────────
 /// `wide`: a fenced session (widef) with a launch secret whose value is a SENTINEL and two more (widef2, widef3), each having been
 /// refused one site; an unfenced session (wideu); the never-booted sandbox gamma. All harmless programs, no VM.
@@ -2451,6 +2813,19 @@ try {
   // An onboarding never done opens the setup over Home: close it (its own page is checked with the old addresses).
   await goHash('#/home');
   await waitFor(`state.view === 'home' && !state.modal && !!document.querySelector('[data-home]')`);
+  if (process.env.CHAT_WINDOW_ONLY === '1') {
+    // Only the chat window's rows (with the asks' set-up they use): chat on at OS-chosen ports.
+    const [p1, p2] = [await freePort(), await freePort()];
+    chatPagePort = p1;
+    doz(['config', 'set', 'chat.page_port', String(p1)]);
+    doz(['config', 'set', 'chat.line_port', String(p2)]);
+    check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (CHAT_WINDOW_ONLY)');
+    await walkAsks();
+    await walkChatWindow(origin);
+    failed = failures.length > 0;
+    console.log(`dashboard-walk (CHAT_WINDOW_ONLY): ${passed} passed, ${failures.length} failed` + (failed ? '\n  ' + failures.join('\n  ') : ''));
+    throw Object.assign(new Error('chat window only'), { spaceOnly: true });
+  }
   if (process.env.SPACE_ONLY === '1') {
     // Only the space editor's rows (a quicker loop while working on them): chat on at OS-chosen ports, then the rows.
     const [p1, p2] = [await freePort(), await freePort()];
@@ -2459,6 +2834,7 @@ try {
     doz(['config', 'set', 'chat.line_port', String(p2)]);
     check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (SPACE_ONLY)');
     await walkSpace();
+    await walkSpaceWindow('spc3');
     failed = failures.length > 0;
     console.log(`dashboard-walk (SPACE_ONLY): ${passed} passed, ${failures.length} failed` + (failed ? '\n  ' + failures.join('\n  ') : ''));
     throw Object.assign(new Error('space only'), { spaceOnly: true });
@@ -2505,9 +2881,11 @@ try {
   await walkLifecycle();
   await walkRooms();
   await walkAsks();
+  await walkChatWindow(origin);
   await walkWideViews();
   await walkPictures();
   await walkSpace();
+  await walkSpaceWindow('spc3');
   await walkHome();
   await walkWorkspacesList();
 

@@ -65,6 +65,14 @@ extension WebAssets {
         out[m.publicPath] = nil
         out[path] = WebAsset(publicPath: path, mimeType: m.mimeType, cachePolicy: m.cachePolicy, sha256: digest, data: data)
         out["/"] = WebAsset(publicPath: "/", mimeType: index.mimeType, cachePolicy: index.cachePolicy, sha256: Self.sha256Hex(pageData), data: pageData)
+        // 745: the chat window's title names its Mac too ("Chat – NAME"); it links no manifest.
+        if let c = assets[Self.chatDocument] {
+            let text = String(decoding: c.data, as: UTF8.self)
+            if text.contains("<title>Chat</title>") {
+                let d = Data(text.replacingOccurrences(of: "<title>Chat</title>", with: "<title>Chat – \(mac)</title>").utf8)
+                out[Self.chatDocument] = WebAsset(publicPath: Self.chatDocument, mimeType: c.mimeType, cachePolicy: c.cachePolicy, sha256: Self.sha256Hex(d), data: d)
+            }
+        }
         return WebAssets(assets: out)
     }
 }

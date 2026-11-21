@@ -15,17 +15,18 @@ import { validGrid } from '../core/grid.js';
 import { placePath, screenPath } from '../core/places.js';
 import { bridgeNotice, failureFor } from './notices.js';
 import { placeHash } from '../core/routes.js';
+import { openExternal } from '../core/windows.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const lifecycle = upcall('lifecycle'), paintTabs = upcall('paintTabs'), renderTerminals = upcall('renderTerminals'), syncConsoleTab = upcall('syncConsoleTab');
 
-// This page opens no window by itself: only a link the person Cmd-clicked in a terminal (636), checked by safeLink.
-const openWindow = window.open.bind(window);
+// This page opens no window by itself: only a link the person Cmd-clicked in a terminal (636), checked by safeLink, and
+// Dozable's own two pages (core/windows.js, which keeps the browser's open — it runs first: this module imports it).
 window.open = function refuseToOpen() { return null; };
 
 function openLink(t, s) {
   const href = safeLink(s);
   if (!href) { failureFor(t.sandbox, 'That link was not opened — only a web address (http or https) to another computer opens from a terminal'); return; }
-  openWindow(href, '_blank', 'noopener,noreferrer');
+  openExternal(href);
 }
 
 function wasmURL() {

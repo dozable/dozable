@@ -212,14 +212,15 @@ final class WebModulesTests: XCTestCase {
         let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
         var fetchers: Set<String> = [], streams: Set<String> = []
         let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])
-            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js"]
+            .filter { $0.hasSuffix(".js") }.map { "app/" + $0 } + ["app.js", "chat.js"]
         for f in files {
             let text = try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8)
             if text.contains("fetch(") && text.range(of: #"(?<![A-Za-z])fetch\("#, options: .regularExpression) != nil { fetchers.insert(f) }
             if text.contains("EventSource(") { streams.insert(f) }
         }
         XCTAssertEqual(fetchers, ["app/core/api.js", "app/core/reconnect.js", "app/components/terminal.js", "app/dom/icons.js"])
-        XCTAssertEqual(streams, ["app/core/events.js", "app/core/chat-stream.js", "app/views/sandbox-files.js"])
+        // 745: the chat window's ear for its own operations (core/op-stream.js) — the dashboard's stream, only while one runs.
+        XCTAssertEqual(streams, ["app/core/events.js", "app/core/chat-stream.js", "app/core/op-stream.js", "app/views/sandbox-files.js"])
         for f in files where f.contains("/chat") {
             let text = try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8)
             for never in ["innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "X-Doz-CSRF", "localStorage.setItem('sb", "/api/v1/chat/stream'", "eval("] where !(never == "/api/v1/chat/stream'" && f == "app/core/chat-stream.js") {
@@ -534,8 +535,11 @@ final class WebModulesTests: XCTestCase {
         let modules = a.assets.keys.filter { $0.hasPrefix("/assets/app/") }
         XCTAssertEqual(modules.count, sources.count, "one served module per source module")
         let entry = try XCTUnwrap(a.pageScript)
+        // 745: the chat window's entry too — each entry's closure, both together every module.
+        let chatEntry = try XCTUnwrap(a.assets.keys.first { $0.hasPrefix("/assets/chat-") && $0.hasSuffix(".js") })
+        let entries: Set<String> = [entry, chatEntry]
         var reached = Set<String>()
-        var queue = [entry]
+        var queue = [entry, chatEntry]
         while let p = queue.popLast() {
             let asset = try XCTUnwrap(a.assets[p], p)
             XCTAssertEqual(asset.mimeType, "application/javascript; charset=utf-8", p)
@@ -548,7 +552,7 @@ final class WebModulesTests: XCTestCase {
                 XCTAssertTrue(target.hasPrefix("/assets/app/"), "\(p) → \(target)")
                 XCTAssertNotNil(a.assets[target], "\(p) imports \(target), which is served")
                 XCTAssertTrue(target.range(of: #"-[0-9a-f]{16}\.js$"#, options: .regularExpression) != nil, "\(target) is a hashed name")
-                if p != entry {
+                if !entries.contains(p) {
                     let from = p.split(separator: "/")[2], to = target.split(separator: "/")[2]
                     XCTAssertLessThanOrEqual(Self.layers[String(to)]!, Self.layers[String(from)]!, "\(p) imports \(target): never up a layer")
                 }
@@ -559,6 +563,9 @@ final class WebModulesTests: XCTestCase {
         if !modules.isEmpty {
             let index = String(decoding: a.assets["/"]!.data, as: UTF8.self)
             XCTAssertTrue(index.contains("<script type=\"module\" src=\"\(entry)\"></script>"), "index.html loads the entry as a module")
+            let chat = String(decoding: a.assets[WebAssets.chatDocument]!.data, as: UTF8.self)
+            XCTAssertTrue(chat.contains("<script type=\"module\" src=\"\(chatEntry)\"></script>"), "chat.html loads its entry as a module")
+            XCTAssertTrue(chat.contains("href=\"\(a.pageStyle!)\""), "with the dashboard's stylesheet")
         }
     }
 
@@ -577,6 +584,13 @@ final class WebModulesTests: XCTestCase {
         }
         let entry = String(decoding: a.assets[a.pageScript!]!.data, as: UTF8.self)
         XCTAssertEqual(unhash(entry), try String(contentsOf: src.appendingPathComponent("app.js"), encoding: .utf8))
+        // 745: the chat window's entry likewise — and it imports only hashed module names.
+        let chatPath = try XCTUnwrap(a.assets.keys.first { $0.hasPrefix("/assets/chat-") && $0.hasSuffix(".js") })
+        let chat = String(decoding: a.assets[chatPath]!.data, as: UTF8.self)
+        XCTAssertEqual(unhash(chat), try String(contentsOf: src.appendingPathComponent("chat.js"), encoding: .utf8))
+        for spec in Self.specifiers(chat) {
+            XCTAssertTrue(spec.hasPrefix("./app/") && spec.range(of: #"-[0-9a-f]{16}\.js$"#, options: .regularExpression) != nil, spec)
+        }
     }
 
     // MARK: the compiler's refusals, on a scratch copy of the sources
@@ -671,6 +685,103 @@ final class WebModulesTests: XCTestCase {
             try Data(html.replacingOccurrences(of: "<script type=\"module\" src=\"/app.js\"></script>", with: "<script src=\"/app.js\" defer></script>").utf8).write(to: index)
         }
     }
+    /// 745: the chat window's entry, chat.js — checked like app.js over ITS closure, and it reaches no dashboard view.
+    func testTheCompilerChecksTheChatWindowsEntry() throws {
+        func refused(_ what: String, _ expect: String, _ change: (URL) throws -> Void) throws {
+            let (status, out) = try compileScratch(change)
+            XCTAssertNotEqual(status, 0, what)
+            XCTAssertTrue(out.contains(expect), "\(what): \(out)")
+        }
+        func prepend(_ src: URL, _ file: String, _ text: String) throws {
+            let u = src.appendingPathComponent(file)
+            try Data((text + (try String(contentsOf: u, encoding: .utf8))).utf8).write(to: u)
+        }
+        try refused("a dashboard view in the chat window", "chat.js reaches app/views/home.js — the chat window loads only chat's code") { src in
+            try prepend(src, "chat.js", "import './app/views/home.js';\n")
+        }
+        try refused("an upcall chat.js does not provide", "which chat.js does not provide") { src in
+            try Self.add(src, "core/zz-up.js", "const nowhere = upcall('zzNowhere');\nexport const a = nowhere;\n", importFromEntry: false)
+            try prepend(src, "chat.js", "import './app/core/zz-up.js';\n")
+            let entry = src.appendingPathComponent("app.js")
+            let t = try String(contentsOf: entry, encoding: .utf8)
+            try Data(("import './app/core/zz-up.js';\nconst zzNowhere = () => 0;\n" + t.replacingOccurrences(of: "provide({", with: "provide({ zzNowhere,")).utf8).write(to: entry)
+        }
+        try refused("a provide nothing in its closure upcalls", "chat.js provides zzExtra, which no module it loads upcalls") { src in
+            let u = src.appendingPathComponent("chat.js")
+            let t = try String(contentsOf: u, encoding: .utf8)
+            try Data(t.replacingOccurrences(of: "provide({", with: "provide({ zzExtra,").utf8).write(to: u)
+            try prepend(src, "chat.js", "const zzExtra = () => 0;\n")
+        }
+        try refused("an inline script in chat.html", "chat.html has an inline <script>") { src in
+            let u = src.appendingPathComponent("chat.html")
+            let t = try String(contentsOf: u, encoding: .utf8)
+            try Data(t.replacingOccurrences(of: "</body>", with: "<script>alert(1)</script></body>").utf8).write(to: u)
+        }
+        try refused("chat.html loading chat.js as a classic script", "chat.html must load chat.js as a module") { src in
+            let u = src.appendingPathComponent("chat.html")
+            let t = try String(contentsOf: u, encoding: .utf8)
+            try Data(t.replacingOccurrences(of: "<script type=\"module\" src=\"/chat.js\"></script>", with: "<script src=\"/chat.js\" defer></script>").utf8).write(to: u)
+        }
+        try refused("the worker's pages not the page documents", "sw.js must list its pages exactly") { src in
+            let u = src.appendingPathComponent("sw.js")
+            let t = try String(contentsOf: u, encoding: .utf8)
+            try Data(t.replacingOccurrences(of: #"const PAGES = ["/", "/chat"];"#, with: #"const PAGES = ["/"];"#).utf8).write(to: u)
+        }
+        // A module only the chat window reaches compiles (app.js need not load it), and is served once.
+        let ok = try compileScratch { src in
+            try Self.add(src, "core/zz-only-chat.js", "export const z = 1;\n", importFromEntry: false)
+            try prepend(src, "chat.js", "import './app/core/zz-only-chat.js';\n")
+        }
+        XCTAssertEqual(ok.0, 0, ok.1)
+    }
+
+    /// 745: the chat window — its address (pure, in JavaScriptCore), the ONE place a window is opened (core/windows.js: only
+    /// Dozable's own two pages, by name; terminal.js keeps refusing everything else), unread markers that never move back,
+    /// and the window's ear for its operations (open only while one runs; no timer that reads).
+    func testTheChatWindowsAddressAndTheOneWayToOpenAWindow() throws {
+        let src = Self.root.appendingPathComponent("Sources/DozableWeb/WebSource")
+        let read = { (f: String) in try String(contentsOf: src.appendingPathComponent(f), encoding: .utf8) }
+        let ctx = try XCTUnwrap(JSContext())
+        var thrown: String?
+        ctx.exceptionHandler = { _, e in thrown = e?.toString() }
+        ctx.evaluateScript("var opened = []; var window = { open: function (u, n, f) { opened.push([u, n, f]); return { focus: function () {} }; } };"
+            + "var store = {}; var localStorage = { getItem: function (k) { return k in store ? store[k] : null; }, setItem: function (k, v) { store[k] = String(v); }, removeItem: function (k) { delete store[k]; } };")
+        for f in ["app/core/routes.js", "app/core/windows.js", "app/core/chat-storage.js"] {
+            ctx.evaluateScript(try read(f).replacingOccurrences(of: "export ", with: ""))
+            XCTAssertNil(thrown, "\(f): \(thrown ?? "")")
+        }
+        func js(_ expr: String) -> String { ctx.evaluateScript("JSON.stringify(" + expr + ")")?.toString() ?? "?" }
+        XCTAssertEqual(js("[chatWindowRoom('#/general'), chatWindowRoom('#/a_b-1'), chatWindowRoom('#/'), chatWindowRoom('#/Bad'), chatWindowRoom('#/x/y'), chatWindowRoom('')]"),
+                       #"["general","a_b-1",null,null,null,null]"#)
+        XCTAssertEqual(js("[chatWindowPath('general'), chatWindowName('general')]"), ##"["/chat#/general","doz-chat-general"]"##)
+        XCTAssertEqual(js("[isOwnWindowPath('/chat#/general'), isOwnWindowPath('/#/w/demo/space'), isOwnWindowPath('/#/w/demo/space/watch')]"), "[true,true,true]")
+        XCTAssertEqual(js("['https://example.com/', '/#/home', '/chat', '/chat#/a/b', '//evil/chat#/x', '/#/w/demo/space?x', 'javascript:alert(1)'].map(isOwnWindowPath)"),
+                       "[false,false,false,false,false,false,false]")
+        XCTAssertEqual(js("[openOwnWindow('/chat#/general', 'doz-chat-general', { w: 440, h: 760 }) !== null, openOwnWindow('https://example.com/', 'doz-chat-x'), openOwnWindow('/chat#/general', '_blank')]"),
+                       "[true,null,null]")
+        XCTAssertEqual(js("opened"), ##"[["/chat#/general","doz-chat-general","popup,width=440,height=760"]]"##, "named, a popup, never noopener (it would stop the reuse)")
+        XCTAssertEqual(js("(() => { setSeen('r', 5); const a = getSeen('r'); setSeen('r', 3); const b = getSeen('r'); setSeen('r', 9); return [a, b, getSeen('r')]; })()"), "[5,5,9]",
+                       "a marker only moves forward: two windows on one room never lower it")
+        // The ONE place that opens: windows.js keeps the browser's open; terminal.js imports it (so it runs first) and refuses the rest.
+        let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? []).filter { $0.hasSuffix(".js") }
+        for f in files where f != "core/windows.js" {
+            XCTAssertFalse(try read("app/" + f).contains("window.open("), "app/\(f) opens no window of its own (core/windows.js does)")
+        }
+        // The space editor's "Open in a new window": its own window, named for the workspace (a 0.52.25 bug: it called the
+        // refusal terminal.js leaves in window.open, and opened nothing).
+        XCTAssertTrue(try read("app/views/space-page.js").contains("openOwnWindow(location.pathname + location.hash, 'doz-space-' + name, { w: 1280, h: 860 })"))
+        let term = try read("app/components/terminal.js")
+        XCTAssertTrue(term.contains("import { openExternal } from '../core/windows.js';") && term.contains("window.open = function refuseToOpen() { return null; };"))
+        // The ear for operations: the dashboard's stream only while one of this window's operations runs, no timer that reads.
+        let ear = try read("app/core/op-stream.js")
+        XCTAssertFalse(ear.contains("setInterval"))
+        XCTAssertTrue(ear.contains("if (mine().length && !es && !state.signedOut) open();") && ear.contains("else if (!mine().length && es) close();"))
+        XCTAssertTrue(try read("app/views/chat.js").contains("export async function chatWindow(room)"))
+        let entry = try read("chat.js")
+        XCTAssertFalse(entry.contains("setInterval"), "the window polls nothing")
+        XCTAssertTrue(entry.contains("chatWindow(room)") && entry.contains("window.name = chatWindowName(room)"))
+    }
+
     /// 744: the space editor's page — its two addresses (pure, in JavaScriptCore), its modules (the glue: no timer, no DOM in
     /// the data module), the guard a dirty file sets (the router's, the restart's reload, the page's own keys left alone).
     func testTheSpaceEditorsPageAndItsAddresses() throws {

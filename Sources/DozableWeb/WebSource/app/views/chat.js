@@ -5,6 +5,7 @@
 // path, stream or composer. Chat is the chat server's (`doz chat`); the page never
 // turns it on — while it is off, the command to run is shown. Shown in this Mac's own browser only (the server refuses
 // another computer every chat route, and the sidebar's entry stays hidden there).
+// A room pops out into a window of its own (`/chat#/ROOM`, chat.js — `chatWindow`): the same surface, that room alone.
 import { state } from '../core/state.js';
 import { upcall } from '../core/hooks.js';
 import { apiFetch } from '../core/api.js';
@@ -17,10 +18,12 @@ import { CHAT_READ_ONLY, chatNote } from '../components/chat-note.js';
 import { loadUnread, showUnread } from '../components/chat-unread.js';
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
+import { openOwnWindow } from '../core/windows.js';
+import { chatWindowName, chatWindowPath } from '../core/routes.js';
 import { initComposer } from './chat-composer.js';
 import { loadOlder } from './chat-messages.js';
 import { loadPresence, roomMenu, standing } from './chat-people.js';
-import { drawRooms, mine, openRoom, refreshState } from './chat-rooms.js';
+import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms.js';
 import { startLive, stopLive } from './chat-live.js';
 
 let built = false, loaded = false, statusT = 0, wanted = null, loading = false, scopeKey = '';
@@ -39,10 +42,22 @@ function build() {
     'aria-label': 'Attach files' }, icon('paperclip'));
   const pick = h('input', { type: 'file', id: 'chat-pick', multiple: true, hidden: true, tabindex: '-1', 'aria-hidden': 'true' });
   const editx = h('button', { type: 'button', class: 'chat-ibtn', id: 'chat-editx', title: 'Stop editing (Esc)', 'aria-label': 'Stop editing' }, icon('x'));
+  // The pop-out: the room shown, in a window of its own (one per room — a second click brings it forward). A plain click
+  // opens the window; a modified click is the link's (a new tab).
+  const pop = h('a', { class: 'btn sm quiet icon-only chat-pop', id: 'chat-pop', href: '/chat', hidden: true,
+    title: 'Open this room in its own window', 'aria-label': 'Open this room in its own window' }, icon('external-link'));
+  pop.addEventListener('click', (ev) => {
+    const r = state.chat.room;
+    if (!r || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    if (openOwnWindow(chatWindowPath(r), chatWindowName(r), { w: 440, h: 760 })) ev.preventDefault();
+  });
+  // The chat window's way back: this room in the dashboard (a new tab).
+  const dash = h('a', { class: 'btn sm quiet chat-dash', id: 'chat-dash', href: '/#/chat', target: '_blank', rel: 'noopener', hidden: true },
+    icon('house'), 'Open in the dashboard');
   $('chat').replaceChildren(h('div', { class: 'chat-surface', id: 'chat-surface' },
     h('div', { class: 'chat-head' }, h('h1', { class: 'chat-title' }, icon('message-square'), 'Chat'),
       h('span', { class: 'chat-room-name', id: 'chat-room-name' }), h('span', { class: 'chat-live is-off', id: 'chat-live', role: 'status' }, 'not connected'),
-      h('span', { class: 'chat-room-tools', id: 'chat-room-tools' })),
+      h('span', { class: 'chat-room-tools', id: 'chat-room-tools' }), pop, dash),
     h('div', { class: 'chat-notice', id: 'chat-notice' }),
     h('div', { class: 'chat-cols', id: 'chat-cols', hidden: true },
       h('nav', { class: 'chat-pane chat-rooms-pane', 'aria-label': 'Rooms' }, h('h2', { class: 'chat-sh' }, 'Rooms'), h('div', { class: 'chat-rooms', id: 'chat-rooms' })),
@@ -94,9 +109,22 @@ function notice(st) {
     case 'no-daemon': say('warn', "Dozable's daemon is not running", h('span', null, 'Chat runs under it. In a terminal: ', cmd('doz daemon start'))); break;
     case 'failing': say('bad', 'Chat is not running', st.problem || 'Its server stopped.', h('span', null, 'In a terminal: ', cmd('doz chat status'))); break;
     case 'remote': say('info', 'Chat is not shared with this browser', h('span', null, 'Chat is off for your other browsers. On the Mac: ', cmd('doz config set serve.chat read'), ' (or write).')); break;
-    default: box.replaceChildren(); cols.hidden = false; return true;
+    default: box.replaceChildren(); cols.hidden = false; paintPop(); return true;
   }
+  paintPop();
   return false;
+}
+
+/// The chat window's room is not one of the person's rooms here (a stale bookmark, a room removed): said, with the way to
+/// the dashboard's Chat.
+function soloMissing() {
+  if (!state.chat.solo || candidates().length) return false;
+  $('chat-cols').hidden = true;
+  $('chat-notice').replaceChildren(callout('warn', { title: 'This room is not here',
+    body: [h('span', null, '# ' + state.chat.solo + ' is not one of your rooms on this Mac. '),
+      h('a', { href: '/#/chat', target: '_blank', rel: 'noopener', 'data-chat-dash': '' }, 'Open Chat in the dashboard')] }));
+  paintPop();
+  return true;
 }
 
 async function readStatus() {
@@ -122,6 +150,7 @@ function writable() {
 
 /// The rooms this view may show: on a workspace's page its rooms only (the main one first), else every room.
 function candidates() {
+  if (state.chat.solo) return state.chat.srv.rooms[state.chat.solo] && mine(state.chat.solo) ? [state.chat.solo] : [];
   const sc = state.chat.scope;
   return sc ? sc.rooms.map((r) => r.room).filter((r) => state.chat.srv.rooms[r] && mine(r)) : Object.keys(state.chat.srv.rooms).filter(mine);
 }
@@ -138,6 +167,7 @@ async function load(room) {
     drawRooms();
     const rooms = candidates(), d = state.chat.scope ? null : state.chat.srv.default_room;
     const r = room && rooms.includes(room) ? room : (d && rooms.includes(d) ? d : rooms[0]);
+    soloMissing();
     await loadPresence();
     if (r) await openRoom(r);
     loadUnread();
@@ -189,6 +219,7 @@ async function enter(room) {
   }
   writable();
   if (!loaded) { await load(wanted); return; }
+  if (soloMissing()) return;
   const rooms = candidates(), d = state.chat.srv.default_room;
   const first = state.chat.scope || !(d && rooms.includes(d)) ? rooms[0] : d;
   const r = wanted && rooms.includes(wanted) ? wanted : (state.chat.scope || !state.chat.room ? first : null);
@@ -198,6 +229,20 @@ async function enter(room) {
   else if (!r && state.chat.scope) await openRoom(null);
   else showUnread();
   startLive();
+}
+
+/// The chat window (`/chat#/ROOM`): the Chat page's surface with that one room — no rooms pane, the way back to the
+/// dashboard in its head. A change of the fragment opens another room in the same window.
+export async function chatWindow(room) {
+  build();
+  const changed = state.chat.solo !== room;
+  state.chat.solo = room;
+  $('chat-surface').classList.add('is-solo');
+  const dash = $('chat-dash');
+  dash.href = '/#/chat/' + room;
+  dash.hidden = false;
+  if (changed) state.chat.room = null;
+  return mountChat(null, null, room);
 }
 
 /// Leaving the page: its stream closes 5 s later.

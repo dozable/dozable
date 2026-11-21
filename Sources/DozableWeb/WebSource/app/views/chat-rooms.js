@@ -8,6 +8,7 @@ import { showDown } from '../components/chat-log.js';
 import { showPreviews, showUnread } from '../components/chat-unread.js';
 import { $, h } from '../dom/h.js';
 import { fill } from './chat-messages.js';
+import { chatWindowName, chatWindowPath } from '../core/routes.js';
 import { people } from './chat-people.js';
 
 /// The rooms the chat server shows the person: those they are in.
@@ -69,6 +70,19 @@ export async function refreshState() {
   } catch (_) { /* the next event tries again */ }
 }
 
+/// The head's pop-out: the room shown, as its window's address and name — hidden with no room, in the window itself and
+/// while the notice stands instead of the room.
+export function paintPop() {
+  const a = $('chat-pop'), cols = $('chat-cols');
+  if (!a) return;
+  const r = state.chat.room;
+  a.hidden = !r || !!state.chat.solo || !cols || cols.hidden;
+  if (r) { a.href = chatWindowPath(r); a.target = chatWindowName(r); }
+  if (state.chat.solo) document.title = (r || state.chat.solo) + ' — ' + SOLO_TITLE;
+}
+/// The chat window document's own title (the server names it for its Mac: "Chat – NAME").
+const SOLO_TITLE = document.title;
+
 /// Show room `r`: its draft, its log from the newest page, its people (null: none — a workspace with no room of the person's).
 export async function openRoom(r) {
   if (!state.chat.srv) return;
@@ -79,6 +93,7 @@ export async function openRoom(r) {
     state.chat.byId = new Map();
     $('chat-log').replaceChildren();
     $('chat-room-name').textContent = '';
+    paintPop();
     for (const id of ['chat-text', 'chat-clip', 'chat-send']) $(id).disabled = true;
     drawRooms();
     people();
@@ -96,6 +111,7 @@ export async function openRoom(r) {
   delete state.chat.unread[r];
   $('chat-log').replaceChildren();
   $('chat-room-name').textContent = roomTitle(r);
+  paintPop();
   const arch = (state.chat.srv.archived || []).includes(r);
   // A closed room (its workspace is finished): readable, the composer off until the workspace is reopened.
   const closedBy = !arch ? (state.chat.srv.closed || {})[r] : null;

@@ -10,7 +10,7 @@ final class ServeExposureTests: XCTestCase {
     /// (and so pinned below).
     static let samples: [WebRoute] = {
         let all: [WebRoute] = [
-            .index, .asset("/assets/x.js"), .terminalFrame, .offline, .serviceWorker, .sessionBootstrap, .sessionInfo, .sessionRenew, .sessionEnd,
+            .index, .asset("/assets/x.js"), .terminalFrame, .offline, .serviceWorker, .chatPage, .sessionBootstrap, .sessionInfo, .sessionRenew, .sessionEnd,
             .overview, .sandbox("s"), .sandboxSessions("s"), .sandboxNetwork("s"), .sandboxTools("s"), .images, .imageTree, .accounts,
             .metrics(WebMetricsQuery.parse(nil)!), .metricsCSV(WebMetricsQuery.parse(nil)!), .events, .doctor, .stream, .actions, .operations, .operationsCancel,
             .policyPreview("s"), .terminal("s"), .terminalTicket("s"), .terminalSocket("s"), .settings, .settingsChange, .sessionScreen("s", "shell"),
@@ -30,7 +30,7 @@ final class ServeExposureTests: XCTestCase {
 
     static func covered(_ r: WebRoute) -> Bool {
         switch r {
-        case .index, .asset, .terminalFrame, .offline, .serviceWorker, .sessionBootstrap, .sessionInfo, .sessionRenew, .sessionEnd, .overview,
+        case .index, .asset, .terminalFrame, .offline, .serviceWorker, .chatPage, .sessionBootstrap, .sessionInfo, .sessionRenew, .sessionEnd, .overview,
              .sandbox, .sandboxSessions, .sandboxNetwork, .sandboxTools, .images, .imageTree, .accounts, .metrics, .metricsCSV, .events, .doctor,
              .stream, .actions, .operations, .operationsCancel, .policyPreview, .terminal, .terminalTicket, .terminalSocket, .settings, .settingsChange,
              .sessionScreen, .terminalLayout, .terminalLayoutSet, .bootLogs, .bootLog, .buildLog, .onboarding, .onboardingConfig, .preparations,

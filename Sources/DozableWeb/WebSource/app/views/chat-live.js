@@ -10,21 +10,39 @@ import { openChatStream } from '../core/chat-stream.js';
 import { reacts } from '../components/chat-reactions.js';
 import { chips } from '../components/chat-receipts.js';
 import { loadUnread, setPreview, showUnread } from '../components/chat-unread.js';
-import { $ } from '../dom/h.js';
+import { $, h } from '../dom/h.js';
 import { add, edited, fill } from './chat-messages.js';
 import { changes, loadPresence, people } from './chat-people.js';
 import { refreshState } from './chat-rooms.js';
 
 const MEMBERCHANGE = / (invited|removed|left|created|added|rejoined|taken|archived|reopened) /;
 let stream = null, retry = 0, retryT = 0, leaveT = 0, opened = false;
+const endFns = new Set();
+
+/// Called with the reason when the stream ends for good (signed out, rotated, revoked, moved) — the chat window says so
+/// over itself. → stop.
+export function onLiveEnd(fn) { endFns.add(fn); return () => endFns.delete(fn); }
 
 function paintLive(s) {
   state.chat.live = s;
   const el = $('chat-live');
   if (!el) return;
   el.className = 'chat-live is-' + s;
+  if (s === 'paused') {
+    // Another chat window of this browser took this stream (the dashboard keeps a few): nothing retries by itself.
+    el.replaceChildren('paused — another chat window took this stream ',
+      h('button', { type: 'button', class: 'btn sm quiet chat-live-again', 'data-chat-reconnect': '' }, 'Reconnect'));
+    el.querySelector('button').addEventListener('click', () => { retry = 0; connect(); });
+    return;
+  }
   el.textContent = s === 'live' ? 'live' : s === 'reconnecting' ? 'reconnecting…' : s === 'connecting' ? 'connecting…' : 'not connected';
 }
+
+// A room is marked read only while it is seen: back in view, what was drawn meanwhile is read now.
+document.addEventListener('visibilitychange', () => {
+  const c = state.chat;
+  if (document.visibilityState === 'visible' && c.active && c.room && c.lastSeq) setSeen(c.room, c.lastSeq);
+});
 
 function event(e) {
   const c = state.chat;
@@ -76,7 +94,7 @@ function event(e) {
     add(m);
     if (m.kind === 'ask') askChanged(m);
     c.lastSeq = Math.max(c.lastSeq, +m.seq || 0);
-    if (c.active) setSeen(c.room, c.lastSeq);
+    if (c.active && document.visibilityState === 'visible') setSeen(c.room, c.lastSeq);
   }
   if (e.kind === 'state' && e.state) {
     const x = c.byId.get(e.state.msg_id);
@@ -99,7 +117,13 @@ function connect() {
     gone(why) {
       stream = null;
       if (!state.chat.active && !leaveT) { paintLive('off'); return; }
-      if (why === 'session-ended' || why === 'rotated' || why === 'revoked') { paintLive('off'); return; }
+      if (why === 'session-ended' || why === 'rotated' || why === 'revoked' || why === 'moved') {
+        paintLive('off');
+        for (const fn of [...endFns]) { try { fn(why); } catch (_) { /* a listener's own problem */ } }
+        return;
+      }
+      // Evicted by another stream of this browser: no retry (two windows would take it from each other forever).
+      if (why === 'replaced') { paintLive('paused'); return; }
       paintLive('reconnecting');
       const wait = why === 'resync' ? 0 : Math.min(30000, 1000 * 2 ** Math.min(retry, 5));
       retry++;

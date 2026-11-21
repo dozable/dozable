@@ -3,6 +3,7 @@
 // lazy-import table; nothing of it on a first load. Only the features this viewer may use are mounted: edit on this Mac only,
 // the text view (Monaco) only once asked for. A dirty file is never left or reloaded without asking.
 import { h, $ } from '../dom/h.js';
+import { openOwnWindow } from '../core/windows.js';
 import { icon } from '../dom/icons.js';
 import { state } from '../core/state.js';
 import { setLeaveGuard } from '../core/router.js';
@@ -66,7 +67,10 @@ export async function spaceEnter(name, mode) {
       h('span', { class: 'sp-gap' }),
       narrow ? h('span', { class: 'sp-note muted' }, 'Edit on a wider screen') : textBtn,
       btn('Watch', () => { location.hash = spaceWatchHash(name); }, { small: true, icon: 'eye', quiet: true }),
-      btn('Open in a new window', () => window.open(location.href, '_blank', 'noopener'), { small: true, icon: 'external-link', quiet: true, iconOnly: true }),
+      // Its own window, one per workspace: a second click brings it forward with only a fragment change (a dirty file there is
+      // never reloaded). The page's window.open is terminal.js's refusal — only core/windows.js opens a window.
+      btn('Open in a new window', () => openOwnWindow(location.pathname + location.hash, 'doz-space-' + name, { w: 1280, h: 860 }),
+        { small: true, icon: 'external-link', quiet: true, iconOnly: true }),
       mac ? null : h('span', { class: 'sp-remote' }, h('span', { class: 'muted' }, 'Changed only in this Mac’s own browser'), f.command ? cmdLine(f.command) : null)));
   }
   parts.push(host);

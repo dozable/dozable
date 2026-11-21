@@ -433,6 +433,18 @@ place (a person's `--foreground` daemon still exits); the login item counts it a
 every `chat.*` key, `ServeRulesTests`): `chat.enabled` (false), `chat.page_port` (8790), `chat.line_port` (8791),
 `chat.remote_listen` and `chat.remote_agents` ("", below).
 
+**A default port another program holds is moved, once** (`ChatSupervisor.moveTakenDefaults`, `ChatPortChoice`): two Dozables
+on one Mac (a release and a development one) both start at 8790/8791. Before a server starts (no child of ours, nothing of
+ours on the data folder), a port the person never chose (`ChatSettingsView.pageChosen`/`lineChosen`: the source is the
+default, nothing in the settings file or a flag) that `portInUse` finds taken moves to the next free port above it (up to
+20, never the other chat port or a dashboard's), else the one the system gives. It is **saved** in this Mac's settings file
+(`chat.page_port`/`chat.line_port`, through the schema's validation), so it stays the same across restarts: sandboxes,
+dozchat tokens and webhook bodies carry the line port. The supervisor's state carries the `note` ("page port 8790 was taken
+by another program; chat uses 8792 (saved in your settings)"), which `doz chat on` and `doz chat status` say while the
+daemon runs. A port the person chose that is taken is still refused, with the setting to change (`portHint`): they chose
+it. A guarded run's default may be the test's own port (`DOZ_TEST_CHAT_DEFAULT_PAGE_PORT`, `…_LINE_PORT`, read only under
+`DOZ_TEST_GUARD`), so no test holds a fixed port. `ChatPortChoiceTests`, `make test-cli-chat` (the taken default).
+
 ### The closed set and removing a room
 
 Over the same control channel (`ChatRoomControl`), never a route, file or slash command: `{"version":1,"id":…,"closed":{"rooms":

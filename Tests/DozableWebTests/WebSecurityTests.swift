@@ -272,6 +272,21 @@ final class WebSecurityTests: XCTestCase {
         XCTAssertEqual(c.end, .overflow)                          // the first reason sticks
     }
 
+    /// 745: chat's own streams — the Chat page and about four chat windows of one browser fit (8, a bounded limit); only a
+    /// ninth replaces that browser's oldest.
+    func testEightChatStreamsOfOneBrowserFit() throws {
+        XCTAssertEqual(WebLimits.standard.maximumChatStreams, 8)
+        XCTAssertThrowsError(try WebLimits(maximumChatStreams: 0))
+        XCTAssertThrowsError(try WebLimits(maximumChatStreams: 33))
+        let hub = SSEHub(maxClients: WebLimits.standard.maximumChatStreams, capacity: 4)
+        let first = (0..<8).map { _ in hub.add(cookie: "a")! }
+        XCTAssertTrue(first.allSatisfy { $0.end == nil }, "none evicted")
+        XCTAssertEqual(hub.count, 8)
+        XCTAssertNotNil(hub.add(cookie: "a"))
+        XCTAssertEqual(first[0].end, .replaced)
+        XCTAssertEqual(first.filter { $0.end != nil }.count, 1)
+    }
+
     func testTheHubBoundsClientsAndReplacesOnlyTheSameSessionsOldest() {
         let hub = SSEHub(maxClients: 2, capacity: 4)
         let a1 = hub.add(cookie: "a")!
@@ -291,12 +306,23 @@ final class WebSecurityTests: XCTestCase {
 
     // MARK: assets
 
+    /// 745: the chat window is `/chat` exactly — GET and HEAD, static (no session), the room in the fragment only.
+    func testTheChatWindowIsOneStaticRoute() {
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/chat"), .chatPage)
+        XCTAssertEqual(WebRoute.parse(method: .head, target: "/chat"), .chatPage)
+        XCTAssertTrue(WebRoute.chatPage.isStatic)
+        XCTAssertEqual(WebExposure.kind(.chatPage), .page)
+        for m in [WebHTTPMethod.post, .delete] { XCTAssertNil(WebRoute.parse(method: m, target: "/chat")) }
+        for t in ["/chat/x", "/chat/", "/chat.html", "/chats", "/chat/general"] { XCTAssertNil(WebRoute.parse(method: .get, target: t), t) }
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/chat?x=1"), .chatPage, "a query is ignored, as on /")
+    }
+
     func testTheBundledAssetsLoadAndEveryDigestMatches() throws {
         let a = try WebAssets.load()
         XCTAssertNotNil(a.assets["/"])
         XCTAssertEqual(a.assets["/"]?.cachePolicy, "no-store")
         // 605: + the offline page and the service worker (stable paths, no-store).
-        let documents: Set<String> = ["/", WebAssets.frameDocument, WebAssets.offlineDocument, WebAssets.serviceWorker]
+        let documents: Set<String> = ["/", WebAssets.frameDocument, WebAssets.offlineDocument, WebAssets.serviceWorker, WebAssets.chatDocument]
         for (path, asset) in a.assets {
             XCTAssertEqual(WebAssets.sha256Hex(asset.data), asset.sha256, path)
             // 591: the page's files are app-*, the terminal frame's frame-*, vendored ones vendor-*; 605: the
@@ -304,7 +330,7 @@ final class WebSecurityTests: XCTestCase {
             if documents.contains(path) {
                 XCTAssertEqual(asset.cachePolicy, "no-store", path)
             } else {
-                XCTAssertTrue(["/assets/app-", "/assets/app/", "/assets/frame-", "/assets/vendor-", "/assets/offline-", "/assets/icon-"].contains { path.hasPrefix($0) }, path)
+                XCTAssertTrue(["/assets/app-", "/assets/app/", "/assets/chat-", "/assets/frame-", "/assets/vendor-", "/assets/offline-", "/assets/icon-"].contains { path.hasPrefix($0) }, path)
                 XCTAssertEqual(asset.cachePolicy, WebAssets.immutable)
             }
         }
@@ -313,7 +339,7 @@ final class WebSecurityTests: XCTestCase {
         // the page script or another module (a relative specifier: its hashed name in quotes).
         let manifest = a.assets.values.first { $0.mimeType == "application/manifest+json" }.map { String(decoding: $0.data, as: UTF8.self) } ?? ""
         let docs = documents.map { String(decoding: a.assets[$0]!.data, as: UTF8.self) } + [manifest]
-        let scripts = a.assets.filter { $0.key.hasPrefix("/assets/app") && $0.key.hasSuffix(".js") }.map { String(decoding: $0.value.data, as: UTF8.self) }
+        let scripts = a.assets.filter { ($0.key.hasPrefix("/assets/app") || $0.key.hasPrefix("/assets/chat-")) && $0.key.hasSuffix(".js") }.map { String(decoding: $0.value.data, as: UTF8.self) }
         for path in a.assets.keys where !documents.contains(path) {
             if path.hasPrefix("/assets/app/") {
                 let name = String(path.split(separator: "/").last!)
@@ -411,11 +437,13 @@ final class WebSecurityTests: XCTestCase {
         }
         // index + app.css + app.js; (591) the terminal frame + frame.css + frame.js; the engine's script and
         // WebAssembly; (593) the icon sprite; (605) the offline page + offline.css + offline.js, the service
-        // worker, the web app manifest, the SVG icon and its four PNGs; (607) one per module of app.js.
+        // worker, the web app manifest, the SVG icon and its four PNGs; (607) one per module of app.js; (745) the chat
+        // window's document and its entry, chat.js (its stylesheet is the page's: one asset).
         let modules = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? []).filter { $0.hasSuffix(".js") }
         // (744) the space editor's tree, loaded lazily: 34 modules (the core, 8 features, 23 chunks, the renderer,
         // Monaco), Monaco's worker, 2 styles and the icon font.
-        XCTAssertEqual(loaded.assets.count, 19 + 38 + modules.count)
+        XCTAssertEqual(loaded.assets.count, 21 + 38 + modules.count)
+        XCTAssertEqual(loaded.assets.keys.filter { $0.hasPrefix("/assets/app-") && $0.hasSuffix(".css") }.count, 1, "app.css once, for both documents")
         XCTAssertEqual(loaded.assets.keys.filter { $0.hasPrefix("/assets/vendor-") }.count, 3 + 38)
     }
 

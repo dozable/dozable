@@ -253,6 +253,49 @@ func cliChatSuite(binary: String) async {
     r = h.run(["chat", "on"], timeout: 60)
     check(r.code == 0 && server() != nil, "7 the port freed, on brings it back")
 
+    // 7b. a DEFAULT port another program holds (two Dozables on one Mac): chat takes a free one, saves it and says so. The
+    // default is the test's own (DOZ_TEST_CHAT_DEFAULT_*_PORT, read only in a guarded run): no fixed port.
+    r = h.run(["chat", "off"], timeout: 30)
+    h.run(["daemon", "stop"], timeout: 60)
+    _ = h.waitFor(20) { !h.hostRunning }
+    let heldPage = freePort(), defLine = freePort()
+    h.run(["config", "unset", "chat.page_port"])
+    h.run(["config", "unset", "chat.line_port"])
+    h.env["DOZ_TEST_CHAT_DEFAULT_PAGE_PORT"] = String(heldPage)
+    h.env["DOZ_TEST_CHAT_DEFAULT_LINE_PORT"] = String(defLine)
+    let other = socket(AF_INET, SOCK_STREAM, 0)
+    var oa = sockaddr_in()
+    oa.sin_family = sa_family_t(AF_INET); oa.sin_port = in_port_t(UInt16(heldPage).bigEndian); oa.sin_addr.s_addr = inet_addr("127.0.0.1")
+    let held7b = withUnsafePointer(to: &oa) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(other, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } } == 0
+    listen(other, 4)
+    r = h.run(["chat", "on"], timeout: 60)
+    let movedPage = Int(h.run(["config", "get", "chat.page_port"]).out.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+    check(held7b && r.code == 0 && movedPage != heldPage && movedPage > 1023 && movedPage != defLine
+          && r.out.contains("page port \(heldPage) was taken by another program; chat uses \(movedPage) (saved in your settings)") && connects("127.0.0.1", movedPage),
+          "7b a default page port another program holds: on succeeds on \(movedPage), saved in the settings, and says so (\(r.out.trimmingCharacters(in: .newlines).suffix(200)))")
+    r = h.run(["chat", "status"])
+    check(r.out.contains("page port \(movedPage)") && r.out.contains("note: page port \(heldPage) was taken by another program; chat uses \(movedPage) (saved in your settings)"),
+          "7b …status reports the port and the note")
+    let linePlain = h.run(["config", "get", "chat.line_port", "--json"]).out
+    check(!linePlain.contains("\"source\":\"mac\"") && !linePlain.contains("\"source\" : \"mac\""), "7b …the free default (the line port) is not written")
+    // A restart keeps it, even with the default free again.
+    close(other)
+    r = h.run(["chat", "off"], timeout: 30)
+    h.run(["daemon", "stop"], timeout: 60)
+    _ = h.waitFor(20) { !h.hostRunning }
+    r = h.run(["chat", "on"], timeout: 60)
+    check(r.code == 0 && supervisor()?.pagePort == movedPage && !r.out.contains("was taken"), "7b …a restart keeps \(movedPage) (the default free again, nothing moved)")
+    // Back to the suite's own ports.
+    r = h.run(["chat", "off"], timeout: 30)
+    h.env["DOZ_TEST_CHAT_DEFAULT_PAGE_PORT"] = nil
+    h.env["DOZ_TEST_CHAT_DEFAULT_LINE_PORT"] = nil
+    h.run(["daemon", "stop"], timeout: 60)
+    _ = h.waitFor(20) { !h.hostRunning }
+    h.run(["config", "set", "chat.page_port", String(page)])
+    h.run(["config", "set", "chat.line_port", String(line)])
+    r = h.run(["chat", "on"], timeout: 60)
+    check(r.code == 0 && server() != nil && supervisor()?.pagePort == page, "7b …and back on the suite's ports")
+
     // 8. off keeps the data
     let before = server()
     r = h.run(["chat", "off"], timeout: 30)

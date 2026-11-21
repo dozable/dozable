@@ -472,7 +472,7 @@ public struct WebChatStatus: Codable, Equatable, Sendable {
 }
 
 /// The chat routes' work: blocking socket calls on their own queue (at most 8 at once, never the event loop or the
-/// cooperative pool), and one thread per relayed stream (at most `chatHub`'s 4).
+/// cooperative pool), and one thread per relayed stream (at most `chatHub`'s `limits.maximumChatStreams`, 8).
 final class WebChatProxy: @unchecked Sendable {
     static let maximumStreamLine = 1 << 20
     /// An attachment: the server's 20 MiB, and a margin.
