@@ -264,6 +264,7 @@ extension HostCore {
                                 agents: agents.map(\.0), defaults: rec.defaults, flags: rec.flags, origin: rec.origin,
                                 notes: notes.isEmpty ? nil : notes)
         d.space = SpaceShown.of(rec)
+        d.declaredWorkers = rec.declaredWorkers.isEmpty ? nil : rec.declaredWorkers
         return d
     }
 
@@ -514,6 +515,23 @@ extension HostCore {
                 makeRoom = name
             }
         }
+        // The workers declared now: recorded, started by the start (a worker talks in the room — none, none declared).
+        var declared: [WorkspaceDeclaredWorker] = []
+        if let tasks = w.workers, !tasks.isEmpty {
+            do {
+                declared = try workspaceDeclareWorkers(tasks, taken: Set(agents.map(\.name)), at: now)
+                var chatOff = false
+                if case .off = readiness { chatOff = true }
+                if rooms.isEmpty, w.noRoom == true || chatOff {
+                    refuse(HostError(.invalid, "a worker talks in the workspace's room, and \(named ? name : "it") would have none"
+                                     + (w.noRoom == true ? " — leave out --no-room" : ": chat is off — doz chat on")))
+                }
+            } catch { refuse(HostError.from(error)) }
+            for d in declared {
+                log.append(WorkspaceLogEntry(at: now, action: "worker-declared", agent: d.name, sha256: WorkspaceStore.sha256(Data(d.task.utf8)),
+                                             bytes: d.task.utf8.count))
+            }
+        }
         let origin = w.project != nil ? WorkspaceOrigin(kind: "project", project: w.project)
             : agents.allSatisfy(\.isManager) ? WorkspaceOrigin(kind: "new") : WorkspaceOrigin(kind: "adopted")
         var rec = WorkspaceRecord(name: name, createdAt: now,
@@ -522,6 +540,7 @@ extension HostCore {
                                   folders: folders, rooms: rooms, agents: agents,
                                   defaults: WorkspaceDefaults(isolation: w.workerIsolation, network: w.network),
                                   flags: WorkspaceFlags(firstAgentAt: anyRunning ? now : nil), origin: origin)
+        rec.declaredWorkers = declared
         if let space { space.ref.store(in: &rec) }
         return WorkspaceNewDraft(record: rec, brief: brief, log: log, refusals: refusals, notes: notes, makeRoom: makeRoom, roomLinked: linked,
                                  makeFolder: makeFolder)

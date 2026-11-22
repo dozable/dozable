@@ -191,7 +191,19 @@ extension HostCore {
 
     // MARK: start
 
+    /// The start, then the workers declared at `new` (`startDeclaredWorkers`): one that does not start is a note — the
+    /// workspace is started either way, and the next start tries it again.
     func workspaceStart(_ w: WorkspaceRequest) async throws -> WorkspaceStarted {
+        var s = try await workspaceStartOnce(w)
+        let (started, notes) = await startDeclaredWorkers(s.name)
+        guard !started.isEmpty || !notes.isEmpty else { return s }
+        s.workers = started.isEmpty ? nil : started
+        s.notes = (s.notes ?? []) + notes
+        if let rec = try? workspaceRecord(s.name) { s.workspace = await workspaceDetail(rec, withBrief: false) }
+        return s
+    }
+
+    func workspaceStartOnce(_ w: WorkspaceRequest) async throws -> WorkspaceStarted {
         let n = try workspaceName(w)
         // 1. Under the gate: the check (nothing written on a refusal), then the mark.
         await workspaceGate.lock("workspaces")

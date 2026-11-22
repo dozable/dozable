@@ -127,6 +127,8 @@ public actor HostCore {
     public func setChatSettingOverride(_ on: Bool?) { chatSettingOverride = on }
     /// The workspaces whose `doz workspace start` is under way (their state reads "starting"; a bot in one counts as live).
     var startingWorkspaces: Set<String> = []
+    /// The declared workers (`W/NAME`) a start is adding now: a second start at the same time leaves them to it.
+    var startingDeclaredWorkers: Set<String> = []
     /// The workspaces a lifecycle verb (sleep, wake, finish, …) is changing now: a start or a worker's add is refused "busy".
     var lifecycleWorkspaces: Set<String> = []
     /// Sandboxes a workspace's lifecycle is removing: `doz rm`'s hook leaves their agents' entries (the lifecycle records them).

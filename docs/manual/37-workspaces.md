@@ -15,13 +15,29 @@ changes one to the command line.
 ## Making one
 
 ```bash
-doz workspace new demo --prompt-file brief.md --folder ~/code/demo
+doz workspace new demo --brief "Fix the build" --folder ~/code/demo
+doz workspace new app --preset blank --brief "Fix the build" --folder ~/code/app --worker "Fix the failing test" --start
 ```
 
-- `--prompt-file FILE` is the brief: what the work is for, in your words (at most 256 KiB; `-` reads it from standard
-  input). `--ref PATH` or `--ref https://…` adds a reference to it (repeatable).
+`doz workspace create` is the same command (an alias of `new`): the same flags, the same answer.
+
+- `--brief TEXT` is the brief: what the work is for, in your words (at most 256 KiB). `--brief -` reads it from standard
+  input, its last line break dropped (`echo "Fix the build" | doz workspace new demo --brief -` gives the brief "Fix the
+  build"). `--prompt-file FILE` reads it from a file instead, exactly as it is (`-` for standard input). Give one of them:
+  `--brief` and `--prompt-file` together are refused. `--ref PATH` or `--ref https://…` adds a reference to it
+  (repeatable).
+- `--preset NAME` starts from one of the presets — `blank` (choose everything yourself), `research` (fenced, locked
+  network, folders added read-only), `swift-tests` (fenced, standard network), `mac-admin` (fenced, locked network) and
+  `remotion-video` (the manager and new workers in micro VMs, standard network); the dry run's `--json` lists them
+  (`presets`). A flag you give wins over the preset (`--network open`, a folder's `:rw`). Another name is refused (exit
+  65, `invalid-value`, naming the presets) and nothing is made.
+- `--worker "TASK"` declares a worker (repeatable): it is recorded on the workspace now — `doz worker ls` lists it
+  with its task, **not started** — and `doz workspace start` starts it, as `doz worker add NAME --task "TASK"` would, where
+  the workspace's new workers run (fenced on this Mac unless `--worker-isolation vm`). Each is named when it is declared,
+  the first free `bot1`, `bot2`, …. A worker talks in the workspace's room, so `--worker` needs one (chat on, no
+  `--no-room`). One that does not start is said in the start's answer and stays declared; the next start tries it again.
 - `--folder DIR` adds a folder it works on (repeatable); the first is the main one. `DIR:ro` makes one read-only. Folders
-  are optional: `doz workspace new notes --prompt-file brief.md` makes a workspace with none.
+  are optional: `doz workspace new notes --brief "Take notes"` makes a workspace with none.
 - `--adopt NAME` (or `--adopt @mac/SESSION`) adopts a sandbox or a session at once (repeatable).
 - `--new-folder` makes an empty folder `~/doz-workspaces/NAME` (in your projects folder, `defaults.projects_dir`) and
   makes it the main folder. It is offered, never forced: with no folder the manager works there anyway.
@@ -320,7 +336,8 @@ doz worker add demo --task "list the files" --dry-run       # what it would be, 
 
 A worker joins the workspace's room, is told its task in its START file, and says in the room that it is up — Dozable
 posts nothing there itself. While the workspace is still setting up, `worker add` refuses and says to start it first;
-nothing is made.
+nothing is made. To have workers from the start, declare them when you make it: `doz workspace new demo --brief … --worker
+"list the files"` records the worker, and `doz workspace start demo` starts it.
 
 - **Its name.** Leave it out and it is the first free `bot1`, `bot2`, …: an anonymous worker, with a throwaway place in
   chat that goes when it ends. `--from-bot otto` makes it that Agent / Bot: its name, token, skills and instructions.

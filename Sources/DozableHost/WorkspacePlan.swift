@@ -62,6 +62,27 @@ public enum WorkspacePresets {
                         managerIsolation: "fenced", workerIsolation: "fenced", network: "locked", foldersReadOnly: true),
         WorkspacePreset(id: "blank", title: "Blank", summary: "choose everything yourself"),
     ]
+
+    /// The preset called `id` (`doz workspace new --preset ID`); another name is refused, naming the real ones.
+    public static func named(_ id: String) throws -> WorkspacePreset {
+        guard let p = builtIn.first(where: { $0.id == id }) else {
+            throw HostError(.invalidValue, "no preset \(id.prefix(40)) — the presets are " + builtIn.map(\.id).joined(separator: ", "))
+        }
+        return p
+    }
+
+    /// A preset's values put into a request where it leaves them unset — a flag given wins: the manager's isolation (only with
+    /// a manager), new workers' isolation, the network, and read-only for each folder whose mode was not given
+    /// (`folderModeGiven`, by index).
+    public static func apply(_ p: WorkspacePreset, to w: inout WorkspaceRequest, folderModeGiven: [Bool]) {
+        if w.manager != nil, w.managerIsolation == nil { w.managerIsolation = p.managerIsolation }
+        if w.workerIsolation == nil { w.workerIsolation = p.workerIsolation }
+        if w.network == nil { w.network = p.network }
+        if p.foldersReadOnly == true, var folders = w.folders {
+            for i in folders.indices where !(i < folderModeGiven.count && folderModeGiven[i]) { folders[i].mode = "ro" }
+            w.folders = folders
+        }
+    }
 }
 
 /// The workspace network presets a request may name (`defaults.network`).
@@ -89,6 +110,7 @@ public enum WorkspaceNewCommand {
         if let i = w.managerIsolation { a += ["--manager-isolation", i] }
         if let i = w.workerIsolation { a += ["--worker-isolation", i] }
         for x in w.adopt ?? [] { a += ["--adopt", x] }
+        for t in w.workers ?? [] { a += ["--worker", t] }
         return a
     }
 
@@ -198,6 +220,9 @@ enum WorkspacePlanLines {
         out.append("network: \(rec.defaults.network ?? "locked (the default)") + the room")
         let adopted = rec.agents.filter { !$0.isManager }.map(\.name)
         if !adopted.isEmpty { out.append("adopted: " + adopted.joined(separator: ", ")) }
+        for d in rec.declaredWorkers {
+            out.append("worker \(d.name): \(WorkerLaunch.shortTask(d.task)) — declared now, started by the start")
+        }
         if let p = rec.origin.project { out.append("choices filled in from \(DisplayPath.tilde(p)) (never written)") }
         return out
     }
