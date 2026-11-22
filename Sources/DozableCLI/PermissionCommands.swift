@@ -134,6 +134,7 @@ func printPermissionsChanged(_ c: PermissionsChanged, _ g: GlobalOptions) {
     if g.json { Out.json(c); return }
     var s = c.lines.map { $0 + "\n" }.joined()
     for n in c.notes { s += n + "\n" }
+    if c.replayed == true { s += replayedNote }
     Out.stdout(s)
 }
 
@@ -190,13 +191,18 @@ struct GrantOptions: ParsableArguments {
     @Argument(help: "A role (manager, worker, member, admin, cautious-manager, trusted-manager), or PERM=allow|ask|never …") var words: [String] = []
     @OptionGroup var scope: ScopeOptions
     @Option(name: .long, help: "It ends then: a date (2026-12-01) or a time from now (45m, 2h, 3d); it stays listed, ended.") var until: String?
+    @Option(name: .customLong("request-id"), help: "An id of yours for this request: sent again with the same id and arguments, it answers the first answer and grants nothing again (kept 24 h).")
+    var requestID: String?
 
     func run(_ g: GlobalOptions) async throws {
         var p = PermissionsRequest(agent: subject)
         scope.into(&p)
         p.words = words
         p.until = try grantUntil(until, g)
-        printPermissionsChanged(try decode(try call(permissionsRequest(.permissionsGrant, p), g), PermissionsChanged.self, g), g)
+        p.untilTyped = requestID == nil ? nil : until?.trimmingCharacters(in: .whitespaces)
+        var r = permissionsRequest(.permissionsGrant, p)
+        r.requestID = requestID
+        printPermissionsChanged(try decode(try call(r, g), PermissionsChanged.self, g), g)
     }
 }
 

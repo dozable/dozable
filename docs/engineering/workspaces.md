@@ -53,6 +53,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableHost/SpaceRecordFile.swift`, `HostCore+SpaceFile.swift`; `Sources/DozableCLI/SpaceDashboardPlan.swift` | the files a space workspace's record names (`SpaceRecordFile`: kinds `brief` and `space`, one rule set; `SpaceBriefFile` its brief); `workspace-space` and `workspace-space-save`; the dashboard's plan of the open text ("Space files", below) |
 | `Sources/DozableHost/SpaceState.swift`, `HostCore+SpaceState.swift`, `SpaceStateRecorder.swift`; `Sources/DozableCLI/WorkspaceStateCommands.swift` | `SpaceState` (the editor's document, version 1) and the pure `SpaceStateBuilder`; `workspace-state` and its facts; the frames during a run and `workspace-run-frames` (`SpaceRunDetail`); `doz workspace state` |
 | `Sources/DozableKit/ShippedSkills.swift`, `Resources/skills/doz/SKILL.md`; `Sources/DozableCLI/SkillCommands.swift`; `Tests/DozableCLITests/AgentBriefingTests.swift`, `Sources/doz-vmtest/CLISkillRows.swift` | the agent briefing: the `doz` skill shipped in the resource bundle (found beside the executable as the guest binaries are; installed nowhere; the release checks the tarball carries it), `doz skill show NAME [--json]`, and `doz --help`'s first screen leading with the workspace commands; `make test-cli-skill` rows B1–B6 |
+| `Sources/DozableHost/RequestReplay.swift`, `HostCore+RequestReplay.swift`; `Tests/DozableCLITests/RequestReplayTests.swift`, `Sources/doz-vmtest/CLIWorkspaceRequestIDRows.swift` | `--request-id` ("Retrying a create", below): the fingerprint, `RequestReplayStore` (`<store>/requests/`), the daemon's one-id-at-a-time replay; `make test-cli-workspace` rows I1–I5 |
 | `Sources/DozableHost/WorkspaceRecordState.swift` | 751: the state of a workspace with no space file (`RecordStateBuilder`) and every agent's condition (`WorkspaceConditionsBuilder`, `AgentCondition`, `WorkspaceConditions`) — "State for every workspace" |
 | `Tests/DozableCLITests/SpaceStateTests.swift`, `SpaceStateSchemaTests.swift`, `SpaceRecordFileTests.swift`, `SpaceStateRecorderTests.swift`; `Fixtures/space-state/` (vendored, `PIN`); `Sources/doz-vmtest/CLISpaceStateRows.swift` | the editor's seven fixture shas, the builder's facts against them, the schema by exactly its keywords; the file's rules and the daemon's read and save; the frames; `make test-cli-workspace` rows F1–F6 |
 | `Tests/DozableCLITests/SpaceValidationTableTests.swift`, `SpaceSchemaDriftTests.swift`, `SpaceResolverTests.swift`, `SpaceUpPlanTests.swift`; `Fixtures/space3/` (vendored, `PIN`); `Sources/doz-vmtest/CLISpaceRows.swift` | the reference's 68 rows exactly, the tables against its schemas, the resolver and its recorded `config` values, the plan's facts against its recorded plans; `make test-cli-workspace` rows S1 and S12 |
@@ -193,6 +194,34 @@ One command makes a workspace with its team: `doz workspace new app --preset bla
   stdin, `--brief` with `--prompt-file`, the alias, the workers in the request, the command and the record, listed
   not-started, the room needed), `make test-cli-workspace` rows O1–O7 (`CLI_WORKSPACE_ROWS=oneshot` runs them alone): the
   six locked scenarios black-box under the stub agent — O3 starts two declared workers and sees both running.
+
+### Retrying a create: `--request-id`
+
+`workspace-new`, `worker-add`, `workspace-adopt` and `permissions-grant` take `HostRequest.requestID` (`--request-id ID`;
+`RequestReplay.ops`). `HostCore.perform` sends such a request through `performOnce` before any routing (after the
+permission gate, which is at the daemon's door):
+
+- **Validated first** (1–128 of `A-Z a-z 0-9 . _ : -`, else `invalid-value`), then **serialised on the id**: the
+  `requestGate` key is `OP NUL ID`, taken before any other gate (so never inverted against `workspaces`), so two requests
+  with one id never both run — the second waits and reads the first's answer.
+- **The fingerprint** (`RequestReplay.fields`) is one sha256 per field of the op's own request struct, canonical JSON
+  (`HostWire.encoder`, sorted keys), plus `actAs`; a nil field is absent. Never a value is kept, so the refusal can name a
+  field (`flagName`: `brief` → `--brief`) but never say what it was. `permissions grant`'s `until` is fingerprinted as typed
+  (`PermissionsRequest.untilTyped`, the CLI sends it with an id) — a relative `--until 2h` moves with the clock.
+- **Kept** (`RequestReplayStore`): `<store>/requests/<sha256(op NUL id)>.json`, 0600 in 0700 with no link in the path,
+  written by temp-and-rename once the op SUCCEEDED — `{schema, op, id, at, fields, answer}`, the answer as the op gave it.
+  A failure throws past the record, so a retry runs for real. Read back by a new daemon. `ttl` 24 h from `at`: an expired
+  entry never answers (it is removed on read) and every write prunes the expired (by the file's modification time — it is
+  written once) and the oldest past `maximumEntries` (1,000); an answer over 1 MiB is not kept. A record that cannot be
+  written is a line in the daemon's log, never a failed request (the work is done).
+- **Answered**: the same op, id and fields → the kept answer with `"replayed": true` added (`WorkspaceDetail.replayed`,
+  `WorkerAdded.replayed`, `PermissionsChanged.replayed`, additive); other fields → `request-id-reused` (exit 3), "the request
+  id r-1 was used 2 min ago for a doz workspace new with other arguments (they differ in --brief) — use a new id".
+- The dashboard's actions never carry an id. An older daemon ignores the field (it runs the request again).
+- Tests: `RequestReplayTests` (an extension of `WorkspaceWorkerTests`: replay, reused naming the field and never the value,
+  a failure not kept, expiry, a restart, per kind, a worker added once, four at once with one id, grant's typed `until`, the
+  store's bound), `make test-cli-workspace` rows I1–I5 (`CLI_WORKSPACE_ROWS=requestid` alone): the three locked scenarios
+  black-box under the stub agent, a daemon restart, an invalid id.
 
 ## Who answers what
 

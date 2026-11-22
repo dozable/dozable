@@ -32,6 +32,10 @@ doz workspace new NAME --brief "Fix the build" --folder ~/code/app --worker "Fix
   if the start says so (exit 3), tell the person — `doz chat on` is theirs to run.
 - `--dry-run --json` shows what would be made, every refusal and what the start would still need, and makes nothing.
 - `doz workspace create` is the same command as `doz workspace new`.
+- `--request-id ID` makes it safe to retry: make up one id per request (a UUID) and pass it. If you lost the answer (a
+  timeout, a dropped connection), run the SAME command with the SAME id: you get the first answer with
+  `"replayed": true` and nothing is made twice. The same id with other arguments exits 3 (`request-id-reused`); a
+  failed first try is not kept, so the retry runs for real. Ids are kept 24 h, per command.
 
 The answer (`--json`) is the workspace: `{"kind":"Workspace","schema":1,"name":…,"state":…,…}`. A new workspace is
 `setting-up` until it is started.
@@ -54,9 +58,12 @@ doz workspace state NAME --json
 ## Add or end a worker
 
 ```sh
-doz worker add NAME --task "Review the fix" --json     # a started workspace only
+doz worker add NAME --task "Review the fix" --request-id ID --json     # a started workspace only
 doz worker end NAME WORKER --json
 ```
+
+- Pass `--request-id ID` (one new id per worker you mean to add): retrying with the same id and arguments answers the
+  first answer (`"replayed": true`) and adds no second worker.
 
 - `worker add` is refused (exit 3) while the workspace is setting up: start it first, or declare the worker with
   `--worker` at `new`. `--dry-run --json` shows what it would be — or what would be refused — and adds nothing.
@@ -73,7 +80,7 @@ prints the table (`{"kind":"ExitCodes","schema":1,"codes":[{"exit","name","meani
 | 0 | done |
 | 1 | failed |
 | 2 | not found — only that (or several match: the message lists them) |
-| 3 | not possible now (the state is wrong, or it changed since you looked) |
+| 3 | not possible now (the state is wrong, it changed since you looked, or a `--request-id` was used with other arguments) |
 | 4 | already exists |
 | 5 | not confirmed: it asks first and you passed no `--yes` |
 | 6 | the daemon is unavailable (`doz doctor --json`) |

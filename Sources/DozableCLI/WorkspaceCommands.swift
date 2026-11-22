@@ -71,6 +71,9 @@ func workspaceBrief(_ file: String, _ g: GlobalOptions) throws -> String {
     return text
 }
 
+/// What a person reads under an answer given again for its `--request-id`.
+let replayedNote = "note: replayed — this is the first answer to that --request-id; nothing was done now\n"
+
 func workspaceRequest(_ op: HostOp, _ w: WorkspaceRequest) -> HostRequest {
     var r = HostRequest(op)
     r.workspaceRequest = w
@@ -151,6 +154,8 @@ struct WorkspaceNew: AsyncParsableCommand {
     @Flag(name: .customLong("dry-run"), help: "Show what would be made, what is refused and what the start would still need, and the commands; make nothing.")
     var dryRun = false
     @Flag(name: .long, help: "Start it once it is made (doz workspace start NAME).") var start = false
+    @Option(name: .customLong("request-id"), help: "An id of yours for this request: sent again with the same id and arguments, it answers the first answer (\"replayed\": true) and makes nothing again (kept 24 h).")
+    var requestID: String?
 
     func validate() throws {
         if let i = workerIsolation, !(WorkspaceNetworks.workerIsolations + ["unfenced"]).contains(i) {
@@ -225,10 +230,13 @@ struct WorkspaceNew: AsyncParsableCommand {
             if let c = plan.refusalCode { throw ExitCode(DozableExit.code(for: HostError(HostError.Code(rawValue: c) ?? .failed, ""))) }
             return
         }
-        let d = try decode(try call(workspaceRequest(.workspaceNew, w), g), WorkspaceDetail.self, g)
+        var r = workspaceRequest(.workspaceNew, w)
+        r.requestID = requestID
+        let d = try decode(try call(r, g), WorkspaceDetail.self, g)
         guard start else {
             if g.json { Out.json(d); return }
             printWorkspace(d)
+            if d.replayed == true { Out.stdout(replayedNote) }
             return
         }
         // Sugar: two requests, as the dashboard's Create and start — a refused start leaves it made, setting up.
@@ -386,13 +394,18 @@ struct WorkspaceAdopt: AsyncParsableCommand {
     @Argument(help: "The workspace.") var name: String
     @Argument(help: "A sandbox's name, or @mac/SESSION.") var agent: String
     @Option(name: .customLong("as"), help: "Its name in the workspace (default: the sandbox's or the session's).") var asName: String?
+    @Option(name: .customLong("request-id"), help: "An id of yours for this request: sent again with the same id and arguments, it answers the first answer and adopts nothing again (kept 24 h).")
+    var requestID: String?
     func run() async throws {
         var w = WorkspaceRequest(name: name)
         w.agent = agent
         w.asName = asName
-        let d = try decode(try call(workspaceRequest(.workspaceAdopt, w), g), WorkspaceDetail.self, g)
+        var r = workspaceRequest(.workspaceAdopt, w)
+        r.requestID = requestID
+        let d = try decode(try call(r, g), WorkspaceDetail.self, g)
         if g.json { Out.json(d); return }
         printWorkspace(d)
+        if d.replayed == true { Out.stdout(replayedNote) }
     }
 }
 

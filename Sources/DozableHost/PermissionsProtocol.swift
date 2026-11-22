@@ -27,6 +27,8 @@ public struct PermissionsRequest: Codable, Equatable, Sendable {
     public var clear: [String]?
     /// grant `--until DATE`.
     public var until: Date?
+    /// grant: `--until` as typed (`2h`) — what a `--request-id` retry is compared by, since `until` moves with the clock. Additive.
+    public var untilTyped: String?
 
     public init(workspace: String? = nil, agent: String? = nil, perm: String? = nil) {
         self.workspace = workspace; self.agent = agent; self.perm = perm
@@ -150,6 +152,8 @@ public struct PermissionsChanged: Codable, Equatable, Sendable {
     public var grants: [GrantRow]
     public var ceilings: [CeilingRow]
     public var notes: [String]
+    /// grant with `--request-id`: the first answer to that id, given again — nothing was granted now. Additive.
+    public var replayed: Bool?
     public init(lines: [String], grants: [GrantRow] = [], ceilings: [CeilingRow] = [], notes: [String] = []) {
         self.lines = lines; self.grants = grants; self.ceilings = ceilings; self.notes = notes
     }
