@@ -37,17 +37,18 @@ export function takePointDialog(name, running) {
     });
 }
 
-/// 593: Save as template — the ROOT disk only (never the state disk: logins and history stay out of a
+/// 593: Save disk as image — the ROOT disk only (never the state disk: logins and history stay out of a
 /// disk meant to be shared). From the current disk (a live sandbox pauses for the clone) or a point.
+/// 757: the words are `doz image save`'s; the action stays `template-create` (the API keeps its name).
 export function templateDialog(name, d, pointID) {
   const sources = [['', 'the current disk' + (d.info.phase === 'off' ? '' : ' (it pauses for the clone: milliseconds)')],
     ...d.restorePoints.map((p) => [p.id, 'restore point ' + p.name])];
-  dialog('Save ' + name + ' as a template',
-    'A template is an image other sandboxes are created from. Everything installed or written on the ROOT disk is in it: files in /root, /etc, /usr, /opt, caches — so do not save a secret you put there. The agent’s state disk (its logins, history) is never included.', [
-      { name: 'image', label: 'Template name', placeholder: 'a-z 0-9 -', required: true },
+  dialog('Save ' + name + '’s disk as an image',
+    'A saved disk is an image other sandboxes are created from (doz image save). Everything installed or written on the ROOT disk is in it: files in /root, /etc, /usr, /opt, caches — so do not save a secret you put there. The agent’s state disk (its logins, history) is never included.', [
+      { name: 'image', label: 'Image name', placeholder: 'a-z 0-9 -', required: true },
       { name: 'source', label: 'From', type: 'select', options: sources, value: pointID || '' },
       { name: 'note', label: 'Note', placeholder: 'what is in it' },
-    ], 'Save template', async (v) => {
+    ], 'Save disk', async (v) => {
       const b = { action: 'template-create', sandbox: name, image: v.image };
       if (v.source) b.point = v.source;
       if (v.note) b.note = v.note;

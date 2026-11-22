@@ -281,7 +281,7 @@ doz nuke             # remove it all (asks first)
 `doz nuke` puts this Mac back to a fresh install of Dozable and keeps `doz` installed. It lists each item with
 its place and size, then asks once:
 
-- **the store**: every sandbox, image, kernel, restore point and template, and the daemon's log and metrics;
+- **the store**: every sandbox, image, kernel, restore point and saved disk, and the daemon's log and metrics;
 - **the settings folder**: `doz.toml`, `agent-prompt.md`, and the update and usage records;
 - **the download cache** (`~/Library/Caches/doz`);
 - **the keychain items Dozable made**: your accounts' keys and the default GitHub key.

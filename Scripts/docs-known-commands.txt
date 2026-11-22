@@ -86,6 +86,7 @@ builder/status
 builder/start
 builder/install
 image/ls
+image/save
 image/bake
 image/log
 image/rm

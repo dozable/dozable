@@ -26,7 +26,7 @@ final class WorkspaceLogSentenceTests: XCTestCase {
         XCTAssertEqual(e("room-archived").sentence, "archived the room demo (it stays readable)")
         XCTAssertEqual(e("worker-retired").sentence, "retired the worker mira (its token is refused from now on)")
         XCTAssertEqual(e("sandbox-removed").sentence, "removed the sandbox lab")
-        XCTAssertEqual(e("template-kept").sentence, "kept the template new of old")
+        XCTAssertEqual(e("template-kept").sentence, "saved the disk of old as the image new")
         XCTAssertEqual(WorkspaceLogEntry(action: "slept").sentence, "put the workspace to sleep")
         XCTAssertEqual(WorkspaceLogEntry(action: "agent-woke", agent: "bot1").sentence, "bot1 is awake")
         XCTAssertEqual(WorkspaceLogEntry(action: "something-later").sentence, "something-later", "an action of a newer doz: its word")

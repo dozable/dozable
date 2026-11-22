@@ -482,9 +482,10 @@ public enum Resources {
             let l = leaf(id)
             let used = f.sandboxes.filter { ($0.rootImage ?? "").hasPrefix("custom:\(name)/") || $0.image == name || $0.image == "custom:\(name)" }.map(\.name)
             let c = customs.first { $0.name == name }
-            add(ResourceItem(id: id, group: "images", name: "\(name) (template)", detail: c.map { "from \($0.fromSandbox)" },
+            // 757: the words are the saved disk's (`doz image save`); the id keeps its `template:` prefix.
+            add(ResourceItem(id: id, group: "images", name: "\(name) (saved disk)", detail: c.map { "from \($0.fromSandbox)" },
                              sizeBytes: l.size, freedBytes: l.freed, usedBy: used, link: "images", deletable: true,
-                             later: "gone for good", warning: "a template cannot be re-created", path: rel(id)))
+                             later: "gone for good", warning: "a saved disk cannot be re-created", path: rel(id)))
         }
 
         // Caches: the download cache, base disks, the guest init, kernels.

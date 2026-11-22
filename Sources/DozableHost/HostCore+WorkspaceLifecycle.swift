@@ -772,7 +772,7 @@ extension HostCore {
             r.flags.archive = WorkspaceArchive(rooms: archivedRooms, removed: removed, templates: templates)
             return [WorkspaceLogEntry(action: "archived", added: removed.isEmpty ? nil : removed.count)]
         }
-        if !removed.isEmpty { notes.append("removed: \(removed.joined(separator: ", "))" + (templates.isEmpty ? "" : " — templates kept: " + templates.values.sorted().joined(separator: ", "))) }
+        if !removed.isEmpty { notes.append("removed: \(removed.joined(separator: ", "))" + (templates.isEmpty ? "" : " — disks saved as images: " + templates.values.sorted().joined(separator: ", "))) }
         notes.append("doz workspace restore \(n) brings it back, finished")
         notes += archive.notes
         await pushClosedSet()
@@ -851,7 +851,7 @@ extension HostCore {
                 try await agentLifecycle.removeSandbox(s)
                 removed.append(s)
                 try? workspaces.append(n, WorkspaceLogEntry(action: "sandbox-removed", agent: a.name, place: "sandbox:" + s))
-                results.append(WorkspaceAgentResult(name: a.name, ok: true, text: "its sandbox \(s) removed" + (templates[s].map { " (its template \($0) kept)" } ?? "")))
+                results.append(WorkspaceAgentResult(name: a.name, ok: true, text: "its sandbox \(s) removed" + (templates[s].map { " (its disk saved as the image \($0))" } ?? "")))
             } catch {
                 results.append(WorkspaceAgentResult(name: a.name, ok: false, text: "its sandbox \(s) was not removed: \(HostError.from(error).message)"))
             }
@@ -873,7 +873,7 @@ extension HostCore {
         let retired = rec.agents.filter { $0.isWorker && $0.anonymous == true && $0.endedAt != nil }.map(\.name)
         if !retired.isEmpty { notes.append("retired workers stay ended: \(retired.joined(separator: ", "))") }
         for s in rec.flags.archive?.removed ?? [] {
-            notes.append("\(s) is gone" + (rec.flags.archive?.templates[s].map { " — its template \($0)" } ?? ""))
+            notes.append("\(s) is gone" + (rec.flags.archive?.templates[s].map { " — its disk is the image \($0)" } ?? ""))
         }
         let r = try await workspaceUpdate(n) { r in
             r.flags.archivedAt = nil

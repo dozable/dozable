@@ -323,8 +323,9 @@ public enum WorkspaceLifecycle {
                             let t = templateName(sbx, taken: taken)
                             taken.insert(t)
                             templates[sbx] = t
-                            after.append("a template kept: \(t)")
-                            add("doz template create \(sbx) --as \(t)")
+                            // 757: a sandbox's disk is saved as an image (`doz image save`); `templates` keeps its JSON name.
+                            after.append("its disk saved as the image \(t)")
+                            add("doz image save \(sbx) \(t)")
                         }
                         after.append("its sandbox removed")
                         removedBytes += f.diskBytes ?? 0
@@ -390,7 +391,7 @@ public enum WorkspaceLifecycle {
         case .archive:
             keeps = [.init(rec.rooms.isEmpty ? "no room" : "the history and files of \(roomList) (read-only)"), .init("the brief, its log and the conversations"),
                      .init("every bot and its token"), .init("every folder, untouched")]
-            if o.removeSandboxes, o.keepTemplates, !templates.isEmpty { keeps.append(.init("a template of each sandbox removed: " + templates.values.sorted().joined(separator: ", "))) }
+            if o.removeSandboxes, o.keepTemplates, !templates.isEmpty { keeps.append(.init("a saved disk of each sandbox removed: " + templates.values.sorted().joined(separator: ", "))) }
             if !rec.rooms.isEmpty { goes.append(.init("writing in \(roomList) (archived: read-only)")) }
             let anon = rec.agents.filter { $0.endedAt == nil && $0.isWorker && $0.anonymous == true }.map(\.name)
             if !anon.isEmpty { goes.append(.init("the tokens of \(anon.joined(separator: ", ")) (retired)")) }
@@ -409,10 +410,10 @@ public enum WorkspaceLifecycle {
             let retired = rec.agents.filter { $0.isWorker && $0.anonymous == true && $0.endedAt != nil }.map(\.name)
             if !retired.isEmpty { notes.append("retired workers stay ended: \(retired.joined(separator: ", "))") }
             for s in rec.flags.archive?.removed ?? [] {
-                notes.append("\(s) is gone" + (rec.flags.archive?.templates[s].map { " — its template \($0)" } ?? " — no template was kept"))
+                notes.append("\(s) is gone" + (rec.flags.archive?.templates[s].map { " — its disk is the image \($0)" } ?? " — no disk was saved"))
             }
         case .delete:
-            keeps = [.init(rec.rooms.isEmpty ? "no room" : "\(roomList), archived, with their history"), .init("every bot and its token"), .init("templates"),
+            keeps = [.init(rec.rooms.isEmpty ? "no room" : "\(roomList), archived, with their history"), .init("every bot and its token"), .init("saved disks"),
                      .init("adopted sandboxes and sessions — loose again")]
             if !o.binFolders { keeps.append(.init(rec.folders.isEmpty ? "no folder" : "every folder, untouched")) }
             goes = [.init("the workspace's record, brief and log — this cannot be undone")]

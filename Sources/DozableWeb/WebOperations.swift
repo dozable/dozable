@@ -505,8 +505,8 @@ final class WebOperations: @unchecked Sendable {
         case .pointSaveImage(_, _, let image, _):
             return "saved image \(image)"
         case .templateCreate(let name, _, let image, _):
-            return (try? v.decode(CustomImage.self)).map { "saved \(name)'s root disk as the template \(image) (\(DozableImages.formatBytes($0.allocatedBytes)); no state disk)" }
-                ?? "saved the template \(image)"
+            return (try? v.decode(CustomImage.self)).map { "saved \(name)'s root disk as the image \(image) (\(DozableImages.formatBytes($0.allocatedBytes)); no state disk)" }
+                ?? "saved the disk as the image \(image)"
         case .rename(let name, let new):
             return "renamed \(name) to \((try? v.decode(SandboxInfo.self))?.name ?? new)"
         case .sandboxSetting(let name, let key, let value):
@@ -696,7 +696,7 @@ final class WebOperations: @unchecked Sendable {
         case .finish: return "\(n) is finished\(agents) — its room and tokens are kept"
         case .reopen: return "\(n) is reopened — asleep until you wake it"
         case .archive:
-            let t = c?.templates.map { " — templates kept: " + $0.values.sorted().joined(separator: ", ") } ?? ""
+            let t = c?.templates.map { " — disks saved as images: " + $0.values.sorted().joined(separator: ", ") } ?? ""
             return "\(n) is archived — its rooms are read-only" + t
         case .restore: return "\(n) is restored — finished; reopen it to work on it again"
         case .delete:

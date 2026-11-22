@@ -8,15 +8,36 @@ import DozableTUI
 // MARK: image
 
 struct ImageCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "image", abstract: "Images: the built-in lab, claude-code and pi, and custom images saved from restore points.",
-                                                    subcommands: [ImageList.self, ImageBake.self, ImageLog.self, ImageRemove.self, ImagePull.self, ImagePush.self],
+    static let configuration = CommandConfiguration(commandName: "image", abstract: "Images: the built-in lab, claude-code and pi, base × agent images, and saved disks (a sandbox's root disk: doz image save).",
+                                                    subcommands: [ImageList.self, ImageSave.self, ImageBake.self, ImageLog.self, ImageRemove.self, ImagePull.self, ImagePush.self],
                                                     defaultSubcommand: ImageList.self)
+}
+
+/// 757 (VOC2): what `doz template create` did — the same daemon op, answer and refusals.
+struct ImageSave: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "save",
+        abstract: "Save a sandbox's root disk (now, or a restore point's) as an image other sandboxes are created from — never its state disk. A live sandbox pauses for the clone (milliseconds).",
+        discussion: """
+        A saved disk holds everything installed or written on the sandbox's ROOT disk (/root, /etc, /usr, /opt, caches) — \
+        never the agent's state disk (logins, history). Create a sandbox from one: doz create NEW --image NAME. \
+        doz image ls lists it (BASE · AGENT "saved disk"; kind "custom" in --json); doz image rm NAME removes it.
+        """)
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The sandbox.") var sandbox: String
+    @Argument(help: "The saved disk's name (1–40 of a-z 0-9 -).") var name: String
+    @Option(name: .customLong("from-point"), help: "A restore point (name or id) instead of the current disk.") var point: String?
+    @Option(name: .long) var note: String?
+    func run() async throws {
+        let img = try SavedDisks.save(sandbox: sandbox, name: name, point: point, note: note, g)
+        if g.json { Out.json(img); return }
+        Out.stdout(SavedDisks.savedLine(sandbox: sandbox, point: point, img))
+    }
 }
 
 struct ImageList: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "ls", abstract: "List the images and whether each is baked in this store (--tree: the lineage, with sizes).")
     @OptionGroup var g: GlobalOptions
-    @Flag(name: .long, help: "The lineage: OCI base → image → template → the sandboxes on each, with each disk's size, the bytes it shares with its parent, and its own.")
+    @Flag(name: .long, help: "The lineage: OCI base → image → saved disk → the sandboxes on each, with each disk's size, the bytes it shares with its parent, and its own.")
     var tree = false
     func run() async throws {
         if tree {
@@ -32,7 +53,8 @@ struct ImageList: AsyncParsableCommand {
         for r in rows {
             let baked = r.baked ? (r.bakedAt.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "yes") : "no (prepared on first start, or doz onboard)"
             // 594: an agent image says its version, and a newer one available.
-            t.append([r.name, r.kind == "custom" ? "template" : (r.title ?? r.kind),
+            // 757: a sandbox's saved disk says so (kind "custom" in --json).
+            t.append([r.name, SavedDisks.isSaved(r) ? "saved disk" : (r.title ?? r.kind),
                       // W32: in words — an older host's answer has no status; this doz works it out.
                       r.status ?? r.computedStatus ?? "up to date", baked,
                       r.allocatedBytes.map(DozableImages.formatBytes) ?? "—",
@@ -60,7 +82,7 @@ func renderImageTree(_ tree: ImageTree) -> String {
             up = a.parent.flatMap { byID[$0] }
         }
         if n.parent != nil { prefix += lastChild.contains(n.id) ? "└─ " : "├─ " }
-        let kind = n.kind == "restorePoint" ? "point" : n.kind
+        let kind = n.kind == "restorePoint" ? "point" : n.kind == "template" ? "saved disk" : n.kind
         let extra = [n.detail, n.stateAllocatedBytes.map { "+ state \(DozableImages.formatBytes($0))" }].compactMap { $0 }.joined(separator: " · ")
         t.append([prefix + n.name, kind, DozableImages.formatBytes(n.allocatedBytes),
                   n.sharedWithParentBytes.map(DozableImages.formatBytes) ?? "—", DozableImages.formatBytes(n.uniqueBytes), extra])
@@ -124,19 +146,21 @@ struct ImageLog: AsyncParsableCommand {
 }
 
 struct ImageRemove: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "rm", abstract: "Remove an image's baked disk (sandboxes cloned from it keep working).")
+    static let configuration = CommandConfiguration(commandName: "rm", abstract: "Remove an image's baked disk, or a saved disk (sandboxes cloned from either keep working).")
     @OptionGroup var g: GlobalOptions
     @Argument var image: String
     @Flag(name: [.short, .long], help: "Do not ask.") var yes = false
     func run() async throws {
         // 594 W26: an image that is not there fails before the question.
         let known = try decode(try await query(HostRequest(.imageList), g), [ImageRow].self, g)
-        guard known.contains(where: { $0.name == image }) else { throw fail(HostError(.notFound, "no image \(image) (doz image ls)"), g) }
-        try confirm("Remove the image \(image)? (It is baked again when next needed.)", yes: yes, g)
+        guard let row = known.first(where: { $0.name == image }) else { throw fail(HostError(.notFound, "no image \(image) (doz image ls)"), g) }
+        // 757: a saved disk is asked about as one — it is not baked again.
+        let saved = SavedDisks.isSaved(row)
+        try confirm(SavedDisks.removeQuestion(image, saved: saved), yes: yes, g)
         var r = HostRequest(.imageRm)
         r.image = image
         let rows = try decode(try call(r, g), [ImageRow].self, g)
-        if g.json { Out.json(rows) } else { Out.stdout("removed \(image)\n") }
+        if g.json { Out.json(rows) } else { Out.stdout(saved ? "removed the saved disk \(image)\n" : "removed \(image)\n") }
     }
 }
 
@@ -265,7 +289,7 @@ func requireSandbox(_ name: String, _ g: GlobalOptions) async throws {
 }
 
 struct PointSaveImage: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "save-image", abstract: "Save a restore point (or the stopped sandbox's disk) as a custom image other sandboxes can start from.")
+    static let configuration = CommandConfiguration(commandName: "save-image", abstract: "Save a restore point (or the stopped sandbox's disk) as an image other sandboxes can start from (a saved disk: doz image ls).")
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
     @Argument(help: "The point (default: the current disk; the sandbox must be off).") var point: String?

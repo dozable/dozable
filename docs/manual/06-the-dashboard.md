@@ -114,7 +114,7 @@ sidebar as a drawer, the machine picker, a key button while a key needs you, and
 | **This Mac › Sessions** | A grid of live, read-only tiles: every session of every running sandbox, each with what its agent is doing. Click a tile to open it. Every tile is live while it is on screen, however many there are; a sleeping sandbox's tiles show its saved screens, and a tile marked **last screen** shows its session's last saved screen because the daemon could not give the live one. Rest on a tile's picture for half a second to see it larger; **Larger on hover** turns that off (this browser remembers). |
 | **This Mac › Templates › Installed** | The recipes in use (a sandbox runs the agent) and installed (a baked image of it is here), each with its sandboxes, baked images and the values you set. A recipe's page has its settings (each with where its value came from), its baked images, its sandboxes and **Uninstall**. |
 | **This Mac › Templates › Browse** | Every recipe in the catalogue, with a search (a name, a vendor, what it is); one on this Mac says **in use** or **installed**. Open one for its page. |
-| **This Mac › Images** | The images and templates, each image's agent version, what's out of date (**Rebuild** — **Remove…** is under **⋯**), disk shared and own, and the **Lineage** tree. |
+| **This Mac › Images** | The images and saved disks, each image's agent version, what's out of date (**Rebuild** — **Remove…** is under **⋯**), disk shared and own, and the **Lineage** tree. |
 | **This Mac › Resources** | Every byte Dozable uses, and deleting what can go. A strip under the total jumps to each group (with its size); a group's heading folds it. See [Resources and disk space](13-resources-and-disk-space.md). |
 | **This Mac › Logs › Operations** | Every action the dashboard (or a preparation) started: live progress, time taken, result. A spinner shows while any runs, and a red dot when one failed since you last looked. One still waiting its turn shows an hourglass and **queued — N ahead**, with **Cancel** (and **Cancel N queued** above the list); its time starts when its turn comes. |
 | **This Mac › Accounts & keys** | The keys and sign-ins your sandboxes' tools use: **Needs you** (what is broken and the one fix), the **Keys** view (each provider's keys, its default, check, remove), the **Sandboxes** view (the key each sandbox uses — change it in place), **Add a key** (start from the tool). A red count beside it in the sidebar while a key a sandbox relies on does not work. See [Accounts — in the dashboard](09-agents-and-accounts.md#accounts--in-the-dashboard). |
@@ -259,7 +259,7 @@ is reached from On this Mac rather than by its old address.
   or *rules* when they apply.
 - **The toolbar**: the state's actions as one group — led, for a sandbox that is shut down, paused,
   asleep or hibernated, by the action that brings it back (**Start**, **Resume**, **Wake**); **Shut
-  down** apart, in red; **⋯** for **Duplicate…**, **Save as template…**, **Boot log**, then **Reset…**
+  down** apart, in red; **⋯** for **Duplicate…**, **Save disk as image…**, **Boot log**, then **Reset…**
   and **Remove…**. At its right: what is under way (or how the last action ended), and the button that
   shows or hides the details.
 - **The terminals**, whose tab strip carries what makes or arranges them: **New Claude Code session**

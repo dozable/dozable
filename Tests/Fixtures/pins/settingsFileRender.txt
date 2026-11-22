@@ -722,7 +722,7 @@
 
 [images.lab]
 
-# Memory (MiB) of a new lab sandbox (a template follows the image it was saved from).
+# Memory (MiB) of a new lab sandbox (a saved disk follows the image it was saved from).
 # (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the daemon reads it at create))
 # memory_mib = 1024
 

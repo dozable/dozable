@@ -42,7 +42,7 @@ both.
 | [Folder rules](20-workspace-rules.md) | keep the agent out of some files in your shared folder (`.dozignore`), or let it read but not change them (`.dozreadonly`) |
 | [The folder view](21-the-workspace-view.md) | `dozview`, the small program in the sandbox every shared folder goes through: why (programs keep their folder across a wake), what it costs, `folder.view`, the rules it enforces, its two processes, sleep and wake, how to look inside. |
 | [Prompts for your agent](22-prompts-for-your-agent.md) | prompts to paste into Claude Code, Codex or Cursor on your Mac: install, set up, and three uses — a risky change, jailing an untrusted agent, a project with secrets |
-| [Restore points, duplicates and templates](12-restore-points-duplicates-templates.md) | undo, copy a sandbox, make your own starting image |
+| [Restore points, duplicates and saved disks](12-restore-points-duplicates-templates.md) | undo, copy a sandbox, make your own starting image |
 | [Resources and disk space](13-resources-and-disk-space.md) | see where the disk went and free some |
 | [Letting another agent drive Dozable](14-letting-another-agent-drive.md) | have the agent on your Mac run sandboxes for you |
 | [Settings reference](15-settings-reference.md) | look up any setting, its default and when it applies |

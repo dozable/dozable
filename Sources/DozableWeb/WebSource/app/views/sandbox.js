@@ -283,7 +283,7 @@ function sandboxParts(name, d, net, accounts) {
   const pointMenu = (p) => moreMenu('More for ' + p.name, [
     { label: 'Fork…', icon: 'git-fork', desc: 'A new sandbox whose disks are this point’s', onSelect: () => dialog('Fork ' + p.name, 'A new sandbox whose disks are this point’s (it cold-boots on start).',
       [{ name: 'newName', label: 'New sandbox name', required: true }], 'Fork', async (v) => { await actOrThrow({ action: 'point-fork', sandbox: name, point: p.id, newName: v.newName }); }) },
-    { label: 'Save as template…', icon: 'layout-template', desc: 'Its root disk becomes a template (never its state disk)', onSelect: () => templateDialog(name, d, p.id) },
+    { label: 'Save disk as image…', icon: 'layout-template', desc: 'Its root disk becomes an image (never its state disk)', onSelect: () => templateDialog(name, d, p.id) },
     { label: 'Duplicate…', icon: 'copy', desc: 'A new sandbox from this point', onSelect: () => duplicateDialog(name, d, accounts, p.id) },
     { sep: true },
     { label: 'Delete…', icon: 'trash-2', danger: true, desc: 'Only this restore point', onSelect: () => confirmAction('Delete ' + p.name, 'Delete the restore point “' + p.name + '” of ' + name + '.', name,
@@ -317,10 +317,10 @@ function sandboxParts(name, d, net, accounts) {
     inspShow(name, tab);
   };
   // ── the bar: title row (name, phase, labelled chips) · toolbar (lifecycle, Shut down, ⋯ | status, details) ──
-  const more = moreMenu('More: duplicate, rename, save as template, boot log, reset, remove', [
+  const more = moreMenu('More: duplicate, rename, save disk as image, boot log, reset, remove', [
     { label: 'Duplicate…', icon: 'copy', desc: 'A new sandbox from this disk', disabled: !!holdWhy, why: holdWhy, onSelect: () => duplicateDialog(name, d, accounts, null) },
     renameItem(name),                                  // owner, 2026-10-23/24: the dialog shuts it down first when it must
-    { label: 'Save as template…', icon: 'layout-template', desc: 'Its root disk becomes an image (never its state disk)', disabled: !!holdWhy, why: holdWhy, onSelect: () => templateDialog(name, d, null) },
+    { label: 'Save disk as image…', icon: 'layout-template', desc: 'Its root disk becomes an image (never its state disk)', disabled: !!holdWhy, why: holdWhy, onSelect: () => templateDialog(name, d, null) },
     { label: 'Boot log', icon: 'history', desc: 'Its last boots: the steps and the kernel console', onSelect: () => bootLogDialog(name) },
     // A loose sandbox is put in a workspace from here (in one already: the strip under the title says where).
     ...(looseSandbox(name) ? [{ label: 'Put in a workspace…', icon: 'folder-input', desc: 'Only the workspace’s record changes', disabled: isRemote(),

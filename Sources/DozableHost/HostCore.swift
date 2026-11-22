@@ -2429,13 +2429,14 @@ public actor HostCore {
     private func templateCreate(_ r: HostRequest) async throws -> CustomImage {
         let m = try get(r.name)
         let sb = m.sandbox
-        guard let name = r.image else { throw HostError(.invalid, "a template needs a name (--as TEMPLATE)") }
+        // 757: the words are the saved disk's (`doz image save SANDBOX NAME`); the refusals are the same as before.
+        guard let name = r.image else { throw HostError(.invalid, "a saved disk needs a name (doz image save SANDBOX NAME)") }
         guard (1...40).contains(name.count), name.allSatisfy({ ("a"..."z").contains($0) || ("0"..."9").contains($0) || $0 == "-" }), name.first != "-" else {
-            throw HostError(.invalid, "a template's name is 1–40 characters of [a-z0-9-]")
+            throw HostError(.invalid, "a saved disk's name is 1–40 characters of [a-z0-9-]")
         }
         guard !DozableImages.builtIn.contains(name), ImageChoice.parse(name) == nil else { throw HostError(.invalid, "\(name) is a built-in image's name") }
         guard !store.layout("_").customImages().contains(where: { $0.name == name }) else {
-            throw HostError(.exists, "a template named \(name) already exists (doz template ls)")
+            throw HostError(.exists, "a saved disk named \(name) already exists (doz image ls)")
         }
         let t0 = ContinuousClock.now
         let row = beginAction(m, "save as template", phaseBefore: (await effectivePhase(m)).rawValue)
@@ -2446,14 +2447,14 @@ public actor HostCore {
             } else if await stoppedOnDisk(m) {
                 img = try sb.saveAsImage(nil, name: name, note: r.note ?? "")
             } else {
-                let tmp = try await sb.takeRestorePoint(name: "for template \(name)", note: "temporary — removed once the template is saved")
+                let tmp = try await sb.takeRestorePoint(name: "for saved disk \(name)", note: "temporary — removed once the disk is saved")
                 defer { try? sb.deleteRestorePoint(tmp.id) }
                 img = try sb.saveAsImage(tmp.id, name: name, note: r.note ?? "")
             }
             finishAction(m, row, t0, ok: true)
             metrics?.record(run: metricsRun, action: "save as template", sandbox: m.name, image: m.config.image, startedAt: Date(),
                             durationMs: ms(since: t0), bytes: img.allocatedBytes)
-            note(m.name, "saved as template \(name) (root disk only — never the state disk)")
+            note(m.name, "its disk saved as the image \(name) (root disk only — never the state disk)")
             return img
         } catch { finishAction(m, row, t0, ok: false, error: error); throw error }
     }

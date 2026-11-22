@@ -210,7 +210,7 @@ hidden until you ask for it, and after that only counts per sandbox. See [Histor
   on your clipboard without looking.
 - **Another agent driving `doz` on your Mac** has your permissions: brief it to leave permissions and
   deletion to you ([Letting another agent drive Dozable](14-letting-another-agent-drive.md)).
-- **Secrets you put on a sandbox's disk yourself** travel with its restore points and templates.
+- **Secrets you put on a sandbox's disk yourself** travel with its restore points and saved disks.
 - **A placeholder in a tunnel the proxy does not read** (above) is not refused — it reaches that host, as a meaningless
   placeholder. A secret's own destination receives the real secret: give a secret only to a service you trust with it.
 

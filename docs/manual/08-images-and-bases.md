@@ -12,7 +12,7 @@ baked images and their size.
 - **An image is two choices: an agent and a base.**
   - The **agent** (what a recipe installs): **Claude Code**, **pi**, **Codex** ([Codex](24-codex.md)), or **none** (a shell only).
   - The **base**: the Linux system underneath — one of the **recommended bases** (below), **your own
-    Dockerfile**, or a **template** you saved from a sandbox.
+    Dockerfile**, or a **saved disk** — a sandbox's disk you saved with `doz image save`.
 - **Image names** follow the pair: `<base>-<agent>`, for example `python-claude-code` or `go-pi`, and
   just `<base>` with no agent (`debian`). Three names predate the choice and stay:
 
@@ -80,7 +80,7 @@ doz create web --image claude-code --folder ~/code/web              # Node · Cl
 doz create api --agent claude-code --base python --folder ~/code/api
 doz create tools --agent none --base go --isolated                      # a Go shell, no agent
 doz create mine --agent pi --dockerfile ~/code/mine/Dockerfile          # your own base
-doz create tpl-copy --image my-template                                 # a template
+doz create tpl-copy --image my-disk                                     # a saved disk (doz image save)
 ```
 
 `--image` is shorthand for `--agent` and `--base`. `doz up` takes the same options.
@@ -91,7 +91,7 @@ doz create tpl-copy --image my-template                                 # a temp
 **AI tools** or **No agent**, then one of that section's (Claude Code, pi, Codex, Grok Build … · Fabric, llm,
 promptfoo …). Choosing one that cannot run on the base chosen (Alpine, for a tool built for glibc only) moves the base
 to its own. **Base**: **Recommended** (a card per base, with its download and time), **Dockerfile** (**Choose
-Dockerfile…** opens the Mac's file picker) or **Template**. The line under them names the image the pair makes.
+Dockerfile…** opens the Mac's file picker) or **Saved disk**. The line under them names the image the pair makes.
 
 ![Choosing agent and base](images/new-sandbox-base.png)
 
@@ -128,8 +128,9 @@ Each image's **STATUS** (also on the Images page, and `status` in `--json`) is o
 prepared** (it's prepared the first time it's needed) or **preparing**.
 
 ```sh
-doz image ls                   # every image and template: baked here?, its agent version, status
-doz image ls --tree            # the lineage: base → image → template → sandboxes, with sizes
+doz image ls                   # every image and saved disk: baked here?, its agent version, status
+doz image ls --tree            # the lineage: base → image → saved disk → sandboxes, with sizes
+doz image save my-app my-disk  # a sandbox's system disk saved as an image (never its state disk)
 doz image bake claude-code     # prepare (or rebuild) now rather than at the first start
 doz image rm python-pi         # remove an image's prepared disk (sandboxes made from it keep working)
 ```
@@ -160,14 +161,16 @@ Either way, **Dozable never rebuilds an image without you.** It says so:
 
 Rebuilding never touches existing sandboxes: they keep their disks. To move a sandbox onto the new
 image, `doz reset NAME` — it keeps the agent's own state (`~/.claude`, `~/.pi`) and `/workspace`, and
-drops everything else installed on its system disk (take a [template](12-restore-points-duplicates-templates.md#templates)
-first if you want that).
+drops everything else installed on its system disk (save its disk first — [`doz image save`](12-restore-points-duplicates-templates.md#saved-disks)
+— if you want that).
 
-## Templates
+## Saved disks
 
-A **template** is a sandbox's system disk saved as an image: set a sandbox up the way you like, then
-make new sandboxes from it. It never includes the agent's state disk (logins, history). See
-[Restore points, duplicates and templates](12-restore-points-duplicates-templates.md#templates).
+A **saved disk** is a sandbox's system disk saved as an image (`doz image save SANDBOX NAME`): set a sandbox up the way
+you like, then make new sandboxes from it. It never includes the agent's state disk (logins, history). `doz image ls`
+lists it (BASE · AGENT says **saved disk**) and `doz image rm NAME` removes it. These were `doz template create | ls | rm`,
+which forward here for one release. See
+[Restore points, duplicates and saved disks](12-restore-points-duplicates-templates.md#saved-disks).
 
 ## Settings
 

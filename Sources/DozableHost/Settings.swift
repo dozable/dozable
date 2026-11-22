@@ -734,7 +734,7 @@ public struct DozableSettings: Sendable {
                            flag: "-e \(r.permissionsVariable)=… on run/exec, --approvals on create", applies: .nextSession, agent: r.id, aliases: [old]))
         }
         s.append(.init(sec, RecipeSettings.memory, .int(256...262_144), .int(2048),
-                       "Memory (MiB) of a new sandbox of this recipe (a template follows the image it was saved from).",
+                       "Memory (MiB) of a new sandbox of this recipe (a saved disk follows the image it was saved from).",
                        flag: "doz create --memory", applies: .nextCreate, agent: r.id, aliases: ["images.\(r.id).memory_mib"]))
         s.append(.init(sec, RecipeSettings.network, .choice(networks), .string("agent"),
                        "The network of a new sandbox of this recipe: agent, bake, locked, open (proxied presets), nat or none.",
@@ -1104,7 +1104,7 @@ public struct DozableSettings: Sendable {
         ]
         // The lab is Dozable's own image: its memory and network stay Dozable's settings.
         s.append(.init("images.lab", "memory_mib", .int(256...262_144), .int(1024),
-                       "Memory (MiB) of a new lab sandbox (a template follows the image it was saved from).",
+                       "Memory (MiB) of a new lab sandbox (a saved disk follows the image it was saved from).",
                        flag: "doz create --memory", applies: .nextCreate))
         s.append(.init("images.lab", "network", .choice(networks), .string("bake"),
                        "The network of a new lab sandbox: agent, bake, locked, open (proxied presets), nat or none.",

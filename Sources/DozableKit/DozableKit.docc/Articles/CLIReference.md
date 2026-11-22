@@ -599,21 +599,27 @@ prepared image is used; `latest` with no image and no network fails, naming an e
 A sandbox keeps its root disk: `doz reset NAME` moves it to the image's current version. Claude Code
 never updates itself inside a sandbox (`DISABLE_AUTOUPDATER`, `DISABLE_UPDATES`).
 
-### Templates and duplicates
+### Saved disks and duplicates
 
 ```bash
-doz template create NAME [--from-point P] --as TEMPLATE [--note …]   # the root disk, now (a live sandbox pauses for ms) or a point's
-doz template ls
-doz template rm TEMPLATE [--yes]
-doz create other --image TEMPLATE
+doz image save NAME DISK [--from-point P] [--note …]   # the root disk, now (a live sandbox pauses for ms) or a point's
+doz image ls                                          # saved disks among the images: BASE · AGENT "saved disk" (kind "custom" in --json)
+doz image rm DISK [--yes]
+doz create other --image DISK
 
 doz duplicate NAME NEW [--from-point P] [--folder DIR | --isolated] [--cpus N] [--memory M]
                        [--network agent|bake|locked|open|nat|none] [--account A] [--copy-state]
 ```
 
-A **template** is a sandbox's ROOT disk saved as an image: everything installed or written there
+A **saved disk** is a sandbox's ROOT disk saved as an image: everything installed or written there
 (`/root`, `/etc`, `/usr`, `/opt`, caches) — **never its state disk** (the agent's logins and
-history). **Duplicate** makes a new sandbox from an existing one's disk (an APFS clone) with a new
+history).
+
+**Moved (757):** `doz template create NAME --as DISK`, `doz template ls` and `doz template rm DISK` were these commands.
+For one release they still work: each forwards to `doz image save | ls | rm`, prints one notice on stderr
+("`doz template` now means workspace templates; sandbox disks are `doz image save|ls|rm`") and, with `--json`, gives
+the same answer with `"deprecated": "doz image save"` (`… ls`, `… rm`) added — to the object, or to each row of a list.
+`doz template` is then workspace templates. **Duplicate** makes a new sandbox from an existing one's disk (an APFS clone) with a new
 name and any of a new folder (made when it does not exist) or `--isolated`, CPUs, memory, network or
 account; its state disk starts fresh unless `--copy-state`. Keys are not copied.
 
@@ -627,7 +633,7 @@ doz resources kernel kernel:VERSION|pinned          # the kernel NEW sandboxes b
 ```
 
 `doz resources` is an **account**: every byte of the store is on a row — sandboxes (root disk, state
-disk, snapshot, restore points, saved screens, boot logs), images and templates, caches (the download
+disk, snapshot, restore points, saved screens, boot logs), images and saved disks, caches (the download
 cache, base disks, the guest init, kernels, preparation leftovers), logs and metrics, stray files,
 Dozable's own records — and the total is what `du` counts; a last row, **unattributed**, is what no
 row explains and should be 0. Each row has three numbers: its **size** (allocated, as `du` counts

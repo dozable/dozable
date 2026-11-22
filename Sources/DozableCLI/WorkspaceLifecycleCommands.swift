@@ -27,9 +27,9 @@ struct LifecycleArguments: ParsableArguments {
 
 /// The archive's and the delete's sandboxes.
 struct LifecycleSandboxFlags: ParsableArguments {
-    @Flag(name: .customLong("remove-sandboxes"), help: "Also remove the sandboxes Dozable made for it (a manager's or a worker's own; never an adopted one) — a template of each first.")
+    @Flag(name: .customLong("remove-sandboxes"), help: "Also remove the sandboxes Dozable made for it (a manager's or a worker's own; never an adopted one) — each one's disk saved as an image first (doz image ls).")
     var removeSandboxes = false
-    @Flag(name: .customLong("keep-templates"), inversion: .prefixedNo, help: "With --remove-sandboxes: keep a template of each sandbox first.")
+    @Flag(name: .customLong("keep-templates"), inversion: .prefixedNo, help: "With --remove-sandboxes: save each sandbox's disk as an image first (doz image save).")
     var keepTemplates = true
 }
 
@@ -319,8 +319,8 @@ struct WorkspaceArchive: AsyncParsableCommand {
         discussion: """
         Finish's steps, then its rooms archived as you (read-only, their history kept) and each anonymous worker retired (its \
         token refused from now on); a bot keeps its token and its place in the rooms. Nothing on disk goes unless \
-        --remove-sandboxes: then each sandbox Dozable made for it is removed, a template of it kept first (--no-keep-templates \
-        to skip). Asks for its name to be typed (--yes skips). doz workspace restore W brings it back, finished.
+        --remove-sandboxes: then each sandbox Dozable made for it is removed, its disk saved as an image first (doz image ls; \
+        --no-keep-templates to skip). Asks for its name to be typed (--yes skips). doz workspace restore W brings it back, finished.
         """)
     @OptionGroup var a: LifecycleArguments
     @OptionGroup var s: LifecycleSandboxFlags
@@ -336,7 +336,7 @@ struct WorkspaceArchive: AsyncParsableCommand {
 
 struct WorkspaceRestore: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "restore", abstract: "Bring an archived workspace back, finished: its rooms writable again.",
-        discussion: "Retired workers stay ended; a removed sandbox is not made again (its template is named). Then reopen and wake it.")
+        discussion: "Retired workers stay ended; a removed sandbox is not made again (the image its disk was saved as is named). Then reopen and wake it.")
     @OptionGroup var a: LifecycleArguments
     func run() async throws { try await runWorkspaceLifecycle(.restore, a) }
 }
@@ -345,7 +345,7 @@ struct WorkspaceDelete: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "delete", abstract: "Delete a finished or archived workspace's record, brief and log. Cannot be undone.",
         discussion: """
         Refused unless it is finished or archived (doz workspace finish W first) and while anything of it runs. Its rooms \
-        stay — archived, with their history (the chat server cannot delete a room); its bots and their tokens, templates, \
+        stay — archived, with their history (the chat server cannot delete a room); its bots and their tokens, saved disks, \
         and its adopted sandboxes and sessions (loose again) are kept; its anonymous workers are retired. Nothing on disk goes \
         unless asked: --remove-sandboxes removes the sandboxes Dozable made for it, --bin-folders moves its folders to the \
         Bin (never your home, the store, or a folder another workspace or sandbox uses). Asks for its name to be typed (--yes \

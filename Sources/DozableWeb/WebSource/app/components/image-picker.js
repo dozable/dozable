@@ -62,7 +62,8 @@ export function imagePicker({ images = [], bases = null, value = 'claude-code', 
     on: { click: () => { if (!extra.disabled) { kind = k; changed(); } } } }, withIcon(ic, label)));
   const kindCtl = h('div', { class: 'segmented', role: 'group', 'aria-label': 'Base' },
     kindSeg('recommended', 'Recommended', 'star'), kindSeg('dockerfile', 'Dockerfile', 'box'),
-    templates.length ? kindSeg('template', 'Template', 'layout-template') : null);
+    // 757: a sandbox's saved disk (doz image save); the kind keeps its name 'template'.
+    templates.length ? kindSeg('template', 'Saved disk', 'layout-template') : null);
   // Recommended: a card per base.
   const cards = {};
   const grid = h('div', { class: 'base-grid', role: 'radiogroup', 'aria-label': 'Recommended bases', 'data-base-grid': '' },
@@ -125,10 +126,10 @@ export function imagePicker({ images = [], bases = null, value = 'claude-code', 
     builderBox.replaceChildren(...kids);
   }
   // Templates.
-  const tplSelect = h('select', { name: 'template', 'aria-label': 'Template' }, templates.map((t) => h('option', { value: t.name }, t.name + (t.fromSandbox ? ' (from ' + t.fromSandbox + ')' : ''))));
+  const tplSelect = h('select', { name: 'template', 'aria-label': 'Saved disk' }, templates.map((t) => h('option', { value: t.name }, t.name + (t.fromSandbox ? ' (from ' + t.fromSandbox + ')' : ''))));
   tplSelect.value = template;
   tplSelect.addEventListener('change', () => { template = tplSelect.value; onChange(); });
-  const tplPanel = h('div', { class: 'tpl-panel' }, tplSelect, h('small', { class: 'muted' }, 'A template is a saved root disk: its base and agent are the ones it was saved from.'));
+  const tplPanel = h('div', { class: 'tpl-panel' }, tplSelect, h('small', { class: 'muted' }, 'A saved disk is a sandbox’s root disk saved as an image (doz image save): its base and agent are the ones it was saved from.'));
   const summary = h('small', { class: 'muted image-summary', 'data-image-summary': '' });
   // The image by its name, too (hidden): what a script or an older page names — setting it moves the choices.
   const names = [...new Set(['claude-code', 'pi', 'lab', ...catalogue.flatMap((b) => [...agentList.map((x) => x.id), 'none'].map((a) => imageNameOf(b.id, a))),
@@ -173,7 +174,7 @@ export function imagePicker({ images = [], bases = null, value = 'claude-code', 
     const b = catalogue.find((x) => x.id === base);
     const now = kind === 'template' ? template : kind === 'dockerfile' ? null : imageNameOf(base, agent);
     if (now && [...byName.options].some((o) => o.value === now)) byName.value = now;
-    summary.textContent = kind === 'template' ? 'Template ' + template
+    summary.textContent = kind === 'template' ? 'Saved disk ' + template
       : kind === 'dockerfile' ? 'Your Dockerfile · ' + titleOf(agent)
       : (b ? b.title : base) + ' · ' + titleOf(agent) + ' — image ' + imageNameOf(base, agent);
   }
@@ -193,7 +194,7 @@ export function imagePicker({ images = [], bases = null, value = 'claude-code', 
     dockerfile() { return kind === 'dockerfile' ? dfPath.value.trim() : null; },
     /// 635: the choice in a few words for New sandbox's summary ("Claude Code on Node.js").
     title() {
-      if (kind === 'template') return 'Template ' + (template || '—');
+      if (kind === 'template') return 'Saved disk ' + (template || '—');
       if (kind === 'dockerfile') return titleOf(agent) + ' on your Dockerfile';
       const b = catalogue.find((x) => x.id === base);
       return agent === 'none' ? (b ? b.title : base) + ', no agent' : titleOf(agent) + ' on ' + (b ? b.title : base);
@@ -202,7 +203,7 @@ export function imagePicker({ images = [], bases = null, value = 'claude-code', 
     base() { return kind === 'recommended' ? base : kind === 'dockerfile' ? '' : null; },
     /// Why Create cannot go ahead now (null: it can).
     blocked() {
-      if (kind === 'template' && !template) return 'No template to start from.';
+      if (kind === 'template' && !template) return 'No saved disk to start from.';
       if (kind !== 'dockerfile') return null;
       if (!dfPath.value.trim()) return 'Choose the Dockerfile (Choose Dockerfile…), or type its path.';
       if (notNow && builder.state !== 'ready') return 'Dockerfile images are unavailable until Apple’s container tool is ' + (builder.state === 'stopped' ? 'running.' : 'installed.');

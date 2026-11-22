@@ -198,7 +198,7 @@ final class ResourcesTests: XCTestCase {
         XCTAssertEqual(p.items.map(\.id), ["kernel:6.1-1", "template:tpl"])
         XCTAssertEqual(Set(p.refused.map(\.id)), ["initfs", pinnedID, "sandbox:a", "sandbox:a/root", "outside:settings", "store", "unattributed", "image:nope"])
         XCTAssertTrue(p.refused.first { $0.id == "initfs" }!.reason.contains("a is hibernated"))
-        XCTAssertEqual(p.items.first { $0.id == "template:tpl" }?.warning, "a template cannot be re-created")
+        XCTAssertEqual(p.items.first { $0.id == "template:tpl" }?.warning, "a saved disk cannot be re-created")
         // Running is refused too (its VM has the guest init attached; the next pause would snapshot it).
         let running = Resources.plan(store: store, facts: facts(phase: .running), ids: ["initfs", pinnedID], clean: false)
         XCTAssertEqual(running.items.map(\.id), [])

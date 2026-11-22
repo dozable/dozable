@@ -220,7 +220,7 @@ final class WorkspaceLifecycleTests: XCTestCase {
         let r = plan(.restore, archived, facts: f)
         XCTAssertTrue(r.refusals.isEmpty, r.refusals.joined())
         XCTAssertTrue(r.notes.contains("retired workers stay ended: bot1"))
-        XCTAssertTrue(r.notes.contains("demo-otto is gone — its template demo-otto-tpl"))
+        XCTAssertTrue(r.notes.contains("demo-otto is gone — its disk is the image demo-otto-tpl"))
         XCTAssertEqual(plan(.restore, finished, facts: f).refusals, ["demo is not archived — nothing to restore"])
     }
 
@@ -238,7 +238,10 @@ final class WorkspaceLifecycleTests: XCTestCase {
         // --remove-sandboxes: only the sandboxes Dozable made for it (otto's own), a template each first; never the adopted lab.
         let r = plan(.archive, options: L.Options(removeSandboxes: true))
         XCTAssertEqual(r.templates, ["demo-otto": "demo-otto-tpl"])
-        XCTAssertTrue(row(r, "otto")!.after.contains("a template kept: demo-otto-tpl; its sandbox removed"))
+        XCTAssertTrue(row(r, "otto")!.after.contains("its disk saved as the image demo-otto-tpl; its sandbox removed"))
+        // 757: today's command for it is `doz image save` (the `templates` key keeps its name).
+        XCTAssertTrue(r.commands.contains("doz image save demo-otto demo-otto-tpl"), r.commands.joined(separator: " | "))
+        XCTAssertFalse(r.commands.contains { $0.hasPrefix("doz template") })
         XCTAssertFalse(row(r, "lab")!.after.contains("removed"))
         XCTAssertFalse(row(r, "bot3")!.after.contains("sandbox removed"), "a worker sharing a sandbox never removes it")
         XCTAssertEqual(r.goes.first { $0.text.contains("demo-otto") }?.bytes, 6 << 30)
