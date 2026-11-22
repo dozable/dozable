@@ -147,8 +147,10 @@ extension WorkspaceLifecycleHostTests {
             let (s, _) = try liveSpace()
             _ = try acted(try await spaceUpAct(c, try spaceRequest(s)))
             let run = try XCTUnwrap(try XCTUnwrap(record("lv")).openRun)
-            let now = await c.spaceFrameRecord("lv", label: "now")
-            XCTAssertTrue(now)
+            // A frame of this state exists: ours, or the debounced one up's own events wrote first with the same state (a
+            // record is skipped when the state is unchanged, so `now` may be false — the race CI hit on 753).
+            _ = await c.spaceFrameRecord("lv", label: "now")
+            XCTAssertTrue(FileManager.default.fileExists(atPath: c.spaceFrameFolder("lv", run.id)), "a frame of the run's state")
             // The frames are never removed before an archive that verifies: a folder that does not verify keeps them.
             await c.spaceFramesArchived("lv", run.id, archive: "archives/lv/runs/none")
             XCTAssertTrue(FileManager.default.fileExists(atPath: c.spaceFrameFolder("lv", run.id)))

@@ -1293,6 +1293,16 @@ per step; not a terminal, `--json` or `NO_COLOR`: always plain) and `--[no-]send
 (official builds: usage statistics for this command, or not).
 JSON documents only ever gain fields.
 
+`doz --help` starts with the three workspace commands (`doz workspace new`, `doz workspace state`, `doz worker add`)
+and a pointer for agents, before the full list: an agent whose tool cuts the output still sees them.
+
+```
+doz skill show doz [--json]   # the doz skill: a SKILL.md for an agent that drives doz (--json: {kind: Skill, schema: 1, name, path})
+```
+
+The skill ships inside doz (`DozableKit_DozableKit.bundle/skills/doz/SKILL.md`, beside the executable in every
+layout); doz installs it nowhere. An unknown name exits 2 (`not-found`), naming the skills there are.
+
 | exit code | meaning |
 |---|---|
 | 0 | ok |
