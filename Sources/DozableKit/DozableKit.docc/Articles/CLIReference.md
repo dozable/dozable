@@ -932,7 +932,7 @@ themselves) — is the most an agent may ever get.
 
 ```bash
 doz permissions show [W] [--agent A | --bot B | --mac] [--roles] [--json]   # each permission's answer, its source (role, ✎ grant, ▲ ceiling, default) and ENFORCED
-doz permissions grant SUBJECT ROLE | PERM=allow|ask|never … (--in W | --room W/R | --everywhere) [--until DATE]
+doz permissions grant SUBJECT ROLE | PERM=allow|ask|never … (--in W | --room W/R | --everywhere) [--until DATE] [--request-id ID]
 doz permissions revoke SUBJECT ROLE|PERM … [--in W | --room W/R | --everywhere]
 doz permissions ceiling (--mac | --in W | --bot B) [PERM=ask|never …] [--clear PERM]   # no PERM: the ceiling as it is
 doz why AGENT PERM [--in W] [--room R] [--json]   # the five steps, and what decided (also: doz permissions why)
@@ -970,7 +970,7 @@ for, and any folders it works on (usually projects). Work starts only once it is
 doz workspace new NAME (--brief TEXT|- | --prompt-file F|-) [--preset P] [--worker TASK]… [--ref PATH|URL]… [--new-folder]
                   [--folder DIR[:ro|:rw]]… [--room EXISTING | --no-room] [--from-project] [--adopt AGENT]…
                   [--manager BOT [--manager-isolation fenced|vm|unfenced]] [--worker-isolation fenced|vm]
-                  [--network locked|standard|open] [--dry-run] [--start]
+                  [--network locked|standard|open] [--dry-run] [--start] [--request-id ID]
 doz workspace create NAME …                     # an alias of new: the same flags, the same answer
 doz workspace ls [--loose] [--json]             # NAME  STATE  AGENTS  ROOM ("idle · you · manager mira (fenced)"), then the loose agents
 doz workspace show W [--brief] [--json]         # its brief, folders, room and agents
@@ -987,7 +987,7 @@ doz workspace reopen W [--dry-run] [--if-plan SHA]            # finished → asl
 doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--no-archive] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
 doz workspace restore W [--dry-run] [--if-plan SHA]           # archived → finished, its rooms writable again
 doz workspace delete W [--remove-sandboxes [--no-keep-templates]] [--bin-folders] [--dry-run] [--yes] [--if-plan SHA]   # finished or archived only (the name typed)
-doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME]   # as a worker; only the workspace's record changes
+doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME] [--request-id ID]   # as a worker; only the workspace's record changes
 doz workspace release W AGENT                   # loose again
 doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--add-folder DIR[:ro]]… [--remove-folder DIR]… [--make-room]
                   [--manager BOT [--manager-isolation fenced|vm|unfenced] | --no-manager] [--if-brief SHA256]
@@ -1092,6 +1092,17 @@ the next start tries again). The dry run's lines name each declared worker and i
 New in these answers, additively: `kind` and `schema` — `Workspace` (show, new and every change), `WorkspaceStarted`
 (start), `WorkerListing` (`worker ls`), each schema 1; `worker ls`'s rows also carry each agent's `condition`.
 
+**Retrying safely: `--request-id ID`.** `workspace new`, `worker add`, `workspace adopt` and `permissions grant` take an id
+of yours for the request (1–128 of `A-Z a-z 0-9 . _ : -`; anything else exits 65 `invalid-value`). The daemon keeps each
+id with a fingerprint of the request's arguments (a sha256 per field — never a value) and its first successful answer, for
+24 hours, in `<store>/requests/` (one 0600 file per id, kept across a daemon restart; expired ones pruned, at most 1,000).
+The same command again with the same id and arguments answers that first answer with `"replayed": true` added (exit 0)
+and does nothing again; the same id with other arguments exits 3, `request-id-reused`, the message naming what differs
+(`--brief`, `NAME`), never its value. A first try that failed is not kept: a retry runs for real. Ids are per command (`r-1`
+for `new` and `r-1` for `worker add` are two), and two requests with one id at once never both run (the second waits and
+is answered the first's answer). `grant --until 2h` is compared as typed. `--start` with `--request-id` covers the `new`
+only. An older daemon ignores the id.
+
 **Editing the brief.** While the workspace is setting up, `edit --prompt-file` only replaces the brief (the start posts
 it). Once the work has started, each new brief is also announced in the main room as **your message** — "I edited the
 work:" and the new text with its references — and logged (`edited the work`, `announced the edit in ROOM`); with chat off
@@ -1125,7 +1136,7 @@ manager, `start` posts the brief and you drive. `doz bot ls` shows what each bot
 
 ```bash
 doz worker add W [NAME] --task "…" [--agent claude-code|codex] [--isolation fenced|vm|unfenced] [--sandbox X] [--session S]
-               [--cpus N --memory M] [--from-bot BOT] [--room LABEL]… [--allow-tool T]… [--dry-run]
+               [--cpus N --memory M] [--from-bot BOT] [--room LABEL]… [--allow-tool T]… [--dry-run] [--request-id ID]
 doz worker ls W [--all] [--json]                # NAME  ROLE  BOT  PLACE  ISOLATION  CONTROL  NETWORK  STATE  TASK — every agent
 doz worker end W NAME [--rm]                    # its session (or its own sandbox) ends; an anonymous one leaves chat
 ```

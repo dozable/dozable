@@ -17,7 +17,7 @@ export interface MountOptions {
      *  text, without extends:. */
     plan?(text: string): Promise<SpacePlan | undefined>;
     readOnly?: boolean;
-    /** O2: what is true now (a SpaceState, src/editor-core/state-types.ts), asked while Live is on: every 3 s while the
+    /** O2: what is true now (a SpaceState, src/doz-space/state-types.ts), asked while Live is on: every 3 s while the
      *  page is visible, every 30 s while it's hidden. Undefined: not known. */
     state?(text: string): Promise<SpaceState | undefined>;
     /** or pushed: called with each new SpaceState while Live is on; returns a function that stops */
@@ -63,7 +63,7 @@ export interface MountOptions {
     /** the standalone page's own additions (its files and File menu): not for other hosts */
     host?: HostHooks;
 }
-/** What the standalone page (src/editor-ui/main.ts) adds around the editor. */
+/** What the standalone page (src/doz-space/entries/main.ts) adds around the editor. */
 export interface HostHooks {
     /** the title bar's start (the File menu, the file's name) */
     titleStart?: HTMLElement[];

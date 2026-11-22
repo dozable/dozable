@@ -74,6 +74,8 @@ struct WorkerAdd: AsyncParsableCommand {
     @Option(name: .customLong("permissions"), help: "standard (the default) or bypass: its own command line bypasses its permissions, marked wherever it shows.")
     var permissions: String?
     @Flag(name: .customLong("dry-run"), help: "Show what would be added, or what would be refused, and the command; add nothing.") var dryRun = false
+    @Option(name: .customLong("request-id"), help: "An id of yours for this request: sent again with the same id and arguments, it answers the first answer (\"replayed\": true) and adds nothing again (kept 24 h).")
+    var requestID: String?
 
     /// The request this command sends.
     func request() -> WorkerRequest {
@@ -100,13 +102,15 @@ struct WorkerAdd: AsyncParsableCommand {
             if let p = plan.problem { throw ExitCode(DozableExit.code(for: HostError(HostError.Code(rawValue: p.code) ?? .failed, ""))) }
             return
         }
-        let a = try decode(try call(workerRequest(.workerAdd, q), g), WorkerAdded.self, g)
+        var r = workerRequest(.workerAdd, q)
+        r.requestID = requestID
+        let a = try decode(try call(r, g), WorkerAdded.self, g)
         if g.json { Out.json(a); return }
         let w = a.worker
         let place = a.sandbox.map { "in the sandbox \($0)" + (w.shares != nil ? " (session \(a.session))" : "") } ?? "on this Mac as @mac/\(a.session)"
         Out.stdout("added \(w.name) to \(a.workspace) (\(w.actsAsYou == true ? "unfenced · acts as you" : w.isolation ?? "fenced")) \(place)\n"
                    + "  control  \(w.control)\n  network  \(w.network)\n  task     \(WorkerLaunch.shortTask(w.task ?? ""))\n"
-                   + (a.notes ?? []).map { "note: \($0)\n" }.joined())
+                   + (a.notes ?? []).map { "note: \($0)\n" }.joined() + (a.replayed == true ? replayedNote : ""))
     }
 
     /// A dry run as a person reads it: the lines, what would be refused, the notes, then the command exactly.

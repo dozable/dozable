@@ -1,6 +1,6 @@
 import { type Recording, type Scope } from './timeline-types.js';
 import type { SpaceState } from './state-types.js';
-import { type MemorySource } from './timeline-engine.js';
+import { type MemorySource } from './timeline.js';
 import { type Simulator } from './simulator.js';
 export declare const HOST = "host:host-a";
 export declare const SPACE = "host:host-a/workspace:example-space";

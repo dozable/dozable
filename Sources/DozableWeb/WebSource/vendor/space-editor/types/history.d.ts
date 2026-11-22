@@ -1,8 +1,11 @@
-import type { Bin, MetricPoint, MetricRollup, Query, Result, Row, Scope, TimelineEvent, TimelineSource, View } from './timeline-types.js';
-import type { SpaceState } from './state-types.js';
+import type { Bin, MetricPoint, MetricRollup, Query, Result, Row, Scope, TimelineEvent, TimelineSource, View, TimelineCatalog, TimelineTypes, AnyTimeline } from './timeline-contract.js';
 import { type Gap, type TimeScale } from './timeline-scale.js';
-export interface TimelineMountOptions {
-    source: TimelineSource;
+export interface TimelineMountOptions<T extends TimelineTypes = AnyTimeline> {
+    source: TimelineSource<T>;
+    /** the domain's scopes, flags and search links */
+    catalog: TimelineCatalog;
+    /** classes on the component's root beside its own (the stylesheet it is styled by is scoped to one) */
+    rootClass?: string[];
     /** where to start (else the URL's view, else the first host, 1 level down, the last day) */
     view?: Partial<View>;
     /** the owner's time zone (default: the viewer's) */
@@ -15,16 +18,18 @@ export interface TimelineMountOptions {
     collapseGaps?: boolean;
     /** animate a time break opening (default: unless the viewer prefers reduced motion) */
     motion?: boolean;
-    openSession?(scope: Scope): void;
-    openMessage?(id: string): void;
-    openRun?(id: string): void;
-    explainDecision?(id: string): void;
-    openWorkspace?(scope: Scope): void;
+    /** an event's actions, in its detail: a label, and what it does (none: not shown) */
+    actions?(e: TimelineEvent<T>): [string, (() => void) | undefined][];
     /** saved views: the host stores them */
     saveView?(v: View): void | Promise<void>;
     views?(): View[] | Promise<View[]>;
     /** the playhead moved: the state recorded there, if any (draw it on a canvas) */
-    onPlayhead?(t: number, state: SpaceState | undefined): void;
+    onPlayhead?(t: number, state: T['state'] | undefined): void;
+    /** a recorded state, in words for the canvas's note: when it was observed, and what it belongs to */
+    stamp?(state: T['state']): {
+        at?: string;
+        tag?: string;
+    };
     onViewChange?(v: View): void;
     /** an export: the host saves it (else the browser downloads it) */
     onExport?(name: string, text: string, type: string): void;
@@ -35,9 +40,9 @@ type Mode = {
     kind: 'binned';
     bin: Bin;
 };
-type Line = {
+type Line<T extends TimelineTypes = AnyTimeline> = {
     kind: 'row';
-    row: Row;
+    row: Row<T>;
 } | {
     kind: 'metric';
     series: string;
@@ -48,8 +53,8 @@ type Line = {
 /** which zoom level a visible span reads at: single events up to a few hours, then minute, hour and day bins */
 export declare function modeFor(span: number, px: number): Mode;
 /** the activity a result shows (for time breaks): marks, span ends, bins with events, metrics that moved */
-export declare function activityOf(r: Result, mode: Mode, series?: Map<string, 'counter' | 'gauge'>): [number, number][];
-export declare function mountTimeline(el: HTMLElement, o: TimelineMountOptions): {
+export declare function activityOf<T extends TimelineTypes = AnyTimeline>(r: Result<T>, mode: Mode, series?: Map<string, 'counter' | 'gauge'>): [number, number][];
+export declare function mountTimeline<T extends TimelineTypes = AnyTimeline>(el: HTMLElement, o: TimelineMountOptions<T>): {
     el: HTMLElement;
     ready: Promise<void>;
     readonly view: View;
@@ -61,24 +66,24 @@ export declare function mountTimeline(el: HTMLElement, o: TimelineMountOptions):
     refresh: () => Promise<void>;
     /** for tests and hosts: what is drawn, and the mapping */
     internal: {
-        readonly result: Result | undefined;
+        readonly result: Result<T> | undefined;
         readonly mode: Mode;
         readonly scale: TimeScale;
         readonly gaps: Gap[];
-        readonly playState: SpaceState | undefined;
-        readonly hits: TimelineEvent[];
-        readonly selected: TimelineEvent | undefined;
+        readonly playState: T["state"] | undefined;
+        readonly hits: TimelineEvent<T>[];
+        readonly selected: TimelineEvent<T> | undefined;
         readonly follow: boolean;
         openCut: (from: number, to: number) => void;
         showTable: (from: number, to: number) => Promise<void>;
-        rangeEvents: () => Promise<TimelineEvent[]>;
+        rangeEvents: () => Promise<TimelineEvent<T>[]>;
         exportRange: (kind: 'json' | 'csv') => Promise<void>;
-        select: (e: TimelineEvent | undefined) => void;
+        select: (e: TimelineEvent<T> | undefined) => void;
         stepHit: (dir: 1 | -1) => void;
         drill: (s: Scope) => void;
         findHits: () => Promise<void>;
         paint: () => void;
-        lines: () => Line[];
+        lines: () => Line<T>[];
     };
     dispose(): void;
 };

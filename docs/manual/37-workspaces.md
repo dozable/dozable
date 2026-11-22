@@ -55,9 +55,26 @@ doz workspace new app --preset blank --brief "Fix the build" --folder ~/code/app
   paste. It never starts the daemon; it exits 0 when nothing is refused, else as `new` would.
 - `--start` starts it as soon as it is made (`doz workspace start NAME`). If the start is refused, the workspace stays
   made and setting up, and the refusal says what is missing.
+- `--request-id ID` makes it safe to run again: see [Retrying safely](#retrying-safely) below.
 
 It prints the workspace. A new one is **setting up · you**: it has never started, and you drive it. The work starts
 once the workspace is fully set up, with `doz workspace start`.
+
+### Retrying safely
+
+`doz workspace new`, `doz worker add`, `doz workspace adopt` and `doz permissions grant` take `--request-id ID`: an id of
+your own for this one request (1–128 letters, digits, `.`, `_`, `:` or `-` — a UUID is a good one). Run the same command
+again with the same id and arguments and you get the first answer again, with `"replayed": true` in `--json`, and nothing
+is made, added or granted a second time. It is for a script or an agent that did not see the answer — a timeout, a
+dropped connection, a daemon restart — and cannot tell whether the first try worked: it simply runs the same command
+again.
+
+- The same id with different arguments is refused (exit 3, `request-id-reused`): the message names what differs (such
+  as `--brief`), never its value. Use a new id for a new request.
+- A first try that failed is not kept, so a retry runs for real.
+- An id is kept for 24 hours from its first answer, in the store, so a daemon restart does not lose it. Each command has
+  ids of its own: `r-1` for a `workspace new` and `r-1` for a `worker add` are two ids.
+- Two runs with the same id at the same moment never both run: the second waits and gets the first answer.
 
 ### Its room
 
@@ -335,6 +352,9 @@ doz worker ls demo                                          # every agent: where
 doz worker end demo bot1                                    # its session ends; an anonymous one leaves chat
 doz worker add demo --task "list the files" --dry-run       # what it would be, or what would be refused — nothing added
 ```
+
+`doz worker add demo reviewer --task "Review the fix" --request-id r-2` can be run again safely: the same id and
+arguments give the first answer again and add no second reviewer ([Retrying safely](#retrying-safely)).
 
 A worker joins the workspace's room, is told its task in its START file, and says in the room that it is up — Dozable
 posts nothing there itself. While the workspace is still setting up, `worker add` refuses and says to start it first;

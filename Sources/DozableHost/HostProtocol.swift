@@ -717,6 +717,10 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var actAs: String?
     /// The `chat-ask`, `chat-decide`, `chat-withdraw` and `chat-asks` operations' arguments. Additive.
     public var chatAsk: ChatAskRequest?
+    /// `--request-id ID` on `workspace-new`, `worker-add`, `workspace-adopt` and `permissions-grant`: a retry with the same id
+    /// and arguments is answered with the first answer (`replayed: true`) and does nothing again (`RequestReplay`). Additive:
+    /// an older daemon ignores it.
+    public var requestID: String?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -762,6 +766,8 @@ public struct HostError: Codable, Equatable, Sendable, Error, LocalizedError {
         case ambiguous
         /// [3] not possible now, each for its own reason.
         case conflict, planChanged = "plan-changed", fileChanged = "file-changed", alreadyAnswered = "already-answered", notOwned = "not-owned"
+        /// [3] a `--request-id` already used for this kind of request with other arguments (the message names which).
+        case requestIDReused = "request-id-reused"
         /// [4] the contract's name for `exists` (doz still answers `exists`).
         case alreadyExists = "already-exists"
         /// [5] a question nobody answered: no terminal and no --yes, or the answer was no.
@@ -2104,6 +2110,8 @@ public struct WorkspaceDetail: Codable, Equatable, Sendable {
     /// `Workspace`, schema 1 (additive: an older daemon's answer has neither).
     public var kind: String?
     public var schema: Int?
+    /// `new` / `adopt` with `--request-id`: this is the first answer to that id, given again — nothing was done now. Additive.
+    public var replayed: Bool?
     public init(name: String, state: String, driver: String, createdAt: Date, brief: WorkspaceBrief, briefText: String? = nil,
                 folders: [WorkspaceFolder], rooms: [WorkspaceRoom], agents: [WorkspaceAgentRow], defaults: WorkspaceDefaults,
                 flags: WorkspaceFlags, origin: WorkspaceOrigin, notes: [String]? = nil, gaps: [WorkspaceSetupCheck.Gap]? = nil) {
@@ -2330,6 +2338,8 @@ public struct WorkerAdded: Codable, Equatable, Sendable {
     public var session: String
     public var sandbox: String?
     public var notes: [String]?
+    /// `--request-id`: the first answer to that id, given again — nothing was added now. Additive.
+    public var replayed: Bool?
     public init(workspace: String, worker: WorkerRow, session: String, sandbox: String?, notes: [String]?) {
         self.workspace = workspace; self.worker = worker; self.session = session; self.sandbox = sandbox; self.notes = notes
     }

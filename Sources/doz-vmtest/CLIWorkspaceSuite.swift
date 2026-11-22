@@ -36,6 +36,8 @@ import DozableHost
 //  T1–T8. the test hooks (749): a manager and a worker as the stub agent (DOZ_TEST_STUB_AGENT=1, no claude), up, its task,
 //      ack, ping, write, ask, sleep and wake, doz debug crash and the crashed line, the joined line (CLIWorkspaceStubRows.swift);
 //      CLI_WORKSPACE_ROWS=stub runs them alone
+//  O1–O8. one-shot new (CLIWorkspaceOneShotRows.swift); CLI_WORKSPACE_ROWS=oneshot runs them alone
+//  I1–I5. idempotent creates, --request-id (CLIWorkspaceRequestIDRows.swift); CLI_WORKSPACE_ROWS=requestid runs them alone
 func cliWorkspaceSuite(binary: String) async {
     print("cli: workspaces — no VM")
     let fm = FileManager.default
@@ -114,6 +116,13 @@ func cliWorkspaceSuite(binary: String) async {
         h.run(["config", "set", "chat.page_port", String(freePort())])
         h.run(["config", "set", "chat.line_port", String(freePort())])
         cliWorkspaceStubRows(h, root: root, store: store, started: &started)
+        return
+    }
+    // WS.06: CLI_WORKSPACE_ROWS=requestid runs --request-id's rows alone (I1–I5).
+    if ProcessInfo.processInfo.environment["CLI_WORKSPACE_ROWS"] == "requestid" {
+        h.run(["config", "set", "chat.page_port", String(freePort())])
+        h.run(["config", "set", "chat.line_port", String(freePort())])
+        cliWorkspaceRequestIDRows(h, root: root, store: store, started: &started)
         return
     }
     // WS.04: CLI_WORKSPACE_ROWS=oneshot runs one-shot new's rows alone (O1–O7).
@@ -278,4 +287,6 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspaceStubRows(h, root: root, store: store, started: &started)
     // O1–O7. one-shot new: --preset, --brief, --worker, workspace create (CLIWorkspaceOneShotRows.swift)
     cliWorkspaceOneShotRows(h, root: root, store: store, started: &started)
+    // I1–I5. idempotent creates: --request-id (CLIWorkspaceRequestIDRows.swift)
+    cliWorkspaceRequestIDRows(h, root: root, store: store, started: &started)
 }

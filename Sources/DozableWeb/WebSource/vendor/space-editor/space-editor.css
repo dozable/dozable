@@ -1,4 +1,4 @@
-/* The space editor, scoped to .space-editor: doz ui's base layer and components (src/editor-ui/doz, with their provenance), and the editor's own layout. Colours, type and sizes are the host's doz ui tokens. */
+/* The space editor, scoped to .space-editor: doz ui's base layer and components (src/doz-space/skin, with their provenance), the editor's own layout (src/iso-editor/ui/app.css) and the space editor's panels. Colours, type and sizes are the host's doz ui tokens. */
 @layer tokens, base, components, views;
 @layer base{
 .space-editor,.space-editor *{ box-sizing: border-box; }
@@ -147,7 +147,6 @@
 .space-editor .frow.current{ background: var(--accent-tint); }
 .space-editor .frow .fname{ flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-mono); }
 .space-editor .frow .kind{ font-size: var(--fs-xs); color: var(--ink-3); border: var(--bw) solid var(--line); border-radius: var(--r-pill); padding: 0 var(--sp-2); }
-.space-editor .frow .kind.k-space{ color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, var(--surface)); }
 .space-editor .center{ flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; background: var(--surface); }
 .space-editor #se-code{ flex: 1 1 0; min-width: 0; min-height: 0; position: relative; }
 .space-editor dialog.dlg.keys-dlg{ width: min(720px, calc(100vw - 32px)); }
@@ -251,14 +250,12 @@
 .space-editor .trow .tlabel{ font-size: var(--fs-md); flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; }
 .space-editor .sprite{ position: absolute; width: 0; height: 0; overflow: hidden; }
 .space-editor .trow.k-group > .tlabel{ font-weight: var(--fw-strong); }
-.space-editor .trow.k-space > .tlabel{ font-weight: var(--fw-strong); }
 .space-editor .trow.k-key > .tlabel,.space-editor .trow.k-item > .tlabel{ font-family: var(--mono); font-size: var(--fs-mono); }
 .space-editor .trow.ext > .tlabel{ color: var(--ink-2); font-style: italic; }
 .space-editor .trow .tval{ font-family: var(--mono); font-size: var(--fs-mono); color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; margin-left: var(--sp-1); }
 .space-editor .trow .tval.none,.space-editor .trow.missing > .tlabel{ color: var(--ink-3); }
 .space-editor .trow .tcount{ font-size: var(--fs-xs); color: var(--ink-3); }
 .space-editor .trow .tpill{ font-size: var(--fs-xs); border-radius: var(--r-pill); padding: 0 var(--sp-2); border: var(--bw) solid var(--line); color: var(--ink-2); flex: none; }
-.space-editor .trow .tpill.l-persisted{ color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--surface)); }
 .space-editor .trow .tpill.l-external{ border-style: dashed; }
 .space-editor .trow .count{ margin-left: auto; }
 .space-editor .trow .tadd{ margin-left: auto; visibility: hidden; height: 20px; width: 20px; }
@@ -327,6 +324,24 @@
 .space-editor .plan-label.ok{ color: var(--ok); }
 .space-editor .plan-label.bad{ color: var(--bad); }
 .space-editor #se-problems.collapsed #se-plan{ display: none; }
+}
+@layer views{
+.space-editor .palette{ position: absolute; left: var(--sp-3); top: var(--sp-3); display: flex; flex-direction: column; gap: 2px; padding: var(--sp-0); background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-1, none); z-index: 2; }
+.space-editor .pal-item{ display: flex; align-items: center; gap: var(--sp-2); height: var(--ctl-sm); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--ink-2); font: inherit; font-size: var(--fs-sm); cursor: grab; text-align: left; touch-action: none; user-select: none; }
+.space-editor .pal-item:hover{ background: var(--state-hover); color: var(--ink); }
+.space-editor .pal-item:active{ cursor: grabbing; }
+.space-editor .pal-item .icon{ width: 14px; height: 14px; }
+.space-editor.read-only .palette{ display: none; }
+.space-editor .pal-ghost{ position: absolute; z-index: 5; pointer-events: none; display: flex; align-items: center; gap: var(--sp-1); padding: 2px var(--sp-2); border: var(--bw) solid var(--accent); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); font-size: var(--fs-sm); box-shadow: var(--shadow-2, none); }
+.space-editor .pal-ghost .icon{ width: 14px; height: 14px; }
+.space-editor .pal-ghost.bad{ border-color: var(--bad); color: var(--bad); }
+}
+@layer views{
+.space-editor .frow .kind.k-space{ color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, var(--surface)); }
+.space-editor .trow.k-space > .tlabel{ font-weight: var(--fw-strong); }
+.space-editor .trow .tpill.l-persisted{ color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--surface)); }
+}
+@layer views{
 .space-editor .plan{ padding: var(--sp-2) var(--sp-4) var(--sp-4); display: grid; gap: var(--sp-3); }
 .space-editor .plan-verdict .plan-code{ font-size: var(--fs-xs); color: var(--ink-2); }
 .space-editor .plan-verdict p{ margin: 0; color: var(--ink-2); }
@@ -356,17 +371,6 @@
 .space-editor .pill.plan-life.run{ color: var(--ink-2); }
 .space-editor .plan-foot{ color: var(--ink-3); font-size: var(--fs-xs); font-family: var(--mono); display: grid; gap: 2px; overflow-wrap: anywhere; }
 .space-editor .plan-empty{ margin: var(--sp-2) 0; }
-}
-@layer views{
-.space-editor .palette{ position: absolute; left: var(--sp-3); top: var(--sp-3); display: flex; flex-direction: column; gap: 2px; padding: var(--sp-0); background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-1, none); z-index: 2; }
-.space-editor .pal-item{ display: flex; align-items: center; gap: var(--sp-2); height: var(--ctl-sm); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--ink-2); font: inherit; font-size: var(--fs-sm); cursor: grab; text-align: left; touch-action: none; user-select: none; }
-.space-editor .pal-item:hover{ background: var(--state-hover); color: var(--ink); }
-.space-editor .pal-item:active{ cursor: grabbing; }
-.space-editor .pal-item .icon{ width: 14px; height: 14px; }
-.space-editor.read-only .palette{ display: none; }
-.space-editor .pal-ghost{ position: absolute; z-index: 5; pointer-events: none; display: flex; align-items: center; gap: var(--sp-1); padding: 2px var(--sp-2); border: var(--bw) solid var(--accent); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); font-size: var(--fs-sm); box-shadow: var(--shadow-2, none); }
-.space-editor .pal-ghost .icon{ width: 14px; height: 14px; }
-.space-editor .pal-ghost.bad{ border-color: var(--bad); color: var(--bad); }
 }
 @layer views{
 .space-editor .canvas-tools .live-toggle[aria-pressed="true"]{ color: var(--accent); background: var(--accent-tint); }
@@ -612,7 +616,7 @@
 }
 }
 
-/* The editor's canvas: the drawing, scoped (src/editor-ui/canvas-css.ts makes this file; don't edit it). */
+/* The editor's canvas: the drawing, scoped (src/doz-space/canvas-css.ts makes this file; don't edit it). */
 .space-canvas{--iso-bg:var(--bg);--iso-surface:var(--surface);--iso-ink:var(--ink);--iso-muted:var(--ink-2);--iso-line:var(--line);--iso-code-bg:var(--well)}
 
 .space-canvas{--iso-on:#ffffff;--iso-l-top:80%;--iso-l-left:64%;--iso-l-right:52%;--iso-l-edge:30%;--iso-slab-top:#e3dfd4;--iso-slab-l:#c9c3b4;--iso-slab-r:#b3ac9c;--iso-pad-top:#dfe3ea;--iso-fence-text:hsl(38 85% 32%);--iso-tunnel-text:hsl(205 80% 32%);--iso-send:#2a64d6;--iso-reply:#14946a;--iso-user:#8446d0;--iso-token:#c9820a;--iso-blocked:#c8433a;--iso-control:#55565e;--iso-event:#c2317f}

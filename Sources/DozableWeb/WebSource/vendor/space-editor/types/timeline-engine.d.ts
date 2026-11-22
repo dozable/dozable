@@ -1,12 +1,9 @@
-import { type MetricPoint, type MetricRollup, type Recording, type Retention, type Scope, type TimelineEvent, type TimelineSource } from './timeline-types.js';
-import type { SpaceState } from './state-types.js';
-/** a state as the timeline may show it: never an Ask's question */
-export declare function withoutQuestions(s: SpaceState | undefined): SpaceState | undefined;
+import { type MetricPoint, type MetricRollup, type Recording, type Retention, type Scope, type TimelineEvent, type TimelineSource, type TimelineCatalog } from './timeline-contract.js';
 export interface MemorySourceOptions {
     /** the host's now (default: the recording's catalog.now) */
     now?: number;
-    /** the space's state at t, where one was recorded (run frames) */
-    stateAt?(scope: Scope, t: number): Promise<SpaceState | undefined>;
+    /** the state at t, where one was recorded (frames), as the timeline may show it */
+    stateAt?(scope: Scope, t: number): Promise<unknown>;
 }
 export interface MemorySource extends TimelineSource {
     /** new or changed records, and the host's now: subscribers get them as a batch (an id, or a series, scope and t,
@@ -20,4 +17,4 @@ export interface MemorySource extends TimelineSource {
         samples: number;
     };
 }
-export declare function memorySource(rec: Recording, o?: MemorySourceOptions): MemorySource;
+export declare function memorySource(rec: Recording, cat: TimelineCatalog, o?: MemorySourceOptions): MemorySource;

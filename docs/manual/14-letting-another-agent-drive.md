@@ -27,6 +27,12 @@ doz workspace start app --json
   (refused, exit `3`, while it is still setting up); `doz worker ls app --json` lists them; `doz worker end app NAME`
   ends one. Workers run fenced on this Mac unless you say otherwise: `--isolation unfenced` acts as you, so an agent
   should never choose it for you.
+- **Retry safely.** An agent that loses an answer (a timeout, a dropped connection) cannot tell whether the command
+  worked, and running it again could make a second worker. So pass `--request-id ID` — an id the agent makes up once
+  per request, a UUID say — to `doz workspace new`, `doz worker add`, `doz workspace adopt` and `doz permissions grant`.
+  Run again with the same id and arguments, the command answers its first answer with `"replayed": true` and does
+  nothing again; with other arguments it exits `3` (`request-id-reused`, naming what differs). A failed first try is not
+  kept, so the retry runs for real. Ids are kept 24 hours, per command.
 - **The skill.** `doz skill show doz` prints the `doz` skill — a `SKILL.md` for an agent that drives doz: workspaces,
   the exit codes, the error JSON, `--yes`, and what not to do. `doz skill show doz --json` gives its path
   (`{"kind":"Skill","schema":1,"name":"doz","path":"…/SKILL.md"}`); point your agent at it. It ships inside doz, which
@@ -45,7 +51,7 @@ doz workspace start app --json
   | `0` | done (or asked: a question was posted, the answer comes later) | — |
   | `1` | failed | `failed` |
   | `2` | not found — only that | `not-found`, `ambiguous` (several match: the message lists them) |
-  | `3` | not possible now | `invalid-phase`, `conflict`, `plan-changed`, `file-changed`, `already-answered`, `not-owned` |
+  | `3` | not possible now | `invalid-phase`, `conflict`, `plan-changed`, `file-changed`, `already-answered`, `not-owned`, `request-id-reused` |
   | `4` | already exists | `already-exists` (also `exists`) |
   | `5` | not confirmed (no terminal and no `--yes`) | `needs-confirmation` |
   | `6` | the daemon is unavailable | `needs-daemon` (also `unavailable`, `version`) |

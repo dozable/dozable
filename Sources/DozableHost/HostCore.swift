@@ -119,6 +119,12 @@ public actor HostCore {
     let sessionGate = KeyedGate()
     /// The workspaces' changes, one at a time (the key `workspaces`) — `HostCore+Workspaces`.
     let workspaceGate = KeyedGate()
+    /// `--request-id`: the requests with one id, one at a time (the key `OP NUL ID`; taken before any other gate) —
+    /// `HostCore+RequestReplay`.
+    let requestGate = KeyedGate()
+    /// The clock the kept request ids are judged by (tests move it).
+    var requestReplayNow: @Sendable () -> Date = { Date() }
+    public func setRequestReplayClock(_ now: @escaping @Sendable () -> Date) { requestReplayNow = now }
     /// The chat server as the workspaces use it (the daemon sets it; nil: none — chat is treated as off).
     var workspaceChat: (any WorkspaceChat)?
     public func setWorkspaceChat(_ c: (any WorkspaceChat)?) { workspaceChat = c }
@@ -799,7 +805,9 @@ public actor HostCore {
         return NSTimeZone.system.identifier
     }
 
-    private func perform(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
+    func perform(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
+        // `--request-id`: a retry of a create is answered from its first answer (`HostCore+RequestReplay`).
+        if let id = r.requestID, RequestReplay.ops.contains(r.op) { return try await performOnce(r, id: id, emit: emit) }
         // @mac is this Mac, never a sandbox: routed before anything looks a sandbox up (`HostCore+Mac`).
         if MacPlace.isPlace(r.name) { return try await performMac(r) }
         if let n = r.name, let m = managed[n] {
