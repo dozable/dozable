@@ -44,6 +44,20 @@ public enum TestSafety {
         return FileManager.default.homeDirectoryForCurrentUser
     }
 
+    /// 751: whether `doz daemon stop` also ends the sessions on this Mac its store holds (the `deckhold-mac serve` holders
+    /// in that store's own socket folder): only in a guarded test run, and only for a store that is not the default one — so
+    /// a test that forgets `workspace finish` leaks no holder. Outside a test a person's `@mac` sessions outlive the daemon
+    /// by design (docs/engineering/engine.md, "A guarded stop ends its store's sessions"). A test that proves exactly that
+    /// survival keeps them with `DOZ_TEST_KEEP_MAC_SESSIONS=1` in the daemon's environment (`make test-cli`'s harness sets it
+    /// by default; its T9 row runs a daemon without it).
+    public static func endsHeldSessionsAtStop(store: URL, env: [String: String] = ProcessInfo.processInfo.environment,
+                                              inXCTest: Bool = NSClassFromString("XCTestCase") != nil, home: URL = realHome) -> Bool {
+        guarded(env, inXCTest: inXCTest) && env[keepMacSessionsVariable] != "1" && storeViolation(store, home: home) == nil
+    }
+
+    /// A guarded test's way to keep its store's sessions on this Mac across `doz daemon stop` (`endsHeldSessionsAtStop`).
+    public static let keepMacSessionsVariable = "DOZ_TEST_KEEP_MAC_SESSIONS"
+
     /// The default store a person's Dozable uses.
     public static func defaultStore(home: URL = realHome) -> URL {
         home.appendingPathComponent("Library/Application Support/doz").standardizedFileURL

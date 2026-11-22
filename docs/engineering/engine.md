@@ -181,6 +181,19 @@ A bare file name is in `Sources/DozableKit/`.
   `stopHostShowingProgress` (the CLI's progress view: animated on a tty, plain lines else) or, in the
   UI, Restart daemon's operation (`WebOperation.lines`). A daemon that dies mid-stop: the client reports
   what it saw (`HostStopView.seen`), never hangs. `make test-cli-hoststop` (in `test-cli` too).
+- **A guarded stop ends its store's sessions** (751). The sessions on this Mac are NOT the daemon's to stop: their holders
+  (`deckhold-mac serve`) daemonise and outlive it by design (sessions.md, "The holder"), so a person's `@mac` sessions —
+  a workspace's fenced manager among them — keep running across `doz daemon stop`, an update and a restart, and the next
+  daemon adopts them. A test that forgets `workspace finish` used to leak those holders on the runner. So in a guarded test
+  run only, and only for a store that is not the default one (`TestSafety.endsHeldSessionsAtStop`: `guarded` and no
+  `storeViolation`), `HostServer.shutdown` first ends every running session THIS store holds (`HostCore.macEndHeldAtTestStop`
+  → `MacSessions.end`: by its record and the pid its own holder names on this store's socket folder — HUP, TERM, KILL to
+  that group only, the requested end so no crash line — never a process found by name), and the holders exit with their
+  programs; the log says "a guarded test run: ended N session(s) on this Mac this store held". Outside a test nothing
+  changes. A test that proves the survival itself keeps them with `DOZ_TEST_KEEP_MAC_SESSIONS=1` in the daemon's
+  environment (`TestSafety.keepMacSessionsVariable`): `make test-cli`'s harness (`CLIHarness`) sets it by default, since
+  its suites check exactly that (e.g. `make test-cli-workspace` row 22, the fence's daemon-stop rows); its T9 row starts a
+  daemon without it. `TestSafetyTests.testOnlyAGuardedStopOfAScratchStoreEndsItsHeldSessions`, `make test-cli-workspace` T9.
 - **The sandbox follows the Mac's time zone**: `GuestTimeZone` — the zone's TZif bytes from
   THIS Mac's `/usr/share/zoneinfo` (portable to glibc and musl; the Alpine lab has no tzdata) — written to
   `/etc/localtime` (+ `/etc/timezone`) by `prepareGuest` at every fresh boot and by `.resyncClock` at

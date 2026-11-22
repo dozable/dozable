@@ -485,6 +485,12 @@ public final class HostServer: @unchecked Sendable {
                 HostLog.line(e.line)
             }
         }
+        // 751: a guarded test run's stop of a scratch store ends that store's sessions on this Mac first (their holders
+        // exit), so a test that forgets `workspace finish` leaks none. Never outside a test.
+        if prepare, TestSafety.endsHeldSessionsAtStop(store: store.root) {
+            let ended = await core.macEndHeldAtTestStop()
+            if ended > 0 { HostLog.line("a guarded test run: ended \(ended) session(s) on this Mac this store held") }
+        }
         // The sessions on this Mac are not the host's to stop: their screens are saved once more, and they keep running.
         let macLive = prepare ? await core.macSessionsAtExit() : 0
         if macLive > 0 { HostLog.line("\(macLive) session(s) on this Mac keep running (their holders outlive the daemon)") }

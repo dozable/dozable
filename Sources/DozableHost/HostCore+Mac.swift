@@ -809,6 +809,18 @@ extension HostCore {
         }
     }
 
+    /// 751: a guarded `doz daemon stop` (`TestSafety.endsHeldSessionsAtStop`) ends every session on this Mac THIS store
+    /// holds — by its record and the pid its own holder names in this store's socket folder (`MacSessions.end`), never a
+    /// process found by name — so its holder exits too. Answers how many were ended. Outside a test nothing calls it.
+    public func macEndHeldAtTestStop() async -> Int {
+        guard !readOnly, TestSafety.endsHeldSessionsAtStop(store: store.root) else { return 0 }
+        var ended = 0
+        for row in await mac.rows() where !row.ended && row.gone != true {
+            if let how = try? await mac.end(row.name), how != .notRunning, how != .stuck { ended += 1 }
+        }
+        return ended
+    }
+
     /// A host stop: the sessions on this Mac keep running (their screens saved once more) — how many.
     public func macSessionsAtExit() async -> Int {
         guard !readOnly else { return 0 }
