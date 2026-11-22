@@ -42,13 +42,14 @@ extension HostCore {
     /// The brief's text: a space workspace's from the file its record names (under `SpaceBriefFile`'s rules; nil when it
     /// cannot be read — the set-up check then says the brief is missing), any other's from the store's `brief.md`.
     func workspaceBriefText(_ rec: WorkspaceRecord) -> String? {
-        if let p = SpaceRecordRef.of(rec)?.brief?.path { return try? SpaceBriefFile.read(p, store: storeRoot).text }
+        // An empty path: the brief is held in the space file itself (755: `x-dozable.brief.text`), kept in brief.md.
+        if let p = SpaceRecordRef.of(rec)?.brief?.path, !p.isEmpty { return try? SpaceBriefFile.read(p, store: storeRoot).text }
         return workspaces.readBrief(rec.name)
     }
 
     /// The facts `keptFolderPaths` needs: the home and the projects folder.
     func spaceFactsHome() -> SpaceFacts {
-        SpaceFacts(known: true, home: TestSafety.realHome.path, projectsDir: (Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent)
+        SpaceFacts(known: true, home: TestSafety.spaceHome(), projectsDir: (Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent)
     }
 
     /// Why a folder the space would make is refused (nil: fine): never in the store.
@@ -77,8 +78,16 @@ extension HostCore {
             throw HostError(.invalidPhase, plan.confirm.isEmpty ? "nothing here is unfenced: there is nothing to confirm"
                             : "\(plan.confirm.joined(separator: ", ")) would run unfenced, with full access to your user — confirm \(plan.confirm.count == 1 ? "it" : "them") at this up")
         }
-        guard let intent = plan.intent, let briefPath = q.brief?.path else { throw HostError(.invalid, "workspace-up needs the space's brief") }
-        let brief = try SpaceBriefFile.read(briefPath, store: storeRoot)
+        guard let intent = plan.intent else { throw HostError(.invalid, "workspace-up needs the space's brief") }
+        let brief: SpaceBriefFile.Read
+        if let text = intent.briefText {
+            // 755: the brief held in the document (`x-dozable.brief.text`): kept in the store's brief.md, as `new` keeps one.
+            let d = try workspaceCheckBrief(text)
+            brief = SpaceBriefFile.Read(text: text, sha256: WorkspaceStore.sha256(d), bytes: d.count)
+        } else {
+            guard let briefPath = q.brief?.path else { throw HostError(.invalid, "workspace-up needs the space's brief") }
+            brief = try SpaceBriefFile.read(briefPath, store: storeRoot)
+        }
         let facts = await spaceFacts(intent, brief: q.brief)
 
         var out = SpaceActed(space: name, verb: "up")
@@ -107,9 +116,19 @@ extension HostCore {
         if workspaces.exists(name) {
             ref.upAt = Date()
             ref.planSHA = plan.sha
+            let store = workspaces
+            let held = intent.briefText != nil
             let r = try await workspaceUpdate(name) { r in
                 ref.store(in: &r)
-                return [WorkspaceLogEntry(action: "space-up", sha256: plan.specSHA, reason: failed ? "stopped at a failure; the rest not run" : nil)]
+                var log = [WorkspaceLogEntry(action: "space-up", sha256: plan.specSHA, reason: failed ? "stopped at a failure; the rest not run" : nil)]
+                // 755: a brief held in the document that changed since the last up: the store's copy follows it.
+                if held, r.brief.sha256 != brief.sha256, (try? store.writeBrief(name, Data(brief.text.utf8))) != nil {
+                    r.brief.sha256 = brief.sha256
+                    r.brief.bytes = brief.bytes
+                    r.brief.updatedAt = Date()
+                    log.append(WorkspaceLogEntry(action: "brief-edited", sha256: brief.sha256, bytes: brief.bytes))
+                }
+                return log
             }
             try? MacFenceHostFS.writeAtomically(Data(q.spec.utf8), dir: WorkspaceStore.resolved(workspaces.folder(name)), name: "space.json", mode: 0o600)
             out.run = r.openRun?.id
@@ -170,6 +189,7 @@ extension HostCore {
             if i.rooms.isEmpty { w.noRoom = true }
             else if let m = i.mainRoom, m.external { w.room = m.chatRoom }
             w.manager = i.manager?.bot
+            w.refs = i.briefRefs
             await workspaceGate.lock("workspaces")
             defer { workspaceGate.unlock("workspaces") }
             let d = try await workspaceNew(w, space: (ref, brief))
@@ -229,9 +249,9 @@ extension HostCore {
             return []
 
         case "workspace-adopt":
-            guard let a = i.agents.first(where: { "agent \($0.name)" == st.subject }), let s = a.session else { return [] }
+            guard let a = i.agents.first(where: { "agent \($0.name)" == st.subject }), let place = a.session.map({ MacPlace.name + "/" + $0 }) ?? a.sandbox else { return [] }
             var w = WorkspaceRequest(name: n)
-            w.agent = MacPlace.name + "/" + s
+            w.agent = place
             w.asName = a.name
             await workspaceGate.lock("workspaces")
             defer { workspaceGate.unlock("workspaces") }

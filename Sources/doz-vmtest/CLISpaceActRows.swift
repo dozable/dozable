@@ -203,7 +203,7 @@ func cliSpaceActRows(_ h: CLIHarness, root: URL, store: DozableStore) {
 
     // S9. up #2
     r = h.run(["workspace", "up", "-f", file.path, "--yes"], timeout: 240)
-    check(r.code == 0, "S9 up again (\(r.code) \(r.err.prefix(200)))")
+    check(r.code == 0, "S9 up again (\(r.code) \(r.err.prefix(200)))" + (r.code == 0 ? "" : "\n" + r.out.split(separator: "\n").filter { $0.contains("FAILED") || $0.contains("not run") }.joined(separator: "\n")))
     check((try? ChatRoomIndex.load(ChatPaths(store: store)))?.rooms["sa"]?.id == roomID, "S9 …the persisted room keeps its id")
     let w1 = agentDir("sa-w1") ?? "/nonexistent"
     check(h.waitFor(30) { text(w1 + "/argv.txt").contains("--resume") || text(w1 + "/argv.txt").contains("--continue") },

@@ -42,6 +42,8 @@ public struct SpaceIntent: Codable, Equatable, Sendable {
         /// `persist: { agent: … }` names it (with where that is written).
         public var memory: Sourced?
         public var secrets: [String]
+        /// 755: `x-dozable.restart` (`no`, `on-failure`; nil: not written). Recorded, not applied in this version.
+        public var restart: String? = nil
     }
 
     public struct Room: Codable, Equatable, Sendable {
@@ -95,7 +97,13 @@ public struct SpaceIntent: Codable, Equatable, Sendable {
     public var space: String
     public var title: String
     public var owner: String
+    /// The brief's file as written (empty: the brief is held in the document — `briefText`).
     public var brief: String
+    /// 755: `x-dozable.lifetime` as written (nil: none, read as `runs` — `effectiveLifetime`); the brief held in the
+    /// document (`x-dozable.brief.text`) and its references. Optional, so an older daemon's plan still decodes.
+    public var lifetime: String? = nil
+    public var briefText: String? = nil
+    public var briefRefs: [String]? = nil
     public var agents: [Agent] = []
     public var rooms: [Room] = []
     public var folders: [Folder] = []
@@ -116,6 +124,8 @@ public struct SpaceIntent: Codable, Equatable, Sendable {
     /// Left out: their profile is not active.
     public var skipped: [String] = []
 
+    /// The lifetime a reader takes: as written, else `runs` (today's meaning of a space file).
+    public var effectiveLifetime: String { lifetime ?? SpaceDozable.defaultLifetime }
     public var mainRoom: Room? { rooms.first { $0.main } }
     public var manager: Agent? { agents.first { $0.role == "manager" } }
     public var ownedAgents: [Agent] { agents.filter { !$0.external } }
@@ -131,6 +141,9 @@ extension SpaceIntent {
         func src(_ p: String) -> String { loc.sourceOf(p) ?? "the default" }
         var i = SpaceIntent(space: model.space, title: model.title, owner: model.owner, brief: model.brief,
                             archive: Sourced(model.archiveOn ? "on" : "off", model.provenance["archive"] ?? "the default"))
+        i.lifetime = model.lifetime
+        i.briefText = model.briefText
+        i.briefRefs = model.briefRefs.isEmpty ? nil : model.briefRefs
         i.archiveKeep = model.archiveKeep
         i.risks = model.risks
         i.skipped = model.skipped.map(\.name)
@@ -174,11 +187,15 @@ extension SpaceIntent {
                 } else {
                     x.bot = SpaceDoc.string(SpaceDoc.member(a.external, "bot"))
                     x.session = SpaceDoc.string(SpaceDoc.member(a.external, "session"))
+                    // 755: an agent in an existing sandbox (`x-dozable.external`): adopted, never started.
+                    x.sandbox = SpaceDoc.string(SpaceDoc.member(a.external, "sandbox"))
                 }
                 i.agents.append(x)
                 continue
             }
             let d = a.def
+            x.restart = SpaceDoc.string(SpaceDozable.member(d, "restart"))
+            if let r = x.restart { i.notes.append("agent \(a.name): restart: \(r) is not applied in this version") }
             if let sb = a.sandbox {
                 x.sandbox = sb
                 x.isolation = Sourced("vm", src(p + "/where"))

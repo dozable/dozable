@@ -53,7 +53,7 @@ One row per area; each area's doc starts with the full table of its files.
 | Sound | `Audio.swift`, `DozSound.swift`, `MacAudio`, `Microphone`, `Guest/sound-kernel/` | [sound.md](docs/engineering/sound.md) |
 | The chat server (the `doz chat` group) | `Sources/DozableChat/`, `Sources/DozableHost/Chat*.swift` (under the daemon), `Sources/DozableCLI/Chat*.swift`, `Tests/Conformance/`; in the dashboard `Sources/DozableWeb/WebChat.swift`, `WebSource/app/*/chat*.js` | [chat.md](docs/engineering/chat.md), [web.md](docs/engineering/web.md) ("Chat") |
 | The menu bar app | `Sources/DozableMenuBarCore/`, `Sources/DozableMenuBar/`, `Resources/MenuBar/` (+ the login agent's plist), `Scripts/assemble-app.sh`, `Scripts/check-agent-plist.py`, `AppCommands.swift` (`doz app`) | [menu-bar-app.md](docs/engineering/menu-bar-app.md) |
-| Workspaces, their workers and Agents / Bots (`doz workspace`, `doz worker`, `doz bot`); space files (`doz space`) | `WorkspaceRecord`, `WorkspaceStore`, `WorkspaceState`, `HostCore+Workspaces`, `ChatOwnerRooms`, `WorkspaceCommands`; the wide views `WorkspaceReach`, `WorkspaceChangedFiles`, `HostCore+WorkspaceViews`; `WorkerLaunch`, `HostCore+Workers`, `WorkerCommands`; `BotRecord`, `BotStore`, `BotTokens`, `HostCore+Bots`, `BotCommands`; `SpaceResolver`, `SpaceValidator`, `SpaceIntent`, `SpaceUp`, `SpaceCommands`; a space's file, state and frames `SpaceRecordFile`, `SpaceState`, `SpaceStateRecorder`, `HostCore+SpaceState`, `WebSpace`; the state of every other workspace and each agent's condition `WorkspaceRecordState` | [workspaces.md](docs/engineering/workspaces.md) |
+| Workspaces, their workers and Agents / Bots (`doz workspace`, `doz worker`, `doz bot`); space files (`doz space`) | `WorkspaceRecord`, `WorkspaceStore`, `WorkspaceState`, `HostCore+Workspaces`, `ChatOwnerRooms`, `WorkspaceCommands`; the wide views `WorkspaceReach`, `WorkspaceChangedFiles`, `HostCore+WorkspaceViews`; `WorkerLaunch`, `HostCore+Workers`, `WorkerCommands`; `BotRecord`, `BotStore`, `BotTokens`, `HostCore+Bots`, `BotCommands`; `SpaceResolver`, `SpaceValidator`, `SpaceIntent`, `SpaceUp`, `SpaceCommands`; a space's file, state and frames `SpaceRecordFile`, `SpaceState`, `SpaceStateRecorder`, `HostCore+SpaceState`, `WebSpace`; the state of every other workspace and each agent's condition `WorkspaceRecordState`; every workspace's document `RecordDocument`, `HostCore+Document`, `WorkspaceDocCommands`, the `x-dozable` keys `SpaceDozable` | [workspaces.md](docs/engineering/workspaces.md), the model: [workspace-model.md](docs/engineering/workspace-model.md) |
 
 ## Rules that each cost a bug to learn (keep them, and keep their tests)
 
@@ -405,7 +405,7 @@ are in its doc, so read it before changing that area.
 - [docs/engineering/files.md](docs/engineering/files.md) — the file watcher (`files-list`, `doz files`, the files routes) and the Files tab's changes, Open in an editor
 - [docs/engineering/chat.md](docs/engineering/chat.md) — the chat server: no VM parts, isolation, the strict config, the access rules and `agent_addresses`, the protocol's bytes and store, the conformance gate
 - [docs/engineering/menu-bar-app.md](docs/engineering/menu-bar-app.md) — Dozable.app: the doz command as its only interface, the menu's state table, refresh, `doz app install`, the seams
-- [docs/engineering/workspaces.md](docs/engineering/workspaces.md) — workspaces: the record and its store, the derived state, adopting agents, the main room in chat, the manager (the set-up check, start and stop), workers (add, the token kinds, a shared sandbox, end, the sweep); Agents / Bots and their tokens
+- [docs/engineering/workspaces.md](docs/engineering/workspaces.md) — workspaces: the record and its store, the derived state, adopting agents, the main room in chat, the manager (the set-up check, start and stop), workers (add, the token kinds, a shared sandbox, end, the sweep); Agents / Bots and their tokens; and [workspace-model.md](docs/engineering/workspace-model.md) — the model (one document, the record, one controller), the record → document mapping, the `x-dozable` keys, `doz workspace doc`
 - [docs/engineering/timeline.md](docs/engineering/timeline.md) — this Mac's history: the records it added, the derived `timeline.sqlite` and its indexer, queries and the live feed, retention (only what it added), privacy
 
 ## Verifying changes
@@ -467,7 +467,7 @@ A new code path that reads something of the Mac's own must go through a seam the
 try banner, the Guide's facts, the details' folder, a Dockerfile, the plan's lines, Doctor, and the CLI's human lines
 that name a folder. Display only: stored values, requests and every JSON field stay absolute. Home is the REAL one
 (`TestSafety.realHome`); the seam `DOZ_TEST_HOME=/tmp/…` stands in for it on screen only, and only in a guarded run (the
-release post's screenshots: `probes/617-*/stageE/release-shots.mjs`). Nothing else reads it.
+release post's screenshots: `probes/617-*/stageE/release-shots.mjs`); its one other reader is `TestSafety.spaceHome` (`~` in a space file, workspace-model.md).
 
 ### The VM integration tests need an ENTITLED host — how
 

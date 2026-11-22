@@ -9,7 +9,8 @@ import Foundation
 ///
 /// "Home" is the Mac user's real one (`TestSafety.realHome`, never `$HOME`). A guarded test run (`DOZ_TEST_GUARD=1`) may
 /// name another with `DOZ_TEST_HOME` — a scratch folder that stands in for home ON SCREEN ONLY (the release post's
-/// screenshots: a scratch store and projects folder that read `~/…`). Nothing else reads that variable.
+/// screenshots: a scratch store and projects folder that read `~/…`). The one other reader is `TestSafety.spaceHome` (755):
+/// in a guarded run it is also what `~` means in a space file and a `~/…` the CLI is given.
 public enum DisplayPath {
     /// The home a path is shown relative to, and its resolved spelling when that differs (`/tmp/x` is `/private/tmp/x`):
     /// paths reach the page in either form.

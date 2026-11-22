@@ -10,6 +10,7 @@ final class ActionClassTests: XCTestCase {
     static let table: [HostOp: [String]] = [
         .workspaceShow: ["workspace.read"], .workspaceLog: ["workspace.read"], .workspaceReach: ["workspace.read"],
         .workspaceFolders: ["workspace.read"], .workspaceRuns: ["workspace.read"], .workspaceRunChat: ["workspace.read"],
+        .workspaceDoc: ["workspace.read"],
         .workerList: ["workspace.read"], .permissionsShow: ["workspace.read"], .permissionsWhy: ["workspace.read"], .sessionScreen: ["workspace.read"],
         .workspaceStart: ["agent.start"], .start: ["agent.start"], .wake: ["agent.start"], .resume: ["agent.start"],
         .sessionResume: ["agent.start"], .sessionRestart: ["agent.start"], .openSession: ["agent.start"],

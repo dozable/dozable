@@ -38,6 +38,7 @@ import DozableHost
 //      CLI_WORKSPACE_ROWS=stub runs them alone
 //  O1–O8. one-shot new (CLIWorkspaceOneShotRows.swift); CLI_WORKSPACE_ROWS=oneshot runs them alone
 //  I1–I5. idempotent creates, --request-id (CLIWorkspaceRequestIDRows.swift); CLI_WORKSPACE_ROWS=requestid runs them alone
+//  D1–D6. a document for every workspace, doz workspace doc (CLIWorkspaceDocRows.swift); CLI_WORKSPACE_ROWS=doc runs them alone
 func cliWorkspaceSuite(binary: String) async {
     print("cli: workspaces — no VM")
     let fm = FileManager.default
@@ -123,6 +124,13 @@ func cliWorkspaceSuite(binary: String) async {
         h.run(["config", "set", "chat.page_port", String(freePort())])
         h.run(["config", "set", "chat.line_port", String(freePort())])
         cliWorkspaceRequestIDRows(h, root: root, store: store, started: &started)
+        return
+    }
+    // WS.07: CLI_WORKSPACE_ROWS=doc runs the document's rows alone (D1–D6).
+    if ProcessInfo.processInfo.environment["CLI_WORKSPACE_ROWS"] == "doc" {
+        h.run(["config", "set", "chat.page_port", String(freePort())])
+        h.run(["config", "set", "chat.line_port", String(freePort())])
+        cliWorkspaceDocRows(h, root: root, store: store, started: &started)
         return
     }
     // WS.04: CLI_WORKSPACE_ROWS=oneshot runs one-shot new's rows alone (O1–O7).
@@ -289,4 +297,6 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspaceOneShotRows(h, root: root, store: store, started: &started)
     // I1–I5. idempotent creates: --request-id (CLIWorkspaceRequestIDRows.swift)
     cliWorkspaceRequestIDRows(h, root: root, store: store, started: &started)
+    // D1–D6. a document for every workspace: doz workspace doc (CLIWorkspaceDocRows.swift)
+    cliWorkspaceDocRows(h, root: root, store: store, started: &started)
 }

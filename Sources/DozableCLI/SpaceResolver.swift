@@ -51,7 +51,8 @@ struct SpaceResolver {
         }
     }
 
-    var home = NSHomeDirectory()
+    /// What `~` stands for (`TestSafety.spaceHome`: the real home; a guarded run's `DOZ_TEST_HOME`).
+    var home = TestSafety.spaceHome()
     var environment = ProcessInfo.processInfo.environment
     var read: (String) -> String? = { p in
         guard let d = FileManager.default.contents(atPath: p), d.count <= SpaceResolver.maximumFileBytes else { return nil }

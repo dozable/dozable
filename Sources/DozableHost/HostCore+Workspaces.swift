@@ -155,6 +155,8 @@ extension HostCore {
             return try JSONValue(encoding: try workspaceRunChat(w))
         case .workspaceState:
             return try JSONValue(encoding: try await workspaceState(w))
+        case .workspaceDoc:
+            return try JSONValue(encoding: try workspaceDocument(w))
         case .workspaceSpace:
             return try JSONValue(encoding: try workspaceSpaceFile(w))
         case .workspaceSpaceSave:
@@ -399,7 +401,11 @@ extension HostCore {
         let named = WorkspaceName.isValid(name)
         if named, workspaces.exists(name) { refuse(HostError(.exists, "there is already a workspace \(name)")) }
         var brief = Data((w.brief ?? "").utf8)
-        if let space { attempt { _ = try workspaceCheckBrief(space.brief.text) }; brief = Data() }
+        if let space {
+            attempt { _ = try workspaceCheckBrief(space.brief.text) }
+            // A brief held in the space file itself (755: no path) is kept in brief.md; a brief FILE is never copied.
+            brief = (space.ref.brief?.path ?? "").isEmpty ? Data(space.brief.text.utf8) : Data()
+        }
         else { attempt { brief = try workspaceCheckBrief(w.brief ?? "") } }
         // The folders: `<projects_dir>/NAME` first when it is made now, then each given one.
         var folders: [WorkspaceFolder] = []
