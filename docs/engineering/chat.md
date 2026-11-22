@@ -528,7 +528,10 @@ links each to its room, where the decision card answers. A person's
 words become a decision by `ChatAskReply` (an option's id, its letter, its label, `decline` and a reason, or a free-text
 answer; several questions or several options at once need `--answers`); a refusal is read again — the ask's state after
 it decides — and told in Dozable's words (`ChatAskRefusal`: expired, answered, withdrawn, not one of its deciders, the
-asker, its room closed, asks off, a bad answer; the person's own words are never repeated in it). `doz chat ask --wait`
+asker, its room closed, asks off, a bad answer; the person's own words are never repeated in it). 751 (D10): its code is the
+frozen table's (`HostCore.hostCode`) — answered: exit 3 `already-answered`; expired, withdrawn, its room closed: exit 3
+`invalid-phase`; not one of its deciders, the asker, not its asker withdrawing: exit 3 `not-owned`; asks off and a bad
+answer stay exit 1 `failed` (`ChatAskHostTests`, `make test-cli-chat` D6 and D12). `doz chat ask --wait`
 exits 0 decided, 10 declined, 11 expired, 12 withdrawn; `doz chat read` marks an ask "ask #N · open | decided by X |
 expired | withdrawn" above its text. Dozable never speaks for an agent: a request made as one (`--as W/AGENT`) gets the
 gate's answer first (`chat.decide` only with the decider role, which `GrantDecision` adds to the roles held), and allowed,

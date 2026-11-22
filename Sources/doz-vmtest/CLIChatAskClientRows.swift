@@ -6,10 +6,11 @@
 //  D4. a bot's ask decided with doz chat decide R #N B: "Answered #N: B. Next (decided by you)."; the asker's receive gets
 //      ask-outcome
 //  D5. by label, by free words, --decline "not now"
-//  D6. Dozable's words for answered, expired (+2 s), withdrawn, not a decider (only a role bot named), the asker — exit 1
+//  D6. Dozable's words for answered, expired (+2 s), withdrawn, not a decider (only a role bot named), the asker — exit 3
+//      (751, D10: already-answered, invalid-phase, not-owned)
 //  D10. --as W/AGENT chat decide: no role → the gate refuses citing chat.decide; with the role → "with its own token"
 //  D11. chat off: exit 6; chat.asks false → "Asks are off…"
-//  D12. a finished workspace: "its room is closed"
+//  D12. a finished workspace: "its room is closed" — exit 3
 import Darwin
 import Foundation
 import DozableChat
@@ -86,24 +87,28 @@ func cliChatAskClientRows(h: CLIHarness, root: URL, paths: ChatPaths, page: Int,
     n = botAsk(plain, spec("6a"))
     _ = h.run(["chat", "decide", "askroom", "#\(n)", "A"], timeout: 60)
     r = h.run(["chat", "decide", "askroom", "#\(n)", "B"], timeout: 60)
-    check(r.code == 1 && r.err == "doz: It was already answered: decided by Ada.\n", "D6 answered (\(r.code) \(r.err))")
+    check(r.code == 3 && r.err == "doz: It was already answered: decided by Ada.\n", "D6 answered (\(r.code) \(r.err))")
+    r = h.run(["chat", "decide", "askroom", "#\(n)", "B", "--json"], timeout: 60)
+    let answeredErr = ((try? JSONSerialization.jsonObject(with: r.outData)) as? [String: Any])?["error"] as? [String: Any]
+    check(r.code == 3 && answeredErr?["code"] as? String == "already-answered" && answeredErr?["exit"] as? Int == 3,
+          "D6 …and --json: error code already-answered, exit 3 (\(r.code) \(r.out.prefix(200)))")
     let soon = ISO8601DateFormatter().string(from: Date().addingTimeInterval(2))
     n = botAsk(plain, #"{"questions":[{"options":[{"id":"a1"}]}],"about":{"d":"6b"},"expires_at":"\#(soon)"}"#)
     usleep(3_000_000)
     r = h.run(["chat", "decide", "askroom", "#\(n)", "A"], timeout: 60)
-    check(r.code == 1 && r.err == "doz: This ask expired: its answer was decline.\n", "D6 expired (\(r.code) \(r.err))")
+    check(r.code == 3 && r.err == "doz: This ask expired: its answer was decline.\n", "D6 expired (\(r.code) \(r.err))")
     n = botAsk(plain, spec("6c"))
     _ = agent(plain, "POST", "/agent/withdraw", "{\"room\":\"askroom\",\"ask_id\":\"#\(n)\"}")
     r = h.run(["chat", "decide", "askroom", "#\(n)", "A"], timeout: 60)
-    check(r.code == 1 && r.err == "doz: It was withdrawn by the one who asked it.\n", "D6 withdrawn (\(r.code) \(r.err))")
+    check(r.code == 3 && r.err == "doz: It was withdrawn by the one who asked it.\n", "D6 withdrawn (\(r.code) \(r.err))")
     n = botAsk(plain, #"{"questions":[{"options":[{"id":"a1"}]}],"about":{"d":"6d"},"deciders":["decbot"]}"#)
     r = h.run(["chat", "decide", "askroom", "#\(n)", "A"], timeout: 60)
-    check(r.code == 1 && r.err == "doz: You are not one of this ask's deciders (only Decbot is).\n", "D6 not a decider (\(r.code) \(r.err))")
+    check(r.code == 3 && r.err == "doz: You are not one of this ask's deciders (only Decbot is).\n", "D6 not a decider (\(r.code) \(r.err))")
     _ = agent(plain, "POST", "/agent/withdraw", "{\"room\":\"askroom\",\"ask_id\":\"#\(n)\"}")
     r = h.run(["chat", "ask", "askroom", "Lunch?", "--decider", "decbot"], timeout: 60)
     let mine = r.out.range(of: #"#\d+"#, options: .regularExpression).map { String(r.out[$0]) } ?? "#0"
     r = h.run(["chat", "decide", "askroom", mine, "yes"], timeout: 60)
-    check(r.code == 1 && r.err == "doz: You asked this: the one who asks cannot answer it.\n", "D6 the asker (\(r.code) \(r.err))")
+    check(r.code == 3 && r.err == "doz: You asked this: the one who asks cannot answer it.\n", "D6 the asker (\(r.code) \(r.err))")
     _ = h.run(["chat", "withdraw", "askroom", mine], timeout: 60)
 
     // D10. an agent never answers through the daemon
@@ -141,7 +146,7 @@ func cliChatAskClientRows(h: CLIHarness, root: URL, paths: ChatPaths, page: Int,
     r = h.run(["workspace", "finish", "wsask", "--yes"], timeout: 180)
     check(r.code == 0, "D12 finish wsask (\(r.code) \(r.err.prefix(160)))")
     r = h.run(["chat", "ask", "wsask", "Still there?"], timeout: 60)
-    check(r.code == 1 && r.err == "doz: Its room is closed: it can still be read, but nothing is asked or answered there.\n", "D12 its room is closed (\(r.code) \(r.err))")
+    check(r.code == 3 && r.err == "doz: Its room is closed: it can still be read, but nothing is asked or answered there.\n", "D12 its room is closed (\(r.code) \(r.err))")
     r = h.run(["workspace", "reopen", "wsask"], timeout: 60)
     check(r.code == 0, "D12 reopen (\(r.code) \(r.err.prefix(160)))")
     _ = asker

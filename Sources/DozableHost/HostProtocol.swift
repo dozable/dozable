@@ -1884,6 +1884,9 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     /// not answered where it is (another computer) — both set by the dashboard's server, never by a browser. Additive.
     public var askTextHidden: Bool?
     public var asksAnsweredElsewhere: Bool?
+    /// state (751): the answer also carries each agent's condition (`SpaceState.agentConditions`) — the CLI's `--json`
+    /// asks for it; the dashboard does not (its document stays exactly the editor's). Additive.
+    public var withConditions: Bool?
     /// space-save: the space file's new text (at most 256 KiB), and the sha256 of the file as the editor read it. Additive.
     public var text: String?
     public var ifMatch: String?

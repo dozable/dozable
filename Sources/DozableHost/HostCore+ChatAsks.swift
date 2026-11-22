@@ -123,9 +123,22 @@ extension HostCore {
     /// A refusal in Dozable's words: the ask read again decides which.
     func refusal(_ chat: WorkspaceChat, room: String, ref: String, _ v: JValue, _ status: Int) -> HostError {
         let d = Self.detail(v, status)
-        let r = ChatAskRefusal.classify(detail: d, ask: askNow(chat, room: room, ref: ref)?.0)
-        return HostError(.failed, r.words)
+        return Self.hostError(ChatAskRefusal.classify(detail: d, ask: askNow(chat, room: room, ref: ref)?.0))
     }
+
+    /// 751 (D10): a refusal's code in the frozen exit table — exit 3 "not possible now" for an ask that is closed (answered:
+    /// `already-answered`; expired, withdrawn or its room closed: `invalid-phase`) or not yours to answer or withdraw
+    /// (`not-owned`); anything else stays `failed` (asks off, an answer that is not one of its options, the server's own).
+    static func hostCode(_ c: ChatAskRefusal.Code) -> HostError.Code {
+        switch c {
+        case .answered: .alreadyAnswered
+        case .expired, .withdrawn, .roomClosed: .invalidPhase
+        case .notAnAnswerer, .asker: .notOwned
+        case .asksOff, .badAnswer, .macOnly: .failed
+        }
+    }
+
+    static func hostError(_ r: ChatAskRefusal) -> HostError { HostError(hostCode(r.code), r.words) }
 
     func outcome(_ chat: WorkspaceChat, room: String, ref: String, state: String) -> ChatAskOutcome {
         guard let (a, m) = askNow(chat, room: room, ref: ref) else { return ChatAskOutcome(room: room, ask: ref, msgId: "", state: state) }
@@ -154,8 +167,7 @@ extension HostCore {
         let (status, v) = try chat.ask(room: room, content: question, spec: spec, msgID: msgID)
         if status == 404 || status == 403 { throw HostError(.notFound, Self.detail(v, status)) }
         guard status == 200 else {
-            let d = Self.detail(v, status)
-            throw HostError(.failed, ChatAskRefusal.classify(detail: d, ask: nil).words)
+            throw Self.hostError(ChatAskRefusal.classify(detail: Self.detail(v, status), ask: nil))
         }
         let state = v.field("state")?.stringValue == "duplicate" ? "duplicate" : "asked"
         return outcome(chat, room: room, ref: msgID, state: state)
@@ -181,7 +193,7 @@ extension HostCore {
             // A closed ask is still sent: the same action id again is a duplicate, anything else the server's refusal.
             switch ChatAskReply.resolve(a, words: q.reply ?? "") {
             case .success(let i): input = i
-            case .failure(let why): throw HostError(.failed, why.words)
+            case .failure(let why): throw Self.hostError(why)
             }
         }
         let (status, v) = try chat.decide(room: room, ref: ref, body: Self.decideBody(input), actionID: actionID)

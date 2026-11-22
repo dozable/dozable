@@ -25,16 +25,55 @@ extension HostCore {
         return (rec, ref, SpaceIntent.compile(checked.model, doc, SpaceLocator(sources: ref.sources ?? [], origins: [:])))
     }
 
-    /// `workspace-state`.
+    /// `workspace-state` — for EVERY workspace (751): one made from a space file from its recorded spec, any other (and one
+    /// whose spec an older doz recorded) from its record (`RecordStateBuilder`). Not found only when there is no such
+    /// workspace. Each agent's condition rides along when asked (`withConditions`: the CLI's `--json`).
     func workspaceState(_ w: WorkspaceRequest) async throws -> SpaceState {
         let n = try workspaceName(w)
-        let (rec, ref, intent) = try spaceStateInputs(n)
-        let facts = await spaceStateFacts(rec, intent)
+        let rec0 = try workspaceRecord(n)
         // Who reads it: set by the dashboard's server from the principal (never a browser's field); the person's chat name is
         // the daemon's own directory's.
         let viewer = SpaceStateViewer(macSessions: w.macSessionsHidden != true, askText: w.askTextHidden != true, answerHere: w.asksAnsweredElsewhere != true,
                                       chatName: (try? ChatDirectory.load(chatPaths))?.human)
-        return SpaceStateBuilder.build(intent: intent, ref: ref, record: rec, facts: facts, host: Self.spaceStateHost(), now: Date(), viewer: viewer)
+        let log = (try? workspaces.log(n)) ?? []
+        var note: String?
+        if SpaceRecordRef.of(rec0) != nil {
+            do {
+                let (rec, ref, intent) = try spaceStateInputs(n)
+                let facts = await spaceStateFacts(rec, intent)
+                var s = SpaceStateBuilder.build(intent: intent, ref: ref, record: rec, facts: facts, host: Self.spaceStateHost(), now: Date(), viewer: viewer)
+                if w.withConditions == true {
+                    s.agentConditions = WorkspaceConditionsBuilder.build(record: rec, facts: facts, log: log, from: "space-file", hidden: !viewer.macSessions)
+                }
+                return s
+            } catch let e as HostError where e.code == .notFound {
+                note = e.message              // its spec was recorded by an older doz: the record answers
+            }
+        }
+        let facts = await recordStateFacts(rec0)
+        let conditions = WorkspaceConditionsBuilder.build(record: rec0, facts: facts, log: log, from: "record")
+        var s = RecordStateBuilder.build(record: rec0, facts: facts, conditions: conditions, host: Self.spaceStateHost(), now: Date(), viewer: viewer, note: note)
+        if !viewer.macSessions { s = s.hiding(RecordStateBuilder.macSubjects(rec0)) }
+        if w.withConditions == true {
+            s.agentConditions = viewer.macSessions ? conditions : WorkspaceConditionsBuilder.build(record: rec0, facts: facts, log: log, from: "record", hidden: true)
+        }
+        return s
+    }
+
+    /// The facts of a workspace with no space file: what `spaceStateFacts` gathers for its record's agents and rooms, the
+    /// phases of the sandboxes its agents run in, and its folders (looked at, never opened).
+    func recordStateFacts(_ rec: WorkspaceRecord) async -> SpaceStateFacts {
+        let none = SpaceIntent(space: rec.name, title: rec.name, owner: "", brief: "", archive: SpaceIntent.Sourced("off", "the default"))
+        var f = await spaceStateFacts(rec, none)
+        guard f.known else { return f }
+        for a in rec.agents where a.endedAt == nil {
+            if let s = a.place.sandbox, f.sandboxes[s] == nil, let m = managed[s] { f.sandboxes[s] = await effectivePhase(m).rawValue }
+        }
+        for x in rec.folders {
+            var d: ObjCBool = false
+            f.folders[x.path] = FileManager.default.fileExists(atPath: x.path, isDirectory: &d) && d.boolValue
+        }
+        return f
     }
 
     /// This Mac's name as a person reads it: the setting `daemon.mac_name` (`MacDisplayName`) — never its network name.

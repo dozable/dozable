@@ -68,6 +68,9 @@ final class CLIHarness: @unchecked Sendable {
         // a test never reads the real ~/.codex; and only a fake codex for the keep-alive.
         e["DOZ_TEST_CODEX_HOME"] = store.appendingPathComponent("fake-codex-home").path
         e["DOZ_TEST_CODEX_BIN"] = store.appendingPathComponent("fake-codex-bin/codex").path
+        // 751: the suites prove sessions on this Mac outlive `doz daemon stop` (as a person's do), so their daemons keep
+        // them; a guarded run without it ends a store's held sessions at a stop (`make test-cli-workspace` T9).
+        e[TestSafety.keepMacSessionsVariable] = "1"
         let vmtestKernels = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("doz-vmtest-store/kernels")
         if (e["DOZ_KERNEL_CACHE"] ?? "").isEmpty,
            FileManager.default.fileExists(atPath: vmtestKernels.appendingPathComponent(KernelArtifact.recommended.fileName).path) {

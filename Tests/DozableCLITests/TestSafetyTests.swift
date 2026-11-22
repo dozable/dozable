@@ -180,4 +180,22 @@ final class TestSafetyTests: XCTestCase {
         XCTAssertNil(lifted.image)
         XCTAssertNil(lifted.argv)
     }
+
+    /// 751: a daemon stop ends its store's held sessions on this Mac only in a guarded run of a scratch store — a person's
+    /// `@mac` sessions outlive the daemon, and the default store's are never ended even by a test.
+    func testOnlyAGuardedStopOfAScratchStoreEndsItsHeldSessions() {
+        let scratch = URL(fileURLWithPath: "/tmp/doz-clitest-store")
+        let real = home.appendingPathComponent("Library/Application Support/doz")
+        XCTAssertTrue(TestSafety.endsHeldSessionsAtStop(store: scratch, env: ["DOZ_TEST_GUARD": "1"], inXCTest: false, home: home))
+        XCTAssertTrue(TestSafety.endsHeldSessionsAtStop(store: scratch, env: [:], inXCTest: true, home: home))
+        XCTAssertFalse(TestSafety.endsHeldSessionsAtStop(store: scratch, env: [:], inXCTest: false, home: home), "a person's stop: they keep running")
+        XCTAssertFalse(TestSafety.endsHeldSessionsAtStop(store: scratch, env: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_REAL_MAC": "1"], inXCTest: false, home: home),
+                       "lifted only deliberately — and then they keep running")
+        XCTAssertFalse(TestSafety.endsHeldSessionsAtStop(store: real, env: ["DOZ_TEST_GUARD": "1"], inXCTest: false, home: home), "never the default store's")
+        XCTAssertFalse(TestSafety.endsHeldSessionsAtStop(store: real.appendingPathComponent("x/.."), env: ["DOZ_TEST_GUARD": "1"], inXCTest: true, home: home))
+        XCTAssertFalse(TestSafety.endsHeldSessionsAtStop(store: scratch, env: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_KEEP_MAC_SESSIONS": "1"], inXCTest: false, home: home),
+                       "a test proving their survival keeps them")
+        XCTAssertTrue(TestSafety.endsHeldSessionsAtStop(store: scratch, env: ["DOZ_TEST_GUARD": "1", "DOZ_TEST_KEEP_MAC_SESSIONS": "yes"], inXCTest: false, home: home),
+                      "only the exact value keeps them")
+    }
 }

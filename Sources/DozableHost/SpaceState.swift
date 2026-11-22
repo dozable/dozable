@@ -92,6 +92,10 @@ public struct SpaceState: Codable, Equatable, Sendable {
     public var extras: [Item]
     public var attention: [Attention]
     public var sha: String
+    /// 751: each agent's condition and where the document came from, carried only when asked
+    /// (`WorkspaceRequest.withConditions` — the CLI's `--json`); never in `ordered()`, so the editor's document, its sha and
+    /// the frames are unchanged. `stateAnswer()` writes it.
+    public var agentConditions: WorkspaceConditions?
 
     public init(space: String, observedAt: String, factsKnown: Bool, host: String, run: Run? = nil, items: [Item] = [], extras: [Item] = [],
                 attention: [Attention] = [], sha: String = "") {
@@ -142,6 +146,29 @@ public struct SpaceState: Codable, Equatable, Sendable {
         m += [JMember("items", .array(items.map(itemValue))), JMember("extras", .array(extras.map(itemValue))),
               JMember("attention", .array(attention.map(attentionValue)))]
         if withSHA { m.append(JMember("sha", .string(sha))) }
+        return .object(m)
+    }
+
+    /// 751: `doz workspace state --json` — the JSON contract around the document: `kind` `WorkspaceState` and `schema` 1 first,
+    /// then the document exactly as `ordered()` writes it (its `sha` unchanged), then — when carried — `from` (`space-file`
+    /// or `record`), `agents` (each agent of the workspace by its name: `condition`, `reason`, `role`, `place`, `since`) and
+    /// `conditions` (`ready`), and `revision` (empty until the revision store). Additive only within schema 1.
+    public func stateAnswer() -> JValue {
+        guard case .object(let doc) = ordered() else { return ordered() }
+        var m = [JMember("kind", .string(WorkspaceConditions.kind)), JMember("schema", .int(Int64(WorkspaceConditions.schema)))] + doc
+        if let c = agentConditions {
+            m.append(JMember("from", .string(c.from)))
+            m.append(JMember("agents", .object(c.agents.keys.sorted().map { k in
+                let a = c.agents[k]!
+                var o = [JMember("condition", .string(a.condition))]
+                if let r = a.reason { o.append(JMember("reason", .string(r))) }
+                o += [JMember("role", .string(a.role)), JMember("place", .string(a.place))]
+                if let s = a.since { o.append(JMember("since", .string(s))) }
+                return JMember(k, .object(o))
+            })))
+            m.append(JMember("conditions", .object([JMember("ready", .bool(c.ready))])))
+        }
+        m.append(JMember("revision", .string("")))
         return .object(m)
     }
 
@@ -476,14 +503,18 @@ public enum SpaceStateBuilder {
     /// answerers its deciders; `canAnswer` only where it may be answered, by one of its deciders who did not ask it, with
     /// one string.
     static func askItems(intent i: SpaceIntent, record rec: WorkspaceRecord?, facts f: SpaceStateFacts, viewer: SpaceStateViewer) -> [SpaceState.Attention] {
-        guard let asks = f.asks else { return [] }
-        func subject(_ from: String) -> String {
+        askItems(facts: f, viewer: viewer) { from in
             for a in i.agents {
                 if a.name == from { return a.name }
                 if let e = recordAgent(a, rec), e.name == from || e.bot == from { return a.name }
             }
             return i.space
         }
+    }
+
+    /// The same, with the asker's subject named by `subject` (751: a workspace with no space file names its record's agents).
+    static func askItems(facts f: SpaceStateFacts, viewer: SpaceStateViewer, subject: (String) -> String) -> [SpaceState.Attention] {
+        guard let asks = f.asks else { return [] }
         let iso = ISO8601DateFormatter()
         func when(_ s: String?) -> String? {
             guard let s, !s.isEmpty else { return nil }
