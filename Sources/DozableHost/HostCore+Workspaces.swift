@@ -569,6 +569,7 @@ extension HostCore {
         let name = d.record.name
         // Then the folder made now, the room, the files — the folder taken back when a later step fails.
         if let p = d.makeFolder {
+            TestSafety.checkMadeFolder(p)
             do { try MacFenceHostFS.ensureDirectory(p, mode: 0o700) } catch {
                 throw HostError(.failed, "cannot make \(DisplayPath.tilde(p)): \(error)")
             }

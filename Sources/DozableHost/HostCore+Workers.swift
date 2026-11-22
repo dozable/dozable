@@ -663,6 +663,7 @@ extension HostCore {
         // Resolved first (`/var` and `/tmp` are links, which the folder's walk refuses).
         let parent = WorkspaceStore.resolved(Workspace.defaultPath(name: rec.name))
         let p = parent + "/" + name
+        TestSafety.checkMadeFolder(p)
         do {
             try MacFenceHostFS.ensureDirectory(parent, mode: 0o700)
             try MacFenceHostFS.ensureDirectory(p, mode: 0o700)

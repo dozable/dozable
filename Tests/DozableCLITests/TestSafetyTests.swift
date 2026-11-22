@@ -51,6 +51,28 @@ final class TestSafetyTests: XCTestCase {
         XCTAssertNil(TestSafety.trashDirectory(["DOZ_TEST_TRASH_DIR": "/tmp/bin", "DOZ_TEST_REAL_MAC": "1"]), "unguarded: the real Bin")
     }
 
+    /// A guarded run never MAKES a project, run or scratch folder under the real home — the real `~/doz-workspaces` an unset
+    /// `defaults.projects_dir` resolves; a scratch one, and one under `DOZ_TEST_HOME`, are allowed; unguarded nothing changes.
+    func testAGuardedRunNeverMakesAFolderInTheRealProjectsFolder() {
+        let home = URL(fileURLWithPath: "/Users/someone")
+        let g = ["DOZ_TEST_GUARD": "1"]
+        func v(_ p: String, _ env: [String: String] = g) -> String? { TestSafety.projectsDirViolation(p, home: home, env: env, inXCTest: false) }
+        XCTAssertNotNil(v("/Users/someone/doz-workspaces"), "the real projects root")
+        XCTAssertNotNil(v("/Users/someone/doz-workspaces/.runs/rs/2026-11-23-1/scratch"), "a run's scratch folder in it")
+        XCTAssertNotNil(v("/Users/someone/doz-workspaces/app/bot1"), "a worker's folder in it")
+        XCTAssertNotNil(v("/Users/someone/doz-workspaces/../code/x"), "standardized first")
+        XCTAssertTrue(v("/Users/someone/doz-workspaces")?.contains("defaults.projects_dir") == true, "the reason names the fix")
+        XCTAssertNil(v("/private/tmp/dzo-1-projects/.runs/rs/r/scratch"), "a scratch projects folder")
+        XCTAssertNil(v("/tmp/x"))
+        XCTAssertNil(v("/private/var/folders/ab/T/x"))
+        XCTAssertNil(v("/Users/elsewhere/doz-workspaces/x"), "not the real home")
+        let th = g.merging(["DOZ_TEST_HOME": "/Users/someone/scratch-home"]) { a, _ in a }
+        XCTAssertNil(v("/Users/someone/scratch-home/doz-workspaces/x", th), "under DOZ_TEST_HOME")
+        XCTAssertNotNil(v("/Users/someone/doz-workspaces/x", th), "DOZ_TEST_HOME does not open the rest of the home")
+        XCTAssertNil(v("/Users/someone/doz-workspaces/x", ["DOZ_TEST_GUARD": "1", "DOZ_TEST_REAL_MAC": "1"]), "lifted deliberately: unchanged")
+        XCTAssertNil(v("/Users/someone/doz-workspaces/x", [:]), "unguarded: unchanged")
+    }
+
     func testEnforceIsSilentWhenNotGuardedOrNothingIsWrong() {
         TestSafety.enforce(nil, env: ["DOZ_TEST_GUARD": "1"])
         TestSafety.enforce("anything", env: ["DOZ_TEST_REAL_MAC": "1"])

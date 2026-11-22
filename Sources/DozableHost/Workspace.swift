@@ -112,6 +112,8 @@ public enum Workspace {
         guard FileManager.default.fileExists(atPath: u.path, isDirectory: &isDir), isDir.boolValue else {
             throw HostError(.invalid, "\(u.path) is a file, not a folder")
         }
+        // A guarded run never makes a sandbox's folder under the real home (an unset `defaults.projects_dir`).
+        TestSafety.checkMadeFolder(path)
         do {
             try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
         } catch {

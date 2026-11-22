@@ -17,6 +17,11 @@ func cliSpaceRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     try? fm.removeItem(at: dir)
     try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? fm.removeItem(at: dir) }
+    // Its own scratch projects folder (scratch and run folders are made there), never an earlier row's or the real one.
+    let ownProjects = "/private/tmp/dzo-\(getpid())-spp"
+    try? FileManager.default.createDirectory(atPath: ownProjects, withIntermediateDirectories: true)
+    check(h.run(["config", "set", "defaults.projects_dir", ownProjects]).code == 0, "its own scratch defaults.projects_dir")
+    defer { try? FileManager.default.removeItem(atPath: ownProjects) }
     let file = dir.appendingPathComponent("s1.space.yaml")
     try? """
     doz: space/3

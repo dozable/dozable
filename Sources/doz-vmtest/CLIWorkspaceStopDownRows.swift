@@ -18,6 +18,8 @@ import DozableHost
 //  V7. a runs-lifetime space's scratch folder is under removed (its absolute path), gone, its archived copy verifies
 //  V8. a standing space's scratch folder is kept: removed empty, the folder byte-for-byte
 //  V9. doz workspace manager stop: the manager alone, a worker runs on
+//  G1. a guarded space up whose settings leave defaults.projects_dir unset refuses rather than make a folder in the real
+//      ~/doz-workspaces (TestSafety.projectsDirViolation); a listing of it before and after is the same
 func cliWorkspaceStopDownRows(_ h: CLIHarness, root: URL, store: DozableStore, started: inout Set<String>) {
     print("cli: stop stops everything; down is finish and says what it kept")
     let fm = FileManager.default
@@ -193,4 +195,43 @@ func cliWorkspaceStopDownRows(_ h: CLIHarness, root: URL, store: DozableStore, s
     track("sdm")
     started.remove("sd")
     started.remove("sdm")
+
+    // G1. A guarded space up in a scratch store whose settings leave defaults.projects_dir UNSET (it resolves the real
+    // ~/doz-workspaces, whatever HOME says) refuses to make its scratch folder there — the daemon stops with the reason —
+    // and nothing is written under the real ~/doz-workspaces (a listing before and after; nothing there is ever deleted).
+    let real = TestSafety.realHome.appendingPathComponent("doz-workspaces").path
+    func listing() -> [String] {
+        guard let e = fm.enumerator(atPath: real) else { return [] }
+        var out: [String] = []
+        while let p = e.nextObject() as? String {
+            out.append(p)
+            if e.level >= 3 { e.skipDescendants() }
+        }
+        return out.sorted()
+    }
+    let g1 = URL(fileURLWithPath: "/private/tmp/dzo-\(pid)-g1")
+    try? fm.removeItem(at: g1)
+    try? fm.createDirectory(at: g1.appendingPathComponent("space"), withIntermediateDirectories: true)
+    let g = CLIHarness(binary: h.binary, store: g1.appendingPathComponent("store"))
+    g.env["HOME"] = g1.appendingPathComponent("home").path
+    g.env["DOZ_TEST_HOME"] = g1.appendingPathComponent("home").path
+    g.env["DOZ_TEST_BRIEF_HOME"] = "/tmp"
+    g.env["DOZ_TEST_FENCE_HOME"] = g1.appendingPathComponent("fence").path
+    try? fm.createDirectory(at: g1.appendingPathComponent("home"), withIntermediateDirectories: true)
+    try? "Make it.\n".write(to: g1.appendingPathComponent("space/BRIEF.md"), atomically: true, encoding: .utf8)
+    let gfile = g1.appendingPathComponent("space/gx.space.yaml").path
+    try? "doz: space/3\nspace: gx\nbrief: BRIEF.md\nowner: ada\nfolders:\n  scratch: {}\n".write(toFile: gfile, atomically: true, encoding: .utf8)
+    let toml = (try? String(contentsOf: g1.appendingPathComponent("store/xdg/doz/doz.toml"), encoding: .utf8)) ?? ""
+    check(!toml.split(separator: "\n").contains { $0.hasPrefix("projects_dir") }, "G1 the scratch store's settings leave defaults.projects_dir unset")
+    let before = listing()
+    r = g.run(["workspace", "up", "-f", gfile, "--yes"], timeout: 180)
+    let after = listing()
+    let glog = (try? String(contentsOf: g1.appendingPathComponent("store/daemon.log"), encoding: .utf8)) ?? ""
+    check(r.code != 0, "G1 a guarded up with projects_dir unset refuses (\(r.code) \(r.out.suffix(200)) \(r.err.suffix(200)))")
+    check(glog.contains("TEST SAFETY: a test would make the folder \(real)/.runs/gx/") && glog.contains("defaults.projects_dir"),
+          "G1 …the daemon stopped, naming the folder and the fix (\(glog.split(separator: "\n").last { $0.contains("TEST SAFETY") } ?? "no line"))")
+    check(before == after && !fm.fileExists(atPath: real + "/.runs/gx"), "G1 …and nothing was written under the real ~/doz-workspaces (\(Set(after).subtracting(before).sorted().prefix(5)))")
+    g.run(["daemon", "stop"], timeout: 60)
+    _ = g.waitFor(20) { !g.hostRunning }
+    try? fm.removeItem(at: g1)
 }

@@ -27,6 +27,11 @@ func cliSpaceStateRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     let pid = getpid()
     let home = URL(fileURLWithPath: "/private/tmp/dzo-\(pid)-sf-home")
     let dir = URL(fileURLWithPath: "/private/tmp/dzo-\(pid)-sf-files")
+    // Its own scratch projects folder (scratch and run folders are made there), never an earlier row's or the real one.
+    let ownProjects = "/private/tmp/dzo-\(getpid())-sfp"
+    try? FileManager.default.createDirectory(atPath: ownProjects, withIntermediateDirectories: true)
+    check(h.run(["config", "set", "defaults.projects_dir", ownProjects]).code == 0, "its own scratch defaults.projects_dir")
+    defer { try? FileManager.default.removeItem(atPath: ownProjects) }
     for d in [home, dir] { try? fm.removeItem(at: d); try? fm.createDirectory(at: d, withIntermediateDirectories: true) }
     defer {
         h.run(["sessions", "end", "@mac", "sf-w1", "--yes"]); h.run(["sessions", "end", "@mac", "sf-w1", "--yes"])

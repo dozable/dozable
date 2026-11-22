@@ -375,6 +375,7 @@ extension HostCore {
     func managerFolder(_ rec: WorkspaceRecord) throws -> String {
         if let f = rec.mainFolder?.path { return f }
         let p = Workspace.defaultPath(name: rec.name)
+        TestSafety.checkMadeFolder(p)
         do { try MacFenceHostFS.ensureDirectory(p, mode: 0o700) } catch {
             throw HostError(.failed, "cannot make \(DisplayPath.tilde(p)) for the manager: \(error)")
         }

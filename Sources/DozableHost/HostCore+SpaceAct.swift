@@ -189,6 +189,7 @@ extension HostCore {
         case "folder" where st.lifetime == "persisted":
             guard let k = SpaceUp.keptFolderPaths(i, f).first(where: { "folder \($0.name)" == st.subject }) else { return [] }
             if let why = spaceFolderRefusal(k.path) { throw HostError(.invalid, why) }
+            TestSafety.checkMadeFolder(k.path)
             try MacFenceHostFS.ensureDirectory(WorkspaceStore.resolved((k.path as NSString).deletingLastPathComponent) + "/" + (k.path as NSString).lastPathComponent)
             var kept = ref.persistedPaths ?? []
             if !kept.contains(k.path) { kept.append(k.path) }
@@ -247,6 +248,7 @@ extension HostCore {
             let parent = WorkspaceStore.resolved(f.projectsDir) + "/.runs/\(n)/\(run.id)"
             let path = parent + "/" + x.name
             if let why = spaceFolderRefusal(path) { throw HostError(.invalid, why) }
+            TestSafety.checkMadeFolder(path)
             try MacFenceHostFS.ensureDirectory(path, mode: 0o700)
             var list = ref.scratch ?? []
             if !list.contains(where: { $0.run == run.id && $0.name == x.name }) { list.append(.init(run: run.id, name: x.name, path: path)) }
