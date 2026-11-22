@@ -1102,7 +1102,7 @@ public enum WebAction: Equatable, Sendable {
         case "workspace-space-save":
             let sha = try f.required(f.matching("ifMatch", "^[0-9a-f]{64}$", "the space file's sha256 as read, 64 lower-case hex digits"), "ifMatch")
             let text = try WebSpace.spaceText(f, "text")
-            guard SpaceRecordFile.formatRefusal(text) == nil else { throw Invalid("text: a space file starts with doz: space/3") }
+            guard SpaceRecordFile.formatRefusal(text) == nil else { throw Invalid("text: a space file starts with doz: space/3.1 or doz: space/3") }
             a = .workspaceSpaceSave(workspace: try f.workspaceName("workspace"), text: text, ifMatch: sha)
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }

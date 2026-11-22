@@ -118,7 +118,7 @@ public enum SpaceValidator {
         let loc = SpaceLocator(sources: [SpaceSource(path: name, name: name, kind: "defaults", sha256: "")], origins: lines)
         var out: [Raw] = []
         let m = SpaceDoc.members(doc)
-        if SpaceDoc.string(SpaceDoc.member(doc, "doz")) != SpaceFormat.defaultsDoz {
+        if !SpaceFormat.defaultsDozVersions.contains(SpaceDoc.string(SpaceDoc.member(doc, "doz")) ?? "") {
             out.append(Raw(pointer: "/doz", message: "\(name) is not a defaults file", hint: "a defaults file starts with doz: \(SpaceFormat.defaultsDoz)"))
         }
         for x in m where !SpaceFormat.defaultsKeys.contains(x.key) && !x.key.hasPrefix("x-") {
@@ -128,7 +128,7 @@ public enum SpaceValidator {
                                : "a defaults file holds only persist, archive, approvals, agent_defaults and x-* keys; \"\(x.key)\" belongs in the space file",
                            key: true))
         }
-        var s = Schema(defaults: true)
+        var s = Schema(defaults: true, v31: SpaceDozable.isV31(doc))
         s.top(doc)
         let ruled = Set(out.map(\.pointer))
         out += s.out.filter { !ruled.contains($0.pointer) }
@@ -137,7 +137,7 @@ public enum SpaceValidator {
 
     /// The merged document: the schema and every rule, then the backstop. `profiles` are the active ones.
     public static func checkMerged(_ doc: JValue, _ loc: SpaceLocator, profiles: [String] = []) -> (problems: [SpaceProblem], model: SpaceModel) {
-        var s = Schema(defaults: false)
+        var s = Schema(defaults: false, v31: SpaceDozable.isV31(doc))
         s.top(doc)
         var r = Rules(raw: doc, loc: loc, active: Set(profiles))
         r.run()
@@ -227,8 +227,10 @@ public enum SpaceValidator {
 
     struct Schema {
         let defaults: Bool
+        /// 758: the file says `doz: space/3.1` (or `space-defaults/3.1`): its first-class 3.1 keys are the format's.
+        let v31: Bool
         var out: [Raw] = []
-        init(defaults: Bool) { self.defaults = defaults }
+        init(defaults: Bool, v31: Bool = false) { self.defaults = defaults; self.v31 = v31 }
 
         mutating func err(_ p: String, _ m: String, _ hint: String? = nil, key: Bool = false) {
             out.append(Raw(pointer: p, message: m, hint: hint, key: key, schema: true))
@@ -262,8 +264,14 @@ public enum SpaceValidator {
         }
 
         /// A map's keys: an unknown key (with a suggestion, or the keys there are), `x-*` always allowed.
-        mutating func keys(_ v: JValue, _ p: String, _ known: [String], xOK: Bool = true) {
+        mutating func keys(_ v: JValue, _ p: String, _ known: [String], xOK: Bool = true, place: SpaceDozable.Place? = nil) {
+            // 758: the first-class 3.1 keys of this place are the format's in a 3.1 file; in a space/3 one, refused with the fix.
+            let known = known + (v31 ? place?.firstClass ?? [] : [])
             for m in SpaceDoc.members(v) where !known.contains(m.key) && !(xOK && m.key.hasPrefix("x-")) {
+                if let place, let (message, hint) = versionFix(place, m.key, m.value, SpaceDoc.join(p, m.key), owner: v) {
+                    err(SpaceDoc.join(p, m.key), message, hint, key: true)
+                    continue
+                }
                 let dym = SpaceFormat.didYouMean(m.key, known)
                 var hint: String? = dym == nil && !known.isEmpty ? "known keys: \(known.joined(separator: ", "))" : nil
                 if m.key.contains(where: \.isWhitespace) { hint = "inside { … } a comma starts a new key: put text with commas in quotes, e.g. label: \"read once, at launch\"" }
@@ -326,19 +334,25 @@ public enum SpaceValidator {
                 return
             }
             // 755: `x-dozable.brief` is the brief when it is written: then `brief:` is not required — and not both.
-            let dozableBrief = SpaceDozable.member(doc, "brief") != nil
+            let dozableBrief = SpaceDoc.member(SpaceDozable.of(doc), "brief") != nil
+            // 758: a 3.1 document says its lifetime (`x-dozable.lifetime` too, for one release).
+            let dozableLifetime = SpaceDoc.member(SpaceDozable.of(doc), "lifetime") != nil
             required(doc, "", defaults ? ["doz"] : SpaceFormat.requiredTop.filter { !(dozableBrief && $0 == "brief") })
+            if !defaults, v31, !dozableLifetime, SpaceDoc.member(doc, "lifetime") == nil {
+                err("", "the file is missing \"lifetime\"",
+                    "a space/3.1 file says how long what it owns lasts: lifetime: standing (everything it owns stays) or lifetime: runs (one run, unless persist: keeps it)")
+            }
             if !defaults, dozableBrief, SpaceDoc.member(doc, "brief") != nil {
                 err("/x-dozable/brief", "the brief is written twice: brief: and x-dozable.brief", "keep one of them: brief: FILE, or x-dozable: { brief: { text: … } }", key: true)
             }
-            keys(doc, "", defaults ? SpaceFormat.defaultsKeys : SpaceFormat.topKeys)
+            keys(doc, "", defaults ? SpaceFormat.defaultsKeys : SpaceFormat.topKeys, place: defaults ? nil : .top)
+            dozPlace(.top, doc, "")
             for m in SpaceDoc.members(doc) {
                 let p = SpaceDoc.join("", m.key), v = m.value
                 switch m.key {
-                case SpaceDozable.key: dozableTop(v, p)
                 case "doz":
-                    let want = defaults ? SpaceFormat.defaultsDoz : SpaceFormat.doz
-                    if SpaceDoc.string(v) != want { err(p, "\"doz\" must be \"\(want)\" (the format this reader knows), got \(SpaceDoc.typeName(v))") }
+                    let known = defaults ? SpaceFormat.defaultsDozVersions : SpaceFormat.dozVersions
+                    if !known.contains(SpaceDoc.string(v) ?? "") { err(p, "\"doz\" must be \"\(known[0])\" (the format this reader knows), got \(SpaceDoc.typeName(v))") }
                 case "extends":
                     if let s = SpaceDoc.string(v) { if s.isEmpty { err(p, "must NOT have fewer than 1 characters") } }
                     else if let a = SpaceDoc.array(v), !a.isEmpty { strings(v, p, nonEmpty: true) }
@@ -353,7 +367,12 @@ public enum SpaceValidator {
                 switch m.key {
                 case "space": pattern(v, "name", p)
                 case "title": _ = type(v, "string", p)
-                case "brief", "owner", "permissions": text(v, p, nonEmpty: true)
+                case "brief":
+                    // 758: in space/3.1 a brief is a file's path, { text } or { file } (with refs); space/3's is a path.
+                    if v31 { dozValue(.top, "brief", v, p, owner: doc, ownerPointer: "", form: "first-class") }
+                    else if let (message, hint) = versionFix(.top, "brief", v, p, owner: doc), SpaceDoc.isMap(v) { err(p, message, hint) }
+                    else { text(v, p, nonEmpty: true) }
+                case "owner", "permissions": text(v, p, nonEmpty: true)
                 case "trusted_folders": strings(v, p)
                 case "folders": section(v, p) { $0.folder($1, $2) }
                 case "agents": section(v, p) { $0.agent($1, $2) }
@@ -456,9 +475,9 @@ public enum SpaceValidator {
 
         mutating func agentDefaults(_ v: JValue, _ p: String) {
             guard type(v, "object", p) else { return }
-            keys(v, p, SpaceFormat.agentDefaultsKeys)
+            keys(v, p, SpaceFormat.agentDefaultsKeys, place: .agentDefaults)
             settings(v, p)
-            if let x = SpaceDozable.of(v) { dozableAgentDefaults(x, SpaceDoc.join(p, SpaceDozable.key)) }
+            dozPlace(.agentDefaults, v, p)
             if let i = SpaceDoc.member(v, "isolation"), SpaceDoc.string(i) != "fenced" {
                 if SpaceDoc.string(i) == "unfenced" {
                     err(p + "/isolation", "agent_defaults can't make agents unfenced",
@@ -478,8 +497,9 @@ public enum SpaceValidator {
 
         mutating func agent(_ v: JValue, _ p: String) {
             guard type(v, "object", p) else { return }
-            keys(v, p, SpaceFormat.agentKeys)
+            keys(v, p, SpaceFormat.agentKeys, place: .agent)
             settings(v, p)
+            dozPlace(.agent, v, p)
             for m in SpaceDoc.members(v) {
                 let q = SpaceDoc.join(p, m.key), x = m.value
                 switch m.key {
@@ -501,7 +521,6 @@ public enum SpaceValidator {
                     if let r = SpaceDoc.member(x, "role") { _ = type(r, "string", q + "/role") }
                     if let g = SpaceDoc.member(x, "grants") { strings(g, q + "/grants") }
                     if let r = SpaceDoc.member(x, "reason") { text(r, q + "/reason", nonEmpty: true) }
-                case SpaceDozable.key: dozableAgent(x, q, agent: v, agentPointer: p)
                 default: break
                 }
             }
@@ -510,7 +529,8 @@ public enum SpaceValidator {
 
         mutating func folder(_ v: JValue, _ p: String) {
             guard type(v, "object", p) else { return }
-            keys(v, p, SpaceFormat.folderKeys)
+            keys(v, p, SpaceFormat.folderKeys, place: .folder)
+            dozPlace(.folder, v, p)
             for m in SpaceDoc.members(v) {
                 let q = SpaceDoc.join(p, m.key)
                 switch m.key {
@@ -520,7 +540,6 @@ public enum SpaceValidator {
                 case "optional": _ = type(m.value, "boolean", q)
                 case "labels": labels(m.value, q)
                 case "profiles": profiles(m.value, q)
-                case SpaceDozable.key: dozableFolder(m.value, q)
                 default: break
                 }
             }
@@ -536,7 +555,8 @@ public enum SpaceValidator {
 
         mutating func room(_ v: JValue, _ p: String) {
             guard type(v, "object", p) else { return }
-            keys(v, p, SpaceFormat.roomKeys)
+            keys(v, p, SpaceFormat.roomKeys, place: .room)
+            dozPlace(.room, v, p)
             for m in SpaceDoc.members(v) {
                 let q = SpaceDoc.join(p, m.key)
                 switch m.key {
@@ -545,7 +565,6 @@ public enum SpaceValidator {
                 case "main": _ = type(m.value, "boolean", q)
                 case "labels": labels(m.value, q)
                 case "profiles": profiles(m.value, q)
-                case SpaceDozable.key: dozableResource(m.value, q)
                 default: break
                 }
             }
@@ -553,7 +572,8 @@ public enum SpaceValidator {
 
         mutating func sandbox(_ v: JValue, _ p: String) {
             guard type(v, "object", p) else { return }
-            keys(v, p, SpaceFormat.sandboxKeys)
+            keys(v, p, SpaceFormat.sandboxKeys, place: .sandbox)
+            dozPlace(.sandbox, v, p)
             for m in SpaceDoc.members(v) {
                 let q = SpaceDoc.join(p, m.key)
                 switch m.key {
@@ -564,7 +584,6 @@ public enum SpaceValidator {
                 case "memory": pattern(m.value, "memory", q)
                 case "labels": labels(m.value, q)
                 case "profiles": profiles(m.value, q)
-                case SpaceDozable.key: dozableResource(m.value, q)
                 default: break
                 }
             }
@@ -668,7 +687,7 @@ public enum SpaceValidator {
             model.space = spaceName
             model.owner = SpaceDoc.string(SpaceDoc.member(raw, "owner")) ?? ""
             model.title = SpaceDoc.string(SpaceDoc.member(raw, "title")) ?? spaceName
-            let xBrief = SpaceDozable.member(raw, "brief")
+            let xBrief = SpaceDozable.briefMap(raw)
             model.brief = SpaceDoc.string(SpaceDoc.member(raw, "brief")) ?? SpaceDoc.string(SpaceDoc.member(xBrief, "file")) ?? ""
             model.briefText = SpaceDoc.string(SpaceDoc.member(xBrief, "text"))
             model.briefRefs = SpaceDoc.strings(SpaceDoc.member(xBrief, "refs"))
@@ -706,7 +725,7 @@ public enum SpaceValidator {
                     var external = SpaceDoc.member(v, "external")
                     if SpaceDoc.bool(external) == false { external = nil }
                     // 755: an agent in an existing sandbox (`x-dozable: { external: { sandbox: NAME } }`) is external too.
-                    if s == .agents, external == nil, let e = SpaceDozable.member(v, "external"), SpaceDoc.string(SpaceDoc.member(e, "sandbox")) != nil {
+                    if s == .agents, external == nil, let e = SpaceDozable.member(v, "external", at: .agent), SpaceDoc.string(SpaceDoc.member(e, "sandbox")) != nil {
                         external = e
                     }
                     let def = s == .agents && external == nil ? (SpaceDoc.merge(adSafe, v) ?? v) : v
@@ -744,7 +763,7 @@ public enum SpaceValidator {
             for r in inSection(.secrets) { scanSecret(rawDef(.secrets, r.name), r.pointer) }
             // 755: an agent in an existing sandbox names one the space does not declare (a declared one is the space's).
             for r in inSection(.agents) {
-                guard let sb = SpaceDoc.string(SpaceDoc.member(SpaceDozable.member(r.def, "external"), "sandbox")) else { continue }
+                guard let sb = SpaceDoc.string(SpaceDoc.member(SpaceDozable.member(r.def, "external", at: .agent), "sandbox")) else { continue }
                 if model.resource(sb)?.section == .sandboxes {
                     err(r.pointer + "/x-dozable/external/sandbox", "\"\(sb)\" is a sandbox of this space, so \"\(r.name)\" can't be in it as an external agent",
                         "an agent in a sandbox the space declares is written where: sandbox:\(sb); x-dozable.external names a sandbox that already exists outside it")
@@ -762,10 +781,10 @@ public enum SpaceValidator {
 
         // ---- folders ----
         mutating func folders() {
-            // 755: at most one main folder (`x-dozable: { main: true }`).
-            let mains = inSection(.folders).filter { SpaceDoc.bool(SpaceDozable.member($0.def, "main")) == true }
+            // 755: at most one main folder (`main: true`; `x-dozable: { main: true }` for one release).
+            let mains = inSection(.folders).filter { SpaceDoc.bool(SpaceDozable.member($0.def, "main", at: .folder)) == true }
             for r in mains.dropFirst() {
-                err(r.pointer + "/x-dozable/main", "two main folders: \"\(mains[0].name)\" and \"\(r.name)\"", "a workspace has one main folder")
+                err(r.pointer + (SpaceDoc.member(r.def, "main") != nil ? "/main" : "/x-dozable/main"), "two main folders: \"\(mains[0].name)\" and \"\(r.name)\"", "a workspace has one main folder")
             }
             let trusted = SpaceDoc.strings(SpaceDoc.member(raw, "trusted_folders"))
             for r in inSection(.folders) {

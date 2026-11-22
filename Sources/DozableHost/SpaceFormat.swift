@@ -11,6 +11,12 @@ import Foundation
 public enum SpaceFormat {
     public static let doz = "space/3"
     public static let defaultsDoz = "space-defaults/3"
+    /// 758: space/3.1 — space/3 with Dozable's keys first-class (`SpaceDozable`); a defaults file's line likewise.
+    public static let doz31 = "space/3.1"
+    public static let defaultsDoz31 = "space-defaults/3.1"
+    /// The version lines this reader knows.
+    public static let dozVersions = [doz, doz31]
+    public static let defaultsDozVersions = [defaultsDoz, defaultsDoz31]
 
     /// `[a-z][a-z0-9-]*`: every resource's name, the space's name, a profile.
     public static func isName(_ s: String) -> Bool {
