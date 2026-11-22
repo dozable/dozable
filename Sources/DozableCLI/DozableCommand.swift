@@ -56,6 +56,7 @@ public struct DozableCommand: AsyncParsableCommand {
             MetricsCommand.self, TimelineCommand.self, Doctor.self, HostCommand.self, Events.self, Console.self, UICommand.self, ServeCommand.self, ConfigCommand.self,
             TelemetryCommand.self, SignupCommand.self, UpdateCommand.self, AppCommand.self, Uninstall.self, Nuke.self, Inventory.self,
             ChatCommand.self, WorkspaceCommand.self, SpaceCommand.self, BotCommand.self, WorkerCommand.self, PermissionsCommand.self, WhyCommand.self, GrantCommand.self,
+            DebugCommand.self,
         ]
     )
 

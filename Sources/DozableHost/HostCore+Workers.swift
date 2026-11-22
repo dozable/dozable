@@ -295,6 +295,8 @@ extension HostCore {
         let iso: ManagerIsolation = shared ? .vm
             : try tagged("isolation") { try WorkerIsolation.resolve(asked: q.isolation, workspaceDefault: rec.defaults.isolation, botDefault: bot?.isolation.default) }
         if iso == .unfenced, let refused = unfencedManagerRefusal() { throw WorkerFieldRefusal.tag("isolation", refused) }
+        // 749: under the stub agent a VM worker is refused, nothing made.
+        if let refused = stubVMRefusal(q.name ?? "the worker", isolation: iso) { throw WorkerFieldRefusal.tag("isolation", refused) }
         let agent = bot?.agent ?? q.agent ?? "claude-code"
         guard let program = ManagerLaunch.program(agent: agent) else {
             throw no(bot != nil ? "fromBot" : "agent", HostError(.invalid, "Dozable starts a worker running Claude Code or Codex — --agent claude-code or codex, not \(agent.prefix(40))"))
@@ -489,6 +491,7 @@ extension HostCore {
         for room in p.rooms {
             if try chat.invite(room: room, name: name) {
                 try? workspaces.append(n, WorkspaceLogEntry(action: "bot-invited", agent: name, room: room))
+                if room == p.rooms.first { logAgentJoined(n, agent: name, room: room) }
             }
         }
         // 4. Its token and START.
@@ -664,11 +667,16 @@ extension HostCore {
         case .fenced, .unfenced:
             guard !buildFlavor.isHelper else { throw HostError(.notImplemented, BuildFlavor.helperLeavesOut("sessions on this Mac")) }
             if o.restart, let rec = mac.records().sessions[o.place] { return try await relaunchWorkerOnMac(o, rec) }
-            return try await launchAgentOnMac(AgentMacLaunch(place: o.place, argv: o.plan.argv, workdir: o.workdir, environment: o.plan.environment,
+            // 749: the stub agent in its place under DOZ_TEST_STUB_AGENT (guarded runs only), told its task.
+            let task = (try? workspaceRecord(o.workspace))?.agents.last { $0.name == o.name && $0.isWorker }?.task
+            let program = agentMacProgram(argv: o.plan.argv, environment: o.plan.environment, account: o.account, workspace: o.workspace,
+                                          name: o.name, task: task)
+            return try await launchAgentOnMac(AgentMacLaunch(place: o.place, argv: program.argv, workdir: o.workdir, environment: program.environment,
                                                              fenced: o.isolation == .fenced, permissions: o.permissions, hostPorts: o.plan.hostPorts,
-                                                             account: o.account, secrets: o.plan.secret.map { [$0] },
+                                                             account: program.account, secrets: o.plan.secret.map { [$0] },
                                                              start: o.isolation == .fenced ? o.start : nil, startFolder: "worker", bridgesOff: true))
         case .vm:
+            if let no = stubVMRefusal(o.name, isolation: .vm) { throw no }
             guard let secret = o.plan.secret else { throw HostError(.invalid, "a VM worker needs its token's launch secret") }
             // The guarded seams: the lab image and a FAKE worker program (its first prompt appended, so it finds START).
             let seams = TestSafety.workerSeams()
@@ -702,7 +710,7 @@ extension HostCore {
         if how == .stuck { throw HostError(.failed, "session \(o.place) on this Mac did not end, even after SIGKILL") }
         let r = try await macReopen(o.place, rec: mac.records().sessions[o.place] ?? rec, holder: holder, fresh: false,
                                     size: TermSize(cols: 120, rows: 40), knownID: held, ended: how.rawValue,
-                                    request: HostRequest(.sessionRestart, name: MacPlace.name), extra: o.plan.environment,
+                                    request: HostRequest(.sessionRestart, name: MacPlace.name), extra: agentMacReopenEnvironment(o.plan.environment),
                                     botSecrets: o.plan.secret.map { [$0] }, managerStart: fenced ? o.start : nil, startFolder: "worker")
         return r.notice.map { [$0] } ?? []
     }

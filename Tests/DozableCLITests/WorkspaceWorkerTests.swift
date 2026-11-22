@@ -214,7 +214,7 @@ final class WorkspaceWorkerTests: BotTestCase {
         XCTAssertEqual(e.task, "list the files")
         XCTAssertEqual(e.anonymous, true)
         XCTAssertEqual(e.place, .macSession("demo-bot1"))
-        XCTAssertEqual(try WorkspaceStore(store: store).log("demo").map(\.action).suffix(2), ["bot-invited", "worker-added"])
+        XCTAssertEqual(try WorkspaceStore(store: store).log("demo").map(\.action).suffix(3), ["bot-invited", "agent-joined", "worker-added"])
         for (what, t) in [("the record", text("demo", "workspace.json")), ("the log", text("demo", "log.jsonl")), ("argv", o.plan.argv.joined()),
                           ("env", o.plan.environment.values.joined()), ("START", startText), ("the answer", encoded(await wk(c, .workerList, "demo"))),
                           ("events", events.text)] {

@@ -120,6 +120,8 @@ extension HostCore {
             if let e = epoch { sessionRegistry.ended(name, session, ifEpoch: e) }
             // The program exited (or there is no such session): working/blocked end with it.
             if let s = statuses[name]?[session], s.state.endsWithProgram { setStatus(name, session: session, nil) }
+            // 749: a workspace agent's program on this Mac that exited non-zero, no end asked: its crash, in its log.
+            if MacPlace.isPlace(name), case .ended(let code) = last { await macProgramEnded(session, exitCode: code) }
         case .detached(.sandboxStopped):
             clearStatuses(name)
         case .detached(.transportLost):

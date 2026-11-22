@@ -325,6 +325,11 @@ public enum DozableEntry {
         let args = ActAs.take(HostToDaemon.begin(Array(CommandLine.arguments.dropFirst())))
         // 683 M4: inside a fenced session (ssh's ProxyCommand) — before anything of doz is read or made.
         if args.first == "fence-connect" { exit(FenceConnect.run(Array(args.dropFirst()), environment: ProcessInfo.processInfo.environment)) }
+        // 749: the stub agent (a test hook, guarded runs only) — it runs where an agent would, inside a fence too: before
+        // anything of doz is read or made.
+        if Array(args.prefix(2)) == StubAgent.words {
+            exit(StubAgentRunner.run(Array(args.dropFirst(2)), environment: ProcessInfo.processInfo.environment))
+        }
         // The chat server (hidden): before anything of doz is read or made — no settings, store, daemon or Keychain.
         // Only the server's own two (`chat serve`, `chat status … --data-dir`); every other `doz chat …` is a command below.
         if args.first == "chat", ChatCommandLine.isServerCommand(Array(args.dropFirst())) {

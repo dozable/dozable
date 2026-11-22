@@ -64,6 +64,8 @@ public actor MacSessions {
     private var loginPath: (path: String, source: String)?
     /// The host's own environment (tests set one).
     nonisolated let hostEnvironment: [String: String]
+    /// 749: the sessions `end` was asked to end, and when (`takeRequestedEnd`).
+    private var requestedEnds: [String: Date] = [:]
 
     /// `directory`: TESTS only (a short scratch folder) — otherwise the store's own (`MacPlace.socketDirectory`).
     public init(store: DozableStore, readOnly: Bool, environment: [String: String] = ProcessInfo.processInfo.environment,
@@ -528,6 +530,8 @@ public actor MacSessions {
             return .notRunning
         }
         let target = pid_t(pid)
+        // 749: an end someone asked for — its program's exit is never a crash (`takeRequestedEnd`).
+        requestedEnds[s] = Date()
         for (sig, how, wait) in [(SIGHUP, Sandbox.SessionEnd.hangup, hupSeconds), (SIGTERM, .terminate, termSeconds), (SIGKILL, .kill, killSeconds)] {
             // Only the group the holder named — and only while it is still that group.
             if getpgid(target) == target { killpg(target, sig) } else { kill(target, sig) }
@@ -541,6 +545,13 @@ public actor MacSessions {
             }
         }
         return .stuck
+    }
+
+    /// 749: whether session `s`'s program was ended by `end` in the last minute — taken (asked once per end). A program that
+    /// exits non-zero with no end asked is a workspace agent's crash (`HostCore.macProgramEnded`).
+    public func takeRequestedEnd(_ s: String, now: Date = Date()) -> Bool {
+        guard let at = requestedEnds.removeValue(forKey: s) else { return false }
+        return now.timeIntervalSince(at) < 60
     }
 
     /// Forget a session that does not run (its record, its `.exit`, its log, its saved screen).
