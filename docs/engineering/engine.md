@@ -35,11 +35,24 @@ A bare file name is in `Sources/DozableKit/`.
 | `Sources/DozableHost/HostClient.swift`, `UnixSocket.swift` | the detached-child launcher, the client, socket plumbing, `ClientWire` (SandboxLab's attach wire) |
 | `Sources/DozableHost/DaemonLoginItem.swift`, `LoginStart.swift`, `Launchctl.swift`; `Sources/DozableCLI/LoginItemCommands.swift` | 694: the daemon's login item — the plist, the install rule and its sync, status; the job `daemon start --login-item`, the held marker, `DaemonStarter` (a locked client kickstarts the item); launchctl and the LaunchAgents folder behind their seams; `doz daemon login-item`, the once-notice |
 | `Sources/DozableHost/DozableStore.swift`, `Metrics.swift` | the CLI store's files, `SandboxConfig` (`doz.json`), images → specs; the metrics DB (SandboxLab's schema) |
-| `Sources/DozableCLI/` | the commands (ArgumentParser), the attach client, `doctor`; `UICommand.swift` (`doz ui`, `ui link`) |
+| `Sources/DozableCLI/` | the commands (ArgumentParser), the attach client, `doctor`; `UICommand.swift` (`doz ui`, `ui link`); `HelpExitCodes.swift` (`doz help exit-codes`, taken by `DozableEntry` before ArgumentParser, which owns `help`) |
+| `Sources/DozableHost/ExitCodes.swift` | THE exit-code contract: the table (exit → name → meaning → error codes), `exit(for:)`, `ErrorAnswer` (`{"error":{"code","message","exit"}}`), `PartialAnswer` |
 | `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`). 678 (`SettingsRest.swift`): a read checks Dozable's own keys at once against `coreIndexed` (no recipe read) and settles every other line — a recipe's key, a 0.37 name, an unknown key, a `defaults.image` naming a recipe agent — the first time one is asked for (`FileValues`' subscript of a core key, `resolve` of one, never do); `SettingsLazySchemaTests` pins that the result equals the eager read |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
 
 ## Rules that each cost a bug to learn here
+
+- **Exit codes are ONE table, frozen** (`ExitCodes`, DozableHost): every command's exit comes from `ExitCodes.exit(for:)`
+  of its error's code (`DozableExit` only names them; `fail(_:_:)` prints `ErrorAnswer`, whose `exit` is the exit the
+  process takes) — no command maps a code locally. A code keeps its meaning; a new outcome gets a new `HostError.Code`,
+  and the switch in `exit(for:)` is exhaustive, so it does not compile unplaced. 2 is not found only (`not-found`,
+  `ambiguous`); 64 is usage (ArgumentParser's own errors, `usage`, `unclear-request`); every `invalid` value or document
+  is 65 (a space file's errors: `invalid-document`); 3 carries distinct codes (`plan-changed` for a stale `ifPlan`,
+  `file-changed` for a stale `ifMatch`/`ifBrief`); 75 is a partial result (`workspace up`/`down`: `partial` {done,
+  remaining, retry}). Codes are only added — an older client decodes an unknown one as `failed`. A HostError no
+  command caught exits through the table too (`DozableEntry`). Outside it, by design: the program's own code from
+  `exec`/`run`/`attach`, `doz upgrade --check`'s 10, `doz chat ask --wait`'s 10/11/12 and the chat server process's own
+  (chat.md). `ExitCodesTests`, `make test-cli` (the exit-code rows).
 
 - **`session-transcripts` only reads** (`HostOp.isReadOnly`): `doz sessions @mac --transcripts S [--export DIR]` and the
   forget's `--dry-run` (`session-forget` with `dryRun`) answer in-process with no daemon and never start one; forgetting

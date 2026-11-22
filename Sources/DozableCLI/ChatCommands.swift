@@ -33,7 +33,7 @@ struct ChatCommand: AsyncParsableCommand {
             own token. The chat server then reads your ~/.claude/sessions to find it. This reaches Claude Code sessions \
             run on this Mac without a fence; a fenced session polls with dozchat.
 
-            Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already exists · 6 chat is off or not ready · 64 usage.
+            Exit codes: 0 ok · 1 failed · 2 no such participant or room · 4 already exists · 6 chat is off or not ready · 64 usage · 65 an invalid name or value.
             """,
         subcommands: [ChatOn.self, ChatOff.self, ChatStatusCommand.self, ChatAdd.self, ChatSet.self, ChatRemove.self, ChatWho.self, ChatTokenCommand.self,
                       ChatWebhookCommand.self, ChatImportCommand.self, ChatRooms.self, ChatRoom.self, ChatSend.self, ChatRead.self, ChatExportCommand.self,
@@ -307,7 +307,7 @@ struct ChatOn: AsyncParsableCommand {
         let report = ChatStatusReport.read(store)
         guard st.ready else {
             if g.json { Out.json(report) }
-            throw fail(HostError(.failed, "chat is on, but the chat server is not ready: " + (st.problem ?? st.state) + " (doz chat status)"), g, code: DozableExit.failed)
+            throw fail(HostError(.failed, "chat is on, but the chat server is not ready: " + (st.problem ?? st.state) + " (doz chat status)"), g)
         }
         if g.json { Out.json(report); return }
         Out.stdout("Chat is on: \(st.bind), page port \(st.pagePort), line port \(st.linePort). You are \(report.human ?? "?").\n")
@@ -342,7 +342,7 @@ struct TokenDestination {
     static func open(_ toFile: String?, _ g: GlobalOptions) throws -> TokenDestination {
         guard let f = toFile else {
             guard !g.json, isatty(STDOUT_FILENO) == 1 else {
-                throw fail(HostError(.invalid, "a new token is printed only on a terminal: give --to-file FILE (a new file only you can read)\(g.json ? " with --json" : "")"), g)
+                throw fail(HostError(.usage, "a new token is printed only on a terminal: give --to-file FILE (a new file only you can read)\(g.json ? " with --json" : "")"), g)
             }
             return TokenDestination()
         }

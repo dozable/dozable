@@ -126,15 +126,15 @@ func cliMacsSuite(binary: String) async {
     a.run(["config", "set", "ui.port", String(p4)])
     let before = sha(macs.file)
     let refusals: [(String, [String], Int32?)] = [
-        ("a sign-in link", ["ui", "macs", "add", "x", "http://127.0.0.1:\(p2)/#cap=\(secret)"], 64),
-        ("a code", ["ui", "macs", "add", "x", "http://127.0.0.1:\(p2)/?code=\(secret)"], 64),
-        ("a query", ["ui", "macs", "add", "x", "http://127.0.0.1:\(p2)/?q=\(secret)"], 64),
-        ("a path", ["ui", "macs", "add", "x", "http://127.0.0.1:\(p2)/\(secret)"], 64),
-        ("a login", ["ui", "macs", "add", "x", "http://u:\(secret)@127.0.0.1:\(p2)"], 64),
-        ("a bad name", ["ui", "macs", "add", "Bad_\(secret)", "127.0.0.1:\(p2)"], 64),
+        ("a sign-in link", ["ui", "macs", "add", "x", "http://127.0.0.1:\(p2)/#cap=\(secret)"], 65),
+        ("a code", ["ui", "macs", "add", "x", "http://127.0.0.1:\(p2)/?code=\(secret)"], 65),
+        ("a query", ["ui", "macs", "add", "x", "http://127.0.0.1:\(p2)/?q=\(secret)"], 65),
+        ("a path", ["ui", "macs", "add", "x", "http://127.0.0.1:\(p2)/\(secret)"], 65),
+        ("a login", ["ui", "macs", "add", "x", "http://u:\(secret)@127.0.0.1:\(p2)"], 65),
+        ("a bad name", ["ui", "macs", "add", "Bad_\(secret)", "127.0.0.1:\(p2)"], 65),
         ("a name taken", ["ui", "macs", "add", "mini", "mini.local"], 4),
         ("an address taken", ["ui", "macs", "add", "mini2", "http://127.0.0.1:\(p2)/"], 4),
-        ("this Mac's own dashboard", ["ui", "macs", "add", "self", "127.0.0.1:\(p4)"], 64),
+        ("this Mac's own dashboard", ["ui", "macs", "add", "self", "127.0.0.1:\(p4)"], 65),
     ]
     for (what, args, code) in refusals {
         r = a.run(args, timeout: 30)
@@ -142,7 +142,7 @@ func cliMacsSuite(binary: String) async {
               "4 \(what): refused (\(r.code)), the input not repeated")
     }
     r = a.run(["ui", "macs", "add", "x", "http://127.0.0.1:\(p2)/#cap=\(secret)", "--json"], timeout: 30)
-    check(r.code == 64 && r.out.contains("That is a sign-in link") && !r.out.contains(secret), "4 a sign-in link with --json: the fixed message only")
+    check(r.code == 65 && r.out.contains("That is a sign-in link") && !r.out.contains(secret), "4 a sign-in link with --json: the fixed message only")
     check(sha(macs.file) == before, "4 macs.json unchanged by every refusal")
 
     // 5. the other dashboard stopped: a check fails, and when it was last seen is kept

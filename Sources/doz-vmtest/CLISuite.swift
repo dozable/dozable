@@ -567,7 +567,7 @@ func cliLineageChecks(_ h: CLIHarness, ws: URL) {
     check(h.run(["rm", "clid", "--yes"]).code == 0, "rm clid")
     // 594: a missing workspace is made — but never inside the store (this one is).
     r = h.run(["duplicate", "clia", "clie", "--folder", ws.deletingLastPathComponent().appendingPathComponent("no-such-dir").path])
-    check(r.code == 64 && r.err.contains("inside the store") && h.row("clie") == nil
+    check(r.code == 65 && r.err.contains("inside the store") && h.row("clie") == nil
           && !FileManager.default.fileExists(atPath: ws.deletingLastPathComponent().appendingPathComponent("no-such-dir").path),
           "a missing workspace inside the store is refused (and not made)")
     check(h.run(["template", "rm", "clitpl", "--yes"]).code == 0 && h.json(["template", "ls"], [ImageRow].self)?.isEmpty == true, "template rm clitpl")
@@ -817,9 +817,9 @@ func cliConfigChecks(_ h: CLIHarness) {
     let flagged = h.run(["config", "get", "store.path", "--store", "/tmp/elsewhere", "--json"])
     check(flagged.out.contains("\"source\" : \"flag\""), "--store shows as source flag")
     r = h.run(["config", "set", "ui.terminal_font_size", "200"])
-    check(r.code == 64 && r.err.contains("9–32"), "config set: out of range → usage error (\(r.code))")
+    check(r.code == 65 && r.err.contains("9–32"), "config set: out of range → an invalid value (65) (\(r.code))")
     r = h.run(["config", "set", "ui.nope", "1"])
-    check(r.code == 64 && r.err.contains("unknown setting"), "config set: unknown key → usage error")
+    check(r.code == 65 && r.err.contains("unknown setting"), "config set: unknown key → an invalid value (65)")
     r = h.run(["config", "unset", "ui.boot_view_on_start"])
     check(r.code == 0 && h.run(["config", "get", "ui.boot_view_on_start"]).out == "false\n", "config unset: back to the default")
     // An unknown key in the file is a warning, never a failure.

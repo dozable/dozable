@@ -67,7 +67,7 @@ extension WorkspaceLifecycleHostTests {
             rooms.otherPost("lv-run", "work")
             // A changed plan: refused, nothing done.
             let stale = try await down(c, ifPlan: String(repeating: "0", count: 64))
-            XCTAssertEqual(stale.error?.code, .invalidPhase)
+            XCTAssertEqual(stale.error?.code, .planChanged)
             XCTAssertNotNil(try XCTUnwrap(record("lv")).openRun)
             // The plan: no copy-less deletion (the archive is on).
             let p = try await downPlan(c)

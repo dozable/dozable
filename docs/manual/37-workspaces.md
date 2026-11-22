@@ -435,4 +435,4 @@ Each workspace is a folder in the store, `workspaces/NAME/`: `workspace.json` (t
 
 Exit codes are as everywhere: 2 not found · 3 not fully set up (or still setting up, for a worker), or its manager is
 running · 4 already exists (or already in a workspace, a name taken, or the bot runs in another live workspace) · 6 the
-daemon or chat is not available · 64 usage.
+daemon or chat is not available · 64 usage · 65 an invalid file or value. `doz help exit-codes` lists them all.

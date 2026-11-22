@@ -69,7 +69,7 @@ extension HostCore {
         let errors = plan.problems.filter(\.isError).count
         if errors > 0 { throw HostError(.invalid, "the space file has \(errors) error\(errors == 1 ? "" : "s") — doz workspace plan -f FILE") }
         guard let want = q.ifPlan, want == plan.sha else {
-            throw HostError(.invalidPhase, "\(name) changed since you looked — look again: doz workspace up --dry-run")
+            throw HostError(.planChanged, "\(name) changed since you looked — look again: doz workspace up --dry-run")
         }
         if let first = plan.refusals.first { throw HostError(HostError.Code(rawValue: plan.refusalCode ?? "") ?? .invalidPhase, first) }
         let confirmed = q.confirmed ?? []
@@ -382,7 +382,7 @@ extension HostCore {
         defer { workspaceGate.unlock("space:" + n) }
         let plan = try spaceDownPlan(q)
         guard let want = q.ifPlan, want == plan.sha else {
-            throw HostError(.invalidPhase, "\(n) changed since you looked — look again: doz workspace down \(n) --dry-run")
+            throw HostError(.planChanged, "\(n) changed since you looked — look again: doz workspace down \(n) --dry-run")
         }
         if let first = plan.refusals.first { throw HostError(HostError.Code(rawValue: plan.refusalCode ?? "") ?? .invalidPhase, first) }
         var out = SpaceActed(space: n, verb: q.purge == true ? "purge" : "down")

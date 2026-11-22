@@ -171,7 +171,7 @@ func cliWorkspaceSuite(binary: String) async {
     check(h.run(["workspace", "adopt", "demo", "nosuch"]).code == 2, "5 a missing sandbox: exit 2")
     check(h.run(["workspace", "adopt", "demo", "@mac/nosuch"]).code == 2, "5 a missing session: exit 2")
     r = h.run(["workspace", "adopt", "demo", "@mac"])
-    check(r.code == 64 && r.err.contains("@mac/SESSION"), "5 bare @mac: refused, name the session (\(r.code))")
+    check(r.code == 65 && r.err.contains("@mac/SESSION"), "5 bare @mac: refused, name the session (\(r.code))")
     check(listing()?.loose.isEmpty == true, "5 no loose agents left")
 
     // 6. release
@@ -204,7 +204,7 @@ func cliWorkspaceSuite(binary: String) async {
     check(["workspace.json", "brief.md", "log.jsonl"].allSatisfy { mode(ws.folder("demo") + "/" + $0) == 0o600 }, "8 the files are 0600")
 
     // 9. names, rename, the hooks
-    check(h.run(["workspace", "new", "Bad_Name", "--prompt-file", brief]).code == 64, "9 a bad name: exit 64")
+    check(h.run(["workspace", "new", "Bad_Name", "--prompt-file", brief]).code == 65, "9 a bad name: exit 65")
     r = h.run(["workspace", "rename", "demo", "demo2"])
     check(r.code == 0 && r.out.contains("#demo") && r.out.contains("keeps its name"), "9 rename demo demo2: the room keeps its name (\(r.code))")
     r = h.run(["create", "wsb", "--image", "lab"], timeout: 120)
@@ -228,7 +228,7 @@ func cliWorkspaceSuite(binary: String) async {
     check(r.code == 0 && r.out.contains("folders  none"), "11 new with no folder (\(r.code))")
     check(detail("bare")?.folders.isEmpty == true && listing()?.workspaces.contains { $0.name == "bare" } == true, "11 shown and listed")
     r = h.run(["workspace", "new", "proj", "--prompt-file", brief, "--from-project"])
-    check(r.code == 64 && r.err.contains("--folder") && !ws.exists("proj"), "11 --from-project with no folder: refused (\(r.code))")
+    check(r.code == 65 && r.err.contains("--folder") && !ws.exists("proj"), "11 --from-project with no folder: refused (\(r.code))")
 
     // P5 (first half): from here on every permission is never — this Mac's ceiling and an everywhere never for every role. The
     // owner is never gated: every row below runs exactly as before (CLIWorkspacePermissionRows.swift).

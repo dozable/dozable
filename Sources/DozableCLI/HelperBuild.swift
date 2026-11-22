@@ -8,19 +8,17 @@ import DozableHost
 // DozableWeb is not linked and its bundle not built) and the setup wizards (`doz onboard`, `doz init`, `doz try`).
 // Each of those names still parses — so a person who types one is told why, instead of "unknown command".
 
-/// The answer of a command a build leaves out: the reason on stderr (`--json`: as an error object on stdout), exit 1.
+/// The answer of a command a build leaves out: the reason on stderr (`--json`: as an error object on stdout), exit 7
+/// (not implemented in this build).
 struct LeftOutCommand {
     static func refuse(_ what: String, _ args: [String]) throws -> Never {
         let message = BuildFlavor.helperLeavesOut(what)
         if args.contains("--json") {
-            let body = ["error": ["code": HostError.Code.notImplemented.rawValue, "message": message]]
-            if let d = try? JSONSerialization.data(withJSONObject: body, options: [.prettyPrinted, .sortedKeys]) {
-                FileHandle.standardOutput.write(d + Data("\n".utf8))
-            }
+            Out.json(ErrorAnswer(HostError(.notImplemented, message)))
         } else {
             FileHandle.standardError.write(Data("doz: \(message)\n".utf8))
         }
-        throw ExitCode(DozableExit.failed)
+        throw ExitCode(DozableExit.notImplemented)
     }
 }
 

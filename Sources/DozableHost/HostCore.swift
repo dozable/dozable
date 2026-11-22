@@ -2336,7 +2336,7 @@ public actor HostCore {
         } catch .notFound {
             throw HostError(.notFound, "no restore point \(ref) in \(sandbox) (doz point ls \(sandbox))")
         } catch .ambiguous(let hits) {
-            throw HostError(.invalid, "\(ref) could be \(hits.count) restore points of \(sandbox): "
+            throw HostError(.ambiguous, "\(ref) could be \(hits.count) restore points of \(sandbox): "
                             + hits.map { "\($0.name) (\($0.id))" }.joined(separator: ", ") + " — type more of the name, or the id")
         }
     }

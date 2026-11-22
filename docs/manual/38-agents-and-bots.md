@@ -162,8 +162,8 @@ retired ones instead.
 The store's `bots/bots.json` holds each bot's record — never a token, its ceiling included — and `bots/NAME/` its
 instructions and an empty `notes.md`. They are readable by you alone.
 
-Exit codes: 2 not found · 4 already exists, or a retired name · 6 the daemon or the keychain is not available · 64 usage
-(a missing `--yes` included).
+Exit codes: 2 not found · 4 already exists, or a retired name · 5 not confirmed (no terminal and no `--yes`) · 6 the
+daemon or the keychain is not available · 64 usage · 65 an invalid name or value.
 
 ## See also
 

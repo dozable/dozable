@@ -167,20 +167,20 @@ func cliFenceSuite(binary: String) async {
 
     // MARK: refusals before anything runs (1.19, 2.1)
     var r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--folder", home, "--", "/bin/sh"])
-    check(r.code == 64 && r.err.contains("your home"), "1.19 a fenced session in the home is refused (\(r.code))")
+    check(r.code == 65 && r.err.contains("your home"), "1.19 a fenced session in the home is refused (\(r.code))")
     r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--folder", store, "--", "/bin/sh"])
-    check(r.code == 64, "1.19 …in the store (\(r.code))")
+    check(r.code == 65, "1.19 …in the store (\(r.code))")
     let linked = root + "/linked"
     try? FileManager.default.createDirectory(atPath: linked + "/.git", withIntermediateDirectories: true)
     symlink(home + "/.aws/credentials", linked + "/.git/config")
     r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--folder", linked, "--", "/bin/sh"])
-    check(r.code == 64 && r.err.contains(".git/config"), "1.19 …in a folder whose .git/config is a link (\(r.code))")
+    check(r.code == 65 && r.err.contains(".git/config"), "1.19 …in a folder whose .git/config is a link (\(r.code))")
     r = t.run(["run", "@mac", "-d", "--unfenced", "--keychain", "--session", "h", "--", "/bin/sh"])
     check(r.code == 64, "--keychain with --unfenced is refused (\(r.code))")
     r = t.run(["run", "@mac", "-d", "--fenced", "--write", home + "/.ssh", "--session", "h", "--folder", work, "--", "/bin/sh"])
-    check(r.code == 64 && r.err.contains("--write"), "1.3b --write ~/.ssh is refused (\(r.code))")
+    check(r.code == 65 && r.err.contains("--write"), "1.3b --write ~/.ssh is refused (\(r.code))")
     r = t.run(["run", "@mac", "-d", "--fenced", "--read", home, "--session", "h", "--folder", work, "--", "/bin/sh"])
-    check(r.code == 64, "1.3b --read ~ is refused (\(r.code))")
+    check(r.code == 65, "1.3b --read ~ is refused (\(r.code))")
 
     // MARK: one session runs the probes (1.1–1.18)
     let escape = "/private/tmp/dzo-fence-escape-\(getpid())"
@@ -506,7 +506,7 @@ func cliFenceSuite(binary: String) async {
     let quoted = root + "/a\"b"
     try? FileManager.default.createDirectory(atPath: quoted, withIntermediateDirectories: true)
     r = t.run(["run", "@mac", "-d", "--fenced", "--session", "q", "--folder", quoted, "--", "/bin/sh"], timeout: 30)
-    check(r.code == 64, "1.20 a folder name with a quote is refused (a profile cannot carry it) (\(r.code))")
+    check(r.code == 65, "1.20 a folder name with a quote is refused (a profile cannot carry it) (\(r.code))")
     t.run(["sessions", "end", "@mac", "odd", "--yes"], timeout: 60)
 
     // MARK: 1.22 a host stop and kill leave a fenced session running, fenced, watched again

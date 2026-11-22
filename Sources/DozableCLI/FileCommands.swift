@@ -73,13 +73,13 @@ struct CpCommand: AsyncParsableCommand {
         switch (s.sandbox, d.sandbox) {
         case (let n?, nil): try await FileTransfer.get(n, s.path.isEmpty ? CopyPaths.workspace : s.path, d.path, flags, g)
         case (nil, let n?): try await FileTransfer.put(n, s.path, d.path.isEmpty ? nil : d.path, flags, g)
-        case (_?, _?): throw fail(HostError(.invalid, "both sides are in a sandbox — one side is a path on this Mac"), g, code: DozableExit.usage)
+        case (_?, _?): throw fail(HostError(.usage, "both sides are in a sandbox — one side is a path on this Mac"), g)
         case (nil, nil):
             let rows = await CopyHint.sandboxes(g)
             let hint = CopyHint.neitherSide(source: source, destination: destination, sandboxes: rows,
                                             existsOnMac: { FileManager.default.fileExists(atPath: $0) },
                                             cwd: FileManager.default.currentDirectoryPath, shown: FileTransfer.shown)
-            throw fail(HostError(.invalid, "neither side is in a sandbox — write one as NAME:PATH" + (hint.map { "\n" + $0 } ?? "")), g, code: DozableExit.usage)
+            throw fail(HostError(.usage, "neither side is in a sandbox — write one as NAME:PATH" + (hint.map { "\n" + $0 } ?? "")), g)
         }
     }
 }
@@ -228,9 +228,9 @@ enum FileTransfer {
 
     static func get(_ name: String, _ given: String, _ local: String?, _ flags: CopyFlags, _ g: GlobalOptions) async throws {
         signal(SIGPIPE, SIG_IGN)
-        guard let path = CopyPaths.guestPath(given) else { throw fail(HostError(.invalid, "not a path in a sandbox: \(given.debugDescription)"), g, code: DozableExit.usage) }
+        guard let path = CopyPaths.guestPath(given) else { throw fail(HostError(.usage, "not a path in a sandbox: \(given.debugDescription)"), g) }
         let itemName = (path as NSString).lastPathComponent
-        guard CopyPaths.isItemName(itemName) else { throw fail(HostError(.invalid, "not the whole of \(name) (/) — name a folder"), g, code: DozableExit.usage) }
+        guard CopyPaths.isItemName(itemName) else { throw fail(HostError(.usage, "not the whole of \(name) (/) — name a folder"), g) }
         let cwd = FileManager.default.currentDirectoryPath
         let (dest, problem) = LocalCopy.destination(name: itemName, local: local, cwd: cwd)
         if let problem { throw fail(HostError(.notFound, problem), g) }
@@ -323,7 +323,7 @@ enum FileTransfer {
         let base = (source as NSString).lastPathComponent
         guard CopyPaths.isItemName(base) else { throw fail(HostError(.invalid, "not a name to copy: \(base)"), g) }
         let dest = given ?? CopyPaths.workspace
-        guard let path = CopyPaths.guestPath(dest) else { throw fail(HostError(.invalid, "not a path in a sandbox: \(dest.debugDescription)"), g, code: DozableExit.usage) }
+        guard let path = CopyPaths.guestPath(dest) else { throw fail(HostError(.usage, "not a path in a sandbox: \(dest.debugDescription)"), g) }
 
         let (client, ready) = try open(name, CopyRequest(direction: .put, path: dest.hasSuffix("/") ? path + "/" : path, kind: kind, name: base, force: flags.force), flags, g)
         let target = (ready.path as NSString).lastPathComponent
@@ -469,10 +469,10 @@ struct FilesRename: AsyncParsableCommand {
     @Argument(help: "The new name (one name, no /).") var newName: String
     func run() async throws {
         guard let item = FileItemPath.parse(path) else {
-            throw fail(HostError(.invalid, "not a file or folder in /workspace: \(path)"), g, code: DozableExit.usage)
+            throw fail(HostError(.usage, "not a file or folder in /workspace: \(path)"), g)
         }
         guard !newName.isEmpty, !newName.contains("/"), newName != ".", newName != ".." else {
-            throw fail(HostError(.invalid, "the new name is one name, without /"), g, code: DozableExit.usage)
+            throw fail(HostError(.usage, "the new name is one name, without /"), g)
         }
         var r = HostRequest(.filesMove, name: name)
         r.filePath = item.guest
@@ -494,7 +494,7 @@ struct FilesRemove: AsyncParsableCommand {
     @Flag(name: [.short, .long], help: "Do not ask.") var yes = false
     func run() async throws {
         guard let item = FileItemPath.parse(path) else {
-            throw fail(HostError(.invalid, "not a file or folder in /workspace: \(path) (/workspace itself is never deleted)"), g, code: DozableExit.usage)
+            throw fail(HostError(.usage, "not a file or folder in /workspace: \(path) (/workspace itself is never deleted)"), g)
         }
         try await requireSandbox(name, g)
         try confirm("Delete \(item.guest) in \(name)\(recursive ? " with everything in it" : "")? It cannot be undone.", yes: yes || g.json, g)
@@ -529,7 +529,7 @@ struct FilesOpen: AsyncParsableCommand {
     @Option(name: .long, help: "Open it in this editor (vscode, cursor, zed, … or a bridges.open_apps name).") var app: String?
     func run() async throws {
         if app != nil && reveal {
-            throw fail(HostError(.invalid, "--app or --reveal, not both (--reveal shows it in the Finder)"), g, code: DozableExit.usage)
+            throw fail(HostError(.usage, "--app or --reveal, not both (--reveal shows it in the Finder)"), g)
         }
         var r = HostRequest(.filesOpen, name: name)
         r.filePath = path
@@ -588,7 +588,7 @@ struct FilesList: AsyncParsableCommand {
         var target: FileWatchTarget?
         if watch {
             do { target = try FileWatchTarget.resolve(store: g.dozableStore, sandbox: name, folders: [path ?? FileListPaths.root]) }
-            catch let e as HostError { throw fail(e, g, code: e.code == .invalid ? DozableExit.usage : nil) }
+            catch let e as HostError { throw fail(e.code == .invalid ? HostError(.usage, e.message) : e, g) }
         }
         let list = try decode(try await query(r, g), FileList.self, g)
         if g.json && !watch { Out.json(list); return }

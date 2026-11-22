@@ -13,27 +13,58 @@ func spaceFile(_ f: String?, _ g: GlobalOptions) throws -> String {
     do { return try SpaceResolver.find(in: FileManager.default.currentDirectoryPath) } catch { throw fail(HostError.from(error), g) }
 }
 
-/// Every problem, as file:line, the message and its hint; errors exit 2 and nothing is done.
+/// Every problem, as file:line, the message and its hint; errors exit 65 (an invalid document) and nothing is done.
 func reportSpaceProblems(_ problems: [SpaceProblem], _ g: GlobalOptions) throws {
     guard !problems.isEmpty else { return }
     let errors = problems.filter(\.isError).count
     if g.json {
         if errors > 0 {
-            Out.json(SpaceProblemsAnswer(problems: problems))
-            throw ExitCode(DozableExit.notFound)
+            let e = spaceDocumentError(problems)
+            Out.json(SpaceProblemsAnswer(problems: problems, error: ErrorAnswer(e).error))
+            throw ExitCode(DozableExit.code(for: e))
         }
         return
     }
     Out.stderr(problems.map { $0.text + "\n" }.joined())
     if errors > 0 {
         Out.stderr("\(errors) error\(errors == 1 ? "" : "s"): nothing was done\n")
-        throw ExitCode(DozableExit.notFound)
+        throw ExitCode(DozableExit.invalid)
     }
+}
+
+/// A space file's errors as ONE error: `invalid-document`, the count and the first, as file:line.
+func spaceDocumentError(_ problems: [SpaceProblem]) -> HostError {
+    let errors = problems.filter(\.isError)
+    let first = errors.first.map { ": \($0.file):\($0.line) \($0.message)" } ?? ""
+    return HostError(.invalidDocument, "the space file has \(errors.count) error\(errors.count == 1 ? "" : "s")\(first) — nothing was done")
 }
 
 struct SpaceProblemsAnswer: Encodable {
     var ok = false
     var problems: [SpaceProblem]
+    var error: ErrorAnswer.Body?
+}
+
+/// An answer printed whole with `error` beside its own fields (additive: the answer's shape is unchanged).
+struct WithError<T: Encodable>: Encodable {
+    var value: T
+    var error: HostError
+    var partial: PartialAnswer? = nil
+    enum K: String, CodingKey { case error, partial }
+    func encode(to encoder: Encoder) throws {
+        try value.encode(to: encoder)
+        var c = encoder.container(keyedBy: K.self)
+        try c.encode(ErrorAnswer(error).error, forKey: .error)
+        try c.encodeIfPresent(partial, forKey: .partial)
+    }
+}
+
+/// A plan's own failure: its file's errors (65), else its refusal's code — each through the one table.
+func spacePlanError(_ p: SpacePlan) -> HostError? {
+    if p.problems.contains(where: \.isError) { return spaceDocumentError(p.problems) }
+    guard let c = p.refusalCode else { return nil }
+    let code = HostError.Code(rawValue: c) ?? .failed
+    return HostError(code == .invalid ? .invalidDocument : code, p.refusals.first ?? "refused")
 }
 
 /// The merged space as YAML, each place set outside the space file annotated with its file and line.
@@ -126,7 +157,7 @@ struct SpaceConfig: AsyncParsableCommand {
         Reads FILE (or the one *.space.yaml in this folder), every defaults file it extends, NAME.space.override.yaml beside \
         it and ${VAR} from the environment or the .env beside it, and prints the result, each value from another file \
         annotated with that file and line. The header lists the sources with their sha256 and every risky setting with \
-        where it comes from. Changes nothing and never starts the daemon. Problems are printed as file:line; an error exits 2.
+        where it comes from. Changes nothing and never starts the daemon. Problems are printed as file:line; an error exits 65.
         """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The space file (default: the one *.space.yaml in this folder).") var file: String?
@@ -247,9 +278,9 @@ func printSpacePlan(_ p: SpacePlan, dryRun: Bool, acting: Bool = false) {
 }
 
 func finishSpacePlan(_ p: SpacePlan, dryRun: Bool, _ g: GlobalOptions) throws {
-    if g.json { Out.json(p) } else { printSpacePlan(p, dryRun: dryRun) }
-    if p.problems.contains(where: \.isError) { throw ExitCode(DozableExit.notFound) }
-    if let c = p.refusalCode { throw ExitCode(DozableExit.code(for: HostError(HostError.Code(rawValue: c) ?? .failed, ""))) }
+    let e = spacePlanError(p)
+    if g.json { if let e { Out.json(WithError(value: p, error: e)) } else { Out.json(p) } } else { printSpacePlan(p, dryRun: dryRun) }
+    if let e { throw ExitCode(DozableExit.code(for: e)) }
 }
 
 /// `doz workspace plan -f FILE` / `doz space plan`: what `up` would do — every step, the summary with each risky setting's
@@ -261,7 +292,7 @@ struct SpacePlanCommand: AsyncParsableCommand {
         as file:line —, and prints the steps up would run in order: the external things it checks, the workspace it \
         makes, its rooms and folders, the start, each agent. The summary names every risky setting (unfenced, bypass, \
         what persists, archive: off, transcripts discarded) with the file and line that set it. Changes nothing and never \
-        starts the daemon. Exit codes: 0 up could run · 2 a problem in the file or something external missing · 4 a \
+        starts the daemon. Exit codes: 0 up could run · 65 a problem in the file · 2 something external missing · 4 a \
         workspace of that name made without a space file · 7 something this version does not do yet.
         """)
     @OptionGroup var g: GlobalOptions
@@ -303,9 +334,10 @@ struct SpaceUpCommand: AsyncParsableCommand {
         unfenced agent acts with full access to your user: up asks you to confirm it on the terminal at every up, \
         whatever set it — --yes answers that question on a terminal, and with no terminal up stops (exit 5). Up records \
         what the file requests for its agents and grants nothing (doz permissions grant does). With --dry-run, the plan \
-        only: nothing is started or written. Exit codes: 0 done · 1 a step failed (the rest not run; up again makes what \
-        is missing) · 2 a problem in the file or something external missing · 3 changed since the plan · 4 a workspace \
-        of that name made without a space file · 5 not confirmed · 7 something this version does not do yet.
+        only: nothing is started or written. Exit codes: 0 done · 75 a step failed after others were done (the rest not \
+        run; up again makes what is missing — --json's partial names what remains and the command) · 1 a step failed \
+        before anything was done · 65 a problem in the file · 2 something external missing · 3 changed since the plan · \
+        4 a workspace of that name made without a space file · 5 not confirmed · 7 something this version does not do yet.
         """)
     @OptionGroup var g: GlobalOptions
     @Option(name: [.customShort("f"), .customLong("file")], help: "The space file (default: the one *.space.yaml in this folder).") var file: String?
@@ -326,18 +358,17 @@ struct SpaceUpCommand: AsyncParsableCommand {
         // Acting needs the daemon: the plan is the daemon's (started now), so its sha is the one up checks.
         let plan = try decode(try call(q, g), SpacePlan.self, g)
         if !g.json { try reportSpaceProblems(plan.problems, g); printSpacePlan(plan, dryRun: false, acting: true) }
-        if plan.problems.contains(where: \.isError) { if g.json { Out.json(plan) }; throw ExitCode(DozableExit.notFound) }
-        if let c = plan.refusalCode {
-            if g.json { Out.json(plan) }
-            throw ExitCode(DozableExit.code(for: HostError(HostError.Code(rawValue: c) ?? .failed, "")))
+        if let e = spacePlanError(plan) {
+            if g.json { Out.json(WithError(value: plan, error: e)) }
+            throw ExitCode(DozableExit.code(for: e))
         }
         // Every unfenced agent, at every up: asked on the terminal — never stdin, never without one.
         var confirmed: [String] = []
         if !plan.confirm.isEmpty {
             let fd = open("/dev/tty", O_RDWR)
             guard fd >= 0 else {
-                throw fail(HostError(.failed, "\(plan.confirm.joined(separator: ", ")) would run unfenced, with full access to your user — up asks you on a terminal, and there is none: nothing was done"),
-                           g, code: DozableExit.declined)
+                throw fail(HostError(.needsConfirmation, "\(plan.confirm.joined(separator: ", ")) would run unfenced, with full access to your user — up asks you on a terminal, and there is none: nothing was done"),
+                           g)
             }
             defer { close(fd) }
             if !yes {
@@ -346,7 +377,7 @@ struct SpaceUpCommand: AsyncParsableCommand {
                 var buf = [UInt8](repeating: 0, count: 64)
                 let n = read(fd, &buf, buf.count)
                 let answer = n > 0 ? String(decoding: buf[0..<n], as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() : ""
-                guard answer == "y" || answer == "yes" else { throw fail(HostError(.failed, "not confirmed — nothing done"), g, code: DozableExit.declined) }
+                guard answer == "y" || answer == "yes" else { throw fail(HostError(.needsConfirmation, "not confirmed — nothing done"), g) }
             }
             confirmed = plan.confirm
         }
@@ -355,9 +386,23 @@ struct SpaceUpCommand: AsyncParsableCommand {
         space.confirmed = confirmed
         up.space = space
         let done = try decode(try call(up, g), SpaceActed.self, g)
-        if g.json { Out.json(done) } else { Out.stdout(spaceActedText(done)) }
-        if !done.ok { throw ExitCode(DozableExit.failed) }
+        try finishSpaceActed(done, retry: ["doz", "workspace", "up", "-f", r.file] + profiles.flatMap { ["--profile", $0] }, g)
     }
+}
+
+/// What `up` or `down` did, and its exit: 0 every step done or skipped; 75 (partial) when a step failed after others
+/// were done — `--json` adds `partial` {done, remaining, retry} and `error`; 1 when a step failed before anything was done.
+func finishSpaceActed(_ d: SpaceActed, retry: [String], _ g: GlobalOptions) throws {
+    let done = d.results.filter { $0.status == "done" || $0.status == "skipped" }.map(\.subject)
+    let remaining = d.results.filter { $0.status == "failed" || $0.status == "not-run" }.map(\.subject)
+    let e: HostError? = d.ok ? nil
+        : done.isEmpty ? HostError(.failed, "\(d.verb) \(d.space): a step failed — nothing was done")
+        : HostError(.partial, "\(d.verb) \(d.space): \(done.count) step\(done.count == 1 ? "" : "s") done, \(remaining.count) not — \(retry.joined(separator: " ")) does the rest")
+    if g.json {
+        if let e { Out.json(WithError(value: d, error: e, partial: e.code == .partial ? PartialAnswer(done: done, remaining: remaining, retry: retry) : nil)) }
+        else { Out.json(d) }
+    } else { Out.stdout(spaceActedText(d)) }
+    if let e { throw ExitCode(DozableExit.code(for: e)) }
 }
 
 /// What `up` or `down` did, as a person reads it.
@@ -388,7 +433,8 @@ struct SpaceDownCommand: AsyncParsableCommand {
         copied: what goes with no copy is listed before you confirm. --purge also removes what persists — its rooms, \\
         sandboxes and kept memory — and releases its folders (never deleted). External folders, rooms, sandboxes and \\
         bots are never touched. Asks on the terminal (--yes answers it; no terminal and no --yes: exit 5). A failed step \\
-        is said and down carries on; down again does what is left. Exit codes: 0 done · 1 a step failed · 2 no such \\
+        is said and down carries on; down again does what is left. Exit codes: 0 done · 75 a step failed after others were \\
+        done (--json's partial names what remains) · 1 a step failed before anything was done · 2 no such \\
         workspace · 3 changed since the plan · 4 made without a space file · 5 not confirmed.
         """)
     @OptionGroup var g: GlobalOptions
@@ -408,7 +454,11 @@ struct SpaceDownCommand: AsyncParsableCommand {
         q.spaceDown = SpaceDownRequest(workspace: n, purge: purge ? true : nil)
         let plan = try decode(try await query(q, g), SpaceDownPlan.self, g)
         if g.json && dryRun { Out.json(plan) } else if !g.json { Out.stdout(spaceDownText(plan, dryRun: dryRun)) }
-        if let c = plan.refusalCode { throw ExitCode(DozableExit.code(for: HostError(HostError.Code(rawValue: c) ?? .failed, ""))) }
+        if let c = plan.refusalCode {
+            let e = HostError(HostError.Code(rawValue: c) ?? .failed, plan.refusals.first ?? "refused")
+            if g.json && !dryRun { Out.json(WithError(value: plan, error: e)) }
+            throw ExitCode(DozableExit.code(for: e))
+        }
         if dryRun || plan.steps.isEmpty { return }
         let question = (purge ? "Purge \(n): take it down and remove what persists?" : "Take \(n) down?")
             + (plan.noCopy.isEmpty ? "" : " Deleted with no copy (archive: off): " + plan.noCopy.joined(separator: ", ") + ".")
@@ -416,8 +466,7 @@ struct SpaceDownCommand: AsyncParsableCommand {
         var a = HostRequest(.workspaceDown)
         a.spaceDown = SpaceDownRequest(workspace: n, purge: purge ? true : nil, ifPlan: plan.sha)
         let done = try decode(try call(a, g), SpaceActed.self, g)
-        if g.json { Out.json(done) } else { Out.stdout(spaceActedText(done)) }
-        if !done.ok { throw ExitCode(DozableExit.failed) }
+        try finishSpaceActed(done, retry: ["doz", "workspace", "down", n] + (purge ? ["--purge"] : []), g)
     }
 }
 

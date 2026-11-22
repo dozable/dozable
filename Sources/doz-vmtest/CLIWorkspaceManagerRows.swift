@@ -248,7 +248,7 @@ func cliWorkspaceManagerRows(_ h: CLIHarness, root: URL, store: DozableStore, st
     h.run(["bot", "new", "far", "--agent", "codex", "--isolation", "elsewhere", "--to-file", root.path + "-far.token"], timeout: 60)
     try? fm.removeItem(atPath: root.path + "-far.token")
     r = h.run(["workspace", "new", "r1", "--prompt-file", mbrief, "--manager", "far"], timeout: 60)
-    check(r.code == 64 && r.err.contains("Dozable never starts it"), "21 a bot elsewhere: refused (\(r.code) \(r.err.prefix(160)))")
+    check(r.code == 65 && r.err.contains("Dozable never starts it"), "21 a bot elsewhere: refused (\(r.code) \(r.err.prefix(160)))")
     h.run(["bot", "new", "inby", "--agent", "claude-code", "--deliver", "inbox"], timeout: 60)
     h.run(["workspace", "new", "r2", "--prompt-file", mbrief, "--folder", mwork.path, "--manager", "inby"], timeout: 60)
     r = h.run(["workspace", "start", "r2"], timeout: 60)

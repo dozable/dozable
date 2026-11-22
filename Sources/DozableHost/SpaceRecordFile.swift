@@ -103,7 +103,7 @@ public enum SpaceRecordFile {
         if kind == .space, let why = formatRefusal(text) { throw HostError(.invalid, "\(kind.words) was not saved: \(why)") }
         let now = try read(kind, path, store: store, home: home)
         if let want = ifSHA, want != now.sha256 {
-            throw HostError(.invalidPhase, "\(kind.words) changed since you opened it — read it again")
+            throw HostError(.fileChanged, "\(kind.words) changed since you opened it — read it again")
         }
         let full = onDisk(path, home: home)
         let dir = (full as NSString).deletingLastPathComponent

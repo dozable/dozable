@@ -42,9 +42,10 @@ public struct DozableCommand: AsyncParsableCommand {
         hibernate · wake · shutdown · reset · rm. `doz new` makes a sandbox with every default \
         and attaches; `doz up NAME` creates, starts or wakes, and attaches. Every command takes --json and --store (or $DOZ_STORE).
 
-        Exit codes: 0 ok · 1 failed · 2 not found · 3 not possible in this phase · 4 already exists · \
-        5 not confirmed · 6 daemon unavailable · 7 not implemented yet · 9 not permitted (an agent's request) · 64 usage. exec, run and attach \
-        exit with the program's own code, and 125 when doz itself fails.
+        Exit codes: 0 ok · 1 failed · 2 not found (only that) · 3 not possible now · 4 already exists · \
+        5 not confirmed · 6 daemon unavailable · 7 not implemented yet · 8 limited · 9 not permitted (an agent's request) · \
+        64 usage · 65 an invalid document or value · 75 partly done · 124 timed out. exec, run and attach exit with the \
+        program's own code, and 125 when doz itself fails. The table, with the error codes --json carries: doz help exit-codes [--json].
         """,
         version: version,
         subcommands: setup + [
@@ -140,38 +141,32 @@ public struct GlobalOptions: ParsableArguments {
     }
 }
 
-/// The CLI's exit codes (README "Exit codes").
+/// The CLI's exit codes: names for `ExitCodes` (DozableHost), the one published table — never a number of its own.
 public enum DozableExit {
-    public static let failed: Int32 = 1
-    public static let notFound: Int32 = 2
-    public static let invalidPhase: Int32 = 3
-    public static let exists: Int32 = 4
-    public static let declined: Int32 = 5
-    public static let unavailable: Int32 = 6
-    public static let notImplemented: Int32 = 7
-    /// 617: `doz search` — supported, but not with what was asked (`--base alpine`).
-    public static let limited: Int32 = 8
+    public static let failed = ExitCodes.failed
+    public static let notFound = ExitCodes.notFound
+    public static let invalidPhase = ExitCodes.notPossibleNow
+    public static let exists = ExitCodes.alreadyExists
+    public static let declined = ExitCodes.notConfirmed
+    public static let unavailable = ExitCodes.daemonUnavailable
+    public static let notImplemented = ExitCodes.notImplemented
+    /// `doz search` — supported, but not with what was asked (`--base alpine`).
+    public static let limited = ExitCodes.limited
     /// A request made as an agent (`--as W/AGENT`) that its permissions do not allow. Never the owner's own.
-    public static let notPermitted: Int32 = 9
-    public static let usage: Int32 = 64
-    /// 678: exec — its --timeout passed (counted from when doz started), as GNU timeout's. A program's own 124 looks the
+    public static let notPermitted = ExitCodes.notPermitted
+    public static let usage = ExitCodes.usage
+    /// An invalid document or value (EX_DATAERR) — every `invalid` error.
+    public static let invalid = ExitCodes.invalid
+    /// Partly done: a retry does the rest.
+    public static let partial = ExitCodes.partial
+    /// exec — its --timeout passed (counted from when doz started), as GNU timeout's. A program's own 124 looks the
     /// same; `--json`'s `timedOut` tells them apart.
-    public static let timedOut: Int32 = DozableExitCode.timedOut
+    public static let timedOut = ExitCodes.timedOut
     /// exec / run / attach: doz itself failed (the program's own codes pass through).
-    public static let dozableFailed: Int32 = 125
+    public static let dozableFailed = ExitCodes.dozableFailed
 
-    public static func code(for e: HostError) -> Int32 {
-        switch e.code {
-        case .failed: failed
-        case .notFound: notFound
-        case .invalidPhase: invalidPhase
-        case .exists: exists
-        case .invalid: usage
-        case .notImplemented: notImplemented
-        case .version, .unavailable: unavailable
-        case .notPermitted: notPermitted
-        }
-    }
+    public static func code(for e: HostError) -> Int32 { ExitCodes.exit(for: e) }
+    public static func code(forCode raw: String) -> Int32 { ExitCodes.exit(forCode: raw) }
 }
 
 // MARK: output
@@ -224,7 +219,7 @@ enum Out {
 /// Fail the command: the message on stderr (or as JSON on stdout with --json), then the exit code.
 func fail(_ e: HostError, _ g: GlobalOptions, code: Int32? = nil) -> ExitCode {
     if g.json {
-        Out.json(["error": ["code": e.code.rawValue, "message": e.message]])
+        Out.json(ErrorAnswer(e, exit: code))
     } else {
         Out.stderr("doz: \(e.message)\n")
     }
@@ -511,7 +506,7 @@ func confirm(_ question: String, yes: Bool, _ g: GlobalOptions) throws {
     if yes { return }
     let fd = open("/dev/tty", O_RDWR)
     guard fd >= 0 else {
-        throw fail(HostError(.failed, "\(question) — there is no terminal to ask; pass --yes"), g, code: DozableExit.declined)
+        throw fail(HostError(.needsConfirmation, "\(question) — there is no terminal to ask; pass --yes"), g)
     }
     defer { close(fd) }
     let prompt = "\(question) [y/N] "
@@ -520,7 +515,7 @@ func confirm(_ question: String, yes: Bool, _ g: GlobalOptions) throws {
     let n = read(fd, &buf, buf.count)
     let answer = n > 0 ? String(decoding: buf[0..<n], as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() : ""
     guard answer == "y" || answer == "yes" else {
-        throw fail(HostError(.failed, "not confirmed — nothing done"), g, code: DozableExit.declined)
+        throw fail(HostError(.needsConfirmation, "not confirmed — nothing done"), g)
     }
 }
 

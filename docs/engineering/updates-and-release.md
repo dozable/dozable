@@ -35,7 +35,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `.build-helper/` (the flavours never share build products or a stale bundle), and passes `DOZ_HELPER_BUILD=0` to a CLI
   release explicitly.
 - **What it leaves out, at compile time** (`Sources/DozableCLI/HelperBuild.swift` answers each name: "not in this
-  build", exit 1): `doz ui`, `doz serve` (UICommand.swift, ServeCommand.swift under `#if !DOZ_NO_WEB`), the setup wizards
+  build", exit 7 — not implemented): `doz ui`, `doz serve` (UICommand.swift, ServeCommand.swift under `#if !DOZ_NO_WEB`), the setup wizards
   `doz onboard`, `doz init` and `doz try` (OnboardCommands' flow, InitCommand, TryCommand, QuickMake, RulesStep under
   `#if !DOZ_HELPER_BUILD`). DozableTUI stays: `GlobalOptions` and every command's output use it (Foundation + Darwin, small).
 - **What it never does: update itself.** `BuildFlavor.isHelper` (compiled, or the TEST seam `DOZ_TEST_HELPER_BUILD=1|0`)

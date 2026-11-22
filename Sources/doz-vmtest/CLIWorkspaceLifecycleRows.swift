@@ -287,13 +287,13 @@ func cliWorkspaceLifecycleRows(_ h: CLIHarness, root: URL, store: DozableStore, 
     h.run(["workspace", "new", "binx", "--prompt-file", brief, "--folder", WorkspaceStore.resolved(store.root.path), "--no-room"], timeout: 60)
     h.run(["workspace", "finish", "binx", "--yes"], timeout: 60)
     r = h.run(["workspace", "delete", "binx", "--bin-folders", "--yes"], timeout: 60)
-    check(r.code == 64 && r.err.contains("holds Dozable's store") && ws.exists("binx") && fm.fileExists(atPath: store.root.path),
+    check(r.code == 65 && r.err.contains("holds Dozable's store") && ws.exists("binx") && fm.fileExists(atPath: store.root.path),
           "L11 the store refused by name, nothing moved (\(r.code) \(r.err.prefix(200)))")
     let realHome = TestSafety.realHome.path
     h.run(["workspace", "new", "binh", "--prompt-file", brief, "--folder", realHome, "--no-room"], timeout: 60)
     h.run(["workspace", "finish", "binh", "--yes"], timeout: 60)
     r = h.run(["workspace", "delete", "binh", "--bin-folders", "--dry-run"], timeout: 60)
-    check(r.code == 64 && r.out.contains("your home folder"), "L11 your home refused by name (a dry run only) (\(r.code) \(r.out.suffix(200)))")
+    check(r.code == 65 && r.out.contains("your home folder"), "L11 your home refused by name (a dry run only) (\(r.code) \(r.out.suffix(200)))")
     for n in ["binx", "binh"] { h.run(["workspace", "delete", n, "--yes"], timeout: 60) }
 
     // R1–R13: runs and their archive (CLIWorkspaceRunRows.swift), with this file's fake claude, fence home and Claude folders.

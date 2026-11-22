@@ -53,7 +53,7 @@ func runChatRoomLifecycle(_ verb: String, _ a: ChatRoomLifecycleArguments, confi
     if verb == "rm" {
         if a.yes {
             guard confirmName == a.room else {
-                throw fail(HostError(.invalid, "rm with --yes needs --confirm \(a.room) (the room's name, typed)"), g, code: DozableExit.usage)
+                throw fail(HostError(.usage, "rm with --yes needs --confirm \(a.room) (the room's name, typed)"), g)
             }
             q.confirm = a.room
         } else {
@@ -61,7 +61,7 @@ func runChatRoomLifecycle(_ verb: String, _ a: ChatRoomLifecycleArguments, confi
             q.confirm = a.room
         }
     } else {
-        if g.json && !a.yes { throw fail(HostError(.failed, "archive \(a.room) asks first — --json asks nothing: pass --yes"), g, code: DozableExit.declined) }
+        if g.json && !a.yes { throw fail(HostError(.needsConfirmation, "archive \(a.room) asks first — --json asks nothing: pass --yes"), g) }
         try confirm("Archive #\(a.room)? Its whole history is copied into the store, then it is read-only", yes: a.yes, g)
     }
     q.verb = nil

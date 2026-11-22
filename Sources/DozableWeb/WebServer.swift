@@ -739,11 +739,12 @@ public final class DozableWebServer: @unchecked Sendable {
         } catch let e as HostError {
             let status = switch e.code {
             case .notFound: 404
-            case .invalidPhase: 409
-            case .invalid: 400
-            case .unavailable, .version: 503
-            case .exists: 409
-            case .failed, .notImplemented: 500
+            case .invalidPhase, .conflict, .planChanged, .fileChanged, .alreadyAnswered, .notOwned, .ambiguous, .limited: 409
+            case .invalid, .invalidDocument, .invalidValue, .secretValueInDocument, .usage, .unclearRequest, .needsConfirmation: 400
+            case .unavailable, .version, .needsDaemon: 503
+            case .exists, .alreadyExists: 409
+            case .failed, .notImplemented, .partial: 500
+            case .timedOut: 504
             case .notPermitted: 403      // never the owner's: no web action is ever made as an agent
             }
             auditChange(route, md, body, ctx, device, outcome: e.code.rawValue)

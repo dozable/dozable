@@ -138,8 +138,10 @@ func cliSpaceActRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     r = h.run(["run", "@mac", "-d", "--unfenced", "--session", "sa-w3", "--", "/bin/sh", "-c", "exec sleep 600"], timeout: 60)
     r = h.run(["workspace", "up", "-f", file.path, "--yes", "--json"], timeout: 240)
     let a1 = acted(r)
-    check(r.code == 1 && a1?.ok == false && a1?.results.first { $0.subject == "agent w3" }?.status == "failed",
-          "S5 up: w3's add fails, exit 1 (\(r.code) \(r.err.prefix(200)) \(a1?.results.map { "\($0.subject) \($0.status)" }.joined(separator: ", ") ?? r.out.prefix(300).description))")
+    let partial = (try? JSONSerialization.jsonObject(with: r.outData) as? [String: Any])?["partial"] as? [String: Any]
+    check(r.code == 75 && a1?.ok == false && a1?.results.first { $0.subject == "agent w3" }?.status == "failed"
+          && (partial?["remaining"] as? [String])?.contains("agent w3") == true && (partial?["retry"] as? [String])?.prefix(3) == ["doz", "workspace", "up"],
+          "S5 up: w3's add fails after the rest were done: exit 75, partial names what remains and the retry (\(r.code) \(r.err.prefix(200)) \(a1?.results.map { "\($0.subject) \($0.status)" }.joined(separator: ", ") ?? r.out.prefix(300).description))")
     check(ws.exists("sa") && (try? ws.read("sa"))??.openRun != nil, "S5 …the run stays open")
     h.run(["sessions", "end", "@mac", "sa-w3", "--yes"]); h.run(["sessions", "end", "@mac", "sa-w3", "--yes"])
     r = h.run(["workspace", "up", "-f", file.path, "--yes", "--json"], timeout: 240)

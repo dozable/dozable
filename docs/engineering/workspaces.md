@@ -407,7 +407,7 @@ keeps, goes (sizes: the memory given back, a sandbox's disk and restore points; 
 refusalCode, queue {width, changes, note}, confirm (none | yes | typed, `confirmName`), command, commands (today's per-agent
 equivalents), notes, templates, sha}` from ONE pure builder, `WorkspaceLifecycle.plan`, over the record and the facts
 (`WorkspaceAgentLifecycle.facts`). The daemon builds the same plan again before it acts: a request whose `ifPlan` is not its
-sha is refused "W changed since you looked" (`invalid-phase`, exit 3), nothing done. The sha covers what is done to whom,
+sha is refused "W changed since you looked" (`plan-changed`, exit 3), nothing done. The sha covers what is done to whom,
 the flags and the refusals — never sizes, activity or order (`WorkspaceLifecycleTests.testTheShaIsStableAndOrderIndependent`).
 The CLI prints the plan and `--dry-run` stops there (0, or the refusal's code; `--json` the plan); the dashboard draws it as
 its confirmation (web.md, "Lifecycle actions").
@@ -776,7 +776,7 @@ The manual's page is `docs/manual/39-space-files.md`.
   `newSandbox`: an owned sandbox `<space>-<name>`, the first agent in it makes it), and the requests
   (`permissions.requests[]` `{agent, role?, grants, reason, source, spaceSHA, at}`, replaced each up, logged once as
   `request-recorded` here and in `grants/log.jsonl`; never a grant, ceiling or `bots.json`). It stops at the first failure
-  (the rest `not-run`, the run open, exit 1). The record's `space` (`SpaceRecordRef`: file, path, sha256, sources,
+  (the rest `not-run`, the run open: exit 75 with `partial` {done, remaining, retry} when steps before it were done, else 1). The record's `space` (`SpaceRecordRef`: file, path, sha256, sources,
   provenance, brief, owned `{agents|rooms|sandboxes|folders: run|persisted}`, archive, transcripts, scratch, kept paths,
   memory isolation, planSHA, upAt, downAt, purgedAt) and `<store>/workspaces/W/space.json` (0600) are written at the end.
 - **The brief is the file** (`SpaceRecordFile`, kind `brief`; `SpaceBriefFile`): one rule set for every read and write — `MacFenceHostFS`, no link anywhere

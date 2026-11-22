@@ -136,8 +136,8 @@ func confirmRecipeTrust(image: String?, _ g: GlobalOptions) throws {
     lines.append("  its bake runs under the bake policy: only the hosts above and its package registry")
     Out.stderr(lines.joined(separator: "\n") + "\n")
     guard isatty(STDIN_FILENO) == 1, isatty(STDERR_FILENO) == 1 else {
-        throw fail(HostError(.failed, "\(r.id) is a community recipe you have not said yes to — read doz recipe show \(r.id), then doz recipe trust \(r.id)"),
-                   g, code: DozableExit.declined)
+        throw fail(HostError(.needsConfirmation, "\(r.id) is a community recipe you have not said yes to — read doz recipe show \(r.id), then doz recipe trust \(r.id)"),
+                   g)
     }
     try confirm("Use \(r.origin.source ?? "this source")'s recipe for \(r.id)?", yes: false, g)
     RecipeExtras.trust(id: r.id, sha256: e.file.sha256, p)
@@ -722,8 +722,8 @@ struct RecipeSourceAdd: AsyncParsableCommand {
         } else if isatty(STDIN_FILENO) == 1, isatty(STDOUT_FILENO) == 1 {
             try confirm("Is \(fp) the fingerprint \(n)'s publisher gave you?", yes: false, g)
         } else {
-            throw fail(HostError(.failed, "confirm the key first: compare \(fp) with the fingerprint the publisher gave you, then add --fingerprint \(fp) — nothing added, nothing fetched"),
-                       g, code: DozableExit.declined)
+            throw fail(HostError(.needsConfirmation, "confirm the key first: compare \(fp) with the fingerprint the publisher gave you, then add --fingerprint \(fp) — nothing added, nothing fetched"),
+                       g)
         }
         let now = ISO8601DateFormatter().string(from: Date())
         let s = CommunitySource(name: n, url: url, key: k, fingerprint: fp, confirmed: now, added: now)
