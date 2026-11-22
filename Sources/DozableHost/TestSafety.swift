@@ -44,6 +44,22 @@ public enum TestSafety {
         return FileManager.default.homeDirectoryForCurrentUser
     }
 
+    /// 755: the home a space file's `~` stands for (its folders, its brief, `extends:`, a `prompt_file`, and the place
+    /// `doz workspace doc --write` and the recorded files must be under): the person's real one — in a guarded test run
+    /// (`DOZ_TEST_GUARD=1`), `DOZ_TEST_HOME` when it is an absolute path, so a harness's scratch home stands in for it.
+    /// Unguarded it is always the real home, whatever the environment says. `TestSafetyTests.testASpaceFilesHome`.
+    public static func spaceHome(_ env: [String: String] = ProcessInfo.processInfo.environment) -> String {
+        // In Foundation's spelling (`/private/tmp/x` reads `/tmp/x`), the one a standardized path under it has: the place
+        // rules then see both spellings (`SpaceRecordFile.placeRefusal` adds the resolved one).
+        if guarded(env, inXCTest: false), let t = env["DOZ_TEST_HOME"], t.hasPrefix("/") { return URL(fileURLWithPath: t).standardizedFileURL.path }
+        return realHome.path
+    }
+
+    /// `~` and `~/…` in a space file's path, from `spaceHome` (anything else as it is).
+    public static func expandSpaceTilde(_ p: String, home: String = spaceHome()) -> String {
+        p == "~" ? home : p.hasPrefix("~/") ? home + String(p.dropFirst(1)) : p
+    }
+
     /// 751: whether `doz daemon stop` also ends the sessions on this Mac its store holds (the `deckhold-mac serve` holders
     /// in that store's own socket folder): only in a guarded test run, and only for a store that is not the default one — so
     /// a test that forgets `workspace finish` leaks no holder. Outside a test a person's `@mac` sessions outlive the daemon

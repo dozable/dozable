@@ -217,7 +217,7 @@ struct SpaceCommand: AsyncParsableCommand {
 func spaceBriefLook(_ brief: String, file: String) -> SpaceBriefLook? {
     guard !brief.isEmpty else { return nil }
     let dir = (file as NSString).deletingLastPathComponent
-    let expanded = brief == "~" ? NSHomeDirectory() : brief.hasPrefix("~/") ? NSHomeDirectory() + String(brief.dropFirst(1)) : brief
+    let expanded = TestSafety.expandSpaceTilde(brief)
     let path = URL(fileURLWithPath: expanded, relativeTo: URL(fileURLWithPath: dir, isDirectory: true)).standardizedFileURL.path
     var st = stat()
     guard lstat(path, &st) == 0 else { return SpaceBriefLook(path: path, problem: "\(DisplayPath.tilde(path)) doesn't exist") }
@@ -310,7 +310,7 @@ func spacePrompts(_ r: SpaceResolver.Resolved) throws -> [String: String] {
     let dir = (r.file as NSString).deletingLastPathComponent
     for m in SpaceDoc.members(SpaceDoc.member(r.filled, "agents")) {
         guard let pf = SpaceDoc.string(SpaceDoc.member(m.value, "prompt_file")) else { continue }
-        let expanded = pf.hasPrefix("~/") ? NSHomeDirectory() + String(pf.dropFirst(1)) : pf
+        let expanded = TestSafety.expandSpaceTilde(pf)
         let path = URL(fileURLWithPath: expanded, relativeTo: URL(fileURLWithPath: dir, isDirectory: true)).standardizedFileURL.path
         var st = stat()
         guard lstat(path, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else { throw HostError(.notFound, "agent \(m.key): its prompt_file \(DisplayPath.tilde(path)) is not a file (no link)") }

@@ -30,7 +30,7 @@ extension HostCore {
     /// What the plan needs to know: read from the store (a read-only core too); what only a running daemon knows — a
     /// session or a manager running, the chat server's rooms — only from one.
     func spaceFacts(_ i: SpaceIntent, brief: SpaceBriefLook?) async -> SpaceFacts {
-        let home = TestSafety.realHome.path
+        let home = TestSafety.spaceHome()
         let projects = (Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent
         let rec = (try? WorkspaceName.validate(i.space)) != nil ? (try? workspaces.read(i.space)) ?? nil : nil
         let (readiness, _) = await workspaceLookReadiness(look: true)

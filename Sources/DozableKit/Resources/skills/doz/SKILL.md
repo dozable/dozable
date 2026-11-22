@@ -55,6 +55,19 @@ doz workspace state NAME --json
 - With no daemon running none is started: every condition is then `unknown`. Looking never changes anything.
 - More: `doz workspace show NAME --json` (its brief with `--brief`), `doz worker ls NAME --json`, `doz workspace ls --json`.
 
+## Read its document
+
+```sh
+doz workspace doc NAME --json
+```
+
+`{"kind":"Document","schema":1,"workspace":…,"from":"record"|"space-file","document":{…},"notes":[…]}` — what the
+workspace should be, as a space file: its brief, folders, agents, rooms and `document.lifetime` (always there:
+`standing` — what it owns stays — or `runs`). `state` is what is true now; the document is what it is for. It never
+holds a secret's value, a grant or the phase. Keys under `x-dozable` are Dozable's additions to the format. `notes`
+names what it cannot say yet. `--write FILE` saves it as a space file for the person (exit 4 if FILE exists — only
+with `--force` when they asked to replace it); it applies nothing.
+
 ## Add or end a worker
 
 ```sh

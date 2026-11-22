@@ -223,6 +223,7 @@ workspace/log
 workspace/rename
 workspace/runs
 workspace/state
+workspace/doc
 workspace/plan
 workspace/up
 space/down

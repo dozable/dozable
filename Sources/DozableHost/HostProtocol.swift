@@ -353,6 +353,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// merged spec `up` recorded, never the file. Only reads: answered in-process when no daemon runs, `factsKnown` false.
     /// Dozable's own.
     case workspaceState = "workspace-state"
+    /// 755: a workspace's document (`WorkspaceRequest`: the name; `WorkspaceDocumentAnswer`) — for EVERY workspace: one with
+    /// no space file generated from its record (`RecordDocument.generate`), a space-file one from the spec its last up
+    /// recorded with the record's extras merged in. Never a secret's value, a grant, a token or the phase. Only reads:
+    /// answered in-process when no daemon runs. An agent's needs `workspace.read`.
+    case workspaceDoc = "workspace-doc"
     /// A space workspace's file (`WorkspaceRequest`: the name): `-space` reads it (`WorkspaceSpaceFile`: its text, sha256 and
     /// size — read-only, in-process with no daemon); `-space-save` writes `text` over it only when the file is still the one
     /// whose sha256 is `ifMatch` (`WorkspaceSpaceSaved`; changed since → refused, nothing written) and never runs up. The path
@@ -386,7 +391,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
              .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .workspaceDownPlan, .macsList,
-             .workspaceState, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery, .timelineRetention: true
+             .workspaceState, .workspaceDoc, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery, .timelineRetention: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }

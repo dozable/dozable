@@ -118,6 +118,26 @@ running it starts none and every condition is "not known". A workspace that does
 doz workspace state demo --json | jq -r '.agents.mira.condition'    # running
 ```
 
+### Its document: `doz workspace doc`
+
+Every workspace has one **document**: what should exist — its brief, folders, agents, rooms and sandboxes, and its
+**lifetime** — written as a space file (39). `state` says what is true now; the document says what the workspace is for.
+A workspace made with `new` or the wizard has its document made from what it holds, and it is **standing**: what it
+owns stays until you remove it. One made from a space file has the file (as its last `up` read it) and anything you added
+or adopted since; a file that says no lifetime is read as **runs** — the file's own run model.
+
+```bash
+doz workspace doc demo                          # the document, as YAML
+doz workspace doc demo --json | jq -r '.document.lifetime'          # standing
+doz workspace doc demo --write ~/work/demo/demo.space.yaml          # keep it as a space file (nothing is applied)
+```
+
+The document never holds a secret's value (a secret is a reference: a keychain item or a file), never a grant (a file
+only asks for one) and never the workspace's state. What space/3 cannot say yet is written under `x-dozable`, Dozable's
+part of the file: the lifetime, a brief written in the file itself, the main folder, an agent in a sandbox that already
+exists. `--write` writes under your home, never into Dozable's store, `~/.claude` or `~/Library`, and never over a file
+that is there unless you add `--force` (exit 4 otherwise; 65 for a place it may not write). Looking starts no daemon.
+
 ### What it can reach, hold and change
 
 ```bash

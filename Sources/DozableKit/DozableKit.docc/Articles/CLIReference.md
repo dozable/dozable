@@ -1003,8 +1003,22 @@ doz workspace up [-f FILE] [--profile P]… [--yes] [--dry-run] [--json]  # set 
 doz workspace down [W] [-f FILE] [--purge] [--yes] [--dry-run] [--json]  # end its run (archived and hash-checked first), remove what the run made; --purge: what persists too
 doz workspace config [FILE] [--profile P]… [--json]    # a space file merged (its defaults files, the file, its override, ${VAR}), each value with its source
 doz workspace state W [--json]                  # any workspace now: each thing's state and each agent's condition (a space workspace: beside its file), what waits for you, the sha; --json: kind WorkspaceState, schema 1, agents.NAME.condition
+doz workspace doc W [--json]                    # any workspace's document: what should exist, as a space file (YAML); --json: kind Document, schema 1, document.lifetime always present
+doz workspace doc W --write FILE [--force]      # the document written as a space file you keep (under your home; never the store, ~/.claude or ~/Library) — nothing applied
 doz space plan|up|down|config …                 # the same: doz space is the space-file commands under a shorter name
 ```
+
+`doc W` (`workspace-doc`) answers for every workspace and starts no daemon: a workspace made with `new` or the dashboard's
+wizard has its document generated from its record (`from: record`, `lifetime: standing`) — its brief, folders (the main
+one marked), agents (a manager or a worker from a bot as `external: {bot}`, an adopted session as `external: {session}`,
+an adopted sandbox as `x-dozable: {external: {sandbox}}`, a worker as an owned agent whose task is its `prompt`), rooms
+(owned, or linked by their full name) and defaults; one made from a space file has the file as its last `up` merged it,
+with what was added or adopted since (`from: space-file`) and its lifetime as written — `runs` when it says none. It never
+holds a secret's value (a reference only), a grant or the workspace's phase. Dozable's additions to space/3 are under
+`x-dozable` (docs/engineering/workspace-model.md). `--json` is `{kind: "Document", schema: 1, workspace, from, document,
+notes?}` — `document.lifetime` always present; `notes` names what the document cannot say yet. `--write FILE` writes the
+YAML by temp-and-rename, no link in its path; exit 4 (`already-exists`) when FILE exists and `--force` is not given, 65
+(`invalid-value`) for a place it may not write; 2 for no such workspace.
 
 Space files (`NAME.space.yaml`, the format `space/3`): without `-f`/FILE, the one `*.space.yaml` in this folder (two or more:
 exit 64, naming them). The CLI reads the file, every `extends:` defaults file, `NAME.space.override.yaml` and `${VAR}` (the

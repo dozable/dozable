@@ -49,7 +49,7 @@ public enum ActionClasses {
         let ws = ActionTarget.workspace(w?.name)
         switch r.op {
         // workspace.read — its workspace, and the screens of its own agents
-        case .workspaceShow, .workspaceLog, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat:
+        case .workspaceShow, .workspaceLog, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .workspaceDoc:
             return needs(["workspace.read"], ws)
         case .workerList:
             return needs(["workspace.read"], .workspace(r.workerRequest?.workspace))

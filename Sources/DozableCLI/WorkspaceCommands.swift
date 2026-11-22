@@ -28,7 +28,7 @@ struct WorkspaceCommand: AsyncParsableCommand {
         """,
         subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceSleep.self,
                       WorkspaceWake.self, WorkspaceFinish.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
-                      WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceStateCommand.self, WorkspaceRename.self,
+                      WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceStateCommand.self, WorkspaceDocCommand.self, WorkspaceRename.self,
                       SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
 }
 
@@ -43,7 +43,10 @@ func workspaceFolder(_ s: String, _ g: GlobalOptions) throws -> WorkspaceFolder 
 }
 
 func workspaceAbsolute(_ p: String) -> String {
-    let expanded = (p as NSString).expandingTildeInPath
+    // A guarded run's scratch home (`DOZ_TEST_HOME`) stands for `~` as it does in a space file; otherwise unchanged.
+    let testHome = TestSafety.spaceHome()
+    let expanded = testHome != TestSafety.realHome.path && (p == "~" || p.hasPrefix("~/")) ? TestSafety.expandSpaceTilde(p, home: testHome)
+        : (p as NSString).expandingTildeInPath
     let abs = expanded.hasPrefix("/") ? expanded : FileManager.default.currentDirectoryPath + "/" + expanded
     return WorkspaceStore.resolved(URL(fileURLWithPath: abs).standardizedFileURL.path)
 }

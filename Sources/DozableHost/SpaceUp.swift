@@ -231,6 +231,12 @@ public enum SpaceUp {
                 else if live == false && f.known { action = "refuse"; why = "session \(s) is not running"; refuse("agent \(a.name): \(why!)", .invalidPhase) }
                 else if !f.known { why = "whether it runs is \(unknown)" }
                 step("check", "agent \(a.name)", "external", "agent \(a.name) exists (session \(s) on this Mac, adopted)", action: action, why: why, down: "never touched")
+            } else if let sb = a.sandbox {
+                // 755: an agent in an existing sandbox (`x-dozable.external`): it must exist; adopted, never started.
+                let ok = f.sandboxes.contains(sb)
+                step("check", "agent \(a.name)", "external", "agent \(a.name) exists (the sandbox \(sb), adopted)", action: ok ? "run" : "refuse",
+                     why: ok ? nil : "no sandbox \(sb)", down: "never touched")
+                if !ok { refuse("agent \(a.name): no sandbox \(sb)", .notFound) }
             }
         }
         for r in i.rooms where r.external {
@@ -299,7 +305,7 @@ public enum SpaceUp {
             if !folderPaths.isEmpty { parts.append("folders " + folderPaths.map { DisplayPath.tilde($0.path) + ($0.mode == "ro" ? " (read-only)" : "") }.joined(separator: ", ")) }
             if let m = i.mainRoom { parts.append(m.external ? "its room: the existing \(m.chatRoom), linked" : "its room \(m.chatRoom), made as you") }
             if let m = manager?.bot { parts.append("managed by \(m)") }
-            parts.append("the brief from \(i.brief) (read from the file, never copied)")
+            parts.append(i.briefText != nil ? "the brief written in the file (kept with the workspace)" : "the brief from \(i.brief) (read from the file, never copied)")
             text += ": " + parts.joined(separator: "; ")
             step("workspace-new", "workspace \(i.space)", "run", text,
                  down: "the record stays: down ends the run; --purge retires what persists", op: .workspaceNew)
@@ -353,6 +359,11 @@ public enum SpaceUp {
             let have = rec?.agents.contains { $0.place.session == a.session && $0.endedAt == nil } ?? false
             step("workspace-adopt", "agent \(a.name)", "external", "adopt the session @mac/\(a.session!) as \(a.name)",
                  action: have ? "skip" : "run", why: have ? "already adopted" : nil, down: "released; never ended", op: .workspaceAdopt)
+        }
+        for a in i.agents where a.external && a.bot == nil && a.session == nil && a.sandbox != nil {
+            let have = rec?.agents.contains { $0.place.sandbox == a.sandbox && $0.endedAt == nil } ?? false
+            step("workspace-adopt", "agent \(a.name)", "external", "adopt the sandbox \(a.sandbox!) as \(a.name)",
+                 action: have ? "skip" : "run", why: have ? "already adopted" : nil, down: "released; never stopped", op: .workspaceAdopt)
         }
         for a in i.agents where a.external && a.bot != nil && a.role != "manager" {
             var w = WorkerRequest(workspace: i.space, name: a.bot)
@@ -478,7 +489,9 @@ public enum SpaceUp {
         }
         var s = starts.isEmpty ? "Starts nothing." : "Starts " + starts.joined(separator: ", ") + "."
         var ext: [String] = []
-        for a in i.agents where a.external { ext.append("\(a.name) (" + (a.bot.map { "bot: \($0)" } ?? "session: \(a.session ?? "?")") + ")") }
+        for a in i.agents where a.external {
+            ext.append("\(a.name) (" + (a.bot.map { "bot: \($0)" } ?? a.session.map { "session: \($0)" } ?? "sandbox: \(a.sandbox ?? "?")") + ")")
+        }
         for x in i.folders where x.path != nil { ext.append("\(x.name) (\(x.path!))") }
         for r in i.rooms where r.external { ext.append("\(r.name) (room \(r.chatRoom))") }
         for x in i.sandboxes where x.external { ext.append("\(x.name) (sandbox \(x.placeName))") }

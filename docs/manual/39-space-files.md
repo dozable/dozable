@@ -64,6 +64,23 @@ session or a bot runs now, the chat server's rooms — is marked "not known", an
 Every problem is reported at once, as `file:line`, with what to write instead; an error stops everything (exit 65, an invalid
 document; `--json` says `"error": {"code": "invalid-document", …}`) and nothing is done. A warning does not stop it.
 
+### Dozable's additions: `x-dozable`
+
+A few things space/3 cannot say yet are written under `x-dozable`, at the place they belong; any other `x-` key is ignored.
+
+```yaml
+x-dozable:
+  lifetime: standing              # standing: what the space owns stays; runs (the default): it lasts one run
+  brief: { text: Fix the build }  # the brief written here (instead of brief: FILE — not both); or { file: BRIEF.md }
+folders:
+  app: { external: ~/work/app, x-dozable: { main: true } }    # the main folder (one at most)
+agents:
+  old: { x-dozable: { external: { sandbox: my-sandbox } } }   # an agent in a sandbox that exists: adopted, never started
+```
+
+A brief written in the file is kept with the workspace and posted at the first up; `doz workspace show W --brief` reads
+it. `doz workspace doc W` (37) prints any workspace as such a file.
+
 ## The plan
 
 The plan lists the steps `up` will run, in order: the external things it checks (each must exist, or up stops before

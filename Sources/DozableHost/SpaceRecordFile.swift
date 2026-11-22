@@ -28,10 +28,10 @@ public enum SpaceRecordFile {
     public static let maximumBytes = WorkspaceStore.maximumBriefBytes
 
     /// The home a recorded file must be under: the person's real one — in a guarded test run, `DOZ_TEST_BRIEF_HOME` (a
-    /// scratch folder) when set.
+    /// scratch folder) when set, else the space file's home (`TestSafety.spaceHome`: `DOZ_TEST_HOME` when set).
     public static func home(_ env: [String: String] = ProcessInfo.processInfo.environment) -> String {
         if TestSafety.guarded(env), let h = env["DOZ_TEST_BRIEF_HOME"], h.hasPrefix("/") { return h }
-        return TestSafety.realHome.path
+        return TestSafety.spaceHome(env)
     }
 
     public struct Read: Equatable, Sendable {
@@ -112,6 +112,31 @@ public enum SpaceRecordFile {
         let mode: mode_t = lstat(dir + "/" + name, &st) == 0 ? st.st_mode & 0o777 : 0o644
         do { try MacFenceHostFS.writeAtomically(data, dir: dir, name: name, mode: mode) } catch {
             throw HostError(.failed, "\(kind.words) could not be written: \(error)")
+        }
+        return Read(text: text, sha256: WorkspaceStore.sha256(data), bytes: data.count)
+    }
+}
+
+extension SpaceRecordFile {
+    /// 755: a NEW file of the person's (`doz workspace doc --write FILE`), under the same place rules as a recorded file:
+    /// an absolute plain path under the home, never in the store, `~/.claude` or `~/Library`, no link anywhere in it (its
+    /// folder opened with `O_NOFOLLOW_ANY`), written by temp-and-rename — never over an existing file unless `replace`
+    /// (and then only over a regular file, its mode kept). Refusals: the place `invalid-value`, an existing file
+    /// `already-exists`.
+    @discardableResult
+    public static func writeNew(_ text: String, to path: String, replace: Bool, store: String, home: String = SpaceRecordFile.home()) throws -> Read {
+        if let why = placeRefusal(path, home: home, store: store) { throw HostError(.invalidValue, "\(DisplayPath.tilde(path)) can't be written: \(why)") }
+        let data = Data(text.utf8)
+        guard data.count <= maximumBytes else { throw HostError(.invalidValue, "the document is \(data.count) bytes — at most \(maximumBytes >> 10) KiB") }
+        let full = onDisk(path, home: home)
+        let dir = (full as NSString).deletingLastPathComponent, name = (full as NSString).lastPathComponent
+        var st = stat()
+        let exists = lstat(full, &st) == 0
+        if exists, !replace { throw HostError(.alreadyExists, "\(DisplayPath.tilde(path)) already exists — --force replaces it") }
+        let mode: mode_t = exists ? st.st_mode & 0o777 : 0o644
+        do { try MacFenceHostFS.writeAtomically(data, dir: dir, name: name, mode: mode, exclusive: !replace) } catch let r as MacFenceHostFS.Refusal {
+            if r.why == MacFenceHostFS.Refusal.exists { throw HostError(.alreadyExists, "\(DisplayPath.tilde(path)) already exists — --force replaces it") }
+            throw HostError(.invalidValue, "\(DisplayPath.tilde(path)) can't be written: \(r.why)")
         }
         return Read(text: text, sha256: WorkspaceStore.sha256(data), bytes: data.count)
     }

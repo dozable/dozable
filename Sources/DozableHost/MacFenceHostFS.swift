@@ -21,6 +21,8 @@ public enum MacFenceHostFS {
         public let path: String
         public let why: String
         public var description: String { "\(DisplayPath.tilde(path)): \(why)" }
+        /// An exclusive write's refusal: the name is taken.
+        public static let exists = "already exists"
     }
 
     /// `O_NOFOLLOW_ANY` (sys/fcntl.h, macOS 11+): no symbolic link in any component of the path.
@@ -100,12 +102,16 @@ public enum MacFenceHostFS {
     /// Write `data` as `dir/name` atomically: a fresh temp name (`O_CREAT|O_EXCL|O_NOFOLLOW`) in the SAME folder opened
     /// with no link in its path, then `renameat` over the name. An existing `name` must be a regular file (or absent) —
     /// a link or a folder there is refused, never written through.
-    public static func writeAtomically(_ data: Data, dir: String, name: String, mode: mode_t = 0o600, sync: Bool = false, uid: uid_t = getuid()) throws {
+    /// `exclusive` (755): never over an existing `name` — the rename itself refuses one (`RENAME_EXCL`), so a file that
+    /// appears between a look and the write is never replaced (`Refusal.exists`).
+    public static func writeAtomically(_ data: Data, dir: String, name: String, mode: mode_t = 0o600, sync: Bool = false, exclusive: Bool = false,
+                                       uid: uid_t = getuid()) throws {
         guard !name.contains("/"), name != ".", name != ".." else { throw Refusal(path: dir + "/" + name, why: "not a name") }
         let dfd = try openDirectory(dir)
         defer { close(dfd) }
         var st = stat()
         if fstatat(dfd, name, &st, AT_SYMLINK_NOFOLLOW) == 0 {
+            if exclusive { throw Refusal(path: dir + "/" + name, why: Refusal.exists) }
             guard (st.st_mode & S_IFMT) == S_IFREG else { throw Refusal(path: dir + "/" + name, why: "not a regular file — not replaced") }
         }
         let temp = ".\(name).doz-\(UInt32.random(in: 0...UInt32.max))"
@@ -122,7 +128,14 @@ public enum MacFenceHostFS {
         fchmod(fd, mode)
         if sync { fsync(fd) }       // a git config the host rewrote; the session folder's files are re-made at every open
         close(fd)
-        guard renameat(dfd, temp, dfd, name) == 0 else { throw Refusal(path: dir + "/" + name, why: errnoText()) }
+        if exclusive {
+            guard renameatx_np(dfd, temp, dfd, name, UInt32(RENAME_EXCL)) == 0 else {
+                let e = errno
+                throw Refusal(path: dir + "/" + name, why: e == EEXIST ? Refusal.exists : errnoText(e))
+            }
+        } else {
+            guard renameat(dfd, temp, dfd, name) == 0 else { throw Refusal(path: dir + "/" + name, why: errnoText()) }
+        }
         ok = true
     }
 
