@@ -5,6 +5,35 @@ can run it too: create a sandbox for a risky task, hand the work to an agent ins
 going, and tidy up afterwards. Your Mac's agent plans and reviews; the sandboxed agents do the work
 behind the proxy.
 
+## Workspaces
+
+To get agents working on something — a brief, your folders, a helper with a task — make a **workspace**, in one
+command:
+
+```sh
+doz workspace new app --brief "Fix the build" --folder ~/code/app --worker "Fix the failing test" --json
+doz workspace start app --json
+```
+
+- **Create.** `--brief TEXT` (or `--brief -` for standard input, or `--prompt-file FILE`), `--folder DIR` (repeatable;
+  the first is the main one), `--worker "TASK"` (repeatable: declared now, started by `doz workspace start`), `--preset
+  NAME` (`blank`, `research`, `swift-tests`, `mac-admin`, `remotion-video`; a flag given wins) and `--start` to start it
+  at once. `--dry-run --json` shows what would be made and makes nothing. `doz workspace create` is the same command.
+  An unknown preset exits `65` (`invalid-value`), naming the real ones. Workers need chat on (`doz chat on`).
+- **State.** `doz workspace state app --json` gives each agent's `condition` — `running`, `asleep`, `stopped`,
+  `crashed`, `not-started` or `unknown` — with its `reason`, `role`, `place` and `since`, and `conditions.ready` (every
+  agent running). With no daemon running none is started and every condition is `unknown`.
+- **Add a worker.** `doz worker add app --task "Review the fix" --json` brings up a helper in a started workspace
+  (refused, exit `3`, while it is still setting up); `doz worker ls app --json` lists them; `doz worker end app NAME`
+  ends one. Workers run fenced on this Mac unless you say otherwise: `--isolation unfenced` acts as you, so an agent
+  should never choose it for you.
+- **The skill.** `doz skill show doz` prints the `doz` skill — a `SKILL.md` for an agent that drives doz: workspaces,
+  the exit codes, the error JSON, `--yes`, and what not to do. `doz skill show doz --json` gives its path
+  (`{"kind":"Skill","schema":1,"name":"doz","path":"…/SKILL.md"}`); point your agent at it. It ships inside doz, which
+  installs it nowhere.
+
+`doz create` makes a single sandbox, not a workspace: an agent asked for a workspace should use `doz workspace new`.
+
 ## Concepts
 
 - **Every command works without a terminal to type into**, and **`--json`** gives machine-readable

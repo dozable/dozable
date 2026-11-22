@@ -34,9 +34,15 @@ public struct DozableCommand: AsyncParsableCommand {
         commandName: "doz",
         abstract: "Dozable — fast, suspendable micro-VMs for your Mac: pause in a millisecond, hibernate to disk, wake in a third of a second.",
         discussion: """
-        A coding agent running doz for someone (Claude Code, Codex, Cursor): read \
-        https://dozable.com/docs/letting-another-agent-drive.md first — --json, exit codes, --yes, and what to ask \
-        the person before you choose for them. Every manual page as Markdown: https://dozable.com/llms.txt
+        Start here — make a workspace (agents working on a brief, in your folders):
+          doz workspace new NAME --brief "…" --folder PATH [--worker "TASK"]
+          doz workspace state NAME                 see it: each agent's condition
+          doz worker add NAME --task "TASK"        add a helper to a started workspace
+        One sandbox on its own (a single Linux VM): doz create NAME, or doz new.
+
+        A coding agent running doz for someone: doz skill show doz (the skill to load), and \
+        https://dozable.com/docs/letting-another-agent-drive.md — --json, exit codes, --yes, and what to ask the \
+        person first. Every manual page as Markdown: https://dozable.com/llms.txt
 
         Lifecycle (aliases in brackets): start [cold-boot] · pause [suspend] · resume · sleep · \
         hibernate · wake · shutdown · reset · rm. `doz new` makes a sandbox with every default \
@@ -55,7 +61,7 @@ public struct DozableCommand: AsyncParsableCommand {
             ImageCommand.self, BaseCommand.self, BuilderCommand.self, ResourcesCommand.self, TemplateCommand.self, Duplicate.self, PointCommand.self, NetCommand.self, KeyCommand.self, AccountCommand.self, AccessCommand.self, ToolsCommand.self, DotfilesCommand.self, IgnoreCommand.self, PortsCommand.self, OpenCommand.self,
             MetricsCommand.self, TimelineCommand.self, Doctor.self, HostCommand.self, Events.self, Console.self, UICommand.self, ServeCommand.self, ConfigCommand.self,
             TelemetryCommand.self, SignupCommand.self, UpdateCommand.self, AppCommand.self, Uninstall.self, Nuke.self, Inventory.self,
-            ChatCommand.self, WorkspaceCommand.self, SpaceCommand.self, BotCommand.self, WorkerCommand.self, PermissionsCommand.self, WhyCommand.self, GrantCommand.self,
+            ChatCommand.self, WorkspaceCommand.self, SpaceCommand.self, BotCommand.self, WorkerCommand.self, SkillCommand.self, PermissionsCommand.self, WhyCommand.self, GrantCommand.self,
             DebugCommand.self,
         ]
     )

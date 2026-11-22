@@ -246,6 +246,8 @@ worker
 worker/add
 worker/ls
 worker/end
+skill
+skill/show
 permissions
 permissions/show
 permissions/why

@@ -620,9 +620,14 @@ if [[ -z "$DRY_RUN" ]]; then
         [[ -L "$packed/bin/dozchat" && "$(readlink "$packed/bin/dozchat")" == ../libexec/doz/dozchat-mac ]] || fail "bin/dozchat in the tarball is not the link to dozchat-mac"
     fi
     # 675 (H8): the layout contract — docs/manual/33-bundling-doz-in-an-app.md. Checked on what people download.
-    for f in doz VERSION RELEASE DozableKit_DozableKit.bundle/deckhold "kernels/$KERNEL_NAME" licences/kernel/PROVENANCE.md licences/kernel/kernel.config; do
+    for f in doz VERSION RELEASE DozableKit_DozableKit.bundle/deckhold DozableKit_DozableKit.bundle/skills/doz/SKILL.md "kernels/$KERNEL_NAME" licences/kernel/PROVENANCE.md licences/kernel/kernel.config; do
         [[ -e "$packed/libexec/doz/$f" ]] || fail "the tarball has no libexec/doz/$f (the layout contract)"
     done
+    # The doz skill: the packed doz names its own copy, and it is there.
+    skill_path="$(env DO_NOT_TRACK=1 "$packed/libexec/doz/doz" skill show doz --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["path"])')" \
+        || fail "the packed doz cannot show the doz skill"
+    [[ "$skill_path" == *"/libexec/doz/DozableKit_DozableKit.bundle/skills/doz/SKILL.md" && -s "$skill_path" ]] \
+        || fail "the packed doz's skill path is not its own bundle's SKILL.md: $skill_path"
     [[ "$(cat "$packed/libexec/doz/RELEASE")" == "$FLAVOR" ]] || fail "the tarball's RELEASE is not $FLAVOR"
     [[ "$FLAVOUR" == cli ]] || [[ -s "$packed/README.md" ]] || fail "the helper tarball has no README.md"
     for f in LICENSE NOTICE THIRD-PARTY-LICENSES.txt; do [[ -s "$packed/libexec/doz/licences/$f" ]] || fail "the tarball has no licences/$f"; done
