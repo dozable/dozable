@@ -195,7 +195,9 @@ runs in the background), it and everything it starts run many times slower; doct
 to move it out. A daemon started that way leaves the background priority by itself (`daemon priority` in doctor).
 
 **Exit codes?**
-`0` ok · `1` failed · `2` not found · `3` not possible in this state · `4` already exists · `5` not
-confirmed · `6` daemon unavailable · `7` not implemented yet · `64` usage. `exec`, `run` and `attach`
+`0` ok · `1` failed · `2` not found · `3` not possible now · `4` already exists · `5` not
+confirmed · `6` daemon unavailable · `7` not implemented yet · `8` limited · `9` not permitted · `64` usage ·
+`65` an invalid document or value · `75` partly done · `124` timed out. `doz help exit-codes` lists them with
+the error codes `--json` carries. `exec`, `run` and `attach`
 exit with the program's own code (`125` when `doz` itself failed; `exec`'s `124` when its `--timeout`
 passed — `--json` adds `"timedOut": true`).

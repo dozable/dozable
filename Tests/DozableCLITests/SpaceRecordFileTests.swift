@@ -38,7 +38,7 @@ final class SpaceRecordFileTests: XCTestCase {
         XCTAssertEqual(r.text, good)
         // A stale ifMatch: refused, nothing written.
         XCTAssertThrowsError(try SpaceRecordFile.write(.space, good + "x: 1\n", to: p, ifSHA: String(repeating: "0", count: 64), store: store, home: home)) { e in
-            XCTAssertEqual((e as? HostError)?.code, .invalidPhase)
+            XCTAssertEqual((e as? HostError)?.code, .fileChanged)
             XCTAssertTrue((e as? HostError)?.message.hasPrefix("the space file changed since you opened it") == true)
         }
         XCTAssertEqual(try String(contentsOfFile: p, encoding: .utf8), good)
@@ -121,7 +121,7 @@ extension WorkspaceLifecycleHostTests {
             let ordersBefore = workers.orders.count
             // A stale ifMatch: refused, nothing written.
             m = await ws(c, .workspaceSpaceSave, "sp") { $0.text = text + "title: x\n"; $0.ifMatch = String(repeating: "0", count: 64) }
-            XCTAssertEqual(m.error?.code, .invalidPhase)
+            XCTAssertEqual(m.error?.code, .fileChanged)
             XCTAssertEqual(try String(contentsOfFile: s.file, encoding: .utf8), text)
             // Without ifMatch: refused.
             m = await ws(c, .workspaceSpaceSave, "sp") { $0.text = text }

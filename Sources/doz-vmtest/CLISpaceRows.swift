@@ -80,4 +80,32 @@ func cliSpaceRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     let two = h.run(["space", "plan"], timeout: 60, cwd: dir)
     check(two.code == 64 && two.err.contains("s1.space.yaml, s2.space.yaml"), "S12 two space files: refused, naming both (\(two.code) \(two.err.prefix(200)))")
     check(!h.hostRunning && tree() == before, "S12 …still no daemon, nothing changed")
+
+    // X. the exit-code contract: an invalid document is 65 (never 2: 2 is only not found); the table is published.
+    func error(_ r: CLIRun) -> (code: String, exit: Int, message: String)? {
+        guard let o = try? JSONSerialization.jsonObject(with: r.outData) as? [String: Any], let e = o["error"] as? [String: Any],
+              let c = e["code"] as? String, let x = e["exit"] as? Int, let m = e["message"] as? String else { return nil }
+        return (c, x, m)
+    }
+    let bad = dir.appendingPathComponent("bad.space.yaml")
+    try? "doz: space/3\nspace: bad\nbrief: BRIEF.md\nowner: ada\nagents:\n  w1: { kind: claude-code, isolation: sideways, prompt: x }\n".write(to: bad, atomically: true, encoding: .utf8)
+    var x = h.run(["workspace", "plan", "-f", bad.path, "--json"], timeout: 60)
+    check(x.code == 65 && error(x)?.code == "invalid-document" && error(x)?.exit == 65 && error(x)?.message.isEmpty == false,
+          "X1 an invalid value in a space file: exit 65, invalid-document (\(x.code) \(x.out.prefix(200)))")
+    x = h.run(["workspace", "plan", "-f", bad.path], timeout: 60)
+    check(x.code == 65 && x.err.contains("bad.space.yaml:6") && x.err.contains("isolation"), "X1 …as text: 65, the file and line (\(x.code) \(x.err.prefix(200)))")
+    try? "doz: space/3\nspace: [broken\n  agents: :\n".write(to: bad, atomically: true, encoding: .utf8)
+    x = h.run(["workspace", "plan", "-f", bad.path, "--json"], timeout: 60)
+    check(x.code == 65 && error(x)?.code == "invalid-document", "X2 a YAML syntax error: exit 65, invalid-document (\(x.code) \(x.out.prefix(200)))")
+    x = h.run(["workspace", "show", "nosuch", "--json"], timeout: 60)
+    check(x.code == 2 && error(x)?.code == "not-found" && error(x)?.exit == 2, "X3 a missing workspace: exit 2, not-found (\(x.code) \(x.out.prefix(200)))")
+    x = h.run(["help", "exit-codes", "--json"], timeout: 60)
+    let table = try? HostWire.decoder.decode(ExitCodesAnswer.self, from: x.outData)
+    check(x.code == 0 && table?.kind == "ExitCodes" && table?.schema == 1
+          && table?.codes.map(\.exit) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 64, 65, 75, 124, 125]
+          && table?.codes.first { $0.exit == 2 }?.errorCodes == ["not-found", "ambiguous"],
+          "X4 help exit-codes --json: the published table (\(x.code) \(x.out.prefix(200)))")
+    check(h.run(["no-such-command"], timeout: 60).code == 64 && h.run(["ls", "--no-such-flag"], timeout: 60).code == 64,
+          "X5 an unknown command or flag: still 64")
+    check(!h.hostRunning, "X …and no daemon started")
 }

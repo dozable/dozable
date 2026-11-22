@@ -48,7 +48,7 @@ func runWorkspaceLifecycle(_ verb: WorkspaceVerb, _ a: LifecycleArguments, edit:
     switch verb.confirm {
     case .none: break
     case .yes:
-        if g.json && !a.yes { throw fail(HostError(.failed, "\(verb.rawValue) \(a.name) asks first — --json asks nothing: pass --yes"), g, code: DozableExit.declined) }
+        if g.json && !a.yes { throw fail(HostError(.needsConfirmation, "\(verb.rawValue) \(a.name) asks first — --json asks nothing: pass --yes"), g) }
         try confirm("\(capitalised(verb.rawValue)) \(a.name)?", yes: a.yes, g)
     case .typed:
         try confirmTypedName(a.name, verb: verb.rawValue, yes: a.yes, g)
@@ -62,7 +62,7 @@ func runWorkspaceLifecycle(_ verb: WorkspaceVerb, _ a: LifecycleArguments, edit:
     let archiveFailed = c.archiveProblem.map { HostError(.failed, "\(c.name) is \(verb == .archive ? "archived" : "finished"), but run \(c.run ?? "?")'s archive was not written: \($0) — doz workspace runs \(c.name) --archive \(c.run ?? "RUN") writes it again") }
     if g.json {
         Out.json(c)
-        if archiveFailed != nil { throw ExitCode(1) }
+        if archiveFailed != nil { throw ExitCode(DozableExit.failed) }
         return
     }
     var out = ""
@@ -71,7 +71,7 @@ func runWorkspaceLifecycle(_ verb: WorkspaceVerb, _ a: LifecycleArguments, edit:
     out += lifecycleDone(verb, c) + "\n"
     for n in c.notes ?? [] { out += "note: \(n)\n" }
     Out.stdout(out)
-    if let archiveFailed { throw fail(archiveFailed, g, code: 1) }
+    if let archiveFailed { throw fail(archiveFailed, g) }
 }
 
 /// Finish's and archive's evidence archive.
@@ -98,10 +98,10 @@ func lifecycleDone(_ verb: WorkspaceVerb, _ c: WorkspaceChanged) -> String {
 /// The name typed on the terminal (never stdin, which may carry data). No terminal, or --json, and no --yes: refused.
 func confirmTypedName(_ name: String, verb: String, yes: Bool, _ g: GlobalOptions) throws {
     if yes { return }
-    if g.json { throw fail(HostError(.failed, "\(verb) \(name) asks for its name to be typed — --json asks nothing: pass --yes"), g, code: DozableExit.declined) }
+    if g.json { throw fail(HostError(.needsConfirmation, "\(verb) \(name) asks for its name to be typed — --json asks nothing: pass --yes"), g) }
     let fd = open("/dev/tty", O_RDWR)
     guard fd >= 0 else {
-        throw fail(HostError(.failed, "\(verb) \(name) asks for its name to be typed — there is no terminal to ask; pass --yes"), g, code: DozableExit.declined)
+        throw fail(HostError(.needsConfirmation, "\(verb) \(name) asks for its name to be typed — there is no terminal to ask; pass --yes"), g)
     }
     defer { close(fd) }
     let prompt = "Type \(name) to \(verb) it: "
@@ -109,7 +109,7 @@ func confirmTypedName(_ name: String, verb: String, yes: Bool, _ g: GlobalOption
     var buf = [UInt8](repeating: 0, count: 128)
     let n = read(fd, &buf, buf.count)
     let answer = n > 0 ? String(decoding: buf[0..<n], as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) : ""
-    guard answer == name else { throw fail(HostError(.failed, "not confirmed — nothing done"), g, code: DozableExit.declined) }
+    guard answer == name else { throw fail(HostError(.needsConfirmation, "not confirmed — nothing done"), g) }
 }
 
 /// A plan as a person reads it: the table (agent · role · where · now → after · back), what is kept and what goes (with

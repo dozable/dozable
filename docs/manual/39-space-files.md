@@ -61,8 +61,8 @@ session or a bot runs now, the chat server's rooms — is marked "not known", an
   keys and never under `secrets:`.
 - Maps merge by key; lists replace; `null` removes an inherited value (`persist: { memory: null }`).
 
-Every problem is reported at once, as `file:line`, with what to write instead; an error stops everything (exit 2) and
-nothing is done. A warning does not stop it.
+Every problem is reported at once, as `file:line`, with what to write instead; an error stops everything (exit 65, an invalid
+document; `--json` says `"error": {"code": "invalid-document", …}`) and nothing is done. A warning does not stop it.
 
 ## The plan
 
@@ -102,7 +102,8 @@ doz workspace show launch-video --space            # "Defined by launch-video.sp
   acts with full access to your user: `up` asks you about it on the terminal at every up, whatever set it — `--yes`
   answers that question on a terminal; with no terminal, `up` does nothing and exits 5. What the file **requests** for
   an agent (a role, grants) is recorded, never granted: `doz permissions grant` does that. `up` stops at the first step
-  that fails (the rest are "not run", exit 1); `up` again makes only what is missing.
+  that fails (the rest are "not run"): exit 75 when steps before it were done (`--json`'s `partial` names what is done,
+  what remains and the command that retries), exit 1 when nothing was; `up` again makes only what is missing.
 - **The brief is the file.** The kick-off, `doz workspace show --brief` and the run's archive read `BRIEF.md` beside
   the space file; an edit on the workspace's page or with `doz workspace edit --prompt-file` is saved into it. `up`
   never writes it. The file must be yours, under your home, and no link.
@@ -113,13 +114,14 @@ doz workspace show launch-video --space            # "Defined by launch-video.sp
   is removed. What `persist:` names is kept for the next run: a room closed with its history, a sandbox's disk, an
   agent's memory (a fenced agent's comes back in its next fenced session only). External things are never touched.
   With **`archive: off`** nothing is copied: what goes with no copy is listed before you confirm. A step that fails is
-  said and `down` carries on; `down` again does what is left.
+  said and `down` carries on (exit 75); `down` again does what is left.
 - **`--purge`** takes it down first, then removes what persists — its rooms (archived first), sandboxes and kept
   memory — and releases the folders it kept: they leave the workspace and stay on disk.
 
-Exit codes: 0 ok · 1 a step failed · 2 a problem in the file, or something external missing · 3 not in a state to go
+Exit codes: 0 ok · 1 a step failed before anything was done · 2 something external missing · 3 not in a state to go
 on (chat off, a workspace archived), or changed since the plan · 4 a workspace of that name made without a space file ·
-5 not confirmed · 7 not in this version · 64 usage.
+5 not confirmed · 7 not in this version · 64 usage · 65 a problem in the file · 75 partly done (a step failed after
+others were done). `doz help exit-codes` lists them all.
 
 ## While it runs
 

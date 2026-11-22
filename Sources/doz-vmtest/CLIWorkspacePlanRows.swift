@@ -102,7 +102,7 @@ func cliWorkspacePlanRows(_ h: CLIHarness, root: URL, store: DozableStore, start
 
     // 42. never unfenced by default
     r = h.run(["workspace", "new", "unfw", "--prompt-file", brief, "--worker-isolation", "unfenced"], timeout: 60)
-    check(r.code == 64 && r.err.contains("never unfenced by default") && !ws.exists("unfw"), "42 --worker-isolation unfenced: refused, nothing made (\(r.code))")
+    check(r.code == 65 && r.err.contains("never unfenced by default") && !ws.exists("unfw"), "42 --worker-isolation unfenced: refused, nothing made (\(r.code))")
 
     // 43. --start, no manager: the kick-off once
     r = h.run(["workspace", "new", "kick", "--prompt-file", brief, "--start"], timeout: 90)

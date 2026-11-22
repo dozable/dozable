@@ -57,7 +57,7 @@ struct UpdateCommand: AsyncParsableCommand {
     func run() async throws {
         // 675: the helper build refuses before anything — no feed is asked, no setting is written (--channel).
         if case .helper(let app) = InstallMethod.detect(executable: HostLauncher.executablePath) {
-            throw fail(HostError(.invalid, BuildFlavor.helperUpdates(app: app)), g, code: DozableExit.failed)
+            throw fail(HostError(.failed, BuildFlavor.helperUpdates(app: app)), g)
         }
         if let c = channel.flatMap(UpdateChannel.init(rawValue:)) { return try await switchChannel(c) }
         let ctx = UpdateContext.current(version: DozableCommand.version, executable: HostLauncher.executablePath)
@@ -355,10 +355,15 @@ public enum DozableEntry {
         let usage = UsageHook(args)
         usage.before()
         do {
-            var command = try DozableCommand.parseAsRoot(SessionsSend.normalized(UsageHook.parserArguments(args)))
+            // `doz help exit-codes [--json]`: ArgumentParser owns the word `help` (help for a command), so this one topic is
+            // taken here, before it parses.
+            var command: ParsableCommand = HelpExitCodes.isAsked(args)
+                ? try HelpExitCodes.parseAsRoot(Array(args.dropFirst(2)))
+                : try DozableCommand.parseAsRoot(SessionsSend.normalized(UsageHook.parserArguments(args)))
             // @mac is this Mac, not a sandbox: only the session commands take it — every other says so, once.
-            if let e = MacCLI.refusal(command, args: args) {
-                if args.contains("--json") { Out.json(["error": ["code": e.code.rawValue, "message": e.message]]) } else { Out.stderr("doz: \(e.message)\n") }
+            if let refusal = MacCLI.refusal(command, args: args) {
+                let e = HostError(.usage, refusal.message)     // an argument this command does not take: usage (64)
+                if args.contains("--json") { Out.json(ErrorAnswer(e)) } else { Out.stderr("doz: \(e.message)\n") }
                 throw ExitCode(DozableExit.code(for: e))
             }
             // 0.51: a doz.toml line under a name renamed for the folder is never read — every command says so (doz config
@@ -371,6 +376,12 @@ public enum DozableEntry {
             LoginItemNotice.afterCommand(args)          // 694: once, after the upgrade that made the daemon stay running
             usage.after(exitCode: 0)
             DozableCommand.exit()
+        } catch let e as HostError {
+            // An error no command caught: said, and its exit from the one table (never ArgumentParser's generic 1).
+            let code = DozableExit.code(for: e)
+            usage.after(exitCode: code)
+            if args.contains("--json") { Out.json(ErrorAnswer(e)) } else { Out.stderr("doz: \(e.message)\n") }
+            exit(code)
         } catch {
             usage.after(exitCode: DozableCommand.exitCode(for: error).rawValue)
             // 0.51: an option renamed for the folder still fails as unknown; one hint says its new name (RenamedNames).

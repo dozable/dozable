@@ -81,7 +81,7 @@ struct ImageBake: AsyncParsableCommand {
                 + "new sandboxes, and `doz reset NAME`, use the new image (a reset keeps the agent's own state and /workspace, and drops other system changes)."
             let asker = Asker(yes: yes, json: g.json)
             if asker.interactive {
-                guard asker.yesNo(what, default: true) else { throw fail(HostError(.failed, "not rebuilt — nothing done"), g, code: DozableExit.declined) }
+                guard asker.yesNo(what, default: true) else { throw fail(HostError(.needsConfirmation, "not rebuilt — nothing done"), g) }
             } else if !g.json && !g.quiet {
                 Out.stderr("[doz] rebuilding the \(image) image: existing sandboxes keep their disks; new sandboxes and `doz reset NAME` use the new one\n")
             }
@@ -886,7 +886,7 @@ struct Console: AsyncParsableCommand {
 
     func run() async throws {
         if list || steps || boot != nil {
-            guard !follow else { throw fail(HostError(.invalid, "--follow shows the console as it is written: not with --list, --steps or --boot"), g, code: DozableExit.usage) }
+            guard !follow else { throw fail(HostError(.usage, "--follow shows the console as it is written: not with --list, --steps or --boot"), g) }
             try await showBoots()
             return
         }

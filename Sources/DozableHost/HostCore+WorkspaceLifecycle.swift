@@ -284,7 +284,7 @@ struct LifecycleChange: Sendable {
 
 extension HostCore {
     static func changedSinceYouLooked(_ n: String, _ v: WorkspaceVerb) -> HostError {
-        HostError(.invalidPhase, "\(n) changed since you looked — look again: doz workspace \(v.rawValue) \(n) --dry-run")
+        HostError(.planChanged, "\(n) changed since you looked — look again: doz workspace \(v.rawValue) \(n) --dry-run")
     }
 
     /// Sleep, wake, finish, reopen, archive, restore or delete `w.name`: the plan built again and checked (`ifPlan`, its

@@ -1274,13 +1274,20 @@ the others say when they apply (the next sandbox created, the next session, or a
 | 0 | ok |
 | 1 | failed |
 | 2 | not found |
-| 3 | not possible in this phase |
+| 3 | not possible now (this phase, or changed since you looked) |
 | 4 | already exists |
 | 5 | not confirmed |
 | 6 | daemon unavailable |
 | 7 | not implemented yet |
+| 8 | limited (`doz search`) |
+| 9 | not permitted (an agent's request) |
 | 64 | usage |
+| 65 | an invalid document or value |
+| 75 | partly done (`--json`: `partial` with `done`, `remaining`, `retry`) |
+| 124 | timed out |
 | *program's own* | `exec`, `run`, `attach` (125 = doz itself failed) |
+
+`doz help exit-codes [--json]` prints the table with the error codes `--json` carries.
 
 | environment | overrides the setting | |
 |---|---|---|

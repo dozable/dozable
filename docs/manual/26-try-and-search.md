@@ -203,6 +203,8 @@ categories — `personal-agent`, `terminal-tool`, `framework`, `browser-agent`, 
 | 2 | nothing by that name (it suggests the closest) |
 | 64 | usage |
 
+The whole table, the same for every command: `doz help exit-codes`.
+
 ## A tool's major version
 
 Some tools come in more than one major release line, each a recipe of its own — OpenCode 1 and OpenCode 2. The tool's

@@ -236,7 +236,7 @@ func cliOnboardingSuite(binary: String) async {
     try? FileManager.default.createDirectory(at: bad, withIntermediateDirectories: true)
     try? "name: b\nimage: lab\ncolour: blue\n".write(to: bad.appendingPathComponent("doz_project.yaml"), atomically: true, encoding: .utf8)
     r = runIn(a, bad, ["up", "--detach"])
-    check(r.code == 64 && r.err.contains("line 3: unknown key colour"), "an unknown key: refused with its line (exit \(r.code))")
+    check(r.code == 65 && r.err.contains("line 3: unknown key colour"), "an unknown key: refused with its line (exit \(r.code))")
     a.run(["rm", "my-proj", "--yes"])
     a.run(["rm", "j1", "--yes"])
     a.run(["daemon", "stop"])

@@ -81,7 +81,7 @@ func templatesSuite() async throws {
     // exist is made — outside the store; inside it, it is refused and nothing is made.
     let inside = storeRoot.appendingPathComponent("ws-missing")
     r = h.run(["duplicate", "tpa", "tpe", "--folder", inside.path])
-    check(r.code == 64 && r.err.contains("inside the store") && !FileManager.default.fileExists(atPath: inside.path) && h.row("tpe") == nil,
+    check(r.code == 65 && r.err.contains("inside the store") && !FileManager.default.fileExists(atPath: inside.path) && h.row("tpe") == nil,
           "a missing workspace inside the store is refused, and not made")
     let scratch = URL(fileURLWithPath: "/private/tmp/dztp-\(getpid())")
     defer { try? FileManager.default.removeItem(at: scratch) }

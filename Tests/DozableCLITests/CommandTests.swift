@@ -134,7 +134,8 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(DozableExit.code(for: HostError(.exists, "")), 4)
         XCTAssertEqual(DozableExit.code(for: HostError(.unavailable, "")), 6)
         XCTAssertEqual(DozableExit.code(for: HostError(.notImplemented, "")), 7)
-        XCTAssertEqual(DozableExit.code(for: HostError(.invalid, "")), 64)
+        XCTAssertEqual(DozableExit.code(for: HostError(.invalid, "")), 65, "an invalid value or document is 65 (EX_DATAERR), never usage")
+        XCTAssertEqual(DozableExit.code(for: HostError(.usage, "")), 64)
     }
 
     // MARK: --json shapes (what scripts rely on: add fields, never rename)

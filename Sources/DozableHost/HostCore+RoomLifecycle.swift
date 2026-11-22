@@ -147,7 +147,7 @@ extension HostCore {
     func roomArchive(_ q: ChatRoomRequest) async throws -> ChatRoomChanged {
         let room = q.room
         let (p, f) = await roomPlan(room, verb: "archive", loose: q.loose == true)
-        if let want = q.ifPlan, want != p.sha { throw HostError(.invalidPhase, "\(room) changed since you looked — look again: doz chat room archive \(room) --dry-run") }
+        if let want = q.ifPlan, want != p.sha { throw HostError(.planChanged, "\(room) changed since you looked — look again: doz chat room archive \(room) --dry-run") }
         if let first = p.refusals.first { throw HostError(HostError.Code(rawValue: p.refusalCode ?? "") ?? .invalidPhase, first) }
         guard let chat = workspaceChat, let last = f.lastSeq else { throw HostError(.unavailable, "chat is not ready — doz chat status") }
         let id = try await roomIndexUpdate { $0.ensure(room, owner: p.owner).id }
@@ -169,7 +169,7 @@ extension HostCore {
     func roomRemove(_ q: ChatRoomRequest) async throws -> ChatRoomChanged {
         let room = q.room
         let (p, f) = await roomPlan(room, verb: "rm", loose: q.loose == true)
-        if let want = q.ifPlan, want != p.sha { throw HostError(.invalidPhase, "\(room) changed since you looked — look again: doz chat room rm \(room) --dry-run") }
+        if let want = q.ifPlan, want != p.sha { throw HostError(.planChanged, "\(room) changed since you looked — look again: doz chat room rm \(room) --dry-run") }
         if let first = p.refusals.first { throw HostError(HostError.Code(rawValue: p.refusalCode ?? "") ?? .invalidPhase, first) }
         guard q.confirm == room else { throw HostError(.invalid, "type the name \(room) to remove it — the name typed is not its name") }
         guard let chat = workspaceChat, let last = f.lastSeq, let copy = f.copy else { throw HostError(.unavailable, "chat is not ready — doz chat status") }

@@ -172,7 +172,7 @@ func cliBotsSuite(binary: String) async {
     check(r.code == 0, "5 chat add plain (\(r.code))")
     let botsSHA = sha(bots.file)
     r = h.run(["bot", "new", "Bad_Name", "--agent", "codex"])
-    check(r.code == 64, "5 a bad name: exit 64 (\(r.code))")
+    check(r.code == 65, "5 a bad name: exit 65 (\(r.code))")
     r = h.run(["bot", "new", "plain", "--agent", "codex"], timeout: 60)
     check(r.code == 4 && r.err.contains("doz bot adopt plain"), "5 an existing participant: exit 4, names adopt (\(r.code))")
     r = h.run(["bot", "new", "nova", "--agent", "no-such-agent-x"], timeout: 60)
@@ -202,7 +202,7 @@ func cliBotsSuite(binary: String) async {
 
     // 8. retire far
     r = h.run(["bot", "retire", "far"], timeout: 60)
-    check(r.code == 64, "8 retire with no terminal and no --yes: exit 64 (\(r.code))")
+    check(r.code == 5, "8 retire with no terminal and no --yes: exit 5 (\(r.code))")
     r = h.run(["bot", "retire", "far", "--yes"], timeout: 60)
     check(r.code == 0, "8 bot retire far --yes (\(r.code))")
     check(!h.run(["chat", "who"]).out.contains("far "), "8 gone from chat who")
@@ -233,8 +233,8 @@ func cliBotsSuite(binary: String) async {
     check(r.code == 0 && code(oldaToken) == "200", "10 chat add olda (\(r.code))")
     let before10 = (sha(bots.file), sha(paths.tokens))
     r = h.run(["bot", "adopt", "olda", "--agent", "codex"], timeout: 60)
-    check(r.code == 64 && sha(bots.file) == before10.0 && sha(paths.tokens) == before10.1 && code(oldaToken) == "200",
-          "10 adopt with no terminal and no --yes: exit 64, nothing changed (\(r.code))")
+    check(r.code == 5 && sha(bots.file) == before10.0 && sha(paths.tokens) == before10.1 && code(oldaToken) == "200",
+          "10 adopt with no terminal and no --yes: exit 5, nothing changed (\(r.code))")
     r = h.run(["bot", "adopt", "olda", "--agent", "codex", "--yes"], timeout: 60)
     check(r.code == 0 && r.out.contains("token is replaced"), "10 adopt --yes: its token is replaced (\(r.code): \(r.out.prefix(120)))")
     check(code(oldaToken) == "401", "10 the old token is refused")
@@ -242,12 +242,12 @@ func cliBotsSuite(binary: String) async {
 
     // 11. the guards
     r = h.run(["chat", "remove", "mira"], timeout: 60)
-    check(r.code == 64 && r.err.contains("doz bot retire mira"), "11 chat remove mira: refused, points to doz bot retire (\(r.code))")
+    check(r.code == 65 && r.err.contains("doz bot retire mira"), "11 chat remove mira: refused, points to doz bot retire (\(r.code))")
     let tx = outside.appendingPathComponent("guard.token").path
     r = h.run(["chat", "token", "mira", "--new", "--to-file", tx], timeout: 60)
-    check(r.code == 64 && r.err.contains("doz bot token mira --new") && !fm.fileExists(atPath: tx), "11 chat token mira: refused, points to doz bot token (\(r.code))")
+    check(r.code == 65 && r.err.contains("doz bot token mira --new") && !fm.fileExists(atPath: tx), "11 chat token mira: refused, points to doz bot token (\(r.code))")
     r = h.run(["chat", "set", "mira", "--deliver", "poll"], timeout: 60)
-    check(r.code == 64 && r.err.contains("doz bot set mira"), "11 chat set mira: refused, points to doz bot set (\(r.code))")
+    check(r.code == 65 && r.err.contains("doz bot set mira"), "11 chat set mira: refused, points to doz bot set (\(r.code))")
     r = h.run(["chat", "remove", "plain"], timeout: 60)
     check(r.code == 0, "11 a plain participant is still removable (\(r.code))")
 
@@ -297,9 +297,9 @@ func cliBotsSuite(binary: String) async {
     check(r.code == 0 && r.out.contains("▲ mira's sudo=never") && r.out.contains("▲ mira's keychain.use=ask"), "12b bot ceiling mira prints it (\(r.out.prefix(200)))")
     let before12b = sha(bots.file)
     r = h.run(["bot", "ceiling", "mira", "sudo=allow"], timeout: 60)
-    check(r.code == 64 && sha(bots.file) == before12b, "12b allow is no ceiling: refused, nothing changed (\(r.code))")
+    check(r.code == 65 && sha(bots.file) == before12b, "12b allow is no ceiling: refused, nothing changed (\(r.code))")
     r = h.run(["bot", "ceiling", "mira", "teleport=never"], timeout: 60)
-    check(r.code == 64 && r.err.contains("is not a permission") && sha(bots.file) == before12b, "12b an unknown permission: refused with the list (\(r.code))")
+    check(r.code == 65 && r.err.contains("is not a permission") && sha(bots.file) == before12b, "12b an unknown permission: refused with the list (\(r.code))")
     r = h.run(["bot", "ceiling", "mira", "--clear", "keychain.use"], timeout: 60)
     check(r.code == 0 && h.json(["bot", "show", "mira"], BotDetail.self)?.ceilingAnswers == ["sudo": "never"], "12b --clear keychain.use (\(r.code))")
     check(hash("mira") == hash12b, "12b its token's hash is unchanged")

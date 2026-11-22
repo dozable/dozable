@@ -207,7 +207,7 @@ extension WorkspaceLifecycleHostTests {
             XCTAssertNil(try record("sp"), "nothing made")
             // A plan changed since the look: refused, nothing made.
             m = try await spaceUpAct(c, q, ifPlan: String(repeating: "0", count: 64))
-            XCTAssertEqual(m.error?.code, .invalidPhase)
+            XCTAssertEqual(m.error?.code, .planChanged)
             XCTAssertTrue(m.error?.message.contains("changed since you looked") == true)
             XCTAssertNil(try record("sp"))
             XCTAssertTrue(workers.orders.isEmpty)

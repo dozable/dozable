@@ -86,7 +86,7 @@ extension WorkspaceLifecycleHostTests {
             let sha = shown.brief.sha256
             // A stale ifBrief: refused, the file untouched.
             var m = await ws(c, .workspaceEdit, "sp") { $0.brief = "stale\n"; $0.ifBrief = String(repeating: "0", count: 64) }
-            XCTAssertEqual(m.error?.code, .invalidPhase)
+            XCTAssertEqual(m.error?.code, .fileChanged)
             XCTAssertEqual(try String(contentsOfFile: s.brief, encoding: .utf8), "Make the thing.\n")
             // An edit (the dashboard's card sends exactly this): the file is written; the store's copy stays empty.
             m = await ws(c, .workspaceEdit, "sp") { $0.brief = "Make the better thing.\n"; $0.ifBrief = sha }

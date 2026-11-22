@@ -104,7 +104,7 @@ struct SessionsBridges: AsyncParsableCommand {
     }
 
     func run() async throws {
-        guard MacPlace.isPlace(name) else { throw fail(HostError(.invalid, "bridges are switched here for a fenced session on this Mac — a sandbox's are doz config set --sandbox NAME"), g, code: DozableExit.usage) }
+        guard MacPlace.isPlace(name) else { throw fail(HostError(.usage, "bridges are switched here for a fenced session on this Mac — a sandbox's are doz config set --sandbox NAME"), g) }
         var r = HostRequest(.sessionBridges, name: name)
         r.session = session
         if openURL != nil || openFiles != nil || clipboard != nil {
@@ -136,7 +136,7 @@ struct SessionsResume: AsyncParsableCommand {
     @Argument var session: String
 
     func run() async throws {
-        guard MacPlace.isPlace(name) else { throw fail(HostError(.invalid, "only a session on this Mac is stopped this way — doz sessions resume @mac SESSION"), g, code: DozableExit.usage) }
+        guard MacPlace.isPlace(name) else { throw fail(HostError(.usage, "only a session on this Mac is stopped this way — doz sessions resume @mac SESSION"), g) }
         var r = HostRequest(.sessionResume, name: name)
         r.session = session
         let got = try decode(try call(r, g), SessionResumed.self, g)
@@ -237,7 +237,7 @@ struct SessionsSend: AsyncParsableCommand {
         var input = text
         if text == "-" {
             let d = FileHandle.standardInput.readDataToEndOfFile()
-            guard d.count <= SessionInput.maximumBytes else { throw fail(HostError(.invalid, "at most 64 KiB in one send"), g, code: DozableExit.usage) }
+            guard d.count <= SessionInput.maximumBytes else { throw fail(HostError(.usage, "at most 64 KiB in one send"), g) }
             input = String(decoding: d, as: UTF8.self)
         }
         let bytes: Data, pieces: [Data]
@@ -245,7 +245,7 @@ struct SessionsSend: AsyncParsableCommand {
             bytes = try SessionInput.bytes(text: input, keys: keys, enter: enter, paste: paste)
             pieces = try SessionInput.pieces(text: input, keys: keys, enter: enter, paste: paste)
         } catch let e as SessionInput.InputError {
-            throw fail(HostError(.invalid, e.message), g, code: DozableExit.usage)
+            throw fail(HostError(.usage, e.message), g)
         }
         var r = HostRequest(.sessionSend, name: name)
         r.session = session
@@ -449,17 +449,17 @@ struct SessionsList: AsyncParsableCommand {
     func run() async throws {
         if let screen { try await printScreen(screen); return }
         if forget != nil || forgetEnded {
-            guard MacPlace.isPlace(name) else { throw fail(HostError(.invalid, "--forget and --forget-ended are for doz sessions @mac"), g, code: DozableExit.usage) }
+            guard MacPlace.isPlace(name) else { throw fail(HostError(.usage, "--forget and --forget-ended are for doz sessions @mac"), g) }
             try await forgetSessions()
             return
         }
-        if dryRun || yes { throw fail(HostError(.invalid, "--dry-run and --yes go with --forget-ended or --forget SESSION"), g, code: DozableExit.usage) }
-        if discardTranscripts { throw fail(HostError(.invalid, "--discard-transcripts goes with --forget SESSION"), g, code: DozableExit.usage) }
-        if vt { throw fail(HostError(.invalid, "--vt goes with --screen SESSION"), g, code: DozableExit.usage) }
+        if dryRun || yes { throw fail(HostError(.usage, "--dry-run and --yes go with --forget-ended or --forget SESSION"), g) }
+        if discardTranscripts { throw fail(HostError(.usage, "--discard-transcripts goes with --forget SESSION"), g) }
+        if vt { throw fail(HostError(.usage, "--vt goes with --screen SESSION"), g) }
         if (capabilities != nil || transcripts != nil), !MacPlace.isPlace(name) {
-            throw fail(HostError(.invalid, "--capabilities and --transcripts are for doz sessions @mac"), g, code: DozableExit.usage)
+            throw fail(HostError(.usage, "--capabilities and --transcripts are for doz sessions @mac"), g)
         }
-        if export != nil, transcripts == nil { throw fail(HostError(.invalid, "--export goes with --transcripts SESSION"), g, code: DozableExit.usage) }
+        if export != nil, transcripts == nil { throw fail(HostError(.usage, "--export goes with --transcripts SESSION"), g) }
         if let c = capabilities {
             let rows = try decode(try await query(HostRequest(.sessions, name: name), g), [SessionRow].self, g)
             guard let row = rows.first(where: { $0.name == c }), let caps = row.capabilities else {
@@ -504,7 +504,7 @@ struct SessionsList: AsyncParsableCommand {
             return
         }
         if let q = quarantine {
-            guard MacPlace.isPlace(name) else { throw fail(HostError(.invalid, "--quarantine is for doz sessions @mac"), g, code: DozableExit.usage) }
+            guard MacPlace.isPlace(name) else { throw fail(HostError(.usage, "--quarantine is for doz sessions @mac"), g) }
             var r = HostRequest(.sessionQuarantine, name: name)
             r.session = q
             let got = try decode(try await query(r, g), SessionQuarantine.self, g)
@@ -565,7 +565,7 @@ struct SessionsList: AsyncParsableCommand {
         let s = try decode(try await query(r, g), SessionScreen.self, g)
         if vt {
             guard isatty(STDOUT_FILENO) == 0 else {
-                throw fail(HostError(.invalid, "--vt writes the guest's terminal bytes: send them to a file or a pipe, not a terminal"), g, code: DozableExit.usage)
+                throw fail(HostError(.usage, "--vt writes the guest's terminal bytes: send them to a file or a pipe, not a terminal"), g)
             }
             FileHandle.standardOutput.write(s.vt)
             return
@@ -741,8 +741,8 @@ struct Run: AsyncParsableCommand {
         let key = try parseDetachKey(detachKey)
         let onMac = MacPlace.isPlace(name)
         // A sandbox's session runs in a directory of the guest (--cwd); a session on this Mac works in a folder (--folder).
-        if onMac, cwd != nil { throw fail(HostError(.invalid, "--cwd is a directory in a sandbox — on @mac say --folder DIR"), g, code: 64) }
-        if !onMac, folder != nil { throw fail(HostError(.invalid, "--folder is for @mac — in a sandbox say --cwd DIR (its folder is at /workspace)"), g, code: 64) }
+        if onMac, cwd != nil { throw fail(HostError(.usage, "--cwd is a directory in a sandbox — on @mac say --folder DIR"), g) }
+        if !onMac, folder != nil { throw fail(HostError(.usage, "--folder is for @mac — in a sandbox say --cwd DIR (its folder is at /workspace)"), g) }
         let settings = DozableSettings.load()
         let fence = onMac && fencedOnMac(settings)
         if dryRun {

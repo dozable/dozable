@@ -449,7 +449,7 @@ final class WorkspaceManagerTests: BotTestCase {
         let logBefore = try logActions()
         let briefBefore = WorkspaceStore(store: store).readBrief("demo")
         let m = await edit(c, "Someone else's change.\n", ifBrief: String(repeating: "0", count: 64))
-        XCTAssertEqual(m.error?.code, .invalidPhase)
+        XCTAssertEqual(m.error?.code, .fileChanged)
         XCTAssertTrue(m.error?.message.contains("changed since you opened it") == true, m.error?.message ?? "")
         XCTAssertEqual(recordBytes("demo"), before, "nothing written")
         XCTAssertEqual(try logActions(), logBefore)

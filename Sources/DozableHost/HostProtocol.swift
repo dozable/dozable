@@ -749,11 +749,40 @@ public struct HostMessage: Codable, Equatable, Sendable {
 
 /// What went wrong, with a stable code (the CLI maps it to its exit code).
 public struct HostError: Codable, Equatable, Sendable, Error, LocalizedError {
-    public enum Code: String, Codable, Sendable {
+    /// Every code maps to ONE exit code through `ExitCodes` (the published table, `doz help exit-codes`) — the switch
+    /// there is exhaustive, so a new code does not compile unmapped. Codes are only ever added (an older client decodes
+    /// one it does not know as `failed`).
+    public enum Code: String, Codable, Sendable, CaseIterable {
         case failed, notFound = "not-found", invalidPhase = "invalid-phase", exists, invalid
         case notImplemented = "not-implemented", version, unavailable
         /// An agent's request its permissions do not allow (never the owner's: the owner is never gated).
         case notPermitted = "not-permitted"
+        // The frozen contract's codes (exit in brackets).
+        /// [2] what was typed matches several: the message lists them.
+        case ambiguous
+        /// [3] not possible now, each for its own reason.
+        case conflict, planChanged = "plan-changed", fileChanged = "file-changed", alreadyAnswered = "already-answered", notOwned = "not-owned"
+        /// [4] the contract's name for `exists` (doz still answers `exists`).
+        case alreadyExists = "already-exists"
+        /// [5] a question nobody answered: no terminal and no --yes, or the answer was no.
+        case needsConfirmation = "needs-confirmation"
+        /// [6] the contract's name for `unavailable` (doz still answers `unavailable` and `version`).
+        case needsDaemon = "needs-daemon"
+        /// [8] supported, but not with what was asked.
+        case limited
+        /// [64] a command used wrongly: a flag, an argument, a combination.
+        case usage, unclearRequest = "unclear-request"
+        /// [65] a document (a space file …) or a value that does not read.
+        case invalidDocument = "invalid-document", invalidValue = "invalid-value", secretValueInDocument = "secret-value-in-document"
+        /// [75] some of it was done: a retry does the rest.
+        case partial
+        /// [124] a deadline passed.
+        case timedOut = "timed-out"
+
+        public init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Code(rawValue: raw) ?? .failed
+        }
     }
     public var code: Code
     public var message: String

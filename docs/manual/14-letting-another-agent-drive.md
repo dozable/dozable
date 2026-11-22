@@ -8,11 +8,29 @@ behind the proxy.
 ## Concepts
 
 - **Every command works without a terminal to type into**, and **`--json`** gives machine-readable
-  output on stdout (errors as `{"error":{"code","message"}}`; fields are only ever added).
-- **Exit codes** say what happened: `0` ok · `1` failed · `2` not found · `3` not possible in this
-  state · `4` already exists · `5` not confirmed · `6` daemon unavailable · `7` not implemented yet ·
-  `64` usage. `exec`, `run` and `attach` exit with the program's own code (`125` when `doz` itself
-  failed). `exec` exits `124` when its `--timeout` passed (default 120 s, counted from when `doz`
+  output on stdout (errors as `{"error":{"code","message","exit"}}`; fields are only ever added).
+- **Exit codes** say what happened, the same for every command, and they keep their meaning:
+
+  | exit | meaning | `error.code` |
+  |---|---|---|
+  | `0` | done (or asked: a question was posted, the answer comes later) | — |
+  | `1` | failed | `failed` |
+  | `2` | not found — only that | `not-found`, `ambiguous` (several match: the message lists them) |
+  | `3` | not possible now | `invalid-phase`, `conflict`, `plan-changed`, `file-changed`, `already-answered`, `not-owned` |
+  | `4` | already exists | `already-exists` (also `exists`) |
+  | `5` | not confirmed (no terminal and no `--yes`) | `needs-confirmation` |
+  | `6` | the daemon is unavailable | `needs-daemon` (also `unavailable`, `version`) |
+  | `7` | not implemented yet | `not-implemented` |
+  | `8` | supported, but not with what was asked (`doz search`) | `limited` |
+  | `9` | not permitted (an agent's request) | `not-permitted` |
+  | `64` | usage: an unknown command or flag, a missing argument | `usage`, `unclear-request` |
+  | `65` | an invalid document or value (a space file, a name, a flag's or a setting's value) | `invalid-document`, `invalid-value`, `secret-value-in-document` (also `invalid`) |
+  | `75` | partly done: `--json`'s `partial` says `done`, `remaining` and `retry` (the command that does the rest) | `partial` |
+  | `124` | timed out | `timed-out` |
+  | `125` | `doz` itself failed around a program (`exec`, `run`, `attach`) | — |
+
+  `doz help exit-codes --json` prints this table (`{"kind":"ExitCodes","schema":1,"codes":[…]}`). `exec`,
+  `run` and `attach` exit with the program's own code (`125` when `doz` itself failed). `exec` exits `124` when its `--timeout` passed (default 120 s, counted from when `doz`
   started — a wake or a start included); the command is killed, a wake or a start goes on. A program's
   own `124` looks the same: `--json` says `"timedOut": true` only for the deadline.
 - **Destructive commands refuse without `--yes`** when there's no terminal, so a script can't delete

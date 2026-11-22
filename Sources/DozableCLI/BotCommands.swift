@@ -54,11 +54,11 @@ func botSkills(_ s: String) -> [String] {
 }
 
 /// Ask before a change that cannot be undone: `--yes`, else a terminal. With `--json`, or with no terminal, `--yes` is
-/// required (exit 64) — and nothing is changed.
+/// required (exit 5, not confirmed) — and nothing is changed.
 func botConfirm(_ question: String, yes: Bool, _ g: GlobalOptions) throws {
     if yes { return }
     guard !g.json, isatty(STDIN_FILENO) == 1, isatty(STDOUT_FILENO) == 1 else {
-        throw fail(HostError(.invalid, "\(question) — pass --yes\(g.json ? " (required with --json)" : " (there is no terminal to ask)"); nothing was changed"), g)
+        throw fail(HostError(.needsConfirmation, "\(question) — pass --yes\(g.json ? " (required with --json)" : " (there is no terminal to ask)"); nothing was changed"), g)
     }
     try confirm(question, yes: false, g)
 }

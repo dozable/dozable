@@ -31,9 +31,9 @@ func confirmTrust(_ res: DotfilesResolved, _ g: GlobalOptions) throws {
     }
     Out.stderr(dotfilesLines(res).joined(separator: "\n") + "\n")
     guard isatty(STDIN_FILENO) == 1, isatty(STDERR_FILENO) == 1 else {
-        throw fail(HostError(.failed, "dotfiles you have not said yes to (\(res.display) at \(res.commit.prefix(12))) — read them, then: "
+        throw fail(HostError(.needsConfirmation, "dotfiles you have not said yes to (\(res.display) at \(res.commit.prefix(12))) — read them, then: "
                              + "doz dotfiles trust \(DotfilesLayer.quote(res.source)) --commit \(res.commit) (or --dotfiles none)"),
-                   g, code: DozableExit.declined)
+                   g)
     }
     try confirm("Apply these dotfiles in the sandbox?", yes: false, g)
     do { try DotfilesTrust.trust(source: res.source, commit: res.commit) } catch {

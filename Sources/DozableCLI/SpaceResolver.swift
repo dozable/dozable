@@ -66,7 +66,7 @@ struct SpaceResolver {
             .filter { $0.hasSuffix(".space.yaml") && !$0.hasSuffix(".space.override.yaml") }.sorted()
         guard !names.isEmpty else { throw HostError(.notFound, "no *.space.yaml in \(DisplayPath.tilde(dir)) — name one with -f FILE") }
         guard names.count == 1 else {
-            throw HostError(.invalid, "\(names.count) space files in \(DisplayPath.tilde(dir)): \(names.joined(separator: ", ")) — name one with -f FILE")
+            throw HostError(.unclearRequest, "\(names.count) space files in \(DisplayPath.tilde(dir)): \(names.joined(separator: ", ")) — name one with -f FILE")
         }
         return (dir as NSString).appendingPathComponent(names[0])
     }

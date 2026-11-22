@@ -149,9 +149,9 @@ func cliHostSuite(binary: String) async {
     let pwd = file("pwd.txt").trimmingCharacters(in: .whitespacesAndNewlines)
     check(realPath(pwd) == realPath(work.path), "its folder is --folder (\(pwd))")
     r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "bad", "-e", "CLAUDECODE=1", "--", "/bin/sh", "-c", "true"])
-    check(r.code == 64 && r.err.contains("CLAUDECODE"), "-e CLAUDECODE=… is refused, with the reason (\(r.code))")
+    check(r.code == 65 && r.err.contains("CLAUDECODE"), "-e CLAUDECODE=… is refused, with the reason (\(r.code))")
     r = t.run(["run", "@mac", "-d", "--unfenced", "--session", String(repeating: "x", count: 33), "--", "/bin/sh"])
-    check(r.code == 64, "a session name of 33 characters is refused (\(r.code))")
+    check(r.code == 65, "a session name of 33 characters is refused (\(r.code))")
     r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "nope", "--", "no-such-program-here"])
     check(r.code == 125 && r.err.contains("no program no-such-program-here"), "a program that is not there: doz's failure, 125 (\(r.code))")
 

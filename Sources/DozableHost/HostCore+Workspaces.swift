@@ -623,7 +623,7 @@ extension HostCore {
         let spaceBrief = SpaceRecordRef.of(rec)?.brief.flatMap { $0.path.isEmpty ? nil : $0.path }
         let current = try spaceBrief.map { try SpaceBriefFile.read($0, store: storeRoot).sha256 } ?? rec.brief.sha256
         if let want = w.ifBrief, want != current {
-            throw HostError(.invalidPhase, "the brief of \(n) changed since you opened it — read it again (doz workspace show \(n) --brief)")
+            throw HostError(.fileChanged, "the brief of \(n) changed since you opened it — read it again (doz workspace show \(n) --brief)")
         }
         var brief: Data?
         if let b = w.brief { brief = try workspaceCheckBrief(b) }

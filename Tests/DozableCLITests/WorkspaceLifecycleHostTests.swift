@@ -332,7 +332,7 @@ final class WorkspaceLifecycleHostTests: BotTestCase {
         // Something changed between the look and the act: bot1 went to sleep by itself.
         workers.down("demo-bot1")
         let m = await ws(c, .workspaceSleep, "demo") { $0.ifPlan = p.sha }
-        XCTAssertEqual(m.error?.code, .invalidPhase)
+        XCTAssertEqual(m.error?.code, .planChanged)
         XCTAssertTrue(m.error?.message.contains("changed since you looked") == true, m.error?.message ?? "")
         XCTAssertTrue(trace.all.isEmpty, "nothing done")
         XCTAssertFalse(log().contains("slept"))
