@@ -1,10 +1,10 @@
-export { mountTimeline, modeFor, activityOf } from './history.js';
-export type { TimelineMountOptions, TimelineHandle } from './history.js';
-export { memorySource } from './timeline-engine.js';
+export { mountTimeline, modeFor, activityOf } from './timeline.js';
+export type { TimelineMountOptions, TimelineHandle } from './timeline.js';
+export { memorySource } from './timeline.js';
 export { fixtureSource, liveFeed, simulationSource, frameAt } from './timeline-fixture.js';
-export { parseSearch, compileSearch, matchAst, highlights } from './timeline-search.js';
+export { parseSearch, compileSearch, matchAst, highlights } from './timeline.js';
 export { findGaps, timeScale, ticks, gapLabel } from './timeline-scale.js';
-export { toCSV, toJSON } from './timeline-export.js';
+export { toCSV, toJSON } from './timeline.js';
 export { SOURCES, TIMELINE_VERSION } from './timeline-types.js';
 export type * from './timeline-types.js';
 export { Simulator } from './simulator.js';

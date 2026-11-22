@@ -1,4 +1,4 @@
-import type { Bin } from './timeline-types.js';
+import type { Bin } from './timeline-contract.js';
 /** the zone's offset from UTC at t, in ms (UTC, or an unknown zone: 0) */
 export declare function offsetAt(tz: string | undefined, t: number): number;
 export declare const isZone: (tz: string) => boolean;
