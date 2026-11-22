@@ -295,7 +295,9 @@ waits for ever and nothing is taken as a yes.
   doz chat withdraw room1 13             # an ask you asked
   ```
 
-  A refusal says why in plain words ("It was already answered: decided by Bot2."). Or in the room, as a message: `/decide #12 A` (the option's letter or id, words after it if you like),
+  A refusal says why in plain words ("It was already answered: decided by Bot2.") and exits 3 when the ask can no longer
+  be answered by you — already answered (`already-answered` in `--json`), expired, withdrawn or its room closed
+  (`invalid-phase`), or not yours to answer (`not-owned`). Or in the room, as a message: `/decide #12 A` (the option's letter or id, words after it if you like),
   `/decide #12 use the other copy` (an answer in your own words, when the question takes them) or `/decide #12 decline not
   today`. `#12` is the ask's short number on this Mac; the start of its id works too (`/decide 41fa46f4 A`). An ask of
   several questions is answered with its answers (an agent: `POST /agent/decide`), or declined with `/decide #12 decline`.

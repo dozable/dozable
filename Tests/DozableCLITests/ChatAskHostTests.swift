@@ -163,6 +163,10 @@ final class ChatAskHostTests: XCTestCase {
         _ = try outcome(await decide(c, "#1", reply: "A"))
         let v7 = refused(await decide(c, "#1", reply: "B"))
         XCTAssertEqual(v7, "It was already answered: decided by Ada.")
+        // 751 (D10): exit 3, already-answered — never 1 failed.
+        let again = await decide(c, "#1", reply: "B")
+        XCTAssertEqual(again.error?.code, .alreadyAnswered)
+        XCTAssertEqual(again.error.map(ExitCodes.exit(for:)), 3)
         // expired
         let soon = ISO8601DateFormatter().string(from: Date().addingTimeInterval(2))
         botAsk(core, "bot1", #"{"options": [{"id": "a", "label": "A"}], "expires_at": "\#(soon)"}"#)
@@ -192,6 +196,16 @@ final class ChatAskHostTests: XCTestCase {
         // a bad answer: the options listed, nothing sent
         let v13 = refused(await decide(c, "#6", reply: "maybe"))
         XCTAssertEqual(v13, "That is not one of this ask's options: A. Now, B. Next, or decline.")
+        // 751 (D10): each refusal's code — exit 3 for a closed ask or one not yours; a bad answer stays failed.
+        let codes: [(HostMessage, HostError.Code)] = [
+            (await decide(c, "#2", reply: "A"), .invalidPhase),           // expired
+            (await decide(c, "#3", decline: true), .invalidPhase),        // withdrawn
+            (await decide(c, "#4", reply: "A"), .notOwned),               // not one of its deciders
+            (await decide(c, "#5", reply: "yes"), .notOwned),             // the asker
+            (await op(c, .chatWithdraw, ChatAskRequest(room: "room1", ask: "#6")), .notOwned),
+            (await decide(c, "#6", reply: "maybe"), .failed),
+        ]
+        for (i, (m, want)) in codes.enumerated() { XCTAssertEqual(m.error?.code, want, "refusal \(i)") }
         // no such ask
         let none = await decide(c, "#99", reply: "A")
         XCTAssertEqual(none.error?.code, .notFound)
