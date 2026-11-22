@@ -147,7 +147,22 @@ extension WorkspaceLifecycleHostTests {
             _ = await ws(c, .workspaceNew, "plain") { $0.brief = "b\n"; $0.noRoom = true }
             m = await ws(ro, .workspaceSpace, "plain")
             XCTAssertEqual(m.error?.code, .notFound)
+            // 751: but its state answers, from its record — with no daemon not known; a workspace that does not exist is not found.
             m = await ws(ro, .workspaceState, "plain")
+            XCTAssertNil(m.error, m.error?.message ?? "")
+            let plain = try XCTUnwrap(m.result).decode(SpaceState.self)
+            XCTAssertEqual(plain.space, "plain")
+            XCTAssertFalse(plain.factsKnown)
+            m = await ws(c, .workspaceState, "plain") { $0.withConditions = true }
+            XCTAssertNil(m.error, m.error?.message ?? "")
+            XCTAssertEqual(try XCTUnwrap(m.result).decode(SpaceState.self).agentConditions?.from, "record")
+            m = await ws(c, .workspaceState, "sp") { $0.withConditions = true }
+            XCTAssertEqual(try XCTUnwrap(m.result).decode(SpaceState.self).agentConditions?.from, "space-file")
+            m = await ws(c, .workspaceState, "sp")
+            XCTAssertNil(try XCTUnwrap(m.result).decode(SpaceState.self).agentConditions, "only when asked: the dashboard's document is the editor's")
+            m = await ws(ro, .workspaceState, "nosuch")
+            XCTAssertEqual(m.error?.code, .notFound)
+            m = await ws(c, .workspaceState, "nosuch")
             XCTAssertEqual(m.error?.code, .notFound)
             // Its state: with no daemon not known; with one, known.
             m = await ws(ro, .workspaceState, "sp")

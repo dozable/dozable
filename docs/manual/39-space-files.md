@@ -128,8 +128,10 @@ others were done). `doz help exit-codes` lists them all.
 - **`doz workspace state NAME`** shows the space as it is now beside its file: each agent (running, asleep, gone after
   down, missing — and whether it is working, idle or waiting for you), its chat member, every folder, sandbox and room,
   what the workspace holds named like the space but not in the file, and what waits for you (a permission prompt, a
-  sandbox that failed, an up that stopped part way). A chat message's text is never in it. `--json` is the document the
-  dashboard reads. With no daemon running it starts none, and every state says "not known".
+  sandbox that failed, an up that stopped part way), and each agent's condition (running, asleep, stopped, crashed, not
+  started). A chat message's text is never in it. `--json` is the document the dashboard reads, with `kind`
+  `WorkspaceState`, `schema` 1 and each agent's condition (37, "Every agent's condition"). With no daemon running it
+  starts none, and every state says "not known". A workspace made without a space file answers too, from its record.
 - **`doz workspace show NAME --space`** names the file and, read now, its size and sha256. **`doz workspace edit NAME
   --space-file F --if-match SHA`** saves F over that same file — only while it is still the one whose sha256 you read
   (changed since: nothing is written, exit 3). A save is never applied: `doz workspace up -f FILE` applies it. From the

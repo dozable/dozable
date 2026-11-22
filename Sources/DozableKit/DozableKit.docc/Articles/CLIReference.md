@@ -1000,7 +1000,7 @@ doz workspace plan [-f FILE] [--profile P]… [--json]  # what up would do with 
 doz workspace up [-f FILE] [--profile P]… [--yes] [--dry-run] [--json]  # set it up from the file: the plan, every unfenced agent confirmed on the terminal, then each step
 doz workspace down [W] [-f FILE] [--purge] [--yes] [--dry-run] [--json]  # end its run (archived and hash-checked first), remove what the run made; --purge: what persists too
 doz workspace config [FILE] [--profile P]… [--json]    # a space file merged (its defaults files, the file, its override, ${VAR}), each value with its source
-doz workspace state W [--json]                  # a space workspace now beside its file: each thing's state, what is not in the file, what waits for you, the sha
+doz workspace state W [--json]                  # any workspace now: each thing's state and each agent's condition (a space workspace: beside its file), what waits for you, the sha; --json: kind WorkspaceState, schema 1, agents.NAME.condition
 doz space plan|up|down|config …                 # the same: doz space is the space-file commands under a shorter name
 ```
 

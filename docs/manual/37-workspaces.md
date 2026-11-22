@@ -59,9 +59,29 @@ doz workspace ls --loose         # only the sandboxes and sessions on this Mac i
 doz workspace show demo          # its brief, folders, room and agents
 doz workspace show demo --brief  # …and the brief's text
 doz workspace log demo --since 2h   # what happened, and who did it (a time like 2026-11-19T09:00:00Z, or 30m, 2h, 3d)
+doz workspace state demo         # what is true now: each agent's condition, its sandboxes, folders and room, what waits for you
 ```
 
 Looking never starts the daemon: these answer from the store when it is not running.
+
+### Every agent's condition: `doz workspace state`
+
+`doz workspace state NAME` answers for every workspace, however it was made — with `new`, the dashboard's wizard or a
+space file (39). It lists each agent with its **condition** — **running**, **asleep** (put to sleep, or its sandbox
+hibernated: `wake` brings it back), **stopped** (its manager stopped, its program ended, the workspace finished),
+**crashed** (its program exited with an error nobody asked for — the code is the reason — or its sandbox failed) or **not
+started** (a manager before the first `start`, a worker being added) — and why; then its chat members, the sandboxes its
+agents run in, its folders and rooms, and what waits for you (a permission prompt, a crash, an open ask). With no daemon
+running it starts none and every condition is "not known". A workspace that does not exist is exit 2, `not-found`.
+
+`--json` is typed for a script: `kind` `WorkspaceState`, `schema` 1, the document the dashboard's space view reads (its
+`items`, `attention` and `sha`), then `from` (`record` or `space-file`), `agents` — each agent by its name, with
+`condition`, `reason`, `role` (`manager`, `worker`, `adopted`), `place` and `since` (an ISO 8601 time) —, `conditions`
+`{ready}` (true when every agent runs) and `revision`:
+
+```bash
+doz workspace state demo --json | jq -r '.agents.mira.condition'    # running
+```
 
 ### What it can reach, hold and change
 

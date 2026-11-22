@@ -52,6 +52,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableCLI/SpaceResolver.swift`, `SpaceCommands.swift` | the CLI's reading of the files (Yams: extends, override, `${VAR}`, the merge, each place's origin); `doz workspace plan -f | up -f --dry-run | config` and the `doz space` group |
 | `Sources/DozableHost/SpaceRecordFile.swift`, `HostCore+SpaceFile.swift`; `Sources/DozableCLI/SpaceDashboardPlan.swift` | the files a space workspace's record names (`SpaceRecordFile`: kinds `brief` and `space`, one rule set; `SpaceBriefFile` its brief); `workspace-space` and `workspace-space-save`; the dashboard's plan of the open text ("Space files", below) |
 | `Sources/DozableHost/SpaceState.swift`, `HostCore+SpaceState.swift`, `SpaceStateRecorder.swift`; `Sources/DozableCLI/WorkspaceStateCommands.swift` | `SpaceState` (the editor's document, version 1) and the pure `SpaceStateBuilder`; `workspace-state` and its facts; the frames during a run and `workspace-run-frames` (`SpaceRunDetail`); `doz workspace state` |
+| `Sources/DozableHost/WorkspaceRecordState.swift` | 751: the state of a workspace with no space file (`RecordStateBuilder`) and every agent's condition (`WorkspaceConditionsBuilder`, `AgentCondition`, `WorkspaceConditions`) — "State for every workspace" |
 | `Tests/DozableCLITests/SpaceStateTests.swift`, `SpaceStateSchemaTests.swift`, `SpaceRecordFileTests.swift`, `SpaceStateRecorderTests.swift`; `Fixtures/space-state/` (vendored, `PIN`); `Sources/doz-vmtest/CLISpaceStateRows.swift` | the editor's seven fixture shas, the builder's facts against them, the schema by exactly its keywords; the file's rules and the daemon's read and save; the frames; `make test-cli-workspace` rows F1–F6 |
 | `Tests/DozableCLITests/SpaceValidationTableTests.swift`, `SpaceSchemaDriftTests.swift`, `SpaceResolverTests.swift`, `SpaceUpPlanTests.swift`; `Fixtures/space3/` (vendored, `PIN`); `Sources/doz-vmtest/CLISpaceRows.swift` | the reference's 68 rows exactly, the tables against its schemas, the resolver and its recorded `config` values, the plan's facts against its recorded plans; `make test-cli-workspace` rows S1 and S12 |
 | `Sources/DozableHost/GrantModel.swift`, `GrantDecision.swift`, `GrantStore.swift`, `ActionClasses.swift`, `PermissionGate.swift`, `PermissionsProtocol.swift`, `HostCore+Permissions.swift`; `Sources/DozableCLI/PermissionCommands.swift` | what agents may do: the model, the ONE decision, the grants' files, every HostOp's class, the gate at the daemon's door, `doz permissions` / `doz why` ("Permissions", below) |
@@ -199,6 +200,42 @@ exist) → working → idle → asleep (a manager stopped or its sandbox off, ev
 adopting a RUNNING agent sets `firstAgentAt`. The JSON value is the raw value (`setting-up`, `waiting-on-you`); the CLI
 shows the words (`setting up · you`). The driver is always `you` in this version and sits beside the state;
 `ls` adds the manager: `idle · you · manager mira (fenced)`.
+
+## State for every workspace
+
+751 (WS.03). `workspace-state` (`doz workspace state W [--json]`) answers for EVERY workspace; not found (exit 2) only when
+there is no such workspace. A space workspace's is built from its recorded spec as before ("Space files", "Its state"); any
+other — made with `new` or the wizard, and a space workspace whose spec an older doz recorded (then with a `problem`
+attention naming it) — from its record: `RecordStateBuilder.build` (pure, `WorkspaceRecordState.swift`) over the facts
+`recordStateFacts` gathers (`spaceStateFacts` with an empty intent — each record agent's place and its program's status,
+the rooms, participants and open asks — plus the phases of the sandboxes its agents run in and its folders, looked at,
+never opened). It is the SAME `SpaceState` document, validated against the editor's schema (`WorkspaceRecordStateTests.
+testEveryRecordDocumentPassesTheSchema`): one item per thing the record holds — each agent not ended (a manager or worker
+`persisted`, an adopted one `external`) followed by its chat member (its bot, else its name; present, away, absent), each
+sandbox its agents run in once, each folder by its absolute path (`external`; "the main folder"), each room not gone by its
+chat name (`persisted` unless linked); no extras (the record is the declaration); drift only where a thing should exist and
+does not (an external always, a persisted one once the workspace has run). Attention: a blocked program, a crash
+(`health`, the condition's reason), a failed sandbox, each open ask of its rooms (the asker's record name, else the
+workspace). With no daemon every item is `unknown`. Another computer that may not see this Mac's sessions gets its agents on
+this Mac `unknown`, "not shown to another computer" (`SpaceState.hiding` with `RecordStateBuilder.macSubjects`).
+
+**Each agent's condition** (`WorkspaceConditionsBuilder`, for both kinds — the record is the truth): `running`, `asleep`
+(its sandbox paused or hibernated, or its session ended after `agent-slept`), `stopped` (a manager stopped, a session or
+sandbox gone, a program ended, the workspace finished or archived), `crashed` (the last line about it is `agent-crashed` —
+its exit code the reason — or its sandbox failed), `not-started` (a manager never started; a worker being added —
+`pendingAt`) and `unknown` (no daemon: "nothing is known (none was started)"; an agent elsewhere). It reads the facts and
+the LAST log line about the agent among `agent-crashed`, `agent-slept`, `agent-woke`, `manager-started`, `manager-stopped`,
+`worker-added`, `adopted`, `restored`, `reopened` — never a guest call. `ready`: facts known, not finished or archived, at
+least one agent, every one running. The conditions travel only when asked (`WorkspaceRequest.withConditions` →
+`SpaceState.agentConditions`, additive): the CLI asks; the dashboard's route never does, so its document stays exactly the
+editor's, and `ordered()`, the sha and the frames never carry them.
+
+**The `--json` contract** (`SpaceState.stateAnswer`, plan v2 §2.2): `kind` `WorkspaceState` and `schema` 1 first, then the
+document exactly as `ordered()` writes it (its `sha` unchanged — a reader that decodes it as `SpaceState` still can), then
+`from` (`record` | `space-file`), `agents` `{NAME: {condition, reason?, role, place, since?}}` (ISO 8601), `conditions`
+`{ready}` and `revision` (empty until the revision store). The text output adds an AGENT/ROLE/PLACE/CONDITION/WHY table.
+The dashboard is unchanged: the Space tab and the pictures read `workspace-state` only once they hold a space file's text, so
+a record workspace is still drawn as a plain tile — its drawing is a later stage (DR1). Frames stay space-only.
 
 ## The manager
 
@@ -850,7 +887,8 @@ The manual's page is `docs/manual/39-space-files.md`.
   `factsKnown` false and every item `unknown`. Another computer that may not see this Mac's sessions (`serve.mac_sessions`
   off; `WorkspaceRequest.macSessionsHidden`, set by the dashboard's server) gets this Mac's agents as `unknown`, "not shown
   to another computer", their keys kept and nothing else about them (`SpaceState.hiding` is exactly the builder's).
-  Read-only and Dozable's own (`ActionClasses`); `doz workspace state W [--json]`.
+  Read-only and Dozable's own (`ActionClasses`); `doz workspace state W [--json]`. 751: every other workspace answers from
+  its record, and `--json` carries `kind`, `schema` and each agent's condition ("State for every workspace").
 - **Frames during a run** (`SpaceStateRecorder`, `HostCore+SpaceState`): only for a space workspace with an open run;
   moved by events, never a timer — a program's status (`setStatus`), a sandbox's phase, every write of the record
   (`workspaceUpdate`: rooms closed and opened, up and down among them); pokes within a second coalesce into one recompute;
@@ -922,7 +960,11 @@ commands, exit 9 `not-permitted`).
 log lines); `make test-cli-workspace` rows T1–T8 (`CLIWorkspaceStubRows.swift`; `CLI_WORKSPACE_ROWS=stub` runs them alone): a
 manager and a worker as the stub with no claude on the PATH — up, its task and done, the joined lines, ack, ping, write in
 and outside its folder, ask, a VM worker refused, sleep and wake (no crash line; up again, its task not again), `doz debug
-crash` and its crashed line, `/stub exit 3`, the refusals unguarded.
+crash` and its crashed line, `/stub exit 3`, the refusals unguarded; T9 (751) a guarded `doz daemon stop` with the workspace
+never finished leaves no holder of the store's sessions (engine.md, "A guarded stop ends its store's sessions"). Rows W1–W5
+(751, "State for every workspace"): `state --json` of a workspace `new` made — exit 0, kind `WorkspaceState`, schema 1,
+`from: record`, the manager `not-started`; `state nosuch` exit 2 `not-found`; both `running` and `ready` after the worker's
+add; both `asleep` after sleep; the worker `crashed` (its exit the reason) after `doz debug crash`.
 
 ## Tests
 
@@ -958,6 +1000,9 @@ crash` and its crashed line, `/stub exit 3`, the refusals unguarded.
   ("Space files", above); `make test-cli-workspace` rows S1 (plan and up --dry-run with the daemon stopped start none and
   change nothing in the store or the settings; up without --dry-run exit 7) and S12 (`doz space` is the same commands; the
   one `*.space.yaml` in the folder; two refused).
+- `make test FILTER=WorkspaceRecordStateTests` (751: the record's document in every situation through the schema, each
+  condition, `ready`, the `--json` contract around the same document) and `SpaceRecordFileTests` (a workspace with no space
+  file answers, with no daemon and with one; a missing one is not found; conditions only when asked).
 - `make test FILTER=SpaceStateTests|SpaceStateSchemaTests|SpaceRecordFileTests` and the space rows of
   `WorkspaceLifecycleHostTests` (`testTheSpaceFileIsReadAndSavedThroughTheRecord`,
   `testTheDashboardsPlanReadsTheOpenTextAndOnlyTheEnvBesideIt`, `testFramesOnlyOnAShaChangeBoundedArchivedAndVerified`,
