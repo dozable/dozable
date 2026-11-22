@@ -120,10 +120,12 @@ public struct ErrorAnswer: Encodable, Sendable {
         public var code: String
         public var message: String
         public var exit: Int32
+        /// The command that does it, as argv (a question nobody answered: the same command with `--yes`). Additive.
+        public var fix: [String]?
     }
     public var error: Body
-    public init(_ e: HostError, exit: Int32? = nil) {
-        error = Body(code: e.code.rawValue, message: e.message, exit: exit ?? ExitCodes.exit(for: e))
+    public init(_ e: HostError, exit: Int32? = nil, fix: [String]? = nil) {
+        error = Body(code: e.code.rawValue, message: e.message, exit: exit ?? ExitCodes.exit(for: e), fix: fix)
     }
 }
 

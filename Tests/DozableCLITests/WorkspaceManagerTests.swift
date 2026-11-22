@@ -302,12 +302,12 @@ final class WorkspaceManagerTests: BotTestCase {
         XCTAssertTrue(rel.error?.message.contains("doz workspace stop demo") == true)
         let ed = await ws(c, .workspaceEdit, "demo") { $0.noManager = true }
         XCTAssertEqual(ed.error?.code, .invalidPhase)
-        var m = await ws(c, .workspaceStop, "demo")
+        var m = await ws(c, .workspaceStop, "demo") { $0.managerOnly = true }
         var st = try XCTUnwrap(m.result).decode(WorkspaceStopped.self)
         XCTAssertTrue(st.stopped)
         XCTAssertEqual(st.workspace.state, "asleep")
         XCTAssertNotNil(try record("demo")?.manager?.stoppedAt)
-        m = await ws(c, .workspaceStop, "demo")
+        m = await ws(c, .workspaceStop, "demo") { $0.managerOnly = true }
         st = try XCTUnwrap(m.result).decode(WorkspaceStopped.self)
         XCTAssertFalse(st.stopped, "nothing running: said, not an error")
         XCTAssertEqual(launcher.stops, 1)
@@ -325,7 +325,7 @@ final class WorkspaceManagerTests: BotTestCase {
         try await newBot(c, "vera", isolation: "vm")
         _ = try await newWorkspace(c, "vmw", manager: "vera")
         _ = try started(await ws(c, .workspaceStart, "vmw"))
-        _ = await ws(c, .workspaceStop, "vmw")
+        _ = await ws(c, .workspaceStop, "vmw") { $0.managerOnly = true }
         XCTAssertNil(launcher.places["vmw"]?.heldBy)
         let s = try started(await ws(c, .workspaceStart, "vmw"))
         XCTAssertFalse(s.kickedOff)
@@ -420,7 +420,7 @@ final class WorkspaceManagerTests: BotTestCase {
         _ = try change(await ask(c, .botSet, "mira") { $0.model = "sonnet" })
         XCTAssertEqual(wchat.posts.count, kickoff + 2, "an avatar, or nothing new, posts nothing")
         // Stopped: nothing runs, nothing is told.
-        _ = await ws(c, .workspaceStop, "demo")
+        _ = await ws(c, .workspaceStop, "demo") { $0.managerOnly = true }
         _ = try change(await ask(c, .botSet, "mira") { $0.instructions = "Two lines.\n" })
         XCTAssertEqual(wchat.posts.count, kickoff + 2, "a bot that does not run: nothing posted")
         entries = try WorkspaceStore(store: store).log("demo")
@@ -492,7 +492,7 @@ final class WorkspaceManagerTests: BotTestCase {
         XCTAssertEqual(mode(dir), 0o700)
         XCTAssertEqual(try String(contentsOfFile: file, encoding: .utf8), item("otto"))
         XCTAssertFalse(o.plan.argv.contains("dontAsk"))
-        _ = await ws(c, .workspaceStop, "solo")
+        _ = await ws(c, .workspaceStop, "solo") { $0.managerOnly = true }
         XCTAssertFalse(FileManager.default.fileExists(atPath: dir), "deleted at stop")
         // The sweep: a folder of no running session goes.
         try FileManager.default.createDirectory(atPath: c.managerTokenFolder("ghost"), withIntermediateDirectories: true)

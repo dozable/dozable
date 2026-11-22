@@ -417,32 +417,45 @@ func spaceActedText(_ d: SpaceActed) -> String {
     let done = d.results.filter { $0.status == "done" }.count, skipped = d.results.filter { $0.status == "skipped" }.count
     s += "\(d.verb): \(d.space)" + (d.run.map { ", run \($0)" } ?? "") + ": \(done) step\(done == 1 ? "" : "s") done, \(skipped) already there or nothing to do"
         + (d.ok ? "" : "; stopped at a failure") + "\n"
+    // Down (which is finish) always says what it removed and what it kept.
+    if let kept = d.kept {
+        for l in WorkspaceFinishInventory.lines(removed: d.removed ?? [], kept: kept, standing: d.lifetime == "standing", archive: d.archive) { s += "  \(l)\n" }
+    }
     return s
 }
 
-/// `doz workspace down [W]` / `doz space down`: the space's run ended and what it made for the run removed — archived and
-/// hash-checked first — and with --purge what persists too. Asks on the terminal; --dry-run shows the plan only.
+/// `doz workspace down [W]` / `doz space down`: the same as `doz workspace finish W` for every workspace. One a space file
+/// made: its run ended and what it made for the run removed — archived and hash-checked first — and with --purge what persists
+/// too (standing: nothing it owns but what says lifetime: run). Any other: finished, nothing removed. Asks on the terminal;
+/// --dry-run shows the plan only.
 struct SpaceDownCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "down", abstract: "Take a space down: end its run, archive it, remove what it made for the run (--purge: also what persists).",
+    static let configuration = CommandConfiguration(commandName: "down", abstract: "The same as finish: end the run, archive it, and say what it removed and what it kept.",
         discussion: """
-        Ends the run of the workspace a space file made: its rooms closed, every agent stopped, the run's archive written \\
-        into the store and hash-checked, the run closed. Then what the space made for this run goes, each only after its \\
-        archived copy is hash-checked: the agents (ended and forgotten; their transcripts deleted only where the file \\
-        says transcripts: discard, and only files unchanged since), the run's scratch folders and its rooms (a tombstone \\
-        stays). A persisted agent's memory is kept in the store for its next fenced session. With archive: off nothing is \\
-        copied: what goes with no copy is listed before you confirm. --purge also removes what persists — its rooms, \\
-        sandboxes and kept memory — and releases its folders (never deleted). External folders, rooms, sandboxes and \\
-        bots are never touched. Asks on the terminal (--yes answers it; no terminal and no --yes: exit 5). A failed step \\
-        is said and down carries on; down again does what is left. Exit codes: 0 done · 75 a step failed after others were \\
-        done (--json's partial names what remains) · 1 a step failed before anything was done · 2 no such \\
-        workspace · 3 changed since the plan · 4 made without a space file · 5 not confirmed.
+        doz workspace down W is doz workspace finish W, for every workspace. For one a space file made it ends the run — \
+        its rooms closed, every agent stopped, the run's archive written into the store and hash-checked, the run closed — \
+        then, by the workspace's lifetime: runs (a space file's default) removes what the space made for this run, each only \
+        after its archived copy is hash-checked: the agents (ended and forgotten; their transcripts deleted only where the \
+        file says transcripts: discard, and only files unchanged since), the run's scratch folders and its rooms (a \
+        tombstone stays); standing (x-dozable.lifetime: standing) removes nothing it owns — its scratch folders are kept — \
+        but what says x-dozable.lifetime: run itself. A persisted agent's memory is kept in the store for its next fenced \
+        session. With archive: off nothing is copied: what goes with no copy is listed before you confirm. --purge also \
+        removes what persists — its rooms, sandboxes and kept memory — and releases its folders (never deleted). External \
+        folders, rooms, sandboxes and bots are never touched. A workspace made without a space file finishes and removes \
+        nothing. Always says what it removed and what it kept (--json: kind WorkspaceFinish, removed, kept, archive). Asks \
+        on the terminal (--yes answers it; no terminal and no --yes: exit 5). A failed step is said and down carries on; \
+        down again does what is left. Exit codes: 0 done · 75 a step failed after others were done (--json's partial names \
+        what remains) · 1 a step failed before anything was done · 2 no such workspace · 3 changed since the plan · 5 not \
+        confirmed.
         """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The workspace (default: the space in FILE, or in the one *.space.yaml in this folder).") var workspace: String?
     @Option(name: [.customShort("f"), .customLong("file")], help: "The space file whose workspace to take down.") var file: String?
     @Flag(name: .long, help: "Also remove what persists: its rooms, sandboxes and kept memory; release its folders (never deleted).") var purge = false
-    @Flag(name: .long, help: "Answer the question yes.") var yes = false
+    @Flag(name: .customLong("no-archive"), help: "A workspace made without a space file: write no evidence archive of the run.") var noArchive = false
+    @Flag(name: [.customShort("y"), .long], help: "Answer the question yes.") var yes = false
     @Flag(name: .customLong("dry-run"), help: "Show the plan and stop: nothing is changed.") var dryRun = false
+    @Option(name: .customLong("if-plan"), help: "Act only on this plan (its sha, from --dry-run --json): refused, exit 3, if the workspace changed since.")
+    var ifPlan: String?
 
     func run() async throws {
         let n: String
@@ -450,23 +463,7 @@ struct SpaceDownCommand: AsyncParsableCommand {
             let r = SpaceResolver().resolve(try spaceFile(file, g))
             n = r.spaceName
         }
-        var q = HostRequest(.workspaceDownPlan)
-        q.spaceDown = SpaceDownRequest(workspace: n, purge: purge ? true : nil)
-        let plan = try decode(try await query(q, g), SpaceDownPlan.self, g)
-        if g.json && dryRun { Out.json(plan) } else if !g.json { Out.stdout(spaceDownText(plan, dryRun: dryRun)) }
-        if let c = plan.refusalCode {
-            let e = HostError(HostError.Code(rawValue: c) ?? .failed, plan.refusals.first ?? "refused")
-            if g.json && !dryRun { Out.json(WithError(value: plan, error: e)) }
-            throw ExitCode(DozableExit.code(for: e))
-        }
-        if dryRun || plan.steps.isEmpty { return }
-        let question = (purge ? "Purge \(n): take it down and remove what persists?" : "Take \(n) down?")
-            + (plan.noCopy.isEmpty ? "" : " Deleted with no copy (archive: off): " + plan.noCopy.joined(separator: ", ") + ".")
-        try confirm(question, yes: yes, g)
-        var a = HostRequest(.workspaceDown)
-        a.spaceDown = SpaceDownRequest(workspace: n, purge: purge ? true : nil, ifPlan: plan.sha)
-        let done = try decode(try call(a, g), SpaceActed.self, g)
-        try finishSpaceActed(done, retry: ["doz", "workspace", "down", n] + (purge ? ["--purge"] : []), g)
+        try await runWorkspaceFinish(name: n, purge: purge, noArchive: noArchive, yes: yes, dryRun: dryRun, ifPlan: ifPlan, word: "down", g)
     }
 }
 

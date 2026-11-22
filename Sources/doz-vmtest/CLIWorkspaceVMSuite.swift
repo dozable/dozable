@@ -168,7 +168,7 @@ func cliWorkspaceVMSuite(binary: String) async {
     check(!jsons.contains("dzc_") && leaks.isEmpty, "2 no dzc_ in the store, the folder or any --json (\(leaks.prefix(3)))")
 
     // 3. stop keeps the disk
-    r = h.run(["workspace", "stop", "vmw"], timeout: 300)
+    r = h.run(["workspace", "manager", "stop", "vmw"], timeout: 300)
     check(r.code == 0 && h.row("vmw")?.phase == "off", "3 stop vmw: the sandbox is off, and kept (\(r.code) \(h.row("vmw")?.phase ?? "gone"))")
     check(h.json(["workspace", "show", "vmw"], WorkspaceDetail.self)?.state == "asleep", "3 …asleep")
 
@@ -178,7 +178,7 @@ func cliWorkspaceVMSuite(binary: String) async {
     check(r.code == 0 && !r.out.contains("posted the brief"), "4 start vmw again (\(r.code) \(r.err.suffix(300)))")
     check(h.waitFor(120) { ups("vmw") >= 2 }, "4 vera is up again")
     check(mine("vmw").count == 1, "4 your message count stays 1 (\(mine("vmw").count))")
-    h.run(["workspace", "stop", "vmw"], timeout: 300)
+    h.run(["workspace", "manager", "stop", "vmw"], timeout: 300)
 
     // 5. a VM worker of its own
     func says(_ room: String, _ who: String, _ prefix: String) -> Bool {

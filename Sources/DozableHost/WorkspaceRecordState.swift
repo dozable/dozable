@@ -39,13 +39,20 @@ public struct WorkspaceConditions: Codable, Equatable, Sendable {
     public var agents: [String: AgentCondition]
     /// Facts known, the workspace neither finished nor archived, at least one agent, and every agent running.
     public var ready: Bool
+    /// The workspace's phase (`phases`): from its record's flags, then its agents' conditions (with no daemon, its log).
+    public var phase: String?
 
-    public init(from: String, agents: [String: AgentCondition], ready: Bool) { self.from = from; self.agents = agents; self.ready = ready }
+    /// Every phase, in the order a workspace goes through them.
+    public static let phases = ["setting-up", "running", "asleep", "stopped", "finished", "archived"]
+
+    public init(from: String, agents: [String: AgentCondition], ready: Bool, phase: String? = nil) {
+        self.from = from; self.agents = agents; self.ready = ready; self.phase = phase
+    }
 }
 
 public enum WorkspaceConditionsBuilder {
     /// The log actions that say what last happened to one agent.
-    static let agentEvents: Set<String> = ["agent-crashed", "agent-slept", "agent-woke", "manager-started", "manager-stopped", "worker-added",
+    static let agentEvents: Set<String> = ["agent-crashed", "agent-slept", "agent-stopped", "agent-woke", "manager-started", "manager-stopped", "worker-added",
                                            "adopted", "restored", "reopened"]
 
     /// The last line of `log` about each agent (by name).
@@ -82,7 +89,7 @@ public enum WorkspaceConditionsBuilder {
             c.reason = fact.detail ?? "not known"
         case "ended" where fact.failed:
             c.condition = "crashed"; c.reason = "its sandbox failed" + (fact.detail.map { " (\($0))" } ?? "")
-        case "ended" where fact.detail == "not started":
+        case "ended" where fact.detail == "not started" && a.stoppedAt == nil && last?.action != "agent-stopped":
             c.condition = "not-started"; c.reason = a.isManager ? "doz workspace start starts it" : "not started"
         default:
             // Ended or missing: why it is not running, from what last happened to it.
@@ -91,6 +98,8 @@ public enum WorkspaceConditionsBuilder {
             } else if flags.archivedAt != nil || flags.finishedAt != nil {
                 c.condition = "stopped"; c.reason = flags.archivedAt != nil ? "the workspace is archived" : "the workspace is finished"
                 c.since = (flags.archivedAt ?? flags.finishedAt).map(SpaceState.time)
+            } else if last?.action == "agent-stopped" {
+                c.condition = "stopped"; c.reason = "stopped: doz workspace wake brings it back"; c.since = a.stoppedAt.map(SpaceState.time) ?? since
             } else if last?.action == "agent-slept" {
                 c.condition = "asleep"; c.reason = "put to sleep: doz workspace wake wakes it"; c.since = since
             } else if fact.state == "missing" {
@@ -124,7 +133,24 @@ public enum WorkspaceConditionsBuilder {
         }
         let ready = f.known && rec.flags.finishedAt == nil && rec.flags.archivedAt == nil && !agents.isEmpty
             && agents.values.allSatisfy { $0.condition == "running" }
-        return WorkspaceConditions(from: from, agents: agents, ready: ready)
+        return WorkspaceConditions(from: from, agents: agents, ready: ready, phase: phase(rec, agents: agents, known: f.known, log: log))
+    }
+
+    /// The phase: archived, finished, setting up (never started) from the flags; then running while any agent runs, asleep
+    /// while any sleeps and none runs, else stopped. With no daemon (nothing known) the log's last workspace-wide change says.
+    public static func phase(_ rec: WorkspaceRecord, agents: [String: AgentCondition], known: Bool, log: [WorkspaceLogEntry]) -> String {
+        if rec.flags.archivedAt != nil { return "archived" }
+        if rec.flags.finishedAt != nil { return "finished" }
+        if rec.flags.startedAt == nil && rec.flags.firstAgentAt == nil { return "setting-up" }
+        let conditions = agents.values.map(\.condition)
+        if known && !conditions.isEmpty {
+            if conditions.contains("running") { return "running" }
+            if conditions.contains("asleep") { return "asleep" }
+            return "stopped"
+        }
+        let words = ["slept": "asleep", "reopened": "asleep", "stopped": "stopped", "woke": "running", "kicked-off": "running",
+                     "manager-started": "running", "worker-added": "running", "run-opened": "running"]
+        return log.last { words[$0.action] != nil }.flatMap { words[$0.action] } ?? "running"
     }
 }
 

@@ -204,6 +204,27 @@ final class WorkspaceRecordStateTests: XCTestCase {
         XCTAssertEqual(c.agents.mapValues(\.condition), ["mira": "unknown", "tess": "unknown", "lab": "running"])
     }
 
+    // MARK: the phase (756)
+
+    func testThePhaseFromTheFlagsThenTheAgentsThenTheLog() {
+        typealias B = WorkspaceConditionsBuilder
+        let c = { (x: String) in AgentCondition(condition: x, role: "worker", place: "p") }
+        var rec = record()
+        XCTAssertEqual(B.phase(rec, agents: ["a": c("running"), "b": c("asleep")], known: true, log: []), "running")
+        XCTAssertEqual(B.phase(rec, agents: ["a": c("asleep"), "b": c("stopped")], known: true, log: []), "asleep")
+        XCTAssertEqual(B.phase(rec, agents: ["a": c("stopped"), "b": c("crashed")], known: true, log: []), "stopped")
+        // No daemon: the log's last workspace-wide change.
+        XCTAssertEqual(B.phase(rec, agents: ["a": c("unknown")], known: false, log: [WorkspaceLogEntry(action: "woke"), WorkspaceLogEntry(action: "stopped")]), "stopped")
+        XCTAssertEqual(B.phase(rec, agents: ["a": c("unknown")], known: false, log: [WorkspaceLogEntry(action: "slept")]), "asleep")
+        rec.flags.finishedAt = Date()
+        XCTAssertEqual(B.phase(rec, agents: [:], known: true, log: []), "finished")
+        rec.flags.archivedAt = Date()
+        XCTAssertEqual(B.phase(rec, agents: [:], known: true, log: []), "archived")
+        rec.flags = WorkspaceFlags()
+        XCTAssertEqual(B.phase(rec, agents: [:], known: true, log: []), "setting-up")
+        XCTAssertEqual(WorkspaceConditions.phases, ["setting-up", "running", "asleep", "stopped", "finished", "archived"])
+    }
+
     // MARK: the --json contract
 
     func testTheJSONCarriesKindSchemaAndEachAgentsConditionAroundTheSameDocument() throws {
@@ -220,10 +241,11 @@ final class WorkspaceRecordStateTests: XCTestCase {
         XCTAssertEqual(agents["tess"]?["place"] as? String, "@mac/app-tess")
         XCTAssertEqual(agents["lab"]?["role"] as? String, "adopted")
         XCTAssertEqual((o["conditions"] as? [String: Any])?["ready"] as? Bool, true)
+        XCTAssertEqual(o["phase"] as? String, "running", "756: the workspace's phase, top level")
         XCTAssertTrue(answer.hasPrefix(#"{"kind":"WorkspaceState","schema":1,"version":1,"space":"app""#), "kind and schema first, then the document")
         // The document inside is exactly ordered()'s, its sha unchanged: drop what the contract adds and it is the same bytes.
         var doc = o
-        for k in ["kind", "schema", "from", "agents", "conditions", "revision"] { doc[k] = nil }
+        for k in ["kind", "schema", "from", "phase", "agents", "conditions", "revision"] { doc[k] = nil }
         XCTAssertEqual(SpaceStateSchemaTests.validate(doc, try SpaceStateSchemaTests.schema()), [])
         XCTAssertEqual(doc["sha"] as? String, s.computedSHA)
         // …and a reader that decodes it as the document still can (`make test-cli-workspace` F1 does): additive.

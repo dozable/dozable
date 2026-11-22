@@ -13,7 +13,7 @@ import Foundation
 public enum WorkspaceVerb: String, Codable, CaseIterable, Sendable {
     case stop, sleep, wake, finish, reopen, archive, restore, delete
 
-    /// The HostOp that does it (stop is `workspace-stop`, unchanged: the manager only).
+    /// The HostOp that does it (stop is `workspace-stop`: every agent's process ends; with `managerOnly` the manager alone).
     public var hostOp: HostOp {
         switch self {
         case .stop: .workspaceStop
@@ -32,11 +32,11 @@ public enum WorkspaceVerb: String, Codable, CaseIterable, Sendable {
         self = v
     }
 
-    /// How the person confirms it: archive and delete by typing the name, finish by a plain yes, the rest not at all.
+    /// How the person confirms it: archive and delete by typing the name, finish and stop by a plain yes, the rest not at all.
     public var confirm: WorkspaceLifecycle.Confirm {
         switch self {
         case .archive, .delete: .typed
-        case .finish: .yes
+        case .finish, .stop: .yes
         default: .none
         }
     }
@@ -237,11 +237,18 @@ public enum WorkspaceLifecycle {
                 r.after = "gone"
                 r.back = "doz workspace release \(n) \(a.name)"
             case (.stop, _):
-                guard a.isManager, f.runs else { r.after = a.isManager ? "stays stopped" : "untouched"; break }
+                // Every agent's process ends; nothing is removed. What sleeps or is stopped already stays as it is (harmless).
+                guard f.runs else { r.after = f.now == .notStarted ? "not started" : "stays " + nowWords(f); break }
                 r.changes = true
-                r.after = vm ? "shut down, its disk kept" : "stopped, its conversation kept" + (unfenced ? "; its token file deleted" : "")
-                r.back = "doz workspace start \(n)"
-                add("doz workspace stop \(n)")
+                if vm {
+                    r.after = "shut down, its disk kept"
+                    r.back = "doz workspace wake \(n): a cold boot, its agent continues its conversation"
+                    add("doz shutdown \(sbx)")
+                } else {
+                    r.after = (f.resumable ? "stopped, its conversation kept" : "stopped") + (unfenced && (a.isManager || a.isWorker) ? "; its token file deleted" : "")
+                    r.back = "doz workspace wake \(n)" + (f.resumable ? ": its conversation resumed" : ": it starts fresh")
+                    add("doz sessions end @mac \(session)")
+                }
             case (.sleep, _):
                 guard f.runs else { r.after = f.now == .notStarted ? "not started" : "stays " + nowWords(f); break }
                 r.changes = true
@@ -349,7 +356,10 @@ public enum WorkspaceLifecycle {
         let roomList = rec.rooms.map { "#" + $0.chatRoom }.joined(separator: ", ")
         switch verb {
         case .stop:
-            keeps = [.init("its manager's conversation, record and room"), .init("every worker, untouched")]
+            keeps = [.init("every conversation, record, disk and token"), .init("the room\(rec.rooms.count == 1 ? "" : "s") — messages wait there"),
+                     .init("every folder, untouched")]
+            if running.isEmpty { notes.append("nothing runs: nothing to stop") }
+            notes.append("every agent stays stopped until you wake it: doz workspace wake \(n) (the manager alone: doz workspace manager stop \(n))")
         case .sleep:
             keeps = [.init("every conversation, screen and disk"), .init("the room\(rec.rooms.count == 1 ? "" : "s") — messages wait there"), .init("every token")]
             if freedMiB > 0 { goes.append(.init("memory given back", bytes: Int64(freedMiB) << 20)) }
@@ -640,4 +650,50 @@ public struct WorkspaceLifecycleRoomRow: Codable, Equatable, Sendable {
     public var owned: Bool
     public var after: String
     public init(room: String, label: String, owned: Bool, after: String) { self.room = room; self.label = label; self.owned = owned; self.after = after }
+}
+
+/// What a finish (and `down`, which is finish) removed and kept, by name: folders by their ABSOLUTE path, rooms `room/NAME`,
+/// agents `agent/NAME`, sandboxes `sandbox/NAME`. `kept` is everything the workspace held before that is not in `removed`, so
+/// a finish that removes nothing keeps every folder, room, agent and sandbox it had. Pure.
+public enum WorkspaceFinishInventory {
+    public static let kind = "WorkspaceFinish"
+    public static let schema = 1
+    /// The text a finish of a standing workspace says (it removes nothing, by its lifetime).
+    public static let standingLine = "finished; nothing removed (standing)"
+
+    /// Everything `rec` holds: its folders, its rooms not gone, its agents not ended and the sandboxes they are in.
+    public static func held(_ rec: WorkspaceRecord) -> [String] {
+        var out: [String] = rec.folders.map(\.path)
+        for r in rec.rooms where r.goneAt == nil { out.append("room/" + r.chatRoom) }
+        for a in rec.agents where a.endedAt == nil { out.append("agent/" + a.name) }
+        for a in rec.agents where a.endedAt == nil { if let s = a.place.sandbox, !out.contains("sandbox/" + s) { out.append("sandbox/" + s) } }
+        return dedupe(out)
+    }
+
+    /// What was kept: what `before` held, less what was removed.
+    public static func kept(before: WorkspaceRecord, removed: [String]) -> [String] {
+        let gone = Set(removed)
+        return held(before).filter { !gone.contains($0) }
+    }
+
+    static func dedupe(_ a: [String]) -> [String] {
+        var seen = Set<String>()
+        return a.filter { seen.insert($0).inserted }
+    }
+
+    /// The lines a person reads: what was removed and what was kept, always both (a standing workspace's says so).
+    public static func lines(removed: [String], kept: [String], standing: Bool, archive: String?) -> [String] {
+        var out: [String] = []
+        if removed.isEmpty {
+            out.append(standing ? standingLine : "nothing removed")
+        } else {
+            out.append("removed: " + removed.map(shown).joined(separator: ", "))
+        }
+        out.append(kept.isEmpty ? "kept: nothing" : "kept: " + kept.map(shown).joined(separator: ", "))
+        if let a = archive { out.append("archive: " + a) }
+        return out
+    }
+
+    /// A folder as a person reads it (`~`); the rest as it is.
+    static func shown(_ s: String) -> String { s.hasPrefix("/") ? DisplayPath.tilde(s) : s }
 }

@@ -65,7 +65,8 @@
 //   · a workspace's lifecycle, chat still on: `life` (a brief, a scratch folder, an adopted unfenced session on this Mac
 //     running /bin/sleep), started. 1 Sleep is the primary button and its dialog's table is `doz workspace sleep life
 //     --dry-run --json`'s (the same rows and sha); at 390 px the table is cards; 2 Sleep → asleep, Home folds it into
-//     "Asleep (1)" with its Wake; 3 Wake (Home's button) → awake, the session running again; 4 Finish… a plain
+//     "Asleep (1)" with its Wake; 3 Wake (Home's button) → awake, the session running again; 12 Stop everything (the ⋯
+//     menu, a plain yes, the dialog the stop dry run's plan) → every agent stopped, the folder kept; 4 Finish… a plain
 //     confirmation → finished, the composer still takes a post; 5 Reopen → asleep; 6 Archive… needs the name typed (a wrong
 //     name keeps the button off; a crafted action with another name is 400), then the room's archived notice; 7 Restore →
 //     finished; 8 Delete… with the Bin box unticked → gone from Home and the sidebar, its folder still on disk; 9 another
@@ -1455,6 +1456,24 @@ async function walkLifecycle() {
   for (let i = 0; i < 40 && !awake; i++) { const st = wsState('life'); awake = st && st !== 'asleep'; if (!awake) await sleep(300); }
   const sh = (dozJSON(['sessions', '@mac']) || []).find((r) => r.name === 'lifesh');
   check(awake && sh && !sh.ended, `life 3 awake (${wsState('life')}), lifesh running again`);
+  // 12. Stop everything: the ⋯ menu's item (no manager needed), its dialog the dry run's plan, a plain yes (no name to
+  // type); every agent's process ends, nothing removed, the folder still there.
+  await goHash('#/w/life');
+  await waitFor(`state.view === 'workspace' && !!document.querySelector('button[aria-label="More for life"]')`, 10000);
+  await menuPick('More for life', 'Stop everything');
+  await waitFor(WL_READ, 15000);
+  const stopDry = dozJSON(['workspace', 'stop', 'life', '--dry-run']) || {};
+  check(!!stopDry.sha && stopDry.sha === await evaluate(`document.querySelector('[data-wl-plan]').dataset.wlSha`) && stopDry.confirm === 'yes'
+    && await evaluate(`!document.querySelector('[data-wl-typed]')`), `life 12 Stop everything: the dialog's plan is stop --dry-run --json's, a plain yes (${stopDry.sha})`);
+  check(await waitFor(`[...document.querySelectorAll('[data-wl-agent]')].some((r) => /stopped/.test(r.textContent)) && !/Stop the manager/.test(${DIALOG}?.textContent || '')`, 5000),
+    'life 12 …its rows say each agent is stopped; nothing says "Stop the manager"');
+  await shot('lifecycle-stop');
+  check(await wlSubmit(), 'life 12 Stop: the operation ended');
+  let stoppedSh = null;
+  for (let i = 0; i < 40; i++) { stoppedSh = (dozJSON(['sessions', '@mac']) || []).find((r) => r.name === 'lifesh'); if (stoppedSh && stoppedSh.ended) break; await sleep(300); }
+  const lifeConds = (dozJSON(['workspace', 'state', 'life']) || {}).agents || {};
+  check(!!stoppedSh && stoppedSh.ended && Object.values(lifeConds).every((a) => a.condition === 'stopped') && existsSync(S + '/life-work'),
+    `life 12 …lifesh stopped (${JSON.stringify(lifeConds)}), the folder still on disk`);
   // 4. Finish…: a plain confirmation, its room closed (0.52.15, the owner's decision — it said "the composer still takes a
   // post" in 0.52.12); finished; the composer off with the closed notice; a post refused; the Runs tab lists the run, archived.
   await goHash('#/w/life');

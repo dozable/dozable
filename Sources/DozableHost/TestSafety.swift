@@ -111,6 +111,29 @@ public enum TestSafety {
         return nil
     }
 
+    /// Why a guarded run may not MAKE the folder `path` (nil: it may) — a project, run or scratch folder under
+    /// `defaults.projects_dir`, a manager's or a worker's own folder, `--new-folder`: one under the person's REAL home is
+    /// refused (a run that never set `defaults.projects_dir` to a scratch path resolves the real `~/doz-workspaces`), unless it
+    /// is under `DOZ_TEST_HOME` (when set) or a scratch temporary folder. Unguarded: always nil. `TestSafetyTests`.
+    public static func projectsDirViolation(_ path: String, home: URL = realHome,
+                                            env: [String: String] = ProcessInfo.processInfo.environment,
+                                            inXCTest: Bool = NSClassFromString("XCTestCase") != nil) -> String? {
+        guard guarded(env, inXCTest: inXCTest) else { return nil }
+        let p = URL(fileURLWithPath: path).standardizedFileURL.path
+        func under(_ root: String) -> Bool { let r = root.hasSuffix("/") ? String(root.dropLast()) : root; return p == r || p.hasPrefix(r + "/") }
+        let scratch = ["/tmp", "/private/tmp", "/var/folders", "/private/var/folders"]
+        if scratch.contains(where: under) { return nil }
+        if let t = env["DOZ_TEST_HOME"], t.hasPrefix("/"), under(URL(fileURLWithPath: t).standardizedFileURL.path) { return nil }
+        let h = home.standardizedFileURL.path
+        guard under(h) else { return nil }
+        return "a test would make the folder \(p) under your real home — set defaults.projects_dir to a scratch folder (doz config set defaults.projects_dir /tmp/…) in the test's scratch XDG_CONFIG_HOME"
+    }
+
+    /// Stop a guarded run that is about to make `path` where `projectsDirViolation` refuses it.
+    public static func checkMadeFolder(_ path: String, env: [String: String] = ProcessInfo.processInfo.environment) {
+        enforce(projectsDirViolation(path, env: env), env: env)
+    }
+
     // `codexHomeViolation` lives in CodexMacLogin.swift — the one file that may name the Mac's Codex home.
 
     /// Why touching keychain item `service` is refused (nil: allowed). Claude Code's own login items.

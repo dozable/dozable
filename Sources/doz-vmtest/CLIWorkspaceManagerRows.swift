@@ -181,16 +181,16 @@ func cliWorkspaceManagerRows(_ h: CLIHarness, root: URL, store: DozableStore, st
     check(mine("mgr2").isEmpty && macRow("mgr2") == nil, "16 …nothing posted, no session")
 
     // 17. stop: ended, kept, asleep; the token held; then mgr2 starts
-    r = h.run(["workspace", "stop", "mgr"], timeout: 60)
+    r = h.run(["workspace", "manager", "stop", "mgr"], timeout: 60)
     check(r.code == 0 && !running("mgr") && macRow("mgr") != nil, "17 stop mgr: ended, its record kept (\(r.code) \(r.err.prefix(160)))")
     check(detail("mgr")?.state == "asleep", "17 …asleep (\(detail("mgr")?.state ?? "?"))")
     check(h.json(["bot", "show", "mira"], BotDetail.self)?.token.keeper == "dozable", "17 bot show mira: its token held")
-    r = h.run(["workspace", "stop", "mgr"], timeout: 60)
+    r = h.run(["workspace", "manager", "stop", "mgr"], timeout: 60)
     check(r.code == 0 && r.out.contains("not running"), "17 stop again: nothing running, exit 0")
     r = h.run(["workspace", "start", "mgr2"], timeout: 120)
     if r.code == 0 { started.insert("mgr2") }
     check(r.code == 0 && h.waitFor(30) { isUp("mgr2", "mira") }, "17 start mgr2 now works, mira is up there (\(r.code) \(r.err.prefix(200)))")
-    r = h.run(["workspace", "stop", "mgr2"], timeout: 60)
+    r = h.run(["workspace", "manager", "stop", "mgr2"], timeout: 60)
     check(r.code == 0 && !running("mgr2"), "17 stop mgr2")
 
     // 18. start mgr again: nothing posted twice; the session runs again
@@ -224,7 +224,7 @@ func cliWorkspaceManagerRows(_ h: CLIHarness, root: URL, store: DozableStore, st
     check(h.waitFor(30) { isUp("solo", "otto") }, "19 otto is up (it read its token file)")
     let unfencedLeaks = holders("dzc_", under: store.root.path) + holders("dzc_", under: home.path)
     check(unfencedLeaks.isEmpty && !psText().contains("dzc_"), "19 …the only dzc_ holder: nothing in the store, the home or ps")
-    r = h.run(["workspace", "stop", "solo"], timeout: 60)
+    r = h.run(["workspace", "manager", "stop", "solo"], timeout: 60)
     check(r.code == 0 && !fm.fileExists(atPath: tokenDirs.first ?? "/nonexistent-x"), "19 stop solo: the token file is gone")
 
     // 20. a VM manager recorded; the check lists its gap; nothing boots

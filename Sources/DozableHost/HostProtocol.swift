@@ -1904,6 +1904,9 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     /// new: workers declared now, each by its task (`--worker TASK`, repeatable) — recorded while it is setting up and started by
     /// `workspace-start` with the workspace's default isolation. Additive: an older daemon ignores it.
     public var workers: [String]?
+    /// stop: the manager alone (`doz workspace manager stop W`, the old meaning of stop); nil or false: every agent's process
+    /// ends (`doz workspace stop W`). Additive: an older daemon ignores it and stops the manager alone.
+    public var managerOnly: Bool?
 
     public init(name: String? = nil) { self.name = name }
 }
@@ -2081,6 +2084,13 @@ public struct WorkspaceChanged: Codable, Equatable, Sendable {
     public var archive: String?
     public var archiveSHA256: String?
     public var archiveProblem: String?
+    /// Finish (and down, which is finish): `WorkspaceFinish`, schema 1, with what it removed and what it kept — folders by
+    /// their absolute path, rooms `room/NAME`, agents `agent/NAME`, sandboxes `sandbox/NAME` (`WorkspaceFinishInventory`).
+    /// Additive.
+    public var kind: String?
+    public var schema: Int?
+    public var removed: [String]?
+    public var kept: [String]?
     public init(name: String, verb: String, results: [WorkspaceAgentResult], templates: [String: String]? = nil, binned: [String]? = nil,
                 notes: [String]? = nil, workspace: WorkspaceDetail?) {
         self.name = name; self.verb = verb; self.results = results; self.templates = templates; self.binned = binned; self.notes = notes

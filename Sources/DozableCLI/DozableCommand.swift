@@ -224,11 +224,11 @@ enum Out {
 }
 
 /// Fail the command: the message on stderr (or as JSON on stdout with --json), then the exit code.
-func fail(_ e: HostError, _ g: GlobalOptions, code: Int32? = nil) -> ExitCode {
+func fail(_ e: HostError, _ g: GlobalOptions, code: Int32? = nil, fix: [String]? = nil) -> ExitCode {
     if g.json {
-        Out.json(ErrorAnswer(e, exit: code))
+        Out.json(ErrorAnswer(e, exit: code, fix: fix))
     } else {
-        Out.stderr("doz: \(e.message)\n")
+        Out.stderr("doz: \(e.message)\n" + (fix.map { "fix: \($0.joined(separator: " "))\n" } ?? ""))
     }
     return ExitCode(code ?? DozableExit.code(for: e))
 }
@@ -509,11 +509,11 @@ func decode<T: Decodable>(_ v: JSONValue, _ t: T.Type, _ g: GlobalOptions) throw
 }
 
 /// Ask on the terminal (never stdin, which may carry data). No terminal and no --yes: refuse.
-func confirm(_ question: String, yes: Bool, _ g: GlobalOptions) throws {
+func confirm(_ question: String, yes: Bool, _ g: GlobalOptions, fix: [String]? = nil) throws {
     if yes { return }
     let fd = open("/dev/tty", O_RDWR)
     guard fd >= 0 else {
-        throw fail(HostError(.needsConfirmation, "\(question) — there is no terminal to ask; pass --yes"), g)
+        throw fail(HostError(.needsConfirmation, "\(question) — there is no terminal to ask; pass --yes"), g, fix: fix)
     }
     defer { close(fd) }
     let prompt = "\(question) [y/N] "

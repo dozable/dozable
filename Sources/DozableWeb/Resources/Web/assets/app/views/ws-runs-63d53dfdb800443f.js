@@ -11,7 +11,7 @@ import { api } from '../core/api-47cfabfed13b475c.js';
 import { full } from '../core/format-b2e68384da8d2f36.js';
 import { actOrThrow, waitForOp } from '../core/operations-c9aa14c479d822d2.js';
 import { isRemote } from '../core/session-76fecfa2ea8ff65b.js';
-import { sizeWords } from '../core/ws-lifecycle-54187500e950c88c.js';
+import { sizeWords } from '../core/ws-lifecycle-00ca4806fca2db96.js';
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { cmdLine } from '../components/cmd-line-ba7a45adca73f268.js';

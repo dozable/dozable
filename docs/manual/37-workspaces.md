@@ -103,7 +103,7 @@ Looking never starts the daemon: these answer from the store when it is not runn
 
 `doz workspace state NAME` answers for every workspace, however it was made — with `new`, the dashboard's wizard or a
 space file (39). It lists each agent with its **condition** — **running**, **asleep** (put to sleep, or its sandbox
-hibernated: `wake` brings it back), **stopped** (its manager stopped, its program ended, the workspace finished),
+hibernated: `wake` brings it back), **stopped** (`doz workspace stop`, its manager stopped, its program ended, the workspace finished),
 **crashed** (its program exited with an error nobody asked for — the code is the reason — or its sandbox failed) or **not
 started** (a manager before the first `start`, a worker being added) — and why; then its chat members, the sandboxes its
 agents run in, its folders and rooms, and what waits for you (a permission prompt, a crash, an open ask). With no daemon
@@ -257,8 +257,9 @@ page with the workspace around it ([The dashboard](06-the-dashboard.md#a-workspa
 ## Starting and stopping the work
 
 ```bash
-doz workspace start demo        # the set-up check, then the brief posted, then the manager started
-doz workspace stop demo         # the manager stopped; its conversation, record and room are kept
+doz workspace start demo           # the set-up check, then the brief posted, then the manager started
+doz workspace stop demo            # every agent stopped; conversations, disks, rooms and folders are kept (asks first)
+doz workspace manager stop demo    # the manager alone; its workers run on
 ```
 
 `start` first runs **the set-up check**: the brief is there; with chat on, the room exists; every folder and every
@@ -277,9 +278,16 @@ Then the bot is invited to the room, **your brief is posted as your first messag
 the manager is started. The brief is posted once: a start after a stop never posts it again. Without a manager, `start`
 posts the brief and you drive.
 
-`stop` ends the manager's session (or stops its sandbox, keeping its disk) and keeps its conversation: the workspace is
-**asleep**, and the next `start` wakes the manager where it left off. Nothing is posted in the room. With nothing
-running, `stop` says so.
+`stop` stops **everything**: every agent's process ends — a session on this Mac ended, a micro VM shut down with its disk
+kept — and every conversation, record, room and folder is kept. Nothing is removed. Unlike `sleep` nothing is held: each
+agent is **stopped**, not asleep, and `doz workspace wake demo` brings each back in its conversation. It shows its plan and
+asks first (`--yes` skips the question; with no terminal and no `--yes` it does nothing and exits 5, naming the command
+with `--yes`). What is asleep or stopped already is left as it is, so a stop of a stopped or asleep workspace does nothing
+and exits 0. Nothing is posted in the room.
+
+`stop` used to stop only the manager; that is now `doz workspace manager stop demo`, which ends the manager's session (or
+stops its sandbox, keeping its disk) and keeps its conversation; the next `start` wakes it where it left off. `doz
+workspace stop` says so in a one-line note.
 
 ## Sleep, wake, finish, archive and delete
 
@@ -288,9 +296,11 @@ for, and any folders it works on (usually projects). Work starts only once it is
 whole workspace — every agent at once — can be put to sleep, woken, finished, archived and deleted:
 
 ```bash
+doz workspace stop demo         # every agent stopped (their processes end); nothing removed (asks first)
 doz workspace sleep demo        # every agent asleep: memory given back, conversations kept
 doz workspace wake demo         # back in the same sandboxes and conversations
-doz workspace finish demo       # the work is done: everything stops; the room and tokens are kept (asks first)
+doz workspace finish demo       # the work is done: everything stops; says what it removed and kept (asks first)
+doz workspace down demo         # the same as finish
 doz workspace reopen demo       # finished → asleep until you wake it
 doz workspace archive demo      # put away: its rooms read-only, its anonymous workers retired (type its name)
 doz workspace restore demo      # archived → finished, its rooms writable again
@@ -300,11 +310,12 @@ doz workspace delete demo       # its record gone; finished or archived only (ty
 **Check, then ask.** Each shows first what it would do to each agent — where it runs, what it is now, what it becomes,
 how it comes back — what is kept and what goes (with sizes), how many agents change at once, and what would stop it. With
 `--dry-run` it stops there: nothing changes and no daemon starts. Then it asks: nothing for sleep, wake, reopen and restore,
-a yes for finish, and the workspace's name typed for archive and delete. `--yes` skips the question (a script needs it).
+a yes for stop and finish, and the workspace's name typed for archive and delete. `--yes` skips the question (a script needs it).
 It acts only on what it showed you: if the workspace changed in between, it is refused and says so.
 
 | | A micro VM | Fenced on this Mac | Unfenced on this Mac | Elsewhere |
 |---|---|---|---|---|
+| **stop** | shut down, its disk kept | stopped, its conversation kept | stopped; its token file deleted | untouched |
 | **sleep** | hibernated: its memory given back, the same programs and screens | ended, its conversation kept | ended; its token file deleted | untouched — it runs on its own machine |
 | **wake** | woken (one shut down boots and its agent continues) | the same conversation | the same conversation; its token file written again | untouched |
 | **finish** | shut down, its disk kept | ended, its conversation kept | ended | untouched; it stays in the room |
@@ -312,8 +323,18 @@ It acts only on what it showed you: if the workspace changed in between, it is r
 A program that has no conversation to resume (one that is not an agent) starts fresh when it wakes. A workspace stays
 asleep until you wake it; messages wait in the room meanwhile.
 
-**Finish** is "the work is done": nothing runs afterwards, and no worker can be added — but the rooms stay writable and
-every token is kept, so `reopen`, then `wake`, picks it up again. **Archive** finishes it, makes its rooms read-only (their
+**Finish** is "the work is done": nothing runs afterwards, and no worker can be added — but every token is kept, so
+`reopen`, then `wake`, picks it up again. `doz workspace down W` is the same command, for every workspace.
+
+**Finish always says what it removed and what it kept**, by the workspace's lifetime. A workspace made without a space
+file — and one whose space file says `x-dozable.lifetime: standing` — is **standing**: finish removes nothing, its scratch
+folders included, and says "finished; nothing removed (standing)"; only what says `x-dozable.lifetime: run` itself goes,
+after its archived copy is hash-checked. A space file with lifetime **runs** (the default for one that says none) removes
+what it made for the run, each only after its archived copy verifies, and nothing that holds work when the archive
+failed. A folder you named is never touched. `--json` answers `{"kind": "WorkspaceFinish", "schema": 1, "removed": […],
+"kept": […], "archive": "…"}`: folders by their absolute path, rooms `room/NAME`, agents `agent/NAME`, sandboxes
+`sandbox/NAME`. `doz workspace state W --json` then says `"phase": "finished"` (the phases: `setting-up`, `running`,
+`asleep`, `stopped`, `finished`, `archived`). **Archive** finishes it, makes its rooms read-only (their
 history stays readable) and retires its anonymous workers — their tokens are refused from then on; a bot keeps its token
 and its place in the rooms. `restore` opens the rooms again and leaves it finished; a retired worker stays ended.
 
@@ -401,7 +422,8 @@ nothing is made. To have workers from the start, declare them when you make it: 
   worker leaves every room and its token is refused from then on; its messages keep its name. A bot's token is kept and it
   stays in the room. `--rm` deletes its session's record or its micro VM too. Its name is free again.
 
-`doz workspace stop` stops only the manager; workers go on until you end them.
+`doz workspace manager stop` stops only the manager; workers go on until you end them. `doz workspace stop` stops every
+agent, workers included.
 
 **A look first.** `doz worker add … --dry-run` runs the add's own checks and says what it would do — the worker's name, its
 program and account (by name: `mac` is this Mac's own login), where it runs and what isolates it, its folder, network and

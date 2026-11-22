@@ -374,7 +374,7 @@ extension WorkspaceManagerTests {
         r.workspaceRequest = w
         let s = try started(await c.handle(r))
         XCTAssertEqual(s.isolation, "unfenced")
-        _ = await ws(c, .workspaceStop, "solo")
+        _ = await ws(c, .workspaceStop, "solo") { $0.managerOnly = true }
         try? FileManager.default.removeItem(atPath: c.managerTokenRoot)
     }
 }

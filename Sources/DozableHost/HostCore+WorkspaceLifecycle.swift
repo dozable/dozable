@@ -323,7 +323,7 @@ extension HostCore {
         defer { lifecycleWorkspaces.remove(n) }
         note(nil, "workspace \(n): \(verb.rawValue) — \(plan.queue.changes) change\(plan.queue.changes == 1 ? "" : "s"), at most \(plan.queue.width) at once")
         switch verb {
-        case .stop: throw HostError(.invalid, "stop is workspace-stop")
+        case .stop: return try await lifecycleStop(rec, plan)
         case .sleep: return try await lifecycleSleep(rec, plan)
         case .wake: return try await lifecycleWake(rec, plan)
         case .finish: return try await lifecycleFinish(rec, plan, o)
@@ -423,6 +423,40 @@ extension HostCore {
             let why = HostError.from(error).message
             return c.agents.map { WorkspaceAgentResult(name: $0.name, ok: false, text: why) }
         }
+    }
+
+    // MARK: stop
+
+    /// Stop: every agent's process ends — a sandbox shut down (its disk kept), a session on this Mac ended (its record and
+    /// conversation kept; an unfenced one's token file deleted). What sleeps or is stopped already is left as it is, so a stop
+    /// of a stopped or asleep workspace does nothing. Nothing is removed; wake brings each back.
+    func lifecycleStop(_ rec: WorkspaceRecord, _ plan: WorkspaceLifecyclePlan) async throws -> WorkspaceChanged {
+        let n = rec.name
+        var changes: [LifecycleChange] = []
+        for c in lifecycleChanges(rec, plan) {
+            if await agentLifecycle.facts(c.agents[0], workspace: n).runs { changes.append(c) }
+        }
+        let results = await runLifecycle(n, changes, width: plan.queue.width) { c in
+            let first = c.agents[0]
+            do {
+                _ = try await self.agentLifecycle.shutdown(self.lifecycleOrder(n, first))
+                for a in c.agents where a.actsAsYou { if let s = a.place.session { self.removeManagerTokenFolder(s) } }
+                let names = c.agents.map(\.name)
+                await self.lifecycleRecord(n, names.map { WorkspaceLogEntry(action: "agent-stopped", agent: $0) }) { r in
+                    for i in r.agents.indices where names.contains(r.agents[i].name) && r.agents[i].endedAt == nil { r.agents[i].stoppedAt = Date() }
+                }
+                return c.agents.map { WorkspaceAgentResult(name: $0.name, ok: true, text: first.place.sandbox != nil ? "shut down, its disk kept" : "stopped, its conversation kept") }
+            } catch {
+                let why = HostError.from(error).message
+                return c.agents.map { WorkspaceAgentResult(name: $0.name, ok: false, text: why) }
+            }
+        }
+        let failed = Self.lifecycleFailure(n, "stop", results)
+        if !changes.isEmpty { try? workspaces.append(n, WorkspaceLogEntry(action: "stopped", reason: failed == nil ? nil : "not every agent stopped")) }
+        if let failed { throw failed }
+        note(nil, "workspace \(n): stopped (\(results.count) agent\(results.count == 1 ? "" : "s"))")
+        let notes = changes.isEmpty ? ["nothing runs: nothing to stop"] : ["every agent is stopped and nothing was removed — doz workspace wake \(n) brings them back"]
+        return WorkspaceChanged(name: n, verb: "stop", results: results, notes: notes, workspace: await workspaceDetail(try workspaceRecord(n), withBrief: false))
     }
 
     // MARK: wake
@@ -592,6 +626,10 @@ extension HostCore {
                                      + archive.notes,
                                  workspace: await workspaceDetail(try workspaceRecord(n), withBrief: false))
         c.run = closed?.id; c.archive = archive.path; c.archiveSHA256 = archive.sha; c.archiveProblem = archive.problem
+        // A finish removes nothing (a space file's down removes its run's things after it): everything it held is kept.
+        c.kind = WorkspaceFinishInventory.kind; c.schema = WorkspaceFinishInventory.schema
+        c.removed = []
+        c.kept = WorkspaceFinishInventory.kept(before: rec, removed: [])
         return c
     }
 

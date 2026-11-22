@@ -121,12 +121,58 @@ final class WorkspaceLifecycleTests: XCTestCase {
         XCTAssertTrue(plan(.wake, rec3, facts: f).notes.contains("mira runs unfenced: it acts as you"))
     }
 
-    func testStopTouchesTheManagerOnly() {
+    /// 756 (D3): stop ends every agent's process — not only the manager's — and removes nothing; it asks a yes.
+    func testStopStopsEveryAgentAndRemovesNothing() {
         let p = plan(.stop)
-        XCTAssertEqual(p.rows.filter(\.changes).map(\.name), ["mira"])
+        XCTAssertTrue(p.refusals.isEmpty, p.refusals.joined())
+        XCTAssertEqual(Set(p.rows.filter(\.changes).map(\.name)), ["mira", "bot1", "otto", "bot2", "bot3", "lab", "shell"])
         XCTAssertEqual(row(p, "mira")?.after, "stopped, its conversation kept")
-        XCTAssertEqual(row(p, "bot1")?.after, "untouched")
-        XCTAssertEqual(p.commands, ["doz workspace stop demo"])
+        XCTAssertEqual(row(p, "bot1")?.after, "stopped, its conversation kept")
+        XCTAssertEqual(row(p, "bot2")?.after, "stopped, its conversation kept; its token file deleted")
+        XCTAssertEqual(row(p, "otto")?.after, "shut down, its disk kept", "a VM's process ends: shut down, not hibernated")
+        XCTAssertTrue(row(p, "shell")?.after.hasPrefix("stopped") == true, "a program with no conversation: stopped")
+        XCTAssertEqual(row(p, "far")?.after, "untouched; stays in the room")
+        XCTAssertFalse(row(p, "far")!.changes)
+        XCTAssertTrue(row(p, "mira")!.back.hasPrefix("doz workspace wake demo"))
+        XCTAssertEqual(p.confirm, "yes")
+        XCTAssertTrue(p.goes.isEmpty, "stop removes nothing")
+        XCTAssertTrue(p.keeps.contains { $0.text.contains("every folder, untouched") })
+        XCTAssertTrue(p.commands.contains("doz shutdown demo-otto") && p.commands.contains("doz sessions end @mac demo-bot1"))
+        XCTAssertFalse(p.commands.contains { $0.contains("hibernate") })
+        XCTAssertEqual(p.command, "doz workspace stop demo")
+        XCTAssertTrue(p.notes.contains { $0.contains("doz workspace manager stop demo") })
+    }
+
+    /// 756: a stop of a workspace that is asleep or stopped already changes nothing (harmless), and refuses nothing.
+    func testStopOfAnAsleepOrStoppedWorkspaceChangesNothing() {
+        var f = running()
+        for k in ["mira", "bot1", "bot2", "shell"] { f[k]?.now = .ended }
+        for k in ["otto", "lab", "bot3"] { f[k]?.now = .asleep }
+        let p = plan(.stop, facts: f)
+        XCTAssertTrue(p.refusals.isEmpty, p.refusals.joined())
+        XCTAssertTrue(p.rows.allSatisfy { !$0.changes }, "an asleep VM is not shut down by stop: it stays asleep")
+        XCTAssertEqual(row(p, "otto")?.after, "stays asleep")
+        XCTAssertEqual(p.queue.changes, 0)
+        XCTAssertTrue(p.notes.contains("nothing runs: nothing to stop"))
+        // Finished: nothing runs, nothing refused.
+        let q = plan(.stop, record(flags: WorkspaceFlags(finishedAt: t, startedAt: t)), facts: f)
+        XCTAssertTrue(q.refusals.isEmpty && q.queue.changes == 0)
+    }
+
+    /// 756 (D4/D12): what a finish keeps, by name — folders by their absolute path, rooms room/NAME, agents agent/NAME,
+    /// sandboxes sandbox/NAME — and what a person reads: a standing workspace says it removed nothing.
+    func testTheFinishInventory() {
+        let rec = record()
+        let held = WorkspaceFinishInventory.held(rec)
+        XCTAssertEqual(held.first, "/work/demo")
+        XCTAssertTrue(held.contains("room/demo") && held.contains("agent/mira") && held.contains("sandbox/demo-otto") && held.contains("sandbox/lab"))
+        XCTAssertEqual(held.filter { $0 == "sandbox/lab" }.count, 1, "a shared sandbox once")
+        XCTAssertEqual(WorkspaceFinishInventory.kept(before: rec, removed: []), held, "nothing removed: everything kept")
+        XCTAssertEqual(WorkspaceFinishInventory.kept(before: rec, removed: ["room/demo"]).contains("room/demo"), false)
+        let lines = WorkspaceFinishInventory.lines(removed: [], kept: held, standing: true, archive: nil)
+        XCTAssertEqual(lines.first, "finished; nothing removed (standing)")
+        XCTAssertTrue(lines[1].hasPrefix("kept: /work/demo, room/demo"))
+        XCTAssertEqual(WorkspaceFinishInventory.lines(removed: ["/x/s"], kept: [], standing: false, archive: "a/b").first, "removed: /x/s")
     }
 
     func testFinish() {

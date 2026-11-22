@@ -104,6 +104,9 @@ public struct SpaceIntent: Codable, Equatable, Sendable {
     public var lifetime: String? = nil
     public var briefText: String? = nil
     public var briefRefs: [String]? = nil
+    /// 756: the owned resources whose own `x-dozable.lifetime` is `run` — inside a standing workspace, the ones its finish
+    /// removes (archived first): `agent:NAME`, `room:CHATROOM`, `sandbox:PLACE`, `folder:NAME`. Optional (an older plan decodes).
+    public var runLifetime: [String]? = nil
     public var agents: [Agent] = []
     public var rooms: [Room] = []
     public var folders: [Folder] = []
@@ -142,6 +145,7 @@ extension SpaceIntent {
         var i = SpaceIntent(space: model.space, title: model.title, owner: model.owner, brief: model.brief,
                             archive: Sourced(model.archiveOn ? "on" : "off", model.provenance["archive"] ?? "the default"))
         i.lifetime = model.lifetime
+        var run: [String] = []
         i.briefText = model.briefText
         i.briefRefs = model.briefRefs.isEmpty ? nil : model.briefRefs
         i.archiveKeep = model.archiveKeep
@@ -259,7 +263,18 @@ extension SpaceIntent {
             i.rooms.append(Room(name: r.name, chatRoom: chatRoom, main: isMain, external: r.external != nil,
                                 members: SpaceDoc.strings(SpaceDoc.member(r.def, "members")).map { SpaceFormat.parseFullName($0)?.name ?? $0 },
                                 persisted: persisted("room", r.name)))
+            if r.external == nil, SpaceDoc.string(SpaceDozable.member(r.def, "lifetime")) == "run" { run.append("room:" + chatRoom) }
         }
+        // 756: what says `x-dozable.lifetime: run` of itself (the agents' maps carry `agent_defaults` beneath them).
+        for r in model.resources where r.external == nil && SpaceDoc.string(SpaceDozable.member(r.def, "lifetime")) == "run" {
+            switch r.section {
+            case .folders: run.append("folder:" + r.name)
+            case .sandboxes: if let x = i.sandboxes.first(where: { $0.name == r.name }) { run.append("sandbox:" + x.placeName) }
+            default: break
+            }
+        }
+        for a in model.agents where a.external == nil && SpaceDoc.string(SpaceDozable.member(a.def, "lifetime")) == "run" { run.append("agent:" + a.name) }
+        i.runLifetime = run.isEmpty ? nil : run
 
         // Services and secrets: external only in this version.
         for r in model.resources where r.section == .services {

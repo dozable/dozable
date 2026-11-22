@@ -231,7 +231,7 @@ func cliWorkspaceWorkerRows(_ h: CLIHarness, root: URL, store: DozableStore, sta
     r = h.run(["workspace", "start", "w2"], timeout: 120)
     if r.code == 0 { started.insert("w2") }
     check(r.code == 0 && h.waitFor(30) { isUp("w2", "oscar") }, "30 start w2 now works, oscar is up there (\(r.code) \(r.err.prefix(200)))")
-    r = h.run(["workspace", "stop", "w2"], timeout: 60)
+    r = h.run(["workspace", "manager", "stop", "w2"], timeout: 60)
     check(r.code == 0, "30 stop w2")
 
     // 31. bot1 ended: kept, gone from chat, its ledger line gone; the name free again

@@ -30,6 +30,11 @@ func cliSpaceActRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     let pid = getpid()
     let home = URL(fileURLWithPath: "/private/tmp/dzo-\(pid)-sp-home")
     let dir = URL(fileURLWithPath: "/private/tmp/dzo-\(pid)-sp-files")
+    // Its own scratch projects folder (scratch and run folders are made there), never an earlier row's or the real one.
+    let ownProjects = "/private/tmp/dzo-\(getpid())-sap"
+    try? FileManager.default.createDirectory(atPath: ownProjects, withIntermediateDirectories: true)
+    check(h.run(["config", "set", "defaults.projects_dir", ownProjects]).code == 0, "its own scratch defaults.projects_dir")
+    defer { try? FileManager.default.removeItem(atPath: ownProjects) }
     for d in [home, dir] { try? fm.removeItem(at: d); try? fm.createDirectory(at: d, withIntermediateDirectories: true) }
     var extra: [String] = []
     defer {
