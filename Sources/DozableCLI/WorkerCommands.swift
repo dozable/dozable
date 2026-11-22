@@ -36,7 +36,8 @@ func workerTable(_ l: WorkerListing) -> String {
     var t = [["NAME", "ROLE", "BOT", "PLACE", "ISOLATION", "CONTROL", "NETWORK", "STATE", "TASK"]]
     for a in l.agents {
         t.append([a.name, a.role, a.bot ?? "—", a.place, a.isolation ?? "—", a.control, a.network,
-                  a.state == "not started" || a.state == "starting" || a.state == "ended" ? a.state : Out.phaseLabel(a.state),
+                  a.declared == true ? "declared (the start starts it)"
+                      : a.state == "not started" || a.state == "starting" || a.state == "ended" ? a.state : Out.phaseLabel(a.state),
                   a.task.map { WorkerLaunch.shortTask($0) } ?? "—"])
     }
     var s = Out.table(t)
@@ -52,7 +53,7 @@ struct WorkerAdd: AsyncParsableCommand {
         prompt says to read; it says in the room that it is up. Dozable posts nothing there. Fenced on this Mac unless you \
         say otherwise; its network is the workspace's default, else locked; it reaches only the chat server's page port of \
         this Mac, and opens no URL and copies to no clipboard. Refused while the workspace is setting up — doz workspace start \
-        W first. --dry-run shows what it would be — its name, place, control and network, or what would be refused — and \
+        W first, or declare it when you make the workspace (doz workspace new W --worker TASK). --dry-run shows what it would be — its name, place, control and network, or what would be refused — and \
         the command, adding nothing and starting no daemon. Example: doz worker add demo --task "list the files"
         """)
     @OptionGroup var g: GlobalOptions

@@ -29,6 +29,8 @@ public enum WorkerLaunch {
     public static let permissionModes = ["standard", "bypass"]
     /// The longest task (`--task`), in bytes.
     public static let maximumTaskBytes = 16 << 10
+    /// The most workers `doz workspace new --worker` declares at once.
+    public static let maximumDeclared = 16
     /// Where a VM worker's START is copied (under the image user's home): `~/.doz-workspace/NAME/start.md`.
     public static let vmStartFolder = ManagerLaunch.vmStartFolder
 

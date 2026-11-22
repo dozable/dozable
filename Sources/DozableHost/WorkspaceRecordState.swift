@@ -115,6 +115,13 @@ public enum WorkspaceConditionsBuilder {
             }
             agents[a.name] = condition(a, fact: f.agents[a.name], last: last[a.name], flags: rec.flags, known: f.known)
         }
+        // The workers declared at new: the record says they have not started, daemon or not.
+        for d in rec.declaredWorkers where agents[d.name] == nil {
+            let place = WorkerLaunch.placeName(workspace: rec.name, name: d.name)
+            agents[d.name] = AgentCondition(condition: "not-started", reason: "declared: doz workspace start starts it", role: "worker",
+                                            place: rec.defaults.isolation == "vm" ? place : MacPlace.name + "/" + place,
+                                            since: SpaceState.time(d.declaredAt))
+        }
         let ready = f.known && rec.flags.finishedAt == nil && rec.flags.archivedAt == nil && !agents.isEmpty
             && agents.values.allSatisfy { $0.condition == "running" }
         return WorkspaceConditions(from: from, agents: agents, ready: ready)

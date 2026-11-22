@@ -72,7 +72,8 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
   elsewhere?}, startedBy, startedAt, bot?, isolation?, stoppedAt?, task?, anonymous?, pendingAt?, endedAt?}],
   defaults: {isolation?, network?}, flags: {finishedAt?,
   archivedAt?, firstAgentAt?, startedAt?}, driver:
-  "you", origin: {kind: new|adopted|project, project?}}`.
+  "you", origin: {kind: new|adopted|project, project?}, declaredWorkers?: [{name, task, declaredAt}]}` (`declaredWorkers`:
+  written only while one is declared and not started — "One-shot new" below).
 - `brief.md` — the brief's text (at most 256 KiB). The record keeps only its references, hash and size.
 - `log.jsonl` — one JSON object per line: `{"v":1,"at":…,"by":"you"|"doz","action":…,…}`.
 
@@ -97,7 +98,8 @@ Rules (keep them, and their tests):
   `folders-edited`, `refs-edited`, `renamed`, `agent-renamed`, `agent-removed`, `manager-set`, `manager-removed`,
   `bot-invited`, `kicked-off` (the post's sha256 and size — never its text), `manager-started` (isolation, place, the
   token's fingerprint — never the token), `manager-stopped`, `worker-added` (isolation, place, the task's sha256 and size,
-  the token's fingerprint — never the task's text or the token), `worker-ended`, `worker-add-undone` (by `doz`),
+  the token's fingerprint — never the task's text or the token), `worker-declared` (a worker declared at `new`: its name,
+  the task's sha256 and size), `worker-ended`, `worker-add-undone` (by `doz`),
   `brief-announced` (the room an edit after the start was announced in), `bot-changed` (a running bot's instructions, model
   or account changed, told in `room`; `reason` says which). Each reads as a sentence
   (`WorkspaceLogEntry.sentence`: "started the work: posted the brief in demo (512 bytes)", "edited the work (120 bytes)")
@@ -147,6 +149,49 @@ foldersMadeNow:)`). `WorkspacePlanTests.testThePlanAndNewAgree` holds the two to
   exits as `new`; the printed commands, run by `/bin/sh` in a fresh store, make the same workspace (`show --json` equal
   apart from times); the new fields recorded; `--worker-isolation unfenced` refused; `--start` posts the kick-off once;
   `--json`.
+
+### One-shot new: `--brief`, `--preset`, `--worker`, `workspace create`
+
+One command makes a workspace with its team: `doz workspace new app --preset blank --brief "Fix the build" --folder DIR
+--worker "Fix the failing test" [--start]`. `doz workspace create` is the same command (`aliases: ["create"]`; help shows
+`new, create`). `doz create --help` points at it ("To make a workspace (a team of agents), use doz workspace new.") —
+`doz create` itself still makes a sandbox.
+
+- **The brief, in the CLI** (`WorkspaceNew.briefText`): exactly one of `--brief TEXT` (as given), `--brief -` (standard
+  input, trailing line breaks dropped — `trailingLineBreaksDropped`) and `--prompt-file F|-` (as it is). Both: 65 `invalid`;
+  neither: 64 `usage`. It is stored as every brief is (`brief.md`); `show --brief --json` gives `briefText`.
+- **Presets, in the CLI**: `WorkspacePresets.named` (an unknown name → 65 `invalid-value`, its message naming every preset;
+  checked before the brief is read or anything asked) and `WorkspacePresets.apply`, run last in `WorkspaceNew.request`: it
+  fills only what the flags and `--from-project` left unset — `managerIsolation` (only with a manager: the draft refuses
+  one without), `workerIsolation`, `network`, and `research`'s read-only for each `--folder` given without a mode. The
+  request carries the values, never the preset's name, so the plan's command prints the flags.
+- **Declared workers, in the daemon** (`WorkspaceRequest.workers`, additive): the draft checks each task as `worker add`
+  does (trimmed, not empty, ≤ 16 KiB; at most `WorkerLaunch.maximumDeclared`, 16) and names each the first free `botN`
+  (`workerTakenNames`: chat's participants and human, every bot, every live worker and every worker declared anywhere — and
+  `worker add`'s own anonymous name skips declared ones). Declaring is intent and needs no chat or room: only `--no-room`
+  with `--worker` is refused (`invalid`); with no room yet `new` adds a note. The set-up check takes
+  `Input.declaredWorkers`: with chat off it is the gap "its declared worker needs chat" (as "a manager needs chat"), so the
+  dry run and `show` say it and `start` refuses (3) with nothing started and the declaration kept; chat on with no room
+  is the existing room gap. Recorded as `declaredWorkers` (nothing else is made: no participant, no token, no place), logged
+  `worker-declared`; the plan's lines name each and `WorkspaceNewCommand.argv` carries `--worker TASK` for each.
+- **Started at `workspace start`** (`workspaceStart` = `workspaceStartOnce`, then `startDeclaredWorkers`): after the
+  manager — the start's own gate and "starting" mark released, so `workerAdd` runs exactly as `doz worker add W NAME --task
+  TASK` with the workspace's default isolation (fenced unless `defaults.isolation` is vm). Its name taken since (a
+  `name`-field `exists` refusal): once more as an anonymous worker. On success the declaration goes (`workspaceUpdate`);
+  a failure is a note and the declaration stays — the next start tries it. `startingDeclaredWorkers` keeps two starts at
+  once from adding the same one. `WorkspaceStarted.workers` names those started.
+- **Seen before the start**: `worker ls --json` appends a row per declared worker (`declared: true`, `state` and
+  `condition` `not-started`, its task, the place and isolation it will get); `WorkspaceConditionsBuilder.build` gives each
+  `not-started` ("declared: doz workspace start starts it"), so `ready` is false until they run; `show` carries
+  `declaredWorkers`.
+- **`kind` + `schema`, additively** (optional fields set by the initialisers, so an older daemon's answer still decodes):
+  `WorkspaceDetail` `Workspace`, `WorkspaceStarted`, `WorkerListing`, each schema 1; `WorkerRow.condition` (the agent's
+  condition as `workspace state` gives it; nil for an ended worker) and `declared`.
+- The wizard's `workspace-new` web action does not take workers yet (`WebAction` decodes strictly; unchanged).
+- Tests: `WorkspaceOneShotTests` (an extension of `WorkspacePlanTests`: the preset refused and applied, the brief from
+  stdin, `--brief` with `--prompt-file`, the alias, the workers in the request, the command and the record, listed
+  not-started, the room needed), `make test-cli-workspace` rows O1–O7 (`CLI_WORKSPACE_ROWS=oneshot` runs them alone): the
+  six locked scenarios black-box under the stub agent — O3 starts two declared workers and sees both running.
 
 ## Who answers what
 

@@ -397,7 +397,8 @@ func noteFolder(_ info: SandboxInfo, isolatedAsked: Bool, _ g: GlobalOptions) {
 }
 
 struct Create: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "Create a sandbox (it stays off until start or up).")
+    static let configuration = CommandConfiguration(abstract: "Create a sandbox (it stays off until start or up).",
+        discussion: "To make a workspace (a team of agents), use doz workspace new.")
 
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The sandbox's name: 1–40 characters of a-z 0-9 -.") var name: String

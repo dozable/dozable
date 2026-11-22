@@ -267,7 +267,7 @@ final class WorkspaceWorkerTests: BotTestCase {
         let n = await ws(c, .workspaceNew, "demo") { $0.brief = "B"; $0.folders = [WorkspaceFolder(path: self.work.path)] }
         XCTAssertNil(n.error)
         var m = await wk(c, .workerAdd, "demo")
-        XCTAssertEqual(m.error?.message, "demo is still setting up — doz workspace start demo first (a workspace with no manager starts with you driving)")
+        XCTAssertEqual(m.error?.message, "demo is still setting up — doz workspace start demo first (a workspace with no manager starts with you driving), or declare workers at doz workspace new --worker TASK")
         XCTAssertTrue(chat.dir.participants.isEmpty && trace.all.isEmpty)
         XCTAssertEqual(try record("demo")?.agents.count, 0)
         _ = await ws(c, .workspaceStart, "demo")

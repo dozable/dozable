@@ -351,6 +351,17 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     }
 }
 
+/// A worker declared at `doz workspace new --worker TASK`: recorded while the workspace is setting up and started by
+/// `doz workspace start` (as `doz worker add W NAME --task TASK` would, with the workspace's default isolation); its entry
+/// goes once it runs. `name` is the one it is meant to get — the first free `botN` when it was declared; a start that finds
+/// it taken by then gives it the next free one. Additive: an older doz keeps the list as an unknown field.
+public struct WorkspaceDeclaredWorker: Codable, Equatable, Sendable {
+    public var name: String
+    public var task: String
+    public var declaredAt: Date
+    public init(name: String, task: String, declaredAt: Date) { self.name = name; self.task = task; self.declaredAt = declaredAt }
+}
+
 /// What a new agent of the workspace gets unless it says otherwise.
 public struct WorkspaceDefaults: Codable, Equatable, Sendable {
     public var isolation: String?
@@ -439,9 +450,12 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
     public var runs: [WorkspaceRun] = []
     /// Its own grants and ceiling (`GrantModel`; nil: none ever set). Additive: an older doz keeps it as an unknown field.
     public var permissions: WorkspaceGrants?
+    /// The workers declared at `new` that `start` has not started yet (`WorkspaceDeclaredWorker`). Additive: written only
+    /// while there is one.
+    public var declaredWorkers: [WorkspaceDeclaredWorker] = []
     public var unknown = UnknownFields()
     static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "defaults", "flags", "driver", "origin", "runs",
-                                     "permissions"]
+                                     "permissions", "declaredWorkers"]
 
     public init(name: String, createdAt: Date, brief: WorkspaceBrief, folders: [WorkspaceFolder], rooms: [WorkspaceRoom] = [],
                 agents: [WorkspaceAgent] = [], defaults: WorkspaceDefaults = WorkspaceDefaults(), flags: WorkspaceFlags = WorkspaceFlags(),
@@ -466,6 +480,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         origin = try c.decodeIfPresent(WorkspaceOrigin.self, forKey: "origin") ?? WorkspaceOrigin()
         runs = try c.decodeIfPresent([WorkspaceRun].self, forKey: "runs") ?? []
         permissions = try c.decodeIfPresent(WorkspaceGrants.self, forKey: "permissions")
+        declaredWorkers = try c.decodeIfPresent([WorkspaceDeclaredWorker].self, forKey: "declaredWorkers") ?? []
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -485,6 +500,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         try c.encode(origin, forKey: "origin")
         if !runs.isEmpty { try c.encode(runs, forKey: "runs") }
         try c.encodeIfPresent(permissions, forKey: "permissions")
+        if !declaredWorkers.isEmpty { try c.encode(declaredWorkers, forKey: "declaredWorkers") }
     }
 
     /// The open run's index (nil: none open).
@@ -576,7 +592,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
                                               "sandbox-removed", "template-kept", "restored", "run-opened", "run-closed", "run-archived",
                                               "run-archive-failed", "room-closed", "room-opened", "room-removed", "transcripts-discarded",
                                               "granted", "revoked", "ceiling-set", "request-recorded", "permission-decided",
-                                              "agent-joined", "agent-crashed"]
+                                              "agent-joined", "agent-crashed", "worker-declared"]
 
     /// The line as a person reads it.
     public var sentence: String {
@@ -604,6 +620,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "manager-stopped": return "stopped the manager \(agent ?? "?")"
         case "worker-added": return "added the worker \(agent ?? "?") (\(BotIsolation.words(isolation ?? "fenced"))" + (place.map { ", \($0)" } ?? "")
             + "; its task \(bytes ?? 0) bytes)"
+        case "worker-declared": return "declared the worker \(agent ?? "?") (its task \(bytes ?? 0) bytes) — the start starts it"
         case "worker-ended": return "ended the worker \(agent ?? "?")"
         case "worker-add-undone": return "undid adding the worker \(agent ?? "?") (\(reason ?? "its place did not run"))"
         case "slept": return "put the workspace to sleep" + (reason.map { " — \($0)" } ?? "")

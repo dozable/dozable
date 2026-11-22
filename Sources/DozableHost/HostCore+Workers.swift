@@ -113,6 +113,9 @@ extension HostCore {
         let rec = try workspaceRecord(n)
         let macs = rec.agents.contains { $0.place.mac == true } ? await workspaceMacRows() : [:]
         let rows = await workspaceAgents(rec, macs: macs, ended: q.all == true)
+        // Each agent's condition, as `doz workspace state --json` gives it (the record's agents not ended).
+        let conditions = WorkspaceConditionsBuilder.build(record: rec, facts: await recordStateFacts(rec), log: (try? workspaces.log(n)) ?? [],
+                                                          from: "record")
         var out: [WorkerRow] = []
         var k = 0
         for a in rec.agents {
@@ -121,8 +124,11 @@ extension HostCore {
             k += 1
             out.append(WorkerRow(name: a.name, role: a.isManager ? "manager" : a.isWorker ? "worker" : "adopted", bot: a.bot, place: row.place,
                                  isolation: a.isolation, control: workerControl(rec, a, macs: macs), network: workerNetwork(a, macs: macs),
-                                 state: row.state, task: a.task, actsAsYou: a.actsAsYou ? true : nil, shares: workerShares(rec, a)))
+                                 state: row.state, task: a.task, actsAsYou: a.actsAsYou ? true : nil, shares: workerShares(rec, a),
+                                 condition: a.endedAt != nil ? nil : conditions.agents[a.name]?.condition))
         }
+        // Then the workers declared at new, not started yet.
+        for d in rec.declaredWorkers where !out.contains(where: { $0.name == d.name }) { out.append(declaredWorkerRow(rec, d)) }
         return WorkerListing(workspace: n, agents: out)
     }
 
@@ -269,7 +275,7 @@ extension HostCore {
             throw no("workspace", HostError(.invalidPhase, "\(n) is busy: it is being put to sleep, woken, finished or archived — add the worker once that is over"))
         }
         guard rec.flags.startedAt != nil || rec.flags.firstAgentAt != nil else {
-            throw no("workspace", HostError(.invalidPhase, "\(n) is still setting up — doz workspace start \(n) first (a workspace with no manager starts with you driving)"))
+            throw no("workspace", HostError(.invalidPhase, "\(n) is still setting up — doz workspace start \(n) first (a workspace with no manager starts with you driving), or declare workers at doz workspace new --worker TASK"))
         }
         guard let main = rec.mainRoom?.chatRoom else { throw no("workspace", HostError(.invalidPhase, "\(n) has no room — doz workspace edit \(n) --make-room")) }
         var rooms = [main]
@@ -352,8 +358,10 @@ extension HostCore {
             if here.contains(given) { throw no("name", HostError(.exists, "\(n) already has an agent called \(given)")) }
             name = given
         } else {
+            // A worker declared anywhere keeps the name it was declared with.
+            let declared = Set(workspaces.records().flatMap { $0.declaredWorkers.map(\.name) })
             let taken = Set(dir.participants.map(\.name)).union(file.bots.map(\.name)).union(liveNames).union(here)
-                .union(dir.human.map { [$0] } ?? [])
+                .union(dir.human.map { [$0] } ?? []).union(declared)
             name = WorkerLaunch.nextAnonymousName(taken: taken)
         }
         guard WorkspaceName.isValidAgent(name) else { throw no(bot != nil ? "fromBot" : "name", HostError(.invalid, "\(name) is not an agent name")) }
@@ -458,6 +466,82 @@ extension HostCore {
         }
         plan.lines = WorkerPlanLines.lines(plan)
         return plan
+    }
+
+    // MARK: declared at new
+
+    /// The names an anonymous worker may not take: chat's participants and its human, every bot, every live worker and every
+    /// worker declared anywhere.
+    func workerTakenNames() -> Set<String> {
+        var s = Set(bots.readOrEmpty().bots.map(\.name))
+        if let dir = try? botDirectory() {
+            s.formUnion(dir.participants.map(\.name))
+            if let h = dir.human { s.insert(h) }
+        }
+        for w in workspaces.records() {
+            for a in w.agents where a.isLiveWorker { s.insert(a.name) }
+            for d in w.declaredWorkers { s.insert(d.name) }
+        }
+        return s
+    }
+
+    /// The workers `new --worker TASK` declares: each task checked as `worker add --task` checks it, each given the first free
+    /// `botN` (`workerTakenNames`, and `taken` — the new workspace's own agents). Nothing is made.
+    func workspaceDeclareWorkers(_ tasks: [String], taken here: Set<String>, at now: Date) throws -> [WorkspaceDeclaredWorker] {
+        guard tasks.count <= WorkerLaunch.maximumDeclared else {
+            throw HostError(.invalid, "at most \(WorkerLaunch.maximumDeclared) workers at new — add more with doz worker add once it has started")
+        }
+        var taken = workerTakenNames().union(here)
+        var out: [WorkspaceDeclaredWorker] = []
+        for t in tasks {
+            let task = t.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !task.isEmpty else { throw HostError(.invalid, "--worker: what is it to do? --worker \"…\"") }
+            guard task.utf8.count <= WorkerLaunch.maximumTaskBytes else {
+                throw HostError(.invalid, "--worker: the task is \(task.utf8.count) bytes — at most \(WorkerLaunch.maximumTaskBytes >> 10) KiB")
+            }
+            let name = WorkerLaunch.nextAnonymousName(taken: taken)
+            taken.insert(name)
+            out.append(WorkspaceDeclaredWorker(name: name, task: task, declaredAt: now))
+        }
+        return out
+    }
+
+    /// `workspace-start`'s last step: each worker declared at `new` added as `doz worker add W NAME --task TASK` adds it (the
+    /// workspace's default isolation), its declaration gone once it runs. Its name taken since: the next free `botN`. One that
+    /// does not start stays declared — said, and the next start tries it again.
+    func startDeclaredWorkers(_ n: String) async -> (started: [String], notes: [String]) {
+        guard let rec = try? workspaceRecord(n), !rec.declaredWorkers.isEmpty else { return ([], []) }
+        var started: [String] = [], notes: [String] = []
+        for d in rec.declaredWorkers {
+            let key = n + "/" + d.name
+            guard startingDeclaredWorkers.insert(key).inserted else { continue }
+            defer { startingDeclaredWorkers.remove(key) }
+            var q = WorkerRequest(workspace: n, name: d.name)
+            q.task = d.task
+            do {
+                let added: WorkerAdded
+                do { added = try await workerAdd(q) } catch let e as WorkerFieldRefusal where e.field == "name" && e.error.code == .exists {
+                    q.name = nil
+                    added = try await workerAdd(q)
+                }
+                _ = try await workspaceUpdate(n) { r in r.declaredWorkers.removeAll { $0 == d }; return [] }
+                started.append(added.worker.name)
+            } catch {
+                var why = HostError.from(error).message
+                for prefix in [d.name, q.name ?? d.name].map({ $0 + " did not start: " }) where why.hasPrefix(prefix) { why = String(why.dropFirst(prefix.count)) }
+                notes.append("the worker \(d.name) (\(WorkerLaunch.shortTask(d.task))) did not start: \(why) — doz workspace start \(n) tries it again")
+            }
+        }
+        return (started, notes)
+    }
+
+    /// A declared worker as `doz worker ls` shows it: where it will run (the workspace's default isolation), not started.
+    func declaredWorkerRow(_ rec: WorkspaceRecord, _ d: WorkspaceDeclaredWorker) -> WorkerRow {
+        let iso = (try? WorkerIsolation.resolve(asked: nil, workspaceDefault: rec.defaults.isolation, botDefault: nil)) ?? .fenced
+        let place = WorkerLaunch.placeName(workspace: rec.name, name: d.name)
+        return WorkerRow(name: d.name, role: "worker", bot: nil, place: iso == .vm ? place : MacPlace.name + "/" + place, isolation: iso.rawValue,
+                         control: WorkerLaunch.control(isolation: iso.rawValue), network: rec.defaults.network ?? "locked", state: "not-started",
+                         task: d.task, actsAsYou: nil, shares: nil, condition: "not-started", declared: true)
     }
 
     /// A sandbox name a worker's place must be (nil: fine).

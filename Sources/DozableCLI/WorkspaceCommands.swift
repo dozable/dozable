@@ -90,12 +90,16 @@ func printWorkspace(_ d: WorkspaceDetail) {
         s += (i == 0 ? "  folders  " : "           ") + DisplayPath.tilde(f.path) + " (" + (f.main ? "main, " : "") + (f.mode == "ro" ? "read-only" : "read-write") + ")\n"
     }
     s += "  room     " + (d.rooms.first { $0.main }.map { "#" + $0.chatRoom } ?? "none") + "\n"
-    if d.agents.isEmpty { s += "  agents   none yet — doz workspace adopt \(d.name) SANDBOX|@mac/SESSION\n" }
+    let declared = d.declaredWorkers ?? []
+    if d.agents.isEmpty, declared.isEmpty { s += "  agents   none yet — doz workspace adopt \(d.name) SANDBOX|@mac/SESSION\n" }
     for (i, a) in d.agents.enumerated() {
         let place = a.place == a.name ? "" : " in \(a.place)"
         var what = a.role
         if let iso = a.isolation { what += ", " + iso + (a.actsAsYou == true ? " · acts as you" : "") }
         s += (i == 0 ? "  agents   " : "           ") + "\(a.name) (\(what)\(place), \(a.state == "not started" ? "not started" : Out.phaseLabel(a.state)))\n"
+    }
+    for (i, w) in declared.enumerated() {
+        s += (i == 0 && d.agents.isEmpty ? "  agents   " : "           ") + "\(w.name) (worker, declared: the start starts it) — \(WorkerLaunch.shortTask(w.task))\n"
     }
     if let o = d.origin.project { s += "  from     \(DisplayPath.tilde(o))\n" }
     if let gaps = d.gaps, !gaps.isEmpty {
@@ -108,16 +112,27 @@ func printWorkspace(_ d: WorkspaceDetail) {
 // MARK: commands
 
 struct WorkspaceNew: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "new", abstract: "Make a workspace: its brief, any folders, its room and agents to adopt.",
+    static let configuration = CommandConfiguration(commandName: "new",
+        abstract: "Make a workspace: its brief, any folders, its room, its workers and agents to adopt.",
         discussion: """
-        The first --folder is the main one (--new-folder makes ~/doz-workspaces/NAME and puts it first). With chat on, the \
-        room is named after the workspace (it must not exist yet — or link one with --room). --dry-run shows what would be \
-        made, every refusal and what the start would still need, and the commands — nothing is written and no daemon is \
-        started. --start starts it once it is made. Example: doz workspace new demo --prompt-file brief.md --folder ~/code/demo
-        """)
+        The brief is --brief TEXT, --brief - (standard input, its last line break dropped) or --prompt-file FILE. --preset \
+        NAME starts from a preset (blank, research, swift-tests, mac-admin, remotion-video); a flag you give wins over it. \
+        Each --worker TASK declares a worker: recorded now, started by doz workspace start with the workspace's default \
+        isolation (fenced on this Mac unless --worker-isolation vm). The first --folder is the main one (--new-folder makes \
+        ~/doz-workspaces/NAME and puts it first). With chat on, the room is named after the workspace (it must not exist yet \
+        — or link one with --room). --dry-run shows what would be made, every refusal and what the start would still need, \
+        and the commands — nothing is written and no daemon is started. --start starts it once it is made. Example: doz \
+        workspace new app --preset blank --brief "Fix the build" --folder ~/code/app --worker "Fix the failing test"
+        """,
+        aliases: ["create"])
     @OptionGroup var g: GlobalOptions
     @Argument(help: "Its name: 1–40 characters of a-z, 0-9 and -.") var name: String
-    @Option(name: .customLong("prompt-file"), help: "The brief: a file (at most 256 KiB), or - for standard input.") var promptFile: String
+    @Option(name: .long, help: "The brief as text, or - for standard input (its last line break dropped). Not with --prompt-file.") var brief: String?
+    @Option(name: .customLong("prompt-file"), help: "The brief: a file (at most 256 KiB), or - for standard input. Not with --brief.") var promptFile: String?
+    @Option(name: .long, help: "Start from a preset: blank, research, swift-tests, mac-admin or remotion-video (the dry run's JSON lists them). A flag given wins.")
+    var preset: String?
+    @Option(name: .customLong("worker"), help: "Declare a worker by its task (repeatable): recorded now, started by doz workspace start.")
+    var workers: [String] = []
     @Option(name: .customLong("ref"), help: "A reference for the brief: a path or an http(s) address (repeatable).") var refs: [String] = []
     @Option(name: .customLong("folder"), help: "A folder it works on, DIR or DIR:ro (repeatable; the first is the main one).") var folders: [String] = []
     @Flag(name: .customLong("new-folder"), help: "Make the empty folder ~/doz-workspaces/NAME (defaults.projects_dir) and use it as the main folder.")
@@ -158,14 +173,52 @@ struct WorkspaceNew: AsyncParsableCommand {
         w.room = room
         w.noRoom = noRoom ? true : nil
         w.adopt = adopt.isEmpty ? nil : adopt
+        w.workers = workers.isEmpty ? nil : workers
         if fromProject {
             do { try WorkspaceProjectFill.apply(&w, parse: parse) } catch { throw fail(HostError.from(error), g) }
+        }
+        // The preset last: it fills only what the flags (and the project) left unset.
+        if let p = try presetChosen() {
+            WorkspacePresets.apply(p, to: &w, folderModeGiven: folders.map { f in WorkspaceFolder.modes.contains { f.hasSuffix(":" + $0) } })
         }
         return w
     }
 
+    /// `--preset NAME` (nil: none); an unknown name is refused before anything is read or asked.
+    func presetChosen() throws -> WorkspacePreset? {
+        guard let preset else { return nil }
+        do { return try WorkspacePresets.named(preset) } catch { throw fail(HostError.from(error), g) }
+    }
+
+    /// The brief: `--brief TEXT`, `--brief -` (standard input, its trailing line breaks dropped) or `--prompt-file FILE|-` —
+    /// exactly one.
+    func briefText() throws -> String {
+        switch (brief, promptFile) {
+        case (nil, nil):
+            throw fail(HostError(.usage, "the brief: --brief TEXT, --brief - (standard input) or --prompt-file FILE"), g)
+        case (.some, .some):
+            throw fail(HostError(.invalid, "--brief or --prompt-file, not both"), g)
+        case (let b?, nil):
+            let text = b == "-" ? Self.trailingLineBreaksDropped(try workspaceBrief("-", g)) : b
+            guard text.utf8.count <= WorkspaceStore.maximumBriefBytes else {
+                throw fail(HostError(.invalid, "the brief is \(text.utf8.count) bytes — at most \(WorkspaceStore.maximumBriefBytes >> 10) KiB"), g)
+            }
+            return text
+        case (nil, let f?):
+            return try workspaceBrief(f, g)
+        }
+    }
+
+    /// `"Fix the build\n"` → `"Fix the build"` (`\r\n` too); nothing else is changed.
+    static func trailingLineBreaksDropped(_ s: String) -> String {
+        var t = Substring(s)
+        while let last = t.last, last.isNewline { t = t.dropLast() }
+        return String(t)
+    }
+
     func run() async throws {
-        let w = try request(brief: try workspaceBrief(promptFile, g))
+        _ = try presetChosen()
+        let w = try request(brief: try briefText())
         if dryRun {
             let plan = try decode(try await query(workspaceRequest(.workspacePlan, w), g), WorkspacePlan.self, g)
             if g.json { Out.json(plan) } else { printPlan(plan) }
@@ -206,6 +259,7 @@ func printStarted(_ s: WorkspaceStarted) {
     } else {
         t += "no manager: you drive\n"
     }
+    for w in s.workers ?? [] { t += "started the worker \(w)\n" }
     Out.stdout(t)
     printWorkspace(s.workspace)
     for n in s.notes ?? [] { Out.stdout("note: \(n)\n") }
@@ -222,7 +276,7 @@ struct WorkspaceList: AsyncParsableCommand {
         if g.json { Out.json(l); return }
         var s = ""
         if !loose {
-            if l.workspaces.isEmpty { s += "Workspaces: none yet — doz workspace new NAME --prompt-file FILE\n" } else {
+            if l.workspaces.isEmpty { s += "Workspaces: none yet — doz workspace new NAME --brief TEXT\n" } else {
                 s += Out.table([["NAME", "STATE", "AGENTS", "ROOM"]] + l.workspaces.map {
                     [$0.name, "\(stateWords($0.state)) · \($0.driver)" + ($0.manager.map { " · manager " + $0.words } ?? ""), String($0.agents),
                      $0.room.map { "#" + $0 } ?? "—"]

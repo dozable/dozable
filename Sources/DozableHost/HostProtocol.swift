@@ -1890,6 +1890,9 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     /// space-save: the space file's new text (at most 256 KiB), and the sha256 of the file as the editor read it. Additive.
     public var text: String?
     public var ifMatch: String?
+    /// new: workers declared now, each by its task (`--worker TASK`, repeatable) — recorded while it is setting up and started by
+    /// `workspace-start` with the workspace's default isolation. Additive: an older daemon ignores it.
+    public var workers: [String]?
 
     public init(name: String? = nil) { self.name = name }
 }
@@ -2017,8 +2020,14 @@ public struct WorkspaceStarted: Codable, Equatable, Sendable {
     public var alreadyRunning: Bool?
     public var notes: [String]?
     public var workspace: WorkspaceDetail
+    /// The workers declared at `new` this start started, by name (nil: none). Additive.
+    public var workers: [String]?
+    /// `WorkspaceStarted`, schema 1 (additive: an older daemon's answer has neither).
+    public var kind: String?
+    public var schema: Int?
     public init(name: String, kickedOff: Bool, manager: String? = nil, isolation: String? = nil, session: String? = nil,
                 alreadyRunning: Bool? = nil, notes: [String]? = nil, workspace: WorkspaceDetail) {
+        kind = "WorkspaceStarted"; schema = 1
         self.name = name; self.kickedOff = kickedOff; self.manager = manager; self.isolation = isolation; self.session = session
         self.alreadyRunning = alreadyRunning; self.notes = notes; self.workspace = workspace
     }
@@ -2090,9 +2099,15 @@ public struct WorkspaceDetail: Codable, Equatable, Sendable {
     public var gaps: [WorkspaceSetupCheck.Gap]?
     /// Made by a space file: which, whether it is up, its run and times, and where its brief is. Additive.
     public var space: SpaceShown?
+    /// The workers declared at `new` and not started yet (`doz workspace start` starts them; nil: none). Additive.
+    public var declaredWorkers: [WorkspaceDeclaredWorker]?
+    /// `Workspace`, schema 1 (additive: an older daemon's answer has neither).
+    public var kind: String?
+    public var schema: Int?
     public init(name: String, state: String, driver: String, createdAt: Date, brief: WorkspaceBrief, briefText: String? = nil,
                 folders: [WorkspaceFolder], rooms: [WorkspaceRoom], agents: [WorkspaceAgentRow], defaults: WorkspaceDefaults,
                 flags: WorkspaceFlags, origin: WorkspaceOrigin, notes: [String]? = nil, gaps: [WorkspaceSetupCheck.Gap]? = nil) {
+        kind = "Workspace"; schema = 1
         self.name = name; self.state = state; self.driver = driver; self.createdAt = createdAt; self.brief = brief
         self.briefText = briefText; self.folders = folders; self.rooms = rooms; self.agents = agents; self.defaults = defaults
         self.flags = flags; self.origin = origin; self.notes = notes; self.gaps = gaps
@@ -2280,18 +2295,31 @@ public struct WorkerRow: Codable, Equatable, Sendable {
     public var actsAsYou: Bool?
     /// The sandbox it shares with other agents of the workspace (they can read each other's placeholders).
     public var shares: String?
+    /// Its condition as `doz workspace state --json` gives it (`AgentCondition.all`: `running`, `not-started`, …; `unknown`
+    /// with no daemon). Additive.
+    public var condition: String?
+    /// Declared at `doz workspace new --worker` and not started yet: `doz workspace start` starts it. Additive.
+    public var declared: Bool?
     public init(name: String, role: String, bot: String?, place: String, isolation: String?, control: String, network: String, state: String,
-                task: String?, actsAsYou: Bool?, shares: String?) {
+                task: String?, actsAsYou: Bool?, shares: String?, condition: String? = nil, declared: Bool? = nil) {
         self.name = name; self.role = role; self.bot = bot; self.place = place; self.isolation = isolation; self.control = control
         self.network = network; self.state = state; self.task = task; self.actsAsYou = actsAsYou; self.shares = shares
+        self.condition = condition; self.declared = declared
     }
 }
 
-/// `worker-ls`: every agent of the workspace (ended workers only when asked).
+/// `worker-ls`: every agent of the workspace (ended workers only when asked), then the workers declared at `new` and not
+/// started yet.
 public struct WorkerListing: Codable, Equatable, Sendable {
+    /// `WorkerListing`, schema 1 (additive: an older daemon's answer has neither).
+    public var kind: String?
+    public var schema: Int?
     public var workspace: String
     public var agents: [WorkerRow]
-    public init(workspace: String, agents: [WorkerRow]) { self.workspace = workspace; self.agents = agents }
+    public init(workspace: String, agents: [WorkerRow]) {
+        kind = "WorkerListing"; schema = 1
+        self.workspace = workspace; self.agents = agents
+    }
 }
 
 /// `worker-add`: the worker as it runs now, and what to know.

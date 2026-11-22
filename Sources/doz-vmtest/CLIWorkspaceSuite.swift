@@ -116,6 +116,13 @@ func cliWorkspaceSuite(binary: String) async {
         cliWorkspaceStubRows(h, root: root, store: store, started: &started)
         return
     }
+    // WS.04: CLI_WORKSPACE_ROWS=oneshot runs one-shot new's rows alone (O1–O7).
+    if ProcessInfo.processInfo.environment["CLI_WORKSPACE_ROWS"] == "oneshot" {
+        h.run(["config", "set", "chat.page_port", String(freePort())])
+        h.run(["config", "set", "chat.line_port", String(freePort())])
+        cliWorkspaceOneShotRows(h, root: root, store: store, started: &started)
+        return
+    }
 
     let marker = "BRIEF-TEXT-\(UUID().uuidString.prefix(8))"
     let brief = root.appendingPathComponent("brief.md").path
@@ -269,4 +276,6 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspacePermissionRows(h, root: root, store: store, started: &started)
     // T1–T8. the test hooks: the stub agent as a manager and a worker, doz debug crash (CLIWorkspaceStubRows.swift)
     cliWorkspaceStubRows(h, root: root, store: store, started: &started)
+    // O1–O7. one-shot new: --preset, --brief, --worker, workspace create (CLIWorkspaceOneShotRows.swift)
+    cliWorkspaceOneShotRows(h, root: root, store: store, started: &started)
 }

@@ -967,9 +967,11 @@ A workspace is an environment set up for getting work done: its agents, its room
 for, and any folders it works on (usually projects). Work starts only once it is fully set up.
 
 ```bash
-doz workspace new NAME --prompt-file F|- [--ref PATH|URL]… [--new-folder] [--folder DIR[:ro|:rw]]… [--room EXISTING | --no-room]
-                  [--from-project] [--adopt AGENT]… [--manager BOT [--manager-isolation fenced|vm|unfenced]]
-                  [--worker-isolation fenced|vm] [--network locked|standard|open] [--dry-run] [--start]
+doz workspace new NAME (--brief TEXT|- | --prompt-file F|-) [--preset P] [--worker TASK]… [--ref PATH|URL]… [--new-folder]
+                  [--folder DIR[:ro|:rw]]… [--room EXISTING | --no-room] [--from-project] [--adopt AGENT]…
+                  [--manager BOT [--manager-isolation fenced|vm|unfenced]] [--worker-isolation fenced|vm]
+                  [--network locked|standard|open] [--dry-run] [--start]
+doz workspace create NAME …                     # an alias of new: the same flags, the same answer
 doz workspace ls [--loose] [--json]             # NAME  STATE  AGENTS  ROOM ("idle · you · manager mira (fenced)"), then the loose agents
 doz workspace show W [--brief] [--json]         # its brief, folders, room and agents
 doz workspace show W --can-do [--agent A]       # what each agent can do: isolation and control, folders, network, secrets by name, its room — live or at the next start
@@ -1073,6 +1075,23 @@ the preset in from the main folder's `doz_project.yaml` (never written back); a 
 setting up, with its gaps. While a workspace is setting up, `show` (and `--json`'s `gaps`) lists what its start would
 still need, without reading the keychain.
 
+**One command: `--brief`, `--preset`, `--worker`.** The brief is exactly one of `--brief TEXT` (as given), `--brief -`
+(standard input, its trailing line breaks dropped) and `--prompt-file F|-` (as it is); both: exit 65; neither: exit 64.
+`show W --brief --json` gives it back as `briefText`. `--preset P` is one of the dry run's `presets` (`remotion-video`,
+`swift-tests`, `mac-admin`, `research`, `blank`): it fills the manager's isolation (with `--manager`), new workers'
+isolation, the network and, for `research`, read-only folders — only where no flag (and no `--from-project`) gave a value;
+another name exits 65 `invalid-value`, its message naming the presets, and nothing is made. `--worker TASK` (repeatable, at
+most 16, each at most 16 KiB) declares a worker: recorded on the workspace (`declaredWorkers`, each `{name, task,
+declaredAt}`, named the first free `botN` then), logged `worker-declared`, listed by `doz worker ls W --json` in `agents`
+with its `task`, `condition: "not-started"` and `declared: true`, and by `workspace state W --json` as `not-started`.
+Declaring needs no chat or room (only `--no-room` with `--worker` is refused, 65); with chat off the set-up check has the
+gap "its declared worker needs chat", so the start refuses (exit 3) as it does for a manager, and the worker stays declared. `doz workspace start W` starts each after the
+manager, as `doz worker add W NAME --task TASK` would, with the workspace's default isolation (its name taken since: the
+next free `botN`); the answer's `workers` names those started, a `notes` line each one that did not (it stays declared;
+the next start tries again). The dry run's lines name each declared worker and its commands carry the `--worker` flags.
+New in these answers, additively: `kind` and `schema` — `Workspace` (show, new and every change), `WorkspaceStarted`
+(start), `WorkerListing` (`worker ls`), each schema 1; `worker ls`'s rows also carry each agent's `condition`.
+
 **Editing the brief.** While the workspace is setting up, `edit --prompt-file` only replaces the brief (the start posts
 it). Once the work has started, each new brief is also announced in the main room as **your message** — "I edited the
 work:" and the new text with its references — and logged (`edited the work`, `announced the edit in ROOM`); with chat off
@@ -1111,7 +1130,8 @@ doz worker ls W [--all] [--json]                # NAME  ROLE  BOT  PLACE  ISOLAT
 doz worker end W NAME [--rm]                    # its session (or its own sandbox) ends; an anonymous one leaves chat
 ```
 
-`add` is refused while the workspace is setting up ("W is still setting up — doz workspace start W first"), finished,
+`add` is refused while the workspace is setting up ("W is still setting up — doz workspace start W first", or declare it at
+`doz workspace new --worker TASK`), finished,
 archived or starting, and without chat ("a worker needs chat — doz chat on"). It joins the main room (and each room named
 with `--room`, by its label) and is started with a first prompt telling it to read its START file: who it is and its task,
 its room, who directs it (the manager when one runs, else you), how to use `dozchat`, its skills (`chat-worker`,
