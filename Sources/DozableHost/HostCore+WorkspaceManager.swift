@@ -165,9 +165,11 @@ extension HostCore {
             check.placeTaken = info.exists && !ours
             manager = check
         }
-        return WorkspaceSetupCheck.Input(workspace: rec.name, briefBytes: brief ?? workspaceBriefText(rec)?.utf8.count ?? 0, chat: chat,
-                                         mainRoom: rec.mainRoom?.chatRoom, mainRoomExists: roomExists, folders: folders, agents: agents,
-                                         manager: manager)
+        var input = WorkspaceSetupCheck.Input(workspace: rec.name, briefBytes: brief ?? workspaceBriefText(rec)?.utf8.count ?? 0, chat: chat,
+                                              mainRoom: rec.mainRoom?.chatRoom, mainRoomExists: roomExists, folders: folders, agents: agents,
+                                              manager: manager)
+        input.declaredWorkers = rec.declaredWorkers.count
+        return input
     }
 
     /// The other live workspace `bot` runs in (nil: none): as a running manager, or as a worker not ended.

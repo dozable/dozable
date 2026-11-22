@@ -520,11 +520,12 @@ extension HostCore {
         if let tasks = w.workers, !tasks.isEmpty {
             do {
                 declared = try workspaceDeclareWorkers(tasks, taken: Set(agents.map(\.name)), at: now)
-                var chatOff = false
-                if case .off = readiness { chatOff = true }
-                if rooms.isEmpty, w.noRoom == true || chatOff {
-                    refuse(HostError(.invalid, "a worker talks in the workspace's room, and \(named ? name : "it") would have none"
-                                     + (w.noRoom == true ? " — leave out --no-room" : ": chat is off — doz chat on")))
+                // Declaring is intent, recorded as it is: only --no-room with --worker contradicts itself. With chat off the
+                // workers wait for a room — the start says so and keeps them declared.
+                if w.noRoom == true {
+                    refuse(HostError(.invalid, "a worker talks in the workspace's room, and --no-room gives it none — leave out --no-room or --worker"))
+                } else if rooms.isEmpty {
+                    notes.append("the workers start once \(named ? name : "it") has a room: doz chat on, then doz workspace edit \(named ? name : "NAME") --make-room before the start")
                 }
             } catch { refuse(HostError.from(error)) }
             for d in declared {

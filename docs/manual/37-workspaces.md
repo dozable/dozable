@@ -34,8 +34,10 @@ doz workspace new app --preset blank --brief "Fix the build" --folder ~/code/app
 - `--worker "TASK"` declares a worker (repeatable): it is recorded on the workspace now — `doz worker ls` lists it
   with its task, **not started** — and `doz workspace start` starts it, as `doz worker add NAME --task "TASK"` would, where
   the workspace's new workers run (fenced on this Mac unless `--worker-isolation vm`). Each is named when it is declared,
-  the first free `bot1`, `bot2`, …. A worker talks in the workspace's room, so `--worker` needs one (chat on, no
-  `--no-room`). One that does not start is said in the start's answer and stays declared; the next start tries it again.
+  the first free `bot1`, `bot2`, …. Declaring needs nothing else — chat may be off — but a worker talks in the
+  workspace's room, so the start refuses (exit 3, saying the declared worker needs chat) until chat is on and the
+  workspace has its room (`doz workspace edit NAME --make-room`); `--no-room` with `--worker` is refused at once. One that
+  still does not start is said in the start's answer and stays declared; the next start tries it again.
 - `--folder DIR` adds a folder it works on (repeatable); the first is the main one. `DIR:ro` makes one read-only. Folders
   are optional: `doz workspace new notes --brief "Take notes"` makes a workspace with none.
 - `--adopt NAME` (or `--adopt @mac/SESSION`) adopts a sandbox or a session at once (repeatable).

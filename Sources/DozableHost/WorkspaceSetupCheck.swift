@@ -84,6 +84,8 @@ public enum WorkspaceSetupCheck {
         public var folders: [Folder]
         public var agents: [Agent]
         public var manager: Manager?
+        /// The workers declared at `new` that the start would start (each needs chat and the room, as a manager does).
+        public var declaredWorkers = 0
         public init(workspace: String, briefBytes: Int, chat: Chat, mainRoom: String?, mainRoomExists: Bool, folders: [Folder] = [],
                     agents: [Agent] = [], manager: Manager? = nil) {
             self.workspace = workspace; self.briefBytes = briefBytes; self.chat = chat; self.mainRoom = mainRoom
@@ -101,6 +103,10 @@ public enum WorkspaceSetupCheck {
         switch i.chat {
         case .off:
             if i.manager != nil { out.append(Gap(item: "chat", why: "a manager needs chat", fix: "doz chat on")) }
+            else if i.declaredWorkers > 0 {
+                out.append(Gap(item: "chat", why: i.declaredWorkers == 1 ? "its declared worker needs chat" : "its \(i.declaredWorkers) declared workers need chat",
+                               fix: "doz chat on, then doz workspace edit \(w) --make-room"))
+            }
         case .notReady(let why):
             out.append(Gap(item: "chat", why: "chat is on but its server is not ready (\(why))", fix: "doz chat status"))
         case .ready:

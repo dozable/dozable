@@ -168,8 +168,11 @@ One command makes a workspace with its team: `doz workspace new app --preset bla
 - **Declared workers, in the daemon** (`WorkspaceRequest.workers`, additive): the draft checks each task as `worker add`
   does (trimmed, not empty, ≤ 16 KiB; at most `WorkerLaunch.maximumDeclared`, 16) and names each the first free `botN`
   (`workerTakenNames`: chat's participants and human, every bot, every live worker and every worker declared anywhere — and
-  `worker add`'s own anonymous name skips declared ones). A worker needs the room: with `--no-room` or chat off, refused
-  (`invalid`). Recorded as `declaredWorkers` (nothing else is made: no participant, no token, no place), logged
+  `worker add`'s own anonymous name skips declared ones). Declaring is intent and needs no chat or room: only `--no-room`
+  with `--worker` is refused (`invalid`); with no room yet `new` adds a note. The set-up check takes
+  `Input.declaredWorkers`: with chat off it is the gap "its declared worker needs chat" (as "a manager needs chat"), so the
+  dry run and `show` say it and `start` refuses (3) with nothing started and the declaration kept; chat on with no room
+  is the existing room gap. Recorded as `declaredWorkers` (nothing else is made: no participant, no token, no place), logged
   `worker-declared`; the plan's lines name each and `WorkspaceNewCommand.argv` carries `--worker TASK` for each.
 - **Started at `workspace start`** (`workspaceStart` = `workspaceStartOnce`, then `startDeclaredWorkers`): after the
   manager — the start's own gate and "starting" mark released, so `workerAdd` runs exactly as `doz worker add W NAME --task

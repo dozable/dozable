@@ -117,7 +117,7 @@ extension WorkspacePlanTests {
         XCTAssertEqual(try WorkspaceStore(store: store).log("app").filter { $0.action == "worker-declared" }.map(\.agent), ["bot1", "bot2"])
     }
 
-    func testAWorkerNeedsTheRoomAndATask() async throws {
+    func testAWorkerNeedsATaskAndNoRoomContradictsIt() async throws {
         let c = await daemon()
         var m = await send(c, .workspaceNew, request("lone") { $0.noRoom = true; $0.workers = ["x"] })
         XCTAssertEqual(m.error?.code, .invalid)
@@ -125,6 +125,27 @@ extension WorkspacePlanTests {
         m = await send(c, .workspaceNew, request("lone") { $0.workers = ["  \n"] })
         XCTAssertEqual(m.error?.code, .invalid)
         XCTAssertFalse(WorkspaceStore(store: store).exists("lone"), "nothing made")
+    }
+
+    func testAWorkerIsDeclaredWithChatOffAndTheStartSaysWhatItNeeds() async throws {
+        let c = await daemon(chat: false)
+        let p = try await plan(c, request("quiet") { $0.workers = ["Fix the failing test"] })
+        XCTAssertEqual(p.refusals, [], "declaring is intent: no room or chat needed at new")
+        XCTAssertEqual(p.gaps.map(\.item), ["chat"], "the dry run already says what the start needs")
+        let m = await send(c, .workspaceNew, request("quiet") { $0.workers = ["Fix the failing test"] })
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        let rec = try XCTUnwrap(try WorkspaceStore(store: store).read("quiet"))
+        XCTAssertEqual(rec.declaredWorkers.map(\.task), ["Fix the failing test"])
+        let shown = try await show(c, "quiet")
+        XCTAssertEqual(shown.gaps?.map(\.why), ["its declared worker needs chat"])
+        // The start refuses as it does a manager with chat off (3, nothing done), and the worker stays declared.
+        let s = await send(c, .workspaceStart, WorkspaceRequest(name: "quiet"))
+        XCTAssertEqual(s.error?.code, .invalidPhase, s.error?.message ?? "")
+        XCTAssertEqual(ExitCodes.exit(for: try XCTUnwrap(s.error)), 3)
+        XCTAssertTrue(s.error?.message.contains("declared worker needs chat") == true, s.error?.message ?? "")
+        let after = try XCTUnwrap(try WorkspaceStore(store: store).read("quiet"))
+        XCTAssertNil(after.flags.startedAt, "nothing started")
+        XCTAssertEqual(after.declaredWorkers.map(\.task), ["Fix the failing test"], "nothing dropped")
     }
 
     func testTheDeclaredWorkersRoundTripInTheRecordAndAnOlderOneHasNone() throws {

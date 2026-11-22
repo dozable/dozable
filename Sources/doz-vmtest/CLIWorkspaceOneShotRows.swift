@@ -155,4 +155,20 @@ func cliWorkspaceOneShotRows(_ h: CLIHarness, root: URL, store: DozableStore, st
 
     for n in names { h.run(["worker", "end", "app3", n], timeout: 60) }
     started.subtract(sessions)
+
+    // O8. chat off: a worker is still declared at new (intent, recorded as it is); the start refuses as it does for a manager
+    // (3, the gap named), nothing started and the worker still declared. --no-room with --worker is the one contradiction (65).
+    r = h.run(["chat", "off"], timeout: 60)
+    check(r.code == 0, "O8 chat off (\(r.code) \(r.err.prefix(160)))")
+    let repo8 = folder("example-repo-8")
+    r = h.run(["workspace", "new", "app8", "--brief", "Fix the build", "--folder", repo8.path, "--worker", "Fix the failing test", "--json"], timeout: 60)
+    check(r.code == 0 && agents("app8").contains { $0["task"] as? String == "Fix the failing test" && $0["condition"] as? String == "not-started" },
+          "O8 chat off: new app8 --worker … exit 0, the worker declared, not-started (\(r.code) \(r.out.prefix(200)) \(r.err.prefix(200)))")
+    r = h.run(["workspace", "start", "app8", "--json"], timeout: 60)
+    let startError = object(r)["error"] as? [String: Any]
+    check(r.code == 3 && (startError?["message"] as? String)?.contains("declared worker needs chat") == true,
+          "O8 …start app8: refused (3), saying the declared worker needs chat (\(r.code) \(r.out.prefix(300)))")
+    check(record("app8").map { $0.flags.startedAt == nil && $0.declaredWorkers.count == 1 } == true, "O8 …nothing started, the worker still declared")
+    r = h.run(["workspace", "new", "app9", "--brief", "x", "--no-room", "--worker", "y", "--json"], timeout: 60)
+    check(r.code == 65 && !ws.exists("app9"), "O8 --no-room with --worker: refused (65), nothing made (\(r.code))")
 }

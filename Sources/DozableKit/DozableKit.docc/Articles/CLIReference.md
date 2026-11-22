@@ -1083,8 +1083,9 @@ isolation, the network and, for `research`, read-only folders — only where no 
 another name exits 65 `invalid-value`, its message naming the presets, and nothing is made. `--worker TASK` (repeatable, at
 most 16, each at most 16 KiB) declares a worker: recorded on the workspace (`declaredWorkers`, each `{name, task,
 declaredAt}`, named the first free `botN` then), logged `worker-declared`, listed by `doz worker ls W --json` in `agents`
-with its `task`, `condition: "not-started"` and `declared: true`, and by `workspace state W --json` as `not-started`; it
-needs the workspace's room (chat on, no `--no-room`: exit 65 otherwise). `doz workspace start W` starts each after the
+with its `task`, `condition: "not-started"` and `declared: true`, and by `workspace state W --json` as `not-started`.
+Declaring needs no chat or room (only `--no-room` with `--worker` is refused, 65); with chat off the set-up check has the
+gap "its declared worker needs chat", so the start refuses (exit 3) as it does for a manager, and the worker stays declared. `doz workspace start W` starts each after the
 manager, as `doz worker add W NAME --task TASK` would, with the workspace's default isolation (its name taken since: the
 next free `botN`); the answer's `workers` names those started, a `notes` line each one that did not (it stays declared;
 the next start tries again). The dry run's lines name each declared worker and its commands carry the `--worker` flags.
