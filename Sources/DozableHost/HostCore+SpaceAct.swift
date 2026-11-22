@@ -35,6 +35,16 @@ public struct SpaceActed: Codable, Equatable, Sendable {
     public var run: String?
     public var notes: [String] = []
     public var workspace: WorkspaceDetail?
+    /// 756, down (which is finish): `WorkspaceFinish`, schema 1, what it removed and kept — folders by their absolute path,
+    /// rooms `room/NAME`, agents `agent/NAME`, sandboxes `sandbox/NAME` — and the run's archive (relative to the store).
+    /// Additive; nil for up.
+    public var kind: String?
+    public var schema: Int?
+    public var removed: [String]?
+    public var kept: [String]?
+    public var archive: String?
+    /// The workspace's lifetime (`standing` or `runs`).
+    public var lifetime: String?
     public init(space: String, verb: String) { self.space = space; self.verb = verb }
 }
 
@@ -156,6 +166,8 @@ extension HostCore {
         for s in i.sandboxes where !s.external { owned.sandboxes[s.placeName] = s.persisted == nil ? "run" : "persisted" }
         for f in i.folders where f.path == nil { owned.folders[f.name] = f.persisted == nil ? "run" : "persisted" }
         ref.owned = owned
+        ref.lifetime = i.lifetime
+        ref.runLifetime = i.runLifetime
         ref.archiveOff = i.archive.value == "off" ? true : nil
         ref.archiveKeep = i.archiveKeep.isEmpty ? nil : i.archiveKeep
         var t: [String: String] = [:]
@@ -407,6 +419,10 @@ extension HostCore {
         if let first = plan.refusals.first { throw HostError(HostError.Code(rawValue: plan.refusalCode ?? "") ?? .invalidPhase, first) }
         var out = SpaceActed(space: n, verb: q.purge == true ? "purge" : "down")
         out.run = plan.run
+        // What it held before, so what it kept is named (and what it removed, step by step, below).
+        let before = try workspaceRecord(n)
+        let beforeRef = SpaceRecordRef.of(before)
+        var removed: [String] = []
         var archiveFailed = false
         var toSeq: [String: Int64] = [:]
         for st in plan.steps {
@@ -432,12 +448,17 @@ extension HostCore {
                     w.noArchive = ref?.archiveOff == true ? true : nil
                     let c = try await workspaceLifecycle(.finish, w)
                     notes = c.notes ?? []
+                    out.archive = c.archive
                     if ref?.archiveOff != true, c.archiveProblem != nil || c.archive == nil { archiveFailed = true; notes.append("the run's archive was not written: nothing content-bearing is removed") }
                     if let r = try workspaceRecord(n).runs.last { for x in r.rooms { if let t = x.toSeq { toSeq[x.room] = t } } }
                 case "memory":
                     notes = try spaceMemoryCapture(n, agent: String(st.subject.dropFirst("agent ".count)))
                 case "worker-end":
-                    notes = try await spaceEndAgent(n, String(st.subject.dropFirst("agent ".count)), discard: st.copy, archiveFailed: archiveFailed)
+                    let name = String(st.subject.dropFirst("agent ".count))
+                    let sandbox = try workspaceRecord(n).agents.last { $0.name == name && $0.endedAt == nil }?.place.sandbox
+                    notes = try await spaceEndAgent(n, name, discard: st.copy, archiveFailed: archiveFailed)
+                    removed.append("agent/" + name)
+                    if let sb = sandbox, managed[sb] == nil { removed.append("sandbox/" + sb) }
                 case "release":
                     var w = WorkspaceRequest(name: n)
                     w.agent = String(st.subject.dropFirst("agent ".count))
@@ -445,9 +466,14 @@ extension HostCore {
                     defer { workspaceGate.unlock("workspaces") }
                     _ = try await workspaceRelease(w)
                 case "scratch-rm":
-                    notes = try await spaceRemoveScratch(n, name: String(st.subject.dropFirst("folder ".count)), noCopy: st.copy == "none")
+                    let name = String(st.subject.dropFirst("folder ".count))
+                    let path = beforeRef?.scratch?.first { $0.name == name }?.path
+                    notes = try await spaceRemoveScratch(n, name: name, noCopy: st.copy == "none")
+                    if let path { removed.append(path) }
                 case "room-rm":
-                    notes = try await spaceRemoveRoom(n, room: String(st.subject.dropFirst("room ".count)), noCopy: st.copy == "none", toSeq: toSeq)
+                    let room = String(st.subject.dropFirst("room ".count))
+                    notes = try await spaceRemoveRoom(n, room: room, noCopy: st.copy == "none", toSeq: toSeq)
+                    removed.append("room/" + room)
                 case "memory-rm":
                     spaceMemoryReset(n, agent: String(st.subject.dropFirst("agent ".count)))
                 case "sandbox-rm":
@@ -455,6 +481,7 @@ extension HostCore {
                     if managed[s] != nil, workspaces.membership()["sandbox:" + s] == n {
                         let a = await handle(HostRequest(.rm, name: s))
                         if let e = a.error { throw HostError(e.code, e.message) }
+                        removed.append("sandbox/" + s)
                         try? workspaces.append(n, WorkspaceLogEntry(action: "sandbox-removed", place: "sandbox:" + s))
                     }
                 case "folder-release":
@@ -490,6 +517,11 @@ extension HostCore {
             }
         }
         out.notes = plan.notes
+        out.kind = WorkspaceFinishInventory.kind
+        out.schema = WorkspaceFinishInventory.schema
+        out.removed = WorkspaceFinishInventory.dedupe(removed)
+        out.kept = WorkspaceFinishInventory.kept(before: before, removed: removed)
+        out.lifetime = beforeRef?.lifetime ?? SpaceDozable.defaultLifetime
         if !out.ok { out.notes.append("a step failed: down carried on and did what it could — doz workspace down \(n) again does what is left") }
         if let r = try? workspaceRecord(n) { out.workspace = await workspaceDetail(r, withBrief: false) }
         note(nil, "space \(n): \(out.verb) — \(out.results.filter { $0.status == "done" }.count) done" + (out.ok ? "" : ", a step failed"))
@@ -530,7 +562,7 @@ extension HostCore {
             }
         }
         let shared = a.place.sandbox != nil && a.place.session != nil
-        let keepsSandbox = a.place.sandbox.map { ref?.owned?.sandboxes[$0] == "persisted" } ?? false
+        let keepsSandbox = a.place.sandbox.map { s in ref.map { $0.effective("sandbox", s, recorded: $0.owned?.sandboxes[s]) == "persisted" } ?? false } ?? false
         var q = WorkerRequest(workspace: n, name: name)
         q.rm = !shared && !keepsSandbox && a.bot == nil
         let e = try await workerEnd(q)

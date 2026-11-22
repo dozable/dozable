@@ -15,13 +15,13 @@ import { isRemote } from '../core/session-76fecfa2ea8ff65b.js';
 import { lineText } from '../core/ws-log-725b407c6811cd6c.js';
 import { activityHash, agentHash, agentsHash, foldersHash, networkHash, roomHash, runsHash } from '../core/routes-c03e6aed84ec9eb3.js';
 import { state } from '../core/state-1036883eb74b9520.js';
-import { LIFECYCLE, primaryVerb } from '../core/ws-lifecycle-54187500e950c88c.js';
+import { LIFECYCLE, primaryVerb } from '../core/ws-lifecycle-00ca4806fca2db96.js';
 import { cmdLine } from '../components/cmd-line-ba7a45adca73f268.js';
 import { onPreview } from '../components/chat-unread-9284e62b88511529.js';
 import { heroNone, spaceHero } from '../components/space-picture-d4c75d993fc5212d.js';
 import { wsCard } from '../components/ws-card-feff31ac1cb2dd1e.js';
 import { gapsList } from '../components/ws-gaps-2adf5c8e725ad61b.js';
-import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from '../components/ws-lifecycle-9e3ea5757b3436e8.js';
+import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from '../components/ws-lifecycle-73d1a0e3ac5cb212.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks-26369af31d4dbb6f.js';
 import { agentsBox, foldersBox, networkBox } from '../components/ws-panel-ea82239f147518f3.js';
 
@@ -141,7 +141,7 @@ function stateCard(d) {
 /// Whether a verb means anything in the workspace's state (the dialog's plan says the rest).
 function fits(d, verb) {
   const done = d.state === 'finished' || d.state === 'archived';
-  if (verb === 'stop') return !done && d.agents.some((a) => a.role === 'manager');
+  if (verb === 'stop') return !done && d.state !== 'asleep' && d.state !== 'setting-up' && d.agents.length > 0;
   if (verb === 'sleep') return !done && d.state !== 'asleep' && d.state !== 'setting-up';
   if (verb === 'wake') return d.state === 'asleep';
   if (verb === 'finish') return !done && d.state !== 'setting-up';

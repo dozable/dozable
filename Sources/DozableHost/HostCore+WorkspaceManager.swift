@@ -398,17 +398,12 @@ extension HostCore {
 
     // MARK: stop
 
+    /// `doz workspace manager stop W` (`workspace-stop` with `managerOnly`): the manager alone, its conversation kept.
     func workspaceStop(_ w: WorkspaceRequest) async throws -> WorkspaceStopped {
         let n = try workspaceName(w)
         await workspaceGate.lock("workspace:" + n)
         defer { workspaceGate.unlock("workspace:" + n) }
         var rec = try workspaceRecord(n)
-        // The dashboard's Stop acts only on the plan the person saw (`ifPlan`); the CLI sends none.
-        if let want = w.ifPlan {
-            let plan = await lifecyclePlan(.stop, rec, WorkspaceLifecycle.Options(w))
-            if plan.sha != want { throw Self.changedSinceYouLooked(n, .stop) }
-            if let first = plan.refusals.first { throw HostError(HostError.Code(rawValue: plan.refusalCode ?? "") ?? .invalidPhase, first) }
-        }
         guard let m = rec.manager, let bot = m.bot else {
             return WorkspaceStopped(name: n, stopped: false, notes: ["\(n) has no manager: nothing to stop"],
                                     workspace: await workspaceDetail(rec, withBrief: false))

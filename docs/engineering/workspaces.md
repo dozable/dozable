@@ -31,7 +31,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableHost/HostCore+Workers.swift` | `worker-add` / `-ls` / `-end` / `-plan` (`workerBasics`, `workerPrepare` — the add's checks, shared with the plan), the `WorkerLauncher` seam and `DaemonWorkerLauncher`, `sweepPendingWorkers` |
 | `Sources/DozableHost/WorkspaceLifecycle.swift` | pure: `WorkspaceVerb` (its HostOp, how it is confirmed), `WorkspaceLifecycle.plan(verb:record:state:facts:options:)` — the ONE builder of a verb's plan (each agent's row, kept and goes, every refusal, the queue, the commands, the sha) —, `binRefusal`, `WorkspaceLifecyclePlan` / `Row` / `Item` / `Queue` |
 | `Sources/DozableHost/HostCore+WorkspaceLifecycle.swift` | the `WorkspaceAgentLifecycle` seam (`DaemonAgentLifecycle`: hibernate, wake, start, shut down, template, rm, a session's end, restart and forgetting), the facts (`agentFacts`, `workspaceLifecycleFacts`), `workspace-lifecycle-plan`, the seven verbs (`workspaceLifecycle`: the gate, `ifPlan`, the queue), `workerWake`, `retireWorker`, `removeOwnSandboxes`, `WorkspaceBin` |
-| `Sources/DozableCLI/WorkspaceLifecycleCommands.swift` | `doz workspace sleep | wake | finish | reopen | archive | restore | delete` (the plan's text, the questions, `--dry-run`, `--if-plan`) |
+| `Sources/DozableCLI/WorkspaceLifecycleCommands.swift` | `doz workspace stop | manager stop | sleep | wake | finish | reopen | archive | restore | delete` (the plan's text, the questions and their `fix`, `--dry-run`, `--if-plan`); `runWorkspaceFinish`, the one path of finish and `down` |
 | `Tests/DozableCLITests/WorkspaceLifecycleTests.swift`, `WorkspaceLifecycleHostTests.swift`; `Sources/doz-vmtest/CLIWorkspaceLifecycleRows.swift` | the builder over every kind of agent; the verbs in an in-process core with fakes (the order, `ifPlan`, a partial failure, archive and restore, delete, the Bin's seam, the dashboard's confirmations); `make test-cli-workspace` rows L1–L14 |
 | `Sources/DozableHost/WorkspaceReach.swift` | `workspace-reach`'s answer — `WorkspaceReach`, `AgentReach`, `AgentNetworkReach`, `ReachRefusal`, `HeldSecret` (`held`: never a value; a chat token's fingerprint never carried), `ReachFolder` — and `AgentCapabilities.rows` (pure: "what it can do" for any agent; an `@mac` agent's `MacFence.capabilities` unchanged, then its control and its room) |
 | `Sources/DozableHost/WorkspaceChangedFiles.swift` | the changed-files walk (never a program: files.md), `WorkspaceFolders` (`workspace-folders`' answer), `WorkspaceLogPage` |
@@ -296,11 +296,11 @@ workspace). With no daemon every item is `unknown`. Another computer that may no
 this Mac `unknown`, "not shown to another computer" (`SpaceState.hiding` with `RecordStateBuilder.macSubjects`).
 
 **Each agent's condition** (`WorkspaceConditionsBuilder`, for both kinds — the record is the truth): `running`, `asleep`
-(its sandbox paused or hibernated, or its session ended after `agent-slept`), `stopped` (a manager stopped, a session or
-sandbox gone, a program ended, the workspace finished or archived), `crashed` (the last line about it is `agent-crashed` —
+(its sandbox paused or hibernated, or its session ended after `agent-slept`), `stopped` (`agent-stopped` — a stop —, a
+manager stopped, a session or sandbox gone, a program ended, the workspace finished or archived), `crashed` (the last line about it is `agent-crashed` —
 its exit code the reason — or its sandbox failed), `not-started` (a manager never started; a worker being added —
 `pendingAt`) and `unknown` (no daemon: "nothing is known (none was started)"; an agent elsewhere). It reads the facts and
-the LAST log line about the agent among `agent-crashed`, `agent-slept`, `agent-woke`, `manager-started`, `manager-stopped`,
+the LAST log line about the agent among `agent-crashed`, `agent-slept`, `agent-stopped`, `agent-woke`, `manager-started`, `manager-stopped`,
 `worker-added`, `adopted`, `restored`, `reopened` — never a guest call. `ready`: facts known, not finished or archived, at
 least one agent, every one running. The conditions travel only when asked (`WorkspaceRequest.withConditions` →
 `SpaceState.agentConditions`, additive): the CLI asks; the dashboard's route never does, so its document stays exactly the
@@ -404,7 +404,7 @@ reads from the bot's own item, only while the fingerprint matches (a rotated tok
 It has no item of its own and no ledger line, so nothing that revokes, forgets or sweeps launch secrets deletes the bot's
 token (`BotLaunchSecretTests`); `checkedLaunchSecrets` clears a client-sent `bot`. See network.md.
 
-**Stop** (`workspaceStop`): fenced/unfenced — `macEnd` only while it runs (it learns `claudeSessionID` and keeps the
+**The manager alone** (`workspaceStop`, `workspace-stop` with `managerOnly`: `doz workspace manager stop W`): fenced/unfenced — `macEnd` only while it runs (it learns `claudeSessionID` and keeps the
 record), the proxy and placeholders go with it, the unfenced token folder is deleted; VM — the sandbox shut down (its disk
 and conversations kept). The bot stays in the room and its token in its item. `stoppedAt`, `manager-stopped`. Nothing
 running: said, exit 0. Nothing is posted in the room.
@@ -428,8 +428,8 @@ nothing written or posted. `WorkspaceManagerTests` (`testAnEditWhileSettingUpPos
 its own in the main room (and each `--room LABEL` of the workspace). Its entry is `{name, role: worker, place, bot?,
 isolation, task, anonymous?, pendingAt?, endedAt?}`; `isWorker` is a `worker` entry with a task (an adopted agent has
 none). Refused: setting up ("W is still setting up — doz workspace start W first (a workspace with no manager starts
-with you driving)"), finished or archived, a start under way, chat off or not ready, no main room. `doz workspace stop`
-stops only the manager. Dozable posts nothing in the room: the worker says it is up itself.
+with you driving)"), finished or archived, a start under way, chat off or not ready, no main room. `doz workspace manager
+stop` stops only the manager; `doz workspace stop` stops every agent. Dozable posts nothing in the room: the worker says it is up itself.
 
 **Names.** A worker's NAME is its participant's name — one flat namespace with the participants and the bots. None given:
 the first free `botN` (`WorkerLaunch.nextAnonymousName`) skipping every participant, every bot (retired included), you and
@@ -531,9 +531,38 @@ limited"), STATE and the task shortened; `--json` is `WorkerListing`; it answers
 
 ## The lifecycle
 
-`doz workspace sleep | wake | finish | reopen | archive | restore | delete W` beside `start | stop` (stop is unchanged: the
-manager only). Reversible: sleep ↔ wake; stop ↔ start; finish → reopen, then wake; archive → restore (the rooms opened
-again, the result finished; retired anonymous workers and removed sandboxes are not undone); delete: none.
+`doz workspace stop | sleep | wake | finish | down | reopen | archive | restore | delete W` beside `start`. Since 756 (D3)
+**stop is a lifecycle verb** (`WorkspaceVerb.stop`, `workspace-stop`, confirm `yes`): every agent's process ends — a sandbox
+shut down (its disk kept, never hibernated), a session on this Mac ended (`macEnd`; its record, conversation and launch
+secrets kept; an unfenced one's token file deleted) — and nothing is removed; each agent's `stoppedAt`, the log `stopped` and
+`agent-stopped` (so its condition is `stopped`, not asleep). What sleeps or is stopped already is left as it is: a stop of a
+stopped or asleep workspace changes nothing and asks nothing (exit 0). The manager alone — stop's old meaning — is
+`workspace-stop` with `managerOnly` (`doz workspace manager stop W`, `workspaceStop`, below); `doz workspace stop` prints a
+one-line note naming it on stderr. Reversible: sleep ↔ wake; stop → wake; finish → reopen, then wake; archive → restore (the
+rooms opened again, the result finished; retired anonymous workers and removed sandboxes are not undone); delete: none.
+
+**Finish ≡ down (D4), and what they say (D12).** `doz workspace down W` and `doz workspace finish W` are one CLI path
+(`runWorkspaceFinish`): it reads `workspace-down-plan`; a workspace made without a space file (the plan's `exists` refusal)
+finishes through the lifecycle, one a space file made goes down by its file's plan (`workspace-down`, which finishes first).
+Both answer `kind: WorkspaceFinish`, schema 1, with `removed` and `kept` (`WorkspaceFinishInventory`: folders by their
+ABSOLUTE path, rooms `room/NAME`, agents `agent/NAME`, sandboxes `sandbox/NAME`; `kept` = what the record held before, less
+`removed`) and `archive` (relative to the store) — additive fields on `WorkspaceChanged` and `SpaceActed`, so a reader of
+either shape still decodes it. The text always prints both lines; a standing workspace's says "finished; nothing removed
+(standing)". `--no-archive` is refused for a space workspace (its file's `archive:` decides) and `--purge` for one made
+without a space file. The dashboard's `workspace-finish` stays the lifecycle finish: it removes nothing a space file made.
+
+**Lifetime at finish (D7).** A record-made workspace is standing: its finish removes nothing. A space file's
+`x-dozable.lifetime` is recorded at up (`SpaceRecordRef.lifetime`), with every owned resource whose own
+`x-dozable.lifetime` is `run` (`runLifetime`: `folder:NAME`, `room:CHATROOM`, `sandbox:PLACE`, `agent:NAME` — from
+`SpaceIntent.runLifetime`). `SpaceDown.plan` reads each owned thing through `SpaceRecordRef.effective`: `runs` as recorded;
+`standing` → `persisted` unless it says `run` itself, and a scratch folder goes only then (`scratchGoes`) — archived and
+hash-checked first, nothing content-bearing when the archive failed, exactly as `runs`. A standing plan notes the scratch
+folders it keeps. A persisted agent's memory step still follows the recorded `persisted` only. (Not yet: `--purge` of a
+standing space leaves its scratch folders on disk, recorded; up still makes a new scratch folder per run.)
+
+**The phase.** `workspace state --json` carries a top-level `phase` (`WorkspaceConditions.phase`,
+`WorkspaceConditionsBuilder.phase`): `archived`, `finished` and `setting-up` from the flags; then `running` while any agent
+runs, `asleep` while any sleeps and none runs, else `stopped`; with no daemon, the log's last workspace-wide change.
 
 **Check, then ask: one plan, three surfaces.** The read-only HostOp `workspace-lifecycle-plan` (`isReadOnly`: in-process with no
 daemon — the store's records and the sessions' holders read, `factsKnown: false`, "checked again when you act"; never the
@@ -556,6 +585,7 @@ a retry plans only what is left (`WorkspaceLifecycleHostTests.testAPartialFailur
 
 | Verb | A sandbox | A session on this Mac (fenced) | Unfenced | Elsewhere | Record |
 |---|---|---|---|---|---|
+| stop | shut down, its disk kept (an asleep one left asleep) | ended (`macEnd`), the record and its launch secrets kept | the same; a manager's or worker's token file deleted | untouched | every running agent's `stoppedAt`; `stopped`, `agent-stopped` |
 | sleep | hibernated (memory back, the same programs and screens; a shared sandbox once) | ended (`macEnd`: HUP→TERM→KILL, its `claudeSessionID` learned), the record and its launch secrets kept | the same; a manager's or worker's token file deleted | untouched | every agent's `stoppedAt`; `slept`, `agent-slept` |
 | wake | woken; one shut down boots and its agent continues (`claude --continue`) | the manager through its start's restart branch; a worker in place (`WorkerLaunchOrder.restart` → `macReopen`: its conversation resumed, its kept secret; a bot's given again); an adopted session restarted (a program with no conversation starts fresh) | the token file written again (a bot's from its item; an anonymous worker's is a NEW token — its participant's replaced: the old one lived only in the file) | untouched | `stoppedAt` cleared; `woke`, `agent-woke` |
 | finish | shut down, its disk kept | ended, its conversation kept | ended, its token file deleted | untouched, in the room | `finishedAt`; rooms writable, tokens kept |
@@ -580,7 +610,7 @@ sandbox uses (`WorkspaceLifecycle.binRefusal`). A guarded test run moves into `D
 dashboard's `confirm` is checked by the daemon under `confirmRequired`); an unfenced manager's wake from a browser needs
 `unfencedConfirmed`, as its start does.
 
-**The log** gains `slept`, `woke`, `agent-slept`, `agent-woke`, `finished`, `reopened`, `archived`, `room-archived`,
+**The log** gains `slept`, `woke`, `agent-slept`, `agent-woke`, `stopped`, `agent-stopped`, `finished`, `reopened`, `archived`, `room-archived`,
 `room-unarchived`, `worker-retired`, `sandbox-removed`, `template-kept`, `restored`, each a sentence. **The record** gains,
 additively: `WorkspaceAgent.template`, `WorkspaceFlags.reopenedAt` and `.archive`; `WorkspaceFlags` keeps the fields it does not
 know. `WorkspaceState.derive` is unchanged (slept agents read asleep; finished outranks a session still running after a
@@ -1069,6 +1099,15 @@ add; both `asleep` after sleep; the worker `crashed` (its exit the reason) after
 
 ## Tests
 
+- Stop and down (756): `make test FILTER=WorkspaceLifecycleTests|WorkspaceLifecycleHostTests|WorkspaceRecordStateTests` —
+  the stop plan (every agent, nothing removed, a yes; asleep and stopped left as they are), `WorkspaceFinishInventory`, the
+  phase; the deletion-safety rows (`WorkspaceFinishSafetyTests.swift`): a standing workspace's finish and down remove
+  nothing, its folders byte-for-byte; a runs scratch folder goes only after its archived copy verifies; a failed archive
+  removes nothing content-bearing; no verb removes a folder. `make test-cli-workspace` rows V1–V9
+  (`CLI_WORKSPACE_ROWS=stopdown` runs them alone; the stub agent): stop then every agent stopped within 30 s, sleep asleep,
+  no terminal → 5 with `fix`, an asleep workspace → 0, finish → removed empty and kept the folder and `room/app` then phase
+  finished, down of a record-made workspace → WorkspaceFinish, a runs scratch folder under removed, a standing one kept,
+  `manager stop` the manager alone.
 - `make test FILTER=WorkspaceRecordTests|WorkspaceStateTests|WorkspaceAdoptTests` — scratch roots, an in-process daemon
   core, a fake chat.
 - `make test-cli-workspace` — the real doz: ls with no daemon starts none; loose agents; new with the room (nothing

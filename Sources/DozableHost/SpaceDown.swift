@@ -56,7 +56,13 @@ public enum SpaceDown {
             p.refusals = ["\(space) is archived"]
             p.refusalCode = HostError.Code.invalidPhase.rawValue
         }
-        let owned = ref.owned ?? SpaceRecordRef.Owned()
+        let recorded = ref.owned ?? SpaceRecordRef.Owned()
+        // 756: what each owned thing lives as at down — standing keeps everything but what says `lifetime: run` itself.
+        var owned = SpaceRecordRef.Owned()
+        for (k, v) in recorded.agents { owned.agents[k] = ref.effective("agent", k, recorded: v) }
+        for (k, v) in recorded.rooms { owned.rooms[k] = ref.effective("room", k, recorded: v) }
+        for (k, v) in recorded.sandboxes { owned.sandboxes[k] = ref.effective("sandbox", k, recorded: v) }
+        for (k, v) in recorded.folders { owned.folders[k] = ref.effective("folder", k, recorded: v) }
         let off = ref.archiveOff == true
         var steps: [SpaceDownPlan.Step] = []
         func step(_ kind: String, _ subject: String, _ text: String, action: String = "run", why: String? = nil, copy: String? = nil) {
@@ -70,7 +76,7 @@ public enum SpaceDown {
         if p.up {
             step("finish", "run \(open!.id)", "end the run \(open!.id): its rooms closed, every agent stopped, "
                  + (off ? "no archive (archive: off)" : "its archive written and hash-checked") + ", the run closed")
-            for a in live where owned.agents[a.name] == "persisted" && a.isolation == "fenced" {
+            for a in live where recorded.agents[a.name] == "persisted" && a.isolation == "fenced" {
                 step("memory", "agent \(a.name)", "keep \(a.name)'s memory for its next fenced session (in the store)")
             }
             for a in live where a.isWorker && owned.agents[a.name] == "run" {
@@ -86,7 +92,7 @@ public enum SpaceDown {
             for a in live where !a.isWorker && !a.isManager {
                 step("release", "agent \(a.name)", "release \(a.name) (loose again)")
             }
-            for s in ref.scratch ?? [] where s.run == open!.id {
+            for s in ref.scratch ?? [] where s.run == open!.id && ref.scratchGoes(s.name) {
                 step("scratch-rm", "folder \(s.name)", "remove the scratch folder \(DisplayPath.tilde(s.path))" + (off ? " with no copy (archive: off)" : ", copied into the archive and hash-checked first"),
                      copy: off ? "none" : "archived")
                 if off { p.noCopy.append("the scratch folder \(s.name)") }
@@ -99,7 +105,7 @@ public enum SpaceDown {
             if off { p.noCopy.append("the room \(r.chatRoom)") }
         }
         if !p.up {
-            for s in ref.scratch ?? [] where s.run != open?.id {
+            for s in ref.scratch ?? [] where s.run != open?.id && ref.scratchGoes(s.name) {
                 step("scratch-rm", "folder \(s.name)", "remove the scratch folder \(DisplayPath.tilde(s.path)) left from run \(s.run)" + (off ? " with no copy (archive: off)" : ", copied and hash-checked first"),
                      copy: off ? "none" : "archived")
             }
@@ -126,6 +132,10 @@ public enum SpaceDown {
         if !steps.isEmpty || purge { step("record", "workspace \(space)", purge ? "record the space retired (--purge)" : "record the space down") }
         p.steps = steps
         if steps.isEmpty { p.notes.append("\(space) is down already: nothing to take down") }
+        if ref.isStanding {
+            let kept = (ref.scratch ?? []).filter { !ref.scratchGoes($0.name) }.map { DisplayPath.tilde($0.path) }
+            p.notes.append("standing: down removes nothing it owns but what says lifetime: run" + (kept.isEmpty ? "" : " — its scratch folders are kept: " + kept.joined(separator: ", ")))
+        }
         p.summary.append(p.up ? "Down ends run \(open!.id)" + (off ? " with no archive (archive: off, from \(ref.provenance?["/archive"] ?? ref.file ?? "the space file"))." : ", archived in the store before anything is removed.")
                          : "No run is open.")
         if !p.noCopy.isEmpty { p.summary.append("Deleted with no copy (archive: off): " + p.noCopy.joined(separator: ", ") + ".") }

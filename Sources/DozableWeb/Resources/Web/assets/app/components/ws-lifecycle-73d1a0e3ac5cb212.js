@@ -11,7 +11,7 @@ import { api } from '../core/api-47cfabfed13b475c.js';
 import { actOrThrow, waitForOp } from '../core/operations-c9aa14c479d822d2.js';
 import { isRemote } from '../core/session-76fecfa2ea8ff65b.js';
 import { state } from '../core/state-1036883eb74b9520.js';
-import { LIFECYCLE, MENU_ORDER, TRANSITIONAL, actionBody, canConfirm, planBody, primaryVerb, sizeWords } from '../core/ws-lifecycle-54187500e950c88c.js';
+import { LIFECYCLE, MENU_ORDER, TRANSITIONAL, actionBody, canConfirm, planBody, primaryVerb, sizeWords } from '../core/ws-lifecycle-00ca4806fca2db96.js';
 import { btn } from './button-8109d54546d946d3.js';
 import { callout } from './callout-f30e3ad8767a987a.js';
 import { cmdLine } from './cmd-line-ba7a45adca73f268.js';
@@ -153,15 +153,14 @@ export function primaryButton(d, onDone) {
   return b;
 }
 
-/// The ⋯ menu's lifecycle items: Stop the manager · Sleep everything · Wake everything · — · Finish… · Archive… · Delete….
+/// The ⋯ menu's lifecycle items: Stop everything · Sleep everything · Wake everything · — · Finish… · Archive… · Delete….
 export function lifecycleItems(d, onDone) {
   const why = lifecycleRefusal();
-  const manager = d.agents.some((a) => a.role === 'manager');
   const out = [];
   for (const verb of MENU_ORDER) {
     if (!verb) { out.push({ sep: true }); continue; }
     const v = LIFECYCLE[verb];
-    const off = why || (verb === 'stop' && !manager ? 'It has no manager' : null);
+    const off = why || (verb === 'stop' && !d.agents.length ? 'It has no agents' : null);
     out.push({ label: v.item, icon: v.icon, desc: why ? why + ': ' + lifecycleCommand(verb, d.name) : v.desc, disabled: !!off,
       why: off ? off + (why ? ' — ' + lifecycleCommand(verb, d.name) : '') : null, data: { 'ws-lifecycle': verb },
       onSelect: () => openLifecycle(d, verb, onDone) });

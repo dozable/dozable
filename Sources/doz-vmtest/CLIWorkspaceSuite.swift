@@ -133,6 +133,13 @@ func cliWorkspaceSuite(binary: String) async {
         cliWorkspaceDocRows(h, root: root, store: store, started: &started)
         return
     }
+    // WS.08: CLI_WORKSPACE_ROWS=stopdown runs stop's and down's rows alone (V1–V9).
+    if ProcessInfo.processInfo.environment["CLI_WORKSPACE_ROWS"] == "stopdown" {
+        h.run(["config", "set", "chat.page_port", String(freePort())])
+        h.run(["config", "set", "chat.line_port", String(freePort())])
+        cliWorkspaceStopDownRows(h, root: root, store: store, started: &started)
+        return
+    }
     // WS.04: CLI_WORKSPACE_ROWS=oneshot runs one-shot new's rows alone (O1–O7).
     if ProcessInfo.processInfo.environment["CLI_WORKSPACE_ROWS"] == "oneshot" {
         h.run(["config", "set", "chat.page_port", String(freePort())])
@@ -295,6 +302,8 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspaceStubRows(h, root: root, store: store, started: &started)
     // O1–O7. one-shot new: --preset, --brief, --worker, workspace create (CLIWorkspaceOneShotRows.swift)
     cliWorkspaceOneShotRows(h, root: root, store: store, started: &started)
+    // V1–V9. stop stops everything; down is finish and says what it kept (CLIWorkspaceStopDownRows.swift)
+    cliWorkspaceStopDownRows(h, root: root, store: store, started: &started)
     // I1–I5. idempotent creates: --request-id (CLIWorkspaceRequestIDRows.swift)
     cliWorkspaceRequestIDRows(h, root: root, store: store, started: &started)
     // D1–D6. a document for every workspace: doz workspace doc (CLIWorkspaceDocRows.swift)

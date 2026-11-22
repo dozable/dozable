@@ -979,10 +979,11 @@ doz workspace show W --network [--agent A]      # what it can reach and hold: ea
 doz workspace show W --folders                  # its folders, the files changed since the start (never a program run there), restore points
 doz workspace show W --space [--json]           # the space file that defines it: up or down, its run, its brief; the file's size and sha256 (--json: its text too)
 doz workspace start W                           # the set-up check, the brief posted as your first message (once), the manager started
-doz workspace stop W                            # the manager ended; its record, conversation and room kept
+doz workspace stop W [--dry-run] [--yes] [--if-plan SHA]      # everything stops: every agent's process ends (stopped, not asleep); nothing removed (asks [y/N])
+doz workspace manager stop W                    # the manager alone ended; its record, conversation and room kept; workers run on
 doz workspace sleep W [--dry-run] [--yes] [--if-plan SHA]     # every agent asleep: a sandbox hibernated, a session ended (its conversation kept)
 doz workspace wake W [--dry-run] [--yes] [--if-plan SHA]      # back in the same sandboxes and conversations
-doz workspace finish W [--no-archive] [--dry-run] [--yes] [--if-plan SHA]    # everything stops; the run archived; tokens, disks and folders kept (asks [y/N])
+doz workspace finish W [--no-archive] [--dry-run] [--yes] [--if-plan SHA]    # everything stops; the run archived; says what it removed and kept (standing: nothing removed) (asks [y/N])
 doz workspace reopen W [--dry-run] [--if-plan SHA]            # finished → asleep until you wake it
 doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--no-archive] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
 doz workspace restore W [--dry-run] [--if-plan SHA]           # archived → finished, its rooms writable again
@@ -1000,7 +1001,7 @@ doz workspace runs W --archive RUN              # a closed run's archive written
 doz workspace runs W --frames RUN [--json]      # a space's run in frames: its state each time it changed (never a message), its archive checked now
 doz workspace plan [-f FILE] [--profile P]… [--json]  # what up would do with a space file: the steps, what down will do, the summary (every risky setting with its file:line)
 doz workspace up [-f FILE] [--profile P]… [--yes] [--dry-run] [--json]  # set it up from the file: the plan, every unfenced agent confirmed on the terminal, then each step
-doz workspace down [W] [-f FILE] [--purge] [--yes] [--dry-run] [--json]  # end its run (archived and hash-checked first), remove what the run made; --purge: what persists too
+doz workspace down [W] [-f FILE] [--purge] [--no-archive] [--yes] [--dry-run] [--if-plan SHA] [--json]  # the same as finish, for every workspace; a runs space removes what the run made (archived and hash-checked first); --purge: what persists too; --json: kind WorkspaceFinish, removed, kept, archive
 doz workspace config [FILE] [--profile P]… [--json]    # a space file merged (its defaults files, the file, its override, ${VAR}), each value with its source
 doz workspace state W [--json]                  # any workspace now: each thing's state and each agent's condition (a space workspace: beside its file), what waits for you, the sha; --json: kind WorkspaceState, schema 1, agents.NAME.condition
 doz workspace doc W [--json]                    # any workspace's document: what should exist, as a space file (YAML); --json: kind Document, schema 1, document.lifetime always present
@@ -1143,7 +1144,8 @@ to use `dozchat`, its skills and instructions, the brief). Its token never appea
 `--json`: a fenced or VM manager holds a placeholder the proxy swaps (`CHAT_TOKEN`, and a file named by
 `CHAT_TOKEN_FILE`); an unfenced one reads a 0600 file in a 0700 folder under your temp folder, deleted at stop. For now
 a bot runs in one live workspace at a time: starting a second is refused ("mira already manages launch-video, which is
-running…"). `doz workspace stop W` ends the manager and keeps its conversation; the next start resumes it. With no
+running…"). `doz workspace manager stop W` ends the manager alone and keeps its conversation; the next start resumes it
+(`doz workspace stop W` stops every agent). With no
 manager, `start` posts the brief and you drive. `doz bot ls` shows what each bot manages ("demo (running)").
 
 **Workers.** A worker is an agent brought up in a started workspace to do one task.
@@ -1189,17 +1191,29 @@ session's record (or its sandbox) is kept unless `--rm`, which also deletes the 
 shared sandbox only its session ends. Its name is free again. `ls` shows every agent — the manager, the adopted ones and
 the workers (`--all`: the ended ones too) — with what isolates it: fenced `proxy · placeholders · guard`, vm
 `micro VM · proxy · placeholders`, unfenced `no proxy · no placeholders · no guard · acts as you`, and `shares X` in a
-shared sandbox; it answers from the store without starting the daemon. `doz workspace stop W` stops only the manager.
+shared sandbox; it answers from the store without starting the daemon. `doz workspace manager stop W` stops only the
+manager; `doz workspace stop W` stops every agent, workers included.
 
-**The lifecycle: check, then ask.** `sleep`, `wake`, `finish`, `reopen`, `archive`, `restore` and `delete` each look first
+**The lifecycle: check, then ask.** `stop`, `sleep`, `wake`, `finish` (and `down`, the same), `reopen`, `archive`, `restore` and `delete` each look first
 — the same plan the dashboard draws, answered from the store when no daemon runs — and print what they would do to each
 agent (where it runs, what it is now, what it becomes, how it comes back), what is kept and what goes (with sizes: the
 memory given back, a sandbox's disk and restore points, a folder's path), how many change at once (`ui.batch_concurrency`;
 the rest wait their turn), what would be refused (every reason at once) and the commands that do the same one agent at a
 time today. `--dry-run` stops there: nothing written, no daemon started; `--json` prints the plan, whose `sha` the verb
 carries back (`--if-plan SHA` to act only on a plan you saw — one that changed is refused, exit 3). Then it asks: nothing
-for sleep, wake, reopen and restore; `[y/N]` for finish; the workspace's name typed on the terminal for archive and delete.
-`--yes` skips the question; with no terminal, or `--json`, and no `--yes`, nothing is done (exit 5).
+for sleep, wake, reopen and restore; `[y/N]` for stop and finish; the workspace's name typed on the terminal for archive and
+delete. `--yes` skips the question; with no terminal, or `--json`, and no `--yes`, nothing is done (exit 5, `error.fix` the
+command with `--yes` as argv).
+
+Stop ends every agent's process — each sandbox shut down (its disk kept), each session on this Mac ended (its record and
+conversation kept) — and removes nothing; each agent is `stopped`, not asleep, until `wake`. What is asleep or stopped
+already is left as it is (exit 0). Finish — and `down`, the same command — answers `kind: WorkspaceFinish`, schema 1, with
+`removed` and `kept` (folders by their absolute path, rooms `room/NAME`, agents `agent/NAME`, sandboxes `sandbox/NAME`) and
+`archive`; the text always says both. A standing workspace (made without a space file, or `x-dozable.lifetime: standing`)
+removes nothing, its scratch folders included ("finished; nothing removed (standing)"), but what says
+`x-dozable.lifetime: run` itself — archived and hash-checked first; a runs space file removes what it made for the run, each
+after its archived copy verifies. `workspace state --json` carries the workspace's `phase` (`setting-up`, `running`,
+`asleep`, `stopped`, `finished`, `archived`). `doz down SANDBOX` (a sandbox's hibernate) says what it kept.
 
 Sleep hibernates each sandbox (its memory given back, its programs and screens kept) and ends each session on this Mac,
 keeping its record and conversation (an unfenced agent's token file is deleted); an agent elsewhere runs on its own machine,

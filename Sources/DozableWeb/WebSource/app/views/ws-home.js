@@ -141,7 +141,7 @@ function stateCard(d) {
 /// Whether a verb means anything in the workspace's state (the dialog's plan says the rest).
 function fits(d, verb) {
   const done = d.state === 'finished' || d.state === 'archived';
-  if (verb === 'stop') return !done && d.agents.some((a) => a.role === 'manager');
+  if (verb === 'stop') return !done && d.state !== 'asleep' && d.state !== 'setting-up' && d.agents.length > 0;
   if (verb === 'sleep') return !done && d.state !== 'asleep' && d.state !== 'setting-up';
   if (verb === 'wake') return d.state === 'asleep';
   if (verb === 'finish') return !done && d.state !== 'setting-up';

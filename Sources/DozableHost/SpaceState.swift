@@ -158,6 +158,8 @@ public struct SpaceState: Codable, Equatable, Sendable {
         var m = [JMember("kind", .string(WorkspaceConditions.kind)), JMember("schema", .int(Int64(WorkspaceConditions.schema)))] + doc
         if let c = agentConditions {
             m.append(JMember("from", .string(c.from)))
+            // The workspace's phase (setting-up | running | asleep | stopped | finished | archived), top level. Additive.
+            if let p = c.phase { m.append(JMember("phase", .string(p))) }
             m.append(JMember("agents", .object(c.agents.keys.sorted().map { k in
                 let a = c.agents[k]!
                 var o = [JMember("condition", .string(a.condition))]

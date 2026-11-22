@@ -46,7 +46,9 @@ The answer (`--json`) is the workspace: `{"kind":"Workspace","schema":1,"name":�
 doz workspace state NAME --json
 ```
 
-`{"kind":"WorkspaceState","schema":1,…,"agents":{"NAME":{"condition","reason","role","place","since"}},"conditions":{"ready":…}}`
+`{"kind":"WorkspaceState","schema":1,…,"phase":…,"agents":{"NAME":{"condition","reason","role","place","since"}},"conditions":{"ready":…}}`
+
+- `phase` is the workspace's: `setting-up`, `running`, `asleep`, `stopped`, `finished` or `archived`.
 
 - Each agent's `condition` is one of `running`, `asleep`, `stopped`, `crashed`, `not-started`, `unknown`; `reason` says
   why in words (a declared worker before the start: `not-started`).
@@ -67,6 +69,23 @@ workspace should be, as a space file: its brief, folders, agents, rooms and `doc
 holds a secret's value, a grant or the phase. Keys under `x-dozable` are Dozable's additions to the format. `notes`
 names what it cannot say yet. `--write FILE` saves it as a space file for the person (exit 4 if FILE exists — only
 with `--force` when they asked to replace it); it applies nothing.
+
+## Stop, sleep, finish
+
+```sh
+doz workspace stop NAME --yes --json      # every agent's process ends; each becomes stopped; nothing is removed
+doz workspace sleep NAME --json           # every agent asleep (memory given back); wake brings them back
+doz workspace wake NAME --json
+doz workspace finish NAME --yes --json    # the work is done; `doz workspace down NAME` is the same command
+```
+
+- `stop` stops EVERY agent (the manager and each worker), not only the manager — `doz workspace manager stop NAME` is
+  the manager alone. A stop of a stopped or asleep workspace does nothing and exits 0.
+- `finish` and `down` answer `{"kind":"WorkspaceFinish","schema":1,"removed":[…],"kept":[…],"archive":…}`: folders by
+  their absolute path, rooms `room/NAME`, agents `agent/NAME`, sandboxes `sandbox/NAME`. A workspace made with `new`
+  is standing: it removes nothing. A space file's run things go only after their archived copy verifies.
+- `stop` and `finish` ask first: without `--yes` they exit 5 and `error.fix` is the command to run once the person said
+  yes.
 
 ## Add or end a worker
 
@@ -112,7 +131,7 @@ and `error.exit`, show the person `error.message`. Fields are only ever added.
 ## Never wait on a prompt
 
 - With `--json`, nothing asks: a command that would ask exits 5 (`needs-confirmation`) and does nothing.
-- Exit 5 means the command needs the person's yes — finishing, archiving or deleting a workspace, for example. Ask the
+- Exit 5 means the command needs the person's yes — stopping, finishing, archiving or deleting a workspace, for example. Ask the
   person; only once they have said yes, run it again with `--yes`. Use `--dry-run --json` first to show them what it
   would do.
 - Never `doz attach`, and never `doz up` without `--detach`: they take over a terminal.
@@ -123,5 +142,5 @@ and `error.exit`, show the person `error.message`. Fields are only ever added.
   program that acts as them, with their files, keys and logins. Only when they asked for it in so many words.
 - **Never `doz create` when a workspace is meant.** `doz create` makes a single sandbox (a Linux VM), not a workspace.
   Use `doz workspace new`.
-- Never `--yes` a delete, archive or finish the person did not ask for; never widen a permission or network yourself —
+- Never `--yes` a delete, archive, finish or stop the person did not ask for; never widen a permission or network yourself —
   say what you need and why, and let them decide.

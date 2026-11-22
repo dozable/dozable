@@ -209,6 +209,7 @@ workspace/ls
 workspace/show
 workspace/start
 workspace/stop
+workspace/manager
 workspace/sleep
 workspace/wake
 workspace/finish

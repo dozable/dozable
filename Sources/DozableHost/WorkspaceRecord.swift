@@ -587,7 +587,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
                                               "released", "brief-edited", "folders-edited", "refs-edited", "renamed", "agent-renamed",
                                               "agent-removed", "manager-set", "manager-removed", "bot-invited", "kicked-off",
                                               "manager-started", "manager-stopped", "worker-added", "worker-ended", "worker-add-undone",
-                                              "brief-announced", "bot-changed", "slept", "woke", "agent-slept", "agent-woke",
+                                              "brief-announced", "bot-changed", "slept", "woke", "agent-slept", "agent-woke", "stopped", "agent-stopped",
                                               "finished", "reopened", "archived", "room-archived", "room-unarchived", "worker-retired",
                                               "sandbox-removed", "template-kept", "restored", "run-opened", "run-closed", "run-archived",
                                               "run-archive-failed", "room-closed", "room-opened", "room-removed", "transcripts-discarded",
@@ -626,6 +626,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "slept": return "put the workspace to sleep" + (reason.map { " — \($0)" } ?? "")
         case "woke": return "woke the workspace" + (reason.map { " — \($0)" } ?? "")
         case "agent-slept": return "\(agent ?? "?") is asleep" + (reason.map { " (\($0))" } ?? "")
+        case "stopped": return "stopped every agent" + (reason.map { " — \($0)" } ?? "")
+        case "agent-stopped": return "\(agent ?? "?") is stopped" + (reason.map { " (\($0))" } ?? "")
         case "agent-woke": return "\(agent ?? "?") is awake" + (reason.map { " (\($0))" } ?? "")
         case "finished": return "finished the work" + (reason.map { " — \($0)" } ?? "")
         case "reopened": return "reopened the workspace"

@@ -5,7 +5,7 @@
 /// The verbs, in the ⋯ menu's order: each its label, its menu item, its icon and how it is confirmed (`typed`: the name;
 /// `yes`: a plain confirmation; `none`). The same as `WorkspaceVerb.confirm`.
 export const LIFECYCLE = {
-  stop: { label: 'Stop', item: 'Stop the manager', icon: 'power', confirm: 'none', desc: 'Its manager ends; its conversation is kept' },
+  stop: { label: 'Stop', item: 'Stop everything', icon: 'power', confirm: 'yes', desc: 'Every agent stopped: conversations, disks and rooms kept, nothing removed' },
   sleep: { label: 'Sleep', item: 'Sleep everything', icon: 'moon', confirm: 'none', desc: 'Every agent asleep: memory given back, conversations kept' },
   wake: { label: 'Wake', item: 'Wake everything', icon: 'sun', confirm: 'none', desc: 'Every agent it put to sleep, back in the same conversations' },
   finish: { label: 'Finish', item: 'Finish…', icon: 'check', confirm: 'yes', desc: 'The work is done: everything stops; the room and tokens are kept' },

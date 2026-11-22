@@ -619,6 +619,17 @@ struct Down: AsyncParsableCommand {
             try confirm("Shut down \(name)? Its running programs end (the disk is kept).", yes: yes, g)
         }
         _ = try lifecycle(op, name, g)
+        // It always says what it kept (nothing is ever removed by down).
+        if !g.json && !g.quiet { Out.stdout(Self.keptLine(op, name) + "\n") }
+    }
+
+    /// What `down` kept, as a person reads it.
+    static func keptLine(_ op: HostOp, _ name: String) -> String {
+        switch op {
+        case .shutdown: "kept: \(name)'s disk, its restore points and its state disk — its running programs ended (doz up starts it again)"
+        case .sleep: "kept: \(name)'s memory, disk, restore points and sessions (doz up wakes it)"
+        default: "kept: \(name)'s disk, restore points and sessions, on disk — no memory held (doz up wakes it)"
+        }
     }
 }
 

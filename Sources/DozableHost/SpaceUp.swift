@@ -40,6 +40,21 @@ public struct SpaceRecordRef: Codable, Equatable, Sendable {
     /// The brief: the file the space names (the daemon reads it under `SpaceBriefFile`'s rules), its sha256 at the last up.
     public var brief: SpaceBriefLook?
     public var owned: Owned?
+    /// 756: `x-dozable.lifetime` at the last up (nil: none — `runs`): `standing` keeps everything it owns at down (its
+    /// scratch folders too), but what `runLifetime` names (`kind:name`, its own `x-dozable.lifetime: run`).
+    public var lifetime: String?
+    public var runLifetime: [String]?
+    /// Standing: its finish removes nothing of its own but what says `lifetime: run`.
+    public var isStanding: Bool { lifetime == "standing" }
+    /// What `kind:name` lives as at down: as recorded (`run` or `persisted`; nil: not the space's own) — or, standing,
+    /// `persisted` unless it says `lifetime: run` itself.
+    public func effective(_ kind: String, _ name: String, recorded: String?) -> String? {
+        guard let recorded else { return nil }
+        guard isStanding else { return recorded }
+        return (runLifetime ?? []).contains(kind + ":" + name) ? "run" : "persisted"
+    }
+    /// A scratch folder `name` goes at down: always in `runs`; standing, only when it says `lifetime: run` itself.
+    public func scratchGoes(_ name: String) -> Bool { !isStanding || (runLifetime ?? []).contains("folder:" + name) }
     /// `archive: off` (down keeps no copy) and the archive's `keep:` list.
     public var archiveOff: Bool?
     public var archiveKeep: [String]?

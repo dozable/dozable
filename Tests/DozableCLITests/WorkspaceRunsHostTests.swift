@@ -23,7 +23,7 @@ extension WorkspaceLifecycleHostTests {
         // Sleep and wake never close it; nor a stop and a start.
         _ = try ok(try await act(c, .sleep))
         _ = try ok(try await act(c, .wake))
-        var m = await ws(c, .workspaceStop, "demo")
+        var m = await ws(c, .workspaceStop, "demo") { $0.managerOnly = true }
         XCTAssertNil(m.error, m.error?.message ?? "")
         m = await ws(c, .workspaceStart, "demo")
         XCTAssertNil(m.error, m.error?.message ?? "")

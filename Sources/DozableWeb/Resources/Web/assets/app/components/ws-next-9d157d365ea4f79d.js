@@ -6,10 +6,10 @@ import { icon } from '../dom/icons-9b284ea0ffb2ad04.js';
 import { refresh } from '../core/router-9bb5e215e0ec1e32.js';
 import { roomHash } from '../core/routes-c03e6aed84ec9eb3.js';
 import { isDone, loadWorkspace, loadWorkspaces } from '../core/workspaces-89bbcc3668964701.js';
-import { LIFECYCLE, primaryVerb } from '../core/ws-lifecycle-54187500e950c88c.js';
+import { LIFECYCLE, primaryVerb } from '../core/ws-lifecycle-00ca4806fca2db96.js';
 import { cmdLine } from './cmd-line-ba7a45adca73f268.js';
 import { toast } from './notices-b29072c7b381a4ec.js';
-import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from './ws-lifecycle-9e3ea5757b3436e8.js';
+import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from './ws-lifecycle-73d1a0e3ac5cb212.js';
 
 /// `w` a row of the listing; `d` its detail when read (a setting-up one's gaps), else null.
 export function wsNext(w, d) {

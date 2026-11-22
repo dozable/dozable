@@ -20,13 +20,14 @@ struct WorkspaceCommand: AsyncParsableCommand {
 
         A bot can manage it (--manager BOT): doz workspace start runs the set-up check, posts the brief as your first \
         message in its room, and starts the manager — fenced on this Mac by default, in a micro VM, or unfenced (acting as \
-        you) only when you say so. doz workspace stop ends the manager and keeps its conversation.
+        you) only when you say so. doz workspace stop ends every agent's process and keeps every conversation; doz workspace \
+        manager stop ends the manager alone.
 
-        Its lifecycle — sleep, wake, finish, reopen, archive, restore, delete — shows what it would do to each agent first \
-        (--dry-run stops there), then asks: a yes for finish, the name typed for archive and delete. Nothing on disk is \
-        removed without its flag.
+        Its lifecycle — stop, sleep, wake, finish (down is the same), reopen, archive, restore, delete — shows what it would \
+        do to each agent first (--dry-run stops there), then asks: a yes for stop and finish, the name typed for archive and \
+        delete. Finish says what it removed and what it kept; a workspace made without a space file removes nothing.
         """,
-        subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceSleep.self,
+        subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceManagerCommand.self, WorkspaceSleep.self,
                       WorkspaceWake.self, WorkspaceFinish.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
                       WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceStateCommand.self, WorkspaceDocCommand.self, WorkspaceRename.self,
                       SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
@@ -508,20 +509,6 @@ struct WorkspaceStart: AsyncParsableCommand {
         let s = try decode(try call(workspaceRequest(.workspaceStart, WorkspaceRequest(name: name)), g), WorkspaceStarted.self, g)
         if g.json { Out.json(s); return }
         printStarted(s)
-    }
-}
-
-struct WorkspaceStop: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "stop", abstract: "Stop its manager; its conversation, record and room are kept.",
-        discussion: "Nothing is posted. doz workspace start wakes it again (the brief is not posted twice). Nothing running: said, and exit 0.")
-    @OptionGroup var g: GlobalOptions
-    @Argument(help: "The workspace.") var name: String
-    func run() async throws {
-        let s = try decode(try call(workspaceRequest(.workspaceStop, WorkspaceRequest(name: name)), g), WorkspaceStopped.self, g)
-        if g.json { Out.json(s); return }
-        if !s.stopped { Out.stdout((s.notes?.first ?? "nothing to stop") + "\n"); return }
-        printWorkspace(s.workspace)
-        for n in s.notes ?? [] { Out.stdout("note: \(n)\n") }
     }
 }
 

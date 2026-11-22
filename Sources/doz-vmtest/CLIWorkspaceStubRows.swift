@@ -203,7 +203,7 @@ func cliWorkspaceStubRows(_ h: CLIHarness, root: URL, store: DozableStore, start
     h.env[TestSafety.keepMacSessionsVariable] = "1"            // the next daemon keeps them again, as the suites expect
 
     h.run(["worker", "end", "stb", "tess"], timeout: 60)
-    h.run(["workspace", "stop", "stb"], timeout: 60)
+    h.run(["workspace", "stop", "stb", "--yes"], timeout: 60)
     started.remove("stb")
     started.remove("stb-tess")
 }

@@ -492,7 +492,7 @@ final class WorkspaceWorkerTests: BotTestCase {
         let n = await ws(c, .workspaceNew, "slow") { $0.brief = "B"; $0.folders = [WorkspaceFolder(path: self.work.path)]; $0.manager = "mira" }
         XCTAssertNil(n.error)
         _ = await ws(c, .workspaceStart, "slow")
-        _ = await ws(c, .workspaceStop, "slow")
+        _ = await ws(c, .workspaceStop, "slow") { $0.managerOnly = true }
         managers.places["slow"]?.running = false
         managers.delay = .milliseconds(400)
         var r = HostRequest(.workspaceStart)
