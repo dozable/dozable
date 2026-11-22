@@ -520,7 +520,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var by: String
     /// created · room-made · room-linked · adopted · released · brief-edited ·
     /// folders-edited · refs-edited · renamed · agent-renamed · agent-removed · manager-set · manager-removed ·
-    /// bot-invited · kicked-off · manager-started · manager-stopped · worker-added · worker-ended · worker-add-undone ·
+    /// bot-invited · agent-joined (749: an agent became a member of the main room — `<name> joined`) · agent-crashed (749: its
+    /// program on this Mac exited non-zero with no end asked — `<name> crashed: exit <code>`) · kicked-off · manager-started · manager-stopped · worker-added · worker-ended · worker-add-undone ·
     /// brief-announced (an edit after the start, posted as you in `room`) · bot-changed (a running bot's instructions, model or
     /// account changed — `reason` says which —, told as you in `room`) · the lifecycle: slept · woke · agent-slept · agent-woke ·
     /// finished · reopened · archived · room-archived · room-unarchived · worker-retired · sandbox-removed · template-kept ·
@@ -554,6 +555,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var scope: String?
     public var until: Date?
     public var op: String?
+    /// 749: the code an agent's program exited with (`agent-crashed`). Additive.
+    public var exitCode: Int?
 
     public init(at: Date = Date(), by: String = "you", action: String, agent: String? = nil, place: String? = nil, room: String? = nil,
                 from: String? = nil, to: String? = nil, sha256: String? = nil, bytes: Int? = nil, added: Int? = nil, removed: Int? = nil,
@@ -572,7 +575,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
                                               "finished", "reopened", "archived", "room-archived", "room-unarchived", "worker-retired",
                                               "sandbox-removed", "template-kept", "restored", "run-opened", "run-closed", "run-archived",
                                               "run-archive-failed", "room-closed", "room-opened", "room-removed", "transcripts-discarded",
-                                              "granted", "revoked", "ceiling-set", "request-recorded", "permission-decided"]
+                                              "granted", "revoked", "ceiling-set", "request-recorded", "permission-decided",
+                                              "agent-joined", "agent-crashed"]
 
     /// The line as a person reads it.
     public var sentence: String {
@@ -593,6 +597,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "manager-set": return "the manager is \(agent ?? "?") (\(BotIsolation.words(isolation ?? "fenced")))"
         case "manager-removed": return "no manager now (was \(agent ?? "?"))"
         case "bot-invited": return "invited \(agent ?? "?") to \(room ?? "the room")"
+        case "agent-joined": return "\(agent ?? "?") joined"
+        case "agent-crashed": return "\(agent ?? "?") crashed: exit \(exitCode.map(String.init) ?? "?")"
         case "kicked-off": return "started the work: posted the brief in \(room ?? "the room") (\(bytes ?? 0) bytes)"
         case "manager-started": return "started the manager \(agent ?? "?") (\(BotIsolation.words(isolation ?? "fenced"))" + (place.map { ", \($0)" } ?? "") + ")"
         case "manager-stopped": return "stopped the manager \(agent ?? "?")"

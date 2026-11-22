@@ -150,7 +150,10 @@ extension HostCore {
                                                     deliver: b?.deliver ?? "poll", isolation: iso.rawValue, agent: b?.agent ?? "?",
                                                     programOnPath: nil, keychainReadable: look ? nil : false, placeName: place)
             if let b {
-                if iso != .vm, let p = ManagerLaunch.program(agent: b.agent), !buildFlavor.isHelper { check.programOnPath = await mac.programOnPath(p) }
+                // 749: under the stub agent the program is this doz (never the agent's).
+                if iso != .vm, let p = ManagerLaunch.program(agent: b.agent), !buildFlavor.isHelper {
+                    check.programOnPath = TestSafety.stubAgent() ? true : await mac.programOnPath(p)
+                }
                 if !look, let v = services.keychain.read(service: botService(bot), account: Keychain.user).value {
                     check.keychainReadable = BotTokens.fingerprint(v) == b.token.fingerprint
                 }
@@ -206,6 +209,10 @@ extension HostCore {
             if !gaps.isEmpty {
                 throw HostError(.invalidPhase, "\(n) is not fully set up yet:\n" + gaps.map { "  - " + $0.line }.joined(separator: "\n"))
             }
+            // 749: under the stub agent a VM manager is refused before anything is posted or made.
+            if let m = rec.manager, let no = stubVMRefusal(m.name, isolation: ManagerIsolation(rawValue: m.isolation ?? "fenced") ?? .fenced) {
+                throw no
+            }
             if let bot = rec.manager?.bot, let other = await liveWorkspace(of: bot, except: n) {
                 throw HostError(.exists, WorkspaceSetupCheck.liveElsewhereRefusal(bot: bot, other))
             }
@@ -233,6 +240,7 @@ extension HostCore {
         if let bot = rec.manager?.bot, let room, let chat, ready {
             if try chat.invite(room: room, name: bot) {
                 try? workspaces.append(n, WorkspaceLogEntry(action: "bot-invited", agent: bot, room: room))
+                logAgentJoined(n, agent: bot, room: room)
             }
         }
         // 3. The kick-off, as you, before the manager — once. The first run opens just before it (each room's last seq its
@@ -452,13 +460,15 @@ extension HostCore {
             if how == .stuck { throw HostError(.failed, "session \(o.place) on this Mac did not end, even after SIGKILL") }
             let r = try await macReopen(o.place, rec: mac.records().sessions[o.place] ?? rec, holder: holder, fresh: false,
                                         size: TermSize(cols: 120, rows: 40), knownID: held, ended: how.rawValue,
-                                        request: HostRequest(.sessionRestart, name: MacPlace.name), extra: o.plan.environment,
+                                        request: HostRequest(.sessionRestart, name: MacPlace.name), extra: agentMacReopenEnvironment(o.plan.environment),
                                         botSecrets: secrets, managerStart: fenced ? o.start : nil)
             return r.notice.map { [$0] } ?? []
         }
-        return try await launchAgentOnMac(AgentMacLaunch(place: o.place, argv: o.plan.argv, workdir: o.workdir, environment: o.plan.environment,
+        // 749: the stub agent in its place under DOZ_TEST_STUB_AGENT (guarded runs only).
+        let program = agentMacProgram(argv: o.plan.argv, environment: o.plan.environment, account: o.account, workspace: o.workspace, name: o.bot, task: nil)
+        return try await launchAgentOnMac(AgentMacLaunch(place: o.place, argv: program.argv, workdir: o.workdir, environment: program.environment,
                                                          fenced: fenced, permissions: o.permissions, hostPorts: o.plan.hostPorts,
-                                                         account: o.account, secrets: secrets, start: fenced ? o.start : nil,
+                                                         account: program.account, secrets: secrets, start: fenced ? o.start : nil,
                                                          startFolder: "manager", bridgesOff: false))
     }
 
@@ -467,6 +477,7 @@ extension HostCore {
     /// START copied by one exec, then the session `manager`. A start after a stop starts the same sandbox (its disk kept)
     /// and continues the conversation.
     func launchManagerInVM(_ o: ManagerLaunchOrder) async throws -> [String] {
+        if let no = stubVMRefusal(o.bot, isolation: .vm) { throw no }
         guard let secret = o.plan.secret else { throw HostError(.invalid, "a VM manager needs its token's launch secret") }
         let env = ProcessInfo.processInfo.environment
         let seamArgv = TestSafety.guarded(env) ? env["DOZ_TEST_MANAGER_ARGV"].flatMap { s in

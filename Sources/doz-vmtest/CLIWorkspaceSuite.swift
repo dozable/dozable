@@ -33,6 +33,9 @@ import DozableHost
 //      acting on one (CLISpaceActRows.swift)
 //  P1–P10. what agents may do: permissions, grants, ceilings, why, the gate (CLIWorkspacePermissionRows.swift); P5 sets every
 //      permission never before row 12, so every row from 12 on runs as the owner under them
+//  T1–T8. the test hooks (749): a manager and a worker as the stub agent (DOZ_TEST_STUB_AGENT=1, no claude), up, its task,
+//      ack, ping, write, ask, sleep and wake, doz debug crash and the crashed line, the joined line (CLIWorkspaceStubRows.swift);
+//      CLI_WORKSPACE_ROWS=stub runs them alone
 func cliWorkspaceSuite(binary: String) async {
     print("cli: workspaces — no VM")
     let fm = FileManager.default
@@ -103,6 +106,14 @@ func cliWorkspaceSuite(binary: String) async {
     }
     guard MacDeckhold.locate(executable: binary).url != nil else {
         check(false, "deckhold-mac beside \(binary) (make cli builds it when the pinned toolchain is in .tools)")
+        return
+    }
+
+    // 749: CLI_WORKSPACE_ROWS=stub runs the test hooks' rows alone (T1–T8), in this same scratch store.
+    if ProcessInfo.processInfo.environment["CLI_WORKSPACE_ROWS"] == "stub" {
+        h.run(["config", "set", "chat.page_port", String(freePort())])
+        h.run(["config", "set", "chat.line_port", String(freePort())])
+        cliWorkspaceStubRows(h, root: root, store: store, started: &started)
         return
     }
 
@@ -256,4 +267,6 @@ func cliWorkspaceSuite(binary: String) async {
     cliWorkspaceViewRows(h, root: root, store: store, started: &started)
     // P1–P10. what agents may do (CLIWorkspacePermissionRows.swift)
     cliWorkspacePermissionRows(h, root: root, store: store, started: &started)
+    // T1–T8. the test hooks: the stub agent as a manager and a worker, doz debug crash (CLIWorkspaceStubRows.swift)
+    cliWorkspaceStubRows(h, root: root, store: store, started: &started)
 }

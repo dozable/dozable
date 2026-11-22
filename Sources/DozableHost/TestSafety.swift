@@ -27,6 +27,17 @@ public enum TestSafety {
         return (env["DOZ_TEST_WORKER_IMAGE"], env["DOZ_TEST_WORKER_ARGV"].flatMap { try? JSONDecoder().decode([String].self, from: Data($0.utf8)) })
     }
 
+    /// 749: the stub agent in place of every workspace agent program on this Mac (`StubAgent`) — `DOZ_TEST_STUB_AGENT=1`, in a
+    /// guarded run only. Unguarded it is false whatever the environment says.
+    public static func stubAgent(_ env: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        guarded(env) && env[StubAgent.variable] == "1"
+    }
+
+    /// 749: why `doz debug crash` is refused (nil: allowed) — outside a guarded run, always.
+    public static func debugCrashViolation(_ env: [String: String] = ProcessInfo.processInfo.environment) -> String? {
+        guarded(env) ? nil : "doz debug crash is a test hook: it runs only in a guarded test run (DOZ_TEST_GUARD=1)"
+    }
+
     /// The person's real home (never `$HOME`, which a test may point elsewhere — the danger is the REAL one).
     public static var realHome: URL {
         if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir { return URL(fileURLWithPath: String(cString: dir)) }

@@ -46,6 +46,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Tests/DozableCLITests/WorkspaceRecordTests.swift`, `WorkspaceStateTests.swift`, `WorkspaceAdoptTests.swift`, `WorkspaceSetupCheckTests.swift`, `ManagerLaunchTests.swift`, `WorkspaceManagerTests.swift`, `BotLaunchSecretTests.swift`, `WorkerLaunchTests.swift`, `WorkerKickoffTests.swift`, `WorkspaceWorkerTests.swift` | the unit tests (scratch roots, a fake chat, fake launchers, a memory keychain) |
 | `Tests/DozableCLITests/WorkerPlanTests.swift` | the worker plan and the add agree over a table of requests (each refusal's sentence, code and field), the plan writes nothing, never unfenced from a default, no daemon; `WorkerAddCommandTests` (the argv parses back, the text is the argv to `/bin/sh`, a long task from a file) |
 | `Sources/doz-vmtest/CLIWorkspaceSuite.swift`, `CLIWorkspaceManagerRows.swift`, `CLIWorkspaceWorkerRows.swift`, `CLIWorkspaceBriefRows.swift`, `CLIWorkspacePlanRows.swift`, `CLIWorkerPlanRows.swift`, `CLIWorkspaceVMSuite.swift` | `make test-cli-workspace`: the real doz, its daemon and chat server, a FAKE claude, no VM; `make test-cli-workspace-vm`: scratch lab VMs |
+| `Sources/DozableHost/StubAgent.swift`, `HostCore+StubAgent.swift`; `Sources/DozableCLI/StubAgentRunner.swift`, `DebugCommands.swift`; `Tests/DozableCLITests/StubAgentTests.swift`; `Sources/doz-vmtest/CLIWorkspaceStubRows.swift` | 749's test hooks ("Test hooks", below): the stub agent under `DOZ_TEST_STUB_AGENT=1` (its words and decisions; the daemon's swap, the VM refusal, the joined and crashed lines; the runner); `doz debug crash`; `make test-cli-workspace` rows T1–T8 |
 | `Sources/DozableHost/SpaceFormat.swift`, `SpaceDocument.swift`, `SpaceValidator.swift` | Space files (`NAME.space.yaml`, space/3): the format's key tables, full names and words; the ordered merged document, `SpaceOrigin`/`SpaceSource`/`SpaceProblem`, `SpaceRequest` (strict, 256 KiB); the ONE pure validator (`checkSource`, `checkMerged` + the backstop, `report`), `SpaceModel`, `SpaceRisk` ("Space files", below) |
 | `Sources/DozableHost/SpaceIntent.swift`, `SpaceUp.swift`, `HostCore+Space.swift` | pure: `SpaceIntent.compile` (what the file asks, in Dozable's terms), `SpaceUp.plan` (the steps, what down will do, the summary, the confirm set, the sha), `SpaceRecordRef`, `SpaceFacts`, `SpacePlan`; `workspace-up-plan` and its facts |
 | `Sources/DozableCLI/SpaceResolver.swift`, `SpaceCommands.swift` | the CLI's reading of the files (Yams: extends, override, `${VAR}`, the merge, each place's origin); `doz workspace plan -f | up -f --dry-run | config` and the `doz space` group |
@@ -882,6 +883,46 @@ The manual's page is `docs/manual/39-space-files.md`.
   seeds it after the clearing only for a live worker of a space that keeps that agent's memory as fenced
   (`SpaceMemory.seedFolder`), never a shared folder or `~/.claude`. A switch fenced ↔ unfenced resets it (ended, forgotten,
   `memory-reset`).
+
+## Test hooks
+
+749 (WS.02). Hooks an outside acceptance harness drives through a release tarball, so they live in doz, not in a script —
+and each works ONLY in a guarded test run (`TestSafety.guarded`): unguarded they are ignored (the switch) or refused (the
+commands, exit 9 `not-permitted`).
+
+- **`DOZ_TEST_STUB_AGENT=1`** (`TestSafety.stubAgent`; `StubAgent`, `HostCore+StubAgent.swift`): wherever the daemon would
+  start an agent program for a workspace's manager or worker on this Mac, fenced or unfenced, it starts the stub instead —
+  `<this doz> debug stub-agent --name NAME [--room MAIN] [--task=TASK]` (`StubAgent.argv`; the doz the fence already lets a
+  session read and run), the plan's environment plus `DOZ_TEST_GUARD=1` and `DOZ_TEST_STUB_AGENT=1` (and
+  `DOZ_TEST_STUB_AGENT_RESUMED=1` on a re-open: a wake, a start after a stop), no Claude account, and the set-up check counts
+  the program as there. Its record keeps that argv, so a restart re-opens the stub. **A VM manager or worker is refused**
+  (`StubAgent.vmRefusal`, exit 65: at `workspace start` before anything is posted, at `worker add` before anything is made,
+  and again at the launch) — the stub never starts a VM. The stub (`DozableCLI/StubAgentRunner.swift`) is taken by
+  `DozableEntry` before anything of doz is read or made, refuses to run unless its own environment is a guarded one with the
+  switch, and speaks only through `dozchat` (the `dozchat-mac` beside doz, else the PATH's) with the token the daemon handed
+  it — it reads no token, store or setting, and hands every message to dozchat on stdin. Stateless and deterministic: on
+  start it posts `<name> is up` once in its room; a worker with a task then `task: <task>` and `done` (not on a re-open); then
+  it listens to every room it is a member of (`dozchat listen`) and answers a message whose first word is `@<name>`: `ack
+  <first 8 of its msg_id>`, or a script command — `/stub write PATH` (`wrote PATH`, or `refused PATH: <reason>` naming the
+  `folder.write` grant outside its folder, or the folder rule inside it — `StubAgent.writeRefusal`), `/stub ask QUESTION` (an
+  ask with options yes/no for the room's deciders; `refused ask: no decider` when the server says there is none), `/stub exit
+  CODE` (exits with it, posting nothing), `/stub ping` (`pong`). SIGHUP/SIGTERM/SIGINT (a sleep, stop or end): exit 0,
+  quietly.
+- **`doz debug crash W/AGENT`** (hidden, `DebugCommands.swift`): refused unguarded (exit 9); W or AGENT not found exits 2,
+  an agent not on this Mac 65, not running or not the stub 3. It reads the session's pid from its holder, checks that
+  process's argv is the stub of that name (`StubAgent.isStub`, `KERN_PROCARGS2` — never another program is signalled) and
+  sends it SIGUSR1: the stub exits 70 (`StubAgent.crashExitCode`) without posting.
+- **Two log lines** every workspace gets (not only under the stub): `<name> joined` (`agent-joined`, by doz — the agent was
+  made a member of the main room: the manager invited at its start, a worker at its add) and `<name> crashed: exit <code>`
+  (`agent-crashed`, by doz, `exitCode` in `--json` — an agent's program on this Mac exited non-zero when no end was asked:
+  its status watcher's `.ended`, `HostCore.macProgramEnded`; an end `MacSessions.end` was asked for in the last minute is
+  never a crash, `takeRequestedEnd`). Both are in `doz workspace log W` and its `--json`.
+
+`StubAgentTests` (the guard, the argv and environment, the commands, the words, the ask's answer, the write's reasons, the
+log lines); `make test-cli-workspace` rows T1–T8 (`CLIWorkspaceStubRows.swift`; `CLI_WORKSPACE_ROWS=stub` runs them alone): a
+manager and a worker as the stub with no claude on the PATH — up, its task and done, the joined lines, ack, ping, write in
+and outside its folder, ask, a VM worker refused, sleep and wake (no crash line; up again, its task not again), `doz debug
+crash` and its crashed line, `/stub exit 3`, the refusals unguarded.
 
 ## Tests
 
