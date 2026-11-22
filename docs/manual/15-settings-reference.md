@@ -312,7 +312,7 @@ This table is generated from `doz config show` and checked against it on every b
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `images.lab.memory_mib` | `1024` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new lab sandbox (a template follows the image it was saved from). |
+| `images.lab.memory_mib` | `1024` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new lab sandbox (a saved disk follows the image it was saved from). |
 | `images.lab.network` | `bake` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new lab sandbox: agent, bake, locked, open (proxied presets), nat or none. |
 
 ### `[kernel]`
@@ -330,7 +330,7 @@ Every recipe's agent has these, each recipe with its own defaults (`doz config s
 |---|---|---|---|---|---|
 | `recipes.VENDOR.PRODUCT.version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | `doz create --agent claude-code@VERSION` | The Claude Code a new sandbox of this recipe gets (and every base's baked image of it): latest (looked up when its image is baked, then installed at that exact version, integrity-checked; a newer one is only said — doz image bake rebuilds when you choose), or an exact version like 2.1.227. A sandbox keeps the version it was made with; doz reset NAME moves it to the current one. |
 | `recipes.VENDOR.PRODUCT.approvals` | `skip` | skip \| ask | next session | `-e DOZ_CLAUDE_PERMISSIONS=… on run/exec, --approvals on create` | Claude Code's own approval prompts: skip them (the sandbox is the boundary) or ask, as on a Mac. A sandbox (doz config set --sandbox NAME approvals ask) or its project (approvals: in doz_project.yaml) can choose its own. |
-| `recipes.VENDOR.PRODUCT.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new sandbox of this recipe (a template follows the image it was saved from). |
+| `recipes.VENDOR.PRODUCT.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new sandbox of this recipe (a saved disk follows the image it was saved from). |
 | `recipes.VENDOR.PRODUCT.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new sandbox of this recipe: agent, bake, locked, open (proxied presets), nat or none. |
 | `recipes.VENDOR.PRODUCT.history` | `follow` | follow \| keep \| agent-default | next start or wake | — | Claude Code's conversation history: follow (agent.history, Dozable's choice), keep, or agent-default. keep: cleanupPeriodDays = 36500 in ~/.claude/settings.json, only where it is not set. agent-default: that key is taken back where it still holds Dozable's value — Claude Code deletes conversations older than 30 days. |
 | `recipes.VENDOR.PRODUCT.mac_config` | `follow` | follow \| private \| shared | next session | `doz run @mac --agent-config` | Claude Code's settings folder in a fenced session on this Mac: follow (mac.agent_config), private (the session's own ~/.claude — your instructions and skills read-only, settings copied from a short list) or shared (your own ~/.claude: less isolated). doz run @mac --agent-config decides for one session. |

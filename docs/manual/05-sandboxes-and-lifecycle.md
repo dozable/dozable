@@ -12,7 +12,7 @@ their disks — a workspace never removes a sandbox unless you say so (`--remove
 ## Concepts
 
 - **Name.** 1–40 characters of `a-z 0-9 -`, unique in the store.
-- **Image.** What the sandbox starts from (Claude Code, pi, a plain shell, a template…). See
+- **Image.** What the sandbox starts from (Claude Code, pi, a plain shell, a saved disk…). See
   [Images and bases](08-images-and-bases.md).
 - **Three kinds of storage**, each kept differently:
 
@@ -101,7 +101,7 @@ doz start website
 
 It refuses while the sandbox runs, sleeps, hibernates or is busy — shut it down first — and refuses a name that is
 already taken or is not 1–40 characters of a-z, 0-9 and `-`. Its folder on your Mac keeps its own name and place —
-Dozable never moves your files. Templates saved from it keep saying which
+Dozable never moves your files. Disks saved from it keep saying which
 sandbox they came from, and past numbers on the Metrics page stay under the old name.
 
 In the dashboard: **Rename…** in a sandbox's ⋯ menu — in the sidebar (on the sandbox's line) and on its page's
@@ -170,7 +170,7 @@ doz up my-app                                        # create if missing, start 
 
 | option | what it does |
 |---|---|
-| `--image` | `lab`, `claude-code`, `pi`, a base × agent image, or a template. Or `--agent` with `--base` / `--dockerfile` ([Images and bases](08-images-and-bases.md)). |
+| `--image` | `lab`, `claude-code`, `pi`, a base × agent image, or a saved disk (`doz image save`). Or `--agent` with `--base` / `--dockerfile` ([Images and bases](08-images-and-bases.md)). |
 | `--folder DIR` | Share this Mac folder at `/workspace`. Made if it doesn't exist; refused for your home folder itself, system locations and the store. |
 | `--isolated` | Share nothing (the default without `--folder`; this says it on purpose). |
 | `--cpus` · `--memory` | Virtual CPUs (default 2) · RAM (`2G`, `512M`; default 1 GiB for lab, 2 GiB for an agent image). |
@@ -187,7 +187,7 @@ does all that without attaching. On an existing sandbox, create options are igno
 ## Create and start — in the dashboard
 
 1. **Sandboxes** › **New sandbox** — a wizard, step by step: the **project folder** (a new one in
-   your projects folder, or one you have), the **Agent** and the **Base** (or a **Template**), the
+   your projects folder, or one you have), the **Agent** and the **Base** (or a **Saved disk**), the
    account, access (GitHub, SSH agent), what the agent can do, CPUs and memory, the bridges, and the
    session. Each step is filled in from your settings; **Skip to review** keeps the rest.
 2. **Review** shows the `doz_project.yaml` it writes into the folder; **Write and create** writes it,

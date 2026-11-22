@@ -341,11 +341,11 @@ and its place in the rooms. `restore` opens the rooms again and leaves it finish
 **Delete** works only on a finished or archived workspace (`doz workspace finish demo` first), and never while any of its
 agents still runs. It removes the workspace's record, brief and log, forgets its sessions on this Mac, and lets its
 adopted sandboxes and sessions go loose again. Its rooms stay, archived with their history — the chat server cannot delete a
-room — and so do its bots and their tokens, its templates and every folder. It cannot be undone.
+room — and so do its bots and their tokens, its saved disks and every folder. It cannot be undone.
 
 **Nothing on disk goes unless you say so.** `--remove-sandboxes` (archive, delete) also removes the sandboxes Dozable made for
-this workspace — never one you adopted, or one a worker shares — keeping a template of each first (`--no-keep-templates` to
-skip it); `doz workspace restore` then names the template rather than making the sandbox again. `--bin-folders` (delete)
+this workspace — never one you adopted, or one a worker shares — saving each one's disk as an image first (`doz image ls`;
+`--no-keep-templates` to skip it); `doz workspace restore` then names that image rather than making the sandbox again. `--bin-folders` (delete)
 moves the workspace's folders to the Bin, never deletes them, and refuses your home folder, Dozable's store and a folder
 another workspace or sandbox uses, naming it.
 

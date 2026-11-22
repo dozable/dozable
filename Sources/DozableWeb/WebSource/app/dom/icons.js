@@ -119,7 +119,7 @@ export function busyMark(waiting, title) {
 /// A label's icon: the exact label, else its first word; the fallback is a visible "missing" (the probe fails on it).
 const ICON_EXACT = {
   'open in terminal': ICON_OPEN_IN_TERMINAL, 'set the default to none': 'ban', 'make default': 'star', 'save as template…': 'layout-template',
-  'save template': 'layout-template', 'hide details': 'panel-right', 'details': 'panel-right', 'take a restore point…': 'camera', 'take': 'camera',
+  'save template': 'layout-template', 'save disk as image…': 'layout-template', 'save disk': 'layout-template', 'hide details': 'panel-right', 'details': 'panel-right', 'take a restore point…': 'camera', 'take': 'camera',
   'key policy…': 'key-round', 'account…': 'user-round', 'edit policy…': 'shield', 'terminal…': 'terminal', 'new shell': 'plus',
   'new sandbox': 'plus', 'run detached…': 'play', 'default': 'rotate-ccw', 'apply anyway': 'check', 'download csv': 'download',
   'shut down': 'power', 'sign out': 'log-out', 'unsplit': 'columns-2',

@@ -636,7 +636,7 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "room-unarchived": return "opened the room \(room ?? "?") again"
         case "worker-retired": return "retired the worker \(agent ?? "?") (its token is refused from now on)"
         case "sandbox-removed": return "removed the sandbox \(place.map { $0.hasPrefix("sandbox:") ? String($0.dropFirst(8)) : $0 } ?? agent ?? "?")"
-        case "template-kept": return "kept the template \(to ?? "?") of \(from ?? "?")"
+        case "template-kept": return "saved the disk of \(from ?? "?") as the image \(to ?? "?")"   // 757: the action keeps its name
         case "restored": return "restored the workspace (finished)"
         case "run-opened": return "opened the run \(run ?? "?")"
         case "run-closed": return "closed the run \(run ?? "?")"

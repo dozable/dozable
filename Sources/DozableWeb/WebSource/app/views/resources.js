@@ -20,7 +20,7 @@ import { phasePill } from '../components/pills.js';
 // sandbox's page or Accounts & keys; this page deletes only what has no other home. A deletion is
 // previewed (POST resources/preview — changes nothing), confirmed once (no typed names: the owner's
 // ruling), and runs as ONE operation (`resources-rm` with exactly the ids shown).
-const RES_GROUPS = [['sandboxes', 'Sandboxes'], ['images', 'Images & templates'], ['caches', 'Caches'], ['logs', 'Logs & metrics'],
+const RES_GROUPS = [['sandboxes', 'Sandboxes'], ['images', 'Images & saved disks'], ['caches', 'Caches'], ['logs', 'Logs & metrics'],
                     ['stray', 'Stray files'], ['store', 'Dozable’s own'], ['outside', 'Outside the store']];
 state.resSel = new Set();
 state.resToggled = new Set();
@@ -196,7 +196,7 @@ function resourcesNode(r) {
     h('div', { class: 'head' }, h('h1', null, 'Resources'),
       h('div', { class: 'actions' }, btn('Refresh', () => { remeasure(); refresh(false); }, { small: true, title: 'Measure again' }),
         btn('Clean up…', () => resDelete([], true), { primary: true, icon: 'badge-check',
-          title: 'Re-creatable AND unused: the download cache, base disks, old kernels, images no sandbox was created from in ' + r.unusedDays + ' days, leftovers. Never templates, sandboxes, restore points, settings or keys.' }))),
+          title: 'Re-creatable AND unused: the download cache, base disks, old kernels, images no sandbox was created from in ' + r.unusedDays + ' days, leftovers. Never saved disks, sandboxes, restore points, settings or keys.' }))),
     h('p', { class: 'sub' }, 'Everything Dozable uses. Images are managed on ', h('a', { href: '#/mac/images' }, 'Images'), ', a sandbox on its page, accounts on ',
       h('a', { href: '#/mac/accounts' }, 'Accounts & keys'), ' — the rows link there. Deleting here is for what has no other home. Measured in ' + Math.round(r.milliseconds) + ' ms.'),
     resTotalBar(r),
@@ -235,7 +235,7 @@ async function resDelete(ids, clean) {
       plan.refused.map((x) => h('div', { 'data-plan-refused': x.id }, x.id + ' — ' + x.reason))) : null,
     h('p', { class: 'res-plan-total' }, 'Frees ', h('strong', { 'data-plan-freed': '' }, bytes(plan.freedBytes)), ' in all (blocks shared between them counted once).'));
   const title = clean ? 'Clean up' : 'Delete ' + n + ' item' + (n === 1 ? '' : 's');
-  const d = dialog(title, (clean ? 'Re-creatable and unused — never templates, sandboxes, restore points, settings or keys. Logs and metrics are kept — select them to clear. ' : '') +
+  const d = dialog(title, (clean ? 'Re-creatable and unused — never saved disks, sandboxes, restore points, settings or keys. Logs and metrics are kept — select them to clear. ' : '') +
     'One operation: the daemon waits until nothing that uses the disks is under way.', [],
     clean ? 'Clean up' : 'Delete', async () => {
       const op = await actOrThrow({ action: 'resources-rm', ids: plan.items.map((e) => e.id) });

@@ -35,7 +35,7 @@ struct ResourcesRemove: AsyncParsableCommand {
 }
 
 struct ResourcesClean: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "clean", abstract: "Delete what is re-creatable AND unused: the download cache, base disks, old kernels, images no sandbox was created from lately, leftovers. Never templates, sandboxes, restore points, settings or keys.")
+    static let configuration = CommandConfiguration(commandName: "clean", abstract: "Delete what is re-creatable AND unused: the download cache, base disks, old kernels, images no sandbox was created from lately, leftovers. Never saved disks, sandboxes, restore points, settings or keys.")
     @OptionGroup var g: GlobalOptions
     @Flag(name: .long, help: "Show the plan; delete nothing.") var dryRun = false
     @Flag(name: [.short, .long], help: "Do not ask.") var yes = false
@@ -108,7 +108,7 @@ func renderResources(_ r: ResourceReport) -> String {
     s += " · Clean up frees \(fmt(r.cleanableBytes))"
     if let free = r.volumeFreeBytes { s += " · \(fmt(free)) free on the volume" }
     s += "\n\n"
-    let groups: [(String, String)] = [("sandboxes", "SANDBOXES"), ("images", "IMAGES & TEMPLATES"), ("caches", "CACHES"),
+    let groups: [(String, String)] = [("sandboxes", "SANDBOXES"), ("images", "IMAGES & SAVED DISKS"), ("caches", "CACHES"),
                                       ("logs", "LOGS & METRICS"), ("stray", "STRAY FILES"), ("store", "DOZABLE'S OWN"), ("outside", "OUTSIDE THE STORE")]
     for (g, title) in groups {
         let rows = r.items.filter { $0.group == g }

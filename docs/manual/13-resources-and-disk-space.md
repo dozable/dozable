@@ -15,7 +15,7 @@ use, and deletes what can safely go.
 - **Everything adds up.** The rows add up to the total that `du` reports for the store. A last row,
   **unattributed**, is what no row explains; it should be 0.
 - **Re-creatable vs. yours.** A download cache, an unused baked image or an old kernel can be made
-  again (it costs time and network later). A sandbox, a restore point or a template can't — those are
+  again (it costs time and network later). A sandbox, a restore point or a saved disk can't — those are
   yours.
 
 ## See it — in the terminal
@@ -26,7 +26,7 @@ doz resources --json
 ```
 
 The groups: **Sandboxes** (each one's system disk, state disk, sleep snapshot, restore points, saved
-screens and boot logs), **Images & templates**, **Caches** (the download cache, base disks, the boot
+screens and boot logs), **Images & saved disks**, **Caches** (the download cache, base disks, the boot
 disk, kernels, preparation leftovers, and the **tools layer** — `gh`, downloaded once for sandboxes with
 GitHub as you; see [Managed tools](19-the-tools-layer.md)), **Logs & metrics**, **Stray files**, Dozable's own records — and
 **Outside the store**: your settings file, keychain entries by name, the `doz` program, project
@@ -43,7 +43,7 @@ doz resources rm point:web/3           # by id, as doz resources lists them
 
 - **Clean up** deletes what is **re-creatable and unused**: the download cache, the tools layer's cache, base disks, kernels
   nothing needs, images no sandbox was made from in the last `resources.clean_unused_days` (30) days,
-  and leftovers. It **never** deletes templates, sandboxes, restore points, settings or keys; logs,
+  and leftovers. It **never** deletes saved disks, sandboxes, restore points, settings or keys; logs,
   metrics and the history file are kept too (select them yourself to clear them). Clearing the metrics clears
   their part of the history; deleting the **history** item (`timeline.sqlite`) has the daemon make it again from the
   records (see [History and retention](40-history-and-retention.md)).

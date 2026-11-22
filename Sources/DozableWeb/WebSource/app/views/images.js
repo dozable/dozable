@@ -40,7 +40,7 @@ function barLegend() {
     h('span', { class: 'sw sw-own', 'aria-hidden': 'true' }), 'Own', h('span', { class: 'sw sw-shared', 'aria-hidden': 'true' }), 'Shared');
 }
 function sizePart(n, size) { return n == null ? '—' : [bytes(n), h('span', { class: 'muted pct' }, ' · ' + pct(n, size))]; }
-/// The lineage node of an Images row (built-in: `image` NAME@KEY12; lab: its prepared disk; a template by name).
+/// The lineage node of an Images row (built-in: `image` NAME@KEY12; lab: its prepared disk; a saved disk — node kind `template` — by name).
 function treeNodeFor(tree, r) {
   if (!tree) return null;
   return tree.nodes.find((n) => r.kind === 'custom' ? n.kind === 'template' && n.name === r.name
@@ -56,14 +56,15 @@ export async function viewImages() {
     // Shared: with the disk it was made from (none for a disk with no parent — the lab's prepared disk).
     const own = n ? n.uniqueBytes : null, shared = n ? n.sharedWithParentBytes ?? null : null;
     return h('tr', { 'data-image': r.name, 'data-status': r.status || '' },
-    h('td', null, h('span', { class: 'nm' }, r.name), ' ', r.kind === 'custom' ? h('span', { class: 'tag tpl' }, 'template') : null,
+    // 757: a sandbox's disk saved with doz image save (kind 'custom').
+    h('td', null, h('span', { class: 'nm' }, r.name), ' ', r.kind === 'custom' ? h('span', { class: 'tag tpl' }, 'saved disk') : null,
       // 594 W28: out of date — a badge, and the line that says why (never rebuilt by itself).
       r.status === 'older recipe' || r.status === 'update available' ? h('span', { class: 'tag img-status st-' + r.status.replace(/ /g, '-'), 'data-image-badge': r.status }, r.status) : null,
       r.standing ? h('div', { class: 'muted img-standing', 'data-image-standing': '' }, r.standing) : null,
       // 603 (E17): the key is rarely read — in the row's details, truncated (the whole of it as the tooltip).
       r.key ? h('div', { class: 'sub2 mono trunc img-key', title: 'key ' + r.key }, r.key) : null),
     // 596 (B1): base × agent ("Python · Claude Code").
-    h('td', { 'data-image-base': r.base || '' }, r.kind === 'custom' ? 'template' : (r.title || r.kind)),
+    h('td', { 'data-image-base': r.base || '' }, r.kind === 'custom' ? 'saved disk' : (r.title || r.kind)),
     // W32: what the image's state means, in words — never a bare dash.
     h('td', { 'data-image-status-cell': '' }, h('span', { class: r.status === 'up to date' ? 'muted' : '' }, r.status || 'up to date')),
     h('td', { title: r.bakedAt ? full(r.bakedAt) : null }, r.baked ? (r.bakedAt ? when(r.bakedAt) : 'yes') : h('span', { class: 'muted' }, 'no — bakes on first start')),
@@ -93,20 +94,20 @@ export async function viewImages() {
           { small: true, primary: !!r.standing, quiet: !r.standing, icon: 'flame', title: 'Minutes, needs network' })
         : btn('Bake', () => act({ action: 'image-bake', image: r.name }), { small: true, quiet: true, title: 'Minutes, needs network' })) : null,
       r.baked || r.kind === 'custom' ? moreMenu('More for ' + r.name, [{ label: 'Remove…', icon: 'trash-2', danger: true,
-        desc: r.kind === 'custom' ? 'The template; sandboxes made from it keep working' : 'Its baked disk; baked again when next needed',
-        onSelect: () => confirmAction('Remove ' + (r.kind === 'custom' ? 'template ' : 'image ') + r.name,
-          r.kind === 'custom' ? 'The template is deleted; sandboxes created from it keep working.' : 'Its baked disk is deleted (it is baked again when next needed); sandboxes cloned from it keep working.',
+        desc: r.kind === 'custom' ? 'The saved disk; sandboxes made from it keep working' : 'Its baked disk; baked again when next needed',
+        onSelect: () => confirmAction('Remove ' + (r.kind === 'custom' ? 'saved disk ' : 'image ') + r.name,
+          r.kind === 'custom' ? 'The saved disk is deleted (it cannot be made again); sandboxes created from it keep working.' :'Its baked disk is deleted (it is baked again when next needed); sandboxes cloned from it keep working.',
           r.name, { action: 'image-rm', image: r.name }) }], { small: true }).el : null)));
   });
   return h('div', null, h('div', { class: 'head' }, h('h1', null, 'Images'),
       h('div', { class: 'actions' }, btn('Refresh', () => { remeasure(); refresh(false); }, { small: true, title: 'Measure again' }), imagesToggle())),
-    h('p', { class: 'sub' }, 'Built-in images, and templates saved from sandboxes (a sandbox’s root disk — never its state disk). Own is what only this image holds (what removing it frees); shared is what it reuses from the disk it was made from. Progress of a bake shows under Operations. Everything Dozable uses: ',
+    h('p', { class: 'sub' }, 'Built-in images, and disks saved from sandboxes (doz image save: a sandbox’s root disk — never its state disk). Own is what only this image holds (what removing it frees); shared is what it reuses from the disk it was made from. Progress of a bake shows under Operations. Everything Dozable uses: ',
       h('a', { href: '#/mac/resources' }, 'Resources'), '.'),
     panel(((t) => { if (t) t.classList.add('images-t'); return t; })(table(['Image', 'Base · Agent', 'Status', 'Baked', 'Size', 'Own', 'Shared', barLegend(), 'Version', 'Note', h('span', { class: 'sr-only' }, 'Actions')], rows, [4, 5, 6]))));
 }
 async function viewLineage() {
   const t = await measured('tree', 'images/tree');
-  const labels = { base: 'OCI base', image: 'image', template: 'template', prepared: 'prepared disk', sandbox: 'sandbox', restorePoint: 'restore point' };
+  const labels = { base: 'OCI base', image: 'image', template: 'saved disk', prepared: 'prepared disk', sandbox: 'sandbox', restorePoint: 'restore point' };
   const rows = t.nodes.map((n) => {
     const own = n.uniqueBytes || 0;
     const bar = sizeBar(n.allocatedBytes, own, n.sharedWithParentBytes || 0);
@@ -121,7 +122,7 @@ async function viewLineage() {
   });
   return h('div', null, h('div', { class: 'head' }, h('h1', null, 'Images'),
       h('div', { class: 'actions' }, btn('Refresh', () => { remeasure(); refresh(false); }, { small: true, title: 'Measure again' }), imagesToggle())),
-    h('p', { class: 'sub' }, 'The lineage: OCI base → image → template → the sandboxes on each. Size is what the disk holds; shared is what it reuses from its parent (APFS clones); own is what removing it frees — each also as a % of its size. All disks together: ' +
+    h('p', { class: 'sub' }, 'The lineage: OCI base → image → saved disk → the sandboxes on each. Size is what the disk holds; shared is what it reuses from its parent (APFS clones); own is what removing it frees — each also as a % of its size. All disks together: ' +
       bytes(t.unionBytes) + ' (measured in ' + Math.round(t.milliseconds) + ' ms).'),
     t.nodes.length
       ? h('div', { class: 'panel lineage' },

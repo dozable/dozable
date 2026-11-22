@@ -123,7 +123,7 @@ export async function openLifecycle(d, verb, onDone) {
     if (verb === 'archive' || verb === 'delete') {
       const own = plan.goes.find((g) => g.text.startsWith('the sandboxes '));
       const words = own && own.bytes ? 'Also free ' + sizeWords(own.bytes) + ': remove the sandboxes Dozable made for it' : 'Also remove the sandboxes Dozable made for it';
-      parts.push(tick(words, 'removeSandboxes', verb === 'archive' ? 'A template of each is kept first; adopted sandboxes are never removed' : 'Adopted sandboxes are never removed'));
+      parts.push(tick(words, 'removeSandboxes', verb === 'archive' ? 'Each one’s disk is saved as an image first; adopted sandboxes are never removed' : 'Adopted sandboxes are never removed'));
     }
     if (verb === 'delete') parts.push(tick('Also move its folders on this Mac to the Bin', 'binFolders', d.folders.map((f) => f.path).join(', ') || 'It has no folder'));
     if (plan.archive) parts.push(tick(verb === 'archive' ? 'Archive without the run’s evidence' : 'Finish without an archive', 'noArchive', 'No copy of the run’s messages, conversations, screens and usage is kept'));

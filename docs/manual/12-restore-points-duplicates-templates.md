@@ -1,4 +1,4 @@
-# Restore points, duplicates and templates
+# Restore points, duplicates and saved disks
 
 Three ways to copy a sandbox's disk, each instant (they're APFS clones, sharing space until
 something changes):
@@ -7,7 +7,7 @@ something changes):
 |---|---|---|
 | **Restore point** | a copy of a sandbox's disks at a moment, kept with the sandbox | undo: go back, or fork a new sandbox from that moment |
 | **Duplicate** | a new sandbox from an existing one's disk | run the same setup on another project, or with more memory |
-| **Template** | a sandbox's system disk saved as an image | make many new sandboxes that start set up your way |
+| **Saved disk** | a sandbox's system disk saved as an image (`doz image save`) | make many new sandboxes that start set up your way |
 
 None of them copies your sandbox's folder (it's on your Mac — use git) or memory (a restored or
 forked sandbox cold-boots).
@@ -32,7 +32,7 @@ doz point rm my-app before-refactor
   names it, its id and when it was taken.
 
 **In the dashboard:** a sandbox's details › **Points** has **Take a restore point…**, and per point
-**Revert**, and under its **⋯** **Fork…**, **Save as template…**, **Duplicate…** and **Delete…** (revert
+**Revert**, and under its **⋯** **Fork…**, **Save disk as image…**, **Duplicate…** and **Delete…** (revert
 and delete ask you to tick a box first).
 
 ## Duplicates
@@ -53,25 +53,27 @@ doz duplicate my-app my-app-4 --copy-state        # the agent's logins and histo
 the current disk or a point, folder, CPUs, memory, network, account, and "Copy the agent's state
 disk too".
 
-## Templates
+## Saved disks
 
 ```sh
-doz template create my-app --as node-tools --note "node 22 + pnpm"   # now (a live sandbox pauses for ms)
-doz template create my-app --from-point before-upgrade --as base-2   # or from a restore point
-doz point save-image my-app before-upgrade --as base-3               # the same, from the point command
-doz template ls
+doz image save my-app node-tools --note "node 22 + pnpm"            # now (a live sandbox pauses for ms)
+doz image save my-app base-2 --from-point before-upgrade            # or from a restore point
+doz point save-image my-app before-upgrade --as base-3              # the same, from the point command
+doz image ls                                                        # saved disks say "saved disk"
 doz create beta --image node-tools
-doz template rm node-tools                                           # sandboxes made from it keep working
+doz image rm node-tools                                             # sandboxes made from it keep working
 ```
 
 - **Everything on the system disk is in it**: what you installed or wrote in `/root`, `/etc`,
   `/usr`, `/opt`, caches. **Don't save a secret you put there.**
-- **The agent's state disk is never in it** (logins, history, tokens), so a template can be shared.
-  A sandbox made from a template starts with a fresh state disk.
-- A sandbox from a template gets the agent and settings of the image the template came from.
+- **The agent's state disk is never in it** (logins, history, tokens), so a saved disk can be shared.
+  A sandbox made from a saved disk starts with a fresh state disk.
+- A sandbox from a saved disk gets the agent and settings of the image the disk came from.
+- **Moved:** these were `doz template create NAME --as DISK`, `doz template ls` and `doz template rm DISK`. For one
+  release they still work and say where they moved; `doz template` is to mean workspace templates.
 
-**In the dashboard:** **⋯** › **Save as template…** on a sandbox's page (now, or from a restore point); New
-sandbox › **Base** › **Template** uses one; **Images** lists templates and removes them.
+**In the dashboard:** **⋯** › **Save disk as image…** on a sandbox's page (now, or from a restore point); New
+sandbox › **Base** › **Saved disk** uses one; **Images** lists saved disks and removes them.
 
 ## Seeing the family tree
 
@@ -80,11 +82,11 @@ doz image ls --tree
 ```
 
 ```
-IMAGE / SANDBOX   KIND      SIZE    SHARED  OWN
-alpine-3.20       prepared  34 MiB  —       116 KiB
-├─ tpl-a          template  36 MiB  33 MiB  160 KiB  from alpha
-├─ alpha          sandbox   36 MiB  33 MiB  0 B
-└─ beta           sandbox   34 MiB  34 MiB  224 KiB
+IMAGE / SANDBOX   KIND        SIZE    SHARED  OWN
+alpine-3.20       prepared    34 MiB  —       116 KiB
+├─ tpl-a          saved disk  36 MiB  33 MiB  160 KiB  from alpha
+├─ alpha          sandbox     36 MiB  33 MiB  0 B
+└─ beta           sandbox     34 MiB  34 MiB  224 KiB
 ```
 
 **Shared** is what a disk shares with its parent (counted once on disk); **Own** is what removing it
@@ -93,8 +95,8 @@ would free. The dashboard's **Images** › **Lineage** draws the same tree.
 ## Limits
 
 - Restore points are disk-only: a revert or fork cold-boots, and running programs start fresh.
-- A template can't be exported to another Mac yet (no registry push).
-- A sandbox's saved screens and boot logs aren't copied by duplicate, fork or templates.
+- A saved disk can't be exported to another Mac yet (no registry push).
+- A sandbox's saved screens and boot logs aren't copied by duplicate, fork or a saved disk.
 
 ## Troubleshooting
 

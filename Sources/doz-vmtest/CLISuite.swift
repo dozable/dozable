@@ -219,7 +219,7 @@ func cliSuite() async throws {
     for n in ["clia", "clib", "clic", "clid", "clis", "clibt", "clires"] where FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).configFile(n).path) {
         h.run(["rm", n, "--yes"])
     }
-    h.run(["template", "rm", "clitpl", "--yes"])
+    h.run(["image", "rm", "clitpl", "--yes"])
     if h.hostRunning { h.run(["daemon", "stop"]) }
 
     do {
@@ -540,9 +540,10 @@ func cliLineageChecks(_ h: CLIHarness, ws: URL) {
     // A template from the RUNNING clia: its root disk (with a marker), never its state disk.
     _ = h.run(["exec", "clia", "--", "sh", "-c", "echo tmark > /root/tmark && sync"])
     let pointsBefore = h.json(["point", "ls", "clia"], [RestorePoint].self)?.count
-    var r = h.run(["template", "create", "clia", "--as", "clitpl", "--note", "cli suite"])
-    let img = h.json(["template", "ls"], [ImageRow].self)?.first { $0.name == "clitpl" }
-    check(r.code == 0 && img != nil, "template create clia --as clitpl (while it runs) → template ls lists it")
+    // 757: `doz image save` (what `doz template create` was).
+    var r = h.run(["image", "save", "clia", "clitpl", "--note", "cli suite"])
+    let img = h.json(["image", "ls"], [ImageRow].self)?.first { $0.name == "clitpl" && $0.kind == "custom" }
+    check(r.code == 0 && img != nil, "image save clia clitpl (while it runs) → image ls lists it as a saved disk")
     check(h.json(["point", "ls", "clia"], [RestorePoint].self)?.count == pointsBefore, "its temporary restore point is gone")
     if let key = img?.key {
         let files = (try? FileManager.default.contentsOfDirectory(atPath: store.layout("_").customImageDirectory(key).path).sorted()) ?? []
@@ -573,7 +574,7 @@ func cliLineageChecks(_ h: CLIHarness, ws: URL) {
     check(r.code == 65 && r.err.contains("inside the store") && h.row("clie") == nil
           && !FileManager.default.fileExists(atPath: ws.deletingLastPathComponent().appendingPathComponent("no-such-dir").path),
           "a missing workspace inside the store is refused (and not made)")
-    check(h.run(["template", "rm", "clitpl", "--yes"]).code == 0 && h.json(["template", "ls"], [ImageRow].self)?.isEmpty == true, "template rm clitpl")
+    check(h.run(["image", "rm", "clitpl", "--yes"]).code == 0 && h.json(["image", "ls"], [ImageRow].self)?.contains { $0.kind == "custom" } == false, "image rm clitpl")
     check(h.row("clia")?.phase == "running", "clia still runs")
 }
 

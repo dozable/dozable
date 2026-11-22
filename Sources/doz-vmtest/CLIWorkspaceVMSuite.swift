@@ -30,8 +30,8 @@ import DozableHost
 //      same session pids (the same programs and screens)
 //  10. finish vw: the sandbox shut down, its disk kept; reopen + wake: a cold boot, both say they are up again (v4, whose
 //      token went with the shutdown, with a new one)
-//  11. archive vw --remove-sandboxes (a template kept first): vw-v3 gone, its template there, the workers retired; restore
-//      names the template
+//  11. archive vw --remove-sandboxes (its disk saved as an image first): vw-v3 gone, the image there, the workers retired;
+//      restore names the image
 //  12. delete vmw --remove-sandboxes: only the sandbox Dozable made for it (vmw) removed — an adopted one (vadopt) stays,
 //      loose
 func cliWorkspaceVMSuite(binary: String) async {
@@ -54,7 +54,7 @@ func cliWorkspaceVMSuite(binary: String) async {
         h.run(["rm", "vw-v1", "--yes"], timeout: 180)
         h.run(["rm", "vw-v3", "--yes"], timeout: 180)
         h.run(["rm", "vadopt", "--yes"], timeout: 180)
-        h.run(["template", "rm", "vw-v3-tpl", "--yes"], timeout: 120)
+        h.run(["image", "rm", "vw-v3-tpl", "--yes"], timeout: 120)
         h.run(["chat", "off"], timeout: 30)
         h.run(["daemon", "stop"], timeout: 120)
         _ = h.waitFor(30) { !h.hostRunning }
@@ -278,12 +278,12 @@ func cliWorkspaceVMSuite(binary: String) async {
     check(woke.code == 0 && h.row("vw-v3")?.phase == "running", "10 reopen + wake: a cold boot (\(woke.code) \(woke.err.suffix(300)))")
     check(h.waitFor(120) { upCount("v3") >= 2 && upCount("v4") >= 2 }, "10 …v3 and v4 up again (v4 with a new token: \(woke.out.contains("new token")))")
 
-    // 11. archive with --remove-sandboxes: a template first, then the sandbox; restore names the template
+    // 11. archive with --remove-sandboxes: its disk saved first (757: an image), then the sandbox; restore names the image
     r = h.run(["workspace", "archive", "vw", "--remove-sandboxes", "--yes"], timeout: 900)
     check(r.code == 0 && h.row("vw-v3") == nil, "11 archive vw --remove-sandboxes: vw-v3 removed (\(r.code) \(r.err.suffix(300)))")
-    check(h.run(["template", "ls"]).out.contains("vw-v3-tpl"), "11 …its template vw-v3-tpl kept")
+    check(h.run(["image", "ls"]).out.contains("vw-v3-tpl"), "11 …its disk saved as the image vw-v3-tpl")
     r = h.run(["workspace", "restore", "vw"], timeout: 120)
-    check(r.code == 0 && r.out.contains("vw-v3 is gone — its template vw-v3-tpl"), "11 restore names the template (\(r.code) \(r.out.suffix(300)))")
+    check(r.code == 0 && r.out.contains("vw-v3 is gone — its disk is the image vw-v3-tpl"), "11 restore names the saved disk (\(r.code) \(r.out.suffix(300)))")
 
     // 12. delete --remove-sandboxes: only what Dozable made for it
     h.run(["create", "vadopt", "--image", "lab"], timeout: 300)

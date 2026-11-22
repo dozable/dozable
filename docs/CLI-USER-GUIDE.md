@@ -868,35 +868,37 @@ Nothing shaped like a secret is ever kept in it.
 
 `image pull` / `push` are not built yet (exit 7).
 
-`doz image ls --tree` draws the lineage — OCI base → baked image → template → the sandboxes on
+`doz image ls --tree` draws the lineage — OCI base → baked image → saved disk → the sandboxes on
 each — with each disk's size, the bytes it shares with its parent (APFS clones: counted once on
 disk) and its own bytes (what removing it frees):
 
 ```
-IMAGE / SANDBOX   KIND      SIZE    SHARED  OWN
-alpine-3.20       prepared  34 MiB  —       116 KiB  prepared disk e998d5b4deb3
-├─ tpl-a          template  36 MiB  33 MiB  160 KiB  from alpha
-├─ alpha          sandbox   36 MiB  33 MiB  0 B
-└─ beta           sandbox   34 MiB  34 MiB  224 KiB
+IMAGE / SANDBOX   KIND        SIZE    SHARED  OWN
+alpine-3.20       prepared    34 MiB  —       116 KiB  prepared disk e998d5b4deb3
+├─ tpl-a          saved disk  36 MiB  33 MiB  160 KiB  from alpha
+├─ alpha          sandbox     36 MiB  33 MiB  0 B
+└─ beta           sandbox     34 MiB  34 MiB  224 KiB
 ```
 
-### Templates
+### Saved disks
 
-A **template** is a sandbox's root disk saved as an image other sandboxes are created from:
+A **saved disk** is a sandbox's root disk saved as an image other sandboxes are created from:
 
 ```bash
-doz template create alpha --as node-tools --note "node 22 + pnpm"   # now (a live sandbox pauses for ms)
-doz template create alpha --from-point before-upgrade --as base-2   # or from a restore point
-doz template ls
+doz image save alpha node-tools --note "node 22 + pnpm"            # now (a live sandbox pauses for ms)
+doz image save alpha base-2 --from-point before-upgrade            # or from a restore point
+doz image ls                                                       # BASE · AGENT says "saved disk" (kind "custom" in --json)
 doz create beta --image node-tools
-doz template rm node-tools
+doz image rm node-tools
 ```
 
 - **Everything on the ROOT disk is in it**: what you installed or wrote in `/root`, `/etc`, `/usr`,
   `/opt`, caches. Don't save a secret you put there.
 - **The state disk is never in it.** An agent image keeps the agent's state (`~/.claude`,
-  `~/.pi/agent`: logins, history, tokens) on a separate state disk; a template never includes it, so a
-  template can be shared. A sandbox created from a template starts with a fresh state disk.
+  `~/.pi/agent`: logins, history, tokens) on a separate state disk; a saved disk never includes it, so it
+  can be shared. A sandbox created from a saved disk starts with a fresh state disk.
+- **Moved (757):** these were `doz template create NAME --as DISK`, `doz template ls`, `doz template rm DISK`. For one
+  release they forward here, with a notice on stderr and `"deprecated": "doz image …"` in `--json`.
 
 ### Duplicating a sandbox
 
@@ -1089,11 +1091,11 @@ templates, sandboxes, restore points, settings or keys; logs and metrics are kep
 clear them). The page is measured when you open it, on
 Refresh and when an operation ends.
 
-**Save as template…** saves the sandbox's root disk (now — a running sandbox pauses for
-milliseconds — or a restore point's) as a template: everything installed or written on the root
+**Save disk as image…** saves the sandbox's root disk (now — a running sandbox pauses for
+milliseconds — or a restore point's) as an image: everything installed or written on the root
 disk, **never the state disk** (the agent's logins and history). **Duplicate…** makes a new
 sandbox from its disk with a new name, folder, CPUs, memory, network or account; the state disk
-starts fresh unless you tick "Copy the agent's state disk too". Both are `doz template create` and
+starts fresh unless you tick "Copy the agent's state disk too". Both are `doz image save` and
 `doz duplicate`. The session buttons wait until the
 sandbox can take a session, and clicking an action again while it runs does nothing more (it is
 already under way). The list has no session count, since counting asks every session inside the
