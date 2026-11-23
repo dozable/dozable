@@ -275,7 +275,8 @@ public enum SpaceValidator {
         /// A map's keys: an unknown key (with a suggestion, or the keys there are), `x-*` always allowed.
         mutating func keys(_ v: JValue, _ p: String, _ known: [String], xOK: Bool = true, place: SpaceDozable.Place? = nil) {
             // 758: the first-class 3.1 keys of this place are the format's in a 3.1 file; in a space/3 one, refused with the fix.
-            let known = known + (v31 ? place?.firstClass ?? [] : [])
+            // (A first-class key that is a space/3 key too — the brief — is named once.)
+            let known = known + (v31 ? (place?.firstClass ?? []).filter { !known.contains($0) } : [])
             for m in SpaceDoc.members(v) where !known.contains(m.key) && !(xOK && m.key.hasPrefix("x-")) {
                 // Option A: persistence is not a space/3.1 key — the lifetime stays under x-dozable.
                 if v31, place == .top, m.key == "lifetime" {

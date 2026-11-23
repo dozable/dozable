@@ -5,12 +5,12 @@ import XCTest
 @testable import DozableCLI
 
 /// The space format's own space/3.1 vectors (`Fixtures/space31-reference/`, vendored read-only with its PIN): 15 valid
-/// files and 35 refused ones, each run through the CLI's entry for a space file (`SpaceResolver().resolve(path).check()`,
+/// files and 36 refused ones, each run through the CLI's entry for a space file (`SpaceResolver().resolve(path).check()`,
 /// what `doz space config` and `plan` do first; then, for a file that passes, the plan's own refusals of kind `invalid`,
-/// which `plan` also answers with 65). A valid vector must validate (notes allowed); a refused one must be refused with
-/// exit 65 (an invalid document) at its path, and its message, hint and line are compared exactly, as
-/// `SpaceValidationTableTests` compares the space/3 reference's rows. The three examples as space/3.1 files are checked
-/// against their recorded `config` and `plan` as `SpaceResolverTests` and `SpaceUpPlanTests` check the space/3 ones.
+/// which `plan` also answers with 65, and its notes). The match is EXACT: a valid vector has no problem at all and exactly
+/// its notes, in order (the plan's own "not applied in this version" notes aside); a refused one exits 65 with exactly one
+/// problem — its severity (error), path, line, message and hint. The three examples as space/3.1 files are checked against
+/// their recorded `config` and `plan` as `SpaceResolverTests` and `SpaceUpPlanTests` check the space/3 ones.
 ///
 /// Where Dozable and a vector disagree, the vector's id and what differs are in `knownDisagreements` — the ONE list —
 /// and nothing else: each is settled with the format's author (which side changes) before either side changes. The
@@ -47,39 +47,19 @@ final class Space31ReferenceVectorTests: XCTestCase {
         case message
         case hint
         case line
-        /// A valid vector's note that Dozable does not give in those words.
+        /// Refused with a severity other than error, or with more problems than the vector's one (a valid vector: any).
+        case problems
+        /// A valid vector's notes are not exactly Dozable's.
         case notes
     }
 
-    /// THE list: every vector (by id) and example (`example:NAME`) Dozable disagrees with, and how. Settled with the
-    /// format's author: Dozable's words are the canonical ones and the vectors are re-cut to them, so what is left is
-    /// wording — and V12, whose refusal Dozable keeps (the author splits that vector). Empty when the two agree.
+    /// THE list: every vector (by id) and example (`example:NAME`) Dozable disagrees with, and how. Empty when the two
+    /// agree on everything.
     static let knownDisagreements: [String: Set<Difference>] = [
-        // Kept on purpose: in space/3, brief: plus x-dozable.brief is one key in two places (65 at /x-dozable/brief).
-        "V12": [.verdict, .notes],
-        // Words: refused at the same path and line, in Dozable's words.
-        "E01": [.message, .hint],
-        "E02": [.message, .hint],
-        "E03": [.message, .hint],
-        "E04": [.message, .hint],
-        "E05": [.message, .hint],
-        "E06": [.message, .hint],
-        "E07": [.message, .hint],
-        "E08": [.message, .hint],
-        "E09": [.message, .hint],
-        "E10": [.message, .hint],
-        "E11": [.message, .hint],
-        "E12": [.message, .hint],
-        "E13": [.message, .hint],
-        "E14": [.message, .hint],
-        "E16": [.message, .hint],
-        "E21": [.hint],
-        "E23": [.message, .hint],
-        "E26": [.hint],
-        "E30": [.hint],
-        // Notes: a valid vector's notes, in Dozable's words.
-        "V10": [.notes],
-        "V11": [.notes],
+        // The vector still lists brief twice in its hint; Dozable now names it once (the vector to be re-cut).
+        "E23": [.hint],
+        // The vector's notes end ", under doz: space/3.1"; Dozable's ", with the version line doz: space/3.1" (to settle).
+        "V12": [.notes],
     ]
 
     /// A vector or example the list says Dozable reaches another verdict on.
@@ -131,6 +111,9 @@ final class Space31ReferenceVectorTests: XCTestCase {
         return Verdict(problems: problems, refusals: i.refusals, notes: i.notes, exit: exit)
     }
 
+    /// The plan's own notes of what this version does not apply yet: not the format's, never compared.
+    static func isPlansOwn(_ note: String) -> Bool { note.hasSuffix("not applied in this version") }
+
     /// How Dozable differs from one vector (empty: they agree).
     func differences(_ v: Vector, _ got: Verdict) -> (Set<Difference>, String) {
         var diff = Set<Difference>()
@@ -140,14 +123,15 @@ final class Space31ReferenceVectorTests: XCTestCase {
             if got.exit != 0 || !errors.isEmpty {
                 diff.insert(.verdict)
                 said += errors.map { "refused \($0.pointer): \($0.message)" }
+            } else if !got.problems.isEmpty {
+                diff.insert(.problems)
+                said += got.problems.map { "\($0.severity) \($0.pointer): \($0.message) | \($0.hint ?? "-")" }
             }
-            // Notes are allowed; each the vector gives must be among Dozable's notes or warnings, in its words.
-            let ours = got.notes + got.problems.filter { !$0.isError }.map { "\($0.pointer) \($0.message) \($0.hint ?? "")" }
-            for n in v.notes where !ours.contains(where: { $0.contains(n.message) }) {
+            let ours = got.notes.filter { !Self.isPlansOwn($0) }
+            if ours != v.notes.map(\.message) {
                 diff.insert(.notes)
-                said.append("no note \"\(n.message)\" (\(n.path))")
+                said += v.notes.map { "vector note: \($0.message)" } + ours.map { "our note: \($0)" }
             }
-            if diff.contains(.notes) { said += ours.map { "our note: \($0)" } }
             return (diff, said.joined(separator: "\n"))
         }
         let want = v.problem!
@@ -156,9 +140,15 @@ final class Space31ReferenceVectorTests: XCTestCase {
             said.append("accepted (exit \(got.exit)); notes: \(got.notes)")
             return (diff, said.joined(separator: "\n"))
         }
-        guard let p = errors.first(where: { $0.pointer == want.path }) else {
+        let all = got.problems.map { (severity: $0.severity, pointer: $0.pointer, message: $0.message, hint: $0.hint, line: Optional($0.line)) }
+            + got.refusals.filter { $0.code == "invalid" }.map { (severity: "error", pointer: $0.pointer, message: $0.message, hint: String?.none, line: Int?.none) }
+        if all.count != 1 || all[0].severity != "error" {
+            diff.insert(.problems)
+            said += all.map { "\($0.severity) \($0.pointer): \($0.message) | \($0.hint ?? "-")" }
+        }
+        guard let p = all.first(where: { $0.pointer == want.path && $0.severity == "error" }) else {
             diff.insert(.path)
-            said += errors.map { "refused at \($0.pointer): \($0.message) | \($0.hint ?? "-")" }
+            said += all.map { "refused at \($0.pointer): \($0.message) | \($0.hint ?? "-")" }
             return (diff, said.joined(separator: "\n"))
         }
         if p.message != want.message { diff.insert(.message); said.append("message: \(p.message)") }
@@ -169,9 +159,9 @@ final class Space31ReferenceVectorTests: XCTestCase {
 
     func testEveryVectorThroughTheValidator() throws {
         let vs = try Self.vectors()
-        XCTAssertEqual(vs.count, 50)
+        XCTAssertEqual(vs.count, 51)
         XCTAssertEqual(vs.filter(\.ok).count, 15)
-        XCTAssertEqual(Set(vs.map(\.id)).count, 50, "ids are unique")
+        XCTAssertEqual(Set(vs.map(\.id)).count, 51, "ids are unique")
         var found: [String: Set<Difference>] = [:]
         var report = ""
         for v in vs {
@@ -214,7 +204,7 @@ final class Space31ReferenceVectorTests: XCTestCase {
                 JMember("notes", .array(got.notes.map { .string($0) })),
             ]))
         }
-        XCTAssertEqual(rows.count, 50)
+        XCTAssertEqual(rows.count, 51)
         let doc: JValue = .object([JMember("about", .string("Dozable's answer to each space/3.1 vector: doz space config's check, then (for a file that passes) the plan's refusals and notes. exit 65 = an invalid document. problems are errors and warnings, each with its JSON path, file and line.")),
                                    JMember("vectors", .array(rows))])
         let out = String(decoding: ChatJSON.encodeIndented(doc, indent: "  "), as: UTF8.self) + "\n"
@@ -307,7 +297,7 @@ final class Space31ReferenceVectorTests: XCTestCase {
     func testThePinCoversEveryVendoredFile() throws {
         let root = Self.fixtures
         let pin = try String(contentsOf: root.appendingPathComponent("PIN"), encoding: .utf8)
-        XCTAssertTrue(pin.contains("peer-commit 77dcde8b8dd1cfe1f953c525817716ef2e33caf0"))
+        XCTAssertTrue(pin.contains("peer-commit 832365305cb9bfea1f35404317f12adb25ae427a"))
         let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)!.compactMap { $0 as? URL }
             .filter { !$0.hasDirectoryPath && $0.lastPathComponent != "PIN" }
         XCTAssertEqual(files.count, 11)
