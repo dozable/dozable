@@ -64,7 +64,9 @@ extension HostCore {
         if let r = rec.openRun { return r }
         let seqs = await roomLastSeqs(rec)
         let revision = WorkspaceRuns.descriptionRevision((try? workspaces.log(n)) ?? [])
-        let brief = opening.goal == nil ? (workspaceBriefText(rec) ?? "") : nil
+        // 766: no goal → the work description: the brief and its addenda.
+        await syncProposals(n)
+        let brief = opening.goal == nil ? WorkDescription.goal(brief: workspaceBriefText(rec) ?? "", addenda: (try? workspaceRecord(n))?.addenda ?? rec.addenda) : nil
         var opened: WorkspaceRun?
         _ = try await workspaceUpdate(n) { r in
             if let o = r.openRun { opened = o; return [] }

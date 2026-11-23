@@ -29,9 +29,11 @@ struct WorkspaceCommand: AsyncParsableCommand {
 
         doz workspace run W [GOAL] opens a run — a unit of work, the brief its goal unless you give one; one at a time \
         (finish closes it). reopen is its old name.
+
+        The work description is the brief plus its addenda: doz workspace retro W --propose --addendum TEXT proposes a         lesson (you are asked in its room), doz workspace decide W PROPOSAL apply|decline decides one, and doz workspace         edit W --addendum TEXT adds one directly. A run with no goal takes the brief and every addendum.
         """,
         subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceManagerCommand.self, WorkspaceSleep.self,
-                      WorkspaceWake.self, WorkspaceFinish.self, WorkspaceRunVerb.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
+                      WorkspaceWake.self, WorkspaceFinish.self, WorkspaceRunVerb.self, WorkspaceRetroCommand.self, WorkspaceDecideCommand.self, WorkspaceProposalsCommand.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
                       WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceStateCommand.self, WorkspaceDocCommand.self, WorkspaceRename.self,
                       SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
 }
@@ -433,7 +435,13 @@ struct WorkspaceRelease: AsyncParsableCommand {
 
 struct WorkspaceEdit: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "edit", abstract: "Change a workspace's brief, references, folders or manager, or make its room.",
-        discussion: "Once the work has started, a new brief is announced in its room as your message (\"I edited the work:\" and the new text); while it is setting up nothing is posted.")
+        discussion: """
+        Once the work has started, a new brief is announced in its room as your message ("I edited the work:" and the new \
+        text); while it is setting up nothing is posted. --addendum TEXT (alone, with --run RUN to say which run it comes \
+        from) adds TEXT to the work description's addenda directly — no proposal, no Ask; every later run with no goal \
+        takes it. --json then answers {kind: WorkspaceAddendum, workspace, addendum: {run, at, by, text}, revision, \
+        addenda}. An agent acting with --as W/AGENT needs the permission description.edit (exit 9 without it).
+        """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The workspace.") var name: String
     @Option(name: .customLong("prompt-file"), help: "A new brief: a file, or - for standard input.") var promptFile: String?
@@ -452,7 +460,10 @@ struct WorkspaceEdit: AsyncParsableCommand {
     var spaceFile: String?
     @Option(name: .customLong("if-match"), help: "With --space-file: the sha256 of the space file as you read it (doz workspace show W --space --json). Changed since: nothing is written.")
     var ifMatch: String?
+    @Option(name: .customLong("addendum"), help: "Add this to the work description's addenda (alone: no proposal, no Ask).") var addendum: String?
+    @Option(name: .customLong("run"), help: "With --addendum: the run it comes from (doz workspace runs W).") var run: String?
     func run() async throws {
+        if addendum != nil || run != nil { return try addAddendum() }
         if spaceFile != nil || ifMatch != nil { return try saveSpaceFile() }
         var w = WorkspaceRequest(name: name)
         if let ifBrief {
@@ -473,6 +484,20 @@ struct WorkspaceEdit: AsyncParsableCommand {
         let d = try decode(try call(workspaceRequest(.workspaceEdit, w), g), WorkspaceDetail.self, g)
         if g.json { Out.json(d); return }
         printWorkspace(d)
+    }
+
+    /// `--addendum TEXT [--run RUN]` (alone): `workspace-addendum` — the work description changed directly.
+    func addAddendum() throws {
+        guard let text = addendum else { throw fail(HostError(.usage, "--run goes with --addendum"), g) }
+        let others = promptFile != nil || !addRefs.isEmpty || !removeRefs.isEmpty || !addFolders.isEmpty || !removeFolders.isEmpty || makeRoom
+            || manager != nil || managerIsolation != nil || noManager || ifBrief != nil || spaceFile != nil || ifMatch != nil
+        if others { throw fail(HostError(.usage, "--addendum adds to the work description alone — change the rest in another edit"), g) }
+        var w = WorkspaceRequest(name: name)
+        w.addendum = text
+        w.run = run
+        let a = try decode(try call(workspaceRequest(.workspaceAddendum, w), g), WorkspaceAddendumAdded.self, g)
+        if g.json { Out.json(a); return }
+        Out.stdout("\(a.workspace): added to the work description (revision \(a.revision), \(a.addenda) addend\(a.addenda == 1 ? "um" : "a"))\n")
     }
 
     /// `--space-file F --if-match SHA` (alone): `workspace-space-save` — the text written over the recorded space file only

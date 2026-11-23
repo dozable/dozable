@@ -88,6 +88,7 @@ public enum RecordDocument {
         // The brief held here, the network default; x-dozable: the lifetime (always written; held — not a 3.1 key).
         var brief: [JMember] = [JMember("text", .string(i.briefText))]
         if !rec.brief.refs.isEmpty { brief.append(JMember("refs", .strings(rec.brief.refs))) }
+        if !rec.addenda.isEmpty { brief.append(JMember("addenda", addendaValue(rec.addenda))) }
 
         var top: [JMember] = [
             JMember("doz", .string(SpaceFormat.doz31)),
@@ -270,7 +271,34 @@ public enum RecordDocument {
         }
         append("agents", extras)
         append("sandboxes", sandboxes)
+        // 766: the work description's addenda are the record's — in the brief's map (a brief written as a file's path
+        // becomes `{file: PATH}`, the same brief).
+        if !record.addenda.isEmpty {
+            let add = JMember("addenda", addendaValue(record.addenda))
+            if let i = top.firstIndex(where: { $0.key == "brief" }) {
+                if case .object(var m) = top[i].value { m.removeAll { $0.key == "addenda" }; m.append(add); top[i].value = .object(m) }
+                else if let path = SpaceDoc.string(top[i].value) { top[i].value = .object([JMember("file", .string(path)), add]) }
+            } else if let i = top.firstIndex(where: { $0.key == SpaceDozable.key }), case .object(var x) = top[i].value,
+                      let j = x.firstIndex(where: { $0.key == "brief" }), case .object(var m) = x[j].value {
+                m.removeAll { $0.key == "addenda" }
+                m.append(add)
+                x[j].value = .object(m)
+                top[i].value = .object(x)
+            }
+        }
         return Generated(document: .object(top), notes: notes)
+    }
+
+    /// The addenda as the document holds them: `[{run?, at, by, text}]`, oldest first.
+    static func addendaValue(_ addenda: [WorkspaceAddendum]) -> JValue {
+        .array(addenda.map { a in
+            var m: [JMember] = []
+            if let r = a.run { m.append(JMember("run", .string(r))) }
+            m.append(JMember("at", .string(HostWire.isoFormatter().string(from: a.at))))
+            m.append(JMember("by", .string(a.by)))
+            m.append(JMember("text", .string(a.text)))
+            return .object(m)
+        })
     }
 
     // MARK: the two forms

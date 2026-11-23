@@ -108,7 +108,9 @@ extension ChatServerCore {
     // MARK: - Posting
 
     /// Checks what an asker sent and makes the ask it will be, in the reference's order and words. Under `askLock`.
-    func newAsk(_ st: ChatRoomStore, room: String, asker: String, question: String, spec: ChatAskSpec?) -> Result<ChatAsk, ChatAPIError> {
+    /// `system`: Dozable's own ask (`systemAsk`, from `ChatProtocol.systemName`) — no per-asker limit and no cooldown: it is
+    /// one ask per proposal, never a participant's.
+    func newAsk(_ st: ChatRoomStore, room: String, asker: String, question: String, spec: ChatAskSpec?, system: Bool = false) -> Result<ChatAsk, ChatAPIError> {
         func no(_ s: String) -> Result<ChatAsk, ChatAPIError> { .failure(ChatAPIError(status: 422, description: s)) }
         guard let spec else { return no(#"an ask needs an ask object: {"questions":[{"options":[{"id":"yes","label":"Yes"}]}]}"#) }
         if Self.trimSpace(question).isEmpty { return no("an ask needs a question: message.content is the question") }
@@ -155,11 +157,11 @@ extension ChatServerCore {
         // against wearing the human down: so many open asks per asker and room, and no asking the same again at once
         expireDue(room, st)
         let most = config.askMaxOpenValue
-        if st.openAsksOf(asker) >= most {
+        if !system, st.openAsksOf(asker) >= most {
             return no("\(asker) already has \(most) open ask(s) in room \(room), the most it may have: withdraw one or wait for its outcome")
         }
         let cd = config.askCooldown
-        if cd > 0, let at = st.declinedSince(asker, about: a.about, since: chatNow() - cd) {
+        if !system, cd > 0, let at = st.declinedSince(asker, about: a.about, since: chatNow() - cd) {
             let again = ChatTime(sec: Int64((at + cd).rounded(.down)), nsec: 0).format(fraction: false)
             return no("an ask from \(asker) about the same thing was declined or expired a moment ago: ask again after \(again)")
         }
@@ -202,14 +204,15 @@ extension ChatServerCore {
     }
 
     /// What decide and withdraw share: asks are on, the room exists, the caller is in it, it is not archived (nor closed).
-    private func askGate(_ room: inout String, _ who: String) -> (ChatRoomStore?, ChatReceipt) {
+    /// `closed` false: the closed check is the caller's, once it knows the ask (Dozable's own is answered in a closed room).
+    private func askGate(_ room: inout String, _ who: String, closed: Bool = true) -> (ChatRoomStore?, ChatReceipt) {
         if !asksOn { return (nil, .refused(Self.askOff)) }
         if room.isEmpty { room = config.defaultRoom }
         let st: ChatRoomStore
         do { st = try store(room) } catch { return (nil, .refused("\(error)")) }
         if !member(room, who) { return (nil, .refused("\(who) is not a member of room \(room)")) }
         if isArchived(room) { return (nil, .refused("room \(room) is archived: its asks cannot be answered. A human can reopen it with /unarchive")) }
-        if let no = closedRefusal(room) { return (nil, no) }
+        if closed, let no = closedRefusal(room) { return (nil, no) }
         return (st, ChatReceipt(""))
     }
 
@@ -244,13 +247,15 @@ extension ChatServerCore {
 
     private func decideOnce(_ roomIn: String, _ who: String, _ ref: String, _ input: ChatDecideInput, _ via: String, _ verified: Bool) -> ChatReceipt {
         var room = roomIn
-        let (gate, refusal) = askGate(&room, who)
+        let (gate, refusal) = askGate(&room, who, closed: false)
         guard let st = gate else { return refusal }
         let m: ChatStored
         switch findAsk(st, room: room, who: who, ref: ref) {
         case .failure(let e): return .refused(e.description)
         case .success(let x): m = x
         }
+        // A closed room answers no ask — but Dozable's own (a proposal about the run that closed it: ChatSystemAsks.swift).
+        if m.from != ChatProtocol.systemName, let no = closedRefusal(room) { return no }
         askLock.lock()
         defer { askLock.unlock() }
         guard var a = st.askOf(m.msgID) else { return .refused("msg \(Self.short(m.msgID)) is not an ask") }
@@ -419,6 +424,7 @@ extension ChatServerCore {
             guard let st = try? store(room) else { continue }
             askLock.withLock {
                 for (id, _) in st.openAsks() {
+                    if (try? st.one(id))?.from == ChatProtocol.systemName { continue }   // Dozable's own stays open (ChatSystemAsks.swift)
                     let note = "Your ask \(Self.short(id)) in room \(room) expired: room \(room) was closed, so its answer is the one set for expiry: decline (Decline)."
                     expireLocked(room, st, id, note: note, declined: false)
                 }

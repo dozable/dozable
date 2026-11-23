@@ -33,6 +33,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableHost/HostCore+WorkspaceLifecycle.swift` | the `WorkspaceAgentLifecycle` seam (`DaemonAgentLifecycle`: hibernate, wake, start, shut down, template, rm, a session's end, restart and forgetting), the facts (`agentFacts`, `workspaceLifecycleFacts`), `workspace-lifecycle-plan`, the seven verbs (`workspaceLifecycle`: the gate, `ifPlan`, the queue), `workerWake`, `retireWorker`, `removeOwnSandboxes`, `WorkspaceBin` |
 | `Sources/DozableCLI/WorkspaceLifecycleCommands.swift` | `doz workspace stop | manager stop | sleep | wake | finish | reopen | archive | restore | delete` (the plan's text, the questions and their `fix`, `--dry-run`, `--if-plan`); `runWorkspaceFinish`, the one path of finish and `down` |
 | `Tests/DozableCLITests/WorkspaceLifecycleTests.swift`, `WorkspaceLifecycleHostTests.swift`; `Sources/doz-vmtest/CLIWorkspaceLifecycleRows.swift` | the builder over every kind of agent; the verbs in an in-process core with fakes (the order, `ifPlan`, a partial failure, archive and restore, delete, the Bin's seam, the dashboard's confirmations); `make test-cli-workspace` rows L1–L14 |
+| `Sources/DozableHost/WorkspaceProposals.swift`, `HostCore+Proposals.swift`; `Sources/DozableChat/ChatSystemAsks.swift`; `Sources/DozableCLI/WorkspaceDescriptionCommands.swift`; `Tests/DozableCLITests/WorkDescriptionTests.swift` | the work description (0.52.47): addenda, proposals and their Ask, `retro`, `decide`, `proposals`, `edit --addendum` ("The work description and proposals", below) |
 | `Sources/DozableHost/WorkspaceRuns.swift`, `HostCore+Runs.swift`; `Sources/DozableCLI/WorkspaceRunsCommands.swift`; `Tests/DozableCLITests/WorkspaceRunVerbTests.swift` | runs: `WorkspaceRuns` (ids, markers, the closed set; 0.52.46: `source`, `descriptionRevision`, `durationMs`), `WorkspaceRunOpened`, `WorkspaceRunsListing`; `openRun`, `closeRun`, `workspace-run` (`workspaceRunOpen`, `reopenRecord`), `workspace-runs`, the archive; `doz workspace run` and `runs` ("Runs", below) |
 | `Sources/DozableHost/WorkspaceReach.swift` | `workspace-reach`'s answer — `WorkspaceReach`, `AgentReach`, `AgentNetworkReach`, `ReachRefusal`, `HeldSecret` (`held`: never a value; a chat token's fingerprint never carried), `ReachFolder` — and `AgentCapabilities.rows` (pure: "what it can do" for any agent; an `@mac` agent's `MacFence.capabilities` unchanged, then its control and its room) |
 | `Sources/DozableHost/WorkspaceChangedFiles.swift` | the changed-files walk (never a program: files.md), `WorkspaceFolders` (`workspace-folders`' answer), `WorkspaceLogPage` |
@@ -716,8 +717,10 @@ What a run records (`RunOpening` → `WorkspaceRun`): `goal` (the brief's text a
 (`given` | `brief`), `source` `{kind, ref?, revision?}` (`given` or `brief` unless `--source`; `brief` carries the revision),
 `follows`, `openedBy` (`owner`, or the agent's name from `--as`), and `revision` — the work description's revision it read.
 Until a revision store keeps the document's revisions, that is `WorkspaceRuns.descriptionRevision`: 1 when the workspace was
-made, one more for each `brief-edited` or `refs-edited` line of its log. The first start's run, a reopen's and an up's record
-the brief (`goalFrom: brief`, `openedBy: owner`).
+made, one more for each `brief-edited`, `refs-edited` or (0.52.47) `addendum-added` line of its log. The first start's run, a
+reopen's and an up's record the brief (`goalFrom: brief`, `openedBy: owner`). Since 0.52.47 "the brief" a run takes is the
+work description: the brief and every addendum (`WorkDescription.goal` — the brief, then `Addenda to the work description:`
+and one `- TEXT (from run R)` line each); the manager's start text carries the same.
 
 The answer, `WorkspaceRunOpened` (`--json`): `{kind: "WorkspaceRun", schema: 1, workspace, id, state: "open", goal, goalFrom,
 source: {kind, ref?, revision?}, follows?, openedAt (ISO 8601), openedBy, revision (a number), usage: {durationMs}, posted,
@@ -744,6 +747,64 @@ run); a space with no open run that was started before (an earlier `up --no-run`
 step; a new one opens its first at the kick-off. `up --no-run` (`SpaceRequest.noRun`, in the plan and its sha) opens none:
 the down space is reopened with `noRun`, a new one is started with `WorkspaceRequest.noRun` (`startedAt` set, the brief not
 posted), and a space with a scratch folder (which lives in a run) is refused (65).
+
+### The work description and proposals (0.52.47)
+
+The work description is the brief plus its **addenda** — `WorkspaceRecord.addenda` (additive; written only while there is
+one, so an older doz keeps it as an unknown field), each `WorkspaceAddendum {run?, at, by, text}`, oldest first, never
+rewriting the brief. The document shows them as `brief.addenda` (`RecordDocument.generate`, and `merge` for a space file's —
+absent when empty); a space file may carry `brief.addenda` (the validator checks `[{run?, at, by, text}]`) and up keeps the
+record's own. Each addendum is a revision of the description: `addendum-added` in the log (its `bytes` and `sha256` and the
+run, never the text). Code: `WorkspaceProposals.swift` (the types, `WorkDescription`), `HostCore+Proposals.swift`,
+`Sources/DozableCLI/WorkspaceDescriptionCommands.swift`, `ChatSystemAsks.swift`; tests `WorkDescriptionTests`.
+
+- **`workspace-retro`** (`doz workspace retro W [RUN] --propose --addendum TEXT`): a `WorkspaceProposal` — `{kind:
+  "WorkspaceProposal", id: "pr-XXXXXXXX", workspace, origin: "retro", state: "open", change: {addendum}, by, at, source:
+  {run}, askId?, askNumber?, room?, notes?}`. RUN defaults to the last run, closed or open (none: `invalid-phase`, 3; one that
+  is not the workspace's: 2); the addendum is not empty and at most 16 KiB (65). Kept in `<store>/workspaces/<W>/proposals.json`
+  (`WorkspaceProposalsFile`, `{version: 1, proposals: […]}`, 0600, written atomically under the `proposals:W` gate), so it
+  outlives a daemon restart; `proposal-made` in the log. Then its **Ask**, in the main room: Dozable's own (below), one
+  option `apply` ("Apply"; decline is every ask's), the question naming the lesson, who proposed it and the run, `about:
+  {proposal, workspace}`. No room or chat not ready: no Ask, a note naming `doz workspace decide`.
+- **Deciding.** The owner answering the Ask — in chat, the dashboard, or `doz chat decide ROOM N apply|--decline` — decides it:
+  Apply → **applied** (the addendum added, `{run: source.run, by: the proposer, at}`; `addendum-added` and
+  `proposal-applied`), decline → **declined** (`proposal-declined`); an Ask that expires (to decline) declines it. The daemon
+  reads the outcome (`syncProposals`: the Ask looked up on the owner's socket) at once after a `chat-decide` it serves
+  (`proposalsAfterDecision`), and otherwise whenever the proposals are read — `workspace-doc`, `workspace-proposals`, a run's
+  opening, `workspace-decide`. `decidedBy`, `decidedAt` and `decidedHow` (`ask`, `decide`, `expired`) say how.
+- **`workspace-decide`** (`doz workspace decide W PROPOSAL apply|decline`): an open proposal applied or declined
+  (`decidedHow: decide`); one decided already — here or in chat — is `proposal-decided` (3); an unknown id 2; anything but
+  apply or decline 65. Its Ask is then closed by Dozable (`systemAskClose`: withdrawn, and a change line under the chat server's
+  own name — "Proposal pr-… was applied: …"). Dozable never answers an Ask as an agent: the decision is the proposal's, the Ask
+  only closes.
+- **`workspace-addendum`** (`doz workspace edit W --addendum TEXT [--run RUN]`, alone): an addendum added directly — no
+  proposal, no Ask — answered `{kind: "WorkspaceAddendum", workspace, addendum, revision, addenda}`.
+- **`workspace-proposals`** (`doz workspace proposals W [--json]`, read-only, in-process with no daemon): `{kind:
+  "WorkspaceProposals", workspace, proposals}`, oldest first.
+
+**Permissions.** The owner is never gated. An agent (`--as W/AGENT`) needs `description.propose` for `workspace-retro`,
+`description.decide` for `workspace-decide` (its own proposals too) and `description.edit` for `workspace-addendum`
+(`ActionClasses`); `workspace-proposals` needs `workspace.read`. All three are off for an agent until granted (no role names
+them but `reviewer`'s `description.propose`), so the default is the gate's refusal, `not-permitted` (9), naming the id. The
+`reviewer` grant role (`RoleTable`) is `journal.write`, `evidence.attach` and `description.propose`, allow:
+`doz grant AGENT reviewer --in W`. `journal.read`, `journal.write`, `journal.supersede` and `evidence.attach` are known ids
+for the journal (UOW-MVP part B) that gate nothing yet.
+
+**Dozable's own Ask** (`ChatSystemAsks.swift`). The one who asks cannot answer, and Dozable never speaks for an agent, so a
+proposal's Ask is posted under the chat server's own name (`ChatProtocol.systemName`, which no participant can have) over
+the daemon's control channel — `{"systemAsk": {room, msgId, question, ask}}` answered `{"asked": {msgId, number}}`, and
+`{"systemAskClose": {room, msgId, outcome}}` answered `{"closedAsk": STATE}` (`ChatSupervisor.control`,
+`WorkspaceChat.control`) — never an HTTP route, a file or a slash command. Its deciders are the room's people. A proposal is
+about a run that is over, so its room is usually closed (the workspace finished): a closed room refuses every post and
+decision and expires its open asks, **except Dozable's own** — posted, answered and left open there (an archived room still
+refuses it); no per-asker limit or cooldown applies to it.
+
+**A space file's permissions.** `x-dozable.permissions: {IDENTITY: [ROLE or PERMISSION, …]}` (held: space/3.1 keeps it under
+`x-dozable`) is validated — each word a grant role (not `owner`) or a known permission id, else a problem listing both (65 on
+plan and up) — and compiled into the plan's requests (`SpaceIntent.requests`: one per role, the permissions with the first):
+the summary's `Requested, not granted: helper — role reviewer, description.decide (asked in x-dozable.permissions; the owner
+grants; FILE:LINE). The owner grants with doz permissions grant.` Up records them as every request is recorded and grants
+nothing — show-only is the contract for now.
 
 ## The archive
 

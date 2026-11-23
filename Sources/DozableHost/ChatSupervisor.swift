@@ -793,6 +793,22 @@ public final class ChatSupervisor: @unchecked Sendable {
         }
     }
 
+    /// 766: one of Dozable's own control requests (`systemAsk`, `systemAskClose` — ChatSystemAsks.swift) to the running
+    /// server: its answer line, or why there is none. A `refused` answer is thrown as `invalidPhase` with the server's words.
+    public func control(_ field: String, _ body: JValue, seconds: Double = 10) async throws -> JValue {
+        try await runThrowing {
+            guard let c = self.child, c.ready, let fd = c.control else { throw HostError(.unavailable, "chat is not ready — doz chat status") }
+            self.controlID += 1
+            let rid = "s\(self.controlID)"
+            let req = ChatJSON.encode(.map(["version": .int(1), "id": .string(rid), field: body])) + [0x0A]
+            guard let v = self.exchange(fd, req, seconds: seconds, what: field, matches: { $0.field("id")?.stringValue == rid }) else {
+                throw HostError(.unavailable, "the chat server did not answer (\(field))")
+            }
+            if let why = v.field("refused")?.stringValue { throw HostError(.invalidPhase, why) }
+            return v
+        }
+    }
+
     /// Asks the running server to take the files it was just written (`ChatReload`): one request line, one answer within
     /// `reloadSeconds`. True only when it answered `reloaded` with these files' sha; anything else is logged and the
     /// caller restarts it.

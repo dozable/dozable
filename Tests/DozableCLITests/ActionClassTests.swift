@@ -10,7 +10,7 @@ final class ActionClassTests: XCTestCase {
     static let table: [HostOp: [String]] = [
         .workspaceShow: ["workspace.read"], .workspaceLog: ["workspace.read"], .workspaceReach: ["workspace.read"],
         .workspaceFolders: ["workspace.read"], .workspaceRuns: ["workspace.read"], .workspaceRunChat: ["workspace.read"],
-        .workspaceDoc: ["workspace.read"],
+        .workspaceDoc: ["workspace.read"], .workspaceProposals: ["workspace.read"],
         .workerList: ["workspace.read"], .permissionsShow: ["workspace.read"], .permissionsWhy: ["workspace.read"], .sessionScreen: ["workspace.read"],
         .workspaceStart: ["agent.start"], .start: ["agent.start"], .wake: ["agent.start"], .resume: ["agent.start"],
         .sessionResume: ["agent.start"], .sessionRestart: ["agent.start"], .openSession: ["agent.start"],
@@ -26,6 +26,7 @@ final class ActionClassTests: XCTestCase {
         .chatAsk: ["chat.post"], .chatWithdraw: ["chat.post"], .chatDecide: ["chat.decide"], .chatAsks: ["chat.read"],
         .workspaceSleep: ["workspace.sleep"], .workspaceWake: ["workspace.sleep"],
         .workspaceRun: ["run.open"], .workspaceReopen: ["run.open"], .workspaceFinish: ["run.finish"],
+        .workspaceRetro: ["description.propose"], .workspaceDecide: ["description.decide"], .workspaceAddendum: ["description.edit"],
         .workspaceArchive: ["workspace.archive"], .workspaceRestore: ["workspace.archive"], .workspaceRunArchive: ["workspace.archive"],
         .workspaceDelete: ["workspace.delete"],
         .botNew: ["bot.manage"], .botSet: ["bot.manage"], .botRetire: ["bot.manage"], .botAdopt: ["bot.manage"],

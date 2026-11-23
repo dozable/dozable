@@ -171,6 +171,10 @@ public final class HostServer: @unchecked Sendable {
            remove: { [weak server] room, id, last in
                guard let server else { throw HostError(.unavailable, "the daemon is stopping") }
                try await server.chat.removeRoom(room, id: id, lastSeq: last)
+           },
+           control: { [weak server] field, body in
+               guard let server else { throw HostError(.unavailable, "the daemon is stopping") }
+               return try await server.chat.control(field, body)
            }))
         // The closed set, worked out from the records, handed to the chat server (kept for its every start).
         Task.detached { await server.core.pushClosedSet() }

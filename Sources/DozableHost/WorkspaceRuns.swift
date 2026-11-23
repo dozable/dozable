@@ -99,11 +99,11 @@ public enum WorkspaceRuns {
         return WorkspaceRunSource(kind: kind, ref: ref)
     }
 
-    /// The revision of the work description (the brief and its references) as the log tells it: 1 when the workspace was
+    /// The revision of the work description (the brief, its references and, 766, its addenda) as the log tells it: 1 when the workspace was
     /// made, one more for each edit of either since. Until a revision store keeps the document's revisions, this is the
     /// number a run records as the one it read.
     public static func descriptionRevision(_ log: [WorkspaceLogEntry]) -> Int {
-        1 + log.filter { $0.action == "brief-edited" || $0.action == "refs-edited" }.count
+        1 + log.filter { $0.action == "brief-edited" || $0.action == "refs-edited" || $0.action == "addendum-added" }.count
     }
 
     /// A run's length in milliseconds (to now while open).

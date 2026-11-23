@@ -303,6 +303,18 @@ extension SpaceIntent {
         }
         i.secrets = model.resources.filter { $0.section == .secrets }.map(\.name)
 
+        // 766: the workspace's own permissions (`x-dozable.permissions`): each a request the plan shows — the owner grants.
+        for (who, roles, grants) in SpaceDozable.permissions(doc) {
+            let reason = "asked in x-dozable.permissions; the owner grants"
+            let at = src("/" + SpaceDozable.key + "/permissions/" + who)
+            if roles.isEmpty {
+                if !grants.isEmpty { i.requests.append(Request(agent: who, role: nil, grants: grants, reason: reason, source: at)) }
+            } else {
+                for (k, role) in roles.enumerated() {
+                    i.requests.append(Request(agent: who, role: role, grants: k == 0 ? grants : [], reason: reason, source: at))
+                }
+            }
+        }
         // Approvals: a decider other than the owner is a request; `owner` is the default.
         let deciders = SpaceDoc.strings(SpaceDoc.at(doc, "/approvals/deciders"))
         i.deciders = deciders

@@ -35,7 +35,7 @@ public enum SpaceDozable {
         /// What `x-dozable` holds here (the x-dozable form: every 3.1 key, first-class or held).
         public var dozableKeys: [String] {
             switch self {
-            case .top: ["lifetime", "brief", "network", "about", "layout"]
+            case .top: ["lifetime", "brief", "network", "about", "layout", "permissions"]
             case .folder: ["main", "lifetime"]
             case .agent: ["restart", "network", "external", "lifetime"]
             case .room, .sandbox: ["lifetime"]
@@ -68,8 +68,27 @@ public enum SpaceDozable {
         }
     }
 
-    public static let briefKeys = ["text", "file", "refs"]
+    public static let briefKeys = ["text", "file", "refs", "addenda"]
+    /// 766: an addendum of the work description, as the document writes it.
+    public static let addendumKeys = ["run", "at", "by", "text"]
     public static let networkKeys = ["preset", "allow"]
+
+    /// 766: the roles `x-dozable.permissions` may ask for (the owner's role is never an agent's).
+    public static var requestableRoles: [String] { RoleTable.names.filter { $0 != "owner" } }
+
+    /// Why `w` cannot be asked for in `x-dozable.permissions` (nil: a role, or a permission id).
+    public static func permissionRefusal(_ w: String) -> String? {
+        if requestableRoles.contains(w) || GrantPermissions.isKnown(w) { return nil }
+        return "not a role or a permission"
+    }
+
+    /// `x-dozable.permissions` read: identity → its roles and its permissions, in the file's order.
+    public static func permissions(_ doc: JValue?) -> [(identity: String, roles: [String], grants: [String])] {
+        SpaceDoc.members(SpaceDoc.member(of(doc), "permissions")).map { m in
+            let words = SpaceDoc.strings(m.value)
+            return (m.key, words.filter { requestableRoles.contains($0) }, words.filter { GrantPermissions.isKnown($0) })
+        }
+    }
     public static let aboutKeys = ["title", "summary", "description", "icon", "tags", "category", "needs"]
     public static let externalKeys = ["sandbox"]
 
@@ -261,6 +280,15 @@ extension SpaceValidator.Schema {
         if let t = SpaceDoc.member(x, "text") { _ = type(t, "string", q + "/text") }
         if let f = SpaceDoc.member(x, "file") { text(f, q + "/file", nonEmpty: true) }
         if let r = SpaceDoc.member(x, "refs") { strings(r, q + "/refs", nonEmpty: true); notEmpty(r, q + "/refs", "\(label).refs") }
+        // 766: the work description's addenda (the document writes them; up keeps the record's own — they are not applied).
+        if let ad = SpaceDoc.member(x, "addenda"), type(ad, "array", q + "/addenda"), case .array(let items) = ad {
+            for (k, item) in items.enumerated() {
+                let r = q + "/addenda/\(k)"
+                guard strictMap(item, r, SpaceDozable.addendumKeys, "\(label).addenda[\(k)]") else { continue }
+                if let t = SpaceDoc.member(item, "text") { text(t, r + "/text", nonEmpty: true) } else { err(r, "an addendum needs its text") }
+                for f in ["run", "at", "by"] { if let v = SpaceDoc.member(item, f) { _ = type(v, "string", r + "/" + f) } }
+            }
+        }
     }
 
     /// ONE 3.1 key's value at its place, whichever form it is written in. `owner` is the map the key belongs to (the
@@ -284,6 +312,21 @@ extension SpaceValidator.Schema {
                 }
             }
         case (.top, "layout"): _ = type(x, "object", q)
+        case (.top, "permissions"):
+            // 766: `{IDENTITY: [ROLE or PERMISSION, …]}` — what the workspace asks for its agents; shown in the plan as a
+            // request, never granted by up (the owner grants).
+            guard type(x, "object", q) else { break }
+            for m in SpaceDoc.members(x) {
+                let r = SpaceDoc.join(q, m.key)
+                guard type(m.value, "array", r), case .array(let items) = m.value else { continue }
+                for (k, item) in items.enumerated() {
+                    guard let w = SpaceDoc.string(item) else { _ = type(item, "string", r + "/\(k)"); continue }
+                    if SpaceDozable.permissionRefusal(w) != nil {
+                        err(r + "/\(k)", "\(w.prefix(60)) is not a role or a permission",
+                            "roles: \(SpaceDozable.requestableRoles.joined(separator: ", ")); permissions: \(GrantPermissions.ids.joined(separator: ", "))")
+                    }
+                }
+            }
         case (.folder, "main"): _ = type(x, "boolean", q)
         case (.folder, "lifetime"), (.agent, "lifetime"), (.room, "lifetime"), (.sandbox, "lifetime"): oneOf(x, ["run"], q)
         case (.agent, "restart"): oneOf(x, SpaceDozable.restarts, q)

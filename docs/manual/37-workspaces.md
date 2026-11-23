@@ -515,6 +515,41 @@ them; the next `run` opens them again — and writes the run's evidence into Doz
 conversations and last screen, the usage and a timesheet. Nothing is removed, and no program is run in your folders
 (commits are not collected). `--no-archive` writes none.
 
+### Lessons and the work description
+
+A workspace's **work description** is its brief plus its **addenda**: notes and lessons added after the brief without
+rewriting it. A run with no goal of its own takes the brief and every addendum, so a lesson learnt in one run is part of
+the next. `doz workspace doc W --json` shows them as `document.brief.addenda` — each `{run, at, by, text}`.
+
+```bash
+doz workspace retro demo --propose --addendum "Run the linter before the tests"   # propose a lesson from the last run
+doz workspace retro demo 2026-11-23-2 --propose --addendum "…"                   # …from that run
+doz workspace proposals demo                       # every proposal: open, applied or declined
+doz workspace decide demo pr-1a2b3c4d apply        # or decline
+doz workspace edit demo --addendum "Keep the changelog" [--run RUN]   # add one directly: no proposal, no Ask
+```
+
+A **proposal** changes nothing until it is decided. Dozable asks you in the workspace's room — "Apply this lesson to the
+work description of demo?" — even when the workspace is finished and its room closed. Answer **Apply** or decline there, in
+the dashboard, with `doz chat decide`, or with `doz workspace decide`. Applied, the lesson becomes an addendum (from its
+run, by whoever proposed it); declined, or left until the Ask expires, nothing changes. A proposal is decided once: deciding
+it again exits 3 (`proposal-decided`). `--json` answers `{"kind": "WorkspaceProposal", "id", "origin": "retro", "state",
+"change": {"addendum"}, "by", "at", "source": {"run"}}`; `proposals --json` is `{"kind": "WorkspaceProposals", "proposals"}`.
+
+You are never asked for permission. An agent is, and each of these is **off for agents** until you grant it:
+`description.propose` (retro --propose), `description.decide` (decide — its own proposals too) and `description.edit` (edit
+--addendum). Without it the agent is refused (exit 9, `not-permitted`, naming the permission). The **reviewer** role gives
+`description.propose` (and, for the run journal that comes later, `journal.write` and `evidence.attach`):
+
+```bash
+doz grant manager reviewer --in demo                    # it may propose lessons; you decide
+doz grant manager description.decide=allow --in demo    # it may also decide them
+```
+
+A space file can ask for them in its own config — `x-dozable: {permissions: {helper: [reviewer, description.decide]}}` —
+and `doz workspace plan` shows each as a request ("Requested, not granted"): the file never grants anything; you grant with
+`doz grant`. A name that is not a role or a permission is a problem in the file (exit 65), listing the known ones.
+
 ## What agents may do
 
 What an agent may do in Dozable — start a worker, sleep the workspace, reach a folder beyond its own — is one list of

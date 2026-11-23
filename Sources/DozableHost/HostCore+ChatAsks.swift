@@ -86,7 +86,11 @@ extension HostCore {
         let actionID = try Self.actionID(q.actionID)
         switch r.op {
         case .chatAsk: return try JSONValue(encoding: try askPost(chat, room: room, q, msgID: actionID))
-        case .chatDecide: return try JSONValue(encoding: try askDecide(chat, room: room, q, actionID: actionID))
+        case .chatDecide:
+            let out = try askDecide(chat, room: room, q, actionID: actionID)
+            // 766: a proposal's Ask answered: its outcome taken now (the addendum applied, or the proposal declined).
+            await proposalsAfterDecision(room: room)
+            return try JSONValue(encoding: out)
         case .chatWithdraw: return try JSONValue(encoding: try askWithdraw(chat, room: room, q, actionID: actionID))
         default: throw HostError(.invalid, "not an ask operation")
         }

@@ -49,7 +49,7 @@ public enum ActionClasses {
         let ws = ActionTarget.workspace(w?.name)
         switch r.op {
         // workspace.read — its workspace, and the screens of its own agents
-        case .workspaceShow, .workspaceLog, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .workspaceDoc:
+        case .workspaceShow, .workspaceLog, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .workspaceDoc, .workspaceProposals:
             return needs(["workspace.read"], ws)
         case .workerList:
             return needs(["workspace.read"], .workspace(r.workerRequest?.workspace))
@@ -132,6 +132,13 @@ public enum ActionClasses {
             return needs(["run.open"], ws)
         case .workspaceFinish:
             return needs(["run.finish"], ws)
+        // the work description (766): propose, decide, edit — each off for an agent until granted
+        case .workspaceRetro:
+            return needs(["description.propose"], ws)
+        case .workspaceDecide:
+            return needs(["description.decide"], ws)
+        case .workspaceAddendum:
+            return needs(["description.edit"], ws)
         case .workspaceArchive, .workspaceRestore, .workspaceRunArchive:
             return needs(["workspace.archive"], ws)
         case .workspaceDelete:

@@ -55,6 +55,25 @@ public enum ChatRoomControl {
             let seqs = core.setClosed(set, reasons: c.field("reasons")?.boolValue ?? false)
             return line(["closed": .map(seqs.mapValues { JValue.int($0) })])
         }
+        // 766: Dozable's own ask (a proposal to change a workspace's work description) and its close (ChatSystemAsks.swift).
+        if let a = v.field("systemAsk"), a.isObject {
+            guard let room = a.field("room")?.stringValue, chatIsRoomName(room), let msgID = a.field("msgId")?.stringValue,
+                  let question = a.field("question")?.stringValue, let raw = a.field("ask"),
+                  let spec = (try? ChatAskSpec.read(raw)) ?? nil else { return line(["refused": .string("not a system ask")]) }
+            switch core.systemAsk(room: room, msgID: msgID, question: question, spec: spec) {
+            case .success(let r): return line(["asked": .map(["msgId": .string(r.msgID), "number": .int(Int64(r.number))])])
+            case .failure(let e): return line(["refused": .string(e.description)])
+            }
+        }
+        if let a = v.field("systemAskClose"), a.isObject {
+            guard let room = a.field("room")?.stringValue, chatIsRoomName(room), let msgID = a.field("msgId")?.stringValue else {
+                return line(["refused": .string("not a system ask's close")])
+            }
+            switch core.systemAskClose(room: room, msgID: msgID, outcome: a.field("outcome")?.stringValue ?? "") {
+            case .success(let state): return line(["closedAsk": .string(state)])
+            case .failure(let e): return line(["refused": .string(e.description)])
+            }
+        }
         if let r = v.field("roomRemove"), r.isObject {
             guard let room = r.field("room")?.stringValue, chatIsRoomName(room),
                   let last = (try? r.field("lastSeq")?.goInt("lastSeq")) ?? nil else { return line(["refused": .string("not a room removal")]) }

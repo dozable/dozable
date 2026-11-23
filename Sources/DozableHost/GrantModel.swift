@@ -46,6 +46,13 @@ public enum GrantPermissions {
         .init(id: "workspace.finish", words: "the old name of run.open and run.finish — still honoured for them this release"),
         .init(id: "run.open", words: "open a run (and reopen)"),
         .init(id: "run.finish", words: "finish a run"),
+        .init(id: "description.propose", words: "propose a change to the work description (an Ask to the owner)"),
+        .init(id: "description.decide", words: "apply or decline a proposal to the work description (its own too)"),
+        .init(id: "description.edit", words: "change the work description directly, with no proposal"),
+        .init(id: "journal.read", words: "read a run's journal (gates nothing yet: the journal comes later)"),
+        .init(id: "journal.write", words: "write a run's journal (gates nothing yet: the journal comes later)"),
+        .init(id: "journal.supersede", words: "supersede a journal entry (gates nothing yet: the journal comes later)"),
+        .init(id: "evidence.attach", words: "attach evidence to a run (gates nothing yet: the journal comes later)"),
         .init(id: "workspace.archive", words: "archive and restore the workspace"),
         .init(id: "workspace.delete", words: "delete the workspace"),
         .init(id: "bot.manage", words: "make or retire Agents / Bots"),
@@ -384,6 +391,8 @@ public enum RoleTable {
             "workspace.archive": q, "workspace.delete": q, "bot.manage": q, "grant.give": q, "spend": q, "delete": q,
             "sudo": n, "isolation.unfenced": n, "keychain.use": n, "chat.decide": n,
         ]),
+        Role(name: "reviewer", words: "a preset: writes the run's journal, attaches evidence and proposes changes to the work description",
+             answers: ["journal.write": a, "evidence.attach": a, "description.propose": a]),
         Role(name: "cautious-manager", words: "a preset: a manager that asks before it starts or ends workers", answers:
             managerAnswers.merging(["worker.start": q, "worker.stop": q, "grant.give": q]) { _, b in b }),
         Role(name: "trusted-manager", words: "a preset: a manager that also sleeps, wakes and finishes without asking", answers:
