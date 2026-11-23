@@ -21,7 +21,7 @@ import { onPreview } from '../components/chat-unread-9284e62b88511529.js';
 import { heroNone, spaceHero } from '../components/space-picture-657375ca43cbfe9f.js';
 import { wsCard } from '../components/ws-card-0a8103780a64d027.js';
 import { gapsList } from '../components/ws-gaps-0c011ca8356a6c65.js';
-import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from '../components/ws-lifecycle-47d87e0ae36fe687.js';
+import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from '../components/ws-lifecycle-c4a570a43a8ba4b3.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks-d5ea1fd9ab813391.js';
 import { agentsBox, foldersBox, networkBox } from '../components/ws-panel-d909bfe679786180.js';
 

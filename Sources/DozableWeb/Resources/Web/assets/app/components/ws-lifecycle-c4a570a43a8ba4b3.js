@@ -125,7 +125,9 @@ export async function openLifecycle(d, verb, onDone) {
       const words = own && own.bytes ? 'Also free ' + sizeWords(own.bytes) + ': remove the sandboxes Dozable made for it' : 'Also remove the sandboxes Dozable made for it';
       parts.push(tick(words, 'removeSandboxes', verb === 'archive' ? 'Each one’s disk is saved as an image first; adopted sandboxes are never removed' : 'Adopted sandboxes are never removed'));
     }
-    if (verb === 'delete') parts.push(tick('Also move its folders on this Mac to the Bin', 'binFolders', d.folders.map((f) => f.path).join(', ') || 'It has no folder'));
+    // Only the folders Dozable made for it go (759); the plan above says which go and which stay, each with why.
+    if (verb === 'delete') parts.push(tick('Also move the folders Dozable made for it to the Bin', 'binFolders',
+      d.folders.length ? 'Your own folders are never moved — the plan lists which go and which stay' : 'It has no folder'));
     if (plan.archive) parts.push(tick(verb === 'archive' ? 'Archive without the run’s evidence' : 'Finish without an archive', 'noArchive', 'No copy of the run’s messages, conversations, screens and usage is kept'));
     if (o.needsActsAsYou) parts.push(tick('Yes, ' + m.name + ' acts as me: unfenced, no proxy, no placeholders, no guard', 'actsAsYou'));
     if (plan.confirm === 'typed') {

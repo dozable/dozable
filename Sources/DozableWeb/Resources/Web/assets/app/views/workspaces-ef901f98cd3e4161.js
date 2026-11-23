@@ -14,10 +14,10 @@ import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 import { byState, isDone, loadWorkspaces } from '../core/workspaces-89bbcc3668964701.js';
 import { paintWorkspaceCounts } from '../components/nav-817ef8fa1473c0bf.js';
 import { forgetThumbs, spaceThumb } from '../components/space-picture-657375ca43cbfe9f.js';
-import { transitional } from '../components/ws-lifecycle-47d87e0ae36fe687.js';
+import { transitional } from '../components/ws-lifecycle-c4a570a43a8ba4b3.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks-d5ea1fd9ab813391.js';
 import { renderNavWorkspaces } from '../components/ws-nav-4354ce1d5313ac47.js';
-import { wsNext } from '../components/ws-next-4348f62ab35e4220.js';
+import { wsNext } from '../components/ws-next-bb06fcd6f1a43024.js';
 
 const SHOW = [
   ['all', 'Every workspace', () => true],
