@@ -26,3 +26,4 @@
 # DIRECTORY_DIR = /path/to/a/checkout/of/the/directory-site  (the GitHub Pages repo behind doz.sh, the recipe directory:
 #                                                             `make publish-recipes` writes the catalogue, v1/index.json, CNAME)
 # TAP_DIR     = /path/to/a/checkout/of/homebrew-tap         (the Homebrew tap: Formula/doz.rb, doz-beta.rb, doz-canary.rb)
+# WEBSITE_DIR = /path/to/a/checkout/of/the/website           (`make publish-docs`: each version's manual at /v/VERSION/)

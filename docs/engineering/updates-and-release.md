@@ -232,6 +232,13 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   command is printed, never run. A publish refuses a key that doz does not trust. Seams: `TEST_PUBLISH`,
   `UPDATE_KEY_FILE`, `UPDATE_PUBLIC_KEY`, `ARCHIVE_BASE`; client `DOZ_TEST_UPDATE_{FEED,KEY,EXECUTABLE,TTY,ALLOW_ADHOC}`,
   `DOZ_TEST_BREW`.
+- **This version's manual online** (`make publish-docs VERSION= CHANNEL=canary`, `Scripts/publish-docs.sh`): every
+  release carries its manual (`libexec/doz/manual`) and points at the same manual at `https://dozable.com/v/VERSION/`.
+  The script builds it from the TAG with `Scripts/manual-bundle.py` and writes `v/VERSION/` into the website checkout
+  `WEBSITE_DIR`: llms.txt, llms-full.txt, every page as `NN-name.md` and under the site's own names as `docs/NAME.md`,
+  each Markdown file opening with a banner that names the version and the stable manual; an `index.html` with
+  `noindex`; `robots.txt` keeps `Disallow: /v/`, so search shows the stable manual; `docs/onboarding.md` redirects to
+  setting-up. Old versions are kept. Nothing is pushed without `PUSH=1`; it runs after each `make publish`.
 - **Channels in practice**: stable (`doz`) is the published, recommended channel; development happens on canary. The
   workspace's `Scripts/doz-rc` (an rc) and `Scripts/ship` (a shipped version, a GitHub PRE-release) both publish to
   CANARY only (`make publish CHANNEL=canary PUSH=1`); stable moves only when the owner says so: `make promote
