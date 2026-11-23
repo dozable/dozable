@@ -9,7 +9,7 @@ import { isDone, loadWorkspace, loadWorkspaces } from '../core/workspaces-89bbcc
 import { LIFECYCLE, primaryVerb } from '../core/ws-lifecycle-00ca4806fca2db96.js';
 import { cmdLine } from './cmd-line-4bb8898d42f31797.js';
 import { toast } from './notices-e80cf681d1c67f6c.js';
-import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from './ws-lifecycle-47d87e0ae36fe687.js';
+import { lifecycleCommand, lifecycleRefusal, openLifecycle, transitional } from './ws-lifecycle-c4a570a43a8ba4b3.js';
 
 /// `w` a row of the listing; `d` its detail when read (a setting-up one's gaps), else null.
 export function wsNext(w, d) {

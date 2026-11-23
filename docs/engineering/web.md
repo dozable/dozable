@@ -925,8 +925,8 @@ surface is the ONE chat client: a workspace's page shows the same subtree, moved
   table (agent · now · after · back; below 760 px a card per agent), Kept and Goes with sizes, the queue note, the refusals
   (the button off), the notes and Show the command (the plan's `command` and today's per-agent `commands`). Confirmation by
   verb: archive and delete the name typed (the button off until it is exact); finish the button; the rest none. Archive's and
-  delete's "Also free N GB: remove the sandboxes Dozable made for it" and delete's "Also move its folders on this Mac to the
-  Bin" are never ticked for you; a tick asks the plan again. A wake of an unfenced manager needs the tick "Yes, NAME acts as
+  delete's "Also free N GB: remove the sandboxes Dozable made for it" and delete's "Also move the folders Dozable made for it
+  to the Bin" (only what the workspace made; the plan lists binned and kept, 759) are never ticked for you; a tick asks the plan again. A wake of an unfenced manager needs the tick "Yes, NAME acts as
   me". Home's next column is the same button (`data-home-next`); asleep workspaces fold into "Asleep (N)" above "Finished &
   archived (N)", as in the sidebar. While a verb's operation runs the pill reads "sleeping…", "waking…" (`transitional`, from
   the running operation's label); a side panel of a workspace asleep says "asleep · resumes on wake"; an archived room shows

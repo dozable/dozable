@@ -26,7 +26,7 @@ import { newWorkspaceRefusal } from './new-workspace-c9480f83d5efd242.js';
 import { briefCard } from '../components/ws-brief-137759b6725ebea3.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks-d5ea1fd9ab813391.js';
 import { renderNavWorkspaces } from '../components/ws-nav-4354ce1d5313ac47.js';
-import { lifecycleItems, primaryButton, transitional } from '../components/ws-lifecycle-47d87e0ae36fe687.js';
+import { lifecycleItems, primaryButton, transitional } from '../components/ws-lifecycle-c4a570a43a8ba4b3.js';
 import { agentMeta, wsPanel } from '../components/ws-panel-d909bfe679786180.js';
 import { chatLeave, chatNavCheck, chatRefresh, mountChat } from './chat-fc5fb350250c34e0.js';
 import { chatOnForm } from '../components/chat-on-8a8fc0e96b6be411.js';
@@ -37,7 +37,7 @@ import { networkTab } from './ws-network-cb07a26b35dfc529.js';
 import { foldersTab } from './ws-folders-c004a800daa5cb88.js';
 import { activityTab } from './ws-activity-33059d386260c5a3.js';
 import { runsTab } from './ws-runs-ed5f02083c372f62.js';
-import { homeDispose, homeTab } from './ws-home-7b6d8edf18db8629.js';
+import { homeDispose, homeTab } from './ws-home-71d1705c2cc257a8.js';
 
 /// The permissions tab's name — ONE constant (the owner's choice; every place that names the tab reads it).
 export const PERMISSIONS_TAB = 'Permissions';

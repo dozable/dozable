@@ -550,6 +550,8 @@ extension HostCore {
                                   defaults: WorkspaceDefaults(isolation: w.workerIsolation, network: w.network),
                                   flags: WorkspaceFlags(firstAgentAt: anyRunning ? now : nil), origin: origin)
         rec.declaredWorkers = declared
+        // Recorded as made only when `new` makes it now: a `<projects_dir>/NAME` already there is the person's.
+        if let makeFolder { rec.madeFolders = [makeFolder] }
         if let space { space.ref.store(in: &rec) }
         return WorkspaceNewDraft(record: rec, brief: brief, log: log, refusals: refusals, notes: notes, makeRoom: makeRoom, roomLinked: linked,
                                  makeFolder: makeFolder)

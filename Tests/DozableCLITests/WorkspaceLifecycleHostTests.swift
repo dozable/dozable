@@ -477,13 +477,128 @@ final class WorkspaceLifecycleHostTests: BotTestCase {
         XCTAssertEqual(m.error?.code, .invalid)
         XCTAssertNotNil(try record())
         XCTAssertTrue(FileManager.default.fileExists(atPath: work.path))
-        // Only its own folder: moved into the test's Bin.
+        // Its folder is the person's (given with --folder, never made by it): kept, said why — nothing moved (759).
         rec.folders.removeLast()
         try WorkspaceStore(store: store).write(rec)
         let d = try ok(try await act(c, .delete) { $0.binFolders = true })
-        XCTAssertEqual(d.binned, [work.path])
-        XCTAssertFalse(FileManager.default.fileExists(atPath: work.path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: bin.appendingPathComponent("work").path), "in the test's Bin, never deleted")
+        XCTAssertNil(d.binned)
+        XCTAssertEqual(d.keptFolders?.map(\.path), [work.path])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: work.path), "an external folder is never binned")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: bin.path), [], "nothing went to the Bin")
+    }
+
+    // MARK: --bin-folders bins only what the workspace made (759)
+
+    /// `defaults.projects_dir` as the core reads it — the test run's scratch one (the Makefile's), never a real one.
+    func scratchProjects() throws -> String {
+        let p = WorkspaceStore.resolved((Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent)
+        guard ["/private/tmp/", "/private/var/folders/", "/tmp/", "/var/folders/"].contains(where: { p.hasPrefix($0) }) else {
+            throw XCTSkip("defaults.projects_dir is not a scratch folder (\(p)) — run through make test")
+        }
+        try FileManager.default.createDirectory(atPath: p, withIntermediateDirectories: true)
+        return p
+    }
+
+    func testBinFoldersBinsOnlyWhatTheWorkspaceMade() async throws {
+        let projects = try scratchProjects()
+        let mine = projects + "/bt-" + UUID().uuidString.prefix(8).lowercased()
+        defer { try? FileManager.default.removeItem(atPath: mine) }
+        let fm = FileManager.default
+        func dir(_ p: String) throws -> String {
+            try fm.createDirectory(atPath: p, withIntermediateDirectories: true)
+            fm.createFile(atPath: p + "/keep.txt", contents: Data("yours\n".utf8))
+            return WorkspaceStore.resolved(p)
+        }
+        let made = try dir(mine + "/made")
+        let shared = try dir(mine + "/shared")
+        let outside = try dir(root.appendingPathComponent("outside").path)
+        try fm.createSymbolicLink(atPath: mine + "/link", withDestinationPath: outside)
+        let link = WorkspaceStore.resolved(mine) + "/link"
+        _ = try dir(mine + "/dd2")
+        let dotdot = WorkspaceStore.resolved(mine) + "/dd/../dd2"
+        let c = await lcore()
+        try await started(c)
+        _ = try ok(try await act(c, .finish))
+        // Another workspace uses `shared`.
+        let o = await ws(c, .workspaceNew, "other") { $0.brief = "Other.\n"; $0.folders = [WorkspaceFolder(path: shared)]; $0.noRoom = true }
+        XCTAssertNil(o.error, o.error?.message ?? "")
+        // All four recorded as made — only `made` is still exactly a folder it made, used by nothing else.
+        var rec = try XCTUnwrap(record())
+        for p in [made, shared, link, dotdot] { rec.folders.append(WorkspaceFolder(path: p)) }
+        rec.madeFolders = [made, shared, link, dotdot]
+        try WorkspaceStore(store: store).write(rec)
+        // The plan: what goes, what is kept and why.
+        let p = try await plan(c, .delete) { $0.binFolders = true }
+        XCTAssertTrue(p.refusals.isEmpty, p.refusals.joined(separator: "; "))
+        XCTAssertEqual(p.goes.compactMap(\.path), [made])
+        let keeps = Dictionary(uniqueKeysWithValues: p.keeps.compactMap { k in k.path.map { ($0, k.text) } })
+        XCTAssertEqual(Set(keeps.keys), [work.path, shared, link, dotdot])
+        XCTAssertEqual(keeps[work.path], "kept: not made by demo: your folder — never moved to the Bin")
+        XCTAssertEqual(keeps[shared], "kept: used by the workspace other — never moved to the Bin while it is")
+        XCTAssertEqual(keeps[link], "kept: it now leads to \(DisplayPath.tilde(outside)) (a link) — never moved to the Bin")
+        XCTAssertEqual(keeps[dotdot], "kept: its path is not a plain absolute path — never moved to the Bin")
+        // The delete: only `made`, into the test's Bin; the rest untouched, each said kept.
+        let d = try ok(try await act(c, .delete) { $0.binFolders = true })
+        XCTAssertEqual(d.binned, [made])
+        XCTAssertEqual(Set(d.keptFolders?.compactMap(\.path) ?? []), [work.path, shared, link, dotdot])
+        XCTAssertTrue(d.notes?.contains { $0.hasPrefix("kept ") && $0.contains("your folder") } == true, d.notes?.joined(separator: "; ") ?? "")
+        XCTAssertFalse(fm.fileExists(atPath: made))
+        XCTAssertEqual(try fm.contentsOfDirectory(atPath: bin.path), ["made"], "only the folder it made, in the test's Bin")
+        XCTAssertTrue(fm.fileExists(atPath: bin.path + "/made/keep.txt"), "moved, never deleted")
+        for p in [work.path, shared + "/keep.txt", outside + "/keep.txt", mine + "/dd2/keep.txt"] { XCTAssertTrue(fm.fileExists(atPath: p), p) }
+        XCTAssertEqual(try fm.destinationOfSymbolicLink(atPath: mine + "/link"), outside, "the link itself stays too")
+    }
+
+    func testBinFoldersActsOnlyOnThePlanItShowed() async throws {
+        let projects = try scratchProjects()
+        let mine = projects + "/bt-" + UUID().uuidString.prefix(8).lowercased()
+        defer { try? FileManager.default.removeItem(atPath: mine) }
+        let fm = FileManager.default
+        try fm.createDirectory(atPath: mine + "/made", withIntermediateDirectories: true)
+        let made = WorkspaceStore.resolved(mine + "/made")
+        let outside = root.appendingPathComponent("outside2")
+        try fm.createDirectory(at: outside, withIntermediateDirectories: true)
+        fm.createFile(atPath: outside.path + "/keep.txt", contents: Data("yours\n".utf8))
+        let c = await lcore()
+        try await started(c)
+        _ = try ok(try await act(c, .finish))
+        var rec = try XCTUnwrap(record())
+        rec.folders.append(WorkspaceFolder(path: made))
+        rec.madeFolders = [made]
+        try WorkspaceStore(store: store).write(rec)
+        let p = try await plan(c, .delete) { $0.binFolders = true }
+        XCTAssertEqual(p.goes.compactMap(\.path), [made])
+        // Swapped for a link to the person's folder after the plan was read: the plan changed — refused, nothing moved.
+        try fm.removeItem(atPath: made)
+        try fm.createSymbolicLink(atPath: made, withDestinationPath: WorkspaceStore.resolved(outside.path))
+        let m = await ws(c, .workspaceDelete, "demo") { $0.binFolders = true; $0.ifPlan = p.sha }
+        XCTAssertNotNil(m.error, "the plan the person saw is not the one now")
+        XCTAssertNotNil(try record(), "nothing done")
+        // Acting on the plan as it is now: the link is kept, its target untouched.
+        let d = try ok(try await act(c, .delete) { $0.binFolders = true })
+        XCTAssertNil(d.binned)
+        XCTAssertTrue(d.keptFolders?.contains { $0.path == made && $0.text.contains("a link") } == true)
+        XCTAssertTrue(fm.fileExists(atPath: outside.path + "/keep.txt"))
+        XCTAssertEqual(try fm.contentsOfDirectory(atPath: bin.path), [], "nothing went to the Bin")
+    }
+
+    func testNewFolderIsRecordedAsMadeOnlyWhenNewMakesIt() async throws {
+        let projects = try scratchProjects()
+        let n = "bt-" + UUID().uuidString.prefix(8).lowercased()
+        defer { try? FileManager.default.removeItem(atPath: projects + "/" + n); try? FileManager.default.removeItem(atPath: projects + "/" + n + "-x") }
+        let c = await lcore()
+        let m = await ws(c, .workspaceNew, n) { $0.brief = "B.\n"; $0.newFolder = true; $0.noRoom = true }
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        XCTAssertEqual(try record(n)?.madeFolders, [projects + "/" + n])
+        // Already there: the person's — never recorded as made.
+        try FileManager.default.createDirectory(atPath: projects + "/" + n + "-x", withIntermediateDirectories: true)
+        let m2 = await ws(c, .workspaceNew, n + "-x") { $0.brief = "B.\n"; $0.newFolder = true; $0.noRoom = true }
+        XCTAssertNil(m2.error, m2.error?.message ?? "")
+        XCTAssertEqual(try record(n + "-x")?.folders.map(\.path), [projects + "/" + n + "-x"])
+        XCTAssertEqual(try record(n + "-x")?.madeFolders, [])
+        // And a request cannot claim one: the field is the record's, never a request's.
+        let raw = try JSONEncoder().encode(WorkspaceFolder(path: "/x"))
+        XCTAssertFalse(String(decoding: raw, as: UTF8.self).contains("made"))
     }
 
     // MARK: the dashboard's confirmations, the read-only core, the keychain

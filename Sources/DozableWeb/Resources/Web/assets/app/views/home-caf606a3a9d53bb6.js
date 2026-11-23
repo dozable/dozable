@@ -24,8 +24,8 @@ import { paintWorkspaceCounts } from '../components/nav-817ef8fa1473c0bf.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks-d5ea1fd9ab813391.js';
 import { renderNavWorkspaces } from '../components/ws-nav-4354ce1d5313ac47.js';
 import { forgetThumbs, spaceThumb } from '../components/space-picture-657375ca43cbfe9f.js';
-import { transitional } from '../components/ws-lifecycle-47d87e0ae36fe687.js';
-import { wsNext } from '../components/ws-next-4348f62ab35e4220.js';
+import { transitional } from '../components/ws-lifecycle-c4a570a43a8ba4b3.js';
+import { wsNext } from '../components/ws-next-bb06fcd6f1a43024.js';
 import { newWorkspaceHash, newWorkspaceRefusal } from './new-workspace-c9480f83d5efd242.js';
 import { WORKSPACE_DEFINITION } from '../core/ws-new-60f08868f5e5e130.js';
 
