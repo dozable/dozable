@@ -12,7 +12,11 @@ import Foundation
 //     agent_defaults   x-dozable: { isolation }
 //
 // so the 3.1 form is that key lifted out of its map. ONE table says which keys are first-class at each place (`firstClass`);
-// the rest are HELD — still only under `x-dozable`, in either version, until their design is settled. Moving a held key
+// the rest are HELD — still only under `x-dozable`, in either version, until their design is settled. space/3.1 is the
+// MODEL-NEUTRAL keys only (model v3, option A): `brief`, `about` (its `title` replacing the top-level `title:`, which still
+// reads with a note), `layout`, `network`, a folder's `main`, an agent's `restart`, `network` and `external: { sandbox }`.
+// Persistence is not in 3.1: `lifetime` (top level and per resource) stays under `x-dozable`, never required; a top-level
+// `lifetime:` in a 3.1 file is refused with the fix. (Persistence comes with a later version's own key.) Moving a held key
 // first-class is moving it in the table: the validator checks a key by its place and name whichever form it is in
 // (`SpaceValidator.Schema.dozValue`), every reader asks `member(_:_:at:)`, and `lift` writes the 3.1 form.
 //
@@ -39,13 +43,14 @@ public enum SpaceDozable {
             }
         }
 
-        /// The keys space/3.1 has first-class here. HELD (x-dozable only, pending their design): `network` (top, agent),
-        /// the per-resource `lifetime: run`, an agent's `external: {sandbox}`, `agent_defaults.isolation: vm`.
+        /// The keys space/3.1 has first-class here. HELD (x-dozable only): the lifetime (top level and the per-resource
+        /// `lifetime: run` — persistence is not a 3.1 key), `agent_defaults.isolation: vm`. An agent's `external` is a space/3
+        /// key already; its `{ sandbox: NAME }` form is the 3.1 one (checked in `SpaceValidator.Schema.agent`).
         public var firstClass: [String] {
             switch self {
-            case .top: ["lifetime", "brief", "about", "layout"]
+            case .top: ["brief", "about", "layout", "network"]
             case .folder: ["main"]
-            case .agent: ["restart"]
+            case .agent: ["restart", "network", "external"]
             case .room, .sandbox, .agentDefaults: []
             }
         }
@@ -127,7 +132,9 @@ public enum SpaceDozable {
         return out
     }
 
-    /// Each use of the `x-dozable` form of a first-class key, as a note naming the 3.1 key (read for one release).
+    /// Each use of the `x-dozable` form of a first-class key, as a note naming the 3.1 key (read for one release), and a 3.1
+    /// file's top-level `title:` (space/3.1's `about.title`). `x-dozable.lifetime` is no such use: the lifetime is not a
+    /// 3.1 key, so it gets no note.
     public static func deprecatedUses(_ doc: JValue?) -> [String] {
         let v31 = isV31(doc)
         var out: [String] = []
@@ -138,14 +145,18 @@ public enum SpaceDozable {
                            + (v31 ? "" : ", with the version line doz: space/3.1"))
             }
         }
+        if v31, SpaceDoc.member(doc, "title") != nil, SpaceDoc.member(SpaceDoc.member(doc, "about"), "title") == nil {
+            out.append("title is read for this release only: space/3.1 writes it as about.title (about: { title: … })")
+        }
         return out
     }
 
     // MARK: writing — the 3.1 form
 
-    /// The document in its 3.1 form: the version line `space/3.1` (a `space/3` one; a defaults file's likewise) and every
-    /// first-class key lifted out of its `x-dozable` map, in that map's place (an empty map then goes). A key already
-    /// written first-class is kept and its `x-dozable` copy dropped. Held keys stay under `x-dozable`. Pure.
+    /// The document in its 3.1 form: the version line `space/3.1` (a `space/3` one; a defaults file's likewise), every
+    /// first-class key lifted out of its `x-dozable` map, in that map's place (an empty map then goes), and a top-level
+    /// `title:` moved into `about.title`. A key already written first-class is kept and its `x-dozable` copy dropped. Held
+    /// keys (the lifetime among them) stay under `x-dozable`. Pure.
     public static func lift(_ doc: JValue) -> JValue {
         func liftMap(_ v: JValue, _ place: Place) -> JValue {
             guard case .object(let ms) = v, let x = of(v), case .object(let xs) = x else { return v }
@@ -183,6 +194,18 @@ public enum SpaceDozable {
                     ms[i].value = .object(c)
                 }
             default: break
+            }
+        }
+        // A top-level `title:` is about.title in 3.1 (a title about already says wins; the other is dropped).
+        if let t = ms.firstIndex(where: { $0.key == "title" }) {
+            let title = ms[t].value
+            ms.remove(at: t)
+            if let a = ms.firstIndex(where: { $0.key == "about" }), case .object(var about) = ms[a].value {
+                if !about.contains(where: { $0.key == "title" }) { about.insert(JMember("title", title), at: 0) }
+                ms[a].value = .object(about)
+            } else {
+                let at = (ms.firstIndex { $0.key == "brief" } ?? ms.firstIndex { $0.key == "owner" } ?? ms.firstIndex { $0.key == "space" }).map { $0 + 1 } ?? ms.count
+                ms.insert(JMember("about", .object([JMember("title", title)])), at: at)
             }
         }
         top = .object(ms)
@@ -254,6 +277,8 @@ extension SpaceValidator.Schema {
             guard strictMap(x, q, SpaceDozable.externalKeys, label) else { return }
             guard let s = SpaceDoc.member(x, "sandbox") else { err(q, "an external agent in x-dozable is { sandbox: NAME }"); return }
             text(s, q + "/sandbox", nonEmpty: true)
+            // First-class, `external:` is the key itself: what an external agent may not say is `agent`'s check.
+            guard form == "x-dozable" else { return }
             let name = SpaceDoc.parts(ownerPointer).last ?? ""
             if SpaceDoc.member(owner, "external") != nil {
                 err(q, "\"\(name)\" is external twice: external: and x-dozable.external", "an agent is one external thing: keep one of them")
@@ -276,7 +301,8 @@ extension SpaceValidator.Schema {
             if dozableMap(x, q, place.dozableKeys) {
                 for m in SpaceDoc.members(x) where place.dozableKeys.contains(m.key) {
                     dozValue(place, m.key, m.value, SpaceDoc.join(q, m.key), owner: v, ownerPointer: p, form: "x-dozable")
-                    if place.firstClass.contains(m.key), SpaceDoc.member(v, m.key) != nil, !(place == .top && m.key == "brief") {
+                    if place.firstClass.contains(m.key), SpaceDoc.member(v, m.key) != nil, !(place == .top && m.key == "brief"),
+                       !(place == .agent && m.key == "external") {   // external twice: `dozValue`'s own words
                         err(SpaceDoc.join(q, m.key), "\"\(m.key)\" is written twice: \(m.key): and x-dozable.\(m.key)",
                             "keep \(m.key): — the x-dozable form is read for this release only", key: true)
                     }
@@ -284,7 +310,8 @@ extension SpaceValidator.Schema {
             }
         }
         guard v31 else { return }
-        for k in place.firstClass where !(place == .top && k == "brief") {
+        // The brief and an agent's external are space/3 keys too: their 3.1 forms are checked where the key is.
+        for k in place.firstClass where !(place == .top && k == "brief") && !(place == .agent && k == "external") {
             if let x = SpaceDoc.member(v, k) { dozValue(place, k, x, SpaceDoc.join(p, k), owner: v, ownerPointer: p, form: "first-class") }
         }
     }

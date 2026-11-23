@@ -128,14 +128,14 @@ or adopted since; a file that says no lifetime is read as **runs** — the file'
 
 ```bash
 doz workspace doc demo                          # the document, as YAML
-doz workspace doc demo --json | jq -r '.document.lifetime'          # standing
+doz workspace doc demo --json | jq -r '.document["x-dozable"].lifetime'   # standing
 doz workspace doc demo --write ~/work/demo/demo.space.yaml          # keep it as a space file (nothing is applied)
 ```
 
 The document never holds a secret's value (a secret is a reference: a keychain item or a file), never a grant (a file
-only asks for one) and never the workspace's state. It is a `doz: space/3.1` file (39): its lifetime, a brief written in
-the file itself and the main folder are keys of the format; what it cannot say yet — an agent in a sandbox that already
-exists, the network default — is written under `x-dozable`, Dozable's part of the file. `--write` writes under your home, never into Dozable's store, `~/.claude` or `~/Library`, and never over a file
+only asks for one) and never the workspace's state. It is a `doz: space/3.1` file (39): a brief written in the file
+itself, the main folder, the network default and an agent in a sandbox that already exists are keys of the format; what it
+cannot say yet — the lifetime — is written under `x-dozable`, Dozable's part of the file. `--write` writes under your home, never into Dozable's store, `~/.claude` or `~/Library`, and never over a file
 that is there unless you add `--force` (exit 4 otherwise; 65 for a place it may not write). Looking starts no daemon.
 
 ### What it can reach, hold and change
@@ -327,7 +327,7 @@ asleep until you wake it; messages wait in the room meanwhile.
 `reopen`, then `wake`, picks it up again. `doz workspace down W` is the same command, for every workspace.
 
 **Finish always says what it removed and what it kept**, by the workspace's lifetime. A workspace made without a space
-file — and one whose space file says `lifetime: standing` — is **standing**: finish removes nothing, its scratch
+file — and one whose space file says `x-dozable: { lifetime: standing }` — is **standing**: finish removes nothing, its scratch
 folders included, and says "finished; nothing removed (standing)"; only what says `x-dozable.lifetime: run` itself goes,
 after its archived copy is hash-checked. A space file with lifetime **runs** (the default for one that says none) removes
 what it made for the run, each only after its archived copy verifies, and nothing that holds work when the archive

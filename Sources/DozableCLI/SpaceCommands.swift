@@ -438,7 +438,7 @@ struct SpaceDownCommand: AsyncParsableCommand {
         then, by the workspace's lifetime: runs (a space file's default) removes what the space made for this run, each only \
         after its archived copy is hash-checked: the agents (ended and forgotten; their transcripts deleted only where the \
         file says transcripts: discard, and only files unchanged since), the run's scratch folders and its rooms (a \
-        tombstone stays); standing (lifetime: standing) removes nothing it owns — its scratch folders are kept — \
+        tombstone stays); standing (x-dozable.lifetime: standing) removes nothing it owns — its scratch folders are kept — \
         but what says x-dozable.lifetime: run itself. A persisted agent's memory is kept in the store for its next fenced \
         session. With archive: off nothing is copied: what goes with no copy is listed before you confirm. --purge also \
         removes what persists — its rooms, sandboxes and kept memory — and releases its folders (never deleted). External \

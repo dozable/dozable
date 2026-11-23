@@ -15,9 +15,10 @@ struct WorkspaceDocCommand: AsyncParsableCommand {
         and its lifetime (standing or runs). A workspace made with doz workspace new has it generated from its record; one \
         made from a space file has the file as its last up read it, with what was added or adopted since. The document \
         never holds a secret's value (references only), a grant (only requests) or the workspace's phase. It is written as \
-        doz: space/3.1, its lifetime always said; a key the format does not carry yet is under x-dozable. Prints the \
-        document as YAML; \
-        --json is {kind: Document, schema: 1, workspace, from, document, notes} with document.lifetime always present. \
+        doz: space/3.1, its lifetime always said, under x-dozable (the lifetime is not a key of the format yet), as is \
+        any other key the format does not carry. Prints the document as YAML; \
+        --json is {kind: Document, schema: 1, workspace, from, document, notes} with document.x-dozable.lifetime always \
+        present. \
         --write FILE writes it as a space file (under your home, never in Dozable's store, ~/.claude or ~/Library; an \
         existing file only with --force) — nothing is applied. Exit codes: 0 · 2 no such workspace · 4 FILE exists \
         (--force) · 65 FILE may not be written there.
@@ -63,7 +64,7 @@ func workspaceDocTarget(_ p: String) -> String {
 }
 
 enum WorkspaceDocYAML {
-    /// The document as a space file: a header, then the file form (758: space/3.1, the lifetime first-class), in the
+    /// The document as a space file: a header, then the file form (758: space/3.1, the lifetime under x-dozable), in the
     /// document's order. `SpaceYAML` is the one emitter (no Yams writes YAML); its text reads back as
     /// the same document (`WorkspaceDocumentTests`).
     static func text(_ a: WorkspaceDocumentAnswer, _ view: JValue) -> String {

@@ -2,14 +2,14 @@
   {
     "n": 1,
     "area": "version",
-    "spec": "a space/3.1 file says its lifetime",
+    "spec": "a top-level lifetime in a space/3.1 file: persistence is not a 3.1 key",
     "layer": "schema",
     "severity": "error",
-    "path": "",
-    "line": 1,
-    "message": "the file is missing \"lifetime\"",
-    "hint": "a space/3.1 file says how long what it owns lasts: lifetime: standing (everything it owns stays) or lifetime: runs (one run, unless persist: keeps it)",
-    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\nowner: ada\n"
+    "path": "/lifetime",
+    "line": 5,
+    "message": "\"lifetime\" is not a space/3.1 key: it stays under x-dozable",
+    "hint": "write x-dozable: { lifetime: standing } (standing or runs)",
+    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\nowner: ada\nlifetime: standing\n"
   },
   {
     "n": 2,
@@ -17,11 +17,11 @@
     "spec": "a 3.1 key in a space/3 file: the fix is the version line",
     "layer": "schema",
     "severity": "error",
-    "path": "/lifetime",
+    "path": "/network",
     "line": 5,
-    "message": "\"lifetime\" is a space/3.1 key: change the version line to doz: space/3.1",
-    "hint": "this file says doz: space/3, which has no \"lifetime\" here; space/3.1 reads every space/3 key the same",
-    "yaml": "doz: space/3\nspace: t\nbrief: B.md\nowner: ada\nlifetime: standing\n"
+    "message": "\"network\" is a space/3.1 key: change the version line to doz: space/3.1",
+    "hint": "this file says doz: space/3, which has no \"network\" here; space/3.1 reads every space/3 key the same",
+    "yaml": "doz: space/3\nspace: t\nbrief: B.md\nowner: ada\nnetwork: standard\n"
   },
   {
     "n": 3,
@@ -62,14 +62,14 @@
   {
     "n": 6,
     "area": "version",
-    "spec": "a space/3 file's lifetime that 3.1 would not take either: unknown, as before",
+    "spec": "a top-level lifetime in a space/3 file: unknown, as before",
     "layer": "schema",
     "severity": "error",
     "path": "/lifetime",
     "line": 5,
     "message": "unknown key \"lifetime\" in the file",
     "hint": "persistence is declared under the top-level persist:, e.g. persist: { team-chat: { room: NAME } }; anything not listed lasts one run",
-    "yaml": "doz: space/3\nspace: t\nbrief: B.md\nowner: ada\nlifetime: forever\n"
+    "yaml": "doz: space/3\nspace: t\nbrief: B.md\nowner: ada\nlifetime: standing\n"
   },
   {
     "n": 7,
@@ -77,11 +77,11 @@
     "spec": "a key and its x-dozable form",
     "layer": "schema",
     "severity": "error",
-    "path": "/x-dozable/lifetime",
+    "path": "/x-dozable/network",
     "line": 6,
-    "message": "\"lifetime\" is written twice: lifetime: and x-dozable.lifetime",
-    "hint": "keep lifetime: — the x-dozable form is read for this release only",
-    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\nowner: ada\nlifetime: standing\nx-dozable: { lifetime: runs }\n"
+    "message": "\"network\" is written twice: network: and x-dozable.network",
+    "hint": "keep network: — the x-dozable form is read for this release only",
+    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\nowner: ada\nnetwork: open\nx-dozable: { network: locked }\n"
   },
   {
     "n": 8,
@@ -90,10 +90,10 @@
     "layer": "schema",
     "severity": "error",
     "path": "/x-dozable/brief",
-    "line": 6,
+    "line": 5,
     "message": "the brief is written twice: brief: and x-dozable.brief",
     "hint": "keep one of them: brief: FILE, or x-dozable: { brief: { text: … } }",
-    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nlifetime: runs\nbrief: { text: a }\nx-dozable: { brief: { text: b } }\n"
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: { text: a }\nx-dozable: { brief: { text: b } }\n"
   },
   {
     "n": 9,
@@ -102,10 +102,10 @@
     "layer": "schema",
     "severity": "error",
     "path": "/brief",
-    "line": 5,
+    "line": 4,
     "message": "brief is its text or its file, not both",
     "hint": "write brief: { text: \"…\" } or brief: { file: BRIEF.md }",
-    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nlifetime: runs\nbrief: { text: a, file: B.md }\n"
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: { text: a, file: B.md }\n"
   },
   {
     "n": 10,
@@ -114,10 +114,10 @@
     "layer": "rule",
     "severity": "error",
     "path": "/folders/b/main",
-    "line": 8,
+    "line": 7,
     "message": "two main folders: \"a\" and \"b\"",
     "hint": "a workspace has one main folder",
-    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\nowner: ada\nlifetime: runs\nfolders:\n  a: { external: /a, main: true }\n  b: { external: /b, main: true }\n"
+    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\nowner: ada\nfolders:\n  a: { external: /a, main: true }\n  b: { external: /b, main: true }\n"
   },
   {
     "n": 11,
@@ -126,10 +126,10 @@
     "layer": "schema",
     "severity": "error",
     "path": "/about/params",
-    "line": 6,
+    "line": 5,
     "message": "unknown key \"params\" in about",
     "hint": "params: belongs to a template, never to a stored document",
-    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\nowner: ada\nlifetime: runs\nabout: { title: T, params: {} }\n"
+    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\nowner: ada\nabout: { title: T, params: {} }\n"
   },
   {
     "n": 12,
@@ -142,7 +142,31 @@
     "line": 2,
     "message": "a defaults file can't hold \"lifetime\"",
     "hint": "a defaults file holds only persist, archive, approvals, agent_defaults and x-* keys; \"lifetime\" belongs in the space file",
-    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\nowner: ada\nlifetime: runs\n",
+    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\nowner: ada\n",
     "defaults": "# defaults.yaml\ndoz: space-defaults/3.1\nlifetime: standing\n"
+  },
+  {
+    "n": 13,
+    "area": "about",
+    "spec": "a title and about.title",
+    "layer": "schema",
+    "severity": "error",
+    "path": "/title",
+    "line": 4,
+    "message": "the title is written twice: title: and about.title",
+    "hint": "keep about: { title: … } — a top-level title: is read for this release only",
+    "yaml": "doz: space/3.1\nspace: t\nbrief: B.md\ntitle: T\nowner: ada\nabout: { title: U }\n"
+  },
+  {
+    "n": 14,
+    "area": "version",
+    "spec": "an agent in an existing sandbox in a space/3 file",
+    "layer": "schema",
+    "severity": "error",
+    "path": "/agents/r/external",
+    "line": 6,
+    "message": "\"external\" is a space/3.1 key: change the version line to doz: space/3.1",
+    "hint": "this file says doz: space/3, whose external agent is { bot: NAME }, { session: NAME } or a full name; { sandbox: NAME } is space/3.1's",
+    "yaml": "doz: space/3\nspace: t\nbrief: B.md\nowner: ada\nagents:\n  r: { external: { sandbox: s } }\n"
   }
 ]

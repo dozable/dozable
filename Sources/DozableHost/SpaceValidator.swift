@@ -268,6 +268,13 @@ public enum SpaceValidator {
             // 758: the first-class 3.1 keys of this place are the format's in a 3.1 file; in a space/3 one, refused with the fix.
             let known = known + (v31 ? place?.firstClass ?? [] : [])
             for m in SpaceDoc.members(v) where !known.contains(m.key) && !(xOK && m.key.hasPrefix("x-")) {
+                // Option A: persistence is not a space/3.1 key — the lifetime stays under x-dozable.
+                if v31, place == .top, m.key == "lifetime" {
+                    let say = SpaceDoc.string(m.value).flatMap { SpaceDozable.lifetimes.contains($0) ? $0 : nil } ?? "standing"
+                    err(SpaceDoc.join(p, m.key), "\"lifetime\" is not a space/3.1 key: it stays under x-dozable",
+                        "write x-dozable: { lifetime: \(say) } (standing or runs)", key: true)
+                    continue
+                }
                 if let place, let (message, hint) = versionFix(place, m.key, m.value, SpaceDoc.join(p, m.key), owner: v) {
                     err(SpaceDoc.join(p, m.key), message, hint, key: true)
                     continue
@@ -335,12 +342,10 @@ public enum SpaceValidator {
             }
             // 755: `x-dozable.brief` is the brief when it is written: then `brief:` is not required — and not both.
             let dozableBrief = SpaceDoc.member(SpaceDozable.of(doc), "brief") != nil
-            // 758: a 3.1 document says its lifetime (`x-dozable.lifetime` too, for one release).
-            let dozableLifetime = SpaceDoc.member(SpaceDozable.of(doc), "lifetime") != nil
             required(doc, "", defaults ? ["doz"] : SpaceFormat.requiredTop.filter { !(dozableBrief && $0 == "brief") })
-            if !defaults, v31, !dozableLifetime, SpaceDoc.member(doc, "lifetime") == nil {
-                err("", "the file is missing \"lifetime\"",
-                    "a space/3.1 file says how long what it owns lasts: lifetime: standing (everything it owns stays) or lifetime: runs (one run, unless persist: keeps it)")
+            // 758: in 3.1 the title is about.title; a top-level `title:` still reads (a note), but not both.
+            if !defaults, v31, SpaceDoc.member(doc, "title") != nil, SpaceDoc.member(SpaceDoc.member(doc, "about"), "title") != nil {
+                err("/title", "the title is written twice: title: and about.title", "keep about: { title: … } — a top-level title: is read for this release only", key: true)
             }
             if !defaults, dozableBrief, SpaceDoc.member(doc, "brief") != nil {
                 err("/x-dozable/brief", "the brief is written twice: brief: and x-dozable.brief", "keep one of them: brief: FILE, or x-dozable: { brief: { text: … } }", key: true)
@@ -508,7 +513,14 @@ public enum SpaceValidator {
                         if !SpaceFormat.matches(s, "agentExternal") { pattern(x, "agentExternal", q) }
                     } else if SpaceDoc.isMap(x) {
                         let ks = SpaceDoc.members(x).map(\.key)
-                        if ks == ["bot"] { pattern(SpaceDoc.member(x, "bot")!, "name", q + "/bot") }
+                        // 758: an agent in an existing sandbox, `external: { sandbox: NAME }`, is a space/3.1 form.
+                        if ks == ["sandbox"] {
+                            if v31 { dozValue(.agent, "external", x, q, owner: v, ownerPointer: p, form: "first-class") }
+                            else if let (message, _) = versionFix(.agent, "external", x, q, owner: v) {
+                                err(q, message, "this file says doz: space/3, whose external agent is { bot: NAME }, { session: NAME } or a full name; { sandbox: NAME } is space/3.1's")
+                            }
+                            else { err(q, "an external agent is { bot: NAME }, { session: NAME } or doz://HOST/_/bot/NAME") }
+                        } else if ks == ["bot"] { pattern(SpaceDoc.member(x, "bot")!, "name", q + "/bot") }
                         else if ks == ["session"] { text(SpaceDoc.member(x, "session")!, q + "/session", nonEmpty: true) }
                         else { err(q, "an external agent is { bot: NAME }, { session: NAME } or doz://HOST/_/bot/NAME") }
                     } else { noForm(x, q, ["text", "a map"]) }
@@ -686,7 +698,8 @@ public enum SpaceValidator {
             let spaceName = SpaceDoc.string(SpaceDoc.member(raw, "space")) ?? ""
             model.space = spaceName
             model.owner = SpaceDoc.string(SpaceDoc.member(raw, "owner")) ?? ""
-            model.title = SpaceDoc.string(SpaceDoc.member(raw, "title")) ?? spaceName
+            model.title = SpaceDoc.string(SpaceDoc.member(SpaceDozable.member(raw, "about", at: .top), "title"))
+                ?? SpaceDoc.string(SpaceDoc.member(raw, "title")) ?? spaceName
             let xBrief = SpaceDozable.briefMap(raw)
             model.brief = SpaceDoc.string(SpaceDoc.member(raw, "brief")) ?? SpaceDoc.string(SpaceDoc.member(xBrief, "file")) ?? ""
             model.briefText = SpaceDoc.string(SpaceDoc.member(xBrief, "text"))
@@ -765,8 +778,8 @@ public enum SpaceValidator {
             for r in inSection(.agents) {
                 guard let sb = SpaceDoc.string(SpaceDoc.member(SpaceDozable.member(r.def, "external", at: .agent), "sandbox")) else { continue }
                 if model.resource(sb)?.section == .sandboxes {
-                    err(r.pointer + "/x-dozable/external/sandbox", "\"\(sb)\" is a sandbox of this space, so \"\(r.name)\" can't be in it as an external agent",
-                        "an agent in a sandbox the space declares is written where: sandbox:\(sb); x-dozable.external names a sandbox that already exists outside it")
+                    err(r.pointer + (SpaceDoc.member(SpaceDoc.member(r.def, "external"), "sandbox") != nil ? "/external/sandbox" : "/x-dozable/external/sandbox"), "\"\(sb)\" is a sandbox of this space, so \"\(r.name)\" can't be in it as an external agent",
+                        "an agent in a sandbox the space declares is written where: sandbox:\(sb); external: { sandbox: NAME } names a sandbox that already exists outside it")
                 }
             }
         }

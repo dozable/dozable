@@ -323,13 +323,13 @@ in-process with no daemon (`HostCore.workspaceDocument`): a workspace with no sp
 full name's host, the rooms each workspace's log says it made — the shared-room rule), a space-file one from its
 `space.json` (`RecordDocument.merge`; none recorded: from its record, with a note). The answer carries the document as
 ordered JSON text (its order is the document's); the CLI prints `{kind: Document, schema: 1, workspace, from, document,
-notes?}` with `document.lifetime` always at the top (`view`), and the YAML — the file form, the lifetime only under
-`x-dozable` — through `SpaceYAML` (the CLI's emitter; no Yams writes) for the text and for `--write`
+notes?}` with `document.x-dozable.lifetime` always present (`view`; never a top-level `lifetime`), and the YAML — the
+same document, space/3.1 — through `SpaceYAML` (the CLI's emitter; no Yams writes) for the text and for `--write`
 (`SpaceRecordFile.writeNew`: the recorded files' place rules, temp-and-rename, `RENAME_EXCL` unless `--force` —
-`MacFenceHostFS.writeAtomically(exclusive:)`). The space file's `x-dozable` keys change `up` in three places only: a brief
-held in the file (`x-dozable.brief.text`) is kept in the store's `brief.md` at `new` (its reference's path empty — every
-brief reader takes that as "the store's copy") and refreshed by a later up; `x-dozable.brief.refs` become the record's
-refs; an agent in an existing sandbox (`x-dozable.external.sandbox`) is checked and adopted (`workspace-adopt` with the
+`MacFenceHostFS.writeAtomically(exclusive:)`). The space file's 3.1 keys change `up` in three places only: a brief
+held in the file (`brief: {text}`, or `x-dozable.brief.text`) is kept in the store's `brief.md` at `new` (its reference's path empty — every
+brief reader takes that as "the store's copy") and refreshed by a later up; its `refs` become the record's
+refs; an agent in an existing sandbox (`external: {sandbox}`, or `x-dozable.external.sandbox`) is checked and adopted (`workspace-adopt` with the
 sandbox's name). Tests: `WorkspaceDocumentTests` (each mapping, generate → validate over every record shape, the
 `x-dozable` rules, lifetime, the JSON shape, the YAML read back, `--write`'s refusals, no secret or token),
 `TestSafetyTests.testASpaceFilesHome`, `WorkspaceLifecycleHostTests.testWorkspaceDocForEveryWorkspace`, `ActionClassTests`
@@ -904,7 +904,7 @@ what persists between runs and the archive. The file is the record's declarative
 daemon's record stays the truth, and `up` and `down` drive the daemon's own operations, so every rule of theirs holds.
 The manual's page is `docs/manual/39-space-files.md`.
 
-- **space/3.1** (758) and **`x-dozable`** (755): the 3.1 keys first-class in a `doz: space/3.1` file, the held ones and the deprecated form under `x-dozable` — checked strictly
+- **space/3.1** (758) and **`x-dozable`** (755): the model-neutral 3.1 keys first-class in a `doz: space/3.1` file (never the lifetime), the held ones (the lifetime among them) and the deprecated form under `x-dozable` — checked strictly
   (`SpaceDozable.swift`), every other `x-` key ignored as before; the spelling and rules are workspace-model.md's ("The
   space/3.1 keys"). `~` in a space file is `TestSafety.spaceHome` — the real home; a guarded run's `DOZ_TEST_HOME`.
 - **The CLI reads; the daemon decides.** `SpaceResolver` (DozableCLI, the one place Yams reads it) reads the file, the

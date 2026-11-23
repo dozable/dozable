@@ -2772,18 +2772,19 @@ async function clickAt(expr) {
   return true;
 }
 const strayTabs = async () => (await (await fetch(`http://127.0.0.1:${devPort}/json/list`)).json()).filter((t) => t.type === 'page' && !t.url.startsWith('http://127.0.0.1')).map((t) => t.url);
-// space/3.1 in the vendored editor: a doz: space/3.1 file (its lifetime, a brief written in it, the main folder, about) up'd,
+// space/3.1 in the vendored editor: a doz: space/3.1 file (a brief written in it, the main folder, about; its lifetime under
+// x-dozable — not a 3.1 key) up'd,
 // then its space page. The editor is the peer's build at its pin: what it says of the 3.1 keys is recorded as a note, not
 // judged — Dozable's own validator is the one that decides (`make test`). The page must still open and draw.
 async function walkSpace31() {
   await browserSocket();
   const SPACE = S + '/space31';
   mkdirSync(SPACE + '/repo', { recursive: true });
-  writeFileSync(SPACE + '/spc31.space.yaml', 'doz: space/3.1\nspace: spc31\nowner: ada\nlifetime: standing\nbrief: { text: The 3.1 walk }\n'
+  writeFileSync(SPACE + '/spc31.space.yaml', 'doz: space/3.1\nspace: spc31\nowner: ada\nbrief: { text: The 3.1 walk }\nx-dozable: { lifetime: standing }\n'
     + 'about: { title: The 3.1 walk, summary: a space/3.1 file in the editor }\n'
     + 'folders:\n  repo: { external: ' + SPACE + '/repo, main: true }\nchat:\n  rooms:\n    spc31: { main: true, members: [owner] }\n');
   const up = doz(['workspace', 'up', '-f', SPACE + '/spc31.space.yaml', '--yes']);
-  check(up.status === 0, 'space31 workspace up -f a doz: space/3.1 file (lifetime, brief: {text}, about, a main folder)' + (up.status === 0 ? '' : ' ' + (up.stderr || '').slice(0, 300)));
+  check(up.status === 0, 'space31 workspace up -f a doz: space/3.1 file (brief: {text}, about, a main folder, x-dozable.lifetime)' + (up.status === 0 ? '' : ' ' + (up.stderr || '').slice(0, 300)));
   await goHash('#/w/spc31/space');
   check(await waitFor(`state.view === 'space' && (!!${SE('svg.scene [data-id]')} || !!${SE('.canvas-stage svg')})`, 30000), 'space31 its space page opens and the canvas draws');
   await sleep(2500);

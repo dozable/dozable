@@ -206,7 +206,7 @@ struct WorkspaceFinish: AsyncParsableCommand {
         No worker can be added while it is finished. doz workspace down W is the same command.
 
         What it removes depends on the workspace's lifetime. A workspace made without a space file, or by one that says \
-        lifetime: standing, is standing: finish removes nothing, its scratch folders included ("finished; nothing \
+        x-dozable.lifetime: standing, is standing: finish removes nothing, its scratch folders included ("finished; nothing \
         removed (standing)"), but what says x-dozable.lifetime: run itself — archived and hash-checked first. A space file \
         with lifetime runs (the default for one that says none) removes what it made for the run, each after its archived \
         copy verifies; nothing content-bearing goes when the archive failed. External folders are never touched. --json \

@@ -40,7 +40,7 @@ final class SpaceValidationTableTests: XCTestCase {
 
     func testEveryRowOfTheSpace31Vectors() throws {
         let rows = try Self.rows31()
-        XCTAssertEqual(rows.count, 12)
+        XCTAssertEqual(rows.count, 14)
         for r in rows {
             let (got, _) = try problems(r)
             guard let p = got.first(where: { $0.message == r.message }) else {

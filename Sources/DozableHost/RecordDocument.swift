@@ -7,10 +7,10 @@ import Foundation
 //
 // - a workspace with no space file: `RecordDocument.generate` maps its record onto a space/3.1 document (758: the
 //   first-class keys first-class, the held ones still under `x-dozable` — `SpaceDozable.Place.firstClass`),
-//   `lifetime: standing`;
+//   `x-dozable.lifetime: standing` (the lifetime is not a 3.1 key);
 // - a space-file workspace: the merged spec its last `up` recorded (`space.json`, the file as the resolver merged it), in
 //   its 3.1 form (`SpaceDozable.lift`), with the record's extras merged in (`RecordDocument.merge`: an agent added or
-//   adopted since, which the file does not name), and its lifetime as written — `runs` when it says none.
+//   adopted since, which the file does not name), and its lifetime as written under `x-dozable` — `runs` when it says none.
 //
 // The document never holds a secret's value (a reference only — the space file's own `secrets:` refs are kept as written),
 // never a grant (requests only, and a record's grants are not a request: they stay out), never a token or a fingerprint, and
@@ -85,23 +85,21 @@ public enum RecordDocument {
         let space = rec.name
         names.used.insert(space)            // the main room takes the space's name
 
-        // The lifetime (always written), the brief held here; x-dozable: the network default (held).
+        // The brief held here, the network default; x-dozable: the lifetime (always written; held — not a 3.1 key).
         var brief: [JMember] = [JMember("text", .string(i.briefText))]
         if !rec.brief.refs.isEmpty { brief.append(JMember("refs", .strings(rec.brief.refs))) }
-        var x: [JMember] = []
-        if let n = rec.defaults.network {
-            if SpaceDozable.networks.contains(n) { x.append(JMember("network", .string(n))) }
-            else { notes.append("its network default \(n) is not a preset the document can name") }
-        }
 
         var top: [JMember] = [
             JMember("doz", .string(SpaceFormat.doz31)),
             JMember("space", .string(space)),
             JMember("owner", .string(i.owner.flatMap { $0.isEmpty ? nil : $0 } ?? "you")),
-            JMember("lifetime", .string("standing")),
             JMember("brief", .object(brief)),
         ]
-        if !x.isEmpty { top.append(JMember(SpaceDozable.key, .object(x))) }
+        if let n = rec.defaults.network {
+            if SpaceDozable.networks.contains(n) { top.append(JMember("network", .string(n))) }
+            else { notes.append("its network default \(n) is not a preset the document can name") }
+        }
+        top.append(JMember(SpaceDozable.key, .object([JMember("lifetime", .string("standing"))])))
 
         // agent_defaults: where its new workers run.
         if let iso = rec.defaults.isolation {
@@ -210,7 +208,7 @@ public enum RecordDocument {
             return (key, .object([JMember("external", .object([JMember("session", .string(s))]))]))
         }
         if let s = a.place.sandbox {
-            return (key, .object([JMember(SpaceDozable.key, .object([JMember("external", .object([JMember("sandbox", .string(s))]))]))]))
+            return (key, .object([JMember("external", .object([JMember("sandbox", .string(s))]))]))
         }
         return nil
     }
@@ -224,10 +222,9 @@ public enum RecordDocument {
         var notes: [String] = []
         let lifted = SpaceDozable.lift(spec)
         var top = SpaceDoc.members(lifted)
-        // The lifetime, always written (first-class: the document is space/3.1).
+        // The lifetime, always written (under x-dozable: not a space/3.1 key).
         if SpaceDozable.lifetime(lifted) == nil {
-            let at = (top.firstIndex { $0.key == "owner" } ?? top.firstIndex { $0.key == "title" } ?? top.firstIndex { $0.key == "space" }).map { $0 + 1 } ?? top.count
-            top.insert(JMember("lifetime", .string(SpaceDozable.defaultLifetime)), at: at)
+            top = SpaceDoc.members(withLifetime(.object(top), SpaceDozable.defaultLifetime))
             notes.append("the space file says no lifetime: it is read as runs")
         }
         // The record's extras.
@@ -278,17 +275,30 @@ public enum RecordDocument {
 
     // MARK: the two forms
 
-    /// What `doc --json` shows: the document with its `lifetime` at the top, always present. 758: a generated document is
-    /// space/3.1 and already says it where it is written; an older form gets it right after `owner`, `title` or `space`.
+    /// What `doc --json` shows: the document with its lifetime always said — `x-dozable.lifetime` (758, option A: the
+    /// lifetime is not a space/3.1 key; never a top-level `lifetime`).
     public static func view(_ doc: JValue) -> JValue {
-        if SpaceDoc.string(SpaceDoc.member(doc, "lifetime")) != nil { return doc }
+        if SpaceDozable.lifetime(doc) != nil { return doc }
+        return withLifetime(doc, SpaceDozable.effectiveLifetime(doc))
+    }
+
+    /// `doc` with `x-dozable.lifetime` set to `lifetime` (first in its x-dozable map; a new map goes after `brief`, `about`,
+    /// `network`, `owner` or `space`, whichever comes last of the first found).
+    static func withLifetime(_ doc: JValue, _ lifetime: String) -> JValue {
         var top = SpaceDoc.members(doc).filter { $0.key != "lifetime" }
-        let at = (top.firstIndex { $0.key == "owner" } ?? top.firstIndex { $0.key == "title" } ?? top.firstIndex { $0.key == "space" }).map { $0 + 1 } ?? top.count
-        top.insert(JMember("lifetime", .string(SpaceDozable.effectiveLifetime(doc))), at: at)
+        if let i = top.firstIndex(where: { $0.key == SpaceDozable.key }), case .object(var m) = top[i].value {
+            m.removeAll { $0.key == "lifetime" }
+            m.insert(JMember("lifetime", .string(lifetime)), at: 0)
+            top[i].value = .object(m)
+        } else {
+            let after = ["network", "layout", "about", "brief", "owner", "title", "space"]
+            let at = after.lazy.compactMap { k in top.firstIndex { $0.key == k } }.first.map { $0 + 1 } ?? top.count
+            top.insert(JMember(SpaceDozable.key, .object([JMember("lifetime", .string(lifetime))])), at: at)
+        }
         return .object(top)
     }
 
-    /// What a file holds (`doc --write`): 758: the document itself — space/3.1, its lifetime first-class.
+    /// What a file holds (`doc --write`): the document itself — space/3.1, its lifetime under `x-dozable`.
     public static func fileForm(_ view: JValue) -> JValue { view }
 }
 
@@ -298,7 +308,7 @@ public struct WorkspaceDocumentAnswer: Codable, Equatable, Sendable {
     public var workspace: String
     /// `record` (generated from the record) or `space-file` (the recorded spec with the record's extras).
     public var from: String
-    /// The document's JSON text (the `view` form: `lifetime` at the top too).
+    /// The document's JSON text (the `view` form: `x-dozable.lifetime` always said).
     public var document: String
     public var notes: [String]
     public init(workspace: String, from: String, document: String, notes: [String]) {

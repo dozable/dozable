@@ -1010,27 +1010,30 @@ doz workspace up [-f FILE] [--profile P]… [--yes] [--dry-run] [--json]  # set 
 doz workspace down [W] [-f FILE] [--purge] [--no-archive] [--yes] [--dry-run] [--if-plan SHA] [--json]  # the same as finish, for every workspace; a runs space removes what the run made (archived and hash-checked first); --purge: what persists too; --json: kind WorkspaceFinish, removed, kept, archive
 doz workspace config [FILE] [--profile P]… [--json]    # a space file merged (its defaults files, the file, its override, ${VAR}), each value with its source
 doz workspace state W [--json]                  # any workspace now: each thing's state and each agent's condition (a space workspace: beside its file), what waits for you, the sha; --json: kind WorkspaceState, schema 1, agents.NAME.condition
-doz workspace doc W [--json]                    # any workspace's document: what should exist, as a space file (YAML); --json: kind Document, schema 1, document.lifetime always present
+doz workspace doc W [--json]                    # any workspace's document: what should exist, as a space file (YAML); --json: kind Document, schema 1, document.x-dozable.lifetime always present
 doz workspace doc W --write FILE [--force]      # the document written as a space file you keep (under your home; never the store, ~/.claude or ~/Library) — nothing applied
 doz space plan|up|down|config …                 # the same: doz space is the space-file commands under a shorter name
 ```
 
 `doc W` (`workspace-doc`) answers for every workspace and starts no daemon: a workspace made with `new` or the dashboard's
-wizard has its document generated from its record (`from: record`, `lifetime: standing`) — its brief, folders (the main
+wizard has its document generated from its record (`from: record`, `x-dozable.lifetime: standing`) — its brief, folders (the main
 one marked), agents (a manager or a worker from a bot as `external: {bot}`, an adopted session as `external: {session}`,
-an adopted sandbox as `x-dozable: {external: {sandbox}}`, a worker as an owned agent whose task is its `prompt`), rooms
+an adopted sandbox as `external: {sandbox}`, a worker as an owned agent whose task is its `prompt`), rooms
 (owned, or linked by their full name) and defaults; one made from a space file has the file as its last `up` merged it,
 with what was added or adopted since (`from: space-file`) and its lifetime as written — `runs` when it says none. It never
 holds a secret's value (a reference only), a grant or the workspace's phase. It is a `doz: space/3.1` document, its
-`lifetime` always at the top; a key the format does not carry yet is under `x-dozable` (docs/engineering/workspace-model.md).
-`--json` is `{kind: "Document", schema: 1, workspace, from, document, notes?}` — `document.lifetime` always present,
+lifetime always said under `x-dozable` (not a key of the format yet), like any other key the format does not carry yet
+(docs/engineering/workspace-model.md). `--json` is `{kind: "Document", schema: 1, workspace, from, document, notes?}` —
+`document.x-dozable.lifetime` always present (never a top-level `document.lifetime`),
 `document.doz` `space/3.1`; `notes` names what the document cannot say yet. `--write FILE` writes the
 YAML by temp-and-rename, no link in its path; exit 4 (`already-exists`) when FILE exists and `--force` is not given, 65
 (`invalid-value`) for a place it may not write; 2 for no such workspace.
 
-Space files (`NAME.space.yaml`, the format `space/3` or `space/3.1` — space/3 with `lifetime` (required), `brief: {text}` /
-`{file}`, `about`, `layout`, a folder's `main` and an agent's `restart` first-class; a 3.1 key under `doz: space/3` is 65
-naming the fix, the version line; their `x-dozable` form is read for one release, each use a note): without `-f`/FILE, the one `*.space.yaml` in this folder (two or more:
+Space files (`NAME.space.yaml`, the format `space/3` or `space/3.1` — space/3 with `brief: {text}` / `{file}`, `about`
+(`about.title` in place of the top-level `title:`, which still reads with a note), `layout`, `network`, a folder's `main`
+and an agent's `restart`, `network` and `external: {sandbox}` first-class; the lifetime stays under `x-dozable` in either
+version, never required, and a top-level `lifetime:` in a 3.1 file is 65; a 3.1 key under `doz: space/3` is 65 naming the
+fix, the version line; their `x-dozable` form is read for one release, each use a note): without `-f`/FILE, the one `*.space.yaml` in this folder (two or more:
 exit 64, naming them). The CLI reads the file, every `extends:` defaults file, `NAME.space.override.yaml` and `${VAR}` (the
 environment, then the `.env` beside it); the daemon receives one merged document with each place's origin and the sources'
 sha256 (`workspace-up-plan`, at most 256 KiB) and never opens a file. Every problem is printed at once as `file:line`, the
@@ -1218,7 +1221,7 @@ Stop ends every agent's process — each sandbox shut down (its disk kept), each
 conversation kept) — and removes nothing; each agent is `stopped`, not asleep, until `wake`. What is asleep or stopped
 already is left as it is (exit 0). Finish — and `down`, the same command — answers `kind: WorkspaceFinish`, schema 1, with
 `removed` and `kept` (folders by their absolute path, rooms `room/NAME`, agents `agent/NAME`, sandboxes `sandbox/NAME`) and
-`archive`; the text always says both. A standing workspace (made without a space file, or `lifetime: standing`)
+`archive`; the text always says both. A standing workspace (made without a space file, or `x-dozable.lifetime: standing`)
 removes nothing, its scratch folders included ("finished; nothing removed (standing)"), but what says
 `x-dozable.lifetime: run` itself — archived and hash-checked first; a runs space file removes what it made for the run, each
 after its archived copy verifies. `workspace state --json` carries the workspace's `phase` (`setting-up`, `running`,
