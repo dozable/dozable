@@ -138,11 +138,11 @@
     "notes": [
       {
         "path": "/x-dozable/brief",
-        "message": "x-dozable.brief is read for this release only: write brief: at the top level, under doz: space/3.1"
+        "message": "x-dozable.brief is read for this release only: write brief: at the top level, with the version line doz: space/3.1"
       },
       {
         "path": "/folders/repo/x-dozable/main",
-        "message": "folder \"repo\": x-dozable.main is read for this release only: write main: on folder \"repo\", under doz: space/3.1"
+        "message": "folder \"repo\": x-dozable.main is read for this release only: write main: on folder \"repo\", with the version line doz: space/3.1"
       }
     ]
   },
@@ -395,7 +395,7 @@
       "path": "/x-dozable/colour",
       "line": 5,
       "message": "unknown key \"colour\" in x-dozable",
-      "hint": "x-dozable holds: lifetime, brief, network, about, layout"
+      "hint": "x-dozable holds: lifetime, brief, network, about, layout, permissions"
     }
   },
   {
@@ -511,7 +511,7 @@
       "path": "/params",
       "line": 5,
       "message": "unknown key \"params\" in the file",
-      "hint": "known keys: doz, space, title, brief, owner, extends, agent_defaults, permissions, approvals, trusted_folders, folders, agents, services, sandboxes, secrets, chat, persist, archive, labels, profiles, brief, about, layout, network"
+      "hint": "known keys: doz, space, title, brief, owner, extends, agent_defaults, permissions, approvals, trusted_folders, folders, agents, services, sandboxes, secrets, chat, persist, archive, labels, profiles, about, layout, network"
     }
   },
   {
@@ -690,7 +690,7 @@
     "notes": [
       {
         "path": "/folders/repo/x-dozable/main",
-        "message": "folder \"repo\": x-dozable.main is read for this release only: write main: on folder \"repo\", under doz: space/3.1"
+        "message": "folder \"repo\": x-dozable.main is read for this release only: write main: on folder \"repo\", with the version line doz: space/3.1"
       }
     ],
     "problem": {
