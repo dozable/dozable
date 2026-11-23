@@ -30,6 +30,8 @@ public protocol WorkspaceChat: Sendable {
     /// One fixed call on the owner's socket, as you: the status and the JSON answer (`HostCore+ChatAsks` builds each from
     /// checked values — never a caller's path).
     func ownerCall(_ method: String, _ target: String, body: JValue?, headers: [(String, String)]) throws -> (Int, JValue)
+    /// 766: Dozable's own control request to the running chat server (`systemAsk`, `systemAskClose`): its answer line.
+    func control(_ field: String, _ body: JValue) async throws -> JValue
 }
 
 extension WorkspaceChat {
@@ -49,6 +51,9 @@ extension WorkspaceChat {
     public func ownerCall(_ method: String, _ target: String, body: JValue?, headers: [(String, String)]) throws -> (Int, JValue) {
         throw HostError(.notImplemented, "this chat cannot be asked")
     }
+    public func control(_ field: String, _ body: JValue) async throws -> JValue {
+        throw HostError(.notImplemented, "this chat has no control channel")
+    }
 }
 
 public enum WorkspaceChatReadiness: Equatable, Sendable {
@@ -64,10 +69,16 @@ public struct OwnerWorkspaceChat: WorkspaceChat {
     /// The supervisor's control channel: the closed set, a room's removal.
     let closed: (@Sendable ([String: String]) async -> [String: Int64]?)?
     let remove: (@Sendable (String, String, Int64) async throws -> Void)?
+    let controlCall: (@Sendable (String, JValue) async throws -> JValue)?
     public init(ready: @escaping @Sendable () async -> WorkspaceChatReadiness, owner: ChatOwnerRooms,
                 closed: (@Sendable ([String: String]) async -> [String: Int64]?)? = nil,
-                remove: (@Sendable (String, String, Int64) async throws -> Void)? = nil) {
-        self.ready = ready; self.owner = owner; self.closed = closed; self.remove = remove
+                remove: (@Sendable (String, String, Int64) async throws -> Void)? = nil,
+                control: (@Sendable (String, JValue) async throws -> JValue)? = nil) {
+        self.ready = ready; self.owner = owner; self.closed = closed; self.remove = remove; self.controlCall = control
+    }
+    public func control(_ field: String, _ body: JValue) async throws -> JValue {
+        guard let controlCall else { throw HostError(.notImplemented, "this chat has no control channel") }
+        return try await controlCall(field, body)
     }
     public func setClosed(_ rooms: [String: String]) async throws -> [String: Int64]? { await closed?(rooms) }
     public func removeRoom(_ room: String, id: String, lastSeq: Int64) async throws {
@@ -156,7 +167,11 @@ extension HostCore {
         case .workspaceState:
             return try JSONValue(encoding: try await workspaceState(w))
         case .workspaceDoc:
+            // 766: the proposals' Asks first — an answer given in chat shows in the document's addenda.
+            if let n = w.name, WorkspaceName.isValid(n) { await syncProposals(n) }
             return try JSONValue(encoding: try workspaceDocument(w))
+        case .workspaceProposals:
+            return try JSONValue(encoding: try await workspaceProposalsList(w))
         case .workspaceSpace:
             return try JSONValue(encoding: try workspaceSpaceFile(w))
         case .workspaceSpaceSave:
@@ -171,6 +186,10 @@ extension HostCore {
         if r.op == .workspaceStart { return try JSONValue(encoding: try await workspaceStart(w)) }
         // 765: the run verb takes the gate itself (opening under the workspace's, then the sessions as a start does).
         if r.op == .workspaceRun { return try JSONValue(encoding: try await workspaceRunOpen(r)) }
+        // 766: the work description — proposals, their decision, a direct addendum.
+        if r.op == .workspaceRetro { return try JSONValue(encoding: try await workspaceRetro(r)) }
+        if r.op == .workspaceDecide { return try JSONValue(encoding: try await workspaceDecide(r)) }
+        if r.op == .workspaceAddendum { return try JSONValue(encoding: try await workspaceAddendumAdd(r)) }
         // `doz workspace manager stop W`: the manager alone (the old meaning of stop). Without it stop is a lifecycle verb:
         // every agent's process ends, nothing is removed.
         if r.op == .workspaceStop, w.managerOnly == true { return try JSONValue(encoding: try await workspaceStop(w)) }

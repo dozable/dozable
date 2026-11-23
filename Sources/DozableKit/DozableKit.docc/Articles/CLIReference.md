@@ -991,6 +991,9 @@ doz workspace sleep W [--dry-run] [--yes] [--if-plan SHA]     # every agent asle
 doz workspace wake W [--dry-run] [--yes] [--if-plan SHA]      # back in the same sandboxes and conversations
 doz workspace finish W [--no-archive] [--dry-run] [--yes] [--if-plan SHA]    # everything stops; the run archived; says what it removed and kept (standing: nothing removed) (asks [y/N])
 doz workspace run W [GOAL] [--source KIND[:REF]] [--follows RUN] [--no-start]   # a new run (one at a time: run-open, exit 3): the goal (else the brief) posted, the agents started
+doz workspace retro W [RUN] --propose --addendum TEXT  # a proposal to add TEXT to the work description (from RUN, default the last); you are asked in its room
+doz workspace decide W PROPOSAL apply|decline    # decide a proposal (once: proposal-decided, exit 3); its Ask closes with the outcome
+doz workspace proposals W [--json]               # its proposals: open, applied or declined, and how
 doz workspace reopen W [--no-start] [--dry-run] [--if-plan SHA]   # the old name of run (--dry-run / --if-plan: reopen's plan, nothing started)
 doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--no-archive] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
 doz workspace restore W [--dry-run] [--if-plan SHA]           # archived → finished, its rooms writable again
@@ -1000,6 +1003,7 @@ doz workspace release W AGENT                   # loose again
 doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--add-folder DIR[:ro]]… [--remove-folder DIR]… [--make-room]
                   [--manager BOT [--manager-isolation fenced|vm|unfenced] | --no-manager] [--if-brief SHA256]
 doz workspace edit W --space-file F|- --if-match SHA256   # save over the space file it was made from, only if it is still the one you read; never applied (up applies it)
+doz workspace edit W --addendum TEXT [--run RUN]  # add TEXT to the work description directly — no proposal, no Ask
 doz workspace log W [--since T]                 # what happened and who did it (T: ISO 8601, or 30m, 2h, 3d)
 doz workspace log W --limit N [--before I]      # one page, the newest N (1–500); --before the page's first: the page before (--json: first, more)
 doz workspace rename W NEW                      # its room keeps its own name

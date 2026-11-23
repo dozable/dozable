@@ -369,7 +369,8 @@ extension HostCore {
         let workdir = try managerFolder(rec)
         let instructions = bots.readInstructions(bot)
         let start = Data(ManagerKickoff.startText(bot: bot, workspace: rec.name, room: rec.mainRoom?.chatRoom ?? rec.name, isolation: iso,
-                                                  skills: b.skills, instructions: instructions, brief: workspaceBriefText(rec) ?? "",
+                                                  skills: b.skills, instructions: instructions,
+                                                  brief: WorkDescription.goal(brief: workspaceBriefText(rec) ?? "", addenda: rec.addenda),
                                                   refs: rec.brief.refs).utf8)
         var notes: [String] = []
         let fingerprint: String

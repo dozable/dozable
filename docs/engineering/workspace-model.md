@@ -5,7 +5,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 [Space files](../manual/39-space-files.md)). This page is the model every workspace change is judged against: model v3,
 accepted by the owner on 2026-11-23, with its review folded in.
 
-**The model is ahead of the code.** Every section says what is **built** — what 0.52.43 does (0.52.45 for the conditions per layer, 0.52.46 for the run verb), with the code that does it —
+**The model is ahead of the code.** Every section says what is **built** — what 0.52.43 does (0.52.45 for the conditions per layer, 0.52.46 for the run verb, 0.52.47 for the work description and proposals), with the code that does it —
 and what is **coming**, by the stage that brings it. A sentence that does not say "coming" describes today. Never move a
 line from coming to built without the code, and never describe coming behaviour in the manual.
 
@@ -17,13 +17,15 @@ line from coming to built without the code, and never describe coming behaviour 
 | **IDSESS** | `WorkspaceAgent` split into Identity (L1) and Session (L2); declared workers become identities; named workers persist | PLACE |
 | **SP32** | space/3.2: `lives: workspace \| run`, `places:`, `where: PLACE`, `brief.criteria`, `brief.addenda`, the migration notes | PLACE, IDSESS |
 | **LC2** | `down` ≠ `finish` (D4 reversed): `finish` closes the run and removes the run's things; `down` releases allocations and keeps data; `--purge` for every workspace; `WorkspaceDown`; the dashboard's Finish and Down | LC1, SP32 |
-| **UOW-MVP** | bring your own process: the run's primitives (journal, evidence hashed when attached, the work description's addenda, proposals), and the opt-in permission ids an agent is granted by role or by the workspace's `permissions:` | LC1 |
+| **UOW-MVP** | bring your own process: the run's primitives — part A, the work description's addenda, proposals and their permission ids, is built (0.52.47); part B, the journal and evidence hashed when attached, is coming | LC1 |
 | **PLAYBOOKS** | the four recommended processes as playbooks (permission presets, journal kinds, a way to apply one; the quality loop's gates opt-in) — supported and tested, never required | UOW-MVP |
 | **HOOKS** (optional) | a workspace told of its run's events by a command or an address — a proposal only, to be reviewed again before any work | PLAYBOOKS |
 
 COND, one condition per layer in `state`, is built (0.52.45): "One phase, and one condition per layer" below. LC1, the
 `run` verb, is built (0.52.46): `doz workspace run W [GOAL]`, one run at a time, `reopen` its old name, `up` opening a run
-each time none is open until LC2 (`--no-run` opens none) — L3 below and workspaces.md, "The run verb". Later,
+each time none is open until LC2 (`--no-run` opens none) — L3 below and workspaces.md, "The run verb". UOW-MVP's part A,
+the work description, is built (0.52.47): addenda, proposals through Dozable's own Ask, `description.*` and the `reviewer`
+role — "The unit of work" below and workspaces.md, "The work description and proposals". Later,
 only if a user asks: skills and playbooks a proposal may change, and comparing runs.
 
 ## The four layers
@@ -198,13 +200,12 @@ place's (65) — the last rule is built for 3.1's agent `network:`.
 (`WorkspaceDeclaredWorker`, `new --worker`) is already an identity with no session. An anonymous worker's participant is
 a throwaway one, removed at `doz worker end`. Memory survives only for a persisted fenced agent of a space file
 (`SpaceMemory`), reset by a switch between fenced and unfenced. `reviewer` is a space file's role (`SpaceFormat.roles`)
-but not a grant role (`GrantModel.roles`: owner, manager, worker, member, decider, admin).
+and, built in 0.52.47, a grant role too (`RoleTable`): `journal.write`, `evidence.attach` and `description.propose`, all
+allow — `doz grant AGENT reviewer --in W`.
 
 **Coming (IDSESS):** the split; named workers (`worker add W NAME`) persist, a nameless `--task` worker is run-owned; memory
 kept `up` → `--purge` for every workspace-owned identity whatever its place, reset only by an explicit reset (a
 fenced/unfenced switch warns instead); `WorkspaceAgent.task` becomes the identity's `prompt:`, freeing "task" for L3.
-**Coming (UOW-MVP):** `reviewer` as an additive grant role, a convenience for what a review may record and propose —
-its exact grants follow the revised unit-of-work design.
 
 ## The unit of work
 
@@ -212,8 +213,9 @@ A run is a unit of work, not a turn: **run → tasks → turns**. Dozable owns r
 only observes them. **Bring your own process** (owner, 2026-11-23): how a run is planned, reviewed and accepted depends
 on the user and the managing agent, so Dozable provides **primitives** and **permissions** and enforces no process. A
 workspace's process lives in what its people and agents do with them, written down wherever they like: a brief, a
-playbook skill, a template, the agent's own prompt. Everything in this section but the Run primitive, `run.open` and
-`run.finish` (built in 0.52.46, LC1) and the last paragraph is **coming** (UOW-MVP, then PLAYBOOKS).
+playbook skill, a template, the agent's own prompt. Built: the Run primitive, `run.open` and `run.finish` (0.52.46, LC1);
+the work description, proposals, the `description.*` permissions and the `reviewer` role (0.52.47, UOW-MVP part A). The
+journal, evidence and the last paragraph are **coming** (UOW-MVP part B, then PLAYBOOKS).
 
 **Two integrity rules**, the only fixed ones — they are about trust, not process:
 1. evidence attached to a run is hashed when it is attached;
@@ -221,21 +223,24 @@ playbook skill, a template, the agent's own prompt. Everything in this section b
 
 Who may change the work description is a permission like any other, not a rule.
 
-**The primitives** (coming, UOW-MVP; the run verb itself is built — LC1, 0.52.46):
+**The primitives** (the run verb built in 0.52.46; the work description and proposals in 0.52.47; the journal, evidence and close coming — UOW-MVP part B):
 
 | Primitive | What it is |
 |---|---|
 | Run | **built (0.52.46)**: `run W [GOAL]` opens one, `finish` closes it; it records its goal (else "the brief"), what started it, the run it follows, usage (its length, `durationMs`), and the revision of the work description it read. One open at a time |
 | Journal | append-only entries on a run, `{seq, at, by, kind, text?, refs?, data?}`; `kind` is any string — Dozable renders the ones it knows (`note`, `task`, `claim`, `review`, `finding`, `outcome`) and shows the rest as written. No kind is required, no order enforced |
 | Evidence | files, commits or messages attached to an entry; a file is copied into the run and hashed when attached (rule 1) |
-| Work description | the brief plus `addenda [{run?, at, by, text}]`, appended without rewriting the brief; part of the document, so every change is a revision with who and why. A lesson is one kind of addendum |
-| Proposal | a pending change to the document, `{by, change, why?, source?}`, applied or declined through an Ask. Optional: an identity holding the edit permission changes things directly |
+| Work description | **built (0.52.47)**: the brief plus `addenda [{run?, at, by, text}]` (the record's `addenda`; the document's `brief.addenda`, absent when empty), appended without rewriting the brief; each addendum is one more revision (`addendum-added`, counted by `WorkspaceRuns.descriptionRevision`). A run with no goal takes the brief and every addendum (`WorkDescription.goal`). `doz workspace edit W --addendum TEXT [--run RUN]` adds one directly. A lesson is one kind of addendum |
+| Proposal | **built (0.52.47)**: a pending change, `{id, origin: retro, state, change: {addendum}, by, at, source: {run}}` (`doz workspace retro W [RUN] --propose --addendum TEXT`), kept in the record's folder (`proposals.json`), applied or declined through Dozable's own Ask in the main room or `doz workspace decide`. Optional: an identity holding `description.edit` changes things directly |
 | Close | `finish` freezes the run's journal and evidence into its archive (rule 2) |
 
-**Permissions, opt-in** (coming, UOW-MVP — but `run.open` and `run.finish`, built in 0.52.46: `workspace-run` and
-`workspace-reopen` need `run.open`, `workspace-finish` `run.finish`; `GrantPermissions`, `ActionClasses`; an older
-`workspace.finish` grant, role answer or ceiling still answers for both for one release, `GrantPermissions.olderIds`). New permission
-ids, every one **off for agents** until granted; the owner is never gated, as today:
+**Permissions, opt-in.** Built: `run.open` and `run.finish` (0.52.46: `workspace-run` and `workspace-reopen` need
+`run.open`, `workspace-finish` `run.finish`; an older `workspace.finish` grant, role answer or ceiling still answers for
+both for one release, `GrantPermissions.olderIds`); `description.propose` (`workspace-retro`), `description.decide`
+(`workspace-decide`) and `description.edit` (`workspace-addendum`), 0.52.47 (`GrantPermissions`, `ActionClasses`). The
+journal's ids — `journal.read`, `journal.write`, `journal.supersede`, `evidence.attach` — are known ids since 0.52.47 that
+gate nothing yet (their words say so); `journal.write:KIND` is coming with the journal. Every one is **off for agents**
+until granted; the owner is never gated, as today:
 
 | Permission | Lets an agent |
 |---|---|
@@ -246,10 +251,11 @@ ids, every one **off for agents** until granted; the owner is never gated, as to
 | `description.decide` | apply or decline such a proposal (its own too, when granted) |
 | `description.edit` | change the work description directly, with no proposal |
 
-A workspace grants them **by role** (roles are grant bundles, as today, so a user can define their own — a `reviewer`
-role bundling `journal.write`, `evidence.attach` and `description.propose`, say) or **by its own config**: the
-document's `permissions: {IDENTITY: [ROLE or PERMISSION, …]}` (`x-dozable.permissions` in space/3.1), shown in the plan
-as a request — never a grant the file makes by itself.
+A workspace grants them **by role** (roles are grant bundles — built in 0.52.47: the `reviewer` role bundles
+`journal.write`, `evidence.attach` and `description.propose`) or **by its own config**: the document's
+`permissions: {IDENTITY: [ROLE or PERMISSION, …]}` — built in 0.52.47 as `x-dozable.permissions` in space/3.1 (held;
+a bare `permissions:` comes with space/3.2), validated (an unknown name is a problem, 65, listing the known ones) and shown
+in the plan as a request — never a grant the file makes by itself (`SpaceIntent` → `Requested, not granted`).
 
 **Recommended processes, as playbooks** (coming, PLAYBOOKS) — supported and tested, never required. Each is only a
 configuration of the primitives: a playbook (an editable skill the managing agent follows), a permission preset and the
@@ -399,7 +405,7 @@ validator checks a key by place and name whichever form it is in (`Schema.dozVal
 
 | where | first-class in 3.1 | held: `x-dozable` only |
 |---|---|---|
-| top level | `brief:` a path, `{text}` or `{file}` with `refs:`, `about: {title, summary, description, icon, tags, category, needs}` (`about.title` in place of the top-level `title:`), `layout: {…}` (never acted on), `network: locked\|standard\|open` or `{preset, allow: [HOST…]}` | `lifetime: standing\|runs` (never required) |
+| top level | `brief:` a path, `{text}` or `{file}` with `refs:` (and `addenda: [{run, at, by, text}]`, written by the document — up keeps the record's own), `about: {title, summary, description, icon, tags, category, needs}` (`about.title` in place of the top-level `title:`), `layout: {…}` (never acted on), `network: locked\|standard\|open` or `{preset, allow: [HOST…]}` | `lifetime: standing\|runs` (never required), `permissions: {IDENTITY: [ROLE or PERMISSION, …]}` (requests only) |
 | a folder | `main: true` (at most one) | `lifetime: run` |
 | an agent | `restart: no\|on-failure`, `network:`, `external: {sandbox: NAME}` | `lifetime: run` |
 | a room, a sandbox | — | `lifetime: run` |

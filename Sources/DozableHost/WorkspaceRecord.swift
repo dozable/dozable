@@ -490,9 +490,13 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
     /// Written only by the daemon, never taken from a request (a `WorkspaceFolder` in a request carries no such claim).
     /// Additive: written only while there is one; a record from before it has none, so its folders are all kept.
     public var madeFolders: [String] = []
+    /// 766: the work description's addenda — lessons and notes appended to the brief without rewriting it, oldest first
+    /// (`WorkspaceAddendum`; the document shows them as `brief.addenda`). Additive: written only while there is one; an
+    /// older doz keeps it as an unknown field.
+    public var addenda: [WorkspaceAddendum] = []
     public var unknown = UnknownFields()
     static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "defaults", "flags", "driver", "origin", "runs",
-                                     "permissions", "declaredWorkers", "madeFolders"]
+                                     "permissions", "declaredWorkers", "madeFolders", "addenda"]
 
     public init(name: String, createdAt: Date, brief: WorkspaceBrief, folders: [WorkspaceFolder], rooms: [WorkspaceRoom] = [],
                 agents: [WorkspaceAgent] = [], defaults: WorkspaceDefaults = WorkspaceDefaults(), flags: WorkspaceFlags = WorkspaceFlags(),
@@ -519,6 +523,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         permissions = try c.decodeIfPresent(WorkspaceGrants.self, forKey: "permissions")
         declaredWorkers = try c.decodeIfPresent([WorkspaceDeclaredWorker].self, forKey: "declaredWorkers") ?? []
         madeFolders = try c.decodeIfPresent([String].self, forKey: "madeFolders") ?? []
+        addenda = try c.decodeIfPresent([WorkspaceAddendum].self, forKey: "addenda") ?? []
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -540,6 +545,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         try c.encodeIfPresent(permissions, forKey: "permissions")
         if !declaredWorkers.isEmpty { try c.encode(declaredWorkers, forKey: "declaredWorkers") }
         if !madeFolders.isEmpty { try c.encode(madeFolders, forKey: "madeFolders") }
+        if !addenda.isEmpty { try c.encode(addenda, forKey: "addenda") }
     }
 
     /// The open run's index (nil: none open).
@@ -612,6 +618,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
     public var op: String?
     /// 749: the code an agent's program exited with (`agent-crashed`). Additive.
     public var exitCode: Int?
+    /// 766: the proposal a `proposal-*` line is about. Additive.
+    public var proposal: String?
 
     public init(at: Date = Date(), by: String = "you", action: String, agent: String? = nil, place: String? = nil, room: String? = nil,
                 from: String? = nil, to: String? = nil, sha256: String? = nil, bytes: Int? = nil, added: Int? = nil, removed: Int? = nil,
@@ -631,7 +639,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
                                               "sandbox-removed", "template-kept", "restored", "run-opened", "run-closed", "run-archived",
                                               "run-archive-failed", "room-closed", "room-opened", "room-removed", "transcripts-discarded",
                                               "granted", "revoked", "ceiling-set", "request-recorded", "permission-decided",
-                                              "agent-joined", "agent-crashed", "worker-declared"]
+                                              "agent-joined", "agent-crashed", "worker-declared",
+                                              "addendum-added", "proposal-made", "proposal-applied", "proposal-declined"]
 
     /// The line as a person reads it.
     public var sentence: String {
@@ -677,6 +686,12 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "sandbox-removed": return "removed the sandbox \(place.map { $0.hasPrefix("sandbox:") ? String($0.dropFirst(8)) : $0 } ?? agent ?? "?")"
         case "template-kept": return "saved the disk of \(from ?? "?") as the image \(to ?? "?")"   // 757: the action keeps its name
         case "restored": return "restored the workspace (finished)"
+        case "addendum-added":
+            return "added to the work description (\(bytes ?? 0) bytes)" + (agent.map { ", by \($0)" } ?? "") + (run.map { ", from run \($0)" } ?? "")
+        case "proposal-made":
+            return "\(agent ?? "?") proposed a change to the work description (\(proposal ?? "?"))" + (run.map { ", from run \($0)" } ?? "")
+        case "proposal-applied": return "applied the proposal \(proposal ?? "?")" + (agent.map { " (decided by \($0))" } ?? "")
+        case "proposal-declined": return "declined the proposal \(proposal ?? "?")" + (agent.map { " (decided by \($0))" } ?? "") + (reason.map { " — \($0)" } ?? "")
         case "run-opened": return "opened the run \(run ?? "?")"
         case "run-closed": return "closed the run \(run ?? "?")"
         case "run-archived": return "wrote the archive of run \(run ?? "?") (\(added ?? 0) file\(added == 1 ? "" : "s"))"

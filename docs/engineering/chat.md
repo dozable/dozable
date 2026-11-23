@@ -445,6 +445,17 @@ daemon runs. A port the person chose that is taken is still refused, with the se
 it. A guarded run's default may be the test's own port (`DOZ_TEST_CHAT_DEFAULT_PAGE_PORT`, `…_LINE_PORT`, read only under
 `DOZ_TEST_GUARD`), so no test holds a fixed port. `ChatPortChoiceTests`, `make test-cli-chat` (the taken default).
 
+### Dozable's own asks
+
+Also over the control channel (`ChatSystemAsks.swift`): `{"systemAsk":{"room":R,"msgId":UUID,"question":Q,"ask":{…}}}` posts an
+ask under the server's own name (`chat`, which no participant can have) — a proposal to change a workspace's work description,
+asked of the room's people (the asker cannot answer its own ask, and Dozable never speaks for an agent) — answered
+`{"asked":{"msgId","number"}}`; the same msgId again answers the same ask. `{"systemAskClose":{"room":R,"msgId":ID,
+"outcome":TEXT}}` withdraws one decided another way and posts TEXT as a change line under the same name (once). Such an ask
+has no per-asker limit or cooldown, and it is the one thing a CLOSED room still takes: it is posted there, answered there and
+not expired by the closed set (an archived room refuses it). Conformance is unchanged: no participant can make one.
+workspaces.md, "The work description and proposals"; `WorkDescriptionTests`.
+
 ### The closed set and removing a room
 
 Over the same control channel (`ChatRoomControl`), never a route, file or slash command: `{"version":1,"id":…,"closed":{"rooms":

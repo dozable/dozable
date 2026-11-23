@@ -109,6 +109,24 @@ doz workspace runs NAME --json                         # each run: goal, goalFro
   NAME` — finishing is the person's call: ask them first. A finished workspace is reopened by `run`; an archived one is
   refused (3). `doz workspace reopen NAME` is the old name of `run`.
 
+## Lessons: the work description
+
+```sh
+doz workspace retro NAME --propose --addendum "Run the linter before the tests" --json   # propose a lesson from the last run
+doz workspace proposals NAME --json                    # every proposal: open, applied or declined
+doz workspace decide NAME PROPOSAL apply --json        # or decline — needs description.decide
+doz workspace edit NAME --addendum "TEXT" --json       # add one directly, no proposal — needs description.edit
+```
+
+- The work description is the brief plus its addenda (`doz workspace doc NAME --json`: `document.brief.addenda`, each
+  `{run, at, by, text}`). A run with no goal takes the brief and every addendum.
+- `retro --propose` answers `{"kind":"WorkspaceProposal","id","origin":"retro","state":"open","change":{"addendum"},"by",
+  "at","source":{"run"}}` and asks the person in the room; nothing changes until it is decided. Deciding twice exits 3
+  (`proposal-decided`).
+- Each is a permission an agent holds only when granted: `description.propose` (the `reviewer` role has it),
+  `description.decide`, `description.edit`. Without it: exit 9, `not-permitted`. Never ask the person to grant one for you
+  unprompted; propose instead, and let them decide.
+
 ## Add or end a worker
 
 ```sh

@@ -292,6 +292,13 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 765: open a run — a unit of work (`WorkspaceRequest`: the name, `goal`, `source`, `follows`, `noStart`;
     /// `WorkspaceRunOpened`). One at a time: refused (`run-open`) while one is open. The daemon's, never read-only.
     case workspaceRun = "workspace-run"
+    /// 766: the work description (`WorkspaceRequest`: the name, `addendum`, `run`, `proposal`, `decision`). `-retro` makes a
+    /// proposal from a run (`propose`, `addendum`, `run` — default the last) and posts its Ask in the main room
+    /// (`WorkspaceProposal`); `-decide` applies or declines one (`proposal`, `decision`: apply|decline; `proposal-decided`
+    /// when it is decided already); `-addendum` adds one directly, with no proposal (`WorkspaceAddendumAdded`);
+    /// `-proposals` lists them (`WorkspaceProposals`, read-only). The daemon's, but for `-proposals`.
+    case workspaceRetro = "workspace-retro", workspaceDecide = "workspace-decide", workspaceAddendum = "workspace-addendum"
+    case workspaceProposals = "workspace-proposals"
     /// What each agent of a workspace can reach and hold (`WorkspaceRequest.agent`: one only) — `WorkspaceReach`: its isolation
     /// and control, folders, network (preset, sites, this Mac's ports, forwarded ports, refusals while a daemon runs), the
     /// secrets it holds BY NAME and its capability rows. Never a value. Only reads: in-process when no daemon runs.
@@ -394,7 +401,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
              .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .workspaceDownPlan, .macsList,
-             .workspaceState, .workspaceDoc, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery, .timelineRetention: true
+             .workspaceState, .workspaceDoc, .workspaceProposals, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery, .timelineRetention: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -778,6 +785,8 @@ public struct HostError: Codable, Equatable, Sendable, Error, LocalizedError {
         case requestIDReused = "request-id-reused"
         /// [3] 765: a run is open — one at a time (`doz workspace finish W` first).
         case runOpen = "run-open"
+        /// [3] 766: the proposal is decided already (applied or declined).
+        case proposalDecided = "proposal-decided"
         /// [4] the contract's name for `exists` (doz still answers `exists`).
         case alreadyExists = "already-exists"
         /// [5] a question nobody answered: no terminal and no --yes, or the answer was no.
@@ -1920,6 +1929,11 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var follows: String?
     public var noStart: Bool?
     public var noRun: Bool?
+    /// 766, the work description: an addendum's text (retro --propose, edit --addendum), a proposal's id and `decision`
+    /// (`apply` or `decline`). The run is `run`. Additive: an older daemon refuses the operation it does not know.
+    public var addendum: String?
+    public var proposal: String?
+    public var decision: String?
 
     public init(name: String? = nil) { self.name = name }
 }
