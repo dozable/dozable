@@ -421,7 +421,9 @@ func spaceActedText(_ d: SpaceActed) -> String {
         + (d.ok ? "" : "; stopped at a failure") + "\n"
     // Down (which is finish) always says what it removed and what it kept.
     if let kept = d.kept {
-        for l in WorkspaceFinishInventory.lines(removed: d.removed ?? [], kept: kept, standing: d.lifetime == "standing", archive: d.archive) { s += "  \(l)\n" }
+        for l in WorkspaceFinishInventory.lines(removed: d.removed ?? [], kept: kept, untouched: d.untouched ?? [], released: d.released ?? [],
+                                                standing: d.lifetime == "standing", archive: d.archive) { s += "  \(l)\n" }
+        for (sb, image) in (d.savedDisks ?? [:]).sorted(by: { $0.key < $1.key }) { s += "  saved: sandbox/\(sb)'s disk as the image \(image)\n" }
     }
     return s
 }
@@ -441,9 +443,11 @@ struct SpaceDownCommand: AsyncParsableCommand {
         tombstone stays); standing (x-dozable.lifetime: standing) removes nothing it owns — its scratch folders are kept — \
         but what says x-dozable.lifetime: run itself. A persisted agent's memory is kept in the store for its next fenced \
         session. With archive: off nothing is copied: what goes with no copy is listed before you confirm. --purge also \
-        removes what persists — its rooms, sandboxes and kept memory — and releases its folders (never deleted). External \
+        removes what persists — its rooms, sandboxes and kept memory — and releases its folders (never deleted). A sandbox \
+        is never removed without a copy: its disk is saved as an image first (doz image ls), named in the answer. External \
         folders, rooms, sandboxes and bots are never touched. A workspace made without a space file finishes and removes \
-        nothing. Always says what it removed and what it kept (--json: kind WorkspaceFinish, removed, kept, archive). Asks \
+        nothing. Always says what it removed, what it kept and what it left untouched (--json: kind WorkspaceFinish, \
+        removed, kept, untouched, savedDisks, archive). Asks \
         on the terminal (--yes answers it; no terminal and no --yes: exit 5). A failed step is said and down carries on; \
         down again does what is left. Exit codes: 0 done · 75 a step failed after others were done (--json's partial names \
         what remains) · 1 a step failed before anything was done · 2 no such workspace · 3 changed since the plan · 5 not \

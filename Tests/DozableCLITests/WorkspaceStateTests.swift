@@ -56,7 +56,7 @@ final class WorkspaceStateTests: XCTestCase {
         XCTAssertEqual(S.derive(S.Input(agents: [.failed, .running(sessions: ["working"])], flags: had)), .waitingOnYou, "waiting over working")
         XCTAssertEqual(S.derive(S.Input(agents: [.running(sessions: ["working"]), .running(sessions: ["idle"])], flags: had)), .working, "working over idle")
         XCTAssertEqual(S.derive(S.Input(agents: [.running(sessions: []), .asleep], flags: had)), .idle, "idle over asleep")
-        XCTAssertEqual(S.allCases.map(\.rawValue), ["archived", "finished", "setting-up", "starting", "waiting-on-you", "working", "idle", "asleep"])
+        XCTAssertEqual(S.allCases.map(\.rawValue), ["archived", "finished", "setting-up", "starting", "waiting-on-you", "working", "idle", "asleep", "stopped"])
         XCTAssertEqual(S.settingUp.words, "setting up")
         XCTAssertEqual(S.waitingOnYou.words, "waiting on you")
     }

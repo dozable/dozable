@@ -24,7 +24,7 @@ extension WorkspaceLifecycleHostTests {
         let c = await lcore()
         try await started(c)
         let p = try await plan(c, .finish)
-        XCTAssertEqual(p.rooms, [WorkspaceLifecycleRoomRow(room: "demo", label: "main", owned: true, after: "closed: members can read it, posts refused (space-down)")])
+        XCTAssertEqual(p.rooms, [WorkspaceLifecycleRoomRow(room: "demo", label: "main", owned: true, after: "closed: members can read it, posts refused")])
         XCTAssertTrue(p.notes.contains(WorkspaceLifecycle.closesNote))
         rooms.otherPost("demo")
         _ = try ok(try await act(c, .finish))

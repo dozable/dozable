@@ -42,6 +42,13 @@ public struct SpaceActed: Codable, Equatable, Sendable {
     public var schema: Int?
     public var removed: [String]?
     public var kept: [String]?
+    /// 762 (F7): the person's folders down never touched, and the adopted agents it released (`agent/NAME`) — still in `kept`
+    /// (the `--json` contract), said apart in the text. Additive.
+    public var untouched: [String]?
+    public var released: [String]?
+    /// 762 (F5): each sandbox removed → the image its disk was saved as first (`doz image ls`). A sandbox's disk is never
+    /// removed without one. Additive.
+    public var savedDisks: [String: String]?
     public var archive: String?
     /// The workspace's lifetime (`standing` or `runs`).
     public var lifetime: String?
@@ -186,7 +193,9 @@ extension HostCore {
                      brief: SpaceBriefFile.Read) async throws -> [String] {
         let n = i.space
         switch st.kind {
-        case "folder" where st.lifetime == "persisted":
+        // A kept folder (made when missing, never deleted) — told from a scratch one by what it is, not by its label: 762 labels
+        // a standing space's scratch folders persisted too.
+        case "folder" where SpaceUp.keptFolderPaths(i, f).contains(where: { "folder \($0.name)" == st.subject }):
             guard let k = SpaceUp.keptFolderPaths(i, f).first(where: { "folder \($0.name)" == st.subject }) else { return [] }
             if let why = spaceFolderRefusal(k.path) { throw HostError(.invalid, why) }
             TestSafety.checkMadeFolder(k.path)
@@ -425,6 +434,8 @@ extension HostCore {
         let before = try workspaceRecord(n)
         let beforeRef = SpaceRecordRef.of(before)
         var removed: [String] = []
+        var released: [String] = []
+        var saved: [String: String] = [:]
         var archiveFailed = false
         var toSeq: [String: Int64] = [:]
         for st in plan.steps {
@@ -458,7 +469,9 @@ extension HostCore {
                 case "worker-end":
                     let name = String(st.subject.dropFirst("agent ".count))
                     let sandbox = try workspaceRecord(n).agents.last { $0.name == name && $0.endedAt == nil }?.place.sandbox
-                    notes = try await spaceEndAgent(n, name, discard: st.copy, archiveFailed: archiveFailed)
+                    let ended = try await spaceEndAgent(n, name, discard: st.copy, archiveFailed: archiveFailed)
+                    notes = ended.notes
+                    if let s = ended.saved { saved[s.sandbox] = s.image }
                     removed.append("agent/" + name)
                     if let sb = sandbox, managed[sb] == nil { removed.append("sandbox/" + sb) }
                 case "release":
@@ -467,6 +480,7 @@ extension HostCore {
                     await workspaceGate.lock("workspaces")
                     defer { workspaceGate.unlock("workspaces") }
                     _ = try await workspaceRelease(w)
+                    released.append("agent/" + w.agent!)
                 case "scratch-rm":
                     let name = String(st.subject.dropFirst("folder ".count))
                     let path = beforeRef?.scratch?.first { $0.name == name }?.path
@@ -480,9 +494,14 @@ extension HostCore {
                     spaceMemoryReset(n, agent: String(st.subject.dropFirst("agent ".count)))
                 case "sandbox-rm":
                     let s = String(st.subject.dropFirst("sandbox ".count))
-                    if managed[s] != nil, workspaces.membership()["sandbox:" + s] == n {
-                        let a = await handle(HostRequest(.rm, name: s))
-                        if let e = a.error { throw HostError(e.code, e.message) }
+                    if await agentLifecycle.sandboxExists(s), workspaces.membership()["sandbox:" + s] == n {
+                        // 762 (F5): its disk saved as an image first — never removed without a copy (as archive's).
+                        let image = try await saveDiskBeforeRemoval(n, sandbox: s, agent: nil)
+                        saved[s] = image
+                        notes.append("its disk saved as the image \(image) (doz image ls)")
+                        lifecycleRemoving.insert(s)
+                        defer { lifecycleRemoving.remove(s) }
+                        try await agentLifecycle.removeSandbox(s)
                         removed.append("sandbox/" + s)
                         try? workspaces.append(n, WorkspaceLogEntry(action: "sandbox-removed", place: "sandbox:" + s))
                     }
@@ -523,6 +542,10 @@ extension HostCore {
         out.schema = WorkspaceFinishInventory.schema
         out.removed = WorkspaceFinishInventory.dedupe(removed)
         out.kept = WorkspaceFinishInventory.kept(before: before, removed: removed)
+        let untouched = WorkspaceFinishInventory.untouched(before)
+        out.untouched = untouched.isEmpty ? nil : untouched
+        out.released = released.isEmpty ? nil : released
+        out.savedDisks = saved.isEmpty ? nil : saved
         out.lifetime = beforeRef?.lifetime ?? SpaceDozable.defaultLifetime
         if !out.ok { out.notes.append("a step failed: down carried on and did what it could — doz workspace down \(n) again does what is left") }
         if let r = try? workspaceRecord(n) { out.workspace = await workspaceDetail(r, withBrief: false) }
@@ -544,12 +567,14 @@ extension HostCore {
         return ["\(agent): \(count) memory file\(count == 1 ? "" : "s") kept for its next fenced session"]
     }
 
-    /// A run-lifetime agent ended and forgotten — its own sandbox removed unless the space keeps it —, its transcripts
-    /// discarded first when the space says so: against the run's verified archive, or with `archive: off` against the
-    /// hashes-only ledger written now. With a failed archive nothing is discarded.
-    func spaceEndAgent(_ n: String, _ name: String, discard: String?, archiveFailed: Bool) async throws -> [String] {
+    /// A run-lifetime agent ended and forgotten — its own sandbox removed unless the space keeps it, its disk saved as an image
+    /// first (762, F5: never removed without a copy; the image named in the answer) —, its transcripts discarded first when the
+    /// space says so: against the run's verified archive, or with `archive: off` against the hashes-only ledger written now.
+    /// With a failed archive nothing is discarded. A disk that cannot be saved stops it: the agent stays, nothing is removed.
+    func spaceEndAgent(_ n: String, _ name: String, discard: String?, archiveFailed: Bool) async throws
+        -> (notes: [String], saved: (sandbox: String, image: String)?) {
         let rec = try workspaceRecord(n)
-        guard let a = rec.agents.last(where: { $0.name == name && $0.isWorker && $0.endedAt == nil }) else { return ["\(name) has ended already"] }
+        guard let a = rec.agents.last(where: { $0.name == name && $0.isWorker && $0.endedAt == nil }) else { return (["\(name) has ended already"], nil) }
         let ref = SpaceRecordRef.of(rec)
         var notes: [String] = []
         if discard != nil, !archiveFailed, a.place.mac == true, let s = a.place.session {
@@ -567,8 +592,30 @@ extension HostCore {
         let keepsSandbox = a.place.sandbox.map { s in ref.map { $0.effective("sandbox", s, recorded: $0.owned?.sandboxes[s]) == "persisted" } ?? false } ?? false
         var q = WorkerRequest(workspace: n, name: name)
         q.rm = !shared && !keepsSandbox && a.bot == nil
+        // 762 (F5): its own sandbox goes with it — its disk saved as an image first, before anything is ended or removed.
+        var saved: (sandbox: String, image: String)?
+        if q.rm == true, let s = a.place.sandbox, await agentLifecycle.sandboxExists(s) {
+            let image = try await saveDiskBeforeRemoval(n, sandbox: s, agent: name)
+            saved = (s, image)
+            notes.append("\(name): its sandbox's disk saved as the image \(image) (doz image ls), then the sandbox \(s) removed")
+        }
         let e = try await workerEnd(q)
-        return notes + (e.notes ?? [])
+        return (notes + (e.notes ?? []), saved)
+    }
+
+    /// 762 (F5): sandbox `s`'s disk saved as an image (`S-tpl`, else the next free name — as archive's templates) before it is
+    /// removed; logged `template-kept`. A save that fails throws, so the caller removes nothing.
+    func saveDiskBeforeRemoval(_ n: String, sandbox s: String, agent: String?) async throws -> String {
+        let taken = Set(store.layout("_").customImages().map(\.name)).union(DozableImages.builtIn)
+        let image = WorkspaceLifecycle.templateName(s, taken: taken)
+        do {
+            try await agentLifecycle.keepTemplate(sandbox: s, name: image)
+        } catch {
+            throw HostError(.failed, "the sandbox \(s) was kept: its disk could not be saved as an image (\(HostError.from(error).message)), "
+                            + "and a disk is never removed without a copy — free some space, then doz workspace down \(n) again")
+        }
+        try? workspaces.append(n, WorkspaceLogEntry(action: "template-kept", agent: agent, from: s, to: image))
+        return image
     }
 
     /// `transcripts: discard` with `archive: off`: the session's conversations hashed now (the ledger: names and sha256

@@ -3139,7 +3139,7 @@ async function walkHome() {
 
 // ── the Workspaces page ────────────────────────────────────────────────────────────────────────────────────────────
 const SHOW_F = { all: () => true, waiting: (w) => w.state === 'waiting-on-you', working: (w) => w.state === 'working' || w.state === 'starting',
-  idle: (w) => w.state === 'idle', 'setting-up': (w) => w.state === 'setting-up', asleep: (w) => w.state === 'asleep', done: (w) => w.state === 'finished' || w.state === 'archived' };
+  idle: (w) => w.state === 'idle', 'setting-up': (w) => w.state === 'setting-up', asleep: (w) => w.state === 'asleep' || w.state === 'stopped', done: (w) => w.state === 'finished' || w.state === 'archived' };
 const WSL = `[...document.querySelectorAll('[data-wsl]')].map((e) => e.dataset.wsl)`;
 async function walkWorkspacesList() {
   const errorsBefore = pageErrors.length;
@@ -3160,7 +3160,7 @@ async function walkWorkspacesList() {
     'workspaces 1 …each Show choice\'s count is the listing\'s ' + JSON.stringify(opts));
   // Show: one filter, then Every again on the next visit.
   await evaluate(`(() => { const s = document.querySelector('[data-wsl-show]'); s.value = 'asleep'; s.dispatchEvent(new Event('change')); })()`);
-  check(await waitFor(`(${WSL}).every((n) => state.workspaces.workspaces.find((w) => w.name === n)?.state === 'asleep')`, 8000), 'workspaces 1 Show Asleep lists only asleep ones');
+  check(await waitFor(`(${WSL}).every((n) => ['asleep', 'stopped'].includes(state.workspaces.workspaces.find((w) => w.name === n)?.state))`, 8000), 'workspaces 1 Show Asleep lists only asleep (or stopped) ones');
   await goHash('#/home');
   await goHash('#/workspaces');
   check(await waitFor(`document.querySelector('[data-wsl-show]')?.value === 'all'`, 8000), 'workspaces 1 …a new visit starts at Every workspace');

@@ -25,7 +25,7 @@ const SHOW = [
   ['working', 'Working', (w) => w.state === 'working' || w.state === 'starting'],
   ['idle', 'Idle', (w) => w.state === 'idle'],
   ['setting-up', 'Setting up', (w) => w.state === 'setting-up'],
-  ['asleep', 'Asleep', (w) => w.state === 'asleep'],
+  ['asleep', 'Asleep or stopped', (w) => w.state === 'asleep' || w.state === 'stopped'],
   ['done', 'Finished & archived', isDone],
 ];
 const SORT = [['state', 'State'], ['name', 'Name'], ['last', 'Last activity']];

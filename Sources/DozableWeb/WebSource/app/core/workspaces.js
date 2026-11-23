@@ -44,9 +44,9 @@ export function forgetWorkspaces(names) {
   forgetPictures(names);
 }
 
-/// The order Home and the sidebar list workspaces in: waiting on you, working, starting, idle, setting up, asleep; then
+/// The order Home and the sidebar list workspaces in: waiting on you, working, starting, idle, setting up, asleep, stopped; then
 /// finished and archived (folded below the rest).
-export const STATE_ORDER = ['waiting-on-you', 'working', 'starting', 'idle', 'setting-up', 'asleep', 'finished', 'archived'];
+export const STATE_ORDER = ['waiting-on-you', 'working', 'starting', 'idle', 'setting-up', 'asleep', 'stopped', 'finished', 'archived'];
 export function byState(list) {
   const at = (s) => { const i = STATE_ORDER.indexOf(s); return i < 0 ? STATE_ORDER.length : i; };
   return list.slice().sort((a, b) => at(a.state) - at(b.state) || a.name.localeCompare(b.name));

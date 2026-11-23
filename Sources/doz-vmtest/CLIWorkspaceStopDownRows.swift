@@ -12,9 +12,10 @@ import DozableHost
 //  V3. stop with no terminal and no --yes (--json) → 5 needs-confirmation, `fix` the argv with --yes; nothing stopped
 //  V4. stop --yes on an asleep workspace → 0, still asleep; without --yes too (nothing to do, nothing asked)
 //  V5. finish --yes --json on a long-lived (record-made) workspace → 0, kind WorkspaceFinish, schema 1, removed empty, kept the
-//      folder's ABSOLUTE path and room/sd; the folder byte-for-byte; then state's phase finished
+//      folder's ABSOLUTE path and room/sd, untouched the folder (762, F7: the person's); the folder byte-for-byte; then state's
+//      phase finished
 //  V6. workspace down on a record-made workspace → 0, kind WorkspaceFinish, kept lists the folder; the text says
-//      "finished; nothing removed (standing)"
+//      "finished; nothing removed (standing)" and names the folder untouched, not under "kept:"
 //  V7. a runs-lifetime space's scratch folder is under removed (its absolute path), gone, its archived copy verifies
 //  V8. a standing space's scratch folder is kept: removed empty, the folder byte-for-byte
 //  V9. doz workspace manager stop: the manager alone, a worker runs on
@@ -113,6 +114,8 @@ func cliWorkspaceStopDownRows(_ h: CLIHarness, root: URL, store: DozableStore, s
           "V5 finish sd --yes --json: exit 0, kind WorkspaceFinish, schema 1 (\(r.code) \(r.out.prefix(200)) \(r.err.prefix(200)))")
     check((f5["removed"] as? [String]) == [], "V5 …removed empty (\(String(describing: f5["removed"])))")
     check(kept5.contains(repo) && repo.hasPrefix("/") && kept5.contains("room/sd"), "V5 …kept the folder's absolute path and room/sd (\(kept5))")
+    // 762 (F7): and the folder given with --folder (the person's) is named untouched — said apart in the text.
+    check(((f5["untouched"] as? [String]) ?? []) == [repo], "V5 …untouched names the folder (\(String(describing: f5["untouched"])))")
     check(f5["archive"] as? String != nil, "V5 …and the run's archive")
     check(sha(keep) == keepSHA && fm.fileExists(atPath: repo), "V5 …the folder on disk, byte-for-byte")
     check(phase("sd") == "finished", "V5 …then state's phase finished (\(phase("sd") ?? "nil"))")
@@ -132,7 +135,7 @@ func cliWorkspaceStopDownRows(_ h: CLIHarness, root: URL, store: DozableStore, s
     _ = h.run(["workspace", "start", "sd3"], timeout: 120)
     track("sd3")
     r = h.run(["workspace", "down", "sd3", "--yes"], timeout: 180)
-    check(r.code == 0 && r.out.contains("finished; nothing removed (standing)") && r.out.contains(DisplayPath.tilde(repo3)),
+    check(r.code == 0 && r.out.contains("finished; nothing removed (standing)") && r.out.contains("untouched (yours, not its own): " + DisplayPath.tilde(repo3)),
           "V6 …its text says what it kept: \"finished; nothing removed (standing)\" (\(r.code) \(r.out.suffix(300)))")
 
     // V7. a runs-lifetime space: its scratch folder is under removed, after its copy verifies.

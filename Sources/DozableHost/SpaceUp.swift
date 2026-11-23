@@ -79,6 +79,12 @@ public struct SpaceRecordRef: Codable, Equatable, Sendable {
     public func store(in rec: inout WorkspaceRecord) {
         if let v = try? JSONValue(encoding: self) { rec.unknown.extra["space"] = v }
     }
+    /// 762 (F1b): a workspace's lifetime as `show` and `ls` carry it: a space file's as recorded at up (none: `runs`); one made
+    /// without a space file is `standing` (its finish removes nothing).
+    public static func lifetime(of rec: WorkspaceRecord) -> String {
+        guard let ref = of(rec) else { return "standing" }
+        return ref.lifetime ?? SpaceDozable.defaultLifetime
+    }
     /// Up when the last up is later than the last down.
     public var isUp: Bool { guard let u = upAt else { return false }; return downAt.map { u > $0 } ?? true }
 }
@@ -295,7 +301,7 @@ public enum SpaceUp {
         var reopens = false
         if let rec {
             if ref == nil {
-                step("workspace-new", "workspace \(i.space)", "run", "the workspace \(i.space)", action: "refuse",
+                step("workspace-new", "workspace \(i.space)", "persisted", "the workspace \(i.space)", action: "refuse",
                      why: "\(i.space) was made without a space file")
                 refuse("\(i.space) was made without a space file: up manages only a workspace a space file made (rename that one, or give the space another name)", .exists)
             } else {
@@ -306,7 +312,7 @@ public enum SpaceUp {
                 if rec.manager?.bot != manager?.bot { diff.append("manager \(rec.manager?.bot ?? "none") → \(manager?.bot ?? "none")") }
                 if let a = ref?.brief?.sha256, let b = f.brief?.sha256, a != b { diff.append("the brief changed since the last up") }
                 let edits = diff.contains { !$0.hasPrefix("the brief") }
-                step("workspace-edit", "workspace \(i.space)", "run", diff.isEmpty ? "the workspace \(i.space): as the file says" : "the workspace \(i.space): " + diff.joined(separator: "; "),
+                step("workspace-edit", "workspace \(i.space)", "persisted", diff.isEmpty ? "the workspace \(i.space): as the file says" : "the workspace \(i.space): " + diff.joined(separator: "; "),
                      action: edits ? "run" : "skip", op: edits ? .workspaceEdit : nil)
                 if rec.flags.archivedAt != nil {
                     refuse("\(i.space) is archived — doz workspace restore \(i.space) first", .invalidPhase)
@@ -322,26 +328,30 @@ public enum SpaceUp {
             if let m = manager?.bot { parts.append("managed by \(m)") }
             parts.append(i.briefText != nil ? "the brief written in the file (kept with the workspace)" : "the brief from \(i.brief) (read from the file, never copied)")
             text += ": " + parts.joined(separator: "; ")
-            step("workspace-new", "workspace \(i.space)", "run", text,
-                 down: "the record stays: down ends the run; --purge retires what persists", op: .workspaceNew)
+            // 762 (F12): the workspace itself outlives every run (its record stays at down), so it is never labelled a run's.
+            step("workspace-new", "workspace \(i.space)", "persisted", text,
+                 down: i.isStanding ? "the record stays, with everything the space made (standing); --purge retires what persists"
+                     : "the record stays: down ends the run; --purge retires what persists", op: .workspaceNew)
         }
 
         // 4. Rooms: the main one made again when down removed it; the others made (or linked) before the run opens, so the
         // run's markers cover them.
         func liveRoom(_ name: String) -> Bool { rec?.rooms.contains { $0.chatRoom == name && $0.goneAt == nil } ?? false }
         for r in i.rooms {
-            let downText = r.persisted == nil ? (i.archive.value == "off" ? "closed, then deleted with no copy (a tombstone kept)" : "closed, archived, then deleted (a tombstone kept)")
-                : "closed: kept with its history and id until the next up"
+            // 762 (F1): read through the lifetime — a standing space keeps its rooms at down.
+            let life = i.downLifetime("room", r.chatRoom, declared: r.persisted == nil ? "run" : "persisted")
+            let downText = life == "run" ? (i.archive.value == "off" ? "closed, then deleted with no copy (a tombstone kept)" : "closed, archived, then deleted (a tombstone kept)")
+                : r.persisted == nil ? "closed: kept with its history and id (standing)" : "closed: kept with its history and id until the next up"
             if r.main {
                 guard rec != nil, ref != nil, !r.external, !liveRoom(r.chatRoom) else { continue }
-                step("room", "room \(r.name)", r.persisted == nil ? "run" : "persisted", "make the main room \(r.chatRoom) again as you", down: downText)
+                step("room", "room \(r.name)", life, "make the main room \(r.chatRoom) again as you", down: downText)
             } else if r.external {
                 step("room", "room \(r.name)", "external", "link the room \(r.chatRoom); invite its missing members",
                      action: liveRoom(r.chatRoom) ? "skip" : "run", why: liveRoom(r.chatRoom) ? "already linked" : nil,
                      down: "never touched; its run-window messages archived")
             } else {
                 let had = liveRoom(r.chatRoom)
-                step("room", "room \(r.name)", r.persisted == nil ? "run" : "persisted", "make the room \(r.chatRoom) as you" + (r.persisted.map { " (\($0.words))" } ?? ""),
+                step("room", "room \(r.name)", life, "make the room \(r.chatRoom) as you" + (r.persisted.map { " (\($0.words))" } ?? ""),
                      action: had ? "skip" : "run", why: had ? "already there" : nil, down: downText)
             }
         }
@@ -364,9 +374,11 @@ public enum SpaceUp {
         let runFolder = (f.projectsDir as NSString).appendingPathComponent(".runs/\(i.space)/{run}")
         for x in i.folders where x.path == nil && x.persisted == nil {
             let made = openRun.map { o in (ref?.scratch ?? []).contains { $0.run == o.id && $0.name == x.name } } ?? false
-            step("folder", "folder \(x.name)", "run", "make the scratch folder \(DisplayPath.tilde(runFolder))/\(x.name)",
+            let life = i.downLifetime("folder", x.name, declared: "run")
+            step("folder", "folder \(x.name)", life, "make the scratch folder \(DisplayPath.tilde(runFolder))/\(x.name)",
                  action: made && !reopens ? "skip" : "run", why: made && !reopens ? "already there" : nil,
-                 down: i.archive.value == "off" ? "removed with no copy (archive: off)" : "copied into the run's archive, then removed")
+                 down: life == "persisted" ? "kept on disk (standing)"
+                     : i.archive.value == "off" ? "removed with no copy (archive: off)" : "copied into the run's archive, then removed")
         }
 
         // 7. Adopt the external sessions; 8. each agent Dozable starts, in file order (a worker from a bot too).
@@ -407,7 +419,8 @@ public enum SpaceUp {
                 } else {
                     w.isolation = "vm"; w.cpus = s.cpus; w.memory = s.memory
                     w.newSandbox = s.placeName
-                    whereText = "in a new sandbox \(s.placeName)" + (s.persisted.map { " (\($0.words): its disk kept)" } ?? "")
+                    whereText = "in a new sandbox \(s.placeName)" + (s.persisted.map { " (\($0.words): its disk kept)" }
+                        ?? (i.downLifetime("sandbox", s.placeName, declared: "run") == "persisted" ? " (standing: its disk kept)" : ""))
                     sandboxMade.insert(sb)
                 }
             } else {
@@ -421,7 +434,7 @@ public enum SpaceUp {
             if bypass { text += ", bypassing permissions (\(a.permissions!.words))" }
             if let m = a.memory { text += "; its memory persisted (\(m.source)): it continues its conversation" }
             let entry = rec?.agents.last { $0.name == a.name && $0.isWorker && $0.endedAt == nil }
-            var action = "run", why: String?, lifetime = a.memory == nil ? "run" : "persisted"
+            var action = "run", why: String?, lifetime = a.memory == nil ? i.downLifetime("agent", a.name, declared: "run") : "persisted"
             if let e = entry {
                 let was = e.isolation ?? "fenced", now = w.isolation ?? "vm"
                 if a.memory != nil, was != now, (was == "unfenced") != (now == "unfenced") {
@@ -435,6 +448,8 @@ public enum SpaceUp {
             var down: String
             switch (a.memory != nil, a.transcripts?.value) {
             case (true, _): down = "ended; its conversation and memory kept for the next run"
+            case (false, _) where lifetime == "persisted":
+                down = "stopped; kept with its conversation (standing) — --purge ends and forgets it"
             case (false, "discard"): down = "ended and forgotten; its transcripts " + (i.archive.value == "off" ? "deleted with no copy" : "deleted once the archived copy is hash-checked")
             default: down = "ended and forgotten; its transcripts kept"
             }
@@ -496,11 +511,11 @@ public enum SpaceUp {
         let ownedSandboxes = i.sandboxes.filter { !$0.external }
         if !ownedSandboxes.isEmpty {
             starts.append(plural(ownedSandboxes.count, "sandbox").replacingOccurrences(of: "sandboxs", with: "sandboxes") + " ("
-                          + ownedSandboxes.map { "\($0.name): \($0.persisted == nil ? "this run only" : "persisted")" }.joined(separator: "; ") + ")")
+                          + ownedSandboxes.map { "\($0.name): \($0.persisted == nil && i.downLifetime("sandbox", $0.placeName, declared: "run") == "run" ? "this run only" : "persisted")" }.joined(separator: "; ") + ")")
         }
         let ownedRooms = i.rooms.filter { !$0.external }
         if !ownedRooms.isEmpty {
-            starts.append(plural(ownedRooms.count, "room") + " (" + ownedRooms.map { "\($0.chatRoom): \($0.persisted == nil ? "this run only" : "persisted")" }.joined(separator: "; ") + ")")
+            starts.append(plural(ownedRooms.count, "room") + " (" + ownedRooms.map { "\($0.chatRoom): \($0.persisted == nil && i.downLifetime("room", $0.chatRoom, declared: "run") == "run" ? "this run only" : "persisted")" }.joined(separator: "; ") + ")")
         }
         var s = starts.isEmpty ? "Starts nothing." : "Starts " + starts.joined(separator: ", ") + "."
         var ext: [String] = []
@@ -520,7 +535,29 @@ public enum SpaceUp {
         for x in i.sandboxes { if let p = x.persisted { kept.append("sandbox \(x.name)'s disk (from \(p.source))") } }
         for x in i.folders { if let p = x.persisted { kept.append("folder \(x.name) (from \(p.source))") } }
         for x in i.persistedPaths { kept.append("folder \(x.value) (from \(x.source))") }
-        out.append(kept.isEmpty ? "Nothing persisted: down removes everything the space made." : "Persisted: " + kept.joined(separator: ", ") + ".")
+        if i.isStanding {
+            // 762 (F1): a standing space's down removes nothing it owns but what says `lifetime: run` itself — say what it keeps.
+            var standing: [String] = []
+            var goes: [String] = []
+            for r in i.rooms where !r.external && r.persisted == nil {
+                if i.downLifetime("room", r.chatRoom, declared: "run") == "run" { goes.append("room \(r.chatRoom)") } else { standing.append("room \(r.chatRoom)") }
+            }
+            for a in owned where a.memory == nil {
+                if i.downLifetime("agent", a.name, declared: "run") == "run" { goes.append("agent \(a.name)") } else { standing.append("agent \(a.name) and its conversation") }
+            }
+            for x in i.sandboxes where !x.external && x.persisted == nil {
+                if i.downLifetime("sandbox", x.placeName, declared: "run") == "run" { goes.append("sandbox \(x.name)") } else { standing.append("sandbox \(x.name)'s disk") }
+            }
+            for x in i.folders where x.path == nil && x.persisted == nil {
+                if i.downLifetime("folder", x.name, declared: "run") == "run" { goes.append("scratch folder \(x.name)") } else { standing.append("scratch folder \(x.name)") }
+            }
+            let all = standing + kept
+            var line = "Standing (x-dozable.lifetime): down stops the run and keeps " + (all.isEmpty ? "the workspace and its record" : all.joined(separator: ", "))
+            line += goes.isEmpty ? "." : "; it removes only what says lifetime: run (" + goes.joined(separator: ", ") + ")" + (i.archive.value == "off" ? ", with no copy (archive: off)." : ", archived first.")
+            out.append(line)
+        } else {
+            out.append(kept.isEmpty ? "Nothing persisted: down removes everything the space made." : "Persisted: " + kept.joined(separator: ", ") + ".")
+        }
 
         if i.archive.value == "off" {
             out.append("Archive: off (from \(i.archive.source)): down keeps no copy — rooms, scratch folders and discarded transcripts are deleted with no copy.")
@@ -544,7 +581,7 @@ public enum SpaceUp {
         if i.unfenced.count > 0 {
             out.append("Up asks you to confirm \(i.unfenced.joined(separator: ", ")) (unfenced) at every up; --yes answers on a terminal only.")
         }
-        if owned.allSatisfy({ $0.memory == nil && $0.transcripts?.value == "discard" }) && i.archive.value == "off"
+        if !i.isStanding && owned.allSatisfy({ $0.memory == nil && $0.transcripts?.value == "discard" }) && i.archive.value == "off"
             && i.rooms.allSatisfy({ $0.persisted == nil }) && i.sandboxes.allSatisfy({ $0.persisted == nil }) && i.persistedPaths.isEmpty {
             out.append("A clean room: down leaves nothing behind but Dozable's own logs and the rooms' tombstones.")
         }

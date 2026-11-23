@@ -1,7 +1,7 @@
 // views/home — Home (#/home, the default page): every workspace, one row each — its state in the CLI's words, the
 // workspace and its folders, who drives, its manager, who is working, its room, the room's last line, one next action (a
 // button: Sleep, Wake, Reopen or Restore — its plan's dialog, components/ws-lifecycle.js) — waiting on you first, then
-// working, starting, idle, setting up; asleep folds into "Asleep (N)", finished and archived into one line below it.
+// working, starting, idle, setting up; asleep (and, 762, stopped) folds into "Asleep (N)", finished and archived into one line below it.
 // With none: what a workspace is, Quick try, and the sandboxes and sessions already on this Mac in none.
 // Read on arrival, hello, `changed` and an operation's end — never on a timer (listing the workspaces asks every session
 // on this Mac for its state). Each row's workspace drawn small beside its name (components/space-picture.js: a space
@@ -43,7 +43,8 @@ export async function viewHome() {
   const hidden = l.hidden ? callout('info', { compact: true, body: plural(l.hidden, 'sandbox or session', 'sandboxes and sessions') + ' on this Mac not shown to this browser (serve.mac_sessions).' }) : null;
   if (!l.workspaces.length) return h('div', { class: 'hm-page', 'data-home': '' }, head, needs, empty(l), hidden);
   const sorted = byState(l.workspaces);
-  const live = sorted.filter((w) => !isDone(w) && w.state !== 'asleep'), asleep = sorted.filter((w) => w.state === 'asleep'), done = sorted.filter(isDone);
+  const down = (w) => w.state === 'asleep' || w.state === 'stopped';
+  const live = sorted.filter((w) => !isDone(w) && !down(w)), asleep = sorted.filter(down), done = sorted.filter(isDone);
   // What only a workspace's own read says: a setting-up one's gaps, a waiting one's reason (the rows on screen).
   const details = new Map();
   await Promise.all(live.slice(0, LAST_ROWS).filter((w) => w.state === 'setting-up' || w.state === 'waiting-on-you')

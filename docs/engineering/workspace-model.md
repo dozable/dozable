@@ -60,8 +60,11 @@ folders included; finish removes nothing. **runs**: the space file's run model (
 it, under `x-dozable` in either version; no file needs it. A top-level `lifetime:` is not a key of space/3 or 3.1 (in a
 3.1 file it is refused with the fix: write it under `x-dozable`). Persistence gets its own key in a later version.
 
-Today the lifetime is recorded and shown; the lifecycle verbs that act on it (`down` ≡ `finish`, scratch kept when
-standing) are a later stage.
+The lifetime is recorded at `up` and acted on since 0.52.36 (756): `down` ≡ `finish`, a standing workspace's finish
+removes nothing it owns but what says `lifetime: run` itself, and its scratch folders are kept (workspaces.md, "The
+lifecycle"). Since 0.52.43 (762) `plan -f` / `up` read it too — a standing file's plan says what `down` keeps, never
+that it removes everything — and `show --json` / `ls --json` carry it as `lifetime` (`runs` or `standing`; a workspace
+made without a space file is `standing`).
 
 ## The record → document mapping (`RecordDocument.generate`)
 

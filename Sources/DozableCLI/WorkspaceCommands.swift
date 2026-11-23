@@ -272,6 +272,7 @@ func printStarted(_ s: WorkspaceStarted) {
         t += "no manager: you drive\n"
     }
     for w in s.workers ?? [] { t += "started the worker \(w)\n" }
+    for w in s.woke ?? [] { t += "\(w) is running again (it was stopped)\n" }
     Out.stdout(t)
     printWorkspace(s.workspace)
     for n in s.notes ?? [] { Out.stdout("note: \(n)\n") }

@@ -34,6 +34,8 @@ import DozableHost
 //      restore names the image
 //  12. delete vmw --remove-sandboxes: only the sandbox Dozable made for it (vmw) removed — an adopted one (vadopt) stays,
 //      loose
+//  13. (762, F5) a space file's run-lifetime sandbox at down: its disk saved as an image first (vsx-box-tpl, named in the
+//      answer's savedDisks and in image ls), then the sandbox removed — never without a copy
 func cliWorkspaceVMSuite(binary: String) async {
     print("cli: a workspace's manager in a micro VM (one lab sandbox, a FAKE manager)")
     let fm = FileManager.default
@@ -55,6 +57,8 @@ func cliWorkspaceVMSuite(binary: String) async {
         h.run(["rm", "vw-v3", "--yes"], timeout: 180)
         h.run(["rm", "vadopt", "--yes"], timeout: 180)
         h.run(["image", "rm", "vw-v3-tpl", "--yes"], timeout: 120)
+        h.run(["rm", "vsx-box", "--yes"], timeout: 180)
+        h.run(["image", "rm", "vsx-box-tpl", "--yes"], timeout: 120)
         h.run(["chat", "off"], timeout: 30)
         h.run(["daemon", "stop"], timeout: 120)
         _ = h.waitFor(30) { !h.hostRunning }
@@ -298,4 +302,30 @@ func cliWorkspaceVMSuite(binary: String) async {
     r = h.run(["workspace", "delete", "vmw", "--remove-sandboxes", "--yes"], timeout: 900)
     check(r.code == 0 && h.row("vmw") == nil && h.row("vadopt") != nil, "12 delete vmw --remove-sandboxes: vmw removed, the adopted vadopt kept (\(r.code) \(r.err.suffix(300)))")
     check(h.json(["workspace", "ls", "--loose"], WorkspaceListing.self)?.loose.contains { $0.name == "vadopt" } == true, "12 …vadopt loose again")
+
+    // 13. (762, F5) a space's run-lifetime sandbox: down saves its disk as an image first, names it, then removes the sandbox.
+    let sx = work.appendingPathComponent("vsx")
+    try? fm.createDirectory(at: sx, withIntermediateDirectories: true)
+    try? "Say hello.\n".write(to: sx.appendingPathComponent("BRIEF.md"), atomically: true, encoding: .utf8)
+    let sxFile = sx.appendingPathComponent("vsx.space.yaml").path
+    try? """
+    doz: space/3
+    space: vsx
+    brief: BRIEF.md
+    owner: ada
+    chat:
+      rooms:
+        vsx: { main: true, members: [owner] }
+    sandboxes:
+      box: { image: lab, cpus: 2, memory: 2G }
+    agents:
+      w1: { kind: claude-code, where: "sandbox:box", prompt: say hi }
+
+    """.write(toFile: sxFile, atomically: true, encoding: .utf8)
+    r = h.run(["workspace", "up", "-f", sxFile, "--yes"], timeout: 900)
+    check(r.code == 0 && h.row("vsx-box") != nil, "13 up vsx: its sandbox vsx-box made (\(r.code) \(r.err.suffix(300)))")
+    r = h.run(["workspace", "down", "vsx", "--yes", "--json"], timeout: 900)
+    let sxd = try? HostWire.decoder.decode(SpaceActed.self, from: r.outData)
+    check(r.code == 0 && sxd?.savedDisks?["vsx-box"] == "vsx-box-tpl", "13 down vsx: the disk saved as vsx-box-tpl, named (\(r.code) \(String(describing: sxd?.savedDisks)) \(r.err.suffix(300)))")
+    check(h.run(["image", "ls"]).out.contains("vsx-box-tpl") && h.row("vsx-box") == nil, "13 …the image there, then the sandbox removed")
 }

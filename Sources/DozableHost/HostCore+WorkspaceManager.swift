@@ -193,16 +193,42 @@ extension HostCore {
 
     // MARK: start
 
-    /// The start, then the workers declared at `new` (`startDeclaredWorkers`): one that does not start is a note — the
+    /// The start, then the workers declared at `new` (`startDeclaredWorkers`), then (762, F2) every other agent a stop or a
+    /// sleep left down (`wakeStoppedAgents`) — so stop → start is a round trip. One that does not start is a note — the
     /// workspace is started either way, and the next start tries it again.
     func workspaceStart(_ w: WorkspaceRequest) async throws -> WorkspaceStarted {
         var s = try await workspaceStartOnce(w)
         let (started, notes) = await startDeclaredWorkers(s.name)
-        guard !started.isEmpty || !notes.isEmpty else { return s }
+        let (woke, wakeNotes) = await wakeStoppedAgents(s.name)
+        guard !started.isEmpty || !notes.isEmpty || !woke.isEmpty || !wakeNotes.isEmpty else { return s }
         s.workers = started.isEmpty ? nil : started
-        s.notes = (s.notes ?? []) + notes
+        s.woke = woke.isEmpty ? nil : woke
+        s.notes = (s.notes ?? []) + notes + wakeNotes
         if let rec = try? workspaceRecord(s.name) { s.workspace = await workspaceDetail(rec, withBrief: false) }
         return s
+    }
+
+    /// 762 (F2): every agent but the manager (the start brought it back) that a stop or a sleep left down — its `stoppedAt` —
+    /// brought back exactly as `doz workspace wake` does (`wakeChange`: a worker in place, its conversation resumed; an
+    /// adopted agent's session or sandbox), at most `ui.batch_concurrency` at once, under the workspace's gate. Answers who
+    /// came back, and a note for each that did not.
+    func wakeStoppedAgents(_ n: String) async -> (woke: [String], notes: [String]) {
+        await workspaceGate.lock("workspace:" + n)
+        defer { workspaceGate.unlock("workspace:" + n) }
+        guard let rec = try? workspaceRecord(n), rec.flags.finishedAt == nil, rec.flags.archivedAt == nil,
+              rec.agents.contains(where: { $0.endedAt == nil && !$0.isManager && $0.stoppedAt != nil }) else { return ([], []) }
+        let plan = await lifecyclePlan(.wake, rec, WorkspaceLifecycle.Options())
+        let changes = lifecycleChanges(rec, plan).compactMap { c -> LifecycleChange? in
+            let down = c.agents.filter { !$0.isManager && $0.stoppedAt != nil }
+            return down.isEmpty ? nil : LifecycleChange(key: c.key, agents: down)
+        }
+        guard !changes.isEmpty else { return ([], []) }
+        lifecycleWorkspaces.insert(n)
+        defer { lifecycleWorkspaces.remove(n) }
+        let results = await runLifecycle(n, changes, width: plan.queue.width) { c in await self.wakeChange(rec, c) }
+        note(nil, "workspace \(n): start brought back \(results.filter(\.ok).count) of \(results.count) agent\(results.count == 1 ? "" : "s") a stop left down")
+        return (results.filter(\.ok).map(\.name),
+                results.filter { !$0.ok }.map { "\($0.name) did not start again: \($0.text) — doz workspace wake \(n) tries again" })
     }
 
     func workspaceStartOnce(_ w: WorkspaceRequest) async throws -> WorkspaceStarted {

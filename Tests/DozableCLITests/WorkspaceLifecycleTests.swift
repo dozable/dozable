@@ -136,7 +136,9 @@ final class WorkspaceLifecycleTests: XCTestCase {
         XCTAssertTrue(row(p, "mira")!.back.hasPrefix("doz workspace wake demo"))
         XCTAssertEqual(p.confirm, "yes")
         XCTAssertTrue(p.goes.isEmpty, "stop removes nothing")
-        XCTAssertTrue(p.keeps.contains { $0.text.contains("every folder, untouched") })
+        // 762 (F7): the person's folder is untouched, named apart — never under Kept.
+        XCTAssertFalse(p.keeps.contains { $0.text.contains("folder") || $0.path != nil })
+        XCTAssertEqual(p.untouched?.map(\.path), ["/work/demo"])
         XCTAssertTrue(p.commands.contains("doz shutdown demo-otto") && p.commands.contains("doz sessions end @mac demo-bot1"))
         XCTAssertFalse(p.commands.contains { $0.contains("hibernate") })
         XCTAssertEqual(p.command, "doz workspace stop demo")
@@ -167,11 +169,22 @@ final class WorkspaceLifecycleTests: XCTestCase {
         XCTAssertEqual(held.first, "/work/demo")
         XCTAssertTrue(held.contains("room/demo") && held.contains("agent/mira") && held.contains("sandbox/demo-otto") && held.contains("sandbox/lab"))
         XCTAssertEqual(held.filter { $0 == "sandbox/lab" }.count, 1, "a shared sandbox once")
-        XCTAssertEqual(WorkspaceFinishInventory.kept(before: rec, removed: []), held, "nothing removed: everything kept")
+        XCTAssertEqual(WorkspaceFinishInventory.kept(before: rec, removed: []), held, "nothing removed: everything kept (the --json contract)")
         XCTAssertEqual(WorkspaceFinishInventory.kept(before: rec, removed: ["room/demo"]).contains("room/demo"), false)
-        let lines = WorkspaceFinishInventory.lines(removed: [], kept: held, standing: true, archive: nil)
+        // 762 (F7): the person's folder (not made by it) is untouched; the text never says it under "kept:".
+        XCTAssertEqual(WorkspaceFinishInventory.untouched(rec), ["/work/demo"])
+        var made = rec
+        made.madeFolders = ["/work/demo"]
+        XCTAssertEqual(WorkspaceFinishInventory.untouched(made), [], "a folder it made is its own")
+        let lines = WorkspaceFinishInventory.lines(removed: [], kept: held, untouched: WorkspaceFinishInventory.untouched(rec), released: ["agent/far"],
+                                                   standing: true, archive: nil)
         XCTAssertEqual(lines.first, "finished; nothing removed (standing)")
-        XCTAssertTrue(lines[1].hasPrefix("kept: /work/demo, room/demo"))
+        XCTAssertTrue(lines[1].hasPrefix("kept: room/demo"), lines[1])
+        XCTAssertFalse(lines[1].contains("/work/demo") || lines[1].contains("agent/far"), lines[1])
+        XCTAssertEqual(lines[2], "released (loose again): agent/far")
+        XCTAssertEqual(lines[3], "untouched (yours, not its own): /work/demo")
+        XCTAssertTrue(WorkspaceFinishInventory.lines(removed: [], kept: held, standing: true, archive: nil)[1].hasPrefix("kept: /work/demo, room/demo"),
+                      "without the split, as before")
         XCTAssertEqual(WorkspaceFinishInventory.lines(removed: ["/x/s"], kept: [], standing: false, archive: "a/b").first, "removed: /x/s")
     }
 
@@ -194,7 +207,7 @@ final class WorkspaceLifecycleTests: XCTestCase {
         f.ownedRooms = ["demo"]
         let owned = L.plan(verb: .finish, record: record(), state: "working", facts: f, options: L.Options())
         XCTAssertEqual(owned.rooms?.first, WorkspaceLifecycleRoomRow(room: "demo", label: "main", owned: true,
-                                                                     after: "closed: members can read it, posts refused (space-down)"))
+                                                                     after: "closed: members can read it, posts refused"))
         XCTAssertTrue(owned.notes.contains("finish closes the room to new messages until you reopen"))
         XCTAssertTrue(owned.goes.contains { $0.text.contains("closed until you reopen") })
         XCTAssertNotEqual(owned.sha, p.sha)

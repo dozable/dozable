@@ -129,6 +129,14 @@ public struct SpaceIntent: Codable, Equatable, Sendable {
 
     /// The lifetime a reader takes: as written, else `runs` (today's meaning of a space file).
     public var effectiveLifetime: String { lifetime ?? SpaceDozable.defaultLifetime }
+    /// 762: `x-dozable.lifetime: standing`.
+    public var isStanding: Bool { effectiveLifetime == "standing" }
+    /// 762 (F1): what an owned thing lives as at down — the plan reads it as `SpaceRecordRef.effective` does at down: as
+    /// declared (`run` or `persisted`) in `runs`; standing, `persisted` unless it says `lifetime: run` itself (`kind:name`).
+    public func downLifetime(_ kind: String, _ name: String, declared: String) -> String {
+        guard isStanding, declared == "run" else { return declared }
+        return (runLifetime ?? []).contains(kind + ":" + name) ? "run" : "persisted"
+    }
     public var mainRoom: Room? { rooms.first { $0.main } }
     public var manager: Agent? { agents.first { $0.role == "manager" } }
     public var ownedAgents: [Agent] { agents.filter { !$0.external } }

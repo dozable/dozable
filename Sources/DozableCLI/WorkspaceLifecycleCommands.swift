@@ -49,11 +49,11 @@ func runWorkspaceLifecycle(_ verb: WorkspaceVerb, name: String, dryRun: Bool, ye
     let plan = try decode(try await query(workspaceRequest(.workspaceLifecyclePlan, w), g), WorkspaceLifecyclePlan.self, g)
     let refusal = plan.refusals.first.map { HostError(HostError.Code(rawValue: plan.refusalCode ?? "") ?? .invalidPhase, $0) }
     if a.dryRun {
-        if g.json { Out.json(plan) } else { Out.stdout(workspaceLifecycleText(plan)) }
+        if g.json { Out.json(plan) } else { Out.stdout(workspaceLifecycleText(plan, word: word, dryRun: true)) }
         if let refusal { throw ExitCode(DozableExit.code(for: refusal)) }
         return
     }
-    if !g.json { Out.stdout(workspaceLifecycleText(plan, commands: false)) }
+    if !g.json { Out.stdout(workspaceLifecycleText(plan, commands: false, word: word)) }
     if let refusal { throw fail(refusal, g) }
     // The command again with --yes: what a question nobody could answer says to run.
     let fix = ["doz", "workspace", word, a.name, "--yes"] + (g.json ? ["--json"] : [])
@@ -84,7 +84,7 @@ func runWorkspaceLifecycle(_ verb: WorkspaceVerb, name: String, dryRun: Bool, ye
     out += lifecycleDone(verb, c) + "\n"
     // A finish always says what it removed and what it kept (a workspace made without a space file is standing).
     if verb == .finish, let kept = c.kept {
-        for l in WorkspaceFinishInventory.lines(removed: c.removed ?? [], kept: kept, standing: true, archive: nil) { out += "  \(l)\n" }
+        for l in WorkspaceFinishInventory.lines(removed: c.removed ?? [], kept: kept, untouched: c.untouched ?? [], standing: true, archive: nil) { out += "  \(l)\n" }
     }
     for n in c.notes ?? [] { out += "note: \(n)\n" }
     Out.stdout(out)
@@ -131,8 +131,10 @@ func confirmTypedName(_ name: String, verb: String, yes: Bool, _ g: GlobalOption
 
 /// A plan as a person reads it: the table (agent · role · where · now → after · back), what is kept and what goes (with
 /// sizes), the queue, what would be refused, the notes, and the commands.
-func workspaceLifecycleText(_ p: WorkspaceLifecyclePlan, commands: Bool = true) -> String {
-    var s = "\(capitalised(p.verb)) \(p.workspace)? — \(p.state.replacingOccurrences(of: "-", with: " ")) now\n"
+/// `word`: the command as typed (`down` is finish's twin). A dry run asks nothing (762, F10): its first line says what it is.
+func workspaceLifecycleText(_ p: WorkspaceLifecyclePlan, commands: Bool = true, word: String? = nil, dryRun: Bool = false) -> String {
+    let verb = capitalised(word ?? p.verb), now = p.state.replacingOccurrences(of: "-", with: " ") + " now"
+    var s = dryRun ? "\(verb) \(p.workspace) — what it would do (a dry run: nothing is done); \(now)\n" : "\(verb) \(p.workspace)? — \(now)\n"
     if p.rows.isEmpty {
         s += "  no agents\n"
     } else {
@@ -144,6 +146,7 @@ func workspaceLifecycleText(_ p: WorkspaceLifecyclePlan, commands: Bool = true) 
         s += Out.table(t)
     }
     if !p.keeps.isEmpty { s += "Kept:\n" + p.keeps.map { "  " + lifecycleItem($0) + "\n" }.joined() }
+    if let u = p.untouched, !u.isEmpty { s += "Untouched:\n" + u.map { "  " + lifecycleItem($0) + "\n" }.joined() }
     if !p.goes.isEmpty { s += "Goes:\n" + p.goes.map { "  " + lifecycleItem($0) + "\n" }.joined() }
     if let rooms = p.rooms, !rooms.isEmpty {
         s += "Rooms:\n" + rooms.map { "  #\($0.room) → \($0.after)\n" }.joined()
@@ -275,7 +278,12 @@ func runWorkspaceFinish(name n: String, purge: Bool, noArchive: Bool, yes: Bool,
     let plan = try decode(try await query(q, g), SpaceDownPlan.self, g)
     // Made without a space file: finish (it removes nothing — standing).
     if plan.refusalCode == HostError.Code.exists.rawValue {
-        if purge { throw fail(HostError(.invalid, "--purge: \(n) was made without a space file — nothing of it persists beyond its finish"), g) }
+        // 762 (F4): such a workspace is standing — its finish keeps everything it holds; --purge is a space file's.
+        if purge {
+            throw fail(HostError(.invalid, "--purge: \(n) was made without a space file, so it is standing: its finish keeps everything it holds, "
+                                 + "and --purge retires only what a space file made — doz workspace down \(n) finishes it; doz workspace delete \(n) "
+                                 + "removes its record once it is finished"), g)
+        }
         try await runWorkspaceLifecycle(.finish, name: n, dryRun: dryRun, yes: yes, ifPlan: ifPlan, g, word: word) { w in w.noArchive = noArchive ? true : nil }
         return
     }

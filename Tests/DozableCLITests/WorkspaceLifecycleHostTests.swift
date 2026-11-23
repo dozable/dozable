@@ -126,7 +126,9 @@ final class WorkspaceLifecycleHostTests: BotTestCase {
             }
             return []
         }
-        func end(_ o: WorkerEndOrder) async throws -> [String] { lock.withLock { places[o.place]?.running = false }; return [] }
+        /// Every end, in order (762: whether it removed the place).
+        var ends: [WorkerEndOrder] = []
+        func end(_ o: WorkerEndOrder) async throws -> [String] { lock.withLock { places[o.place]?.running = false; ends.append(o) }; return [] }
         func down(_ place: String) { lock.withLock { places[place]?.running = false } }
     }
 
@@ -166,7 +168,13 @@ final class WorkspaceLifecycleHostTests: BotTestCase {
         func sleep(_ o: AgentLifecycleOrder) async throws -> [String] { try change("sleep", o, to: o.sandbox != nil ? .asleep : .ended); return [] }
         func wake(_ o: AgentLifecycleOrder) async throws -> [String] { try change("wake", o, to: .running); return [] }
         func shutdown(_ o: AgentLifecycleOrder) async throws -> [String] { try change("shutdown", o, to: o.sandbox != nil ? .off : .ended); return [] }
-        func keepTemplate(sandbox: String, name: String) async throws { trace.add("template \(sandbox) as \(name)") }
+        /// 762: a template (a disk's save) that fails, where the test says.
+        var failTemplate = false
+        func keepTemplate(sandbox: String, name: String) async throws {
+            if lock.withLock({ failTemplate }) { throw HostError(.failed, "no space left for an image of \(sandbox)") }
+            trace.add("template \(sandbox) as \(name)")
+        }
+        func sandboxExists(_ name: String) async -> Bool { lock.withLock { now["sandbox:" + name] != .gone } }
         func removeSandbox(_ name: String) async throws {
             trace.add("rm \(name)")
             workers.lock.withLock { workers.places[name] = nil }

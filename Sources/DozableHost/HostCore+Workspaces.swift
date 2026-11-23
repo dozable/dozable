@@ -251,6 +251,31 @@ extension HostCore {
         return out
     }
 
+    /// The state `derive` gives `rec` — the log read (`lastDownWasStop`) only when nothing runs, to tell stopped from asleep.
+    func workspaceState(_ rec: WorkspaceRecord, _ agents: [WorkspaceState.Agent]) -> WorkspaceState {
+        var input = WorkspaceState.Input(agents: agents, flags: rec.flags, starting: startingWorkspaces.contains(rec.name))
+        let state = WorkspaceState.derive(input)
+        guard state == .asleep, lastDownWasStop(rec.name) else { return state }
+        input.stopped = true
+        return WorkspaceState.derive(input)
+    }
+
+    /// 762 (F3): whether a `doz workspace stop` is what last put `n` down (not a sleep, a wake, a start or a reopen): the
+    /// newest of its log's workspace-wide changes, one page read backwards — never the whole log, never a guest call.
+    /// The manager alone stopped (`manager stop`) reads asleep, as before.
+    func lastDownWasStop(_ n: String) -> Bool {
+        for e in (try? workspaces.logPage(n, limit: 64))?.entries ?? [] {
+            switch e.action {
+            case "stopped", "agent-stopped": return true
+            case "slept", "agent-slept", "woke", "agent-woke", "reopened", "kicked-off", "manager-started", "manager-stopped", "worker-added",
+                 "run-opened", "restored", "finished", "adopted":
+                return false
+            default: continue
+            }
+        }
+        return false
+    }
+
     /// The sandbox a worker shares with another agent of the workspace not ended (nil: none — a place of its own).
     func workerShares(_ rec: WorkspaceRecord, _ a: WorkspaceAgent) -> String? {
         guard a.isWorker, let s = a.place.sandbox else { return nil }
@@ -262,12 +287,13 @@ extension HostCore {
         let macs: [String: SessionRow]
         if let given { macs = given } else { macs = rec.agents.contains { $0.place.mac == true } ? await workspaceMacRows() : [:] }
         let agents = await workspaceAgents(rec, macs: macs)
-        let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.compactMap(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
+        let state = workspaceState(rec, agents.compactMap(\.1))
         var d = WorkspaceDetail(name: rec.name, state: state.rawValue, driver: rec.driver, createdAt: rec.createdAt, brief: rec.brief,
                                 briefText: withBrief ? workspaceBriefText(rec) : nil, folders: rec.folders, rooms: rec.rooms,
                                 agents: agents.map(\.0), defaults: rec.defaults, flags: rec.flags, origin: rec.origin,
                                 notes: notes.isEmpty ? nil : notes)
         d.space = SpaceShown.of(rec)
+        d.lifetime = SpaceRecordRef.lifetime(of: rec)
         d.declaredWorkers = rec.declaredWorkers.isEmpty ? nil : rec.declaredWorkers
         return d
     }
@@ -281,7 +307,7 @@ extension HostCore {
         if !looseOnly {
             for rec in records {
                 let agents = await workspaceAgents(rec, macs: macs)
-                let state = WorkspaceState.derive(WorkspaceState.Input(agents: agents.compactMap(\.1), flags: rec.flags, starting: startingWorkspaces.contains(rec.name)))
+                let state = workspaceState(rec, agents.compactMap(\.1))
                 let manager = rec.manager.flatMap { m in agents.first { $0.0.role == "manager" }.map { row in
                     WorkspaceManagerRow(bot: m.bot ?? m.name, isolation: m.isolation ?? "fenced", actsAsYou: m.actsAsYou, state: row.0.state)
                 } }
@@ -290,6 +316,7 @@ extension HostCore {
                                          folders: rec.folders.isEmpty ? nil : rec.folders.map(\.path), places: Self.workspacePlaces(rec),
                                          space: WorkspaceRowSpace.of(rec),
                                          lastAt: (try? workspaces.logPage(rec.name, limit: 1))?.entries.first?.at))
+                rows[rows.count - 1].lifetime = SpaceRecordRef.lifetime(of: rec)
             }
         }
         var loose: [LooseAgent] = []

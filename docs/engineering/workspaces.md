@@ -272,7 +272,10 @@ through `ChatOwnerRooms`; the unit tests give a fake.
 `doz workspace start` under way, `startingWorkspaces`) → **setting up** (`flags.startedAt == nil && flags.firstAgentAt ==
 nil`: never started and no running agent adopted — a recorded manager is `Agent.notStarted`) → starting (a sandbox
 booting) → waiting on you (a session `blocked` or in `error`, a sandbox `failed`, an open Ask for you — none until Asks
-exist) → working → idle → asleep (a manager stopped or its sandbox off, every agent asleep, or started with none). Only
+exist) → working → idle → asleep (a manager stopped or its sandbox off, every agent asleep, or started with none) — or
+**stopped** (762, F3) when what last put it down was a `doz workspace stop` (`Input.stopped`: the newest of the log's
+workspace-wide changes is `stopped` / `agent-stopped`, read backwards one page and only when nothing runs —
+`HostCore.workspaceState`, `lastDownWasStop`); the manager alone stopped (`manager stop`) still reads asleep. Only
 adopting a RUNNING agent sets `firstAgentAt`. The JSON value is the raw value (`setting-up`, `waiting-on-you`); the CLI
 shows the words (`setting up · you`). The driver is always `you` in this version and sits beside the state;
 `ls` adds the manager: `idle · you · manager mira (fenced)`.
@@ -538,7 +541,10 @@ secrets kept; an unfenced one's token file deleted) — and nothing is removed; 
 `agent-stopped` (so its condition is `stopped`, not asleep). What sleeps or is stopped already is left as it is: a stop of a
 stopped or asleep workspace changes nothing and asks nothing (exit 0). The manager alone — stop's old meaning — is
 `workspace-stop` with `managerOnly` (`doz workspace manager stop W`, `workspaceStop`, below); `doz workspace stop` prints a
-one-line note naming it on stderr. Reversible: sleep ↔ wake; stop → wake; finish → reopen, then wake; archive → restore (the
+one-line note naming it on stderr. **Start after stop is a round trip** (762, F2): `workspace-start` brings the manager back,
+then every other agent a stop (or a sleep) left down — its `stoppedAt` — exactly as wake does (`wakeStoppedAgents` →
+`wakeChange`: a worker in place, its conversation resumed), under the workspace's gate; its answer's `woke` names them and
+its `workspace.agents` reads them running. Reversible: sleep ↔ wake; stop → wake or start; finish → reopen, then wake; archive → restore (the
 rooms opened again, the result finished; retired anonymous workers and removed sandboxes are not undone); delete: none.
 
 **Finish ≡ down (D4), and what they say (D12).** `doz workspace down W` and `doz workspace finish W` are one CLI path
@@ -546,10 +552,22 @@ rooms opened again, the result finished; retired anonymous workers and removed s
 finishes through the lifecycle, one a space file made goes down by its file's plan (`workspace-down`, which finishes first).
 Both answer `kind: WorkspaceFinish`, schema 1, with `removed` and `kept` (`WorkspaceFinishInventory`: folders by their
 ABSOLUTE path, rooms `room/NAME`, agents `agent/NAME`, sandboxes `sandbox/NAME`; `kept` = what the record held before, less
-`removed`) and `archive` (relative to the store) — additive fields on `WorkspaceChanged` and `SpaceActed`, so a reader of
+`removed` — the `--json` contract, unchanged), `untouched` (762, F7: the folders it did not make —
+`ownFolders`: `madeFolders`, a space's scratch and kept folders — the person's), `released` (adopted agents `down` released)
+and `archive` (relative to the store). What a person reads keeps them apart: the text's "kept:" line names only what is the
+workspace's own (`lines`), "untouched" and "released" have lines of their own; a verb's plan lists in `keeps` only what is
+its own and the person's folders in `untouched` (the CLI's "Untouched:" section, the dashboard's list) — additive fields on `WorkspaceChanged` and `SpaceActed`, so a reader of
 either shape still decodes it. The text always prints both lines; a standing workspace's says "finished; nothing removed
 (standing)". `--no-archive` is refused for a space workspace (its file's `archive:` decides) and `--purge` for one made
 without a space file. The dashboard's `workspace-finish` stays the lifecycle finish: it removes nothing a space file made.
+
+**The plan reads the lifetime (762, F1/F12).** `SpaceUp.plan` labels and describes each owned thing through
+`SpaceIntent.downLifetime` (as `SpaceRecordRef.effective` reads it at down): a standing file's room, scratch folder, agent
+and sandbox are `persisted` unless they say `lifetime: run`, its summary says what down keeps ("Standing
+(x-dozable.lifetime): down stops the run and keeps …") and never "Nothing persisted … removes everything"; the workspace
+itself (`workspace-new`, `workspace-edit`) is always `persisted` — its record outlives every run. Up's executor tells a kept
+folder from a scratch one by `keptFolderPaths`, never by the label. `show --json` and `ls --json` carry `lifetime`
+(`SpaceRecordRef.lifetime(of:)`: the recorded one, `runs` when none; `standing` for a workspace made without a file).
 
 **Lifetime at finish (D7).** A record-made workspace is standing: its finish removes nothing. A space file's
 `x-dozable.lifetime` is recorded at up (`SpaceRecordRef.lifetime`), with every owned resource whose own
@@ -599,6 +617,14 @@ its keychain item, its ledger line and the session's record (`fence.secrets`). `
 (only ending one already ended forgets it), so the sweep keeps the item, and `macReopen` reopens with the record's secrets and
 a fresh placeholder — the same token (`make test-cli-workspace` L2–L3). A sandbox shut down (a finish) revokes its secrets:
 an anonymous worker in it gets a new token on its next wake, and the plan says so ("with a new token").
+
+**A sandbox's disk is never removed without a copy (762, F5).** Wherever `down` removes a sandbox — a run-lifetime agent's
+own (`spaceEndAgent`, before `workerEnd --rm`) or, with `--purge`, a persisted one (`sandbox-rm`) — its disk is first saved as
+an image (`saveDiskBeforeRemoval`: `WorkspaceAgentLifecycle.keepTemplate`, named `S-tpl` or the next free name as archive's
+templates, logged `template-kept`) and named in the answer (`savedDisks`, the notes, the text's "saved:" line). A save that
+fails stops that step: nothing is removed and the agent stays; a later `down` (no run open) ends a run-lifetime worker an
+earlier down left behind, its transcripts kept, its disk saved first (`SpaceDownPlan`). `WorkspaceLifecycleHostTests`
+`test762*` pin it with the fakes (no VM).
 
 **Safety.** Nothing on disk goes without its flag: a sandbox's disk only with `removeSandboxes`, and only one Dozable made for
 this workspace (a manager's or a worker's own — never an adopted one, never one a worker shares; `doz rm`'s hook leaves its

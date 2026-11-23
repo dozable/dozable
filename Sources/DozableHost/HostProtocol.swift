@@ -1940,6 +1940,8 @@ public struct WorkspaceRow: Codable, Equatable, Sendable {
     /// The space file that made it (its name) and whether it is up — from the record's `space` (the file is never opened;
     /// nil: made without one). Additive; `--json` only (Home and the sidebar draw its picture, or a plain tile with none).
     public var space: WorkspaceRowSpace?
+    /// 762 (F1b): how long what it holds lives (`SpaceRecordRef.lifetime(of:)`): `runs` or `standing`. Additive; `--json` only.
+    public var lifetime: String?
     /// When its log's last line was written (nil: no log yet) — one block of the log read backwards per workspace, never a
     /// guest call. Additive; `--json` only (the dashboard's Workspaces page shows and sorts by it).
     public var lastAt: Date?
@@ -2036,6 +2038,8 @@ public struct WorkspaceStarted: Codable, Equatable, Sendable {
     public var workspace: WorkspaceDetail
     /// The workers declared at `new` this start started, by name (nil: none). Additive.
     public var workers: [String]?
+    /// 762 (F2): the agents a stop (or a sleep) had left down that this start brought back, by name (nil: none). Additive.
+    public var woke: [String]?
     /// `WorkspaceStarted`, schema 1 (additive: an older daemon's answer has neither).
     public var kind: String?
     public var schema: Int?
@@ -2094,6 +2098,9 @@ public struct WorkspaceChanged: Codable, Equatable, Sendable {
     public var schema: Int?
     public var removed: [String]?
     public var kept: [String]?
+    /// 762 (F7): the person's folders the finish never touched (not its own) — still in `kept` (the `--json` contract), said
+    /// apart in the text. Additive.
+    public var untouched: [String]?
     public init(name: String, verb: String, results: [WorkspaceAgentResult], templates: [String: String]? = nil, binned: [String]? = nil,
                 notes: [String]? = nil, workspace: WorkspaceDetail?) {
         self.name = name; self.verb = verb; self.results = results; self.templates = templates; self.binned = binned; self.notes = notes
@@ -2125,6 +2132,9 @@ public struct WorkspaceDetail: Codable, Equatable, Sendable {
     public var space: SpaceShown?
     /// The workers declared at `new` and not started yet (`doz workspace start` starts them; nil: none). Additive.
     public var declaredWorkers: [WorkspaceDeclaredWorker]?
+    /// 762 (F1b): how long what it holds lives (`SpaceRecordRef.lifetime(of:)`): a space file's `x-dozable.lifetime` as
+    /// recorded at up (`runs` when it says none), `standing` for one made without a space file. Additive.
+    public var lifetime: String?
     /// `Workspace`, schema 1 (additive: an older daemon's answer has neither).
     public var kind: String?
     public var schema: Int?

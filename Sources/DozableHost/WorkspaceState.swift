@@ -11,6 +11,9 @@ public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
     case starting
     case waitingOnYou = "waiting-on-you"
     case working, idle, asleep
+    /// 762 (F3): nothing runs because a `doz workspace stop` stopped it (`Input.stopped`) — not asleep: `wake` or `start`
+    /// brings every agent back.
+    case stopped
 
     /// As a person reads it: "setting up", "waiting on you".
     public var words: String { rawValue.replacingOccurrences(of: "-", with: " ") }
@@ -36,15 +39,20 @@ public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
         public var openAsksForYou: Int
         /// `doz workspace start` is under way for it.
         public var starting: Bool
-        public init(agents: [Agent], flags: WorkspaceFlags = WorkspaceFlags(), openAsksForYou: Int = 0, starting: Bool = false) {
-            self.agents = agents; self.flags = flags; self.openAsksForYou = openAsksForYou; self.starting = starting
+        /// 762 (F3): what last put it down was a stop (`doz workspace stop`), not a sleep — the log's newest workspace-wide
+        /// change (`HostCore.lastDownWasStop`). Nothing running then reads stopped, not asleep.
+        public var stopped: Bool
+        public init(agents: [Agent], flags: WorkspaceFlags = WorkspaceFlags(), openAsksForYou: Int = 0, starting: Bool = false,
+                    stopped: Bool = false) {
+            self.agents = agents; self.flags = flags; self.openAsksForYou = openAsksForYou; self.starting = starting; self.stopped = stopped
         }
     }
 
     /// archived → finished → starting (`doz workspace start` under way) → setting up (never started and never had a running agent: `startedAt` and `firstAgentAt` both
     /// nil — a recorded manager is `notStarted`) → starting (a sandbox booting) → waiting on you (a
     /// session blocked or in error, a sandbox failed, an open Ask for you) → working → idle → asleep (a manager stopped, its
-    /// sandbox stopped, or no agent at all once started). The first that holds wins. A `notStarted` agent counts as asleep.
+    /// sandbox stopped, or no agent at all once started) — or, 762, stopped when a `doz workspace stop` put it down
+    /// (`Input.stopped`). The first that holds wins. A `notStarted` agent counts as asleep.
     public static func derive(_ i: Input) -> WorkspaceState {
         if i.flags.archivedAt != nil { return .archived }
         if i.flags.finishedAt != nil { return .finished }
@@ -57,7 +65,7 @@ public enum WorkspaceState: String, Codable, Equatable, Sendable, CaseIterable {
         }
         if sessions.contains("working") { return .working }
         if i.agents.contains(where: { if case .running = $0 { return true } else { return false } }) { return .idle }
-        return .asleep
+        return i.stopped ? .stopped : .asleep
     }
 
     /// A sandbox as an agent: from its phase and the statuses the daemon holds.
