@@ -1346,6 +1346,18 @@ doz console NAME [--follow]                                 # the boot console (
 doz console NAME --list | --steps [--boot N] [--json]       # the kept boots (daemon.boot_logs_kept, 5): steps + console of boot N (1 = latest)
 ```
 
+### The manual
+
+Every `doz` carries the manual of its own version (`libexec/doz/manual/`, beside the executable): read offline, no
+network, no daemon. Online, the same version's: `https://dozable.com/v/VERSION/llms.txt`.
+
+```bash
+doz docs                    # the version, the manual's folder, its index (llms.txt) and this version's URL; the pages
+doz docs PAGE               # a page's Markdown, by name or number (doz docs workspaces, doz docs 37); unknown: exit 65, the list
+doz docs --path             # only the folder, on one line
+doz docs [PAGE] --json      # {"kind":"DozDocs","schema":1,"version","local","llms","url"} (a page: "DozDocsPage", with "markdown")
+```
+
 ### Scripting
 
 Every command takes `--json` (machine-readable output; errors as

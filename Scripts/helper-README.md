@@ -20,6 +20,7 @@ doz-__VERSION__-helper/
     DozableKit_DozableKit.bundle the small Linux programs each sandbox uses
     kernels/vmlinux-6.18.15-186  the pinned Linux kernel (GPL-2.0, unmodified) — no download on a new Mac
     licences/                    LICENSE, NOTICE, every dependency's licence; kernel/: the kernel's source offer
+    manual/                      this version's user manual (llms.txt, llms-full.txt, every page): doz docs
 ```
 
 The layout is a contract: within a minor version (`0.37.x`) nothing in it moves or is renamed.

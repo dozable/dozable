@@ -37,6 +37,13 @@ doz workspace start app --json
   the exit codes, the error JSON, `--yes`, and what not to do. `doz skill show doz --json` gives its path
   (`{"kind":"Skill","schema":1,"name":"doz","path":"…/SKILL.md"}`); point your agent at it. It ships inside doz, which
   installs it nowhere.
+- **This manual, of this version.** Every `doz` carries its own manual: `doz docs` says where it is (offline — no
+  network, no daemon), `doz docs PAGE` prints a page by name or number (`doz docs workspaces`, `doz docs 37`; an unknown
+  page exits `65` and lists them), and `doz docs --json` gives
+  `{"kind":"DozDocs","schema":1,"version","local","llms","url"}`: `llms` is its index, `llms.txt` (every page, one
+  line each, linked relatively), and `url` the same manual online for this version only,
+  `https://dozable.com/v/VERSION/llms.txt`. `doz docs --path` prints only the folder. An agent should read this one,
+  never another version's: a canary or beta has commands and flags the stable manual doesn't.
 
 `doz create` makes a single sandbox, not a workspace: an agent asked for a workspace should use `doz workspace new`.
 

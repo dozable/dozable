@@ -7,8 +7,15 @@ public enum MenuBarApp {
     /// carries `store`, `held`, `alwaysOn` and `loginItem`. An older doz still gets status, Start/Stop/Restart and the
     /// dashboard (all there since 0.50); the menu says it is older.
     public static let minimumDoz = "0.50.5"
-    /// Where a person reads how to install doz (the manual's install page, as Markdown).
-    public static let installHelpURL = "https://dozable.com/docs/install-upgrade-uninstall.md"
+    /// Where a person reads how to install doz: the manual's install page, as Markdown, of THIS app's version
+    /// (`https://dozable.com/v/X.Y.Z/docs/…`) — never the version-less page, which is the stable release's. Only an app
+    /// that cannot read its own version (it always can, from its Info.plist) falls back to the home page.
+    public static func installHelpURL(appVersion: String?) -> String {
+        guard let v = appVersion, !v.isEmpty, v.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || ".+-".contains($0)) }) else {
+            return "https://dozable.com/"
+        }
+        return "https://dozable.com/v/\(v)/docs/install-upgrade-uninstall.md"
+    }
     /// The oldest doz Start at Login works with: the first that sees the app's SMAppService job as the owner of the login
     /// item (its program named relative to the bundle) and so removes its own — never two.
     public static let minimumDozForLogin = "0.50.8"

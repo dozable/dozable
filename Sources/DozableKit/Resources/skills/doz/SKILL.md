@@ -8,6 +8,14 @@ description: Drive Dozable (`doz`) on a person's Mac for them — make a workspa
 `doz` is Dozable's command on this Mac. You run it for the person, with their permissions: treat every command as if
 they typed it. Always pass `--json` and read the answer; never run a command that waits for a terminal.
 
+## This version's manual
+
+The manual of THIS doz travels inside it: `doz docs` (offline: no network, no daemon) says where it is;
+`doz docs PAGE` prints a page by name or number (`doz docs workspaces`, `doz docs 14`); `doz docs --json` gives
+`{"kind":"DozDocs","version","local","llms","url"}` — `llms` is its index, `llms.txt`. Online, for this version only:
+https://dozable.com/v/VERSION/llms.txt (the version `doz --version` prints). Never read another version's manual:
+commands and flags change between releases.
+
 ## What a workspace is
 
 A **workspace** is work set up to get done: a **brief** (what the work is for), the **folders** it works on (the first is

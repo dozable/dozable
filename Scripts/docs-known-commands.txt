@@ -257,6 +257,7 @@ worker/ls
 worker/end
 skill
 skill/show
+docs
 permissions
 permissions/show
 permissions/why

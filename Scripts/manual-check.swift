@@ -250,6 +250,15 @@ func subcommands(_ path: [String]) -> (names: Set<String>, hasDefault: Bool, def
     }
     return (names, hasDefault, defaultName)
 }
+/// A help text's OPTIONS section (up to the next `NAME:` heading): the options the command lists.
+func optionsSection(_ text: String) -> String {
+    var out: [String] = [], on = false
+    for line in text.components(separatedBy: "\n") {
+        if line.range(of: #"^[A-Z][A-Z ]+:\s*$"#, options: .regularExpression) != nil { on = line.hasPrefix("OPTIONS:"); continue }
+        if on { out.append(line) }
+    }
+    return out.joined(separator: "\n") + "\n"
+}
 let top = subcommands([])
 if top.names.isEmpty { problem("doz --help listed no subcommands") }
 var commandsChecked = 0, flagsChecked = 0
@@ -285,7 +294,9 @@ func checkCommand(_ raw: String, page: String) {
         break
     }
     commandsChecked += 1
-    let text = help(path)
+    // Only the names --help LISTS count: its OPTIONS section, never the overview or discussion — a hidden earlier name
+    // (`--workspace`, `--chatgpt`) that the prose still mentions is a failure, as it is for an agent reading --help.
+    let text = optionsSection(help(path))
     for t in tokens[i...] {
         if t == "--" { break }
         guard t.hasPrefix("-"), t.count > 1 else { continue }
@@ -298,7 +309,7 @@ func checkCommand(_ raw: String, page: String) {
         } else if flag.hasPrefix("--") {
             known = text.contains("\(flag) ") || text.contains("\(flag)\n") || text.contains("\(flag)/") || text.contains("\(flag),") || text.contains("[\(flag)]")
         } else {
-            known = text.contains("  \(flag), ") || text.contains("[\(flag)")
+            known = text.contains("  \(flag), ") || text.contains("  \(flag) ") || text.contains("  \(flag)\n")
         }
         if !known { problem("\(page): `\(raw)` — doz \(path.joined(separator: " ")) has no \(flag)") }
     }

@@ -45,13 +45,19 @@ struct SkillShow: ParsableCommand {
         return .success(SkillAnswer(name: name, path: url.path))
     }
 
+    /// The skill's manual links name THIS version (`https://dozable.com/v/X.Y.Z/…`): a release and `make cli` write it
+    /// into the file (Scripts/manual-bundle.py --stamp-skill); a build that did not (`swift build` alone) is shown it here.
+    static func versioned(_ text: String, version: String) -> String {
+        text.replacingOccurrences(of: #"https://dozable\.com/v/[^/\s`)]+/"#, with: "https://dozable.com/v/\(version)/", options: .regularExpression)
+    }
+
     func run() throws {
         switch Self.resolve(name) {
         case .failure(let e): throw fail(e, g)
         case .success(let a):
             if g.json { Out.json(a); return }
             guard let d = FileManager.default.contents(atPath: a.path) else { throw fail(HostError(.failed, "cannot read \(a.path)"), g) }
-            FileHandle.standardOutput.write(d)
+            FileHandle.standardOutput.write(Data(Self.versioned(String(decoding: d, as: UTF8.self), version: DozableCommand.version).utf8))
         }
     }
 }

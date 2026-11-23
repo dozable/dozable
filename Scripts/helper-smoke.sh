@@ -40,7 +40,8 @@ tar -xzf "$TARBALL" -C "$W/unpacked"
 TOP="$(ls "$W/unpacked")"
 [[ "$TOP" == "doz-$VERSION-helper" ]] || die "the tarball's top folder is $TOP, not doz-$VERSION-helper"
 L="$W/unpacked/$TOP/libexec/doz"
-for f in doz VERSION RELEASE DozableKit_DozableKit.bundle "kernels/$KERNEL_NAME" licences/LICENSE licences/THIRD-PARTY-LICENSES.txt licences/kernel/PROVENANCE.md; do
+for f in doz VERSION RELEASE DozableKit_DozableKit.bundle "kernels/$KERNEL_NAME" licences/LICENSE licences/THIRD-PARTY-LICENSES.txt licences/kernel/PROVENANCE.md \
+         manual/llms.txt manual/llms-full.txt manual/VERSION; do
     [[ -e "$L/$f" ]] || die "layout: no libexec/doz/$f"
 done
 [[ -s "$W/unpacked/$TOP/README.md" ]] || die "layout: no README.md"
@@ -51,7 +52,7 @@ done
 [[ "$(cat "$L/VERSION")" == "$VERSION" ]] || die "VERSION is $(cat "$L/VERSION")"
 [[ "$(cat "$L/RELEASE")" == helper* ]] || die "RELEASE is $(cat "$L/RELEASE"), not helper"
 [[ "$(shasum -a 256 "$L/kernels/$KERNEL_NAME" | cut -d' ' -f1)" == "$KERNEL_SHA" ]] || die "the carried kernel is not the pin"
-ok "layout: libexec/doz/{doz, VERSION, RELEASE=helper, DozableKit_DozableKit.bundle, kernels/$KERNEL_NAME (the pin), licences/}, README.md; no bin/, no dashboard, no deckhold-mac or dozchat-mac"
+ok "layout: libexec/doz/{doz, VERSION, RELEASE=helper, DozableKit_DozableKit.bundle, kernels/$KERNEL_NAME (the pin), licences/, manual/}, README.md; no bin/, no dashboard, no deckhold-mac or dozchat-mac"
 
 # 2. Copied whole into an app, as an app does.
 H="$W/Smoke.app/Contents/Resources/Helpers/doz"
@@ -75,6 +76,10 @@ grep -q "not in this build" <<<"$said" || die "doz ui: $said"
 said="$(d onboard 2>&1 || true)"
 grep -q "not in this build" <<<"$said" || die "doz onboard: $said"
 ok "doz upgrade refuses (\"this doz belongs to Smoke; Smoke updates it\"); doz ui and doz onboard are not in this build"
+[[ "$(cd "$(d docs --path)" && pwd -P)" == "$(cd "$H/manual" && pwd -P)" ]] || die "doz docs --path is not the copied helper's own manual"
+d docs workspaces | grep -q "doz workspace" || die "doz docs workspaces"
+[[ ! -e "$W/store" ]] || die "doz docs touched the store"
+ok "doz docs: the copied helper reads its own manual (no daemon, no store)"
 
 # 3. An empty store: the host, then a VM.
 [[ ! -e "$W/store" ]] || die "the store is not empty"
