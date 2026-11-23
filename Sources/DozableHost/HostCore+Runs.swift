@@ -452,6 +452,10 @@ extension HostCore {
         e.screens = gathered.screens
         e.notes = gathered.notes
         e.frames = spaceFrameFiles(n, run.id)
+        // 767: the run's journal and its copied evidence, frozen with the rest.
+        let j = journalForArchive(n, run.id)
+        e.journal = j.journal
+        e.evidence = j.evidence
         e.agents = runAgents(rec, run).map { a in
             (a.name, Self.roleName(a), a.place.key == nil ? "elsewhere: its conversations are on its own machine" : nil)
         }

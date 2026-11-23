@@ -51,7 +51,7 @@ public enum ExitCodes {
         ExitCodeEntry(notFound, "not-found", "not found — only that: nothing by that name, or several that match", [.notFound, .ambiguous]),
         ExitCodeEntry(notPossibleNow, "not-possible-now",
                       "not possible now: not in this state, in use, changed since you looked, already answered or not yours",
-                      [.invalidPhase, .conflict, .planChanged, .fileChanged, .alreadyAnswered, .notOwned, .requestIDReused, .runOpen, .proposalDecided]),
+                      [.invalidPhase, .conflict, .planChanged, .fileChanged, .alreadyAnswered, .notOwned, .requestIDReused, .runOpen, .proposalDecided, .runClosed, .noOpenRun, .noDaemon]),
         ExitCodeEntry(alreadyExists, "already-exists", "already exists", [.alreadyExists], also: [.exists]),
         ExitCodeEntry(notConfirmed, "not-confirmed", "not confirmed: no terminal and no --yes, or the answer was no", [.needsConfirmation]),
         ExitCodeEntry(daemonUnavailable, "daemon-unavailable", "the daemon (or what it runs) is not available", [.needsDaemon],
@@ -75,7 +75,7 @@ public enum ExitCodes {
         switch code {
         case .failed: failed
         case .notFound, .ambiguous: notFound
-        case .invalidPhase, .conflict, .planChanged, .fileChanged, .alreadyAnswered, .notOwned, .requestIDReused, .runOpen, .proposalDecided: notPossibleNow
+        case .invalidPhase, .conflict, .planChanged, .fileChanged, .alreadyAnswered, .notOwned, .requestIDReused, .runOpen, .proposalDecided, .runClosed, .noOpenRun, .noDaemon: notPossibleNow
         case .exists, .alreadyExists: alreadyExists
         case .needsConfirmation: notConfirmed
         case .version, .unavailable, .needsDaemon: daemonUnavailable

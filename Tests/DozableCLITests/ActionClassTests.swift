@@ -27,6 +27,7 @@ final class ActionClassTests: XCTestCase {
         .workspaceSleep: ["workspace.sleep"], .workspaceWake: ["workspace.sleep"],
         .workspaceRun: ["run.open"], .workspaceReopen: ["run.open"], .workspaceFinish: ["run.finish"],
         .workspaceRetro: ["description.propose"], .workspaceDecide: ["description.decide"], .workspaceAddendum: ["description.edit"],
+        .workspaceJournal: ["journal.read"], .workspaceJournalFollow: ["journal.read"], .workspaceJournalAdd: ["journal.write"],
         .workspaceArchive: ["workspace.archive"], .workspaceRestore: ["workspace.archive"], .workspaceRunArchive: ["workspace.archive"],
         .workspaceDelete: ["workspace.delete"],
         .botNew: ["bot.manage"], .botSet: ["bot.manage"], .botRetire: ["bot.manage"], .botAdopt: ["bot.manage"],

@@ -17,7 +17,7 @@ line from coming to built without the code, and never describe coming behaviour 
 | **IDSESS** | `WorkspaceAgent` split into Identity (L1) and Session (L2); declared workers become identities; named workers persist | PLACE |
 | **SP32** | space/3.2: `lives: workspace \| run`, `places:`, `where: PLACE`, `brief.criteria`, `brief.addenda`, the migration notes | PLACE, IDSESS |
 | **LC2** | `down` ≠ `finish` (D4 reversed): `finish` closes the run and removes the run's things; `down` releases allocations and keeps data; `--purge` for every workspace; `WorkspaceDown`; the dashboard's Finish and Down | LC1, SP32 |
-| **UOW-MVP** | bring your own process: the run's primitives — part A, the work description's addenda, proposals and their permission ids, is built (0.52.47); part B, the journal and evidence hashed when attached, is coming | LC1 |
+| **UOW-MVP** | bring your own process: the run's primitives — part A, the work description's addenda, proposals and their permission ids, is built (0.52.47); part B, the run journal (journal/1) and evidence hashed when attached, is built (0.52.48) | LC1 |
 | **PLAYBOOKS** | the four recommended processes as playbooks (permission presets, journal kinds, a way to apply one; the quality loop's gates opt-in) — supported and tested, never required | UOW-MVP |
 | **HOOKS** (optional) | a workspace told of its run's events by a command or an address — a proposal only, to be reviewed again before any work | PLAYBOOKS |
 
@@ -25,7 +25,9 @@ COND, one condition per layer in `state`, is built (0.52.45): "One phase, and on
 `run` verb, is built (0.52.46): `doz workspace run W [GOAL]`, one run at a time, `reopen` its old name, `up` opening a run
 each time none is open until LC2 (`--no-run` opens none) — L3 below and workspaces.md, "The run verb". UOW-MVP's part A,
 the work description, is built (0.52.47): addenda, proposals through Dozable's own Ask, `description.*` and the `reviewer`
-role — "The unit of work" below and workspaces.md, "The work description and proposals". Later,
+role — "The unit of work" below and workspaces.md, "The work description and proposals". UOW-MVP's part B, the run
+journal, is built (0.52.48): journal/1 with its corrections, kinds, refs, evidence, follow (`wseq`) and wait, and the
+`journal.*` and `evidence.attach` permissions gating — [journal.md](journal.md). Later,
 only if a user asks: skills and playbooks a proposal may change, and comparing runs.
 
 ## The four layers
@@ -214,8 +216,9 @@ only observes them. **Bring your own process** (owner, 2026-11-23): how a run is
 on the user and the managing agent, so Dozable provides **primitives** and **permissions** and enforces no process. A
 workspace's process lives in what its people and agents do with them, written down wherever they like: a brief, a
 playbook skill, a template, the agent's own prompt. Built: the Run primitive, `run.open` and `run.finish` (0.52.46, LC1);
-the work description, proposals, the `description.*` permissions and the `reviewer` role (0.52.47, UOW-MVP part A). The
-journal, evidence and the last paragraph are **coming** (UOW-MVP part B, then PLAYBOOKS).
+the work description, proposals, the `description.*` permissions and the `reviewer` role (0.52.47, UOW-MVP part A); the
+journal, evidence and the close (0.52.48, UOW-MVP part B — [journal.md](journal.md)). The recommended processes are
+**coming** (PLAYBOOKS).
 
 **Two integrity rules**, the only fixed ones — they are about trust, not process:
 1. evidence attached to a run is hashed when it is attached;
@@ -223,29 +226,32 @@ journal, evidence and the last paragraph are **coming** (UOW-MVP part B, then PL
 
 Who may change the work description is a permission like any other, not a rule.
 
-**The primitives** (the run verb built in 0.52.46; the work description and proposals in 0.52.47; the journal, evidence and close coming — UOW-MVP part B):
+**The primitives** (the run verb built in 0.52.46; the work description and proposals in 0.52.47; the journal, evidence and close in 0.52.48):
 
 | Primitive | What it is |
 |---|---|
 | Run | **built (0.52.46)**: `run W [GOAL]` opens one, `finish` closes it; it records its goal (else "the brief"), what started it, the run it follows, usage (its length, `durationMs`), and the revision of the work description it read. One open at a time |
-| Journal | append-only entries on a run, `{seq, at, by, kind, text?, refs?, data?}`; `kind` is any string — Dozable renders the ones it knows (`note`, `task`, `claim`, `review`, `finding`, `outcome`) and shows the rest as written. No kind is required, no order enforced |
-| Evidence | files, commits or messages attached to an entry; a file is copied into the run and hashed when attached (rule 1) |
+| Journal | **built (0.52.48)**: journal/1 ([journal.md](journal.md)) — append-only entries on a run, `{id, seq, at, by, kind, text?, refs?, data?, evidence?, supersedes?}`, the daemon setting `id`, `seq`, `at`, `by` and `evidence`; a correction is a new entry of the same kind (`--supersedes N`), `superseded_by` computed on reading; `kind` is any string (`journal-kinds/1`'s ten bare names have their `data` checked; `gate`, `hook` and `dozable.*` are Dozable's own). No kind is required, no order enforced. Read, followed (one cursor, `wseq`) and waited on |
+| Evidence | **built (0.52.48)**: a file from the run's folders copied into the run and hashed when attached (`--attach`, rule 1), or hashed in place (`--attach-ref`, large media); commits and messages as refs (`commit:SHA` with `present`, `msg:SEQ` inside the run's slice) |
 | Work description | **built (0.52.47)**: the brief plus `addenda [{run?, at, by, text}]` (the record's `addenda`; the document's `brief.addenda`, absent when empty), appended without rewriting the brief; each addendum is one more revision (`addendum-added`, counted by `WorkspaceRuns.descriptionRevision`). A run with no goal takes the brief and every addendum (`WorkDescription.goal`). `doz workspace edit W --addendum TEXT [--run RUN]` adds one directly. A lesson is one kind of addendum |
 | Proposal | **built (0.52.47)**: a pending change, `{id, origin: retro, state, change: {addendum}, by, at, source: {run}}` (`doz workspace retro W [RUN] --propose --addendum TEXT`), kept in the record's folder (`proposals.json`), applied or declined through Dozable's own Ask in the main room or `doz workspace decide`. Optional: an identity holding `description.edit` changes things directly |
-| Close | `finish` freezes the run's journal and evidence into its archive (rule 2) |
+| Close | **built (0.52.48)**: `finish` freezes the run's journal and evidence into its archive (`journal.jsonl`, `evidence/`); a closed run takes no entry (`run-closed`, rule 2) |
 
 **Permissions, opt-in.** Built: `run.open` and `run.finish` (0.52.46: `workspace-run` and `workspace-reopen` need
 `run.open`, `workspace-finish` `run.finish`; an older `workspace.finish` grant, role answer or ceiling still answers for
 both for one release, `GrantPermissions.olderIds`); `description.propose` (`workspace-retro`), `description.decide`
 (`workspace-decide`) and `description.edit` (`workspace-addendum`), 0.52.47 (`GrantPermissions`, `ActionClasses`). The
-journal's ids — `journal.read`, `journal.write`, `journal.supersede`, `evidence.attach` — are known ids since 0.52.47 that
-gate nothing yet (their words say so); `journal.write:KIND` is coming with the journal. Every one is **off for agents**
-until granted; the owner is never gated, as today:
+journal's ids gate since 0.52.48: `journal.read` (reading, `--follow`, `wait` — the one **on by default**, for an agent in
+its own workspace), `journal.write` or `journal.write:KIND` (a parameterised id: that kind only; `journal.write` answers
+for every kind), `journal.supersede` (correcting another's entry, decided once the entry is read) and `evidence.attach`.
+Every other one is **off for agents** until granted; the owner is never gated, as today:
 
 | Permission | Lets an agent |
 |---|---|
 | `run.open`, `run.finish` | open and close runs |
 | `journal.write` (`journal.write:KIND` for some kinds only) | append journal entries |
+| `journal.read` | read, follow and wait on the journal (on by default in its own workspace; withdrawable) |
+| `journal.supersede` | correct another's journal entry |
 | `evidence.attach` | attach evidence |
 | `description.propose` | propose a change to the work description |
 | `description.decide` | apply or decline such a proposal (its own too, when granted) |
@@ -307,7 +313,7 @@ workspace made without a space file has no `up` and no `--purge`; LC2 closes tha
 | sandbox | L1 | an owned micro VM, or one that exists already; coming: a place with `isolation: vm` | yes |
 | secret | — | a **reference** (`{keychain: ITEM}`, `{file: PATH}`) and where it may go (`to:`) | the reference only |
 | phase | — | setting up, running, asleep, stopped, finished, archived; coming: one condition per layer | **never** |
-| run | L3 | a unit of work: `run` (or the first start, or an up with none open) to its finish, with its goal; coming: its journal, evidence and criteria | never (the record's, read-only) |
+| run | L3 | a unit of work: `run` (or the first start, or an up with none open) to its finish, with its goal, its journal and evidence (0.52.48); coming: its criteria | never (the record's, read-only) |
 
 ## Invariants
 

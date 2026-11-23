@@ -994,6 +994,11 @@ doz workspace run W [GOAL] [--source KIND[:REF]] [--follows RUN] [--no-start]   
 doz workspace retro W [RUN] --propose --addendum TEXT  # a proposal to add TEXT to the work description (from RUN, default the last); you are asked in its room
 doz workspace decide W PROPOSAL apply|decline    # decide a proposal (once: proposal-decided, exit 3); its Ask closes with the outcome
 doz workspace proposals W [--json]               # its proposals: open, applied or declined, and how
+doz workspace journal W [RUN] [--json]           # a run's journal (the open run by default): its entries in order, corrected ones marked
+doz workspace journal W add KIND [TEXT] [--data JSON] [--ref R]… [--attach FILE]… [--attach-ref FILE]… [--supersedes N]   # an entry in the open run
+doz workspace journal W --follow [--after-wseq N | --after RUN#SEQ] [--until-finish] [--json]   # the workspace's lines as they happen (needs the daemon)
+doz workspace wait W --for journal.KIND [--after RUN#SEQ] [--timeout S]   # until such an entry is written (one already there counts); 124 on the timeout
+doz workspace wait W --for ready [--timeout S]  # until every agent of the workspace is running
 doz workspace reopen W [--no-start] [--dry-run] [--if-plan SHA]   # the old name of run (--dry-run / --if-plan: reopen's plan, nothing started)
 doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--no-archive] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
 doz workspace restore W [--dry-run] [--if-plan SHA]           # archived → finished, its rooms writable again

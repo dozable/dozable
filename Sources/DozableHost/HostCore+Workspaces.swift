@@ -172,6 +172,10 @@ extension HostCore {
             return try JSONValue(encoding: try workspaceDocument(w))
         case .workspaceProposals:
             return try JSONValue(encoding: try await workspaceProposalsList(w))
+        case .workspaceJournal:
+            return try JSONValue(encoding: try workspaceJournalRead(r))
+        case .workspaceJournalFollow:
+            throw HostError(.invalid, "workspace-journal-follow is a stream: the daemon serves it on its own connection")
         case .workspaceSpace:
             return try JSONValue(encoding: try workspaceSpaceFile(w))
         case .workspaceSpaceSave:
@@ -190,6 +194,8 @@ extension HostCore {
         if r.op == .workspaceRetro { return try JSONValue(encoding: try await workspaceRetro(r)) }
         if r.op == .workspaceDecide { return try JSONValue(encoding: try await workspaceDecide(r)) }
         if r.op == .workspaceAddendum { return try JSONValue(encoding: try await workspaceAddendumAdd(r)) }
+        // 767: the run journal — an entry appended to the open run.
+        if r.op == .workspaceJournalAdd { return try JSONValue(encoding: try await workspaceJournalAdd(r)) }
         // `doz workspace manager stop W`: the manager alone (the old meaning of stop). Without it stop is a lifecycle verb:
         // every agent's process ends, nothing is removed.
         if r.op == .workspaceStop, w.managerOnly == true { return try JSONValue(encoding: try await workspaceStop(w)) }
@@ -672,6 +678,7 @@ extension HostCore {
         try workspaceCheckFree(place, member: workspaces.membership())
         let agent = w.asName ?? defaultName
         guard WorkspaceName.isValidAgent(agent) else { throw HostError(.invalid, "\(agent) is not an agent name — pass --as NAME") }
+        try WorkspaceName.checkNewAgent(agent)
         guard !rec.agents.contains(where: { $0.name == agent }) else {
             throw HostError(.exists, "\(n) already has an agent called \(agent) — pass --as NAME")
         }

@@ -214,6 +214,11 @@ public struct WorkspaceStore: Sendable {
         let n = d.withUnsafeBytes { Darwin.write(fd, $0.baseAddress!, $0.count) }
         guard n == d.count else { throw HostError(.failed, "the log of \(name): a short write") }
         TimelineSignal.poke(store.root.path, .workspace)          // 747: the timeline reads the new line
+        // 767: a run opened or finished, the work description changed, a proposal made or decided — a line of the
+        // workspace's follow (its `wseq`), in order with the journal's entries. Best effort: the log line stands.
+        if let line = RunJournalStore.followLine(for: entry, revision: WorkspaceRuns.descriptionRevision((try? self.log(name)) ?? [])) {
+            _ = try? RunJournalStore.shared(store.root.path).appendFollow(name, line)
+        }
     }
 
     /// The workspace's folder renamed (`RENAME_EXCL`) and its record's name with it.

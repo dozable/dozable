@@ -365,6 +365,7 @@ extension HostCore {
             name = WorkerLaunch.nextAnonymousName(taken: taken)
         }
         guard WorkspaceName.isValidAgent(name) else { throw no(bot != nil ? "fromBot" : "name", HostError(.invalid, "\(name) is not an agent name")) }
+        do { try WorkspaceName.checkNewAgent(name) } catch { throw no(bot != nil ? "fromBot" : "name", HostError.from(error)) }
         if bot != nil, here.contains(name) { throw no("fromBot", HostError(.exists, "\(n) already has an agent called \(name)")) }
         // Its place.
         let pagePort = ChatSettingsView.read().pagePort

@@ -127,6 +127,32 @@ doz workspace edit NAME --addendum "TEXT" --json       # add one directly, no pr
   `description.decide`, `description.edit`. Without it: exit 9, `not-permitted`. Never ask the person to grant one for you
   unprompted; propose instead, and let them decide.
 
+## The run journal
+
+```sh
+doz workspace journal NAME add note "the build is green" --json                 # an entry in the open run
+doz workspace journal NAME add review "c1 met" --data '{"criterion":"c1","met":"yes"}' --attach FILE --json
+doz workspace journal NAME add review "c1 not met" --data '{"criterion":"c1","met":"no"}' --supersedes 2 --json
+doz workspace journal NAME --json                                               # the open run's entries (or NAME RUN)
+doz workspace journal NAME --follow --after-wseq N --json                       # NDJSON lines from cursor N, then live
+doz workspace wait NAME --for journal.outcome --after RUN#SEQ --timeout 120 --json
+```
+
+- An entry is `{"id":"RUN#SEQ","seq","at","by","kind","text"?,"refs"?,"data"?,"evidence"?,"supersedes"?}`; Doz sets id,
+  seq, at, by and evidence. `journal NAME --json` is `{"kind":"WorkspaceJournal","format":"journal/1","workspace","run",
+  "open","entries"}`; a corrected entry carries `superseded_by`. Nothing is ever edited: correct with `--supersedes N`
+  (the same kind; your own entry, or `journal.supersede`).
+- Kinds: any `a-z0-9._-` name; `note`, `task`, `claim`, `criterion`, `review`, `finding`, `outcome`, `lesson` are known and
+  their documented `data` fields checked; `gate`, `hook` and `dozable.*` are refused (65). Prefix your own (`team.kind`).
+- Written only while a run is open: else exit 3, `no-open-run`. `--attach FILE` (a file in the workspace's folders, ≤ 10
+  MiB) is copied and hashed; `--attach-ref FILE` is hashed in place. Past a limit: exit 8.
+- `--follow` lines: `hello`, then `entry`, `run` and `workspace` lines each with `wseq` — keep the last `wseq` and resume
+  with `--after-wseq`; skip a `type` you do not know; `end` is a clean close, a bare EOF means reconnect. `wait` is
+  level-triggered (an entry already there matches at once; `--after` for only later ones) and exits 124 on its timeout.
+  Both need the daemon running and never start it (exit 3, `no-daemon`).
+- As an agent: reading is on by default; writing needs `journal.write` (or `journal.write:KIND`), attaching
+  `evidence.attach`. Without it: exit 9, `not-permitted`, naming the permission.
+
 ## Add or end a worker
 
 ```sh

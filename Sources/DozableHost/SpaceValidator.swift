@@ -525,6 +525,10 @@ public enum SpaceValidator {
         }
 
         mutating func agent(_ v: JValue, _ p: String) {
+            // 767 (journal/1): `owner` is the owner's own name in a run's journal (an entry's `by`) — never an identity's.
+            if p.split(separator: "/").last.map(String.init) == WorkspaceName.reservedAgentName {
+                err(p, "\"owner\" can't be an agent's name", "owner names you in a run's journal: pick another name", key: true)
+            }
             guard type(v, "object", p) else { return }
             keys(v, p, SpaceFormat.agentKeys, place: .agent)
             settings(v, p)

@@ -53,6 +53,15 @@ public enum WorkspaceName {
 
     /// An agent's name in a workspace: 1–64 of A-Z, a-z, 0-9, _, . and -, not starting with - or . (a sandbox's name and a
     /// session's on this Mac both fit).
+    /// 767: no identity may be named `owner` — it names you in a run's journal (`by`). Refused (65) wherever a name is
+    /// given to a new agent; a record that already holds one is read as it is.
+    public static let reservedAgentName = "owner"
+
+    /// A new agent's name: refused when it is the reserved one.
+    public static func checkNewAgent(_ s: String) throws {
+        if s == reservedAgentName { throw HostError(.invalidValue, "\"owner\" can't be an agent's name: it names you in a run's journal — pick another") }
+    }
+
     public static func isValidAgent(_ s: String) -> Bool {
         guard (1...64).contains(s.utf8.count), !s.hasPrefix("-"), !s.hasPrefix(".") else { return false }
         return s.utf8.allSatisfy { ($0 >= 0x61 && $0 <= 0x7A) || ($0 >= 0x41 && $0 <= 0x5A) || ($0 >= 0x30 && $0 <= 0x39) || $0 == 0x2D || $0 == 0x5F || $0 == 0x2E }
