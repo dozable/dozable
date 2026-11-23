@@ -99,7 +99,7 @@ collides with a later known one. A known kind's `data` only ever gains optional 
 |---|---|---|
 | `seq:N` | an earlier entry of this run | must exist (65) |
 | `entry:RUN#SEQ` | an entry of another run | as text |
-| `msg:SEQ` | a message in the run's room slice | must be inside the slice (65); as text |
+| `msg:SEQ` | a message in the run's room slice | must be inside the slice (65); as text (the message's sha256 is not recorded yet — see section 11) |
 | `commit:SHA[@FOLDER]` | a commit in one of the run's folders | the id, plus `present` (the loose object exists in the folder's `.git/objects`) — read without git; packfiles are never parsed; nothing said for a short sha |
 | `url:URL` | anything else | as text, `verified: false`; never fetched |
 
@@ -193,3 +193,14 @@ run boundaries and the workspace-level events — continuing from one run into t
 It doesn't deliver tasks, post to the room, run `criterion.check` commands or decide anything — those belong to a process,
 done by agents or followers. It doesn't mirror into the room (a follower may). It doesn't hold the work description: that is
 the document's (`brief`, `brief.addenda`), and the follow only reports its changes.
+
+## 11. Not yet
+
+Parts of journal/1 this version does not do. A reader must not rely on them.
+
+- `msg:SEQ` is checked against the run's room slice and stored as text; the message's **sha256 at write time is not
+  recorded yet**, so a later reader cannot prove which message text the entry referred to.
+- The per-workspace `limits:` setting that raises the evidence copy limits.
+- `error follow-lagged` is never sent: a follower reads the stored journal at its own pace, so nothing is buffered for it
+  and no writer waits. The line type stays reserved.
+- The `process.applied` workspace line, which comes with the recommended processes.

@@ -326,8 +326,8 @@
 .space-editor #se-problems.collapsed #se-plan{ display: none; }
 }
 @layer views{
-.space-editor .palette{ position: absolute; left: var(--sp-3); top: var(--sp-3); display: flex; flex-direction: column; gap: 2px; padding: var(--sp-0); background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-1, none); z-index: 2; }
-.space-editor .pal-item{ display: flex; align-items: center; gap: var(--sp-2); height: var(--ctl-sm); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--ink-2); font: inherit; font-size: var(--fs-sm); cursor: grab; text-align: left; touch-action: none; user-select: none; }
+.space-editor .palette{ position: absolute; left: var(--sp-3); top: var(--sp-3); display: flex; flex-direction: column; gap: 2px; padding: var(--sp-0); max-height: calc(100% - 2 * var(--sp-3) - 56px); overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-1, none); z-index: 2; }
+.space-editor .pal-item{ display: flex; flex-shrink: 0; align-items: center; gap: var(--sp-2); height: var(--ctl-sm); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; color: var(--ink-2); font: inherit; font-size: var(--fs-sm); cursor: grab; text-align: left; touch-action: none; user-select: none; }
 .space-editor .pal-item:hover{ background: var(--state-hover); color: var(--ink); }
 .space-editor .pal-item:active{ cursor: grabbing; }
 .space-editor .pal-item .icon{ width: 14px; height: 14px; }
@@ -690,23 +690,22 @@
 .space-canvas .wall polygon{fill-opacity:.34}
 .space-canvas .zone polygon{fill:hsl(var(--iso-h) var(--iso-s) 50% / .12);stroke:hsl(var(--iso-h) var(--iso-s) 45% / .55);stroke-dasharray:5 4;stroke-width:1.2}
 .space-canvas .ghost polygon{fill:transparent!important;stroke:var(--iso-muted);stroke-dasharray:4 4;stroke-width:1.2}
-.space-canvas .ghost .det,.space-canvas .ghost .ico-claude{opacity:.45}
-.space-canvas .ico-claude{stroke:#d97757;stroke-width:3;stroke-linecap:round;fill:none}
-.space-canvas .blk .ico-cursor-bg{fill:#16150f;stroke:#16150f;stroke-width:1.2;stroke-linejoin:round}
-.space-canvas .blk .ico-cursor-cap{fill:#3a3934;stroke:none}
-.space-canvas .blk .ico-cursor-arrow{fill:#f1efe8;stroke:none}
-.space-canvas .blk .ico-grok{stroke:var(--iso-ink);stroke-width:2.6;stroke-linecap:round;fill:none}
+.space-canvas .ghost .det{opacity:.45}
+.space-canvas .blk polygon.ico-unknown{fill:none;stroke:hsl(var(--iso-h) var(--iso-s) var(--iso-l-edge));stroke-width:1.2;stroke-dasharray:3 2.5}
+.space-canvas .blk .ico-unknown-q{stroke:hsl(var(--iso-h) var(--iso-s) var(--iso-l-edge));stroke-width:1.6;stroke-linecap:round;fill:none}
 .space-canvas .blk polygon.sock-hole{fill:hsl(var(--iso-h) var(--iso-s) 18%);opacity:.8}
 .space-canvas .scr .t{fill:#1d1f27;stroke:#3a3b44;stroke-width:.6}
 .space-canvas .scr .ln{stroke:#8fd3b0;stroke-width:1.2;stroke-linecap:round}
 .space-canvas .scr .bar{fill:#2a2c36}
 .space-canvas .scr .win{fill:#e9e9ee}
 .space-canvas .scr .wall{fill:#3b5bbd}
-.space-canvas .scr .cl{stroke:#d97757;stroke-width:2.4;stroke-linecap:round}
 .space-canvas .scr .glass{fill:#0d0e12;stroke:#3a3b44;stroke-width:1}
 .space-canvas .scr .w{fill:#f4f4f2}
 .space-canvas .scr .d{fill:#0b0b0d}
 .space-canvas .scr .m{fill:#3a3934}
+.space-canvas .scr .unk{fill:none;stroke:#8a8d99;stroke-width:1;stroke-dasharray:3 2.5}
+.space-canvas .scr .unk-q{fill:none;stroke:#8a8d99;stroke-width:1.4;stroke-linecap:round}
+.space-canvas .scr .unk-dot{fill:#8a8d99}
 .space-canvas .orb .ball{fill:url(#orbG);stroke:#8a8b93;stroke-width:.8}
 .space-canvas .orb .shade{fill:#000;opacity:.18}
 .space-canvas .orb .eye{fill:#0b0b0d}
@@ -724,6 +723,13 @@
 .space-canvas .tunnel .rib{fill:none;stroke:hsl(205 75% 45% / .5);stroke-width:1}
 .space-canvas .tunname{font-size:12px;font-weight:800;letter-spacing:.14em;fill:var(--iso-tunnel-text);paint-order:stroke;stroke:var(--iso-surface);stroke-width:3px;stroke-linejoin:round}
 .space-canvas .flow{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.space-canvas .ghost .ico-claude{opacity:.45}
+.space-canvas .ico-claude{stroke:#d97757;stroke-width:3;stroke-linecap:round;fill:none}
+.space-canvas .blk .ico-cursor-bg{fill:#16150f;stroke:#16150f;stroke-width:1.2;stroke-linejoin:round}
+.space-canvas .blk .ico-cursor-cap{fill:#3a3934;stroke:none}
+.space-canvas .blk .ico-cursor-arrow{fill:#f1efe8;stroke:none}
+.space-canvas .blk .ico-grok{stroke:var(--iso-ink);stroke-width:2.6;stroke-linecap:round;fill:none}
+.space-canvas .scr .cl{stroke:#d97757;stroke-width:2.4;stroke-linecap:round}
 .space-canvas .xm circle{fill:var(--iso-surface);stroke:var(--iso-blocked);stroke-width:2.5}
 .space-canvas .xm path{stroke:var(--iso-blocked);stroke-width:3;stroke-linecap:round}
 .space-canvas .say rect{fill:var(--iso-surface);stroke-width:1.5}
