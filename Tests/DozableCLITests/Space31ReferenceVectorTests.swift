@@ -58,6 +58,8 @@ final class Space31ReferenceVectorTests: XCTestCase {
     static let knownDisagreements: [String: Set<Difference>] = [
         // The vector still lists brief twice in its hint; Dozable now names it once (the vector to be re-cut).
         "E23": [.hint],
+        // x-dozable now also holds `permissions` (the workspace's requested grants); the vector's hint predates it (to re-cut).
+        "E15": [.hint],
         // The vector's notes end ", under doz: space/3.1"; Dozable's ", with the version line doz: space/3.1" (to settle).
         "V12": [.notes],
     ]
