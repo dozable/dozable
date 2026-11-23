@@ -42,7 +42,7 @@ public struct SpaceIntent: Codable, Equatable, Sendable {
         /// `persist: { agent: … }` names it (with where that is written).
         public var memory: Sourced?
         public var secrets: [String]
-        /// 755: `x-dozable.restart` (`no`, `on-failure`; nil: not written). Recorded, not applied in this version.
+        /// 755: `restart` (758: first-class; `x-dozable.restart` for one release) (`no`, `on-failure`; nil: not written). Recorded, not applied in this version.
         public var restart: String? = nil
     }
 
@@ -198,7 +198,7 @@ extension SpaceIntent {
                 continue
             }
             let d = a.def
-            x.restart = SpaceDoc.string(SpaceDozable.member(d, "restart"))
+            x.restart = SpaceDoc.string(SpaceDozable.member(d, "restart", at: .agent))
             if let r = x.restart { i.notes.append("agent \(a.name): restart: \(r) is not applied in this version") }
             if let sb = a.sandbox {
                 x.sandbox = sb
@@ -263,17 +263,18 @@ extension SpaceIntent {
             i.rooms.append(Room(name: r.name, chatRoom: chatRoom, main: isMain, external: r.external != nil,
                                 members: SpaceDoc.strings(SpaceDoc.member(r.def, "members")).map { SpaceFormat.parseFullName($0)?.name ?? $0 },
                                 persisted: persisted("room", r.name)))
-            if r.external == nil, SpaceDoc.string(SpaceDozable.member(r.def, "lifetime")) == "run" { run.append("room:" + chatRoom) }
+            if r.external == nil, SpaceDoc.string(SpaceDozable.member(r.def, "lifetime", at: .room)) == "run" { run.append("room:" + chatRoom) }
         }
         // 756: what says `x-dozable.lifetime: run` of itself (the agents' maps carry `agent_defaults` beneath them).
-        for r in model.resources where r.external == nil && SpaceDoc.string(SpaceDozable.member(r.def, "lifetime")) == "run" {
+        for r in model.resources where r.external == nil
+            && SpaceDoc.string(SpaceDozable.member(r.def, "lifetime", at: r.section == .folders ? .folder : .sandbox)) == "run" {
             switch r.section {
             case .folders: run.append("folder:" + r.name)
             case .sandboxes: if let x = i.sandboxes.first(where: { $0.name == r.name }) { run.append("sandbox:" + x.placeName) }
             default: break
             }
         }
-        for a in model.agents where a.external == nil && SpaceDoc.string(SpaceDozable.member(a.def, "lifetime")) == "run" { run.append("agent:" + a.name) }
+        for a in model.agents where a.external == nil && SpaceDoc.string(SpaceDozable.member(a.def, "lifetime", at: .agent)) == "run" { run.append("agent:" + a.name) }
         i.runLifetime = run.isEmpty ? nil : run
 
         // Services and secrets: external only in this version.
@@ -297,6 +298,8 @@ extension SpaceIntent {
         if !model.skipped.isEmpty {
             for s in model.skipped { i.notes.append("\(s.name) is only in profile \(s.profiles.joined(separator: ", ")): left out (--profile \(s.profiles[0]))") }
         }
+        // 758: each use of the x-dozable form of a first-class 3.1 key, named (read for one release).
+        i.notes += SpaceDozable.deprecatedUses(doc)
         if SpaceDoc.member(doc, "profiles") != nil || SpaceDoc.member(doc, "labels") != nil {
             i.notes.append("the space's labels and profiles are kept with the file; nothing else reads them in this version")
         }

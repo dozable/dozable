@@ -9,8 +9,8 @@ import Foundation
 // a regular file of this user with one name, at most 256 KiB of UTF-8, under the owner's home and never in the store,
 // `~/.claude` or `~/Library`. A write goes to a temp name in the same folder and is renamed over the file, its mode kept, and
 // only when the file as it is now — hashed through the descriptor it is read by — is the one the writer read (`ifSHA`): a file
-// changed since is refused and nothing is written. A space file also must start with its format line (`doz: space/3`, or
-// `doz: space-defaults/3`), before and after a save. Saving a space file never runs `up`.
+// changed since is refused and nothing is written. A space file also must start with its format line (`doz: space/3` or
+// `doz: space/3.1`, or a defaults file's), before and after a save. Saving a space file never runs `up`.
 //
 // The brief: the file wins — it is read for the kick-off, `show --brief`, the set-up check and the run's archive, and the
 // dashboard's and `doz workspace edit --prompt-file`'s edits are written into it, never into the store's `brief.md`. `up`
@@ -24,7 +24,7 @@ public enum SpaceRecordFile {
     }
 
     /// The formats a space file may declare on its first line that is not blank or a comment.
-    public static let formats = ["doz: space/3", "doz: space-defaults/3"]
+    public static let formats = ["doz: space/3", "doz: space/3.1", "doz: space-defaults/3", "doz: space-defaults/3.1"]
     public static let maximumBytes = WorkspaceStore.maximumBriefBytes
 
     /// The home a recorded file must be under: the person's real one — in a guarded test run, `DOZ_TEST_BRIEF_HOME` (a
@@ -70,7 +70,7 @@ public enum SpaceRecordFile {
         for raw in text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
             let line = raw.trimmingCharacters(in: .whitespaces)
             if line.isEmpty || line.hasPrefix("#") || line == "---" { continue }
-            return formats.contains(line) ? nil : "it does not start with doz: space/3 (or doz: space-defaults/3)"
+            return formats.contains(line) ? nil : "it does not start with doz: space/3.1 or doz: space/3 (or a defaults file's doz: space-defaults/3.1)"
         }
         return "it is empty"
     }

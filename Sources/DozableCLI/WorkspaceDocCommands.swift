@@ -14,9 +14,11 @@ struct WorkspaceDocCommand: AsyncParsableCommand {
         Every workspace has one document: the spec of what should exist — its brief, folders, agents, rooms and sandboxes, \
         and its lifetime (standing or runs). A workspace made with doz workspace new has it generated from its record; one \
         made from a space file has the file as its last up read it, with what was added or adopted since. The document \
-        never holds a secret's value (references only), a grant (only requests) or the workspace's phase. Dozable's \
-        additions to the format are written under x-dozable until the format carries them. Prints the document as YAML; \
-        --json is {kind: Document, schema: 1, workspace, from, document, notes} with document.lifetime always present. \
+        never holds a secret's value (references only), a grant (only requests) or the workspace's phase. It is written as \
+        doz: space/3.1, its lifetime always said, under x-dozable (the lifetime is not a key of the format yet), as is \
+        any other key the format does not carry. Prints the document as YAML; \
+        --json is {kind: Document, schema: 1, workspace, from, document, notes} with document.x-dozable.lifetime always \
+        present. \
         --write FILE writes it as a space file (under your home, never in Dozable's store, ~/.claude or ~/Library; an \
         existing file only with --force) — nothing is applied. Exit codes: 0 · 2 no such workspace · 4 FILE exists \
         (--force) · 65 FILE may not be written there.
@@ -62,12 +64,12 @@ func workspaceDocTarget(_ p: String) -> String {
 }
 
 enum WorkspaceDocYAML {
-    /// The document as a space file: a header, then the file form (the lifetime only under `x-dozable` — what space/3
-    /// reads today), in the document's order. `SpaceYAML` is the one emitter (no Yams writes YAML); its text reads back as
+    /// The document as a space file: a header, then the file form (758: space/3.1, the lifetime under x-dozable), in the
+    /// document's order. `SpaceYAML` is the one emitter (no Yams writes YAML); its text reads back as
     /// the same document (`WorkspaceDocumentTests`).
     static func text(_ a: WorkspaceDocumentAnswer, _ view: JValue) -> String {
         var s = "# The document of the workspace \(a.workspace) (doz workspace doc), from its \(a.from == "record" ? "record" : "space file and record").\n"
-        s += "# Dozable's additions to space/3 are under x-dozable. Nothing here is applied until you up it.\n"
+        s += "# A space/3.1 file. Nothing here is applied until you up it.\n"
         for n in a.notes { s += "# note: \(n)\n" }
         return s + SpaceYAML.emit(RecordDocument.fileForm(view), origins: [:], sources: [])
     }

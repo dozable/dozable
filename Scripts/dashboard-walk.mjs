@@ -2772,6 +2772,31 @@ async function clickAt(expr) {
   return true;
 }
 const strayTabs = async () => (await (await fetch(`http://127.0.0.1:${devPort}/json/list`)).json()).filter((t) => t.type === 'page' && !t.url.startsWith('http://127.0.0.1')).map((t) => t.url);
+// space/3.1 in the vendored editor: a doz: space/3.1 file (a brief written in it, the main folder, about; its lifetime under
+// x-dozable — not a 3.1 key) up'd,
+// then its space page. The editor is the peer's build at its pin: what it says of the 3.1 keys is recorded as a note, not
+// judged — Dozable's own validator is the one that decides (`make test`). The page must still open and draw.
+async function walkSpace31() {
+  await browserSocket();
+  const SPACE = S + '/space31';
+  mkdirSync(SPACE + '/repo', { recursive: true });
+  writeFileSync(SPACE + '/spc31.space.yaml', 'doz: space/3.1\nspace: spc31\nowner: ada\nbrief: { text: The 3.1 walk }\nx-dozable: { lifetime: standing }\n'
+    + 'about: { title: The 3.1 walk, summary: a space/3.1 file in the editor }\n'
+    + 'folders:\n  repo: { external: ' + SPACE + '/repo, main: true }\nchat:\n  rooms:\n    spc31: { main: true, members: [owner] }\n');
+  const up = doz(['workspace', 'up', '-f', SPACE + '/spc31.space.yaml', '--yes']);
+  check(up.status === 0, 'space31 workspace up -f a doz: space/3.1 file (brief: {text}, about, a main folder, x-dozable.lifetime)' + (up.status === 0 ? '' : ' ' + (up.stderr || '').slice(0, 300)));
+  await goHash('#/w/spc31/space');
+  check(await waitFor(`state.view === 'space' && (!!${SE('svg.scene [data-id]')} || !!${SE('.canvas-stage svg')})`, 30000), 'space31 its space page opens and the canvas draws');
+  await sleep(2500);
+  const probs = await evaluate(`[...document.querySelectorAll('#space #se-problems-list .prob')].map((p) => p.textContent.replace(/\\s+/g, ' ').trim())`);
+  const word = await evaluate(`document.querySelector('[data-sp-word]')?.textContent || ''`);
+  const list = await evaluate(`(() => { const l = document.querySelector('#space #se-problems-list'); return l ? 'the problems list ' + (l.closest('[hidden]') ? 'hidden' : 'shown') + ': "' + l.textContent.replace(/\\s+/g, ' ').trim().slice(0, 300) + '"' : 'no problems list'; })()`);
+  const said = await evaluate(`(() => { const t = document.querySelector('#space .space-editor')?.textContent || ''; return ['space/3.1', 'must be', 'lifetime', 'unknown', 'not allowed', 'about', 'main'].filter((w) => t.includes(w)).join(', '); })()`);
+  console.log(`note: space31 the vendored editor on a space/3.1 file: bar "${word}", ${probs.length} problem(s) listed` + (probs.length ? ':\n    ' + probs.join('\n    ') : '')
+    + `\n    ${list}\n    the editor's text mentions: ${said || 'none of space/3.1, must be, lifetime, unknown, not allowed, about, main'}`);
+  await shot('space-editor-31');
+}
+
 async function walkSpace() {
   const errorsBefore = pageErrors.length;
   const SPACE = S + '/space3';
@@ -3441,6 +3466,7 @@ try {
     check(doz(['chat', 'on', '--name', 'ada']).status === 0, 'chat on (SPACE_ONLY)');
     await walkSpace();
     await walkSpaceWindow('spc3');
+    await walkSpace31();
     failed = failures.length > 0;
     console.log(`dashboard-walk (SPACE_ONLY): ${passed} passed, ${failures.length} failed` + (failed ? '\n  ' + failures.join('\n  ') : ''));
     throw Object.assign(new Error('space only'), { spaceOnly: true });
@@ -3498,6 +3524,8 @@ try {
   // Last of the chat rows (its rooms and open asks would be in the counts the rows before read): the pictures and the
   // chat page's recalculation.
   await walkChatPictures();
+  // space/3.1 in the vendored editor (after every count above).
+  await walkSpace31();
 
   // Looking never starts the daemon: stop it, then open Home and Sandboxes.
   doz(['daemon', 'stop']);

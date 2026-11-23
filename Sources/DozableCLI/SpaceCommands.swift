@@ -385,7 +385,9 @@ struct SpaceUpCommand: AsyncParsableCommand {
         space.ifPlan = plan.sha
         space.confirmed = confirmed
         up.space = space
-        let done = try decode(try call(up, g), SpaceActed.self, g)
+        var done = try decode(try call(up, g), SpaceActed.self, g)
+        // 758: each use of the x-dozable form of a first-class 3.1 key, in --json's notes too (the text printed the plan's).
+        if g.json { done.notes = SpaceDozable.deprecatedUses(r.merged) + done.notes }
         try finishSpaceActed(done, retry: ["doz", "workspace", "up", "-f", r.file] + profiles.flatMap { ["--profile", $0] }, g)
     }
 }

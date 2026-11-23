@@ -53,7 +53,7 @@ session or a bot runs now, the chat server's rooms — is marked "not known", an
 ## What is read
 
 - **The file**, then each **defaults file** it `extends:` (a list is applied in order, each after the files it extends;
-  a loop is an error naming the chain). A defaults file (`doz: space-defaults/3`) holds only `persist`, `archive`,
+  a loop is an error naming the chain). A defaults file (`doz: space-defaults/3`, or `space-defaults/3.1`, which holds the same) holds only `persist`, `archive`,
   `approvals` and `agent_defaults`: never agents, rooms, sandboxes, services, folders, secrets or the owner, so
   inheriting never starts anything the space file did not write.
 - **`NAME.space.override.yaml`** beside the file, when there is one: good for paths that differ from Mac to Mac.
@@ -64,22 +64,54 @@ session or a bot runs now, the chat server's rooms — is marked "not known", an
 Every problem is reported at once, as `file:line`, with what to write instead; an error stops everything (exit 65, an invalid
 document; `--json` says `"error": {"code": "invalid-document", …}`) and nothing is done. A warning does not stop it.
 
-### Dozable's additions: `x-dozable`
+### The version line: space/3.1
 
-A few things space/3 cannot say yet are written under `x-dozable`, at the place they belong; any other `x-` key is ignored.
+A file starts with its version line. **`doz: space/3.1`** is space/3 with a few keys of Dozable's own; everything else
+reads the same. A file that says `doz: space/3` is read exactly as before.
 
 ```yaml
-x-dozable:
-  lifetime: standing              # standing: what the space owns stays; runs (the default): it lasts one run
-  brief: { text: Fix the build }  # the brief written here (instead of brief: FILE — not both); or { file: BRIEF.md }
+doz: space/3.1
+space: app
+owner: ada
+brief: { text: Fix the build }  # the brief written here; or brief: BRIEF.md, or { file: BRIEF.md }; refs: [...] beside it
+about: { title: Work on a project, summary: A manager and a helper. }   # title, summary, description, icon, tags, category, needs
+layout: { … }                   # where the editor draws things; a plan never acts on it
+network: standard               # locked, standard or open, or { preset, allow: [HOST…] }
+x-dozable: { lifetime: standing }   # not a 3.1 key: standing (what the space owns stays) or runs (it lasts one run)
 folders:
-  app: { external: ~/work/app, x-dozable: { main: true } }    # the main folder (one at most)
+  repo: { external: ~/work/app, main: true }   # the main folder (one at most)
 agents:
-  old: { x-dozable: { external: { sandbox: my-sandbox } } }   # an agent in a sandbox that exists: adopted, never started
+  helper: { kind: claude-code, isolation: fenced, folder: repo, prompt: Fix the failing test., restart: on-failure }
+  old: { external: { sandbox: my-sandbox } }   # an agent in a sandbox that exists: adopted, never started
 ```
 
+- **`brief`** is a path, `{ text }` or `{ file }` — one of them — with optional `refs:`.
+- **`about.title`** is the workspace's title. A top-level `title:` still reads in a 3.1 file, with a note; both is an error.
+- **`network`** is recorded at the top level or on an agent; **`restart`** (`no` or `on-failure`) is recorded and noted.
+  Neither is applied in this version.
+- **The lifetime is not a 3.1 key**: it stays under `x-dozable` in either version and is never required (a file that says
+  none is read as `runs`). A top-level `lifetime:` in a 3.1 file is refused (65) with the fix.
+- A 3.1 key in a file that says `doz: space/3` is refused (65): change the version line to `doz: space/3.1`.
+
 A brief written in the file is kept with the workspace and posted at the first up; `doz workspace show W --brief` reads
-it. `doz workspace doc W` (37) prints any workspace as such a file.
+it. `doz workspace doc W` (37) prints any workspace as a space/3.1 file.
+
+### Dozable's other keys: `x-dozable`
+
+A few things the format cannot say yet are written under `x-dozable`, at the place they belong; any other `x-` key is
+ignored.
+
+```yaml
+x-dozable: { lifetime: standing }                             # the space's lifetime: standing or runs
+folders:
+  notes: { x-dozable: { lifetime: run } }                     # in a standing space: this one lasts one run
+agent_defaults: { x-dozable: { isolation: vm } }              # where a workspace's new workers run
+```
+
+The keys space/3.1 now has were written under `x-dozable` too (`x-dozable: { brief: { text: … }, network: … }`, a folder's
+`x-dozable: { main: true }`, an agent's `x-dozable: { restart: …, external: { sandbox: … } }`). That form is
+**deprecated**: it is still read in this release, in either version, and the plan says, for each use, the key to write
+instead. Writing a key both ways is an error.
 
 ## The plan
 

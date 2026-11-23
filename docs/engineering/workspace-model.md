@@ -43,8 +43,9 @@ There is **one kind of workspace**. Store-held or kept in a file, standing or ru
 ## What a document holds, and never holds
 
 Holds: the space/3 keys (`doz`, `space`, `owner`, `brief`, `agent_defaults`, `folders`, `agents`, `sandboxes`, `secrets`,
-`chat.rooms`, `persist`, `archive`, …) and Dozable's additions under `x-dozable` (below). Always a **lifetime**: every
-document Dozable writes carries it (`x-dozable.lifetime` today).
+`chat.rooms`, `persist`, `archive`, …), space/3.1's first-class keys and the held ones under `x-dozable` (below). Always a
+**lifetime**: every document Dozable writes is `doz: space/3.1` and carries `x-dozable.lifetime` (the lifetime is not a
+3.1 key — below).
 
 Never: a secret's value (a reference only), a token or a fingerprint, a grant (a record's `permissions` stay out), the
 phase or any time (`flags`, runs, "running"), a run's scratch path. `doz workspace doc` and its `--write` follow this;
@@ -55,8 +56,9 @@ phase or any time (`flags`, runs, "running"), a run's scratch path. `doz workspa
 `standing | runs` — the default lifetime of what a workspace owns. **standing**: everything owned persists, scratch
 folders included; finish removes nothing. **runs**: the space file's run model (owned things last one run unless
 `persist:` keeps them). A record workspace (`new`, the wizard) is `standing`. A space file with no lifetime is read as
-`runs` (today's meaning); `doc` prints `lifetime: runs` for it and writes `x-dozable.lifetime: runs` with `--write`. A
-written document always says it; an existing file without it is not refused yet (that comes with space/3.1).
+`runs` (today's meaning); `doc` prints and writes `x-dozable: { lifetime: runs }` for it. A written document always says
+it, under `x-dozable` in either version; no file needs it. A top-level `lifetime:` is not a key of space/3 or 3.1 (in a
+3.1 file it is refused with the fix: write it under `x-dozable`). Persistence gets its own key in a later version.
 
 Today the lifetime is recorded and shown; the lifecycle verbs that act on it (`down` ≡ `finish`, scratch kept when
 standing) are a later stage.
@@ -70,18 +72,18 @@ Pure, in DozableHost; it produces the ordered merged JSON the daemon already han
 |---|---|
 | the name | `space:` (and the main room's key) |
 | the person in chat | `owner:` (`you` while chat has no one) |
-| — | `x-dozable.lifetime: standing` |
-| `brief.md` + `brief.refs` | `x-dozable.brief: {text, refs}` |
-| `defaults.network` (a preset) | `x-dozable.network` |
-| `defaults.isolation` fenced / vm | `agent_defaults.isolation: fenced` / `agent_defaults.x-dozable.isolation: vm` |
-| each folder | `folders.NAME: {external: PATH, access: ro?}`; the main one `x-dozable: {main: true}` |
+| — | `doz: space/3.1`, `x-dozable.lifetime: standing` |
+| `brief.md` + `brief.refs` | `brief: {text, refs}` |
+| `defaults.network` (a preset) | `network:` |
+| `defaults.isolation` fenced / vm | `agent_defaults.isolation: fenced` / `agent_defaults.x-dozable.isolation: vm` (held) |
+| each folder | `folders.NAME: {external: PATH, access: ro?}`; the main one `main: true` |
 | the manager (a bot) | `agents.NAME: {external: {bot: B}, role: manager}` (its isolation: a note — not carried yet) |
 | a worker from a bot | `agents.NAME: {external: {bot: B}, role: worker}` (its task: a note) |
 | an anonymous worker | owned: `{kind: claude-code, role: worker, isolation: fenced/unfenced, folder: MAIN, prompt: TASK}` |
 | a worker in a micro VM | owned: `{…, where: sandbox:S}` and `sandboxes.S: {}` |
 | a declared worker (`new --worker`) | owned: `{kind, role: worker, prompt: TASK, folder: MAIN}` |
 | an adopted `@mac` session | `agents.NAME: {external: {session: S}}` |
-| an adopted sandbox | `agents.NAME: {x-dozable: {external: {sandbox: S}}}` |
+| an adopted sandbox | `agents.NAME: {external: {sandbox: S}}` |
 | an agent elsewhere, an ended worker | left out (elsewhere: a note) |
 | the main room, owned | `chat.rooms.W: {main: true}` |
 | a room it linked | `chat.rooms.NAME: {external: doz://HOST/OWNER/room/R, main?}` — OWNER the workspace whose log says it made the room, else `_` (the shared-room rule) |
@@ -92,7 +94,9 @@ Names follow the format's rule (`[a-z][a-z0-9-]*`), one namespace across every s
 number (a folder `~/work/app` in workspace `app` is `app-folder`: the main room holds `app`); a renamed one is a note.
 
 A **space-file workspace**'s document is the spec its last `up` recorded (`space.json`: the file as the resolver merged it
-— `extends:`, the override, `${VAR}`), its own keys as they are, with the record's **extras** merged in: each agent the
+— `extends:`, the override, `${VAR}`), in its 3.1 form (`SpaceDozable.lift`: the version line `space/3.1`, each
+`x-dozable` spelling of a first-class key lifted to its place, a top-level `title:` moved into `about.title`; the rest —
+the lifetime among them — as they are), with the record's **extras** merged in: each agent the
 record holds (not ended) that the file names nowhere — by its name, bot, session or sandbox — mapped as above and added
 under `agents` (a note each). Its lifetime is the file's, `runs` when it says none. A space recorded by an older doz
 (no `space.json`) is generated from its record, with a note.
@@ -100,45 +104,62 @@ under `agents` (a note each). Its lifetime is the file's, `runs` when it says no
 `generate` → validate passes for every record shape (`WorkspaceDocumentTests.testEveryRecordFixtureGeneratesAValidDocument`).
 That the plan of a generated document against its own record is EMPTY — the zero-change gate — is a later stage.
 
-## The x-dozable keys
+## The space/3.1 keys
 
-Until the owner's go on space/3.1, the 3.1 keys are accepted ONLY under `x-dozable`. One rule spells all of them: **the
-3.1 key, unchanged in name and shape, one level down inside an `x-dozable` map at the place 3.1 puts it** — so making them
-first-class is a mechanical rename (lift each key out of its `x-dozable`).
+`doz: space/3.1` (the owner's go, 2026-11-23, cut to the model-neutral keys by model v3's option A the same day) is
+space/3 with Dozable's model-neutral keys first-class; persistence (the lifetime) is not in 3.1. 755 accepted them only under
+`x-dozable`, one rule for all: **the 3.1 key, unchanged in name and shape, one level down inside an `x-dozable` map at the
+place 3.1 puts it** — so the 3.1 form is the key lifted out of its map. ONE table says which are first-class at each place
+(`SpaceDozable.Place.firstClass`); the others are **held** (their design is open with the format's author) and stay
+`x-dozable`-only, in either version, until it is settled. Moving a held key first-class is moving it in that table: the
+validator checks a key by place and name whichever form it is in (`Schema.dozValue`), every reader asks
+`SpaceDozable.member(_:_:at:)`, and `SpaceDozable.lift` writes the 3.1 form.
 
-| where | `x-dozable` holds | 3.1 spelling |
+| where | first-class in 3.1 | held: `x-dozable` only |
 |---|---|---|
-| top level | `lifetime: standing\|runs` | `lifetime:` |
-| top level | `brief: {text: …}` or `{file: PATH}`, with `refs: [...]` | `brief: {text}` / `{file}` |
-| top level | `network: locked\|standard\|open` or `{preset, allow: [HOST…]}` | `network:` |
-| top level | `about: {title, summary, description, icon, tags, category, needs}` | `about:` |
-| top level | `layout: {…}` (never acted on) | `layout:` |
-| a folder | `main: true` (at most one), `lifetime: run` | `main:`, `lifetime:` |
-| an agent | `restart: no\|on-failure`, `network:`, `external: {sandbox: NAME}`, `lifetime: run` | the same, on the agent |
-| a room, a sandbox | `lifetime: run` | `lifetime:` |
-| `agent_defaults` | `isolation: fenced\|vm` (where a record's new workers run; no 3.1 key yet) | — |
+| top level | `brief:` a path, `{text}` or `{file}` with `refs:`, `about: {title, summary, description, icon, tags, category, needs}` (`about.title` in place of the top-level `title:`), `layout: {…}` (never acted on), `network: locked\|standard\|open` or `{preset, allow: [HOST…]}` | `lifetime: standing\|runs` (never required) |
+| a folder | `main: true` (at most one) | `lifetime: run` |
+| an agent | `restart: no\|on-failure`, `network:`, `external: {sandbox: NAME}` | `lifetime: run` |
+| a room, a sandbox | — | `lifetime: run` |
+| `agent_defaults` | — | `isolation: fenced\|vm` (where a record's new workers run) |
 
 Rules (`SpaceValidator` + `SpaceDozable.swift`):
 
+- The version line: `space/3` or `space/3.1` (a defaults file: `space-defaults/3` or `space-defaults/3.1`, which holds what a
+  space-defaults/3 one does — never `lifetime`, `brief`, `about` or `layout`, which describe the space itself).
+- No file needs a lifetime. A top-level `lifetime:` in a 3.1 file → 65 `"lifetime" is not a space/3.1 key: it stays under
+  x-dozable`, the fix as the hint; in a space/3 file it is "unknown key" with its old hint, as before.
+- A top-level `title:` in a 3.1 file still reads, with a note naming `about.title`; with `about.title` too → 65.
+- A first-class key in a `doz: space/3` file whose value 3.1 would take is refused (65) with the fix in its message:
+  `"brief" is a space/3.1 key: change the version line to doz: space/3.1` (an agent's `external: {sandbox}` likewise). A
+  value 3.1 would refuse too stays "unknown key" with its old hint. A plain space/3 file reads exactly as before.
+- The `x-dozable` form of a first-class key is still read for one release, in either version; each use is a note naming the
+  3.1 key (`SpaceDozable.deprecatedUses`, in the plan's and up's notes and `--json` `notes`). `x-dozable.lifetime` is no
+  such use and gets no note: the lifetime is not a 3.1 key. Both forms of one key → 65 (`"main" is written twice: …`; the brief
+  keeps its own words: `the brief is written twice: brief: and x-dozable.brief`; an agent's external its own).
 - `x-dozable` is checked strictly: an unknown key in it is an error with a suggestion. Every other `x-` key is still
   ignored, as space/3 says.
-- `x-dozable.brief` present: the top-level `brief:` is no longer required; both given is an error naming both (65). The
-  held text is the workspace's brief: `up` keeps it in the store's `brief.md` (a brief FILE is still never copied) and
-  posts it; `show --brief` reads it; an up after the text changed updates it.
-- `x-dozable.external.sandbox`: the agent is external (adopted at `up`, never started, never stopped by `down`); it may
-  not say what an external agent may not (`kind`, `where`, …), may not also have `external:`, and may not name a
-  sandbox the file declares under `sandboxes:`.
-- At most one folder with `main: true`.
+- A brief held in the document (`brief: {text}`, or `x-dozable.brief`): the workspace's brief: `up` keeps it in the store's
+  `brief.md` (a brief FILE is still never copied) and posts it; `show --brief` reads it; an up after the text changed
+  updates it. `brief: {text, file}` or neither → 65.
+- `about` is strict; `params:` belongs to a template's envelope and is refused in a stored document.
+- `external: {sandbox: NAME}` (or `x-dozable.external.sandbox`): the agent is external (adopted at `up`, never started,
+  never stopped by `down`); it may not say what an external agent may not (`kind`, `where`, …), may not be written in both
+  forms, and may not name a sandbox the file declares under `sandboxes:`.
+- At most one folder with `main` (either form).
 - `restart` is recorded and noted, not applied yet; `network`, `about`, `layout` and the per-resource `lifetime: run` are
   checked and kept, not acted on yet. The meaning of no space/3 key changes.
+- Vectors: the reference's rows (vendored, read-only) and Dozable's own `Fixtures/space31/validation-errors-3.1.json`,
+  through the same harness (`SpaceValidationTableTests`); `Space31Tests`.
 
 ## `doz workspace doc`
 
 `workspace-doc` (read-only, `workspace.read` for an agent; in-process with no daemon) answers `WorkspaceDocumentAnswer
 {workspace, from: record|space-file, document (ordered JSON text), notes}`; the CLI prints `{kind: "Document", schema: 1,
-workspace, from, document, notes?}`. In the `--json` view `document.lifetime` is ALWAYS present at the top (the 3.1
-spelling, `RecordDocument.view`); the YAML text and `--write` hold the file form (`RecordDocument.fileForm`: the lifetime
-only under `x-dozable`, so the file validates as space/3 today). `--write FILE` (`SpaceRecordFile.writeNew`): `~` is the
+workspace, from, document, notes?}`. In the `--json` view `document.x-dozable.lifetime` is ALWAYS present (never a
+top-level `document.lifetime`) and
+`document.doz` is `space/3.1`; the YAML text and `--write` hold the same document (`RecordDocument.fileForm`), which
+validates as space/3.1. `--write FILE` (`SpaceRecordFile.writeNew`): `~` is the
 space file's home (`TestSafety.spaceHome`), the place rules of a recorded file (under the home, never the store,
 `~/.claude` or `~/Library`; no link in the path), temp-and-rename, never over an existing file without `--force`
 (`RENAME_EXCL`). Exits: 2 no workspace, 4 `already-exists`, 65 `invalid-value`.

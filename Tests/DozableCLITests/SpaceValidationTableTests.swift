@@ -31,6 +31,28 @@ final class SpaceValidationTableTests: XCTestCase {
         try JSONDecoder().decode([Row].self, from: Data(contentsOf: fixtures.appendingPathComponent("validation-errors.json")))
     }
 
+    /// 758: Dozable's own vectors for space/3.1 (the reference's copy above is vendored read-only, at its PIN): the same
+    /// row shape, through the same two passes. `Fixtures/space31/validation-errors-3.1.json`.
+    static func rows31() throws -> [Row] {
+        let f = Pins.packageRoot.appendingPathComponent("Tests/DozableCLITests/Fixtures/space31/validation-errors-3.1.json")
+        return try JSONDecoder().decode([Row].self, from: Data(contentsOf: f))
+    }
+
+    func testEveryRowOfTheSpace31Vectors() throws {
+        let rows = try Self.rows31()
+        XCTAssertEqual(rows.count, 14)
+        for r in rows {
+            let (got, _) = try problems(r)
+            guard let p = got.first(where: { $0.message == r.message }) else {
+                XCTFail("3.1 #\(r.n): no \"\(r.message)\" — got:\n" + got.map { "  \($0.pointer) \($0.text)" }.joined(separator: "\n"))
+                continue
+            }
+            XCTAssertEqual("\(p.severity) \(p.pointer) \(p.file):\(p.line) \(p.hint ?? "-")",
+                           "\(r.severity) \(r.path) \(r.file ?? "space.yaml"):\(r.line) \(r.hint ?? "-")", "3.1 #\(r.n) \(r.message)")
+            XCTAssertTrue(p.isError, "3.1 #\(r.n)")
+        }
+    }
+
     var dir: URL!
 
     override func setUpWithError() throws {

@@ -6,7 +6,7 @@ import XCTest
 @testable import DozableCLI
 
 /// 755: a document for every workspace (docs/engineering/workspace-model.md). `RecordDocument.generate` maps a record onto a
-/// space/3 document — each mapping, `lifetime: standing` always written, never a secret's value, a grant, a token or the
+/// space/3.1 document — each mapping, `x-dozable.lifetime: standing` always written (not a 3.1 key: option A), never a secret's value, a grant, a token or the
 /// phase — and what it generates validates (generate → validate, over every kind of record); the `x-dozable` keys the
 /// validator accepts and refuses; `lifetime` read as `runs` when a file says none; the `--json` shape; the YAML text reads
 /// back as the same document; `--write`'s refusals.
@@ -45,8 +45,8 @@ final class WorkspaceDocumentTests: XCTestCase {
 
     // MARK: generate: each mapping
 
-    /// A plain `new` (a folder, its own room, a brief): standing, the brief held under x-dozable, the folder external and
-    /// main, the room owned and main; nothing of the phase.
+    /// A plain `new` (a folder, its own room, a brief): space/3.1, standing, the brief held in the document, the folder
+    /// external and main, the room owned and main; nothing of the phase.
     func testAPlainNew() {
         var r = record()
         r.brief.refs = ["https://example.com/issue/1"]
@@ -54,16 +54,18 @@ final class WorkspaceDocumentTests: XCTestCase {
         r.permissions = WorkspaceGrants()
         let g = generate(r)
         let d = g.document
-        XCTAssertEqual(SpaceDoc.members(d).map(\.key), ["doz", "space", "owner", "x-dozable", "folders", "chat"])
-        XCTAssertEqual(str(d, "/doz"), "space/3")
+        XCTAssertEqual(SpaceDoc.members(d).map(\.key), ["doz", "space", "owner", "brief", "x-dozable", "folders", "chat"])
+        XCTAssertEqual(str(d, "/doz"), "space/3.1")
+        XCTAssertNil(at(d, "/lifetime"), "the lifetime is not a space/3.1 key")
         XCTAssertEqual(str(d, "/x-dozable/lifetime"), "standing")
-        XCTAssertEqual(str(d, "/x-dozable/brief/text"), "Fix the build")
-        XCTAssertEqual(SpaceDoc.strings(at(d, "/x-dozable/brief/refs")), ["https://example.com/issue/1"])
+        XCTAssertNil(at(d, "/x-dozable/brief"))
+        XCTAssertEqual(str(d, "/brief/text"), "Fix the build")
+        XCTAssertEqual(SpaceDoc.strings(at(d, "/brief/refs")), ["https://example.com/issue/1"])
         XCTAssertEqual(str(d, "/folders/app-folder/external"), "/Users/ada/work/app")
-        XCTAssertEqual(SpaceDoc.bool(at(d, "/folders/app-folder/x-dozable/main")), true)
+        XCTAssertEqual(SpaceDoc.bool(at(d, "/folders/app-folder/main")), true)
         XCTAssertEqual(SpaceDoc.bool(at(d, "/chat/rooms/app/main")), true)
         XCTAssertNil(at(d, "/chat/rooms/app/external"))
-        XCTAssertNil(at(d, "/brief"), "the brief is held under x-dozable, never as space/3's brief: FILE")
+        XCTAssertEqual(SpaceDoc.members(at(d, "/x-dozable")).map(\.key), ["lifetime"], "the one held key here")
         let text = SpaceDoc.text(d)
         for never in ["startedAt", "flags", "runs", "permissions", "grant", "running", "setting-up"] {
             XCTAssertFalse(text.contains(never), "never the phase or a grant: \(never)")
@@ -72,7 +74,7 @@ final class WorkspaceDocumentTests: XCTestCase {
     }
 
     /// `new --preset … --worker`: a declared worker is an owned agent (task → prompt) in the main folder; defaults →
-    /// agent_defaults (vm under x-dozable); the network default → x-dozable.network.
+    /// agent_defaults (vm under x-dozable); the network default → network:.
     func testADeclaredWorkerAndTheDefaults() {
         var r = record()
         r.declaredWorkers = [WorkspaceDeclaredWorker(name: "bot1", task: "Fix the failing test", declaredAt: t0)]
@@ -83,7 +85,8 @@ final class WorkspaceDocumentTests: XCTestCase {
         XCTAssertEqual(str(d, "/agents/bot1/role"), "worker")
         XCTAssertEqual(str(d, "/agents/bot1/folder"), "app-folder")
         XCTAssertEqual(str(d, "/agent_defaults/isolation"), "fenced")
-        XCTAssertEqual(str(d, "/x-dozable/network"), "standard")
+        XCTAssertEqual(str(d, "/network"), "standard")
+        XCTAssertNil(at(d, "/x-dozable/network"))
         XCTAssertEqual(problems(d).filter(\.isError).map(\.message), [])
         r.defaults = WorkspaceDefaults(isolation: "vm")
         d = generate(r).document
@@ -119,7 +122,7 @@ final class WorkspaceDocumentTests: XCTestCase {
         XCTAssertEqual(problems(d).filter(\.isError).map(\.message), [])
     }
 
-    /// Adopted: an `@mac` session → external {session}; a sandbox → x-dozable.external.sandbox (only referenced); an agent
+    /// Adopted: an `@mac` session → external {session}; a sandbox → external {sandbox} (only referenced); an agent
     /// elsewhere is left out with a note.
     func testAdoptedAgents() {
         let r = record(agents: [
@@ -130,7 +133,8 @@ final class WorkspaceDocumentTests: XCTestCase {
         let g = generate(r)
         let d = g.document
         XCTAssertEqual(str(d, "/agents/wsu/external/session"), "wsu")
-        XCTAssertEqual(str(d, "/agents/wsa/x-dozable/external/sandbox"), "wsa")
+        XCTAssertEqual(str(d, "/agents/wsa/external/sandbox"), "wsa")
+        XCTAssertNil(at(d, "/agents/wsa/x-dozable"))
         XCTAssertNil(at(d, "/agents/far"))
         XCTAssertTrue(g.notes.contains { $0.contains("far runs elsewhere") })
         let checked = SpaceValidator.checkMerged(d, SpaceLocator(sources: [SpaceSource(path: "/x", name: "x", kind: "space", sha256: "")], origins: [:]))
@@ -173,7 +177,7 @@ final class WorkspaceDocumentTests: XCTestCase {
         let g = generate(r)
         XCTAssertEqual(SpaceDoc.members(at(g.document, "/folders")).map(\.key), ["app-folder", "app-2", "folder"])
         XCTAssertEqual(str(g.document, "/folders/app-2/access"), "ro")
-        XCTAssertNil(at(g.document, "/folders/app-2/x-dozable"), "only the main folder is marked")
+        XCTAssertNil(at(g.document, "/folders/app-2/main"), "only the main folder is marked")
         XCTAssertEqual(SpaceDoc.members(at(g.document, "/agents")).map(\.key), ["my-session"])
         XCTAssertEqual(str(g.document, "/agents/my-session/external/session"), "My_Session")
         XCTAssertEqual(problems(g.document).filter(\.isError).map(\.message), [])
@@ -195,7 +199,8 @@ final class WorkspaceDocumentTests: XCTestCase {
             let d = generate(r, brief: what == "no folder, no room, empty brief" ? "" : "Fix the build").document
             XCTAssertEqual(problems(d).filter(\.isError).map(\.text), [], what)
             XCTAssertEqual(SpaceDozable.lifetime(d), "standing", what)
-            XCTAssertEqual(str(RecordDocument.view(d), "/lifetime"), "standing", what)
+            XCTAssertEqual(str(RecordDocument.view(d), "/x-dozable/lifetime"), "standing", what)
+            XCTAssertNil(at(RecordDocument.view(d), "/lifetime"), what)
         }
     }
 
@@ -269,17 +274,23 @@ final class WorkspaceDocumentTests: XCTestCase {
         let doc = SpaceResolver.parse(Self.head + "brief: B.md\n", name: "t").0!
         let i = SpaceIntent.compile(m, doc, SpaceLocator(sources: [], origins: [:]))
         XCTAssertEqual(i.effectiveLifetime, "runs")
-        // A space file's document: `runs` written (under x-dozable) and shown at the top; a written one kept.
+        // A space file's document: `runs` written under x-dozable (not a space/3.1 key); a written one kept.
         let g = RecordDocument.merge(spec: doc, record: record())
         XCTAssertEqual(SpaceDozable.lifetime(g.document), "runs")
-        XCTAssertEqual(str(RecordDocument.view(g.document), "/lifetime"), "runs")
+        XCTAssertEqual(str(RecordDocument.view(g.document), "/x-dozable/lifetime"), "runs")
+        XCTAssertNil(at(RecordDocument.view(g.document), "/lifetime"))
         XCTAssertTrue(g.notes.contains { $0.contains("read as runs") })
+        XCTAssertEqual(problems(g.document).filter(\.isError).map(\.text), [])
         let standing = SpaceResolver.parse(Self.head + "x-dozable: { lifetime: standing, brief: { text: x } }\n", name: "t").0!
         let s = RecordDocument.merge(spec: standing, record: record())
-        XCTAssertEqual(str(RecordDocument.view(s.document), "/lifetime"), "standing")
-        XCTAssertEqual(SpaceDoc.members(SpaceDozable.of(s.document)).map(\.key), ["lifetime", "brief"], "nothing added twice")
-        // The view's lifetime never reaches a file.
-        XCTAssertNil(SpaceDoc.member(RecordDocument.fileForm(RecordDocument.view(s.document)), "lifetime"))
+        XCTAssertEqual(str(RecordDocument.view(s.document), "/x-dozable/lifetime"), "standing")
+        XCTAssertEqual(SpaceDoc.members(SpaceDozable.of(s.document)).map(\.key), ["lifetime"], "lifted: only the held key stays")
+        XCTAssertEqual(SpaceDoc.members(s.document).map(\.key), ["doz", "space", "owner", "brief", "x-dozable"], "nothing added twice")
+        XCTAssertEqual(str(s.document, "/doz"), "space/3.1")
+        XCTAssertEqual(str(s.document, "/brief/text"), "x")
+        // The file holds the same document.
+        XCTAssertEqual(str(RecordDocument.fileForm(RecordDocument.view(s.document)), "/x-dozable/lifetime"), "standing")
+        XCTAssertEqual(problems(s.document).filter(\.isError).map(\.text), [])
     }
 
     /// A space file's document carries the record's extras: an agent added or adopted since the last up.
@@ -308,8 +319,11 @@ final class WorkspaceDocumentTests: XCTestCase {
         XCTAssertEqual(SpaceDoc.members(j).map(\.key), ["kind", "schema", "workspace", "from", "document"])
         XCTAssertEqual(str(j, "/kind"), "Document")
         XCTAssertEqual(SpaceDoc.int(at(j, "/schema")), 1)
-        XCTAssertEqual(str(j, "/document/lifetime"), "standing")
-        XCTAssertEqual(SpaceDoc.members(at(j, "/document")).map(\.key).prefix(3), ["doz", "space", "lifetime"])
+        XCTAssertNil(at(j, "/document/lifetime"))
+        XCTAssertEqual(str(j, "/document/x-dozable/lifetime"), "standing")
+        XCTAssertNil(at(j, "/document/x-dozable/brief"))
+        XCTAssertEqual(SpaceDoc.members(at(j, "/document")).map(\.key).prefix(4), ["doz", "space", "owner", "brief"])
+        XCTAssertEqual(str(j, "/document/doz"), "space/3.1")
         // Through the wire: the answer's struct round-trips.
         let back = try JSONDecoder().decode(WorkspaceDocumentAnswer.self, from: JSONEncoder().encode(a))
         XCTAssertEqual(back, a)
@@ -326,6 +340,7 @@ final class WorkspaceDocumentTests: XCTestCase {
         let a = WorkspaceDocumentAnswer(workspace: "app", from: "record", document: SpaceDoc.text(view), notes: ["a note"])
         let text = WorkspaceDocYAML.text(a, view)
         XCTAssertTrue(text.hasPrefix("# The document of the workspace app"))
+        XCTAssertTrue(text.contains("\ndoz: space/3.1\n") && text.contains("\nx-dozable:\n  lifetime: standing\n") && !text.contains("\nlifetime:"), text)
         XCTAssertNil(SpaceRecordFile.formatRefusal(text), "a space file's format line first")
         let (back, _, problems) = SpaceResolver.parse(text, name: "out.space.yaml")
         XCTAssertEqual(problems.map(\.text), [])
@@ -414,8 +429,9 @@ extension WorkspaceLifecycleHostTests {
                 let a = try XCTUnwrap(m.result).decode(WorkspaceDocumentAnswer.self)
                 XCTAssertEqual(a.from, "record")
                 let doc = try ChatJSON.parse(Data(a.document.utf8))
-                XCTAssertEqual(SpaceDoc.string(SpaceDoc.member(doc, "lifetime")), "standing")
-                XCTAssertEqual(SpaceDoc.string(SpaceDoc.at(doc, "/x-dozable/brief/text")), "Make the launch video.\n")
+                XCTAssertEqual(SpaceDoc.string(SpaceDoc.at(doc, "/x-dozable/lifetime")), "standing")
+                XCTAssertNil(SpaceDoc.member(doc, "lifetime"))
+                XCTAssertEqual(SpaceDoc.string(SpaceDoc.at(doc, "/brief/text")), "Make the launch video.\n")
                 XCTAssertNotNil(SpaceDoc.at(doc, "/agents/mira/external"))
                 let checked = SpaceValidator.checkMerged(RecordDocument.fileForm(doc), SpaceLocator(sources: [SpaceSource(path: "/x", name: "x", kind: "space", sha256: "")], origins: [:]))
                 XCTAssertEqual(checked.problems.filter(\.isError).map(\.text), [])
@@ -456,8 +472,11 @@ extension WorkspaceLifecycleHostTests {
             let a = try XCTUnwrap(m.result).decode(WorkspaceDocumentAnswer.self)
             XCTAssertEqual(a.from, "space-file")
             let doc = try ChatJSON.parse(Data(a.document.utf8))
-            XCTAssertEqual(SpaceDoc.string(SpaceDoc.member(doc, "lifetime")), "standing")
-            XCTAssertEqual(SpaceDoc.bool(SpaceDoc.at(doc, "/folders/app/x-dozable/main")), true)
+            XCTAssertEqual(SpaceDoc.string(SpaceDoc.at(doc, "/x-dozable/lifetime")), "standing")
+            XCTAssertNil(SpaceDoc.member(doc, "lifetime"))
+            XCTAssertNil(SpaceDoc.at(doc, "/x-dozable/brief"))
+            XCTAssertEqual(SpaceDoc.bool(SpaceDoc.at(doc, "/folders/app/main")), true, "the x-dozable form lifted: space/3.1")
+            XCTAssertEqual(SpaceDoc.string(SpaceDoc.member(doc, "doz")), "space/3.1")
         }
     }
 }

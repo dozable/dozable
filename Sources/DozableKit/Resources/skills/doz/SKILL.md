@@ -64,9 +64,11 @@ doz workspace doc NAME --json
 ```
 
 `{"kind":"Document","schema":1,"workspace":…,"from":"record"|"space-file","document":{…},"notes":[…]}` — what the
-workspace should be, as a space file: its brief, folders, agents, rooms and `document.lifetime` (always there:
+workspace should be, as a space file: its brief, folders, agents, rooms and `document.x-dozable.lifetime` (always there:
 `standing` — what it owns stays — or `runs`). `state` is what is true now; the document is what it is for. It never
-holds a secret's value, a grant or the phase. Keys under `x-dozable` are Dozable's additions to the format. `notes`
+holds a secret's value, a grant or the phase. It is `doz: space/3.1` (`document.doz`): `brief`, `about` (with
+`about.title`), `layout`, `network`, a folder's `main` and an agent's `restart`, `network` and `external: {sandbox}` are
+keys of the format; keys under `x-dozable` — the lifetime among them — are Dozable's additions it does not carry yet (writing one of those first-class keys under `x-dozable` still works this release, with a note). `notes`
 names what it cannot say yet. `--write FILE` saves it as a space file for the person (exit 4 if FILE exists — only
 with `--force` when they asked to replace it); it applies nothing.
 
