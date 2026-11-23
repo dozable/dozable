@@ -112,7 +112,12 @@ running it starts none and every condition is "not known". A workspace that does
 `--json` is typed for a script: `kind` `WorkspaceState`, `schema` 1, the document the dashboard's space view reads (its
 `items`, `attention` and `sha`), then `from` (`record` or `space-file`), `agents` — each agent by its name, with
 `condition`, `reason`, `role` (`manager`, `worker`, `adopted`), `place` and `since` (an ISO 8601 time) —, `conditions`
-`{ready}` (true when every agent runs) and `revision`:
+`{ready, allocated, hot, run, archived}` and `revision`. `ready` is true when every agent runs. The others are one per
+layer: `allocated` (what the workspace holds — true from `new` until it is archived or deleted; a space file whose
+lifetime is `runs` gives it up at `down`; `reason` says `down` or `archived`), `hot` (`all`, `some` or `none` of its
+sessions running, and each session's condition: `starting`, `running`, `asleep`, `stopped`, `ended` or `unknown`), `run`
+(whether a run is open, its id and since when) and `archived` (and when). Each `since` and `at` is an ISO 8601 time.
+`doz workspace ls --json` carries `allocated`, `hot` (its value) and `run` on each workspace:
 
 ```bash
 doz workspace state demo --json | jq -r '.agents.mira.condition'    # running

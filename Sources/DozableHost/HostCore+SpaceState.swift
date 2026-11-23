@@ -92,33 +92,8 @@ extension HostCore {
 
         let wantsMac = rec.agents.contains { $0.place.mac == true && $0.endedAt == nil } || i.agents.contains { $0.session != nil }
         let macs = wantsMac ? await workspaceMacRows() : [:]
-        func mac(_ row: SessionRow?, manager: Bool) -> SpaceStateFacts.Agent {
-            guard let row else { return SpaceStateFacts.Agent(state: manager ? "ended" : "missing", detail: manager ? "not started" : nil) }
-            if row.gone == true { return SpaceStateFacts.Agent(state: "missing") }
-            if row.ended { return SpaceStateFacts.Agent(state: "ended") }
-            return SpaceStateFacts.Agent(state: "running", status: row.status)
-        }
-        for a in rec.agents where a.endedAt == nil {
-            if let s = a.place.sandbox {
-                guard let m = managed[s] else {
-                    f.agents[a.name] = SpaceStateFacts.Agent(state: a.isManager ? "ended" : "missing", detail: a.isManager ? "not started" : nil)
-                    continue
-                }
-                let phase = await effectivePhase(m)
-                let mine: SessionStatus? = a.isWorker && a.place.session != nil ? statuses[s]?[a.place.session!]
-                    : SessionStatus.mostUrgent(Array((statuses[s] ?? [:]).values))
-                switch phase {
-                case .running, .booting: f.agents[a.name] = SpaceStateFacts.Agent(state: "running", status: mine)
-                case .paused, .asleep, .hibernated: f.agents[a.name] = SpaceStateFacts.Agent(state: "asleep", detail: "in \(s), \(phase.rawValue)")
-                case .failed: f.agents[a.name] = SpaceStateFacts.Agent(state: "ended", detail: "in \(s), failed", failed: true)
-                case .off: f.agents[a.name] = SpaceStateFacts.Agent(state: "ended", detail: "in \(s), shut down")
-                }
-            } else if a.place.mac == true, let s = a.place.session {
-                f.agents[a.name] = mac(macs[s], manager: a.isManager)
-            } else {
-                f.agents[a.name] = SpaceStateFacts.Agent(state: "unknown", detail: "elsewhere: not run by Dozable")
-            }
-        }
+        func mac(_ row: SessionRow?, manager: Bool) -> SpaceStateFacts.Agent { Self.macAgentFact(row, manager: manager) }
+        f.agents = await workspaceAgentFacts(rec, macs: macs)
         for a in i.agents { if let s = a.session { f.sessions[s] = mac(macs[s], manager: false) } }
         for s in i.sandboxes { if let m = managed[s.placeName] { f.sandboxes[s.placeName] = await effectivePhase(m).rawValue } }
 
@@ -346,5 +321,42 @@ extension HostCore {
               let m = try? HostWire.decoder.decode(RunArchive.Manifest.self, from: d) else { return nil }
         let k = m.files.filter { $0.path.hasPrefix("frames/") }.count
         return k > 0 ? k : nil
+    }
+
+    /// A session on this Mac as a fact: none (a manager's: not started), gone, ended or running.
+    nonisolated static func macAgentFact(_ row: SessionRow?, manager: Bool) -> SpaceStateFacts.Agent {
+        guard let row else { return SpaceStateFacts.Agent(state: manager ? "ended" : "missing", detail: manager ? "not started" : nil) }
+        if row.gone == true { return SpaceStateFacts.Agent(state: "missing") }
+        if row.ended { return SpaceStateFacts.Agent(state: "ended") }
+        return SpaceStateFacts.Agent(state: "running", status: row.status)
+    }
+
+    /// What the daemon holds of each agent of `rec` not ended (`SpaceStateFacts.agents`): its sandbox's phase and its
+    /// program's status, or its session on this Mac (`macs`). Never a guest call — `ls` reads it for every workspace (764).
+    func workspaceAgentFacts(_ rec: WorkspaceRecord, macs: [String: SessionRow]) async -> [String: SpaceStateFacts.Agent] {
+        var out: [String: SpaceStateFacts.Agent] = [:]
+        func mac(_ row: SessionRow?, manager: Bool) -> SpaceStateFacts.Agent { Self.macAgentFact(row, manager: manager) }
+        for a in rec.agents where a.endedAt == nil {
+            if let s = a.place.sandbox {
+                guard let m = managed[s] else {
+                    out[a.name] = SpaceStateFacts.Agent(state: a.isManager ? "ended" : "missing", detail: a.isManager ? "not started" : nil)
+                    continue
+                }
+                let phase = await effectivePhase(m)
+                let mine: SessionStatus? = a.isWorker && a.place.session != nil ? statuses[s]?[a.place.session!]
+                    : SessionStatus.mostUrgent(Array((statuses[s] ?? [:]).values))
+                switch phase {
+                case .running, .booting: out[a.name] = SpaceStateFacts.Agent(state: "running", status: mine)
+                case .paused, .asleep, .hibernated: out[a.name] = SpaceStateFacts.Agent(state: "asleep", detail: "in \(s), \(phase.rawValue)")
+                case .failed: out[a.name] = SpaceStateFacts.Agent(state: "ended", detail: "in \(s), failed", failed: true)
+                case .off: out[a.name] = SpaceStateFacts.Agent(state: "ended", detail: "in \(s), shut down")
+                }
+            } else if a.place.mac == true, let s = a.place.session {
+                out[a.name] = mac(macs[s], manager: a.isManager)
+            } else {
+                out[a.name] = SpaceStateFacts.Agent(state: "unknown", detail: "elsewhere: not run by Dozable")
+            }
+        }
+        return out
     }
 }

@@ -1945,6 +1945,8 @@ public struct WorkspaceRow: Codable, Equatable, Sendable {
     /// When its log's last line was written (nil: no log yet) — one block of the log read backwards per workspace, never a
     /// guest call. Additive; `--json` only (the dashboard's Workspaces page shows and sorts by it).
     public var lastAt: Date?
+    /// 764: the short form of `state --json`'s conditions — `allocated`, `hot` (its value only), `run`. Additive; `--json` only.
+    public var conditions: WorkspaceRowConditions?
     public init(name: String, state: String, driver: String, agents: Int, room: String?, manager: WorkspaceManagerRow? = nil,
                 working: [String]? = nil, folders: [String]? = nil, places: [String]? = nil, space: WorkspaceRowSpace? = nil,
                 lastAt: Date? = nil) {

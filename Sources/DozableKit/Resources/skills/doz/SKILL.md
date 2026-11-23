@@ -46,7 +46,7 @@ The answer (`--json`) is the workspace: `{"kind":"Workspace","schema":1,"name":�
 doz workspace state NAME --json
 ```
 
-`{"kind":"WorkspaceState","schema":1,…,"phase":…,"agents":{"NAME":{"condition","reason","role","place","since"}},"conditions":{"ready":…}}`
+`{"kind":"WorkspaceState","schema":1,…,"phase":…,"agents":{"NAME":{"condition","reason","role","place","since"}},"conditions":{"ready":…,"allocated":…,"hot":…,"run":…,"archived":…}}`
 
 - `phase` is the workspace's: `setting-up`, `running`, `asleep`, `stopped`, `finished` or `archived`.
 
@@ -54,6 +54,11 @@ doz workspace state NAME --json
   why in words (a declared worker before the start: `not-started`).
 - `conditions.ready` is true only when the workspace is neither finished nor archived, has at least one agent, and every
   agent is running.
+- Beside it, one condition per layer: `conditions.allocated` `{value, since, reason?}` (what the workspace holds:
+  true from new until archive or delete — a space file with `lifetime: runs` releases it at down; `reason` is `down` or
+  `archived`), `conditions.hot` `{value: all|some|none, sessions: {NAME: {condition, since}}}` (each session `starting`,
+  `running`, `asleep`, `stopped`, `ended` or `unknown`), `conditions.run` `{open, id, since}` and
+  `conditions.archived` `{value, at}`. `doz workspace ls --json` rows carry `conditions` `{allocated, hot: {value}, run}`.
 - With no daemon running none is started: every condition is then `unknown`. Looking never changes anything.
 - More: `doz workspace show NAME --json` (its brief with `--brief`), `doz worker ls NAME --json`, `doz workspace ls --json`.
 

@@ -317,6 +317,12 @@ extension HostCore {
                                          space: WorkspaceRowSpace.of(rec),
                                          lastAt: (try? workspaces.logPage(rec.name, limit: 1))?.entries.first?.at))
                 rows[rows.count - 1].lifetime = SpaceRecordRef.lifetime(of: rec)
+                // 764: the short form of `state`'s conditions — the same builder, from what the daemon holds (no chat, no
+                // folder, no guest call) and the newest page of the log.
+                var facts = SpaceStateFacts(known: !readOnly, home: "", projectsDir: "")
+                if !readOnly { facts.agents = await workspaceAgentFacts(rec, macs: macs) }
+                let log = Array(((try? workspaces.logPage(rec.name, limit: 256))?.entries ?? []).reversed())
+                rows[rows.count - 1].conditions = WorkspaceConditionsBuilder.build(record: rec, facts: facts, log: log, from: "record").layers?.short
             }
         }
         var loose: [LooseAgent] = []
