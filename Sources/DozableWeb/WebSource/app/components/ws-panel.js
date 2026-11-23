@@ -65,7 +65,7 @@ export function agentsBox(d, opts = {}) {
   const managers = d.agents.filter((a) => a.role === 'manager');
   const workers = d.agents.filter((a) => a.role === 'worker' && a.task);
   const adopted = d.agents.filter((a) => !managers.includes(a) && !workers.includes(a));
-  const asleep = d.state === 'asleep';
+  const asleep = d.state === 'asleep' || d.state === 'stopped';
   const body = [
     d.agents.length ? h('ul', { class: 'ws-agents' }, ...managers.map((a) => agentRow(d.name, a, asleep)), ...adopted.map((a) => agentRow(d.name, a, asleep))) : h('p', { class: 'muted' }, 'No agent yet.'),
     workers.length ? h('div', { class: 'ws-sub' }, 'Workers — in ' + (opts.mainRoom ? '# ' + opts.mainRoom : 'the main room')) : null,

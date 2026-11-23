@@ -42,8 +42,9 @@ export function renderNavWorkspaces(opts = {}) {
   if (sig === lastSig && box.childElementCount) { if (!opts.details) for (const w of all) if (open.has(w.name)) readDetail(w.name, 0); return; }
   lastSig = sig;
   const sorted = byState(all);
-  const live = sorted.filter((w) => w.state !== 'asleep' && !isDone(w));
-  const asleep = sorted.filter((w) => w.state === 'asleep');
+  const down = (w) => w.state === 'asleep' || w.state === 'stopped';
+  const live = sorted.filter((w) => !down(w) && !isDone(w));
+  const asleep = sorted.filter(down);
   const done = sorted.filter(isDone);
   const lines = live.map((w) => line(w, open));
   if (asleep.length) lines.push(group('~asleep', 'Asleep', asleep, open));

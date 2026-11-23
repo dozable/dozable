@@ -20,11 +20,11 @@ export const MENU_ORDER = ['stop', 'sleep', 'wake', null, 'finish', 'archive', '
 export function confirmKind(verb) { return LIFECYCLE[verb] ? LIFECYCLE[verb].confirm : 'none'; }
 
 /// The one primary verb a workspace's state offers: setting up → start; running (idle, working, waiting, starting) → sleep;
-/// asleep → wake; finished → reopen; archived → restore.
+/// asleep or stopped → wake; finished → reopen; archived → restore.
 export function primaryVerb(st) {
   switch (st) {
     case 'setting-up': return 'start';
-    case 'asleep': return 'wake';
+    case 'asleep': case 'stopped': return 'wake';
     case 'finished': return 'reopen';
     case 'archived': return 'restore';
     case 'idle': case 'working': case 'waiting-on-you': case 'starting': return 'sleep';

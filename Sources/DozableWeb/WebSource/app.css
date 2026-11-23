@@ -1097,6 +1097,7 @@ table.set-matrix { width: auto; }
 .ws-idle           { --ph: var(--ok); --ph-t: var(--ok-tint); }
 .ws-setting-up     { --ph: var(--ink-2); --ph-t: var(--surface-2); }
 .ws-asleep         { --ph: var(--ph-asleep); --ph-t: var(--ph-asleep-tint); }
+.ws-stopped        { --ph: var(--ph-off); --ph-t: var(--ph-off-tint); }
 .ws-finished       { --ph: var(--ok); --ph-t: var(--surface-2); }
 .ws-archived       { --ph: var(--ph-off); --ph-t: var(--ph-off-tint); }
 /* Who drives, and the manager: a quiet chip; an unfenced manager (it acts as you) in the warning tone. */

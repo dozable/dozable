@@ -81,7 +81,7 @@ public enum SpaceDown {
             }
             for a in live where a.isWorker && owned.agents[a.name] == "run" {
                 let discard = ref.transcripts?[a.name] == "discard"
-                step("worker-end", "agent \(a.name)", "end and forget \(a.name)" + (a.place.sandbox.map { owned.sandboxes[$0] == "run" ? "; its sandbox \($0) removed" : "" } ?? "")
+                step("worker-end", "agent \(a.name)", "end and forget \(a.name)" + (a.place.sandbox.map { owned.sandboxes[$0] == "run" ? "; its sandbox \($0)'s disk saved as an image, then the sandbox removed" : "" } ?? "")
                      + (discard ? (off ? "; its transcripts deleted with no copy (archive: off)" : "; its transcripts deleted once the archived copy is hash-checked") : ""),
                      copy: discard ? (off ? "none" : "archived") : nil)
                 if discard && off { p.noCopy.append("\(a.name)'s transcripts") }
@@ -105,6 +105,12 @@ public enum SpaceDown {
             if off { p.noCopy.append("the room \(r.chatRoom)") }
         }
         if !p.up {
+            // 762: a run-lifetime worker an earlier down left behind (its step failed — say its sandbox's disk could not be
+            // saved): ended now, its transcripts kept, its own sandbox's disk saved as an image first.
+            for a in live where a.isWorker && owned.agents[a.name] == "run" {
+                step("worker-end", "agent \(a.name)", "end and forget \(a.name), left from an earlier down; its transcripts kept"
+                     + (a.place.sandbox.map { owned.sandboxes[$0] == "run" ? "; its sandbox \($0)'s disk saved as an image, then the sandbox removed" : "" } ?? ""))
+            }
             for s in ref.scratch ?? [] where s.run != open?.id && ref.scratchGoes(s.name) {
                 step("scratch-rm", "folder \(s.name)", "remove the scratch folder \(DisplayPath.tilde(s.path)) left from run \(s.run)" + (off ? " with no copy (archive: off)" : ", copied and hash-checked first"),
                      copy: off ? "none" : "archived")
@@ -118,7 +124,7 @@ public enum SpaceDown {
                 step("memory-rm", "agent \(agent)", "delete \(agent)'s kept memory (in the store)")
             }
             for (s, life) in owned.sandboxes.sorted(by: { $0.key < $1.key }) where life == "persisted" {
-                step("sandbox-rm", "sandbox \(s)", "remove the sandbox \(s) and its disk")
+                step("sandbox-rm", "sandbox \(s)", "save the sandbox \(s)'s disk as an image, then remove the sandbox (doz image ls lists the copy)")
             }
             for r in rec.rooms where r.goneAt == nil && r.owned != false && owned.rooms[r.chatRoom] == "persisted" {
                 step("room-rm", "room \(r.chatRoom)", "delete the persisted room \(r.chatRoom)" + (off ? " with no copy (archive: off)" : ", archived and hash-checked first") + "; a tombstone stays",

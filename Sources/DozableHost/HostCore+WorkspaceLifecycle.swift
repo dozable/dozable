@@ -40,6 +40,8 @@ public protocol WorkspaceAgentLifecycle: Sendable {
     func keepTemplate(sandbox: String, name: String) async throws
     /// The sandbox removed (its disks and restore points).
     func removeSandbox(_ name: String) async throws
+    /// 762: whether the sandbox exists (a removal saves its disk first, and only an existing one has a disk to save).
+    func sandboxExists(_ name: String) async -> Bool
     /// A session on this Mac that has ended: its record forgotten (and its secrets with it).
     func forgetSession(_ name: String) async throws
 }
@@ -56,6 +58,7 @@ final class DaemonAgentLifecycle: WorkspaceAgentLifecycle, @unchecked Sendable {
     func shutdown(_ o: AgentLifecycleOrder) async throws -> [String] { try await live().agentShutdown(o) }
     func keepTemplate(sandbox: String, name: String) async throws { try await live().agentKeepTemplate(sandbox, name) }
     func removeSandbox(_ name: String) async throws { try await live().agentRemoveSandbox(name) }
+    func sandboxExists(_ name: String) async -> Bool { await core?.agentSandboxExists(name) ?? false }
     func forgetSession(_ name: String) async throws { try await live().agentForgetSession(name) }
     private func live() throws -> HostCore {
         guard let core else { throw HostError(.unavailable, "the daemon is stopping") }
@@ -263,6 +266,8 @@ extension HostCore {
     func agentKeepTemplate(_ s: String, _ name: String) async throws {
         try await sandboxOp(.templateCreate, s) { $0.image = name }
     }
+
+    func agentSandboxExists(_ s: String) -> Bool { managed[s] != nil }
 
     func agentRemoveSandbox(_ s: String) async throws {
         guard managed[s] != nil else { return }
@@ -632,6 +637,8 @@ extension HostCore {
         c.kind = WorkspaceFinishInventory.kind; c.schema = WorkspaceFinishInventory.schema
         c.removed = []
         c.kept = WorkspaceFinishInventory.kept(before: rec, removed: [])
+        let untouched = WorkspaceFinishInventory.untouched(rec)
+        c.untouched = untouched.isEmpty ? nil : untouched
         return c
     }
 

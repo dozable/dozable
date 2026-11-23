@@ -90,6 +90,8 @@ extension WorkspaceLifecycleHostTests {
         XCTAssertEqual(f.removed, [], "standing: nothing removed")
         let kept = try XCTUnwrap(f.kept)
         XCTAssertTrue(kept.contains(work.path), "the folder by its absolute path (\(kept))")
+        // 762 (F7): and named untouched — the person's folder, said apart in the text.
+        XCTAssertEqual(f.untouched, [work.path])
         XCTAssertTrue(work.path.hasPrefix("/"))
         XCTAssertTrue(kept.contains("agent/mira") && kept.contains("agent/bot1") && kept.contains("agent/otto"))
         XCTAssertEqual(Set(kept), Set(held), "everything it held is kept")
@@ -157,6 +159,8 @@ extension WorkspaceLifecycleHostTests {
             let kept = try XCTUnwrap(d.kept)
             XCTAssertTrue(kept.contains(scratch.path), "the scratch folder kept (standing): \(kept)")
             XCTAssertTrue(kept.contains { $0 == ext || $0 == WorkspaceStore.resolved(ext) }, "the external folder kept: \(kept)")
+            // 762 (F7): and named untouched (said apart in the text).
+            XCTAssertTrue((d.untouched ?? []).contains { $0 == ext || $0 == WorkspaceStore.resolved(ext) }, "the external folder untouched: \(d.untouched ?? [])")
             XCTAssertTrue(kept.contains("room/lv") && kept.contains("room/lv-run") && kept.contains("agent/w1"), "\(kept)")
             XCTAssertNotNil(d.archive)
             // On disk: the scratch folder byte-for-byte, the external untouched; tmp only after its copy verifies.

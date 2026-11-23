@@ -358,12 +358,21 @@ public enum WorkspaceLifecycle {
             }
             rows.append(r)
         }
-        // What is kept and what goes, verb by verb.
+        // What is kept and what goes, verb by verb. 762 (F7): a folder the workspace made (or its space file keeps) is kept; the
+        // person's own folders are untouched — named apart, never under "kept".
+        var untouched: [WorkspaceLifecycleItem] = []
+        func folders() {
+            let own = WorkspaceFinishInventory.ownFolders(rec)
+            for fo in rec.folders {
+                if own.contains(fo.path) { keeps.append(.init("made for \(n): kept on disk", path: fo.path)) }
+                else { untouched.append(.init("your folder: never touched", path: fo.path)) }
+            }
+        }
         let roomList = rec.rooms.map { "#" + $0.chatRoom }.joined(separator: ", ")
         switch verb {
         case .stop:
-            keeps = [.init("every conversation, record, disk and token"), .init("the room\(rec.rooms.count == 1 ? "" : "s") — messages wait there"),
-                     .init("every folder, untouched")]
+            keeps = [.init("every conversation, record, disk and token"), .init("the room\(rec.rooms.count == 1 ? "" : "s") — messages wait there")]
+            folders()
             if running.isEmpty { notes.append("nothing runs: nothing to stop") }
             notes.append("every agent stays stopped until you wake it: doz workspace wake \(n) (the manager alone: doz workspace manager stop \(n))")
         case .sleep:
@@ -374,12 +383,13 @@ public enum WorkspaceLifecycle {
             keeps = [.init("the brief is not posted again")]
         case .finish:
             keeps = [.init(rec.rooms.isEmpty ? "no room" : "the room\(rec.rooms.count == 1 ? "" : "s") \(roomList) and \(rec.rooms.count == 1 ? "its" : "their") history — members can read"),
-                     .init("every token (reopen works)"), .init("every disk and conversation"), .init("every folder, untouched")]
+                     .init("every token (reopen works)"), .init("every disk and conversation")]
+            folders()
             var closes = false
             for room in rec.rooms where room.goneAt == nil {
                 let owned = facts.ownedRooms?.contains(room.chatRoom) ?? (room.owned == true)
                 roomRows.append(WorkspaceLifecycleRoomRow(room: room.chatRoom, label: room.label, owned: owned,
-                                                          after: owned ? "closed: members can read it, posts refused (space-down)" : "linked: not closed"))
+                                                          after: owned ? "closed: members can read it, posts refused" : "linked: not closed"))
                 if owned { closes = true }
             }
             if closes {
@@ -395,7 +405,8 @@ public enum WorkspaceLifecycle {
             notes.append("nothing runs yet: doz workspace wake \(n) brings its agents back")
         case .archive:
             keeps = [.init(rec.rooms.isEmpty ? "no room" : "the history and files of \(roomList) (read-only)"), .init("the brief, its log and the conversations"),
-                     .init("every bot and its token"), .init("every folder, untouched")]
+                     .init("every bot and its token")]
+            folders()
             if o.removeSandboxes, o.keepTemplates, !templates.isEmpty { keeps.append(.init("a saved disk of each sandbox removed: " + templates.values.sorted().joined(separator: ", "))) }
             if !rec.rooms.isEmpty { goes.append(.init("writing in \(roomList) (archived: read-only)")) }
             let anon = rec.agents.filter { $0.endedAt == nil && $0.isWorker && $0.anonymous == true }.map(\.name)
@@ -491,6 +502,7 @@ public enum WorkspaceLifecycle {
         p.templates = templates.isEmpty ? nil : templates
         p.archive = archivePlan
         p.rooms = roomRows.isEmpty ? nil : roomRows
+        p.untouched = untouched.isEmpty ? nil : untouched
         p.sha = sha(p, options: o)
         return p
     }
@@ -681,6 +693,9 @@ public struct WorkspaceLifecyclePlan: Codable, Equatable, Sendable {
     public var archive: WorkspaceArchivePlan?
     /// Finish: each room and what becomes of it (an owned room is closed, a linked one is not). Additive.
     public var rooms: [WorkspaceLifecycleRoomRow]?
+    /// 762 (F7): what the verb never touches because it is not the workspace's own — the person's folders, by path. Kept
+    /// lists only what is the workspace's and is kept. Additive.
+    public var untouched: [WorkspaceLifecycleItem]?
     /// The plan's identity: a verb sent with `ifPlan` is refused when the plan it builds has another.
     public var sha = ""
     public init(workspace: String, verb: String, state: String) { self.workspace = workspace; self.verb = verb; self.state = state }
@@ -713,8 +728,10 @@ public struct WorkspaceLifecycleRoomRow: Codable, Equatable, Sendable {
 }
 
 /// What a finish (and `down`, which is finish) removed and kept, by name: folders by their ABSOLUTE path, rooms `room/NAME`,
-/// agents `agent/NAME`, sandboxes `sandbox/NAME`. `kept` is everything the workspace held before that is not in `removed`, so
-/// a finish that removes nothing keeps every folder, room, agent and sandbox it had. Pure.
+/// agents `agent/NAME`, sandboxes `sandbox/NAME`. `kept` is everything the workspace held before that is not in `removed` (the
+/// `--json` contract: a finish that removes nothing keeps every folder, room, agent and sandbox it had). 762 (F7): what a
+/// person READS keeps them apart — the person's folders (any it did not make) are `untouched` and an agent `down` released
+/// is `released`, each on its own line, never under "kept:" (`lines`). Pure.
 public enum WorkspaceFinishInventory {
     public static let kind = "WorkspaceFinish"
     public static let schema = 1
@@ -730,6 +747,18 @@ public enum WorkspaceFinishInventory {
         return dedupe(out)
     }
 
+    /// 762 (F7): the folders that are the workspace's own — made by it (`WorkspaceLifecycle.madeFolders`) or kept by its
+    /// space file (`persistedPaths`). Every other folder is the person's.
+    public static func ownFolders(_ rec: WorkspaceRecord) -> Set<String> {
+        WorkspaceLifecycle.madeFolders(rec).union(SpaceRecordRef.of(rec)?.persistedPaths ?? [])
+    }
+
+    /// 762 (F7): the person's folders: never made by the workspace, so never touched by its lifecycle — not "kept".
+    public static func untouched(_ rec: WorkspaceRecord) -> [String] {
+        let own = ownFolders(rec)
+        return dedupe(rec.folders.map(\.path).filter { !own.contains($0) })
+    }
+
     /// What was kept: what `before` held, less what was removed.
     public static func kept(before: WorkspaceRecord, removed: [String]) -> [String] {
         let gone = Set(removed)
@@ -742,14 +771,21 @@ public enum WorkspaceFinishInventory {
     }
 
     /// The lines a person reads: what was removed and what was kept, always both (a standing workspace's says so).
-    public static func lines(removed: [String], kept: [String], standing: Bool, archive: String?) -> [String] {
+    public static func lines(removed: [String], kept: [String], untouched: [String] = [], released: [String] = [], standing: Bool,
+                             archive: String?) -> [String] {
         var out: [String] = []
         if removed.isEmpty {
             out.append(standing ? standingLine : "nothing removed")
         } else {
             out.append("removed: " + removed.map(shown).joined(separator: ", "))
         }
-        out.append(kept.isEmpty ? "kept: nothing" : "kept: " + kept.map(shown).joined(separator: ", "))
+        // 762 (F7): "kept:" names only what is the workspace's own and was kept — the person's folders and what down released
+        // are said apart.
+        let apart = Set(untouched).union(released)
+        let own = kept.filter { !apart.contains($0) }
+        out.append(own.isEmpty ? "kept: nothing" : "kept: " + own.map(shown).joined(separator: ", "))
+        if !released.isEmpty { out.append("released (loose again): " + released.map(shown).joined(separator: ", ")) }
+        if !untouched.isEmpty { out.append("untouched (yours, not its own): " + untouched.map(shown).joined(separator: ", ")) }
         if let a = archive { out.append("archive: " + a) }
         return out
     }

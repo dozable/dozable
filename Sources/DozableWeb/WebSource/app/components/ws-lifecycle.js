@@ -53,6 +53,7 @@ export function planView(p) {
     : h('p', { class: 'muted' }, 'It has no agents.');
   const lists = h('div', { class: 'wl-lists' },
     p.keeps.length ? h('div', { class: 'wl-keeps' }, h('h3', null, 'Kept'), h('ul', null, ...p.keeps.map(item))) : null,
+    p.untouched && p.untouched.length ? h('div', { class: 'wl-keeps wl-untouched' }, h('h3', null, 'Untouched'), h('ul', null, ...p.untouched.map(item))) : null,
     p.goes.length ? h('div', { class: 'wl-goes' }, h('h3', null, 'Goes'), h('ul', null, ...p.goes.map(item))) : null);
   const cmd = h('details', { class: 'wl-cmd' }, h('summary', null, 'Show the command'), cmdLine(p.command),
     p.commands.length ? h('div', { class: 'wl-today' }, h('p', { class: 'muted' }, 'Today, one agent at a time:'), ...p.commands.map((c) => cmdLine(c))) : null);

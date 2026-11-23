@@ -79,7 +79,7 @@ const onScreen = (v) => v.visible && !v.dropped && v.el.isConnected;
 // ── reads
 function quiet(name) {
   const w = state.workspaces && state.workspaces.workspaces.find((x) => x.name === name);
-  return !!w && ['asleep', 'finished', 'archived'].includes(w.state);
+  return !!w && ['asleep', 'stopped', 'finished', 'archived'].includes(w.state);
 }
 const needsFile = (e) => e.fileAt < fileEpoch;
 // asleep, finished, archived: read once more, then only on a file mark
