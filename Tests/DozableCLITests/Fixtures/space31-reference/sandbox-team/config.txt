@@ -1,0 +1,113 @@
+$ doz space config examples/space3.1/sandbox-team.space.yaml
+--- stdout
+# the merged space "sandbox-team" (doz space config): defaults, then the space file, then the override file, then profiles
+# sources, lowest first:
+#   defaults ~/work/example-repo/examples/space3.1/my_doz_workspace_defaults.yaml  sha256 f818661c1a6a0830…
+#   space    ~/work/example-repo/examples/space3.1/sandbox-team.space.yaml  sha256 bf372d91fc923505…
+# risky settings and where they come from:
+#   agents.builder.permissions: my_doz_workspace_defaults.yaml:6
+#   agents.tester.permissions: my_doz_workspace_defaults.yaml:6
+#   persist.team-chat: my_doz_workspace_defaults.yaml:10
+#   persist.build-disk: sandbox-team.space.yaml:16
+#   transcripts: every agent discards
+agent_defaults:
+  permissions: bypass
+  model: claude-opus-5-5
+persist:
+  team-chat:
+    room: "{space}"
+  build-disk:
+    sandbox: build-vm
+archive:
+  keep:
+    - plan
+    - commands
+    - status
+    - chat
+    - transcripts
+    - screens
+    - usage
+    - git
+approvals:
+  deciders:
+    - owner
+  via: ask
+doz: space/3.1
+space: sandbox-team
+about:
+  title: A sandboxed team with a fenced reviewer
+  category: Development
+network:
+  preset: standard
+  allow:
+    - registry.npmjs.org
+brief: BRIEF.md
+owner: ada
+folders:
+  repo:
+    external: ~/work/throwaway/sandbox-team
+    main: true
+  scratch: {}
+sandboxes:
+  build-vm:
+    image: claude-code
+    folder: repo
+    cpus: 2
+    memory: 4G
+agents:
+  admin:
+    external:
+      bot: manager
+    role: manager
+  old-reviewer:
+    external:
+      sandbox: old-review
+    role: reviewer
+  builder:
+    kind: claude-code
+    role: worker
+    where: sandbox:build-vm
+    chat:
+      delivery: poll
+    prompt: Build the project in /workspace and post the result in the room.
+  tester:
+    kind: claude-code
+    role: worker
+    where: sandbox:build-vm
+    chat:
+      delivery: poll
+    prompt: Run the tests in /workspace after each build and post failures in the room.
+  reviewer:
+    kind: claude-code
+    role: reviewer
+    where: mac
+    isolation: fenced
+    permissions: auto
+    folder: repo
+    access: ro
+    network:
+      preset: locked
+      allow:
+        - github.com
+    chat:
+      delivery: poll
+    profiles:
+      - review
+    requests:
+      grants:
+        - "network: github.com"
+      reason: Read the upstream issues the builder links to.
+    prompt: Review each change the builder reports, read-only, and post your findings.
+chat:
+  rooms:
+    sandbox-team:
+      main: true
+      members:
+        - owner
+        - admin
+        - builder
+        - tester
+        - reviewer
+    general:
+      external: doz://host-a/_/room/general
+--- exit 0

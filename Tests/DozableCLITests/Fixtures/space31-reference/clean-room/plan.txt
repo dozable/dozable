@@ -1,0 +1,36 @@
+$ doz space plan examples/space3.1/clean-room.space.yaml
+--- stdout
+plan for space "clean-room", run {run}: 7 steps
+  Starts 1 other agent (worker: sandboxed), 1 sandbox, 1 room (clean-room: this run only). Nothing persisted. Archive: off. Transcripts: worker: inside clean-room-vm, archived first; they go with the VM, or stay with a persisted one. (A clean room: down leaves nothing.)
+  run folder: ~/Library/Application Support/doz/spaces/clean-room/runs/{run}
+
+ 1. sandbox clean-room-vm  [sandbox:clean-room-vm · run]
+      up:   doz create clean-room-vm --image claude-code
+      up:   doz start clean-room-vm
+      down: doz rm clean-room-vm --yes
+ 2. folder scratch  [folder:scratch · run]
+      up:   mkdir -p ~/'Library/Application Support/doz/spaces/clean-room/runs/{run}/scratch/scratch'
+      down: rm -r ~/'Library/Application Support/doz/spaces/clean-room/runs/{run}/scratch/scratch'  (only if this space made it)   # archive off: removed without a copy
+ 3. the run's private token folder  [tokens · run]
+      up:   mkdir -p -m 700 ~/'Library/Application Support/doz/spaces/clean-room/runs/{run}/tokens'
+      down: rm -r ~/'Library/Application Support/doz/spaces/clean-room/runs/{run}/tokens'  (only if this space made it)   # after the members (and their tokens) are removed
+ 4. chat member worker (poll)  [member:worker · run]
+      up:   doz chat add worker --kind claude-session --to-file ~/'Library/Application Support/doz/spaces/clean-room/runs/{run}/tokens/worker.token'
+      down: doz chat remove worker
+      down: rm -f ~/'Library/Application Support/doz/spaces/clean-room/runs/{run}/tokens/worker.token'   # it leaves every room; its token is refused from then on
+      note: the chat server restarts to take a new member (under a second)
+ 5. room clean-room  [room:clean-room · run]
+      up:   doz chat room clean-room @worker
+      down: doz chat room archive clean-room --loose, then doz chat room rm clean-room --loose (each dry-run first; a tombstone stays; before Dozable 0.52, marked retired instead)   # deleted once the run is closed (archive off)
+ 6. agent worker (in clean-room-vm)  [agent:worker · run]
+      up:   doz run clean-room-vm --cwd /workspace --detach --session worker --host-port 8790 --secret 'CHAT_TOKEN,src=~/Library/Application Support/doz/spaces/clean-room/runs/{run}/tokens/worker.token,to=host.dozable.internal:8790,file=CHAT_TOKEN_FILE' -- claude --name worker 'Do the task in the brief, then stop.'
+      down: doz sessions end clean-room-vm worker --yes   # its transcripts are inside the VM: archived first, then they go with it (or stay with a persisted sandbox)
+ 7. answer worker's folder-trust prompt  [manual:worker-trust · run]
+      up:   (by hand)
+      down: never touched
+      note: read the screen with doz sessions screen clean-room-vm worker and answer it; the space doesn't type into terminals
+
+note: archive: off: down keeps no evidence and removes the run folder; transcripts: discard
+--- stderr
+note: agent_defaults.where: sandbox: the workspace's own VM is the sandbox clean-room-vm here (Dozable makes it)
+--- exit 0
