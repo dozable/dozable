@@ -55,14 +55,7 @@ final class Space31ReferenceVectorTests: XCTestCase {
 
     /// THE list: every vector (by id) and example (`example:NAME`) Dozable disagrees with, and how. Empty when the two
     /// agree on everything.
-    static let knownDisagreements: [String: Set<Difference>] = [
-        // The vector still lists brief twice in its hint; Dozable now names it once (the vector to be re-cut).
-        "E23": [.hint],
-        // x-dozable now also holds `permissions` (the workspace's requested grants); the vector's hint predates it (to re-cut).
-        "E15": [.hint],
-        // The vector's notes end ", under doz: space/3.1"; Dozable's ", with the version line doz: space/3.1" (to settle).
-        "V12": [.notes],
-    ]
+    static let knownDisagreements: [String: Set<Difference>] = [:]
 
     /// A vector or example the list says Dozable reaches another verdict on.
     static func verdictDiffers(_ id: String) -> Bool { knownDisagreements[id]?.contains(.verdict) == true }
@@ -299,7 +292,7 @@ final class Space31ReferenceVectorTests: XCTestCase {
     func testThePinCoversEveryVendoredFile() throws {
         let root = Self.fixtures
         let pin = try String(contentsOf: root.appendingPathComponent("PIN"), encoding: .utf8)
-        XCTAssertTrue(pin.contains("peer-commit 832365305cb9bfea1f35404317f12adb25ae427a"))
+        XCTAssertTrue(pin.contains("peer-commit 87848a9943d89e950a00ce3a9ee2eb94dd8ca195"))
         let files = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)!.compactMap { $0 as? URL }
             .filter { !$0.hasDirectoryPath && $0.lastPathComponent != "PIN" }
         XCTAssertEqual(files.count, 11)
