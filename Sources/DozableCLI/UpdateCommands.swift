@@ -238,7 +238,7 @@ enum UpdateHook {
         let tty = env["DOZ_TEST_UPDATE_TTY"] == "1" || (isatty(STDOUT_FILENO) == 1 && isatty(STDERR_FILENO) == 1)
         guard tty else { return false }
         let first = words(args).first ?? ""
-        return !["upgrade", "update", "daemon", "serve", "uninstall", "help", "config", "telemetry"].contains(first)
+        return !["upgrade", "update", "daemon", "serve", "uninstall", "help", "config", "telemetry", "docs"].contains(first)   // docs: offline
     }
 
     /// After a command: the daily check, and what its mode says to do — one line (notify), or an install when

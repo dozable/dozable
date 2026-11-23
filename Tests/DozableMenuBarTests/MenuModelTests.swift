@@ -14,6 +14,15 @@ final class MenuModelTests: XCTestCase {
     func item(_ items: [MenuItem], _ a: MenuAction) -> MenuItem? { items.first { $0.action == a } }
     func titles(_ items: [MenuItem]) -> [String] { items.filter { $0.kind != .separator }.map(\.title) }
 
+    /// Install help opens THIS app's version of the manual's install page, never the version-less (stable) one.
+    func testInstallHelpIsThisVersionsPage() {
+        XCTAssertEqual(MenuBarApp.installHelpURL(appVersion: "0.52.50"), "https://dozable.com/v/0.52.50/docs/install-upgrade-uninstall.md")
+        XCTAssertEqual(MenuBarApp.installHelpURL(appVersion: "0.53.0-canary.1"), "https://dozable.com/v/0.53.0-canary.1/docs/install-upgrade-uninstall.md")
+        for bad in [nil, "", "0.52/../x", "0.52 x"] {
+            XCTAssertEqual(MenuBarApp.installHelpURL(appVersion: bad), "https://dozable.com/", "\(String(describing: bad))")
+        }
+    }
+
     func testRunning() {
         let s = snap(Fixture.runningWith { $0["version"] = "0.50.7"; $0["alwaysOn"] = true })
         let items = MenuModel.items(for: s)

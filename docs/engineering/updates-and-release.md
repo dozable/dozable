@@ -8,6 +8,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 |---|---|
 | `Scripts/helper-README.md`, `Scripts/helper-smoke.sh` (`make test-cli-helper`), `Sources/DozableCLI/HelperBuild.swift`, `Guest/kernel/` | 675: the helper build's README, its smoke, what it answers for the commands it leaves out, the pinned kernel's provenance and source offer |
 | `Scripts/release.sh` (`make release`), `Makefile.config.example`; `ReleaseStamp` in `Sources/DozableCLI/DozableCommand.swift`; `HostUpgradeCheck` in `GroupCommands.swift`; `HostCore.programGone`; `Tests/DozableCLITests/ReleaseTests.swift` | the Homebrew artefact (signed; Developer ID + notarised when configured), the version stamp, `doz daemon upgrade-check`, the refusal when an upgrade removed a running daemon's keg |
+| `Scripts/manual-bundle.py`; `Sources/DozableHost/EmbeddedManual.swift`; `Sources/DozableCLI/DocsCommand.swift` (`doz docs`); `Tests/DozableCLITests/DocsCommandTests.swift` | the manual every build carries (`libexec/doz/manual/`), the command that reads it offline, this version's URL |
 | `Sources/DozableHost/Usage.swift`; `Sources/DozableCLI/UsageCommands.swift`; `Sources/doz/DozableMain.swift` | anonymous usage statistics and the sign-up — the open half: the closed list, the switches, the local record, `doz telemetry`, `doz signup`, the hook; the bridge to the official builds' closed package (`#if DOZ_CLOUD`) |
 
 ## Public builds — `BuildFlavor`
@@ -107,6 +108,24 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   file that is not the pin. `KernelProvider` takes it as its FIRST seed (`bundledCandidates`: `kernels/` beside the
   resolved executable) — after the store's cache, before Apple's `container` copy and the download (the reason is in
   `KernelProvider`'s doc comment: the store never depends on the program's folder).
+- **The manual** is in BOTH tarballs at `libexec/doz/manual/` (`doz docs`; `EmbeddedManual` in
+  `Sources/DozableHost/EmbeddedManual.swift`, `DocsCommand.swift`): every page of `docs/manual` at the release's commit,
+  `llms.txt` (the index: one line per page, links RELATIVE), `llms-full.txt` (every page in reading order, each starting
+  `File: NN-name.md`) and `VERSION`, made by `Scripts/manual-bundle.py` (stdlib only). It rewrites the pages' links so
+  they resolve inside the folder: another page stays or becomes `NN-name.md` (a `https://dozable.com/docs/NAME` link
+  too), a link out of the manual (`../…`) and an image (not carried — the text manual is for agents) become the
+  repository's file at the version's tag. It lives INSIDE `libexec/doz`, not in a `share/` beside it, because every
+  installer carries that folder whole and nothing else: the formula's `libexec.install`, `doz upgrade`'s atomic swap of
+  `libexec/doz`, and an app's copy of the helper — a manual elsewhere would be dropped, or left at an older version. doz
+  finds it beside its resolved executable (no environment override: a setting would be a knob outside the schema);
+  `make cli` and `make install-cli` make one too, so `.build/debug/doz docs` works. `doz docs` reads only that folder:
+  no network, no store, no daemon, and neither the update check nor the usage statistics run after it. Every pointer to
+  the manual — `doz help`, the shipped skill, the menu bar app's install help — names `doz docs` first and then THIS
+  version's URL, `https://dozable.com/v/X.Y.Z/…`, never the version-less one (the stable release's); the skill's file
+  is stamped with the version at build (`manual-bundle.py --stamp-skill`; `doz skill show` stamps it when shown, for a
+  build that did not). `release.sh` checks the packed doz finds its own `manual/` and its skill names the version;
+  `make docs-drift-check` bundles the manual into a scratch folder and checks every link resolves inside it
+  (`--check`); `DocsCommandTests`.
 
 ## Anonymous usage statistics and the sign-up — the open half
 

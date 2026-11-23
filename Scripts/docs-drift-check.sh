@@ -72,6 +72,13 @@ printf 'ok docs-drift-check: %d command names match the CLI exactly (top level +
 # CLAUDE.md at most 500 lines, every docs/engineering page in its index, links resolve.
 if [[ -d "$PACKAGE/docs/manual" ]]; then
     (cd "$PACKAGE" && swift Scripts/manual-check.swift --doz "$BIN" --manual docs/manual)
+    # The manual a build carries (`doz docs`): bundled into a scratch folder, every llms.txt link relative and resolving
+    # inside it, as every page's relative links must.
+    bundled="$(mktemp -d "${TMPDIR:-/tmp/}doz-manual-bundle.XXXXXX")"
+    (cd "$PACKAGE" && python3 Scripts/manual-bundle.py --out "$bundled/manual" --version "$(cat VERSION)" --check) >/dev/null \
+        || { rm -rf "$bundled"; fail "the bundled manual's links (python3 Scripts/manual-bundle.py --out DIR --version V --check)"; }
+    rm -rf "$bundled"
+    printf 'ok manual-bundle: the manual a build carries links only inside itself\n'
 fi
 
 # What a person reads — every --help, every setting's description, the user-facing strings in the

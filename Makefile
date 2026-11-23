@@ -262,6 +262,10 @@ cli: ## Build the doz CLI and sign it with the virtualization entitlement (.buil
 	@# (`ReleaseStamp` reads `VERSION` beside the resolved executable) — otherwise this build reports
 	@# `DozableCommand.builtVersion`, which no feature remembers to bump (0.11.0 at 0.23.0).
 	cp VERSION "$(dir $(CLI_BIN))VERSION"
+	@# The manual this build carries (`doz docs`; EmbeddedManual): docs/manual made into manual/ beside doz, as a release
+	@# carries it, and the shipped skill's manual links stamped with this version.
+	python3 Scripts/manual-bundle.py --out "$(dir $(CLI_BIN))manual" --version "$$(cat VERSION)" \
+	  --stamp-skill "$(dir $(CLI_BIN))DozableKit_DozableKit.bundle/skills/doz/SKILL.md"
 	@# deckhold-mac beside doz (install by rename: a running holder keeps its own file). Built only where the pinned
 	@# toolchain is (make deckhold fills .tools/); without it doz builds as before and says so.
 	@if [ -d "$${DECKHOLD_TOOLS:-.tools}/ghostty-src/.git" ]; then \
@@ -301,6 +305,9 @@ install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.lo
 	cp -R .build/release/DozableKit_DozableKit.bundle "$(PREFIX)/libexec/doz/"
 	cp -R .build/release/DozableKit_DozableWeb.bundle "$(PREFIX)/libexec/doz/"
 	cp VERSION "$(PREFIX)/libexec/doz/VERSION"   # 602: the stamp `doz --version` reads (see `cli`)
+	@# The manual (`doz docs`) beside it, and the skill's manual links stamped with this version (see `cli`).
+	python3 Scripts/manual-bundle.py --out "$(PREFIX)/libexec/doz/manual" --version "$$(cat VERSION)" \
+	  --stamp-skill "$(PREFIX)/libexec/doz/DozableKit_DozableKit.bundle/skills/doz/SKILL.md"
 	@# NEVER overwrite the executable in place: a running `doz daemon` executes that very file, and
 	@# rewriting it invalidates the running process's code signature — the Virtualization framework
 	@# then refuses every VM it asks for ("Internal Virtualization error", 591). Copy + sign under a

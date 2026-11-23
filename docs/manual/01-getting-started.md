@@ -23,6 +23,13 @@ Most of that is a one-off download that you can leave running in the background.
 - **Optional:** [Claude Code](https://claude.com/claude-code) installed and signed in on your Mac.
   Your sandboxes can then use that login, with nothing to paste. You can use an API key or a
   long-lived token instead, or decide later.
+  That login (the account `mac`) gives out access that **expires** after some hours, and only the Mac's
+  own Claude Code renews it — Dozable never does. `doz account keepalive always` keeps it fresh: when it
+  expires, Dozable runs the Mac's own `claude` once to renew it. It can't do that for a daemon started
+  over SSH (the login keychain is locked there). For long unattended work, use a **setup-token**
+  account instead: `claude setup-token` makes a token valid for a year, and
+  `doz account add NAME --setup-token` adds it
+  ([Agents and accounts](09-agents-and-accounts.md)).
 
 ## Install
 

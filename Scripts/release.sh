@@ -12,6 +12,8 @@
 #                                            run on this Mac without a fence answers in chat with it)
 #   doz-<version>/libexec/doz/doz            the executable, signed with Scripts/doz.entitlements
 #   doz-<version>/libexec/doz/VERSION        the version it was built for (DozableCommand.version reads it)
+#   doz-<version>/libexec/doz/manual/        the user manual of this version (both flavours): docs/manual's pages, llms.txt
+#                                            (relative links), llms-full.txt, VERSION — `doz docs` (Scripts/manual-bundle.py)
 #   doz-<version>/libexec/doz/DozableKit_*.bundle   its resources (guest binaries, web assets)
 #   doz-<version>/libexec/doz/deckhold-mac   the PTY holder for sessions on this Mac (Guest/deckhold/build-mac.sh) — signed
 #                                            like doz, no entitlements; its provenance in licences/deckhold/. CLI only.
@@ -29,7 +31,7 @@
 #
 # 675 — FLAVOUR=helper builds the HELPER build instead: the doz an app carries inside its bundle (docs/manual/33-*):
 #   dist/doz-<v>-macos-arm64-helper.tar.gz (+ .sha256) with ONE top folder doz-<v>-helper/ holding README.md and
-#   libexec/doz/{doz, VERSION, RELEASE ("helper"), DozableKit_DozableKit.bundle, kernels/, licences/} — no bin/, no
+#   libexec/doz/{doz, VERSION, RELEASE ("helper"), DozableKit_DozableKit.bundle, kernels/, licences/, manual/} — no bin/, no
 #   dashboard bundle. Built with DOZ_HELPER_BUILD=1 (Package.swift) in its own scratch folder (.build-helper), so the
 #   two flavours never share build products. Same version, signing, notarisation and checks as the CLI release.
 # Both flavours are STRIPPED before signing (H1/H1b): the symbols go to dist/<name>.dSYM.zip, published beside the
@@ -297,6 +299,11 @@ if [[ -z "${NO_SOUND_KERNEL:-}" ]]; then
     run cp "$SOUND_KERNEL" "$STAGE/libexec/doz/kernels/$SOUND_KERNEL_NAME"
 fi
 if [[ -n "$DRY_RUN" ]]; then say "  [dry-run] echo $VERSION > $STAGE/libexec/doz/VERSION"; else printf '%s\n' "$VERSION" > "$STAGE/libexec/doz/VERSION"; fi
+# The manual this release carries (both flavours; `doz docs`, EmbeddedManual): docs/manual at this commit made into
+# libexec/doz/manual — inside the folder every installer carries whole (Homebrew's libexec, doz upgrade's swap, an app's
+# copy of the helper) — and the shipped skill's manual links stamped with this version.
+run python3 Scripts/manual-bundle.py --out "$STAGE/libexec/doz/manual" --version "$VERSION" \
+    --stamp-skill "$STAGE/libexec/doz/DozableKit_DozableKit.bundle/skills/doz/SKILL.md"
 # 611: the release marker — what tells an installed release (Homebrew, or the tarball unpacked by hand: `doz update`
 # swaps it) from a development build (`make install-cli`, which has VERSION but no marker, and is never updated).
 if [[ -n "$DRY_RUN" ]]; then say "  [dry-run] echo $FLAVOR > $STAGE/libexec/doz/RELEASE"; else printf '%s\n' "$FLAVOR" > "$STAGE/libexec/doz/RELEASE"; fi
@@ -620,9 +627,16 @@ if [[ -z "$DRY_RUN" ]]; then
         [[ -L "$packed/bin/dozchat" && "$(readlink "$packed/bin/dozchat")" == ../libexec/doz/dozchat-mac ]] || fail "bin/dozchat in the tarball is not the link to dozchat-mac"
     fi
     # 675 (H8): the layout contract — docs/manual/33-bundling-doz-in-an-app.md. Checked on what people download.
-    for f in doz VERSION RELEASE DozableKit_DozableKit.bundle/deckhold DozableKit_DozableKit.bundle/skills/doz/SKILL.md "kernels/$KERNEL_NAME" licences/kernel/PROVENANCE.md licences/kernel/kernel.config; do
+    for f in doz VERSION RELEASE DozableKit_DozableKit.bundle/deckhold DozableKit_DozableKit.bundle/skills/doz/SKILL.md "kernels/$KERNEL_NAME" licences/kernel/PROVENANCE.md licences/kernel/kernel.config \
+             manual/llms.txt manual/llms-full.txt manual/VERSION manual/01-getting-started.md; do
         [[ -e "$packed/libexec/doz/$f" ]] || fail "the tarball has no libexec/doz/$f (the layout contract)"
     done
+    # The manual: the packed doz finds its own copy (no network, no daemon), of this version, and names this version's URL.
+    [[ "$(cat "$packed/libexec/doz/manual/VERSION")" == "$VERSION" ]] || fail "the tarball's manual/VERSION is not $VERSION"
+    docs_path="$(env DO_NOT_TRACK=1 "$packed/libexec/doz/doz" docs --path)" || fail "the packed doz cannot find its manual (doz docs --path)"
+    [[ -d "$docs_path" && "$(cd "$docs_path" && pwd -P)" == "$(cd "$packed/libexec/doz/manual" && pwd -P)" ]] || fail "the packed doz's manual is not its own libexec/doz/manual: $docs_path"
+    grep -q "https://dozable.com/v/$VERSION/llms.txt" <(env DO_NOT_TRACK=1 "$packed/libexec/doz/doz" skill show doz) \
+        || fail "the packed doz skill does not name this version's manual"
     # The doz skill: the packed doz names its own copy, and it is there.
     skill_path="$(env DO_NOT_TRACK=1 "$packed/libexec/doz/doz" skill show doz --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["path"])')" \
         || fail "the packed doz cannot show the doz skill"
@@ -656,5 +670,5 @@ if [[ -z "$DRY_RUN" ]]; then
     say "         symbols: $DSYM_ZIP ($(( $(stat -f %z "$DSYM_ZIP") / 1048576 )) MiB)"
 else
     say "  [dry-run] (cd $OUT && shasum -a 256 ${NAME}.tar.gz > ${NAME}.tar.gz.sha256)"
-    [[ "$FLAVOUR" == cli ]] && say "  [dry-run] cp .build/dozchat-linux-x86_64/dozchat $OUT/dozchat-linux-x86_64 (+ .sha256)"
+    if [[ "$FLAVOUR" == cli ]]; then say "  [dry-run] cp .build/dozchat-linux-x86_64/dozchat $OUT/dozchat-linux-x86_64 (+ .sha256)"; fi
 fi

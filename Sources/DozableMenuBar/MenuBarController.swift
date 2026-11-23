@@ -143,7 +143,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             // This app only — the daemon keeps running.
             NSApp.terminate(nil)
         case .installHelp:
-            if let url = URL(string: MenuBarApp.installHelpURL) { NSWorkspace.shared.open(url) }
+            if let url = URL(string: MenuBarApp.installHelpURL(appVersion: source.appVersion)) { NSWorkspace.shared.open(url) }
         case .restartApp:
             // The copy on disk is newer: open it as a new instance, then quit this one (the daemon keeps running).
             let c = NSWorkspace.OpenConfiguration()

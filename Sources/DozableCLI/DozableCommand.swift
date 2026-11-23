@@ -40,9 +40,9 @@ public struct DozableCommand: AsyncParsableCommand {
           doz worker add NAME --task "TASK"        add a helper to a started workspace
         One sandbox on its own (a single Linux VM): doz create NAME, or doz new.
 
-        A coding agent running doz for someone: doz skill show doz (the skill to load), and \
-        https://dozable.com/docs/letting-another-agent-drive.md — --json, exit codes, --yes, and what to ask the \
-        person first. Every manual page as Markdown: https://dozable.com/llms.txt
+        A coding agent running doz for someone: doz skill show doz (the skill to load), and this version's manual, \
+        carried inside doz — doz docs (offline; doz docs letting-another-agent-drive: --json, exit codes, --yes, and what \
+        to ask the person first). Online, this version's only: \(EmbeddedManual.url(version: version))
 
         Lifecycle (aliases in brackets): start [cold-boot] · pause [suspend] · resume · sleep · \
         hibernate · wake · shutdown · reset · rm. `doz new` makes a sandbox with every default \
@@ -61,7 +61,7 @@ public struct DozableCommand: AsyncParsableCommand {
             ImageCommand.self, BaseCommand.self, BuilderCommand.self, ResourcesCommand.self, TemplateCommand.self, Duplicate.self, PointCommand.self, NetCommand.self, KeyCommand.self, AccountCommand.self, AccessCommand.self, ToolsCommand.self, DotfilesCommand.self, IgnoreCommand.self, PortsCommand.self, OpenCommand.self,
             MetricsCommand.self, TimelineCommand.self, Doctor.self, HostCommand.self, Events.self, Console.self, UICommand.self, ServeCommand.self, ConfigCommand.self,
             TelemetryCommand.self, SignupCommand.self, UpdateCommand.self, AppCommand.self, Uninstall.self, Nuke.self, Inventory.self,
-            ChatCommand.self, WorkspaceCommand.self, SpaceCommand.self, BotCommand.self, WorkerCommand.self, SkillCommand.self, PermissionsCommand.self, WhyCommand.self, GrantCommand.self,
+            ChatCommand.self, WorkspaceCommand.self, SpaceCommand.self, BotCommand.self, WorkerCommand.self, SkillCommand.self, DocsCommand.self, PermissionsCommand.self, WhyCommand.self, GrantCommand.self,
             DebugCommand.self,
         ]
     )
