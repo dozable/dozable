@@ -1,0 +1,39 @@
+# An example workspace as a doz space/3.1 file (SPEC-v3 §18): an owner, a long-lived manager and a worker in one
+# repository. Compare: spaces/example-space.space.yaml (space/3); it extends the same space-defaults/3 file.
+doz: space/3.1
+extends: ./my_doz_workspace_defaults.yaml                  # bypass, the team room and every agent's memory, archive, approvals
+space: example-space                                       # → doz://host-a/example-space/…
+about:                                                     # what the dashboard shows (space/3.1: was the top-level title)
+  title: An example workspace
+  summary: A manager and a worker in one repository.
+  tags: [example]
+brief: { file: ../../BRIEF.md, refs: [docs/space/README.md] }
+owner: ada
+network: standard                                          # the workspace's network: every agent's
+
+folders:
+  repo: { external: ~/work/example-repo, trust: before, main: true }   # the main folder; the work outlives every run
+
+agents:
+  admin:                                                   # the manager: long-lived, only referenced
+    external: doz://host-a/_/bot/manager                   # shorthand: { bot: manager }
+    role: manager
+  worker:                                                  # → doz://host-a/example-space/agent/worker
+    kind: claude-code
+    role: worker
+    where: mac
+    isolation: unfenced                                    # always written here: never unfenced by inheritance
+    folder: repo
+    remote_control: true
+    restart: on-failure                                    # started again if its session ends with an error
+    chat: { delivery: inbox }
+    labels: { billable: "true" }
+    prompt: |
+      You are the worker in a new workspace. Read BRIEF.md in this folder and do the work it describes.
+      Your manager is the bot `manager` in the room example-space; Ada is there too.
+
+chat:
+  rooms:
+    example-space:                                         # persisted by the defaults' team-chat: { room: "{space}" }
+      main: true
+      members: [owner, admin, worker]

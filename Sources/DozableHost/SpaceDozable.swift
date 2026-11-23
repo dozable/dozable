@@ -145,6 +145,11 @@ public enum SpaceDozable {
                            + (v31 ? "" : ", with the version line doz: space/3.1"))
             }
         }
+        // The held `agent_defaults.x-dozable.isolation: vm` is space/3.1's `where: sandbox` under another name (a note only:
+        // isolation stays fenced or unfenced, and the held key is read as before).
+        if SpaceDoc.string(SpaceDoc.member(of(SpaceDoc.member(doc, "agent_defaults")), "isolation")) == "vm" {
+            out.append("x-dozable.isolation: vm is space/3.1's agent_defaults.where: sandbox")
+        }
         if v31, SpaceDoc.member(doc, "title") != nil, SpaceDoc.member(SpaceDoc.member(doc, "about"), "title") == nil {
             out.append("title is read for this release only: space/3.1 writes it as about.title (about: { title: … })")
         }
@@ -234,7 +239,15 @@ extension SpaceValidator.Schema {
         guard SpaceDoc.isMap(v) else { noForm(v, p, ["text", "a map"]); return }
         _ = strictMap(v, p, SpaceDozable.networkKeys, "network")
         if let x = SpaceDoc.member(v, "preset") { oneOf(x, SpaceDozable.networks, p + "/preset") }
-        if let a = SpaceDoc.member(v, "allow") { strings(a, p + "/allow", nonEmpty: true) }
+        if let a = SpaceDoc.member(v, "allow") {
+            strings(a, p + "/allow", nonEmpty: true)
+            notEmpty(a, p + "/allow", "network.allow", "omit allow, or use preset: locked")
+        }
+    }
+
+    /// A list that, when written, holds at least one item.
+    mutating func notEmpty(_ v: JValue, _ p: String, _ label: String, _ hint: String = "list at least one, or leave it out") {
+        if let a = SpaceDoc.array(v), a.isEmpty { err(p, "\(label) can't be empty", hint) }
     }
 
     /// The brief's map form; `label` is how the file writes it (`brief`, `x-dozable.brief`).
@@ -247,7 +260,7 @@ extension SpaceValidator.Schema {
         }
         if let t = SpaceDoc.member(x, "text") { _ = type(t, "string", q + "/text") }
         if let f = SpaceDoc.member(x, "file") { text(f, q + "/file", nonEmpty: true) }
-        if let r = SpaceDoc.member(x, "refs") { strings(r, q + "/refs", nonEmpty: true) }
+        if let r = SpaceDoc.member(x, "refs") { strings(r, q + "/refs", nonEmpty: true); notEmpty(r, q + "/refs", "\(label).refs") }
     }
 
     /// ONE 3.1 key's value at its place, whichever form it is written in. `owner` is the map the key belongs to (the
@@ -264,7 +277,7 @@ extension SpaceValidator.Schema {
             for a in SpaceDoc.members(x) {
                 let r = SpaceDoc.join(q, a.key)
                 switch a.key {
-                case "tags": strings(a.value, r, nonEmpty: true)
+                case "tags": strings(a.value, r, nonEmpty: true); notEmpty(a.value, r, "\(label).tags")
                 case "needs": _ = type(a.value, "object", r)
                 default: _ = type(a.value, "string", r)
                 }

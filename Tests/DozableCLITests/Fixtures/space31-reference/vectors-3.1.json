@@ -1,0 +1,698 @@
+[
+  {
+    "id": "V01",
+    "area": "all",
+    "what": "every space/3.1 key at once",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: { text: Fix the failing build, refs: [README.md, \"https://example.com/issue/1\"] }\nabout: { title: Work on a project, summary: A manager and a helper., description: \"Longer **Markdown**.\", icon: wrench, tags: [web, build], category: Development, needs: { tools: [git] } }\nlayout: { view: iso, at: { helper: [2, 3] } }\nnetwork: { preset: locked, allow: [api.github.com] }\nfolders:\n  repo: { external: ~/work/app, main: true }\n  notes: {}\nsandboxes:\n  build: { image: claude-code }\nagents:\n  helper: { kind: claude-code, role: worker, folder: repo, restart: on-failure, network: standard }\n  builder: { kind: claude-code, where: \"sandbox:build\", restart: \"no\" }\n  old: { external: { sandbox: old-review }, role: reviewer }\n",
+    "notes": []
+  },
+  {
+    "id": "V02",
+    "area": "brief",
+    "what": "brief as a path, as in space/3",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\n",
+    "notes": []
+  },
+  {
+    "id": "V03",
+    "area": "brief",
+    "what": "brief as its file, with refs",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: { file: BRIEF.md, refs: [docs/design.md] }\n",
+    "notes": []
+  },
+  {
+    "id": "V04",
+    "area": "brief",
+    "what": "brief as its text, no refs",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: { text: \"Fix the build\" }\n",
+    "notes": []
+  },
+  {
+    "id": "V05",
+    "area": "network",
+    "what": "a preset by name; a fenced agent on the Mac with its own network",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nnetwork: standard\nagents:\n  h: { kind: claude-code, network: { preset: open } }\n",
+    "notes": []
+  },
+  {
+    "id": "V06",
+    "area": "network",
+    "what": "an agent in a sandbox whose network equals the workspace's (a name and its map form are the same)",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nnetwork: locked\nsandboxes:\n  vm: {}\nagents:\n  h: { kind: claude-code, where: \"sandbox:vm\", network: { preset: locked } }\n",
+    "notes": []
+  },
+  {
+    "id": "V07",
+    "area": "where",
+    "what": "agent_defaults.where: sandbox (the workspace's own VM)",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nagent_defaults: { where: sandbox }\nagents:\n  h: { kind: claude-code }\n",
+    "notes": []
+  },
+  {
+    "id": "V08",
+    "area": "external",
+    "what": "an adopted sandbox's agent, with a role and labels",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nagents:\n  old: { external: { sandbox: old-review }, role: reviewer, labels: { team: qa } }\n",
+    "notes": []
+  },
+  {
+    "id": "V09",
+    "area": "lifetime",
+    "what": "lifetime held under x-dozable: no note, not required",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nx-dozable: { lifetime: standing }\nfolders:\n  scratch: { x-dozable: { lifetime: run } }\n",
+    "notes": []
+  },
+  {
+    "id": "V10",
+    "area": "title",
+    "what": "a top-level title reads, with a note naming about.title",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\ntitle: App\n",
+    "notes": [
+      {
+        "path": "/title",
+        "message": "title reads as about.title (space/3.1)",
+        "hint": "write about: { title: … }"
+      }
+    ]
+  },
+  {
+    "id": "V11",
+    "area": "x-dozable",
+    "what": "the x-dozable forms read for one release, each with a note",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nx-dozable: { brief: { text: Fix it }, about: { title: App }, network: standard, layout: { view: iso } }\nfolders:\n  repo: { external: ~/work/app, x-dozable: { main: true } }\nagents:\n  h: { kind: claude-code, x-dozable: { restart: on-failure, network: standard } }\n  old: { x-dozable: { external: { sandbox: old-review } } }\nagent_defaults: { x-dozable: { isolation: vm } }\n",
+    "notes": [
+      {
+        "path": "/x-dozable/brief",
+        "message": "x-dozable.brief reads as brief (space/3.1)",
+        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+      },
+      {
+        "path": "/x-dozable/about",
+        "message": "x-dozable.about reads as about (space/3.1)",
+        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+      },
+      {
+        "path": "/x-dozable/network",
+        "message": "x-dozable.network reads as network (space/3.1)",
+        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+      },
+      {
+        "path": "/x-dozable/layout",
+        "message": "x-dozable.layout reads as layout (space/3.1)",
+        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+      },
+      {
+        "path": "/folders/repo/x-dozable/main",
+        "message": "x-dozable.main reads as main (space/3.1)",
+        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+      },
+      {
+        "path": "/agents/h/x-dozable/restart",
+        "message": "x-dozable.restart reads as restart (space/3.1)",
+        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+      },
+      {
+        "path": "/agents/h/x-dozable/network",
+        "message": "x-dozable.network reads as network (space/3.1)",
+        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+      },
+      {
+        "path": "/agents/old/x-dozable/external",
+        "message": "x-dozable.external reads as external (space/3.1)",
+        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+      },
+      {
+        "path": "/agent_defaults/x-dozable/isolation",
+        "message": "x-dozable.isolation reads as where: sandbox (space/3.1)",
+        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+      }
+    ]
+  },
+  {
+    "id": "V12",
+    "area": "version",
+    "what": "a space/3 file with x-dozable (as written before 3.1): read as before, a note for each 3.1 key naming space/3.1, none for lifetime",
+    "ok": true,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nx-dozable: { lifetime: standing, brief: { text: Fix it } }\nfolders:\n  repo: { external: ~/work/app, x-dozable: { main: true } }\n",
+    "notes": [
+      {
+        "path": "/x-dozable/brief",
+        "message": "x-dozable.brief is space/3.1's brief",
+        "hint": "change the version line (doz: space/3.1) and write it as the key itself: the x-dozable form is read for one release"
+      },
+      {
+        "path": "/folders/repo/x-dozable/main",
+        "message": "x-dozable.main is space/3.1's main",
+        "hint": "change the version line (doz: space/3.1) and write it as the key itself: the x-dozable form is read for one release"
+      }
+    ]
+  },
+  {
+    "id": "V13",
+    "area": "extends",
+    "what": "a space/3.1 file extends a space-defaults/3 file",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nextends: ./defaults.yaml\n",
+    "defaults": [
+      {
+        "name": "defaults.yaml",
+        "text": "doz: space-defaults/3\narchive: off\n"
+      }
+    ],
+    "notes": []
+  },
+  {
+    "id": "V14",
+    "area": "extends",
+    "what": "a space/3.1 file extends a space-defaults/3.1 file (agent_defaults.where: sandbox)",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nextends: ./defaults.yaml\nagents:\n  h: { kind: claude-code }\n",
+    "defaults": [
+      {
+        "name": "defaults.yaml",
+        "text": "doz: space-defaults/3.1\nagent_defaults: { where: sandbox }\n"
+      }
+    ],
+    "notes": []
+  },
+  {
+    "id": "V15",
+    "area": "network",
+    "what": "an agent in the workspace's VM whose network equals the effective one (no workspace network: standard, Dozable's default)",
+    "ok": true,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nagent_defaults: { where: sandbox }\nagents:\n  h: { kind: claude-code, network: standard }\n",
+    "notes": []
+  },
+  {
+    "id": "E01",
+    "area": "lifetime",
+    "what": "a top-level lifetime",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nlifetime: standing\n",
+    "notes": [],
+    "problem": {
+      "path": "/lifetime",
+      "line": 5,
+      "message": "lifetime isn't a space/3.1 key",
+      "hint": "it stays under x-dozable until space/3.2: x-dozable: { lifetime: standing }"
+    }
+  },
+  {
+    "id": "E02",
+    "area": "lifetime",
+    "what": "a per-resource lifetime",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nfolders:\n  notes: { lifetime: run }\n",
+    "notes": [],
+    "problem": {
+      "path": "/folders/notes/lifetime",
+      "line": 6,
+      "message": "lifetime isn't a space/3.1 key",
+      "hint": "it stays under x-dozable until space/3.2: x-dozable: { lifetime: run }"
+    }
+  },
+  {
+    "id": "E03",
+    "area": "version",
+    "what": "about in a space/3 file",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nabout: { title: App }\n",
+    "notes": [],
+    "problem": {
+      "path": "/about",
+      "line": 5,
+      "message": "\"about\" is space/3.1",
+      "hint": "change the version line: doz: space/3.1"
+    }
+  },
+  {
+    "id": "E04",
+    "area": "version",
+    "what": "network in a space/3 file",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nnetwork: standard\n",
+    "notes": [],
+    "problem": {
+      "path": "/network",
+      "line": 5,
+      "message": "\"network\" is space/3.1",
+      "hint": "change the version line: doz: space/3.1"
+    }
+  },
+  {
+    "id": "E05",
+    "area": "version",
+    "what": "layout in a space/3 file",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nlayout: {}\n",
+    "notes": [],
+    "problem": {
+      "path": "/layout",
+      "line": 5,
+      "message": "\"layout\" is space/3.1",
+      "hint": "change the version line: doz: space/3.1"
+    }
+  },
+  {
+    "id": "E06",
+    "area": "version",
+    "what": "brief as { text } in a space/3 file",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: { text: x }\n",
+    "notes": [],
+    "problem": {
+      "path": "/brief",
+      "line": 4,
+      "message": "brief as { text } or { file } is space/3.1",
+      "hint": "change the version line: doz: space/3.1"
+    }
+  },
+  {
+    "id": "E07",
+    "area": "version",
+    "what": "a folder's main in a space/3 file",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nfolders:\n  repo: { external: ~/a, main: true }\n",
+    "notes": [],
+    "problem": {
+      "path": "/folders/repo/main",
+      "line": 6,
+      "message": "\"main\" is space/3.1",
+      "hint": "change the version line: doz: space/3.1"
+    }
+  },
+  {
+    "id": "E08",
+    "area": "version",
+    "what": "an agent's restart in a space/3 file",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nagents:\n  h: { kind: claude-code, restart: on-failure }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/h/restart",
+      "line": 6,
+      "message": "\"restart\" is space/3.1",
+      "hint": "change the version line: doz: space/3.1"
+    }
+  },
+  {
+    "id": "E09",
+    "area": "version",
+    "what": "an agent's network in a space/3 file",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nagents:\n  h: { kind: claude-code, network: open }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/h/network",
+      "line": 6,
+      "message": "\"network\" is space/3.1",
+      "hint": "change the version line: doz: space/3.1"
+    }
+  },
+  {
+    "id": "E10",
+    "area": "version",
+    "what": "external: { sandbox } in a space/3 file",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nagents:\n  old: { external: { sandbox: s } }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/old/external",
+      "line": 6,
+      "message": "external: { sandbox } is space/3.1",
+      "hint": "change the version line: doz: space/3.1"
+    }
+  },
+  {
+    "id": "E11",
+    "area": "version",
+    "what": "agent_defaults.where: sandbox in a space/3 file",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nagent_defaults: { where: sandbox }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agent_defaults/where",
+      "line": 5,
+      "message": "where: sandbox is space/3.1",
+      "hint": "change the version line: doz: space/3.1"
+    }
+  },
+  {
+    "id": "E12",
+    "area": "extends",
+    "what": "a space/3 file extends a space-defaults/3.1 file",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nextends: ./defaults.yaml\n",
+    "defaults": [
+      {
+        "name": "defaults.yaml",
+        "text": "doz: space-defaults/3.1\narchive: off\n"
+      }
+    ],
+    "notes": [],
+    "problem": {
+      "path": "/doz",
+      "line": 1,
+      "message": "defaults.yaml is not a defaults file",
+      "hint": "a defaults file starts with doz: space-defaults/3"
+    }
+  },
+  {
+    "id": "E13",
+    "area": "x-dozable",
+    "what": "both forms of one key",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nabout: { title: A }\nx-dozable: { about: { title: B } }\n",
+    "notes": [],
+    "problem": {
+      "path": "/x-dozable/about",
+      "line": 6,
+      "message": "\"about\" is written twice: about and x-dozable.about",
+      "hint": "keep the space/3.1 key: remove x-dozable.about"
+    }
+  },
+  {
+    "id": "E14",
+    "area": "x-dozable",
+    "what": "an agent external twice: external: and x-dozable.external",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nagents:\n  old: { external: { bot: b }, x-dozable: { external: { sandbox: s } } }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/old/x-dozable/external",
+      "line": 6,
+      "message": "\"external\" is written twice: external and x-dozable.external",
+      "hint": "keep the space/3.1 key: remove x-dozable.external"
+    }
+  },
+  {
+    "id": "E15",
+    "area": "x-dozable",
+    "what": "an unknown key in x-dozable",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nx-dozable: { colour: blue }\n",
+    "notes": [],
+    "problem": {
+      "path": "/x-dozable/colour",
+      "line": 5,
+      "message": "unknown key \"colour\" in x-dozable",
+      "hint": "x-dozable holds: lifetime, brief, network, about, layout"
+    }
+  },
+  {
+    "id": "E16",
+    "area": "x-dozable",
+    "what": "x-dozable that isn't a map",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nx-dozable: yes\n",
+    "notes": [],
+    "problem": {
+      "path": "/x-dozable",
+      "line": 5,
+      "message": "x-dozable is a map",
+      "hint": "it holds: lifetime, brief, network, about, layout"
+    }
+  },
+  {
+    "id": "E17",
+    "area": "x-dozable",
+    "what": "an x-dozable value checked as its 3.1 key",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nx-dozable: { network: wide }\n",
+    "notes": [
+      {
+        "path": "/x-dozable/network",
+        "message": "x-dozable.network reads as network (space/3.1)",
+        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+      }
+    ],
+    "problem": {
+      "path": "/x-dozable/network",
+      "line": 5,
+      "message": "the text \"wide\" is not a valid \"network\"",
+      "hint": "expected one of: locked, standard, open"
+    }
+  },
+  {
+    "id": "E18",
+    "area": "brief",
+    "what": "brief with its text and its file",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: { text: a, file: B.md }\n",
+    "notes": [],
+    "problem": {
+      "path": "/brief",
+      "line": 4,
+      "message": "brief is its text or its file, not both",
+      "hint": "write brief: { text: \"…\" } or brief: { file: BRIEF.md }"
+    }
+  },
+  {
+    "id": "E19",
+    "area": "brief",
+    "what": "brief with neither",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: { refs: [a.md] }\n",
+    "notes": [],
+    "problem": {
+      "path": "/brief",
+      "line": 4,
+      "message": "brief needs its text or its file",
+      "hint": "write brief: { text: \"…\" } or brief: { file: BRIEF.md }"
+    }
+  },
+  {
+    "id": "E20",
+    "area": "brief",
+    "what": "empty refs",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: { text: a, refs: [] }\n",
+    "notes": [],
+    "problem": {
+      "path": "/brief/refs",
+      "line": 4,
+      "message": "brief.refs can't be empty",
+      "hint": "list at least one, or leave it out"
+    }
+  },
+  {
+    "id": "E21",
+    "area": "about",
+    "what": "an unknown key in about",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nabout: { title: A, colour: blue }\n",
+    "notes": [],
+    "problem": {
+      "path": "/about/colour",
+      "line": 5,
+      "message": "unknown key \"colour\" in about",
+      "hint": "known keys: title, summary, description, icon, tags, category, needs"
+    }
+  },
+  {
+    "id": "E22",
+    "area": "about",
+    "what": "params in about: a template's, never a stored document's",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nabout: { title: A, params: {} }\n",
+    "notes": [],
+    "problem": {
+      "path": "/about/params",
+      "line": 5,
+      "message": "unknown key \"params\" in about",
+      "hint": "params: belongs to a template, never to a stored document"
+    }
+  },
+  {
+    "id": "E23",
+    "area": "about",
+    "what": "params at the top level",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nparams: {}\n",
+    "notes": [],
+    "problem": {
+      "path": "/params",
+      "line": 5,
+      "message": "unknown key \"params\"",
+      "hint": "params: belongs to a template, never to a stored document"
+    }
+  },
+  {
+    "id": "E24",
+    "area": "about",
+    "what": "empty tags",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nabout: { tags: [] }\n",
+    "notes": [],
+    "problem": {
+      "path": "/about/tags",
+      "line": 5,
+      "message": "about.tags can't be empty",
+      "hint": "list at least one, or leave it out"
+    }
+  },
+  {
+    "id": "E25",
+    "area": "network",
+    "what": "a preset that isn't one",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nnetwork: wide\n",
+    "notes": [],
+    "problem": {
+      "path": "/network",
+      "line": 5,
+      "message": "the text \"wide\" is not a valid \"network\"",
+      "hint": "expected one of: locked, standard, open"
+    }
+  },
+  {
+    "id": "E26",
+    "area": "network",
+    "what": "an empty allow list",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nnetwork: { preset: locked, allow: [] }\n",
+    "notes": [],
+    "problem": {
+      "path": "/network/allow",
+      "line": 5,
+      "message": "network.allow can't be empty",
+      "hint": "list at least one, or leave it out"
+    }
+  },
+  {
+    "id": "E27",
+    "area": "network",
+    "what": "an unfenced agent with a network of its own",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nagents:\n  h: { kind: claude-code, isolation: unfenced, network: open }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/h/network",
+      "line": 6,
+      "message": "\"h\" is unfenced, so it has no network of its own",
+      "hint": "an unfenced agent acts as you: nothing enforces a network for it. Remove network:, or fence it (isolation: fenced)"
+    }
+  },
+  {
+    "id": "E28",
+    "area": "network",
+    "what": "an agent in a sandbox with a network unlike the workspace's",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nnetwork: standard\nsandboxes:\n  vm: {}\nagents:\n  h: { kind: claude-code, where: \"sandbox:vm\", network: open }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/h/network",
+      "line": 9,
+      "message": "\"h\" runs in sandbox vm, whose network is the workspace's (standard): it can't have its own",
+      "hint": "everything in a VM shares its network: remove network:, or set the workspace's network:"
+    }
+  },
+  {
+    "id": "E29",
+    "area": "network",
+    "what": "an agent in the workspace's VM (agent_defaults.where: sandbox) with its own network",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nagent_defaults: { where: sandbox }\nagents:\n  h: { kind: claude-code, network: open }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/h/network",
+      "line": 7,
+      "message": "\"h\" runs in the workspace's VM, whose network is the workspace's (standard, Dozable's default): it can't have its own",
+      "hint": "everything in a VM shares its network: remove network:, or set the workspace's network:"
+    }
+  },
+  {
+    "id": "E30",
+    "area": "main",
+    "what": "two main folders",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nfolders:\n  a: { external: ~/a, main: true }\n  b: { external: ~/b, main: true }\n",
+    "notes": [],
+    "problem": {
+      "path": "/folders/b/main",
+      "line": 7,
+      "message": "two main folders: \"a\" and \"b\"",
+      "hint": "a space has one main folder"
+    }
+  },
+  {
+    "id": "E31",
+    "area": "main",
+    "what": "main that isn't true or false",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nfolders:\n  a: { external: ~/a, main: yes-please }\n",
+    "notes": [],
+    "problem": {
+      "path": "/folders/a/main",
+      "line": 6,
+      "message": "expected true or false, got the text \"yes-please\""
+    }
+  },
+  {
+    "id": "E32",
+    "area": "restart",
+    "what": "a restart that isn't one",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nagents:\n  h: { kind: claude-code, restart: always }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/h/restart",
+      "line": 6,
+      "message": "the text \"always\" is not a valid \"restart\"",
+      "hint": "expected one of: no, on-failure"
+    }
+  },
+  {
+    "id": "E33",
+    "area": "external",
+    "what": "an adopted sandbox's agent with where: (adopt and place, refused together)",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nagents:\n  old: { external: { sandbox: s }, where: mac }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/old/where",
+      "line": 6,
+      "message": "\"old\" is external, so \"where\" can't apply",
+      "hint": "an entry either references something that exists (external:) or describes something the space owns, never both: remove \"where\", or remove external: to have the space make \"old\""
+    }
+  },
+  {
+    "id": "E34",
+    "area": "external",
+    "what": "an adopted sandbox's agent with restart",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nagents:\n  old: { external: { sandbox: s }, restart: on-failure }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/old/restart",
+      "line": 6,
+      "message": "\"old\" is external, so \"restart\" can't apply",
+      "hint": "an entry either references something that exists (external:) or describes something the space owns, never both: remove \"restart\", or remove external: to have the space make \"old\""
+    }
+  },
+  {
+    "id": "E35",
+    "area": "where",
+    "what": "where: sandbox on an agent (it is agent_defaults' only)",
+    "ok": false,
+    "yaml": "doz: space/3.1\nspace: t\nowner: ada\nbrief: B.md\nagents:\n  h: { kind: claude-code, where: sandbox }\n",
+    "notes": [],
+    "problem": {
+      "path": "/agents/h/where",
+      "line": 6,
+      "message": "\"sandbox\" is not a place",
+      "hint": "write mac, or sandbox:NAME"
+    }
+  }
+]

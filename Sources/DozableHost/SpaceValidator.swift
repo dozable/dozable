@@ -85,6 +85,9 @@ public struct SpaceModel: Sendable {
     public var briefText: String?
     public var briefRefs: [String] = []
     public var resources: [Resource] = []
+    /// space/3.1's `agent_defaults.where: sandbox`: the sandbox name of the workspace's own VM, which every agent that
+    /// does not say where runs in (`<space>-vm`, made unique among the resources' names); nil: none.
+    public var workspaceVM: String?
     public var agents: [Agent] = []
     public var persist: [Persist] = []
     public var archiveOn = true
@@ -114,12 +117,18 @@ public enum SpaceValidator {
 
     /// One defaults file on its own (`doz: space-defaults/3`): what a defaults file may hold, and its schema. `lines` are its
     /// own pointers' lines.
-    public static func checkSource(_ doc: JValue, name: String, lines: [String: SpaceOrigin]) -> [SpaceProblem] {
+    /// `spaceV31`: whether the space file that extends it says `doz: space/3.1` (nil: not known — the file alone). A space/3
+    /// file reads only space-defaults/3 files: a space-defaults/3.1 one may hold what space/3 has not.
+    public static func checkSource(_ doc: JValue, name: String, lines: [String: SpaceOrigin], spaceV31: Bool? = nil) -> [SpaceProblem] {
         let loc = SpaceLocator(sources: [SpaceSource(path: name, name: name, kind: "defaults", sha256: "")], origins: lines)
         var out: [Raw] = []
         let m = SpaceDoc.members(doc)
-        if !SpaceFormat.defaultsDozVersions.contains(SpaceDoc.string(SpaceDoc.member(doc, "doz")) ?? "") {
+        let doz = SpaceDoc.string(SpaceDoc.member(doc, "doz")) ?? ""
+        if !SpaceFormat.defaultsDozVersions.contains(doz) {
             out.append(Raw(pointer: "/doz", message: "\(name) is not a defaults file", hint: "a defaults file starts with doz: \(SpaceFormat.defaultsDoz)"))
+        } else if spaceV31 == false, doz == SpaceFormat.defaultsDoz31 {
+            out.append(Raw(pointer: "/doz", message: "\(name) is not a defaults file for a space/3 file",
+                           hint: "a doz: space/3 file extends doz: \(SpaceFormat.defaultsDoz) files: change this file's version line to doz: \(SpaceFormat.defaultsDoz), or the space file's to doz: \(SpaceFormat.doz31)"))
         }
         for x in m where !SpaceFormat.defaultsKeys.contains(x.key) && !x.key.hasPrefix("x-") {
             let owns = SpaceFormat.defaultsOwns.contains(x.key)
@@ -273,6 +282,12 @@ public enum SpaceValidator {
                     let say = SpaceDoc.string(m.value).flatMap { SpaceDozable.lifetimes.contains($0) ? $0 : nil } ?? "standing"
                     err(SpaceDoc.join(p, m.key), "\"lifetime\" is not a space/3.1 key: it stays under x-dozable",
                         "write x-dozable: { lifetime: \(say) } (standing or runs)", key: true)
+                    continue
+                }
+                // …and nor is a resource's own `lifetime: run`: the same words, its own x-dozable form.
+                if v31, let place, place != .top, place != .agentDefaults, m.key == "lifetime" {
+                    err(SpaceDoc.join(p, m.key), "\"lifetime\" is not a space/3.1 key: it stays under x-dozable",
+                        "write x-dozable: { lifetime: run } (run is the one value here)", key: true)
                     continue
                 }
                 if let place, let (message, hint) = versionFix(place, m.key, m.value, SpaceDoc.join(p, m.key), owner: v) {
@@ -456,7 +471,15 @@ public enum SpaceValidator {
                 case "role":
                     if SpaceDoc.string(x) == "admin" { err(q, "the admin role is requested, never given", "write requests: { role: admin, reason: \"…\" } on the agent: the owner decides") }
                     else { oneOf(x, SpaceFormat.roles, q) }
-                case "where": pattern(x, "where", q)
+                case "where":
+                    // space/3.1: `agent_defaults.where: sandbox` is the workspace's own VM (`mac` and `sandbox` are the
+                    // keywords; `sandbox:NAME` names a sandbox under sandboxes:). On an agent, a place is mac or sandbox:NAME.
+                    if p == "/agent_defaults", SpaceDoc.string(x) == SpaceFormat.workspaceVM {
+                        if !v31 {
+                            err(q, "\"where\" is a space/3.1 key: change the version line to doz: \(defaults ? SpaceFormat.defaultsDoz31 : SpaceFormat.doz31)",
+                                "this file says doz: \(defaults ? SpaceFormat.defaultsDoz : SpaceFormat.doz), whose where is mac or sandbox:NAME; where: sandbox (the workspace's own VM) is space/3.1's")
+                        }
+                    } else { pattern(x, "where", q) }
                 case "isolation": if !(p == "/agent_defaults") { oneOf(x, SpaceFormat.isolations, q) }
                 case "permissions": text(x, q, nonEmpty: true)
                 case "access": oneOf(x, SpaceFormat.accesses, q)
@@ -537,6 +560,16 @@ public enum SpaceValidator {
                 }
             }
             externalForbidden(v, p, SpaceFormat.agentExternalForbidden)
+            // An agent in an existing sandbox (`external: { sandbox }`) is adopted, never started: it has no restart.
+            let ext = SpaceDozable.member(v, "external", at: .agent)
+            if SpaceDoc.member(ext, "sandbox") != nil {
+                let name = SpaceDoc.parts(p).last ?? ""
+                for (r, q) in [(SpaceDoc.member(v, "restart"), SpaceDoc.join(p, "restart")),
+                               (SpaceDoc.member(SpaceDozable.of(v), "restart"), SpaceDoc.join(SpaceDoc.join(p, SpaceDozable.key), "restart"))] where r != nil {
+                    err(q, "\"\(name)\" is external, so \"restart\" can't apply",
+                        "an entry either references something that exists (external:) or describes something the space owns, never both: remove \"restart\", or remove external: to have the space make \"\(name)\"", key: true)
+                }
+            }
         }
 
         mutating func folder(_ v: JValue, _ p: String) {
@@ -706,6 +739,12 @@ public enum SpaceValidator {
             model.briefRefs = SpaceDoc.strings(SpaceDoc.member(xBrief, "refs"))
             model.lifetime = SpaceDozable.lifetime(raw)
             resources()
+            if SpaceDoc.string(SpaceDoc.member(SpaceDoc.member(raw, "agent_defaults"), "where")) == SpaceFormat.workspaceVM {
+                let base = SpaceIntent.prefixed("vm", spaceName)
+                var name = base, k = 2
+                while model.resource(name) != nil { name = "\(base)-\(k)"; k += 1 }
+                model.workspaceVM = name
+            }
             externals()
             folders()
             references()
@@ -999,7 +1038,7 @@ public enum SpaceValidator {
                     else { manager = r.name }
                 }
                 let whereS = SpaceDoc.string(SpaceDoc.member(v, "where")) ?? "mac"
-                let sb = whereS.hasPrefix("sandbox:") ? String(whereS.dropFirst(8)) : nil
+                let sb = whereS.hasPrefix("sandbox:") ? String(whereS.dropFirst(8)) : whereS == SpaceFormat.workspaceVM ? model.workspaceVM : nil
                 let permissions = SpaceDoc.string(SpaceDoc.member(v, "permissions")) ?? SpaceDoc.string(SpaceDoc.member(raw, "permissions"))
                 let own = rawDef(.agents, r.name)
                 let ownIso = SpaceDoc.member(own, "isolation")
@@ -1026,6 +1065,8 @@ public enum SpaceValidator {
                     if SpaceDoc.member(v, "prompt") != nil && SpaceDoc.member(v, "prompt_file") != nil {
                         err(r.pointer + "/prompt_file", "write prompt or prompt_file, not both", key: true)
                     }
+                    agentNetwork(r, own, sandbox: sb, inWorkspaceVM: sb != nil && sb == model.workspaceVM && whereS == SpaceFormat.workspaceVM,
+                                 unfenced: sb == nil && isolation == "unfenced")
                 }
                 let tPath = SpaceDoc.member(own, "transcripts") != nil ? r.pointer + "/transcripts" : "/agent_defaults/transcripts"
                 let written = SpaceDoc.string(SpaceDoc.member(v, "transcripts"))
@@ -1038,6 +1079,36 @@ public enum SpaceValidator {
                 model.agents.append(.init(name: r.name, pointer: r.pointer, external: r.external, lifetime: r.lifetime, def: v, sandbox: sb,
                                           isolation: isolation, permissions: permissions, role: role, transcripts: transcripts))
             }
+        }
+
+        /// A network as compared: its preset (`standard` when a map names none) and its allow list, in order.
+        static func network(_ v: JValue?) -> (preset: String, allow: [String])? {
+            guard let v else { return nil }
+            if let s = SpaceDoc.string(v) { return (s, []) }
+            guard SpaceDoc.isMap(v) else { return nil }
+            return (SpaceDoc.string(SpaceDoc.member(v, "preset")) ?? "standard", SpaceDoc.strings(SpaceDoc.member(v, "allow")))
+        }
+
+        // ---- an agent's own network: only a fenced agent on this Mac has one; in a VM it is the VM's ----
+        mutating func agentNetwork(_ r: SpaceModel.Resource, _ own: JValue?, sandbox: String?, inWorkspaceVM: Bool, unfenced: Bool) {
+            let first = SpaceDoc.member(own, "network")
+            guard let net = first ?? SpaceDoc.member(SpaceDozable.of(own), "network") else { return }
+            let np = r.pointer + (first != nil ? "/network" : "/x-dozable/network")
+            if unfenced {
+                err(np, "\"\(r.name)\" is unfenced, so it has no network of its own",
+                    "an unfenced agent acts as you: nothing enforces a network for it. Remove network:, or fence it (isolation: fenced)")
+                return
+            }
+            guard let sb = sandbox else { return }
+            // A VM's network is the workspace's: an agent in it may only repeat it. A sandbox that already exists
+            // (external:) keeps its own, which the file does not describe.
+            if !inWorkspaceVM, model.resource(sb)?.lifetime == "external" { return }
+            let written = SpaceDozable.member(raw, "network", at: .top)
+            guard let ws = Self.network(written) ?? Self.network(.string("standard")), let mine = Self.network(net) else { return }
+            if mine.preset == ws.preset && mine.allow == ws.allow { return }
+            let shown = ws.preset + (ws.allow.isEmpty ? "" : ", allowing \(ws.allow.joined(separator: ", "))") + (written == nil ? ", Dozable's default" : "")
+            err(np, "\"\(r.name)\" runs in \(inWorkspaceVM ? "the workspace's VM" : "sandbox \(sb)"), whose network is the workspace's (\(shown)): it can't have its own",
+                "everything in a VM shares its network: remove network:, or set the workspace's network:")
         }
 
         // ---- rooms: at most one main ----

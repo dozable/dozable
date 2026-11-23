@@ -17,6 +17,8 @@ public enum SpaceFormat {
     /// The version lines this reader knows.
     public static let dozVersions = [doz, doz31]
     public static let defaultsDozVersions = [defaultsDoz, defaultsDoz31]
+    /// space/3.1's `agent_defaults.where: sandbox`: every agent that does not say where runs in the workspace's own VM.
+    public static let workspaceVM = "sandbox"
 
     /// `[a-z][a-z0-9-]*`: every resource's name, the space's name, a profile.
     public static func isName(_ s: String) -> Bool {

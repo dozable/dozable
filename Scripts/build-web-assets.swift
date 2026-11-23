@@ -213,8 +213,8 @@ func treeResolve(_ ref: String, from file: String, _ at: String) throws -> Strin
 /// exact bytes (its sha256) and present exactly once — a new build is a new entry here, on purpose. `names`: the listed
 /// worker or style the allowed text names.
 let vendorAllowances: [String: [(text: String, names: String?, why: String)]] = [
-    // space-chunk-WNZBROBM.js (the text view, 0.5.0): the worker's URL is held in a variable two words before it.
-    "4f5aaa0f1754525b9f99d4d4fa65dbec5ac2a92d2bdf117e2a9771f2a5e1ae17": [
+    // space-chunk-J6HC5EPZ.js (the text view, 0.8.0): the worker's URL is held in a variable two words before it.
+    "f67ebf409dc62b3b87d72b8575c29973eb43387e8e26bb9a07cf07cbba84c356": [
         (#"F="monaco/editor.worker.js",k=new Set;self.MonacoEnvironment={getWorker:()=>{let a=new Worker(new URL(F,import.meta.url))"#,
          "monaco/editor.worker.js", "the listed worker, named by a literal the worker's URL is built from"),
     ],

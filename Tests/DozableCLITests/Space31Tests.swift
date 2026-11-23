@@ -195,9 +195,16 @@ final class Space31Tests: XCTestCase {
     /// The keys whose design is still open (persistence, the defaults' vm) stay under x-dozable only, in either version.
     func testTheHeldKeysStayUnderXDozable() {
         let head = Self.v31 + "brief: B.md\n"
-        XCTAssertTrue(errors(head + "folders:\n  a: { lifetime: run }\n").contains("unknown key \"lifetime\" in folder \"a\""))
-        XCTAssertTrue(errors(head + "chat:\n  rooms:\n    r: { lifetime: run }\n").contains("unknown key \"lifetime\" in room \"r\""))
-        XCTAssertTrue(errors(head + "agents:\n  w: { prompt: x, lifetime: run }\n").contains("unknown key \"lifetime\" in agent \"w\""))
+        // A resource's own lifetime in a 3.1 file: the lifetime's own words, with its x-dozable form.
+        let heldWords = "\"lifetime\" is not a space/3.1 key: it stays under x-dozable"
+        for yaml in ["folders:\n  a: { lifetime: run }\n", "chat:\n  rooms:\n    r: { lifetime: run }\n", "agents:\n  w: { prompt: x, lifetime: run }\n",
+                     "sandboxes:\n  s: { lifetime: run }\n"] {
+            let c = check(head + yaml).problems.filter(\.isError)
+            XCTAssertEqual(c.map(\.message), [heldWords], yaml)
+            XCTAssertEqual(c.first?.hint, "write x-dozable: { lifetime: run } (run is the one value here)", yaml)
+        }
+        // In a space/3 file it is unknown, as it always was.
+        XCTAssertTrue(errors(Self.v3 + "brief: B.md\nfolders:\n  a: { lifetime: run }\n").contains("unknown key \"lifetime\" in folder \"a\""))
         XCTAssertTrue(errors(head + "agent_defaults: { isolation: vm }\n").contains { $0.contains("is not a valid \"isolation\"") })
         let held = head + """
         x-dozable: { lifetime: runs }
@@ -217,6 +224,28 @@ final class Space31Tests: XCTestCase {
         XCTAssertEqual(SpaceDoc.string(SpaceDoc.at(lifted, "/x-dozable/lifetime")), "runs")
         XCTAssertEqual(SpaceDoc.string(SpaceDoc.at(lifted, "/agents/r/x-dozable/lifetime")), "run")
         XCTAssertEqual(SpaceDoc.string(SpaceDoc.at(lifted, "/agent_defaults/x-dozable/isolation")), "vm")
+    }
+
+    /// `agent_defaults.where: sandbox`: every agent that does not say where runs in the workspace's own VM (`<space>-vm`, an
+    /// owned sandbox of the run); one saying `where: mac` stays on this Mac; under space/3 it is refused with the fix.
+    func testTheWorkspacesOwnVM() {
+        let yaml = Self.v31 + "brief: B.md\nagent_defaults: { where: sandbox }\nagents:\n  h: { kind: claude-code }\n  m: { kind: claude-code, where: mac }\n"
+        let c = check(yaml)
+        XCTAssertEqual(c.problems.filter(\.isError).map(\.text), [])
+        XCTAssertEqual(c.model.workspaceVM, "app-vm")
+        let i = SpaceIntent.compile(c.model, c.doc, loc0)
+        XCTAssertEqual(i.sandboxes.map { "\($0.name) \($0.placeName) \($0.external) \($0.agents)" }, ["app-vm app-vm false [\"h\"]"])
+        XCTAssertEqual(i.agents.first { $0.name == "h" }.map { "\($0.sandbox ?? "-") \($0.isolation?.value ?? "-")" }, "app-vm vm")
+        XCTAssertEqual(i.agents.first { $0.name == "m" }.map { "\($0.sandbox ?? "-") \($0.isolation?.value ?? "-")" }, "- fenced")
+        // On an agent, sandbox is not a place; in space/3 the key is refused with the fix.
+        XCTAssertEqual(errors(Self.v31 + "brief: B.md\nagents:\n  h: { kind: claude-code, where: sandbox }\n"), ["\"sandbox\" is not a place"])
+        XCTAssertEqual(errors(Self.v3 + "brief: B.md\nagent_defaults: { where: sandbox }\n"), ["\"where\" is a space/3.1 key: change the version line to doz: space/3.1"])
+        // Its agents only repeat the workspace's network; an unfenced agent has none of its own.
+        XCTAssertEqual(errors(yaml.replacingOccurrences(of: "h: { kind: claude-code }", with: "h: { kind: claude-code, network: { preset: standard } }")), [])
+        XCTAssertEqual(errors(yaml.replacingOccurrences(of: "h: { kind: claude-code }", with: "h: { kind: claude-code, network: locked }")),
+                       ["\"h\" runs in the workspace's VM, whose network is the workspace's (standard, Dozable's default): it can't have its own"])
+        XCTAssertEqual(errors(Self.v31 + "brief: B.md\nagents:\n  u: { kind: claude-code, isolation: unfenced, network: open }\n"),
+                       ["\"u\" is unfenced, so it has no network of its own"])
     }
 
     /// A defaults file may say space-defaults/3.1; it holds what a space-defaults/3 one does.

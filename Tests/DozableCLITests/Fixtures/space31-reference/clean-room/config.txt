@@ -1,0 +1,33 @@
+$ doz space config examples/space3.1/clean-room.space.yaml
+--- stdout
+# the merged space "clean-room" (doz space config): defaults, then the space file, then the override file, then profiles
+# sources, lowest first:
+#   space    ~/work/example-repo/examples/space3.1/clean-room.space.yaml  sha256 8838cac0428ffb7a…
+# risky settings and where they come from:
+#   archive: clean-room.space.yaml:8
+#   transcripts: every agent discards
+doz: space/3.1
+space: clean-room
+brief:
+  text: "Do the task, then stop: nothing outlives this run."
+owner: ada
+archive: off
+agent_defaults:
+  transcripts: discard
+  where: sandbox
+folders:
+  scratch: {}
+agents:
+  worker:
+    kind: claude-code
+    folder: scratch
+    prompt: Do the task in the brief, then stop.
+chat:
+  rooms:
+    clean-room:
+      members:
+        - owner
+        - worker
+--- stderr
+note: agent_defaults.where: sandbox: the workspace's own VM is the sandbox clean-room-vm here (Dozable makes it)
+--- exit 0

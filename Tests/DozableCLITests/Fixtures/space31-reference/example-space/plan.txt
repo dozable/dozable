@@ -1,0 +1,34 @@
+$ doz space plan examples/space3.1/example-space.space.yaml
+--- stdout
+plan for space "example-space", run {run}: 7 steps
+  Starts 1 unfenced bypass agent with full access to your user (worker: unfenced + bypass, bypass from my_doz_workspace_defaults.yaml:6), 1 room (example-space: persisted). Externals: admin (bot: manager), repo. Persisted: room example-space (from my_doz_workspace_defaults.yaml:10), agent worker (from my_doz_workspace_defaults.yaml:11). Transcripts: kept for worker (persisted: the next run continues them).
+  run folder: ~/Library/Application Support/doz/spaces/example-space/runs/{run}
+
+ 1. folder repo exists (external: ~/work/example-repo)  [check:repo · external]
+      up:   check only
+      down: never touched
+ 2. agent admin exists (external: bot: manager)  [check:admin · external]
+      up:   check only
+      down: never touched
+ 3. the run's private token folder  [tokens · run]
+      up:   mkdir -p -m 700 ~/'Library/Application Support/doz/spaces/example-space/runs/{run}/tokens'
+      down: rm -r ~/'Library/Application Support/doz/spaces/example-space/runs/{run}/tokens'  (only if this space made it)   # after the members (and their tokens) are removed
+ 4. chat member worker (inbox)  [member:worker · run]
+      up:   doz chat add worker --kind claude-session --inbox --session worker --to-file ~/'Library/Application Support/doz/spaces/example-space/runs/{run}/tokens/worker.token'
+      down: doz chat remove worker
+      down: rm -f ~/'Library/Application Support/doz/spaces/example-space/runs/{run}/tokens/worker.token'   # it leaves every room; its token is refused from then on
+      note: the chat server restarts to take a new member (under a second)
+ 5. room example-space (persisted: one thread across runs)  [room:example-space · space]
+      up:   doz chat room example-space @manager @worker
+      down: keep (persisted: kept with its history; the run's members leave it as they are removed)
+      rm:   doz chat room archive example-space --loose, then doz chat room rm example-space --loose (each dry-run first; a tombstone stays; before Dozable 0.52, marked retired instead)
+ 6. trust the folder ~/work/example-repo  [trust:~/work/example-repo · run]
+      up:   write projects["~/work/example-repo"].hasTrustDialogAccepted = true in ~/.claude.json (backup, one key, atomic)
+      down: remove projects["~/work/example-repo"].hasTrustDialogAccepted from ~/.claude.json, if this run added it   # only if this run added it
+ 7. agent worker (unfenced, bypass)  [agent:worker · run]
+      up:   doz run @mac --unfenced --folder ~/work/example-repo --detach --session worker -e 'CHAT_TOKEN_FILE=~/Library/Application Support/doz/spaces/example-space/runs/{run}/tokens/worker.token' -- claude --name worker --dangerously-skip-permissions --remote-control worker --model claude-opus-5-5 'You are the worker in a new workspace. Read BRIEF.md in…'
+      down: doz sessions end @mac worker --yes   # persisted: the session ends, its Claude data is kept and the next run continues it
+      rm:   delete worker's transcript files of the sessions this space started, each only if its archived copy has the same sha256
+
+note: approvals: requests preset (the owner's default); the owner grants them, and anything outside them becomes an Ask to the owner
+--- exit 0

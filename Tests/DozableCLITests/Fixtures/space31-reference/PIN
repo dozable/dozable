@@ -1,0 +1,24 @@
+# Copies of the doz space reference's space/3.1 fixtures, read-only. Provenance: the reference's commit below (its
+# release v0.8.0, the same commit the space editor's build in Sources/DozableWeb/WebSource/vendor/space-editor/ is
+# pinned at); its fixtures for Dozable are already neutral (an owner ada, the host host-a, the bot manager, the space
+# example-space with its agent worker, the folder ~/work/example-repo). This folder is its fixtures-for-dozable/v3.1 as
+# recorded (README.md, RECORDED.txt and VECTORS-3.1.md — the vectors' human-readable copy — left out; recorded on
+# Dozable 0.52.17, 2026-11-23): vectors-3.1.json, the 50 validation vectors (15 valid with their notes, 35 refused, each
+# with its problem: path, line, message, hint; exit 65 in doz), spaces/ (the three examples as space/3.1 files and the
+# space-defaults/3 file two of them extend) and {space}/plan.txt, {space}/config.txt (doz space plan / config of each).
+# Space31ReferenceVectorTests checks against these copies; re-vendor by copying the reference again from a neutral
+# commit and updating this file.
+peer-commit 77dcde8b8dd1cfe1f953c525817716ef2e33caf0 (v0.8.0)
+sources: . <- docs/space/fixtures-for-dozable/v3.1/
+sha256:
+  4a68a6713201fe9cac8b0cb5409e4a8cf41a455e81af50b0772fd249f1bb0968  ./clean-room/config.txt
+  514b81f88ba3449afef301c7702701d32227be3593d4f619fa83d9edf6a46c1d  ./clean-room/plan.txt
+  fbe43007c54095b3fd4508a60ad78b0ff021b0139779350be33bf458c29eb8c6  ./example-space/config.txt
+  3ba1681843138c3c9af8d188acd6f6f8dc0a7d1369f7844856fd488cd7f049d7  ./example-space/plan.txt
+  5527e6a8836ca6f388d393523e5e85ada97b617873bcd9f2447228d1493e63c4  ./sandbox-team/config.txt
+  4fc91ee6014acfaec69dcb43e040e8c91876a350e2ec0e8d8f7c61b23f9e804d  ./sandbox-team/plan.txt
+  8838cac0428ffb7a8064963af19b460c2ce534c11d55f479e56f66e56c1bbd44  ./spaces/clean-room.space.yaml
+  9707d356d26980543bb3c29d01e8f2b5782611d8dc6e7bcc783e530174696508  ./spaces/example-space.space.yaml
+  f818661c1a6a0830d9c9fa01f986e7ba098e23c3900f05da3314723729ae5217  ./spaces/my_doz_workspace_defaults.yaml
+  bf372d91fc9235058ec7d84a8818f7ecdd48e60a6d1ba3916a13e9fdd923e7d0  ./spaces/sandbox-team.space.yaml
+  4a35f4e1736074a6525e2c0a5dae65966e6628a82dec91f7638299637a944633  ./vectors-3.1.json
