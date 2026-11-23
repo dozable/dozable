@@ -280,7 +280,8 @@ posts the brief and you drive.
 
 `stop` stops **everything**: every agent's process ends — a session on this Mac ended, a micro VM shut down with its disk
 kept — and every conversation, record, room and folder is kept. Nothing is removed. Unlike `sleep` nothing is held: each
-agent is **stopped**, not asleep, and `doz workspace wake demo` brings each back in its conversation. It shows its plan and
+agent is **stopped**, not asleep, and `doz workspace start demo` (or `doz workspace wake demo`) brings each back in its
+conversation. It shows its plan and
 asks first (`--yes` skips the question; with no terminal and no `--yes` it does nothing and exits 5, naming the command
 with `--yes`). What is asleep or stopped already is left as it is, so a stop of a stopped or asleep workspace does nothing
 and exits 0. Nothing is posted in the room.
@@ -315,13 +316,20 @@ It acts only on what it showed you: if the workspace changed in between, it is r
 
 | | A micro VM | Fenced on this Mac | Unfenced on this Mac | Elsewhere |
 |---|---|---|---|---|
+| **start** (after a stop or a sleep) | woken, or booted again, as wake does — the manager first, then every other agent | the same conversation | the same conversation; its token file written again | untouched |
 | **stop** | shut down, its disk kept | stopped, its conversation kept | stopped; its token file deleted | untouched |
 | **sleep** | hibernated: its memory given back, the same programs and screens | ended, its conversation kept | ended; its token file deleted | untouched — it runs on its own machine |
 | **wake** | woken (one shut down boots and its agent continues) | the same conversation | the same conversation; its token file written again | untouched |
 | **finish** | shut down, its disk kept | ended, its conversation kept | ended | untouched; it stays in the room |
+| **down** | as finish; for a workspace a space file made, a sandbox that lasts only the run is then removed, its disk saved as an image first | as finish | as finish | untouched; for a workspace a space file made, an adopted agent is released, loose again |
+
+**Stopped is not asleep.** After `stop` the workspace and each agent read **stopped**; after `sleep` they read
+**asleep**. On this Mac both end the session and keep its conversation; a micro VM is shut down by a stop and hibernated
+by a sleep. Either way `doz workspace start demo` or `doz workspace wake demo` brings every agent back: a start after a
+stop (or a sleep) wakes the manager and every worker in its own conversation, and its answer names who came back.
 
 A program that has no conversation to resume (one that is not an agent) starts fresh when it wakes. A workspace stays
-asleep until you wake it; messages wait in the room meanwhile.
+asleep (or stopped) until you start or wake it; messages wait in the room meanwhile.
 
 **Finish** is "the work is done": nothing runs afterwards, and no worker can be added — but every token is kept, so
 `reopen`, then `wake`, picks it up again. `doz workspace down W` is the same command, for every workspace.
@@ -331,10 +339,17 @@ file — and one whose space file says `x-dozable: { lifetime: standing }` — i
 folders included, and says "finished; nothing removed (standing)"; only what says `x-dozable.lifetime: run` itself goes,
 after its archived copy is hash-checked. A space file with lifetime **runs** (the default for one that says none) removes
 what it made for the run, each only after its archived copy verifies, and nothing that holds work when the archive
-failed. A folder you named is never touched. `--json` answers `{"kind": "WorkspaceFinish", "schema": 1, "removed": […],
-"kept": […], "archive": "…"}`: folders by their absolute path, rooms `room/NAME`, agents `agent/NAME`, sandboxes
-`sandbox/NAME`. `doz workspace state W --json` then says `"phase": "finished"` (the phases: `setting-up`, `running`,
-`asleep`, `stopped`, `finished`, `archived`). **Archive** finishes it, makes its rooms read-only (their
+failed. A folder you named is never touched. A sandbox is never removed without a copy: down (and `--purge`) saves its
+disk as an image first (`doz image ls`), names it on a "saved:" line, and removes nothing when the save fails.
+
+What it says keeps four things apart, each on its own line: **removed**; **kept** — only the workspace's own things
+(its rooms, its agents, the folders it made); **released** — adopted agents let go, loose again; and **untouched** — your
+folders, which were never the workspace's own, so its lifecycle does not touch them. `--json` answers
+`{"kind": "WorkspaceFinish", "schema": 1, "removed": […], "kept": […], "untouched": […], "archive": "…"}`, and for a
+workspace a space file made also `"released": […]` and `"savedDisks": {sandbox: image}`: folders by their absolute path,
+rooms `room/NAME`, agents `agent/NAME`, sandboxes `sandbox/NAME`. Its `kept` still lists what is untouched and released
+as well, for scripts written before those fields. `doz workspace state W --json` then says `"phase": "finished"` (the
+phases: `setting-up`, `running`, `asleep`, `stopped`, `finished`, `archived`). **Archive** finishes it, makes its rooms read-only (their
 history stays readable) and retires its anonymous workers — their tokens are refused from then on; a bot keeps its token
 and its place in the rooms. `restore` opens the rooms again and leaves it finished; a retired worker stays ended.
 
