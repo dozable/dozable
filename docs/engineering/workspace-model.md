@@ -233,7 +233,8 @@ Who may change the work description is a permission like any other, not a rule.
 | Close | `finish` freezes the run's journal and evidence into its archive (rule 2) |
 
 **Permissions, opt-in** (coming, UOW-MVP — but `run.open` and `run.finish`, built in 0.52.46: `workspace-run` and
-`workspace-reopen` need `run.open`, `workspace-finish` `run.finish`; `GrantPermissions`, `ActionClasses`). New permission
+`workspace-reopen` need `run.open`, `workspace-finish` `run.finish`; `GrantPermissions`, `ActionClasses`; an older
+`workspace.finish` grant, role answer or ceiling still answers for both for one release, `GrantPermissions.olderIds`). New permission
 ids, every one **off for agents** until granted; the owner is never gated, as today:
 
 | Permission | Lets an agent |

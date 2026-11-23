@@ -564,8 +564,8 @@ bot2 · folder.read · in myapp-tests
 not even your own nevers and ceilings. And none is enforced yet: no agent can drive Dozable, so `show` says "not yet — no
 agent can drive Dozable" (an unfenced agent's: "promise — acts as you"). Asks come later; until then, an answer of ask is
 a refusal for an agent. Opening a run needs `run.open` (`run` and `reopen`) and finishing one `run.finish`, both off for
-an agent until you grant them (`doz grant mira run.open=allow --in demo`); `workspace.finish` is kept for the grants that
-name it and decides nothing now. The owner role is yours and is never granted; `admin` is given everywhere only; deciders are made
+an agent until you grant them (`doz grant mira run.open=allow --in demo`); an older grant of `workspace.finish` (its
+old name) still answers for both in this release, a never on it included. The owner role is yours and is never granted; `admin` is given everywhere only; deciders are made
 in chat, by you only. Every change is recorded, by you, in the store's `grants/log.jsonl` (and a workspace's grant in its
 log).
 

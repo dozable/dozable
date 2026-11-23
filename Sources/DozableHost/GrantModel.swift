@@ -43,7 +43,7 @@ public enum GrantPermissions {
         .init(id: "chat.post", words: "post in its rooms"),
         .init(id: "chat.decide", words: "answer an Ask"),
         .init(id: "workspace.sleep", words: "sleep and wake the workspace"),
-        .init(id: "workspace.finish", words: "kept for older grants — finishing now needs run.finish, reopening run.open"),
+        .init(id: "workspace.finish", words: "the old name of run.open and run.finish — still honoured for them this release"),
         .init(id: "run.open", words: "open a run (and reopen)"),
         .init(id: "run.finish", words: "finish a run"),
         .init(id: "workspace.archive", words: "archive and restore the workspace"),
@@ -59,6 +59,12 @@ public enum GrantPermissions {
 
     public static func isKnown(_ p: String) -> Bool { known.contains(p) }
     public static func words(_ p: String) -> String { list.first { $0.id == p }?.words ?? "not a known permission" }
+
+    /// 765: the older id a grant, role or ceiling may still name for a permission, honoured for one release so an existing
+    /// grant keeps its meaning: `workspace.finish` (finish and reopen) answers for `run.open` and `run.finish`.
+    public static let olderIds: [String: [String]] = ["run.open": ["workspace.finish"], "run.finish": ["workspace.finish"]]
+    /// A permission and the older ids that still answer for it.
+    public static func answeringIds(_ p: String) -> [String] { [p] + (olderIds[p] ?? []) }
 
     /// Answered never when nothing says anything (they fail closed): root on this Mac, and running as you.
     public static let failClosed: Set<String> = ["sudo", "isolation.unfenced"]

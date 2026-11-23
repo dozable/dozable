@@ -112,11 +112,20 @@ public struct GrantDecision: Equatable, Sendable, Codable {
     struct Lid {
         let name: String
         let caps: [String: GrantAnswer]
+        /// The strictest cap this lid puts on a permission, an older id's included (765).
+        func cap(_ perm: String) -> GrantAnswer? { GrantPermissions.answeringIds(perm).compactMap { caps[$0] }.min() }
+    }
+
+    /// A role's answer for a permission, else for an older id of it (765).
+    static func roleAnswer(_ role: String, _ perm: String) -> GrantAnswer? {
+        for id in GrantPermissions.answeringIds(perm) { if let a = RoleTable.answer(role, id) { return a } }
+        return nil
     }
 
     /// The decision for `q` over `f`. Pure.
     public static func decide(_ q: GrantQuery, _ f: GrantFacts) -> GrantDecision {
         let perm = q.perm
+        let ids = Set(GrantPermissions.answeringIds(perm))   // 765: an older id still answers for one release
         let now = f.now
         let active = f.grants.filter { $0.isActive(now) && $0.scopeValue?.applies(workspace: q.workspace, room: q.room) == true }
         let agentSubject = q.agentSubject
@@ -151,7 +160,7 @@ public struct GrantDecision: Equatable, Sendable, Codable {
             // Another workspace is Dozable's own — unless an everywhere grant reaches it.
             let reaches = active.contains { g in
                 g.scopeValue == .everywhere && applies(g)
-                    && ((g.perm == perm && g.answerValue != nil && g.answerValue != .never) || (g.role.map { RoleTable.answer($0, perm) != nil } ?? false))
+                    && ((g.perm.map(ids.contains) == true && g.answerValue != nil && g.answerValue != .never) || (g.role.map { Self.roleAnswer($0, perm) != nil } ?? false))
             }
             if !reaches { dozable[perm] = .never }
         }
@@ -170,18 +179,18 @@ public struct GrantDecision: Equatable, Sendable, Codable {
 
         // 1. any never.
         var nevers: [String] = []
-        for l in lids where l.caps[perm] == .never {
+        for l in lids where l.cap(perm) == .never {
             nevers.append(l.name == "Dozable's own" ? (outside ? "Dozable's own: another workspace" : "Dozable's own") : "\(l.name): \(perm)=never")
         }
-        let explicitNevers = active.filter { $0.perm == perm && $0.answerValue == .never && applies($0) }
+        let explicitNevers = active.filter { $0.perm.map(ids.contains) == true && $0.answerValue == .never && applies($0) }
             .sorted { ($0.scopeValue?.rank ?? 0, subjectRank($0)) > ($1.scopeValue?.rank ?? 0, subjectRank($1)) }
         for g in explicitNevers { nevers.append("your never ✎ (\(g.subjectValue?.display ?? g.subject), \(g.scopeValue?.display ?? g.scope))") }
-        let anyCap = lids.contains { $0.caps[perm] != nil }
+        let anyCap = lids.contains { $0.cap(perm) != nil }
         if let first = nevers.first {
             answer = .never
             decidedAt = 1
             winner = first
-            source = lids.contains(where: { $0.caps[perm] == .never }) ? (dozable[perm] == .never ? "dozable" : "ceiling") : "grant"
+            source = lids.contains(where: { $0.cap(perm) == .never }) ? (dozable[perm] == .never ? "dozable" : "ceiling") : "grant"
             steps.append(Step(n: 1, label: "1 any never", found: "never: " + nevers.joined(separator: "; "), decided: true))
         } else {
             steps.append(Step(n: 1, label: "1 any never", found: anyCap ? "none (no never in any ceiling or scope)" : "none (no ceiling, no never in any scope)",
@@ -190,7 +199,7 @@ public struct GrantDecision: Equatable, Sendable, Codable {
 
         // 2. a permission grant, most specific scope first; within it agent > bot > role.
         if answer == nil {
-            let perms = active.filter { $0.perm == perm && $0.answerValue != nil && applies($0) }
+            let perms = active.filter { $0.perm.map(ids.contains) == true && $0.answerValue != nil && applies($0) }
             if let top = perms.map({ $0.scopeValue?.rank ?? 0 }).max() {
                 let inScope = perms.filter { ($0.scopeValue?.rank ?? 0) == top }
                 let bestSubject = inScope.map(subjectRank).max() ?? 0
@@ -221,12 +230,12 @@ public struct GrantDecision: Equatable, Sendable, Codable {
                 for h in here where !names.contains(h.role) { names.append(h.role) }
                 if chatDecider && !names.contains("decider") { names.append("decider") }
                 let where_ = here.first.map { $0.scope.display } ?? "chat"
-                let answers = names.compactMap { RoleTable.answer($0, perm) }
+                let answers = names.compactMap { Self.roleAnswer($0, perm) }
                 if let a = answers.max() {
                     answer = a
                     decidedAt = 3
                     source = "role"
-                    fromRecord = here.contains { $0.fromRecord && RoleTable.answer($0.role, perm) == a }
+                    fromRecord = here.contains { $0.fromRecord && Self.roleAnswer($0.role, perm) == a }
                     winner = "the \(names.joined(separator: " + ")) role\(names.count == 1 ? "" : "s") (\(where_))"
                     steps.append(Step(n: 3, label: "3 roles here", found: "\(names.joined(separator: " + ")) (\(where_)): \(a.rawValue)", decided: true))
                 } else {
@@ -257,7 +266,7 @@ public struct GrantDecision: Equatable, Sendable, Codable {
         let capLabel = "5 \(who)'s ceiling"
         if decidedAt == 1 {
             steps.append(Step(n: 5, label: capLabel, found: "—", decided: false))
-        } else if let (lid, cap) = lids.compactMap({ l in l.caps[perm].map { (l, $0) } }).min(by: { $0.1 < $1.1 }) {
+        } else if let (lid, cap) = lids.compactMap({ l in l.cap(perm).map { (l, $0) } }).min(by: { $0.1 < $1.1 }) {
             if cap < result {
                 steps.append(Step(n: 5, label: capLabel, found: "\(cap.rawValue) (\(lid.name)): \(result.rawValue) → \(cap.rawValue)", decided: true))
                 winner = "\(lid.name): \(perm)=\(cap.rawValue), capping \(result.rawValue)"
