@@ -54,24 +54,176 @@ extension HostCore {
         return out
     }
 
-    /// A run opened now (the kick-off, a reopen): each room's last seq is its start marker. Nothing is posted. When one is
-    /// open already, that one is answered.
+    /// A run opened now (the kick-off, a reopen, an up, `doz workspace run`): each room's last seq is its start marker.
+    /// Nothing is posted. It records what it is for (`opening`: by default the brief, opened by the owner) and the work
+    /// description's revision it read. When one is open already, that one is answered.
     @discardableResult
-    func openRun(_ n: String) async throws -> WorkspaceRun {
+    func openRun(_ n: String, _ opening: RunOpening = RunOpening()) async throws -> WorkspaceRun {
         await ensureRoomIDs(n)
         let rec = try workspaceRecord(n)
         if let r = rec.openRun { return r }
         let seqs = await roomLastSeqs(rec)
+        let revision = WorkspaceRuns.descriptionRevision((try? workspaces.log(n)) ?? [])
+        let brief = opening.goal == nil ? (workspaceBriefText(rec) ?? "") : nil
         var opened: WorkspaceRun?
         _ = try await workspaceUpdate(n) { r in
             if let o = r.openRun { opened = o; return [] }
-            let run = WorkspaceRuns.open(r, at: Date(), lastSeq: seqs)
+            var run = WorkspaceRuns.open(r, at: Date(), lastSeq: seqs)
+            if let g = opening.goal {
+                run.goal = g
+                run.goalFrom = "given"
+                run.source = opening.source ?? WorkspaceRunSource(kind: "given")
+            } else {
+                run.goal = brief ?? ""
+                run.goalFrom = "brief"
+                var src = opening.source ?? WorkspaceRunSource(kind: "brief")
+                if src.kind == "brief" { src.revision = revision }
+                run.source = src
+            }
+            run.follows = opening.follows
+            run.openedBy = opening.openedBy
+            run.revision = revision
             r.runs.append(run)
             opened = run
-            return [WorkspaceLogEntry(action: "run-opened", run: run.id)]
+            return [WorkspaceLogEntry(action: "run-opened", reason: opening.openedBy == "owner" ? nil : "opened by \(opening.openedBy)", run: run.id)]
         }
         note(nil, "workspace \(n): run \(opened!.id) opened")
         return opened!
+    }
+
+    // MARK: the run verb (765)
+
+    /// `workspace-run` (`doz workspace run W [GOAL]`): one run at a time — refused (`run-open`, exit 3) while one is open,
+    /// and for an archived workspace. A finished one is reopened first (its rooms open to new messages again). The run
+    /// records its goal (else the brief), its source, the run it follows, who opened it and the revision it read; the goal
+    /// is posted in the main room as your message (never for an agent: Dozable never speaks for one); then — unless
+    /// `noStart` — the sessions start as `doz workspace start` starts them. The owner is never gated; an agent (`--as`)
+    /// passed the gate's `run.open` before this runs.
+    func workspaceRunOpen(_ r: HostRequest) async throws -> WorkspaceRunOpened {
+        guard !readOnly else { throw HostError(.unavailable, "workspace-run needs the daemon") }
+        let w = r.workspaceRequest ?? WorkspaceRequest()
+        let n = try workspaceName(w)
+        var by = "owner"
+        if case .agent(_, let name) = try Caller.of(r) { by = name }
+        if let g = w.goal {
+            guard !g.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw HostError(.invalidValue, "the goal is empty — leave it out to take the brief") }
+            guard g.utf8.count <= WorkspaceRuns.maximumGoalBytes else {
+                throw HostError(.invalidValue, "the goal is \(g.utf8.count) bytes — at most \(WorkspaceRuns.maximumGoalBytes)")
+            }
+        }
+        var notes: [String] = []
+        var opened: WorkspaceRun
+        var neverStarted = false
+        var posted = false
+        await workspaceGate.lock("workspace:" + n)
+        do {
+            await workspaceGate.lock("workspaces")
+            let rec: WorkspaceRecord
+            var opening = RunOpening(goal: w.goal, openedBy: by)
+            do {
+                rec = try workspaceRecord(n)
+                if rec.flags.archivedAt != nil {
+                    throw HostError(.invalidPhase, "\(n) is archived — doz workspace restore \(n) first, then run")
+                }
+                if let o = rec.openRun {
+                    throw HostError(.runOpen, "\(n)'s run \(o.id) is open — one run at a time: doz workspace finish \(n) finishes it first")
+                }
+                guard !startingWorkspaces.contains(n), !lifecycleWorkspaces.contains(n) else {
+                    throw HostError(.invalidPhase, "\(n) is busy: it is being started, put to sleep, woken, finished or archived — run it once that is over")
+                }
+                if let s = w.source {
+                    let src = try WorkspaceRuns.source(s, existing: rec.runs)
+                    if w.goal != nil, src.kind == "brief" { throw HostError(.invalidValue, "--source brief: a goal was given — the brief is the goal only when none is") }
+                    if w.goal == nil, src.kind == "given" { throw HostError(.invalidValue, "--source given: no goal was given") }
+                    opening.source = src
+                }
+                if let f = w.follows {
+                    guard rec.runs.contains(where: { $0.id == f }) else {
+                        throw HostError(.invalidValue, "--follows \(f.prefix(40)): no such run of \(n) (doz workspace runs \(n))")
+                    }
+                    opening.follows = f
+                }
+                neverStarted = rec.flags.startedAt == nil
+                // Never started: its first run starts it, so the set-up check first (nothing written on a refusal).
+                if neverStarted, w.noStart != true {
+                    let gaps = WorkspaceSetupCheck.gaps(await workspaceSetupInput(rec))
+                    if !gaps.isEmpty {
+                        throw HostError(.invalidPhase, "\(n) is not fully set up yet:\n" + gaps.map { "  - " + $0.line }.joined(separator: "\n"))
+                    }
+                }
+            } catch {
+                workspaceGate.unlock("workspaces")
+                throw error
+            }
+            workspaceGate.unlock("workspaces")
+            // A finished workspace: reopened first (its rooms open to new messages), so the run's markers and the goal land in them.
+            if rec.flags.finishedAt != nil { try await reopenRecord(rec) }
+            opened = try await openRun(n, opening)
+            // The goal posted as your message in the main room — the brief, with its references, when no goal was given.
+            let now = try workspaceRecord(n)
+            if let room = now.mainRoom?.chatRoom, let chat = workspaceChat, await chat.readiness() == .ready {
+                if by == "owner" {
+                    let text = opened.goalFrom == "given" ? (opened.goal ?? "") : ManagerKickoff.briefPost(brief: opened.goal ?? "", refs: now.brief.refs)
+                    try chat.post(room: room, content: text)
+                    posted = true
+                    _ = try await workspaceUpdate(n) { r in
+                        if r.flags.startedAt == nil { r.flags.startedAt = Date() }
+                        return [WorkspaceLogEntry(action: neverStarted ? "kicked-off" : "goal-posted", room: room,
+                                                  sha256: WorkspaceStore.sha256(Data(text.utf8)), bytes: text.utf8.count, run: opened.id)]
+                    }
+                } else {
+                    notes.append("the goal was not posted: \(by) opened the run, and Dozable never speaks for an agent — it posts the goal itself")
+                }
+            } else if now.mainRoom != nil {
+                notes.append("chat is not ready: the goal was not posted")
+            }
+            if !posted, neverStarted {
+                _ = try await workspaceUpdate(n) { r in if r.flags.startedAt == nil { r.flags.startedAt = Date() }; return [] }
+            }
+        } catch {
+            workspaceGate.unlock("workspace:" + n)
+            throw error
+        }
+        workspaceGate.unlock("workspace:" + n)
+        note(nil, "workspace \(n): run \(opened.id) opened by \(by)" + (posted ? ", its goal posted" : ""))
+        // Then its sessions, as a start brings them (the manager, the declared workers, every agent a stop or a finish left down).
+        var started: [String]?
+        if w.noStart != true {
+            do {
+                let s = try await workspaceStart(WorkspaceRequest(name: n))
+                var who: [String] = []
+                if let m = s.manager, s.alreadyRunning != true { who.append(m) }
+                who += s.workers ?? []
+                who += s.woke ?? []
+                started = who
+                notes += s.notes ?? []
+            } catch {
+                let e = HostError.from(error)
+                notes.append("the run is open, but its agents did not all start: \(e.message) — doz workspace start \(n) tries again")
+                started = []
+            }
+        } else {
+            notes.append("nothing was started (--no-start): doz workspace start \(n) starts its agents")
+        }
+        if let latest = try workspaceRecord(n).runs.first(where: { $0.id == opened.id }) { opened = latest }
+        var out = WorkspaceRunOpened(workspace: n, run: opened, posted: posted)
+        out.started = started
+        out.notes = notes.isEmpty ? nil : notes
+        return out
+    }
+
+    /// A finished workspace made live again: no longer finished, its rooms open to new messages (the closed set without
+    /// them). Opens no run.
+    func reopenRecord(_ rec: WorkspaceRecord) async throws {
+        let n = rec.name
+        _ = try await workspaceUpdate(n) { r in
+            r.flags.finishedAt = nil
+            r.flags.reopenedAt = Date()
+            return [WorkspaceLogEntry(action: "reopened")]
+        }
+        if await pushClosedSet() != nil {
+            for room in ownedRooms(rec) { try? workspaces.append(n, WorkspaceLogEntry(action: "room-opened", room: room)) }
+        }
     }
 
     /// The open run closed (finish, archive) with each room's last seq at its close (`toSeq`); a record started before runs
@@ -121,6 +273,14 @@ extension HostCore {
         row.closedBy = run.closedBy
         row.legacy = run.legacy
         row.frames = spaceFrameCount(n, run)
+        // 765: what it is for, as recorded (a run opened before has none — never filled in), and its length so far.
+        row.goal = run.goal
+        row.goalFrom = run.goalFrom
+        row.source = run.source
+        row.follows = run.follows
+        row.revision = run.revision
+        row.openedBy = run.openedBy
+        row.usage = WorkspaceRunUsage(durationMs: WorkspaceRuns.durationMs(run))
         if status == "written", let a = run.archive {
             let root = storeRoot + "/" + a
             row.archiveBytes = RunArchiveSummary.bytes(root)
@@ -168,6 +328,15 @@ public enum RunArchiveSummary {
         }
         return any ? t : nil
     }
+}
+
+/// What a run is opened with: its goal (nil: the brief), its source (nil: `given` or `brief`), the run it follows, and who
+/// opened it (`owner`, or an agent's name).
+struct RunOpening: Sendable {
+    var goal: String? = nil
+    var source: WorkspaceRunSource? = nil
+    var follows: String? = nil
+    var openedBy: String = "owner"
 }
 
 // MARK: the evidence archive

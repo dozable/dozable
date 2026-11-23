@@ -33,6 +33,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableHost/HostCore+WorkspaceLifecycle.swift` | the `WorkspaceAgentLifecycle` seam (`DaemonAgentLifecycle`: hibernate, wake, start, shut down, template, rm, a session's end, restart and forgetting), the facts (`agentFacts`, `workspaceLifecycleFacts`), `workspace-lifecycle-plan`, the seven verbs (`workspaceLifecycle`: the gate, `ifPlan`, the queue), `workerWake`, `retireWorker`, `removeOwnSandboxes`, `WorkspaceBin` |
 | `Sources/DozableCLI/WorkspaceLifecycleCommands.swift` | `doz workspace stop | manager stop | sleep | wake | finish | reopen | archive | restore | delete` (the plan's text, the questions and their `fix`, `--dry-run`, `--if-plan`); `runWorkspaceFinish`, the one path of finish and `down` |
 | `Tests/DozableCLITests/WorkspaceLifecycleTests.swift`, `WorkspaceLifecycleHostTests.swift`; `Sources/doz-vmtest/CLIWorkspaceLifecycleRows.swift` | the builder over every kind of agent; the verbs in an in-process core with fakes (the order, `ifPlan`, a partial failure, archive and restore, delete, the Bin's seam, the dashboard's confirmations); `make test-cli-workspace` rows L1–L14 |
+| `Sources/DozableHost/WorkspaceRuns.swift`, `HostCore+Runs.swift`; `Sources/DozableCLI/WorkspaceRunsCommands.swift`; `Tests/DozableCLITests/WorkspaceRunVerbTests.swift` | runs: `WorkspaceRuns` (ids, markers, the closed set; 0.52.46: `source`, `descriptionRevision`, `durationMs`), `WorkspaceRunOpened`, `WorkspaceRunsListing`; `openRun`, `closeRun`, `workspace-run` (`workspaceRunOpen`, `reopenRecord`), `workspace-runs`, the archive; `doz workspace run` and `runs` ("Runs", below) |
 | `Sources/DozableHost/WorkspaceReach.swift` | `workspace-reach`'s answer — `WorkspaceReach`, `AgentReach`, `AgentNetworkReach`, `ReachRefusal`, `HeldSecret` (`held`: never a value; a chat token's fingerprint never carried), `ReachFolder` — and `AgentCapabilities.rows` (pure: "what it can do" for any agent; an `@mac` agent's `MacFence.capabilities` unchanged, then its control and its room) |
 | `Sources/DozableHost/WorkspaceChangedFiles.swift` | the changed-files walk (never a program: files.md), `WorkspaceFolders` (`workspace-folders`' answer), `WorkspaceLogPage` |
 | `Sources/DozableHost/HostCore+WorkspaceViews.swift` | `workspace-reach`, `workspace-folders`, the log in pages (`workspaceLogAnswer`) |
@@ -233,6 +234,7 @@ permission gate, which is at the daemon's door):
 | `workspace-start`, `-stop` | `call()`: the daemon | the check under `workspaces`, the launch under `workspace:NAME` (each record change takes `workspaces` again); never read-only |
 | `workspace-lifecycle-plan` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon nor reads the keychain |
 | `workspace-sleep`, `-wake`, `-finish`, `-reopen`, `-archive`, `-restore`, `-delete` | `call()`: the daemon | the plan again and `ifPlan` under `workspaces`, the run under `workspace:NAME` (each record change takes `workspaces` again); never read-only |
+| `workspace-run` | `call()`: the daemon | the checks under `workspaces`, the opening under `workspace:NAME`, then the sessions as `workspace-start` (its own gates); never read-only |
 | `workspace-reach`, `workspace-folders` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon; refusals only a daemon's proxies hold ("not known" otherwise) |
 | `worker-ls`, `worker-plan` | `query()`: the read-only core when no daemon runs, else the daemon | looking never starts the daemon |
 | `worker-add`, `-end` | `call()`: the daemon | the check and the pending entry under `workspaces`, the participant under `bots`, then the launch; never read-only |
@@ -670,9 +672,11 @@ partial failure).
 
 ## Runs
 
-A run is one start (the kick-off) or reopen to its finish (or archive); sleep, wake, stop and start never close it
-(`WorkspaceRuns`, `HostCore+Runs`). `WorkspaceRecord.runs` (additive) holds `{id, startedAt, endedAt?, archive?, rooms:
-[{room, id, fromSeq, toSeq?}], archiveSHA256?, archiveProblem?, closedBy?, legacy?, noArchive?}`; ids are `YYYY-MM-DD-N`, N
+A run is one unit of work: from the first start (the kick-off), `doz workspace run` (reopen is its old name) or an `up`
+that finds none open, to its finish (or archive); sleep, wake, stop and start never close it (`WorkspaceRuns`,
+`HostCore+Runs`). `WorkspaceRecord.runs` (additive) holds `{id, startedAt, endedAt?, archive?, rooms: [{room, id, fromSeq,
+toSeq?}], archiveSHA256?, archiveProblem?, closedBy?, legacy?, noArchive?, goal?, goalFrom?, source?, follows?, openedBy?,
+revision?}` (the last six since 0.52.46: a run opened before has none, and none is filled in after); ids are `YYYY-MM-DD-N`, N
 unique in the record. The markers are data, never posts: `fromSeq` is each room's last seq when the run opened, `toSeq` the
 last seq the chat server answered when finish closed the room (under its close gate), and the run's messages are exactly
 `fromSeq < seq <= toSeq`. A record started before runs gets an implicit run (`legacy`) at its next finish; one finished
@@ -689,6 +693,57 @@ first, while its VM runs (`SandboxTranscriptExport`, through an exec to list and
 plan shows each room's row (an owned one closed, a linked one not), "finish closes the room to new messages until you
 reopen", the archive section (estimate, refusals: chat not ready, not enough free space) and `--no-archive`; the sha covers
 the rows and the archive's shape, never its counts. Reopen opens the rooms again and a new run.
+
+### The run verb — `doz workspace run W [GOAL]` (0.52.46)
+
+`workspace-run` (`HostCore.workspaceRunOpen`; the CLI `WorkspaceRunVerb`, `runWorkspaceRun` in `WorkspaceRunsCommands.swift`)
+opens a run. In order, under the workspace's gate (`workspace:NAME`, the checks under `workspaces`): an archived workspace is
+refused (`invalid-phase`, 3); **one run at a time** — an open run is refused with `run-open` (3; the CLI adds the fix
+`doz workspace finish W`, and the message names finish); a workspace being started or changed by a lifecycle verb is busy
+(3); `--source KIND[:REF]` is read strictly (`WorkspaceRuns.source`: `given`, `brief` — neither with a reference —, `run:ID`
+an existing run of this workspace, `ask:TEXT`, `schedule:TEXT` one line of at most 256 characters; anything else
+`invalid-value`, 65), `--follows RUN` must name an existing run (65), the goal is not empty and at most 256 KiB (65); a
+never-started workspace (unless `noStart`) passes the set-up check first. Then a finished workspace is reopened
+(`reopenRecord`: `finishedAt` cleared, its rooms out of the closed set), the run opened (`openRun(n, RunOpening)`), and the
+goal posted in the main room **as the owner's message** — the goal given, else `ManagerKickoff.briefPost` of the brief and its
+references (as the first start posts it), logged `goal-posted` (`kicked-off` for a workspace's first) with its sha and bytes,
+never its text. **An agent's run posts nothing** (`posted: false`, a note): Dozable never speaks for an agent, which posts
+the goal with its own token. Last, unless `noStart`, the sessions start exactly as `workspace-start` starts them (the manager,
+the declared workers, every agent a stop or a finish left down — `started` names them); a start that fails leaves the run open
+and says so in `notes`.
+
+What a run records (`RunOpening` → `WorkspaceRun`): `goal` (the brief's text as it read it when none was given), `goalFrom`
+(`given` | `brief`), `source` `{kind, ref?, revision?}` (`given` or `brief` unless `--source`; `brief` carries the revision),
+`follows`, `openedBy` (`owner`, or the agent's name from `--as`), and `revision` — the work description's revision it read.
+Until a revision store keeps the document's revisions, that is `WorkspaceRuns.descriptionRevision`: 1 when the workspace was
+made, one more for each `brief-edited` or `refs-edited` line of its log. The first start's run, a reopen's and an up's record
+the brief (`goalFrom: brief`, `openedBy: owner`).
+
+The answer, `WorkspaceRunOpened` (`--json`): `{kind: "WorkspaceRun", schema: 1, workspace, id, state: "open", goal, goalFrom,
+source: {kind, ref?, revision?}, follows?, openedAt (ISO 8601), openedBy, revision (a number), usage: {durationMs}, posted,
+started?, notes?}`. `workspace-runs` rows (`WorkspaceRunRow`) gain the same `goal`, `goalFrom`, `source`, `follows?`,
+`revision` and `openedBy` — absent for a run that has none, never invented — and `usage.durationMs` for every run (a closed
+run's length, an open one's so far; `WorkspaceRuns.durationMs`). `state --json`'s `conditions.run` gains `state` (`open` |
+`closed`; absent before the first run) beside `open`, `id` and `since`.
+
+**Permissions.** The owner is never gated. An agent (`--as W/AGENT`) needs `run.open` for `workspace-run` and
+`workspace-reopen`, and `run.finish` for `workspace-finish` (`ActionClasses`); both are off for an agent until granted — no
+role names them but the `trusted-manager` preset's `run.finish` — so the default is step 4's ask, refused (`not-permitted`,
+9). `doz grant AGENT run.open=allow --in W` grants it. `workspace.finish` stays in the list for the grants that name it and
+gates nothing now. The CLI's finish with `--as` sends `workspace-finish` alone (the plans are Dozable's own) and needs
+`--yes`.
+
+**`reopen` is run's old name.** `doz workspace reopen W` runs `runWorkspaceRun` with no goal (`--no-start` too) and prints
+`doz: note: reopen is the old name of run — doz workspace run W` on stderr when stderr is a terminal (never with `--json`
+or `-q`). Its `--dry-run` still shows reopen's lifecycle plan, and `--if-plan SHA` still acts on it the old way (reopened, a
+run opened, nothing started or posted). The `workspace-reopen` op is unchanged — the dashboard's Reopen and a space's up use
+it — and takes `noRun`.
+
+**`up` until LC2.** An up opens a run each time none is open: a space that is down is reopened (`workspace-reopen`, a new
+run); a space with no open run that was started before (an earlier `up --no-run`) gets `openRun` in its `workspace-start`
+step; a new one opens its first at the kick-off. `up --no-run` (`SpaceRequest.noRun`, in the plan and its sha) opens none:
+the down space is reopened with `noRun`, a new one is started with `WorkspaceRequest.noRun` (`startedAt` set, the brief not
+posted), and a space with a scratch folder (which lives in a run) is refused (65).
 
 ## The archive
 

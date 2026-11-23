@@ -232,13 +232,14 @@ func spaceBriefLook(_ brief: String, file: String) -> SpaceBriefLook? {
 }
 
 /// Resolve, validate, then ask `workspace-up-plan` (in-process when no daemon runs: nothing is started or written).
-func spacePlan(file: String?, profiles: [String], _ g: GlobalOptions) async throws -> SpacePlan {
+func spacePlan(file: String?, profiles: [String], noRun: Bool = false, _ g: GlobalOptions) async throws -> SpacePlan {
     let path = try spaceFile(file, g)
     let r = SpaceResolver().resolve(path)
     let (problems, model) = r.check(profiles: profiles)
     if problems.contains(where: \.isError) || model == nil { try reportSpaceProblems(problems, g) }
     var q = HostRequest(.workspaceUpPlan)
     q.space = r.request(profiles: profiles, brief: spaceBriefLook(model?.brief ?? "", file: r.file))
+    if noRun { q.space?.noRun = true }
     let plan = try decode(try await query(q, g), SpacePlan.self, g)
     if !g.json { try reportSpaceProblems(plan.problems, g) }
     return plan
@@ -330,7 +331,8 @@ struct SpaceUpCommand: AsyncParsableCommand {
         Reads FILE (or the one *.space.yaml in this folder) and the files it extends, shows the plan — every step and the \
         summary naming each risky setting with the file and line that set it — and then sets the workspace up through the \
         daemon: the workspace (made, or changed to match the file), its rooms, the run (started, or reopened when the \
-        space is down), its scratch folders and each agent. A second up in an open run makes only what is missing. An \
+        space is down — a new run each time none is open; --no-run opens none, and doz workspace run W opens one later), \
+        its scratch folders and each agent. A second up in an open run makes only what is missing. An \
         unfenced agent acts with full access to your user: up asks you to confirm it on the terminal at every up, \
         whatever set it — --yes answers that question on a terminal, and with no terminal up stops (exit 5). Up records \
         what the file requests for its agents and grants nothing (doz permissions grant does). With --dry-run, the plan \
@@ -344,9 +346,10 @@ struct SpaceUpCommand: AsyncParsableCommand {
     @Option(name: .customLong("profile"), help: "Include the resources of this profile (repeatable).") var profiles: [String] = []
     @Flag(name: .customLong("dry-run"), help: "Show the plan and stop: nothing is started or written.") var dryRun = false
     @Flag(name: .long, help: "Answer the unfenced agents' question yes — on a terminal only.") var yes = false
+    @Flag(name: .customLong("no-run"), help: "Set it up and start its agents, but open no run (doz workspace run W opens one).") var noRun = false
 
     func run() async throws {
-        if dryRun { try finishSpacePlan(try await spacePlan(file: file, profiles: profiles, g), dryRun: true, g); return }
+        if dryRun { try finishSpacePlan(try await spacePlan(file: file, profiles: profiles, noRun: noRun, g), dryRun: true, g); return }
         let path = try spaceFile(file, g)
         let r = SpaceResolver().resolve(path)
         let (problems, model) = r.check(profiles: profiles)
@@ -354,6 +357,7 @@ struct SpaceUpCommand: AsyncParsableCommand {
         var q = HostRequest(.workspaceUpPlan)
         var space = r.request(profiles: profiles, brief: spaceBriefLook(model?.brief ?? "", file: r.file))
         do { space.prompts = try spacePrompts(r) } catch { throw fail(HostError.from(error), g) }
+        if noRun { space.noRun = true }
         q.space = space
         // Acting needs the daemon: the plan is the daemon's (started now), so its sha is the one up checks.
         let plan = try decode(try call(q, g), SpacePlan.self, g)

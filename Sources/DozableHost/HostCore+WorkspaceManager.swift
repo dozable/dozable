@@ -286,7 +286,11 @@ extension HostCore {
         // 3. The kick-off, as you, before the manager — once. The first run opens just before it (each room's last seq its
         // start marker, as data): the brief is the run's first message.
         var kickedOff = false
-        if rec.flags.startedAt == nil {
+        if rec.flags.startedAt == nil, w.noRun == true {
+            // 765: `up --no-run` — started with no run: nothing posted (the goal is posted when a run opens).
+            rec = try await workspaceUpdate(n) { r in r.flags.startedAt = Date(); return [] }
+            notes.append("no run is open (--no-run): the brief is not posted — doz workspace run \(n) opens one")
+        } else if rec.flags.startedAt == nil {
             _ = try? await openRun(n)
             if let room, let chat, ready {
                 let brief = workspaceBriefText(rec) ?? ""

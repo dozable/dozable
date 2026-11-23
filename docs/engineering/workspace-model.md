@@ -5,7 +5,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 [Space files](../manual/39-space-files.md)). This page is the model every workspace change is judged against: model v3,
 accepted by the owner on 2026-11-23, with its review folded in.
 
-**The model is ahead of the code.** Every section says what is **built** — what 0.52.43 does (0.52.45 for the conditions per layer), with the code that does it —
+**The model is ahead of the code.** Every section says what is **built** — what 0.52.43 does (0.52.45 for the conditions per layer, 0.52.46 for the run verb), with the code that does it —
 and what is **coming**, by the stage that brings it. A sentence that does not say "coming" describes today. Never move a
 line from coming to built without the code, and never describe coming behaviour in the manual.
 
@@ -13,7 +13,6 @@ line from coming to built without the code, and never describe coming behaviour 
 
 | Stage | What it brings | After |
 |---|---|---|
-| **LC1** | the `run` verb (`doz workspace run W "GOAL"`): one run at a time, `reopen` folded into it, `up` opening the first run only, once | — |
 | **PLACE** | Place as an entity in the record (`isolation`, view, network, credentials, secret references); VMs as places; a fenced place a policy; `state` says the per-place fact | — |
 | **IDSESS** | `WorkspaceAgent` split into Identity (L1) and Session (L2); declared workers become identities; named workers persist | PLACE |
 | **SP32** | space/3.2: `lives: workspace \| run`, `places:`, `where: PLACE`, `brief.criteria`, `brief.addenda`, the migration notes | PLACE, IDSESS |
@@ -22,7 +21,9 @@ line from coming to built without the code, and never describe coming behaviour 
 | **PLAYBOOKS** | the four recommended processes as playbooks (permission presets, journal kinds, a way to apply one; the quality loop's gates opt-in) — supported and tested, never required | UOW-MVP |
 | **HOOKS** (optional) | a workspace told of its run's events by a command or an address — a proposal only, to be reviewed again before any work | PLAYBOOKS |
 
-COND, one condition per layer in `state`, is built (0.52.45): "One phase, and one condition per layer" below. Later,
+COND, one condition per layer in `state`, is built (0.52.45): "One phase, and one condition per layer" below. LC1, the
+`run` verb, is built (0.52.46): `doz workspace run W [GOAL]`, one run at a time, `reopen` its old name, `up` opening a run
+each time none is open until LC2 (`--no-run` opens none) — L3 below and workspaces.md, "The run verb". Later,
 only if a user asks: skills and playbooks a proposal may change, and comparing runs.
 
 ## The four layers
@@ -54,7 +55,7 @@ apart), not these slabs.
 | L0 | `create` · `delete`; `archive` · `restore` | `doz workspace new` (and the wizard, and `up -f` for a space file) · `delete` (finished or archived only); `archive` · `restore` (`WorkspaceVerb`, `WorkspaceLifecycle.swift`) | `create` as the word; a stable id; the revision store (today the document is generated, `RecordDocument.generate`) |
 | L1 | `up` · `down` (`--purge`) | `up -f FILE` for a workspace a space file made only (one made without a file: exit 4, `SpaceUp.plan`); `down` **is** `finish` for every workspace (`runWorkspaceFinish`, `WorkspaceLifecycleCommands.swift`); `--purge` refused for one made without a space file | LC2: `down` releases L1 and keeps data, for every workspace; `up` for every workspace |
 | L2 | `start` · `stop`; `sleep` · `wake` | all four (`workspaceStartOnce`, `wakeStoppedAgents` in `HostCore+WorkspaceManager.swift`; `lifecycleStop`, `lifecycleSleep` in `HostCore+WorkspaceLifecycle.swift`) | IDSESS: sessions as records of their own |
-| L3 | `run` · `finish` | **no `run` verb.** A run opens at the first `start` (`workspaceStartOnce`, only while `flags.startedAt` is nil), at `reopen` (`lifecycleReopen`) and at every `up` of a space that is down (`SpaceUp`'s `workspace-reopen` step); `finish` (and `down`) closes it | LC1: `run` opens one; `up` opens the first once |
+| L3 | `run` · `finish` | `doz workspace run W [GOAL]` (0.52.46, `workspaceRunOpen` in `HostCore+Runs.swift`): one run at a time (`run-open`, exit 3), a finished workspace reopened first, the goal (else the brief) posted as your message, then the sessions started unless `--no-start`; it records its goal, `goalFrom`, `source`, `follows`, `openedBy` and the work description's revision. A run also opens at the first `start` (`workspaceStartOnce`, only while `flags.startedAt` is nil), at the CLI's `reopen` (run's old name) and the dashboard's Reopen (`lifecycleReopen`), and at an `up` that finds none open (`SpaceUp`'s `workspace-reopen` / `workspace-start` steps; `--no-run` opens none); `finish` (and `down`) closes it | LC2: `up` opens the first run only, once; `start` starts sessions only |
 
 ### L2 today: start, stop, sleep, wake
 
@@ -72,9 +73,9 @@ apart), not these slabs.
 |---|---|---|---|
 | `finish` | closes the run (rooms closed to new messages, agents stopped, the archive written, the run closed, `finishedAt`); a workspace made without a space file removes nothing; the dashboard's Finish never removes what a space file made | L3 only: closes the run and removes what the run owns; leaves workspace-owned sessions hot (`--stop` to cool them) | LC2 |
 | `down` | **the same as `finish`** (D4, since 0.52.36; one CLI path, `runWorkspaceFinish`, answer `WorkspaceFinish`); for a space file's workspace, then by its lifetime (above); `--purge` refused for one made without a space file | L1: releases the allocations, keeps the data, finishes an open run first and says so in the plan; answers `WorkspaceDown` | LC2 |
-| `up` | a space file only: apply, make what is missing, then the run — **reopened (a new run) whenever the space is down**, else started — and its agents | apply + provision + `start` + the first run, once only; then `run` | LC1 (the run), LC2 (every workspace) |
-| `reopen` | finished → a new run, its rooms open again, asleep until woken | folded into `run` (an alias for a while) | LC1 |
-| `start` | opens the first run (only while never started) and posts the brief | starts sessions only | LC1 |
+| `up` | a space file only: apply, make what is missing, then the run — **a new run each time none is open** (reopened when the space is down; 0.52.46), unless `--no-run` — and its agents | apply + provision + `start` + the first run, once only; then `run` | LC2 |
+| `reopen` | the CLI's is `run`'s old name (0.52.46: a one-line note on a terminal; `--dry-run` and `--if-plan` keep the old plan and act); the dashboard's Reopen: finished → a new run, its rooms open again, asleep until woken | folded into `run` | — (built) |
+| `start` | opens the first run (only while never started) and posts the brief | starts sessions only | LC2 |
 
 `down`'s answer (762, F7) keeps three lists apart: **kept** (only what is the workspace's own), **untouched** (the
 person's folders, never made by it — `WorkspaceFinishInventory.untouched`) and **released** (adopted agents let go loose);
@@ -101,8 +102,8 @@ each agent's condition and `conditions.ready`; a space's `SpaceState.run.phase` 
 | L3 | `run {open, id?, since?}` | `WorkspaceRecord.openRun`, else the last run |
 | L0 | `archived {value, at?}` | `flags.archivedAt` |
 
-`ls --json` rows carry `{allocated, hot: {value}, run}`. `phase` stays one release as the derived summary. **Coming
-(LC1):** the run's phase becomes `open` / `closed`.
+`ls --json` rows carry `{allocated, hot: {value}, run}`. `phase` stays one release as the derived summary. **Built in
+0.52.46 (LC1):** the run's own state, `conditions.run.state` — `open` or `closed` (absent before the first run).
 
 ## Data versus allocation
 
@@ -211,8 +212,8 @@ A run is a unit of work, not a turn: **run → tasks → turns**. Dozable owns r
 only observes them. **Bring your own process** (owner, 2026-11-23): how a run is planned, reviewed and accepted depends
 on the user and the managing agent, so Dozable provides **primitives** and **permissions** and enforces no process. A
 workspace's process lives in what its people and agents do with them, written down wherever they like: a brief, a
-playbook skill, a template, the agent's own prompt. Everything in this section but the last paragraph is **coming**
-(UOW-MVP, then PLAYBOOKS).
+playbook skill, a template, the agent's own prompt. Everything in this section but the Run primitive, `run.open` and
+`run.finish` (built in 0.52.46, LC1) and the last paragraph is **coming** (UOW-MVP, then PLAYBOOKS).
 
 **Two integrity rules**, the only fixed ones — they are about trust, not process:
 1. evidence attached to a run is hashed when it is attached;
@@ -220,19 +221,21 @@ playbook skill, a template, the agent's own prompt. Everything in this section b
 
 Who may change the work description is a permission like any other, not a rule.
 
-**The primitives** (coming, UOW-MVP; the run verb itself is LC1):
+**The primitives** (coming, UOW-MVP; the run verb itself is built — LC1, 0.52.46):
 
 | Primitive | What it is |
 |---|---|
-| Run | `run W [GOAL]` opens one, `finish` closes it; it records its goal (else "the brief"), what started it, the runs it follows, usage, and the revision of the work description it read. One open at a time |
+| Run | **built (0.52.46)**: `run W [GOAL]` opens one, `finish` closes it; it records its goal (else "the brief"), what started it, the run it follows, usage (its length, `durationMs`), and the revision of the work description it read. One open at a time |
 | Journal | append-only entries on a run, `{seq, at, by, kind, text?, refs?, data?}`; `kind` is any string — Dozable renders the ones it knows (`note`, `task`, `claim`, `review`, `finding`, `outcome`) and shows the rest as written. No kind is required, no order enforced |
 | Evidence | files, commits or messages attached to an entry; a file is copied into the run and hashed when attached (rule 1) |
 | Work description | the brief plus `addenda [{run?, at, by, text}]`, appended without rewriting the brief; part of the document, so every change is a revision with who and why. A lesson is one kind of addendum |
 | Proposal | a pending change to the document, `{by, change, why?, source?}`, applied or declined through an Ask. Optional: an identity holding the edit permission changes things directly |
 | Close | `finish` freezes the run's journal and evidence into its archive (rule 2) |
 
-**Permissions, opt-in** (coming, UOW-MVP). New permission ids, every one **off for agents** until granted; the owner is
-never gated, as today:
+**Permissions, opt-in** (coming, UOW-MVP — but `run.open` and `run.finish`, built in 0.52.46: `workspace-run` and
+`workspace-reopen` need `run.open`, `workspace-finish` `run.finish`; `GrantPermissions`, `ActionClasses`; an older
+`workspace.finish` grant, role answer or ceiling still answers for both for one release, `GrantPermissions.olderIds`). New permission
+ids, every one **off for agents** until granted; the owner is never gated, as today:
 
 | Permission | Lets an agent |
 |---|---|
@@ -266,9 +269,10 @@ command or an address, so a process can live outside Dozable. Nothing of it is p
 …}`, `WorkspaceRecord.swift`; at most one open, `WorkspaceRecord.openRun`); its room slice (`WorkspaceRunRoom {fromSeq,
 toSeq}`); its archive written at `finish`, swept, hashed and verified (`RunArchive`: manifest, the brief, chat, transcripts,
 screens, usage, timesheet — workspaces.md, "Runs", "The archive"); what changed in its folders (`WorkspaceChangedFiles`);
-`doz workspace runs W [--archive RUN]`. The archives outlive `delete`. Nothing of the table above is built: no goal of its
-own, no criteria, tasks, reviews, outcome, `unit.json` or retrospective; a worker's `--task` is its one instruction for
-its life.
+`doz workspace runs W [--archive RUN]`. The archives outlive `delete`. **Built in 0.52.46 (LC1):** the Run row of the
+table — the run verb, its goal, source, follows, opener, revision and `usage.durationMs` (workspaces.md, "The run verb").
+Nothing else of the table above is built: no criteria, tasks, reviews, outcome, `unit.json` or retrospective; a worker's
+`--task` is its one instruction for its life.
 
 ## What a workspace is
 
@@ -297,7 +301,7 @@ workspace made without a space file has no `up` and no `--purge`; LC2 closes tha
 | sandbox | L1 | an owned micro VM, or one that exists already; coming: a place with `isolation: vm` | yes |
 | secret | — | a **reference** (`{keychain: ITEM}`, `{file: PATH}`) and where it may go (`to:`) | the reference only |
 | phase | — | setting up, running, asleep, stopped, finished, archived; coming: one condition per layer | **never** |
-| run | L3 | today one start or reopen to its finish; coming: a unit of work | never (the record's, read-only) |
+| run | L3 | a unit of work: `run` (or the first start, or an up with none open) to its finish, with its goal; coming: its journal, evidence and criteria | never (the record's, read-only) |
 
 ## Invariants
 
@@ -337,7 +341,7 @@ The lifetime is recorded at `up` and acted on since 0.52.36 (756): `down` ≡ `f
 removes nothing it owns but what says `lifetime: run` itself, and its scratch folders are kept (workspaces.md, "The
 lifecycle"). Since 0.52.43 (762) `plan -f` / `up` read it too — a standing file's plan says what `down` keeps, never
 that it removes everything — and `show --json` / `ls --json` carry it as `lifetime` (`runs` or `standing`; a workspace
-made without a space file is `standing`). Not yet (model fixes, LC1/LC2): `up` of a standing space still makes a new
+made without a space file is `standing`). Not yet (model fixes, LC2): `up` of a standing space still makes a new
 scratch folder per run, and `--purge` leaves them on disk, recorded.
 
 ## The record → document mapping (`RecordDocument.generate`)

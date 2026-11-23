@@ -214,6 +214,7 @@ workspace/manager
 workspace/sleep
 workspace/wake
 workspace/finish
+workspace/run
 workspace/reopen
 workspace/archive
 workspace/restore

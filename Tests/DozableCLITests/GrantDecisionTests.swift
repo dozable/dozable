@@ -213,4 +213,19 @@ final class GrantDecisionTests: XCTestCase {
         XCTAssertEqual(GrantPermissions.ids.count, Set(GrantPermissions.ids).count)
         for r in RoleTable.roles { for p in r.answers.keys { XCTAssertTrue(GrantPermissions.isKnown(p), "\(r.name): \(p)") } }
     }
+
+    /// 765: an older `workspace.finish` grant still answers for `run.open` and `run.finish` for one release (it meant finish
+    /// and reopen); a never on it still refuses them; and `run.open` / `run.finish` alone are asks (refused) for an agent.
+    func testAnOlderWorkspaceFinishGrantStillAnswersForRuns() {
+        let allow = GrantFacts(grants: [grant(.bot("otto"), "workspace.finish=allow", .workspace("w"))], now: now)
+        XCTAssertEqual(GrantDecision.decide(q("run.finish", name: "otto", home: "w", bot: "otto", in: "w", roles: []), allow).answer, .allow)
+        XCTAssertEqual(GrantDecision.decide(q("run.open", name: "otto", home: "w", bot: "otto", in: "w", roles: []), allow).answer, .allow)
+        let never = GrantFacts(grants: [grant(.bot("otto"), "run.finish=allow", .workspace("w")),
+                                        grant(.bot("otto"), "workspace.finish=never", .workspace("w"))], now: now)
+        XCTAssertEqual(GrantDecision.decide(q("run.finish", name: "otto", home: "w", bot: "otto", in: "w", roles: []), never).answer, .never)
+        let none = GrantFacts(now: now)
+        XCTAssertEqual(GrantDecision.decide(q("run.open", name: "otto", home: "w", bot: "otto", in: "w", roles: []), none).answer, .ask)
+        // A role that names only the older id answers too.
+        XCTAssertNotNil(GrantDecision.roleAnswer("trusted-manager", "run.open"))
+    }
 }

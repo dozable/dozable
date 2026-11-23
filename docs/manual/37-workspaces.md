@@ -307,7 +307,7 @@ doz workspace sleep demo        # every agent asleep: memory given back, convers
 doz workspace wake demo         # back in the same sandboxes and conversations
 doz workspace finish demo       # the work is done: everything stops; says what it removed and kept (asks first)
 doz workspace down demo         # the same as finish
-doz workspace reopen demo       # finished → asleep until you wake it
+doz workspace run demo "Fix the failing test"   # a new run: its goal posted, its agents started (below)
 doz workspace archive demo      # put away: its rooms read-only, its anonymous workers retired (type its name)
 doz workspace restore demo      # archived → finished, its rooms writable again
 doz workspace delete demo       # its record gone; finished or archived only (type its name)
@@ -337,7 +337,7 @@ A program that has no conversation to resume (one that is not an agent) starts f
 asleep (or stopped) until you start or wake it; messages wait in the room meanwhile.
 
 **Finish** is "the work is done": nothing runs afterwards, and no worker can be added — but every token is kept, so
-`reopen`, then `wake`, picks it up again. `doz workspace down W` is the same command, for every workspace.
+`doz workspace run`, below, picks it up again. `doz workspace down W` is the same command, for every workspace.
 
 **Finish always says what it removed and what it kept**, by the workspace's lifetime. A workspace made without a space
 file — and one whose space file says `x-dozable: { lifetime: standing }` — is **standing**: finish removes nothing, its scratch
@@ -471,15 +471,49 @@ unfenced agent is the one exception, and the reason it always asks. An agent els
 
 ## Runs and their archive
 
-Each start (or reopen) to its finish is a **run**. `doz workspace finish W` closes the workspace's own rooms to new
-messages — members can still read them; `doz workspace reopen W` opens them again — and writes the run's evidence into
-Dozable's store: its messages, each agent's conversations and last screen, the usage and a timesheet. Nothing is removed,
-and no program is run in your folders (commits are not collected). `--no-archive` writes none.
+A **run** is one unit of work, from its start to its finish. The first `doz workspace start` opens the first one, with
+the brief as its goal; after a finish, `doz workspace run` opens the next.
 
 ```bash
-doz workspace runs W                 # each run, its archive and its totals
-doz workspace runs W --archive RUN   # write a run's archive again
+doz workspace run demo "Fix the failing test"   # a run with this goal
+doz workspace run demo                          # a run whose goal is the brief
+doz workspace run demo "Again" --follows 2026-11-23-1 --source run:2026-11-23-1
+doz workspace run demo "Look first" --no-start  # open the run, start nothing
+doz workspace runs demo                         # each run, its goal, its archive and its totals
+doz workspace runs demo --archive RUN           # write a run's archive again
 ```
+
+`run` posts the goal in the workspace's room as your message (with no goal, the brief and its references, as the first
+start posts them) and then starts its agents as `doz workspace start` does; `--no-start` starts nothing. A finished
+workspace is reopened first: its rooms open to new messages again. An archived one is refused (`doz workspace restore`
+first).
+
+**One run at a time.** While a run is open, `run` is refused — exit 3, `run-open`, with `doz workspace finish W` as the
+fix. Finish it first.
+
+Each run records what it is for and where it came from: its **goal** (`goalFrom`: `given`, or `brief` when you gave none),
+its **source** (`--source KIND` or `KIND:REF`: `given`, `brief`, `run:ID`, `ask:TEXT`, `schedule:TEXT`; another kind exits
+65), the run it **follows** (`--follows RUN`, a run of this workspace, else 65), who opened it (`owner`, or an agent's
+name), the **revision** of the brief it read (1 when the workspace was made, one more for each edit of the brief or its
+references), and its length (`usage.durationMs`). `--json` answers `{"kind": "WorkspaceRun", "id", "state": "open",
+"goal", "goalFrom", "source", "follows", "openedAt", "openedBy", "revision", "usage"}`, and `doz workspace runs W --json`
+carries the same fields on each run — a run opened by an older version has only its length. `doz workspace state W
+--json` says whether a run is open (`conditions.run`: `open`, `id`, `since`, and `state` `open` or `closed`).
+
+`doz workspace reopen W` is the old name of `run`: the same command (it prints a one-line note on a terminal, never with
+`--json`). `--dry-run` still shows reopen's plan, and `--if-plan SHA` reopens on that plan as before, starting nothing.
+
+`doz workspace up -f FILE` (a space file, [Space files](39-space-files.md)) opens a run each time it finds none open;
+`up --no-run` sets everything up and starts its agents but opens no run — `doz workspace run W` opens one later (a space
+with a scratch folder, which lives in a run, refuses it).
+
+`doz workspace run` is not Docker Compose's `run`, which runs a one-off command in a service: here it opens a unit of
+work.
+
+`doz workspace finish W` closes the run. It closes the workspace's own rooms to new messages — members can still read
+them; the next `run` opens them again — and writes the run's evidence into Dozable's store: its messages, each agent's
+conversations and last screen, the usage and a timesheet. Nothing is removed, and no program is run in your folders
+(commits are not collected). `--no-archive` writes none.
 
 ## What agents may do
 
@@ -529,7 +563,9 @@ bot2 · folder.read · in myapp-tests
 **Permissions constrain agents, never you.** Nothing you do — in a terminal or in the dashboard — is checked against them,
 not even your own nevers and ceilings. And none is enforced yet: no agent can drive Dozable, so `show` says "not yet — no
 agent can drive Dozable" (an unfenced agent's: "promise — acts as you"). Asks come later; until then, an answer of ask is
-a refusal for an agent. The owner role is yours and is never granted; `admin` is given everywhere only; deciders are made
+a refusal for an agent. Opening a run needs `run.open` (`run` and `reopen`) and finishing one `run.finish`, both off for
+an agent until you grant them (`doz grant mira run.open=allow --in demo`); an older grant of `workspace.finish` (its
+old name) still answers for both in this release, a never on it included. The owner role is yours and is never granted; `admin` is given everywhere only; deciders are made
 in chat, by you only. Every change is recorded, by you, in the store's `grants/log.jsonl` (and a workspace's grant in its
 log).
 

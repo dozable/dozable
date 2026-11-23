@@ -26,9 +26,12 @@ struct WorkspaceCommand: AsyncParsableCommand {
         Its lifecycle — stop, sleep, wake, finish (down is the same), reopen, archive, restore, delete — shows what it would \
         do to each agent first (--dry-run stops there), then asks: a yes for stop and finish, the name typed for archive and \
         delete. Finish says what it removed and what it kept; a workspace made without a space file removes nothing.
+
+        doz workspace run W [GOAL] opens a run — a unit of work, the brief its goal unless you give one; one at a time \
+        (finish closes it). reopen is its old name.
         """,
         subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceManagerCommand.self, WorkspaceSleep.self,
-                      WorkspaceWake.self, WorkspaceFinish.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
+                      WorkspaceWake.self, WorkspaceFinish.self, WorkspaceRunVerb.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
                       WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceStateCommand.self, WorkspaceDocCommand.self, WorkspaceRename.self,
                       SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
 }

@@ -20,7 +20,7 @@ import DozableHost
 //  L6. delete while it runs → exit 3; finish with no terminal and no --yes → exit 5, nothing done; with --yes finished,
 //      the room CLOSED (0.52.15, the owner's decision — 0.52.12 kept it writable): a post refused naming the reopen, chat read
 //      still works, the run closed with its archive written (runs --json, the daemon stopped later); worker add refused
-//  L7. reopen, then wake: running again
+//  L7. reopen (the old name of run): a run opened, its agents running again; wake then has nothing to do
 //  L8. archive: the typed name refused under --json without --yes (exit 5); with --yes archived, the room read-only, lw2's
 //      old token 401, remy's token held
 //  L9. restore: finished, its room closed again (readable, a post refused), the retired workers listed ended
@@ -230,11 +230,14 @@ func cliWorkspaceLifecycleRows(_ h: CLIHarness, root: URL, store: DozableStore, 
     r = h.run(["worker", "add", "life", "--task", "more"], timeout: 60)
     check(r.code == 3, "L6 …worker add refused (\(r.code))")
 
-    // L7. reopen, then wake
-    r = h.run(["workspace", "reopen", "life"], timeout: 60)
-    check(r.code == 0 && detail("life")?.state == "asleep", "L7 reopen: asleep until woken (\(r.code) \(detail("life")?.state ?? "?"))")
+    // L7. reopen — the old name of run (765): a new run, its agents started; then wake has nothing left to do
+    r = h.run(["workspace", "reopen", "life", "--json"], timeout: 180)
+    let reopened = try? HostWire.decoder.decode(WorkspaceRunOpened.self, from: r.outData)
+    check(r.code == 0 && reopened?.state == "open" && reopened?.goalFrom == "brief" && !r.err.contains("old name"),
+          "L7 reopen: a run opened with the brief, no note with --json (\(r.code) \(r.err.prefix(200)))")
+    check(h.waitFor(30) { sessions.allSatisfy(runs) }, "L7 …its agents running again")
     r = h.run(["workspace", "wake", "life"], timeout: 180)
-    check(r.code == 0 && h.waitFor(30) { sessions.allSatisfy(runs) }, "L7 …wake: running again (\(r.code) \(r.err.prefix(300)))")
+    check(r.code == 0 && h.waitFor(30) { sessions.allSatisfy(runs) }, "L7 …wake: running (\(r.code) \(r.err.prefix(300)))")
 
     // L12. an old plan
     let old = plan(["sleep", "life"])?.sha ?? "?"

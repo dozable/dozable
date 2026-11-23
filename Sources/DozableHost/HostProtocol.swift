@@ -289,6 +289,9 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     case workspaceSleep = "workspace-sleep", workspaceWake = "workspace-wake", workspaceFinish = "workspace-finish"
     case workspaceReopen = "workspace-reopen", workspaceArchive = "workspace-archive", workspaceRestore = "workspace-restore"
     case workspaceDelete = "workspace-delete"
+    /// 765: open a run — a unit of work (`WorkspaceRequest`: the name, `goal`, `source`, `follows`, `noStart`;
+    /// `WorkspaceRunOpened`). One at a time: refused (`run-open`) while one is open. The daemon's, never read-only.
+    case workspaceRun = "workspace-run"
     /// What each agent of a workspace can reach and hold (`WorkspaceRequest.agent`: one only) — `WorkspaceReach`: its isolation
     /// and control, folders, network (preset, sites, this Mac's ports, forwarded ports, refusals while a daemon runs), the
     /// secrets it holds BY NAME and its capability rows. Never a value. Only reads: in-process when no daemon runs.
@@ -773,6 +776,8 @@ public struct HostError: Codable, Equatable, Sendable, Error, LocalizedError {
         case conflict, planChanged = "plan-changed", fileChanged = "file-changed", alreadyAnswered = "already-answered", notOwned = "not-owned"
         /// [3] a `--request-id` already used for this kind of request with other arguments (the message names which).
         case requestIDReused = "request-id-reused"
+        /// [3] 765: a run is open — one at a time (`doz workspace finish W` first).
+        case runOpen = "run-open"
         /// [4] the contract's name for `exists` (doz still answers `exists`).
         case alreadyExists = "already-exists"
         /// [5] a question nobody answered: no terminal and no --yes, or the answer was no.
@@ -1907,6 +1912,14 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     /// stop: the manager alone (`doz workspace manager stop W`, the old meaning of stop); nil or false: every agent's process
     /// ends (`doz workspace stop W`). Additive: an older daemon ignores it and stops the manager alone.
     public var managerOnly: Bool?
+    /// 765, run: the goal (nil: the brief), what started it (`KIND` or `KIND:REF` — given, brief, run, ask, schedule), the
+    /// run it follows, and `noStart` (open the run, start nothing). reopen: `noRun` (up --no-run of a space that is down —
+    /// live again, no run opened). Additive: an older daemon ignores them.
+    public var goal: String?
+    public var source: String?
+    public var follows: String?
+    public var noStart: Bool?
+    public var noRun: Bool?
 
     public init(name: String? = nil) { self.name = name }
 }

@@ -276,7 +276,7 @@ func cliWorkspaceVMSuite(binary: String) async {
     check(!vplant.isEmpty && !archived.contains(vplant) && archived.contains("[a chat token of vplant, removed by doz]"), "V1 …a token planted in the guest's conversation is redacted")
     try? fm.removeItem(at: work.appendingPathComponent("plant.txt"))
     check(ver.manifest?.notes.contains { $0.contains(".jsonl not copied (a link") } == true, "V2 a symlinked guest .jsonl is refused, and said (\(ver.manifest?.notes.prefix(4) ?? []))")
-    r = h.run(["workspace", "reopen", "vw"], timeout: 60)
+    r = h.run(["workspace", "reopen", "vw", "--no-start"], timeout: 60)
     let woke = h.run(["workspace", "wake", "vw"], timeout: 900)
     func upCount(_ who: String) -> Int { messages("vw").filter { $0["from"] as? String == who && ($0["content"] as? String)?.hasPrefix("\(who) is up") == true }.count }
     check(woke.code == 0 && h.row("vw-v3")?.phase == "running", "10 reopen + wake: a cold boot (\(woke.code) \(woke.err.suffix(300)))")
