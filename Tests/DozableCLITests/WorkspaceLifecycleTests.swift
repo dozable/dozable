@@ -275,10 +275,111 @@ final class WorkspaceLifecycleTests: XCTestCase {
         XCTAssertEqual(q.refusals, ["lab still runs — doz workspace finish demo stops it first"])
         XCTAssertEqual(q.refusalCode, "invalid-phase")
         XCTAssertEqual(plan(.delete).refusals.first, "demo is not finished — finish it first: doz workspace finish demo")
-        // --bin-folders: the folder listed with its path.
+        // --bin-folders on a folder it did not make (/work/demo is the person's): kept, said with why; nothing goes (759).
         let b = plan(.delete, finished, facts: f, options: L.Options(binFolders: true))
-        XCTAssertEqual(b.goes.compactMap(\.path), ["/work/demo"])
+        XCTAssertEqual(b.goes.compactMap(\.path), [])
+        XCTAssertEqual(b.keeps.filter { $0.path != nil }.map(\.path), ["/work/demo"])
+        XCTAssertTrue(b.notes.contains("no folder of it was made by demo: nothing goes to the Bin"), b.notes.joined(separator: "; "))
         XCTAssertEqual(b.command, "doz workspace delete demo --bin-folders")
+    }
+
+    // MARK: --bin-folders: only what the workspace made (759)
+
+    /// The facts of a Mac whose `projects_dir` is /p, each folder resolving to itself unless `targets` says otherwise.
+    func binFacts(_ folders: [String], targets: [String: String] = [:], inUse: [String: String] = [:]) -> L.Facts {
+        var f = L.Facts(agents: running().mapValues { var x = $0; if x.now != .elsewhere { x.now = .off }; return x },
+                        home: "/Users/ada", store: "/Users/ada/doz-store", foldersInUse: inUse)
+        f.projectsDir = "/p"
+        for p in folders { f.folderTargets[p] = p }
+        for (k, v) in targets { f.folderTargets[k] = v }
+        return f
+    }
+
+    func binRecord(_ folders: [String], made: [String]) -> WorkspaceRecord {
+        var r = record(flags: WorkspaceFlags(finishedAt: t, startedAt: t), folders: folders)
+        r.madeFolders = made
+        return r
+    }
+
+    func binPlan(_ rec: WorkspaceRecord, _ f: L.Facts) -> WorkspaceLifecyclePlan {
+        L.plan(verb: .delete, record: rec, state: "finished", facts: f, options: L.Options(binFolders: true))
+    }
+
+    func kept(_ p: WorkspaceLifecyclePlan) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: p.keeps.compactMap { k in k.path.map { ($0, k.text) } })
+    }
+
+    func testAnExternalFolderIsNeverBinnedAndIsSaidKept() {
+        let rec = binRecord(["/p/demo", "/Users/ada/src/app", "/p/theirs"], made: ["/p/demo"])
+        let p = binPlan(rec, binFacts(rec.folders.map(\.path)))
+        XCTAssertTrue(p.refusals.isEmpty, p.refusals.joined())
+        XCTAssertEqual(p.goes.compactMap(\.path), ["/p/demo"], "only the folder it made")
+        XCTAssertEqual(kept(p)["/Users/ada/src/app"], "kept: not made by demo: your folder — never moved to the Bin")
+        XCTAssertEqual(kept(p)["/p/theirs"], "kept: not made by demo: your folder — never moved to the Bin",
+                       "under projects_dir is not enough: it must be recorded as made")
+        XCTAssertEqual(L.binDecision("/Users/ada/src/app", record: rec, facts: binFacts(rec.folders.map(\.path))),
+                       .keep("not made by demo: your folder — never moved to the Bin"))
+        // A record from before 759 (no madeFolders): every folder kept — even <projects_dir>/NAME.
+        let old = binRecord(["/p/demo"], made: [])
+        XCTAssertEqual(binPlan(old, binFacts(["/p/demo"])).goes.compactMap(\.path), [])
+    }
+
+    func testAFolderItMadeIsBinnedAndAScratchFolderToo() {
+        var rec = binRecord(["/p/demo", "/p/.runs/demo/r1/notes"], made: ["/p/demo"])
+        var ref = SpaceRecordRef()
+        ref.scratch = [.init(run: "r1", name: "notes", path: "/p/.runs/demo/r1/notes")]
+        ref.persistedPaths = ["/p/demo-kept"]
+        ref.store(in: &rec)
+        rec.folders.append(WorkspaceFolder(path: "/p/demo-kept"))
+        let f = binFacts(rec.folders.map(\.path))
+        let p = binPlan(rec, f)
+        XCTAssertEqual(Set(p.goes.compactMap(\.path)), ["/p/demo", "/p/.runs/demo/r1/notes"])
+        XCTAssertTrue(p.goes.contains { $0.text == "moved to the Bin (made by demo)" })
+        XCTAssertEqual(kept(p)["/p/demo-kept"], "kept: a kept folder of the space file (not recorded as made by demo) — never moved to the Bin",
+                       "up makes a kept folder only when missing and does not record which: kept")
+        XCTAssertEqual(L.binDecision("/p/demo", record: rec, facts: f), .bin)
+    }
+
+    func testAFolderSharedWithAnotherWorkspaceIsKept() {
+        let rec = binRecord(["/p/demo", "/p/demo2"], made: ["/p/demo", "/p/demo2"])
+        let f = binFacts(rec.folders.map(\.path), inUse: ["/p/demo": "the workspace other", "/p/demo2/sub": "the sandbox s1"])
+        let p = binPlan(rec, f)
+        XCTAssertTrue(p.refusals.isEmpty, "kept, not refused: \(p.refusals)")
+        XCTAssertEqual(p.goes.compactMap(\.path), [])
+        XCTAssertEqual(kept(p)["/p/demo"], "kept: used by the workspace other — never moved to the Bin while it is")
+        XCTAssertEqual(kept(p)["/p/demo2"], "kept: used by the sandbox s1 — never moved to the Bin while it is", "one holding a folder in use")
+    }
+
+    func testALinkOrDotDotThatEscapesIsKept() {
+        let rec = binRecord(["/p/demo", "/p/x/../../Users/ada/src", "/p/./demo3", "/elsewhere/demo4", "/p", "/p/gone"],
+                            made: ["/p/demo", "/p/x/../../Users/ada/src", "/p/./demo3", "/elsewhere/demo4", "/p", "/p/gone"])
+        var f = binFacts(rec.folders.map(\.path), targets: ["/p/demo": "/Users/ada/src"])
+        f.folderTargets["/p/gone"] = nil
+        let p = binPlan(rec, f)
+        XCTAssertTrue(p.refusals.isEmpty, p.refusals.joined())
+        XCTAssertEqual(p.goes.compactMap(\.path), [], "nothing goes")
+        XCTAssertEqual(kept(p)["/p/demo"], "kept: it now leads to /Users/ada/src (a link) — never moved to the Bin")
+        XCTAssertEqual(kept(p)["/p/x/../../Users/ada/src"], "kept: its path is not a plain absolute path — never moved to the Bin")
+        XCTAssertEqual(kept(p)["/p/./demo3"], "kept: its path is not a plain absolute path — never moved to the Bin")
+        XCTAssertEqual(kept(p)["/elsewhere/demo4"], "kept: outside the workspaces' folder /p — never moved to the Bin")
+        XCTAssertEqual(kept(p)["/p"], "kept: outside the workspaces' folder /p — never moved to the Bin", "never projects_dir itself")
+        XCTAssertEqual(kept(p)["/p/gone"], "kept: not there any more: nothing to move")
+    }
+
+    func testThePlanListsBinnedAndKeptAndItsShaFollows() {
+        let rec = binRecord(["/p/demo", "/Users/ada/src/app"], made: ["/p/demo"])
+        let f = binFacts(rec.folders.map(\.path))
+        let p = binPlan(rec, f)
+        XCTAssertEqual(p.goes.filter { $0.path != nil }.map { "\($0.path!) \($0.text)" }, ["/p/demo moved to the Bin (made by demo)"])
+        XCTAssertEqual(p.keeps.filter { $0.path != nil }.map { "\($0.path!) \($0.text)" },
+                       ["/Users/ada/src/app kept: not made by demo: your folder — never moved to the Bin"])
+        XCTAssertFalse(p.keeps.contains { $0.text == "every folder, untouched" }, "with the flag, each folder is listed instead")
+        // A made folder replaced by a link since: it moves from goes to keeps — a different plan.
+        var g = f
+        g.folderTargets["/p/demo"] = "/Users/ada"
+        let q = binPlan(rec, g)
+        XCTAssertEqual(q.goes.compactMap(\.path), [])
+        XCTAssertNotEqual(q.sha, p.sha, "what goes changed: the plan's sha changes")
     }
 
     func testTheBinsRefusals() {
@@ -293,8 +394,8 @@ final class WorkspaceLifecycleTests: XCTestCase {
         XCTAssertTrue(refusals(["/"]).first?.contains("the disk's root") == true)
         XCTAssertTrue(refusals(["/Users/ada/doz-store"]).first?.contains("Dozable's store") == true)
         XCTAssertTrue(refusals(["/Users/ada/doz-store/x"]).first?.contains("Dozable's store") == true)
-        XCTAssertEqual(refusals(["/work/shared"], inUse: ["/work/shared": "the workspace other"]).first, "/work/shared is used by the workspace other — never moved to the Bin while it is")
-        XCTAssertTrue(refusals(["/work"], inUse: ["/work/shared": "the sandbox s1"]).first?.contains("the sandbox s1") == true, "a folder holding one in use")
+        // A folder in use is KEPT (said why), never refused: testAFolderSharedWithAnotherWorkspaceIsKept (759).
+        XCTAssertEqual(refusals(["/work/shared"], inUse: ["/work/shared": "the workspace other"]), [])
         XCTAssertEqual(refusals(["/work/mine"], inUse: ["/work/shared": "the workspace other"]), [])
         XCTAssertEqual(plan(.delete, record(flags: fin, folders: ["/work/mine"]), facts: f, options: L.Options(binFolders: true)).refusalCode, nil)
         XCTAssertEqual(plan(.delete, record(flags: fin, folders: ["/"]), facts: f, options: L.Options(binFolders: true)).refusalCode, "invalid")

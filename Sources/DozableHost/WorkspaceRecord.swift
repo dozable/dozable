@@ -453,9 +453,15 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
     /// The workers declared at `new` that `start` has not started yet (`WorkspaceDeclaredWorker`). Additive: written only
     /// while there is one.
     public var declaredWorkers: [WorkspaceDeclaredWorker] = []
+    /// The folders this workspace MADE on this Mac (resolved paths): `new --new-folder`'s `<projects_dir>/NAME`, recorded
+    /// only when `new` made it (one already there is the person's). With a space file's scratch folders (its reference's
+    /// `scratch`) these are the only folders `delete --bin-folders` may move to the Bin (`WorkspaceLifecycle.binDecision`).
+    /// Written only by the daemon, never taken from a request (a `WorkspaceFolder` in a request carries no such claim).
+    /// Additive: written only while there is one; a record from before it has none, so its folders are all kept.
+    public var madeFolders: [String] = []
     public var unknown = UnknownFields()
     static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "defaults", "flags", "driver", "origin", "runs",
-                                     "permissions", "declaredWorkers"]
+                                     "permissions", "declaredWorkers", "madeFolders"]
 
     public init(name: String, createdAt: Date, brief: WorkspaceBrief, folders: [WorkspaceFolder], rooms: [WorkspaceRoom] = [],
                 agents: [WorkspaceAgent] = [], defaults: WorkspaceDefaults = WorkspaceDefaults(), flags: WorkspaceFlags = WorkspaceFlags(),
@@ -481,6 +487,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         runs = try c.decodeIfPresent([WorkspaceRun].self, forKey: "runs") ?? []
         permissions = try c.decodeIfPresent(WorkspaceGrants.self, forKey: "permissions")
         declaredWorkers = try c.decodeIfPresent([WorkspaceDeclaredWorker].self, forKey: "declaredWorkers") ?? []
+        madeFolders = try c.decodeIfPresent([String].self, forKey: "madeFolders") ?? []
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -501,6 +508,7 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         if !runs.isEmpty { try c.encode(runs, forKey: "runs") }
         try c.encodeIfPresent(permissions, forKey: "permissions")
         if !declaredWorkers.isEmpty { try c.encode(declaredWorkers, forKey: "declaredWorkers") }
+        if !madeFolders.isEmpty { try c.encode(madeFolders, forKey: "madeFolders") }
     }
 
     /// The open run's index (nil: none open).

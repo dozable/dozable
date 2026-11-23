@@ -25,7 +25,8 @@ import DozableHost
 //      old token 401, remy's token held
 //  L9. restore: finished, its room closed again (readable, a post refused), the retired workers listed ended
 //  L10. delete: the record gone, its folder untouched, lshell loose, the room archived and readable
-//  L11. --bin-folders: a scratch folder moved into the test's Bin; the store (and your home, in a dry run) refused by name
+//  L11. --bin-folders (759): a folder it MADE (--new-folder, under a scratch projects_dir) moved into the test's Bin; a
+//       folder only given (--folder) kept, said why, untouched; the store (and your home, in a dry run) refused by name
 //  L12. --if-plan with an old plan → exit 3, nothing done
 //  L13. chat off: archive refused naming doz chat on
 //  L14. the daemon stopped: every verb's --dry-run answers, and no daemon starts
@@ -279,11 +280,22 @@ func cliWorkspaceLifecycleRows(_ h: CLIHarness, root: URL, store: DozableStore, 
     let binme = URL(fileURLWithPath: "/private/tmp/dzo-\(pid)-wsl-binme")
     try? fm.createDirectory(at: binme, withIntermediateDirectories: true)
     try? "x\n".write(to: binme.appendingPathComponent("note.txt"), atomically: true, encoding: .utf8)
-    h.run(["workspace", "new", "binw", "--prompt-file", brief, "--folder", binme.path, "--no-room"], timeout: 60)
+    let binProjects = URL(fileURLWithPath: "/private/tmp/dzo-\(pid)-wsl-projects")
+    try? fm.createDirectory(at: binProjects, withIntermediateDirectories: true)
+    h.run(["config", "set", "defaults.projects_dir", binProjects.path])
+    h.run(["workspace", "new", "binw", "--prompt-file", brief, "--new-folder", "--folder", binme.path, "--no-room"], timeout: 60)
+    let madeByIt = WorkspaceStore.resolved(binProjects.path) + "/binw"
+    try? "x\n".write(toFile: madeByIt + "/note.txt", atomically: true, encoding: .utf8)
     h.run(["workspace", "finish", "binw", "--yes"], timeout: 60)
+    r = h.run(["workspace", "delete", "binw", "--bin-folders", "--dry-run"], timeout: 60)
+    check(r.code == 0 && r.out.contains("moved to the Bin (made by binw)") && r.out.contains("kept: not made by binw: your folder"),
+          "L11 --bin-folders --dry-run: what it made goes, your folder is kept, each said (\(r.code) \(r.out.suffix(400)))")
     r = h.run(["workspace", "delete", "binw", "--bin-folders", "--yes"], timeout: 60)
-    check(r.code == 0 && !fm.fileExists(atPath: binme.path) && fm.fileExists(atPath: trash.appendingPathComponent(binme.lastPathComponent + "/note.txt").path),
-          "L11 --bin-folders: moved into the test's Bin, never deleted (\(r.code) \(r.err.prefix(200)))")
+    check(r.code == 0 && !fm.fileExists(atPath: madeByIt) && fm.fileExists(atPath: trash.appendingPathComponent("binw/note.txt").path),
+          "L11 --bin-folders: the folder it made moved into the test's Bin, never deleted (\(r.code) \(r.err.prefix(200)))")
+    check(fm.fileExists(atPath: binme.appendingPathComponent("note.txt").path) && !fm.fileExists(atPath: trash.appendingPathComponent(binme.lastPathComponent).path)
+          && r.out.contains("kept ") && r.out.contains("your folder"),
+          "L11 …the folder only given (--folder) kept where it is, said why (\(r.out.suffix(300)))")
     h.run(["workspace", "new", "binx", "--prompt-file", brief, "--folder", WorkspaceStore.resolved(store.root.path), "--no-room"], timeout: 60)
     h.run(["workspace", "finish", "binx", "--yes"], timeout: 60)
     r = h.run(["workspace", "delete", "binx", "--bin-folders", "--yes"], timeout: 60)

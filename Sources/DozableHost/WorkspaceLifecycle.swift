@@ -104,6 +104,11 @@ public enum WorkspaceLifecycle {
         public var archive: ArchiveFacts?
         /// The rooms the workspace made (owns): only these are closed at finish (nil: as the record says).
         public var ownedRooms: Set<String>?
+        /// `defaults.projects_dir`, resolved: a folder the workspace made is under it (`binDecision`).
+        public var projectsDir: String = "/tmp/projects"
+        /// Each of the workspace's folders as it resolves NOW (every link followed, `realpath`): recorded path → real path;
+        /// absent: not there (or a dangling link). A folder whose real path is not its recorded one is never binned.
+        public var folderTargets: [String: String] = [:]
         public init(known: Bool = true, agents: [String: AgentFacts] = [:], chat: Chat = .ready, width: Int = 3, busy: Bool = false,
                     home: String = "/Users/nobody", store: String = "/tmp/store", foldersInUse: [String: String] = [:], imagesTaken: Set<String> = []) {
             self.known = known; self.agents = agents; self.chat = chat; self.width = width; self.busy = busy; self.home = home; self.store = store
@@ -419,11 +424,16 @@ public enum WorkspaceLifecycle {
             goes = [.init("the workspace's record, brief and log — this cannot be undone")]
             if o.removeSandboxes, !removedNames.isEmpty { goes.append(.init("the sandboxes \(removedNames.joined(separator: ", ")): their disks and restore points", bytes: removedBytes)) }
             if o.binFolders {
+                // Only what the workspace made goes; every other folder is kept, each with why (759).
                 for fo in rec.folders {
-                    if let why = binRefusal(fo.path, workspace: n, facts: facts) { refuse(.invalid, why) }
-                    else { goes.append(.init("moved to the Bin", path: fo.path)) }
+                    switch binDecision(fo.path, record: rec, facts: facts) {
+                    case .refuse(let why): refuse(.invalid, why)
+                    case .keep(let why): keeps.append(.init("kept: " + why, path: fo.path))
+                    case .bin: goes.append(.init("moved to the Bin (made by \(n))", path: fo.path))
+                    }
                 }
                 if rec.folders.isEmpty { notes.append("it has no folder: nothing goes to the Bin") }
+                else if !goes.contains(where: { $0.path != nil }) { notes.append("no folder of it was made by \(n): nothing goes to the Bin") }
             }
             if !running.isEmpty { refuse(.invalidPhase, "\(running.joined(separator: ", ")) still run\(running.count == 1 ? "s" : "") — doz workspace finish \(n) stops \(running.count == 1 ? "it" : "them") first") }
             if !rec.rooms.isEmpty, facts.chat != .ready, rec.flags.archivedAt == nil { notes.append("chat is not running: its rooms stay as they are") }
@@ -521,19 +531,68 @@ public enum WorkspaceLifecycle {
         return base + "-\(i)"
     }
 
-    /// Why folder `p` must not go to the Bin (nil: it may): `/`, this Mac's home or a folder above it, the store or a folder
-    /// around or inside it, or a folder another workspace or a sandbox uses (or one inside or around it) — named.
+    /// Why folder `p` must not go to the Bin, refusing the whole delete (nil: not for this reason): `/`, this Mac's home or a
+    /// folder above it, the store or a folder around or inside it — named. A folder something else uses is KEPT, not refused
+    /// (`binDecision`).
     public static func binRefusal(_ p: String, workspace n: String, facts: Facts) -> String? {
-        func within(_ a: String, _ b: String) -> Bool { a == b || a.hasPrefix(b.hasSuffix("/") ? b : b + "/") }
         let path = p.count > 1 && p.hasSuffix("/") ? String(p.dropLast()) : p
         let shown = DisplayPath.tilde(path)
         if path == "/" || path.isEmpty { return "\(shown) is the disk's root — never moved to the Bin" }
         if within(facts.home, path) { return "\(shown) is your home folder\(path == facts.home ? "" : " or holds it") — never moved to the Bin" }
         if within(path, facts.store) || within(facts.store, path) { return "\(shown) holds Dozable's store — never moved to the Bin" }
-        for (other, who) in facts.foldersInUse.sorted(by: { $0.key < $1.key }) where within(path, other) || within(other, path) {
-            return "\(shown) is used by \(who) — never moved to the Bin while it is"
-        }
         return nil
+    }
+
+    static func within(_ a: String, _ b: String) -> Bool { a == b || a.hasPrefix(b.hasSuffix("/") ? b : b + "/") }
+
+    /// What `delete --bin-folders` does with one of the workspace's folders.
+    public enum BinDecision: Equatable, Sendable {
+        /// Moved to the Bin: a folder this workspace made, still exactly where and what it made.
+        case bin
+        /// Left where it is, and why (said in the plan and in the result).
+        case keep(String)
+        /// The whole delete is refused (`binRefusal`).
+        case refuse(String)
+    }
+
+    /// The folders this workspace made (resolved paths): `new --new-folder`'s (`madeFolders`) and a space file's scratch
+    /// folders (its reference's `scratch`, recorded before use). A space file's kept folders (`persistedPaths`,
+    /// `<projects_dir>/<space>/<name>`) are NOT among them: `up` makes one only when missing and does not record which —
+    /// so they are kept.
+    public static func madeFolders(_ rec: WorkspaceRecord) -> Set<String> {
+        Set(rec.madeFolders).union((SpaceRecordRef.of(rec)?.scratch ?? []).map(\.path))
+    }
+
+    /// The ONE rule for `--bin-folders` (the plan and the act both ask it; 759): only a folder the workspace itself MADE goes
+    /// to the Bin — never the person's own (a folder it only references), never one another workspace or a sandbox uses (or
+    /// one inside or around it), never one outside `projects_dir`, never one with `..` in its path, and never one whose real
+    /// path now (any link followed) is not exactly the path it made. When in doubt it is kept.
+    public static func binDecision(_ p: String, record rec: WorkspaceRecord, facts: Facts) -> BinDecision {
+        if let why = binRefusal(p, workspace: rec.name, facts: facts) { return .refuse(why) }
+        let path = p.count > 1 && p.hasSuffix("/") ? String(p.dropLast()) : p
+        let never = " — never moved to the Bin"
+        guard madeFolders(rec).contains(path) || madeFolders(rec).contains(p) else {
+            if (SpaceRecordRef.of(rec)?.persistedPaths ?? []).contains(p) {
+                return .keep("a kept folder of the space file (not recorded as made by \(rec.name))" + never)
+            }
+            return .keep("not made by \(rec.name): your folder" + never)
+        }
+        for (other, who) in facts.foldersInUse.sorted(by: { $0.key < $1.key }) where within(path, other) || within(other, path) {
+            return .keep("used by \(who)" + never + " while it is")
+        }
+        // Lexically plain: absolute, no `..`, no `.`, no empty part (`//`). Not `standardizingPath`, which also drops
+        // `/private` from `/private/var/…` and `/private/tmp/…`.
+        let parts = path.split(separator: "/", omittingEmptySubsequences: false).dropFirst()
+        guard path.hasPrefix("/"), !parts.isEmpty, !parts.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." }) else {
+            return .keep("its path is not a plain absolute path" + never)
+        }
+        let projects = facts.projectsDir.count > 1 && facts.projectsDir.hasSuffix("/") ? String(facts.projectsDir.dropLast()) : facts.projectsDir
+        guard projects.hasPrefix("/"), projects != "/", path != projects, within(path, projects) else {
+            return .keep("outside the workspaces' folder \(DisplayPath.tilde(projects))" + never)
+        }
+        guard let real = facts.folderTargets[p] ?? facts.folderTargets[path] else { return .keep("not there any more: nothing to move") }
+        guard real == path else { return .keep("it now leads to \(DisplayPath.tilde(real)) (a link)" + never) }
+        return .bin
     }
 
     /// The plan's identity: what it does to whom, its flags and its refusals — never sizes, activity or wording that moves

@@ -136,6 +136,8 @@ extension HostCore {
         }
         f.imagesTaken = Set(store.layout("_").customImages().map(\.name)).union(DozableImages.builtIn)
         f.ownedRooms = Set(ownedRooms(rec))
+        f.projectsDir = WorkspaceStore.resolved((Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent)
+        for fo in rec.folders { if let real = WorkspaceBin.realPath(fo.path) { f.folderTargets[fo.path] = real } }
         return f
     }
 
@@ -922,19 +924,34 @@ extension HostCore {
         let (removed, templates, sbx) = await removeOwnSandboxes(rec, plan, o)
         results += sbx
         if let failed = Self.lifecycleFailure(n, "delete", results) { throw failed }
-        // Its folders to the Bin, only when asked — checked again now.
+        // Its folders to the Bin, only when asked — and only those it MADE (759): decided again now, and moved only when the
+        // plan the person saw moved it too. Every other folder is kept, said with why. The path moved is the recorded one,
+        // never a link's target (`binDecision` keeps a folder whose real path is not it).
         var binned: [String] = []
+        var keptFolders: [WorkspaceLifecycleItem] = []
         if o.binFolders {
             let facts = await workspaceLifecycleFacts(rec)
+            let planned = Set(plan.goes.compactMap(\.path))
+            var toBin: [String] = []
             for f in rec.folders {
-                if let why = WorkspaceLifecycle.binRefusal(WorkspaceStore.resolved(f.path), workspace: n, facts: facts) { throw HostError(.invalid, why) }
-            }
-            for f in rec.folders {
-                guard MacFenceHostFS.kind(f.path) != nil else { notes.append("\(DisplayPath.tilde(f.path)) was gone already"); continue }
-                do { _ = try WorkspaceBin.move(WorkspaceStore.resolved(f.path)); binned.append(f.path) } catch {
-                    throw HostError(.failed, "\(DisplayPath.tilde(f.path)) could not be moved to the Bin: \(HostError.from(error).message) — the workspace is kept; run it again")
+                switch WorkspaceLifecycle.binDecision(f.path, record: rec, facts: facts) {
+                case .refuse(let why): throw HostError(.invalid, why)
+                case .keep(let why): keptFolders.append(WorkspaceLifecycleItem("kept: " + why, path: f.path))
+                case .bin:
+                    if planned.contains(f.path) { toBin.append(f.path) }
+                    else { keptFolders.append(WorkspaceLifecycleItem("kept: the plan you saw kept it", path: f.path)) }
                 }
             }
+            for path in toBin {
+                // Checked once more just before the move: still a folder, still exactly the path it made.
+                guard WorkspaceBin.realPath(path) == path else {
+                    keptFolders.append(WorkspaceLifecycleItem("kept: it changed just now — never moved to the Bin", path: path)); continue
+                }
+                do { _ = try WorkspaceBin.move(path); binned.append(path) } catch {
+                    throw HostError(.failed, "\(DisplayPath.tilde(path)) could not be moved to the Bin: \(HostError.from(error).message) — the workspace is kept; run it again")
+                }
+            }
+            for k in keptFolders { notes.append("kept \(DisplayPath.tilde(k.path ?? "")): \(k.text.hasPrefix("kept: ") ? String(k.text.dropFirst(6)) : k.text)") }
         }
         await workspaceGate.lock("workspaces")
         defer { workspaceGate.unlock("workspaces") }
@@ -945,14 +962,27 @@ extension HostCore {
         if !released.isEmpty { notes.append("loose again: \(released.joined(separator: ", "))") }
         if !rec.rooms.isEmpty { notes.append("its room\(rec.rooms.count == 1 ? "" : "s") \(rec.rooms.map { "#" + $0.chatRoom }.joined(separator: ", ")) stay\(rec.rooms.count == 1 ? "s" : ""), archived, with their history") }
         if !o.binFolders, !rec.folders.isEmpty { notes.append("its folders are untouched") }
-        return WorkspaceChanged(name: n, verb: "delete", results: results, templates: templates.isEmpty ? nil : templates, binned: binned.isEmpty ? nil : binned,
-                                notes: notes, workspace: nil)
+        var changed = WorkspaceChanged(name: n, verb: "delete", results: results, templates: templates.isEmpty ? nil : templates,
+                                       binned: binned.isEmpty ? nil : binned, notes: notes, workspace: nil)
+        changed.keptFolders = keptFolders.isEmpty ? nil : keptFolders
+        return changed
     }
 }
 
 /// The Bin: a folder moved there, never deleted (macOS's own Trash — `FileManager.trashItem`). A guarded test run moves it
 /// into `DOZ_TEST_TRASH_DIR` instead, and only a scratch folder (`TestSafety.trashViolation`): never the real Bin.
 public enum WorkspaceBin {
+    /// `path` as it resolves now, every link followed (`realpath`); nil when it is not there (or is a dangling link), or is
+    /// not a folder.
+    public static func realPath(_ path: String) -> String? {
+        guard let r = realpath(path, nil) else { return nil }
+        defer { free(r) }
+        let real = String(cString: r)
+        var dir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: real, isDirectory: &dir), dir.boolValue else { return nil }
+        return real
+    }
+
     /// Moves `path` to the Bin and answers where it went.
     @discardableResult
     public static func move(_ path: String, env: [String: String] = ProcessInfo.processInfo.environment) throws -> String {

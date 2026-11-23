@@ -2076,6 +2076,9 @@ public struct WorkspaceChanged: Codable, Equatable, Sendable {
     public var templates: [String: String]?
     /// Delete with `--bin-folders`: the folders moved to the Bin.
     public var binned: [String]?
+    /// Delete with `--bin-folders`: the folders KEPT, each with why (`WorkspaceLifecycle.binDecision`: only a folder the
+    /// workspace made goes). Additive (759).
+    public var keptFolders: [WorkspaceLifecycleItem]?
     public var notes: [String]?
     public var workspace: WorkspaceDetail?
     /// Finish, archive: the run closed, its archive (relative to the store) and its manifest's sha256 — or why it could not

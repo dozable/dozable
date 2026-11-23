@@ -347,13 +347,15 @@ struct WorkspaceDelete: AsyncParsableCommand {
         Refused unless it is finished or archived (doz workspace finish W first) and while anything of it runs. Its rooms \
         stay — archived, with their history (the chat server cannot delete a room); its bots and their tokens, saved disks, \
         and its adopted sandboxes and sessions (loose again) are kept; its anonymous workers are retired. Nothing on disk goes \
-        unless asked: --remove-sandboxes removes the sandboxes Dozable made for it, --bin-folders moves its folders to the \
-        Bin (never your home, the store, or a folder another workspace or sandbox uses). Asks for its name to be typed (--yes \
-        skips).
+        unless asked: --remove-sandboxes removes the sandboxes Dozable made for it, --bin-folders moves to the Bin only the \
+        folders it made (--new-folder's, a space file's scratch folders) — never a folder you gave it, one another workspace \
+        or sandbox uses, one outside defaults.projects_dir or one that now leads elsewhere through a link; the plan and the \
+        result say which folders go and which are kept, and why (your home and the store are refused). Asks for its name to \
+        be typed (--yes skips).
         """)
     @OptionGroup var a: LifecycleArguments
     @OptionGroup var s: LifecycleSandboxFlags
-    @Flag(name: .customLong("bin-folders"), help: "Also move its folders on this Mac to the Bin (never deleted).") var binFolders = false
+    @Flag(name: .customLong("bin-folders"), help: "Also move the folders it made on this Mac to the Bin (never deleted; your own folders are kept).") var binFolders = false
     func run() async throws {
         try await runWorkspaceLifecycle(.delete, a) { w in
             w.removeSandboxes = s.removeSandboxes ? true : nil
