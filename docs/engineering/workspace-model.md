@@ -19,12 +19,10 @@ line from coming to built without the code, and never describe coming behaviour 
 | **IDSESS** | `WorkspaceAgent` split into Identity (L1) and Session (L2); declared workers become identities; named workers persist | PLACE |
 | **SP32** | space/3.2: `lives: workspace \| run`, `places:`, `where: PLACE`, `brief.criteria`, `brief.addenda`, the migration notes | PLACE, IDSESS |
 | **LC2** | `down` ≠ `finish` (D4 reversed): `finish` closes the run and removes the run's things; `down` releases allocations and keeps data; `--purge` for every workspace; `WorkspaceDown`; the dashboard's Finish and Down | LC1, SP32 |
-| **UOW1** | the unit of work, light: per-run goal, criteria stored, tasks with delivery and claim, `outcome: unreviewed`, `unit.json` | LC1 |
-| **UOW2** | reviews and evidence, checks, `accept` and its rules, a reviewer's recommendation | UOW1 |
-| **UOW3** | the retrospective, findings, `--follows`, improvement proposals; the addendum to the brief first; the `reviewer` role | UOW2 |
+| **UOW-MVP** | the improvement loop: a proposal to change the work description (a lesson as `brief.addenda`) decided by the owner; the next run includes it | LC1 |
+| **UOW** | the run journal (open-ended entry kinds), evidence hashed on attach, playbooks as editable skills — design under revision | UOW-MVP |
 
-Later, only if the addendum proves too narrow: UOW4 (declared, versioned skills a retro may propose changes to) and UOW5
-(`runs --compare`).
+Later, only if the addendum proves too narrow: skills a proposal may change, and comparing runs.
 
 ## The four layers
 
@@ -192,26 +190,24 @@ but not a grant role (`GrantModel.roles`: owner, manager, worker, member, decide
 **Coming (IDSESS):** the split; named workers (`worker add W NAME`) persist, a nameless `--task` worker is run-owned; memory
 kept `up` → `--purge` for every workspace-owned identity whatever its place, reset only by an explicit reset (a
 fenced/unfenced switch warns instead); `WorkspaceAgent.task` becomes the identity's `prompt:`, freeing "task" for L3.
-**Coming (UOW3):** `reviewer` as an additive grant role (`run.review`, `run.recommend`, `retro.propose`; never
-`run.accept`).
+**Coming (UOW-MVP):** `reviewer` as an additive grant role, a convenience for what a review may record and propose —
+its exact grants follow the revised unit-of-work design.
 
 ## The unit of work
 
-A run is a unit of work, not a turn: **run → tasks → turns**. Dozable owns runs and tasks; turns belong to the agent and
-Dozable only observes them. Plan → Do → Check → Act:
+A run is a unit of work, not a turn: **run → tasks → turns**. Dozable owns runs; turns belong to the agent, and Dozable
+only observes them. **Its design is being revised to mechanisms, not process** (owner, 2026-11-23: how a run is
+planned, reviewed and accepted "will totally depend on the needs and style of the user and managing agent"). What is
+settled:
 
-| Stage | What happens | Its data | Stage |
-|---|---|---|---|
-| described | the run opens with what it is for | `goal` (the brief by default, `source: {kind: brief, revision}`), `criteria [{id, text, check?}]`, `inputs`, `constraints`; `--follows RUN`, `--source msg:\|run:\|url:` | LC1 (the verb), UOW1 |
-| planned | the manager or the owner breaks it into tasks | `tasks [{id, identity, text, criteria?, state: open → claimed → reviewed \| dropped}]`; delivered as a room message, or in the launch turn of an identity not running | UOW1 |
-| done, reviewed | a reviewer checks the work **against the criteria, never against a claim** | `reviews [{by, criterion, met: yes\|no\|partly, evidence [file:\|commit:\|msg:\|check:\|url:], subject}]` — the subject pinned (the main folder's HEAD, or a tree hash), the latest per reviewer per subject counts; no self-review (9); checks run inside a place, never unfenced as the owner | UOW2 |
-| accepted | the outcome decided — by the owner, or an identity with `run.accept` | `outcome {value: accepted\|accepted-with-issues\|rejected\|unreviewed, decidedBy, issues[], unreviewed[]}`; a failing check blocks `accepted`, a passing one never accepts; a reviewer may only recommend | UOW2 |
-| closed | `finish` archives it | `unit.json` beside the room slice and transcripts in the run's archive, immutable after `finish`; `usage` and `constraints` recorded | UOW1 |
-| improved | a retrospective; findings; improvement proposals through proposal → Ask → apply, never silent | `retro.json`; the **addendum loop**: `retro W RUN --propose --addendum TEXT [--criterion …]` appends `brief.addenda {run, at, text}` (the brief's own text never rewritten) and may add criteria — adding is never weakening, removing or loosening is `weakens: true` and the owner's; the next run's goal is the brief plus a "Learned in run N" section per addendum, its `source.revision` the revision that carries it | UOW3 |
-
-**Light by default** (a goal, an outcome, the evidence Dozable collects anyway; `finish` records `outcome: unreviewed`);
-**full** per template or `run --full` (criteria required, `finish` without an outcome refused). One run at a time; parallel
-work is tasks inside it. Improvements land in the workspace's document only; a template changes only by `template save`.
+- **Three hard rules**, because they are about trust, not process: no agent decides a change to its own instructions
+  (a change to the work description is a proposal someone else decides); evidence attached to a run is hashed when
+  attached; a closed run's record is immutable (later reflections go beside it).
+- **The improvement loop:** after a run, a proposal to change the work description (for example, a lesson appended
+  as `brief.addenda {run, at, text}`, never rewriting the brief) is decided by the owner or a granted identity, and the
+  next run's goal includes it (UOW-MVP, after LC1).
+- Everything else (tasks, reviews, outcomes, gates) is to be a run journal with open-ended entry kinds plus
+  editable playbooks for the managing agent, not steps Dozable enforces; enforced gates, if any, opt-in per workspace.
 
 **Built in 0.52.43:** the run as a record (`WorkspaceRun {id, startedAt, endedAt, rooms, archive, archiveSHA256, closedBy,
 …}`, `WorkspaceRecord.swift`; at most one open, `WorkspaceRecord.openRun`); its room slice (`WorkspaceRunRoom {fromSeq,
