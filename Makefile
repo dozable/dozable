@@ -72,7 +72,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test test-chat-conformance chat-markdown-check app app-dev test-cli-app test-cli-alwayson test-cli-chat test-cli-workspace test-cli-workspace-vm test-cli-timeline test-cli-timeline-vm test-cli-bots test-cli-macs test-cli-skill test-cli-daemontest-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check dozchat-mac dozchat-linux-x86_64 dozchat-check dozchat dozchat-verify css-lint css-perf dashboard-walk recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test publish-docs test-chat-conformance chat-markdown-check app app-dev test-cli-app test-cli-alwayson test-cli-chat test-cli-workspace test-cli-workspace-vm test-cli-timeline test-cli-timeline-vm test-cli-bots test-cli-macs test-cli-skill test-cli-daemontest-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-fence test-cli-keychainlocked deckhold-mac deckhold-mac-check dozchat-mac dozchat-linux-x86_64 dozchat-check dozchat dozchat-verify css-lint css-perf dashboard-walk recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -375,6 +375,7 @@ release: ## 598/611/675: build (PUBLIC=1 by default; PUBLIC=0 a private rc; FLAV
 # unless PUSH=1, and the GitHub release is printed, never created.
 UPDATES_DIR ?= $(or $(TMPDIR),/tmp/)doz-updates-site
 TAP_DIR     ?= $(or $(TMPDIR),/tmp/)doz-homebrew-tap
+WEBSITE_DIR ?= $(or $(TMPDIR),/tmp/)doz-website
 CHANNEL     ?= canary
 
 doz-update-keys: ## 611: ONCE, by the owner — make Dozable's update-signing key in the login keychain (asks first) and print its public key to commit
@@ -383,6 +384,9 @@ doz-update-keys: ## 611: ONCE, by the owner — make Dozable's update-signing ke
 publish: ## 611: put dist/doz-VERSION's tarball on the feed + the channel formulas (VERSION=, NOTES=notes.md, CHANNEL=canary|beta|stable; DRY_RUN=1; PUSH=1)
 	@VERSION="$(VERSION)" NOTES="$(NOTES)" CHANNEL="$(CHANNEL)" DIST="$(DIST)" UPDATES_DIR="$(UPDATES_DIR)" TAP_DIR="$(TAP_DIR)" \
 	  DRY_RUN="$(DRY_RUN)" PUSH="$(PUSH)" Scripts/publish.sh
+
+publish-docs: ## 770: this version's manual on the website at /v/VERSION/ — built from the tag (VERSION=, CHANNEL=canary|beta|stable; DRY_RUN=1; PUSH=1)
+	@VERSION="$(VERSION)" CHANNEL="$(CHANNEL)" WEBSITE_DIR="$(WEBSITE_DIR)" DRY_RUN="$(DRY_RUN)" PUSH="$(PUSH)" Scripts/publish-docs.sh
 
 promote: ## 611: move a published build to a wider channel — never rebuilds (BUILD=N or VERSION=X.Y.Z, CHANNEL=beta|stable; PUSH=1)
 	@BUILD="$(BUILD)" VERSION="$(VERSION)" CHANNEL="$(CHANNEL)" UPDATES_DIR="$(UPDATES_DIR)" TAP_DIR="$(TAP_DIR)" PUSH="$(PUSH)" Scripts/promote.sh
