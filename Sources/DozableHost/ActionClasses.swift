@@ -139,6 +139,16 @@ public enum ActionClasses {
             return needs(["description.decide"], ws)
         case .workspaceAddendum:
             return needs(["description.edit"], ws)
+        // the run journal (767): reading, following and waiting need journal.read (on by default in the agent's own
+        // workspace); an entry needs journal.write or journal.write:KIND, and evidence.attach to attach. Correcting another's
+        // entry also needs journal.supersede — decided by the daemon once it has read whose the entry is.
+        case .workspaceJournal, .workspaceJournalFollow:
+            return needs(["journal.read"], ws)
+        case .workspaceJournalAdd:
+            let j = w?.journal
+            var p = [j?.kind.flatMap { JournalKinds.isValid($0) ? "journal.write:" + $0 : nil } ?? "journal.write"]
+            if !(j?.attach ?? []).isEmpty || !(j?.attachRef ?? []).isEmpty { p.append("evidence.attach") }
+            return needs(p, ws)
         case .workspaceArchive, .workspaceRestore, .workspaceRunArchive:
             return needs(["workspace.archive"], ws)
         case .workspaceDelete:

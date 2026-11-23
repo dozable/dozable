@@ -92,7 +92,7 @@ final class WorkDescriptionTests: XCTestCase {
         for id in ["description.propose", "description.decide", "description.edit", "journal.read", "journal.write", "journal.supersede", "evidence.attach"] {
             XCTAssertTrue(GrantPermissions.isKnown(id), id)
         }
-        XCTAssertTrue(GrantPermissions.words("journal.write").contains("gates nothing yet"))
+        XCTAssertTrue(GrantPermissions.words("journal.write").contains("journal.write:KIND"), "767: the journal ids gate")
         XCTAssertEqual(RoleTable.role("reviewer")?.answers, ["journal.write": .allow, "evidence.attach": .allow, "description.propose": .allow])
         let now = Date()
         func decide(_ perm: String, _ grants: [Grant]) -> GrantAnswer {

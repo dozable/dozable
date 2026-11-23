@@ -298,6 +298,13 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// when it is decided already); `-addendum` adds one directly, with no proposal (`WorkspaceAddendumAdded`);
     /// `-proposals` lists them (`WorkspaceProposals`, read-only). The daemon's, but for `-proposals`.
     case workspaceRetro = "workspace-retro", workspaceDecide = "workspace-decide", workspaceAddendum = "workspace-addendum"
+    /// 767: the run journal, journal/1 (`WorkspaceRequest.journal`). `-journal` reads a run's entries (`WorkspaceJournal`;
+    /// the open run by default, or any run, archived ones included; with `after` and `kind`, the effective entries of that
+    /// kind after a point, across runs — what `doz workspace wait` polls) — read-only, in-process when no daemon runs.
+    /// `-journal-add` appends one entry to the open run (the daemon's): `run-closed` / `no-open-run` (3), `invalid-value`
+    /// (65), `limited` (8), `not-permitted` (9). `-journal-follow` is a stream (NDJSON lines, `hello` first), served on the
+    /// connection like `events`, from the store at the follower's own pace.
+    case workspaceJournal = "workspace-journal", workspaceJournalAdd = "workspace-journal-add", workspaceJournalFollow = "workspace-journal-follow"
     case workspaceProposals = "workspace-proposals"
     /// What each agent of a workspace can reach and hold (`WorkspaceRequest.agent`: one only) — `WorkspaceReach`: its isolation
     /// and control, folders, network (preset, sites, this Mac's ports, forwarded ports, refusals while a daemon runs), the
@@ -401,7 +408,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
              .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .workspaceDownPlan, .macsList,
-             .workspaceState, .workspaceDoc, .workspaceProposals, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery, .timelineRetention: true
+             .workspaceState, .workspaceDoc, .workspaceProposals, .workspaceJournal, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery, .timelineRetention: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -787,6 +794,12 @@ public struct HostError: Codable, Equatable, Sendable, Error, LocalizedError {
         case runOpen = "run-open"
         /// [3] 766: the proposal is decided already (applied or declined).
         case proposalDecided = "proposal-decided"
+        /// [3] 767: the run is closed — its journal never changes again (write to the next run).
+        case runClosed = "run-closed"
+        /// [3] 767: no run is open — a journal entry is written only while a run is (doz workspace run W opens one).
+        case noOpenRun = "no-open-run"
+        /// [3] 767: following or waiting needs a running daemon, and a read never starts one (doz daemon start).
+        case noDaemon = "no-daemon"
         /// [4] the contract's name for `exists` (doz still answers `exists`).
         case alreadyExists = "already-exists"
         /// [5] a question nobody answered: no terminal and no --yes, or the answer was no.
@@ -1934,8 +1947,27 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var addendum: String?
     public var proposal: String?
     public var decision: String?
+    /// 767, the run journal: what to read, write or follow. Additive: an older daemon refuses the operation it does not know.
+    public var journal: WorkspaceJournalRequest?
 
     public init(name: String? = nil) { self.name = name }
+}
+
+/// 767: `workspace-journal` (`run`, or `after` + `kind`), `-journal-add` (`kind`, `text`, `data`, `refs`, `attach`,
+/// `attachRef`, `supersedes`) and `-journal-follow` (`after` or `afterWseq`, `untilFinish`). Paths are absolute.
+public struct WorkspaceJournalRequest: Codable, Equatable, Sendable {
+    public var run: String?
+    public var kind: String?
+    public var text: String?
+    public var data: JSONValue?
+    public var refs: [String]?
+    public var attach: [String]?
+    public var attachRef: [String]?
+    public var supersedes: Int?
+    public var after: String?
+    public var afterWseq: Int64?
+    public var untilFinish: Bool?
+    public init() {}
 }
 
 /// `workspace-ls`: each workspace, then every sandbox and session on this Mac in none.

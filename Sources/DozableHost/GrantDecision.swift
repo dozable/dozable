@@ -250,11 +250,14 @@ public struct GrantDecision: Equatable, Sendable, Codable {
 
         // 4. nothing says anything.
         if answer == nil {
-            let a: GrantAnswer = GrantPermissions.failClosed.contains(perm) ? .never : .ask
+            // 767: journal.read is on by default for an agent in its own workspace.
+            let ownDefault = GrantPermissions.defaultAllowInOwnWorkspace.contains(perm) && q.home != nil && q.workspace == q.home
+            let a: GrantAnswer = GrantPermissions.failClosed.contains(perm) ? .never : ownDefault ? .allow : .ask
             answer = a
             decidedAt = 4
             source = "default"
-            let why = !GrantPermissions.isKnown(perm) ? " (not a known permission)" : a == .never ? " (\(perm) fails closed)" : ""
+            let why = !GrantPermissions.isKnown(perm) ? " (not a known permission)" : a == .never ? " (\(perm) fails closed)"
+                : ownDefault ? " (\(perm) is on by default in its own workspace)" : ""
             winner = "nothing says anything: \(a.rawValue)\(why)"
             steps.append(Step(n: 4, label: "4 nothing says anything", found: a.rawValue + why, decided: true))
         } else {

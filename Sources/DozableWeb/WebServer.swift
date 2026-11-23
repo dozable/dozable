@@ -739,9 +739,9 @@ public final class DozableWebServer: @unchecked Sendable {
         } catch let e as HostError {
             let status = switch e.code {
             case .notFound: 404
-            case .invalidPhase, .conflict, .planChanged, .fileChanged, .alreadyAnswered, .notOwned, .requestIDReused, .runOpen, .proposalDecided, .ambiguous, .limited: 409
+            case .invalidPhase, .conflict, .planChanged, .fileChanged, .alreadyAnswered, .notOwned, .requestIDReused, .runOpen, .proposalDecided, .runClosed, .noOpenRun, .ambiguous, .limited: 409
             case .invalid, .invalidDocument, .invalidValue, .secretValueInDocument, .usage, .unclearRequest, .needsConfirmation: 400
-            case .unavailable, .version, .needsDaemon: 503
+            case .unavailable, .version, .needsDaemon, .noDaemon: 503
             case .exists, .alreadyExists: 409
             case .failed, .notImplemented, .partial: 500
             case .timedOut: 504

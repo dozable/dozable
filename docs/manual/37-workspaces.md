@@ -539,7 +539,7 @@ it again exits 3 (`proposal-decided`). `--json` answers `{"kind": "WorkspaceProp
 You are never asked for permission. An agent is, and each of these is **off for agents** until you grant it:
 `description.propose` (retro --propose), `description.decide` (decide — its own proposals too) and `description.edit` (edit
 --addendum). Without it the agent is refused (exit 9, `not-permitted`, naming the permission). The **reviewer** role gives
-`description.propose` (and, for the run journal that comes later, `journal.write` and `evidence.attach`):
+`description.propose`, `journal.write` and `evidence.attach` (the run journal, below):
 
 ```bash
 doz grant manager reviewer --in demo                    # it may propose lessons; you decide
@@ -549,6 +549,49 @@ doz grant manager description.decide=allow --in demo    # it may also decide the
 A space file can ask for them in its own config — `x-dozable: {permissions: {helper: [reviewer, description.decide]}}` —
 and `doz workspace plan` shows each as a request ("Requested, not granted"): the file never grants anything; you grant with
 `doz grant`. A name that is not a role or a permission is a problem in the file (exit 65), listing the known ones.
+
+### The run journal
+
+Each run has a **journal**: an append-only, ordered list of entries that you and the workspace's agents write as the work
+goes — a note, a task, a review against a criterion, a finding, the outcome. Dozable records each entry and its order; it
+never decides what the entries mean or enforces a process.
+
+```bash
+doz workspace journal demo add note "the build is green"                  # to the open run
+doz workspace journal demo add review "c1 met" --data '{"criterion":"c1","met":"yes"}' --attach ~/src/demo/test.log
+doz workspace journal demo add review "c1 not met after all" --data '{"criterion":"c1","met":"no"}' --supersedes 2
+doz workspace journal demo                                                # the open run's entries (or: … demo RUN)
+doz workspace journal demo --follow --json                                # one JSON line per event, as it happens
+doz workspace wait demo --for journal.outcome --timeout 120               # until an outcome entry is written
+```
+
+- **Entries.** Dozable sets each entry's `id` (`RUN#SEQ`), `seq`, `at` and `by` (you are `owner`). A **kind** is any name
+  of a–z 0–9 `.` `_` `-`; ten are known (`note`, `task`, `claim`, `criterion`, `review`, `finding`, `outcome`, `lesson`, and
+  Dozable's own `gate` and `hook`), and a known kind's `--data` fields are checked when present. `gate`, `hook` and any
+  `dozable.` kind are written by Dozable only (exit 65); prefix your team's own kinds (`acme.deploy`). Text and data pass the
+  same leak sweep as exports: a chat token in them is replaced, and the entry says `"swept": true`. No agent may be named
+  `owner`.
+- **Corrections.** Nothing is edited. `--supersedes N` adds a correction of entry N: the same kind (another kind is exit
+  65), by N's author — or by someone holding `journal.supersede`; you always may. The journal shows the original marked
+  `superseded_by`.
+- **Evidence.** `--attach FILE` copies a file from the run's folders into the run and records its hash, so a later edit
+  never changes the record (10 MiB a file, 200 MiB a run, else exit 8). `--attach-ref FILE` records the hash of a large file
+  without copying it (`"copied": false`). A file is read through no link and only from inside the workspace's folders.
+  `--ref` points at another entry (`seq:N`, `entry:RUN#SEQ`), a message (`msg:SEQ`), a commit (`commit:SHA`, with whether
+  its object is there) or an address (`url:…`, never fetched).
+- **Only while a run is open.** With none open an entry is refused (exit 3, `no-open-run`); a finished run's journal never
+  changes again. At finish the journal and its evidence go into the run's archive, and `doz workspace journal W RUN` still
+  reads them.
+- **Following.** `--follow` streams the workspace's lines: `hello` first, then each entry, each run opening and finishing,
+  and the work description's changes and proposals, each with one cursor, `wseq` — resume with `--after-wseq N` and nothing
+  is missed or repeated (`--after RUN#SEQ` for entries only; `--until-finish` ends at the run's finish). A clean close sends
+  `end`; anything else means "reconnect". **`wait`** is level-triggered: an entry already written matches at once, and with
+  `--after RUN#SEQ` only a later one does; it exits 124 on `--timeout`. Both need the daemon running and never start it
+  (exit 3, `no-daemon` — `doz daemon start`).
+- **Permissions.** You are never asked. An agent reads its own workspace's journal by default (`journal.read`, which you
+  can withdraw: `doz grant AGENT journal.read=never --in W`); writing needs `journal.write` — or `journal.write:KIND` for one
+  kind only —, attaching `evidence.attach`, and correcting another's entry `journal.supersede`. The `reviewer` role gives
+  `journal.write` and `evidence.attach`.
 
 ## What agents may do
 

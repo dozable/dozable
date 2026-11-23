@@ -76,6 +76,14 @@ public enum PermissionGate {
             case .room(let room): w = room.flatMap { room in workspaces.records().first { $0.rooms.contains { $0.chatRoom == room } }?.name }
             case .nowhere: w = nil
             }
+            return decide(perms, workspace: w, name: name, home: home, who: who, facts: facts, now: now, record: record)
+        }
+    }
+
+    /// The strictest answer of `perms` for `who` in workspace `w`: allow passes; ask and never are refused, naming the
+    /// permission and what decided.
+    static func decide(_ perms: [String], workspace w: String?, name: String, home: String, who: GrantWho, facts: GrantFactsReader, now: Date,
+                       record: (String, GrantDecision, String?) -> Void) -> Outcome {
             var worst: (String, GrantDecision)?
             for p in perms {
                 let d = facts.decide(who, perm: p, workspace: w, now: now)
@@ -94,7 +102,39 @@ public enum PermissionGate {
                 record(perm, d, "refused: " + d.winner)
                 return .refused(HostError(.notPermitted, "\(perm) for \(name) in \(home) is never: \(d.winner). \(see)"), d)
             }
+    }
+
+    /// 767: one more permission an operation needs once the daemon has read what it is about (correcting another's journal
+    /// entry needs `journal.supersede`): nil for the owner — never gated — and when the agent holds it; else the refusal.
+    /// Decided and logged as the gate decides.
+    public static func require(_ perm: String, for r: HostRequest, workspace w: String, store: DozableStore, now: Date = Date()) -> HostError? {
+        guard r.actAs != nil else { return nil }
+        let caller: Caller
+        do { caller = try Caller.of(r) } catch { return HostError.from(error) }
+        guard case .agent(let home, let name) = caller else { return nil }
+        let facts = GrantFactsReader(store: store)
+        let workspaces = WorkspaceStore(store: store)
+        let rec = try? workspaces.read(home)
+        let who: GrantWho
+        if let rec, let a = rec.agents.first(where: { ($0.name == name || $0.bot == name) && $0.endedAt == nil }) {
+            who = GrantFactsReader.who(a, in: rec)
+        } else {
+            let isBot = BotStore(store: store).readOrEmpty().bot(name).map { !$0.retired } ?? false
+            who = GrantWho(name: name, home: home, bot: isBot ? name : nil)
         }
+        let subject = GrantSubject.agent(home, name).stored
+        func record(_ p: String, _ d: GrantDecision, _ reason: String?) {
+            let e = GrantLogEntry(at: now, by: subject, action: "permission-decided", subject: subject, perm: p, answer: d.answer.rawValue,
+                                  op: r.op.rawValue, reason: reason)
+            try? GrantStore(store: store).append(e)
+            if rec != nil {
+                var l = WorkspaceLogEntry(at: now, by: "doz", action: "permission-decided", agent: name, reason: reason)
+                l.subject = subject; l.perm = p; l.answer = d.answer.rawValue; l.op = r.op.rawValue
+                try? workspaces.append(home, l)
+            }
+        }
+        if case .refused(let e, _) = decide([perm], workspace: w, name: name, home: home, who: who, facts: facts, now: now, record: record) { return e }
+        return nil
     }
 
     /// The daemon's door: nil when the request goes on, else why it is refused. The owner's request — every request that

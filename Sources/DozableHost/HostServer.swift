@@ -475,6 +475,9 @@ public final class HostServer: @unchecked Sendable {
             return true
         }
         guard first else { return }
+        // 767: every journal follow ends cleanly (`end`, reason daemon-stopping) — a bare EOF would mean "reconnect".
+        JournalFollower.stopping = true
+        try? await Task.sleep(for: .milliseconds(300))
         // New clients start a new host, which waits for this one's lock before it loads anything.
         let fd = lock.withLock { () -> Int32 in let f = listenFD; listenFD = -1; return f }
         if fd >= 0 { Darwin.shutdown(fd, SHUT_RDWR); close(fd) }
@@ -577,6 +580,8 @@ public final class HostServer: @unchecked Sendable {
             }
         case .timelineSubscribe:
             stream(conn, reader: reader) { [core] in core.timelineBatches(req) }
+        case .workspaceJournalFollow:
+            journalFollow(conn, reader: reader, request: req)
         case .copy:
             copy(conn, reader: reader, request: req)
         case .netLog where req.follow == true:
@@ -784,6 +789,24 @@ public final class HostServer: @unchecked Sendable {
             }
         }
         watchHangup(conn, reader: reader) {}
+    }
+
+    /// 767 `doz workspace journal W --follow`: the follow's lines (hello first), read from the store at the follower's own
+    /// pace on a thread of its own (never the cooperative pool — a follow lasts as long as its reader), until the reader
+    /// goes, the run finishes under `--until-finish`, or the daemon stops (`end`). An unknown cursor is the one failure.
+    private func journalFollow(_ conn: HostConnection, reader: LineReader, request req: HostRequest) {
+        let gone = FollowFlag()
+        let core = self.core
+        Thread.detachNewThread {
+            do {
+                let f = try core.journalFollower(req)
+                f.run(send: { conn.send(HostMessage(result: $0)) }, cancelled: { gone.isSet })
+            } catch {
+                conn.send(.failure(HostError.from(error)))
+            }
+            conn.shutdownIO()
+        }
+        watchHangup(conn, reader: reader) { gone.set() }
     }
 
     /// 591 `console --follow`: the boot console's lines (its newest 256 KiB first), then each new
@@ -1149,4 +1172,12 @@ struct SupervisorBotChat: BotChat {
     }
 
     private func settle() async { _ = try? await supervisor.sync(human: nil, retry: false, waitReady: true, blocked: await blocked()) }
+}
+
+/// A flag one thread sets and another reads (767: a follow's reader went).
+final class FollowFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    func set() { lock.lock(); value = true; lock.unlock() }
+    var isSet: Bool { lock.lock(); defer { lock.unlock() }; return value }
 }

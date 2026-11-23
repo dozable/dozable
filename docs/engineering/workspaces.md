@@ -34,6 +34,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Sources/DozableCLI/WorkspaceLifecycleCommands.swift` | `doz workspace stop | manager stop | sleep | wake | finish | reopen | archive | restore | delete` (the plan's text, the questions and their `fix`, `--dry-run`, `--if-plan`); `runWorkspaceFinish`, the one path of finish and `down` |
 | `Tests/DozableCLITests/WorkspaceLifecycleTests.swift`, `WorkspaceLifecycleHostTests.swift`; `Sources/doz-vmtest/CLIWorkspaceLifecycleRows.swift` | the builder over every kind of agent; the verbs in an in-process core with fakes (the order, `ifPlan`, a partial failure, archive and restore, delete, the Bin's seam, the dashboard's confirmations); `make test-cli-workspace` rows L1–L14 |
 | `Sources/DozableHost/WorkspaceProposals.swift`, `HostCore+Proposals.swift`; `Sources/DozableChat/ChatSystemAsks.swift`; `Sources/DozableCLI/WorkspaceDescriptionCommands.swift`; `Tests/DozableCLITests/WorkDescriptionTests.swift` | the work description (0.52.47): addenda, proposals and their Ask, `retro`, `decide`, `proposals`, `edit --addendum` ("The work description and proposals", below) |
+| `Sources/DozableHost/RunJournal.swift`, `HostCore+Journal.swift`; `Sources/DozableCLI/WorkspaceJournalCommands.swift`; `Tests/DozableCLITests/RunJournalTests.swift` | the run journal, journal/1 (0.52.48): entries, kinds, refs, corrections, evidence, the store and `wseq`, the follower; `workspace-journal`, `-journal-add`, `-journal-follow`; `doz workspace journal` and `wait` ("The run journal", below; [journal.md](journal.md)) |
 | `Sources/DozableHost/WorkspaceRuns.swift`, `HostCore+Runs.swift`; `Sources/DozableCLI/WorkspaceRunsCommands.swift`; `Tests/DozableCLITests/WorkspaceRunVerbTests.swift` | runs: `WorkspaceRuns` (ids, markers, the closed set; 0.52.46: `source`, `descriptionRevision`, `durationMs`), `WorkspaceRunOpened`, `WorkspaceRunsListing`; `openRun`, `closeRun`, `workspace-run` (`workspaceRunOpen`, `reopenRecord`), `workspace-runs`, the archive; `doz workspace run` and `runs` ("Runs", below) |
 | `Sources/DozableHost/WorkspaceReach.swift` | `workspace-reach`'s answer — `WorkspaceReach`, `AgentReach`, `AgentNetworkReach`, `ReachRefusal`, `HeldSecret` (`held`: never a value; a chat token's fingerprint never carried), `ReachFolder` — and `AgentCapabilities.rows` (pure: "what it can do" for any agent; an `@mac` agent's `MacFence.capabilities` unchanged, then its control and its room) |
 | `Sources/DozableHost/WorkspaceChangedFiles.swift` | the changed-files walk (never a program: files.md), `WorkspaceFolders` (`workspace-folders`' answer), `WorkspaceLogPage` |
@@ -787,8 +788,8 @@ run, never the text). Code: `WorkspaceProposals.swift` (the types, `WorkDescript
 (`ActionClasses`); `workspace-proposals` needs `workspace.read`. All three are off for an agent until granted (no role names
 them but `reviewer`'s `description.propose`), so the default is the gate's refusal, `not-permitted` (9), naming the id. The
 `reviewer` grant role (`RoleTable`) is `journal.write`, `evidence.attach` and `description.propose`, allow:
-`doz grant AGENT reviewer --in W`. `journal.read`, `journal.write`, `journal.supersede` and `evidence.attach` are known ids
-for the journal (UOW-MVP part B) that gate nothing yet.
+`doz grant AGENT reviewer --in W`. Since 0.52.48 `journal.read`, `journal.write` (and `journal.write:KIND`),
+`journal.supersede` and `evidence.attach` gate the run journal ("The run journal", below).
 
 **Dozable's own Ask** (`ChatSystemAsks.swift`). The one who asks cannot answer, and Dozable never speaks for an agent, so a
 proposal's Ask is posted under the chat server's own name (`ChatProtocol.systemName`, which no participant can have) over
@@ -806,6 +807,60 @@ the summary's `Requested, not granted: helper — role reviewer, description.dec
 grants; FILE:LINE). The owner grants with doz permissions grant.` Up records them as every request is recorded and grants
 nothing — show-only is the contract for now.
 
+### The run journal (0.52.48)
+
+journal/1 — the normative description is [journal.md](journal.md); this is the code's side. Each run has one append-only
+journal, `<store>/workspaces/<W>/runs/<RUN>/journal.jsonl` (`RunJournalStore`: 0600 lines in a 0700 folder, no link in the
+path, each line fsynced before the answer), copied evidence beside it in `evidence/`, and the workspace one follow file,
+`follow.jsonl`, whose lines carry the per-workspace cursor `wseq` (an entry's line names its run and seq; the entry is read
+from its journal). The store is one object per store root in a process (`RunJournalStore.shared`): its lock and a cached last
+`wseq` — re-read whenever the file is not the one read (inode, size) — keep `wseq` from repeating or skipping, across runs
+and daemon restarts. Workspace lines come from the workspace's log: `WorkspaceStore.append` turns `run-opened` /
+`run-closed` into `run` lines (`opened` / `finished`), `brief-edited`, `refs-edited` and `addendum-added` into
+`description.changed` (with the description's `revision`), `proposal-made` into `proposal.made` and `proposal-applied` /
+`proposal-declined` into `proposal.decided` (`RunJournalStore.followLine`). `process.applied` comes with PLAYBOOKS.
+
+- **`workspace-journal`** (read-only; in-process with no daemon): `WorkspaceJournal {kind: "WorkspaceJournal", schema: 1,
+  format: "journal/1", workspace, run, open, entries}` — `run` the open run by default, else the last; any run of the record
+  (2 for an unknown one), and for a deleted workspace a run whose archive holds a journal. Each entry is `{id: "RUN#SEQ", seq,
+  at (ISO 8601 UTC, ms), by ("owner" or the agent), kind, text?, refs?, data?, evidence? [{ref, sha256, bytes, copied?,
+  stored?, swept?}], refDetails? [{ref, present?, sha256?, verified?}], supersedes?, swept?}`, and a superseded one carries
+  `superseded_by` (computed, never stored — `JournalRead.markSuperseded`). With `kind` (what `doz workspace wait` polls) it
+  answers the EFFECTIVE entries of that kind in the open run, or after `after` (`RUN#SEQ`, across later runs; an unknown
+  point 65).
+- **`workspace-journal-add`** (the daemon's): checks first, with nothing written — the kind (`JournalKinds.check`: the
+  pattern; `gate`, `hook`, `dozable.*` 65 from anyone), a known kind's `data` (`checkData`), the limits (`JournalLimits`: 8),
+  each ref's form (65). Then, off the actor, each `--attach` resolved inside the run's folders (`JournalEvidenceFiles.resolve`:
+  the folder's real path plus the part inside it, no `..`, opened `O_NOFOLLOW_ANY`, a regular file of yours with one name),
+  read up to its limit, swept and written under a staging name in `evidence/`; each `--attach-ref` hashed in place. Then on
+  the actor with no suspension (`commitJournalEntry`): the run still open (`run-closed` if it closed meanwhile, `no-open-run`
+  when none), the entry limit, a correction's rules (`JournalCorrection`: no earlier entry N or another kind → 65; another's
+  entry → `PermissionGate.require("journal.supersede")` for an agent, 9), the refs against the run (`seq:N` earlier, `msg:SEQ`
+  in the run's slice, a commit's `present`), the staged copies renamed to `evidence/<sha12>-<name>`, the text and data swept
+  (`JournalSweep`, `swept: true`), the line appended, its follow line appended. A failure removes the staged copies.
+- **`workspace-journal-follow`** (a stream, served by `HostServer.journalFollow` on a thread of its own): `JournalFollower`
+  reads the follow file from a byte offset at the follower's own pace — nothing is buffered for a slow follower and no writer
+  waits, so `follow-lagged` is never sent by this build — and sends `hello`, then `entry` / `run` / `workspace` lines (an
+  entries-only follow after `RUN#SEQ` skips the rest), a `heartbeat` after 30 s of quiet, and `end` when the daemon stops
+  (`JournalFollower.stopping`, set first in `shutdown`) or, under `untilFinish`, when the followed run finishes. An unknown
+  cursor (`afterWseq` past the last, an `after` the journal does not hold) is the one failure, 65. Without a cursor it starts
+  live, after the last `wseq`.
+
+The CLI (`WorkspaceJournalCommands.swift`): `journal W [RUN]` reads (`query`: no daemon started), `journal W add KIND
+[TEXT] …` calls the daemon (paths made absolute), `--follow` and `wait --for journal.KIND` need a running daemon and never
+start one (`connectNoStart`: exit 3, `no-daemon`, the fix `doz daemon start`); `--follow` prints each line as it comes (a
+direct write per line); `wait` polls `workspace-journal` with the kind every 250 ms until one matches (0, the entry) or the
+timeout (124); `wait --for ready` polls `workspace-state` for `ready`.
+
+**Permissions.** `workspace-journal` and `-journal-follow` need `journal.read`, which is the one permission on by default:
+answered allow at step 4 for an agent in its own workspace (`GrantPermissions.defaultAllowInOwnWorkspace`), so a never or
+a grant withdraws it, and another workspace's stays never (Dozable's own). `-journal-add` needs `journal.write:KIND` — a
+parameterised id (`GrantPermissions.kindOf`), answered by a grant of that id or of `journal.write`
+(`answeringIds`), so `journal.write` is every kind and a role's or ceiling's `journal.write` applies too — and
+`evidence.attach` when it attaches. Correcting another's entry needs `journal.supersede`, decided by the daemon once it has
+read whose the entry is. No identity may be named `owner` (65): the space validator refuses an agent of that name, and
+`worker add` and `adopt --as` a new one (`WorkspaceName.checkNewAgent`).
+
 ## The archive
 
 `<store>/archives/<workspace>/runs/<run>/` (outside `workspaces/W/`, so delete keeps it), written by `RunArchive` into
@@ -815,7 +870,8 @@ files [{path, sha256, sourceSHA256?, bytes, agent?, source?, session?}], message
 plan), `brief.md`, `chat/<room>.jsonl` and `attachments/<room>/…` (no cap), `transcripts/<agent>/…` (a session on this
 Mac's — Dozable's kept copies since the run began, its carried copies and recorded conversations, by `TranscriptCopy`'s
 rules; a sandbox's), `screens/<agent>.txt`, `usage.json` (`TranscriptUsage` over the archived copies) and `timesheet.md`
-(`Timesheet`; commits "not collected": Dozable never runs git in an agent's folder). Every file is swept as written
+(`Timesheet`; commits "not collected": Dozable never runs git in an agent's folder), and the run's journal,
+`journal.jsonl`, with its copied evidence in `evidence/` (0.52.48; read from there once the run's folder goes). Every file is swept as written
 (`ExportSweep`), then the whole archive is swept again — a finding fails it —, then the manifest is written and every file
 re-hashed through the folder's descriptor, then the partial is renamed into place. No program is run.
 
@@ -1332,6 +1388,13 @@ add; both `asleep` after sleep; the worker `crashed` (its exit the reason) after
   of chat, the run room's tombstone, the persisted room closed, the scratch folder gone, the memory kept); up #2 (the room's
   id kept, the memory seeded, the conversation resumed; a run agent starts with none); `--purge` (the kept folder released,
   never deleted); a clean room's "deleted with no copy"; a similarly named session survives.
+
+- The run journal (0.52.48): `make test FILTER=RunJournalTests` — kinds and reserved names, a known kind's data, refs, the
+  corrections matrix and `superseded_by`, the sweep; append order with the daemon's fields, 0600/0700, refused shapes
+  writing nothing; no open run and a closed one; evidence copied and hashed, referenced in place, outside the folders or
+  through a link refused, the copy limit, no staging left; level-triggered wait and an unknown point; `wseq` across a new
+  store object and a follow resumed with nothing missed or repeated; `end` at a finish and a stop, the heartbeat; the
+  permissions; the archive holding the journal and evidence, read from there. The harness rows `@stage:UOW-MVP-J`.
 
 ## Read by the timeline
 

@@ -49,10 +49,10 @@ public enum GrantPermissions {
         .init(id: "description.propose", words: "propose a change to the work description (an Ask to the owner)"),
         .init(id: "description.decide", words: "apply or decline a proposal to the work description (its own too)"),
         .init(id: "description.edit", words: "change the work description directly, with no proposal"),
-        .init(id: "journal.read", words: "read a run's journal (gates nothing yet: the journal comes later)"),
-        .init(id: "journal.write", words: "write a run's journal (gates nothing yet: the journal comes later)"),
-        .init(id: "journal.supersede", words: "supersede a journal entry (gates nothing yet: the journal comes later)"),
-        .init(id: "evidence.attach", words: "attach evidence to a run (gates nothing yet: the journal comes later)"),
+        .init(id: "journal.read", words: "read, follow and wait on a run's journal and its evidence (on by default in its own workspace)"),
+        .init(id: "journal.write", words: "write a run's journal, any kind (journal.write:KIND: that kind only)"),
+        .init(id: "journal.supersede", words: "correct another's journal entry (same kind, with the write permission for it)"),
+        .init(id: "evidence.attach", words: "attach evidence to a journal entry (--attach, --attach-ref)"),
         .init(id: "workspace.archive", words: "archive and restore the workspace"),
         .init(id: "workspace.delete", words: "delete the workspace"),
         .init(id: "bot.manage", words: "make or retire Agents / Bots"),
@@ -64,14 +64,36 @@ public enum GrantPermissions {
     public static let ids: [String] = list.map(\.id)
     static let known: Set<String> = Set(ids)
 
-    public static func isKnown(_ p: String) -> Bool { known.contains(p) }
-    public static func words(_ p: String) -> String { list.first { $0.id == p }?.words ?? "not a known permission" }
+    public static func isKnown(_ p: String) -> Bool { known.contains(p) || kindOf(p) != nil }
+    public static func words(_ p: String) -> String {
+        if let k = kindOf(p) { return "write a run's journal, entries of kind \(k) only" }
+        return list.first { $0.id == p }?.words ?? "not a known permission"
+    }
+
+    /// 767: the permissions a parameter narrows — `journal.write:KIND` (a kind of the journal's pattern) is
+    /// `journal.write` for entries of that kind only; `journal.write` itself still answers for it.
+    public static let parameterised = ["journal.write"]
+    /// The kind `journal.write:KIND` names (nil: not that form).
+    public static func kindOf(_ p: String) -> String? {
+        for base in parameterised where p.hasPrefix(base + ":") {
+            let k = String(p.dropFirst(base.count + 1))
+            return JournalKinds.isValid(k) ? k : nil
+        }
+        return nil
+    }
+
+    /// 767: answered allow when nothing says anything, for an agent in its OWN workspace (withdrawn by a never or a grant):
+    /// agents of a workspace already read its room.
+    public static let defaultAllowInOwnWorkspace: Set<String> = ["journal.read"]
 
     /// 765: the older id a grant, role or ceiling may still name for a permission, honoured for one release so an existing
     /// grant keeps its meaning: `workspace.finish` (finish and reopen) answers for `run.open` and `run.finish`.
     public static let olderIds: [String: [String]] = ["run.open": ["workspace.finish"], "run.finish": ["workspace.finish"]]
     /// A permission and the older ids that still answer for it.
-    public static func answeringIds(_ p: String) -> [String] { [p] + (olderIds[p] ?? []) }
+    public static func answeringIds(_ p: String) -> [String] {
+        if kindOf(p) != nil, let base = p.split(separator: ":").first.map(String.init) { return [p, base] }   // 767: journal.write:KIND
+        return [p] + (olderIds[p] ?? [])
+    }
 
     /// Answered never when nothing says anything (they fail closed): root on this Mac, and running as you.
     public static let failClosed: Set<String> = ["sudo", "isolation.unfenced"]
@@ -80,7 +102,7 @@ public enum GrantPermissions {
 
     /// The refusal for a permission this build does not know: with the list.
     public static func unknownRefusal(_ p: String) -> HostError {
-        HostError(.invalid, "\(p.prefix(60)) is not a permission — one of: \(ids.joined(separator: ", "))")
+        HostError(.invalid, "\(p.prefix(60)) is not a permission — one of: \(ids.joined(separator: ", ")), or journal.write:KIND")
     }
 }
 

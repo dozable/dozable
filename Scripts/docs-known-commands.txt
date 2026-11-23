@@ -218,6 +218,8 @@ workspace/run
 workspace/retro
 workspace/decide
 workspace/proposals
+workspace/journal
+workspace/wait
 workspace/reopen
 workspace/archive
 workspace/restore
