@@ -121,7 +121,7 @@ validator checks a key by place and name whichever form it is in (`Schema.dozVal
 | a folder | `main: true` (at most one) | `lifetime: run` |
 | an agent | `restart: no\|on-failure`, `network:`, `external: {sandbox: NAME}` | `lifetime: run` |
 | a room, a sandbox | — | `lifetime: run` |
-| `agent_defaults` | — | `isolation: fenced\|vm` (where a record's new workers run) |
+| `agent_defaults` | `where: sandbox` (the workspace's own VM: `mac` and `sandbox` are the keywords, `sandbox:NAME` a declared sandbox) | `isolation: fenced\|vm` (where a record's new workers run; `vm` gets a note naming `where: sandbox`) |
 
 Rules (`SpaceValidator` + `SpaceDozable.swift`):
 
@@ -146,6 +146,15 @@ Rules (`SpaceValidator` + `SpaceDozable.swift`):
 - `external: {sandbox: NAME}` (or `x-dozable.external.sandbox`): the agent is external (adopted at `up`, never started,
   never stopped by `down`); it may not say what an external agent may not (`kind`, `where`, …), may not be written in both
   forms, and may not name a sandbox the file declares under `sandboxes:`.
+- `agent_defaults.where: sandbox` (3.1 only; in space/3 → 65 `"where" is a space/3.1 key: …`, on an agent → `"sandbox" is
+  not a place`): every owned agent that does not say where runs in the workspace's own VM, an owned sandbox of the run named
+  `<space>-vm` (`SpaceModel.workspaceVM`, unique among the file's names), made by the first agent in it (`isolation: vm`).
+- An agent's own `network`: an unfenced agent has none (65 at `/agents/NAME/network`); an agent in a VM — the workspace's or
+  an owned sandbox — may only repeat the workspace's network (standard when the file says none; a name and its
+  `{preset}` map are the same), else 65 at `/agents/NAME/network`. An existing sandbox (`external:`) keeps its own.
+- `external: {sandbox}` with `restart` → 65 at `/agents/NAME/restart`. An empty `brief.refs`, `about.tags` or
+  `network.allow` → 65 (`… can't be empty`). A per-resource `lifetime:` in a 3.1 file gets the lifetime's own words.
+- A space/3 file extends only `space-defaults/3` files: a `space-defaults/3.1` one → 65 at its `/doz`.
 - At most one folder with `main` (either form).
 - `restart` is recorded and noted, not applied yet; `network`, `about`, `layout` and the per-resource `lifetime: run` are
   checked and kept, not acted on yet. The meaning of no space/3 key changes.

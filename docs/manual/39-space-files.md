@@ -91,7 +91,14 @@ agents:
   Neither is applied in this version.
 - **The lifetime is not a 3.1 key**: it stays under `x-dozable` in either version and is never required (a file that says
   none is read as `runs`). A top-level `lifetime:` in a 3.1 file is refused (65) with the fix.
-- A 3.1 key in a file that says `doz: space/3` is refused (65): change the version line to `doz: space/3.1`.
+- **`agent_defaults: { where: sandbox }`** runs every agent that does not say where in the workspace's own VM, a sandbox
+  the run makes (named `SPACE-vm`). On an agent, a place is `mac` or `sandbox:NAME`.
+- **An agent's own `network`**: an unfenced agent has none (it acts as you), and an agent in a VM — the workspace's or
+  a sandbox the space makes — shares the VM's, which is the workspace's (standard when the file says none). Either
+  written otherwise is refused (65).
+- An empty `refs`, `tags` or `allow` list is refused; leave the key out instead.
+- A 3.1 key in a file that says `doz: space/3` is refused (65): change the version line to `doz: space/3.1`. A space/3
+  file extends only `space-defaults/3` files.
 
 A brief written in the file is kept with the workspace and posted at the first up; `doz workspace show W --brief` reads
 it. `doz workspace doc W` (37) prints any workspace as a space/3.1 file.
@@ -105,7 +112,7 @@ ignored.
 x-dozable: { lifetime: standing }                             # the space's lifetime: standing or runs
 folders:
   notes: { x-dozable: { lifetime: run } }                     # in a standing space: this one lasts one run
-agent_defaults: { x-dozable: { isolation: vm } }              # where a workspace's new workers run
+agent_defaults: { x-dozable: { isolation: vm } }              # where a workspace's new workers run (3.1: where: sandbox)
 ```
 
 The keys space/3.1 now has were written under `x-dozable` too (`x-dozable: { brief: { text: … }, network: … }`, a folder's

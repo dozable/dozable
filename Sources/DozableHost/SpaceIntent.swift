@@ -180,6 +180,12 @@ extension SpaceIntent {
                                        cpus: SpaceDoc.int(SpaceDoc.member(r.def, "cpus")), memory: SpaceDoc.string(SpaceDoc.member(r.def, "memory")),
                                        persisted: persisted("sandbox", r.name), agents: []))
         }
+        // space/3.1's `agent_defaults.where: sandbox`: the workspace's own VM, an owned sandbox of the run, made by the first
+        // agent in it — when one is.
+        if let vm = model.workspaceVM, model.agents.contains(where: { $0.lifetime != "external" && $0.sandbox == vm }) {
+            i.sandboxes.append(Sandbox(name: vm, placeName: vm, external: false, image: nil, folder: nil, cpus: nil, memory: nil,
+                                       persisted: nil, agents: []))
+        }
 
         // Agents.
         for a in model.agents {
@@ -202,7 +208,7 @@ extension SpaceIntent {
             if let r = x.restart { i.notes.append("agent \(a.name): restart: \(r) is not applied in this version") }
             if let sb = a.sandbox {
                 x.sandbox = sb
-                x.isolation = Sourced("vm", src(p + "/where"))
+                x.isolation = Sourced("vm", loc.sourceOf(p + "/where") ?? src("/agent_defaults/where"))
                 if let k = i.sandboxes.firstIndex(where: { $0.name == sb }) { i.sandboxes[k].agents.append(a.name) }
             } else {
                 x.isolation = Sourced(a.isolation ?? "fenced", model.provenance["agents.\(a.name).isolation"] ?? "the default")

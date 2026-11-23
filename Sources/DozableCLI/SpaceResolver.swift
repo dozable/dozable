@@ -159,8 +159,9 @@ struct SpaceResolver {
         if r.problems.contains(where: \.isError) { r.broken = true; return r }
 
         // Each defaults file on its own.
+        let spaceV31 = r.layers.first { $0.source.kind == "space" }.map { SpaceDozable.isV31($0.doc) }
         for l in r.layers where l.source.kind == "defaults" {
-            r.problems += SpaceValidator.checkSource(l.doc, name: l.source.name, lines: l.lines)
+            r.problems += SpaceValidator.checkSource(l.doc, name: l.source.name, lines: l.lines, spaceV31: spaceV31)
         }
 
         // The merge, each place's origin, then ${VAR}.

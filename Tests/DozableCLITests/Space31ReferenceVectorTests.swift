@@ -51,24 +51,13 @@ final class Space31ReferenceVectorTests: XCTestCase {
         case notes
     }
 
-    /// THE list: every vector (by id) and example (`example:NAME`) Dozable disagrees with, and how — each to be settled
-    /// with the format's author. Empty when the two agree on everything. Recorded against Dozable 0.52.40's validator.
+    /// THE list: every vector (by id) and example (`example:NAME`) Dozable disagrees with, and how. Settled with the
+    /// format's author: Dozable's words are the canonical ones and the vectors are re-cut to them, so what is left is
+    /// wording — and V12, whose refusal Dozable keeps (the author splits that vector). Empty when the two agree.
     static let knownDisagreements: [String: Set<Difference>] = [
-        // Verdicts: the vector and Dozable reach different answers.
-        "V07": [.verdict],            // agent_defaults.where: sandbox — valid; Dozable: "sandbox" is not a place (65)
-        "V14": [.verdict],            // the same, from a space-defaults/3.1 file — valid; Dozable: not a place (65)
-        "V15": [.verdict],            // where: sandbox + an agent's network: standard — valid; Dozable: not a place (65)
-        "V12": [.verdict, .notes],    // space/3, brief: B.md + x-dozable.brief — valid with 2 notes; Dozable: the brief is written twice (65)
-        "E12": [.verdict],            // space/3 extends space-defaults/3.1 — refused at /doz; Dozable accepts
-        "E20": [.verdict],            // brief.refs: [] — refused; Dozable accepts
-        "E24": [.verdict],            // about.tags: [] — refused; Dozable accepts
-        "E26": [.verdict],            // network.allow: [] — refused; Dozable accepts
-        "E27": [.verdict],            // an unfenced agent with network: — refused; Dozable accepts
-        "E28": [.verdict],            // an agent in sandbox vm with a network unlike the workspace's — refused; Dozable accepts
-        "E34": [.verdict],            // external: { sandbox } with restart: — refused; Dozable accepts
-        "E29": [.path],               // where: sandbox + the agent's own network — refused at /agents/h/network; Dozable at /agent_defaults/where
-        "example:clean-room": [.verdict], // its agent_defaults.where: sandbox — Dozable: not a place (65), so no plan
-        // Words: refused at the same path and line, with other words.
+        // Kept on purpose: in space/3, brief: plus x-dozable.brief is one key in two places (65 at /x-dozable/brief).
+        "V12": [.verdict, .notes],
+        // Words: refused at the same path and line, in Dozable's words.
         "E01": [.message, .hint],
         "E02": [.message, .hint],
         "E03": [.message, .hint],
@@ -79,14 +68,16 @@ final class Space31ReferenceVectorTests: XCTestCase {
         "E08": [.message, .hint],
         "E09": [.message, .hint],
         "E10": [.message, .hint],
-        "E11": [.message, .hint],     // Dozable's words are "sandbox" is not a place: it has no where: sandbox in either version
+        "E11": [.message, .hint],
+        "E12": [.message, .hint],
         "E13": [.message, .hint],
         "E14": [.message, .hint],
         "E16": [.message, .hint],
         "E21": [.hint],
         "E23": [.message, .hint],
+        "E26": [.hint],
         "E30": [.hint],
-        // Notes: a valid vector's notes, in other words (V11: and none for x-dozable.isolation).
+        // Notes: a valid vector's notes, in Dozable's words.
         "V10": [.notes],
         "V11": [.notes],
     ]
@@ -200,6 +191,36 @@ final class Space31ReferenceVectorTests: XCTestCase {
         let agreed = vs.filter { found[$0.id] == nil }
         print("space/3.1 vectors: \(agreed.count) of \(vs.count) agree (\(agreed.filter(\.ok).count) valid, \(agreed.filter { !$0.ok }.count) refused)")
         if !report.isEmpty { print(report) }
+    }
+
+    /// Dozable's own answer to every vector, verbatim (the vectors are re-cut from it): with `DOZ_VECTOR_OUTPUTS=/tmp/FILE`
+    /// it is written there as JSON; without it the test only checks it can be made.
+    func testDozablesOutputsForEveryVector() throws {
+        var rows: [JValue] = []
+        for v in try Self.vectors() {
+            let got = try verdict(v)
+            func s(_ x: String?) -> JValue { x.map { .string($0) } ?? .null }
+            let problems: [JValue] = got.problems.map { p in
+                .object([JMember("severity", .string(p.severity)), JMember("path", .string(p.pointer)), JMember("message", .string(p.message)),
+                         JMember("hint", s(p.hint)), JMember("file", .string(p.file)), JMember("line", .int(Int64(p.line)))])
+            }
+            let refusals: [JValue] = got.refusals.map { r in
+                .object([JMember("path", .string(r.pointer)), JMember("message", .string(r.message)), JMember("code", .string(r.code))])
+            }
+            rows.append(.object([
+                JMember("id", .string(v.id)), JMember("what", .string(v.what)), JMember("vectorOK", .bool(v.ok)),
+                JMember("exit", .int(Int64(got.exit))), JMember("ok", .bool(got.exit == 0)),
+                JMember("problems", .array(problems)), JMember("planRefusals", .array(refusals)),
+                JMember("notes", .array(got.notes.map { .string($0) })),
+            ]))
+        }
+        XCTAssertEqual(rows.count, 50)
+        let doc: JValue = .object([JMember("about", .string("Dozable's answer to each space/3.1 vector: doz space config's check, then (for a file that passes) the plan's refusals and notes. exit 65 = an invalid document. problems are errors and warnings, each with its JSON path, file and line.")),
+                                   JMember("vectors", .array(rows))])
+        let out = String(decoding: ChatJSON.encodeIndented(doc, indent: "  "), as: UTF8.self) + "\n"
+        if let path = ProcessInfo.processInfo.environment["DOZ_VECTOR_OUTPUTS"], path.hasPrefix("/tmp/") || path.hasPrefix("/private/tmp/") {
+            try Data(out.utf8).write(to: URL(fileURLWithPath: path))
+        }
     }
 
     /// The two rules the format's author asked about by name: an agent in a VM only repeats the VM's network (the
