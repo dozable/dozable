@@ -331,7 +331,7 @@ phase, and one condition per layer"): beside `ready` — never replacing it — 
 
 `phase` stays, derived as before, for one release. `ls --json` rows carry the short form, `conditions {allocated, hot
 {value}, run}` (`WorkspaceRow.conditions`), from the same builder over what the daemon holds of each agent
-(`workspaceAgentFacts` — no chat, folder or guest call) and the newest 256 lines of the log. `WorkspaceRecordStateTests`
+(`workspaceAgentFacts` — no chat, folder or guest call) and — only when an agent is neither running nor asleep — the newest 64 lines of the log. `WorkspaceRecordStateTests`
 (`testAllocatedFromTheRecordsLifecycle`, `testHotPerSessionRunAndArchived`, `testTheJSONCarriesEachLayerBesideReady`).
 
 ## A document for every workspace
