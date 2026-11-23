@@ -127,8 +127,11 @@ public enum ActionClasses {
         // the lifecycle
         case .workspaceSleep, .workspaceWake:
             return needs(["workspace.sleep"], ws)
-        case .workspaceFinish, .workspaceReopen:
-            return needs(["workspace.finish"], ws)
+        // runs (765): opened (reopen is run's old name) and finished — off for an agent until granted
+        case .workspaceRun, .workspaceReopen:
+            return needs(["run.open"], ws)
+        case .workspaceFinish:
+            return needs(["run.finish"], ws)
         case .workspaceArchive, .workspaceRestore, .workspaceRunArchive:
             return needs(["workspace.archive"], ws)
         case .workspaceDelete:

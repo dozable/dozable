@@ -57,7 +57,7 @@ doz workspace state NAME --json
 - Beside it, one condition per layer: `conditions.allocated` `{value, since, reason?}` (what the workspace holds:
   true from new until archive or delete — a space file with `lifetime: runs` releases it at down; `reason` is `down` or
   `archived`), `conditions.hot` `{value: all|some|none, sessions: {NAME: {condition, since}}}` (each session `starting`,
-  `running`, `asleep`, `stopped`, `ended` or `unknown`), `conditions.run` `{open, id, since}` and
+  `running`, `asleep`, `stopped`, `ended` or `unknown`), `conditions.run` `{open, id, since, state}` and
   `conditions.archived` `{value, at}`. `doz workspace ls --json` rows carry `conditions` `{allocated, hot: {value}, run}`.
 - With no daemon running none is started: every condition is then `unknown`. Looking never changes anything.
 - More: `doz workspace show NAME --json` (its brief with `--brief`), `doz worker ls NAME --json`, `doz workspace ls --json`.
@@ -93,6 +93,21 @@ doz workspace finish NAME --yes --json    # the work is done; `doz workspace dow
   is standing: it removes nothing. A space file's run things go only after their archived copy verifies.
 - `stop` and `finish` ask first: without `--yes` they exit 5 and `error.fix` is the command to run once the person said
   yes.
+
+## Runs: one unit of work at a time
+
+```sh
+doz workspace run NAME "Fix the failing test" --json   # a new run with this goal: posted in the room, its agents started
+doz workspace run NAME --json                          # a new run whose goal is the brief
+doz workspace runs NAME --json                         # each run: goal, goalFrom, source, follows, revision, openedBy, usage
+```
+
+- `run` answers `{"kind":"WorkspaceRun","id","state":"open","goal","goalFrom":"given"|"brief","source":{"kind",…},
+  "openedAt","openedBy","revision","usage":{"durationMs"}}`. `--source KIND[:REF]` (given, brief, run:ID, ask:TEXT,
+  schedule:TEXT) and `--follows RUN` say where it came from; `--no-start` opens it and starts nothing.
+- One run at a time: while one is open, `run` exits 3 with `error.code` `run-open` and `error.fix` `doz workspace finish
+  NAME` — finishing is the person's call: ask them first. A finished workspace is reopened by `run`; an archived one is
+  refused (3). `doz workspace reopen NAME` is the old name of `run`.
 
 ## Add or end a worker
 

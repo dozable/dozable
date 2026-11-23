@@ -198,9 +198,19 @@ public struct WorkspaceRun: Codable, Equatable, Sendable {
     public var noArchive: Bool?
     /// A space's run past its frames' bound (2,000 frames or 16 MiB): only `frames/last.json` was rewritten after it.
     public var framesCapped: Bool?
+    /// 765 (the run verb): what the run is for — the goal given, else the brief as it read it (`goalFrom`: `given` or
+    /// `brief`); what started it (`source`); the run it follows; who opened it (`owner`, or an agent's name); and the
+    /// revision of the work description (the brief and its references) it read. A run opened before 765 has none of them —
+    /// never filled in after the fact.
+    public var goal: String?
+    public var goalFrom: String?
+    public var source: WorkspaceRunSource?
+    public var follows: String?
+    public var openedBy: String?
+    public var revision: Int?
     public var unknown = UnknownFields()
     static let known: Set<String> = ["id", "startedAt", "endedAt", "archive", "rooms", "archiveSHA256", "archiveProblem", "closedBy", "legacy", "noArchive",
-                                     "framesCapped"]
+                                     "framesCapped", "goal", "goalFrom", "source", "follows", "openedBy", "revision"]
 
     public init(id: String, startedAt: Date, rooms: [WorkspaceRunRoom] = []) { self.id = id; self.startedAt = startedAt; self.rooms = rooms }
 
@@ -219,6 +229,12 @@ public struct WorkspaceRun: Codable, Equatable, Sendable {
         legacy = try c.decodeIfPresent(Bool.self, forKey: "legacy")
         noArchive = try c.decodeIfPresent(Bool.self, forKey: "noArchive")
         framesCapped = try c.decodeIfPresent(Bool.self, forKey: "framesCapped")
+        goal = try c.decodeIfPresent(String.self, forKey: "goal")
+        goalFrom = try c.decodeIfPresent(String.self, forKey: "goalFrom")
+        source = try c.decodeIfPresent(WorkspaceRunSource.self, forKey: "source")
+        follows = try c.decodeIfPresent(String.self, forKey: "follows")
+        openedBy = try c.decodeIfPresent(String.self, forKey: "openedBy")
+        revision = try c.decodeIfPresent(Int.self, forKey: "revision")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -236,7 +252,22 @@ public struct WorkspaceRun: Codable, Equatable, Sendable {
         try c.encodeIfPresent(legacy, forKey: "legacy")
         try c.encodeIfPresent(noArchive, forKey: "noArchive")
         try c.encodeIfPresent(framesCapped, forKey: "framesCapped")
+        try c.encodeIfPresent(goal, forKey: "goal")
+        try c.encodeIfPresent(goalFrom, forKey: "goalFrom")
+        try c.encodeIfPresent(source, forKey: "source")
+        try c.encodeIfPresent(follows, forKey: "follows")
+        try c.encodeIfPresent(openedBy, forKey: "openedBy")
+        try c.encodeIfPresent(revision, forKey: "revision")
     }
+}
+
+/// 765: what started a run — `given` (a goal typed), `brief` (no goal: the brief, at `revision`), `run` (another run, `ref`
+/// its id), `ask` or `schedule` (`ref` free text).
+public struct WorkspaceRunSource: Codable, Equatable, Sendable {
+    public var kind: String
+    public var ref: String?
+    public var revision: Int?
+    public init(kind: String, ref: String? = nil, revision: Int? = nil) { self.kind = kind; self.ref = ref; self.revision = revision }
 }
 
 /// Where an agent runs: a sandbox, a session on this Mac, or elsewhere (a later step).

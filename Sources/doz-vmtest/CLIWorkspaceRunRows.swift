@@ -99,7 +99,7 @@ func cliWorkspaceRunRows(_ h: CLIHarness, root: URL, store: DozableStore, home: 
     check(((try? String(contentsOfFile: sroot + "/" + a1 + "/timesheet.md", encoding: .utf8)) ?? "").contains(Timesheet.commitsNotCollected), "R3 the timesheet: commits not collected")
 
     // R12 (first part): discard refused while a run is open, and for a session no archive holds.
-    r = h.run(["workspace", "reopen", "rw"], timeout: 60)
+    r = h.run(["workspace", "reopen", "rw", "--no-start"], timeout: 60)
     h.run(["chat", "send", "rw", "said in run 2"])
     let s2 = fenced("rw2", rwork2)
     h.run(["workspace", "adopt", "rw", "@mac/rw2"], timeout: 60)
@@ -133,7 +133,7 @@ func cliWorkspaceRunRows(_ h: CLIHarness, root: URL, store: DozableStore, home: 
     check(fm.fileExists(atPath: rwork.path + "/plant.txt") && RunArchive.verify(root: sroot + "/" + a1).ok, "R12 …nothing else touched; the archives still verify")
 
     // R7. an archive that cannot be written
-    r = h.run(["workspace", "reopen", "rw"], timeout: 60)
+    r = h.run(["workspace", "reopen", "rw", "--no-start"], timeout: 60)
     // Something of the person's stands where the next run's archive would go: it is never removed or written over.
     let runsDir = sroot + "/archives/rw/runs"
     let blocker = runsDir + "/" + (runsOf("rw")?.runs.last?.id ?? "?")   // the open run 3

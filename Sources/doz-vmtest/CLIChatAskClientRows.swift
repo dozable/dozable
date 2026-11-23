@@ -147,7 +147,7 @@ func cliChatAskClientRows(h: CLIHarness, root: URL, paths: ChatPaths, page: Int,
     check(r.code == 0, "D12 finish wsask (\(r.code) \(r.err.prefix(160)))")
     r = h.run(["chat", "ask", "wsask", "Still there?"], timeout: 60)
     check(r.code == 3 && r.err == "doz: Its room is closed: it can still be read, but nothing is asked or answered there.\n", "D12 its room is closed (\(r.code) \(r.err))")
-    r = h.run(["workspace", "reopen", "wsask"], timeout: 60)
+    r = h.run(["workspace", "reopen", "wsask", "--no-start"], timeout: 60)
     check(r.code == 0, "D12 reopen (\(r.code) \(r.err.prefix(160)))")
     _ = asker
 }

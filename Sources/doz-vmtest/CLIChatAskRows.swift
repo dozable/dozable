@@ -172,7 +172,7 @@ func cliChatAskRows(h: CLIHarness, root: URL, paths: ChatPaths, page: Int, sh: (
     let a9 = try? owner.request("POST", "/api/rooms/wsask/messages/\(inRun)/decide", json: Data(#"{"option":"yes"}"#.utf8))
     check(a9?.status == 422 && a9?.text.contains(ChatRoomControl.closedText(room: "wsask", workspace: "wsask")) == true,
           "A9 deciding it is refused with the closed room's words (\(a9?.status ?? 0) \(a9?.text.prefix(160) ?? ""))")
-    r = h.run(["workspace", "reopen", "wsask"], timeout: 60)
+    r = h.run(["workspace", "reopen", "wsask", "--no-start"], timeout: 60)
     check(r.code == 0, "A9 reopen (\(r.code) \(r.err.prefix(160)))")
     (status, body) = ask(asker, room: "wsask", #"{"options":[{"id":"yes"}],\#(about)}"#)
     check(status == 200, "A9 …the same about is taken at once: no cooldown (\(status) \(body?.field("detail")?.stringValue ?? ""))")

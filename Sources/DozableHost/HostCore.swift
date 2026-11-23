@@ -920,7 +920,7 @@ public actor HostCore {
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
         case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename,
              .workspaceStart, .workspaceStop, .workspacePlan, .workspaceLifecyclePlan, .workspaceSleep, .workspaceWake, .workspaceFinish,
-             .workspaceReopen, .workspaceArchive, .workspaceRestore, .workspaceDelete, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunArchive, .workspaceRunChat,
+             .workspaceReopen, .workspaceRun, .workspaceArchive, .workspaceRestore, .workspaceDelete, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunArchive, .workspaceRunChat,
              .workspaceState, .workspaceDoc, .workspaceSpace, .workspaceSpaceSave, .workspaceRunFrames:
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:

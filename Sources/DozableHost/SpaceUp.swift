@@ -196,8 +196,9 @@ public enum SpaceUp {
 
     /// The plan for `intent` (from a document whose sha256 is `specSHA`), given the facts. `prompts`: the owned agents'
     /// `prompt_file` texts, read by the CLI. Pure.
+    /// `noRun` (765, `up --no-run`): its agents start, no run opens.
     public static func plan(_ i: SpaceIntent, facts f: SpaceFacts, specSHA: String, sources: [SpaceSource], specPath: String? = nil,
-                            prompts: [String: String] = [:]) -> SpacePlan {
+                            prompts: [String: String] = [:], noRun: Bool = false) -> SpacePlan {
         var p = SpacePlan(space: i.space, title: i.title, specPath: specPath, specSHA: specSHA, sources: sources, factsKnown: f.known)
         p.intent = i
         p.risks = i.risks
@@ -356,18 +357,27 @@ public enum SpaceUp {
             }
         }
 
-        // 5. The run: reopened when it is down (the persisted agents woken: their conversations continue), else started.
+        // 5. The run: reopened when it is down (the persisted agents woken: their conversations continue), else started — a
+        // new run each time none is open (765), unless --no-run.
         let asleep = (rec?.agents ?? []).filter { $0.endedAt == nil && ($0.isManager || $0.isWorker) }
         if reopens {
-            step("workspace-reopen", "workspace \(i.space)", "run", "reopen \(i.space) (it is down): a new run, its rooms open again", op: .workspaceReopen)
+            step("workspace-reopen", "workspace \(i.space)", "run",
+                 noRun ? "reopen \(i.space) (it is down) with no run (--no-run): its rooms open again" : "reopen \(i.space) (it is down): a new run, its rooms open again",
+                 op: .workspaceReopen)
             if !asleep.isEmpty {
                 step("workspace-wake", "workspace \(i.space)", "persisted", "wake what it kept: " + asleep.map(\.name).joined(separator: ", "), op: .workspaceWake)
             }
         } else if let openRun {
             step("workspace-start", "run \(openRun.id)", "run", "the run \(openRun.id) is open: up attaches to it and makes only what is missing", action: "skip", why: "already open")
+        } else if noRun {
+            step("workspace-start", "workspace \(i.space)", "run", "start its agents with no run (--no-run): doz workspace run \(i.space) opens one",
+                 down: "nothing to close", op: .workspaceStart)
         } else {
             step("workspace-start", "run {run}", "run", "start: open a new run" + ((rec?.flags.startedAt == nil) ? "; the brief posted as your first message" : ""),
                  down: i.archive.value == "off" ? "the run closed with no archive" : "the run archived (evidence), then closed", op: .workspaceStart)
+        }
+        if noRun, openRun == nil, let x = i.folders.first(where: { $0.path == nil && $0.persisted == nil }) {
+            refuse("--no-run: the scratch folder \(x.name) lives in a run — up without --no-run opens one", .invalidValue)
         }
 
         // 6. The run's scratch folders.

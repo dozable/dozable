@@ -45,7 +45,7 @@ final class ExitCodesTests: XCTestCase {
         XCTAssertEqual(ExitCodes.exit(for: .secretValueInDocument), 65)
         XCTAssertEqual(ExitCodes.exit(for: .usage), 64)
         XCTAssertEqual(ExitCodes.exit(for: .unclearRequest), 64)
-        XCTAssertEqual(ExitCodes.entry(3)?.errorCodes, ["invalid-phase", "conflict", "plan-changed", "file-changed", "already-answered", "not-owned", "request-id-reused"])
+        XCTAssertEqual(ExitCodes.entry(3)?.errorCodes, ["invalid-phase", "conflict", "plan-changed", "file-changed", "already-answered", "not-owned", "request-id-reused", "run-open"])
         XCTAssertEqual(ExitCodes.entry(4)?.errorCodes, ["already-exists"])
         XCTAssertEqual(ExitCodes.entry(5)?.errorCodes, ["needs-confirmation"])
         XCTAssertEqual(ExitCodes.entry(6)?.errorCodes, ["needs-daemon"])

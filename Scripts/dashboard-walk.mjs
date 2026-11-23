@@ -581,7 +581,7 @@ async function walkWorkspacePage() {
   // agents and never the owner: every check below (the workspaces, the wizard, workers, the lifecycle) runs exactly as before.
   const allNever = ['workspace.read', 'agent.start', 'agent.stop', 'worker.start', 'worker.stop', 'isolation.unfenced', 'net.allow', 'secret.use',
     'keychain.use', 'folder.read', 'folder.write', 'delete', 'room.manage', 'chat.read', 'chat.post', 'workspace.sleep', 'workspace.finish',
-    'workspace.archive', 'workspace.delete', 'bot.manage', 'grant.give', 'spend', 'sudo'].map((p) => p + '=never');
+    'run.open', 'run.finish', 'workspace.archive', 'workspace.delete', 'bot.manage', 'grant.give', 'spend', 'sudo'].map((p) => p + '=never');
   check(doz(['permissions', 'ceiling', '--mac', ...allNever, 'chat.decide=never']).status === 0
     && ['manager', 'worker', 'member'].every((r) => doz(['permissions', 'grant', 'role:' + r, ...allNever, '--everywhere']).status === 0),
     'every permission never from here (this Mac\'s ceiling, an everywhere never for every role): the owner is never gated');

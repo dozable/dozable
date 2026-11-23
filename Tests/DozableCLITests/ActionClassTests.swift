@@ -25,7 +25,7 @@ final class ActionClassTests: XCTestCase {
         .chatRoomArchive: ["room.manage"], .chatRoomRm: ["room.manage"], .chatAdd: ["room.manage"], .chatRemove: ["room.manage"], .chatSet: ["room.manage"],
         .chatAsk: ["chat.post"], .chatWithdraw: ["chat.post"], .chatDecide: ["chat.decide"], .chatAsks: ["chat.read"],
         .workspaceSleep: ["workspace.sleep"], .workspaceWake: ["workspace.sleep"],
-        .workspaceFinish: ["workspace.finish"], .workspaceReopen: ["workspace.finish"],
+        .workspaceRun: ["run.open"], .workspaceReopen: ["run.open"], .workspaceFinish: ["run.finish"],
         .workspaceArchive: ["workspace.archive"], .workspaceRestore: ["workspace.archive"], .workspaceRunArchive: ["workspace.archive"],
         .workspaceDelete: ["workspace.delete"],
         .botNew: ["bot.manage"], .botSet: ["bot.manage"], .botRetire: ["bot.manage"], .botAdopt: ["bot.manage"],

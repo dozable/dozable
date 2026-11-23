@@ -334,7 +334,7 @@ extension HostCore {
         case .sleep: return try await lifecycleSleep(rec, plan)
         case .wake: return try await lifecycleWake(rec, plan)
         case .finish: return try await lifecycleFinish(rec, plan, o)
-        case .reopen: return try await lifecycleReopen(rec)
+        case .reopen: return try await lifecycleReopen(rec, noRun: w.noRun == true)
         case .archive: return try await lifecycleArchive(rec, plan, o)
         case .restore: return try await lifecycleRestore(rec)
         case .delete: return try await lifecycleDelete(rec, plan, o)
@@ -721,22 +721,18 @@ extension HostCore {
 
     // MARK: reopen
 
-    func lifecycleReopen(_ rec: WorkspaceRecord) async throws -> WorkspaceChanged {
+    /// `noRun` (765: `up --no-run` of a space that is down): live again with no run opened.
+    func lifecycleReopen(_ rec: WorkspaceRecord, noRun: Bool = false) async throws -> WorkspaceChanged {
         let n = rec.name
-        _ = try await workspaceUpdate(n) { r in
-            r.flags.finishedAt = nil
-            r.flags.reopenedAt = Date()
-            return [WorkspaceLogEntry(action: "reopened")]
-        }
         // Its rooms open to new messages again (the closed set without them), then a new run opens: each room's last seq
         // now is its start marker.
-        if await pushClosedSet() != nil {
-            for room in ownedRooms(rec) { try? workspaces.append(n, WorkspaceLogEntry(action: "room-opened", room: room)) }
-        }
-        try await openRun(n)
+        try await reopenRecord(rec)
+        if !noRun { try await openRun(n) }
         let r = try workspaceRecord(n)
-        note(nil, "workspace \(n): reopened")
-        return WorkspaceChanged(name: n, verb: "reopen", results: [], notes: ["nothing runs yet — doz workspace wake \(n) brings its agents back"],
+        note(nil, "workspace \(n): reopened" + (noRun ? " (no run)" : ""))
+        return WorkspaceChanged(name: n, verb: "reopen", results: [],
+                                notes: ["nothing runs yet — doz workspace wake \(n) brings its agents back"]
+                                    + (noRun ? ["no run is open (--no-run): doz workspace run \(n) opens one"] : []),
                                 workspace: await workspaceDetail(r, withBrief: false))
     }
 

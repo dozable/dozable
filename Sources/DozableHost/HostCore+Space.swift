@@ -22,7 +22,7 @@ extension HostCore {
         }
         let intent = SpaceIntent.compile(checked.model, doc, loc)
         var out = SpaceUp.plan(intent, facts: await spaceFacts(intent, brief: q.brief), specSHA: specSHA, sources: q.sources, specPath: q.specPath,
-                               prompts: q.prompts ?? [:])
+                               prompts: q.prompts ?? [:], noRun: q.noRun == true)
         out.problems = checked.problems
         return out
     }

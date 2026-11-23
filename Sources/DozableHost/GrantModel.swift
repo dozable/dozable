@@ -43,7 +43,9 @@ public enum GrantPermissions {
         .init(id: "chat.post", words: "post in its rooms"),
         .init(id: "chat.decide", words: "answer an Ask"),
         .init(id: "workspace.sleep", words: "sleep and wake the workspace"),
-        .init(id: "workspace.finish", words: "finish and reopen the workspace"),
+        .init(id: "workspace.finish", words: "kept for older grants — finishing now needs run.finish, reopening run.open"),
+        .init(id: "run.open", words: "open a run (and reopen)"),
+        .init(id: "run.finish", words: "finish a run"),
         .init(id: "workspace.archive", words: "archive and restore the workspace"),
         .init(id: "workspace.delete", words: "delete the workspace"),
         .init(id: "bot.manage", words: "make or retire Agents / Bots"),
@@ -379,7 +381,8 @@ public enum RoleTable {
         Role(name: "cautious-manager", words: "a preset: a manager that asks before it starts or ends workers", answers:
             managerAnswers.merging(["worker.start": q, "worker.stop": q, "grant.give": q]) { _, b in b }),
         Role(name: "trusted-manager", words: "a preset: a manager that also sleeps, wakes and finishes without asking", answers:
-            managerAnswers.merging(["agent.start": a, "agent.stop": a, "workspace.sleep": a, "workspace.finish": a, "room.manage": a]) { _, b in b }),
+            managerAnswers.merging(["agent.start": a, "agent.stop": a, "workspace.sleep": a, "workspace.finish": a, "run.finish": a,
+                                    "room.manage": a]) { _, b in b }),
     ]
 
     public static let names: [String] = roles.map(\.name)

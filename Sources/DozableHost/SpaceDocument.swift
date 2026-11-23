@@ -75,6 +75,8 @@ public struct SpaceRequest: Codable, Equatable, Sendable {
     public var confirmed: [String]?
     /// An owned agent's `prompt_file`, read by the CLI beside the space file (at most 16 KiB each): agent → its text.
     public var prompts: [String: String]?
+    /// 765: `up --no-run` — set up and start its agents, but open no run (`doz workspace run` opens one). Sent only when set.
+    public var noRun: Bool?
 
     public init(spec: String, sources: [SpaceSource], origins: [String: SpaceOrigin], specPath: String? = nil,
                 brief: SpaceBriefLook? = nil, profiles: [String]? = nil) {
@@ -82,8 +84,8 @@ public struct SpaceRequest: Codable, Equatable, Sendable {
         self.profiles = profiles
     }
 
-    static let known: Set<String> = ["spec", "sources", "origins", "specPath", "brief", "profiles", "ifPlan", "confirmed", "prompts"]
-    enum CodingKeys: String, CodingKey { case spec, sources, origins, specPath, brief, profiles, ifPlan, confirmed, prompts }
+    static let known: Set<String> = ["spec", "sources", "origins", "specPath", "brief", "profiles", "ifPlan", "confirmed", "prompts", "noRun"]
+    enum CodingKeys: String, CodingKey { case spec, sources, origins, specPath, brief, profiles, ifPlan, confirmed, prompts, noRun }
 
     public init(from decoder: Decoder) throws {
         let any = try decoder.container(keyedBy: DynamicKey.self)
@@ -100,6 +102,7 @@ public struct SpaceRequest: Codable, Equatable, Sendable {
         ifPlan = try c.decodeIfPresent(String.self, forKey: .ifPlan)
         confirmed = try c.decodeIfPresent([String].self, forKey: .confirmed)
         prompts = try c.decodeIfPresent([String: String].self, forKey: .prompts)
+        noRun = try c.decodeIfPresent(Bool.self, forKey: .noRun)
     }
 
     /// The request's own limits, checked before anything is read from it (the daemon's and the in-process core's).

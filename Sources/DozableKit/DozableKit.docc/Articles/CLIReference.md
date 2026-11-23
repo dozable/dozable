@@ -928,7 +928,7 @@ its running session keeps what it started with.
 What an agent may do in Dozable — not to be confused with `doz net permissions`, which is what a sandbox's network may
 reach. One list of permissions (`workspace.read`, `agent.start`, `agent.stop`, `worker.start`, `worker.stop`,
 `isolation.unfenced`, `net.allow`, `secret.use`, `keychain.use`, `folder.read`, `folder.write`, `delete`, `room.manage`,
-`chat.read`, `chat.post`, `chat.decide`, `workspace.sleep`, `workspace.finish`, `workspace.archive`, `workspace.delete`,
+`chat.read`, `chat.post`, `chat.decide`, `workspace.sleep`, `workspace.finish`, `run.open`, `run.finish`, `workspace.archive`, `workspace.delete`,
 `bot.manage`, `grant.give`, `spend`, `sudo`), each answered `allow`, `ask` or `never`. A role bundles answers (`manager`,
 `worker`, `member`, `decider`, `admin`, and the presets `cautious-manager` and `trusted-manager`); an agent's role in a
 workspace is the one the workspace's record gives it ("worker (from the workspace)") — nothing is written for it. A grant
@@ -990,7 +990,8 @@ doz workspace manager stop W                    # the manager alone ended; its r
 doz workspace sleep W [--dry-run] [--yes] [--if-plan SHA]     # every agent asleep: a sandbox hibernated, a session ended (its conversation kept)
 doz workspace wake W [--dry-run] [--yes] [--if-plan SHA]      # back in the same sandboxes and conversations
 doz workspace finish W [--no-archive] [--dry-run] [--yes] [--if-plan SHA]    # everything stops; the run archived; says what it removed and kept (standing: nothing removed) (asks [y/N])
-doz workspace reopen W [--dry-run] [--if-plan SHA]            # finished → asleep until you wake it
+doz workspace run W [GOAL] [--source KIND[:REF]] [--follows RUN] [--no-start]   # a new run (one at a time: run-open, exit 3): the goal (else the brief) posted, the agents started
+doz workspace reopen W [--no-start] [--dry-run] [--if-plan SHA]   # the old name of run (--dry-run / --if-plan: reopen's plan, nothing started)
 doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--no-archive] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
 doz workspace restore W [--dry-run] [--if-plan SHA]           # archived → finished, its rooms writable again
 doz workspace delete W [--remove-sandboxes [--no-keep-templates]] [--bin-folders] [--dry-run] [--yes] [--if-plan SHA]   # finished or archived only (the name typed)
@@ -1002,11 +1003,11 @@ doz workspace edit W --space-file F|- --if-match SHA256   # save over the space 
 doz workspace log W [--since T]                 # what happened and who did it (T: ISO 8601, or 30m, 2h, 3d)
 doz workspace log W --limit N [--before I]      # one page, the newest N (1–500); --before the page's first: the page before (--json: first, more)
 doz workspace rename W NEW                      # its room keeps its own name
-doz workspace runs W [--json]                   # its runs: each start or reopen to its finish, its archive's status and size, the timesheet's totals
+doz workspace runs W [--json]                   # its runs: each run to its finish, its goal and source, its archive's status and size, the timesheet's totals
 doz workspace runs W --archive RUN              # a closed run's archive written again (when it could not be written at its finish)
 doz workspace runs W --frames RUN [--json]      # a space's run in frames: its state each time it changed (never a message), its archive checked now
 doz workspace plan [-f FILE] [--profile P]… [--json]  # what up would do with a space file: the steps, what down will do, the summary (every risky setting with its file:line)
-doz workspace up [-f FILE] [--profile P]… [--yes] [--dry-run] [--json]  # set it up from the file: the plan, every unfenced agent confirmed on the terminal, then each step
+doz workspace up [-f FILE] [--profile P]… [--yes] [--no-run] [--dry-run] [--json]  # set it up from the file: the plan, every unfenced agent confirmed on the terminal, then each step (a new run when none is open; --no-run: none)
 doz workspace down [W] [-f FILE] [--purge] [--no-archive] [--yes] [--dry-run] [--if-plan SHA] [--json]  # the same as finish, for every workspace; a runs space removes what the run made (archived and hash-checked first); --purge: what persists too; --json: kind WorkspaceFinish, removed, kept, archive
 doz workspace config [FILE] [--profile P]… [--json]    # a space file merged (its defaults files, the file, its override, ${VAR}), each value with its source
 doz workspace state W [--json]                  # any workspace now: each thing's state and each agent's condition (a space workspace: beside its file), what waits for you, the sha; --json: kind WorkspaceState, schema 1, agents.NAME.condition
@@ -1232,7 +1233,7 @@ keeping its record and conversation (an unfenced agent's token file is deleted);
 untouched. Wake brings each back in place: the same sandbox (one shut down boots and its agent continues its conversation),
 the same conversation on this Mac (a program with none starts fresh; an anonymous unfenced worker gets a new token); the
 manager as `start` brings it, the brief never posted again. Finish stops everything and keeps the rooms writable and every
-token; no worker can be added until `reopen` (then `wake`). Archive does finish's steps, makes its rooms read-only as you
+token; no worker can be added until `doz workspace run` opens the next run. Archive does finish's steps, makes its rooms read-only as you
 (their history kept) and retires its anonymous workers (their tokens refused from then on); a bot keeps its token and its
 rooms. Restore opens the rooms the archive closed and leaves it finished; retired workers stay ended. Delete is refused
 unless it is finished or archived, and while anything of it runs ("finish it first — doz workspace finish W"); it removes

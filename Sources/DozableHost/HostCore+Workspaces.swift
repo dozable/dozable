@@ -169,6 +169,8 @@ extension HostCore {
         guard !readOnly else { throw HostError(.unavailable, "\(r.op.rawValue) needs the daemon") }
         // Start and stop take the gate themselves: the check under `workspaces`, the launch under `workspace:NAME`.
         if r.op == .workspaceStart { return try JSONValue(encoding: try await workspaceStart(w)) }
+        // 765: the run verb takes the gate itself (opening under the workspace's, then the sessions as a start does).
+        if r.op == .workspaceRun { return try JSONValue(encoding: try await workspaceRunOpen(r)) }
         // `doz workspace manager stop W`: the manager alone (the old meaning of stop). Without it stop is a lifecycle verb:
         // every agent's process ends, nothing is removed.
         if r.op == .workspaceStop, w.managerOnly == true { return try JSONValue(encoding: try await workspaceStop(w)) }

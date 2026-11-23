@@ -273,6 +273,17 @@ struct WorkspaceManagerStop: AsyncParsableCommand {
 /// Finish, and its twin down: a workspace a space file made goes down by its file's plan (`workspace-down`); any other
 /// finishes (`workspace-finish`). Both answer `WorkspaceFinish` and say what they removed and what they kept.
 func runWorkspaceFinish(name n: String, purge: Bool, noArchive: Bool, yes: Bool, dryRun: Bool, ifPlan: String?, word: String, _ g: GlobalOptions) async throws {
+    // 765: an agent's finish (--as W/AGENT): the one request the gate decides (run.finish) — no plan is read for it (the plans
+    // are Dozable's own); it finishes, never a space file's down.
+    if ActAs.value != nil, !dryRun, !purge {
+        guard yes else { throw fail(HostError(.needsConfirmation, "\(word) \(n) as an agent asks nothing: pass --yes"), g) }
+        var w = WorkspaceRequest(name: n)
+        w.ifPlan = ifPlan
+        w.noArchive = noArchive ? true : nil
+        let c = try decode(try call(workspaceRequest(.workspaceFinish, w), g), WorkspaceChanged.self, g)
+        if g.json { Out.json(c) } else { Out.stdout(lifecycleDone(.finish, c) + "\n") }
+        return
+    }
     var q = HostRequest(.workspaceDownPlan)
     q.spaceDown = SpaceDownRequest(workspace: n, purge: purge ? true : nil)
     let plan = try decode(try await query(q, g), SpaceDownPlan.self, g)
@@ -316,10 +327,25 @@ func runWorkspaceFinish(name n: String, purge: Bool, noArchive: Bool, yes: Bool,
     try finishSpaceActed(done, retry: ["doz", "workspace", word, n] + (purge ? ["--purge"] : []), g)
 }
 
+/// `doz workspace reopen W` — the old name of `doz workspace run W` (765): the same command, a one-line note on a terminal
+/// (never with --json). `--dry-run` still shows reopen's plan, and `--if-plan SHA` still acts on that plan the old way
+/// (reopened, a run opened, nothing started).
 struct WorkspaceReopen: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "reopen", abstract: "Reopen a finished workspace: nothing runs until you wake it.")
+    static let configuration = CommandConfiguration(commandName: "reopen", abstract: "The old name of run: open a run (a finished workspace reopened first).",
+        discussion: """
+        doz workspace reopen W is doz workspace run W: a finished workspace reopened (its rooms open to new messages), a \
+        run opened with the brief as its goal, the brief posted in its room and its agents started (--no-start starts \
+        nothing). --dry-run shows the reopen's plan; --if-plan SHA acts on that plan only, as reopen used to: reopened, \
+        nothing started.
+        """)
     @OptionGroup var a: LifecycleArguments
-    func run() async throws { try await runWorkspaceLifecycle(.reopen, a) }
+    @Flag(name: .customLong("no-start"), help: "Open the run and start nothing.") var noStart = false
+    func run() async throws {
+        if a.dryRun || a.ifPlan != nil { try await runWorkspaceLifecycle(.reopen, a); return }
+        if !a.g.json, !a.g.quiet, isatty(STDERR_FILENO) != 0 { Out.stderr(Self.notice(a.name)) }
+        try runWorkspaceRun(name: a.name, goal: nil, source: nil, follows: nil, noStart: noStart, a.g)
+    }
+    static func notice(_ n: String) -> String { "doz: note: reopen is the old name of run — doz workspace run \(n)\n" }
 }
 
 struct WorkspaceArchive: AsyncParsableCommand {

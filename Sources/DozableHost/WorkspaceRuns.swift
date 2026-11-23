@@ -70,6 +70,47 @@ public enum WorkspaceRuns {
     /// The archive's folder relative to the store: `archives/<workspace>/runs/<run>`.
     public static func archivePath(workspace: String, run: String) -> String { "archives/\(workspace)/runs/\(run)" }
 
+    // MARK: the run verb (765)
+
+    /// What may have started a run (`--source KIND[:REF]`).
+    public static let sourceKinds = ["given", "brief", "run", "ask", "schedule"]
+
+    /// The longest goal (the brief's own limit).
+    public static let maximumGoalBytes = 256 << 10
+
+    /// `--source KIND[:REF]` read: the kind one of `sourceKinds` (else 65), `run:ID` a run of `existing` (else 65), `given`
+    /// and `brief` with no reference.
+    public static func source(_ raw: String, existing: [WorkspaceRun]) throws -> WorkspaceRunSource {
+        let parts = raw.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+        let kind = parts[0], ref = parts.count > 1 ? parts[1] : nil
+        guard sourceKinds.contains(kind) else {
+            throw HostError(.invalidValue, "--source \(raw.prefix(60)): the kind is one of \(sourceKinds.joined(separator: ", ")) (KIND or KIND:REF)")
+        }
+        if kind == "given" || kind == "brief" {
+            guard ref == nil || ref!.isEmpty else { throw HostError(.invalidValue, "--source \(kind) takes no reference") }
+            return WorkspaceRunSource(kind: kind)
+        }
+        guard let ref, !ref.isEmpty, ref.count <= 256, !ref.contains(where: { $0.isNewline }) else {
+            throw HostError(.invalidValue, "--source \(kind):REF — the reference is one line of at most 256 characters")
+        }
+        if kind == "run", !existing.contains(where: { $0.id == ref }) {
+            throw HostError(.invalidValue, "--source run:\(ref.prefix(40)): no such run of this workspace (doz workspace runs W)")
+        }
+        return WorkspaceRunSource(kind: kind, ref: ref)
+    }
+
+    /// The revision of the work description (the brief and its references) as the log tells it: 1 when the workspace was
+    /// made, one more for each edit of either since. Until a revision store keeps the document's revisions, this is the
+    /// number a run records as the one it read.
+    public static func descriptionRevision(_ log: [WorkspaceLogEntry]) -> Int {
+        1 + log.filter { $0.action == "brief-edited" || $0.action == "refs-edited" }.count
+    }
+
+    /// A run's length in milliseconds (to now while open).
+    public static func durationMs(_ r: WorkspaceRun, now: Date = Date()) -> Int64 {
+        max(0, Int64((((r.endedAt ?? now).timeIntervalSince(r.startedAt)) * 1000).rounded()))
+    }
+
     /// A run's length in whole minutes (to now while open).
     public static func minutes(_ r: WorkspaceRun, now: Date = Date()) -> Int {
         max(0, Int(((r.endedAt ?? now).timeIntervalSince(r.startedAt)) / 60))
@@ -122,7 +163,64 @@ public struct WorkspaceRunRow: Codable, Equatable, Sendable {
     public var messages: Int?
     /// A space's frames of the run (its folder's while open, else its archive's). Additive.
     public var frames: Int?
+    /// 765: what the run is for and where it came from (`WorkspaceRun`'s; absent for a run opened before them), and its
+    /// usage — `durationMs`: a closed run's length, an open one's so far. Additive.
+    public var goal: String?
+    public var goalFrom: String?
+    public var source: WorkspaceRunSource?
+    public var follows: String?
+    public var revision: Int?
+    public var openedBy: String?
+    public var usage: WorkspaceRunUsage?
     public init(id: String, startedAt: Date, endedAt: Date?, minutes: Int, archiveStatus: String, rooms: [WorkspaceRunRoom]) {
         self.id = id; self.startedAt = startedAt; self.endedAt = endedAt; self.minutes = minutes; self.archiveStatus = archiveStatus; self.rooms = rooms
+    }
+}
+
+/// 765: what a run used. `durationMs` only, for now.
+public struct WorkspaceRunUsage: Codable, Equatable, Sendable {
+    public var durationMs: Int64
+    public init(durationMs: Int64) { self.durationMs = durationMs }
+}
+
+/// 765: `doz workspace run W [GOAL] --json` — the run it opened (`kind` `WorkspaceRun`).
+public struct WorkspaceRunOpened: Codable, Equatable, Sendable {
+    public static let kind = "WorkspaceRun"
+    public var kind = WorkspaceRunOpened.kind
+    public var schema = 1
+    public var workspace: String
+    public var id: String
+    /// `open`.
+    public var state: String
+    public var goal: String
+    /// `given` or `brief`.
+    public var goalFrom: String
+    public var source: WorkspaceRunSource
+    public var follows: String?
+    public var openedAt: Date
+    /// `owner`, or the agent's name.
+    public var openedBy: String
+    /// The work description's revision it read.
+    public var revision: Int
+    public var usage: WorkspaceRunUsage
+    /// The goal was posted in the main room as your message (false: no room, chat not ready, or an agent opened it).
+    public var posted: Bool
+    /// Who came back (the manager, the workers a stop or a finish left down); nil with --no-start.
+    public var started: [String]?
+    public var notes: [String]?
+
+    public init(workspace: String, run r: WorkspaceRun, posted: Bool, now: Date = Date()) {
+        self.workspace = workspace
+        id = r.id
+        state = r.isOpen ? "open" : "closed"
+        goal = r.goal ?? ""
+        goalFrom = r.goalFrom ?? "brief"
+        source = r.source ?? WorkspaceRunSource(kind: goalFrom)
+        follows = r.follows
+        openedAt = r.startedAt
+        openedBy = r.openedBy ?? "owner"
+        revision = r.revision ?? 1
+        usage = WorkspaceRunUsage(durationMs: WorkspaceRuns.durationMs(r, now: now))
+        self.posted = posted
     }
 }

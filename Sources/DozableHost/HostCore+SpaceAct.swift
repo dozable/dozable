@@ -121,7 +121,7 @@ extension HostCore {
                 continue
             }
             do {
-                let notes = try await spaceUpStep(st, intent: intent, facts: facts, ref: &ref, brief: brief)
+                let notes = try await spaceUpStep(st, intent: intent, facts: facts, ref: &ref, brief: brief, noRun: q.noRun == true)
                 out.results.append(.init(n: st.n, kind: st.kind, subject: st.subject, status: "done", text: st.text, notes: notes.isEmpty ? nil : notes))
             } catch {
                 failed = true
@@ -190,7 +190,7 @@ extension HostCore {
 
     /// One step of `up`, through the daemon's own operation; answers what to say.
     func spaceUpStep(_ st: SpacePlan.Step, intent i: SpaceIntent, facts f: SpaceFacts, ref: inout SpaceRecordRef,
-                     brief: SpaceBriefFile.Read) async throws -> [String] {
+                     brief: SpaceBriefFile.Read, noRun: Bool = false) async throws -> [String] {
         let n = i.space
         switch st.kind {
         // A kept folder (made when missing, never deleted) — told from a scratch one by what it is, not by its label: 762 labels
@@ -240,7 +240,9 @@ extension HostCore {
             return try await spaceRoom(r, intent: i)
 
         case "workspace-reopen":
-            return try await workspaceLifecycle(.reopen, WorkspaceRequest(name: n)).notes ?? []
+            var w = WorkspaceRequest(name: n)
+            w.noRun = noRun ? true : nil
+            return try await workspaceLifecycle(.reopen, w).notes ?? []
 
         case "workspace-wake":
             let c = try await workspaceLifecycle(.wake, WorkspaceRequest(name: n))
@@ -248,7 +250,12 @@ extension HostCore {
             return c.notes ?? []
 
         case "workspace-start":
-            return try await workspaceStart(WorkspaceRequest(name: n)).notes ?? []
+            // 765: up opens a run each time none is open (unless --no-run): a workspace started before, with no run open (an
+            // up --no-run), gets its new run here; one never started opens its first at the start's kick-off.
+            if !noRun, let rec = try? workspaceRecord(n), rec.flags.startedAt != nil, rec.openRun == nil { try await openRun(n) }
+            var w = WorkspaceRequest(name: n)
+            w.noRun = noRun ? true : nil
+            return try await workspaceStart(w).notes ?? []
 
         case "folder":
             guard let x = i.folders.first(where: { "folder \($0.name)" == st.subject }), let run = try workspaceRecord(n).openRun else {

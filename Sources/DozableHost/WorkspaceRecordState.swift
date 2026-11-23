@@ -89,7 +89,12 @@ public struct LayerConditions: Codable, Equatable, Sendable {
         public var open: Bool
         public var id: String?
         public var since: String?
-        public init(open: Bool, id: String? = nil, since: String? = nil) { self.open = open; self.id = id; self.since = since }
+        /// 765: the run's state, `open` or `closed` (nil: no run yet). Additive.
+        public var state: String?
+        public init(open: Bool, id: String? = nil, since: String? = nil) {
+            self.open = open; self.id = id; self.since = since
+            state = id == nil ? nil : open ? "open" : "closed"
+        }
     }
     public struct Archived: Codable, Equatable, Sendable {
         public var value: Bool
@@ -121,7 +126,7 @@ public struct LayerConditions: Codable, Equatable, Sendable {
         return [
             JMember("allocated", .object([JMember("value", .bool(allocated.value)), JMember("since", .string(allocated.since))] + s("reason", allocated.reason))),
             JMember("hot", .object(hotMembers)),
-            JMember("run", .object([JMember("open", .bool(run.open))] + s("id", run.id) + s("since", run.since))),
+            JMember("run", .object([JMember("open", .bool(run.open))] + s("id", run.id) + s("since", run.since) + s("state", run.state))),
             JMember("archived", .object([JMember("value", .bool(archived.value))] + s("at", archived.at))),
         ]
     }

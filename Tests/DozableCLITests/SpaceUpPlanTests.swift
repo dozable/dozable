@@ -164,6 +164,28 @@ final class SpaceUpPlanTests: BotTestCase {
         XCTAssertTrue(q.steps.contains { $0.kind == "workspace-edit" })
     }
 
+    /// 765: `up --no-run` — the agents start, no run opens: a down space is reopened with no run, a new one started with
+    /// none; the plan (and its sha) says so; a scratch folder, which lives in a run, refuses it.
+    func testNoRunOpensNoRun() throws {
+        let (_, r) = try plan("clean-room")
+        var f = recordedFacts(r.intent)
+        let fresh = SpaceUp.plan(r.intent, facts: f, specSHA: r.specSHA, sources: [], noRun: true)
+        let normal = SpaceUp.plan(r.intent, facts: f, specSHA: r.specSHA, sources: [])
+        XCTAssertNotEqual(fresh.sha, normal.sha)
+        XCTAssertTrue(fresh.steps.contains { $0.kind == "workspace-start" && $0.text.contains("no run (--no-run)") }, fresh.steps.map(\.text).joined(separator: "\n"))
+        XCTAssertTrue(normal.steps.contains { $0.kind == "workspace-start" && $0.text.contains("open a new run") })
+        var rec = record("clean-room", space: true)
+        rec.flags.startedAt = Date()
+        rec.flags.finishedAt = Date()
+        rec.runs = [WorkspaceRun(id: "2026-11-20-1", startedAt: Date(), rooms: [])]
+        rec.runs[0].endedAt = Date()
+        f.record = rec
+        let down = SpaceUp.plan(r.intent, facts: f, specSHA: r.specSHA, sources: [], noRun: true)
+        XCTAssertTrue(down.steps.contains { $0.kind == "workspace-reopen" && $0.text.contains("with no run (--no-run)") })
+        let scratch = r.intent.folders.contains { $0.path == nil && $0.persisted == nil }
+        XCTAssertEqual(down.refusals.contains { $0.contains("--no-run: the scratch folder") }, scratch)
+    }
+
     func testAnOpenRunIsAttachedToAndALiveWorkerSkipped() throws {
         let (_, r) = try plan("clean-room")
         var f = recordedFacts(r.intent)
