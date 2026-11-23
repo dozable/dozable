@@ -80,8 +80,7 @@
     "notes": [
       {
         "path": "/title",
-        "message": "title reads as about.title (space/3.1)",
-        "hint": "write about: { title: … }"
+        "message": "title is read for this release only: space/3.1 writes it as about.title (about: { title: … })"
       }
     ]
   },
@@ -94,67 +93,56 @@
     "notes": [
       {
         "path": "/x-dozable/brief",
-        "message": "x-dozable.brief reads as brief (space/3.1)",
-        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+        "message": "x-dozable.brief is read for this release only: write brief: at the top level"
       },
       {
         "path": "/x-dozable/about",
-        "message": "x-dozable.about reads as about (space/3.1)",
-        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+        "message": "x-dozable.about is read for this release only: write about: at the top level"
       },
       {
         "path": "/x-dozable/network",
-        "message": "x-dozable.network reads as network (space/3.1)",
-        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+        "message": "x-dozable.network is read for this release only: write network: at the top level"
       },
       {
         "path": "/x-dozable/layout",
-        "message": "x-dozable.layout reads as layout (space/3.1)",
-        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+        "message": "x-dozable.layout is read for this release only: write layout: at the top level"
       },
       {
         "path": "/folders/repo/x-dozable/main",
-        "message": "x-dozable.main reads as main (space/3.1)",
-        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+        "message": "folder \"repo\": x-dozable.main is read for this release only: write main: on folder \"repo\""
       },
       {
         "path": "/agents/h/x-dozable/restart",
-        "message": "x-dozable.restart reads as restart (space/3.1)",
-        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+        "message": "agent \"h\": x-dozable.restart is read for this release only: write restart: on agent \"h\""
       },
       {
         "path": "/agents/h/x-dozable/network",
-        "message": "x-dozable.network reads as network (space/3.1)",
-        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+        "message": "agent \"h\": x-dozable.network is read for this release only: write network: on agent \"h\""
       },
       {
         "path": "/agents/old/x-dozable/external",
-        "message": "x-dozable.external reads as external (space/3.1)",
-        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+        "message": "agent \"old\": x-dozable.external is read for this release only: write external: on agent \"old\""
       },
       {
         "path": "/agent_defaults/x-dozable/isolation",
-        "message": "x-dozable.isolation reads as where: sandbox (space/3.1)",
-        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+        "message": "x-dozable.isolation: vm is space/3.1's agent_defaults.where: sandbox"
       }
     ]
   },
   {
     "id": "V12",
     "area": "version",
-    "what": "a space/3 file with x-dozable (as written before 3.1): read as before, a note for each 3.1 key naming space/3.1, none for lifetime",
+    "what": "a space/3 file whose brief is under x-dozable (as written before 3.1): read as before, a note for each 3.1 key naming space/3.1, none for lifetime",
     "ok": true,
-    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nx-dozable: { lifetime: standing, brief: { text: Fix it } }\nfolders:\n  repo: { external: ~/work/app, x-dozable: { main: true } }\n",
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nx-dozable: { lifetime: standing, brief: { text: Fix it } }\nfolders:\n  repo: { external: ~/work/app, x-dozable: { main: true } }\n",
     "notes": [
       {
         "path": "/x-dozable/brief",
-        "message": "x-dozable.brief is space/3.1's brief",
-        "hint": "change the version line (doz: space/3.1) and write it as the key itself: the x-dozable form is read for one release"
+        "message": "x-dozable.brief is read for this release only: write brief: at the top level, under doz: space/3.1"
       },
       {
         "path": "/folders/repo/x-dozable/main",
-        "message": "x-dozable.main is space/3.1's main",
-        "hint": "change the version line (doz: space/3.1) and write it as the key itself: the x-dozable form is read for one release"
+        "message": "folder \"repo\": x-dozable.main is read for this release only: write main: on folder \"repo\", under doz: space/3.1"
       }
     ]
   },
@@ -204,8 +192,8 @@
     "problem": {
       "path": "/lifetime",
       "line": 5,
-      "message": "lifetime isn't a space/3.1 key",
-      "hint": "it stays under x-dozable until space/3.2: x-dozable: { lifetime: standing }"
+      "message": "\"lifetime\" is not a space/3.1 key: it stays under x-dozable",
+      "hint": "write x-dozable: { lifetime: standing } (standing or runs)"
     }
   },
   {
@@ -218,8 +206,8 @@
     "problem": {
       "path": "/folders/notes/lifetime",
       "line": 6,
-      "message": "lifetime isn't a space/3.1 key",
-      "hint": "it stays under x-dozable until space/3.2: x-dozable: { lifetime: run }"
+      "message": "\"lifetime\" is not a space/3.1 key: it stays under x-dozable",
+      "hint": "write x-dozable: { lifetime: run } (run is the one value here)"
     }
   },
   {
@@ -232,8 +220,8 @@
     "problem": {
       "path": "/about",
       "line": 5,
-      "message": "\"about\" is space/3.1",
-      "hint": "change the version line: doz: space/3.1"
+      "message": "\"about\" is a space/3.1 key: change the version line to doz: space/3.1",
+      "hint": "this file says doz: space/3, which has no \"about\" here; space/3.1 reads every space/3 key the same"
     }
   },
   {
@@ -246,8 +234,8 @@
     "problem": {
       "path": "/network",
       "line": 5,
-      "message": "\"network\" is space/3.1",
-      "hint": "change the version line: doz: space/3.1"
+      "message": "\"network\" is a space/3.1 key: change the version line to doz: space/3.1",
+      "hint": "this file says doz: space/3, which has no \"network\" here; space/3.1 reads every space/3 key the same"
     }
   },
   {
@@ -260,8 +248,8 @@
     "problem": {
       "path": "/layout",
       "line": 5,
-      "message": "\"layout\" is space/3.1",
-      "hint": "change the version line: doz: space/3.1"
+      "message": "\"layout\" is a space/3.1 key: change the version line to doz: space/3.1",
+      "hint": "this file says doz: space/3, which has no \"layout\" here; space/3.1 reads every space/3 key the same"
     }
   },
   {
@@ -274,8 +262,8 @@
     "problem": {
       "path": "/brief",
       "line": 4,
-      "message": "brief as { text } or { file } is space/3.1",
-      "hint": "change the version line: doz: space/3.1"
+      "message": "\"brief\" is a space/3.1 key: change the version line to doz: space/3.1",
+      "hint": "this file says doz: space/3, which has no \"brief\" here; space/3.1 reads every space/3 key the same"
     }
   },
   {
@@ -288,8 +276,8 @@
     "problem": {
       "path": "/folders/repo/main",
       "line": 6,
-      "message": "\"main\" is space/3.1",
-      "hint": "change the version line: doz: space/3.1"
+      "message": "\"main\" is a space/3.1 key: change the version line to doz: space/3.1",
+      "hint": "this file says doz: space/3, which has no \"main\" here; space/3.1 reads every space/3 key the same"
     }
   },
   {
@@ -302,8 +290,8 @@
     "problem": {
       "path": "/agents/h/restart",
       "line": 6,
-      "message": "\"restart\" is space/3.1",
-      "hint": "change the version line: doz: space/3.1"
+      "message": "\"restart\" is a space/3.1 key: change the version line to doz: space/3.1",
+      "hint": "this file says doz: space/3, which has no \"restart\" here; space/3.1 reads every space/3 key the same"
     }
   },
   {
@@ -316,8 +304,8 @@
     "problem": {
       "path": "/agents/h/network",
       "line": 6,
-      "message": "\"network\" is space/3.1",
-      "hint": "change the version line: doz: space/3.1"
+      "message": "\"network\" is a space/3.1 key: change the version line to doz: space/3.1",
+      "hint": "this file says doz: space/3, which has no \"network\" here; space/3.1 reads every space/3 key the same"
     }
   },
   {
@@ -330,8 +318,8 @@
     "problem": {
       "path": "/agents/old/external",
       "line": 6,
-      "message": "external: { sandbox } is space/3.1",
-      "hint": "change the version line: doz: space/3.1"
+      "message": "\"external\" is a space/3.1 key: change the version line to doz: space/3.1",
+      "hint": "this file says doz: space/3, whose external agent is { bot: NAME }, { session: NAME } or a full name; { sandbox: NAME } is space/3.1's"
     }
   },
   {
@@ -344,8 +332,8 @@
     "problem": {
       "path": "/agent_defaults/where",
       "line": 5,
-      "message": "where: sandbox is space/3.1",
-      "hint": "change the version line: doz: space/3.1"
+      "message": "\"where\" is a space/3.1 key: change the version line to doz: space/3.1",
+      "hint": "this file says doz: space/3, whose where is mac or sandbox:NAME; where: sandbox (the workspace's own VM) is space/3.1's"
     }
   },
   {
@@ -364,8 +352,8 @@
     "problem": {
       "path": "/doz",
       "line": 1,
-      "message": "defaults.yaml is not a defaults file",
-      "hint": "a defaults file starts with doz: space-defaults/3"
+      "message": "defaults.yaml is not a defaults file for a space/3 file",
+      "hint": "a doz: space/3 file extends doz: space-defaults/3 files: change this file's version line to doz: space-defaults/3, or the space file's to doz: space/3.1"
     }
   },
   {
@@ -378,8 +366,8 @@
     "problem": {
       "path": "/x-dozable/about",
       "line": 6,
-      "message": "\"about\" is written twice: about and x-dozable.about",
-      "hint": "keep the space/3.1 key: remove x-dozable.about"
+      "message": "\"about\" is written twice: about: and x-dozable.about",
+      "hint": "keep about: — the x-dozable form is read for this release only"
     }
   },
   {
@@ -392,8 +380,8 @@
     "problem": {
       "path": "/agents/old/x-dozable/external",
       "line": 6,
-      "message": "\"external\" is written twice: external and x-dozable.external",
-      "hint": "keep the space/3.1 key: remove x-dozable.external"
+      "message": "\"old\" is external twice: external: and x-dozable.external",
+      "hint": "an agent is one external thing: keep one of them"
     }
   },
   {
@@ -420,8 +408,7 @@
     "problem": {
       "path": "/x-dozable",
       "line": 5,
-      "message": "x-dozable is a map",
-      "hint": "it holds: lifetime, brief, network, about, layout"
+      "message": "expected a map, got the text \"yes\""
     }
   },
   {
@@ -433,8 +420,7 @@
     "notes": [
       {
         "path": "/x-dozable/network",
-        "message": "x-dozable.network reads as network (space/3.1)",
-        "hint": "move it out of x-dozable: the x-dozable form is read for one release"
+        "message": "x-dozable.network is read for this release only: write network: at the top level"
       }
     ],
     "problem": {
@@ -497,7 +483,7 @@
       "path": "/about/colour",
       "line": 5,
       "message": "unknown key \"colour\" in about",
-      "hint": "known keys: title, summary, description, icon, tags, category, needs"
+      "hint": "about holds: title, summary, description, icon, tags, category, needs"
     }
   },
   {
@@ -524,8 +510,8 @@
     "problem": {
       "path": "/params",
       "line": 5,
-      "message": "unknown key \"params\"",
-      "hint": "params: belongs to a template, never to a stored document"
+      "message": "unknown key \"params\" in the file",
+      "hint": "known keys: doz, space, title, brief, owner, extends, agent_defaults, permissions, approvals, trusted_folders, folders, agents, services, sandboxes, secrets, chat, persist, archive, labels, profiles, brief, about, layout, network"
     }
   },
   {
@@ -567,7 +553,7 @@
       "path": "/network/allow",
       "line": 5,
       "message": "network.allow can't be empty",
-      "hint": "list at least one, or leave it out"
+      "hint": "omit allow, or use preset: locked"
     }
   },
   {
@@ -623,7 +609,7 @@
       "path": "/folders/b/main",
       "line": 7,
       "message": "two main folders: \"a\" and \"b\"",
-      "hint": "a space has one main folder"
+      "hint": "a workspace has one main folder"
     }
   },
   {
@@ -693,6 +679,25 @@
       "line": 6,
       "message": "\"sandbox\" is not a place",
       "hint": "write mac, or sandbox:NAME"
+    }
+  },
+  {
+    "id": "E36",
+    "area": "x-dozable",
+    "what": "a space/3 file with brief: and x-dozable.brief (both forms of one key)",
+    "ok": false,
+    "yaml": "doz: space/3\nspace: t\nowner: ada\nbrief: B.md\nx-dozable: { lifetime: standing, brief: { text: Fix it } }\nfolders:\n  repo: { external: ~/work/app, x-dozable: { main: true } }\n",
+    "notes": [
+      {
+        "path": "/folders/repo/x-dozable/main",
+        "message": "folder \"repo\": x-dozable.main is read for this release only: write main: on folder \"repo\", under doz: space/3.1"
+      }
+    ],
+    "problem": {
+      "path": "/x-dozable/brief",
+      "line": 5,
+      "message": "the brief is written twice: brief: and x-dozable.brief",
+      "hint": "keep one of them: brief: FILE, or x-dozable: { brief: { text: … } }"
     }
   }
 ]

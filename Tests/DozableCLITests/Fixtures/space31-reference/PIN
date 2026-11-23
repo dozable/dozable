@@ -1,14 +1,14 @@
 # Copies of the doz space reference's space/3.1 fixtures, read-only. Provenance: the reference's commit below (its
-# release v0.8.0, the same commit the space editor's build in Sources/DozableWeb/WebSource/vendor/space-editor/ is
+# release v0.8.1, the same commit the space editor's build in Sources/DozableWeb/WebSource/vendor/space-editor/ is
 # pinned at); its fixtures for Dozable are already neutral (an owner ada, the host host-a, the bot manager, the space
 # example-space with its agent worker, the folder ~/work/example-repo). This folder is its fixtures-for-dozable/v3.1 as
 # recorded (README.md, RECORDED.txt and VECTORS-3.1.md — the vectors' human-readable copy — left out; recorded on
-# Dozable 0.52.17, 2026-11-23): vectors-3.1.json, the 50 validation vectors (15 valid with their notes, 35 refused, each
+# Dozable 0.52.17, 2026-11-23): vectors-3.1.json, the 51 validation vectors (15 valid with their notes, 36 refused, each
 # with its problem: path, line, message, hint; exit 65 in doz), spaces/ (the three examples as space/3.1 files and the
 # space-defaults/3 file two of them extend) and {space}/plan.txt, {space}/config.txt (doz space plan / config of each).
 # Space31ReferenceVectorTests checks against these copies; re-vendor by copying the reference again from a neutral
 # commit and updating this file.
-peer-commit 77dcde8b8dd1cfe1f953c525817716ef2e33caf0 (v0.8.0)
+peer-commit 832365305cb9bfea1f35404317f12adb25ae427a (v0.8.1; the vectors re-cut to Dozable 0.52.41's answers, the examples unchanged since v0.8.0)
 sources: . <- docs/space/fixtures-for-dozable/v3.1/
 sha256:
   4a68a6713201fe9cac8b0cb5409e4a8cf41a455e81af50b0772fd249f1bb0968  ./clean-room/config.txt
@@ -21,4 +21,4 @@ sha256:
   9707d356d26980543bb3c29d01e8f2b5782611d8dc6e7bcc783e530174696508  ./spaces/example-space.space.yaml
   f818661c1a6a0830d9c9fa01f986e7ba098e23c3900f05da3314723729ae5217  ./spaces/my_doz_workspace_defaults.yaml
   bf372d91fc9235058ec7d84a8818f7ecdd48e60a6d1ba3916a13e9fdd923e7d0  ./spaces/sandbox-team.space.yaml
-  4a35f4e1736074a6525e2c0a5dae65966e6628a82dec91f7638299637a944633  ./vectors-3.1.json
+  373b747ea2400c564f2a7c2260bec08e04d243a955a7e588fff070c3f19d7591  ./vectors-3.1.json

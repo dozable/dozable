@@ -274,7 +274,8 @@ extension SpaceValidator.Schema {
         case (.top, "network"), (.agent, "network"): dozableNetwork(x, q)
         case (.top, "about"):
             guard strictMap(x, q, SpaceDozable.aboutKeys, label) else { break }
-            for a in SpaceDoc.members(x) {
+            // One problem per key: a key strictMap refused is not checked again for its value.
+            for a in SpaceDoc.members(x) where SpaceDozable.aboutKeys.contains(a.key) {
                 let r = SpaceDoc.join(q, a.key)
                 switch a.key {
                 case "tags": strings(a.value, r, nonEmpty: true); notEmpty(a.value, r, "\(label).tags")
