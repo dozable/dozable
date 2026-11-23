@@ -152,7 +152,7 @@ public struct SpaceState: Codable, Equatable, Sendable {
     /// 751: `doz workspace state --json` — the JSON contract around the document: `kind` `WorkspaceState` and `schema` 1 first,
     /// then the document exactly as `ordered()` writes it (its `sha` unchanged), then — when carried — `from` (`space-file`
     /// or `record`), `agents` (each agent of the workspace by its name: `condition`, `reason`, `role`, `place`, `since`) and
-    /// `conditions` (`ready`), and `revision` (empty until the revision store). Additive only within schema 1.
+    /// `conditions` (`ready`; 764: `allocated`, `hot`, `run`, `archived` — `LayerConditions`), and `revision` (empty until the revision store). Additive only within schema 1.
     public func stateAnswer() -> JValue {
         guard case .object(let doc) = ordered() else { return ordered() }
         var m = [JMember("kind", .string(WorkspaceConditions.kind)), JMember("schema", .int(Int64(WorkspaceConditions.schema)))] + doc
@@ -168,7 +168,8 @@ public struct SpaceState: Codable, Equatable, Sendable {
                 if let s = a.since { o.append(JMember("since", .string(s))) }
                 return JMember(k, .object(o))
             })))
-            m.append(JMember("conditions", .object([JMember("ready", .bool(c.ready))])))
+            // 764: one condition per layer beside `ready` (never replacing it).
+            m.append(JMember("conditions", .object([JMember("ready", .bool(c.ready))] + (c.layers?.members() ?? []))))
         }
         m.append(JMember("revision", .string("")))
         return .object(m)

@@ -1,3 +1,4 @@
+import DozableChat
 import Foundation
 
 // 751 (WS.03): state for EVERY workspace. A workspace made with no space file (`doz workspace new`, the dashboard's wizard)
@@ -42,11 +43,146 @@ public struct WorkspaceConditions: Codable, Equatable, Sendable {
     /// The workspace's phase (`phases`): from its record's flags, then its agents' conditions (with no daemon, its log).
     public var phase: String?
 
+    /// 764 (COND): one condition per layer, beside `ready` (`LayerConditions`). nil only from an older builder.
+    public var layers: LayerConditions?
+
     /// Every phase, in the order a workspace goes through them.
     public static let phases = ["setting-up", "running", "asleep", "stopped", "finished", "archived"]
 
-    public init(from: String, agents: [String: AgentCondition], ready: Bool, phase: String? = nil) {
-        self.from = from; self.agents = agents; self.ready = ready; self.phase = phase
+    public init(from: String, agents: [String: AgentCondition], ready: Bool, phase: String? = nil, layers: LayerConditions? = nil) {
+        self.from = from; self.agents = agents; self.ready = ready; self.phase = phase; self.layers = layers
+    }
+}
+
+/// 764 (COND, model v3 D7): one condition per layer of a workspace, in `doz workspace state --json`'s `conditions` beside
+/// `ready` (never replacing it), and in short form on each `ls --json` row. `phase` stays, derived as before, for one release.
+///   - `allocated` (L1): the workspace's own room and the places it provisions are held. Read from the record's lifecycle,
+///     never from a guest: true from new (or up) until archive, delete, or — for a space file whose lifetime is `runs`, or
+///     any `down --purge` — down. A finish ends the run, not the allocation. `since` is when it began or ended; `reason`
+///     (`down`, `archived`) says why it is false.
+///   - `hot` (L2): each session (an agent not ended, by its name) `starting`, `running`, `asleep`, `stopped` or `ended`
+///     (`unknown` when nothing is known: no daemon, or a session this viewer may not see); `all` / `some` / `none` running.
+///   - `run` (L3): the open run (`open`, its `id`, `since` it opened) — or the last one, closed, `since` it closed.
+///   - `archived` (L0): `value`, and `at` when it was.
+public struct LayerConditions: Codable, Equatable, Sendable {
+    public struct Allocated: Codable, Equatable, Sendable {
+        public var value: Bool
+        public var since: String
+        /// Why it is not allocated: `down` or `archived` (nil while allocated).
+        public var reason: String?
+        public init(value: Bool, since: String, reason: String? = nil) { self.value = value; self.since = since; self.reason = reason }
+    }
+    public struct Session: Codable, Equatable, Sendable {
+        public static let all = ["starting", "running", "asleep", "stopped", "ended", "unknown"]
+        public var condition: String
+        public var since: String
+        public init(condition: String, since: String) { self.condition = condition; self.since = since }
+    }
+    public struct Hot: Codable, Equatable, Sendable {
+        /// `all`, `some` or `none` of the sessions running (`none` when there is none).
+        public var value: String
+        /// nil in an `ls` row (the short form).
+        public var sessions: [String: Session]?
+        public init(value: String, sessions: [String: Session]? = nil) { self.value = value; self.sessions = sessions }
+    }
+    public struct Run: Codable, Equatable, Sendable {
+        public var open: Bool
+        public var id: String?
+        public var since: String?
+        public init(open: Bool, id: String? = nil, since: String? = nil) { self.open = open; self.id = id; self.since = since }
+    }
+    public struct Archived: Codable, Equatable, Sendable {
+        public var value: Bool
+        public var at: String?
+        public init(value: Bool, at: String? = nil) { self.value = value; self.at = at }
+    }
+
+    public var allocated: Allocated
+    public var hot: Hot
+    public var run: Run
+    public var archived: Archived
+
+    public init(allocated: Allocated, hot: Hot, run: Run, archived: Archived) {
+        self.allocated = allocated; self.hot = hot; self.run = run; self.archived = archived
+    }
+
+    /// The short form an `ls` row carries: `allocated`, `hot` without its sessions, `run`.
+    public var short: WorkspaceRowConditions { WorkspaceRowConditions(allocated: allocated, hot: Hot(value: hot.value), run: run) }
+
+    /// As `state --json` writes them, after `ready`, in this order.
+    public func members() -> [JMember] {
+        func s(_ k: String, _ v: String?) -> [JMember] { v.map { [JMember(k, .string($0))] } ?? [] }
+        var hotMembers = [JMember("value", .string(hot.value))]
+        if let ss = hot.sessions {
+            hotMembers.append(JMember("sessions", .object(ss.keys.sorted().map { k in
+                JMember(k, .object([JMember("condition", .string(ss[k]!.condition)), JMember("since", .string(ss[k]!.since))]))
+            })))
+        }
+        return [
+            JMember("allocated", .object([JMember("value", .bool(allocated.value)), JMember("since", .string(allocated.since))] + s("reason", allocated.reason))),
+            JMember("hot", .object(hotMembers)),
+            JMember("run", .object([JMember("open", .bool(run.open))] + s("id", run.id) + s("since", run.since))),
+            JMember("archived", .object([JMember("value", .bool(archived.value))] + s("at", archived.at))),
+        ]
+    }
+}
+
+/// An `ls --json` row's conditions (764): `LayerConditions.short`.
+public struct WorkspaceRowConditions: Codable, Equatable, Sendable {
+    public var allocated: LayerConditions.Allocated
+    public var hot: LayerConditions.Hot
+    public var run: LayerConditions.Run
+    public init(allocated: LayerConditions.Allocated, hot: LayerConditions.Hot, run: LayerConditions.Run) {
+        self.allocated = allocated; self.hot = hot; self.run = run
+    }
+}
+
+public enum LayerConditionsBuilder {
+    /// L1 from the record alone. Pure.
+    public static func allocated(_ rec: WorkspaceRecord) -> LayerConditions.Allocated {
+        if let at = rec.flags.archivedAt { return .init(value: false, since: SpaceState.time(at), reason: "archived") }
+        if let ref = SpaceRecordRef.of(rec) {
+            // Down releases a `runs` space's allocation (and any purge's); a standing space keeps it. An up after it allocates again.
+            if let down = ref.downAt, !ref.isUp, ref.purgedAt != nil || !ref.isStanding {
+                return .init(value: false, since: SpaceState.time(down), reason: "down")
+            }
+            if !ref.isStanding, let up = ref.upAt, ref.downAt != nil { return .init(value: true, since: SpaceState.time(up)) }
+        }
+        return .init(value: true, since: SpaceState.time(rec.createdAt))
+    }
+
+    /// One session's L2 condition from its agent's condition (`AgentCondition`).
+    public static func session(_ c: AgentCondition, agent a: WorkspaceAgent?, record rec: WorkspaceRecord) -> LayerConditions.Session {
+        let word: String
+        switch c.condition {
+        case "running", "asleep", "stopped", "unknown": word = c.condition
+        case "crashed": word = "ended"
+        case "not-started": word = a?.pendingAt != nil ? "starting" : "stopped"
+        default: word = "unknown"
+        }
+        // Since: what the condition says, else when the agent last changed (stopped, else started), else the workspace's creation.
+        let fallback = word == "running" || word == "starting" ? (a?.pendingAt ?? a?.startedAt) : (a?.stoppedAt ?? a?.startedAt)
+        return .init(condition: word, since: c.since ?? SpaceState.time(fallback ?? rec.createdAt))
+    }
+
+    /// Every layer, from the record and the agents' conditions (`WorkspaceConditionsBuilder.build`'s). Pure.
+    public static func build(record rec: WorkspaceRecord, agents: [String: AgentCondition]) -> LayerConditions {
+        var sessions: [String: LayerConditions.Session] = [:]
+        for (name, c) in agents {
+            sessions[name] = session(c, agent: rec.agents.last { $0.name == name && $0.endedAt == nil }, record: rec)
+        }
+        let running = sessions.values.filter { $0.condition == "running" }.count
+        let hot = running == 0 ? "none" : running == sessions.count ? "all" : "some"
+        let run: LayerConditions.Run
+        if let r = rec.openRun {
+            run = .init(open: true, id: r.id, since: SpaceState.time(r.startedAt))
+        } else if let r = rec.runs.last {
+            run = .init(open: false, id: r.id, since: r.endedAt.map(SpaceState.time))
+        } else {
+            run = .init(open: false)
+        }
+        return LayerConditions(allocated: allocated(rec), hot: .init(value: hot, sessions: sessions), run: run,
+                               archived: .init(value: rec.flags.archivedAt != nil, at: rec.flags.archivedAt.map(SpaceState.time)))
     }
 }
 
@@ -133,7 +269,8 @@ public enum WorkspaceConditionsBuilder {
         }
         let ready = f.known && rec.flags.finishedAt == nil && rec.flags.archivedAt == nil && !agents.isEmpty
             && agents.values.allSatisfy { $0.condition == "running" }
-        return WorkspaceConditions(from: from, agents: agents, ready: ready, phase: phase(rec, agents: agents, known: f.known, log: log))
+        return WorkspaceConditions(from: from, agents: agents, ready: ready, phase: phase(rec, agents: agents, known: f.known, log: log),
+                                   layers: LayerConditionsBuilder.build(record: rec, agents: agents))
     }
 
     /// The phase: archived, finished, setting up (never started) from the flags; then running while any agent runs, asleep

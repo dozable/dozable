@@ -312,9 +312,27 @@ editor's, and `ordered()`, the sha and the frames never carry them.
 **The `--json` contract** (`SpaceState.stateAnswer`, plan v2 §2.2): `kind` `WorkspaceState` and `schema` 1 first, then the
 document exactly as `ordered()` writes it (its `sha` unchanged — a reader that decodes it as `SpaceState` still can), then
 `from` (`record` | `space-file`), `agents` `{NAME: {condition, reason?, role, place, since?}}` (ISO 8601), `conditions`
-`{ready}` and `revision` (empty until the revision store). The text output adds an AGENT/ROLE/PLACE/CONDITION/WHY table.
-The dashboard is unchanged: the Space tab and the pictures read `workspace-state` only once they hold a space file's text, so
+`{ready, allocated, hot, run, archived}` and `revision` (empty until the revision store). The text output adds an
+AGENT/ROLE/PLACE/CONDITION/WHY table. The dashboard is unchanged: the Space tab and the pictures read `workspace-state` only once they hold a space file's text, so
 a record workspace is still drawn as a plain tile — its drawing is a later stage (DR1). Frames stay space-only.
+
+**One condition per layer** (764, `LayerConditionsBuilder` in `WorkspaceRecordState.swift`; workspace-model.md, "One
+phase, and one condition per layer"): beside `ready` — never replacing it — `conditions` carries
+- `allocated {value, since, reason?}` (L1), from the record's lifecycle alone: true from new (or up) until archive
+  (`reason: archived`, `since` its time) or delete; a space file whose lifetime is `runs` is released by `down`
+  (`SpaceRecordRef.downAt`, `reason: down`) and allocated again by the next up (`since` that up); a standing one keeps it
+  through down, but not through `down --purge`. A finish ends the run, never the allocation;
+- `hot {value: all|some|none, sessions: {NAME: {condition, since}}}` (L2), each agent not ended by its name, its condition
+  mapped from the agent's: `running`, `asleep`, `stopped` (also a declared worker not started), `ended` (crashed),
+  `starting` (a worker being added — `pendingAt`), `unknown` (no daemon; an agent this viewer may not see). `since` is the
+  condition's, else the agent's `stoppedAt`/`startedAt`, else the workspace's creation — always present;
+- `run {open, id?, since?}` (L3): the open run since it opened, else the last run since it closed, else `{open: false}`;
+- `archived {value, at?}` (L0).
+
+`phase` stays, derived as before, for one release. `ls --json` rows carry the short form, `conditions {allocated, hot
+{value}, run}` (`WorkspaceRow.conditions`), from the same builder over what the daemon holds of each agent
+(`workspaceAgentFacts` — no chat, folder or guest call) and — only when an agent is neither running nor asleep — the newest 64 lines of the log. `WorkspaceRecordStateTests`
+(`testAllocatedFromTheRecordsLifecycle`, `testHotPerSessionRunAndArchived`, `testTheJSONCarriesEachLayerBesideReady`).
 
 ## A document for every workspace
 

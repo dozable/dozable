@@ -3174,7 +3174,8 @@ async function walkWorkspacesList() {
   await goHash('#/workspaces');
   check(await waitFor(`!!document.querySelector('[data-wsl-list="grid"]')`, 15000), 'workspaces 2 …still Grid after a reload (kept in this browser)');
   await evaluate(`(() => { const s = document.querySelector('[data-wsl-sort]'); s.value = 'name'; s.dispatchEvent(new Event('change')); })()`);
-  await sleep(500);
+  // The re-sort refetches the list: wait for the redrawn one (a fixed 500 ms raced it on a loaded Mac), at most 8 s.
+  await waitFor(`(() => { const n = ${WSL}; return n.length === ${ls.length} && JSON.stringify(n) === JSON.stringify(n.slice().sort((a, b) => a.localeCompare(b))); })()`, 8000);
   const byName = await evaluate(WSL);
   check(JSON.stringify(byName) === JSON.stringify(byName.slice().sort((a, b) => a.localeCompare(b))) && byName.length === ls.length, 'workspaces 2 Sort by Name');
   await evaluate(`(() => { const s = document.querySelector('[data-wsl-sort]'); s.value = 'last'; s.dispatchEvent(new Event('change')); })()`);

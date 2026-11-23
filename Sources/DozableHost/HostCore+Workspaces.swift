@@ -317,6 +317,16 @@ extension HostCore {
                                          space: WorkspaceRowSpace.of(rec),
                                          lastAt: (try? workspaces.logPage(rec.name, limit: 1))?.entries.first?.at))
                 rows[rows.count - 1].lifetime = SpaceRecordRef.lifetime(of: rec)
+                // 764: the short form of `state`'s conditions — the same builder, from what the daemon holds (no chat, no
+                // folder, no guest call) and — only when an agent is neither running nor asleep, the one case its last log
+                // line decides (crashed, slept, stopped) — the newest page of the log, so `ls` stays as quick as it was.
+                var facts = SpaceStateFacts(known: !readOnly, home: "", projectsDir: "")
+                if !readOnly { facts.agents = await workspaceAgentFacts(rec, macs: macs) }
+                let needsLog = rec.agents.contains { a in
+                    a.endedAt == nil && !["running", "asleep"].contains(facts.agents[a.name]?.state ?? "missing")
+                }
+                let log = needsLog ? Array(((try? workspaces.logPage(rec.name, limit: 64))?.entries ?? []).reversed()) : []
+                rows[rows.count - 1].conditions = WorkspaceConditionsBuilder.build(record: rec, facts: facts, log: log, from: "record").layers?.short
             }
         }
         var loose: [LooseAgent] = []

@@ -5,7 +5,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 [Space files](../manual/39-space-files.md)). This page is the model every workspace change is judged against: model v3,
 accepted by the owner on 2026-11-23, with its review folded in.
 
-**The model is ahead of the code.** Every section says what is **built** — what 0.52.43 does, with the code that does it —
+**The model is ahead of the code.** Every section says what is **built** — what 0.52.43 does (0.52.45 for the conditions per layer), with the code that does it —
 and what is **coming**, by the stage that brings it. A sentence that does not say "coming" describes today. Never move a
 line from coming to built without the code, and never describe coming behaviour in the manual.
 
@@ -13,16 +13,17 @@ line from coming to built without the code, and never describe coming behaviour 
 
 | Stage | What it brings | After |
 |---|---|---|
-| **COND** | one condition per layer in `state`: `allocated` (L1), `hot` per session (L2), `run open` (L3), `archived` (L0); `phase` kept one release as a derived summary | — |
-| **LC1** | the `run` verb (`doz workspace run W "GOAL"`): one run at a time, `reopen` folded into it, `up` opening the first run only, once | COND |
-| **PLACE** | Place as an entity in the record (`isolation`, view, network, credentials, secret references); VMs as places; a fenced place a policy | COND |
+| **LC1** | the `run` verb (`doz workspace run W "GOAL"`): one run at a time, `reopen` folded into it, `up` opening the first run only, once | — |
+| **PLACE** | Place as an entity in the record (`isolation`, view, network, credentials, secret references); VMs as places; a fenced place a policy; `state` says the per-place fact | — |
 | **IDSESS** | `WorkspaceAgent` split into Identity (L1) and Session (L2); declared workers become identities; named workers persist | PLACE |
 | **SP32** | space/3.2: `lives: workspace \| run`, `places:`, `where: PLACE`, `brief.criteria`, `brief.addenda`, the migration notes | PLACE, IDSESS |
 | **LC2** | `down` ≠ `finish` (D4 reversed): `finish` closes the run and removes the run's things; `down` releases allocations and keeps data; `--purge` for every workspace; `WorkspaceDown`; the dashboard's Finish and Down | LC1, SP32 |
-| **UOW-MVP** | the improvement loop: a proposal to change the work description (a lesson as `brief.addenda`) decided by the owner; the next run includes it | LC1 |
-| **UOW** | the run journal (open-ended entry kinds), evidence hashed on attach, playbooks as editable skills — design under revision | UOW-MVP |
+| **UOW-MVP** | bring your own process: the run's primitives (journal, evidence hashed when attached, the work description's addenda, proposals), and the opt-in permission ids an agent is granted by role or by the workspace's `permissions:` | LC1 |
+| **PLAYBOOKS** | the four recommended processes as playbooks (permission presets, journal kinds, a way to apply one; the quality loop's gates opt-in) — supported and tested, never required | UOW-MVP |
+| **HOOKS** (optional) | a workspace told of its run's events by a command or an address — a proposal only, to be reviewed again before any work | PLAYBOOKS |
 
-Later, only if the addendum proves too narrow: skills a proposal may change, and comparing runs.
+COND, one condition per layer in `state`, is built (0.52.45): "One phase, and one condition per layer" below. Later,
+only if a user asks: skills and playbooks a proposal may change, and comparing runs.
 
 ## The four layers
 
@@ -83,14 +84,25 @@ and released ones too, for its locked readers; `untouched` (both answers), `rele
 
 One `sleep` verb for both places (model decision 6.2 A): its result is "nothing running, nothing spending, back in seconds
 with the conversations". On this Mac `sleep` and `stop` differ only in what comes back (`wake` resumes the conversation).
-**Coming (COND):** `state` says the per-place fact — `asleep: hibernated` or `asleep: ended, conversation kept`.
+**Coming (PLACE):** `state` says the per-place fact — `asleep: hibernated` or `asleep: ended, conversation kept`.
 
-### What is one phase today, and four conditions in the model
+### One phase, and one condition per layer
 
-Today `doz workspace state --json` carries ONE `phase` (`setting-up`, `running`, `asleep`, `stopped`, `finished`,
-`archived`) and each agent's condition; a space's `SpaceState.run.phase` is literally `up` / `down`
-(`SpaceState.swift`, `WorkspaceRecordState.swift`) — three verbs' words on three layers (D8). **Coming (COND):**
-`allocated` (L1), `hot` per session (L2), `run open` (L3), `archived` (L0); the run's phase becomes `open` / `closed`.
+`doz workspace state --json` carries ONE `phase` (`setting-up`, `running`, `asleep`, `stopped`, `finished`, `archived`),
+each agent's condition and `conditions.ready`; a space's `SpaceState.run.phase` is literally `up` / `down`
+(`SpaceState.swift`, `WorkspaceRecordState.swift`) — three verbs' words on three layers (D8). **Built in 0.52.45
+(COND):** beside `ready`, never replacing it, `conditions` carries one condition per layer (`LayerConditionsBuilder`,
+`WorkspaceRecordState.swift`; workspaces.md, "One condition per layer"):
+
+| Layer | Condition | Derived from |
+|---|---|---|
+| L1 | `allocated {value, since, reason?}` | the record's lifecycle: true from new (or up) until archive or delete; a `runs` space is released by `down` (`reason: down`), a standing one keeps it (not through `--purge`); a finish ends the run, never the allocation |
+| L2 | `hot {value: all\|some\|none, sessions: {NAME: {condition, since}}}` | each agent's condition: `starting`, `running`, `asleep`, `stopped`, `ended`, `unknown` |
+| L3 | `run {open, id?, since?}` | `WorkspaceRecord.openRun`, else the last run |
+| L0 | `archived {value, at?}` | `flags.archivedAt` |
+
+`ls --json` rows carry `{allocated, hot: {value}, run}`. `phase` stays one release as the derived summary. **Coming
+(LC1):** the run's phase becomes `open` / `closed`.
 
 ## Data versus allocation
 
@@ -196,18 +208,59 @@ its exact grants follow the revised unit-of-work design.
 ## The unit of work
 
 A run is a unit of work, not a turn: **run → tasks → turns**. Dozable owns runs; turns belong to the agent, and Dozable
-only observes them. **Its design is being revised to mechanisms, not process** (owner, 2026-11-23: how a run is
-planned, reviewed and accepted "will totally depend on the needs and style of the user and managing agent"). What is
-settled:
+only observes them. **Bring your own process** (owner, 2026-11-23): how a run is planned, reviewed and accepted depends
+on the user and the managing agent, so Dozable provides **primitives** and **permissions** and enforces no process. A
+workspace's process lives in what its people and agents do with them, written down wherever they like: a brief, a
+playbook skill, a template, the agent's own prompt. Everything in this section but the last paragraph is **coming**
+(UOW-MVP, then PLAYBOOKS).
 
-- **Three hard rules**, because they are about trust, not process: no agent decides a change to its own instructions
-  (a change to the work description is a proposal someone else decides); evidence attached to a run is hashed when
-  attached; a closed run's record is immutable (later reflections go beside it).
-- **The improvement loop:** after a run, a proposal to change the work description (for example, a lesson appended
-  as `brief.addenda {run, at, text}`, never rewriting the brief) is decided by the owner or a granted identity, and the
-  next run's goal includes it (UOW-MVP, after LC1).
-- Everything else (tasks, reviews, outcomes, gates) is to be a run journal with open-ended entry kinds plus
-  editable playbooks for the managing agent, not steps Dozable enforces; enforced gates, if any, opt-in per workspace.
+**Two integrity rules**, the only fixed ones — they are about trust, not process:
+1. evidence attached to a run is hashed when it is attached;
+2. a closed run's record is immutable; anything later (a reflection, a finding) goes beside it, linked.
+
+Who may change the work description is a permission like any other, not a rule.
+
+**The primitives** (coming, UOW-MVP; the run verb itself is LC1):
+
+| Primitive | What it is |
+|---|---|
+| Run | `run W [GOAL]` opens one, `finish` closes it; it records its goal (else "the brief"), what started it, the runs it follows, usage, and the revision of the work description it read. One open at a time |
+| Journal | append-only entries on a run, `{seq, at, by, kind, text?, refs?, data?}`; `kind` is any string — Dozable renders the ones it knows (`note`, `task`, `claim`, `review`, `finding`, `outcome`) and shows the rest as written. No kind is required, no order enforced |
+| Evidence | files, commits or messages attached to an entry; a file is copied into the run and hashed when attached (rule 1) |
+| Work description | the brief plus `addenda [{run?, at, by, text}]`, appended without rewriting the brief; part of the document, so every change is a revision with who and why. A lesson is one kind of addendum |
+| Proposal | a pending change to the document, `{by, change, why?, source?}`, applied or declined through an Ask. Optional: an identity holding the edit permission changes things directly |
+| Close | `finish` freezes the run's journal and evidence into its archive (rule 2) |
+
+**Permissions, opt-in** (coming, UOW-MVP). New permission ids, every one **off for agents** until granted; the owner is
+never gated, as today:
+
+| Permission | Lets an agent |
+|---|---|
+| `run.open`, `run.finish` | open and close runs |
+| `journal.write` (`journal.write:KIND` for some kinds only) | append journal entries |
+| `evidence.attach` | attach evidence |
+| `description.propose` | propose a change to the work description |
+| `description.decide` | apply or decline such a proposal (its own too, when granted) |
+| `description.edit` | change the work description directly, with no proposal |
+
+A workspace grants them **by role** (roles are grant bundles, as today, so a user can define their own — a `reviewer`
+role bundling `journal.write`, `evidence.attach` and `description.propose`, say) or **by its own config**: the
+document's `permissions: {IDENTITY: [ROLE or PERMISSION, …]}` (`x-dozable.permissions` in space/3.1), shown in the plan
+as a request — never a grant the file makes by itself.
+
+**Recommended processes, as playbooks** (coming, PLAYBOOKS) — supported and tested, never required. Each is only a
+configuration of the primitives: a playbook (an editable skill the managing agent follows), a permission preset and the
+journal kinds it uses. A workspace applies one (`doz workspace process apply W NAME`), changes it, or uses none.
+
+| Process | The loop | Preset |
+|---|---|---|
+| Just do it | run → work → finish; an outcome entry if anyone cares | manager: `run.open`, `run.finish`, `journal.write` |
+| Review before accept | a worker does it, a reviewer checks it against the goal, the owner accepts | workers: `journal.write` for their kinds; reviewer: the `reviewer` role |
+| Quality loop (ISO 9000-style plan, do, check, act) | criteria written at Plan; tasks delegated and claimed; each criterion reviewed against evidence, never a claim; a retrospective proposes a lesson, decided, and the next run's goal includes it | manager: `run.open`, `run.finish`, `journal.write`, `description.propose`; reviewer: `reviewer`; the owner decides. Its gates ("an outcome needs a review per criterion", "a failing review blocks `accepted`") only when the workspace turns them on |
+| Autonomous improvement | the quality loop with the manager deciding its own lessons | the quality loop's + manager: `description.decide` |
+
+**Hooks** are an optional, unreviewed proposal for the very end (HOOKS): a workspace told of its run's events by a
+command or an address, so a process can live outside Dozable. Nothing of it is planned until it is reviewed again.
 
 **Built in 0.52.43:** the run as a record (`WorkspaceRun {id, startedAt, endedAt, rooms, archive, archiveSHA256, closedBy,
 …}`, `WorkspaceRecord.swift`; at most one open, `WorkspaceRecord.openRun`); its room slice (`WorkspaceRunRoom {fromSeq,

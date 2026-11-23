@@ -268,4 +268,107 @@ final class WorkspaceRecordStateTests: XCTestCase {
         let enc = String(decoding: try JSONEncoder().encode(s), as: UTF8.self)
         XCTAssertFalse(enc.contains("agentConditions"))
     }
+
+    // MARK: one condition per layer (764)
+
+    func layers(_ rec: WorkspaceRecord, _ f: SpaceStateFacts, _ l: [WorkspaceLogEntry] = []) throws -> LayerConditions {
+        try XCTUnwrap(WorkspaceConditionsBuilder.build(record: rec, facts: f, log: l, from: "record").layers)
+    }
+
+    func testAllocatedFromTheRecordsLifecycle() throws {
+        // A record workspace: allocated from new, through finish (finish ends the run, not the allocation), until archive.
+        var rec = record()
+        XCTAssertEqual(try layers(rec, runningFacts()).allocated, .init(value: true, since: SpaceState.time(t0)))
+        rec.flags.finishedAt = t0.addingTimeInterval(60)
+        rec.runs[0].endedAt = t0.addingTimeInterval(60)
+        XCTAssertEqual(try layers(rec, runningFacts()).allocated.value, true)
+        rec.flags.archivedAt = t0.addingTimeInterval(120)
+        XCTAssertEqual(try layers(rec, runningFacts()).allocated, .init(value: false, since: SpaceState.time(t0.addingTimeInterval(120)), reason: "archived"))
+
+        // A space file's, lifetime runs: down releases it; an up after it allocates again, since that up.
+        var space = record()
+        var ref = SpaceRecordRef()
+        ref.upAt = t0.addingTimeInterval(10)
+        ref.store(in: &space)
+        XCTAssertEqual(try layers(space, runningFacts()).allocated.value, true)
+        ref.downAt = t0.addingTimeInterval(20)
+        ref.store(in: &space)
+        XCTAssertEqual(try layers(space, runningFacts()).allocated, .init(value: false, since: SpaceState.time(t0.addingTimeInterval(20)), reason: "down"))
+        ref.upAt = t0.addingTimeInterval(30)
+        ref.store(in: &space)
+        XCTAssertEqual(try layers(space, runningFacts()).allocated, .init(value: true, since: SpaceState.time(t0.addingTimeInterval(30))))
+
+        // Standing: down keeps it — but a purge releases it.
+        ref.lifetime = "standing"; ref.upAt = t0.addingTimeInterval(10); ref.downAt = t0.addingTimeInterval(20)
+        ref.store(in: &space)
+        XCTAssertEqual(try layers(space, runningFacts()).allocated, .init(value: true, since: SpaceState.time(t0)))
+        ref.purgedAt = t0.addingTimeInterval(20)
+        ref.store(in: &space)
+        XCTAssertEqual(try layers(space, runningFacts()).allocated.reason, "down")
+    }
+
+    func testHotPerSessionRunAndArchived() throws {
+        let rec = record()
+        var l = try layers(rec, runningFacts())
+        XCTAssertEqual(l.hot.value, "all")
+        XCTAssertEqual(l.hot.sessions?.mapValues(\.condition), ["mira": "running", "tess": "running", "lab": "running"])
+        XCTAssertEqual(l.run, .init(open: true, id: "2026-11-22-1", since: SpaceState.time(t0)))
+        XCTAssertEqual(l.archived, .init(value: false))
+
+        // Some: one asleep, one crashed (ended).
+        var f = runningFacts()
+        f.agents["lab"] = .init(state: "asleep", detail: "in lab, hibernated")
+        f.agents["tess"] = .init(state: "ended")
+        l = try layers(rec, f, log(("tess", "agent-crashed", 70)))
+        XCTAssertEqual(l.hot.value, "some")
+        XCTAssertEqual(l.hot.sessions?.mapValues(\.condition), ["mira": "running", "tess": "ended", "lab": "asleep"])
+
+        // None: stopped, every session's since a parseable time.
+        f.agents = ["mira": .init(state: "ended"), "tess": .init(state: "ended"), "lab": .init(state: "ended", detail: "in lab, shut down")]
+        l = try layers(rec, f, log(("mira", "agent-stopped", nil), ("tess", "agent-stopped", nil), ("lab", "agent-stopped", nil)))
+        XCTAssertEqual(l.hot.value, "none")
+        XCTAssertEqual(Set(l.hot.sessions!.values.map(\.condition)), ["stopped"])
+        for s in l.hot.sessions!.values { XCTAssertNotNil(ISO8601DateFormatter().date(from: s.since), s.since) }
+
+        // No daemon: not known; a worker being added is starting.
+        XCTAssertEqual(Set(try layers(rec, SpaceStateFacts(known: false, home: "", projectsDir: "")).hot.sessions!.values.map(\.condition)), ["unknown"])
+        var adding = record()
+        adding.agents[1].pendingAt = t0
+        XCTAssertEqual(try layers(adding, runningFacts()).hot.sessions?["tess"]?.condition, "starting")
+
+        // The run closed, then archived.
+        var done = record()
+        done.runs[0].endedAt = t0.addingTimeInterval(60)
+        done.flags.finishedAt = t0.addingTimeInterval(60)
+        done.flags.archivedAt = t0.addingTimeInterval(90)
+        l = try layers(done, runningFacts())
+        XCTAssertEqual(l.run, .init(open: false, id: "2026-11-22-1", since: SpaceState.time(t0.addingTimeInterval(60))))
+        XCTAssertEqual(l.archived, .init(value: true, at: SpaceState.time(t0.addingTimeInterval(90))))
+        // No run yet.
+        var fresh = record()
+        fresh.runs = []
+        XCTAssertEqual(try layers(fresh, runningFacts()).run, .init(open: false))
+    }
+
+    /// The layers sit BESIDE `ready` in `conditions`, never replacing it; an ls row carries the short form.
+    func testTheJSONCarriesEachLayerBesideReady() throws {
+        let s = build(record(), runningFacts())
+        let o = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(SpaceState.stringify(s.stateAnswer()).utf8)) as? [String: Any])
+        let c = try XCTUnwrap(o["conditions"] as? [String: Any])
+        XCTAssertEqual(Array(c.keys).sorted(), ["allocated", "archived", "hot", "ready", "run"])
+        XCTAssertEqual(c["ready"] as? Bool, true)
+        XCTAssertEqual((c["allocated"] as? [String: Any])?["value"] as? Bool, true)
+        XCTAssertNil((c["allocated"] as? [String: Any])?["reason"])
+        XCTAssertEqual((c["hot"] as? [String: Any])?["value"] as? String, "all")
+        XCTAssertEqual(((c["hot"] as? [String: Any])?["sessions"] as? [String: [String: Any]])?["mira"]?["condition"] as? String, "running")
+        XCTAssertEqual((c["run"] as? [String: Any])?["open"] as? Bool, true)
+        XCTAssertEqual((c["archived"] as? [String: Any])?["value"] as? Bool, false)
+        XCTAssertNil((c["archived"] as? [String: Any])?["at"])
+        XCTAssertEqual(o["phase"] as? String, "running", "phase stays")
+
+        let short = try XCTUnwrap(s.agentConditions?.layers?.short)
+        let row = try XCTUnwrap(try JSONSerialization.jsonObject(with: JSONEncoder().encode(short)) as? [String: Any])
+        XCTAssertEqual(Array(row.keys).sorted(), ["allocated", "hot", "run"])
+        XCTAssertNil((row["hot"] as? [String: Any])?["sessions"], "the short form has no sessions")
+    }
 }
