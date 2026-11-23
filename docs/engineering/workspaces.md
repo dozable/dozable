@@ -603,9 +603,17 @@ an anonymous worker in it gets a new token on its next wake, and the plan says s
 **Safety.** Nothing on disk goes without its flag: a sandbox's disk only with `removeSandboxes`, and only one Dozable made for
 this workspace (a manager's or a worker's own — never an adopted one, never one a worker shares; `doz rm`'s hook leaves its
 entry while the lifecycle removes it, `lifecycleRemoving`); folders only with `binFolders`, moved to the Bin
-(`WorkspaceBin.move`: `FileManager.trashItem`), never deleted, and refused — in the plan and again before the move — for the
-disk's root, your home or a folder above it, the store or a folder around or in it, and a folder another workspace or a
-sandbox uses (`WorkspaceLifecycle.binRefusal`). A guarded test run moves into `DOZ_TEST_TRASH_DIR` and only a scratch folder
+(`WorkspaceBin.move`: `FileManager.trashItem`), never deleted, and **only a folder the workspace MADE** (759,
+`WorkspaceLifecycle.binDecision`, the one rule the plan and the act share): one recorded as made — the record's
+`madeFolders` (`new --new-folder`'s `<projects_dir>/NAME`, recorded only when `new` made it; never from a request) or the
+space reference's `scratch` — still exactly that real path (`realpath` now equals it: no link, no `..`/`.`), under
+`defaults.projects_dir` (not it), and neither inside nor around a folder another workspace or a sandbox uses. Every other
+folder is KEPT and listed with why, in the plan's keeps and the result's `keptFolders` (and its notes): a folder given with
+`--folder`, a space's kept folder (`persistedPaths`: `up` makes one only when missing and records no "made"), one in use,
+one that now leads elsewhere, one gone. A record from before 759 has no `madeFolders`: all its folders are kept. The act
+decides again and moves only what the plan it acts on moved (and checks the real path once more just before the move).
+The disk's root, your home or a folder above it, and the store or a folder around or in it still REFUSE the delete
+(`binRefusal`). A guarded test run moves into `DOZ_TEST_TRASH_DIR` and only a scratch folder
 (`TestSafety.trashViolation`): never the real Bin. Archive and delete need the name typed (the CLI asks on `/dev/tty`; the
 dashboard's `confirm` is checked by the daemon under `confirmRequired`); an unfenced manager's wake from a browser needs
 `unfencedConfirmed`, as its start does.

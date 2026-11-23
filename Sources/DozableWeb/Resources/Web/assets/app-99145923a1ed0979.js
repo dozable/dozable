@@ -17,7 +17,7 @@
 //     resolve, a newer build offers a reload); a sign-in again happens INSIDE the page, over what it shows.
 
 import { chatEnter, chatLeave, chatNavCheck, chatRefresh } from './app/views/chat-fc5fb350250c34e0.js';
-import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-84d42211dbf496af.js';
+import { PERMISSIONS_TAB, wsEnter, wsRefresh } from './app/views/workspace-961c863db5094798.js';
 import { viewWsAgent } from './app/views/ws-agents-fd2f5dcefb98c048.js';
 import { viewIsolationGuide } from './app/views/isolation-guide-fbf8f0a70afaa486.js';
 import { viewAddWorker } from './app/views/add-worker-e5b0299a9e36d1de.js';
@@ -83,8 +83,8 @@ import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/vi
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-9ef538c4c449e510.js';
 import { viewBots } from './app/views/bots-bed8918cf6da2709.js';
 import { viewBot } from './app/views/bot-89b03e83ac6f558b.js';
-import { viewHome } from './app/views/home-c909d57b45893ff4.js';
-import { viewWorkspaces } from './app/views/workspaces-e024afa65f9d886b.js';
+import { viewHome } from './app/views/home-caf606a3a9d53bb6.js';
+import { viewWorkspaces } from './app/views/workspaces-ef901f98cd3e4161.js';
 import { viewLoose } from './app/views/loose-863d404e7eef7310.js';
 import { viewMacs } from './app/views/macs-4ef2603c34e3c0ff.js';
 import { viewOverview } from './app/views/overview-d6180e01edc19875.js';

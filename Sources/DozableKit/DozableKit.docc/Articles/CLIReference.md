@@ -1239,8 +1239,10 @@ their tokens, templates and every folder.
 
 **Nothing on disk without its flag.** `--remove-sandboxes` (archive, delete) removes only the sandboxes Dozable made for this
 workspace — a manager's or a worker's own, never an adopted one or one a worker shares — keeping a template of each first
-(`NAME-tpl`) unless `--no-keep-templates`; `--bin-folders` (delete) moves its folders to the Bin, never deletes them, and
-refuses your home folder, the store, and a folder another workspace or sandbox uses, by name. Exit codes: 0 ok · 1 not every
+(`NAME-tpl`) unless `--no-keep-templates`; `--bin-folders` (delete) moves to the Bin only the folders the workspace MADE (`--new-folder`'s, a space file's scratch
+folders), never deletes them, and keeps every other one — a folder you gave it, one another workspace or sandbox uses, one
+outside `defaults.projects_dir`, one that now leads elsewhere through a link — the plan and the result naming each kept folder
+and why; your home folder and the store are refused by name. Exit codes: 0 ok · 1 not every
 agent reached its target (what did is kept; run it again) · 2 not found · 3 not in this state (finished, archived, setting
 up, busy, still running) or changed since you looked · 5 not confirmed · 6 chat off (archive and restore make their rooms'
 change as you) or the daemon unavailable · 64 usage, or a folder the Bin refuses.

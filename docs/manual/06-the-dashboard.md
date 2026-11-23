@@ -148,7 +148,7 @@ when it is finished, **Restore** when it is archived — and **⋯**: **Stop the
 everything**, **Finish…**, **Archive…** and **Delete…**, and what it still lacks. Each opens a dialog that shows what it
 would do to each agent (on a phone, a card each), what is kept and what goes with sizes, how many change at once and
 **Show the command**; finish asks once, archive and delete want the workspace's name typed, and **Also free …: remove the
-sandboxes Dozable made for it** and **Also move its folders on this Mac to the Bin** are never ticked for you. While it
+sandboxes Dozable made for it** and **Also move the folders Dozable made for it to the Bin** (your own folders are never moved) are never ticked for you. While it
 works the state reads **sleeping…** or **waking…**. Only this Mac's own browser does these (see [Workspaces](37-workspaces.md#sleep-wake-finish-archive-and-delete)). Below are its
 tabs: **Home**, **Room**, **Agents**, **Network & secrets**, **Folders & points**, **Activity** and **Runs** work; **Permissions** and
 **Settings** are marked **coming** and say what they will hold.
