@@ -7,8 +7,10 @@ import Foundation
 // (0700/0600, regular files only, no link followed, read by descriptor, at most 2 MiB and 200 files, `memory.json`
 // listing `{isolation: "fenced", files [{path, sha256}]}`); the SAME agent's next fenced session (its session in the same
 // workspace, a live worker whose space keeps its memory) gets it back after the clearing — never `~/.claude` (a shared
-// agent folder is never seeded), never another agent's or another workspace's session. Switching fenced ↔ unfenced resets
-// it. `SpaceMemoryTests`.
+// agent folder is never seeded), never another agent's or another workspace's session. 776: every lasting identity's memory
+// is kept the same way (captured when its session stops, sleeps or ends — `HostCore.keepIdentityMemory`); switching fenced ↔
+// unfenced no longer resets it (a warning instead); only `doz worker reset W NAME --yes` or `down --purge` (after a verified
+// copy) removes it. `SpaceMemoryTests`, `WorkspaceIdentityTests`.
 
 public enum SpaceMemory {
     public static let maximumBytes = 2 << 20
@@ -97,14 +99,21 @@ public enum SpaceMemory {
         return n
     }
 
-    /// Where the kept memory of the agent whose fenced session is `session` is (nil: none): a live worker of a workspace a
-    /// space file made, whose space keeps that agent's memory as fenced, in this store.
+    /// Where the kept memory of the agent whose fenced session is `session` is (nil: none), in this store: a live worker of a
+    /// workspace a space file made, whose space keeps that agent's memory as fenced — or (776) a lasting identity (a worker or
+    /// the manager) of any other workspace, not retired, in its fenced session.
     public static func seedFolder(store: String, session: String) -> String? {
         let ws = WorkspaceStore(store: DozableStore(root: URL(fileURLWithPath: store)))
         for rec in ws.records() {
-            guard let ref = SpaceRecordRef.of(rec), ref.purgedAt == nil else { continue }
-            for a in rec.agents where a.isLiveWorker && a.place.mac == true && a.place.session == session && a.isolation == "fenced" {
-                guard ref.memoryIsolation?[a.name] == "fenced", ref.owned?.agents[a.name] == "persisted" else { continue }
+            let ref = SpaceRecordRef.of(rec)
+            if let ref, ref.purgedAt != nil { continue }
+            for a in rec.agents where (a.isWorker || a.isManager) && a.endedAt == nil && a.retiredAt == nil && a.place.mac == true
+                && a.place.session == session && a.isolation == "fenced" {
+                if let ref {
+                    guard a.isWorker, ref.memoryIsolation?[a.name] == "fenced", ref.owned?.agents[a.name] == "persisted" else { continue }
+                } else {
+                    guard a.isLasting else { continue }
+                }
                 let dir = WorkspaceStore.resolved(ws.folder(rec.name)) + "/memory/" + a.name
                 if MacFenceHostFS.kind(dir + "/" + manifestName) == S_IFREG { return dir }
             }

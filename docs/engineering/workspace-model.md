@@ -13,14 +13,13 @@ line from coming to built without the code, and never describe coming behaviour 
 
 | Stage | What it brings | After |
 |---|---|---|
-| **IDSESS** | `WorkspaceAgent` split into Identity (L1) and Session (L2); declared workers become identities; named workers persist | PLACE |
 | **SP32** | space/3.2: `lives: workspace \| run`, `places:`, `where: PLACE`, `brief.criteria`, `brief.addenda`, the migration notes | PLACE, IDSESS |
 | **LC2** | `down` ≠ `finish` (D4 reversed): `finish` closes the run and removes the run's things; `down` releases allocations and keeps data; `--purge` for every workspace; `WorkspaceDown`; the dashboard's Finish and Down | LC1, SP32 |
 | **UOW-MVP** | bring your own process: the run's primitives — part A, the work description's addenda, proposals and their permission ids, is built (0.52.47); part B, the run journal (journal/1) and evidence hashed when attached, is built (0.52.48) | LC1 |
 | **PLAYBOOKS** | the four recommended processes as playbooks (permission presets, journal kinds, a way to apply one; the quality loop's gates opt-in) — supported and tested, never required | UOW-MVP |
 | **HOOKS** (optional) | a workspace told of its run's events by a command or an address — a proposal only, to be reviewed again before any work | PLAYBOOKS |
 
-PLACE, Place as an entity, is built (0.52.54): "Place — a policy; the fence per session" below. COND, one condition per layer in `state`, is built (0.52.45): "One phase, and one condition per layer" below. LC1, the
+IDSESS, Identity and Session, is built (0.52.56): "Identity and Session" below. PLACE, Place as an entity, is built (0.52.54): "Place — a policy; the fence per session" below. COND, one condition per layer in `state`, is built (0.52.45): "One phase, and one condition per layer" below. LC1, the
 `run` verb, is built (0.52.46): `doz workspace run W [GOAL]`, one run at a time, `reopen` its old name, `up` opening a run
 each time none is open until LC2 (`--no-run` opens none) — L3 below and workspaces.md, "The run verb". UOW-MVP's part A,
 the work description, is built (0.52.47): addenda, proposals through Dozable's own Ask, `description.*` and the `reviewer`
@@ -56,8 +55,8 @@ apart), not these slabs.
 | Layer | Verbs in the model | Built in 0.52.43 | Coming |
 |---|---|---|---|
 | L0 | `create` · `delete`; `archive` · `restore` | `doz workspace new` (and the wizard, and `up -f` for a space file) · `delete` (finished or archived only); `archive` · `restore` (`WorkspaceVerb`, `WorkspaceLifecycle.swift`) | `create` as the word; a stable id; the revision store (today the document is generated, `RecordDocument.generate`) |
-| L1 | `up` · `down` (`--purge`) | `up -f FILE` for a workspace a space file made only (one made without a file: exit 4, `SpaceUp.plan`); `down` **is** `finish` for every workspace (`runWorkspaceFinish`, `WorkspaceLifecycleCommands.swift`); `--purge` refused for one made without a space file | LC2: `down` releases L1 and keeps data, for every workspace; `up` for every workspace |
-| L2 | `start` · `stop`; `sleep` · `wake` | all four (`workspaceStartOnce`, `wakeStoppedAgents` in `HostCore+WorkspaceManager.swift`; `lifecycleStop`, `lifecycleSleep` in `HostCore+WorkspaceLifecycle.swift`) | IDSESS: sessions as records of their own |
+| L1 | `up` · `down` (`--purge`) | `up -f FILE` for a workspace a space file made only (one made without a file: exit 4, `SpaceUp.plan`); `down` **is** `finish` for every workspace (`runWorkspaceFinish`, `WorkspaceLifecycleCommands.swift`); 0.52.56: `--purge` for one made without a space file retires its lasting identities (their kept memory removed after its copy) | LC2: `down` releases L1 and keeps data, for every workspace; `up` for every workspace |
+| L2 | `start` · `stop`; `sleep` · `wake` | all four (`workspaceStartOnce`, `wakeStoppedAgents` in `HostCore+WorkspaceManager.swift`; `lifecycleStop`, `lifecycleSleep` in `HostCore+WorkspaceLifecycle.swift`); 0.52.56: sessions are records of their own (`sessions[]`), each start rotating a daemon-made token | — |
 | L3 | `run` · `finish` | `doz workspace run W [GOAL]` (0.52.46, `workspaceRunOpen` in `HostCore+Runs.swift`): one run at a time (`run-open`, exit 3), a finished workspace reopened first, the goal (else the brief) posted as your message, then the sessions started unless `--no-start`; it records its goal, `goalFrom`, `source`, `follows`, `openedBy` and the work description's revision. A run also opens at the first `start` (`workspaceStartOnce`, only while `flags.startedAt` is nil), at the CLI's `reopen` (run's old name) and the dashboard's Reopen (`lifecycleReopen`), and at an `up` that finds none open (`SpaceUp`'s `workspace-reopen` / `workspace-start` steps; `--no-run` opens none); `finish` (and `down`) closes it | LC2: `up` opens the first run only, once; `start` starts sessions only |
 
 ### L2 today: start, stop, sleep, wake
@@ -136,11 +135,14 @@ disk (VM disk sizes), since kept data costs disk.
   `HostCore+SpaceAct.swift`), named in the answer's `savedDisks`; a save that fails removes nothing.
 - `--purge` (a space file's workspace): its rooms, sandboxes (disk saved first) and kept memory removed; its folders
   released, never deleted.
-- Tokens: `finish` keeps every token (so `reopen` then `wake` works); a run-lifetime anonymous worker's token goes with it.
+- Identities (built in 0.52.56, "Identity and Session" below): `down`/`finish` keeps every lasting identity and its memory
+  and **revokes** its token (each start issues a new one); for a workspace made without a space file it ends the run's
+  identities (a worker added with no name, one declared at `new`) — their places kept, nothing on disk removed — and
+  `down --purge` retires its lasting identities, each one's kept memory removed only after its copy in the archive verifies.
+  A run-lifetime agent of a space file goes with its run, as before.
 
-**Coming (LC2):** the split for every workspace — `down` releases allocations (VMs stopped, tokens revoked, the room
-closed) and keeps data; `finish` alone removes the run's things. **Coming (IDSESS):** a workspace-owned identity's token is
-revoked at `down` and rotated at each `start` (a token that outlives its sessions is new exposure).
+**Coming (LC2):** the split for every workspace — `down` releases allocations (VMs stopped, the room closed) and keeps
+data; `finish` alone removes the run's things; `--purge`'s rooms and sandboxes for a workspace made without a space file.
 
 ## Persistence by owner
 
@@ -235,17 +237,49 @@ not applied (as in 3.1).
 - A **session** (L2) is an identity's program running in a place: terminal, status, transcript, its chat token as a launch
   secret. `start`/`stop` and `sleep`/`wake` act on sessions.
 
-**Built in 0.52.43:** both halves are one `WorkspaceAgent` (`WorkspaceRecord.swift`): the identity's fields (`name`,
-`role`, `bot`, `anonymous`, `task`) beside the session's (`place.session`, `startedAt`, `stoppedAt`). A declared worker
-(`WorkspaceDeclaredWorker`, `new --worker`) is already an identity with no session. An anonymous worker's participant is
-a throwaway one, removed at `doz worker end`. Memory survives only for a persisted fenced agent of a space file
-(`SpaceMemory`), reset by a switch between fenced and unfenced. `reviewer` is a space file's role (`SpaceFormat.roles`)
-and, built in 0.52.47, a grant role too (`RoleTable`): `journal.write`, `evidence.attach` and `description.propose`, all
-allow — `doz grant AGENT reviewer --in W`.
+**Built in 0.52.56 (IDSESS; `HostCore+Identities.swift`, `WorkspaceRecord.swift`):**
 
-**Coming (IDSESS):** the split; named workers (`worker add W NAME`) persist, a nameless `--task` worker is run-owned; memory
-kept `up` → `--purge` for every workspace-owned identity whatever its place, reset only by an explicit reset (a
-fenced/unfenced switch warns instead); `WorkspaceAgent.task` becomes the identity's `prompt:`, freeing "task" for L3.
+- **The record keeps them apart.** `workspace.json` holds `identities[]` (`WorkspaceIdentityHalf`: `id`, `name`, `role`,
+  `kind`, `lifetime`, `bot`, `participant`, `isolation`, `placeName`, `task`, `tokenFingerprint`, `tokenIssuedAt`,
+  `tokenRevokedAt`, `retiredAt`) and `sessions[]` (`WorkspaceSessionHalf`: `identity` — the identity's id —, `place`,
+  `startedBy`, `startedAt`, `stoppedAt`, `pendingAt`, `endedAt`); a field this build does not know stays on its half. A
+  record written before (`agents[]`, 0.52.55 and older) is read as one identity and one session per entry and written in
+  the new form — read for one release; an agent an older doz added to `agents[]` beside the new form is read too. In
+  memory one `WorkspaceAgent` is still one identity and the session it has or last had (the record's join).
+- **The id** (`idn-` + 12 hex): recorded when an identity is made again as itself, else derived from its name and its first
+  session's start (whole seconds) — so an id never changes once written, and a freed name's next identity is another.
+- **Who owns it** (`lifetime`): `worker add W NAME` — and a bot, the manager, an adopted agent — makes a **lasting**
+  identity (`workspace`); `worker add W --task …` with no name, and a worker declared at `new`, a **run-owned** one (`run`);
+  a space file's agent is its file's (`lifetime: run` → `run`, otherwise `workspace`). A record from before says none:
+  derived — a worker Dozable named itself (`botN`, no bot) is the run's, every other the workspace's.
+- **Ending a session** (`doz worker end`): a run-owned identity goes with it (its participant removed); a lasting one is
+  kept — a member of its rooms, with its memory — its token **revoked** (replaced by one nobody holds); `doz worker add W
+  NAME` brings it back as itself (its id, its participant with a new token, its memory). Its place is kept unless `--rm`.
+- **The token** is issued at the add and **rotated at each start** (`workerWake`: `workspace start`, `run`, `wake` of a
+  stopped session — a new token, the old one refused; `tokenIssuedAt`); revoked at `worker end` and at `down`. A bot's
+  token is the bot's; an adopted agent's its own (771).
+- **Memory** is what Dozable keeps of a lasting identity's own: its fenced session's private agent folder is cleared at each
+  open but its transcripts, so its memory is captured into `<store>/workspaces/W/memory/NAME/` when its session stops,
+  sleeps or ends (`keepIdentityMemory`; an empty folder never replaces what is kept) and seeded back into its next fenced
+  session (`SpaceMemory.seedFolder`). An unfenced session's memory is the person's own agent folder and a sandbox's is on
+  its disk: Dozable never copies or removes either. It is removed only by `doz worker reset W NAME --yes` (refused while
+  its session runs; that folder only) or `down --purge` (after its copy in `archives/W/folders/RUN/memory-NAME` verifies —
+  a copy that does not verify keeps it). A space file's fenced ↔ unfenced switch no longer resets it: a warning says so.
+- **`down --purge`** of a workspace made without a space file: finish's steps, then each lasting identity's kept memory
+  (copied first) removed and each lasting worker whose participant the daemon made **retired** (`retiredAt`, its
+  participant removed, its session ended); the answer's `purged` lists them (`agent/NAME`). A bot keeps its token.
+- **What reads it:** `doz workspace state W --json` gains `identities[] {name, id, role, kind, lifetime, bot, place, memory
+  {present, files, bytes, path}, token {issuedAt, revokedAt}, hasSession}` and `sessions[] {identity, place, state, since}`
+  — never a token or the memory's content; its `agents` view stays, derived, for one release. `worker add --json` answers
+  its `identity`; `worker ls` and `show` carry `identities` (the lasting ones with no session among them) and each agent's
+  `lifetime`.
+
+A declared worker (`WorkspaceDeclaredWorker`, `new --worker`) is an identity with no session until the start. `reviewer`
+is a space file's role (`SpaceFormat.roles`) and, built in 0.52.47, a grant role too (`RoleTable`): `journal.write`,
+`evidence.attach` and `description.propose`, all allow — `doz grant AGENT reviewer --in W`.
+
+**Coming:** `WorkspaceAgent.task` becomes the identity's `prompt:`, freeing "task" for L3 (SP32); `lives:` on an identity
+in a space file (SP32).
 
 ## The unit of work
 
@@ -434,7 +468,7 @@ under `agents` (a note each). Its lifetime is the file's, `runs` when it says no
 
 `generate` → validate passes for every record shape (`WorkspaceDocumentTests.testEveryRecordFixtureGeneratesAValidDocument`).
 That the plan of a generated document against its own record is EMPTY — the zero-change gate — is a later stage. Coming
-(SP32, IDSESS): the generated document carries `places:` and identities, and `lives:`.
+(SP32): the generated document carries `places:`, identities (`lives:` on each) and `lives:`.
 
 ## The space/3.1 keys
 

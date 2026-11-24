@@ -18,6 +18,8 @@ struct WorkspaceStateCommand: AsyncParsableCommand {
         up that stopped at a failure. Never a chat message's text. With no daemon running none is started: every state is \
         then "not known". --json is {kind: WorkspaceState, schema: 1, …the document the dashboard's space view reads, with \
         its sha, from, agents: {NAME: {condition, reason, role, place, since}}, conditions: {ready, allocated, hot, run, archived}, \
+        identities: [{name, id, role, kind, lifetime: workspace|run, bot, place, memory: {present, files, bytes, path}, \
+        token: {issuedAt, revokedAt} — a time, never the token, hasSession}], sessions: [{identity, place, state, since}], \
         places: [{name, isolation, view, network, credentials, sessions: [{identity, session, state, fence}]}] — a fenced \
         place gives each session a fence of its own —, revision}; a workspace \
         that does not exist exits 2 (not-found).
@@ -62,6 +64,22 @@ func spaceStateText(_ s: SpaceState) -> String {
             t.append(["  " + k, a.role, a.place, a.condition == "unknown" ? "not known" : a.condition.replacingOccurrences(of: "-", with: " "), a.reason ?? ""])
         }
         out += "agents" + (c.ready ? " (every one running)" : "") + ":\n" + Out.table(t)
+    }
+    // 776: who each agent is (its identity), and what runs (its session).
+    if let ids = s.identities, !ids.isEmpty {
+        var t: [[String]] = [["  IDENTITY", "ROLE", "KIND", "LIFETIME", "MEMORY", "TOKEN ISSUED"]]
+        for i in ids {
+            let token = i.token.map { $0.revokedAt != nil ? "revoked \($0.revokedAt!)" : $0.issuedAt } ?? (i.bot != nil ? "the bot's" : "—")
+            t.append(["  " + i.name, i.role, i.kind ?? "—", i.lifetime == "workspace" ? "lasting" : "the run's", identityMemoryWords(i.memory), token])
+        }
+        out += "identities:\n" + Out.table(t)
+    }
+    if let ss = s.sessions {
+        if ss.isEmpty { out += "sessions: none\n" } else {
+            var t: [[String]] = [["  SESSION OF", "PLACE", "STATE", "SINCE"]]
+            for x in ss { t.append(["  " + x.identity, x.place, x.state.replacingOccurrences(of: "-", with: " "), x.since]) }
+            out += "sessions:\n" + Out.table(t)
+        }
     }
     if !s.attention.isEmpty {
         out += "waiting for you:\n"

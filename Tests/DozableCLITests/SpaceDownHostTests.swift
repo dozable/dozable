@@ -198,10 +198,10 @@ extension WorkspaceLifecycleHostTests {
     }
 }
 
-/// A persisted agent switched fenced → unfenced between runs: its kept memory is reset (deleted), it is ended and forgotten
-/// and starts fresh — confirmed as every unfenced agent is.
+/// A persisted agent switched fenced → unfenced between runs: it is ended and forgotten and starts fresh in its new place —
+/// confirmed as every unfenced agent is — and (776) its kept memory is KEPT, never reset silently: a warning says so.
 extension WorkspaceLifecycleHostTests {
-    func testAnIsolationSwitchResetsTheKeptMemory() async throws {
+    func testAnIsolationSwitchKeepsTheKeptMemory() async throws {
         try await withBriefHome {
             let c = await lcore()
             let s = try spaceFiles("lv", agents: """
@@ -215,17 +215,20 @@ extension WorkspaceLifecycleHostTests {
             // What a capture would have kept.
             let mem = WorkspaceStore.resolved(WorkspaceStore(store: store).folder("lv")) + "/memory/w1"
             try FileManager.default.createDirectory(atPath: mem, withIntermediateDirectories: true)
-            try "{}".write(toFile: mem + "/memory.json", atomically: true, encoding: .utf8)
+            try #"{"isolation":"fenced","files":[]}"#.write(toFile: mem + "/memory.json", atomically: true, encoding: .utf8)
             var text = try String(contentsOfFile: s.file, encoding: .utf8)
             text = text.replacingOccurrences(of: "isolation: fenced", with: "isolation: unfenced")
             try text.write(toFile: s.file, atomically: true, encoding: .utf8)
             let p = try await spacePlanned(c, try spaceRequest(s))
             XCTAssertEqual(p.confirm, ["w1"])
-            XCTAssertTrue(p.steps.contains { $0.subject == "agent w1" && $0.action == "run" && ($0.why ?? "").contains("reset") })
+            XCTAssertTrue(p.steps.contains { $0.subject == "agent w1" && $0.action == "run" && ($0.why ?? "").contains("its kept memory is kept") })
             let up = try acted(try await spaceUpAct(c, try spaceRequest(s), confirmed: ["w1"]))
             XCTAssertTrue(up.ok, up.results.map { "\($0.status) \($0.text)" }.joined(separator: " | "))
-            XCTAssertFalse(FileManager.default.fileExists(atPath: mem), "the kept memory is reset")
-            XCTAssertTrue(log("lv").contains("memory-reset"))
+            XCTAssertTrue(FileManager.default.fileExists(atPath: mem + "/memory.json"), "the kept memory is kept")
+            XCTAssertFalse(log("lv").contains("memory-reset"))
+            XCTAssertTrue(log("lv").contains("memory-kept"))
+            XCTAssertTrue(up.results.contains { ($0.notes ?? []).contains { $0.contains("isolation changed: its kept memory is kept") } },
+                          up.results.map { ($0.notes ?? []).joined(separator: "; ") }.joined(separator: " | "))
             XCTAssertEqual(try XCTUnwrap(record("lv")).agents.last { $0.name == "w1" && $0.endedAt == nil }?.isolation, "unfenced")
         }
     }

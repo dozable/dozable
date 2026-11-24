@@ -44,7 +44,11 @@ extension HostCore {
                 var s = SpaceStateBuilder.build(intent: intent, ref: ref, record: rec, facts: facts, host: Self.spaceStateHost(), now: Date(), viewer: viewer)
                 if w.withConditions == true {
                     s.agentConditions = WorkspaceConditionsBuilder.build(record: rec, facts: facts, log: log, from: "space-file", hidden: !viewer.macSessions)
-                    if viewer.macSessions { s.places = placeStates(rec, intent: intent, conditions: s.agentConditions) }
+                    if viewer.macSessions {
+                        s.places = placeStates(rec, intent: intent, conditions: s.agentConditions)
+                        s.identities = workspaceIdentities(rec)
+                        s.sessions = workspaceSessions(rec, conditions: s.agentConditions)
+                    }
                 }
                 return s
             } catch let e as HostError where e.code == .notFound {
@@ -57,7 +61,11 @@ extension HostCore {
         if !viewer.macSessions { s = s.hiding(RecordStateBuilder.macSubjects(rec0)) }
         if w.withConditions == true {
             s.agentConditions = viewer.macSessions ? conditions : WorkspaceConditionsBuilder.build(record: rec0, facts: facts, log: log, from: "record", hidden: true)
-            if viewer.macSessions { s.places = placeStates(rec0, intent: nil, conditions: conditions) }
+            if viewer.macSessions {
+                s.places = placeStates(rec0, intent: nil, conditions: conditions)
+                s.identities = workspaceIdentities(rec0)
+                s.sessions = workspaceSessions(rec0, conditions: conditions)
+            }
         }
         return s
     }

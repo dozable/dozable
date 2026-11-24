@@ -267,13 +267,14 @@ extension HostCore {
                 counted = WorkspaceState.worker(pending: a.pendingAt != nil, ended: a.endedAt != nil, place: seen)
                 if a.endedAt != nil { state = "ended" } else if a.pendingAt != nil { state = "starting" }
             }
-            out.append((WorkspaceAgentRow(name: a.name, role: a.role, place: a.place.display, state: state, startedAt: a.startedAt, bot: a.bot,
-                                          isolation: a.isolation, actsAsYou: a.actsAsYou ? true : nil, task: a.task,
-                                          control: a.isWorker ? WorkerLaunch.control(isolation: a.isolation, shares: workerShares(rec, a)) : nil,
-                                          // In-process nothing is known of a program (no statuses held): no activity.
-                                          activity: readOnly ? nil : WorkspaceState.activity(counted), startedBy: a.startedBy,
-                                          session: a.place.sandbox != nil ? a.place.session : nil),
-                        counted))
+            var row = WorkspaceAgentRow(name: a.name, role: a.role, place: a.place.display, state: state, startedAt: a.startedAt, bot: a.bot,
+                                        isolation: a.isolation, actsAsYou: a.actsAsYou ? true : nil, task: a.task,
+                                        control: a.isWorker ? WorkerLaunch.control(isolation: a.isolation, shares: workerShares(rec, a)) : nil,
+                                        // In-process nothing is known of a program (no statuses held): no activity.
+                                        activity: readOnly ? nil : WorkspaceState.activity(counted), startedBy: a.startedBy,
+                                        session: a.place.sandbox != nil ? a.place.session : nil)
+            row.lifetime = a.effectiveLifetime
+            out.append((row, counted))
         }
         return out
     }
@@ -322,6 +323,7 @@ extension HostCore {
         d.space = SpaceShown.of(rec)
         d.lifetime = SpaceRecordRef.lifetime(of: rec)
         d.declaredWorkers = rec.declaredWorkers.isEmpty ? nil : rec.declaredWorkers
+        d.identities = workspaceIdentities(rec)
         return d
     }
 

@@ -99,6 +99,10 @@ public struct SpaceState: Codable, Equatable, Sendable {
     /// 774: the workspace's places with their sessions (`WorkspacePlaceState`), carried like `agentConditions` — only when
     /// asked, never in `ordered()`. `stateAnswer()` writes it.
     public var places: [WorkspacePlaceState]?
+    /// 776: the workspace's identities (who each agent is, who owns it, its memory and its token's time — never the token)
+    /// and its sessions (each identity's program in a place, its state and since when), carried like `places`.
+    public var identities: [WorkspaceIdentityRow]?
+    public var sessions: [WorkspaceSessionRow]?
 
     public init(space: String, observedAt: String, factsKnown: Bool, host: String, run: Run? = nil, items: [Item] = [], extras: [Item] = [],
                 attention: [Attention] = [], sha: String = "") {
@@ -176,6 +180,9 @@ public struct SpaceState: Codable, Equatable, Sendable {
         }
         // 774: each place and its sessions — a fenced place's each with a fence of its own. Additive.
         if let ps = places, let d = try? HostWire.encoder.encode(ps), let v = try? ChatJSON.parse(d) { m.append(JMember("places", v)) }
+        // 776: identities and sessions apart (`agents` above stays, derived, for one release). Additive.
+        if let x = identities, let d = try? HostWire.encoder.encode(x), let v = try? ChatJSON.parse(d) { m.append(JMember("identities", v)) }
+        if let x = sessions, let d = try? HostWire.encoder.encode(x), let v = try? ChatJSON.parse(d) { m.append(JMember("sessions", v)) }
         m.append(JMember("revision", .string("")))
         return .object(m)
     }

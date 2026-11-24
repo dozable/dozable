@@ -157,12 +157,15 @@ public enum WorkspaceLifecycle {
         public var binFolders: Bool
         /// Finish, archive: no evidence archive (`--no-archive`).
         public var noArchive: Bool
-        public init(removeSandboxes: Bool = false, keepTemplates: Bool = true, binFolders: Bool = false, noArchive: Bool = false) {
+        /// 776, finish (`down --purge`): its lasting identities retired, their kept memory removed after its copy.
+        public var purge: Bool
+        public init(removeSandboxes: Bool = false, keepTemplates: Bool = true, binFolders: Bool = false, noArchive: Bool = false, purge: Bool = false) {
             self.removeSandboxes = removeSandboxes; self.keepTemplates = keepTemplates; self.binFolders = binFolders; self.noArchive = noArchive
+            self.purge = purge
         }
         public init(_ w: WorkspaceRequest) {
             self.init(removeSandboxes: w.removeSandboxes == true, keepTemplates: w.keepTemplates != false, binFolders: w.binFolders == true,
-                      noArchive: w.noArchive == true)
+                      noArchive: w.noArchive == true, purge: w.purge == true)
         }
     }
 
@@ -265,7 +268,7 @@ public enum WorkspaceLifecycle {
                 } else {
                     r.after = (f.resumable ? "ended, its conversation kept" : "ended") + (unfenced && (a.isManager || a.isWorker) ? "; its token file deleted" : "")
                     r.back = f.resumable ? "resumes its conversation" : "starts fresh"
-                    if unfenced && anonymous { r.back += ", with a new token" }
+                    if anonymous { r.back += ", with a new token" }          // 776: rotated at each start
                     add("doz sessions end @mac \(session)")
                 }
             case (.wake, _):
@@ -285,7 +288,7 @@ public enum WorkspaceLifecycle {
                     if f.now == .off || f.now == .failed {
                         r.after = a.isManager || a.isWorker ? "started: a cold boot, its agent continues its conversation" : "started: a cold boot"
                         r.back = "its disk as it was"
-                        if anonymous && f.secretKept != true { r.after += ", with a new token" }
+                        if anonymous { r.after += ", with a new token" }          // 776: rotated at each start
                         add("doz start \(sbx)")
                     } else {
                         r.after = "woken"
@@ -296,6 +299,7 @@ public enum WorkspaceLifecycle {
                     r.after = f.resumable ? "running again, in the same conversation" : "running again, started fresh"
                     r.back = f.resumable ? "its conversation resumed" : "a new run of its program"
                     if unfenced && a.isWorker { r.after += anonymous ? "; a new token, in its file again" : "; its token file written again" }
+                    else if anonymous { r.after += ", with a new token" }          // 776: rotated at each start
                     if unfenced && a.isManager { r.after += "; its token file written again" }
                     add(a.isManager ? "doz workspace start \(n)" : "doz sessions restart @mac \(session)")
                 }
@@ -383,7 +387,19 @@ public enum WorkspaceLifecycle {
             keeps = [.init("the brief is not posted again")]
         case .finish:
             keeps = [.init(rec.rooms.isEmpty ? "no room" : "the room\(rec.rooms.count == 1 ? "" : "s") \(roomList) and \(rec.rooms.count == 1 ? "its" : "their") history — members can read"),
-                     .init("every token (reopen works)"), .init("every disk and conversation")]
+                     .init("every disk and conversation")]
+            // 776: the identities — the lasting ones kept with their memory (each token revoked: the next start issues a
+            // new one); the run's end with it (a workspace made without a space file — a space file's down says its own).
+            let identities = WorkspaceIdentities.current(rec)
+            let lasting = identities.filter(\.isLasting).map(\.name)
+            let runOwned = SpaceRecordRef.of(rec) == nil ? rec.agents.filter { $0.isLiveWorker && !$0.isLasting && $0.bot == nil }.map(\.name) : []
+            if o.purge, SpaceRecordRef.of(rec) == nil {
+                let gone = identities.filter { $0.isLasting && ($0.isWorker || $0.isManager) }.map(\.name)
+                if !gone.isEmpty { goes.append(.init("what it keeps of \(gone.joined(separator: ", ")) (--purge): kept memory (copied into the archive first) and each worker's identity — retired")) }
+            } else if !lasting.isEmpty {
+                keeps.append(.init("its lasting identities \(lasting.joined(separator: ", ")) and their memory (each token revoked; the next start gives a new one)"))
+            }
+            if !runOwned.isEmpty { goes.append(.init("the run's identities \(runOwned.joined(separator: ", ")) (their places are kept)")) }
             folders()
             var closes = false
             for room in rec.rooms where room.goneAt == nil {
@@ -516,6 +532,7 @@ public enum WorkspaceLifecycle {
         }
         if verb == .delete, o.binFolders { a.append("--bin-folders") }
         if verb == .finish || verb == .archive, o.noArchive { a.append("--no-archive") }
+        if verb == .finish, o.purge { a[2] = "down"; a.append("--purge") }
         return a.joined(separator: " ")
     }
 
@@ -611,6 +628,7 @@ public enum WorkspaceLifecycle {
     /// by itself — so a plan read a moment later has the same sha unless something that matters changed. Order-independent.
     static func sha(_ p: WorkspaceLifecyclePlan, options o: Options) -> String {
         var parts = ["v1", p.workspace, p.verb, o.removeSandboxes ? "rm" : "", o.keepTemplates ? "tpl" : "", o.binFolders ? "bin" : ""]
+        if o.purge { parts.append("purge") }
         parts += p.rows.sorted { $0.name < $1.name }.map { [$0.name, $0.role, $0.place, $0.isolation, $0.now, $0.after, $0.changes ? "1" : "0"].joined(separator: "\u{1F}") }
         parts += p.goes.map { $0.text + ($0.path ?? "") }.sorted()
         parts += p.refusals.sorted()

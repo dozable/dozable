@@ -356,7 +356,7 @@ doz workspace wake demo         # back in the same sandboxes and conversations
 doz workspace finish demo       # the work is done: everything stops; says what it removed and kept (asks first)
 doz workspace down demo         # the same as finish
 doz workspace run demo "Fix the failing test"   # a new run: its goal posted, its agents started (below)
-doz workspace archive demo      # put away: its rooms read-only, its anonymous workers retired (type its name)
+doz workspace archive demo      # put away: its rooms read-only, its workers (not bots) retired (type its name)
 doz workspace restore demo      # archived → finished, its rooms writable again
 doz workspace delete demo       # its record gone; finished or archived only (type its name)
 ```
@@ -384,8 +384,9 @@ stop (or a sleep) wakes the manager and every worker in its own conversation, an
 A program that has no conversation to resume (one that is not an agent) starts fresh when it wakes. A workspace stays
 asleep (or stopped) until you start or wake it; messages wait in the room meanwhile.
 
-**Finish** is "the work is done": nothing runs afterwards, and no worker can be added — but every token is kept, so
-`doz workspace run`, below, picks it up again. `doz workspace down W` is the same command, for every workspace.
+**Finish** is "the work is done": nothing runs afterwards, and no worker can be added — but its lasting workers are kept,
+with their memory, so `doz workspace run`, below, picks it up again (each one with a new token: see
+[Identities and sessions](#identities-and-sessions)). `doz workspace down W` is the same command, for every workspace.
 
 **Finish always says what it removed and what it kept**, by the workspace's lifetime. A workspace made without a space
 file — and one whose space file says `x-dozable: { lifetime: standing }` — is **standing**: finish removes nothing, its scratch
@@ -400,10 +401,13 @@ What it says keeps four things apart, each on its own line: **removed**; **kept*
 folders, which were never the workspace's own, so its lifecycle does not touch them. `--json` answers
 `{"kind": "WorkspaceFinish", "schema": 1, "removed": […], "kept": […], "untouched": […], "archive": "…"}`, and for a
 workspace a space file made also `"released": […]` and `"savedDisks": {sandbox: image}`: folders by their absolute path,
-rooms `room/NAME`, agents `agent/NAME`, sandboxes `sandbox/NAME`. Its `kept` still lists what is untouched and released
+rooms `room/NAME`, agents `agent/NAME`, sandboxes `sandbox/NAME`. A worker added with no name belonged to the run: it is
+in `removed` (its place is kept; nothing on disk goes). `doz workspace down W --purge` also retires the lasting workers
+and removes their kept memory — each memory copied into the store's archive and checked first — and answers
+`"purged": ["agent/NAME", …]`. Its `kept` still lists what is untouched and released
 as well, for scripts written before those fields. `doz workspace state W --json` then says `"phase": "finished"` (the
 phases: `setting-up`, `running`, `asleep`, `stopped`, `finished`, `archived`). **Archive** finishes it, makes its rooms read-only (their
-history stays readable) and retires its anonymous workers — their tokens are refused from then on; a bot keeps its token
+history stays readable) and retires its workers that are not bots — their tokens are refused from then on; a bot keeps its token
 and its place in the rooms. `restore` opens the rooms again and leaves it finished; a retired worker stays ended.
 
 **Delete** works only on a finished or archived workspace (`doz workspace finish demo` first), and never while any of its
@@ -454,11 +458,13 @@ for, and any folders it works on (usually projects). Work starts only once it is
 (or its manager, through you) bring up **workers**: agents, each with one task, that join the workspace's room.
 
 ```bash
-doz worker add demo --task "list the files"                 # an anonymous worker, bot1, fenced on this Mac
+doz worker add demo --task "list the files"                 # bot1, the run's: fenced on this Mac, gone when the run ends
+doz worker add demo helper --task "work on the project"     # helper, a lasting identity of the workspace
 doz worker add demo --from-bot otto --task "review the PR"  # one of your Agents / Bots as a worker
 doz worker add demo carl --isolation vm --cpus 2 --memory 2G --task "build it"   # in a micro VM of its own
 doz worker ls demo                                          # every agent: where it runs, what isolates it, its state, its task
-doz worker end demo bot1                                    # its session ends; an anonymous one leaves chat
+doz worker end demo bot1                                    # its session ends; the run's leaves chat, a lasting one is kept
+doz worker reset demo helper --yes                          # clear what Dozable keeps of helper's memory
 doz worker add demo --task "list the files" --dry-run       # what it would be, or what would be refused — nothing added
 ```
 
@@ -470,8 +476,11 @@ posts nothing there itself. While the workspace is still setting up, `worker add
 nothing is made. To have workers from the start, declare them when you make it: `doz workspace new demo --brief … --worker
 "list the files"` records the worker, and `doz workspace start demo` starts it.
 
-- **Its name.** Leave it out and it is the first free `bot1`, `bot2`, …: an anonymous worker, with a throwaway place in
-  chat that goes when it ends. `--from-bot otto` makes it that Agent / Bot: its name, token, skills and instructions.
+- **Its name — and how long it lasts.** Give it one (`doz worker add demo helper …`) and it is a **lasting** identity of
+  the workspace: when its session ends it is kept, with its memory, and comes back as itself. Leave it out and it is the
+  first free `bot1`, `bot2`, …: it belongs to the **run**, and goes when its session ends or its run finishes. A worker
+  declared at `new` belongs to the run too. `--from-bot otto` makes it that Agent / Bot: its name, token, skills and
+  instructions.
 - **Where it runs** — the narrowest place unless you say otherwise: **fenced** on this Mac (the default; its session is
   `demo-bot1`), **vm** (a micro VM of its own, `demo-carl`, when you say so or the workspace's or the bot's default is
   vm), **in a running sandbox of the workspace** (`--sandbox X`: it is its own participant there, but it **shares X** —
@@ -486,12 +495,42 @@ nothing is made. To have workers from the start, declare them when you make it: 
   place, its isolation, what isolates it (fenced: "proxy · placeholders · guard"; vm: "micro VM · proxy · placeholders";
   unfenced: "no proxy · no placeholders · no guard · acts as you"), its network, its state and its task. It answers with
   the daemon stopped. `--all` adds the ended workers.
-- **Ending one.** `doz worker end demo bot1` ends its session (or stops its own micro VM, keeping its disk). An anonymous
-  worker leaves every room and its token is refused from then on; its messages keep its name. A bot's token is kept and it
-  stays in the room. `--rm` deletes its session's record or its micro VM too. Its name is free again.
+- **Ending one.** `doz worker end demo bot1` ends its session (or stops its own micro VM, keeping its disk). A worker of
+  the run leaves every room and its token is refused from then on; its messages keep its name, and its name is free
+  again. A lasting one stays an identity of the workspace and a member of its rooms, with its memory; its token is
+  refused, and `doz worker add demo helper --task …` brings it back as itself with a new one. A bot's token is kept and it
+  stays in the room. `--rm` deletes its session's record or its micro VM too.
 
 `doz workspace manager stop` stops only the manager; workers go on until you end them. `doz workspace stop` stops every
 agent, workers included.
+
+### Identities and sessions
+
+Every agent of a workspace is an **identity** — who it is: its name, its role, its kind (Claude Code, Codex), its place
+in chat and its memory — and, while it runs, a **session**: its program in a place. The two come and go apart:
+
+| | An identity of the workspace (lasting) | An identity of the run |
+|---|---|---|
+| Which | a worker added with a name, a bot, the manager, an adopted agent | a worker added with no name (`bot1`), one declared at `new` |
+| `doz worker end` | its session ends; it is kept, with its memory | it goes with its session |
+| `doz workspace down` (finish) | kept, with its memory; its token refused until its next start | it goes with the run |
+| `down --purge` | retired: its memory removed, its token refused for good | — |
+
+- **Its token** is new at every start — `doz workspace start`, `run`, or a wake of a stopped session — and the one before
+  is refused from then on; `doz workspace state W --json` shows when it was issued, never the token. If you take an
+  identity's token yourself (`doz chat token NAME --new`), it is yours: Dozable no longer replaces it at a start or at
+  `down` (taking it again does).
+- **Its memory.** A fenced session's agent folder is cleared each time it opens (its conversations kept), so Dozable
+  keeps a lasting identity's memory when its session stops, sleeps or ends, and gives it back to its next fenced session.
+  An unfenced one uses your own agent folder, and a micro VM keeps its memory on its disk: Dozable neither copies nor
+  removes either. Only `doz worker reset W NAME --yes` (refused while it runs) or `down --purge` removes what Dozable
+  kept — `--purge` only after copying it into the store's archive and checking the copy. Switching an agent between
+  fenced and unfenced in a space file keeps it, and says so.
+- **What shows it.** `doz workspace state W` lists the identities (role, kind, lasting or the run's, memory, when the
+  token was issued) and the sessions (whose, where, its state, since when); with `--json`, `identities: [{name, id, role,
+  kind, lifetime: "workspace" | "run", memory: {present, files, bytes, path}, token: {issuedAt}}]` and `sessions:
+  [{identity, place, state, since}]` beside the `agents` it always had. `doz worker ls` and `doz workspace show` add each
+  agent's lifetime and the lasting identities kept with no session; `doz worker add --json` answers its `identity`.
 
 **A look first.** `doz worker add … --dry-run` runs the add's own checks and says what it would do — the worker's name, its
 program and account (by name: `mac` is this Mac's own login), where it runs and what isolates it, its folder, network and

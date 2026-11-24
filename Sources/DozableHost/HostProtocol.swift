@@ -351,6 +351,9 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// and the command). Only reads: answered in-process when no daemon runs (`doz worker add … --dry-run`, the dashboard's
     /// Add a worker page).
     case workerPlan = "worker-plan"
+    /// 776: a lasting identity's kept memory cleared (`doz worker reset W NAME --yes`; `WorkerRequest` with its name;
+    /// answered with `WorkerEnded`, `removed` true when there was memory). The daemon's; refused while its session runs.
+    case workerReset = "worker-reset"
     /// What `doz workspace up -f FILE` would do (`space`: a `SpaceRequest` — the merged document, its sources' sha256 and
     /// each place's origin; the daemon never plans from the file): the daemon validates the document again (with the backstop:
     /// nothing that starts or owns something from a defaults file), compiles it and plans the steps against the record
@@ -1929,6 +1932,9 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var run: String?
     /// finish, archive: no evidence archive is written (`--no-archive`). Additive.
     public var noArchive: Bool?
+    /// 776, finish (as `doz workspace down W --purge` of a workspace made without a space file): its lasting identities
+    /// retired too — each one's kept memory copied into the store's archive and hash-checked, then removed. Additive.
+    public var purge: Bool?
     /// run-chat: the room of the run. Additive.
     public var runRoom: String?
     /// state: the reader may not see the sessions on this Mac (another computer while `serve.mac_sessions` is off) — set by
@@ -2092,6 +2098,8 @@ public struct WorkspaceAgentRow: Codable, Equatable, Sendable {
     /// sandbox). Additive; `--json` only.
     public var startedBy: String?
     public var session: String?
+    /// 776: who owns its identity — `workspace` (lasting) or `run`. Additive.
+    public var lifetime: String?
     public init(name: String, role: String, place: String, state: String, startedAt: Date, bot: String? = nil, isolation: String? = nil,
                 actsAsYou: Bool? = nil, task: String? = nil, control: String? = nil, activity: String? = nil, startedBy: String? = nil,
                 session: String? = nil) {
@@ -2178,6 +2186,9 @@ public struct WorkspaceChanged: Codable, Equatable, Sendable {
     /// 762 (F7): the person's folders the finish never touched (not its own) — still in `kept` (the `--json` contract), said
     /// apart in the text. Additive.
     public var untouched: [String]?
+    /// 776, `down --purge`: the lasting identities retired, their memory removed after its copy verified (`agent/NAME`).
+    /// Additive.
+    public var purged: [String]?
     public init(name: String, verb: String, results: [WorkspaceAgentResult], templates: [String: String]? = nil, binned: [String]? = nil,
                 notes: [String]? = nil, workspace: WorkspaceDetail?) {
         self.name = name; self.verb = verb; self.results = results; self.templates = templates; self.binned = binned; self.notes = notes
@@ -2212,6 +2223,8 @@ public struct WorkspaceDetail: Codable, Equatable, Sendable {
     /// 762 (F1b): how long what it holds lives (`SpaceRecordRef.lifetime(of:)`): a space file's `x-dozable.lifetime` as
     /// recorded at up (`runs` when it says none), `standing` for one made without a space file. Additive.
     public var lifetime: String?
+    /// 776: its identities — those with a session (`agents`) and the lasting ones kept with none. Additive.
+    public var identities: [WorkspaceIdentityRow]?
     /// `Workspace`, schema 1 (additive: an older daemon's answer has neither).
     public var kind: String?
     public var schema: Int?
@@ -2415,6 +2428,8 @@ public struct WorkerRow: Codable, Equatable, Sendable {
     public var condition: String?
     /// Declared at `doz workspace new --worker` and not started yet: `doz workspace start` starts it. Additive.
     public var declared: Bool?
+    /// 776: who owns its identity — `workspace` (lasting) or `run`. Additive.
+    public var lifetime: String?
     public init(name: String, role: String, bot: String?, place: String, isolation: String?, control: String, network: String, state: String,
                 task: String?, actsAsYou: Bool?, shares: String?, condition: String? = nil, declared: Bool? = nil) {
         self.name = name; self.role = role; self.bot = bot; self.place = place; self.isolation = isolation; self.control = control
@@ -2431,6 +2446,9 @@ public struct WorkerListing: Codable, Equatable, Sendable {
     public var schema: Int?
     public var workspace: String
     public var agents: [WorkerRow]
+    /// 776: every identity of the workspace — those with a session (the rows above) and the lasting ones whose session
+    /// ended (kept, with their memory). Additive.
+    public var identities: [WorkspaceIdentityRow]?
     public init(workspace: String, agents: [WorkerRow]) {
         kind = "WorkerListing"; schema = 1
         self.workspace = workspace; self.agents = agents
@@ -2447,6 +2465,8 @@ public struct WorkerAdded: Codable, Equatable, Sendable {
     public var notes: [String]?
     /// `--request-id`: the first answer to that id, given again — nothing was added now. Additive.
     public var replayed: Bool?
+    /// 776: the identity it runs as — who owns it (`lifetime`), its memory and when its token was issued. Additive.
+    public var identity: WorkspaceIdentityRow?
     public init(workspace: String, worker: WorkerRow, session: String, sandbox: String?, notes: [String]?) {
         self.workspace = workspace; self.worker = worker; self.session = session; self.sandbox = sandbox; self.notes = notes
     }
@@ -2648,5 +2668,66 @@ public struct SpaceShown: Codable, Equatable, Sendable {
             s.briefShownPath = DisplayPath.tilde(p)
         }
         return s
+    }
+}
+
+// MARK: 776 — identities and sessions
+
+/// One identity of a workspace as `doz workspace state W --json` (`identities[]`), `worker add --json` (`identity`) and
+/// `worker ls` show it: who an agent is — never its token, never its memory's content.
+public struct WorkspaceIdentityRow: Codable, Equatable, Sendable {
+    public var name: String
+    public var id: String
+    /// `manager`, `worker` or `adopted`.
+    public var role: String
+    /// `claude-code`, `codex`, … (nil: not known).
+    public var kind: String?
+    /// `workspace` (lasting: kept through its session's end and `down`) or `run` (gone at its session's end or its run's finish).
+    public var lifetime: String
+    /// Its Agent / Bot (nil: a participant the daemon made for it).
+    public var bot: String?
+    /// Its default place, as a person types it (`@mac/SESSION`, a sandbox).
+    public var place: String
+    public var memory: WorkspaceIdentityMemory
+    /// When its chat token was issued, and revoked (nil: none issued — an adopted agent's, or a bot's own is the bot's).
+    public var token: WorkspaceIdentityToken?
+    /// It has a session now (pending, running, stopped or asleep — not ended).
+    public var hasSession: Bool
+    public init(name: String, id: String, role: String, kind: String?, lifetime: String, bot: String?, place: String,
+                memory: WorkspaceIdentityMemory, token: WorkspaceIdentityToken?, hasSession: Bool) {
+        self.name = name; self.id = id; self.role = role; self.kind = kind; self.lifetime = lifetime; self.bot = bot; self.place = place
+        self.memory = memory; self.token = token; self.hasSession = hasSession
+    }
+}
+
+/// An identity's kept memory: whether the store holds a copy, how many files and bytes, and where (absolute) — never content.
+public struct WorkspaceIdentityMemory: Codable, Equatable, Sendable {
+    public var present: Bool
+    public var files: Int
+    public var bytes: Int
+    public var path: String?
+    public init(present: Bool = false, files: Int = 0, bytes: Int = 0, path: String? = nil) {
+        self.present = present; self.files = files; self.bytes = bytes; self.path = path
+    }
+}
+
+/// When an identity's token was issued (and revoked) — a time, never the token.
+public struct WorkspaceIdentityToken: Codable, Equatable, Sendable {
+    public var issuedAt: String
+    public var revokedAt: String?
+    /// `you`: you took it (`doz chat token NAME --new`) — Dozable no longer rotates or revokes it. nil: Dozable's.
+    public var heldBy: String?
+    public init(issuedAt: String, revokedAt: String? = nil, heldBy: String? = nil) { self.issuedAt = issuedAt; self.revokedAt = revokedAt; self.heldBy = heldBy }
+}
+
+/// One session of a workspace (`sessions[]`): an identity's program in a place, its state and since when.
+public struct WorkspaceSessionRow: Codable, Equatable, Sendable {
+    public var identity: String
+    public var place: String
+    /// The agent's condition (`running`, `asleep`, `stopped`, `crashed`, `not-started`, `unknown`), or `pending`/`ended`.
+    public var state: String
+    public var since: String
+    public init(identity: String, place: String, state: String, since: String) {
+        self.identity = identity; self.place = place; self.state = state; self.since = since
     }
 }

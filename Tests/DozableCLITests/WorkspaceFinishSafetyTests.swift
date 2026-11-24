@@ -87,14 +87,15 @@ extension WorkspaceLifecycleHostTests {
         let f = try ok(try await act(c, .finish))
         XCTAssertEqual(f.kind, "WorkspaceFinish")
         XCTAssertEqual(f.schema, 1)
-        XCTAssertEqual(f.removed, [], "standing: nothing removed")
+        // 776: nothing on disk; the run's identity (bot1, added with no name) ends with its run.
+        XCTAssertEqual(f.removed, ["agent/bot1"], "standing: nothing removed but the run's identity")
         let kept = try XCTUnwrap(f.kept)
         XCTAssertTrue(kept.contains(work.path), "the folder by its absolute path (\(kept))")
         // 762 (F7): and named untouched — the person's folder, said apart in the text.
         XCTAssertEqual(f.untouched, [work.path])
         XCTAssertTrue(work.path.hasPrefix("/"))
-        XCTAssertTrue(kept.contains("agent/mira") && kept.contains("agent/bot1") && kept.contains("agent/otto"))
-        XCTAssertEqual(Set(kept), Set(held), "everything it held is kept")
+        XCTAssertTrue(kept.contains("agent/mira") && kept.contains("agent/otto"))
+        XCTAssertEqual(Set(kept), Set(held).subtracting(["agent/bot1"]), "everything it held is kept, but the run's identity")
         if try XCTUnwrap(record()).rooms.contains(where: { $0.chatRoom == "demo" }) { XCTAssertTrue(kept.contains("room/demo")) }
         XCTAssertNotNil(f.archive, "the run archived")
         XCTAssertFalse(trace.all.contains { $0.hasPrefix("rm ") || $0.hasPrefix("forget ") }, trace.all.joined(separator: ", "))

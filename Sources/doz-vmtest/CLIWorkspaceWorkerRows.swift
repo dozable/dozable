@@ -200,7 +200,8 @@ func cliWorkspaceWorkerRows(_ h: CLIHarness, root: URL, store: DozableStore, sta
     check(dozchatRooms(tokenFile: copy, port: port) == 0, "28 dozchat rooms with carl's token: answered")
     r = h.run(["worker", "end", "wk", "carl"], timeout: 60)
     check(r.code == 0 && !fm.fileExists(atPath: carlDirs.first ?? "/nonexistent-x"), "28 worker end wk carl: its token file is gone (\(r.code) \(r.err.prefix(160)))")
-    check(!inChat("carl"), "28 …and its participant")
+    // 776: carl was added with a name — a lasting identity: it stays a participant (with its memory), its token refused.
+    check(inChat("carl"), "28 …and its participant stays (a lasting identity)")
     check(dozchatRooms(tokenFile: copy, port: port) == 4, "28 dozchat rooms with the same token: 401 (exit 4)")
     try? fm.removeItem(atPath: copy)
 

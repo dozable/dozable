@@ -11,7 +11,8 @@ import DozableHost
 //  V2. (the ratchet) sleep → every agent asleep within 30 s
 //  V3. stop with no terminal and no --yes (--json) → 5 needs-confirmation, `fix` the argv with --yes; nothing stopped
 //  V4. stop --yes on an asleep workspace → 0, still asleep; without --yes too (nothing to do, nothing asked)
-//  V5. finish --yes --json on a long-lived (record-made) workspace → 0, kind WorkspaceFinish, schema 1, removed empty, kept the
+//  V5. finish --yes --json on a long-lived (record-made) workspace → 0, kind WorkspaceFinish, schema 1, removed only the run's
+//      identities (776: a worker added with no name, `agent/botN` — nothing on disk), kept the
 //      folder's ABSOLUTE path and room/sd, untouched the folder (762, F7: the person's); the folder byte-for-byte; then state's
 //      phase finished
 //  V6. workspace down on a record-made workspace → 0, kind WorkspaceFinish, kept lists the folder; the text says
@@ -112,7 +113,8 @@ func cliWorkspaceStopDownRows(_ h: CLIHarness, root: URL, store: DozableStore, s
     let kept5 = (f5["kept"] as? [String]) ?? []
     check(r.code == 0 && f5["kind"] as? String == "WorkspaceFinish" && f5["schema"] as? Int == 1,
           "V5 finish sd --yes --json: exit 0, kind WorkspaceFinish, schema 1 (\(r.code) \(r.out.prefix(200)) \(r.err.prefix(200)))")
-    check((f5["removed"] as? [String]) == [], "V5 …removed empty (\(String(describing: f5["removed"])))")
+    check(((f5["removed"] as? [String]) ?? []).allSatisfy { $0.hasPrefix("agent/bot") },
+          "V5 …removed only the run's identities, nothing on disk (\(String(describing: f5["removed"])))")
     check(kept5.contains(repo) && repo.hasPrefix("/") && kept5.contains("room/sd"), "V5 …kept the folder's absolute path and room/sd (\(kept5))")
     // 762 (F7): and the folder given with --folder (the person's) is named untouched — said apart in the text.
     check(((f5["untouched"] as? [String]) ?? []) == [repo], "V5 …untouched names the folder (\(String(describing: f5["untouched"])))")

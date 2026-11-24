@@ -350,9 +350,30 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     /// this agent's session has its own fence built from it. nil: no declared place — its place is derived from `place`
     /// (`WorkspacePlaces.derived`). Additive.
     public var placeName: String?
+    /// 776 (the identity): its stable id (`idn-<12 hex>`). nil: the one derived from its name and its first session's start
+    /// (`id`), which is what a record written before identities gets — so an id never changes once written.
+    public var identityID: String?
+    /// 776: what it is (`claude-code`, `codex`, …) when known. Additive.
+    public var kind: String?
+    /// 776: who owns it — `workspace` (a lasting identity: it survives its session's end and `down`, with its memory, until
+    /// `--purge` or delete) or `run` (gone when its session ends or its run finishes; fresh each run). nil: derived
+    /// (`effectiveLifetime`). `worker add W NAME` makes a lasting one; `worker add W --task …` with no name a run-owned one.
+    public var lifetime: String?
+    /// 776: when its current chat token was issued — at its add, and again at each start (rotated). Never the token.
+    public var tokenIssuedAt: Date?
+    /// 776: when its token was revoked (`worker end` of a lasting identity, `down`): no token is valid until its next start.
+    public var tokenRevokedAt: Date?
+    /// 776: when you took its token yourself (`doz chat token NAME --new`): yours from then — never rotated or revoked by
+    /// Dozable. Cleared when it is added again (Dozable issues it anew).
+    public var tokenTakenAt: Date?
+    /// 776: when the identity itself was retired (`down --purge`): its token refused, its memory gone. Additive.
+    public var retiredAt: Date?
     public var unknown = UnknownFields()
+    /// 776: the fields of its session's half (`sessions[]`) this build does not know — kept and written back there.
+    public var sessionUnknown = UnknownFields()
     static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt", "bot", "isolation", "stoppedAt", "task", "anonymous",
-                                     "pendingAt", "endedAt", "template", "participant", "tokenFingerprint", "placeName"]
+                                     "pendingAt", "endedAt", "template", "participant", "tokenFingerprint", "placeName",
+                                     "identityID", "kind", "lifetime", "tokenIssuedAt", "tokenRevokedAt", "tokenTakenAt", "retiredAt"]
 
     public init(name: String, role: String = "worker", place: AgentPlace, startedBy: String = "you", startedAt: Date, bot: String? = nil,
                 isolation: String? = nil) {
@@ -368,6 +389,42 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     public var isLiveWorker: Bool { isWorker && endedAt == nil }
     /// An unfenced manager or worker acts as you: said wherever it shows.
     public var actsAsYou: Bool { (isManager || isWorker) && isolation == "unfenced" }
+
+    // MARK: 776 — identity and session
+
+    /// The identity's id: the one recorded, else derived from its name and its first session's start (whole seconds).
+    public var id: String { identityID ?? Self.derivedID(name: name, startedAt: startedAt) }
+
+    public static func derivedID(name: String, startedAt: Date) -> String {
+        let seed = name + "|" + String(Int64(startedAt.timeIntervalSince1970.rounded(.down)))
+        return "idn-" + WorkspaceStore.sha256(Data(seed.utf8)).prefix(12)
+    }
+
+    /// `workspace` or `run`: the recorded one, else — a record written before identities — a worker Dozable named itself
+    /// (`botN`, no bot) is the run's, every other agent the workspace's.
+    public var effectiveLifetime: String {
+        if let l = lifetime, l == "workspace" || l == "run" { return l }
+        if isWorker, bot == nil, anonymous == true, Self.isAutoName(name) { return "run" }
+        return "workspace"
+    }
+
+    /// A name Dozable gives a worker added with none (`botN`).
+    public static func isAutoName(_ s: String) -> Bool {
+        s.hasPrefix("bot") && s.count > 3 && s.dropFirst(3).allSatisfy(\.isNumber)
+    }
+
+    /// A lasting identity: the workspace's.
+    public var isLasting: Bool { effectiveLifetime == "workspace" }
+
+    /// The identity is still the workspace's: not retired, and either its session has not ended or it lasts.
+    public var identityExists: Bool { retiredAt == nil && (endedAt == nil || isLasting) }
+
+    /// Its session's state as the record knows it: `pending`, `running`, `stopped` (stopped or asleep) or `ended`.
+    public var sessionRecordState: String {
+        if endedAt != nil { return "ended" }
+        if pendingAt != nil { return "pending" }
+        return stoppedAt != nil ? "stopped" : "running"
+    }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: DynamicKey.self)
@@ -387,6 +444,13 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         participant = try c.decodeIfPresent(String.self, forKey: "participant")
         tokenFingerprint = try c.decodeIfPresent(String.self, forKey: "tokenFingerprint")
         placeName = try c.decodeIfPresent(String.self, forKey: "placeName")
+        identityID = try c.decodeIfPresent(String.self, forKey: "identityID")
+        kind = try c.decodeIfPresent(String.self, forKey: "kind")
+        lifetime = try c.decodeIfPresent(String.self, forKey: "lifetime")
+        tokenIssuedAt = try c.decodeIfPresent(Date.self, forKey: "tokenIssuedAt")
+        tokenRevokedAt = try c.decodeIfPresent(Date.self, forKey: "tokenRevokedAt")
+        tokenTakenAt = try c.decodeIfPresent(Date.self, forKey: "tokenTakenAt")
+        retiredAt = try c.decodeIfPresent(Date.self, forKey: "retiredAt")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -409,6 +473,135 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         try c.encodeIfPresent(participant, forKey: "participant")
         try c.encodeIfPresent(tokenFingerprint, forKey: "tokenFingerprint")
         try c.encodeIfPresent(placeName, forKey: "placeName")
+        try c.encodeIfPresent(identityID, forKey: "identityID")
+        try c.encodeIfPresent(kind, forKey: "kind")
+        try c.encodeIfPresent(lifetime, forKey: "lifetime")
+        try c.encodeIfPresent(tokenIssuedAt, forKey: "tokenIssuedAt")
+        try c.encodeIfPresent(tokenRevokedAt, forKey: "tokenRevokedAt")
+        try c.encodeIfPresent(tokenTakenAt, forKey: "tokenTakenAt")
+        try c.encodeIfPresent(retiredAt, forKey: "retiredAt")
+    }
+}
+
+/// 776: the record's two halves of an agent, as `workspace.json` holds them since identities and sessions were split
+/// (`identities[]`, `sessions[]`). An identity is who an agent is (L1) — its name, role, kind, bot or participant, its token
+/// by reference, its default place and who owns it; a session is its running program in a place (L2) — its place, when it
+/// started, stopped or ended. One `WorkspaceAgent` in memory is one identity and the session it has (or last had); a record
+/// written before the split (`agents[]`, 0.52.55 and older) is read as one identity and one session per entry and written in
+/// the new form. Every field this build does not know is kept: on the identity, or on the session.
+public struct WorkspaceIdentityHalf: Codable, Equatable, Sendable {
+    public var agent: WorkspaceAgent
+    public init(_ a: WorkspaceAgent) { agent = a }
+
+    static let known: Set<String> = ["id", "name", "role", "bot", "isolation", "task", "anonymous", "template", "participant", "tokenFingerprint",
+                                     "placeName", "kind", "lifetime", "tokenIssuedAt", "tokenRevokedAt", "tokenTakenAt", "retiredAt"]
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: DynamicKey.self)
+        let name = try c.decode(String.self, forKey: "name")
+        var a = WorkspaceAgent(name: name, role: try c.decodeIfPresent(String.self, forKey: "role") ?? "worker", place: AgentPlace(),
+                               startedAt: Date(timeIntervalSince1970: 0), bot: try c.decodeIfPresent(String.self, forKey: "bot"),
+                               isolation: try c.decodeIfPresent(String.self, forKey: "isolation"))
+        a.task = try c.decodeIfPresent(String.self, forKey: "task")
+        a.anonymous = try c.decodeIfPresent(Bool.self, forKey: "anonymous")
+        a.template = try c.decodeIfPresent(String.self, forKey: "template")
+        a.participant = try c.decodeIfPresent(String.self, forKey: "participant")
+        a.tokenFingerprint = try c.decodeIfPresent(String.self, forKey: "tokenFingerprint")
+        a.placeName = try c.decodeIfPresent(String.self, forKey: "placeName")
+        a.kind = try c.decodeIfPresent(String.self, forKey: "kind")
+        a.lifetime = try c.decodeIfPresent(String.self, forKey: "lifetime")
+        a.tokenIssuedAt = try c.decodeIfPresent(Date.self, forKey: "tokenIssuedAt")
+        a.tokenRevokedAt = try c.decodeIfPresent(Date.self, forKey: "tokenRevokedAt")
+        a.tokenTakenAt = try c.decodeIfPresent(Date.self, forKey: "tokenTakenAt")
+        a.retiredAt = try c.decodeIfPresent(Date.self, forKey: "retiredAt")
+        a.identityID = try c.decodeIfPresent(String.self, forKey: "id")
+        a.unknown = try UnknownFields(c, known: Self.known)
+        agent = a
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: DynamicKey.self)
+        let a = agent
+        try a.unknown.encode(&c, known: Self.known.union(WorkspaceSessionHalf.known))
+        try c.encode(a.id, forKey: "id")
+        try c.encode(a.name, forKey: "name")
+        try c.encode(a.role, forKey: "role")
+        try c.encodeIfPresent(a.kind, forKey: "kind")
+        try c.encodeIfPresent(a.lifetime, forKey: "lifetime")
+        try c.encodeIfPresent(a.bot, forKey: "bot")
+        try c.encodeIfPresent(a.participant, forKey: "participant")
+        try c.encodeIfPresent(a.isolation, forKey: "isolation")
+        try c.encodeIfPresent(a.placeName, forKey: "placeName")
+        try c.encodeIfPresent(a.task, forKey: "task")
+        try c.encodeIfPresent(a.anonymous, forKey: "anonymous")
+        try c.encodeIfPresent(a.template, forKey: "template")
+        try c.encodeIfPresent(a.tokenFingerprint, forKey: "tokenFingerprint")
+        try c.encodeIfPresent(a.tokenIssuedAt, forKey: "tokenIssuedAt")
+        try c.encodeIfPresent(a.tokenRevokedAt, forKey: "tokenRevokedAt")
+        try c.encodeIfPresent(a.tokenTakenAt, forKey: "tokenTakenAt")
+        try c.encodeIfPresent(a.retiredAt, forKey: "retiredAt")
+    }
+}
+
+/// 776: a session's half of an agent in `workspace.json` (`sessions[]`), naming its identity by id.
+public struct WorkspaceSessionHalf: Codable, Equatable, Sendable {
+    public var identity: String
+    public var place: AgentPlace
+    public var startedBy: String
+    public var startedAt: Date
+    public var stoppedAt: Date?
+    public var pendingAt: Date?
+    public var endedAt: Date?
+    public var unknown = UnknownFields()
+    static let known: Set<String> = ["identity", "place", "startedBy", "startedAt", "stoppedAt", "pendingAt", "endedAt"]
+
+    public init(_ a: WorkspaceAgent) {
+        identity = a.id; place = a.place; startedBy = a.startedBy; startedAt = a.startedAt
+        stoppedAt = a.stoppedAt; pendingAt = a.pendingAt; endedAt = a.endedAt; unknown = a.sessionUnknown
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: DynamicKey.self)
+        identity = try c.decode(String.self, forKey: "identity")
+        place = try c.decodeIfPresent(AgentPlace.self, forKey: "place") ?? AgentPlace()
+        startedBy = try c.decodeIfPresent(String.self, forKey: "startedBy") ?? "you"
+        startedAt = try c.decode(Date.self, forKey: "startedAt")
+        stoppedAt = try c.decodeIfPresent(Date.self, forKey: "stoppedAt")
+        pendingAt = try c.decodeIfPresent(Date.self, forKey: "pendingAt")
+        endedAt = try c.decodeIfPresent(Date.self, forKey: "endedAt")
+        unknown = try UnknownFields(c, known: Self.known)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: DynamicKey.self)
+        try unknown.encode(&c, known: Self.known)
+        try c.encode(identity, forKey: "identity")
+        try c.encode(place, forKey: "place")
+        try c.encode(startedBy, forKey: "startedBy")
+        try c.encode(startedAt, forKey: "startedAt")
+        try c.encodeIfPresent(stoppedAt, forKey: "stoppedAt")
+        try c.encodeIfPresent(pendingAt, forKey: "pendingAt")
+        try c.encodeIfPresent(endedAt, forKey: "endedAt")
+    }
+
+    /// The identity `i` with this session: one agent. An id equal to the derived one is left unrecorded, so a record reads
+    /// back equal to what was written.
+    static func join(_ i: WorkspaceAgent, _ s: WorkspaceSessionHalf?) -> WorkspaceAgent {
+        var a = i
+        if let s {
+            a.place = s.place; a.startedBy = s.startedBy; a.startedAt = s.startedAt
+            a.stoppedAt = s.stoppedAt; a.pendingAt = s.pendingAt; a.endedAt = s.endedAt
+            a.sessionUnknown = s.unknown
+        }
+        if a.identityID == WorkspaceAgent.derivedID(name: a.name, startedAt: a.startedAt) { a.identityID = nil }
+        return a
+    }
+
+    /// The agents of a record in the new form: each identity with its session (by id; the last one wins).
+    static func agents(identities: [WorkspaceIdentityHalf], sessions: [WorkspaceSessionHalf]) -> [WorkspaceAgent] {
+        var byID: [String: WorkspaceSessionHalf] = [:]
+        for s in sessions { byID[s.identity] = s }
+        return identities.map { join($0.agent, $0.agent.identityID.flatMap { byID[$0] }) }
     }
 }
 
@@ -539,8 +732,8 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
     /// older doz keeps it as an unknown field.
     public var addenda: [WorkspaceAddendum] = []
     public var unknown = UnknownFields()
-    static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "defaults", "flags", "driver", "origin", "runs",
-                                     "permissions", "declaredWorkers", "madeFolders", "addenda"]
+    static let known: Set<String> = ["version", "name", "createdAt", "brief", "folders", "rooms", "agents", "identities", "sessions", "defaults", "flags",
+                                     "driver", "origin", "runs", "permissions", "declaredWorkers", "madeFolders", "addenda"]
 
     public init(name: String, createdAt: Date, brief: WorkspaceBrief, folders: [WorkspaceFolder], rooms: [WorkspaceRoom] = [],
                 agents: [WorkspaceAgent] = [], defaults: WorkspaceDefaults = WorkspaceDefaults(), flags: WorkspaceFlags = WorkspaceFlags(),
@@ -558,7 +751,18 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         brief = try c.decode(WorkspaceBrief.self, forKey: "brief")
         folders = try c.decodeIfPresent([WorkspaceFolder].self, forKey: "folders") ?? []
         rooms = try c.decodeIfPresent([WorkspaceRoom].self, forKey: "rooms") ?? []
-        agents = try c.decodeIfPresent([WorkspaceAgent].self, forKey: "agents") ?? []
+        // 776: identities and sessions (the new form) — else, a record written before the split, its agents. An entry an older
+        // doz added to `agents` beside the new form (it keeps `identities` as an unknown field) is read too.
+        let old = try c.decodeIfPresent([WorkspaceAgent].self, forKey: "agents") ?? []
+        if let ids = try c.decodeIfPresent([WorkspaceIdentityHalf].self, forKey: "identities") {
+            let sessions = try c.decodeIfPresent([WorkspaceSessionHalf].self, forKey: "sessions") ?? []
+            var joined = WorkspaceSessionHalf.agents(identities: ids, sessions: sessions)
+            let known = Set(joined.map(\.name))
+            joined += old.filter { !known.contains($0.name) }
+            agents = joined
+        } else {
+            agents = old
+        }
         defaults = try c.decodeIfPresent(WorkspaceDefaults.self, forKey: "defaults") ?? WorkspaceDefaults()
         flags = try c.decodeIfPresent(WorkspaceFlags.self, forKey: "flags") ?? WorkspaceFlags()
         driver = try c.decodeIfPresent(String.self, forKey: "driver") ?? "you"
@@ -580,7 +784,9 @@ public struct WorkspaceRecord: Codable, Equatable, Sendable {
         try c.encode(brief, forKey: "brief")
         try c.encode(folders, forKey: "folders")
         try c.encode(rooms, forKey: "rooms")
-        try c.encode(agents, forKey: "agents")
+        // 776: written as identities and sessions — never `agents` again (read for one release).
+        try c.encode(agents.map(WorkspaceIdentityHalf.init), forKey: "identities")
+        try c.encode(agents.map(WorkspaceSessionHalf.init), forKey: "sessions")
         try c.encode(defaults, forKey: "defaults")
         try c.encode(flags, forKey: "flags")
         try c.encode(driver, forKey: "driver")
@@ -764,6 +970,8 @@ public struct WorkspaceLogEntry: Codable, Equatable, Sendable {
         case "space-saved": return "saved its space file (\(bytes ?? 0) bytes) — not applied: up applies it"
         case "memory-kept": return "kept \(agent ?? "?")'s memory (\(added ?? 0) file\(added == 1 ? "" : "s")) for its next fenced session"
         case "memory-reset": return "reset \(agent ?? "?")'s kept memory" + (reason.map { " (\($0))" } ?? "")
+        case "tokens-revoked": return "revoked the tokens of \(agent ?? "?") (each one's next start gives a new one)"
+        case "identity-retired": return "retired \(agent ?? "?") (its token refused for good)" + (reason.map { " — \($0)" } ?? "")
         case "scratch-removed": return "removed a scratch folder" + (reason.map { " — \($0)" } ?? "")
         case "folder-released": return "released a folder the space kept" + (reason.map { " (\($0))" } ?? "")
         default: return action
