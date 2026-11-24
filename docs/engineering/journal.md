@@ -149,7 +149,9 @@ A workspace grants them by role — the `reviewer` role bundles `journal.write`,
 ### Agents' own access — dozchat (0.52.52)
 
 An agent writes and reads the journal ITSELF, with its own chat token — there is no `doz` in a sandbox, and `--as` is the
-owner's preview path. Every agent Dozable starts has `dozchat` and `CHAT_URL` (this store's page port):
+owner's preview path. Every agent Dozable starts has `dozchat`, `CHAT_URL` (this store's page port) and its token — a
+manager's and a worker's as before, and an adopted agent's at every session Dozable starts in its place from its adoption on
+(workspaces.md, "The agent relay"; `adopt --no-token` keeps it off chat):
 
 | dozchat | Route (Dozable's own, on the chat server's page port) | The operation, as `--as W/AGENT` |
 |---|---|---|

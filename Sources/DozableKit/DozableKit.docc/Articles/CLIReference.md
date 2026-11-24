@@ -1004,7 +1004,7 @@ doz workspace reopen W [--no-start] [--dry-run] [--if-plan SHA]   # the old name
 doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--no-archive] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)
 doz workspace restore W [--dry-run] [--if-plan SHA]           # archived → finished, its rooms writable again
 doz workspace delete W [--remove-sandboxes [--no-keep-templates]] [--bin-folders] [--dry-run] [--yes] [--if-plan SHA]   # finished or archived only (the name typed)
-doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME] [--request-id ID]   # as a worker; only the workspace's record changes
+doz workspace adopt W SANDBOX|@mac/SESSION [--as NAME] [--no-token] [--request-id ID]   # as a worker; its sessions get its chat token
 doz workspace release W AGENT                   # loose again
 doz workspace edit W [--prompt-file F] [--add-ref X]… [--remove-ref X]… [--add-folder DIR[:ro]]… [--remove-folder DIR]… [--make-room]
                   [--manager BOT [--manager-isolation fenced|vm|unfenced] | --no-manager] [--if-brief SHA256]

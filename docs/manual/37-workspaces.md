@@ -243,10 +243,12 @@ A sandbox or session is in one workspace at most: adopting one that is already i
 that releases it.
 
 With chat on and a room, an adopted agent is given **its own participant** in the room, under its name in the workspace: it
-reads the room's messages (each run's opening message among them) and reaches the journal with its own token. Adopting
-changes nothing in the agent's place, so hand it the token yourself (`doz chat token NAME --to-file F`, then
-`CHAT_TOKEN_FILE=F` in its environment); every session Dozable starts there gets this store's chat address by itself.
-Releasing it removes the participant.
+reads the room's messages (each run's opening message among them) and reaches the journal with its own token. From then
+on, every session Dozable starts in its place gets that token and this store's chat address, as a manager's or a worker's
+does — held by Dozable, never written into the sandbox or the session. A session already running gets them when it
+restarts; `adopt` says so, with the one command that hands the token over now (`doz chat token NAME --to-file F`, then
+`CHAT_TOKEN_FILE=F` in its environment). `doz workspace adopt W AGENT --no-token` keeps it off chat. Releasing it revokes
+the token and removes the participant.
 
 **In the dashboard**, a loose sandbox or session is put in a workspace with **Put in a workspace…** — on **This Mac › Loose
 agents**, or in the **⋯** of its own page. Choose an existing workspace (and, if you like, another name for it there), or

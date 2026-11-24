@@ -2119,6 +2119,8 @@ public actor HostCore {
         // 599i: Codex's credentials for this session — its auth.json with placeholders only (or none).
         await deliverCodexAuth(m)
         // 692: its secrets' placeholders — VAR, and FILEVAR naming a 0600 file holding the same one.
+        // 771: an adopted agent's sandbox: its chat token's binding in the proxy before the placeholders are minted.
+        if adoptedChatSecret(placeKey: "sandbox:" + m.name) != nil { applyLaunchSecrets(m) }
         var secretEnv = await deliverLaunchSecretFiles(m, user: r.user)
         // A worker sharing this sandbox: ITS token's placeholder in CHAT_TOKEN / CHAT_TOKEN_FILE, for this session only.
         if let v = sessionSecretAliases.removeValue(forKey: m.name + "/" + session),

@@ -343,9 +343,12 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     /// 771: an adopted agent's own chat participant (its name), made at adoption: what the chat server's relay knows it by.
     /// A manager or worker is its participant already (its bot's, or the daemon-made one of its name). Additive.
     public var participant: String?
+    /// 771: the fingerprint of an adopted agent's chat token, held in its own keychain item (`AdoptedToken`) and delivered
+    /// to every session Dozable starts in its place from the adoption on. Never the value. Additive.
+    public var tokenFingerprint: String?
     public var unknown = UnknownFields()
     static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt", "bot", "isolation", "stoppedAt", "task", "anonymous",
-                                     "pendingAt", "endedAt", "template", "participant"]
+                                     "pendingAt", "endedAt", "template", "participant", "tokenFingerprint"]
 
     public init(name: String, role: String = "worker", place: AgentPlace, startedBy: String = "you", startedAt: Date, bot: String? = nil,
                 isolation: String? = nil) {
@@ -378,6 +381,7 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         endedAt = try c.decodeIfPresent(Date.self, forKey: "endedAt")
         template = try c.decodeIfPresent(String.self, forKey: "template")
         participant = try c.decodeIfPresent(String.self, forKey: "participant")
+        tokenFingerprint = try c.decodeIfPresent(String.self, forKey: "tokenFingerprint")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -398,6 +402,7 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         try c.encodeIfPresent(endedAt, forKey: "endedAt")
         try c.encodeIfPresent(template, forKey: "template")
         try c.encodeIfPresent(participant, forKey: "participant")
+        try c.encodeIfPresent(tokenFingerprint, forKey: "tokenFingerprint")
     }
 }
 

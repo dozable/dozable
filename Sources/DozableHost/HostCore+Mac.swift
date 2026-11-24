@@ -710,6 +710,22 @@ extension HostCore {
         if let s = r.session, let add = workspacePlaceChatEnvironment("mac:" + s, isolation: r.macFence == nil ? .unfenced : .fenced, asked: r.environment) {
             r.environment = (r.environment ?? [:]).merging(add) { mine, _ in mine }
         }
+        // 771: an adopted agent's place: its chat token too — fenced, a launch secret (its placeholder; the page port among
+        // the ports it reaches); unfenced, a 0600 file named by CHAT_TOKEN_FILE (an unfenced session acts as you already).
+        var botSecrets = botSecrets
+        if let s = r.session, botSecrets == nil, r.environment?[ManagerLaunch.tokenVariable] == nil, r.environment?[ManagerLaunch.tokenFileVariable] == nil,
+           let secret = adoptedChatSecret(placeKey: "mac:" + s) {
+            if var f = r.macFence {
+                botSecrets = [secret]
+                if !(f.hostPorts ?? []).contains(where: { $0.port == secret.port }) { f.hostPorts = (f.hostPorts ?? []) + [HostPort(port: secret.port)] }
+                r.macFence = f
+            } else if let k = secret.keychainService, let v = services.keychain.read(service: k, account: Keychain.user).value,
+                      CredentialFingerprint.of(v) == secret.fingerprint {
+                TestSafety.enforce(TestSafety.managerTokenViolation(store: store.root))
+                let files = try writeAgentTokenFolder(workerTokenFolder(s), token: v, start: Data(), who: s)
+                r.environment = (r.environment ?? [:]).merging([ManagerLaunch.tokenFileVariable: files.tokenFile]) { mine, _ in mine }
+            }
+        }
         if r.user != nil { throw HostError(.invalid, "--user does not apply on this Mac: its sessions run as you") }
         let located = MacDeckhold.locate()
         guard let holder = located.url else {

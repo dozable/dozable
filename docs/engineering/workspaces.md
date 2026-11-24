@@ -897,10 +897,18 @@ unfenced agent acts as you already. `agent-relay` is Dozable's own in `ActionCla
 owner never goes through it (`owner` is refused; the human's chat token is refused by the chat server).
 
 **Adopted agents get a participant** (0.52.52): `workspace-adopt` (with chat ready and a main room) makes one of the agent's
-name (polls), invites it to the main room (logged before `adopted`) and records `participant` on the entry. Its token is NOT
-put into the place — adopting still writes only the workspace's record, never a sandbox's `doz.json` nor a session's record —
-so the owner hands it over (the note names `doz chat token NAME --to-file F`). A name already in chat gets none (a note).
-`release` removes the participant. **Every session Dozable starts
+name (polls), invites it to the main room (logged before `adopted`) and records `participant` and `tokenFingerprint` on the
+entry. Its token is DELIVERED at session start (the owner's choice, option B): it is kept in a keychain item of its own
+(`AdoptedToken.service(store, W, AGENT)` — never in the launch-secret ledger, so no sweep judges it by a place's record,
+and `forgetLaunchSecret` never deletes it) and, from the adoption on, every session Dozable starts in the place carries it
+as a launch secret (`adoptedChatSecret`: `CHAT_TOKEN` / `CHAT_TOKEN_FILE` to `host.dozable.internal:PAGE`, its value read
+from the item only while its fingerprint is the entry's) — a sandbox's through `sessionSecrets` (its record's secrets plus
+this one, bound in its proxy at open: never written to its `doz.json` or disk); a fenced session's as its launch secret (the
+page port among its host ports); an unfenced one's as a 0600 token file named by `CHAT_TOKEN_FILE`. Adopting itself still
+writes only the workspace's record. A session already running gets it when it restarts: `adopt` says so and names the one
+command that hands it over now (`doz chat token NAME --to-file F` — its new token goes into the item too,
+`adoptedTokenReplaced`). `--no-token` (`WorkspaceRequest.noToken`) makes no participant: the agent stays off chat. A name
+already in chat gets none (a note). `release` removes the participant (its token refused from then on) and deletes the item. **Every session Dozable starts
 in a workspace's place** — a manager's, a worker's, an adopted agent's sandbox or session — gets `CHAT_URL` from THIS store's
 page port (`AgentLaunch.chatURL`: `host.dozable.internal:PORT`, or `127.0.0.1:PORT` unfenced — on the default port too), unless
 its own environment names one (`AgentLaunch.workspacePlaceEnvironment`, in `openSessionBody` and `macOpen`). `AgentRelayTests`.

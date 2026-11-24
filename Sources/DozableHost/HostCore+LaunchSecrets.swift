@@ -156,6 +156,8 @@ extension HostCore {
         launchSecretMemory[service] = nil
         // A bot-held secret has no item of its own: the bot's token stays in the bot's item, never deleted here.
         guard !readOnly, s.bot == nil else { return }
+        // 771: an adopted agent's token lives in its own item, deleted only at its release.
+        if let k = s.keychainService, AdoptedToken.isAdopted(k) { return }
         if let k = s.keychainService { try? services.keychain.delete(service: k, account: Keychain.user) }
         var ledger = LaunchSecretLedger.load(store)
         if ledger.items.removeValue(forKey: s.keychainService ?? service) != nil { ledger.save(store) }
@@ -181,7 +183,7 @@ extension HostCore {
     /// A sandbox's launch secrets into its proxy (`applyAccount`): nothing for one without any.
     func applyLaunchSecrets(_ m: Managed) {
         guard let vault = m.sandbox.egress?.vault else { return }
-        let secrets = m.config.secrets ?? []
+        let secrets = sessionSecrets(m)
         if secrets.isEmpty, !vault.allBindings.contains(where: \.isLaunchSecret) { return }
         bindLaunchSecrets(vault, secrets, owner: m.name, who: m.name)
     }
@@ -225,8 +227,22 @@ extension HostCore {
     /// The session's own variables for a sandbox's secrets: VAR = a fresh placeholder (one per session, as every
     /// placeholder), and with `file=` FILEVAR = `$HOME/.doz-secrets/VAR`, a 0600 file holding the same placeholder —
     /// written now as the session's user (as Codex's auth.json is). Nothing when it has none.
+    /// 771: the secrets a session of `m` gets — its record's, and an adopted agent's chat token when the sandbox is an adopted
+    /// agent's place (never written to its record; a variable its record names already wins).
+    func sessionSecrets(_ m: Managed) -> [LaunchSecret] {
+        var out = m.config.secrets ?? []
+        if let a = adoptedChatSecret(placeKey: "sandbox:" + m.name), !out.contains(where: { $0.variable == a.variable }) { out.append(a) }
+        return out
+    }
+
+    /// The secrets a session of sandbox `name` gets (tests).
+    func sessionSecretsOf(_ name: String) -> [LaunchSecret] { managed[name].map(sessionSecrets) ?? [] }
+    /// `forgetLaunchSecret`, from a test.
+    func forgetForTest(owner: String, _ s: LaunchSecret) { forgetLaunchSecret(owner: owner, s) }
+
     func deliverLaunchSecretFiles(_ m: Managed, user: String?) async -> [String: String] {
-        guard let secrets = m.config.secrets, !secrets.isEmpty, let vault = m.sandbox.egress?.vault else { return [:] }
+        let secrets = sessionSecrets(m)
+        guard !secrets.isEmpty, let vault = m.sandbox.egress?.vault else { return [:] }
         let image = m.config.spec.imageSpec
         let home = image?.home ?? "/root"
         let owner = user ?? image?.user ?? "root"
