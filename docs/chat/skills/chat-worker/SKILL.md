@@ -56,6 +56,18 @@ peer.
   message, not a reaction. Wait for the next instruction.
 - Long output goes into a file in your folder (or `file send` when it is small); the message says where.
 
+## The run journal
+
+A workspace keeps a journal of each run. Read it, and write to it when your task or the lead says so — with your own token,
+never as anyone else:
+
+- `dozchat journal --json` — the open run's entries.
+- `dozchat journal add note "TEXT"` (or `review`, `finding`, … `--data JSON`, `--attach PATH` for a file in your folder) —
+  an entry by you. Which kinds you may write is the person's grant: exit 4 names the permission you lack — ask in the room,
+  do not work around it. Exit 3: no run is open, or the value was refused.
+- `dozchat journal wait KIND --timeout S` — until an entry of that kind is there (exit 124 at the timeout).
+- `dozchat propose --addendum "LESSON"` — propose a lesson for the next runs; the person decides it.
+
 ## When you are refused something
 
 The fence refusing a site, a tool or a folder is the fence working. **Do not work around it.** Ask in the room for the

@@ -24,17 +24,25 @@
  *                                                                          exit 0 decided, 10 declined, 11 expired,
  *                                                                          12 withdrawn
  *   ASK is #N, a bare N (made #N here), or the start of the ask's msg_id.
+ *     dozchat journal [--run RUN] [--json]                                  the run journal and the work description:
+ *     dozchat journal add KIND [TEXT] [--data JSON] [--ref R]... [--supersedes N] [--attach PATH]... [--attach-ref PATH]...
+ *     dozchat journal wait KIND [--after RUN#SEQ] [--timeout SECONDS]       Dozable's own routes, relayed to its daemon,
+ *     dozchat propose --addendum TEXT [--run RUN]                           which decides by the agent's grants
+ *     dozchat proposal decide ID apply|decline
+ *     dozchat addendum TEXT [--run RUN]                                     (each takes --in W and --json)
  *
  * Configuration, from the environment only (nothing secret on the command line, ever):
  *     CHAT_URL          http://HOST[:PORT] — no user, path or query; default http://host.dozable.internal:8790, and on a
- *                       Mac with no proxy set (a session run without a fence) http://127.0.0.1:8790
+ *                       Mac with no proxy set (a session run without a fence) http://127.0.0.1:8790 — a guess, said on
+ *                       stderr: Dozable sets it to its store's own port for every session it starts
  *     CHAT_TOKEN_FILE   a regular file of this user that no one else may read or write (not a link), at most 4 KiB
  *     CHAT_TOKEN        the token itself, used only when CHAT_TOKEN_FILE is not set
  *     http_proxy, then HTTP_PROXY: an http:// proxy (its password is sent as Proxy-Authorization: Basic); NO_PROXY /
  *     no_proxy: exact host names, or *
  *
  * Exit codes: 0 done · 1 a local problem, or a bad or unexpected answer (a 3xx too) · 2 usage or configuration ·
- * 3 refused (422; the answer is printed) · 4 401, 403 or 409 · 5 no answer, a timeout, or a 5xx · 130 interrupted.
+ * 3 refused (422; the answer is printed) · 4 401, 403 or 409 · 5 no answer, a timeout, or a 5xx · 124 a journal wait's
+ * --timeout passed · 130 interrupted.
  *
  * The rules this file keeps (each has a test in test/unit-check.c or the Swift suites):
  *   - No JSON parser: request bodies are literal text plus json_str(), the strict escaper; an answer is printed with the
@@ -80,7 +88,7 @@
 #include <sys/random.h>
 #endif
 
-#define DOZCHAT_VERSION "2"
+#define DOZCHAT_VERSION "3"
 #define DEFAULT_URL "http://host.dozable.internal:8790"
 /* On a Mac with no proxy set — a session run on the Mac without a fence, where the chat server is this Mac's own — the
  * default is this Mac's loopback. A fenced session always has its proxy set (and no DNS), so it keeps DEFAULT_URL. */
@@ -105,7 +113,7 @@
 #define CALL_TIMEOUT 30
 #define FILE_TIMEOUT 120
 
-enum { EXIT_DONE = 0, EXIT_LOCAL = 1, EXIT_USAGE = 2, EXIT_REFUSED = 3, EXIT_DENIED = 4, EXIT_AWAY = 5 };
+enum { EXIT_DONE = 0, EXIT_LOCAL = 1, EXIT_USAGE = 2, EXIT_REFUSED = 3, EXIT_DENIED = 4, EXIT_AWAY = 5, EXIT_TIMEOUT = 124 };
 
 /* ---------------------------------------------------------------------------------------------------------------
  * Secrets: zeroed with a store the compiler cannot drop; scrubbed out of every word for a person.
@@ -1308,7 +1316,12 @@ static const char *default_url(void) {
 
 static int configure(void) {
     const char *u = getenv("CHAT_URL");
-    if (!u || !*u) u = default_url();
+    if (!u || !*u) {
+        u = default_url();
+        /* Dozable sets CHAT_URL to its store's own port for every session it starts: without it this is a guess — and
+         * on a Mac with a second store, the default port may be another store's chat server. */
+        say("CHAT_URL is not set: guessing the default address %s", u);
+    }
     int r = chat_url_parse(u, &g_chat);
     if (r == URL_HTTPS) { say("CHAT_URL: plain http only; outside Dozable use chat_client.py"); return EXIT_USAGE; }
     if (r == URL_USERINFO) { say("CHAT_URL must not hold a user or password (it is not shown)"); return EXIT_USAGE; }
@@ -1509,6 +1522,8 @@ static int print_item(void *vctx, const unsigned char *s, size_t a, size_t b) {
 #define MAX_TO 64
 
 #define MAX_ASK_OPTIONS 8
+#define MAX_REFS 32
+#define MAX_ATTACH 16
 #define MAX_QUESTIONS_FILE (64 * KIB)
 
 struct opts {
@@ -1525,6 +1540,17 @@ struct opts {
     int dm, ack, redeliver, once, help, multi, decline;
     long wait;       /* -1: not given */
     long expires_in; /* -1: not given */
+    /* the journal and the work description */
+    const char *run, *data, *after, *addendum, *workspace;
+    const char *ref[MAX_REFS];
+    size_t nref;
+    const char *attach[MAX_ATTACH];
+    size_t nattach;
+    const char *attach_ref[MAX_ATTACH];
+    size_t nattach_ref;
+    long timeout;    /* -1: not given */
+    long supersedes; /* -1: not given */
+    int json;
 };
 
 static const char USAGE[] =
@@ -1544,11 +1570,20 @@ static const char USAGE[] =
     "  dozchat withdraw ROOM ASK                         withdraw an ask you asked\n"
     "  dozchat ask-show ROOM ASK [--wait SECONDS]        the ask as JSON; --wait until its outcome: exit 0 decided, 10 declined,\n"
     "                                                    11 expired, 12 withdrawn (ASK: #N, N, or the start of its id)\n"
+    "  dozchat journal [--run RUN] [--json]              the open run's journal (or RUN's), as JSON\n"
+    "  dozchat journal add KIND [TEXT] [--data JSON] [--ref R ...] [--supersedes N] [--attach PATH ...] [--attach-ref PATH ...]\n"
+    "                                                    append an entry to the open run (your grants decide which kinds)\n"
+    "  dozchat journal wait KIND [--after RUN#SEQ] [--timeout SECONDS]   the first entry of KIND (exit 124 at the timeout)\n"
+    "  dozchat propose --addendum TEXT [--run RUN]       propose a lesson for the work description (the owner decides it)\n"
+    "  dozchat proposal decide ID apply|decline          decide a proposal (needs description.decide)\n"
+    "  dozchat addendum TEXT [--run RUN]                 add to the work description directly (needs description.edit)\n"
+    "                                                    each takes --in W when you are an agent of several\n"
     "  dozchat --version\n"
     "A send answers \"queued\" (it waits for each recipient); a reaction answers \"added\" (recorded at once, it wakes nobody).\n"
     "CHAT_URL defaults to " DEFAULT_URL "; on a Mac with no proxy set, " MAC_DIRECT_URL ". The token is never given on the command line.\n"
     "Outside Dozable, through a local proxy: CHAT_URL=http://HOST:8790 http_proxy=http://localhost:PORT dozchat send ROOM TEXT\n"
-    "Exit codes: 0 done, 1 a local problem or a bad answer, 2 usage, 3 refused (422), 4 401/403/409, 5 no answer or 5xx.\n";
+    "Exit codes: 0 done, 1 a local problem or a bad answer, 2 usage, 3 refused (422), 4 401/403/409, 5 no answer or 5xx,\n"
+    "124 a journal wait's timeout. With --json a refusal is {\"error\":{\"code\",\"message\",\"permission\"}} on stdout.\n";
 
 static int usage_error(const char *what) {
     say("%s (dozchat --help)", what);
@@ -1560,6 +1595,8 @@ static int parse_opts(int argc, char **argv, int from, const char *allowed, stru
     memset(o, 0, sizeof *o);
     o->wait = -1;
     o->expires_in = -1;
+    o->timeout = -1;
+    o->supersedes = -1;
     int only_pos = 0;
     for (int i = from; i < argc; i++) {
         const char *a = argv[i];
@@ -1585,7 +1622,8 @@ static int parse_opts(int argc, char **argv, int from, const char *allowed, stru
                                        : "the token and the address are never given on the command line: set CHAT_TOKEN_FILE and CHAT_URL");
         if (!strstr(allowed, name)) return usage_error("unknown option for this command");
         int flag = strcmp(name, " --dm ") == 0 || strcmp(name, " --ack ") == 0 || strcmp(name, " --redeliver ") == 0 ||
-                   strcmp(name, " --once ") == 0 || strcmp(name, " --multi ") == 0 || strcmp(name, " --decline ") == 0;
+                   strcmp(name, " --once ") == 0 || strcmp(name, " --multi ") == 0 || strcmp(name, " --decline ") == 0 ||
+                   strcmp(name, " --json ") == 0;
         if (flag) {
             if (val) return usage_error("that option takes no value");
             if (strcmp(name, " --dm ") == 0) o->dm = 1;
@@ -1593,6 +1631,7 @@ static int parse_opts(int argc, char **argv, int from, const char *allowed, stru
             else if (strcmp(name, " --redeliver ") == 0) o->redeliver = 1;
             else if (strcmp(name, " --multi ") == 0) o->multi = 1;
             else if (strcmp(name, " --decline ") == 0) o->decline = 1;
+            else if (strcmp(name, " --json ") == 0) o->json = 1;
             else o->once = 1;
             continue;
         }
@@ -1607,6 +1646,32 @@ static int parse_opts(int argc, char **argv, int from, const char *allowed, stru
         else if (strcmp(name, " --reason ") == 0) o->reason = val;
         else if (strcmp(name, " --questions ") == 0) o->questions = val;
         else if (strcmp(name, " --answers ") == 0) o->answers = val;
+        else if (strcmp(name, " --run ") == 0) o->run = val;
+        else if (strcmp(name, " --data ") == 0) o->data = val;
+        else if (strcmp(name, " --after ") == 0) o->after = val;
+        else if (strcmp(name, " --addendum ") == 0) o->addendum = val;
+        else if (strcmp(name, " --in ") == 0) o->workspace = val;
+        else if (strcmp(name, " --ref ") == 0) {
+            if (o->nref >= MAX_REFS) return usage_error("at most 32 --ref");
+            o->ref[o->nref++] = val;
+        } else if (strcmp(name, " --attach ") == 0) {
+            if (o->nattach + o->nattach_ref >= MAX_ATTACH) return usage_error("at most 16 files on one entry");
+            o->attach[o->nattach++] = val;
+        } else if (strcmp(name, " --attach-ref ") == 0) {
+            if (o->nattach + o->nattach_ref >= MAX_ATTACH) return usage_error("at most 16 files on one entry");
+            o->attach_ref[o->nattach_ref++] = val;
+        } else if (strcmp(name, " --timeout ") == 0 || strcmp(name, " --supersedes ") == 0) {
+            int sup = strcmp(name, " --supersedes ") == 0;
+            size_t l = strlen(val);
+            if (l == 0 || l > 9) return usage_error(sup ? "--supersedes takes an entry's seq" : "--timeout takes whole seconds");
+            long v = 0;
+            for (size_t k = 0; k < l; k++) {
+                if (val[k] < '0' || val[k] > '9') return usage_error(sup ? "--supersedes takes an entry's seq" : "--timeout takes whole seconds");
+                v = v * 10 + (val[k] - '0');
+            }
+            if (sup && v < 1) return usage_error("--supersedes takes an entry's seq, from 1");
+            if (sup) o->supersedes = v; else o->timeout = v;
+        }
         else if (strcmp(name, " --option ") == 0) {
             if (o->noption >= MAX_ASK_OPTIONS) return usage_error("at most 8 --option");
             o->option[o->noption++] = val;
@@ -2351,6 +2416,264 @@ static int cmd_ask_show(const struct opts *o) {
     return rc;
 }
 
+/* ---------------------------------------------------------------------------------------------------------------
+ * The run journal and the work description: Dozable's own routes, which the chat server relays to Dozable's daemon. The
+ * token decides who the agent is; the daemon decides what it may do (its grants). An answer is printed as one JSON line; a
+ * refusal's body is {"error":{"code","message","permission"?}} — printed on stdout with --json, its message said on
+ * stderr. Exit codes keep the table: 3 refused (422: no open run, a closed run, a value refused), 4 not permitted (403) or a
+ * proposal decided already (409), 5 no answer, and 124 a journal wait's timeout.
+ * ------------------------------------------------------------------------------------------------------------ */
+
+#define RELAY_TIMEOUT 40
+
+/* A failed answer of a relayed call: its words said (and with --json its body printed), its exit code. */
+static int relay_failure(const struct answer *a, int json) {
+    const unsigned char *b = a->body.p;
+    size_t n = a->body.len, s0, s1, e0, e1;
+    int st = a->status;
+    if (!(n && scan_document(b, n, &s0, &s1) == 0 && b[s0] == '{' && obj_find(b, s0, s1, "error", &e0, &e1) == FIND_FOUND && b[e0] == '{'))
+        return answer_failure(a);
+    if (json) {
+        struct buf c = buf_new(MAX_ANSWER);
+        if (json_compact(&c, b, s0, s1) == 0) (void)out_line(c.p, c.len);
+        buf_free(&c);
+    }
+    struct buf m = buf_new(4096), perm = buf_new(256);
+    char why[MAX_REASON + 1] = "", pw[MAX_REASON + 1] = "";
+    if (obj_string(b, e0, e1, "message", &m) == FIND_FOUND && m.len) reason_text(m.p, m.len, why);
+    if (obj_string(b, e0, e1, "permission", &perm) == FIND_FOUND && perm.len) reason_text(perm.p, perm.len, pw);
+    buf_free(&m);
+    buf_free(&perm);
+    if (!why[0]) memcpy(why, "no text", 8);
+    if (pw[0]) say("not permitted (%s): %s", pw, why);
+    else say("%s", why);
+    if (st == 422) return EXIT_REFUSED;
+    if (st == 401 || st == 403 || st == 409) return EXIT_DENIED;
+    if (st == 408) return EXIT_TIMEOUT;
+    if (st >= 500) return EXIT_AWAY;
+    return EXIT_LOCAL;
+}
+
+/* One relayed call: 200 → its JSON printed (0); else relay_failure. */
+static int relay_call(const char *method, const char *path, const struct buf *body, int json, struct answer *keep) {
+    struct answer ans;
+    int rc = http_call(method, path, body ? body->p : NULL, body ? body->len : 0, RELAY_TIMEOUT, MAX_ANSWER, &ans);
+    if (rc != EXIT_DONE) { say("%s", g_why); return rc; }
+    size_t a0, a1;
+    if (ans.status == 200) {
+        if (scan_document(ans.body.p, ans.body.len, &a0, &a1) != 0) {
+            say("a broken answer from the chat server (HTTP 200, not JSON)");
+            buf_free(&ans.body);
+            return EXIT_AWAY;
+        }
+        struct buf c = buf_new(MAX_ANSWER);
+        if (json_compact(&c, ans.body.p, a0, a1) < 0 || out_line(c.p, c.len) < 0) rc = EXIT_LOCAL;
+        buf_free(&c);
+        buf_free(&ans.body);
+        return rc;
+    }
+    if (keep && ans.status == 408) { *keep = ans; return EXIT_TIMEOUT; }
+    rc = relay_failure(&ans, json);
+    buf_free(&ans.body);
+    return rc;
+}
+
+/* `,"KEY":"VALUE"` when value is given. */
+static int add_field(struct buf *body, int *first, const char *key, const char *value) {
+    if (!value) return 0;
+    int e = (*first ? 0 : buf_addc(body, ',')) | buf_addc(body, '"') | buf_adds(body, key) | buf_adds(body, "\":");
+    *first = 0;
+    int r = json_strz(body, value);
+    if (r == ESC_INVALID) return ESC_INVALID;
+    return e | r;
+}
+
+/* A path made absolute against the working folder (never resolved: the daemon reads it through no link). */
+static int absolute_path(struct buf *out, const char *p) {
+    if (p[0] != '/') {
+        char cwd[PATH_MAX];
+        if (!getcwd(cwd, sizeof cwd)) return -1;
+        if (buf_adds(out, cwd) | buf_addc(out, '/')) return -1;
+    }
+    return buf_adds(out, p);
+}
+
+static int add_paths(struct buf *body, int *first, const char *key, const char *const *paths, size_t n) {
+    if (!n) return 0;
+    int e = (*first ? 0 : buf_addc(body, ',')) | buf_addc(body, '"') | buf_adds(body, key) | buf_adds(body, "\":[");
+    *first = 0;
+    for (size_t i = 0; i < n; i++) {
+        struct buf a = buf_new(PATH_MAX * 2 + 2);
+        if (absolute_path(&a, paths[i]) < 0) { buf_free(&a); return -1; }
+        if (i) e |= buf_addc(body, ',');
+        int r = json_str(body, a.p, a.len);
+        buf_free(&a);
+        if (r == ESC_INVALID) return ESC_INVALID;
+        e |= r;
+    }
+    return e | buf_addc(body, ']');
+}
+
+/* `?k=v&…` for the values given. */
+static int add_query(struct buf *path, int *first, const char *key, const char *value) {
+    if (!value) return 0;
+    int e = buf_addc(path, *first ? '?' : '&') | buf_adds(path, key) | buf_addc(path, '=') | pct_encode(path, value);
+    *first = 0;
+    return e;
+}
+
+static int cmd_journal_read(const struct opts *o) {
+    if (o->npos != 0) return usage_error("journal takes no argument but --run (or: journal add, journal wait)");
+    int rc = configure();
+    if (rc) return rc;
+    struct buf path = buf_new(1024);
+    int first = 1;
+    int e = buf_adds(&path, "/agent/journal") | add_query(&path, &first, "run", o->run) | add_query(&path, &first, "workspace", o->workspace) | buf_addc(&path, 0);
+    if (e) { buf_free(&path); return usage_error("the run is too long"); }
+    rc = relay_call("GET", (const char *)path.p, NULL, o->json, NULL);
+    buf_free(&path);
+    return rc;
+}
+
+static int cmd_journal_add(const struct opts *o) {
+    if (o->npos < 2) return usage_error("journal add takes KIND [TEXT]");
+    int rc = configure();
+    if (rc) return rc;
+    struct buf body = buf_new(MAX_REQUEST_BODY), text = buf_new(MAX_STDIN_TEXT);
+    int first = 1, r;
+    int e = buf_addc(&body, '{');
+    if ((r = add_field(&body, &first, "kind", o->pos[1])) == ESC_INVALID) { rc = usage_error("the kind is not UTF-8"); goto done; }
+    e |= r;
+    if (o->npos > 2) {
+        if (join_words(&text, o, 2) < 0) { rc = usage_error("the text is longer than 1 MiB"); goto done; }
+        e |= buf_adds(&body, ",\"text\":");
+        r = json_str(&body, text.p, text.len);
+        if (r == ESC_INVALID) { rc = usage_error("the text is not UTF-8"); goto done; }
+        e |= r;
+    }
+    if (o->data) {
+        size_t d0, d1, n = strlen(o->data);
+        if (scan_document((const unsigned char *)o->data, n, &d0, &d1) != 0 || o->data[d0] != '{') { rc = usage_error("--data is a JSON object"); goto done; }
+        e |= buf_adds(&body, ",\"data\":");
+        if (json_compact(&body, (const unsigned char *)o->data, d0, d1) < 0) { rc = usage_error("--data is too large"); goto done; }
+    }
+    if (o->nref) {
+        e |= buf_adds(&body, ",\"refs\":[");
+        for (size_t i = 0; i < o->nref; i++) {
+            if (i) e |= buf_addc(&body, ',');
+            r = json_strz(&body, o->ref[i]);
+            if (r == ESC_INVALID) { rc = usage_error("--ref is not UTF-8"); goto done; }
+            e |= r;
+        }
+        e |= buf_addc(&body, ']');
+    }
+    if (o->supersedes > 0) e |= buf_adds(&body, ",\"supersedes\":") | buf_addu(&body, (unsigned long long)o->supersedes);
+    if ((r = add_paths(&body, &first, "attach", o->attach, o->nattach)) == ESC_INVALID) { rc = usage_error("--attach is not UTF-8"); goto done; }
+    if (r < 0) { rc = usage_error("--attach: the path is too long"); goto done; }
+    e |= r;
+    if ((r = add_paths(&body, &first, "attachRef", o->attach_ref, o->nattach_ref)) == ESC_INVALID) { rc = usage_error("--attach-ref is not UTF-8"); goto done; }
+    if (r < 0) { rc = usage_error("--attach-ref: the path is too long"); goto done; }
+    e |= r;
+    if ((r = add_field(&body, &first, "workspace", o->workspace)) == ESC_INVALID) { rc = usage_error("--in is not UTF-8"); goto done; }
+    e |= r | buf_addc(&body, '}');
+    if (e) { rc = usage_error("the entry is too large"); goto done; }
+    rc = relay_call("POST", "/agent/journal", &body, o->json, NULL);
+done:
+    buf_free(&body);
+    buf_free(&text);
+    return rc;
+}
+
+static int cmd_journal_wait(const struct opts *o) {
+    if (o->npos != 2) return usage_error("journal wait takes KIND [--after RUN#SEQ] [--timeout SECONDS]");
+    int rc = configure();
+    if (rc) return rc;
+    double until = o->timeout >= 0 ? now_s() + (double)o->timeout : -1;
+    for (;;) {
+        long left = 25;
+        if (until >= 0) {
+            double l = until - now_s();
+            left = l <= 0 ? 0 : (long)(l + 0.999);
+            if (left > 25) left = 25;
+        }
+        char t[16];
+        snprintf(t, sizeof t, "%ld", left);
+        struct buf path = buf_new(1024);
+        int first = 1;
+        int e = buf_adds(&path, "/agent/journal/wait") | add_query(&path, &first, "kind", o->pos[1]) | add_query(&path, &first, "after", o->after) |
+                add_query(&path, &first, "timeout", t) | add_query(&path, &first, "workspace", o->workspace) | buf_addc(&path, 0);
+        if (e) { buf_free(&path); return usage_error("the kind is too long"); }
+        struct answer timed;
+        memset(&timed, 0, sizeof timed);
+        rc = relay_call("GET", (const char *)path.p, NULL, o->json, &timed);
+        buf_free(&path);
+        if (rc != EXIT_TIMEOUT) return rc;
+        if (until < 0 || now_s() < until) { buf_free(&timed.body); continue; }
+        rc = relay_failure(&timed, o->json);
+        buf_free(&timed.body);
+        return EXIT_TIMEOUT;
+    }
+}
+
+static int cmd_propose(const struct opts *o) {
+    if (o->npos != 0) return usage_error("propose takes --addendum TEXT [--run RUN]");
+    if (!o->addendum) return usage_error("propose needs --addendum TEXT: the lesson to add to the work description");
+    int rc = configure();
+    if (rc) return rc;
+    struct buf body = buf_new(MAX_REQUEST_BODY);
+    int first = 1;
+    int e = buf_addc(&body, '{');
+    int r1 = add_field(&body, &first, "addendum", o->addendum), r2 = add_field(&body, &first, "run", o->run),
+        r3 = add_field(&body, &first, "workspace", o->workspace);
+    if (r1 == ESC_INVALID || r2 == ESC_INVALID || r3 == ESC_INVALID) { buf_free(&body); return usage_error("the text is not UTF-8"); }
+    e |= r1 | r2 | r3 | buf_addc(&body, '}');
+    if (e) { buf_free(&body); return usage_error("the addendum is too large"); }
+    rc = relay_call("POST", "/agent/proposals", &body, o->json, NULL);
+    buf_free(&body);
+    return rc;
+}
+
+static int cmd_addendum(const struct opts *o) {
+    if (o->npos < 1) return usage_error("addendum takes TEXT [--run RUN]");
+    int rc = configure();
+    if (rc) return rc;
+    struct buf body = buf_new(MAX_REQUEST_BODY), text = buf_new(MAX_STDIN_TEXT);
+    int first = 0, r;
+    int e = buf_adds(&body, "{\"addendum\":");
+    if (join_words(&text, o, 0) < 0) { rc = usage_error("the text is longer than 1 MiB"); goto done; }
+    r = json_str(&body, text.p ? text.p : (const unsigned char *)"", text.len);
+    if (r == ESC_INVALID) { rc = usage_error("the text is not UTF-8"); goto done; }
+    e |= r;
+    int r2 = add_field(&body, &first, "run", o->run), r3 = add_field(&body, &first, "workspace", o->workspace);
+    if (r2 == ESC_INVALID || r3 == ESC_INVALID) { rc = usage_error("--run is not UTF-8"); goto done; }
+    e |= r2 | r3 | buf_addc(&body, '}');
+    if (e) { rc = usage_error("the addendum is too large"); goto done; }
+    rc = relay_call("POST", "/agent/addenda", &body, o->json, NULL);
+done:
+    buf_free(&body);
+    buf_free(&text);
+    return rc;
+}
+
+static int cmd_proposal_decide(const struct opts *o) {
+    if (o->npos != 3 || strcmp(o->pos[0], "decide") != 0) return usage_error("proposal decide ID apply|decline");
+    if (strcmp(o->pos[2], "apply") != 0 && strcmp(o->pos[2], "decline") != 0) return usage_error("apply or decline");
+    int rc = configure();
+    if (rc) return rc;
+    struct buf path = buf_new(1024), body = buf_new(4096);
+    int first = 1;
+    int e = buf_adds(&path, "/agent/proposals/") | pct_encode(&path, o->pos[1]) | buf_adds(&path, "/decide") | buf_addc(&path, 0);
+    e |= buf_addc(&body, '{') | add_field(&body, &first, "decision", o->pos[2]);
+    int r = add_field(&body, &first, "workspace", o->workspace);
+    if (r == ESC_INVALID) { buf_free(&path); buf_free(&body); return usage_error("--in is not UTF-8"); }
+    e |= r | buf_addc(&body, '}');
+    if (e) { buf_free(&path); buf_free(&body); return usage_error("the id is too long"); }
+    rc = relay_call("POST", (const char *)path.p, &body, o->json, NULL);
+    buf_free(&path);
+    buf_free(&body);
+    return rc;
+}
+
 static int run(int argc, char **argv) {
     if (argc < 2) { fputs(USAGE, stderr); return EXIT_USAGE; }
     const char *cmd = argv[1];
@@ -2370,6 +2693,26 @@ static int run(int argc, char **argv) {
         if ((rc = parse_opts(argc, argv, 3, get ? " --out --name " : " --re ", &o))) return rc;
         if (o.help) { fputs(USAGE, stdout); return EXIT_DONE; }
         return get ? cmd_file_get(&o) : cmd_file_send(&o);
+    }
+    if (strcmp(cmd, "journal") == 0) {
+        const char *sub = argc >= 3 ? argv[2] : "";
+        int add = strcmp(sub, "add") == 0, wait = strcmp(sub, "wait") == 0;
+        const char *al = add ? " --data --ref --supersedes --attach --attach-ref --json --in "
+                         : wait ? " --after --timeout --json --in " : " --run --json --in ";
+        if ((rc = parse_opts(argc, argv, 2, al, &o))) return rc;
+        if (o.help) { fputs(USAGE, stdout); return EXIT_DONE; }
+        if (add) return cmd_journal_add(&o);
+        if (wait) return cmd_journal_wait(&o);
+        return cmd_journal_read(&o);
+    }
+    if (strcmp(cmd, "propose") == 0 || strcmp(cmd, "addendum") == 0 || strcmp(cmd, "proposal") == 0) {
+        const char *al = strcmp(cmd, "proposal") == 0 ? " --json --in " : " --addendum --run --json --in ";
+        if (strcmp(cmd, "addendum") == 0) al = " --run --json --in ";
+        if ((rc = parse_opts(argc, argv, 2, al, &o))) return rc;
+        if (o.help) { fputs(USAGE, stdout); return EXIT_DONE; }
+        if (strcmp(cmd, "propose") == 0) return cmd_propose(&o);
+        if (strcmp(cmd, "addendum") == 0) return cmd_addendum(&o);
+        return cmd_proposal_decide(&o);
     }
     const char *allowed = NULL;
     if (strcmp(cmd, "send") == 0) allowed = " --re --to --dm ";

@@ -703,8 +703,13 @@ extension HostCore {
         return rows
     }
 
-    func macOpen(_ r: HostRequest, botSecrets: [LaunchSecret]? = nil, managerStart: Data? = nil, startFolder: String = "manager") async throws -> SessionOpened {
+    func macOpen(_ given: HostRequest, botSecrets: [LaunchSecret]? = nil, managerStart: Data? = nil, startFolder: String = "manager") async throws -> SessionOpened {
         guard !readOnly else { throw HostError(.unavailable, "open-session needs the daemon") }
+        var r = given
+        // 771: a session opened in a workspace's place on this Mac (an adopted one's too) reaches THIS store's chat server.
+        if let s = r.session, let add = workspacePlaceChatEnvironment("mac:" + s, isolation: r.macFence == nil ? .unfenced : .fenced, asked: r.environment) {
+            r.environment = (r.environment ?? [:]).merging(add) { mine, _ in mine }
+        }
         if r.user != nil { throw HostError(.invalid, "--user does not apply on this Mac: its sessions run as you") }
         let located = MacDeckhold.locate()
         guard let holder = located.url else {
@@ -1242,5 +1247,15 @@ extension HostCore {
     func macSessionRowEnded(_ session: String, exitCode: Int32? = nil) {
         guard let id = macSessionRows.removeValue(forKey: session) else { return }
         metrics?.sessionEnded(id, exitCode: exitCode)
+    }
+}
+
+extension HostCore {
+    /// 771: what a session opened in place `key` (`sandbox:NAME`, `mac:SESSION`) gets when the place is a workspace's:
+    /// `CHAT_URL` from this store's page port (`AgentLaunch.workspacePlaceEnvironment`). nil: nothing.
+    func workspacePlaceChatEnvironment(_ key: String, isolation: ManagerIsolation, asked: [String: String]?) -> [String: String]? {
+        let chat = ChatSettingsView.read()
+        return AgentLaunch.workspacePlaceEnvironment(member: workspaces.membership()[key] != nil, chatOn: chat.enabled, isolation: isolation,
+                                                     pagePort: chat.pagePort, asked: asked)
     }
 }

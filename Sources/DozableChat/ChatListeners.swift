@@ -324,6 +324,7 @@ public final class ChatListeners: @unchecked Sendable {
                         a.channel.channel.closeFuture.whenComplete { _ in poll.cancel() }
                         res = await poll.finish()
                     }
+                    if let relay = res.relay { res = await relay.finish() }   // 771: an agent's call the daemon answers
                     if let sub = res.stream {
                         a.channel.channel.closeFuture.whenComplete { _ in sub.cancel() }
                         defer { self.core.unsubscribe(sub) }

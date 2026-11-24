@@ -19,7 +19,8 @@ import DozableHost
 //  P7. a never refused with its reason (exit 9): an unfenced worker (the worker role), a bot made (Dozable's own: another
 //      workspace), ls (Dozable's own)
 //  P8. grant otto net.allow=allow --in myapp-tests does not reach permb: why there says ask, step 2 none
-//  P9. permissions show says not enforced yet — no agent can drive Dozable; --agent's rows each say so
+//  P9. permissions show says what is enforced (771: the journal and the work description, through dozchat; nothing else
+//      yet); --agent's rows each say so, by permission
 //  P10. the --json leak sweep: every permissions answer parses and carries no token; nor do the grants' files
 /// P5's first half, run before row 12: every permission never — this Mac's ceiling, and an everywhere never for every role.
 func cliWorkspaceOwnerUnderNevers(_ h: CLIHarness) {
@@ -184,12 +185,13 @@ func cliWorkspacePermissionRows(_ h: CLIHarness, root: URL, store: DozableStore,
     d = why(["otto", "net.allow", "--in", "permb"])
     check(d?.answer == .ask && d?.steps.first { $0.n == 2 }?.found == "none (room, workspace, everywhere)", "P8 …in permb: ask, no grant there")
 
-    // P9. not enforced yet.
+    // P9. what is enforced (771): the journal and the work description, through dozchat; nothing else yet.
     r = h.run(["permissions", "show"], timeout: 60)
-    check(r.out.contains("not yet — no agent can drive Dozable"), "P9 permissions show: not enforced yet")
+    check(r.out.contains(PermissionWords.overall), "P9 permissions show: enforced for the journal and the work description only")
     let agent = h.json(["permissions", "show", "myapp-tests", "--agent", "bot2"], PermissionsShown.self)?.agents.first
-    check(agent?.rows.count == GrantPermissions.ids.count && agent?.rows.allSatisfy { $0.enforced == "not yet — no agent can drive Dozable" } == true,
-          "P9 --agent bot2: every row says not yet (\(agent?.rows.count ?? 0))")
+    check(agent?.rows.count == GrantPermissions.ids.count
+          && agent?.rows.allSatisfy { $0.enforced == (PermissionWords.reached($0.perm) ? PermissionWords.enforcedNow : PermissionWords.notYet) } == true,
+          "P9 --agent bot2: each row says whether an agent reaches it (\(agent?.rows.count ?? 0))")
 
     // P10. the --json leak sweep.
     var answers = ""

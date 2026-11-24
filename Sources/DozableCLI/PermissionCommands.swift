@@ -6,7 +6,7 @@ import DozableHost
 // of permissions, each answered allow, ask or never; roles that bundle answers; grants in a scope; ceilings above them. NOT
 // `doz net permissions`, which is what a sandbox's network may reach. Looking (show, why) answers from the store when no
 // daemon runs and never starts one; changes are yours, through the daemon. Nothing here constrains you: permissions are for
-// agents only, and none is enforced yet — no agent can drive Dozable. Exit codes: 2 not found · 6 the daemon unavailable ·
+// agents only; an agent's request reaches only the run journal and the work description (through dozchat), where they are enforced. Exit codes: 2 not found · 6 the daemon unavailable ·
 // 64 usage.
 
 struct PermissionsCommand: AsyncParsableCommand {
@@ -20,7 +20,8 @@ struct PermissionsCommand: AsyncParsableCommand {
         date. A ceiling — this Mac's, a bot's, a workspace's, and Dozable's own above them — is the most an agent may ever get. \
         doz why AGENT PERM says which step decided.
 
-        Permissions constrain agents, never you. None is enforced yet: no agent can drive Dozable.
+        Permissions constrain agents, never you. They are enforced where an agent reaches Dozable: the run journal and the \
+        work description, through dozchat with its own chat token. No other Dozable action is an agent's yet.
         """,
         subcommands: [PermissionsShow.self, PermissionsWhy.self, PermissionsGrant.self, PermissionsRevoke.self, PermissionsCeiling.self])
 }
@@ -125,7 +126,7 @@ func printPermissionsShown(_ s: PermissionsShown) {
         out += "\n"
         grants("Grants", s.grants)
     }
-    out += "\nEnforced: \(s.enforced). " + PermissionWords.footer.replacingOccurrences(of: "Grants are not enforced yet — no agent can drive Dozable. ", with: "") + "\n"
+    out += "\nEnforced: \(s.enforced). " + PermissionWords.footerRest + "\n"
     for n in s.notes { out += "note: \(n)\n" }
     Out.stdout(out)
 }

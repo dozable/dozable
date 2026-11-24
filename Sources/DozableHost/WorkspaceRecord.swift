@@ -217,9 +217,12 @@ public struct WorkspaceRun: Codable, Equatable, Sendable {
     public var follows: String?
     public var openedBy: String?
     public var revision: Int?
+    /// 771: how many accepted lessons (the work description's addenda) its opening message carried. Additive: a run opened
+    /// before has none.
+    public var lessons: Int?
     public var unknown = UnknownFields()
     static let known: Set<String> = ["id", "startedAt", "endedAt", "archive", "rooms", "archiveSHA256", "archiveProblem", "closedBy", "legacy", "noArchive",
-                                     "framesCapped", "goal", "goalFrom", "source", "follows", "openedBy", "revision"]
+                                     "framesCapped", "goal", "goalFrom", "source", "follows", "openedBy", "revision", "lessons"]
 
     public init(id: String, startedAt: Date, rooms: [WorkspaceRunRoom] = []) { self.id = id; self.startedAt = startedAt; self.rooms = rooms }
 
@@ -244,6 +247,7 @@ public struct WorkspaceRun: Codable, Equatable, Sendable {
         follows = try c.decodeIfPresent(String.self, forKey: "follows")
         openedBy = try c.decodeIfPresent(String.self, forKey: "openedBy")
         revision = try c.decodeIfPresent(Int.self, forKey: "revision")
+        lessons = try c.decodeIfPresent(Int.self, forKey: "lessons")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -267,6 +271,7 @@ public struct WorkspaceRun: Codable, Equatable, Sendable {
         try c.encodeIfPresent(follows, forKey: "follows")
         try c.encodeIfPresent(openedBy, forKey: "openedBy")
         try c.encodeIfPresent(revision, forKey: "revision")
+        try c.encodeIfPresent(lessons, forKey: "lessons")
     }
 }
 
@@ -335,9 +340,12 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     public var endedAt: Date?
     /// The template kept of its sandbox when it was removed at an archive (`--remove-sandboxes --keep-templates`). Additive.
     public var template: String?
+    /// 771: an adopted agent's own chat participant (its name), made at adoption: what the chat server's relay knows it by.
+    /// A manager or worker is its participant already (its bot's, or the daemon-made one of its name). Additive.
+    public var participant: String?
     public var unknown = UnknownFields()
     static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt", "bot", "isolation", "stoppedAt", "task", "anonymous",
-                                     "pendingAt", "endedAt", "template"]
+                                     "pendingAt", "endedAt", "template", "participant"]
 
     public init(name: String, role: String = "worker", place: AgentPlace, startedBy: String = "you", startedAt: Date, bot: String? = nil,
                 isolation: String? = nil) {
@@ -369,6 +377,7 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         pendingAt = try c.decodeIfPresent(Date.self, forKey: "pendingAt")
         endedAt = try c.decodeIfPresent(Date.self, forKey: "endedAt")
         template = try c.decodeIfPresent(String.self, forKey: "template")
+        participant = try c.decodeIfPresent(String.self, forKey: "participant")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -388,6 +397,7 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         try c.encodeIfPresent(pendingAt, forKey: "pendingAt")
         try c.encodeIfPresent(endedAt, forKey: "endedAt")
         try c.encodeIfPresent(template, forKey: "template")
+        try c.encodeIfPresent(participant, forKey: "participant")
     }
 }
 

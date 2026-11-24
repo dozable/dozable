@@ -687,8 +687,50 @@ extension HostCore {
         // Adopting a RUNNING agent marks it started; one that does not run leaves it setting up.
         if rec.flags.firstAgentAt == nil, await workspacePlaceRunning(place) { rec.flags.firstAgentAt = now }
         try workspaces.write(rec)
+        // 771: its own participant in the room (as a worker gets), so it reads the room's run-opening messages and reaches
+        // the journal with its own token. Best effort: the adoption stands, and a note says what was not done. Logged before
+        // `adopted`, so the adoption is the last word of it.
+        let notes = await adoptedParticipant(n, agent: agent, place: place)
         try? workspaces.append(n, WorkspaceLogEntry(at: now, action: "adopted", agent: agent, place: place.key))
-        return await workspaceDetail(rec, withBrief: false)
+        var d = await workspaceDetail(try workspaceRecord(n), withBrief: false)
+        if !notes.isEmpty { d.notes = (d.notes ?? []) + notes }
+        return d
+    }
+
+    /// 771: an adopted agent's participant — made under its name (polls), invited to the main room, recorded on its entry
+    /// (`participant`: what the agent relay knows it by). Its token is not put into the place (adopting never writes a
+    /// sandbox's doz.json nor a session's record): a note says how the owner hands it over. Answers the notes. Called under
+    /// the `workspaces` gate.
+    func adoptedParticipant(_ n: String, agent: String, place: AgentPlace) async -> [String] {
+        guard !readOnly, let participants = botChat, let chat = workspaceChat else { return [] }
+        guard let rec = try? workspaceRecord(n), let room = rec.mainRoom?.chatRoom else { return ["\(n) has no room: \(agent) was given no participant in chat"] }
+        guard await chat.readiness() == .ready else { return ["chat is not ready: \(agent) was given no participant in chat (release and adopt it again once chat runs)"] }
+        let token = ChatTokens.make()
+        await botGate.lock("bots")
+        do {
+            if try participants.directory().has(agent) || bots.readOrEmpty().bot(agent) != nil {
+                botGate.unlock("bots")
+                return ["\(agent) is a name in chat already: it was given no participant of its own — adopt it --as another name to give it one"]
+            }
+            try await participants.add(agent, token: token, kind: "agent", deliver: "poll", entry: nil, session: nil)
+        } catch {
+            botGate.unlock("bots")
+            return ["\(agent) was given no participant in chat: \(HostError.from(error).message)"]
+        }
+        botGate.unlock("bots")
+        var notes: [String] = []
+        if (try? chat.invite(room: room, name: agent)) == true {
+            try? workspaces.append(n, WorkspaceLogEntry(action: "bot-invited", agent: agent, room: room))
+        }
+        // The caller holds the `workspaces` gate (adopt is served under it): written directly, never through workspaceUpdate.
+        if var r = try? workspaceRecord(n), let i = r.agents.firstIndex(where: { $0.name == agent && $0.endedAt == nil }) {
+            r.agents[i].participant = agent
+            try? workspaces.write(r)
+        }
+        // Adopting writes only the workspace's record — never a sandbox's doz.json nor a session's record — so its token is
+        // not put into the place: you hand it over (a session started there gets this store's chat address by itself).
+        notes.append("\(agent) is in \(room) as itself; its token is yours to hand over: doz chat token \(agent) --to-file F (then CHAT_TOKEN_FILE=F)")
+        return notes
     }
 
     func workspaceRelease(_ w: WorkspaceRequest) async throws -> WorkspaceDetail {
@@ -706,6 +748,8 @@ extension HostCore {
         let gone = rec.agents.remove(at: i)
         try workspaces.write(rec)
         try? workspaces.append(n, WorkspaceLogEntry(action: gone.isManager ? "manager-removed" : "released", agent: gone.name, place: gone.place.key))
+        // 771: an adopted agent's own participant goes with it (and its token, from its sandbox).
+        if let p = gone.participant, !gone.isManager, !gone.isWorker, let participants = botChat { try? await participants.remove(p) }
         return await workspaceDetail(rec, withBrief: false)
     }
 

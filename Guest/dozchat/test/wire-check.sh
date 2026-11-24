@@ -25,7 +25,7 @@ python3 "$HERE/stub.py" proxy "$W/pport" "$SPORT" "$W/proxy.log" & pids+=($!)
 waitfile "$W/pport"; PPORT=$(cat "$W/pport")
 run() { env -i PATH=/usr/bin:/bin CHAT_URL="http://127.0.0.1:$SPORT" CHAT_TOKEN_FILE="$W/token" "$@"; }
 
-"$BIN" --version | grep -qx 'dozchat 2'; check $? "dozchat --version runs here"
+"$BIN" --version | grep -qx 'dozchat 3'; check $? "dozchat --version runs here"
 out=$(run "$BIN" send room1 "hello direct" 2>"$W/e1"); rc=$?
 [ $rc = 0 ] && grep -q '"state":"queued"' <<<"$out"; check $? "send, direct (exit $rc)"
 out=$(run HTTP_PROXY="http://127.0.0.1:$PPORT" "$BIN" send room1 "hello through the proxy" 2>"$W/e2"); rc=$?

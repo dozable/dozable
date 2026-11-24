@@ -127,7 +127,8 @@ doz workspace edit NAME --addendum "TEXT" --json       # add one directly, no pr
 ```
 
 - The work description is the brief plus its addenda (`doz workspace doc NAME --json`: `document.brief.addenda`, each
-  `{run, at, by, text}`). A run with no goal takes the brief and every addendum.
+  `{run, at, by, text}`). Every run carries them: its opening message is the brief, then `Lessons to apply:` with each
+  addendum, then `This run's goal: GOAL` when it has one (`run --json` says `lessons`, how many).
 - `retro --propose` answers `{"kind":"WorkspaceProposal","id","origin":"retro","state":"open","change":{"addendum"},"by",
   "at","source":{"run"}}` and asks the person in the room; nothing changes until it is decided. Deciding twice exits 3
   (`proposal-decided`).
@@ -160,6 +161,11 @@ doz workspace wait NAME --for journal.outcome --after RUN#SEQ --timeout 120 --js
   Both need the daemon running and never start it (exit 3, `no-daemon`).
 - As an agent: reading is on by default; writing needs `journal.write` (or `journal.write:KIND`), attaching
   `evidence.attach`. Without it: exit 9, `not-permitted`, naming the permission.
+- An agent inside a workspace has no `doz`: it uses `dozchat` with its own chat token — `dozchat journal [--run RUN]`,
+  `dozchat journal add KIND [TEXT] [--data JSON] [--ref R] [--supersedes N] [--attach PATH]`, `dozchat journal wait KIND
+  [--after RUN#SEQ] [--timeout S]`, `dozchat propose --addendum TEXT`, `dozchat proposal decide ID apply|decline`,
+  `dozchat addendum TEXT` (each `--json`). The same permissions decide; dozchat's exits: 3 refused (no open run, a value
+  refused), 4 not permitted (the permission named) or decided already, 124 a wait's timeout.
 
 ## Add or end a worker
 

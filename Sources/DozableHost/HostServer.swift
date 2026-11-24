@@ -60,7 +60,8 @@ public final class HostServer: @unchecked Sendable {
                         modelLists: .fromEnvironment())
         // The webhook entries live in the daemon's keychain seam (the memory one under DOZ_TEST_CREDENTIALS=memory).
         chat = ChatSupervisor(paths: ChatPaths(store: store), executable: HostLauncher.executablePath, release: version,
-                              keychain: core.services.keychain, keychainLocked: { HostServer.keychainLocked })
+                              keychain: core.services.keychain, keychainLocked: { HostServer.keychainLocked },
+                              daemonSocket: store.socket.path)
     }
 
     public enum StartError: Error, LocalizedError {
@@ -592,6 +593,21 @@ public final class HostServer: @unchecked Sendable {
             Task.detached { [self] in
                 let m = await chatRequest(req)
                 conn.send(m)
+                finished(conn)
+            }
+        case .agentRelay:
+            // 771: only the chat server this daemon supervises relays an agent's call (its peer pid is the child's); any other
+            // caller of the owner's socket is refused before anything is read (AgentRelay.swift: the trust argument).
+            let peer = AgentRelayTrust.peerPID(conn.fd)
+            Task.detached { [self] in
+                let child = await chat.childPID()
+                guard AgentRelayTrust.accepts(peer: peer, chatServer: child) else {
+                    conn.send(.failure(HostError(.notPermitted, "agent-relay is the chat server's own: only the chat server this daemon runs relays an agent's call")))
+                    finished(conn)
+                    return
+                }
+                let answer = await core.agentRelay(req.agentRelay)
+                conn.send((try? JSONValue(encoding: answer)).map { HostMessage.success($0) } ?? .failure(HostError(.failed, "agent-relay")))
                 finished(conn)
             }
         case .hostStop:

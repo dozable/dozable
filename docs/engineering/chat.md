@@ -91,7 +91,19 @@ fence), `http://127.0.0.1:8790` (`default_url`; a fenced session always has its 
 through the session's own proxy (`http_proxy`, then `HTTP_PROXY`; the request in absolute form, the proxy URL's password
 as `Proxy-Authorization: Basic`; `NO_PROXY` exact names or `*`) — inside a sandbox a direct connection to a port with a
 secret bound is refused, and a fence has no DNS. stdout carries one compact JSON line per item or answer (the server's
-own bytes, whitespace outside strings removed); words for a person go to stderr as `dozchat: …`.
+own bytes, whitespace outside strings removed); words for a person go to stderr as `dozchat: …`. With `CHAT_URL` unset it
+says so on stderr ("CHAT_URL is not set: guessing the default address …"): on a Mac with a second store the default port is
+another store's chat server, so Dozable sets `CHAT_URL` to its store's own page port for every session it starts in a
+workspace's place (workspaces.md, "The agent relay").
+
+**The journal and the work description (0.52.52).** `journal [--run RUN]`, `journal add KIND [TEXT] [--data JSON] [--ref
+R]… [--supersedes N] [--attach PATH]… [--attach-ref PATH]…`, `journal wait KIND [--after RUN#SEQ] [--timeout S]`, `propose
+--addendum TEXT [--run RUN]`, `proposal decide ID apply|decline` and `addendum TEXT [--run RUN]` (each with `--json` and
+`--in W`) call Dozable's agent routes below. A path to attach is made absolute against the working folder, never
+resolved. Exit codes stay the one table, plus 124: 3 a 422 (no open run, a closed run, a value refused), 4 a 403 (not
+permitted, the permission named on stderr) or 409 (the proposal decided already), 5 no answer, 124 a `journal wait`
+`--timeout` (each call waits at most 25 s; dozchat asks again until its own timeout). A refusal's body
+`{"error":{"code","message","permission"?}}` is printed on stdout with `--json`.
 
 **Where it is.** In a sandbox: the tools layer copies the committed static ELF (`Resources/dozchat`, aarch64-linux-musl,
 built with the pinned Zig, PROVENANCE.md, `make dozchat-verify`) to `/usr/local/lib/doz/bin/dozchat` and links
@@ -475,6 +487,22 @@ to the closed set with the value `_` (`ChatRoomControl.looseOwner`: "closed by t
 a workspace's own rooms are refused — its finish (a space's down) closes them and its reopen (up) opens them. Conformance
 is unchanged by it: it starts `doz chat serve` without a channel. `ChatClosedTests`, `RoomLifecycleHostTests`,
 `WorkspaceLifecycleHostTests.testALooseRoomIsClosedAndOpenedThroughTheClosedSet`.
+
+### Dozable's agent routes (0.52.52)
+
+Six routes of Dozable's own beside the protocol's `/agent/*` (never in the conformance gate's set, whose 197 rows are
+unchanged): `GET /agent/journal` (`run=`), `POST /agent/journal`, `GET /agent/journal/wait` (`kind=`, `after=`, `timeout=`),
+`POST /agent/proposals`, `POST /agent/proposals/{id}/decide`, `POST /agent/addenda` (`ChatAgentRelay.swift`). Each is
+authenticated exactly as `/agent/send` — `Authorization: Bearer`, 401 without a participant's token, 403 for the human's —
+then RELAYED to the daemon (`ChatRelayPending`, finished by the listener like a waiting receive): the call names the
+participant the token proved, its route, the query's `run`, `kind`, `after`, `timeout` and `workspace` only, the body as
+sent and a decide's id. The relay is `ChatServeOptions.relay`, set only by `doz chat serve --daemon-socket PATH` (the daemon's
+flag, with `--supervised` and `--token-hashes`): one `agent-relay` request per call on the daemon's own socket, never a
+daemon started (`ChatDaemonRelay`, a 60 s answer deadline). With no relay — the conformance runner's server, one run by
+hand — the routes answer 501. The daemon's answer becomes the HTTP answer: 200 with the result; else
+`{"error":{"code","message","permission"?}}` with 403 (not permitted), 409 (a proposal decided already), 422 (no open run,
+a closed run, a value refused — its code said as `invalid` —, not found, limited), 408 (a wait's timeout), 503 (the daemon
+away). The daemon's side and the trust argument: workspaces.md, "The agent relay".
 
 ## Asks
 

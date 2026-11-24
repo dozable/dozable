@@ -202,6 +202,8 @@ public struct WorkspaceRunOpened: Codable, Equatable, Sendable {
     public var openedBy: String
     /// The work description's revision it read.
     public var revision: Int
+    /// 771: how many accepted lessons its opening message carried (0: none; an older daemon's answer has none).
+    public var lessons: Int?
     public var usage: WorkspaceRunUsage
     /// The goal was posted in the main room as your message (false: no room, chat not ready, or an agent opened it).
     public var posted: Bool
@@ -220,6 +222,7 @@ public struct WorkspaceRunOpened: Codable, Equatable, Sendable {
         openedAt = r.startedAt
         openedBy = r.openedBy ?? "owner"
         revision = r.revision ?? 1
+        lessons = r.lessons ?? 0
         usage = WorkspaceRunUsage(durationMs: WorkspaceRuns.durationMs(r, now: now))
         self.posted = posted
     }

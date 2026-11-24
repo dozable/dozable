@@ -42,7 +42,8 @@ final class ManagerLaunchTests: XCTestCase {
         var p = try plan(.unfenced)
         XCTAssertFalse(p.argv.contains("dontAsk"), "no dontAsk: anything beyond dozchat asks")
         XCTAssertEqual(p.argv.suffix(2), ["--allowedTools", "Bash(dozchat:*)"])
-        XCTAssertEqual(p.environment, ["CHAT_TOKEN_FILE": "/t/doz-1/manager-demo/chat-token"], "no CHAT_URL on the default port")
+        XCTAssertEqual(p.environment, ["CHAT_TOKEN_FILE": "/t/doz-1/manager-demo/chat-token", "CHAT_URL": "http://127.0.0.1:8790"],
+                       "771: CHAT_URL on the default port too — never left to dozchat's guess")
         XCTAssertNil(p.secret)
         XCTAssertEqual(p.hostPorts, [])
         p = try plan(.unfenced, port: 41000)

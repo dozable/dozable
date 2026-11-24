@@ -959,9 +959,10 @@ workspace), two scopes at once, a `--until` in the past. Every change is one lin
 (and of the workspace's log for a workspace's grant); the everywhere grants and this Mac's ceiling are
 `<store>/grants/grants.json`, a workspace's in its `workspace.json`, a bot's ceiling in `bots.json`.
 
-**Permissions constrain agents, never you**: nothing you run is ever checked against them. None is enforced yet — no agent
-can drive Dozable; `show`'s ENFORCED column says "not yet — no agent can drive Dozable" (or "promise — acts as you" for
-an unfenced agent). `show` and `why` answer from the store and never start the daemon. Exit codes: 0 ok · 2 not found · 6
+**Permissions constrain agents, never you**: nothing you run is ever checked against them. They are enforced where an agent
+reaches Dozable — the run journal and the work description, through dozchat with its own chat token; `show`'s ENFORCED
+column says "yes — through dozchat" for those permissions, "not yet — an agent reaches only the journal and the work
+description" for every other (or "promise — acts as you" for an unfenced agent). `show` and `why` answer from the store and never start the daemon. Exit codes: 0 ok · 2 not found · 6
 the daemon unavailable · 64 usage. The daemon checks an agent's request at its door; the hidden `--as W/AGENT` makes a
 command's requests as that agent would (a preview and test path on your own socket — it only narrows): one its permissions
 do not allow is refused with exit 9, not permitted ("worker.start for mira in demo would ask; Asks come later" — Asks come

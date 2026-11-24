@@ -146,7 +146,7 @@ final class ToolsLayerTests: XCTestCase {
         XCTAssertEqual(ToolsCache.sha256(bin), ToolsLayer.dozchatSHA256, "Resources/dozchat is the pinned build (make dozchat; update the pin)")
         XCTAssertEqual(Array(bin.prefix(4)), [0x7F, 0x45, 0x4C, 0x46], "an ELF")
         XCTAssertEqual(bin[18], 0xB7, "aarch64")
-        XCTAssertLessThan(bin.count, 150_000, "under 150 KB")
+        XCTAssertLessThan(bin.count, 176_000, "under 176 KB (771: the journal and work-description commands took it past 150)")
         let prov = try String(contentsOf: pkg.appendingPathComponent("Guest/dozchat/PROVENANCE.md"), encoding: .utf8)
         XCTAssertTrue(prov.contains("| sha256 (auto) | `\(ToolsLayer.dozchatSHA256)` |"))
         let src = try String(contentsOf: pkg.appendingPathComponent("Guest/dozchat/dozchat.c"), encoding: .utf8)

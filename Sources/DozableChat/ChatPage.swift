@@ -71,6 +71,8 @@ public struct ChatHTTPResponse: Sendable, Equatable {
     public var stream: ChatSubscriber?
     /// A receive that waits: the listener finishes it (`ChatLongPoll.finish`) and writes that answer instead.
     public var poll: ChatLongPoll?
+    /// 771: an agent's call the daemon answers: the listener finishes it (`ChatRelayPending.finish`) and writes that answer.
+    public var relay: ChatRelayPending?
 
     public init(status: Int, headers: [(String, String)], body: [UInt8]) {
         self.status = status; self.headers = headers; self.body = body
@@ -223,6 +225,13 @@ public struct ChatPageHandler: Sendable {
         r("POST", "/agent/decide", "decide-agent"),
         r("POST", "/agent/withdraw", "withdraw-agent"),
         r("GET", "/agent/asks/{id}", "ask-get"),
+        // 771: Dozable's own agent routes — the journal and the work description, relayed to the daemon (ChatAgentRelay.swift).
+        r("GET", "/agent/journal", "journal-read"),
+        r("POST", "/agent/journal", "journal-add"),
+        r("GET", "/agent/journal/wait", "journal-wait"),
+        r("POST", "/agent/proposals", "proposal-make"),
+        r("POST", "/agent/proposals/{id}/decide", "proposal-decide"),
+        r("POST", "/agent/addenda", "addendum-add"),
         r("GET", "/api/asks", "asks"),
         r("POST", "/api/files", "upload"),
         r("GET", "/files/{id}/{name}", "file"),
@@ -287,6 +296,7 @@ public struct ChatPageHandler: Sendable {
             if let refusal = pageCaller(r, "changing a room's app") { return refusal }
             return .jsonError(501, "this call is not available on this server yet")
         case "register", "unregister", "send", "ack", "receive": return agent(name, r)
+        case "journal-read", "journal-add", "journal-wait", "proposal-make", "proposal-decide", "addendum-add": return agentRelay(name, vars, r)
         default: return .jsonError(501, "this call is not available on this server yet")
         }
     }

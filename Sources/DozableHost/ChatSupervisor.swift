@@ -174,6 +174,9 @@ public final class ChatSupervisor: @unchecked Sendable {
     /// The environment the child's HOME, LANG and TMPDIR come from (the daemon's own; a test hands a scratch one).
     let environment: [String: String]
 
+    /// 771: the daemon's own socket, handed to the chat server for the agent relay (nil: none — a test's supervisor).
+    let daemonSocket: String?
+
     /// Seconds before an entry that could not be read is tried again (a minute; a test passes less).
     let unreadableRetrySeconds: Double
 
@@ -221,7 +224,9 @@ public final class ChatSupervisor: @unchecked Sendable {
                 unreadableRetrySeconds: Double = 60, interfaces: @escaping @Sendable () -> [ChatInterface] = { ChatInterface.current() },
                 claudeSessions: (@Sendable () -> String)? = nil,
                 readSettings: @escaping @Sendable () -> ChatSettingsView = { ChatSettingsView.read() },
-                savePorts: @escaping @Sendable ([String: Int]) throws -> Void = { try ChatPortChoice.save($0) }) {
+                savePorts: @escaping @Sendable ([String: Int]) throws -> Void = { try ChatPortChoice.save($0) },
+                daemonSocket: String? = nil) {
+        self.daemonSocket = daemonSocket
         self.keychain = keychain
         self.savePorts = savePorts
         self.environment = environment
@@ -250,6 +255,10 @@ public final class ChatSupervisor: @unchecked Sendable {
 
     /// The state now.
     public func status() async -> ChatServerState { await run { self.current() } }
+
+    /// 771: the pid of the chat server this supervisor spawned and has not reaped (nil: none) — the one process whose
+    /// `agent-relay` the daemon accepts.
+    public func childPID() async -> pid_t? { await run { self.child?.pid } }
 
     /// Before the daemon lets go of the store's lock: the server is stopped and none is started again.
     public func stopForExit() async {
@@ -881,6 +890,8 @@ public final class ChatSupervisor: @unchecked Sendable {
         rotateLog()
         var args = ["chat", "serve", "--config", paths.config, "--bind", ChatConfigFile.bind, "--token-hashes", paths.tokens,
                     "--owner-socket", paths.socket, "--supervised"]
+        // 771: where it relays an agent's journal and work-description calls — this daemon's own socket.
+        if let d = daemonSocket { args += ["--daemon-socket", d] }
         // The control channel: descriptor 4, one end of a socketpair (argv names the descriptor only).
         if processes.offersControl { args += ["--control-fd", "4"] }
         // The webhook entries come on descriptor 3, a pipe: argv names the descriptor only.
