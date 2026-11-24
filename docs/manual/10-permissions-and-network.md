@@ -61,6 +61,20 @@ doz net log my-app --denied --follow
 When the agent was refused something a permission would allow, `doz net` says so — "the agent tried
 to install Python packages (PyPI), 3 times" — with the command that allows it.
 
+**What a refusal looks like inside.** The agent is not told "refused by Dozable": a program in the sandbox sees a name
+that does not resolve — Node's `getaddrinfo ENOTFOUND remotion.media`, curl's "Could not resolve host", pip's "Name or
+service not known". So when a download or an API call fails with a DNS error, look at `doz net NAME` first: it names the
+host that was refused and the exact `doz net allow` command. In a workspace, `doz workspace show W --network` lists
+every agent's refusals at once.
+
+**A large refused count is often a browser's housekeeping.** A headless browser in the sandbox (a render, a test run)
+makes its own background requests — Google's update, safe-browsing and font hosts — and each one refused is counted. They
+are not the work: allow only the hosts the work needs (a `site:HOST` for each), never `*.googleapis.com` or **Browse the
+web** to make the count go away.
+
+This page's rules cover a sandbox and a **fenced session on this Mac** alike, each with its own proxy (see [Sessions on
+this Mac](#sessions-on-this-mac), below); an unfenced session has no proxy and is not held by any of it.
+
 ## Change it — in the terminal
 
 ```sh
@@ -285,6 +299,8 @@ this: it reaches the network as you do, unlogged.
 | symptom | what to do |
 |---|---|
 | A package install fails | `doz net NAME` says what was refused and which permission allows it: `doz net allow NAME install:python`. |
+| A DNS error inside (`ENOTFOUND`, "Could not resolve host") | Usually a refusal: `doz net NAME` names the host and the allow command. |
+| Hundreds of refusals while a browser runs | Its own background requests: allow only the hosts the work needs. |
 | The agent can't reach your company's API | `doz net allow NAME site:api.example.com`. |
 | A site works in your browser but not in the sandbox | `doz net log NAME --denied` shows the refused host — sites often use a second host for assets or APIs. |
 | Claude Code can't update itself | `update` must be on (it is in Standard). |

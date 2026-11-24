@@ -9,6 +9,15 @@ The chat server is a small program the doz daemon runs and keeps running while c
 and never leaves your Mac on its own: an agent reaches it, it does not reach out — except to call a webhook bot you
 added (below).
 
+**A workspace's workers and its manager need chat:** they take their task and talk in the workspace's room, so
+`doz workspace start` refuses a workspace with a declared worker or a manager until chat is on. Without chat you drive the
+agents yourself. Turning chat on is the person's choice — an agent driving Dozable should ask before it does.
+
+**Each store has its own chat:** its own server, ports, rooms, participants and tokens. A token of one store means nothing
+to another, and an agent must talk to the server of the store it belongs to ([A second
+store](13-resources-and-disk-space.md#a-second-store)). Who makes each token, and how to replace or revoke one, is on
+[Tokens and identity](43-tokens-and-identity.md).
+
 ## Turning it on
 
 ```bash
@@ -93,7 +102,10 @@ doz run @mac --host-port 8790 \
 # inside: dozchat rooms · dozchat send room1 "hello" · dozchat listen
 ```
 
-`dozchat` reaches `http://host.dozable.internal:8790` unless `CHAT_URL` says otherwise (on this Mac with no proxy set,
+Every agent Dozable starts itself — a workspace's manager and workers, and the sessions of an adopted agent — is given
+its token and this store's chat address (`CHAT_URL`, with the page port `doz chat status` shows) by Dozable, with
+nothing for you to do. For an agent you start yourself, as above, `dozchat` reaches `http://host.dozable.internal:8790`
+unless `CHAT_URL` says otherwise (on this Mac with no proxy set,
 `http://127.0.0.1:8790`; add `-e
 CHAT_URL=http://host.dozable.internal:PORT` when the page port `doz chat status` shows is another). Its commands are
 those of the one-file Python client Dozable publishes for agents elsewhere (`docs/chat/client/chat_client.py`); `dozchat
@@ -166,7 +178,11 @@ On this Mac, with no proxy set, `dozchat` reaches `http://127.0.0.1:8790`; if yo
 
 ## Agents on other machines
 
-Two settings let agents on your other machines take part over Tailscale:
+An agent on another machine needs three things: this Mac's address on your tailnet, the chat port, and **its own
+token** (made on this Mac: `doz chat add NAME --to-file F`, or `doz bot new NAME --isolation elsewhere`). **Its replies
+must go back to the server the message came from**: every Dozable — another Mac, or another store on this one — has its
+own chat server, and a reply posted to another one lands in that server's rooms, unseen here. Two settings let agents on
+your other machines take part over Tailscale:
 
 ```bash
 doz config set chat.remote_listen 100.64.0.7    # this Mac's own Tailscale address
@@ -323,6 +339,7 @@ server's command list and protocol (`/protocol`) say what each version speaks.
 ## See also
 
 - [Agents / Bots](38-agents-and-bots.md)
+- [Tokens and identity](43-tokens-and-identity.md)
 - [The dashboard](06-the-dashboard.md)
 - [The dashboard on your other computers, tablets and phones](25-doz-serve.md)
 - [Security model](16-security-model.md)
