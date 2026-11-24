@@ -244,6 +244,8 @@ public struct ChatNoticeThrottle: Sendable {
     public var limit: Int
     public var per: Double
     private var lastPosted: [String: Double] = [:]
+    /// The severity last posted under each key (a higher one inside the window is never dropped).
+    private var lastSeverity: [String: Int] = [:]
     private var recent: [String: [Double]] = [:]
     private var held: [String: Int] = [:]
 
@@ -258,16 +260,24 @@ public struct ChatNoticeThrottle: Sendable {
         case rateLimited
     }
 
-    /// Whether to post the notice `key` of `feed` (in `scope` — a workspace) at `now`; a post is recorded.
-    public mutating func decide(scope: String, feed: String, key: String, now: Double) -> Decision {
+    /// A severity's rank: info < notice < warning < critical (an unknown one ranks lowest).
+    public static func rank(_ severity: String?) -> Int {
+        switch severity { case "critical": 3; case "warning": 2; case "notice": 1; default: 0 }
+    }
+
+    /// Whether to post the notice `key` of `feed` (in `scope` — a workspace) at `now`; a post is recorded. A repeat of the
+    /// key inside its window is dropped — unless its severity is HIGHER than the one last posted under the key (a warning
+    /// that turns critical is never lost: it is posted as a new notice). A critical notice is never held by the rate limit.
+    public mutating func decide(scope: String, feed: String, key: String, now: Double, severity: String? = nil) -> Decision {
         let k = scope + "\u{1F}" + feed + "\u{1F}" + key
         let f = scope + "\u{1F}" + feed
-        if let t = lastPosted[k], now - t < window {
+        let r = Self.rank(severity)
+        if let t = lastPosted[k], now - t < window, r <= (lastSeverity[k] ?? 0) {
             held[f, default: 0] += 1
             return .repeated
         }
         var times = (recent[f] ?? []).filter { now - $0 < per }
-        if times.count >= limit {
+        if times.count >= limit, r < Self.rank("critical") {
             recent[f] = times
             held[f, default: 0] += 1
             return .rateLimited
@@ -275,10 +285,14 @@ public struct ChatNoticeThrottle: Sendable {
         times.append(now)
         recent[f] = times
         lastPosted[k] = now
+        lastSeverity[k] = r
         let before = held[f] ?? 0
         held[f] = 0
         // Old keys go: nothing is kept past its window.
-        if lastPosted.count > 4096 { lastPosted = lastPosted.filter { now - $0.value < window } }
+        if lastPosted.count > 4096 {
+            lastPosted = lastPosted.filter { now - $0.value < window }
+            lastSeverity = lastSeverity.filter { lastPosted[$0.key] != nil }
+        }
         return .post(heldBefore: before)
     }
 }

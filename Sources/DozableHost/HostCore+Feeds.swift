@@ -178,7 +178,8 @@ extension HostCore {
             return FeedEmitted(workspace: n, feed: feed, result: "chat-off", plan: plan)
         }
         var post = notice
-        switch feedThrottle.decide(scope: n, feed: feed, key: notice.dedupe ?? chatNewID(), now: Date().timeIntervalSince1970) {
+        switch feedThrottle.decide(scope: n, feed: feed, key: notice.dedupe ?? chatNewID(), now: Date().timeIntervalSince1970,
+                                   severity: notice.severity) {
         case .repeated:
             return FeedEmitted(workspace: n, feed: feed, result: "repeated", plan: plan,
                                notes: ["the same notice (\(notice.dedupe ?? "")) was posted inside its window: not posted again"])

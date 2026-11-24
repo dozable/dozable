@@ -112,6 +112,21 @@ final class ChatNoticeTests: XCTestCase {
         XCTAssertEqual(t.decide(scope: "w", feed: "health", key: "a", now: 601), .post(heldBefore: 2), "after its window it posts again")
     }
 
+    func testAHigherSeverityRepeatIsNeverDroppedAndCriticalIsNeverRateLimited() {
+        var t = ChatNoticeThrottle(window: 600, limit: 5, per: 60)
+        XCTAssertEqual(t.decide(scope: "w", feed: "resources", key: "disk", now: 0, severity: "warning"), .post(heldBefore: 0))
+        XCTAssertEqual(t.decide(scope: "w", feed: "resources", key: "disk", now: 10, severity: "warning"), .repeated, "the same severity is a repeat")
+        XCTAssertEqual(t.decide(scope: "w", feed: "resources", key: "disk", now: 20, severity: "info"), .repeated, "a lower one too")
+        XCTAssertEqual(t.decide(scope: "w", feed: "resources", key: "disk", now: 30, severity: "critical"), .post(heldBefore: 2),
+                       "a warning that turns critical inside the window is posted as a new notice")
+        XCTAssertEqual(t.decide(scope: "w", feed: "resources", key: "disk", now: 40, severity: "critical"), .repeated, "then critical is the bar")
+        var r = ChatNoticeThrottle(window: 600, limit: 5, per: 60)
+        for i in 1...5 { _ = r.decide(scope: "w", feed: "test", key: "k\(i)", now: Double(i), severity: "info") }
+        XCTAssertEqual(r.decide(scope: "w", feed: "test", key: "k6", now: 6, severity: "warning"), .rateLimited)
+        XCTAssertEqual(r.decide(scope: "w", feed: "test", key: "k7", now: 7, severity: "critical"), .post(heldBefore: 1),
+                       "a critical notice is never held by the rate limit")
+    }
+
     // MARK: the server
 
     func testAFeedPostsNoticesAndNeverAsksDecidesReactsOrReads() throws {
