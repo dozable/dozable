@@ -112,6 +112,12 @@ final class ChatNoticeTests: XCTestCase {
         XCTAssertEqual(t.decide(scope: "w", feed: "health", key: "a", now: 601), .post(heldBefore: 2), "after its window it posts again")
     }
 
+    func testThePlainLineEscapesWhatThePosterWrote() {
+        XCTAssertEqual(ChatNotice.plain("![x](https://evil.test/p.png) **bold** <b>&amp;"),
+                       #"\!\[x\]\(https\://evil\.test/p\.png\) \*\*bold\*\* \<b\>\&amp;"#)
+        XCTAssertEqual(ChatNotice.plain("helper's journal 10 minutes"), "helper's journal 10 minutes", "ordinary words are unchanged")
+    }
+
     func testAHigherSeverityRepeatIsNeverDroppedAndCriticalIsNeverRateLimited() {
         var t = ChatNoticeThrottle(window: 600, limit: 5, per: 60)
         XCTAssertEqual(t.decide(scope: "w", feed: "resources", key: "disk", now: 0, severity: "warning"), .post(heldBefore: 0))

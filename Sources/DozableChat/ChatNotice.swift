@@ -187,8 +187,22 @@ public struct ChatNotice: Sendable, Equatable {
 
     /// The plain line a client that knows nothing of notices shows: `[FEED · SEVERITY] Title: text (from NAME's LOG)`, and
     /// with no title `[FEED · SEVERITY] text (from NAME's LOG)`.
+    /// What the poster wrote (the title, the text, the source's name and log) is escaped so it reads as plain text: rooms
+    /// render Markdown, and a journal entry's text is an agent's words — never a link, an image or markup of its own.
     public var plainText: String {
-        "[\(feed) · \(severity)] " + (title.map { $0 + ": " } ?? "") + text + " (\(source.words))"
+        let e = Self.plain
+        return "[\(feed) · \(severity)] " + (title.map { e($0) + ": " } ?? "") + e(text) + " (from \(e(source.name))'s \(e(source.log)))"
+    }
+
+    /// `s` with every character Markdown (CommonMark and GFM) gives a meaning backslash-escaped, so it shows as written.
+    public static func plain(_ s: String) -> String {
+        var out = ""
+        out.reserveCapacity(s.utf8.count)
+        for ch in s {
+            if "\\`*_{}[]()#+-.!|<>~=:&".contains(ch) { out.append("\\") }
+            out.append(ch)
+        }
+        return out
     }
 }
 
