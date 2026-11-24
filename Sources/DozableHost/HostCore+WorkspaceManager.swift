@@ -624,11 +624,18 @@ extension HostCore {
         return (opened.fenceNotes ?? []) + (opened.notice.map { [$0] } ?? [])
     }
 
+    /// 778: a workspace's network level (`locked`, `standard`, `open` — the permission presets a fence takes) as a VM's
+    /// network name: a VM's presets are `agent` (an agent image's usual hosts), `locked` and `open`, so `standard` is
+    /// `agent`. Any other value (a VM network named directly: `bake`, `nat`, `none`, …) is left as given.
+    static func vmNetwork(permissions: String) -> String {
+        permissions == "standard" ? "agent" : permissions
+    }
+
     func launchAgentInVM(_ l: AgentVMLaunch) async throws -> [String] {
         if l.create, managed[l.sandbox] == nil {
             var c = CreateOptions(image: l.seamImage ?? (ManagerLaunch.program(agent: l.agent) == "codex" ? "codex" : "claude-code"))
             c.folder = l.workdir
-            c.network = l.permissions
+            c.network = Self.vmNetwork(permissions: l.permissions)
             if !l.sites.isEmpty { c.allow = l.sites.map { "site:" + $0 } }
             c.account = l.account
             c.hostPorts = l.hostPorts.map { HostPort(port: $0) }

@@ -112,13 +112,30 @@ extension HostCore {
         return (o, MacTranscripts.message(o, setup: setup, session: s))
     }
 
+    /// 778: the account a fenced session on this Mac uses when none is asked: `mac.account` when someone set it; else, when
+    /// the store declined this Mac's login, the store's default account (never `mac`) or none; else `mac`.
+    static func fencedDefaultAccount(settings: DozableSettings, accounts: AccountsFile) -> String {
+        let r = settings.resolve(SettingKey.macAccount)
+        if r.source != .default, case .string(let s) = r.value, !s.isEmpty, !(s == "mac" && accounts.macDeclined == true) { return s }
+        if accounts.macDeclined == true {
+            let d = accounts.defaultAccount
+            if d != "mac", d != "default", accounts.accounts.contains(where: { $0.name == d }) { return d }
+            return "none"
+        }
+        return settings.string(SettingKey.macAccount) ?? "mac"
+    }
+
     /// The Claude login of a fenced session: the account asked (else `mac.account`) and a fresh placeholder for its variable
     /// (`CLAUDE_CODE_OAUTH_TOKEN` for this Mac's login or a setup token, `ANTHROPIC_API_KEY` for an API key) — the proxy
     /// swaps it for the real one, which stays in the vault on this Mac. `none`: no login, no placeholder.
     func fenceAccount(_ asked: String?, settings: DozableSettings) throws -> (account: String, placeholders: [String: String]) {
-        let name = asked ?? settings.string(SettingKey.macAccount) ?? "mac"
+        let name = asked ?? Self.fencedDefaultAccount(settings: settings, accounts: accountStore.load())
         if name == "none" { return ("none", [:]) }
         let file = accountStore.load()
+        // 778: a store that declined this Mac's login never reads it — not by the fallback, not when a session names `mac`.
+        if name == "mac", file.macDeclined == true {
+            throw HostError(.invalid, "this store declined this Mac's Claude Code login (doz account default mac takes it back) — --account NAME, or none")
+        }
         let a: AccountRecord
         if let found = file.accounts.first(where: { $0.name == name }) { a = found } else if name == "mac" { a = .mac } else {
             throw HostError(.notFound, "--account \(name): no such account (doz account ls) — or --account mac, or none")
