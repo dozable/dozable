@@ -1,4 +1,5 @@
 import DozableChat
+import DozableKit
 import Foundation
 
 // A Place (model v3, docs/engineering/workspace-model.md, "Place"): an execution environment with an isolation — `vm`,
@@ -102,6 +103,98 @@ public struct WorkspacePlace: Codable, Equatable, Sendable {
 
     /// Whether a session started here gets a fence of its own.
     public var fencesEachSession: Bool { isolation == "fenced" }
+}
+
+/// What one session's enforcement is built from its place (option C): a fenced session's fence, or a VM place's sandbox.
+/// Every value maps onto a mechanism the fence or the sandbox already has — nothing is added to the fence's rules.
+/// - `read` / `write`: more folders, read-only / read-write (`MacFenceRequest.read`/`write`; absolute). Its own folder
+///   (the workspace's main one) is always read-write and is never listed here.
+/// - `network`: the proxy's words — a preset (`locked`, `standard`, `open`) and `site:HOST` each (`MacFenceRequest.permissions`;
+///   a sandbox's `CreateOptions.network` + `allow`). nil: the workspace's default, as before.
+/// - `github` (`read` | `push`), `sshAgent`: the fence's named credentials — the token never enters it, a placeholder does.
+/// - `keys`: a VM place's key accounts (`CreateOptions.keys`), placeholders in the sandbox.
+public struct PlaceFence: Equatable, Sendable {
+    public var place: String
+    public var read: [String] = []
+    public var write: [String] = []
+    public var network: [String]?
+    public var github: String?
+    public var sshAgent: Bool?
+    public var keys: [String]?
+    public init(place: String) { self.place = place }
+
+    /// A fenced session's request, built from the place: its proxy's words, its more folders, its named credentials.
+    public func apply(to req: inout MacFenceRequest) {
+        if let n = network { req.permissions = n }
+        if !read.isEmpty { req.read = read }
+        if !write.isEmpty { req.write = write }
+        if let g = github { req.github = g }
+        if sshAgent == true { req.sshAgent = true }
+    }
+
+    /// A vm place's new sandbox: its network (a preset — `standard` is the sandbox's `agent` — and its sites on top),
+    /// GitHub as you (the sandbox's permissions), its key accounts.
+    public func apply(to c: inout CreateOptions) {
+        if let n = network, let preset = n.first {
+            c.network = preset == "standard" ? "agent" : preset
+            let sites = Array(n.dropFirst())
+            if !sites.isEmpty { c.allow = sites }
+        }
+        if let g = github { c.allow = (c.allow ?? []) + (g == "push" ? [AgentPermissions.gitHubAsYou, AgentPermissions.gitHubPush] : [AgentPermissions.gitHubAsYou]) }
+        if let k = keys { c.keys = k }
+    }
+
+    /// The preset and the `site:` words a network policy is, for a proxy (nil: not a network).
+    public static func words(_ p: WorkspacePlace.Policy?) -> [String]? {
+        guard case .network(let preset, let allow)? = p else { return nil }
+        return [preset] + allow.map { "site:" + $0 }
+    }
+}
+
+extension WorkspacePlaces {
+    /// The presets, narrowest first.
+    static let presetRank = ["locked": 0, "standard": 1, "open": 2]
+
+    /// Whether `agent` is no wider than `place`: its preset no wider, and every host it allows one the place allows (any,
+    /// when the place is open). A place with no network is the workspace's default, `locked` with nothing allowed.
+    public static func narrows(_ agent: WorkspacePlace.Policy, within place: WorkspacePlace.Policy?) -> Bool {
+        guard case .network(let ap, let aa) = agent else { return false }
+        var pp = "locked", pa: [String] = []
+        if case .network(let p, let a)? = place { pp = p; pa = a }
+        guard let ar = presetRank[ap], let pr = presetRank[pp], ar <= pr else { return false }
+        return pp == "open" || Set(aa).isSubset(of: Set(pa))
+    }
+
+    /// The credential words each kind of place can hold (the fence's named credentials; a VM's GitHub as you and key
+    /// accounts). `github` is `github:read`.
+    public static let fencedCredentials = ["github", "github:read", "github:push", "ssh-agent"]
+
+    /// The enforcement of `place` for one session: the folders of its view (`paths`: a folder's name → its absolute path),
+    /// its network — the agent's own (`agentNetwork`, already checked to narrow it) over the place's —, its credentials.
+    /// nil for an unfenced or external place: nothing applies (an unfenced place acts as you; an external sandbox keeps
+    /// its own). Throws when a view names a folder with no path.
+    public static func fence(_ place: WorkspacePlace, agentNetwork: WorkspacePlace.Policy?, paths: [String: String]) throws -> PlaceFence? {
+        guard place.external == nil, place.isolation != "unfenced" else { return nil }
+        var f = PlaceFence(place: place.name)
+        if case .access(let m) = place.view {
+            for k in m.keys.sorted() {
+                guard let p = paths[k] else { throw HostError(.invalid, "place \(place.name): its view names \(k), which has no folder on this Mac yet") }
+                if m[k] == "ro" { f.read.append(p) } else { f.write.append(p) }
+            }
+        }
+        f.network = PlaceFence.words(agentNetwork) ?? PlaceFence.words(place.network)
+        if case .list(let creds) = place.credentials {
+            for c in creds {
+                switch c {
+                case "github", "github:read": if f.github == nil { f.github = "read" }
+                case "github:push": f.github = "push"
+                case "ssh-agent": f.sshAgent = true
+                default: f.keys = (f.keys ?? []) + [c]
+                }
+            }
+        }
+        return f
+    }
 }
 
 /// One session of a place, as `doz workspace state --json` shows it: the identity (agent) it runs, its session, its state

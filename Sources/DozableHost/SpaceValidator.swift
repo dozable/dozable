@@ -789,6 +789,7 @@ public enum SpaceValidator {
             persist(spaceName)
             agents()
             places()
+            placeRules()
             rooms()
             services()
             archive(spaceName)
@@ -837,6 +838,41 @@ public enum SpaceValidator {
                 let ext = SpaceDoc.string(SpaceDoc.member(SpaceDoc.member(m.value, "external"), "sandbox")).map { JValue.string($0) }
                 model.resources.append(.init(name: m.key, section: .sandboxes, pointer: p, external: ext,
                                              lifetime: ext != nil ? "external" : "run", def: m.value, profiles: []))
+            }
+        }
+
+        /// 774: what a declared place's view and credentials can be, by the mechanism that applies them: a fenced session's
+        /// fence takes more folders read-only or read-write (its own folder is always read-write) and the fence's named
+        /// credentials (GitHub as you, the SSH agent); a sandbox shares ONE folder, read-write, at /workspace, and holds
+        /// GitHub as you and key accounts.
+        mutating func placeRules() {
+            for m in declared where SpaceDoc.member(m.value, "external") == nil {
+                let p = SpaceDoc.join(SpaceDoc.join("/" + SpaceDozable.key, "places"), m.key)
+                let iso = placeIsolation(m.key)
+                let view = SpaceDoc.members(SpaceDoc.member(m.value, "view"))
+                for f in view {
+                    guard let hit = model.resource(f.key), hit.section == .folders else {
+                        err(SpaceDoc.join(p + "/view", f.key), "place \(m.key)'s view names \"\(f.key)\", which is not a folder"
+                            + dym(f.key, inSection(.folders).map(\.name)), "a view names folders under folders:", key: true)
+                        continue
+                    }
+                }
+                if iso == "vm", !view.isEmpty, view.count > 1 || SpaceDoc.string(view[0].value) == "ro" {
+                    err(p + "/view", "place \(m.key) is a vm: a sandbox shares one folder, read-write, at /workspace — its view can't be \(view.map { "\($0.key) \(SpaceDoc.string($0.value) ?? "")" }.joined(separator: ", "))",
+                        "write at most one folder, rw (the workspace's main folder), or use a fenced place for read-only and several folders")
+                }
+                for (k, c) in SpaceDoc.strings(SpaceDoc.member(m.value, "credentials")).enumerated() {
+                    let q = p + "/credentials/\(k)"
+                    if iso == "fenced", !WorkspacePlaces.fencedCredentials.contains(c) {
+                        err(q, "a fence holds GitHub as you and the SSH agent only, not \"\(c.prefix(40))\"",
+                            "write github:read, github:push or ssh-agent — key accounts are a vm place's")
+                    }
+                    if iso == "vm", c == "ssh-agent" {
+                        err(q, "ssh-agent is a fenced session's: a sandbox has no SSH agent of yours", "remove it, or use a fenced place")
+                    } else if iso == "vm", !WorkspacePlaces.fencedCredentials.contains(c), !SpaceFormat.isName(c) {
+                        err(q, "\"\(c.prefix(40))\" is not a credential", "github:read, github:push, or a key account's name (doz key ls)")
+                    }
+                }
             }
         }
 
@@ -1173,7 +1209,7 @@ public enum SpaceValidator {
                         err(r.pointer + "/prompt_file", "write prompt or prompt_file, not both", key: true)
                     }
                     agentNetwork(r, own, sandbox: sb, inWorkspaceVM: sb != nil && sb == model.workspaceVM && whereS == SpaceFormat.workspaceVM,
-                                 unfenced: sb == nil && isolation == "unfenced")
+                                 unfenced: sb == nil && isolation == "unfenced", place: placeIso != nil ? whereS : nil)
                 }
                 let tPath = SpaceDoc.member(own, "transcripts") != nil ? r.pointer + "/transcripts" : "/agent_defaults/transcripts"
                 let written = SpaceDoc.string(SpaceDoc.member(v, "transcripts"))
@@ -1199,7 +1235,7 @@ public enum SpaceValidator {
         }
 
         // ---- an agent's own network: only a fenced agent on this Mac has one; in a VM it is the VM's ----
-        mutating func agentNetwork(_ r: SpaceModel.Resource, _ own: JValue?, sandbox: String?, inWorkspaceVM: Bool, unfenced: Bool) {
+        mutating func agentNetwork(_ r: SpaceModel.Resource, _ own: JValue?, sandbox: String?, inWorkspaceVM: Bool, unfenced: Bool, place: String? = nil) {
             let first = SpaceDoc.member(own, "network")
             guard let net = first ?? SpaceDoc.member(SpaceDozable.of(own), "network") else { return }
             let np = r.pointer + (first != nil ? "/network" : "/x-dozable/network")
@@ -1207,6 +1243,28 @@ public enum SpaceValidator {
                 err(np, "\"\(r.name)\" is unfenced, so it has no network of its own",
                     "an unfenced agent acts as you: nothing enforces a network for it. Remove network:, or fence it (isolation: fenced)")
                 return
+            }
+            // 774: in a declared place, the format's precedence — workspace default < place < agent: in a fenced place the
+            // agent's own network (enforced per session, its own fence) may only narrow the place's; in a vm place it must
+            // be the place's (every session of a VM shares its proxy).
+            if let pn = place, let pd = placeDef(pn), SpaceDoc.member(pd, "external") == nil {
+                let placeNet = WorkspacePlaces.network(SpaceDoc.member(pd, "network"))
+                let mine = WorkspacePlaces.network(net)
+                let shown = placeNet.map(\.words) ?? WorkspacePlaces.networkDefault
+                if placeIsolation(pn) == "fenced" {
+                    if let m = mine, !WorkspacePlaces.narrows(m, within: placeNet) {
+                        err(np, "\"\(r.name)\"'s network is wider than its place \(pn)'s (\(shown)): an agent's own network may only narrow its place's",
+                            "a narrower preset (locked < standard < open) and only hosts the place allows — or widen the place's network")
+                    }
+                    return
+                }
+                if placeIsolation(pn) == "vm", SpaceDoc.member(pd, "network") != nil {
+                    if mine != placeNet {
+                        err(np, "\"\(r.name)\" runs in the vm place \(pn), whose network is \(shown): it can't have its own",
+                            "everything in a VM shares its network: remove network:, or change the place's")
+                    }
+                    return
+                }
             }
             guard let sb = sandbox else { return }
             // A VM's network is the workspace's: an agent in it may only repeat it. A sandbox that already exists

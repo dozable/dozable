@@ -135,9 +135,17 @@ x-dozable:
 - **`isolation`** is `vm`, `fenced` or `unfenced`. Only a `vm` place has an `image`, `cpus` and `memory`; it is made by
   `up` as the space's sandbox (`app-build`), and every agent in it shares it.
 - **A fenced place is a policy, not a shared box.** Each agent in it gets a fence of its own: its own proxy, its own
-  placeholders, nothing shared with the other agents of the place. A place may say its `view` (`{ repo: ro }`), its
-  `network` (as the top-level `network:`) and its `credentials` (`[github]`); this release shows them in the plan and
-  notes that each fence is still built from Dozable's defaults (network `locked`).
+  placeholders, nothing shared with the other agents of the place — and each fence is built from the place:
+  - **`view`** (`{ notes: ro, out: rw }`): more folders of the space, read-only or read-write. The agent's own folder
+    (the workspace's main one) is always read-write; a view cannot make it read-only.
+  - **`network`** (as the top-level `network:`: `locked`, `standard`, `open` or `{ preset, allow: [HOST…] }`): the
+    fence's network, over the workspace's default (`locked`). An agent in the place may write its own `network:` only to
+    narrow it — a preset no wider and only hosts the place allows (otherwise 65); it narrows that agent's fence alone.
+  - **`credentials`**: `github:read` (or `github`), `github:push` — GitHub as you, through a placeholder — and
+    `ssh-agent`. A fence holds no key accounts (65).
+- **A vm place** takes its `network` and `credentials` (`github:read`, `github:push`, or a key account's name) when its
+  sandbox is made; every agent in it shares them, so an agent's own `network:` must equal the place's (65). Its `view` can
+  name only the workspace's main folder, read-write: a sandbox shares one folder, at `/workspace`.
 - **An unfenced place enforces nothing**, so it declares no view, network or credentials (the plan refuses them, 65) and
   says so: the plan shows each as "none: acts as you". An agent is never put in an unfenced place by `agent_defaults`:
   it writes `where:` itself, and `up` asks you to confirm it, as for `isolation: unfenced`.

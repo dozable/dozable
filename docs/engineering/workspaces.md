@@ -889,7 +889,11 @@ A place is an entity (workspace-model.md, "Place — a policy; the fence per ses
   fenced place: two sessions, two distinct fences. A space workspace lists its file's places (an agent in the one its
   record's `placeName`, else its `where:`, names), then a derived place for every other agent; a record workspace lists
   derived places only (`WorkspacePlaces.states`, `HostCore.placeStates`).
-- **Up** gives each agent of a declared place `WorkerRequest.placeName`, recorded as `WorkspaceAgent.placeName`. An external
+- **Up** gives each agent of a declared place `WorkerRequest.placeName`, recorded as `WorkspaceAgent.placeName`, and builds
+  its enforcement from the place at the worker-add step (`WorkspacePlaces.fence` → `workerAdd(_:place:)` →
+  `WorkerLaunchOrder.placeFence` → `AgentMacLaunch`/`AgentVMLaunch`): the fence's folders, network and named credentials,
+  or the new sandbox's network, allow list and keys (workspace-model.md, "Place"). It is never a request's field, so no
+  caller of `worker-add` widens a worker through it. The step's text and up's notes say what was built. An external
   place no agent runs in is only declared: its check step is skipped ("no agent runs in the place").
 - **Grants:** `HostCore.refuseAPlace` refuses `doz grant PLACE …` (`--in W`) when PLACE is one of W's places and none of
   its agents: exit 2 (`not-found`), `PLACE is a place — grants attach to an agent, never to a place`, naming the agents in

@@ -33,6 +33,8 @@ public struct WorkerLaunchOrder: Equatable, Sendable {
     /// A wake: its session or sandbox exists from an earlier run and is opened again in place — a session on this Mac
     /// resumed from its record (its conversation, its kept secrets), a sandbox started with its agent continuing.
     public var restart = false
+    /// 774: what its place's policy makes of its fence or its new sandbox (nil: the defaults, as before).
+    public var placeFence: PlaceFence? = nil
 }
 
 /// What ending a worker needs.
@@ -179,16 +181,19 @@ extension HostCore {
         }
     }
 
-    func workerAdd(_ q: WorkerRequest) async throws -> WorkerAdded {
+    /// `place`: 774, the enforcement its declared place builds for this one session (a space file's up only — never a
+    /// request's field, so no caller widens a worker through it).
+    func workerAdd(_ q: WorkerRequest, place: PlaceFence? = nil) async throws -> WorkerAdded {
         let (n, task) = try workerBasics(q)
         // Chat: a worker talks in the workspace's room.
         guard let chat = workspaceChat, let participants = botChat else { throw HostError(.unavailable, "a worker needs chat — doz chat on") }
         if let no = Self.workerChatRefusal(await chat.readiness()) { throw no }
         // 1. Under the gate: every check, then the entry, marked pending (nothing written on a refusal).
         await workspaceGate.lock("workspaces")
-        let prepared: WorkerPrepared
+        var prepared: WorkerPrepared
         do {
             prepared = try await workerPrepare(n, q, task: task)
+            prepared.placeFence = place
             var rec = prepared.record
             rec.agents.removeAll { $0.name == prepared.entry.name && $0.endedAt != nil }       // an ended one's name is free again
             rec.agents.append(prepared.entry)
@@ -244,6 +249,8 @@ extension HostCore {
         var permissionMode: String? = nil
         /// A look with no daemon: the checks that need one, skipped ("checked again when you add").
         var notes: [String] = []
+        /// 774: its place's enforcement (`workerAdd`'s `place`).
+        var placeFence: PlaceFence? = nil
     }
 
     /// What an add has made so far (undone in reverse when a later step fails).
@@ -633,11 +640,51 @@ extension HostCore {
         }
         if p.shared { notes.append("\(name) shares \(p.place): workers there can read each other's placeholders") }
         // 5. Its session or sandbox.
-        let order = WorkerLaunchOrder(workspace: n, name: name, isolation: p.isolation, place: p.place, session: p.session, shared: p.shared,
+        var order = WorkerLaunchOrder(workspace: n, name: name, isolation: p.isolation, place: p.place, session: p.session, shared: p.shared,
                                       workdir: workdir, plan: plan, start: start, agent: p.agent, account: p.bot?.account, model: p.bot?.model,
                                       permissions: p.permissions, cpus: p.cpus, memoryMiB: p.memoryMiB)
+        order.placeFence = try Self.placeFence(p.placeFence, isolation: p.isolation, workdir: workdir, shared: p.shared)
+        if let pf = order.placeFence { notes += Self.placeFenceNotes(pf, isolation: p.isolation) }
         notes += try await workerLauncher.launch(order)
         return notes
+    }
+
+    /// 774: a place's enforcement checked against this session's own folder: a fenced session's own folder is always
+    /// read-write (listed read-write: dropped; read-only: refused — the fence cannot narrow its own folder); a sandbox
+    /// shares exactly that folder at /workspace, read-write, and nothing else (another folder, or read-only: refused). A
+    /// sandbox another agent made already keeps its own network and credentials (they are set when it is made).
+    static func placeFence(_ f: PlaceFence?, isolation: ManagerIsolation, workdir: String, shared: Bool) throws -> PlaceFence? {
+        guard var f else { return nil }
+        let own = WorkspaceStore.resolved(workdir)
+        func same(_ p: String) -> Bool { WorkspaceStore.resolved(p) == own }
+        switch isolation {
+        case .unfenced: return nil
+        case .fenced:
+            if let ro = f.read.first(where: same) {
+                throw HostError(.invalid, "place \(f.place): its view makes \(DisplayPath.tilde(ro)) read-only, but that is the session's own folder, which a fence always lets it write — use another folder, or rw")
+            }
+            f.write.removeAll(where: same)
+            if f.keys != nil { throw HostError(.invalid, "place \(f.place): a fence holds no key accounts") }
+        case .vm:
+            if let other = (f.read + f.write).first(where: { !same($0) }) ?? f.read.first {
+                throw HostError(.invalid, "place \(f.place): a sandbox shares one folder, read-write, at /workspace (\(DisplayPath.tilde(own))) — its view can't hold \(DisplayPath.tilde(other))\(f.read.isEmpty ? "" : " read-only")")
+            }
+            if f.sshAgent == true { throw HostError(.invalid, "place \(f.place): a sandbox has no SSH agent of yours") }
+            f.read = []; f.write = []
+        }
+        return f
+    }
+
+    static func placeFenceNotes(_ f: PlaceFence, isolation: ManagerIsolation) -> [String] {
+        var parts: [String] = []
+        if let n = f.network { parts.append("network \(n.joined(separator: " "))") }
+        if !f.read.isEmpty { parts.append("read-only " + f.read.map { DisplayPath.tilde($0) }.joined(separator: ", ")) }
+        if !f.write.isEmpty { parts.append("read-write " + f.write.map { DisplayPath.tilde($0) }.joined(separator: ", ")) }
+        if let g = f.github { parts.append("GitHub as you (\(g))") }
+        if f.sshAgent == true { parts.append("the SSH agent") }
+        if let k = f.keys { parts.append("keys " + k.joined(separator: ", ")) }
+        guard !parts.isEmpty else { return [] }
+        return ["\(isolation == .vm ? "its sandbox" : "its fence"), from the place \(f.place): " + parts.joined(separator: "; ")]
     }
 
     /// A failed add, undone in reverse: the token file, the secret, the participant, the entry.
@@ -758,24 +805,28 @@ extension HostCore {
             let task = (try? workspaceRecord(o.workspace))?.agents.last { $0.name == o.name && $0.isWorker }?.task
             let program = agentMacProgram(argv: o.plan.argv, environment: o.plan.environment, account: o.account, workspace: o.workspace,
                                           name: o.name, task: task)
-            return try await launchAgentOnMac(AgentMacLaunch(place: o.place, argv: program.argv, workdir: o.workdir, environment: program.environment,
-                                                             fenced: o.isolation == .fenced, permissions: o.permissions, hostPorts: o.plan.hostPorts,
-                                                             account: program.account, secrets: o.plan.secret.map { [$0] },
-                                                             start: o.isolation == .fenced ? o.start : nil, startFolder: "worker", bridgesOff: true))
+            var launch = AgentMacLaunch(place: o.place, argv: program.argv, workdir: o.workdir, environment: program.environment,
+                                        fenced: o.isolation == .fenced, permissions: o.permissions, hostPorts: o.plan.hostPorts,
+                                        account: program.account, secrets: o.plan.secret.map { [$0] },
+                                        start: o.isolation == .fenced ? o.start : nil, startFolder: "worker", bridgesOff: true)
+            launch.placeFence = o.isolation == .fenced ? o.placeFence : nil
+            return try await launchAgentOnMac(launch)
         case .vm:
             if let no = stubVMRefusal(o.name, isolation: .vm) { throw no }
             guard let secret = o.plan.secret else { throw HostError(.invalid, "a VM worker needs its token's launch secret") }
             // The guarded seams: the lab image and a FAKE worker program (its first prompt appended, so it finds START).
             let seams = TestSafety.workerSeams()
             let session = o.session ?? o.name
-            return try await launchAgentInVM(AgentVMLaunch(
+            var vmLaunch = AgentVMLaunch(
                 sandbox: o.place, session: session, create: !o.shared, workdir: o.workdir, permissions: o.permissions, account: o.account,
                 model: o.model, agent: o.agent, hostPorts: o.plan.hostPorts, secret: secret, start: o.start,
                 startDir: WorkerLaunch.vmStartFolder + "/" + o.name,
                 argv: seams.argv.map { $0 + [ManagerLaunch.firstPrompt(start: o.plan.startFile)] }
                     ?? (o.restart ? ManagerLaunch.vmResumeArgv(agent: o.agent) : nil) ?? o.plan.argv,
                 environment: o.plan.environment, seamImage: seams.image, cpus: o.cpus,
-                memoryMiB: o.memoryMiB, bridgesOff: true, alias: o.shared ? secret.variable : nil))
+                memoryMiB: o.memoryMiB, bridgesOff: true, alias: o.shared ? secret.variable : nil)
+            vmLaunch.placeFence = o.placeFence
+            return try await launchAgentInVM(vmLaunch)
         }
     }
 

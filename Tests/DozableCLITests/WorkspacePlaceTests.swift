@@ -1,4 +1,5 @@
 import DozableChat
+import DozableKit
 import Foundation
 import XCTest
 @testable import DozableHost
@@ -241,6 +242,123 @@ final class WorkspacePlaceTests: XCTestCase {
         XCTAssertFalse(String(decoding: try HostWire.encoder.encode(o), as: UTF8.self).contains("placeName"))
     }
 
+    // MARK: applied: each session's fence (or the sandbox) built from the place
+
+    static let policy = """
+    doz: space/3.1
+    space: app
+    owner: ada
+    brief: {text: Fix the build}
+    folders:
+      repo:  { external: ~/work/app, main: true }
+      notes: { external: ~/work/notes }
+      out:   { external: ~/work/out }
+    agents:
+      helper:   { kind: claude-code, role: worker, where: desk, folder: repo }
+      reviewer: { kind: claude-code, role: reviewer, where: desk, folder: repo, network: { preset: locked, allow: [api.example.com] } }
+    x-dozable:
+      places:
+        desk:
+          isolation: fenced
+          view: { notes: ro, out: rw }
+          network: { preset: locked, allow: [api.example.com, b.example.com] }
+          credentials: [github:push, ssh-agent]
+    """
+
+    func testAFencedPlacesSessionsEachGetAFenceBuiltFromIt() throws {
+        let (p, m, doc) = check(Self.policy)
+        XCTAssertEqual(p.filter(\.isError).map(\.text), [])
+        let i = SpaceIntent.compile(m, doc, loc0)
+        XCTAssertFalse(i.notes.contains { $0.contains("not applied") }, "a place's policy is applied: \(i.notes)")
+        let desk = try XCTUnwrap(i.places?.first { $0.name == "desk" })
+        let paths = ["repo": "/w/app", "notes": "/w/notes", "out": "/w/out"]
+        func request(_ agent: String) throws -> MacFenceRequest {
+            let a = try XCTUnwrap(i.agents.first { $0.name == agent })
+            let f = try XCTUnwrap(try WorkspacePlaces.fence(desk, agentNetwork: a.network, paths: paths))
+            let checked = try XCTUnwrap(try HostCore.placeFence(f, isolation: .fenced, workdir: "/w/app", shared: false))
+            var req = MacFenceRequest(permissions: ["locked"])
+            checked.apply(to: &req)
+            return req
+        }
+        let helper = try request("helper"), reviewer = try request("reviewer")
+        for r in [helper, reviewer] {
+            XCTAssertEqual(r.read, ["/w/notes"], "the view's read-only folder")
+            XCTAssertEqual(r.write, ["/w/out"], "the view's read-write folder")
+            XCTAssertEqual(r.github, "push")
+            XCTAssertEqual(r.sshAgent, true)
+        }
+        XCTAssertEqual(helper.permissions, ["locked", "site:api.example.com", "site:b.example.com"], "the place's network")
+        XCTAssertEqual(reviewer.permissions, ["locked", "site:api.example.com"], "an agent's narrower network narrows only its own fence")
+    }
+
+    func testAFencesOwnFolderIsAlwaysReadWrite() throws {
+        var f = PlaceFence(place: "desk")
+        f.write = ["/w/app", "/w/out"]
+        XCTAssertEqual(try HostCore.placeFence(f, isolation: .fenced, workdir: "/w/app", shared: false)?.write, ["/w/out"], "its own folder is not listed again")
+        f.read = ["/w/app"]
+        XCTAssertThrowsError(try HostCore.placeFence(f, isolation: .fenced, workdir: "/w/app", shared: false)) { e in
+            XCTAssertTrue(HostError.from(e).message.contains("always lets it write"), HostError.from(e).message)
+        }
+        XCTAssertNil(try HostCore.placeFence(f, isolation: .unfenced, workdir: "/w/app", shared: false), "an unfenced session: nothing applies")
+    }
+
+    func testAnAgentsNetworkMayOnlyNarrowItsPlaces() {
+        func errs(_ agentNet: String, place: String = "{ preset: standard, allow: [a.example] }") -> [String] {
+            errors(Self.space(agents: "  helper: { kind: claude-code, role: worker, where: desk, folder: repo, network: \(agentNet) }",
+                              places: "    desk: { isolation: fenced, network: \(place) }")).map(\.message)
+        }
+        XCTAssertEqual(errs("locked"), [])
+        XCTAssertEqual(errs("{ preset: standard, allow: [a.example] }"), [])
+        XCTAssertEqual(errs("{ preset: locked, allow: [a.example] }"), [])
+        XCTAssertTrue(errs("open").contains { $0.contains("wider than its place desk's") })
+        XCTAssertTrue(errs("{ preset: standard, allow: [z.example] }").contains { $0.contains("wider") }, "a host the place does not allow")
+        XCTAssertEqual(errs("{ preset: standard, allow: [z.example] }", place: "open"), [], "an open place: any narrower one")
+        // No network on the place: the workspace's default, locked.
+        let e = errors(Self.space(agents: "  helper: { kind: claude-code, role: worker, where: desk, folder: repo, network: standard }",
+                                  places: "    desk: { isolation: fenced }")).map(\.message)
+        XCTAssertTrue(e.contains { $0.contains("wider") }, e.joined())
+        XCTAssertTrue(WorkspacePlaces.narrows(.network(preset: "locked", allow: []), within: nil))
+    }
+
+    func testAVMPlacesNetworkReachesItsSandbox() throws {
+        let (p, m, doc) = check(Self.space(agents: "  helper: { kind: claude-code, role: worker, where: build, folder: repo }",
+                                           places: "    build: { isolation: vm, view: { repo: rw }, network: { preset: standard, allow: [api.example.com] }, credentials: [github:read, openai-key] }"))
+        XCTAssertEqual(p.filter(\.isError).map(\.text), [])
+        let pl = try XCTUnwrap(SpaceIntent.compile(m, doc, loc0).places?.first)
+        let f = try XCTUnwrap(try WorkspacePlaces.fence(pl, agentNetwork: nil, paths: ["repo": "/w/app"]))
+        let checked = try XCTUnwrap(try HostCore.placeFence(f, isolation: .vm, workdir: "/w/app", shared: false))
+        var c = CreateOptions(image: "claude-code")
+        c.network = "locked"
+        checked.apply(to: &c)
+        XCTAssertEqual(c.network, "agent", "standard is the sandbox's agent preset")
+        XCTAssertEqual(c.allow, ["site:api.example.com", AgentPermissions.gitHubAsYou])
+        XCTAssertEqual(c.keys, ["openai-key"])
+        // A sandbox shares one folder, read-write, at /workspace: another folder or read-only is refused.
+        var other = f
+        other.read = ["/w/notes"]
+        XCTAssertThrowsError(try HostCore.placeFence(other, isolation: .vm, workdir: "/w/app", shared: false))
+    }
+
+    func testThePrecedenceAndMechanismRefusals() {
+        func errs(_ agents: String, _ places: String, extra: String = "") -> [String] { errors(Self.space(agents: agents, places: places, extra: extra)).map(\.message) }
+        // In a vm place an agent's network must be the place's.
+        XCTAssertTrue(errs("  helper: { kind: claude-code, where: build, folder: repo, network: locked }",
+                           "    build: { isolation: vm, network: standard }").contains { $0.contains("can't have its own") })
+        XCTAssertEqual(errs("  helper: { kind: claude-code, where: build, folder: repo, network: standard }",
+                            "    build: { isolation: vm, network: standard }"), [])
+        // A vm place's view: one folder, rw.
+        XCTAssertTrue(errs("  helper: { kind: claude-code, where: build, folder: repo }",
+                           "    build: { isolation: vm, view: { repo: ro } }").contains { $0.contains("one folder, read-write") })
+        // A view names folders.
+        XCTAssertTrue(errs("  helper: { kind: claude-code, where: desk, folder: repo }",
+                           "    desk: { isolation: fenced, view: { nope: ro } }").contains { $0.contains("not a folder") })
+        // A fence holds GitHub as you and the SSH agent only; a sandbox no SSH agent.
+        XCTAssertTrue(errs("  helper: { kind: claude-code, where: desk, folder: repo }",
+                           "    desk: { isolation: fenced, credentials: [openai-key] }").contains { $0.contains("GitHub as you and the SSH agent only") })
+        XCTAssertTrue(errs("  helper: { kind: claude-code, where: build, folder: repo }",
+                           "    build: { isolation: vm, credentials: [ssh-agent] }").contains { $0.contains("no SSH agent") })
+    }
+
     func testThePolicyEncodesEachShape() throws {
         for p: WorkspacePlace.Policy in [.text("none: acts as you"), .access(["repo": "ro"]), .list(["github"]), .network(preset: "locked", allow: ["a.example"])] {
             let d = try JSONEncoder().encode(p)
@@ -261,7 +379,7 @@ extension WorkspaceLifecycleHostTests {
             """, extra: """
             x-dozable:
               places:
-                desk: { isolation: fenced }
+                desk: { isolation: fenced, network: { preset: locked, allow: [a.example] } }
             """)
             let p = try await spacePlanned(c, try spaceRequest(s))
             XCTAssertEqual(p.places?.map(\.name), ["desk"])
@@ -270,6 +388,8 @@ extension WorkspaceLifecycleHostTests {
             XCTAssertTrue(done.ok, done.results.map { "\($0.status) \($0.text)" }.joined(separator: " | "))
             let orders = workers.orders.suffix(2)
             XCTAssertEqual(orders.map(\.place), ["sp-helper", "sp-reviewer"], "two sessions, each its own place on this Mac")
+            XCTAssertEqual(orders.map { $0.placeFence?.network ?? [] }, [["locked", "site:a.example"], ["locked", "site:a.example"]],
+                           "each session's fence built from the one policy")
             let rec = try XCTUnwrap(record("sp"))
             XCTAssertEqual(rec.agents.filter { $0.endedAt == nil }.compactMap(\.placeName), ["desk", "desk"])
             // A grant names an identity, never a place: refused before anything is read or written.

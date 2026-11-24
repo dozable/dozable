@@ -46,6 +46,8 @@ public struct SpaceIntent: Codable, Equatable, Sendable {
         public var restart: String? = nil
         /// 774: where it runs — a place's name (x-dozable.places, a sandbox's), or `mac`. Optional (an older plan decodes).
         public var place: String? = nil
+        /// 774: its own network as written (an agent of a fenced place: it narrows its own fence's). Optional.
+        public var network: WorkspacePlace.Policy? = nil
     }
 
     public struct Room: Codable, Equatable, Sendable {
@@ -201,22 +203,14 @@ extension SpaceIntent {
         }
 
         i.places = model.places
-        // 774: what a declared place says that this version does not enforce yet, named (never silently).
-        for pl in model.places where pl.from == "declared" && pl.external == nil && pl.isolation != "unfenced" {
-            var parts: [String] = []
-            if case .access = pl.view { parts.append("its view") }
-            if case .list = pl.credentials { parts.append("its credentials") }
-            if pl.isolation == "fenced", case .network = pl.network, SpaceDoc.member(SpaceDoc.member(SpaceDoc.member(SpaceDozable.of(doc), "places"), pl.name), "network") != nil {
-                parts.append("its network")
-            }
-            if !parts.isEmpty { i.notes.append("place \(pl.name): \(parts.joined(separator: " and ")) not applied in this version (each session's fence is built from Dozable's defaults)") }
-        }
-
         // Agents.
         for a in model.agents {
             var x = Agent(name: a.name, role: a.role, external: a.lifetime == "external", rooms: [], secrets: [])
             let p = a.pointer
-            if !x.external { x.place = a.place }
+            if !x.external {
+                x.place = a.place
+                x.network = WorkspacePlaces.network(SpaceDozable.member(a.def, "network", at: .agent))
+            }
             if x.external {
                 if let s = SpaceDoc.string(a.external), let f = SpaceFormat.parseFullName(s) {
                     if f.type == "bot" { x.bot = f.name } else { x.session = f.name }

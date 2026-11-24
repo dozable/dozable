@@ -196,9 +196,22 @@ memory?, view, network, credentials, from}`, each policy part a sentence, a fold
   (`agent_defaults.where: sandbox`) are vm places too (`from` `sandboxes`, `workspace-vm`).
 - **A fenced place is a policy (option C):** each agent in it is its own worker with its own session on this Mac
   (`W-NAME`) and so its **own fence** (`MacFence`: proxy, placeholders, profile and tag per session) — two agents in one
-  fenced place are two fences from one policy; the fence's rules are unchanged. What a session's fence is given today is
-  the workspace's default (network `locked`); a place's declared view, network and credentials are shown and noted as
-  not applied in this version (`SpaceIntent.compile`'s notes).
+  fenced place are two fences from one policy; the fence's rules are unchanged. **Each fence is built from the place**
+  (`PlaceFence`, made at up's worker-add by `WorkspacePlaces.fence`, checked by `HostCore.placeFence`, applied by
+  `PlaceFence.apply(to: MacFenceRequest)`), only through mechanisms the fence already has: `view` → `MacFenceRequest.read`
+  (ro) / `write` (rw), the session's own folder (the workspace's main one) always read-write — a view making it read-only
+  is refused at up; `network` → the proxy's words (the preset and `site:HOST` each), over the workspace's default
+  (`locked`); `credentials` → the fence's named ones (`github:read`/`github`, `github:push`, `ssh-agent`; a key account →
+  65). **Precedence** (the format's): workspace default < place < agent — an agent's own `network:` in a fenced place may
+  only narrow the place's (`WorkspacePlaces.narrows`: preset no wider, hosts a subset unless the place is open; else 65)
+  and narrows its own fence alone.
+- **A vm place's sandbox is made from it** (`PlaceFence.apply(to: CreateOptions)`): `network` → `CreateOptions.network`
+  (`standard` is the sandbox's `agent`) and `allow` (`site:HOST`); `credentials` → GitHub as you (`github:as-you`,
+  `github:push` in `allow`) and key accounts (`keys`). An agent's own network in it must equal the place's (65). A sandbox
+  shares ONE folder, read-write, at `/workspace` (the workspace's main folder): a vm place's `view` can say only that
+  (65 for more, or ro; refused again at up against the real folder). A sandbox another agent of the place made keeps
+  what it was made with. **Not carried across a forgotten record:** a wake reopens a session from its record (its fence's
+  folders and policy kept); a fenced session whose record was forgotten is reopened with the defaults.
 - **In the record:** the document (`space.json`) holds the places; each agent records the declared place it runs in,
   `WorkspaceAgent.placeName` (additive; set from `WorkerRequest.placeName` at up). A workspace with no declared place keeps
   working: its places are **derived** from its agents (`WorkspacePlaces.derived`): a sandbox → a vm place (external when the
@@ -211,9 +224,8 @@ memory?, view, network, credentials, from}`, each policy part a sentence, a fold
   place`, before anything is read or written (`HostCore.refuseAPlace`).
 
 **Coming (SP32):** top-level `places:` in space/3.2 (`sandboxes:` read as `places:` entries, an agent's `external:
-{sandbox}` read as an external place, with notes), the view, network and credentials of a place applied to each session's
-fence. Network precedence: the workspace's default < the place's < the agent's, an agent's own only where enforcement is
-per session (fenced); in a VM it must equal its place's (65) — the last rule is built for 3.1's agent `network:`.
+{sandbox}` read as an external place, with notes). An agent's own `network:` outside a declared place is still recorded,
+not applied (as in 3.1).
 
 ## Identity and Session
 

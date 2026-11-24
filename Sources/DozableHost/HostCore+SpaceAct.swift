@@ -299,7 +299,18 @@ extension HostCore {
                 spaceMemoryReset(n, agent: name)
                 try? workspaces.append(n, WorkspaceLogEntry(action: "memory-reset", agent: name, reason: "its isolation changed"))
             }
-            let added = try await workerAdd(q)
+            // 774: an agent of a declared place: its session's fence (or new sandbox) built from the place's policy.
+            var fence: PlaceFence?
+            if let a = i.agents.first(where: { "agent \($0.name)" == st.subject }), let pn = q.placeName,
+               let pl = (i.places ?? []).first(where: { $0.name == pn && $0.from == "declared" }) {
+                var paths: [String: String] = [:]
+                for x in i.folders { if let p = x.path { paths[x.name] = WorkspaceStore.resolved(f.expand(p)) } }
+                for k in SpaceUp.keptFolderPaths(i, f) { paths[k.name] = k.path }
+                let run = (try? workspaceRecord(n))?.openRun?.id
+                for x in ref.scratch ?? [] where x.run == run { paths[x.name] = x.path }
+                fence = try WorkspacePlaces.fence(pl, agentNetwork: pl.isolation == "fenced" ? a.network : nil, paths: paths)
+            }
+            let added = try await workerAdd(q, place: fence)
             return added.notes ?? []
 
         case "requests":

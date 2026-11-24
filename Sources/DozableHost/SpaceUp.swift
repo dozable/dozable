@@ -466,6 +466,12 @@ public enum SpaceUp {
                 w.isolation = iso
                 whereText = iso == "unfenced" ? "unfenced on this Mac, with full access to your user (\(a.isolation!.words))" : "fenced on this Mac"
             }
+            // 774: its fence (or its new sandbox) is built from the declared place's policy.
+            if let pn = w.placeName, let pl = (i.places ?? []).first(where: { $0.name == pn }), pl.isolation != "unfenced" {
+                let net = (pl.isolation == "fenced" ? a.network : nil) ?? pl.network
+                whereText += pl.isolation == "fenced" ? ", its own fence built from the place \(pn) (network \(net.words); view \(pl.view.words); credentials \(pl.credentials.words))"
+                    : sandboxMade.contains(a.sandbox ?? "") && w.newSandbox != nil ? ", made from the place \(pn) (network \(pl.network.words); credentials \(pl.credentials.words))" : ""
+            }
             w.rooms = a.rooms.isEmpty ? nil : a.rooms.compactMap { n in i.rooms.first { $0.name == n }?.chatRoom }
             let bypass = a.permissions?.value == "bypass"
             if bypass { w.permissionMode = "bypass" }
