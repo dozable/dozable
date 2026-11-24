@@ -98,7 +98,10 @@ extension HostCore {
         let copiedSoFar = try journals.entries(n, run.id).flatMap { $0.evidence ?? [] }.filter { $0.copied != false }.reduce(Int64(0)) { $0 + $1.bytes }
         let staged = try await stageEvidence(n, run.id, attach: attach, attachRef: attachRef, folders: folders, copiedSoFar: copiedSoFar)
         do {
-            return try commitJournalEntry(r, n, run.id, by: by, kind: kind, j: j, folders: folders, staged: staged)
+            let e = try commitJournalEntry(r, n, run.id, by: by, kind: kind, j: j, folders: folders, staged: staged)
+            // FEEDS: the journal feed — an outcome or a failing review posted to the room (never a working note).
+            feedJournalEntry(n, run: run.id, e)
+            return e
         } catch {
             discardStaged(n, run.id, staged)
             throw error

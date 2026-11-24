@@ -88,7 +88,7 @@
 #include <sys/random.h>
 #endif
 
-#define DOZCHAT_VERSION "3"
+#define DOZCHAT_VERSION "4"
 #define DEFAULT_URL "http://host.dozable.internal:8790"
 /* On a Mac with no proxy set — a session run on the Mac without a fence, where the chat server is this Mac's own — the
  * default is this Mac's loopback. A fenced session always has its proxy set (and no DNS), so it keeps DEFAULT_URL. */
@@ -1131,6 +1131,11 @@ static int answer_failure(const struct answer *a) {
     return EXIT_LOCAL;
 }
 
+static int relay_failure(const struct answer *a, int json);
+
+/* With --json (ask): a refusal whose body is {"error":{...}} (a feed asking, FEEDS) is printed on stdout too. */
+static int g_print_refusal;
+
 /* A JSON call: on 200 the answer is a JSON document (its range in *a0..*a1); otherwise the failure's code (said). A 422
  * answer is printed on stdout first. `quiet_away`: an EXIT_AWAY is not said here (the caller retries and says so). */
 static int json_call(const char *method, const char *path, const struct buf *body, int timeout_s, struct answer *ans,
@@ -1161,7 +1166,7 @@ static int json_call(const char *method, const char *path, const struct buf *bod
         buf_free(&ans->body);
         return rc2;
     }
-    rc = answer_failure(ans);
+    rc = ans->status == 422 ? answer_failure(ans) : relay_failure(ans, g_print_refusal);
     buf_free(&ans->body);
     return rc;
 }
@@ -1565,7 +1570,7 @@ static const char USAGE[] =
     "  dozchat file send ROOM PATH [TEXT] [--re MSG_ID]\n"
     "  dozchat protocol [--room ROOM]                    the protocol, as Markdown\n"
     "  dozchat ask ROOM QUESTION [--option ID=LABEL ...] [--decider NAME ...] [--multi] [--reason TEXT] [--expires-in SECONDS]\n"
-    "              [--questions FILE]                    to ask the person: put a question to deciders, and wait for its outcome\n"
+    "              [--questions FILE] [--json]           to ask the person: put a question to deciders, and wait for its outcome\n"
     "  dozchat decide ROOM ASK OPTION [TEXT] | --decline [TEXT] | --answers JSON     answer an ask (you need the decider role)\n"
     "  dozchat withdraw ROOM ASK                         withdraw an ask you asked\n"
     "  dozchat ask-show ROOM ASK [--wait SECONDS]        the ask as JSON; --wait until its outcome: exit 0 decided, 10 declined,\n"
@@ -1580,6 +1585,7 @@ static const char USAGE[] =
     "                                                    each takes --in W when you are an agent of several\n"
     "  dozchat --version\n"
     "A send answers \"queued\" (it waits for each recipient); a reaction answers \"added\" (recorded at once, it wakes nobody).\n"
+    "receive hands you a notice (\"kind\":\"notice\", from a feed) only when it is addressed to you: a fact to act on, not to answer.\n"
     "CHAT_URL defaults to " DEFAULT_URL "; on a Mac with no proxy set, " MAC_DIRECT_URL ". The token is never given on the command line.\n"
     "Outside Dozable, through a local proxy: CHAT_URL=http://HOST:8790 http_proxy=http://localhost:PORT dozchat send ROOM TEXT\n"
     "Exit codes: 0 done, 1 a local problem or a bad answer, 2 usage, 3 refused (422), 4 401/403/409, 5 no answer or 5xx,\n"
@@ -2721,7 +2727,7 @@ static int run(int argc, char **argv) {
     else if (strcmp(cmd, "ack") == 0) allowed = " ";
     else if (strcmp(cmd, "listen") == 0) allowed = " --wait --once ";
     else if (strcmp(cmd, "rooms") == 0 || strcmp(cmd, "protocol") == 0) allowed = " --room ";
-    else if (strcmp(cmd, "ask") == 0) allowed = " --option --decider --multi --reason --expires-in --questions ";
+    else if (strcmp(cmd, "ask") == 0) allowed = " --option --decider --multi --reason --expires-in --questions --json ";
     else if (strcmp(cmd, "decide") == 0) allowed = " --decline --answers ";
     else if (strcmp(cmd, "withdraw") == 0) allowed = " ";
     else if (strcmp(cmd, "ask-show") == 0) allowed = " --wait ";
@@ -2733,7 +2739,7 @@ static int run(int argc, char **argv) {
     if (strcmp(cmd, "receive") == 0) return cmd_receive(&o);
     if (strcmp(cmd, "ack") == 0) return cmd_ack(&o);
     if (strcmp(cmd, "listen") == 0) return cmd_listen(&o);
-    if (strcmp(cmd, "ask") == 0) return cmd_ask(&o);
+    if (strcmp(cmd, "ask") == 0) { g_print_refusal = o.json; return cmd_ask(&o); }
     if (strcmp(cmd, "decide") == 0) return cmd_decide(&o, 0);
     if (strcmp(cmd, "withdraw") == 0) return cmd_decide(&o, 1);
     if (strcmp(cmd, "ask-show") == 0) return cmd_ask_show(&o);

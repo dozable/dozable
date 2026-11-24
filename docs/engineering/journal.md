@@ -226,8 +226,10 @@ run boundaries and the workspace-level events — continuing from one run into t
 
 ## 10. What it does not do, by design
 
-It doesn't deliver tasks, post to the room, run `criterion.check` commands or decide anything — those belong to a process,
-done by agents or followers. It doesn't mirror into the room (a follower may). It doesn't hold the work description: that is
+It doesn't deliver tasks, run `criterion.check` commands or decide anything — those belong to a process, done by agents or
+followers. It doesn't mirror into the room; the **journal feed** posts an outcome or a review that is not met to the room
+as a notice ("from NAME's journal", redacted; never another kind; `x-dozable.feeds.journal: {to: off}` turns it off —
+workspaces.md, "Feeds and notices"). It doesn't hold the work description: that is
 the document's (`brief`, `brief.addenda`), and the follow only reports its changes.
 
 ## 11. Not yet

@@ -331,6 +331,14 @@ waits for ever and nothing is taken as a yes.
   told the room was closed; it cannot be decided, and once the workspace is reopened the same question can be asked again
   straight away.
 
+## Notices from feeds
+
+Some messages are from no one: a unit of work's outcome from its journal, this Mac's login expiring, a host the network
+keeps refusing, an agent that crashed, the disk running low. Each is a **notice** from a **feed**, drawn as a card, and
+goes to whoever can act on it — the journal's outcomes to the room, the rest to the manager (or to you). An agent is
+handed a notice only when it is addressed to it. [Feeds and notices](44-feeds-and-notices.md) says what posts where, how
+to change it, and how a critical one reaches an idle session safely.
+
 ## What is not there yet
 
 Room apps (a room's own page), notifications from the browser, and a separate address for attachments. The chat
@@ -338,6 +346,7 @@ server's command list and protocol (`/protocol`) say what each version speaks.
 
 ## See also
 
+- [Feeds and notices](44-feeds-and-notices.md)
 - [Agents / Bots](38-agents-and-bots.md)
 - [Tokens and identity](43-tokens-and-identity.md)
 - [The dashboard](06-the-dashboard.md)

@@ -33,7 +33,7 @@ struct WorkspaceCommand: AsyncParsableCommand {
         The work description is the brief plus its addenda: doz workspace retro W --propose --addendum TEXT proposes a         lesson (you are asked in its room), doz workspace decide W PROPOSAL apply|decline decides one, and doz workspace         edit W --addendum TEXT adds one directly. A run with no goal takes the brief and every addendum.
         """,
         subcommands: [WorkspaceNew.self, WorkspaceList.self, WorkspaceShow.self, WorkspaceStart.self, WorkspaceStop.self, WorkspaceManagerCommand.self, WorkspaceSleep.self,
-                      WorkspaceWake.self, WorkspaceFinish.self, WorkspaceRunVerb.self, WorkspaceRetroCommand.self, WorkspaceDecideCommand.self, WorkspaceProposalsCommand.self, WorkspaceJournalCommand.self, WorkspaceWaitCommand.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
+                      WorkspaceWake.self, WorkspaceFinish.self, WorkspaceRunVerb.self, WorkspaceRetroCommand.self, WorkspaceDecideCommand.self, WorkspaceProposalsCommand.self, WorkspaceJournalCommand.self, WorkspaceFeedsCommand.self, WorkspaceWaitCommand.self, WorkspaceReopen.self, WorkspaceArchive.self, WorkspaceRestore.self, WorkspaceDelete.self,
                       WorkspaceAdopt.self, WorkspaceRelease.self, WorkspaceEdit.self, WorkspaceLog.self, WorkspaceRunsCommand.self, WorkspaceStateCommand.self, WorkspaceDocCommand.self, WorkspaceRename.self,
                       SpacePlanCommand.self, SpaceUpCommand.self, SpaceDownCommand.self, SpaceConfig.self])
 }

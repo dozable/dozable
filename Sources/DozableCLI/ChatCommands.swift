@@ -403,10 +403,13 @@ func tokenFromStdin(_ g: GlobalOptions) throws -> String {
 }
 
 func chatTokenCall(_ op: HostOp, name: String, toFile: String?, fromStdin: Bool, _ g: GlobalOptions,
-                   kind: String? = nil, webhook: Bool? = nil, entry: String? = nil, inbox: Bool? = nil, session: String? = nil) throws -> (ChatAnswer, TokenDestination?) {
+                   kind: String? = nil, webhook: Bool? = nil, entry: String? = nil, inbox: Bool? = nil, session: String? = nil,
+                   tokenLater: Bool = false) throws -> (ChatAnswer, TokenDestination?) {
     if let why = ChatNames.refusal(name) { throw fail(HostError(.invalid, why), g) }
     let given = fromStdin ? try tokenFromStdin(g) : nil
-    let dest = given == nil ? try TokenDestination.open(toFile, g) : nil
+    // FEEDS: a feed added with nowhere to show a token gets one no one holds (only its hash is kept); its system is handed
+    // one later with doz chat token NAME --new --to-file F.
+    let dest = given == nil && !tokenLater ? try TokenDestination.open(toFile, g) : nil
     var r = HostRequest(op)
     r.chat = ChatRequest(name: name, token: given, kind: kind, webhook: webhook, entry: entry, inbox: inbox, session: session)
     do {
@@ -461,7 +464,7 @@ struct ChatAdd: AsyncParsableCommand {
             dozchat send ROOM --re MSG_ID "…" and its own token, from CHAT_TOKEN_FILE.
             """)
     @Argument(help: "Its name: a lower-case letter, then lower-case letters, digits and -. Several names need --to-dir.") var names: [String]
-    @Option(name: .long, help: "Its kind: agent (the default; claude-session with --inbox), claude-session or grok-bot — how its messages are labelled.") var kind: String?
+    @Option(name: .long, help: "Its kind: agent (the default; claude-session with --inbox), claude-session, grok-bot — how its messages are labelled — or feed (it posts notices only: never asks, decides or reads the room).") var kind: String?
     @Flag(name: .long, help: "The server calls it at its webhook entry with each message for it (instead of it polling).") var webhook = false
     @Option(name: .customLong("webhook-entry"), help: "The webhook entry it uses (with --webhook; default: its own name). One entry may serve several bots.") var webhookEntry: String?
     @Flag(name: .long, help: "The server writes each message for it into a running Claude Code session's inbox on this Mac (a session run without a fence).") var inbox = false
@@ -482,14 +485,19 @@ struct ChatAdd: AsyncParsableCommand {
         guard ChatDirectory.kinds.contains(theKind) else { throw ValidationError("--kind is one of \(ChatDirectory.kinds.joined(separator: ", "))") }
         if webhookEntry != nil && !webhook { throw ValidationError("--webhook-entry goes with --webhook") }
         if webhook && inbox { throw ValidationError("one of --webhook or --inbox") }
+        if theKind == "feed" && (webhook || inbox) { throw ValidationError("a feed is never delivered to: not with --webhook or --inbox") }
         if webhook, let why = ChatWebhookEntries.nameRefusal(webhookEntry ?? name) { throw ValidationError(why) }
         if inbox || session != nil, let why = ChatDirectory.deliveryRefusal(inbox ? "inbox" : "poll", kind: theKind, session: session) { throw ValidationError(why) }
     }
     func run() async throws {
         if let dir = toDir { return try addSeveral(dir) }
+        // FEEDS: a feed's token is usually handed to its outside system later — with nowhere to show one now (no terminal,
+        // or --json, and no --to-file), it is added holding a token no one has.
+        let later = theKind == "feed" && toFile == nil && !fromStdin && (g.json || isatty(STDOUT_FILENO) != 1)
         let (a, dest) = try chatTokenCall(.chatAdd, name: name, toFile: toFile, fromStdin: fromStdin, g,
-                                          kind: theKind, webhook: webhook ? true : nil, entry: webhookEntry, inbox: inbox ? true : nil, session: session)
-        let delivery = inbox ? "inbox" : webhook ? "webhook" : "poll"
+                                          kind: theKind, webhook: webhook ? true : nil, entry: webhookEntry, inbox: inbox ? true : nil, session: session,
+                                          tokenLater: later)
+        let delivery = theKind == "feed" ? "none" : inbox ? "inbox" : webhook ? "webhook" : "poll"
         if g.json {
             if let t = a.token { dest?.deliver(t, name: name) }
             Out.json(ChatParticipantChange(name: name, kind: theKind, tokenFile: dest?.file, tokenGiven: fromStdin ? true : nil,
@@ -502,9 +510,12 @@ struct ChatAdd: AsyncParsableCommand {
             Out.stdout("Added \(name) (\(theKind)): the chat server calls its webhook entry \(e) with each message for it — set it with doz chat webhook set \(e).\n")
         } else if inbox {
             Out.stdout("Added \(name) (\(theKind)): " + chatInboxSentence(name, session: session ?? name) + "\n")
+        } else if theKind == "feed" {
+            Out.stdout("Added \(name) (a feed: it posts notices only — it never asks, decides or reads the room).\n")
         } else {
             Out.stdout("Added \(name) (\(theKind), polls with its own token).\n")
         }
+        if later { Out.stdout("No token was shown: doz chat token \(name) --new --to-file FILE makes the one its system uses.\n"); return }
         if let t = a.token { dest?.deliver(t, name: name) } else { Out.stdout("It uses the token you gave.\n") }
         if inbox { Out.stdout(chatInboxEnvironment(tokenFile: dest?.file, pagePort: a.chat.pagePort)) }
     }
@@ -600,7 +611,7 @@ struct ChatSet: AsyncParsableCommand {
     @Option(name: .long, help: "How it is reached: inbox, poll or webhook.") var deliver: String?
     @Option(name: .long, help: "Its role in chat: decider, or none.") var role: String?
     @Option(name: .customLong("webhook-entry"), help: "With --deliver webhook: the entry it uses (default: its own name).") var webhookEntry: String?
-    @Option(name: .long, help: "Its kind too: agent, claude-session or grok-bot.") var kind: String?
+    @Option(name: .long, help: "Its kind too: agent, claude-session, grok-bot or feed.") var kind: String?
     @Option(name: .long, help: "With --deliver inbox: the Claude Code session's name, as its record says it (default: NAME).") var session: String?
     @OptionGroup var g: GlobalOptions
 

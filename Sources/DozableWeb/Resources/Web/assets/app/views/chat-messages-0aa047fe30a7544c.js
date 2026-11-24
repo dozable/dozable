@@ -1,5 +1,5 @@
 // views/chat-messages — a room's messages: the bubbles, the tombstone of a deleted one, the stub of a direct message
-// between others, the room's change lines; reading the log (the newest page, then on as the server says more is left)
+// between others, the room's change lines, a feed's notice cards; reading the log (the newest page, then on as the server says more is left)
 // and older pages as the reader scrolls up. Every message is untrusted text, drawn with h() and renderMarkdown. On a
 // workspace's page (state.chat.scope) each sender's name carries its place in the workspace (role · agent program ·
 // isolation · session), and the workspace's log lines sit among the messages by time (`drawSys`, core/ws-log.js) —
@@ -102,6 +102,12 @@ export function add(m, again, older) {
     place(m._el, instead, older);
     return;
   }
+  if (m.kind === 'notice' && m.notice) {   // a feed's notice: a card, never a bubble — no one is speaking
+    m._el = noticeCard(m, at);
+    state.chat.byId.set(m.msg_id, m);
+    place(m._el, instead, older);
+    return;
+  }
   const me = m.from === viewer();
   const sc = state.chat.scope, meta = sc && sc.who ? sc.who(m.from) : null;
   const top = h('div', { class: 'chat-top' },
@@ -171,6 +177,25 @@ export function add(m, again, older) {
   state.chat.byId.set(m.msg_id, m);
   place(row, instead, older);
   if (refocusKey) refocus(row, refocusKey);
+}
+
+/// A notice from a feed (the journal, this Mac's accounts, network, health, resources, or an outside feed): its feed and
+/// severity, title, text and source ("from helper's journal") and the command it suggests — all plain text, never Markdown.
+const SEVERITY_ICON = { info: 'info', notice: 'info', warning: 'triangle-alert', critical: 'triangle-alert' };
+function noticeCard(m, at) {
+  const n = m.notice, sev = ['info', 'notice', 'warning', 'critical'].includes(n.severity) ? n.severity : 'info';
+  const feed = String(m.feed || (m.sender && m.sender.name) || m.from || '');
+  const to = (m.to || []).length ? ' · to ' + m.to.map(cap).join(', ') : '';
+  return h('div', { class: 'chat-notice sev-' + sev, 'data-at': at, 'data-notice': String(n.kind || ''), role: 'note',
+    title: 'A notice from the ' + feed + ' feed · ' + new Date(at * 1000).toLocaleString() },
+    h('div', { class: 'chat-notice-top' }, icon(SEVERITY_ICON[sev]),
+      h('span', { class: 'chat-feed-mark' }, 'feed'), h('b', null, feed),
+      h('span', { class: 'chat-notice-sev' }, sev), h('span', { class: 'chat-notice-kind' }, String(n.kind || '')),
+      h('span', { class: 'chat-notice-when' }, time(at) + to)),
+    n.title ? h('div', { class: 'chat-notice-title' }, String(n.title)) : null,
+    n.text ? h('p', { class: 'chat-notice-text' }, String(n.text)) : null,
+    n.source ? h('div', { class: 'chat-notice-source' }, String(n.source)) : null,
+    n.action && n.action.command ? h('code', { class: 'chat-notice-cmd' }, String(n.action.command)) : null);
 }
 
 /// A touch screen has no hover: a tap on a bubble shows its tools (and hides another's); a tap on a link, a button or a

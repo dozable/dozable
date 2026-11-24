@@ -19,7 +19,7 @@ import { dialog } from '../components/dialog-295a1b88d28029ea.js';
 import { moreMenu } from '../components/menus-2bfb74f31fa5969c.js';
 import { toast } from '../components/notices-b2291adee29f3abd.js';
 import { programName } from '../components/ws-panel-74dd0be0a24ad4dc.js';
-import { adoptDialog, botAvatar, botMenuItems, isolationChips } from './bot-f99917ea571b00de.js';
+import { adoptDialog, botAvatar, botMenuItems, isolationChips } from './bot-e1ec999fd97415eb.js';
 
 const KEY = { dozable: 'held', elsewhere: 'elsewhere', none: 'none' };
 

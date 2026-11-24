@@ -65,7 +65,9 @@ to each agent, and what it keeps, is on [Workspaces](37-workspaces.md#sleep-wake
 
 Each run has a **journal**: an append-only, ordered list of entries that you and the workspace's agents write as the work
 goes — a task, a claim on it, a criterion, a review against it, a finding, the outcome. Dozable records each entry and its
-order.
+order. Its **outcomes and reviews that are not met** also appear in the workspace's room as a card, "from NAME's
+journal", within seconds — never working notes, and never a secret; a space file can turn that off
+([Feeds and notices](44-feeds-and-notices.md)).
 
 ```bash
 doz workspace journal demo add note "the build is green"                  # to the open run
@@ -215,4 +217,5 @@ two differ by your time zone.
 - [Workspaces](37-workspaces.md) — the workspace, its lifecycle and what agents may do
 - [Bring your own process](42-bring-your-own-process.md) — a worked example, three units of work
 - [Chat](36-chat.md) — rooms and Asks
+- [Feeds and notices](44-feeds-and-notices.md) — the journal in the room, and the Mac's own notices
 - [History and retention](40-history-and-retention.md) — `doz timeline` shows runs beside everything else

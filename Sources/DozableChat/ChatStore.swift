@@ -98,7 +98,7 @@ public final class ChatRoomStore: @unchecked Sendable {
         let to = ChatJSON.encodeString(.strings(m.to))
         let att = ChatJSON.encodeString(.array(m.attachments))
         let men = ChatJSON.encodeString(.strings(m.mentions))
-        let snd = m.sender.map { ChatJSON.encodeString($0.json) } ?? ""
+        let snd = Self.senderInfo(m)
         let ask = m.ask
         let (msgID, from) = (m.msgID, m.from)
         let row: [SQLValue] = [.text(m.msgID), .text(m.from), .text(to), .text(m.reMsgID), .text(m.content), .real(m.at), .text(m.kind),
@@ -125,6 +125,24 @@ public final class ChatRoomStore: @unchecked Sendable {
         if changes == 0 { return true }
         m.seq = rowid
         return false
+    }
+
+    /// The row's `sender_info`: the sender's object, and for a notice (FEEDS) its `feed` and `notice` beside the sender's
+    /// members — the schema stays the reference's, and a reader that does not know them passes over them.
+    static func senderInfo(_ m: ChatStored) -> String {
+        guard m.kind == "notice", let n = m.notice else { return m.sender.map { ChatJSON.encodeString($0.json) } ?? "" }
+        var members: [JMember] = []
+        if case .object(let ms)? = m.sender?.json { members = ms }
+        members.append(JMember("feed", .string(m.feed)))
+        members.append(JMember("notice", n.json))
+        return ChatJSON.encodeString(.object(members))
+    }
+
+    /// A notice's `feed` and fields, read back from its row's `sender_info` (a deleted one keeps nothing of them).
+    static func readNotice(_ info: JValue?, into m: inout ChatStored) {
+        guard m.kind == "notice", m.deletedAt == 0, let info, let v = info.field("notice") else { return }
+        m.feed = info.field("feed")?.stringValue ?? ""
+        m.notice = try? ChatNotice.read(v)
     }
 
     public func setState(_ s: ChatState) throws {
@@ -240,10 +258,12 @@ public final class ChatRoomStore: @unchecked Sendable {
                 m.isPrivate = sqlite3_column_int64(s, 10) != 0
                 m.revealed = sqlite3_column_int64(s, 11) != 0
                 let snd = Self.text(s, 12)
-                if !snd.isEmpty { m.sender = (try? ChatJSON.parse(Array(snd.utf8))).flatMap(ChatSender.read) ?? ChatSender(kind: "", id: "", name: "", verified: false) }
+                let info = snd.isEmpty ? nil : try? ChatJSON.parse(Array(snd.utf8))
+                if !snd.isEmpty { m.sender = info.flatMap(ChatSender.read) ?? ChatSender(kind: "", id: "", name: "", verified: false) }
                 m.editedAt = sqlite3_column_double(s, 13)
                 m.deletedAt = sqlite3_column_double(s, 14)
                 m.deletedBy = Self.text(s, 15)
+                Self.readNotice(info, into: &m)
                 return m
             }
             if !ascending { out.reverse() }

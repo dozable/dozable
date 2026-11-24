@@ -405,6 +405,10 @@ public struct ChatPageHandler: Sendable {
         let verb = deciding ? "decide" : "withdraw"
         guard let name = core.whoHolds(Self.bearerToken(r)), !(r.caller == .remote && core.isHuman(name)) else { return .jsonError(401, Self.needBearer) }
         if core.isHuman(name) { return .jsonError(403, "the human's token cannot \(verb) on /agent/\(verb): the human \(verb)s from the page") }
+        // FEEDS: a feed never decides or withdraws.
+        if core.participant(name)?.isFeed == true {
+            return .json(403, ChatServerCore.notPermitted("\(name) is a feed: it posts notices only — it never asks or decides"))
+        }
         let bad = ChatHTTPResponse.jsonError(400, #"send {"room":"…","ask_id":"…","option":"…","msg_id":"<uuid>"}"#)
         guard r.body.count <= 1 << 16, let v = Self.decodeFirst(r.body, limit: 1 << 16), v.isObject || v.isNull,
               let input = try? ChatDecideInput.read(v), let room = try? v.field("room")?.goString("room") ?? "",
@@ -587,6 +591,8 @@ public struct ChatPageHandler: Sendable {
             line.msgV = ChatProtocol.msgV
             line.type = "user"
             line.verified = true
+            // FEEDS: a feed posts notices (and asks /rooms or /protocol) — nothing else.
+            if let f = core.feedSend(line, body: v, sender: caller) { return .json(f.status, f.answer) }
             core.heard(caller, answered: false)
             let rc = core.post(line, sender: caller)
             return .json(rc.state == "refused" ? 422 : 200, rc.members(["msg_id": .string(line.msgID)]))

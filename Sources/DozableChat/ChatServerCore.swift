@@ -386,6 +386,8 @@ public final class ChatServerCore: @unchecked Sendable {
     /// 409, so that no message is delivered twice; every other caller with 403.
     public func mayPoll(_ name: String) -> ChatAPIError? {
         let p = participant(name)
+        // FEEDS: a feed posts notices; it never reads the room.
+        if p?.isFeed == true { return ChatAPIError(status: 403, description: "\(name) is a feed: it posts notices and does not read the room") }
         if p?.route == "poll" { return nil }
         if p?.deliver == "webhook" {
             return ChatAPIError(status: 409, description: "\(name) is delivered to by webhook and cannot also poll, so that no message is delivered twice")
@@ -424,6 +426,7 @@ public final class ChatServerCore: @unchecked Sendable {
         if canSee(m, viewer) { return m }
         var s = m
         s.kind = "private"; s.content = ""; s.attachments = []; s.mentions = []; s.reactions = []; s.states = []; s.ask = nil
+        s.feed = ""; s.notice = nil
         return s
     }
 
@@ -459,6 +462,8 @@ public final class ChatServerCore: @unchecked Sendable {
             publishPresence()
             return rc
         }
+        // FEEDS: a feed posts notices only (`postNotice`, from `/agent/send`) — any other post, an ask or a room command is refused.
+        if participant(sender)?.isFeed == true, !(words.first == "/rooms" || words.first == "/protocol") { return .refused("\(sender) is a feed: it posts notices only — it never asks, decides or runs a room command") }
         if !member(room, sender) { return .refused("\(sender) is not a member of room \(room)") }
         let asking = m.isAsk
         if asking && !asksOn { return .refused(Self.askOff) }

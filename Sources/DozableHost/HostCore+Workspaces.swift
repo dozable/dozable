@@ -145,6 +145,7 @@ extension HostCore {
         case .workspaceShow:
             let rec = try workspaceRecord(try workspaceName(w))
             var d = await workspaceDetail(rec, withBrief: w.withBrief == true)
+            d.needsYou = feedNeedsYouNow(rec.name)
             // While it is setting up: what the start would refuse now (a look — the keychain is not read).
             if d.state == WorkspaceState.settingUp.rawValue {
                 d.gaps = WorkspaceSetupCheck.gaps(await workspaceSetupInput(rec, look: true))
@@ -174,6 +175,8 @@ extension HostCore {
             return try JSONValue(encoding: try await workspaceProposalsList(w))
         case .workspaceJournal:
             return try JSONValue(encoding: try workspaceJournalRead(r))
+        case .workspaceFeeds:
+            return try workspaceFeeds(w)
         case .workspaceJournalFollow:
             throw HostError(.invalid, "workspace-journal-follow is a stream: the daemon serves it on its own connection")
         case .workspaceSpace:
@@ -196,6 +199,8 @@ extension HostCore {
         if r.op == .workspaceAddendum { return try JSONValue(encoding: try await workspaceAddendumAdd(r)) }
         // 767: the run journal — an entry appended to the open run.
         if r.op == .workspaceJournalAdd { return try JSONValue(encoding: try await workspaceJournalAdd(r)) }
+        // FEEDS: the test door — a notice from the `test` feed.
+        if r.op == .workspaceFeedsEmit { return try JSONValue(encoding: try await workspaceFeedsEmit(w)) }
         // `doz workspace manager stop W`: the manager alone (the old meaning of stop). Without it stop is a lifecycle verb:
         // every agent's process ends, nothing is removed.
         if r.op == .workspaceStop, w.managerOnly == true { return try JSONValue(encoding: try await workspaceStop(w)) }

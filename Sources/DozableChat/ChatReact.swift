@@ -12,6 +12,7 @@ extension ChatServerCore {
         let st: ChatRoomStore
         do { st = try store(room) } catch { return .refused("\(error)") }
         if !member(room, sender) { return .refused("\(sender) is not a member of room \(room)") }
+        if participant(sender)?.isFeed == true { return .refused("\(sender) is a feed: it posts notices only") }
         if isArchived(room) {
             return .refused("room \(room) is archived: its messages cannot be reacted to. A human can reopen it with /unarchive")
         }

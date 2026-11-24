@@ -62,6 +62,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 | `Tests/DozableCLITests/SpaceStateTests.swift`, `SpaceStateSchemaTests.swift`, `SpaceRecordFileTests.swift`, `SpaceStateRecorderTests.swift`; `Fixtures/space-state/` (vendored, `PIN`); `Sources/doz-vmtest/CLISpaceStateRows.swift` | the editor's seven fixture shas, the builder's facts against them, the schema by exactly its keywords; the file's rules and the daemon's read and save; the frames; `make test-cli-workspace` rows F1–F6 |
 | `Tests/DozableCLITests/SpaceValidationTableTests.swift`, `SpaceSchemaDriftTests.swift`, `SpaceResolverTests.swift`, `SpaceUpPlanTests.swift`; `Fixtures/space3/` (vendored, `PIN`); `Sources/doz-vmtest/CLISpaceRows.swift` | the reference's 68 rows exactly, the tables against its schemas, the resolver and its recorded `config` values, the plan's facts against its recorded plans; `make test-cli-workspace` rows S1 and S12 |
 | `Sources/DozableHost/GrantModel.swift`, `GrantDecision.swift`, `GrantStore.swift`, `ActionClasses.swift`, `PermissionGate.swift`, `PermissionsProtocol.swift`, `HostCore+Permissions.swift`; `Sources/DozableCLI/PermissionCommands.swift` | what agents may do: the model, the ONE decision, the grants' files, every HostOp's class, the gate at the daemon's door, `doz permissions` / `doz why` ("Permissions", below) |
+| `Sources/DozableHost/Feeds.swift`, `HostCore+Feeds.swift`; `Sources/DozableCLI/WorkspaceFeedsCommands.swift`; `Sources/DozableChat/ChatNotice.swift`, `ChatNotices.swift`; `Tests/DozableCLITests/FeedsTests.swift`, `Tests/DozableChatTests/ChatNoticeTests.swift` | Feeds and notices (below): the routes (`FeedRoutes`, `x-dozable.feeds`), the journal feed (`JournalFeed`), the Mac's own notices (`runFeedWatch`), the test door, the critical notice typed into an idle session (`FeedSessionDelivery`); the notice and the `feed` participant on the chat server |
 | `Sources/DozableHost/BotRecord.swift` | Agents / Bots: `BotsFile` (`bots.json`, version 1), `BotRecord`, `BotIsolation`, `BotInstructions`, `BotTokenState`; `BotName` (the name rule), `BotKinds`, `BotFields` |
 | `Sources/DozableHost/BotStore.swift` | `BotStore`: `bots/bots.json` rewritten whole, `bots/<name>/instructions.md` and `notes.md`, 0600 in 0700 |
 | `Sources/DozableHost/BotTokens.swift` | a held bot's keychain item (`doz-bot-<store's 8 hex>-<name>`), the fingerprint, the sweep's orphans |
@@ -1362,6 +1363,45 @@ The manual's page is `docs/manual/39-space-files.md`.
   seeds it after the clearing only for a live worker of a space that keeps that agent's memory as fenced
   (`SpaceMemory.seedFolder`), never a shared folder or `~/.claude`. A switch fenced ↔ unfenced resets it (ended, forgotten,
   `memory-reset`).
+
+## Feeds and notices
+
+A **feed** is a source of facts that is neither a person nor an agent; it posts **notices** (the manual: Feeds and
+notices). The notice and the `feed` participant are the chat server's (chat.md, "Notices and feeds"); the routes, Dozable's own
+feeds and the session typing are the daemon's.
+
+- **The routes** (`FeedRoutes`): `journal` → `room`; `accounts`, `network`, `health`, `resources` → `manager` (a direct
+  message naming the manager and the owner). The manager is the ONE identity holding the manager role in the workspace —
+  its manager agent and every `role: manager` grant scoped to it, each by its lasting name (`feedManagers`); none or
+  several → the owner, with `fallback` saying why; a manager that is not a member of the room → the owner at posting, said
+  in the plan. A space file's `x-dozable.feeds: {FEED: {to: room | manager | owner | off}}` (held under `x-dozable`; the
+  validator: `FeedRoutes.problems`) is read from the recorded `space.json` — never from the space file itself. A notice
+  follows the route of its kind's family (`FeedNames.feed(ofKind:)`); `critical` adds `needs-you` (the daemon's memory,
+  a day: `feedNeedsYou`, `workspace show`'s `needsYou`, the Home tab's Needs you) and, for a participant, `session`. A
+  journal notice is never critical.
+- **Posting** (`postFeedNotice`): the plan, then `ChatNoticeThrottle` per workspace and feed (the same dedupe key inside
+  10 minutes posts once — never an edit; 5 a minute per feed, the next post saying how many were held back), then the
+  control channel's `systemNotice` under the server's name. Nothing here posts while chat is not ready (said in the log).
+- **Dozable's own feeds** use what the daemon already sees: the journal (`workspaceJournalAdd` → `feedJournalEntry`:
+  `JournalFeed.notice` — outcomes and `met: no|partly` reviews only, text redacted with `BuildLogs.redact`, attributed
+  "from NAME's journal"); `health` (`macProgramEnded`: a workspace agent's program on this Mac exited non-zero); and every
+  30 s (`runFeedWatch`, only for workspaces with live agents): `accounts` (a `LoginWatcher`'s state turning `expired` —
+  warning — or `signed-out` — critical), `network` (a proxy log's denied records — a sandbox's egress, a fenced session's
+  proxy — 3 for one host and one place in 10 minutes), `resources` (`statfs` of the store: < 10 GiB warning, < 2 GiB
+  critical). Only a change is posted.
+- **The test door** `workspace-feeds-emit` (`doz workspace feeds W --emit KIND`, the owner's only — `ActionClasses`
+  Dozable's own): a notice from the `test` feed through the same path; `--action-command` checked by `ChatNoticeCommand`
+  (65 otherwise). `workspace-feeds` (the routes, `--dry-run`) is read-only, in-process with no daemon.
+- **Typed into an idle session** (review A — `FeedSessionDelivery`, safe by construction): only a critical notice for a
+  participant with a place on this Mac; the text is `FeedSessionDelivery.text(feed:)` — a FIXED sentence per feed
+  (`other` for anything else), never a field of the notice; the look (the program's status idle or done, and
+  `unsentInput` of the live screen's cursor line — unknown is "has input") and the typing (`text`, then Enter, through
+  deckhold) are one step under the session's input gate (`feedSessions.gate`, keyed `SANDBOX/SESSION` or
+  `@mac/SESSION`), which `doz sessions send` takes too; once per dedupe key per window. `FeedSessionPort` is the seam
+  (`setFeedSessionPort` in tests). `FeedSessionDeliveryTests` ("template only, idle and no unsent input, atomic, one per
+  dedupeKey per window").
+- Not built (by design for now): update in place and acknowledge (they wait for the reference server's experiment), an
+  outside feed's own routes, quiet hours, critical notices off the Mac.
 
 ## Test hooks
 

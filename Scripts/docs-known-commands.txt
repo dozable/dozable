@@ -219,6 +219,7 @@ workspace/retro
 workspace/decide
 workspace/proposals
 workspace/journal
+workspace/feeds
 workspace/wait
 workspace/reopen
 workspace/archive

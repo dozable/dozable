@@ -33,6 +33,10 @@ extension HostCore {
         await m.sandbox.afterWakeSettled()
         await m.sandbox.relieveMemoryPressure("a session was sent input")        // B7: input is work to come
         let receipt: SessionInput.Receipt
+        // FEEDS: one typist at a time per session — a critical notice's look-and-type holds the same gate.
+        let key = m.name + "/" + session
+        await feedSessions.gate.lock(key)
+        defer { feedSessions.gate.unlock(key) }
         do { receipt = try await m.sandbox.sendInput(session, pieces: Self.sendPieces(r, bytes)) } catch { throw HostError.from(error) }
         switch receipt {
         case .delivered:

@@ -75,6 +75,16 @@ public enum ChatRoomControl {
             case .failure(let e): return line(["refused": .string(e.description)])
             }
         }
+        // FEEDS: a notice from one of Dozable's own feeds (ChatNotices.swift), under the server's own name.
+        if let a = v.field("systemNotice"), a.isObject {
+            guard let room = a.field("room")?.stringValue, chatIsRoomName(room), let msgID = a.field("msgId")?.stringValue,
+                  let feed = a.field("feed")?.stringValue, let raw = a.field("notice"), let notice = try? ChatNotice.read(raw),
+                  let to = try? a.field("to")?.goStrings("to") else { return line(["refused": .string("not a system notice")]) }
+            let rc = core.postNotice(room: room, msgID: msgID, from: ChatProtocol.systemName, feed: feed, notice: notice, to: to,
+                                     direct: a.field("direct")?.boolValue ?? false)
+            if rc.state == "refused" { return line(["refused": .string(rc.detail)]) }
+            return line(["noticed": .map(["msgId": .string(msgID), "state": .string(rc.state)])])
+        }
         if let r = v.field("roomRemove"), r.isObject {
             guard let room = r.field("room")?.stringValue, chatIsRoomName(room),
                   let last = (try? r.field("lastSeq")?.goInt("lastSeq")) ?? nil else { return line(["refused": .string("not a room removal")]) }

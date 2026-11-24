@@ -131,9 +131,9 @@ public enum ToolsLayer {
 
     /// dozchat — Dozable's own build (`Guest/dozchat/build.sh`, `Guest/dozchat/PROVENANCE.md`), in the package's resources.
     /// Its own version, not Dozable's (the bytes change only when its source does).
-    public static let dozchatVersion = "3"
+    public static let dozchatVersion = "4"
     /// sha256 of `Resources/dozchat` — the copy is refused when the bundled file is not these bytes (`DozchatBinary`).
-    public static let dozchatSHA256 = "4c3f9a062f9dcb459e6e8f2e393269f416f01369a70abf3870d6d266d014e0a1"
+    public static let dozchatSHA256 = "bb3705e22ec383146c7ffad4beefd97815357148f0c1f82ea78752d6c9d3ab33"
 
     /// GitHub's published SSH host keys (https://api.github.com/meta `ssh_keys`; docs: "GitHub's SSH key
     /// fingerprints") — public, pinned here so the guest never trusts a key on first use.

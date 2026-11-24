@@ -306,6 +306,10 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// connection like `events`, from the store at the follower's own pace.
     case workspaceJournal = "workspace-journal", workspaceJournalAdd = "workspace-journal-add", workspaceJournalFollow = "workspace-journal-follow"
     case workspaceProposals = "workspace-proposals"
+    /// FEEDS: a workspace's feeds (`WorkspaceRequest.feeds`). `-feeds` lists the routes in effect (`WorkspaceFeeds`) or, with
+    /// `dryRun`, where one notice would go (`FeedPlan`) — read-only, in-process when no daemon runs. `-feeds-emit` posts a
+    /// notice from the `test` feed as Dozable would (`FeedEmitted`) — the daemon's, the owner's only.
+    case workspaceFeeds = "workspace-feeds", workspaceFeedsEmit = "workspace-feeds-emit"
     /// What each agent of a workspace can reach and hold (`WorkspaceRequest.agent`: one only) — `WorkspaceReach`: its isolation
     /// and control, folders, network (preset, sites, this Mac's ports, forwarded ports, refusals while a daemon runs), the
     /// secrets it holds BY NAME and its capability rows. Never a value. Only reads: in-process when no daemon runs.
@@ -417,7 +421,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
              .sessionQuarantine, .sessionTranscripts, .workspaceList, .workspaceShow, .workspaceLog, .workspacePlan, .workspaceLifecyclePlan, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunChat, .chatRoomPlan, .botList, .botShow, .workerList, .workerPlan, .workspaceUpPlan, .workspaceDownPlan, .macsList,
-             .workspaceState, .workspaceDoc, .workspaceProposals, .workspaceJournal, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery, .timelineRetention: true
+             .workspaceState, .workspaceDoc, .workspaceProposals, .workspaceJournal, .workspaceFeeds, .workspaceSpace, .workspaceRunFrames, .permissionsShow, .permissionsWhy, .timelineCatalog, .timelineQuery, .timelineRetention: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -1971,8 +1975,24 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var decision: String?
     /// 767, the run journal: what to read, write or follow. Additive: an older daemon refuses the operation it does not know.
     public var journal: WorkspaceJournalRequest?
+    /// FEEDS: the routes, a dry run, or the test door's notice (`workspace-feeds`, `-feeds-emit`). Additive.
+    public var feeds: FeedsRequest?
 
     public init(name: String? = nil) { self.name = name }
+}
+
+/// FEEDS: `doz workspace feeds W` — `dryRun` with `kind` and `severity` (where one notice would go), or `emit` (a notice of
+/// that kind from the `test` feed) with `severity`, `dedupe`, `to`, `text` and `actionCommand`.
+public struct FeedsRequest: Codable, Equatable, Sendable {
+    public var dryRun: Bool?
+    public var emit: String?
+    public var kind: String?
+    public var severity: String?
+    public var dedupe: String?
+    public var to: String?
+    public var text: String?
+    public var actionCommand: String?
+    public init() {}
 }
 
 /// 767: `workspace-journal` (`run`, or `after` + `kind`), `-journal-add` (`kind`, `text`, `data`, `refs`, `attach`,
@@ -2213,6 +2233,8 @@ public struct WorkspaceDetail: Codable, Equatable, Sendable {
     public var origin: WorkspaceOrigin
     /// What the person may want to know or do next (a brief not posted, the command to post it, …).
     public var notes: [String]?
+    /// FEEDS: the owner's Needs you from the feeds — the last day's critical notices (the daemon's memory). Additive.
+    public var needsYou: [FeedNeedsYou]?
     /// `workspace-show` while it is setting up: what the set-up check would refuse now (never reading the keychain — a locked
     /// one shows only at the start). Additive; nil otherwise.
     public var gaps: [WorkspaceSetupCheck.Gap]?
