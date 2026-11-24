@@ -598,7 +598,7 @@ extension HostCore {
         }
         let order = WorkerLaunchOrder(workspace: n, name: name, isolation: iso, place: place, session: shared ? name : (iso == .vm ? name : nil), shared: shared,
                                       workdir: workdir, plan: plan, start: start, agent: agent, account: bot?.account, model: bot?.model,
-                                      permissions: rec.defaults.network ?? "locked", cpus: nil, memoryMiB: nil, restart: true)
+                                      permissions: rec.defaults.network ?? "locked", sites: rec.defaults.sites ?? [], cpus: nil, memoryMiB: nil, restart: true)
         do {
             _ = try await workerLauncher.launch(order)
         } catch {

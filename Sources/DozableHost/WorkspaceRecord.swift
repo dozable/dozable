@@ -427,7 +427,21 @@ public struct WorkspaceDeclaredWorker: Codable, Equatable, Sendable {
 public struct WorkspaceDefaults: Codable, Equatable, Sendable {
     public var isolation: String?
     public var network: String?
-    public init(isolation: String? = nil, network: String? = nil) { self.isolation = isolation; self.network = network }
+    /// 775: sites on top of the network preset, for every agent it starts (its manager and workers). Additive.
+    public var sites: [String]?
+    public init(isolation: String? = nil, network: String? = nil, sites: [String]? = nil) {
+        self.isolation = isolation; self.network = network; self.sites = sites
+    }
+
+    /// The network as a person reads it: the preset, and the sites on top.
+    public var networkWords: String? {
+        let more = (sites ?? []).isEmpty ? "" : " + " + sites!.joined(separator: ", ")
+        guard let n = network else { return more.isEmpty ? nil : "locked" + more }
+        return n + more
+    }
+
+    /// The sites as the proxy's words (`site:HOST`).
+    public var siteWords: [String] { (sites ?? []).map { "site:" + $0 } }
 }
 
 /// What an archive put away, so a restore undoes exactly that: the rooms it archived (by their chat names), the sandboxes it

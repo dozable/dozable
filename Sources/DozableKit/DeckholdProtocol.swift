@@ -226,6 +226,13 @@ public enum GuestCommand {
     }
     public static let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
+    /// 775: the container's PID 1 — it waits on a `sleep infinity` of its own, and every shell's `wait` (ash, dash, bash)
+    /// reaps ANY child it is given while it waits, so a program an exec or a session left behind (re-parented to PID 1)
+    /// is reaped instead of staying `<defunct>` (a killed render left 20 zombie browsers). The old PID 1 was a bare
+    /// `sleep infinity`, which never reaps. Not a VM input: a cold boot starts it, a restore adopts the PID 1 it had. Only
+    /// a utility of the guest (never a session), so a shell may run it; it ignores what PID 1 in a namespace ignores.
+    public static let reapingInit = ["/bin/sh", "-c", "while :; do sleep infinity & wait $!; done"]
+
     public static func validateSessionName(_ name: String) throws {
         let ok = (1...64).contains(name.count)
             && name.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0)) }

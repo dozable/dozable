@@ -160,6 +160,8 @@ struct WorkspaceNew: AsyncParsableCommand {
     @Option(name: .customLong("worker-isolation"), help: "Where its new workers run by default: fenced (the default) or vm — never unfenced by default.")
     var workerIsolation: String?
     @Option(name: .long, help: "Its network preset: locked (the default), standard or open; the room is always added.") var network: String?
+    @Option(name: .customLong("site"), help: "A site every agent it starts may reach on top of the preset: a host name like api.example.com or *.example.com (repeatable).")
+    var sites: [String] = []
     @Flag(name: .customLong("dry-run"), help: "Show what would be made, what is refused and what the start would still need, and the commands; make nothing.")
     var dryRun = false
     @Flag(name: .long, help: "Start it once it is made (doz workspace start NAME).") var start = false
@@ -180,6 +182,7 @@ struct WorkspaceNew: AsyncParsableCommand {
         w.managerIsolation = managerIsolation
         w.workerIsolation = workerIsolation
         w.network = network
+        w.sites = sites.isEmpty ? nil : sites
         w.brief = brief
         w.folders = try folders.map { try workspaceFolder($0, g) }
         w.newFolder = newFolder ? true : nil

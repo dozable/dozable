@@ -20,7 +20,7 @@ import { setting } from '../core/settings-b574facd5b73891b.js';
 import { state } from '../core/state-1036883eb74b9520.js';
 import { utf8 } from '../core/util-0745432f65992dcb.js';
 import { loadBots, loadWorkspaces } from '../core/workspaces-01455e3a05881150.js';
-import { WORKSPACE_DEFINITION, WORKSPACE_NAME, WSN_STEPS, gapStep, requestFrom, slugFrom } from '../core/ws-new-60f08868f5e5e130.js';
+import { WORKSPACE_DEFINITION, WORKSPACE_NAME, WSN_STEPS, gapStep, requestFrom, slugFrom } from '../core/ws-new-02275ee0f50e659e.js';
 import { chatRooms } from '../components/bot-invite-3e672be0abd05dd2.js';
 import { btn } from '../components/button-030d384b64f8d75d.js';
 import { callout } from '../components/callout-a906e34ef11cba9d.js';
@@ -34,7 +34,7 @@ import { stepperNode } from '../components/stepper-9f1fb5c64eac92d6.js';
 import { BRIEF_MAX_BYTES } from '../components/ws-brief-41b4f2763f1d79e8.js';
 import { gapsPanel, startsOnce } from '../components/ws-gaps-fde7ac2eee8914d5.js';
 import { chatOnForm } from '../components/chat-on-b0966faa08770a77.js';
-import { chatNavCheck } from './chat-71c482a916e439fc.js';
+import { chatNavCheck } from './chat-6aa0d97123349f44.js';
 
 /// Why this browser may not make or start a workspace (null: it may).
 export const WSN_REMOTE = 'A workspace is made only in this Mac’s own browser, or with doz workspace new … in a terminal on the Mac';
@@ -53,11 +53,11 @@ const NETWORKS = [
 const DELIVER_WORDS = { poll: 'polls with dozchat', inbox: 'its inbox (a session on this Mac)', webhook: 'a webhook' };
 /// The choices kept (and restored) — everything but what was read.
 const KEPT = ['step', 'name', 'nameTouched', 'brief', 'refs', 'folders', 'newFolder', 'fromProject', 'projectAsked', 'preset', 'manager',
-  'managerIsolation', 'unfencedConfirmed', 'workerIsolation', 'network', 'roomChoice', 'when'];
+  'managerIsolation', 'unfencedConfirmed', 'workerIsolation', 'network', 'sites', 'roomChoice', 'when'];
 
 function fresh() {
   return { step: 0, name: '', nameTouched: false, brief: '', refs: [], folders: [], newFolder: false, fromProject: false, projectAsked: false,
-           preset: 'blank', manager: null, managerIsolation: 'fenced', unfencedConfirmed: false, workerIsolation: 'fenced', network: 'locked',
+           preset: 'blank', manager: null, managerIsolation: 'fenced', unfencedConfirmed: false, workerIsolation: 'fenced', network: 'locked', sites: [],
            roomChoice: 'make', when: 'now', plan: null, planError: '', error: '', busy: '', refTyped: '', folderTyped: '' };
 }
 function save() {
@@ -479,6 +479,7 @@ function applyPreset(p) {
   w.preset = p.id;
   if (p.workerIsolation) w.workerIsolation = p.workerIsolation;
   if (p.network && !w.fromProject) w.network = p.network;
+  w.sites = (p.sites || []).slice();     // a preset's sites (remotion-video: remotion.media); another preset's go
   if (p.managerIsolation && w.manager && p.managerIsolation !== 'unfenced') { w.managerIsolation = p.managerIsolation; w.unfencedConfirmed = false; }
   if (p.foldersReadOnly) for (const f of w.folders) f.mode = 'ro';
   changed(true);
@@ -588,7 +589,7 @@ function stepWhere() {
   const controls = [
     b ? ['manager', CONTROL[w.managerIsolation]] : null,
     ['new workers', CONTROL[w.workerIsolation]],
-    ['network', (fromProject ? w.plan.project.preset : w.network) + ' + the room (added for every agent)'],
+    ['network', (fromProject ? w.plan.project.preset : w.network) + ((w.sites || []).length ? ' + ' + w.sites.join(', ') : '') + ' + the room (added for every agent)'],
     ['address guard', 'always on (cannot be turned off)'],
   ].filter(Boolean);
   return [

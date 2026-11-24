@@ -1,4 +1,5 @@
 import XCTest
+@testable import DozableCLI
 @testable import DozableHost
 
 /// 694: the daemon's login item — the plist's exact keys (round-tripped through PropertyListSerialization), the label, the
@@ -237,6 +238,34 @@ final class DaemonLoginItemTests: XCTestCase {
         try FileManager.default.removeItem(at: appProgram)
         r = DaemonLoginItem.sync(store: store, mode: .command, settings: s, launchctl: fake.launchctl, folder: agents, program: "/x/doz", environment: [:])
         XCTAssertEqual(r.decision.action, .install)
+    }
+
+    /// 775: the app's job starts the default store's daemon — another store says so, everywhere the login item is shown.
+    func testAnAppsJobForAnotherStoreIsSaidSo() throws {
+        let fake = FakeLaunchd()
+        let appProgram = root.appendingPathComponent("Dozable.app-doz")
+        FileManager.default.createFile(atPath: appProgram.path, contents: Data(), attributes: [.posixPermissions: 0o755])
+        fake.apps[DaemonLoginItem.appLabel] = appProgram.path
+        let s = try settings([SettingKey.loginItem: .string("on"), SettingKey.alwaysOn: .bool(true)])
+        let other = DozableStore(root: root.appendingPathComponent("default-store"))
+        var st = DaemonLoginItem.status(store: store, settings: s, launchctl: fake.launchctl, folder: agents, program: "/x/doz", appStore: other)
+        XCTAssertEqual(st.owner, "app")
+        XCTAssertEqual(st.appStore, other.root.path)
+        XCTAssertFalse(st.appStartsThisStore)
+        XCTAssertTrue(st.line.contains("the Dozable menu bar app starts the default store's daemon"), st.line)
+        XCTAssertTrue(st.line.contains("not this store's"), st.line)
+        XCTAssertTrue(st.note?.contains("not this store's") == true, st.note ?? "")
+        XCTAssertTrue(Doctor.loginItemCheck(st, daemonLocked: nil, held: false).detail.contains("not this store's"))
+        XCTAssertFalse(Doctor.loginItemCheck(st, daemonLocked: nil, held: true).detail.contains("your next login"))
+        // This store (by another spelling of its path): as before.
+        st = DaemonLoginItem.status(store: store, settings: s, launchctl: fake.launchctl, folder: agents, program: "/x/doz",
+                                    appStore: DozableStore(root: store.root.appendingPathComponent("x/..")))
+        XCTAssertNil(st.appStore)
+        XCTAssertTrue(st.appStartsThisStore)
+        XCTAssertEqual(st.line, "login item: the Dozable menu bar app starts the daemon at login")
+        // Unknown (a guarded run without DOZ_TEST_APP_STORE never reads the real settings): as before.
+        XCTAssertNil(MenuBarAppPlaces.appStore(env: [:], guarded: true))
+        XCTAssertEqual(MenuBarAppPlaces.appStore(env: ["DOZ_TEST_APP_STORE": "/tmp/s"], guarded: true)?.root.path, "/tmp/s")
     }
 
     /// What `launchctl print` says of an SMAppService agent with a BundleProgram: no absolute program — `arguments` start

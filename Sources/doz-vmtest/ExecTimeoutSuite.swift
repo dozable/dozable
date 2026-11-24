@@ -36,6 +36,21 @@ func cliExecTimeoutSuite(binary: String) async {
     let own = (try? JSONSerialization.jsonObject(with: r.outData)) as? [String: Any]
     check(r.code == 124 && own?["timedOut"] == nil, "a program's own 124: no timedOut in --json")
     check(guestSleeps() == "0", "no sleep left after the --json one either")
+    // 775: what to do instead is said, and what the killed command left behind is REAPED by PID 1 — never <defunct>.
+    r = t.run(["exec", "xt", "--timeout", "2", "--", "sh", "-c", "sleep 32 & sleep 33 & sleep 34"], timeout: 60)
+    check(r.code == 124 && r.err.contains("the command was killed; --timeout SECONDS gives it longer, or doz run -d"),
+          "a killed exec says what to do instead: \(r.err.trimmingCharacters(in: .whitespacesAndNewlines).suffix(200))")
+    let pid1 = t.run(["exec", "xt", "--", "sh", "-c", "tr '\\0' ' ' < /proc/1/cmdline"], timeout: 60).out
+    check(pid1.contains("while :; do sleep infinity & wait"), "PID 1 is the reaping init: \(pid1.prefix(120))")
+    _ = t.run(["exec", "xt", "--", "sh", "-c", "pkill -f 'sleep 3[234]' || true"], timeout: 60)
+    var zombies = "?"
+    for _ in 0..<20 {
+        zombies = t.run(["exec", "xt", "--", "sh", "-c", "grep -l '^State:[[:space:]]*Z' /proc/[0-9]*/status 2>/dev/null | wc -l"],
+                        timeout: 60).out.trimmingCharacters(in: .whitespacesAndNewlines)
+        if zombies == "0" { break }
+        usleep(250_000)
+    }
+    check(zombies == "0", "no <defunct> process left in the guest after the killed exec's children ended (\(zombies))")
 
     // A cold start that outlasts the deadline: 124 from the host, and the start goes on to its end. A lab boots in
     // under a second, so the host is restarted with its guarded seam holding each wake or start back 3 s.

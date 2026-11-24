@@ -279,6 +279,9 @@ func chatAskMark(_ m: JValue) -> String? {
     let label = ChatAsk.label(number: a.number, msgID: m.field("msg_id")?.stringValue ?? "")
     let state: String
     switch a.state {
+    // 775: decided in the terminal (`doz workspace decide`): applied or declined, said so — never "withdrawn".
+    case "decided" where a.decision?.via == ChatServerCore.decidedElsewhereVia:
+        state = (a.decision?.declined == true ? "declined" : "applied") + " with doz workspace decide"
     case "decided": state = "decided by \(a.decision?.by ?? "?")" + (a.decision?.deciderRole == true ? " (decider role)" : "")
     case "expired": state = "expired"
     case "withdrawn": state = "withdrawn"

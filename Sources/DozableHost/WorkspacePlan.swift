@@ -42,18 +42,23 @@ public struct WorkspacePreset: Codable, Equatable, Sendable {
     public var network: String?
     /// Folders added read-only.
     public var foldersReadOnly: Bool?
+    /// 775: sites its tool needs on top of the network preset (host names), for every agent the workspace starts.
+    public var sites: [String]?
     public init(id: String, title: String, summary: String, managerIsolation: String? = nil, workerIsolation: String? = nil,
-                network: String? = nil, foldersReadOnly: Bool? = nil) {
+                network: String? = nil, foldersReadOnly: Bool? = nil, sites: [String]? = nil) {
         self.id = id; self.title = title; self.summary = summary; self.managerIsolation = managerIsolation
-        self.workerIsolation = workerIsolation; self.network = network; self.foldersReadOnly = foldersReadOnly
+        self.workerIsolation = workerIsolation; self.network = network; self.foldersReadOnly = foldersReadOnly; self.sites = sites
     }
 }
 
 public enum WorkspacePresets {
     /// The ONE table. Templates you make come later.
     public static let builtIn: [WorkspacePreset] = [
-        WorkspacePreset(id: "remotion-video", title: "Remotion video", summary: "the manager and new workers in micro VMs · standard network",
-                        managerIsolation: "vm", workerIsolation: "vm", network: "standard"),
+        // 775: a render first downloads Remotion's own browser (Chrome Headless Shell) from remotion.media — refused under
+        // Standard, it failed as a name that does not resolve. Its npm packages are Standard's (Install: Node).
+        WorkspacePreset(id: "remotion-video", title: "Remotion video",
+                        summary: "the manager and new workers in micro VMs · standard network + remotion.media (Remotion's browser)",
+                        managerIsolation: "vm", workerIsolation: "vm", network: "standard", sites: ["remotion.media"]),
         WorkspacePreset(id: "swift-tests", title: "Swift tests", summary: "fenced on this Mac · standard network (packages from GitHub)",
                         managerIsolation: "fenced", workerIsolation: "fenced", network: "standard"),
         WorkspacePreset(id: "mac-admin", title: "Mac admin", summary: "fenced on this Mac · locked network",
@@ -78,6 +83,8 @@ public enum WorkspacePresets {
         if w.manager != nil, w.managerIsolation == nil { w.managerIsolation = p.managerIsolation }
         if w.workerIsolation == nil { w.workerIsolation = p.workerIsolation }
         if w.network == nil { w.network = p.network }
+        // 775: its sites join any given (once each).
+        if let s = p.sites, !s.isEmpty { w.sites = (w.sites ?? []) + s.filter { !(w.sites ?? []).contains($0) } }
         if p.foldersReadOnly == true, var folders = w.folders {
             for i in folders.indices where !(i < folderModeGiven.count && folderModeGiven[i]) { folders[i].mode = "ro" }
             w.folders = folders
@@ -92,6 +99,21 @@ public enum WorkspaceNetworks {
     public static let projectWords = ["agent", "bake", "nat", "none"]
     /// New workers' default isolation: never unfenced by default.
     public static let workerIsolations = ["fenced", "vm"]
+    public static let maximumSites = 16
+
+    /// 775: a request's sites checked — each a host name or `*.domain` (`PermissionPolicy.site`'s rule, no port; a leading
+    /// `site:` taken off), lower-cased, once each, at most 16. nil: none.
+    public static func checkedSites(_ sites: [String]?) throws -> [String]? {
+        guard let sites, !sites.isEmpty else { return nil }
+        guard sites.count <= maximumSites else { throw HostError(.invalid, "--site: at most \(maximumSites) sites") }
+        var out: [String] = []
+        for s in sites {
+            let (host, ports) = try PermissionPolicy.site(s)
+            guard ports == nil else { throw HostError(.invalid, "--site \(s.prefix(80)): a host name, no port (api.example.com, *.example.com)") }
+            if !out.contains(host) { out.append(host) }
+        }
+        return out
+    }
 }
 
 /// The commands that make a workspace from a request — the ONE source the plan answer, `--dry-run` and the wizard's Copy
@@ -104,6 +126,7 @@ public enum WorkspaceNewCommand {
         if w.newFolder == true { a.append("--new-folder") }
         for f in w.folders ?? [] { a += ["--folder", folderArgument(f)] }
         if w.project != nil { a.append("--from-project") } else if let n = w.network { a += ["--network", n] }
+        for s in w.sites ?? [] { a += ["--site", s] }
         if let r = w.room { a += ["--room", r] }
         if w.noRoom == true { a.append("--no-room") }
         if let m = w.manager { a += ["--manager", m] }
@@ -217,7 +240,7 @@ enum WorkspacePlanLines {
             out.append("manager: none — you drive")
         }
         out.append("new workers: " + (workerIsolation.map { $0 == "vm" ? "micro VM" : $0 } ?? "fenced (the default)"))
-        out.append("network: \(rec.defaults.network ?? "locked (the default)") + the room")
+        out.append("network: \(rec.defaults.networkWords ?? "locked (the default)") + the room")
         let adopted = rec.agents.filter { !$0.isManager }.map(\.name)
         if !adopted.isEmpty { out.append("adopted: " + adopted.joined(separator: ", ")) }
         for d in rec.declaredWorkers {

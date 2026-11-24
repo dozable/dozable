@@ -28,6 +28,9 @@ struct OnboardReport: Encodable {
     var keysAdded: [String]
     /// 599i: the OpenAI account Codex's sign-in step added (and made the OpenAI default).
     var openaiAccountAdded: String? = nil
+    /// 775: `--claude-account`: `mac` (this Mac's Claude Code login, the default account), `none` (declined: no account
+    /// mac) or `later` (nothing changed); nil: not given.
+    var claudeAccount: String? = nil
     var settings: String
     var settingsPath: String?
     var promptTemplate: String
@@ -77,6 +80,9 @@ struct OnboardingFlow {
     var startAtLoginFlag: Bool? = nil
     /// 599i: Codex's OpenAI account — mac, chatgpt, openai-key or later (nil: offered in Models & keys on a terminal).
     var openaiFlag: String? = nil
+    /// 775: Claude Code's account from this Mac's login — mac, none or later (nil: as before — the Mac's login is the
+    /// built-in account mac).
+    var claudeFlag: String? = nil
 
     /// 634: the words the First sandbox step offers, and the tools they name (`doz try`'s names).
     static let firstWords: [(word: String, ref: String)] = [("claude", "claude-code"), ("pi", "pi"), ("opencode", "opencode"), ("codex", "codex")]
@@ -161,7 +167,7 @@ struct OnboardingFlow {
 
         // 1. Checks (D5): the doctor's, hard ones stop here; the disk line is the base's need.
         let prep = try decode(try await query(HostRequest(.prepareStatus), g), PrepareStatus.self, g)
-        let doctor = Doctor.checks(store: store, claude: keyFlag == nil).map { (check: $0.check, status: $0.status.rawValue, detail: $0.detail) }
+        let doctor = Doctor.checks(store: store, claude: keyFlag == nil && claudeFlag != "none").map { (check: $0.check, status: $0.status.rawValue, detail: $0.detail) }
         func basePrepared(_ id: String) -> Bool { prep.base?.id == id && prep.base?.prepared == true }
         let checkBase = BaseCatalogue.base(baseID ?? storeBase) ?? BaseCatalogue.all[0]
         var checks = Onboarding.checks(doctor: doctor, store: store, base: checkBase, prepared: baseID == nil || basePrepared(checkBase.id))
@@ -231,13 +237,19 @@ struct OnboardingFlow {
         //    key of any published provider or gateway — added exactly as `doz account add` adds one.
         await baseProgress()
         header(4, "Models & keys", lead: "Every tool talks to a model: the sign-ins on this Mac, and your keys. A key stays in this Mac's keychain; a sandbox only ever sees a placeholder.")
-        let claudeSignedIn = keyFlag == nil && ClaudeLoginStatus.check(configDir: nil, keychain: macLoginKeychain(), probeBinary: false).state == .signedIn
+        // 775: declined (--claude-account none): the Mac's login is not even looked at.
+        let claudeSignedIn = keyFlag == nil && claudeFlag != "none"
+            && ClaudeLoginStatus.check(configDir: nil, keychain: macLoginKeychain(), probeBinary: false).state == .signedIn
         let codexState = CodexMacLogin.read(CodexMacLogin.resolveHome()).state
         let codexSignedIn = codexState == .ok || codexState == .expired
         let chatgpt = BuildFlavor.current.chatgptSignIn
-        status(claudeSignedIn ? .ok : .info,
-               claudeSignedIn ? "Claude Code: signed in on this Mac — Claude Code sandboxes use that login (nothing is copied; the Mac renews it)"
-                              : "Claude Code: not signed in on this Mac — an Anthropic key below, or setup-token for a Claude subscription")
+        if claudeFlag == "none" {
+            status(.info, "Claude Code: this Mac's login is not used (--claude-account none) — an Anthropic key below, or setup-token for a Claude subscription")
+        } else {
+            status(claudeSignedIn ? .ok : .info,
+                   claudeSignedIn ? "Claude Code: signed in on this Mac — Claude Code sandboxes use that login (nothing is copied; the Mac renews it)"
+                                  : "Claude Code: not signed in on this Mac — an Anthropic key below, or setup-token for a Claude subscription")
+        }
         status(codexSignedIn ? .ok : .info,
                codexSignedIn ? "Codex: signed in on this Mac — Codex sandboxes use that login (read-only; the Mac's Codex renews it)"
                              : "Codex: not signed in on this Mac — an OpenAI key below" + (chatgpt ? ", or chatgpt to sign in with ChatGPT" : ""))
@@ -290,6 +302,7 @@ struct OnboardingFlow {
             }
         }
         if openaiFlag != nil { openaiAdded = try openAIAccountStep(pick: openaiFlag) }
+        if let c = claudeFlag { try claudeAccountStep(c, signedIn: claudeSignedIn) }
 
         // 4. Access (599e): GitHub as you, the SSH agent — each a purposeful choice, then each CONFIRMED live; a failure
         //    is skipped (kept, not confirmed), never blocking.
@@ -435,7 +448,7 @@ struct OnboardingFlow {
             first = try await firstSandbox(recipe)
         }
         return OnboardReport(store: store.root.path, checks: checks, base: baseID, signIns: (claudeSignedIn ? ["claude"] : []) + (codexSignedIn ? ["codex"] : []),
-                             keysAdded: added, openaiAccountAdded: openaiAdded,
+                             keysAdded: added, openaiAccountAdded: openaiAdded, claudeAccount: claudeFlag,
                              settings: settings.rawValue, settingsPath: settingsPath, promptTemplate: template.rawValue,
                              promptTemplatePath: templatePath, access: accessReport.items, ignoreMode: ignoreMode, result: result,
                              usageStats: usage, first: first, loginItem: loginItem)
@@ -683,6 +696,30 @@ struct OnboardingFlow {
         return name
     }
 
+    /// 775: Claude Code's account from this Mac's login, without asking: `mac` — the account mac (this Mac's Claude Code
+    /// login, read-only; the Mac renews it) is the store's default; `none` — declined: no account mac, the default none (a
+    /// key or a setup token is the way, and `doz account default mac` takes the login back); `later` — nothing changes.
+    private func claudeAccountStep(_ pick: String, signedIn: Bool) throws {
+        say(Section("  Claude Code account").render())
+        switch pick {
+        case "none":
+            var r = HostRequest(.accountDefault)
+            r.account = "none"
+            r.macLogin = "none"
+            _ = try call(r, g)
+            status(.ok, "this Mac's Claude Code login is not an account of this store — no account mac; a key or setup-token is the way (doz account default mac takes it back)")
+        case "mac":
+            var r = HostRequest(.accountDefault)
+            r.account = "mac"
+            r.macLogin = "mac"
+            _ = try call(r, g)
+            status(signedIn ? .ok : .warn, signedIn ? "Claude Code sandboxes use this Mac's Claude Code login (mac) — the store's default account"
+                : "the account mac (this Mac's Claude Code login) is the store's default, but Claude Code is not signed in on this Mac — run claude on the Mac to sign in")
+        default:
+            status(.info, "decide later — a Claude Code sandbox says what it needs (doz account ls, doz account add)")
+        }
+    }
+
     private func settingsOutcome(_ body: () throws -> (Onboarding.ConfigOutcome, String?)) throws -> (Onboarding.ConfigOutcome, String?) {
         do { return try body() } catch let e as SettingsError {
             throw fail(HostError(.failed, e.message), g)
@@ -766,6 +803,7 @@ struct Onboard: AsyncParsableCommand {
     @Flag(name: .long, help: "Read a GitHub token from stdin as the default key (implies --github-source key).") var githubKeyStdin = false
     @Option(name: .long, help: "The Access step's SSH choice without asking: on or off (forward this Mac's ssh-agent, github.com only).") var sshAgent: String?
     @Option(name: .long, help: "The Folder rules step without asking: lock or hide — what a .dozignore in a sandbox's folder does to the paths it lists, by default (the setting folder.ignore_mode). Lock: listed but unreadable; hide: not there.") var ignoreMode: String?
+    @Option(name: .long, help: "Claude Code's account from this Mac's login, without asking: mac (this Mac's Claude Code login — the default account), none (not used: no account mac; a key or setup-token instead) or later (nothing changes).") var claudeAccount: String?
     @Option(name: .long, help: "Codex's OpenAI account without asking: mac (this Mac's own Codex login, read-only), chatgpt (sign in with ChatGPT in your browser — Dozable's own sign-in), openai-key (pasted at a no-echo prompt) or later.") var openaiAccount: String?
     @Option(name: .long, help: "The Usage statistics step without asking (official builds): on or off — off sets telemetry.send_anonymous_usage_stats = false. Without it, --yes and no terminal leave the setting as it is.") var usageStats: String?
     @Option(name: .long, help: "Start the daemon when you log in, without asking: on (one login item in ~/Library/LaunchAgents — daemon.login_item = on) or off. Without it, --yes and no terminal add nothing and leave the setting as it is.") var startAtLogin: String?
@@ -778,6 +816,7 @@ struct Onboard: AsyncParsableCommand {
         if let v = ignoreMode, !["lock", "hide"].contains(v) { throw ValidationError("--ignore-mode: lock or hide") }
         if let v = usageStats, !["on", "off"].contains(v) { throw ValidationError("--usage-stats: on or off") }
         if let v = startAtLogin, !["on", "off"].contains(v) { throw ValidationError("--start-at-login: on or off") }
+        if let v = claudeAccount, !["mac", "none", "later"].contains(v) { throw ValidationError("--claude-account: mac, none or later") }
         if let v = openaiAccount, !["mac", "chatgpt", "openai-key", "later"].contains(v) { throw ValidationError("--openai-account: mac, chatgpt, openai-key or later") }
         if openaiAccount == "chatgpt", !BuildFlavor.current.chatgptSignIn { throw ValidationError("--openai-account chatgpt: " + BuildFlavor.chatgptSignInMissing) }
         if githubKeyStdin && secretStdin { throw ValidationError("--github-key-stdin and --secret-stdin both read stdin — add one later (doz access set --github-key / doz account add)") }
@@ -814,6 +853,7 @@ struct Onboard: AsyncParsableCommand {
         flow.githubKeyStdin = githubKeyStdin
         flow.ignoreModeFlag = ignoreMode
         flow.openaiFlag = openaiAccount
+        flow.claudeFlag = claudeAccount
         flow.usageStatsFlag = usageStats.map { $0 == "on" }
         flow.startAtLoginFlag = startAtLogin.map { $0 == "on" }
         let report = try await flow.run()

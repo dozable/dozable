@@ -597,6 +597,9 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// Claude config dir, adopted keychain service; the policy; verify (default true); force; on/off.
     public var account: String?
     public var accountKind: String?
+    /// 775: account-default — this Mac's Claude Code login as an account: `none` (the store declines it: no account `mac`,
+    /// the default none) or `mac` (adopted again, the default). Additive: an older daemon sets the default alone.
+    public var macLogin: String?
     /// 617: a `key` account's provider (`xai`, `google`); `account-default` by provider.
     public var provider: String?
     /// 617 (§7): account-add — where the key is read from (a reference, never a value), its tool variables, its TTL.
@@ -1878,6 +1881,9 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     /// new: made from a doz_project.yaml — its path, and its network preset.
     public var project: String?
     public var network: String?
+    /// 775 new: sites every agent of the workspace may reach on top of its network preset (`--site HOST`; a preset's own —
+    /// remotion-video's remotion.media). Additive.
+    public var sites: [String]?
     /// new: agents adopted at once.
     public var adopt: [String]?
     /// ls: only the loose agents.

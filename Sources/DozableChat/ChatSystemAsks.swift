@@ -9,7 +9,9 @@ import Foundation
 // A proposal is about a run that is over, so its room is usually closed (its workspace finished): a closed room refuses
 // every post and every decision, and expires its open asks, EXCEPT Dozable's own ask — it is posted, answered and kept open
 // there (an archived room still refuses it). It expires like any ask (to decline). `systemAskClose` closes one Dozable
-// decided by another way (`doz workspace decide`): withdrawn, and the outcome posted as a change line under the same name.
+// decided by another way (`doz workspace decide`): DECIDED with that decision — applied or declined, `via` the command,
+// its text saying so (775: it read "withdrawn" in the room, beside a line saying it was applied) — or, with no decision
+// (an older daemon), withdrawn; and the outcome posted as a change line under the same name.
 
 extension ChatServerCore {
     /// Posts Dozable's own ask in `room`: `question` is its text, `spec` its ask object, `msgID` makes it once (the same id
@@ -54,10 +56,15 @@ extension ChatServerCore {
         return .success((ask.number, msgID))
     }
 
-    /// Closes Dozable's own ask `msgID` in `room` that was decided another way: withdrawn (no cooldown, no decision), and
-    /// `outcome` posted in the room as a change line under the server's name (not in an archived room). An ask already
-    /// closed is left as it is. Answers its state after.
-    public func systemAskClose(room: String, msgID: String, outcome: String) -> Result<String, ChatAPIError> {
+    /// The text and `via` of a decision made with `doz workspace decide` (775).
+    public static let decidedElsewhereText = "decided with doz workspace decide"
+    public static let decidedElsewhereVia = "workspace-decide"
+
+    /// Closes Dozable's own ask `msgID` in `room` that was decided another way: `decision` `apply` (its option) or `decline`
+    /// → decided, by the server's name, via `workspace-decide` (no cooldown); nil → withdrawn (no decision). `outcome` is
+    /// posted in the room as a change line under the server's name (not in an archived room). An ask already closed is left
+    /// as it is. Answers its state after.
+    public func systemAskClose(room: String, msgID: String, outcome: String, decision: String? = nil) -> Result<String, ChatAPIError> {
         func no(_ status: Int, _ s: String) -> Result<String, ChatAPIError> { .failure(ChatAPIError(status: status, description: s)) }
         guard hasRoom(room) else { return no(404, "no room \(goQuote(room))") }
         let st: ChatRoomStore
@@ -67,11 +74,26 @@ extension ChatServerCore {
         let (state, closedNow): (String, Bool) = askLock.withLock {
             guard let a = st.askOf(msgID) else { return ("", false) }
             if a.state != "open" { return (a.state, false) }
-            guard (try? st.closeAsk(msgID, state: "withdrawn", decision: nil, at: chatNow(), declined: false)) == true else {
+            let at = chatNow()
+            var d: ChatAskDecision?
+            if let decision, decision == "apply" || decision == "decline" {
+                let input = decision == "decline" ? ChatDecideInput(text: Self.decidedElsewhereText, decline: true)
+                    : ChatDecideInput(option: decision, text: Self.decidedElsewhereText)
+                let checked = ChatAskForm.checkAnswers(a, input)
+                var x = ChatAskDecision(by: ChatProtocol.systemName, sender: nil, declined: checked.declined || decision == "decline",
+                                        answers: checked.bad.isEmpty ? checked.answers : [], text: Self.decidedElsewhereText, at: at,
+                                        digest: a.digest, via: Self.decidedElsewhereVia)
+                ChatAskForm.compatFields(a, &x)
+                if !x.declined, x.option != decision { x.option = decision; x.label = decision == "apply" ? "Apply" : x.label }
+                x.text = Self.decidedElsewhereText
+                d = x
+            }
+            let state = d == nil ? "withdrawn" : "decided"
+            guard (try? st.closeAsk(msgID, state: state, decision: d, at: at, declined: false)) == true else {
                 return (st.askOf(msgID)?.state ?? "", false)
             }
             askChanged(room, st, msgID, tell: false)
-            return ("withdrawn", true)
+            return (state, true)
         }
         if closedNow, !outcome.isEmpty, !isArchived(room) {
             var ch = ChatStored.change(chatNewID(), from: ChatProtocol.systemName, content: outcome, at: chatNow())

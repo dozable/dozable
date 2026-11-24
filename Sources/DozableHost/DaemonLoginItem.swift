@@ -181,7 +181,8 @@ public enum DaemonLoginItem {
     /// starts nothing. nil folder or launchctl: a guarded run without the seams (nothing of launchd or the folder is read).
     public static func status(store: DozableStore, settings: DozableSettings = .load(), keepers: Int = 0,
                               launchctl: Launchctl? = Launchctl.forLooking(), folder: URL? = LaunchAgentsFolder.forLooking(),
-                              program: String = StableExecutable.path(), appPlaces: [URL]? = nil) -> LoginItemStatus {
+                              program: String = StableExecutable.path(), appPlaces: [URL]? = nil,
+                              appStore: DozableStore? = MenuBarAppPlaces.appStore()) -> LoginItemStatus {
         let setting = settings.string(SettingKey.loginItem) ?? "ask"
         let alwaysOn = settings.bool(SettingKey.alwaysOn)
         var st = LoginItemStatus(setting: setting, owner: "none", label: label(store), path: "", program: nil, installed: false,
@@ -206,7 +207,13 @@ public enum DaemonLoginItem {
         let d = decide(setting: setting, alwaysOn: alwaysOn, keepers: keepers, appOwned: app.loaded, installed: st.installed,
                        stale: st.stale, loaded: st.loaded, mode: .command)
         st.wanted = d.wanted
-        if app.loaded { st.note = "the Dozable menu bar app starts the daemon at login" + (app.program.map { " (\($0))" } ?? "") }
+        // 775: the app's job runs doz with launchd's environment — the default store's daemon. Another store (a scratch store,
+        // XDG_CONFIG_HOME or DOZ_STORE) is said so: its daemon does not start at login.
+        if app.loaded, let a = appStore, !MenuBarAppPlaces.sameStore(a, store) { st.appStore = a.root.path }
+        if app.loaded {
+            st.note = (st.appStore == nil ? "the Dozable menu bar app starts the daemon at login"
+                                          : LoginItemStatus.otherStoreWords(st.appStore!)) + (app.program.map { " (\($0))" } ?? "")
+        }
         else if !d.wanted || d.action != .none { st.note = d.reason }
         return st
     }
@@ -344,6 +351,22 @@ public enum MenuBarAppPlaces {
         return [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")]
     }
 
+    /// 775: the store the menu bar app's login job starts — its doz runs with launchd's environment (no XDG_CONFIG_HOME, no
+    /// DOZ_STORE), so the settings file under the home, else the default. A guarded run: only `DOZ_TEST_APP_STORE` (nil —
+    /// not known — without it: the real settings are never read).
+    public static func appStore(env: [String: String] = ProcessInfo.processInfo.environment, guarded: Bool? = nil,
+                                home: URL = TestSafety.realHome) -> DozableStore? {
+        if guarded ?? TestSafety.guarded(env) {
+            return env["DOZ_TEST_APP_STORE"].flatMap { $0.hasPrefix("/") ? DozableStore(root: URL(fileURLWithPath: $0)) : nil }
+        }
+        return DozableStore.resolve(nil, environment: ["HOME": home.path])
+    }
+
+    /// Two stores are one when their folders resolve to the same path.
+    public static func sameStore(_ a: DozableStore, _ b: DozableStore) -> Bool {
+        a.root.resolvingSymlinksInPath().standardizedFileURL.path == b.root.resolvingSymlinksInPath().standardizedFileURL.path
+    }
+
     /// The executables of the installed copies in `places`: a `Dozable.app` whose Info.plist names this app's identifier
     /// and whose `Contents/MacOS/Dozable` is an executable file.
     public static func installedExecutables(_ places: [URL]) -> [String] {
@@ -378,6 +401,8 @@ public struct LoginItemStatus: Codable, Equatable, Sendable {
     /// The install rule holds (setting on, always on or a kept session, no app job).
     public var wanted: Bool
     public var note: String?
+    /// 775: the menu bar app's job starts ANOTHER store's daemon (the default store, this path) — not this store's. Additive.
+    public var appStore: String?
 
     public init(setting: String, owner: String, label: String, path: String, program: String?, installed: Bool, loaded: Bool,
                 disabled: Bool?, stale: Bool, wanted: Bool, note: String?) {
@@ -385,8 +410,17 @@ public struct LoginItemStatus: Codable, Equatable, Sendable {
         self.installed = installed; self.loaded = loaded; self.disabled = disabled; self.stale = stale; self.wanted = wanted; self.note = note
     }
 
+    /// The menu bar app starts this store's daemon at login.
+    public var appStartsThisStore: Bool { owner == "app" && appStore == nil }
+
+    /// 775: the words for an app job that starts another store's daemon.
+    public static func otherStoreWords(_ path: String) -> String {
+        "the Dozable menu bar app starts the default store's daemon (\(DisplayPath.tilde(path))), not this store's — this store's daemon starts with the first doz command"
+    }
+
     /// The `doz daemon status` line.
     public var line: String {
+        if owner == "app", let other = appStore { return "login item: " + Self.otherStoreWords(other) }
         if owner == "app" { return "login item: the Dozable menu bar app starts the daemon at login" }
         if !installed {
             switch setting {

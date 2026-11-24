@@ -25,6 +25,15 @@ A bare file name is in `Sources/DozableKit/`.
 
 ## Rules that each cost a bug to learn here
 
+- **A refused HTTPS CONNECT is answered inside the tunnel** (775): a CONNECT the policy denies (`deny`, port 443, a name,
+  not this Mac's route) with a CA gets `200`, the guest's TLS terminated with a leaf of the sandbox's CA, its first
+  request read (at most 64 KiB, 10 s) and answered `403` — "blocked by the sandbox network policy: HOST:443 (RULE)" and
+  `refusalHint` ("refused by Dozable's network policy, not a network failure", `doz net NAME`, `doz net allow NAME
+  site:HOST`; a fenced session's `@mac --session S`) — then closed (`refuseInsideTLS`). Nothing is dialled, the record is
+  the same denial (never `decrypted`); curl printed only "CONNECT tunnel failed, response 403" before. No CA, another
+  port (FenceConnect's `:22`), an inspect refusal or an address: the CONNECT `403` as before. DNS is unchanged: a denied
+  name is still NXDOMAIN (a program that ignores `HTTPS_PROXY` sees "not found"). `EgressProxyTests`.
+
 - **`lo` needs a global-scope source address** (`lo:doz`, 169.254.255.254/32, set by doznet):
   lo's 127.0.0.1 is host-scoped, so without it an outbound socket gets source 0.0.0.0, its SYN is
   still redirected, and every later segment is dropped — a silent stall, not an error.

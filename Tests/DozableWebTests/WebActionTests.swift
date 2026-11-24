@@ -980,10 +980,16 @@ final class WebActionTests: XCTestCase {
             (#""folders":["# + manyFolders + "]", "9 folders"),
             (#""adopt":["a","b","c","d","e"]"#, "5 agents"), (#""refs":["ftp://x"]"#, "not http(s) or a path"),
             (#""refs":["/\#(String(repeating: "a", count: 1025))"]"#, "a path over 1024 bytes"),
+            (#""sites":["x.example.com:443"]"#, "a site with a port"), (#""sites":"remotion.media""#, "sites not a list"),
+            (#""sites":[7]"#, "a site not text"), (#""sites":["host.dozable.internal"]"#, "this Mac's route as a site"),
         ] {
             invalid(base + "," + extra + "}", why)
         }
         invalid(#"{"action":"workspace-new","workspace":"w","brief":""}"#, "the action's brief is required")
+        // 775: a preset's sites, checked as the CLI's --site.
+        if case .workspaceNew(let w, _) = try decode(#"{"action":"workspace-new","workspace":"w","brief":"b","network":"standard","sites":["Remotion.media"]}"#) {
+            XCTAssertEqual(w.sites, ["remotion.media"])
+        } else { XCTFail("not new") }
 
         let start = try decode(Self.samples["workspace-start"]!)
         var wantStart = WorkspaceRequest(name: "launch-video")

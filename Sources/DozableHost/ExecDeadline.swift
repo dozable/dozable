@@ -69,11 +69,17 @@ public enum ExecDeadline {
     /// The watchdog's line.
     public static func message(_ seconds: Int64) -> String { "doz: exec timed out after \(seconds) s (counted from when doz started)" }
 
+    /// 775: what to do instead, after the line (a long render was killed at 120 s with only the line to go on).
+    public static let hint = "--timeout SECONDS gives it longer, or doz run -d NAME -- CMD for a long job"
+
+    /// The watchdog's whole line (the daemon never answered, so whether the command was killed is not known here).
+    public static func watchdogLine(_ seconds: Int64) -> String { message(seconds) + "; " + hint }
+
     /// `DozableEntry`'s first step: for an exec command line, start the watchdog.
     public static func arm(_ args: [String], start: Date? = ProcessStart.date) {
         guard let n = seconds(args) else { return }
         let fire = deadline(seconds: n, start: start ?? Date()).addingTimeInterval(grace)
-        let line = message(n) + "\n"
+        let line = watchdogLine(n) + "\n"
         let t = Thread {
             // Short sleeps against the wall clock: a process stopped (SIGSTOP) past its deadline ends as soon as it runs.
             while true {

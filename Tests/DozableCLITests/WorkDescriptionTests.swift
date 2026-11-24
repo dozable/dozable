@@ -150,6 +150,37 @@ final class WorkDescriptionTests: XCTestCase {
         XCTAssertEqual(st.askOf(id)?.decision?.by, "ada")
     }
 
+    /// 775: decided with `doz workspace decide`, its Ask reads applied (or declined) — decided, never withdrawn.
+    func testCloseWithTheDecisionReadsAppliedOrDeclined() throws {
+        let core = try chatCore()
+        let id = chatNewID(), id2 = chatNewID()
+        guard case .success = core.systemAsk(room: "room1", msgID: id, question: "Apply this lesson?", spec: Self.spec),
+              case .success = core.systemAsk(room: "room1", msgID: id2, question: "And this one?", spec: Self.spec) else { return XCTFail("refused") }
+        guard case .success(let s) = core.systemAskClose(room: "room1", msgID: id, outcome: "Proposal pr-00000001 was applied.", decision: "apply") else {
+            return XCTFail("refused")
+        }
+        XCTAssertEqual(s, "decided")
+        let st = try core.store("room1")
+        let a = try XCTUnwrap(st.askOf(id))
+        XCTAssertEqual(a.state, "decided")
+        XCTAssertEqual(a.decision?.option, "apply")
+        XCTAssertEqual(a.decision?.declined, false)
+        XCTAssertEqual(a.decision?.via, ChatServerCore.decidedElsewhereVia)
+        XCTAssertEqual(a.decision?.text, "decided with doz workspace decide")
+        guard case .success(let d) = core.systemAskClose(room: "room1", msgID: id2, outcome: "Proposal pr-00000002 was declined.", decision: "decline") else {
+            return XCTFail("refused")
+        }
+        XCTAssertEqual(d, "decided")
+        XCTAssertEqual(st.askOf(id2)?.decision?.declined, true)
+        XCTAssertEqual(st.askOf(id2)?.decision?.option, "decline")
+        // How `doz chat read` marks them.
+        let (page, _) = try core.messagePage(room: "room1", after: 0, before: 0, limit: 50, viewer: "")
+        let marks = page.compactMap { m in m.kind == "ask" ? chatAskMark(m.json) : nil }
+        XCTAssertTrue(marks.contains { $0.hasSuffix("applied with doz workspace decide") }, "\(marks)")
+        XCTAssertTrue(marks.contains { $0.hasSuffix("declined with doz workspace decide") }, "\(marks)")
+        XCTAssertFalse(marks.contains { $0.contains("withdrawn") })
+    }
+
     func testCloseWithdrawsItAndPostsTheOutcome() throws {
         let core = try chatCore()
         let id = chatNewID()
@@ -285,12 +316,19 @@ final class WorkDescriptionTests: XCTestCase {
         let declined = await c.handle(r)
         XCTAssertNil(declined.error)
         XCTAssertEqual(try record(c).addenda, [], "declined: nothing changes")
-        // Decided with the verb: applied, its Ask withdrawn with Dozable's line.
+        // Decided with the verb: applied, its Ask closed with that decision (775: decided, never "withdrawn") and Dozable's line.
         let b = try proposal(await send(c, .workspaceRetro) { $0.addendum = "Lint first"; $0.run = "2026-11-24-1" })
         let d = try proposal(await send(c, .workspaceDecide) { $0.proposal = b.id; $0.decision = "apply" })
         XCTAssertEqual(d.state, "applied")
         XCTAssertEqual(d.decidedHow, "decide")
-        XCTAssertEqual(try core.store("room1").askOf(try XCTUnwrap(b.askId))?.state, "withdrawn")
+        let closed = try XCTUnwrap(try core.store("room1").askOf(try XCTUnwrap(b.askId)))
+        XCTAssertEqual(closed.state, "decided")
+        XCTAssertEqual(closed.decision?.option, "apply")
+        XCTAssertEqual(closed.decision?.via, ChatServerCore.decidedElsewhereVia)
+        // The workspace's log says how it was decided.
+        let applied = try XCTUnwrap(try WorkspaceStore(store: DozableStore(root: URL(fileURLWithPath: dir + "/store"))).log("demo")
+            .last { $0.action == "proposal-applied" })
+        XCTAssertEqual(applied.reason, "decided with doz workspace decide")
         XCTAssertTrue(try core.messagePage(room: "room1", after: 0, before: 0, limit: 50, viewer: "").messages.contains {
             $0.kind == "change" && $0.content.contains(b.id) && $0.content.contains("applied")
         })

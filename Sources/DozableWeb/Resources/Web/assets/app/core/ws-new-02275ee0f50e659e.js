@@ -61,5 +61,6 @@ export function requestFrom(c) {
   }
   if (c.workerIsolation) r.workerIsolation = c.workerIsolation;
   if (c.network && !c.fromProject) r.network = c.network;
+  if (c.sites && c.sites.length) r.sites = c.sites.slice();
   return r;
 }

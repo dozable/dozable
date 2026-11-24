@@ -36,6 +36,7 @@ doz workspace new NAME --brief "Fix the build" --folder ~/code/app --worker "Fix
 - `--worker "TASK"` (repeatable) declares a worker now; the start starts it.
 - `--preset NAME` starts from a preset: `blank`, `research`, `swift-tests`, `mac-admin`, `remotion-video`. A flag you
   give wins over the preset. An unknown preset exits 65 (`invalid-value`) and its message names the real ones.
+  `remotion-video` also allows `remotion.media` (Remotion's browser download); `--site HOST` adds another site.
 - `--start` starts it once it is made (or run `doz workspace start NAME --json` later). Declared workers need chat on:
   if the start says so (exit 3), tell the person — `doz chat on` is theirs to run.
 - `--dry-run --json` shows what would be made, every refusal and what the start would still need, and makes nothing.

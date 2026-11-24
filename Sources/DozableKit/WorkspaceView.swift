@@ -76,9 +76,10 @@ public enum WorkspaceView {
         !s.isEmpty && s.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "/._-".contains($0)) } && !s.contains("..")
     }
 
-    /// Shell: is the supervisor whose pid is in file $1 alive? Not `kill -0`: the container's PID 1
-    /// (`sleep infinity`) never reaps, so a killed supervisor stays a ZOMBIE that `kill -0` reports as alive
-    /// (seen in the suite). Alive = its /proc entry is dozview's and is not a zombie.
+    /// Shell: is the supervisor whose pid is in file $1 alive? Not `kill -0`: the container's PID 1 was a bare
+    /// `sleep infinity` that never reaped (775: `GuestCommand.reapingInit` reaps; a sandbox booted before it may not), so a
+    /// killed supervisor could stay a ZOMBIE that `kill -0` reports as alive (seen in the suite). Alive = its /proc entry is
+    /// dozview's and is not a zombie.
     static let aliveFunction = "dzv_alive() { p=$(cat \"$1\" 2>/dev/null) && [ -n \"$p\" ] && grep -q dozview \"/proc/$p/cmdline\" 2>/dev/null && ! grep -q '^State:[[:space:]]*Z' \"/proc/$p/status\" 2>/dev/null; }"
 
     /// The conf's fixed lines (mode, fold); the owner line is resolved in the guest — `ownerLine`.

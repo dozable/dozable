@@ -11,9 +11,9 @@ import { reacts } from '../components/chat-reactions-fa0ee8e593503bdf.js';
 import { chips } from '../components/chat-receipts-63c7f59c33da97d1.js';
 import { loadUnread, setPreview, showUnread } from '../components/chat-unread-9284e62b88511529.js';
 import { $, h } from '../dom/h-f853cc7eb6672c45.js';
-import { add, edited, fill } from './chat-messages-94a0920ecfeaf2be.js';
+import { add, edited, fill } from './chat-messages-e428386ba69802ce.js';
 import { changes, loadPresence, people } from './chat-people-246bc7547ebaccac.js';
-import { refreshState } from './chat-rooms-c9c9d3eeef80be80.js';
+import { refreshState } from './chat-rooms-3efe35cebfdd2c9f.js';
 
 const MEMBERCHANGE = / (invited|removed|left|created|added|rejoined|taken|archived|reopened) /;
 let stream = null, retry = 0, retryT = 0, leaveT = 0, opened = false;

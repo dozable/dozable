@@ -537,6 +537,8 @@ extension HostCore {
         if let n = w.network, !(WorkspaceNetworks.presets + WorkspaceNetworks.projectWords).contains(n) {
             refuse(HostError(.invalid, "--network is locked, standard or open, not \(n)"))
         }
+        // 775: sites on top of the preset — host names (no port), at most 16.
+        do { _ = try WorkspaceNetworks.checkedSites(w.sites) } catch { refuse(HostError.from(error)) }
         // The room: made, linked, or none — checked before anything is written.
         if w.noRoom == true, w.room != nil { refuse(HostError(.invalid, "--room or --no-room, not both")) }
         var rooms: [WorkspaceRoom] = []
@@ -611,7 +613,8 @@ extension HostCore {
                                   brief: WorkspaceBrief(refs: refs, sha256: space?.brief.sha256 ?? WorkspaceStore.sha256(brief),
                                                         bytes: space?.brief.bytes ?? brief.count, updatedAt: now),
                                   folders: folders, rooms: rooms, agents: agents,
-                                  defaults: WorkspaceDefaults(isolation: w.workerIsolation, network: w.network),
+                                  defaults: WorkspaceDefaults(isolation: w.workerIsolation, network: w.network,
+                                                              sites: ((try? WorkspaceNetworks.checkedSites(w.sites)) ?? nil)),
                                   flags: WorkspaceFlags(firstAgentAt: anyRunning ? now : nil), origin: origin)
         rec.declaredWorkers = declared
         // Recorded as made only when `new` makes it now: a `<projects_dir>/NAME` already there is the person's.

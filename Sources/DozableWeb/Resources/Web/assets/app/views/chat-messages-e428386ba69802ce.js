@@ -11,7 +11,7 @@ import { renderMarkdown } from '../core/chat-markdown-a6b1b4fee6227bd8.js';
 import { setSeen } from '../core/chat-storage-33378969d815dcb0.js';
 import { interleave, lineAt, lineKey, lineText } from '../core/ws-log-725b407c6811cd6c.js';
 import { isAsk } from '../core/asks-b27aaf2b833e1fb8.js';
-import { askCard, focusKey, refocus } from '../components/chat-ask-ba6c998970e5c2d1.js';
+import { askCard, focusKey, refocus } from '../components/chat-ask-094c76ada433571f.js';
 import { drawAtts } from '../components/chat-attachments-2f26c808caeb92f7.js';
 import { askDelete, startEdit } from '../components/chat-edit-98a4de160aad2ae5.js';
 import { moments, place } from '../components/chat-log-1fc6c219d594a8e3.js';

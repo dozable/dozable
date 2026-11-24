@@ -69,7 +69,8 @@ public enum ChatRoomControl {
             guard let room = a.field("room")?.stringValue, chatIsRoomName(room), let msgID = a.field("msgId")?.stringValue else {
                 return line(["refused": .string("not a system ask's close")])
             }
-            switch core.systemAskClose(room: room, msgID: msgID, outcome: a.field("outcome")?.stringValue ?? "") {
+            switch core.systemAskClose(room: room, msgID: msgID, outcome: a.field("outcome")?.stringValue ?? "",
+                                       decision: a.field("decision")?.stringValue) {
             case .success(let state): return line(["closedAsk": .string(state)])
             case .failure(let e): return line(["refused": .string(e.description)])
             }

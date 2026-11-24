@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+@testable import DozableCLI
 @testable import DozableHost
 
 /// 678: `doz exec`'s deadline — counted from the process's start (the kernel's record), found in argv without the parser
@@ -34,6 +35,10 @@ final class ExecDeadlineTests: XCTestCase {
         XCTAssertEqual(ExecDeadline.remaining(now.addingTimeInterval(-5), now: now), 1, "at least 1 for an older daemon")
         XCTAssertEqual(ExecDeadline.deadline(seconds: 3, start: now), now.addingTimeInterval(3))
         XCTAssertEqual(ExecDeadline.message(3), "doz: exec timed out after 3 s (counted from when doz started)")
+        // 775: what to do instead is said with it.
+        XCTAssertEqual(ExecDeadline.watchdogLine(3),
+                       "doz: exec timed out after 3 s (counted from when doz started); --timeout SECONDS gives it longer, or doz run -d NAME -- CMD for a long job")
+        XCTAssertEqual(Exec.during("running"), " — the command was killed; " + ExecDeadline.hint)
     }
 
     func testTheAnswerAtTheDeadline() throws {

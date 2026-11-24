@@ -266,11 +266,14 @@ func networkChecks(_ sb: Sandbox, log: ConnectionLog, phase: String) async throw
     func sh(_ s: String) async throws -> ExecResult { try await sb.exec(["sh", "-c", s], privileged: true, timeoutSeconds: 120) }
     var m = mark(log)
     let ok = try await sh("curl -s -m 30 -o /dev/null -w '%{http_code}' https://registry.npmjs.org/is-number")
-    let denied = try await sh("curl -s -m 30 -o /dev/null -w '%{http_connect}' https://example.com/; echo \" exit=$?\"")
+    // 775: refused INSIDE the tunnel — the program prints the refusal (never "Could not resolve host").
+    let denied = try await sh("curl -sS -m 30 -w ' codes=%{http_connect}/%{http_code}' https://example.com/ 2>&1; echo \" exit=$?\"")
     var rows = await since(log, m)
     check(ok.output == "200", "[\(phase)] allowed host through the proxy: registry.npmjs.org → \(ok.output)")
-    check(denied.output.hasPrefix("403") && rows.contains { $0.host == "example.com" && $0.kind == .connect && $0.verdict == .denied },
-          "[\(phase)] denied host: example.com → CONNECT refused (\(denied.output)), logged as denied")
+    check(denied.output.contains("codes=200/403") && denied.output.contains("refused by Dozable's network policy")
+          && denied.output.contains("doz net allow") && !denied.output.contains("Could not resolve host")
+          && rows.contains { $0.host == "example.com" && $0.kind == .connect && $0.verdict == .denied && !$0.decrypted },
+          "[\(phase)] denied host: example.com → refused, said inside the tunnel (\(denied.output.replacingOccurrences(of: "\n", with: " ").prefix(240))), logged as denied")
     m = mark(log)
     let dns = try await sh("getent hosts registry.npmjs.org | head -1; getent hosts example.com; echo \"denied=$?\"")
     rows = await since(log, m)

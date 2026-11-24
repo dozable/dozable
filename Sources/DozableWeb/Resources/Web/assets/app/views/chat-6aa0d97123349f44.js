@@ -22,10 +22,10 @@ import { icon } from '../dom/icons-aaec6b77d82a3494.js';
 import { openOwnWindow } from '../core/windows-392fe33565b4f8f7.js';
 import { chatWindowName, chatWindowPath } from '../core/routes-c03e6aed84ec9eb3.js';
 import { initComposer } from './chat-composer-aaf44ca5ebf99a40.js';
-import { loadOlder, watchTaps } from './chat-messages-94a0920ecfeaf2be.js';
+import { loadOlder, watchTaps } from './chat-messages-e428386ba69802ce.js';
 import { loadPresence, roomMenu, standing } from './chat-people-246bc7547ebaccac.js';
-import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms-c9c9d3eeef80be80.js';
-import { startLive, stopLive } from './chat-live-4610f82acb9b1567.js';
+import { drawRooms, mine, openRoom, paintPop, refreshState } from './chat-rooms-3efe35cebfdd2c9f.js';
+import { startLive, stopLive } from './chat-live-0cbf5b67d15c5aac.js';
 
 let built = false, loaded = false, statusT = 0, wanted = null, loading = false, scopeKey = '';
 

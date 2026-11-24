@@ -33,6 +33,7 @@ final class ToolsHostTests: XCTestCase {
     func testResourcesAccountForTheToolsCache() {
         XCTAssertEqual(Resources.classify(["tools", "gh", ToolsLayer.ghVersion, "gh"], currentLabKey: nil), "cache:tools")
         XCTAssertEqual(Resources.classify(["access.json"], currentLabKey: nil), "store", "599e's record is the store's, not stray")
+        XCTAssertEqual(Resources.classify(["daemon.held"], currentLabKey: nil), "store", "doz daemon stop's hold is Dozable's own, not stray")
         XCTAssertTrue(Resources.isValidID("cache:tools"))
     }
 }
