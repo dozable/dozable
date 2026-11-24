@@ -187,20 +187,35 @@ public struct ChatNotice: Sendable, Equatable {
 
     /// The plain line a client that knows nothing of notices shows: `[FEED · SEVERITY] Title: text (from NAME's LOG)`, and
     /// with no title `[FEED · SEVERITY] text (from NAME's LOG)`.
-    /// What the poster wrote (the title, the text, the source's name and log) is escaped so it reads as plain text: rooms
-    /// render Markdown, and a journal entry's text is an agent's words — never a link, an image or markup of its own.
+    /// What the poster wrote (the title, the text, the source's name and log) is made inert, the reference's way: one line,
+    /// and every character the rooms' renderer could make a link, image, markup or mention of written in its fullwidth form.
+    /// Rooms render Markdown with no backslash escapes, and a journal entry's text is an agent's words. `title` and `text`
+    /// themselves keep the words as sent (the card draws them as text).
     public var plainText: String {
         let e = Self.plain
         return "[\(feed) · \(severity)] " + (title.map { e($0) + ": " } ?? "") + e(text) + " (from \(e(source.name))'s \(e(source.log)))"
     }
 
-    /// `s` with every character Markdown (CommonMark and GFM) gives a meaning backslash-escaped, so it shows as written.
+    /// The fullwidth forms the plain line uses.
+    static let fullwidth: [Character: Character] = [
+        "`": "｀", "*": "＊", "[": "［", "]": "］", "<": "＜", ">": "＞", "~": "～", "\\": "＼", "&": "＆", "@": "＠",
+    ]
+
+    /// `s` as inert text on one line: line breaks become spaces; `` ` * [ ] < > ~ \ & @ `` their fullwidth forms; the colon
+    /// of `://` and the dot after `www` too (no autolink); an underscore outside a word too (no emphasis). Nothing after the
+    /// plain line's prefix then holds an ASCII `[ ] < > \ ` * @ &`, `://` or `www.`.
     public static func plain(_ s: String) -> String {
+        let chars = Array(s.replacingOccurrences(of: "\r\n", with: " ").map { $0.isNewline ? " " : $0 })
         var out = ""
-        out.reserveCapacity(s.utf8.count)
-        for ch in s {
-            if "\\`*_{}[]()#+-.!|<>~=:&".contains(ch) { out.append("\\") }
-            out.append(ch)
+        out.reserveCapacity(chars.count + 8)
+        func word(_ c: Character?) -> Bool { c.map { $0.isLetter || $0.isNumber } ?? false }
+        for (i, c) in chars.enumerated() {
+            let prev = i > 0 ? chars[i - 1] : nil, next = i + 1 < chars.count ? chars[i + 1] : nil
+            if let f = fullwidth[c] { out.append(f); continue }
+            if c == ":", next == "/", i + 2 < chars.count, chars[i + 2] == "/" { out.append("："); continue }
+            if c == ".", i >= 3, String(chars[(i - 3)..<i]).lowercased() == "www" { out.append("．"); continue }
+            if c == "_", !(word(prev) && word(next)) { out.append("＿"); continue }
+            out.append(c)
         }
         return out
     }

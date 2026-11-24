@@ -112,10 +112,20 @@ final class ChatNoticeTests: XCTestCase {
         XCTAssertEqual(t.decide(scope: "w", feed: "health", key: "a", now: 601), .post(heldBefore: 2), "after its window it posts again")
     }
 
-    func testThePlainLineEscapesWhatThePosterWrote() {
-        XCTAssertEqual(ChatNotice.plain("![x](https://evil.test/p.png) **bold** <b>&amp;"),
-                       #"\!\[x\]\(https\://evil\.test/p\.png\) \*\*bold\*\* \<b\>\&amp;"#)
+    func testThePlainLineMakesWhatThePosterWroteInert() {
+        XCTAssertEqual(ChatNotice.plain("![x](https://evil.test/p.png) **bold** <b>&amp; @bot1 `code` ~~s~~ \\ www.x.test _em_ snake_case\nline 2"),
+                       "!［x］(https：//evil.test/p.png) ＊＊bold＊＊ ＜b＞＆amp; ＠bot1 ｀code｀ ～～s～～ ＼ www．x.test ＿em＿ snake_case line 2")
         XCTAssertEqual(ChatNotice.plain("helper's journal 10 minutes"), "helper's journal 10 minutes", "ordinary words are unchanged")
+        // The reference's rule: after the prefix, no ASCII [ ] < > \ ` * @ &, no :// and no www.
+        let hostile = "[a](javascript:x) <img src=x onerror=y> \\` *x* @all & http://a www.b ![i](https://c/d)\n# h\n- l\n> q"
+        let n = ChatNotice(feed: "journal", kind: "journal.outcome", severity: "notice", subject: .init(type: "run", name: "r1"),
+                           source: .init(name: "helper", log: "journal"), text: hostile, at: "2026-11-25T00:00:00Z", title: hostile)
+        let line = n.plainText
+        let rest = String(line.dropFirst("[journal · notice] ".count))
+        XCTAssertFalse(rest.contains { "[]<>\\`*@&".contains($0) }, rest)
+        XCTAssertFalse(rest.contains("://") || rest.lowercased().contains("www."), rest)
+        XCTAssertFalse(line.contains("\n"), "one line")
+        XCTAssertEqual(n.text, hostile, "the notice keeps the words as sent")
     }
 
     func testAHigherSeverityRepeatIsNeverDroppedAndCriticalIsNeverRateLimited() {
