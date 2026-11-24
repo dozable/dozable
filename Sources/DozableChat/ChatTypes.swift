@@ -182,8 +182,7 @@ public struct ChatStored: Sendable, Equatable {
     public var deletedBy = ""
     /// An ask (kind `ask`): its questions, deciders, state and decision. Absent on a tombstone.
     public var ask: ChatAsk?
-    /// FEEDS: a notice (kind `notice`): the feed it is from and its fields (ChatNotice.swift). Absent on a tombstone.
-    public var feed = ""
+    /// FEEDS: a notice (kind `notice`): its fields, the feed among them (ChatNotice.swift). Absent on a tombstone.
     public var notice: ChatNotice?
 
     public init(kind: String = "", msgID: String, from: String, to: [String] = [], reMsgID: String = "", content: String = "",
@@ -217,7 +216,6 @@ public struct ChatStored: Sendable, Equatable {
         o.omitEmpty("deleted_at", deletedAt)
         o.omitEmpty("deleted_by", deletedBy)
         if let ask { o.add("ask", ask.json) }
-        o.omitEmpty("feed", feed)
         if let notice { o.add("notice", notice.json) }
         return o.value
     }

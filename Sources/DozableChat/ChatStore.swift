@@ -127,22 +127,27 @@ public final class ChatRoomStore: @unchecked Sendable {
         return false
     }
 
-    /// The row's `sender_info`: the sender's object, and for a notice (FEEDS) its `feed` and `notice` beside the sender's
-    /// members — the schema stays the reference's, and a reader that does not know them passes over them.
+    /// The row's `sender_info`: the sender's object, and for a notice (FEEDS) its `notice` beside the sender's members — the
+    /// schema stays the reference's, and a reader that does not know it passes over it.
     static func senderInfo(_ m: ChatStored) -> String {
         guard m.kind == "notice", let n = m.notice else { return m.sender.map { ChatJSON.encodeString($0.json) } ?? "" }
         var members: [JMember] = []
         if case .object(let ms)? = m.sender?.json { members = ms }
-        members.append(JMember("feed", .string(m.feed)))
         members.append(JMember("notice", n.json))
         return ChatJSON.encodeString(.object(members))
     }
 
-    /// A notice's `feed` and fields, read back from its row's `sender_info` (a deleted one keeps nothing of them).
+    /// A notice's fields, read back from its row's `sender_info` (a deleted one keeps nothing of them).
     static func readNotice(_ info: JValue?, into m: inout ChatStored) {
         guard m.kind == "notice", m.deletedAt == 0, let info, let v = info.field("notice") else { return }
-        m.feed = info.field("feed")?.stringValue ?? ""
         m.notice = try? ChatNotice.read(v)
+    }
+
+    /// The newest notices of the room (FEEDS), newest first: their msg_ids, at most `limit`.
+    public func noticeIDs(limit: Int = 200) -> [String] {
+        (try? sync {
+            try self.query("SELECT msg_id FROM messages WHERE kind='notice' AND deleted_at=0 ORDER BY seq DESC LIMIT ?", [.int(Int64(limit))]) { Self.text($0, 0) }
+        }) ?? []
     }
 
     public func setState(_ s: ChatState) throws {

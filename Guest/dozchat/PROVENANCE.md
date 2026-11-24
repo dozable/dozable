@@ -11,8 +11,8 @@ every sandbox (`/usr/local/lib/doz/bin/dozchat`, linked `/usr/local/bin/dozchat`
 
 | | |
 |---|---|
-| sha256 (auto) | `bb3705e22ec383146c7ffad4beefd97815357148f0c1f82ea78752d6c9d3ab33` |
-| size (auto) | 157432 bytes |
+| sha256 (auto) | `2fbca6169266ecc49aa48c30b6e564521ee4849063da6453623036dd81a5cac5` |
+| size (auto) | 158024 bytes |
 | format | ELF 64-bit LSB executable, ARM aarch64, statically linked (musl), stripped |
 | source | [`dozchat.c`](dozchat.c) (this directory) |
 | Zig | 0.16.0 — the same pinned toolchain as the other guest helpers; [`build.sh`](build.sh) fetches it (same URL and sha256 as `../deckhold/build.sh`) when missing |

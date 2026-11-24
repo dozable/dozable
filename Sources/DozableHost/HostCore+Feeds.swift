@@ -148,8 +148,10 @@ extension HostCore {
             action = ChatNoticeAction(label: "Look", command: c)
         }
         let text = f.text ?? "A test notice (doz workspace feeds \(n) --emit)."
-        let notice = ChatNotice(kind: kind, severity: severity, title: "Test: \(kind)", text: text, source: "doz workspace feeds --emit",
-                                dedupeKey: f.dedupe ?? "test:" + kind, action: action)
+        let subject = f.to.map { $0 == "owner" ? ChatNoticeSubject(type: "workspace", name: n) : ChatNoticeSubject(type: "identity", name: $0) }
+            ?? ChatNoticeSubject(type: "workspace", name: n)
+        let notice = ChatNotice(kind: kind, severity: severity, subject: subject, source: ChatNoticeSource(name: "the owner", log: "test feed"),
+                                text: text, action: action, dedupe: f.dedupe, title: "Test: \(kind)")
         if let why = notice.refusal() { throw HostError(.invalidValue, why) }
         return try await postFeedNotice(n, feed: FeedNames.test, notice: notice, toName: f.to, strict: true)
     }
@@ -176,10 +178,10 @@ extension HostCore {
             return FeedEmitted(workspace: n, feed: feed, result: "chat-off", plan: plan)
         }
         var post = notice
-        switch feedThrottle.decide(scope: n, feed: feed, key: notice.dedupeKey, now: Date().timeIntervalSince1970) {
+        switch feedThrottle.decide(scope: n, feed: feed, key: notice.dedupe ?? chatNewID(), now: Date().timeIntervalSince1970) {
         case .repeated:
             return FeedEmitted(workspace: n, feed: feed, result: "repeated", plan: plan,
-                               notes: ["the same notice (\(notice.dedupeKey)) was posted inside its window: not posted again"])
+                               notes: ["the same notice (\(notice.dedupe ?? "")) was posted inside its window: not posted again"])
         case .rateLimited:
             return FeedEmitted(workspace: n, feed: feed, result: "rate-limited", plan: plan,
                                notes: ["the \(feed) feed posted \(feedThrottle.limit) notices in the last minute: this one is held back"])
@@ -220,8 +222,8 @@ extension HostCore {
         var out = FeedEmitted(workspace: n, feed: feed, result: "posted", msgId: msgID, plan: plan)
         if plan.to.contains("needs-you") {
             var kept = feedNeedsYou[n] ?? []
-            kept.append(FeedNeedsYou(at: Date(), feed: feed, kind: notice.kind, title: post.title, text: post.text.isEmpty ? nil : post.text,
-                                     source: post.source.isEmpty ? nil : post.source))
+            kept.append(FeedNeedsYou(at: Date(), feed: feed, kind: notice.kind, title: post.title ?? notice.kind, text: post.text,
+                                     source: post.source.words))
             feedNeedsYou[n] = Array(kept.suffix(20))
         }
         // A critical notice for an agent: typed into its session when it is idle — the fixed sentence, never this text.
@@ -283,9 +285,10 @@ extension HostCore {
 
     /// The health feed: a workspace agent's program on this Mac exited with an error.
     func feedAgentCrashed(_ n: String, agent: String, exitCode: Int32) {
-        let notice = ChatNotice(kind: "health.crashed", severity: "warning", title: "\(agent) crashed",
-                                text: "Its program on this Mac exited with \(exitCode).", source: "this Mac",
-                                dedupeKey: "health.crashed:\(agent)", action: ChatNoticeAction(label: "See", command: "doz workspace state \(n)"))
+        let notice = ChatNotice(kind: "health.crashed", severity: "warning", subject: ChatNoticeSubject(type: "identity", name: agent),
+                                source: ChatNoticeSource(name: "this Mac", log: "health"), text: "Its program on this Mac exited with \(exitCode).",
+                                action: ChatNoticeAction(label: "See", command: "doz", args: ["workspace", "state", n]),
+                                dedupe: "health.crashed:\(agent)", title: "\(agent) crashed")
         Task { [weak self] in _ = try? await self?.postFeedNotice(n, feed: "health", notice: notice) }
     }
 
@@ -318,13 +321,17 @@ extension HostCore {
             feedWatch.logins[account] = word
             guard word != before, word == "expired" || word == "signed-out" else { continue }
             let critical = word == "signed-out"
-            let notice = ChatNotice(kind: critical ? "account.signed-out" : "account.expired", severity: critical ? "critical" : "warning",
-                                    title: critical ? "Claude Code signed out on this Mac" : "This Mac's Claude login expired",
-                                    text: critical ? "Agents using the \(account) account cannot work until you sign in again with claude on the Mac."
-                                        : "It renews while Claude Code runs on the Mac: open it (any prompt), and agents carry on.",
-                                    source: "this Mac", dedupeKey: "account:\(account):\(word)",
-                                    action: ChatNoticeAction(label: "Check", command: "doz account ls"))
-            for rec in live { _ = try? await postFeedNotice(rec.name, feed: "accounts", notice: notice) }
+            for rec in live {
+                let notice = ChatNotice(kind: critical ? "account.signed-out" : "account.expired", severity: critical ? "critical" : "warning",
+                                        subject: ChatNoticeSubject(type: "workspace", name: rec.name),
+                                        source: ChatNoticeSource(name: "this Mac", log: "accounts"),
+                                        text: critical ? "Agents using the \(account) account cannot work until you sign in again with claude on the Mac."
+                                            : "It renews while Claude Code runs on the Mac: open it (any prompt), and agents carry on.",
+                                        action: ChatNoticeAction(label: "Check", command: "doz", args: ["account", "ls"]),
+                                        dedupe: "account:\(account):\(word)",
+                                        title: critical ? "Claude Code signed out on this Mac" : "This Mac's Claude login expired")
+                _ = try? await postFeedNotice(rec.name, feed: "accounts", notice: notice)
+            }
         }
         // network: a host refused 3 times in 10 minutes for one agent's place.
         for rec in live {
@@ -344,10 +351,11 @@ extension HostCore {
                     feedWatch.refusals[k] = (feedWatch.refusals[k] ?? []).filter { now.timeIntervalSince($0) < 600 } + [r.time]
                     guard feedWatch.refusals[k]!.count == 3 else { continue }
                     let host = String(r.host.prefix(120))
-                    let notice = ChatNotice(kind: "network.refused", severity: "warning", title: "\(host) was refused for \(a.name)",
-                                            text: "The network refused \(a.name)'s connections to \(host) 3 times in 10 minutes: it is not on the allow list.",
-                                            source: a.place.display, dedupeKey: "network.refused:\(a.name):\(host)",
-                                            action: ChatNoticeAction(label: "See", command: "doz workspace reach \(rec.name)"))
+                    let notice = ChatNotice(kind: "network.refused", severity: "warning", subject: ChatNoticeSubject(type: "identity", name: a.name),
+                                            source: ChatNoticeSource(name: "this Mac", log: "network"),
+                                            text: "The network refused \(a.name)'s connections to \(host) 3 times in 10 minutes (\(a.place.display)): it is not on the allow list.",
+                                            action: ChatNoticeAction(label: "See", command: "doz", args: ["workspace", "reach", rec.name]),
+                                            dedupe: "network.refused:\(a.name):\(host)", title: String("\(host) was refused for \(a.name)".prefix(ChatNotice.maximumTitle)))
                     _ = try? await postFeedNotice(rec.name, feed: "network", notice: notice)
                 }
             }
@@ -362,13 +370,16 @@ extension HostCore {
             feedWatch.disk = level
             if level != before, level != "ok" {
                 let gib = String(format: "%.1f", Double(free) / Double(1 << 30))
-                let notice = ChatNotice(kind: "resources.disk", severity: level == "critical" ? "critical" : "warning",
-                                        title: "This Mac's disk is low: \(gib) GiB free",
-                                        text: level == "critical" ? "Sandboxes and sessions may stop working: free some space."
-                                            : "Below 10 GiB free: free some space before it runs out.",
-                                        source: "this Mac", dedupeKey: "resources.disk:\(level)",
-                                        action: ChatNoticeAction(label: "See", command: "doz resources"))
-                for rec in live { _ = try? await postFeedNotice(rec.name, feed: "resources", notice: notice) }
+                for rec in live {
+                    let notice = ChatNotice(kind: "resources.disk", severity: level == "critical" ? "critical" : "warning",
+                                            subject: ChatNoticeSubject(type: "workspace", name: rec.name),
+                                            source: ChatNoticeSource(name: "this Mac", log: "resources"),
+                                            text: level == "critical" ? "Sandboxes and sessions may stop working: free some space."
+                                                : "Below 10 GiB free: free some space before it runs out.",
+                                            action: ChatNoticeAction(label: "See", command: "doz", args: ["resources"]),
+                                            dedupe: "resources.disk:\(level)", title: "This Mac's disk is low: \(gib) GiB free")
+                    _ = try? await postFeedNotice(rec.name, feed: "resources", notice: notice)
+                }
             }
         }
     }

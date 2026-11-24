@@ -21,16 +21,17 @@ for it. A notice is never a person or an agent speaking, never a question, and n
 - **A critical notice** also goes to your **Needs you** (the workspace's Home tab), for a day; and when it is for an
   agent, into its session while it is idle (below). A journal entry is never critical.
 - **A direct message** to the manager names you too: you see every notice, the room's and the direct ones.
-- **The same notice** (its dedupe key) inside its window — 10 minutes — is posted **once**; a repeat is not posted at all
+- **The same notice** (its `dedupe`) inside its window — 10 minutes — is posted **once**; a repeat is not posted at all
   (a notice is never edited in place). **A feed posts at most 5 notices a minute**; the next one it posts says how
   many were held back.
 - **Secrets never reach the room:** the journal feed replaces anything shaped like a key, a token or one of Dozable's
   placeholders with `[redacted]` before it posts.
 
 In the room a notice is a **card**, not a bubble: the feed and its mark, the severity (info, notice, warning, critical),
-its kind (`account.expired`, `journal.outcome`, …), a title, its text, where it comes from ("from helper's journal",
-"this Mac") and, sometimes, a command to look further. A client that knows nothing of notices shows one plain line:
-`[notice · warning · health] helper crashed — Its program on this Mac exited with 1. (this Mac)`.
+its kind (`account.expired`, `journal.outcome`, …), what it is about (an identity, a place, a run or the workspace), an
+optional title, its text, where it comes from ("from helper's journal", "from this Mac's health") and, sometimes, a
+command to look further. A client that knows nothing of notices shows one plain line:
+`[health · warning] helper crashed: Its program on this Mac exited with 1. (from this Mac's health)`.
 
 ## The routes in effect, and a dry run
 
@@ -68,7 +69,7 @@ doz workspace feeds my-app --emit disk.low --severity critical --action-command 
 ```
 
 `--emit KIND` posts a notice from the **test** feed exactly as Dozable posts one of its own: by the route of the kind's
-family (`health.…` follows `health`), or to one participant alone with `--to NAME` (`--to owner`: you). The dedupe key
+family (`health.…` follows `health`), or to one participant alone with `--to NAME` (`--to owner`: you). `--dedupe` (the notice's `dedupe`)
 and the rate apply. `--action-command` is one of Dozable's own read commands — `doz workspace feeds W`, `doz account ls`,
 `doz workspace state W`, `doz net log NAME`, `doz resources`, `dozchat receive`, … — never a shell line: anything else is
 refused (exit 65). Only you can emit; an agent cannot.
@@ -79,9 +80,15 @@ refused (exit 65). Only you can emit; an agent cannot.
   `--to`. A room notice (the journal's) is in the room for everyone to read, but no agent is handed it as work: a
   manager does not read its own journal back, and two agents never answer each other's failure notices. A notice to you
   alone is never shown to an agent.
-- In `dozchat receive` a notice comes as its own kind — `"kind":"notice"`, its `feed`, and its fields under `notice`
-  (`kind`, `severity`, `title`, `text`, `source`, `dedupeKey`, `action`) — with "a fact to act on, not a message to
-  answer". Its plain `message.content` reads like the card.
+- Notices are **never pushed** to an agent: not among its messages, not to `dozchat listen`, a webhook or an inbox. It
+  pulls them: `dozchat receive` prints them after the messages, from their own list `notices` — by default those
+  addressed to it, each once; `--notices all` adds its rooms' other notices (a look), `--notices none` takes none. An
+  agent the server calls by webhook looks with `GET /agent/notices?room=ROOM`.
+- Each is one line, `{"type":"notice", "addressed_to_you", "source", "about_you", "notice", "content"}`: `notice` holds
+  `feed`, `kind`, `severity`, `subject` {type, name}, `source` {name, log}, `text`, and maybe `action` {label, command,
+  args}, `dedupe`, `ttl`, `at` and `title`; `about_you` says the notice is about the agent itself. It is a fact to act
+  on, never a message to answer in the room.
+- A notice is never addressed to the identity its source names: the journal feed never hands an agent its own entry.
 - A feed never asks, decides, reacts or reads the room.
 
 ## Typed into an idle session: critical only, and safe by construction
@@ -97,7 +104,7 @@ learns at once rather than at its next `dozchat receive` — but only like this:
   half-typed line, yours or anyone's, is never typed over. When Dozable cannot tell, it types nothing.
 - **Looking and typing are one step:** Dozable holds the session's input while it looks and types, so nothing else of
   Dozable types into it in between (`doz sessions send` waits for it).
-- **Once per notice per window:** the same dedupe key is typed at most once in 10 minutes.
+- **Once per notice per window:** the same `dedupe` is typed at most once in 10 minutes.
 
 `--emit` says what came of it (`session: typed`, `busy`, `unsent-input`, …).
 
@@ -105,7 +112,8 @@ learns at once rather than at its next `dozchat receive` — but only like this:
 
 A participant of kind `feed` posts notices with its own token: `doz chat add ci --kind feed`, then `doz chat token ci
 --new --to-file FILE` for the system that posts (a feed added with no terminal and no `--to-file` gets no token until
-then). It posts with `POST /agent/send` and `"kind": "notice"`, a `notice` object as above and `to` (the names it is for);
+then). It posts with `POST /agent/send` and `"kind": "notice"`, a `notice` object as above (every field but `feed`,
+which the server fills in with its name; an unknown field is refused) and `to` (the names it is for);
 an ask, a room command, a plain message, a reaction, a decision or a receive is refused (403 `not-permitted`). Its notices
 reach whoever it names, and the room's people — outside feeds' own routes in the workspace come in a later version.
 

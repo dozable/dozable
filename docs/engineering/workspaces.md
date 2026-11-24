@@ -1379,12 +1379,12 @@ feeds and the session typing are the daemon's.
   follows the route of its kind's family (`FeedNames.feed(ofKind:)`); `critical` adds `needs-you` (the daemon's memory,
   a day: `feedNeedsYou`, `workspace show`'s `needsYou`, the Home tab's Needs you) and, for a participant, `session`. A
   journal notice is never critical.
-- **Posting** (`postFeedNotice`): the plan, then `ChatNoticeThrottle` per workspace and feed (the same dedupe key inside
+- **Posting** (`postFeedNotice`): the plan, then `ChatNoticeThrottle` per workspace and feed (the same `dedupe` inside
   10 minutes posts once — never an edit; 5 a minute per feed, the next post saying how many were held back), then the
   control channel's `systemNotice` under the server's name. Nothing here posts while chat is not ready (said in the log).
 - **Dozable's own feeds** use what the daemon already sees: the journal (`workspaceJournalAdd` → `feedJournalEntry`:
-  `JournalFeed.notice` — outcomes and `met: no|partly` reviews only, text redacted with `BuildLogs.redact`, attributed
-  "from NAME's journal"); `health` (`macProgramEnded`: a workspace agent's program on this Mac exited non-zero); and every
+  `JournalFeed.notice` — outcomes and `met: no|partly` reviews only, text redacted with `BuildLogs.redact`; source
+  `{name: the identity, log: journal}` — "from NAME's journal" —, subject the run; posted to the room, never to its source); `health` (`macProgramEnded`: a workspace agent's program on this Mac exited non-zero); and every
   30 s (`runFeedWatch`, only for workspaces with live agents): `accounts` (a `LoginWatcher`'s state turning `expired` —
   warning — or `signed-out` — critical), `network` (a proxy log's denied records — a sandbox's egress, a fenced session's
   proxy — 3 for one host and one place in 10 minutes), `resources` (`statfs` of the store: < 10 GiB warning, < 2 GiB
@@ -1397,7 +1397,7 @@ feeds and the session typing are the daemon's.
   (`other` for anything else), never a field of the notice; the look (the program's status idle or done, and
   `unsentInput` of the live screen's cursor line — unknown is "has input") and the typing (`text`, then Enter, through
   deckhold) are one step under the session's input gate (`feedSessions.gate`, keyed `SANDBOX/SESSION` or
-  `@mac/SESSION`), which `doz sessions send` takes too; once per dedupe key per window. `FeedSessionPort` is the seam
+  `@mac/SESSION`), which `doz sessions send` takes too; once per `dedupe` per window. `FeedSessionPort` is the seam
   (`setFeedSessionPort` in tests). `FeedSessionDeliveryTests` ("template only, idle and no unsent input, atomic, one per
   dedupeKey per window").
 - Not built (by design for now): update in place and acknowledge (they wait for the reference server's experiment), an

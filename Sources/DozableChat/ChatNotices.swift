@@ -1,25 +1,30 @@
 import Foundation
 
-// FEEDS: posting a notice (ChatNotice.swift). Two ways in: a participant of kind `feed` with its own token
-// (`POST /agent/send` with `kind: "notice"`, `feed` its own name), and Dozable's own feeds — the journal, the Mac's account,
-// network, health and resource notices — which the daemon posts over its control channel (`systemNotice`,
-// ChatRoomControl.swift) under the server's own name, the feed named in the message.
+// FEEDS: posting a notice (ChatNotice.swift) and handing it to agents. Two ways in: a participant of kind `feed` with its
+// own token (`POST /agent/send` with `kind: "notice"` — the server fills in `notice.feed` with its name), and Dozable's
+// own feeds — the journal, the Mac's account, network, health and resource notices — which the daemon posts over its
+// control channel (`systemNotice`, ChatRoomControl.swift) under the server's own name, the feed named in the call.
 //
-// Who is handed a notice: those it names (`to`), and — in the room, not as a direct message — the room's people. An agent
-// is never handed a notice that does not name it, so a manager does not read its own journal back as work, and two agents
-// never answer each other's failure notices. Everyone who reads the room sees a room notice; a direct notice is seen by
-// those it names (Dozable's own name the owner beside the agent, so the owner sees them all).
+// Notices are never pushed to an agent: they are not handed over with the messages (`messages` of a receive, `listen`, a
+// webhook, an inbox). An agent pulls them, in their own list `notices` beside `messages` in `GET /agent/receive` — by
+// default only those addressed to it (each handed once), `notices=all` for the rest of its rooms' notices too (a look),
+// `notices=none` for none — or `GET /agent/notices?room=` (a look, for an agent delivered to by webhook). A room notice is
+// handed to the room's people on the page like any message. A notice's `to` may never name the participant its source
+// names: the journal feed never addresses an identity's own entry back to it.
 //
-// A notice counts for nothing an agent's run counts (the hold), wakes nobody it does not name, and is never a command.
+// A notice counts for nothing of the hold, wakes nobody it does not name, and is never a command.
 
 extension ChatServerCore {
     /// Posts `notice` from `from` (a feed participant, or the server's own name) as feed `feed` in `room`, for `to` (each a
     /// member of the room) — a direct message to them when `direct`. The same msgID again is a duplicate.
-    public func postNotice(room: String, msgID: String, from: String, feed: String, notice: ChatNotice, to: [String],
+    public func postNotice(room: String, msgID: String, from: String, feed: String, notice raw: ChatNotice, to: [String],
                            direct: Bool) -> ChatReceipt {
+        var notice = raw
+        notice.feed = feed
+        guard chatIsSessionName(feed) else { return .refused("a feed's name is a lower-case word (journal, health, ci)") }
         if let why = notice.refusal() { return .refused(why) }
         guard chatIsUUID(msgID) else { return .refused("a notice needs a uuid msg_id") }
-        guard chatIsSessionName(feed) else { return .refused("a feed's name is a lower-case word (journal, health, ci)") }
+        if to.contains(notice.source.name) { return .refused("a notice is never addressed to \(notice.source.name), whom its source names") }
         let system = from == ChatProtocol.systemName
         guard hasRoom(room) else { return .refused("no room \(goQuote(room))") }
         if !system && !member(room, from) { return .refused("\(from) is not a member of room \(room)") }
@@ -39,24 +44,66 @@ extension ChatServerCore {
         if direct && named.isEmpty { return .refused("a direct notice must name who it is for") }
         let sender = ChatSender(kind: "feed", id: system ? "dozable:feed:" + feed : (participant(from)?.fixedIdentity ?? "dozable:feed:" + from),
                                 name: system ? feed : from, verified: true)
-        var sm = ChatStored(kind: "notice", msgID: msgID, from: from, to: named, content: notice.plainText(feed: feed), at: chatNow(),
+        var sm = ChatStored(kind: "notice", msgID: msgID, from: from, to: named, content: notice.plainText, at: chatNow(),
                             sender: sender, isPrivate: direct)
-        sm.feed = feed
         sm.notice = notice
         do {
             if try st.insert(&sm) { return ChatReceipt("duplicate") }
         } catch { return .refused("store: \(error)") }
         if !system { heard(from, answered: true) }
         published(room, sm)
-        // Handed to those it names, and (a room notice) to the room's people — never to an agent it does not name.
-        var recipients = named
-        if !direct { for p in members(room) where p != from && isHuman(p) && !recipients.contains(p) { recipients.append(p) } }
-        for r in recipients {
-            setState(room, st, ChatState(msgID: sm.msgID, recipient: r, state: "queued", at: sm.at))
-            deliverInOrder(room, st, [sm.msgID], to: r)
+        // The room's people see it on the page; an agent it names pulls it (receive's `notices`) — never pushed.
+        var people = direct ? named.filter(isHuman) : []
+        if !direct { for p in members(room) where p != from && isHuman(p) { people.append(p) } }
+        for n in named where !people.contains(n) { people.append(n) }
+        for r in people {
+            if isHuman(r) {
+                setState(room, st, ChatState(msgID: sm.msgID, recipient: r, state: "queued", at: sm.at))
+                deliverInOrder(room, st, [sm.msgID], to: r)
+            } else {
+                // Never `queued`: that is a message waiting to be handed over. A notice waits to be pulled.
+                setState(room, st, ChatState(msgID: sm.msgID, recipient: r, state: "waiting", at: sm.at, detail: "a notice: it pulls it with its notices"))
+                wakePoll(r)
+            }
         }
         log("chat: notice \(Self.short(msgID)) from feed \(feed) in room \(room) (\(notice.kind), \(notice.severity))")
         return ChatReceipt("queued")
+    }
+
+    /// One notice as an agent pulls it: `{type: "notice", room, msg_id, addressed_to_you, source, about_you, notice, content}`.
+    func noticeItem(_ room: String, _ m: ChatStored, _ n: ChatNotice, for name: String) -> JValue {
+        .map(["type": .string("notice"), "room": .string(room), "msg_id": .string(m.msgID),
+              "addressed_to_you": .bool(m.to.contains(name)), "source": n.source.json,
+              "about_you": .bool(n.subject.type == "identity" && n.subject.name == name),
+              "notice": n.json, "content": .string(m.content)])
+    }
+
+    /// The notices `name` pulls now. `mode`: `mine` (the default: those addressed to it not handed yet — each handed once,
+    /// then delivered), `all` (those too, and every other notice of its rooms it may read, newest 50 a room — a look) or
+    /// `none`. `room`: one room only. `hand`: false for a look (nothing is marked).
+    func pullNotices(_ name: String, mode: String, room only: String? = nil, hand: Bool = true) -> [JValue] {
+        guard mode != "none" else { return [] }
+        var out: [JValue] = []
+        for room in roomNames() where member(room, name) && (only == nil || only == room) {
+            guard let st = try? store(room) else { continue }
+            var others = 0
+            for id in st.noticeIDs().reversed() {
+                guard let m = try? st.one(id), let n = m.notice, Self.canSee(m, name) else { continue }
+                let mine = m.to.contains(name)
+                if mine {
+                    let handed = m.states.contains { $0.recipient == name && $0.state == "delivered" }
+                    if hand && handed && mode == "mine" { continue }
+                    out.append(noticeItem(room, m, n, for: name))
+                    if hand && !handed {
+                        setState(room, st, ChatState(msgID: m.msgID, recipient: name, state: "delivered", at: chatNow(), detail: "pulled with its notices"))
+                    }
+                } else if mode == "all", others < 50 {
+                    others += 1
+                    out.append(noticeItem(room, m, n, for: name))
+                }
+            }
+        }
+        return out
     }
 
     /// `POST /agent/send` from a feed participant: a notice, `/rooms` or `/protocol` — anything else is refused as not

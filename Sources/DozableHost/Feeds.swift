@@ -111,7 +111,7 @@ public struct FeedEmitted: Codable, Equatable, Sendable {
     public var kind = "FeedNotice"
     public var workspace: String
     public var feed: String
-    /// `posted`, `repeated` (its dedupeKey inside its window: not posted), `rate-limited` (not posted) or `off`.
+    /// `posted`, `repeated` (its dedupe inside its window: not posted), `rate-limited` (not posted) or `off`.
     public var result: String
     public var msgId: String?
     public var plan: FeedPlan
@@ -237,17 +237,21 @@ public enum JournalFeed {
         var text = BuildLogs.redact(e.text ?? "")
         if text.isEmpty, let v = e.data?["value"]?.stringValue { text = BuildLogs.redact(v) }
         if text.utf8.count > 1000 { text = String(decoding: Array(text.utf8.prefix(1000)), as: UTF8.self) + " …" }
+        if text.isEmpty { text = e.kind == "outcome" ? "(no text)" : "not met" }
         let criterion = e.data?["criterion"]?.stringValue.map { " (\(BuildLogs.redact($0)))" } ?? ""
-        let title = e.kind == "outcome" ? "Outcome of \(run)" : "A review is not met\(criterion)"
+        var title = e.kind == "outcome" ? "Outcome of \(run)" : "A review is not met\(criterion)"
+        title = String(title.split(whereSeparator: \.isNewline).first ?? "").prefix(ChatNotice.maximumTitle).description
+        // The source is the identity whose journal it is ("from helper's journal"); the subject, the run.
         return ChatNotice(kind: "journal.\(e.kind)", severity: e.kind == "outcome" ? "info" : "warning",
-                          title: title, text: text, source: "from \(who)'s journal", dedupeKey: "journal:\(e.id)")
+                          subject: ChatNoticeSubject(type: "run", name: run), source: ChatNoticeSource(name: who, log: "journal"),
+                          text: text, dedupe: "journal:\(e.id)", title: title)
     }
 }
 
 /// A critical notice typed into an agent's idle session (review A — safe by construction): the text is Dozable's own, a
 /// FIXED sentence per feed, never free text from an agent, a journal or a feed; typed only when the session is idle AND has
 /// no unsent input, the look and the typing one step under the session's input gate (nothing else of the daemon types
-/// into it in between); once per dedupeKey per window. The details come through `dozchat receive`, where an agent already
+/// into it in between); once per dedupe per window. The details come through `dozchat receive`, where an agent already
 /// treats them as messages.
 public final class FeedSessionDelivery: @unchecked Sendable {
     /// The fixed sentence of each feed. Anything else gets the generic one.
@@ -289,12 +293,12 @@ public final class FeedSessionDelivery: @unchecked Sendable {
     public init(window: Double = 600, gate: KeyedGate = KeyedGate()) { self.window = window; self.gate = gate }
 
     /// Types the fixed text of `feed` into `session` when `notice` is critical and the session is idle with no unsent input,
-    /// once per dedupeKey per window: the look and the typing are one step under the session's gate. `look` answers nil
+    /// once per dedupe per window: the look and the typing are one step under the session's gate. `look` answers nil
     /// when there is no such session; `type` answers whether every byte was taken.
     public func deliver(_ notice: ChatNotice, feed: String, session: String, now: Double,
                         look: @Sendable () async -> Look?, type: @Sendable (String) async -> Bool) async -> Outcome {
         guard notice.severity == "critical", feed != "journal" else { return .notCritical }
-        let key = session + "\u{1F}" + notice.dedupeKey
+        let key = session + "\u{1F}" + (notice.dedupe ?? notice.kind + "\u{1F}" + notice.subject.name)
         if lock.withLock({ typedAt[key].map { now - $0 < window } ?? false }) { return .repeated }
         await gate.lock(session)
         defer { gate.unlock(session) }

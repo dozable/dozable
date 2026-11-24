@@ -426,7 +426,7 @@ public final class ChatServerCore: @unchecked Sendable {
         if canSee(m, viewer) { return m }
         var s = m
         s.kind = "private"; s.content = ""; s.attachments = []; s.mentions = []; s.reactions = []; s.states = []; s.ask = nil
-        s.feed = ""; s.notice = nil
+        s.notice = nil
         return s
     }
 

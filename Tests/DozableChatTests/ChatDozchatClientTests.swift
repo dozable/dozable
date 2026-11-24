@@ -523,7 +523,7 @@ final class ChatDozchatClientTests: XCTestCase {
             XCTAssertTrue(r.err.contains(words), "\(answer.prefix(30)): \(r.err)")
             XCTAssertEqual(canned.connections, 1, "one connection: nothing followed or retried (\(answer.prefix(30)))")
             XCTAssertTrue(canned.lastRequest.hasPrefix("GET /agent/receive?wait=0&ack=1 HTTP/1.1\r\n"), canned.lastRequest)
-            XCTAssertTrue(canned.lastRequest.contains("\r\nConnection: close\r\n") && canned.lastRequest.contains("\r\nUser-Agent: dozchat/4\r\n"))
+            XCTAssertTrue(canned.lastRequest.contains("\r\nConnection: close\r\n") && canned.lastRequest.contains("\r\nUser-Agent: dozchat/5\r\n"))
         }
         // send retries a 502 with the same msg_id, three times, and says so
         let canned = try CannedServer(answer: "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")

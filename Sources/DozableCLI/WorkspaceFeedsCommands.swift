@@ -18,7 +18,7 @@ struct WorkspaceFeedsCommand: AsyncParsableCommand {
 
         --dry-run --kind KIND --severity S says where one notice would go, and posts nothing. --emit KIND posts a notice \
         from the test feed as Dozable would post one of its own (with --severity, --dedupe, --to NAME or owner, --text, \
-        --action-command): the same dedupe key inside its window posts once, and a feed posts at most 5 notices a minute. \
+        --action-command): the same dedupe inside its window posts once, and a feed posts at most 5 notices a minute. \
         An action's command is one of Dozable's own read commands (doz workspace feeds W, doz account ls, dozchat \
         receive, …) — never a shell line.
 
@@ -34,7 +34,7 @@ struct WorkspaceFeedsCommand: AsyncParsableCommand {
     @Option(name: .long, help: "With --dry-run: the notice's kind, FAMILY.WHAT (account.expired, health.crashed, resources.disk).") var kind: String?
     @Option(name: .long, help: "The notice's severity: info, notice, warning or critical.") var severity: String?
     @Option(name: .long, help: "Post a notice of this kind from the test feed, as Dozable would.") var emit: String?
-    @Option(name: .long, help: "With --emit: its dedupe key (the same key inside its window posts once).") var dedupe: String?
+    @Option(name: .long, help: "With --emit: its dedupe (the same one inside its window posts once).") var dedupe: String?
     @Option(name: .long, help: "With --emit or --dry-run: the participant it is for alone (owner: you).") var to: String?
     @Option(name: .long, help: "With --emit: its text.") var text: String?
     @Option(name: .customLong("action-command"), help: "With --emit: a command to look further (Dozable's own read commands only).") var actionCommand: String?
