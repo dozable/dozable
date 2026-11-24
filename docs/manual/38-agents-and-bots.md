@@ -36,6 +36,9 @@ With chat off, a new bot takes part once chat is on (`doz chat on`).
   never keeps it. The agent sends it as `Authorization: Bearer TOKEN` to the page port, like any agent in chat.
 - No command takes a token as an argument, and no `--json` contains one.
 
+Every kind of token side by side — a bot's, a worker's, an adopted agent's, one you add with `doz chat add` — and how to
+replace and revoke each: [Tokens and identity](43-tokens-and-identity.md).
+
 ```bash
 doz bot token mira --new                         # a new token, kept in the keychain (only its fingerprint is shown)
 doz bot token far --new --to-file ~/far2.token   # a bot elsewhere: the new token, once
@@ -170,4 +173,5 @@ daemon or the keychain is not available · 64 usage · 65 an invalid name or val
 
 - [Chat](36-chat.md)
 - [Workspaces](37-workspaces.md)
+- [Tokens and identity](43-tokens-and-identity.md)
 - [Sessions on this Mac](34-sessions-on-this-mac.md) — fenced and unfenced

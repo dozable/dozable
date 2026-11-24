@@ -1,5 +1,9 @@
 # Troubleshooting and FAQ
 
+`doz doctor` first; then find your error below by its words. The failures people meet most, by name: **this Mac's
+Claude login expired**, **connection refused** on a chat port, **an Ask nobody answered**, **a command timed out**
+(exit 124), and **a refused host** that looks like a DNS error. Each has its row in [The common five](#the-common-five).
+
 ## Start here
 
 ```sh
@@ -23,6 +27,16 @@ Then, depending on what's wrong:
 | Where the disk went | `doz resources` |
 
 Add `-v` to any command to see every step it takes.
+
+## The common five
+
+| what you see | why | what to do |
+|---|---|---|
+| "this Mac's Claude login expired at 04:59" (or a 401 from the model) | The Mac's Claude Code login lasts about 8 hours, and only the Mac's Claude Code renews it. | Run `claude` on the Mac once (any prompt), or `doz account keepalive always`. A daemon started over SSH cannot renew it: start it from the Mac's desktop, or use a setup-token account (`doz account add NAME --setup-token`). See [Agents and accounts](09-agents-and-accounts.md#how-the-mac-login-stays-fresh). |
+| "connection refused" from `dozchat`, or no answer on 8790 | Chat is off, its server is restarting, or the agent is talking to another port — each store has its own (a second store, a moved port). | `doz chat status` (on, ready, its ports). An agent Dozable starts is given the right address (`CHAT_URL`); one you started yourself needs `CHAT_URL=http://host.dozable.internal:PORT` (in a sandbox or fenced session) or `http://127.0.0.1:PORT` (on this Mac), with the page port `doz chat status` shows. On another machine, see [Tokens and identity](43-tokens-and-identity.md#agents-on-other-machines-and-a-machine-without-a-token). |
+| An agent waits and nothing happens | It asked a question nobody answered: an Ask waits for a decision, and expires to decline (in 24 hours unless it says sooner). | `doz chat asks` lists the open ones; answer in the room or with `doz chat decide ROOM N OPTION`. `doz workspace state W` lists what waits for you. |
+| exit 124, "timed out" | `doz exec` stops a command after 120 s by default (a `wait` or `dozchat journal wait` after its `--timeout`). | `--timeout SECONDS` for a long command, or `doz run NAME -d` to run it in the background ([Terminals and sessions](07-terminals-and-sessions.md)). |
+| `ENOTFOUND`, "Could not resolve host" inside a sandbox | The host is not allowed: a refusal inside looks like a DNS error. | `doz net NAME` names the host and the allow command; in a workspace, `doz workspace show W --network`. See [the network](10-permissions-and-network.md). |
 
 ## Common problems
 
@@ -64,6 +78,17 @@ Add `-v` to any command to see every step it takes.
 | pi can't be created | pi needs an API key account: `doz account add NAME --api-key`. |
 | "the agent prompt does not render" | `doz inspect NAME --prompt` names the unknown `{{variable}}`; fix it or `doz config set agent.prompt false`. |
 | `sudo apt-get install` fails with a network error | `doz net NAME`: system packages need `install:system` (on in Standard). |
+
+### Workspaces and chat
+
+| symptom | what to do |
+|---|---|
+| `doz workspace start` lists gaps | Each comes with the command that fixes it: chat on, a room (`doz workspace edit W --make-room`), a folder gone, a bot not ready. |
+| `doz workspace run` is refused, `run-open` | A unit of work is still open — `doz workspace reopen` opens one too. `doz workspace finish W` first. |
+| `dozchat journal add` exits 4, naming `journal.write` | An agent writes the journal only once you grant it: `doz grant AGENT reviewer --in W`. |
+| An entry is refused, `no-open-run` | The journal takes entries only while a unit of work is open: `doz workspace run W`. |
+| An adopted agent hears nothing in the room | A session already running when it was adopted has no chat token until it restarts (`adopt` printed the command that hands it over now); and nothing tells it to listen: say in its prompt to run `dozchat receive`. |
+| A worker never starts: "needs chat" | `doz chat on`, then `doz workspace start W` again. |
 
 ### Network
 

@@ -18,6 +18,13 @@ dashboard's setup wizard). Both are safe to run again.
 - **An account** is how a tool pays for its AI model: your Mac's Claude Code or Codex login, a long-lived token, or
   a key of a provider (Anthropic, OpenAI, xAI, Google) or a gateway (OpenRouter). The secret stays on your Mac; a
   sandbox only ever sees a stand-in. See [Agents and accounts](09-agents-and-accounts.md).
+- **Onboard uses this Mac's Claude Code login by default.** When Claude Code is signed in on this Mac, that login —
+  the account `mac` — is what your agents use, with nothing to paste; the Models & keys step shows it. To set up with
+  another account instead, give it: `doz onboard --key setup-token` (or another provider's key) adds that one and runs
+  no Claude Code checks. That login **expires** after some
+  hours, and only the Mac's own Claude Code renews it: `doz account keepalive always` has Dozable run it when the login
+  expires (not for a daemon started over SSH), and a setup-token account (`claude setup-token`, valid a year) suits long
+  unattended work. See [How the Mac login stays fresh](09-agents-and-accounts.md#how-the-mac-login-stays-fresh).
 - **Access** is every other credential a sandbox may use as you — **GitHub as you**
   ([GitHub](18-github.md)) and **SSH agent forwarding**. Each is a choice of yours (both are off until you choose
   them), and each is **confirmed live** when you choose it. A credential that can't be confirmed can be

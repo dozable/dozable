@@ -10,7 +10,9 @@
                             (`NN-name.md`, `name.md`, https://dozable.com/docs/name[.md]) stays or becomes `NN-name.md`;
                             a link out of the manual (`../…`) and an image (`images/…`, not carried) become the
                             repository's file at this version's tag
-    llms.txt                the index: a title, one line per page with a RELATIVE link and the page's first sentence
+    llms.txt                the index, made from the manual's README.md: its description (the blockquote under its title),
+                            its "If you are an agent" section, and its "Contents" — one written line per page, in sections
+                            (`### NAME`), each linked RELATIVELY; every page must be listed there exactly once
     llms-full.txt           every page in reading order, each starting with its relative name
     VERSION                 the version, one line
 
@@ -91,41 +93,66 @@ def rewrite(text, page_names, repo_blob):
     return "\n".join(out)
 
 
-def plain(s):
-    s = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", s)
-    s = s.replace("**", "").replace("`", "").replace("*", "")
-    return re.sub(r"\s+", " ", s).strip()
+def readme_parts(text, names):
+    """The README's parts llms.txt is made from: (description, agent lines, contents lines). The README is the ONE place
+    each page's summary is written; a page missing from its contents, listed twice, or a listed file that is no page,
+    stops the bundle."""
+    lines = text.split("\n")
 
+    def section(title):
+        out, inside = [], False
+        for line in lines:
+            if line.startswith("## "):
+                if inside:
+                    break
+                inside = line[3:].strip() == title
+                continue
+            if inside:
+                out.append(line)
+        while out and not out[0].strip():
+            out.pop(0)
+        while out and not out[-1].strip():
+            out.pop()
+        return out
 
-def title_and_summary(text):
-    title, para, seen_title = None, [], False
-    fenced = False
-    for line in text.split("\n"):
-        t = line.strip()
-        if t.startswith("```"):
-            fenced = not fenced
-            if para:
-                break
-            continue
-        if fenced:
-            continue
-        if title is None and t.startswith("# "):
-            title, seen_title = plain(t[2:]), True
-            continue
-        if not seen_title:
-            continue
-        if not t:
-            if para:
-                break
-            continue
-        if t.startswith(("#", "|", "<", "!", ">", "- ", "* ")) or re.match(r"^\d+\. ", t):
-            if para:
-                break
-            continue
-        para.append(t)
-    text = plain(" ".join(para))
-    m = re.match(r"^(.+?[.!?])(\s|$)", text)
-    return title or "", (m.group(1) if m else text)
+    desc = []
+    for line in lines[1:]:
+        if line.startswith("## "):
+            break
+        if line.startswith(">"):
+            desc.append(line[1:].strip())
+        elif desc:
+            break
+    description = " ".join(d for d in desc if d)
+    agents, para = [], []
+    for line in section("If you are an agent") + [""]:   # each paragraph on one line, as the index's other lines are
+        if line.strip():
+            para.append(line.strip())
+        elif para:
+            agents += [" ".join(para), ""]
+            para = []
+    contents = section("Contents")
+    if not description or not agents or not contents:
+        sys.exit("x manual-bundle: README.md needs a description (a blockquote under its title), "
+                 "an \"## If you are an agent\" section and a \"## Contents\" section")
+    out, seen = [], []
+    for line in contents:
+        if line.startswith("### "):
+            out += ["", "## " + line[4:].strip(), ""]
+        elif line.startswith("- "):
+            m = re.match(r"^- \[[^\]]+\]\(([^)#\s]+)\)", line)
+            if m:
+                if m.group(1) not in names:
+                    sys.exit(f"x manual-bundle: README.md lists {m.group(1)}, which is no page")
+                seen.append(m.group(1))
+            out.append(line)
+    missing = [n for n in names if n not in seen]
+    twice = sorted({n for n in seen if seen.count(n) > 1})
+    if missing or twice:
+        sys.exit("x manual-bundle: README.md's Contents must list every page once:"
+                 + (" missing " + ", ".join(missing) if missing else "")
+                 + (" twice " + ", ".join(twice) if twice else ""))
+    return description, agents, out
 
 
 def bundle(manual, out, version, root):
@@ -141,23 +168,22 @@ def bundle(manual, out, version, root):
         with open(os.path.join(tmp, n), "w", encoding="utf-8") as f:
             f.write(rewritten[n])
 
+    if "README.md" not in rewritten:
+        sys.exit(f"x manual-bundle: no README.md in {manual} (llms.txt is made from it)")
+    description, agents, contents = readme_parts(rewritten["README.md"], names)
     lines = [
         f"# Dozable {version} — the manual",
         "",
-        "> Fast, resumable, secure Linux sandboxes for AI coding agents on your Mac — your API keys never go inside.",
+        "> " + description,
         "",
         f"The user manual of doz {version}, carried inside it: every page as Markdown, in this folder. "
         "`doz docs PAGE` prints one (a name or a number), `doz docs --path` prints this folder. "
         f"The same manual online, for this version only: {SITE}/v/{version}/llms.txt",
         "",
-        "## Docs",
-        "",
     ]
-    for n in names:
-        title, summary = title_and_summary(rewritten[n])
-        lines.append(f"- [{title}]({n}): {summary}" if summary else f"- [{title}]({n})")
-    if "README.md" in rewritten:
-        lines.append("- [The manual — contents](README.md): every chapter, and when to read it.")
+    lines += agents[:-1]
+    lines += contents
+    lines.append("- [The manual — contents](README.md): every page, in these sections, and when to read it.")
     lines += ["", "## Optional", "", "- [The whole manual in one file](llms-full.txt): every page above, in reading order.", ""]
     with open(os.path.join(tmp, "llms.txt"), "w", encoding="utf-8") as f:
         f.write("\n".join(lines))

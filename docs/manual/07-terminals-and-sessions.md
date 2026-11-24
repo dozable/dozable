@@ -38,8 +38,12 @@ doz exec my-app -- ls /workspace  # a one-off command: no terminal, output and e
 - `run` starts the program with no shell in front of it; write `bash -lc '…'` if you want one. It
   exits with the program's exit code.
 - `exec` is for scripts: no terminal and no input; stdout, stderr and the exit code pass straight
-  through (default timeout 120 s, `--timeout`). On agent images it runs as the agent's user in
-  `/workspace`; `--user root` for root.
+  through. On agent images it runs as the agent's user in `/workspace`; `--user root` for root.
+- **`exec` stops a command after 120 s** unless you pass `--timeout SECONDS`: the command is killed and `doz` exits 124
+  (`"timedOut": true` in `--json`). The time counts from when `doz` started, a wake or a start included. For a long
+  job — a build, a test suite, a video render — give it room (`doz exec my-app --timeout 1800 -- make render`), or run
+  it as a session in the background and come back to it: `doz run my-app -d --session render -- make render`, then
+  `doz sessions screen my-app render`.
 - A paused or sleeping sandbox is woken first; a sandbox that is off is started by `run` and `exec`
   (`--no-wake` and `--no-start` refuse instead).
 - A program the sandbox does not have is said plainly — "`sudo` is not installed in this sandbox's
