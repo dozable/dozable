@@ -141,6 +141,23 @@ final class WorkspaceAdoptTests: XCTestCase {
         let macSecret = await c.adoptedChatSecret(placeKey: "mac:wsu"), none = await c.adoptedChatSecret(placeKey: "mac:wsn")
         XCTAssertNotNil(macSecret, "a session on this Mac in the place gets it too")
         XCTAssertNil(none, "--no-token: nothing")
+        // A restart's reopen delivers what a new open does (macOpen and macReopen share `adoptedMacDelivery`; a sandbox's
+        // restart opens through openSession, which `sessionSecrets` feeds): fenced, its launch secret and the page port;
+        // unfenced, a token file; what the session was given wins.
+        let fenced = try await c.adoptedMacDelivery("wsu", fence: MacFenceRequest(), environment: nil, botSecrets: nil, recorded: nil)
+        XCTAssertEqual(fenced.botSecrets?.map(\.variable), ["CHAT_TOKEN"])
+        XCTAssertTrue(fenced.fence?.hostPorts?.contains { $0.port == macSecret?.port } == true)
+        let unfenced = try await c.adoptedMacDelivery("wsu", fence: nil, environment: nil, botSecrets: nil, recorded: nil)
+        let file = try XCTUnwrap(unfenced.environment?["CHAT_TOKEN_FILE"])
+        XCTAssertEqual(CredentialFingerprint.of(try String(contentsOfFile: file, encoding: .utf8)), macSecret?.fingerprint)
+        let own = try await c.adoptedMacDelivery("wsu", fence: MacFenceRequest(), environment: ["CHAT_TOKEN_FILE": "/x"], botSecrets: nil, recorded: nil)
+        XCTAssertNil(own.botSecrets, "its own token wins")
+        let kept = try await c.adoptedMacDelivery("wsu", fence: MacFenceRequest(), environment: nil, botSecrets: nil,
+                                                  recorded: [LaunchSecret(variable: "CHAT_TOKEN", host: "x.example", port: 1, fingerprint: "f")])
+        XCTAssertNil(kept.botSecrets, "a secret of its own record wins")
+        let notAdopted = try await c.adoptedMacDelivery("wsn", fence: MacFenceRequest(), environment: nil, botSecrets: nil, recorded: nil)
+        XCTAssertNil(notAdopted.botSecrets, "--no-token: nothing at a restart either")
+        try? FileManager.default.removeItem(atPath: (file as NSString).deletingLastPathComponent)
         // Revoking a place's launch secrets never deletes it (only release does).
         await c.forgetForTest(owner: "wsa", try XCTUnwrap(sandboxSecret))
         XCTAssertNotNil(keychain.get(AdoptedToken.service(store: store.root, workspace: "demo", agent: "wsa")))
@@ -158,6 +175,12 @@ final class WorkspaceAdoptTests: XCTestCase {
         XCTAssertNil(gone)
         let after = await c.sessionSecretsOf("wsa")
         XCTAssertTrue(after.isEmpty)
+        w = WorkspaceRequest(name: "demo"); w.agent = "@mac/wsu"
+        m = await ask(c, .workspaceRelease, w)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        let reopened = try await c.adoptedMacDelivery("wsu", fence: MacFenceRequest(), environment: nil, botSecrets: nil, recorded: nil)
+        XCTAssertNil(reopened.botSecrets, "released: a restart carries no token")
+        XCTAssertNil(reopened.environment?["CHAT_TOKEN_FILE"])
         XCTAssertEqual(bytes(store.configFile("wsa").path), docJSON, "…and its doz.json still never written")
     }
 

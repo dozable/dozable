@@ -904,7 +904,9 @@ and `forgetLaunchSecret` never deletes it) and, from the adoption on, every sess
 as a launch secret (`adoptedChatSecret`: `CHAT_TOKEN` / `CHAT_TOKEN_FILE` to `host.dozable.internal:PAGE`, its value read
 from the item only while its fingerprint is the entry's) — a sandbox's through `sessionSecrets` (its record's secrets plus
 this one, bound in its proxy at open: never written to its `doz.json` or disk); a fenced session's as its launch secret (the
-page port among its host ports); an unfenced one's as a 0600 token file named by `CHAT_TOKEN_FILE`. Adopting itself still
+page port among its host ports); an unfenced one's as a 0600 token file named by `CHAT_TOKEN_FILE` — at a new open and at
+every restart's reopen alike (`adoptedMacDelivery`, shared by `macOpen` and `macReopen`; a sandbox's restart opens through
+`openSession`), what the session was given (its own environment, a launch secret of its own) winning. Adopting itself still
 writes only the workspace's record. A session already running gets it when it restarts: `adopt` says so and names the one
 command that hands it over now (`doz chat token NAME --to-file F` — its new token goes into the item too,
 `adoptedTokenReplaced`). `--no-token` (`WorkspaceRequest.noToken`) makes no participant: the agent stays off chat. A name
