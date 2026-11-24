@@ -44,6 +44,7 @@ extension HostCore {
                 var s = SpaceStateBuilder.build(intent: intent, ref: ref, record: rec, facts: facts, host: Self.spaceStateHost(), now: Date(), viewer: viewer)
                 if w.withConditions == true {
                     s.agentConditions = WorkspaceConditionsBuilder.build(record: rec, facts: facts, log: log, from: "space-file", hidden: !viewer.macSessions)
+                    if viewer.macSessions { s.places = placeStates(rec, intent: intent, conditions: s.agentConditions) }
                 }
                 return s
             } catch let e as HostError where e.code == .notFound {
@@ -56,8 +57,27 @@ extension HostCore {
         if !viewer.macSessions { s = s.hiding(RecordStateBuilder.macSubjects(rec0)) }
         if w.withConditions == true {
             s.agentConditions = viewer.macSessions ? conditions : WorkspaceConditionsBuilder.build(record: rec0, facts: facts, log: log, from: "record", hidden: true)
+            if viewer.macSessions { s.places = placeStates(rec0, intent: nil, conditions: conditions) }
         }
         return s
+    }
+
+    /// 774: the workspace's places with their sessions: the space file's places (each agent in the one it names — the
+    /// record's `placeName`, else the file's `where:`), then a derived place for each other agent. A session on this Mac
+    /// shows its own fence's tag when it runs fenced (`MacFenceRecord.tag`: one per session, never shared).
+    func placeStates(_ rec: WorkspaceRecord, intent: SpaceIntent?, conditions: WorkspaceConditions?) -> [WorkspacePlaceState] {
+        let sessions = mac.records().sessions
+        let declared = intent?.places ?? []
+        let named = Dictionary((intent?.agents ?? []).compactMap { a in a.place.map { (a.name, $0) } }, uniquingKeysWith: { a, _ in a })
+        // A sandbox place of the file runs as `<space>-<name>`: an agent there is in it by its sandbox's place name.
+        let bySandbox = Dictionary((intent?.sandboxes ?? []).map { ($0.placeName, $0.name) }, uniquingKeysWith: { a, _ in a })
+        func record(_ a: WorkspaceAgent) -> MacSessionRecord? { a.place.mac == true ? a.place.session.flatMap { sessions[$0] } : nil }
+        return WorkspacePlaces.states(
+            declared: declared, agents: rec.agents,
+            placeOf: { a in a.placeName ?? named[a.name].flatMap { n in declared.contains { $0.name == n } ? n : nil } ?? a.place.sandbox.flatMap { bySandbox[$0] } },
+            fence: { a in record(a)?.fence.map { "doz-fence:" + $0.tag } },
+            fenced: { a in record(a).map { $0.fence != nil } },
+            state: { a in conditions?.agents[a.name]?.condition ?? "unknown" })
     }
 
     /// The facts of a workspace with no space file: what `spaceStateFacts` gathers for its record's agents and rooms, the

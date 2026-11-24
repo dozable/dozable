@@ -316,7 +316,7 @@ editor's, and `ordered()`, the sha and the frames never carry them.
 **The `--json` contract** (`SpaceState.stateAnswer`, plan v2 §2.2): `kind` `WorkspaceState` and `schema` 1 first, then the
 document exactly as `ordered()` writes it (its `sha` unchanged — a reader that decodes it as `SpaceState` still can), then
 `from` (`record` | `space-file`), `agents` `{NAME: {condition, reason?, role, place, since?}}` (ISO 8601), `conditions`
-`{ready, allocated, hot, run, archived}` and `revision` (empty until the revision store). The text output adds an
+`{ready, allocated, hot, run, archived}`, `places` (below) and `revision` (empty until the revision store). The text output adds an
 AGENT/ROLE/PLACE/CONDITION/WHY table. The dashboard is unchanged: the Space tab and the pictures read `workspace-state` only once they hold a space file's text, so
 a record workspace is still drawn as a plain tile — its drawing is a later stage (DR1). Frames stay space-only.
 
@@ -869,6 +869,32 @@ parameterised id (`GrantPermissions.kindOf`), answered by a grant of that id or 
 `evidence.attach` when it attaches. Correcting another's entry needs `journal.supersede`, decided by the daemon once it has
 read whose the entry is. No identity may be named `owner` (65): the space validator refuses an agent of that name, and
 `worker add` and `adopt --as` a new one (`WorkspaceName.checkNewAgent`).
+
+### Places (0.52.54)
+
+A place is an entity (workspace-model.md, "Place — a policy; the fence per session"): `WorkspacePlace` in
+`WorkspacePlace.swift`, declared in a space file's `x-dozable.places` (space-files below), validated and compiled by
+`SpaceValidator` (`Rules.places`, `Schema.places`) and `SpaceIntent` (`places`, each agent's `place`).
+
+- **`doz workspace plan -f F --json`** (`SpacePlan`, additive): `places[]` `{name, isolation: vm|fenced|unfenced,
+  external?: {sandbox}, image?, cpus?, memory?, view, network, credentials, from: declared|sandboxes|workspace-vm}` and
+  `agents[]` `{name, where, isolation?, external}` — `where` a place's name, a sandbox's, `@mac/SESSION`, `bot:NAME` or
+  `mac`. A policy part is a string (`none: acts as you` for every part of an unfenced place — never an empty policy; a
+  default such as `the agent's folder`, `locked (the workspace's default)`, `none`), a folder → `ro|rw` map (`view`), a
+  list (`credentials`) or `{preset, allow?}` (`network`).
+- **`doz workspace state W --json`** (`SpaceState.places`, carried like `agents` — only when asked, never in `ordered()`,
+  the sha or the frames, and not to a viewer who may not see this Mac's sessions): `places[]` as above (no size) with
+  `sessions[]` `{identity, session, state, fence?}` — `session` `@mac/SESSION` or the sandbox's name, `state` the agent's
+  condition, `fence` its own fence's tag `doz-fence:TAG` (`MacFenceRecord.tag`; nil in a VM or unfenced). Two agents in one
+  fenced place: two sessions, two distinct fences. A space workspace lists its file's places (an agent in the one its
+  record's `placeName`, else its `where:`, names), then a derived place for every other agent; a record workspace lists
+  derived places only (`WorkspacePlaces.states`, `HostCore.placeStates`).
+- **Up** gives each agent of a declared place `WorkerRequest.placeName`, recorded as `WorkspaceAgent.placeName`. An external
+  place no agent runs in is only declared: its check step is skipped ("no agent runs in the place").
+- **Grants:** `HostCore.refuseAPlace` refuses `doz grant PLACE …` (`--in W`) when PLACE is one of W's places and none of
+  its agents: exit 2 (`not-found`), `PLACE is a place — grants attach to an agent, never to a place`, naming the agents in
+  it; nothing is read from or written to a grant file. Tests: `WorkspacePlaceTests`,
+  `WorkspaceLifecycleHostTests.testUpRecordsEachAgentsPlaceAndAGrantNeverNamesAPlace`.
 
 ### The agent relay (0.52.52)
 

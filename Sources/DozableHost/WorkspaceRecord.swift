@@ -346,9 +346,13 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
     /// 771: the fingerprint of an adopted agent's chat token, held in its own keychain item (`AdoptedToken`) and delivered
     /// to every session Dozable starts in its place from the adoption on. Never the value. Additive.
     public var tokenFingerprint: String?
+    /// 774: the declared place it runs in (a space file's `x-dozable.places` entry, by name): a fenced place is a policy, and
+    /// this agent's session has its own fence built from it. nil: no declared place — its place is derived from `place`
+    /// (`WorkspacePlaces.derived`). Additive.
+    public var placeName: String?
     public var unknown = UnknownFields()
     static let known: Set<String> = ["name", "role", "place", "startedBy", "startedAt", "bot", "isolation", "stoppedAt", "task", "anonymous",
-                                     "pendingAt", "endedAt", "template", "participant", "tokenFingerprint"]
+                                     "pendingAt", "endedAt", "template", "participant", "tokenFingerprint", "placeName"]
 
     public init(name: String, role: String = "worker", place: AgentPlace, startedBy: String = "you", startedAt: Date, bot: String? = nil,
                 isolation: String? = nil) {
@@ -382,6 +386,7 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         template = try c.decodeIfPresent(String.self, forKey: "template")
         participant = try c.decodeIfPresent(String.self, forKey: "participant")
         tokenFingerprint = try c.decodeIfPresent(String.self, forKey: "tokenFingerprint")
+        placeName = try c.decodeIfPresent(String.self, forKey: "placeName")
         unknown = try UnknownFields(c, known: Self.known)
     }
 
@@ -403,6 +408,7 @@ public struct WorkspaceAgent: Codable, Equatable, Sendable {
         try c.encodeIfPresent(template, forKey: "template")
         try c.encodeIfPresent(participant, forKey: "participant")
         try c.encodeIfPresent(tokenFingerprint, forKey: "tokenFingerprint")
+        try c.encodeIfPresent(placeName, forKey: "placeName")
     }
 }
 

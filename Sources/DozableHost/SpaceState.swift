@@ -96,6 +96,9 @@ public struct SpaceState: Codable, Equatable, Sendable {
     /// (`WorkspaceRequest.withConditions` — the CLI's `--json`); never in `ordered()`, so the editor's document, its sha and
     /// the frames are unchanged. `stateAnswer()` writes it.
     public var agentConditions: WorkspaceConditions?
+    /// 774: the workspace's places with their sessions (`WorkspacePlaceState`), carried like `agentConditions` — only when
+    /// asked, never in `ordered()`. `stateAnswer()` writes it.
+    public var places: [WorkspacePlaceState]?
 
     public init(space: String, observedAt: String, factsKnown: Bool, host: String, run: Run? = nil, items: [Item] = [], extras: [Item] = [],
                 attention: [Attention] = [], sha: String = "") {
@@ -171,6 +174,8 @@ public struct SpaceState: Codable, Equatable, Sendable {
             // 764: one condition per layer beside `ready` (never replacing it).
             m.append(JMember("conditions", .object([JMember("ready", .bool(c.ready))] + (c.layers?.members() ?? []))))
         }
+        // 774: each place and its sessions — a fenced place's each with a fence of its own. Additive.
+        if let ps = places, let d = try? HostWire.encoder.encode(ps), let v = try? ChatJSON.parse(d) { m.append(JMember("places", v)) }
         m.append(JMember("revision", .string("")))
         return .object(m)
     }

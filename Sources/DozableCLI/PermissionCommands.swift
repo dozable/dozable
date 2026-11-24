@@ -265,7 +265,9 @@ struct PermissionsGrant: AsyncParsableCommand {
         discussion: """
         Exactly one of --in W, --room W/R and --everywhere. A grant in a room beats one in its workspace, which beats one \
         everywhere; a never from you wins over everything; a ceiling caps it. The owner role is never granted; admin only \
-        --everywhere; deciders are made in chat, by you only. Example: doz permissions grant mira keychain.use=never --in myapp-tests
+        --everywhere; deciders are made in chat, by you only. A grant is for an agent or a bot, never for a place: a \
+        workspace's place (a space file's x-dozable.places) is refused, exit 2 — grant the agents in it. Example: doz \
+        permissions grant mira keychain.use=never --in myapp-tests
         """)
     @OptionGroup var g: GlobalOptions
     @OptionGroup var o: GrantOptions

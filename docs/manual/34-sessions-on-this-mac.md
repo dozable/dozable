@@ -14,6 +14,10 @@ it starts to its project folder, its own temporary files and caches, and Dozable
 Keychain, your secrets and your other folders are closed to it. `--unfenced` opts one session out — then nothing is
 around it at all.
 
+Each fenced session has a fence of its own — its own proxy, its own placeholders, its own profile — and shares none of it
+with another session. A workspace's **fenced place** (Space files, 39) is a policy, not a shared box: two agents in one
+fenced place are two sessions with two fences, each built from the place.
+
 ## The idea, in plain words
 
 A fenced session may change its project, and nothing else of yours that something unfenced would later run or load.

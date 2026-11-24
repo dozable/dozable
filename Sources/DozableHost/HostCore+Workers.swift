@@ -418,6 +418,7 @@ extension HostCore {
                                place: shared ? AgentPlace(sandbox: place, session: name) : iso == .vm ? .sandbox(place) : .macSession(place),
                                startedBy: "you", startedAt: now, bot: bot?.name, isolation: iso.rawValue)
         e.task = task
+        e.placeName = q.placeName.flatMap { WorkspaceName.isValidAgent($0) ? $0 : nil }
         e.anonymous = bot == nil ? true : nil
         e.pendingAt = now
         var director: String?

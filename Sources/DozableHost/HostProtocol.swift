@@ -2374,6 +2374,8 @@ public struct WorkerRequest: Codable, Equatable, Sendable {
     public var permissionMode: String?
     /// add: a new sandbox's name (vm only; default `W-NAME`) — a space file's `<space>-<sandbox>`. Additive.
     public var newSandbox: String?
+    /// add: 774: the declared place it runs in (a space file's place, by name) — recorded on the agent. Additive.
+    public var placeName: String?
     /// end: delete its place too (its session's record, or its own sandbox).
     public var rm: Bool?
     /// ls: ended workers too.

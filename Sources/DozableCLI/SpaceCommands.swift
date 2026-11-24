@@ -292,8 +292,9 @@ struct SpacePlanCommand: AsyncParsableCommand {
         Reads FILE (or the one *.space.yaml in this folder) and the files it extends, checks it — every problem at once, \
         as file:line —, and prints the steps up would run in order: the external things it checks, the workspace it \
         makes, its rooms and folders, the start, each agent. The summary names every risky setting (unfenced, bypass, \
-        what persists, archive: off, transcripts discarded) with the file and line that set it. Changes nothing and never \
-        starts the daemon. Exit codes: 0 up could run · 65 a problem in the file · 2 something external missing · 4 a \
+        what persists, archive: off, transcripts discarded) with the file and line that set it. --json adds the places \
+        (x-dozable.places, the sandboxes: each name, isolation, view, network, credentials) and where each agent runs. \
+        Changes nothing and never starts the daemon. Exit codes: 0 up could run · 65 a problem in the file · 2 something external missing · 4 a \
         workspace of that name made without a space file · 7 something this version does not do yet.
         """)
     @OptionGroup var g: GlobalOptions

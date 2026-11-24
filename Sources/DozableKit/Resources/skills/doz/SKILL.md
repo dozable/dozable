@@ -67,6 +67,10 @@ doz workspace state NAME --json
   `archived`), `conditions.hot` `{value: all|some|none, sessions: {NAME: {condition, since}}}` (each session `starting`,
   `running`, `asleep`, `stopped`, `ended` or `unknown`), `conditions.run` `{open, id, since, state}` and
   `conditions.archived` `{value, at}`. `doz workspace ls --json` rows carry `conditions` `{allocated, hot: {value}, run}`.
+- `places[]` is where the agents run: `{name, isolation: vm|fenced|unfenced, external?, view, network, credentials,
+  sessions: [{identity, session, state, fence}]}`. A fenced place is a policy: each session in it has its own fence (its
+  own `fence`, never shared). An unfenced place says `"none: acts as you"` for its view, network and credentials. A grant
+  is for an agent, never a place: `doz grant PLACE …` is refused (exit 2) — grant the agents in it.
 - With no daemon running none is started: every condition is then `unknown`. Looking never changes anything.
 - More: `doz workspace show NAME --json` (its brief with `--brief`), `doz worker ls NAME --json`, `doz workspace ls --json`.
 

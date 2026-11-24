@@ -176,9 +176,28 @@ extension HostCore {
             return s
         }
         if name.hasPrefix("role:") { throw HostError(.invalid, "\(name.dropFirst(5).prefix(40)) is not a role — roles: \(RoleTable.names.joined(separator: ", "))") }
+        try refuseAPlace(name, in: scope?.workspace)
         let who = try grantFacts.resolve(name, in: scope?.workspace)
         guard let s = who.subject else { throw HostError(.notFound, "there is no agent or bot \(name)") }
         return s
+    }
+
+    /// 774: a grant attaches to an identity (an agent or bot) or its session, never to a place (model v3, option C). A name
+    /// that is one of the workspace's places and none of its agents is refused before anything is read or written.
+    func refuseAPlace(_ name: String, in w: String?) throws {
+        guard let w, let rec = try? workspaces.read(w) else { return }
+        if rec.agents.contains(where: { ($0.name == name || $0.bot == name) && $0.endedAt == nil }) { return }
+        guard placeNames(rec).contains(name) else { return }
+        let agents = rec.agents.filter { $0.endedAt == nil && $0.placeName == name }.map(\.name)
+        throw HostError(.notFound, "\(name) is a place — grants attach to an agent, never to a place"
+                        + (agents.isEmpty ? " (doz workspace show \(w))" : ": grant one of the agents in it (\(agents.joined(separator: ", ")))"))
+    }
+
+    /// The names of a workspace's places: its space file's (recorded beside the record), and the ones derived from its agents.
+    func placeNames(_ rec: WorkspaceRecord) -> Set<String> {
+        var out = Set(rec.agents.compactMap(\.placeName))
+        if SpaceRecordRef.of(rec) != nil, let (_, _, intent) = try? spaceStateInputs(rec.name) { out.formUnion((intent.places ?? []).map(\.name)) }
+        return out
     }
 
     /// Write `grants` into the everywhere file or the workspace's record, replacing what each one replaces.
