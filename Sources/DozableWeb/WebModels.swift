@@ -1874,6 +1874,8 @@ public struct WebWorkspaceDetail: Codable, Equatable, Sendable {
     /// Made by a space file: "Defined by FILE", up or down (its run), and the brief's file — its path shown like a
     /// folder's. Additive; nil for any other workspace.
     public var space: WebWorkspaceSpace?
+    /// FEEDS: the last day's critical notices of its feeds (Needs you). Additive; nil when none.
+    public var needsYou: [FeedNeedsYou]?
 
     public init(_ d: WorkspaceDetail) {
         name = d.name; state = d.state; words = WorkspaceState(rawValue: d.state)?.words ?? d.state; driver = d.driver; createdAt = d.createdAt
@@ -1888,6 +1890,7 @@ public struct WebWorkspaceDetail: Codable, Equatable, Sendable {
         gaps = d.gaps.map { $0.map { WebWorkspacePlan.Gap(item: $0.item, why: $0.why, fix: $0.fix, step: WebWorkspacePlan.step($0.item)) } }
         hidden = 0
         space = d.space.map(WebWorkspaceSpace.init)
+        needsYou = d.needsYou
     }
 }
 

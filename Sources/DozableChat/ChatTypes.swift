@@ -24,6 +24,8 @@ public struct ChatParticipant: Sendable, Equatable {
     }
 
     public var isHuman: Bool { kind == "human" }
+    /// FEEDS: a feed posts notices and nothing else (ChatNotice.swift).
+    public var isFeed: Bool { kind == "feed" }
     public func hasRole(_ r: String) -> Bool { roles.contains(r) }
 
     /// How messages reach it: its deliver value, except that a participant that is not the human and has no deliver
@@ -37,6 +39,7 @@ public struct ChatParticipant: Sendable, Equatable {
         case "claude-session": return "anthropic:claude-code:" + name
         case "grok-bot": return "xai:grok-bot:" + name
         case "human": return "human:" + name
+        case "feed": return "dozable:feed:" + name
         default: return "unknown:agent:" + name
         }
     }
@@ -179,6 +182,8 @@ public struct ChatStored: Sendable, Equatable {
     public var deletedBy = ""
     /// An ask (kind `ask`): its questions, deciders, state and decision. Absent on a tombstone.
     public var ask: ChatAsk?
+    /// FEEDS: a notice (kind `notice`): its fields, the feed among them (ChatNotice.swift). Absent on a tombstone.
+    public var notice: ChatNotice?
 
     public init(kind: String = "", msgID: String, from: String, to: [String] = [], reMsgID: String = "", content: String = "",
                 at: Double, mentions: [String] = [], sender: ChatSender? = nil, isPrivate: Bool = false) {
@@ -211,6 +216,7 @@ public struct ChatStored: Sendable, Equatable {
         o.omitEmpty("deleted_at", deletedAt)
         o.omitEmpty("deleted_by", deletedBy)
         if let ask { o.add("ask", ask.json) }
+        if let notice { o.add("notice", notice.json) }
         return o.value
     }
 

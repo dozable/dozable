@@ -301,6 +301,7 @@ public final class ChatSupervisor: @unchecked Sendable {
             guard ChatDirectory.kinds.contains(kind) else { throw HostError(.invalid, "\(kind) is not a kind: \(ChatDirectory.kinds.joined(separator: ", "))") }
             if entry != nil && !webhook { throw HostError(.invalid, "--webhook-entry goes with --webhook") }
             if webhook && inbox { throw HostError(.invalid, "one of --webhook or --inbox") }
+            if kind == "feed" && (webhook || inbox) { throw HostError(.invalid, "a feed is never delivered to: it posts notices and reads nothing") }
             if webhook, let why = ChatWebhookEntries.nameRefusal(entry ?? name) { throw HostError(.invalid, why) }
             if inbox || session != nil, let why = ChatDirectory.deliveryRefusal(inbox ? "inbox" : "poll", kind: kind, session: session) {
                 throw HostError(.invalid, why)
@@ -337,6 +338,7 @@ public final class ChatSupervisor: @unchecked Sendable {
             var p = d.participants[i]
             if let roles {
                 for r in roles where r != "decider" { throw HostError(.invalid, "\(r) is not a role: decider, or none") }
+                if !roles.isEmpty && (kind ?? p.kind) == "feed" { throw HostError(.invalid, "\(name) is a feed: a feed never decides") }
                 p.roles = roles.isEmpty ? nil : ["decider"]
             }
             guard let deliver else {
@@ -349,6 +351,7 @@ public final class ChatSupervisor: @unchecked Sendable {
             }
             if let kind {
                 guard ChatDirectory.kinds.contains(kind) else { throw HostError(.invalid, "\(kind) is not a kind: \(ChatDirectory.kinds.joined(separator: ", "))") }
+                if kind == "feed" && p.isDecider { throw HostError(.invalid, "\(name) has the decider role: a feed never decides (--role none first)") }
                 p.kind = kind
             }
             if let why = ChatDirectory.deliveryRefusal(deliver, kind: p.kind, session: session) { throw HostError(.invalid, why) }
@@ -400,6 +403,7 @@ public final class ChatSupervisor: @unchecked Sendable {
                 guard ChatDirectory.kinds.contains(kind) else { throw HostError(.invalid, "\(kind) is not a kind: \(ChatDirectory.kinds.joined(separator: ", "))") }
                 if a.entry != nil && !webhook { throw HostError(.invalid, "--webhook-entry goes with --webhook") }
                 if webhook && inbox { throw HostError(.invalid, "one of --webhook or --inbox") }
+                if kind == "feed" && (webhook || inbox) { throw HostError(.invalid, "a feed is never delivered to: it posts notices and reads nothing") }
                 if webhook, let why = ChatWebhookEntries.nameRefusal(a.entry ?? a.name) { throw HostError(.invalid, why) }
                 if inbox || a.session != nil, let why = ChatDirectory.deliveryRefusal(inbox ? "inbox" : "poll", kind: kind, session: a.session) {
                     throw HostError(.invalid, why)

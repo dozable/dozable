@@ -858,6 +858,10 @@ extension HostCore {
         }
         let t0 = ContinuousClock.now
         let receipt: SessionInput.Receipt
+        // FEEDS: one typist at a time per session — a critical notice's look-and-type holds the same gate.
+        let key = MacPlace.name + "/" + s
+        await feedSessions.gate.lock(key)
+        defer { feedSessions.gate.unlock(key) }
         do { receipt = try await DeckholdSocket.send(path: mac.socket(s), pieces: Self.sendPieces(r, bytes)) } catch { throw HostError.from(error) }
         switch receipt {
         case .delivered:

@@ -999,6 +999,9 @@ doz workspace journal W [RUN] [--json]           # a run's journal (the open run
 doz workspace journal W add KIND [TEXT] [--data JSON] [--ref R]… [--attach FILE]… [--attach-ref FILE]… [--supersedes N]   # an entry in the open run
 doz workspace journal W --follow [--after-wseq N | --after RUN#SEQ] [--until-finish] [--json]   # the workspace's lines as they happen (needs the daemon)
 doz workspace wait W --for journal.KIND [--after RUN#SEQ] [--timeout S]   # until such an entry is written (one already there counts); 124 on the timeout
+doz workspace feeds W [--json]                     # its feeds and where each one's notices go (the room, the manager, you, off)
+doz workspace feeds W --dry-run --kind K --severity S   # where one notice would go; posts nothing
+doz workspace feeds W --emit KIND [--severity S] [--dedupe KEY] [--to NAME|owner] [--text T] [--action-command C]   # a notice from the test feed
 doz workspace wait W --for ready [--timeout S]  # until every agent of the workspace is running
 doz workspace reopen W [--no-start] [--dry-run] [--if-plan SHA]   # the old name of run (--dry-run / --if-plan: reopen's plan, nothing started)
 doz workspace archive W [--remove-sandboxes [--no-keep-templates]] [--no-archive] [--dry-run] [--yes] [--if-plan SHA]   # rooms read-only, anonymous workers retired (the name typed)

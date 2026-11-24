@@ -89,6 +89,13 @@ function needsCard(d) {
       h('div', { class: 'ws-start-row' }, cur.o.startButton(), cmdLine('doz workspace start ' + d.name))));
   }
   if (d.notes.length) items.push(h('ul', { class: 'hm-gaps', 'data-ws-home-notes': '' }, ...d.notes.map((n) => h('li', null, n))));
+  // A feed's critical notice (the last day's): what it says, plain text — the room holds the whole notice.
+  const crit = d.needsYou || [];
+  if (crit.length) {
+    items.push(h('ul', { class: 'ws-home-list', 'data-ws-home-notices': String(crit.length) }, ...crit.map((x) => h('li', null,
+      icon('triangle-alert'), h('b', null, String(x.title || x.kind || '')), x.text ? ' — ' + String(x.text) : '',
+      x.source ? h('span', { class: 'muted' }, ' · ' + String(x.source)) : null))));
+  }
   const asks = (cur.asks || []).filter((x) => roomsOf(d).has(x.room));
   if (asks.length) items.push(h('ul', { class: 'ws-home-list', 'data-ws-home-asks': String(asks.length) }, ...asks.map((x) => askLine(d, x))));
   const stuck = d.agents.filter((a) => a.activity === 'blocked' || a.activity === 'error' || a.state === 'failed');

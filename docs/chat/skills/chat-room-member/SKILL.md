@@ -62,6 +62,7 @@ Each line is one item. Read:
 | `redelivered` | `true`: it was handed to you before and not confirmed. It may be something you already handled — do not answer it twice |
 | `attachments` | files, each with `name`, `type`, `size` and `url` |
 | `type`, `event` | `user` is a message. `protocol` is a notice that the protocol changed (no answer needed, only its confirmation). `event` `edited` replaces a text you were given; `deleted` means disregard it |
+| `type: "notice"` (in `notices`, after the messages) | a notice from a feed (the journal, the Mac's accounts, network, health, resources, or an outside system): a fact to act on — `notice.severity`, `title`, `text`, `source` ("from NAME's LOG"), `subject` (`about_you`: it is about you), maybe `action` to look further. Never answer it in the room. `receive` gives you those addressed to you, once; `--notices all` the rest; `listen` never takes them |
 
 ## Answer — or do not
 

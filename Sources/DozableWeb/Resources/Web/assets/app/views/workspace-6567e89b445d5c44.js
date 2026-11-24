@@ -22,22 +22,22 @@ import { menuButton } from '../components/menus-2bfb74f31fa5969c.js';
 import { pageFailure, toast } from '../components/notices-b2291adee29f3abd.js';
 import { dialog } from '../components/dialog-295a1b88d28029ea.js';
 import { startsOnce } from '../components/ws-gaps-fde7ac2eee8914d5.js';
-import { newWorkspaceRefusal } from './new-workspace-fa762ac1a9a1f3c2.js';
+import { newWorkspaceRefusal } from './new-workspace-37c743f40317053b.js';
 import { briefCard } from '../components/ws-brief-41b4f2763f1d79e8.js';
 import { driverChip, managerChip, workspacePill } from '../components/ws-marks-d5ea1fd9ab813391.js';
 import { renderNavWorkspaces } from '../components/ws-nav-fe800b642ae4f785.js';
 import { lifecycleItems, primaryButton, transitional } from '../components/ws-lifecycle-f3cc2bc58186ece8.js';
 import { agentMeta, wsPanel } from '../components/ws-panel-74dd0be0a24ad4dc.js';
-import { chatLeave, chatNavCheck, chatRefresh, mountChat } from './chat-6aa0d97123349f44.js';
+import { chatLeave, chatNavCheck, chatRefresh, mountChat } from './chat-fa37e57265fb099a.js';
 import { chatOnForm } from '../components/chat-on-b0966faa08770a77.js';
-import { drawSys } from './chat-messages-e428386ba69802ce.js';
-import { openRoom, refreshState } from './chat-rooms-3efe35cebfdd2c9f.js';
+import { drawSys } from './chat-messages-d65cfac34c742170.js';
+import { openRoom, refreshState } from './chat-rooms-7550ed3c58f798f2.js';
 import { agentsTab } from './ws-agents-01e24c88dc29bf25.js';
 import { networkTab } from './ws-network-5f2efdb4efeaa50e.js';
 import { foldersTab } from './ws-folders-6a35dc6f6d6e3c78.js';
 import { activityTab } from './ws-activity-e91b1705bf41647f.js';
 import { runsTab } from './ws-runs-7f8fe8b1b12dcb7c.js';
-import { homeDispose, homeTab } from './ws-home-7442786988fe0690.js';
+import { homeDispose, homeTab } from './ws-home-119798fb3538d5a9.js';
 
 /// The permissions tab's name — ONE constant (the owner's choice; every place that names the tab reads it).
 export const PERMISSIONS_TAB = 'Permissions';

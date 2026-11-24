@@ -1102,13 +1102,16 @@ async function leakSweep(row) {
 /// Open a ⋯ (by its aria-label) and choose an item by its label.
 async function menuPick(label, item) {
   await evaluate(`document.querySelector('button[aria-label=${JSON.stringify(label)}]').click()`);
-  // The menu can be drawn a moment after a state change (a reopen redraws the header): reopen it once if the item is late.
+  // After a state change the header redraws for a moment (a reopen's refreshes), which can close or replace a menu just
+  // opened: open it with the current button and pick in one step, up to three times.
+  const pick = `(() => { const m = [...document.querySelectorAll('[role=menuitem]')].find((m) => m.offsetParent && m.textContent.startsWith(${JSON.stringify(item)})); if (m) m.click(); return !!m; })()`;
   const has = `[...document.querySelectorAll('[role=menuitem]')].some((m) => m.offsetParent && m.textContent.startsWith(${JSON.stringify(item)}))`;
-  if (!(await waitFor(has, 5000))) {
-    await evaluate(`document.querySelector('button[aria-label=${JSON.stringify(label)}]')?.click()`);
-    await waitFor(has, 8000);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await evaluate(`document.querySelector('button[aria-label=${JSON.stringify(label)}]')?.click()`);
+    if (await waitFor(has, 5000) && await evaluate(pick)) return;
+    await sleep(500);
   }
-  await evaluate(`[...document.querySelectorAll('[role=menuitem]')].find((m) => m.offsetParent && m.textContent.startsWith(${JSON.stringify(item)})).click()`);
+  throw new Error(`menuPick: ${item} never showed in ${label}`);
 }
 const DIALOG = `document.querySelector('dialog.dlg[open]')`;
 async function tick() { await waitFor(`!!${DIALOG}?.querySelector('[data-confirm-check]')`, 8000); await evaluate(`(() => { const b = ${DIALOG}.querySelector('[data-confirm-check]'); b.click(); })()`); }

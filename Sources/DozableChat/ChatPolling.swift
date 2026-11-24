@@ -57,8 +57,11 @@ public final class ChatLongPoll: @unchecked Sendable {
     private let lock = NSLock()
     private var gone = false
 
-    init(core: ChatServerCore, name: String, ack: Bool, seconds: Int) {
-        self.core = core; self.name = name; self.ack = ack; self.seconds = seconds
+    /// FEEDS: which notices it pulls (`mine`, `all`, `none`).
+    let notices: String
+
+    init(core: ChatServerCore, name: String, ack: Bool, seconds: Int, notices: String = "mine") {
+        self.core = core; self.name = name; self.ack = ack; self.seconds = seconds; self.notices = notices
         epoch = core.pollEpochOf(name)
         roomEpoch = core.roomGoneEpochOf(name)
     }
@@ -71,10 +74,10 @@ public final class ChatLongPoll: @unchecked Sendable {
     public func finish() async -> ChatHTTPResponse {
         defer { core.pollEnded(name) }
         let deadline = chatNow() + Double(seconds)
-        var items: [JValue] = []
+        var items: [JValue] = [], notices: [JValue] = []
         // Something handed over may fall due while it waits, so it also looks every few seconds.
         let tick = min(max(ChatServerCore.ackTimeout / 4, 0.02), 5)
-        while items.isEmpty && !cancelled {
+        while items.isEmpty && notices.isEmpty && !cancelled {
             let left = deadline - chatNow()
             if left <= 0 { break }
             await core.waker(name).wait(seconds: min(left, tick))
@@ -83,8 +86,10 @@ public final class ChatLongPoll: @unchecked Sendable {
             if core.roomGoneEpochOf(name) != roomEpoch { break }
             let (core, name, ack) = (self.core, self.name, self.ack)
             items = await ChatListeners.offload { core.collect(name, ack: ack, redeliver: false) }
+            let mode = self.notices
+            notices = await ChatListeners.offload { core.pullNotices(name, mode: mode) }
         }
-        return ChatServerCore.receiveAnswer(items)
+        return ChatServerCore.receiveAnswer(items, notices: notices)
     }
 }
 
@@ -106,23 +111,32 @@ extension ChatServerCore {
     func pollStarted(_ name: String) { lock.withLock { live.polling[name, default: 0] += 1 } }
     func pollEnded(_ name: String) { lock.withLock { live.polling[name, default: 1] -= 1 } }
 
-    static func receiveAnswer(_ items: [JValue]) -> ChatHTTPResponse {
-        .json(200, .map(["messages": .array(items), "protocol_version": .string(ChatProtocol.version)]))
+    /// `notices` only when there is one: an answer with none is the protocol's own, byte for byte.
+    static func receiveAnswer(_ items: [JValue], notices: [JValue] = []) -> ChatHTTPResponse {
+        var m: [String: JValue] = ["messages": .array(items), "protocol_version": .string(ChatProtocol.version)]
+        if !notices.isEmpty { m["notices"] = .array(notices) }
+        return .json(200, .map(m))
     }
 
-    /// GET /agent/receive for name (already allowed to poll): the answer at once, or a wait the listener finishes.
-    func receive(_ name: String, wait rawWait: String, ack: Bool, redeliver: Bool) -> ChatHTTPResponse {
+    /// FEEDS: which notices a receive pulls (`notices=`): `mine` (the default), `all` or `none`.
+    static func noticesMode(_ raw: String) -> String { ["all", "none"].contains(raw) ? raw : "mine" }
+
+    /// GET /agent/receive for name (already allowed to poll): the answer at once, or a wait the listener finishes. Its
+    /// notices come in their own list (ChatNotices.swift), never among the messages.
+    func receive(_ name: String, wait rawWait: String, ack: Bool, redeliver: Bool, notices: String = "") -> ChatHTTPResponse {
         var wait = Int(rawWait) ?? 0
         if wait < 0 || wait > 50 { wait = 25 }
+        let mode = Self.noticesMode(notices)
         pollStarted(name)
         heard(name, answered: false)
         let items = collect(name, ack: ack, redeliver: redeliver)
-        if !items.isEmpty || wait == 0 {
+        let ns = pullNotices(name, mode: mode)
+        if !items.isEmpty || !ns.isEmpty || wait == 0 {
             pollEnded(name)
-            return Self.receiveAnswer(items)
+            return Self.receiveAnswer(items, notices: ns)
         }
         var r = Self.receiveAnswer([])
-        r.poll = ChatLongPoll(core: self, name: name, ack: ack, seconds: wait)
+        r.poll = ChatLongPoll(core: self, name: name, ack: ack, seconds: wait, notices: mode)
         return r
     }
 

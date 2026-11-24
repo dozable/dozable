@@ -43,6 +43,8 @@ extension HostCore {
             e.exitCode = Int(code)
             try? workspaces.append(rec.name, e)
             note(nil, "workspace \(rec.name): \(a.name) crashed: exit \(code)")
+            // FEEDS: the health feed tells whoever can act (the manager, else the owner).
+            feedAgentCrashed(rec.name, agent: a.name, exitCode: code)
             return
         }
     }

@@ -8,9 +8,9 @@ import { endEdit } from '../components/chat-edit-98a4de160aad2ae5.js';
 import { showDown } from '../components/chat-log-1fc6c219d594a8e3.js';
 import { showPreviews, showUnread } from '../components/chat-unread-9284e62b88511529.js';
 import { $, h } from '../dom/h-f853cc7eb6672c45.js';
-import { fill } from './chat-messages-e428386ba69802ce.js';
+import { fill } from './chat-messages-d65cfac34c742170.js';
 import { chatWindowName, chatWindowPath } from '../core/routes-c03e6aed84ec9eb3.js';
-import { people } from './chat-people-246bc7547ebaccac.js';
+import { people } from './chat-people-bc873bf4fa076f1d.js';
 
 /// The rooms the chat server shows the person: those they are in.
 export const mine = (r) => !viewer() || ((state.chat.srv.rooms[r] || []).includes(viewer()));

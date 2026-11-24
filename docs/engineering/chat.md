@@ -35,6 +35,7 @@ and another browser of the LAN option gets what `serve.chat` allows (below, "In 
 | `ChatWebhookClient.swift` | the webhook client (`ChatWebhookPoster`, `ChatURLSessionWebhook`): one POST, no proxy, no redirect followed, the answer's body never read, a deadline on the whole call, a failure reason with no address in it |
 | `ChatAsk.swift` | asks' shapes and form (below, "Asks"): the questions as stored and returned, the 0.15 form read into v3, how a posted ask is checked (the reference's words, in its order), the digest, canonical `about`, the plain text, a typed `/decide` read, a decision checked, the outcome's summary; `ChatTime` (RFC 3339 to the nanosecond, as Go writes it) |
 | `ChatAsks.swift` | asks' server side: posting (under `askLock`), the numbers (`ask-numbers.json`), finding one (`#N`, a msg_id or its start), deciding and withdrawing (once per msg_id or `X-Chat-Id`, the first wins), the audit line, expiry (`ChatAskTimers`: one timer for the earliest, and the start's look), no decider left, the outcome to the asker, `GET /agent/asks/{id}`, `GET /api/asks`; the lock order |
+| `ChatNotice.swift`, `ChatNotices.swift` | FEEDS: a notice in the reference's shape (`ChatNotice`, `ChatNoticeSubject`, `ChatNoticeSource`, `ChatNoticeAction`), its action's allowlist (`ChatNoticeCommand`), repeats and floods (`ChatNoticeThrottle`); posting one (`postNotice`), pulling them (`pullNotices`: receive's `notices`, `GET /agent/notices`), a `feed` participant's `/agent/send` (`feedSend`) |
 | `ChatProtocol.swift` | the protocol's own description (`GET /api/protocol`, `/protocol`) and its version: the first 10 hex of the SHA-256 of that description's encoding |
 | `ChatPage.swift` | `ChatPageHandler`: one HTTP request in, one answer out — the access gate, the router (an untidy path is redirected, a wrong method is 405), every route |
 | `ChatLinePort.swift` | `ChatLineConnection`: one line-port connection's state and what each line does (a reply, nothing, or a close) |
@@ -487,6 +488,41 @@ to the closed set with the value `_` (`ChatRoomControl.looseOwner`: "closed by t
 a workspace's own rooms are refused — its finish (a space's down) closes them and its reopen (up) opens them. Conformance
 is unchanged by it: it starts `doz chat serve` without a channel. `ChatClosedTests`, `RoomLifecycleHostTests`,
 `WorkspaceLifecycleHostTests.testALooseRoomIsClosedAndOpenedThroughTheClosedSet`.
+
+### Notices and feeds
+
+The shape is the reference's (its feeds design note; the reference leads, Dozable follows — no field is added without it).
+A **notice** is a message of kind `notice` carrying `notice` {feed, kind, severity — info, notice, warning or critical —,
+subject {type: identity | place | run | workspace, name}, source {name, log}, text, action? {label, command, args},
+dedupe? (≤ 200 characters), ttl?, at (RFC 3339 UTC), title? (one line, ≤ 120 characters)}, unknown fields refused, `feed`
+filled in by the server (the poster's name, or Dozable's own feed). Its plain `content` is exactly
+`[FEED · SEVERITY] Title: text (from NAME's LOG)`, or with no title `[FEED · SEVERITY] text (from NAME's LOG)`. Kept in the
+room's file with the protocol's schema unchanged: kind `notice` in `kind`, the notice beside the sender's members in the
+row's `sender_info` (`ChatRoomStore.senderInfo`/`readNotice`); a tombstone keeps none of it.
+
+- **Never pushed to an agent.** A notice is not handed over with the messages — not in a receive's `messages`, `listen`,
+  a webhook or an inbox. An agent it names gets the state `waiting` (never `queued`, which is a message's) and is woken;
+  it PULLS its notices: `GET /agent/receive` answers them in their own list `notices` beside `messages` (present only when
+  there is one, so an answer with none is the protocol's own bytes), each `{type: "notice", room, msg_id, addressed_to_you,
+  source, about_you, notice, content}` — by default those addressed to it not handed yet (each handed once, then
+  `delivered`), `notices=all` also the other notices of its rooms it may read (newest 50 a room, a look), `notices=none`
+  none (`dozchat listen` asks for none). `GET /agent/notices?room=` is the same look for an agent delivered to by webhook.
+  No acknowledgement (`/agent/notices/{id}/ack` is the reference's, not built here). The room's people are handed a room
+  notice on the page like any message.
+- **`to` never names the participant its `source` names** (refused): the journal feed never addresses an identity's own
+  entry back to it. Every name in `to` is a member. It counts for nothing of the hold.
+- **A participant of kind `feed`** (`doz chat add NAME --kind feed`; never delivered to: no webhook, no inbox, no
+  decider role) posts notices with its own token: `POST /agent/send` with `kind: "notice"` and a `notice` object. Anything
+  else — an ask (403 `{"error":{"code":"not-permitted",…}}`), a plain message or a room command (refused, on the line
+  port too), a reaction, a decision or withdrawal (403), a receive, ack or notices look (403) — is refused; `/rooms` and
+  `/protocol` still answer. Conformance is unchanged: the reference has no such participant.
+- **Dozable's own feeds** post over the control channel: `{"systemNotice":{"room","msgId","feed","notice","to","direct"}}`
+  under the server's own name, answered `{"noticed":{"msgId","state"}}` or `{"refused": WHY}` (the routes, dedupe and
+  rate are the daemon's: workspaces.md, "Feeds and notices").
+- **An action** is one of Dozable's own read commands — `command` split on spaces, then `args`, judged word by word
+  (`ChatNoticeCommand.allowed`, plain words, no changing verb after it) — never a shell line. `dozchat ask --json` prints a
+  refusal of that shape on stdout; `dozchat receive --notices mine|all|none` prints notices after the messages.
+- `ChatNoticeTests`.
 
 ### Dozable's agent routes (0.52.52)
 

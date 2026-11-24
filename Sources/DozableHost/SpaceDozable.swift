@@ -35,7 +35,7 @@ public enum SpaceDozable {
         /// What `x-dozable` holds here (the x-dozable form: every 3.1 key, first-class or held).
         public var dozableKeys: [String] {
             switch self {
-            case .top: ["lifetime", "brief", "network", "about", "layout", "permissions", "places"]
+            case .top: ["lifetime", "brief", "network", "about", "layout", "permissions", "places", "feeds"]
             case .folder: ["main", "lifetime"]
             case .agent: ["restart", "network", "external", "lifetime"]
             case .room, .sandbox: ["lifetime"]
@@ -386,6 +386,9 @@ extension SpaceValidator.Schema {
                 }
             }
         case (.top, "places"): places(x, q)
+        // FEEDS: `{FEED: {to: room | manager | owner | off}}` — where a feed's notices go in this workspace (Feeds.swift).
+        case (.top, "feeds"):
+            for p in FeedRoutes.problems(x) { err(q + p.at, p.what) }
         case (.folder, "main"): _ = type(x, "boolean", q)
         case (.folder, "lifetime"), (.agent, "lifetime"), (.room, "lifetime"), (.sandbox, "lifetime"): oneOf(x, ["run"], q)
         case (.agent, "restart"): oneOf(x, SpaceDozable.restarts, q)

@@ -2669,6 +2669,21 @@ dialog.dlg.ak-flow[open] { display: flex; flex-direction: column; max-height: ca
 .chat-status { display: flex; align-items: center; justify-content: center; gap: var(--sp-1); margin: var(--sp-2) auto; max-width: 90%;
   font-size: var(--fs-sm); color: var(--ink-2); text-align: center; }
 .chat-status .icon { width: 14px; height: 14px; }
+/* a feed's notice: a card across the log, never a bubble (views/chat-messages.js) */
+.chat-notice { --tone: var(--info); --tone-t: var(--info-tint); margin: var(--sp-2) auto; max-width: 90%; padding: var(--sp-2) var(--sp-3);
+  border: var(--bw) solid var(--line); border-left: 3px solid var(--tone); border-radius: var(--r-md); background: var(--surface);
+  font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.chat-notice.sev-warning { --tone: var(--warn); --tone-t: var(--warn-tint); }
+.chat-notice.sev-critical { --tone: var(--bad); --tone-t: var(--bad-tint); }
+.chat-notice-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); color: var(--ink-2); }
+.chat-notice-top .icon { width: 14px; height: 14px; color: var(--tone); }
+.chat-feed-mark, .chat-notice-sev { padding: 0 var(--sp-1); border-radius: var(--r-xs); background: var(--tone-t, var(--info-tint)); color: var(--tone, var(--info));
+  font-size: var(--fs-xs); font-weight: var(--fw-strong); }
+.chat-notice-kind, .chat-notice-when { color: var(--ink-2); font-size: var(--fs-xs); }
+.chat-notice-title { margin-top: var(--sp-1); font-weight: var(--fw-strong); }
+.chat-notice-text { margin: var(--sp-1) 0 0; white-space: pre-wrap; }
+.chat-notice-source { margin-top: var(--sp-1); color: var(--ink-2); font-size: var(--fs-xs); font-style: italic; }
+.chat-notice-cmd { display: inline-block; margin-top: var(--sp-1); font-size: var(--fs-xs); }
 .chat-status.is-now { font-style: italic; }
 .chat-tomb { font-style: italic; }
 .chat-moment { display: flex; align-items: center; gap: var(--sp-4); margin: var(--sp-5) 0 var(--sp-3); font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--ink-2);

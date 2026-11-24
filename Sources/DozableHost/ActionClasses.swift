@@ -175,6 +175,8 @@ public enum ActionClasses {
              .workspaceList, .workspaceAdopt, .workspaceRelease, .workspaceRename, .workspacePlan, .workspaceLifecyclePlan,
              .chatRoomPlan, .botList, .botShow, .botToken, .workerPlan, .workerReset, .workspaceUpPlan, .workspaceUp, .workspaceDownPlan, .workspaceDown, .chatRoomClose, .chatRoomOpen, .macsList, .permissionsCeiling,
              .workspaceState, .workspaceSpace, .workspaceSpaceSave, .workspaceRunFrames,
+             // FEEDS: the routes and the test door are the owner's.
+             .workspaceFeeds, .workspaceFeedsEmit,
              .timelineCatalog, .timelineQuery, .timelineSubscribe, .timelineRetention, .timelineRebuild,
              // 771: the chat server's relay is the daemon's own path: an agent reaches it only with its chat token.
              .agentRelay:

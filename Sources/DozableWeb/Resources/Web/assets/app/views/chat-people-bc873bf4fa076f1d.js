@@ -98,6 +98,7 @@ export function people() {
       avatar(p.avatar, p.name),
       h('div', { class: 'chat-who-text' },
         h('b', { class: 'chat-who-name' }, cap(p.name) + (p.name === viewer() ? ' (you)' : '')),
+        p.kind === 'feed' ? h('span', { class: 'chat-feed-mark', title: 'A feed: it posts notices only — it never asks, decides or reads the room' }, 'feed') : null,
         p.name === viewer() && canWrite() ? changeAvatar() : null,
         h('span', { class: 'chat-who-meta' }, st + (p.kind && p.kind !== 'human' ? ' · ' + String(p.kind).replace('-', ' ') : '')),
         p.activity ? h('span', { class: 'chat-who-meta is-act' }, p.activity + '…') : null)));

@@ -127,6 +127,7 @@ public struct ChatDirectory: Codable, Equatable, Sendable {
     /// a session's name follows the name rule.
     public static func deliveryRefusal(_ deliver: String, kind: String, session: String?) -> String? {
         guard deliveries.contains(deliver) else { return "\(deliver) is not a delivery: \(deliveries.joined(separator: ", "))" }
+        if kind == "feed" && deliver != "poll" { return "a feed is never delivered to: it posts notices and reads nothing" }
         if deliver == "inbox" && kind != "claude-session" {
             return "inbox delivery is for a Claude Code session: its kind must be claude-session (it is \(kind)) — add --kind claude-session"
         }
@@ -138,8 +139,9 @@ public struct ChatDirectory: Codable, Equatable, Sendable {
         return nil
     }
 
-    /// The kinds a participant may have.
-    public static let kinds = ["agent", "claude-session", "grok-bot"]
+    /// The kinds a participant may have. FEEDS: a `feed` posts notices only — never asks, decides or reads the room — and
+    /// is never delivered to (no webhook, no inbox).
+    public static let kinds = ["agent", "claude-session", "grok-bot", "feed"]
 
     /// The webhook entries in use, each with the participants that use it.
     public var webhookEntries: [String: [String]] {

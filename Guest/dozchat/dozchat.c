@@ -88,7 +88,7 @@
 #include <sys/random.h>
 #endif
 
-#define DOZCHAT_VERSION "3"
+#define DOZCHAT_VERSION "5"
 #define DEFAULT_URL "http://host.dozable.internal:8790"
 /* On a Mac with no proxy set — a session run on the Mac without a fence, where the chat server is this Mac's own — the
  * default is this Mac's loopback. A fenced session always has its proxy set (and no DNS), so it keeps DEFAULT_URL. */
@@ -502,11 +502,14 @@ static int obj_string(const unsigned char *s, size_t a, size_t b, const char *ke
 /* The elements of the top-level object's `messages` array: up to `max` ranges into starts/ends; *count how many. */
 typedef int (*element_fn)(void *ctx, const unsigned char *s, size_t a, size_t b);
 
-static int each_message(const unsigned char *s, size_t n, element_fn fn, void *ctx, size_t *count) {
+/* Each element of the answer's array `key` (`messages`, or `notices`); `optional`: an absent array is none. */
+static int each_in(const unsigned char *s, size_t n, const char *key, int optional, element_fn fn, void *ctx, size_t *count) {
     size_t a, b, va, vb;
     *count = 0;
     if (scan_document(s, n, &a, &b) < 0 || s[a] != '{') return -1;
-    if (obj_find(s, a, b, "messages", &va, &vb) != FIND_FOUND || s[va] != '[') return -1;
+    int f = obj_find(s, a, b, key, &va, &vb);
+    if (optional && f == FIND_NONE) return 0;
+    if (f != FIND_FOUND || s[va] != '[') return -1;
     size_t i = skip_ws(s, vb, va + 1);
     if (i < vb && s[i] == ']') return 0;
     while (i < vb) {
@@ -520,6 +523,10 @@ static int each_message(const unsigned char *s, size_t n, element_fn fn, void *c
         i = skip_ws(s, vb, i + 1);
     }
     return -1;
+}
+
+static int each_message(const unsigned char *s, size_t n, element_fn fn, void *ctx, size_t *count) {
+    return each_in(s, n, "messages", 0, fn, ctx, count);
 }
 
 /* An id an acknowledgement gives back: printable ASCII, at most 256 bytes (absent: ""). */
@@ -1131,6 +1138,11 @@ static int answer_failure(const struct answer *a) {
     return EXIT_LOCAL;
 }
 
+static int relay_failure(const struct answer *a, int json);
+
+/* With --json (ask): a refusal whose body is {"error":{...}} (a feed asking, FEEDS) is printed on stdout too. */
+static int g_print_refusal;
+
 /* A JSON call: on 200 the answer is a JSON document (its range in *a0..*a1); otherwise the failure's code (said). A 422
  * answer is printed on stdout first. `quiet_away`: an EXIT_AWAY is not said here (the caller retries and says so). */
 static int json_call(const char *method, const char *path, const struct buf *body, int timeout_s, struct answer *ans,
@@ -1161,7 +1173,7 @@ static int json_call(const char *method, const char *path, const struct buf *bod
         buf_free(&ans->body);
         return rc2;
     }
-    rc = answer_failure(ans);
+    rc = ans->status == 422 ? answer_failure(ans) : relay_failure(ans, g_print_refusal);
     buf_free(&ans->body);
     return rc;
 }
@@ -1480,9 +1492,11 @@ static int post_acks(const struct buf *acks, int print, int quiet_away) {
     return rc;
 }
 
-static int get_receive(int wait, int redeliver, struct answer *ans, size_t *a0, size_t *a1, int quiet_away) {
-    char path[64];
-    int r = snprintf(path, sizeof path, "/agent/receive?wait=%d&ack=1%s", wait, redeliver ? "&redeliver=1" : "");
+/* `notices`: NULL (the server's default: those addressed to you), "all" or "none". */
+static int get_receive(int wait, int redeliver, const char *notices, struct answer *ans, size_t *a0, size_t *a1, int quiet_away) {
+    char path[128];
+    int r = snprintf(path, sizeof path, "/agent/receive?wait=%d&ack=1%s%s%s", wait, redeliver ? "&redeliver=1" : "",
+                     notices ? "&notices=" : "", notices ? notices : "");
     if (r < 0 || (size_t)r >= sizeof path) return EXIT_LOCAL;
     int rc = json_call("GET", path, NULL, wait + 15, ans, a0, a1, quiet_away);
     if (rc != EXIT_DONE) return rc;
@@ -1548,6 +1562,7 @@ struct opts {
     size_t nattach;
     const char *attach_ref[MAX_ATTACH];
     size_t nattach_ref;
+    const char *notices; /* receive: all | none (default: those addressed to you) */
     long timeout;    /* -1: not given */
     long supersedes; /* -1: not given */
     int json;
@@ -1558,14 +1573,14 @@ static const char USAGE[] =
     "  dozchat rooms [--room ROOM]                       the rooms you are in: run it first (it works from any room)\n"
     "  dozchat send ROOM TEXT [--re MSG_ID] [--to NAME ...] [--dm]     TEXT - reads it from stdin; options before or after it\n"
     "  dozchat react ROOM MSG_ID REACTION                same as send ROOM \"/react REACTION\" --re MSG_ID\n"
-    "  dozchat receive [--wait SECONDS] [--ack] [--redeliver]\n"
+    "  dozchat receive [--wait SECONDS] [--ack] [--redeliver] [--notices mine|all|none]\n"
     "  dozchat ack ROOM:MSG_ID[:DELIVERY] ...            or: ack -   (reads receive's lines on stdin)\n"
     "  dozchat listen [--wait SECONDS] [--once]          prints every item as it comes, acknowledging each\n"
     "  dozchat file get URL-OR-ID [--out FOLDER] [--name NAME]\n"
     "  dozchat file send ROOM PATH [TEXT] [--re MSG_ID]\n"
     "  dozchat protocol [--room ROOM]                    the protocol, as Markdown\n"
     "  dozchat ask ROOM QUESTION [--option ID=LABEL ...] [--decider NAME ...] [--multi] [--reason TEXT] [--expires-in SECONDS]\n"
-    "              [--questions FILE]                    to ask the person: put a question to deciders, and wait for its outcome\n"
+    "              [--questions FILE] [--json]           to ask the person: put a question to deciders, and wait for its outcome\n"
     "  dozchat decide ROOM ASK OPTION [TEXT] | --decline [TEXT] | --answers JSON     answer an ask (you need the decider role)\n"
     "  dozchat withdraw ROOM ASK                         withdraw an ask you asked\n"
     "  dozchat ask-show ROOM ASK [--wait SECONDS]        the ask as JSON; --wait until its outcome: exit 0 decided, 10 declined,\n"
@@ -1580,6 +1595,8 @@ static const char USAGE[] =
     "                                                    each takes --in W when you are an agent of several\n"
     "  dozchat --version\n"
     "A send answers \"queued\" (it waits for each recipient); a reaction answers \"added\" (recorded at once, it wakes nobody).\n"
+    "receive prints notices after the messages, each {\"type\":\"notice\",...}: by default those addressed to you, once; a fact to act on,\n"
+    "never to answer. --notices all adds your rooms' other notices; listen never takes them.\n"
     "CHAT_URL defaults to " DEFAULT_URL "; on a Mac with no proxy set, " MAC_DIRECT_URL ". The token is never given on the command line.\n"
     "Outside Dozable, through a local proxy: CHAT_URL=http://HOST:8790 http_proxy=http://localhost:PORT dozchat send ROOM TEXT\n"
     "Exit codes: 0 done, 1 a local problem or a bad answer, 2 usage, 3 refused (422), 4 401/403/409, 5 no answer or 5xx,\n"
@@ -1651,6 +1668,10 @@ static int parse_opts(int argc, char **argv, int from, const char *allowed, stru
         else if (strcmp(name, " --after ") == 0) o->after = val;
         else if (strcmp(name, " --addendum ") == 0) o->addendum = val;
         else if (strcmp(name, " --in ") == 0) o->workspace = val;
+        else if (strcmp(name, " --notices ") == 0) {
+            if (strcmp(val, "all") != 0 && strcmp(val, "none") != 0 && strcmp(val, "mine") != 0) return usage_error("--notices is mine, all or none");
+            o->notices = strcmp(val, "mine") == 0 ? NULL : val;
+        }
         else if (strcmp(name, " --ref ") == 0) {
             if (o->nref >= MAX_REFS) return usage_error("at most 32 --ref");
             o->ref[o->nref++] = val;
@@ -1804,11 +1825,17 @@ static int cmd_receive(const struct opts *o) {
     if (rc) return rc;
     struct answer ans;
     size_t a0, a1, count;
-    rc = get_receive((int)clamp_wait(o->wait, 0), o->redeliver, &ans, &a0, &a1, 0);
+    rc = get_receive((int)clamp_wait(o->wait, 0), o->redeliver, o->notices, &ans, &a0, &a1, 0);
     if (rc) return rc;
     struct buf acks = buf_new(MAX_REQUEST_BODY);
     struct print_ctx c = {o->ack ? &acks : NULL, 0, 0};
     (void)each_message(ans.body.p, ans.body.len, print_item, &c, &count);
+    /* Notices, one line each, after the messages: never acknowledged (there is nothing to acknowledge). */
+    size_t acked = c.n, nn = 0;
+    struct print_ctx nc = {NULL, 0, 0};
+    if (!c.bad) (void)each_in(ans.body.p, ans.body.len, "notices", 1, print_item, &nc, &nn);
+    if (nc.bad) c.bad = nc.bad;
+    c.n = acked;
     buf_free(&ans.body);
     if (c.bad == 1) { buf_free(&acks); say("stdout is closed: nothing acknowledged"); return EXIT_LOCAL; }
     if (c.bad == 2) { buf_free(&acks); say("an item's room, msg_id or delivery is not plain text: not acknowledged"); return EXIT_LOCAL; }
@@ -1932,7 +1959,7 @@ static int cmd_listen(const struct opts *o) {
     for (;;) {
         struct answer ans;
         size_t a0, a1, count;
-        rc = get_receive(wait, first, &ans, &a0, &a1, 1);
+        rc = get_receive(wait, first, "none", &ans, &a0, &a1, 1);   /* notices are pulled with receive, never pushed */
         if (rc == EXIT_AWAY) {
             say("%s; trying again in %u s", g_why, backoff);
             sleep_s(backoff);
@@ -2717,11 +2744,11 @@ static int run(int argc, char **argv) {
     const char *allowed = NULL;
     if (strcmp(cmd, "send") == 0) allowed = " --re --to --dm ";
     else if (strcmp(cmd, "react") == 0) allowed = " ";
-    else if (strcmp(cmd, "receive") == 0) allowed = " --wait --ack --redeliver ";
+    else if (strcmp(cmd, "receive") == 0) allowed = " --wait --ack --redeliver --notices ";
     else if (strcmp(cmd, "ack") == 0) allowed = " ";
     else if (strcmp(cmd, "listen") == 0) allowed = " --wait --once ";
     else if (strcmp(cmd, "rooms") == 0 || strcmp(cmd, "protocol") == 0) allowed = " --room ";
-    else if (strcmp(cmd, "ask") == 0) allowed = " --option --decider --multi --reason --expires-in --questions ";
+    else if (strcmp(cmd, "ask") == 0) allowed = " --option --decider --multi --reason --expires-in --questions --json ";
     else if (strcmp(cmd, "decide") == 0) allowed = " --decline --answers ";
     else if (strcmp(cmd, "withdraw") == 0) allowed = " ";
     else if (strcmp(cmd, "ask-show") == 0) allowed = " --wait ";
@@ -2733,7 +2760,7 @@ static int run(int argc, char **argv) {
     if (strcmp(cmd, "receive") == 0) return cmd_receive(&o);
     if (strcmp(cmd, "ack") == 0) return cmd_ack(&o);
     if (strcmp(cmd, "listen") == 0) return cmd_listen(&o);
-    if (strcmp(cmd, "ask") == 0) return cmd_ask(&o);
+    if (strcmp(cmd, "ask") == 0) { g_print_refusal = o.json; return cmd_ask(&o); }
     if (strcmp(cmd, "decide") == 0) return cmd_decide(&o, 0);
     if (strcmp(cmd, "withdraw") == 0) return cmd_decide(&o, 1);
     if (strcmp(cmd, "ask-show") == 0) return cmd_ask_show(&o);

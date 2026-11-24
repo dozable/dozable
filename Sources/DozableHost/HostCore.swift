@@ -1,5 +1,6 @@
 import Foundation
 import DozableKit
+import DozableChat
 
 /// A multi-subscriber fan-out of host events (`doz events`).
 final class HostEventHub: @unchecked Sendable {
@@ -162,6 +163,16 @@ public actor HostCore {
     /// worker sharing a sandbox). Set by the daemon just before it opens the session, read by `openSession` — never a
     /// client's to set.
     var sessionSecretAliases: [String: String] = [:]
+    /// FEEDS (`HostCore+Feeds`): repeats and floods per workspace and feed; the sessions' input gate (a critical notice's
+    /// look-and-type, and `doz sessions send`, take it per session); the owner's Needs you per workspace (in memory, a day);
+    /// what the Mac's own notices last saw (an account's state, a host's refusals, the disk).
+    var feedThrottle = ChatNoticeThrottle()
+    nonisolated let feedSessions = FeedSessionDelivery()
+    var feedNeedsYou: [String: [FeedNeedsYou]] = [:]
+    var feedWatch = FeedWatchState()
+    /// TESTS ONLY: a session's look and typing for a critical notice (nil: the daemon's own, through deckhold).
+    var feedSessionPortOverride: (any FeedSessionPort)?
+    public func setFeedSessionPort(_ p: (any FeedSessionPort)?) { feedSessionPortOverride = p }
     /// The bots' changes, one at a time (the key `bots`) — `HostCore+Bots`.
     let botGate = KeyedGate()
     /// The chat server's participants as the bots change them (the daemon sets it; nil: a bot cannot be changed).
@@ -923,7 +934,7 @@ public actor HostCore {
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
         case .workspaceList, .workspaceShow, .workspaceLog, .workspaceNew, .workspaceAdopt, .workspaceRelease, .workspaceEdit, .workspaceRename,
              .workspaceStart, .workspaceStop, .workspacePlan, .workspaceLifecyclePlan, .workspaceSleep, .workspaceWake, .workspaceFinish,
-             .workspaceReopen, .workspaceRun, .workspaceRetro, .workspaceDecide, .workspaceAddendum, .workspaceProposals, .workspaceJournal, .workspaceJournalAdd, .workspaceJournalFollow, .workspaceArchive, .workspaceRestore, .workspaceDelete, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunArchive, .workspaceRunChat,
+             .workspaceReopen, .workspaceRun, .workspaceRetro, .workspaceDecide, .workspaceAddendum, .workspaceProposals, .workspaceFeeds, .workspaceFeedsEmit, .workspaceJournal, .workspaceJournalAdd, .workspaceJournalFollow, .workspaceArchive, .workspaceRestore, .workspaceDelete, .workspaceReach, .workspaceFolders, .workspaceRuns, .workspaceRunArchive, .workspaceRunChat,
              .workspaceState, .workspaceDoc, .workspaceSpace, .workspaceSpaceSave, .workspaceRunFrames:
             return try await performWorkspace(r)
         case .botList, .botShow, .botNew, .botSet, .botRetire, .botAdopt, .botToken:
