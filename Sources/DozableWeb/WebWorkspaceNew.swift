@@ -9,7 +9,7 @@ import Foundation
 /// `fromProject` is a flag the web layer on the Mac turns into `project` and `network` (`WorkspaceProjectFill`).
 public enum WebWorkspaceNew {
     static let fields: Set<String> = ["workspace", "brief", "refs", "folders", "newFolder", "fromProject", "room", "noRoom", "manager",
-                                      "managerIsolation", "workerIsolation", "network", "adopt"]
+                                      "managerIsolation", "workerIsolation", "network", "sites", "adopt"]
     static let maximumRefs = 16
     static let maximumFolders = 8
     static let maximumAdopt = 4
@@ -84,6 +84,14 @@ public enum WebWorkspaceNew {
             w.workerIsolation = i
         }
         w.network = try f.oneOf("network", WorkspaceNetworks.presets)
+        // 775: a preset's sites (host names, checked as the CLI's --site).
+        if let raw = try list(f, "sites", WorkspaceNetworks.maximumSites) {
+            let given = try raw.map { (x: Any) -> String in
+                guard let s = x as? String, s.utf8.count <= 253 else { throw WebAction.Invalid("sites: host names like api.example.com") }
+                return s
+            }
+            do { w.sites = try WorkspaceNetworks.checkedSites(given) } catch { throw WebAction.Invalid("sites: " + HostError.from(error).message) }
+        }
         let adopt = try list(f, "adopt", maximumAdopt)?.map { (x: Any) -> String in
             guard let s = x as? String else { throw WebAction.Invalid("adopt: a sandbox's name, or @mac/SESSION") }
             return try WebAction.Fields(["agent": s]).agentPlace("agent")

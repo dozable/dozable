@@ -45,7 +45,8 @@ func cliAgentSudoSuite(binary: String) async {
     r = t.run(["exec", "su", "--", "sudo", "-n", "ls", "/sys/class/net"])
     check(r.code == 0 && r.out == "lo\n", "root: no network interface but lo (\(r.out.trimmingCharacters(in: .whitespacesAndNewlines)))")
     r = t.run(["exec", "su", "--", "sudo", "-n", "sh", "-c", "curl -sS --max-time 15 -o /dev/null -w '%{http_code}' https://example.com; echo \" exit=$?\""], timeout: 60)
-    check(r.code == 0 && r.out.contains(" exit=") && !r.out.hasPrefix("200") && !r.out.contains(" exit=0"), "root: the policy still denies a host the agent preset does not allow (example.com → \(r.out.trimmingCharacters(in: .whitespacesAndNewlines)))")
+    // 775: a refusal is a 403 said inside the tunnel (curl exits 0), or a failed connection — never a 200.
+    check(r.code == 0 && r.out.contains(" exit=") && !r.out.hasPrefix("200") && (r.out.hasPrefix("403") || !r.out.contains(" exit=0")), "root: the policy still denies a host the agent preset does not allow (example.com → \(r.out.trimmingCharacters(in: .whitespacesAndNewlines)))")
     // (`__import__`: a line beginning "import" is read by the audit as a Swift import.)
     let probe = """
     socket = __import__("socket")

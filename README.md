@@ -6,7 +6,7 @@
 Each sandbox is a small Linux virtual machine with your
 project folder inside it. It starts in about a third of a second, pauses in a millisecond, and hibernates to
 disk to give its memory back — then wakes with every program still running where it was. Run a coding agent
-(Claude Code, Codex, pi, Antigravity CLI, Grok Build, Gemini CLI) with its permission prompts off: the VM is the boundary, the network goes through a
+(Claude Code, Codex, OpenCode, pi) with its permission prompts off: the VM is the boundary, the network goes through a
 policy you can read, and your keys never enter the sandbox.
 
 ```sh

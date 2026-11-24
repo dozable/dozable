@@ -407,6 +407,10 @@ final class WebModulesTests: XCTestCase {
                        "the project fills the network in: none sent with fromProject")
         XCTAssertEqual(js("requestFrom({name:'w', brief:'b', managerIsolation:'unfenced', network:'locked'})"), #"{"workspace":"w","brief":"b\n","network":"locked"}"#,
                        "an isolation only with a manager")
+        // 775: a preset's sites go with the request (none: no field).
+        XCTAssertEqual(js("requestFrom({name:'w', brief:'b', network:'standard', sites:['remotion.media']})"),
+                       #"{"workspace":"w","brief":"b\n","network":"standard","sites":["remotion.media"]}"#)
+        XCTAssertEqual(js("requestFrom({name:'w', brief:'b', network:'standard', sites:[]})"), #"{"workspace":"w","brief":"b\n","network":"standard"}"#)
         XCTAssertTrue(pure.contains("export const WORKSPACE_DEFINITION = 'A workspace is an environment set up for getting work done: its agents, its rooms, the brief that says what the work is for, and any folders it works on (usually projects). Work starts only once it is fully set up.';"))
         // What the pages send: the wizard exactly new and start; a workspace's page start; no other module starts one.
         let files = (FileManager.default.enumerator(atPath: src.appendingPathComponent("app").path)?.allObjects as? [String] ?? [])

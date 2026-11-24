@@ -102,6 +102,8 @@ public final class SandboxCA: @unchecked Sendable {
             issuerPrivateKey: Certificate.PrivateKey(key))
         let pem = try cert.serializeAsPEM().pemString
         lock.lock()
+        // 775: bounded — the proxy makes a leaf for a refused name too (its refusal is said inside the tunnel).
+        if leaves.count >= 512 { leaves.removeAll() }
         leaves[h] = (pem, leafKey.pemRepresentation, now)
         lock.unlock()
         return (pem, leafKey.pemRepresentation)

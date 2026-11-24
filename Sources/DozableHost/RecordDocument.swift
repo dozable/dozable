@@ -100,6 +100,9 @@ public enum RecordDocument {
             if SpaceDozable.networks.contains(n) { top.append(JMember("network", .string(n))) }
             else { notes.append("its network default \(n) is not a preset the document can name") }
         }
+        if let s = rec.defaults.sites, !s.isEmpty {
+            notes.append("its sites on top of the network (\(s.joined(separator: ", "))) are not in the document — a place's network can name them")
+        }
         top.append(JMember(SpaceDozable.key, .object([JMember("lifetime", .string("standing"))])))
 
         // agent_defaults: where its new workers run.

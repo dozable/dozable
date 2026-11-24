@@ -42,6 +42,12 @@ A bare file name is in `Sources/DozableKit/`.
 
 ## Rules that each cost a bug to learn here
 
+- **The container's PID 1 reaps** (775): `GuestCommand.reapingInit` — `/bin/sh -c 'while :; do sleep infinity & wait $!; done'`
+  — not a bare `sleep infinity`, which never reaped: what an exec or a session left behind (re-parented to PID 1) stayed
+  `<defunct>` (a render killed at its deadline left 20 zombie browsers). Every shell's `wait` reaps any child while it waits.
+  Not a VM input: a cold boot starts it; a restore adopts the PID 1 it had (a sandbox booted before keeps the old one until
+  its next cold start). The bake and the e2fsck helper keep `sleep infinity` (short-lived). `make test-cli-exectimeout`.
+
 - **Exit codes are ONE table, frozen** (`ExitCodes`, DozableHost): every command's exit comes from `ExitCodes.exit(for:)`
   of its error's code (`DozableExit` only names them; `fail(_:_:)` prints `ErrorAnswer`, whose `exit` is the exit the
   process takes) — no command maps a code locally. A code keeps its meaning; a new outcome gets a new `HostError.Code`,

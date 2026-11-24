@@ -53,11 +53,11 @@ const NETWORKS = [
 const DELIVER_WORDS = { poll: 'polls with dozchat', inbox: 'its inbox (a session on this Mac)', webhook: 'a webhook' };
 /// The choices kept (and restored) — everything but what was read.
 const KEPT = ['step', 'name', 'nameTouched', 'brief', 'refs', 'folders', 'newFolder', 'fromProject', 'projectAsked', 'preset', 'manager',
-  'managerIsolation', 'unfencedConfirmed', 'workerIsolation', 'network', 'roomChoice', 'when'];
+  'managerIsolation', 'unfencedConfirmed', 'workerIsolation', 'network', 'sites', 'roomChoice', 'when'];
 
 function fresh() {
   return { step: 0, name: '', nameTouched: false, brief: '', refs: [], folders: [], newFolder: false, fromProject: false, projectAsked: false,
-           preset: 'blank', manager: null, managerIsolation: 'fenced', unfencedConfirmed: false, workerIsolation: 'fenced', network: 'locked',
+           preset: 'blank', manager: null, managerIsolation: 'fenced', unfencedConfirmed: false, workerIsolation: 'fenced', network: 'locked', sites: [],
            roomChoice: 'make', when: 'now', plan: null, planError: '', error: '', busy: '', refTyped: '', folderTyped: '' };
 }
 function save() {
@@ -479,6 +479,7 @@ function applyPreset(p) {
   w.preset = p.id;
   if (p.workerIsolation) w.workerIsolation = p.workerIsolation;
   if (p.network && !w.fromProject) w.network = p.network;
+  w.sites = (p.sites || []).slice();     // a preset's sites (remotion-video: remotion.media); another preset's go
   if (p.managerIsolation && w.manager && p.managerIsolation !== 'unfenced') { w.managerIsolation = p.managerIsolation; w.unfencedConfirmed = false; }
   if (p.foldersReadOnly) for (const f of w.folders) f.mode = 'ro';
   changed(true);
@@ -588,7 +589,7 @@ function stepWhere() {
   const controls = [
     b ? ['manager', CONTROL[w.managerIsolation]] : null,
     ['new workers', CONTROL[w.workerIsolation]],
-    ['network', (fromProject ? w.plan.project.preset : w.network) + ' + the room (added for every agent)'],
+    ['network', (fromProject ? w.plan.project.preset : w.network) + ((w.sites || []).length ? ' + ' + w.sites.join(', ') : '') + ' + the room (added for every agent)'],
     ['address guard', 'always on (cannot be turned off)'],
   ].filter(Boolean);
   return [

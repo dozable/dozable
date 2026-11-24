@@ -314,6 +314,21 @@ struct HostRestart: AsyncParsableCommand {
     }
 }
 
+/// 775: a usage error the parser found, as `--json` says it — `{"error":{"code":"usage",…}}`, exit 64. nil: no `--json` on
+/// the line, or not a usage error (help and `--version` exit 0; a command's own `ExitCode` has said its error already).
+enum UsageJSON {
+    static func error(_ error: Error, args: [String]) -> HostError? {
+        guard args.contains("--json"), !(error is ExitCode) else { return nil }
+        guard DozableCommand.exitCode(for: error).rawValue == ExitCodes.usage else { return nil }
+        let message = DozableCommand.message(for: error)
+        var first = (message.split(separator: "\n", omittingEmptySubsequences: true).first.map(String.init) ?? message)
+            .trimmingCharacters(in: .whitespaces)
+        if first.hasPrefix("Error: ") { first.removeFirst("Error: ".count) }
+        if let hint = RenamedNames.optionHint(first) { first += " (\(hint).)" }
+        return HostError(.usage, first.isEmpty ? "usage: see doz help" : first)
+    }
+}
+
 /// The program's entry (`doz`): ArgumentParser's own parse-and-run, then the update hook after a command that
 /// finished normally. Around it, the usage statistics' hook (`UsageHook` — an official build only; a build from
 /// the repository records and sends nothing): the command counted before it runs, a failure's exit code and
@@ -389,6 +404,12 @@ public enum DozableEntry {
             exit(code)
         } catch {
             usage.after(exitCode: DozableCommand.exitCode(for: error).rawValue)
+            // 775: under --json (anywhere on the line), a usage error the parser found — an unknown option, a missing argument
+            // — is the JSON error every other failure is, on stdout, exit 64. Never help (exit 0) or a command's own exit.
+            if let e = UsageJSON.error(error, args: args) {
+                Out.json(ErrorAnswer(e))
+                exit(ExitCodes.usage)
+            }
             // 0.51: an option renamed for the folder still fails as unknown; one hint says its new name (RenamedNames).
             let message = DozableCommand.fullMessage(for: error)
             if RenamedNames.optionHint(message) != nil {

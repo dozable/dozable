@@ -164,6 +164,47 @@ final class EgressProxyTests: XCTestCase {
         XCTAssertEqual(r.verdict, .denied)
     }
 
+    /// 775: a refused HTTPS host is answered inside the tunnel — the program prints the refusal and what to do on the Mac,
+    /// never a name that does not resolve; nothing is dialled and the record is the same denial.
+    func testARefusedHTTPSHostIsAnsweredInsideTheTunnel() throws {
+        let proxy = try EgressProxy(policy: .agent, ca: try SandboxCA.generate(sandbox: "s1"))
+        proxy.sessionLabel = "s1"
+        let g = try tunnel(proxy, host: "example.org")
+        defer { close(g.fd) }
+        try g.send("GET / HTTP/1.1\r\nHost: example.org\r\nUser-Agent: curl\r\n\r\n")
+        let reply = try g.receiveAll()
+        XCTAssertTrue(reply.hasPrefix("HTTP/1.1 403"), reply)
+        XCTAssertTrue(reply.contains("X-Sandbox-Policy: denied"))
+        XCTAssertTrue(reply.contains("blocked by the sandbox network policy: example.org:443 (default deny)"), reply)
+        XCTAssertTrue(reply.contains("refused by Dozable's network policy, not a network failure"), reply)
+        XCTAssertTrue(reply.contains("doz net s1 shows it and doz net allow s1 site:example.org allows it"), reply)
+        let r = try XCTUnwrap(waitForRecord(proxy.log) { $0.host == "example.org" })
+        XCTAssertEqual(r.verdict, .denied)
+        XCTAssertEqual(r.kind, .connect)
+        XCTAssertFalse(r.decrypted, "refused, never a decrypted tunnel to the host")
+        XCTAssertEqual(proxy.log.deniedCount, 1)
+        // A fenced session's proxy names its own way; another port keeps the CONNECT refusal (FenceConnect reads it).
+        proxy.sessionLabel = "@mac/work"
+        XCTAssertEqual(proxy.refusalHint(host: "Example.org"),
+                       "refused by Dozable's network policy, not a network failure — on the Mac, doz net @mac shows it and doz net allow @mac --session work site:example.org allows it")
+        let ssh = open(proxy, header: "DOZ1 P\nCONNECT example.org:22 HTTP/1.1\r\n\r\n")
+        defer { close(ssh) }
+        let plain = readAll(ssh)
+        XCTAssertTrue(plain.hasPrefix("HTTP/1.1 403"), plain)
+        XCTAssertTrue(plain.contains("blocked by the sandbox network policy: example.org:22 (default deny)\nrefused by"), plain)
+    }
+
+    /// 775: a client that sends nothing inside a refused tunnel is closed after `refusalSeconds`, never held.
+    func testARefusedTunnelThatSendsNothingIsClosed() throws {
+        let proxy = try EgressProxy(policy: .agent, ca: try SandboxCA.generate(sandbox: "s1"))
+        let fd = open(proxy, header: "DOZ1 P\nCONNECT example.org:443 HTTP/1.1\r\n\r\n")
+        defer { close(fd) }
+        let t0 = Date()
+        let got = readAll(fd)
+        XCTAssertTrue(got.hasPrefix("HTTP/1.1 200"), got)
+        XCTAssertLessThan(Date().timeIntervalSince(t0), EgressProxy.refusalSeconds + 5)
+    }
+
     func testInspectionWithoutACAIsDenied() throws {
         let proxy = try EgressProxy(policy: NetworkPolicy(rules: [EgressRule(host: "api.github.test", methods: ["GET"])]), ca: nil)
         let fd = open(proxy, header: "DOZ1 P\nCONNECT api.github.test:443 HTTP/1.1\r\n\r\n")
@@ -252,9 +293,16 @@ final class EgressProxyTests: XCTestCase {
 
     func testWithoutASignInAuthOpenAIComIsNotReachedAtAll() throws {
         let proxy = try EgressProxy(policy: NetworkPolicy(rules: [EgressRule(host: "chatgpt.com")]), ca: try SandboxCA.generate(sandbox: "t"))
-        let fd = open(proxy, header: "DOZ1 P\nCONNECT auth.openai.com:443 HTTP/1.1\r\nHost: auth.openai.com:443\r\n\r\n")
-        defer { close(fd) }
-        XCTAssertTrue(readAll(fd).hasPrefix("HTTP/1.1 403"))
+        // 775: refused — answered inside the tunnel by the proxy itself, never dialled.
+        let g = try tunnel(proxy, host: "auth.openai.com")
+        defer { close(g.fd) }
+        try g.send("POST /oauth/token HTTP/1.1\r\nHost: auth.openai.com\r\nContent-Length: 0\r\n\r\n")
+        let reply = try g.receiveAll()
+        XCTAssertTrue(reply.hasPrefix("HTTP/1.1 403"), reply)
+        XCTAssertTrue(reply.contains("X-Sandbox-Policy: denied"))
+        let r = try XCTUnwrap(waitForRecord(proxy.log) { $0.host == "auth.openai.com" })
+        XCTAssertEqual(r.verdict, .denied)
+        XCTAssertFalse(r.decrypted)
     }
 
     func testAnUnusableSignInIsRefusedInOpenAIsShape() throws {

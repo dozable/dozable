@@ -1444,7 +1444,7 @@ public actor Sandbox {
             cfg.cpus = spec.cpus
             cfg.memoryInBytes = spec.memoryMiB * 1_048_576
             cfg.hostname = spec.name
-            cfg.process.arguments = ["sleep", "infinity"]
+            cfg.process.arguments = GuestCommand.reapingInit
             cfg.process.environmentVariables = GuestCommand.environment()
             for s in spec.shares { cfg.mounts.append(.share(source: s.hostPath, destination: s.guestPath)) }
             // The state disk comes AFTER the shares, always: device order is a VM input that a

@@ -416,6 +416,7 @@ struct Doctor: AsyncParsableCommand {
         func row(_ s: DoctorCheck.Status, _ d: String) -> DoctorCheck {
             DoctorCheck(check: "login item", status: s, detail: d + (held ? " · held by doz daemon stop (until a doz command" + (li.installed ? " or your next login)" : ")") : ""))
         }
+        if li.owner == "app", let other = li.appStore { return row(.ok, LoginItemStatus.otherStoreWords(other)) }
         if li.owner == "app" { return row(.ok, "the Dozable menu bar app starts the daemon at login") }
         if li.path.isEmpty, let n = li.note { return row(.ok, n) }
         if !li.installed {

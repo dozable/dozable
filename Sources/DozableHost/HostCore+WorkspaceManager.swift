@@ -27,6 +27,8 @@ public struct ManagerLaunchOrder: Equatable, Sendable {
     public var model: String?
     /// Its network permissions: the workspace's default, else `locked`.
     public var permissions: String
+    /// 775: the workspace's sites on top of it (host names).
+    public var sites: [String] = []
 }
 
 /// What the core knows of a manager's place: there at all, running now, and the bot whose bot-held secret its record
@@ -392,7 +394,7 @@ extension HostCore {
         }
         let order = ManagerLaunchOrder(workspace: rec.name, bot: bot, isolation: iso, place: place, workdir: workdir, plan: plan, start: start,
                                        restart: restart, agent: b.agent, account: b.account, model: b.model,
-                                       permissions: rec.defaults.network ?? "locked")
+                                       permissions: rec.defaults.network ?? "locked", sites: rec.defaults.sites ?? [])
         do {
             notes += try await managerLauncher.launch(order)
         } catch {
@@ -508,7 +510,7 @@ extension HostCore {
         // 749: the stub agent in its place under DOZ_TEST_STUB_AGENT (guarded runs only).
         let program = agentMacProgram(argv: o.plan.argv, environment: o.plan.environment, account: o.account, workspace: o.workspace, name: o.bot, task: nil)
         return try await launchAgentOnMac(AgentMacLaunch(place: o.place, argv: program.argv, workdir: o.workdir, environment: program.environment,
-                                                         fenced: fenced, permissions: o.permissions, hostPorts: o.plan.hostPorts,
+                                                         fenced: fenced, permissions: o.permissions, sites: o.sites, hostPorts: o.plan.hostPorts,
                                                          account: program.account, secrets: secrets, start: fenced ? o.start : nil,
                                                          startFolder: "manager", bridgesOff: false))
     }
@@ -524,7 +526,7 @@ extension HostCore {
         let seamArgv = TestSafety.guarded(env) ? env["DOZ_TEST_MANAGER_ARGV"].flatMap { s in
             (try? JSONDecoder().decode([String].self, from: Data(s.utf8))) } : nil
         return try await launchAgentInVM(AgentVMLaunch(
-            sandbox: o.place, session: ManagerLaunch.vmSession, create: true, workdir: o.workdir, permissions: o.permissions, account: o.account,
+            sandbox: o.place, session: ManagerLaunch.vmSession, create: true, workdir: o.workdir, permissions: o.permissions, sites: o.sites, account: o.account,
             model: o.model, agent: o.agent, hostPorts: o.plan.hostPorts, secret: secret, start: o.start, startDir: ManagerLaunch.vmStartFolder,
             argv: seamArgv ?? (o.restart ? ManagerLaunch.vmResumeArgv(agent: o.agent) : nil) ?? o.plan.argv, environment: o.plan.environment,
             seamImage: TestSafety.guarded(env) ? env["DOZ_TEST_MANAGER_IMAGE"] : nil, cpus: nil, memoryMiB: nil, bridgesOff: false, alias: nil))
@@ -556,6 +558,8 @@ struct AgentMacLaunch {
     var environment: [String: String]
     var fenced: Bool
     var permissions: String
+    /// 775: the workspace's sites on top of `permissions` (a place's own network replaces both).
+    var sites: [String] = []
     var hostPorts: [UInt16]
     var account: String?
     var secrets: [LaunchSecret]?
@@ -575,6 +579,8 @@ struct AgentVMLaunch {
     var create: Bool
     var workdir: String
     var permissions: String
+    /// 775: the workspace's sites on top of `permissions` (a place's own network replaces both).
+    var sites: [String] = []
     var account: String?
     var model: String?
     var agent: String
@@ -603,7 +609,7 @@ extension HostCore {
         r.cols = 120
         r.rows = 40
         if l.fenced {
-            var req = MacFenceRequest(permissions: [l.permissions])
+            var req = MacFenceRequest(permissions: [l.permissions] + l.sites.map { "site:" + $0 })
             req.hostPorts = l.hostPorts.map { HostPort(port: $0) }
             req.account = l.account
             // 774: built from its place (option C) — each session its own fence, from the one policy.
@@ -623,6 +629,7 @@ extension HostCore {
             var c = CreateOptions(image: l.seamImage ?? (ManagerLaunch.program(agent: l.agent) == "codex" ? "codex" : "claude-code"))
             c.folder = l.workdir
             c.network = l.permissions
+            if !l.sites.isEmpty { c.allow = l.sites.map { "site:" + $0 } }
             c.account = l.account
             c.hostPorts = l.hostPorts.map { HostPort(port: $0) }
             c.cpus = l.cpus

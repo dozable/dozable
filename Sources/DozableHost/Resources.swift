@@ -230,6 +230,8 @@ public enum Resources {
     /// Store-root files that are Dozable's own records (never deleted here).
     static let storeRecords: Set<String> = ["accounts.json", "onboarded.json", "preparations.json", "agent-versions.json",
                                             "daemon.lock", "daemon.pid", "daemon.sock", "ui.lock", "ui.sock",
+                                            // 775: `doz daemon stop`'s hold (LoginStart.hold), with daemon.always_on on.
+                                            "daemon.held",
                                             // The daemon's files before 0.50 (`host.*`): a store that ran an older build keeps `host.lock`.
                                             "host.lock", "host.pid", "host.sock",
                                             // 605: doz ui's port, kept sessions, ended sessions' reasons, operations.

@@ -49,7 +49,8 @@ func setLoginItem(_ value: String, _ g: GlobalOptions) throws {
     }
     Out.stdout("daemon.login_item = \(value)\n")
     Out.stdout(r.line + "\n")
-    if value == "on", st.owner == "app" { Out.stdout("the Dozable menu bar app starts the daemon at login — doz adds no login item of its own\n") }
+    if value == "on", st.owner == "app", let other = st.appStore { Out.stdout(LoginItemStatus.otherStoreWords(other) + " — doz adds no login item of its own while the app's is loaded\n") }
+    else if value == "on", st.owner == "app" { Out.stdout("the Dozable menu bar app starts the daemon at login — doz adds no login item of its own\n") }
 }
 
 struct LoginItemOn: AsyncParsableCommand {

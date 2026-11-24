@@ -213,6 +213,9 @@ public struct AccountsFile: Codable, Equatable, Sendable {
     public var openaiDefault: String?
     /// 617: each key provider's default account (`xai` → `work-xai`); nil — none chosen.
     public var providerDefaults: [String: String]?
+    /// 775: the store declined this Mac's Claude Code login (`doz onboard --claude-account none`): no account `mac` is added
+    /// on load. nil: it is there, as always (`--claude-account mac` or `doz account default mac` takes it back).
+    public var macDeclined: Bool?
 
     public init() {}
 
@@ -269,7 +272,7 @@ public struct AccountStore: Sendable {
             fresh.defaultAccount = newStoreDefault
         }
         var f = (try? Data(contentsOf: url)).flatMap { try? HostWire.decoder.decode(AccountsFile.self, from: $0) } ?? fresh
-        if !f.accounts.contains(where: { $0.name == "mac" }) { f.accounts.insert(.mac, at: 0) }
+        if f.macDeclined != true, !f.accounts.contains(where: { $0.name == "mac" }) { f.accounts.insert(.mac, at: 0) }
         return f
     }
 

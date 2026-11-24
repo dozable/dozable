@@ -845,7 +845,7 @@ struct Exec: AsyncParsableCommand {
         switch w {
         case "waking": return " — the sandbox was still waking (the wake goes on)"
         case "starting": return " — the sandbox was still starting (the start goes on)"
-        case "running": return " — the command was killed"
+        case "running": return " — the command was killed; " + ExecDeadline.hint
         default: return ""
         }
     }

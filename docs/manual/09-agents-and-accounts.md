@@ -140,8 +140,8 @@ your Mac once, and every sandbox can use your subscription with nothing to paste
 Keys of the other providers and of the model gateways are accounts too, each with its provider:
 
 ```sh
-doz account add xai --provider xai                # xAI (Grok Build, and the tools that speak xAI)
-doz account add google --provider google          # the Gemini API (Gemini CLI, Antigravity CLI, Fabric …)
+doz account add xai --provider xai                # xAI (OpenCode, and the tools that speak xAI)
+doz account add google --provider google          # the Gemini API (Fabric and the tools that speak it)
 doz account add oc --provider opencode            # OpenCode (OpenCode Zen and OpenCode Go: one key; OpenCode 2)
 doz account add or --provider openrouter          # OpenRouter: one key, many models (creator/name)
 doz account add vg --provider vercel-ai-gateway   # Vercel AI Gateway: the same idea (unpublished for now — a key already added keeps working)

@@ -129,6 +129,9 @@ GOAL**. So a lesson learnt in one run is part of every later one, with or withou
 how many it carried: `lessons`). `doz workspace doc W --json` shows them as `document.brief.addenda` — each `{run, at, by,
 text}`.
 
+**Changed in 0.52.52.** Before it, only a run with no goal of its own took the brief and the addenda: a run given a goal
+skipped every lesson. A manual or a note older than 0.52.52 that says so describes the old rule.
+
 ```bash
 doz workspace retro demo --propose --addendum "Run the linter before the tests"   # propose a lesson from the last run
 doz workspace retro demo 2026-11-23-2 --propose --addendum "…"                   # …from that run

@@ -28,6 +28,8 @@ public struct WorkerLaunchOrder: Equatable, Sendable {
     public var model: String?
     /// Its network permissions: the workspace's default, else `locked`.
     public var permissions: String
+    /// 775: the workspace's sites on top of it (host names).
+    public var sites: [String] = []
     public var cpus: Int?
     public var memoryMiB: UInt64?
     /// A wake: its session or sandbox exists from an earlier run and is opened again in place — a session on this Mac
@@ -241,6 +243,8 @@ extension HostCore {
         var shared: Bool
         var rooms: [String]
         var permissions: String
+        /// 775: the workspace's sites on top of the preset.
+        var sites: [String] = []
         var director: String?
         var cpus: Int?
         var memoryMiB: UInt64?
@@ -431,8 +435,8 @@ extension HostCore {
         var director: String?
         if let m = rec.manager, let mb = m.bot, await managerRunning(m) { director = mb }
         return WorkerPrepared(record: rec, entry: e, isolation: iso, bot: bot, agent: agent, place: place, session: session, shared: shared,
-                              rooms: rooms, permissions: rec.defaults.network ?? "locked", director: director, cpus: q.cpus, memoryMiB: memoryMiB,
-                              allowTools: q.allowTools ?? [], permissionMode: q.permissionMode == "bypass" ? "bypass" : nil, notes: notes)
+                              rooms: rooms, permissions: rec.defaults.network ?? "locked", sites: rec.defaults.sites ?? [], director: director, cpus: q.cpus,
+                              memoryMiB: memoryMiB, allowTools: q.allowTools ?? [], permissionMode: q.permissionMode == "bypass" ? "bypass" : nil, notes: notes)
     }
 
     /// `worker-plan`: the add's checks and decisions with nothing written, no participant made, no keychain item read and
@@ -460,7 +464,7 @@ extension HostCore {
             plan.session = p.session ?? (p.isolation == .vm ? nil : p.place)
             plan.sandbox = p.isolation == .vm ? p.place : nil
             plan.folder = p.record.mainFolder?.path ?? Workspace.defaultPath(name: n) + "/" + p.entry.name
-            plan.network = p.isolation == .unfenced ? "not limited" : p.permissions
+            plan.network = p.isolation == .unfenced ? "not limited" : p.permissions + (p.sites.isEmpty ? "" : " + " + p.sites.joined(separator: ", "))
             plan.shares = p.shared ? p.place : nil
             plan.control = WorkerLaunch.control(isolation: p.isolation.rawValue, shares: plan.shares)
             plan.rooms = p.rooms
@@ -642,7 +646,7 @@ extension HostCore {
         // 5. Its session or sandbox.
         var order = WorkerLaunchOrder(workspace: n, name: name, isolation: p.isolation, place: p.place, session: p.session, shared: p.shared,
                                       workdir: workdir, plan: plan, start: start, agent: p.agent, account: p.bot?.account, model: p.bot?.model,
-                                      permissions: p.permissions, cpus: p.cpus, memoryMiB: p.memoryMiB)
+                                      permissions: p.permissions, sites: p.sites, cpus: p.cpus, memoryMiB: p.memoryMiB)
         order.placeFence = try Self.placeFence(p.placeFence, isolation: p.isolation, workdir: workdir, shared: p.shared)
         if let pf = order.placeFence { notes += Self.placeFenceNotes(pf, isolation: p.isolation) }
         notes += try await workerLauncher.launch(order)
@@ -806,7 +810,7 @@ extension HostCore {
             let program = agentMacProgram(argv: o.plan.argv, environment: o.plan.environment, account: o.account, workspace: o.workspace,
                                           name: o.name, task: task)
             var launch = AgentMacLaunch(place: o.place, argv: program.argv, workdir: o.workdir, environment: program.environment,
-                                        fenced: o.isolation == .fenced, permissions: o.permissions, hostPorts: o.plan.hostPorts,
+                                        fenced: o.isolation == .fenced, permissions: o.permissions, sites: o.sites, hostPorts: o.plan.hostPorts,
                                         account: program.account, secrets: o.plan.secret.map { [$0] },
                                         start: o.isolation == .fenced ? o.start : nil, startFolder: "worker", bridgesOff: true)
             launch.placeFence = o.isolation == .fenced ? o.placeFence : nil
@@ -818,7 +822,7 @@ extension HostCore {
             let seams = TestSafety.workerSeams()
             let session = o.session ?? o.name
             var vmLaunch = AgentVMLaunch(
-                sandbox: o.place, session: session, create: !o.shared, workdir: o.workdir, permissions: o.permissions, account: o.account,
+                sandbox: o.place, session: session, create: !o.shared, workdir: o.workdir, permissions: o.permissions, sites: o.sites, account: o.account,
                 model: o.model, agent: o.agent, hostPorts: o.plan.hostPorts, secret: secret, start: o.start,
                 startDir: WorkerLaunch.vmStartFolder + "/" + o.name,
                 argv: seams.argv.map { $0 + [ManagerLaunch.firstPrompt(start: o.plan.startFile)] }

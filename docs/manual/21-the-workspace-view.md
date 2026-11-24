@@ -75,9 +75,10 @@ Sleeping and waking such a sandbox keeps the old view (the wake says so); shut i
   | in `.dozreadonly` | listed and readable; every change is refused (an ordinary user sees "Permission denied", root "Read-only file system") |
   | anything else | passed straight through to your Mac folder, both ways |
 
-- **Always read-only**, whatever the rules say: `.dozignore` and `.dozreadonly` themselves (an agent cannot
-  edit its own rules), and — unless your `.dozreadonly` says `!name` — `doz_project.yaml`,
-  `doz_project.yml` and `.git/hooks`.
+- **Always read-only to the agent's user**, whatever the rules say: `.dozignore` and `.dozreadonly` themselves (an
+  agent cannot edit its own rules), and — unless your `.dozreadonly` says `!name` — `doz_project.yaml`,
+  `doz_project.yml` and `.git/hooks`. Root in the VM can lift it (a mask, not the boundary); a fenced session on the Mac
+  guards `.git/hooks` and `.git/config` with its fence instead.
 - **Rules are read from the shared folder itself.** Edit `.dozignore` on the Mac and the sandbox follows
   within about a quarter of a second; `dozview` also drops anything the sandbox's kernel had cached about
   the affected names.

@@ -32,7 +32,7 @@ cannot be stapled: Gatekeeper checks a notarised `doz` online the first time it 
 
 ```bash
 doz onboard [--base ID | --no-base] [--key PROVIDER [--key-name NAME] [--plan PLAN] [--secret-stdin] [--force]]
-            [--first AGENT|none] [--openai-account mac|chatgpt|openai-key|later] [--yes]
+            [--first AGENT|none] [--claude-account mac|none|later] [--openai-account mac|chatgpt|openai-key|later] [--yes]
             [--github off|read|push] [--github-source gh|key] [--github-key-stdin] [--ssh-agent on|off]
             [--ignore-mode lock|hide]   # the Folder rules step: the default folder.ignore_mode
             [--usage-stats on|off]      # the Usage statistics step (official builds): off writes the setting
@@ -977,7 +977,7 @@ for, and any folders it works on (usually projects). Work starts only once it is
 doz workspace new NAME (--brief TEXT|- | --prompt-file F|-) [--preset P] [--worker TASK]… [--ref PATH|URL]… [--new-folder]
                   [--folder DIR[:ro|:rw]]… [--room EXISTING | --no-room] [--from-project] [--adopt AGENT]…
                   [--manager BOT [--manager-isolation fenced|vm|unfenced]] [--worker-isolation fenced|vm]
-                  [--network locked|standard|open] [--dry-run] [--start] [--request-id ID]
+                  [--network locked|standard|open] [--site HOST]… [--dry-run] [--start] [--request-id ID]
 doz workspace create NAME …                     # an alias of new: the same flags, the same answer
 doz workspace ls [--loose] [--json]             # NAME  STATE  AGENTS  ROOM ("idle · you · manager mira (fenced)"), then the loose agents
 doz workspace show W [--brief] [--json]         # its brief, folders, room and agents
@@ -1107,7 +1107,9 @@ question (`workspace-plan`). `--new-folder` makes the empty folder `<defaults.pr
 0700 and makes it the main folder — offered, never forced: with no folder the manager works there anyway.
 `--worker-isolation` is where new workers run by default (`fenced`, or `vm`; never unfenced by default — a worker is
 unfenced only when `doz worker add … --isolation unfenced` names it), recorded as `defaults.isolation`; `--network` is the
-workspace's network preset (`defaults.network`; locked unless given), and the room is always added. `--from-project` fills
+workspace's network preset (`defaults.network`; locked unless given), and the room is always added; `--site HOST`
+(repeatable, at most 16; a host name or `*.domain`, no port) adds a site every agent it starts may reach on top of the
+preset (`defaults.sites`; a preset's own sites join them). `--from-project` fills
 the preset in from the main folder's `doz_project.yaml` (never written back); a `--network` that differs is refused.
 `--start` is `new` and then `doz workspace start NAME` — two requests: a refused start leaves the workspace made and
 setting up, with its gaps. While a workspace is setting up, `show` (and `--json`'s `gaps`) lists what its start would
@@ -1117,7 +1119,8 @@ still need, without reading the keychain.
 (standard input, its trailing line breaks dropped) and `--prompt-file F|-` (as it is); both: exit 65; neither: exit 64.
 `show W --brief --json` gives it back as `briefText`. `--preset P` is one of the dry run's `presets` (`remotion-video`,
 `swift-tests`, `mac-admin`, `research`, `blank`): it fills the manager's isolation (with `--manager`), new workers'
-isolation, the network and, for `research`, read-only folders — only where no flag (and no `--from-project`) gave a value;
+isolation, the network and its sites (`remotion-video`: `remotion.media`, where a render downloads Remotion's browser)
+and, for `research`, read-only folders — only where no flag (and no `--from-project`) gave a value;
 another name exits 65 `invalid-value`, its message naming the presets, and nothing is made. `--worker TASK` (repeatable, at
 most 16, each at most 16 KiB) declares a worker: recorded on the workspace (`declaredWorkers`, each `{name, task,
 declaredAt}`, named the first free `botN` then), logged `worker-declared`, listed by `doz worker ls W --json` in `agents`

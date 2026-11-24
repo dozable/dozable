@@ -27,25 +27,33 @@ doz workspace new promo --preset remotion-video --prompt-file ~/video/promo/BRIE
 ```
 
 The dry run says what it would make — the workspace, its room `promo`, two declared workers in micro VMs (the preset),
-the standard network — and anything that would be refused. Run it again without `--dry-run` to make it, then start it:
+the standard network and `remotion.media` — and anything that would be refused. Then, in this order — make it, open the
+first unit of work and set what "done" means, start the workers, grant them — so no worker ever looks at a unit of work
+with no criteria:
 
 ```bash
-doz workspace start promo            # the brief posted, the first unit of work open, bot1 and bot2 started
+doz workspace new promo --preset remotion-video --prompt-file ~/video/promo/BRIEF.md --folder ~/video/promo \
+    --worker "Draft each scene and render a still of it" --worker "Review each still against the criteria"
+doz workspace run promo --no-start   # the first unit of work open, its goal (the brief) posted; nothing started yet
+doz workspace journal promo add criterion …   # what "done" means, one entry each (The first unit of work, below)
+doz workspace start promo            # bot1 and bot2 started, into the open unit of work
 doz grant bot1 reviewer --in promo   # both may write the journal, attach evidence and propose lessons
 doz grant bot2 reviewer --in promo
 ```
 
-Workers may read the journal from the start; writing needs the grant (`reviewer` is the usual one — [What agents may
-write](41-runs-the-journal-and-lessons.md#what-agents-may-write)). An entry written before it is refused with exit 4,
-naming `journal.write`, and the agent can try again once you have granted it.
+A declared worker becomes an agent of the workspace when it starts, so it is granted right after the start (`doz grant`
+before it refuses: the workspace has no agent of that name yet). Workers may read the journal from the start; writing
+needs the grant (`reviewer` is the usual one — [What agents may write](41-runs-the-journal-and-lessons.md#what-agents-may-write)).
+An entry written in the moment before it is refused with exit 4, naming `journal.write`, and the agent tries again once
+you have granted it — nothing is lost.
 
-**The network.** `remotion-video` gives its micro VMs the standard network, which does not include Remotion's own
-downloads: bot1's first render is refused, and inside the sandbox that looks like a DNS error (`ENOTFOUND`). Look, then
-allow exactly what it shows:
+**The network.** `remotion-video` gives its micro VMs the standard network and `remotion.media`, where a render first
+downloads Remotion's own browser. Anything else a composition fetches (a web font, a remote image) is refused until you
+allow it — look, then allow exactly what it shows:
 
 ```bash
 doz workspace show promo --network          # each agent's refusals, with the command that allows each
-doz net allow promo-bot1 site:remotion.media
+doz net allow promo-bot1 site:fonts.example.com
 ```
 
 ## The process, in the brief
@@ -74,7 +82,8 @@ Each worker was also told its own task when it was declared; the brief says how 
 
 ## The first unit of work
 
-You set what "done" means for this scene — one `criterion` entry each:
+You set what "done" means for this scene — one `criterion` entry each, added in the set-up above between the run and
+the start, so they are there when the workers read the unit of work:
 
 ```bash
 doz workspace journal promo add criterion "The title reads at phone size" --data '{"id":"c1"}'

@@ -8,6 +8,8 @@
 #     website's own page names, the shape the menu bar app links to); each Markdown file starts with a banner naming
 #     the version and pointing at the stable manual;
 #   - v/VERSION/index.html: the version, its pages, a link to the stable manual, and noindex;
+#   - v/VERSION/onboarding.md|.html and v/VERSION/docs/onboarding.md|.html redirect to that version's setting-up page, as
+#     docs/onboarding.* does for the stable manual (a guessed `onboarding.md` is the name `doz onboard` suggests);
 #   - robots.txt keeps `Disallow: /v/` (the stable manual stays the one search engines show);
 #   - docs/onboarding.md and docs/onboarding.html redirect to the setting-up page (`doz onboard` sends people looking for it).
 # Old versions are kept. Nothing outside v/, robots.txt and docs/onboarding.* is touched.
@@ -56,6 +58,19 @@ for f in "$SCRATCH/manual"/[0-9]*-*.md; do
     sed -E 's#\]\(([0-9]{2}-[a-z0-9-]+\.md)#](../\1#g' "$OUT/docs/$name.tmp" > "$OUT/docs/$name" && rm "$OUT/docs/$name.tmp"
     pages+=("$b")
 done
+
+# A page that sends a browser (and an agent reading the refresh) to URL: noindex, a meta refresh, a canonical link.
+redirect_page() {
+    printf '<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0; url=%s"><link rel="canonical" href="%s"><title>Setting up</title><p>Moved: <a href="%s">%s</a> (doz onboard is described there).</p>\n' "$1" "$1" "$1" "$1"
+}
+# This version's onboarding.* → its own setting-up page (both name shapes: NN-name.md and docs/name.md).
+setting_up="$(cd "$SCRATCH/manual" && ls [0-9]*-setting-up.md 2>/dev/null | head -1)"
+[[ -n "$setting_up" ]] || { echo "x publish-docs: the manual at v$VERSION has no NN-setting-up.md page" >&2; exit 1; }
+VTARGET="https://dozable.com/v/$VERSION/$setting_up"
+redirect_page "$VTARGET" > "$OUT/onboarding.md"
+redirect_page "$VTARGET" > "$OUT/onboarding.html"
+redirect_page "https://dozable.com/v/$VERSION/docs/setting-up.md" > "$OUT/docs/onboarding.md"
+redirect_page "https://dozable.com/v/$VERSION/docs/setting-up.md" > "$OUT/docs/onboarding.html"
 
 esc() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
 {

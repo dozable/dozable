@@ -612,7 +612,17 @@ public final class EgressProxy: @unchecked Sendable {
             rec.open = false
             rec.detail = v.kind == .deny ? nil : "needs request inspection, which this tunnel cannot have"
             log.upsert(rec)
-            if connectReply { _ = Wire.writeAll(fd, Self.denial(host: "\(host):\(port)", rule: v.rule)) }
+            if connectReply {
+                let answer = Self.denial(host: "\(host):\(port)", rule: v.rule,
+                                         hint: mac == nil ? refusalHint(host: host, byRule: v.ruleIndex != nil) : nil)
+                // 775: a refused HTTPS host is answered INSIDE the tunnel, so the program prints the refusal (curl showed only
+                // "CONNECT tunnel failed, response 403", and a program's own error read like a network failure).
+                if v.kind == .deny, mac == nil, port == 443, let ca, IPv4CIDR.parseAddress(host) == nil {
+                    refuseInsideTLS(fd, host: host, ca: ca, leftover: leftover, answer: answer)
+                } else {
+                    _ = Wire.writeAll(fd, answer)
+                }
+            }
             return
         }
         if decrypt, let ca {
@@ -696,7 +706,8 @@ public final class EgressProxy: @unchecked Sendable {
         if v.action == .deny {
             rec.verdict = .denied; rec.open = false
             log.upsert(rec)
-            _ = Wire.writeAll(fd, Self.denial(host: "\(host):\(port) \(h.method) \(pathOnly)", rule: v.rule))
+            _ = Wire.writeAll(fd, Self.denial(host: "\(host):\(port) \(h.method) \(pathOnly)", rule: v.rule,
+                                              hint: mac == nil ? refusalHint(host: host, byRule: v.ruleIndex != nil) : nil))
             return
         }
         // A placeholder has no business on plain HTTP (secrets are only ever sent over TLS) — 692: but for a launch secret's,
@@ -1187,7 +1198,11 @@ public final class EgressProxy: @unchecked Sendable {
                 privateKey: .privateKey(try NIOSSLPrivateKey(bytes: Array(leaf.keyPEM.utf8), format: .pem)))
             cfg.applicationProtocols = ["http/1.1"]
             ctx = try NIOSSLContext(configuration: cfg)
-            lock.lock(); serverContexts[host] = ctx; lock.unlock()
+            // 775: bounded — a refused name is answered with a leaf too, so a guest could otherwise grow it name by name.
+            lock.lock()
+            if serverContexts.count >= Self.maximumServerContexts { serverContexts.removeAll() }
+            serverContexts[host] = ctx
+            lock.unlock()
         }
         let ch = EmbeddedChannel()
         try ch.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: ctx))
@@ -1195,10 +1210,80 @@ public final class EgressProxy: @unchecked Sendable {
         return ch
     }
 
+    // MARK: 775 — a refusal a program prints
+
+    /// What the person does about a refused host, on the Mac: `doz net` shows it, `doz net allow … site:HOST` allows it —
+    /// this sandbox's name, or a fenced session's `@mac --session S`.
+    /// `byRule`: a rule of the policy denies the host (allowing the site would not change it), not the default.
+    func refusalHint(host: String, byRule: Bool = false) -> String {
+        let label = sessionLabel ?? ""
+        let target = label.hasPrefix("@mac/") ? "@mac --session " + label.dropFirst(5) : (label.isEmpty ? "SANDBOX" : label)
+        let shown = label.hasPrefix("@mac/") ? "doz net @mac" : "doz net " + target
+        if byRule { return "refused by Dozable's network policy (a rule denies it), not a network failure — on the Mac, \(shown) shows the rule" }
+        return "refused by Dozable's network policy, not a network failure — on the Mac, \(shown) shows it and "
+            + "doz net allow \(target) site:\(host.lowercased()) allows it"
+    }
+
+    /// The longest a refusal inside a tunnel waits for the request, and the most it reads of it.
+    static let refusalSeconds: TimeInterval = 10
+    static let refusalBytes = 65_536
+    /// The most TLS server contexts (one per host name) kept; past it, the cache starts again.
+    static let maximumServerContexts = 512
+
+    /// 775: a CONNECT the policy refused, answered inside the tunnel: 200, the guest's TLS terminated with a leaf from this
+    /// sandbox's CA (as a decrypted tunnel's is), the first request read and answered with `answer` (403, the reason and
+    /// what to do), closed. Nothing is dialled — the refusal is the same one, only said where the program reads it. A client
+    /// that does not trust the CA fails its handshake instead; no request comes in `refusalSeconds`: closed.
+    func refuseInsideTLS(_ fd: Int32, host: String, ca: SandboxCA, leftover: [UInt8], answer: [UInt8]) {
+        guard let guest = try? makeServerChannel(host: host, ca: ca) else {
+            _ = Wire.writeAll(fd, answer)
+            return
+        }
+        defer {
+            guest.close(promise: nil)
+            _ = Wire.drain(guest, to: fd)
+        }
+        guard Wire.writeAll(fd, Array("HTTP/1.1 200 Connection established\r\n\r\n".utf8)) else { return }
+        var reader = HTTPRequestReader()
+        var read = 0
+        /// Bytes from the guest; true once a request's head (or an unreadable one) is in.
+        func take(_ bytes: [UInt8]) -> Bool? {
+            read += bytes.count
+            do { try guest.writeInbound(ByteBuffer(bytes: bytes)) } catch { return nil }
+            guard Wire.drain(guest, to: fd) else { return nil }
+            var plain: [UInt8] = []
+            while let b = try? guest.readInbound(as: ByteBuffer.self) { plain += b.readableBytesView }
+            return reader.feed(plain).contains { if case .body = $0 { return false }; if case .raw = $0 { return false }; return true }
+        }
+        var asked = false
+        if !leftover.isEmpty {
+            guard let a = take(leftover) else { return }
+            asked = a
+        }
+        let deadline = Date().addingTimeInterval(Self.refusalSeconds)
+        var buf = [UInt8](repeating: 0, count: 16_384)
+        while !asked, read < Self.refusalBytes {
+            let left = deadline.timeIntervalSinceNow
+            if left <= 0 { return }
+            var p = [pollfd(fd: fd, events: Int16(POLLIN), revents: 0)]
+            let r = poll(&p, 1, Int32(min(left, 1) * 1000))
+            if r < 0 { if errno == EINTR { continue }; return }
+            if r == 0 { continue }
+            let n = buf.withUnsafeMutableBytes { Darwin.read(fd, $0.baseAddress, $0.count) }
+            if n <= 0 { return }
+            guard let a = take(Array(buf[0..<n])) else { return }
+            asked = a
+        }
+        guard asked else { return }
+        guest.writeAndFlush(ByteBuffer(bytes: answer), promise: nil)
+        _ = Wire.drain(guest, to: fd)
+    }
+
     // MARK: canned responses
 
-    static func denial(host: String, rule: String) -> [UInt8] {
-        response(403, "blocked by the sandbox network policy: \(host) (\(rule))\n", extra: "X-Sandbox-Policy: denied\r\n")
+    static func denial(host: String, rule: String, hint: String? = nil) -> [UInt8] {
+        response(403, "blocked by the sandbox network policy: \(host) (\(rule))\n" + (hint.map { $0 + "\n" } ?? ""),
+                 extra: "X-Sandbox-Policy: denied\r\n")
     }
 
     static func forbidden(_ why: String) -> [UInt8] {

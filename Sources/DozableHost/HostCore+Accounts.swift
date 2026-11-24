@@ -967,6 +967,15 @@ extension HostCore {
     func setDefaultAccount(_ r: HostRequest) async throws -> [AccountRow] {
         guard let name = r.account else { throw HostError(.invalid, "which account? (a name, or none)") }
         var file = accountStore.load()
+        // 775: this Mac's Claude Code login declined (no account mac; the default none if it was mac), or taken back — also
+        // by naming it the default again.
+        if r.macLogin == "none" { return try await declineMacLogin(&file) }
+        if file.macDeclined == true, r.macLogin == "mac" || (name == "mac" && r.accountKind != "codex") {
+            file.macDeclined = nil
+            if !file.accounts.contains(where: { $0.name == "mac" }) { file.accounts.insert(.mac, at: 0) }
+            try accountStore.save(file)
+            note(nil, "this Mac's Claude Code login is the account mac again")
+        }
         guard name == "none" || file.accounts.contains(where: { $0.name == name }) else { throw HostError(.notFound, "no account \(name)") }
         // 599i: an OpenAI account is the default of Codex sandboxes; any other, of Claude Code and pi. rc.3: `--codex`
         // (`accountKind` "codex") sets the Codex default by name — `mac` (this Mac's Codex login) or none too.
@@ -996,6 +1005,22 @@ extension HostCore {
             try? m.config.write(store.configFile(m.name))
         }
         note(nil, openai ? "the default OpenAI account (Codex) is \(name)" : "the default account is \(name)")
+        return await accountRows()
+    }
+
+    /// 775: the store declines this Mac's Claude Code login: the account `mac` goes (nothing of the Mac's is touched — the
+    /// login stays the Mac's), the Anthropic default becomes none when it was mac, and sandboxes that follow the default
+    /// take it. A sandbox that names `mac` says it is missing.
+    func declineMacLogin(_ file: inout AccountsFile) async throws -> [AccountRow] {
+        file.macDeclined = true
+        file.accounts.removeAll { $0.name == "mac" && $0.kind == .mac }
+        if file.defaultAccount == "mac" { file.defaultAccount = "none" }
+        try accountStore.save(file)
+        for m in managed.values where m.config.account == "default" || m.config.account == "mac" {
+            applyAccount(m)
+            try? m.config.write(store.configFile(m.name))
+        }
+        note(nil, "this store declines this Mac's Claude Code login: no account mac")
         return await accountRows()
     }
 

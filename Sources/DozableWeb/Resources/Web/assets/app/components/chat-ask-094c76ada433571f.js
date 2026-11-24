@@ -51,6 +51,8 @@ function pickRule(q) {
 function endPill(m) {
   const a = m.ask, d = a.decision || {}, me = viewer();
   const by = d.by === me ? 'you' : cap(d.by || '?') + (d.decider_role ? ' (decider role)' : '');
+  // Decided in the terminal (doz workspace decide): applied or declined, said so.
+  if (a.state === 'decided' && d.via === 'workspace-decide') return d.declined ? ['declined with doz workspace decide', 'is-declined'] : ['applied with doz workspace decide', 'is-decided'];
   if (a.state === 'decided') return d.declined ? ['declined by ' + by, 'is-declined'] : ['decided by ' + by, 'is-decided'];
   if (a.state === 'expired') return ['expired · answer: decline', 'is-ended'];
   if (a.state === 'withdrawn') return ['withdrawn', 'is-ended'];

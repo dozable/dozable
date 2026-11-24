@@ -9,6 +9,10 @@ A sandbox can also be adopted into a workspace, with other agents, a room and a 
 hibernates its sandboxes (the same as `doz hibernate`, all at once) and `wake` wakes them; `finish` shuts them down, keeping
 their disks — a workspace never removes a sandbox unless you say so (`--remove-sandboxes`, and never one you adopted).
 
+A sandbox is one of three places an agent can run — a micro VM; the other two are fenced and unfenced sessions on this
+Mac. [Where an agent runs: the three choices](34-sessions-on-this-mac.md#where-an-agent-runs-the-three-choices) compares
+them (what each reaches, its memory, its start time, when to pick it).
+
 ## Concepts
 
 - **Name.** 1–40 characters of `a-z 0-9 -`, unique in the store.

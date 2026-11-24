@@ -597,7 +597,8 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
         check(res("py") == 0, "[FENCE_NET] Python urllib → PyPI")
         check(res("git") == 0, "[FENCE_NET] git ls-remote over https")
         check(res("node") == 0, "[FENCE_NET] Node fetch with NODE_USE_ENV_PROXY (or no node here)")
-        check(code("nope").hasSuffix(" 403"), "[FENCE_NET] example.com (not in Standard) refused — \(code("nope"))")
+        // 775: refused inside the tunnel ("403 200") or at the CONNECT ("000 403").
+        check(code("nope").hasPrefix("403") || code("nope").hasSuffix(" 403"), "[FENCE_NET] example.com (not in Standard) refused — \(code("nope"))")
         t.run(["sessions", "end", "@mac", "netreal", "--yes"], timeout: 60)
         started.remove("netreal")
     } else {

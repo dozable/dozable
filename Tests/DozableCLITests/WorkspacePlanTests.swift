@@ -272,6 +272,43 @@ final class WorkspacePlanTests: BotTestCase {
         XCTAssertFalse(WorkspacePresets.builtIn.contains { $0.workerIsolation == "unfenced" || $0.managerIsolation == "unfenced" })
     }
 
+    /// 775: the remotion-video preset allows remotion.media (where a render downloads Remotion's browser) on top of
+    /// Standard — in its dry run, its commands, the record, and the network every agent it starts gets.
+    func testTheRemotionPresetAllowsRemotionMedia() async throws {
+        let remotion = try WorkspacePresets.named("remotion-video")
+        XCTAssertEqual(remotion.sites, ["remotion.media"])
+        XCTAssertTrue(remotion.summary.contains("remotion.media"))
+        var w = request("clip")
+        WorkspacePresets.apply(remotion, to: &w, folderModeGiven: [true])
+        XCTAssertEqual(w.network, "standard")
+        XCTAssertEqual(w.sites, ["remotion.media"])
+        // A site given joins it, once each.
+        var w2 = request("clip") { $0.sites = ["api.example.com", "remotion.media"] }
+        WorkspacePresets.apply(remotion, to: &w2, folderModeGiven: [true])
+        XCTAssertEqual(w2.sites, ["api.example.com", "remotion.media"])
+        XCTAssertTrue(WorkspaceNewCommand.argv(w).joined(separator: " ").contains("--network standard --site remotion.media"))
+        let c = await daemon()
+        let p = try await plan(c, w)
+        XCTAssertEqual(p.refusals, [])
+        XCTAssertTrue(p.lines.contains("network: standard + remotion.media + the room"), "\(p.lines)")
+        XCTAssertTrue(p.commands.contains("--site remotion.media"), p.commands)
+        let m = await send(c, .workspaceNew, w)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        let rec = try XCTUnwrap(try WorkspaceStore(store: store).read("clip"))
+        XCTAssertEqual(rec.defaults, WorkspaceDefaults(isolation: "vm", network: "standard", sites: ["remotion.media"]))
+        XCTAssertEqual(rec.defaults.siteWords, ["site:remotion.media"])
+        // Sites are host names: no port, no address of this Mac's route, at most 16; `site:` and case are taken.
+        XCTAssertEqual(try WorkspaceNetworks.checkedSites(["site:Remotion.Media", "remotion.media"]), ["remotion.media"])
+        XCTAssertNil(try WorkspaceNetworks.checkedSites([]))
+        XCTAssertThrowsError(try WorkspaceNetworks.checkedSites(["remotion.media:443"]))
+        XCTAssertThrowsError(try WorkspaceNetworks.checkedSites(["host.dozable.internal"]))
+        XCTAssertThrowsError(try WorkspaceNetworks.checkedSites(["not a host"]))
+        XCTAssertThrowsError(try WorkspaceNetworks.checkedSites((0..<17).map { "h\($0).example.com" }))
+        let bad = await send(c, .workspacePlan, request("bad") { $0.sites = ["x.example.com:22"] })
+        let badPlan = try XCTUnwrap(try bad.result?.decode(WorkspacePlan.self))
+        XCTAssertTrue(badPlan.refusals.contains { $0.contains("no port") }, "\(badPlan.refusals)")
+    }
+
     func testNewFolderWorkerIsolationAndNetwork() async throws {
         let c = await daemon()
         let target = WorkspaceStore.resolved(Workspace.defaultPath(name: "fresh"))

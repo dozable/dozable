@@ -127,12 +127,17 @@ Details: [Setting up](03-setting-up.md).
 
 - **Each sandbox is a small Linux virtual machine,** not a container, with its own kernel and disk.
   It can't see your Mac's files, apart from the one project folder you share at `/workspace`.
-- **The Dozable daemon runs the sandboxes.** It's a background program that starts when you need it and
-  exits when nothing is running. `doz` and the dashboard are remote controls for it.
-- **Sandboxes sit behind a network proxy on your Mac.** They have no network card of their own:
+- **A workspace's agents run fenced on this Mac by default** — no VM: macOS's own sandbox holds each one to its
+  project folder, its own temp and caches, and Dozable's proxy for the network, with your Keychain closed. A preset or
+  `--worker-isolation vm` puts them in micro VMs instead; [Where an agent runs](34-sessions-on-this-mac.md#where-an-agent-runs-the-three-choices)
+  compares the three choices.
+- **The Dozable daemon runs the sandboxes and sessions.** It's a background program that the first command starts, and
+  it keeps running when nothing is (the setting `daemon.always_on`, on by default; off, it exits once nothing runs).
+  `doz` and the dashboard are remote controls for it.
+- **Sandboxes and fenced sessions sit behind a network proxy on your Mac.** A sandbox has no network card of its own:
   every connection goes through the proxy, which allows only what you permit, and logs it.
-- **Your credentials never enter a sandbox.** The agent sees a stand-in; the proxy adds your real
-  login as each request leaves for Anthropic.
+- **Your credentials never enter a sandbox or a fenced session.** The agent sees a stand-in; the proxy adds your real
+  login as each request leaves for Anthropic. An unfenced agent is the exception: it acts as you.
 - **Two files hold your choices:** `~/.config/doz/doz.toml` (your settings for this Mac)
   and a project's `doz_project.yaml` (its sandbox). Everything else is kept by the daemon.
 

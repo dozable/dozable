@@ -64,7 +64,10 @@ doz workspace start app --json
 ## Concepts
 
 - **Every command works without a terminal to type into**, and **`--json`** gives machine-readable
-  output on stdout (errors as `{"error":{"code","message","exit"}}`; fields are only ever added).
+  output on stdout (errors as `{"error":{"code","message","exit"}}`; fields are only ever added). A usage error is
+  one too: with `--json` anywhere on the line, an unknown option or a missing argument prints
+  `{"error":{"code":"usage","message":"Unknown option '--no-such-flag'","exit":64}}` on stdout and exits `64` — never
+  the plain-text usage (`--help` still prints help).
 - **Exit codes** say what happened, the same for every command, and they keep their meaning:
 
   | exit | meaning | `error.code` |
@@ -87,8 +90,9 @@ doz workspace start app --json
 
   `doz help exit-codes --json` prints this table (`{"kind":"ExitCodes","schema":1,"codes":[…]}`). `exec`,
   `run` and `attach` exit with the program's own code (`125` when `doz` itself failed). `exec` exits `124` when its `--timeout` passed (default 120 s, counted from when `doz`
-  started — a wake or a start included); the command is killed, a wake or a start goes on. A program's
-  own `124` looks the same: `--json` says `"timedOut": true` only for the deadline.
+  started — a wake or a start included); the command is killed (and anything it left running is reaped, never left
+  `<defunct>`), a wake or a start goes on, and stderr says so with what to do instead: `--timeout SECONDS`, or `doz run
+  -d` for a long job. A program's own `124` looks the same: `--json` says `"timedOut": true` only for the deadline.
 - **Destructive commands refuse without `--yes`** when there's no terminal, so a script can't delete
   something by accident.
 - **Two agents, two sets of rules.** The agent on your Mac has *your* permissions: it can run `doz`, so

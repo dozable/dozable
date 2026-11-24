@@ -119,7 +119,9 @@ extension HostCore {
         var notes: [String] = []
         if let room = p.room, let ask = p.askId, let chat = workspaceChat {
             do {
-                _ = try await chat.control("systemAskClose", .map(["room": .string(room), "msgId": .string(ask), "outcome": .string(p.outcomeLine())]))
+                // 775: closed with the decision (decided, not withdrawn), its text saying how it was made.
+                _ = try await chat.control("systemAskClose", .map(["room": .string(room), "msgId": .string(ask), "outcome": .string(p.outcomeLine()),
+                                                                   "decision": .string(d)]))
             } catch {
                 notes.append("its Ask in \(room) could not be closed (\(HostError.from(error).message)): it expires by itself, and an answer to it changes nothing now")
             }
@@ -136,6 +138,8 @@ extension HostCore {
             let p = f.proposals[i]
             let now = Date()
             let who = by == "owner" ? "you" : "doz"
+            // 775: how it was decided, in the log's words (`doz workspace decide`; an Ask's own outcome says nothing more).
+            let howSaid = how == "decide" ? ChatServerCore.decidedElsewhereText : nil
             if apply {
                 let a = WorkspaceAddendum(run: p.source.run, at: now, by: p.by, text: p.change.addendum)
                 _ = try await workspaceUpdate(n) { rec in
@@ -143,12 +147,12 @@ extension HostCore {
                     var added = WorkspaceLogEntry(by: who, action: "addendum-added", agent: p.by, sha256: WorkspaceStore.sha256(Data(a.text.utf8)),
                                                   bytes: a.text.utf8.count, run: a.run)
                     added.proposal = p.id
-                    var applied = WorkspaceLogEntry(by: who, action: "proposal-applied", agent: by, run: a.run)
+                    var applied = WorkspaceLogEntry(by: who, action: "proposal-applied", agent: by, reason: howSaid, run: a.run)
                     applied.proposal = p.id
                     return [added, applied]
                 }
             } else {
-                var e = WorkspaceLogEntry(by: who, action: "proposal-declined", agent: by, reason: reason, run: p.source.run)
+                var e = WorkspaceLogEntry(by: who, action: "proposal-declined", agent: by, reason: reason ?? howSaid, run: p.source.run)
                 e.proposal = p.id
                 try? workspaces.append(n, e)
             }

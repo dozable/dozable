@@ -682,7 +682,7 @@ struct DaemonAbsentStatus: Encodable {
 
     var text: String {
         var s = "no daemon is running (nothing is running)"
-        if held { s += " — held by doz daemon stop: it stays stopped until a doz command" + (loginItem.installed || loginItem.owner == "app" ? " or your next login" : "") }
+        if held { s += " — held by doz daemon stop: it stays stopped until a doz command" + (loginItem.installed || loginItem.appStartsThisStore ? " or your next login" : "") }
         return s + "\n" + loginItem.line + "\n" + "Claude login " + keepalive.line() + "\n"
     }
 }
@@ -748,7 +748,7 @@ struct HostStop: AsyncParsableCommand {
         guard DozableSettings.load().bool(SettingKey.alwaysOn), !store.hostIsRunning() else { return nil }
         LoginStart.hold(store)
         let li = DaemonLoginItem.status(store: store)
-        return "it stays stopped until a doz command" + (li.installed || li.owner == "app" ? " or your next login" : " starts it")
+        return "it stays stopped until a doz command" + (li.installed || li.appStartsThisStore ? " or your next login" : " starts it")
     }
 }
 
