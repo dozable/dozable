@@ -40,7 +40,10 @@ doz exec my-app -- ls /workspace  # a one-off command: no terminal, output and e
 - `exec` is for scripts: no terminal and no input; stdout, stderr and the exit code pass straight
   through. On agent images it runs as the agent's user in `/workspace`; `--user root` for root.
 - **`exec` stops a command after 120 s** unless you pass `--timeout SECONDS`: the command is killed and `doz` exits 124
-  (`"timedOut": true` in `--json`). The time counts from when `doz` started, a wake or a start included. For a long
+  (`"timedOut": true` in `--json`), saying so on stderr with what to do instead. Anything the command left running
+  (a browser a render started, say) is reaped by the sandbox's init, never left `<defunct>` — in a sandbox started
+  with 0.52.55 or later; one booted by an older build reaps from its next start. The time counts from when `doz`
+  started, a wake or a start included. For a long
   job — a build, a test suite, a video render — give it room (`doz exec my-app --timeout 1800 -- make render`), or run
   it as a session in the background and come back to it: `doz run my-app -d --session render -- make render`, then
   `doz sessions screen my-app render`.

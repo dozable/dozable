@@ -20,6 +20,24 @@ Each fenced session has a fence of its own — its own proxy, its own placeholde
 with another session. A workspace's **fenced place** (Space files, 39) is a policy, not a shared box: two agents in one
 fenced place are two sessions with two fences, each built from the place.
 
+## Where an agent runs: the three choices
+
+Every agent — a sandbox you make, a workspace's manager or worker — runs in one of three places. This table is the one
+comparison; other pages point here.
+
+| | **micro VM** (a sandbox) | **fenced** on this Mac (the default for a workspace's agents) | **unfenced** on this Mac (as you) |
+|---|---|---|---|
+| what holds it | its own Linux virtual machine: its own kernel and disk | macOS's own sandbox, around the program and everything it starts | nothing |
+| files it reaches | the one folder shared at `/workspace` | its project folder (and folders you name with `--write` / `--read`), its own temp and caches; reads your tools | all of yours |
+| network | only through Dozable's proxy, by its permissions; never this Mac's addresses | the same | all of yours |
+| your keys and logins | never inside: a placeholder, swapped on the way out | the same; the Keychain closed (`--keychain` opens it) | yours, as you |
+| memory | its own allocation (1 GiB for a plain shell, 2 GiB for an agent image; `--memory`), given back when it hibernates | a program on your Mac: what it uses | the same |
+| start | a first start may prepare its image (minutes, once); then ~0.4 s to boot, ~0.3 s to wake | a program starting: about a second | the same |
+| pick it when | the work is Linux work, or you want the strongest wall (a tool that installs things, a render, untrusted code) | the work has to happen on the Mac (Xcode, the Simulator, a Mac-only build), or you want no VM | signing and notarising, or anything that needs your Keychain and networking whole — knowingly |
+
+What each wall does and does not stop is in the [Security model](16-security-model.md); a sandbox's lifecycle is in
+[Sandboxes and their lifecycle](05-sandboxes-and-lifecycle.md).
+
 ## The idea, in plain words
 
 A fenced session may change its project, and nothing else of yours that something unfenced would later run or load.

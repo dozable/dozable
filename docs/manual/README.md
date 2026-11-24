@@ -1,10 +1,10 @@
 # The Dozable manual
 
 > Dozable runs teams of AI coding agents on your Mac. A workspace holds the agents, their chat room, the folders they
-> work in and a brief. Agents from any vendor (Claude Code, Codex, Gemini and more) take on the work one unit of work at
+> work in and a brief. Agents from any vendor (Claude Code, Codex, OpenCode and more) take on the work one unit of work at
 > a time; each is recorded in a journal, and the lessons you approve carry into the next. You watch, talk to them and
-> decide what matters. Each agent runs where you choose: in its own micro VM, held to its folder on your Mac, or as you.
-> Your keys never go inside.
+> decide what matters. Each agent runs where you choose: in its own micro VM or held to its folder on your Mac, where
+> your keys never go inside, or as you.
 
 You drive it with the `doz` command or its dashboard in your browser (`doz ui`). Every page here shows both. New to
 Dozable? Start with [Getting started](01-getting-started.md), then [Workspaces](37-workspaces.md).
@@ -17,8 +17,9 @@ workspace, its brief, its room, its units of work and their journal. Then [Letti
 Dozable](14-letting-another-agent-drive.md), for `--json`, the exit codes, `--yes` and what to ask the person before you
 act; then [Chat](36-chat.md). Before you start: workers and a manager need chat on (`doz chat on`), and turning it on is
 the person's call; `doz exec` stops a command after 120 s unless you pass `--timeout` (use `doz run -d` for a long job);
-inside a sandbox a refused connection looks like a DNS error, and `doz net NAME` names what was refused and the command
-that allows it. `doz skill show doz` prints the skill for this version; `doz docs PAGE` reads a page with no network.
+inside a sandbox a refused HTTPS site answers 403 with "refused by Dozable's network policy" to a program that uses the
+proxy (curl, npm, pip, git), while one that ignores it (Node's own `https`, for one) still sees a name that does not
+resolve — either way `doz net NAME` names what was refused and the command that allows it. `doz skill show doz` prints the skill for this version; `doz docs PAGE` reads a page with no network.
 
 **If you are an agent working inside a workspace:** you have no `doz`. You reach Dozable through `dozchat`, with your
 own token: your room, Asks, the journal of the unit of work, and proposing a lesson. Run `dozchat --help`, then read
@@ -52,8 +53,8 @@ Every page, one line each: what it covers, so you can tell whether to read it. T
 ### Where agents run
 
 - [Sandboxes and their lifecycle](05-sandboxes-and-lifecycle.md): the micro VM choice — a Linux virtual machine with its own disk; running, paused, asleep, hibernated and off; the daemon that runs them.
-- [Sessions on this Mac](34-sessions-on-this-mac.md): the on-your-Mac choice — fenced (held by macOS's own sandbox to its project folder, no Keychain, the network only through Dozable's proxy, this Mac's ports only when given, the chat server's among them) or unfenced (no isolation: it acts as you); page 16 says exactly what the fence blocks.
-- [What the agent can do: permissions and the network](10-permissions-and-network.md): a sandbox's network, and a fenced session's, goes only through a proxy that checks each connection against plain-language permissions; inside, a refusal looks like a DNS error (ENOTFOUND); `doz net NAME` names the host and the allow command; a browser's own background requests swell the refused count and are no reason to allow them.
+- [Sessions on this Mac](34-sessions-on-this-mac.md): the on-your-Mac choice — fenced (held by macOS's own sandbox to its project folder, no Keychain, the network only through Dozable's proxy, this Mac's ports only when given, the chat server's among them) or unfenced (no isolation: it acts as you); its first section compares the three places an agent runs (micro VM, fenced, as you: what each reaches, memory, start time, when to pick it); page 16 says exactly what the fence blocks.
+- [What the agent can do: permissions and the network](10-permissions-and-network.md): a sandbox's network, and a fenced session's, goes only through a proxy that checks each connection against plain-language permissions; inside, a refused HTTPS site answers 403 "refused by Dozable's network policy" to a program that uses the proxy and looks like a DNS error (ENOTFOUND) to one that does not; `doz net NAME` names the host and the allow command; a browser's own background requests swell the refused count and are no reason to allow them.
 - [Security model](16-security-model.md): what protects your Mac, credentials and data in each place an agent runs, what each boundary does and does not cover, and the deliberate ways in.
 - [Terminals and sessions](07-terminals-and-sessions.md): programs running in a sandbox — attach, detach, watch read-only, type from a script, files, the clipboard and links; `doz exec` stops a command after 120 s unless `--timeout`, so a long job such as a render uses `--timeout` or `doz run -d`.
 - [Folder rules: .dozignore and .dozreadonly](20-workspace-rules.md): keep paths of a shared folder hidden or read-only from the agent.

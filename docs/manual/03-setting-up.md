@@ -21,7 +21,9 @@ dashboard's setup wizard). Both are safe to run again.
 - **Onboard uses this Mac's Claude Code login by default.** When Claude Code is signed in on this Mac, that login —
   the account `mac` — is what your agents use, with nothing to paste; the Models & keys step shows it. To set up with
   another account instead, give it: `doz onboard --key setup-token` (or another provider's key) adds that one and runs
-  no Claude Code checks. That login **expires** after some
+  no Claude Code checks. To set up **without** the Mac's login at all, say so: `doz onboard --claude-account none --yes`
+  leaves no account `mac` (the default account is then none; nothing of the Mac's is read), `--claude-account later`
+  changes nothing, and `--claude-account mac` (or later `doz account default mac`) takes it back. That login **expires** after some
   hours, and only the Mac's own Claude Code renews it: `doz account keepalive always` has Dozable run it when the login
   expires (not for a daemon started over SSH), and a setup-token account (`claude setup-token`, valid a year) suits long
   unattended work. See [How the Mac login stays fresh](09-agents-and-accounts.md#how-the-mac-login-stays-fresh).

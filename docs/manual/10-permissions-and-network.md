@@ -61,11 +61,14 @@ doz net log my-app --denied --follow
 When the agent was refused something a permission would allow, `doz net` says so — "the agent tried
 to install Python packages (PyPI), 3 times" — with the command that allows it.
 
-**What a refusal looks like inside.** The agent is not told "refused by Dozable": a program in the sandbox sees a name
-that does not resolve — Node's `getaddrinfo ENOTFOUND remotion.media`, curl's "Could not resolve host", pip's "Name or
-service not known". So when a download or an API call fails with a DNS error, look at `doz net NAME` first: it names the
-host that was refused and the exact `doz net allow` command. In a workspace, `doz workspace show W --network` lists
-every agent's refusals at once.
+**What a refusal looks like inside.** It depends on whether the program uses the proxy. One that does — curl, wget,
+pip, npm, git and most tools read `HTTPS_PROXY` — gets an answer from Dozable: an HTTPS site refused answers `403` with
+the words "refused by Dozable's network policy, not a network failure" and the `doz net` commands (curl prints them; a
+tool that shows only the status says `403 Forbidden`). One that ignores the proxy and looks the name up itself — Node's
+own `https` and `fetch`, for one — sees a name that does not resolve: `getaddrinfo ENOTFOUND remotion.media`, "Name or
+service not known". So when a download or an API call fails with a 403 or a DNS error, look at `doz net NAME` first: it
+names the host that was refused and the exact `doz net allow` command. In a workspace, `doz workspace show W --network`
+lists every agent's refusals at once.
 
 **A large refused count is often a browser's housekeeping.** A headless browser in the sandbox (a render, a test run)
 makes its own background requests — Google's update, safe-browsing and font hosts — and each one refused is counted. They

@@ -80,9 +80,11 @@ added read-only — and nothing else. It installs no tool, makes no agent and al
 | `research` | fenced on this Mac | locked: its AI model only | added read-only | any website: allow each one (`doz net allow`) |
 | `swift-tests` | fenced on this Mac | standard (its AI model, GitHub and the package registries, Swift's included) | as you give them | any other site: allow it |
 | `mac-admin` | fenced on this Mac | locked: its AI model only | as you give them | anything else on the network: allow each site |
-| `remotion-video` | micro VMs | standard | as you give them | Remotion's own downloads: standard does not include `remotion.media`, so a render's first download is refused until you allow it (`doz workspace show W --network` shows the refusal and the command) |
+| `remotion-video` | micro VMs | standard, and `remotion.media` (where a render downloads Remotion's own browser) | as you give them | any other site — fonts or media a composition fetches, a browser's own background requests: allow what the work needs (`doz workspace show W --network` shows each refusal and the command) |
 
 `--worker-isolation`, `--manager-isolation`, `--network` and a folder's `:ro` or `:rw` each win over the preset.
+`--site HOST` (repeatable) adds a site every agent the workspace starts may reach on top of its network; a preset's own
+sites join yours, and the dry run's `network:` line names them all.
 
 ### Retrying safely
 
@@ -326,7 +328,8 @@ demo is not fully set up yet:
 
 Then the bot is invited to the room, **your brief is posted as your first message** in it (with its references), and
 the manager is started. The brief is posted once: a start after a stop never posts it again. Without a manager, `start`
-posts the brief and you drive.
+posts the brief and you drive — and the workers declared with `--worker` still start, each with its task, as they do
+with one.
 
 `stop` stops **everything**: every agent's process ends — a session on this Mac ended, a micro VM shut down with its disk
 kept — and every conversation, record, room and folder is kept. Nothing is removed. Unlike `sleep` nothing is held: each
