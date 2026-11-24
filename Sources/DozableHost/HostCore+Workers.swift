@@ -495,7 +495,7 @@ extension HostCore {
             switch p.isolation {
             case .unfenced: plan.account = nil
             case .vm: plan.account = p.bot?.account ?? accountStore.load().defaultAccount(for: program == "codex" ? "codex" : "claude-code")
-            case .fenced: plan.account = p.bot?.account ?? DozableSettings.load().string(SettingKey.macAccount) ?? "mac"
+            case .fenced: plan.account = p.bot?.account ?? Self.fencedDefaultAccount(settings: DozableSettings.load(), accounts: accountStore.load())
             }
             plan.isolation = p.isolation.rawValue
             plan.place = p.entry.place.display

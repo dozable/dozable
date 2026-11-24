@@ -358,11 +358,16 @@ struct AccountDefault: AsyncParsableCommand {
     @Argument var name: String
     @Flag(name: .long, help: "Set the default of Codex sandboxes: mac (this Mac's own Codex login), an OpenAI account, or none.") var codex = false
     @Option(name: .long, help: "With none: clear this key provider's default (xai, google, google-stitch, opencode, openrouter, vercel-ai-gateway). A key account sets its own provider's default.") var provider: String?
+    @Flag(name: .long, help: "With none: decline this Mac's Claude Code login for this store, as onboarding's --claude-account none does — no account mac, and nothing reads the Mac's login. `doz account default mac` takes it back.") var declineMac = false
+    func validate() throws {
+        if declineMac && (name != "none" || codex || provider != nil) { throw ValidationError("--decline-mac goes with `default none` alone") }
+    }
     func run() async throws {
         var r = HostRequest(.accountDefault)
         r.account = name
         if codex { r.accountKind = "codex" }
         r.provider = provider
+        if declineMac { r.macLogin = "none" }
         let rows = try decode(try call(r, g), [AccountRow].self, g)
         if g.json { Out.json(rows) } else {
             let row = rows.first { $0.name == name }
