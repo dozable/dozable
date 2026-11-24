@@ -32,8 +32,8 @@ ziglang.org/download) and checks the bytes are these.
 
 | | |
 |---|---|
-| x86_64 sha256 | `bf6cbfb6af90e68a3d86f58e8419a592d43a4ad09ac8f7837c3c34a6bc4bc947` |
-| x86_64 size | 175864 bytes |
+| x86_64 sha256 | `6416c09d17c45b42082b61124ca0a83977ffa2d2c3e9c8acd05e44863cea11b8` |
+| x86_64 size | 176648 bytes |
 | format | ELF 64-bit LSB executable, x86-64, statically linked (musl), stripped |
 | reproducible | yes — two `FORCE=1` builds on the Mac (one after emptying Zig's local cache) gave identical bytes |
 
