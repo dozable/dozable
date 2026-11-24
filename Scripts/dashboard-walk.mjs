@@ -3180,7 +3180,10 @@ async function walkWorkspacesList() {
   const byName = await evaluate(WSL);
   check(JSON.stringify(byName) === JSON.stringify(byName.slice().sort((a, b) => a.localeCompare(b))) && byName.length === ls.length, 'workspaces 2 Sort by Name');
   await evaluate(`(() => { const s = document.querySelector('[data-wsl-sort]'); s.value = 'last'; s.dispatchEvent(new Event('change')); })()`);
-  await sleep(500);
+  // As for Name: wait for the redrawn list in last-activity order (a fixed 500 ms raced the refetch on a loaded Mac), at most 8 s.
+  await waitFor(`(() => { const n = ${WSL}; const rows = (state.workspaces || {}).workspaces || []; if (n.length !== rows.length) return false;
+    const want = rows.slice().sort((a, b) => (Date.parse(b.lastAt) || 0) - (Date.parse(a.lastAt) || 0) || a.name.localeCompare(b.name)).map((w) => w.name);
+    return JSON.stringify(n) === JSON.stringify(want); })()`, 8000);
   const byLast = await evaluate(WSL);
   const rowsNow = await evaluate(`state.workspaces.workspaces`);
   const wantLast = rowsNow.slice().sort((a, b) => (Date.parse(b.lastAt) || 0) - (Date.parse(a.lastAt) || 0) || a.name.localeCompare(b.name)).map((w) => w.name);
