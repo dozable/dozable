@@ -35,7 +35,7 @@ public enum SpaceDozable {
         /// What `x-dozable` holds here (the x-dozable form: every 3.1 key, first-class or held).
         public var dozableKeys: [String] {
             switch self {
-            case .top: ["lifetime", "brief", "network", "about", "layout", "permissions"]
+            case .top: ["lifetime", "brief", "network", "about", "layout", "permissions", "places"]
             case .folder: ["main", "lifetime"]
             case .agent: ["restart", "network", "external", "lifetime"]
             case .room, .sandbox: ["lifetime"]
@@ -250,6 +250,64 @@ extension SpaceValidator.Schema {
         return true
     }
 
+    /// 774: `x-dozable.places: {NAME: {isolation, image?, cpus?, memory?, view?, network?, credentials?, external?}}` — each a
+    /// Place (`WorkspacePlace`). A fenced place is a policy each session gets its own fence of; an unfenced one enforces
+    /// nothing, so it declares no view, network or credentials ("none: acts as you"); an external one is an adopted sandbox,
+    /// `external: {sandbox: NAME}`, and says nothing else. `mac` and `sandbox` are `where:`'s keywords, never a place.
+    mutating func places(_ x: JValue, _ q: String) {
+        guard type(x, "object", q) else { return }
+        for m in SpaceDoc.members(x) {
+            let r = SpaceDoc.join(q, m.key), v = m.value
+            if !SpaceFormat.isName(m.key) {
+                err(r, "\"\(m.key)\" can't be a place's name", "names are a lower-case letter, then lower-case letters, digits and -", key: true); continue
+            }
+            if WorkspacePlace.reserved.contains(m.key) {
+                err(r, "\"\(m.key)\" can't be a place's name: where: reads it as a keyword", "pick another name (mac is this Mac; sandbox is the workspace's own VM)", key: true)
+                continue
+            }
+            guard strictMap(v, r, WorkspacePlace.keys, "place \"\(m.key)\"") else { continue }
+            if let e = SpaceDoc.member(v, "external") {
+                guard strictMap(e, r + "/external", SpaceDozable.externalKeys, "an external place") else { continue }
+                guard let s = SpaceDoc.member(e, "sandbox") else { err(r + "/external", "an external place is { sandbox: NAME }"); continue }
+                text(s, r + "/external/sandbox", nonEmpty: true)
+                if let i = SpaceDoc.member(v, "isolation"), SpaceDoc.string(i) != "vm" {
+                    err(r + "/isolation", "place \"\(m.key)\" is an external sandbox, so its isolation is vm", "remove isolation:, or write isolation: vm")
+                }
+                for k in WorkspacePlace.keys where k != "external" && k != "isolation" && SpaceDoc.member(v, k) != nil {
+                    err(SpaceDoc.join(r, k), "place \"\(m.key)\" is an external sandbox, so \"\(k)\" can't apply",
+                        "an external place is only referenced: it keeps its own \(k == "view" ? "folders" : k); remove \"\(k)\"", key: true)
+                }
+                continue
+            }
+            guard let iso = SpaceDoc.member(v, "isolation") else {
+                err(r, "place \"\(m.key)\" needs its isolation", "write isolation: vm, fenced or unfenced — or external: { sandbox: NAME } for a sandbox that exists already")
+                continue
+            }
+            oneOf(iso, WorkspacePlace.isolations, r + "/isolation")
+            let isolation = SpaceDoc.string(iso) ?? ""
+            if isolation != "vm" {
+                for k in WorkspacePlace.vmKeys where SpaceDoc.member(v, k) != nil {
+                    err(SpaceDoc.join(r, k), "place \"\(m.key)\" is \(isolation), so \"\(k)\" can't apply", "only a vm place has an image, cpus and memory", key: true)
+                }
+            }
+            if isolation == "unfenced" {
+                for k in WorkspacePlace.policyKeys where SpaceDoc.member(v, k) != nil {
+                    err(SpaceDoc.join(r, k), "place \"\(m.key)\" is unfenced, so it can't declare \(k): it enforces nothing (\(WorkspacePlace.actsAsYou))",
+                        "remove \(k):, or fence the place (isolation: fenced) to have one", key: true)
+                }
+                continue
+            }
+            if let i = SpaceDoc.member(v, "image") { text(i, r + "/image", nonEmpty: true) }
+            if let c = SpaceDoc.member(v, "cpus"), type(c, "integer", r + "/cpus"), let n = SpaceDoc.int(c), n < 1 { err(r + "/cpus", "\(n) is out of range: must be >= 1") }
+            if let mem = SpaceDoc.member(v, "memory") { pattern(mem, "memory", r + "/memory") }
+            if let vw = SpaceDoc.member(v, "view"), type(vw, "object", r + "/view") {
+                for f in SpaceDoc.members(vw) { oneOf(f.value, SpaceFormat.accesses, SpaceDoc.join(r + "/view", f.key)) }
+            }
+            if let n = SpaceDoc.member(v, "network") { dozableNetwork(n, r + "/network") }
+            if let c = SpaceDoc.member(v, "credentials") { strings(c, r + "/credentials", nonEmpty: true); notEmpty(c, r + "/credentials", "credentials") }
+        }
+    }
+
     /// `x-dozable` is a map with only these keys.
     mutating func dozableMap(_ v: JValue, _ p: String, _ known: [String]) -> Bool { strictMap(v, p, known, "x-dozable") }
 
@@ -327,6 +385,7 @@ extension SpaceValidator.Schema {
                     }
                 }
             }
+        case (.top, "places"): places(x, q)
         case (.folder, "main"): _ = type(x, "boolean", q)
         case (.folder, "lifetime"), (.agent, "lifetime"), (.room, "lifetime"), (.sandbox, "lifetime"): oneOf(x, ["run"], q)
         case (.agent, "restart"): oneOf(x, SpaceDozable.restarts, q)

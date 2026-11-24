@@ -174,6 +174,20 @@ public struct SpacePlan: Codable, Equatable, Sendable {
     public var notes: [String] = []
     public var sha: String = ""
     public var intent: SpaceIntent?
+    /// 774: one agent as the plan places it: its name, where it runs (a place's name, a sandbox's, or `mac`), its isolation.
+    public struct PlacedAgent: Codable, Equatable, Sendable {
+        public var name: String
+        public var `where`: String
+        public var isolation: String?
+        public var external: Bool
+        public init(name: String, where w: String, isolation: String?, external: Bool) {
+            self.name = name; self.where = w; self.isolation = isolation; self.external = external
+        }
+    }
+    /// 774: the places (`WorkspacePlace`: name, isolation, external, view, network, credentials) and the agents' places.
+    /// Optional: an older daemon's plan has neither.
+    public var places: [WorkspacePlace]?
+    public var agents: [PlacedAgent]?
     public init(space: String, title: String, specPath: String?, specSHA: String, sources: [SpaceSource], factsKnown: Bool) {
         self.space = space; self.title = title; self.specPath = specPath; self.specSHA = specSHA; self.sources = sources; self.factsKnown = factsKnown
     }
@@ -201,6 +215,13 @@ public enum SpaceUp {
                             prompts: [String: String] = [:], noRun: Bool = false) -> SpacePlan {
         var p = SpacePlan(space: i.space, title: i.title, specPath: specPath, specSHA: specSHA, sources: sources, factsKnown: f.known)
         p.intent = i
+        p.places = i.places ?? []
+        p.agents = i.agents.map { a -> SpacePlan.PlacedAgent in
+            let session: String? = a.session.map { MacPlace.name + "/" + $0 }
+            let bot: String? = a.bot.map { "bot:" + $0 }
+            let w: String = a.place ?? a.sandbox ?? session ?? bot ?? "mac"
+            return SpacePlan.PlacedAgent(name: a.name, where: w, isolation: a.isolation?.value, external: a.external)
+        }
         p.risks = i.risks
         p.confirm = i.unfenced
         var steps: [SpacePlan.Step] = []
@@ -274,6 +295,12 @@ public enum SpaceUp {
                  down: "never touched (only its messages during the run are archived)")
         }
         for s in i.sandboxes where s.external {
+            // 774: an external place no agent runs in is only declared: nothing of it is used, so nothing is checked.
+            if s.agents.isEmpty, (i.places ?? []).contains(where: { $0.name == s.name && $0.from == "declared" }) {
+                step("check", "sandbox \(s.name)", "external", "sandbox \(s.placeName) exists", action: "skip", why: "no agent runs in the place \(s.name)",
+                     down: "never touched")
+                continue
+            }
             let ok = f.sandboxes.contains(s.placeName)
             step("check", "sandbox \(s.name)", "external", "sandbox \(s.placeName) exists", action: ok ? "run" : "refuse", why: ok ? nil : "no sandbox \(s.placeName)",
                  down: "never touched")
@@ -418,6 +445,8 @@ public enum SpaceUp {
         for a in i.ownedAgents {
             var w = WorkerRequest(workspace: i.space, name: a.name)
             w.agent = "claude-code"
+            // 774: the declared place it runs in, recorded on the agent (a fenced place: its own fence, built from the place).
+            if let pl = a.place, (i.places ?? []).contains(where: { $0.name == pl && $0.from == "declared" }) { w.placeName = pl }
             w.task = a.prompt ?? prompts[a.name] ?? defaultTask
             let iso = a.isolation?.value ?? "fenced"
             var whereText: String
@@ -436,6 +465,12 @@ public enum SpaceUp {
             } else {
                 w.isolation = iso
                 whereText = iso == "unfenced" ? "unfenced on this Mac, with full access to your user (\(a.isolation!.words))" : "fenced on this Mac"
+            }
+            // 774: its fence (or its new sandbox) is built from the declared place's policy.
+            if let pn = w.placeName, let pl = (i.places ?? []).first(where: { $0.name == pn }), pl.isolation != "unfenced" {
+                let net = (pl.isolation == "fenced" ? a.network : nil) ?? pl.network
+                whereText += pl.isolation == "fenced" ? ", its own fence built from the place \(pn) (network \(net.words); view \(pl.view.words); credentials \(pl.credentials.words))"
+                    : sandboxMade.contains(a.sandbox ?? "") && w.newSandbox != nil ? ", made from the place \(pn) (network \(pl.network.words); credentials \(pl.credentials.words))" : ""
             }
             w.rooms = a.rooms.isEmpty ? nil : a.rooms.compactMap { n in i.rooms.first { $0.name == n }?.chatRoom }
             let bypass = a.permissions?.value == "bypass"

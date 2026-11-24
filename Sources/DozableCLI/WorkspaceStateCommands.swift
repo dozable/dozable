@@ -17,7 +17,9 @@ struct WorkspaceStateCommand: AsyncParsableCommand {
         file, each thing the file declares, what the workspace or the chat server holds that the file does not name, and an \
         up that stopped at a failure. Never a chat message's text. With no daemon running none is started: every state is \
         then "not known". --json is {kind: WorkspaceState, schema: 1, …the document the dashboard's space view reads, with \
-        its sha, from, agents: {NAME: {condition, reason, role, place, since}}, conditions: {ready, allocated, hot, run, archived}, revision}; a workspace \
+        its sha, from, agents: {NAME: {condition, reason, role, place, since}}, conditions: {ready, allocated, hot, run, archived}, \
+        places: [{name, isolation, view, network, credentials, sessions: [{identity, session, state, fence}]}] — a fenced \
+        place gives each session a fence of its own —, revision}; a workspace \
         that does not exist exits 2 (not-found).
         """)
     @OptionGroup var g: GlobalOptions

@@ -128,6 +128,49 @@ folders:
 agent_defaults: { x-dozable: { isolation: vm } }              # where a workspace's new workers run (3.1: where: sandbox)
 ```
 
+### Places: `x-dozable.places` and `where:`
+
+A **place** is where an agent runs: a VM, a fenced session on this Mac, or an unfenced one that acts as you. Declare your
+places under `x-dozable.places` and put each agent in one with `where:`:
+
+```yaml
+doz: space/3.1
+agents:
+  helper:   { kind: claude-code, role: worker, where: desk, folder: repo }
+  reviewer: { kind: claude-code, role: reviewer, where: build, access: ro }
+x-dozable:
+  places:
+    desk:    { isolation: fenced }                                  # on this Mac, behind Dozable's fence
+    build:   { isolation: vm, image: claude-code, cpus: 4, memory: 8G }  # a sandbox of the space
+    old-box: { external: { sandbox: old-review } }                  # a sandbox that already exists: only referenced
+```
+
+- **`isolation`** is `vm`, `fenced` or `unfenced`. Only a `vm` place has an `image`, `cpus` and `memory`; it is made by
+  `up` as the space's sandbox (`app-build`), and every agent in it shares it.
+- **A fenced place is a policy, not a shared box.** Each agent in it gets a fence of its own: its own proxy, its own
+  placeholders, nothing shared with the other agents of the place — and each fence is built from the place:
+  - **`view`** (`{ notes: ro, out: rw }`): more folders of the space, read-only or read-write. The agent's own folder
+    (the workspace's main one) is always read-write; a view cannot make it read-only.
+  - **`network`** (as the top-level `network:`: `locked`, `standard`, `open` or `{ preset, allow: [HOST…] }`): the
+    fence's network, over the workspace's default (`locked`). An agent in the place may write its own `network:` only to
+    narrow it — a preset no wider and only hosts the place allows (otherwise 65); it narrows that agent's fence alone.
+  - **`credentials`**: `github:read` (or `github`), `github:push` — GitHub as you, through a placeholder — and
+    `ssh-agent`. A fence holds no key accounts (65).
+- **A vm place** takes its `network` and `credentials` (`github:read`, `github:push`, or a key account's name) when its
+  sandbox is made; every agent in it shares them, so an agent's own `network:` must equal the place's (65). Its `view` can
+  name only the workspace's main folder, read-write: a sandbox shares one folder, at `/workspace`.
+- **An unfenced place enforces nothing**, so it declares no view, network or credentials (the plan refuses them, 65) and
+  says so: the plan shows each as "none: acts as you". An agent is never put in an unfenced place by `agent_defaults`:
+  it writes `where:` itself, and `up` asks you to confirm it, as for `isolation: unfenced`.
+- **An external place** is `external: { sandbox: NAME }` and nothing else: an existing sandbox, never made or removed.
+- **`where:`** names a place, or `mac`, or `sandbox:NAME` for a sandbox under `sandboxes:` — those two words are never a
+  place's name. A name that is no place is refused, listing the places there are. `sandboxes:` entries are still read,
+  as places with isolation `vm`.
+- **A grant is never a place's.** `doz grant desk …` is refused: grant the agents in it (`doz grant helper …`).
+
+`doz workspace plan -f FILE --json` lists the `places` (name, isolation, view, network, credentials) and each agent's
+`where`; `doz workspace state W --json` lists each place with its sessions — in a fenced place, each with its own fence.
+
 The keys space/3.1 now has were written under `x-dozable` too (`x-dozable: { brief: { text: … }, network: … }`, a folder's
 `x-dozable: { main: true }`, an agent's `x-dozable: { restart: …, external: { sandbox: … } }`). That form is
 **deprecated**: it is still read in this release, in either version, and the plan says, for each use, the key to write

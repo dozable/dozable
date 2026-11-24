@@ -16,6 +16,10 @@ then nothing is around it at all, and it acts as you. A workspace's manager and 
 micro VM or name unfenced. What the fence does and does not block is said plainly below ([What the fence
 is not](#what-the-fence-is-not)) and in the [Security model](16-security-model.md).
 
+Each fenced session has a fence of its own — its own proxy, its own placeholders, its own profile — and shares none of it
+with another session. A workspace's **fenced place** (Space files, 39) is a policy, not a shared box: two agents in one
+fenced place are two sessions with two fences, each built from the place.
+
 ## The idea, in plain words
 
 A fenced session may change its project, and nothing else of yours that something unfenced would later run or load.

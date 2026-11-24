@@ -562,6 +562,8 @@ struct AgentMacLaunch {
     var start: Data?
     var startFolder: String
     var bridgesOff: Bool
+    /// 774: its place's enforcement: more folders, its network, its named credentials (nil: the defaults).
+    var placeFence: PlaceFence? = nil
 }
 
 /// One launch of an agent in a sandbox: made the first time (`create`), its secret joined to the sandbox's record, started,
@@ -587,6 +589,8 @@ struct AgentVMLaunch {
     var memoryMiB: UInt64?
     var bridgesOff: Bool
     var alias: String?
+    /// 774: its vm place's network and credentials, applied when the sandbox is made (nil: the defaults).
+    var placeFence: PlaceFence? = nil
 }
 
 extension HostCore {
@@ -602,6 +606,8 @@ extension HostCore {
             var req = MacFenceRequest(permissions: [l.permissions])
             req.hostPorts = l.hostPorts.map { HostPort(port: $0) }
             req.account = l.account
+            // 774: built from its place (option C) — each session its own fence, from the one policy.
+            if let p = l.placeFence { p.apply(to: &req) }
             if l.bridgesOff {
                 req.openURL = false
                 req.clipboard = false
@@ -621,6 +627,8 @@ extension HostCore {
             c.hostPorts = l.hostPorts.map { HostPort(port: $0) }
             c.cpus = l.cpus
             c.memoryMiB = l.memoryMiB
+            // 774: its vm place's network (a preset and its sites) and credentials (GitHub as you, key accounts).
+            if let p = l.placeFence { p.apply(to: &c) }
             if l.seamImage == nil {
                 c.settings = ["approvals": .string("skip")]
                 c.model = l.model

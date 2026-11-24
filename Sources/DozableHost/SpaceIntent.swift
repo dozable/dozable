@@ -44,6 +44,10 @@ public struct SpaceIntent: Codable, Equatable, Sendable {
         public var secrets: [String]
         /// 755: `restart` (758: first-class; `x-dozable.restart` for one release) (`no`, `on-failure`; nil: not written). Recorded, not applied in this version.
         public var restart: String? = nil
+        /// 774: where it runs — a place's name (x-dozable.places, a sandbox's), or `mac`. Optional (an older plan decodes).
+        public var place: String? = nil
+        /// 774: its own network as written (an agent of a fenced place: it narrows its own fence's). Optional.
+        public var network: WorkspacePlace.Policy? = nil
     }
 
     public struct Room: Codable, Equatable, Sendable {
@@ -111,6 +115,9 @@ public struct SpaceIntent: Codable, Equatable, Sendable {
     public var rooms: [Room] = []
     public var folders: [Folder] = []
     public var sandboxes: [Sandbox] = []
+    /// 774: the places (`WorkspacePlace`): declared, then each sandbox and the workspace's own VM. Optional (an older plan
+    /// decodes).
+    public var places: [WorkspacePlace]? = nil
     /// External services, by name and what they are (`session: S`, `url: U`, a full name).
     public var services: [String] = []
     public var secrets: [String] = []
@@ -195,10 +202,15 @@ extension SpaceIntent {
                                        persisted: nil, agents: []))
         }
 
+        i.places = model.places
         // Agents.
         for a in model.agents {
             var x = Agent(name: a.name, role: a.role, external: a.lifetime == "external", rooms: [], secrets: [])
             let p = a.pointer
+            if !x.external {
+                x.place = a.place
+                x.network = WorkspacePlaces.network(SpaceDozable.member(a.def, "network", at: .agent))
+            }
             if x.external {
                 if let s = SpaceDoc.string(a.external), let f = SpaceFormat.parseFullName(s) {
                     if f.type == "bot" { x.bot = f.name } else { x.session = f.name }

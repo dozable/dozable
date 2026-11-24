@@ -55,7 +55,11 @@ final class Space31ReferenceVectorTests: XCTestCase {
 
     /// THE list: every vector (by id) and example (`example:NAME`) Dozable disagrees with, and how. Empty when the two
     /// agree on everything.
-    static let knownDisagreements: [String: Set<Difference>] = [:]
+    static let knownDisagreements: [String: Set<Difference>] = [
+        // x-dozable gained `places` (the PLACE stage: `x-dozable.places`), so the hint listing what x-dozable holds names it
+        // too. The format's author re-cuts the vector; until then the hint differs, nothing else.
+        "E15": [.hint],
+    ]
 
     /// A vector or example the list says Dozable reaches another verdict on.
     static func verdictDiffers(_ id: String) -> Bool { knownDisagreements[id]?.contains(.verdict) == true }

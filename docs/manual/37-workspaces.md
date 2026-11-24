@@ -136,7 +136,7 @@ running it starts none and every condition is "not known". A workspace that does
 `--json` is typed for a script: `kind` `WorkspaceState`, `schema` 1, the document the dashboard's space view reads (its
 `items`, `attention` and `sha`), then `from` (`record` or `space-file`), `agents` — each agent by its name, with
 `condition`, `reason`, `role` (`manager`, `worker`, `adopted`), `place` and `since` (an ISO 8601 time) —, `conditions`
-`{ready, allocated, hot, run, archived}` and `revision`. `ready` is true when every agent runs. The others are one per
+`{ready, allocated, hot, run, archived}`, `places` and `revision`. `ready` is true when every agent runs. The others are one per
 layer: `allocated` (what the workspace holds — true from `new` until it is archived or deleted; a space file whose
 lifetime is `runs` gives it up at `down`; `reason` says `down` or `archived`), `hot` (`all`, `some` or `none` of its
 sessions running, and each session's condition: `starting`, `running`, `asleep`, `stopped`, `ended` or `unknown`), `run`
@@ -146,6 +146,13 @@ sessions running, and each session's condition: `starting`, `running`, `asleep`,
 ```bash
 doz workspace state demo --json | jq -r '.agents.mira.condition'    # running
 ```
+
+`places` lists where the agents run, each with its `isolation` (`vm`, `fenced` or `unfenced`), its `view`, `network`
+and `credentials` (an unfenced place says "none: acts as you" for each), `external` for a sandbox the workspace only
+references, and its `sessions` — each `{identity, session, state, fence}`. A fenced place is a policy: every session in
+it has its own fence, so two agents in one fenced place show two different `fence` values. A workspace made from a space
+file lists the places the file declares (39); any other workspace, the places of its agents — a sandbox, or a session
+on this Mac.
 
 ### Its document: `doz workspace doc`
 
@@ -529,7 +536,8 @@ What an agent may do in Dozable — start a worker, sleep the workspace, reach a
   `trusted-manager`. An agent's role in a workspace is the one the workspace gives it — its manager is `manager`, its workers
   and adopted agents `worker` — shown "worker (from the workspace)"; nothing is written for it.
 - A **grant** gives a role, or one permission's answer, in exactly one scope — `--everywhere`, `--in W`, or one room
-  `--room W/R` — optionally `--until` a date.
+  `--room W/R` — optionally `--until` a date. A grant is for an agent or a bot, never for a place: `doz grant desk …`,
+  where `desk` is one of the workspace's places, is refused (exit 2) — grant the agents in it.
 - A **ceiling** is the most an agent may ever get: this Mac's (`--mac`), a workspace's (`--in W`), a bot's (`--bot B` —
   [Agents / Bots](38-agents-and-bots.md)), and above them all Dozable's own, which nothing can grant: another workspace,
   Dozable's settings, a new account, key or token, the ceilings themselves.

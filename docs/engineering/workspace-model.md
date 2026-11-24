@@ -13,7 +13,6 @@ line from coming to built without the code, and never describe coming behaviour 
 
 | Stage | What it brings | After |
 |---|---|---|
-| **PLACE** | Place as an entity in the record (`isolation`, view, network, credentials, secret references); VMs as places; a fenced place a policy; `state` says the per-place fact | — |
 | **IDSESS** | `WorkspaceAgent` split into Identity (L1) and Session (L2); declared workers become identities; named workers persist | PLACE |
 | **SP32** | space/3.2: `lives: workspace \| run`, `places:`, `where: PLACE`, `brief.criteria`, `brief.addenda`, the migration notes | PLACE, IDSESS |
 | **LC2** | `down` ≠ `finish` (D4 reversed): `finish` closes the run and removes the run's things; `down` releases allocations and keeps data; `--purge` for every workspace; `WorkspaceDown`; the dashboard's Finish and Down | LC1, SP32 |
@@ -21,7 +20,7 @@ line from coming to built without the code, and never describe coming behaviour 
 | **PLAYBOOKS** | the four recommended processes as playbooks (permission presets, journal kinds, a way to apply one; the quality loop's gates opt-in) — supported and tested, never required | UOW-MVP |
 | **HOOKS** (optional) | a workspace told of its run's events by a command or an address — a proposal only, to be reviewed again before any work | PLAYBOOKS |
 
-COND, one condition per layer in `state`, is built (0.52.45): "One phase, and one condition per layer" below. LC1, the
+PLACE, Place as an entity, is built (0.52.54): "Place — a policy; the fence per session" below. COND, one condition per layer in `state`, is built (0.52.45): "One phase, and one condition per layer" below. LC1, the
 `run` verb, is built (0.52.46): `doz workspace run W [GOAL]`, one run at a time, `reopen` its old name, `up` opening a run
 each time none is open until LC2 (`--no-run` opens none) — L3 below and workspaces.md, "The run verb". UOW-MVP's part A,
 the work description, is built (0.52.47): addenda, proposals through Dozable's own Ask, `description.*` and the `reviewer`
@@ -177,17 +176,56 @@ Grants attach to the identity or session, never to a place. An `isolation: unfen
 ("none: acts as you"): it may declare no view, network or credentials (65). A VM place holds several sessions behind one
 proxy, as today. One shared VM place per workspace for its new workers, written by `doc` as an explicit `places:` entry.
 
-**Built in 0.52.43:** no Place entity. A place is `AgentPlace {sandbox, mac, session, elsewhere}` on each agent
-(`WorkspaceRecord.swift`); a session on this Mac is a set of constants (`MacPlace`); only a VM is an entity of its own.
-Each worker gets its own place `W-NAME` (`WorkerLaunch.placeName`) — a session on this Mac, or a new sandbox — or shares
-an existing sandbox (`doz worker add --sandbox`). The fence is already per session (`MacFence`; CLAUDE.md's `@mac` rule),
-so 6.1 C needs no security change. An adopted sandbox is an agent's `external: {sandbox: NAME}` (space/3.1).
+**Built in 0.52.54 (PLACE):** `WorkspacePlace` (`WorkspacePlace.swift`): `{name, isolation, external?, image?, cpus?,
+memory?, view, network, credentials, from}`, each policy part a sentence, a folder → access map, a list or a network.
 
-**Coming (PLACE):** `Place` in the record; VMs as places; fenced places as policies. **Coming (SP32):** `places:` in the
-file (`sandboxes:` read as `places:` entries with `isolation: vm`), `where: PLACE` (today `mac`, `sandbox` or
-`sandbox:NAME`, `SpaceValidator`), an adopted sandbox as an external place. Network precedence: the workspace's default <
-the place's < the agent's, an agent's own only where enforcement is per session (fenced); in a VM it must equal its
-place's (65) — the last rule is built for 3.1's agent `network:`.
+- **In the file (space/3.1, this stage):** places are held under `x-dozable.places: {NAME: {isolation, image?, cpus?,
+  memory?, view?, network?, credentials?, external?}}` (as `x-dozable.permissions` is) — checked strictly
+  (`Schema.places`, `SpaceDozable.swift`): `isolation` one of `vm`, `fenced`, `unfenced`; `image`, `cpus`, `memory` only
+  on a vm place; an external place is `external: {sandbox: NAME}` (the one shape; isolation vm or none, nothing else); an
+  **unfenced place may declare no `view`, `network` or `credentials`** → 65 naming "none: acts as you". `mac` and
+  `sandbox` stay `where:`'s keywords, never a place's name; a place shares the one namespace with the resources.
+- **`where:`** keeps meaning "which place" and widens to a declared place's name (`mac`, `sandbox`, `sandbox:NAME` as
+  before). A bare name that is no place → 65 `"dsek" is not a place (did you mean "desk"?)`, the hint listing the places
+  (with no place declared, space/3's words stand). A fenced or unfenced place sets the agent's isolation (an agent's own
+  `isolation:` that differs → 65; its provenance is the `where:` line); an unfenced place is never inherited from
+  `agent_defaults.where` (65), and `permissions: bypass` needs the agent's own `where:` (as it needs its own isolation).
+- **A vm place is a sandbox of the space** (`Rules.resources`: a `.sandboxes` resource at `/x-dozable/places/NAME`, made
+  `<space>-<name>` by up, sized by the place); an external place is an external sandbox (its own name). An external place
+  no agent runs in is only declared: up does not look for it. space/3.1's `sandboxes:` entries and the workspace's own VM
+  (`agent_defaults.where: sandbox`) are vm places too (`from` `sandboxes`, `workspace-vm`).
+- **A fenced place is a policy (option C):** each agent in it is its own worker with its own session on this Mac
+  (`W-NAME`) and so its **own fence** (`MacFence`: proxy, placeholders, profile and tag per session) — two agents in one
+  fenced place are two fences from one policy; the fence's rules are unchanged. **Each fence is built from the place**
+  (`PlaceFence`, made at up's worker-add by `WorkspacePlaces.fence`, checked by `HostCore.placeFence`, applied by
+  `PlaceFence.apply(to: MacFenceRequest)`), only through mechanisms the fence already has: `view` → `MacFenceRequest.read`
+  (ro) / `write` (rw), the session's own folder (the workspace's main one) always read-write — a view making it read-only
+  is refused at up; `network` → the proxy's words (the preset and `site:HOST` each), over the workspace's default
+  (`locked`); `credentials` → the fence's named ones (`github:read`/`github`, `github:push`, `ssh-agent`; a key account →
+  65). **Precedence** (the format's): workspace default < place < agent — an agent's own `network:` in a fenced place may
+  only narrow the place's (`WorkspacePlaces.narrows`: preset no wider, hosts a subset unless the place is open; else 65)
+  and narrows its own fence alone.
+- **A vm place's sandbox is made from it** (`PlaceFence.apply(to: CreateOptions)`): `network` → `CreateOptions.network`
+  (`standard` is the sandbox's `agent`) and `allow` (`site:HOST`); `credentials` → GitHub as you (`github:as-you`,
+  `github:push` in `allow`) and key accounts (`keys`). An agent's own network in it must equal the place's (65). A sandbox
+  shares ONE folder, read-write, at `/workspace` (the workspace's main folder): a vm place's `view` can say only that
+  (65 for more, or ro; refused again at up against the real folder). A sandbox another agent of the place made keeps
+  what it was made with. **Not carried across a forgotten record:** a wake reopens a session from its record (its fence's
+  folders and policy kept); a fenced session whose record was forgotten is reopened with the defaults.
+- **In the record:** the document (`space.json`) holds the places; each agent records the declared place it runs in,
+  `WorkspaceAgent.placeName` (additive; set from `WorkerRequest.placeName` at up). A workspace with no declared place keeps
+  working: its places are **derived** from its agents (`WorkspacePlaces.derived`): a sandbox → a vm place (external when the
+  agent was adopted there — an adopted sandbox is an external place), a session on this Mac → a fenced or unfenced place
+  named `@mac/SESSION`.
+- **Plan and state:** `workspace plan --json` carries `places[]` and `agents[]` `{name, where, isolation, external}`;
+  `workspace state --json` carries `places[]` with `sessions[]` `{identity, session, state, fence}` — `fence` is the
+  session's own fence tag (`doz-fence:TAG`), distinct per session (`HostCore.placeStates`; workspaces.md, "Places").
+- **Grants never attach to a place:** `doz grant PLACE …` → 2, `PLACE is a place — grants attach to an agent, never to a
+  place`, before anything is read or written (`HostCore.refuseAPlace`).
+
+**Coming (SP32):** top-level `places:` in space/3.2 (`sandboxes:` read as `places:` entries, an agent's `external:
+{sandbox}` read as an external place, with notes). An agent's own `network:` outside a declared place is still recorded,
+not applied (as in 3.1).
 
 ## Identity and Session
 
@@ -411,7 +449,7 @@ validator checks a key by place and name whichever form it is in (`Schema.dozVal
 
 | where | first-class in 3.1 | held: `x-dozable` only |
 |---|---|---|
-| top level | `brief:` a path, `{text}` or `{file}` with `refs:` (and `addenda: [{run, at, by, text}]`, written by the document — up keeps the record's own), `about: {title, summary, description, icon, tags, category, needs}` (`about.title` in place of the top-level `title:`), `layout: {…}` (never acted on), `network: locked\|standard\|open` or `{preset, allow: [HOST…]}` | `lifetime: standing\|runs` (never required), `permissions: {IDENTITY: [ROLE or PERMISSION, …]}` (requests only) |
+| top level | `brief:` a path, `{text}` or `{file}` with `refs:` (and `addenda: [{run, at, by, text}]`, written by the document — up keeps the record's own), `about: {title, summary, description, icon, tags, category, needs}` (`about.title` in place of the top-level `title:`), `layout: {…}` (never acted on), `network: locked\|standard\|open` or `{preset, allow: [HOST…]}` | `lifetime: standing\|runs` (never required), `permissions: {IDENTITY: [ROLE or PERMISSION, …]}` (requests only), `places: {NAME: {isolation, image?, cpus?, memory?, view?, network?, credentials?, external?}}` ("Place", above) |
 | a folder | `main: true` (at most one) | `lifetime: run` |
 | an agent | `restart: no\|on-failure`, `network:`, `external: {sandbox: NAME}` | `lifetime: run` |
 | a room, a sandbox | — | `lifetime: run` |

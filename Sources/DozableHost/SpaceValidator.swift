@@ -66,6 +66,8 @@ public struct SpaceModel: Sendable {
         public var def: JValue
         /// nil: on this Mac; else the sandbox's name.
         public var sandbox: String?
+        /// 774: where it runs, as the plan shows it — a declared place's name, a sandbox's name, or `mac`.
+        public var place: String = "mac"
         public var isolation: String?
         public var permissions: String?
         public var role: String?
@@ -89,6 +91,9 @@ public struct SpaceModel: Sendable {
     /// does not say where runs in (`<space>-vm`, made unique among the resources' names); nil: none.
     public var workspaceVM: String?
     public var agents: [Agent] = []
+    /// 774: the places: those `x-dozable.places` declares (in order), then each `sandboxes:` entry and the workspace's own VM
+    /// as a vm place.
+    public var places: [WorkspacePlace] = []
     public var persist: [Persist] = []
     public var archiveOn = true
     public var archiveTo = SpaceValidator.archiveTo
@@ -167,6 +172,11 @@ public enum SpaceValidator {
         return out.enumerated().sorted { ($0.element.line, $0.offset) < ($1.element.line, $1.offset) }.map(\.element)
     }
 
+    /// 774: the names `x-dozable.places` declares, in the file's order.
+    public static func declaredPlaceNames(_ doc: JValue?) -> [String] {
+        SpaceDoc.members(SpaceDoc.member(SpaceDozable.of(doc), "places")).map(\.key)
+    }
+
     /// The daemon's backstop: nothing that starts or owns something — agents, the owner, rooms, sandboxes, services, folders,
     /// secrets — may come from a defaults file, whatever the CLI checked.
     static func backstop(_ doc: JValue, _ loc: SpaceLocator) -> [Raw] {
@@ -175,6 +185,7 @@ public enum SpaceValidator {
             let parts = SpaceDoc.parts(p)
             let owned = ["agents", "owner", "sandboxes", "services", "folders", "secrets"].contains(parts[0])
                 || (parts[0] == "chat" && parts.count >= 2 && parts[1] == "rooms")
+                || (parts[0] == SpaceDozable.key && parts.count >= 2 && parts[1] == "places")
             guard owned, let o = loc.origins[p], o.s < loc.sources.count, loc.sources[o.s].kind == "defaults" else { continue }
             // One problem per top-level thing: the shallowest pointer that came from a defaults file.
             if out.contains(where: { p.hasPrefix($0.pointer + "/") }) { continue }
@@ -239,6 +250,8 @@ public enum SpaceValidator {
         /// 758: the file says `doz: space/3.1` (or `space-defaults/3.1`): its first-class 3.1 keys are the format's.
         let v31: Bool
         var out: [Raw] = []
+        /// 774: the places the file declares (`x-dozable.places`): a `where:` may name one.
+        var placeNames: Set<String> = []
         init(defaults: Bool, v31: Bool = false) { self.defaults = defaults; self.v31 = v31 }
 
         mutating func err(_ p: String, _ m: String, _ hint: String? = nil, key: Bool = false) {
@@ -351,6 +364,7 @@ public enum SpaceValidator {
         }
 
         mutating func top(_ doc: JValue) {
+            placeNames = Set(SpaceValidator.declaredPlaceNames(doc))
             guard SpaceDoc.isMap(doc) else {
                 err("", defaults ? "the file must be a YAML map: a defaults file starts with \"doz: space-defaults/3\""
                     : "the file must be a YAML map: a space file starts with \"doz: space/3\" and \"space:\"")
@@ -480,6 +494,10 @@ public enum SpaceValidator {
                             err(q, "\"where\" is a space/3.1 key: change the version line to doz: \(defaults ? SpaceFormat.defaultsDoz31 : SpaceFormat.doz31)",
                                 "this file says doz: \(defaults ? SpaceFormat.defaultsDoz : SpaceFormat.doz), whose where is mac or sandbox:NAME; where: sandbox (the workspace's own VM) is space/3.1's")
                         }
+                    } else if let w = SpaceDoc.string(x), placeNames.contains(w) {
+                        // 774: a place the file declares (x-dozable.places).
+                    } else if let w = SpaceDoc.string(x), SpaceFormat.isName(w), !WorkspacePlace.reserved.contains(w) {
+                        // 774: a bare name that is no place: the rules refuse it, listing the places there are.
                     } else { pattern(x, "where", q) }
                 case "isolation": if !(p == "/agent_defaults") { oneOf(x, SpaceFormat.isolations, q) }
                 case "permissions": text(x, q, nonEmpty: true)
@@ -715,8 +733,23 @@ public enum SpaceValidator {
         let active: Set<String>
         var out: [Raw] = []
         var model = SpaceModel()
+        /// 774: `x-dozable.places` as written, in order.
+        let declared: [JMember]
+        /// The agents whose isolation their place set.
+        var placeIsolated: Set<String> = []
 
-        init(raw: JValue, loc: SpaceLocator, active: Set<String>) { self.raw = raw; self.loc = loc; self.active = active }
+        init(raw: JValue, loc: SpaceLocator, active: Set<String>) {
+            self.raw = raw; self.loc = loc; self.active = active
+            declared = SpaceDoc.members(SpaceDoc.member(SpaceDozable.of(raw), "places")).filter { SpaceDoc.isMap($0.value) }
+        }
+
+        func placeDef(_ n: String) -> JValue? { declared.first { $0.key == n }?.value }
+        /// A declared place's isolation (`vm` for an external one; nil: no such place).
+        func placeIsolation(_ n: String) -> String? {
+            guard let d = placeDef(n) else { return nil }
+            if SpaceDoc.member(d, "external") != nil { return "vm" }
+            return SpaceDoc.string(SpaceDoc.member(d, "isolation"))
+        }
 
         mutating func err(_ p: String, _ m: String, _ hint: String? = nil, _ severity: String = "error", key: Bool = false) {
             out.append(Raw(severity: severity, pointer: p, message: m, hint: hint, key: key))
@@ -755,6 +788,8 @@ public enum SpaceValidator {
             references()
             persist(spaceName)
             agents()
+            places()
+            placeRules()
             rooms()
             services()
             archive(spaceName)
@@ -789,6 +824,74 @@ public enum SpaceValidator {
                     model.resources.append(.init(name: m.key, section: s, pointer: p, external: external,
                                                  lifetime: external != nil ? "external" : "run", def: def, profiles: profiles))
                 }
+            }
+            // 774: a declared place shares the one namespace; a vm place (and an external one, an adopted sandbox) is a
+            // sandbox of the space — `where: NAME` and `where: sandbox:NAME` both reach it.
+            for m in declared {
+                let p = SpaceDoc.join(SpaceDoc.join("/" + SpaceDozable.key, "places"), m.key)
+                if let prev = model.resource(m.key) {
+                    err(p, "\"\(m.key)\" is used twice: as \(prev.section.singular) and as a place",
+                        "names share one namespace across sections and places: rename one of them", key: true)
+                    continue
+                }
+                guard placeIsolation(m.key) == "vm" else { continue }
+                let ext = SpaceDoc.string(SpaceDoc.member(SpaceDoc.member(m.value, "external"), "sandbox")).map { JValue.string($0) }
+                model.resources.append(.init(name: m.key, section: .sandboxes, pointer: p, external: ext,
+                                             lifetime: ext != nil ? "external" : "run", def: m.value, profiles: []))
+            }
+        }
+
+        /// 774: what a declared place's view and credentials can be, by the mechanism that applies them: a fenced session's
+        /// fence takes more folders read-only or read-write (its own folder is always read-write) and the fence's named
+        /// credentials (GitHub as you, the SSH agent); a sandbox shares ONE folder, read-write, at /workspace, and holds
+        /// GitHub as you and key accounts.
+        mutating func placeRules() {
+            for m in declared where SpaceDoc.member(m.value, "external") == nil {
+                let p = SpaceDoc.join(SpaceDoc.join("/" + SpaceDozable.key, "places"), m.key)
+                let iso = placeIsolation(m.key)
+                let view = SpaceDoc.members(SpaceDoc.member(m.value, "view"))
+                for f in view {
+                    guard let hit = model.resource(f.key), hit.section == .folders else {
+                        err(SpaceDoc.join(p + "/view", f.key), "place \(m.key)'s view names \"\(f.key)\", which is not a folder"
+                            + dym(f.key, inSection(.folders).map(\.name)), "a view names folders under folders:", key: true)
+                        continue
+                    }
+                }
+                if iso == "vm", !view.isEmpty, view.count > 1 || SpaceDoc.string(view[0].value) == "ro" {
+                    err(p + "/view", "place \(m.key) is a vm: a sandbox shares one folder, read-write, at /workspace — its view can't be \(view.map { "\($0.key) \(SpaceDoc.string($0.value) ?? "")" }.joined(separator: ", "))",
+                        "write at most one folder, rw (the workspace's main folder), or use a fenced place for read-only and several folders")
+                }
+                for (k, c) in SpaceDoc.strings(SpaceDoc.member(m.value, "credentials")).enumerated() {
+                    let q = p + "/credentials/\(k)"
+                    if iso == "fenced", !WorkspacePlaces.fencedCredentials.contains(c) {
+                        err(q, "a fence holds GitHub as you and the SSH agent only, not \"\(c.prefix(40))\"",
+                            "write github:read, github:push or ssh-agent — key accounts are a vm place's")
+                    }
+                    if iso == "vm", c == "ssh-agent" {
+                        err(q, "ssh-agent is a fenced session's: a sandbox has no SSH agent of yours", "remove it, or use a fenced place")
+                    } else if iso == "vm", !WorkspacePlaces.fencedCredentials.contains(c), !SpaceFormat.isName(c) {
+                        err(q, "\"\(c.prefix(40))\" is not a credential", "github:read, github:push, or a key account's name (doz key ls)")
+                    }
+                }
+            }
+        }
+
+        /// 774: the places the plan lists — the declared ones, each `sandboxes:` entry, the workspace's own VM when used.
+        mutating func places() {
+            // What each session's fence (or the VM's proxy) is given today: the workspace's default network, `locked` (a
+            // space file's `network:` is recorded, not applied — said in the notes).
+            let ws = WorkspacePlace.Policy.text(WorkspacePlaces.networkDefault)
+            for m in declared where SpaceDoc.member(m.value, "external") != nil || WorkspacePlace.isolations.contains(SpaceDoc.string(SpaceDoc.member(m.value, "isolation")) ?? "") {
+                model.places.append(WorkspacePlaces.declared(m.key, m.value, workspaceNetwork: ws))
+            }
+            let names = Set(declared.map(\.key))
+            for r in inSection(.sandboxes) where !names.contains(r.name) {
+                let ext = r.external.map { e -> String in SpaceDoc.string(e).map { SpaceFormat.parseFullName($0)?.name ?? $0 } ?? r.name }
+                model.places.append(WorkspacePlaces.vm(r.name, image: SpaceDoc.string(SpaceDoc.member(r.def, "image")), cpus: SpaceDoc.int(SpaceDoc.member(r.def, "cpus")),
+                                                       memory: SpaceDoc.string(SpaceDoc.member(r.def, "memory")), external: ext, network: ws, from: "sandboxes"))
+            }
+            if let vm = model.workspaceVM, model.agents.contains(where: { $0.lifetime != "external" && $0.sandbox == vm }) {
+                model.places.append(WorkspacePlaces.vm(vm, image: nil, cpus: nil, memory: nil, external: nil, network: ws, from: "workspace-vm"))
             }
         }
 
@@ -936,7 +1039,19 @@ public enum SpaceValidator {
         func isSkipped(_ n: String) -> Bool { model.skipped.contains { $0.name == n } }
 
         mutating func references() {
+            let placeNames = declared.map(\.key)
             for ref in refs() {
+                // 774: `where:` names a place (x-dozable.places), `mac`, or `sandbox:NAME`; another bare name is no place.
+                if ref.slot.what == "a place", ref.name == nil, !ref.slot.extra.contains(ref.value) {
+                    if placeNames.contains(ref.value) { continue }
+                    // With no place declared, the space/3 words stand (the format's reference table): write mac, or sandbox:NAME.
+                    if !placeNames.isEmpty, SpaceFormat.isName(ref.value), !WorkspacePlace.reserved.contains(ref.value) {
+                        let sandboxes = inSection(.sandboxes).filter { !placeNames.contains($0.name) }.map { "sandbox:" + $0.name }
+                        err(ref.pointer, "\"\(ref.value)\" is not a place" + dym(ref.value, placeNames),
+                            "the places: \(placeNames.joined(separator: ", ")); also: " + (["mac"] + sandboxes + ["sandbox:NAME"]).joined(separator: ", "))
+                        continue
+                    }
+                }
                 if ref.slot.key {
                     if model.resource(ref.value) == nil && !isSkipped(ref.value) {
                         err(ref.pointer, "no resource \"\(ref.value)\" to pin" + dym(ref.value, model.resources.map(\.name)), nil, "warning", key: true)
@@ -973,6 +1088,7 @@ public enum SpaceValidator {
             for e in entries { if let s = SpaceDoc.string(SpaceDoc.member(e.value, "sandbox")) { persistedSandboxes.insert(s) } }
             func sandboxOf(_ a: SpaceModel.Resource) -> String? {
                 let w = SpaceDoc.string(SpaceDoc.member(a.def, "where")) ?? ""
+                if placeIsolation(w) == "vm" { return w }   // 774: a vm place is the agent's sandbox
                 return w.hasPrefix("sandbox:") ? String(w.dropFirst(8)) : nil
             }
             for e in entries where !e.key.hasPrefix("x-") && SpaceDoc.isMap(e.value) {
@@ -1043,13 +1159,35 @@ public enum SpaceValidator {
                     else { manager = r.name }
                 }
                 let whereS = SpaceDoc.string(SpaceDoc.member(v, "where")) ?? "mac"
-                let sb = whereS.hasPrefix("sandbox:") ? String(whereS.dropFirst(8)) : whereS == SpaceFormat.workspaceVM ? model.workspaceVM : nil
+                // 774: a declared place — a vm (or external) one is its sandbox; a fenced or unfenced one sets the isolation.
+                let placeIso = r.lifetime == "external" ? nil : placeIsolation(whereS)
+                let sb = placeIso == "vm" ? whereS
+                    : whereS.hasPrefix("sandbox:") ? String(whereS.dropFirst(8)) : whereS == SpaceFormat.workspaceVM ? model.workspaceVM : nil
                 let permissions = SpaceDoc.string(SpaceDoc.member(v, "permissions")) ?? SpaceDoc.string(SpaceDoc.member(raw, "permissions"))
                 let own = rawDef(.agents, r.name)
                 let ownIso = SpaceDoc.member(own, "isolation")
                 var isolation = SpaceDoc.string(SpaceDoc.member(v, "isolation"))
+                let ownWhere = SpaceDoc.member(own, "where") != nil
+                if r.lifetime != "external", let pi = placeIso, pi != "vm" {
+                    let wp = r.pointer + (ownWhere ? "/where" : "")
+                    if let oi = SpaceDoc.string(ownIso), oi != pi {
+                        err(r.pointer + "/isolation", "\"\(r.name)\" is in the place \(whereS), which is \(pi): its isolation is the place's",
+                            "remove isolation:, or put \"\(r.name)\" in a place that is \(oi)")
+                    }
+                    if pi == "unfenced", !ownWhere {
+                        err(wp, "\"\(r.name)\" would be unfenced by inheritance: agent_defaults puts it in the unfenced place \(whereS)",
+                            "an agent is never unfenced by inheritance: write where: \(whereS) on the agent itself")
+                    }
+                    isolation = pi
+                    placeIsolated.insert(r.name)
+                }
                 if r.lifetime != "external" {
-                    if sb != nil {
+                    if placeIso != nil && placeIso != "vm" {
+                        if permissions == "bypass" && !ownWhere && (ownIso == nil || ownIso == .null) {
+                            err(r.pointer, "agent \"\(r.name)\" runs with permissions: bypass, so it must write its own place or isolation",
+                                "write where: \(whereS) on the agent itself (it is never inherited)", key: true)
+                        }
+                    } else if sb != nil {
                         if SpaceDoc.string(ownIso) == "unfenced" {
                             err(r.pointer + "/isolation", "an agent in a sandbox is never unfenced: the VM is the boundary", "remove isolation:")
                         } else if ownIso != nil {
@@ -1071,7 +1209,7 @@ public enum SpaceValidator {
                         err(r.pointer + "/prompt_file", "write prompt or prompt_file, not both", key: true)
                     }
                     agentNetwork(r, own, sandbox: sb, inWorkspaceVM: sb != nil && sb == model.workspaceVM && whereS == SpaceFormat.workspaceVM,
-                                 unfenced: sb == nil && isolation == "unfenced")
+                                 unfenced: sb == nil && isolation == "unfenced", place: placeIso != nil ? whereS : nil)
                 }
                 let tPath = SpaceDoc.member(own, "transcripts") != nil ? r.pointer + "/transcripts" : "/agent_defaults/transcripts"
                 let written = SpaceDoc.string(SpaceDoc.member(v, "transcripts"))
@@ -1081,8 +1219,10 @@ public enum SpaceValidator {
                         "persisting keeps its conversations (the next run starts it with --continue); discarding would delete them. Remove transcripts: discard, or stop persisting its memory")
                     transcripts = "keep"
                 }
-                model.agents.append(.init(name: r.name, pointer: r.pointer, external: r.external, lifetime: r.lifetime, def: v, sandbox: sb,
-                                          isolation: isolation, permissions: permissions, role: role, transcripts: transcripts))
+                var agent = SpaceModel.Agent(name: r.name, pointer: r.pointer, external: r.external, lifetime: r.lifetime, def: v, sandbox: sb,
+                                             isolation: isolation, permissions: permissions, role: role, transcripts: transcripts)
+                agent.place = placeIso != nil ? whereS : sb ?? "mac"
+                model.agents.append(agent)
             }
         }
 
@@ -1095,7 +1235,7 @@ public enum SpaceValidator {
         }
 
         // ---- an agent's own network: only a fenced agent on this Mac has one; in a VM it is the VM's ----
-        mutating func agentNetwork(_ r: SpaceModel.Resource, _ own: JValue?, sandbox: String?, inWorkspaceVM: Bool, unfenced: Bool) {
+        mutating func agentNetwork(_ r: SpaceModel.Resource, _ own: JValue?, sandbox: String?, inWorkspaceVM: Bool, unfenced: Bool, place: String? = nil) {
             let first = SpaceDoc.member(own, "network")
             guard let net = first ?? SpaceDoc.member(SpaceDozable.of(own), "network") else { return }
             let np = r.pointer + (first != nil ? "/network" : "/x-dozable/network")
@@ -1103,6 +1243,28 @@ public enum SpaceValidator {
                 err(np, "\"\(r.name)\" is unfenced, so it has no network of its own",
                     "an unfenced agent acts as you: nothing enforces a network for it. Remove network:, or fence it (isolation: fenced)")
                 return
+            }
+            // 774: in a declared place, the format's precedence — workspace default < place < agent: in a fenced place the
+            // agent's own network (enforced per session, its own fence) may only narrow the place's; in a vm place it must
+            // be the place's (every session of a VM shares its proxy).
+            if let pn = place, let pd = placeDef(pn), SpaceDoc.member(pd, "external") == nil {
+                let placeNet = WorkspacePlaces.network(SpaceDoc.member(pd, "network"))
+                let mine = WorkspacePlaces.network(net)
+                let shown = placeNet.map(\.words) ?? WorkspacePlaces.networkDefault
+                if placeIsolation(pn) == "fenced" {
+                    if let m = mine, !WorkspacePlaces.narrows(m, within: placeNet) {
+                        err(np, "\"\(r.name)\"'s network is wider than its place \(pn)'s (\(shown)): an agent's own network may only narrow its place's",
+                            "a narrower preset (locked < standard < open) and only hosts the place allows — or widen the place's network")
+                    }
+                    return
+                }
+                if placeIsolation(pn) == "vm", SpaceDoc.member(pd, "network") != nil {
+                    if mine != placeNet {
+                        err(np, "\"\(r.name)\" runs in the vm place \(pn), whose network is \(shown): it can't have its own",
+                            "everything in a VM shares its network: remove network:, or change the place's")
+                    }
+                    return
+                }
             }
             guard let sb = sandbox else { return }
             // A VM's network is the workspace's: an agent in it may only repeat it. A sandbox that already exists
@@ -1177,6 +1339,10 @@ public enum SpaceValidator {
                 for f in ["permissions", "isolation", "remote_control"] {
                     model.provenance["agents.\(a.name).\(f)"] = loc.sourceOf(a.pointer + "/" + f) ?? loc.sourceOf("/agent_defaults/" + f)
                         ?? (f == "permissions" ? loc.sourceOf("/permissions") : nil) ?? "the default"
+                }
+                // 774: the isolation its place sets comes from the line that puts it there.
+                if placeIsolated.contains(a.name) {
+                    model.provenance["agents.\(a.name).isolation"] = loc.sourceOf(a.pointer + "/where") ?? loc.sourceOf("/agent_defaults/where") ?? "the default"
                 }
                 model.provenance["agents.\(a.name).transcripts"] = loc.sourceOf(a.pointer + "/transcripts") ?? loc.sourceOf("/agent_defaults/transcripts") ?? "the default"
             }
