@@ -5,8 +5,21 @@ its rooms, the brief, any folders and sandboxes. Each thing in it is either **ow
 **external**: it exists already and is only referenced (`external:`). The file asks; Dozable decides: it holds the
 workspace's record (see [Workspaces](37-workspaces.md)), and every rule the daemon keeps holds for a file too.
 
-Dozable reads, checks and plans a space file, sets the workspace up from it (`doz space up`) and takes it down again
-(`doz space down`, and `--purge` for what persists).
+Dozable reads, checks and plans a space file, sets the workspace up from it and takes it down again. Exactly what
+applies one in this version:
+
+| command | what it does with the file |
+|---|---|
+| `doz space plan -f FILE` | reads and checks it, and shows what `up` would do; changes nothing |
+| `doz space up -f FILE` | applies it: shows the plan, then makes what is missing and opens a unit of work |
+| `doz space down NAME` | takes it down at the end of the unit of work (`--purge` also removes what persists) |
+| `doz space config FILE` | prints it merged with what it extends; changes nothing |
+
+`doz space` is `doz workspace` under a shorter name: `doz workspace up -f FILE` is the same command as
+`doz space up -f FILE`. **Plain `doz up` is something else** — a project's command ([Projects](04-projects.md)): it reads
+`doz_project.yaml` and never a space file. Saving a space file in the dashboard's editor never applies it either: `up`
+does. Not in this version, and refused by the plan with exit 7 when a file asks for them: an owned **service**, a
+**secret** for an agent Dozable starts, and an agent `permissions:` preset other than `standard` or `bypass`.
 
 ```yaml
 doz: space/3

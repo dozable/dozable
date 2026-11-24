@@ -1,9 +1,23 @@
 # Letting another agent drive Dozable
 
 So far *you* have run `doz`. But the agent you already use on your Mac — Claude Code, Codex, Cursor —
-can run it too: create a sandbox for a risky task, hand the work to an agent inside it, check how it's
-going, and tidy up afterwards. Your Mac's agent plans and reviews; the sandboxed agents do the work
-behind the proxy.
+can run it too. Its job is to orchestrate a **workspace** for you: make it with a brief and your folders, start its
+agents, follow the room and the journal of each unit of work, and bring you what needs your decision. A sandbox is one
+place an agent of the workspace can run (a micro VM), beside a fenced session on this Mac or, only when you say, a
+session that acts as you.
+
+Before anything else, it should run `doz --version` and read the manual of that version (`doz docs`, below): commands
+and flags change between releases. Then [Workspaces](37-workspaces.md) for the model, and the rules on this page for
+driving: `--json`, the exit codes, `--yes`, and what to ask you first. Four things it must know before it acts:
+
+- **Chat on is your call.** Workers and a manager talk in the workspace's room, so they need chat (`doz chat on`); the
+  agent should ask you before it turns chat on, not do it unasked.
+- **`doz exec` stops after 120 s** unless it passes `--timeout`; a long job (a build, a render) goes in the background
+  with `doz run NAME -d`.
+- **A refused connection looks like a DNS error** inside a sandbox (`ENOTFOUND`). `doz net NAME` names what was refused
+  and the command that allows it — which it asks you to run.
+- **The agents inside have no `doz`.** They reach Dozable with `dozchat` and their own token ([Runs, the journal and
+  lessons](41-runs-the-journal-and-lessons.md)); it never hands them its own.
 
 ## Workspaces
 
@@ -78,8 +92,8 @@ doz workspace start app --json
 - **Destructive commands refuse without `--yes`** when there's no terminal, so a script can't delete
   something by accident.
 - **Two agents, two sets of rules.** The agent on your Mac has *your* permissions: it can run `doz`, so
-  treat it as you would at the keyboard. The agent inside a sandbox is fenced in by the proxy and
-  can't reach Dozable at all.
+  treat it as you would at the keyboard. An agent inside a sandbox or a fenced session is held by
+  the proxy: it reaches Dozable only through its room and the journal, with `dozchat`, by the permissions you grant it.
 
 ## The briefing
 

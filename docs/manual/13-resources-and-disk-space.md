@@ -85,6 +85,22 @@ store. The Resources page shows it as an **Outside** row — its data folder by 
 the images Dozable built with it — so you know where the space went. Dozable never deletes it; manage it
 with Apple's `container` command.
 
+## A second store
+
+`--store DIR` (or `DOZ_STORE`) runs Dozable on another store — a test store beside your own, say. A second store is a
+second Dozable: its own daemon, sandboxes, workspaces and chat server, with its own rooms, participants and **tokens** (a
+token of one store means nothing to another). Three things to know:
+
+- **Its chat ports.** Your settings file (`~/.config/doz/doz.toml`) is shared by every store unless you give the second
+  its own settings folder (`XDG_CONFIG_HOME`); two chat servers cannot share a port, so give each store its own settings
+  folder, or its own `chat.page_port` and `chat.line_port`. `doz chat status --store DIR` shows the ports it uses. An agent
+  Dozable starts is given its own store's address (`CHAT_URL`); one you start yourself must be told it.
+- **It keeps running.** `daemon.always_on` is on by default, for every store: the second store's daemon stays up after
+  its last sandbox stops, until `doz daemon stop --store DIR`.
+- **The menu bar app is for the default store only** (the one `doz` uses with no `--store`), its Start at Login
+  included. A second store's daemon starts when a command needs it, or at login with a login item of its own
+  (`doz daemon login-item on --store DIR`).
+
 ## Settings
 
 | key | default | what it does |

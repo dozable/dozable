@@ -9,10 +9,12 @@ program runs on your Mac, as you.
 Use it for the work that has to happen on the Mac: building a Mac or iOS app with Xcode, driving the Simulator, an
 agent working on a project that only builds here. Use a sandbox for everything else.
 
-A new session on this Mac is **fenced** by default: macOS's own sandbox (Seatbelt) holds the program and everything
-it starts to its project folder, its own temporary files and caches, and Dozable's proxy for the network. Your
-Keychain, your secrets and your other folders are closed to it. `--unfenced` opts one session out — then nothing is
-around it at all.
+A new session on this Mac is **fenced** by default. **Fenced** means: macOS's own sandbox (Seatbelt) holds the
+program and everything it starts to its project folder, its own temporary files and caches, and Dozable's proxy for
+the network. Your Keychain, your secrets and your other folders are closed to it. `--unfenced` opts one session out —
+then nothing is around it at all, and it acts as you. A workspace's manager and workers run fenced unless you choose a
+micro VM or name unfenced. What the fence does and does not block is said plainly below ([What the fence
+is not](#what-the-fence-is-not)) and in the [Security model](16-security-model.md).
 
 Each fenced session has a fence of its own — its own proxy, its own placeholders, its own profile — and shares none of it
 with another session. A workspace's **fenced place** (Space files, 39) is a policy, not a shared box: two agents in one
@@ -217,6 +219,12 @@ doz net deny @mac --session agent github
 doz net log @mac --session agent --denied --follow   # its connections
 doz net log @mac --session agent --fence        # the fence's own refusals: files, programs, services
 ```
+
+**This Mac's own ports, the chat server's included, are closed to it** unless it is given one: `--host-port PORT`
+(or `doz net allow @mac --session S host:PORT`), reached as `host.dozable.internal:PORT` through its proxy. A
+workspace's fenced manager or worker is given exactly one, the chat server's page port of its store, and nothing else
+of this Mac's; its network beyond that is the workspace's preset (locked unless you chose another), by the same
+permissions.
 
 Changes apply to its next connection. Name lookups (DNS) are closed inside the fence — the proxy looks names up;
 `localhost` still works. A program that ignores the proxy settings gets no network at all, rather than a direct one.

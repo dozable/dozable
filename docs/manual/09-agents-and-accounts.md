@@ -215,7 +215,15 @@ sandbox offers only the accounts its agent can use.
 
 Dozable reads only the **access token** of your Mac's Claude Code login — never the refresh token — so
 your Mac's Claude Code stays the one program that renews it. The access token lives about 8 hours;
-Claude Code renews it whenever it runs on your Mac near expiry.
+Claude Code renews it whenever it runs on your Mac near expiry. **This is the most common reason an agent stops
+working:** "this Mac's Claude login expired".
+
+**Signing in over SSH.** Claude Code keeps its login in two places: a Keychain item, written when you sign in at the
+Mac itself, and `~/.claude/.credentials.json`, the only one a sign-in over SSH writes (the Keychain is locked there).
+Dozable reads both, read-only, and uses whichever holds the later login, so a sign-in over SSH counts;
+`doz account show mac` says which one it reads now. What an SSH session cannot do is keep the login fresh: a daemon started over SSH
+never runs the keep-alive (below). For a Mac you reach only over SSH, sign in once at the Mac, start the daemon from its
+desktop (or `doz daemon login-item on`), or use a **setup-token** account, which needs no renewing for a year.
 
 - The daemon re-reads the login every 2 minutes; a renewed token reaches every sandbox without a
   restart.
@@ -436,7 +444,7 @@ touched.
 | symptom | what to do |
 |---|---|
 | The agent says it has no key, or gets 401 | `doz key ls NAME` and `doz account ls`. A typed key is gone after the daemon stopped: set it again, or use an account. |
-| "this Mac's Claude login expired" | Run `claude` on your Mac once (any prompt), or turn on keep-alive. |
+| "this Mac's Claude login expired" | Run `claude` on your Mac once (any prompt), or turn on keep-alive (`doz account keepalive always`). Over SSH: see [Signing in over SSH](#how-the-mac-login-stays-fresh); for unattended work, a setup-token account (`doz account add NAME --setup-token`). |
 | pi can't be created: no account it can use | `doz account add NAME --api-key`, then `--account NAME`. |
 | "the agent prompt does not render" | `doz inspect NAME --prompt` names the unknown `{{variable}}` and the file. |
 | The agent doesn't know where it runs | `doz inspect NAME --prompt`. An image prepared by a much older Dozable may need `doz reset NAME` after a rebuild. |
