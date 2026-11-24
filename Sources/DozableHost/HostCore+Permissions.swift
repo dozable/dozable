@@ -41,7 +41,7 @@ extension HostCore {
         let rows = GrantPermissions.ids.map { perm in
             GrantAnswerRow(GrantDecision.decide(GrantQuery(name: who.name, home: who.home, bot: who.bot, perm: perm, workspace: w,
                                                           recordRoles: who.recordRoles), facts),
-                          enforced: PermissionWords.enforced(actsAsYou: who.actsAsYou))
+                          enforced: PermissionWords.enforced(perm, actsAsYou: who.actsAsYou))
         }
         var roles = who.recordRoles.filter { $0.workspace == w }.map { "\($0.role) (from the workspace)" }
         for g in facts.grants where g.role != nil && g.isActive(now) {

@@ -60,7 +60,8 @@ public final class HostServer: @unchecked Sendable {
                         modelLists: .fromEnvironment())
         // The webhook entries live in the daemon's keychain seam (the memory one under DOZ_TEST_CREDENTIALS=memory).
         chat = ChatSupervisor(paths: ChatPaths(store: store), executable: HostLauncher.executablePath, release: version,
-                              keychain: core.services.keychain, keychainLocked: { HostServer.keychainLocked })
+                              keychain: core.services.keychain, keychainLocked: { HostServer.keychainLocked },
+                              daemonSocket: store.socket.path)
     }
 
     public enum StartError: Error, LocalizedError {
@@ -594,6 +595,21 @@ public final class HostServer: @unchecked Sendable {
                 conn.send(m)
                 finished(conn)
             }
+        case .agentRelay:
+            // 771: only the chat server this daemon supervises relays an agent's call (its peer pid is the child's); any other
+            // caller of the owner's socket is refused before anything is read (AgentRelay.swift: the trust argument).
+            let peer = AgentRelayTrust.peerPID(conn.fd)
+            Task.detached { [self] in
+                let child = await chat.childPID()
+                guard AgentRelayTrust.accepts(peer: peer, chatServer: child) else {
+                    conn.send(.failure(HostError(.notPermitted, "agent-relay is the chat server's own: only the chat server this daemon runs relays an agent's call")))
+                    finished(conn)
+                    return
+                }
+                let answer = await core.agentRelay(req.agentRelay)
+                conn.send((try? JSONValue(encoding: answer)).map { HostMessage.success($0) } ?? .failure(HostError(.failed, "agent-relay")))
+                finished(conn)
+            }
         case .hostStop:
             // 594 W18: the web UI reads why the last host exited from this log (`HostExitReason`).
             HostLog.line("daemon stop requested: hibernating every sandbox, then exiting")
@@ -647,6 +663,8 @@ public final class HostServer: @unchecked Sendable {
                     ? try await chat.add(n, token: c.token, kind: c.kind ?? "agent", webhook: c.webhook ?? false, entry: c.entry,
                                          inbox: c.inbox ?? false, session: c.session)
                     : try await chat.replaceToken(n, token: c.token)
+                // 771: an adopted agent's new token goes into its own item (its sessions from now on carry it).
+                if req.op == .chatToken { await core.adoptedTokenReplaced(n, token: token) }
                 // The server restarted to take it: answered once it is ready again (or stopped), at most 15 s.
                 _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
                 // A token the person gave is not sent back: they have it.

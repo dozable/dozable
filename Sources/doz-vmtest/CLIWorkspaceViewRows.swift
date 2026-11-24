@@ -119,7 +119,7 @@ func cliWorkspaceViewRows(_ h: CLIHarness, root: URL, store: DozableStore, start
     // V5. no daemon: the views answer from the store, and none starts.
     stopDaemon()
     r = h.run(["workspace", "show", "views", "--can-do"], timeout: 60)
-    check(r.code == 0 && r.out.contains("Control") && r.out.contains("Permissions (allow · ask · never)  allow ") && r.out.contains("not enforced yet")
+    check(r.code == 0 && r.out.contains("Control") && r.out.contains("Permissions (allow · ask · never)  allow ") && r.out.contains("nothing else yet")
           && !r.out.contains("— later"), "V5 show --can-do with the daemon stopped: its permissions and ceiling rows (\(r.code) \(r.out.prefix(200)))")
     r = h.run(["workspace", "show", "views", "--network"], timeout: 60)
     check(r.code == 0 && r.out.contains("not known: no daemon is running"), "V5 show --network: refusals not known (\(r.out.prefix(300)))")

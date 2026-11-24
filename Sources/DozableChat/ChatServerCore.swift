@@ -156,6 +156,9 @@ public final class ChatServerCore: @unchecked Sendable {
     /// What sends a webhook call (a test may hand in its own), the pause before each try (the reference's schedule:
     /// at once, 5 s later, 20 s after that) and each try's deadline. Set before the server starts.
     public var webhookPoster: any ChatWebhookPoster = ChatURLSessionWebhook()
+    /// 771: where an agent's journal and work-description calls go (the daemon, through `doz chat serve --daemon-socket`); set
+    /// once before the listeners start. nil: those routes answer 501.
+    public var agentRelay: ChatAgentRelay?
     public var webhookBackoff: [Double] = [0, 5, 20]
     public var webhookTimeout: Double = 30
     /// How old a message that waited may be and still be handed over at start.

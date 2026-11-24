@@ -401,6 +401,12 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// own; `chat-asks` lists the open asks of your rooms (`ChatAsksListing`). A refusal is told in Dozable's words
     /// (`ChatAskRefusal`). The daemon's — and never for an agent: an agent asks and answers with its own token (dozchat).
     case chatAsk = "chat-ask", chatDecide = "chat-decide", chatWithdraw = "chat-withdraw", chatAsks = "chat-asks"
+    /// 771: an agent's journal or work-description call, relayed by the chat server (`agentRelay`: an `AgentRelayRequest` —
+    /// the participant its own token authenticated, and the route). Accepted ONLY from the daemon's own supervised chat
+    /// server (the connection's peer process is checked: `AgentRelayTrust`); the daemon maps the participant to the
+    /// workspace identity it is, decides with the same gate as `--as W/AGENT` and answers `AgentRelayAnswer`. Dozable's own:
+    /// never for an agent's `--as`, never from a browser.
+    case agentRelay = "agent-relay"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
@@ -743,6 +749,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// and arguments is answered with the first answer (`replayed: true`) and does nothing again (`RequestReplay`). Additive:
     /// an older daemon ignores it.
     public var requestID: String?
+    /// 771 `agent-relay`: the chat server's relay of an agent's call. Additive.
+    public var agentRelay: AgentRelayRequest?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -1849,6 +1857,8 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var agent: String?
     /// adopt: the agent's name in the workspace (default: the sandbox's or the session's).
     public var asName: String?
+    /// 771 adopt (`--no-token`): no participant is made — the agent stays off chat. Additive.
+    public var noToken: Bool?
     /// new / edit: the brief's text (at most 256 KiB).
     public var brief: String?
     /// new: the references (paths or http(s) addresses); edit: added and removed.

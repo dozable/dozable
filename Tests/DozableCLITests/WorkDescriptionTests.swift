@@ -32,7 +32,7 @@ final class WorkDescriptionTests: XCTestCase {
             WorkspaceAddendum(run: "2026-11-24-2", by: "manager", text: "Run the linter before the tests"),
             WorkspaceAddendum(by: "owner", text: "Two lines\nof text"),
         ])
-        XCTAssertEqual(g, "Fix the build\n\nAddenda to the work description:\n- Run the linter before the tests (from run 2026-11-24-2)\n- Two lines\n  of text\n")
+        XCTAssertEqual(g, "Fix the build\n\nLessons to apply:\n- Run the linter before the tests (from run 2026-11-24-2)\n- Two lines\n  of text\n")
     }
 
     func testAnAddendumIsNotEmptyAndBounded() {

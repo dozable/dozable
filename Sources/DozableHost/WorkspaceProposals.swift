@@ -40,16 +40,35 @@ public enum WorkDescription {
         return t
     }
 
+    /// The heading the accepted lessons go under, in a run's goal and its opening message (771: always carried).
+    public static let lessonsHeading = "Lessons to apply:"
+
+    /// Each addendum as a line of its own: `- TEXT (from run R)` (a text of several lines indented under it).
+    public static func lessonLines(_ addenda: [WorkspaceAddendum]) -> String {
+        addenda.map { a in
+            "- " + a.text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\n", with: "\n  ")
+                + (a.run.map { " (from run \($0))" } ?? "")
+        }.joined(separator: "\n")
+    }
+
     /// What a run with no goal takes: the brief, then each addendum as a line of its own under one heading (none: the brief).
     public static func goal(brief: String, addenda: [WorkspaceAddendum]) -> String {
         guard !addenda.isEmpty else { return brief }
         var s = brief.trimmingCharacters(in: .whitespacesAndNewlines)
-        s += "\n\nAddenda to the work description:\n"
-        s += addenda.map { a in
-            "- " + a.text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\n", with: "\n  ")
-                + (a.run.map { " (from run \($0))" } ?? "")
-        }.joined(separator: "\n")
+        s += "\n\n" + lessonsHeading + "\n"
+        s += lessonLines(addenda)
         return s + "\n"
+    }
+
+    /// 771: every run's opening message, posted as the owner in the main room (the first start, `doz workspace run`): the
+    /// brief and its references; then "Lessons to apply:" with every accepted addendum (left out when there is none); then,
+    /// when the run has a goal of its own, "This run's goal: GOAL". The lessons are ALWAYS carried — a run given its own goal
+    /// dropped them before (owner's ruling).
+    public static func openingMessage(brief: String, refs: [String], addenda: [WorkspaceAddendum], goal: String?) -> String {
+        var s = ManagerKickoff.briefPost(brief: brief, refs: refs)
+        if !addenda.isEmpty { s += "\n\n" + lessonsHeading + "\n" + lessonLines(addenda) }
+        if let g = goal?.trimmingCharacters(in: .whitespacesAndNewlines), !g.isEmpty { s += "\n\nThis run's goal: " + g }
+        return s
     }
 }
 

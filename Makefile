@@ -274,7 +274,9 @@ cli: ## Build the doz CLI and sign it with the virtualization entitlement (.buil
 	else echo "note: deckhold-mac not built (no pinned toolchain in .tools — make deckhold once)"; fi
 	@# dozchat-mac beside doz (a fenced session's `dozchat`), by rename. Needs only the Mac's cc.
 	@Guest/dozchat/build-mac.sh >/dev/null && cp $(DOZCHAT_MAC) "$(dir $(CLI_BIN)).dozchat-mac.new" \
-	  && mv -f "$(dir $(CLI_BIN)).dozchat-mac.new" "$(dir $(CLI_BIN))dozchat-mac"
+	  && mv -f "$(dir $(CLI_BIN)).dozchat-mac.new" "$(dir $(CLI_BIN))dozchat-mac" \
+	  && ln -sf dozchat-mac "$(dir $(CLI_BIN))dozchat"
+	@# ...and as `dozchat` beside it (a link), as an install puts it on the PATH: what a test runs as an agent would.
 
 # The menu bar app (docs/engineering/menu-bar-app.md): the `Dozable` product assembled into .build/debug/Dozable.app —
 # beside .build/debug/doz, where `doz app install` finds the copy it installs — and signed AD HOC, always (hardened

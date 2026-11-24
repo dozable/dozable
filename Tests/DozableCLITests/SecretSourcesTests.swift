@@ -234,9 +234,11 @@ final class SecretSourcesTests: XCTestCase {
         let pidFile = root.appendingPathComponent("child.pid")
         try script("hang", "#!/bin/sh\nsleep 30 &\necho $! > \"$1\"\nsleep 30\n")
         let started = Date()
-        let r = SecretSources.run([bin.appendingPathComponent("hang").path, pidFile.path], environment: ["PATH": SecretSources.standardPath], timeout: 0.5)
+        // 2 s, not 0.5: on a loaded runner the shell may not have started its background child and written its pid
+        // within half a second, and the test then failed on the missing pid file, not on the group kill it checks.
+        let r = SecretSources.run([bin.appendingPathComponent("hang").path, pidFile.path], environment: ["PATH": SecretSources.standardPath], timeout: 2)
         XCTAssertTrue(r.timedOut)
-        XCTAssertLessThan(Date().timeIntervalSince(started), 5)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 10)
         let child = try XCTUnwrap(Int32(String(contentsOf: pidFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)))
         await waitFor(kill(child, 0) != 0, "the background child was killed with its group")
     }

@@ -219,12 +219,12 @@ public enum AgentCapabilities {
     }
 
     /// The two permission rows: its answers (counts, by role and grant) and its ceiling (each cap, the strictest per
-    /// permission, with whose it is). Read only; "not enforced yet" said where it shows.
+    /// permission, with whose it is). Read only; what is enforced (the journal and the work description) said where it shows.
     public static func permissions(_ g: AgentGrantAnswers, ceilings: [CeilingRow], workspace: String?) -> [MacCapability] {
         let show = "doz permissions show " + (workspace.map { $0 + " " } ?? "") + "--agent " + g.name
         let roles = g.roles.isEmpty ? "no role" : g.roles.joined(separator: ", ")
         let p = row("permissions", "Permissions (allow · ask · never)", g.counts,
-                    "What it may do in Dozable, by its role (\(roles)) and your grants — not enforced yet: no agent can drive Dozable"
+                    "What it may do in Dozable, by its role (\(roles)) and your grants — enforced for the run journal and the work description (through dozchat); nothing else yet"
                     + (g.actsAsYou ? "; it acts as you, so what it does is a promise." : "."), live: true, link: show)
         // The strictest cap per permission, and whose.
         var caps: [String: (GrantAnswer, [String])] = [:]

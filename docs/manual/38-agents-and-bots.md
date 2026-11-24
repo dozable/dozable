@@ -126,7 +126,8 @@ doz permissions show --bot otto                      # its ceiling, its role in 
 ```
 
 `doz bot ceiling otto sudo=never` followed by `doz grant otto sudo=allow --in demo` still answers never: a ceiling is a lid
-no grant goes past. It constrains the bot only — never you — and nothing is enforced yet: no agent can drive Dozable.
+no grant goes past. It constrains the bot only — never you — and it is enforced where an agent reaches Dozable: the run
+journal and the work description, through dozchat.
 
 ## In the dashboard
 

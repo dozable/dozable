@@ -75,7 +75,8 @@ public struct GrantAnswerRow: Codable, Equatable, Sendable {
     public var source: String
     /// As a person reads it: "the worker role (demo) — from the workspace", "✎ your grant …", "▲ this Mac's ceiling …".
     public var sourceText: String
-    /// "not yet — no agent can drive Dozable", or "promise — acts as you" for an unfenced agent.
+    /// "yes — through dozchat" (the journal's and the work description's), "not yet — …" (every other), or "promise — acts as
+    /// you" for an unfenced agent.
     public var enforced: String
     /// The step that decided (1–5).
     public var step: Int
@@ -135,14 +136,14 @@ public struct PermissionsShown: Codable, Equatable, Sendable {
     /// `--bot`: its role in each workspace, as read ("demo: manager (from the workspace)").
     public var botRoles: [String]?
     public var roleTable: [RoleRow]?
-    /// Whether any agent's grants are enforced, as read: "not yet — no agent can drive Dozable".
+    /// Which agents' grants are enforced, as read (`PermissionWords.overall`).
     public var enforced: String
     public var notes: [String]
 
     public init(view: String, workspace: String? = nil, subject: String? = nil, agents: [AgentGrantAnswers] = [], grants: [GrantRow] = [],
                 ceilings: [CeilingRow] = [], botRoles: [String]? = nil, roleTable: [RoleRow]? = nil, notes: [String] = []) {
         self.view = view; self.workspace = workspace; self.subject = subject; self.agents = agents; self.grants = grants
-        self.ceilings = ceilings; self.botRoles = botRoles; self.roleTable = roleTable; enforced = PermissionWords.notYet; self.notes = notes
+        self.ceilings = ceilings; self.botRoles = botRoles; self.roleTable = roleTable; enforced = PermissionWords.overall; self.notes = notes
     }
 }
 
@@ -161,10 +162,24 @@ public struct PermissionsChanged: Codable, Equatable, Sendable {
 
 /// The words every view of permissions shares.
 public enum PermissionWords {
-    public static let notYet = "not yet — no agent can drive Dozable"
+    /// 771: a permission no agent's request reaches yet (every one but the journal's and the work description's).
+    public static let notYet = "not yet — an agent reaches only the journal and the work description"
+    /// 771: the journal's and the work description's: an agent reaches them through dozchat, with its own token, and the
+    /// daemon decides them.
+    public static let enforcedNow = "yes — through dozchat"
     public static let promise = "promise — acts as you"
-    /// The sentence under every table: what this is, and that it is not `doz net permissions`.
-    public static let footer = "Grants are not enforced yet — no agent can drive Dozable. They say what an agent may do in Dozable; "
-        + "what a sandbox's network may reach is doz net permissions."
-    public static func enforced(actsAsYou: Bool) -> String { actsAsYou ? promise : notYet }
+    /// What `permissions show` says of every agent's grants together.
+    public static let overall = "for the run journal and the work description (through dozchat); nothing else yet"
+    /// The sentence under every table: what is enforced, what this is, and that it is not `doz net permissions`.
+    public static let footerLead = "Grants are enforced for the run journal and the work description, which an agent reaches through dozchat with "
+        + "its own chat token; no other Dozable action is an agent's yet. "
+    public static let footerRest = "They say what an agent may do in Dozable; what a sandbox's network may reach is doz net permissions."
+    public static let footer = footerLead + footerRest
+    /// The permissions an agent's request reaches today (`AgentRelay`): the journal's and the work description's.
+    public static func reached(_ perm: String) -> Bool {
+        let base = perm.split(separator: ":", maxSplits: 1).first.map(String.init) ?? perm
+        return ["journal.read", "journal.write", "journal.supersede", "evidence.attach", "description.propose", "description.decide",
+                "description.edit"].contains(base)
+    }
+    public static func enforced(_ perm: String, actsAsYou: Bool) -> String { actsAsYou ? promise : reached(perm) ? enforcedNow : notYet }
 }

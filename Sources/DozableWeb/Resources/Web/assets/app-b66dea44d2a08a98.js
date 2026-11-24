@@ -81,8 +81,8 @@ import { newSandboxWizard, viewNew } from './app/views/new-sandbox-543676492a7da
 import { forgetNewWorkspace, newWorkspaceDirty, newWorkspaceRefusal, viewNewWorkspace } from './app/views/new-workspace-d7545e19f922aa32.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-103343e67b8adf9b.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-427cb4705e652306.js';
-import { viewBots } from './app/views/bots-f2ed7f6a3f017ffe.js';
-import { viewBot } from './app/views/bot-de63cfe0ebc462a9.js';
+import { viewBots } from './app/views/bots-73df24e6d7113496.js';
+import { viewBot } from './app/views/bot-2ee14e3a3edde6f5.js';
 import { viewHome } from './app/views/home-e3925aca775633d7.js';
 import { viewWorkspaces } from './app/views/workspaces-80dee6281fd21980.js';
 import { viewLoose } from './app/views/loose-1dc29d990e933291.js';

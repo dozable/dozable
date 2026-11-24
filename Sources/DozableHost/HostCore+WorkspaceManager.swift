@@ -293,8 +293,8 @@ extension HostCore {
         } else if rec.flags.startedAt == nil {
             _ = try? await openRun(n)
             if let room, let chat, ready {
-                let brief = workspaceBriefText(rec) ?? ""
-                let text = ManagerKickoff.briefPost(brief: brief, refs: rec.brief.refs)
+                // 771: the first run's opening message — the brief, then any accepted lesson.
+                let text = WorkDescription.openingMessage(brief: workspaceBriefText(rec) ?? "", refs: rec.brief.refs, addenda: rec.addenda, goal: nil)
                 try chat.post(room: room, content: text)
                 kickedOff = true
                 rec = try await workspaceUpdate(n) { r in

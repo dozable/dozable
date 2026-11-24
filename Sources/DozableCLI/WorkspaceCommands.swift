@@ -399,17 +399,21 @@ func spaceShownText(_ s: SpaceShown) -> String {
 
 struct WorkspaceAdopt: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "adopt", abstract: "Adopt a sandbox or a session on this Mac into a workspace, as a worker.",
-        discussion: "Only the workspace's record changes: the sandbox and the session are left as they are. Each is in one workspace at most.")
+        discussion: """
+        The sandbox and the session are left as they are: only the workspace's record changes, and each is in one workspace         at most. With chat on, the agent gets its own participant in the workspace's room: every session Dozable starts in         its place from now on carries its chat token and this store's chat address (one already running gets them when it         restarts — the answer says how to hand the token over now). --no-token keeps it off chat.
+        """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The workspace.") var name: String
     @Argument(help: "A sandbox's name, or @mac/SESSION.") var agent: String
     @Option(name: .customLong("as"), help: "Its name in the workspace (default: the sandbox's or the session's).") var asName: String?
+    @Flag(name: .customLong("no-token"), help: "Make it no participant in chat: its sessions get no chat token.") var noToken = false
     @Option(name: .customLong("request-id"), help: "An id of yours for this request: sent again with the same id and arguments, it answers the first answer and adopts nothing again (kept 24 h).")
     var requestID: String?
     func run() async throws {
         var w = WorkspaceRequest(name: name)
         w.agent = agent
         w.asName = asName
+        w.noToken = noToken ? true : nil
         var r = workspaceRequest(.workspaceAdopt, w)
         r.requestID = requestID
         let d = try decode(try call(r, g), WorkspaceDetail.self, g)

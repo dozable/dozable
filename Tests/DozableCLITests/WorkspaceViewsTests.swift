@@ -145,7 +145,7 @@ final class WorkspaceReachTests: XCTestCase {
             XCTAssertEqual(a.capabilities.suffix(2).map(\.id), ["permissions", "ceiling"], a.name)
             let p = a.capabilities.first { $0.id == "permissions" }!
             XCTAssertTrue(p.state.hasPrefix("allow ") && p.state.contains(" · ask ") && p.state.contains(" · never "), p.state)
-            XCTAssertTrue(p.sentence.contains("not enforced yet"), p.sentence)
+            XCTAssertTrue(p.sentence.contains("enforced for the run journal and the work description"), p.sentence)
             XCTAssertEqual(p.link, "doz permissions show demo --agent \(a.name)")
             XCTAssertEqual(a.capabilities.first { $0.id == "ceiling" }?.state, "none set: no cap")
         }
@@ -429,7 +429,7 @@ final class AgentCapabilitiesTests: XCTestCase {
         XCTAssertEqual(rows.map(\.id), ["permissions", "ceiling"])
         XCTAssertEqual(rows[0].state, g.counts)
         XCTAssertEqual(rows[0].link, "doz permissions show demo --agent bot1")
-        XCTAssertTrue(rows[0].sentence.contains("worker (from the workspace)") && rows[0].sentence.contains("not enforced yet"))
+        XCTAssertTrue(rows[0].sentence.contains("worker (from the workspace)") && rows[0].sentence.contains("nothing else yet"))
         XCTAssertEqual(rows[1].state, "1 never · 1 ask (otto's, this Mac's)")
         XCTAssertTrue(rows[1].sentence.contains("spend=ask (otto's)") && rows[1].sentence.contains("sudo=never (this Mac's, otto's)"), rows[1].sentence)
         XCTAssertTrue(rows.allSatisfy { $0.editable == "live" })

@@ -72,7 +72,7 @@ final class WorkerLaunchTests: XCTestCase {
         let u = try plan(.unfenced)
         XCTAssertFalse(u.argv.contains("dontAsk"), "dontAsk only fenced")
         XCTAssertEqual(u.argv.suffix(2), ["--allowedTools", "Bash(dozchat:*)"])
-        XCTAssertEqual(u.environment, ["CHAT_TOKEN_FILE": "/t/doz-1/manager-demo-bot1/chat-token"])
+        XCTAssertEqual(u.environment, ["CHAT_TOKEN_FILE": "/t/doz-1/manager-demo-bot1/chat-token", "CHAT_URL": "http://127.0.0.1:8790"])
         XCTAssertNil(u.secret)
         let c = try plan(.fenced, agent: "codex")
         XCTAssertEqual(c.argv, ["codex", "Read \(start) and do what it says."])

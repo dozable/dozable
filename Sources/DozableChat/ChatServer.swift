@@ -17,6 +17,9 @@ public struct ChatServeOptions: Sendable {
     public var tokenHashesFile: String?
     /// The owner's private socket (`--owner-socket`, `ChatOwnerSocket`).
     public var ownerSocket: String?
+    /// 771: the relay of an agent's journal and work-description calls (`--daemon-socket`: only with `supervised` and
+    /// `tokenHashesFile`). nil: those routes answer 501.
+    public var relay: ChatAgentRelay?
     /// The pipe the daemon hands its webhook entries on (`--webhooks-fd`, `ChatWebhookPipe`): read once at start, then
     /// closed. Only with `supervised` and `tokenHashesFile`.
     public var webhooksFD: Int32?
@@ -177,6 +180,7 @@ public enum ChatServer {
 
         let core = ChatServerCore(config: config, secrets: secrets, release: releaseNumber(o.release), log: log, sessionsDir: o.claudeSessions)
         core.load()
+        core.agentRelay = o.relay
         if !config.testOwnedAddresses.isEmpty {
             log("chat: FOR TESTS: test_owned_addresses is set, so only \(config.testOwnedAddresses.joined(separator: ", ")) count as the owner's own machines")
         }

@@ -242,6 +242,14 @@ doz workspace release demo my-sandbox         # loose again; it keeps running as
 A sandbox or session is in one workspace at most: adopting one that is already in another is refused, with the command
 that releases it.
 
+With chat on and a room, an adopted agent is given **its own participant** in the room, under its name in the workspace: it
+reads the room's messages (each run's opening message among them) and reaches the journal with its own token. From then
+on, every session Dozable starts in its place gets that token and this store's chat address, as a manager's or a worker's
+does — held by Dozable, never written into the sandbox or the session. A session already running gets them when it
+restarts; `adopt` says so, with the one command that hands the token over now (`doz chat token NAME --to-file F`, then
+`CHAT_TOKEN_FILE=F` in its environment). `doz workspace adopt W AGENT --no-token` keeps it off chat. Releasing it revokes
+the token and removes the participant.
+
 **In the dashboard**, a loose sandbox or session is put in a workspace with **Put in a workspace…** — on **This Mac › Loose
 agents**, or in the **⋯** of its own page. Choose an existing workspace (and, if you like, another name for it there), or
 make a new one: its name starts as the agent's, its brief starts as "The work in AGENT." (change it to say what the work
@@ -518,8 +526,10 @@ conversations and last screen, the usage and a timesheet. Nothing is removed, an
 ### Lessons and the work description
 
 A workspace's **work description** is its brief plus its **addenda**: notes and lessons added after the brief without
-rewriting it. A run with no goal of its own takes the brief and every addendum, so a lesson learnt in one run is part of
-the next. `doz workspace doc W --json` shows them as `document.brief.addenda` — each `{run, at, by, text}`.
+rewriting it. Every run carries the lessons: its opening message in the room is the brief, then **Lessons to apply:**
+with every accepted addendum (`- TEXT (from run R)`), then — when you gave the run a goal of its own — **This run's goal:
+GOAL**. So a lesson learnt in one run is part of every later one, with or without a goal (`doz workspace run --json` says
+how many it carried: `lessons`). `doz workspace doc W --json` shows them as `document.brief.addenda` — each `{run, at, by, text}`.
 
 ```bash
 doz workspace retro demo --propose --addendum "Run the linter before the tests"   # propose a lesson from the last run
@@ -593,6 +603,28 @@ doz workspace wait demo --for journal.outcome --timeout 120               # unti
   kind only —, attaching `evidence.attach`, and correcting another's entry `journal.supersede`. The `reviewer` role gives
   `journal.write` and `evidence.attach`.
 
+### How an agent writes the journal
+
+An agent in a workspace — its manager, a worker, an adopted agent — has no `doz`: it writes and reads the journal, and
+proposes lessons, with `dozchat` and its own chat token, which every agent Dozable starts has. Dozable knows who it is from
+the token, and decides by the same permissions as above.
+
+```bash
+dozchat journal --json                                        # the open run's entries
+dozchat journal add review "c1 met" --data '{"criterion":"c1","met":"yes"}' --attach /workspace/test.log
+dozchat journal wait outcome --timeout 300                    # until an outcome entry is there (exit 124 at the timeout)
+dozchat propose --addendum "Run the linter before the tests"  # a lesson: you decide it in the room's Ask
+dozchat proposal decide pr-1a2b3c4d apply                     # needs description.decide
+dozchat addendum "Keep the changelog current"                 # needs description.edit
+```
+
+An entry's `by` is the agent's name. A file to attach is named as the agent sees it — in a sandbox, a path inside a folder
+the workspace mounts there — and is copied from that folder on this Mac; a path in no such folder is refused. `dozchat`'s
+exit codes: 0 done; 3 refused — no open run, the run closed, or a value refused; 4 not permitted (the permission is named)
+or the proposal decided already; 5 no answer from the chat server; 124 a wait's timeout. With `--json` a refusal is
+`{"error":{"code","message","permission"}}` on stdout. A chat participant that is no agent of a workspace is refused, and
+so is your own token: you use `doz`.
+
 ## What agents may do
 
 What an agent may do in Dozable — start a worker, sleep the workspace, reach a folder beyond its own — is one list of
@@ -639,8 +671,10 @@ bot2 · folder.read · in myapp-tests
 5. The strictest **ceiling caps** it: an ask ceiling turns allow into ask.
 
 **Permissions constrain agents, never you.** Nothing you do — in a terminal or in the dashboard — is checked against them,
-not even your own nevers and ceilings. And none is enforced yet: no agent can drive Dozable, so `show` says "not yet — no
-agent can drive Dozable" (an unfenced agent's: "promise — acts as you"). Asks come later; until then, an answer of ask is
+not even your own nevers and ceilings. An agent reaches Dozable only through the run journal and the work description
+(with `dozchat`, above), and there they are enforced: `show` says "yes — through dozchat" for those permissions and "not
+yet — an agent reaches only the journal and the work description" for every other (an unfenced agent's: "promise — acts
+as you"). Asks come later; until then, an answer of ask is
 a refusal for an agent. Opening a run needs `run.open` (`run` and `reopen`) and finishing one `run.finish`, both off for
 an agent until you grant them (`doz grant mira run.open=allow --in demo`); an older grant of `workspace.finish` (its
 old name) still answers for both in this release, a never on it included. The owner role is yours and is never granted; `admin` is given everywhere only; deciders are made

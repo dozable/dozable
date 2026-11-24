@@ -66,7 +66,8 @@ extension HostCore {
         let revision = WorkspaceRuns.descriptionRevision((try? workspaces.log(n)) ?? [])
         // 766: no goal → the work description: the brief and its addenda.
         await syncProposals(n)
-        let brief = opening.goal == nil ? WorkDescription.goal(brief: workspaceBriefText(rec) ?? "", addenda: (try? workspaceRecord(n))?.addenda ?? rec.addenda) : nil
+        let addenda = (try? workspaceRecord(n))?.addenda ?? rec.addenda
+        let brief = opening.goal == nil ? WorkDescription.goal(brief: workspaceBriefText(rec) ?? "", addenda: addenda) : nil
         var opened: WorkspaceRun?
         _ = try await workspaceUpdate(n) { r in
             if let o = r.openRun { opened = o; return [] }
@@ -85,6 +86,8 @@ extension HostCore {
             run.follows = opening.follows
             run.openedBy = opening.openedBy
             run.revision = revision
+            // 771: the lessons its opening message carries (always — with a goal of its own too).
+            run.lessons = addenda.count
             r.runs.append(run)
             opened = run
             return [WorkspaceLogEntry(action: "run-opened", reason: opening.openedBy == "owner" ? nil : "opened by \(opening.openedBy)", run: run.id)]
@@ -165,7 +168,9 @@ extension HostCore {
             let now = try workspaceRecord(n)
             if let room = now.mainRoom?.chatRoom, let chat = workspaceChat, await chat.readiness() == .ready {
                 if by == "owner" {
-                    let text = opened.goalFrom == "given" ? (opened.goal ?? "") : ManagerKickoff.briefPost(brief: opened.goal ?? "", refs: now.brief.refs)
+                    // 771: the brief, then every accepted lesson, then the run's own goal (when it has one).
+                    let text = WorkDescription.openingMessage(brief: workspaceBriefText(now) ?? "", refs: now.brief.refs, addenda: now.addenda,
+                                                              goal: opened.goalFrom == "given" ? opened.goal : nil)
                     try chat.post(room: room, content: text)
                     posted = true
                     _ = try await workspaceUpdate(n) { r in

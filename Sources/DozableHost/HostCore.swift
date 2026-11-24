@@ -915,6 +915,9 @@ public actor HostCore {
             return try JSONValue(encoding: await resolveDotfiles(r.dotfilesSource))
         case .dotfilesUpdate:
             return try JSONValue(encoding: await updateDotfiles(r, emit: emit))
+        case .agentRelay:
+            // 771: `HostServer` answers it, once the connection proves to be the chat server it supervises.
+            throw HostError(.unavailable, "agent-relay is the chat server's: the daemon serves it on its own connection")
         case .chatSync, .chatAdd, .chatSet, .chatRemove, .chatToken, .chatMembers, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport:
             // The chat server is the daemon's child: `HostServer` answers these (its `ChatSupervisor`), never the core.
             throw HostError(.unavailable, "\(r.op.rawValue) needs the doz daemon")
@@ -2116,6 +2119,8 @@ public actor HostCore {
         // 599i: Codex's credentials for this session — its auth.json with placeholders only (or none).
         await deliverCodexAuth(m)
         // 692: its secrets' placeholders — VAR, and FILEVAR naming a 0600 file holding the same one.
+        // 771: an adopted agent's sandbox: its chat token's binding in the proxy before the placeholders are minted.
+        if adoptedChatSecret(placeKey: "sandbox:" + m.name) != nil { applyLaunchSecrets(m) }
         var secretEnv = await deliverLaunchSecretFiles(m, user: r.user)
         // A worker sharing this sandbox: ITS token's placeholder in CHAT_TOKEN / CHAT_TOKEN_FILE, for this session only.
         if let v = sessionSecretAliases.removeValue(forKey: m.name + "/" + session),
@@ -2124,6 +2129,11 @@ public actor HostCore {
             if let fv = s.fileVariable, let f = secretEnv[fv] { secretEnv[ManagerLaunch.tokenFileVariable] = f }
         }
         if !secretEnv.isEmpty { r.environment = (r.environment ?? [:]).merging(secretEnv) { _, mine in mine } }
+        // 771: a session in a workspace's sandbox (an adopted one's too) reaches THIS store's chat server, never the default
+        // port's guess.
+        if let add = workspacePlaceChatEnvironment("sandbox:" + m.name, isolation: .vm, asked: r.environment) {
+            r.environment = (r.environment ?? [:]).merging(add) { mine, _ in mine }
+        }
         // 617 (§7): a key read on use (1Password, AWS, a command) is read now, beside the session's start, so the agent's
         // first call does not wait for it (a fresh cached read makes this nothing).
         if let vault = m.sandbox.egress?.vault {

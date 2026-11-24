@@ -10,6 +10,10 @@ gate) is in [workspaces.md](workspaces.md), "The run journal". Normative words: 
 | `Sources/DozableHost/HostCore+Journal.swift` | `workspace-journal`, `-journal-add` (staging, the commit), the follower's making, the archive's part |
 | `Sources/DozableCLI/WorkspaceJournalCommands.swift` | `doz workspace journal`, `doz workspace wait` |
 | `Tests/DozableCLITests/RunJournalTests.swift` | the rules, the store, the daemon end to end, the permissions, the archive |
+| `Sources/DozableHost/AgentRelay.swift`, `HostCore+AgentRelay.swift` | 771: agents' own access — the relay's shapes, the identity mapping, the routes as operations, the trust check |
+| `Sources/DozableChat/ChatAgentRelay.swift`, `Sources/DozableCLI/ChatCommandLine.swift` (`ChatDaemonRelay`) | the chat server's routes and its relay to the daemon |
+| `Guest/dozchat/dozchat.c` | `dozchat journal …`, `propose`, `proposal decide`, `addendum` |
+| `Tests/DozableCLITests/AgentRelayTests.swift` | the mapping, each route, the grants per kind, the trust check, the status table, the opening message, CHAT_URL |
 
 ## 1. What the journal is
 
@@ -142,6 +146,37 @@ The owner is never gated. For an agent:
 A workspace grants them by role — the `reviewer` role bundles `journal.write`, `evidence.attach` and `description.propose`
 — or by permission: `doz grant AGENT journal.write:review=allow --in W`.
 
+### Agents' own access — dozchat (0.52.52)
+
+An agent writes and reads the journal ITSELF, with its own chat token — there is no `doz` in a sandbox, and `--as` is the
+owner's preview path. Every agent Dozable starts has `dozchat`, `CHAT_URL` (this store's page port) and its token — a
+manager's and a worker's as before, and an adopted agent's at every session Dozable starts in its place from its adoption on
+(workspaces.md, "The agent relay"; `adopt --no-token` keeps it off chat):
+
+| dozchat | Route (Dozable's own, on the chat server's page port) | The operation, as `--as W/AGENT` |
+|---|---|---|
+| `journal [--run RUN] [--json]` | `GET /agent/journal?run=` | `workspace-journal` |
+| `journal add KIND [TEXT] [--data JSON] [--ref R]… [--supersedes N] [--attach PATH]… [--attach-ref PATH]…` | `POST /agent/journal` | `workspace-journal-add` |
+| `journal wait KIND [--after RUN#SEQ] [--timeout S]` | `GET /agent/journal/wait?kind=&after=&timeout=` | `workspace-journal` with the kind, polled (level-triggered, as `doz workspace wait`) |
+| `propose --addendum TEXT [--run RUN]` | `POST /agent/proposals` | `workspace-retro` |
+| `proposal decide ID apply\|decline` | `POST /agent/proposals/{id}/decide` | `workspace-decide` |
+| `addendum TEXT [--run RUN]` | `POST /agent/addenda` | `workspace-addendum` |
+
+- **Who it is.** The chat server checks the token as for `/agent/send` (the human's is refused) and relays the call to the
+  daemon naming the participant that holds it. The daemon maps the participant to the workspace identity it is: a manager
+  by its bot, a worker by its name, an adopted agent by the participant made at its adoption — not ended, not still being
+  added. None → 9 not-permitted (a stranger, the owner); several workspaces → name one with `--in W`. The entry's
+  `by`, a proposal's proposer and an addendum's author are the identity's name.
+- **The same decision.** The relayed call is decided by the ONE gate exactly as `--as W/AGENT` is (section 6's table,
+  `description.propose/decide/edit` for the work description, the `reviewer` role), logged the same way.
+- **`--attach PATH`** is a path as the agent's place sees it: a session on this Mac sees this Mac's own paths; a sandbox's
+  path is mapped through the workspace folder mounted there (the longest match). A path in no mounted folder, or from an
+  agent elsewhere, is refused (65 → dozchat 3), never guessed; then section 5's rules apply unchanged.
+- **Exit codes** keep dozchat's one table: 0 · 2 usage · 3 refused (HTTP 422: no open run, a closed run, a value refused) ·
+  4 not permitted (403) or the proposal decided already (409) · 5 no answer · 124 a wait's `--timeout`. A refusal's body is
+  `{"error":{"code","message","permission"?}}` — printed on stdout with `--json`, its message (and the permission) on stderr.
+- **The trust argument** is in workspaces.md, "The agent relay".
+
 ## 7. Following
 
 `journal W --follow` is a **workspace follow**: one NDJSON stream for the whole workspace — the entries of every run, the
@@ -168,7 +203,8 @@ run boundaries and the workspace-level events — continuing from one run into t
 - **A slow follower.** This build reads every line from the store at the follower's own pace: nothing is buffered for a
   follower and a writer never waits for a reader, so a follow is never `follow-lagged` (the line type is reserved for a
   later in-memory fan-out, which would buffer 1,000 live lines).
-- `--follow` and `wait` speak only to the owner's socket; an agent (`--as`) follows under its own `journal.read`.
+- `--follow` and `wait` speak only to the owner's socket; an agent (`--as`) follows under its own `journal.read`; an agent
+  waits with `dozchat journal wait` (above) — following through chat is not offered yet.
 
 ## 8. Storage, limits and privacy
 

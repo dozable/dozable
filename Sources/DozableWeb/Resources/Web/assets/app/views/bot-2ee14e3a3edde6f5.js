@@ -173,7 +173,7 @@ function editTab(b, tab, accounts, readOnly) {
 }
 
 /// Roles & ceiling, read only: its role in each workspace (the workspace gives it), and its ceiling — each cap, set in a
-/// terminal (doz bot ceiling). Nothing is enforced yet: no agent can drive Dozable.
+/// terminal (doz bot ceiling). Enforced where an agent reaches Dozable: the run journal and the work description (dozchat).
 function roles(b) {
   const held = Object.entries(b.roles || {}).sort((x, y) => x[0].localeCompare(y[0]));
   const caps = Object.entries(b.ceilingAnswers || {}).sort((x, y) => x[0].localeCompare(y[0]));
@@ -191,7 +191,7 @@ function roles(b) {
       : h('p', null, 'None set: no cap.'),
     h('p', { class: 'muted' }, 'The most it may ever get, wherever it works — read only here; set in a terminal: ',
       cmdLine('doz bot ceiling ' + b.name + ' PERM=never')),
-    h('p', { class: 'muted' }, 'Not enforced yet: no agent can drive Dozable.'));
+    h('p', { class: 'muted' }, 'Enforced where an agent reaches Dozable: the run journal and the work description, through dozchat.'));
 }
 
 /// Across workspaces: where it is, its rooms, what it said last.

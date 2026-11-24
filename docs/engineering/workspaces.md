@@ -75,7 +75,7 @@ makes and starts a workspace (the New workspace wizard), adds and ends its worke
 
 - `workspace.json` — `{version, name, createdAt, brief: {refs, sha256, bytes, updatedAt}, folders: [{path, mode: rw|ro,
   main}], rooms: [{label, chatRoom, main}], agents: [{name, role: worker|manager, place: {sandbox?, mac?, session?,
-  elsewhere?}, startedBy, startedAt, bot?, isolation?, stoppedAt?, task?, anonymous?, pendingAt?, endedAt?}],
+  elsewhere?}, startedBy, startedAt, bot?, isolation?, stoppedAt?, task?, anonymous?, pendingAt?, endedAt?, participant?}],
   defaults: {isolation?, network?}, flags: {finishedAt?,
   archivedAt?, firstAgentAt?, startedAt?}, driver:
   "you", origin: {kind: new|adopted|project, project?}, declaredWorkers?: [{name, task, declaredAt}]}` (`declaredWorkers`:
@@ -720,8 +720,17 @@ What a run records (`RunOpening` → `WorkspaceRun`): `goal` (the brief's text a
 Until a revision store keeps the document's revisions, that is `WorkspaceRuns.descriptionRevision`: 1 when the workspace was
 made, one more for each `brief-edited`, `refs-edited` or (0.52.47) `addendum-added` line of its log. The first start's run, a
 reopen's and an up's record the brief (`goalFrom: brief`, `openedBy: owner`). Since 0.52.47 "the brief" a run takes is the
-work description: the brief and every addendum (`WorkDescription.goal` — the brief, then `Addenda to the work description:`
-and one `- TEXT (from run R)` line each); the manager's start text carries the same.
+work description: the brief and every addendum (`WorkDescription.goal` — the brief, then `Lessons to apply:` (0.52.52; it
+read `Addenda to the work description:` before) and one `- TEXT (from run R)` line each); the manager's start text carries
+the same.
+
+**Always carry the lessons (0.52.52, the owner's ruling).** Every run's opening message — posted as the owner by the first
+start's kick-off and by `doz workspace run` (and so `reopen`, which runs it) — is `WorkDescription.openingMessage`: the brief
+and its references; then `Lessons to apply:` with every accepted addendum as `- TEXT (from run R)` (left out when there is
+none); then, when the run has a goal of its own, `This run's goal: GOAL`. A run given its own goal dropped the lessons before.
+`WorkspaceRun.goal` is unchanged (the goal given, `goalFrom: given`; a goal-less run's the brief and its lessons); the run
+records `lessons` (additive), the count of addenda its opening carried, and `WorkspaceRunOpened` answers it. The
+`workspace-reopen` op (the dashboard's Reopen, a space's up) still posts nothing.
 
 The answer, `WorkspaceRunOpened` (`--json`): `{kind: "WorkspaceRun", schema: 1, workspace, id, state: "open", goal, goalFrom,
 source: {kind, ref?, revision?}, follows?, openedAt (ISO 8601), openedBy, revision (a number), usage: {durationMs}, posted,
@@ -860,6 +869,51 @@ parameterised id (`GrantPermissions.kindOf`), answered by a grant of that id or 
 `evidence.attach` when it attaches. Correcting another's entry needs `journal.supersede`, decided by the daemon once it has
 read whose the entry is. No identity may be named `owner` (65): the space validator refuses an agent of that name, and
 `worker add` and `adopt --as` a new one (`WorkspaceName.checkNewAgent`).
+
+### The agent relay (0.52.52)
+
+An agent reaches the run journal and the work description ITSELF, with its own chat token: `dozchat journal …`, `propose`,
+`proposal decide`, `addendum` (journal.md, "Agents' own access"). The chat server authenticates the token on six routes of
+its own (chat.md, "Dozable's agent routes") and relays each call to the daemon as ONE request, `agent-relay`
+(`AgentRelayRequest {participant, route, query?, body?, id?}`, answered `AgentRelayAnswer {ok, result? | error {code, message,
+exit, permission?}}`), on the daemon's own socket (`--daemon-socket`, handed to the supervised chat server). The daemon:
+
+1. accepts `agent-relay` only from the chat server it supervises — the connection's peer pid (`LOCAL_PEERPID`) is the pid of
+   the chat server it spawned and has not reaped (`ChatSupervisor.childPID`, `AgentRelayTrust`); any other caller: 9;
+2. maps the participant to the identity it is (`AgentRelay.identity`: a manager by its bot, a worker by its name, an adopted
+   agent only by `participant` — not ended, not pending; none 9, several workspaces 65 unless `workspace` names one);
+3. maps an `--attach` path from the agent's place (this Mac's own paths for a session on this Mac; a sandbox's through the
+   workspace folder mounted there; else 65);
+4. makes the call into the operation `--as W/NAME` would send (`AgentRelay.request`: `workspace-journal`, `-journal-add`,
+   `-retro`, `-decide`, `-addendum`; a wait polls `workspace-journal` with the kind every 250 ms for up to 25 s) and decides
+   it with `PermissionGate.check` — the ONE gate, its log, its words — then serves it (`HostCore.handle`).
+
+**The trust argument.** The daemon's socket is the owner's alone (this user's, in the store): whatever can connect to it can
+already do anything the owner can, so `agent-relay` cannot widen anything — like `--as`, it only NARROWS a request to an
+agent's grants. On top, a participant's name is taken only from the chat server's own token check: the daemon accepts the
+op only from its supervised chat server's pid, which cannot be reused while the daemon, its parent, has not reaped it. An
+agent never reaches the daemon's socket (a sandbox has no route to it; a fenced session's profile denies it), and an
+unfenced agent acts as you already. `agent-relay` is Dozable's own in `ActionClasses` (never an `--as` request's), and the
+owner never goes through it (`owner` is refused; the human's chat token is refused by the chat server).
+
+**Adopted agents get a participant** (0.52.52): `workspace-adopt` (with chat ready and a main room) makes one of the agent's
+name (polls), invites it to the main room (logged before `adopted`) and records `participant` and `tokenFingerprint` on the
+entry. Its token is DELIVERED at session start (the owner's choice, option B): it is kept in a keychain item of its own
+(`AdoptedToken.service(store, W, AGENT)` — never in the launch-secret ledger, so no sweep judges it by a place's record,
+and `forgetLaunchSecret` never deletes it) and, from the adoption on, every session Dozable starts in the place carries it
+as a launch secret (`adoptedChatSecret`: `CHAT_TOKEN` / `CHAT_TOKEN_FILE` to `host.dozable.internal:PAGE`, its value read
+from the item only while its fingerprint is the entry's) — a sandbox's through `sessionSecrets` (its record's secrets plus
+this one, bound in its proxy at open: never written to its `doz.json` or disk); a fenced session's as its launch secret (the
+page port among its host ports); an unfenced one's as a 0600 token file named by `CHAT_TOKEN_FILE` — at a new open and at
+every restart's reopen alike (`adoptedMacDelivery`, shared by `macOpen` and `macReopen`; a sandbox's restart opens through
+`openSession`), what the session was given (its own environment, a launch secret of its own) winning. Adopting itself still
+writes only the workspace's record. A session already running gets it when it restarts: `adopt` says so and names the one
+command that hands it over now (`doz chat token NAME --to-file F` — its new token goes into the item too,
+`adoptedTokenReplaced`). `--no-token` (`WorkspaceRequest.noToken`) makes no participant: the agent stays off chat. A name
+already in chat gets none (a note). `release` removes the participant (its token refused from then on) and deletes the item. **Every session Dozable starts
+in a workspace's place** — a manager's, a worker's, an adopted agent's sandbox or session — gets `CHAT_URL` from THIS store's
+page port (`AgentLaunch.chatURL`: `host.dozable.internal:PORT`, or `127.0.0.1:PORT` unfenced — on the default port too), unless
+its own environment names one (`AgentLaunch.workspacePlaceEnvironment`, in `openSessionBody` and `macOpen`). `AgentRelayTests`.
 
 ## The archive
 
@@ -1107,7 +1161,9 @@ every request this process sends but its own `ping` (`HostRequest.actAs`); a que
 core refuses one). It only narrows: a bad value is refused, never the owner's. No agent caller exists otherwise in this
 version; the manager's control route will make one in-process, never from a wire field.
 
-**Shown read only.** `show`'s ENFORCED column: "not yet — no agent can drive Dozable" ("promise — acts as you" for an unfenced
+**Shown read only.** `show`'s ENFORCED column (0.52.52): "yes — through dozchat" for the journal's and the work
+description's permissions, which an agent's own request reaches (`PermissionWords.reached`), "not yet — an agent reaches only
+the journal and the work description" for every other (was: "not yet — no agent can drive Dozable") ("promise — acts as you" for an unfenced
 agent). The Can do tab's last two rows (`AgentCapabilities.permissions`: "allow N · ask N · never N" and the effective
 ceiling with whose each cap is) come through `workspace-reach` — no new route or action; `doz workspace show --can-do`
 prints the same rows; the bot page's Roles & ceiling reads `bot-show`'s additive `ceilingAnswers` and `roles`.

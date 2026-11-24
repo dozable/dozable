@@ -1,5 +1,6 @@
 import Darwin
 import DozableChat
+import DozableHost
 import Foundation
 
 /// `doz chat serve` — the chat server itself (never listed: the daemon runs it; `doz chat …`'s other commands are in
@@ -83,7 +84,7 @@ public enum ChatCommandLine {
         let f: Flags
         do {
             f = try parse(args, values: ["config", "bind", "data-dir", "secrets-file", "line-port", "page-port", "claude-sessions",
-                                          "token-hashes", "owner-socket", "webhooks-fd", "control-fd"], bools: ["supervised"])
+                                          "token-hashes", "owner-socket", "webhooks-fd", "control-fd", "daemon-socket"], bools: ["supervised"])
         } catch { return bad("\(error) (doz chat serve -h lists the settings)") }
         guard let config = f.values["config"], !config.isEmpty else { return bad("--config FILE is required") }
         var o = ChatServeOptions(configPath: absolute(config), release: release)
@@ -106,6 +107,13 @@ public enum ChatCommandLine {
             guard o.supervised, o.tokenHashesFile != nil else { return bad("--control-fd is the daemon's: only with --supervised and --token-hashes") }
             guard let n = Int32(v), n >= 3, n != o.webhooksFD else { return bad("--control-fd: \"\(v)\" is not a descriptor (3 or more)") }
             o.controlFD = n
+        }
+        // 771: the daemon's own socket, where an agent's journal and work-description calls are relayed — the daemon's flag
+        // only; nothing else of the daemon is read, and no daemon is ever started from here.
+        if let v = f.values["daemon-socket"] {
+            guard o.supervised, o.tokenHashesFile != nil else { return bad("--daemon-socket is the daemon's: only with --supervised and --token-hashes") }
+            guard v.hasPrefix("/") else { return bad("--daemon-socket: an absolute path") }
+            o.relay = ChatDaemonRelay.relay(socket: v)
         }
         for flag in ["line-port", "page-port"] {
             guard let v = f.values[flag] else { continue }
@@ -142,5 +150,71 @@ public enum ChatCommandLine {
         var s = p
         if s.hasPrefix("~/") { s = NSHomeDirectory() + String(s.dropFirst()) }
         return URL(fileURLWithPath: s).standardizedFileURL.path
+    }
+}
+
+/// 771: the chat server's side of the agent relay — one `agent-relay` request per call on the daemon's own socket (never a
+/// daemon started), the daemon's `AgentRelayAnswer` turned into the HTTP answer: 200 with the result, else the doz-shaped
+/// error `{"error":{code, message, permission?}}` with its status (dozchat keeps its own exit table).
+enum ChatDaemonRelay {
+    /// The longest a relayed call waits for the daemon's answer (a journal wait holds it up to 25 s).
+    static let answerSeconds = 60
+
+    static func relay(socket: String) -> ChatAgentRelay {
+        { call in await Task.detached { answer(call, socket: socket) }.value }
+    }
+
+    static func answer(_ call: ChatAgentRelayCall, socket: String) -> ChatHTTPResponse {
+        var body: JSONValue?
+        if !call.body.isEmpty {
+            guard let v = try? JSONDecoder().decode(JSONValue.self, from: Data(call.body)) else {
+                return json(400, failure("invalid-value", "the body is not JSON", ExitCodes.invalid))
+            }
+            body = v
+        }
+        var r = HostRequest(.agentRelay)
+        r.agentRelay = AgentRelayRequest(participant: call.participant, route: call.route, query: call.query.isEmpty ? nil : call.query,
+                                         body: body, id: call.id)
+        guard let fd = UnixSocket.connect(socket) else {
+            return json(503, failure("needs-daemon", "Dozable's daemon does not answer: the journal needs it running", ExitCodes.daemonUnavailable))
+        }
+        defer { close(fd) }
+        var tv = timeval(tv_sec: answerSeconds, tv_usec: 0)
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        guard var line = try? HostWire.encoder.encode(r) else { return json(500, failure("failed", "the call could not be written", ExitCodes.failed)) }
+        line.append(10)
+        guard UnixSocket.writeAll(fd, line) else {
+            return json(503, failure("needs-daemon", "Dozable's daemon closed the connection", ExitCodes.daemonUnavailable))
+        }
+        let reader = LineReader(fd: fd)
+        while let l = reader.readLine(limit: 64 << 20) {
+            guard let m = try? HostWire.decoder.decode(HostMessage.self, from: l) else { continue }
+            if m.event != nil { continue }
+            guard m.ok == true, let v = m.result,
+                  let a = try? HostWire.decoder.decode(AgentRelayAnswer.self, from: HostWire.encoder.encode(v)) else {
+                let e = m.error ?? HostError(.failed, "no answer")
+                return json(e.code == .notPermitted ? 403 : 503, failure(e.code.rawValue, e.message, ExitCodes.exit(for: e)))
+            }
+            if a.ok { return json(200, a.result ?? .null) }
+            let f = a.error ?? AgentRelayAnswer.Failure(code: "failed", message: "no answer", exit: ExitCodes.failed)
+            var e: [String: JSONValue] = ["code": .string(relayCode(f.code)), "message": .string(f.message)]
+            if let p = f.permission { e["permission"] = .string(p) }
+            return json(a.httpStatus, .object(["error": .object(e)]))
+        }
+        return json(503, failure("needs-daemon", "Dozable's daemon did not answer", ExitCodes.daemonUnavailable))
+    }
+
+    /// The reason a refusal names: doz's code, with a value refused (the 65 group) said as `invalid`.
+    static func relayCode(_ code: String) -> String {
+        ["invalid", "invalid-value", "invalid-document", "usage"].contains(code) ? "invalid" : code
+    }
+
+    static func failure(_ code: String, _ message: String, _ exit: Int32) -> JSONValue {
+        .object(["error": .object(["code": .string(relayCode(code)), "message": .string(message)])])
+    }
+
+    static func json(_ status: Int, _ v: JSONValue) -> ChatHTTPResponse {
+        let data = (try? HostWire.encoder.encode(v)) ?? Data("null".utf8)
+        return ChatHTTPResponse(status: status, headers: [("Content-Type", "application/json")], body: Array(data) + [0x0A])
     }
 }

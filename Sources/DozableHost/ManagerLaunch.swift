@@ -120,15 +120,31 @@ public enum AgentLaunch {
         var ports: [UInt16] = []
         switch isolation {
         case .fenced, .vm:
-            env["CHAT_URL"] = "http://\(HostRoute.hostName):\(pagePort)"
+            env["CHAT_URL"] = chatURL(isolation: isolation, pagePort: pagePort)
             ports = [port]
             secret = LaunchSecret(variable: variable, fileVariable: fileVariable, host: HostRoute.hostName, port: port,
                                   fingerprint: fingerprint, keychainService: nil, bot: bot)
         case .unfenced:
             guard let tokenFile else { throw HostError(.invalid, "an unfenced \(role.rawValue) needs its token file") }
             env[ManagerLaunch.tokenFileVariable] = tokenFile
-            if pagePort != ManagerLaunch.defaultPagePort { env["CHAT_URL"] = "http://127.0.0.1:\(pagePort)" }
+            // 771: always — on the default port too: dozchat without it guesses, and says so.
+            env["CHAT_URL"] = chatURL(isolation: isolation, pagePort: pagePort)
         }
         return ManagerLaunch.Plan(argv: argv, environment: env, startFile: startFile, hostPorts: ports, secret: secret)
+    }
+
+    /// 771: the chat server's address for an agent Dozable starts in a workspace place — THIS store's page port, never the
+    /// default's guess: a fenced session or a VM reaches it by `host.dozable.internal`, an unfenced session on this Mac's
+    /// loopback. Every session started in a workspace's place gets it (a manager, a worker, an adopted agent's place).
+    public static func chatURL(isolation: ManagerIsolation, pagePort: Int) -> String {
+        isolation == .unfenced ? "http://127.0.0.1:\(pagePort)" : "http://\(HostRoute.hostName):\(pagePort)"
+    }
+
+    /// The environment a session opened in a workspace's place gets beside what was asked: `CHAT_URL` (this store's page
+    /// port) unless the session's own environment names one. nil: nothing to add (not a workspace's place, or chat off).
+    public static func workspacePlaceEnvironment(member: Bool, chatOn: Bool, isolation: ManagerIsolation, pagePort: Int,
+                                                 asked: [String: String]?) -> [String: String]? {
+        guard member, chatOn, asked?["CHAT_URL"] == nil else { return nil }
+        return ["CHAT_URL": chatURL(isolation: isolation, pagePort: pagePort)]
     }
 }

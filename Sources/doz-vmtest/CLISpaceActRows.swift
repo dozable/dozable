@@ -197,7 +197,9 @@ func cliSpaceActRows(_ h: CLIHarness, root: URL, store: DozableStore) {
     check(r.code == 0 && d1?.ok == true, "S7 down --yes (\(r.code) \(r.err.prefix(200)) \(d1?.results.filter { $0.status != "done" }.map { "\($0.subject) \($0.status) \($0.text)" }.joined(separator: "; ") ?? ""))")
     let runs = h.json(["workspace", "runs", "sa"], WorkspaceRunsListing.self)
     check(runs?.runs.first?.archiveStatus == "written", "S7 …the run's archive written")
-    check(records()["sa-w2"] == nil && !h.run(["chat", "who"]).out.contains("w2 "), "S7 …w2 (this run only): no session record, out of chat")
+    // A participant whose first word is exactly w2 (an adopted agent elsewhere, rw2, has a participant of its own now).
+    let w2InChat = h.run(["chat", "who"]).out.split(separator: "\n").contains { $0.split(separator: " ").first == "w2" }
+    check(records()["sa-w2"] == nil && !w2InChat, "S7 …w2 (this run only): no session record, out of chat")
     let idx = try? ChatRoomIndex.load(ChatPaths(store: store))
     check(idx?.tombstone("sa-run") != nil && !(h.run(["chat", "rooms"]).out.contains("sa-run")), "S7 …the run room gone, a tombstone kept")
     let post = h.run(["chat", "send", "sa", "after the run"])
