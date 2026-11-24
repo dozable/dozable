@@ -93,6 +93,97 @@ final class WorkspaceAdoptTests: XCTestCase {
 
     // MARK: adopt and release
 
+    /// 771 (the owner's option B): an adopted agent's chat token is DELIVERED at session start — its own participant, its own
+    /// keychain item, the fingerprint on the entry, a launch secret for every session in its place (a sandbox's and a session's
+    /// on this Mac) — and nothing written to the sandbox's doz.json or sessions.json; --no-token keeps it off chat; release
+    /// revokes it (the participant gone, the item deleted); a replaced token follows.
+    func testAnAdoptedAgentsTokenIsDeliveredAtSessionStartAndReleaseRevokesIt() async throws {
+        let c = await core(chat: FakeChat())
+        let participants = FakeBotChat()
+        await c.setBotChat(participants)
+        await sandbox(c, "wsa")
+        try macSession("wsu")
+        try macSession("wsn")
+        let docJSON = bytes(store.configFile("wsa").path)
+        let sessionsJSON = bytes(store.root.appendingPathComponent("mac-sessions/sessions.json").path)
+        var m = await new(c, "demo")
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        m = await adopt(c, "demo", "wsa")
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        m = await adopt(c, "demo", "@mac/wsu")
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        let d = try XCTUnwrap(m.result).decode(WorkspaceDetail.self)
+        XCTAssertTrue(d.notes?.contains { $0.contains("from now on gets its chat token and this store's chat address") } == true, "\(d.notes ?? [])")
+        var w = WorkspaceRequest(name: "demo"); w.agent = "@mac/wsn"; w.noToken = true
+        m = await ask(c, .workspaceAdopt, w)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        XCTAssertEqual(bytes(store.configFile("wsa").path), docJSON, "the sandbox's doz.json is never written")
+        XCTAssertEqual(bytes(store.root.appendingPathComponent("mac-sessions/sessions.json").path), sessionsJSON, "sessions.json is never written")
+        // Each a participant of its own, its token in its own item, the entry holding only the fingerprint.
+        let names = try participants.directory().participants.map(\.name)
+        XCTAssertTrue(names.contains("wsa") && names.contains("wsu"))
+        XCTAssertFalse(names.contains("wsn"), "--no-token: no participant")
+        let rec = try XCTUnwrap(ws.read("demo"))
+        for a in ["wsa", "wsu"] {
+            let e = try XCTUnwrap(rec.agents.first { $0.name == a })
+            XCTAssertEqual(e.participant, a)
+            let item = keychain.get(AdoptedToken.service(store: store.root, workspace: "demo", agent: a))
+            XCTAssertEqual(item.map(CredentialFingerprint.of), e.tokenFingerprint, "\(a): its item is the token its fingerprint names")
+        }
+        XCTAssertNil(rec.agents.first { $0.name == "wsn" }?.tokenFingerprint)
+        // Every session started in the place carries it (a sandbox's: in the secrets its sessions get; never its record).
+        let sandboxSecret = await c.adoptedChatSecret(placeKey: "sandbox:wsa")
+        XCTAssertEqual(sandboxSecret?.variable, "CHAT_TOKEN"); XCTAssertEqual(sandboxSecret?.fileVariable, "CHAT_TOKEN_FILE")
+        XCTAssertEqual(sandboxSecret?.host, HostRoute.hostName)
+        XCTAssertTrue(sandboxSecret.flatMap(\.keychainService).map(AdoptedToken.isAdopted) == true)
+        let carried = await c.sessionSecretsOf("wsa")
+        XCTAssertEqual(carried.map(\.variable), ["CHAT_TOKEN"], "a session of wsa gets its token")
+        let macSecret = await c.adoptedChatSecret(placeKey: "mac:wsu"), none = await c.adoptedChatSecret(placeKey: "mac:wsn")
+        XCTAssertNotNil(macSecret, "a session on this Mac in the place gets it too")
+        XCTAssertNil(none, "--no-token: nothing")
+        // A restart's reopen delivers what a new open does (macOpen and macReopen share `adoptedMacDelivery`; a sandbox's
+        // restart opens through openSession, which `sessionSecrets` feeds): fenced, its launch secret and the page port;
+        // unfenced, a token file; what the session was given wins.
+        let fenced = try await c.adoptedMacDelivery("wsu", fence: MacFenceRequest(), environment: nil, botSecrets: nil, recorded: nil)
+        XCTAssertEqual(fenced.botSecrets?.map(\.variable), ["CHAT_TOKEN"])
+        XCTAssertTrue(fenced.fence?.hostPorts?.contains { $0.port == macSecret?.port } == true)
+        let unfenced = try await c.adoptedMacDelivery("wsu", fence: nil, environment: nil, botSecrets: nil, recorded: nil)
+        let file = try XCTUnwrap(unfenced.environment?["CHAT_TOKEN_FILE"])
+        XCTAssertEqual(CredentialFingerprint.of(try String(contentsOfFile: file, encoding: .utf8)), macSecret?.fingerprint)
+        let own = try await c.adoptedMacDelivery("wsu", fence: MacFenceRequest(), environment: ["CHAT_TOKEN_FILE": "/x"], botSecrets: nil, recorded: nil)
+        XCTAssertNil(own.botSecrets, "its own token wins")
+        let kept = try await c.adoptedMacDelivery("wsu", fence: MacFenceRequest(), environment: nil, botSecrets: nil,
+                                                  recorded: [LaunchSecret(variable: "CHAT_TOKEN", host: "x.example", port: 1, fingerprint: "f")])
+        XCTAssertNil(kept.botSecrets, "a secret of its own record wins")
+        let notAdopted = try await c.adoptedMacDelivery("wsn", fence: MacFenceRequest(), environment: nil, botSecrets: nil, recorded: nil)
+        XCTAssertNil(notAdopted.botSecrets, "--no-token: nothing at a restart either")
+        try? FileManager.default.removeItem(atPath: (file as NSString).deletingLastPathComponent)
+        // Revoking a place's launch secrets never deletes it (only release does).
+        await c.forgetForTest(owner: "wsa", try XCTUnwrap(sandboxSecret))
+        XCTAssertNotNil(keychain.get(AdoptedToken.service(store: store.root, workspace: "demo", agent: "wsa")))
+        // A replaced token (doz chat token wsu) follows into its item and the fingerprint.
+        await c.adoptedTokenReplaced("wsu", token: "replaced-token-0123456789")
+        XCTAssertEqual(keychain.get(AdoptedToken.service(store: store.root, workspace: "demo", agent: "wsu")), "replaced-token-0123456789")
+        XCTAssertEqual(try ws.read("demo")?.agents.first { $0.name == "wsu" }?.tokenFingerprint, CredentialFingerprint.of("replaced-token-0123456789"))
+        // Release: the participant gone, the item deleted, nothing carried any more.
+        w = WorkspaceRequest(name: "demo"); w.agent = "wsa"
+        m = await ask(c, .workspaceRelease, w)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        XCTAssertFalse(try participants.directory().participants.contains { $0.name == "wsa" })
+        XCTAssertNil(keychain.get(AdoptedToken.service(store: store.root, workspace: "demo", agent: "wsa")))
+        let gone = await c.adoptedChatSecret(placeKey: "sandbox:wsa")
+        XCTAssertNil(gone)
+        let after = await c.sessionSecretsOf("wsa")
+        XCTAssertTrue(after.isEmpty)
+        w = WorkspaceRequest(name: "demo"); w.agent = "@mac/wsu"
+        m = await ask(c, .workspaceRelease, w)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        let reopened = try await c.adoptedMacDelivery("wsu", fence: MacFenceRequest(), environment: nil, botSecrets: nil, recorded: nil)
+        XCTAssertNil(reopened.botSecrets, "released: a restart carries no token")
+        XCTAssertNil(reopened.environment?["CHAT_TOKEN_FILE"])
+        XCTAssertEqual(bytes(store.configFile("wsa").path), docJSON, "…and its doz.json still never written")
+    }
+
     func testAdoptAndReleaseASandboxAndASession() async throws {
         let c = await core()
         await sandbox(c, "wsa")

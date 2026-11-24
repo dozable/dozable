@@ -1857,6 +1857,8 @@ public struct WorkspaceRequest: Codable, Equatable, Sendable {
     public var agent: String?
     /// adopt: the agent's name in the workspace (default: the sandbox's or the session's).
     public var asName: String?
+    /// 771 adopt (`--no-token`): no participant is made — the agent stays off chat. Additive.
+    public var noToken: Bool?
     /// new / edit: the brief's text (at most 256 KiB).
     public var brief: String?
     /// new: the references (paths or http(s) addresses); edit: added and removed.

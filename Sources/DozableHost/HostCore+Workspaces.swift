@@ -690,7 +690,8 @@ extension HostCore {
         // 771: its own participant in the room (as a worker gets), so it reads the room's run-opening messages and reaches
         // the journal with its own token. Best effort: the adoption stands, and a note says what was not done. Logged before
         // `adopted`, so the adoption is the last word of it.
-        let notes = await adoptedParticipant(n, agent: agent, place: place)
+        let notes = w.noToken == true ? ["--no-token: \(agent) is not in chat, and its sessions get no chat token"]
+            : await adoptedParticipant(n, agent: agent, place: place)
         try? workspaces.append(n, WorkspaceLogEntry(at: now, action: "adopted", agent: agent, place: place.key))
         var d = await workspaceDetail(try workspaceRecord(n), withBrief: false)
         if !notes.isEmpty { d.notes = (d.notes ?? []) + notes }
@@ -698,23 +699,31 @@ extension HostCore {
     }
 
     /// 771: an adopted agent's participant — made under its name (polls), invited to the main room, recorded on its entry
-    /// (`participant`: what the agent relay knows it by). Its token is not put into the place (adopting never writes a
-    /// sandbox's doz.json nor a session's record): a note says how the owner hands it over. Answers the notes. Called under
-    /// the `workspaces` gate.
+    /// (`participant`: what the agent relay knows it by). Its token is kept in a keychain item of its own (`AdoptedToken`,
+    /// the fingerprint on the entry) and DELIVERED at every session Dozable starts in its place from now on, beside
+    /// `CHAT_URL` (`adoptedChatSecret`) — nothing is written to the sandbox's doz.json or its disk, nor to a session's record,
+    /// by the adoption. A session already running gets it when it restarts; the note says how to hand it over now. Answers
+    /// the notes. Called under the `workspaces` gate.
     func adoptedParticipant(_ n: String, agent: String, place: AgentPlace) async -> [String] {
         guard !readOnly, let participants = botChat, let chat = workspaceChat else { return [] }
         guard let rec = try? workspaceRecord(n), let room = rec.mainRoom?.chatRoom else { return ["\(n) has no room: \(agent) was given no participant in chat"] }
         guard await chat.readiness() == .ready else { return ["chat is not ready: \(agent) was given no participant in chat (release and adopt it again once chat runs)"] }
         let token = ChatTokens.make()
+        let service = AdoptedToken.service(store: store.root, workspace: n, agent: agent)
+        do { try services.keychain.write(service: service, account: Keychain.user, secret: token) } catch {
+            return ["\(agent) was given no participant in chat: its token could not be kept in the login keychain (\(HostError.from(error).message))"]
+        }
         await botGate.lock("bots")
         do {
             if try participants.directory().has(agent) || bots.readOrEmpty().bot(agent) != nil {
                 botGate.unlock("bots")
+                try? services.keychain.delete(service: service, account: Keychain.user)
                 return ["\(agent) is a name in chat already: it was given no participant of its own — adopt it --as another name to give it one"]
             }
             try await participants.add(agent, token: token, kind: "agent", deliver: "poll", entry: nil, session: nil)
         } catch {
             botGate.unlock("bots")
+            try? services.keychain.delete(service: service, account: Keychain.user)
             return ["\(agent) was given no participant in chat: \(HostError.from(error).message)"]
         }
         botGate.unlock("bots")
@@ -725,12 +734,47 @@ extension HostCore {
         // The caller holds the `workspaces` gate (adopt is served under it): written directly, never through workspaceUpdate.
         if var r = try? workspaceRecord(n), let i = r.agents.firstIndex(where: { $0.name == agent && $0.endedAt == nil }) {
             r.agents[i].participant = agent
+            r.agents[i].tokenFingerprint = CredentialFingerprint.of(token)
             try? workspaces.write(r)
         }
-        // Adopting writes only the workspace's record — never a sandbox's doz.json nor a session's record — so its token is
-        // not put into the place: you hand it over (a session started there gets this store's chat address by itself).
-        notes.append("\(agent) is in \(room) as itself; its token is yours to hand over: doz chat token \(agent) --to-file F (then CHAT_TOKEN_FILE=F)")
+        // Its sandbox's proxy takes the binding now (a session opened next mints its placeholder); nothing is written there.
+        if let s = place.sandbox, let m = managed[s] { applyLaunchSecrets(m) }
+        notes.append("\(agent) is in \(room) as itself: every session Dozable starts in \(place.sandbox ?? "@mac " + (place.session ?? "")) from now on gets its chat token and this store's chat address")
+        if await workspacePlaceRunning(place) {
+            notes.append("what runs there now gets them when it restarts — to hand the token over now: doz chat token \(agent) --to-file F, then CHAT_TOKEN_FILE=F in its environment")
+        }
         return notes
+    }
+
+    /// 771: an adopted agent's token as a launch secret for a session in its place (nil: none — not adopted with a token, or
+    /// the place is not an adopted agent's). The value is read from its own item, only while its fingerprint is the entry's.
+    func adoptedChatSecret(placeKey key: String) -> LaunchSecret? {
+        guard let w = workspaces.membership()[key], let rec = try? workspaces.read(w),
+              let a = rec.agents.first(where: { $0.place.key == key && $0.endedAt == nil && !$0.isManager && !$0.isWorker }),
+              a.participant != nil, let fp = a.tokenFingerprint else { return nil }
+        let port = UInt16(clamping: ChatSettingsView.read().pagePort)
+        return LaunchSecret(variable: ManagerLaunch.tokenVariable, fileVariable: ManagerLaunch.tokenFileVariable, host: HostRoute.hostName, port: port,
+                            fingerprint: fp, keychainService: AdoptedToken.service(store: store.root, workspace: w, agent: a.name))
+    }
+
+    /// 771: `doz chat token NAME` replaced an adopted agent's token: its own item takes the new one (sessions started from
+    /// now on get it). Nothing for any other name.
+    func adoptedTokenReplaced(_ name: String, token: String) async {
+        guard !readOnly else { return }
+        for rec in workspaces.records() {
+            guard rec.agents.contains(where: { $0.participant == name && $0.endedAt == nil && !$0.isManager && !$0.isWorker }) else { continue }
+            let service = AdoptedToken.service(store: store.root, workspace: rec.name, agent: name)
+            guard (try? services.keychain.write(service: service, account: Keychain.user, secret: token)) != nil else { continue }
+            // The value cached for its place's binding is the old one: read again from the item.
+            if let a = rec.agents.first(where: { $0.participant == name && $0.endedAt == nil }) {
+                let owner = a.place.sandbox ?? a.place.session.map(LaunchSecrets.macOwner) ?? ""
+                launchSecretMemory[LaunchSecrets.service(store: store.root, owner: owner, variable: ManagerLaunch.tokenVariable)] = nil
+            }
+            _ = try? await workspaceUpdate(rec.name) { r in
+                if let i = r.agents.firstIndex(where: { $0.participant == name && $0.endedAt == nil }) { r.agents[i].tokenFingerprint = CredentialFingerprint.of(token) }
+                return []
+            }
+        }
     }
 
     func workspaceRelease(_ w: WorkspaceRequest) async throws -> WorkspaceDetail {
@@ -749,7 +793,12 @@ extension HostCore {
         try workspaces.write(rec)
         try? workspaces.append(n, WorkspaceLogEntry(action: gone.isManager ? "manager-removed" : "released", agent: gone.name, place: gone.place.key))
         // 771: an adopted agent's own participant goes with it (and its token, from its sandbox).
-        if let p = gone.participant, !gone.isManager, !gone.isWorker, let participants = botChat { try? await participants.remove(p) }
+        if let p = gone.participant, !gone.isManager, !gone.isWorker {
+            // Its token revoked (the participant goes, and with it the token), its own item deleted, its sandbox's binding gone.
+            if let participants = botChat { try? await participants.remove(p) }
+            try? services.keychain.delete(service: AdoptedToken.service(store: store.root, workspace: n, agent: gone.name), account: Keychain.user)
+            if let s = gone.place.sandbox, let m = managed[s] { applyLaunchSecrets(m) }
+        }
         return await workspaceDetail(rec, withBrief: false)
     }
 

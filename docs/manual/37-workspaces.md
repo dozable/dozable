@@ -275,7 +275,7 @@ With chat on and a room, an adopted agent is given **its own participant** in th
 and its own token. From the adoption on, every session Dozable starts in its place carries that token and this store's
 chat address (`CHAT_URL`), as a worker's does — a launch secret, never written into the sandbox or its settings. A session
 already running when you adopt it gets them when it restarts; `adopt` says so and prints the one command that hands the
-token over now. `--no-token` keeps it off chat (no participant is made). It then reads the room's messages (each run's
+token over now (`doz chat token NAME --to-file F`, then `CHAT_TOKEN_FILE=F` in its environment). `--no-token` keeps it off chat (no participant is made). It then reads the room's messages (each run's
 opening message among them) and reaches the journal with `dozchat` — but nobody tells it to: an adopted agent has no
 START file, so tell it in its own prompt to run `dozchat receive` and follow the room. Releasing it revokes the token and
 removes the participant ([Tokens and identity](43-tokens-and-identity.md)).

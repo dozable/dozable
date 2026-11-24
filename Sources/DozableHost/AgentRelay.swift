@@ -247,3 +247,15 @@ public enum AgentRelayTrust {
         return pid
     }
 }
+
+/// 771: an adopted agent's chat token, in a keychain item of its own (this store's, the workspace's and the agent's) — never
+/// in the ledger of launch secrets (no sweep judges it by a place's record), never written to the place. Delivered as a
+/// launch secret at every session Dozable starts in the place (`HostCore.adoptedChatSecret`); deleted at release.
+public enum AdoptedToken {
+    public static func service(store root: URL, workspace: String, agent: String) -> String {
+        LaunchSecrets.service(store: root, owner: ownerWord(workspace: workspace, agent: agent), variable: ManagerLaunch.tokenVariable)
+    }
+    static func ownerWord(workspace: String, agent: String) -> String { "adopted." + workspace + "." + agent }
+    /// A keychain service that is an adopted agent's token (nothing that revokes a place's launch secrets deletes it).
+    public static func isAdopted(_ service: String) -> Bool { service.contains("-adopted.") }
+}

@@ -706,11 +706,13 @@ extension HostCore {
     func macOpen(_ given: HostRequest, botSecrets: [LaunchSecret]? = nil, managerStart: Data? = nil, startFolder: String = "manager") async throws -> SessionOpened {
         guard !readOnly else { throw HostError(.unavailable, "open-session needs the daemon") }
         var r = given
-        // 771: a session opened in a workspace's place on this Mac (an adopted one's too) reaches THIS store's chat server.
-        if let s = r.session, let add = workspacePlaceChatEnvironment("mac:" + s, isolation: r.macFence == nil ? .unfenced : .fenced, asked: r.environment) {
-            r.environment = (r.environment ?? [:]).merging(add) { mine, _ in mine }
+        // 771: a session opened in a workspace's place on this Mac reaches THIS store's chat server; an adopted agent's gets
+        // its chat token too (`adoptedMacDelivery`, shared with the restart's reopen).
+        var botSecrets = botSecrets
+        if let s = r.session {
+            let d = try adoptedMacDelivery(s, fence: r.macFence, environment: r.environment, botSecrets: botSecrets, recorded: nil)
+            r.environment = d.environment; r.macFence = d.fence; botSecrets = d.botSecrets
         }
-        if r.user != nil { throw HostError(.invalid, "--user does not apply on this Mac: its sessions run as you") }
         let located = MacDeckhold.locate()
         guard let holder = located.url else {
             throw HostError(.unavailable, "sessions on this Mac need deckhold-mac beside doz — \(located.why ?? "it is not there")")
@@ -1063,6 +1065,11 @@ extension HostCore {
                    request r: HostRequest, extra: [String: String]? = nil, botSecrets: [LaunchSecret]? = nil,
                    managerStart: Data? = nil, startFolder: String = "manager") async throws -> SessionRestarted {
         var notes: [String] = []
+        // 771: a reopen (a restart) of a session in a workspace's place delivers what a new open does — CHAT_URL, and an
+        // adopted agent's chat token — with the same precedence (what it is given, and its record's own secrets, win).
+        let extraGiven = extra
+        let delivered = try adoptedMacDelivery(s, fence: rec.fence?.request, environment: extra, botSecrets: botSecrets, recorded: rec.fence?.secrets)
+        let extra = delivered.environment, botSecrets = delivered.botSecrets
         // 683: its conversations so far go back to the person's own first (a private agent folder keeps them too).
         if let t = await macCarryBack(s) { notes.append(t) }
         // 683: a fenced session with its own (private) config folder resumes from THAT folder's conversations.
@@ -1075,7 +1082,7 @@ extension HostCore {
         if claude, !fresh, how == .none {
             notes.append("no earlier conversation in \(DisplayPath.tilde(rec.workdir)) — claude starts a new one")
         }
-        if extra == nil, let keys = rec.environmentKeys, !keys.isEmpty {
+        if extraGiven == nil, let keys = rec.environmentKeys, !keys.isEmpty {
             notes.append("the variables it was opened with (\(keys.joined(separator: ", "))) are not kept — it runs without them")
         }
         // The id the new program holds from its start (a resumed or re-opened id); else it learns its own.
@@ -1090,7 +1097,7 @@ extension HostCore {
             // The same grants, this build's template, a new tag; the session's folder re-seeded.
             dropFenceWatch(s)
             for p in MacFenceStop.members(sentinel: f.sentinel, anti: f.antiSentinel, program: nil).pids { kill(p, SIGKILL) }
-            o = try await macOpenFenced(r, request: f.request, holder: holder, name: s, argv: argv, workdir: rec.workdir,
+            o = try await macOpenFenced(r, request: delivered.fence ?? f.request, holder: holder, name: s, argv: argv, workdir: rec.workdir,
                                         recordedArgv: rec.argv, previous: f, size: openSize, extra: extra, claudeSessionID: carried,
                                         botSecrets: botSecrets, managerStart: managerStart, startFolder: startFolder).0
         } else {
@@ -1257,5 +1264,35 @@ extension HostCore {
         let chat = ChatSettingsView.read()
         return AgentLaunch.workspacePlaceEnvironment(member: workspaces.membership()[key] != nil, chatOn: chat.enabled, isolation: isolation,
                                                      pagePort: chat.pagePort, asked: asked)
+    }
+}
+
+extension HostCore {
+    /// 771: what a session opened — or reopened by a restart — in place `mac:SESSION` gets beside what it was given: `CHAT_URL`
+    /// (this store's page port) when the place is a workspace's, and, when it is an adopted agent's (with a token), its chat
+    /// token — fenced, as its launch secret with the page port among the ports it reaches; unfenced, a 0600 file named by
+    /// `CHAT_TOKEN_FILE`. What it was given wins: its own environment, a launch secret of its own (`botSecrets`, or one its
+    /// record holds — `recorded`) of the same variable.
+    func adoptedMacDelivery(_ s: String, fence: MacFenceRequest?, environment: [String: String]?, botSecrets: [LaunchSecret]?,
+                            recorded: [LaunchSecret]?) throws -> (environment: [String: String]?, fence: MacFenceRequest?, botSecrets: [LaunchSecret]?) {
+        var env = environment, f = fence, bots = botSecrets
+        if let add = workspacePlaceChatEnvironment("mac:" + s, isolation: f == nil ? .unfenced : .fenced, asked: env) {
+            env = (env ?? [:]).merging(add) { mine, _ in mine }
+        }
+        let own = env?[ManagerLaunch.tokenVariable] != nil || env?[ManagerLaunch.tokenFileVariable] != nil
+            || (bots ?? []).contains { $0.variable == ManagerLaunch.tokenVariable }
+            || (recorded ?? []).contains { $0.variable == ManagerLaunch.tokenVariable && !($0.keychainService.map(AdoptedToken.isAdopted) ?? false) }
+        guard !own, let secret = adoptedChatSecret(placeKey: "mac:" + s) else { return (env, f, bots) }
+        if var req = f {
+            bots = (bots ?? []) + [secret]
+            if !(req.hostPorts ?? []).contains(where: { $0.port == secret.port }) { req.hostPorts = (req.hostPorts ?? []) + [HostPort(port: secret.port)] }
+            f = req
+        } else if let k = secret.keychainService, let v = services.keychain.read(service: k, account: Keychain.user).value,
+                  CredentialFingerprint.of(v) == secret.fingerprint {
+            TestSafety.enforce(TestSafety.managerTokenViolation(store: store.root))
+            let files = try writeAgentTokenFolder(workerTokenFolder(s), token: v, start: Data(), who: s)
+            env = (env ?? [:]).merging([ManagerLaunch.tokenFileVariable: files.tokenFile]) { mine, _ in mine }
+        }
+        return (env, f, bots)
     }
 }

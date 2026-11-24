@@ -165,7 +165,8 @@ doz workspace wait NAME --for journal.outcome --after RUN#SEQ --timeout 120 --js
   `dozchat journal add KIND [TEXT] [--data JSON] [--ref R] [--supersedes N] [--attach PATH]`, `dozchat journal wait KIND
   [--after RUN#SEQ] [--timeout S]`, `dozchat propose --addendum TEXT`, `dozchat proposal decide ID apply|decline`,
   `dozchat addendum TEXT` (each `--json`). The same permissions decide; dozchat's exits: 3 refused (no open run, a value
-  refused), 4 not permitted (the permission named) or decided already, 124 a wait's timeout.
+  refused), 4 not permitted (the permission named) or decided already, 124 a wait's timeout. An adopted agent gets its
+  token at every session Dozable starts in its place (`doz workspace adopt W AGENT --no-token` keeps it off chat).
 
 ## Add or end a worker
 

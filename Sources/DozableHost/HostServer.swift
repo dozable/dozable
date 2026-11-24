@@ -663,6 +663,8 @@ public final class HostServer: @unchecked Sendable {
                     ? try await chat.add(n, token: c.token, kind: c.kind ?? "agent", webhook: c.webhook ?? false, entry: c.entry,
                                          inbox: c.inbox ?? false, session: c.session)
                     : try await chat.replaceToken(n, token: c.token)
+                // 771: an adopted agent's new token goes into its own item (its sessions from now on carry it).
+                if req.op == .chatToken { await core.adoptedTokenReplaced(n, token: token) }
                 // The server restarted to take it: answered once it is ready again (or stopped), at most 15 s.
                 _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
                 // A token the person gave is not sent back: they have it.
