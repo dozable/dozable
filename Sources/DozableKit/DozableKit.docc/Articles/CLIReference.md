@@ -1018,9 +1018,9 @@ doz workspace runs W --archive RUN              # a closed run's archive written
 doz workspace runs W --frames RUN [--json]      # a space's run in frames: its state each time it changed (never a message), its archive checked now
 doz workspace plan [-f FILE] [--profile P]… [--json]  # what up would do with a space file: the steps, what down will do, the summary (every risky setting with its file:line)
 doz workspace up [-f FILE] [--profile P]… [--yes] [--no-run] [--dry-run] [--json]  # set it up from the file: the plan, every unfenced agent confirmed on the terminal, then each step (a new run when none is open; --no-run: none)
-doz workspace down [W] [-f FILE] [--purge] [--no-archive] [--yes] [--dry-run] [--if-plan SHA] [--json]  # the same as finish, for every workspace; a runs space removes what the run made (archived and hash-checked first); --purge: what persists too; --json: kind WorkspaceFinish, removed, kept, archive
+doz workspace down [W] [-f FILE] [--purge] [--no-archive] [--yes] [--dry-run] [--if-plan SHA] [--json]  # the same as finish, for every workspace; a runs space removes what the run made (archived and hash-checked first); --purge: what persists too (a workspace made without a space file: its lasting identities retired, their kept memory removed after its copy); --json: kind WorkspaceFinish, removed, kept, purged, archive
 doz workspace config [FILE] [--profile P]… [--json]    # a space file merged (its defaults files, the file, its override, ${VAR}), each value with its source
-doz workspace state W [--json]                  # any workspace now: each thing's state and each agent's condition (a space workspace: beside its file), what waits for you, the sha; --json: kind WorkspaceState, schema 1, agents.NAME.condition
+doz workspace state W [--json]                  # any workspace now: each thing's state and each agent's condition (a space workspace: beside its file), what waits for you, the sha; --json: kind WorkspaceState, schema 1, agents.NAME.condition, identities[] {name, lifetime, memory, token.issuedAt}, sessions[] {identity, place, state, since}
 doz workspace doc W [--json]                    # any workspace's document: what should exist, as a space file (YAML); --json: kind Document, schema 1, document.x-dozable.lifetime always present
 doz workspace doc W --write FILE [--force]      # the document written as a space file you keep (under your home; never the store, ~/.claude or ~/Library) — nothing applied
 doz space plan|up|down|config …                 # the same: doz space is the space-file commands under a shorter name
@@ -1179,9 +1179,23 @@ manager, `start` posts the brief and you drive. `doz bot ls` shows what each bot
 ```bash
 doz worker add W [NAME] --task "…" [--agent claude-code|codex] [--isolation fenced|vm|unfenced] [--sandbox X] [--session S]
                [--cpus N --memory M] [--from-bot BOT] [--room LABEL]… [--allow-tool T]… [--dry-run] [--request-id ID]
-doz worker ls W [--all] [--json]                # NAME  ROLE  BOT  PLACE  ISOLATION  CONTROL  NETWORK  STATE  TASK — every agent
-doz worker end W NAME [--rm]                    # its session (or its own sandbox) ends; an anonymous one leaves chat
+doz worker ls W [--all] [--json]                # NAME  ROLE  LIFETIME  BOT  PLACE  ISOLATION  CONTROL  NETWORK  STATE  TASK — every agent
+doz worker end W NAME [--rm]                    # its session (or its own sandbox) ends; the run's identity leaves chat, a lasting one is kept
+doz worker reset W NAME [--yes]                 # a lasting identity's kept memory cleared (refused while its session runs)
 ```
+
+**Identities and sessions.** Every agent is an identity (who it is: name, role, kind, its participant or bot, its token by
+reference, its memory, who owns it) and, while it runs, a session (its program in a place). `add W NAME` makes a
+**lasting** identity of the workspace (`lifetime: workspace`): `end` ends its session and keeps it — a member of its
+rooms, with its memory, its token revoked — and `add W NAME` again brings it back as itself (its id, its participant with a
+new token, its memory). `add W --task …` with no NAME, and a worker declared at `new`, makes one of the **run**
+(`lifetime: run`): it goes with its session, and at the run's finish. A daemon-made token is new at each start
+(`workspace start`, `run`, a wake of a stopped session) and revoked at `down`; one you take with `doz chat token NAME
+--new` is yours (never replaced by Dozable). Memory: a lasting identity's fenced session's memory is kept in the store when
+its session stops, sleeps or ends and seeded into its next fenced session; only `worker reset W NAME --yes` or `workspace
+down W --purge` (after its copy in the store's archive verifies) removes it. `add --json` answers `identity: {name, id,
+role, kind, lifetime, bot, place, memory: {present, files, bytes, path}, token: {issuedAt, revokedAt, heldBy}, hasSession}`;
+`ls --json` and `workspace show --json` carry `identities` and each agent's `lifetime`.
 
 `add` is refused while the workspace is setting up ("W is still setting up — doz workspace start W first", or declare it at
 `doz workspace new --worker TASK`), finished,
@@ -1189,8 +1203,8 @@ archived or starting, and without chat ("a worker needs chat — doz chat on"). 
 with `--room`, by its label) and is started with a first prompt telling it to read its START file: who it is and its task,
 its room, who directs it (the manager when one runs, else you), how to use `dozchat`, its skills (`chat-worker`,
 `chat-room-member`, a bot's own), a bot's instructions, what it can do where it runs, and the task in full; it says in the
-room that it is up. Dozable posts nothing there. With no NAME it is anonymous — the first free `botN`, a throwaway
-participant that polls — and `--from-bot BOT` makes it that bot (its name, token, skills and instructions; `--agent` and
+room that it is up. Dozable posts nothing there. With no NAME it is the run's — the first free `botN`, a participant that
+polls, gone at its end — and `--from-bot BOT` makes it that bot (its name, token, skills and instructions; `--agent` and
 another NAME are refused). A NAME that is a bot's, a participant's or a live worker's is refused.
 
 It runs in the narrowest place unless you say otherwise: **fenced** on this Mac by default, as the session `W-NAME`

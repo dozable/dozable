@@ -106,6 +106,7 @@ extension HostCore {
         switch r.op {
         case .workerAdd: return try JSONValue(encoding: try await workerAdd(q))
         case .workerEnd: return try JSONValue(encoding: try await workerEnd(q))
+        case .workerReset: return try JSONValue(encoding: try await workerReset(q))
         default: throw HostError(.invalid, "not a worker operation: \(r.op.rawValue)")
         }
     }
@@ -126,14 +127,18 @@ extension HostCore {
             if a.endedAt != nil, q.all != true { continue }
             let row = rows[k].0
             k += 1
-            out.append(WorkerRow(name: a.name, role: a.isManager ? "manager" : a.isWorker ? "worker" : "adopted", bot: a.bot, place: row.place,
-                                 isolation: a.isolation, control: workerControl(rec, a, macs: macs), network: workerNetwork(a, macs: macs),
-                                 state: row.state, task: a.task, actsAsYou: a.actsAsYou ? true : nil, shares: workerShares(rec, a),
-                                 condition: a.endedAt != nil ? nil : conditions.agents[a.name]?.condition))
+            var w = WorkerRow(name: a.name, role: a.isManager ? "manager" : a.isWorker ? "worker" : "adopted", bot: a.bot, place: row.place,
+                              isolation: a.isolation, control: workerControl(rec, a, macs: macs), network: workerNetwork(a, macs: macs),
+                              state: row.state, task: a.task, actsAsYou: a.actsAsYou ? true : nil, shares: workerShares(rec, a),
+                              condition: a.endedAt != nil ? nil : conditions.agents[a.name]?.condition)
+            w.lifetime = a.effectiveLifetime
+            out.append(w)
         }
         // Then the workers declared at new, not started yet.
         for d in rec.declaredWorkers where !out.contains(where: { $0.name == d.name }) { out.append(declaredWorkerRow(rec, d)) }
-        return WorkerListing(workspace: n, agents: out)
+        var listing = WorkerListing(workspace: n, agents: out)
+        listing.identities = workspaceIdentities(rec)
+        return listing
     }
 
     /// What isolates an agent: a manager's or a worker's by its isolation; an adopted one's by what it is.
@@ -185,7 +190,9 @@ extension HostCore {
 
     /// `place`: 774, the enforcement its declared place builds for this one session (a space file's up only — never a
     /// request's field, so no caller widens a worker through it).
-    func workerAdd(_ q: WorkerRequest, place: PlaceFence? = nil) async throws -> WorkerAdded {
+    /// `lifetime`: 776, who owns the identity when the caller decides it (a declared worker's run, a space file's agent);
+    /// nil: by its naming — a name given makes a lasting identity (`workspace`), none a run-owned one (`run`).
+    func workerAdd(_ q: WorkerRequest, place: PlaceFence? = nil, lifetime: String? = nil) async throws -> WorkerAdded {
         let (n, task) = try workerBasics(q)
         // Chat: a worker talks in the workspace's room.
         guard let chat = workspaceChat, let participants = botChat else { throw HostError(.unavailable, "a worker needs chat — doz chat on") }
@@ -193,10 +200,13 @@ extension HostCore {
         // 1. Under the gate: every check, then the entry, marked pending (nothing written on a refusal).
         await workspaceGate.lock("workspaces")
         var prepared: WorkerPrepared
+        var earlier: [WorkspaceAgent] = []
         do {
             prepared = try await workerPrepare(n, q, task: task)
             prepared.placeFence = place
+            if let l = lifetime, !prepared.reuse { prepared.entry.lifetime = l }
             var rec = prepared.record
+            earlier = rec.agents.filter { $0.name == prepared.entry.name && $0.endedAt != nil }
             rec.agents.removeAll { $0.name == prepared.entry.name && $0.endedAt != nil }       // an ended one's name is free again
             rec.agents.append(prepared.entry)
             try workspaces.write(rec)
@@ -208,7 +218,8 @@ extension HostCore {
         let name = prepared.entry.name
         var made = WorkerMade()
         do {
-            let notes = try await workerMake(prepared, chat: chat, participants: participants, made: &made)
+            var notes = try await workerMake(prepared, chat: chat, participants: participants, made: &made)
+            if prepared.reuse { notes.insert("\(name) is a lasting identity of \(n): it comes back as itself, with its memory and a new token", at: 0) }
             launchSecretSettledIfAny(made)
             _ = try await workspaceUpdate(n) { r in
                 guard let i = r.agents.firstIndex(where: { $0.name == name && $0.pendingAt != nil }) else { return [] }
@@ -222,10 +233,21 @@ extension HostCore {
                 ?? WorkerRow(name: name, role: "worker", bot: prepared.entry.bot, place: prepared.entry.place.display, isolation: prepared.isolation.rawValue,
                              control: WorkerLaunch.control(isolation: prepared.isolation.rawValue), network: prepared.permissions, state: "running",
                              task: task, actsAsYou: nil, shares: nil)
-            return WorkerAdded(workspace: n, worker: row, session: prepared.session ?? prepared.place,
-                               sandbox: prepared.isolation == .vm ? prepared.place : nil, notes: notes.isEmpty ? nil : notes)
+            var added = WorkerAdded(workspace: n, worker: row, session: prepared.session ?? prepared.place,
+                                    sandbox: prepared.isolation == .vm ? prepared.place : nil, notes: notes.isEmpty ? nil : notes)
+            if let r = try? workspaceRecord(n), let a = r.agents.last(where: { $0.name == name && $0.endedAt == nil }) {
+                added.identity = workspaceIdentityRow(r, a)
+            }
+            return added
         } catch {
             await workerUndo(prepared, made: made, participants: participants)
+            // 776: a lasting identity that did not come back stays the workspace's, as it was.
+            if prepared.reuse, !earlier.isEmpty {
+                _ = try? await workspaceUpdate(n) { r in
+                    if !r.agents.contains(where: { $0.name == name }) { r.agents += earlier }
+                    return []
+                }
+            }
             let e = HostError.from(error)
             throw HostError(e.code, "\(name) did not start: \(e.message)")
         }
@@ -255,6 +277,9 @@ extension HostCore {
         var notes: [String] = []
         /// 774: its place's enforcement (`workerAdd`'s `place`).
         var placeFence: PlaceFence? = nil
+        /// 776: a lasting identity of this workspace whose session ended, added again as itself — its id, its chat participant
+        /// (its token replaced) and its kept memory.
+        var reuse = false
     }
 
     /// What an add has made so far (undone in reverse when a later step fails).
@@ -356,6 +381,10 @@ extension HostCore {
         var liveNames = Set<String>()
         for w in workspaces.records() { for a in w.agents where a.isLiveWorker { liveNames.insert(a.name) } }
         let here = Set(rec.agents.filter { $0.endedAt == nil }.map(\.name))
+        // 776: a lasting identity of this workspace, its session ended: the name is its own — it comes back as itself.
+        let lasting = bot == nil ? q.name.flatMap { given in
+            rec.agents.last { $0.name == given && $0.isWorker && $0.endedAt != nil && $0.isLasting && $0.retiredAt == nil && $0.bot == nil }
+        } : nil
         let name: String
         if let b = bot {
             name = b.name
@@ -364,7 +393,7 @@ extension HostCore {
             if let e = BotName.refusal(given, human: dir.human, file: file) {
                 throw no("name", e.code == .exists && file.bot(given)?.retiredAt == nil ? HostError(.exists, "\(given) is a bot — doz worker add \(n) --from-bot \(given)") : e)
             }
-            if dir.has(given) { throw no("name", HostError(.exists, "\(given) is already in chat — choose another name, or leave it out")) }
+            if dir.has(given), lasting == nil { throw no("name", HostError(.exists, "\(given) is already in chat — choose another name, or leave it out")) }
             if liveNames.contains(given) { throw no("name", HostError(.exists, "\(given) is already a worker — choose another name, or leave it out")) }
             if here.contains(given) { throw no("name", HostError(.exists, "\(n) already has an agent called \(given)")) }
             name = given
@@ -432,11 +461,20 @@ extension HostCore {
         e.placeName = q.placeName.flatMap { WorkspaceName.isValidAgent($0) ? $0 : nil }
         e.anonymous = bot == nil ? true : nil
         e.pendingAt = now
+        // 776: the identity — a name given (or a bot) lasts; none is the run's. A lasting one added again keeps its id. Its
+        // token is issued now (a bot's is the bot's own).
+        e.kind = agent
+        e.lifetime = lasting != nil || q.name != nil || bot != nil ? "workspace" : "run"
+        e.identityID = lasting?.id
+        e.tokenIssuedAt = bot == nil ? now : nil
         var director: String?
         if let m = rec.manager, let mb = m.bot, await managerRunning(m) { director = mb }
-        return WorkerPrepared(record: rec, entry: e, isolation: iso, bot: bot, agent: agent, place: place, session: session, shared: shared,
-                              rooms: rooms, permissions: rec.defaults.network ?? "locked", sites: rec.defaults.sites ?? [], director: director, cpus: q.cpus,
-                              memoryMiB: memoryMiB, allowTools: q.allowTools ?? [], permissionMode: q.permissionMode == "bypass" ? "bypass" : nil, notes: notes)
+        var prepared = WorkerPrepared(record: rec, entry: e, isolation: iso, bot: bot, agent: agent, place: place, session: session, shared: shared,
+                                      rooms: rooms, permissions: rec.defaults.network ?? "locked", sites: rec.defaults.sites ?? [], director: director, cpus: q.cpus,
+                                      memoryMiB: memoryMiB, allowTools: q.allowTools ?? [], permissionMode: q.permissionMode == "bypass" ? "bypass" : nil, notes: notes)
+        prepared.reuse = lasting != nil
+        if lasting != nil { prepared.notes.append("\(name) is a lasting identity of \(n): it comes back as itself, with its memory and a new token") }
+        return prepared
     }
 
     /// `worker-plan`: the add's checks and decisions with nothing written, no participant made, no keychain item read and
@@ -533,9 +571,10 @@ extension HostCore {
             q.task = d.task
             do {
                 let added: WorkerAdded
-                do { added = try await workerAdd(q) } catch let e as WorkerFieldRefusal where e.field == "name" && e.error.code == .exists {
+                // 776: a worker declared at new is named by Dozable: the run's.
+                do { added = try await workerAdd(q, lifetime: "run") } catch let e as WorkerFieldRefusal where e.field == "name" && e.error.code == .exists {
                     q.name = nil
-                    added = try await workerAdd(q)
+                    added = try await workerAdd(q, lifetime: "run")
                 }
                 _ = try await workspaceUpdate(n) { r in r.declaredWorkers.removeAll { $0 == d }; return [] }
                 started.append(added.worker.name)
@@ -552,9 +591,11 @@ extension HostCore {
     func declaredWorkerRow(_ rec: WorkspaceRecord, _ d: WorkspaceDeclaredWorker) -> WorkerRow {
         let iso = (try? WorkerIsolation.resolve(asked: nil, workspaceDefault: rec.defaults.isolation, botDefault: nil)) ?? .fenced
         let place = WorkerLaunch.placeName(workspace: rec.name, name: d.name)
-        return WorkerRow(name: d.name, role: "worker", bot: nil, place: iso == .vm ? place : MacPlace.name + "/" + place, isolation: iso.rawValue,
-                         control: WorkerLaunch.control(isolation: iso.rawValue), network: rec.defaults.network ?? "locked", state: "not-started",
-                         task: d.task, actsAsYou: nil, shares: nil, condition: "not-started", declared: true)
+        var w = WorkerRow(name: d.name, role: "worker", bot: nil, place: iso == .vm ? place : MacPlace.name + "/" + place, isolation: iso.rawValue,
+                          control: WorkerLaunch.control(isolation: iso.rawValue), network: rec.defaults.network ?? "locked", state: "not-started",
+                          task: d.task, actsAsYou: nil, shares: nil, condition: "not-started", declared: true)
+        w.lifetime = "run"
+        return w
     }
 
     /// A sandbox name a worker's place must be (nil: fine).
@@ -570,18 +611,26 @@ extension HostCore {
         var token: String?
         if p.bot == nil {
             let t = ChatTokens.make()
+            var added = false
             await botGate.lock("bots")
             do {
-                if try participants.directory().has(name) || bots.readOrEmpty().bot(name) != nil {
-                    throw HostError(.exists, "\(name) was taken in chat just now — try again")
+                let present = try participants.directory().has(name)
+                if p.reuse, present {
+                    // 776: a lasting identity's own participant: its token replaced (the old one refused from now on).
+                    try await participants.replaceToken(name, token: t)
+                } else {
+                    if present || bots.readOrEmpty().bot(name) != nil {
+                        throw HostError(.exists, "\(name) was taken in chat just now — try again")
+                    }
+                    try await participants.add(name, token: t, kind: BotKinds.kind(forAgent: p.agent), deliver: "poll", entry: nil, session: nil)
+                    added = true
                 }
-                try await participants.add(name, token: t, kind: BotKinds.kind(forAgent: p.agent), deliver: "poll", entry: nil, session: nil)
             } catch {
                 botGate.unlock("bots")
                 throw error
             }
             botGate.unlock("bots")
-            made.participant = true
+            made.participant = added
             token = t
         }
         // 3. Invited to the main room, and the rooms named.
@@ -752,9 +801,22 @@ extension HostCore {
         let vars = WorkerLaunch.tokenVariables(name: name, shared: shared)
         let order = WorkerEndOrder(workspace: n, name: name, isolation: iso, place: place, session: shared ? name : (iso == .vm ? name : nil),
                                    shared: shared, rm: q.rm == true, variable: iso == .unfenced ? nil : vars.variable)
-        var notes = try await workerLauncher.end(order)
-        // Its token: a throwaway one revoked (the participant leaves every room; its old messages keep its name); a bot's kept.
-        if a.anonymous == true {
+        // 776: a lasting identity's memory kept first (its fenced session's private folder, into the store) — before its place
+        // may be deleted.
+        var notes = keepIdentityMemory(n, a)
+        notes += try await workerLauncher.end(order)
+        // Its token: no session holds it any more. A run-owned identity goes — its participant removed, the token refused (its
+        // old messages keep its name); a lasting one (776) stays the workspace's, a member of its rooms, with its memory: its
+        // next start gives it a new token. A bot's is the bot's.
+        if a.bot == nil, a.isLasting {
+            if iso != .unfenced {
+                let owner = iso == .vm ? place : LaunchSecrets.macOwner(place)
+                forgetLaunchSecret(owner: owner, LaunchSecret(variable: vars.variable, fileVariable: vars.fileVariable, host: HostRoute.hostName,
+                                                              port: 0, fingerprint: "",
+                                                              keychainService: LaunchSecrets.service(store: store.root, owner: owner, variable: vars.variable)))
+            }
+            notes.append("\(name) is a lasting identity of \(n): kept, with its memory — doz worker add \(n) \(name) --task \"…\" starts it again (doz workspace down \(n) --purge removes it)")
+        } else if a.anonymous == true {
             if iso != .unfenced {
                 let owner = iso == .vm ? place : LaunchSecrets.macOwner(place)
                 forgetLaunchSecret(owner: owner, LaunchSecret(variable: vars.variable, fileVariable: vars.fileVariable, host: HostRoute.hostName,
@@ -774,6 +836,8 @@ extension HostCore {
             r.agents[j].pendingAt = nil
             return [WorkspaceLogEntry(action: "worker-ended", agent: name, place: r.agents[j].place.key, isolation: iso.rawValue)]
         }
+        // 776: a lasting identity's token revoked — no session holds it now; its next start issues a new one.
+        if a.bot == nil, a.isLasting, let why = await revokeIdentityToken(n, name) { notes.append(why) }
         note(nil, "workspace \(n): worker \(name) ended" + (q.rm == true ? ", its place deleted" : ""))
         return WorkerEnded(workspace: n, name: name, removed: q.rm == true, notes: notes.isEmpty ? nil : notes)
     }

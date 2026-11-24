@@ -299,16 +299,19 @@ final class WorkspaceLifecycleHostTests: BotTestCase {
         XCTAssertTrue(try XCTUnwrap(record()).agents.allSatisfy { $0.stoppedAt != nil })
         XCTAssertTrue(log().contains("slept") && log().filter { $0 == "agent-slept" }.count == 3)
         XCTAssertFalse(trace.all.contains { $0.hasPrefix("post") }, "nothing is posted by any verb")
-        // Wake: the manager through its start's restart branch, each worker re-launched in place, the same token.
+        // Wake: the manager through its start's restart branch, each worker re-launched in place — 776: a daemon-made token
+        // rotated at each start (a new one, the old refused), a bot's own given again.
         trace.reset()
         let w = try ok(try await act(c, .wake))
         XCTAssertTrue(w.results.allSatisfy(\.ok), w.results.map(\.text).joined(separator: "; "))
         XCTAssertEqual(Set(trace.all), ["manager demo (again)", "worker demo-bot1 (again)", "worker demo-otto (again)"])
         XCTAssertTrue(workers.orders.suffix(2).allSatisfy(\.restart))
         let bot1 = try XCTUnwrap(workers.orders.last { $0.name == "bot1" })
-        XCTAssertNil(bot1.plan.secret, "an anonymous fenced worker's secret is kept in its session's record: nothing new")
+        XCTAssertNotNil(bot1.plan.secret, "a new token's secret, given to its session")
+        XCTAssertNil(bot1.plan.secret?.bot)
         XCTAssertEqual(workers.orders.last { $0.name == "otto" }?.plan.secret?.bot, "otto", "a bot's own token, given again")
-        XCTAssertEqual(chat.hashes["bot1"], bot1Token, "the same token: its launch secret survived the sleep")
+        XCTAssertNotEqual(chat.hashes["bot1"], bot1Token, "rotated: the token it had before the sleep is refused")
+        XCTAssertNotNil(try XCTUnwrap(record()).agents.first { $0.name == "bot1" }?.tokenIssuedAt)
         XCTAssertTrue(try XCTUnwrap(record()).agents.allSatisfy { $0.stoppedAt == nil })
         XCTAssertEqual(managers.restarts, 1)
         // Finish: every place ended, the flag set; a worker's add is refused; the room stays writable (nothing archived).

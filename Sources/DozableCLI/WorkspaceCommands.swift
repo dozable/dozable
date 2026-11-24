@@ -107,11 +107,16 @@ func printWorkspace(_ d: WorkspaceDetail) {
     for (i, a) in d.agents.enumerated() {
         let place = a.place == a.name ? "" : " in \(a.place)"
         var what = a.role
+        if a.role == "worker", let l = a.lifetime { what += l == "run" ? ", the run's" : ", lasting" }
         if let iso = a.isolation { what += ", " + iso + (a.actsAsYou == true ? " · acts as you" : "") }
         s += (i == 0 ? "  agents   " : "           ") + "\(a.name) (\(what)\(place), \(a.state == "not started" ? "not started" : Out.phaseLabel(a.state)))\n"
     }
     for (i, w) in declared.enumerated() {
         s += (i == 0 && d.agents.isEmpty ? "  agents   " : "           ") + "\(w.name) (worker, declared: the start starts it) — \(WorkerLaunch.shortTask(w.task))\n"
+    }
+    // 776: the lasting identities kept with no session.
+    for (i, x) in (d.identities ?? []).filter({ !$0.hasSession }).enumerated() {
+        s += (i == 0 ? "  kept     " : "           ") + "\(x.name) (lasting identity, no session; memory \(identityMemoryWords(x.memory)))\n"
     }
     if let o = d.origin.project { s += "  from     \(DisplayPath.tilde(o))\n" }
     if let gaps = d.gaps, !gaps.isEmpty {

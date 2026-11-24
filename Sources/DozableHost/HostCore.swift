@@ -932,7 +932,7 @@ public actor HostCore {
             return try await performRoomLifecycle(r)
         case .chatAsk, .chatDecide, .chatWithdraw, .chatAsks:
             return try await performChatAsk(r)
-        case .workerAdd, .workerList, .workerEnd, .workerPlan:
+        case .workerAdd, .workerList, .workerEnd, .workerPlan, .workerReset:
             return try await performWorker(r)
         case .workspaceUpPlan:
             return try JSONValue(encoding: try await spaceUpPlan(r.space))

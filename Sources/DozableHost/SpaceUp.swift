@@ -63,7 +63,7 @@ public struct SpaceRecordRef: Codable, Equatable, Sendable {
     public var scratch: [Scratch]?
     /// Persisted `{folder: PATH}` folders `up` made (never deleted; `--purge` releases them).
     public var persistedPaths: [String]?
-    /// Persisted agents' isolation at the last up (a switch fenced ↔ unfenced resets the kept memory).
+    /// Persisted agents' isolation at the last up (776: a switch fenced ↔ unfenced keeps the kept memory, and says so).
     public var memoryIsolation: [String: String]?
     public var planSHA: String?
     public var upAt: Date?
@@ -483,7 +483,7 @@ public enum SpaceUp {
             if let e = entry {
                 let was = e.isolation ?? "fenced", now = w.isolation ?? "vm"
                 if a.memory != nil, was != now, (was == "unfenced") != (now == "unfenced") {
-                    why = "its isolation changed (\(was) → \(now)): its kept memory is reset and it starts fresh"
+                    why = "its isolation changed (\(was) → \(now)): it starts fresh in its new place; its kept memory is kept (doz worker reset clears it)"
                     lifetime = "persisted"
                 } else {
                     action = "skip"

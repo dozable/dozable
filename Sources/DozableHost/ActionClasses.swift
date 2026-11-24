@@ -173,7 +173,7 @@ public enum ActionClasses {
              .sessionGrids, .dotfiles, .dotfilesResolve, .dotfilesUpdate,
              .chatSync, .chatToken, .chatMembers, .chatWebhookSet, .chatWebhookRemove, .chatWebhookStatus, .chatImport,
              .workspaceList, .workspaceAdopt, .workspaceRelease, .workspaceRename, .workspacePlan, .workspaceLifecyclePlan,
-             .chatRoomPlan, .botList, .botShow, .botToken, .workerPlan, .workspaceUpPlan, .workspaceUp, .workspaceDownPlan, .workspaceDown, .chatRoomClose, .chatRoomOpen, .macsList, .permissionsCeiling,
+             .chatRoomPlan, .botList, .botShow, .botToken, .workerPlan, .workerReset, .workspaceUpPlan, .workspaceUp, .workspaceDownPlan, .workspaceDown, .chatRoomClose, .chatRoomOpen, .macsList, .permissionsCeiling,
              .workspaceState, .workspaceSpace, .workspaceSpaceSave, .workspaceRunFrames,
              .timelineCatalog, .timelineQuery, .timelineSubscribe, .timelineRetention, .timelineRebuild,
              // 771: the chat server's relay is the daemon's own path: an agent reaches it only with its chat token.

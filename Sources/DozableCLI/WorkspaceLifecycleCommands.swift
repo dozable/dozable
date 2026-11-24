@@ -56,7 +56,7 @@ func runWorkspaceLifecycle(_ verb: WorkspaceVerb, name: String, dryRun: Bool, ye
     if !g.json { Out.stdout(workspaceLifecycleText(plan, commands: false, word: word)) }
     if let refusal { throw fail(refusal, g) }
     // The command again with --yes: what a question nobody could answer says to run.
-    let fix = ["doz", "workspace", word, a.name, "--yes"] + (g.json ? ["--json"] : [])
+    let fix = ["doz", "workspace", word, a.name] + (w.purge == true ? ["--purge"] : []) + ["--yes"] + (g.json ? ["--json"] : [])
     switch verb.confirm {
     case .none: break
     case .yes:
@@ -85,6 +85,7 @@ func runWorkspaceLifecycle(_ verb: WorkspaceVerb, name: String, dryRun: Bool, ye
     // A finish always says what it removed and what it kept (a workspace made without a space file is standing).
     if verb == .finish, let kept = c.kept {
         for l in WorkspaceFinishInventory.lines(removed: c.removed ?? [], kept: kept, untouched: c.untouched ?? [], standing: true, archive: nil) { out += "  \(l)\n" }
+        if let p = c.purged { out += "  purged (--purge): " + (p.isEmpty ? "nothing" : p.joined(separator: ", ")) + "\n" }
     }
     for n in c.notes ?? [] { out += "note: \(n)\n" }
     Out.stdout(out)
@@ -289,13 +290,12 @@ func runWorkspaceFinish(name n: String, purge: Bool, noArchive: Bool, yes: Bool,
     let plan = try decode(try await query(q, g), SpaceDownPlan.self, g)
     // Made without a space file: finish (it removes nothing — standing).
     if plan.refusalCode == HostError.Code.exists.rawValue {
-        // 762 (F4): such a workspace is standing — its finish keeps everything it holds; --purge is a space file's.
-        if purge {
-            throw fail(HostError(.invalid, "--purge: \(n) was made without a space file, so it is standing: its finish keeps everything it holds, "
-                                 + "and --purge retires only what a space file made — doz workspace down \(n) finishes it; doz workspace delete \(n) "
-                                 + "removes its record once it is finished"), g)
+        // 762 (F4): such a workspace is standing — its finish keeps everything it holds. 776: `down --purge` also retires its
+        // lasting identities (their kept memory copied into the archive first, then removed).
+        try await runWorkspaceLifecycle(.finish, name: n, dryRun: dryRun, yes: yes, ifPlan: ifPlan, g, word: word) { w in
+            w.noArchive = noArchive ? true : nil
+            w.purge = purge ? true : nil
         }
-        try await runWorkspaceLifecycle(.finish, name: n, dryRun: dryRun, yes: yes, ifPlan: ifPlan, g, word: word) { w in w.noArchive = noArchive ? true : nil }
         return
     }
     if noArchive, plan.refusalCode == nil {

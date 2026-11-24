@@ -255,6 +255,7 @@ worker
 worker/add
 worker/ls
 worker/end
+worker/reset
 skill
 skill/show
 docs

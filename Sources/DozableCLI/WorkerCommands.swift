@@ -14,14 +14,18 @@ struct WorkerCommand: AsyncParsableCommand {
         abstract: "Workers: agents brought up in a started workspace, each to do one task, in its room.",
         discussion: """
         A worker is an agent brought up in a workspace to do one task: it joins the workspace's room, reads its task, says \
-        it is up and gets on with it. It is anonymous (a name like bot1, a throwaway participant removed when it ends) or \
-        a bot (--from-bot NAME: its identity, token and skills, kept when it ends).
+        it is up and gets on with it. It is an identity (who it is) with a session (its program, in a place). Named \
+        (doz worker add W NAME --task …) it is a lasting identity of the workspace: when its session ends it is kept, with \
+        its memory, and doz worker add W NAME starts it again as itself; doz workspace down W keeps it, and only down \
+        --purge or doz worker reset W NAME --yes clears its memory. Unnamed (a name like bot1) it is the run's: it goes \
+        when its session ends or its run finishes. A bot (--from-bot NAME) is its own identity, token and skills, kept \
+        when it ends. Its chat token is new at each start; the old one is refused.
 
         It runs in the narrowest place unless you say otherwise: fenced on this Mac by default, in a micro VM of its own \
         (--isolation vm, or when the workspace's or the bot's default is vm), in a running sandbox of the workspace \
         (--sandbox X), or unfenced — acting as you — only with --isolation unfenced. doz worker end ends it.
         """,
-        subcommands: [WorkerAdd.self, WorkerList.self, WorkerEndCommand.self])
+        subcommands: [WorkerAdd.self, WorkerList.self, WorkerEndCommand.self, WorkerResetCommand.self])
 }
 
 func workerRequest(_ op: HostOp, _ q: WorkerRequest) -> HostRequest {
@@ -33,9 +37,9 @@ func workerRequest(_ op: HostOp, _ q: WorkerRequest) -> HostRequest {
 /// One agent as a list shows it.
 func workerTable(_ l: WorkerListing) -> String {
     if l.agents.isEmpty { return "\(l.workspace): no agents yet — doz worker add \(l.workspace) --task \"…\"\n" }
-    var t = [["NAME", "ROLE", "BOT", "PLACE", "ISOLATION", "CONTROL", "NETWORK", "STATE", "TASK"]]
+    var t = [["NAME", "ROLE", "LIFETIME", "BOT", "PLACE", "ISOLATION", "CONTROL", "NETWORK", "STATE", "TASK"]]
     for a in l.agents {
-        t.append([a.name, a.role, a.bot ?? "—", a.place, a.isolation ?? "—", a.control, a.network,
+        t.append([a.name, a.role, a.lifetime ?? "—", a.bot ?? "—", a.place, a.isolation ?? "—", a.control, a.network,
                   a.declared == true ? "declared (the start starts it)"
                       : a.state == "not started" || a.state == "starting" || a.state == "ended" ? a.state : Out.phaseLabel(a.state),
                   a.task.map { WorkerLaunch.shortTask($0) } ?? "—"])
@@ -43,7 +47,24 @@ func workerTable(_ l: WorkerListing) -> String {
     var s = Out.table(t)
     let shared = Set(l.agents.compactMap(\.shares)).sorted()
     for x in shared { s += "shares \(x): workers there can read each other's placeholders\n" }
+    s += keptIdentitiesText(l.identities ?? [], workspace: l.workspace)
     return s
+}
+
+/// 776: the lasting identities with no session now — kept, with their memory — as a person reads them.
+func keptIdentitiesText(_ ids: [WorkspaceIdentityRow], workspace: String) -> String {
+    let kept = ids.filter { !$0.hasSession }
+    guard !kept.isEmpty else { return "" }
+    var s = "kept with no session (lasting identities):\n"
+    for i in kept {
+        s += "  \(i.name)  memory: \(identityMemoryWords(i.memory)) — doz worker add \(workspace) \(i.name) --task \"…\" starts it again\n"
+    }
+    return s
+}
+
+/// An identity's kept memory in a few words (never its content).
+func identityMemoryWords(_ m: WorkspaceIdentityMemory) -> String {
+    m.present ? "\(m.files) file\(m.files == 1 ? "" : "s"), \(ByteCountFormatter.string(fromByteCount: Int64(m.bytes), countStyle: .file))" : "none kept"
 }
 
 struct WorkerAdd: AsyncParsableCommand {
@@ -108,8 +129,9 @@ struct WorkerAdd: AsyncParsableCommand {
         if g.json { Out.json(a); return }
         let w = a.worker
         let place = a.sandbox.map { "in the sandbox \($0)" + (w.shares != nil ? " (session \(a.session))" : "") } ?? "on this Mac as @mac/\(a.session)"
+        let identity = a.identity.map { "  identity \($0.lifetime == "workspace" ? "lasting (kept when its session ends; memory \(identityMemoryWords($0.memory)))" : "the run's (gone when its session ends or its run finishes)")\n" } ?? ""
         Out.stdout("added \(w.name) to \(a.workspace) (\(w.actsAsYou == true ? "unfenced · acts as you" : w.isolation ?? "fenced")) \(place)\n"
-                   + "  control  \(w.control)\n  network  \(w.network)\n  task     \(WorkerLaunch.shortTask(w.task ?? ""))\n"
+                   + "  control  \(w.control)\n  network  \(w.network)\n  task     \(WorkerLaunch.shortTask(w.task ?? ""))\n" + identity
                    + (a.notes ?? []).map { "note: \($0)\n" }.joined() + (a.replayed == true ? replayedNote : ""))
     }
 
@@ -138,11 +160,14 @@ struct WorkerList: AsyncParsableCommand {
 }
 
 struct WorkerEndCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "end", abstract: "End a worker: its session (or its own sandbox) ends; an anonymous one leaves chat.",
+    static let configuration = CommandConfiguration(commandName: "end", abstract: "End a worker's session: the run's identity goes with it; a lasting one is kept.",
         discussion: """
-        An anonymous worker leaves every room and its token is refused from now on (its messages keep its name); a bot's \
-        token is kept and it stays in the room. Its session's record (or its own sandbox, stopped, with its disk) is kept \
-        unless --rm. In a sandbox it shares, only its session ends. Its name is free again.
+        Its session ends. A run-owned worker (added with no name) goes with it: it leaves every room and its token is \
+        refused from now on (its messages keep its name); its name is free again. A lasting one (added with a name) is \
+        kept — an identity of the workspace, a member of its rooms, with its memory — and its token is no longer held by \
+        anything; doz worker add W NAME --task … starts it again as itself, with a new token. A bot's token is kept and \
+        it stays in the room. Its session's record (or its own sandbox, stopped, with its disk) is kept unless --rm. In a \
+        sandbox it shares, only its session ends.
         """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The workspace.") var workspace: String
@@ -154,5 +179,26 @@ struct WorkerEndCommand: AsyncParsableCommand {
         let e = try decode(try call(workerRequest(.workerEnd, q), g), WorkerEnded.self, g)
         if g.json { Out.json(e); return }
         Out.stdout("ended \(e.name) in \(e.workspace)\(e.removed ? "; its place is deleted" : "")\n" + (e.notes ?? []).map { "note: \($0)\n" }.joined())
+    }
+}
+
+/// 776: `doz worker reset W NAME --yes` — a lasting identity's kept memory cleared. The only way it goes but `down --purge`.
+struct WorkerResetCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "reset", abstract: "Clear a lasting identity's kept memory (its next session starts with none).",
+        discussion: """
+        A lasting identity's memory — what Dozable keeps of its fenced sessions' memory, in the store — is cleared; nothing \
+        else (never your folders, its transcripts, an unfenced session's own agent folder or a sandbox's disk). Refused \
+        while its session runs: doz workspace stop W (or doz worker end W NAME) first. Asks first (--yes skips).
+        """)
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The workspace.") var workspace: String
+    @Argument(help: "The identity.") var name: String
+    @Flag(name: .long, help: "Do not ask.") var yes = false
+    func run() async throws {
+        try confirm("Clear \(name)'s kept memory in \(workspace)? It cannot be undone.", yes: yes, g,
+                    fix: ["doz", "worker", "reset", workspace, name, "--yes"] + (g.json ? ["--json"] : []))
+        let e = try decode(try call(workerRequest(.workerReset, WorkerRequest(workspace: workspace, name: name)), g), WorkerEnded.self, g)
+        if g.json { Out.json(e); return }
+        Out.stdout((e.notes ?? []).map { $0 + "\n" }.joined())
     }
 }

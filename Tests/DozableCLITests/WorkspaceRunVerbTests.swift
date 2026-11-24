@@ -50,7 +50,8 @@ extension WorkspaceLifecycleHostTests {
         XCTAssertTrue(o.posted)
         XCTAssertEqual(lastPost(), "Make the launch video.\n\nThis run's goal: Fix the failing test", "the brief, then the run's own goal")
         XCTAssertEqual(o.lessons, 0)
-        XCTAssertEqual(Set(o.started ?? []), ["mira", "bot1", "otto"], "the manager and the workers a finish left down")
+        // 776: bot1 (added with no name) was the last run's identity: it ended with that run.
+        XCTAssertEqual(Set(o.started ?? []), ["mira", "otto"], "the manager and the lasting workers a finish left down")
         XCTAssertTrue(trace.all.contains("manager demo (again)"), trace.all.joined(separator: ", "))
         let r = try XCTUnwrap(record())
         XCTAssertNil(r.flags.finishedAt)

@@ -1102,7 +1102,12 @@ async function leakSweep(row) {
 /// Open a ⋯ (by its aria-label) and choose an item by its label.
 async function menuPick(label, item) {
   await evaluate(`document.querySelector('button[aria-label=${JSON.stringify(label)}]').click()`);
-  await waitFor(`[...document.querySelectorAll('[role=menuitem]')].some((m) => m.offsetParent && m.textContent.startsWith(${JSON.stringify(item)}))`, 5000);
+  // The menu can be drawn a moment after a state change (a reopen redraws the header): reopen it once if the item is late.
+  const has = `[...document.querySelectorAll('[role=menuitem]')].some((m) => m.offsetParent && m.textContent.startsWith(${JSON.stringify(item)}))`;
+  if (!(await waitFor(has, 5000))) {
+    await evaluate(`document.querySelector('button[aria-label=${JSON.stringify(label)}]')?.click()`);
+    await waitFor(has, 8000);
+  }
   await evaluate(`[...document.querySelectorAll('[role=menuitem]')].find((m) => m.offsetParent && m.textContent.startsWith(${JSON.stringify(item)})).click()`);
 }
 const DIALOG = `document.querySelector('dialog.dlg[open]')`;
@@ -3333,7 +3338,9 @@ async function walkWideViews() {
   const eligible = cli.agents.filter((a) => a.network.proxied && a.name !== 'widef').length;
   check(forAll === eligible && forAll >= 1, `wide 3 For all offers one change per agent that can be limited (${forAll}; ${eligible} proxied besides widef)`);
   const n0 = await evaluate(`(async () => (await (await fetch('/api/v1/operations', { credentials: 'same-origin' })).json()).filter((o) => /net-policy$/.test(o.action)).length)()`);
-  await evaluate(`[...document.querySelectorAll('[data-allow-all="site:wideblocked.test"]')].find((x) => !x.disabled).click()`);
+  // The page redraws the row on its refresh: wait for an enabled button again, then find and click it in one step.
+  await waitFor(`[...document.querySelectorAll('[data-allow-all="site:wideblocked.test"]')].some((x) => !x.disabled)`, 8000);
+  await evaluate(`(() => { const b = [...document.querySelectorAll('[data-allow-all="site:wideblocked.test"]')].find((x) => !x.disabled); if (b) b.click(); return !!b; })()`);
   let n1 = n0;
   for (let i = 0; i < 60 && n1 < n0 + forAll; i++) { n1 = await evaluate(`(async () => (await (await fetch('/api/v1/operations', { credentials: 'same-origin' })).json()).filter((o) => /net-policy$/.test(o.action)).length)()`); if (n1 < n0 + forAll) await sleep(300); }
   check(n1 - n0 === forAll, `wide 3 For all sent ${n1 - n0} operations, one per eligible agent`);

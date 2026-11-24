@@ -198,9 +198,12 @@ final class WorkspaceLifecycleTests: XCTestCase {
         XCTAssertEqual(row(p, "far")?.after, "untouched; stays in the room")
         // 0.52.15 (the owner's decision): finish closes the room it made — it was "you can still write" in 0.52.12.
         XCTAssertTrue(p.keeps.contains { $0.text.contains("members can read") })
-        XCTAssertTrue(p.keeps.contains { $0.text == "every token (reopen works)" })
+        // 776: the lasting identities are kept with their memory, each token revoked; the run's (named by Dozable) end with it.
+        XCTAssertTrue(p.keeps.contains { $0.text.hasPrefix("its lasting identities mira, otto, lab, shell, far and their memory") }, p.keeps.map(\.text).joined(separator: " | "))
+        XCTAssertFalse(p.keeps.contains { $0.text == "every token (reopen works)" })
         XCTAssertEqual(p.rooms?.first?.after, "linked: not closed", "a room it does not own is not closed")
-        XCTAssertTrue(p.goes.isEmpty, "nothing goes at a finish when no room is its own")
+        XCTAssertEqual(p.goes.map(\.text), ["the run's identities bot1, bot2, bot3 (their places are kept)"],
+                       "nothing else goes at a finish when no room is its own")
         XCTAssertTrue(p.commands.contains("doz shutdown demo-otto"))
         // Its own room: closed, the owner's line verbatim, and the sha covers it.
         var f = L.Facts(agents: running(), chat: .ready, home: "/Users/ada", store: "/Users/ada/doz-store")

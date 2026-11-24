@@ -665,6 +665,8 @@ public final class HostServer: @unchecked Sendable {
                     : try await chat.replaceToken(n, token: c.token)
                 // 771: an adopted agent's new token goes into its own item (its sessions from now on carry it).
                 if req.op == .chatToken { await core.adoptedTokenReplaced(n, token: token) }
+                // 776: a workspace worker's token you took: yours from now on (never rotated or revoked by Dozable).
+                if req.op == .chatToken { await core.workerTokenTaken(n) }
                 // The server restarted to take it: answered once it is ready again (or stopped), at most 15 s.
                 _ = try await chat.sync(human: nil, retry: false, waitReady: true, blocked: await chatBlocked())
                 // A token the person gave is not sent back: they have it.

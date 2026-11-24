@@ -65,7 +65,8 @@ final class WorkspaceRecordTests: XCTestCase {
         var obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: path))) as? [String: Any])
         obj["version"] = 7
         obj["future"] = ["deep": [1, 2]]
-        for k in ["folders", "rooms", "agents"] {
+        // 776: an agent is written as its identity and its session — a field this build does not know kept on each half.
+        for k in ["folders", "rooms", "identities", "sessions"] {
             var a = try XCTUnwrap(obj[k] as? [[String: Any]])
             a[0]["later_\(k)"] = "kept"
             obj[k] = a
@@ -81,9 +82,10 @@ final class WorkspaceRecordTests: XCTestCase {
         let again = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: path))) as? [String: Any])
         XCTAssertEqual(again["version"] as? Int, 7)
         XCTAssertEqual((again["future"] as? [String: Any])?["deep"] as? [Int], [1, 2])
-        for k in ["folders", "rooms", "agents"] {
+        for k in ["folders", "rooms", "identities", "sessions"] {
             XCTAssertEqual((again[k] as? [[String: Any]])?.first?["later_\(k)"] as? String, "kept", k)
         }
+        XCTAssertNil(again["agents"], "never written as agents again")
         XCTAssertEqual(((again["brief"] as? [String: Any])?["refs"] as? [String])?.last, "/tmp/x")
         XCTAssertEqual((again["flags"] as? [String: Any])?["later_flags"] as? String, "kept", "a flag this build does not know is kept")
     }

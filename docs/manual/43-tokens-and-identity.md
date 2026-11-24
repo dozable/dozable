@@ -17,7 +17,7 @@ the network acts as you.
 | a participant you add (`doz chat add NAME`) | you | shown once, or written to a new file (`--to-file`, `--to-dir`); `--from-stdin` gives it one it already has | however you hand it over |
 | an Agent / Bot on this Mac (`vm`, `fenced`, `unfenced`) | `doz bot new` | your login keychain, one item per bot | as a manager or worker: a placeholder the proxy swaps (fenced, micro VM), or a file only you can read, deleted when it stops (unfenced) |
 | an Agent / Bot elsewhere (`--isolation elsewhere`) | `doz bot new` | nowhere: shown once, or written to a new file (`--to-file`) | you put it on that machine |
-| an anonymous worker (`bot1`, …) | the daemon, at `doz worker add` or `doz workspace start` | the daemon only, as a launch secret of its place | as a placeholder, or a file for an unfenced one |
+| a worker that is not a bot (`helper`, `bot1`, …) | the daemon, at `doz worker add` — and a new one at each start | the daemon only, as a launch secret of its place | as a placeholder, or a file for an unfenced one |
 | an adopted agent | the daemon, at `doz workspace adopt` (with chat on and a room) | the daemon only, as a launch secret of its place | every session Dozable starts there from then on (below) |
 
 The chat server keeps only each token's hash. No command takes a token as an argument, no `--json` contains one, and none
@@ -50,7 +50,17 @@ doz bot token far --new --to-file ~/far2.token   # a bot elsewhere: the new toke
 ```
 
 The old token is refused at once. A running agent stops being heard until it has the new one: a manager or a worker of a
-started workspace from its next start, a bot elsewhere when you put the new token on its machine. Moving a bot to or from
+started workspace from its next start, a bot elsewhere when you put the new token on its machine. A worker's token you
+take this way is yours from then on: Dozable no longer replaces it at a start or revokes it at `down`.
+
+## A worker's token: new at each start
+
+A worker that is not a bot has a token the daemon makes for it, and a **new one at every start** — `doz workspace start`,
+`doz workspace run` and a wake of a stopped session — the one before refused from then on, so a token never outlives the
+sessions it was made for. It is revoked when the worker's session ends (`doz worker end`) and at `doz workspace down`; a
+lasting worker (one added with a name) keeps its identity and its place in the rooms, and its next start gives it a new
+token. `doz workspace state W --json` shows when each identity's token was issued (`identities[].token.issuedAt`) — a
+time, never the token ([Workspaces](37-workspaces.md#identities-and-sessions)). Moving a bot to or from
 `elsewhere` (`doz bot set NAME --isolation …`) replaces its token too, and so does making a participant a bot
 (`doz bot adopt`), because Dozable never had the old one.
 
@@ -59,7 +69,8 @@ started workspace from its next start, a bot elsewhere when you put the new toke
 | to revoke | run | what is kept |
 |---|---|---|
 | a participant you added | `doz chat remove NAME` | its messages, under its name; adding the name again brings it back to its rooms |
-| an anonymous worker | `doz worker end W NAME` | its messages; the name is free again |
+| a worker of the run (added with no name) | `doz worker end W NAME` | its messages; the name is free again |
+| a lasting worker (added with a name) | `doz worker end W NAME`, then `doz workspace down W --purge` to retire it | its messages; until `--purge`, the identity and its memory (its next start gives it a new token) |
 | an adopted agent | `doz workspace release W NAME` | the sandbox or session, running as it was, loose again |
 | a bot | `doz bot retire NAME` | its messages; the name is never used again |
 | every anonymous worker of a workspace | `doz workspace archive W` | the rooms, read-only; a bot keeps its token |

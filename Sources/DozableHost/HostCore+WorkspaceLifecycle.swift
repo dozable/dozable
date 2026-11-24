@@ -425,6 +425,7 @@ extension HostCore {
             await lifecycleRecord(n, names.map { WorkspaceLogEntry(action: "agent-slept", agent: $0) }) { r in
                 for i in r.agents.indices where names.contains(r.agents[i].name) && r.agents[i].endedAt == nil { r.agents[i].stoppedAt = Date() }
             }
+            keepIdentitiesMemory(n, names)
             return c.agents.map { WorkspaceAgentResult(name: $0.name, ok: true, text: first.place.sandbox != nil ? "hibernated" : "ended, its record kept") }
         } catch {
             let why = HostError.from(error).message
@@ -452,6 +453,7 @@ extension HostCore {
                 await self.lifecycleRecord(n, names.map { WorkspaceLogEntry(action: "agent-stopped", agent: $0) }) { r in
                     for i in r.agents.indices where names.contains(r.agents[i].name) && r.agents[i].endedAt == nil { r.agents[i].stoppedAt = Date() }
                 }
+                await self.keepIdentitiesMemory(n, names)
                 return c.agents.map { WorkspaceAgentResult(name: $0.name, ok: true, text: first.place.sandbox != nil ? "shut down, its disk kept" : "stopped, its conversation kept") }
             } catch {
                 let why = HostError.from(error).message
@@ -523,9 +525,9 @@ extension HostCore {
         return out
     }
 
-    /// A worker re-launched in place: its START written again, its token — a bot's own; an anonymous one's kept by its place,
-    /// else a new one (its participant's token replaced: an unfenced worker's file, or a sandbox shut down since) — and its
-    /// session opened again, its conversation resumed.
+    /// A worker re-launched in place: its START written again, its token — a bot's own; else (776) a NEW one at every start:
+    /// its participant's token replaced, the old one refused from then on, the new one's time recorded (`tokenIssuedAt`) — and
+    /// its session opened again, its conversation resumed.
     func workerWake(_ rec: WorkspaceRecord, _ a: WorkspaceAgent, facts: WorkspaceLifecycle.AgentFacts) async throws -> String {
         let n = rec.name, name = a.name
         let iso = ManagerIsolation(rawValue: a.isolation ?? "fenced") ?? .fenced
@@ -564,14 +566,17 @@ extension HostCore {
             var secret: LaunchSecret?
             if let b = bot {
                 secret = try botLaunchSecret(b.name, port: pagePort, variable: vars.variable, fileVariable: vars.fileVariable)
-            } else if facts.secretKept != true {
+            } else if a.tokenTakenAt != nil {
+                // 776: you took this identity's token yourself (`doz chat token NAME --new`): it is yours — never rotated
+                // or revoked by Dozable (`doz chat token NAME --new` again replaces it). Its place keeps what it holds.
+                if iso == .vm, let m = managed[place] { secret = m.config.secrets?.first { $0.variable == vars.variable } }
+            } else {
+                // 776: rotated at each start — a token that outlives its session would be a new exposure.
                 let owner = iso == .vm ? place : LaunchSecrets.macOwner(place)
                 let t = try await freshToken()
                 let s = try daemonWorkerSecret(owner: owner, token: t, variable: vars.variable, fileVariable: vars.fileVariable, port: pagePort)
                 launchSecretSettled(owner: owner, s)
                 secret = s
-            } else if iso == .vm, let m = managed[place] {
-                secret = m.config.secrets?.first { $0.variable == vars.variable }
             }
             var pl = try WorkerLaunch.plan(isolation: iso, agent: agent, model: bot?.model, bot: bot?.name, startFile: startFile, pagePort: pagePort,
                                            fingerprint: secret?.fingerprint ?? "", name: name, shared: shared)
@@ -605,6 +610,16 @@ extension HostCore {
             if iso == .unfenced { removeManagerTokenFolder(place) }
             throw error
         }
+        if newToken {
+            let issued = Date()
+            _ = try? await workspaceUpdate(n) { r in
+                if let i = r.agents.lastIndex(where: { $0.name == name && $0.endedAt == nil }) {
+                    r.agents[i].tokenIssuedAt = issued
+                    r.agents[i].tokenRevokedAt = nil
+                }
+                return []
+            }
+        }
         let how = iso == .vm ? "started, its agent continuing its conversation" : "running again, in the same conversation"
         return newToken ? how + ", with a new token" : how
     }
@@ -623,20 +638,38 @@ extension HostCore {
         if let failed = Self.lifecycleFailure(n, "stop", results) { throw failed }
         let closed = try await closeRun(n, by: "finish", toSeq: toSeq, noArchive: o.noArchive)
         let archive = await archiveClosedRun(n, closed, plan: plan, pre: pre, noArchive: o.noArchive)
+        // 776: the identities. Every lasting one's token revoked (its next start issues a new one); for a workspace made
+        // without a space file (its file's down decides its own), the run's identities end with the run — and with
+        // `--purge` the lasting ones are retired, their kept memory copied into the archive first.
+        var identityNotes = await revokeLastingTokens(n)
+        var removed: [String] = [], purged: [String] = []
+        if SpaceRecordRef.of(rec) == nil {
+            let ended = await endRunIdentities(n)
+            removed = ended.ended.map { "agent/" + $0 }
+            identityNotes += ended.notes
+            if !ended.ended.isEmpty { identityNotes.append("the run's identities ended with it: " + ended.ended.joined(separator: ", ")) }
+            if o.purge {
+                let p = await purgeIdentities(n, run: closed?.id)
+                purged = p.purged
+                identityNotes += p.notes
+            }
+        }
         _ = try await workspaceUpdate(n) { r in
             r.flags.finishedAt = Date()
             return [WorkspaceLogEntry(action: "finished")]
         }
         note(nil, "workspace \(n): finished")
         var c = WorkspaceChanged(name: n, verb: "finish", results: results,
-                                 notes: ["nothing runs now; its room\(rec.rooms.count == 1 ? "" : "s") and tokens are kept — doz workspace reopen \(n), then wake, to work on it again"]
-                                     + archive.notes,
+                                 notes: ["nothing runs now; its room\(rec.rooms.count == 1 ? "" : "s") and its lasting identities are kept, each token revoked — doz workspace run \(n) to work on it again (each start gives a new token)"]
+                                     + archive.notes + identityNotes,
                                  workspace: await workspaceDetail(try workspaceRecord(n), withBrief: false))
         c.run = closed?.id; c.archive = archive.path; c.archiveSHA256 = archive.sha; c.archiveProblem = archive.problem
-        // A finish removes nothing (a space file's down removes its run's things after it): everything it held is kept.
+        // A finish removes nothing on disk (a space file's down removes its run's things after it): everything it held is
+        // kept but the run's identities (776) and, with --purge, the retired ones.
         c.kind = WorkspaceFinishInventory.kind; c.schema = WorkspaceFinishInventory.schema
-        c.removed = []
-        c.kept = WorkspaceFinishInventory.kept(before: rec, removed: [])
+        c.removed = removed + purged
+        c.kept = WorkspaceFinishInventory.kept(before: rec, removed: removed + purged)
+        c.purged = o.purge ? purged : nil
         let untouched = WorkspaceFinishInventory.untouched(rec)
         c.untouched = untouched.isEmpty ? nil : untouched
         return c
@@ -711,6 +744,7 @@ extension HostCore {
                 await self.lifecycleRecord(n, names.map { WorkspaceLogEntry(action: "agent-slept", agent: $0, reason: "finished") }) { r in
                     for i in r.agents.indices where names.contains(r.agents[i].name) && r.agents[i].endedAt == nil { r.agents[i].stoppedAt = Date() }
                 }
+                await self.keepIdentitiesMemory(n, names)
                 return c.agents.map { WorkspaceAgentResult(name: $0.name, ok: true, text: first.place.sandbox != nil ? "shut down, its disk kept" : "ended, its record kept") }
             } catch {
                 let why = HostError.from(error).message

@@ -46,6 +46,8 @@ public struct SpaceActed: Codable, Equatable, Sendable {
     /// (the `--json` contract), said apart in the text. Additive.
     public var untouched: [String]?
     public var released: [String]?
+    /// 776, `--purge`: the identities retired, their kept memory removed (`agent/NAME`). Additive.
+    public var purged: [String]?
     /// 762 (F5): each sandbox removed → the image its disk was saved as first (`doz image ls`). A sandbox's disk is never
     /// removed without one. Additive.
     public var savedDisks: [String: String]?
@@ -291,13 +293,18 @@ extension HostCore {
         case "worker-add":
             guard var q = st.worker else { return [] }
             q.workspace = n
-            // A persisted agent whose isolation switched (fenced ↔ unfenced): ended and forgotten, its kept memory reset.
+            // A persisted agent whose isolation switched (fenced ↔ unfenced): its session ended and forgotten (it starts again
+            // in its new place). 776: its kept memory is KEPT — never reset silently — and said: an unfenced session uses your
+            // own agent folder, so it does not see it (a fenced one does again); `doz worker reset W NAME --yes` clears it.
+            var switched: [String] = []
             if let name = q.name, let rec = try? workspaceRecord(n), rec.liveWorkerIndex(name) != nil {
                 var e = WorkerRequest(workspace: n, name: name)
                 e.rm = true
                 _ = try await workerEnd(e)
-                spaceMemoryReset(n, agent: name)
-                try? workspaces.append(n, WorkspaceLogEntry(action: "memory-reset", agent: name, reason: "its isolation changed"))
+                if identityMemory(n, name).present {
+                    switched.append("\(name)'s isolation changed: its kept memory is kept, but \(q.isolation == "unfenced" ? "an unfenced session uses your own agent folder and does not see it" : "it is brought back in its fenced session") — doz worker reset \(n) \(name) --yes clears it")
+                    try? workspaces.append(n, WorkspaceLogEntry(action: "memory-kept", agent: name, reason: "its isolation changed; kept, not reset"))
+                }
             }
             // 774: an agent of a declared place: its session's fence (or new sandbox) built from the place's policy.
             var fence: PlaceFence?
@@ -310,8 +317,10 @@ extension HostCore {
                 for x in ref.scratch ?? [] where x.run == run { paths[x.name] = x.path }
                 fence = try WorkspacePlaces.fence(pl, agentNetwork: pl.isolation == "fenced" ? a.network : nil, paths: paths)
             }
-            let added = try await workerAdd(q, place: fence)
-            return added.notes ?? []
+            // 776: the space decides who owns the identity: a run-lifetime agent is the run's, every other the workspace's.
+            let life = q.name.flatMap { ref.effective("agent", $0, recorded: ref.owned?.agents[$0]) }.map { $0 == "run" ? "run" : "workspace" }
+            let added = try await workerAdd(q, place: fence, lifetime: life)
+            return switched + (added.notes ?? [])
 
         case "requests":
             let now = Date()
@@ -453,6 +462,7 @@ extension HostCore {
         let beforeRef = SpaceRecordRef.of(before)
         var removed: [String] = []
         var released: [String] = []
+        var purged: [String] = []
         var saved: [String: String] = [:]
         var archiveFailed = false
         var toSeq: [String: Int64] = [:]
@@ -491,6 +501,11 @@ extension HostCore {
                     notes = ended.notes
                     if let s = ended.saved { saved[s.sandbox] = s.image }
                     removed.append("agent/" + name)
+                    // 776: --purge ends a persisted agent for good — its identity retired (its token refused).
+                    if q.purge == true, beforeRef?.effective("agent", name, recorded: beforeRef?.owned?.agents[name]) == "persisted" {
+                        try await retireIdentity(n, name)
+                        purged.append("agent/" + name)
+                    }
                     if let sb = sandbox, managed[sb] == nil { removed.append("sandbox/" + sb) }
                 case "release":
                     var w = WorkspaceRequest(name: n)
@@ -509,7 +524,10 @@ extension HostCore {
                     notes = try await spaceRemoveRoom(n, room: room, noCopy: st.copy == "none", toSeq: toSeq)
                     removed.append("room/" + room)
                 case "memory-rm":
-                    spaceMemoryReset(n, agent: String(st.subject.dropFirst("agent ".count)))
+                    // 776: removed only after its copy in the store's archive verifies.
+                    let name = String(st.subject.dropFirst("agent ".count))
+                    if let copy = try removeIdentityMemoryAfterCopy(n, name, run: plan.run) { notes.append("its copy is \(DisplayPath.tilde(storeRoot + "/" + copy))") }
+                    if !purged.contains("agent/" + name) { purged.append("agent/" + name) }
                 case "sandbox-rm":
                     let s = String(st.subject.dropFirst("sandbox ".count))
                     if await agentLifecycle.sandboxExists(s), workspaces.membership()["sandbox:" + s] == n {
@@ -563,6 +581,7 @@ extension HostCore {
         let untouched = WorkspaceFinishInventory.untouched(before)
         out.untouched = untouched.isEmpty ? nil : untouched
         out.released = released.isEmpty ? nil : released
+        out.purged = q.purge == true ? WorkspaceFinishInventory.dedupe(purged) : nil
         out.savedDisks = saved.isEmpty ? nil : saved
         out.lifetime = beforeRef?.lifetime ?? SpaceDozable.defaultLifetime
         if !out.ok { out.notes.append("a step failed: down carried on and did what it could — doz workspace down \(n) again does what is left") }
@@ -594,6 +613,15 @@ extension HostCore {
         let rec = try workspaceRecord(n)
         guard let a = rec.agents.last(where: { $0.name == name && $0.isWorker && $0.endedAt == nil }) else { return (["\(name) has ended already"], nil) }
         let ref = SpaceRecordRef.of(rec)
+        // 776: the space decides who owns it — a run-lifetime agent's identity goes with it (a record from before identities
+        // has no lifetime of its own).
+        let life = ref?.effective("agent", name, recorded: ref?.owned?.agents[name])
+        if a.lifetime == nil, let life {
+            _ = try await workspaceUpdate(n) { r in
+                if let i = r.agents.lastIndex(where: { $0.name == name && $0.endedAt == nil }) { r.agents[i].lifetime = life == "run" ? "run" : "workspace" }
+                return []
+            }
+        }
         var notes: [String] = []
         if discard != nil, !archiveFailed, a.place.mac == true, let s = a.place.session {
             if discard == "none" {
