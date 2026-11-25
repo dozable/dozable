@@ -22,10 +22,11 @@ export const canChange = (f) => !isRemote() && !!f.canSave;
 
 /// What the editor's mount() is given about workspace `w`, its file `f` as first read. `on`: {saved(), conflict()}.
 export function spaceSource(w, f, on = {}) {
-  let base = f.sha256;
+  let base = f.sha256, file = f;
   const mac = canChange(f);
   const src = {
     get base() { return base; },
+    get file() { return file; },
     fileName: f.file,
     async plan(text) { return api('workspace-space-plan', { method: 'POST', json: { workspace: w, text } }); },
     subscribe(cb) {
@@ -79,13 +80,13 @@ export function spaceSource(w, f, on = {}) {
         throw new Error(end.text || 'It was not saved.');
       }
       // The new version: read again (a later change elsewhere keeps the old base — the next save then conflicts honestly).
-      try { const now = await readSpace(w); if (now.text === text) base = now.sha256; } catch (_) { /* the next save says */ }
+      try { const now = await readSpace(w); if (now.text === text) { base = now.sha256; file = now; } } catch (_) { /* the next save says */ }
       if (on.saved) on.saved();
       return { ok: true };
     };
   }
   /// A fresh read (the bar's Reload after a conflict): its text, the new base.
-  src.reread = async () => { const now = await readSpace(w); base = now.sha256; return now.text; };
+  src.reread = async () => { const now = await readSpace(w); base = now.sha256; file = now; return now.text; };
   return src;
 }
 

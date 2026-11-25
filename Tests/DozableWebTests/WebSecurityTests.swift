@@ -396,6 +396,7 @@ final class WebSecurityTests: XCTestCase {
         }
         XCTAssertNil(a.assets["/assets/\(folder)/space-editor.js"], "the everything entry is not vendored")
         XCTAssertNil(a.assets["/assets/\(folder)/space-core.d.ts"], "a reference is never shipped")
+        XCTAssertNil(a.assets["/assets/\(folder)/space-history.js"], "the timeline entry is not vendored")
         XCTAssertNil(a.assets["/assets/\(folder.replacingOccurrences(of: #"[0-9a-f]{16}$"#, with: "0000000000000000", options: .regularExpression))/space-core.js"])
         XCTAssertTrue(a.assets.keys.filter { $0.hasPrefix("/assets/vendor-space-render-") }.isEmpty, "the renderer moved into the tree")
     }

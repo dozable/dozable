@@ -265,6 +265,23 @@ final class WorkspaceDocumentTests: XCTestCase {
         XCTAssertEqual(errors(Self.head + "brief: B.md\nx-editor: { layout: {} }\nx-whatever: 1\n"), [])
     }
 
+    /// 783: the space editor's pins of what is drawn with no name of its own (`@space`, `@chat`, `@archive`, `@owner`) and of
+    /// an agent's fence (`@fence/AGENT`) read without a word, in space/3 and 3.1; an unknown part or a fence of no agent is a
+    /// warning (never an error), as a pin of no resource is.
+    func testTheLayoutPinsOfPartsWithNoNameOfTheirOwn() {
+        for head in [Self.head, "doz: space/3.1\nspace: app\nowner: ada\n"] {
+            let ok = head + "brief: B.md\nagents:\n  w: { kind: claude-code, isolation: fenced, prompt: x }\nx-editor:\n  layout:\n"
+                + "    w: { at: [1, 2] }\n    \"@space\": { at: [0, 0] }\n    \"@chat\": { at: [3, 1] }\n    \"@archive\": { at: [4, 1] }\n"
+                + "    \"@owner\": { at: [5, 1] }\n    \"@fence/w\": { at: [1, 1] }\n"
+            XCTAssertEqual(check(ok).problems.map(\.message), [], head)
+            let bad = head + "brief: B.md\nagents:\n  w: { kind: claude-code, isolation: fenced, prompt: x }\nx-editor:\n  layout:\n"
+                + "    \"@spaces\": { at: [0, 0] }\n    \"@fence/x\": { at: [1, 1] }\n"
+            let p = check(bad).problems
+            XCTAssertEqual(p.filter(\.isError).count, 0, "a pin is never an error")
+            XCTAssertEqual(Set(p.map(\.message)), ["no part \"@spaces\" to pin (did you mean \"@space\"?)", "no agent \"x\", so no fence to pin (did you mean \"w\"?)"], head)
+        }
+    }
+
     // MARK: lifetime
 
     func testLifetimeIsReadAsRunsWhenAFileSaysNone() {

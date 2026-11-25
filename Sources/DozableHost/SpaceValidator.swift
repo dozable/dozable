@@ -1004,6 +1004,14 @@ public enum SpaceValidator {
             Slot(at: ["x-worker", "layout", "*"], targets: [.folders, .agents, .services, .sandboxes, .secrets, .rooms], key: true, what: "a pinned position"),
         ]
 
+        /// 783: the pins of what a file draws with no name of its own (the format's `x-editor.layout` `@` keys).
+        static let partPins = ["@space", "@chat", "@archive", "@owner"]
+        static let partPinsHint = "parts: @space, @chat, @archive, @owner, and @fence/AGENT"
+        /// The agent an `@fence/AGENT` pin names.
+        static func fencedAgent(_ key: String) -> String? {
+            key.hasPrefix("@fence/") && key.count > 7 ? String(key.dropFirst(7)) : nil
+        }
+
         struct Ref { var pointer: String; var slot: Slot; var value: String; var name: String? }
 
         func refs() -> [Ref] {
@@ -1055,6 +1063,19 @@ public enum SpaceValidator {
                     }
                 }
                 if ref.slot.key {
+                    // 783: the parts drawn with no name of their own — `@space`, `@chat`, `@archive`, `@owner` — and an
+                    // agent's fence, `@fence/AGENT` (it follows the agent's name). No resource's name can start with @.
+                    if ref.slot.what == "a pinned position", ref.value.hasPrefix("@") {
+                        if let agent = Self.fencedAgent(ref.value) {
+                            if model.resource(agent)?.section != .agents && !isSkipped(agent) {
+                                err(ref.pointer, "no agent \"\(agent)\", so no fence to pin" + dym(agent, inSection(.agents).map(\.name)),
+                                    Self.partPinsHint, "warning", key: true)
+                            }
+                        } else if !Self.partPins.contains(ref.value) {
+                            err(ref.pointer, "no part \"\(ref.value)\" to pin" + dym(ref.value, Self.partPins), Self.partPinsHint, "warning", key: true)
+                        }
+                        continue
+                    }
                     if model.resource(ref.value) == nil && !isSkipped(ref.value) {
                         err(ref.pointer, "no resource \"\(ref.value)\" to pin" + dym(ref.value, model.resources.map(\.name)), nil, "warning", key: true)
                     }

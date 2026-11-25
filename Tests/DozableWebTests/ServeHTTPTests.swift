@@ -848,6 +848,31 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertTrue(fake.performedOps.isEmpty)
     }
 
+    /// 783: the space editor's exports are made in the browser from these reads alone (no route or action of their own), so
+    /// what another computer can export is what it can read: without serve.chat the file's read is 403 `space-remote` — no file,
+    /// nothing to export —; with serve.chat read the file's text exactly as read (its path only as shown, never a token), and
+    /// the state a drawing may carry is the serve.mac_sessions projection (this Mac's agents hidden while it is off). Nothing
+    /// reaches the daemon as an operation.
+    func testAnExportCarriesOnlyWhatAnotherComputerMayRead() async throws {
+        try await start(macSessions: "off", chat: "off")
+        let (devCookie, devCSRF) = try await admit()
+        let refused = try macJSON(devCookie, devCSRF, "/api/v1/workspace-space", #"{"workspace":"demo"}"#, remote: true)
+        XCTAssertEqual(refused.status, 403, refused.text)
+        XCTAssertTrue(refused.text.contains("\"space-remote\""), refused.text)
+        XCTAssertFalse(refused.text.contains("doz: space"), "no text to export")
+        try "[serve]\nmac_sessions = \"off\"\nchat = \"read\"\n".write(to: dir.appendingPathComponent("xdg/doz/doz.toml"), atomically: true, encoding: .utf8)
+        let r = try macJSON(devCookie, devCSRF, "/api/v1/workspace-space", #"{"workspace":"demo"}"#, remote: true)
+        XCTAssertEqual(r.status, 200, r.text)
+        let f = try JSONDecoder().decode(WebSpaceFile.self, from: r.body)
+        XCTAssertTrue(f.text.hasPrefix("doz: space/3"), "the YAML an export downloads is this text, byte for byte")
+        XCTAssertEqual(f.shownPath, "~/work/demo.space.yaml")
+        XCTAssertFalse(r.text.contains("/Users/someone"), "never the absolute path")
+        let st = try macJSON(devCookie, devCSRF, "/api/v1/workspace-state", #"{"workspace":"demo"}"#, remote: true)
+        XCTAssertEqual(st.status, 200, st.text)
+        XCTAssertEqual(fake.workspaceCalls.last, "state demo hidden", "a drawing's state hides this Mac's agents while serve.mac_sessions is off")
+        XCTAssertTrue(fake.performedOps.isEmpty, "an export is no operation")
+    }
+
     /// 781: a workspace made without a space file is drawn from its document — read as the space file is (another computer only
     /// with serve.chat read or write), and while serve.mac_sessions keeps this Mac's sessions from it, its agents on this Mac are
     /// left out of the drawing (no session's name), as the workspace's page leaves them out.
